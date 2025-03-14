@@ -86,7 +86,7 @@ func TestCheckIndexer(t *testing.T) {
 			}).AnyTimes()
 
 			ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
-			ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+			ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
 			err := checker.CheckIndexer(ctx, indexer, 0, func(u uint64) {})
 			require.Equalf(c.noErr, err == nil, "error: %v", err)
 			require.Len(putBlocks, len(c.expectedPutBlocks))
@@ -159,7 +159,7 @@ func TestCheckIndexerWithStart(t *testing.T) {
 			}).AnyTimes()
 
 			ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
-			ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+			ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
 			err := checker.CheckIndexer(ctx, indexer, 0, func(u uint64) {})
 			require.Equalf(c.noErr, err == nil, "error: %v", err)
 			require.Len(putBlocks, len(c.expectedPutBlocks))

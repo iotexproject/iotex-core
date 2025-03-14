@@ -523,7 +523,7 @@ func newTestConfig() (testConfig, error) {
 
 	cfg := testConfig{
 		BlockSync: DefaultConfig,
-		Genesis:   genesis.Default,
+		Genesis:   genesis.TestDefault(),
 		Chain:     blockchain.DefaultConfig,
 		ActPool:   actpool.DefaultConfig,
 	}
