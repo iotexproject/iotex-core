@@ -178,6 +178,8 @@ clean:
 	$(ECHO_V)rm -rf *index*.db
 	$(ECHO_V)rm -rf *systemlog*.db
 	$(ECHO_V)rm -rf *candidate.index*.db
+	$(ECHO_V)rm -rf *consensus*.db
+	$(ECHO_V)rm -rf *blob*.db
 	$(ECHO_V)rm -rf $(COV_REPORT) $(COV_HTML) $(LINT_LOG)
 	$(ECHO_V)find . -name $(COV_OUT) -delete
 	$(ECHO_V)find . -name $(TESTBED_COV_OUT) -delete
