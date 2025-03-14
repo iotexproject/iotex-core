@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -64,6 +65,8 @@ func init() {
 }
 
 type (
+	// FilterFunc is the filter function for address
+	FilterFunc func(address.Address) bool
 	// Blockchain represents the blockchain data structure and hosts the APIs to access it
 	Blockchain interface {
 		lifecycle.StartStopper
@@ -93,7 +96,7 @@ type (
 		// For block operations
 		// MintNewBlock creates a new block with given actions
 		// Note: the coinbase transfer will be added to the given transfers when minting a new block
-		MintNewBlock(timestamp time.Time) (*block.Block, error)
+		MintNewBlock(time.Time, ...FilterFunc) (*block.Block, error)
 		// CommitBlock validates and appends a block to the chain
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
@@ -407,7 +410,7 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 	return protocol.WithFeatureWithHeightCtx(ctx), nil
 }
 
-func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
+func (bc *blockchain) MintNewBlock(timestamp time.Time, filterFuncs ...FilterFunc) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
@@ -422,10 +425,35 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 		return nil, err
 	}
 	tip := protocol.MustGetBlockchainCtx(ctx).Tip
-	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
+	var (
+		minterPrivateKey crypto.PrivateKey
+		minterAddress    address.Address
+	)
+	if len(filterFuncs) != 0 {
+		// filter out the producer address
+		for _, privateKey := range bc.config.ProducerPrivateKeys() {
+			producer := privateKey.PublicKey().Address()
+			selected := true
+			for _, filterFunc := range filterFuncs {
+				if filterFunc(producer) {
+					selected = false
+					break
+				}
+			}
+			if selected {
+				minterPrivateKey = privateKey
+				minterAddress = producer
+				break
+			}
+		}
+	}
+	if minterPrivateKey == nil {
+		minterPrivateKey = bc.config.MainProducerPrivateKey()
+		minterAddress = bc.config.MainProducerAddress()
+	}
+	ctx = bc.contextWithBlock(ctx, minterAddress, newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
-	minterPrivateKey := bc.config.ProducerPrivateKey()
 	blockBuilder, err := bc.bbf.NewBlockBuilder(
 		ctx,
 		func(elp action.Envelope) (*action.SealedEnvelope, error) {

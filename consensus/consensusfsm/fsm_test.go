@@ -52,7 +52,7 @@ func TestBackdoorEvt(t *testing.T) {
 			eventType: BackdoorEvent,
 			data:      state,
 		}
-		cfsm.produce(backdoorEvt, 0)
+		cfsm.instantProduce(backdoorEvt)
 		require.NoError(testutil.WaitUntil(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
 			return state == cfsm.CurrentState(), nil
 		}))
@@ -73,10 +73,12 @@ func TestStateTransitionFunctions(t *testing.T) {
 	mockCtx.EXPECT().CommitTTL(gomock.Any()).Return(2 * time.Second).AnyTimes()
 	mockCtx.EXPECT().UnmatchedEventInterval(gomock.Any()).Return(100 * time.Millisecond).AnyTimes()
 	mockCtx.EXPECT().NewConsensusEvent(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(eventType fsm.EventType, data interface{}) *ConsensusEvent {
-			return &ConsensusEvent{
-				eventType: eventType,
-				data:      data,
+		func(eventType fsm.EventType, data interface{}) []*ConsensusEvent {
+			return []*ConsensusEvent{
+				{
+					eventType: eventType,
+					data:      data,
+				},
 			}
 		}).AnyTimes()
 	cfsm, err := NewConsensusFSM(mockCtx, mockClock)
@@ -135,6 +137,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 					mockCtx.EXPECT().Proposal().Return(nil, nil).Times(1)
 					mockCtx.EXPECT().WaitUntilRoundStart().Return(time.Duration(0)).Times(1)
 					mockCtx.EXPECT().PreCommitEndorsement().Return(nil).Times(1)
+					mockCtx.EXPECT().Height().Return(uint64(0)).Times(2)
 					state, err := cfsm.prepare(evt)
 					require.NoError(err)
 					require.Equal(sAcceptBlockProposal, state)
@@ -159,6 +162,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 					mockCtx.EXPECT().Proposal().Return(nil, nil).Times(1)
 					mockCtx.EXPECT().WaitUntilRoundStart().Return(time.Duration(0)).Times(1)
 					mockCtx.EXPECT().PreCommitEndorsement().Return(mockEndorsement).Times(1)
+					mockCtx.EXPECT().Height().Return(uint64(0)).Times(2)
 					state, err := cfsm.prepare(evt)
 					require.NoError(err)
 					require.Equal(sAcceptPreCommitEndorsement, state)
