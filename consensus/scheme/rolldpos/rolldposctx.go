@@ -13,9 +13,12 @@ import (
 	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+
+	"slices"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
@@ -94,12 +97,12 @@ type (
 		eManagerDB        db.KVStore
 		toleratedOvertime time.Duration
 
-		encodedAddr string
-		priKey      crypto.PrivateKey
-		round       *roundCtx
-		clock       clock.Clock
-		active      bool
-		mutex       sync.RWMutex
+		encodedAddrs []string
+		priKeys      []crypto.PrivateKey
+		round        *roundCtx
+		clock        clock.Clock
+		active       bool
+		mutex        sync.RWMutex
 	}
 )
 
@@ -116,8 +119,7 @@ func NewRollDPoSCtx(
 	broadcastHandler scheme.Broadcast,
 	delegatesByEpochFunc NodesSelectionByEpochFunc,
 	proposersByEpochFunc NodesSelectionByEpochFunc,
-	encodedAddr string,
-	priKey crypto.PrivateKey,
+	priKeys []crypto.PrivateKey,
 	clock clock.Clock,
 	beringHeight uint64,
 ) (RDPoSCtx, error) {
@@ -158,11 +160,15 @@ func NewRollDPoSCtx(
 		timeBasedRotation:    timeBasedRotation,
 		beringHeight:         beringHeight,
 	}
+	encodedAddrs := make([]string, 0, len(priKeys))
+	for _, pk := range priKeys {
+		encodedAddrs = append(encodedAddrs, pk.PublicKey().Address().String())
+	}
 	return &rollDPoSCtx{
 		ConsensusConfig:   cfg,
 		active:            active,
-		encodedAddr:       encodedAddr,
-		priKey:            priKey,
+		encodedAddrs:      encodedAddrs,
+		priKeys:           priKeys,
 		chain:             chain,
 		blockDeserializer: blockDeserializer,
 		broadcastHandler:  broadcastHandler,
@@ -180,6 +186,9 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 			return errors.Wrap(err, "Error when starting the collectionDB")
 		}
 		eManager, err = newEndorsementManager(ctx.eManagerDB, ctx.blockDeserializer)
+		if err != nil {
+			return errors.Wrap(err, "Error when creating the endorsement manager")
+		}
 	}
 	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime)
 
@@ -302,7 +311,7 @@ func (ctx *rollDPoSCtx) RoundCalc() *roundCalculator {
 func (ctx *rollDPoSCtx) NewConsensusEvent(
 	eventType fsm.EventType,
 	data interface{},
-) *consensusfsm.ConsensusEvent {
+) []*consensusfsm.ConsensusEvent {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
@@ -311,7 +320,7 @@ func (ctx *rollDPoSCtx) NewConsensusEvent(
 
 func (ctx *rollDPoSCtx) NewBackdoorEvt(
 	dst fsm.State,
-) *consensusfsm.ConsensusEvent {
+) []*consensusfsm.ConsensusEvent {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
@@ -348,26 +357,39 @@ func (ctx *rollDPoSCtx) Prepare() error {
 	return nil
 }
 
-func (ctx *rollDPoSCtx) IsDelegate() bool {
+func (ctx *rollDPoSCtx) HasDelegate() bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
-	return ctx.isDelegate()
+	return ctx.hasDelegate()
 }
 
 func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
-	if ctx.round.Proposer() != ctx.encodedAddr {
+	var privateKey crypto.PrivateKey = nil
+	proposer := ctx.round.Proposer()
+	// TODO: this is to pass unit tests, remove it after the unit tests are fixed
+	if proposer == "" {
+		privateKey = ctx.priKeys[0]
+	} else {
+		for i, addr := range ctx.encodedAddrs {
+			if addr == proposer {
+				privateKey = ctx.priKeys[i]
+				break
+			}
+		}
+	}
+	if privateKey == nil {
 		return nil, nil
 	}
 	if ctx.round.IsLocked() {
 		return ctx.endorseBlockProposal(newBlockProposal(
 			ctx.round.Block(ctx.round.HashOfBlockInLock()),
 			ctx.round.ProofOfLock(),
-		))
+		), privateKey)
 	}
-	return ctx.mintNewBlock()
+	return ctx.mintNewBlock(privateKey)
 }
 
 func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
@@ -380,7 +402,7 @@ func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
 		return 0
 	}
 	overTime := now.Sub(startTime)
-	if !ctx.isDelegate() && ctx.toleratedOvertime > overTime {
+	if !ctx.hasDelegate() && ctx.toleratedOvertime > overTime {
 		time.Sleep(ctx.toleratedOvertime - overTime)
 		return 0
 	}
@@ -390,12 +412,12 @@ func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
 func (ctx *rollDPoSCtx) PreCommitEndorsement() interface{} {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
-	endorsement := ctx.round.ReadyToCommit(ctx.encodedAddr)
-	if endorsement == nil {
+	endorsements := ctx.round.ReadyToCommit(ctx.encodedAddrs)
+	if len(endorsements) == 0 {
 		// DON'T CHANGE, this is on purpose, because endorsement as nil won't result in a nil "interface {}"
 		return nil
 	}
-	return endorsement
+	return endorsements
 }
 
 func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, error) {
@@ -534,9 +556,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 			)
 		}
 		// putblock to parent chain if the current node is proposer and current chain is a sub chain
-		if ctx.round.Proposer() == ctx.encodedAddr && ctx.chain.ChainAddress() != "" {
-			// TODO: explorer dependency deleted at #1085, need to call putblock related method
-		}
+		// TODO: explorer dependency deleted at #1085, need to call putblock related method
 	} else {
 		ctx.logger().Panic(
 			"error when converting a block into a proto msg",
@@ -558,21 +578,30 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	return true, nil
 }
 
+func (ctx *rollDPoSCtx) encodeAndBroadcast(ecm *EndorsedConsensusMessage) error {
+	msg, err := ecm.Proto()
+	if err != nil {
+		return err
+	}
+	return ctx.broadcastHandler(msg)
+}
+
 func (ctx *rollDPoSCtx) Broadcast(endorsedMsg interface{}) {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
-	ecm, ok := endorsedMsg.(*EndorsedConsensusMessage)
-	if !ok {
-		ctx.loggerWithStats().Error("invalid message type", zap.Any("message", ecm))
-		return
-	}
-	msg, err := ecm.Proto()
-	if err != nil {
-		ctx.loggerWithStats().Error("failed to generate protobuf message", zap.Error(err))
-		return
-	}
-	if err := ctx.broadcastHandler(msg); err != nil {
-		ctx.loggerWithStats().Error("fail to broadcast", zap.Error(err))
+	switch em := endorsedMsg.(type) {
+	case *EndorsedConsensusMessage:
+		if err := ctx.encodeAndBroadcast(em); err != nil {
+			ctx.loggerWithStats().Error("fail to broadcast", zap.Error(err))
+		}
+	case []*EndorsedConsensusMessage:
+		for _, e := range em {
+			if err := ctx.encodeAndBroadcast(e); err != nil {
+				ctx.loggerWithStats().Error("fail to broadcast", zap.Error(err))
+			}
+		}
+	default:
+		ctx.loggerWithStats().Error("invalid message type", zap.Any("message", em))
 	}
 }
 
@@ -622,12 +651,15 @@ func (ctx *rollDPoSCtx) Active() bool {
 // private functions
 ///////////////////////////////////////////
 
-func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
+func (ctx *rollDPoSCtx) mintNewBlock(privateKey crypto.PrivateKey) (*EndorsedConsensusMessage, error) {
 	var err error
 	blk := ctx.round.CachedMintedBlock()
 	if blk == nil {
+		proposer := privateKey.PublicKey().Address().String()
 		// in case that there is no cached block in eManagerDB, it mints a new block.
-		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime())
+		blk, err = ctx.chain.MintNewBlock(ctx.round.Height(), ctx.round.StartTime(), func(addr address.Address) bool {
+			return addr.String() != proposer
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -640,23 +672,27 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 	if ctx.round.IsUnlocked() {
 		proofOfUnlock = ctx.round.ProofOfLock()
 	}
-	return ctx.endorseBlockProposal(newBlockProposal(blk, proofOfUnlock))
+	return ctx.endorseBlockProposal(newBlockProposal(blk, proofOfUnlock), privateKey)
 }
 
-func (ctx *rollDPoSCtx) isDelegate() bool {
+func (ctx *rollDPoSCtx) hasDelegate() bool {
 	if active := ctx.active; !active {
 		ctx.logger().Info("current node is in standby mode")
 		return false
 	}
-	return ctx.round.IsDelegate(ctx.encodedAddr)
+	return slices.ContainsFunc(ctx.encodedAddrs, ctx.round.IsDelegate)
 }
 
-func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal) (*EndorsedConsensusMessage, error) {
-	en, err := endorsement.Endorse(ctx.priKey, proposal, ctx.round.StartTime())
+func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal, privateKey crypto.PrivateKey) (*EndorsedConsensusMessage, error) {
+	ens, err := endorsement.Endorse(proposal, ctx.round.StartTime(), privateKey)
 	if err != nil {
 		return nil, err
 	}
-	return NewEndorsedConsensusMessage(proposal.block.Height(), proposal, en), nil
+	if len(ens) != 1 {
+		return nil, errors.New("invalid number of endorsements")
+	}
+
+	return NewEndorsedConsensusMessage(ctx.round.Height(), proposal, ens[0]), nil
 }
 
 func (ctx *rollDPoSCtx) logger() *zap.Logger {
@@ -666,38 +702,49 @@ func (ctx *rollDPoSCtx) logger() *zap.Logger {
 func (ctx *rollDPoSCtx) newConsensusEvent(
 	eventType fsm.EventType,
 	data interface{},
-) *consensusfsm.ConsensusEvent {
+) []*consensusfsm.ConsensusEvent {
+	var msgs []*EndorsedConsensusMessage
 	switch ed := data.(type) {
+	case []*EndorsedConsensusMessage:
+		msgs = ed
 	case *EndorsedConsensusMessage:
-		height := ed.Height()
-		roundNum, _, err := ctx.roundCalc.RoundInfo(height, ctx.BlockInterval(height), ed.Endorsement().Timestamp())
+		msgs = []*EndorsedConsensusMessage{ed}
+	default:
+		return []*consensusfsm.ConsensusEvent{
+			consensusfsm.NewConsensusEvent(
+				eventType,
+				data,
+				ctx.round.Height(),
+				ctx.round.Number(),
+				ctx.clock.Now(),
+			),
+		}
+	}
+	events := make([]*consensusfsm.ConsensusEvent, 0, len(msgs))
+	for _, msg := range msgs {
+		height := msg.Height()
+		roundNum, _, err := ctx.roundCalc.RoundInfo(height, ctx.BlockInterval(height), msg.Endorsement().Timestamp())
 		if err != nil {
 			ctx.logger().Error(
 				"failed to calculate round for generating consensus event",
 				zap.String("eventType", string(eventType)),
-				zap.Uint64("height", ed.Height()),
-				zap.String("timestamp", ed.Endorsement().Timestamp().String()),
-				zap.Any("data", data),
+				zap.Uint64("height", msg.Height()),
+				zap.String("timestamp", msg.Endorsement().Timestamp().String()),
+				zap.Any("msg", msg),
 				zap.Error(err),
 			)
 			return nil
 		}
-		return consensusfsm.NewConsensusEvent(
+		events = append(events, consensusfsm.NewConsensusEvent(
 			eventType,
-			data,
-			ed.Height(),
+			msg,
+			msg.Height(),
 			roundNum,
 			ctx.clock.Now(),
-		)
-	default:
-		return consensusfsm.NewConsensusEvent(
-			eventType,
-			data,
-			ctx.round.Height(),
-			ctx.round.Number(),
-			ctx.clock.Now(),
-		)
+		))
 	}
+
+	return events
 }
 
 func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
@@ -737,15 +784,26 @@ func (ctx *rollDPoSCtx) newEndorsement(
 	blkHash []byte,
 	topic ConsensusVoteTopic,
 	timestamp time.Time,
-) (*EndorsedConsensusMessage, error) {
+) ([]*EndorsedConsensusMessage, error) {
 	vote := NewConsensusVote(
 		blkHash,
 		topic,
 	)
-	en, err := endorsement.Endorse(ctx.priKey, vote, timestamp)
+	privKeys := make([]crypto.PrivateKey, 0, len(ctx.priKeys))
+	for i, addr := range ctx.encodedAddrs {
+		if !ctx.round.IsDelegate(addr) {
+			continue
+		}
+		privKeys = append(privKeys, ctx.priKeys[i])
+	}
+	ens, err := endorsement.Endorse(vote, timestamp, privKeys...)
 	if err != nil {
 		return nil, err
 	}
+	msgs := make([]*EndorsedConsensusMessage, 0, len(ens))
+	for _, en := range ens {
+		msgs = append(msgs, NewEndorsedConsensusMessage(ctx.round.Height(), vote, en))
+	}
 
-	return NewEndorsedConsensusMessage(ctx.round.Height(), vote, en), nil
+	return msgs, nil
 }

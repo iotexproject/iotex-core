@@ -148,7 +148,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 			protocol.BlockCtx{
 				BlockHeight:    0,
 				BlockTimeStamp: time.Unix(sdb.cfg.Genesis.Timestamp, 0),
-				Producer:       sdb.cfg.Chain.ProducerAddress(),
+				Producer:       sdb.cfg.Chain.MainProducerAddress(),
 				GasLimit:       sdb.cfg.Genesis.BlockGasLimitByHeight(0),
 			})
 		ctx = protocol.WithFeatureCtx(ctx)
