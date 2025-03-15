@@ -7,7 +7,6 @@ package itx
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -84,8 +83,7 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	require.NoError(err)
 	contractIndexPath, err := testutil.PathOfTempFile("contractindxer.db")
 	require.NoError(err)
-	testActionStorePath, err := os.MkdirTemp(os.TempDir(), "actionstore")
-	require.NoError(err)
+	testActionStorePath := t.TempDir()
 	cfg := config.Default
 	cfg.Genesis = genesis.TestDefault()
 	cfg.API.GRPCPort = testutil.RandomPort()
