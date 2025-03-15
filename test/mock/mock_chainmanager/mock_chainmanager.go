@@ -51,10 +51,10 @@ func (mr *MockStateReaderMockRecorder) Height() *gomock.Call {
 }
 
 // ReadView mocks base method.
-func (m *MockStateReader) ReadView(arg0 string) (interface{}, error) {
+func (m *MockStateReader) ReadView(arg0 string) (protocol.View, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadView", arg0)
-	ret0, _ := ret[0].(interface{})
+	ret0, _ := ret[0].(protocol.View)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -211,10 +211,10 @@ func (mr *MockStateManagerMockRecorder) PutState(arg0 interface{}, arg1 ...inter
 }
 
 // ReadView mocks base method.
-func (m *MockStateManager) ReadView(arg0 string) (interface{}, error) {
+func (m *MockStateManager) ReadView(arg0 string) (protocol.View, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadView", arg0)
-	ret0, _ := ret[0].(interface{})
+	ret0, _ := ret[0].(protocol.View)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -320,7 +320,7 @@ func (mr *MockStateManagerMockRecorder) Unload(arg0, arg1, arg2 interface{}) *go
 }
 
 // WriteView mocks base method.
-func (m *MockStateManager) WriteView(arg0 string, arg1 interface{}) error {
+func (m *MockStateManager) WriteView(arg0 string, arg1 protocol.View) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteView", arg0, arg1)
 	ret0, _ := ret[0].(error)

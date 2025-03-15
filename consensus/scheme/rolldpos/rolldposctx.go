@@ -423,6 +423,7 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 	} else if ctx.round.IsLocked() {
 		blockHash = ctx.round.HashOfBlockInLock()
 	}
+	// TODO: prepare next block if the current node will be a proposer
 
 	return ctx.newEndorsement(
 		blockHash,
@@ -627,7 +628,7 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 	blk := ctx.round.CachedMintedBlock()
 	if blk == nil {
 		// in case that there is no cached block in eManagerDB, it mints a new block.
-		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime())
+		blk, err = ctx.chain.MintNewBlock(ctx.round.Height(), ctx.round.StartTime())
 		if err != nil {
 			return nil, err
 		}
