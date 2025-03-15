@@ -336,6 +336,7 @@ type (
 		chain             ChainManager
 		blockDeserializer *block.Deserializer
 		broadcastHandler  scheme.Broadcast
+		topic             string
 		clock             clock.Clock
 		// TODO: explorer dependency deleted at #1085, need to add api params
 		rp                   *rolldpos.Protocol
@@ -382,6 +383,11 @@ func (b *Builder) SetBlockDeserializer(deserializer *block.Deserializer) *Builde
 // SetBroadcast sets the broadcast callback
 func (b *Builder) SetBroadcast(broadcastHandler scheme.Broadcast) *Builder {
 	b.broadcastHandler = broadcastHandler
+	return b
+}
+
+func (b *Builder) SetDefaultTopic(topic string) *Builder {
+	b.topic = topic
 	return b
 }
 
@@ -435,6 +441,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.blockDeserializer,
 		b.rp,
 		b.broadcastHandler,
+		b.topic,
 		b.delegatesByEpochFunc,
 		b.proposersByEpochFunc,
 		b.encodedAddr,

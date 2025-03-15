@@ -239,7 +239,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, archive bool) (*api.ServerV
 	p2pAgent := cs.p2pAgent
 	apiServerOptions := []api.Option{
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-			return p2pAgent.BroadcastOutbound(ctx, msg)
+			return p2pAgent.BroadcastOutbound(ctx, p2pAgent.DefaultTopic(), msg)
 		}),
 		api.WithNativeElection(cs.electionCommittee),
 		api.WithAPIStats(cs.apiStats),
