@@ -316,7 +316,7 @@ func (cb *cachedBatch) Append(b KVStoreBatch) {
 	defer cb.lock.Unlock()
 	b.Lock()
 	defer b.Unlock()
-	for i := range b.Size() {
+	for i := 0; i < b.Size(); i++ {
 		wi, err := b.Entry(i)
 		if err != nil {
 			panic(err)
