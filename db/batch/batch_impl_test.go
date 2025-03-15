@@ -71,6 +71,11 @@ func TestBaseKVStoreBatch(t *testing.T) {
 	require.NoError(err)
 	require.Equal("to_delete_ns", newEntry1.Namespace())
 	require.Equal(Put, newEntry1.WriteType())
+	bb := NewBatch()
+	bb.Put("bb", []byte("bbkey"), []byte("bbvalue"), "")
+	bb.Put("bb", []byte("bbkey2"), []byte("bbvalue2"), "")
+	b.Append(bb)
+	require.Equal(4, b.Size())
 	b.Clear()
 	require.Equal(0, b.Size())
 }
@@ -136,6 +141,11 @@ func TestCachedBatch(t *testing.T) {
 		}
 		return wi
 	}).SerializeQueue(nil, nil)))
+	bb := NewCachedBatch()
+	bb.Put("bb", []byte("bbkey"), []byte("bbvalue"), "")
+	bb.Put("bb", []byte("bbkey2"), []byte("bbvalue2"), "")
+	cb.Append(bb)
+	require.Equal(3, cb.Size())
 	cb.Clear()
 	require.Equal(0, cb.Size())
 }

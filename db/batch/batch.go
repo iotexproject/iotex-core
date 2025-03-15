@@ -40,6 +40,8 @@ type (
 		ClearAndUnlock()
 		// Put insert or update a record identified by (namespace, key)
 		Put(string, []byte, []byte, string)
+		// Append appends a KVStoreBatch to the current batch
+		Append(KVStoreBatch)
 		// Delete deletes a record by (namespace, key)
 		Delete(string, []byte, string)
 		// Size returns the size of batch
