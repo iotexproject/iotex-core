@@ -24,7 +24,7 @@ func TestGenesisBlock(t *testing.T) {
 	blk := GenesisBlock()
 	r.EqualValues(version.ProtocolVersion, blk.Version())
 	r.Zero(blk.Height())
-	r.Equal(genesis.Default.Timestamp, blk.Timestamp().Unix())
+	r.Equal(g.Timestamp, blk.Timestamp().Unix())
 	r.Equal(hash.ZeroHash256, blk.PrevHash())
 	r.Equal(hash.ZeroHash256, blk.TxRoot())
 	r.Equal(hash.ZeroHash256, blk.DeltaStateDigest())
@@ -33,5 +33,5 @@ func TestGenesisBlock(t *testing.T) {
 	r.Equal(hash.ZeroHash256, GenesisHash())
 	LoadGenesisHash(&g)
 	h := GenesisHash()
-	r.Equal("e825cf0df9c72bc8cc74b23485af65c4d8a8ba691db335e44de7362cd86bac7f", hex.EncodeToString(h[:]))
+	r.Equal("b337983730981c2d50f114eed5da9dd20b83c8c5e130beefdb3001dc858cfe8b", hex.EncodeToString(h[:]))
 }

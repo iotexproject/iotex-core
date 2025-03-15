@@ -62,7 +62,7 @@ func TestValidator(t *testing.T) {
 	require.NoError(err)
 
 	v = NewValidator(nil, valid)
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, genesis.Default),
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(ctx, genesis.TestDefault()),
 		protocol.BlockCtx{BlockHeight: 1}))
 	require.Contains(v.Validate(ctx, &nblk).Error(), "MockChainManager nonce error")
 

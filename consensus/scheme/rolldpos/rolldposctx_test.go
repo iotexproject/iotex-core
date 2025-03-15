@@ -32,7 +32,7 @@ var dummyCandidatesByHeightFunc = func(uint64) ([]string, error) { return nil, n
 func TestRollDPoSCtx(t *testing.T) {
 	require := require.New(t)
 	cfg := DefaultConfig
-	g := genesis.Default
+	g := genesis.TestDefault()
 	dbConfig := db.DefaultConfig
 	dbConfig.DbPath = DefaultConfig.ConsensusDBPath
 	b, _, _, _, _ := makeChain(t)
@@ -48,9 +48,9 @@ func TestRollDPoSCtx(t *testing.T) {
 	})
 
 	rp := rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
+		g.NumCandidateDelegates,
+		g.NumDelegates,
+		g.NumSubEpochs,
 	)
 	t.Run("case 3:panic because of clock is nil", func(t *testing.T) {
 		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, dummyCandidatesByHeightFunc, "", nil, nil, 0)
@@ -74,7 +74,7 @@ func TestRollDPoSCtx(t *testing.T) {
 	})
 
 	t.Run("case 6:normal", func(t *testing.T) {
-		bh := genesis.Default.BeringBlockHeight
+		bh := g.BeringBlockHeight
 		rctx, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, dummyCandidatesByHeightFunc, "", nil, c, bh)
 		require.NoError(err)
 		require.Equal(bh, rctx.RoundCalculator().beringHeight)
@@ -86,7 +86,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 	require := require.New(t)
 	b, sf, _, rp, pp := makeChain(t)
 	c := clock.New()
-	g := genesis.Default
+	g := genesis.TestDefault()
 	g.Blockchain.BlockInterval = time.Second * 20
 	delegatesByEpochFunc := func(epochnum uint64) ([]string, error) {
 		re := protocol.NewRegistry()
@@ -138,7 +138,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 		"",
 		nil,
 		c,
-		genesis.Default.BeringBlockHeight,
+		g.BeringBlockHeight,
 	)
 	require.NoError(err)
 	require.NotNil(rctx)
@@ -157,7 +157,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 
 func TestCheckBlockProposer(t *testing.T) {
 	require := require.New(t)
-	g := genesis.Default
+	g := genesis.TestDefault()
 	b, sf, _, rp, pp := makeChain(t)
 	c := clock.New()
 	g.Blockchain.BlockInterval = time.Second * 20
@@ -211,7 +211,7 @@ func TestCheckBlockProposer(t *testing.T) {
 		"",
 		nil,
 		c,
-		genesis.Default.BeringBlockHeight,
+		g.BeringBlockHeight,
 	)
 	require.NoError(err)
 	require.NotNil(rctx)
@@ -271,7 +271,7 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 	require := require.New(t)
 	b, sf, _, rp, pp := makeChain(t)
 	c := clock.New()
-	g := genesis.Default
+	g := genesis.TestDefault()
 	g.Blockchain.BlockInterval = time.Second * 20
 	delegatesByEpoch := func(epochnum uint64) ([]string, error) {
 		re := protocol.NewRegistry()
@@ -323,7 +323,7 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 		"",
 		identityset.PrivateKey(10),
 		c,
-		genesis.Default.BeringBlockHeight,
+		g.BeringBlockHeight,
 	)
 	require.NoError(err)
 	require.NotNil(rctx)

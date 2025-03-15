@@ -114,7 +114,7 @@ func TestBucketPool(t *testing.T) {
 	sm.Snapshot()
 
 	var testGreenland bool
-	ctx := protocol.WithFeatureWithHeightCtx(genesis.WithGenesisContext(context.Background(), genesis.Default))
+	ctx := protocol.WithFeatureWithHeightCtx(genesis.WithGenesisContext(context.Background(), genesis.TestDefault()))
 	for _, v := range tests {
 		csm, err = NewCandidateStateManager(sm)
 		if v.postGreenland && testGreenland {
