@@ -82,7 +82,7 @@ func (b *baseKVStoreBatch) Append(kvb KVStoreBatch) {
 	defer b.mutex.Unlock()
 	kvb.Lock()
 	defer kvb.Unlock()
-	for i := range kvb.Size() {
+	for i := 0; i < kvb.Size(); i++ {
 		wi, err := b.Entry(i)
 		if err != nil {
 			panic(err)
