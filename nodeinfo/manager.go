@@ -7,6 +7,7 @@ package nodeinfo
 
 import (
 	"context"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 

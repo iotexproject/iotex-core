@@ -221,10 +221,10 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.EnableArchiveMode = true
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Genesis.BlockGasLimit = genesis.Default.BlockGasLimit * 100
+	cfg.Genesis = genesis.TestDefault()
+	cfg.Genesis.BlockGasLimit = cfg.Genesis.BlockGasLimit * 100
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.ActPool.MaxNumActsPerAcct = 10000
-	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.NewRegistry()
 	var sf factory.Factory
 	kv := db.NewBoltDB(cfg.DB)

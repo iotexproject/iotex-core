@@ -47,7 +47,7 @@ func TestExecuteContractFailure(t *testing.T) {
 		Producer: identityset.Address(27),
 		GasLimit: testutil.TestGasLimit,
 	})
-	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+	ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
 
 	ctx = protocol.WithBlockchainCtx(protocol.WithFeatureCtx(ctx), protocol.BlockchainCtx{
 		ChainID:      1,
@@ -81,7 +81,7 @@ func TestConstantinople(t *testing.T) {
 	})
 
 	evmNetworkID := uint32(100)
-	g := genesis.Default
+	g := genesis.TestDefault()
 	ctx = protocol.WithBlockchainCtx(genesis.WithGenesisContext(ctx, g), protocol.BlockchainCtx{
 		ChainID:      1,
 		EvmNetworkID: evmNetworkID,
@@ -377,7 +377,7 @@ func TestConstantinople(t *testing.T) {
 
 func TestEvmError(t *testing.T) {
 	r := require.New(t)
-	g := genesis.Default.Blockchain
+	g := genesis.TestDefault().Blockchain
 
 	beringTests := []struct {
 		evmError error
@@ -442,7 +442,7 @@ func TestGasEstimate(t *testing.T) {
 	for _, v := range []struct {
 		gas, consume, refund, size uint64
 	}{
-		{genesis.Default.BlockGasLimit, 8200300, 1000000, 20000},
+		{genesis.TestDefault().BlockGasLimit, 8200300, 1000000, 20000},
 		{1000000, 245600, 100000, 5600},
 		{500000, 21000, 10000, 36},
 	} {

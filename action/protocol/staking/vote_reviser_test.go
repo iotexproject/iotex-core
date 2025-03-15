@@ -114,6 +114,7 @@ func TestVoteReviser(t *testing.T) {
 			9,
 		},
 	}
+	g := genesis.TestDefault()
 
 	// test loading with no candidate in stateDB
 	stk, err := NewProtocol(
@@ -122,12 +123,12 @@ func TestVoteReviser(t *testing.T) {
 			BlockInterval: getBlockInterval,
 		},
 		&BuilderConfig{
-			Staking:                  genesis.Default.Staking,
+			Staking:                  g.Staking,
 			PersistStakingPatchBlock: math.MaxUint64,
 			Revise: ReviseConfig{
-				VoteWeight:         genesis.Default.Staking.VoteWeightCalConsts,
-				CorrectCandsHeight: genesis.Default.OkhotskBlockHeight,
-				ReviseHeights:      []uint64{genesis.Default.HawaiiBlockHeight, genesis.Default.GreenlandBlockHeight},
+				VoteWeight:         g.Staking.VoteWeightCalConsts,
+				CorrectCandsHeight: g.OkhotskBlockHeight,
+				ReviseHeights:      []uint64{g.HawaiiBlockHeight, g.GreenlandBlockHeight},
 			},
 		},
 		nil,
@@ -146,7 +147,7 @@ func TestVoteReviser(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(_protocolID, v)
@@ -177,16 +178,16 @@ func TestVoteReviser(t *testing.T) {
 	vr := stk.voteReviser
 	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	r.False(vr.isCacheExist(genesis.Default.GreenlandBlockHeight))
-	r.False(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
-	r.NoError(vr.Revise(featureCtx, csm, genesis.Default.HawaiiBlockHeight))
-	r.True(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
+	r.False(vr.isCacheExist(g.GreenlandBlockHeight))
+	r.False(vr.isCacheExist(g.HawaiiBlockHeight))
+	r.NoError(vr.Revise(featureCtx, csm, g.HawaiiBlockHeight))
+	r.True(vr.isCacheExist(g.HawaiiBlockHeight))
 	// simulate first revise attempt failed -- call Revise() again
-	r.True(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
-	r.NoError(vr.Revise(featureCtx, csm, genesis.Default.HawaiiBlockHeight))
+	r.True(vr.isCacheExist(g.HawaiiBlockHeight))
+	r.NoError(vr.Revise(featureCtx, csm, g.HawaiiBlockHeight))
 	sm.EXPECT().Height().DoAndReturn(
 		func() (uint64, error) {
-			return genesis.Default.HawaiiBlockHeight, nil
+			return g.HawaiiBlockHeight, nil
 		},
 	).Times(1)
 	r.NoError(csm.Commit(ctx))

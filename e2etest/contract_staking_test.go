@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"math"
 	"math/big"
+	"slices"
 	"strings"
 	"testing"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -1273,6 +1273,7 @@ func TestContractStaking(t *testing.T) {
 	adminID := _adminID
 	ctx := context.Background()
 	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(adminID).HexString()
 	cfg.Chain.EnableTrielessStateDB = false
 	cfg.Genesis.InitBalanceMap[identityset.Address(adminID).String()] = "1000000000000000000000000000"
@@ -1365,7 +1366,7 @@ func TestContractStaking(t *testing.T) {
 		r.EqualValues(blk.Height(), bt.CreateBlockHeight)
 		r.EqualValues(blk.Height(), bt.StakeStartBlockHeight)
 		r.True(bt.UnstakeStartBlockHeight == math.MaxUint64)
-		ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
+		ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.TestDefault()), protocol.BlockCtx{BlockHeight: 1}))
 		votes, err := indexer.CandidateVotes(ctx, identityset.Address(delegateIdx), blk.Height())
 		r.NoError(err)
 		r.EqualValues(10, votes.Int64())
@@ -1397,7 +1398,7 @@ func TestContractStaking(t *testing.T) {
 			r.NoError(err)
 			r.True(ok)
 			r.EqualValues(blk.Height(), bt.StakeStartBlockHeight)
-			ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
+			ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.TestDefault()), protocol.BlockCtx{BlockHeight: 1}))
 			votes, err := indexer.CandidateVotes(ctx, identityset.Address(delegateIdx), blk.Height())
 			r.NoError(err)
 			r.EqualValues(10, votes.Int64())
@@ -1424,7 +1425,7 @@ func TestContractStaking(t *testing.T) {
 				r.NoError(err)
 				r.True(ok)
 				r.EqualValues(blk.Height(), bt.UnstakeStartBlockHeight)
-				ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1}))
+				ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.TestDefault()), protocol.BlockCtx{BlockHeight: 1}))
 				votes, err := indexer.CandidateVotes(ctx, identityset.Address(delegateIdx), blk.Height())
 				r.NoError(err)
 				r.EqualValues(0, votes.Int64())
@@ -1965,7 +1966,7 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 		ContractAddress:      _stakingContractAddress,
 		ContractDeployHeight: 0,
 		CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
-			return staking.CalculateVoteWeight(genesis.Default.VoteWeightCalConsts, v, false)
+			return staking.CalculateVoteWeight(genesis.TestDefault().VoteWeightCalConsts, v, false)
 		},
 		BlockInterval: consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval,
 	})

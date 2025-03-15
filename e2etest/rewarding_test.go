@@ -63,6 +63,7 @@ const (
 func TestBlockReward(t *testing.T) {
 	r := require.New(t)
 	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
 	initDBPaths(r, &cfg)
 	defer func() { clearDBPaths(&cfg) }()
 	cfg.Consensus.Scheme = config.RollDPoSScheme
@@ -80,7 +81,6 @@ func TestBlockReward(t *testing.T) {
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 300 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 300 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.CommitTTL = 100 * time.Millisecond
-	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.Genesis.PollMode = "lifeLong"
@@ -649,6 +649,7 @@ func newConfig(
 	numNodes uint64,
 ) config.Config {
 	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
 
 	cfg.Network.Port = networkPort
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
