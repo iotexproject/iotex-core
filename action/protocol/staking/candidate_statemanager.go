@@ -17,11 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
-// const
-const (
-	_stakingCandCenter = "candCenter"
-)
-
 type (
 	// BucketSet related to setting bucket
 	BucketSet interface {
@@ -78,7 +73,7 @@ type (
 )
 
 // NewCandidateStateManager returns a new CandidateStateManager instance
-func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (CandidateStateManager, error) {
+func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, error) {
 	// TODO: we can store csm in a local cache, just as how statedb store the workingset
 	// b/c most time the sm is used before, no need to create another clone
 	csr, err := ConstructBaseView(sm)
@@ -89,21 +84,11 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 	// make a copy of candidate center and bucket pool, so they can be modified by csm
 	// and won't affect base view until being committed
 	view := csr.BaseView()
-	csm := &candSM{
+	return &candSM{
 		StateManager: sm,
-		candCenter:   view.candCenter.Base(),
-		bucketPool:   view.bucketPool.Copy(enableSMStorage),
-	}
-
-	// extract view change from SM
-	if err := csm.bucketPool.Sync(sm); err != nil {
-		return nil, errors.Wrap(err, "failed to sync bucket pool")
-	}
-
-	if err := csm.candCenter.Sync(sm); err != nil {
-		return nil, errors.Wrap(err, "failed to sync candidate center")
-	}
-	return csm, nil
+		candCenter:   view.candCenter,
+		bucketPool:   view.bucketPool,
+	}, nil
 }
 
 func newCandidateStateManager(sm protocol.StateManager) CandidateStateManager {
@@ -162,17 +147,7 @@ func (csm *candSM) Upsert(d *Candidate) error {
 		return err
 	}
 
-	if err := csm.putCandidate(d); err != nil {
-		return err
-	}
-
-	delta := csm.candCenter.Delta()
-	if len(delta) == 0 {
-		return nil
-	}
-
-	// load change to sm
-	return csm.StateManager.Load(_protocolID, _stakingCandCenter, &delta)
+	return csm.putCandidate(d)
 }
 
 func (csm *candSM) CreditBucketPool(amount *big.Int) error {

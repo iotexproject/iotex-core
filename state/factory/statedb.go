@@ -50,7 +50,7 @@ type (
 		dao                      daoRetrofitter
 		timerFactory             *prometheustimer.TimerFactory
 		workingsets              cache.LRUCache // lru cache for workingsets
-		protocolView             protocol.View
+		protocolView             *protocol.Views
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
 	}
@@ -97,7 +97,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		cfg:                cfg,
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
-		protocolView:       protocol.View{},
+		protocolView:       &protocol.Views{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 	}
 	for _, opt := range opts {
@@ -176,10 +176,33 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return sdb.dao.getHeight()
 }
 
+func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	return sdb.newWorkingSetWithKVStore(ctx, height, &readOnlyKV{sdb.dao.atHeight(height)})
+}
+
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	return sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height))
+}
+
+func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64, kvstore db.KVStore) (*workingSet, error) {
+	store, err := sdb.createWorkingSetStore(ctx, height, kvstore)
+	if err != nil {
+		return nil, err
+	}
+	if err := store.Start(ctx); err != nil {
+		return nil, err
+	}
+	return newWorkingSet(height, sdb.protocolView, store), nil
+}
+
+func (sdb *stateDB) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
+	return sdb.createWorkingSetStore(ctx, height, kvstore)
+}
+
+func (sdb *stateDB) createWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
 	flusher, err := db.NewKVStoreFlusher(
-		sdb.dao.atHeight(height),
+		kvstore,
 		batch.NewCachedBatch(),
 		sdb.flusherOptions(!g.IsEaster(height))...,
 	)
@@ -193,12 +216,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
 		}
 	}
-	store := newStateDBWorkingSetStore(sdb.protocolView, flusher, g.IsNewfoundland(height))
-	if err := store.Start(ctx); err != nil {
-		return nil, err
-	}
-
-	return newWorkingSet(height, store), nil
+	return newStateDBWorkingSetStore(flusher, g.IsNewfoundland(height)), nil
 }
 
 func (sdb *stateDB) Register(p protocol.Protocol) error {
@@ -232,11 +250,28 @@ func (sdb *stateDB) NewBlockBuilder(
 	ap actpool.ActPool,
 	sign func(action.Envelope) (*action.SealedEnvelope, error),
 ) (*block.Builder, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	expectedBlockHeight := bcCtx.Tip.Height + 1
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
+	var (
+		ws  *workingSet
+		err error
+	)
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
+	switch {
+	case currHeight+1 < expectedBlockHeight:
+		parent, ok := sdb.workingsets.Get(bcCtx.Tip.Hash)
+		if !ok {
+			return nil, errors.Wrapf(ErrNotSupported, "failed to create block at height %d, current height is %d", expectedBlockHeight, sdb.currentChainHeight)
+		}
+		ws, err = parent.(*workingSet).NewWorkingSet(ctx)
+	case currHeight+1 > expectedBlockHeight:
+		return nil, errors.Wrapf(ErrNotSupported, "cannot create block at height %d, current height is %d", expectedBlockHeight, sdb.currentChainHeight)
+	default:
+		ws, err = sdb.newWorkingSet(ctx, currHeight+1)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -267,11 +302,12 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 	sdb.mutex.RLock()
 	height := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	return sdb.newWorkingSet(ctx, height+1)
+	// TODO: the workingset should be read only, and should not be able to commit
+	return sdb.newReadOnlyWorkingSet(ctx, height+1)
 }
 
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
-	ws, err := sdb.newWorkingSet(ctx, height)
+	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state db")
 	}
@@ -332,6 +368,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	if err := ws.Commit(ctx); err != nil {
 		return err
 	}
+	sdb.protocolView = ws.views
 	sdb.currentChainHeight = h
 	return nil
 }
@@ -374,7 +411,7 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 }
 
 // ReadView reads the view
-func (sdb *stateDB) ReadView(name string) (interface{}, error) {
+func (sdb *stateDB) ReadView(name string) (protocol.View, error) {
 	return sdb.protocolView.Read(name)
 }
 
@@ -425,7 +462,11 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 		return err
 	}
 
-	return ws.Commit(ctx)
+	if err := ws.Commit(ctx); err != nil {
+		return err
+	}
+	sdb.protocolView = ws.views
+	return nil
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)

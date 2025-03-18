@@ -102,7 +102,7 @@ type (
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
 		workingsets              cache.LRUCache // lru cache for workingsets
-		protocolView             protocol.View
+		protocolView             *protocol.Views
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
 	}
@@ -156,7 +156,7 @@ func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
 		saveHistory:        cfg.Chain.EnableArchiveMode,
-		protocolView:       protocol.View{},
+		protocolView:       &protocol.Views{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 		dao:                dao,
 	}
@@ -251,21 +251,29 @@ func (sf *factory) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
+func (sf *factory) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	return sf.newWorkingSetWithKVStore(ctx, height, &readOnlyKV{sf.dao})
+}
+
 func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	return sf.newWorkingSetWithKVStore(ctx, height, sf.dao)
+}
+
+func (sf *factory) newWorkingSetWithKVStore(ctx context.Context, height uint64, kvstore db.KVStore) (*workingSet, error) {
 	span := tracer.SpanFromContext(ctx)
 	span.AddEvent("factory.newWorkingSet")
 	defer span.End()
 
 	g := genesis.MustExtractGenesisContext(ctx)
 	flusher, err := db.NewKVStoreFlusher(
-		sf.dao,
+		kvstore,
 		batch.NewCachedBatch(),
 		sf.flusherOptions(!g.IsEaster(height))...,
 	)
 	if err != nil {
 		return nil, err
 	}
-	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher)
+	store, err := newFactoryWorkingSetStore(flusher)
 	if err != nil {
 		return nil, err
 	}
@@ -279,14 +287,14 @@ func (sf *factory) newWorkingSetAtHeight(ctx context.Context, height uint64) (*w
 
 	g := genesis.MustExtractGenesisContext(ctx)
 	flusher, err := db.NewKVStoreFlusher(
-		sf.dao,
+		&readOnlyKV{sf.dao},
 		batch.NewCachedBatch(),
 		sf.flusherOptions(!g.IsEaster(height))...,
 	)
 	if err != nil {
 		return nil, err
 	}
-	store, err := newFactoryWorkingSetStoreAtHeight(sf.protocolView, flusher, height)
+	store, err := newFactoryWorkingSetStoreAtHeight(flusher, height)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +316,7 @@ func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store 
 			}
 		}
 	}
-	return newWorkingSet(height, store), nil
+	return newWorkingSet(height, sf.protocolView, store), nil
 }
 
 func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
@@ -405,7 +413,7 @@ func (sf *factory) NewBlockBuilder(
 func (sf *factory) WorkingSet(ctx context.Context) (protocol.StateManager, error) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	return sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	return sf.newReadOnlyWorkingSet(ctx, sf.currentChainHeight+1)
 }
 
 func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
@@ -535,7 +543,7 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 }
 
 // ReadView reads the view
-func (sf *factory) ReadView(name string) (interface{}, error) {
+func (sf *factory) ReadView(name string) (protocol.View, error) {
 	return sf.protocolView.Read(name)
 }
 

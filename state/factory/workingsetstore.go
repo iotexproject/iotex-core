@@ -8,13 +8,13 @@ package factory
 import (
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
 )
 
 type (
 	workingSetStore interface {
-		db.KVStoreBasic
+		db.KVStore
 		Commit() error
 		States(string, [][]byte) ([][]byte, [][]byte, error)
 		Digest() hash.Hash256
@@ -22,21 +22,18 @@ type (
 		Snapshot() int
 		RevertSnapshot(int) error
 		ResetSnapshots()
-		ReadView(string) (interface{}, error)
-		WriteView(string, interface{}) error
 	}
 	workingSetStoreCommon struct {
-		view    protocol.View
 		flusher db.KVStoreFlusher
 	}
 )
 
-func (store *workingSetStoreCommon) ReadView(name string) (interface{}, error) {
-	return store.view.Read(name)
+func (store *workingSetStoreCommon) Filter(ns string, cond db.Condition, start, limit []byte) ([][]byte, [][]byte, error) {
+	return store.flusher.KVStoreWithBuffer().Filter(ns, cond, start, limit)
 }
 
-func (store *workingSetStoreCommon) WriteView(name string, value interface{}) error {
-	return store.view.Write(name, value)
+func (store *workingSetStoreCommon) WriteBatch(bat batch.KVStoreBatch) error {
+	return store.flusher.KVStoreWithBuffer().WriteBatch(bat)
 }
 
 func (store *workingSetStoreCommon) Put(ns string, key []byte, value []byte) error {
