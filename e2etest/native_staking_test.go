@@ -113,7 +113,7 @@ func TestNativeStaking(t *testing.T) {
 		cand3Addr := identityset.Address(4)
 		cand3PriKey := identityset.PrivateKey(4)
 
-		fixedTime := time.Unix(cfg.Genesis.Timestamp, 0)
+		fixedTime := genesis.GenesisTimestamp(cfg.Genesis.Timestamp)
 		addOneTx := func(tx *action.SealedEnvelope, err error) (*action.SealedEnvelope, *action.Receipt, error) {
 			if err != nil {
 				return tx, nil, err

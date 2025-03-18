@@ -8,6 +8,7 @@ package filedao
 import (
 	"context"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"github.com/pkg/errors"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
@@ -37,28 +39,32 @@ var (
 type (
 	// fileDAOv2 handles chain db file after file split activation at v1.1.2
 	fileDAOv2 struct {
-		filename        string
-		header          *FileHeader
-		tip             *FileTip
-		blkBuffer       *stagingBuffer
-		blkStorePbCache cache.LRUCache
-		kvStore         db.KVStore
-		batch           batch.KVStoreBatch
-		hashStore       db.CountingIndex // store block hash
-		blkStore        db.CountingIndex // store raw blocks
-		sysStore        db.CountingIndex // store transaction log
-		deser           *block.Deserializer
+		genesisHash      hash.Hash256
+		genesisTimestamp time.Time
+		filename         string
+		header           *FileHeader
+		tip              *FileTip
+		blkBuffer        *stagingBuffer
+		blkStorePbCache  cache.LRUCache
+		kvStore          db.KVStore
+		batch            batch.KVStoreBatch
+		hashStore        db.CountingIndex // store block hash
+		blkStore         db.CountingIndex // store raw blocks
+		sysStore         db.CountingIndex // store transaction log
+		deser            *block.Deserializer
 	}
 )
 
 // newFileDAOv2 creates a new v2 file
-func newFileDAOv2(bottom uint64, cfg db.Config, deser *block.Deserializer) (*fileDAOv2, error) {
+func newFileDAOv2(g genesis.Genesis, bottom uint64, cfg db.Config, deser *block.Deserializer) (*fileDAOv2, error) {
 	if bottom == 0 {
 		return nil, ErrNotSupported
 	}
 
 	fd := fileDAOv2{
-		filename: cfg.DbPath,
+		genesisHash:      g.Hash(),
+		genesisTimestamp: genesis.GenesisTimestamp(g.Timestamp),
+		filename:         cfg.DbPath,
 		header: &FileHeader{
 			Version:        FileV2,
 			Compressor:     cfg.Compressor,
@@ -77,13 +83,15 @@ func newFileDAOv2(bottom uint64, cfg db.Config, deser *block.Deserializer) (*fil
 }
 
 // openFileDAOv2 opens an existing v2 file
-func openFileDAOv2(cfg db.Config, deser *block.Deserializer) *fileDAOv2 {
+func openFileDAOv2(g genesis.Genesis, cfg db.Config, deser *block.Deserializer) *fileDAOv2 {
 	return &fileDAOv2{
-		filename:        cfg.DbPath,
-		blkStorePbCache: cache.NewThreadSafeLruCache(16),
-		kvStore:         db.NewBoltDB(cfg),
-		batch:           batch.NewBatch(),
-		deser:           deser,
+		genesisHash:      g.Hash(),
+		genesisTimestamp: genesis.GenesisTimestamp(g.Timestamp),
+		filename:         cfg.DbPath,
+		blkStorePbCache:  cache.NewThreadSafeLruCache(16),
+		kvStore:          db.NewBoltDB(cfg),
+		batch:            batch.NewBatch(),
+		deser:            deser,
 	}
 }
 
@@ -150,7 +158,7 @@ func (fd *fileDAOv2) ContainsHeight(height uint64) bool {
 
 func (fd *fileDAOv2) GetBlockHash(height uint64) (hash.Hash256, error) {
 	if height == 0 {
-		return block.GenesisHash(), nil
+		return fd.genesisHash, nil
 	}
 	if !fd.ContainsHeight(height) {
 		return hash.ZeroHash256, db.ErrNotExist
@@ -163,7 +171,7 @@ func (fd *fileDAOv2) GetBlockHash(height uint64) (hash.Hash256, error) {
 }
 
 func (fd *fileDAOv2) GetBlockHeight(h hash.Hash256) (uint64, error) {
-	if h == block.GenesisHash() {
+	if h == fd.genesisHash {
 		return 0, nil
 	}
 	value, err := getValueMustBe8Bytes(fd.kvStore, _blockHashHeightMappingNS, hashKey(h))
@@ -183,7 +191,7 @@ func (fd *fileDAOv2) GetBlock(h hash.Hash256) (*block.Block, error) {
 
 func (fd *fileDAOv2) GetBlockByHeight(height uint64) (*block.Block, error) {
 	if height == 0 {
-		return block.GenesisBlock(), nil
+		return block.GenesisBlock(fd.genesisTimestamp), nil
 	}
 	blk, err := fd.getBlock(height)
 	if err != nil {

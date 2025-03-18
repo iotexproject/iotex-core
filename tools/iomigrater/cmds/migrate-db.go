@@ -116,13 +116,13 @@ func migrateDbFile() (err error) {
 
 	cfg.DB.DbPath = oldFile
 	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
-	oldDAO, err := filedao.NewFileDAO(cfg.DB, deser)
+	oldDAO, err := filedao.NewFileDAO(cfg.Genesis, cfg.DB, deser)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create dao from %s", oldFile)
 	}
 
 	cfg.DB.DbPath = newFile
-	newDAO, err := filedao.NewFileDAO(cfg.DB, deser)
+	newDAO, err := filedao.NewFileDAO(cfg.Genesis, cfg.DB, deser)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create dao from %s", newFile)
 	}

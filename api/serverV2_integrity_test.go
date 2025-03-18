@@ -312,7 +312,7 @@ func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, block
 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create bloomfilter indexer")
 	}
 	// create BlockDAO
-	store, err := filedao.NewFileDAOInMemForTest()
+	store, err := filedao.NewFileDAOInMemForTest(cfg.genesis)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", errors.Wrap(err, "failed to create dao in memory")
 	}

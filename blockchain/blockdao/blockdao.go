@@ -168,11 +168,10 @@ func (dao *blockDAO) Stop(ctx context.Context) error {
 }
 
 func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
-	if height == 0 {
-		return block.GenesisHash(), nil
-	}
-	if header := dao.headerFromCache(height); header != nil {
-		return header.HashBlock(), nil
+	if height != 0 {
+		if header := dao.headerFromCache(height); header != nil {
+			return header.HashBlock(), nil
+		}
 	}
 	timer := dao.timerFactory.NewTimer("get_block_hash")
 	defer timer.End()

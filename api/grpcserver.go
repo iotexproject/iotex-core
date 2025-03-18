@@ -282,14 +282,14 @@ func (svr *gRPCHandler) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlock
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		for _, blkStore := range blkStores {
-			ret = append(ret, generateBlockMeta(blkStore))
+			ret = append(ret, svr.generateBlockMeta(blkStore))
 		}
 	case in.GetByHash() != nil:
 		blk, err := svr.coreService.BlockByHash(in.GetByHash().BlkHash)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
-		ret = []*iotextypes.BlockMeta{generateBlockMeta(blk)}
+		ret = []*iotextypes.BlockMeta{svr.generateBlockMeta(blk)}
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
@@ -723,7 +723,7 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 }
 
 // generateBlockMeta generates BlockMeta from block
-func generateBlockMeta(blkStore *apitypes.BlockWithReceipts) *iotextypes.BlockMeta {
+func (svr *gRPCHandler) generateBlockMeta(blkStore *apitypes.BlockWithReceipts) *iotextypes.BlockMeta {
 	blk := blkStore.Block
 	header := blk.Header
 	height := header.Height()
@@ -736,7 +736,8 @@ func generateBlockMeta(blkStore *apitypes.BlockWithReceipts) *iotextypes.BlockMe
 		producerAddress = header.ProducerAddress()
 		h = header.HashBlock()
 	} else {
-		h = block.GenesisHash()
+		g := svr.coreService.Genesis()
+		h = g.Hash()
 	}
 	txRoot := header.TxRoot()
 	receiptRoot := header.ReceiptRoot()

@@ -25,12 +25,12 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	var (
 		normalHeaderSize, compressHeaderSize int
 	)
-	testFdInterface := func(cfg db.Config, t *testing.T) {
+	testFdInterface := func(g genesis.Genesis, cfg db.Config, t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(cfg.DbPath)
 		deser := block.NewDeserializer(_defaultEVMNetworkID)
-		fdLegacy, err := newFileDAOLegacy(cfg, deser)
+		fdLegacy, err := newFileDAOLegacy(g, cfg, deser)
 		r.NoError(err)
 		fd, ok := fdLegacy.(*fileDAOLegacy)
 		r.True(ok)
@@ -56,13 +56,13 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 		// verify API for genesis block
 		h, err = fd.GetBlockHash(0)
 		r.NoError(err)
-		r.Equal(block.GenesisHash(), h)
+		r.Equal(g.Hash(), h)
 		height, err := fd.GetBlockHeight(h)
 		r.NoError(err)
 		r.Zero(height)
 		blk, err = fd.GetBlockByHeight(0)
 		r.NoError(err)
-		r.Equal(block.GenesisBlock(), blk)
+		r.Equal(block.GenesisBlock(genesis.GenesisTimestamp(g.Timestamp)), blk)
 	}
 
 	r := require.New(t)
@@ -75,12 +75,10 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 	g := genesis.TestDefault()
-	genesis.SetGenesisTimestamp(g.Timestamp)
-	block.LoadGenesisHash(&g)
 	for _, compress := range []bool{false, true} {
 		cfg.CompressLegacy = compress
 		t.Run("test fileDAOLegacy interface", func(t *testing.T) {
-			testFdInterface(cfg, t)
+			testFdInterface(g, cfg, t)
 		})
 	}
 
@@ -96,7 +94,7 @@ func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {
 	cfg.CompressLegacy = true // enable compress
 
 	deser := block.NewDeserializer(_defaultEVMNetworkID)
-	fd, err := newFileDAOLegacy(cfg, deser)
+	fd, err := newFileDAOLegacy(genesis.Default, cfg, deser)
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
 
@@ -133,7 +131,7 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	cfg.DbPath = "./filedao_legacy.db"
 
 	deser := block.NewDeserializer(_defaultEVMNetworkID)
-	fd, err := newFileDAOLegacy(cfg, deser)
+	fd, err := newFileDAOLegacy(genesis.Default, cfg, deser)
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
 
