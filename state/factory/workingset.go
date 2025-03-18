@@ -329,6 +329,13 @@ func (ws *workingSet) freshAccountConversion(ctx context.Context, actCtx *protoc
 	return nil
 }
 
+func (ws *workingSet) PruneTo(height uint64) error {
+	if _, ok := ws.store.(interface{ Prune(uint64, uint64) error }); ok {
+		return ws.store.(interface{ Prune(uint64, uint64) error }).Prune(ws.height, height)
+	}
+	return nil
+}
+
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit(ctx context.Context) error {
 	if err := protocolPreCommit(ctx, ws); err != nil {

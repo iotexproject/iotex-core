@@ -415,7 +415,11 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			sdb.currentChainHeight, h,
 		)
 	}
-
+	if sdb.cfg.Chain.HistoryBlockKeeps > 0 && h > sdb.cfg.Chain.HistoryBlockKeeps {
+		if err := ws.PruneTo(h - sdb.cfg.Chain.HistoryBlockKeeps); err != nil {
+			log.L().Error("Failed to prune history state index", zap.Error(err))
+		}
+	}
 	if err := ws.Commit(ctx); err != nil {
 		return err
 	}
