@@ -13,6 +13,10 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
+var (
+	BroadcastTopic = "broadcast+consensus"
+)
+
 // CreateBlockCB defines the callback to create a new block
 type CreateBlockCB func() (*block.Block, error)
 
@@ -26,7 +30,7 @@ type ConsensusDoneCB func(*block.Block) error
 type BroadcastCB func(*block.Block) error
 
 // Broadcast sends a broadcast message to the whole network
-type Broadcast func(msg proto.Message) error
+type Broadcast func(string, proto.Message) error
 
 // Scheme is the interface that consensus schemes should implement
 type Scheme interface {

@@ -798,8 +798,9 @@ func (builder *Builder) buildBlockTimeCalculator() (err error) {
 func (builder *Builder) buildConsensusComponent() error {
 	p2pAgent := builder.cs.p2pAgent
 	copts := []consensus.Option{
-		consensus.WithBroadcast(func(msg proto.Message) error {
-			return p2pAgent.BroadcastOutbound(context.Background(), msg)
+		consensus.WithDefaultTopic(p2pAgent.DefaultTopic()),
+		consensus.WithBroadcast(func(topic string, msg proto.Message) error {
+			return p2pAgent.BroadcastOutbound(context.Background(), topic, msg)
 		}),
 	}
 	if rDPoSProtocol := rolldpos.FindProtocol(builder.cs.registry); rDPoSProtocol != nil {

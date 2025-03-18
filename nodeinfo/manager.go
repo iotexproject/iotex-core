@@ -31,8 +31,9 @@ import (
 
 type (
 	transmitter interface {
-		BroadcastOutbound(context.Context, proto.Message) error
+		BroadcastOutbound(context.Context, string, proto.Message) error
 		UnicastOutbound(context.Context, peer.AddrInfo, proto.Message) error
+		DefaultTopic() string
 		Info() (peer.AddrInfo, error)
 	}
 
@@ -54,6 +55,7 @@ type (
 		lifecycle.Lifecycle
 		version              string
 		address              string
+		topic                string
 		broadcastList        atomic.Value // []string, whitelist to force enable broadcast
 		nodeMap              *lru.Cache
 		transmitter          transmitter
@@ -86,6 +88,7 @@ func NewInfoManager(cfg *Config, t transmitter, ch chain, privKey crypto.Private
 		privKey:              privKey,
 		version:              version.PackageVersion,
 		address:              privKey.PublicKey().Address().String(),
+		topic:                t.DefaultTopic(),
 		getBroadcastListFunc: broadcastListFunc,
 	}
 	dm.broadcastList.Store([]string{})
@@ -169,7 +172,8 @@ func (dm *InfoManager) BroadcastNodeInfo(ctx context.Context) error {
 		return err
 	}
 	// broadcast request meesage
-	if err := dm.transmitter.BroadcastOutbound(ctx, req); err != nil {
+	// TODO: use different topic after HF height
+	if err := dm.transmitter.BroadcastOutbound(ctx, dm.topic, req); err != nil {
 		return err
 	}
 	// manually update self node info for broadcast message to myself will be ignored
