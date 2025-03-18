@@ -1972,7 +1972,7 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 	})
 	r.NoError(err)
 	// create BlockDAO
-	store, err := filedao.NewFileDAOInMemForTest()
+	store, err := filedao.NewFileDAOInMemForTest(cfg.Genesis)
 	r.NoError(err)
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(
 		store,

@@ -95,7 +95,7 @@ func NewChainManager(bc blockchain.Blockchain) ChainManager {
 // BlockProposeTime return propose time by height
 func (cm *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
 	if height == 0 {
-		return time.Unix(cm.bc.Genesis().Timestamp, 0), nil
+		return genesis.GenesisTimestamp(cm.bc.Genesis().Timestamp), nil
 	}
 	header, err := cm.bc.BlockHeaderByHeight(height)
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -23,9 +24,11 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao/blockdaopb"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 type GrpcBlockDAO struct {
+	genesisTimestamp       time.Time
 	url                    string
 	insecure               bool
 	conn                   *grpc.ClientConn
@@ -43,14 +46,16 @@ var (
 )
 
 func NewGrpcBlockDAO(
+	g genesis.Genesis,
 	url string,
 	insecure bool,
 	deserializer *block.Deserializer,
 ) *GrpcBlockDAO {
 	return &GrpcBlockDAO{
-		url:          url,
-		insecure:     insecure,
-		deserializer: deserializer,
+		genesisTimestamp: genesis.GenesisTimestamp(g.Timestamp),
+		url:              url,
+		insecure:         insecure,
+		deserializer:     deserializer,
 	}
 }
 
@@ -136,7 +141,7 @@ func (gbd *GrpcBlockDAO) GetBlock(h hash.Hash256) (*block.Block, error) {
 
 func (gbd *GrpcBlockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
 	if height == 0 {
-		return block.GenesisBlock(), nil
+		return block.GenesisBlock(gbd.genesisTimestamp), nil
 	}
 	response, err := gbd.client.GetBlockByHeight(context.Background(), &blockdaopb.BlockHeightRequest{
 		Height: height,

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/compress"
@@ -99,7 +100,7 @@ func TestBlobStore(t *testing.T) {
 		testPath1, err := testutil.PathOfTempFile("test-blob-store")
 		r.NoError(err)
 		cfg.DbPath = testPath1
-		fd, err := createFileDAO(false, false, compress.Snappy, cfg)
+		fd, err := createFileDAO(false, false, compress.Snappy, genesis.Default, cfg)
 		r.NoError(err)
 		r.NotNil(fd)
 		dao := NewBlockDAOWithIndexersAndCache(fd, nil, 10, WithBlobStore(bs))

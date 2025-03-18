@@ -20,11 +20,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/db/trie/mptrie"
@@ -86,16 +84,6 @@ func main() {
 	if err != nil {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}
-	// set genesis timestamp
-	genesis.SetGenesisTimestamp(genesisCfg.Timestamp)
-	if genesis.Timestamp() == 0 {
-		glog.Fatalln("Genesis timestamp is not set, call genesis.New() first")
-	}
-	// load genesis block's hash
-	block.LoadGenesisHash(&genesisCfg)
-	if block.GenesisHash() == hash.ZeroHash256 {
-		glog.Fatalln("Genesis hash is not set, call block.LoadGenesisHash() first")
-	}
 
 	cfg, err := config.New([]string{_overwritePath, _secretPath}, _plugins)
 	if err != nil {
@@ -122,7 +110,7 @@ func main() {
 	log.S().Infof("Config in use: %+v", cfgToLog)
 	log.S().Infof("EVM Network ID: %d, Chain ID: %d", cfg.Chain.EVMNetworkID, cfg.Chain.ID)
 	log.S().Infof("Genesis timestamp: %d", genesisCfg.Timestamp)
-	log.S().Infof("Genesis hash: %x", block.GenesisHash())
+	log.S().Infof("Genesis hash: %x", cfg.Genesis.Hash())
 
 	// liveness start
 	probeSvr := probe.New(cfg.System.HTTPStatsPort)

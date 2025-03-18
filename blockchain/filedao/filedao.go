@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
@@ -71,6 +72,7 @@ type (
 
 	// fileDAO implements FileDAO
 	fileDAO struct {
+		genesis           genesis.Genesis
 		lock              sync.Mutex
 		topIndex          uint64
 		splitHeight       uint64
@@ -83,14 +85,14 @@ type (
 )
 
 // NewFileDAO creates an instance of FileDAO
-func NewFileDAO(cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
+func NewFileDAO(g genesis.Genesis, cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
 	header, err := readFileHeader(cfg.DbPath, FileAll)
 	if err != nil {
 		if err != ErrFileNotExist {
 			return nil, err
 		}
 		// start new chain db using v2 format
-		if err := createNewV2File(1, cfg, deser); err != nil {
+		if err := createNewV2File(g, 1, cfg, deser); err != nil {
 			return nil, err
 		}
 		header = &FileHeader{Version: FileV2}
@@ -102,18 +104,18 @@ func NewFileDAO(cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
 		return nil, ErrFileInvalid
 	case FileLegacyMaster:
 		// master file is legacy format
-		return CreateFileDAO(true, cfg, deser)
+		return CreateFileDAO(true, g, cfg, deser)
 	case FileV2:
 		// master file is v2 format
-		return CreateFileDAO(false, cfg, deser)
+		return CreateFileDAO(false, g, cfg, deser)
 	default:
 		panic(fmt.Errorf("corrupted file version: %s", header.Version))
 	}
 }
 
 // NewFileDAOInMemForTest creates an in-memory FileDAO for testing
-func NewFileDAOInMemForTest() (FileDAO, error) {
-	return newTestInMemFd()
+func NewFileDAOInMemForTest(g genesis.Genesis) (FileDAO, error) {
+	return newTestInMemFd(g)
 }
 
 func (fd *fileDAO) Start(ctx context.Context) error {
@@ -333,7 +335,7 @@ func (fd *fileDAO) addNewV2File(height uint64) error {
 	// create a new v2 file
 	cfg := fd.cfg
 	cfg.DbPath = kthAuxFileName(cfg.DbPath, fd.topIndex+1)
-	v2, err := newFileDAOv2(height, cfg, fd.blockDeserializer)
+	v2, err := newFileDAOv2(fd.genesis, height, cfg, fd.blockDeserializer)
 	if err != nil {
 		return err
 	}
@@ -367,12 +369,12 @@ func (fd *fileDAO) DeleteTipBlock() error {
 }
 
 // CreateFileDAO creates FileDAO according to master file
-func CreateFileDAO(legacy bool, cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
-	fd := fileDAO{splitHeight: 1, cfg: cfg, blockDeserializer: deser}
+func CreateFileDAO(legacy bool, g genesis.Genesis, cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
+	fd := fileDAO{genesis: g, splitHeight: 1, cfg: cfg, blockDeserializer: deser}
 	fds := []*fileDAOv2{}
 	v2Top, v2Files := checkAuxFiles(cfg.DbPath, FileV2)
 	if legacy {
-		legacyFd, err := newFileDAOLegacy(cfg, deser)
+		legacyFd, err := newFileDAOLegacy(g, cfg, deser)
 		if err != nil {
 			return nil, err
 		}
@@ -385,14 +387,14 @@ func CreateFileDAO(legacy bool, cfg db.Config, deser *block.Deserializer) (FileD
 		}
 	} else {
 		// v2 master file
-		fds = append(fds, openFileDAOv2(cfg, deser))
+		fds = append(fds, openFileDAOv2(g, cfg, deser))
 	}
 
 	// populate v2 files into v2 manager
 	if len(v2Files) > 0 {
 		for _, name := range v2Files {
 			cfg.DbPath = name
-			fds = append(fds, openFileDAOv2(cfg, deser))
+			fds = append(fds, openFileDAOv2(g, cfg, deser))
 		}
 
 		// v2 file's top index overrides v1's top
@@ -407,8 +409,8 @@ func CreateFileDAO(legacy bool, cfg db.Config, deser *block.Deserializer) (FileD
 }
 
 // createNewV2File creates a new v2 chain db file
-func createNewV2File(start uint64, cfg db.Config, deser *block.Deserializer) error {
-	v2, err := newFileDAOv2(start, cfg, deser)
+func createNewV2File(g genesis.Genesis, start uint64, cfg db.Config, deser *block.Deserializer) error {
+	v2, err := newFileDAOv2(g, start, cfg, deser)
 	if err != nil {
 		return err
 	}

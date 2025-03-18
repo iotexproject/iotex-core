@@ -324,7 +324,7 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		opts      []blockdao.Option
 	)
 	if forTest {
-		store, err = filedao.NewFileDAOInMemForTest()
+		store, err = filedao.NewFileDAOInMemForTest(builder.cfg.Genesis)
 	} else {
 		path := builder.cfg.Chain.ChainDBPath
 		uri, err := url.Parse(path)
@@ -333,11 +333,11 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		}
 		switch uri.Scheme {
 		case "grpc":
-			store = blockdao.NewGrpcBlockDAO(uri.Host, uri.Query().Get("insecure") == "true", block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+			store = blockdao.NewGrpcBlockDAO(builder.cfg.Genesis, uri.Host, uri.Query().Get("insecure") == "true", block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
 		case "file", "":
 			dbConfig := cfg.DB
 			dbConfig.DbPath = uri.Path
-			store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+			store, err = filedao.NewFileDAO(builder.cfg.Genesis, dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
 		default:
 			return errors.Errorf("unsupported blockdao scheme %s", uri.Scheme)
 		}
