@@ -38,6 +38,7 @@ type (
 		BlobStoreDBPath            string           `yaml:"blobStoreDBPath"`
 		BlobStoreRetentionDays     uint32           `yaml:"blobStoreRetentionDays"`
 		HistoryIndexPath           string           `yaml:"historyIndexPath"`
+		HistoryBlockKeeps          uint64           `yaml:"historyBlockKeeps"`
 		ID                         uint32           `yaml:"id"`
 		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
 		Address                    string           `yaml:"address"`
