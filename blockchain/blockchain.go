@@ -206,6 +206,12 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 	if chain.dao == nil {
 		log.L().Panic("blockdao is nil")
 	}
+	chain.dao.SetBlockValidator(func(ctx context.Context, blk *block.Block) error {
+		if chain.blockValidator == nil {
+			return nil
+		}
+		return chain.blockValidator.Validate(ctx, blk)
+	})
 	chain.lifecycle.Add(chain.dao)
 	chain.lifecycle.Add(chain.pubSubManager)
 
