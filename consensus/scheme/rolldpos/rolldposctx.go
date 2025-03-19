@@ -13,7 +13,6 @@ import (
 	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -655,11 +654,8 @@ func (ctx *rollDPoSCtx) mintNewBlock(privateKey crypto.PrivateKey) (*EndorsedCon
 	var err error
 	blk := ctx.round.CachedMintedBlock()
 	if blk == nil {
-		proposer := privateKey.PublicKey().Address().String()
 		// in case that there is no cached block in eManagerDB, it mints a new block.
-		blk, err = ctx.chain.MintNewBlock(ctx.round.Height(), ctx.round.StartTime(), func(addr address.Address) bool {
-			return addr.String() != proposer
-		})
+		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime(), privateKey)
 		if err != nil {
 			return nil, err
 		}

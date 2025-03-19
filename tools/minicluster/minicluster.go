@@ -455,7 +455,7 @@ func main() {
 				log.S().Fatal("actual block reward is incorrect.")
 			}
 
-			proposer := configs[i].Chain.MainProducerPrivateKey().PublicKey().Address()
+			proposer := configs[i].Chain.ProducerAddress()[0]
 			balance, _, err := rp.UnclaimedBalance(ctx, sfs[i], proposer)
 			if err != nil {
 				log.S().Fatal("Failed to get unclaimed balance.", zap.Error(err))

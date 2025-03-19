@@ -53,7 +53,7 @@ type (
 		BlockCommitTime(uint64) (time.Time, error)
 		// MintNewBlock creates a new block with given actions
 		// Note: the coinbase transfer will be added to the given transfers when minting a new block
-		MintNewBlock(uint64, time.Time, ...blockchain.FilterFunc) (*block.Block, error)
+		MintNewBlock(time.Time, crypto.PrivateKey) (*block.Block, error)
 		// CommitBlock validates and appends a block to the chain
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
@@ -120,8 +120,8 @@ func (cm *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
 }
 
 // MintNewBlock creates a new block with given actions
-func (cm *chainManager) MintNewBlock(height uint64, timestamp time.Time, fs ...blockchain.FilterFunc) (*block.Block, error) {
-	return cm.bc.MintNewBlock(timestamp, fs...)
+func (cm *chainManager) MintNewBlock(timestamp time.Time, privKey crypto.PrivateKey) (*block.Block, error) {
+	return cm.bc.MintNewBlock(timestamp, blockchain.WithProducerPrivateKey(privKey))
 }
 
 // CommitBlock validates and appends a block to the chain
