@@ -679,7 +679,7 @@ func TestEnforceChainID(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		blkMemDao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 	)
 	require.NoError(bc.Start(ctx))
 

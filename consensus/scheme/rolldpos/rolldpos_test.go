@@ -468,7 +468,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				bc,
 				g,
 				dao,
-				factory.NewMinter(sf, actPool),
+				factory.NewMinter(sf, actPool, factory.WithPrivateKeyOption(chainAddrs[i].priKey)),
 				blockchain.BlockValidatorOption(block.NewValidator(
 					sf,
 					protocol.NewGenericValidator(sf, accountutil.AccountState),

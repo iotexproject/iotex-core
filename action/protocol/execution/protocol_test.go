@@ -478,7 +478,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -730,7 +730,7 @@ func TestProtocol_Handle(t *testing.T) {
 			cfg.Chain,
 			cfg.Genesis,
 			dao,
-			factory.NewMinter(sf, ap),
+			factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 			blockchain.BlockValidatorOption(block.NewValidator(
 				sf,
 				protocol.NewGenericValidator(sf, accountutil.AccountState),

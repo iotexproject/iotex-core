@@ -167,7 +167,7 @@ func TestLocalCommit(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf2, ap2),
+		factory.NewMinter(sf2, ap2, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf2,
 			protocol.NewGenericValidator(sf2, accountutil.AccountState),
