@@ -132,14 +132,18 @@ var (
 	ErrConfig = errors.New("config error")
 )
 
-// MainProducerAddress returns the configured producer address derived from key
-func (cfg *Config) MainProducerAddress() address.Address {
-	sk := cfg.MainProducerPrivateKey()
-	addr := sk.PublicKey().Address()
-	if addr == nil {
-		log.L().Panic("Error when constructing producer address")
+// ProducerAddress() returns the configured producer address derived from key
+func (cfg *Config) ProducerAddress() []address.Address {
+	privateKeys := cfg.ProducerPrivateKeys()
+	addrs := make([]address.Address, 0, len(privateKeys))
+	for _, sk := range privateKeys {
+		addr := sk.PublicKey().Address()
+		if addr == nil {
+			log.L().Panic("Error when constructing producer address")
+		}
+		addrs = append(addrs, addr)
 	}
-	return addr
+	return addrs
 }
 
 // ProducerPrivateKeys returns the configured private keys
@@ -164,26 +168,6 @@ func (cfg *Config) ProducerPrivateKeys() []crypto.PrivateKey {
 		privateKeys = append(privateKeys, sk)
 	}
 	return privateKeys
-}
-
-// MainProducerPrivateKey returns the configured private key
-func (cfg *Config) MainProducerPrivateKey() crypto.PrivateKey {
-	pks := strings.Split(cfg.ProducerPrivKey, ",")
-	if len(pks) == 0 {
-		log.L().Panic("Error when decoding private key")
-	}
-	sk, err := crypto.HexStringToPrivateKey(pks[0])
-	if err != nil {
-		log.L().Panic(
-			"Error when decoding private key",
-			zap.Error(err),
-		)
-	}
-
-	if !cfg.whitelistSignatureScheme(sk) {
-		log.L().Panic("The private key's signature scheme is not whitelisted")
-	}
-	return sk
 }
 
 // SetProducerPrivKey set producer privKey by PrivKeyConfigFile info

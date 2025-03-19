@@ -16,8 +16,8 @@ import (
 func TestProducer(t *testing.T) {
 	r := require.New(t)
 	cfg := DefaultConfig
-	r.NotNil(cfg.MainProducerAddress())
-	r.NotNil(cfg.MainProducerPrivateKey())
+	r.NotEmpty(cfg.ProducerAddress())
+	r.NotEmpty(cfg.ProducerPrivateKeys())
 }
 
 func TestWhitelist(t *testing.T) {
@@ -27,9 +27,9 @@ func TestWhitelist(t *testing.T) {
 	r.NoError(err)
 	r.False(cfg.whitelistSignatureScheme(sk))
 	cfg.ProducerPrivKey = sk.HexString()
-	r.Panics(func() { cfg.MainProducerPrivateKey() })
+	r.Panics(func() { cfg.ProducerPrivateKeys() })
 
 	cfg.SignatureScheme = append(cfg.SignatureScheme, SigP256sm2)
-	r.Equal(sk, cfg.MainProducerPrivateKey())
-	r.Equal(sk.PublicKey().Address().String(), cfg.MainProducerAddress().String())
+	r.Equal(sk, cfg.ProducerPrivateKeys()[0])
+	r.Equal(sk.PublicKey().Address().String(), cfg.ProducerAddress()[0].String())
 }

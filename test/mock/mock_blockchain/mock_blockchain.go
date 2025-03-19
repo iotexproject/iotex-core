@@ -185,7 +185,7 @@ func (mr *MockBlockchainMockRecorder) Genesis() *gomock.Call {
 }
 
 // MintNewBlock mocks base method.
-func (m *MockBlockchain) MintNewBlock(arg0 time.Time, arg1 ...blockchain.FilterFunc) (*block.Block, error) {
+func (m *MockBlockchain) MintNewBlock(arg0 time.Time, arg1 ...blockchain.MintOption) (*block.Block, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
