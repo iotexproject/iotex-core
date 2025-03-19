@@ -97,12 +97,12 @@ func TestDelegates(t *testing.T) {
 	require := require.New(t)
 	rc := makeRoundCalculator(t)
 
-	dels, err := rc.Delegates(51)
+	dels, err := rc.Delegates(51, hash.ZeroHash256[:])
 	require.NoError(err)
 	require.Equal(rc.rp.NumDelegates(), uint64(len(dels)))
 
-	require.False(rc.IsDelegate(identityset.Address(25).String(), 51))
-	require.True(rc.IsDelegate(identityset.Address(0).String(), 51))
+	require.False(rc.IsDelegate(identityset.Address(25).String(), 51, hash.ZeroHash256[:]))
+	require.True(rc.IsDelegate(identityset.Address(0).String(), 51, hash.ZeroHash256[:]))
 }
 
 func TestRoundInfo(t *testing.T) {
@@ -228,7 +228,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
 	bc, sf, _, rp, pp := makeChain(t)
-	delegatesByEpoch := func(epochNum uint64) ([]string, error) {
+	delegatesByEpoch := func(epochNum uint64, _ []byte) ([]string, error) {
 		re := protocol.NewRegistry()
 		if err := rp.Register(re); err != nil {
 			return nil, err
@@ -266,7 +266,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 		return addrs, nil
 	}
 	return &roundCalculator{
-		NewChainManager(bc),
+		NewChainManager(bc, sf),
 		true,
 		rp,
 		delegatesByEpoch,
