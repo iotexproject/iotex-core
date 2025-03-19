@@ -13,7 +13,6 @@ import (
 	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -182,7 +181,7 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 		}
 		eManager, err = newEndorsementManager(ctx.eManagerDB, ctx.blockDeserializer)
 	}
-	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime, hash.ZeroHash256[:])
+	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime)
 
 	return err
 }
@@ -222,7 +221,11 @@ func (ctx *rollDPoSCtx) CheckVoteEndorser(
 	if endorserAddr == nil {
 		return errors.New("failed to get address")
 	}
-	if !ctx.roundCalc.IsDelegate(endorserAddr.String(), height, ctx.round.prevHash[:]) {
+	roundCalc, err := ctx.roundCalc.Fork(ctx.round.prevHash)
+	if err != nil {
+		return errors.Wrapf(err, "failed to fork at block %d, hash %x", height, ctx.round.prevHash[:])
+	}
+	if !roundCalc.IsDelegate(endorserAddr.String(), height) {
 		return errors.Errorf("%s is not delegate of the corresponding round", endorserAddr)
 	}
 
@@ -249,7 +252,11 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 		return errors.New("failed to get address")
 	}
 	prevHash := proposal.block.PrevHash()
-	if proposer := ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), en.Timestamp(), prevHash[:]); proposer != endorserAddr.String() {
+	roundCalc, err := ctx.roundCalc.Fork(prevHash)
+	if err != nil {
+		return errors.Wrapf(err, "failed to fork at block %d, hash %x", proposal.block.Height(), prevHash[:])
+	}
+	if proposer := roundCalc.Proposer(height, ctx.BlockInterval(height), en.Timestamp()); proposer != endorserAddr.String() {
 		return errors.Errorf(
 			"%s is not proposer of the corresponding round, %s expected",
 			endorserAddr.String(),
@@ -257,14 +264,14 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 		)
 	}
 	proposerAddr := proposal.ProposerAddress()
-	if ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), proposal.block.Timestamp(), prevHash[:]) != proposerAddr {
+	if roundCalc.Proposer(height, ctx.BlockInterval(height), proposal.block.Timestamp()) != proposerAddr {
 		return errors.Errorf("%s is not proposer of the corresponding round", proposerAddr)
 	}
 	if !proposal.block.VerifySignature() {
 		return errors.Errorf("invalid block signature")
 	}
 	if proposerAddr != endorserAddr.String() {
-		round, err := ctx.roundCalc.NewRound(height, ctx.BlockInterval(height), en.Timestamp(), nil, prevHash[:])
+		round, err := roundCalc.NewRound(height, ctx.BlockInterval(height), en.Timestamp(), nil)
 		if err != nil {
 			return err
 		}
@@ -330,9 +337,9 @@ func (ctx *rollDPoSCtx) Logger() *zap.Logger {
 func (ctx *rollDPoSCtx) Prepare() error {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
-	tipHeight, tipHash := ctx.chain.Tip()
+	tipHeight, _ := ctx.chain.Tip()
 	height := tipHeight + 1
-	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.BlockInterval(height), ctx.clock.Now(), ctx.toleratedOvertime, tipHash[:])
+	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.BlockInterval(height), ctx.clock.Now(), ctx.toleratedOvertime)
 	if err != nil {
 		return err
 	}
@@ -391,12 +398,17 @@ func (ctx *rollDPoSCtx) PrepareNextProposal(msg any) error {
 		prevHash  = blk.HashBlock()
 		err       error
 	)
+	ctx.logger().Debug("prepare next proposal", log.Hex("prevHash", prevHash[:]), zap.Uint64("height", height), zap.Time("timestamp", startTime), zap.String("ioAddr", ctx.encodedAddr))
 	fork, err := ctx.chain.Fork(prevHash)
 	if err != nil {
 		return errors.Wrapf(err, "failed to check fork at block %d, hash %x", blk.Height(), prevHash[:])
 	}
+	roundCalc, err := ctx.roundCalc.Fork(prevHash)
+	if err != nil {
+		return errors.Wrapf(err, "failed to fork at block %d, hash %x", blk.Height(), prevHash[:])
+	}
 	// check if the current node is the next proposer
-	nextProposer := ctx.roundCalc.Proposer(height, interval, startTime, prevHash[:])
+	nextProposer := roundCalc.Proposer(height, interval, startTime)
 	if ctx.encodedAddr != nextProposer {
 		return nil
 	}

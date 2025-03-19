@@ -342,7 +342,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	ctx := r.ctx.(*rollDPoSCtx)
 	clock.Add(ctx.BlockInterval(blockHeight))
 	require.NoError(t, ctx.Start(context.Background()))
-	ctx.round, err = ctx.roundCalc.UpdateRound(ctx.round, blockHeight+1, ctx.BlockInterval(blockHeight+1), clock.Now(), 2*time.Second, hash.ZeroHash256[:])
+	ctx.round, err = ctx.roundCalc.UpdateRound(ctx.round, blockHeight+1, ctx.BlockInterval(blockHeight+1), clock.Now(), 2*time.Second)
 	require.NoError(t, err)
 
 	m, err := r.Metrics()
