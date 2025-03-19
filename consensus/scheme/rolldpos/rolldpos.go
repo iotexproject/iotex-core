@@ -12,6 +12,7 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -59,7 +60,7 @@ type (
 		// ValidateBlock validates a new block before adding it to the blockchain
 		ValidateBlock(blk *block.Block) error
 		// TipHeight returns tip block's height
-		TipHeight() uint64
+		Tip() (uint64, hash.Hash256)
 		// ChainAddress returns chain address on parent chain, the root chain return empty.
 		ChainAddress() string
 	}
@@ -135,8 +136,8 @@ func (cm *chainManager) ValidateBlock(blk *block.Block) error {
 }
 
 // TipHeight returns tip block's height
-func (cm *chainManager) TipHeight() uint64 {
-	return cm.bc.TipHeight()
+func (cm *chainManager) Tip() (uint64, hash.Hash256) {
+	return cm.bc.TipHeight(), cm.bc.TipHash()
 }
 
 // ChainAddress returns chain address on parent chain, the root chain return empty.
@@ -244,7 +245,8 @@ func (r *RollDPoS) Calibrate(height uint64) {
 // ValidateBlockFooter validates the signatures in the block footer
 func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	height := blk.Height()
-	round, err := r.ctx.RoundCalculator().NewRound(height, r.ctx.BlockInterval(height), blk.Timestamp(), nil)
+	prevHash := blk.PrevHash()
+	round, err := r.ctx.RoundCalculator().NewRound(height, r.ctx.BlockInterval(height), blk.Timestamp(), nil, prevHash[:])
 	if err != nil {
 		return err
 	}
@@ -276,8 +278,8 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 // Metrics returns RollDPoS consensus metrics
 func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
-	height := r.ctx.Chain().TipHeight()
-	round, err := r.ctx.RoundCalculator().NewRound(height+1, r.ctx.BlockInterval(height), r.ctx.Clock().Now(), nil)
+	height, tipHash := r.ctx.Chain().Tip()
+	round, err := r.ctx.RoundCalculator().NewRound(height+1, r.ctx.BlockInterval(height), r.ctx.Clock().Now(), nil, tipHash[:])
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating round")
 	}

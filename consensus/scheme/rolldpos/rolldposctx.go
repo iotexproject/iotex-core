@@ -13,6 +13,7 @@ import (
 	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -181,7 +182,7 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 		}
 		eManager, err = newEndorsementManager(ctx.eManagerDB, ctx.blockDeserializer)
 	}
-	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime)
+	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime, hash.ZeroHash256[:])
 
 	return err
 }
@@ -247,7 +248,8 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 	if endorserAddr == nil {
 		return errors.New("failed to get address")
 	}
-	if proposer := ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), en.Timestamp()); proposer != endorserAddr.String() {
+	prevHash := proposal.block.PrevHash()
+	if proposer := ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), en.Timestamp(), prevHash[:]); proposer != endorserAddr.String() {
 		return errors.Errorf(
 			"%s is not proposer of the corresponding round, %s expected",
 			endorserAddr.String(),
@@ -255,14 +257,14 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 		)
 	}
 	proposerAddr := proposal.ProposerAddress()
-	if ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), proposal.block.Timestamp()) != proposerAddr {
+	if ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), proposal.block.Timestamp(), prevHash[:]) != proposerAddr {
 		return errors.Errorf("%s is not proposer of the corresponding round", proposerAddr)
 	}
 	if !proposal.block.VerifySignature() {
 		return errors.Errorf("invalid block signature")
 	}
 	if proposerAddr != endorserAddr.String() {
-		round, err := ctx.roundCalc.NewRound(height, ctx.BlockInterval(height), en.Timestamp(), nil)
+		round, err := ctx.roundCalc.NewRound(height, ctx.BlockInterval(height), en.Timestamp(), nil, prevHash[:])
 		if err != nil {
 			return err
 		}
@@ -328,8 +330,9 @@ func (ctx *rollDPoSCtx) Logger() *zap.Logger {
 func (ctx *rollDPoSCtx) Prepare() error {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
-	height := ctx.chain.TipHeight() + 1
-	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.BlockInterval(height), ctx.clock.Now(), ctx.toleratedOvertime)
+	tipHeight, tipHash := ctx.chain.Tip()
+	height := tipHeight + 1
+	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.BlockInterval(height), ctx.clock.Now(), ctx.toleratedOvertime, tipHash[:])
 	if err != nil {
 		return err
 	}

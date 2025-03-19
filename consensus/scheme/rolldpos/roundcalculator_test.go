@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -38,23 +39,23 @@ import (
 func TestUpdateRound(t *testing.T) {
 	require := require.New(t)
 	rc := makeRoundCalculator(t)
-	ra, err := rc.NewRound(51, time.Second, time.Unix(1562382522, 0), nil)
+	ra, err := rc.NewRound(51, time.Second, time.Unix(1562382522, 0), nil, hash.ZeroHash256[:])
 	require.NoError(err)
 
 	// height < round.Height()
-	_, err = rc.UpdateRound(ra, 50, time.Second, time.Unix(1562382492, 0), time.Second)
+	_, err = rc.UpdateRound(ra, 50, time.Second, time.Unix(1562382492, 0), time.Second, hash.ZeroHash256[:])
 	require.Error(err)
 
 	// height == round.Height() and now.Before(round.StartTime())
-	_, err = rc.UpdateRound(ra, 51, time.Second, time.Unix(1562382522, 0), time.Second)
+	_, err = rc.UpdateRound(ra, 51, time.Second, time.Unix(1562382522, 0), time.Second, hash.ZeroHash256[:])
 	require.NoError(err)
 
 	// height >= round.NextEpochStartHeight() Delegates error
-	_, err = rc.UpdateRound(ra, 500, time.Second, time.Unix(1562382092, 0), time.Second)
+	_, err = rc.UpdateRound(ra, 500, time.Second, time.Unix(1562382092, 0), time.Second, hash.ZeroHash256[:])
 	require.Error(err)
 
 	// (51+100)%24
-	ra, err = rc.UpdateRound(ra, 51, time.Second, time.Unix(1562382522, 0), time.Second)
+	ra, err = rc.UpdateRound(ra, 51, time.Second, time.Unix(1562382522, 0), time.Second, hash.ZeroHash256[:])
 	require.NoError(err)
 	require.Equal(identityset.Address(10).String(), ra.proposer)
 }
@@ -77,7 +78,7 @@ func TestNewRound(t *testing.T) {
 	require.NoError(err)
 	require.Equal(validDelegates[2], proposer)
 
-	ra, err := rc.NewRound(51, time.Second, time.Unix(1562382592, 0), nil)
+	ra, err := rc.NewRound(51, time.Second, time.Unix(1562382592, 0), nil, hash.ZeroHash256[:])
 	require.NoError(err)
 	require.Equal(uint32(170), ra.roundNum)
 	require.Equal(uint64(51), ra.height)
@@ -85,7 +86,7 @@ func TestNewRound(t *testing.T) {
 	require.Equal(identityset.Address(7).String(), ra.proposer)
 
 	rc.timeBasedRotation = true
-	ra, err = rc.NewRound(51, time.Second, time.Unix(1562382592, 0), nil)
+	ra, err = rc.NewRound(51, time.Second, time.Unix(1562382592, 0), nil, hash.ZeroHash256[:])
 	require.NoError(err)
 	require.Equal(uint32(170), ra.roundNum)
 	require.Equal(uint64(51), ra.height)

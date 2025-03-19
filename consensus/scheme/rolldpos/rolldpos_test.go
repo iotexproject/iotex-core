@@ -288,6 +288,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	footer := &block.Footer{}
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bc.EXPECT().TipHeight().Return(blockHeight).Times(1)
+	bc.EXPECT().TipHash().Return(hash.ZeroHash256).Times(1)
 	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(2)
 
 	sk1 := identityset.PrivateKey(1)
@@ -338,7 +339,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	ctx := r.ctx.(*rollDPoSCtx)
 	clock.Add(ctx.BlockInterval(blockHeight))
 	require.NoError(t, ctx.Start(context.Background()))
-	ctx.round, err = ctx.roundCalc.UpdateRound(ctx.round, blockHeight+1, ctx.BlockInterval(blockHeight+1), clock.Now(), 2*time.Second)
+	ctx.round, err = ctx.roundCalc.UpdateRound(ctx.round, blockHeight+1, ctx.BlockInterval(blockHeight+1), clock.Now(), 2*time.Second, hash.ZeroHash256[:])
 	require.NoError(t, err)
 
 	m, err := r.Metrics()

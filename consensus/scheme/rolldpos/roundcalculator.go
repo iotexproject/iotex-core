@@ -10,6 +10,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/endorsement"
 )
@@ -26,7 +28,7 @@ type roundCalculator struct {
 }
 
 // UpdateRound updates previous roundCtx
-func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInterval time.Duration, now time.Time, toleratedOvertime time.Duration) (*roundCtx, error) {
+func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInterval time.Duration, now time.Time, toleratedOvertime time.Duration, prevHash []byte) (*roundCtx, error) {
 	epochNum := round.EpochNum()
 	epochStartHeight := round.EpochStartHeight()
 	delegates := round.Delegates()
@@ -86,6 +88,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 
 		height:             height,
 		roundNum:           roundNum,
+		prevHash:           hash.Hash256(prevHash),
 		proposer:           proposer,
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(blockInterval),
@@ -97,8 +100,8 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 }
 
 // Proposer returns the block producer of the round
-func (c *roundCalculator) Proposer(height uint64, blockInterval time.Duration, roundStartTime time.Time) string {
-	round, err := c.newRound(height, blockInterval, roundStartTime, nil, 0)
+func (c *roundCalculator) Proposer(height uint64, blockInterval time.Duration, roundStartTime time.Time, prevHash []byte) string {
+	round, err := c.newRound(height, blockInterval, roundStartTime, nil, 0, prevHash)
 	if err != nil {
 		return ""
 	}
@@ -196,8 +199,9 @@ func (c *roundCalculator) NewRoundWithToleration(
 	now time.Time,
 	eManager *endorsementManager,
 	toleratedOvertime time.Duration,
+	prevHash []byte,
 ) (round *roundCtx, err error) {
-	return c.newRound(height, blockInterval, now, eManager, toleratedOvertime)
+	return c.newRound(height, blockInterval, now, eManager, toleratedOvertime, prevHash)
 }
 
 // NewRound starts new round and returns roundCtx
@@ -206,8 +210,9 @@ func (c *roundCalculator) NewRound(
 	blockInterval time.Duration,
 	now time.Time,
 	eManager *endorsementManager,
+	prevHash []byte,
 ) (round *roundCtx, err error) {
-	return c.newRound(height, blockInterval, now, eManager, 0)
+	return c.newRound(height, blockInterval, now, eManager, 0, prevHash)
 }
 
 func (c *roundCalculator) newRound(
@@ -216,6 +221,7 @@ func (c *roundCalculator) newRound(
 	now time.Time,
 	eManager *endorsementManager,
 	toleratedOvertime time.Duration,
+	prevHash []byte,
 ) (round *roundCtx, err error) {
 	epochNum := uint64(0)
 	epochStartHeight := uint64(0)
@@ -253,6 +259,7 @@ func (c *roundCalculator) newRound(
 
 		height:             height,
 		roundNum:           roundNum,
+		prevHash:           hash.Hash256(prevHash),
 		proposer:           proposer,
 		eManager:           eManager,
 		roundStartTime:     roundStartTime,
