@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/facebookgo/clock"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -100,7 +101,16 @@ func NewConsensus(
 	var err error
 	switch cfg.Scheme {
 	case RollDPoSScheme:
-		delegatesByEpochFunc := func(epochNum uint64) ([]string, error) {
+		chanMgr := rolldpos.NewChainManager(bc, sf)
+		delegatesByEpochFunc := func(epochNum uint64, prevHash []byte) ([]string, error) {
+			fork, serr := chanMgr.Fork(hash.Hash256(prevHash))
+			if serr != nil {
+				return nil, serr
+			}
+			forkSF, serr := fork.StateReader()
+			if serr != nil {
+				return nil, serr
+			}
 			re := protocol.NewRegistry()
 			if err := ops.rp.Register(re); err != nil {
 				return nil, err
@@ -110,15 +120,15 @@ func NewConsensus(
 				cfg.Genesis,
 			)
 			ctx = protocol.WithFeatureWithHeightCtx(ctx)
-			tipHeight := bc.TipHeight()
+			tipHeight, _ := fork.Tip()
 			tipEpochNum := ops.rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList
 			var err error
 			switch epochNum {
 			case tipEpochNum:
-				candidatesList, err = ops.pp.Delegates(ctx, sf)
+				candidatesList, err = ops.pp.Delegates(ctx, forkSF)
 			case tipEpochNum + 1:
-				candidatesList, err = ops.pp.NextDelegates(ctx, sf)
+				candidatesList, err = ops.pp.NextDelegates(ctx, forkSF)
 			default:
 				err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
 			}
@@ -136,7 +146,7 @@ func NewConsensus(
 			SetAddr(cfg.Chain.ProducerAddress().String()).
 			SetPriKey(cfg.Chain.ProducerPrivateKey()).
 			SetConfig(cfg).
-			SetChainManager(rolldpos.NewChainManager(bc, sf)).
+			SetChainManager(chanMgr).
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).

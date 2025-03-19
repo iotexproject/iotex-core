@@ -71,7 +71,7 @@ func init() {
 
 type (
 	// NodesSelectionByEpochFunc defines a function to select nodes
-	NodesSelectionByEpochFunc func(uint64) ([]string, error)
+	NodesSelectionByEpochFunc func(uint64, []byte) ([]string, error)
 
 	// RDPoSCtx is the context of RollDPoS
 	RDPoSCtx interface {
@@ -222,7 +222,7 @@ func (ctx *rollDPoSCtx) CheckVoteEndorser(
 	if endorserAddr == nil {
 		return errors.New("failed to get address")
 	}
-	if !ctx.roundCalc.IsDelegate(endorserAddr.String(), height) {
+	if !ctx.roundCalc.IsDelegate(endorserAddr.String(), height, ctx.round.prevHash[:]) {
 		return errors.Errorf("%s is not delegate of the corresponding round", endorserAddr)
 	}
 

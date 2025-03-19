@@ -46,10 +46,10 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 			epochNum = c.rp.GetEpochNum(height)
 			epochStartHeight = c.rp.GetEpochHeight(epochNum)
 			var err error
-			if delegates, err = c.Delegates(height); err != nil {
+			if delegates, err = c.Delegates(height, prevHash); err != nil {
 				return nil, err
 			}
-			if proposers, err = c.Proposers(height); err != nil {
+			if proposers, err = c.Proposers(height, prevHash); err != nil {
 				return nil, err
 			}
 		}
@@ -109,8 +109,8 @@ func (c *roundCalculator) Proposer(height uint64, blockInterval time.Duration, r
 	return round.Proposer()
 }
 
-func (c *roundCalculator) IsDelegate(addr string, height uint64) bool {
-	delegates, err := c.Delegates(height)
+func (c *roundCalculator) IsDelegate(addr string, height uint64, prevHash []byte) bool {
+	delegates, err := c.Delegates(height, prevHash)
 	if err != nil {
 		return false
 	}
@@ -181,15 +181,15 @@ func (c *roundCalculator) roundInfo(
 }
 
 // Delegates returns list of delegates at given height
-func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
+func (c *roundCalculator) Delegates(height uint64, prevHash []byte) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
-	return c.delegatesByEpochFunc(epochNum)
+	return c.delegatesByEpochFunc(epochNum, prevHash)
 }
 
 // Proposers returns list of candidate proposers at given height
-func (c *roundCalculator) Proposers(height uint64) ([]string, error) {
+func (c *roundCalculator) Proposers(height uint64, prevHash []byte) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
-	return c.proposersByEpochFunc(epochNum)
+	return c.proposersByEpochFunc(epochNum, prevHash)
 }
 
 // NewRoundWithToleration starts new round with tolerated over time
@@ -232,10 +232,10 @@ func (c *roundCalculator) newRound(
 	if height != 0 {
 		epochNum = c.rp.GetEpochNum(height)
 		epochStartHeight = c.rp.GetEpochHeight(epochNum)
-		if delegates, err = c.Delegates(height); err != nil {
+		if delegates, err = c.Delegates(height, prevHash); err != nil {
 			return
 		}
-		if proposers, err = c.Proposers(height); err != nil {
+		if proposers, err = c.Proposers(height, prevHash); err != nil {
 			return
 		}
 		if roundNum, roundStartTime, err = c.roundInfo(height, blockInterval, now, toleratedOvertime); err != nil {
