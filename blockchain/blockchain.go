@@ -259,7 +259,12 @@ func (bc *blockchain) Start(ctx context.Context) error {
 		return err
 	}
 	bc.head = header
-	bc.bbf.Init(header.HashBlock())
+	headHash := header.HashBlock()
+	if tip == 0 {
+		headHash = bc.genesis.Hash()
+	}
+	bc.bbf.Init(headHash)
+	log.L().Debug("blockchain head at", zap.Uint64("height", tip), log.Hex("hash", headHash[:]))
 	return nil
 }
 
@@ -442,10 +447,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	defer bc.mu.RUnlock()
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
 	defer mintNewBlockTimer.End()
-	tipHeight, err := bc.dao.Height()
-	if err != nil {
-		return nil, err
-	}
+	tipHeight := bc.tipHeight()
 	newblockHeight := tipHeight + 1
 	ctx, err := bc.context(context.Background(), tipHeight)
 	if err != nil {
@@ -453,7 +455,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	}
 	tip := protocol.MustGetBlockchainCtx(ctx).Tip
 	// create a new block
-	log.L().Debug("Produce a new block.", zap.Uint64("height", newblockHeight), zap.Time("timestamp", timestamp))
+	log.L().Debug("Produce a new block.", zap.Uint64("height", newblockHeight), zap.Time("timestamp", timestamp), log.Hex("prevHash", tip.Hash[:]))
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
@@ -495,9 +497,16 @@ func (bc *blockchain) Fork(hash hash.Hash256) (Blockchain, error) {
 	}
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
+	var header *block.Header
 	headBlk := bc.bbf.Block(hash)
 	if headBlk == nil {
-		return nil, errors.Errorf("block %x is not in the proposal pool, tip height %d", hash, bc.tipHeight())
+		daoHeader, err := bc.dao.Header(hash)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get block %x to fork", hash)
+		}
+		header = daoHeader
+	} else {
+		header = &headBlk.Header
 	}
 	fork := &blockchain{
 		dao:            bc.dao,
@@ -509,7 +518,7 @@ func (bc *blockchain) Fork(hash hash.Hash256) (Blockchain, error) {
 		pubSubManager:  bc.pubSubManager,
 		timerFactory:   bc.timerFactory,
 		bbf:            bc.bbf,
-		head:           &headBlk.Header,
+		head:           header,
 	}
 	return fork, nil
 }
@@ -600,7 +609,7 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 }
 
 func (bc *blockchain) draftBlockByHeight(height uint64) *block.Block {
-	for blk := bc.bbf.Block(bc.tipHash()); blk != nil && blk.Height() > height; blk = bc.bbf.Block(blk.PrevHash()) {
+	for blk := bc.bbf.Block(bc.tipHash()); blk != nil && blk.Height() >= height; blk = bc.bbf.Block(blk.PrevHash()) {
 		if blk.Height() == height {
 			return blk
 		}
@@ -631,5 +640,8 @@ func (bc *blockchain) tipHeight() uint64 {
 func (bc *blockchain) tipHash() hash.Hash256 {
 	bc.headLocker.Lock()
 	defer bc.headLocker.Unlock()
+	if bc.head.Height() == 0 {
+		return bc.genesis.Hash()
+	}
 	return bc.head.HashBlock()
 }
