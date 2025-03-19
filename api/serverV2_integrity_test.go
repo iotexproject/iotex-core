@@ -325,7 +325,7 @@ func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, block
 		cfg.chain,
 		cfg.genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),

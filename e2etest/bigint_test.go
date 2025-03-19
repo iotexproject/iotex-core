@@ -106,7 +106,7 @@ func prepareBlockchain(ctx context.Context, _executor string, r *require.Asserti
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			genericValidator,

@@ -20,12 +20,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
@@ -98,6 +98,8 @@ type (
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
 		ValidateBlock(*block.Block, ...BlockValidationOption) error
+		// Fork returns a new blockchain instance with the given tip hash
+		Fork(hash.Hash256) (Blockchain, error)
 
 		// AddSubscriber make you listen to every single produced block
 		AddSubscriber(BlockCreationSubscriber) error
@@ -108,8 +110,12 @@ type (
 
 	// BlockBuilderFactory is the factory interface of block builder
 	BlockBuilderFactory interface {
-		// NewBlockBuilder creates block builder
-		NewBlockBuilder(context.Context, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
+		Mint(ctx context.Context) (*block.Block, error)
+		ReceiveBlock(*block.Block) error
+		Init(hash.Hash256)
+		AddProposal(*block.Block) error
+		Block(hash.Hash256) *block.Block
+		BlockByHeight(uint64) *block.Block
 	}
 
 	// blockchain implements the Blockchain interface
@@ -126,6 +132,9 @@ type (
 
 		// used by account-based model
 		bbf BlockBuilderFactory
+		// head is the head block of the blockchain
+		head       *block.Header
+		headLocker sync.RWMutex
 	}
 )
 
@@ -208,7 +217,7 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 	}
 	chain.lifecycle.Add(chain.dao)
 	chain.lifecycle.Add(chain.pubSubManager)
-
+	chain.pubSubManager.AddBlockListener(chain.bbf)
 	return chain
 }
 
@@ -238,7 +247,20 @@ func (bc *blockchain) Start(ctx context.Context) error {
 				EvmNetworkID: bc.EvmNetworkID(),
 			},
 		), bc.genesis))
-	return bc.lifecycle.OnStart(ctx)
+	if err := bc.lifecycle.OnStart(ctx); err != nil {
+		return err
+	}
+	tip, err := bc.dao.Height()
+	if err != nil {
+		return err
+	}
+	header, err := bc.dao.HeaderByHeight(tip)
+	if err != nil {
+		return err
+	}
+	bc.head = header
+	bc.bbf.Init(header.HashBlock())
+	return nil
 }
 
 // Stop stops the blockchain.
@@ -249,7 +271,20 @@ func (bc *blockchain) Stop(ctx context.Context) error {
 }
 
 func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) {
-	return bc.dao.HeaderByHeight(height)
+	header, err := bc.dao.HeaderByHeight(height)
+	switch errors.Cause(err) {
+	case nil:
+		return header, nil
+	case db.ErrNotExist:
+		bc.mu.RLock()
+		defer bc.mu.RUnlock()
+		if blk := bc.draftBlockByHeight(height); blk != nil {
+			return &blk.Header, nil
+		}
+		return nil, err
+	default:
+		return nil, err
+	}
 }
 
 func (bc *blockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) {
@@ -258,24 +293,12 @@ func (bc *blockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) 
 
 // TipHash returns tip block's hash
 func (bc *blockchain) TipHash() hash.Hash256 {
-	tipHeight, err := bc.dao.Height()
-	if err != nil {
-		return hash.ZeroHash256
-	}
-	tipHash, err := bc.dao.GetBlockHash(tipHeight)
-	if err != nil {
-		return hash.ZeroHash256
-	}
-	return tipHash
+	return bc.tipHash()
 }
 
 // TipHeight returns tip block's height
 func (bc *blockchain) TipHeight() uint64 {
-	tipHeight, err := bc.dao.Height()
-	if err != nil {
-		log.L().Panic("failed to get tip height", zap.Error(err))
-	}
-	return tipHeight
+	return bc.tipHeight()
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
@@ -287,10 +310,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	if blk == nil {
 		return ErrInvalidBlock
 	}
-	tipHeight, err := bc.dao.Height()
-	if err != nil {
-		return err
-	}
+	tipHeight := bc.tipHeight()
 	tip, err := bc.tipInfo(tipHeight)
 	if err != nil {
 		return err
@@ -355,7 +375,14 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	if bc.blockValidator == nil {
 		return nil
 	}
-	return bc.blockValidator.Validate(ctx, blk)
+	err = bc.blockValidator.Validate(ctx, blk)
+	if err != nil {
+		return err
+	}
+	if err = bc.bbf.AddProposal(blk); err != nil {
+		log.L().Warn("failed to add block to proposal pool", zap.Error(err), zap.Uint64("height", blk.Height()), zap.Time("timestamp", blk.Timestamp()))
+	}
+	return nil
 }
 
 func (bc *blockchain) Context(ctx context.Context) (context.Context, error) {
@@ -392,7 +419,10 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 	if err != nil {
 		return nil, err
 	}
+	return bc.contextWithTipInfo(ctx, tip), nil
+}
 
+func (bc *blockchain) contextWithTipInfo(ctx context.Context, tip *protocol.TipInfo) context.Context {
 	ctx = genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
 			ctx,
@@ -404,7 +434,7 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 		),
 		bc.genesis,
 	)
-	return protocol.WithFeatureWithHeightCtx(ctx), nil
+	return protocol.WithFeatureWithHeightCtx(ctx)
 }
 
 func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
@@ -422,30 +452,23 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 		return nil, err
 	}
 	tip := protocol.MustGetBlockchainCtx(ctx).Tip
+	// create a new block
+	log.L().Debug("Produce a new block.", zap.Uint64("height", newblockHeight), zap.Time("timestamp", timestamp))
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
-	minterPrivateKey := bc.config.ProducerPrivateKey()
-	blockBuilder, err := bc.bbf.NewBlockBuilder(
-		ctx,
-		func(elp action.Envelope) (*action.SealedEnvelope, error) {
-			return action.Sign(elp, minterPrivateKey)
-		},
-	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", newblockHeight)
-	}
-	blk, err := blockBuilder.SignAndBuild(minterPrivateKey)
+	blk, err := bc.bbf.Mint(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}
 	_blockMtc.WithLabelValues("MintGas").Set(float64(blk.GasUsed()))
 	_blockMtc.WithLabelValues("MintActions").Set(float64(len(blk.Actions)))
-	return &blk, nil
+	return blk, nil
 }
 
 // CommitBlock validates and appends a block to the chain
 func (bc *blockchain) CommitBlock(blk *block.Block) error {
+	log.L().Debug("Commit a block.", zap.Uint64("height", blk.Height()), zap.String("ioAddr", bc.config.ProducerAddress().String()))
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 	timer := bc.timerFactory.NewTimer("CommitBlock")
@@ -464,6 +487,31 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 
 func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 	return bc.pubSubManager.RemoveBlockListener(s)
+}
+
+func (bc *blockchain) Fork(hash hash.Hash256) (Blockchain, error) {
+	if bc.tipHash() == hash {
+		return bc, nil
+	}
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+	headBlk := bc.bbf.Block(hash)
+	if headBlk == nil {
+		return nil, errors.Errorf("block %x is not in the proposal pool, tip height %d", hash, bc.tipHeight())
+	}
+	fork := &blockchain{
+		dao:            bc.dao,
+		config:         bc.config,
+		genesis:        bc.genesis,
+		blockValidator: bc.blockValidator,
+		lifecycle:      bc.lifecycle,
+		clk:            bc.clk,
+		pubSubManager:  bc.pubSubManager,
+		timerFactory:   bc.timerFactory,
+		bbf:            bc.bbf,
+		head:           &headBlk.Header,
+	}
+	return fork, nil
 }
 
 //======================================
@@ -486,11 +534,10 @@ func (bc *blockchain) tipInfo(tipHeight uint64) (*protocol.TipInfo, error) {
 			Timestamp: time.Unix(bc.genesis.Timestamp, 0),
 		}, nil
 	}
-	header, err := bc.dao.HeaderByHeight(tipHeight)
+	header, err := bc.blockByHeight(tipHeight)
 	if err != nil {
 		return nil, err
 	}
-
 	return &protocol.TipInfo{
 		Height:        tipHeight,
 		GasUsed:       header.GasUsed(),
@@ -526,6 +573,9 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	default:
 		return err
 	}
+	bc.headLocker.Lock()
+	bc.head = &blk.Header
+	bc.headLocker.Unlock()
 	blkHash := blk.HashBlock()
 	if blk.Height()%100 == 0 {
 		blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
@@ -547,4 +597,39 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 		return
 	}
 	bc.pubSubManager.SendBlockToSubscribers(blk)
+}
+
+func (bc *blockchain) draftBlockByHeight(height uint64) *block.Block {
+	for blk := bc.bbf.Block(bc.tipHash()); blk != nil && blk.Height() > height; blk = bc.bbf.Block(blk.PrevHash()) {
+		if blk.Height() == height {
+			return blk
+		}
+	}
+	return nil
+}
+
+func (bc *blockchain) blockByHeight(height uint64) (*block.Block, error) {
+	daoHeight, err := bc.dao.Height()
+	if err != nil {
+		return nil, err
+	}
+	if height > daoHeight {
+		if blk := bc.draftBlockByHeight(height); blk != nil {
+			return blk, nil
+		}
+		return nil, errors.Wrapf(db.ErrNotExist, "block %d not found", height)
+	}
+	return bc.dao.GetBlockByHeight(height)
+}
+
+func (bc *blockchain) tipHeight() uint64 {
+	bc.headLocker.RLock()
+	defer bc.headLocker.RUnlock()
+	return bc.head.Height()
+}
+
+func (bc *blockchain) tipHash() hash.Hash256 {
+	bc.headLocker.Lock()
+	defer bc.headLocker.Unlock()
+	return bc.head.HashBlock()
 }

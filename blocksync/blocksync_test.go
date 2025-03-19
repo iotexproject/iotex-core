@@ -208,7 +208,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
 	require.NoError(chain.Start(ctx))
@@ -274,7 +274,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap1),
+		factory.NewMinter(sf, ap1, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap1)),
 	)
 	require.NotNil(chain1)
@@ -301,7 +301,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao2,
-		factory.NewMinter(sf2, ap2),
+		factory.NewMinter(sf2, ap2, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(sf2, ap2)),
 	)
 	require.NotNil(chain2)
@@ -376,7 +376,7 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap1),
+		factory.NewMinter(sf, ap1, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap1)),
 	)
 	require.NoError(chain1.Start(ctx))
@@ -402,7 +402,7 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao2,
-		factory.NewMinter(sf2, ap2),
+		factory.NewMinter(sf2, ap2, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(sf2, ap2)),
 	)
 	require.NoError(chain2.Start(ctx))
@@ -470,7 +470,7 @@ func TestBlockSyncerSync(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
 	require.NoError(chain.Start(ctx))
@@ -523,7 +523,7 @@ func newTestConfig() (testConfig, error) {
 
 	cfg := testConfig{
 		BlockSync: DefaultConfig,
-		Genesis:   genesis.TestDefault(),
+		Genesis:   genesis.Default,
 		Chain:     blockchain.DefaultConfig,
 		ActPool:   actpool.DefaultConfig,
 	}

@@ -514,7 +514,7 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(builder.cs.factory))
 	}
 
-	var mintOpts []factory.MintOption
+	mintOpts := []factory.MintOption{factory.WithPrivateKeyOption(builder.cfg.Chain.ProducerPrivateKey())}
 	if builder.cfg.Consensus.Scheme == config.RollDPoSScheme {
 		mintOpts = append(mintOpts, factory.WithTimeoutOption(builder.cfg.Chain.MintTimeout))
 	}
@@ -785,7 +785,14 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 func (builder *Builder) buildBlockTimeCalculator() (err error) {
 	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
 	dao := builder.cs.BlockDAO()
-	builder.cs.blockTimeCalculator, err = blockutil.NewBlockTimeCalculator(consensusCfg.BlockInterval, builder.cs.Blockchain().TipHeight, func(height uint64) (time.Time, error) {
+	builder.cs.blockTimeCalculator, err = blockutil.NewBlockTimeCalculator(consensusCfg.BlockInterval, func() uint64 {
+		tip, err := dao.Height()
+		if err != nil {
+			log.L().Error("failed to get tip height", zap.Error(err))
+			return 0
+		}
+		return tip
+	}, func(height uint64) (time.Time, error) {
 		blk, err := dao.GetBlockByHeight(height)
 		if err != nil {
 			return time.Time{}, err

@@ -55,7 +55,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
 	require.NoError(chain.Start(ctx))
@@ -149,7 +149,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 	)
 	require.NotNil(chain)
 	require.NoError(chain.Start(ctx))
