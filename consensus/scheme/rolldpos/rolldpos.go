@@ -12,7 +12,6 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -45,29 +44,6 @@ type (
 		Delay             time.Duration                `yaml:"delay"`
 		ConsensusDBPath   string                       `yaml:"consensusDBPath"`
 	}
-
-	// ChainManager defines the blockchain interface
-	ChainManager interface {
-		// BlockProposeTime return propose time by height
-		BlockProposeTime(uint64) (time.Time, error)
-		// BlockCommitTime return commit time by height
-		BlockCommitTime(uint64) (time.Time, error)
-		// MintNewBlock creates a new block with given actions
-		// Note: the coinbase transfer will be added to the given transfers when minting a new block
-		MintNewBlock(timestamp time.Time) (*block.Block, error)
-		// CommitBlock validates and appends a block to the chain
-		CommitBlock(blk *block.Block) error
-		// ValidateBlock validates a new block before adding it to the blockchain
-		ValidateBlock(blk *block.Block) error
-		// TipHeight returns tip block's height
-		Tip() (uint64, hash.Hash256)
-		// ChainAddress returns chain address on parent chain, the root chain return empty.
-		ChainAddress() string
-	}
-
-	chainManager struct {
-		bc blockchain.Blockchain
-	}
 )
 
 // DefaultConfig is the default config
@@ -84,65 +60,6 @@ var DefaultConfig = Config{
 	ToleratedOvertime: 2 * time.Second,
 	Delay:             5 * time.Second,
 	ConsensusDBPath:   "/var/data/consensus.db",
-}
-
-// NewChainManager creates a chain manager
-func NewChainManager(bc blockchain.Blockchain) ChainManager {
-	return &chainManager{
-		bc: bc,
-	}
-}
-
-// BlockProposeTime return propose time by height
-func (cm *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
-	if height == 0 {
-		return time.Unix(cm.bc.Genesis().Timestamp, 0), nil
-	}
-	header, err := cm.bc.BlockHeaderByHeight(height)
-	if err != nil {
-		return time.Time{}, errors.Wrapf(
-			err, "error when getting the block at height: %d",
-			height,
-		)
-	}
-	return header.Timestamp(), nil
-}
-
-// BlockCommitTime return commit time by height
-func (cm *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
-	footer, err := cm.bc.BlockFooterByHeight(height)
-	if err != nil {
-		return time.Time{}, errors.Wrapf(
-			err, "error when getting the block at height: %d",
-			height,
-		)
-	}
-	return footer.CommitTime(), nil
-}
-
-// MintNewBlock creates a new block with given actions
-func (cm *chainManager) MintNewBlock(timestamp time.Time) (*block.Block, error) {
-	return cm.bc.MintNewBlock(timestamp)
-}
-
-// CommitBlock validates and appends a block to the chain
-func (cm *chainManager) CommitBlock(blk *block.Block) error {
-	return cm.bc.CommitBlock(blk)
-}
-
-// ValidateBlock validates a new block before adding it to the blockchain
-func (cm *chainManager) ValidateBlock(blk *block.Block) error {
-	return cm.bc.ValidateBlock(blk)
-}
-
-// TipHeight returns tip block's height
-func (cm *chainManager) Tip() (uint64, hash.Hash256) {
-	return cm.bc.TipHeight(), cm.bc.TipHash()
-}
-
-// ChainAddress returns chain address on parent chain, the root chain return empty.
-func (cm *chainManager) ChainAddress() string {
-	return cm.bc.ChainAddress()
 }
 
 // RollDPoS is Roll-DPoS consensus main entrance
