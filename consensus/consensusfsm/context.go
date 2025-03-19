@@ -34,6 +34,7 @@ type Context interface {
 	Prepare() error
 	IsDelegate() bool
 	Proposal() (interface{}, error)
+	PrepareNextProposal(any) error
 	WaitUntilRoundStart() time.Duration
 	PreCommitEndorsement() interface{}
 	NewProposalEndorsement(interface{}) (interface{}, error)
