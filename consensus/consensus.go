@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
-	"github.com/iotexproject/iotex-core/v2/state/factory"
 )
 
 // Consensus is the interface for handling IotxConsensus view change.
@@ -50,6 +49,7 @@ type optionParams struct {
 	broadcastHandler scheme.Broadcast
 	pp               poll.Protocol
 	rp               *rp.Protocol
+	bbf              rolldpos.BlockBuilderFactory
 }
 
 // Option sets Consensus construction parameter.
@@ -79,11 +79,19 @@ func WithPollProtocol(pp poll.Protocol) Option {
 	}
 }
 
+// WithBlockBuilderFactory is an option to set block builder factory
+func WithBlockBuilderFactory(bbf rolldpos.BlockBuilderFactory) Option {
+	return func(ops *optionParams) error {
+		ops.bbf = bbf
+		return nil
+	}
+}
+
 // NewConsensus creates a IotxConsensus struct.
 func NewConsensus(
 	cfg rolldpos.BuilderConfig,
 	bc blockchain.Blockchain,
-	sf factory.Factory,
+	sf rolldpos.StateReaderFactory,
 	opts ...Option,
 ) (Consensus, error) {
 	var ops optionParams
@@ -101,16 +109,13 @@ func NewConsensus(
 	var err error
 	switch cfg.Scheme {
 	case RollDPoSScheme:
-		chanMgr := rolldpos.NewChainManager(bc, sf)
+		chanMgr := rolldpos.NewChainManager(bc, sf, ops.bbf)
 		delegatesByEpochFunc := func(epochNum uint64, prevHash []byte) ([]string, error) {
 			fork, serr := chanMgr.Fork(hash.Hash256(prevHash))
 			if serr != nil {
 				return nil, serr
 			}
-			forkSF, serr := fork.StateReader()
-			if serr != nil {
-				return nil, serr
-			}
+			forkSF := fork.StateReader()
 			re := protocol.NewRegistry()
 			if err := ops.rp.Register(re); err != nil {
 				return nil, err
@@ -120,7 +125,7 @@ func NewConsensus(
 				cfg.Genesis,
 			)
 			ctx = protocol.WithFeatureWithHeightCtx(ctx)
-			tipHeight, _ := fork.Tip()
+			tipHeight := fork.TipHeight()
 			tipEpochNum := ops.rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList
 			var err error

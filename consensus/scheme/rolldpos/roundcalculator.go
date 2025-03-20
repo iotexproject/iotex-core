@@ -81,7 +81,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 			return nil, err
 		}
 	}
-	_, prevHash := c.chain.Tip()
+	prevHash := c.chain.TipHash()
 	return &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
@@ -188,14 +188,14 @@ func (c *roundCalculator) roundInfo(
 // Delegates returns list of delegates at given height
 func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
-	_, prevHash := c.chain.Tip()
+	prevHash := c.chain.TipHash()
 	return c.delegatesByEpochFunc(epochNum, prevHash[:])
 }
 
 // Proposers returns list of candidate proposers at given height
 func (c *roundCalculator) Proposers(height uint64) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
-	_, prevHash := c.chain.Tip()
+	prevHash := c.chain.TipHash()
 	return c.proposersByEpochFunc(epochNum, prevHash[:])
 }
 
@@ -254,7 +254,7 @@ func (c *roundCalculator) newRound(
 			return nil, err
 		}
 	}
-	_, prevHash := c.chain.Tip()
+	prevHash := c.chain.TipHash()
 	round = &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,

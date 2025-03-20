@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -174,6 +175,9 @@ func NewRollDPoSCtx(
 }
 
 func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
+	if err := ctx.chain.Start(c); err != nil {
+		return errors.Wrap(err, "Error when starting the chain")
+	}
 	var eManager *endorsementManager
 	if ctx.eManagerDB != nil {
 		if err := ctx.eManagerDB.Start(c); err != nil {
@@ -337,7 +341,7 @@ func (ctx *rollDPoSCtx) Logger() *zap.Logger {
 func (ctx *rollDPoSCtx) Prepare() error {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
-	tipHeight, _ := ctx.chain.Tip()
+	tipHeight := ctx.chain.TipHeight()
 	height := tipHeight + 1
 	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.BlockInterval(height), ctx.clock.Now(), ctx.toleratedOvertime)
 	if err != nil {
@@ -413,8 +417,15 @@ func (ctx *rollDPoSCtx) PrepareNextProposal(msg any) error {
 		return nil
 	}
 	ctx.logger().Debug("prepare next proposal", log.Hex("prevHash", prevHash[:]), zap.Uint64("height", ctx.round.height+1), zap.Time("timestamp", startTime), zap.String("ioAddr", ctx.encodedAddr), zap.String("nextproposer", nextProposer))
+	mintCtx := protocol.WithConsensusRoundCtx(context.Background(), protocol.ConsensusRoundCtx{
+		Height:          height,
+		Round:           0,
+		StartTime:       startTime,
+		EncodedProposer: nextProposer,
+		PrevHash:        prevHash,
+	})
 	go func() {
-		blk, err := fork.MintNewBlock(startTime)
+		blk, err := fork.MintNewBlock(mintCtx)
 		if err != nil {
 			ctx.logger().Error("failed to mint new block", zap.Error(err))
 			return
@@ -681,7 +692,14 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 	blk := ctx.round.CachedMintedBlock()
 	if blk == nil {
 		// in case that there is no cached block in eManagerDB, it mints a new block.
-		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime())
+		mintCtx := protocol.WithConsensusRoundCtx(context.Background(), protocol.ConsensusRoundCtx{
+			Height:          ctx.round.Height(),
+			Round:           ctx.round.Number(),
+			StartTime:       ctx.round.StartTime(),
+			EncodedProposer: ctx.encodedAddr,
+			PrevHash:        ctx.round.prevHash,
+		})
+		blk, err = ctx.chain.MintNewBlock(mintCtx)
 		if err != nil {
 			return nil, err
 		}

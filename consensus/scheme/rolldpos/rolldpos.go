@@ -199,7 +199,7 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 // Metrics returns RollDPoS consensus metrics
 func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
-	height, _ := r.ctx.Chain().Tip()
+	height := r.ctx.Chain().TipHeight()
 	round, err := r.ctx.RoundCalculator().NewRound(height+1, r.ctx.BlockInterval(height), r.ctx.Clock().Now(), nil)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating round")

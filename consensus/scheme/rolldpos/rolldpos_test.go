@@ -79,7 +79,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(builderCfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl))).
+			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -96,7 +96,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(builderCfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl))).
+			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -117,7 +117,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(builderCfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl))).
+			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -201,7 +201,10 @@ func TestValidateBlockFooter(t *testing.T) {
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
-	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
+	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).AnyTimes()
+	bc.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+	bc.EXPECT().TipHeight().Return(blockHeight).AnyTimes()
+	bc.EXPECT().BlockHeaderByHeight(blockHeight).Return(&block.Header{}, nil).Times(1)
 
 	sk1 := identityset.PrivateKey(1)
 	g := genesis.TestDefault()
@@ -217,8 +220,10 @@ func TestValidateBlockFooter(t *testing.T) {
 		Genesis:            g,
 		SystemActive:       true,
 	}
-	bc.EXPECT().Genesis().Return(g).Times(5)
+	builderCfg.Consensus.ConsensusDBPath = ""
+	bc.EXPECT().Genesis().Return(g).AnyTimes()
 	sf := mock_factory.NewMockFactory(ctrl)
+	sf.EXPECT().StateReaderAt(gomock.Any()).Return(nil, nil).AnyTimes()
 	rp := rolldpos.NewProtocol(
 		g.NumCandidateDelegates,
 		g.NumDelegates,
@@ -236,7 +241,7 @@ func TestValidateBlockFooter(t *testing.T) {
 		SetConfig(builderCfg).
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetChainManager(NewChainManager(bc, sf)).
+		SetChainManager(NewChainManager(bc, sf, &dummyBlockBuildFactory{})).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
@@ -247,6 +252,7 @@ func TestValidateBlockFooter(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 	require.NotNil(t, r)
+	require.NoError(t, r.Start(context.Background()))
 
 	// all right
 	blk := makeBlock(t, 1, 4, false, 9)
@@ -328,7 +334,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		SetConfig(builderCfg).
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetChainManager(NewChainManager(bc, sf)).
+		SetChainManager(NewChainManager(bc, sf, &dummyBlockBuildFactory{})).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
@@ -490,7 +496,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetAddr(chainAddrs[i].encodedAddr).
 				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(builderCfg).
-				SetChainManager(NewChainManager(chain, sf)).
+				SetChainManager(NewChainManager(chain, sf, &dummyBlockBuildFactory{})).
 				SetBroadcast(p2p.Broadcast).
 				SetDelegatesByEpochFunc(delegatesByEpochFunc).
 				SetProposersByEpochFunc(delegatesByEpochFunc).
@@ -738,4 +744,21 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}
 	})
+}
+
+type dummyBlockBuildFactory struct{}
+
+func (d *dummyBlockBuildFactory) Mint(ctx context.Context) (*block.Block, error) {
+	return &block.Block{}, nil
+}
+
+func (d *dummyBlockBuildFactory) ReceiveBlock(*block.Block) error {
+	return nil
+}
+func (d *dummyBlockBuildFactory) Init(hash.Hash256) {}
+func (d *dummyBlockBuildFactory) AddProposal(*block.Block) error {
+	return nil
+}
+func (d *dummyBlockBuildFactory) Block(hash.Hash256) *block.Block {
+	return &block.Block{}
 }
