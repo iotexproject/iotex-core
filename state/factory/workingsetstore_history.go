@@ -219,13 +219,14 @@ func (store *erigonStore) commit(ctx context.Context) error {
 }
 
 func (store *erigonStore) prune(from, to uint64) error {
-	if to%5 > 0 {
-		return nil
-	}
 	s := stagedsync.PruneState{ID: stages.Execution, ForwardProgress: to}
 	num := to - from
 	cfg := stagedsync.StageExecuteBlocksCfg(nil,
-		prune.Mode{History: prune.Distance(num)},
+		prune.Mode{
+			History:    prune.Distance(num),
+			Receipts:   prune.Distance(num),
+			CallTraces: prune.Distance(num),
+		},
 		0, nil, nil, nil, nil, nil, false, false, false, datadir.Dirs{}, nil, nil, nil, ethconfig.Sync{}, nil, nil)
 	err := stagedsync.PruneExecutionStage(&s, store.tx.(kv.RwTx), cfg, context.Background(), false)
 	if err != nil {
