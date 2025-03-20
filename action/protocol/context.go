@@ -35,6 +35,8 @@ type (
 
 	vmConfigContextKey struct{}
 
+	consensusRoundContextKey struct{}
+
 	// TipInfo contains the tip block information
 	TipInfo struct {
 		Height        uint64
@@ -54,6 +56,10 @@ type (
 		ChainID uint32
 		// EvmNetworkID is the EVM network ID
 		EvmNetworkID uint32
+		// GetBlockHash is the function to get block hash by height
+		GetBlockHash func(uint64) (hash.Hash256, error)
+		// GetBlockTime is the function to get block time by height
+		GetBlockTime func(uint64) (time.Time, error)
 	}
 
 	// BlockCtx provides block auxiliary information.
@@ -161,6 +167,14 @@ type (
 		CalculateProbationList   CheckFunc
 		LoadCandidatesLegacy     CheckFunc
 		CandCenterHasAlias       CheckFunc
+	}
+
+	ConsensusRoundCtx struct {
+		Height          uint64
+		Round           uint32
+		StartTime       time.Time
+		EncodedProposer string
+		PrevHash        hash.Hash256
 	}
 )
 
@@ -394,4 +408,16 @@ func WithVMConfigCtx(ctx context.Context, vmConfig vm.Config) context.Context {
 func GetVMConfigCtx(ctx context.Context) (vm.Config, bool) {
 	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
 	return cfg, ok
+}
+
+func WithConsensusRoundCtx(ctx context.Context, round ConsensusRoundCtx) context.Context {
+	return context.WithValue(ctx, consensusRoundContextKey{}, round)
+}
+
+func MustGetConsensusRoundCtx(ctx context.Context) ConsensusRoundCtx {
+	round, ok := ctx.Value(consensusRoundContextKey{}).(ConsensusRoundCtx)
+	if !ok {
+		log.S().Panic("Miss consensus round context")
+	}
+	return round
 }

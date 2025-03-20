@@ -501,11 +501,12 @@ func TestCreateBlockchain(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, fakeGetBlockTime)
 	require.NoError(ep.Register(registry))
@@ -557,11 +558,12 @@ func TestGetBlockHash(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, fakeGetBlockTime)
 	require.NoError(ep.Register(registry))
@@ -722,11 +724,12 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, fakeGetBlockTime)
 	require.NoError(t, ep.Register(registry))
@@ -792,11 +795,12 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
@@ -935,11 +939,12 @@ func createChain(cfg config.Config, inMem bool) (blockchain.Blockchain, factory.
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder().SetBlockInterval(func(height uint64) time.Duration { return time.Second })),
 	)
 	btc, err := blockutil.NewBlockTimeCalculator(func(uint64) time.Duration { return time.Second },
 		bc.TipHeight, func(height uint64) (time.Time, error) {
@@ -1480,11 +1485,12 @@ func TestConstantinople(t *testing.T) {
 			cfg.Chain,
 			cfg.Genesis,
 			dao,
-			factory.NewMinter(sf, ap),
+			factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 			blockchain.BlockValidatorOption(block.NewValidator(
 				sf,
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
+			blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 		)
 		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, fakeGetBlockTime)
 		require.NoError(ep.Register(registry))
@@ -1578,7 +1584,7 @@ func TestConstantinople(t *testing.T) {
 
 			blkHash, err := dao.GetBlockHash(v.height)
 			require.NoError(err)
-			require.Equal(v.blkHash, hex.EncodeToString(blkHash[:]))
+			require.Equal(v.blkHash, hex.EncodeToString(blkHash[:]), "height %d", v.height)
 
 			if v.topic != nil {
 				funcSig := hash.Hash256b([]byte("Set(uint256)"))
@@ -1690,6 +1696,7 @@ func TestConstantinople(t *testing.T) {
 	cfg.Genesis.BeringBlockHeight = 8
 	cfg.Genesis.GreenlandBlockHeight = 9
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
+	block.LoadGenesisHash(&cfg.Genesis)
 
 	t.Run("test Constantinople contract", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)
@@ -1734,11 +1741,12 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			cfg.Chain,
 			cfg.Genesis,
 			dao,
-			factory.NewMinter(sf, ap),
+			factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 			blockchain.BlockValidatorOption(block.NewValidator(
 				sf,
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
+			blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 		)
 		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, fakeGetBlockTime)
 		require.NoError(ep.Register(registry))
@@ -1763,11 +1771,12 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			cfg.Chain,
 			cfg.Genesis,
 			dao,
-			factory.NewMinter(sf, ap),
+			factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 			blockchain.BlockValidatorOption(block.NewValidator(
 				sf,
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
+			blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 		)
 		require.NoError(bc.Start(ctx))
 		defer func() {
@@ -2044,8 +2053,9 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(sf),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
@@ -2087,7 +2097,7 @@ func TestBlockchain_AccountState(t *testing.T) {
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
-	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
+	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())), blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	defer func() {
@@ -2119,7 +2129,7 @@ func TestNewAccountAction(t *testing.T) {
 	store, err := filedao.NewFileDAOInMemForTest()
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
-	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
+	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())), blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	defer func() {
@@ -2164,7 +2174,7 @@ func TestNewAccountAction(t *testing.T) {
 		store, err := filedao.NewFileDAOInMemForTest()
 		require.NoError(err)
 		dao1 := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf1}, cfg.DB.MaxCacheSize)
-		bc1 := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao1, factory.NewMinter(sf1, ap))
+		bc1 := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao1, factory.NewMinter(sf1, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())), blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()))
 		require.NoError(bc1.Start(ctx))
 		require.NotNil(bc1)
 		defer func() {
@@ -2233,7 +2243,7 @@ func TestBlocks(t *testing.T) {
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, dbcfg.MaxCacheSize)
 
 	// Create a blockchain from scratch
-	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
+	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())), blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -2311,11 +2321,12 @@ func TestActions(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
@@ -2371,7 +2382,7 @@ func TestBlockchain_AddRemoveSubscriber(t *testing.T) {
 	store, err := filedao.NewFileDAOInMemForTest()
 	req.NoError(err)
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, cfg.DB.MaxCacheSize)
-	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
+	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())), blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()))
 	// mock
 	ctrl := gomock.NewController(t)
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
@@ -2606,11 +2617,12 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	require.NotNil(bc)
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, fakeGetBlockTime)

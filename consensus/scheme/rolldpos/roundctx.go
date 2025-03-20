@@ -11,8 +11,11 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/endorsement"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 // ErrInsufficientEndorsements represents the error that not enough endorsements
@@ -36,6 +39,7 @@ type roundCtx struct {
 
 	height             uint64
 	roundNum           uint32
+	prevHash           hash.Hash256
 	proposer           string
 	roundStartTime     time.Time
 	nextRoundStartTime time.Time
@@ -52,6 +56,7 @@ func (ctx *roundCtx) Log(l *zap.Logger) *zap.Logger {
 		zap.Uint64("epoch", ctx.epochNum),
 		zap.Uint32("round", ctx.roundNum),
 		zap.String("proposer", ctx.proposer),
+		log.Hex("prevHash", ctx.prevHash[:]),
 	)
 }
 
@@ -85,6 +90,10 @@ func (ctx *roundCtx) Height() uint64 {
 
 func (ctx *roundCtx) Number() uint32 {
 	return ctx.roundNum
+}
+
+func (ctx *roundCtx) PrevHash() hash.Hash256 {
+	return ctx.prevHash
 }
 
 func (ctx *roundCtx) Proposer() string {

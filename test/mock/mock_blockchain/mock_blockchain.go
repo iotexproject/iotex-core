@@ -11,7 +11,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
-	action "github.com/iotexproject/iotex-core/v2/action"
 	blockchain "github.com/iotexproject/iotex-core/v2/blockchain"
 	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
 	genesis "github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -170,6 +169,21 @@ func (mr *MockBlockchainMockRecorder) EvmNetworkID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EvmNetworkID", reflect.TypeOf((*MockBlockchain)(nil).EvmNetworkID))
 }
 
+// Fork mocks base method.
+func (m *MockBlockchain) Fork(arg0 hash.Hash256) (blockchain.Blockchain, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Fork", arg0)
+	ret0, _ := ret[0].(blockchain.Blockchain)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Fork indicates an expected call of Fork.
+func (mr *MockBlockchainMockRecorder) Fork(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fork", reflect.TypeOf((*MockBlockchain)(nil).Fork), arg0)
+}
+
 // Genesis mocks base method.
 func (m *MockBlockchain) Genesis() genesis.Genesis {
 	m.ctrl.T.Helper()
@@ -311,17 +325,85 @@ func (m *MockBlockBuilderFactory) EXPECT() *MockBlockBuilderFactoryMockRecorder 
 	return m.recorder
 }
 
-// NewBlockBuilder mocks base method.
-func (m *MockBlockBuilderFactory) NewBlockBuilder(arg0 context.Context, arg1 func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error) {
+// AddProposal mocks base method.
+func (m *MockBlockBuilderFactory) AddProposal(arg0 *block.Block) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewBlockBuilder", arg0, arg1)
-	ret0, _ := ret[0].(*block.Builder)
+	ret := m.ctrl.Call(m, "AddProposal", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddProposal indicates an expected call of AddProposal.
+func (mr *MockBlockBuilderFactoryMockRecorder) AddProposal(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddProposal", reflect.TypeOf((*MockBlockBuilderFactory)(nil).AddProposal), arg0)
+}
+
+// Block mocks base method.
+func (m *MockBlockBuilderFactory) Block(arg0 hash.Hash256) *block.Block {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Block", arg0)
+	ret0, _ := ret[0].(*block.Block)
+	return ret0
+}
+
+// Block indicates an expected call of Block.
+func (mr *MockBlockBuilderFactoryMockRecorder) Block(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Block", reflect.TypeOf((*MockBlockBuilderFactory)(nil).Block), arg0)
+}
+
+// BlockByHeight mocks base method.
+func (m *MockBlockBuilderFactory) BlockByHeight(arg0 uint64) *block.Block {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockByHeight", arg0)
+	ret0, _ := ret[0].(*block.Block)
+	return ret0
+}
+
+// BlockByHeight indicates an expected call of BlockByHeight.
+func (mr *MockBlockBuilderFactoryMockRecorder) BlockByHeight(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByHeight", reflect.TypeOf((*MockBlockBuilderFactory)(nil).BlockByHeight), arg0)
+}
+
+// Init mocks base method.
+func (m *MockBlockBuilderFactory) Init(arg0 hash.Hash256) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Init", arg0)
+}
+
+// Init indicates an expected call of Init.
+func (mr *MockBlockBuilderFactoryMockRecorder) Init(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockBlockBuilderFactory)(nil).Init), arg0)
+}
+
+// Mint mocks base method.
+func (m *MockBlockBuilderFactory) Mint(ctx context.Context) (*block.Block, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Mint", ctx)
+	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewBlockBuilder indicates an expected call of NewBlockBuilder.
-func (mr *MockBlockBuilderFactoryMockRecorder) NewBlockBuilder(arg0, arg1 interface{}) *gomock.Call {
+// Mint indicates an expected call of Mint.
+func (mr *MockBlockBuilderFactoryMockRecorder) Mint(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBlockBuilder", reflect.TypeOf((*MockBlockBuilderFactory)(nil).NewBlockBuilder), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mint", reflect.TypeOf((*MockBlockBuilderFactory)(nil).Mint), ctx)
+}
+
+// ReceiveBlock mocks base method.
+func (m *MockBlockBuilderFactory) ReceiveBlock(arg0 *block.Block) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReceiveBlock", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReceiveBlock indicates an expected call of ReceiveBlock.
+func (mr *MockBlockBuilderFactoryMockRecorder) ReceiveBlock(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiveBlock", reflect.TypeOf((*MockBlockBuilderFactory)(nil).ReceiveBlock), arg0)
 }

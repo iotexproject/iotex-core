@@ -378,6 +378,10 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 	return sdb.protocolView.Read(name)
 }
 
+func (sdb *stateDB) StateReaderAt(header *block.Header) (protocol.StateReader, error) {
+	panic("implement me")
+}
+
 //======================================
 // private trie constructor functions
 //======================================

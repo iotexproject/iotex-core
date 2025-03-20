@@ -193,7 +193,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 		cfg,
 		g,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(sk)),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -227,7 +227,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
 	bc, sf, _, rp, pp := makeChain(t)
-	delegatesByEpoch := func(epochNum uint64) ([]string, error) {
+	delegatesByEpoch := func(epochNum uint64, _ []byte) ([]string, error) {
 		re := protocol.NewRegistry()
 		if err := rp.Register(re); err != nil {
 			return nil, err
@@ -265,7 +265,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 		return addrs, nil
 	}
 	return &roundCalculator{
-		NewChainManager(bc),
+		NewChainManager(bc, sf, &dummyBlockBuildFactory{}, testutil.DummyBlockTimeBuilder()),
 		true,
 		rp,
 		delegatesByEpoch,

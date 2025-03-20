@@ -93,11 +93,12 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		blkMemDao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas, func(u uint64) (time.Time, error) { return time.Time{}, nil })
 	require.NoError(t, ep.Register(registry))
@@ -164,11 +165,12 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 		cfg.Chain,
 		cfg.Genesis,
 		blkMemDao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas, func(u uint64) (time.Time, error) { return time.Time{}, nil })
 	require.NoError(t, ep.Register(registry))

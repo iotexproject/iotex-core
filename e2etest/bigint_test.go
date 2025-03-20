@@ -106,11 +106,12 @@ func prepareBlockchain(ctx context.Context, _executor string, r *require.Asserti
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			genericValidator,
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	r.NotNil(bc)
 	reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)

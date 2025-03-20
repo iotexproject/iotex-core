@@ -1984,11 +1984,12 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 		cfg.Chain,
 		cfg.Genesis,
 		dao,
-		factory.NewMinter(sf, ap),
+		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	// reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	// r.NoError(reward.Register(registry))

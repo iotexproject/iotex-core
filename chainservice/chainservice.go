@@ -71,19 +71,20 @@ type ChainService struct {
 	p2pAgent          p2p.Agent
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
-	indexer                  blockindex.Indexer
-	bfIndexer                blockindex.BloomFilterIndexer
-	candidateIndexer         *poll.CandidateIndexer
-	candBucketsIndexer       *staking.CandidatesBucketsIndexer
-	contractStakingIndexer   *contractstaking.Indexer
-	contractStakingIndexerV2 stakingindex.StakingIndexer
-	registry                 *protocol.Registry
-	nodeInfoManager          *nodeinfo.InfoManager
-	apiStats                 *nodestats.APILocalStats
-	blockTimeCalculator      *blockutil.BlockTimeCalculator
-	actionsync               *actsync.ActionSync
-	rateLimiters             cache.LRUCache
-	accRateLimitCfg          int
+	indexer                    blockindex.Indexer
+	bfIndexer                  blockindex.BloomFilterIndexer
+	candidateIndexer           *poll.CandidateIndexer
+	candBucketsIndexer         *staking.CandidatesBucketsIndexer
+	contractStakingIndexer     *contractstaking.Indexer
+	contractStakingIndexerV2   stakingindex.StakingIndexer
+	registry                   *protocol.Registry
+	nodeInfoManager            *nodeinfo.InfoManager
+	apiStats                   *nodestats.APILocalStats
+	blockTimeCalculatorBuilder *blockutil.BlockTimeCalculatorBuilder
+	blockBuildFactory          blockchain.BlockBuilderFactory
+	actionsync                 *actsync.ActionSync
+	rateLimiters               cache.LRUCache
+	accRateLimitCfg            int
 }
 
 // Start starts the server
@@ -258,7 +259,6 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, archive bool) (*api.ServerV
 		cs.bfIndexer,
 		cs.actpool,
 		cs.registry,
-		cs.blockTimeCalculator.CalculateBlockTime,
 		apiServerOptions...,
 	)
 	if err != nil {

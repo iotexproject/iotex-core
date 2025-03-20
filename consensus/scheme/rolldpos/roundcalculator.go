@@ -9,9 +9,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/endorsement"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 var errInvalidCurrentTime = errors.New("invalid current time")
@@ -77,6 +81,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 			return nil, err
 		}
 	}
+	prevHash := c.chain.TipHash()
 	return &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
@@ -86,6 +91,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 
 		height:             height,
 		roundNum:           roundNum,
+		prevHash:           hash.Hash256(prevHash),
 		proposer:           proposer,
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(blockInterval),
@@ -100,6 +106,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 func (c *roundCalculator) Proposer(height uint64, blockInterval time.Duration, roundStartTime time.Time) string {
 	round, err := c.newRound(height, blockInterval, roundStartTime, nil, 0)
 	if err != nil {
+		log.L().Warn("Failed to get proposer", zap.Error(err))
 		return ""
 	}
 
@@ -109,6 +116,7 @@ func (c *roundCalculator) Proposer(height uint64, blockInterval time.Duration, r
 func (c *roundCalculator) IsDelegate(addr string, height uint64) bool {
 	delegates, err := c.Delegates(height)
 	if err != nil {
+		log.L().Warn("Failed to get delegates", zap.Error(err))
 		return false
 	}
 	for _, d := range delegates {
@@ -180,13 +188,15 @@ func (c *roundCalculator) roundInfo(
 // Delegates returns list of delegates at given height
 func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
-	return c.delegatesByEpochFunc(epochNum)
+	prevHash := c.chain.TipHash()
+	return c.delegatesByEpochFunc(epochNum, prevHash[:])
 }
 
 // Proposers returns list of candidate proposers at given height
 func (c *roundCalculator) Proposers(height uint64) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
-	return c.proposersByEpochFunc(epochNum)
+	prevHash := c.chain.TipHash()
+	return c.proposersByEpochFunc(epochNum, prevHash[:])
 }
 
 // NewRoundWithToleration starts new round with tolerated over time
@@ -244,6 +254,7 @@ func (c *roundCalculator) newRound(
 			return nil, err
 		}
 	}
+	prevHash := c.chain.TipHash()
 	round = &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
@@ -253,6 +264,7 @@ func (c *roundCalculator) newRound(
 
 		height:             height,
 		roundNum:           roundNum,
+		prevHash:           hash.Hash256(prevHash),
 		proposer:           proposer,
 		eManager:           eManager,
 		roundStartTime:     roundStartTime,
@@ -282,4 +294,19 @@ func (c *roundCalculator) calculateProposer(
 	}
 	proposer = proposers[idx%numProposers]
 	return
+}
+
+func (c *roundCalculator) Fork(hash hash.Hash256) (*roundCalculator, error) {
+	fork, err := c.chain.Fork(hash)
+	if err != nil {
+		return nil, err
+	}
+	return &roundCalculator{
+		chain:                fork,
+		timeBasedRotation:    c.timeBasedRotation,
+		rp:                   c.rp,
+		delegatesByEpochFunc: c.delegatesByEpochFunc,
+		proposersByEpochFunc: c.proposersByEpochFunc,
+		beringHeight:         c.beringHeight,
+	}, nil
 }

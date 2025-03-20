@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -70,7 +71,7 @@ func init() {
 
 type (
 	// NodesSelectionByEpochFunc defines a function to select nodes
-	NodesSelectionByEpochFunc func(uint64) ([]string, error)
+	NodesSelectionByEpochFunc func(uint64, []byte) ([]string, error)
 
 	// RDPoSCtx is the context of RollDPoS
 	RDPoSCtx interface {
@@ -174,6 +175,9 @@ func NewRollDPoSCtx(
 }
 
 func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
+	if err := ctx.chain.Start(c); err != nil {
+		return errors.Wrap(err, "Error when starting the chain")
+	}
 	var eManager *endorsementManager
 	if ctx.eManagerDB != nil {
 		if err := ctx.eManagerDB.Start(c); err != nil {
@@ -221,7 +225,11 @@ func (ctx *rollDPoSCtx) CheckVoteEndorser(
 	if endorserAddr == nil {
 		return errors.New("failed to get address")
 	}
-	if !ctx.roundCalc.IsDelegate(endorserAddr.String(), height) {
+	roundCalc, err := ctx.roundCalc.Fork(ctx.round.prevHash)
+	if err != nil {
+		return errors.Wrapf(err, "failed to fork at block %d, hash %x", height, ctx.round.prevHash[:])
+	}
+	if !roundCalc.IsDelegate(endorserAddr.String(), height) {
 		return errors.Errorf("%s is not delegate of the corresponding round", endorserAddr)
 	}
 
@@ -247,7 +255,12 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 	if endorserAddr == nil {
 		return errors.New("failed to get address")
 	}
-	if proposer := ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), en.Timestamp()); proposer != endorserAddr.String() {
+	prevHash := proposal.block.PrevHash()
+	roundCalc, err := ctx.roundCalc.Fork(prevHash)
+	if err != nil {
+		return errors.Wrapf(err, "failed to fork at block %d, hash %x", proposal.block.Height(), prevHash[:])
+	}
+	if proposer := roundCalc.Proposer(height, ctx.BlockInterval(height), en.Timestamp()); proposer != endorserAddr.String() {
 		return errors.Errorf(
 			"%s is not proposer of the corresponding round, %s expected",
 			endorserAddr.String(),
@@ -255,14 +268,14 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 		)
 	}
 	proposerAddr := proposal.ProposerAddress()
-	if ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), proposal.block.Timestamp()) != proposerAddr {
+	if roundCalc.Proposer(height, ctx.BlockInterval(height), proposal.block.Timestamp()) != proposerAddr {
 		return errors.Errorf("%s is not proposer of the corresponding round", proposerAddr)
 	}
 	if !proposal.block.VerifySignature() {
 		return errors.Errorf("invalid block signature")
 	}
 	if proposerAddr != endorserAddr.String() {
-		round, err := ctx.roundCalc.NewRound(height, ctx.BlockInterval(height), en.Timestamp(), nil)
+		round, err := roundCalc.NewRound(height, ctx.BlockInterval(height), en.Timestamp(), nil)
 		if err != nil {
 			return err
 		}
@@ -328,7 +341,8 @@ func (ctx *rollDPoSCtx) Logger() *zap.Logger {
 func (ctx *rollDPoSCtx) Prepare() error {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
-	height := ctx.chain.TipHeight() + 1
+	tipHeight := ctx.chain.TipHeight()
+	height := tipHeight + 1
 	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.BlockInterval(height), ctx.clock.Now(), ctx.toleratedOvertime)
 	if err != nil {
 		return err
@@ -368,6 +382,57 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 		))
 	}
 	return ctx.mintNewBlock()
+}
+
+func (ctx *rollDPoSCtx) PrepareNextProposal(msg any) error {
+	// retrieve the block from the message
+	ecm, ok := msg.(*EndorsedConsensusMessage)
+	if !ok {
+		return errors.New("invalid endorsed block")
+	}
+	proposal, ok := ecm.Document().(*blockProposal)
+	if !ok {
+		return errors.New("invalid endorsed block")
+	}
+	var (
+		blk       = proposal.block
+		height    = blk.Height() + 1
+		interval  = ctx.BlockInterval(height)
+		startTime = blk.Timestamp().Add(interval)
+		prevHash  = blk.HashBlock()
+		err       error
+	)
+	ctx.logger().Debug("prepare next proposal", log.Hex("prevHash", prevHash[:]), zap.Uint64("height", height), zap.Time("timestamp", startTime), zap.String("ioAddr", ctx.encodedAddr))
+	fork, err := ctx.chain.Fork(prevHash)
+	if err != nil {
+		return errors.Wrapf(err, "failed to check fork at block %d, hash %x", blk.Height(), prevHash[:])
+	}
+	roundCalc, err := ctx.roundCalc.Fork(prevHash)
+	if err != nil {
+		return errors.Wrapf(err, "failed to fork at block %d, hash %x", blk.Height(), prevHash[:])
+	}
+	// check if the current node is the next proposer
+	nextProposer := roundCalc.Proposer(height, interval, startTime)
+	if ctx.encodedAddr != nextProposer {
+		return nil
+	}
+	ctx.logger().Debug("prepare next proposal", log.Hex("prevHash", prevHash[:]), zap.Uint64("height", ctx.round.height+1), zap.Time("timestamp", startTime), zap.String("ioAddr", ctx.encodedAddr), zap.String("nextproposer", nextProposer))
+	mintCtx := protocol.WithConsensusRoundCtx(context.Background(), protocol.ConsensusRoundCtx{
+		Height:          height,
+		Round:           0,
+		StartTime:       startTime,
+		EncodedProposer: nextProposer,
+		PrevHash:        prevHash,
+	})
+	go func() {
+		blk, err := fork.MintNewBlock(mintCtx)
+		if err != nil {
+			ctx.logger().Error("failed to mint new block", zap.Error(err))
+			return
+		}
+		ctx.logger().Debug("prepared a new block", zap.Uint64("height", blk.Height()), zap.Time("timestamp", blk.Timestamp()))
+	}()
+	return nil
 }
 
 func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
@@ -627,7 +692,14 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 	blk := ctx.round.CachedMintedBlock()
 	if blk == nil {
 		// in case that there is no cached block in eManagerDB, it mints a new block.
-		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime())
+		mintCtx := protocol.WithConsensusRoundCtx(context.Background(), protocol.ConsensusRoundCtx{
+			Height:          ctx.round.Height(),
+			Round:           ctx.round.Number(),
+			StartTime:       ctx.round.StartTime(),
+			EncodedProposer: ctx.encodedAddr,
+			PrevHash:        ctx.round.prevHash,
+		})
+		blk, err = ctx.chain.MintNewBlock(mintCtx)
 		if err != nil {
 			return nil, err
 		}

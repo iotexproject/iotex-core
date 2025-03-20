@@ -29,20 +29,19 @@ const (
 
 // Protocol defines the protocol of handling executions
 type Protocol struct {
-	getBlockHash evm.GetBlockHash
-	getBlockTime evm.GetBlockTime
-	depositGas   protocol.DepositGas
-	addr         address.Address
+	depositGas protocol.DepositGas
+	addr       address.Address
 }
 
 // NewProtocol instantiates the protocol of exeuction
+// TODO: remove unused getBlockHash and getBlockTime
 func NewProtocol(getBlockHash evm.GetBlockHash, depositGas protocol.DepositGas, getBlockTime evm.GetBlockTime) *Protocol {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
 	}
-	return &Protocol{getBlockHash: getBlockHash, depositGas: depositGas, addr: addr, getBlockTime: getBlockTime}
+	return &Protocol{depositGas: depositGas, addr: addr}
 }
 
 // FindProtocol finds the registered protocol from registry
@@ -66,9 +65,10 @@ func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.
 	if _, ok := elp.Action().(*action.Execution); !ok {
 		return nil, nil
 	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-		GetBlockHash:   p.getBlockHash,
-		GetBlockTime:   p.getBlockTime,
+		GetBlockHash:   bcCtx.GetBlockHash,
+		GetBlockTime:   bcCtx.GetBlockTime,
 		DepositGasFunc: p.depositGas,
 	})
 	_, receipt, err := evm.ExecuteContract(ctx, sm, elp)
