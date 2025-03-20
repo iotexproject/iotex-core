@@ -191,6 +191,8 @@ func newParams(
 	if err != nil {
 		return nil, err
 	}
+	isCancun := chainConfig.IsCancun(big.NewInt(int64(blkCtx.BlockHeight)), uint64(blkCtx.BlockTimeStamp.Unix()))
+	log.L().Info("check cancun", zap.Bool("isCancun", isCancun), zap.Uint64("height", blkCtx.BlockHeight), zap.Uint64("timestamp", uint64(blkCtx.BlockTimeStamp.Unix())), zap.Uint64("cancuntime", *chainConfig.CancunTime))
 	vmTxCtx := vm.TxContext{
 		Origin:   executorAddr,
 		GasPrice: execution.GasPrice(),

@@ -330,6 +330,7 @@ func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, block
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	if bc == nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockchain")
@@ -455,7 +456,7 @@ func createServerV2(cfg testConfig, needActPool bool) (*ServerV2, blockchain.Blo
 	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 		return nil
 	})}
-	svr, err := NewServerV2(cfg.api, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, func(u uint64) (time.Time, error) { return time.Time{}, nil }, opts...)
+	svr, err := NewServerV2(cfg.api, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, "", err
 	}

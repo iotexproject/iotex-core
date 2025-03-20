@@ -65,6 +65,12 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 				Tip: protocol.TipInfo{
 					Height: epochStartHeight - 1,
 				},
+				GetBlockHash: func(u uint64) (hash.Hash256, error) {
+					return hash.Hash256b([]byte{0}), nil
+				},
+				GetBlockTime: func(h uint64) (time.Time, error) {
+					return time.Unix(1562382522, 0), nil
+				},
 			},
 		),
 		cfg.Genesis,

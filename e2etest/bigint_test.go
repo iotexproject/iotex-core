@@ -111,6 +111,7 @@ func prepareBlockchain(ctx context.Context, _executor string, r *require.Asserti
 			sf,
 			genericValidator,
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	r.NotNil(bc)
 	reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)

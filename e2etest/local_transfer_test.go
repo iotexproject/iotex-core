@@ -680,6 +680,7 @@ func TestEnforceChainID(t *testing.T) {
 		cfg.Genesis,
 		blkMemDao,
 		factory.NewMinter(sf, ap, factory.WithPrivateKeyOption(cfg.Chain.ProducerPrivateKey())),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	require.NoError(bc.Start(ctx))
 

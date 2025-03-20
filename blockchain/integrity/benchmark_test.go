@@ -278,6 +278,7 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	if bc == nil {
 		return nil, nil, errors.New("pointer is nil")

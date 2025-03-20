@@ -64,6 +64,7 @@ func TestLocalCommit(t *testing.T) {
 	testTriePath := cfg.Chain.TrieDBPath
 	testDBPath := cfg.Chain.ChainDBPath
 	indexDBPath := cfg.Chain.IndexDBPath
+	cfg.ActPool.Store = nil
 
 	// create server
 	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
@@ -172,6 +173,7 @@ func TestLocalCommit(t *testing.T) {
 			sf2,
 			protocol.NewGenericValidator(sf2, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
@@ -448,6 +450,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.Chain.BlobStoreDBPath = testBlobIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractStakeIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.ActPool.Store = nil
 	cfg.Genesis = genesis.TestDefault()
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme

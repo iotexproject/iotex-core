@@ -79,7 +79,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(builderCfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
+			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{}, testutil.DummyBlockTimeBuilder())).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -96,7 +96,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(builderCfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
+			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{}, testutil.DummyBlockTimeBuilder())).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -117,7 +117,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(builderCfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
+			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{}, testutil.DummyBlockTimeBuilder())).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -241,7 +241,7 @@ func TestValidateBlockFooter(t *testing.T) {
 		SetConfig(builderCfg).
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetChainManager(NewChainManager(bc, sf, &dummyBlockBuildFactory{})).
+		SetChainManager(NewChainManager(bc, sf, &dummyBlockBuildFactory{}, testutil.DummyBlockTimeBuilder())).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
@@ -334,7 +334,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		SetConfig(builderCfg).
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetChainManager(NewChainManager(bc, sf, &dummyBlockBuildFactory{})).
+		SetChainManager(NewChainManager(bc, sf, &dummyBlockBuildFactory{}, testutil.DummyBlockTimeBuilder())).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
@@ -483,6 +483,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 					sf,
 					protocol.NewGenericValidator(sf, accountutil.AccountState),
 				)),
+				blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 			)
 			chains = append(chains, chain)
 
@@ -496,7 +497,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetAddr(chainAddrs[i].encodedAddr).
 				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(builderCfg).
-				SetChainManager(NewChainManager(chain, sf, &dummyBlockBuildFactory{})).
+				SetChainManager(NewChainManager(chain, sf, &dummyBlockBuildFactory{}, testutil.DummyBlockTimeBuilder())).
 				SetBroadcast(p2p.Broadcast).
 				SetDelegatesByEpochFunc(delegatesByEpochFunc).
 				SetProposersByEpochFunc(delegatesByEpochFunc).

@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -50,6 +51,7 @@ type optionParams struct {
 	pp               poll.Protocol
 	rp               *rp.Protocol
 	bbf              rolldpos.BlockBuilderFactory
+	btcBuilder       *blockutil.BlockTimeCalculatorBuilder
 }
 
 // Option sets Consensus construction parameter.
@@ -87,6 +89,14 @@ func WithBlockBuilderFactory(bbf rolldpos.BlockBuilderFactory) Option {
 	}
 }
 
+// WithBlockTimeCalculatorBuilder is an option to set block time calculator builder
+func WithBlockTimeCalculatorBuilder(btcBuilder *blockutil.BlockTimeCalculatorBuilder) Option {
+	return func(ops *optionParams) error {
+		ops.btcBuilder = btcBuilder
+		return nil
+	}
+}
+
 // NewConsensus creates a IotxConsensus struct.
 func NewConsensus(
 	cfg rolldpos.BuilderConfig,
@@ -109,7 +119,13 @@ func NewConsensus(
 	var err error
 	switch cfg.Scheme {
 	case RollDPoSScheme:
-		chanMgr := rolldpos.NewChainManager(bc, sf, ops.bbf)
+		if ops.bbf == nil {
+			return nil, errors.New("block builder factory is not set")
+		}
+		if ops.btcBuilder == nil {
+			return nil, errors.New("block time calculator builder is not set")
+		}
+		chanMgr := rolldpos.NewChainManager(bc, sf, ops.bbf, ops.btcBuilder)
 		delegatesByEpochFunc := func(epochNum uint64, prevHash []byte) ([]string, error) {
 			fork, serr := chanMgr.Fork(hash.Hash256(prevHash))
 			if serr != nil {

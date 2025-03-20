@@ -265,7 +265,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 		return addrs, nil
 	}
 	return &roundCalculator{
-		NewChainManager(bc, sf, &dummyBlockBuildFactory{}),
+		NewChainManager(bc, sf, &dummyBlockBuildFactory{}, testutil.DummyBlockTimeBuilder()),
 		true,
 		rp,
 		delegatesByEpoch,

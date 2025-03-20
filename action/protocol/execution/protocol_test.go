@@ -474,6 +474,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(err)
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer}, cfg.DB.MaxCacheSize)
 	r.NotNil(dao)
+	btcd := testutil.DummyBlockTimeBuilder()
 	bc := blockchain.NewBlockchain(
 		cfg.Chain,
 		cfg.Genesis,
@@ -483,6 +484,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(btcd),
 	)
 	reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	r.NoError(reward.Register(registry))
@@ -735,6 +737,7 @@ func TestProtocol_Handle(t *testing.T) {
 				sf,
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
+			blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 		)
 		exeProtocol := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, getBlockTimeForTest)
 		require.NoError(exeProtocol.Register(registry))

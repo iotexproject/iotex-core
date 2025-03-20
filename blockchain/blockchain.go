@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/blockutil"
 )
 
 // const
@@ -108,6 +109,10 @@ type (
 	// BlockBuilderFactory is the factory interface of block builder
 	BlockBuilderFactory interface {
 		Mint(ctx context.Context) (*block.Block, error)
+		ReceiveBlock(*block.Block) error
+		Init(hash.Hash256)
+		AddProposal(*block.Block) error
+		Block(hash.Hash256) *block.Block
 	}
 
 	// blockchain implements the Blockchain interface
@@ -123,7 +128,8 @@ type (
 		timerFactory   *prometheustimer.TimerFactory
 
 		// used by account-based model
-		bbf BlockBuilderFactory
+		bbf        BlockBuilderFactory
+		btcBuilder *blockutil.BlockTimeCalculatorBuilder
 	}
 )
 
@@ -157,6 +163,13 @@ func BlockValidatorOption(blockValidator block.Validator) Option {
 func ClockOption(clk clock.Clock) Option {
 	return func(bc *blockchain) error {
 		bc.clk = clk
+		return nil
+	}
+}
+
+func BlockTimeCalculatorBuilderOption(btcBuilder *blockutil.BlockTimeCalculatorBuilder) Option {
+	return func(bc *blockchain) error {
+		bc.btcBuilder = btcBuilder
 		return nil
 	}
 }
@@ -204,6 +217,9 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 	if chain.dao == nil {
 		log.L().Panic("blockdao is nil")
 	}
+	if chain.btcBuilder == nil {
+		log.L().Panic("block time calculator builder is nil")
+	}
 	chain.lifecycle.Add(chain.dao)
 	chain.lifecycle.Add(chain.pubSubManager)
 	return chain
@@ -225,7 +241,19 @@ func (bc *blockchain) ChainAddress() string {
 func (bc *blockchain) Start(ctx context.Context) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-
+	btc, err := bc.btcBuilder.SetTipHeight(bc.TipHeight).SetHistoryBlockTime(func(height uint64) (time.Time, error) {
+		if height == 0 {
+			return time.Unix(bc.genesis.Timestamp, 0), nil
+		}
+		header, err := bc.dao.HeaderByHeight(height)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return header.Timestamp(), nil
+	}).Build()
+	if err != nil {
+		return err
+	}
 	// pass registry to be used by state factory's initialization
 	ctx = protocol.WithFeatureWithHeightCtx(genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
@@ -233,9 +261,20 @@ func (bc *blockchain) Start(ctx context.Context) error {
 			protocol.BlockchainCtx{
 				ChainID:      bc.ChainID(),
 				EvmNetworkID: bc.EvmNetworkID(),
+				GetBlockHash: bc.dao.GetBlockHash,
+				GetBlockTime: btc.CalculateBlockTime,
 			},
 		), bc.genesis))
-	return bc.lifecycle.OnStart(ctx)
+	err = bc.lifecycle.OnStart(ctx)
+	if err != nil {
+		return err
+	}
+	if tip, err := bc.tipInfo(bc.TipHeight()); err != nil {
+		return errors.Wrap(err, "failed to get tip info")
+	} else {
+		bc.bbf.Init(tip.Hash)
+		return nil
+	}
 }
 
 // Stop stops the blockchain.
@@ -389,6 +428,19 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 	if err != nil {
 		return nil, err
 	}
+	btc, err := bc.btcBuilder.SetTipHeight(bc.TipHeight).SetHistoryBlockTime(func(height uint64) (time.Time, error) {
+		if height == 0 {
+			return time.Unix(bc.genesis.Timestamp, 0), nil
+		}
+		header, err := bc.dao.HeaderByHeight(height)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return header.Timestamp(), nil
+	}).Build()
+	if err != nil {
+		return nil, err
+	}
 	ctx = genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
 			ctx,
@@ -396,6 +448,8 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 				Tip:          *tip,
 				ChainID:      bc.ChainID(),
 				EvmNetworkID: bc.EvmNetworkID(),
+				GetBlockHash: bc.dao.GetBlockHash,
+				GetBlockTime: btc.CalculateBlockTime,
 			},
 		),
 		bc.genesis,

@@ -2064,7 +2064,11 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
-			mbc.EXPECT().Genesis().Return(cfg.genesis).Times(3)
+			mbc.EXPECT().Genesis().Return(cfg.genesis).AnyTimes()
+			mbc.EXPECT().Context(gomock.Any()).Return(protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+				GetBlockHash: func(uint64) (hash.Hash256, error) { return hash.ZeroHash256, nil },
+				GetBlockTime: func(uint64) (time.Time, error) { return time.Now(), nil },
+			}), nil).AnyTimes()
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
@@ -2123,9 +2127,9 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 				cfg.chain.PollInitialCandidatesInterval,
 				slasher)
 			require.NoError(pol.ForceRegister(registry))
-			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
+			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil).AnyTimes()
 
-			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(4)
+			mbc.EXPECT().TipHeight().Return(uint64(4)).AnyTimes()
 			mbc.EXPECT().BlockHeaderByHeight(gomock.Any()).DoAndReturn(func(height uint64) (*block.Header, error) {
 				if height > 0 && height <= 4 {
 					pk := identityset.PrivateKey(int(height))

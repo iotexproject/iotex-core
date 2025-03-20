@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -50,11 +49,10 @@ type consortiumCommittee struct {
 	bufferResult   state.CandidateList
 	indexer        *CandidateIndexer
 	addr           address.Address
-	getBlockHash   evm.GetBlockHash
 }
 
 // NewConsortiumCommittee creates a committee for consorium chain
-func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract, getBlockHash evm.GetBlockHash) (Protocol, error) {
+func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract) (Protocol, error) {
 	abi, err := abi.JSON(strings.NewReader(ConsortiumManagementABI))
 	if err != nil {
 		return nil, err
@@ -73,7 +71,6 @@ func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract
 		abi:            abi,
 		addr:           addr,
 		indexer:        indexer,
-		getBlockHash:   getBlockHash,
 	}, nil
 }
 
@@ -116,17 +113,14 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	if err != nil {
 		return err
 	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
-	getBlockTime := func(u uint64) (time.Time, error) {
-		// make sure the returned timestamp is after the current block time so that evm upgrades based on timestamp (Shanghai and onwards) are disabled
-		return blkCtx.BlockTimeStamp.Add(5 * time.Second), nil
-	}
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash: func(height uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
-		GetBlockTime: getBlockTime,
+		GetBlockTime: bcCtx.GetBlockTime,
 		DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) ([]*action.TransactionLog, error) {
 			return nil, nil
 		},
@@ -143,8 +137,8 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	cc.contract = receipt.ContractAddress
 
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-		GetBlockHash: cc.getBlockHash,
-		GetBlockTime: getBlockTime,
+		GetBlockHash: bcCtx.GetBlockHash,
+		GetBlockTime: bcCtx.GetBlockTime,
 	})
 	r := getContractReaderForGenesisStates(ctx, sm)
 	cands, err := cc.readDelegatesWithContractReader(ctx, r)

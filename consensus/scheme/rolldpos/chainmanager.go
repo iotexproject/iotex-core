@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/blockutil"
 )
 
 var (
@@ -76,7 +77,8 @@ type (
 
 	chainManager struct {
 		*forkChain
-		srf StateReaderFactory
+		srf        StateReaderFactory
+		btcBuilder *blockutil.BlockTimeCalculatorBuilder
 	}
 
 	forkChain struct {
@@ -85,6 +87,7 @@ type (
 		sr           protocol.StateReader
 		timerFactory *prometheustimer.TimerFactory
 		bbf          BlockBuilderFactory
+		btCalc       *blockutil.BlockTimeCalculator
 	}
 )
 
@@ -112,10 +115,11 @@ func newForkChain(bc blockchain.Blockchain, head *block.Header, sr protocol.Stat
 }
 
 // NewChainManager creates a chain manager
-func NewChainManager(bc blockchain.Blockchain, srf StateReaderFactory, bbf BlockBuilderFactory) ChainManager {
+func NewChainManager(bc blockchain.Blockchain, srf StateReaderFactory, bbf BlockBuilderFactory, btcBuilder *blockutil.BlockTimeCalculatorBuilder) ChainManager {
 	return &chainManager{
-		forkChain: newForkChain(bc, nil, nil, bbf),
-		srf:       srf,
+		forkChain:  newForkChain(bc, nil, nil, bbf),
+		srf:        srf,
+		btcBuilder: btcBuilder,
 	}
 }
 
@@ -124,18 +128,11 @@ func (cm *forkChain) BlockProposeTime(height uint64) (time.Time, error) {
 	if height == 0 {
 		return time.Unix(cm.bc.Genesis().Timestamp, 0), nil
 	}
-	header, err := cm.bc.BlockHeaderByHeight(height)
-	switch errors.Cause(err) {
-	case nil:
-		return header.Timestamp(), nil
-	case db.ErrNotExist:
-		if blk := cm.draftBlockByHeight(height); blk != nil {
-			return blk.Timestamp(), nil
-		}
-		return time.Time{}, err
-	default:
+	header, err := cm.header(height)
+	if err != nil {
 		return time.Time{}, err
 	}
+	return header.Timestamp(), nil
 }
 
 // BlockCommitTime return commit time by height
@@ -264,9 +261,24 @@ func (cm *chainManager) Fork(hash hash.Hash256) (ChainManager, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create state reader at %d, hash %x", head.Height(), head.HashBlock())
 	}
+	chain := newForkChain(cm.bc, head, sr, cm.bbf)
+	btc, err := cm.btcBuilder.SetTipHeight(chain.TipHeight).SetHistoryBlockTime(func(height uint64) (time.Time, error) {
+		if height == 0 {
+			return time.Unix(cm.bc.Genesis().Timestamp, 0), nil
+		}
+		header, err := chain.header(height)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return header.Timestamp(), nil
+	}).Build()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build block time calculator")
+	}
+	chain.btCalc = btc
 	return &chainManager{
 		srf:       cm.srf,
-		forkChain: newForkChain(cm.bc, head, sr, cm.bbf),
+		forkChain: chain,
 	}, nil
 }
 
@@ -307,6 +319,21 @@ func (fc *forkChain) tipInfo() *protocol.TipInfo {
 	}
 }
 
+func (fc *forkChain) header(height uint64) (*block.Header, error) {
+	header, err := fc.bc.BlockHeaderByHeight(height)
+	switch errors.Cause(err) {
+	case nil:
+		return header, nil
+	case db.ErrNotExist:
+		if blk := fc.draftBlockByHeight(height); blk != nil {
+			return &blk.Header, nil
+		}
+		return nil, err
+	default:
+		return nil, err
+	}
+}
+
 func (fc *forkChain) mintContext(ctx context.Context,
 	timestamp time.Time, producer address.Address) context.Context {
 	// blockchain context
@@ -318,6 +345,14 @@ func (fc *forkChain) mintContext(ctx context.Context,
 				Tip:          *tip,
 				ChainID:      fc.bc.ChainID(),
 				EvmNetworkID: fc.bc.EvmNetworkID(),
+				GetBlockHash: func(u uint64) (hash.Hash256, error) {
+					header, err := fc.header(u)
+					if err != nil {
+						return hash.ZeroHash256, err
+					}
+					return header.HashBlock(), nil
+				},
+				GetBlockTime: fc.btCalc.CalculateBlockTime,
 			},
 		),
 		fc.bc.Genesis(),
