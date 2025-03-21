@@ -254,6 +254,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		//TODO: enable debug api after archive mode is supported
 	case "debug_traceBlockByNumber":
 		res, err = svr.traceBlockByNumber(ctx, web3Req)
+	case "debug_traceBlockByHash":
+		res, err = svr.traceBlockByHash(ctx, web3Req)
 	// case "debug_traceTransaction":
 	// 	res, err = svr.traceTransaction(ctx, web3Req)
 	// case "debug_traceCall":
@@ -1253,16 +1255,13 @@ func (svr *web3Handler) traceBlockByNumber(ctx context.Context, in *gjson.Result
 		return nil, err
 	}
 	tracer := parseTracerConfig(&tracerParam)
-	_, receipts, results, err := svr.coreService.TraceBlockByNumber(ctx, height, tracer)
-	for _, receipt := range receipts {
-		// print receipt logs
-		log.L().Info("receipt", log.Hex("acthash", receipt.ActionHash[:]), zap.Uint64("status", receipt.Status), zap.String("contract", receipt.ContractAddress))
-		for _, l := range receipt.Logs() {
-			for tIdx, t := range l.Topics {
-				log.L().Info("receipt topics", zap.String("topic", hex.EncodeToString(t[:])), zap.Int("index", tIdx))
-			}
-			log.L().Info("receipt data", zap.String("data", hex.EncodeToString(l.Data)))
-		}
-	}
+	_, _, results, err := svr.coreService.TraceBlockByNumber(ctx, height, tracer)
+	return results, err
+}
+
+func (svr *web3Handler) traceBlockByHash(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	tracer := parseTracerConfig(&tracerParam)
+	_, _, results, err := svr.coreService.TraceBlockByHash(ctx, blkParam.String(), tracer)
 	return results, err
 }
