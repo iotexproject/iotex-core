@@ -183,7 +183,7 @@ type (
 		// TraceCall returns the trace result of a call
 		TraceCall(ctx context.Context,
 			callerAddr address.Address,
-			blkNumOrHash any,
+			blkNum rpc.BlockNumber,
 			contractAddress string,
 			nonce uint64,
 			amount *big.Int,
@@ -1994,7 +1994,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 // TraceCall returns the trace result of call
 func (core *coreService) TraceCall(ctx context.Context,
 	callerAddr address.Address,
-	blkNumOrHash any,
+	blockNum rpc.BlockNumber,
 	contractAddress string,
 	nonce uint64,
 	amount *big.Int,
@@ -2008,14 +2008,13 @@ func (core *coreService) TraceCall(ctx context.Context,
 	if gasLimit == 0 {
 		gasLimit = blockGasLimit
 	}
-	ctx, err := core.bc.Context(ctx)
-	if err != nil {
-		return nil, nil, nil, err
-	}
 	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contractAddress, amount, data)).
 		SetGasLimit(gasLimit).Build()
 	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, callerAddr, elp)
+		if blockNum < 0 {
+			return core.simulateExecution(ctx, callerAddr, elp)
+		}
+		return core.simulateExecutionAt(ctx, callerAddr, elp, uint64(blockNum))
 	})
 }
 
