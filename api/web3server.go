@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	rewardingabi "github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/ethabi"
 	stakingabi "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
@@ -533,17 +534,30 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 	}
 
 	var (
-		estimatedGas uint64
-		retval       []byte
-		from         = callMsg.From
+		estimatedGas         uint64
+		retval               []byte
+		from                 = callMsg.From
+		estimateExecution    = svr.coreService.EstimateExecutionGasConsumption
+		estimateMigrateStake = svr.coreService.EstimateMigrateStakeGasConsumption
+		estimateNonExecution = svr.coreService.EstimateGasForNonExecution
 	)
+
+	if callMsg.BlockNumber > 0 {
+		estimateExecution = func(ctx context.Context, sc action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, []byte, error) {
+			return svr.coreService.EstimateExecutionGasConsumptionAt(ctx, sc, callerAddr, uint64(callMsg.BlockNumber.Int64()), opts...)
+		}
+		estimateMigrateStake = func(ctx context.Context, ms *action.MigrateStake, a address.Address) (uint64, []byte, error) {
+			return svr.coreService.EstimateMigrateStakeGasConsumptionAt(ctx, ms, a, uint64(callMsg.BlockNumber.Int64()))
+		}
+	}
+
 	switch act := elp.Action().(type) {
 	case *action.Execution:
-		estimatedGas, retval, err = svr.coreService.EstimateExecutionGasConsumption(ctx, elp, from)
+		estimatedGas, retval, err = estimateExecution(ctx, elp, from)
 	case *action.MigrateStake:
-		estimatedGas, retval, err = svr.coreService.EstimateMigrateStakeGasConsumption(ctx, act, from)
+		estimatedGas, retval, err = estimateMigrateStake(ctx, act, from)
 	default:
-		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act)
+		estimatedGas, err = estimateNonExecution(act)
 	}
 	if err != nil {
 		return "0x" + hex.EncodeToString(retval), err
@@ -1130,30 +1144,7 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 	if !actHash.Exists() {
 		return nil, errInvalidFormat
 	}
-	var (
-		enableMemory, disableStack, disableStorage, enableReturnData bool
-	)
-	if options.Exists() {
-		enableMemory = options.Get("enableMemory").Bool()
-		disableStack = options.Get("disableStack").Bool()
-		disableStorage = options.Get("disableStorage").Bool()
-		enableReturnData = options.Get("enableReturnData").Bool()
-	}
-	cfg := &tracers.TraceConfig{
-		Config: &logger.Config{
-			EnableMemory:     enableMemory,
-			DisableStack:     disableStack,
-			DisableStorage:   disableStorage,
-			EnableReturnData: enableReturnData,
-		},
-	}
-	if tracer := options.Get("tracer"); tracer.Exists() {
-		cfg.Tracer = new(string)
-		*cfg.Tracer = tracer.String()
-		if tracerConfig := options.Get("tracerConfig"); tracerConfig.Exists() {
-			cfg.TracerConfig = json.RawMessage(tracerConfig.Raw)
-		}
-	}
+	cfg := parseTracerConfig(&options)
 	retval, receipt, tracer, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
 	if err != nil {
 		return nil, err
