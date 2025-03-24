@@ -31,6 +31,7 @@ type roundCtx struct {
 	epochNum             uint64
 	epochStartHeight     uint64
 	nextEpochStartHeight uint64
+	numOfDelegates       uint64
 	delegates            []string
 	proposers            []string
 
@@ -125,13 +126,9 @@ func (ctx *roundCtx) IsUnlocked() bool {
 	return ctx.status == _unlocked
 }
 
-func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {
+func (ctx *roundCtx) ReadyToCommit(addrs []string) []*EndorsedConsensusMessage {
 	c := ctx.eManager.CollectionByBlockHash(ctx.blockInLock)
 	if c == nil {
-		return nil
-	}
-	en := c.Endorsement(addr, COMMIT)
-	if en == nil {
 		return nil
 	}
 	blk := c.Block()
@@ -139,11 +136,20 @@ func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {
 		return nil
 	}
 	blkHash := blk.HashBlock()
-	return NewEndorsedConsensusMessage(
-		blk.Height(),
-		NewConsensusVote(blkHash[:], COMMIT),
-		en,
-	)
+	msgs := make([]*EndorsedConsensusMessage, 0)
+	for _, addr := range addrs {
+		en := c.Endorsement(addr, COMMIT)
+		if en == nil {
+			continue
+		}
+		msgs = append(msgs, NewEndorsedConsensusMessage(
+			blk.Height(),
+			NewConsensusVote(blkHash[:], COMMIT),
+			en,
+		))
+	}
+
+	return msgs
 }
 
 func (ctx *roundCtx) HashOfBlockInLock() []byte {
@@ -260,7 +266,7 @@ func (ctx *roundCtx) endorsedByMajority(blockHash []byte, topics []ConsensusVote
 }
 
 func (ctx *roundCtx) isMajority(endorsements []*endorsement.Endorsement) bool {
-	return 3*len(endorsements) > 2*len(ctx.delegates)
+	return 3*len(endorsements) > 2*int(ctx.numOfDelegates)
 }
 
 func (ctx *roundCtx) block(blkHash []byte) *block.Block {

@@ -170,18 +170,23 @@ func (mr *MockBlockchainMockRecorder) Genesis() *gomock.Call {
 }
 
 // MintNewBlock mocks base method.
-func (m *MockBlockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
+func (m *MockBlockchain) MintNewBlock(arg0 time.Time, arg1 ...blockchain.MintOption) (*block.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MintNewBlock", timestamp)
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "MintNewBlock", varargs...)
 	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock.
-func (mr *MockBlockchainMockRecorder) MintNewBlock(timestamp interface{}) *gomock.Call {
+func (mr *MockBlockchainMockRecorder) MintNewBlock(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), timestamp)
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), varargs...)
 }
 
 // RemoveSubscriber mocks base method.

@@ -76,7 +76,6 @@ func TestNewRollDPoS(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
-			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
 			SetBroadcast(func(_ proto.Message) error {
@@ -93,7 +92,6 @@ func TestNewRollDPoS(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
-			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
 			SetBroadcast(func(_ proto.Message) error {
@@ -114,7 +112,6 @@ func TestNewRollDPoS(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
-			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
 			SetBroadcast(func(_ proto.Message) error {
@@ -132,7 +129,6 @@ func TestNewRollDPoS(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
-			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
@@ -177,9 +173,10 @@ func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndo
 		} else {
 			consensusVote = NewConsensusVote(hs[:], COMMIT)
 		}
-		en, err := endorsement.Endorse(identityset.PrivateKey(i), consensusVote, timeTime)
+		en, err := endorsement.Endorse(consensusVote, timeTime, identityset.PrivateKey(i))
 		require.NoError(t, err)
-		enProto, err := en.Proto()
+		require.Equal(t, 1, len(en))
+		enProto, err := en[0].Proto()
 		require.NoError(t, err)
 		typesFooter.Endorsements = append(typesFooter.Endorsements, enProto)
 	}
@@ -234,7 +231,6 @@ func TestValidateBlockFooter(t *testing.T) {
 	}
 	r, err := NewRollDPoSBuilder().
 		SetConfig(builderCfg).
-		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
 		SetChainManager(NewChainManager(bc)).
 		SetBroadcast(func(_ proto.Message) error {
@@ -323,7 +319,6 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	}
 	r, err := NewRollDPoSBuilder().
 		SetConfig(builderCfg).
-		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
 		SetChainManager(NewChainManager(bc)).
 		SetBroadcast(func(_ proto.Message) error {
@@ -484,7 +479,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 			p2ps = append(p2ps, p2p)
 
 			consensus, err := NewRollDPoSBuilder().
-				SetAddr(chainAddrs[i].encodedAddr).
 				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(builderCfg).
 				SetChainManager(NewChainManager(chain)).

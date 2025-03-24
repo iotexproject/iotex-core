@@ -82,6 +82,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		epochStartHeight:     epochStartHeight,
 		nextEpochStartHeight: c.rp.GetEpochHeight(epochNum + 1),
 		delegates:            delegates,
+		numOfDelegates:       round.numOfDelegates,
 		proposers:            proposers,
 
 		height:             height,
@@ -248,6 +249,7 @@ func (c *roundCalculator) newRound(
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
 		nextEpochStartHeight: c.rp.GetEpochHeight(epochNum + 1),
+		numOfDelegates:       c.rp.NumDelegates(),
 		delegates:            delegates,
 		proposers:            proposers,
 
