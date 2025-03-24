@@ -69,7 +69,9 @@ func NewHeartbeatHandler(s *Server, cfg p2p.Config) *HeartbeatHandler {
 func (h *HeartbeatHandler) Log() {
 	// operator address
 	cfg := h.s.Config().Chain
-	_heartbeatMtc.WithLabelValues("operatorAddress", cfg.ProducerAddress().String()).Set(1)
+	for _, addr := range cfg.ProducerAddress() {
+		_heartbeatMtc.WithLabelValues("operatorAddress", addr.String()).Set(1)
+	}
 
 	// Dispatcher metrics
 	dp, ok := h.s.Dispatcher().(*dispatcher.IotxDispatcher)

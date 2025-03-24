@@ -15,6 +15,7 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,8 +45,9 @@ import (
 )
 
 const (
-	_numNodes  = 4
-	_numAdmins = 2
+	_numNodes     = 2
+	_numDelegates = _numNodes * 2
+	_numAdmins    = 2
 )
 
 func main() {
@@ -75,6 +77,9 @@ func main() {
 	chainAddrs, err := util.LoadAddresses(injectorConfigPath, uint32(1))
 	if err != nil {
 		log.L().Fatal("Failed to load addresses from config path", zap.Error(err))
+	}
+	for _, addr := range chainAddrs {
+		log.L().Info("Address", zap.String("address", addr.PriKey.PublicKey().Address().String()))
 	}
 	admins := chainAddrs[len(chainAddrs)-_numAdmins:]
 	delegates := chainAddrs[:len(chainAddrs)-_numAdmins]
@@ -113,7 +118,7 @@ func main() {
 		web3APIPort := config.Default.API.HTTPPort + i
 		web3SocketPort := config.Default.API.WebSocketPort + i
 		HTTPAdminPort := config.Default.System.HTTPAdminPort + i
-		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, web3APIPort, web3SocketPort, HTTPAdminPort)
+		config := newConfig([]crypto.PrivateKey{chainAddrs[i].PriKey, chainAddrs[i+_numNodes].PriKey}, networkPort, apiPort, web3APIPort, web3SocketPort, HTTPAdminPort)
 		config.Chain.ChainDBPath = chainDBPath
 		config.Chain.TrieDBPatchFile = ""
 		config.Chain.TrieDBPath = trieDBPath
@@ -450,7 +455,7 @@ func main() {
 				log.S().Fatal("actual block reward is incorrect.")
 			}
 
-			proposer := configs[i].Chain.ProducerPrivateKey().PublicKey().Address()
+			proposer := configs[i].Chain.ProducerAddress()[0]
 			balance, _, err := rp.UnclaimedBalance(ctx, sfs[i], proposer)
 			if err != nil {
 				log.S().Fatal("Failed to get unclaimed balance.", zap.Error(err))
@@ -476,7 +481,7 @@ func main() {
 }
 
 func newConfig(
-	producerPriKey crypto.PrivateKey,
+	producerPriKeys []crypto.PrivateKey,
 	networkPort,
 	apiPort int,
 	web3APIPort int,
@@ -494,7 +499,11 @@ func newConfig(
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
 	cfg.Chain.ID = 1
-	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
+	keys := make([]string, 0, len(producerPriKeys))
+	for _, key := range producerPriKeys {
+		keys = append(keys, key.HexString())
+	}
+	cfg.Chain.ProducerPrivKey = strings.Join(keys, ",")
 
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
 
@@ -514,9 +523,9 @@ func newConfig(
 
 	cfg.Genesis.BlockInterval = 6 * time.Second
 	cfg.Genesis.Blockchain.NumSubEpochs = 2
-	cfg.Genesis.Blockchain.NumDelegates = _numNodes
+	cfg.Genesis.Blockchain.NumDelegates = _numDelegates
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
-	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : _numNodes+3]
+	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : _numDelegates+3]
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.PollMode = "lifeLong"
 

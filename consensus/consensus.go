@@ -133,8 +133,7 @@ func NewConsensus(
 		}
 		proposersByEpochFunc := delegatesByEpochFunc
 		bd := rolldpos.NewRollDPoSBuilder().
-			SetAddr(cfg.Chain.ProducerAddress().String()).
-			SetPriKey(cfg.Chain.ProducerPrivateKey()).
+			SetPriKey(cfg.Chain.ProducerPrivateKeys()...).
 			SetConfig(cfg).
 			SetChainManager(rolldpos.NewChainManager(bc)).
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
