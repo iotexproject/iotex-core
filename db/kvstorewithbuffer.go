@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/db/batch"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type (
@@ -248,38 +247,6 @@ func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey [
 }
 
 func (kvb *kvStoreWithBuffer) WriteBatch(b batch.KVStoreBatch) (err error) {
-	b.Lock()
-	defer func() {
-		if err == nil {
-			// clear the batch if commit succeeds
-			b.ClearAndUnlock()
-		} else {
-			b.Unlock()
-		}
-	}()
-	writes := make([]*batch.WriteInfo, b.Size())
-	for i := 0; i < b.Size(); i++ {
-		write, e := b.Entry(i)
-		if e != nil {
-			return e
-		}
-		if write.WriteType() != batch.Put && write.WriteType() != batch.Delete {
-			return errors.Errorf("invalid write type %d", write.WriteType())
-		}
-		writes[i] = write
-	}
-	kvb.buffer.Lock()
-	defer kvb.buffer.Unlock()
-	for _, write := range writes {
-		switch write.WriteType() {
-		case batch.Put:
-			kvb.buffer.Put(write.Namespace(), write.Key(), write.Value(), write.Error())
-		case batch.Delete:
-			kvb.buffer.Delete(write.Namespace(), write.Key(), write.Error())
-		default:
-			log.S().Panic("unexpected write type")
-		}
-	}
-
+	kvb.buffer.Append(b)
 	return nil
 }
