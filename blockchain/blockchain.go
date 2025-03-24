@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
@@ -130,6 +132,7 @@ type (
 		clk            clock.Clock
 		pubSubManager  PubSubManager
 		timerFactory   *prometheustimer.TimerFactory
+		buildEvmLogger func() vm.EVMLogger
 
 		// used by account-based model
 		bbf BlockBuilderFactory
@@ -173,6 +176,13 @@ func BlockValidatorOption(blockValidator block.Validator) Option {
 func ClockOption(clk clock.Clock) Option {
 	return func(bc *blockchain) error {
 		bc.clk = clk
+		return nil
+	}
+}
+
+func EVMLoggerOption(buildLogger func() vm.EVMLogger) Option {
+	return func(bc *blockchain) error {
+		bc.buildEvmLogger = buildLogger
 		return nil
 	}
 }
@@ -350,6 +360,9 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	if err != nil {
 		return err
 	}
+	if bc.buildEvmLogger != nil {
+		ctx = evm.WithLoggerCtx(ctx, bc.buildEvmLogger)
+	}
 	cfg := BlockValidationCfg{}
 	for _, opt := range opts {
 		opt(&cfg)
@@ -438,6 +451,9 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time, opts ...MintOption) (*bl
 	ctx, err := bc.context(context.Background(), tipHeight)
 	if err != nil {
 		return nil, err
+	}
+	if bc.buildEvmLogger != nil {
+		ctx = evm.WithLoggerCtx(ctx, bc.buildEvmLogger)
 	}
 	tip := protocol.MustGetBlockchainCtx(ctx).Tip
 	producerPrivateKey := options.ProducerPrivateKey
@@ -538,6 +554,9 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	ctx, err := bc.context(context.Background(), tipHeight)
 	if err != nil {
 		return err
+	}
+	if bc.buildEvmLogger != nil {
+		ctx = evm.WithLoggerCtx(ctx, bc.buildEvmLogger)
 	}
 	ctx = bc.contextWithBlock(ctx, blk.PublicKey().Address(), blk.Height(), blk.Timestamp(), blk.BaseFee(), blk.ExcessBlobGas())
 	ctx = protocol.WithFeatureCtx(ctx)
