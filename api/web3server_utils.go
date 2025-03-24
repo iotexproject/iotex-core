@@ -107,7 +107,15 @@ func (svr *web3Handler) getBlockWithTransactions(blk *block.Block, receipts []*a
 			transactions = append(transactions, "0x"+hex.EncodeToString(actHash[:]))
 		}
 	}
+	var bh hash.Hash256
+	if blk.Height() != 0 {
+		bh = blk.HashBlock()
+	} else {
+		g := svr.coreService.Genesis()
+		bh = g.Hash()
+	}
 	return &getBlockResult{
+		blkHash:      bh,
 		blk:          blk,
 		transactions: transactions,
 	}, nil

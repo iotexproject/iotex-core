@@ -20,8 +20,7 @@ func TestGenesisBlock(t *testing.T) {
 	r := require.New(t)
 
 	g := genesis.Default
-	genesis.SetGenesisTimestamp(g.Timestamp)
-	blk := GenesisBlock()
+	blk := GenesisBlock(genesis.GenesisTimestamp(g.Timestamp))
 	r.EqualValues(version.ProtocolVersion, blk.Version())
 	r.Zero(blk.Height())
 	r.Equal(g.Timestamp, blk.Timestamp().Unix())
@@ -30,8 +29,6 @@ func TestGenesisBlock(t *testing.T) {
 	r.Equal(hash.ZeroHash256, blk.DeltaStateDigest())
 	r.Equal(hash.ZeroHash256, blk.ReceiptRoot())
 
-	r.Equal(hash.ZeroHash256, GenesisHash())
-	LoadGenesisHash(&g)
-	h := GenesisHash()
+	h := g.Hash()
 	r.Equal("b337983730981c2d50f114eed5da9dd20b83c8c5e130beefdb3001dc858cfe8b", hex.EncodeToString(h[:]))
 }

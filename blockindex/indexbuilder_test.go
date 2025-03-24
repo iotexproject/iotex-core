@@ -61,8 +61,8 @@ func TestIndexBuilder(t *testing.T) {
 		},
 	}
 
+	g := genesis.TestDefault()
 	testIndexer := func(dao blockdao.BlockStore, indexer Indexer, t *testing.T) {
-		g := genesis.TestDefault()
 		ctx := protocol.WithBlockchainCtx(
 			genesis.WithGenesisContext(context.Background(), g),
 			protocol.BlockchainCtx{
@@ -163,9 +163,9 @@ func TestIndexBuilder(t *testing.T) {
 	}()
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	filestore, err := filedao.NewFileDAO(cfg, block.NewDeserializer(blockchain.DefaultConfig.EVMNetworkID))
+	filestore, err := filedao.NewFileDAO(g, cfg, block.NewDeserializer(blockchain.DefaultConfig.EVMNetworkID))
 	require.NoError(err)
-	memstore, err := filedao.NewFileDAOInMemForTest()
+	memstore, err := filedao.NewFileDAOInMemForTest(g)
 	require.NoError(err)
 	for _, v := range []struct {
 		dao   blockdao.BlockStore
