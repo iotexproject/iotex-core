@@ -100,6 +100,8 @@ type (
 		PrivateNetworkPSK string              `yaml:"privateNetworkPSK"`
 		MaxPeers          int                 `yaml:"maxPeers"`
 		MaxMessageSize    int                 `yaml:"maxMessageSize"`
+		RpcMsgCacheSize   int                 `yaml:"rpcMsgCacheSize"`
+		RpcDedupCacheSize int                 `yaml:"rpcDedupCacheSize"`
 	}
 
 	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
@@ -128,6 +130,7 @@ type (
 		topicSuffix                string
 		validatorBroadcastInbound  ValidateBroadcastInbound
 		caches                     cache.LRUCache
+		dedup                      cache.LRUCache
 		broadcastInboundHandler    HandleBroadcastInbound
 		unicastInboundAsyncHandler HandleUnicastInboundAsync
 		host                       *p2p.Host
@@ -159,6 +162,8 @@ var DefaultConfig = Config{
 	PrivateNetworkPSK: "",
 	MaxPeers:          30,
 	MaxMessageSize:    p2p.DefaultConfig.MaxMessageSize,
+	RpcMsgCacheSize:   10000,
+	RpcDedupCacheSize: 40000,
 }
 
 // NewDummyAgent creates a dummy p2p agent
@@ -219,12 +224,28 @@ func NewAgent(
 		topicSuffix:               hex.EncodeToString(genesisHash[22:]), // last 10 bytes of genesis hash
 		validatorBroadcastInbound: validateBroadcastInbound,
 		// TODO: make the cache size configurable
-		caches:                     cache.NewThreadSafeLruCache(10000),
+		caches:                     cache.NewThreadSafeLruCache(cfg.RpcMsgCacheSize),
+		dedup:                      cache.NewThreadSafeLruCache(cfg.RpcDedupCacheSize),
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
 		reconnectTimeout:           cfg.ReconnectInterval,
 		qosMetrics:                 NewQoS(time.Now(), 2*cfg.ReconnectInterval),
 	}
+}
+
+func (p *agent) duplicateActions(msg *iotexrpc.BroadcastMsg) bool {
+	if !(msg.MsgType == iotexrpc.MessageType_ACTION || msg.MsgType == iotexrpc.MessageType_ACTIONS) {
+		// for MessageType_ACTION and MessageType_ACTIONS:
+		// duplicates will either be discarded by actpool, or constitute flooding attack, so stop forwarding
+		// for other types of RPC message, could add specific policies later if needed
+		return false
+	}
+	hash := hash.Hash160b(msg.MsgBody)
+	if _, ok := p.dedup.Get(hash); ok {
+		return true
+	}
+	p.dedup.Add(hash, 1)
+	return false
 }
 
 func (p *agent) Start(ctx context.Context) error {
@@ -277,6 +298,11 @@ func (p *agent) Start(ctx context.Context) error {
 			if err != nil {
 				log.L().Debug("error when typifying broadcast message", zap.Error(err))
 				return pubsub.ValidationReject
+			}
+			// dedup message
+			if p.duplicateActions(&broadcast) {
+				log.L().Debug("duplicate msg", zap.Int("type", int(broadcast.MsgType)))
+				return pubsub.ValidationIgnore
 			}
 			ignore, err := p.validatorBroadcastInbound(pMsg)
 			if err != nil {
