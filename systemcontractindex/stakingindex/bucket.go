@@ -2,7 +2,6 @@ package stakingindex
 
 import (
 	"math/big"
-	"time"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -23,6 +22,7 @@ type Bucket struct {
 	CreatedAt                 uint64
 	UnlockedAt                uint64
 	UnstakedAt                uint64
+	Muted                     bool
 }
 
 func (bi *Bucket) Serialize() []byte {
@@ -48,6 +48,7 @@ func (bi *Bucket) toProto() *stakingpb.Bucket {
 		UnstakedAt: bi.UnstakedAt,
 		Amount:     bi.StakedAmount.String(),
 		Duration:   bi.StakedDurationBlockNumber,
+		Muted:      bi.Muted,
 	}
 }
 
@@ -71,6 +72,7 @@ func (bi *Bucket) loadProto(p *stakingpb.Bucket) error {
 	bi.Owner = owner
 	bi.StakedAmount = amount
 	bi.StakedDurationBlockNumber = p.Duration
+	bi.Muted = p.Muted
 	return nil
 }
 
@@ -80,6 +82,7 @@ func (b *Bucket) Clone() *Bucket {
 		CreatedAt:                 b.CreatedAt,
 		UnlockedAt:                b.UnlockedAt,
 		UnstakedAt:                b.UnstakedAt,
+		Muted:                     b.Muted,
 	}
 	candidate, _ := address.FromBytes(b.Candidate.Bytes())
 	clone.Candidate = candidate
@@ -89,11 +92,11 @@ func (b *Bucket) Clone() *Bucket {
 	return clone
 }
 
-func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blockInterval time.Duration) *VoteBucket {
+func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blocksToDurationFn blocksDurationFn) *VoteBucket {
 	vb := VoteBucket{
 		Index:                     token,
 		StakedAmount:              bkt.StakedAmount,
-		StakedDuration:            time.Duration(bkt.StakedDurationBlockNumber) * blockInterval,
+		StakedDuration:            blocksToDurationFn(bkt.CreatedAt, bkt.CreatedAt+bkt.StakedDurationBlockNumber),
 		StakedDurationBlockNumber: bkt.StakedDurationBlockNumber,
 		CreateBlockHeight:         bkt.CreatedAt,
 		StakeStartBlockHeight:     bkt.CreatedAt,
@@ -106,17 +109,20 @@ func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blockInt
 	if bkt.UnlockedAt != maxBlockNumber {
 		vb.StakeStartBlockHeight = bkt.UnlockedAt
 	}
+	if bkt.Muted {
+		vb.Candidate, _ = address.FromString(address.ZeroAddress)
+	}
 	return &vb
 }
 
-func batchAssembleVoteBucket(idxs []uint64, bkts []*Bucket, contractAddr string, blockInterval time.Duration) []*VoteBucket {
+func batchAssembleVoteBucket(idxs []uint64, bkts []*Bucket, contractAddr string, blocksToDurationFn blocksDurationFn) []*VoteBucket {
 	vbs := make([]*VoteBucket, 0, len(bkts))
 	for i := range bkts {
 		if bkts[i] == nil {
 			vbs = append(vbs, nil)
 			continue
 		}
-		vbs = append(vbs, assembleVoteBucket(idxs[i], bkts[i], contractAddr, blockInterval))
+		vbs = append(vbs, assembleVoteBucket(idxs[i], bkts[i], contractAddr, blocksToDurationFn))
 	}
 	return vbs
 }

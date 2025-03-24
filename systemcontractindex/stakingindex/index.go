@@ -5,15 +5,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/abiutil"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex"
 )
 
@@ -41,28 +45,57 @@ type (
 		TotalBucketCount(height uint64) (uint64, error)
 		PutBlock(ctx context.Context, blk *block.Block) error
 	}
+	stakingEventHandler interface {
+		HandleStakedEvent(event *abiutil.EventParam) error
+		HandleLockedEvent(event *abiutil.EventParam) error
+		HandleUnlockedEvent(event *abiutil.EventParam) error
+		HandleUnstakedEvent(event *abiutil.EventParam) error
+		HandleDelegateChangedEvent(event *abiutil.EventParam) error
+		HandleWithdrawalEvent(event *abiutil.EventParam) error
+		HandleTransferEvent(event *abiutil.EventParam) error
+		HandleMergedEvent(event *abiutil.EventParam) error
+		HandleBucketExpandedEvent(event *abiutil.EventParam) error
+		HandleDonatedEvent(event *abiutil.EventParam) error
+		Finalize() (batch.KVStoreBatch, *cache)
+	}
 	// Indexer is the staking indexer
 	Indexer struct {
-		common        *systemcontractindex.IndexerCommon
-		cache         *cache // in-memory cache, used to query index data
-		mutex         sync.RWMutex
-		blockInterval time.Duration
-		bucketNS      string
-		ns            string
+		common           *systemcontractindex.IndexerCommon
+		cache            *cache // in-memory cache, used to query index data
+		mutex            sync.RWMutex
+		blocksToDuration blocksDurationFn // function to calculate duration from block range
+		bucketNS         string
+		ns               string
+		muteHeight       uint64
 	}
+	// IndexerOption is the option to create an indexer
+	IndexerOption func(*Indexer)
+
+	blocksDurationFn func(start uint64, end uint64) time.Duration
 )
 
+// WithMuteHeight sets the mute height
+func WithMuteHeight(height uint64) IndexerOption {
+	return func(s *Indexer) {
+		s.muteHeight = height
+	}
+}
+
 // NewIndexer creates a new staking indexer
-func NewIndexer(kvstore db.KVStore, contractAddr string, startHeight uint64, blockInterval time.Duration) *Indexer {
+func NewIndexer(kvstore db.KVStore, contractAddr string, startHeight uint64, blocksToDurationFn blocksDurationFn, opts ...IndexerOption) *Indexer {
 	bucketNS := contractAddr + "#" + stakingBucketNS
 	ns := contractAddr + "#" + stakingNS
-	return &Indexer{
-		common:        systemcontractindex.NewIndexerCommon(kvstore, ns, stakingHeightKey, contractAddr, startHeight),
-		cache:         newCache(ns, bucketNS),
-		blockInterval: blockInterval,
-		bucketNS:      bucketNS,
-		ns:            ns,
+	idx := &Indexer{
+		common:           systemcontractindex.NewIndexerCommon(kvstore, ns, stakingHeightKey, contractAddr, startHeight),
+		cache:            newCache(ns, bucketNS),
+		blocksToDuration: blocksToDurationFn,
+		bucketNS:         bucketNS,
+		ns:               ns,
 	}
+	for _, opt := range opts {
+		opt(idx)
+	}
+	return idx
 }
 
 // Start starts the indexer
@@ -115,7 +148,7 @@ func (s *Indexer) Buckets(height uint64) ([]*VoteBucket, error) {
 	}
 	idxs := s.cache.BucketIdxs()
 	bkts := s.cache.Buckets(idxs)
-	vbs := batchAssembleVoteBucket(idxs, bkts, s.common.ContractAddress(), s.blockInterval)
+	vbs := batchAssembleVoteBucket(idxs, bkts, s.common.ContractAddress(), s.blocksToDuration)
 	return vbs, nil
 }
 
@@ -133,7 +166,7 @@ func (s *Indexer) Bucket(id uint64, height uint64) (*VoteBucket, bool, error) {
 	if bkt == nil {
 		return nil, false, nil
 	}
-	vbs := assembleVoteBucket(id, bkt, s.common.ContractAddress(), s.blockInterval)
+	vbs := assembleVoteBucket(id, bkt, s.common.ContractAddress(), s.blocksToDuration)
 	return vbs, true, nil
 }
 
@@ -148,7 +181,7 @@ func (s *Indexer) BucketsByIndices(indices []uint64, height uint64) ([]*VoteBuck
 		return nil, nil
 	}
 	bkts := s.cache.Buckets(indices)
-	vbs := batchAssembleVoteBucket(indices, bkts, s.common.ContractAddress(), s.blockInterval)
+	vbs := batchAssembleVoteBucket(indices, bkts, s.common.ContractAddress(), s.blocksToDuration)
 	return vbs, nil
 }
 
@@ -164,7 +197,14 @@ func (s *Indexer) BucketsByCandidate(candidate address.Address, height uint64) (
 	}
 	idxs := s.cache.BucketIdsByCandidate(candidate)
 	bkts := s.cache.Buckets(idxs)
-	vbs := batchAssembleVoteBucket(idxs, bkts, s.common.ContractAddress(), s.blockInterval)
+	// filter out muted buckets
+	filtered := make([]*Bucket, 0)
+	for i := range bkts {
+		if !bkts[i].Muted {
+			filtered = append(filtered, bkts[i])
+		}
+	}
+	vbs := batchAssembleVoteBucket(idxs, filtered, s.common.ContractAddress(), s.blocksToDuration)
 	return vbs, nil
 }
 
@@ -194,7 +234,11 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 		return nil
 	}
 	// handle events of block
-	handler := newEventHandler(s.bucketNS, s.cache.Copy())
+	var handler stakingEventHandler
+	handler = newEventHandler(s.bucketNS, s.cache.Copy(), blk)
+	if s.muteHeight > 0 && blk.Height() >= s.muteHeight {
+		handler = newEventMuteHandler(handler.(*eventHandler))
+	}
 	for _, receipt := range blk.Receipts {
 		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 			continue
@@ -203,7 +247,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 			if log.Address != s.common.ContractAddress() {
 				continue
 			}
-			if err := handler.HandleEvent(ctx, blk, log); err != nil {
+			if err := s.handleEvent(ctx, handler, blk, log); err != nil {
 				return err
 			}
 		}
@@ -212,7 +256,50 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	return s.commit(handler, blk.Height())
 }
 
-func (s *Indexer) commit(handler *eventHandler, height uint64) error {
+func (s *Indexer) handleEvent(ctx context.Context, eh stakingEventHandler, blk *block.Block, actLog *action.Log) error {
+	// get event abi
+	abiEvent, err := stakingContractABI.EventByID(common.Hash(actLog.Topics[0]))
+	if err != nil {
+		return errors.Wrapf(err, "get event abi from topic %v failed", actLog.Topics[0])
+	}
+
+	// unpack event data
+	event, err := abiutil.UnpackEventParam(abiEvent, actLog)
+	if err != nil {
+		return err
+	}
+	log.L().Debug("handle staking event", zap.String("event", abiEvent.Name), zap.Any("event", event))
+	// handle different kinds of event
+	switch abiEvent.Name {
+	case "Staked":
+		return eh.HandleStakedEvent(event)
+	case "Locked":
+		return eh.HandleLockedEvent(event)
+	case "Unlocked":
+		return eh.HandleUnlockedEvent(event)
+	case "Unstaked":
+		return eh.HandleUnstakedEvent(event)
+	case "Merged":
+		return eh.HandleMergedEvent(event)
+	case "BucketExpanded":
+		return eh.HandleBucketExpandedEvent(event)
+	case "DelegateChanged":
+		return eh.HandleDelegateChangedEvent(event)
+	case "Withdrawal":
+		return eh.HandleWithdrawalEvent(event)
+	case "Donated":
+		return eh.HandleDonatedEvent(event)
+	case "Transfer":
+		return eh.HandleTransferEvent(event)
+	case "Approval", "ApprovalForAll", "OwnershipTransferred", "Paused", "Unpaused", "BeneficiaryChanged":
+		// not require handling events
+		return nil
+	default:
+		return errors.Errorf("unknown event name %s", abiEvent.Name)
+	}
+}
+
+func (s *Indexer) commit(handler stakingEventHandler, height uint64) error {
 	delta, dirty := handler.Finalize()
 	// update db
 	if err := s.common.Commit(height, delta); err != nil {
