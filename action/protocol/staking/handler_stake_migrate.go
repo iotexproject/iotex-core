@@ -51,7 +51,7 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, elp action.Envelope, 
 		return nil, nil, gasConsumed, gasToBeDeducted, errCandNotExist
 	}
 	duration := uint64(bucket.StakedDuration / p.helperCtx.BlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
-	exec, err := p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, elp.Nonce(), elp.Gas(), elp.GasPrice())
+	exec, err := p.constructExecution(ctx, candidate.GetIdentifier(), bucket.StakedAmount, duration, elp.Nonce(), elp.Gas(), elp.GasPrice())
 	if err != nil {
 		return nil, nil, gasConsumed, gasToBeDeducted, errors.Wrap(err, "failed to construct execution")
 	}
@@ -181,11 +181,14 @@ func (p *Protocol) ConstructExecution(ctx context.Context, act *action.MigrateSt
 	}
 	duration := uint64(bucket.StakedDuration / p.helperCtx.BlockInterval(protocol.MustGetBlockCtx(ctx).BlockHeight))
 
-	return p.constructExecution(candidate.GetIdentifier(), bucket.StakedAmount, duration, nonce, gas, gasPrice)
+	return p.constructExecution(ctx, candidate.GetIdentifier(), bucket.StakedAmount, duration, nonce, gas, gasPrice)
 }
 
-func (p *Protocol) constructExecution(candidate address.Address, amount *big.Int, duration uint64, nonce uint64, gasLimit uint64, gasPrice *big.Int) (action.Envelope, error) {
-	contractAddress := p.config.MigrateContractAddress
+func (p *Protocol) constructExecution(ctx context.Context, candidate address.Address, amount *big.Int, duration uint64, nonce uint64, gasLimit uint64, gasPrice *big.Int) (action.Envelope, error) {
+	contractAddress := p.config.TimestampedMigrateContractAddress
+	if !protocol.MustGetFeatureCtx(ctx).TimestampedStakingContract {
+		contractAddress = p.config.MigrateContractAddress
+	}
 	data, err := StakingContractABI.Pack(
 		"stake0",
 		big.NewInt(int64(duration)),

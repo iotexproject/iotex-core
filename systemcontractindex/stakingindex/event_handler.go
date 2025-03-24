@@ -3,23 +3,28 @@ package stakingindex
 import (
 	_ "embed"
 	"math"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/abiutil"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 const (
-	maxBlockNumber uint64 = math.MaxUint64
+	maxStakingNumber uint64 = math.MaxUint64
 )
 
 var (
-	stakingContractABI = staking.StakingContractABI
+	//go:embed staking_contract_abi_v3.json
+	stakingContractABIJSON string
+	// StakingContractABI is the abi of staking contract
+	StakingContractABI abi.ABI
 
 	// ErrBucketNotExist is the error when bucket does not exist
 	ErrBucketNotExist = errors.New("bucket does not exist")
@@ -31,16 +36,26 @@ type eventHandler struct {
 	delta           batch.KVStoreBatch // delta for db to store buckets of current block
 	tokenOwner      map[uint64]address.Address
 	// context for event handler
-	height uint64
+	block       *block.Block
+	timestamped bool
 }
 
-func newEventHandler(bucketNS string, dirty *cache, height uint64) *eventHandler {
+func init() {
+	var err error
+	StakingContractABI, err = abi.JSON(strings.NewReader(stakingContractABIJSON))
+	if err != nil {
+		panic(err)
+	}
+}
+
+func newEventHandler(bucketNS string, dirty *cache, blk *block.Block, timestamped bool) *eventHandler {
 	return &eventHandler{
 		stakingBucketNS: bucketNS,
 		dirty:           dirty,
 		delta:           batch.NewBatch(),
 		tokenOwner:      make(map[uint64]address.Address),
-		height:          height,
+		block:           blk,
+		timestamped:     timestamped,
 	}
 }
 
@@ -65,14 +80,19 @@ func (eh *eventHandler) HandleStakedEvent(event *abiutil.EventParam) error {
 	if !ok {
 		return errors.Errorf("no owner for token id %d", tokenIDParam.Uint64())
 	}
+	createdAt := eh.block.Height()
+	if eh.timestamped {
+		createdAt = uint64(eh.block.Timestamp().Unix())
+	}
 	bucket := &Bucket{
-		Candidate:                 delegateParam,
-		Owner:                     owner,
-		StakedAmount:              amountParam,
-		StakedDurationBlockNumber: durationParam.Uint64(),
-		CreatedAt:                 eh.height,
-		UnlockedAt:                maxBlockNumber,
-		UnstakedAt:                maxBlockNumber,
+		Candidate:      delegateParam,
+		Owner:          owner,
+		StakedAmount:   amountParam,
+		StakedDuration: durationParam.Uint64(),
+		CreatedAt:      createdAt,
+		UnlockedAt:     maxStakingNumber,
+		UnstakedAt:     maxStakingNumber,
+		Timestamped:    eh.timestamped,
 	}
 	eh.putBucket(tokenIDParam.Uint64(), bucket)
 	return nil
@@ -92,8 +112,8 @@ func (eh *eventHandler) HandleLockedEvent(event *abiutil.EventParam) error {
 	if bkt == nil {
 		return errors.Errorf("no bucket for token id %d", tokenIDParam.Uint64())
 	}
-	bkt.StakedDurationBlockNumber = durationParam.Uint64()
-	bkt.UnlockedAt = maxBlockNumber
+	bkt.StakedDuration = durationParam.Uint64()
+	bkt.UnlockedAt = maxStakingNumber
 	eh.putBucket(tokenIDParam.Uint64(), bkt)
 	return nil
 }
@@ -108,7 +128,10 @@ func (eh *eventHandler) HandleUnlockedEvent(event *abiutil.EventParam) error {
 	if bkt == nil {
 		return errors.Errorf("no bucket for token id %d", tokenIDParam.Uint64())
 	}
-	bkt.UnlockedAt = eh.height
+	bkt.UnlockedAt = eh.block.Height()
+	if eh.timestamped {
+		bkt.UnlockedAt = uint64(eh.block.Timestamp().Unix())
+	}
 	eh.putBucket(tokenIDParam.Uint64(), bkt)
 	return nil
 }
@@ -123,7 +146,10 @@ func (eh *eventHandler) HandleUnstakedEvent(event *abiutil.EventParam) error {
 	if bkt == nil {
 		return errors.Errorf("no bucket for token id %d", tokenIDParam.Uint64())
 	}
-	bkt.UnstakedAt = eh.height
+	bkt.UnstakedAt = eh.block.Height()
+	if eh.timestamped {
+		bkt.UnstakedAt = uint64(eh.block.Timestamp().Unix())
+	}
 	eh.putBucket(tokenIDParam.Uint64(), bkt)
 	return nil
 }
@@ -199,8 +225,8 @@ func (eh *eventHandler) HandleMergedEvent(event *abiutil.EventParam) error {
 		return errors.Wrapf(ErrBucketNotExist, "token id %d", tokenIDsParam[0].Uint64())
 	}
 	b.StakedAmount = amountParam
-	b.StakedDurationBlockNumber = durationParam.Uint64()
-	b.UnlockedAt = maxBlockNumber
+	b.StakedDuration = durationParam.Uint64()
+	b.UnlockedAt = maxStakingNumber
 	for i := 1; i < len(tokenIDsParam); i++ {
 		eh.delBucket(tokenIDsParam[i].Uint64())
 	}
@@ -227,7 +253,7 @@ func (eh *eventHandler) HandleBucketExpandedEvent(event *abiutil.EventParam) err
 		return errors.Wrapf(ErrBucketNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	b.StakedAmount = amountParam
-	b.StakedDurationBlockNumber = durationParam.Uint64()
+	b.StakedDuration = durationParam.Uint64()
 	eh.putBucket(tokenIDParam.Uint64(), b)
 	return nil
 }
