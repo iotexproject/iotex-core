@@ -58,9 +58,6 @@ var (
 	)
 	// ErrAgentNotStarted is the error returned when p2p agent has not been started
 	ErrAgentNotStarted = errors.New("p2p agent has not been started")
-
-	// ErrRateLimit is the error returned when rate limit is exceeded
-	ErrRateLimit = errors.New("rate limit exceeded")
 )
 
 func init() {
