@@ -14,6 +14,7 @@ import (
 	actpool "github.com/iotexproject/iotex-core/v2/actpool"
 	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
 	state "github.com/iotexproject/iotex-core/v2/state"
+	factory "github.com/iotexproject/iotex-core/v2/state/factory"
 )
 
 // MockFactory is a mock of Factory interface.
@@ -222,4 +223,61 @@ func (m *MockFactory) WorkingSetAtHeight(arg0 context.Context, arg1 uint64) (pro
 func (mr *MockFactoryMockRecorder) WorkingSetAtHeight(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorkingSetAtHeight", reflect.TypeOf((*MockFactory)(nil).WorkingSetAtHeight), arg0, arg1)
+}
+
+// WorkingSetAtHeightWithPreState mocks base method.
+func (m *MockFactory) WorkingSetAtHeightWithPreState(arg0 context.Context, arg1 uint64, arg2 ...factory.StateOverwrite) (protocol.StateManagerWithCloser, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WorkingSetAtHeightWithPreState", varargs...)
+	ret0, _ := ret[0].(protocol.StateManagerWithCloser)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WorkingSetAtHeightWithPreState indicates an expected call of WorkingSetAtHeightWithPreState.
+func (mr *MockFactoryMockRecorder) WorkingSetAtHeightWithPreState(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorkingSetAtHeightWithPreState", reflect.TypeOf((*MockFactory)(nil).WorkingSetAtHeightWithPreState), varargs...)
+}
+
+// MockStateOverwrite is a mock of StateOverwrite interface.
+type MockStateOverwrite struct {
+	ctrl     *gomock.Controller
+	recorder *MockStateOverwriteMockRecorder
+}
+
+// MockStateOverwriteMockRecorder is the mock recorder for MockStateOverwrite.
+type MockStateOverwriteMockRecorder struct {
+	mock *MockStateOverwrite
+}
+
+// NewMockStateOverwrite creates a new mock instance.
+func NewMockStateOverwrite(ctrl *gomock.Controller) *MockStateOverwrite {
+	mock := &MockStateOverwrite{ctrl: ctrl}
+	mock.recorder = &MockStateOverwriteMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStateOverwrite) EXPECT() *MockStateOverwriteMockRecorder {
+	return m.recorder
+}
+
+// Overwrite mocks base method.
+func (m *MockStateOverwrite) Overwrite(arg0 context.Context, arg1 *workingSet) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Overwrite", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Overwrite indicates an expected call of Overwrite.
+func (mr *MockStateOverwriteMockRecorder) Overwrite(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Overwrite", reflect.TypeOf((*MockStateOverwrite)(nil).Overwrite), arg0, arg1)
 }

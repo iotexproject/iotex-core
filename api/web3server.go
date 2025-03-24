@@ -257,8 +257,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.traceBlockByNumber(ctx, web3Req)
 	case "debug_traceBlockByHash":
 		res, err = svr.traceBlockByHash(ctx, web3Req)
-	// case "debug_traceTransaction":
-	// 	res, err = svr.traceTransaction(ctx, web3Req)
+	case "debug_traceTransaction":
+		res, err = svr.traceTransaction(ctx, web3Req)
 	case "debug_traceCall":
 		res, err = svr.traceCall(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
@@ -1206,7 +1206,7 @@ func (svr *web3Handler) traceBlockByNumber(ctx context.Context, in *gjson.Result
 	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
 	height, err := parseBlockNumber(&blkParam)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to parse block number")
 	}
 	tracer := parseTracerConfig(&tracerParam)
 	_, _, results, err := svr.coreService.TraceBlockByNumber(ctx, height, tracer)

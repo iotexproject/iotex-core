@@ -365,11 +365,41 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 }
 
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManagerWithCloser, error) {
-	// TODO: implement archive mode
+	var (
+		ws  *workingSet
+		err error
+	)
 	if sdb.rw == nil {
-		return sdb.newWorkingSet(ctx, height)
+		ws, err = sdb.newWorkingSet(ctx, height)
+	} else {
+		ws, err = sdb.newWorkingSetWithErigonDryrun(ctx, height)
 	}
-	return sdb.newWorkingSetWithErigonDryrun(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	return ws, nil
+}
+
+func (sdb *stateDB) WorkingSetAtHeightWithPreState(ctx context.Context, height uint64, overwrites ...StateOverwrite) (protocol.StateManagerWithCloser, error) {
+	var (
+		ws  *workingSet
+		err error
+	)
+	if sdb.rw == nil {
+		ws, err = sdb.newWorkingSet(ctx, height-1)
+	} else {
+		ws, err = sdb.newWorkingSetWithErigonDryrun(ctx, height-1)
+	}
+	if err != nil {
+		return nil, err
+	}
+	ws.height = height
+	for _, ow := range overwrites {
+		if err = ow.Overwrite(ctx, ws); err != nil {
+			return nil, err
+		}
+	}
+	return ws, nil
 }
 
 // PutBlock persists all changes in RunActions() into the DB

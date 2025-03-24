@@ -88,6 +88,11 @@ type (
 		PutBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
 		WorkingSetAtHeight(context.Context, uint64) (protocol.StateManagerWithCloser, error)
+		WorkingSetAtHeightWithPreState(context.Context, uint64, ...StateOverwrite) (protocol.StateManagerWithCloser, error)
+	}
+
+	StateOverwrite interface {
+		Overwrite(context.Context, *workingSet) error
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -418,6 +423,10 @@ func (sf *factory) WorkingSetAtHeight(ctx context.Context, height uint64) (proto
 		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
 	}
 	return sf.newWorkingSetAtHeight(ctx, height)
+}
+
+func (sf *factory) WorkingSetAtHeightWithPreState(ctx context.Context, height uint64, overwrites ...StateOverwrite) (protocol.StateManagerWithCloser, error) {
+	panic("implement me")
 }
 
 // PutBlock persists all changes in RunActions() into the DB

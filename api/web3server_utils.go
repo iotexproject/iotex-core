@@ -653,7 +653,9 @@ func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
 			tracerTimeout = new(string)
 			*tracerTimeout = traceTimeout.String()
 		}
-		tracerConfig = json.RawMessage(options.Get("tracerConfig").Raw)
+		if options.Get("tracerConfig").Exists() {
+			tracerConfig = json.RawMessage(options.Get("tracerConfig").Raw)
+		}
 	}
 	cfg := &tracers.TraceConfig{
 		Tracer:  tracerJs,

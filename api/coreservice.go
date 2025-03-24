@@ -2070,13 +2070,70 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if _, ok := act.Action().(*action.Execution); !ok {
+	_, ok := act.Action().(*action.Execution)
+	if !ok {
 		return nil, nil, nil, errors.New("the type of action is not supported")
 	}
-	addr, _ := address.FromString(address.ZeroAddress)
-	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, addr, act.Envelope)
+	blk, err := core.dao.GetBlockByHeight(actInfo.BlkHeight)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	preActs := make([]*action.SealedEnvelope, 0)
+	hash, err := act.Hash()
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "failed to hash action")
+	}
+	for i := range blk.Actions {
+		shash, err := blk.Actions[i].Hash()
+		if err != nil {
+			return nil, nil, nil, errors.Wrap(err, "failed to hash action")
+		}
+		if bytes.Equal(shash[:], hash[:]) {
+			break
+		}
+		preActs = append(preActs, blk.Actions[i])
+	}
+	// generate the working set just before the target action
+	ctx, err = core.bc.ContextAtHeight(ctx, actInfo.BlkHeight)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	g := core.bc.Genesis()
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    blk.Height(),
+		BlockTimeStamp: blk.Timestamp(),
+		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
+		Producer:       blk.PublicKey().Address(),
 	})
+	ctx = protocol.WithRegistry(ctx, core.registry)
+	ctx = protocol.WithFeatureCtx(ctx)
+	ws, err := core.sf.WorkingSetAtHeightWithPreState(ctx, actInfo.BlkHeight, factory.WithPreActionOverwrite(preActs...))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	intrinsicGas, err := act.IntrinsicGas()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:       act.SenderAddress(),
+			ActionHash:   hash,
+			GasPrice:     act.GasPrice(),
+			IntrinsicGas: intrinsicGas,
+			Nonce:        act.Nonce(),
+		},
+	)
+	retval, receipt, tracer, err := core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+			GetBlockHash:   core.dao.GetBlockHash,
+			GetBlockTime:   core.getBlockTime,
+			DepositGasFunc: rewarding.DepositGas,
+		})
+		return evm.ExecuteContract(ctx, ws, act)
+	})
+	return retval, receipt, tracer, err
 }
 
 // TraceCall returns the trace result of call
@@ -2286,7 +2343,7 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 	})
 	ctx = protocol.WithRegistry(ctx, core.registry)
 	ctx = protocol.WithFeatureCtx(ctx)
-	ws, err := core.sf.WorkingSetAtHeight(ctx, blk.Height())
+	ws, err := core.sf.WorkingSetAtHeight(ctx, blk.Height()-1)
 	if err != nil {
 		return nil, nil, nil, err
 	}
