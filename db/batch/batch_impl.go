@@ -153,12 +153,7 @@ func (b *baseKVStoreBatch) Translate(wit WriteInfoTranslate) KVStoreBatch {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	if wit == nil {
-		c := &baseKVStoreBatch{
-			writeQueue: make([]*WriteInfo, b.Size()),
-		}
-		// clone the writeQueue
-		copy(c.writeQueue, b.writeQueue)
-		return c
+		return b
 	}
 	c := &baseKVStoreBatch{
 		writeQueue: []*WriteInfo{},
