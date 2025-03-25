@@ -50,11 +50,11 @@ type consortiumCommittee struct {
 	bufferResult   state.CandidateList
 	indexer        *CandidateIndexer
 	addr           address.Address
-	getBlockHash   evm.GetBlockHash
 }
 
 // NewConsortiumCommittee creates a committee for consorium chain
-func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract, getBlockHash evm.GetBlockHash) (Protocol, error) {
+// TODO: remove unused getBlockHash
+func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract, _ evm.GetBlockHash) (Protocol, error) {
 	abi, err := abi.JSON(strings.NewReader(ConsortiumManagementABI))
 	if err != nil {
 		return nil, err
@@ -73,7 +73,6 @@ func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract
 		abi:            abi,
 		addr:           addr,
 		indexer:        indexer,
-		getBlockHash:   getBlockHash,
 	}, nil
 }
 
@@ -143,7 +142,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	cc.contract = receipt.ContractAddress
 
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-		GetBlockHash: cc.getBlockHash,
+		GetBlockHash: protocol.MustGetBlockchainCtx(ctx).GetBlockHash,
 		GetBlockTime: getBlockTime,
 	})
 	r := getContractReaderForGenesisStates(ctx, sm)

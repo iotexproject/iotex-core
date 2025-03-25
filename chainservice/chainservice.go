@@ -7,7 +7,6 @@ package chainservice
 
 import (
 	"context"
-	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
@@ -241,13 +240,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, archive bool) (*api.ServerV
 		cs.bfIndexer,
 		cs.actpool,
 		cs.registry,
-		func(u uint64) (time.Time, error) {
-			header, err := cs.chain.BlockHeaderByHeight(u)
-			if err != nil {
-				return time.Time{}, err
-			}
-			return header.Timestamp(), nil
-		},
+		nil,
 		apiServerOptions...,
 	)
 	if err != nil {

@@ -504,12 +504,12 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 	} else {
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(builder.cs.factory))
 	}
-
 	var mintOpts []factory.MintOption
 	if builder.cfg.Consensus.Scheme == config.RollDPoSScheme {
 		mintOpts = append(mintOpts, factory.WithTimeoutOption(builder.cfg.Chain.MintTimeout))
 	}
-	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool, mintOpts...), chainOpts...)
+	minter := factory.NewMinter(builder.cs.factory, builder.cs.actpool, mintOpts...)
+	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, minter, chainOpts...)
 }
 
 func (builder *Builder) buildNodeInfoManager() error {
@@ -702,14 +702,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	dao := builder.cs.BlockDAO()
-	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGas, func(u uint64) (time.Time, error) {
-		header, err := dao.HeaderByHeight(u)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return header.Timestamp(), nil
-	}).Register(builder.cs.registry)
+	return execution.NewProtocol(nil, rewarding.DepositGas, nil).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
@@ -725,15 +718,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		return err
 	}
 	factory := builder.cs.factory
-	dao := builder.cs.blockdao
 	chain := builder.cs.chain
-	getBlockTime := func(height uint64) (time.Time, error) {
-		header, err := chain.BlockHeaderByHeight(height)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return header.Timestamp(), nil
-	}
 	pollProtocol, err := poll.NewProtocol(
 		builder.cfg.Consensus.Scheme,
 		builder.cfg.Chain,
@@ -751,10 +736,10 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 			if err != nil {
 				return nil, err
 			}
-
+			bcCtx := protocol.MustGetBlockchainCtx(ctx)
 			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-				GetBlockHash:   dao.GetBlockHash,
-				GetBlockTime:   getBlockTime,
+				GetBlockHash:   bcCtx.GetBlockHash,
+				GetBlockTime:   bcCtx.GetBlockTime,
 				DepositGasFunc: rewarding.DepositGas,
 			})
 			ws, err := factory.WorkingSet(ctx)
@@ -769,21 +754,12 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		candidatesutil.UnproductiveDelegateFromDB,
 		builder.cs.electionCommittee,
 		staking.FindProtocol(builder.cs.registry),
-		func(height uint64) (time.Time, error) {
-			header, err := chain.BlockHeaderByHeight(height)
-			if err != nil {
-				return time.Now(), errors.Wrapf(
-					err, "error when getting the block at height: %d",
-					height,
-				)
-			}
-			return header.Timestamp(), nil
-		},
+		nil,
 		func(start, end uint64) (map[string]uint64, error) {
 			return blockchain.Productivity(chain, start, end)
 		},
-		dao.GetBlockHash,
-		getBlockTime,
+		nil,
+		nil,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate poll protocol")
