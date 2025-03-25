@@ -468,6 +468,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 					sf,
 					protocol.NewGenericValidator(sf, accountutil.AccountState),
 				)),
+				blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 			)
 			chains = append(chains, chain)
 

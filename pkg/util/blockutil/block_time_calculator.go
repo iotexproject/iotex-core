@@ -14,10 +14,47 @@ type (
 		getHistoryBlockTime getHistoryblockTimeFn
 	}
 
+	BlockTimeCalculatorBuilder struct {
+		getBlockInterval    getBlockIntervalFn
+		getTipHeight        getTipHeightFn
+		getHistoryBlockTime getHistoryblockTimeFn
+	}
+
 	getBlockIntervalFn    func(uint64) time.Duration
 	getTipHeightFn        func() uint64
 	getHistoryblockTimeFn func(uint64) (time.Time, error)
 )
+
+func NewBlockTimeCalculatorBuilder() *BlockTimeCalculatorBuilder {
+	return &BlockTimeCalculatorBuilder{}
+}
+
+func (btc *BlockTimeCalculatorBuilder) Clone() *BlockTimeCalculatorBuilder {
+	return &BlockTimeCalculatorBuilder{
+		getBlockInterval:    btc.getBlockInterval,
+		getTipHeight:        btc.getTipHeight,
+		getHistoryBlockTime: btc.getHistoryBlockTime,
+	}
+}
+
+func (btc *BlockTimeCalculatorBuilder) SetBlockInterval(getBlockInterval getBlockIntervalFn) *BlockTimeCalculatorBuilder {
+	btc.getBlockInterval = getBlockInterval
+	return btc
+}
+
+func (btc *BlockTimeCalculatorBuilder) SetTipHeight(getTipHeight getTipHeightFn) *BlockTimeCalculatorBuilder {
+	btc.getTipHeight = getTipHeight
+	return btc
+}
+
+func (btc *BlockTimeCalculatorBuilder) SetHistoryBlockTime(getHistoryBlockTime getHistoryblockTimeFn) *BlockTimeCalculatorBuilder {
+	btc.getHistoryBlockTime = getHistoryBlockTime
+	return btc
+}
+
+func (btc *BlockTimeCalculatorBuilder) Build() (*BlockTimeCalculator, error) {
+	return NewBlockTimeCalculator(btc.getBlockInterval, btc.getTipHeight, btc.getHistoryBlockTime)
+}
 
 // NewBlockTimeCalculator creates a new BlockTimeCalculator.
 func NewBlockTimeCalculator(getBlockInterval getBlockIntervalFn, getTipHeight getTipHeightFn, getHistoryBlockTime getHistoryblockTimeFn) (*BlockTimeCalculator, error) {
