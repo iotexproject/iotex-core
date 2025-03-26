@@ -513,8 +513,8 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 	if builder.cfg.Consensus.Scheme == config.RollDPoSScheme {
 		mintOpts = append(mintOpts, factory.WithTimeoutOption(builder.cfg.Chain.MintTimeout))
 	}
-	minter := factory.NewMinter(builder.cs.factory, builder.cs.actpool, mintOpts...)
-	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, minter, chainOpts...)
+	builder.cs.minter = factory.NewMinter(builder.cs.factory, builder.cs.actpool, mintOpts...)
+	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, builder.cs.minter, chainOpts...)
 }
 
 func (builder *Builder) buildNodeInfoManager() error {
@@ -781,6 +781,7 @@ func (builder *Builder) buildConsensusComponent() error {
 	}
 	if rDPoSProtocol := rolldpos.FindProtocol(builder.cs.registry); rDPoSProtocol != nil {
 		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
+		copts = append(copts, consensus.WithBlockBuilderFactory(builder.cs.minter))
 	}
 	if pollProtocol := poll.FindProtocol(builder.cs.registry); pollProtocol != nil {
 		copts = append(copts, consensus.WithPollProtocol(pollProtocol))

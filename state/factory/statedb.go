@@ -387,6 +387,12 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 	return sdb.protocolView.Read(name)
 }
 
+// StateReaderAt returns a state reader at a specific height
+func (sdb *stateDB) StateReaderAt(header *block.Header) (protocol.StateReader, error) {
+	// TODO: implement this
+	panic("implement me")
+}
+
 //======================================
 // private trie constructor functions
 //======================================

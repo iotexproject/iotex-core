@@ -146,6 +146,21 @@ func (mr *MockFactoryMockRecorder) State(arg0 interface{}, arg1 ...interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), varargs...)
 }
 
+// StateReaderAt mocks base method.
+func (m *MockFactory) StateReaderAt(header *block.Header) (protocol.StateReader, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StateReaderAt", header)
+	ret0, _ := ret[0].(protocol.StateReader)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StateReaderAt indicates an expected call of StateReaderAt.
+func (mr *MockFactoryMockRecorder) StateReaderAt(header interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateReaderAt", reflect.TypeOf((*MockFactory)(nil).StateReaderAt), header)
+}
+
 // States mocks base method.
 func (m *MockFactory) States(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
 	m.ctrl.T.Helper()
