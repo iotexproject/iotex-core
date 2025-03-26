@@ -27,11 +27,11 @@ type (
 		PutBlock(context.Context, *block.Block) error
 	}
 
-	// BlockIndexerWithStart defines an interface to accept block to build index from a start height
-	BlockIndexerWithStart interface {
+	// BlockIndexerWithActive tells if an indexer is activated
+	BlockIndexerWithActive interface {
 		BlockIndexer
-		// StartHeight returns the start height of the indexer
-		StartHeight() uint64
+		// IsActive indicates if the index is activated (passed its start height)
+		IsActive() bool
 	}
 
 	// BlockIndexerChecker defines a checker of block indexer
@@ -55,7 +55,7 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 	if !ok {
 		return errors.New("failed to find genesis ctx")
 	}
-	tipHeight, err := indexer.Height()
+	indexTip, err := indexer.Height()
 	if err != nil {
 		return err
 	}
@@ -63,24 +63,17 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 	if err != nil {
 		return err
 	}
-	if tipHeight > daoTip {
+	if indexTip > daoTip {
 		return errors.New("indexer tip height cannot by higher than dao tip height")
 	}
-	tipBlk, err := bic.dao.GetBlockByHeight(tipHeight)
+	tipBlk, err := bic.dao.GetBlockByHeight(indexTip)
 	if err != nil {
 		return err
 	}
 	if targetHeight == 0 || targetHeight > daoTip {
 		targetHeight = daoTip
 	}
-	startHeight := tipHeight + 1
-	if indexerWS, ok := indexer.(BlockIndexerWithStart); ok {
-		indexStartHeight := indexerWS.StartHeight()
-		if indexStartHeight > startHeight {
-			startHeight = indexStartHeight
-		}
-	}
-	for i := startHeight; i <= targetHeight; i++ {
+	for i := indexTip + 1; i <= targetHeight; i++ {
 		// ternimate if context is done
 		if err := ctx.Err(); err != nil {
 			return errors.Wrap(err, "terminate the indexer checking")

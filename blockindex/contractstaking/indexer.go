@@ -92,6 +92,10 @@ func (s *Indexer) StartHeight() uint64 {
 	return s.config.ContractDeployHeight
 }
 
+func (s *Indexer) IsActive() bool {
+	return s.cache.Height() > s.config.ContractDeployHeight
+}
+
 // ContractAddress returns the contract address
 func (s *Indexer) ContractAddress() string {
 	return s.config.ContractAddress
