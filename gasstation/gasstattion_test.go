@@ -98,6 +98,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas, func(u uint64) (time.Time, error) { return time.Time{}, nil })
 	require.NoError(t, ep.Register(registry))
@@ -169,6 +170,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas, func(u uint64) (time.Time, error) { return time.Time{}, nil })
 	require.NoError(t, ep.Register(registry))

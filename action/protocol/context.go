@@ -54,6 +54,10 @@ type (
 		ChainID uint32
 		// EvmNetworkID is the EVM network ID
 		EvmNetworkID uint32
+		// GetBlockHash is the function to get block hash by height
+		GetBlockHash func(uint64) (hash.Hash256, error)
+		// GetBlockTime is the function to get block time by height
+		GetBlockTime func(uint64) (time.Time, error)
 	}
 
 	// BlockCtx provides block auxiliary information.

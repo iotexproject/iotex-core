@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/blockutil"
 )
 
 // const
@@ -132,7 +133,8 @@ type (
 		timerFactory   *prometheustimer.TimerFactory
 
 		// used by account-based model
-		bbf BlockBuilderFactory
+		bbf        BlockBuilderFactory
+		btcBuilder *blockutil.BlockTimeCalculatorBuilder
 	}
 )
 
@@ -173,6 +175,13 @@ func BlockValidatorOption(blockValidator block.Validator) Option {
 func ClockOption(clk clock.Clock) Option {
 	return func(bc *blockchain) error {
 		bc.clk = clk
+		return nil
+	}
+}
+
+func BlockTimeCalculatorBuilderOption(builder *blockutil.BlockTimeCalculatorBuilder) Option {
+	return func(bc *blockchain) error {
+		bc.btcBuilder = builder
 		return nil
 	}
 }
@@ -220,6 +229,9 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 	if chain.dao == nil {
 		log.L().Panic("blockdao is nil")
 	}
+	if chain.btcBuilder == nil {
+		log.L().Panic("block time calculator builder is nil")
+	}
 	chain.lifecycle.Add(chain.dao)
 	chain.lifecycle.Add(chain.pubSubManager)
 
@@ -242,7 +254,10 @@ func (bc *blockchain) ChainAddress() string {
 func (bc *blockchain) Start(ctx context.Context) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-
+	btc, err := bc.buildBlockTimeCalculator()
+	if err != nil {
+		return err
+	}
 	// pass registry to be used by state factory's initialization
 	ctx = protocol.WithFeatureWithHeightCtx(genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
@@ -250,6 +265,8 @@ func (bc *blockchain) Start(ctx context.Context) error {
 			protocol.BlockchainCtx{
 				ChainID:      bc.ChainID(),
 				EvmNetworkID: bc.EvmNetworkID(),
+				GetBlockHash: bc.dao.GetBlockHash,
+				GetBlockTime: btc.CalculateBlockTime,
 			},
 		), bc.genesis))
 	return bc.lifecycle.OnStart(ctx)
@@ -406,7 +423,10 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 	if err != nil {
 		return nil, err
 	}
-
+	btc, err := bc.buildBlockTimeCalculator()
+	if err != nil {
+		return nil, err
+	}
 	ctx = genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
 			ctx,
@@ -414,6 +434,8 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 				Tip:          *tip,
 				ChainID:      bc.ChainID(),
 				EvmNetworkID: bc.EvmNetworkID(),
+				GetBlockHash: bc.dao.GetBlockHash,
+				GetBlockTime: btc.CalculateBlockTime,
 			},
 		),
 		bc.genesis,
@@ -574,4 +596,17 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 		return
 	}
 	bc.pubSubManager.SendBlockToSubscribers(blk)
+}
+
+func (bc *blockchain) buildBlockTimeCalculator() (*blockutil.BlockTimeCalculator, error) {
+	return bc.btcBuilder.Clone().SetTipHeight(bc.TipHeight).SetHistoryBlockTime(func(height uint64) (time.Time, error) {
+		if height == 0 {
+			return time.Unix(bc.genesis.Timestamp, 0), nil
+		}
+		header, err := bc.dao.HeaderByHeight(height)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return header.Timestamp(), nil
+	}).Build()
 }

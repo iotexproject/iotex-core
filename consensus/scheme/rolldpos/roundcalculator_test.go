@@ -198,6 +198,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
+		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
 		g.NumCandidateDelegates,
