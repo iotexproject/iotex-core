@@ -287,18 +287,18 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		return nil
 	}
 
-	var indexers []blockdao.BlockIndexer
 	// indexers in synchronizedIndexers will need to run PutBlock() one by one
 	// factory is dependent on sgdIndexer and contractStakingIndexer, so it should be put in the first place
-	synchronizedIndexers := []blockdao.BlockIndexer{builder.cs.factory}
+	var synchronizedIndexers []blockdao.BlockIndexer
 	if builder.cs.contractStakingIndexer != nil {
 		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexer)
 	}
 	if builder.cs.contractStakingIndexerV2 != nil {
 		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV2)
 	}
-	if len(synchronizedIndexers) > 1 {
-		indexers = append(indexers, blockindex.NewSyncIndexers(synchronizedIndexers...))
+	var indexers []blockdao.BlockIndexer
+	if len(synchronizedIndexers) > 0 {
+		indexers = append(indexers, blockindex.NewSyncIndexers(builder.cs.factory, synchronizedIndexers...))
 	} else {
 		indexers = append(indexers, builder.cs.factory)
 	}
