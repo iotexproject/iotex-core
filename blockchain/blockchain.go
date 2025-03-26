@@ -21,7 +21,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
@@ -116,7 +115,8 @@ type (
 	// BlockBuilderFactory is the factory interface of block builder
 	BlockBuilderFactory interface {
 		// NewBlockBuilder creates block builder
-		NewBlockBuilder(context.Context, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
+		Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error)
+		Init(hash.Hash256)
 	}
 
 	// blockchain implements the Blockchain interface
@@ -242,7 +242,6 @@ func (bc *blockchain) ChainAddress() string {
 func (bc *blockchain) Start(ctx context.Context) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-
 	// pass registry to be used by state factory's initialization
 	ctx = protocol.WithFeatureWithHeightCtx(genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
@@ -250,9 +249,21 @@ func (bc *blockchain) Start(ctx context.Context) error {
 			protocol.BlockchainCtx{
 				ChainID:      bc.ChainID(),
 				EvmNetworkID: bc.EvmNetworkID(),
+				GetBlockHash: bc.dao.GetBlockHash,
+				GetBlockTime: bc.getBlockTime,
 			},
 		), bc.genesis))
-	return bc.lifecycle.OnStart(ctx)
+	err := bc.lifecycle.OnStart(ctx)
+	if err != nil {
+		return err
+	}
+	// init block builder factory
+	if tip, err := bc.tipInfo(bc.TipHeight()); err != nil {
+		return errors.Wrap(err, "failed to get tip info")
+	} else {
+		bc.bbf.Init(tip.Hash)
+		return nil
+	}
 }
 
 // Stop stops the blockchain.
@@ -406,7 +417,6 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 	if err != nil {
 		return nil, err
 	}
-
 	ctx = genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
 			ctx,
@@ -414,6 +424,8 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 				Tip:          *tip,
 				ChainID:      bc.ChainID(),
 				EvmNetworkID: bc.EvmNetworkID(),
+				GetBlockHash: bc.dao.GetBlockHash,
+				GetBlockTime: bc.getBlockTime,
 			},
 		),
 		bc.genesis,
@@ -453,22 +465,13 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time, opts ...MintOption) (*bl
 	ctx = bc.contextWithBlock(ctx, minterAddress, newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
-	blockBuilder, err := bc.bbf.NewBlockBuilder(
-		ctx,
-		func(elp action.Envelope) (*action.SealedEnvelope, error) {
-			return action.Sign(elp, producerPrivateKey)
-		},
-	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", newblockHeight)
-	}
-	blk, err := blockBuilder.SignAndBuild(producerPrivateKey)
+	blk, err := bc.bbf.Mint(ctx, producerPrivateKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}
 	_blockMtc.WithLabelValues("MintGas").Set(float64(blk.GasUsed()))
 	_blockMtc.WithLabelValues("MintActions").Set(float64(len(blk.Actions)))
-	return &blk, nil
+	return blk, nil
 }
 
 // CommitBlock validates and appends a block to the chain
@@ -574,4 +577,15 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 		return
 	}
 	bc.pubSubManager.SendBlockToSubscribers(blk)
+}
+
+func (bc *blockchain) getBlockTime(height uint64) (time.Time, error) {
+	if height == 0 {
+		return time.Unix(bc.genesis.Timestamp, 0), nil
+	}
+	header, err := bc.dao.HeaderByHeight(height)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return header.Timestamp(), nil
 }
