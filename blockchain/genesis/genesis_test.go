@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -141,4 +142,15 @@ func TestDeployerWhitelist(t *testing.T) {
 		g.ReplayDeployerWhitelist = []string{"io18743s33zmsvmvyynfxu5sy2f80e2g5mzk3y5ue"}
 		runTest(&g)
 	})
+}
+
+func TestWakeBlockReward(t *testing.T) {
+	r := require.New(t)
+	four, five := unit.ConvertIotxToRau(4), unit.ConvertIotxToRau(5)
+	four.Add(four, five)
+	four.Rsh(four, 1)
+	wake := Default.WakeBlockReward()
+	// wake block reward = 4.8, between 4.5 and 5
+	r.Equal(1, wake.Cmp(four))
+	r.Equal(-1, wake.Cmp(five))
 }

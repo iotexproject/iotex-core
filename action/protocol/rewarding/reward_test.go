@@ -35,56 +35,89 @@ import (
 )
 
 func TestProtocol_GrantBlockReward(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
-		blkCtx, ok := protocol.GetBlockCtx(ctx)
-		require.True(t, ok)
+	req := require.New(t)
+	for _, tv := range []struct {
+		blockReward *big.Int
+		deposit     *big.Int
+		isWakeBlock bool
+	}{
+		{big.NewInt(10), big.NewInt(200), false},
+		{big.NewInt(48), big.NewInt(300), true},
+	} {
+		testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+			if tv.isWakeBlock {
+				g := genesis.MustExtractGenesisContext(ctx)
+				g.WakeBlockRewardStr = tv.blockReward.String()
+				wakeBlockCtx := genesis.WithGenesisContext(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+					BlockHeight: genesis.TestDefault().ToBeEnabledBlockHeight,
+				}), g)
+				req.NoError(p.CreatePreStates(wakeBlockCtx, sm))
+			}
+			// verify block reward
+			br, err := p.BlockReward(ctx, sm)
+			req.NoError(err)
+			req.Equal(tv.blockReward, br)
+			// Grant block reward will fail because of no available balance
+			_, err = p.GrantBlockReward(ctx, sm)
+			req.Error(err)
 
-		// Grant block reward will fail because of no available balance
-		_, err := p.GrantBlockReward(ctx, sm)
-		require.Error(t, err)
+			_, err = p.Deposit(ctx, sm, tv.deposit, iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+			req.NoError(err)
 
-		_, err = p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
-		require.NoError(t, err)
+			// Grant block reward
+			rewardLog, err := p.GrantBlockReward(ctx, sm)
+			req.NoError(err)
+			req.Equal(p.addr.String(), rewardLog.Address)
+			var rl rewardingpb.RewardLog
+			req.NoError(proto.Unmarshal(rewardLog.Data, &rl))
+			req.Equal(rewardingpb.RewardLog_BLOCK_REWARD, rl.Type)
+			req.Equal(tv.blockReward.String(), rl.Amount)
 
-		// Grant block reward
-		rewardLog, err := p.GrantBlockReward(ctx, sm)
-		require.NoError(t, err)
-		require.Equal(t, p.addr.String(), rewardLog.Address)
-		var rl rewardingpb.RewardLog
-		require.NoError(t, proto.Unmarshal(rewardLog.Data, &rl))
-		require.Equal(t, rewardingpb.RewardLog_BLOCK_REWARD, rl.Type)
-		require.Equal(t, "10", rl.Amount)
+			availableBalance, _, err := p.AvailableBalance(ctx, sm)
+			req.NoError(err)
+			req.Equal(tv.deposit.Sub(tv.deposit, tv.blockReward), availableBalance)
+			// Operator shouldn't get reward
+			blkCtx := protocol.MustGetBlockCtx(ctx)
+			unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, blkCtx.Producer)
+			req.NoError(err)
+			req.Equal(big.NewInt(0), unclaimedBalance)
+			// Beneficiary should get reward
+			unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
+			req.NoError(err)
+			req.Equal(tv.blockReward, unclaimedBalance)
 
-		availableBalance, _, err := p.AvailableBalance(ctx, sm)
-		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(190), availableBalance)
-		// Operator shouldn't get reward
-		unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, blkCtx.Producer)
-		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(0), unclaimedBalance)
-		// Beneficiary should get reward
-		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
-		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(10), unclaimedBalance)
+			// Grant the same block reward again will fail
+			_, err = p.GrantBlockReward(ctx, sm)
+			req.Error(err)
 
-		// Grant the same block reward again will fail
-		_, err = p.GrantBlockReward(ctx, sm)
-		require.Error(t, err)
+			// Grant with priority fee after VanuatuBlockHeight
+			blkCtx.AccumulatedTips = *big.NewInt(5)
+			blkCtx.BlockHeight = genesis.TestDefault().VanuatuBlockHeight
+			ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, blkCtx))
+			tLog, err := DepositGas(ctx, sm, nil, protocol.PriorityFeeOption(&blkCtx.AccumulatedTips))
+			req.NoError(err)
+			req.Equal(tLog[0].Type, iotextypes.TransactionLogType_PRIORITY_FEE)
+			req.Equal(&blkCtx.AccumulatedTips, tLog[0].Amount)
+			rewardLog, err = p.GrantBlockReward(ctx, sm)
+			req.NoError(err)
+			rls, err := UnmarshalRewardLog(rewardLog.Data)
+			req.NoError(err)
+			req.Len(rls.Logs, 2)
+			req.Equal(rewardingpb.RewardLog_BLOCK_REWARD, rls.Logs[0].Type)
+			req.Equal(tv.blockReward.String(), rls.Logs[0].Amount)
+			req.Equal(rewardingpb.RewardLog_PRIORITY_BONUS, rls.Logs[1].Type)
+			req.Equal(blkCtx.AccumulatedTips.String(), rls.Logs[1].Amount)
 
-		// Grant with priority fee after VanuatuBlockHeight
-		blkCtx.AccumulatedTips = *big.NewInt(5)
-		blkCtx.BlockHeight = genesis.TestDefault().VanuatuBlockHeight
-		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, blkCtx))
-		rewardLog, err = p.GrantBlockReward(ctx, sm)
-		require.NoError(t, err)
-		rls, err := UnmarshalRewardLog(rewardLog.Data)
-		require.NoError(t, err)
-		require.Len(t, rls.Logs, 2)
-		require.Equal(t, rewardingpb.RewardLog_BLOCK_REWARD, rls.Logs[0].Type)
-		require.Equal(t, "10", rls.Logs[0].Amount)
-		require.Equal(t, rewardingpb.RewardLog_PRIORITY_BONUS, rls.Logs[1].Type)
-		require.Equal(t, blkCtx.AccumulatedTips.String(), rls.Logs[1].Amount)
-	}, false)
+			// check available and receiver balance
+			availableBalance, _, err = p.AvailableBalance(ctx, sm)
+			req.NoError(err)
+			req.Equal(tv.deposit.Sub(tv.deposit, tv.blockReward), availableBalance)
+			unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
+			req.NoError(err)
+			tv.blockReward.Lsh(tv.blockReward, 1)
+			req.Equal(tv.blockReward.Add(tv.blockReward, &blkCtx.AccumulatedTips), unclaimedBalance)
+		}, false)
+	}
 }
 
 func TestProtocol_GrantEpochReward(t *testing.T) {

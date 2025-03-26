@@ -111,6 +111,8 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return p.migrateValueGreenland(ctx, sm)
 	case g.KamchatkaBlockHeight:
 		return p.setFoundationBonusExtension(ctx, sm)
+	case g.ToBeEnabledBlockHeight: // todo: change to wake block height
+		return p.SetReward(ctx, sm, g.WakeBlockReward(), true)
 	}
 	return nil
 }

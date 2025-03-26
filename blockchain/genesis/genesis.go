@@ -182,6 +182,7 @@ func defaultConfig() Genesis {
 			FoundationBonusP2StartEpoch:    9698,
 			FoundationBonusP2EndEpoch:      18458,
 			ProductivityThreshold:          85,
+			WakeBlockRewardStr:             "4800000000000000000",
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
@@ -448,6 +449,8 @@ type (
 		FoundationBonusP2EndEpoch uint64 `yaml:"foundationBonusP2EndEpoch"`
 		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach not to get probation
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
+		// WakeBlockReward is the block reward amount starts from wake height in decimal string format
+		WakeBlockRewardStr string `yaml:"wakeBlockRewardStr"`
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {
@@ -836,7 +839,7 @@ func (r *Rewarding) EpochReward() *big.Int {
 func (r *Rewarding) AleutianEpochReward() *big.Int {
 	val, ok := new(big.Int).SetString(r.AleutianEpochRewardStr, 10)
 	if !ok {
-		log.S().Panicf("Error when casting epoch reward string %s into big int", r.EpochRewardStr)
+		log.S().Panicf("Error when casting epoch reward string %s into big int", r.AleutianEpochRewardStr)
 	}
 	return val
 }
@@ -845,7 +848,16 @@ func (r *Rewarding) AleutianEpochReward() *big.Int {
 func (r *Rewarding) DardanellesBlockReward() *big.Int {
 	val, ok := new(big.Int).SetString(r.DardanellesBlockRewardStr, 10)
 	if !ok {
-		log.S().Panicf("Error when casting block reward string %s into big int", r.EpochRewardStr)
+		log.S().Panicf("Error when casting block reward string %s into big int", r.DardanellesBlockRewardStr)
+	}
+	return val
+}
+
+// WakeBlockReward returns the block reward amount after wake fork
+func (r *Rewarding) WakeBlockReward() *big.Int {
+	val, ok := new(big.Int).SetString(r.WakeBlockRewardStr, 10)
+	if !ok {
+		log.S().Panicf("Error when casting block reward string %s into big int", r.WakeBlockRewardStr)
 	}
 	return val
 }
