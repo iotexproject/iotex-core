@@ -176,7 +176,6 @@ func TestLocalCommit(t *testing.T) {
 			sf2,
 			protocol.NewGenericValidator(sf2, accountutil.AccountState),
 		)),
-		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,

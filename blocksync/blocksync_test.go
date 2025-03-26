@@ -210,7 +210,6 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
-		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
@@ -277,7 +276,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		dao,
 		factory.NewMinter(sf, ap1),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap1)),
-		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	require.NotNil(chain1)
 	require.NoError(chain1.Start(ctx))
@@ -305,7 +303,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		dao2,
 		factory.NewMinter(sf2, ap2),
 		blockchain.BlockValidatorOption(block.NewValidator(sf2, ap2)),
-		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	require.NotNil(chain2)
 	require.NoError(chain2.Start(ctx))
@@ -381,7 +378,6 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 		dao,
 		factory.NewMinter(sf, ap1),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap1)),
-		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
@@ -408,7 +404,6 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 		dao2,
 		factory.NewMinter(sf2, ap2),
 		blockchain.BlockValidatorOption(block.NewValidator(sf2, ap2)),
-		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
@@ -477,7 +472,6 @@ func TestBlockSyncerSync(t *testing.T) {
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
-		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)

@@ -330,7 +330,6 @@ func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, block
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
-		blockchain.BlockTimeCalculatorBuilderOption(testutil.DummyBlockTimeBuilder()),
 	)
 	if bc == nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockchain")

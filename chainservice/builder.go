@@ -47,7 +47,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/nodeinfo"
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/v2/state/factory"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
@@ -505,14 +504,12 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 	} else {
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(builder.cs.factory))
 	}
-	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
-	chainOpts = append(chainOpts, blockchain.BlockTimeCalculatorBuilderOption(blockutil.NewBlockTimeCalculatorBuilder().SetBlockInterval(consensusCfg.BlockInterval)))
 	var mintOpts []factory.MintOption
 	if builder.cfg.Consensus.Scheme == config.RollDPoSScheme {
 		mintOpts = append(mintOpts, factory.WithTimeoutOption(builder.cfg.Chain.MintTimeout))
 	}
-	minter := factory.NewMinter(builder.cs.factory, builder.cs.actpool, mintOpts...)
-	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, minter, chainOpts...)
+	builder.cs.minter = factory.NewMinter(builder.cs.factory, builder.cs.actpool, mintOpts...)
+	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, builder.cs.minter, chainOpts...)
 }
 
 func (builder *Builder) buildNodeInfoManager() error {
@@ -780,6 +777,7 @@ func (builder *Builder) buildConsensusComponent() error {
 	}
 	if rDPoSProtocol := rolldpos.FindProtocol(builder.cs.registry); rDPoSProtocol != nil {
 		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
+		copts = append(copts, consensus.WithBlockBuilderFactory(builder.cs.minter))
 	}
 	if pollProtocol := poll.FindProtocol(builder.cs.registry); pollProtocol != nil {
 		copts = append(copts, consensus.WithPollProtocol(pollProtocol))
