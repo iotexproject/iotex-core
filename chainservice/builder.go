@@ -47,7 +47,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/nodeinfo"
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/v2/state/factory"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
@@ -703,7 +702,14 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGas, builder.cs.blockTimeCalculator.CalculateBlockTime).Register(builder.cs.registry)
+	dao := builder.cs.BlockDAO()
+	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGas, func(u uint64) (time.Time, error) {
+		header, err := dao.HeaderByHeight(u)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return header.Timestamp(), nil
+	}).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
@@ -721,7 +727,13 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 	factory := builder.cs.factory
 	dao := builder.cs.blockdao
 	chain := builder.cs.chain
-	getBlockTime := builder.cs.blockTimeCalculator.CalculateBlockTime
+	getBlockTime := func(height uint64) (time.Time, error) {
+		header, err := chain.BlockHeaderByHeight(height)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return header.Timestamp(), nil
+	}
 	pollProtocol, err := poll.NewProtocol(
 		builder.cfg.Consensus.Scheme,
 		builder.cfg.Chain,
@@ -777,19 +789,6 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		return errors.Wrap(err, "failed to generate poll protocol")
 	}
 	return pollProtocol.Register(builder.cs.registry)
-}
-
-func (builder *Builder) buildBlockTimeCalculator() (err error) {
-	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
-	dao := builder.cs.BlockDAO()
-	builder.cs.blockTimeCalculator, err = blockutil.NewBlockTimeCalculator(consensusCfg.BlockInterval, builder.cs.Blockchain().TipHeight, func(height uint64) (time.Time, error) {
-		blk, err := dao.GetBlockByHeight(height)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return blk.Timestamp(), nil
-	})
-	return err
 }
 
 func (builder *Builder) buildConsensusComponent() error {
@@ -850,9 +849,6 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildBlockchain(forSubChain, forTest); err != nil {
-		return nil, err
-	}
-	if err := builder.buildBlockTimeCalculator(); err != nil {
 		return nil, err
 	}
 	// staking protocol need to be put in registry before poll protocol when enabling
