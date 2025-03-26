@@ -72,7 +72,7 @@ func init() {
 
 type (
 	// NodesSelectionByEpochFunc defines a function to select nodes
-	NodesSelectionByEpochFunc func(uint64) ([]string, error)
+	NodesSelectionByEpochFunc func(uint64, []byte) ([]string, error)
 
 	// RDPoSCtx is the context of RollDPoS
 	RDPoSCtx interface {
@@ -179,6 +179,9 @@ func NewRollDPoSCtx(
 }
 
 func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
+	if err := ctx.chain.Start(c); err != nil {
+		return errors.Wrap(err, "Error when starting the chain")
+	}
 	var eManager *endorsementManager
 	if ctx.eManagerDB != nil {
 		if err := ctx.eManagerDB.Start(c); err != nil {
@@ -229,7 +232,11 @@ func (ctx *rollDPoSCtx) CheckVoteEndorser(
 	if endorserAddr == nil {
 		return errors.New("failed to get address")
 	}
-	if !ctx.roundCalc.IsDelegate(endorserAddr.String(), height) {
+	roundCalc, err := ctx.roundCalc.Fork(ctx.round.prevHash)
+	if err != nil {
+		return errors.Wrapf(err, "failed to fork at block %d, hash %x", height, ctx.round.prevHash[:])
+	}
+	if !roundCalc.IsDelegate(endorserAddr.String(), height) {
 		return errors.Errorf("%s is not delegate of the corresponding round", endorserAddr)
 	}
 
@@ -255,7 +262,12 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 	if endorserAddr == nil {
 		return errors.New("failed to get address")
 	}
-	if proposer := ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), en.Timestamp()); proposer != endorserAddr.String() {
+	prevHash := proposal.block.PrevHash()
+	roundCalc, err := ctx.roundCalc.Fork(prevHash)
+	if err != nil {
+		return errors.Wrapf(err, "failed to fork at block %d, hash %x", proposal.block.Height(), prevHash[:])
+	}
+	if proposer := roundCalc.Proposer(height, ctx.BlockInterval(height), en.Timestamp()); proposer != endorserAddr.String() {
 		return errors.Errorf(
 			"%s is not proposer of the corresponding round, %s expected",
 			endorserAddr.String(),
@@ -263,14 +275,14 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 		)
 	}
 	proposerAddr := proposal.ProposerAddress()
-	if ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), proposal.block.Timestamp()) != proposerAddr {
+	if roundCalc.Proposer(height, ctx.BlockInterval(height), proposal.block.Timestamp()) != proposerAddr {
 		return errors.Errorf("%s is not proposer of the corresponding round", proposerAddr)
 	}
 	if !proposal.block.VerifySignature() {
 		return errors.Errorf("invalid block signature")
 	}
 	if proposerAddr != endorserAddr.String() {
-		round, err := ctx.roundCalc.NewRound(height, ctx.BlockInterval(height), en.Timestamp(), nil)
+		round, err := roundCalc.NewRound(height, ctx.BlockInterval(height), en.Timestamp(), nil)
 		if err != nil {
 			return err
 		}
@@ -655,7 +667,7 @@ func (ctx *rollDPoSCtx) mintNewBlock(privateKey crypto.PrivateKey) (*EndorsedCon
 	blk := ctx.round.CachedMintedBlock()
 	if blk == nil {
 		// in case that there is no cached block in eManagerDB, it mints a new block.
-		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime(), privateKey)
+		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime(), privateKey, ctx.round.PrevHash())
 		if err != nil {
 			return nil, err
 		}

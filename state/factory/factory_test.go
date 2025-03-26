@@ -330,7 +330,9 @@ func testCandidates(sf Factory, t *testing.T) {
 					},
 				),
 				protocol.BlockchainCtx{
-					ChainID: 1,
+					ChainID:      1,
+					GetBlockHash: func(uint64) (hash.Hash256, error) { return hash.ZeroHash256, nil },
+					GetBlockTime: func(uint64) (time.Time, error) { return time.Now(), nil },
 				},
 			),
 		),
