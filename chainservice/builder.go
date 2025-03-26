@@ -384,11 +384,15 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		builder.cs.contractStakingIndexer = indexer
 	}
 	// build contract staking indexer v2
+	blockInterval := builder.cfg.DardanellesUpgrade.BlockInterval
 	if builder.cs.contractStakingIndexerV2 == nil && len(builder.cfg.Genesis.SystemStakingContractV2Address) > 0 {
 		indexer := stakingindex.NewIndexer(
 			kvstore,
 			builder.cfg.Genesis.SystemStakingContractV2Address,
-			builder.cfg.Genesis.SystemStakingContractV2Height, builder.cfg.DardanellesUpgrade.BlockInterval,
+			builder.cfg.Genesis.SystemStakingContractV2Height, func(start uint64, end uint64) time.Duration {
+				return time.Duration(end-start) * blockInterval
+			},
+			stakingindex.WithMuteHeight(builder.cfg.Genesis.ToBeEnabledBlockHeight),
 		)
 		builder.cs.contractStakingIndexerV2 = indexer
 	}
