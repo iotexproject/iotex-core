@@ -290,7 +290,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 		view := csr.BaseView()
-		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); err != nil {
+		if _, err = sm.PutState(view.bucketPool.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); err != nil {
 			return err
 		}
 		view.bucketPool.EnableSMStorage()
@@ -374,6 +374,13 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if !p.needToWriteCandsMap(ctx, height) {
 		return nil
 	}
+	view, err := sm.ReadView(_protocolID)
+	if err != nil {
+		return err
+	}
+	if !view.(*ViewData).IsDirty() {
+		return nil
+	}
 
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	csm, err := NewCandidateStateManager(sm)
@@ -400,6 +407,14 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
+	view, err := sm.ReadView(_protocolID)
+	if err != nil {
+		return err
+	}
+	if !view.(*ViewData).IsDirty() {
+		return nil
+	}
+
 	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return err
@@ -419,15 +434,14 @@ func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.
 	if err != nil {
 		return nil, err
 	}
-	snapshot := view.(*ViewData).Snapshot()
+	snapshot := view.Snapshot()
 	receipt, err := p.handle(ctx, elp, csm)
 	if err != nil {
-		if err := view.(*ViewData).Revert(snapshot); err != nil {
+		if err := view.Revert(snapshot); err != nil {
 			return nil, errors.Wrap(err, "failed to revert view")
 		}
 		return receipt, err
 	}
-	sm.WriteView(_protocolID, csm.DirtyView())
 
 	return receipt, nil
 }

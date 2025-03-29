@@ -136,6 +136,11 @@ func (m *CandidateCenter) LegacyCommit() error {
 	return nil
 }
 
+// IsDirty returns true if the candidate center is dirty
+func (m *CandidateCenter) IsDirty() bool {
+	return m.change.size() > 0
+}
+
 // ContainsName returns true if the map contains the candidate by name
 func (m *CandidateCenter) ContainsName(name string) bool {
 	if hit := m.change.containsName(name); hit {

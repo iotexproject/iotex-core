@@ -76,14 +76,12 @@ type (
 	}
 )
 
-func newWorkingSet(height uint64, views *protocol.Views, store workingSetStore) *workingSet {
+func newWorkingSet(ctx context.Context, height uint64, views *protocol.Views, store workingSetStore, storeFactory WorkingSetStoreFactory) *workingSet {
 	ws := &workingSet{
-		height: height,
-		views:  views.Clone(),
-		store:  store,
-	}
-	if err := ws.views.Commit(); err != nil {
-		panic(err)
+		height:                 height,
+		views:                  views,
+		store:                  store,
+		workingSetStoreFactory: storeFactory,
 	}
 	ws.txValidator = protocol.NewGenericValidator(ws, accountutil.AccountState)
 	return ws
@@ -825,5 +823,9 @@ func (ws *workingSet) NewWorkingSet(ctx context.Context) (*workingSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newWorkingSet(ws.height+1, ws.views, store), nil
+	views := ws.views.Clone()
+	if err := views.Commit(ctx, ws); err != nil {
+		return nil, err
+	}
+	return newWorkingSet(ctx, ws.height+1, views, store, ws.workingSetStoreFactory), nil
 }
