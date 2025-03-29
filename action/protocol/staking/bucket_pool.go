@@ -39,6 +39,7 @@ type (
 	// BucketPool implements the bucket pool
 	BucketPool struct {
 		enableSMStorage bool
+		dirty           bool
 		total           *totalAmount
 	}
 
@@ -90,6 +91,11 @@ func (t *totalAmount) SubBalance(amount *big.Int) error {
 	return nil
 }
 
+// IsDirty returns true if the bucket pool is dirty
+func (bp *BucketPool) IsDirty() bool {
+	return bp.dirty
+}
+
 // Total returns the total amount staked in bucket pool
 func (bp *BucketPool) Total() *big.Int {
 	return new(big.Int).Set(bp.total.amount)
@@ -113,11 +119,13 @@ func (bp *BucketPool) Clone() *BucketPool {
 		amount: new(big.Int).Set(bp.total.amount),
 		count:  bp.total.count,
 	}
+	pool.dirty = bp.dirty
 	return &pool
 }
 
 // Commit is called upon workingset commit
 func (bp *BucketPool) Commit(sr protocol.StateReader) error {
+	bp.dirty = false
 	return nil
 }
 
@@ -128,6 +136,7 @@ func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int) erro
 	}
 
 	if !bp.enableSMStorage {
+		bp.dirty = true
 		return nil
 	}
 	_, err := sm.PutState(bp.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
@@ -138,6 +147,7 @@ func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int) erro
 func (bp *BucketPool) DebitPool(sm protocol.StateManager, amount *big.Int, newBucket bool) error {
 	bp.total.AddBalance(amount, newBucket)
 	if !bp.enableSMStorage {
+		bp.dirty = true
 		return nil
 	}
 	_, err := sm.PutState(bp.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))

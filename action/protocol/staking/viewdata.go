@@ -6,6 +6,7 @@
 package staking
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -31,12 +32,39 @@ func (v *ViewData) Clone() protocol.View {
 	clone := &ViewData{}
 	clone.candCenter = v.candCenter.Clone()
 	clone.bucketPool = v.bucketPool.Clone()
+	clone.snapshots = make([]Snapshot, len(v.snapshots))
+	for i := range v.snapshots {
+		clone.snapshots[i] = Snapshot{
+			size:    v.snapshots[i].size,
+			changes: v.snapshots[i].changes,
+			amount:  new(big.Int).Set(v.snapshots[i].amount),
+			count:   v.snapshots[i].count,
+		}
+	}
 
 	return clone
 }
 
-func (v *ViewData) Commit() error {
-	return nil
+func (v *ViewData) Commit(ctx context.Context, sr protocol.StateReader) error {
+	height, err := sr.Height()
+	if err != nil {
+		return err
+	}
+	if featureWithHeightCtx, ok := protocol.GetFeatureWithHeightCtx(ctx); ok && featureWithHeightCtx.CandCenterHasAlias(height) {
+		if err := v.candCenter.LegacyCommit(); err != nil {
+			return err
+		}
+	} else {
+		if err := v.candCenter.Commit(); err != nil {
+			return err
+		}
+	}
+
+	return v.bucketPool.Commit(sr)
+}
+
+func (v *ViewData) IsDirty() bool {
+	return v.candCenter.IsDirty() || v.bucketPool.IsDirty()
 }
 
 func (v *ViewData) Snapshot() int {

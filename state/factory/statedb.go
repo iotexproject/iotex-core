@@ -191,7 +191,11 @@ func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64,
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-	return newWorkingSet(height, sdb.protocolView, store), nil
+	views := sdb.protocolView.Clone()
+	if err := views.Commit(ctx, sdb); err != nil {
+		return nil, err
+	}
+	return newWorkingSet(ctx, height, views, store, sdb), nil
 }
 
 func (sdb *stateDB) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
@@ -234,6 +238,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 			return errors.Wrap(err, "failed to validate block with workingset in statedb")
 		}
 		sdb.workingsets.Add(key, ws)
+		sdb.workingsets.Add(blk.HashBlock(), ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {

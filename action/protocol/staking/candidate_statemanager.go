@@ -159,26 +159,13 @@ func (csm *candSM) DebitBucketPool(amount *big.Int, newBucket bool) error {
 }
 
 func (csm *candSM) Commit(ctx context.Context) error {
-	height, err := csm.Height()
-	if err != nil {
-		return err
-	}
-	if featureWithHeightCtx, ok := protocol.GetFeatureWithHeightCtx(ctx); ok && featureWithHeightCtx.CandCenterHasAlias(height) {
-		if err := csm.candCenter.LegacyCommit(); err != nil {
-			return err
-		}
-	} else {
-		if err := csm.candCenter.Commit(); err != nil {
-			return err
-		}
-	}
-
-	if err := csm.bucketPool.Commit(csm); err != nil {
+	view := csm.DirtyView()
+	if err := view.Commit(ctx, csm); err != nil {
 		return err
 	}
 
 	// write updated view back to state factory
-	return csm.WriteView(_protocolID, csm.DirtyView())
+	return csm.WriteView(_protocolID, view)
 }
 
 func (csm *candSM) getBucket(index uint64) (*VoteBucket, error) {

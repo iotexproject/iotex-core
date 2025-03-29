@@ -263,6 +263,18 @@ func (sf *factory) newWorkingSetWithKVStore(ctx context.Context, height uint64, 
 	span.AddEvent("factory.newWorkingSet")
 	defer span.End()
 
+	store, err := sf.createWorkingSetStore(ctx, height, kvstore)
+	if err != nil {
+		return nil, err
+	}
+	return sf.createSfWorkingSet(ctx, height, store)
+}
+
+func (sf *factory) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
+	return sf.createWorkingSetStore(ctx, height, kvstore)
+}
+
+func (sf *factory) createWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
 	flusher, err := db.NewKVStoreFlusher(
 		kvstore,
@@ -272,11 +284,22 @@ func (sf *factory) newWorkingSetWithKVStore(ctx context.Context, height uint64, 
 	if err != nil {
 		return nil, err
 	}
-	store, err := newFactoryWorkingSetStore(flusher)
-	if err != nil {
+	if err := flusher.KVStoreWithBuffer().Start(ctx); err != nil {
 		return nil, err
 	}
-	return sf.createSfWorkingSet(ctx, height, store)
+	for _, p := range sf.ps.Get(height) {
+		if p.Type == _Delete {
+			if err := flusher.KVStoreWithBuffer().Delete(p.Namespace, p.Key); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := flusher.KVStoreWithBuffer().Put(p.Namespace, p.Key, p.Value); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return newFactoryWorkingSetStore(flusher)
 }
 
 func (sf *factory) newWorkingSetAtHeight(ctx context.Context, height uint64) (*workingSet, error) {
@@ -315,7 +338,11 @@ func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store 
 			}
 		}
 	}
-	return newWorkingSet(height, sf.protocolView, store), nil
+	views := sf.protocolView.Clone()
+	if err := views.Commit(ctx, sf); err != nil {
+		return nil, err
+	}
+	return newWorkingSet(ctx, height, views, store, sf), nil
 }
 
 func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
@@ -364,6 +391,7 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 			return errors.Wrap(err, "failed to validate block with workingset in factory")
 		}
 		sf.putIntoWorkingSets(key, ws)
+		sf.putIntoWorkingSets(blk.HashBlock(), ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
