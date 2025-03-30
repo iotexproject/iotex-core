@@ -264,7 +264,7 @@ var (
 	ErrArchiveNotSupported = errors.New("archive-mode not supported")
 )
 
-// newcoreService creates a api server that contains major blockchain components
+// newCoreService creates a api server that contains major blockchain components
 func newCoreService(
 	cfg Config,
 	chain blockchain.Blockchain,

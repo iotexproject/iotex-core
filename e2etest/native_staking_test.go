@@ -514,6 +514,7 @@ func TestNativeStaking(t *testing.T) {
 	}
 
 	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
 	initDBPaths(require, &cfg)
 	defer func() {
 		clearDBPaths(&cfg)
@@ -1362,7 +1363,9 @@ func TestCandidateTransferOwnership(t *testing.T) {
 }
 
 func initCfg(r *require.Assertions) config.Config {
-	cfg := deepcopy.Copy(config.Default).(config.Config)
+	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
+	cfg = deepcopy.Copy(cfg).(config.Config)
 	initDBPaths(r, &cfg)
 
 	cfg.ActPool.MinGasPriceStr = "0"
@@ -1381,7 +1384,9 @@ func initCfg(r *require.Assertions) config.Config {
 func TestCandidateOwnerCollision(t *testing.T) {
 	require := require.New(t)
 	initCfg := func() config.Config {
-		cfg := deepcopy.Copy(config.Default).(config.Config)
+		cfg := config.Default
+		cfg.Genesis = genesis.TestDefault()
+		cfg = deepcopy.Copy(cfg).(config.Config)
 		initDBPaths(require, &cfg)
 
 		cfg.ActPool.MinGasPriceStr = "0"

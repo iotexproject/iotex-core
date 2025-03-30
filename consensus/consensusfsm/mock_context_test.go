@@ -188,6 +188,20 @@ func (mr *MockContextMockRecorder) EventChanSize() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventChanSize", reflect.TypeOf((*MockContext)(nil).EventChanSize))
 }
 
+// HasDelegate mocks base method.
+func (m *MockContext) HasDelegate() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasDelegate")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// HasDelegate indicates an expected call of HasDelegate.
+func (mr *MockContextMockRecorder) HasDelegate() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasDelegate", reflect.TypeOf((*MockContext)(nil).HasDelegate))
+}
+
 // Height mocks base method.
 func (m *MockContext) Height() uint64 {
 	m.ctrl.T.Helper()
@@ -200,20 +214,6 @@ func (m *MockContext) Height() uint64 {
 func (mr *MockContextMockRecorder) Height() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockContext)(nil).Height))
-}
-
-// IsDelegate mocks base method.
-func (m *MockContext) IsDelegate() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsDelegate")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsDelegate indicates an expected call of IsDelegate.
-func (mr *MockContextMockRecorder) IsDelegate() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsDelegate", reflect.TypeOf((*MockContext)(nil).IsDelegate))
 }
 
 // IsFutureEvent mocks base method.
@@ -273,10 +273,10 @@ func (mr *MockContextMockRecorder) Logger() *gomock.Call {
 }
 
 // NewBackdoorEvt mocks base method.
-func (m *MockContext) NewBackdoorEvt(arg0 go_fsm.State) *ConsensusEvent {
+func (m *MockContext) NewBackdoorEvt(arg0 go_fsm.State) []*ConsensusEvent {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewBackdoorEvt", arg0)
-	ret0, _ := ret[0].(*ConsensusEvent)
+	ret0, _ := ret[0].([]*ConsensusEvent)
 	return ret0
 }
 
@@ -287,10 +287,10 @@ func (mr *MockContextMockRecorder) NewBackdoorEvt(arg0 interface{}) *gomock.Call
 }
 
 // NewConsensusEvent mocks base method.
-func (m *MockContext) NewConsensusEvent(arg0 go_fsm.EventType, arg1 interface{}) *ConsensusEvent {
+func (m *MockContext) NewConsensusEvent(arg0 go_fsm.EventType, arg1 interface{}) []*ConsensusEvent {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewConsensusEvent", arg0, arg1)
-	ret0, _ := ret[0].(*ConsensusEvent)
+	ret0, _ := ret[0].([]*ConsensusEvent)
 	return ret0
 }
 

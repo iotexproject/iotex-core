@@ -40,9 +40,10 @@ func TestContractStakingCache_CandidateVotes(t *testing.T) {
 		}
 	}
 	require := require.New(t)
-	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(1).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
-	checkCacheCandidateVotes := checkCacheCandidateVotesGen(protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: 1})))
-	checkCacheCandidateVotesAfterRedsea := checkCacheCandidateVotesGen(protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: genesis.Default.RedseaBlockHeight})))
+	g := genesis.TestDefault()
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(1).String(), CalculateVoteWeight: calculateVoteWeightGen(g.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	checkCacheCandidateVotes := checkCacheCandidateVotesGen(protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), g), protocol.BlockCtx{BlockHeight: 1})))
+	checkCacheCandidateVotesAfterRedsea := checkCacheCandidateVotesGen(protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), g), protocol.BlockCtx{BlockHeight: g.RedseaBlockHeight})))
 	// no bucket
 	checkCacheCandidateVotes(require, cache, 0, identityset.Address(1), 0)
 	checkCacheCandidateVotesAfterRedsea(require, cache, 0, identityset.Address(1), 0)
@@ -123,7 +124,7 @@ func TestContractStakingCache_CandidateVotes(t *testing.T) {
 func TestContractStakingCache_Buckets(t *testing.T) {
 	require := require.New(t)
 	contractAddr := identityset.Address(27).String()
-	cache := newContractStakingCache(Config{ContractAddress: contractAddr, CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache := newContractStakingCache(Config{ContractAddress: contractAddr, CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts), BlockInterval: _blockInterval})
 
 	height := uint64(0)
 	// no bucket
@@ -197,7 +198,7 @@ func TestContractStakingCache_Buckets(t *testing.T) {
 func TestContractStakingCache_BucketsByCandidate(t *testing.T) {
 	require := require.New(t)
 	contractAddr := identityset.Address(27).String()
-	cache := newContractStakingCache(Config{ContractAddress: contractAddr, CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache := newContractStakingCache(Config{ContractAddress: contractAddr, CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts), BlockInterval: _blockInterval})
 
 	height := uint64(0)
 	// no bucket
@@ -269,7 +270,7 @@ func TestContractStakingCache_BucketsByCandidate(t *testing.T) {
 func TestContractStakingCache_BucketsByIndices(t *testing.T) {
 	require := require.New(t)
 	contractAddr := identityset.Address(27).String()
-	cache := newContractStakingCache(Config{ContractAddress: contractAddr, CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache := newContractStakingCache(Config{ContractAddress: contractAddr, CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts), BlockInterval: _blockInterval})
 
 	height := uint64(0)
 	// no bucket
@@ -316,7 +317,7 @@ func TestContractStakingCache_BucketsByIndices(t *testing.T) {
 
 func TestContractStakingCache_TotalBucketCount(t *testing.T) {
 	require := require.New(t)
-	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts), BlockInterval: _blockInterval})
 
 	height := uint64(0)
 	// no bucket
@@ -345,7 +346,7 @@ func TestContractStakingCache_TotalBucketCount(t *testing.T) {
 
 func TestContractStakingCache_ActiveBucketTypes(t *testing.T) {
 	require := require.New(t)
-	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts), BlockInterval: _blockInterval})
 
 	height := uint64(0)
 	// no bucket type
@@ -410,9 +411,10 @@ func TestContractStakingCache_ActiveBucketTypes(t *testing.T) {
 
 func TestContractStakingCache_Merge(t *testing.T) {
 	require := require.New(t)
-	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	g := genesis.TestDefault()
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(g.VoteWeightCalConsts), BlockInterval: _blockInterval})
 	height := uint64(1)
-	ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), genesis.Default), protocol.BlockCtx{BlockHeight: height}))
+	ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), g), protocol.BlockCtx{BlockHeight: height}))
 
 	// create delta with one bucket type
 	delta := newContractStakingDelta()
@@ -473,7 +475,7 @@ func TestContractStakingCache_Merge(t *testing.T) {
 
 func TestContractStakingCache_MatchBucketType(t *testing.T) {
 	require := require.New(t)
-	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts), BlockInterval: _blockInterval})
 
 	// no bucket types
 	_, bucketType, ok := cache.MatchBucketType(big.NewInt(100), 100)
@@ -508,7 +510,7 @@ func TestContractStakingCache_MatchBucketType(t *testing.T) {
 
 func TestContractStakingCache_BucketTypeCount(t *testing.T) {
 	require := require.New(t)
-	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts), BlockInterval: _blockInterval})
 
 	height := uint64(0)
 	// no bucket type
@@ -541,7 +543,7 @@ func TestContractStakingCache_BucketTypeCount(t *testing.T) {
 
 func TestContractStakingCache_LoadFromDB(t *testing.T) {
 	require := require.New(t)
-	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(27).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts), BlockInterval: _blockInterval})
 
 	// mock kvstore exception
 	ctrl := gomock.NewController(t)
@@ -676,7 +678,7 @@ func checkVoteBucket(r *require.Assertions, bucket *staking.VoteBucket, index ui
 
 func TestContractStakingCache_MustGetBucketInfo(t *testing.T) {
 	// build test condition to add a bucketInfo
-	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(1).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(1).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts), BlockInterval: _blockInterval})
 	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
 
 	tryCatchMustGetBucketInfo := func(i uint64) (v *bucketInfo, err error) {
@@ -702,7 +704,7 @@ func TestContractStakingCache_MustGetBucketInfo(t *testing.T) {
 
 func TestContractStakingCache_MustGetBucketType(t *testing.T) {
 	// build test condition to add a bucketType
-	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(1).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(1).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts), BlockInterval: _blockInterval})
 	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
 
 	tryCatchMustGetBucketType := func(i uint64) (v *BucketType, err error) {
@@ -728,7 +730,7 @@ func TestContractStakingCache_MustGetBucketType(t *testing.T) {
 
 func TestContractStakingCache_DeleteBucketInfo(t *testing.T) {
 	// build test condition to add a bucketInfo
-	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(1).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.Default.VoteWeightCalConsts), BlockInterval: _blockInterval})
+	cache := newContractStakingCache(Config{ContractAddress: identityset.Address(1).String(), CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts), BlockInterval: _blockInterval})
 	bi1 := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(1)}
 	bi2 := &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
 	cache.PutBucketInfo(1, bi1)

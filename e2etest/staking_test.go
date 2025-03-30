@@ -154,7 +154,7 @@ func TestStakingContract(t *testing.T) {
 		)
 		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx,
 			protocol.BlockCtx{
-				BlockHeight: genesis.Default.OkhotskBlockHeight,
+				BlockHeight: genesis.TestDefault().OkhotskBlockHeight,
 			}))
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
 		_, err = ns.Votes(ctx, bcCtx.Tip.Timestamp, false)
@@ -185,7 +185,9 @@ func TestStakingContract(t *testing.T) {
 		}
 	}
 
-	cfg := deepcopy.Copy(config.Default).(config.Config)
+	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
+	cfg = deepcopy.Copy(cfg).(config.Config)
 	initDBPaths(require, &cfg)
 
 	defer func() {
@@ -209,7 +211,6 @@ func TestStakingContract(t *testing.T) {
 		},
 	}
 	cfg.Genesis.PollMode = "lifeLong"
-	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.AleutianBlockHeight = 2

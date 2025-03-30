@@ -62,7 +62,7 @@ func TestNewGasStation(t *testing.T) {
 
 func newTestConfig() testConfig {
 	cfg := testConfig{
-		Genesis:    genesis.Default,
+		Genesis:    genesis.TestDefault(),
 		Chain:      blockchain.DefaultConfig,
 		ActPool:    actpool.DefaultConfig,
 		GasStation: DefaultConfig,
@@ -252,7 +252,7 @@ func TestSuggestGasPrice_GasConsumed(t *testing.T) {
 			dao := mock_blockdao.NewMockBlockDAO(ctrl)
 			gs := NewGasStation(bc, dao, DefaultConfig)
 			bc.EXPECT().TipHeight().Return(uint64(len(blocks) - 1)).Times(1)
-			bc.EXPECT().Genesis().Return(genesis.Default).Times(1)
+			bc.EXPECT().Genesis().Return(genesis.TestDefault()).Times(1)
 			dao.EXPECT().GetBlockByHeight(gomock.Any()).DoAndReturn(
 				func(height uint64) (*block.Block, error) {
 					return blocks[height], nil

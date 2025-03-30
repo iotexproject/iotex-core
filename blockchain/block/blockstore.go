@@ -38,7 +38,7 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 	}
 }
 
-// ToProto converts to proto message
+// ToProtoWithoutSidecar converts to proto message excluding sidecar data
 func (in *Store) ToProtoWithoutSidecar() *iotextypes.BlockStore {
 	receipts := []*iotextypes.Receipt{}
 	for _, r := range in.Receipts {

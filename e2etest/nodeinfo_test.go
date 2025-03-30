@@ -7,6 +7,7 @@ package e2etest
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -40,17 +41,24 @@ func newConfigForNodeInfoTest(triePath, dBPath, idxDBPath, contractIdxDBPath str
 	if err != nil {
 		return cfg, nil, err
 	}
+	testActionStorePath, err := os.MkdirTemp(os.TempDir(), "actionstore")
+	if err != nil {
+		return cfg, nil, err
+	}
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.BlobStoreDBPath = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
 	cfg.Chain.ContractStakingIndexDBPath = contractIndexDBPath
+	cfg.ActPool.Store.Datadir = testActionStorePath
+
 	return cfg, func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(indexDBPath)
 		testutil.CleanupPath(contractIndexDBPath)
+		testutil.CleanupPath(testActionStorePath)
 	}, nil
 }
 
@@ -89,8 +97,8 @@ func TestBroadcastNodeInfo(t *testing.T) {
 	}()
 
 	// check if there is sender's info in reciever delegatemanager
-	require.NoError(srvSender.ChainService(cfgSender.Chain.ID).NodeInfoManager().BroadcastNodeInfo(context.Background()))
-	addrSender := cfgSender.Chain.ProducerAddress().String()
+	addrSender := cfgSender.Chain.ProducerAddress()[0].String()
+	require.NoError(srvSender.ChainService(cfgSender.Chain.ID).NodeInfoManager().BroadcastNodeInfo(context.Background(), []string{addrSender}))
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
 		_, ok := srvReciever.ChainService(cfgReciever.Chain.ID).NodeInfoManager().GetNodeInfo(addrSender)
 		return ok, nil
@@ -100,13 +108,13 @@ func TestBroadcastNodeInfo(t *testing.T) {
 func TestUnicastNodeInfo(t *testing.T) {
 	require := require.New(t)
 
-	cfgReciever, teardown2, err := newConfigForNodeInfoTest("trie2.test", "db2.test", "indexdb2.test", "contractidxdb2.test")
+	cfgReceiver, teardown2, err := newConfigForNodeInfoTest("trie2.test", "db2.test", "indexdb2.test", "contractidxdb2.test")
 	require.NoError(err)
 	defer teardown2()
-	cfgReciever.Network.ReconnectInterval = 2 * time.Second
-	srvReciever, err := itx.NewServer(cfgReciever)
+	cfgReceiver.Network.ReconnectInterval = 2 * time.Second
+	srvReciever, err := itx.NewServer(cfgReceiver)
 	require.NoError(err)
-	ctxReciever := genesis.WithGenesisContext(context.Background(), cfgReciever.Genesis)
+	ctxReciever := genesis.WithGenesisContext(context.Background(), cfgReceiver.Genesis)
 	err = srvReciever.Start(ctxReciever)
 	require.NoError(err)
 	defer func() {
@@ -135,7 +143,7 @@ func TestUnicastNodeInfo(t *testing.T) {
 	dmSender := srvSender.ChainService(cfgSender.Chain.ID).NodeInfoManager()
 	err = dmSender.RequestSingleNodeInfoAsync(context.Background(), peerReciever)
 	require.NoError(err)
-	addrReciever := cfgReciever.Chain.ProducerAddress().String()
+	addrReciever := cfgReceiver.Chain.ProducerAddress()[0].String()
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
 		_, ok := dmSender.GetNodeInfo(addrReciever)
 		return ok, nil

@@ -7,6 +7,7 @@ package nodeinfo
 
 import (
 	"context"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -53,12 +53,12 @@ type (
 	InfoManager struct {
 		lifecycle.Lifecycle
 		version              string
-		address              string
 		broadcastList        atomic.Value // []string, whitelist to force enable broadcast
 		nodeMap              *lru.Cache
 		transmitter          transmitter
 		chain                chain
-		privKey              crypto.PrivateKey
+		privKeys             map[string]crypto.PrivateKey
+		addrs                []string
 		getBroadcastListFunc getBroadcastListFunc
 	}
 
@@ -78,22 +78,33 @@ func init() {
 }
 
 // NewInfoManager new info manager
-func NewInfoManager(cfg *Config, t transmitter, ch chain, privKey crypto.PrivateKey, broadcastListFunc getBroadcastListFunc) *InfoManager {
+func NewInfoManager(cfg *Config, t transmitter, ch chain, broadcastListFunc getBroadcastListFunc, privKeys ...crypto.PrivateKey) *InfoManager {
+	addrs := make([]string, 0, len(privKeys))
+	keyMaps := make(map[string]crypto.PrivateKey)
+	for _, privKey := range privKeys {
+		addr := privKey.PublicKey().Address().String()
+		addrs = append(addrs, addr)
+		keyMaps[addr] = privKey
+	}
 	dm := &InfoManager{
 		nodeMap:              lru.New(cfg.NodeMapSize),
 		transmitter:          t,
 		chain:                ch,
-		privKey:              privKey,
+		addrs:                addrs,
+		privKeys:             keyMaps,
 		version:              version.PackageVersion,
-		address:              privKey.PublicKey().Address().String(),
 		getBroadcastListFunc: broadcastListFunc,
 	}
 	dm.broadcastList.Store([]string{})
 	// init recurring tasks
 	broadcastTask := routine.NewRecurringTask(func() {
+		addrs := dm.addrs
+		if !cfg.EnableBroadcastNodeInfo {
+			addrs = dm.inBroadcastList()
+		}
 		// broadcastlist or nodes who are turned on will broadcast
-		if cfg.EnableBroadcastNodeInfo || dm.inBroadcastList() {
-			if err := dm.BroadcastNodeInfo(context.Background()); err != nil {
+		if len(addrs) > 0 {
+			if err := dm.BroadcastNodeInfo(context.Background(), addrs); err != nil {
 				log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
 			}
 		} else {
@@ -162,28 +173,30 @@ func (dm *InfoManager) GetNodeInfo(addr string) (Info, bool) {
 }
 
 // BroadcastNodeInfo broadcast request node info message
-func (dm *InfoManager) BroadcastNodeInfo(ctx context.Context) error {
+func (dm *InfoManager) BroadcastNodeInfo(ctx context.Context, addrs []string) error {
 	log.L().Debug("nodeinfo manager broadcast node info")
-	req, err := dm.genNodeInfoMsg()
+	infos, err := dm.genNodeInfoMsg(addrs)
 	if err != nil {
 		return err
 	}
-	// broadcast request meesage
-	if err := dm.transmitter.BroadcastOutbound(ctx, req); err != nil {
-		return err
+	for _, info := range infos {
+		// broadcast request meesage
+		if err := dm.transmitter.BroadcastOutbound(ctx, info); err != nil {
+			return err
+		}
+		// manually update self node info for broadcast message to myself will be ignored
+		peer, err := dm.transmitter.Info()
+		if err != nil {
+			return err
+		}
+		dm.updateNode(&Info{
+			Version:   info.Info.Version,
+			Height:    info.Info.Height,
+			Timestamp: info.Info.Timestamp.AsTime(),
+			Address:   info.Info.Address,
+			PeerID:    peer.ID.String(),
+		})
 	}
-	// manually update self node info for broadcast message to myself will be ignored
-	peer, err := dm.transmitter.Info()
-	if err != nil {
-		return err
-	}
-	dm.updateNode(&Info{
-		Version:   req.Info.Version,
-		Height:    req.Info.Height,
-		Timestamp: req.Info.Timestamp.AsTime(),
-		Address:   req.Info.Address,
-		PeerID:    peer.ID.String(),
-	})
 	return nil
 }
 
@@ -196,34 +209,57 @@ func (dm *InfoManager) RequestSingleNodeInfoAsync(ctx context.Context, peer peer
 // HandleNodeInfoRequest tell node info to peer
 func (dm *InfoManager) HandleNodeInfoRequest(ctx context.Context, peer peer.AddrInfo) error {
 	log.L().Debug("nodeinfo manager tell node info", zap.Any("peer", peer.ID.String()))
-	req, err := dm.genNodeInfoMsg()
+	infos, err := dm.genNodeInfoMsg(dm.addrs)
 	if err != nil {
 		return err
 	}
-	return dm.transmitter.UnicastOutbound(ctx, peer, req)
+	for _, info := range infos {
+		if err := dm.transmitter.UnicastOutbound(ctx, peer, info); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (dm *InfoManager) genNodeInfoMsg() (*iotextypes.NodeInfo, error) {
-	req := &iotextypes.NodeInfo{
-		Info: &iotextypes.NodeInfoCore{
+func (dm *InfoManager) genNodeInfoMsg(addrs []string) ([]*iotextypes.NodeInfo, error) {
+	infos := make([]*iotextypes.NodeInfo, 0, len(addrs))
+	tip := dm.chain.TipHeight()
+	ts := timestamppb.Now()
+
+	for _, addr := range addrs {
+		privKey, ok := dm.privKeys[addr]
+		if !ok {
+			return nil, errors.Errorf("private key not found for address %s", addr)
+		}
+		core := &iotextypes.NodeInfoCore{
 			Version:   dm.version,
-			Height:    dm.chain.TipHeight(),
-			Timestamp: timestamppb.Now(),
-			Address:   dm.address,
-		},
+			Height:    tip,
+			Timestamp: ts,
+			Address:   addr,
+		}
+		// add sig for msg
+		h := hashNodeInfo(core)
+		sig, err := privKey.Sign(h[:])
+		if err != nil {
+			return nil, errors.Wrap(err, "sign node info message failed")
+		}
+		infos = append(infos, &iotextypes.NodeInfo{
+			Info:      core,
+			Signature: sig,
+		})
 	}
-	// add sig for msg
-	h := hashNodeInfo(req.Info)
-	sig, err := dm.privKey.Sign(h[:])
-	if err != nil {
-		return nil, errors.Wrap(err, "sign node info message failed")
-	}
-	req.Signature = sig
-	return req, nil
+	return infos, nil
 }
 
-func (dm *InfoManager) inBroadcastList() bool {
-	return slices.Contains(dm.broadcastList.Load().([]string), dm.address)
+func (dm *InfoManager) inBroadcastList() []string {
+	list := dm.broadcastList.Load().([]string)
+	inList := make([]string, 0, len(dm.addrs))
+	for _, a := range dm.addrs {
+		if slices.Contains(list, a) {
+			inList = append(inList, a)
+		}
+	}
+	return inList
 }
 
 func (dm *InfoManager) updateBroadcastList() {

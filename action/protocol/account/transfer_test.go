@@ -35,7 +35,7 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 	t.Run("invalid transfer", func(t *testing.T) {
 		tsf := action.NewTransfer(big.NewInt(1), "2", make([]byte, 32683))
 		tsf1 := action.NewTransfer(big.NewInt(1), "2", nil)
-		g := genesis.Default
+		g := genesis.TestDefault()
 		ctx := protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 			BlockHeight: g.NewfoundlandBlockHeight,
 		}), g))
@@ -61,12 +61,13 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 	// set-up protocol and genesis states
 	p := NewProtocol(rewarding.DepositGas)
-	reward := rewarding.NewProtocol(genesis.Default.Rewarding)
+	g := genesis.TestDefault()
+	reward := rewarding.NewProtocol(g.Rewarding)
 	registry := protocol.NewRegistry()
 	require.NoError(reward.Register(registry))
 	chainCtx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), registry),
-		genesis.Default,
+		g,
 	)
 	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{})
 	ctx = protocol.WithFeatureCtx(ctx)

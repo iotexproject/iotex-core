@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -64,6 +65,12 @@ func init() {
 }
 
 type (
+	// MintOptions is the options to mint a new block
+	MintOptions struct {
+		ProducerPrivateKey crypto.PrivateKey
+	}
+	// MintOption sets the mint options
+	MintOption func(*MintOptions)
 	// Blockchain represents the blockchain data structure and hosts the APIs to access it
 	Blockchain interface {
 		lifecycle.StartStopper
@@ -93,7 +100,7 @@ type (
 		// For block operations
 		// MintNewBlock creates a new block with given actions
 		// Note: the coinbase transfer will be added to the given transfers when minting a new block
-		MintNewBlock(timestamp time.Time) (*block.Block, error)
+		MintNewBlock(time.Time, ...MintOption) (*block.Block, error)
 		// CommitBlock validates and appends a block to the chain
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
@@ -128,6 +135,13 @@ type (
 		bbf BlockBuilderFactory
 	}
 )
+
+// WithProducerPrivateKey sets the producer private key
+func WithProducerPrivateKey(pk crypto.PrivateKey) MintOption {
+	return func(options *MintOptions) {
+		options.ProducerPrivateKey = pk
+	}
+}
 
 // Productivity returns the map of the number of blocks produced per delegate in given epoch
 func Productivity(bc Blockchain, startHeight uint64, endHeight uint64) (map[string]uint64, error) {
@@ -407,11 +421,15 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 	return protocol.WithFeatureWithHeightCtx(ctx), nil
 }
 
-func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
+func (bc *blockchain) MintNewBlock(timestamp time.Time, opts ...MintOption) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
 	defer mintNewBlockTimer.End()
+	var options MintOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
 	tipHeight, err := bc.dao.Height()
 	if err != nil {
 		return nil, err
@@ -422,20 +440,29 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 		return nil, err
 	}
 	tip := protocol.MustGetBlockchainCtx(ctx).Tip
-	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
+	producerPrivateKey := options.ProducerPrivateKey
+	if producerPrivateKey == nil {
+		privateKeys := bc.config.ProducerPrivateKeys()
+		if len(privateKeys) == 0 {
+			return nil, errors.New("no producer private key available")
+		}
+		producerPrivateKey = privateKeys[0]
+	}
+	minterAddress := producerPrivateKey.PublicKey().Address()
+	log.L().Info("Minting a new block.", zap.Uint64("height", newblockHeight), zap.String("minter", minterAddress.String()))
+	ctx = bc.contextWithBlock(ctx, minterAddress, newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
-	minterPrivateKey := bc.config.ProducerPrivateKey()
 	blockBuilder, err := bc.bbf.NewBlockBuilder(
 		ctx,
 		func(elp action.Envelope) (*action.SealedEnvelope, error) {
-			return action.Sign(elp, minterPrivateKey)
+			return action.Sign(elp, producerPrivateKey)
 		},
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", newblockHeight)
 	}
-	blk, err := blockBuilder.SignAndBuild(minterPrivateKey)
+	blk, err := blockBuilder.SignAndBuild(producerPrivateKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}

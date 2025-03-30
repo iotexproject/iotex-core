@@ -7,12 +7,12 @@ package itx
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/pkg/probe"
 	"github.com/iotexproject/iotex-core/v2/testutil"
@@ -83,9 +83,9 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	require.NoError(err)
 	contractIndexPath, err := testutil.PathOfTempFile("contractindxer.db")
 	require.NoError(err)
-	testActionStorePath, err := os.MkdirTemp(os.TempDir(), "actionstore")
-	require.NoError(err)
+	testActionStorePath := t.TempDir()
 	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
 	cfg.API.GRPCPort = testutil.RandomPort()
 	cfg.API.HTTPPort = testutil.RandomPort()
 	cfg.API.WebSocketPort = testutil.RandomPort()

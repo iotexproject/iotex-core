@@ -87,16 +87,17 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		protocol.KeyOption(TotalBucketKey),
 	)
 	require.NoError(err)
+	g := genesis.TestDefault()
 
 	// create protocol
 	p, err := NewProtocol(HelperCtx{
 		DepositGas:    depositGas,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  genesis.TestDefault().Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+			VoteWeight: genesis.TestDefault().Staking.VoteWeightCalConsts,
 		},
 	}, nil, nil, nil)
 	require.NoError(err)
@@ -106,7 +107,6 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(csm.putCandidate(candidate))
 	candidateName := candidate.Name
 	candidateAddr := candidate.Owner
-	g := genesis.Default
 	g.VanuatuBlockHeight = 1
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
@@ -605,7 +605,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			GasLimit:       test.blkGasLimit,
 		})
 		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -923,7 +923,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			GasLimit:       test.blkGasLimit,
 		})
 		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
-		ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+		ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		_, err = p.Handle(ctx, elp, sm)
 		require.NoError(err)
@@ -1273,7 +1273,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		{restake, false, iotextypes.ReceiptStatus_ErrNotEnoughBalance},
 	}
 	for i, v := range unstakedBucketTests {
-		greenland := genesis.Default
+		greenland := genesis.TestDefault()
 		if v.greenland {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			greenland.GreenlandBlockHeight = blkCtx.BlockHeight
@@ -1302,7 +1302,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		}
 	}
 	t.Run("CleanSelfStake", func(t *testing.T) {
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		runtest := func(t *testing.T, height uint64, fn func(vb *VoteBucket, cand *Candidate, sm protocol.StateManager)) {
 			ctrl := gomock.NewController(t)
 			sm, p, vbs, cands := initTestState(t, ctrl, []*bucketConfig{
@@ -1712,7 +1712,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			"test2",
 			10000,
 			1,
-			genesis.Default.HawaiiBlockHeight,
+			genesis.TestDefault().HawaiiBlockHeight,
 			time.Now(),
 			10000,
 			false,
@@ -1837,7 +1837,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -1885,7 +1885,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -1933,7 +1933,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -2070,7 +2070,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			0,
 			10000,
 			2,
-			genesis.Default.HawaiiBlockHeight,
+			genesis.TestDefault().HawaiiBlockHeight,
 			time.Now(),
 			10000,
 			identityset.Address(2),
@@ -2973,7 +2973,7 @@ func TestChangeCandidate(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3015,7 +3015,7 @@ func TestChangeCandidate(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3057,7 +3057,7 @@ func TestChangeCandidate(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3095,7 +3095,7 @@ func TestChangeCandidate(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3138,7 +3138,7 @@ func TestUnstake(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3179,7 +3179,7 @@ func TestUnstake(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3220,7 +3220,7 @@ func TestUnstake(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3258,7 +3258,7 @@ func TestUnstake(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3305,7 +3305,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
 		Height: blkHeight - 1,
 	}})
-	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+	ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
@@ -3329,16 +3329,17 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 		protocol.KeyOption(TotalBucketKey),
 	)
 	require.NoError(err)
+	g := genesis.TestDefault()
 
 	// create protocol
 	p, err := NewProtocol(HelperCtx{
 		DepositGas:    depositGas,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  g.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
 	}, nil, nil, nil)
 	require.NoError(err)
@@ -3350,7 +3351,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	candidate2 := testCandidates[1].d.Clone()
 	candidate2.Votes = big.NewInt(0)
 	require.NoError(csm.putCandidate(candidate2))
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
