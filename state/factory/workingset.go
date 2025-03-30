@@ -330,8 +330,8 @@ func (ws *workingSet) freshAccountConversion(ctx context.Context, actCtx *protoc
 }
 
 func (ws *workingSet) PruneTo(height uint64) error {
-	if _, ok := ws.store.(interface{ Prune(uint64, uint64) error }); ok {
-		return ws.store.(interface{ Prune(uint64, uint64) error }).Prune(ws.height, height)
+	if p, ok := ws.store.(interface{ Prune(uint64, uint64) error }); ok {
+		return p.Prune(height, ws.height)
 	}
 	return nil
 }

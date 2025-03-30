@@ -60,7 +60,7 @@ type writer interface {
 // it's used for PutBlock, generating historical states in erigon
 type stateDBWorkingSetStoreWithErigonOutput struct {
 	reader
-	store       *stateDBWorkingSetStore
+	store       workingSetStore
 	erigonStore *erigonStore
 	snMap       map[int]int
 }
@@ -76,7 +76,7 @@ func init() {
 	prometheus.MustRegister(perfMtc)
 }
 
-func newStateDBWorkingSetStoreWithErigonOutput(store *stateDBWorkingSetStore, erigonStore *erigonStore) *stateDBWorkingSetStoreWithErigonOutput {
+func newStateDBWorkingSetStoreWithErigonOutput(store workingSetStore, erigonStore *erigonStore) *stateDBWorkingSetStoreWithErigonOutput {
 	return &stateDBWorkingSetStoreWithErigonOutput{
 		reader:      store,
 		store:       store,
@@ -219,6 +219,9 @@ func (store *erigonStore) commit(ctx context.Context) error {
 }
 
 func (store *erigonStore) prune(from, to uint64) error {
+	if from >= to {
+		log.L().Panic("prune execution stage", zap.Uint64("from", from), zap.Uint64("to", to))
+	}
 	s := stagedsync.PruneState{ID: stages.Execution, ForwardProgress: to}
 	num := to - from
 	cfg := stagedsync.StageExecuteBlocksCfg(nil,
@@ -241,7 +244,9 @@ func (store *erigonStore) prune(from, to uint64) error {
 	if err != nil {
 		log.L().Error(" failed to get available storage from", zap.Error(err))
 	}
-	log.L().Info("prune execution stage", zap.Uint64("from", from), zap.Uint64("to", to), zap.Uint64("available", available), zap.Uint64("availableStorage", availableStorage))
+	if to%5000 == 0 {
+		log.L().Info("prune execution stage", zap.Uint64("from", from), zap.Uint64("to", to), zap.Uint64("available", available), zap.Uint64("availableStorage", availableStorage))
+	}
 	return nil
 }
 

@@ -38,7 +38,7 @@ type (
 		BlobStoreDBPath            string           `yaml:"blobStoreDBPath"`
 		BlobStoreRetentionDays     uint32           `yaml:"blobStoreRetentionDays"`
 		HistoryIndexPath           string           `yaml:"historyIndexPath"`
-		HistoryBlockKeeps          uint64           `yaml:"historyBlockKeeps"`
+		HistoryBlockRetention      uint64           `yaml:"historyBlockRetention"`
 		ID                         uint32           `yaml:"id"`
 		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
 		Address                    string           `yaml:"address"`
@@ -100,6 +100,7 @@ var (
 		ContractStakingIndexDBPath: "/var/data/contractstaking.index.db",
 		BlobStoreDBPath:            "/var/data/blob.db",
 		BlobStoreRetentionDays:     21,
+		HistoryBlockRetention:      256,
 		ID:                         1,
 		EVMNetworkID:               4689,
 		Address:                    "",
