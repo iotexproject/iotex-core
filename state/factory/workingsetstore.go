@@ -7,6 +7,7 @@ package factory
 
 import (
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
@@ -24,7 +25,9 @@ type (
 		ResetSnapshots()
 	}
 	workingSetStoreCommon struct {
-		flusher db.KVStoreFlusher
+		// TODO: handle committed flag properly in the functions
+		committed bool
+		flusher   db.KVStoreFlusher
 	}
 )
 
@@ -33,15 +36,33 @@ func (store *workingSetStoreCommon) Filter(ns string, cond db.Condition, start, 
 }
 
 func (store *workingSetStoreCommon) WriteBatch(bat batch.KVStoreBatch) error {
-	return store.flusher.KVStoreWithBuffer().WriteBatch(bat)
+	if err := store.flusher.KVStoreWithBuffer().WriteBatch(bat); err != nil {
+		return errors.Wrap(err, "failed to write batch")
+	}
+	if !store.committed {
+		return nil
+	}
+	return store.flusher.Flush()
 }
 
 func (store *workingSetStoreCommon) Put(ns string, key []byte, value []byte) error {
-	return store.flusher.KVStoreWithBuffer().Put(ns, key, value)
+	if err := store.flusher.KVStoreWithBuffer().Put(ns, key, value); err != nil {
+		return errors.Wrap(err, "failed to put value")
+	}
+	if !store.committed {
+		return nil
+	}
+	return store.flusher.Flush()
 }
 
 func (store *workingSetStoreCommon) Delete(ns string, key []byte) error {
-	return store.flusher.KVStoreWithBuffer().Delete(ns, key)
+	if err := store.flusher.KVStoreWithBuffer().Delete(ns, key); err != nil {
+		return errors.Wrap(err, "failed to delete value")
+	}
+	if !store.committed {
+		return nil
+	}
+	return store.flusher.Flush()
 }
 
 func (store *workingSetStoreCommon) Digest() hash.Hash256 {
@@ -49,8 +70,15 @@ func (store *workingSetStoreCommon) Digest() hash.Hash256 {
 }
 
 func (store *workingSetStoreCommon) Commit() error {
+	if store.committed {
+		return errors.New("working set store already committed")
+	}
 	_dbBatchSizelMtc.WithLabelValues().Set(float64(store.flusher.KVStoreWithBuffer().Size()))
-	return store.flusher.Flush()
+	if err := store.flusher.Flush(); err != nil {
+		return errors.Wrap(err, "failed to commit working set store")
+	}
+	store.committed = true
+	return nil
 }
 
 func (store *workingSetStoreCommon) Snapshot() int {
