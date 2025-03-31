@@ -61,7 +61,7 @@ func (core *coreServiceReaderWithHeight) Account(addr address.Address) (*iotexty
 	if err != nil {
 		return nil, nil, err
 	}
-	return core.cs.acccount(ctx, core.height, true, ws, addr)
+	return core.cs.account(ctx, core.height, true, ws, addr)
 }
 
 func (core *coreServiceReaderWithHeight) ReadContract(ctx context.Context, callerAddr address.Address, elp action.Envelope) (string, *iotextypes.Receipt, error) {
