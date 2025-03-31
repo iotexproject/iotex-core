@@ -195,7 +195,7 @@ func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64,
 	if err := views.Commit(ctx, sdb); err != nil {
 		return nil, err
 	}
-	return newWorkingSet(ctx, height, views, store, sdb), nil
+	return newWorkingSet(height, views, store, sdb), nil
 }
 
 func (sdb *stateDB) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {

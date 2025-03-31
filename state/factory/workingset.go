@@ -76,7 +76,7 @@ type (
 	}
 )
 
-func newWorkingSet(ctx context.Context, height uint64, views *protocol.Views, store workingSetStore, storeFactory WorkingSetStoreFactory) *workingSet {
+func newWorkingSet(height uint64, views *protocol.Views, store workingSetStore, storeFactory WorkingSetStoreFactory) *workingSet {
 	ws := &workingSet{
 		height:                 height,
 		views:                  views,
@@ -827,5 +827,5 @@ func (ws *workingSet) NewWorkingSet(ctx context.Context) (*workingSet, error) {
 	if err := views.Commit(ctx, ws); err != nil {
 		return nil, err
 	}
-	return newWorkingSet(ctx, ws.height+1, views, store, ws.workingSetStoreFactory), nil
+	return newWorkingSet(ws.height+1, views, store, ws.workingSetStoreFactory), nil
 }

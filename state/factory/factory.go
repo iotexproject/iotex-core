@@ -342,7 +342,7 @@ func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store 
 	if err := views.Commit(ctx, sf); err != nil {
 		return nil, err
 	}
-	return newWorkingSet(ctx, height, views, store, sf), nil
+	return newWorkingSet(height, views, store, sf), nil
 }
 
 func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {

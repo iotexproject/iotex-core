@@ -378,24 +378,18 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if err != nil {
 		return err
 	}
-	if !view.(*ViewData).IsDirty() {
+	vd := view.(*ViewData)
+	if !vd.IsDirty() {
 		return nil
 	}
-
-	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
-	csm, err := NewCandidateStateManager(sm)
-	if err != nil {
+	vd = vd.Clone().(*ViewData)
+	if err := vd.Commit(ctx, sm); err != nil {
 		return err
 	}
-	cc := csm.DirtyView().candCenter
-	base := cc.base.clone()
-	if _, err = base.commit(cc.change, featureWithHeightCtx.CandCenterHasAlias(height)); err != nil {
-		return errors.Wrap(err, "failed to apply candidate change in pre-commit")
-	}
 	// persist nameMap/operatorMap and ownerList to stateDB
-	name := base.candsInNameMap()
-	op := base.candsInOperatorMap()
-	owners := base.ownersList()
+	name := vd.candCenter.base.candsInNameMap()
+	op := vd.candCenter.base.candsInOperatorMap()
+	owners := vd.candCenter.base.ownersList()
 	if len(name) == 0 || len(op) == 0 {
 		return ErrNilParameters
 	}

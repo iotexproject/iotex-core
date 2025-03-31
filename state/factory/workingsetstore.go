@@ -37,13 +37,11 @@ func (store *workingSetStoreCommon) WriteBatch(bat batch.KVStoreBatch) error {
 }
 
 func (store *workingSetStoreCommon) Put(ns string, key []byte, value []byte) error {
-	store.flusher.KVStoreWithBuffer().MustPut(ns, key, value)
-	return nil
+	return store.flusher.KVStoreWithBuffer().Put(ns, key, value)
 }
 
 func (store *workingSetStoreCommon) Delete(ns string, key []byte) error {
-	store.flusher.KVStoreWithBuffer().MustDelete(ns, key)
-	return nil
+	return store.flusher.KVStoreWithBuffer().Delete(ns, key)
 }
 
 func (store *workingSetStoreCommon) Digest() hash.Hash256 {
