@@ -327,13 +327,33 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		return core.getProtocolAccount(ctx, addrStr)
 	}
 	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	return core.acccount(ctx, core.bc.TipHeight(), false, core.sf, addr)
+	ws, err := core.sf.WorkingSet(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	return core.account(ctx, core.bc.TipHeight(), false, ws, addr)
 }
 
-func (core *coreService) acccount(ctx context.Context, height uint64, archive bool, sr protocol.StateReader, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+func (core *coreService) account(ctx context.Context, height uint64, archive bool, sr protocol.StateReader, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
 	span := tracer.SpanFromContext(ctx)
-	span.AddEvent("accountutil.AccountStateWithHeight")
-	state, height, err := accountutil.AccountStateWithHeight(ctx, sr, addr)
+	span.AddEvent("accountutil.AccountState")
+	state, err := accountutil.AccountState(ctx, sr, addr)
+	if errors.Cause(err) == db.ErrDeleted {
+		// address has been deleted, return a fresh new one
+		meta := iotextypes.AccountMeta{
+			Address: addr.String(),
+			Balance: "0",
+		}
+		header, err := core.bc.BlockHeaderByHeight(height)
+		if err != nil {
+			return nil, nil, status.Error(codes.NotFound, err.Error())
+		}
+		hash := header.HashBlock()
+		return &meta, &iotextypes.BlockIdentifier{
+			Hash:   hex.EncodeToString(hash[:]),
+			Height: height,
+		}, nil
+	}
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -343,10 +363,6 @@ func (core *coreService) acccount(ctx context.Context, height uint64, archive bo
 		pendingNonce uint64
 	)
 	if archive {
-		state, err := accountutil.AccountState(ctx, sr, addr)
-		if err != nil {
-			return nil, nil, status.Error(codes.NotFound, err.Error())
-		}
 		g := core.bc.Genesis()
 		if g.IsSumatra(height) {
 			pendingNonce = state.PendingNonceConsideringFreshAccount()
