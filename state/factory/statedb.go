@@ -274,12 +274,12 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 	sdb.mutex.RLock()
 	height := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	// TODO: the workingset should be read only, and should not be able to commit
+	// TODO: the workingset should not be able to commit
 	return sdb.newReadOnlyWorkingSet(ctx, height+1)
 }
 
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
-	// TODO: the workingset should be read only, and should not be able to commit
+	// TODO: the workingset should not be able to commit
 	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state db")
