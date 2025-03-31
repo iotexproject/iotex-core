@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -100,13 +99,6 @@ func (builder *Builder) SetBlockDAO(bd blockdao.BlockDAO) *Builder {
 func (builder *Builder) SetP2PAgent(agent p2p.Agent) *Builder {
 	builder.createInstance()
 	builder.cs.p2pAgent = agent
-	return builder
-}
-
-func (builder *Builder) SetAccountRateLimit(r int) *Builder {
-	builder.createInstance()
-	builder.cs.accRateLimitCfg = r
-	builder.cs.rateLimiters = cache.NewThreadSafeLruCache(10000)
 	return builder
 }
 
@@ -528,24 +520,29 @@ func (builder *Builder) buildNodeInfoManager() error {
 		return errors.New("cannot find staking protocol")
 	}
 	chain := builder.cs.chain
-	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
-		ctx := protocol.WithFeatureCtx(
-			protocol.WithBlockCtx(
-				genesis.WithGenesisContext(context.Background(), chain.Genesis()),
-				protocol.BlockCtx{BlockHeight: chain.TipHeight()},
-			),
-		)
-		candidates, err := stk.ActiveCandidates(ctx, cs.factory, 0)
-		if err != nil {
-			log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
-			return nil
-		}
-		whiteList := make([]string, len(candidates))
-		for i := range whiteList {
-			whiteList[i] = candidates[i].Address
-		}
-		return whiteList
-	})
+	var dm *nodeinfo.InfoManager
+	if builder.cfg.System.Active {
+		dm = nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, func() []string {
+			ctx := protocol.WithFeatureCtx(
+				protocol.WithBlockCtx(
+					genesis.WithGenesisContext(context.Background(), chain.Genesis()),
+					protocol.BlockCtx{BlockHeight: chain.TipHeight()},
+				),
+			)
+			candidates, err := stk.ActiveCandidates(ctx, cs.factory, 0)
+			if err != nil {
+				log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
+				return nil
+			}
+			whiteList := make([]string, len(candidates))
+			for i := range whiteList {
+				whiteList[i] = candidates[i].Address
+			}
+			return whiteList
+		}, builder.cfg.Chain.ProducerPrivateKeys()...)
+	} else {
+		dm = nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, nil)
+	}
 	builder.cs.nodeInfoManager = dm
 	builder.cs.lifecycle.Add(dm)
 	return nil

@@ -25,7 +25,8 @@ func TestNewProtocol(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	committee := mock_committee.NewMockCommittee(ctrl)
-	g := genesis.Default
+	g := genesis.TestDefault()
+	g.EnableGravityChainVoting = true
 	g.ScoreThreshold = "1200000"
 	p, err := NewProtocol(
 		_rollDPoSScheme,

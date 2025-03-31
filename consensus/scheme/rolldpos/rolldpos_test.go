@@ -57,7 +57,7 @@ func TestNewRollDPoS(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 
-	g := genesis.Default
+	g := genesis.TestDefault()
 	builderCfg := BuilderConfig{
 		Chain:              blockchain.DefaultConfig,
 		Consensus:          DefaultConfig,
@@ -76,7 +76,6 @@ func TestNewRollDPoS(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
-			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
 			SetBroadcast(func(_ proto.Message) error {
@@ -93,7 +92,6 @@ func TestNewRollDPoS(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
-			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
 			SetBroadcast(func(_ proto.Message) error {
@@ -114,7 +112,6 @@ func TestNewRollDPoS(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
-			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
 			SetBroadcast(func(_ proto.Message) error {
@@ -132,7 +129,6 @@ func TestNewRollDPoS(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
-			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
@@ -177,9 +173,10 @@ func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndo
 		} else {
 			consensusVote = NewConsensusVote(hs[:], COMMIT)
 		}
-		en, err := endorsement.Endorse(identityset.PrivateKey(i), consensusVote, timeTime)
+		en, err := endorsement.Endorse(consensusVote, timeTime, identityset.PrivateKey(i))
 		require.NoError(t, err)
-		typesFooter.Endorsements = append(typesFooter.Endorsements, en.Proto())
+		require.Equal(t, 1, len(en))
+		typesFooter.Endorsements = append(typesFooter.Endorsements, en[0].Proto())
 	}
 	ts := timestamppb.New(time.Unix(int64(unixTime), 0))
 	typesFooter.Timestamp = ts
@@ -203,7 +200,7 @@ func TestValidateBlockFooter(t *testing.T) {
 	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
 
 	sk1 := identityset.PrivateKey(1)
-	g := genesis.Default
+	g := genesis.TestDefault()
 	g.NumDelegates = 4
 	g.NumSubEpochs = 1
 	g.BlockInterval = 10 * time.Second
@@ -232,7 +229,6 @@ func TestValidateBlockFooter(t *testing.T) {
 	}
 	r, err := NewRollDPoSBuilder().
 		SetConfig(builderCfg).
-		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
 		SetChainManager(NewChainManager(bc)).
 		SetBroadcast(func(_ proto.Message) error {
@@ -280,6 +276,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	candidates := make([]string, 5)
 	for i := 0; i < len(candidates); i++ {
 		candidates[i] = identityset.Address(i).String()
+		t.Logf("candidate %d: %s", i, candidates[i])
 	}
 
 	clock := clock.NewMock()
@@ -292,7 +289,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	sk1 := identityset.PrivateKey(1)
 	cfg := DefaultConfig
 	cfg.ConsensusDBPath = "consensus.db"
-	g := genesis.Default
+	g := genesis.TestDefault()
 	g.NumDelegates = 4
 	g.NumSubEpochs = 1
 	g.BlockInterval = 10 * time.Second
@@ -321,7 +318,6 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	}
 	r, err := NewRollDPoSBuilder().
 		SetConfig(builderCfg).
-		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
 		SetChainManager(NewChainManager(bc)).
 		SetBroadcast(func(_ proto.Message) error {
@@ -394,7 +390,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg.FSM.UnmatchedEventTTL = time.Second
 		cfg.FSM.UnmatchedEventInterval = 10 * time.Millisecond
 		cfg.ToleratedOvertime = 200 * time.Millisecond
-		g := genesis.Default
+		g := genesis.TestDefault()
 		g.BlockInterval = 2 * time.Second
 		g.Blockchain.NumDelegates = uint64(numNodes)
 		g.Blockchain.NumSubEpochs = 1
@@ -482,7 +478,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 			p2ps = append(p2ps, p2p)
 
 			consensus, err := NewRollDPoSBuilder().
-				SetAddr(chainAddrs[i].encodedAddr).
 				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(builderCfg).
 				SetChainManager(NewChainManager(chain)).

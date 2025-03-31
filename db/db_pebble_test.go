@@ -7,14 +7,12 @@ package db
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/db/batch"
-	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
 type kvTest struct {
@@ -24,11 +22,7 @@ type kvTest struct {
 
 func TestPebbleDB(t *testing.T) {
 	r := require.New(t)
-	testPath, err := os.MkdirTemp("", "test-pebble")
-	r.NoError(err)
-	defer func() {
-		testutil.CleanupPath(testPath)
-	}()
+	testPath := t.TempDir()
 
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
@@ -131,11 +125,7 @@ func TestPebbleDB(t *testing.T) {
 
 func TestPebbleDB_Filter(t *testing.T) {
 	r := require.New(t)
-	testPath, err := os.MkdirTemp("", "test-pebble")
-	r.NoError(err)
-	defer func() {
-		testutil.CleanupPath(testPath)
-	}()
+	testPath := t.TempDir()
 
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
@@ -189,11 +179,7 @@ func TestPebbleDB_Filter(t *testing.T) {
 
 func TestPebbleDB_Foreach(t *testing.T) {
 	r := require.New(t)
-	testPath, err := os.MkdirTemp("", "test-pebble")
-	r.NoError(err)
-	defer func() {
-		testutil.CleanupPath(testPath)
-	}()
+	testPath := t.TempDir()
 
 	cfg := DefaultConfig
 	cfg.DbPath = testPath

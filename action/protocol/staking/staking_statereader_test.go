@@ -8,12 +8,12 @@ package staking
 import (
 	"context"
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -146,7 +146,7 @@ func TestStakingStateReader(t *testing.T) {
 		reg := protocol.NewRegistry()
 		rolldposProto := rolldpos.NewProtocol(10, 10, 10)
 		rolldposProto.Register(reg)
-		g := genesis.Default
+		g := genesis.TestDefault()
 		g.QuebecBlockHeight = 1
 		ctx := genesis.WithGenesisContext(context.Background(), g)
 		ctx = protocol.WithRegistry(ctx, reg)
@@ -378,7 +378,7 @@ func TestStakingStateReader(t *testing.T) {
 			return uint64(1), nil
 		}).Times(1)
 		contractIndexer.EXPECT().TotalBucketCount(gomock.Any()).Return(uint64(len(testContractBuckets)), nil).Times(1)
-		cfg := genesis.Default
+		cfg := genesis.TestDefault()
 		cfg.GreenlandBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, cfg)
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
@@ -448,7 +448,7 @@ func TestStakingStateReader(t *testing.T) {
 			*arg0R = *testNativeTotalAmount
 			return uint64(1), nil
 		}).Times(1)
-		cfg := genesis.Default
+		cfg := genesis.TestDefault()
 		cfg.GreenlandBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, cfg)
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
