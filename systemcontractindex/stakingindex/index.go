@@ -235,9 +235,11 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	// handle events of block
 	var handler stakingEventHandler
-	handler = newEventHandler(s.bucketNS, s.cache.Copy(), blk)
+	eventHandler := newEventHandler(s.bucketNS, s.cache.Copy(), blk)
 	if s.muteHeight > 0 && blk.Height() >= s.muteHeight {
-		handler = newEventMuteHandler(handler.(*eventHandler))
+		handler = newEventMuteHandler(eventHandler)
+	} else {
+		handler = eventHandler
 	}
 	for _, receipt := range blk.Receipts {
 		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {

@@ -389,7 +389,8 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		indexer := stakingindex.NewIndexer(
 			kvstore,
 			builder.cfg.Genesis.SystemStakingContractV2Address,
-			builder.cfg.Genesis.SystemStakingContractV2Height, func(start uint64, end uint64) time.Duration {
+			builder.cfg.Genesis.SystemStakingContractV2Height,
+			func(start uint64, end uint64) time.Duration {
 				return time.Duration(end-start) * blockInterval
 			},
 			stakingindex.WithMuteHeight(builder.cfg.Genesis.ToBeEnabledBlockHeight),
