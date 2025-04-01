@@ -1,21 +1,15 @@
 package stakingindex
 
 import (
-	"context"
 	_ "embed"
 	"math"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/abiutil"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
@@ -36,61 +30,21 @@ type eventHandler struct {
 	dirty           *cache             // dirty cache, a view for current block
 	delta           batch.KVStoreBatch // delta for db to store buckets of current block
 	tokenOwner      map[uint64]address.Address
+	// context for event handler
+	height uint64
 }
 
-func newEventHandler(bucketNS string, dirty *cache) *eventHandler {
+func newEventHandler(bucketNS string, dirty *cache, height uint64) *eventHandler {
 	return &eventHandler{
 		stakingBucketNS: bucketNS,
 		dirty:           dirty,
 		delta:           batch.NewBatch(),
 		tokenOwner:      make(map[uint64]address.Address),
+		height:          height,
 	}
 }
 
-func (eh *eventHandler) HandleEvent(ctx context.Context, blk *block.Block, actLog *action.Log) error {
-	// get event abi
-	abiEvent, err := stakingContractABI.EventByID(common.Hash(actLog.Topics[0]))
-	if err != nil {
-		return errors.Wrapf(err, "get event abi from topic %v failed", actLog.Topics[0])
-	}
-
-	// unpack event data
-	event, err := abiutil.UnpackEventParam(abiEvent, actLog)
-	if err != nil {
-		return err
-	}
-	log.L().Debug("handle staking event", zap.String("event", abiEvent.Name), zap.Any("event", event))
-	// handle different kinds of event
-	switch abiEvent.Name {
-	case "Staked":
-		return eh.handleStakedEvent(event, blk.Height())
-	case "Locked":
-		return eh.handleLockedEvent(event)
-	case "Unlocked":
-		return eh.handleUnlockedEvent(event, blk.Height())
-	case "Unstaked":
-		return eh.handleUnstakedEvent(event, blk.Height())
-	case "Merged":
-		return eh.handleMergedEvent(event)
-	case "BucketExpanded":
-		return eh.handleBucketExpandedEvent(event)
-	case "DelegateChanged":
-		return eh.handleDelegateChangedEvent(event)
-	case "Withdrawal":
-		return eh.handleWithdrawalEvent(event)
-	case "Donated":
-		return eh.handleDonatedEvent(event)
-	case "Transfer":
-		return eh.handleTransferEvent(event)
-	case "Approval", "ApprovalForAll", "OwnershipTransferred", "Paused", "Unpaused", "BeneficiaryChanged":
-		// not require handling events
-		return nil
-	default:
-		return errors.Errorf("unknown event name %s", abiEvent.Name)
-	}
-}
-
-func (eh *eventHandler) handleStakedEvent(event *abiutil.EventParam, height uint64) error {
+func (eh *eventHandler) HandleStakedEvent(event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -116,7 +70,7 @@ func (eh *eventHandler) handleStakedEvent(event *abiutil.EventParam, height uint
 		Owner:                     owner,
 		StakedAmount:              amountParam,
 		StakedDurationBlockNumber: durationParam.Uint64(),
-		CreatedAt:                 height,
+		CreatedAt:                 eh.height,
 		UnlockedAt:                maxBlockNumber,
 		UnstakedAt:                maxBlockNumber,
 	}
@@ -124,7 +78,7 @@ func (eh *eventHandler) handleStakedEvent(event *abiutil.EventParam, height uint
 	return nil
 }
 
-func (eh *eventHandler) handleLockedEvent(event *abiutil.EventParam) error {
+func (eh *eventHandler) HandleLockedEvent(event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -144,7 +98,7 @@ func (eh *eventHandler) handleLockedEvent(event *abiutil.EventParam) error {
 	return nil
 }
 
-func (eh *eventHandler) handleUnlockedEvent(event *abiutil.EventParam, height uint64) error {
+func (eh *eventHandler) HandleUnlockedEvent(event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -154,12 +108,12 @@ func (eh *eventHandler) handleUnlockedEvent(event *abiutil.EventParam, height ui
 	if bkt == nil {
 		return errors.Errorf("no bucket for token id %d", tokenIDParam.Uint64())
 	}
-	bkt.UnlockedAt = height
+	bkt.UnlockedAt = eh.height
 	eh.putBucket(tokenIDParam.Uint64(), bkt)
 	return nil
 }
 
-func (eh *eventHandler) handleUnstakedEvent(event *abiutil.EventParam, height uint64) error {
+func (eh *eventHandler) HandleUnstakedEvent(event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -169,12 +123,12 @@ func (eh *eventHandler) handleUnstakedEvent(event *abiutil.EventParam, height ui
 	if bkt == nil {
 		return errors.Errorf("no bucket for token id %d", tokenIDParam.Uint64())
 	}
-	bkt.UnstakedAt = height
+	bkt.UnstakedAt = eh.height
 	eh.putBucket(tokenIDParam.Uint64(), bkt)
 	return nil
 }
 
-func (eh *eventHandler) handleDelegateChangedEvent(event *abiutil.EventParam) error {
+func (eh *eventHandler) HandleDelegateChangedEvent(event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -193,7 +147,7 @@ func (eh *eventHandler) handleDelegateChangedEvent(event *abiutil.EventParam) er
 	return nil
 }
 
-func (eh *eventHandler) handleWithdrawalEvent(event *abiutil.EventParam) error {
+func (eh *eventHandler) HandleWithdrawalEvent(event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -203,7 +157,7 @@ func (eh *eventHandler) handleWithdrawalEvent(event *abiutil.EventParam) error {
 	return nil
 }
 
-func (eh *eventHandler) handleTransferEvent(event *abiutil.EventParam) error {
+func (eh *eventHandler) HandleTransferEvent(event *abiutil.EventParam) error {
 	to, err := event.FieldByIDAddress(1)
 	if err != nil {
 		return err
@@ -225,7 +179,7 @@ func (eh *eventHandler) handleTransferEvent(event *abiutil.EventParam) error {
 	return nil
 }
 
-func (eh *eventHandler) handleMergedEvent(event *abiutil.EventParam) error {
+func (eh *eventHandler) HandleMergedEvent(event *abiutil.EventParam) error {
 	tokenIDsParam, err := event.FieldByIDUint256Slice(0)
 	if err != nil {
 		return err
@@ -254,7 +208,7 @@ func (eh *eventHandler) handleMergedEvent(event *abiutil.EventParam) error {
 	return nil
 }
 
-func (eh *eventHandler) handleBucketExpandedEvent(event *abiutil.EventParam) error {
+func (eh *eventHandler) HandleBucketExpandedEvent(event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -278,7 +232,7 @@ func (eh *eventHandler) handleBucketExpandedEvent(event *abiutil.EventParam) err
 	return nil
 }
 
-func (eh *eventHandler) handleDonatedEvent(event *abiutil.EventParam) error {
+func (eh *eventHandler) HandleDonatedEvent(event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err

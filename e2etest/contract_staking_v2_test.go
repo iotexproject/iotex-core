@@ -20,6 +20,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -30,6 +31,8 @@ var (
 	stakingContractV2Bytecode string
 	stakingContractV2ABI      = staking.StakingContractABI
 	stakingContractV2Address  = "io1dkqh5mu9djfas3xyrmzdv9frsmmytel4mp7a64"
+
+	gasPrice1559 = big.NewInt(unit.Qev)
 )
 
 func TestContractStakingV2(t *testing.T) {
@@ -38,6 +41,7 @@ func TestContractStakingV2(t *testing.T) {
 	cfg := initCfg(require)
 	cfg.Genesis.UpernavikBlockHeight = 1
 	cfg.Genesis.VanuatuBlockHeight = 100
+	cfg.Genesis.ToBeEnabledBlockHeight = 120 // mute staking v2
 	cfg.Genesis.SystemStakingContractV2Address = contractAddress
 	cfg.Genesis.SystemStakingContractV2Height = 1
 	cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
@@ -71,12 +75,15 @@ func TestContractStakingV2(t *testing.T) {
 		require.NoError(err)
 		return data
 	}
-	genTransferActions := func(n int) []*actionWithTime {
+	genTransferActionsWithPrice := func(n int, price *big.Int) []*actionWithTime {
 		acts := make([]*actionWithTime, n)
 		for i := 0; i < n; i++ {
-			acts[i] = &actionWithTime{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()}
+			acts[i] = &actionWithTime{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, price, action.WithChainID(chainID))), time.Now()}
 		}
 		return acts
+	}
+	genTransferActions := func(n int) []*actionWithTime {
+		return genTransferActionsWithPrice(n, gasPrice)
 	}
 	test.run([]*testcase{
 		{
@@ -255,6 +262,24 @@ func TestContractStakingV2(t *testing.T) {
 					tmpBalance.Add(tmpBalance, stakeAmount)
 					require.Equal(tmpBalance.String(), resp.AccountMeta.Balance)
 				}},
+			},
+		},
+		{
+			name: "mute",
+			preFunc: func(e *e2etest) {
+				candidate, err := e.getCandidateByName("cand1")
+				require.NoError(err)
+				_, ok := tmpVotes.SetString(candidate.TotalWeightedVotes, 10)
+				require.True(ok)
+			},
+			preActs: genTransferActionsWithPrice(60, gasPrice1559),
+			act:     &actionWithTime{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("stake(uint256,address)", stakeDurationBlocks, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), time.Now()},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(uint64(127), blk.Height())
+				candidate, err := test.getCandidateByName("cand1")
+				require.NoError(err)
+				require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
 			},
 		},
 	})
