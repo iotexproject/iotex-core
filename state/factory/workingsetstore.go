@@ -6,6 +6,8 @@
 package factory
 
 import (
+	"sync"
+
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
@@ -25,6 +27,7 @@ type (
 		ResetSnapshots()
 	}
 	workingSetStoreCommon struct {
+		lock sync.Mutex
 		// TODO: handle committed flag properly in the functions
 		committed bool
 		flusher   db.KVStoreFlusher
@@ -36,6 +39,8 @@ func (store *workingSetStoreCommon) Filter(ns string, cond db.Condition, start, 
 }
 
 func (store *workingSetStoreCommon) WriteBatch(bat batch.KVStoreBatch) error {
+	store.lock.Lock()
+	defer store.lock.Unlock()
 	if err := store.flusher.KVStoreWithBuffer().WriteBatch(bat); err != nil {
 		return errors.Wrap(err, "failed to write batch")
 	}
@@ -46,6 +51,8 @@ func (store *workingSetStoreCommon) WriteBatch(bat batch.KVStoreBatch) error {
 }
 
 func (store *workingSetStoreCommon) Put(ns string, key []byte, value []byte) error {
+	store.lock.Lock()
+	defer store.lock.Unlock()
 	if err := store.flusher.KVStoreWithBuffer().Put(ns, key, value); err != nil {
 		return errors.Wrap(err, "failed to put value")
 	}
@@ -56,6 +63,8 @@ func (store *workingSetStoreCommon) Put(ns string, key []byte, value []byte) err
 }
 
 func (store *workingSetStoreCommon) Delete(ns string, key []byte) error {
+	store.lock.Lock()
+	defer store.lock.Unlock()
 	if err := store.flusher.KVStoreWithBuffer().Delete(ns, key); err != nil {
 		return errors.Wrap(err, "failed to delete value")
 	}
@@ -70,6 +79,8 @@ func (store *workingSetStoreCommon) Digest() hash.Hash256 {
 }
 
 func (store *workingSetStoreCommon) Commit() error {
+	store.lock.Lock()
+	defer store.lock.Unlock()
 	if store.committed {
 		return errors.New("working set store already committed")
 	}

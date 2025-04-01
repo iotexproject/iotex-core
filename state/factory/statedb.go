@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/cache"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -228,8 +229,8 @@ func (sdb *stateDB) Register(p protocol.Protocol) error {
 
 func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
+	blkHash := blk.HashBlock()
+	ws, isExist, err := sdb.getFromWorkingSets(ctx, blkHash)
 	if err != nil {
 		return err
 	}
@@ -237,8 +238,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 		if err = ws.ValidateBlock(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate block with workingset in statedb")
 		}
-		sdb.workingsets.Add(key, ws)
-		sdb.workingsets.Add(blk.HashBlock(), ws)
+		sdb.workingsets.Add(blkHash, ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -248,12 +248,12 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-// NewBlockBuilder returns block builder which hasn't been signed yet
-func (sdb *stateDB) NewBlockBuilder(
+// Mint mints a block
+func (sdb *stateDB) Mint(
 	ctx context.Context,
 	ap actpool.ActPool,
-	sign func(action.Envelope) (*action.SealedEnvelope, error),
-) (*block.Builder, error) {
+	pk crypto.PrivateKey,
+) (*block.Block, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	expectedBlockHeight := bcCtx.Tip.Height + 1
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
@@ -284,6 +284,9 @@ func (sdb *stateDB) NewBlockBuilder(
 	if err != nil {
 		return nil, err
 	}
+	sign := func(elp action.Envelope) (*action.SealedEnvelope, error) {
+		return action.Sign(elp, pk)
+	}
 	for _, elp := range unsignedSystemActions {
 		se, err := sign(elp)
 		if err != nil {
@@ -296,10 +299,12 @@ func (sdb *stateDB) NewBlockBuilder(
 		return nil, err
 	}
 
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sdb.workingsets.Add(key, ws)
-	return blkBuilder, nil
+	blk, err := blkBuilder.SignAndBuild(pk)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", expectedBlockHeight)
+	}
+	sdb.workingsets.Add(blk.HashBlock(), ws)
+	return &blk, nil
 }
 
 func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, error) {
@@ -336,8 +341,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		return errors.New("failed to get address")
 	}
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
+	ws, isExist, err := sdb.getFromWorkingSets(ctx, blk.HashBlock())
 	if err != nil {
 		return err
 	}

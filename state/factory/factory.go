@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/cache"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -83,8 +84,7 @@ type (
 		protocol.StateReader
 		Register(protocol.Protocol) error
 		Validate(context.Context, *block.Block) error
-		// NewBlockBuilder creates block builder
-		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
+		Mint(context.Context, actpool.ActPool, crypto.PrivateKey) (*block.Block, error)
 		PutBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
 		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
@@ -381,8 +381,8 @@ func (sf *factory) Register(p protocol.Protocol) error {
 
 func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 	ctx = protocol.WithRegistry(ctx, sf.registry)
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
+	blkHash := blk.HashBlock()
+	ws, isExist, err := sf.getFromWorkingSets(ctx, blkHash)
 	if err != nil {
 		return err
 	}
@@ -390,8 +390,7 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 		if err := ws.ValidateBlock(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate block with workingset in factory")
 		}
-		sf.putIntoWorkingSets(key, ws)
-		sf.putIntoWorkingSets(blk.HashBlock(), ws)
+		sf.putIntoWorkingSets(blkHash, ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -401,12 +400,12 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-// NewBlockBuilder returns block builder which hasn't been signed yet
-func (sf *factory) NewBlockBuilder(
+// Mint mints a block
+func (sf *factory) Mint(
 	ctx context.Context,
 	ap actpool.ActPool,
-	sign func(action.Envelope) (*action.SealedEnvelope, error),
-) (*block.Builder, error) {
+	pk crypto.PrivateKey,
+) (*block.Block, error) {
 	sf.mutex.Lock()
 	ctx = protocol.WithRegistry(ctx, sf.registry)
 	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
@@ -419,6 +418,9 @@ func (sf *factory) NewBlockBuilder(
 	if err != nil {
 		return nil, err
 	}
+	sign := func(elp action.Envelope) (*action.SealedEnvelope, error) {
+		return action.Sign(elp, pk)
+	}
 	for _, elp := range unsignedSystemActions {
 		se, err := sign(elp)
 		if err != nil {
@@ -430,11 +432,14 @@ func (sf *factory) NewBlockBuilder(
 	if err != nil {
 		return nil, err
 	}
+	blk, err := blkBuilder.SignAndBuild(pk)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", sf.currentChainHeight+1)
+	}
 
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sf.putIntoWorkingSets(key, ws)
-	return blkBuilder, nil
+	sf.putIntoWorkingSets(blk.HashBlock(), ws)
+
+	return &blk, nil
 }
 
 func (sf *factory) WorkingSet(ctx context.Context) (protocol.StateManager, error) {
@@ -477,8 +482,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		return errors.New("failed to get address")
 	}
 	ctx = protocol.WithRegistry(ctx, sf.registry)
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
+	ws, isExist, err := sf.getFromWorkingSets(ctx, blk.HashBlock())
 	if err != nil {
 		return err
 	}

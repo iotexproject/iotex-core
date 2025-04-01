@@ -450,17 +450,17 @@ func (mr *MockViewMockRecorder) Clone() *gomock.Call {
 }
 
 // Commit mocks base method.
-func (m *MockView) Commit() error {
+func (m *MockView) Commit(arg0 context.Context, arg1 StateReader) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit")
+	ret := m.ctrl.Call(m, "Commit", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Commit indicates an expected call of Commit.
-func (mr *MockViewMockRecorder) Commit() *gomock.Call {
+func (mr *MockViewMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockView)(nil).Commit))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockView)(nil).Commit), arg0, arg1)
 }
 
 // Revert mocks base method.

@@ -9,7 +9,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/go-pkgs/crypto"
+
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
@@ -32,7 +33,7 @@ type minter struct {
 }
 
 // NewMinter creates a wrapper instance
-func NewMinter(f Factory, ap actpool.ActPool, opts ...MintOption) blockchain.BlockBuilderFactory {
+func NewMinter(f Factory, ap actpool.ActPool, opts ...MintOption) blockchain.BlockMinter {
 	m := &minter{f: f, ap: ap}
 	for _, opt := range opts {
 		opt(m)
@@ -41,11 +42,11 @@ func NewMinter(f Factory, ap actpool.ActPool, opts ...MintOption) blockchain.Blo
 }
 
 // NewBlockBuilder implements the BlockMinter interface
-func (m *minter) NewBlockBuilder(ctx context.Context, sign func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error) {
+func (m *minter) Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error) {
 	if m.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithDeadline(ctx, protocol.MustGetBlockCtx(ctx).BlockTimeStamp.Add(m.timeout))
 		defer cancel()
 	}
-	return m.f.NewBlockBuilder(ctx, m.ap, sign)
+	return m.f.Mint(ctx, m.ap, pk)
 }
