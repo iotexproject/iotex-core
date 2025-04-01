@@ -7,6 +7,7 @@ package chainservice
 
 import (
 	"context"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
@@ -36,7 +37,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/v2/state/factory"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
@@ -77,7 +77,6 @@ type ChainService struct {
 	registry                 *protocol.Registry
 	nodeInfoManager          *nodeinfo.InfoManager
 	apiStats                 *nodestats.APILocalStats
-	blockTimeCalculator      *blockutil.BlockTimeCalculator
 	actionsync               *actsync.ActionSync
 }
 
@@ -242,7 +241,13 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, archive bool) (*api.ServerV
 		cs.bfIndexer,
 		cs.actpool,
 		cs.registry,
-		cs.blockTimeCalculator.CalculateBlockTime,
+		func(u uint64) (time.Time, error) {
+			header, err := cs.chain.BlockHeaderByHeight(u)
+			if err != nil {
+				return time.Time{}, err
+			}
+			return header.Timestamp(), nil
+		},
 		apiServerOptions...,
 	)
 	if err != nil {

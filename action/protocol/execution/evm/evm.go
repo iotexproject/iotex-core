@@ -187,7 +187,9 @@ func newParams(
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
 		vmConfig = vmCfg
 	}
-	chainConfig, err := getChainConfig(g.Blockchain, blkCtx.BlockHeight, evmNetworkID, helperCtx.GetBlockTime)
+	chainConfig, err := getChainConfig(g.Blockchain, blkCtx.BlockHeight, evmNetworkID, func(height uint64) (*time.Time, error) {
+		return blockHeightToTime(ctx, height)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +401,7 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	)
 }
 
-func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime GetBlockTime) (*params.ChainConfig, error) {
+func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime func(uint64) (*time.Time, error)) (*params.ChainConfig, error) {
 	var chainConfig params.ChainConfig
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
 	chainConfig.BeringBlock = new(big.Int).SetUint64(g.BeringBlockHeight)
@@ -423,17 +425,38 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 	sumatraTime, err := getBlockTime(g.SumatraBlockHeight)
 	if err != nil {
 		return nil, err
+	} else if sumatraTime != nil {
+		sumatraTimestamp := (uint64)(sumatraTime.Unix())
+		chainConfig.ShanghaiTime = &sumatraTimestamp
 	}
-	sumatraTimestamp := (uint64)(sumatraTime.Unix())
-	chainConfig.ShanghaiTime = &sumatraTimestamp
 	// enable Cancun at Vanuatu
 	cancunTime, err := getBlockTime(g.VanuatuBlockHeight)
 	if err != nil {
 		return nil, err
+	} else if cancunTime != nil {
+		cancunTimestamp := (uint64)(cancunTime.Unix())
+		chainConfig.CancunTime = &cancunTimestamp
 	}
-	cancunTimestamp := (uint64)(cancunTime.Unix())
-	chainConfig.CancunTime = &cancunTimestamp
 	return &chainConfig, nil
+}
+
+// blockHeightToTime returns the block time by height
+// if height is greater than current block height, return nil
+// if height is equal to current block height, return current block time
+// otherwise, return the block time by height from the blockchain
+func blockHeightToTime(ctx context.Context, height uint64) (*time.Time, error) {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if height > blkCtx.BlockHeight {
+		return nil, nil
+	}
+	if height == blkCtx.BlockHeight {
+		return &blkCtx.BlockTimeStamp, nil
+	}
+	t, err := mustGetHelperCtx(ctx).GetBlockTime(height)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
 
 // Error in executeInEVM is a consensus issue
