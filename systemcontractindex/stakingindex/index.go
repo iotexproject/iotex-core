@@ -198,13 +198,12 @@ func (s *Indexer) BucketsByCandidate(candidate address.Address, height uint64) (
 	idxs := s.cache.BucketIdsByCandidate(candidate)
 	bkts := s.cache.Buckets(idxs)
 	// filter out muted buckets
-	filtered := make([]*Bucket, 0)
 	for i := range bkts {
-		if !bkts[i].Muted {
-			filtered = append(filtered, bkts[i])
+		if bkts[i].Muted {
+			bkts[i] = nil
 		}
 	}
-	vbs := batchAssembleVoteBucket(idxs, filtered, s.common.ContractAddress(), s.blocksToDuration)
+	vbs := batchAssembleVoteBucket(idxs, bkts, s.common.ContractAddress(), s.blocksToDuration)
 	return vbs, nil
 }
 
