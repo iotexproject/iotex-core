@@ -56,9 +56,8 @@ var (
 )
 
 var (
-	gasPrice     = big.NewInt(0)
-	gasPrice1559 = big.NewInt(unit.Qev)
-	gasLimit     = uint64(10000000)
+	gasPrice = big.NewInt(0)
+	gasLimit = uint64(10000000)
 )
 
 func TestNativeStaking(t *testing.T) {

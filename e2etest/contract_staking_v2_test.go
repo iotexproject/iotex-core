@@ -31,6 +31,8 @@ var (
 	stakingContractV2Bytecode string
 	stakingContractV2ABI      = staking.StakingContractABI
 	stakingContractV2Address  = "io1dkqh5mu9djfas3xyrmzdv9frsmmytel4mp7a64"
+
+	gasPrice1559 = big.NewInt(unit.Qev)
 )
 
 func TestContractStakingV2(t *testing.T) {

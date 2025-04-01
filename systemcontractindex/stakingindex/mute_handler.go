@@ -44,7 +44,7 @@ func (eh *eventMuteHandler) HandleStakedEvent(event *abiutil.EventParam) error {
 		Owner:                     owner,
 		StakedAmount:              amountParam,
 		StakedDurationBlockNumber: durationParam.Uint64(),
-		CreatedAt:                 eh.block.Height(),
+		CreatedAt:                 eh.height,
 		UnlockedAt:                maxBlockNumber,
 		UnstakedAt:                maxBlockNumber,
 		Muted:                     true,

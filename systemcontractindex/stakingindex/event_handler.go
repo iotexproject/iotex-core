@@ -9,7 +9,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/abiutil"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
@@ -32,16 +31,16 @@ type eventHandler struct {
 	delta           batch.KVStoreBatch // delta for db to store buckets of current block
 	tokenOwner      map[uint64]address.Address
 	// context for event handler
-	block *block.Block
+	height uint64
 }
 
-func newEventHandler(bucketNS string, dirty *cache, blk *block.Block) *eventHandler {
+func newEventHandler(bucketNS string, dirty *cache, height uint64) *eventHandler {
 	return &eventHandler{
 		stakingBucketNS: bucketNS,
 		dirty:           dirty,
 		delta:           batch.NewBatch(),
 		tokenOwner:      make(map[uint64]address.Address),
-		block:           blk,
+		height:          height,
 	}
 }
 
@@ -71,7 +70,7 @@ func (eh *eventHandler) HandleStakedEvent(event *abiutil.EventParam) error {
 		Owner:                     owner,
 		StakedAmount:              amountParam,
 		StakedDurationBlockNumber: durationParam.Uint64(),
-		CreatedAt:                 eh.block.Height(),
+		CreatedAt:                 eh.height,
 		UnlockedAt:                maxBlockNumber,
 		UnstakedAt:                maxBlockNumber,
 	}
@@ -109,7 +108,7 @@ func (eh *eventHandler) HandleUnlockedEvent(event *abiutil.EventParam) error {
 	if bkt == nil {
 		return errors.Errorf("no bucket for token id %d", tokenIDParam.Uint64())
 	}
-	bkt.UnlockedAt = eh.block.Height()
+	bkt.UnlockedAt = eh.height
 	eh.putBucket(tokenIDParam.Uint64(), bkt)
 	return nil
 }
@@ -124,7 +123,7 @@ func (eh *eventHandler) HandleUnstakedEvent(event *abiutil.EventParam) error {
 	if bkt == nil {
 		return errors.Errorf("no bucket for token id %d", tokenIDParam.Uint64())
 	}
-	bkt.UnstakedAt = eh.block.Height()
+	bkt.UnstakedAt = eh.height
 	eh.putBucket(tokenIDParam.Uint64(), bkt)
 	return nil
 }
