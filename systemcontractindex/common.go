@@ -82,6 +82,10 @@ func (s *IndexerCommon) loadHeight() (uint64, error) {
 // StartHeight returns the start height of the indexer
 func (s *IndexerCommon) StartHeight() uint64 { return s.startHeight }
 
+func (s *IndexerCommon) IsActive() bool {
+	return s.height > s.startHeight
+}
+
 // Commit commits the height to the indexer
 func (s *IndexerCommon) Commit(height uint64, delta batch.KVStoreBatch) error {
 	delta.Put(s.ns, s.key, byteutil.Uint64ToBytesBigEndian(height), "failed to put height")
