@@ -248,6 +248,14 @@ func ExecuteContract(
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
 
+	var evmLogger vm.EVMLogger
+	if tCtx, ok := GetLoggerCtx(ctx); ok {
+		evmLogger = tCtx.buildLogger()
+		ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+			Tracer: evmLogger,
+		})
+	}
+
 	stateDB, err := prepareStateDB(ctx, sm)
 	if err != nil {
 		return nil, nil, err
@@ -319,6 +327,7 @@ func ExecuteContract(
 		revertMsg := string(data[64 : 64+msgLength])
 		receipt.SetExecutionRevertMsg(revertMsg)
 	}
+	receipt.EvmLogger = evmLogger
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
 }
