@@ -46,6 +46,18 @@ func (mr *MockKVStoreBatchMockRecorder) AddFillPercent(arg0, arg1 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddFillPercent", reflect.TypeOf((*MockKVStoreBatch)(nil).AddFillPercent), arg0, arg1)
 }
 
+// Append mocks base method.
+func (m *MockKVStoreBatch) Append(arg0 batch.KVStoreBatch) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Append", arg0)
+}
+
+// Append indicates an expected call of Append.
+func (mr *MockKVStoreBatchMockRecorder) Append(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Append", reflect.TypeOf((*MockKVStoreBatch)(nil).Append), arg0)
+}
+
 // CheckFillPercent mocks base method.
 func (m *MockKVStoreBatch) CheckFillPercent(arg0 string) (float64, bool) {
 	m.ctrl.T.Helper()
@@ -223,6 +235,18 @@ func (m *MockCachedBatch) AddFillPercent(arg0 string, arg1 float64) {
 func (mr *MockCachedBatchMockRecorder) AddFillPercent(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddFillPercent", reflect.TypeOf((*MockCachedBatch)(nil).AddFillPercent), arg0, arg1)
+}
+
+// Append mocks base method.
+func (m *MockCachedBatch) Append(arg0 batch.KVStoreBatch) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Append", arg0)
+}
+
+// Append indicates an expected call of Append.
+func (mr *MockCachedBatchMockRecorder) Append(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Append", reflect.TypeOf((*MockCachedBatch)(nil).Append), arg0)
 }
 
 // CheckFillPercent mocks base method.
