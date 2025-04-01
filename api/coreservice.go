@@ -211,7 +211,6 @@ type (
 		readCache         *ReadCache
 		actionRadio       *ActionRadio
 		apiStats          *nodestats.APILocalStats
-		getBlockTime      evm.GetBlockTime
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -275,7 +274,6 @@ func newCoreService(
 	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
-	getBlockTime evm.GetBlockTime,
 	opts ...Option,
 ) (CoreService, error) {
 	if cfg == (Config{}) {
@@ -300,7 +298,6 @@ func newCoreService(
 		chainListener: NewChainListener(cfg.ListenerLimit),
 		gs:            gasstation.NewGasStation(chain, dao, cfg.GasStation),
 		readCache:     NewReadCache(),
-		getBlockTime:  getBlockTime,
 	}
 
 	for _, opt := range opts {
@@ -953,6 +950,10 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	}
 
 	// TODO: need to complete the context
+	ctx, err := core.bc.Context(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: tipHeight,
 	})
@@ -2008,6 +2009,11 @@ func (core *coreService) simulateExecution(
 	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: height,
 	}))
+	ctx, err = core.bc.Context(ctx)
+	if err != nil {
+		return nil, nil, status.Error(codes.Internal, err.Error())
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
 		pendingNonce = state.PendingNonceConsideringFreshAccount()
 	} else {
@@ -2015,8 +2021,8 @@ func (core *coreService) simulateExecution(
 	}
 	elp.SetNonce(pendingNonce)
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-		GetBlockHash:   core.dao.GetBlockHash,
-		GetBlockTime:   core.getBlockTime,
+		GetBlockHash:   bcCtx.GetBlockHash,
+		GetBlockTime:   bcCtx.GetBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
 	})
 	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)

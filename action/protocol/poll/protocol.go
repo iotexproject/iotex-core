@@ -133,10 +133,10 @@ func NewProtocol(
 	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
 	stakingProto *staking.Protocol,
-	getBlockTimeFunc GetBlockTime,
+	_ GetBlockTime,
 	productivity Productivity,
-	getBlockHash evm.GetBlockHash,
-	getBlockTime evm.GetBlockTime,
+	_ evm.GetBlockHash,
+	_ evm.GetBlockTime,
 ) (Protocol, error) {
 	if scheme != _rollDPoSScheme {
 		return nil, nil
@@ -184,7 +184,7 @@ func NewProtocol(
 			candidateIndexer,
 			electionCommittee,
 			genesisConfig.GravityChainStartHeight,
-			getBlockTimeFunc,
+			nil,
 			chainConfig.PollInitialCandidatesInterval,
 			slasher,
 		)
@@ -220,7 +220,7 @@ func NewProtocol(
 		}
 		return NewStakingCommand(stakingV1, stakingV2)
 	case _modeConsortium:
-		return NewConsortiumCommittee(candidateIndexer, readContract, getBlockHash)
+		return NewConsortiumCommittee(candidateIndexer, readContract, nil)
 	default:
 		return nil, errors.Errorf("unsupported poll mode %s", genesisConfig.PollMode)
 	}

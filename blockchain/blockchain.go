@@ -242,7 +242,6 @@ func (bc *blockchain) ChainAddress() string {
 func (bc *blockchain) Start(ctx context.Context) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-
 	// pass registry to be used by state factory's initialization
 	ctx = protocol.WithFeatureWithHeightCtx(genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
@@ -250,6 +249,8 @@ func (bc *blockchain) Start(ctx context.Context) error {
 			protocol.BlockchainCtx{
 				ChainID:      bc.ChainID(),
 				EvmNetworkID: bc.EvmNetworkID(),
+				GetBlockHash: bc.dao.GetBlockHash,
+				GetBlockTime: bc.getBlockTime,
 			},
 		), bc.genesis))
 	return bc.lifecycle.OnStart(ctx)
@@ -406,7 +407,6 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 	if err != nil {
 		return nil, err
 	}
-
 	ctx = genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
 			ctx,
@@ -414,6 +414,8 @@ func (bc *blockchain) context(ctx context.Context, height uint64) (context.Conte
 				Tip:          *tip,
 				ChainID:      bc.ChainID(),
 				EvmNetworkID: bc.EvmNetworkID(),
+				GetBlockHash: bc.dao.GetBlockHash,
+				GetBlockTime: bc.getBlockTime,
 			},
 		),
 		bc.genesis,
@@ -574,4 +576,15 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 		return
 	}
 	bc.pubSubManager.SendBlockToSubscribers(blk)
+}
+
+func (bc *blockchain) getBlockTime(height uint64) (time.Time, error) {
+	if height == 0 {
+		return time.Unix(bc.genesis.Timestamp, 0), nil
+	}
+	header, err := bc.dao.HeaderByHeight(height)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return header.Timestamp(), nil
 }
