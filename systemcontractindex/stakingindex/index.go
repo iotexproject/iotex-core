@@ -235,7 +235,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	// handle events of block
 	var handler stakingEventHandler
-	eventHandler := newEventHandler(s.bucketNS, s.cache.Copy(), blk)
+	eventHandler := newEventHandler(s.bucketNS, s.cache.Copy(), blk.Height())
 	if s.muteHeight > 0 && blk.Height() >= s.muteHeight {
 		handler = newEventMuteHandler(eventHandler)
 	} else {
