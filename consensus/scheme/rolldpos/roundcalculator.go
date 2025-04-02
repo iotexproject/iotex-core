@@ -21,7 +21,7 @@ import (
 var errInvalidCurrentTime = errors.New("invalid current time")
 
 type roundCalculator struct {
-	chain                ChainManager
+	chain                ForkChain
 	timeBasedRotation    bool
 	rp                   *rolldpos.Protocol
 	delegatesByEpochFunc NodesSelectionByEpochFunc
@@ -298,11 +298,7 @@ func (c *roundCalculator) calculateProposer(
 	return
 }
 
-func (c *roundCalculator) Fork(hash hash.Hash256) (*roundCalculator, error) {
-	fork, err := c.chain.Fork(hash)
-	if err != nil {
-		return nil, err
-	}
+func (c *roundCalculator) Fork(fork ForkChain) *roundCalculator {
 	return &roundCalculator{
 		chain:                fork,
 		timeBasedRotation:    c.timeBasedRotation,
@@ -310,5 +306,5 @@ func (c *roundCalculator) Fork(hash hash.Hash256) (*roundCalculator, error) {
 		delegatesByEpochFunc: c.delegatesByEpochFunc,
 		proposersByEpochFunc: c.proposersByEpochFunc,
 		beringHeight:         c.beringHeight,
-	}, nil
+	}
 }

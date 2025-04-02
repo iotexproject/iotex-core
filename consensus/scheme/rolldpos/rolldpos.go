@@ -163,10 +163,11 @@ func (r *RollDPoS) Calibrate(height uint64) {
 func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	height := blk.Height()
 	prevHash := blk.PrevHash()
-	roundCalc, err := r.ctx.RoundCalculator().Fork(prevHash)
+	fork, err := r.ctx.Chain().Fork(prevHash)
 	if err != nil {
-		return errors.Wrapf(err, "failed to fork round calculator at height %d with prevHash %x", height, prevHash)
+		return errors.Wrapf(err, "failed to get fork at height %d with prevHash %x", height, prevHash)
 	}
+	roundCalc := r.ctx.RoundCalculator().Fork(fork)
 	round, err := roundCalc.NewRound(height, r.ctx.BlockInterval(height), blk.Timestamp(), nil)
 	if err != nil {
 		return err
@@ -199,7 +200,7 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 // Metrics returns RollDPoS consensus metrics
 func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
-	height := r.ctx.Chain().TipHeight()
+	height := r.ctx.Chain().Final().TipHeight()
 	round, err := r.ctx.RoundCalculator().NewRound(height+1, r.ctx.BlockInterval(height), r.ctx.Clock().Now(), nil)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating round")

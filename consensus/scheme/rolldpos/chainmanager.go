@@ -35,6 +35,13 @@ type (
 	// ChainManager defines the blockchain interface
 	ChainManager interface {
 		Start(ctx context.Context) error
+		// Final returns the finalized blockchain
+		Final() ForkChain
+		// Fork creates a new chain manager with the given hash
+		Fork(hash hash.Hash256) (ForkChain, error)
+	}
+	// ForkChain defines the blockchain interface
+	ForkChain interface {
 		// BlockProposeTime return propose time by height
 		BlockProposeTime(uint64) (time.Time, error)
 		// BlockCommitTime return commit time by height
@@ -54,10 +61,8 @@ type (
 		ValidateBlock(blk *block.Block) error
 		// CommitBlock validates and appends a block to the chain
 		CommitBlock(blk *block.Block) error
-		// Fork creates a new chain manager with the given hash
-		Fork(hash hash.Hash256) (ChainManager, error)
 	}
-
+	// StateReaderFactory is the factory interface of state reader
 	StateReaderFactory interface {
 		StateReaderAt(*block.Header) (protocol.StateReader, error)
 	}
@@ -232,8 +237,12 @@ func (cm *chainManager) Start(ctx context.Context) error {
 	return nil
 }
 
+func (cm *chainManager) Final() ForkChain {
+	return cm.forkChain
+}
+
 // Fork creates a new chain manager with the given hash
-func (cm *chainManager) Fork(hash hash.Hash256) (ChainManager, error) {
+func (cm *chainManager) Fork(hash hash.Hash256) (ForkChain, error) {
 	head := cm.head
 	if hash != cm.tipHash() {
 		blk := cm.bbf.Block(hash)
@@ -246,11 +255,7 @@ func (cm *chainManager) Fork(hash hash.Hash256) (ChainManager, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create state reader at %d, hash %x", head.Height(), head.HashBlock())
 	}
-	chain := newForkChain(cm.bc, head, sr, cm.bbf)
-	return &chainManager{
-		srf:       cm.srf,
-		forkChain: chain,
-	}, nil
+	return newForkChain(cm.bc, head, sr, cm.bbf), nil
 }
 
 func (fc *forkChain) draftBlockByHeight(height uint64) *block.Block {
