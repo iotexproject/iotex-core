@@ -117,6 +117,9 @@ func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blocksTo
 		vb.StakedDuration = time.Duration(bkt.StakedDuration) * time.Second
 		vb.StakeStartTime = time.Unix(int64(bkt.CreatedAt), 0)
 		vb.CreateTime = time.Unix(int64(bkt.CreatedAt), 0)
+		if bkt.UnlockedAt != maxStakingNumber {
+			vb.StakeStartTime = time.Unix(int64(bkt.UnlockedAt), 0)
+		}
 		if bkt.UnstakedAt == maxStakingNumber {
 			vb.UnstakeStartTime = time.Unix(0, 0)
 		} else {
