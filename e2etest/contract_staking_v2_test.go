@@ -410,7 +410,7 @@ func TestContractStakingV3(t *testing.T) {
 			name: "unlock",
 			act:  &actionWithTime{mustNoErr(action.SignedExecution(contractV3Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice, mustCallDataV3("unlock(uint256)", big.NewInt(1)), action.WithChainID(chainID))), unlockTime},
 			expect: []actionExpect{successExpect,
-				&bucketExpect{&iotextypes.VoteBucket{Index: 1, ContractAddress: contractV3Address, Owner: identityset.Address(stakerID).String(), CandidateAddress: identityset.Address(candOwnerID).String(), StakedDuration: uint32(stakeDurationSeconds.Uint64() / uint64(secondsPerDay)), CreateTime: timestamppb.New(time.Unix(stakeTime.Unix(), 0)), StakeStartTime: timestamppb.New(time.Unix(stakeTime.Unix(), 0)), UnstakeStartTime: timestamppb.New(time.Unix(0, 0)), StakedAmount: stakeAmount.String(), AutoStake: false}},
+				&bucketExpect{&iotextypes.VoteBucket{Index: 1, ContractAddress: contractV3Address, Owner: identityset.Address(stakerID).String(), CandidateAddress: identityset.Address(candOwnerID).String(), StakedDuration: uint32(stakeDurationSeconds.Uint64() / uint64(secondsPerDay)), CreateTime: timestamppb.New(time.Unix(stakeTime.Unix(), 0)), StakeStartTime: timestamppb.New(time.Unix(unlockTime.Unix(), 0)), UnstakeStartTime: timestamppb.New(time.Unix(0, 0)), StakedAmount: stakeAmount.String(), AutoStake: false}},
 				&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
 					candidate, err := test.getCandidateByName("cand1")
 					require.NoError(err)
@@ -445,7 +445,7 @@ func TestContractStakingV3(t *testing.T) {
 			},
 			act: &actionWithTime{mustNoErr(action.SignedExecution(contractV3Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice, mustCallData("unstake(uint256)", big.NewInt(1)), action.WithChainID(chainID))), unstakeTime},
 			expect: []actionExpect{successExpect,
-				&bucketExpect{&iotextypes.VoteBucket{Index: 1, ContractAddress: contractV3Address, Owner: identityset.Address(stakerID).String(), CandidateAddress: identityset.Address(candOwnerID).String(), StakedDuration: uint32(2 * stakeDurationSeconds.Uint64() / uint64(secondsPerDay)), CreateTime: timestamppb.New(time.Unix(stakeTime.Unix(), 0)), StakeStartTime: timestamppb.New(time.Unix(stakeTime.Unix(), 0)), UnstakeStartTime: timestamppb.New(time.Unix(unstakeTime.Unix(), 0)), StakedAmount: stakeAmount.String(), AutoStake: false}},
+				&bucketExpect{&iotextypes.VoteBucket{Index: 1, ContractAddress: contractV3Address, Owner: identityset.Address(stakerID).String(), CandidateAddress: identityset.Address(candOwnerID).String(), StakedDuration: uint32(2 * stakeDurationSeconds.Uint64() / uint64(secondsPerDay)), CreateTime: timestamppb.New(time.Unix(stakeTime.Unix(), 0)), StakeStartTime: timestamppb.New(time.Unix(unlockTime.Unix(), 0)), UnstakeStartTime: timestamppb.New(time.Unix(unstakeTime.Unix(), 0)), StakedAmount: stakeAmount.String(), AutoStake: false}},
 			},
 			blockExpect: func(test *e2etest, blk *block.Block, err error) {
 				require.NoError(err)
