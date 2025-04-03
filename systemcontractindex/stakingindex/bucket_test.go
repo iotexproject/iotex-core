@@ -80,6 +80,17 @@ func TestAssembleVoteBucket(t *testing.T) {
 			UnstakedAt:     333333,
 			Muted:          false,
 		}},
+		{"timestamped/muted", &Bucket{
+			Candidate:      candidate,
+			Owner:          owner,
+			StakedAmount:   big.NewInt(1000),
+			Timestamped:    true,
+			StakedDuration: 3600,
+			CreatedAt:      111111,
+			UnlockedAt:     222222,
+			UnstakedAt:     333333,
+			Muted:          true,
+		}},
 		{"block-based", &Bucket{
 			Candidate:      candidate,
 			Owner:          owner,
