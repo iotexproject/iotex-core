@@ -10,18 +10,15 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -151,7 +148,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 
 		recipient, _ := address.FromString(r.EncodedAddr)
 		log.L().Info("generated account", zap.String("addr", recipient.String()))
-		c := iotex.NewAuthedClient(p.api, operatorAccount)
+		c := iotex.NewAuthedClient(p.api, 4689, operatorAccount)
 		caller := c.Transfer(recipient, injectCfg.loadTokenAmount).SetGasPrice(injectCfg.transferGasPrice).SetGasLimit(injectCfg.transferGasLimit)
 		if _, err := caller.Call(context.Background()); err != nil {
 			log.L().Error("Failed to inject.", zap.Error(err))
@@ -278,31 +275,31 @@ func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
 }
 
 func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
-	var nonce uint64
-	sender := p.accounts[rand.Intn(len(p.accounts))]
-	if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
-		nonce = val.(uint64)
-	}
-	p.nonces.Set(sender.EncodedAddr, nonce+1)
+	// var nonce uint64
+	// sender := p.accounts[rand.Intn(len(p.accounts))]
+	// if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
+	// 	nonce = val.(uint64)
+	// }
+	// p.nonces.Set(sender.EncodedAddr, nonce+1)
 
-	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
-	c := iotex.NewAuthedClient(p.api, operatorAccount)
-	address, _ := address.FromString(injectCfg.contract)
-	abiJSONVar, _ := abi.JSON(strings.NewReader(_abiStr))
-	contract := c.Contract(address, abiJSONVar)
+	// operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
+	// c := iotex.NewAuthedClient(p.api, operatorAccount)
+	// address, _ := address.FromString(injectCfg.contract)
+	// abiJSONVar, _ := abi.JSON(strings.NewReader(_abiStr))
+	// contract := c.Contract(address, abiJSONVar)
 
-	data := rand.Int63()
-	var dataBuf = make([]byte, 8)
-	binary.BigEndian.PutUint64(dataBuf, uint64(data))
-	dataHash := sha256.Sum256(dataBuf)
+	// data := rand.Int63()
+	// var dataBuf = make([]byte, 8)
+	// binary.BigEndian.PutUint64(dataBuf, uint64(data))
+	// dataHash := sha256.Sum256(dataBuf)
 
-	caller := contract.Execute("addHash", uint64(time.Now().Unix()), hex.EncodeToString(dataHash[:])).
-		SetNonce(nonce).
-		SetAmount(injectCfg.executionAmount).
-		SetGasPrice(injectCfg.executionGasPrice).
-		SetGasLimit(injectCfg.executionGasLimit)
+	// caller := contract.Execute("addHash", uint64(time.Now().Unix()), hex.EncodeToString(dataHash[:])).
+	// 	SetNonce(nonce).
+	// 	SetAmount(injectCfg.executionAmount).
+	// 	SetGasPrice(injectCfg.executionGasPrice).
+	// 	SetGasLimit(injectCfg.executionGasLimit)
 
-	return caller, nil
+	return nil, nil
 }
 
 func (p *injectProcessor) transferCaller() (iotex.SendActionCaller, error) {
@@ -314,7 +311,7 @@ func (p *injectProcessor) transferCaller() (iotex.SendActionCaller, error) {
 	p.nonces.Set(sender.EncodedAddr, nonce+1)
 
 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
-	c := iotex.NewAuthedClient(p.api, operatorAccount)
+	c := iotex.NewAuthedClient(p.api, 4689, operatorAccount)
 
 	recipient, _ := address.FromString(p.accounts[rand.Intn(len(p.accounts))].EncodedAddr)
 	data := rand.Int63()

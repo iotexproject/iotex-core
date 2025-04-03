@@ -5,9 +5,11 @@
 package mock_chainmanager
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	action "github.com/iotexproject/iotex-core/v2/action"
 	protocol "github.com/iotexproject/iotex-core/v2/action/protocol"
 	state "github.com/iotexproject/iotex-core/v2/state"
 )
@@ -331,6 +333,261 @@ func (m *MockStateManager) WriteView(arg0 string, arg1 interface{}) error {
 func (mr *MockStateManagerMockRecorder) WriteView(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteView", reflect.TypeOf((*MockStateManager)(nil).WriteView), arg0, arg1)
+}
+
+// MockStateManagerWithCloser is a mock of StateManagerWithCloser interface.
+type MockStateManagerWithCloser struct {
+	ctrl     *gomock.Controller
+	recorder *MockStateManagerWithCloserMockRecorder
+}
+
+// MockStateManagerWithCloserMockRecorder is the mock recorder for MockStateManagerWithCloser.
+type MockStateManagerWithCloserMockRecorder struct {
+	mock *MockStateManagerWithCloser
+}
+
+// NewMockStateManagerWithCloser creates a new mock instance.
+func NewMockStateManagerWithCloser(ctrl *gomock.Controller) *MockStateManagerWithCloser {
+	mock := &MockStateManagerWithCloser{ctrl: ctrl}
+	mock.recorder = &MockStateManagerWithCloserMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStateManagerWithCloser) EXPECT() *MockStateManagerWithCloserMockRecorder {
+	return m.recorder
+}
+
+// Close mocks base method.
+func (m *MockStateManagerWithCloser) Close() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Close")
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockStateManagerWithCloserMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockStateManagerWithCloser)(nil).Close))
+}
+
+// DelState mocks base method.
+func (m *MockStateManagerWithCloser) DelState(arg0 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DelState", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DelState indicates an expected call of DelState.
+func (mr *MockStateManagerWithCloserMockRecorder) DelState(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockStateManagerWithCloser)(nil).DelState), arg0...)
+}
+
+// Height mocks base method.
+func (m *MockStateManagerWithCloser) Height() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Height indicates an expected call of Height.
+func (mr *MockStateManagerWithCloserMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockStateManagerWithCloser)(nil).Height))
+}
+
+// Load mocks base method.
+func (m *MockStateManagerWithCloser) Load(arg0, arg1 string, arg2 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Load", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Load indicates an expected call of Load.
+func (mr *MockStateManagerWithCloserMockRecorder) Load(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockStateManagerWithCloser)(nil).Load), arg0, arg1, arg2)
+}
+
+// ProtocolDirty mocks base method.
+func (m *MockStateManagerWithCloser) ProtocolDirty(arg0 string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProtocolDirty", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ProtocolDirty indicates an expected call of ProtocolDirty.
+func (mr *MockStateManagerWithCloserMockRecorder) ProtocolDirty(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProtocolDirty", reflect.TypeOf((*MockStateManagerWithCloser)(nil).ProtocolDirty), arg0)
+}
+
+// PutState mocks base method.
+func (m *MockStateManagerWithCloser) PutState(arg0 interface{}, arg1 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "PutState", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PutState indicates an expected call of PutState.
+func (mr *MockStateManagerWithCloserMockRecorder) PutState(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockStateManagerWithCloser)(nil).PutState), varargs...)
+}
+
+// ReadView mocks base method.
+func (m *MockStateManagerWithCloser) ReadView(arg0 string) (interface{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadView", arg0)
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadView indicates an expected call of ReadView.
+func (mr *MockStateManagerWithCloserMockRecorder) ReadView(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadView", reflect.TypeOf((*MockStateManagerWithCloser)(nil).ReadView), arg0)
+}
+
+// Reset mocks base method.
+func (m *MockStateManagerWithCloser) Reset() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Reset")
+}
+
+// Reset indicates an expected call of Reset.
+func (mr *MockStateManagerWithCloserMockRecorder) Reset() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockStateManagerWithCloser)(nil).Reset))
+}
+
+// Revert mocks base method.
+func (m *MockStateManagerWithCloser) Revert(arg0 int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Revert", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Revert indicates an expected call of Revert.
+func (mr *MockStateManagerWithCloserMockRecorder) Revert(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revert", reflect.TypeOf((*MockStateManagerWithCloser)(nil).Revert), arg0)
+}
+
+// RunAction mocks base method.
+func (m *MockStateManagerWithCloser) RunAction(ctx context.Context, selp *action.SealedEnvelope) (*action.Receipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunAction", ctx, selp)
+	ret0, _ := ret[0].(*action.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunAction indicates an expected call of RunAction.
+func (mr *MockStateManagerWithCloserMockRecorder) RunAction(ctx, selp interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunAction", reflect.TypeOf((*MockStateManagerWithCloser)(nil).RunAction), ctx, selp)
+}
+
+// Snapshot mocks base method.
+func (m *MockStateManagerWithCloser) Snapshot() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Snapshot")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Snapshot indicates an expected call of Snapshot.
+func (mr *MockStateManagerWithCloserMockRecorder) Snapshot() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockStateManagerWithCloser)(nil).Snapshot))
+}
+
+// State mocks base method.
+func (m *MockStateManagerWithCloser) State(arg0 interface{}, arg1 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "State", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// State indicates an expected call of State.
+func (mr *MockStateManagerWithCloserMockRecorder) State(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStateManagerWithCloser)(nil).State), varargs...)
+}
+
+// States mocks base method.
+func (m *MockStateManagerWithCloser) States(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "States", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(state.Iterator)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// States indicates an expected call of States.
+func (mr *MockStateManagerWithCloserMockRecorder) States(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "States", reflect.TypeOf((*MockStateManagerWithCloser)(nil).States), arg0...)
+}
+
+// Unload mocks base method.
+func (m *MockStateManagerWithCloser) Unload(arg0, arg1 string, arg2 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Unload", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Unload indicates an expected call of Unload.
+func (mr *MockStateManagerWithCloserMockRecorder) Unload(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockStateManagerWithCloser)(nil).Unload), arg0, arg1, arg2)
+}
+
+// WriteView mocks base method.
+func (m *MockStateManagerWithCloser) WriteView(arg0 string, arg1 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteView", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteView indicates an expected call of WriteView.
+func (mr *MockStateManagerWithCloserMockRecorder) WriteView(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteView", reflect.TypeOf((*MockStateManagerWithCloser)(nil).WriteView), arg0, arg1)
 }
 
 // MockDock is a mock of Dock interface.
