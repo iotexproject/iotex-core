@@ -490,7 +490,7 @@ func TestCreateBlockchain(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -546,7 +546,7 @@ func TestGetBlockHash(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -711,7 +711,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
@@ -781,7 +781,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
@@ -1458,7 +1458,7 @@ func TestConstantinople(t *testing.T) {
 		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 		db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 		require.NoError(err)
-		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
+		sf, err := factory.NewStateDB(factoryCfg, db2, factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
@@ -1706,7 +1706,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 		db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 		require.NoError(err)
-		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
+		sf, err := factory.NewStateDB(factoryCfg, db2, factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
@@ -2029,7 +2029,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 	require.NoError(err)
-	sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db2, factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -2080,7 +2080,7 @@ func TestBlockchain_AccountState(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -2112,7 +2112,7 @@ func TestNewAccountAction(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -2159,7 +2159,7 @@ func TestNewAccountAction(t *testing.T) {
 		}
 		ctx = genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 		factoryCfg = factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-		sf1, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+		sf1, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 		store, err := filedao.NewFileDAOInMemForTest()
 		require.NoError(err)
@@ -2222,7 +2222,7 @@ func TestBlocks(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -2297,7 +2297,7 @@ func TestActions(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[a] = "100000"
 	cfg.Genesis.InitBalanceMap[c] = "100000"
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -2364,7 +2364,7 @@ func TestBlockchain_AddRemoveSubscriber(t *testing.T) {
 	// create chain
 	registry := protocol.NewRegistry()
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	req.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	req.NoError(err)
@@ -2383,13 +2383,8 @@ func TestBlockchain_AddRemoveSubscriber(t *testing.T) {
 }
 
 func TestHistoryForAccount(t *testing.T) {
-	testHistoryForAccount(t, false)
-	testHistoryForAccount(t, true)
-}
-
-func testHistoryForAccount(t *testing.T, statetx bool) {
 	require := require.New(t)
-	bc, sf, _, _, ap := newChain(t, statetx)
+	bc, sf, _, _, ap := newChain(t)
 	a := identityset.Address(28)
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29)
@@ -2423,29 +2418,13 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 	require.Equal(big.NewInt(110), AccountB.Balance)
 
 	// check history account's balance
-	if statetx {
-		_, err = sf.WorkingSetAtHeight(ctx, 0)
-		require.NoError(err)
-	} else {
-		sr, err := sf.WorkingSetAtHeight(ctx, bc.TipHeight()-1)
-		require.NoError(err)
-		AccountA, err = accountutil.AccountState(ctx, sr, a)
-		require.NoError(err)
-		AccountB, err = accountutil.AccountState(ctx, sr, b)
-		require.NoError(err)
-		require.Equal(big.NewInt(100), AccountA.Balance)
-		require.Equal(big.NewInt(100), AccountB.Balance)
-	}
+	_, err = sf.WorkingSetAtHeight(ctx, 0)
+	require.NoError(err)
 }
 
 func TestHistoryForContract(t *testing.T) {
-	testHistoryForContract(t, false)
-	testHistoryForContract(t, true)
-}
-
-func testHistoryForContract(t *testing.T, statetx bool) {
 	require := require.New(t)
-	bc, sf, _, dao, ap := newChain(t, statetx)
+	bc, sf, _, dao, ap := newChain(t)
 	ctx := genesis.WithGenesisContext(context.Background(), bc.Genesis())
 	genesisAccount := identityset.Address(27).String()
 	// deploy and get contract address
@@ -2471,19 +2450,8 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	require.Equal(expect, balance)
 
 	// check the the original balance again
-	if statetx {
-		_, err = sf.WorkingSetAtHeight(ctx, bc.TipHeight()-1)
-		require.NoError(err)
-	} else {
-		sr, err := sf.WorkingSetAtHeight(ctx, bc.TipHeight()-1)
-		require.NoError(err)
-		account, err = accountutil.AccountState(ctx, sr, contractAddr)
-		require.NoError(err)
-		balance = BalanceOfContract(contract, genesisAccount, sr, t, account.Root)
-		expect, ok = new(big.Int).SetString("2000000000000000000000000000", 10)
-		require.True(ok)
-		require.Equal(expect, balance)
-	}
+	_, err = sf.WorkingSetAtHeight(ctx, bc.TipHeight()-1)
+	require.NoError(err)
 }
 
 func deployXrc20(bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool, t *testing.T) string {
@@ -2545,7 +2513,7 @@ func BalanceOfContract(contract, genesisAccount string, sr protocol.StateReader,
 	return big.NewInt(0).SetBytes(ret)
 }
 
-func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factory, db.KVStore, blockdao.BlockDAO, actpool.ActPool) {
+func newChain(t *testing.T) (blockchain.Blockchain, factory.Factory, db.KVStore, blockdao.BlockDAO, actpool.ActPool) {
 	require := require.New(t)
 	cfg := config.Default
 
@@ -2573,13 +2541,9 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	var sf factory.Factory
 	kv := db.NewMemKVStore()
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	if stateTX {
-		sf, err = factory.NewStateDB(factoryCfg, kv, factory.RegistryStateDBOption(registry))
-		require.NoError(err)
-	} else {
-		sf, err = factory.NewFactory(factoryCfg, kv, factory.RegistryOption(registry))
-		require.NoError(err)
-	}
+	sf, err = factory.NewStateDB(factoryCfg, kv, factory.RegistryStateDBOption(registry))
+	require.NoError(err)
+
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
 	acc := account.NewProtocol(rewarding.DepositGas)
