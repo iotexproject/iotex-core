@@ -452,17 +452,13 @@ func (sct *SmartContractTest) prepareBlockchain(
 	var daoKV db.KVStore
 
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	if cfg.Chain.EnableTrielessStateDB {
-		if cfg.Chain.EnableStateDBCaching {
-			daoKV, err = db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
-		} else {
-			daoKV, err = db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
-		}
-		r.NoError(err)
-		sf, err = factory.NewStateDB(factoryCfg, daoKV, factory.RegistryStateDBOption(registry))
+	if cfg.Chain.EnableStateDBCaching {
+		daoKV, err = db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	} else {
-		sf, err = factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+		daoKV, err = db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 	}
+	r.NoError(err)
+	sf, err = factory.NewStateDB(factoryCfg, daoKV, factory.RegistryStateDBOption(registry))
 	r.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	r.NoError(err)
@@ -550,7 +546,6 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 	defaultCfg.Genesis = genesis.TestDefault()
 	cfg := deepcopy.Copy(defaultCfg).(config.Config)
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(28).HexString()
-	cfg.Chain.EnableTrielessStateDB = false
 	bc, sf, dao, ap := sct.prepareBlockchain(ctx, cfg, r)
 	defer func() {
 		r.NoError(bc.Stop(ctx))
@@ -1363,7 +1358,6 @@ func benchmarkHotContractWithFactory(b *testing.B, async bool) {
 	cfg := config.Default
 	cfg.Genesis = genesis.TestDefault()
 	cfg.Genesis.NumSubEpochs = uint64(b.N)
-	cfg.Chain.EnableTrielessStateDB = false
 	if async {
 		cfg.Genesis.GreenlandBlockHeight = 0
 	} else {
