@@ -39,15 +39,20 @@ func (eh *eventMuteHandler) HandleStakedEvent(event *abiutil.EventParam) error {
 	if !ok {
 		return errors.Errorf("no owner for token id %d", tokenIDParam.Uint64())
 	}
+	createdAt := eh.block.Height()
+	if eh.timestamped {
+		createdAt = uint64(eh.block.Timestamp().Unix())
+	}
 	bucket := &Bucket{
-		Candidate:                 delegateParam,
-		Owner:                     owner,
-		StakedAmount:              amountParam,
-		StakedDurationBlockNumber: durationParam.Uint64(),
-		CreatedAt:                 eh.height,
-		UnlockedAt:                maxBlockNumber,
-		UnstakedAt:                maxBlockNumber,
-		Muted:                     true,
+		Candidate:      delegateParam,
+		Owner:          owner,
+		StakedAmount:   amountParam,
+		StakedDuration: durationParam.Uint64(),
+		CreatedAt:      createdAt,
+		UnlockedAt:     maxStakingNumber,
+		UnstakedAt:     maxStakingNumber,
+		Muted:          true,
+		Timestamped:    eh.timestamped,
 	}
 	eh.putBucket(tokenIDParam.Uint64(), bucket)
 	return nil

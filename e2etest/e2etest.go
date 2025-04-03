@@ -92,13 +92,15 @@ func newE2ETest(t *testing.T, cfg config.Config) *e2etest {
 }
 
 func (e *e2etest) run(cases []*testcase) {
-	ctx := context.Background()
-	// run subcases
-	for _, sub := range cases {
-		e.t.Run(sub.name, func(t *testing.T) {
-			e.withTest(t).runCase(ctx, sub)
-		})
+	if len(cases) == 0 {
+		return
 	}
+	ctx := context.Background()
+	e.t.Run(cases[0].name, func(t *testing.T) {
+		se := e.withTest(t)
+		se.runCase(ctx, cases[0])
+		se.run(cases[1:])
+	})
 }
 
 func (e *e2etest) runCase(ctx context.Context, c *testcase) {
@@ -113,7 +115,7 @@ func (e *e2etest) runCase(ctx context.Context, c *testcase) {
 	for i, act := range c.preActs {
 		_, receipt, _, err := addOneTx(ctx, ap, bc, act)
 		require.NoErrorf(err, "failed to add pre-action %d", i)
-		require.EqualValuesf(iotextypes.ReceiptStatus_Success, receipt.Status, "pre-action %d failed", i)
+		require.EqualValuesf(iotextypes.ReceiptStatus_Success, receipt.Status, "pre-action %d failed: %s", i, receipt.ExecutionRevertMsg())
 	}
 	// run action
 	if c.act != nil {
