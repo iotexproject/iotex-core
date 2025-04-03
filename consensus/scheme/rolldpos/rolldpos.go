@@ -162,11 +162,7 @@ func (r *RollDPoS) Calibrate(height uint64) {
 // ValidateBlockFooter validates the signatures in the block footer
 func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	height := blk.Height()
-	prevHash := blk.PrevHash()
-	fork, err := r.ctx.Chain().Fork(prevHash)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get fork at height %d with prevHash %x", height, prevHash)
-	}
+	fork := r.ctx.Chain().Final()
 	roundCalc := r.ctx.RoundCalculator().Fork(fork)
 	round, err := roundCalc.NewRound(height, r.ctx.BlockInterval(height), blk.Timestamp(), nil)
 	if err != nil {

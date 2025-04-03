@@ -71,9 +71,6 @@ type (
 	BlockBuilderFactory interface {
 		Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error)
 		ReceiveBlock(*block.Block) error
-		Init(hash.Hash256)
-		AddProposal(*block.Block) error
-		Block(hash.Hash256) *block.Block
 	}
 
 	chainManager struct {
@@ -87,6 +84,7 @@ type (
 		sr           protocol.StateReader
 		timerFactory *prometheustimer.TimerFactory
 		bbf          BlockBuilderFactory
+		pool         *proposalPool
 	}
 )
 
@@ -94,7 +92,7 @@ func init() {
 	prometheus.MustRegister(blockMtc)
 }
 
-func newForkChain(bc blockchain.Blockchain, head *block.Header, sr protocol.StateReader, bbf BlockBuilderFactory) *forkChain {
+func newForkChain(bc blockchain.Blockchain, head *block.Header, sr protocol.StateReader, bbf BlockBuilderFactory, pool *proposalPool) *forkChain {
 	timerFactory, err := prometheustimer.New(
 		"iotex_blockchain_perf",
 		"Performance of blockchain module",
@@ -110,13 +108,14 @@ func newForkChain(bc blockchain.Blockchain, head *block.Header, sr protocol.Stat
 		sr:           sr,
 		bbf:          bbf,
 		timerFactory: timerFactory,
+		pool:         pool,
 	}
 }
 
 // NewChainManager creates a chain manager
 func NewChainManager(bc blockchain.Blockchain, srf StateReaderFactory, bbf BlockBuilderFactory) ChainManager {
 	return &chainManager{
-		forkChain: newForkChain(bc, nil, nil, bbf),
+		forkChain: newForkChain(bc, nil, nil, bbf, newProposalPool()),
 		srf:       srf,
 	}
 }
@@ -169,7 +168,7 @@ func (fc *forkChain) MintNewBlock(timestamp time.Time, pk crypto.PrivateKey, pre
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}
-	if err = fc.bbf.AddProposal(blk); err != nil {
+	if err = fc.pool.AddBlock(blk); err != nil {
 		blkHash := blk.HashBlock()
 		log.L().Error("failed to add proposal", zap.Error(err), zap.Uint64("height", blk.Height()), log.Hex("hash", blkHash[:]))
 	}
@@ -204,7 +203,7 @@ func (cm *forkChain) ValidateBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	if err = cm.bbf.AddProposal(blk); err != nil {
+	if err = cm.pool.AddBlock(blk); err != nil {
 		blkHash := blk.HashBlock()
 		log.L().Error("failed to add proposal", zap.Error(err), zap.Uint64("height", blk.Height()), log.Hex("hash", blkHash[:]))
 	}
@@ -220,6 +219,10 @@ func (cm *forkChain) CommitBlock(blk *block.Block) error {
 		blkHash := blk.HashBlock()
 		log.L().Error("failed to receive block", zap.Error(err), zap.Uint64("height", blk.Height()), log.Hex("hash", blkHash[:]))
 	}
+	if err := cm.pool.ReceiveBlock(blk); err != nil {
+		blkHash := blk.HashBlock()
+		log.L().Error("failed to receive block", zap.Error(err), zap.Uint64("height", blk.Height()), log.Hex("hash", blkHash[:]))
+	}
 	return nil
 }
 
@@ -232,8 +235,9 @@ func (cm *chainManager) Start(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to create state reader at %d, hash %x", head.Height(), head.HashBlock())
 	}
-	cm.forkChain = newForkChain(cm.bc, head, sr, cm.bbf)
-	cm.bbf.Init(cm.forkChain.TipHash())
+	cm.forkChain.head = head
+	cm.forkChain.sr = sr
+	cm.pool.Init(cm.forkChain.TipHash())
 	return nil
 }
 
@@ -245,7 +249,7 @@ func (cm *chainManager) Final() ForkChain {
 func (cm *chainManager) Fork(hash hash.Hash256) (ForkChain, error) {
 	head := cm.head
 	if hash != cm.tipHash() {
-		blk := cm.bbf.Block(hash)
+		blk := cm.pool.BlockByHash(hash)
 		if blk == nil {
 			return nil, errors.Errorf("block %x not found when fork", hash)
 		}
@@ -255,11 +259,11 @@ func (cm *chainManager) Fork(hash hash.Hash256) (ForkChain, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create state reader at %d, hash %x", head.Height(), head.HashBlock())
 	}
-	return newForkChain(cm.bc, head, sr, cm.bbf), nil
+	return newForkChain(cm.bc, head, sr, cm.bbf, cm.pool), nil
 }
 
 func (fc *forkChain) draftBlockByHeight(height uint64) *block.Block {
-	for blk := fc.bbf.Block(fc.tipHash()); blk != nil && blk.Height() >= height; blk = fc.bbf.Block(blk.PrevHash()) {
+	for blk := fc.pool.BlockByHash(fc.tipHash()); blk != nil && blk.Height() >= height; blk = fc.pool.BlockByHash(blk.PrevHash()) {
 		if blk.Height() == height {
 			return blk
 		}

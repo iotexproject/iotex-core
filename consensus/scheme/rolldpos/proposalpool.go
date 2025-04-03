@@ -1,4 +1,4 @@
-package factory
+package rolldpos
 
 import (
 	"sync"
