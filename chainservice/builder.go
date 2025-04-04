@@ -296,6 +296,9 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.contractStakingIndexerV2 != nil {
 		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV2)
 	}
+	if builder.cs.contractStakingIndexerV3 != nil {
+		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV3)
+	}
 	if len(synchronizedIndexers) > 1 {
 		indexers = append(indexers, blockindex.NewSyncIndexers(synchronizedIndexers...))
 	} else {
@@ -359,6 +362,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	if forTest {
 		builder.cs.contractStakingIndexer = nil
 		builder.cs.contractStakingIndexerV2 = nil
+		builder.cs.contractStakingIndexerV3 = nil
 		return nil
 	}
 	dbConfig := builder.cfg.DB
@@ -396,7 +400,18 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		)
 		builder.cs.contractStakingIndexerV2 = indexer
 	}
-
+	// build contract staking indexer v3
+	if builder.cs.contractStakingIndexerV3 == nil && len(builder.cfg.Genesis.SystemStakingContractV3Address) > 0 {
+		indexer := stakingindex.NewIndexer(
+			kvstore,
+			builder.cfg.Genesis.SystemStakingContractV3Address,
+			builder.cfg.Genesis.SystemStakingContractV3Height, func(start uint64, end uint64) time.Duration {
+				return time.Duration(end-start) * blockInterval
+			},
+			stakingindex.EnableTimestamped(),
+		)
+		builder.cs.contractStakingIndexerV3 = indexer
+	}
 	return nil
 }
 
@@ -668,6 +683,10 @@ func (builder *Builder) registerStakingProtocol() error {
 		return nil
 	}
 	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
+	opts := []staking.Option{}
+	if builder.cs.contractStakingIndexerV3 != nil {
+		opts = append(opts, staking.WithContractStakingIndexerV3(builder.cs.contractStakingIndexerV3))
+	}
 	stakingProtocol, err := staking.NewProtocol(
 		staking.HelperCtx{
 			DepositGas:    rewarding.DepositGas,
@@ -689,6 +708,7 @@ func (builder *Builder) registerStakingProtocol() error {
 		builder.cs.candBucketsIndexer,
 		builder.cs.contractStakingIndexer,
 		builder.cs.contractStakingIndexerV2,
+		opts...,
 	)
 	if err != nil {
 		return err

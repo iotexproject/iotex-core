@@ -597,8 +597,8 @@ func TestCandidateTransferOwnership(t *testing.T) {
 	require := require.New(t)
 
 	registerAmount, _ := big.NewInt(0).SetString("1200000000000000000000000", 10)
-	gasLimit = uint64(10000000)
-	gasPrice = big.NewInt(1)
+	gasLimit := uint64(10000000)
+	gasPrice := big.NewInt(1)
 
 	t.Run("transfer candidate ownership", func(t *testing.T) {
 		test := newE2ETest(t, initCfg(require))

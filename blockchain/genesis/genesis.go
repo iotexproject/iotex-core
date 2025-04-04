@@ -121,15 +121,18 @@ func defaultConfig() Genesis {
 			SystemStakingContractHeight:      24486464,
 			SystemStakingContractV2Address:   "io13mjjr5shj4mte39axwsqjp8fdggk0qzjhatprp", // https://iotexscan.io/tx/b838b7a7c95e511fd8b256c5cbafde0547a72215d682eb60668d1b475a1beb70
 			SystemStakingContractV2Height:    30934838,
-			NativeStakingContractAddress:     "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
-			VoteThreshold:                    "100000000000000000000",
-			StakingContractAddress:           "0x87c9dbff0016af23f5b1ab9b8e072124ab729193",
-			SelfStakingThreshold:             "1200000000000000000000000",
-			ScoreThreshold:                   "2000000000000000000000000",
-			RegisterContractAddress:          "0x95724986563028deb58f15c5fac19fa09304f32d",
-			GravityChainStartHeight:          7614500,
-			GravityChainHeightInterval:       100,
-			Delegates:                        []Delegate{},
+			// TODO:  update the address and height after the v3 contract is deployed
+			SystemStakingContractV3Address: "",
+			SystemStakingContractV3Height:  90934838,
+			NativeStakingContractAddress:   "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+			VoteThreshold:                  "100000000000000000000",
+			StakingContractAddress:         "0x87c9dbff0016af23f5b1ab9b8e072124ab729193",
+			SelfStakingThreshold:           "1200000000000000000000000",
+			ScoreThreshold:                 "2000000000000000000000000",
+			RegisterContractAddress:        "0x95724986563028deb58f15c5fac19fa09304f32d",
+			GravityChainStartHeight:        7614500,
+			GravityChainHeightInterval:     100,
+			Delegates:                      []Delegate{},
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:             unit.ConvertIotxToRau(200000000).String(),
@@ -411,6 +414,10 @@ type (
 		SystemStakingContractV2Address string `yaml:"systemStakingContractV2Address"`
 		// SystemStakingContractV2Height is the height of system staking contract
 		SystemStakingContractV2Height uint64 `yaml:"systemStakingContractV2Height"`
+		// SystemStakingContractV3Address is the address of system staking contract
+		SystemStakingContractV3Address string `yaml:"systemStakingContractV3Address"`
+		// SystemStakingContractV3Height is the height of system staking contract
+		SystemStakingContractV3Height uint64 `yaml:"systemStakingContractV3Height"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {

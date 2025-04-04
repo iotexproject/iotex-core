@@ -67,6 +67,7 @@ type (
 		bucketNS         string
 		ns               string
 		muteHeight       uint64
+		timestamped      bool
 	}
 	// IndexerOption is the option to create an indexer
 	IndexerOption func(*Indexer)
@@ -78,6 +79,13 @@ type (
 func WithMuteHeight(height uint64) IndexerOption {
 	return func(s *Indexer) {
 		s.muteHeight = height
+	}
+}
+
+// EnableTimestamped enables timestamped
+func EnableTimestamped() IndexerOption {
+	return func(s *Indexer) {
+		s.timestamped = true
 	}
 }
 
@@ -237,7 +245,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	// handle events of block
 	var handler stakingEventHandler
-	eventHandler := newEventHandler(s.bucketNS, s.cache.Copy(), blk.Height())
+	eventHandler := newEventHandler(s.bucketNS, s.cache.Copy(), blk, s.timestamped)
 	if s.muteHeight > 0 && blk.Height() >= s.muteHeight {
 		handler = newEventMuteHandler(eventHandler)
 	} else {
@@ -262,7 +270,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 
 func (s *Indexer) handleEvent(ctx context.Context, eh stakingEventHandler, blk *block.Block, actLog *action.Log) error {
 	// get event abi
-	abiEvent, err := stakingContractABI.EventByID(common.Hash(actLog.Topics[0]))
+	abiEvent, err := StakingContractABI.EventByID(common.Hash(actLog.Topics[0]))
 	if err != nil {
 		return errors.Wrapf(err, "get event abi from topic %v failed", actLog.Topics[0])
 	}
@@ -295,7 +303,8 @@ func (s *Indexer) handleEvent(ctx context.Context, eh stakingEventHandler, blk *
 		return eh.HandleDonatedEvent(event)
 	case "Transfer":
 		return eh.HandleTransferEvent(event)
-	case "Approval", "ApprovalForAll", "OwnershipTransferred", "Paused", "Unpaused", "BeneficiaryChanged":
+	case "Approval", "ApprovalForAll", "OwnershipTransferred", "Paused", "Unpaused", "BeneficiaryChanged",
+		"Migrated":
 		// not require handling events
 		return nil
 	default:

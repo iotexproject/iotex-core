@@ -248,7 +248,7 @@ func (ap *actPool) ReceiveBlock(*block.Block) error {
 	return nil
 }
 
-// PendingActionMap returns an action interator with all accepted actions
+// PendingActionMap returns an action iterator with all accepted actions
 func (ap *actPool) PendingActionMap() map[string][]*action.SealedEnvelope {
 	var (
 		wg             sync.WaitGroup

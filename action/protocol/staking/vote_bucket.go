@@ -44,6 +44,7 @@ type (
 		CreateBlockHeight         uint64
 		StakeStartBlockHeight     uint64
 		UnstakeStartBlockHeight   uint64
+		Timestamped               bool
 	}
 
 	// totalBucketCount stores the total bucket count
@@ -186,7 +187,7 @@ func (vb *VoteBucket) Serialize() ([]byte, error) {
 }
 
 func (vb *VoteBucket) isUnstaked() bool {
-	if vb.isNative() {
+	if vb.isNative() || vb.Timestamped {
 		return vb.UnstakeStartTime.After(vb.StakeStartTime)
 	}
 	return vb.UnstakeStartBlockHeight < maxBlockNumber

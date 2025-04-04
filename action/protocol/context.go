@@ -153,6 +153,7 @@ type (
 		UnstakedButNotClearSelfStakeAmount      bool
 		CheckStakingDurationUpperLimit          bool
 		FixRevertSnapshot                       bool
+		TimestampedStakingContract              bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -311,6 +312,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			UnstakedButNotClearSelfStakeAmount:      !g.IsVanuatu(height),
 			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
 			FixRevertSnapshot:                       g.IsVanuatu(height),
+			TimestampedStakingContract:              g.IsToBeEnabled(height),
 		},
 	)
 }

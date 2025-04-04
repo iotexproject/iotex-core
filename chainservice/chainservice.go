@@ -73,6 +73,7 @@ type ChainService struct {
 	candBucketsIndexer       *staking.CandidatesBucketsIndexer
 	contractStakingIndexer   *contractstaking.Indexer
 	contractStakingIndexerV2 stakingindex.StakingIndexer
+	contractStakingIndexerV3 stakingindex.StakingIndexer
 	registry                 *protocol.Registry
 	nodeInfoManager          *nodeinfo.InfoManager
 	apiStats                 *nodestats.APILocalStats

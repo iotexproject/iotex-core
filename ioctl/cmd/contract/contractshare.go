@@ -102,7 +102,7 @@ func isReadOnly(path string) bool {
 		readOnly = true
 	}
 	if err = file.Close(); err != nil {
-		log.Printf("fialed to close file: %v", err)
+		log.Printf("failed to close file: %v", err)
 	}
 	return readOnly
 }
