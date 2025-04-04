@@ -21,7 +21,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
@@ -116,7 +115,8 @@ type (
 	// BlockBuilderFactory is the factory interface of block builder
 	BlockBuilderFactory interface {
 		// NewBlockBuilder creates block builder
-		NewBlockBuilder(context.Context, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
+		Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error)
+		Init(hash.Hash256)
 	}
 
 	// blockchain implements the Blockchain interface
@@ -253,7 +253,17 @@ func (bc *blockchain) Start(ctx context.Context) error {
 				GetBlockTime: bc.getBlockTime,
 			},
 		), bc.genesis))
-	return bc.lifecycle.OnStart(ctx)
+	err := bc.lifecycle.OnStart(ctx)
+	if err != nil {
+		return err
+	}
+	// init block builder factory
+	if tip, err := bc.tipInfo(bc.TipHeight()); err != nil {
+		return errors.Wrap(err, "failed to get tip info")
+	} else {
+		bc.bbf.Init(tip.Hash)
+		return nil
+	}
 }
 
 // Stop stops the blockchain.
@@ -455,22 +465,13 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time, opts ...MintOption) (*bl
 	ctx = bc.contextWithBlock(ctx, minterAddress, newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
-	blockBuilder, err := bc.bbf.NewBlockBuilder(
-		ctx,
-		func(elp action.Envelope) (*action.SealedEnvelope, error) {
-			return action.Sign(elp, producerPrivateKey)
-		},
-	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", newblockHeight)
-	}
-	blk, err := blockBuilder.SignAndBuild(producerPrivateKey)
+	blk, err := bc.bbf.Mint(ctx, producerPrivateKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}
 	_blockMtc.WithLabelValues("MintGas").Set(float64(blk.GasUsed()))
 	_blockMtc.WithLabelValues("MintActions").Set(float64(len(blk.Actions)))
-	return &blk, nil
+	return blk, nil
 }
 
 // CommitBlock validates and appends a block to the chain
