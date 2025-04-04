@@ -48,6 +48,7 @@ type (
 		GravityChainDB             db.Config        `yaml:"gravityChainDB"`
 		Committee                  committee.Config `yaml:"committee"`
 
+		// EnableTrielessStateDB enables trieless state db (deprecated)
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
 		// EnableStateDBCaching enables cachedStateDBOption
 		EnableStateDBCaching bool `yaml:"enableStateDBCaching"`

@@ -180,7 +180,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 	factoryCfg := factory.GenerateConfig(cfg, g)
 	db1, err := db.CreateKVStore(db.DefaultConfig, cfg.TrieDBPath)
 	require.NoError(err)
-	sf, err := factory.NewFactory(factoryCfg, db1, factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db1, factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(g, sf, actpool.DefaultConfig)
 	require.NoError(err)
