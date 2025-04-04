@@ -82,7 +82,7 @@ func (b *baseKVStoreBatch) Append(kvb KVStoreBatch) {
 	defer b.mutex.Unlock()
 	kvb.Lock()
 	defer kvb.Unlock()
-	for i := 0; i < kvb.Size(); i++ {
+	for i := range kvb.Size() {
 		wi, err := b.Entry(i)
 		if err != nil {
 			panic(err)
@@ -316,7 +316,7 @@ func (cb *cachedBatch) Append(b KVStoreBatch) {
 	defer cb.lock.Unlock()
 	b.Lock()
 	defer b.Unlock()
-	for i := 0; i < b.Size(); i++ {
+	for i := range b.Size() {
 		wi, err := b.Entry(i)
 		if err != nil {
 			panic(err)

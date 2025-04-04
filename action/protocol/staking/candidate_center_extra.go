@@ -21,6 +21,9 @@ func (cb *candBase) clone() *candBase {
 	for bucket, cand := range cb.selfStkBucketMap {
 		clone.selfStkBucketMap[bucket] = cand.Clone()
 	}
+	for identity, cand := range cb.identifierMap {
+		clone.identifierMap[identity] = cand.Clone()
+	}
 	if len(cb.owners) > 0 {
 		for _, cand := range cb.owners {
 			clone.owners = append(clone.owners, cand.Clone())

@@ -70,7 +70,7 @@ type (
 		Height() (uint64, error)
 		State(interface{}, ...StateOption) (uint64, error)
 		States(...StateOption) (uint64, state.Iterator, error)
-		ReadView(string) (interface{}, error)
+		ReadView(string) (View, error)
 	}
 
 	// StateManager defines the stateDB interface atop IoTeX blockchain
@@ -82,17 +82,7 @@ type (
 		// General state
 		PutState(interface{}, ...StateOption) (uint64, error)
 		DelState(...StateOption) (uint64, error)
-		WriteView(string, interface{}) error
-		Dock
-	}
-
-	// Dock defines an interface for protocol to read/write their private data in StateReader/Manager
-	// data are stored as interface{}, user needs to type-assert on their own upon Unload()
-	Dock interface {
-		ProtocolDirty(string) bool
-		Load(string, string, interface{}) error
-		Unload(string, string, interface{}) error
-		Reset()
+		WriteView(string, View) error
 	}
 )
 

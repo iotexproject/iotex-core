@@ -90,13 +90,13 @@ func (r *Registry) all() []Protocol {
 }
 
 // StartAll starts all protocols which are startable
-func (r *Registry) StartAll(ctx context.Context, sr StateReader) (View, error) {
+func (r *Registry) StartAll(ctx context.Context, sr StateReader) (*Views, error) {
 	if r == nil {
 		return nil, nil
 	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	allView := make(View)
+	allViews := NewViews()
 	for _, p := range r.all() {
 		s, ok := p.(Starter)
 		if !ok {
@@ -109,7 +109,7 @@ func (r *Registry) StartAll(ctx context.Context, sr StateReader) (View, error) {
 		if view == nil {
 			continue
 		}
-		allView[p.Name()] = view
+		allViews.Write(p.Name(), view)
 	}
-	return allView, nil
+	return allViews, nil
 }

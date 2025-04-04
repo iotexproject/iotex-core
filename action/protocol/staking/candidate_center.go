@@ -11,7 +11,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action"
-	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 type (
@@ -96,6 +95,14 @@ func (m *CandidateCenter) All() CandidateList {
 	return list
 }
 
+func (m *CandidateCenter) Clone() *CandidateCenter {
+	return &CandidateCenter{
+		base:   m.base.clone(),
+		size:   m.size,
+		change: m.change.clone(),
+	}
+}
+
 // Base returns the confirmed base state
 func (m CandidateCenter) Base() *CandidateCenter {
 	return &CandidateCenter{
@@ -103,40 +110,6 @@ func (m CandidateCenter) Base() *CandidateCenter {
 		size:   len(m.base.ownerMap),
 		change: newCandChange(),
 	}
-}
-
-// Delta exports the pending changes
-func (m *CandidateCenter) Delta() CandidateList {
-	return m.change.items()
-}
-
-// SetDelta sets the delta
-func (m *CandidateCenter) SetDelta(l CandidateList) error {
-	if len(l) == 0 {
-		m.change = nil
-		m.change = newCandChange()
-		m.size = m.base.size()
-		return nil
-	}
-
-	var err error
-	m.change, err = listToCandChange(l)
-	if err != nil {
-		return err
-	}
-	if m.base.size() == 0 {
-		m.size = m.change.size()
-		return nil
-	}
-
-	overlap := 0
-	for _, v := range m.base.all() {
-		if m.change.containsIdentifier(v.GetIdentifier()) {
-			overlap++
-		}
-	}
-	m.size = m.base.size() + m.change.size() - overlap
-	return nil
 }
 
 // Commit writes the change into base
@@ -163,15 +136,9 @@ func (m *CandidateCenter) LegacyCommit() error {
 	return nil
 }
 
-// Sync syncs the data from state manager
-func (m *CandidateCenter) Sync(sm protocol.StateManager) error {
-	delta := CandidateList{}
-	if err := sm.Unload(_protocolID, _stakingCandCenter, &delta); err != nil && err != protocol.ErrNoName {
-		return err
-	}
-
-	// apply delta to the center
-	return m.SetDelta(delta)
+// IsDirty returns true if the candidate center is dirty
+func (m *CandidateCenter) IsDirty() bool {
+	return m.change.size() > 0
 }
 
 // ContainsName returns true if the map contains the candidate by name
@@ -338,6 +305,17 @@ func newCandChange() *candChange {
 	return &candChange{
 		dirty: make(map[string]*Candidate),
 	}
+}
+
+func (cc *candChange) clone() *candChange {
+	clone := newCandChange()
+	for _, d := range cc.candidates {
+		clone.candidates = append(clone.candidates, d.Clone())
+	}
+	for k, v := range cc.dirty {
+		clone.dirty[k] = v.Clone()
+	}
+	return clone
 }
 
 func (cc *candChange) size() int {

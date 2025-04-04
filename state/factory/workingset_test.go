@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
@@ -83,6 +82,24 @@ func newStateDBWorkingSet(t testing.TB) *workingSet {
 	return ws
 }
 
+type mockView string
+
+func (v mockView) Clone() protocol.View {
+	return v
+}
+
+func (v mockView) Snapshot() int {
+	return 0
+}
+
+func (v mockView) Revert(int) error {
+	return nil
+}
+
+func (v mockView) Commit(context.Context, protocol.StateReader) error {
+	return nil
+}
+
 func TestWorkingSet_ReadWriteView(t *testing.T) {
 	var (
 		r   = require.New(t)
@@ -90,99 +107,35 @@ func TestWorkingSet_ReadWriteView(t *testing.T) {
 			newFactoryWorkingSet(t),
 			newStateDBWorkingSet(t),
 		}
-		tests = []struct{ key, val string }{
-			{"key1", "value1"},
-			{"key2", "value2"},
-			{"key3", "value3"},
-			{"key4", "value4"},
+		tests = map[string]mockView{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": "value3",
+			"key4": "value4",
 		}
 	)
 	for _, ws := range set {
-		for _, test := range tests {
-			val, err := ws.ReadView(test.key)
+		for key, oval := range tests {
+			val, err := ws.ReadView(key)
 			r.Equal(protocol.ErrNoName, errors.Cause(err))
 			r.Equal(val, nil)
 			// write view into workingSet
-			r.NoError(ws.WriteView(test.key, test.val))
+			r.NoError(ws.WriteView(key, oval))
 		}
 
 		// read view and compare result
-		for _, test := range tests {
-			val, err := ws.ReadView(test.key)
+		for key, oval := range tests {
+			val, err := ws.ReadView(key)
 			r.NoError(err)
-			r.Equal(test.val, val)
+			r.Equal(oval, val)
 		}
 
 		// overwrite
-		newVal := "testvalue"
-		r.NoError(ws.WriteView(tests[0].key, newVal))
-		val, err := ws.ReadView(tests[0].key)
+		var newVal mockView = "testvalue"
+		r.NoError(ws.WriteView("key1", newVal))
+		val, err := ws.ReadView("key1")
 		r.NoError(err)
 		r.Equal(newVal, val)
-	}
-}
-
-func TestWorkingSet_Dock(t *testing.T) {
-	var (
-		r   = require.New(t)
-		set = []*workingSet{
-			newFactoryWorkingSet(t),
-			newStateDBWorkingSet(t),
-		}
-		tests = []struct {
-			name, key string
-			val       state.Serializer
-		}{
-			{
-				"ns", "test1", &testString{"v1"},
-			},
-			{
-				"ns", "test2", &testString{"v2"},
-			},
-			{
-				"vs", "test3", &testString{"v3"},
-			},
-			{
-				"ts", "test4", &testString{"v4"},
-			},
-		}
-	)
-	for _, ws := range set {
-		// test empty dock
-		ts := &testString{}
-		for _, e := range tests {
-			r.False(ws.ProtocolDirty(e.name))
-			r.Equal(protocol.ErrNoName, ws.Unload(e.name, e.key, ts))
-		}
-
-		// populate the dock, and verify existence
-		for _, e := range tests {
-			r.NoError(ws.Load(e.name, e.key, e.val))
-			r.True(ws.ProtocolDirty(e.name))
-			r.NoError(ws.Unload(e.name, e.key, ts))
-			r.Equal(e.val, ts)
-			// test key that does not exist
-			r.Equal(protocol.ErrNoName, ws.Unload(e.name, "notexist", ts))
-		}
-
-		// overwrite
-		v5 := &testString{"v5"}
-		r.NoError(ws.Load(tests[1].name, tests[1].key, v5))
-		r.NoError(ws.Unload(tests[1].name, tests[1].key, ts))
-		r.Equal(v5, ts)
-
-		// add a new one
-		v6 := &testString{"v6"}
-		r.NoError(ws.Load("as", "test6", v6))
-		r.True(ws.ProtocolDirty("as"))
-		r.NoError(ws.Unload("as", "test6", ts))
-		r.Equal(v6, ts)
-
-		ws.Reset()
-		for _, e := range tests {
-			r.False(ws.ProtocolDirty(e.name))
-		}
-		r.False(ws.ProtocolDirty("as"))
 	}
 }
 

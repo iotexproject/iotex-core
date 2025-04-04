@@ -10,7 +10,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -21,11 +20,10 @@ type stateDBWorkingSetStore struct {
 	readBuffer bool
 }
 
-func newStateDBWorkingSetStore(view protocol.View, flusher db.KVStoreFlusher, readBuffer bool) workingSetStore {
+func newStateDBWorkingSetStore(flusher db.KVStoreFlusher, readBuffer bool) workingSetStore {
 	return &stateDBWorkingSetStore{
 		workingSetStoreCommon: &workingSetStoreCommon{
 			flusher: flusher,
-			view:    view,
 		},
 		readBuffer: readBuffer,
 	}

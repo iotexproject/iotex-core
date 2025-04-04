@@ -137,10 +137,10 @@ func (m *MockStarter) EXPECT() *MockStarterMockRecorder {
 }
 
 // Start mocks base method.
-func (m *MockStarter) Start(arg0 context.Context, arg1 StateReader) (interface{}, error) {
+func (m *MockStarter) Start(arg0 context.Context, arg1 StateReader) (View, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Start", arg0, arg1)
-	ret0, _ := ret[0].(interface{})
+	ret0, _ := ret[0].(View)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -410,4 +410,83 @@ func (m *MockActionHandler) Handle(arg0 context.Context, arg1 action.Envelope, a
 func (mr *MockActionHandlerMockRecorder) Handle(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockActionHandler)(nil).Handle), arg0, arg1, arg2)
+}
+
+// MockView is a mock of View interface.
+type MockView struct {
+	ctrl     *gomock.Controller
+	recorder *MockViewMockRecorder
+}
+
+// MockViewMockRecorder is the mock recorder for MockView.
+type MockViewMockRecorder struct {
+	mock *MockView
+}
+
+// NewMockView creates a new mock instance.
+func NewMockView(ctrl *gomock.Controller) *MockView {
+	mock := &MockView{ctrl: ctrl}
+	mock.recorder = &MockViewMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockView) EXPECT() *MockViewMockRecorder {
+	return m.recorder
+}
+
+// Clone mocks base method.
+func (m *MockView) Clone() View {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Clone")
+	ret0, _ := ret[0].(View)
+	return ret0
+}
+
+// Clone indicates an expected call of Clone.
+func (mr *MockViewMockRecorder) Clone() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockView)(nil).Clone))
+}
+
+// Commit mocks base method.
+func (m *MockView) Commit(arg0 context.Context, arg1 StateReader) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Commit", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Commit indicates an expected call of Commit.
+func (mr *MockViewMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockView)(nil).Commit), arg0, arg1)
+}
+
+// Revert mocks base method.
+func (m *MockView) Revert(arg0 int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Revert", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Revert indicates an expected call of Revert.
+func (mr *MockViewMockRecorder) Revert(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revert", reflect.TypeOf((*MockView)(nil).Revert), arg0)
+}
+
+// Snapshot mocks base method.
+func (m *MockView) Snapshot() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Snapshot")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Snapshot indicates an expected call of Snapshot.
+func (mr *MockViewMockRecorder) Snapshot() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockView)(nil).Snapshot))
 }

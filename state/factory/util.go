@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/trie"
@@ -90,17 +89,11 @@ func calculateBlobGasUsed(receipts []*action.Receipt) uint64 {
 	return blobGas
 }
 
-// generateWorkingSetCacheKey generates hash key for workingset cache by hashing blockheader core and producer pubkey
-func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) hash.Hash256 {
-	sum := append(blkHeader.SerializeCore(), []byte(producerAddr)...)
-	return hash.Hash256b(sum)
-}
-
 func protocolPreCommit(ctx context.Context, sr protocol.StateManager) error {
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
 			post, ok := p.(protocol.PreCommitter)
-			if ok && sr.ProtocolDirty(p.Name()) {
+			if ok {
 				if err := post.PreCommit(ctx, sr); err != nil {
 					return err
 				}
@@ -114,7 +107,7 @@ func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
 			post, ok := p.(protocol.Committer)
-			if ok && sr.ProtocolDirty(p.Name()) {
+			if ok {
 				if err := post.Commit(ctx, sr); err != nil {
 					return err
 				}

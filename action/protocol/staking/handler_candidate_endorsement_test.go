@@ -344,7 +344,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				},
 				iotextypes.ReceiptStatus_Success,
 				func(t *testing.T) {
-					csm, err := NewCandidateStateManager(sm, false)
+					csm, err := NewCandidateStateManager(sm)
 					require.NoError(err)
 					esm := NewEndorsementStateManager(csm.SM())
 					bucket, err := csm.getBucket(1)
@@ -382,7 +382,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				},
 				iotextypes.ReceiptStatus_Success,
 				func(t *testing.T) {
-					csm, err := NewCandidateStateManager(sm, false)
+					csm, err := NewCandidateStateManager(sm)
 					require.NoError(err)
 					esm := NewEndorsementStateManager(csm.SM())
 					bucket, err := csm.getBucket(1)
@@ -561,7 +561,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 
 			if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 				// check candidate
-				csm, err := NewCandidateStateManager(sm, false)
+				csm, err := NewCandidateStateManager(sm)
 				require.NoError(err)
 				for _, expectCand := range test.expectCandidates {
 					candidate := csm.GetByOwner(expectCand.owner)
