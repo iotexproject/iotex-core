@@ -1123,8 +1123,6 @@ func TestGrpcServer_GetBlockMetasIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 	cfg.api.GRPCPort = testutil.RandomPort()
-	genesis.SetGenesisTimestamp(cfg.genesis.Timestamp)
-	block.LoadGenesisHash(&cfg.genesis)
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1153,7 +1151,7 @@ func TestGrpcServer_GetBlockMetasIntegrity(t *testing.T) {
 		require.Equal(test.gasUsed, meta.GasUsed)
 		if test.start == 0 {
 			// genesis block
-			h := block.GenesisHash()
+			h := cfg.genesis.Hash()
 			require.Equal(meta.Hash, hex.EncodeToString(h[:]))
 		}
 		var prevBlkPb *iotextypes.BlockMeta
@@ -2209,7 +2207,7 @@ func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 			header := blkInfos[0].Block.Header.Core
 			require.EqualValues(version.ProtocolVersion, header.Version)
 			require.Zero(header.Height)
-			ts := timestamppb.New(time.Unix(genesis.Timestamp(), 0))
+			ts := timestamppb.New(time.Unix(cfg.genesis.Timestamp, 0))
 			require.Equal(ts, header.Timestamp)
 			require.Equal(0, bytes.Compare(hash.ZeroHash256[:], header.PrevBlockHash))
 			require.Equal(0, bytes.Compare(hash.ZeroHash256[:], header.TxRoot))

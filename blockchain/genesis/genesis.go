@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -514,16 +513,9 @@ func New(genesisPath string) (Genesis, error) {
 	return genesis, nil
 }
 
-// SetGenesisTimestamp sets the genesis timestamp
-func SetGenesisTimestamp(ts int64) {
-	_loadGenesisTs.Do(func() {
-		_genesisTs = ts
-	})
-}
-
-// Timestamp returns the genesis timestamp
-func Timestamp() int64 {
-	return atomic.LoadInt64(&_genesisTs)
+// GenesisTimestamp returns the genesis timestamp
+func GenesisTimestamp(sec int64) time.Time {
+	return time.Unix(sec, 0)
 }
 
 // Hash is the hash of genesis config

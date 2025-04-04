@@ -10,6 +10,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/compress"
@@ -47,26 +49,30 @@ var (
 type (
 	// fileDAOLegacy handles chain db file before file split activation at v1.1.2
 	fileDAOLegacy struct {
-		compressBlock bool
-		lifecycle     lifecycle.Lifecycle
-		cfg           db.Config
-		mutex         sync.RWMutex // for create new db file
-		topIndex      atomic.Value
-		htf           db.RangeIndex
-		kvStore       db.KVStore
-		kvStores      cache.LRUCache //store like map[index]db.KVStore,index from 1...N
-		deser         *block.Deserializer
+		compressBlock    bool
+		genesisHash      hash.Hash256
+		genesisTimestamp time.Time
+		lifecycle        lifecycle.Lifecycle
+		cfg              db.Config
+		mutex            sync.RWMutex // for create new db file
+		topIndex         atomic.Value
+		htf              db.RangeIndex
+		kvStore          db.KVStore
+		kvStores         cache.LRUCache //store like map[index]db.KVStore,index from 1...N
+		deser            *block.Deserializer
 	}
 )
 
 // newFileDAOLegacy creates a new legacy file
-func newFileDAOLegacy(cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
+func newFileDAOLegacy(g genesis.Genesis, cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
 	return &fileDAOLegacy{
-		compressBlock: cfg.CompressLegacy,
-		cfg:           cfg,
-		kvStore:       db.NewBoltDB(cfg),
-		kvStores:      cache.NewThreadSafeLruCache(0),
-		deser:         deser,
+		genesisHash:      g.Hash(),
+		genesisTimestamp: genesis.GenesisTimestamp(g.Timestamp),
+		compressBlock:    cfg.CompressLegacy,
+		cfg:              cfg,
+		kvStore:          db.NewBoltDB(cfg),
+		kvStores:         cache.NewThreadSafeLruCache(0),
+		deser:            deser,
 	}, nil
 }
 
@@ -127,7 +133,7 @@ func (fd *fileDAOLegacy) Height() (uint64, error) {
 
 func (fd *fileDAOLegacy) GetBlockHash(height uint64) (hash.Hash256, error) {
 	if height == 0 {
-		return block.GenesisHash(), nil
+		return fd.genesisHash, nil
 	}
 	h := hash.ZeroHash256
 	value, err := fd.kvStore.Get(_blockHashHeightMappingNS, heightKey(height))
@@ -142,7 +148,7 @@ func (fd *fileDAOLegacy) GetBlockHash(height uint64) (hash.Hash256, error) {
 }
 
 func (fd *fileDAOLegacy) GetBlockHeight(h hash.Hash256) (uint64, error) {
-	if h == block.GenesisHash() {
+	if h == fd.genesisHash {
 		return 0, nil
 	}
 	value, err := getValueMustBe8Bytes(fd.kvStore, _blockHashHeightMappingNS, hashKey(h))
@@ -153,8 +159,8 @@ func (fd *fileDAOLegacy) GetBlockHeight(h hash.Hash256) (uint64, error) {
 }
 
 func (fd *fileDAOLegacy) GetBlock(h hash.Hash256) (*block.Block, error) {
-	if h == block.GenesisHash() {
-		return block.GenesisBlock(), nil
+	if h == fd.genesisHash {
+		return block.GenesisBlock(fd.genesisTimestamp), nil
 	}
 	header, err := fd.Header(h)
 	if err != nil {

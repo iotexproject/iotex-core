@@ -94,12 +94,12 @@ func TestNewFileDAOv2(t *testing.T) {
 	r.Equal(16, cfg.BlockStoreBatchSize)
 	cfg.DbPath = testPath
 	deser := block.NewDeserializer(_defaultEVMNetworkID)
-	_, err = newFileDAOv2(0, cfg, deser)
+	_, err = newFileDAOv2(genesis.Default, 0, cfg, deser)
 	r.Equal(ErrNotSupported, err)
 
-	inMemFd, err := newFileDAOv2InMem(1)
+	inMemFd, err := newFileDAOv2InMem(genesis.Default, 1)
 	r.NoError(err)
-	fd, err := newFileDAOv2(2, cfg, deser)
+	fd, err := newFileDAOv2(genesis.Default, 2, cfg, deser)
 	r.NoError(err)
 
 	for _, v2Fd := range []*fileDAOv2{inMemFd, fd} {
@@ -110,12 +110,12 @@ func TestNewFileDAOv2(t *testing.T) {
 }
 
 func TestNewFdInterface(t *testing.T) {
-	testFdInterface := func(cfg db.Config, start uint64, t *testing.T) {
+	testFdInterface := func(g genesis.Genesis, cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(cfg.DbPath)
 		deser := block.NewDeserializer(_defaultEVMNetworkID)
-		fd, err := newFileDAOv2(start, cfg, deser)
+		fd, err := newFileDAOv2(g, start, cfg, deser)
 		r.NoError(err)
 
 		ctx := context.Background()
@@ -140,13 +140,13 @@ func TestNewFdInterface(t *testing.T) {
 		// verify API for genesis block
 		h, err = fd.GetBlockHash(0)
 		r.NoError(err)
-		r.Equal(block.GenesisHash(), h)
+		r.Equal(g.Hash(), h)
 		height, err = fd.GetBlockHeight(h)
 		r.NoError(err)
 		r.Zero(height)
 		blk, err = fd.GetBlock(h)
 		r.NoError(err)
-		r.Equal(block.GenesisBlock(), blk)
+		r.Equal(block.GenesisBlock(genesis.GenesisTimestamp(g.Timestamp)), blk)
 
 		// commit _blockStoreBatchSize blocks
 		for i := uint64(0); i < fd.header.BlockStoreSize; i++ {
@@ -238,7 +238,7 @@ func TestNewFdInterface(t *testing.T) {
 		h, err = fd.GetBlockHash(height)
 		if height == 0 {
 			r.NoError(err)
-			r.Equal(block.GenesisHash(), h)
+			r.Equal(g.Hash(), h)
 		} else {
 			r.Equal(db.ErrNotExist, err)
 			r.Equal(hash.ZeroHash256, h)
@@ -257,17 +257,15 @@ func TestNewFdInterface(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 	deser := block.NewDeserializer(_defaultEVMNetworkID)
-	_, err = newFileDAOv2(0, cfg, deser)
-	r.Equal(ErrNotSupported, err)
 	g := genesis.TestDefault()
-	genesis.SetGenesisTimestamp(g.Timestamp)
-	block.LoadGenesisHash(&g)
+	_, err = newFileDAOv2(g, 0, cfg, deser)
+	r.Equal(ErrNotSupported, err)
 
 	for _, compress := range []string{"", compress.Snappy} {
 		for _, start := range []uint64{1, 5, _blockStoreBatchSize + 1, 4 * _blockStoreBatchSize} {
 			cfg.Compressor = compress
 			t.Run("test fileDAOv2 interface", func(t *testing.T) {
-				testFdInterface(cfg, start, t)
+				testFdInterface(g, cfg, start, t)
 			})
 		}
 	}
@@ -279,7 +277,7 @@ func TestNewFdStart(t *testing.T) {
 		deser := block.NewDeserializer(_defaultEVMNetworkID)
 		for _, num := range []uint64{3, _blockStoreBatchSize - 1, _blockStoreBatchSize, 2*_blockStoreBatchSize - 1} {
 			testutil.CleanupPath(cfg.DbPath)
-			fd, err := newFileDAOv2(start, cfg, deser)
+			fd, err := newFileDAOv2(genesis.Default, start, cfg, deser)
 			r.NoError(err)
 			ctx := context.Background()
 			r.NoError(fd.Start(ctx))
@@ -292,7 +290,7 @@ func TestNewFdStart(t *testing.T) {
 			r.NoError(fd.Stop(ctx))
 
 			// start from existing file
-			fd = openFileDAOv2(cfg, deser)
+			fd = openFileDAOv2(genesis.Default, cfg, deser)
 			r.NoError(fd.Start(ctx))
 			height, err = fd.Bottom()
 			r.NoError(err)
@@ -356,7 +354,7 @@ func TestBlockWithSidecar(t *testing.T) {
 		testutil.CleanupPath(cfg.DbPath)
 		r.Equal(5, cfg.BlockStoreBatchSize)
 		deser := block.NewDeserializer(_defaultEVMNetworkID)
-		fd, err := newFileDAOv2(start, cfg, deser)
+		fd, err := newFileDAOv2(genesis.Default, start, cfg, deser)
 		r.NoError(err)
 		ctx := context.Background()
 		r.NoError(fd.Start(ctx))
