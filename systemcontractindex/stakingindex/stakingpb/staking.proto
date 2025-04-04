@@ -18,4 +18,5 @@ message Bucket {
     uint64 unlockedAt = 6;
     uint64 unstakedAt = 7;
     bool muted = 8;
+    bool timestamped = 9;
 }
