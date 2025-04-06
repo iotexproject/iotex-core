@@ -118,7 +118,10 @@ func NewConsensus(
 			if serr != nil {
 				return nil, serr
 			}
-			forkSF := fork.StateReader()
+			forkSF, serr := fork.StateReader()
+			if err != nil {
+				return nil, err
+			}
 			re := protocol.NewRegistry()
 			if err := ops.rp.Register(re); err != nil {
 				return nil, err
