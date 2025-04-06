@@ -34,11 +34,15 @@ var (
 type (
 	// ChainManager defines the blockchain interface
 	ChainManager interface {
+		ForkChain
+		// Start starts the chain manager
 		Start(ctx context.Context) error
-		// Final returns the finalized blockchain
-		Final() ForkChain
 		// Fork creates a new chain manager with the given hash
 		Fork(hash hash.Hash256) (ForkChain, error)
+		// CommitBlock validates and appends a block to the chain
+		CommitBlock(blk *block.Block) error
+		// ValidateBlock validates a new block before adding it to the blockchain
+		ValidateBlock(blk *block.Block) error
 	}
 	// ForkChain defines the blockchain interface
 	ForkChain interface {
@@ -50,17 +54,11 @@ type (
 		TipHeight() uint64
 		// TipHash returns tip block's hash
 		TipHash() hash.Hash256
-		// ChainAddress returns chain address on parent chain, the root chain return empty.
-		ChainAddress() string
 		// StateReader returns the state reader
-		StateReader() protocol.StateReader
+		StateReader() (protocol.StateReader, error)
 		// MintNewBlock creates a new block with given actions
 		// Note: the coinbase transfer will be added to the given transfers when minting a new block
 		MintNewBlock(time.Time, crypto.PrivateKey, hash.Hash256) (*block.Block, error)
-		// ValidateBlock validates a new block before adding it to the blockchain
-		ValidateBlock(blk *block.Block) error
-		// CommitBlock validates and appends a block to the chain
-		CommitBlock(blk *block.Block) error
 	}
 	// StateReaderFactory is the factory interface of state reader
 	StateReaderFactory interface {
@@ -77,16 +75,17 @@ type (
 	}
 
 	chainManager struct {
-		*forkChain
-		srf StateReaderFactory
+		ForkChain
+		srf          StateReaderFactory
+		timerFactory *prometheustimer.TimerFactory
+		bc           blockchain.Blockchain
+		bbf          BlockBuilderFactory
 	}
 
 	forkChain struct {
-		bc           blockchain.Blockchain
-		head         *block.Header
-		sr           protocol.StateReader
-		timerFactory *prometheustimer.TimerFactory
-		bbf          BlockBuilderFactory
+		cm   *chainManager
+		head *block.Header
+		sr   protocol.StateReader
 	}
 )
 
@@ -94,7 +93,16 @@ func init() {
 	prometheus.MustRegister(blockMtc)
 }
 
-func newForkChain(bc blockchain.Blockchain, head *block.Header, sr protocol.StateReader, bbf BlockBuilderFactory) *forkChain {
+func newForkChain(cm *chainManager, head *block.Header, sr protocol.StateReader) *forkChain {
+	return &forkChain{
+		cm:   cm,
+		head: head,
+		sr:   sr,
+	}
+}
+
+// NewChainManager creates a chain manager
+func NewChainManager(bc blockchain.Blockchain, srf StateReaderFactory, bbf BlockBuilderFactory) ChainManager {
 	timerFactory, err := prometheustimer.New(
 		"iotex_blockchain_perf",
 		"Performance of blockchain module",
@@ -104,37 +112,52 @@ func newForkChain(bc blockchain.Blockchain, head *block.Header, sr protocol.Stat
 	if err != nil {
 		log.L().Panic("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
-	return &forkChain{
+
+	return &chainManager{
 		bc:           bc,
-		head:         head,
-		sr:           sr,
 		bbf:          bbf,
 		timerFactory: timerFactory,
-	}
-}
-
-// NewChainManager creates a chain manager
-func NewChainManager(bc blockchain.Blockchain, srf StateReaderFactory, bbf BlockBuilderFactory) ChainManager {
-	return &chainManager{
-		forkChain: newForkChain(bc, nil, nil, bbf),
-		srf:       srf,
+		srf:          srf,
 	}
 }
 
 // BlockProposeTime return propose time by height
-func (cm *forkChain) BlockProposeTime(height uint64) (time.Time, error) {
+func (fc *forkChain) BlockProposeTime(height uint64) (time.Time, error) {
+	t, err := fc.cm.BlockProposeTime(height)
+	switch errors.Cause(err) {
+	case nil:
+		return t, nil
+	case db.ErrNotExist:
+		header, err := fc.cm.header(height, fc.tipHash())
+		if err != nil {
+			return time.Time{}, err
+		}
+		return header.Timestamp(), nil
+	default:
+		return time.Time{}, err
+	}
+}
+
+func (cm *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
 	if height == 0 {
 		return time.Unix(cm.bc.Genesis().Timestamp, 0), nil
 	}
-	header, err := cm.header(height)
+	head, err := cm.bc.BlockHeaderByHeight(height)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, errors.Wrapf(
+			err, "error when getting the block at height: %d",
+			height,
+		)
 	}
-	return header.Timestamp(), nil
+	return head.Timestamp(), nil
 }
 
 // BlockCommitTime return commit time by height
-func (cm *forkChain) BlockCommitTime(height uint64) (time.Time, error) {
+func (fc *forkChain) BlockCommitTime(height uint64) (time.Time, error) {
+	return fc.cm.BlockCommitTime(height)
+}
+
+func (cm *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
 	footer, err := cm.bc.BlockFooterByHeight(height)
 	if err != nil {
 		return time.Time{}, errors.Wrapf(
@@ -145,31 +168,36 @@ func (cm *forkChain) BlockCommitTime(height uint64) (time.Time, error) {
 	return footer.CommitTime(), nil
 }
 
-// MintNewBlock creates a new block with given actions
 func (fc *forkChain) MintNewBlock(timestamp time.Time, pk crypto.PrivateKey, prevHash hash.Hash256) (*block.Block, error) {
-	mintNewBlockTimer := fc.timerFactory.NewTimer("MintBlock")
+	return fc.cm.mintNewBlock(timestamp, pk, prevHash, fc.tipInfo())
+}
+
+func (cm *chainManager) MintNewBlock(timestamp time.Time, pk crypto.PrivateKey, prevHash hash.Hash256) (*block.Block, error) {
+	return cm.mintNewBlock(timestamp, pk, prevHash, cm.tipInfo())
+}
+
+func (cm *chainManager) mintNewBlock(timestamp time.Time, pk crypto.PrivateKey, prevHash hash.Hash256, tipInfo *protocol.TipInfo) (*block.Block, error) {
+	mintNewBlockTimer := cm.timerFactory.NewTimer("MintBlock")
 	defer mintNewBlockTimer.End()
 	var (
-		tipHeight      = fc.head.Height()
-		tipHash        = fc.tipHash()
-		newblockHeight = tipHeight + 1
+		newblockHeight = tipInfo.Height + 1
 		producer       address.Address
 		err            error
 	)
 	// safety check
-	if prevHash != tipHash {
-		return nil, errors.Errorf("invalid prev hash, expecting %x, got %x", tipHash, tipHash)
+	if prevHash != tipInfo.Hash {
+		return nil, errors.Errorf("invalid prev hash, expecting %x, got %x", prevHash, tipInfo.Hash)
 	}
 	producer = pk.PublicKey().Address()
-	ctx := fc.mintContext(context.Background(), timestamp, producer)
+	ctx := cm.mintContext(context.Background(), timestamp, producer, tipInfo)
 	// create a new block
-	log.L().Debug("Produce a new block.", zap.Uint64("height", newblockHeight), zap.Time("timestamp", timestamp), log.Hex("prevHash", tipHash[:]))
+	log.L().Debug("Produce a new block.", zap.Uint64("height", newblockHeight), zap.Time("timestamp", timestamp), log.Hex("prevHash", prevHash[:]))
 	// run execution and update state trie root hash
-	blk, err := fc.bbf.Mint(ctx, pk)
+	blk, err := cm.bbf.Mint(ctx, pk)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}
-	if err = fc.bbf.AddProposal(blk); err != nil {
+	if err = cm.bbf.AddProposal(blk); err != nil {
 		blkHash := blk.HashBlock()
 		log.L().Error("failed to add proposal", zap.Error(err), zap.Uint64("height", blk.Height()), log.Hex("hash", blkHash[:]))
 	}
@@ -179,27 +207,34 @@ func (fc *forkChain) MintNewBlock(timestamp time.Time, pk crypto.PrivateKey, pre
 }
 
 // TipHeight returns tip block's height
-func (cm *forkChain) TipHeight() uint64 {
-	return cm.head.Height()
+func (cm *chainManager) TipHeight() uint64 {
+	return cm.bc.TipHeight()
+}
+
+func (fc *forkChain) TipHeight() uint64 {
+	return fc.head.Height()
 }
 
 // TipHash returns tip block's hash
-func (cm *forkChain) TipHash() hash.Hash256 {
-	return cm.tipHash()
+func (fc *forkChain) TipHash() hash.Hash256 {
+	return fc.tipHash()
 }
 
-// ChainAddress returns chain address on parent chain, the root chain return empty.
-func (cm *forkChain) ChainAddress() string {
-	return cm.bc.ChainAddress()
+func (cm *chainManager) StateReader() (protocol.StateReader, error) {
+	head, err := cm.bc.BlockHeaderByHeight(cm.bc.TipHeight())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get the head block")
+	}
+	return cm.srf.StateReaderAt(head)
 }
 
 // StateReader returns the state reader
-func (cm *forkChain) StateReader() protocol.StateReader {
-	return cm.sr
+func (fc *forkChain) StateReader() (protocol.StateReader, error) {
+	return fc.sr, nil
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
-func (cm *forkChain) ValidateBlock(blk *block.Block) error {
+func (cm *chainManager) ValidateBlock(blk *block.Block) error {
 	err := cm.bc.ValidateBlock(blk)
 	if err != nil {
 		return err
@@ -212,7 +247,7 @@ func (cm *forkChain) ValidateBlock(blk *block.Block) error {
 }
 
 // CommitBlock validates and appends a block to the chain
-func (cm *forkChain) CommitBlock(blk *block.Block) error {
+func (cm *chainManager) CommitBlock(blk *block.Block) error {
 	if err := cm.bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -228,23 +263,17 @@ func (cm *chainManager) Start(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get the head block")
 	}
-	sr, err := cm.srf.StateReaderAt(head)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create state reader at %d, hash %x", head.Height(), head.HashBlock())
-	}
-	cm.forkChain = newForkChain(cm.bc, head, sr, cm.bbf)
-	cm.bbf.Init(cm.forkChain.TipHash())
+	cm.bbf.Init(head.HashBlock())
 	return nil
-}
-
-func (cm *chainManager) Final() ForkChain {
-	return cm.forkChain
 }
 
 // Fork creates a new chain manager with the given hash
 func (cm *chainManager) Fork(hash hash.Hash256) (ForkChain, error) {
-	head := cm.head
-	if hash != cm.tipHash() {
+	head, err := cm.bc.BlockHeaderByHeight(cm.bc.TipHeight())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get the head block")
+	}
+	if hash != head.HashBlock() {
 		blk := cm.bbf.Block(hash)
 		if blk == nil {
 			return nil, errors.Errorf("block %x not found when fork", hash)
@@ -255,11 +284,11 @@ func (cm *chainManager) Fork(hash hash.Hash256) (ForkChain, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create state reader at %d, hash %x", head.Height(), head.HashBlock())
 	}
-	return newForkChain(cm.bc, head, sr, cm.bbf), nil
+	return newForkChain(cm, head, sr), nil
 }
 
-func (fc *forkChain) draftBlockByHeight(height uint64) *block.Block {
-	for blk := fc.bbf.Block(fc.tipHash()); blk != nil && blk.Height() >= height; blk = fc.bbf.Block(blk.PrevHash()) {
+func (cm *chainManager) draftBlockByHeight(height uint64, tipHash hash.Hash256) *block.Block {
+	for blk := cm.bbf.Block(tipHash); blk != nil && blk.Height() >= height; blk = cm.bbf.Block(blk.PrevHash()) {
 		if blk.Height() == height {
 			return blk
 		}
@@ -267,23 +296,46 @@ func (fc *forkChain) draftBlockByHeight(height uint64) *block.Block {
 	return nil
 }
 
-func (fc *forkChain) tipHash() hash.Hash256 {
-	if fc.head.Height() == 0 {
-		g := fc.bc.Genesis()
+func (cm *chainManager) TipHash() hash.Hash256 {
+	if cm.bc.TipHeight() == 0 {
+		g := cm.bc.Genesis()
 		return g.Hash()
 	}
+	return cm.bc.TipHash()
+}
+
+func (fc *forkChain) tipHash() hash.Hash256 {
 	return fc.head.HashBlock()
 }
 
-func (fc *forkChain) tipInfo() *protocol.TipInfo {
-	if fc.head.Height() == 0 {
-		g := fc.bc.Genesis()
+func (cm *chainManager) tipInfo() *protocol.TipInfo {
+	height := cm.bc.TipHeight()
+	if height == 0 {
+		g := cm.bc.Genesis()
 		return &protocol.TipInfo{
 			Height:    0,
 			Hash:      g.Hash(),
 			Timestamp: time.Unix(g.Timestamp, 0),
 		}
 	}
+	head, err := cm.bc.BlockHeaderByHeight(height)
+	if err != nil {
+		log.L().Error("failed to get the head block", zap.Error(err))
+		return nil
+	}
+
+	return &protocol.TipInfo{
+		Height:        head.Height(),
+		GasUsed:       head.GasUsed(),
+		Hash:          head.HashBlock(),
+		Timestamp:     head.Timestamp(),
+		BaseFee:       head.BaseFee(),
+		BlobGasUsed:   head.BlobGasUsed(),
+		ExcessBlobGas: head.ExcessBlobGas(),
+	}
+}
+
+func (fc *forkChain) tipInfo() *protocol.TipInfo {
 	return &protocol.TipInfo{
 		Height:        fc.head.Height(),
 		GasUsed:       fc.head.GasUsed(),
@@ -295,47 +347,50 @@ func (fc *forkChain) tipInfo() *protocol.TipInfo {
 	}
 }
 
-func (fc *forkChain) header(height uint64) (*block.Header, error) {
-	header, err := fc.bc.BlockHeaderByHeight(height)
+func (cm *chainManager) header(height uint64, tipHash hash.Hash256) (*block.Header, error) {
+	header, err := cm.bc.BlockHeaderByHeight(height)
 	switch errors.Cause(err) {
 	case nil:
 		return header, nil
 	case db.ErrNotExist:
-		if blk := fc.draftBlockByHeight(height); blk != nil {
+		if blk := cm.draftBlockByHeight(height, tipHash); blk != nil {
 			return &blk.Header, nil
 		}
-		return nil, err
-	default:
-		return nil, err
 	}
+	return nil, err
 }
 
-func (fc *forkChain) mintContext(ctx context.Context,
-	timestamp time.Time, producer address.Address) context.Context {
+func (cm *chainManager) mintContext(
+	ctx context.Context,
+	timestamp time.Time,
+	producer address.Address,
+	tip *protocol.TipInfo,
+) context.Context {
+	g := cm.bc.Genesis()
 	// blockchain context
-	tip := fc.tipInfo()
 	ctx = genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
 			ctx,
 			protocol.BlockchainCtx{
 				Tip:          *tip,
-				ChainID:      fc.bc.ChainID(),
-				EvmNetworkID: fc.bc.EvmNetworkID(),
+				ChainID:      cm.bc.ChainID(),
+				EvmNetworkID: cm.bc.EvmNetworkID(),
 				GetBlockHash: func(u uint64) (hash.Hash256, error) {
-					header, err := fc.header(u)
+					header, err := cm.header(u, tip.Hash)
 					if err != nil {
 						return hash.ZeroHash256, err
 					}
 					return header.HashBlock(), nil
 				},
-				GetBlockTime: fc.getBlockTime,
+				GetBlockTime: func(height uint64) (time.Time, error) {
+					return cm.getBlockTime(height, tip.Hash)
+				},
 			},
 		),
-		fc.bc.Genesis(),
+		g,
 	)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	// block context
-	g := fc.bc.Genesis()
 	height := tip.Height + 1
 	ctx = protocol.WithBlockCtx(
 		ctx,
@@ -347,15 +402,14 @@ func (fc *forkChain) mintContext(ctx context.Context,
 			BaseFee:        protocol.CalcBaseFee(g.Blockchain, tip),
 			ExcessBlobGas:  protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed),
 		})
-	ctx = protocol.WithFeatureCtx(ctx)
-	return ctx
+	return protocol.WithFeatureCtx(ctx)
 }
 
-func (fc *forkChain) getBlockTime(height uint64) (time.Time, error) {
+func (cm *chainManager) getBlockTime(height uint64, tipHash hash.Hash256) (time.Time, error) {
 	if height == 0 {
-		return time.Unix(fc.bc.Genesis().Timestamp, 0), nil
+		return time.Unix(cm.bc.Genesis().Timestamp, 0), nil
 	}
-	header, err := fc.header(height)
+	header, err := cm.header(height, tipHash)
 	if err != nil {
 		return time.Time{}, err
 	}

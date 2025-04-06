@@ -201,8 +201,8 @@ func TestValidateBlockFooter(t *testing.T) {
 	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).AnyTimes()
 	bc.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 	bc.EXPECT().TipHeight().Return(blockHeight).AnyTimes()
-	bc.EXPECT().BlockHeaderByHeight(blockHeight).Return(&block.Header{}, nil).Times(1)
-
+	bc.EXPECT().BlockHeaderByHeight(blockHeight).Return(&block.Header{}, nil).Times(6)
+	bc.EXPECT().TipHash().Return(hash.ZeroHash256).Times(1)
 	sk1 := identityset.PrivateKey(1)
 	g := genesis.TestDefault()
 	g.NumDelegates = 4

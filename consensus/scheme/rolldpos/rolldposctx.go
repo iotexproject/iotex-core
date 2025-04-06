@@ -154,7 +154,7 @@ func NewRollDPoSCtx(
 	roundCalc := &roundCalculator{
 		delegatesByEpochFunc: delegatesByEpochFunc,
 		proposersByEpochFunc: proposersByEpochFunc,
-		chain:                chain.Final(),
+		chain:                chain,
 		rp:                   rp,
 		timeBasedRotation:    timeBasedRotation,
 		beringHeight:         beringHeight,
@@ -350,7 +350,7 @@ func (ctx *rollDPoSCtx) Logger() *zap.Logger {
 func (ctx *rollDPoSCtx) Prepare() error {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
-	height := ctx.chain.Final().TipHeight() + 1
+	height := ctx.chain.TipHeight() + 1
 	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.BlockInterval(height), ctx.clock.Now(), ctx.toleratedOvertime)
 	if err != nil {
 		return err
@@ -448,7 +448,7 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		}
 		blkHash := proposal.block.HashBlock()
 		blockHash = blkHash[:]
-		if err := ctx.chain.Final().ValidateBlock(proposal.block); err != nil {
+		if err := ctx.chain.ValidateBlock(proposal.block); err != nil {
 			return nil, errors.Wrapf(err, "error when validating the proposed block")
 		}
 		if err := ctx.round.AddBlock(proposal.block); err != nil {
@@ -550,7 +550,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	}
 
 	// Commit and broadcast the pending block
-	switch err := ctx.chain.Final().CommitBlock(pendingBlock); errors.Cause(err) {
+	switch err := ctx.chain.CommitBlock(pendingBlock); errors.Cause(err) {
 	case blockchain.ErrInvalidTipHeight:
 		return true, nil
 	case nil:
@@ -579,7 +579,8 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 
 	_consensusDurationMtc.WithLabelValues().Set(float64(time.Since(ctx.round.roundStartTime)))
 	if pendingBlock.Height() > 1 {
-		prevBlkProposeTime, err := ctx.chain.Final().BlockProposeTime(pendingBlock.Height() - 1)
+		// prevBlkProposeTime, err := ctx.chain.Final().BlockProposeTime(pendingBlock.Height() - 1)
+		prevBlkProposeTime, err := ctx.chain.BlockProposeTime(pendingBlock.Height() - 1)
 		if err != nil {
 			ctx.logger().Error("Error when getting the previous block header.",
 				zap.Error(err),
@@ -669,7 +670,7 @@ func (ctx *rollDPoSCtx) mintNewBlock(privateKey crypto.PrivateKey) (*EndorsedCon
 	blk := ctx.round.CachedMintedBlock()
 	if blk == nil {
 		// in case that there is no cached block in eManagerDB, it mints a new block.
-		blk, err = ctx.chain.Final().MintNewBlock(ctx.round.StartTime(), privateKey, ctx.round.PrevHash())
+		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime(), privateKey, ctx.round.PrevHash())
 		if err != nil {
 			return nil, err
 		}
