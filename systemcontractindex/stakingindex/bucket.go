@@ -16,13 +16,21 @@ import (
 type VoteBucket = staking.VoteBucket
 
 type Bucket struct {
-	Candidate                 address.Address
-	Owner                     address.Address
-	StakedAmount              *big.Int
-	StakedDurationBlockNumber uint64
-	CreatedAt                 uint64
-	UnlockedAt                uint64
-	UnstakedAt                uint64
+	Candidate    address.Address
+	Owner        address.Address
+	StakedAmount *big.Int
+
+	// Timestamped indicates whether the bucket time is in block height or timestamp
+	Timestamped bool
+
+	// these fields value are determined by the timestamped field
+	StakedDuration uint64 // in seconds if timestamped, in block number if not
+	CreatedAt      uint64 // in unix timestamp if timestamped, in block height if not
+	UnlockedAt     uint64 // in unix timestamp if timestamped, in block height if not
+	UnstakedAt     uint64 // in unix timestamp if timestamped, in block height if not
+
+	// Muted indicates whether the bucket is vote weight muted
+	Muted bool
 }
 
 func (bi *Bucket) Serialize() []byte {
@@ -41,13 +49,15 @@ func (bi *Bucket) Deserialize(b []byte) error {
 // clone clones the bucket info
 func (bi *Bucket) toProto() *stakingpb.Bucket {
 	return &stakingpb.Bucket{
-		Candidate:  bi.Candidate.String(),
-		CreatedAt:  bi.CreatedAt,
-		Owner:      bi.Owner.String(),
-		UnlockedAt: bi.UnlockedAt,
-		UnstakedAt: bi.UnstakedAt,
-		Amount:     bi.StakedAmount.String(),
-		Duration:   bi.StakedDurationBlockNumber,
+		Candidate:   bi.Candidate.String(),
+		CreatedAt:   bi.CreatedAt,
+		Owner:       bi.Owner.String(),
+		UnlockedAt:  bi.UnlockedAt,
+		UnstakedAt:  bi.UnstakedAt,
+		Amount:      bi.StakedAmount.String(),
+		Duration:    bi.StakedDuration,
+		Muted:       bi.Muted,
+		Timestamped: bi.Timestamped,
 	}
 }
 
@@ -70,16 +80,20 @@ func (bi *Bucket) loadProto(p *stakingpb.Bucket) error {
 	bi.Candidate = candidate
 	bi.Owner = owner
 	bi.StakedAmount = amount
-	bi.StakedDurationBlockNumber = p.Duration
+	bi.StakedDuration = p.Duration
+	bi.Muted = p.Muted
+	bi.Timestamped = p.Timestamped
 	return nil
 }
 
 func (b *Bucket) Clone() *Bucket {
 	clone := &Bucket{
-		StakedDurationBlockNumber: b.StakedDurationBlockNumber,
-		CreatedAt:                 b.CreatedAt,
-		UnlockedAt:                b.UnlockedAt,
-		UnstakedAt:                b.UnstakedAt,
+		StakedDuration: b.StakedDuration,
+		CreatedAt:      b.CreatedAt,
+		UnlockedAt:     b.UnlockedAt,
+		UnstakedAt:     b.UnstakedAt,
+		Muted:          b.Muted,
+		Timestamped:    b.Timestamped,
 	}
 	candidate, _ := address.FromBytes(b.Candidate.Bytes())
 	clone.Candidate = candidate
@@ -89,34 +103,52 @@ func (b *Bucket) Clone() *Bucket {
 	return clone
 }
 
-func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blockInterval time.Duration) *VoteBucket {
+func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blocksToDurationFn blocksDurationFn) *VoteBucket {
 	vb := VoteBucket{
-		Index:                     token,
-		StakedAmount:              bkt.StakedAmount,
-		StakedDuration:            time.Duration(bkt.StakedDurationBlockNumber) * blockInterval,
-		StakedDurationBlockNumber: bkt.StakedDurationBlockNumber,
-		CreateBlockHeight:         bkt.CreatedAt,
-		StakeStartBlockHeight:     bkt.CreatedAt,
-		UnstakeStartBlockHeight:   bkt.UnstakedAt,
-		AutoStake:                 bkt.UnlockedAt == maxBlockNumber,
-		Candidate:                 bkt.Candidate,
-		Owner:                     bkt.Owner,
-		ContractAddress:           contractAddr,
+		Index:           token,
+		StakedAmount:    bkt.StakedAmount,
+		AutoStake:       bkt.UnlockedAt == maxStakingNumber,
+		Candidate:       bkt.Candidate,
+		Owner:           bkt.Owner,
+		ContractAddress: contractAddr,
+		Timestamped:     bkt.Timestamped,
 	}
-	if bkt.UnlockedAt != maxBlockNumber {
-		vb.StakeStartBlockHeight = bkt.UnlockedAt
+	if bkt.Timestamped {
+		vb.StakedDuration = time.Duration(bkt.StakedDuration) * time.Second
+		vb.StakeStartTime = time.Unix(int64(bkt.CreatedAt), 0)
+		vb.CreateTime = time.Unix(int64(bkt.CreatedAt), 0)
+		if bkt.UnlockedAt != maxStakingNumber {
+			vb.StakeStartTime = time.Unix(int64(bkt.UnlockedAt), 0)
+		}
+		if bkt.UnstakedAt == maxStakingNumber {
+			vb.UnstakeStartTime = time.Unix(0, 0)
+		} else {
+			vb.UnstakeStartTime = time.Unix(int64(bkt.UnstakedAt), 0)
+		}
+	} else {
+		vb.StakedDuration = blocksToDurationFn(bkt.CreatedAt, bkt.CreatedAt+bkt.StakedDuration)
+		vb.StakedDurationBlockNumber = bkt.StakedDuration
+		vb.CreateBlockHeight = bkt.CreatedAt
+		vb.StakeStartBlockHeight = bkt.CreatedAt
+		vb.UnstakeStartBlockHeight = bkt.UnstakedAt
+		if bkt.UnlockedAt != maxStakingNumber {
+			vb.StakeStartBlockHeight = bkt.UnlockedAt
+		}
+	}
+	if bkt.Muted {
+		vb.Candidate, _ = address.FromString(address.ZeroAddress)
 	}
 	return &vb
 }
 
-func batchAssembleVoteBucket(idxs []uint64, bkts []*Bucket, contractAddr string, blockInterval time.Duration) []*VoteBucket {
+func batchAssembleVoteBucket(idxs []uint64, bkts []*Bucket, contractAddr string, blocksToDurationFn blocksDurationFn) []*VoteBucket {
 	vbs := make([]*VoteBucket, 0, len(bkts))
 	for i := range bkts {
 		if bkts[i] == nil {
 			vbs = append(vbs, nil)
 			continue
 		}
-		vbs = append(vbs, assembleVoteBucket(idxs[i], bkts[i], contractAddr, blockInterval))
+		vbs = append(vbs, assembleVoteBucket(idxs[i], bkts[i], contractAddr, blocksToDurationFn))
 	}
 	return vbs
 }

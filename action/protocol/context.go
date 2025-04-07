@@ -54,6 +54,10 @@ type (
 		ChainID uint32
 		// EvmNetworkID is the EVM network ID
 		EvmNetworkID uint32
+		// GetBlockHash is the function to get block hash by height
+		GetBlockHash func(uint64) (hash.Hash256, error)
+		// GetBlockTime is the function to get block time by height
+		GetBlockTime func(uint64) (time.Time, error)
 	}
 
 	// BlockCtx provides block auxiliary information.
@@ -149,6 +153,7 @@ type (
 		UnstakedButNotClearSelfStakeAmount      bool
 		CheckStakingDurationUpperLimit          bool
 		FixRevertSnapshot                       bool
+		TimestampedStakingContract              bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -307,6 +312,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			UnstakedButNotClearSelfStakeAmount:      !g.IsVanuatu(height),
 			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
 			FixRevertSnapshot:                       g.IsVanuatu(height),
+			TimestampedStakingContract:              g.IsToBeEnabled(height),
 		},
 	)
 }

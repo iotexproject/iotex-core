@@ -81,6 +81,7 @@ type (
 		candBucketsIndexer       *CandidatesBucketsIndexer
 		contractStakingIndexer   ContractStakingIndexerWithBucketType
 		contractStakingIndexerV2 ContractStakingIndexer
+		contractStakingIndexerV3 ContractStakingIndexer
 		voteReviser              *VoteReviser
 		patch                    *PatchStore
 		helperCtx                HelperCtx
@@ -88,22 +89,34 @@ type (
 
 	// Configuration is the staking protocol configuration.
 	Configuration struct {
-		VoteWeightCalConsts              genesis.VoteWeightCalConsts
-		RegistrationConsts               RegistrationConsts
-		WithdrawWaitingPeriod            time.Duration
-		MinStakeAmount                   *big.Int
-		BootstrapCandidates              []genesis.BootstrapCandidate
-		PersistStakingPatchBlock         uint64
-		FixAliasForNonStopHeight         uint64
-		EndorsementWithdrawWaitingBlocks uint64
-		MigrateContractAddress           string
+		VoteWeightCalConsts               genesis.VoteWeightCalConsts
+		RegistrationConsts                RegistrationConsts
+		WithdrawWaitingPeriod             time.Duration
+		MinStakeAmount                    *big.Int
+		BootstrapCandidates               []genesis.BootstrapCandidate
+		PersistStakingPatchBlock          uint64
+		FixAliasForNonStopHeight          uint64
+		EndorsementWithdrawWaitingBlocks  uint64
+		MigrateContractAddress            string
+		TimestampedMigrateContractAddress string
 	}
 	// HelperCtx is the helper context for staking protocol
 	HelperCtx struct {
 		BlockInterval func(uint64) time.Duration
 		DepositGas    protocol.DepositGas
 	}
+	// Option is the option to create a protocol
+	Option func(*Protocol)
 )
+
+// WithContractStakingIndexerV3 sets the contract staking indexer v3
+func WithContractStakingIndexerV3(indexer ContractStakingIndexer) Option {
+	return func(p *Protocol) {
+		p.contractStakingIndexerV3 = indexer
+		p.config.TimestampedMigrateContractAddress = indexer.ContractAddress()
+		return
+	}
+}
 
 // FindProtocol return a registered protocol from registry
 func FindProtocol(registry *protocol.Registry) *Protocol {
@@ -128,6 +141,7 @@ func NewProtocol(
 	candBucketsIndexer *CandidatesBucketsIndexer,
 	contractStakingIndexer ContractStakingIndexerWithBucketType,
 	contractStakingIndexerV2 ContractStakingIndexer,
+	opts ...Option,
 ) (*Protocol, error) {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
@@ -156,7 +170,7 @@ func NewProtocol(
 	if contractStakingIndexerV2 != nil {
 		migrateContractAddress = contractStakingIndexerV2.ContractAddress()
 	}
-	return &Protocol{
+	p := &Protocol{
 		addr: addr,
 		config: Configuration{
 			VoteWeightCalConsts: cfg.Staking.VoteWeightCalConsts,
@@ -178,7 +192,11 @@ func NewProtocol(
 		contractStakingIndexer:   contractStakingIndexer,
 		helperCtx:                helperCtx,
 		contractStakingIndexerV2: contractStakingIndexerV2,
-	}, nil
+	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p, nil
 }
 
 // ProtocolAddr returns the address generated from protocol id
@@ -616,6 +634,9 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if p.contractStakingIndexerV2 != nil {
 		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV2, time.Second))
 	}
+	if p.contractStakingIndexerV3 != nil {
+		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV3, time.Second))
+	}
 	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
 	if err != nil {
 		return nil, 0, err
@@ -786,6 +807,9 @@ func (p *Protocol) contractStakingVotes(ctx context.Context, candidate address.A
 	}
 	if p.contractStakingIndexerV2 != nil && !featureCtx.LimitedStakingContract {
 		indexers = append(indexers, p.contractStakingIndexerV2)
+	}
+	if p.contractStakingIndexerV3 != nil && featureCtx.TimestampedStakingContract {
+		indexers = append(indexers, p.contractStakingIndexerV3)
 	}
 	for _, indexer := range indexers {
 		btks, err := indexer.BucketsByCandidate(candidate, height)

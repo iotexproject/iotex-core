@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -86,7 +85,7 @@ func TestClient(t *testing.T) {
 	require.NoError(err)
 	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), cfg.Indexer)
 	require.NoError(err)
-	apiServer, err := api.NewServerV2(cfg.API, bc, nil, sf, nil, indexer, bfIndexer, ap, nil, func(u uint64) (time.Time, error) { return time.Time{}, nil }, newOption)
+	apiServer, err := api.NewServerV2(cfg.API, bc, nil, sf, nil, indexer, bfIndexer, ap, nil, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start(ctx))
 	// test New()

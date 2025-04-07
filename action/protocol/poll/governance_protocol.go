@@ -25,7 +25,6 @@ import (
 )
 
 type governanceChainCommitteeProtocol struct {
-	getBlockTime              GetBlockTime
 	electionCommittee         committee.Committee
 	initGravityChainHeight    uint64
 	addr                      address.Address
@@ -35,19 +34,17 @@ type governanceChainCommitteeProtocol struct {
 }
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
+// TODO: remove getBlockTime
 func NewGovernanceChainCommitteeProtocol(
 	candidatesIndexer *CandidateIndexer,
 	electionCommittee committee.Committee,
 	initGravityChainHeight uint64,
-	getBlockTime GetBlockTime,
+	_ GetBlockTime,
 	initialCandidatesInterval time.Duration,
 	sh *Slasher,
 ) (Protocol, error) {
 	if electionCommittee == nil {
 		return nil, ErrNoElectionCommittee
-	}
-	if getBlockTime == nil {
-		return nil, errors.New("getBlockTime api is not provided")
 	}
 
 	h := hash.Hash160b([]byte(_protocolID))
@@ -59,7 +56,6 @@ func NewGovernanceChainCommitteeProtocol(
 	return &governanceChainCommitteeProtocol{
 		electionCommittee:         electionCommittee,
 		initGravityChainHeight:    initGravityChainHeight,
-		getBlockTime:              getBlockTime,
 		addr:                      addr,
 		initialCandidatesInterval: initialCandidatesInterval,
 		sh:                        sh,
@@ -234,7 +230,8 @@ func (p *governanceChainCommitteeProtocol) getGravityHeight(ctx context.Context,
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNumber := rp.GetEpochNum(height)
 	epochHeight := rp.GetEpochHeight(epochNumber)
-	blkTime, err := p.getBlockTime(epochHeight)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkTime, err := bcCtx.GetBlockTime(epochHeight)
 	if err != nil {
 		return 0, err
 	}
