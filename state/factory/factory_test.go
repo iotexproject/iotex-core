@@ -1146,12 +1146,9 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 		protocol.BlockchainCtx{},
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-	blkBuilder, err := factory.NewBlockBuilder(ctx, ap, nil)
+	blk, err := factory.Mint(ctx, ap, identityset.PrivateKey(27))
 	require.NoError(err)
-	require.NotNil(blkBuilder)
-	blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
-	require.NoError(err)
-	require.NoError(factory.PutBlock(ctx, &blk))
+	require.NoError(factory.PutBlock(ctx, blk))
 }
 
 func TestSimulateExecution(t *testing.T) {

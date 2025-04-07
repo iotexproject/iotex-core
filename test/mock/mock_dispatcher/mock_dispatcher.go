@@ -100,3 +100,18 @@ func (mr *MockDispatcherMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockDispatcher)(nil).Stop), arg0)
 }
+
+// ValidateMessage mocks base method.
+func (m *MockDispatcher) ValidateMessage(arg0 proto.Message) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateMessage", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ValidateMessage indicates an expected call of ValidateMessage.
+func (mr *MockDispatcherMockRecorder) ValidateMessage(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateMessage", reflect.TypeOf((*MockDispatcher)(nil).ValidateMessage), arg0)
+}

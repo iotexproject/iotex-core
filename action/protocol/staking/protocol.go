@@ -205,7 +205,7 @@ func ProtocolAddr() address.Address {
 }
 
 // Start starts the protocol
-func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
+func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol.View, error) {
 	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sr.Height()
 	if err != nil {
@@ -242,7 +242,7 @@ func (p *Protocol) CreateGenesisStates(
 		return nil
 	}
 	// TODO: set init values based on ctx
-	csm, err := NewCandidateStateManager(sm, false)
+	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return err
 	}
@@ -298,22 +298,26 @@ func (p *Protocol) CreateGenesisStates(
 // CreatePreStates updates state manager
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
 	var (
-		g                    = genesis.MustExtractGenesisContext(ctx)
-		blkCtx               = protocol.MustGetBlockCtx(ctx)
-		featureCtx           = protocol.MustGetFeatureCtx(ctx)
-		featureWithHeightCtx = protocol.MustGetFeatureWithHeightCtx(ctx)
+		g          = genesis.MustExtractGenesisContext(ctx)
+		blkCtx     = protocol.MustGetBlockCtx(ctx)
+		featureCtx = protocol.MustGetFeatureCtx(ctx)
 	)
 	if blkCtx.BlockHeight == g.GreenlandBlockHeight {
 		csr, err := ConstructBaseView(sm)
 		if err != nil {
 			return err
 		}
-		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); err != nil {
+		view := csr.BaseView()
+		if _, err = sm.PutState(view.bucketPool.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); err != nil {
+			return err
+		}
+		view.bucketPool.EnableSMStorage()
+		if err := sm.WriteView(_protocolID, view); err != nil {
 			return err
 		}
 	}
 	if blkCtx.BlockHeight == p.config.FixAliasForNonStopHeight {
-		csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(blkCtx.BlockHeight))
+		csm, err := NewCandidateStateManager(sm)
 		if err != nil {
 			return err
 		}
@@ -324,7 +328,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
-		csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(blkCtx.BlockHeight))
+		csm, err := NewCandidateStateManager(sm)
 		if err != nil {
 			return err
 		}
@@ -388,21 +392,22 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if !p.needToWriteCandsMap(ctx, height) {
 		return nil
 	}
-
-	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
-	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	view, err := sm.ReadView(_protocolID)
 	if err != nil {
 		return err
 	}
-	cc := csm.DirtyView().candCenter
-	base := cc.base.clone()
-	if _, err = base.commit(cc.change, featureWithHeightCtx.CandCenterHasAlias(height)); err != nil {
-		return errors.Wrap(err, "failed to apply candidate change in pre-commit")
+	vd := view.(*ViewData)
+	if !vd.IsDirty() {
+		return nil
+	}
+	vd = vd.Clone().(*ViewData)
+	if err := vd.Commit(ctx, sm); err != nil {
+		return err
 	}
 	// persist nameMap/operatorMap and ownerList to stateDB
-	name := base.candsInNameMap()
-	op := base.candsInOperatorMap()
-	owners := base.ownersList()
+	name := vd.candCenter.base.candsInNameMap()
+	op := vd.candCenter.base.candsInOperatorMap()
+	owners := vd.candCenter.base.ownersList()
 	if len(name) == 0 || len(op) == 0 {
 		return ErrNilParameters
 	}
@@ -414,12 +419,15 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
-	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
-	height, err := sm.Height()
+	view, err := sm.ReadView(_protocolID)
 	if err != nil {
 		return err
 	}
-	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	if !view.(*ViewData).IsDirty() {
+		return nil
+	}
+
+	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return err
 	}
@@ -430,16 +438,24 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
-	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
-	height, err := sm.Height()
+	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return nil, err
 	}
-	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	view, err := sm.ReadView(_protocolID)
 	if err != nil {
 		return nil, err
 	}
-	return p.handle(ctx, elp, csm)
+	snapshot := view.Snapshot()
+	receipt, err := p.handle(ctx, elp, csm)
+	if err != nil {
+		if err := view.Revert(snapshot); err != nil {
+			return nil, errors.Wrap(err, "failed to revert view")
+		}
+		return receipt, err
+	}
+
+	return receipt, nil
 }
 
 func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm CandidateStateManager) (*action.Receipt, error) {
