@@ -193,3 +193,9 @@ func (stateDB *ErigonStateDBAdapterDryrun) GetCodeSize(evmAddr common.Address) i
 	log.T(stateDB.ctx).Debug("Called GetCodeSize.", log.Hex("addrHash", evmAddr[:]))
 	return code
 }
+
+func (stateDB *ErigonStateDBAdapterDryrun) GetCodeHash(evmAddr common.Address) common.Hash {
+	codeHash := stateDB.intra.GetCodeHash(libcommon.Address(evmAddr))
+	log.T(stateDB.ctx).Debug("ErigonStateDBAdapterDryrun Called GetCodeHash.", log.Hex("addrHash", evmAddr[:]), log.Hex("codeHash", codeHash[:]))
+	return common.Hash(codeHash)
+}
