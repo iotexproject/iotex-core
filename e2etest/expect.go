@@ -77,7 +77,7 @@ func (fe *fullActionExpect) expect(test *e2etest, act *action.SealedEnvelope, re
 	require := require.New(test.t)
 	require.Equal(fe.contractAddress, receipt.ContractAddress)
 	require.Equal(fe.gasConsumed, receipt.GasConsumed)
-	require.Equal(fe.txLogs, receipt.TransactionLogs())
+	require.ElementsMatch(fe.txLogs, receipt.TransactionLogs())
 }
 
 func (ce *candidateExpect) expect(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {

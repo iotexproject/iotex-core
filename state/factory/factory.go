@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/cache"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -83,8 +84,7 @@ type (
 		protocol.StateReader
 		Register(protocol.Protocol) error
 		Validate(context.Context, *block.Block) error
-		// NewBlockBuilder creates block builder
-		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error)
+		Mint(context.Context, actpool.ActPool, crypto.PrivateKey) (*block.Block, error)
 		PutBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
 		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
@@ -103,7 +103,7 @@ type (
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
 		workingsets              cache.LRUCache // lru cache for workingsets
-		protocolView             protocol.View
+		protocolView             *protocol.Views
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
 	}
@@ -157,7 +157,7 @@ func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
 		saveHistory:        cfg.Chain.EnableArchiveMode,
-		protocolView:       protocol.View{},
+		protocolView:       &protocol.Views{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 		dao:                dao,
 	}
@@ -264,6 +264,18 @@ func (sf *factory) newWorkingSetWithKVStore(ctx context.Context, height uint64, 
 	span.AddEvent("factory.newWorkingSet")
 	defer span.End()
 
+	store, err := sf.createWorkingSetStore(ctx, height, kvstore)
+	if err != nil {
+		return nil, err
+	}
+	return sf.createSfWorkingSet(ctx, height, store)
+}
+
+func (sf *factory) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
+	return sf.createWorkingSetStore(ctx, height, kvstore)
+}
+
+func (sf *factory) createWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
 	flusher, err := db.NewKVStoreFlusher(
 		kvstore,
@@ -273,11 +285,22 @@ func (sf *factory) newWorkingSetWithKVStore(ctx context.Context, height uint64, 
 	if err != nil {
 		return nil, err
 	}
-	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher)
-	if err != nil {
+	if err := flusher.KVStoreWithBuffer().Start(ctx); err != nil {
 		return nil, err
 	}
-	return sf.createSfWorkingSet(ctx, height, store)
+	for _, p := range sf.ps.Get(height) {
+		if p.Type == _Delete {
+			if err := flusher.KVStoreWithBuffer().Delete(p.Namespace, p.Key); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := flusher.KVStoreWithBuffer().Put(p.Namespace, p.Key, p.Value); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return newFactoryWorkingSetStore(flusher)
 }
 
 func (sf *factory) newWorkingSetAtHeight(ctx context.Context, height uint64) (*workingSet, error) {
@@ -294,7 +317,7 @@ func (sf *factory) newWorkingSetAtHeight(ctx context.Context, height uint64) (*w
 	if err != nil {
 		return nil, err
 	}
-	store, err := newFactoryWorkingSetStoreAtHeight(sf.protocolView, flusher, height)
+	store, err := newFactoryWorkingSetStoreAtHeight(flusher, height)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +339,11 @@ func (sf *factory) createSfWorkingSet(ctx context.Context, height uint64, store 
 			}
 		}
 	}
-	return newWorkingSet(height, store), nil
+	views := sf.protocolView.Clone()
+	if err := views.Commit(ctx, sf); err != nil {
+		return nil, err
+	}
+	return newWorkingSet(height, views, store, sf), nil
 }
 
 func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
@@ -355,8 +382,8 @@ func (sf *factory) Register(p protocol.Protocol) error {
 
 func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 	ctx = protocol.WithRegistry(ctx, sf.registry)
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
+	blkHash := blk.HashBlock()
+	ws, isExist, err := sf.getFromWorkingSets(ctx, blkHash)
 	if err != nil {
 		return err
 	}
@@ -364,7 +391,7 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 		if err := ws.ValidateBlock(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate block with workingset in factory")
 		}
-		sf.putIntoWorkingSets(key, ws)
+		sf.putIntoWorkingSets(blkHash, ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -374,12 +401,12 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-// NewBlockBuilder returns block builder which hasn't been signed yet
-func (sf *factory) NewBlockBuilder(
+// Mint mints a block
+func (sf *factory) Mint(
 	ctx context.Context,
 	ap actpool.ActPool,
-	sign func(action.Envelope) (*action.SealedEnvelope, error),
-) (*block.Builder, error) {
+	pk crypto.PrivateKey,
+) (*block.Block, error) {
 	sf.mutex.Lock()
 	ctx = protocol.WithRegistry(ctx, sf.registry)
 	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
@@ -392,6 +419,9 @@ func (sf *factory) NewBlockBuilder(
 	if err != nil {
 		return nil, err
 	}
+	sign := func(elp action.Envelope) (*action.SealedEnvelope, error) {
+		return action.Sign(elp, pk)
+	}
 	for _, elp := range unsignedSystemActions {
 		se, err := sign(elp)
 		if err != nil {
@@ -403,11 +433,14 @@ func (sf *factory) NewBlockBuilder(
 	if err != nil {
 		return nil, err
 	}
+	blk, err := blkBuilder.SignAndBuild(pk)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", sf.currentChainHeight+1)
+	}
 
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sf.putIntoWorkingSets(key, ws)
-	return blkBuilder, nil
+	sf.putIntoWorkingSets(blk.HashBlock(), ws)
+
+	return &blk, nil
 }
 
 func (sf *factory) WorkingSet(ctx context.Context) (protocol.StateManager, error) {
@@ -450,8 +483,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		return errors.New("failed to get address")
 	}
 	ctx = protocol.WithRegistry(ctx, sf.registry)
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
+	ws, isExist, err := sf.getFromWorkingSets(ctx, blk.HashBlock())
 	if err != nil {
 		return err
 	}
@@ -543,7 +575,7 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 }
 
 // ReadView reads the view
-func (sf *factory) ReadView(name string) (interface{}, error) {
+func (sf *factory) ReadView(name string) (protocol.View, error) {
 	return sf.protocolView.Read(name)
 }
 

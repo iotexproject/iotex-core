@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	crypto "github.com/iotexproject/go-pkgs/crypto"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/v2/action"
 	protocol "github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -55,19 +56,19 @@ func (mr *MockFactoryMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockFactory)(nil).Height))
 }
 
-// NewBlockBuilder mocks base method.
-func (m *MockFactory) NewBlockBuilder(arg0 context.Context, arg1 actpool.ActPool, arg2 func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error) {
+// Mint mocks base method.
+func (m *MockFactory) Mint(arg0 context.Context, arg1 actpool.ActPool, arg2 crypto.PrivateKey) (*block.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewBlockBuilder", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*block.Builder)
+	ret := m.ctrl.Call(m, "Mint", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewBlockBuilder indicates an expected call of NewBlockBuilder.
-func (mr *MockFactoryMockRecorder) NewBlockBuilder(arg0, arg1, arg2 interface{}) *gomock.Call {
+// Mint indicates an expected call of Mint.
+func (mr *MockFactoryMockRecorder) Mint(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBlockBuilder", reflect.TypeOf((*MockFactory)(nil).NewBlockBuilder), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mint", reflect.TypeOf((*MockFactory)(nil).Mint), arg0, arg1, arg2)
 }
 
 // PutBlock mocks base method.
@@ -85,10 +86,10 @@ func (mr *MockFactoryMockRecorder) PutBlock(arg0, arg1 interface{}) *gomock.Call
 }
 
 // ReadView mocks base method.
-func (m *MockFactory) ReadView(arg0 string) (interface{}, error) {
+func (m *MockFactory) ReadView(arg0 string) (protocol.View, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadView", arg0)
-	ret0, _ := ret[0].(interface{})
+	ret0, _ := ret[0].(protocol.View)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

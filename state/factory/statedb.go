@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/cache"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -50,7 +51,7 @@ type (
 		dao                      daoRetrofitter
 		timerFactory             *prometheustimer.TimerFactory
 		workingsets              cache.LRUCache // lru cache for workingsets
-		protocolView             protocol.View
+		protocolView             *protocol.Views
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
 	}
@@ -97,7 +98,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		cfg:                cfg,
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
-		protocolView:       protocol.View{},
+		protocolView:       &protocol.Views{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 	}
 	for _, opt := range opts {
@@ -184,6 +185,25 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 }
 
 func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64, kvstore db.KVStore) (*workingSet, error) {
+	store, err := sdb.createWorkingSetStore(ctx, height, kvstore)
+	if err != nil {
+		return nil, err
+	}
+	if err := store.Start(ctx); err != nil {
+		return nil, err
+	}
+	views := sdb.protocolView.Clone()
+	if err := views.Commit(ctx, sdb); err != nil {
+		return nil, err
+	}
+	return newWorkingSet(height, views, store, sdb), nil
+}
+
+func (sdb *stateDB) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
+	return sdb.createWorkingSetStore(ctx, height, kvstore)
+}
+
+func (sdb *stateDB) createWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
 	flusher, err := db.NewKVStoreFlusher(
 		kvstore,
@@ -200,12 +220,7 @@ func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64,
 			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
 		}
 	}
-	store := newStateDBWorkingSetStore(sdb.protocolView, flusher, g.IsNewfoundland(height))
-	if err := store.Start(ctx); err != nil {
-		return nil, err
-	}
-
-	return newWorkingSet(height, store), nil
+	return newStateDBWorkingSetStore(flusher, g.IsNewfoundland(height)), nil
 }
 
 func (sdb *stateDB) Register(p protocol.Protocol) error {
@@ -214,8 +229,8 @@ func (sdb *stateDB) Register(p protocol.Protocol) error {
 
 func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
+	blkHash := blk.HashBlock()
+	ws, isExist, err := sdb.getFromWorkingSets(ctx, blkHash)
 	if err != nil {
 		return err
 	}
@@ -223,7 +238,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 		if err = ws.ValidateBlock(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate block with workingset in statedb")
 		}
-		sdb.workingsets.Add(key, ws)
+		sdb.workingsets.Add(blkHash, ws)
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -233,17 +248,34 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-// NewBlockBuilder returns block builder which hasn't been signed yet
-func (sdb *stateDB) NewBlockBuilder(
+// Mint mints a block
+func (sdb *stateDB) Mint(
 	ctx context.Context,
 	ap actpool.ActPool,
-	sign func(action.Envelope) (*action.SealedEnvelope, error),
-) (*block.Builder, error) {
+	pk crypto.PrivateKey,
+) (*block.Block, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	expectedBlockHeight := bcCtx.Tip.Height + 1
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
+	var (
+		ws  *workingSet
+		err error
+	)
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
+	switch {
+	case currHeight+1 < expectedBlockHeight:
+		parent, ok := sdb.workingsets.Get(bcCtx.Tip.Hash)
+		if !ok {
+			return nil, errors.Wrapf(ErrNotSupported, "failed to create block at height %d, current height is %d", expectedBlockHeight, sdb.currentChainHeight)
+		}
+		ws, err = parent.(*workingSet).NewWorkingSet(ctx)
+	case currHeight+1 > expectedBlockHeight:
+		return nil, errors.Wrapf(ErrNotSupported, "cannot create block at height %d, current height is %d", expectedBlockHeight, sdb.currentChainHeight)
+	default:
+		ws, err = sdb.newWorkingSet(ctx, currHeight+1)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -251,6 +283,9 @@ func (sdb *stateDB) NewBlockBuilder(
 	unsignedSystemActions, err := ws.generateSystemActions(ctx)
 	if err != nil {
 		return nil, err
+	}
+	sign := func(elp action.Envelope) (*action.SealedEnvelope, error) {
+		return action.Sign(elp, pk)
 	}
 	for _, elp := range unsignedSystemActions {
 		se, err := sign(elp)
@@ -264,22 +299,22 @@ func (sdb *stateDB) NewBlockBuilder(
 		return nil, err
 	}
 
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sdb.workingsets.Add(key, ws)
-	return blkBuilder, nil
+	blk, err := blkBuilder.SignAndBuild(pk)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", expectedBlockHeight)
+	}
+	sdb.workingsets.Add(blk.HashBlock(), ws)
+	return &blk, nil
 }
 
 func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, error) {
 	sdb.mutex.RLock()
 	height := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	// TODO: the workingset should not be able to commit
 	return sdb.newReadOnlyWorkingSet(ctx, height+1)
 }
 
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
-	// TODO: the workingset should not be able to commit
 	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state db")
@@ -306,8 +341,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		return errors.New("failed to get address")
 	}
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
+	ws, isExist, err := sdb.getFromWorkingSets(ctx, blk.HashBlock())
 	if err != nil {
 		return err
 	}
@@ -341,6 +375,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	if err := ws.Commit(ctx); err != nil {
 		return err
 	}
+	sdb.protocolView = ws.views
 	sdb.currentChainHeight = h
 	return nil
 }
@@ -383,7 +418,7 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 }
 
 // ReadView reads the view
-func (sdb *stateDB) ReadView(name string) (interface{}, error) {
+func (sdb *stateDB) ReadView(name string) (protocol.View, error) {
 	return sdb.protocolView.Read(name)
 }
 
@@ -440,7 +475,11 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 		return err
 	}
 
-	return ws.Commit(ctx)
+	if err := ws.Commit(ctx); err != nil {
+		return err
+	}
+	sdb.protocolView = ws.views
+	return nil
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)

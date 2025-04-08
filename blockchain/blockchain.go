@@ -112,10 +112,10 @@ type (
 		RemoveSubscriber(BlockCreationSubscriber) error
 	}
 
-	// BlockBuilderFactory is the factory interface of block builder
-	BlockBuilderFactory interface {
-		// NewBlockBuilder creates block builder
-		Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error)
+	// BlockMinter is the block minter interface
+	BlockMinter interface {
+		// Mint creates a new block
+		Mint(context.Context, crypto.PrivateKey) (*block.Block, error)
 	}
 
 	// blockchain implements the Blockchain interface
@@ -131,7 +131,7 @@ type (
 		timerFactory   *prometheustimer.TimerFactory
 
 		// used by account-based model
-		bbf BlockBuilderFactory
+		bbf BlockMinter
 	}
 )
 
@@ -191,7 +191,7 @@ func SkipSidecarValidationOption() BlockValidationOption {
 }
 
 // NewBlockchain creates a new blockchain and DB instance
-func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf BlockBuilderFactory, opts ...Option) Blockchain {
+func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf BlockMinter, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
 		config:        cfg,

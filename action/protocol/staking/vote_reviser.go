@@ -60,7 +60,7 @@ func (vr *VoteReviser) Revise(ctx protocol.FeatureCtx, csm CandidateStateManager
 				return err
 			}
 		}
-		cands, err = vr.calculateVoteWeight(csm, height, cands)
+		cands, err = vr.calculateVoteWeight(csm, cands)
 		if err != nil {
 			return err
 		}
@@ -78,15 +78,16 @@ func (vr *VoteReviser) Revise(ctx protocol.FeatureCtx, csm CandidateStateManager
 
 func (vr *VoteReviser) correctAliasCands(csm CandidateStateManager, cands CandidateList) (CandidateList, error) {
 	var retval CandidateList
-	for _, c := range csm.DirtyView().candCenter.base.nameMap {
+	view := csm.DirtyView()
+	for _, c := range view.candCenter.base.nameMap {
 		retval = append(retval, c)
 	}
-	for _, c := range csm.DirtyView().candCenter.base.operatorMap {
+	for _, c := range view.candCenter.base.operatorMap {
 		retval = append(retval, c)
 	}
 	sort.Sort(retval)
 	ownerMap := map[string]*Candidate{}
-	for _, cand := range csm.DirtyView().candCenter.base.owners {
+	for _, cand := range view.candCenter.base.owners {
 		ownerMap[cand.Owner.String()] = cand
 	}
 	for _, c := range cands {
@@ -185,7 +186,7 @@ func (vr *VoteReviser) shouldCorrectCandSelfStake(height uint64) bool {
 	return vr.cfg.CorrectCandSelfStakeHeight == height
 }
 
-func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager, height uint64, cands CandidateList) (CandidateList, error) {
+func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager, cands CandidateList) (CandidateList, error) {
 	csr := newCandidateStateReader(csm.SM())
 	candm := make(map[string]*Candidate)
 	for _, cand := range cands {

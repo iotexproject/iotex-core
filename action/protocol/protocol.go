@@ -21,6 +21,8 @@ import (
 var (
 	// ErrUnimplemented indicates a method is not implemented yet
 	ErrUnimplemented = errors.New("method is unimplemented")
+	// ErrNoName indicates the name is not found
+	ErrNoName = errors.New("name is not found")
 )
 
 const (
@@ -39,7 +41,7 @@ type Protocol interface {
 
 // Starter starts the protocol
 type Starter interface {
-	Start(context.Context, StateReader) (interface{}, error)
+	Start(context.Context, StateReader) (View, error)
 }
 
 // GenesisStateCreator creates some genesis states
@@ -100,22 +102,55 @@ func BlobGasFeeOption(blobGasFee *big.Int) DepositOption {
 	}
 }
 
-// DepositGas deposits gas to rewarding pool and burns baseFee
-type DepositGas func(context.Context, StateManager, *big.Int, ...DepositOption) ([]*action.TransactionLog, error)
+type (
+	// DepositGas deposits gas to rewarding pool and burns baseFee
+	DepositGas func(context.Context, StateManager, *big.Int, ...DepositOption) ([]*action.TransactionLog, error)
 
-// View stores the view for all protocols
-type View map[string]interface{}
+	View interface {
+		Clone() View
+		Snapshot() int
+		Revert(int) error
+		Commit(context.Context, StateReader) error
+	}
 
-func (view View) Read(name string) (interface{}, error) {
-	if v, hit := view[name]; hit {
+	// Views stores the view for all protocols
+	Views struct {
+		vm map[string]View
+	}
+)
+
+func NewViews() *Views {
+	return &Views{
+		vm: make(map[string]View),
+	}
+}
+
+func (views *Views) Clone() *Views {
+	clone := NewViews()
+	for key, view := range views.vm {
+		clone.vm[key] = view.Clone()
+	}
+	return clone
+}
+
+func (views *Views) Commit(ctx context.Context, sr StateReader) error {
+	for _, view := range views.vm {
+		if err := view.Commit(ctx, sr); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (views *Views) Read(name string) (View, error) {
+	if v, hit := views.vm[name]; hit {
 		return v, nil
 	}
 	return nil, ErrNoName
 }
 
-func (view View) Write(name string, v interface{}) error {
-	view[name] = v
-	return nil
+func (views *Views) Write(name string, v View) {
+	views.vm[name] = v
 }
 
 // HashStringToAddress generates the contract address from the protocolID of each protocol

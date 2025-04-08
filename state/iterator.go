@@ -18,7 +18,7 @@ var ErrNilValue = errors.New("value is nil")
 // ErrInConsistentLength is an error when keys and states have inconsistent length
 var ErrInConsistentLength = errors.New("keys and states have inconsistent length")
 
-// Iterator defines an interator to read a set of states
+// Iterator defines an iterator to read a set of states
 type Iterator interface {
 	// Size returns the size of the iterator
 	Size() int
@@ -32,7 +32,7 @@ type iterator struct {
 	index  int
 }
 
-// NewIterator returns an interator given a list of serialized states
+// NewIterator returns an iterator given a list of serialized states
 func NewIterator(keys [][]byte, states [][]byte) (Iterator, error) {
 	if len(keys) != len(states) {
 		return nil, ErrInConsistentLength
