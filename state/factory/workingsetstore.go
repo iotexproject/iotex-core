@@ -6,6 +6,7 @@
 package factory
 
 import (
+	"context"
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 type (
@@ -26,19 +29,28 @@ type (
 		RevertSnapshot(int) error
 		ResetSnapshots()
 	}
-	workingSetStoreCommon struct {
+
+	stateDBWorkingSetStore struct {
 		lock sync.Mutex
 		// TODO: handle committed flag properly in the functions
-		committed bool
-		flusher   db.KVStoreFlusher
+		committed  bool
+		readBuffer bool
+		flusher    db.KVStoreFlusher
 	}
 )
 
-func (store *workingSetStoreCommon) Filter(ns string, cond db.Condition, start, limit []byte) ([][]byte, [][]byte, error) {
+func newStateDBWorkingSetStore(flusher db.KVStoreFlusher, readBuffer bool) workingSetStore {
+	return &stateDBWorkingSetStore{
+		flusher:    flusher,
+		readBuffer: readBuffer,
+	}
+}
+
+func (store *stateDBWorkingSetStore) Filter(ns string, cond db.Condition, start, limit []byte) ([][]byte, [][]byte, error) {
 	return store.flusher.KVStoreWithBuffer().Filter(ns, cond, start, limit)
 }
 
-func (store *workingSetStoreCommon) WriteBatch(bat batch.KVStoreBatch) error {
+func (store *stateDBWorkingSetStore) WriteBatch(bat batch.KVStoreBatch) error {
 	store.lock.Lock()
 	defer store.lock.Unlock()
 	if err := store.flusher.KVStoreWithBuffer().WriteBatch(bat); err != nil {
@@ -50,7 +62,7 @@ func (store *workingSetStoreCommon) WriteBatch(bat batch.KVStoreBatch) error {
 	return store.flusher.Flush()
 }
 
-func (store *workingSetStoreCommon) Put(ns string, key []byte, value []byte) error {
+func (store *stateDBWorkingSetStore) Put(ns string, key []byte, value []byte) error {
 	store.lock.Lock()
 	defer store.lock.Unlock()
 	if err := store.flusher.KVStoreWithBuffer().Put(ns, key, value); err != nil {
@@ -62,7 +74,7 @@ func (store *workingSetStoreCommon) Put(ns string, key []byte, value []byte) err
 	return store.flusher.Flush()
 }
 
-func (store *workingSetStoreCommon) Delete(ns string, key []byte) error {
+func (store *stateDBWorkingSetStore) Delete(ns string, key []byte) error {
 	store.lock.Lock()
 	defer store.lock.Unlock()
 	if err := store.flusher.KVStoreWithBuffer().Delete(ns, key); err != nil {
@@ -74,11 +86,11 @@ func (store *workingSetStoreCommon) Delete(ns string, key []byte) error {
 	return store.flusher.Flush()
 }
 
-func (store *workingSetStoreCommon) Digest() hash.Hash256 {
+func (store *stateDBWorkingSetStore) Digest() hash.Hash256 {
 	return hash.Hash256b(store.flusher.SerializeQueue())
 }
 
-func (store *workingSetStoreCommon) Commit() error {
+func (store *stateDBWorkingSetStore) Commit() error {
 	store.lock.Lock()
 	defer store.lock.Unlock()
 	if store.committed {
@@ -92,14 +104,51 @@ func (store *workingSetStoreCommon) Commit() error {
 	return nil
 }
 
-func (store *workingSetStoreCommon) Snapshot() int {
+func (store *stateDBWorkingSetStore) Snapshot() int {
 	return store.flusher.KVStoreWithBuffer().Snapshot()
 }
 
-func (store *workingSetStoreCommon) RevertSnapshot(snapshot int) error {
+func (store *stateDBWorkingSetStore) RevertSnapshot(snapshot int) error {
 	return store.flusher.KVStoreWithBuffer().RevertSnapshot(snapshot)
 }
 
-func (store *workingSetStoreCommon) ResetSnapshots() {
+func (store *stateDBWorkingSetStore) ResetSnapshots() {
 	store.flusher.KVStoreWithBuffer().ResetSnapshots()
+}
+
+func (store *stateDBWorkingSetStore) Start(context.Context) error {
+	return nil
+}
+
+func (store *stateDBWorkingSetStore) Stop(context.Context) error {
+	return nil
+}
+
+func (store *stateDBWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
+	data, err := store.flusher.KVStoreWithBuffer().Get(ns, key)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
+		}
+		return nil, err
+	}
+	return data, nil
+}
+
+func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte) ([][]byte, [][]byte, error) {
+	if store.readBuffer {
+		// TODO: after the 180 HF, we can revert readBuffer, and always go this case
+		return readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
+	}
+	return readStates(store.flusher.BaseKVStore(), ns, keys)
+}
+
+func (store *stateDBWorkingSetStore) Finalize(height uint64) error {
+	// Persist current chain Height
+	store.flusher.KVStoreWithBuffer().MustPut(
+		AccountKVNamespace,
+		[]byte(CurrentHeightKey),
+		byteutil.Uint64ToBytes(height),
+	)
+	return nil
 }

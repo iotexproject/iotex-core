@@ -164,37 +164,22 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 	factoryCfg := factory.GenerateConfig(builder.cfg.Chain, builder.cfg.Genesis)
 	factoryDBCfg := builder.cfg.DB
 	factoryDBCfg.DBType = builder.cfg.Chain.FactoryDBType
-	if builder.cfg.Chain.EnableTrielessStateDB {
-		if forTest {
-			return factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(builder.cs.registry))
-		}
-		opts := []factory.StateDBOption{
-			factory.RegistryStateDBOption(builder.cs.registry),
-			factory.DefaultPatchOption(),
-		}
-		if builder.cfg.Chain.EnableStateDBCaching {
-			dao, err = db.CreateKVStoreWithCache(factoryDBCfg, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
-		} else {
-			dao, err = db.CreateKVStore(factoryDBCfg, builder.cfg.Chain.TrieDBPath)
-		}
-		if err != nil {
-			return nil, err
-		}
-		return factory.NewStateDB(factoryCfg, dao, opts...)
-	}
 	if forTest {
-		return factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(builder.cs.registry))
+		return factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(builder.cs.registry))
 	}
-	dao, err = db.CreateKVStore(factoryDBCfg, builder.cfg.Chain.TrieDBPath)
+	opts := []factory.StateDBOption{
+		factory.RegistryStateDBOption(builder.cs.registry),
+		factory.DefaultPatchOption(),
+	}
+	if builder.cfg.Chain.EnableStateDBCaching {
+		dao, err = db.CreateKVStoreWithCache(factoryDBCfg, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
+	} else {
+		dao, err = db.CreateKVStore(factoryDBCfg, builder.cfg.Chain.TrieDBPath)
+	}
 	if err != nil {
 		return nil, err
 	}
-	return factory.NewFactory(
-		factoryCfg,
-		dao,
-		factory.RegistryOption(builder.cs.registry),
-		factory.DefaultTriePatchOption(),
-	)
+	return factory.NewStateDB(factoryCfg, dao, opts...)
 }
 
 func (builder *Builder) buildElectionCommittee() error {
