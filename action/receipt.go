@@ -202,11 +202,11 @@ func (log *Log) ConvertToLogPb() *iotextypes.Log {
 	l.Topics = [][]byte{}
 	for _, topic := range log.Topics {
 		if log.NotFixTopicCopyBug {
-			l.Topics = append(l.Topics, topic[:])
+			// the topic copy bug is auto fixed after go1.22, b/c after which each iteration of the loop creates new variables.
+			// refer to [go1.22 Changes to the language](https://tip.golang.org/doc/go1.22#language)
+			l.Topics = append(l.Topics, log.Topics[len(log.Topics)-1][:])
 		} else {
-			data := make([]byte, len(topic))
-			copy(data, topic[:])
-			l.Topics = append(l.Topics, data)
+			l.Topics = append(l.Topics, topic[:])
 		}
 	}
 	l.Data = log.Data
