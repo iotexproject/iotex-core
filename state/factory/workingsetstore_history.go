@@ -139,7 +139,9 @@ func (store *stateDBWorkingSetStoreWithErigonOutput) Snapshot() int {
 }
 
 func (store *stateDBWorkingSetStoreWithErigonOutput) RevertSnapshot(sn int) error {
-	store.store.RevertSnapshot(sn)
+	if err := store.store.RevertSnapshot(sn); err != nil {
+		return err
+	}
 	if isn, ok := store.snMap[sn]; ok {
 		store.erigonStore.intraBlockState.RevertToSnapshot(isn)
 		delete(store.snMap, sn)
