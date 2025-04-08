@@ -75,10 +75,12 @@ func TestNewRollDPoS(t *testing.T) {
 	delegatesByEpoch := func(uint64, []byte) ([]string, error) { return nil, nil }
 	t.Run("normal", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
+		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
 			SetPriKey(sk).
-			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
+			SetChainManager(NewChainManager(chain, mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -91,10 +93,12 @@ func TestNewRollDPoS(t *testing.T) {
 	})
 	t.Run("mock-clock", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
+		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
 			SetPriKey(sk).
-			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
+			SetChainManager(NewChainManager(chain, mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -111,10 +115,12 @@ func TestNewRollDPoS(t *testing.T) {
 
 	t.Run("root chain API", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
+		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
 			SetPriKey(sk).
-			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl), mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
+			SetChainManager(NewChainManager(chain, mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -220,7 +226,7 @@ func TestValidateBlockFooter(t *testing.T) {
 	builderCfg.Consensus.ConsensusDBPath = ""
 	bc.EXPECT().Genesis().Return(g).AnyTimes()
 	sf := mock_factory.NewMockFactory(ctrl)
-	sf.EXPECT().StateReaderAt(gomock.Any()).Return(nil, nil).AnyTimes()
+	sf.EXPECT().StateReaderAt(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	rp := rolldpos.NewProtocol(
 		g.NumCandidateDelegates,
 		g.NumDelegates,
@@ -291,9 +297,11 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
-	bc.EXPECT().TipHeight().Return(blockHeight).Times(1)
-	bc.EXPECT().TipHash().Return(hash.ZeroHash256).Times(1)
-	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(2)
+	bc.EXPECT().TipHeight().Return(blockHeight).AnyTimes()
+	bc.EXPECT().TipHash().Return(hash.ZeroHash256).AnyTimes()
+	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).AnyTimes()
+	bc.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+	bc.EXPECT().BlockHeaderByHeight(blockHeight).Return(&block.Header{}, nil).AnyTimes()
 
 	sk1 := identityset.PrivateKey(1)
 	cfg := DefaultConfig
@@ -453,7 +461,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			ctx := context.Background()
 			bc.ProducerPrivKey = hex.EncodeToString(chainAddrs[i].priKey.Bytes())
 			registry := protocol.NewRegistry()
-			sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+			sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 			require.NoError(t, err)
 			require.NoError(t, sf.Start(genesis.WithGenesisContext(
 				protocol.WithRegistry(ctx, registry),
@@ -486,11 +494,11 @@ func TestRollDPoSConsensus(t *testing.T) {
 				peers: make(map[net.Addr]*RollDPoS),
 			}
 			p2ps = append(p2ps, p2p)
-
+			minter := factory.NewMinter(sf, actPool)
 			consensus, err := NewRollDPoSBuilder().
 				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(builderCfg).
-				SetChainManager(NewChainManager(chain, sf, &dummyBlockBuildFactory{})).
+				SetChainManager(NewChainManager(chain, sf, minter)).
 				SetBroadcast(p2p.Broadcast).
 				SetDelegatesByEpochFunc(delegatesByEpochFunc).
 				SetProposersByEpochFunc(delegatesByEpochFunc).

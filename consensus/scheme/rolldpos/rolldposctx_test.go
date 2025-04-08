@@ -12,6 +12,7 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -25,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/endorsement"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
@@ -159,7 +161,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 func TestCheckBlockProposer(t *testing.T) {
 	require := require.New(t)
 	g := genesis.TestDefault()
-	b, sf, _, rp, pp := makeChain(t)
+	b, sf, ap, rp, pp := makeChain(t)
 	c := clock.New()
 	g.Blockchain.BlockInterval = time.Second * 20
 	delegatesByEpochFunc := func(epochnum uint64, _ []byte) ([]string, error) {
@@ -203,7 +205,7 @@ func TestCheckBlockProposer(t *testing.T) {
 		true,
 		time.Second,
 		true,
-		NewChainManager(b, sf, &dummyBlockBuildFactory{}),
+		NewChainManager(b, sf, factory.NewMinter(sf, ap)),
 		block.NewDeserializer(0),
 		rp,
 		nil,
@@ -215,7 +217,8 @@ func TestCheckBlockProposer(t *testing.T) {
 	)
 	require.NoError(err)
 	require.NotNil(rctx)
-	block := getBlockforctx(t, 0, false)
+	prevHash := b.TipHash()
+	block := getBlockforctx(t, 0, false, prevHash)
 	en := endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(10).PublicKey(), nil)
 	bp := newBlockProposal(&block, []*endorsement.Endorsement{en})
 
@@ -240,20 +243,20 @@ func TestCheckBlockProposer(t *testing.T) {
 	require.Error(rctx.CheckBlockProposer(51, bp, en))
 
 	// case 6:invalid block signature
-	block = getBlockforctx(t, 1, false)
+	block = getBlockforctx(t, 1, false, prevHash)
 	en = endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(1).PublicKey(), nil)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
 	require.Error(rctx.CheckBlockProposer(51, bp, en))
 
 	// case 7:invalid endorsement for the vote when call AddVoteEndorsement
-	block = getBlockforctx(t, 1, true)
+	block = getBlockforctx(t, 1, true, prevHash)
 	en = endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(1).PublicKey(), nil)
 	en2 := endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(7).PublicKey(), nil)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en2, en})
 	require.Error(rctx.CheckBlockProposer(51, bp, en2))
 
 	// case 8:Insufficient endorsements
-	block = getBlockforctx(t, 1, true)
+	block = getBlockforctx(t, 1, true, prevHash)
 	hash := block.HashBlock()
 	vote := NewConsensusVote(hash[:], COMMIT)
 	ens, err := endorsement.Endorse(vote, time.Unix(1562382592, 0), identityset.PrivateKey(7))
@@ -263,7 +266,7 @@ func TestCheckBlockProposer(t *testing.T) {
 	require.Error(rctx.CheckBlockProposer(51, bp, ens[0]))
 
 	// case 9:normal
-	block = getBlockforctx(t, 1, true)
+	block = getBlockforctx(t, 1, true, prevHash)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
 	require.NoError(rctx.CheckBlockProposer(51, bp, en))
 }
@@ -349,14 +352,14 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 	require.Equal(height1, height2)
 }
 
-func getBlockforctx(t *testing.T, i int, sign bool) block.Block {
+func getBlockforctx(t *testing.T, i int, sign bool, prevHash hash.Hash256) block.Block {
 	require := require.New(t)
 	ts := &timestamppb.Timestamp{Seconds: 1596329600, Nanos: 10}
 	hcore := &iotextypes.BlockHeaderCore{
 		Version:          1,
 		Height:           51,
 		Timestamp:        ts,
-		PrevBlockHash:    []byte(""),
+		PrevBlockHash:    prevHash[:],
 		TxRoot:           []byte(""),
 		DeltaStateDigest: []byte(""),
 		ReceiptRoot:      []byte(""),

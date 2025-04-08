@@ -62,7 +62,7 @@ type (
 	}
 	// StateReaderFactory is the factory interface of state reader
 	StateReaderFactory interface {
-		StateReaderAt(hash.Hash256) (protocol.StateReader, error)
+		StateReaderAt(uint64, hash.Hash256) (protocol.StateReader, error)
 	}
 
 	// BlockBuilderFactory is the factory interface of block builder
@@ -220,7 +220,7 @@ func (fc *forkChain) TipHash() hash.Hash256 {
 }
 
 func (cm *chainManager) StateReader() (protocol.StateReader, error) {
-	return cm.srf.StateReaderAt(cm.bc.TipHash())
+	return cm.srf.StateReaderAt(cm.bc.TipHeight(), cm.bc.TipHash())
 }
 
 // StateReader returns the state reader
@@ -285,7 +285,7 @@ func (cm *chainManager) Fork(hash hash.Hash256) (ForkChain, error) {
 			return nil, errors.Errorf("block %x not found when fork", hash)
 		}
 	}
-	sr, err := cm.srf.StateReaderAt(hash)
+	sr, err := cm.srf.StateReaderAt(head.Height(), hash)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create state reader at %d, hash %x", head.Height(), head.HashBlock())
 	}

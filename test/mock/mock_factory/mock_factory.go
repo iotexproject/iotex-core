@@ -149,18 +149,18 @@ func (mr *MockFactoryMockRecorder) State(arg0 interface{}, arg1 ...interface{}) 
 }
 
 // StateReaderAt mocks base method.
-func (m *MockFactory) StateReaderAt(arg0 hash.Hash256) (protocol.StateReader, error) {
+func (m *MockFactory) StateReaderAt(blkHeight uint64, blkHash hash.Hash256) (protocol.StateReader, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateReaderAt", arg0)
+	ret := m.ctrl.Call(m, "StateReaderAt", blkHeight, blkHash)
 	ret0, _ := ret[0].(protocol.StateReader)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // StateReaderAt indicates an expected call of StateReaderAt.
-func (mr *MockFactoryMockRecorder) StateReaderAt(arg0 interface{}) *gomock.Call {
+func (mr *MockFactoryMockRecorder) StateReaderAt(blkHeight, blkHash interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateReaderAt", reflect.TypeOf((*MockFactory)(nil).StateReaderAt), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateReaderAt", reflect.TypeOf((*MockFactory)(nil).StateReaderAt), blkHeight, blkHash)
 }
 
 // States mocks base method.

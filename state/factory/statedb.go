@@ -423,9 +423,22 @@ func (sdb *stateDB) ReadView(name string) (protocol.View, error) {
 }
 
 // StateReaderAt returns a state reader at a specific height
-func (sdb *stateDB) StateReaderAt(hash.Hash256) (protocol.StateReader, error) {
-	// TODO: implement this
-	panic("implement me")
+func (sdb *stateDB) StateReaderAt(blkHeight uint64, blkHash hash.Hash256) (protocol.StateReader, error) {
+	sdb.mutex.RLock()
+	curHeight := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	if blkHeight == curHeight {
+		return sdb, nil
+	} else if blkHeight < curHeight {
+		return nil, errors.Errorf("cannot read state at height %d, current height is %d", blkHeight, curHeight)
+	}
+	if data, ok := sdb.workingsets.Get(blkHash); ok {
+		if ws, ok := data.(*workingSet); ok {
+			return ws, nil
+		}
+		return nil, errors.New("type assertion failed to be WorkingSet")
+	}
+	return nil, errors.Errorf("failed to get workingset at %x", blkHash)
 }
 
 //======================================
