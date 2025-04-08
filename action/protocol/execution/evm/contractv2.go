@@ -96,5 +96,6 @@ func (c *contractV2) Snapshot() Contract {
 		Account: c.Account.Clone(),
 		sm:      c.sm,
 		intra:   c.intra,
+		addr:    c.addr,
 	}
 }
