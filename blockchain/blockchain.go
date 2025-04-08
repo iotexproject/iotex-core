@@ -116,7 +116,6 @@ type (
 	BlockBuilderFactory interface {
 		// NewBlockBuilder creates block builder
 		Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error)
-		Init(hash.Hash256)
 	}
 
 	// blockchain implements the Blockchain interface
@@ -253,17 +252,7 @@ func (bc *blockchain) Start(ctx context.Context) error {
 				GetBlockTime: bc.getBlockTime,
 			},
 		), bc.genesis))
-	err := bc.lifecycle.OnStart(ctx)
-	if err != nil {
-		return err
-	}
-	// init block builder factory
-	if tip, err := bc.tipInfo(bc.TipHeight()); err != nil {
-		return errors.Wrap(err, "failed to get tip info")
-	} else {
-		bc.bbf.Init(tip.Hash)
-		return nil
-	}
+	return bc.lifecycle.OnStart(ctx)
 }
 
 // Stop stops the blockchain.

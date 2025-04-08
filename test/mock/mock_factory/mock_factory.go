@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/v2/action"
 	protocol "github.com/iotexproject/iotex-core/v2/action/protocol"
 	actpool "github.com/iotexproject/iotex-core/v2/actpool"
@@ -147,18 +148,18 @@ func (mr *MockFactoryMockRecorder) State(arg0 interface{}, arg1 ...interface{}) 
 }
 
 // StateReaderAt mocks base method.
-func (m *MockFactory) StateReaderAt(header *block.Header) (protocol.StateReader, error) {
+func (m *MockFactory) StateReaderAt(arg0 hash.Hash256) (protocol.StateReader, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateReaderAt", header)
+	ret := m.ctrl.Call(m, "StateReaderAt", arg0)
 	ret0, _ := ret[0].(protocol.StateReader)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // StateReaderAt indicates an expected call of StateReaderAt.
-func (mr *MockFactoryMockRecorder) StateReaderAt(header interface{}) *gomock.Call {
+func (mr *MockFactoryMockRecorder) StateReaderAt(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateReaderAt", reflect.TypeOf((*MockFactory)(nil).StateReaderAt), header)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateReaderAt", reflect.TypeOf((*MockFactory)(nil).StateReaderAt), arg0)
 }
 
 // States mocks base method.

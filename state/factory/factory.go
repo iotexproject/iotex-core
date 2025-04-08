@@ -88,7 +88,7 @@ type (
 		PutBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
 		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
-		StateReaderAt(header *block.Header) (protocol.StateReader, error)
+		StateReaderAt(hash.Hash256) (protocol.StateReader, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -548,7 +548,7 @@ func (sf *factory) ReadView(name string) (interface{}, error) {
 }
 
 // StateReaderAt returns a state reader at a specific height
-func (sf *factory) StateReaderAt(header *block.Header) (protocol.StateReader, error) {
+func (sf *factory) StateReaderAt(hash.Hash256) (protocol.StateReader, error) {
 	panic("implement me")
 }
 

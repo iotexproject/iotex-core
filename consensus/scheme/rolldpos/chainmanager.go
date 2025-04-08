@@ -62,16 +62,13 @@ type (
 	}
 	// StateReaderFactory is the factory interface of state reader
 	StateReaderFactory interface {
-		StateReaderAt(*block.Header) (protocol.StateReader, error)
+		StateReaderAt(hash.Hash256) (protocol.StateReader, error)
 	}
 
 	// BlockBuilderFactory is the factory interface of block builder
 	BlockBuilderFactory interface {
 		Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error)
 		ReceiveBlock(*block.Block) error
-		Init(hash.Hash256)
-		AddProposal(*block.Block) error
-		Block(hash.Hash256) *block.Block
 	}
 
 	chainManager struct {
@@ -80,6 +77,7 @@ type (
 		timerFactory *prometheustimer.TimerFactory
 		bc           blockchain.Blockchain
 		bbf          BlockBuilderFactory
+		pool         *proposalPool
 	}
 
 	forkChain struct {
@@ -118,6 +116,7 @@ func NewChainManager(bc blockchain.Blockchain, srf StateReaderFactory, bbf Block
 		bbf:          bbf,
 		timerFactory: timerFactory,
 		srf:          srf,
+		pool:         newProposalPool(),
 	}
 }
 
@@ -197,7 +196,7 @@ func (cm *chainManager) mintNewBlock(timestamp time.Time, pk crypto.PrivateKey, 
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}
-	if err = cm.bbf.AddProposal(blk); err != nil {
+	if err = cm.pool.AddBlock(blk); err != nil {
 		blkHash := blk.HashBlock()
 		log.L().Error("failed to add proposal", zap.Error(err), zap.Uint64("height", blk.Height()), log.Hex("hash", blkHash[:]))
 	}
@@ -221,11 +220,7 @@ func (fc *forkChain) TipHash() hash.Hash256 {
 }
 
 func (cm *chainManager) StateReader() (protocol.StateReader, error) {
-	head, err := cm.bc.BlockHeaderByHeight(cm.bc.TipHeight())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get the head block")
-	}
-	return cm.srf.StateReaderAt(head)
+	return cm.srf.StateReaderAt(cm.bc.TipHash())
 }
 
 // StateReader returns the state reader
@@ -239,7 +234,7 @@ func (cm *chainManager) ValidateBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	if err = cm.bbf.AddProposal(blk); err != nil {
+	if err = cm.pool.AddBlock(blk); err != nil {
 		blkHash := blk.HashBlock()
 		log.L().Error("failed to add proposal", zap.Error(err), zap.Uint64("height", blk.Height()), log.Hex("hash", blkHash[:]))
 	}
@@ -255,6 +250,10 @@ func (cm *chainManager) CommitBlock(blk *block.Block) error {
 		blkHash := blk.HashBlock()
 		log.L().Error("failed to receive block", zap.Error(err), zap.Uint64("height", blk.Height()), log.Hex("hash", blkHash[:]))
 	}
+	if err := cm.pool.ReceiveBlock(blk); err != nil {
+		blkHash := blk.HashBlock()
+		log.L().Error("failed to receive block", zap.Error(err), zap.Uint64("height", blk.Height()), log.Hex("hash", blkHash[:]))
+	}
 	return nil
 }
 
@@ -263,24 +262,30 @@ func (cm *chainManager) Start(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get the head block")
 	}
-	cm.bbf.Init(head.HashBlock())
+	cm.pool.Init(head.HashBlock())
 	return nil
 }
 
 // Fork creates a new chain manager with the given hash
 func (cm *chainManager) Fork(hash hash.Hash256) (ForkChain, error) {
-	head, err := cm.bc.BlockHeaderByHeight(cm.bc.TipHeight())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get the head block")
-	}
-	if hash != head.HashBlock() {
-		blk := cm.bbf.Block(hash)
+	var (
+		head *block.Header
+		err  error
+		tip  = cm.tipInfo()
+	)
+	if hash != tip.Hash {
+		blk := cm.pool.BlockByHash(hash)
 		if blk == nil {
 			return nil, errors.Errorf("block %x not found when fork", hash)
 		}
 		head = &blk.Header
+	} else {
+		head, err = cm.bc.BlockHeaderByHeight(tip.Height)
+		if head == nil {
+			return nil, errors.Errorf("block %x not found when fork", hash)
+		}
 	}
-	sr, err := cm.srf.StateReaderAt(head)
+	sr, err := cm.srf.StateReaderAt(hash)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create state reader at %d, hash %x", head.Height(), head.HashBlock())
 	}
@@ -288,7 +293,7 @@ func (cm *chainManager) Fork(hash hash.Hash256) (ForkChain, error) {
 }
 
 func (cm *chainManager) draftBlockByHeight(height uint64, tipHash hash.Hash256) *block.Block {
-	for blk := cm.bbf.Block(tipHash); blk != nil && blk.Height() >= height; blk = cm.bbf.Block(blk.PrevHash()) {
+	for blk := cm.pool.BlockByHash(tipHash); blk != nil && blk.Height() >= height; blk = cm.pool.BlockByHash(blk.PrevHash()) {
 		if blk.Height() == height {
 			return blk
 		}
@@ -305,6 +310,10 @@ func (cm *chainManager) TipHash() hash.Hash256 {
 }
 
 func (fc *forkChain) tipHash() hash.Hash256 {
+	if fc.head.Height() == 0 {
+		g := fc.cm.bc.Genesis()
+		return g.Hash()
+	}
 	return fc.head.HashBlock()
 }
 

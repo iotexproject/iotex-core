@@ -388,7 +388,7 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 }
 
 // StateReaderAt returns a state reader at a specific height
-func (sdb *stateDB) StateReaderAt(header *block.Header) (protocol.StateReader, error) {
+func (sdb *stateDB) StateReaderAt(hash.Hash256) (protocol.StateReader, error) {
 	// TODO: implement this
 	panic("implement me")
 }

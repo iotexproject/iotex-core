@@ -10,16 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type MintOption func(*Minter)
@@ -36,7 +32,6 @@ type Minter struct {
 	ap            actpool.ActPool
 	timeout       time.Duration
 	blockPreparer *blockPreparer
-	proposalPool  *proposalPool
 	mu            sync.Mutex
 }
 
@@ -46,16 +41,11 @@ func NewMinter(f Factory, ap actpool.ActPool, opts ...MintOption) *Minter {
 		f:             f,
 		ap:            ap,
 		blockPreparer: newBlockPreparer(),
-		proposalPool:  newProposalPool(),
 	}
 	for _, opt := range opts {
 		opt(m)
 	}
 	return m
-}
-
-func (m *Minter) Init(root hash.Hash256) {
-	m.proposalPool.Init(root)
 }
 
 func (m *Minter) Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error) {
@@ -64,14 +54,7 @@ func (m *Minter) Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, 
 
 	// create a new block
 	blk, err := m.blockPreparer.PrepareOrWait(ctx, bcCtx.Tip.Hash[:], blkCtx.BlockTimeStamp, func() (*block.Block, error) {
-		blk, err := m.mint(ctx, pk)
-		if err != nil {
-			return nil, err
-		}
-		if err = m.proposalPool.AddBlock(blk); err != nil {
-			log.L().Error("failed to add block to proposal pool", zap.Error(err))
-		}
-		return blk, nil
+		return m.mint(ctx, pk)
 	})
 	if err != nil {
 		return nil, err
@@ -79,28 +62,8 @@ func (m *Minter) Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, 
 	return blk, nil
 }
 
-func (m *Minter) AddProposal(blk *block.Block) error {
-	return m.proposalPool.AddBlock(blk)
-}
-
 func (m *Minter) ReceiveBlock(blk *block.Block) error {
-	prevHash := blk.PrevHash()
-	l := log.L().With(zap.Uint64("height", blk.Height()), log.Hex("prevHash", prevHash[:]), zap.Time("timestamp", blk.Timestamp()))
-	if err := m.blockPreparer.ReceiveBlock(blk); err != nil {
-		l.Error("failed to receive block", zap.Error(err))
-	}
-	if err := m.proposalPool.ReceiveBlock(blk); err != nil {
-		l.Error("failed to receive block", zap.Error(err))
-	}
-	return nil
-}
-
-func (m *Minter) Block(hash hash.Hash256) *block.Block {
-	return m.proposalPool.BlockByHash(hash)
-}
-
-func (m *Minter) BlockByHeight(height uint64) *block.Block {
-	return m.proposalPool.Block(height)
+	return m.blockPreparer.ReceiveBlock(blk)
 }
 
 func (m *Minter) mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error) {
