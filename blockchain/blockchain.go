@@ -505,7 +505,7 @@ func (bc *blockchain) tipInfo(tipHeight uint64) (*protocol.TipInfo, error) {
 		return &protocol.TipInfo{
 			Height:    0,
 			Hash:      bc.genesis.Hash(),
-			Timestamp: time.Unix(bc.genesis.Timestamp, 0),
+			Timestamp: genesis.GenesisTimestamp(bc.genesis.Timestamp),
 		}, nil
 	}
 	header, err := bc.dao.HeaderByHeight(tipHeight)

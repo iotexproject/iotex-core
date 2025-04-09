@@ -48,7 +48,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NotNil(ap)
 	require.NoError(err)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	store, err := filedao.NewFileDAOInMemForTest()
+	store, err := filedao.NewFileDAOInMemForTest(cfg.Genesis)
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
 	chain := blockchain.NewBlockchain(
@@ -142,7 +142,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NotNil(ap)
 	require.NoError(err)
-	store, err := filedao.NewFileDAOInMemForTest()
+	store, err := filedao.NewFileDAOInMemForTest(cfg.Genesis)
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
 	chain := blockchain.NewBlockchain(

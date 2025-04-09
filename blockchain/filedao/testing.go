@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -32,6 +33,8 @@ var _defaultEVMNetworkID uint32 = 4689
 type (
 	// testInMemFd is an in-memory FileDAO
 	testInMemFd struct {
+		genesisHash      hash.Hash256
+		genesisTimestamp time.Time
 		*fileDAOv2
 	}
 
@@ -42,21 +45,27 @@ type (
 	}
 )
 
-func newTestInMemFd() (*testInMemFd, error) {
-	v2, err := newFileDAOv2InMem(1)
+func newTestInMemFd(g genesis.Genesis) (*testInMemFd, error) {
+	v2, err := newFileDAOv2InMem(g, 1)
 	if err != nil {
 		return nil, err
 	}
-	return &testInMemFd{fileDAOv2: v2}, nil
+	return &testInMemFd{
+		genesisHash:      g.Hash(),
+		genesisTimestamp: genesis.GenesisTimestamp(g.Timestamp),
+		fileDAOv2:        v2,
+	}, nil
 }
 
 // newFileDAOv2InMem creates a in-memory new v2 fileDAO
-func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
+func newFileDAOv2InMem(g genesis.Genesis, bottom uint64) (*fileDAOv2, error) {
 	if bottom == 0 {
 		return nil, ErrNotSupported
 	}
 
 	fd := fileDAOv2{
+		genesisHash:      g.Hash(),
+		genesisTimestamp: genesis.GenesisTimestamp(g.Timestamp),
 		header: &FileHeader{
 			Version:        FileV2,
 			Compressor:     "",
@@ -76,28 +85,28 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 
 func (fd *testInMemFd) GetBlockHash(height uint64) (hash.Hash256, error) {
 	if height == 0 {
-		return block.GenesisHash(), nil
+		return fd.genesisHash, nil
 	}
 	return fd.fileDAOv2.GetBlockHash(height)
 }
 
 func (fd *testInMemFd) GetBlockHeight(h hash.Hash256) (uint64, error) {
-	if h == block.GenesisHash() {
+	if h == fd.genesisHash {
 		return 0, nil
 	}
 	return fd.fileDAOv2.GetBlockHeight(h)
 }
 
 func (fd *testInMemFd) GetBlock(h hash.Hash256) (*block.Block, error) {
-	if h == block.GenesisHash() {
-		return block.GenesisBlock(), nil
+	if h == fd.genesisHash {
+		return block.GenesisBlock(fd.genesisTimestamp), nil
 	}
 	return fd.fileDAOv2.GetBlock(h)
 }
 
 func (fd *testInMemFd) GetBlockByHeight(height uint64) (*block.Block, error) {
 	if height == 0 {
-		return block.GenesisBlock(), nil
+		return block.GenesisBlock(fd.genesisTimestamp), nil
 	}
 	return fd.fileDAOv2.GetBlockByHeight(height)
 }
@@ -224,8 +233,6 @@ func testVerifyChainDB(t *testing.T, fd FileDAO, start, end uint64) {
 }
 
 func createTestingBlock(builder *block.TestingBuilder, height uint64, h hash.Hash256) *block.Block {
-	g := genesis.TestDefault()
-	block.LoadGenesisHash(&g)
 	r := &action.Receipt{
 		Status:      1,
 		BlockHeight: height,

@@ -201,7 +201,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.NotNil(ap)
 	require.NoError(err)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	store, err := filedao.NewFileDAOInMemForTest()
+	store, err := filedao.NewFileDAOInMemForTest(cfg.Genesis)
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
 	chain := blockchain.NewBlockchain(
@@ -267,7 +267,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NotNil(ap1)
 	require.NoError(err)
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	store, err := filedao.NewFileDAOInMemForTest()
+	store, err := filedao.NewFileDAOInMemForTest(cfg.Genesis)
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
 	chain1 := blockchain.NewBlockchain(
@@ -294,7 +294,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NotNil(ap2)
 	require.NoError(err)
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
-	store2, err := filedao.NewFileDAOInMemForTest()
+	store2, err := filedao.NewFileDAOInMemForTest(cfg.Genesis)
 	require.NoError(err)
 	dao2 := blockdao.NewBlockDAOWithIndexersAndCache(store2, []blockdao.BlockIndexer{sf2}, 16)
 	chain2 := blockchain.NewBlockchain(
@@ -369,7 +369,7 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	require.NotNil(ap1)
 	require.NoError(err)
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	store, err := filedao.NewFileDAOInMemForTest()
+	store, err := filedao.NewFileDAOInMemForTest(cfg.Genesis)
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
 	chain1 := blockchain.NewBlockchain(
@@ -395,7 +395,7 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	require.NotNil(ap2)
 	require.NoError(err)
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
-	store2, err := filedao.NewFileDAOInMemForTest()
+	store2, err := filedao.NewFileDAOInMemForTest(cfg.Genesis)
 	require.NoError(err)
 	dao2 := blockdao.NewBlockDAOWithIndexersAndCache(store2, []blockdao.BlockIndexer{sf2}, 16)
 	chain2 := blockchain.NewBlockchain(
@@ -463,7 +463,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NotNil(ap)
 	require.NoError(err)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	store, err := filedao.NewFileDAOInMemForTest()
+	store, err := filedao.NewFileDAOInMemForTest(cfg.Genesis)
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
 	chain := blockchain.NewBlockchain(

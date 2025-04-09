@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/compress"
 )
@@ -69,7 +70,7 @@ func TestReadFileHeader(t *testing.T) {
 
 	// empty legacy file is invalid
 	deser := block.NewDeserializer(_defaultEVMNetworkID)
-	legacy, err := newFileDAOLegacy(cfg, deser)
+	legacy, err := newFileDAOLegacy(genesis.Default, cfg, deser)
 	r.NoError(err)
 	ctx := context.Background()
 	r.NoError(legacy.Start(ctx))
@@ -110,7 +111,7 @@ func TestReadFileHeader(t *testing.T) {
 	}
 	os.RemoveAll(cfg.DbPath)
 	// test valid v2 master file
-	r.NoError(createNewV2File(1, cfg, deser))
+	r.NoError(createNewV2File(genesis.Default, 1, cfg, deser))
 	defer os.RemoveAll(cfg.DbPath)
 
 	test2 := []testCheckFile{
@@ -144,7 +145,7 @@ func TestNewFileDAOSplitV2(t *testing.T) {
 
 	// test empty db file, this will create new v2 file
 	deser := block.NewDeserializer(_defaultEVMNetworkID)
-	fd, err := NewFileDAO(cfg, deser)
+	fd, err := NewFileDAO(genesis.Default, cfg, deser)
 	r.NoError(err)
 	r.NotNil(fd)
 	h, err := readFileHeader(cfg.DbPath, FileAll)
@@ -197,7 +198,7 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	cfg.SplitDBSizeMB = 20
 
 	deser := block.NewDeserializer(_defaultEVMNetworkID)
-	fd, err := newFileDAOLegacy(cfg, deser)
+	fd, err := newFileDAOLegacy(genesis.Default, cfg, deser)
 	r.NoError(err)
 	ctx := context.Background()
 	r.NoError(fd.Start(ctx))
@@ -211,7 +212,7 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	// set FileDAO to split at height 15, 30 and 40
 	cfg.V2BlocksToSplitDB = 15
 
-	fd, err = NewFileDAO(cfg, deser)
+	fd, err = NewFileDAO(genesis.Default, cfg, deser)
 	r.NoError(err)
 	r.NoError(fd.Start(ctx))
 	fm := fd.(*fileDAO)
@@ -267,7 +268,7 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	r.Equal(files[2], file4)
 
 	// open 4 db files and verify again
-	fd, err = NewFileDAO(cfg, deser)
+	fd, err = NewFileDAO(genesis.Default, cfg, deser)
 	fm = fd.(*fileDAO)
 	r.EqualValues(4, fm.topIndex)
 	r.EqualValues(1, fm.splitHeight)
@@ -320,7 +321,7 @@ func TestCheckFiles(t *testing.T) {
 	// create 3 v2 files
 	for i := 1; i <= 3; i++ {
 		cfg.DbPath = kthAuxFileName("./filedao_v2.db", uint64(i))
-		r.NoError(createNewV2File(1, cfg, deser))
+		r.NoError(createNewV2File(genesis.Default, 1, cfg, deser))
 	}
 	defer func() {
 		for i := 1; i <= 3; i++ {

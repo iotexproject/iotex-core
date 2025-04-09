@@ -261,7 +261,7 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
-	store, err := filedao.NewFileDAO(cfg.DB, deser)
+	store, err := filedao.NewFileDAO(cfg.Genesis, cfg.DB, deser)
 	if err != nil {
 		return nil, nil, err
 	}

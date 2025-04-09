@@ -110,7 +110,7 @@ type (
 )
 
 var (
-	fixedTime = time.Unix(genesis.TestDefault().Timestamp, 0)
+	fixedTime = genesis.GenesisTimestamp(genesis.TestDefault().Timestamp)
 )
 
 func (eb *ExpectedBalance) Balance() *big.Int {
@@ -466,7 +466,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	r.NoError(err)
 	// create BlockDAO
-	store, err := filedao.NewFileDAOInMemForTest()
+	store, err := filedao.NewFileDAOInMemForTest(cfg.Genesis)
 	r.NoError(err)
 	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer}, cfg.DB.MaxCacheSize)
 	r.NotNil(dao)
@@ -692,7 +692,6 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.IndexDBPath = testIndexPath
 		cfg.Chain.EnableAsyncIndexWrite = false
-		cfg.Genesis.EnableGravityChainVoting = false
 		cfg.ActPool.MinGasPriceStr = "0"
 		cfg.Genesis = genesis.TestDefault()
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000).String()
@@ -717,7 +716,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		store, err := filedao.NewFileDAOInMemForTest()
+		store, err := filedao.NewFileDAOInMemForTest(cfg.Genesis)
 		require.NoError(err)
 		dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer}, cfg.DB.MaxCacheSize)
 		require.NotNil(dao)
