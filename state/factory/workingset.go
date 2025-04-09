@@ -1013,7 +1013,7 @@ func (ws *workingSet) Erigon() (*erigonstate.IntraBlockState, bool) {
 	switch st := ws.store.(type) {
 	case *workingSetStoreWithSecondary:
 		if wss, ok := st.writerSecondary.(*erigonWorkingSetStore); ok {
-			return wss.intraBlockState, true
+			return wss.intraBlockState, false
 		}
 		return nil, false
 	case *erigonWorkingSetStoreForSimulate:
