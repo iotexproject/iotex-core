@@ -464,7 +464,7 @@ func blockHeightToTime(ctx context.Context, height uint64) (*time.Time, error) {
 	if height == blkCtx.BlockHeight {
 		return &blkCtx.BlockTimeStamp, nil
 	}
-	t, err := mustGetHelperCtx(ctx).GetBlockTime(height)
+	t, err := protocol.MustGetBlockchainCtx(ctx).GetBlockTime(height)
 	if err != nil {
 		return nil, err
 	}
