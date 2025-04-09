@@ -3,14 +3,14 @@ package evm
 import (
 	"time"
 
+	erigonchain "github.com/erigontech/erigon-lib/chain"
+	libcommon "github.com/erigontech/erigon-lib/common"
+	types2 "github.com/erigontech/erigon-lib/types"
+	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
-	erigonchain "github.com/ledgerwatch/erigon-lib/chain"
-	libcommon "github.com/ledgerwatch/erigon-lib/common"
-	types2 "github.com/ledgerwatch/erigon-lib/types"
-	erigonstate "github.com/ledgerwatch/erigon/core/state"
 
 	"github.com/iotexproject/go-pkgs/hash"
 
@@ -181,7 +181,7 @@ func (s *ErigonStateDBAdapter) Prepare(rules params.Rules, sender, coinbase comm
 		}
 		access = append(access, acl)
 	}
-	s.intra.Prepare(NewErigonRules(&rules), libcommon.Address(sender), libcommon.Address(coinbase), d, prec, access)
+	s.intra.Prepare(NewErigonRules(&rules), libcommon.Address(sender), libcommon.Address(coinbase), d, prec, access, nil)
 }
 
 // GetCode gets the code saved in hash

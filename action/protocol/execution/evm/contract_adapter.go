@@ -1,8 +1,8 @@
 package evm
 
 import (
+	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/iotexproject/go-pkgs/hash"
-	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"

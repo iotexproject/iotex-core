@@ -3,10 +3,10 @@ package evm
 import (
 	"math/big"
 
+	libcommon "github.com/erigontech/erigon-lib/common"
+	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
-	libcommon "github.com/ledgerwatch/erigon-lib/common"
-	erigonstate "github.com/ledgerwatch/erigon/core/state"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/db/trie"
