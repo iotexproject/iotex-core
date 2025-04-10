@@ -35,7 +35,10 @@ const (
 )
 
 var (
-	_blockInterval = consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval
+	_blockInterval   = consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval
+	_blockDurationFn = func(start, end, _ uint64) time.Duration {
+		return time.Duration(end-start) * _blockInterval
+	}
 )
 
 func TestNewContractStakingIndexer(t *testing.T) {
@@ -47,7 +50,7 @@ func TestNewContractStakingIndexer(t *testing.T) {
 			ContractAddress:      "io19ys8f4uhwms6lq6ulexr5fwht9gsjes8mvuugd",
 			ContractDeployHeight: 0,
 			CalculateVoteWeight:  calculateVoteWeightGen(g.VoteWeightCalConsts),
-			BlockInterval:        _blockInterval,
+			BlocksToDuration:     _blockDurationFn,
 		})
 		r.Error(err)
 		r.Contains(err.Error(), "kv store is nil")
@@ -59,7 +62,7 @@ func TestNewContractStakingIndexer(t *testing.T) {
 			ContractAddress:      "invalid address",
 			ContractDeployHeight: 0,
 			CalculateVoteWeight:  calculateVoteWeightGen(g.VoteWeightCalConsts),
-			BlockInterval:        _blockInterval,
+			BlocksToDuration:     _blockDurationFn,
 		})
 		r.Error(err)
 		r.Contains(err.Error(), "invalid contract address")
@@ -72,7 +75,7 @@ func TestNewContractStakingIndexer(t *testing.T) {
 			ContractAddress:      contractAddr.String(),
 			ContractDeployHeight: 0,
 			CalculateVoteWeight:  calculateVoteWeightGen(g.VoteWeightCalConsts),
-			BlockInterval:        _blockInterval,
+			BlocksToDuration:     _blockDurationFn,
 		})
 		r.NoError(err)
 		r.NotNil(indexer)
@@ -92,7 +95,7 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 		ContractAddress:      _testStakingContractAddress,
 		ContractDeployHeight: 0,
 		CalculateVoteWeight:  calculateVoteWeightGen(g.VoteWeightCalConsts),
-		BlockInterval:        _blockInterval,
+		BlocksToDuration:     _blockDurationFn,
 	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
@@ -124,7 +127,7 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 		ContractAddress:      _testStakingContractAddress,
 		ContractDeployHeight: startHeight,
 		CalculateVoteWeight:  calculateVoteWeightGen(g.VoteWeightCalConsts),
-		BlockInterval:        _blockInterval,
+		BlocksToDuration:     _blockDurationFn,
 	})
 	r.NoError(err)
 	r.NoError(newIndexer.Start(context.Background()))
@@ -158,7 +161,7 @@ func TestContractStakingIndexerDirty(t *testing.T) {
 		ContractAddress:      _testStakingContractAddress,
 		ContractDeployHeight: 0,
 		CalculateVoteWeight:  calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts),
-		BlockInterval:        _blockInterval,
+		BlocksToDuration:     _blockDurationFn,
 	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
@@ -191,7 +194,7 @@ func TestContractStakingIndexerThreadSafe(t *testing.T) {
 		ContractAddress:      _testStakingContractAddress,
 		ContractDeployHeight: 0,
 		CalculateVoteWeight:  calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts),
-		BlockInterval:        _blockInterval,
+		BlocksToDuration:     _blockDurationFn,
 	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
@@ -251,7 +254,7 @@ func TestContractStakingIndexerBucketType(t *testing.T) {
 		ContractAddress:      _testStakingContractAddress,
 		ContractDeployHeight: 0,
 		CalculateVoteWeight:  calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts),
-		BlockInterval:        _blockInterval,
+		BlocksToDuration:     _blockDurationFn,
 	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
@@ -339,7 +342,7 @@ func TestContractStakingIndexerBucketInfo(t *testing.T) {
 		ContractAddress:      _testStakingContractAddress,
 		ContractDeployHeight: 0,
 		CalculateVoteWeight:  calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts),
-		BlockInterval:        _blockInterval,
+		BlocksToDuration:     _blockDurationFn,
 	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
@@ -504,7 +507,7 @@ func TestContractStakingIndexerChangeBucketType(t *testing.T) {
 		ContractAddress:      _testStakingContractAddress,
 		ContractDeployHeight: 0,
 		CalculateVoteWeight:  calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts),
-		BlockInterval:        _blockInterval,
+		BlocksToDuration:     _blockDurationFn,
 	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
@@ -558,7 +561,7 @@ func TestContractStakingIndexerReadBuckets(t *testing.T) {
 		ContractAddress:      _testStakingContractAddress,
 		ContractDeployHeight: 0,
 		CalculateVoteWeight:  calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts),
-		BlockInterval:        _blockInterval,
+		BlocksToDuration:     _blockDurationFn,
 	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
@@ -663,7 +666,7 @@ func TestContractStakingIndexerCacheClean(t *testing.T) {
 		ContractAddress:      _testStakingContractAddress,
 		ContractDeployHeight: 0,
 		CalculateVoteWeight:  calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts),
-		BlockInterval:        _blockInterval,
+		BlocksToDuration:     _blockDurationFn,
 	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
@@ -730,7 +733,7 @@ func TestContractStakingIndexerVotes(t *testing.T) {
 		ContractAddress:      _testStakingContractAddress,
 		ContractDeployHeight: 0,
 		CalculateVoteWeight:  calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts),
-		BlockInterval:        _blockInterval,
+		BlocksToDuration:     _blockDurationFn,
 	})
 	r.NoError(err)
 	r.NoError(indexer.Start(context.Background()))
@@ -1044,7 +1047,7 @@ func TestIndexer_ReadHeightRestriction(t *testing.T) {
 				ContractAddress:      identityset.Address(1).String(),
 				ContractDeployHeight: startHeight,
 				CalculateVoteWeight:  calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts),
-				BlockInterval:        _blockInterval,
+				BlocksToDuration:     _blockDurationFn,
 			})
 			r.NoError(err)
 			r.NoError(indexer.Start(context.Background()))
@@ -1129,7 +1132,7 @@ func TestIndexer_PutBlock(t *testing.T) {
 				ContractAddress:      identityset.Address(1).String(),
 				ContractDeployHeight: startHeight,
 				CalculateVoteWeight:  calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts),
-				BlockInterval:        _blockInterval,
+				BlocksToDuration:     _blockDurationFn,
 			})
 			r.NoError(err)
 			r.NoError(indexer.Start(context.Background()))

@@ -41,10 +41,12 @@ type (
 		ContractDeployHeight uint64 // height of the contract deployment
 		// TODO: move calculateVoteWeightFunc out of config
 		CalculateVoteWeight calculateVoteWeightFunc // calculate vote weight function
-		BlockInterval       time.Duration           // block produce interval
+		BlocksToDuration    blocksDurationAtFn      // function to calculate duration from block range
 	}
 
 	calculateVoteWeightFunc func(v *Bucket) *big.Int
+	blocksDurationFn        func(start uint64, end uint64) time.Duration
+	blocksDurationAtFn      func(start uint64, end uint64, viewAt uint64) time.Duration
 )
 
 // NewContractStakingIndexer creates a new contract staking indexer
