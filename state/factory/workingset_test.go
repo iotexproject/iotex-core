@@ -46,25 +46,6 @@ func (s *testString) Deserialize(v []byte) error {
 	return nil
 }
 
-func newFactoryWorkingSet(t testing.TB) *workingSet {
-	r := require.New(t)
-	sf, err := NewFactory(DefaultConfig, db.NewMemKVStore())
-	r.NoError(err)
-
-	ctx := genesis.WithGenesisContext(
-		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.TestDefault(),
-	)
-	r.NoError(sf.Start(ctx))
-	defer func() {
-		r.NoError(sf.Stop(ctx))
-	}()
-
-	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
-	r.NoError(err)
-	return ws
-}
-
 func newStateDBWorkingSet(t testing.TB) *workingSet {
 	r := require.New(t)
 	sf, err := NewStateDB(DefaultConfig, db.NewMemKVStore())
@@ -104,7 +85,6 @@ func TestWorkingSet_ReadWriteView(t *testing.T) {
 	var (
 		r   = require.New(t)
 		set = []*workingSet{
-			newFactoryWorkingSet(t),
 			newStateDBWorkingSet(t),
 		}
 		tests = map[string]mockView{
@@ -149,9 +129,8 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000"
 	var (
-		f1, _          = NewFactory(cfg, db.NewMemKVStore(), RegistryOption(registry))
 		f2, _          = NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
-		factories      = []Factory{f1, f2}
+		factories      = []Factory{f2}
 		digestHash, _  = hash.HexStringToHash256("43f69c954ea0138917d69a01f7ba47da74c99cb2c6229f5969a7f0bf53efb775")
 		receiptRoot, _ = hash.HexStringToHash256("b8aaff4d845664a7a3f341f677365dafcdae0ae99a7fea821c7cc42c320acefe")
 		tests          = []struct {
@@ -181,10 +160,8 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
 		protocol.BlockCtx{},
 	)
-	require.NoError(f1.Start(ctx))
 	require.NoError(f2.Start(ctx))
 	defer func() {
-		require.NoError(f1.Stop(ctx))
 		require.NoError(f2.Stop(ctx))
 	}()
 
@@ -217,19 +194,16 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
 	require.NoError(rewarding.NewProtocol(cfg.Genesis.Rewarding).Register(registry))
 	var (
-		f1, _     = NewFactory(cfg, db.NewMemKVStore(), RegistryOption(registry))
 		f2, _     = NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
-		factories = []Factory{f1, f2}
+		factories = []Factory{f2}
 	)
 
 	ctx := protocol.WithBlockCtx(
 		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
 		protocol.BlockCtx{},
 	)
-	require.NoError(f1.Start(ctx))
 	require.NoError(f2.Start(ctx))
 	defer func() {
-		require.NoError(f1.Stop(ctx))
 		require.NoError(f2.Stop(ctx))
 	}()
 

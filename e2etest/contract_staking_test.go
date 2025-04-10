@@ -1275,7 +1275,6 @@ func TestContractStaking(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis = genesis.TestDefault()
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(adminID).HexString()
-	cfg.Chain.EnableTrielessStateDB = false
 	cfg.Genesis.InitBalanceMap[identityset.Address(adminID).String()] = "1000000000000000000000000000"
 
 	bc, sf, dao, ap, indexer := prepareContractStakingBlockchain(ctx, cfg, r)
@@ -1943,17 +1942,13 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 	var daoKV db.KVStore
 
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	if cfg.Chain.EnableTrielessStateDB {
-		if cfg.Chain.EnableStateDBCaching {
-			daoKV, err = db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
-		} else {
-			daoKV, err = db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
-		}
-		r.NoError(err)
-		sf, err = factory.NewStateDB(factoryCfg, daoKV, factory.RegistryStateDBOption(registry))
+	if cfg.Chain.EnableStateDBCaching {
+		daoKV, err = db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	} else {
-		sf, err = factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+		daoKV, err = db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 	}
+	r.NoError(err)
+	sf, err = factory.NewStateDB(factoryCfg, daoKV, factory.RegistryStateDBOption(registry))
 	r.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	r.NoError(err)

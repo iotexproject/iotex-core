@@ -290,7 +290,7 @@ func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, block
 	cfg.chain.EnableArchiveMode = true
 	registry := protocol.NewRegistry()
 	factoryCfg := factory.GenerateConfig(cfg.chain, cfg.genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
