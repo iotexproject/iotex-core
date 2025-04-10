@@ -11,8 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/hash"
-
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/endorsement"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -92,7 +90,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 
 		height:             height,
 		roundNum:           roundNum,
-		prevHash:           hash.Hash256(prevHash),
+		prevHash:           prevHash,
 		proposer:           proposer,
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(blockInterval),
@@ -266,7 +264,7 @@ func (c *roundCalculator) newRound(
 
 		height:             height,
 		roundNum:           roundNum,
-		prevHash:           hash.Hash256(prevHash),
+		prevHash:           prevHash,
 		proposer:           proposer,
 		eManager:           eManager,
 		roundStartTime:     roundStartTime,

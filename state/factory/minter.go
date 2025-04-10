@@ -26,6 +26,7 @@ func WithTimeoutOption(timeout time.Duration) MintOption {
 	}
 }
 
+// Minter is a wrapper of Factory to mint blocks
 type Minter struct {
 	f             Factory
 	ap            actpool.ActPool
@@ -47,20 +48,17 @@ func NewMinter(f Factory, ap actpool.ActPool, opts ...MintOption) *Minter {
 	return m
 }
 
+// Mint creates a block with the given private key
 func (m *Minter) Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	// create a new block
-	blk, err := m.blockPreparer.PrepareOrWait(ctx, bcCtx.Tip.Hash[:], blkCtx.BlockTimeStamp, func() (*block.Block, error) {
+	return m.blockPreparer.PrepareOrWait(ctx, bcCtx.Tip.Hash[:], blkCtx.BlockTimeStamp, func() (*block.Block, error) {
 		return m.mint(ctx, pk)
 	})
-	if err != nil {
-		return nil, err
-	}
-	return blk, nil
 }
 
+// ReceiveBlock receives a confirmed block
 func (m *Minter) ReceiveBlock(blk *block.Block) error {
 	return m.blockPreparer.ReceiveBlock(blk)
 }

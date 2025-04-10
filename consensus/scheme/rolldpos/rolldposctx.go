@@ -580,7 +580,6 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 
 	_consensusDurationMtc.WithLabelValues().Set(float64(time.Since(ctx.round.roundStartTime)))
 	if pendingBlock.Height() > 1 {
-		// prevBlkProposeTime, err := ctx.chain.Final().BlockProposeTime(pendingBlock.Height() - 1)
 		prevBlkProposeTime, err := ctx.chain.BlockProposeTime(pendingBlock.Height() - 1)
 		if err != nil {
 			ctx.logger().Error("Error when getting the previous block header.",

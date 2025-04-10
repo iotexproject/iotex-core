@@ -72,7 +72,6 @@ type (
 	}
 
 	chainManager struct {
-		ForkChain
 		srf          StateReaderFactory
 		timerFactory *prometheustimer.TimerFactory
 		bc           blockchain.Blockchain

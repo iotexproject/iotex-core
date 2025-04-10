@@ -112,13 +112,13 @@ func NewConsensus(
 		if ops.bbf == nil {
 			return nil, errors.New("block builder factory is not set")
 		}
-		chanMgr := rolldpos.NewChainManager(bc, sf, ops.bbf)
+		chainMgr := rolldpos.NewChainManager(bc, sf, ops.bbf)
 		delegatesByEpochFunc := func(epochNum uint64, prevHash []byte) ([]string, error) {
-			fork, serr := chanMgr.Fork(hash.Hash256(prevHash))
-			if serr != nil {
-				return nil, serr
+			fork, err := chainMgr.Fork(hash.Hash256(prevHash))
+			if err != nil {
+				return nil, err
 			}
-			forkSF, serr := fork.StateReader()
+			forkSF, err := fork.StateReader()
 			if err != nil {
 				return nil, err
 			}
@@ -134,7 +134,6 @@ func NewConsensus(
 			tipHeight := fork.TipHeight()
 			tipEpochNum := ops.rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList
-			var err error
 			switch epochNum {
 			case tipEpochNum:
 				candidatesList, err = ops.pp.Delegates(ctx, forkSF)
@@ -156,7 +155,7 @@ func NewConsensus(
 		bd := rolldpos.NewRollDPoSBuilder().
 			SetPriKey(cfg.Chain.ProducerPrivateKeys()...).
 			SetConfig(cfg).
-			SetChainManager(chanMgr).
+			SetChainManager(chainMgr).
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
