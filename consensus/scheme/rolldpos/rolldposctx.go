@@ -13,6 +13,7 @@ import (
 	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -405,32 +406,18 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 	return ctx.mintNewBlock(privateKey)
 }
 
-func (ctx *rollDPoSCtx) PrepareNextProposal(msg any) error {
-	// retrieve the block from the message
-	ecm, ok := msg.(*EndorsedConsensusMessage)
-	if !ok {
-		return errors.New("invalid endorsed block")
-	}
-	proposal, ok := ecm.Document().(*blockProposal)
-	if !ok {
-		return errors.New("invalid endorsed block")
-	}
+func (ctx *rollDPoSCtx) prepareNextProposal(prevHeight uint64, prevHash hash.Hash256) error {
 	var (
-		blk       = proposal.block
-		height    = blk.Height() + 1
+		height    = prevHeight + 1
 		interval  = ctx.BlockInterval(height)
-		startTime = blk.Timestamp().Add(interval)
-		prevHash  = blk.HashBlock()
+		startTime = ctx.round.StartTime().Add(interval)
 		err       error
 	)
 	fork, err := ctx.chain.Fork(prevHash)
 	if err != nil {
-		return errors.Wrapf(err, "failed to check fork at block %d, hash %x", blk.Height(), prevHash[:])
+		return errors.Wrapf(err, "failed to check fork at block %d, hash %x", prevHeight, prevHash[:])
 	}
-	roundCalc, err := ctx.roundCalc.Fork(prevHash)
-	if err != nil {
-		return errors.Wrapf(err, "failed to fork at block %d, hash %x", blk.Height(), prevHash[:])
-	}
+	roundCalc := ctx.roundCalc.Fork(fork)
 	// check if the current node is the next proposer
 	nextProposer := roundCalc.Proposer(height, interval, startTime)
 	var privateKey crypto.PrivateKey = nil
@@ -500,9 +487,16 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		if err := ctx.round.AddBlock(proposal.block); err != nil {
 			return nil, err
 		}
+		if err := ctx.prepareNextProposal(proposal.block.Height(), blkHash); err != nil {
+			ctx.loggerWithStats().Warn("failed to prepare next proposal", zap.Error(err), zap.Uint64("prevHeight", proposal.block.Height()))
+		}
 		ctx.loggerWithStats().Debug("accept block proposal", log.Hex("block", blockHash))
 	} else if ctx.round.IsLocked() {
 		blockHash = ctx.round.HashOfBlockInLock()
+	} else {
+		if err := ctx.prepareNextProposal(ctx.round.Height()-1, ctx.round.PrevHash()); err != nil {
+			ctx.loggerWithStats().Warn("failed to prepare next proposal", zap.Error(err), zap.Uint64("prevHeight", ctx.round.Height()-1))
+		}
 	}
 	// TODO: prepare next block if the current node will be a proposer
 
