@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -1963,7 +1964,9 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 		CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
 			return staking.CalculateVoteWeight(genesis.TestDefault().VoteWeightCalConsts, v, false)
 		},
-		BlockInterval: consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval,
+		BlocksToDuration: func(start, end, at uint64) time.Duration {
+			return time.Duration(end-start) * consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval
+		},
 	})
 	r.NoError(err)
 	// create BlockDAO

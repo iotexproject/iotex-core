@@ -63,7 +63,7 @@ type (
 		common           *systemcontractindex.IndexerCommon
 		cache            *cache // in-memory cache, used to query index data
 		mutex            sync.RWMutex
-		blocksToDuration blocksDurationFn // function to calculate duration from block range
+		blocksToDuration blocksDurationAtFn // function to calculate duration from block range
 		bucketNS         string
 		ns               string
 		muteHeight       uint64
@@ -72,7 +72,8 @@ type (
 	// IndexerOption is the option to create an indexer
 	IndexerOption func(*Indexer)
 
-	blocksDurationFn func(start uint64, end uint64) time.Duration
+	blocksDurationFn   func(start uint64, end uint64) time.Duration
+	blocksDurationAtFn func(start uint64, end uint64, viewAt uint64) time.Duration
 )
 
 // WithMuteHeight sets the mute height
@@ -90,7 +91,7 @@ func EnableTimestamped() IndexerOption {
 }
 
 // NewIndexer creates a new staking indexer
-func NewIndexer(kvstore db.KVStore, contractAddr string, startHeight uint64, blocksToDurationFn blocksDurationFn, opts ...IndexerOption) *Indexer {
+func NewIndexer(kvstore db.KVStore, contractAddr string, startHeight uint64, blocksToDurationFn blocksDurationAtFn, opts ...IndexerOption) *Indexer {
 	bucketNS := contractAddr + "#" + stakingBucketNS
 	ns := contractAddr + "#" + stakingNS
 	idx := &Indexer{
@@ -156,7 +157,7 @@ func (s *Indexer) Buckets(height uint64) ([]*VoteBucket, error) {
 	}
 	idxs := s.cache.BucketIdxs()
 	bkts := s.cache.Buckets(idxs)
-	vbs := batchAssembleVoteBucket(idxs, bkts, s.common.ContractAddress(), s.blocksToDuration)
+	vbs := batchAssembleVoteBucket(idxs, bkts, s.common.ContractAddress(), s.genBlockDurationFn(height))
 	return vbs, nil
 }
 
@@ -174,7 +175,7 @@ func (s *Indexer) Bucket(id uint64, height uint64) (*VoteBucket, bool, error) {
 	if bkt == nil {
 		return nil, false, nil
 	}
-	vbs := assembleVoteBucket(id, bkt, s.common.ContractAddress(), s.blocksToDuration)
+	vbs := assembleVoteBucket(id, bkt, s.common.ContractAddress(), s.genBlockDurationFn(height))
 	return vbs, true, nil
 }
 
@@ -189,7 +190,7 @@ func (s *Indexer) BucketsByIndices(indices []uint64, height uint64) ([]*VoteBuck
 		return nil, nil
 	}
 	bkts := s.cache.Buckets(indices)
-	vbs := batchAssembleVoteBucket(indices, bkts, s.common.ContractAddress(), s.blocksToDuration)
+	vbs := batchAssembleVoteBucket(indices, bkts, s.common.ContractAddress(), s.genBlockDurationFn(height))
 	return vbs, nil
 }
 
@@ -214,7 +215,7 @@ func (s *Indexer) BucketsByCandidate(candidate address.Address, height uint64) (
 			bktsFiltered = append(bktsFiltered, bkts[i])
 		}
 	}
-	vbs := batchAssembleVoteBucket(idxsFiltered, bktsFiltered, s.common.ContractAddress(), s.blocksToDuration)
+	vbs := batchAssembleVoteBucket(idxsFiltered, bktsFiltered, s.common.ContractAddress(), s.genBlockDurationFn(height))
 	return vbs, nil
 }
 
@@ -336,4 +337,10 @@ func (s *Indexer) checkHeight(height uint64) (unstart bool, err error) {
 		return false, errors.Errorf("invalid block height %d, expect %d", height, tipHeight)
 	}
 	return false, nil
+}
+
+func (s *Indexer) genBlockDurationFn(view uint64) blocksDurationFn {
+	return func(start uint64, end uint64) time.Duration {
+		return s.blocksToDuration(start, end, view)
+	}
 }
