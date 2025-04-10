@@ -350,9 +350,13 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		builder.cs.contractStakingIndexerV3 = nil
 		return nil
 	}
+	cfg := builder.cfg
 	dbConfig := builder.cfg.DB
 	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
 	kvstore := db.NewBoltDB(dbConfig)
+	blockDurationFn := func(start uint64, end uint64, viewAt uint64) time.Duration {
+		return blockDistance(&cfg, start, end, viewAt)
+	}
 	// build contract staking indexer
 	if builder.cs.contractStakingIndexer == nil && len(builder.cfg.Genesis.SystemStakingContractAddress) > 0 {
 		voteCalcConsts := builder.cfg.Genesis.VoteWeightCalConsts
@@ -364,8 +368,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 				CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
 					return staking.CalculateVoteWeight(voteCalcConsts, v, false)
 				},
-				// TODO: accounting for wake upgrade
-				BlockInterval: builder.cfg.DardanellesUpgrade.BlockInterval,
+				BlocksToDuration: blockDurationFn,
 			})
 		if err != nil {
 			return err
@@ -373,16 +376,12 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		builder.cs.contractStakingIndexer = indexer
 	}
 	// build contract staking indexer v2
-	blockInterval := builder.cfg.DardanellesUpgrade.BlockInterval
 	if builder.cs.contractStakingIndexerV2 == nil && len(builder.cfg.Genesis.SystemStakingContractV2Address) > 0 {
 		indexer := stakingindex.NewIndexer(
 			kvstore,
 			builder.cfg.Genesis.SystemStakingContractV2Address,
 			builder.cfg.Genesis.SystemStakingContractV2Height,
-			func(start uint64, end uint64) time.Duration {
-				// TODO: accounting for wake upgrade
-				return time.Duration(end-start) * blockInterval
-			},
+			blockDurationFn,
 			stakingindex.WithMuteHeight(builder.cfg.Genesis.ToBeEnabledBlockHeight),
 		)
 		builder.cs.contractStakingIndexerV2 = indexer
@@ -392,9 +391,8 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		indexer := stakingindex.NewIndexer(
 			kvstore,
 			builder.cfg.Genesis.SystemStakingContractV3Address,
-			builder.cfg.Genesis.SystemStakingContractV3Height, func(start uint64, end uint64) time.Duration {
-				return time.Duration(end-start) * blockInterval
-			},
+			builder.cfg.Genesis.SystemStakingContractV3Height,
+			blockDurationFn,
 			stakingindex.EnableTimestamped(),
 		)
 		builder.cs.contractStakingIndexerV3 = indexer
@@ -896,4 +894,52 @@ func estimateTipHeight(cfg *config.Config, blk *block.Block, duration time.Durat
 		duration -= durationToFork
 	}
 	return tip + uint64(duration/intervals[len(intervals)-1])
+}
+
+// blockDistance calculates the time duration between two blocks
+func blockDistance(cfg *config.Config, start, end, viewAt uint64) time.Duration {
+	origHeights := []uint64{0, cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.ToBeEnabledBlockHeight}
+	origIntervals := []time.Duration{
+		cfg.Genesis.BlockInterval,
+		cfg.DardanellesUpgrade.BlockInterval,
+		cfg.WakeUpgrade.BlockInterval,
+	}
+
+	viewHeights := []uint64{origHeights[0]}
+	viewIntervals := []time.Duration{origIntervals[0]}
+	for i := 1; i < len(origHeights); i++ {
+		if origHeights[i] <= viewAt {
+			viewHeights = append(viewHeights, origHeights[i])
+			viewIntervals = append(viewIntervals, origIntervals[i])
+		} else {
+			break
+		}
+	}
+
+	return blockDistanceAt(start, end, viewHeights, viewIntervals)
+}
+
+func blockDistanceAt(start, end uint64, heights []uint64, intervals []time.Duration) time.Duration {
+	if start == end {
+		return 0
+	} else if start > end {
+		start, end = end, start
+	}
+
+	distance := time.Duration(0)
+	for i := 1; i < len(heights); i++ {
+		h := heights[i]
+		if start >= h {
+			continue
+		}
+		if end < h {
+			distance += time.Duration(end-start) * intervals[i-1]
+			start = end
+			break
+		}
+		distance += time.Duration(h-1-start)*intervals[i-1] + intervals[i]
+		start = h
+	}
+	distance += time.Duration(end-start) * intervals[len(intervals)-1]
+	return distance
 }
