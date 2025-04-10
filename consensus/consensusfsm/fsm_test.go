@@ -240,7 +240,6 @@ func TestStateTransitionFunctions(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
 			mockCtx.EXPECT().NewProposalEndorsement(gomock.Any()).Return(NewMockEndorsement(ctrl), nil).Times(1)
 			mockCtx.EXPECT().Broadcast(gomock.Any()).Return().Times(1)
-			mockCtx.EXPECT().PrepareNextProposal(gomock.Any()).Return(nil).Times(1)
 			state, err := cfsm.onReceiveBlock(&ConsensusEvent{data: NewMockEndorsement(ctrl)})
 			require.NoError(err)
 			require.Equal(sAcceptProposalEndorsement, state)

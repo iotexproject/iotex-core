@@ -373,20 +373,6 @@ func (mr *MockContextMockRecorder) Prepare() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockContext)(nil).Prepare))
 }
 
-// PrepareNextProposal mocks base method.
-func (m *MockContext) PrepareNextProposal(arg0 any) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareNextProposal", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// PrepareNextProposal indicates an expected call of PrepareNextProposal.
-func (mr *MockContextMockRecorder) PrepareNextProposal(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareNextProposal", reflect.TypeOf((*MockContext)(nil).PrepareNextProposal), arg0)
-}
-
 // Proposal mocks base method.
 func (m *MockContext) Proposal() (interface{}, error) {
 	m.ctrl.T.Helper()
