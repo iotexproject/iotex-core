@@ -100,7 +100,7 @@ func (p *Protocol) GrantBlockReward(
 	if err != nil {
 		return nil, err
 	}
-	blockReward, totalReward, effectiveTip, err := p.calculateTotalRewardAndTip(ctx, sm)
+	totalReward, blockReward, effectiveTip, err := p.calculateTotalRewardAndTip(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
@@ -422,21 +422,24 @@ func (p *Protocol) calculateTotalRewardAndTip(ctx context.Context, sm protocol.S
 	var (
 		blkCtx       = protocol.MustGetBlockCtx(ctx)
 		featureCtx   = protocol.MustGetFeatureCtx(ctx)
-		totalReward  = (&big.Int{}).Set(a.blockReward)
+		totalReward  = &big.Int{}
+		blockReward  = (&big.Int{}).Set(a.blockReward)
 		effectiveTip = &big.Int{}
 	)
-	if featureCtx.PriorityFeeContributeToBlockReward {
-		if blkCtx.AccumulatedTips.Cmp(a.blockReward) == 1 {
-			effectiveTip.Sub(&blkCtx.AccumulatedTips, a.blockReward)
-			totalReward.Set(&blkCtx.AccumulatedTips)
+	if featureCtx.MakeUpBlockReward {
+		effectiveTip.Set(&blkCtx.AccumulatedTips)
+		if blkCtx.AccumulatedTips.Cmp(blockReward) >= 0 {
+			blockReward.SetUint64(0)
+		} else {
+			blockReward.Sub(blockReward, &blkCtx.AccumulatedTips)
 		}
 	} else if featureCtx.EnableDynamicFeeTx {
-		totalReward.Add(totalReward, &blkCtx.AccumulatedTips)
 		if blkCtx.AccumulatedTips.Sign() > 0 {
 			effectiveTip.Set(&blkCtx.AccumulatedTips)
 		}
 	}
-	return a.blockReward, totalReward, effectiveTip, nil
+	totalReward.Add(blockReward, effectiveTip)
+	return totalReward, blockReward, effectiveTip, nil
 }
 
 func (p *Protocol) updateRewardHistory(ctx context.Context, sm protocol.StateManager, prefix []byte, index uint64) error {

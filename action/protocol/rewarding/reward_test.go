@@ -573,8 +573,8 @@ func TestProtocol_CalculateReward(t *testing.T) {
 	}{
 		{unit.ConvertIotxToRau(3), false, dardanellesBlockReward, unit.ConvertIotxToRau(11), unit.ConvertIotxToRau(3)},
 		{unit.ConvertIotxToRau(12), false, dardanellesBlockReward, unit.ConvertIotxToRau(20), unit.ConvertIotxToRau(12)},
-		{unit.ConvertIotxToRau(3), true, wakeBlockReward, wakeBlockReward, &big.Int{}},
-		{unit.ConvertIotxToRau(6), true, wakeBlockReward, unit.ConvertIotxToRau(6), (&big.Int{}).Sub(unit.ConvertIotxToRau(6), wakeBlockReward)},
+		{unit.ConvertIotxToRau(3), true, (&big.Int{}).Sub(wakeBlockReward, unit.ConvertIotxToRau(3)), wakeBlockReward, unit.ConvertIotxToRau(3)},
+		{unit.ConvertIotxToRau(6), true, (&big.Int{}).SetInt64(0), unit.ConvertIotxToRau(6), unit.ConvertIotxToRau(6)},
 	} {
 		testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 			// update block reward
@@ -582,12 +582,12 @@ func TestProtocol_CalculateReward(t *testing.T) {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			blkCtx.AccumulatedTips.Set(tv.accumuTips)
 			if tv.isWakeBlock {
-				g.WakeBlockRewardStr = tv.blockReward.String()
+				g.WakeBlockRewardStr = wakeBlockReward.String()
 				blkCtx.BlockHeight = g.ToBeEnabledBlockHeight
 				ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(ctx, blkCtx), g))
 				req.NoError(p.CreatePreStates(ctx, sm))
 			} else {
-				g.DardanellesBlockRewardStr = tv.blockReward.String()
+				g.DardanellesBlockRewardStr = dardanellesBlockReward.String()
 				blkCtx.BlockHeight = g.DardanellesBlockHeight
 				ctx = genesis.WithGenesisContext(protocol.WithBlockCtx(ctx, blkCtx), g)
 				req.NoError(p.CreatePreStates(ctx, sm))
@@ -595,12 +595,12 @@ func TestProtocol_CalculateReward(t *testing.T) {
 				ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(ctx, blkCtx), g))
 			}
 			// verify block reward, total reward, and tip
-			br, total, tip, err := p.calculateTotalRewardAndTip(ctx, sm)
+			total, br, tip, err := p.calculateTotalRewardAndTip(ctx, sm)
 			req.NoError(err)
-			req.Equal(tv.blockReward, br)
-			req.Equal(tv.totalReward, total)
-			req.Equal(tv.tip, tip)
-			req.Equal(total, br.Add(br, tip))
+			req.Zero(tv.blockReward.Cmp(br))
+			req.Zero(tv.totalReward.Cmp(total))
+			req.Zero(tv.tip.Cmp(tip))
+			req.Zero(total.Cmp(br.Add(br, tip)))
 		}, false)
 	}
 }
