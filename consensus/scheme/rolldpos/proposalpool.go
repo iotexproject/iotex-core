@@ -53,7 +53,7 @@ func (d *proposalPool) AddBlock(blk *block.Block) error {
 	prevHash := blk.PrevHash()
 	if _, ok := d.leaves[prevHash]; ok {
 		delete(d.leaves, prevHash)
-	} else if prevHash != d.root {
+	} else if prevHash != d.root && d.nodes[prevHash] == nil {
 		return errors.Errorf("block %x is not a tip of any fork", prevHash[:])
 	}
 	d.leaves[hash] = blk.Timestamp()
@@ -67,16 +67,25 @@ func (d *proposalPool) ReceiveBlock(blk *block.Block) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// find the fork that contains this block
-	fork, err := d.forkAt(blk)
-	if err != nil {
-		return err
+	contain := func(node, leaf hash.Hash256) (exist bool) {
+		for b := leaf; ; {
+			if b == node {
+				return true
+			}
+			blk := d.nodes[b]
+			if blk == nil {
+				return false
+			}
+			b = blk.PrevHash()
+		}
 	}
 
 	// remove blocks in other forks or older blocks in the same fork
-	for f := range d.leaves {
-		start := d.nodes[f]
-		if f == fork {
+	leavesToDelete := make([]hash.Hash256, 0)
+	for leaf := range d.leaves {
+		start := d.nodes[leaf]
+		has := contain(blk.HashBlock(), leaf)
+		if has {
 			start = blk
 		}
 		for b := start; b != nil; b = d.nodes[b.PrevHash()] {
@@ -84,32 +93,16 @@ func (d *proposalPool) ReceiveBlock(blk *block.Block) error {
 			log.L().Debug("remove block from draft pool", log.Hex("hash", ha[:]), zap.Uint64("height", b.Height()), zap.Time("timestamp", b.Timestamp()))
 			delete(d.nodes, b.HashBlock())
 		}
+		if !has || blk.HashBlock() == leaf {
+			leavesToDelete = append(leavesToDelete, leaf)
+		}
 	}
 	// reset forks to only this one
-	if forkTime, ok := d.leaves[fork]; ok && d.nodes[fork] != nil {
-		d.leaves = map[hash.Hash256]time.Time{fork: forkTime}
-	} else {
-		d.leaves = map[hash.Hash256]time.Time{}
+	for _, f := range leavesToDelete {
+		delete(d.leaves, f)
 	}
 	d.root = blk.HashBlock()
 	return nil
-}
-
-// Block returns the latest block at the given height
-func (d *proposalPool) Block(height uint64) *block.Block {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	var blk *block.Block
-	for _, b := range d.nodes {
-		if b.Height() != height {
-			continue
-		} else if blk == nil {
-			blk = b
-		} else if b.Timestamp().After(blk.Timestamp()) {
-			blk = b
-		}
-	}
-	return blk
 }
 
 // BlockByHash returns the block by hash
@@ -117,32 +110,4 @@ func (d *proposalPool) BlockByHash(hash hash.Hash256) *block.Block {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.nodes[hash]
-}
-
-func (d *proposalPool) BlockByTime(prevHash hash.Hash256, timestamp time.Time) *block.Block {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	for _, b := range d.nodes {
-		if b.PrevHash() == prevHash && b.Timestamp().Equal(timestamp) {
-			return b
-		}
-	}
-	return nil
-}
-
-func (d *proposalPool) forkAt(blk *block.Block) (hash.Hash256, error) {
-	blkHash := blk.HashBlock()
-	// If this block isn't in the pool, just return it
-	if _, ok := d.nodes[blkHash]; !ok {
-		return blkHash, nil
-	}
-	// Otherwise, find which fork chain contains it
-	for forkTip := range d.leaves {
-		for b := d.nodes[forkTip]; b != nil; b = d.nodes[b.PrevHash()] {
-			if blkHash == b.HashBlock() {
-				return forkTip, nil
-			}
-		}
-	}
-	return hash.ZeroHash256, errors.Errorf("block %x exists in the draft pool but not in the fork pool, this should not happen", blkHash[:])
 }
