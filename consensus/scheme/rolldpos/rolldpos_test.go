@@ -443,7 +443,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			ctx := context.Background()
 			bc.ProducerPrivKey = hex.EncodeToString(chainAddrs[i].priKey.Bytes())
 			registry := protocol.NewRegistry()
-			sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+			sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 			require.NoError(t, err)
 			require.NoError(t, sf.Start(genesis.WithGenesisContext(
 				protocol.WithRegistry(ctx, registry),

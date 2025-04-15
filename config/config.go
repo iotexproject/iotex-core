@@ -92,7 +92,6 @@ var (
 	// Validates is the collection config validation functions
 	Validates = []Validate{
 		ValidateRollDPoS,
-		ValidateArchiveMode,
 		ValidateDispatcher,
 		ValidateAPI,
 		ValidateActPool,
@@ -252,15 +251,6 @@ func ValidateRollDPoS(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
 	}
 	return nil
-}
-
-// ValidateArchiveMode validates the state factory setting
-func ValidateArchiveMode(cfg Config) error {
-	if !cfg.Chain.EnableArchiveMode || !cfg.Chain.EnableTrielessStateDB {
-		return nil
-	}
-
-	return errors.Wrap(ErrInvalidCfg, "Archive mode is incompatible with trieless state DB")
 }
 
 // ValidateAPI validates the api configs

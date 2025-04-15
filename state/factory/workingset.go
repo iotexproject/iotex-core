@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
@@ -60,21 +61,27 @@ func init() {
 }
 
 type (
+	// WorkingSetStoreFactory is the factory to create working set store
+	WorkingSetStoreFactory interface {
+		CreateWorkingSetStore(context.Context, uint64, db.KVStore) (workingSetStore, error)
+	}
 	workingSet struct {
-		height      uint64
-		store       workingSetStore
-		finalized   bool
-		dock        protocol.Dock
-		txValidator *protocol.GenericValidator
-		receipts    []*action.Receipt
+		workingSetStoreFactory WorkingSetStoreFactory
+		height                 uint64
+		views                  *protocol.Views
+		store                  workingSetStore
+		finalized              bool
+		txValidator            *protocol.GenericValidator
+		receipts               []*action.Receipt
 	}
 )
 
-func newWorkingSet(height uint64, store workingSetStore) *workingSet {
+func newWorkingSet(height uint64, views *protocol.Views, store workingSetStore, storeFactory WorkingSetStoreFactory) *workingSet {
 	ws := &workingSet{
-		height: height,
-		store:  store,
-		dock:   protocol.NewDock(),
+		height:                 height,
+		views:                  views,
+		store:                  store,
+		workingSetStoreFactory: storeFactory,
 	}
 	ws.txValidator = protocol.NewGenericValidator(ws, accountutil.AccountState)
 	return ws
@@ -296,7 +303,6 @@ func (ws *workingSet) Commit(ctx context.Context) error {
 		// TODO (zhi): wrap the error and eventually panic it in caller side
 		return err
 	}
-	ws.Reset()
 	return nil
 }
 
@@ -361,29 +367,14 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 }
 
 // ReadView reads the view
-func (ws *workingSet) ReadView(name string) (interface{}, error) {
-	return ws.store.ReadView(name)
+func (ws *workingSet) ReadView(name string) (protocol.View, error) {
+	return ws.views.Read(name)
 }
 
 // WriteView writeback the view to factory
-func (ws *workingSet) WriteView(name string, v interface{}) error {
-	return ws.store.WriteView(name, v)
-}
-
-func (ws *workingSet) ProtocolDirty(name string) bool {
-	return ws.dock.ProtocolDirty(name)
-}
-
-func (ws *workingSet) Load(name, key string, v interface{}) error {
-	return ws.dock.Load(name, key, v)
-}
-
-func (ws *workingSet) Unload(name, key string, v interface{}) error {
-	return ws.dock.Unload(name, key, v)
-}
-
-func (ws *workingSet) Reset() {
-	ws.dock.Reset()
+func (ws *workingSet) WriteView(name string, v protocol.View) error {
+	ws.views.Write(name, v)
+	return nil
 }
 
 // CreateGenesisStates initialize the genesis states
@@ -822,4 +813,19 @@ func (ws *workingSet) CreateBuilder(
 		blkBuilder.SetExcessBlobGas(blkCtx.ExcessBlobGas)
 	}
 	return blkBuilder, nil
+}
+
+func (ws *workingSet) NewWorkingSet(ctx context.Context) (*workingSet, error) {
+	if !ws.finalized {
+		return nil, errors.New("workingset has not been finalized yet")
+	}
+	store, err := ws.workingSetStoreFactory.CreateWorkingSetStore(ctx, ws.height+1, ws.store)
+	if err != nil {
+		return nil, err
+	}
+	views := ws.views.Clone()
+	if err := views.Commit(ctx, ws); err != nil {
+		return nil, err
+	}
+	return newWorkingSet(ws.height+1, views, store, ws.workingSetStoreFactory), nil
 }
