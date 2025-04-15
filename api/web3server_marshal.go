@@ -47,6 +47,7 @@ type (
 	}
 
 	getBlockResult struct {
+		blkHash      hash.Hash256
 		blk          *block.Block
 		transactions []interface{}
 	}
@@ -172,7 +173,7 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 		producerAddress = obj.blk.Header.ProducerAddress()
 		blkHash = obj.blk.Header.HashBlock()
 	} else {
-		blkHash = block.GenesisHash()
+		blkHash = obj.blkHash
 	}
 	producerAddr, err := ioAddrToEthAddr(producerAddress)
 	if err != nil {

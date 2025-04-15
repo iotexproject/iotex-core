@@ -16,8 +16,6 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 const (
@@ -106,13 +104,6 @@ func TestStrs_String(t *testing.T) {
 	ss := strs{"test"}
 	str := "TEST"
 	require.Nil(t, ss.Set(str))
-}
-
-func TestNewDefaultConfig(t *testing.T) {
-	cfg, err := New([]string{}, []string{})
-	require.NoError(t, err)
-	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
-	require.Equal(t, cfg.Genesis.Timestamp, genesis.Timestamp())
 }
 
 func TestNewConfigWithoutValidation(t *testing.T) {

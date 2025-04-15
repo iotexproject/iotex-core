@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
@@ -53,7 +52,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			Tip: TipInfo{
 				Height:    0,
 				Hash:      g.Hash(),
-				Timestamp: time.Unix(g.Timestamp, 0),
+				Timestamp: genesis.GenesisTimestamp(g.Timestamp),
 			},
 		},
 	)

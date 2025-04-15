@@ -55,7 +55,7 @@ func checkDbFileHeight(filePath string) (uint64, error) {
 	}
 
 	cfg.DB.DbPath = filePath
-	store, err := filedao.NewFileDAO(cfg.DB, block.NewDeserializer(cfg.Chain.EVMNetworkID))
+	store, err := filedao.NewFileDAO(cfg.Genesis, cfg.DB, block.NewDeserializer(cfg.Chain.EVMNetworkID))
 	if err != nil {
 		return uint64(0), err
 	}

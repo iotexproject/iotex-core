@@ -456,7 +456,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			require.NoError(t, acc.Register(registry))
 			rp := rolldpos.NewProtocol(g.NumCandidateDelegates, g.NumDelegates, g.NumSubEpochs)
 			require.NoError(t, rp.Register(registry))
-			store, err := filedao.NewFileDAOInMemForTest()
+			store, err := filedao.NewFileDAOInMemForTest(g)
 			require.NoError(t, err)
 			dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, db.DefaultConfig.MaxCacheSize)
 			chain := blockchain.NewBlockchain(

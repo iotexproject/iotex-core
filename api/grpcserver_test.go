@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/version"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	mock_apitypes "github.com/iotexproject/iotex-core/v2/test/mock/mock_apiresponder"
@@ -280,6 +281,7 @@ func TestGrpcServer_GetBlockMetas(t *testing.T) {
 	})
 	t.Run("GetBlockMetasByIndexSuccess", func(t *testing.T) {
 		core.EXPECT().BlockByHeightRange(gomock.Any(), gomock.Any()).Return(rets, nil)
+		core.EXPECT().Genesis().Return(genesis.Default).Times(2)
 		res, err := grpcSvr.GetBlockMetas(context.Background(), reqIndex)
 		require.NoError(err)
 		require.Equal(res.Total, uint64(1))

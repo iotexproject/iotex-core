@@ -7,7 +7,6 @@ package blockdao
 
 import (
 	"context"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -113,7 +112,7 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 			bcCtx.Tip.ExcessBlobGas = tipBlk.ExcessBlobGas()
 		} else {
 			bcCtx.Tip.Hash = g.Hash()
-			bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
+			bcCtx.Tip.Timestamp = genesis.GenesisTimestamp(g.Timestamp)
 		}
 		for {
 			if err = indexer.PutBlock(protocol.WithFeatureCtx(protocol.WithBlockCtx(

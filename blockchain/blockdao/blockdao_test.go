@@ -759,9 +759,10 @@ func TestBlockDAO(t *testing.T) {
 		},
 	}
 
+	g := genesis.TestDefault()
 	testBlockDao := func(dao BlockStore, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
-			genesis.WithGenesisContext(context.Background(), genesis.TestDefault()),
+			genesis.WithGenesisContext(context.Background(), g),
 			protocol.BlockchainCtx{
 				ChainID: 1,
 			})
@@ -874,7 +875,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testDeleteDao := func(dao filedao.FileDAO, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
-			genesis.WithGenesisContext(context.Background(), genesis.TestDefault()),
+			genesis.WithGenesisContext(context.Background(), g),
 			protocol.BlockchainCtx{
 				ChainID: 1,
 			})
@@ -919,7 +920,7 @@ func TestBlockDAO(t *testing.T) {
 			if tipHeight == 0 {
 				h, err := dao.GetBlockHash(0)
 				require.NoError(err)
-				require.Equal(block.GenesisHash(), h)
+				require.Equal(g.Hash(), h)
 				continue
 			}
 			tipBlk := blks[tipHeight-1]
@@ -1005,12 +1006,9 @@ func TestBlockDAO(t *testing.T) {
 
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	g := genesis.TestDefault()
-	genesis.SetGenesisTimestamp(g.Timestamp)
-	block.LoadGenesisHash(&g)
 	for _, v := range daoList {
 		testutil.CleanupPath(testPath)
-		dao, err := createFileDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
+		dao, err := createFileDAO(v.inMemory, v.legacy, v.compressBlock, g, cfg)
 		require.NoError(err)
 		require.NotNil(dao)
 		t.Run("test store blocks", func(t *testing.T) {
@@ -1020,7 +1018,7 @@ func TestBlockDAO(t *testing.T) {
 
 	for _, v := range daoList {
 		testutil.CleanupPath(testPath)
-		dao, err := createFileDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
+		dao, err := createFileDAO(v.inMemory, v.legacy, v.compressBlock, g, cfg)
 		require.NoError(err)
 		require.NotNil(dao)
 		t.Run("test delete blocks", func(t *testing.T) {
@@ -1029,17 +1027,17 @@ func TestBlockDAO(t *testing.T) {
 	}
 }
 
-func createFileDAO(inMemory, legacy bool, compressBlock string, cfg db.Config) (filedao.FileDAO, error) {
+func createFileDAO(inMemory, legacy bool, compressBlock string, g genesis.Genesis, cfg db.Config) (filedao.FileDAO, error) {
 	if inMemory {
-		return filedao.NewFileDAOInMemForTest()
+		return filedao.NewFileDAOInMemForTest(g)
 	}
 	deser := block.NewDeserializer(4689)
 	if legacy {
-		return filedao.CreateFileDAO(true, cfg, deser)
+		return filedao.CreateFileDAO(true, g, cfg, deser)
 	}
 
 	cfg.Compressor = compressBlock
-	return filedao.NewFileDAO(cfg, deser)
+	return filedao.NewFileDAO(g, cfg, deser)
 }
 
 func BenchmarkBlockCache(b *testing.B) {
@@ -1061,7 +1059,7 @@ func BenchmarkBlockCache(b *testing.B) {
 		cfg.DbPath = testPath
 		cfg.MaxCacheSize = cacheSize
 		deser := block.NewDeserializer(4689)
-		fileDAO, err := filedao.NewFileDAO(cfg, deser)
+		fileDAO, err := filedao.NewFileDAO(genesis.Default, cfg, deser)
 		require.NoError(b, err)
 		blkDao := NewBlockDAOWithIndexersAndCache(fileDAO, []BlockIndexer{}, cfg.MaxCacheSize)
 		require.NoError(b, blkDao.Start(context.Background()))
