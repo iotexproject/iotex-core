@@ -78,6 +78,7 @@ type ChainService struct {
 	nodeInfoManager          *nodeinfo.InfoManager
 	apiStats                 *nodestats.APILocalStats
 	actionsync               *actsync.ActionSync
+	minter                   *factory.Minter
 }
 
 // Start starts the server
