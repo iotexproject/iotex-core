@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -76,6 +77,7 @@ type (
 		PutBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManager, error)
 		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
+		StateReaderAt(blkHeight uint64, blkHash hash.Hash256) (protocol.StateReader, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
