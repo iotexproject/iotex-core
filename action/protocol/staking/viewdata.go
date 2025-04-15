@@ -59,8 +59,12 @@ func (v *ViewData) Commit(ctx context.Context, sr protocol.StateReader) error {
 			return err
 		}
 	}
+	if err := v.bucketPool.Commit(sr); err != nil {
+		return err
+	}
+	v.snapshots = []Snapshot{}
 
-	return v.bucketPool.Commit(sr)
+	return nil
 }
 
 func (v *ViewData) IsDirty() bool {
