@@ -459,10 +459,13 @@ func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap 
 }
 
 func (ws *workingSet) Process(ctx context.Context, actions []*action.SealedEnvelope) error {
-	return ws.processWithCorrectOrder(ctx, actions)
+	if protocol.MustGetFeatureCtx(ctx).CorrectValidationOrder {
+		return ws.process(ctx, actions)
+	}
+	return ws.processLegacy(ctx, actions)
 }
 
-func (ws *workingSet) processWithCorrectOrder(ctx context.Context, actions []*action.SealedEnvelope) error {
+func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvelope) error {
 	if err := ws.validate(ctx); err != nil {
 		return err
 	}
@@ -513,6 +516,69 @@ func (ws *workingSet) processWithCorrectOrder(ctx context.Context, actions []*ac
 	}
 	ws.receipts = receipts
 	return ws.finalize()
+}
+
+func (ws *workingSet) processLegacy(ctx context.Context, actions []*action.SealedEnvelope) error {
+	if err := ws.validate(ctx); err != nil {
+		return err
+	}
+
+	reg := protocol.MustGetRegistry(ctx)
+	for _, act := range actions {
+		ctxWithActionContext, err := withActionCtx(ctx, act)
+		if err != nil {
+			return err
+		}
+		for _, p := range reg.All() {
+			if validator, ok := p.(protocol.ActionValidator); ok {
+				if err := validator.Validate(ctxWithActionContext, act.Envelope, ws); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	for _, p := range reg.All() {
+		if pp, ok := p.(protocol.PreStatesCreator); ok {
+			if err := pp.CreatePreStates(ctx, ws); err != nil {
+				return err
+			}
+		}
+	}
+
+	receipts, err := ws.runActionsLegacy(ctx, actions)
+	if err != nil {
+		return err
+	}
+	ws.receipts = receipts
+	return ws.finalize()
+}
+
+func (ws *workingSet) runActionsLegacy(
+	ctx context.Context,
+	elps []*action.SealedEnvelope,
+) ([]*action.Receipt, error) {
+	// Handle actions
+	receipts := make([]*action.Receipt, 0)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	for _, elp := range elps {
+		ctxWithActionContext, err := withActionCtx(ctx, elp)
+		if err != nil {
+			return nil, err
+		}
+		receipt, err := ws.runAction(protocol.WithBlockCtx(ctxWithActionContext, blkCtx), elp)
+		if err != nil {
+			return nil, errors.Wrap(err, "error when run action")
+		}
+		receipts = append(receipts, receipt)
+		if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
+			(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
+		}
+	}
+	if fCtx.CorrectTxLogIndex {
+		updateReceiptIndex(receipts)
+	}
+	return receipts, nil
 }
 
 func (ws *workingSet) generateSystemActions(ctx context.Context) ([]action.Envelope, error) {
@@ -752,7 +818,9 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 			return err
 		}
 	}
-	if err := ws.processWithCorrectOrder(ctx, blk.RunnableActions().Actions()); err != nil {
+	var err error
+	err = ws.Process(ctx, blk.RunnableActions().Actions())
+	if err != nil {
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
 	}
