@@ -559,8 +559,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 func newTestConfig() (config.Config, error) {
 	cfg := config.Default
-	cfg.Genesis = genesis.TestDefault()
 	cfg = deepcopy.Copy(cfg).(config.Config)
+	cfg.Genesis = genesis.TestDefault()
 	cfg.Chain.TrieDBPath = _triePath
 	cfg.Chain.ChainDBPath = _dBPath
 	cfg.Chain.BlobStoreDBPath = _blobPath
