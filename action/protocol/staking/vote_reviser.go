@@ -173,7 +173,7 @@ func (vr *VoteReviser) NeedRevise(height uint64) bool {
 		vr.shouldCorrectCandSelfStake(height)
 }
 
-// NeedCorrectCands returns true if height needs to correct candidates
+// shouldReviseAlias returns true if height needs to revise candidate aliases
 func (vr *VoteReviser) shouldReviseAlias(height uint64) bool {
 	return height == vr.cfg.CorrectCandsHeight
 }
