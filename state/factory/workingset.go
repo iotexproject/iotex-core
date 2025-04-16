@@ -818,9 +818,7 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 			return err
 		}
 	}
-	var err error
-	err = ws.Process(ctx, blk.RunnableActions().Actions())
-	if err != nil {
+	if err := ws.Process(ctx, blk.RunnableActions().Actions()); err != nil {
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
 	}
