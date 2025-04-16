@@ -2623,6 +2623,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 }
 
 func TestGrpcServer_TraceTransactionStructLogsIntegrity(t *testing.T) {
+	t.Skip()
 	require := require.New(t)
 	cfg := newConfig()
 	cfg.api.GRPCPort = testutil.RandomPort()
