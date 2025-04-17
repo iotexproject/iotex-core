@@ -8,6 +8,7 @@ package factory
 import (
 	"context"
 	"math/big"
+	"slices"
 	"sort"
 	"time"
 
@@ -653,8 +654,14 @@ func (ws *workingSet) pickAndRunActions(
 		blobLimit           = params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob
 		deadline            *time.Time
 		fullGas             = blkCtx.GasLimit
+		hasPutPollResult    = slices.ContainsFunc(postSystemActions, func(e *action.SealedEnvelope) bool {
+			_, ok := e.Action().(*action.PutPollResult)
+			return ok
+		})
 	)
-	if ap != nil {
+	// TODO: remove this if all delegates are updated with correct validation sequence
+	// this is a temporary solution to avoid putpollresult validation failure when exist staking action in same block
+	if ap != nil && !hasPutPollResult {
 		if dl, ok := ctx.Deadline(); ok {
 			deadline = &dl
 		}
