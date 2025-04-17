@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 )
 
@@ -19,6 +20,30 @@ func TestEnableDardanellesSubEpoch(t *testing.T) {
 	p := NewProtocol(23, 4, 3)
 	require.Nil(options(p))
 	require.NotNil(options)
+}
+
+func TestEpochBlockNumber(t *testing.T) {
+	require := require.New(t)
+	g := genesis.Default
+	dardanellesBlockHeight := g.NumDelegates*g.NumSubEpochs + 1
+	wakeBlockHeight := dardanellesBlockHeight + g.NumDelegates*g.DardanellesNumSubEpochs
+	p := NewProtocol(
+		g.NumCandidateDelegates,
+		g.NumDelegates,
+		g.NumSubEpochs,
+		EnableDardanellesSubEpoch(dardanellesBlockHeight, g.DardanellesNumSubEpochs),
+		EnableWakeSubEpoch(wakeBlockHeight, g.WakeNumSubEpochs),
+	)
+	require.NotNil(p)
+	require.Equal(dardanellesBlockHeight, p.dardanellesHeight)
+	require.Equal(g.DardanellesNumSubEpochs, p.numSubEpochsDardanelles)
+	require.Equal(wakeBlockHeight, p.wakeHeight)
+	require.Equal(g.WakeNumSubEpochs, p.numSubEpochsWake)
+	dardanellesEpoch := p.GetEpochNum(dardanellesBlockHeight)
+	wakeEpoch := p.GetEpochNum(wakeBlockHeight)
+	require.Equal(g.NumSubEpochs*g.NumDelegates, p.NumBlocksByEpoch(0))
+	require.Equal(g.DardanellesNumSubEpochs*g.NumDelegates, p.NumBlocksByEpoch(dardanellesEpoch))
+	require.Equal(g.WakeNumSubEpochs*g.NumDelegates, p.NumBlocksByEpoch(wakeEpoch))
 }
 
 func TestNewProtocol(t *testing.T) {
@@ -159,15 +184,21 @@ func TestProtocol_NumSubEpochs(t *testing.T) {
 
 	t.Run("wakeUpgrade", func(t *testing.T) {
 		p := NewProtocol(23, 4, 3,
-			EnableDardanellesSubEpoch(10, 5),
-			EnableWakeSubEpoch(20, 7),
+			EnableDardanellesSubEpoch(13, 5),
+			EnableWakeSubEpoch(33, 7),
 		)
 		require.Equal(uint64(3), p.NumSubEpochs(0))
-		require.Equal(uint64(3), p.NumSubEpochs(9))
-		require.Equal(uint64(5), p.NumSubEpochs(10))
-		require.Equal(uint64(5), p.NumSubEpochs(11))
-		require.Equal(uint64(7), p.NumSubEpochs(20))
-		require.Equal(uint64(7), p.NumSubEpochs(30))
+		require.Equal(uint64(3*4), p.NumBlocksByEpoch(0))
+		require.Equal(uint64(3), p.NumSubEpochs(12))
+		require.Equal(uint64(3*4), p.NumBlocksByEpoch(p.GetEpochNum(12)))
+		require.Equal(uint64(5), p.NumSubEpochs(13))
+		require.Equal(uint64(5*4), p.NumBlocksByEpoch(p.GetEpochNum(13)))
+		require.Equal(uint64(5), p.NumSubEpochs(14))
+		require.Equal(uint64(5*4), p.NumBlocksByEpoch(p.GetEpochNum(14)))
+		require.Equal(uint64(7), p.NumSubEpochs(33))
+		require.Equal(uint64(7*4), p.NumBlocksByEpoch(p.GetEpochNum(33)))
+		require.Equal(uint64(7), p.NumSubEpochs(34))
+		require.Equal(uint64(7*4), p.NumBlocksByEpoch(p.GetEpochNum(34)))
 	})
 }
 
