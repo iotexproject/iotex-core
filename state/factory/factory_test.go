@@ -1355,6 +1355,26 @@ func TestMintBlocksWithTransfers(t *testing.T) {
 	require.Equal(big.NewInt(100), accountA.Balance)
 	require.Equal(big.NewInt(50), accountB.Balance)
 	require.Equal(big.NewInt(0), accountC.Balance)
+	// Put blk1 into sdb
+	require.NoError(sdb.PutBlock(ctx, blk1))
+
+	// Check balances after blk1 is committed
+	accountA, err = accountutil.AccountState(ctx, sdb, a)
+	require.NoError(err)
+	accountB, err = accountutil.AccountState(ctx, sdb, b)
+	require.NoError(err)
+	require.Equal(big.NewInt(80), accountA.Balance)
+	require.Equal(big.NewInt(70), accountB.Balance)
+	// Check balances in ws2
+	accountA, err = accountutil.AccountState(ctx, ws2, a)
+	require.NoError(err)
+	accountB, err = accountutil.AccountState(ctx, ws2, b)
+	require.NoError(err)
+	accountC, err = accountutil.AccountState(ctx, ws2, c)
+	require.NoError(err)
+	require.Equal(big.NewInt(80), accountA.Balance)
+	require.Equal(big.NewInt(40), accountB.Balance)
+	require.Equal(big.NewInt(30), accountC.Balance)
 }
 
 func BenchmarkSDBInMemRunAction(b *testing.B) {
