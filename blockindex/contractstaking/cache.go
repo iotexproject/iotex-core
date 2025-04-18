@@ -9,6 +9,7 @@ import (
 	"context"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -78,7 +79,7 @@ func (s *contractStakingCache) CandidateVotes(ctx context.Context, candidate add
 		}
 		bt := s.mustGetBucketType(bi.TypeIndex)
 		if featureCtx.FixContractStakingWeightedVotes {
-			votes.Add(votes, s.config.CalculateVoteWeight(assembleBucket(id, bi, bt, s.config.ContractAddress, s.config.BlockInterval)))
+			votes.Add(votes, s.config.CalculateVoteWeight(assembleBucket(id, bi, bt, s.config.ContractAddress, s.genBlockDurationFn(height))))
 		} else {
 			votes.Add(votes, bt.Amount)
 		}
@@ -97,7 +98,7 @@ func (s *contractStakingCache) Buckets(height uint64) ([]*Bucket, error) {
 	vbs := []*Bucket{}
 	for id, bi := range s.bucketInfoMap {
 		bt := s.mustGetBucketType(bi.TypeIndex)
-		vb := assembleBucket(id, bi.clone(), bt, s.config.ContractAddress, s.config.BlockInterval)
+		vb := assembleBucket(id, bi.clone(), bt, s.config.ContractAddress, s.genBlockDurationFn(height))
 		vbs = append(vbs, vb)
 	}
 	return vbs, nil
@@ -110,7 +111,7 @@ func (s *contractStakingCache) Bucket(id, height uint64) (*Bucket, bool, error) 
 	if err := s.validateHeight(height); err != nil {
 		return nil, false, err
 	}
-	bt, ok := s.getBucket(id)
+	bt, ok := s.getBucket(id, height)
 	return bt, ok, nil
 }
 
@@ -152,7 +153,7 @@ func (s *contractStakingCache) BucketsByCandidate(candidate address.Address, hei
 	bucketMap := s.candidateBucketMap[candidate.String()]
 	vbs := make([]*Bucket, 0, len(bucketMap))
 	for id := range bucketMap {
-		vb := s.mustGetBucket(id)
+		vb := s.mustGetBucket(id, height)
 		vbs = append(vbs, vb)
 	}
 	return vbs, nil
@@ -167,7 +168,7 @@ func (s *contractStakingCache) BucketsByIndices(indices []uint64, height uint64)
 	}
 	vbs := make([]*Bucket, 0, len(indices))
 	for _, id := range indices {
-		vb, ok := s.getBucket(id)
+		vb, ok := s.getBucket(id, height)
 		if ok {
 			vbs = append(vbs, vb)
 		}
@@ -355,19 +356,19 @@ func (s *contractStakingCache) mustGetBucketInfo(id uint64) *bucketInfo {
 	return bt
 }
 
-func (s *contractStakingCache) mustGetBucket(id uint64) *Bucket {
+func (s *contractStakingCache) mustGetBucket(id, at uint64) *Bucket {
 	bi := s.mustGetBucketInfo(id)
 	bt := s.mustGetBucketType(bi.TypeIndex)
-	return assembleBucket(id, bi, bt, s.config.ContractAddress, s.config.BlockInterval)
+	return assembleBucket(id, bi, bt, s.config.ContractAddress, s.genBlockDurationFn(at))
 }
 
-func (s *contractStakingCache) getBucket(id uint64) (*Bucket, bool) {
+func (s *contractStakingCache) getBucket(id, at uint64) (*Bucket, bool) {
 	bi, ok := s.getBucketInfo(id)
 	if !ok {
 		return nil, false
 	}
 	bt := s.mustGetBucketType(bi.TypeIndex)
-	return assembleBucket(id, bi, bt, s.config.ContractAddress, s.config.BlockInterval), true
+	return assembleBucket(id, bi, bt, s.config.ContractAddress, s.genBlockDurationFn(at)), true
 }
 
 func (s *contractStakingCache) putBucketType(id uint64, bt *BucketType) {
@@ -473,4 +474,10 @@ func (s *contractStakingCache) validateHeight(height uint64) error {
 		return errors.Wrapf(ErrInvalidHeight, "expected %d, actual %d", s.height, height)
 	}
 	return nil
+}
+
+func (s *contractStakingCache) genBlockDurationFn(view uint64) blocksDurationFn {
+	return func(start, end uint64) time.Duration {
+		return s.config.BlocksToDuration(start, end, view)
+	}
 }
