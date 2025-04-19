@@ -119,6 +119,9 @@ func (v *ViewData) Revert(snapshot int) error {
 }
 
 func (csv *contractStakeView) Clone() *contractStakeView {
+	if csv == nil {
+		return nil
+	}
 	clone := &contractStakeView{}
 	if csv.v1 != nil {
 		clone.v1 = csv.v1.Clone()
