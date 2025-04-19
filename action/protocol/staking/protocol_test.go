@@ -127,8 +127,8 @@ func TestProtocol(t *testing.T) {
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 10})
 	ctx = protocol.WithFeatureCtx(ctx)
 	v, err := stk.Start(ctx, sm)
-	sm.WriteView(_protocolID, v)
 	r.NoError(err)
+	r.NoError(sm.WriteView(_protocolID, v))
 	_, ok := v.(*ViewData)
 	r.True(ok)
 
