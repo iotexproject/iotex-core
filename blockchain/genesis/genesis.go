@@ -42,6 +42,7 @@ func defaultConfig() Genesis {
 			Timestamp:                 1553558500,
 			BlockGasLimit:             20000000,
 			TsunamiBlockGasLimit:      50000000,
+			WakeBlockGasLimit:         30000000,
 			ActionGasLimit:            5000000,
 			BlockInterval:             10 * time.Second,
 			NumSubEpochs:              15,
@@ -75,6 +76,7 @@ func defaultConfig() Genesis {
 			TsunamiBlockHeight:        29275561,
 			UpernavikBlockHeight:      31174201,
 			VanuatuBlockHeight:        33730921,
+			WakeBlockHeight:           43730921,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
@@ -249,6 +251,8 @@ type (
 		BlockGasLimit uint64 `yaml:"blockGasLimit"`
 		// TsunamiBlockGasLimit is the block gas limit starting Tsunami height (raised to 50M by default)
 		TsunamiBlockGasLimit uint64 `yaml:"tsunamiBlockGasLimit"`
+		// WakeBlockGasLimit is the block gas limit starting Wake height (reduced to 30M by default)
+		WakeBlockGasLimit uint64 `yaml:"wakeBlockGasLimit"`
 		// ActionGasLimit is the per action gas limit cap
 		ActionGasLimit uint64 `yaml:"actionGasLimit"`
 		// BlockInterval is the interval between two blocks
@@ -355,6 +359,9 @@ type (
 		// 1. enable Cancun EVM
 		// 2. enable dynamic fee tx
 		VanuatuBlockHeight uint64 `yaml:"vanuatuHeight"`
+		// WakeBlockHeight is the start height to
+		// 1. enable 3s block interval
+		WakeBlockHeight uint64 `yaml:"wakeHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -726,12 +733,21 @@ func (g *Blockchain) IsVanuatu(height uint64) bool {
 	return g.isPost(g.VanuatuBlockHeight, height)
 }
 
+// IsWake checks whether height is equal to or larger than wake height
+func (g *Blockchain) IsWake(height uint64) bool {
+	return g.isPost(g.WakeBlockHeight, height)
+}
+
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
 func (g *Blockchain) IsToBeEnabled(height uint64) bool {
 	return g.isPost(g.ToBeEnabledBlockHeight, height)
 }
 
+// BlockGasLimitByHeight returns the block gas limit by height
 func (g *Blockchain) BlockGasLimitByHeight(height uint64) uint64 {
+	if g.isPost(g.WakeBlockHeight, height) {
+		return g.WakeBlockGasLimit
+	}
 	if g.isPost(g.TsunamiBlockHeight, height) {
 		// block gas limit raised to 50M after Tsunami block height
 		return g.TsunamiBlockGasLimit
