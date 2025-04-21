@@ -42,6 +42,7 @@ func defaultConfig() Genesis {
 			Timestamp:                 1553558500,
 			BlockGasLimit:             20000000,
 			TsunamiBlockGasLimit:      50000000,
+			WakeBlockGasLimit:         30000000,
 			ActionGasLimit:            5000000,
 			BlockInterval:             10 * time.Second,
 			NumSubEpochs:              15,
@@ -250,6 +251,8 @@ type (
 		BlockGasLimit uint64 `yaml:"blockGasLimit"`
 		// TsunamiBlockGasLimit is the block gas limit starting Tsunami height (raised to 50M by default)
 		TsunamiBlockGasLimit uint64 `yaml:"tsunamiBlockGasLimit"`
+		// WakeBlockGasLimit is the block gas limit starting Wake height (reduced to 30M by default)
+		WakeBlockGasLimit uint64 `yaml:"wakeBlockGasLimit"`
 		// ActionGasLimit is the per action gas limit cap
 		ActionGasLimit uint64 `yaml:"actionGasLimit"`
 		// BlockInterval is the interval between two blocks
@@ -740,7 +743,11 @@ func (g *Blockchain) IsToBeEnabled(height uint64) bool {
 	return g.isPost(g.ToBeEnabledBlockHeight, height)
 }
 
+// BlockGasLimitByHeight returns the block gas limit by height
 func (g *Blockchain) BlockGasLimitByHeight(height uint64) uint64 {
+	if g.isPost(g.WakeBlockHeight, height) {
+		return g.WakeBlockGasLimit
+	}
 	if g.isPost(g.TsunamiBlockHeight, height) {
 		// block gas limit raised to 50M after Tsunami block height
 		return g.TsunamiBlockGasLimit
