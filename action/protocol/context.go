@@ -150,6 +150,7 @@ type (
 		EnableDynamicFeeTx                      bool
 		EnableBlobTransaction                   bool
 		EnableCancunEVM                         bool
+		CorrectValidationOrder                  bool
 		UnstakedButNotClearSelfStakeAmount      bool
 		CheckStakingDurationUpperLimit          bool
 		FixRevertSnapshot                       bool
@@ -310,6 +311,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			EnableDynamicFeeTx:                      g.IsVanuatu(height),
 			EnableBlobTransaction:                   g.IsVanuatu(height),
 			EnableCancunEVM:                         g.IsVanuatu(height),
+			CorrectValidationOrder:                  g.IsVanuatu(height),
 			UnstakedButNotClearSelfStakeAmount:      !g.IsVanuatu(height),
 			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
 			FixRevertSnapshot:                       g.IsVanuatu(height),

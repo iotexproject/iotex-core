@@ -262,10 +262,19 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			33730920,
 		},
-		// after Vanuatu
+		// after Vanuatu - Wake
 		{
 			action.EmptyAddress,
 			33730921,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			43730920,
+		},
+		// after Wake
+		{
+			action.EmptyAddress,
+			43730921,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
