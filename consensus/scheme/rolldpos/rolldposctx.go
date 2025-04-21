@@ -420,12 +420,11 @@ func (ctx *rollDPoSCtx) prepareNextProposal(prevHeight uint64, prevHash hash.Has
 	roundCalc := ctx.roundCalc.Fork(fork)
 	// check if the current node is the next proposer
 	nextProposer := roundCalc.Proposer(height, interval, startTime)
-	var privateKey crypto.PrivateKey = nil
-	if idx := slices.Index(ctx.encodedAddrs, nextProposer); idx < 0 {
+	idx := slices.Index(ctx.encodedAddrs, nextProposer)
+	if idx < 0 {
 		return nil
-	} else {
-		privateKey = ctx.priKeys[idx]
 	}
+	privateKey := ctx.priKeys[idx]
 	ctx.logger().Debug("prepare next proposal", log.Hex("prevHash", prevHash[:]), zap.Uint64("height", ctx.round.height+1), zap.Time("timestamp", startTime), zap.String("nextproposer", nextProposer))
 	go func() {
 		blk, err := fork.MintNewBlock(startTime, privateKey, prevHash)
