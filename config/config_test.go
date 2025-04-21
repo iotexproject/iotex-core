@@ -379,6 +379,9 @@ func TestValidateForkHeights(t *testing.T) {
 			"Upernavik", ErrInvalidCfg, "Upernavik is heigher than Vanuatu",
 		},
 		{
+			"Vanuatu", ErrInvalidCfg, "Vanuatu is heigher than Wake",
+		},
+		{
 			"", nil, "",
 		},
 	}
