@@ -92,7 +92,6 @@ var (
 	// Validates is the collection config validation functions
 	Validates = []Validate{
 		ValidateRollDPoS,
-		ValidateArchiveMode,
 		ValidateDispatcher,
 		ValidateAPI,
 		ValidateActPool,
@@ -254,15 +253,6 @@ func ValidateRollDPoS(cfg Config) error {
 	return nil
 }
 
-// ValidateArchiveMode validates the state factory setting
-func ValidateArchiveMode(cfg Config) error {
-	if !cfg.Chain.EnableArchiveMode || !cfg.Chain.EnableTrielessStateDB {
-		return nil
-	}
-
-	return errors.Wrap(ErrInvalidCfg, "Archive mode is incompatible with trieless state DB")
-}
-
 // ValidateAPI validates the api configs
 func ValidateAPI(cfg Config) error {
 	if cfg.API.TpsWindow <= 0 {
@@ -340,6 +330,8 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "Tsunami is heigher than Upernavik")
 	case hu.UpernavikBlockHeight > hu.VanuatuBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Upernavik is heigher than Vanuatu")
+	case hu.VanuatuBlockHeight > hu.WakeBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Vanuatu is heigher than Wake")
 	}
 	return nil
 }

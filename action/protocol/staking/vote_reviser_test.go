@@ -114,6 +114,7 @@ func TestVoteReviser(t *testing.T) {
 			9,
 		},
 	}
+	g := genesis.TestDefault()
 
 	// test loading with no candidate in stateDB
 	stk, err := NewProtocol(
@@ -122,12 +123,12 @@ func TestVoteReviser(t *testing.T) {
 			BlockInterval: getBlockInterval,
 		},
 		&BuilderConfig{
-			Staking:                  genesis.Default.Staking,
+			Staking:                  g.Staking,
 			PersistStakingPatchBlock: math.MaxUint64,
 			Revise: ReviseConfig{
-				VoteWeight:         genesis.Default.Staking.VoteWeightCalConsts,
-				CorrectCandsHeight: genesis.Default.OkhotskBlockHeight,
-				ReviseHeights:      []uint64{genesis.Default.HawaiiBlockHeight, genesis.Default.GreenlandBlockHeight},
+				VoteWeight:         g.Staking.VoteWeightCalConsts,
+				CorrectCandsHeight: g.OkhotskBlockHeight,
+				ReviseHeights:      []uint64{g.HawaiiBlockHeight, g.GreenlandBlockHeight},
 			},
 		},
 		nil,
@@ -146,7 +147,7 @@ func TestVoteReviser(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(_protocolID, v)
@@ -154,7 +155,7 @@ func TestVoteReviser(t *testing.T) {
 	_, ok := v.(*ViewData)
 	r.True(ok)
 
-	csm, err = NewCandidateStateManager(sm, false)
+	csm, err = NewCandidateStateManager(sm)
 	r.NoError(err)
 	oldCand := testCandidates[3].d.Clone()
 	oldCand.Name = "old name"
@@ -177,16 +178,16 @@ func TestVoteReviser(t *testing.T) {
 	vr := stk.voteReviser
 	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	r.False(vr.isCacheExist(genesis.Default.GreenlandBlockHeight))
-	r.False(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
-	r.NoError(vr.Revise(featureCtx, csm, genesis.Default.HawaiiBlockHeight))
-	r.True(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
+	r.False(vr.isCacheExist(g.GreenlandBlockHeight))
+	r.False(vr.isCacheExist(g.HawaiiBlockHeight))
+	r.NoError(vr.Revise(featureCtx, csm, g.HawaiiBlockHeight))
+	r.True(vr.isCacheExist(g.HawaiiBlockHeight))
 	// simulate first revise attempt failed -- call Revise() again
-	r.True(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
-	r.NoError(vr.Revise(featureCtx, csm, genesis.Default.HawaiiBlockHeight))
+	r.True(vr.isCacheExist(g.HawaiiBlockHeight))
+	r.NoError(vr.Revise(featureCtx, csm, g.HawaiiBlockHeight))
 	sm.EXPECT().Height().DoAndReturn(
 		func() (uint64, error) {
-			return genesis.Default.HawaiiBlockHeight, nil
+			return g.HawaiiBlockHeight, nil
 		},
 	).Times(1)
 	r.NoError(csm.Commit(ctx))
@@ -264,7 +265,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 		view, _, err := CreateBaseView(sm, true)
 		r.NoError(err)
 		sm.WriteView(_protocolID, view)
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		esm := NewEndorsementStateManager(sm)
 		// prepare endorsements
 		r.NoError(esm.Put(0, &Endorsement{ExpireHeight: endorsementNotExpireHeight}))
@@ -283,6 +284,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 		r.NoError(err)
 		buckets[3] = NewVoteBucket(identityset.Address(4), identityset.Address(5), unit.ConvertIotxToRau(1200000), 91, time.Now(), true)
 		buckets[3].Index, err = csm.putBucketAndIndex(buckets[3])
+		r.NoError(err)
 		buckets[3].Index, err = csm.putBucketAndIndex(buckets[3])
 		r.NoError(err)
 		r.NoError(csm.Upsert(&Candidate{Name: "cand1", SelfStakeBucketIdx: 0, SelfStake: unit.ConvertIotxToRau(1200000), Votes: CalculateVoteWeight(revise.cfg.VoteWeight, buckets[0], true), Owner: identityset.Address(1), Operator: identityset.Address(12), Reward: identityset.Address(12), Identifier: identityset.Address(1)}))
@@ -348,7 +350,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 				CreateTime:     time.Now(),
 				AutoStake:      true,
 			}
-			csm, err := NewCandidateStateManager(sm, true)
+			csm, err := NewCandidateStateManager(sm)
 			r.NoError(err)
 			bktIdx, err := csm.putBucketAndIndex(bkt)
 			r.NoError(err)
@@ -382,7 +384,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 				CreateTime:     time.Now(),
 				AutoStake:      true,
 			}
-			csm, err := NewCandidateStateManager(sm, true)
+			csm, err := NewCandidateStateManager(sm)
 			r.NoError(err)
 			bktIdx, err := csm.putBucketAndIndex(bkt)
 			r.NoError(err)
@@ -418,7 +420,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 				CreateTime:     time.Now(),
 				AutoStake:      true,
 			}
-			csm, err := NewCandidateStateManager(sm, true)
+			csm, err := NewCandidateStateManager(sm)
 			r.NoError(err)
 			bktIdx, err := csm.putBucketAndIndex(bkt)
 			r.NoError(err)
@@ -454,7 +456,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 				CreateTime:     time.Now(),
 				AutoStake:      true,
 			}
-			csm, err := NewCandidateStateManager(sm, true)
+			csm, err := NewCandidateStateManager(sm)
 			r.NoError(err)
 			bktIdx, err := csm.putBucketAndIndex(bkt)
 			r.NoError(err)
@@ -531,7 +533,7 @@ func TestVoteRevise_CorrectSelfStake(t *testing.T) {
 			AutoStake:        true,
 			UnstakeStartTime: time.Now(),
 		}
-		csm, err := NewCandidateStateManager(sm, true)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 		bktIdx, err := csm.putBucketAndIndex(bkt)
 		r.NoError(err)

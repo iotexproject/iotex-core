@@ -82,15 +82,16 @@ func initTestStateWithHeight(t *testing.T, ctrl *gomock.Controller, bucketCfgs [
 	)
 	require.NoError(err)
 
+	g := genesis.TestDefault()
 	// create protocol
 	p, err := NewProtocol(HelperCtx{
 		DepositGas:    depositGas,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  g.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
 	}, nil, nil, nil)
 	require.NoError(err)
@@ -155,7 +156,7 @@ func initTestStateWithHeight(t *testing.T, ctrl *gomock.Controller, bucketCfgs [
 		require.NoError(csm.putCandidate(cand))
 		candidates = append(candidates, cand)
 	}
-	cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+	cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 	ctx := genesis.WithGenesisContext(context.Background(), cfg)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
@@ -444,7 +445,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				GasLimit:       test.blkGasLimit,
 			})
 			ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
-			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+			cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 			cfg.TsunamiBlockHeight = 1
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -462,7 +463,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 
 			if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 				// check candidate
-				csm, err := NewCandidateStateManager(sm, false)
+				csm, err := NewCandidateStateManager(sm)
 				require.NoError(err)
 				for _, expectCand := range test.expectCandidates {
 					candidate := csm.GetByOwner(expectCand.owner)

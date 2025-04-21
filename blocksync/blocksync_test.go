@@ -195,7 +195,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NotNil(ap)
@@ -261,7 +261,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap1, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NotNil(ap1)
@@ -288,7 +288,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	registry2 := protocol.NewRegistry()
 	require.NoError(acc.Register(registry2))
 	require.NoError(rp.Register(registry2))
-	sf2, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry2))
+	sf2, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry2))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(cfg.Genesis, sf2, cfg.ActPool)
 	require.NotNil(ap2)
@@ -363,7 +363,7 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	)
 	require.NoError(rolldposProtocol.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap1, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NotNil(ap1)
@@ -389,7 +389,7 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	registry2 := protocol.NewRegistry()
 	require.NoError(acc.Register(registry2))
 	require.NoError(rolldposProtocol.Register(registry2))
-	sf2, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry2))
+	sf2, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry2))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(cfg.Genesis, sf2, cfg.ActPool)
 	require.NotNil(ap2)
@@ -457,7 +457,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NotNil(ap)
@@ -523,7 +523,7 @@ func newTestConfig() (testConfig, error) {
 
 	cfg := testConfig{
 		BlockSync: DefaultConfig,
-		Genesis:   genesis.Default,
+		Genesis:   genesis.TestDefault(),
 		Chain:     blockchain.DefaultConfig,
 		ActPool:   actpool.DefaultConfig,
 	}

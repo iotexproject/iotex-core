@@ -290,7 +290,7 @@ func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, block
 	cfg.chain.EnableArchiveMode = true
 	registry := protocol.NewRegistry()
 	factoryCfg := factory.GenerateConfig(cfg.chain, cfg.genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
@@ -342,9 +342,9 @@ func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, block
 	evm := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, func(u uint64) (time.Time, error) { return time.Time{}, nil })
 	p := poll.NewLifeLongDelegatesProtocol(cfg.genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
+		cfg.genesis.NumCandidateDelegates,
+		cfg.genesis.NumDelegates,
+		cfg.genesis.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.genesis.DardanellesBlockHeight, cfg.genesis.DardanellesNumSubEpochs),
 	)
 	r := rewarding.NewProtocol(cfg.genesis.Rewarding)
@@ -382,7 +382,7 @@ func setupActPool(g genesis.Genesis, sf factory.Factory, cfg actpool.Config) (ac
 func newConfig() testConfig {
 	cfg := testConfig{
 		api:       DefaultConfig,
-		genesis:   genesis.Default,
+		genesis:   genesis.TestDefault(),
 		actPoll:   actpool.DefaultConfig,
 		chain:     blockchain.DefaultConfig,
 		consensus: consensus.DefaultConfig,
@@ -455,7 +455,7 @@ func createServerV2(cfg testConfig, needActPool bool) (*ServerV2, blockchain.Blo
 	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 		return nil
 	})}
-	svr, err := NewServerV2(cfg.api, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, func(u uint64) (time.Time, error) { return time.Time{}, nil }, opts...)
+	svr, err := NewServerV2(cfg.api, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, nil, opts...)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, "", err
 	}

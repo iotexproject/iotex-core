@@ -32,17 +32,18 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 	v, _, err := CreateBaseView(sm, false)
 	require.NoError(err)
 	sm.WriteView(_protocolID, v)
-	csm, err := NewCandidateStateManager(sm, false)
+	csm, err := NewCandidateStateManager(sm)
 	require.NoError(err)
+	g := genesis.TestDefault()
 	// create protocol
 	p, err := NewProtocol(HelperCtx{
 		DepositGas:    depositGas,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  g.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
 	}, nil, nil, nil)
 	require.NoError(err)
@@ -74,7 +75,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 		require.NoError(csm.Upsert(cand))
 	}
 	require.NoError(csm.Commit(context.Background()))
-	cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+	cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 	ctx := genesis.WithGenesisContext(context.Background(), cfg)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	vv, err := p.Start(ctx, sm)
@@ -188,7 +189,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 			identityset.Address(1),
 		},
 	}
-	csm, err = NewCandidateStateManager(sm, false)
+	csm, err = NewCandidateStateManager(sm)
 	require.NoError(err)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -220,7 +221,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 				BlockTimeStamp: timeBlock,
 				GasLimit:       test.blkGasLimit,
 			})
-			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+			cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 			cfg.TsunamiBlockHeight = 1
 			cfg.UpernavikBlockHeight = 1 // enable candidate owner transfer feature
 			ctx = genesis.WithGenesisContext(ctx, cfg)

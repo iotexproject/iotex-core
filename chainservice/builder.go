@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -48,7 +47,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/nodeinfo"
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/v2/state/factory"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
@@ -100,13 +98,6 @@ func (builder *Builder) SetBlockDAO(bd blockdao.BlockDAO) *Builder {
 func (builder *Builder) SetP2PAgent(agent p2p.Agent) *Builder {
 	builder.createInstance()
 	builder.cs.p2pAgent = agent
-	return builder
-}
-
-func (builder *Builder) SetAccountRateLimit(r int) *Builder {
-	builder.createInstance()
-	builder.cs.accRateLimitCfg = r
-	builder.cs.rateLimiters = cache.NewThreadSafeLruCache(10000)
 	return builder
 }
 
@@ -173,37 +164,22 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 	factoryCfg := factory.GenerateConfig(builder.cfg.Chain, builder.cfg.Genesis)
 	factoryDBCfg := builder.cfg.DB
 	factoryDBCfg.DBType = builder.cfg.Chain.FactoryDBType
-	if builder.cfg.Chain.EnableTrielessStateDB {
-		if forTest {
-			return factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(builder.cs.registry))
-		}
-		opts := []factory.StateDBOption{
-			factory.RegistryStateDBOption(builder.cs.registry),
-			factory.DefaultPatchOption(),
-		}
-		if builder.cfg.Chain.EnableStateDBCaching {
-			dao, err = db.CreateKVStoreWithCache(factoryDBCfg, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
-		} else {
-			dao, err = db.CreateKVStore(factoryDBCfg, builder.cfg.Chain.TrieDBPath)
-		}
-		if err != nil {
-			return nil, err
-		}
-		return factory.NewStateDB(factoryCfg, dao, opts...)
-	}
 	if forTest {
-		return factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(builder.cs.registry))
+		return factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(builder.cs.registry))
 	}
-	dao, err = db.CreateKVStore(factoryDBCfg, builder.cfg.Chain.TrieDBPath)
+	opts := []factory.StateDBOption{
+		factory.RegistryStateDBOption(builder.cs.registry),
+		factory.DefaultPatchOption(),
+	}
+	if builder.cfg.Chain.EnableStateDBCaching {
+		dao, err = db.CreateKVStoreWithCache(factoryDBCfg, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
+	} else {
+		dao, err = db.CreateKVStore(factoryDBCfg, builder.cfg.Chain.TrieDBPath)
+	}
 	if err != nil {
 		return nil, err
 	}
-	return factory.NewFactory(
-		factoryCfg,
-		dao,
-		factory.RegistryOption(builder.cs.registry),
-		factory.DefaultTriePatchOption(),
-	)
+	return factory.NewStateDB(factoryCfg, dao, opts...)
 }
 
 func (builder *Builder) buildElectionCommittee() error {
@@ -305,6 +281,9 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if builder.cs.contractStakingIndexerV2 != nil {
 		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV2)
 	}
+	if builder.cs.contractStakingIndexerV3 != nil {
+		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV3)
+	}
 	if len(synchronizedIndexers) > 1 {
 		indexers = append(indexers, blockindex.NewSyncIndexers(synchronizedIndexers...))
 	} else {
@@ -368,6 +347,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	if forTest {
 		builder.cs.contractStakingIndexer = nil
 		builder.cs.contractStakingIndexerV2 = nil
+		builder.cs.contractStakingIndexerV3 = nil
 		return nil
 	}
 	dbConfig := builder.cfg.DB
@@ -392,15 +372,31 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		builder.cs.contractStakingIndexer = indexer
 	}
 	// build contract staking indexer v2
+	blockInterval := builder.cfg.DardanellesUpgrade.BlockInterval
 	if builder.cs.contractStakingIndexerV2 == nil && len(builder.cfg.Genesis.SystemStakingContractV2Address) > 0 {
 		indexer := stakingindex.NewIndexer(
 			kvstore,
 			builder.cfg.Genesis.SystemStakingContractV2Address,
-			builder.cfg.Genesis.SystemStakingContractV2Height, builder.cfg.DardanellesUpgrade.BlockInterval,
+			builder.cfg.Genesis.SystemStakingContractV2Height,
+			func(start uint64, end uint64) time.Duration {
+				return time.Duration(end-start) * blockInterval
+			},
+			stakingindex.WithMuteHeight(builder.cfg.Genesis.ToBeEnabledBlockHeight),
 		)
 		builder.cs.contractStakingIndexerV2 = indexer
 	}
-
+	// build contract staking indexer v3
+	if builder.cs.contractStakingIndexerV3 == nil && len(builder.cfg.Genesis.SystemStakingContractV3Address) > 0 {
+		indexer := stakingindex.NewIndexer(
+			kvstore,
+			builder.cfg.Genesis.SystemStakingContractV3Address,
+			builder.cfg.Genesis.SystemStakingContractV3Height, func(start uint64, end uint64) time.Duration {
+				return time.Duration(end-start) * blockInterval
+			},
+			stakingindex.EnableTimestamped(),
+		)
+		builder.cs.contractStakingIndexerV3 = indexer
+	}
 	return nil
 }
 
@@ -513,12 +509,12 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 	} else {
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(builder.cs.factory))
 	}
-
 	var mintOpts []factory.MintOption
 	if builder.cfg.Consensus.Scheme == config.RollDPoSScheme {
 		mintOpts = append(mintOpts, factory.WithTimeoutOption(builder.cfg.Chain.MintTimeout))
 	}
-	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool, mintOpts...), chainOpts...)
+	builder.cs.minter = factory.NewMinter(builder.cs.factory, builder.cs.actpool, mintOpts...)
+	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, builder.cs.minter, chainOpts...)
 }
 
 func (builder *Builder) buildNodeInfoManager() error {
@@ -528,24 +524,29 @@ func (builder *Builder) buildNodeInfoManager() error {
 		return errors.New("cannot find staking protocol")
 	}
 	chain := builder.cs.chain
-	dm := nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.Chain.ProducerPrivateKey(), func() []string {
-		ctx := protocol.WithFeatureCtx(
-			protocol.WithBlockCtx(
-				genesis.WithGenesisContext(context.Background(), chain.Genesis()),
-				protocol.BlockCtx{BlockHeight: chain.TipHeight()},
-			),
-		)
-		candidates, err := stk.ActiveCandidates(ctx, cs.factory, 0)
-		if err != nil {
-			log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
-			return nil
-		}
-		whiteList := make([]string, len(candidates))
-		for i := range whiteList {
-			whiteList[i] = candidates[i].Address
-		}
-		return whiteList
-	})
+	var dm *nodeinfo.InfoManager
+	if builder.cfg.System.Active {
+		dm = nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, func() []string {
+			ctx := protocol.WithFeatureCtx(
+				protocol.WithBlockCtx(
+					genesis.WithGenesisContext(context.Background(), chain.Genesis()),
+					protocol.BlockCtx{BlockHeight: chain.TipHeight()},
+				),
+			)
+			candidates, err := stk.ActiveCandidates(ctx, cs.factory, 0)
+			if err != nil {
+				log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
+				return nil
+			}
+			whiteList := make([]string, len(candidates))
+			for i := range whiteList {
+				whiteList[i] = candidates[i].Address
+			}
+			return whiteList
+		}, builder.cfg.Chain.ProducerPrivateKeys()...)
+	} else {
+		dm = nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, nil)
+	}
 	builder.cs.nodeInfoManager = dm
 	builder.cs.lifecycle.Add(dm)
 	return nil
@@ -667,6 +668,10 @@ func (builder *Builder) registerStakingProtocol() error {
 		return nil
 	}
 	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
+	opts := []staking.Option{}
+	if builder.cs.contractStakingIndexerV3 != nil {
+		opts = append(opts, staking.WithContractStakingIndexerV3(builder.cs.contractStakingIndexerV3))
+	}
 	stakingProtocol, err := staking.NewProtocol(
 		staking.HelperCtx{
 			DepositGas:    rewarding.DepositGas,
@@ -688,6 +693,7 @@ func (builder *Builder) registerStakingProtocol() error {
 		builder.cs.candBucketsIndexer,
 		builder.cs.contractStakingIndexer,
 		builder.cs.contractStakingIndexerV2,
+		opts...,
 	)
 	if err != nil {
 		return err
@@ -706,7 +712,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGas, builder.cs.blockTimeCalculator.CalculateBlockTime).Register(builder.cs.registry)
+	return execution.NewProtocol(nil, rewarding.DepositGas, nil).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
@@ -722,9 +728,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		return err
 	}
 	factory := builder.cs.factory
-	dao := builder.cs.blockdao
 	chain := builder.cs.chain
-	getBlockTime := builder.cs.blockTimeCalculator.CalculateBlockTime
 	pollProtocol, err := poll.NewProtocol(
 		builder.cfg.Consensus.Scheme,
 		builder.cfg.Chain,
@@ -742,10 +746,10 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 			if err != nil {
 				return nil, err
 			}
-
+			bcCtx := protocol.MustGetBlockchainCtx(ctx)
 			ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-				GetBlockHash:   dao.GetBlockHash,
-				GetBlockTime:   getBlockTime,
+				GetBlockHash:   bcCtx.GetBlockHash,
+				GetBlockTime:   bcCtx.GetBlockTime,
 				DepositGasFunc: rewarding.DepositGas,
 			})
 			ws, err := factory.WorkingSet(ctx)
@@ -760,39 +764,17 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		candidatesutil.UnproductiveDelegateFromDB,
 		builder.cs.electionCommittee,
 		staking.FindProtocol(builder.cs.registry),
-		func(height uint64) (time.Time, error) {
-			header, err := chain.BlockHeaderByHeight(height)
-			if err != nil {
-				return time.Now(), errors.Wrapf(
-					err, "error when getting the block at height: %d",
-					height,
-				)
-			}
-			return header.Timestamp(), nil
-		},
+		nil,
 		func(start, end uint64) (map[string]uint64, error) {
 			return blockchain.Productivity(chain, start, end)
 		},
-		dao.GetBlockHash,
-		getBlockTime,
+		nil,
+		nil,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate poll protocol")
 	}
 	return pollProtocol.Register(builder.cs.registry)
-}
-
-func (builder *Builder) buildBlockTimeCalculator() (err error) {
-	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
-	dao := builder.cs.BlockDAO()
-	builder.cs.blockTimeCalculator, err = blockutil.NewBlockTimeCalculator(consensusCfg.BlockInterval, builder.cs.Blockchain().TipHeight, func(height uint64) (time.Time, error) {
-		blk, err := dao.GetBlockByHeight(height)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return blk.Timestamp(), nil
-	})
-	return err
 }
 
 func (builder *Builder) buildConsensusComponent() error {
@@ -804,6 +786,7 @@ func (builder *Builder) buildConsensusComponent() error {
 	}
 	if rDPoSProtocol := rolldpos.FindProtocol(builder.cs.registry); rDPoSProtocol != nil {
 		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
+		copts = append(copts, consensus.WithBlockBuilderFactory(builder.cs.minter))
 	}
 	if pollProtocol := poll.FindProtocol(builder.cs.registry); pollProtocol != nil {
 		copts = append(copts, consensus.WithPollProtocol(pollProtocol))
@@ -853,9 +836,6 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildBlockchain(forSubChain, forTest); err != nil {
-		return nil, err
-	}
-	if err := builder.buildBlockTimeCalculator(); err != nil {
 		return nil, err
 	}
 	// staking protocol need to be put in registry before poll protocol when enabling

@@ -11,8 +11,11 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/endorsement"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 // ErrInsufficientEndorsements represents the error that not enough endorsements
@@ -31,11 +34,13 @@ type roundCtx struct {
 	epochNum             uint64
 	epochStartHeight     uint64
 	nextEpochStartHeight uint64
+	numOfDelegates       uint64
 	delegates            []string
 	proposers            []string
 
 	height             uint64
 	roundNum           uint32
+	prevHash           hash.Hash256
 	proposer           string
 	roundStartTime     time.Time
 	nextRoundStartTime time.Time
@@ -52,6 +57,7 @@ func (ctx *roundCtx) Log(l *zap.Logger) *zap.Logger {
 		zap.Uint64("epoch", ctx.epochNum),
 		zap.Uint32("round", ctx.roundNum),
 		zap.String("proposer", ctx.proposer),
+		log.Hex("prevHash", ctx.prevHash[:]),
 	)
 }
 
@@ -85,6 +91,10 @@ func (ctx *roundCtx) Height() uint64 {
 
 func (ctx *roundCtx) Number() uint32 {
 	return ctx.roundNum
+}
+
+func (ctx *roundCtx) PrevHash() hash.Hash256 {
+	return ctx.prevHash
 }
 
 func (ctx *roundCtx) Proposer() string {
@@ -125,13 +135,9 @@ func (ctx *roundCtx) IsUnlocked() bool {
 	return ctx.status == _unlocked
 }
 
-func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {
+func (ctx *roundCtx) ReadyToCommit(addrs []string) []*EndorsedConsensusMessage {
 	c := ctx.eManager.CollectionByBlockHash(ctx.blockInLock)
 	if c == nil {
-		return nil
-	}
-	en := c.Endorsement(addr, COMMIT)
-	if en == nil {
 		return nil
 	}
 	blk := c.Block()
@@ -139,11 +145,20 @@ func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {
 		return nil
 	}
 	blkHash := blk.HashBlock()
-	return NewEndorsedConsensusMessage(
-		blk.Height(),
-		NewConsensusVote(blkHash[:], COMMIT),
-		en,
-	)
+	msgs := make([]*EndorsedConsensusMessage, 0)
+	for _, addr := range addrs {
+		en := c.Endorsement(addr, COMMIT)
+		if en == nil {
+			continue
+		}
+		msgs = append(msgs, NewEndorsedConsensusMessage(
+			blk.Height(),
+			NewConsensusVote(blkHash[:], COMMIT),
+			en,
+		))
+	}
+
+	return msgs
 }
 
 func (ctx *roundCtx) HashOfBlockInLock() []byte {
@@ -260,7 +275,7 @@ func (ctx *roundCtx) endorsedByMajority(blockHash []byte, topics []ConsensusVote
 }
 
 func (ctx *roundCtx) isMajority(endorsements []*endorsement.Endorsement) bool {
-	return 3*len(endorsements) > 2*len(ctx.delegates)
+	return 3*len(endorsements) > 2*int(ctx.numOfDelegates)
 }
 
 func (ctx *roundCtx) block(blkHash []byte) *block.Block {

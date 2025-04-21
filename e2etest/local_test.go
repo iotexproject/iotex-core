@@ -64,6 +64,7 @@ func TestLocalCommit(t *testing.T) {
 	testTriePath := cfg.Chain.TrieDBPath
 	testDBPath := cfg.Chain.ChainDBPath
 	indexDBPath := cfg.Chain.IndexDBPath
+	cfg.ActPool.Store = nil
 
 	// create server
 	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
@@ -121,6 +122,9 @@ func TestLocalCommit(t *testing.T) {
 		cfg.Network,
 		cfg.Chain.ID,
 		cfg.Genesis.Hash(),
+		func(proto.Message) (bool, error) {
+			return false, nil
+		},
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 		},
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
@@ -328,6 +332,9 @@ func TestLocalSync(t *testing.T) {
 		ReconnectInterval: 150 * time.Second},
 		cfg.Chain.ID,
 		hash.ZeroHash256,
+		func(proto.Message) (bool, error) {
+			return false, nil
+		},
 		func(_ context.Context, _ uint32, _ string, msg proto.Message) {},
 		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {})
 	require.NoError(bootnode.Start(ctx))
@@ -448,6 +455,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.Chain.BlobStoreDBPath = testBlobIndexPath
 	cfg.Chain.ContractStakingIndexDBPath = testContractStakeIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.ActPool.Store = nil
+	cfg.Genesis = genesis.TestDefault()
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
@@ -549,7 +558,9 @@ func TestStartExistingBlockchain(t *testing.T) {
 }
 
 func newTestConfig() (config.Config, error) {
-	cfg := deepcopy.Copy(config.Default).(config.Config)
+	cfg := config.Default
+	cfg = deepcopy.Copy(cfg).(config.Config)
+	cfg.Genesis = genesis.TestDefault()
 	cfg.Chain.TrieDBPath = _triePath
 	cfg.Chain.ChainDBPath = _dBPath
 	cfg.Chain.BlobStoreDBPath = _blobPath

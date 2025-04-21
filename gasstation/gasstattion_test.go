@@ -62,7 +62,7 @@ func TestNewGasStation(t *testing.T) {
 
 func newTestConfig() testConfig {
 	cfg := testConfig{
-		Genesis:    genesis.Default,
+		Genesis:    genesis.TestDefault(),
 		Chain:      blockchain.DefaultConfig,
 		ActPool:    actpool.DefaultConfig,
 		GasStation: DefaultConfig,
@@ -82,7 +82,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
@@ -153,7 +153,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
@@ -252,7 +252,7 @@ func TestSuggestGasPrice_GasConsumed(t *testing.T) {
 			dao := mock_blockdao.NewMockBlockDAO(ctrl)
 			gs := NewGasStation(bc, dao, DefaultConfig)
 			bc.EXPECT().TipHeight().Return(uint64(len(blocks) - 1)).Times(1)
-			bc.EXPECT().Genesis().Return(genesis.Default).Times(1)
+			bc.EXPECT().Genesis().Return(genesis.TestDefault()).Times(1)
 			dao.EXPECT().GetBlockByHeight(gomock.Any()).DoAndReturn(
 				func(height uint64) (*block.Block, error) {
 					return blocks[height], nil

@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/trie"
@@ -90,17 +89,11 @@ func calculateBlobGasUsed(receipts []*action.Receipt) uint64 {
 	return blobGas
 }
 
-// generateWorkingSetCacheKey generates hash key for workingset cache by hashing blockheader core and producer pubkey
-func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) hash.Hash256 {
-	sum := append(blkHeader.SerializeCore(), []byte(producerAddr)...)
-	return hash.Hash256b(sum)
-}
-
 func protocolPreCommit(ctx context.Context, sr protocol.StateManager) error {
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
 			post, ok := p.(protocol.PreCommitter)
-			if ok && sr.ProtocolDirty(p.Name()) {
+			if ok {
 				if err := post.PreCommit(ctx, sr); err != nil {
 					return err
 				}
@@ -114,7 +107,7 @@ func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
 			post, ok := p.(protocol.Committer)
-			if ok && sr.ProtocolDirty(p.Name()) {
+			if ok {
 				if err := post.Commit(ctx, sr); err != nil {
 					return err
 				}
@@ -122,56 +115,6 @@ func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 		}
 	}
 	return nil
-}
-
-func readStateFromTLT(tlt trie.TwoLayerTrie, ns string, key []byte) ([]byte, error) {
-	ltKey := toLegacyKey(key)
-	data, err := tlt.Get(namespaceKey(ns), ltKey)
-	if err != nil {
-		if errors.Cause(err) == trie.ErrNotExist {
-			return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
-		}
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func readStatesFromTLT(tlt trie.TwoLayerTrie, ns string, keys [][]byte) ([][]byte, [][]byte, error) {
-	values := [][]byte{}
-	ks := [][]byte{}
-	if keys == nil {
-		iter, err := mptrie.NewLayerTwoLeafIterator(tlt, namespaceKey(ns), legacyKeyLen())
-		if err != nil {
-			return nil, nil, err
-		}
-		for {
-			key, value, err := iter.Next()
-			if err == trie.ErrEndOfIterator {
-				break
-			}
-			if err != nil {
-				return nil, nil, err
-			}
-			values = append(values, value)
-			ks = append(ks, key)
-		}
-	} else {
-		for _, key := range keys {
-			value, err := readStateFromTLT(tlt, ns, key)
-			switch errors.Cause(err) {
-			case state.ErrStateNotExist:
-				values = append(values, nil)
-				ks = append(ks, key)
-			case nil:
-				values = append(values, value)
-				ks = append(ks, key)
-			default:
-				return nil, nil, err
-			}
-		}
-	}
-	return ks, values, nil
 }
 
 func readStates(kvStore db.KVStore, namespace string, keys [][]byte) ([][]byte, [][]byte, error) {

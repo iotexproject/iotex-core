@@ -253,23 +253,6 @@ func TestValidateRollDPoS(t *testing.T) {
 	)
 }
 
-func TestValidateArchiveMode(t *testing.T) {
-	cfg := Default
-	cfg.Chain.EnableArchiveMode = true
-	cfg.Chain.EnableTrielessStateDB = true
-	require.Error(t, ErrInvalidCfg, errors.Cause(ValidateArchiveMode(cfg)))
-	require.EqualError(t, ValidateArchiveMode(cfg), "Archive mode is incompatible with trieless state DB: invalid config value")
-	cfg.Chain.EnableArchiveMode = false
-	cfg.Chain.EnableTrielessStateDB = true
-	require.NoError(t, errors.Cause(ValidateArchiveMode(cfg)))
-	cfg.Chain.EnableArchiveMode = true
-	cfg.Chain.EnableTrielessStateDB = false
-	require.NoError(t, errors.Cause(ValidateArchiveMode(cfg)))
-	cfg.Chain.EnableArchiveMode = false
-	cfg.Chain.EnableTrielessStateDB = false
-	require.NoError(t, errors.Cause(ValidateArchiveMode(cfg)))
-}
-
 func TestValidateActPool(t *testing.T) {
 	cfg := Default
 	cfg.ActPool.MaxNumActsPerAcct = 0
@@ -396,6 +379,9 @@ func TestValidateForkHeights(t *testing.T) {
 			"Upernavik", ErrInvalidCfg, "Upernavik is heigher than Vanuatu",
 		},
 		{
+			"Vanuatu", ErrInvalidCfg, "Vanuatu is heigher than Wake",
+		},
+		{
 			"", nil, "",
 		},
 	}
@@ -459,6 +445,8 @@ func newTestCfg(fork string) Config {
 		cfg.Genesis.TsunamiBlockHeight = cfg.Genesis.UpernavikBlockHeight + 1
 	case "Upernavik":
 		cfg.Genesis.UpernavikBlockHeight = cfg.Genesis.VanuatuBlockHeight + 1
+	case "Vanuatu":
+		cfg.Genesis.VanuatuBlockHeight = cfg.Genesis.WakeBlockHeight + 1
 	}
 	return cfg
 }

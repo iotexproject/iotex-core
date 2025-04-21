@@ -11,11 +11,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/zap"
-	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
@@ -39,7 +36,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/blockutil"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/v2/state/factory"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
@@ -77,13 +73,12 @@ type ChainService struct {
 	candBucketsIndexer       *staking.CandidatesBucketsIndexer
 	contractStakingIndexer   *contractstaking.Indexer
 	contractStakingIndexerV2 stakingindex.StakingIndexer
+	contractStakingIndexerV3 stakingindex.StakingIndexer
 	registry                 *protocol.Registry
 	nodeInfoManager          *nodeinfo.InfoManager
 	apiStats                 *nodestats.APILocalStats
-	blockTimeCalculator      *blockutil.BlockTimeCalculator
 	actionsync               *actsync.ActionSync
-	rateLimiters             cache.LRUCache
-	accRateLimitCfg          int
+	minter                   *factory.Minter
 }
 
 // Start starts the server
@@ -106,17 +101,6 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 	act, err := (&action.Deserializer{}).SetEvmNetworkID(cs.chain.EvmNetworkID()).ActionToSealedEnvelope(actPb)
 	if err != nil {
 		return err
-	}
-	if cs.accRateLimitCfg > 0 {
-		sender := ""
-		if act.SenderAddress() != nil {
-			sender = act.SenderAddress().String()
-		}
-		limiter := cs.getRateLimiter(sender)
-		if !limiter.Allow() {
-			log.L().Debug("rate limit exceeded", zap.String("sender", act.SenderAddress().String()))
-			return nil
-		}
 	}
 	ctx = protocol.WithRegistry(ctx, cs.registry)
 	err = cs.actpool.Add(ctx, act)
@@ -258,7 +242,7 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, archive bool) (*api.ServerV
 		cs.bfIndexer,
 		cs.actpool,
 		cs.registry,
-		cs.blockTimeCalculator.CalculateBlockTime,
+		nil,
 		apiServerOptions...,
 	)
 	if err != nil {
@@ -266,13 +250,4 @@ func (cs *ChainService) NewAPIServer(cfg api.Config, archive bool) (*api.ServerV
 	}
 
 	return svr, nil
-}
-
-func (cs *ChainService) getRateLimiter(sender string) *rate.Limiter {
-	limiter, exists := cs.rateLimiters.Get(sender)
-	if !exists {
-		limiter = rate.NewLimiter(rate.Limit(cs.accRateLimitCfg), 2*cs.accRateLimitCfg) // account limit request per second with a burst of *2
-		cs.rateLimiters.Add(sender, limiter)
-	}
-	return limiter.(*rate.Limiter)
 }

@@ -87,16 +87,17 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		protocol.KeyOption(TotalBucketKey),
 	)
 	require.NoError(err)
+	g := genesis.TestDefault()
 
 	// create protocol
 	p, err := NewProtocol(HelperCtx{
 		DepositGas:    depositGas,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  genesis.TestDefault().Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+			VoteWeight: genesis.TestDefault().Staking.VoteWeightCalConsts,
 		},
 	}, nil, nil, nil)
 	require.NoError(err)
@@ -106,7 +107,6 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(csm.putCandidate(candidate))
 	candidateName := candidate.Name
 	candidateAddr := candidate.Owner
-	g := genesis.Default
 	g.VanuatuBlockHeight = 1
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
@@ -262,7 +262,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			candidate, _, err := csr.getCandidate(candidateAddr)
 			require.NoError(err)
 			require.LessOrEqual(test.amount, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidateAddr)
 			require.NotNil(candidate)
@@ -605,7 +605,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			GasLimit:       test.blkGasLimit,
 		})
 		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -657,7 +657,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 				require.Equal(test.ownerAddrStr, candidate.Owner.String())
 			}
 			require.Equal(test.votesStr, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -923,7 +923,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			GasLimit:       test.blkGasLimit,
 		})
 		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
-		ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+		ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		_, err = p.Handle(ctx, elp, sm)
 		require.NoError(err)
@@ -972,7 +972,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 				require.Equal(test.ownerAddrStr, candidate.Owner.String())
 			}
 			require.Equal(test.afterUpdate, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -1182,7 +1182,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		})
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			sc, ok := csm.(*candSM)
 			require.True(ok)
@@ -1220,7 +1220,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			candidate, _, err = csr.getCandidate(candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterUnstake, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -1273,7 +1273,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		{restake, false, iotextypes.ReceiptStatus_ErrNotEnoughBalance},
 	}
 	for i, v := range unstakedBucketTests {
-		greenland := genesis.Default
+		greenland := genesis.TestDefault()
 		if v.greenland {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			greenland.GreenlandBlockHeight = blkCtx.BlockHeight
@@ -1302,7 +1302,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		}
 	}
 	t.Run("CleanSelfStake", func(t *testing.T) {
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		runtest := func(t *testing.T, height uint64, fn func(vb *VoteBucket, cand *Candidate, sm protocol.StateManager)) {
 			ctrl := gomock.NewController(t)
 			sm, p, vbs, cands := initTestState(t, ctrl, []*bucketConfig{
@@ -1334,7 +1334,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		}
 		t.Run("NotCleanAtUpernavik", func(t *testing.T) {
 			runtest(t, g.UpernavikBlockHeight, func(vb *VoteBucket, cand *Candidate, sm protocol.StateManager) {
-				csm, err := NewCandidateStateManager(sm, false)
+				csm, err := NewCandidateStateManager(sm)
 				require.NoError(err)
 				newCand := csm.GetByIdentifier(cand.GetIdentifier())
 				selfStakeVotes := CalculateVoteWeight(p.config.VoteWeightCalConsts, vb, true)
@@ -1346,7 +1346,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		})
 		t.Run("CleanAtVanuatu", func(t *testing.T) {
 			runtest(t, g.VanuatuBlockHeight, func(vb *VoteBucket, cand *Candidate, sm protocol.StateManager) {
-				csm, err := NewCandidateStateManager(sm, false)
+				csm, err := NewCandidateStateManager(sm)
 				require.NoError(err)
 				newCand := csm.GetByIdentifier(cand.GetIdentifier())
 				require.Equal("0", newCand.Votes.String())
@@ -1712,7 +1712,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			"test2",
 			10000,
 			1,
-			genesis.Default.HawaiiBlockHeight,
+			genesis.TestDefault().HawaiiBlockHeight,
 			time.Now(),
 			10000,
 			false,
@@ -1751,7 +1751,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			sc, ok := csm.(*candSM)
 			require.True(ok)
@@ -1799,7 +1799,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			require.Equal(candidate.Reward.String(), candidate.Reward.String())
 			require.Equal(candidate.Owner.String(), candidate.Owner.String())
 			require.Equal(test.afterChangeSelfStake, candidate.SelfStake.String())
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -1837,7 +1837,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -1859,7 +1859,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 		r.NoError(err)
 		r.EqualValues(iotextypes.ReceiptStatus_Success, recipt.Status)
 		// test previous candidate self stake
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 		prevCand := csm.GetByOwner(identityset.Address(1))
 		r.Equal("0", prevCand.SelfStake.String())
@@ -1885,7 +1885,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -1907,7 +1907,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 		r.NoError(err)
 		r.EqualValues(iotextypes.ReceiptStatus_Success, recipt.Status)
 		// test previous candidate self stake
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 		prevCand := csm.GetByOwner(buckets[2].Candidate)
 		r.Equal("120000000000000000000", prevCand.SelfStake.String())
@@ -1933,7 +1933,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -1955,7 +1955,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 		r.NoError(err)
 		r.EqualValues(iotextypes.ReceiptStatus_Success, recipt.Status)
 		// test previous candidate self stake
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 		prevCand := csm.GetByOwner(buckets[2].Candidate)
 		r.Equal("120000000000000000000", prevCand.SelfStake.String())
@@ -2070,7 +2070,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			0,
 			10000,
 			2,
-			genesis.Default.HawaiiBlockHeight,
+			genesis.TestDefault().HawaiiBlockHeight,
 			time.Now(),
 			10000,
 			identityset.Address(2),
@@ -2143,7 +2143,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			candidate, _, err := csr.getCandidate(candi.Owner)
 			require.NoError(err)
 			require.Equal(test.afterTransfer, candidate.Votes.Uint64())
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candi.Owner)
 			require.NotNil(candidate)
@@ -2376,7 +2376,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 			candidate, _, err := csr.getCandidate(cand1.GetIdentifier())
 			require.NoError(err)
 			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(cand1.GetIdentifier())
 			require.NotNil(candidate)
@@ -2607,7 +2607,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 		})
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			sc, ok := csm.(*candSM)
 			require.True(ok)
@@ -2645,7 +2645,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			candidate, _, err = csr.getCandidate(candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterRestake, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -2815,7 +2815,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 		})
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			sc, ok := csm.(*candSM)
 			require.True(ok)
@@ -2863,7 +2863,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			candidate, _, err = csr.getCandidate(candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterDeposit, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm, false)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -2887,7 +2887,7 @@ func TestProtocol_FetchBucketAndValidate(t *testing.T) {
 	sm, p, _, _ := initAll(t, ctrl)
 
 	t.Run("bucket not exist", func(t *testing.T) {
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		require.NoError(err)
 		patches := gomonkey.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
 			return nil, state.ErrStateNotExist
@@ -2897,7 +2897,7 @@ func TestProtocol_FetchBucketAndValidate(t *testing.T) {
 		require.ErrorContains(err, "failed to fetch bucket")
 	})
 	t.Run("validate owner", func(t *testing.T) {
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		require.NoError(err)
 		patches := gomonkey.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
 			return &VoteBucket{
@@ -2911,7 +2911,7 @@ func TestProtocol_FetchBucketAndValidate(t *testing.T) {
 		require.NoError(err)
 	})
 	t.Run("validate selfstake", func(t *testing.T) {
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		require.NoError(err)
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
@@ -2935,7 +2935,7 @@ func TestProtocol_FetchBucketAndValidate(t *testing.T) {
 		require.ErrorContains(err, "unknown error")
 	})
 	t.Run("validate owner and selfstake", func(t *testing.T) {
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		require.NoError(err)
 		patches := gomonkey.NewPatches()
 		patches.ApplyPrivateMethod(csm, "getBucket", func(index uint64) (*VoteBucket, error) {
@@ -2965,7 +2965,7 @@ func TestChangeCandidate(t *testing.T) {
 		}
 		sm, p, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
 		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
-		// csm, err := NewCandidateStateManager(sm, false)
+		// csm, err := NewCandidateStateManager(sm)
 		nonce := uint64(1)
 		act := action.NewChangeCandidate("test1", buckets[0].Index, nil)
 		intrinsic, err := act.IntrinsicGas()
@@ -2973,7 +2973,7 @@ func TestChangeCandidate(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3015,7 +3015,7 @@ func TestChangeCandidate(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3057,7 +3057,7 @@ func TestChangeCandidate(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3095,7 +3095,7 @@ func TestChangeCandidate(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3138,7 +3138,7 @@ func TestUnstake(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3179,7 +3179,7 @@ func TestUnstake(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3220,7 +3220,7 @@ func TestUnstake(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3258,7 +3258,7 @@ func TestUnstake(t *testing.T) {
 		elp := builder.SetNonce(nonce).SetGasLimit(10000).
 			SetGasPrice(testGasPrice).SetAction(act).Build()
 		ctx := context.Background()
-		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		g.TsunamiBlockHeight = 0
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
@@ -3305,7 +3305,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{
 		Height: blkHeight - 1,
 	}})
-	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+	ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
@@ -3329,16 +3329,17 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 		protocol.KeyOption(TotalBucketKey),
 	)
 	require.NoError(err)
+	g := genesis.TestDefault()
 
 	// create protocol
 	p, err := NewProtocol(HelperCtx{
 		DepositGas:    depositGas,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  genesis.Default.Staking,
+		Staking:                  g.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
 		Revise: ReviseConfig{
-			VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
 	}, nil, nil, nil)
 	require.NoError(err)
@@ -3350,7 +3351,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	candidate2 := testCandidates[1].d.Clone()
 	candidate2.Votes = big.NewInt(0)
 	require.NoError(csm.putCandidate(candidate2))
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)

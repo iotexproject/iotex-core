@@ -344,7 +344,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				},
 				iotextypes.ReceiptStatus_Success,
 				func(t *testing.T) {
-					csm, err := NewCandidateStateManager(sm, false)
+					csm, err := NewCandidateStateManager(sm)
 					require.NoError(err)
 					esm := NewEndorsementStateManager(csm.SM())
 					bucket, err := csm.getBucket(1)
@@ -382,7 +382,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				},
 				iotextypes.ReceiptStatus_Success,
 				func(t *testing.T) {
-					csm, err := NewCandidateStateManager(sm, false)
+					csm, err := NewCandidateStateManager(sm)
 					require.NoError(err)
 					esm := NewEndorsementStateManager(csm.SM())
 					bucket, err := csm.getBucket(1)
@@ -522,7 +522,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				GasLimit:       test.blkGasLimit,
 			})
 			ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
-			cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+			cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 			cfg.TsunamiBlockHeight = 1
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -561,7 +561,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 
 			if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 				// check candidate
-				csm, err := NewCandidateStateManager(sm, false)
+				csm, err := NewCandidateStateManager(sm)
 				require.NoError(err)
 				for _, expectCand := range test.expectCandidates {
 					candidate := csm.GetByOwner(expectCand.owner)
@@ -673,7 +673,7 @@ func TestProtocol_HandleTransferEndorsement(t *testing.T) {
 			GasLimit:       test.blkGasLimit,
 		})
 		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
-		cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		cfg.TsunamiBlockHeight = 1
 		ctx = genesis.WithGenesisContext(ctx, cfg)
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -749,7 +749,7 @@ func TestProtocol_HandleWithdrawEndorsement(t *testing.T) {
 			GasLimit:       test.blkGasLimit,
 		})
 		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
-		cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		cfg.TsunamiBlockHeight = 1
 		ctx = genesis.WithGenesisContext(ctx, cfg)
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -825,7 +825,7 @@ func TestProtocol_HandleRestakeEndorsement(t *testing.T) {
 			GasLimit:       test.blkGasLimit,
 		})
 		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
-		cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		cfg.TsunamiBlockHeight = 1
 		ctx = genesis.WithGenesisContext(ctx, cfg)
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -901,7 +901,7 @@ func TestProtocol_HandleDepositEndorsement(t *testing.T) {
 			GasLimit:       test.blkGasLimit,
 		})
 		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
-		cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		cfg.TsunamiBlockHeight = 1
 		ctx = genesis.WithGenesisContext(ctx, cfg)
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -986,7 +986,7 @@ func TestProtocol_HandleConsignmentEndorsement(t *testing.T) {
 			GasLimit:       test.blkGasLimit,
 		})
 		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
-		cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+		cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 		cfg.GreenlandBlockHeight = 1
 		cfg.TsunamiBlockHeight = 1
 		ctx = genesis.WithGenesisContext(ctx, cfg)

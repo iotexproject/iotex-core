@@ -10,8 +10,8 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	crypto "github.com/iotexproject/go-pkgs/crypto"
 	hash "github.com/iotexproject/go-pkgs/hash"
-	action "github.com/iotexproject/iotex-core/v2/action"
 	blockchain "github.com/iotexproject/iotex-core/v2/blockchain"
 	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
 	genesis "github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -185,18 +185,23 @@ func (mr *MockBlockchainMockRecorder) Genesis() *gomock.Call {
 }
 
 // MintNewBlock mocks base method.
-func (m *MockBlockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
+func (m *MockBlockchain) MintNewBlock(arg0 time.Time, arg1 ...blockchain.MintOption) (*block.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MintNewBlock", timestamp)
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "MintNewBlock", varargs...)
 	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock.
-func (mr *MockBlockchainMockRecorder) MintNewBlock(timestamp interface{}) *gomock.Call {
+func (mr *MockBlockchainMockRecorder) MintNewBlock(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), timestamp)
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), varargs...)
 }
 
 // RemoveSubscriber mocks base method.
@@ -288,40 +293,40 @@ func (mr *MockBlockchainMockRecorder) ValidateBlock(arg0 interface{}, arg1 ...in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), varargs...)
 }
 
-// MockBlockBuilderFactory is a mock of BlockBuilderFactory interface.
-type MockBlockBuilderFactory struct {
+// MockBlockMinter is a mock of BlockMinter interface.
+type MockBlockMinter struct {
 	ctrl     *gomock.Controller
-	recorder *MockBlockBuilderFactoryMockRecorder
+	recorder *MockBlockMinterMockRecorder
 }
 
-// MockBlockBuilderFactoryMockRecorder is the mock recorder for MockBlockBuilderFactory.
-type MockBlockBuilderFactoryMockRecorder struct {
-	mock *MockBlockBuilderFactory
+// MockBlockMinterMockRecorder is the mock recorder for MockBlockMinter.
+type MockBlockMinterMockRecorder struct {
+	mock *MockBlockMinter
 }
 
-// NewMockBlockBuilderFactory creates a new mock instance.
-func NewMockBlockBuilderFactory(ctrl *gomock.Controller) *MockBlockBuilderFactory {
-	mock := &MockBlockBuilderFactory{ctrl: ctrl}
-	mock.recorder = &MockBlockBuilderFactoryMockRecorder{mock}
+// NewMockBlockMinter creates a new mock instance.
+func NewMockBlockMinter(ctrl *gomock.Controller) *MockBlockMinter {
+	mock := &MockBlockMinter{ctrl: ctrl}
+	mock.recorder = &MockBlockMinterMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockBlockBuilderFactory) EXPECT() *MockBlockBuilderFactoryMockRecorder {
+func (m *MockBlockMinter) EXPECT() *MockBlockMinterMockRecorder {
 	return m.recorder
 }
 
-// NewBlockBuilder mocks base method.
-func (m *MockBlockBuilderFactory) NewBlockBuilder(arg0 context.Context, arg1 func(action.Envelope) (*action.SealedEnvelope, error)) (*block.Builder, error) {
+// Mint mocks base method.
+func (m *MockBlockMinter) Mint(arg0 context.Context, arg1 crypto.PrivateKey) (*block.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewBlockBuilder", arg0, arg1)
-	ret0, _ := ret[0].(*block.Builder)
+	ret := m.ctrl.Call(m, "Mint", arg0, arg1)
+	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewBlockBuilder indicates an expected call of NewBlockBuilder.
-func (mr *MockBlockBuilderFactoryMockRecorder) NewBlockBuilder(arg0, arg1 interface{}) *gomock.Call {
+// Mint indicates an expected call of Mint.
+func (mr *MockBlockMinterMockRecorder) Mint(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBlockBuilder", reflect.TypeOf((*MockBlockBuilderFactory)(nil).NewBlockBuilder), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mint", reflect.TypeOf((*MockBlockMinter)(nil).Mint), arg0, arg1)
 }

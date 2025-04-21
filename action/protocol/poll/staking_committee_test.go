@@ -39,7 +39,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		Genesis genesis.Genesis
 		Chain   blockchain.Config
 	}{
-		Genesis: genesis.Default,
+		Genesis: genesis.TestDefault(),
 		Chain:   blockchain.DefaultConfig,
 	}
 	cfg.Genesis.NativeStakingContractAddress = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
@@ -58,7 +58,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	}
 	ctx = genesis.WithGenesisContext(
 		protocol.WithRegistry(ctx, registry),
-		genesis.Default,
+		genesis.TestDefault(),
 	)
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{})
 	ctx = protocol.WithActionCtx(
@@ -180,6 +180,14 @@ func TestCreatePostSystemActions_StakingCommittee(t *testing.T) {
 	psac, ok := p.(protocol.PostSystemActionsCreator)
 	require.True(ok)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		GetBlockHash: func(uint64) (hash.Hash256, error) {
+			return hash.ZeroHash256, nil
+		},
+		GetBlockTime: func(uint64) (time.Time, error) {
+			return time.Now(), nil
+		},
+	})
 	elp, err := psac.CreatePostSystemActions(ctx, sr)
 	require.NoError(err)
 	require.Equal(1, len(elp))
@@ -331,6 +339,14 @@ func TestHandle_StakingCommittee(t *testing.T) {
 			},
 		)
 		ctx4 = protocol.WithFeatureWithHeightCtx(ctx4)
+		ctx4 = protocol.WithBlockchainCtx(ctx4, protocol.BlockchainCtx{
+			GetBlockHash: func(uint64) (hash.Hash256, error) {
+				return hash.ZeroHash256, nil
+			},
+			GetBlockTime: func(uint64) (time.Time, error) {
+				return time.Now(), nil
+			},
+		})
 		err = p4.Validate(ctx4, elp4, sm4)
 		require.Contains(err.Error(), "the proposed delegate list length")
 	})
@@ -361,6 +377,14 @@ func TestHandle_StakingCommittee(t *testing.T) {
 				Caller: caller,
 			},
 		)
+		ctx5 = protocol.WithBlockchainCtx(ctx5, protocol.BlockchainCtx{
+			GetBlockHash: func(uint64) (hash.Hash256, error) {
+				return hash.ZeroHash256, nil
+			},
+			GetBlockTime: func(uint64) (time.Time, error) {
+				return time.Now(), nil
+			},
+		})
 		err = p5.Validate(ctx5, elp5, sm5)
 		require.Contains(err.Error(), "delegates are not as expected")
 	})

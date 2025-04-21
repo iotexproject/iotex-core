@@ -596,7 +596,6 @@ func newTransferConfig(
 	networkPort,
 	apiPort int,
 ) (config.Config, error) {
-
 	cfg := config.Default
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Network.Port = networkPort
@@ -614,6 +613,7 @@ func newTransferConfig(
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.API.GRPCPort = apiPort
+	cfg.Genesis = genesis.TestDefault()
 	cfg.Genesis.BlockInterval = 800 * time.Millisecond
 
 	return cfg, nil
@@ -660,6 +660,7 @@ func TestEnforceChainID(t *testing.T) {
 
 	ctx := context.Background()
 	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.MidwayBlockHeight = 3
 	cfg.Genesis.QuebecBlockHeight = 7
@@ -667,7 +668,7 @@ func TestEnforceChainID(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)

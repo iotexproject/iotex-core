@@ -8,6 +8,7 @@ package blockchain
 import (
 	"crypto/ecdsa"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -47,6 +48,7 @@ type (
 		GravityChainDB             db.Config        `yaml:"gravityChainDB"`
 		Committee                  committee.Config `yaml:"committee"`
 
+		// EnableTrielessStateDB enables trieless state db (deprecated)
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
 		// EnableStateDBCaching enables cachedStateDBOption
 		EnableStateDBCaching bool `yaml:"enableStateDBCaching"`
@@ -131,30 +133,42 @@ var (
 	ErrConfig = errors.New("config error")
 )
 
-// ProducerAddress returns the configured producer address derived from key
-func (cfg *Config) ProducerAddress() address.Address {
-	sk := cfg.ProducerPrivateKey()
-	addr := sk.PublicKey().Address()
-	if addr == nil {
-		log.L().Panic("Error when constructing producer address")
+// ProducerAddress() returns the configured producer address derived from key
+func (cfg *Config) ProducerAddress() []address.Address {
+	privateKeys := cfg.ProducerPrivateKeys()
+	addrs := make([]address.Address, 0, len(privateKeys))
+	for _, sk := range privateKeys {
+		addr := sk.PublicKey().Address()
+		if addr == nil {
+			log.L().Panic("Error when constructing producer address")
+		}
+		addrs = append(addrs, addr)
 	}
-	return addr
+	return addrs
 }
 
-// ProducerPrivateKey returns the configured private key
-func (cfg *Config) ProducerPrivateKey() crypto.PrivateKey {
-	sk, err := crypto.HexStringToPrivateKey(cfg.ProducerPrivKey)
-	if err != nil {
-		log.L().Panic(
-			"Error when decoding private key",
-			zap.Error(err),
-		)
+// ProducerPrivateKeys returns the configured private keys
+func (cfg *Config) ProducerPrivateKeys() []crypto.PrivateKey {
+	pks := strings.Split(cfg.ProducerPrivKey, ",")
+	if len(pks) == 0 {
+		log.L().Panic("Error when decoding private key")
 	}
+	privateKeys := make([]crypto.PrivateKey, 0, len(pks))
+	for _, pk := range pks {
+		sk, err := crypto.HexStringToPrivateKey(pk)
+		if err != nil {
+			log.L().Panic(
+				"Error when decoding private key",
+				zap.Error(err),
+			)
+		}
 
-	if !cfg.whitelistSignatureScheme(sk) {
-		log.L().Panic("The private key's signature scheme is not whitelisted")
+		if !cfg.whitelistSignatureScheme(sk) {
+			log.L().Panic("The private key's signature scheme is not whitelisted")
+		}
+		privateKeys = append(privateKeys, sk)
 	}
-	return sk
+	return privateKeys
 }
 
 // SetProducerPrivKey set producer privKey by PrivKeyConfigFile info

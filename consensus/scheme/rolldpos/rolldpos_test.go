@@ -44,6 +44,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/state/factory"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
@@ -57,7 +58,7 @@ func TestNewRollDPoS(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 
-	g := genesis.Default
+	g := genesis.TestDefault()
 	builderCfg := BuilderConfig{
 		Chain:              blockchain.DefaultConfig,
 		Consensus:          DefaultConfig,
@@ -71,14 +72,15 @@ func TestNewRollDPoS(t *testing.T) {
 		g.NumDelegates,
 		g.NumSubEpochs,
 	)
-	delegatesByEpoch := func(uint64) ([]string, error) { return nil, nil }
+	delegatesByEpoch := func(uint64, []byte) ([]string, error) { return nil, nil }
 	t.Run("normal", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
+		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
-			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
+			SetChainManager(NewChainManager(chain, mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -91,11 +93,12 @@ func TestNewRollDPoS(t *testing.T) {
 	})
 	t.Run("mock-clock", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
+		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
-			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
+			SetChainManager(NewChainManager(chain, mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -112,11 +115,12 @@ func TestNewRollDPoS(t *testing.T) {
 
 	t.Run("root chain API", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
+		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
-			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
+			SetChainManager(NewChainManager(chain, mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -132,7 +136,6 @@ func TestNewRollDPoS(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
-			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
@@ -177,9 +180,10 @@ func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndo
 		} else {
 			consensusVote = NewConsensusVote(hs[:], COMMIT)
 		}
-		en, err := endorsement.Endorse(identityset.PrivateKey(i), consensusVote, timeTime)
+		en, err := endorsement.Endorse(consensusVote, timeTime, identityset.PrivateKey(i))
 		require.NoError(t, err)
-		typesFooter.Endorsements = append(typesFooter.Endorsements, en.Proto())
+		require.Equal(t, 1, len(en))
+		typesFooter.Endorsements = append(typesFooter.Endorsements, en[0].Proto())
 	}
 	ts := timestamppb.New(time.Unix(int64(unixTime), 0))
 	typesFooter.Timestamp = ts
@@ -200,10 +204,13 @@ func TestValidateBlockFooter(t *testing.T) {
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
-	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
-
+	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).AnyTimes()
+	bc.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+	bc.EXPECT().TipHeight().Return(blockHeight).AnyTimes()
+	bc.EXPECT().BlockHeaderByHeight(blockHeight).Return(&block.Header{}, nil).AnyTimes()
+	bc.EXPECT().TipHash().Return(hash.ZeroHash256).AnyTimes()
 	sk1 := identityset.PrivateKey(1)
-	g := genesis.Default
+	g := genesis.TestDefault()
 	g.NumDelegates = 4
 	g.NumSubEpochs = 1
 	g.BlockInterval = 10 * time.Second
@@ -216,13 +223,16 @@ func TestValidateBlockFooter(t *testing.T) {
 		Genesis:            g,
 		SystemActive:       true,
 	}
-	bc.EXPECT().Genesis().Return(g).Times(5)
+	builderCfg.Consensus.ConsensusDBPath = ""
+	bc.EXPECT().Genesis().Return(g).AnyTimes()
+	sf := mock_factory.NewMockFactory(ctrl)
+	sf.EXPECT().StateReaderAt(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	rp := rolldpos.NewProtocol(
 		g.NumCandidateDelegates,
 		g.NumDelegates,
 		g.NumSubEpochs,
 	)
-	delegatesByEpoch := func(uint64) ([]string, error) {
+	delegatesByEpoch := func(uint64, []byte) ([]string, error) {
 		return []string{
 			candidates[0],
 			candidates[1],
@@ -232,9 +242,8 @@ func TestValidateBlockFooter(t *testing.T) {
 	}
 	r, err := NewRollDPoSBuilder().
 		SetConfig(builderCfg).
-		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetChainManager(NewChainManager(bc)).
+		SetChainManager(NewChainManager(bc, sf, &dummyBlockBuildFactory{})).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
@@ -245,6 +254,7 @@ func TestValidateBlockFooter(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 	require.NotNil(t, r)
+	require.NoError(t, r.Start(context.Background()))
 
 	// all right
 	blk := makeBlock(t, 1, 4, false, 9)
@@ -280,19 +290,23 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	candidates := make([]string, 5)
 	for i := 0; i < len(candidates); i++ {
 		candidates[i] = identityset.Address(i).String()
+		t.Logf("candidate %d: %s", i, candidates[i])
 	}
 
 	clock := clock.NewMock()
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
-	bc.EXPECT().TipHeight().Return(blockHeight).Times(1)
-	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(2)
+	bc.EXPECT().TipHeight().Return(blockHeight).AnyTimes()
+	bc.EXPECT().TipHash().Return(hash.ZeroHash256).AnyTimes()
+	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).AnyTimes()
+	bc.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+	bc.EXPECT().BlockHeaderByHeight(blockHeight).Return(&block.Header{}, nil).AnyTimes()
 
 	sk1 := identityset.PrivateKey(1)
 	cfg := DefaultConfig
 	cfg.ConsensusDBPath = "consensus.db"
-	g := genesis.Default
+	g := genesis.TestDefault()
 	g.NumDelegates = 4
 	g.NumSubEpochs = 1
 	g.BlockInterval = 10 * time.Second
@@ -306,12 +320,13 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		SystemActive:       true,
 	}
 	bc.EXPECT().Genesis().Return(g).Times(2)
+	sf := mock_factory.NewMockFactory(ctrl)
 	rp := rolldpos.NewProtocol(
 		g.NumCandidateDelegates,
 		g.NumDelegates,
 		g.NumSubEpochs,
 	)
-	delegatesByEpoch := func(uint64) ([]string, error) {
+	delegatesByEpoch := func(uint64, []byte) ([]string, error) {
 		return []string{
 			candidates[0],
 			candidates[1],
@@ -321,9 +336,8 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	}
 	r, err := NewRollDPoSBuilder().
 		SetConfig(builderCfg).
-		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetChainManager(NewChainManager(bc)).
+		SetChainManager(NewChainManager(bc, sf, &dummyBlockBuildFactory{})).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
@@ -394,7 +408,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg.FSM.UnmatchedEventTTL = time.Second
 		cfg.FSM.UnmatchedEventInterval = 10 * time.Millisecond
 		cfg.ToleratedOvertime = 200 * time.Millisecond
-		g := genesis.Default
+		g := genesis.TestDefault()
 		g.BlockInterval = 2 * time.Second
 		g.Blockchain.NumDelegates = uint64(numNodes)
 		g.Blockchain.NumSubEpochs = 1
@@ -430,7 +444,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			chainAddrs[i] = addressMap[rawAddress]
 		}
 
-		delegatesByEpochFunc := func(_ uint64) ([]string, error) {
+		delegatesByEpochFunc := func(_ uint64, _ []byte) ([]string, error) {
 			candidates := make([]string, 0, numNodes)
 			for _, addr := range chainAddrs {
 				candidates = append(candidates, addr.encodedAddr)
@@ -447,7 +461,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			ctx := context.Background()
 			bc.ProducerPrivKey = hex.EncodeToString(chainAddrs[i].priKey.Bytes())
 			registry := protocol.NewRegistry()
-			sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
+			sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
 			require.NoError(t, err)
 			require.NoError(t, sf.Start(genesis.WithGenesisContext(
 				protocol.WithRegistry(ctx, registry),
@@ -480,12 +494,11 @@ func TestRollDPoSConsensus(t *testing.T) {
 				peers: make(map[net.Addr]*RollDPoS),
 			}
 			p2ps = append(p2ps, p2p)
-
+			minter := factory.NewMinter(sf, actPool)
 			consensus, err := NewRollDPoSBuilder().
-				SetAddr(chainAddrs[i].encodedAddr).
 				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(builderCfg).
-				SetChainManager(NewChainManager(chain)).
+				SetChainManager(NewChainManager(chain, sf, minter)).
 				SetBroadcast(p2p.Broadcast).
 				SetDelegatesByEpochFunc(delegatesByEpochFunc).
 				SetProposersByEpochFunc(delegatesByEpochFunc).
@@ -733,4 +746,21 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}
 	})
+}
+
+type dummyBlockBuildFactory struct{}
+
+func (d *dummyBlockBuildFactory) Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error) {
+	return &block.Block{}, nil
+}
+
+func (d *dummyBlockBuildFactory) ReceiveBlock(*block.Block) error {
+	return nil
+}
+func (d *dummyBlockBuildFactory) Init(hash.Hash256) {}
+func (d *dummyBlockBuildFactory) AddProposal(*block.Block) error {
+	return nil
+}
+func (d *dummyBlockBuildFactory) Block(hash.Hash256) *block.Block {
+	return &block.Block{}
 }

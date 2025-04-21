@@ -157,7 +157,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 		testutil.CleanupPath(testIndexPath)
 	}()
 
-	g := genesis.Default
+	g := genesis.TestDefault()
 	g.Timestamp = 1562382372
 	sk, err := crypto.GenerateKey()
 	cfg.ProducerPrivKey = sk.HexString()
@@ -180,7 +180,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 	factoryCfg := factory.GenerateConfig(cfg, g)
 	db1, err := db.CreateKVStore(db.DefaultConfig, cfg.TrieDBPath)
 	require.NoError(err)
-	sf, err := factory.NewFactory(factoryCfg, db1, factory.RegistryOption(registry))
+	sf, err := factory.NewStateDB(factoryCfg, db1, factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(g, sf, actpool.DefaultConfig)
 	require.NoError(err)
@@ -227,7 +227,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
 	bc, sf, _, rp, pp := makeChain(t)
-	delegatesByEpoch := func(epochNum uint64) ([]string, error) {
+	delegatesByEpoch := func(epochNum uint64, _ []byte) ([]string, error) {
 		re := protocol.NewRegistry()
 		if err := rp.Register(re); err != nil {
 			return nil, err
@@ -242,7 +242,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 					},
 				},
 			),
-			genesis.Default,
+			genesis.TestDefault(),
 		)
 		tipEpochNum := rp.GetEpochNum(tipHeight)
 		var candidatesList state.CandidateList
@@ -265,7 +265,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 		return addrs, nil
 	}
 	return &roundCalculator{
-		NewChainManager(bc),
+		NewChainManager(bc, sf, &dummyBlockBuildFactory{}),
 		true,
 		rp,
 		delegatesByEpoch,

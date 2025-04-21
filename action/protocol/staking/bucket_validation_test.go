@@ -23,7 +23,7 @@ func TestValidateBucket(t *testing.T) {
 		v, _, err := CreateBaseView(sm, false)
 		r.NoError(err)
 		sm.WriteView(_protocolID, v)
-		csm, err := NewCandidateStateManager(sm, false)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 		esm := NewEndorsementStateManager(sm)
 		return csm, esm
@@ -87,7 +87,7 @@ func TestValidateBucket(t *testing.T) {
 				BlockHeight: 0,
 			},
 		)
-		ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(ctx, genesis.Default))
+		ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(ctx, genesis.TestDefault()))
 		featureCtx := protocol.MustGetFeatureCtx(ctx)
 		r.Nil(validateBucketSelfStake(featureCtx, csm, bkt, false))
 		r.ErrorContains(validateBucketSelfStake(featureCtx, csm, bkt, true), "bucket is not self staking")
@@ -113,7 +113,7 @@ func TestValidateBucket(t *testing.T) {
 		r.NoError(err)
 		blkHeight := uint64(10)
 		ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{BlockHeight: blkHeight})
-		ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(ctx, genesis.Default))
+		ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(ctx, genesis.TestDefault()))
 		// not endorsed bucket
 		r.Nil(validateBucketWithoutEndorsement(ctx, esm, bkt, blkHeight))
 		r.ErrorContains(validateBucketWithEndorsement(ctx, esm, bkt, blkHeight), "bucket is not an endorse bucket")

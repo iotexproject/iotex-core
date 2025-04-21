@@ -36,23 +36,20 @@ var (
 	_loadGenesisTs sync.Once
 )
 
-func init() {
-	initTestDefaultConfig(&Default)
-}
-
 func defaultConfig() Genesis {
 	return Genesis{
 		Blockchain: Blockchain{
-			Timestamp:                 1546329600,
+			Timestamp:                 1553558500,
 			BlockGasLimit:             20000000,
 			TsunamiBlockGasLimit:      50000000,
+			WakeBlockGasLimit:         30000000,
 			ActionGasLimit:            5000000,
 			BlockInterval:             10 * time.Second,
-			NumSubEpochs:              2,
+			NumSubEpochs:              15,
 			DardanellesNumSubEpochs:   30,
 			NumDelegates:              24,
 			NumCandidateDelegates:     36,
-			TimeBasedRotation:         false,
+			TimeBasedRotation:         true,
 			MinBlocksForBlobRetention: 345600,
 			PacificBlockHeight:        432001,
 			AleutianBlockHeight:       864001,
@@ -79,10 +76,40 @@ func defaultConfig() Genesis {
 			TsunamiBlockHeight:        29275561,
 			UpernavikBlockHeight:      31174201,
 			VanuatuBlockHeight:        33730921,
+			WakeBlockHeight:           43730921,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
-			InitBalanceMap:          make(map[string]string),
+			InitBalanceMap: map[string]string{
+				"io1uqhmnttmv0pg8prugxxn7d8ex9angrvfjfthxa": "9800000000000000000000000000",
+				"io1v3gkc49d5vwtdfdka2ekjl3h468egun8e43r7z": "100000000000000000000000000",
+				"io1vrl48nsdm8jaujccd9cx4ve23cskr0ys6urx92": "100000000000000000000000000",
+				"io1llupp3n8q5x8usnr5w08j6hc6hn55x64l46rr7": "100000000000000000000000000",
+				"io1ns7y0pxmklk8ceattty6n7makpw76u770u5avy": "100000000000000000000000000",
+				"io1xuavja5dwde8pvy4yms06yyncad4yavghjhwra": "100000000000000000000000000",
+				"io1cdqx6p5rquudxuewflfndpcl0l8t5aezen9slr": "100000000000000000000000000",
+				"io1hh97f273nhxcq8ajzcpujtt7p9pqyndfmavn9r": "100000000000000000000000000",
+				"io1yhvu38epz5vmkjaclp45a7t08r27slmcc0zjzh": "100000000000000000000000000",
+				"io1cl6rl2ev5dfa988qmgzg2x4hfazmp9vn2g66ng": "100000000000000000000000000",
+				"io1skmqp33qme8knyw0fzgt9takwrc2nvz4sevk5c": "100000000000000000000000000",
+				"io1fxzh50pa6qc6x5cprgmgw4qrp5vw97zk5pxt3q": "100000000000000000000000000",
+				"io1jh0ekmccywfkmj7e8qsuzsupnlk3w5337hjjg2": "100000000000000000000000000",
+				"io1juvx5g063eu4ts832nukp4vgcwk2gnc5cu9ayd": "100000000000000000000000000",
+				"io19d0p3ah4g8ww9d7kcxfq87yxe7fnr8rpth5shj": "100000000000000000000000000",
+				"io1ed52svvdun2qv8sf2m0xnynuxfaulv6jlww7ur": "100000000000000000000000000",
+				"io158hyzrmf4a8xll7gfc8xnwlv70jgp44tzy5nvd": "100000000000000000000000000",
+				"io19kshh892255x4h5ularvr3q3al2v8cgl80fqrt": "100000000000000000000000000",
+				"io1ph0u2psnd7muq5xv9623rmxdsxc4uapxhzpg02": "100000000000000000000000000",
+				"io1znka733xefxjjw2wqddegplwtefun0mfdmz7dw": "100000000000000000000000000",
+				"io13sj9mzpewn25ymheukte4v39hvjdtrfp00mlyv": "100000000000000000000000000",
+				"io14gnqxf9dpkn05g337rl7eyt2nxasphf5m6n0rd": "100000000000000000000000000",
+				"io1l3wc0smczyay8xq747e2hw63mzg3ctp6uf8wsg": "100000000000000000000000000",
+				"io1q4tdrahguffdu4e9j9aj4f38p2nee0r9vlhx7s": "100000000000000000000000000",
+				"io1k9y4a9juk45zaqwvjmhtz6yjc68twqds4qcvzv": "100000000000000000000000000",
+				"io15flratm0nhh5xpxz2lznrrpmnwteyd86hxdtj0": "100000000000000000000000000",
+				"io1eq4ehs6xx6zj9gcsax7h3qydwlxut9xcfcjras": "100000000000000000000000000",
+				"io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he": "100000000000000000000000000",
+			},
 			ReplayDeployerWhitelist: []string{"0x3fab184622dc19b6109349b94811493bf2a45362"},
 		},
 		Poll: Poll{
@@ -96,20 +123,71 @@ func defaultConfig() Genesis {
 			SystemStakingContractHeight:      24486464,
 			SystemStakingContractV2Address:   "io13mjjr5shj4mte39axwsqjp8fdggk0qzjhatprp", // https://iotexscan.io/tx/b838b7a7c95e511fd8b256c5cbafde0547a72215d682eb60668d1b475a1beb70
 			SystemStakingContractV2Height:    30934838,
+			// TODO:  update the address and height after the v3 contract is deployed
+			SystemStakingContractV3Address: "",
+			SystemStakingContractV3Height:  90934838,
+			NativeStakingContractAddress:   "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+			VoteThreshold:                  "100000000000000000000",
+			StakingContractAddress:         "0x87c9dbff0016af23f5b1ab9b8e072124ab729193",
+			SelfStakingThreshold:           "1200000000000000000000000",
+			ScoreThreshold:                 "2000000000000000000000000",
+			RegisterContractAddress:        "0x95724986563028deb58f15c5fac19fa09304f32d",
+			GravityChainStartHeight:        7614500,
+			GravityChainHeightInterval:     100,
+			Delegates:                      []Delegate{},
 		},
 		Rewarding: Rewarding{
-			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
-			BlockRewardStr:                 unit.ConvertIotxToRau(16).String(),
-			DardanellesBlockRewardStr:      unit.ConvertIotxToRau(8).String(),
-			EpochRewardStr:                 unit.ConvertIotxToRau(12500).String(),
-			AleutianEpochRewardStr:         unit.ConvertIotxToRau(18750).String(),
-			NumDelegatesForEpochReward:     100,
-			ExemptAddrStrsFromEpochReward:  []string{},
+			InitBalanceStr:             unit.ConvertIotxToRau(200000000).String(),
+			BlockRewardStr:             unit.ConvertIotxToRau(16).String(),
+			DardanellesBlockRewardStr:  unit.ConvertIotxToRau(8).String(),
+			EpochRewardStr:             unit.ConvertIotxToRau(12500).String(),
+			AleutianEpochRewardStr:     unit.ConvertIotxToRau(18750).String(),
+			NumDelegatesForEpochReward: 100,
+			ExemptAddrStrsFromEpochReward: []string{
+				"io15fqav3tugm96ge7anckx0k4gukz5m4mqf0jpv3",
+				"io1x9kjkr0qv2fa7j4t2as8lrj223xxsqt4tl7xp7",
+				"io1ar5l5s268rtgzshltnqv88mua06ucm58dx678y",
+				"io1xsx5n94kg2zv64r7tm8vyz9mh86amfak9ka9xx",
+				"io1vtm2zgn830pn6auc2cvnchgwdaefa9gr4z0s86",
+				"io159fv8mu9d5djk8u2t0flgw4yqmt6fg98uqjka8",
+				"io1c3r4th3zrk4uhv83a9gr4gvn3y6pzaj6mc84ea",
+				"io14vmhs9c75r2ptxdaqrtk0dz7skct30pxmt69d9",
+				"io1gf08snppu2a2wfd50pjas2j6q2kcxjzqph3pep",
+				"io1u5ff879gg2dw9vfpxr2tsmuaz07e2rea6gvl7s",
+				"io1du4eq4f88n4wyc026l3gamjwetlgsg4jz7j884",
+				"io12yxdwewry70gr9fs6fphyfaky9c7gurmzk8f4f",
+				"io1lx53nfgq2dnzrz5ecz2ecs7vvl6qll0mkn970w",
+				"io1u5xy0ecnrjrdkzyctfqh37lgr5pcfzphgqrdwt",
+				"io1aj8arp07xw6s9rgh42af5xf98csyuehnnwlk52",
+				"io18gdmv5g0xhkuj2cdyvp8076uwhl7h3gesmzh8u",
+				"io1td5fvamm3qf22r5h93gay6ggqdh9z0edeqx63u",
+				"io1qs785af9k9xf3xgd6vut7um9zcthtrvsn2xap2",
+				"io127ftn4ry6wgxdrw4hcd6gdwqlq70ujk98dvtw5",
+				"io1wv5m0xyermvr2n0wjx2cjsqwyk863drdl5qfyn",
+				"io1v0q5g2f8z6l3v25krl677chdx7g5pwt9kvqfpc",
+				"io1xsdegzr2hdj5sv5ad4nr0yfgpsd98e40u6svem",
+				"io1fks575kklxafq4fwjccmz5d3pmq5ynxk5h6h0v",
+				"io15npzu93ug8r3zdeysppnyrcdu2xssz0lcam9l9",
+				"io1gh7xfrsnj6p5uqgjpk9xq6jg9na28aewgp7a9v",
+				"io1nyjs526mnqcsx4twa7nptkg08eclsw5c2dywp4",
+				"io1jafqlvntcxgyp6e0uxctt3tljzc3vyv5hg4ukh",
+				"io1z7mjef7w528nasnsafan0rp6yuvkvq405l6r8j",
+				"io1cup9k8hl8fp40vrj29ex8djc346780dk223end",
+				"io1scs89jur7qklzh5vfrmha3c40u8yajjx6kvzg9",
+				"io10kyvvzu08pjeylymq4umknjal25ea3ptfknrpf",
+				"io18mvepyxkcd5jkyplfqn27ydkpsendrey3xe2l8",
+				"io1nz40npqa3yvek4zdasmqaetl2j4h6urejfkera",
+				"io1m7p9yrejngxyvxhvn7p9g9uwlvd7uuamg8wcjd",
+				"io1cwwm08dwv9phh3wt5vsdhu9gcypw9q2sc7pl9s",
+				"io14aj46jjmtt83vts9syhrs9st80czumg40cjasl",
+			},
 			FoundationBonusStr:             unit.ConvertIotxToRau(80).String(),
 			NumDelegatesForFoundationBonus: 36,
 			FoundationBonusLastEpoch:       8760,
 			FoundationBonusP2StartEpoch:    9698,
 			FoundationBonusP2EndEpoch:      18458,
+			ProductivityThreshold:          85,
+			WakeBlockRewardStr:             "4800000000000000000",
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
@@ -131,13 +209,14 @@ func defaultConfig() Genesis {
 
 // TestDefault is the default genesis config for testing
 func TestDefault() Genesis {
-	ge := defaultConfig()
-	initTestDefaultConfig(&ge)
-	return ge
-}
-
-func initTestDefaultConfig(cfg *Genesis) {
+	cfg := defaultConfig()
+	cfg.InitBalanceMap = map[string]string{}
+	cfg.NumSubEpochs = 2
+	cfg.Timestamp = 1546329600
+	cfg.TimeBasedRotation = false
 	cfg.PacificBlockHeight = 0
+	cfg.NumSubEpochs = 2
+	cfg.EnableGravityChainVoting = false
 	for i := 0; i < identityset.Size(); i++ {
 		addr := identityset.Address(i).String()
 		value := unit.ConvertIotxToRau(100000000).String()
@@ -150,6 +229,8 @@ func initTestDefaultConfig(cfg *Genesis) {
 			})
 		}
 	}
+
+	return cfg
 }
 
 type (
@@ -170,6 +251,8 @@ type (
 		BlockGasLimit uint64 `yaml:"blockGasLimit"`
 		// TsunamiBlockGasLimit is the block gas limit starting Tsunami height (raised to 50M by default)
 		TsunamiBlockGasLimit uint64 `yaml:"tsunamiBlockGasLimit"`
+		// WakeBlockGasLimit is the block gas limit starting Wake height (reduced to 30M by default)
+		WakeBlockGasLimit uint64 `yaml:"wakeBlockGasLimit"`
 		// ActionGasLimit is the per action gas limit cap
 		ActionGasLimit uint64 `yaml:"actionGasLimit"`
 		// BlockInterval is the interval between two blocks
@@ -276,6 +359,9 @@ type (
 		// 1. enable Cancun EVM
 		// 2. enable dynamic fee tx
 		VanuatuBlockHeight uint64 `yaml:"vanuatuHeight"`
+		// WakeBlockHeight is the start height to
+		// 1. enable 3s block interval
+		WakeBlockHeight uint64 `yaml:"wakeHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -335,6 +421,10 @@ type (
 		SystemStakingContractV2Address string `yaml:"systemStakingContractV2Address"`
 		// SystemStakingContractV2Height is the height of system staking contract
 		SystemStakingContractV2Height uint64 `yaml:"systemStakingContractV2Height"`
+		// SystemStakingContractV3Address is the address of system staking contract
+		SystemStakingContractV3Address string `yaml:"systemStakingContractV3Address"`
+		// SystemStakingContractV3Height is the height of system staking contract
+		SystemStakingContractV3Height uint64 `yaml:"systemStakingContractV3Height"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {
@@ -373,6 +463,8 @@ type (
 		FoundationBonusP2EndEpoch uint64 `yaml:"foundationBonusP2EndEpoch"`
 		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach not to get probation
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
+		// WakeBlockReward is the block reward amount starts from wake height in decimal string format
+		WakeBlockRewardStr string `yaml:"wakeBlockRewardStr"`
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {
@@ -641,12 +733,21 @@ func (g *Blockchain) IsVanuatu(height uint64) bool {
 	return g.isPost(g.VanuatuBlockHeight, height)
 }
 
+// IsWake checks whether height is equal to or larger than wake height
+func (g *Blockchain) IsWake(height uint64) bool {
+	return g.isPost(g.WakeBlockHeight, height)
+}
+
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
 func (g *Blockchain) IsToBeEnabled(height uint64) bool {
 	return g.isPost(g.ToBeEnabledBlockHeight, height)
 }
 
+// BlockGasLimitByHeight returns the block gas limit by height
 func (g *Blockchain) BlockGasLimitByHeight(height uint64) uint64 {
+	if g.isPost(g.WakeBlockHeight, height) {
+		return g.WakeBlockGasLimit
+	}
 	if g.isPost(g.TsunamiBlockHeight, height) {
 		// block gas limit raised to 50M after Tsunami block height
 		return g.TsunamiBlockGasLimit
@@ -761,7 +862,7 @@ func (r *Rewarding) EpochReward() *big.Int {
 func (r *Rewarding) AleutianEpochReward() *big.Int {
 	val, ok := new(big.Int).SetString(r.AleutianEpochRewardStr, 10)
 	if !ok {
-		log.S().Panicf("Error when casting epoch reward string %s into big int", r.EpochRewardStr)
+		log.S().Panicf("Error when casting epoch reward string %s into big int", r.AleutianEpochRewardStr)
 	}
 	return val
 }
@@ -770,7 +871,16 @@ func (r *Rewarding) AleutianEpochReward() *big.Int {
 func (r *Rewarding) DardanellesBlockReward() *big.Int {
 	val, ok := new(big.Int).SetString(r.DardanellesBlockRewardStr, 10)
 	if !ok {
-		log.S().Panicf("Error when casting block reward string %s into big int", r.EpochRewardStr)
+		log.S().Panicf("Error when casting block reward string %s into big int", r.DardanellesBlockRewardStr)
+	}
+	return val
+}
+
+// WakeBlockReward returns the block reward amount after wake fork
+func (r *Rewarding) WakeBlockReward() *big.Int {
+	val, ok := new(big.Int).SetString(r.WakeBlockRewardStr, 10)
+	if !ok {
+		log.S().Panicf("Error when casting block reward string %s into big int", r.WakeBlockRewardStr)
 	}
 	return val
 }

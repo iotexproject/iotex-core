@@ -13,6 +13,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -33,6 +34,7 @@ type (
 		ConsensusChanSize          uint          `yaml:"consensusChanSize"`
 		MiscChanSize               uint          `yaml:"miscChanSize"`
 		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
+		AccountRateLimit           uint          `yaml:"accountRateLimit"`
 		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	}
 )
@@ -45,6 +47,7 @@ var (
 		BlockSyncChanSize: 400,
 		ConsensusChanSize: 1000,
 		MiscChanSize:      1000,
+		AccountRateLimit:  100,
 
 		ProcessSyncRequestInterval: 0 * time.Second,
 	}
@@ -56,6 +59,8 @@ type Dispatcher interface {
 
 	// AddSubscriber adds to dispatcher
 	AddSubscriber(uint32, Subscriber)
+	// ValidateMessage validates the message
+	ValidateMessage(proto.Message) (bool, error)
 	// HandleBroadcast handles the incoming broadcast message. The transportation layer semantics is at least once.
 	// That said, the handler is likely to receive duplicate messages.
 	HandleBroadcast(context.Context, uint32, string, proto.Message)
@@ -78,40 +83,48 @@ func init() {
 	prometheus.MustRegister(requestMtc)
 }
 
-// IotxDispatcher is the request and event dispatcher for iotx node.
-type IotxDispatcher struct {
-	lifecycle.Readiness
-	lifecycle.Lifecycle
-	// queue manager
-	queueMgr *msgQueueMgr
-	// event stats
-	eventAudit     map[iotexrpc.MessageType]int
-	eventAuditLock sync.RWMutex
-	// subscribers
-	subscribers   map[uint32]Subscriber
-	subscribersMU sync.RWMutex
-	// filter for blocksync message
-	peerLastSync map[string]time.Time
-	syncInterval time.Duration
-	peerSyncLock sync.RWMutex
-}
+type (
+	VerificationFunc func(pm proto.Message) (string, error)
 
-type message struct {
-	ctx      context.Context
-	chainID  uint32
-	msg      proto.Message
-	msgType  iotexrpc.MessageType
-	peerInfo *peer.AddrInfo // peerInfo is only used for unicast message
-	peer     string
-}
+	// IotxDispatcher is the request and event dispatcher for iotx node.
+	IotxDispatcher struct {
+		lifecycle.Readiness
+		lifecycle.Lifecycle
+		// queue manager
+		queueMgr *msgQueueMgr
+		// event stats
+		eventAudit     map[iotexrpc.MessageType]int
+		eventAuditLock sync.RWMutex
+		// subscribers
+		subscribers   map[uint32]Subscriber
+		subscribersMU sync.RWMutex
+		// filter for blocksync message
+		peerLastSync     map[string]time.Time
+		syncInterval     time.Duration
+		peerSyncLock     sync.RWMutex
+		ratelimiter      *RateLimiter
+		verificationFunc VerificationFunc
+	}
+
+	message struct {
+		ctx      context.Context
+		chainID  uint32
+		msg      proto.Message
+		msgType  iotexrpc.MessageType
+		peerInfo *peer.AddrInfo // peerInfo is only used for unicast message
+		peer     string
+	}
+)
 
 // NewDispatcher creates a new Dispatcher
-func NewDispatcher(cfg Config) (Dispatcher, error) {
+func NewDispatcher(cfg Config, verificationFunc VerificationFunc) (Dispatcher, error) {
 	d := &IotxDispatcher{
-		subscribers:  make(map[uint32]Subscriber),
-		peerLastSync: make(map[string]time.Time),
-		syncInterval: cfg.ProcessSyncRequestInterval,
-		eventAudit:   make(map[iotexrpc.MessageType]int),
+		subscribers:      make(map[uint32]Subscriber),
+		peerLastSync:     make(map[string]time.Time),
+		syncInterval:     cfg.ProcessSyncRequestInterval,
+		eventAudit:       make(map[iotexrpc.MessageType]int),
+		ratelimiter:      NewRateLimiter(100000, rate.Limit(cfg.AccountRateLimit), int(cfg.AccountRateLimit)),
+		verificationFunc: verificationFunc,
 	}
 	queueMgr := newMsgQueueMgr(msgQueueConfig{
 		actionChanSize: cfg.ActionChanSize,
@@ -190,6 +203,44 @@ func (d *IotxDispatcher) subscriber(chainID uint32) Subscriber {
 	return subscriber
 }
 
+// ValidateMessage validates the message
+func (d *IotxDispatcher) ValidateMessage(pMsg proto.Message) (bool, error) {
+	switch pb := pMsg.(type) {
+	case *iotextypes.Action:
+		sender, err := d.verificationFunc(pb)
+		if err != nil {
+			return true, err
+		}
+		return d.ratelimiter.Remainings(sender) == 0, nil
+	case *iotextypes.Actions:
+		actions := pb.GetActions()
+		counters := make(map[string]int, len(actions))
+		for _, act := range actions {
+			sender, err := d.verificationFunc(act)
+			if err != nil {
+				return true, err
+			}
+			counters[sender]++
+		}
+		for sender, count := range counters {
+			if d.ratelimiter.Remainings(sender) < count {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func (d *IotxDispatcher) queueMessage(msg *message) {
+	queue := d.queueMgr.Queue(msg)
+	select {
+	case queue <- msg:
+	default:
+		log.L().Warn("Queue is full.", zap.Any("msgType", msg.msgType))
+	}
+	d.updateMetrics(msg, queue)
+}
+
 // HandleBroadcast handles incoming broadcast message
 func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, peer string, msgProto proto.Message) {
 	if !d.IsReady() {
@@ -200,6 +251,23 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Any("msgType", msgType))
 		return
 	}
+	switch actions := msgProto.(type) {
+	case *iotextypes.Actions:
+		for _, act := range actions.Actions {
+			d.ratelimiter.Wait(string(act.SenderPubKey))
+			msg := &message{
+				ctx:     ctx,
+				chainID: chainID,
+				msg:     act,
+				peer:    peer,
+				msgType: msgType,
+			}
+			d.queueMessage(msg)
+		}
+		return
+	case *iotextypes.Action:
+		d.ratelimiter.Wait(string(actions.SenderPubKey))
+	}
 	msg := &message{
 		ctx:     ctx,
 		chainID: chainID,
@@ -207,14 +275,7 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 		peer:    peer,
 		msgType: msgType,
 	}
-	queue := d.queueForMsg(msg)
-	select {
-	case queue <- msg:
-	default:
-		log.L().Warn("Broadcast queue is full.", zap.Any("msgType", msgType))
-	}
-
-	d.updateMetrics(msg, queue)
+	d.queueMessage(msg)
 }
 
 // HandleTell handles incoming unicast message
@@ -235,14 +296,7 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 		peer:     cp.ID.String(),
 		msgType:  msgType,
 	}
-	queue := d.queueForMsg(msg)
-	select {
-	case queue <- msg:
-	default:
-		log.L().Warn("Unicast queue is full.", zap.Any("msgType", msgType))
-	}
-
-	d.updateMetrics(msg, queue)
+	d.queueMessage(msg)
 }
 
 func (d *IotxDispatcher) updateEventAudit(t iotexrpc.MessageType) {
@@ -257,10 +311,6 @@ func (d *IotxDispatcher) updateMetrics(msg *message, queue chan *message) {
 	if subscriber != nil {
 		subscriber.ReportFullness(msg.ctx, msg.msgType, float32(len(queue))/float32(cap(queue)))
 	}
-}
-
-func (d *IotxDispatcher) queueForMsg(msg *message) msgQueue {
-	return d.queueMgr.Queue(msg)
 }
 
 func (d *IotxDispatcher) filter(msg *message) bool {

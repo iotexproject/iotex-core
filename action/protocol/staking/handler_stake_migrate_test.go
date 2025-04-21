@@ -38,18 +38,19 @@ func TestHandleStakeMigrate(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
+	g := genesis.TestDefault()
 	p, err := NewProtocol(
 		HelperCtx{getBlockInterval, depositGas},
 		&BuilderConfig{
-			Staking:                  genesis.Default.Staking,
+			Staking:                  g.Staking,
 			PersistStakingPatchBlock: math.MaxUint64,
 			Revise: ReviseConfig{
-				VoteWeight: genesis.Default.Staking.VoteWeightCalConsts,
+				VoteWeight: g.Staking.VoteWeightCalConsts,
 			},
 		},
 		nil, nil, nil)
 	r.NoError(err)
-	cfg := deepcopy.Copy(genesis.Default).(genesis.Genesis)
+	cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 	initCfg := func(cfg *genesis.Genesis) {
 		cfg.PacificBlockHeight = 1
 		cfg.AleutianBlockHeight = 1
@@ -282,7 +283,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		r.Len(receipts, 1)
 		r.NoError(errs[0])
 		r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipts[0].Status)
-		csm, err := NewCandidateStateManager(sm, true)
+		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 		preVotes := csm.GetByOwner(identityset.Address(candOwnerID)).Votes
 		bkt, err := csm.getBucket(bktIdx)
@@ -336,7 +337,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		}, receipts[0].TransactionLogs()[0])
 		r.Equal(receipt.TransactionLogs()[0], receipts[0].TransactionLogs()[1])
 		// native bucket burned
-		csm, err = NewCandidateStateManager(sm, false)
+		csm, err = NewCandidateStateManager(sm)
 		r.NoError(err)
 		_, err = csm.getBucket(bktIdx)
 		r.ErrorIs(err, state.ErrStateNotExist)

@@ -38,7 +38,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		Genesis genesis.Genesis
 		Chain   blockchain.Config
 	}{
-		Genesis: genesis.Default,
+		Genesis: genesis.TestDefault(),
 		Chain:   blockchain.DefaultConfig,
 	}
 	cfg.Genesis.EasterBlockHeight = 1 // set up testing after Easter Height
@@ -64,6 +64,12 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			protocol.BlockchainCtx{
 				Tip: protocol.TipInfo{
 					Height: epochStartHeight - 1,
+				},
+				GetBlockHash: func(u uint64) (hash.Hash256, error) {
+					return hash.Hash256b([]byte{0}), nil
+				},
+				GetBlockTime: func(h uint64) (time.Time, error) {
+					return time.Unix(1562382522, 0), nil
 				},
 			},
 		),

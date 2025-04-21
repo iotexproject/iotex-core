@@ -264,7 +264,7 @@ func (m *ConsensusFSM) NumPendingEvents() int {
 
 // Calibrate calibrates the state if necessary
 func (m *ConsensusFSM) Calibrate(height uint64) {
-	m.produce(m.ctx.NewConsensusEvent(eCalibrate, height), 0)
+	m.instantProduce(m.ctx.NewConsensusEvent(eCalibrate, height)...)
 }
 
 // BackToPrepare produces an ePrepare event after delay
@@ -278,30 +278,42 @@ func (m *ConsensusFSM) BackToPrepare(delay time.Duration) (fsm.State, error) {
 
 // ProduceReceiveBlockEvent produces an eReceiveBlock event after delay
 func (m *ConsensusFSM) ProduceReceiveBlockEvent(block interface{}) {
-	m.produce(m.ctx.NewConsensusEvent(eReceiveBlock, block), 0)
+	m.instantProduce(m.ctx.NewConsensusEvent(eReceiveBlock, block)...)
 }
 
 // ProduceReceiveProposalEndorsementEvent produces an eReceiveProposalEndorsement event right away
 func (m *ConsensusFSM) ProduceReceiveProposalEndorsementEvent(vote interface{}) {
-	m.produce(m.ctx.NewConsensusEvent(eReceiveProposalEndorsement, vote), 0)
+	m.instantProduce(m.ctx.NewConsensusEvent(eReceiveProposalEndorsement, vote)...)
 }
 
 // ProduceReceiveLockEndorsementEvent produces an eReceiveLockEndorsement event right away
 func (m *ConsensusFSM) ProduceReceiveLockEndorsementEvent(vote interface{}) {
-	m.produce(m.ctx.NewConsensusEvent(eReceiveLockEndorsement, vote), 0)
+	m.instantProduce(m.ctx.NewConsensusEvent(eReceiveLockEndorsement, vote)...)
 }
 
 // ProduceReceivePreCommitEndorsementEvent produces an eReceivePreCommitEndorsement event right away
 func (m *ConsensusFSM) ProduceReceivePreCommitEndorsementEvent(vote interface{}) {
-	m.produce(m.ctx.NewConsensusEvent(eReceivePreCommitEndorsement, vote), 0)
+	m.instantProduce(m.ctx.NewConsensusEvent(eReceivePreCommitEndorsement, vote)...)
 }
 
 func (m *ConsensusFSM) produceConsensusEvent(et fsm.EventType, delay time.Duration) {
-	m.produce(m.ctx.NewConsensusEvent(et, nil), delay)
+	m.delayProduce(delay, m.ctx.NewConsensusEvent(et, nil)...)
 }
 
-// produce adds an event into the queue for the consensus FSM to process
-func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
+func (m *ConsensusFSM) delayProduce(delay time.Duration, evts ...*ConsensusEvent) {
+	for _, evt := range evts {
+		m.produceOne(evt, delay)
+	}
+}
+
+func (m *ConsensusFSM) instantProduce(evts ...*ConsensusEvent) {
+	for _, evt := range evts {
+		m.produceOne(evt, 0)
+	}
+}
+
+// produceOne adds an event into the queue for the consensus FSM to process
+func (m *ConsensusFSM) produceOne(evt *ConsensusEvent, delay time.Duration) {
 	if evt == nil {
 		return
 	}
@@ -330,7 +342,7 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 	if m.ctx.IsFutureEvent(evt) {
 		m.ctx.Logger().Debug("future event", zap.Any("event", evt.Type()))
 		// TODO: find a more appropriate delay
-		m.produce(evt, m.ctx.UnmatchedEventInterval(evt.Height()))
+		m.delayProduce(m.ctx.UnmatchedEventInterval(evt.Height()), evt)
 		_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
 		return nil
 	}
@@ -350,7 +362,7 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 			_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
 			return nil
 		}
-		m.produce(evt, m.ctx.UnmatchedEventInterval(evt.Height()))
+		m.delayProduce(m.ctx.UnmatchedEventInterval(evt.Height()), evt)
 		m.ctx.Logger().Debug(
 			"consensus state transition could find the match",
 			zap.String("src", string(src)),
@@ -411,29 +423,25 @@ func (m *ConsensusFSM) prepare(evt fsm.Event) (fsm.State, error) {
 	if proposal != nil {
 		m.ctx.Broadcast(proposal)
 	}
-	if !m.ctx.IsDelegate() {
+	if !m.ctx.HasDelegate() {
 		return m.BackToPrepare(0)
 	}
 	if proposal != nil {
 		m.ProduceReceiveBlockEvent(proposal)
 	}
 
-	var h uint64
-	cEvt, ok := evt.(*ConsensusEvent)
-	if !ok {
-		m.ctx.Logger().Panic("failed to convert ConsensusEvent in prepare")
-	}
-	h = cEvt.Height()
+	h := m.ctx.Height()
 	ttl := m.ctx.AcceptBlockTTL(h) - overtime
 	// Setup timeouts
-	if preCommitEndorsement := m.ctx.PreCommitEndorsement(); preCommitEndorsement != nil {
-		cEvt := m.ctx.NewConsensusEvent(eBroadcastPreCommitEndorsement, preCommitEndorsement)
-		m.produce(cEvt, ttl)
-		ttl += m.ctx.AcceptProposalEndorsementTTL(cEvt.Height())
-		m.produce(cEvt, ttl)
-		ttl += m.ctx.AcceptLockEndorsementTTL(cEvt.Height())
-		m.produce(cEvt, ttl)
-		ttl += m.ctx.CommitTTL(cEvt.Height())
+	if preCommitEndorsements := m.ctx.PreCommitEndorsement(); preCommitEndorsements != nil {
+		height := m.ctx.Height()
+		cEvt := m.ctx.NewConsensusEvent(eBroadcastPreCommitEndorsement, preCommitEndorsements)
+		m.delayProduce(ttl, cEvt...)
+		ttl += m.ctx.AcceptProposalEndorsementTTL(height)
+		m.delayProduce(ttl, cEvt...)
+		ttl += m.ctx.AcceptLockEndorsementTTL(height)
+		m.delayProduce(ttl, cEvt...)
+		ttl += m.ctx.CommitTTL(height)
 		m.produceConsensusEvent(eStopReceivingPreCommitEndorsement, ttl)
 		return sAcceptPreCommitEndorsement, nil
 	}
@@ -458,7 +466,6 @@ func (m *ConsensusFSM) onReceiveBlock(evt fsm.Event) (fsm.State, error) {
 		m.ctx.Logger().Debug("Failed to generate proposal endorsement", zap.Error(err))
 		return sAcceptBlockProposal, nil
 	}
-
 	return sAcceptProposalEndorsement, nil
 }
 

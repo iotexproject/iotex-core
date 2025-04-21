@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -19,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/api"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/blockindex"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/db"
@@ -37,6 +37,7 @@ func TestClient(t *testing.T) {
 	b := identityset.Address(29).String()
 
 	cfg := config.Default
+	cfg.Genesis = genesis.TestDefault()
 	cfg.API.GRPCPort = testutil.RandomPort()
 	cfg.API.HTTPPort = testutil.RandomPort()
 	cfg.API.WebSocketPort = testutil.RandomPort()
@@ -84,7 +85,7 @@ func TestClient(t *testing.T) {
 	require.NoError(err)
 	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), cfg.Indexer)
 	require.NoError(err)
-	apiServer, err := api.NewServerV2(cfg.API, bc, nil, sf, nil, indexer, bfIndexer, ap, nil, func(u uint64) (time.Time, error) { return time.Time{}, nil }, newOption)
+	apiServer, err := api.NewServerV2(cfg.API, bc, nil, sf, nil, indexer, bfIndexer, ap, nil, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start(ctx))
 	// test New()

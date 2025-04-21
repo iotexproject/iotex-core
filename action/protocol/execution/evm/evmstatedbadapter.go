@@ -72,6 +72,7 @@ type (
 		createdAccountSnapshot     map[int]createdAccount
 		logsSnapshot               map[int]int // logs is an array, save len(logs) at time of snapshot suffices
 		txLogsSnapshot             map[int]int
+		newContract                func(addr hash.Hash160, account *state.Account) (Contract, error)
 		notFixTopicCopyBug         bool
 		asyncContractTrie          bool
 		disableSortCachedContracts bool
@@ -237,6 +238,9 @@ func NewStateDBAdapter(
 		s.transientStorageSnapshot = make(map[int]transientStorage)
 		s.createdAccount = make(createdAccount)
 		s.createdAccountSnapshot = make(map[int]createdAccount)
+	}
+	s.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
+		return newContract(addr, account, s.sm, s.asyncContractTrie)
 	}
 	return s, nil
 }
@@ -1029,7 +1033,7 @@ func (stateDB *StateDBAdapter) getNewContract(evmAddr common.Address) (Contract,
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
-	contract, err := newContract(addr, account, stateDB.sm, stateDB.asyncContractTrie)
+	contract, err := stateDB.newContract(addr, account)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
