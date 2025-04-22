@@ -355,7 +355,10 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
 	kvstore := db.NewBoltDB(dbConfig)
 	blockDurationFn := func(start uint64, end uint64, viewAt uint64) time.Duration {
-		return blockDistance(&cfg, start, end, viewAt)
+		if viewAt < cfg.Genesis.ToBeEnabledBlockHeight {
+			return time.Duration(end-start) * cfg.DardanellesUpgrade.BlockInterval
+		}
+		return time.Duration(end-start) * cfg.WakeUpgrade.BlockInterval
 	}
 	// build contract staking indexer
 	if builder.cs.contractStakingIndexer == nil && len(builder.cfg.Genesis.SystemStakingContractAddress) > 0 {
