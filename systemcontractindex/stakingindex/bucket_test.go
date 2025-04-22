@@ -1,6 +1,7 @@
 package stakingindex
 
 import (
+	"fmt"
 	"math/big"
 	"math/rand/v2"
 	"testing"
@@ -162,6 +163,47 @@ func TestAssembleVoteBucket(t *testing.T) {
 					ContractAddress:           contract.String(),
 				}, *vb)
 			}
+		})
+	}
+}
+
+func TestBucketDuration(t *testing.T) {
+	r := require.New(t)
+	forkHeight := uint64(10000)
+	blocksToDuration := func(height, end uint64) time.Duration {
+		return time.Duration(end-height) * time.Second * 5
+	}
+	blocksToDurationPost := func(height, end uint64) time.Duration {
+		if height < forkHeight && end < forkHeight {
+			return blocksToDuration(height, end)
+		} else if height < forkHeight && end >= forkHeight {
+			return blocksToDuration(height, forkHeight-1) + time.Duration(end-forkHeight+1)*time.Second*3
+		} else {
+			return time.Duration(end-height) * time.Second * 3
+		}
+	}
+	cases := []struct {
+		bucket         *Bucket
+		height         uint64
+		expectDuration time.Duration
+	}{
+		{&Bucket{CreatedAt: forkHeight - 100, StakedDuration: 60}, forkHeight - 1, 300 * time.Second},
+		{&Bucket{CreatedAt: forkHeight - 100, StakedDuration: 60}, forkHeight, 300 * time.Second},
+		{&Bucket{CreatedAt: forkHeight - 50, StakedDuration: 60}, forkHeight - 1, 300 * time.Second},
+		{&Bucket{CreatedAt: forkHeight - 50, StakedDuration: 60}, forkHeight, (49*5 + 11*3) * time.Second},
+		{&Bucket{CreatedAt: forkHeight, StakedDuration: 60}, forkHeight - 1, 300 * time.Second},
+		{&Bucket{CreatedAt: forkHeight, StakedDuration: 60}, forkHeight, 180 * time.Second},
+	}
+
+	for idx, c := range cases {
+		t.Run(fmt.Sprintf("case-%d", idx), func(t *testing.T) {
+			var bkt *VoteBucket
+			if c.height < forkHeight {
+				bkt = assembleVoteBucket(0, c.bucket, "", blocksToDuration)
+			} else {
+				bkt = assembleVoteBucket(0, c.bucket, "", blocksToDurationPost)
+			}
+			r.Equal(c.expectDuration, bkt.StakedDuration, "StakedDuration mismatch")
 		})
 	}
 }

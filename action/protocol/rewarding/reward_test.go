@@ -428,7 +428,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		nil,
 		2,
 		2,
-		g.DardanellesNumSubEpochs,
 		g.ProductivityThreshold,
 		g.ProbationEpochPeriod,
 		g.UnproductiveDelegateMaxCacheSize,
