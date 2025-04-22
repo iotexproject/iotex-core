@@ -48,10 +48,10 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 			if tv.isWakeBlock {
 				g := genesis.MustExtractGenesisContext(ctx)
 				g.WakeBlockRewardStr = tv.blockReward.String()
-				wakeBlockCtx := genesis.WithGenesisContext(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-					BlockHeight: genesis.TestDefault().ToBeEnabledBlockHeight,
-				}), g)
-				req.NoError(p.CreatePreStates(wakeBlockCtx, sm))
+				blkCtx := protocol.MustGetBlockCtx(ctx)
+				blkCtx.BlockHeight = g.ToBeEnabledBlockHeight
+				ctx = genesis.WithGenesisContext(protocol.WithBlockCtx(ctx, blkCtx), g)
+				req.NoError(p.CreatePreStates(ctx, sm))
 			}
 			// verify block reward
 			br, err := p.BlockReward(ctx, sm)
@@ -557,4 +557,49 @@ func TestRewardLogCompatibility(t *testing.T) {
 	datao, err = proto.Marshal(rls2)
 	r.NoError(err)
 	r.Equal(datas, datao)
+}
+
+func TestProtocol_CalculateReward(t *testing.T) {
+	req := require.New(t)
+	var (
+		dardanellesBlockReward = unit.ConvertIotxToRau(8)
+		wakeBlockReward, _     = big.NewInt(0).SetString("4800000000000000000", 10)
+	)
+	for _, tv := range []struct {
+		accumuTips                    *big.Int
+		isWakeBlock                   bool
+		blockReward, totalReward, tip *big.Int
+	}{
+		{unit.ConvertIotxToRau(3), false, dardanellesBlockReward, unit.ConvertIotxToRau(11), unit.ConvertIotxToRau(3)},
+		{unit.ConvertIotxToRau(12), false, dardanellesBlockReward, unit.ConvertIotxToRau(20), unit.ConvertIotxToRau(12)},
+		{unit.ConvertIotxToRau(3), true, (&big.Int{}).Sub(wakeBlockReward, unit.ConvertIotxToRau(3)), wakeBlockReward, unit.ConvertIotxToRau(3)},
+		{unit.ConvertIotxToRau(6), true, (&big.Int{}).SetInt64(0), unit.ConvertIotxToRau(6), unit.ConvertIotxToRau(6)},
+	} {
+		testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+			// update block reward
+			g := genesis.MustExtractGenesisContext(ctx)
+			blkCtx := protocol.MustGetBlockCtx(ctx)
+			blkCtx.AccumulatedTips.Set(tv.accumuTips)
+			if tv.isWakeBlock {
+				g.WakeBlockRewardStr = wakeBlockReward.String()
+				blkCtx.BlockHeight = g.ToBeEnabledBlockHeight
+				ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(ctx, blkCtx), g))
+				req.NoError(p.CreatePreStates(ctx, sm))
+			} else {
+				g.DardanellesBlockRewardStr = dardanellesBlockReward.String()
+				blkCtx.BlockHeight = g.DardanellesBlockHeight
+				ctx = genesis.WithGenesisContext(protocol.WithBlockCtx(ctx, blkCtx), g)
+				req.NoError(p.CreatePreStates(ctx, sm))
+				blkCtx.BlockHeight = g.VanuatuBlockHeight
+				ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(ctx, blkCtx), g))
+			}
+			// verify block reward, total reward, and tip
+			total, br, tip, err := p.calculateTotalRewardAndTip(ctx, sm)
+			req.NoError(err)
+			req.Zero(tv.blockReward.Cmp(br))
+			req.Zero(tv.totalReward.Cmp(total))
+			req.Zero(tv.tip.Cmp(tip))
+			req.Zero(total.Cmp(br.Add(br, tip)))
+		}, false)
+	}
 }

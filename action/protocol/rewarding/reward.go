@@ -72,7 +72,6 @@ func (p *Protocol) GrantBlockReward(
 ) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	if err := p.assertNoRewardYet(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
@@ -101,14 +100,9 @@ func (p *Protocol) GrantBlockReward(
 	if err != nil {
 		return nil, err
 	}
-
-	a := admin{}
-	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
+	totalReward, blockReward, effectiveTip, err := p.calculateTotalRewardAndTip(ctx, sm)
+	if err != nil {
 		return nil, err
-	}
-	totalReward := big.NewInt(0).Set(a.blockReward)
-	if featureCtx.EnableDynamicFeeTx {
-		totalReward.Add(totalReward, &blkCtx.AccumulatedTips)
 	}
 	if err := p.updateAvailableBalance(ctx, sm, totalReward); err != nil {
 		return nil, err
@@ -124,19 +118,17 @@ func (p *Protocol) GrantBlockReward(
 			{
 				Type:   rewardingpb.RewardLog_BLOCK_REWARD,
 				Addr:   rewardAddrStr,
-				Amount: a.blockReward.String(),
+				Amount: blockReward.String(),
 			},
 		}
 		msg proto.Message = rewardLogs[0]
 	)
-	if featureCtx.EnableDynamicFeeTx {
-		if blkCtx.AccumulatedTips.Sign() > 0 {
-			rewardLogs = append(rewardLogs, &rewardingpb.RewardLog{
-				Type:   rewardingpb.RewardLog_PRIORITY_BONUS,
-				Addr:   rewardAddrStr,
-				Amount: blkCtx.AccumulatedTips.String(),
-			})
-		}
+	if !isZero(effectiveTip) {
+		rewardLogs = append(rewardLogs, &rewardingpb.RewardLog{
+			Type:   rewardingpb.RewardLog_PRIORITY_BONUS,
+			Addr:   rewardAddrStr,
+			Amount: effectiveTip.String(),
+		})
 		msg = &rewardingpb.RewardLogs{Logs: rewardLogs}
 	}
 	data, err := proto.Marshal(msg)
@@ -420,6 +412,34 @@ func (p *Protocol) claimFromAccount(ctx context.Context, sm protocol.StateManage
 		return err
 	}
 	return accountutil.StoreAccount(sm, addr, primAcc)
+}
+
+func (p *Protocol) calculateTotalRewardAndTip(ctx context.Context, sm protocol.StateManager) (*big.Int, *big.Int, *big.Int, error) {
+	a := admin{}
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
+		return nil, nil, nil, err
+	}
+	var (
+		blkCtx       = protocol.MustGetBlockCtx(ctx)
+		featureCtx   = protocol.MustGetFeatureCtx(ctx)
+		totalReward  = &big.Int{}
+		blockReward  = (&big.Int{}).Set(a.blockReward)
+		effectiveTip = &big.Int{}
+	)
+	if featureCtx.MakeUpBlockReward {
+		effectiveTip.Set(&blkCtx.AccumulatedTips)
+		if blkCtx.AccumulatedTips.Cmp(blockReward) >= 0 {
+			blockReward.SetUint64(0)
+		} else {
+			blockReward.Sub(blockReward, &blkCtx.AccumulatedTips)
+		}
+	} else if featureCtx.EnableDynamicFeeTx {
+		if blkCtx.AccumulatedTips.Sign() > 0 {
+			effectiveTip.Set(&blkCtx.AccumulatedTips)
+		}
+	}
+	totalReward.Add(blockReward, effectiveTip)
+	return totalReward, blockReward, effectiveTip, nil
 }
 
 func (p *Protocol) updateRewardHistory(ctx context.Context, sm protocol.StateManager, prefix []byte, index uint64) error {
