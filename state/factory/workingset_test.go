@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
@@ -188,7 +189,8 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		Chain:   blockchain.DefaultConfig,
 		Genesis: genesis.TestDefault(),
 	}
-	cfg.Genesis.QuebecBlockHeight = 1 // enable validate system action
+	cfg.Genesis.VanuatuBlockHeight = 1 // enable validate system action
+	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000"
 	registry := protocol.NewRegistry()
 	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
@@ -221,7 +223,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("f04673451e31386a8fddfcf7750665bfcf33f239f6c4919430bb11a144e1aa95")
 		require.NoError(err)
-		actions := []*action.SealedEnvelope{makeTransferAction(t, 1)}
+		actions := []*action.SealedEnvelope{makeTransferAction(t, 0)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
@@ -232,18 +234,18 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("f04673451e31386a8fddfcf7750665bfcf33f239f6c4919430bb11a144e1aa95")
 		require.NoError(err)
-		actions := []*action.SealedEnvelope{makeRewardAction(t, 28), makeTransferAction(t, 1)}
+		actions := []*action.SealedEnvelope{makeRewardAction(t, 28), makeTransferAction(t, 0)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
 		}
 	})
 	t.Run("correct system action", func(t *testing.T) {
-		digestHash, err := hash.HexStringToHash256("ade24a5c647b5af34c4e74fe0d8f1fa410f6fb115f8fc2d39e45ca2f895de9ca")
+		digestHash, err := hash.HexStringToHash256("da051302d6e0b433d54225892789ce24dd634b1c17a6fa443a8a8cab27e2c586")
 		require.NoError(err)
-		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
+		receiptRoot, err := hash.HexStringToHash256("afd544c5cf1b4b88216504a3b08d535314470adf6e45c68f9d0bb9e5c3699948")
 		require.NoError(err)
-		actions := []*action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t, 28)}
+		actions := []*action.SealedEnvelope{makeTransferAction(t, 0), makeRewardAction(t, 28)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), nil)
@@ -254,7 +256,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
 		require.NoError(err)
-		actions := []*action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t, 27)}
+		actions := []*action.SealedEnvelope{makeTransferAction(t, 0), makeRewardAction(t, 27)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorContains(f.Validate(zctx, block), "Only producer could create reward")
@@ -265,7 +267,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		receiptRoot, err := hash.HexStringToHash256("a59bd06fe4d2bb537895f170dec1f9213045cb13480e4941f1abdc8d13b16fae")
 		require.NoError(err)
-		actions := []*action.SealedEnvelope{makeTransferAction(t, 1), makeRewardAction(t, 28), makeRewardAction(t, 28)}
+		actions := []*action.SealedEnvelope{makeTransferAction(t, 0), makeRewardAction(t, 28), makeRewardAction(t, 28)}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
@@ -278,7 +280,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 		require.NoError(err)
 		rewardAct := makeRewardAction(t, 28)
 		rewardAct.SetNonce(2)
-		actions := []*action.SealedEnvelope{makeTransferAction(t, 1), rewardAct}
+		actions := []*action.SealedEnvelope{makeTransferAction(t, 0), rewardAct}
 		for _, f := range factories {
 			block := makeBlock(t, hash.ZeroHash256, receiptRoot, digestHash, actions...)
 			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
@@ -320,6 +322,7 @@ func makeBlock(t *testing.T, prevHash hash.Hash256, receiptRoot hash.Hash256, di
 		SetReceiptRoot(receiptRoot).
 		SetDeltaStateDigest(digest).
 		SetPrevBlockHash(prevHash).
+		SetBaseFee(big.NewInt(unit.Qev)).
 		SignAndBuild(identityset.PrivateKey(0))
 	require.NoError(t, err)
 	return &blk

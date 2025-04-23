@@ -279,22 +279,10 @@ func (sdb *stateDB) Mint(
 	if err != nil {
 		return nil, err
 	}
-	postSystemActions := make([]*action.SealedEnvelope, 0)
-	unsignedSystemActions, err := ws.generateSystemActions(ctx)
-	if err != nil {
-		return nil, err
-	}
 	sign := func(elp action.Envelope) (*action.SealedEnvelope, error) {
 		return action.Sign(elp, pk)
 	}
-	for _, elp := range unsignedSystemActions {
-		se, err := sign(elp)
-		if err != nil {
-			return nil, err
-		}
-		postSystemActions = append(postSystemActions, se)
-	}
-	blkBuilder, err := ws.CreateBuilder(ctx, ap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
+	blkBuilder, err := ws.CreateBuilder(ctx, ap, sign, sdb.cfg.Chain.AllowedBlockGasResidue)
 	if err != nil {
 		return nil, err
 	}
