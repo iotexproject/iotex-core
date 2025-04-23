@@ -241,6 +241,7 @@ type (
 		Consensus          Config
 		Scheme             string
 		DardanellesUpgrade consensusfsm.DardanellesUpgrade
+		WakeUpgrade        consensusfsm.WakeUpgrade
 		DB                 db.Config
 		Genesis            genesis.Genesis
 		SystemActive       bool
@@ -339,7 +340,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	}
 	b.cfg.DB.DbPath = b.cfg.Consensus.ConsensusDBPath
 	ctx, err := NewRollDPoSCtx(
-		consensusfsm.NewConsensusConfig(b.cfg.Consensus.FSM, b.cfg.DardanellesUpgrade, b.cfg.Genesis, b.cfg.Consensus.Delay),
+		consensusfsm.NewConsensusConfig(b.cfg.Consensus.FSM, b.cfg.DardanellesUpgrade, b.cfg.WakeUpgrade, b.cfg.Genesis, b.cfg.Consensus.Delay),
 		b.cfg.DB,
 		b.cfg.SystemActive,
 		b.cfg.Consensus.ToleratedOvertime,

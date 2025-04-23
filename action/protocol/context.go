@@ -155,6 +155,7 @@ type (
 		CheckStakingDurationUpperLimit          bool
 		FixRevertSnapshot                       bool
 		TimestampedStakingContract              bool
+		MakeUpBlockReward                       bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -315,6 +316,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
 			FixRevertSnapshot:                       g.IsVanuatu(height),
 			TimestampedStakingContract:              g.IsToBeEnabled(height),
+			MakeUpBlockReward:                       g.IsToBeEnabled(height),
 		},
 	)
 }
