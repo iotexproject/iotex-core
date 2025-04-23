@@ -42,10 +42,12 @@ func defaultConfig() Genesis {
 			Timestamp:                 1553558500,
 			BlockGasLimit:             20000000,
 			TsunamiBlockGasLimit:      50000000,
+			WakeBlockGasLimit:         30000000,
 			ActionGasLimit:            5000000,
 			BlockInterval:             10 * time.Second,
 			NumSubEpochs:              15,
 			DardanellesNumSubEpochs:   30,
+			WakeNumSubEpochs:          50,
 			NumDelegates:              24,
 			NumCandidateDelegates:     36,
 			TimeBasedRotation:         true,
@@ -250,6 +252,8 @@ type (
 		BlockGasLimit uint64 `yaml:"blockGasLimit"`
 		// TsunamiBlockGasLimit is the block gas limit starting Tsunami height (raised to 50M by default)
 		TsunamiBlockGasLimit uint64 `yaml:"tsunamiBlockGasLimit"`
+		// WakeBlockGasLimit is the block gas limit starting Wake height (reduced to 30M by default)
+		WakeBlockGasLimit uint64 `yaml:"wakeBlockGasLimit"`
 		// ActionGasLimit is the per action gas limit cap
 		ActionGasLimit uint64 `yaml:"actionGasLimit"`
 		// BlockInterval is the interval between two blocks
@@ -258,6 +262,8 @@ type (
 		NumSubEpochs uint64 `yaml:"numSubEpochs"`
 		// DardanellesNumSubEpochs is the number of sub epochs starts from dardanelles height in one epoch of block production
 		DardanellesNumSubEpochs uint64 `yaml:"dardanellesNumSubEpochs"`
+		// WakeNumSubEpochs is the number of sub epochs starts from wake height in one epoch of block production
+		WakeNumSubEpochs uint64 `yaml:"wakeNumSubEpochs"`
 		// NumDelegates is the number of delegates that participate into one epoch of block production
 		NumDelegates uint64 `yaml:"numDelegates"`
 		// NumCandidateDelegates is the number of candidate delegates, who may be selected as a delegate via roll dpos
@@ -740,7 +746,11 @@ func (g *Blockchain) IsToBeEnabled(height uint64) bool {
 	return g.isPost(g.ToBeEnabledBlockHeight, height)
 }
 
+// BlockGasLimitByHeight returns the block gas limit by height
 func (g *Blockchain) BlockGasLimitByHeight(height uint64) uint64 {
+	if g.isPost(g.WakeBlockHeight, height) {
+		return g.WakeBlockGasLimit
+	}
 	if g.isPost(g.TsunamiBlockHeight, height) {
 		// block gas limit raised to 50M after Tsunami block height
 		return g.TsunamiBlockGasLimit

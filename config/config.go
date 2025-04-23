@@ -68,6 +68,7 @@ var (
 		ActPool:            actpool.DefaultConfig,
 		Consensus:          consensus.DefaultConfig,
 		DardanellesUpgrade: consensusfsm.DefaultDardanellesUpgradeConfig,
+		WakeUpgrade:        consensusfsm.DefaultWakeUpgradeConfig,
 		BlockSync:          blocksync.DefaultConfig,
 		Dispatcher:         dispatcher.DefaultConfig,
 		API:                api.DefaultConfig,
@@ -124,6 +125,7 @@ type (
 		ActPool            actpool.Config                  `yaml:"actPool"`
 		Consensus          consensus.Config                `yaml:"consensus"`
 		DardanellesUpgrade consensusfsm.DardanellesUpgrade `yaml:"dardanellesUpgrade"`
+		WakeUpgrade        consensusfsm.WakeUpgrade        `yaml:"wakeUpgrade"`
 		BlockSync          blocksync.Config                `yaml:"blockSync"`
 		Dispatcher         dispatcher.Config               `yaml:"dispatcher"`
 		API                api.Config                      `yaml:"api"`

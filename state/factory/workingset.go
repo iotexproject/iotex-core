@@ -735,8 +735,10 @@ func (ws *workingSet) pickAndRunActions(
 			}
 			if err := ws.txValidator.ValidateWithState(ctxWithBlockContext, nextAction); err != nil {
 				log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
-				ap.DeleteAction(nextAction.SenderAddress())
-				actionIterator.PopAccount()
+				if !errors.Is(err, action.ErrNonceTooLow) {
+					ap.DeleteAction(nextAction.SenderAddress())
+					actionIterator.PopAccount()
+				}
 				continue
 			}
 			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)
