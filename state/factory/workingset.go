@@ -615,12 +615,15 @@ func (ws *workingSet) generateSystemActions(ctx context.Context) ([]action.Envel
 // validateSystemActionLayout verify whether the post system actions are appended tail
 func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []*action.SealedEnvelope) error {
 	// system actions should be at the end of the action list, and they should be continuous
-	has := false
+	hitSystemAction := false
 	for i := range actions {
-		if !has && action.IsSystemAction(actions[i]) {
-			has = true
-		} else if has && !action.IsSystemAction(actions[i]) {
-			return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action should be a system action", i)
+		if hitSystemAction {
+			if !action.IsSystemAction(actions[i]) {
+				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action should be a system action", i)
+			}
+			continue
+		} else if action.IsSystemAction(actions[i]) {
+			hitSystemAction = true
 		}
 	}
 	return nil
@@ -635,8 +638,7 @@ func (ws *workingSet) validatePostSystemActions(ctx context.Context, systemActio
 		return errors.Wrapf(errInvalidSystemActionLayout, "the number of system actions is incorrect, expected %d, got %d", len(postSystemActions), len(systemActions))
 	}
 	reg := protocol.MustGetRegistry(ctx)
-	for i := range systemActions {
-		act := systemActions[i]
+	for i, act := range systemActions {
 		actionCtx, err := withActionCtx(ctx, act)
 		if err != nil {
 			return err
@@ -648,8 +650,8 @@ func (ws *workingSet) validatePostSystemActions(ctx context.Context, systemActio
 				}
 			}
 		}
-		if systemActions[i].Envelope.Proto().String() != postSystemActions[i].Proto().String() {
-			return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action is not the expected system action", i)
+		if actual, expect := act.Envelope.Proto().String(), postSystemActions[i].Proto().String(); actual != expect {
+			return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action is not the expected system action: %v, got %v", i, expect, actual)
 		}
 	}
 	return nil
