@@ -26,6 +26,7 @@ func TestBlockPreparer_PrepareOrWait(t *testing.T) {
 		if called {
 			return nil, errors.New("block already minted")
 		}
+		called = true
 		return mockBlk, nil
 	}
 	mintFn2 := func() (*block.Block, error) {
