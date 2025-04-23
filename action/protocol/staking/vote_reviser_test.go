@@ -316,7 +316,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		g := deepcopy.Copy(genesis.Default).(genesis.Genesis)
 		g.TsunamiBlockHeight = 2
-		g.ToBeEnabledBlockHeight = 2
+		g.WakeBlockHeight = 2
 		ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{BlockHeight: 2})
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithFeatureCtx(ctx)

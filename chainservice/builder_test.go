@@ -16,13 +16,13 @@ func TestEstimateTipHeight(t *testing.T) {
 	r := require.New(t)
 	cfg := deepcopy.Copy(config.Default).(config.Config)
 	cfg.Genesis.DardanellesBlockHeight = 10000
-	cfg.Genesis.ToBeEnabledBlockHeight = 20000
+	cfg.Genesis.WakeBlockHeight = 20000
 	sk := identityset.PrivateKey(1)
 	t.Run("after dardanelles", func(t *testing.T) {
 		blk, err := block.NewBuilder(block.RunnableActions{}).SetHeight(cfg.Genesis.DardanellesBlockHeight + 1).SignAndBuild(sk)
 		r.NoError(err)
 		r.Equal(blk.Height()+2, estimateTipHeight(&cfg, &blk, 10*time.Second))
-		blk, err = block.NewBuilder(block.RunnableActions{}).SetHeight(cfg.Genesis.ToBeEnabledBlockHeight - 3).SignAndBuild(sk)
+		blk, err = block.NewBuilder(block.RunnableActions{}).SetHeight(cfg.Genesis.WakeBlockHeight - 3).SignAndBuild(sk)
 		r.NoError(err)
 		r.Equal(blk.Height()+2, estimateTipHeight(&cfg, &blk, 10*time.Second))
 		r.Equal(blk.Height()+3, estimateTipHeight(&cfg, &blk, 13*time.Second))
@@ -37,7 +37,7 @@ func TestEstimateTipHeight(t *testing.T) {
 		r.Equal(blk.Height()+4, estimateTipHeight(&cfg, &blk, 20*time.Second))
 	})
 	t.Run("after wake", func(t *testing.T) {
-		blk, err := block.NewBuilder(block.RunnableActions{}).SetHeight(cfg.Genesis.ToBeEnabledBlockHeight).SignAndBuild(sk)
+		blk, err := block.NewBuilder(block.RunnableActions{}).SetHeight(cfg.Genesis.WakeBlockHeight).SignAndBuild(sk)
 		r.NoError(err)
 		r.Equal(blk.Height()+1, estimateTipHeight(&cfg, &blk, 3*time.Second))
 		r.Equal(blk.Height()+1, estimateTipHeight(&cfg, &blk, 5*time.Second))
@@ -49,7 +49,7 @@ func TestBlockDistance(t *testing.T) {
 	r := require.New(t)
 	cfg := deepcopy.Copy(config.Default).(config.Config)
 	cfg.Genesis.DardanellesBlockHeight = 10
-	cfg.Genesis.ToBeEnabledBlockHeight = 20
+	cfg.Genesis.WakeBlockHeight = 20
 	t.Run("before dardanelles", func(t *testing.T) {
 		r.Equal(3*cfg.Genesis.BlockInterval, blockDistance(&cfg, 5, 8, 0))
 		r.Equal(10*cfg.Genesis.BlockInterval, blockDistance(&cfg, 5, 15, 0))
