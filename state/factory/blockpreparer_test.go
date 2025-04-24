@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBlockPreparer_PrepareOrWait(t *testing.T) {
@@ -101,8 +102,12 @@ func TestBlockPreparer_ReceiveBlock(t *testing.T) {
 	require.NoError(t, preparer.ReceiveBlock(emptyblk))
 	_, ok := preparer.tasks[prevHash]
 	require.True(t, ok)
+	_, ok = preparer.results[prevHash]
+	require.True(t, ok)
 
 	require.NoError(t, preparer.ReceiveBlock(blk))
 	_, ok = preparer.tasks[prevHash]
+	require.False(t, ok)
+	_, ok = preparer.results[prevHash]
 	require.False(t, ok)
 }
