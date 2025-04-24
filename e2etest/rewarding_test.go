@@ -89,6 +89,7 @@ func TestBlockReward(t *testing.T) {
 	cfg.DardanellesUpgrade.AcceptLockEndorsementTTL = 300 * time.Millisecond
 	cfg.DardanellesUpgrade.CommitTTL = 100 * time.Millisecond
 	cfg.DardanellesUpgrade.BlockInterval = time.Second
+	cfg.Chain.MintTimeout = 100 * time.Millisecond
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.Genesis.PollMode = "lifeLong"
@@ -114,25 +115,28 @@ func TestBlockReward(t *testing.T) {
 		amount := big.NewInt(100)
 		gasLimit := uint64(100000)
 		gasPrice := big.NewInt(unit.Qev * 2)
-
+		nonce, err := actpool.GetPendingNonce(senderSK.PublicKey().Address().String())
+		require.NoError(t, err)
 		ticker := time.NewTicker(time.Second / time.Duration(tps))
 		defer ticker.Stop()
-		select {
-		case <-ticker.C:
-			nonce, err := actpool.GetPendingNonce(senderSK.PublicKey().Address().String())
-			require.NoError(t, err)
-			tx, err := action.SignedTransfer(identityset.Address(10).String(), identityset.PrivateKey(1), nonce, amount, nil, gasLimit, gasPrice, action.WithChainID(cfg.Chain.EVMNetworkID))
-			require.NoError(t, err)
-			if err = actpool.Add(ctx, tx); err != nil {
-				t.Log("failed to add action to actpool", zap.Error(err))
+		for {
+			select {
+			case <-ticker.C:
+				tx, err := action.SignedTransfer(identityset.Address(10).String(), senderSK, nonce, amount, nil, gasLimit, gasPrice, action.WithChainID(cfg.Chain.ID))
+				require.NoError(t, err)
+				if err = actpool.Add(ctx, tx); err != nil {
+					t.Log("failed to add action to actpool", zap.Error(err))
+				} else {
+					nonce++
+				}
+			case <-ctx.Done():
+				return
 			}
-		case <-ctx.Done():
-			return
 		}
 	}
 	ctxInject, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go inject(ctxInject, 1)
+	go inject(ctxInject, 10)
 
 	require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (b bool, e error) {
 		return svr.ChainService(1).Blockchain().TipHeight() >= 5, nil
@@ -202,10 +206,12 @@ func TestBlockReward(t *testing.T) {
 			assert.Equal(t, big.NewInt(0).String(), rewards[rewardingpb.RewardLog_PRIORITY_BONUS].String())
 		case blockHeight < cfg.Genesis.ToBeEnabledBlockHeight:
 			// fixed block reward + priority bonus
+			require.True(t, rewards[rewardingpb.RewardLog_PRIORITY_BONUS].Sign() > 0, "blockHeight %d", blockHeight)
 			assert.Equal(t, cfg.Genesis.DardanellesBlockReward().String(), rewards[rewardingpb.RewardLog_BLOCK_REWARD].String())
 			assert.Equal(t, slices.ContainsFunc(blk.Actions, func(e *action.SealedEnvelope) bool { return !action.IsSystemAction(e) }), rewards[rewardingpb.RewardLog_PRIORITY_BONUS].Sign() > 0)
 		default:
 			// dynamic block reward + priority bonus
+			require.True(t, rewards[rewardingpb.RewardLog_PRIORITY_BONUS].Sign() > 0)
 			assert.Equal(t, slices.ContainsFunc(blk.Actions, func(e *action.SealedEnvelope) bool { return !action.IsSystemAction(e) }), rewards[rewardingpb.RewardLog_PRIORITY_BONUS].Sign() > 0)
 			total := new(big.Int).Add(rewards[rewardingpb.RewardLog_BLOCK_REWARD], rewards[rewardingpb.RewardLog_PRIORITY_BONUS])
 			assert.Equal(t, true, total.Cmp(cfg.Genesis.WakeBlockReward()) >= 0)
