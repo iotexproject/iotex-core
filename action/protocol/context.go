@@ -315,8 +315,8 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			UnstakedButNotClearSelfStakeAmount:      !g.IsVanuatu(height),
 			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
 			FixRevertSnapshot:                       g.IsVanuatu(height),
-			TimestampedStakingContract:              g.IsToBeEnabled(height),
-			MakeUpBlockReward:                       g.IsToBeEnabled(height),
+			TimestampedStakingContract:              g.IsWake(height),
+			MakeUpBlockReward:                       g.IsWake(height),
 		},
 	)
 }

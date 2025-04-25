@@ -355,7 +355,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
 	kvstore := db.NewBoltDB(dbConfig)
 	blockDurationFn := func(start uint64, end uint64, viewAt uint64) time.Duration {
-		if viewAt < cfg.Genesis.ToBeEnabledBlockHeight {
+		if viewAt < cfg.Genesis.WakeBlockHeight {
 			return time.Duration(end-start) * cfg.DardanellesUpgrade.BlockInterval
 		}
 		return time.Duration(end-start) * cfg.WakeUpgrade.BlockInterval
@@ -385,7 +385,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 			builder.cfg.Genesis.SystemStakingContractV2Address,
 			builder.cfg.Genesis.SystemStakingContractV2Height,
 			blockDurationFn,
-			stakingindex.WithMuteHeight(builder.cfg.Genesis.ToBeEnabledBlockHeight),
+			stakingindex.WithMuteHeight(builder.cfg.Genesis.WakeBlockHeight),
 		)
 		builder.cs.contractStakingIndexerV2 = indexer
 	}
@@ -727,7 +727,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		builder.cfg.Genesis.NumDelegates,
 		builder.cfg.Genesis.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(builder.cfg.Genesis.DardanellesBlockHeight, builder.cfg.Genesis.DardanellesNumSubEpochs),
-		rolldpos.EnableWakeSubEpoch(builder.cfg.Genesis.ToBeEnabledBlockHeight, builder.cfg.Genesis.WakeNumSubEpochs),
+		rolldpos.EnableWakeSubEpoch(builder.cfg.Genesis.WakeBlockHeight, builder.cfg.Genesis.WakeNumSubEpochs),
 	).Register(builder.cs.registry); err != nil {
 		return err
 	}
@@ -881,7 +881,7 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 // it ignores the influence of the block missing in the blockchain
 // it must >= the real head height of the block
 func estimateTipHeight(cfg *config.Config, blk *block.Block, duration time.Duration) uint64 {
-	heights, intervals := []uint64{0, cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.ToBeEnabledBlockHeight}, []time.Duration{cfg.Genesis.BlockInterval, cfg.DardanellesUpgrade.BlockInterval, cfg.WakeUpgrade.BlockInterval}
+	heights, intervals := []uint64{0, cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.WakeBlockHeight}, []time.Duration{cfg.Genesis.BlockInterval, cfg.DardanellesUpgrade.BlockInterval, cfg.WakeUpgrade.BlockInterval}
 	tip := blk.Height()
 	interval := intervals[0]
 	for i := 1; i < len(heights); i++ {
@@ -902,7 +902,7 @@ func estimateTipHeight(cfg *config.Config, blk *block.Block, duration time.Durat
 
 // blockDistance calculates the time duration between two blocks
 func blockDistance(cfg *config.Config, start, end, viewAt uint64) time.Duration {
-	origHeights := []uint64{0, cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.ToBeEnabledBlockHeight}
+	origHeights := []uint64{0, cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.WakeBlockHeight}
 	origIntervals := []time.Duration{
 		cfg.Genesis.BlockInterval,
 		cfg.DardanellesUpgrade.BlockInterval,

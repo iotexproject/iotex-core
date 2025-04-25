@@ -104,7 +104,7 @@ func NewConsensusConfig(timing ConsensusTiming, dardanelles DardanellesUpgrade, 
 		blockInterval:     g.Blockchain.BlockInterval,
 		delay:             delay,
 		wake:              wake,
-		wakeHeight:        g.ToBeEnabledBlockHeight,
+		wakeHeight:        g.WakeBlockHeight,
 	}
 }
 
