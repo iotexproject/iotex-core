@@ -29,8 +29,8 @@ type (
 )
 
 // newCompositeStakingStateReader creates a new compositive staking state reader
-func newCompositeStakingStateReader(nativeIndexer *CandidatesBucketsIndexer, sr protocol.StateReader, calculateVoteWeight func(v *VoteBucket, selfStake bool) *big.Int, contractIndexers ...ContractStakingIndexer) (*compositeStakingStateReader, error) {
-	nativeSR, err := ConstructBaseView(sr)
+func newCompositeStakingStateReader(ctx context.Context, nativeIndexer *CandidatesBucketsIndexer, sr protocol.StateReader, calculateVoteWeight func(v *VoteBucket, selfStake bool) *big.Int, contractIndexers ...ContractStakingIndexer) (*compositeStakingStateReader, error) {
+	nativeSR, err := ConstructCandidateStateReader(ctx, sr)
 	if err != nil {
 		return nil, err
 	}

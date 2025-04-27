@@ -143,7 +143,7 @@ func TestStakingStateReader(t *testing.T) {
 			}
 			return buckets, nil
 		}).AnyTimes()
-		stakeSR, err := newCompositeStakingStateReader(nil, sf, func(v *VoteBucket, selfStake bool) *big.Int {
+		stakeSR, err := newCompositeStakingStateReader(genesis.WithGenesisContext(context.Background(), genesis.TestDefault()), nil, sf, func(v *VoteBucket, selfStake bool) *big.Int {
 			return v.StakedAmount
 		}, contractIndexer)
 		r.NoError(err)

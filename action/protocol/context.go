@@ -156,6 +156,7 @@ type (
 		FixRevertSnapshot                       bool
 		TimestampedStakingContract              bool
 		MakeUpBlockReward                       bool
+		CandidatePreStateView                   bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -317,6 +318,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixRevertSnapshot:                       g.IsVanuatu(height),
 			TimestampedStakingContract:              g.IsWake(height),
 			MakeUpBlockReward:                       g.IsWake(height),
+			CandidatePreStateView:                   !g.IsWake(height),
 		},
 	)
 }

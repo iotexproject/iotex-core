@@ -167,7 +167,7 @@ func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account
 }
 
 func (p *Protocol) ConstructExecution(ctx context.Context, act *action.MigrateStake, nonce, gas uint64, gasPrice *big.Int, sr protocol.StateReader) (action.Envelope, error) {
-	csr, err := ConstructBaseView(sr)
+	csr, err := ConstructCandidateStateReader(ctx, sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create baseview")
 	}

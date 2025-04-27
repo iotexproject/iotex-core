@@ -145,11 +145,10 @@ func TestBucketPool(t *testing.T) {
 			total.Sub(total, v.amount)
 			count--
 		}
-
 		if v.commit {
 			r.NoError(csm.Commit(ctx))
 			// after commit, value should reflect in base view
-			c, err := ConstructBaseView(sm)
+			c, err := ConstructCandidateStateReader(ctx, sm)
 			r.NoError(err)
 			pool = c.BaseView().bucketPool
 			r.Equal(total, pool.Total())
@@ -157,7 +156,7 @@ func TestBucketPool(t *testing.T) {
 		}
 
 		if !testGreenland && v.postGreenland {
-			c, err := ConstructBaseView(sm)
+			c, err := ConstructCandidateStateReader(ctx, sm)
 			r.NoError(err)
 			_, err = sm.PutState(c.BaseView().bucketPool.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 			r.NoError(err)
@@ -178,7 +177,7 @@ func TestBucketPool(t *testing.T) {
 	r.NoError(csm.DebitBucketPool(tests[0].amount, true))
 	sm.Snapshot()
 
-	c, err := ConstructBaseView(sm)
+	c, err := ConstructCandidateStateReader(ctx, sm)
 	r.NoError(err)
 	pool = c.BaseView().bucketPool
 	r.Equal(total, pool.Total())

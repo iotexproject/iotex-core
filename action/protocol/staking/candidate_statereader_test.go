@@ -6,13 +6,16 @@
 package staking
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
 func Test_CandidateStateReader(t *testing.T) {
@@ -22,7 +25,8 @@ func Test_CandidateStateReader(t *testing.T) {
 	sm := testdb.NewMockStateManager(ctrl)
 	h, err := sm.Height()
 	require.NoError(err)
-	csr, err := ConstructBaseView(sm)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	csr, err := ConstructCandidateStateReader(ctx, sm)
 	require.Equal(err, protocol.ErrNoName)
 	view, _, err := CreateBaseView(sm, false)
 	require.NoError(err)

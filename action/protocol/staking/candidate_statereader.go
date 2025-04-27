@@ -122,9 +122,9 @@ func (c *candSR) ActiveBucketsCount() uint64 {
 	return c.view.bucketPool.Count()
 }
 
-// ConstructBaseView returns a candidate state reader that reflects the base view
+// ConstructCandidateStateReader returns a candidate state reader that reflects the base view
 // it will be used read-only
-func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
+func ConstructCandidateStateReader(ctx context.Context, sr protocol.StateReader) (CandidateStateReader, error) {
 	if sr == nil {
 		return nil, ErrMissingField
 	}
@@ -142,7 +142,10 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 	if !ok {
 		return nil, errors.Wrap(ErrTypeAssertion, "expecting *ViewData")
 	}
-	view = view.Base()
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height}))
+	if protocol.MustGetFeatureCtx(ctx).CandidatePreStateView {
+		view = view.Base()
+	}
 	return &candSR{
 		StateReader: sr,
 		height:      height,
@@ -154,7 +157,7 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 	}, nil
 }
 
-func ConstructView(sr protocol.StateReader) (*ViewData, error) {
+func constructViewData(sr protocol.StateReader) (*ViewData, error) {
 	if sr == nil {
 		return nil, ErrMissingField
 	}

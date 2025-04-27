@@ -303,7 +303,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		featureCtx = protocol.MustGetFeatureCtx(ctx)
 	)
 	if blkCtx.BlockHeight == g.GreenlandBlockHeight {
-		csr, err := ConstructBaseView(sm)
+		csr, err := ConstructCandidateStateReader(ctx, sm)
 		if err != nil {
 			return err
 		}
@@ -356,7 +356,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 }
 
 func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight uint64, sm protocol.StateManager) error {
-	csr, err := ConstructBaseView(sm)
+	csr, err := ConstructCandidateStateReader(ctx, sm)
 	if err != nil {
 		return err
 	}
@@ -587,7 +587,7 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get StateReader height")
 	}
-	c, err := ConstructBaseView(sr)
+	c, err := ConstructCandidateStateReader(ctx, sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}
@@ -637,7 +637,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if p.contractStakingIndexerV3 != nil {
 		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV3, time.Second))
 	}
-	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
+	stakeSR, err := newCompositeStakingStateReader(ctx, p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -651,7 +651,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
 		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
 	}
-	nativeSR, err := ConstructBaseView(sr)
+	nativeSR, err := ConstructCandidateStateReader(ctx, sr)
 	if err != nil {
 		return nil, 0, err
 	}
