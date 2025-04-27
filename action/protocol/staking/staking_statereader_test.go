@@ -118,6 +118,12 @@ func TestStakingStateReader(t *testing.T) {
 					count:  1,
 				},
 			},
+			base: Snapshot{
+				size:    candCenter.size,
+				changes: 0,
+				amount:  new(big.Int).Set(big.NewInt(100)),
+				count:   1,
+			},
 		}
 		states := make([][]byte, len(testNativeBuckets))
 		for i := range states {

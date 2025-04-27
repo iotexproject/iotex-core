@@ -9,8 +9,9 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 type (
@@ -19,6 +20,7 @@ type (
 		candCenter *CandidateCenter
 		bucketPool *BucketPool
 		snapshots  []Snapshot
+		base       Snapshot
 	}
 	Snapshot struct {
 		size    int
@@ -40,6 +42,12 @@ func (v *ViewData) Clone() protocol.View {
 			amount:  new(big.Int).Set(v.snapshots[i].amount),
 			count:   v.snapshots[i].count,
 		}
+	}
+	clone.base = Snapshot{
+		size:    v.base.size,
+		changes: v.base.changes,
+		amount:  new(big.Int).Set(v.base.amount),
+		count:   v.base.count,
 	}
 
 	return clone
@@ -63,6 +71,12 @@ func (v *ViewData) Commit(ctx context.Context, sr protocol.StateReader) error {
 		return err
 	}
 	v.snapshots = []Snapshot{}
+	v.base = Snapshot{
+		size:    v.candCenter.size,
+		changes: 0,
+		amount:  new(big.Int).Set(v.bucketPool.total.amount),
+		count:   v.bucketPool.total.count,
+	}
 
 	return nil
 }
@@ -97,4 +111,24 @@ func (v *ViewData) Revert(snapshot int) error {
 	v.bucketPool.total.count = s.count
 	v.snapshots = v.snapshots[:snapshot]
 	return nil
+}
+
+func (v *ViewData) Base() *ViewData {
+	view := &ViewData{
+		candCenter: v.candCenter.Base(),
+		bucketPool: &BucketPool{
+			total: &totalAmount{
+				count:  v.base.count,
+				amount: new(big.Int).Set(v.base.amount),
+			},
+			enableSMStorage: v.bucketPool.enableSMStorage,
+		},
+		base: Snapshot{
+			size:    v.base.size,
+			changes: 0,
+			amount:  new(big.Int).Set(v.bucketPool.total.amount),
+			count:   v.bucketPool.total.count,
+		},
+	}
+	return view
 }

@@ -26,7 +26,9 @@ func TestVoteReviser(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManagerWithoutHeightFunc(ctrl)
-	sm.EXPECT().Height().Return(uint64(0), nil).Times(4)
+	sm.EXPECT().Height().DoAndReturn(func() (uint64, error) {
+		return 0, nil
+	}).Times(3)
 	csm := newCandidateStateManager(sm)
 	csr := newCandidateStateReader(sm)
 	_, err := sm.PutState(

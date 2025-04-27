@@ -76,14 +76,13 @@ type (
 func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, error) {
 	// TODO: we can store csm in a local cache, just as how statedb store the workingset
 	// b/c most time the sm is used before, no need to create another clone
-	csr, err := ConstructBaseView(sm)
+	view, err := ConstructView(sm)
 	if err != nil {
 		return nil, err
 	}
 
 	// make a copy of candidate center and bucket pool, so they can be modified by csm
 	// and won't affect base view until being committed
-	view := csr.BaseView()
 	return &candSM{
 		StateManager: sm,
 		candCenter:   view.candCenter,

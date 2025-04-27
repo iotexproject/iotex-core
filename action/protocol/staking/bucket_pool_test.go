@@ -181,6 +181,6 @@ func TestBucketPool(t *testing.T) {
 	c, err := ConstructBaseView(sm)
 	r.NoError(err)
 	pool = c.BaseView().bucketPool
-	r.Equal(total.Add(total, tests[0].amount), pool.Total())
-	r.Equal(count+1, pool.Count())
+	r.Equal(total, pool.Total())
+	r.Equal(count, pool.Count())
 }
