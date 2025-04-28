@@ -29,10 +29,18 @@ var (
 		},
 		[]string{"type", "status"},
 	)
+	consensusGuage = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_consensus_gauge",
+			Help: "IoTeX consensus gauge",
+		},
+		[]string{"type"},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(_consensusEvtsMtc)
+	prometheus.MustRegister(consensusGuage)
 }
 
 const (
@@ -421,6 +429,7 @@ func (m *ConsensusFSM) prepare(evt fsm.Event) (fsm.State, error) {
 
 	overtime := m.ctx.WaitUntilRoundStart()
 	if proposal != nil {
+		consensusGuage.WithLabelValues("mintOverTime").Set(float64(overtime.Milliseconds()))
 		m.ctx.Broadcast(proposal)
 	}
 	if !m.ctx.HasDelegate() {
