@@ -155,6 +155,7 @@ type (
 		CheckStakingDurationUpperLimit          bool
 		FixRevertSnapshot                       bool
 		TimestampedStakingContract              bool
+		PreStateSystemAction                    bool
 		MakeUpBlockReward                       bool
 	}
 
@@ -316,6 +317,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CheckStakingDurationUpperLimit:          g.IsVanuatu(height),
 			FixRevertSnapshot:                       g.IsVanuatu(height),
 			TimestampedStakingContract:              g.IsWake(height),
+			PreStateSystemAction:                    !g.IsWake(height),
 			MakeUpBlockReward:                       g.IsWake(height),
 		},
 	)
