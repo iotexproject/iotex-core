@@ -616,10 +616,10 @@ func (builder *Builder) buildBlockSyncer() error {
 				}
 				switch errors.Cause(err) {
 				case blockchain.ErrInvalidTipHeight:
-					log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+					log.L().Info("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 					return nil
 				case block.ErrDeltaStateMismatch:
-					log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
+					log.L().Warn("Delta state mismatched.", zap.Uint64("height", blk.Height()))
 				case blockdao.ErrRemoteHeightTooLow:
 					if retries == 1 {
 						retries = 4
@@ -627,12 +627,12 @@ func (builder *Builder) buildBlockSyncer() error {
 					log.L().Debug("Remote height too low.", zap.Uint64("height", blk.Height()))
 					time.Sleep(100 * time.Millisecond)
 				default:
-					log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+					log.L().Warn("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 					return err
 				}
 			}
 			if err != nil {
-				log.L().Debug("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+				log.L().Warn("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 				return err
 			}
 			log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))

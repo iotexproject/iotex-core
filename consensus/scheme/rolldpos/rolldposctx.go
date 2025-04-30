@@ -592,6 +592,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	// Commit and broadcast the pending block
 	switch err := ctx.chain.CommitBlock(pendingBlock); errors.Cause(err) {
 	case blockchain.ErrInvalidTipHeight:
+		ctx.logger().Warn("blockchain tip height is invalid", zap.Uint64("tipHeight", ctx.chain.TipHeight()), zap.Uint64("blockHeight", pendingBlock.Height()), zap.Error(err))
 		return true, nil
 	case nil:
 		break
