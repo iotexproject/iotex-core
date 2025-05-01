@@ -7,6 +7,7 @@ package chainservice
 
 import (
 	"context"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
@@ -79,11 +80,36 @@ type ChainService struct {
 	apiStats                 *nodestats.APILocalStats
 	actionsync               *actsync.ActionSync
 	minter                   *factory.Minter
+
+	lastReceivedBlockHeight uint64
 }
 
 // Start starts the server
 func (cs *ChainService) Start(ctx context.Context) error {
-	return cs.lifecycle.OnStartSequentially(ctx)
+	if err := cs.lifecycle.OnStartSequentially(ctx); err != nil {
+		return errors.Wrap(err, "failed to start chain service")
+	}
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+
+		var lastHeight uint64
+		var lastReceivedBlockHeight uint64
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				currentHeight := cs.chain.TipHeight()
+				if currentHeight == lastHeight && lastReceivedBlockHeight != cs.lastReceivedBlockHeight {
+					log.L().Panic("Blockchain height has not changed, restarting service")
+				}
+				lastHeight = currentHeight
+				lastReceivedBlockHeight = cs.lastReceivedBlockHeight
+			}
+		}
+	}()
+	return nil
 }
 
 // Stop stops the server
@@ -149,6 +175,9 @@ func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *i
 	ctx, err = cs.chain.Context(ctx)
 	if err != nil {
 		return err
+	}
+	if cs.lastReceivedBlockHeight < blk.Height() {
+		cs.lastReceivedBlockHeight = blk.Height()
 	}
 	return cs.blocksync.ProcessBlock(ctx, peer, blk)
 }
