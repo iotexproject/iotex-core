@@ -469,6 +469,12 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 	if err := ws.validate(ctx); err != nil {
 		return err
 	}
+	userActions, systemActions := ws.splitActions(actions)
+	if protocol.MustGetFeatureCtx(ctx).PreStateSystemAction {
+		if err := ws.validatePostSystemActions(ctx, systemActions); err != nil {
+			return err
+		}
+	}
 	reg := protocol.MustGetRegistry(ctx)
 	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
@@ -483,7 +489,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		blkCtx              = protocol.MustGetBlockCtx(ctx)
 		fCtx                = protocol.MustGetFeatureCtx(ctx)
 	)
-	for _, act := range actions {
+	for _, act := range userActions {
 		if err := ws.txValidator.ValidateWithState(ctxWithBlockContext, act); err != nil {
 			return err
 		}
@@ -510,6 +516,23 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 			}
 			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 		}
+	}
+	// Handle post system actions
+	if !protocol.MustGetFeatureCtx(ctx).PreStateSystemAction {
+		if err := ws.validatePostSystemActions(ctxWithBlockContext, systemActions); err != nil {
+			return err
+		}
+	}
+	for _, act := range systemActions {
+		actionCtx, err := withActionCtx(ctxWithBlockContext, act)
+		if err != nil {
+			return err
+		}
+		receipt, err := ws.runAction(actionCtx, act)
+		if err != nil {
+			return errors.Wrap(err, "error when run action")
+		}
+		receipts = append(receipts, receipt)
 	}
 	if fCtx.CorrectTxLogIndex {
 		updateReceiptIndex(receipts)
@@ -598,34 +621,64 @@ func (ws *workingSet) generateSystemActions(ctx context.Context) ([]action.Envel
 
 // validateSystemActionLayout verify whether the post system actions are appended tail
 func (ws *workingSet) validateSystemActionLayout(ctx context.Context, actions []*action.SealedEnvelope) error {
+	// system actions should be at the end of the action list, and they should be continuous
+	hitSystemAction := false
+	for i := range actions {
+		if hitSystemAction {
+			if !action.IsSystemAction(actions[i]) {
+				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action should be a system action", i)
+			}
+			continue
+		} else if action.IsSystemAction(actions[i]) {
+			hitSystemAction = true
+		}
+	}
+	return nil
+}
+
+func (ws *workingSet) validatePostSystemActions(ctx context.Context, systemActions []*action.SealedEnvelope) error {
 	postSystemActions, err := ws.generateSystemActions(ctx)
 	if err != nil {
 		return err
 	}
-	// system actions should be at the end of the action list, and they should be continuous
-	expectedStartIdx := len(actions) - len(postSystemActions)
-	sysActCnt := 0
-	for i := range actions {
-		if action.IsSystemAction(actions[i]) {
-			if i != expectedStartIdx+sysActCnt {
-				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action should not be a system action", i)
+	if len(postSystemActions) != len(systemActions) {
+		return errors.Wrapf(errInvalidSystemActionLayout, "the number of system actions is incorrect, expected %d, got %d", len(postSystemActions), len(systemActions))
+	}
+	reg := protocol.MustGetRegistry(ctx)
+	for i, act := range systemActions {
+		actionCtx, err := withActionCtx(ctx, act)
+		if err != nil {
+			return err
+		}
+		for _, p := range reg.All() {
+			if validator, ok := p.(protocol.ActionValidator); ok {
+				if err := validator.Validate(actionCtx, act.Envelope, ws); err != nil {
+					return err
+				}
 			}
-			if actions[i].Envelope.Proto().String() != postSystemActions[sysActCnt].Proto().String() {
-				return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action is not the expected system action", i)
-			}
-			sysActCnt++
+		}
+		if actual, expect := act.Envelope.Proto().String(), postSystemActions[i].Proto().String(); actual != expect {
+			return errors.Wrapf(errInvalidSystemActionLayout, "the %d-th action is not the expected system action: %v, got %v", i, expect, actual)
 		}
 	}
-	if sysActCnt != len(postSystemActions) {
-		return errors.Wrapf(errInvalidSystemActionLayout, "the number of system actions is incorrect, expected %d, got %d", len(postSystemActions), sysActCnt)
-	}
 	return nil
+}
+
+func (ws *workingSet) splitActions(acts []*action.SealedEnvelope) (userActions []*action.SealedEnvelope, systemActions []*action.SealedEnvelope) {
+	for _, act := range acts {
+		if action.IsSystemAction(act) {
+			systemActions = append(systemActions, act)
+		} else {
+			userActions = append(userActions, act)
+		}
+	}
+	return userActions, systemActions
 }
 
 func (ws *workingSet) pickAndRunActions(
 	ctx context.Context,
 	ap actpool.ActPool,
-	postSystemActions []*action.SealedEnvelope,
+	sign func(elp action.Envelope) (*action.SealedEnvelope, error),
 	allowedBlockGasResidue uint64,
 ) ([]*action.SealedEnvelope, error) {
 	err := ws.validate(ctx)
@@ -635,6 +688,16 @@ func (ws *workingSet) pickAndRunActions(
 	receipts := make([]*action.Receipt, 0)
 	executedActions := make([]*action.SealedEnvelope, 0)
 	reg := protocol.MustGetRegistry(ctx)
+
+	var (
+		systemActions []*action.SealedEnvelope
+	)
+	if protocol.MustGetFeatureCtx(ctx).PreStateSystemAction {
+		systemActions, err = ws.generateSignedSystemActions(ctx, sign)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
@@ -689,8 +752,10 @@ func (ws *workingSet) pickAndRunActions(
 			}
 			if err := ws.txValidator.ValidateWithState(ctxWithBlockContext, nextAction); err != nil {
 				log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
-				ap.DeleteAction(nextAction.SenderAddress())
-				actionIterator.PopAccount()
+				if !errors.Is(err, action.ErrNonceTooLow) {
+					ap.DeleteAction(nextAction.SenderAddress())
+					actionIterator.PopAccount()
+				}
 				continue
 			}
 			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)
@@ -752,7 +817,14 @@ func (ws *workingSet) pickAndRunActions(
 		}
 	}
 
-	for _, selp := range postSystemActions {
+	if !fCtx.PreStateSystemAction {
+		systemActions, err = ws.generateSignedSystemActions(ctx, sign)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, selp := range systemActions {
 		actionCtx, err := withActionCtx(ctxWithBlockContext, selp)
 		if err != nil {
 			return nil, err
@@ -770,6 +842,22 @@ func (ws *workingSet) pickAndRunActions(
 	ws.receipts = receipts
 
 	return executedActions, ws.finalize()
+}
+
+func (ws *workingSet) generateSignedSystemActions(ctx context.Context, sign func(elp action.Envelope) (*action.SealedEnvelope, error)) ([]*action.SealedEnvelope, error) {
+	unsignedSystemActions, err := ws.generateSystemActions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	postSystemActions := make([]*action.SealedEnvelope, len(unsignedSystemActions))
+	for i, elp := range unsignedSystemActions {
+		selp, err := sign(elp)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to sign %+v", elp.Action())
+		}
+		postSystemActions[i] = selp
+	}
+	return postSystemActions, nil
 }
 
 func updateReceiptIndex(receipts []*action.Receipt) {
@@ -841,10 +929,10 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 func (ws *workingSet) CreateBuilder(
 	ctx context.Context,
 	ap actpool.ActPool,
-	postSystemActions []*action.SealedEnvelope,
+	sign func(elp action.Envelope) (*action.SealedEnvelope, error),
 	allowedBlockGasResidue uint64,
 ) (*block.Builder, error) {
-	actions, err := ws.pickAndRunActions(ctx, ap, postSystemActions, allowedBlockGasResidue)
+	actions, err := ws.pickAndRunActions(ctx, ap, sign, allowedBlockGasResidue)
 	if err != nil {
 		return nil, err
 	}

@@ -49,7 +49,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 				g := genesis.MustExtractGenesisContext(ctx)
 				g.WakeBlockRewardStr = tv.blockReward.String()
 				blkCtx := protocol.MustGetBlockCtx(ctx)
-				blkCtx.BlockHeight = g.ToBeEnabledBlockHeight
+				blkCtx.BlockHeight = g.WakeBlockHeight
 				ctx = genesis.WithGenesisContext(protocol.WithBlockCtx(ctx, blkCtx), g)
 				req.NoError(p.CreatePreStates(ctx, sm))
 			}
@@ -428,7 +428,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		nil,
 		2,
 		2,
-		g.DardanellesNumSubEpochs,
 		g.ProductivityThreshold,
 		g.ProbationEpochPeriod,
 		g.UnproductiveDelegateMaxCacheSize,
@@ -583,7 +582,7 @@ func TestProtocol_CalculateReward(t *testing.T) {
 			blkCtx.AccumulatedTips.Set(tv.accumuTips)
 			if tv.isWakeBlock {
 				g.WakeBlockRewardStr = wakeBlockReward.String()
-				blkCtx.BlockHeight = g.ToBeEnabledBlockHeight
+				blkCtx.BlockHeight = g.WakeBlockHeight
 				ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(ctx, blkCtx), g))
 				req.NoError(p.CreatePreStates(ctx, sm))
 			} else {

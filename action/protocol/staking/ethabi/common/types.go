@@ -76,10 +76,6 @@ func EncodeVoteBucketListToEth(outputs abi.Arguments, buckets *iotextypes.VoteBu
 		if bucket.ContractAddress == "" {
 			// native bucket contract address is 0x0000000000000000000000000000000000000000
 			args[i].ContractAddress = common.Address{}
-			args[i].StakedDuration = bucket.StakedDuration
-			args[i].CreateTime = bucket.CreateTime.Seconds
-			args[i].StakeStartTime = bucket.StakeStartTime.Seconds
-			args[i].UnstakeStartTime = bucket.UnstakeStartTime.Seconds
 			args[i].EndorsementExpireBlockHeight = bucket.EndorsementExpireBlockHeight
 		} else {
 			addr, err = addrutil.IoAddrToEvmAddr(bucket.ContractAddress)
@@ -87,6 +83,13 @@ func EncodeVoteBucketListToEth(outputs abi.Arguments, buckets *iotextypes.VoteBu
 				return "", err
 			}
 			args[i].ContractAddress = addr
+		}
+		if bucket.CreateBlockHeight == 0 {
+			args[i].StakedDuration = bucket.StakedDuration
+			args[i].CreateTime = bucket.CreateTime.Seconds
+			args[i].StakeStartTime = bucket.StakeStartTime.Seconds
+			args[i].UnstakeStartTime = bucket.UnstakeStartTime.Seconds
+		} else {
 			args[i].StakedDurationBlockNumber = bucket.StakedDurationBlockNumber
 			args[i].CreateBlockHeight = bucket.CreateBlockHeight
 			args[i].StakeStartBlockHeight = bucket.StakeStartBlockHeight

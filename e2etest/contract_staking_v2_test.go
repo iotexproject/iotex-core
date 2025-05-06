@@ -51,7 +51,7 @@ func TestContractStakingV2(t *testing.T) {
 	cfg := initCfg(require)
 	cfg.Genesis.UpernavikBlockHeight = 1
 	cfg.Genesis.VanuatuBlockHeight = 100
-	cfg.Genesis.ToBeEnabledBlockHeight = 120 // mute staking v2
+	cfg.Genesis.WakeBlockHeight = 120 // mute staking v2
 	cfg.Genesis.SystemStakingContractV2Address = contractAddress
 	cfg.Genesis.SystemStakingContractV2Height = 1
 	cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
@@ -305,7 +305,7 @@ func TestContractStakingV3(t *testing.T) {
 	cfg := initCfg(require)
 	cfg.Genesis.UpernavikBlockHeight = 1
 	cfg.Genesis.VanuatuBlockHeight = 100
-	cfg.Genesis.ToBeEnabledBlockHeight = 120 // mute staking v2 & enable staking v3
+	cfg.Genesis.WakeBlockHeight = 120 // mute staking v2 & enable staking v3
 	cfg.Genesis.SystemStakingContractV2Address = contractV2Address
 	cfg.Genesis.SystemStakingContractV2Height = 1
 	cfg.Genesis.SystemStakingContractV3Address = contractV3Address
@@ -583,7 +583,7 @@ func TestMigrateStake(t *testing.T) {
 		cfg.Genesis.SystemStakingContractV3Address = contractAddress
 		cfg.Genesis.SystemStakingContractV3Height = 1
 		cfg.Genesis.VanuatuBlockHeight = 1
-		cfg.Genesis.ToBeEnabledBlockHeight = 1
+		cfg.Genesis.WakeBlockHeight = 1
 		testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 		cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
 		cfg.Plugins[config.GatewayPlugin] = nil

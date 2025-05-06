@@ -222,6 +222,7 @@ func TestValidateBlockFooter(t *testing.T) {
 		DB:                 db.DefaultConfig,
 		Genesis:            g,
 		SystemActive:       true,
+		WakeUpgrade:        consensusfsm.DefaultWakeUpgradeConfig,
 	}
 	builderCfg.Consensus.ConsensusDBPath = ""
 	bc.EXPECT().Genesis().Return(g).AnyTimes()

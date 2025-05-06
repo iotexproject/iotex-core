@@ -257,11 +257,7 @@ func (cm *chainManager) CommitBlock(blk *block.Block) error {
 }
 
 func (cm *chainManager) Start(ctx context.Context) error {
-	head, err := cm.bc.BlockHeaderByHeight(cm.bc.TipHeight())
-	if err != nil {
-		return errors.Wrap(err, "failed to get the head block")
-	}
-	cm.pool.Init(head.HashBlock())
+	cm.pool.Init(cm.bc.TipHash())
 	return nil
 }
 
