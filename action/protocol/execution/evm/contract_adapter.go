@@ -10,17 +10,8 @@ import (
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
-type contractReader interface {
-	GetCommittedState(hash.Hash256) ([]byte, error)
-	GetState(hash.Hash256) ([]byte, error)
-	SetState(hash.Hash256, []byte) error
-	GetCode() ([]byte, error)
-	SelfState() *state.Account
-}
-
 type contractAdapter struct {
-	contractReader
-	trie   Contract
+	Contract
 	erigon Contract
 }
 
@@ -34,34 +25,33 @@ func newContractAdapter(addr hash.Hash160, account *state.Account, sm protocol.S
 		return nil, errors.Wrap(err, "failed to create contractV2")
 	}
 	c := &contractAdapter{
-		contractReader: v1,
-		trie:           v1,
-		erigon:         v2,
+		Contract: v1,
+		erigon:   v2,
 	}
 	return c, nil
 }
 
 func (c *contractAdapter) SetState(key hash.Hash256, value []byte) error {
-	if err := c.trie.SetState(key, value); err != nil {
+	if err := c.Contract.SetState(key, value); err != nil {
 		return err
 	}
 	return c.erigon.SetState(key, value)
 }
 
 func (c *contractAdapter) SetCode(hash hash.Hash256, code []byte) {
-	c.trie.SetCode(hash, code)
+	c.Contract.SetCode(hash, code)
 	c.erigon.SetCode(hash, code)
 }
 
 func (c *contractAdapter) Commit() error {
-	if err := c.trie.Commit(); err != nil {
+	if err := c.Contract.Commit(); err != nil {
 		return err
 	}
 	return c.erigon.Commit()
 }
 
 func (c *contractAdapter) LoadRoot() error {
-	if err := c.trie.LoadRoot(); err != nil {
+	if err := c.Contract.LoadRoot(); err != nil {
 		return err
 	}
 	return c.erigon.LoadRoot()
@@ -73,11 +63,10 @@ func (c *contractAdapter) Iterator() (trie.Iterator, error) {
 }
 
 func (c *contractAdapter) Snapshot() Contract {
-	v1 := c.trie.Snapshot()
+	v1 := c.Contract.Snapshot()
 	v2 := c.erigon.Snapshot()
 	return &contractAdapter{
-		contractReader: v1,
-		trie:           v1,
-		erigon:         v2,
+		Contract: v1,
+		erigon:   v2,
 	}
 }

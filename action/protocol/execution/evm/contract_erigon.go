@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/db/trie"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -55,8 +54,6 @@ func (c *contractErigon) GetCode() ([]byte, error) {
 
 func (c *contractErigon) SetCode(hash hash.Hash256, code []byte) {
 	c.intra.SetCode(libcommon.Address(c.addr), code)
-	eh := c.intra.GetCodeHash(libcommon.Address(c.addr))
-	log.L().Debug("SetCode", log.Hex("erigonhash", eh[:]), log.Hex("iotexhash", hash[:]))
 }
 
 func (c *contractErigon) SelfState() *state.Account {
