@@ -45,9 +45,12 @@ func (d *blockPreparer) PrepareOrWait(ctx context.Context, prevHash []byte, time
 	}
 
 	d.mu.Lock()
-	res := d.results[hash.Hash256(prevHash)][timestamp.UnixNano()]
-	d.mu.Unlock()
-	return res.blk, res.err
+	defer d.mu.Unlock()
+	if blks, ok := d.results[hash.BytesToHash256(prevHash)]; ok && blks[timestamp.UnixNano()] != nil {
+		res := blks[timestamp.UnixNano()]
+		return res.blk, res.err
+	}
+	return nil, errors.New("mint result not found")
 }
 
 func (d *blockPreparer) prepare(prevHash []byte, timestamp time.Time, mintFn func() (*block.Block, error)) chan struct{} {
@@ -80,6 +83,7 @@ func (d *blockPreparer) prepare(prevHash []byte, timestamp time.Time, mintFn fun
 func (d *blockPreparer) ReceiveBlock(blk *block.Block) error {
 	d.mu.Lock()
 	delete(d.tasks, blk.PrevHash())
+	delete(d.results, blk.PrevHash())
 	d.mu.Unlock()
 	return nil
 }
