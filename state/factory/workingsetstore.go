@@ -138,9 +138,9 @@ func (store *stateDBWorkingSetStore) Get(ns string, key []byte) ([]byte, error) 
 func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte) ([][]byte, [][]byte, error) {
 	if store.readBuffer {
 		// TODO: after the 180 HF, we can revert readBuffer, and always go this case
-		return readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
+		return db.ReadStates(store.flusher.KVStoreWithBuffer(), ns, keys)
 	}
-	return readStates(store.flusher.BaseKVStore(), ns, keys)
+	return db.ReadStates(store.flusher.BaseKVStore(), ns, keys)
 }
 
 func (store *stateDBWorkingSetStore) Finalize(height uint64) error {

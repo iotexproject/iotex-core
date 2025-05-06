@@ -393,7 +393,7 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 	if cfg.Key != nil {
 		return sdb.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	keys, values, err := readStates(sdb.dao.atHeight(sdb.currentChainHeight), cfg.Namespace, cfg.Keys)
+	keys, values, err := db.ReadStates(sdb.dao.atHeight(sdb.currentChainHeight), cfg.Namespace, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
 	}
