@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -26,8 +27,10 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/api"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -81,9 +84,23 @@ func TestBlockReward(t *testing.T) {
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 300 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 300 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.CommitTTL = 100 * time.Millisecond
+	cfg.DardanellesUpgrade.AcceptBlockTTL = 300 * time.Millisecond
+	cfg.DardanellesUpgrade.AcceptProposalEndorsementTTL = 300 * time.Millisecond
+	cfg.DardanellesUpgrade.AcceptLockEndorsementTTL = 300 * time.Millisecond
+	cfg.DardanellesUpgrade.CommitTTL = 100 * time.Millisecond
+	cfg.DardanellesUpgrade.BlockInterval = time.Second
+	cfg.Chain.MintTimeout = 100 * time.Millisecond
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.Genesis.PollMode = "lifeLong"
+	cfg.Genesis.AleutianBlockHeight = 0
+	cfg.Genesis.DardanellesBlockHeight = 1 // enable block reward
+	cfg.Genesis.GreenlandBlockHeight = 6
+	cfg.Genesis.KamchatkaBlockHeight = 7
+	cfg.Genesis.VanuatuBlockHeight = 8      // enable dynamic fee
+	cfg.Genesis.ToBeEnabledBlockHeight = 10 // enable wake block reward
+	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
+	block.LoadGenesisHash(&cfg.Genesis)
 
 	svr, err := itx.NewServer(cfg)
 	require.NoError(t, err)
@@ -91,6 +108,35 @@ func TestBlockReward(t *testing.T) {
 	defer func() {
 		require.NoError(t, svr.Stop(context.Background()))
 	}()
+
+	inject := func(ctx context.Context, tps int) {
+		actpool := svr.ChainService(cfg.Chain.ID).ActionPool()
+		senderSK := identityset.PrivateKey(1)
+		amount := big.NewInt(100)
+		gasLimit := uint64(100000)
+		gasPrice := big.NewInt(unit.Qev * 2)
+		nonce, err := actpool.GetPendingNonce(senderSK.PublicKey().Address().String())
+		require.NoError(t, err)
+		ticker := time.NewTicker(time.Second / time.Duration(tps))
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				tx, err := action.SignedTransfer(identityset.Address(10).String(), senderSK, nonce, amount, nil, gasLimit, gasPrice, action.WithChainID(cfg.Chain.ID))
+				require.NoError(t, err)
+				if err = actpool.Add(ctx, tx); err != nil {
+					t.Log("failed to add action to actpool", zap.Error(err))
+				} else {
+					nonce++
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}
+	ctxInject, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go inject(ctxInject, 10)
 
 	require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (b bool, e error) {
 		return svr.ChainService(1).Blockchain().TipHeight() >= 5, nil
@@ -120,19 +166,63 @@ func TestBlockReward(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, balance.Cmp(big.NewInt(0).Mul(blockReward, big.NewInt(5))) <= 0)
 
-	for i := 1; i <= 5; i++ {
-		blk, err := svr.ChainService(1).BlockDAO().GetBlockByHeight(uint64(i))
+	checkBlockReward := func(blockHeight uint64) {
+		blk, err := svr.ChainService(1).BlockDAO().GetBlockByHeight(uint64(blockHeight))
 		require.NoError(t, err)
 		ok := false
-		var gr *action.GrantReward
-		for _, act := range blk.Body.Actions {
+		var (
+			gr  *action.GrantReward
+			idx int
+		)
+		for k, act := range blk.Body.Actions {
 			gr, ok = act.Action().(*action.GrantReward)
 			if ok {
-				assert.Equal(t, uint64(i), gr.Height())
+				idx = k
+				require.NoError(t, err)
+				assert.Equal(t, uint64(blockHeight), gr.Height())
 				break
 			}
 		}
 		assert.True(t, ok)
+		receipts, err := svr.ChainService(1).BlockDAO().GetReceipts(uint64(blockHeight))
+		require.NoError(t, err)
+		require.Len(t, receipts[idx].Logs(), 1)
+		rewardLogs, err := rewarding.UnmarshalRewardLog(receipts[idx].Logs()[0].Data)
+		require.NoError(t, err)
+
+		rewards := make(map[rewardingpb.RewardLog_RewardType]*big.Int)
+		rewards[rewardingpb.RewardLog_BLOCK_REWARD] = big.NewInt(0)
+		rewards[rewardingpb.RewardLog_PRIORITY_BONUS] = big.NewInt(0)
+		for _, txLog := range rewardLogs.Logs {
+			amount, ok := big.NewInt(0).SetString(txLog.Amount, 10)
+			require.True(t, ok)
+			rewards[txLog.Type] = amount
+		}
+
+		switch {
+		case blockHeight < cfg.Genesis.VanuatuBlockHeight:
+			// fixed block reward
+			assert.Equal(t, cfg.Genesis.DardanellesBlockReward().String(), rewards[rewardingpb.RewardLog_BLOCK_REWARD].String())
+			assert.Equal(t, big.NewInt(0).String(), rewards[rewardingpb.RewardLog_PRIORITY_BONUS].String())
+		case blockHeight < cfg.Genesis.ToBeEnabledBlockHeight:
+			// fixed block reward + priority bonus
+			require.True(t, rewards[rewardingpb.RewardLog_PRIORITY_BONUS].Sign() > 0, "blockHeight %d", blockHeight)
+			assert.Equal(t, cfg.Genesis.DardanellesBlockReward().String(), rewards[rewardingpb.RewardLog_BLOCK_REWARD].String())
+			assert.Equal(t, slices.ContainsFunc(blk.Actions, func(e *action.SealedEnvelope) bool { return !action.IsSystemAction(e) }), rewards[rewardingpb.RewardLog_PRIORITY_BONUS].Sign() > 0)
+		default:
+			// dynamic block reward + priority bonus
+			require.True(t, rewards[rewardingpb.RewardLog_PRIORITY_BONUS].Sign() > 0)
+			assert.Equal(t, slices.ContainsFunc(blk.Actions, func(e *action.SealedEnvelope) bool { return !action.IsSystemAction(e) }), rewards[rewardingpb.RewardLog_PRIORITY_BONUS].Sign() > 0)
+			total := new(big.Int).Add(rewards[rewardingpb.RewardLog_BLOCK_REWARD], rewards[rewardingpb.RewardLog_PRIORITY_BONUS])
+			assert.Equal(t, true, total.Cmp(cfg.Genesis.WakeBlockReward()) >= 0)
+		}
+	}
+
+	require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (b bool, e error) {
+		return svr.ChainService(1).Blockchain().TipHeight() >= 11, nil
+	}))
+	for i := 1; i <= 11; i++ {
+		checkBlockReward(uint64(i))
 	}
 }
 
