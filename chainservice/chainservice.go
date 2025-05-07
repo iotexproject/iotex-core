@@ -7,6 +7,7 @@ package chainservice
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -101,11 +102,12 @@ func (cs *ChainService) Start(ctx context.Context) error {
 				return
 			case <-ticker.C:
 				currentHeight := cs.chain.TipHeight()
-				if currentHeight == lastHeight && lastReceivedBlockHeight != cs.lastReceivedBlockHeight {
+				lrbh := atomic.LoadUint64(&cs.lastReceivedBlockHeight)
+				if currentHeight == lastHeight && lastReceivedBlockHeight != lrbh {
 					log.L().Panic("Blockchain height has not changed, restarting service")
 				}
 				lastHeight = currentHeight
-				lastReceivedBlockHeight = cs.lastReceivedBlockHeight
+				lastReceivedBlockHeight = lrbh
 			}
 		}
 	}()
@@ -176,8 +178,8 @@ func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *i
 	if err != nil {
 		return err
 	}
-	if cs.lastReceivedBlockHeight < blk.Height() {
-		cs.lastReceivedBlockHeight = blk.Height()
+	if atomic.LoadUint64(&cs.lastReceivedBlockHeight) < blk.Height() {
+		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Height())
 	}
 	return cs.blocksync.ProcessBlock(ctx, peer, blk)
 }
