@@ -552,7 +552,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		return err
 	}
 	blkHash := blk.HashBlock()
-	if blk.Height()%100 == 0 {
+	if blk.Height()%100 >= 0 {
 		blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
 	}
 	_blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
