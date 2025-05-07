@@ -418,7 +418,7 @@ func (sdb *stateDB) StateReaderAt(blkHeight uint64, blkHash hash.Hash256) (proto
 	if blkHeight == curHeight {
 		return sdb, nil
 	} else if blkHeight < curHeight {
-		return nil, errors.Errorf("cannot read state at height %d, current height is %d", blkHeight, curHeight)
+		return nil, errors.Wrapf(ErrNotSupported, "cannot read state at height %d, current height is %d", blkHeight, curHeight)
 	}
 	if data, ok := sdb.workingsets.Get(blkHash); ok {
 		if ws, ok := data.(*workingSet); ok {
