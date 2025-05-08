@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/endorsement"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state/factory"
 )
 
 var (
@@ -137,6 +138,13 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 		return nil
 	case *ConsensusVote:
 		if err := r.ctx.CheckVoteEndorser(endorsedMessage.Height(), consensusMessage, en); err != nil {
+			// When an endorsement for a block is received after the block has already been committed,
+			// the system will attempt to fork at the previous block, which is not supported in non-archive mode.
+			// This situation is possible and can be safely ignored.
+			if errors.Is(err, factory.ErrNotSupported) {
+				log.L().Debug("failed to verify vote", zap.Error(err))
+				return nil
+			}
 			return errors.Wrapf(err, "failed to verify vote")
 		}
 		switch consensusMessage.Topic() {
