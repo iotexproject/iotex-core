@@ -101,7 +101,7 @@ func newForkChain(cm *chainManager, head *block.Header, sr protocol.StateReader)
 // NewChainManager creates a chain manager
 func NewChainManager(bc blockchain.Blockchain, srf StateReaderFactory, bbf BlockBuilderFactory) ChainManager {
 	timerFactory, err := prometheustimer.New(
-		"iotex_blockchain_perf",
+		"iotex_chainmanager_perf",
 		"Performance of blockchain module",
 		[]string{"topic", "chainID"},
 		[]string{"default", strconv.FormatUint(uint64(bc.ChainID()), 10)},
