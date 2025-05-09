@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
@@ -22,6 +23,7 @@ type IndexerCommon struct {
 	startHeight     uint64
 	height          uint64
 	contractAddress string
+	lifecycle.Readiness
 }
 
 // NewIndexerCommon creates a new IndexerCommon
@@ -45,12 +47,22 @@ func (s *IndexerCommon) Start(ctx context.Context) error {
 		return err
 	}
 	s.height = h
+	s.TurnOn()
 	return nil
+}
+
+// Started returns true if the indexer is started
+func (s *IndexerCommon) Started() bool {
+	return s.IsReady()
 }
 
 // Stop stops the indexer
 func (s *IndexerCommon) Stop(ctx context.Context) error {
-	return s.kvstore.Stop(ctx)
+	if err := s.kvstore.Stop(ctx); err != nil {
+		return err
+	}
+	s.TurnOff()
+	return nil
 }
 
 // KVStore returns the kvstore
