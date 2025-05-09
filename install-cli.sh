@@ -163,12 +163,13 @@ if [ "$1" = "unstable" ]; then
         echo $(git describe --tags $(git rev-list --tags --max-count=10))
         exit 1
     else
+        mkdir -p tmp && cd tmp
         git clone https://github.com/iotexproject/iotex-core.git
         cd iotex-core
         git checkout $2
         make $INSTALL_NAME
         sudo mv bin/$INSTALL_NAME $INSTALL_DIRECTORY/
-        cd ../ && rm -rf iotex-core
+        cd ../ && rm -rf tmp
         exit 0
     fi
 else
