@@ -114,6 +114,7 @@ func (p *Protocol) GrantBlockReward(
 		return nil, err
 	}
 	var (
+		featureCtx = protocol.MustGetFeatureCtx(ctx)
 		rewardLogs = []*rewardingpb.RewardLog{
 			{
 				Type:   rewardingpb.RewardLog_BLOCK_REWARD,
@@ -123,12 +124,14 @@ func (p *Protocol) GrantBlockReward(
 		}
 		msg proto.Message = rewardLogs[0]
 	)
-	if !isZero(effectiveTip) {
-		rewardLogs = append(rewardLogs, &rewardingpb.RewardLog{
-			Type:   rewardingpb.RewardLog_PRIORITY_BONUS,
-			Addr:   rewardAddrStr,
-			Amount: effectiveTip.String(),
-		})
+	if featureCtx.EnableDynamicFeeTx {
+		if !isZero(effectiveTip) {
+			rewardLogs = append(rewardLogs, &rewardingpb.RewardLog{
+				Type:   rewardingpb.RewardLog_PRIORITY_BONUS,
+				Addr:   rewardAddrStr,
+				Amount: effectiveTip.String(),
+			})
+		}
 		msg = &rewardingpb.RewardLogs{Logs: rewardLogs}
 	}
 	data, err := proto.Marshal(msg)
