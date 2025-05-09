@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/api"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/chainservice"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/dispatcher"
@@ -239,6 +240,11 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		log.L().Info("Waiting for server to be ready.", zap.Duration("duration", cfg.API.ReadyDuration))
 		time.Sleep(cfg.API.ReadyDuration)
 	}
+	// wait for blockchain up to date
+	bc := svr.ChainService(cfg.Chain.ID).Blockchain()
+	if err := waitChainReady(ctx, bc); err != nil {
+		log.L().Warn("Failed to wait for blockchain to be ready.", zap.Error(err))
+	}
 	if err := probeSvr.TurnOn(); err != nil {
 		log.L().Panic("Failed to turn on probe server.", zap.Error(err))
 	}
@@ -292,5 +298,26 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	<-ctx.Done()
 	if err := probeSvr.TurnOff(); err != nil {
 		log.L().Panic("Failed to turn off probe server.", zap.Error(err))
+	}
+}
+
+func waitChainReady(ctx context.Context, bc blockchain.Blockchain) error {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			header, err := bc.BlockHeaderByHeight(bc.TipHeight())
+			if err != nil {
+				log.L().Error("Failed to get block header.", zap.Error(err))
+				continue
+			}
+			// If the header timestamp is within 5 seconds of the current time, it means the blockchain is ready
+			if header.Timestamp().Add(5 * time.Second).After(time.Now()) {
+				return nil
+			}
+		}
 	}
 }
