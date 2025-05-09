@@ -148,6 +148,7 @@ func main() {
 			config.Network.MasterKey = "bootnode"
 		}
 		config.Genesis.VanuatuBlockHeight = 1
+		config.Genesis.WakeBlockHeight = 1
 		testutil.NormalizeGenesisHeights(&config.Genesis.Blockchain)
 		configs[i] = config
 	}
@@ -546,6 +547,7 @@ func newConfig(
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.PollMode = "lifeLong"
+	cfg.Genesis.WakeNumSubEpochs = 2
 
 	return cfg
 }
