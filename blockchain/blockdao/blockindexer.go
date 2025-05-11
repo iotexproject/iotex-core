@@ -136,12 +136,17 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 				ExcessBlobGas:  blk.ExcessBlobGas(),
 			},
 		))
-		if bic.validator != nil {
-			if err := bic.validator(checkCtx, blk); err != nil {
-				return err
-			}
-		}
 		for {
+			if bic.validator != nil {
+				if err := bic.validator(checkCtx, blk); err != nil {
+					if i < g.HawaiiBlockHeight && errors.Cause(err) == block.ErrDeltaStateMismatch {
+						log.L().Info("delta state mismatch", zap.Uint64("block", i))
+					} else {
+						log.L().Info("erro when validating block", zap.Uint64("block", i), zap.Error(err))
+						return err
+					}
+				}
+			}
 			if err = indexer.PutBlock(checkCtx, blk); err == nil {
 				break
 			}
