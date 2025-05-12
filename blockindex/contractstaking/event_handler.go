@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action"
-	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 )
 
@@ -374,7 +373,7 @@ func newContractStakingEventHandler(cache *contractStakingCache) *contractStakin
 	}
 }
 
-func (eh *contractStakingEventHandler) HandleEvent(ctx context.Context, blk *block.Block, log *action.Log) error {
+func (eh *contractStakingEventHandler) HandleEvent(ctx context.Context, height uint64, log *action.Log) error {
 	// get event abi
 	abiEvent, err := _stakingInterface.EventByID(common.Hash(log.Topics[0]))
 	if err != nil {
@@ -390,17 +389,17 @@ func (eh *contractStakingEventHandler) HandleEvent(ctx context.Context, blk *blo
 	// handle different kinds of event
 	switch abiEvent.Name {
 	case "BucketTypeActivated":
-		return eh.handleBucketTypeActivatedEvent(event, blk.Height())
+		return eh.handleBucketTypeActivatedEvent(event, height)
 	case "BucketTypeDeactivated":
-		return eh.handleBucketTypeDeactivatedEvent(event, blk.Height())
+		return eh.handleBucketTypeDeactivatedEvent(event, height)
 	case "Staked":
-		return eh.handleStakedEvent(event, blk.Height())
+		return eh.handleStakedEvent(event, height)
 	case "Locked":
 		return eh.handleLockedEvent(event)
 	case "Unlocked":
-		return eh.handleUnlockedEvent(event, blk.Height())
+		return eh.handleUnlockedEvent(event, height)
 	case "Unstaked":
-		return eh.handleUnstakedEvent(event, blk.Height())
+		return eh.handleUnstakedEvent(event, height)
 	case "Merged":
 		return eh.handleMergedEvent(event)
 	case "BucketExpanded":
