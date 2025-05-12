@@ -77,6 +77,8 @@ type (
 		// For exposing blockchain states
 		// BlockHeaderByHeight return block header by height
 		BlockHeaderByHeight(height uint64) (*block.Header, error)
+		// BlockHeader return block header by hash
+		BlockHeader(hash hash.Hash256) (*block.Header, error)
 		// BlockFooterByHeight return block footer by height
 		BlockFooterByHeight(height uint64) (*block.Footer, error)
 		// ChainID returns the chain ID
@@ -264,6 +266,10 @@ func (bc *blockchain) Stop(ctx context.Context) error {
 
 func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) {
 	return bc.dao.HeaderByHeight(height)
+}
+
+func (bc *blockchain) BlockHeader(hash hash.Hash256) (*block.Header, error) {
+	return bc.dao.Header(hash)
 }
 
 func (bc *blockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) {

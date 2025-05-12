@@ -298,7 +298,7 @@ func (fd *fileDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	// bail out if block already exists
 	h := blk.HashBlock()
 	if _, err := fd.GetBlockHeight(h); err == nil {
-		log.L().Error("Block already exists.", zap.Uint64("height", blk.Height()), log.Hex("hash", h[:]))
+		log.L().Debug("Block already exists.", zap.Uint64("height", blk.Height()), log.Hex("hash", h[:]))
 		return ErrAlreadyExist
 	}
 
