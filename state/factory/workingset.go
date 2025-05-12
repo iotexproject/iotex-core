@@ -181,8 +181,9 @@ func (ws *workingSet) runAction(
 		return nil, err
 	}
 	fCtx := protocol.MustGetFeatureCtx(ctx)
+	var receipt *action.Receipt
 	for _, actionHandler := range reg.All() {
-		receipt, err := actionHandler.Handle(ctx, selp.Envelope, ws)
+		receipt, err = actionHandler.Handle(ctx, selp.Envelope, ws)
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,
@@ -191,15 +192,27 @@ func (ws *workingSet) runAction(
 			)
 		}
 		if receipt != nil {
-			if fCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
-				if err = ws.handleBlob(ctx, selp, receipt); err != nil {
-					return nil, err
-				}
-			}
-			return receipt, nil
+			break
 		}
 	}
-	return nil, errors.New("receipt is empty")
+	if receipt == nil {
+		return nil, errors.New("receipt is empty")
+	}
+	if fCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
+		if err = ws.handleBlob(ctx, selp, receipt); err != nil {
+			return nil, err
+		}
+	}
+	if fCtx.CreatePostActionStates {
+		for _, p := range reg.All() {
+			if pp, ok := p.(protocol.PostActionHandler); ok {
+				if err := pp.HandleReceipt(ctx, selp.Envelope, ws, receipt); err != nil {
+					return nil, errors.Wrapf(err, "error when handle action %x receipt", selpHash)
+				}
+			}
+		}
+	}
+	return receipt, nil
 }
 
 func (ws *workingSet) handleBlob(ctx context.Context, act *action.SealedEnvelope, receipt *action.Receipt) error {
