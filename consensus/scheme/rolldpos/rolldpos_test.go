@@ -414,6 +414,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		g.Blockchain.NumDelegates = uint64(numNodes)
 		g.Blockchain.NumSubEpochs = 1
 		g.EnableGravityChainVoting = false
+		block.LoadGenesisHash(&g)
 		builderCfg := BuilderConfig{
 			Chain:              blockchain.DefaultConfig,
 			Consensus:          cfg,

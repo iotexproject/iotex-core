@@ -432,7 +432,7 @@ func (ctx *rollDPoSCtx) prepareNextProposal(prevHeight uint64, prevHash hash.Has
 			ctx.logger().Error("failed to mint new block", zap.Error(err))
 			return
 		}
-		ctx.logger().Debug("prepared a new block", zap.Uint64("height", blk.Height()), zap.Time("timestamp", blk.Timestamp()))
+		ctx.Logger().Debug("prepared a new block", zap.Uint64("height", blk.Height()), zap.Time("timestamp", blk.Timestamp()))
 	}()
 	return nil
 }
