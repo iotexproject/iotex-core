@@ -462,6 +462,7 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 	sm.EXPECT().Height().DoAndReturn(func() (uint64, error) {
 		return blkHeight, nil
 	}).AnyTimes()
+	csIndexer.EXPECT().StartView(gomock.Any()).Return(nil, nil)
 
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)

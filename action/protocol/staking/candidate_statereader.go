@@ -146,8 +146,9 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 		StateReader: sr,
 		height:      height,
 		view: &ViewData{
-			candCenter: view.candCenter,
-			bucketPool: view.bucketPool,
+			candCenter:     view.candCenter,
+			bucketPool:     view.bucketPool,
+			contractsStake: view.contractsStake,
 		},
 	}, nil
 }

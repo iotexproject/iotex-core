@@ -10,10 +10,12 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -107,9 +109,14 @@ func (csm *candSM) SR() protocol.StateReader {
 
 // DirtyView is csm's current state, which reflects base view + applying delta saved in csm's dock
 func (csm *candSM) DirtyView() *ViewData {
+	v, err := csm.StateManager.ReadView(_protocolID)
+	if err != nil {
+		log.S().Panic("failed to read view", zap.Error(err))
+	}
 	return &ViewData{
-		candCenter: csm.candCenter,
-		bucketPool: csm.bucketPool,
+		candCenter:     csm.candCenter,
+		bucketPool:     csm.bucketPool,
+		contractsStake: v.(*ViewData).contractsStake,
 	}
 }
 
