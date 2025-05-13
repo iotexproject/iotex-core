@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
@@ -34,7 +35,7 @@ type (
 		kvstore db.KVStore            // persistent storage, used to initialize index cache at startup
 		cache   *contractStakingCache // in-memory index for clean data, used to query index data
 		config  Config                // indexer config
-		started bool
+		lifecycle.Readiness
 	}
 
 	// Config is the config for contract staking indexer
@@ -71,7 +72,7 @@ func NewContractStakingIndexer(kvStore db.KVStore, config Config) (*Indexer, err
 
 // Start starts the indexer
 func (s *Indexer) Start(ctx context.Context) error {
-	if s.started {
+	if s.IsReady() {
 		return nil
 	}
 	return s.start(ctx)
@@ -79,7 +80,7 @@ func (s *Indexer) Start(ctx context.Context) error {
 
 // StartView starts the indexer view
 func (s *Indexer) StartView(ctx context.Context) (staking.ContractStakeView, error) {
-	if !s.started {
+	if !s.IsReady() {
 		if err := s.start(ctx); err != nil {
 			return nil, err
 		}
@@ -98,7 +99,7 @@ func (s *Indexer) start(ctx context.Context) error {
 	if err := s.loadFromDB(); err != nil {
 		return err
 	}
-	s.started = true
+	s.TurnOn()
 	return nil
 }
 
@@ -108,7 +109,7 @@ func (s *Indexer) Stop(ctx context.Context) error {
 		return err
 	}
 	s.cache = newContractStakingCache(s.config)
-	s.started = false
+	s.TurnOff()
 	return nil
 }
 
