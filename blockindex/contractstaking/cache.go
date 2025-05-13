@@ -150,6 +150,10 @@ func (s *contractStakingCache) BucketsByCandidate(candidate address.Address, hei
 	if err := s.validateHeight(height); err != nil {
 		return nil, err
 	}
+	return s.bucketsByCandidate(candidate, height)
+}
+
+func (s *contractStakingCache) bucketsByCandidate(candidate address.Address, height uint64) ([]*Bucket, error) {
 	bucketMap := s.candidateBucketMap[candidate.String()]
 	vbs := make([]*Bucket, 0, len(bucketMap))
 	for id := range bucketMap {
@@ -313,6 +317,40 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 		s.putBucketType(byteutil.BytesToUint64BigEndian(ks[i]), &b)
 	}
 	return nil
+}
+
+func (s *contractStakingCache) Clone() *contractStakingCache {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	c := &contractStakingCache{
+		config:           s.config,
+		totalBucketCount: s.totalBucketCount,
+		height:           s.height,
+	}
+	c.bucketInfoMap = make(map[uint64]*bucketInfo, len(s.bucketInfoMap))
+	for k, v := range s.bucketInfoMap {
+		c.bucketInfoMap[k] = v.clone()
+	}
+	c.candidateBucketMap = make(map[string]map[uint64]bool, len(s.candidateBucketMap))
+	for k, v := range s.candidateBucketMap {
+		c.candidateBucketMap[k] = make(map[uint64]bool, len(v))
+		for k1, v1 := range v {
+			c.candidateBucketMap[k][k1] = v1
+		}
+	}
+	c.bucketTypeMap = make(map[uint64]*BucketType, len(s.bucketTypeMap))
+	for k, v := range s.bucketTypeMap {
+		c.bucketTypeMap[k] = v.Clone()
+	}
+	c.propertyBucketTypeMap = make(map[int64]map[uint64]uint64, len(s.propertyBucketTypeMap))
+	for k, v := range s.propertyBucketTypeMap {
+		c.propertyBucketTypeMap[k] = make(map[uint64]uint64, len(v))
+		for k1, v1 := range v {
+			c.propertyBucketTypeMap[k][k1] = v1
+		}
+	}
+	return c
 }
 
 func (s *contractStakingCache) getBucketTypeIndex(amount *big.Int, duration uint64) (uint64, bool) {

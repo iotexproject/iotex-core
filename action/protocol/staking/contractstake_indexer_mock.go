@@ -5,6 +5,7 @@
 package staking
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -106,6 +107,21 @@ func (m *MockContractStakingIndexer) Height() (uint64, error) {
 func (mr *MockContractStakingIndexerMockRecorder) Height() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockContractStakingIndexer)(nil).Height))
+}
+
+// StartView mocks base method.
+func (m *MockContractStakingIndexer) StartView(ctx context.Context) (ContractStakeView, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartView", ctx)
+	ret0, _ := ret[0].(ContractStakeView)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StartView indicates an expected call of StartView.
+func (mr *MockContractStakingIndexerMockRecorder) StartView(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartView", reflect.TypeOf((*MockContractStakingIndexer)(nil).StartView), ctx)
 }
 
 // TotalBucketCount mocks base method.
@@ -233,6 +249,21 @@ func (m *MockContractStakingIndexerWithBucketType) Height() (uint64, error) {
 func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) Height() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).Height))
+}
+
+// StartView mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) StartView(ctx context.Context) (ContractStakeView, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartView", ctx)
+	ret0, _ := ret[0].(ContractStakeView)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StartView indicates an expected call of StartView.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) StartView(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartView", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).StartView), ctx)
 }
 
 // TotalBucketCount mocks base method.

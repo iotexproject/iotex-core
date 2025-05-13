@@ -9,22 +9,38 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/pkg/errors"
 )
 
 type (
+	// ContractStakeView is the interface for contract stake view
+	ContractStakeView interface {
+		Clone() ContractStakeView
+		CreatePreStates(ctx context.Context) error
+		Handle(ctx context.Context, receipt *action.Receipt) error
+		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
+	}
 	// ViewData is the data that need to be stored in protocol's view
 	ViewData struct {
-		candCenter *CandidateCenter
-		bucketPool *BucketPool
-		snapshots  []Snapshot
+		candCenter     *CandidateCenter
+		bucketPool     *BucketPool
+		snapshots      []Snapshot
+		contractsStake *contractStakeView
 	}
 	Snapshot struct {
-		size    int
-		changes int
-		amount  *big.Int
-		count   uint64
+		size           int
+		changes        int
+		amount         *big.Int
+		count          uint64
+		contractsStake *contractStakeView
+	}
+	contractStakeView struct {
+		v1 ContractStakeView
+		v2 ContractStakeView
+		v3 ContractStakeView
 	}
 )
 
@@ -35,13 +51,14 @@ func (v *ViewData) Clone() protocol.View {
 	clone.snapshots = make([]Snapshot, len(v.snapshots))
 	for i := range v.snapshots {
 		clone.snapshots[i] = Snapshot{
-			size:    v.snapshots[i].size,
-			changes: v.snapshots[i].changes,
-			amount:  new(big.Int).Set(v.snapshots[i].amount),
-			count:   v.snapshots[i].count,
+			size:           v.snapshots[i].size,
+			changes:        v.snapshots[i].changes,
+			amount:         new(big.Int).Set(v.snapshots[i].amount),
+			count:          v.snapshots[i].count,
+			contractsStake: v.snapshots[i].contractsStake.Clone(),
 		}
 	}
-
+	clone.contractsStake = v.contractsStake.Clone()
 	return clone
 }
 
@@ -74,10 +91,11 @@ func (v *ViewData) IsDirty() bool {
 func (v *ViewData) Snapshot() int {
 	snapshot := len(v.snapshots)
 	v.snapshots = append(v.snapshots, Snapshot{
-		size:    v.candCenter.size,
-		changes: v.candCenter.change.size(),
-		amount:  new(big.Int).Set(v.bucketPool.total.amount),
-		count:   v.bucketPool.total.count,
+		size:           v.candCenter.size,
+		changes:        v.candCenter.change.size(),
+		amount:         new(big.Int).Set(v.bucketPool.total.amount),
+		count:          v.bucketPool.total.count,
+		contractsStake: v.contractsStake.Clone(),
 	})
 	return snapshot
 }
@@ -95,6 +113,59 @@ func (v *ViewData) Revert(snapshot int) error {
 	v.candCenter.change = change
 	v.bucketPool.total.amount.Set(s.amount)
 	v.bucketPool.total.count = s.count
+	v.contractsStake = s.contractsStake
 	v.snapshots = v.snapshots[:snapshot]
+	return nil
+}
+
+func (csv *contractStakeView) Clone() *contractStakeView {
+	clone := &contractStakeView{}
+	if csv.v1 != nil {
+		clone.v1 = csv.v1.Clone()
+	}
+	if csv.v2 != nil {
+		clone.v2 = csv.v2.Clone()
+	}
+	if csv.v3 != nil {
+		clone.v3 = csv.v3.Clone()
+	}
+	return clone
+}
+
+func (csv *contractStakeView) CreatePreStates(ctx context.Context) error {
+	if csv.v1 != nil {
+		if err := csv.v1.CreatePreStates(ctx); err != nil {
+			return err
+		}
+	}
+	if csv.v2 != nil {
+		if err := csv.v2.CreatePreStates(ctx); err != nil {
+			return err
+		}
+	}
+	if csv.v3 != nil {
+		if err := csv.v3.CreatePreStates(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (csv *contractStakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
+	if csv.v1 != nil {
+		if err := csv.v1.Handle(ctx, receipt); err != nil {
+			return err
+		}
+	}
+	if csv.v2 != nil {
+		if err := csv.v2.Handle(ctx, receipt); err != nil {
+			return err
+		}
+	}
+	if csv.v3 != nil {
+		if err := csv.v3.Handle(ctx, receipt); err != nil {
+			return err
+		}
+	}
 	return nil
 }

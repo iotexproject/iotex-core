@@ -81,6 +81,11 @@ type ActionHandler interface {
 	Handle(context.Context, action.Envelope, StateManager) (*action.Receipt, error)
 }
 
+// PostActionHandler is the interface for the post action handlers. For each incoming action, the assembled actions
+type PostActionHandler interface {
+	HandleReceipt(ctx context.Context, elp action.Envelope, sm StateManager, receipt *action.Receipt) error
+}
+
 type (
 	DepositOptionCfg struct {
 		PriorityFee *big.Int

@@ -12,6 +12,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
@@ -44,6 +46,7 @@ type (
 		BucketsByCandidate(candidate address.Address, height uint64) ([]*VoteBucket, error)
 		TotalBucketCount(height uint64) (uint64, error)
 		PutBlock(ctx context.Context, blk *block.Block) error
+		StartView(ctx context.Context) (staking.ContractStakeView, error)
 	}
 	stakingEventHandler interface {
 		HandleStakedEvent(event *abiutil.EventParam) error
@@ -111,6 +114,28 @@ func NewIndexer(kvstore db.KVStore, contractAddr string, startHeight uint64, blo
 func (s *Indexer) Start(ctx context.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if s.common.Started() {
+		return nil
+	}
+	return s.start(ctx)
+}
+
+func (s *Indexer) StartView(ctx context.Context) (staking.ContractStakeView, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if !s.common.Started() {
+		if err := s.start(ctx); err != nil {
+			return nil, err
+		}
+	}
+	return &stakeView{
+		helper: s,
+		cache:  s.cache.Copy(),
+		height: s.common.Height(),
+	}, nil
+}
+
+func (s *Indexer) start(ctx context.Context) error {
 	if err := s.common.Start(ctx); err != nil {
 		return err
 	}
@@ -246,7 +271,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	// handle events of block
 	var handler stakingEventHandler
-	eventHandler := newEventHandler(s.bucketNS, s.cache.Copy(), blk, s.timestamped)
+	eventHandler := newEventHandler(s.bucketNS, s.cache.Copy(), protocol.MustGetBlockCtx(ctx), s.timestamped)
 	if s.muteHeight > 0 && blk.Height() >= s.muteHeight {
 		handler = newEventMuteHandler(eventHandler)
 	} else {
@@ -260,7 +285,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 			if log.Address != s.common.ContractAddress() {
 				continue
 			}
-			if err := s.handleEvent(ctx, handler, blk, log); err != nil {
+			if err := s.handleEvent(ctx, handler, log); err != nil {
 				return err
 			}
 		}
@@ -269,7 +294,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	return s.commit(handler, blk.Height())
 }
 
-func (s *Indexer) handleEvent(ctx context.Context, eh stakingEventHandler, blk *block.Block, actLog *action.Log) error {
+func (s *Indexer) handleEvent(ctx context.Context, eh stakingEventHandler, actLog *action.Log) error {
 	// get event abi
 	abiEvent, err := StakingContractABI.EventByID(common.Hash(actLog.Topics[0]))
 	if err != nil {
