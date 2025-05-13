@@ -695,9 +695,9 @@ func (mr *MockCoreServiceMockRecorder) TipHeight() *gomock.Call {
 }
 
 // TraceCall mocks base method.
-func (m *MockCoreService) TraceCall(ctx context.Context, callerAddr address.Address, blkNumOrHash any, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, data []byte, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
+func (m *MockCoreService) TraceCall(arg0 context.Context, arg1 address.Address, arg2 string, arg3 uint64, arg4 *big.Int, arg5 uint64, arg6 []byte, arg7 *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TraceCall", ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, data, config)
+	ret := m.ctrl.Call(m, "TraceCall", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(*action.Receipt)
 	ret2, _ := ret[2].(any)
@@ -706,15 +706,15 @@ func (m *MockCoreService) TraceCall(ctx context.Context, callerAddr address.Addr
 }
 
 // TraceCall indicates an expected call of TraceCall.
-func (mr *MockCoreServiceMockRecorder) TraceCall(ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, data, config interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) TraceCall(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceCall", reflect.TypeOf((*MockCoreService)(nil).TraceCall), ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, data, config)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceCall", reflect.TypeOf((*MockCoreService)(nil).TraceCall), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 }
 
 // TraceTransaction mocks base method.
-func (m *MockCoreService) TraceTransaction(ctx context.Context, actHash string, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
+func (m *MockCoreService) TraceTransaction(arg0 context.Context, arg1 string, arg2 *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TraceTransaction", ctx, actHash, config)
+	ret := m.ctrl.Call(m, "TraceTransaction", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(*action.Receipt)
 	ret2, _ := ret[2].(any)
@@ -723,9 +723,9 @@ func (m *MockCoreService) TraceTransaction(ctx context.Context, actHash string, 
 }
 
 // TraceTransaction indicates an expected call of TraceTransaction.
-func (mr *MockCoreServiceMockRecorder) TraceTransaction(ctx, actHash, config interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) TraceTransaction(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceTransaction", reflect.TypeOf((*MockCoreService)(nil).TraceTransaction), ctx, actHash, config)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceTransaction", reflect.TypeOf((*MockCoreService)(nil).TraceTransaction), arg0, arg1, arg2)
 }
 
 // Track mocks base method.
