@@ -73,6 +73,8 @@ type (
 		finalized              bool
 		txValidator            *protocol.GenericValidator
 		receipts               []*action.Receipt
+		uuid                   int64
+		parentUUID             int64
 	}
 )
 
@@ -82,6 +84,7 @@ func newWorkingSet(height uint64, views *protocol.Views, store workingSetStore, 
 		views:                  views,
 		store:                  store,
 		workingSetStoreFactory: storeFactory,
+		uuid:                   time.Now().UnixNano(),
 	}
 	ws.txValidator = protocol.NewGenericValidator(ws, accountutil.AccountState)
 	return ws
@@ -316,6 +319,7 @@ func (ws *workingSet) Commit(ctx context.Context) error {
 		// TODO (zhi): wrap the error and eventually panic it in caller side
 		return err
 	}
+	log.L().Info("commit working set", zap.Uint64("height", ws.height), zap.Int64("uuid", ws.uuid), zap.Int64("parent", ws.parentUUID))
 	return nil
 }
 
@@ -994,5 +998,10 @@ func (ws *workingSet) NewWorkingSet(ctx context.Context) (*workingSet, error) {
 	if err := views.Commit(ctx, ws); err != nil {
 		return nil, err
 	}
-	return newWorkingSet(ws.height+1, views, store, ws.workingSetStoreFactory), nil
+	nws, err := newWorkingSet(ws.height+1, views, store, ws.workingSetStoreFactory), nil
+	if err != nil {
+		return nil, err
+	}
+	nws.parentUUID = ws.uuid
+	return nws, nil
 }
