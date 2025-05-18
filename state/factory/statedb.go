@@ -238,7 +238,9 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 		if err = ws.ValidateBlock(ctx, blk); err != nil {
 			return errors.Wrap(err, "failed to validate block with workingset in statedb")
 		}
-		sdb.workingsets.Add(blkHash, ws)
+		if existed := sdb.addWorkingSetIfNotExist(blkHash, ws); existed != nil {
+			log.L().Debug("WorkingSet already exists, skip adding it to cache", log.Hex("hash", blkHash[:]))
+		}
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
@@ -291,7 +293,10 @@ func (sdb *stateDB) Mint(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", expectedBlockHeight)
 	}
-	sdb.workingsets.Add(blk.HashBlock(), ws)
+	blkHash := blk.HashBlock()
+	if existed := sdb.addWorkingSetIfNotExist(blkHash, ws); existed != nil {
+		log.L().Debug("WorkingSet already exists, skip adding it to cache", log.Hex("hash", blkHash[:]))
+	}
 	return &blk, nil
 }
 
@@ -497,4 +502,14 @@ func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*
 	sdb.mutex.RUnlock()
 	tx, err := sdb.newWorkingSet(ctx, currHeight+1)
 	return tx, false, err
+}
+
+func (sdb *stateDB) addWorkingSetIfNotExist(key hash.Hash256, ws *workingSet) (existed *workingSet) {
+	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
+	if existed, ok := sdb.workingsets.Get(key); ok {
+		return existed.(*workingSet)
+	}
+	sdb.workingsets.Add(key, ws)
+	return nil
 }
