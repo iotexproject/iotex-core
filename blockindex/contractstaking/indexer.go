@@ -15,8 +15,10 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
@@ -33,6 +35,7 @@ type (
 		kvstore db.KVStore            // persistent storage, used to initialize index cache at startup
 		cache   *contractStakingCache // in-memory index for clean data, used to query index data
 		config  Config                // indexer config
+		lifecycle.Readiness
 	}
 
 	// Config is the config for contract staking indexer
@@ -69,10 +72,35 @@ func NewContractStakingIndexer(kvStore db.KVStore, config Config) (*Indexer, err
 
 // Start starts the indexer
 func (s *Indexer) Start(ctx context.Context) error {
+	if s.IsReady() {
+		return nil
+	}
+	return s.start(ctx)
+}
+
+// StartView starts the indexer view
+func (s *Indexer) StartView(ctx context.Context) (staking.ContractStakeView, error) {
+	if !s.IsReady() {
+		if err := s.start(ctx); err != nil {
+			return nil, err
+		}
+	}
+	return &stakeView{
+		helper: s,
+		cache:  s.cache.Clone(),
+		height: s.cache.Height(),
+	}, nil
+}
+
+func (s *Indexer) start(ctx context.Context) error {
 	if err := s.kvstore.Start(ctx); err != nil {
 		return err
 	}
-	return s.loadFromDB()
+	if err := s.loadFromDB(); err != nil {
+		return err
+	}
+	s.TurnOn()
+	return nil
 }
 
 // Stop stops the indexer
@@ -81,6 +109,7 @@ func (s *Indexer) Stop(ctx context.Context) error {
 		return err
 	}
 	s.cache = newContractStakingCache(s.config)
+	s.TurnOff()
 	return nil
 }
 
@@ -187,7 +216,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 			if log.Address != s.config.ContractAddress {
 				continue
 			}
-			if err := handler.HandleEvent(ctx, blk, log); err != nil {
+			if err := handler.HandleEvent(ctx, blk.Height(), log); err != nil {
 				return err
 			}
 		}

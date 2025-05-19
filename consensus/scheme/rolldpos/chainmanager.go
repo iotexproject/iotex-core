@@ -101,7 +101,7 @@ func newForkChain(cm *chainManager, head *block.Header, sr protocol.StateReader)
 // NewChainManager creates a chain manager
 func NewChainManager(bc blockchain.Blockchain, srf StateReaderFactory, bbf BlockBuilderFactory) ChainManager {
 	timerFactory, err := prometheustimer.New(
-		"iotex_blockchain_perf",
+		"iotex_chainmanager_perf",
 		"Performance of blockchain module",
 		[]string{"topic", "chainID"},
 		[]string{"default", strconv.FormatUint(uint64(bc.ChainID()), 10)},
@@ -219,7 +219,8 @@ func (fc *forkChain) TipHash() hash.Hash256 {
 }
 
 func (cm *chainManager) StateReader() (protocol.StateReader, error) {
-	return cm.srf.StateReaderAt(cm.bc.TipHeight(), cm.bc.TipHash())
+	tip := cm.tipInfo()
+	return cm.srf.StateReaderAt(tip.Height, tip.Hash)
 }
 
 // StateReader returns the state reader
@@ -266,19 +267,11 @@ func (cm *chainManager) Fork(hash hash.Hash256) (ForkChain, error) {
 	var (
 		head *block.Header
 		err  error
-		tip  = cm.tipInfo()
 	)
-	if hash != tip.Hash {
-		blk := cm.pool.BlockByHash(hash)
-		if blk == nil {
-			return nil, errors.Errorf("block %x not found when fork", hash)
-		}
+	if blk := cm.pool.BlockByHash(hash); blk != nil {
 		head = &blk.Header
-	} else {
-		head, err = cm.bc.BlockHeaderByHeight(tip.Height)
-		if head == nil {
-			return nil, errors.Errorf("block %x not found when fork", hash)
-		}
+	} else if head, err = cm.bc.BlockHeader(hash); err != nil {
+		return nil, errors.Wrapf(err, "failed to get block header %x", hash)
 	}
 	sr, err := cm.srf.StateReaderAt(head.Height(), hash)
 	if err != nil {
