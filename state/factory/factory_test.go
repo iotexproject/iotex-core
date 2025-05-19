@@ -337,6 +337,143 @@ func TestHistoryState(t *testing.T) {
 	}()
 }
 
+func TestSDBTwoBlocksSamePrevHash(t *testing.T) {
+	require := require.New(t)
+	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
+	require.NoError(err)
+	defer testutil.CleanupPath(testStateDBPath)
+
+	cfg := DefaultConfig
+	cfg.Chain.TrieDBPath = testStateDBPath
+	db1, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(err)
+	sdb, err := NewStateDB(cfg, db1, SkipBlockValidationStateDBOption())
+	require.NoError(err)
+
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+	require.NoError(sdb.Start(ctx))
+	defer func() {
+		require.NoError(sdb.Stop(ctx))
+	}()
+
+	ctrl := gomock.NewController(t)
+	ap := mock_actpool.NewMockActPool(ctrl)
+	ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{}).Times(4)
+	blk1, err := sdb.Mint(
+		protocol.WithBlockchainCtx(
+			protocol.WithFeatureCtx(
+				protocol.WithBlockCtx(
+					ctx,
+					protocol.BlockCtx{
+						BlockHeight: 1,
+						Producer:    identityset.Address(27),
+						GasLimit:    testutil.TestGasLimit,
+					},
+				),
+			),
+			protocol.BlockchainCtx{
+				ChainID: 1,
+			},
+		),
+		ap,
+		identityset.PrivateKey(27),
+	)
+	require.NoError(err)
+
+	blk2, err := sdb.Mint(
+		protocol.WithBlockchainCtx(
+			protocol.WithFeatureCtx(
+				protocol.WithBlockCtx(
+					ctx,
+					protocol.BlockCtx{
+						BlockHeight: 1,
+						Producer:    identityset.Address(26),
+						GasLimit:    testutil.TestGasLimit,
+					},
+				),
+			),
+			protocol.BlockchainCtx{
+				ChainID: 1,
+			},
+		),
+		ap,
+		identityset.PrivateKey(26),
+	)
+	require.NoError(err)
+
+	blk11, err := sdb.Mint(
+		protocol.WithBlockchainCtx(
+			protocol.WithFeatureCtx(
+				protocol.WithBlockCtx(
+					ctx,
+					protocol.BlockCtx{
+						BlockHeight: 2,
+						Producer:    identityset.Address(25),
+						GasLimit:    testutil.TestGasLimit,
+					},
+				),
+			),
+			protocol.BlockchainCtx{
+				ChainID: 1,
+				Tip: protocol.TipInfo{
+					Height: 1,
+					Hash:   blk1.HashBlock(),
+				},
+			},
+		),
+		ap,
+		identityset.PrivateKey(25),
+	)
+	require.NoError(err)
+	require.NotNil(blk11)
+	require.Equal(blk1.HashBlock(), blk11.PrevHash())
+	blk21, err := sdb.Mint(
+		protocol.WithBlockchainCtx(
+			protocol.WithFeatureCtx(
+				protocol.WithBlockCtx(
+					ctx,
+					protocol.BlockCtx{
+						BlockHeight: 2,
+						Producer:    identityset.Address(25),
+						GasLimit:    testutil.TestGasLimit,
+					},
+				),
+			),
+			protocol.BlockchainCtx{
+				ChainID: 1,
+				Tip: protocol.TipInfo{
+					Height: 1,
+					Hash:   blk2.HashBlock(),
+				},
+			},
+		),
+		ap,
+		identityset.PrivateKey(24),
+	)
+	require.NoError(err)
+	require.NotNil(blk21)
+	require.Equal(blk2.HashBlock(), blk21.PrevHash())
+
+	sdbReal := sdb.(*stateDB)
+	ws1, exist, err := sdbReal.getFromWorkingSets(ctx, blk1.HashBlock())
+	require.NoError(err)
+	require.True(exist)
+	require.NotNil(ws1)
+	ws2, exist, err := sdbReal.getFromWorkingSets(ctx, blk2.HashBlock())
+	require.NoError(err)
+	require.True(exist)
+	require.NotNil(ws2)
+	require.NotEqual(t, ws1, ws2)
+	ws11, exist, err := sdbReal.getFromWorkingSets(ctx, blk11.HashBlock())
+	require.NoError(err)
+	require.True(exist)
+	require.NotNil(ws11)
+	ws21, exist, err := sdbReal.getFromWorkingSets(ctx, blk21.HashBlock())
+	require.NoError(err)
+	require.True(exist)
+	require.NotNil(ws21)
+}
+
 func TestSDBState(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(t, err)
