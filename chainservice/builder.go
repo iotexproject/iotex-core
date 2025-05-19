@@ -275,6 +275,8 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	// indexers in synchronizedIndexers will need to run PutBlock() one by one
 	// factory is dependent on sgdIndexer and contractStakingIndexer, so it should be put in the first place
 	synchronizedIndexers := []blockdao.BlockIndexer{builder.cs.factory}
+	// TODO: the three contract staking indexers should be removed from blockdao indexers
+	// and commit them in statedb instead. Otherwise, their processing will be executed twice for each block.
 	if builder.cs.contractStakingIndexer != nil {
 		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexer)
 	}
