@@ -6,6 +6,7 @@
 package staking
 
 import (
+	"context"
 	_ "embed"
 	"strings"
 	"time"
@@ -37,6 +38,8 @@ type (
 		TotalBucketCount(height uint64) (uint64, error)
 		// ContractAddress returns the contract address
 		ContractAddress() string
+		// StartView returns the contract stake view
+		StartView(ctx context.Context) (ContractStakeView, error)
 	}
 	// ContractStakingIndexerWithBucketType defines the interface of contract staking reader with bucket type
 	ContractStakingIndexerWithBucketType interface {
