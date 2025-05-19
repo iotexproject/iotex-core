@@ -39,9 +39,9 @@ func (eh *eventMuteHandler) HandleStakedEvent(event *abiutil.EventParam) error {
 	if !ok {
 		return errors.Errorf("no owner for token id %d", tokenIDParam.Uint64())
 	}
-	createdAt := eh.block.Height()
+	createdAt := eh.blockCtx.BlockHeight
 	if eh.timestamped {
-		createdAt = uint64(eh.block.Timestamp().Unix())
+		createdAt = uint64(eh.blockCtx.BlockTimeStamp.Unix())
 	}
 	bucket := &Bucket{
 		Candidate:      delegateParam,

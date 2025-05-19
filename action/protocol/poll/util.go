@@ -144,6 +144,9 @@ func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Pro
 			epochNum+1,
 		)
 	}
+	if err != nil {
+		log.L().Warn("failed to prepare delegates for next epoch", zap.Error(err))
+	}
 
 	nonce := uint64(0)
 	pollAction := action.NewPutPollResult(nextEpochHeight, l)
