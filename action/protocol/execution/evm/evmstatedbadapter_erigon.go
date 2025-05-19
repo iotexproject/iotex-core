@@ -118,7 +118,7 @@ func (s *ErigonStateDBAdapter) CreateAccount(evmAddr common.Address) {
 // SetNonce sets the nonce of the given address
 func (s *ErigonStateDBAdapter) SetNonce(evmAddr common.Address, n uint64) {
 	s.StateDBAdapter.SetNonce(evmAddr, n)
-	s.intra.SetNonce(libcommon.Address(evmAddr), n)
+	// nonce updates for erigon will be done in statedb
 }
 
 // AddRefund adds the refund of the given address
