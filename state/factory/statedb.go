@@ -259,10 +259,7 @@ func (sdb *stateDB) newWorkingSetWithErigonOutput(ctx context.Context, height ui
 	if err != nil {
 		return nil, err
 	}
-	ws.store = newStateDBWorkingSetStoreWithErigonOutput(
-		ws.store.(*stateDBWorkingSetStore),
-		e,
-	)
+	ws.store = newStateDBWorkingSetStoreWithErigonOutput(ws.store, e)
 	return ws, nil
 }
 
@@ -445,7 +442,11 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			sdb.currentChainHeight, h,
 		)
 	}
-
+	if retention := sdb.cfg.Chain.HistoryBlockRetention; retention > 0 && h > retention {
+		if err := ws.PruneTo(h - retention); err != nil {
+			return err
+		}
+	}
 	if err := ws.Commit(ctx); err != nil {
 		return err
 	}
