@@ -337,6 +337,143 @@ func TestHistoryState(t *testing.T) {
 	}()
 }
 
+func TestSDBTwoBlocksSamePrevHash(t *testing.T) {
+	require := require.New(t)
+	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
+	require.NoError(err)
+	defer testutil.CleanupPath(testStateDBPath)
+
+	cfg := DefaultConfig
+	cfg.Chain.TrieDBPath = testStateDBPath
+	db1, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(err)
+	sdb, err := NewStateDB(cfg, db1, SkipBlockValidationStateDBOption())
+	require.NoError(err)
+
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+	require.NoError(sdb.Start(ctx))
+	defer func() {
+		require.NoError(sdb.Stop(ctx))
+	}()
+
+	ctrl := gomock.NewController(t)
+	ap := mock_actpool.NewMockActPool(ctrl)
+	ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{}).Times(4)
+	blk1, err := sdb.Mint(
+		protocol.WithBlockchainCtx(
+			protocol.WithFeatureCtx(
+				protocol.WithBlockCtx(
+					ctx,
+					protocol.BlockCtx{
+						BlockHeight: 1,
+						Producer:    identityset.Address(27),
+						GasLimit:    testutil.TestGasLimit,
+					},
+				),
+			),
+			protocol.BlockchainCtx{
+				ChainID: 1,
+			},
+		),
+		ap,
+		identityset.PrivateKey(27),
+	)
+	require.NoError(err)
+
+	blk2, err := sdb.Mint(
+		protocol.WithBlockchainCtx(
+			protocol.WithFeatureCtx(
+				protocol.WithBlockCtx(
+					ctx,
+					protocol.BlockCtx{
+						BlockHeight: 1,
+						Producer:    identityset.Address(26),
+						GasLimit:    testutil.TestGasLimit,
+					},
+				),
+			),
+			protocol.BlockchainCtx{
+				ChainID: 1,
+			},
+		),
+		ap,
+		identityset.PrivateKey(26),
+	)
+	require.NoError(err)
+
+	blk11, err := sdb.Mint(
+		protocol.WithBlockchainCtx(
+			protocol.WithFeatureCtx(
+				protocol.WithBlockCtx(
+					ctx,
+					protocol.BlockCtx{
+						BlockHeight: 2,
+						Producer:    identityset.Address(25),
+						GasLimit:    testutil.TestGasLimit,
+					},
+				),
+			),
+			protocol.BlockchainCtx{
+				ChainID: 1,
+				Tip: protocol.TipInfo{
+					Height: 1,
+					Hash:   blk1.HashBlock(),
+				},
+			},
+		),
+		ap,
+		identityset.PrivateKey(25),
+	)
+	require.NoError(err)
+	require.NotNil(blk11)
+	require.Equal(blk1.HashBlock(), blk11.PrevHash())
+	blk21, err := sdb.Mint(
+		protocol.WithBlockchainCtx(
+			protocol.WithFeatureCtx(
+				protocol.WithBlockCtx(
+					ctx,
+					protocol.BlockCtx{
+						BlockHeight: 2,
+						Producer:    identityset.Address(25),
+						GasLimit:    testutil.TestGasLimit,
+					},
+				),
+			),
+			protocol.BlockchainCtx{
+				ChainID: 1,
+				Tip: protocol.TipInfo{
+					Height: 1,
+					Hash:   blk2.HashBlock(),
+				},
+			},
+		),
+		ap,
+		identityset.PrivateKey(24),
+	)
+	require.NoError(err)
+	require.NotNil(blk21)
+	require.Equal(blk2.HashBlock(), blk21.PrevHash())
+
+	sdbReal := sdb.(*stateDB)
+	ws1, exist, err := sdbReal.getFromWorkingSets(ctx, blk1.HashBlock())
+	require.NoError(err)
+	require.True(exist)
+	require.NotNil(ws1)
+	ws2, exist, err := sdbReal.getFromWorkingSets(ctx, blk2.HashBlock())
+	require.NoError(err)
+	require.True(exist)
+	require.NotNil(ws2)
+	require.NotEqual(t, ws1, ws2)
+	ws11, exist, err := sdbReal.getFromWorkingSets(ctx, blk11.HashBlock())
+	require.NoError(err)
+	require.True(exist)
+	require.NotNil(ws11)
+	ws21, exist, err := sdbReal.getFromWorkingSets(ctx, blk21.HashBlock())
+	require.NoError(err)
+	require.True(exist)
+	require.NotNil(ws21)
+}
+
 func TestSDBState(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(t, err)
@@ -1200,6 +1337,181 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
+}
+
+func TestMintBlocksWithTransfers(t *testing.T) {
+	require := require.New(t)
+	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
+	require.NoError(err)
+	defer testutil.CleanupPath(testStateDBPath)
+
+	cfg := DefaultConfig
+	cfg.Chain.TrieDBPath = testStateDBPath
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
+	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "50"
+	cfg.Genesis.InitBalanceMap[identityset.Address(30).String()] = "0"
+
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(err)
+	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption(), RegistryStateDBOption(registry))
+	require.NoError(err)
+
+	ctx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(sdb.Start(ctx))
+	defer func() {
+		require.NoError(sdb.Stop(ctx))
+	}()
+
+	// Mint the first block with a transfer from A to B
+	a := identityset.Address(28)
+	b := identityset.Address(29)
+	priKeyA := identityset.PrivateKey(28)
+
+	tsf1 := action.NewTransfer(big.NewInt(20), b.String(), nil)
+	elp1 := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(20000).SetAction(tsf1).Build()
+	selp1, err := action.Sign(elp1, priKeyA)
+	require.NoError(err)
+
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit,
+		},
+	)
+	ctx = protocol.WithFeatureCtx(ctx)
+	mockActPool := mock_actpool.NewMockActPool(gomock.NewController(t))
+	mockActPool.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
+		a.String(): {selp1},
+	}).Times(1)
+
+	blk1, err := sdb.Mint(
+		protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				ChainID: 1,
+				Tip: protocol.TipInfo{
+					Height: 0,
+					Hash:   hash.ZeroHash256,
+				},
+			},
+		),
+		mockActPool,
+		identityset.PrivateKey(27))
+	require.NoError(err)
+	require.NotNil(blk1)
+
+	ws1, exist, err := sdb.(*stateDB).getFromWorkingSets(ctx, blk1.HashBlock())
+	require.NoError(err)
+	require.True(exist)
+	require.NotNil(ws1)
+	// Check balances after the first block
+	accountA, err := accountutil.AccountState(ctx, ws1, a)
+	require.NoError(err)
+	accountB, err := accountutil.AccountState(ctx, ws1, b)
+	require.NoError(err)
+	require.Equal(big.NewInt(80), accountA.Balance)
+	require.Equal(big.NewInt(70), accountB.Balance)
+
+	// Mint the second block with a transfer from B to C
+	c := identityset.Address(30)
+	priKeyB := identityset.PrivateKey(29)
+
+	tsf2 := action.NewTransfer(big.NewInt(30), c.String(), nil)
+	elp2 := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(20000).SetAction(tsf2).Build()
+	selp2, err := action.Sign(elp2, priKeyB)
+	require.NoError(err)
+
+	mockActPool.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
+		b.String(): {selp2},
+	}).Times(1)
+
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: 2,
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit,
+		},
+	)
+	ctx = protocol.WithFeatureCtx(ctx)
+	blk2, err := sdb.Mint(
+		protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				ChainID: 1,
+				Tip: protocol.TipInfo{
+					Height: 1,
+					Hash:   blk1.HashBlock(),
+				},
+			},
+		),
+		mockActPool,
+		identityset.PrivateKey(27),
+	)
+	require.NoError(err)
+	require.NotNil(blk2)
+
+	ws2, exist, err := sdb.(*stateDB).getFromWorkingSets(ctx, blk2.HashBlock())
+	require.NoError(err)
+	require.True(exist)
+	require.NotNil(ws2)
+
+	// Check balances after the second block
+	accountA, err = accountutil.AccountState(ctx, ws2, a)
+	require.NoError(err)
+	accountB, err = accountutil.AccountState(ctx, ws2, b)
+	require.NoError(err)
+	accountC, err := accountutil.AccountState(ctx, ws2, c)
+	require.NoError(err)
+	require.Equal(big.NewInt(80), accountA.Balance)
+	require.Equal(big.NewInt(40), accountB.Balance)
+	require.Equal(big.NewInt(30), accountC.Balance)
+	// Check balances in ws1
+	accountA, err = accountutil.AccountState(ctx, ws1, a)
+	require.NoError(err)
+	accountB, err = accountutil.AccountState(ctx, ws1, b)
+	require.NoError(err)
+	require.Equal(big.NewInt(80), accountA.Balance)
+	require.Equal(big.NewInt(70), accountB.Balance)
+	// Check balances in sdb
+	accountA, err = accountutil.AccountState(ctx, sdb, a)
+	require.NoError(err)
+	accountB, err = accountutil.AccountState(ctx, sdb, b)
+	require.NoError(err)
+	accountC, err = accountutil.AccountState(ctx, sdb, c)
+	require.NoError(err)
+	require.Equal(big.NewInt(100), accountA.Balance)
+	require.Equal(big.NewInt(50), accountB.Balance)
+	require.Equal(big.NewInt(0), accountC.Balance)
+	// Put blk1 into sdb
+	require.NoError(sdb.PutBlock(ctx, blk1))
+
+	// Check balances after blk1 is committed
+	accountA, err = accountutil.AccountState(ctx, sdb, a)
+	require.NoError(err)
+	accountB, err = accountutil.AccountState(ctx, sdb, b)
+	require.NoError(err)
+	require.Equal(big.NewInt(80), accountA.Balance)
+	require.Equal(big.NewInt(70), accountB.Balance)
+	// Check balances in ws2
+	accountA, err = accountutil.AccountState(ctx, ws2, a)
+	require.NoError(err)
+	accountB, err = accountutil.AccountState(ctx, ws2, b)
+	require.NoError(err)
+	accountC, err = accountutil.AccountState(ctx, ws2, c)
+	require.NoError(err)
+	require.Equal(big.NewInt(80), accountA.Balance)
+	require.Equal(big.NewInt(40), accountB.Balance)
+	require.Equal(big.NewInt(30), accountC.Balance)
 }
 
 func BenchmarkSDBInMemRunAction(b *testing.B) {
