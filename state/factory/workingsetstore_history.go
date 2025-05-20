@@ -10,8 +10,14 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
+	"github.com/ledgerwatch/erigon-lib/common/datadir"
 	"github.com/ledgerwatch/erigon-lib/kv"
+	"github.com/ledgerwatch/erigon-lib/kv/temporal/historyv2"
 	erigonstate "github.com/ledgerwatch/erigon/core/state"
+	"github.com/ledgerwatch/erigon/eth/ethconfig"
+	"github.com/ledgerwatch/erigon/eth/stagedsync"
+	"github.com/ledgerwatch/erigon/eth/stagedsync/stages"
+	"github.com/ledgerwatch/erigon/ethdb/prune"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -54,7 +60,7 @@ type writer interface {
 // it's used for PutBlock, generating historical states in erigon
 type stateDBWorkingSetStoreWithErigonOutput struct {
 	reader
-	store       *stateDBWorkingSetStore
+	store       workingSetStore
 	erigonStore *erigonStore
 	snMap       map[int]int
 }
@@ -70,7 +76,7 @@ func init() {
 	prometheus.MustRegister(perfMtc)
 }
 
-func newStateDBWorkingSetStoreWithErigonOutput(store *stateDBWorkingSetStore, erigonStore *erigonStore) *stateDBWorkingSetStoreWithErigonOutput {
+func newStateDBWorkingSetStoreWithErigonOutput(store workingSetStore, erigonStore *erigonStore) *stateDBWorkingSetStoreWithErigonOutput {
 	return &stateDBWorkingSetStoreWithErigonOutput{
 		reader:      store,
 		store:       store,
@@ -117,6 +123,10 @@ func (store *stateDBWorkingSetStoreWithErigonOutput) Put(ns string, key []byte, 
 func (store *stateDBWorkingSetStoreWithErigonOutput) Delete(ns string, key []byte) error {
 	// delete won't happen in account and contract
 	return store.store.Delete(ns, key)
+}
+
+func (store *stateDBWorkingSetStoreWithErigonOutput) Prune(from, to uint64) error {
+	return store.erigonStore.prune(from, to)
 }
 
 func (store *stateDBWorkingSetStoreWithErigonOutput) Commit(ctx context.Context) error {
@@ -200,9 +210,42 @@ func (store *erigonStore) finalize(ctx context.Context, height uint64, ts uint64
 
 func (store *erigonStore) commit(ctx context.Context) error {
 	defer store.tx.Rollback()
+
 	err := store.tx.Commit()
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (store *erigonStore) prune(from, to uint64) error {
+	if from >= to {
+		log.L().Panic("prune execution stage", zap.Uint64("from", from), zap.Uint64("to", to))
+	}
+	s := stagedsync.PruneState{ID: stages.Execution, ForwardProgress: to}
+	num := to - from
+	cfg := stagedsync.StageExecuteBlocksCfg(nil,
+		prune.Mode{
+			History:    prune.Distance(num),
+			Receipts:   prune.Distance(num),
+			CallTraces: prune.Distance(num),
+		},
+		0, nil, nil, nil, nil, nil, false, false, false, datadir.Dirs{}, nil, nil, nil, ethconfig.Sync{}, nil, nil)
+	err := stagedsync.PruneExecutionStage(&s, store.tx.(kv.RwTx), cfg, context.Background(), false)
+	if err != nil {
+		return errors.Wrapf(err, "failed to prune execution stage from %d to %d", from, to)
+	}
+	// debug
+	available, err := historyv2.AvailableFrom(store.tx)
+	if err != nil {
+		log.L().Error(" failed to get available from", zap.Error(err))
+	}
+	availableStorage, err := historyv2.AvailableStorageFrom(store.tx)
+	if err != nil {
+		log.L().Error(" failed to get available storage from", zap.Error(err))
+	}
+	if to%5000 == 0 {
+		log.L().Info("prune execution stage", zap.Uint64("from", from), zap.Uint64("to", to), zap.Uint64("available", available), zap.Uint64("availableStorage", availableStorage))
 	}
 	return nil
 }
