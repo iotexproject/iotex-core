@@ -275,7 +275,7 @@ func TestContractStakingV2(t *testing.T) {
 			},
 		},
 		{
-			name: "unmute",
+			name: "mute",
 			preFunc: func(e *e2etest) {
 				candidate, err := e.getCandidateByName("cand1")
 				require.NoError(err)
@@ -290,7 +290,7 @@ func TestContractStakingV2(t *testing.T) {
 				candidate, err := test.getCandidateByName("cand1")
 				require.NoError(err)
 				// muted bucket should not be counted in total votes
-				require.NotEqual(tmpVotes.String(), candidate.TotalWeightedVotes)
+				require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
 			},
 		},
 	})
