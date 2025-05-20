@@ -270,28 +270,30 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 		return nil
 	}
 	// handle events of block
-	var handler stakingEventHandler
-	eventHandler := newEventHandler(s.bucketNS, s.cache.Copy(), protocol.MustGetBlockCtx(ctx), s.timestamped)
-	if s.muteHeight > 0 && blk.Height() >= s.muteHeight {
-		handler = newEventMuteHandler(eventHandler)
-	} else {
-		handler = eventHandler
-	}
+	muted := s.muteHeight > 0 && blk.Height() >= s.muteHeight
+	handler := newEventHandler(s.bucketNS, s.cache.Copy(), protocol.MustGetBlockCtx(ctx), s.timestamped, muted)
 	for _, receipt := range blk.Receipts {
-		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-			continue
-		}
-		for _, log := range receipt.Logs() {
-			if log.Address != s.common.ContractAddress() {
-				continue
-			}
-			if err := s.handleEvent(ctx, handler, log); err != nil {
-				return err
-			}
+		if err := s.handleReceipt(ctx, handler, receipt); err != nil {
+			return errors.Wrapf(err, "handle receipt %x failed", receipt.ActionHash)
 		}
 	}
 	// commit
 	return s.commit(handler, blk.Height())
+}
+
+func (s *Indexer) handleReceipt(ctx context.Context, eh stakingEventHandler, receipt *action.Receipt) error {
+	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+		return nil
+	}
+	for _, log := range receipt.Logs() {
+		if log.Address != s.common.ContractAddress() {
+			continue
+		}
+		if err := s.handleEvent(ctx, eh, log); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Indexer) handleEvent(ctx context.Context, eh stakingEventHandler, actLog *action.Log) error {
