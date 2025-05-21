@@ -77,6 +77,7 @@ func TestContractStakingV2(t *testing.T) {
 
 		tmpVotes   = big.NewInt(0)
 		tmpBalance = big.NewInt(0)
+		tmpBkt     = &iotextypes.VoteBucket{}
 	)
 	bytecode, err := hex.DecodeString(stakingContractV2Bytecode)
 	require.NoError(err)
@@ -274,26 +275,222 @@ func TestContractStakingV2(t *testing.T) {
 				}},
 			},
 		},
+	})
+
+	// prepare legacy buckets
+	var legacyBucketIdxs []uint64
+	test.run([]*testcase{
 		{
-			name: "mute",
+			name: "prepare_legacy_buckets",
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("stake(uint256,address)", stakeDurationBlocks, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("stake(uint256,address)", stakeDurationBlocks, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("stake(uint256,address)", stakeDurationBlocks, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("stake(uint256,address)", stakeDurationBlocks, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("stake(uint256,address)", stakeDurationBlocks, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(6, len(blk.Receipts))
+				for i := 0; i < len(blk.Receipts); i++ {
+					require.EqualValues(1, blk.Receipts[i].Status)
+					idxs, err := parseV2StakedBucketIdx(contractAddress, blk.Receipts[i])
+					require.NoError(err)
+					legacyBucketIdxs = append(legacyBucketIdxs, idxs...)
+				}
+				t.Log("legacyBucketIdxs", legacyBucketIdxs)
+				require.EqualValues(5, len(legacyBucketIdxs))
+				for _, idx := range legacyBucketIdxs {
+					_, err := test.getBucket(idx, contractAddress)
+					require.NoError(err)
+				}
+			},
+		},
+	})
+	tipHeight, err := test.cs.BlockDAO().Height()
+	require.NoError(err)
+	// case: existed buckets muted if stake, lock, expand, merge, donate
+	test.run([]*testcase{
+		{
+			name: "mute_stake",
 			preFunc: func(e *e2etest) {
 				candidate, err := e.getCandidateByName("cand1")
 				require.NoError(err)
 				_, ok := tmpVotes.SetString(candidate.TotalWeightedVotes, 10)
 				require.True(ok)
 			},
-			preActs: genTransferActionsWithPrice(60, gasPrice1559),
-			act:     &actionWithTime{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("stake(uint256,address)", stakeDurationBlocks, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), time.Now()},
+			preActs: genTransferActionsWithPrice(int(cfg.Genesis.WakeBlockHeight-tipHeight), gasPrice1559),
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("stake(uint256,address)", stakeDurationBlocks, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), time.Now()},
+			},
 			blockExpect: func(test *e2etest, blk *block.Block, err error) {
 				require.NoError(err)
-				require.EqualValues(uint64(127), blk.Height())
+				require.EqualValues(2, len(blk.Receipts))
+				var idxs []uint64
+				for i := 0; i < len(blk.Receipts); i++ {
+					require.EqualValues(1, blk.Receipts[i].Status)
+					idx, err := parseV2StakedBucketIdx(contractAddress, blk.Receipts[i])
+					require.NoError(err)
+					idxs = append(idxs, idx...)
+				}
+				require.EqualValues(1, len(idxs))
+				bkt, err := test.getBucket(idxs[0], contractAddress)
+				require.NoError(err)
+				require.EqualValues(address.ZeroAddress, bkt.CandidateAddress)
 				candidate, err := test.getCandidateByName("cand1")
 				require.NoError(err)
-				// muted bucket should not be counted in total votes
+				require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+			},
+		},
+		{
+			name: "unlock",
+			preFunc: func(e *e2etest) {
+				candidate, err := e.getCandidateByName("cand1")
+				require.NoError(err)
+				_, ok := tmpVotes.SetString(candidate.TotalWeightedVotes, 10)
+				require.True(ok)
+				tmpBkt, err = e.getBucket(legacyBucketIdxs[0], contractAddress)
+				require.NoError(err)
+				t.Log("tmpBkt", tmpBkt)
+			},
+			act: &actionWithTime{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice1559, mustCallData("unlock(uint256)", big.NewInt(int64(legacyBucketIdxs[0]))), action.WithChainID(chainID))), time.Now()},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(2, len(blk.Receipts))
+				for i := 0; i < len(blk.Receipts); i++ {
+					require.EqualValues(1, blk.Receipts[i].Status)
+				}
+				bkt, err := test.getBucket(legacyBucketIdxs[0], contractAddress)
+				require.NoError(err)
+				t.Log("bkt", bkt)
+				bktVotes, err := test.calculateWeightedVotes(bkt, false, test.cfg.WakeUpgrade.BlockInterval)
+				require.NoError(err)
+				bktVotesOrg, err := test.calculateWeightedVotes(tmpBkt, false, test.cfg.WakeUpgrade.BlockInterval)
+				require.NoError(err)
+				t.Log("bktVotesOrg", bktVotesOrg.String(), "bktVotes", bktVotes.String())
+				candidate, err := test.getCandidateByName("cand1")
+				require.NoError(err)
+				require.Equal(candidate.Id, bkt.CandidateAddress)
+				require.Equal(new(big.Int).Add(tmpVotes, new(big.Int).Sub(bktVotes, bktVotesOrg)).String(), candidate.TotalWeightedVotes)
+			},
+		},
+		{
+			name: "mute_lock",
+			preFunc: func(e *e2etest) {
+				candidate, err := e.getCandidateByName("cand1")
+				require.NoError(err)
+				_, ok := tmpVotes.SetString(candidate.TotalWeightedVotes, 10)
+				require.True(ok)
+				tmpBkt, err = e.getBucket(legacyBucketIdxs[0], contractAddress)
+				require.NoError(err)
+			},
+			act: &actionWithTime{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice1559, mustCallData("lock(uint256,uint256)", big.NewInt(int64(legacyBucketIdxs[0])), big.NewInt(0).Mul(big.NewInt(2), stakeDurationBlocks)), action.WithChainID(chainID))), time.Now()},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(2, len(blk.Receipts))
+				for i := 0; i < len(blk.Receipts); i++ {
+					require.EqualValues(1, blk.Receipts[i].Status)
+				}
+				bkt, err := test.getBucket(legacyBucketIdxs[0], contractAddress)
+				require.NoError(err)
+				require.Equal(address.ZeroAddress, bkt.CandidateAddress)
+				bktVotes, err := test.calculateWeightedVotes(tmpBkt, false, test.cfg.WakeUpgrade.BlockInterval)
+				require.NoError(err)
+				candidate, err := test.getCandidateByName("cand1")
+				require.NoError(err)
+				require.Equal(new(big.Int).Sub(tmpVotes, bktVotes).String(), candidate.TotalWeightedVotes)
+			},
+		},
+		{
+			name: "mute_expand",
+			preFunc: func(e *e2etest) {
+				candidate, err := e.getCandidateByName("cand1")
+				require.NoError(err)
+				_, ok := tmpVotes.SetString(candidate.TotalWeightedVotes, 10)
+				require.True(ok)
+				tmpBkt, err = e.getBucket(legacyBucketIdxs[1], contractAddress)
+				require.NoError(err)
+			},
+			act: &actionWithTime{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("expandBucket(uint256,uint256)", big.NewInt(int64(legacyBucketIdxs[1])), big.NewInt(0).Mul(big.NewInt(2), stakeDurationBlocks)), action.WithChainID(chainID))), time.Now()},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(2, len(blk.Receipts))
+				for i := 0; i < len(blk.Receipts); i++ {
+					require.EqualValues(1, blk.Receipts[i].Status)
+				}
+				bkt, err := test.getBucket(legacyBucketIdxs[1], contractAddress)
+				require.NoError(err)
+				require.Equal(address.ZeroAddress, bkt.CandidateAddress)
+				bktVotes, err := test.calculateWeightedVotes(tmpBkt, false, test.cfg.WakeUpgrade.BlockInterval)
+				require.NoError(err)
+				candidate, err := test.getCandidateByName("cand1")
+				require.NoError(err)
+				require.Equal(new(big.Int).Sub(tmpVotes, bktVotes).String(), candidate.TotalWeightedVotes)
+			},
+		},
+		{
+			name: "mute_merge",
+			preFunc: func(e *e2etest) {
+				candidate, err := e.getCandidateByName("cand1")
+				require.NoError(err)
+				_, ok := tmpVotes.SetString(candidate.TotalWeightedVotes, 10)
+				require.True(ok)
+				tmpBkt, err = e.getBucket(legacyBucketIdxs[2], contractAddress)
+				require.NoError(err)
+				bktVotes, err := test.calculateWeightedVotes(tmpBkt, false, test.cfg.WakeUpgrade.BlockInterval)
+				require.NoError(err)
+				tmpVotes = tmpVotes.Sub(tmpVotes, bktVotes)
+				tmpBkt, err = e.getBucket(legacyBucketIdxs[3], contractAddress)
+				require.NoError(err)
+				bktVotes, err = test.calculateWeightedVotes(tmpBkt, false, test.cfg.WakeUpgrade.BlockInterval)
+				require.NoError(err)
+				tmpVotes = tmpVotes.Sub(tmpVotes, bktVotes)
+			},
+			act: &actionWithTime{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("merge(uint256[],uint256)", []*big.Int{big.NewInt(int64(legacyBucketIdxs[2])), big.NewInt(int64(legacyBucketIdxs[3]))}, big.NewInt(0).Mul(big.NewInt(2), stakeDurationBlocks)), action.WithChainID(chainID))), time.Now()},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(2, len(blk.Receipts))
+				for i := 0; i < len(blk.Receipts); i++ {
+					require.EqualValues(1, blk.Receipts[i].Status)
+				}
+				bkt, err := test.getBucket(legacyBucketIdxs[2], contractAddress)
+				require.NoError(err)
+				require.Equal(address.ZeroAddress, bkt.CandidateAddress)
+				candidate, err := test.getCandidateByName("cand1")
+				require.NoError(err)
+				require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+			},
+		},
+		{
+			name: "mute_donate",
+			preFunc: func(e *e2etest) {
+				candidate, err := e.getCandidateByName("cand1")
+				require.NoError(err)
+				_, ok := tmpVotes.SetString(candidate.TotalWeightedVotes, 10)
+				require.True(ok)
+				tmpBkt, err = e.getBucket(legacyBucketIdxs[4], contractAddress)
+				require.NoError(err)
+				bktVotes, err := test.calculateWeightedVotes(tmpBkt, false, test.cfg.WakeUpgrade.BlockInterval)
+				require.NoError(err)
+				tmpVotes = tmpVotes.Sub(tmpVotes, bktVotes)
+			},
+			act: &actionWithTime{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice1559, mustCallData("donate(uint256,uint256)", big.NewInt(int64(legacyBucketIdxs[4])), big.NewInt(1)), action.WithChainID(chainID))), time.Now()},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(2, len(blk.Receipts))
+				for i := 0; i < len(blk.Receipts); i++ {
+					require.EqualValues(1, blk.Receipts[i].Status)
+				}
+				bkt, err := test.getBucket(legacyBucketIdxs[4], contractAddress)
+				require.NoError(err)
+				require.Equal(address.ZeroAddress, bkt.CandidateAddress)
+				candidate, err := test.getCandidateByName("cand1")
+				require.NoError(err)
 				require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
 			},
 		},
 	})
+	// TODO: case: existed buckets not muted if other actions, unlock, unstake, withdraw, transfer, changeDelegate
 }
 
 func TestContractStakingV3(t *testing.T) {
