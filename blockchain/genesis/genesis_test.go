@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 )
 
@@ -155,4 +156,13 @@ func TestWakeBlockReward(t *testing.T) {
 	// wake block reward = 4.8, between 4.5 and 5
 	r.Equal(1, wake.Cmp(four))
 	r.Equal(-1, wake.Cmp(five))
+}
+
+func TestGenesisMapEmpty(t *testing.T) {
+	r := require.New(t)
+	g, err := New("")
+	r.NoError(err)
+	// When merging configs, maps are merged instead of overwritten, which is not the behavior we want.
+	// Therefore, the default map must be empty.
+	r.Empty(g.Account.InitBalanceMap, "InitBalanceMap should be empty")
 }
