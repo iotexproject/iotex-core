@@ -25,13 +25,13 @@ var (
 	}
 	// DefaultWakeUpgradeConfig is the default config for wake upgrade
 	DefaultWakeUpgradeConfig = WakeUpgrade{
-		UnmatchedEventTTL:            2 * time.Second,
+		UnmatchedEventTTL:            1500 * time.Millisecond,
 		UnmatchedEventInterval:       100 * time.Millisecond,
-		AcceptBlockTTL:               1 * time.Second,
-		AcceptProposalEndorsementTTL: time.Second,
-		AcceptLockEndorsementTTL:     500 * time.Millisecond,
-		CommitTTL:                    500 * time.Millisecond,
-		BlockInterval:                3 * time.Second,
+		AcceptBlockTTL:               800 * time.Millisecond,
+		AcceptProposalEndorsementTTL: 800 * time.Millisecond,
+		AcceptLockEndorsementTTL:     450 * time.Millisecond,
+		CommitTTL:                    450 * time.Millisecond,
+		BlockInterval:                2500 * time.Millisecond,
 	}
 )
 

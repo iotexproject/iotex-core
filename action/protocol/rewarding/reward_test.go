@@ -42,7 +42,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		isWakeBlock bool
 	}{
 		{big.NewInt(10), big.NewInt(200), false},
-		{big.NewInt(48), big.NewInt(300), true},
+		{big.NewInt(40), big.NewInt(300), true},
 	} {
 		testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 			if tv.isWakeBlock {

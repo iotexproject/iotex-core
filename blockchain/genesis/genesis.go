@@ -47,7 +47,7 @@ func defaultConfig() Genesis {
 			BlockInterval:             10 * time.Second,
 			NumSubEpochs:              15,
 			DardanellesNumSubEpochs:   30,
-			WakeNumSubEpochs:          50,
+			WakeNumSubEpochs:          60,
 			NumDelegates:              24,
 			NumCandidateDelegates:     36,
 			TimeBasedRotation:         true,
@@ -188,7 +188,7 @@ func defaultConfig() Genesis {
 			FoundationBonusP2StartEpoch:    9698,
 			FoundationBonusP2EndEpoch:      18458,
 			ProductivityThreshold:          85,
-			WakeBlockRewardStr:             "4800000000000000000",
+			WakeBlockRewardStr:             "4000000000000000000",
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
