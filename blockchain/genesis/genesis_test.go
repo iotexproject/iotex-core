@@ -72,8 +72,8 @@ func TestTsunamiBlockGasLimit(t *testing.T) {
 		{cfg.TsunamiBlockHeight - 1, 20000000},
 		{cfg.TsunamiBlockHeight, 50000000},
 		{cfg.WakeBlockHeight - 1, 50000000},
-		{cfg.WakeBlockHeight, 30000000},
-		{cfg.ToBeEnabledBlockHeight, 30000000},
+		{cfg.WakeBlockHeight, 25000000},
+		{cfg.ToBeEnabledBlockHeight, 25000000},
 	} {
 		r.Equal(v.gasLimit, cfg.BlockGasLimitByHeight(v.height))
 	}
@@ -119,13 +119,8 @@ func TestDeployerWhitelist(t *testing.T) {
 
 func TestWakeBlockReward(t *testing.T) {
 	r := require.New(t)
-	four, five := unit.ConvertIotxToRau(4), unit.ConvertIotxToRau(5)
-	four.Add(four, five)
-	four.Rsh(four, 1)
 	wake := Default.WakeBlockReward()
-	// wake block reward = 4.8, between 4.5 and 5
-	r.Equal(1, wake.Cmp(four))
-	r.Equal(-1, wake.Cmp(five))
+	r.Equal(0, wake.Cmp(unit.ConvertIotxToRau(4)))
 }
 
 func TestGenesisMapEmpty(t *testing.T) {
