@@ -882,6 +882,7 @@ func TestSTXPickAndRunActions(t *testing.T) {
 
 	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testStateDBPath
+	cfg.Genesis.InitBalanceMap[identityset.Address(0).String()] = "1000000000"
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	registry := protocol.NewRegistry()
