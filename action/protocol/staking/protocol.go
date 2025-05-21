@@ -359,6 +359,15 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 	}
+	// create pre-states for contract staking
+	v, err := sm.ReadView(_protocolID)
+	if err != nil {
+		return err
+	}
+	if err = v.(*ViewData).contractsStake.CreatePreStates(ctx); err != nil {
+		return err
+	}
+
 	if p.candBucketsIndexer == nil {
 		return nil
 	}
@@ -373,16 +382,6 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	epochStartHeight := rp.GetEpochHeight(currentEpochNum)
 	if epochStartHeight != blkCtx.BlockHeight || featureCtx.SkipStakingIndexer {
 		return nil
-	}
-
-	if featureCtx.CreatePostActionStates {
-		v, err := sm.ReadView(_protocolID)
-		if err != nil {
-			return err
-		}
-		if err = v.(*ViewData).contractsStake.CreatePreStates(ctx); err != nil {
-			return err
-		}
 	}
 	return p.handleStakingIndexer(ctx, rp.GetEpochHeight(currentEpochNum-1), sm)
 }
