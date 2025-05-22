@@ -51,7 +51,7 @@ type (
 		dao                      daoRetrofitter
 		timerFactory             *prometheustimer.TimerFactory
 		workingsets              cache.LRUCache // lru cache for workingsets
-		protocolView             *protocol.Views
+		protocolViews            *protocol.Views
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
 	}
@@ -98,7 +98,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		cfg:                cfg,
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
-		protocolView:       &protocol.Views{},
+		protocolViews:      &protocol.Views{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 	}
 	for _, opt := range opts {
@@ -132,7 +132,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	case nil:
 		sdb.currentChainHeight = h
 		// start all protocols
-		if sdb.protocolView, err = sdb.registry.StartAll(ctx, sdb); err != nil {
+		if sdb.protocolViews, err = sdb.registry.StartAll(ctx, sdb); err != nil {
 			return err
 		}
 	case db.ErrNotExist:
@@ -141,7 +141,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
 		// start all protocols
-		if sdb.protocolView, err = sdb.registry.StartAll(ctx, sdb); err != nil {
+		if sdb.protocolViews, err = sdb.registry.StartAll(ctx, sdb); err != nil {
 			return err
 		}
 		ctx = protocol.WithBlockCtx(
@@ -192,7 +192,7 @@ func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64,
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-	views := sdb.protocolView.Clone()
+	views := sdb.protocolViews.Clone()
 	if err := views.Commit(ctx, sdb); err != nil {
 		return nil, err
 	}
@@ -368,7 +368,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	if err := ws.Commit(ctx); err != nil {
 		return err
 	}
-	sdb.protocolView = ws.views
+	sdb.protocolViews = ws.views
 	sdb.currentChainHeight = h
 	return nil
 }
@@ -412,7 +412,7 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 
 // ReadView reads the view
 func (sdb *stateDB) ReadView(name string) (protocol.View, error) {
-	return sdb.protocolView.Read(name)
+	return sdb.protocolViews.Read(name)
 }
 
 // StateReaderAt returns a state reader at a specific height
@@ -484,7 +484,7 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	if err := ws.Commit(ctx); err != nil {
 		return err
 	}
-	sdb.protocolView = ws.views
+	sdb.protocolViews = ws.views
 	return nil
 }
 
