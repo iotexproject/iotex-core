@@ -101,8 +101,8 @@ func TestTsunamiBlockGasLimit(t *testing.T) {
 		{cfg.TsunamiBlockHeight - 1, 20000000},
 		{cfg.TsunamiBlockHeight, 50000000},
 		{cfg.WakeBlockHeight - 1, 50000000},
-		{cfg.WakeBlockHeight, 30000000},
-		{cfg.ToBeEnabledBlockHeight, 30000000},
+		{cfg.WakeBlockHeight, 25000000},
+		{cfg.ToBeEnabledBlockHeight, 25000000},
 	} {
 		r.Equal(v.gasLimit, cfg.BlockGasLimitByHeight(v.height))
 	}

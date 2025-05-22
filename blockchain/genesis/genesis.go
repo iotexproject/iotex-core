@@ -42,7 +42,7 @@ func defaultConfig() Genesis {
 			Timestamp:                 1553558500,
 			BlockGasLimit:             20000000,
 			TsunamiBlockGasLimit:      50000000,
-			WakeBlockGasLimit:         30000000,
+			WakeBlockGasLimit:         25000000,
 			ActionGasLimit:            5000000,
 			BlockInterval:             10 * time.Second,
 			NumSubEpochs:              15,
