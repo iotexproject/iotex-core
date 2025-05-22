@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/hex"
+	"math"
 	"math/big"
 	"math/rand"
 	"os"
@@ -34,12 +35,14 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -1338,6 +1341,159 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
+}
+
+func TestMintBlocksWithCandidateUpdate(t *testing.T) {
+	require := require.New(t)
+	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
+	require.NoError(err)
+	defer testutil.CleanupPath(testStateDBPath)
+	a := identityset.Address(28)
+	b := identityset.Address(29)
+	priKeyA := identityset.PrivateKey(28)
+	priKeyB := identityset.PrivateKey(29)
+
+	cfg := DefaultConfig
+	cfg.Chain.TrieDBPath = testStateDBPath
+	cfg.Genesis.InitBalanceMap[a.String()] = unit.ConvertIotxToRau(10000000).String()
+	cfg.Genesis.InitBalanceMap[b.String()] = unit.ConvertIotxToRau(5000000).String()
+
+	registry := protocol.NewRegistry()
+	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
+	sp, err := staking.NewProtocol(
+		staking.HelperCtx{
+			DepositGas: rewarding.DepositGas,
+			BlockInterval: func(u uint64) time.Duration {
+				return time.Second
+			},
+		},
+		&staking.BuilderConfig{
+			Staking:                  genesis.TestDefault().Staking,
+			PersistStakingPatchBlock: math.MaxUint64,
+		},
+		nil,
+		nil,
+		nil,
+	)
+	require.NoError(err)
+	require.NoError(sp.Register(registry))
+
+	db2, err := db.CreateKVStoreWithCache(db.DefaultConfig, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(err)
+	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption(), RegistryStateDBOption(registry))
+	require.NoError(err)
+
+	ctx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	require.NoError(sdb.Start(ctx))
+	defer func() {
+		require.NoError(sdb.Stop(ctx))
+	}()
+
+	tsf1, err := action.NewCandidateRegister("cand1", a.String(), a.String(), a.String(), unit.ConvertIotxToRau(1200000).String(), 0, false, nil)
+	require.NoError(err)
+	elp1 := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(20000).SetAction(tsf1).Build()
+	selp1, err := action.Sign(elp1, priKeyA)
+	require.NoError(err)
+
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit,
+		},
+	)
+	ctx = protocol.WithFeatureCtx(ctx)
+	mockActPool := mock_actpool.NewMockActPool(gomock.NewController(t))
+	mockActPool.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
+		a.String(): {selp1},
+	}).Times(1)
+
+	blk1, err := sdb.Mint(
+		protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				ChainID: 1,
+				Tip: protocol.TipInfo{
+					Height: 0,
+					Hash:   hash.ZeroHash256,
+				},
+			},
+		),
+		mockActPool,
+		identityset.PrivateKey(27))
+	require.NoError(err)
+	require.NotNil(blk1)
+
+	ws1, exist, err := sdb.(*stateDB).getFromWorkingSets(ctx, blk1.HashBlock())
+	require.NoError(err)
+	require.True(exist)
+	require.NotNil(ws1)
+
+	tsf2, err := action.NewCandidateRegister("cand2", b.String(), b.String(), b.String(), unit.ConvertIotxToRau(1200000).String(), 0, false, nil)
+	require.NoError(err)
+	elp2 := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(20000).SetAction(tsf2).Build()
+	selp2, err := action.Sign(elp2, priKeyB)
+	require.NoError(err)
+
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(26),
+			GasLimit:    testutil.TestGasLimit,
+		},
+	)
+	ctx = protocol.WithFeatureCtx(ctx)
+	mockActPool.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
+		a.String(): {selp2},
+	}).Times(1)
+
+	blk2, err := sdb.Mint(
+		protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				ChainID: 1,
+				Tip: protocol.TipInfo{
+					Height: 0,
+					Hash:   hash.ZeroHash256,
+				},
+			},
+		),
+		mockActPool,
+		identityset.PrivateKey(26))
+	require.NoError(err)
+	require.NotNil(blk2)
+
+	ws2, exist, err := sdb.(*stateDB).getFromWorkingSets(ctx, blk2.HashBlock())
+	require.NoError(err)
+	require.True(exist)
+	require.NotNil(ws2)
+
+	csr, err := staking.ConstructBaseView(sdb)
+	require.NoError(err)
+	csr1, err := staking.ConstructBaseView(ws1)
+	require.NoError(err)
+	csr2, err := staking.ConstructBaseView(ws2)
+	require.NoError(err)
+	require.NotNil(csr1.GetCandidateByName("cand1"))
+	require.Nil(csr.GetCandidateByName("cand1"))
+	require.Nil(csr2.GetCandidateByName("cand1"))
+	require.NotNil(csr2.GetCandidateByName("cand2"))
+	require.Nil(csr.GetCandidateByName("cand2"))
+	require.Nil(csr1.GetCandidateByName("cand2"))
+
+	require.NoError(sdb.PutBlock(ctx, blk1))
+	csr, err = staking.ConstructBaseView(sdb)
+	require.NoError(err)
+	require.NotNil(csr.GetCandidateByName("cand1"))
+	require.Nil(csr2.GetCandidateByName("cand1"))
+	require.NotNil(csr2.GetCandidateByName("cand2"))
+	require.Nil(csr.GetCandidateByName("cand2"))
 }
 
 func TestMintBlocksWithTransfers(t *testing.T) {
