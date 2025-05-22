@@ -594,7 +594,7 @@ func (ws *workingSet) processLegacy(ctx context.Context, actions []*action.Seale
 		return err
 	}
 	ws.receipts = receipts
-	return ws.finalize()
+	return ws.finalize(ctx)
 }
 
 func (ws *workingSet) runActionsLegacy(
