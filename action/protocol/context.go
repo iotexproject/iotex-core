@@ -156,7 +156,6 @@ type (
 		FixRevertSnapshot                       bool
 		TimestampedStakingContract              bool
 		PreStateSystemAction                    bool
-		MakeUpBlockReward                       bool
 		CreatePostActionStates                  bool
 	}
 
@@ -319,7 +318,6 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixRevertSnapshot:                       g.IsVanuatu(height),
 			TimestampedStakingContract:              g.IsWake(height),
 			PreStateSystemAction:                    !g.IsWake(height),
-			MakeUpBlockReward:                       g.IsWake(height),
 			CreatePostActionStates:                  g.IsWake(height),
 		},
 	)

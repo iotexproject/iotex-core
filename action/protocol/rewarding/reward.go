@@ -429,14 +429,7 @@ func (p *Protocol) calculateTotalRewardAndTip(ctx context.Context, sm protocol.S
 		blockReward  = (&big.Int{}).Set(a.blockReward)
 		effectiveTip = &big.Int{}
 	)
-	if featureCtx.MakeUpBlockReward {
-		effectiveTip.Set(&blkCtx.AccumulatedTips)
-		if blkCtx.AccumulatedTips.Cmp(blockReward) >= 0 {
-			blockReward.SetUint64(0)
-		} else {
-			blockReward.Sub(blockReward, &blkCtx.AccumulatedTips)
-		}
-	} else if featureCtx.EnableDynamicFeeTx {
+	if featureCtx.EnableDynamicFeeTx {
 		if blkCtx.AccumulatedTips.Sign() > 0 {
 			effectiveTip.Set(&blkCtx.AccumulatedTips)
 		}
