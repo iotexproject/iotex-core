@@ -194,6 +194,9 @@ func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	if sdb.erigonDB != nil {
+		return sdb.newWorkingSetWithErigonOutput(ctx, height)
+	}
 	return sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height))
 }
 
@@ -213,6 +216,9 @@ func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64,
 }
 
 func (sdb *stateDB) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
+	if sdb.erigonDB != nil {
+		return nil, errors.Wrap(ErrNotSupported, "ErigonDB does not support creating working set store")
+	}
 	return sdb.createWorkingSetStore(ctx, height, kvstore)
 }
 
@@ -237,7 +243,7 @@ func (sdb *stateDB) createWorkingSetStore(ctx context.Context, height uint64, kv
 }
 
 func (sdb *stateDB) newWorkingSetWithErigonOutput(ctx context.Context, height uint64) (*workingSet, error) {
-	ws, err := sdb.newWorkingSet(ctx, height)
+	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height))
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +259,7 @@ func (sdb *stateDB) newWorkingSetWithErigonOutput(ctx context.Context, height ui
 }
 
 func (sdb *stateDB) newWorkingSetWithErigonDryrun(ctx context.Context, height uint64) (*workingSet, error) {
-	ws, err := sdb.newWorkingSet(ctx, height)
+	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height))
 	if err != nil {
 		return nil, err
 	}
@@ -318,11 +324,7 @@ func (sdb *stateDB) Mint(
 	case currHeight+1 > expectedBlockHeight:
 		return nil, errors.Wrapf(ErrNotSupported, "cannot create block at height %d, current height is %d", expectedBlockHeight, sdb.currentChainHeight)
 	default:
-		if sdb.erigonDB != nil {
-			ws, err = sdb.newWorkingSetWithErigonOutput(ctx, currHeight+1)
-		} else {
-			ws, err = sdb.newWorkingSet(ctx, currHeight+1)
-		}
+		ws, err = sdb.newWorkingSet(ctx, currHeight+1)
 	}
 	if err != nil {
 		return nil, err
@@ -532,11 +534,7 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 		ws  *workingSet
 		err error
 	)
-	if sdb.erigonDB != nil {
-		ws, err = sdb.newWorkingSetWithErigonOutput(ctx, 0)
-	} else {
-		ws, err = sdb.newWorkingSet(ctx, 0)
-	}
+	ws, err = sdb.newWorkingSet(ctx, 0)
 	if err != nil {
 		return err
 	}
@@ -570,7 +568,7 @@ func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*
 	if sdb.erigonDB != nil {
 		tx, err = sdb.newWorkingSetWithErigonOutput(ctx, currHeight+1)
 	} else {
-		tx, err = sdb.newWorkingSet(ctx, currHeight+1)
+		tx, err = sdb.newWorkingSetWithKVStore(ctx, currHeight+1, sdb.dao.atHeight(currHeight+1))
 	}
 	return tx, false, err
 }
