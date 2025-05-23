@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type stakeView struct {
@@ -47,23 +47,7 @@ func (s *stakeView) CreatePreStates(ctx context.Context) error {
 
 func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	var handler stakingEventHandler
-	eventHandler := newEventHandler(s.helper.bucketNS, s.cache, blkCtx, s.helper.timestamped)
-	if s.helper.muteHeight > 0 && blkCtx.BlockHeight >= s.helper.muteHeight {
-		handler = newEventMuteHandler(eventHandler)
-	} else {
-		handler = eventHandler
-	}
-	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		return nil
-	}
-	for _, log := range receipt.Logs() {
-		if log.Address != s.helper.common.ContractAddress() {
-			continue
-		}
-		if err := s.helper.handleEvent(ctx, handler, log); err != nil {
-			return err
-		}
-	}
-	return nil
+	muted := s.helper.muteHeight > 0 && blkCtx.BlockHeight >= s.helper.muteHeight
+	handler := newEventHandler(s.helper.bucketNS, s.cache, blkCtx, s.helper.timestamped, muted)
+	return s.helper.handleReceipt(ctx, handler, receipt)
 }

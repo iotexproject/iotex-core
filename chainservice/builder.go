@@ -387,6 +387,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 			builder.cfg.Genesis.SystemStakingContractV2Address,
 			builder.cfg.Genesis.SystemStakingContractV2Height,
 			blockDurationFn,
+			stakingindex.WithMuteHeight(builder.cfg.Genesis.WakeBlockHeight),
 		)
 		builder.cs.contractStakingIndexerV2 = indexer
 	}

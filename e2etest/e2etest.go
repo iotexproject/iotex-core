@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"os"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-resty/resty/v2"
@@ -22,12 +24,14 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/chainservice"
 	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/abiutil"
 	"github.com/iotexproject/iotex-core/v2/server/itx"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
@@ -253,6 +257,20 @@ func (e *e2etest) getBlobs(height uint64) ([]*apitypes.BlobSidecarResult, error)
 	return result.Result, nil
 }
 
+func (e *e2etest) calculateWeightedVotes(bkt *iotextypes.VoteBucket, selfstake bool, blockInterval time.Duration) (*big.Int, error) {
+	stakeAmount, ok := new(big.Int).SetString(bkt.StakedAmount, 10)
+	if !ok {
+		return nil, errors.Errorf("failed to set staked amount %s", bkt.StakedAmount)
+	}
+	stakeDurationSeconds := bkt.StakedDuration * 24 * 3600
+	if bkt.StakedDurationBlockNumber > 0 {
+		stakeDurationSeconds = uint32(bkt.StakedDurationBlockNumber) * uint32(blockInterval.Seconds())
+	}
+	return staking.CalculateVoteWeight(e.cfg.Genesis.VoteWeightCalConsts,
+		&staking.VoteBucket{AutoStake: bkt.AutoStake, StakedDuration: time.Duration(stakeDurationSeconds) * (time.Second), StakedAmount: stakeAmount, Timestamped: true},
+		selfstake), nil
+}
+
 func runTxs(ctx context.Context, ap actpool.ActPool, bc blockchain.Blockchain, txs []*actionWithTime) ([]*action.SealedEnvelope, []*action.Receipt, *block.Block, error) {
 	for _, tx := range txs {
 		if err := ap.Add(ctx, tx.act); err != nil {
@@ -387,4 +405,34 @@ func clearDBPaths(cfg *config.Config) {
 	if cfg.ActPool.Store != nil {
 		testutil.CleanupPath(cfg.ActPool.Store.Datadir)
 	}
+}
+
+func parseV2StakedBucketIdx(contract string, receipt *action.Receipt) ([]uint64, error) {
+	if uint64(iotextypes.ReceiptStatus_Success) != receipt.Status {
+		return nil, nil
+	}
+	var idxs []uint64
+	for _, log := range receipt.Logs() {
+		if log.Address != contract {
+			continue
+		}
+		abiEvent, err := staking.StakingContractABI.EventByID(common.Hash(log.Topics[0]))
+		if err != nil {
+			return nil, errors.Wrapf(err, "get event abi from topic %v failed", log.Topics[0])
+		}
+		if abiEvent.Name != "Staked" {
+			continue
+		}
+		// unpack event data
+		event, err := abiutil.UnpackEventParam(abiEvent, log)
+		if err != nil {
+			return nil, err
+		}
+		tokenIDParam, err := event.FieldByIDUint256(0)
+		if err != nil {
+			return nil, err
+		}
+		idxs = append(idxs, tokenIDParam.Uint64())
+	}
+	return idxs, nil
 }
