@@ -563,7 +563,7 @@ func TestProtocol_CalculateReward(t *testing.T) {
 	req := require.New(t)
 	var (
 		dardanellesBlockReward = unit.ConvertIotxToRau(8)
-		wakeBlockReward, _     = big.NewInt(0).SetString("4800000000000000000", 10)
+		wakeBlockReward, _     = big.NewInt(0).SetString("4000000000000000000", 10)
 	)
 	for _, tv := range []struct {
 		accumuTips                    *big.Int
@@ -572,8 +572,8 @@ func TestProtocol_CalculateReward(t *testing.T) {
 	}{
 		{unit.ConvertIotxToRau(3), false, dardanellesBlockReward, unit.ConvertIotxToRau(11), unit.ConvertIotxToRau(3)},
 		{unit.ConvertIotxToRau(12), false, dardanellesBlockReward, unit.ConvertIotxToRau(20), unit.ConvertIotxToRau(12)},
-		{unit.ConvertIotxToRau(3), true, (&big.Int{}).Sub(wakeBlockReward, unit.ConvertIotxToRau(3)), wakeBlockReward, unit.ConvertIotxToRau(3)},
-		{unit.ConvertIotxToRau(6), true, (&big.Int{}).SetInt64(0), unit.ConvertIotxToRau(6), unit.ConvertIotxToRau(6)},
+		{unit.ConvertIotxToRau(3), true, wakeBlockReward, big.NewInt(0).Add(unit.ConvertIotxToRau(3), wakeBlockReward), unit.ConvertIotxToRau(3)},
+		{unit.ConvertIotxToRau(6), true, wakeBlockReward, big.NewInt(0).Add(unit.ConvertIotxToRau(6), wakeBlockReward), unit.ConvertIotxToRau(6)},
 	} {
 		testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 			// update block reward
