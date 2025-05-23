@@ -13,6 +13,11 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 )
 
+const (
+	// MetadataNamespace is the default namespace to store metadata
+	MetadataNamespace = "metadata"
+)
+
 type (
 	// KvVersioned is a versioned key-value store, where each key has multiple
 	// versions of value (corresponding to different heights in a blockchain)
@@ -43,6 +48,9 @@ type (
 
 	KvVersioned interface {
 		lifecycle.StartStopper
+
+		// Base returns the underlying KVStore
+		Base() KVStore
 
 		// Version returns the key's most recent version
 		Version(string, []byte) (uint64, error)
@@ -92,6 +100,10 @@ func (b *KvWithVersion) Start(ctx context.Context) error {
 // Stop stops the DB
 func (b *KvWithVersion) Stop(ctx context.Context) error {
 	return b.db.Stop(ctx)
+}
+
+func (b *KvWithVersion) Base() KVStore {
+	return b.db.Base()
 }
 
 // Put writes a <key, value> record
