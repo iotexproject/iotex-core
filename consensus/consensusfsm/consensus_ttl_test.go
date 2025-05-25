@@ -34,12 +34,12 @@ func TestConsensusConfig_BlockInterval(t *testing.T) {
 		{
 			name:           "At Wake height",
 			height:         cfg.Genesis.WakeBlockHeight,
-			expectedResult: 3 * time.Second,
+			expectedResult: 2500 * time.Millisecond,
 		},
 		{
 			name:           "After Wake height",
 			height:         cfg.Genesis.WakeBlockHeight + 1,
-			expectedResult: 3 * time.Second,
+			expectedResult: 2500 * time.Millisecond,
 		},
 	}
 
