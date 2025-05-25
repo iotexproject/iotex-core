@@ -204,12 +204,10 @@ func (ws *workingSet) runAction(
 			return nil, err
 		}
 	}
-	if fCtx.CreatePostActionStates {
-		for _, p := range reg.All() {
-			if pp, ok := p.(protocol.PostActionHandler); ok {
-				if err := pp.HandleReceipt(ctx, selp.Envelope, ws, receipt); err != nil {
-					return nil, errors.Wrapf(err, "error when handle action %x receipt", selpHash)
-				}
+	for _, p := range reg.All() {
+		if pp, ok := p.(protocol.PostActionHandler); ok {
+			if err := pp.HandleReceipt(ctx, selp.Envelope, ws, receipt); err != nil {
+				return nil, errors.Wrapf(err, "error when handle action %x receipt", selpHash)
 			}
 		}
 	}

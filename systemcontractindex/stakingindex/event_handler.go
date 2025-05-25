@@ -38,6 +38,7 @@ type eventHandler struct {
 	// context for event handler
 	blockCtx    protocol.BlockCtx
 	timestamped bool
+	muted       bool
 }
 
 func init() {
@@ -48,7 +49,7 @@ func init() {
 	}
 }
 
-func newEventHandler(bucketNS string, dirty *cache, blkCtx protocol.BlockCtx, timestamped bool) *eventHandler {
+func newEventHandler(bucketNS string, dirty *cache, blkCtx protocol.BlockCtx, timestamped, muted bool) *eventHandler {
 	return &eventHandler{
 		stakingBucketNS: bucketNS,
 		dirty:           dirty,
@@ -56,6 +57,7 @@ func newEventHandler(bucketNS string, dirty *cache, blkCtx protocol.BlockCtx, ti
 		tokenOwner:      make(map[uint64]address.Address),
 		blockCtx:        blkCtx,
 		timestamped:     timestamped,
+		muted:           muted,
 	}
 }
 
@@ -93,6 +95,7 @@ func (eh *eventHandler) HandleStakedEvent(event *abiutil.EventParam) error {
 		UnlockedAt:     maxStakingNumber,
 		UnstakedAt:     maxStakingNumber,
 		Timestamped:    eh.timestamped,
+		Muted:          eh.muted,
 	}
 	eh.putBucket(tokenIDParam.Uint64(), bucket)
 	return nil
@@ -114,6 +117,7 @@ func (eh *eventHandler) HandleLockedEvent(event *abiutil.EventParam) error {
 	}
 	bkt.StakedDuration = durationParam.Uint64()
 	bkt.UnlockedAt = maxStakingNumber
+	bkt.Muted = eh.muted
 	eh.putBucket(tokenIDParam.Uint64(), bkt)
 	return nil
 }
@@ -227,6 +231,7 @@ func (eh *eventHandler) HandleMergedEvent(event *abiutil.EventParam) error {
 	b.StakedAmount = amountParam
 	b.StakedDuration = durationParam.Uint64()
 	b.UnlockedAt = maxStakingNumber
+	b.Muted = eh.muted
 	for i := 1; i < len(tokenIDsParam); i++ {
 		eh.delBucket(tokenIDsParam[i].Uint64())
 	}
@@ -254,6 +259,7 @@ func (eh *eventHandler) HandleBucketExpandedEvent(event *abiutil.EventParam) err
 	}
 	b.StakedAmount = amountParam
 	b.StakedDuration = durationParam.Uint64()
+	b.Muted = eh.muted
 	eh.putBucket(tokenIDParam.Uint64(), b)
 	return nil
 }
@@ -273,6 +279,7 @@ func (eh *eventHandler) HandleDonatedEvent(event *abiutil.EventParam) error {
 		return errors.Wrapf(ErrBucketNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	b.StakedAmount.Sub(b.StakedAmount, amountParam)
+	b.Muted = eh.muted
 	eh.putBucket(tokenIDParam.Uint64(), b)
 	return nil
 }
