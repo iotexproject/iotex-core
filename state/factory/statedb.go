@@ -194,10 +194,22 @@ func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
-	if sdb.erigonDB != nil {
-		return sdb.newWorkingSetWithErigonOutput(ctx, height)
+	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create new working set")
 	}
-	return sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height))
+	if sdb.erigonDB == nil {
+		return ws, nil
+	}
+	e, err := sdb.erigonDB.newErigonStore(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	ws.store = newWorkingSetStoreWithSecondary(
+		ws.store.(*stateDBWorkingSetStore),
+		e,
+	)
+	return ws, nil
 }
 
 func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64, kvstore db.KVStore) (*workingSet, error) {
@@ -240,35 +252,6 @@ func (sdb *stateDB) createWorkingSetStore(ctx context.Context, height uint64, kv
 		}
 	}
 	return newStateDBWorkingSetStore(flusher, g.IsNewfoundland(height)), nil
-}
-
-func (sdb *stateDB) newWorkingSetWithErigonOutput(ctx context.Context, height uint64) (*workingSet, error) {
-	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height))
-	if err != nil {
-		return nil, err
-	}
-	e, err := sdb.erigonDB.newErigonStore(ctx, height)
-	if err != nil {
-		return nil, err
-	}
-	ws.store = newWorkingSetStoreWithSecondary(
-		ws.store.(*stateDBWorkingSetStore),
-		e,
-	)
-	return ws, nil
-}
-
-func (sdb *stateDB) newWorkingSetWithErigonDryrun(ctx context.Context, height uint64) (*workingSet, error) {
-	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height))
-	if err != nil {
-		return nil, err
-	}
-	e, err := sdb.erigonDB.newErigonStoreDryrun(ctx, height+1)
-	if err != nil {
-		return nil, err
-	}
-	ws.store = newErigonWorkingSetStoreForSimulate(ws.store.(*stateDBWorkingSetStore), e)
-	return ws, nil
 }
 
 func (sdb *stateDB) Register(p protocol.Protocol) error {
@@ -356,17 +339,16 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 }
 
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
-	var (
-		ws  *workingSet
-		err error
-	)
-	if sdb.erigonDB != nil {
-		ws, err = sdb.newWorkingSetWithErigonDryrun(ctx, height)
-	} else {
-		ws, err = sdb.newReadOnlyWorkingSet(ctx, height)
-	}
+	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to obtain working set from state db")
+		return nil, err
+	}
+	if sdb.erigonDB != nil {
+		e, err := sdb.erigonDB.newErigonStoreDryrun(ctx, height+1)
+		if err != nil {
+			return nil, err
+		}
+		ws.store = newErigonWorkingSetStoreForSimulate(ws.store, e)
 	}
 	if len(preacts) == 0 {
 		return ws, nil
@@ -565,11 +547,7 @@ func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*
 		tx  *workingSet
 		err error
 	)
-	if sdb.erigonDB != nil {
-		tx, err = sdb.newWorkingSetWithErigonOutput(ctx, currHeight+1)
-	} else {
-		tx, err = sdb.newWorkingSetWithKVStore(ctx, currHeight+1, sdb.dao.atHeight(currHeight+1))
-	}
+	tx, err = sdb.newWorkingSet(ctx, currHeight+1)
 	return tx, false, err
 }
 

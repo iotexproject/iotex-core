@@ -114,7 +114,7 @@ func (store *erigonWorkingSetStore) FinalizeTx(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	chainRules := chainCfg.Rules(big.NewInt(int64(blkCtx.BlockHeight)), g.IsSumatra(blkCtx.BlockHeight), uint64(blkCtx.BlockTimeStamp.Unix()))
+	chainRules := chainCfg.Rules(new(big.Int).SetUint64(blkCtx.BlockHeight), g.IsSumatra(blkCtx.BlockHeight), uint64(blkCtx.BlockTimeStamp.Unix()))
 	rules := evm.NewErigonRules(&chainRules)
 	return store.intraBlockState.FinalizeTx(rules, erigonstate.NewNoopWriter())
 }

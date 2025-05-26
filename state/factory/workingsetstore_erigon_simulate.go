@@ -14,11 +14,11 @@ import (
 // without actually committing them to the erigon store.
 type erigonWorkingSetStoreForSimulate struct {
 	writer
-	store       *stateDBWorkingSetStore // fallback to statedb for staking, rewarding and poll
+	store       workingSetStore // fallback to statedb for staking, rewarding and poll
 	erigonStore *erigonWorkingSetStore
 }
 
-func newErigonWorkingSetStoreForSimulate(store *stateDBWorkingSetStore, erigonStore *erigonWorkingSetStore) *erigonWorkingSetStoreForSimulate {
+func newErigonWorkingSetStoreForSimulate(store workingSetStore, erigonStore *erigonWorkingSetStore) *erigonWorkingSetStoreForSimulate {
 	return &erigonWorkingSetStoreForSimulate{
 		store:       store,
 		erigonStore: erigonStore,
