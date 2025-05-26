@@ -11,6 +11,7 @@ import (
 	"sort"
 	"time"
 
+	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -176,7 +177,7 @@ func (ws *workingSet) runAction(
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
-	defer ws.ResetSnapshots()
+	defer ws.finalizeTx(ctx)
 	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
 		return nil, err
 	}
@@ -259,16 +260,23 @@ func (ws *workingSet) checkContract(ctx context.Context, to *common.Address) (bo
 	return sender.IsContract(), false, false, nil
 }
 
-func (ws *workingSet) finalize() error {
+func (ws *workingSet) finalize(ctx context.Context) error {
 	if ws.finalized {
 		return errors.New("Cannot finalize a working set twice")
 	}
-	if err := ws.store.Finalize(ws.height); err != nil {
+	if err := ws.store.Finalize(ctx); err != nil {
 		return err
 	}
 	ws.finalized = true
 
 	return nil
+}
+
+func (ws *workingSet) finalizeTx(ctx context.Context) {
+	if err := ws.store.FinalizeTx(ctx); err != nil {
+		log.L().Panic("failed to finalize tx", zap.Error(err))
+	}
+	ws.ResetSnapshots()
 }
 
 func (ws *workingSet) Snapshot() int {
@@ -307,7 +315,7 @@ func (ws *workingSet) Commit(ctx context.Context) error {
 	if err := protocolPreCommit(ctx, ws); err != nil {
 		return err
 	}
-	if err := ws.store.Commit(); err != nil {
+	if err := ws.store.Commit(ctx); err != nil {
 		return err
 	}
 	if err := protocolCommit(ctx, ws); err != nil {
@@ -400,7 +408,7 @@ func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
 		}
 	}
 
-	return ws.finalize()
+	return ws.finalize(ctx)
 }
 
 func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error {
@@ -549,7 +557,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		updateReceiptIndex(receipts)
 	}
 	ws.receipts = receipts
-	return ws.finalize()
+	return ws.finalize(ctx)
 }
 
 func (ws *workingSet) processLegacy(ctx context.Context, actions []*action.SealedEnvelope) error {
@@ -584,7 +592,7 @@ func (ws *workingSet) processLegacy(ctx context.Context, actions []*action.Seale
 		return err
 	}
 	ws.receipts = receipts
-	return ws.finalize()
+	return ws.finalize(ctx)
 }
 
 func (ws *workingSet) runActionsLegacy(
@@ -852,7 +860,7 @@ func (ws *workingSet) pickAndRunActions(
 	}
 	ws.receipts = receipts
 
-	return executedActions, ws.finalize()
+	return executedActions, ws.finalize(ctx)
 }
 
 func (ws *workingSet) generateSignedSystemActions(ctx context.Context, sign func(elp action.Envelope) (*action.SealedEnvelope, error)) ([]*action.SealedEnvelope, error) {
@@ -993,4 +1001,22 @@ func (ws *workingSet) NewWorkingSet(ctx context.Context) (*workingSet, error) {
 		return nil, err
 	}
 	return newWorkingSet(ws.height+1, views, store, ws.workingSetStoreFactory), nil
+}
+
+func (ws *workingSet) Close() {
+	ws.store.Close()
+}
+
+func (ws *workingSet) Erigon() (*erigonstate.IntraBlockState, bool) {
+	switch st := ws.store.(type) {
+	case *workingSetStoreWithSecondary:
+		if wss, ok := st.writerSecondary.(*erigonWorkingSetStore); ok {
+			return wss.intraBlockState, false
+		}
+		return nil, false
+	case *erigonWorkingSetStoreForSimulate:
+		return st.erigonStore.intraBlockState, true
+	default:
+		return nil, false
+	}
 }

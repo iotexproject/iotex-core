@@ -11,10 +11,12 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
-	"github.com/stretchr/testify/require"
 )
 
 func TestStateDBWorkingSetStore(t *testing.T) {
@@ -79,17 +81,21 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 	})
 	t.Run("finalize & commit", func(t *testing.T) {
 		height := uint64(100)
+		ctx := context.Background()
 		_, err := store.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 		require.Error(err)
 		_, err = inMemStore.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 		require.Error(err)
-		require.NoError(store.Finalize(height))
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight: height,
+		})
+		require.NoError(store.Finalize(ctx))
 		heightInStore, err := store.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 		require.NoError(err)
 		require.True(bytes.Equal(heightInStore, byteutil.Uint64ToBytes(height)))
 		_, err = inMemStore.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 		require.Error(err)
-		require.NoError(store.Commit())
+		require.NoError(store.Commit(ctx))
 		heightInStore, err = inMemStore.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 		require.NoError(err)
 		require.True(bytes.Equal(heightInStore, byteutil.Uint64ToBytes(height)))

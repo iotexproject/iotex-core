@@ -82,9 +82,17 @@ func TestConstantinople(t *testing.T) {
 
 	evmNetworkID := uint32(100)
 	g := genesis.TestDefault()
+	now := time.Now()
+	getBlockTime := func(height uint64) (time.Time, error) {
+		return now.Add(time.Duration(height) * time.Second * 5), nil
+	}
 	ctx = protocol.WithBlockchainCtx(genesis.WithGenesisContext(ctx, g), protocol.BlockchainCtx{
 		ChainID:      1,
 		EvmNetworkID: evmNetworkID,
+		GetBlockHash: func(uint64) (hash.Hash256, error) {
+			return hash.ZeroHash256, nil
+		},
+		GetBlockTime: getBlockTime,
 	})
 
 	execHeights := []struct {
@@ -280,10 +288,6 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			1261440000, // = 200*365*24*3600/5, around 200 years later
 		},
-	}
-	now := time.Now()
-	getBlockTime := func(height uint64) (time.Time, error) {
-		return now.Add(time.Duration(height) * time.Second * 5), nil
 	}
 	for _, e := range execHeights {
 		ex := action.NewExecution(e.contract, big.NewInt(0), nil)

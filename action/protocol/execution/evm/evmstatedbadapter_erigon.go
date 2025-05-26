@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"time"
 
 	erigonchain "github.com/erigontech/erigon-lib/chain"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -222,6 +224,11 @@ func NewErigonRules(rules *params.Rules) *erigonchain.Rules {
 }
 
 // NewChainConfig creates a new chain config
-func NewChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime func(uint64) (*time.Time, error)) (*params.ChainConfig, error) {
-	return getChainConfig(g, height, id, getBlockTime)
+func NewChainConfig(ctx context.Context) (*params.ChainConfig, error) {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	return getChainConfig(g.Blockchain, blkCtx.BlockHeight, bcCtx.EvmNetworkID, func(height uint64) (*time.Time, error) {
+		return blockHeightToTime(ctx, height)
+	})
 }
