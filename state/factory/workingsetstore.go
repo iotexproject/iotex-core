@@ -12,6 +12,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
@@ -21,13 +22,15 @@ import (
 type (
 	workingSetStore interface {
 		db.KVStore
-		Commit() error
+		Commit(context.Context) error
 		States(string, [][]byte) ([][]byte, [][]byte, error)
 		Digest() hash.Hash256
-		Finalize(uint64) error
+		Finalize(context.Context) error
+		FinalizeTx(context.Context) error
 		Snapshot() int
 		RevertSnapshot(int) error
 		ResetSnapshots()
+		Close()
 	}
 
 	stateDBWorkingSetStore struct {
@@ -90,7 +93,7 @@ func (store *stateDBWorkingSetStore) Digest() hash.Hash256 {
 	return hash.Hash256b(store.flusher.SerializeQueue())
 }
 
-func (store *stateDBWorkingSetStore) Commit() error {
+func (store *stateDBWorkingSetStore) Commit(_ context.Context) error {
 	store.lock.Lock()
 	defer store.lock.Unlock()
 	if store.committed {
@@ -143,7 +146,8 @@ func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte) ([][]byte,
 	return readStates(store.flusher.BaseKVStore(), ns, keys)
 }
 
-func (store *stateDBWorkingSetStore) Finalize(height uint64) error {
+func (store *stateDBWorkingSetStore) Finalize(ctx context.Context) error {
+	height := protocol.MustGetBlockCtx(ctx).BlockHeight
 	// Persist current chain Height
 	store.flusher.KVStoreWithBuffer().MustPut(
 		AccountKVNamespace,
@@ -152,3 +156,9 @@ func (store *stateDBWorkingSetStore) Finalize(height uint64) error {
 	)
 	return nil
 }
+
+func (store *stateDBWorkingSetStore) FinalizeTx(_ context.Context) error {
+	return nil
+}
+
+func (store *stateDBWorkingSetStore) Close() {}

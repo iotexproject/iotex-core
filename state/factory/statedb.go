@@ -54,6 +54,7 @@ type (
 		protocolViews            *protocol.Views
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
+		erigonDB                 *erigonDB
 	}
 )
 
@@ -118,6 +119,10 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sdb.timerFactory = timerFactory
+	if len(cfg.Chain.HistoryIndexPath) > 0 {
+		sdb.erigonDB = newErigonDB(cfg.Chain.HistoryIndexPath)
+	}
+
 	return &sdb, nil
 }
 
@@ -125,6 +130,11 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	if err := sdb.dao.Start(ctx); err != nil {
 		return err
+	}
+	if sdb.erigonDB != nil {
+		if err := sdb.erigonDB.Start(ctx); err != nil {
+			return err
+		}
 	}
 	// check factory height
 	h, err := sdb.dao.getHeight()
@@ -166,6 +176,9 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	sdb.workingsets.Clear()
+	if sdb.erigonDB != nil {
+		sdb.erigonDB.Stop(ctx)
+	}
 	return sdb.dao.Stop(ctx)
 }
 
@@ -181,7 +194,22 @@ func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
-	return sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height))
+	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create new working set")
+	}
+	if sdb.erigonDB == nil {
+		return ws, nil
+	}
+	e, err := sdb.erigonDB.newErigonStore(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	ws.store = newWorkingSetStoreWithSecondary(
+		ws.store.(*stateDBWorkingSetStore),
+		e,
+	)
+	return ws, nil
 }
 
 func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64, kvstore db.KVStore) (*workingSet, error) {
@@ -200,6 +228,9 @@ func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64,
 }
 
 func (sdb *stateDB) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
+	if sdb.erigonDB != nil {
+		return nil, errors.Wrap(ErrNotSupported, "ErigonDB does not support creating working set store")
+	}
 	return sdb.createWorkingSetStore(ctx, height, kvstore)
 }
 
@@ -310,7 +341,14 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, erro
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
 	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to obtain working set from state db")
+		return nil, err
+	}
+	if sdb.erigonDB != nil {
+		e, err := sdb.erigonDB.newErigonStoreDryrun(ctx, height+1)
+		if err != nil {
+			return nil, err
+		}
+		ws.store = newErigonWorkingSetStoreForSimulate(ws.store, e)
 	}
 	if len(preacts) == 0 {
 		return ws, nil
@@ -346,6 +384,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
+			ws.Close()
 			return err
 		}
 	}
@@ -473,7 +512,11 @@ func (sdb *stateDB) state(h uint64, ns string, addr []byte, s interface{}) error
 }
 
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
-	ws, err := sdb.newWorkingSet(ctx, 0)
+	var (
+		ws  *workingSet
+		err error
+	)
+	ws, err = sdb.newWorkingSet(ctx, 0)
 	if err != nil {
 		return err
 	}
@@ -500,7 +543,11 @@ func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
-	tx, err := sdb.newWorkingSet(ctx, currHeight+1)
+	var (
+		tx  *workingSet
+		err error
+	)
+	tx, err = sdb.newWorkingSet(ctx, currHeight+1)
 	return tx, false, err
 }
 
