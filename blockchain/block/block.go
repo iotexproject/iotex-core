@@ -6,6 +6,7 @@
 package block
 
 import (
+	"context"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -19,6 +20,8 @@ import (
 	"github.com/iotexproject/iotex-core/v2/endorsement"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
+
+type BlockValidator func(context.Context, *Block) error
 
 // Block defines the struct of block
 type Block struct {
