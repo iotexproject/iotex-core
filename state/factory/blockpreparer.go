@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -16,6 +17,13 @@ import (
 
 var (
 	_blockPreparerLatencyTimer *prometheustimer.TimerFactory
+	_blockPreparerSizeMetrics  = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_block_preparer_size_metrics",
+			Help: "Size metrics for block preparer tasks and results",
+		},
+		[]string{"type"},
+	)
 )
 
 type (
@@ -41,6 +49,8 @@ func init() {
 	if err != nil {
 		log.L().Error("Failed to create block preparer latency timer", zap.Error(err))
 	}
+
+	prometheus.MustRegister(_blockPreparerSizeMetrics)
 }
 
 func newBlockPreparer() *blockPreparer {
@@ -66,11 +76,13 @@ func (d *blockPreparer) PrepareOrWait(ctx context.Context, prevHash []byte, time
 				d.results[hash.BytesToHash256(prevHash)] = make(map[int64]*mintResult)
 			}
 			d.results[hash.BytesToHash256(prevHash)][timestamp.UnixNano()] = &mintResult{blk: blk, err: err}
+			d.updateSizeMetrics()
 			d.mu.Unlock()
 			close(task)
 			log.L().Debug("prepare mint returned", zap.Error(err))
 		}()
 	}
+	d.updateSizeMetrics()
 	d.mu.Unlock()
 
 	select {
@@ -107,6 +119,26 @@ func (d *blockPreparer) ReceiveBlock(blk *block.Block) error {
 	d.mu.Lock()
 	delete(d.tasks, blk.PrevHash())
 	delete(d.results, blk.PrevHash())
+	d.updateSizeMetrics()
 	d.mu.Unlock()
 	return nil
+}
+
+// updateSizeMetrics updates the Prometheus metrics for tasks and results sizes
+func (d *blockPreparer) updateSizeMetrics() {
+	totalTasks := 0
+	totalResults := 0
+
+	for _, forks := range d.tasks {
+		totalTasks += len(forks)
+	}
+
+	for _, forks := range d.results {
+		totalResults += len(forks)
+	}
+
+	_blockPreparerSizeMetrics.WithLabelValues("total_tasks").Set(float64(totalTasks))
+	_blockPreparerSizeMetrics.WithLabelValues("total_results").Set(float64(totalResults))
+	_blockPreparerSizeMetrics.WithLabelValues("task_forks").Set(float64(len(d.tasks)))
+	_blockPreparerSizeMetrics.WithLabelValues("result_forks").Set(float64(len(d.results)))
 }
