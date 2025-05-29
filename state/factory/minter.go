@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type MintOption func(*Minter)
@@ -53,7 +55,9 @@ func (m *Minter) Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, 
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	return m.blockPreparer.PrepareOrWait(ctx, bcCtx.Tip.Hash[:], blkCtx.BlockTimeStamp, func() (*block.Block, error) {
+	waitCtx, cancel := context.WithTimeout(ctx, m.timeout*2)
+	defer cancel()
+	return m.blockPreparer.PrepareOrWait(waitCtx, bcCtx.Tip.Hash[:], blkCtx.BlockTimeStamp, func() (*block.Block, error) {
 		return m.mint(ctx, pk)
 	})
 }
@@ -75,6 +79,13 @@ func (m *Minter) mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, 
 		)
 		if now.Before(blkTs) {
 			ddl = now.Add(m.timeout)
+		} else if now.After(ddl) {
+			log.L().Warn("minting timeout is reached before starting minting",
+				zap.Time("block start time", blkTs),
+				zap.Duration("timeout", m.timeout),
+				zap.Time("now", now),
+				zap.Time("deadline", ddl),
+			)
 		}
 		ctx, cancel = context.WithDeadline(ctx, ddl)
 		defer cancel()
