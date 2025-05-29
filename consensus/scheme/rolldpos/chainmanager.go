@@ -109,13 +109,16 @@ func NewChainManager(bc blockchain.Blockchain, srf StateReaderFactory, bbf Block
 	if err != nil {
 		log.L().Panic("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
+	pool := newProposalPool()
+	bc.AddSubscriber(bbf)
+	bc.AddSubscriber(pool)
 
 	return &chainManager{
 		bc:           bc,
 		bbf:          bbf,
 		timerFactory: timerFactory,
 		srf:          srf,
-		pool:         newProposalPool(),
+		pool:         pool,
 	}
 }
 
@@ -243,18 +246,7 @@ func (cm *chainManager) ValidateBlock(blk *block.Block) error {
 
 // CommitBlock validates and appends a block to the chain
 func (cm *chainManager) CommitBlock(blk *block.Block) error {
-	if err := cm.bc.CommitBlock(blk); err != nil {
-		return err
-	}
-	if err := cm.bbf.ReceiveBlock(blk); err != nil {
-		blkHash := blk.HashBlock()
-		log.L().Error("failed to receive block", zap.Error(err), zap.Uint64("height", blk.Height()), log.Hex("hash", blkHash[:]))
-	}
-	if err := cm.pool.ReceiveBlock(blk); err != nil {
-		blkHash := blk.HashBlock()
-		log.L().Error("failed to receive block", zap.Error(err), zap.Uint64("height", blk.Height()), log.Hex("hash", blkHash[:]))
-	}
-	return nil
+	return cm.bc.CommitBlock(blk)
 }
 
 func (cm *chainManager) Start(ctx context.Context) error {
