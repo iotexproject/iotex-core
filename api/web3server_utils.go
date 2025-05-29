@@ -381,9 +381,6 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 		if err = bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
 		}
-		if bn == rpc.PendingBlockNumber {
-			return nil, errors.Wrap(errNotImplemented, "pending block number is not supported")
-		}
 	}
 	return &callMsg{
 		From:        from,
@@ -407,15 +404,12 @@ func parseBlockNumber(in *gjson.Result) (rpc.BlockNumber, error) {
 	if err := height.UnmarshalJSON([]byte(in.String())); err != nil {
 		return 0, err
 	}
-	if height == rpc.PendingBlockNumber {
-		return 0, errors.Wrap(errNotImplemented, "pending block number is not supported")
-	}
 	return height, nil
 }
 
 func blockNumberToHeight(bn rpc.BlockNumber) (uint64, bool) {
 	switch bn {
-	case rpc.SafeBlockNumber, rpc.FinalizedBlockNumber, rpc.LatestBlockNumber:
+	case rpc.SafeBlockNumber, rpc.FinalizedBlockNumber, rpc.LatestBlockNumber, rpc.PendingBlockNumber:
 		return 0, false
 	case rpc.EarliestBlockNumber:
 		return 1, true
