@@ -431,6 +431,7 @@ func (m *ConsensusFSM) prepare(evt fsm.Event) (fsm.State, error) {
 	if proposal != nil {
 		consensusGuage.WithLabelValues("mintOverTime").Set(float64(overtime.Milliseconds()))
 		m.ctx.Broadcast(proposal)
+		m.ctx.Logger().Info("Broadcasted block proposal")
 	}
 	if !m.ctx.HasDelegate() {
 		return m.BackToPrepare(0)
@@ -485,6 +486,7 @@ func (m *ConsensusFSM) processBlock(block interface{}) error {
 	}
 	m.ProduceReceiveProposalEndorsementEvent(en)
 	m.ctx.Broadcast(en)
+	m.ctx.Logger().Info("Broadcasted proposal endorsement")
 	return nil
 }
 
@@ -520,6 +522,7 @@ func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event, currentState 
 	}
 	m.ProduceReceiveLockEndorsementEvent(lockEndorsement)
 	m.ctx.Broadcast(lockEndorsement)
+	m.ctx.Logger().Info("Broadcasted lock endorsement")
 
 	return sAcceptLockEndorsement, err
 }
@@ -544,6 +547,7 @@ func (m *ConsensusFSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error
 	}
 	m.ProduceReceivePreCommitEndorsementEvent(preCommitEndorsement)
 	m.ctx.Broadcast(preCommitEndorsement)
+	m.ctx.Logger().Info("Broadcasted pre-commit endorsement")
 
 	return sAcceptPreCommitEndorsement, nil
 }

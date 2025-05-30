@@ -58,6 +58,7 @@ func (ctx *roundCtx) Log(l *zap.Logger) *zap.Logger {
 		zap.Uint32("round", ctx.roundNum),
 		zap.String("proposer", ctx.proposer),
 		log.Hex("prevHash", ctx.prevHash[:]),
+		zap.Time("roundStartTime", ctx.roundStartTime),
 	)
 }
 

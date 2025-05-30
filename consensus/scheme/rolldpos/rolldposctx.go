@@ -425,14 +425,14 @@ func (ctx *rollDPoSCtx) prepareNextProposal(prevHeight uint64, prevHash hash.Has
 		return nil
 	}
 	privateKey := ctx.priKeys[idx]
-	ctx.logger().Debug("prepare next proposal", log.Hex("prevHash", prevHash[:]), zap.Uint64("height", ctx.round.height+1), zap.Time("timestamp", startTime), zap.String("nextproposer", nextProposer))
+	ctx.logger().Info("prepare next proposal", log.Hex("prevHash", prevHash[:]), zap.Uint64("nextheight", height), zap.Time("timestamp", startTime), zap.String("nextproposer", nextProposer))
 	go func() {
 		blk, err := fork.MintNewBlock(startTime, privateKey, prevHash)
 		if err != nil {
 			ctx.Logger().Error("failed to mint new block", zap.Error(err))
 			return
 		}
-		ctx.Logger().Debug("prepared a new block", zap.Uint64("height", blk.Height()), zap.Time("timestamp", blk.Timestamp()))
+		ctx.Logger().Info("prepared a new block", zap.Uint64("height", blk.Height()), zap.Time("timestamp", blk.Timestamp()))
 	}()
 	return nil
 }
@@ -480,9 +480,11 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		}
 		blkHash := proposal.block.HashBlock()
 		blockHash = blkHash[:]
+		ctx.logger().Info("received block proposal", zap.Uint64("blkheight", proposal.block.Height()), log.Hex("blkhash", blkHash[:]), zap.String("blkproposer", proposal.ProposerAddress()), zap.Time("blkproposeTime", proposal.block.Timestamp()))
 		if err := ctx.chain.ValidateBlock(proposal.block); err != nil {
 			return nil, errors.Wrapf(err, "error when validating the proposed block")
 		}
+		ctx.logger().Info("validated block proposal", zap.Uint64("blkheight", proposal.block.Height()), log.Hex("blkhash", blkHash[:]), zap.String("blkproposer", proposal.ProposerAddress()), zap.Time("blkproposeTime", proposal.block.Timestamp()))
 		if err := ctx.round.AddBlock(proposal.block); err != nil {
 			return nil, err
 		}
@@ -498,7 +500,9 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		}
 	}
 	// TODO: prepare next block if the current node will be a proposer
-
+	if len(blockHash) > 0 {
+		ctx.logger().Info("new proposal endorsement", log.Hex("blkhash", blockHash))
+	}
 	return ctx.newEndorsement(
 		blockHash,
 		PROPOSAL,
@@ -577,7 +581,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	if pendingBlock == nil {
 		return false, nil
 	}
-	if ctx.round.Height()%100 == 0 {
+	if ctx.round.Height()%100 >= 0 {
 		ctx.logger().Info("consensus reached", zap.Uint64("blockHeight", ctx.round.Height()))
 	}
 	if err := pendingBlock.Finalize(
@@ -605,6 +609,11 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 			ctx.logger().Error(
 				"error when broadcasting blkProto",
 				zap.Error(err),
+				zap.Uint64("block", pendingBlock.Height()),
+			)
+		} else {
+			ctx.logger().Info(
+				"successfully broadcasted committed block",
 				zap.Uint64("block", pendingBlock.Height()),
 			)
 		}
@@ -815,6 +824,7 @@ func (ctx *rollDPoSCtx) verifyVote(
 	}
 	blkHash := vote.BlockHash()
 	endorsement := consensusMsg.Endorsement()
+	ctx.logger().Info("received consensus vote", log.Hex("blkHash", blkHash), zap.String("endorser", endorsement.Endorser().HexString()), zap.Time("timestamp", endorsement.Timestamp()), zap.Uint8("topic", uint8(vote.Topic())))
 	if err := ctx.round.AddVoteEndorsement(vote, endorsement); err != nil {
 		return blkHash, err
 	}
