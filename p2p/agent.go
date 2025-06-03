@@ -66,11 +66,12 @@ func init() {
 
 const (
 	// TODO: the topic could be fine tuned
-	_broadcastTopic    = "broadcast"
-	_actionTopicSuffix = "_actions"
-	_unicastTopic      = "unicast"
-	_numDialRetries    = 8
-	_dialRetryInterval = 2 * time.Second
+	_broadcastTopic       = "broadcast"
+	_actionTopicSuffix    = "_actions"
+	_consensusTopicSuffix = "_consensus"
+	_unicastTopic         = "unicast"
+	_numDialRetries       = 8
+	_dialRetryInterval    = 2 * time.Second
 )
 
 type (
@@ -338,7 +339,14 @@ func (p *agent) Start(ctx context.Context) error {
 
 	if err := host.AddBroadcastPubSub(
 		ctx,
-		_broadcastTopic+p.topicSuffix+_actionTopicSuffix,
+		_broadcastTopic+_actionTopicSuffix+p.topicSuffix,
+		nil, broadcastHandler); err != nil {
+		return errors.Wrap(err, "error when adding broadcast pubsub")
+	}
+
+	if err := host.AddBroadcastPubSub(
+		ctx,
+		_broadcastTopic+_consensusTopicSuffix+p.topicSuffix,
 		nil, broadcastHandler); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
@@ -472,7 +480,9 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	t := time.Now()
 	topic := _broadcastTopic + p.topicSuffix
 	if msgType == iotexrpc.MessageType_ACTION || msgType == iotexrpc.MessageType_ACTIONS {
-		topic += _actionTopicSuffix
+		topic = _broadcastTopic + _actionTopicSuffix + p.topicSuffix
+	} else if msgType == iotexrpc.MessageType_CONSENSUS {
+		topic = _broadcastTopic + _consensusTopicSuffix + p.topicSuffix
 	}
 	if err = host.Broadcast(ctx, topic, data); err != nil {
 		err = errors.Wrap(err, "error when sending broadcast message")
