@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -281,46 +280,7 @@ func (p *agent) Start(ctx context.Context) error {
 	if err := host.AddBroadcastPubSub(
 		ctx,
 		_broadcastTopic+p.topicSuffix,
-		func(ctx context.Context, pid peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
-			if pid.String() == host.HostIdentity() {
-				return pubsub.ValidationAccept
-			}
-			var broadcast iotexrpc.BroadcastMsg
-			if err := proto.Unmarshal(msg.Data, &broadcast); err != nil {
-				log.L().Debug("error when unmarshaling broadcast message", zap.Error(err))
-				return pubsub.ValidationReject
-			}
-			if broadcast.ChainId != p.chainID {
-				log.L().Debug("chain ID mismatch", zap.Uint32("received", broadcast.ChainId), zap.Uint32("expecting", p.chainID))
-				return pubsub.ValidationReject
-			}
-			pMsg, err := goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
-			if err != nil {
-				log.L().Debug("error when typifying broadcast message", zap.Error(err))
-				return pubsub.ValidationReject
-			}
-			// dedup message
-			if p.duplicateActions(&broadcast) {
-				log.L().Debug("duplicate msg", zap.Int("type", int(broadcast.MsgType)))
-				return pubsub.ValidationIgnore
-			}
-			ignore, err := p.validatorBroadcastInbound(pMsg)
-			if err != nil {
-				log.L().Debug("error when validating broadcast message", zap.Error(err))
-				return pubsub.ValidationReject
-			}
-			if ignore {
-				log.L().Debug("invalid broadcast message")
-				return pubsub.ValidationIgnore
-			}
-			p.caches.Add(hash.Hash256b(msg.Data), &cacheValue{
-				msgType:   broadcast.MsgType,
-				message:   pMsg,
-				peerID:    pid.String(),
-				timestamp: time.Now(),
-			})
-			return pubsub.ValidationAccept
-		}, func(ctx context.Context, pid peer.ID, data []byte) (err error) {
+		nil, func(ctx context.Context, pid peer.ID, data []byte) (err error) {
 			// Blocking handling the broadcast message until the agent is started
 			<-ready
 			if pid.String() == host.HostIdentity() {
