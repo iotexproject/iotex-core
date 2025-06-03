@@ -67,10 +67,12 @@ func init() {
 
 const (
 	// TODO: the topic could be fine tuned
-	_broadcastTopic    = "broadcast"
-	_unicastTopic      = "unicast"
-	_numDialRetries    = 8
-	_dialRetryInterval = 2 * time.Second
+	_broadcastTopic             = "broadcast"
+	_broadcastSubTopicConsensus = "_consensus"
+	_broadcastSubTopicAction    = "_action"
+	_unicastTopic               = "unicast"
+	_numDialRetries             = 8
+	_dialRetryInterval          = 2 * time.Second
 )
 
 type (
@@ -278,101 +280,118 @@ func (p *agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
 
+	broadcastValidator := func(ctx context.Context, pid peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
+		if pid.String() == host.HostIdentity() {
+			return pubsub.ValidationAccept
+		}
+		var broadcast iotexrpc.BroadcastMsg
+		if err := proto.Unmarshal(msg.Data, &broadcast); err != nil {
+			log.L().Debug("error when unmarshaling broadcast message", zap.Error(err))
+			return pubsub.ValidationReject
+		}
+		if broadcast.ChainId != p.chainID {
+			log.L().Debug("chain ID mismatch", zap.Uint32("received", broadcast.ChainId), zap.Uint32("expecting", p.chainID))
+			return pubsub.ValidationReject
+		}
+		pMsg, err := goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
+		if err != nil {
+			log.L().Debug("error when typifying broadcast message", zap.Error(err))
+			return pubsub.ValidationReject
+		}
+		// dedup message
+		if p.duplicateActions(&broadcast) {
+			log.L().Debug("duplicate msg", zap.Int("type", int(broadcast.MsgType)))
+			return pubsub.ValidationIgnore
+		}
+		ignore, err := p.validatorBroadcastInbound(pMsg)
+		if err != nil {
+			log.L().Debug("error when validating broadcast message", zap.Error(err))
+			return pubsub.ValidationReject
+		}
+		if ignore {
+			log.L().Debug("invalid broadcast message")
+			return pubsub.ValidationIgnore
+		}
+		p.caches.Add(hash.Hash256b(msg.Data), &cacheValue{
+			msgType:   broadcast.MsgType,
+			message:   pMsg,
+			peerID:    pid.String(),
+			timestamp: time.Now(),
+		})
+		return pubsub.ValidationAccept
+	}
+	broadcastHandler := func(ctx context.Context, pid peer.ID, data []byte) (err error) {
+		// Blocking handling the broadcast message until the agent is started
+		<-ready
+		if pid.String() == host.HostIdentity() {
+			return nil
+		}
+		var (
+			peerID  string
+			pMsg    proto.Message
+			msgType iotexrpc.MessageType
+			latency int64
+		)
+		defer func() {
+			status := _successStr
+			if err != nil {
+				status = _failureStr
+			}
+			_p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), "in", peerID, status).Inc()
+			_p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), status).Observe(float64(latency))
+		}()
+		// Check the cache first
+		cache, ok := p.caches.Get(hash.Hash256b(data))
+		if ok {
+			value := cache.(*cacheValue)
+			pMsg = value.message
+			peerID = value.peerID
+			msgType = value.msgType
+			latency = time.Since(value.timestamp).Nanoseconds() / time.Millisecond.Nanoseconds()
+		} else {
+			var broadcast iotexrpc.BroadcastMsg
+			if err = proto.Unmarshal(data, &broadcast); err != nil {
+				// TODO: unexpected error
+				err = errors.Wrap(err, "error when marshaling broadcast message")
+				return
+			}
+			t := broadcast.GetTimestamp().AsTime()
+			latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
+			pMsg, err = goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
+			if err != nil {
+				err = errors.Wrap(err, "error when typifying broadcast message")
+				return
+			}
+			peerID = broadcast.PeerId
+			msgType = broadcast.MsgType
+		}
+		// TODO: skip signature verification for actions
+		p.broadcastInboundHandler(ctx, p.chainID, peerID, pMsg)
+		p.qosMetrics.updateRecvBroadcast(time.Now())
+		return
+	}
+
+	// default topics
 	if err := host.AddBroadcastPubSub(
 		ctx,
 		_broadcastTopic+p.topicSuffix,
-		func(ctx context.Context, pid peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
-			if pid.String() == host.HostIdentity() {
-				return pubsub.ValidationAccept
-			}
-			var broadcast iotexrpc.BroadcastMsg
-			if err := proto.Unmarshal(msg.Data, &broadcast); err != nil {
-				log.L().Debug("error when unmarshaling broadcast message", zap.Error(err))
-				return pubsub.ValidationReject
-			}
-			if broadcast.ChainId != p.chainID {
-				log.L().Debug("chain ID mismatch", zap.Uint32("received", broadcast.ChainId), zap.Uint32("expecting", p.chainID))
-				return pubsub.ValidationReject
-			}
-			pMsg, err := goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
-			if err != nil {
-				log.L().Debug("error when typifying broadcast message", zap.Error(err))
-				return pubsub.ValidationReject
-			}
-			// dedup message
-			if p.duplicateActions(&broadcast) {
-				log.L().Debug("duplicate msg", zap.Int("type", int(broadcast.MsgType)))
-				return pubsub.ValidationIgnore
-			}
-			ignore, err := p.validatorBroadcastInbound(pMsg)
-			if err != nil {
-				log.L().Debug("error when validating broadcast message", zap.Error(err))
-				return pubsub.ValidationReject
-			}
-			if ignore {
-				log.L().Debug("invalid broadcast message")
-				return pubsub.ValidationIgnore
-			}
-			p.caches.Add(hash.Hash256b(msg.Data), &cacheValue{
-				msgType:   broadcast.MsgType,
-				message:   pMsg,
-				peerID:    pid.String(),
-				timestamp: time.Now(),
-			})
-			return pubsub.ValidationAccept
-		}, func(ctx context.Context, pid peer.ID, data []byte) (err error) {
-			// Blocking handling the broadcast message until the agent is started
-			<-ready
-			if pid.String() == host.HostIdentity() {
-				return nil
-			}
-			var (
-				peerID  string
-				pMsg    proto.Message
-				msgType iotexrpc.MessageType
-				latency int64
-			)
-			defer func() {
-				status := _successStr
-				if err != nil {
-					status = _failureStr
-				}
-				_p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), "in", peerID, status).Inc()
-				_p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), status).Observe(float64(latency))
-			}()
-			// Check the cache first
-			cache, ok := p.caches.Get(hash.Hash256b(data))
-			if ok {
-				value := cache.(*cacheValue)
-				pMsg = value.message
-				peerID = value.peerID
-				msgType = value.msgType
-				latency = time.Since(value.timestamp).Nanoseconds() / time.Millisecond.Nanoseconds()
-			} else {
-				var broadcast iotexrpc.BroadcastMsg
-				if err = proto.Unmarshal(data, &broadcast); err != nil {
-					// TODO: unexpected error
-					err = errors.Wrap(err, "error when marshaling broadcast message")
-					return
-				}
-				t := broadcast.GetTimestamp().AsTime()
-				latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
-				pMsg, err = goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
-				if err != nil {
-					err = errors.Wrap(err, "error when typifying broadcast message")
-					return
-				}
-				peerID = broadcast.PeerId
-				msgType = broadcast.MsgType
-			}
-			// TODO: skip signature verification for actions
-			p.broadcastInboundHandler(ctx, p.chainID, peerID, pMsg)
-			p.qosMetrics.updateRecvBroadcast(time.Now())
-			return
-		}); err != nil {
+		broadcastValidator, broadcastHandler); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
-
+	// add consensus topic
+	if err := host.AddBroadcastPubSub(
+		ctx,
+		_broadcastTopic+_broadcastSubTopicConsensus+p.topicSuffix,
+		nil, broadcastHandler); err != nil {
+		return errors.Wrap(err, "error when adding broadcast pubsub")
+	}
+	// add action topic
+	if err := host.AddBroadcastPubSub(
+		ctx,
+		_broadcastTopic+_broadcastSubTopicAction+p.topicSuffix,
+		broadcastValidator, broadcastHandler); err != nil {
+		return errors.Wrap(err, "error when adding broadcast pubsub")
+	}
 	if err := host.AddUnicastPubSub(_unicastTopic+p.topicSuffix, func(ctx context.Context, peerInfo peer.AddrInfo, data []byte) (err error) {
 		// Blocking handling the unicast message until the agent is started
 		<-ready
@@ -500,13 +519,29 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		return
 	}
 	t := time.Now()
-	if err = host.Broadcast(ctx, _broadcastTopic+p.topicSuffix, data); err != nil {
-		err = errors.Wrap(err, "error when sending broadcast message")
-		p.qosMetrics.updateSendBroadcast(t, false)
-		return
+	topics := p.messageTopics(msgType)
+	for _, topic := range topics {
+		if bErr := host.Broadcast(ctx, topic, data); bErr != nil {
+			log.L().Error("error when sending broadcast message", zap.Error(bErr), zap.String("topic", topic))
+			p.qosMetrics.updateSendBroadcast(t, false)
+			continue
+		}
+		p.qosMetrics.updateSendBroadcast(t, true)
 	}
-	p.qosMetrics.updateSendBroadcast(t, true)
 	return
+}
+
+func (p *agent) messageTopics(msgType iotexrpc.MessageType) []string {
+	// include default broadcast topic for all messages
+	// for action and consensus messages, default topic is also included for backward compatibility. we may exclude it in the future.
+	topics := []string{_broadcastTopic + p.topicSuffix}
+	switch msgType {
+	case iotexrpc.MessageType_ACTION, iotexrpc.MessageType_ACTIONS:
+		topics = append(topics, _broadcastTopic+_broadcastSubTopicAction+p.topicSuffix)
+	case iotexrpc.MessageType_CONSENSUS:
+		topics = append(topics, _broadcastTopic+_broadcastSubTopicConsensus+p.topicSuffix)
+	}
+	return topics
 }
 
 func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {
