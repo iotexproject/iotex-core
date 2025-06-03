@@ -824,15 +824,15 @@ func (ctx *rollDPoSCtx) verifyVote(
 	}
 	blkHash := vote.BlockHash()
 	endorsement := consensusMsg.Endorsement()
-	ctx.logger().Info("received consensus vote", log.Hex("blkHash", blkHash), zap.String("endorser", endorsement.Endorser().HexString()), zap.Time("timestamp", endorsement.Timestamp()), zap.Uint8("topic", uint8(vote.Topic())))
+	ctx.logger().Info("received consensus vote", log.Hex("blkHash", blkHash), zap.String("endorser", endorsement.Endorser().Address().String()), zap.Time("timestamp", endorsement.Timestamp()), zap.Uint8("topic", uint8(vote.Topic())))
 	if err := ctx.round.AddVoteEndorsement(vote, endorsement); err != nil {
 		return blkHash, err
 	}
-	ctx.loggerWithStats().Debug(
+	ctx.loggerWithStats().Info(
 		"verified consensus vote",
 		log.Hex("block", blkHash),
 		zap.Uint8("topic", uint8(vote.Topic())),
-		zap.String("endorser", endorsement.Endorser().HexString()),
+		zap.String("endorser", endorsement.Endorser().Address().String()),
 	)
 	if !ctx.round.EndorsedByMajority(blkHash, topics) {
 		return blkHash, ErrInsufficientEndorsements
