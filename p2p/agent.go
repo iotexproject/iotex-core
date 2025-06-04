@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -28,6 +29,7 @@ import (
 	goproto "github.com/iotexproject/iotex-proto/golang"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/routine"
@@ -140,6 +142,8 @@ type (
 		reconnectTimeout           time.Duration
 		reconnectTask              *routine.RecurringTask
 		qosMetrics                 *Qos
+		unifiedTopic               atomic.Bool
+		isUnifiedTopic             func(height uint64) bool
 	}
 
 	cacheValue struct {
@@ -148,7 +152,15 @@ type (
 		peerID    string
 		timestamp time.Time
 	}
+
+	Option func(*agent)
 )
+
+var WithUnifiedTopicHelper = func(isUnifiedTopic func(height uint64) bool) Option {
+	return func(a *agent) {
+		a.isUnifiedTopic = isUnifiedTopic
+	}
+}
 
 // DefaultConfig is the default config of p2p
 var DefaultConfig = Config{
@@ -217,9 +229,10 @@ func NewAgent(
 	validateBroadcastInbound ValidateBroadcastInbound,
 	broadcastHandler HandleBroadcastInbound,
 	unicastHandler HandleUnicastInboundAsync,
+	opts ...Option,
 ) Agent {
 	log.L().Info("p2p agent", log.Hex("topicSuffix", genesisHash[22:]))
-	return &agent{
+	a := &agent{
 		cfg:     cfg,
 		chainID: chainID,
 		// Make sure the honest node only care the messages related the chain from the same genesis
@@ -233,6 +246,11 @@ func NewAgent(
 		reconnectTimeout:           cfg.ReconnectInterval,
 		qosMetrics:                 NewQoS(time.Now(), 2*cfg.ReconnectInterval),
 	}
+	a.unifiedTopic.Store(true)
+	for _, opt := range opts {
+		opt(a)
+	}
+	return a
 }
 
 func (p *agent) duplicateActions(msg *iotexrpc.BroadcastMsg) bool {
@@ -519,29 +537,34 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		return
 	}
 	t := time.Now()
-	topics := p.messageTopics(msgType)
-	for _, topic := range topics {
-		if bErr := host.Broadcast(ctx, topic, data); bErr != nil {
-			log.L().Error("error when sending broadcast message", zap.Error(bErr), zap.String("topic", topic))
-			p.qosMetrics.updateSendBroadcast(t, false)
-			continue
-		}
-		p.qosMetrics.updateSendBroadcast(t, true)
+	topic := p.messageTopic(msgType)
+	if err = host.Broadcast(ctx, topic, data); err != nil {
+		err = errors.Wrapf(err, "error when sending broadcast message to topic %s", topic)
+		p.qosMetrics.updateSendBroadcast(t, false)
+		return
 	}
+	p.qosMetrics.updateSendBroadcast(t, true)
 	return
 }
 
-func (p *agent) messageTopics(msgType iotexrpc.MessageType) []string {
-	// include default broadcast topic for all messages
-	// for action and consensus messages, default topic is also included for backward compatibility. we may exclude it in the future.
-	topics := []string{_broadcastTopic + p.topicSuffix}
+func (p *agent) messageTopic(msgType iotexrpc.MessageType) string {
+	defaultTopic := _broadcastTopic + p.topicSuffix
 	switch msgType {
 	case iotexrpc.MessageType_ACTION, iotexrpc.MessageType_ACTIONS:
-		topics = append(topics, _broadcastTopic+_broadcastSubTopicAction+p.topicSuffix)
+		// TODO: can be removed after wake activated
+		if p.unifiedTopic.Load() {
+			return defaultTopic
+		}
+		return _broadcastTopic + _broadcastSubTopicAction + p.topicSuffix
 	case iotexrpc.MessageType_CONSENSUS:
-		topics = append(topics, _broadcastTopic+_broadcastSubTopicConsensus+p.topicSuffix)
+		// TODO: can be removed after wake activated
+		if p.unifiedTopic.Load() {
+			return defaultTopic
+		}
+		return _broadcastTopic + _broadcastSubTopicConsensus + p.topicSuffix
+	default:
+		return defaultTopic
 	}
-	return topics
 }
 
 func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {
@@ -625,6 +648,13 @@ func (p *agent) BuildReport() string {
 		return fmt.Sprintf("P2P ConnectedPeers: %d", len(neighbors))
 	}
 	return ""
+}
+
+func (p *agent) ReceiveBlock(blk *block.Block) {
+	if p.isUnifiedTopic == nil {
+		return
+	}
+	p.unifiedTopic.Store(p.isUnifiedTopic(blk.Height()))
 }
 
 func (p *agent) connectBootNode(ctx context.Context) error {

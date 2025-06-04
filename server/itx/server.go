@@ -18,6 +18,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/api"
 	"github.com/iotexproject/iotex-core/v2/chainservice"
@@ -30,7 +32,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/routine"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/httputil"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Server is the iotex server instance containing all components.
@@ -98,6 +99,9 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			dispatcher.ValidateMessage,
 			dispatcher.HandleBroadcast,
 			dispatcher.HandleTell,
+			p2p.WithUnifiedTopicHelper(func(height uint64) bool {
+				return height <= cfg.Genesis.WakeBlockHeight
+			}),
 		)
 	}
 	chains := make(map[uint32]*chainservice.ChainService)
