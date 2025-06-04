@@ -562,6 +562,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	}
 	_blockMtc.WithLabelValues("excessBlobGas").Set(float64(blk.ExcessBlobGas()))
 	_blockMtc.WithLabelValues("blobGasUsed").Set(float64(blk.BlobGasUsed()))
+	_blockMtc.WithLabelValues("gasUsed").Set(float64(blk.GasUsed()))
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
 	return nil
