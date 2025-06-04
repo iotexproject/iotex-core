@@ -489,6 +489,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		return "", err
 	}
 	l := log.T(ctx).Logger().With(zap.String("actionHash", hex.EncodeToString(hash[:])))
+	ctx = WithAPIContext(ctx)
 	if err = core.ap.Add(ctx, selp); err != nil {
 		txBytes, serErr := proto.Marshal(in)
 		if serErr != nil {
