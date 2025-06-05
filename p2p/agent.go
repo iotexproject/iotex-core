@@ -106,6 +106,11 @@ type (
 		MaxMessageSize    int                 `yaml:"maxMessageSize"`
 		RpcMsgCacheSize   int                 `yaml:"rpcMsgCacheSize"`
 		RpcDedupCacheSize int                 `yaml:"rpcDedupCacheSize"`
+		MaxConn           int                 `yaml:"maxConn"`
+		MaxStreamPerPeer  int                 `yaml:"maxStreamPerPeer"`
+		ConnLowWater      int                 `yaml:"connLowWater"`
+		ConnHighWater     int                 `yaml:"connHighWater"`
+		ConnGracePeriod   time.Duration       `yaml:"connGracePeriod"`
 	}
 
 	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
@@ -178,6 +183,11 @@ var DefaultConfig = Config{
 	MaxMessageSize:    p2p.DefaultConfig.MaxMessageSize,
 	RpcMsgCacheSize:   10000,
 	RpcDedupCacheSize: 40000,
+	MaxConn:           p2p.DefaultConfig.MaxConn,
+	MaxStreamPerPeer:  p2p.DefaultConfig.MaxStreamPerPeer,
+	ConnLowWater:      p2p.DefaultConfig.ConnLowWater,
+	ConnHighWater:     p2p.DefaultConfig.ConnHighWater,
+	ConnGracePeriod:   p2p.DefaultConfig.ConnGracePeriod,
 }
 
 // NewDummyAgent creates a dummy p2p agent
@@ -282,6 +292,8 @@ func (p *agent) Start(ctx context.Context) error {
 		p2p.DHTGroupID(p.chainID),
 		p2p.WithMaxPeer(uint32(p.cfg.MaxPeers)),
 		p2p.WithMaxMessageSize(p.cfg.MaxMessageSize),
+		p2p.WithConnectionManagerConfig(p.cfg.ConnLowWater, p.cfg.ConnHighWater, p.cfg.ConnGracePeriod),
+		p2p.WithMaxConnAndStream(uint32(p.cfg.MaxConn), uint32(p.cfg.MaxStreamPerPeer)),
 	}
 	if p.cfg.EnableRateLimit {
 		opts = append(opts, p2p.WithRateLimit(p.cfg.RateLimit))
