@@ -293,7 +293,9 @@ func (p *agent) Start(ctx context.Context) error {
 		p2p.WithMaxPeer(uint32(p.cfg.MaxPeers)),
 		p2p.WithMaxMessageSize(p.cfg.MaxMessageSize),
 		p2p.WithConnectionManagerConfig(p.cfg.ConnLowWater, p.cfg.ConnHighWater, p.cfg.ConnGracePeriod),
-		p2p.WithMaxConnAndStream(uint32(p.cfg.MaxConn), uint32(p.cfg.MaxStreamPerPeer)),
+	}
+	if p.cfg.MaxPeers > 0 && p.cfg.MaxStreamPerPeer > 0 {
+		opts = append(opts, p2p.WithMaxConnAndStream(uint32(p.cfg.MaxConn), uint32(p.cfg.MaxStreamPerPeer)))
 	}
 	if p.cfg.EnableRateLimit {
 		opts = append(opts, p2p.WithRateLimit(p.cfg.RateLimit))
