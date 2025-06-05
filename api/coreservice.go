@@ -1152,7 +1152,7 @@ func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvel
 	return selp, blk, index, nil
 }
 
-// ActionByActionHash returns action by action hash
+// PendingActionByActionHash returns action by action hash
 func (core *coreService) PendingActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, error) {
 	selp, err := core.ap.GetActionByHash(h)
 	if err != nil {

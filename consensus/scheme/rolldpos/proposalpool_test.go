@@ -115,7 +115,7 @@ func TestProposalPool(t *testing.T) {
 	})
 }
 
-// makeBlock is a helper to create a block with the given height and prevHash
+// makeBlock2 is a helper to create a block with the given height and prevHash
 func makeBlock2(r *require.Assertions, height uint64, prevHash hash.Hash256) *block.Block {
 	// minimal mock
 	bd := block.NewBuilder(block.NewRunnableActionsBuilder().Build()).
