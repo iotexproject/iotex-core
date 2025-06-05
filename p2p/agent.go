@@ -650,11 +650,12 @@ func (p *agent) BuildReport() string {
 	return ""
 }
 
-func (p *agent) ReceiveBlock(blk *block.Block) {
+func (p *agent) ReceiveBlock(blk *block.Block) error {
 	if p.isUnifiedTopic == nil {
-		return
+		return nil
 	}
 	p.unifiedTopic.Store(p.isUnifiedTopic(blk.Height()))
+	return nil
 }
 
 func (p *agent) connectBootNode(ctx context.Context) error {
