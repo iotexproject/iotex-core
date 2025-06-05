@@ -85,7 +85,7 @@ type ActPool interface {
 
 // Subscriber is the interface for actpool subscriber
 type Subscriber interface {
-	OnAdded(*action.SealedEnvelope)
+	OnAdded(context.Context, *action.SealedEnvelope)
 	OnRemoved(*action.SealedEnvelope)
 }
 
@@ -547,9 +547,9 @@ func (ap *actPool) AddSubscriber(sub Subscriber) {
 	ap.subs = append(ap.subs, sub)
 }
 
-func (ap *actPool) onAdded(act *action.SealedEnvelope) {
+func (ap *actPool) onAdded(ctx context.Context, act *action.SealedEnvelope) {
 	for _, sub := range ap.subs {
-		sub.OnAdded(act)
+		sub.OnAdded(ctx, act)
 	}
 }
 
