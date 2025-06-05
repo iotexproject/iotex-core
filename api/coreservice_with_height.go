@@ -40,7 +40,7 @@ func newCoreServiceWithHeight(cs *coreService, height uint64) *coreServiceReader
 
 func (core *coreServiceReaderWithHeight) Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
 	if !core.cs.archiveSupported {
-		return nil, nil, ErrArchiveNotSupported
+		return core.cs.Account(addr)
 	}
 	ctx, span := tracer.NewSpan(context.Background(), "coreServiceReaderWithHeight.Account")
 	defer span.End()
@@ -79,7 +79,7 @@ func (core *coreServiceReaderWithHeight) stateAndNonce(addr address.Address) (*s
 
 func (core *coreServiceReaderWithHeight) ReadContract(ctx context.Context, callerAddr address.Address, elp action.Envelope) (string, *iotextypes.Receipt, error) {
 	if !core.cs.archiveSupported {
-		return "", nil, ErrArchiveNotSupported
+		return core.cs.ReadContract(ctx, callerAddr, elp)
 	}
 	log.Logger("api").Debug("receive read smart contract request")
 	exec, ok := elp.Action().(*action.Execution)
