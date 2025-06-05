@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -49,6 +50,7 @@ var (
 		},
 		[]string{"type"},
 	)
+	timerFactory *prometheustimer.TimerFactory
 
 	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
 	errUnfoldTxContainer         = errors.New("failed to unfold tx container")
@@ -58,6 +60,17 @@ var (
 func init() {
 	prometheus.MustRegister(_stateDBMtc)
 	prometheus.MustRegister(_mintAbility)
+
+	var err error
+	timerFactory, err = prometheustimer.New(
+		"iotex_mint_latency_nanoseconds",
+		"Latency of mint operations in nanoseconds",
+		[]string{"operation"},
+		[]string{"unknown"},
+	)
+	if err != nil {
+		log.L().Error("Failed to create proposal pool latency timer", zap.Error(err))
+	}
 }
 
 type (
@@ -692,6 +705,8 @@ func (ws *workingSet) pickAndRunActions(
 	sign func(elp action.Envelope) (*action.SealedEnvelope, error),
 	allowedBlockGasResidue uint64,
 ) ([]*action.SealedEnvelope, error) {
+	timer := timerFactory.NewTimer("workingSet.pickAndRunActions")
+	defer timer.End()
 	err := ws.validate(ctx)
 	if err != nil {
 		return nil, err
@@ -943,6 +958,8 @@ func (ws *workingSet) CreateBuilder(
 	sign func(elp action.Envelope) (*action.SealedEnvelope, error),
 	allowedBlockGasResidue uint64,
 ) (*block.Builder, error) {
+	timer := timerFactory.NewTimer("workingSet.CreateBuilder")
+	defer timer.End()
 	actions, err := ws.pickAndRunActions(ctx, ap, sign, allowedBlockGasResidue)
 	if err != nil {
 		return nil, err

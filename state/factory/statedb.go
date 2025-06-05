@@ -256,6 +256,8 @@ func (sdb *stateDB) Mint(
 	ap actpool.ActPool,
 	pk crypto.PrivateKey,
 ) (*block.Block, error) {
+	timer := timerFactory.NewTimer("workingSet.Mint")
+	defer timer.End()
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	expectedBlockHeight := bcCtx.Tip.Height + 1
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
