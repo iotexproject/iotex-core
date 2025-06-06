@@ -490,6 +490,14 @@ func (builder *Builder) buildBlockchain(forSubChain, forTest bool) error {
 	if err := builder.cs.chain.AddSubscriber(builder.cs.actpool); err != nil {
 		return errors.Wrap(err, "failed to add actpool as subscriber")
 	}
+	if sub, ok := builder.cs.p2pAgent.(blockchain.BlockCreationSubscriber); ok {
+		if err := builder.cs.chain.AddSubscriber(sub); err != nil {
+			return errors.Wrap(err, "failed to add p2p agent as subscriber")
+		}
+	} else {
+		log.L().Info("p2p agent does not implement BlockCreationSubscriber, skip adding it as subscriber")
+	}
+
 	if builder.cs.indexer != nil && builder.cfg.Chain.EnableAsyncIndexWrite {
 		// config asks for a standalone indexer
 		indexBuilder, err := blockindex.NewIndexBuilder(builder.cs.chain.ChainID(), builder.cfg.Genesis, builder.cs.blockdao, builder.cs.indexer)
