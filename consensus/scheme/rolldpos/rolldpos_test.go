@@ -77,6 +77,7 @@ func TestNewRollDPoS(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		chain := mock_blockchain.NewMockBlockchain(ctrl)
 		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+		chain.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
 			SetPriKey(sk).
@@ -95,6 +96,7 @@ func TestNewRollDPoS(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		chain := mock_blockchain.NewMockBlockchain(ctrl)
 		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+		chain.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
 			SetPriKey(sk).
@@ -117,6 +119,7 @@ func TestNewRollDPoS(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		chain := mock_blockchain.NewMockBlockchain(ctrl)
 		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+		chain.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
 			SetPriKey(sk).
@@ -209,6 +212,7 @@ func TestValidateBlockFooter(t *testing.T) {
 	bc.EXPECT().TipHeight().Return(blockHeight).AnyTimes()
 	bc.EXPECT().BlockHeaderByHeight(blockHeight).Return(&block.Header{}, nil).AnyTimes()
 	bc.EXPECT().TipHash().Return(hash.ZeroHash256).AnyTimes()
+	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 	sk1 := identityset.PrivateKey(1)
 	g := genesis.TestDefault()
 	g.NumDelegates = 4
@@ -303,6 +307,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).AnyTimes()
 	bc.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 	bc.EXPECT().BlockHeaderByHeight(blockHeight).Return(&block.Header{}, nil).AnyTimes()
+	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 
 	sk1 := identityset.PrivateKey(1)
 	cfg := DefaultConfig

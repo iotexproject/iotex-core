@@ -127,7 +127,7 @@ var (
 		PersistStakingPatchBlock:      19778037,
 		FixAliasForNonStopHeight:      19778036,
 		FactoryDBType:                 db.DBBolt,
-		MintTimeout:                   time.Second,
+		MintTimeout:                   700 * time.Millisecond,
 	}
 
 	// ErrConfig config error
