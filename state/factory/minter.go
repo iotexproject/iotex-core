@@ -11,12 +11,30 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
+var (
+	// Prometheus metrics for minter operations
+	_minterDurationMtc = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "iotex_minter_duration_seconds",
+			Help:    "Time spent in minter operations",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"operation", "status"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(_minterDurationMtc)
+}
+
+// MintOption defines an option to configure Minter
 type MintOption func(*Minter)
 
 // WithTimeoutOption sets the timeout for NewBlockBuilder
@@ -64,6 +82,8 @@ func (m *Minter) ReceiveBlock(blk *block.Block) error {
 }
 
 func (m *Minter) mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error) {
+	startTime := time.Now()
+
 	if m.timeout > 0 {
 		// set deadline for NewBlockBuilder
 		// ensure that minting finishes before `block start time + timeout` and that its duration does not exceed the timeout.
@@ -79,5 +99,13 @@ func (m *Minter) mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, 
 		ctx, cancel = context.WithDeadline(ctx, ddl)
 		defer cancel()
 	}
-	return m.f.Mint(ctx, m.ap, pk)
+
+	blk, err := m.f.Mint(ctx, m.ap, pk)
+	duration := time.Since(startTime).Seconds()
+	if err != nil {
+		_minterDurationMtc.WithLabelValues("mint_block", "failure").Observe(duration)
+		return nil, err
+	}
+	_minterDurationMtc.WithLabelValues("mint_block", "success").Observe(duration)
+	return blk, nil
 }
