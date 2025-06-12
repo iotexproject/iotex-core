@@ -75,8 +75,8 @@ type (
 		Validate(context.Context, *block.Block) error
 		Mint(context.Context, actpool.ActPool, crypto.PrivateKey) (*block.Block, error)
 		PutBlock(context.Context, *block.Block) error
-		WorkingSet(context.Context) (protocol.StateManager, error)
-		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManager, error)
+		WorkingSet(context.Context) (protocol.StateManagerWithCloser, error)
+		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error)
 		StateReaderAt(blkHeight uint64, blkHash hash.Hash256) (protocol.StateReader, error)
 	}
 
