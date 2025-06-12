@@ -435,13 +435,18 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 	if !addr.Exists() {
 		return nil, errInvalidFormat
 	}
+	var bn = rpc.LatestBlockNumber
+	if bnParam := in.Get("params.1"); bnParam.Exists() {
+		if err := bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
+		}
+	}
 	ioAddr, err := ethAddrToIoAddr(addr.String())
 	if err != nil {
 		return nil, err
 	}
-	// TODO (liuhaai): returns the nonce in given block height after archive mode is supported
-	// blkNum, err := getStringFromArray(in, 1)
-	pendingNonce, err := svr.coreService.PendingNonce(ioAddr)
+	height, _ := blockNumberToHeight(bn)
+	pendingNonce, err := svr.coreService.PendingNonceAt(context.Background(), ioAddr, height)
 	if err != nil {
 		return nil, err
 	}
