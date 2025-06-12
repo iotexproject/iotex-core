@@ -418,22 +418,15 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	var (
-		accountMeta *iotextypes.AccountMeta
-	)
-	height, archive, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
 	if err != nil {
 		return nil, err
 	}
-	if !archive {
-		accountMeta, _, err = svr.coreService.Account(ioAddr)
-	} else {
-		accountMeta, _, err = svr.coreService.WithHeight(height).Account(ioAddr)
-	}
+	balance, err := svr.coreService.BalanceAt(context.Background(), ioAddr, height)
 	if err != nil {
 		return nil, err
 	}
-	return intStrToHex(accountMeta.Balance)
+	return intStrToHex(balance)
 }
 
 // getTransactionCount returns the nonce for the given address
