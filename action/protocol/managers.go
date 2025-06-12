@@ -84,6 +84,11 @@ type (
 		DelState(...StateOption) (uint64, error)
 		WriteView(string, View) error
 	}
+
+	StateManagerWithCloser interface {
+		StateManager
+		Close()
+	}
 )
 
 type (
