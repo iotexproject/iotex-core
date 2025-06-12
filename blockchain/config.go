@@ -54,6 +54,7 @@ type (
 		// EnableStateDBCaching enables cachedStateDBOption
 		EnableStateDBCaching bool `yaml:"enableStateDBCaching"`
 		// EnableArchiveMode is only meaningful when EnableTrielessStateDB is false
+		// Deprecated: HistoryIndexPath is used to store the archived state
 		EnableArchiveMode bool `yaml:"enableArchiveMode"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
