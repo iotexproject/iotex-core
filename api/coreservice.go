@@ -190,6 +190,9 @@ type (
 		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
 		// BlobSidecarsByHeight returns blob sidecars by height
 		BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSidecarResult, error)
+
+		// Historical methods
+		BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -336,6 +339,40 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
 	return core.acccount(ctx, tipHeight, state, pendingNonce, addr)
+}
+
+func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error) {
+	ctx, span := tracer.NewSpan(context.Background(), "coreService.BalanceAt")
+	defer span.End()
+	addrStr := addr.String()
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return "", status.Error(codes.Internal, err.Error())
+	}
+	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
+		acc, _, err := core.getProtocolAccount(ctx, addrStr)
+		if err != nil {
+			return "", err
+		}
+		return acc.Balance, nil
+	}
+	var (
+		ws protocol.StateManagerWithCloser
+	)
+	if height == 0 {
+		ws, err = core.sf.WorkingSet(ctx)
+	} else {
+		ws, err = core.sf.WorkingSetAtHeight(ctx, height)
+	}
+	if err != nil {
+		return "", status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
+	state, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return "", status.Error(codes.NotFound, err.Error())
+	}
+	return state.Balance.String(), nil
 }
 
 func (core *coreService) acccount(ctx context.Context, height uint64, state *state.Account, pendingNonce uint64, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
