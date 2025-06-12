@@ -141,7 +141,7 @@ func (store *erigonWorkingSetStore) prepareCommit(ctx context.Context, tx kv.RwT
 	if err != nil {
 		return err
 	}
-	log.L().Debug("erigon store finalize", zap.Uint64("height", height), zap.String("tsw", fmt.Sprintf("%+T", tsw)))
+	log.L().Debug("erigon store finalize", zap.Uint64("height", height), zap.String("tsw", fmt.Sprintf("%T", tsw)))
 	// store.intraBlockState.Print(*rules)
 
 	log.L().Debug("erigon store write changesets", zap.Uint64("height", height))
