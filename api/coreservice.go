@@ -193,6 +193,8 @@ type (
 
 		// Historical methods
 		BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error)
+		// PendingNonceAt returns the pending nonce of an account at a specific height
+		PendingNonceAt(ctx context.Context, addr address.Address, height uint64) (uint64, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -554,6 +556,30 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 
 func (core *coreService) PendingNonce(addr address.Address) (uint64, error) {
 	return core.ap.GetPendingNonce(addr.String())
+}
+
+func (core *coreService) PendingNonceAt(ctx context.Context, addr address.Address, height uint64) (uint64, error) {
+	if height == 0 {
+		return core.ap.GetPendingNonce(addr.String())
+	}
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height}))
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
+	confirmedState, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+		return confirmedState.PendingNonceConsideringFreshAccount(), nil
+	}
+	return confirmedState.PendingNonce(), nil
 }
 
 func (core *coreService) validateChainID(chainID uint32) error {
