@@ -445,7 +445,10 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 	if err != nil {
 		return nil, err
 	}
-	height, _ := blockNumberToHeight(bn)
+	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	if err != nil {
+		return nil, err
+	}
 	pendingNonce, err := svr.coreService.PendingNonceAt(context.Background(), ioAddr, height)
 	if err != nil {
 		return nil, err
