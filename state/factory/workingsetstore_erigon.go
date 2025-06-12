@@ -41,7 +41,7 @@ type erigonDB struct {
 }
 
 type erigonWorkingSetStore struct {
-	tsw             erigonstate.StateWriter
+	db              *erigonDB
 	intraBlockState *erigonstate.IntraBlockState
 	tx              kv.Tx
 }
@@ -72,14 +72,14 @@ func (db *erigonDB) Stop(ctx context.Context) {
 }
 
 func (db *erigonDB) newErigonStore(ctx context.Context, height uint64) (*erigonWorkingSetStore, error) {
-	tx, err := db.rw.BeginRw(ctx)
+	tx, err := db.rw.BeginRo(ctx)
 	if err != nil {
 		return nil, err
 	}
-	r, tsw := erigonstate.NewPlainStateReader(tx), erigonstate.NewPlainStateWriter(tx, tx, height)
+	r := erigonstate.NewPlainStateReader(tx)
 	intraBlockState := erigonstate.New(r)
 	return &erigonWorkingSetStore{
-		tsw:             tsw,
+		db:              db,
 		tx:              tx,
 		intraBlockState: intraBlockState,
 	}, nil
@@ -93,7 +93,7 @@ func (db *erigonDB) newErigonStoreDryrun(ctx context.Context, height uint64) (*e
 	tsw := erigonstate.NewPlainState(tx, height, nil)
 	intraBlockState := erigonstate.New(tsw)
 	return &erigonWorkingSetStore{
-		tsw:             tsw,
+		db:              db,
 		tx:              tx,
 		intraBlockState: intraBlockState,
 	}, nil
@@ -120,6 +120,10 @@ func (store *erigonWorkingSetStore) FinalizeTx(ctx context.Context) error {
 }
 
 func (store *erigonWorkingSetStore) Finalize(ctx context.Context) error {
+	return nil
+}
+
+func (store *erigonWorkingSetStore) prepareCommit(ctx context.Context, tx kv.RwTx) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	height := blkCtx.BlockHeight
 	ts := blkCtx.BlockTimeStamp.Unix()
@@ -131,40 +135,45 @@ func (store *erigonWorkingSetStore) Finalize(ctx context.Context) error {
 
 	chainRules := chainCfg.Rules(big.NewInt(int64(height)), g.IsSumatra(height), uint64(ts))
 	rules := evm.NewErigonRules(&chainRules)
+	tsw := erigonstate.NewPlainStateWriter(tx, tx, height)
 	log.L().Debug("intraBlockState Commit block", zap.Uint64("height", height))
-	err = store.intraBlockState.CommitBlock(rules, store.tsw)
+	err = store.intraBlockState.CommitBlock(rules, tsw)
 	if err != nil {
 		return err
 	}
-	log.L().Debug("erigon store finalize", zap.Uint64("height", height), zap.String("tsw", fmt.Sprintf("%+T", store.tsw)))
+	log.L().Debug("erigon store finalize", zap.Uint64("height", height), zap.String("tsw", fmt.Sprintf("%+T", tsw)))
 	// store.intraBlockState.Print(*rules)
 
-	if c, ok := store.tsw.(erigonstate.WriterWithChangeSets); ok {
-		log.L().Debug("erigon store write changesets", zap.Uint64("height", height))
-		err = c.WriteChangeSets()
-		if err != nil {
-			return err
-		}
-		err = c.WriteHistory()
-		if err != nil {
-			return err
-		}
+	log.L().Debug("erigon store write changesets", zap.Uint64("height", height))
+	err = tsw.WriteChangeSets()
+	if err != nil {
+		return err
 	}
-	if tx, ok := store.tx.(kv.RwTx); ok {
-		log.L().Debug("erigon store commit tx", zap.Uint64("height", height))
-		err = tx.Put(systemNS, heightKey, uint256.NewInt(height).Bytes())
-		if err != nil {
-			return err
-		}
+	err = tsw.WriteHistory()
+	if err != nil {
+		return err
+	}
+	log.L().Debug("erigon store commit tx", zap.Uint64("height", height))
+	err = tx.Put(systemNS, heightKey, uint256.NewInt(height).Bytes())
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
 func (store *erigonWorkingSetStore) Commit(ctx context.Context) error {
 	defer store.tx.Rollback()
-	err := store.tx.Commit()
+	tx, err := store.db.rw.BeginRw(ctx)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to begin erigon working set store transaction")
+	}
+	defer tx.Rollback()
+
+	if err = store.prepareCommit(ctx, tx); err != nil {
+		return errors.Wrap(err, "failed to prepare erigon working set store commit")
+	}
+	if err = tx.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit erigon working set store transaction")
 	}
 	return nil
 }
