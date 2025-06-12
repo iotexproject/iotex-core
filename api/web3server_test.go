@@ -263,8 +263,7 @@ func TestGetBalance(t *testing.T) {
 	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	balance := "111111111111111111"
-	core.EXPECT().WithHeight(gomock.Any()).Return(core).Times(1)
-	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{Balance: balance}, nil, nil)
+	core.EXPECT().BalanceAt(gomock.Any(), gomock.Any(), gomock.Any()).Return(balance, nil)
 
 	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"]}`)
 	ret, err := web3svr.getBalance(&in)
@@ -280,13 +279,13 @@ func TestGetTransactionCount(t *testing.T) {
 	defer ctrl.Finish()
 	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
-	core.EXPECT().PendingNonce(gomock.Any()).Return(uint64(2), nil)
+	core.EXPECT().PendingNonceAt(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(2), nil)
 
 	inNil := gjson.Parse(`{"params":[]}`)
 	_, err := web3svr.getTransactionCount(&inNil)
 	require.EqualError(err, errInvalidFormat.Error())
 
-	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
+	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"]}`)
 	ret, err := web3svr.getTransactionCount(&in)
 	require.NoError(err)
 	require.Equal("0x2", ret.(string))
