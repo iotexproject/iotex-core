@@ -43,6 +43,7 @@ type Server struct {
 	p2pAgent             p2p.Agent
 	dispatcher           dispatcher.Dispatcher
 	nodeStats            *nodestats.NodeStats
+	pauseMgr             *PauseMgr
 	initializedSubChains map[uint32]bool
 	mutex                sync.RWMutex
 	subModuleCancel      context.CancelFunc
@@ -120,6 +121,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
 	nodeStats := nodestats.NewNodeStats(rpcStats, cs.BlockSync(), p2pAgent)
+	pauseMgr := NewPauseMgr(cs.Blockchain())
 	apiServer, err := cs.NewAPIServer(cfg.API, cfg.Chain.EnableArchiveMode)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create api server")
@@ -141,6 +143,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		chainservices:        chains,
 		apiServers:           apiServers,
 		nodeStats:            nodeStats,
+		pauseMgr:             pauseMgr,
 		initializedSubChains: map[uint32]bool{},
 	}
 	// Setup sub-chain starter
@@ -302,6 +305,8 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 		mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 		mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+		mux.Handle("/pause", http.HandlerFunc(svr.pauseMgr.HandlePause))
+		mux.Handle("/unpause", http.HandlerFunc(svr.pauseMgr.HandleUnPause))
 
 		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
 		adminserv = httputil.NewServer(port, mux)

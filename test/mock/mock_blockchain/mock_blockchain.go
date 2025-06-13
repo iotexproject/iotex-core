@@ -219,6 +219,18 @@ func (mr *MockBlockchainMockRecorder) MintNewBlock(arg0 interface{}, arg1 ...int
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), varargs...)
 }
 
+// Pause mocks base method.
+func (m *MockBlockchain) Pause(arg0 bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Pause", arg0)
+}
+
+// Pause indicates an expected call of Pause.
+func (mr *MockBlockchainMockRecorder) Pause(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pause", reflect.TypeOf((*MockBlockchain)(nil).Pause), arg0)
+}
+
 // RemoveSubscriber mocks base method.
 func (m *MockBlockchain) RemoveSubscriber(arg0 blockchain.BlockCreationSubscriber) error {
 	m.ctrl.T.Helper()
