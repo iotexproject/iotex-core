@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
-	"github.com/stretchr/testify/require"
 )
 
 func TestViewData_Clone(t *testing.T) {
@@ -61,9 +62,10 @@ func prepareViewData(t *testing.T) (*ViewData, int) {
 		},
 	}
 	viewData := &ViewData{
-		candCenter: candCenter,
-		bucketPool: bucketPool,
-		snapshots:  []Snapshot{},
+		candCenter:     candCenter,
+		bucketPool:     bucketPool,
+		snapshots:      []Snapshot{},
+		contractsStake: &contractStakeView{},
 	}
 	return viewData, viewData.Snapshot()
 }
