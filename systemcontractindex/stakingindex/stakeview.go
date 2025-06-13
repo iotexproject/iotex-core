@@ -12,7 +12,7 @@ import (
 
 type stakeView struct {
 	helper *Indexer
-	cache  *cache
+	cache  bucketCache
 	height uint64
 }
 
