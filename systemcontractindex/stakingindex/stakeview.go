@@ -2,6 +2,7 @@ package stakingindex
 
 import (
 	"context"
+	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
 
@@ -14,9 +15,12 @@ type stakeView struct {
 	helper *Indexer
 	cache  bucketCache
 	height uint64
+	mu     sync.RWMutex
 }
 
 func (s *stakeView) Clone() staking.ContractStakeView {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return &stakeView{
 		helper: s.helper,
 		cache:  s.cache.Copy(),
@@ -24,6 +28,8 @@ func (s *stakeView) Clone() staking.ContractStakeView {
 	}
 }
 func (s *stakeView) BucketsByCandidate(candidate address.Address) ([]*VoteBucket, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	idxs := s.cache.BucketIdsByCandidate(candidate)
 	bkts := s.cache.Buckets(idxs)
 	// filter out muted buckets
@@ -40,12 +46,16 @@ func (s *stakeView) BucketsByCandidate(candidate address.Address) ([]*VoteBucket
 }
 
 func (s *stakeView) CreatePreStates(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	s.height = blkCtx.BlockHeight
 	return nil
 }
 
 func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	muted := s.helper.muteHeight > 0 && blkCtx.BlockHeight >= s.helper.muteHeight
 	handler := newEventHandler(s.helper.bucketNS, s.cache, blkCtx, s.helper.timestamped, muted)
