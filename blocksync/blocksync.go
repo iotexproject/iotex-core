@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/pkg/fastrand"
@@ -169,6 +170,8 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 			return true
 		case blockdao.ErrRemoteHeightTooLow:
 			log.L().Info("remote height too low", zap.Uint64("height", blk.block.Height()))
+		case blockchain.ErrPaused:
+			log.L().Info("blockchain is paused, skip committing block", zap.Uint64("height", blk.block.Height()))
 		default:
 			bs.blockP2pPeer(blk.pid)
 			log.L().Error("failed to commit block", zap.Error(err), zap.Uint64("height", blk.block.Height()), zap.String("peer", blk.pid))
