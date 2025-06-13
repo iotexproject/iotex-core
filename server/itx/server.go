@@ -121,7 +121,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
 	nodeStats := nodestats.NewNodeStats(rpcStats, cs.BlockSync(), p2pAgent)
-	pauseMgr := NewPauseMgr(cs.Blockchain())
+	pauseMgr := NewPauseMgr(cs.Blockchain(), cs)
 	apiServer, err := cs.NewAPIServer(cfg.API, cfg.Chain.EnableArchiveMode)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create api server")
