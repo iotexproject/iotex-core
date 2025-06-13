@@ -112,6 +112,8 @@ type (
 
 		// RemoveSubscriber make you listen to every single produced block
 		RemoveSubscriber(BlockCreationSubscriber) error
+		//  Pause pauses the blockchain
+		Pause(bool)
 	}
 
 	// BlockMinter is the block minter interface
@@ -133,7 +135,8 @@ type (
 		timerFactory   *prometheustimer.TimerFactory
 
 		// used by account-based model
-		bbf BlockMinter
+		bbf   BlockMinter
+		pause bool
 	}
 )
 
@@ -262,6 +265,12 @@ func (bc *blockchain) Stop(ctx context.Context) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 	return bc.lifecycle.OnStop(ctx)
+}
+
+func (bc *blockchain) Pause(pause bool) {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	bc.pause = pause
 }
 
 func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) {
@@ -473,6 +482,10 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time, opts ...MintOption) (*bl
 func (bc *blockchain) CommitBlock(blk *block.Block) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
+	if bc.pause {
+		log.L().Info("Blockchain is paused, skip committing block.", zap.Uint64("height", blk.Height()))
+		return nil
+	}
 	timer := bc.timerFactory.NewTimer("CommitBlock")
 	defer timer.End()
 	return bc.commitBlock(blk)
