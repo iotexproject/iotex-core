@@ -887,6 +887,12 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	if !ethAddr.Exists() || !storagePos.Exists() {
 		return nil, errInvalidFormat
 	}
+	bnParam := in.Get("params.2")
+	bn, err := parseBlockNumber(&bnParam)
+	if err != nil {
+		return nil, err
+	}
+	height, _ := blockNumberToHeight(bn)
 	contractAddr, err := address.FromHex(ethAddr.String())
 	if err != nil {
 		return nil, err
@@ -895,7 +901,7 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	val, err := svr.coreService.ReadContractStorage(context.Background(), contractAddr, pos)
+	val, err := svr.coreService.ReadContractStorageAt(context.Background(), contractAddr, pos, height)
 	if err != nil {
 		return nil, err
 	}

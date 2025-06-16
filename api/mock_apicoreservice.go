@@ -564,6 +564,21 @@ func (mr *MockCoreServiceMockRecorder) ReadContractStorage(ctx, addr, key any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadContractStorage", reflect.TypeOf((*MockCoreService)(nil).ReadContractStorage), ctx, addr, key)
 }
 
+// ReadContractStorageAt mocks base method.
+func (m *MockCoreService) ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadContractStorageAt", ctx, addr, key, height)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadContractStorageAt indicates an expected call of ReadContractStorageAt.
+func (mr *MockCoreServiceMockRecorder) ReadContractStorageAt(ctx, addr, key, height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadContractStorageAt", reflect.TypeOf((*MockCoreService)(nil).ReadContractStorageAt), ctx, addr, key, height)
+}
+
 // ReadState mocks base method.
 func (m *MockCoreService) ReadState(protocolID, height string, methodName []byte, arguments [][]byte) (*iotexapi.ReadStateResponse, error) {
 	m.ctrl.T.Helper()
