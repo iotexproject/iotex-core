@@ -197,6 +197,8 @@ type (
 		PendingNonceAt(ctx context.Context, addr address.Address, height uint64) (uint64, error)
 		//  CodeAt returns the code at a specific address at a specific height
 		CodeAt(ctx context.Context, addr address.Address, height uint64) ([]byte, error)
+		// ReadContractStorageAt reads contract's storage at a specific height
+		ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -1962,6 +1964,15 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 	return evm.ReadContractStorage(ctx, ws, addr, key)
 }
 
+func (core *coreService) ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error) {
+	ctx, ws, err := core.getStateManager(ctx, height)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
+	return evm.ReadContractStorage(ctx, ws, addr, key)
+}
+
 func (core *coreService) ReceiveBlock(blk *block.Block) error {
 	core.readCache.Clear()
 	return core.chainListener.ReceiveBlock(blk)
@@ -2137,6 +2148,23 @@ func (core *coreService) simulateExecution(
 		DepositGasFunc: rewarding.DepositGas,
 	})
 	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
+}
+
+func (core *coreService) getStateManager(ctx context.Context, height uint64) (context.Context, protocol.StateManagerWithCloser, error) {
+	if height == 0 {
+		ctx, err := core.bc.Context(ctx)
+		if err != nil {
+			return ctx, nil, err
+		}
+		ws, err := core.sf.WorkingSet(ctx)
+		return ctx, ws, err
+	}
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return nil, nil, err
+	}
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
+	return ctx, ws, err
 }
 
 func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {

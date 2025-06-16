@@ -907,7 +907,7 @@ func TestGetStorageAt(t *testing.T) {
 	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	val := []byte("test")
-	core.EXPECT().ReadContractStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(val, nil)
+	core.EXPECT().ReadContractStorageAt(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(val, nil)
 
 	in := gjson.Parse(`{"params":["0x123456789abc", "0"]}`)
 	ret, err := web3svr.getStorageAt(&in)
