@@ -195,6 +195,8 @@ type (
 		BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error)
 		// PendingNonceAt returns the pending nonce of an account at a specific height
 		PendingNonceAt(ctx context.Context, addr address.Address, height uint64) (uint64, error)
+		//  CodeAt returns the code at a specific address at a specific height
+		CodeAt(ctx context.Context, addr address.Address, height uint64) ([]byte, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -375,6 +377,50 @@ func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, he
 		return "", status.Error(codes.NotFound, err.Error())
 	}
 	return state.Balance.String(), nil
+}
+
+func (core *coreService) CodeAt(ctx context.Context, addr address.Address, height uint64) ([]byte, error) {
+	ctx, span := tracer.NewSpan(ctx, "coreService.CodeAt")
+	defer span.End()
+	addrStr := addr.String()
+	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
+		return nil, nil
+	}
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	var (
+		ws  protocol.StateManagerWithCloser
+		err error
+	)
+	if height == 0 {
+		ws, err = core.sf.WorkingSet(ctx)
+	} else {
+		ws, err = core.sf.WorkingSetAtHeight(ctx, height)
+	}
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
+	state, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	if !state.IsContract() {
+		return nil, nil
+	}
+	var (
+		code protocol.SerializableBytes
+		key  protocol.StateOption
+	)
+	if height == 0 {
+		key = protocol.KeyOption(state.CodeHash)
+	} else {
+		key = protocol.KeyOption(addr.Bytes())
+	}
+	_, err = ws.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), key)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return code, nil
 }
 
 func (core *coreService) acccount(ctx context.Context, height uint64, state *state.Account, pendingNonce uint64, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {

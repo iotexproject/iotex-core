@@ -632,11 +632,17 @@ func (svr *web3Handler) getCode(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	bnParam := in.Get("params.1")
+	bn, err := parseBlockNumber(&bnParam)
 	if err != nil {
 		return nil, err
 	}
-	return "0x" + hex.EncodeToString(accountMeta.ContractByteCode), nil
+	height, _ := blockNumberToHeight(bn)
+	code, err := svr.coreService.CodeAt(context.Background(), ioAddr, height)
+	if err != nil {
+		return nil, err
+	}
+	return "0x" + hex.EncodeToString(code), nil
 }
 
 func (svr *web3Handler) getNodeInfo() (interface{}, error) {

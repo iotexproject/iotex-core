@@ -461,7 +461,7 @@ func TestGetCode(t *testing.T) {
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	code := "608060405234801561001057600080fd5b50610150806100206contractbytecode"
 	data, _ := hex.DecodeString(code)
-	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{ContractByteCode: data}, nil, nil)
+	core.EXPECT().CodeAt(gomock.Any(), gomock.Any(), gomock.Any()).Return(data, nil)
 
 	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
