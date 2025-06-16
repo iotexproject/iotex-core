@@ -356,6 +356,27 @@ func (mr *MockCoreServiceMockRecorder) EstimateExecutionGasConsumption(ctx, sc, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateExecutionGasConsumption", reflect.TypeOf((*MockCoreService)(nil).EstimateExecutionGasConsumption), varargs...)
 }
 
+// EstimateExecutionGasConsumptionAt mocks base method.
+func (m *MockCoreService) EstimateExecutionGasConsumptionAt(ctx context.Context, sc action.Envelope, callerAddr address.Address, height uint64, opts ...protocol.SimulateOption) (uint64, []byte, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, sc, callerAddr, height}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "EstimateExecutionGasConsumptionAt", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].([]byte)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// EstimateExecutionGasConsumptionAt indicates an expected call of EstimateExecutionGasConsumptionAt.
+func (mr *MockCoreServiceMockRecorder) EstimateExecutionGasConsumptionAt(ctx, sc, callerAddr, height interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, sc, callerAddr, height}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateExecutionGasConsumptionAt", reflect.TypeOf((*MockCoreService)(nil).EstimateExecutionGasConsumptionAt), varargs...)
+}
+
 // EstimateGasForAction mocks base method.
 func (m *MockCoreService) EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error) {
 	m.ctrl.T.Helper()
@@ -400,6 +421,22 @@ func (m *MockCoreService) EstimateMigrateStakeGasConsumption(arg0 context.Contex
 func (mr *MockCoreServiceMockRecorder) EstimateMigrateStakeGasConsumption(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateMigrateStakeGasConsumption", reflect.TypeOf((*MockCoreService)(nil).EstimateMigrateStakeGasConsumption), arg0, arg1, arg2)
+}
+
+// EstimateMigrateStakeGasConsumptionAt mocks base method.
+func (m *MockCoreService) EstimateMigrateStakeGasConsumptionAt(arg0 context.Context, arg1 *action.MigrateStake, arg2 address.Address, arg3 uint64) (uint64, []byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EstimateMigrateStakeGasConsumptionAt", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].([]byte)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// EstimateMigrateStakeGasConsumptionAt indicates an expected call of EstimateMigrateStakeGasConsumptionAt.
+func (mr *MockCoreServiceMockRecorder) EstimateMigrateStakeGasConsumptionAt(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateMigrateStakeGasConsumptionAt", reflect.TypeOf((*MockCoreService)(nil).EstimateMigrateStakeGasConsumptionAt), arg0, arg1, arg2, arg3)
 }
 
 // FeeHistory mocks base method.

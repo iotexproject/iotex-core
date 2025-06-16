@@ -534,12 +534,14 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 		estimatedGas uint64
 		retval       []byte
 		from         = callMsg.From
+		height, _    = blockNumberToHeight(callMsg.BlockNumber)
 	)
+
 	switch act := elp.Action().(type) {
 	case *action.Execution:
-		estimatedGas, retval, err = svr.coreService.EstimateExecutionGasConsumption(ctx, elp, from)
+		estimatedGas, retval, err = svr.coreService.EstimateExecutionGasConsumptionAt(ctx, elp, from, height)
 	case *action.MigrateStake:
-		estimatedGas, retval, err = svr.coreService.EstimateMigrateStakeGasConsumption(ctx, act, from)
+		estimatedGas, retval, err = svr.coreService.EstimateMigrateStakeGasConsumptionAt(ctx, act, from, height)
 	default:
 		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act)
 	}
