@@ -280,6 +280,21 @@ func (mr *MockCoreServiceMockRecorder) ChainMeta() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainMeta", reflect.TypeOf((*MockCoreService)(nil).ChainMeta))
 }
 
+// CodeAt mocks base method.
+func (m *MockCoreService) CodeAt(ctx context.Context, addr address.Address, height uint64) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CodeAt", ctx, addr, height)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CodeAt indicates an expected call of CodeAt.
+func (mr *MockCoreServiceMockRecorder) CodeAt(ctx, addr, height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CodeAt", reflect.TypeOf((*MockCoreService)(nil).CodeAt), ctx, addr, height)
+}
+
 // EVMNetworkID mocks base method.
 func (m *MockCoreService) EVMNetworkID() uint32 {
 	m.ctrl.T.Helper()
