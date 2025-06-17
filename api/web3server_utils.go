@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-redis/redis/v8"
@@ -655,4 +656,43 @@ func newGetTransactionResult(
 		receipt:   receipt,
 		pubkey:    selp.SrcPubkey(),
 	}, nil
+}
+
+func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
+	var (
+		enableMemory, disableStack, disableStorage, enableReturnData bool
+		tracerJs, tracerTimeout                                      *string
+		tracerConfig                                                 json.RawMessage
+	)
+	if options.Exists() {
+		enableMemory = options.Get("enableMemory").Bool()
+		disableStack = options.Get("disableStack").Bool()
+		disableStorage = options.Get("disableStorage").Bool()
+		enableReturnData = options.Get("enableReturnData").Bool()
+		trace := options.Get("tracer")
+		if trace.Exists() {
+			tracerJs = new(string)
+			*tracerJs = trace.String()
+		}
+		traceTimeout := options.Get("timeout")
+		if traceTimeout.Exists() {
+			tracerTimeout = new(string)
+			*tracerTimeout = traceTimeout.String()
+		}
+		if options.Get("tracerConfig").Exists() {
+			tracerConfig = json.RawMessage(options.Get("tracerConfig").Raw)
+		}
+	}
+	cfg := &tracers.TraceConfig{
+		Tracer:  tracerJs,
+		Timeout: tracerTimeout,
+		Config: &logger.Config{
+			EnableMemory:     enableMemory,
+			DisableStack:     disableStack,
+			DisableStorage:   disableStorage,
+			EnableReturnData: enableReturnData,
+		},
+		TracerConfig: tracerConfig,
+	}
+	return cfg
 }

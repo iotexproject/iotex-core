@@ -255,8 +255,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	case "eth_getBlobSidecars":
 		res, err = svr.getBlobSidecars(web3Req)
 	//TODO: enable debug api after archive mode is supported
-	// case "debug_traceTransaction":
-	// 	res, err = svr.traceTransaction(ctx, web3Req)
+	case "debug_traceTransaction":
+		res, err = svr.traceTransaction(ctx, web3Req)
 	// case "debug_traceCall":
 	// 	res, err = svr.traceCall(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
@@ -1135,30 +1135,7 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 	if !actHash.Exists() {
 		return nil, errInvalidFormat
 	}
-	var (
-		enableMemory, disableStack, disableStorage, enableReturnData bool
-	)
-	if options.Exists() {
-		enableMemory = options.Get("enableMemory").Bool()
-		disableStack = options.Get("disableStack").Bool()
-		disableStorage = options.Get("disableStorage").Bool()
-		enableReturnData = options.Get("enableReturnData").Bool()
-	}
-	cfg := &tracers.TraceConfig{
-		Config: &logger.Config{
-			EnableMemory:     enableMemory,
-			DisableStack:     disableStack,
-			DisableStorage:   disableStorage,
-			EnableReturnData: enableReturnData,
-		},
-	}
-	if tracer := options.Get("tracer"); tracer.Exists() {
-		cfg.Tracer = new(string)
-		*cfg.Tracer = tracer.String()
-		if tracerConfig := options.Get("tracerConfig"); tracerConfig.Exists() {
-			cfg.TracerConfig = json.RawMessage(tracerConfig.Raw)
-		}
-	}
+	cfg := parseTracerConfig(&options)
 	retval, receipt, tracer, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
 	if err != nil {
 		return nil, err
