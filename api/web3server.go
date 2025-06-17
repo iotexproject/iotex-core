@@ -257,8 +257,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	//TODO: enable debug api after archive mode is supported
 	case "debug_traceTransaction":
 		res, err = svr.traceTransaction(ctx, web3Req)
-	// case "debug_traceCall":
-	// 	res, err = svr.traceCall(ctx, web3Req)
+	case "debug_traceCall":
+		res, err = svr.traceCall(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
@@ -1143,52 +1143,15 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		err     error
 		callMsg *callMsg
 	)
-	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
+	options := in.Get("params.2")
 	callMsg, err = parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
+	tracerCfg := parseTracerConfig(&options)
+	height, _ := blockNumberToHeight(callMsg.BlockNumber)
 
-	var blkNumOrHash any
-	if blkNumOrHashObj.Exists() {
-		blkNumOrHash = blkNumOrHashObj.Get("blockHash").String()
-		if blkNumOrHash == "" {
-			blkNumOrHash = blkNumOrHashObj.Get("blockNumber").Uint()
-		}
-	}
-
-	var (
-		enableMemory, disableStack, disableStorage, enableReturnData bool
-		tracerJs, tracerTimeout                                      *string
-	)
-	if options.Exists() {
-		enableMemory = options.Get("enableMemory").Bool()
-		disableStack = options.Get("disableStack").Bool()
-		disableStorage = options.Get("disableStorage").Bool()
-		enableReturnData = options.Get("enableReturnData").Bool()
-		trace := options.Get("tracer")
-		if trace.Exists() {
-			tracerJs = new(string)
-			*tracerJs = trace.String()
-		}
-		traceTimeout := options.Get("timeout")
-		if traceTimeout.Exists() {
-			tracerTimeout = new(string)
-			*tracerTimeout = traceTimeout.String()
-		}
-	}
-	cfg := &tracers.TraceConfig{
-		Tracer:  tracerJs,
-		Timeout: tracerTimeout,
-		Config: &logger.Config{
-			EnableMemory:     enableMemory,
-			DisableStack:     disableStack,
-			DisableStorage:   disableStorage,
-			EnableReturnData: enableReturnData,
-		},
-	}
-
-	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callMsg.From, blkNumOrHash, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, cfg)
+	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callMsg.From, height, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, tracerCfg)
 	if err != nil {
 		return nil, err
 	}
