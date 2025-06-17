@@ -57,6 +57,8 @@ var (
 	ErrInsufficientGas = errors.New("insufficient intrinsic gas value")
 	// ErrBalance indicates the error of balance
 	ErrBalance = errors.New("invalid balance")
+	// ErrPaused indicates the error of blockchain is paused
+	ErrPaused = errors.New("blockchain is paused")
 )
 
 func init() {
@@ -483,8 +485,7 @@ func (bc *blockchain) CommitBlock(blk *block.Block) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 	if bc.pause {
-		log.L().Info("Blockchain is paused, skip committing block.", zap.Uint64("height", blk.Height()))
-		return nil
+		return errors.Wrapf(ErrPaused, "blockchain is paused, cannot commit block %d, %x", blk.Height(), blk.HashBlock())
 	}
 	timer := bc.timerFactory.NewTimer("CommitBlock")
 	defer timer.End()
