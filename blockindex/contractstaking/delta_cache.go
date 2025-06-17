@@ -154,10 +154,6 @@ func (s *contractStakingDelta) AddedBucketTypeCnt() uint64 {
 	return cnt
 }
 
-func (s *contractStakingDelta) isBucketDeleted(id uint64) bool {
-	return s.bucketInfoDeltaState[id] == deltaStateRemoved
-}
-
 func (s *contractStakingDelta) addBucketInfo(id uint64, bi *bucketInfo) error {
 	var err error
 	s.bucketInfoDeltaState[id], err = s.bucketInfoDeltaState[id].Transfer(deltaActionAdd)
