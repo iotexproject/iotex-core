@@ -12,14 +12,14 @@ import (
 
 type stakeView struct {
 	helper *Indexer
-	cache  *cache
+	cache  indexerCache
 	height uint64
 }
 
 func (s *stakeView) Clone() staking.ContractStakeView {
 	return &stakeView{
 		helper: s.helper,
-		cache:  s.cache.Copy(),
+		cache:  newWrappedCache(s.cache),
 		height: s.height,
 	}
 }
