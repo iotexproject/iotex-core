@@ -30,6 +30,10 @@ type (
 		mutex                 sync.RWMutex                // a RW mutex for the cache to protect concurrent access
 		config                Config
 	}
+
+	wrappedCache struct {
+		cache contractStakingCache
+	}
 )
 
 var (
