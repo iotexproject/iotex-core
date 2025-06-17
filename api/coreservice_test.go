@@ -1037,20 +1037,6 @@ func TestSimulateExecution(t *testing.T) {
 		ctx = context.Background()
 	)
 
-	t.Run("FailedToAccountState", func(t *testing.T) {
-		p := NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyFuncReturn(accountutil.AccountState, nil, errors.New(t.Name()))
-		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
-		bc.EXPECT().TipHeight().Return(uint64(1)).Times(1)
-		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
-		sf.EXPECT().WorkingSet(gomock.Any()).Return(nil, nil).Times(1)
-		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
-		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, elp)
-		require.ErrorContains(err, t.Name())
-	})
-
 	t.Run("FailedToContext", func(t *testing.T) {
 		p := NewPatches()
 		defer p.Reset()

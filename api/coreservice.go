@@ -178,7 +178,7 @@ type (
 		// TraceCall returns the trace result of a call
 		TraceCall(ctx context.Context,
 			callerAddr address.Address,
-			blkNumOrHash any,
+			height uint64,
 			contractAddress string,
 			nonce uint64,
 			amount *big.Int,
@@ -1074,6 +1074,7 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 			if err != nil {
 				return nil, 0, err
 			}
+			defer historySR.Close()
 			d, h, err := p.ReadState(ctx, historySR, methodName, arguments...)
 			if err == nil {
 				key.Height = strconv.FormatUint(h, 10)
@@ -2090,16 +2091,19 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 // TraceCall returns the trace result of call
 func (core *coreService) TraceCall(ctx context.Context,
 	callerAddr address.Address,
-	blkNumOrHash any,
+	height uint64,
 	contractAddress string,
 	nonce uint64,
 	amount *big.Int,
 	gasLimit uint64,
 	data []byte,
 	config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
+	if height == 0 {
+		height = core.bc.TipHeight()
+	}
 	var (
 		g             = core.bc.Genesis()
-		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+		blockGasLimit = g.BlockGasLimitByHeight(height)
 	)
 	if gasLimit == 0 {
 		gasLimit = blockGasLimit
@@ -2111,7 +2115,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contractAddress, amount, data)).
 		SetGasLimit(gasLimit).Build()
 	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, core.bc.TipHeight(), false, callerAddr, elp)
+		return core.simulateExecution(ctx, height, true, callerAddr, elp)
 	})
 }
 
@@ -2179,7 +2183,7 @@ func (core *coreService) simulateExecution(
 	opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
 	var (
 		err error
-		ws  protocol.StateManager
+		ws  protocol.StateManagerWithCloser
 	)
 	if archive {
 		ctx, err = core.bc.ContextAtHeight(ctx, height)
@@ -2197,6 +2201,7 @@ func (core *coreService) simulateExecution(
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
+	defer ws.Close()
 	state, err := accountutil.AccountState(ctx, ws, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
@@ -2205,10 +2210,6 @@ func (core *coreService) simulateExecution(
 	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: height,
 	}))
-	ctx, err = core.bc.Context(ctx)
-	if err != nil {
-		return nil, nil, status.Error(codes.Internal, err.Error())
-	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
 		pendingNonce = state.PendingNonceConsideringFreshAccount()
