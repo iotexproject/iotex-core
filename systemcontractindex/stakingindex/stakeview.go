@@ -23,6 +23,7 @@ func (s *stakeView) Clone() staking.ContractStakeView {
 		height: s.height,
 	}
 }
+
 func (s *stakeView) BucketsByCandidate(candidate address.Address) ([]*VoteBucket, error) {
 	idxs := s.cache.BucketIdsByCandidate(candidate)
 	bkts := s.cache.Buckets(idxs)
