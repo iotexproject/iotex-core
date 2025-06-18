@@ -90,13 +90,15 @@ func (v *ViewData) IsDirty() bool {
 
 func (v *ViewData) Snapshot() int {
 	snapshot := len(v.snapshots)
+	clone := v.contractsStake.Clone()
 	v.snapshots = append(v.snapshots, Snapshot{
 		size:           v.candCenter.size,
 		changes:        v.candCenter.change.size(),
 		amount:         new(big.Int).Set(v.bucketPool.total.amount),
 		count:          v.bucketPool.total.count,
-		contractsStake: v.contractsStake.Clone(),
+		contractsStake: v.contractsStake,
 	})
+	v.contractsStake = clone
 	return snapshot
 }
 
