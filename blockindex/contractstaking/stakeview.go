@@ -66,12 +66,12 @@ func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 		}
 		if handler == nil {
 			s.mu.Lock()
-			defer s.mu.Unlock()
 			// new event handler for this receipt
 			if s.dirty == nil {
 				s.dirty = s.clean.Clone()
 			}
 			handler = newContractStakingEventHandler(s.dirty)
+			s.mu.Unlock()
 		}
 		if err := handler.HandleEvent(ctx, blkCtx.BlockHeight, log); err != nil {
 			return err
@@ -82,10 +82,9 @@ func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 	}
 	_, delta := handler.Result()
 	// update cache
-	if err := s.dirty.Merge(delta, blkCtx.BlockHeight); err != nil {
-		return err
-	}
-	return nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.dirty.Merge(delta, blkCtx.BlockHeight)
 }
 
 func (s *stakeView) Commit() {
