@@ -2,6 +2,7 @@ package contractstaking
 
 import (
 	"context"
+	"time"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -12,20 +13,39 @@ import (
 
 type stakeView struct {
 	helper *Indexer
-	cache  *contractStakingCache
+	cache  stakingCache
 	height uint64
 }
 
 func (s *stakeView) Clone() staking.ContractStakeView {
 	return &stakeView{
 		helper: s.helper,
-		cache:  s.cache.Clone(),
+		cache:  newWrappedCache(s.cache),
 		height: s.height,
 	}
 }
 
 func (s *stakeView) BucketsByCandidate(candidate address.Address) ([]*Bucket, error) {
-	return s.cache.bucketsByCandidate(candidate, s.height)
+	ids, types, infos := s.cache.BucketsByCandidate(candidate)
+	vbs := make([]*Bucket, 0, len(ids))
+	for i, id := range ids {
+		bt := types[i]
+		info := infos[i]
+		if bt != nil && info != nil {
+			vbs = append(vbs, s.assembleBucket(id, info, bt))
+		}
+	}
+	return vbs, nil
+}
+
+func (s *stakeView) assembleBucket(token uint64, bi *bucketInfo, bt *BucketType) *Bucket {
+	return assembleBucket(token, bi, bt, s.helper.config.ContractAddress, s.genBlockDurationFn(s.height))
+}
+
+func (s *stakeView) genBlockDurationFn(view uint64) blocksDurationFn {
+	return func(start, end uint64) time.Duration {
+		return s.helper.config.BlocksToDuration(start, end, view)
+	}
 }
 
 func (s *stakeView) CreatePreStates(ctx context.Context) error {
@@ -37,7 +57,7 @@ func (s *stakeView) CreatePreStates(ctx context.Context) error {
 func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	// new event handler for this receipt
-	handler := newContractStakingEventHandler(s.cache)
+	handler := newContractStakingEventHandler(newWrappedCache(s.cache))
 
 	// handle events of receipt
 	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
@@ -52,9 +72,7 @@ func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 		}
 	}
 	_, delta := handler.Result()
-	// update cache
-	if err := s.cache.Merge(delta, blkCtx.BlockHeight); err != nil {
-		return err
-	}
+	s.cache = delta
+
 	return nil
 }
