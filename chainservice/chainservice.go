@@ -83,6 +83,7 @@ type ChainService struct {
 	minter                   *factory.Minter
 
 	lastReceivedBlockHeight uint64
+	paused                  atomic.Bool
 }
 
 // Start starts the server
@@ -101,6 +102,9 @@ func (cs *ChainService) Start(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				if cs.paused.Load() {
+					continue
+				}
 				currentHeight := cs.chain.TipHeight()
 				lrbh := atomic.LoadUint64(&cs.lastReceivedBlockHeight)
 				if currentHeight == lastHeight && lastReceivedBlockHeight != lrbh {
@@ -117,6 +121,10 @@ func (cs *ChainService) Start(ctx context.Context) error {
 // Stop stops the server
 func (cs *ChainService) Stop(ctx context.Context) error {
 	return cs.lifecycle.OnStopSequentially(ctx)
+}
+
+func (cs *ChainService) Pause(pause bool) {
+	cs.paused.Store(pause)
 }
 
 // ReportFullness switch on or off block sync
