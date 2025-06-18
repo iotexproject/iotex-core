@@ -696,7 +696,7 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 	}
 	structLogs := make([]*iotextypes.TransactionStructLog, 0)
 	//grpc not support javascript tracing, so we only return native traces
-	traces := tracer.(*logger.StructLogger)
+	traces := tracer.(*evmTracer).EVMLogger.(*logger.StructLogger)
 	for _, log := range traces.StructLogs() {
 		var stack []string
 		for _, s := range log.Stack {

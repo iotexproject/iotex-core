@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -695,4 +696,54 @@ func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
 		TracerConfig: tracerConfig,
 	}
 	return cfg
+}
+
+type evmTracer struct {
+	vm.EVMLogger
+	txctx  *tracers.Context
+	config *tracers.TraceConfig
+}
+
+func newEVMTracer(txctx *tracers.Context, config *tracers.TraceConfig) *evmTracer {
+	return &evmTracer{
+		txctx:  txctx,
+		config: config,
+	}
+}
+
+func (et *evmTracer) Reset() error {
+	var (
+		tracer vm.EVMLogger
+		err    error
+	)
+	switch {
+	case et.config == nil:
+		tracer = logger.NewStructLogger(nil)
+	case et.config.Tracer != nil:
+		// Define a meaningful timeout of a single transaction trace
+		timeout := defaultTraceTimeout
+		if et.config.Timeout != nil {
+			if timeout, err = time.ParseDuration(*et.config.Timeout); err != nil {
+				return err
+			}
+		}
+		t, err := tracers.DefaultDirectory.New(*et.config.Tracer, et.txctx, et.config.TracerConfig)
+		if err != nil {
+			return err
+		}
+		deadlineCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		go func() {
+			<-deadlineCtx.Done()
+			if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
+				t.Stop(errors.New("execution timeout"))
+			}
+		}()
+		tracer = t
+
+	default:
+		tracer = logger.NewStructLogger(et.config.Config)
+	}
+	et.EVMLogger = tracer
+	return nil
 }

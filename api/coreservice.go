@@ -190,6 +190,8 @@ type (
 		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
 		// BlobSidecarsByHeight returns blob sidecars by height
 		BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSidecarResult, error)
+		// TraceBlockByNumber returns the trace result of a block by its height
+		TraceBlockByNumber(ctx context.Context, height uint64, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error)
 
 		// Historical methods
 		BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error)
@@ -2119,6 +2121,14 @@ func (core *coreService) TraceCall(ctx context.Context,
 	})
 }
 
+func (core *coreService) TraceBlockByNumber(ctx context.Context, height uint64, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	blk, err := core.dao.GetBlockByHeight(height)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return core.traceBlock(ctx, blk, config)
+}
+
 // Track tracks the api call
 func (core *coreService) Track(ctx context.Context, start time.Time, method string, size int64, success bool) {
 	if core.apiStats == nil {
@@ -2134,44 +2144,21 @@ func (core *coreService) Track(ctx context.Context, start time.Time, method stri
 }
 
 func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig, simulateFn func(ctx context.Context) ([]byte, *action.Receipt, error)) ([]byte, *action.Receipt, any, error) {
-	var (
-		tracer vm.EVMLogger
-		err    error
-	)
-	switch {
-	case config == nil:
-		tracer = logger.NewStructLogger(nil)
-	case config.Tracer != nil:
-		// Define a meaningful timeout of a single transaction trace
-		timeout := defaultTraceTimeout
-		if config.Timeout != nil {
-			if timeout, err = time.ParseDuration(*config.Timeout); err != nil {
-				return nil, nil, nil, err
-			}
-		}
-		t, err := tracers.DefaultDirectory.New(*config.Tracer, txctx, config.TracerConfig)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		deadlineCtx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
-		go func() {
-			<-deadlineCtx.Done()
-			if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
-				t.Stop(errors.New("execution timeout"))
-			}
-		}()
-		tracer = t
+	ctx, tracer, err := core.traceContext(ctx, txctx, config)
+	retval, receipt, err := simulateFn(ctx)
+	return retval, receipt, tracer, err
+}
 
-	default:
-		tracer = logger.NewStructLogger(config.Config)
+func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (context.Context, *evmTracer, error) {
+	tracer := newEVMTracer(txctx, config)
+	if err := tracer.Reset(); err != nil {
+		return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("failed to reset tracer: %v", err))
 	}
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
-	retval, receipt, err := simulateFn(ctx)
-	return retval, receipt, tracer, err
+	return ctx, tracer, nil
 }
 
 func (core *coreService) simulateExecution(
@@ -2238,6 +2225,67 @@ func (core *coreService) workingSetAt(ctx context.Context, height uint64) (conte
 		return ctx, nil, status.Error(codes.Internal, err.Error())
 	}
 	return ctx, ws, nil
+}
+
+func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	ctx, err := core.bc.ContextAtHeight(ctx, blk.Height())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	g := core.bc.Genesis()
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    blk.Height(),
+		BlockTimeStamp: blk.Timestamp(),
+		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
+		Producer:       blk.PublicKey().Address(),
+	})
+	ctx = protocol.WithRegistry(ctx, core.registry)
+	ctx = protocol.WithFeatureCtx(ctx)
+	retvals := make([][]byte, 0)
+	receipts := make([]*action.Receipt, 0)
+	results := make([]*blockTraceResult, 0)
+	ctx, tracer, err := core.traceContext(ctx, new(tracers.Context), config)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	ctx = evm.WithTracerCtx(ctx, evm.TracerContext{
+		CaptureTx: func(retval []byte, receipt *action.Receipt) {
+			defer tracer.Reset()
+			var res any
+			switch innerTracer := tracer.EVMLogger.(type) {
+			case *logger.StructLogger:
+				res = &debugTraceTransactionResult{
+					Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+					Revert:      receipt.ExecutionRevertMsg(),
+					ReturnValue: byteToHex(retval),
+					StructLogs:  fromLoggerStructLogs(innerTracer.StructLogs()),
+					Gas:         receipt.GasConsumed,
+				}
+			case tracers.Tracer:
+				res, err = innerTracer.GetResult()
+				if err != nil {
+					log.L().Error("failed to get tracer result", zap.Error(err))
+					return
+				}
+			default:
+				log.L().Error("unknown tracer type", zap.Any("tracer", innerTracer))
+				return
+			}
+			results = append(results, &blockTraceResult{
+				TxHash: receipt.ActionHash,
+				Result: res,
+			})
+			retvals = append(retvals, retval)
+			receipts = append(receipts, receipt)
+		},
+	})
+	ws, err := core.sf.WorkingSetAtHeight(ctx, blk.Height()-1, blk.Actions...)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer ws.Close()
+
+	return retvals, receipts, results, nil
 }
 
 func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {

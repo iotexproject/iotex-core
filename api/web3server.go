@@ -254,11 +254,12 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.unsubscribe(web3Req)
 	case "eth_getBlobSidecars":
 		res, err = svr.getBlobSidecars(web3Req)
-	//TODO: enable debug api after archive mode is supported
 	case "debug_traceTransaction":
 		res, err = svr.traceTransaction(ctx, web3Req)
 	case "debug_traceCall":
 		res, err = svr.traceCall(ctx, web3Req)
+	case "debug_traceBlockByNumber":
+		res, err = svr.traceBlockByNumber(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
@@ -1190,6 +1191,18 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 	default:
 		return nil, fmt.Errorf("unknown tracer type: %T", tracer)
 	}
+}
+
+func (svr *web3Handler) traceBlockByNumber(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	blkNum, err := parseBlockNumber(&blkParam)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse block number")
+	}
+	height, _ := blockNumberToHeight(blkNum)
+	tracer := parseTracerConfig(&tracerParam)
+	_, _, results, err := svr.coreService.TraceBlockByNumber(ctx, height, tracer)
+	return results, err
 }
 
 func (svr *web3Handler) unimplemented() (interface{}, error) {
