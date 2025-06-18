@@ -332,6 +332,9 @@ func ExecuteContract(
 		receipt.SetExecutionRevertMsg(revertMsg)
 	}
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
+		tCtx.CaptureTx(retval, receipt)
+	}
 	return retval, receipt, nil
 }
 
