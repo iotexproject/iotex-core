@@ -178,7 +178,7 @@ type (
 		// TraceCall returns the trace result of a call
 		TraceCall(ctx context.Context,
 			callerAddr address.Address,
-			blkNumOrHash any,
+			height uint64,
 			contractAddress string,
 			nonce uint64,
 			amount *big.Int,
@@ -190,6 +190,23 @@ type (
 		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
 		// BlobSidecarsByHeight returns blob sidecars by height
 		BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSidecarResult, error)
+		// TraceBlockByNumber returns the trace result of a block by its height
+		TraceBlockByNumber(ctx context.Context, height uint64, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error)
+		//  TraceBlockByHash returns the trace result of a block by its hash
+		TraceBlockByHash(ctx context.Context, blkHash string, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error)
+
+		// Historical methods
+		BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error)
+		// PendingNonceAt returns the pending nonce of an account at a specific height
+		PendingNonceAt(ctx context.Context, addr address.Address, height uint64) (uint64, error)
+		//  CodeAt returns the code at a specific address at a specific height
+		CodeAt(ctx context.Context, addr address.Address, height uint64) ([]byte, error)
+		// ReadContractStorageAt reads contract's storage at a specific height
+		ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error)
+		// EstimateMigrateStakeGasConsumptionAt estimates gas for migrate stake at a specific height
+		EstimateMigrateStakeGasConsumptionAt(context.Context, *action.MigrateStake, address.Address, uint64) (uint64, []byte, error)
+		// EstimateExecutionGasConsumptionAt estimates gas consumption for execution action at a specific height
+		EstimateExecutionGasConsumptionAt(ctx context.Context, sc action.Envelope, callerAddr address.Address, height uint64, opts ...protocol.SimulateOption) (uint64, []byte, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -336,6 +353,84 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
 	return core.acccount(ctx, tipHeight, state, pendingNonce, addr)
+}
+
+func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error) {
+	ctx, span := tracer.NewSpan(context.Background(), "coreService.BalanceAt")
+	defer span.End()
+	addrStr := addr.String()
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return "", status.Error(codes.Internal, err.Error())
+	}
+	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
+		acc, _, err := core.getProtocolAccount(ctx, addrStr)
+		if err != nil {
+			return "", err
+		}
+		return acc.Balance, nil
+	}
+	var (
+		ws protocol.StateManagerWithCloser
+	)
+	if height == 0 {
+		ws, err = core.sf.WorkingSet(ctx)
+	} else {
+		ws, err = core.sf.WorkingSetAtHeight(ctx, height)
+	}
+	if err != nil {
+		return "", status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
+	state, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return "", status.Error(codes.NotFound, err.Error())
+	}
+	return state.Balance.String(), nil
+}
+
+func (core *coreService) CodeAt(ctx context.Context, addr address.Address, height uint64) ([]byte, error) {
+	ctx, span := tracer.NewSpan(ctx, "coreService.CodeAt")
+	defer span.End()
+	addrStr := addr.String()
+	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
+		return nil, nil
+	}
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	var (
+		ws  protocol.StateManagerWithCloser
+		err error
+	)
+	if height == 0 {
+		ws, err = core.sf.WorkingSet(ctx)
+	} else {
+		ws, err = core.sf.WorkingSetAtHeight(ctx, height)
+	}
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
+	state, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	if !state.IsContract() {
+		return nil, nil
+	}
+	var (
+		code protocol.SerializableBytes
+		key  protocol.StateOption
+	)
+	if height == 0 {
+		key = protocol.KeyOption(state.CodeHash)
+	} else {
+		key = protocol.KeyOption(addr.Bytes())
+	}
+	_, err = ws.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), key)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return code, nil
 }
 
 func (core *coreService) acccount(ctx context.Context, height uint64, state *state.Account, pendingNonce uint64, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
@@ -517,6 +612,30 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 
 func (core *coreService) PendingNonce(addr address.Address) (uint64, error) {
 	return core.ap.GetPendingNonce(addr.String())
+}
+
+func (core *coreService) PendingNonceAt(ctx context.Context, addr address.Address, height uint64) (uint64, error) {
+	if height == 0 {
+		return core.ap.GetPendingNonce(addr.String())
+	}
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height}))
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
+	confirmedState, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+		return confirmedState.PendingNonceConsideringFreshAccount(), nil
+	}
+	return confirmedState.PendingNonce(), nil
 }
 
 func (core *coreService) validateChainID(chainID uint32) error {
@@ -983,6 +1102,7 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 			if err != nil {
 				return nil, 0, err
 			}
+			defer historySR.Close()
 			d, h, err := p.ReadState(ctx, historySR, methodName, arguments...)
 			if err == nil {
 				key.Height = strconv.FormatUint(h, 10)
@@ -1612,8 +1732,19 @@ func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint
 
 // EstimateMigrateStakeGasConsumption estimates gas consumption for migrate stake action
 func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context, ms *action.MigrateStake, caller address.Address) (uint64, []byte, error) {
+	return core.estimateMigrateStakeGasConsumptionAt(ctx, ms, caller, core.bc.TipHeight())
+}
+
+func (core *coreService) EstimateMigrateStakeGasConsumptionAt(ctx context.Context, ms *action.MigrateStake, caller address.Address, height uint64) (uint64, []byte, error) {
+	if height == 0 {
+		height = core.bc.TipHeight()
+	}
+	return core.estimateMigrateStakeGasConsumptionAt(ctx, ms, caller, height)
+}
+
+func (core *coreService) estimateMigrateStakeGasConsumptionAt(ctx context.Context, ms *action.MigrateStake, caller address.Address, height uint64) (uint64, []byte, error) {
 	g := core.bc.Genesis()
-	header, err := core.bc.BlockHeaderByHeight(core.bc.TipHeight())
+	header, err := core.bc.BlockHeaderByHeight(height)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -1621,7 +1752,7 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 	if err != nil {
 		return 0, nil, err
 	}
-	ctx, err = core.bc.Context(ctx)
+	ctx, err = core.bc.ContextAtHeight(ctx, height)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -1662,12 +1793,23 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
 func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, elp action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, []byte, error) {
+	return core.estimateExecutionGasConsumptionAt(ctx, elp, callerAddr, 0, opts...)
+}
+
+func (core *coreService) EstimateExecutionGasConsumptionAt(ctx context.Context, elp action.Envelope, callerAddr address.Address, height uint64, opts ...protocol.SimulateOption) (uint64, []byte, error) {
+	return core.estimateExecutionGasConsumptionAt(ctx, elp, callerAddr, height, opts...)
+}
+
+func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, elp action.Envelope, callerAddr address.Address, height uint64, opts ...protocol.SimulateOption) (uint64, []byte, error) {
 	var (
 		g             = core.bc.Genesis()
 		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
 	)
+	if height != 0 {
+		blockGasLimit = g.BlockGasLimitByHeight(height)
+	}
 	elp.SetGas(blockGasLimit)
-	enough, receipt, retval, err := core.isGasLimitEnough(ctx, callerAddr, elp, opts...)
+	enough, receipt, retval, err := core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
 	if err != nil {
 		return 0, nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1682,7 +1824,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, el
 	}
 	estimatedGas := receipt.GasConsumed
 	elp.SetGas(estimatedGas)
-	enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, opts...)
+	enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
 	if err != nil && err != action.ErrInsufficientFunds {
 		return 0, nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1692,7 +1834,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, el
 		for low <= high {
 			mid := (low + high) / 2
 			elp.SetGas(mid)
-			enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, opts...)
+			enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
 			if err != nil && err != action.ErrInsufficientFunds {
 				return 0, nil, status.Error(codes.Internal, err.Error())
 			}
@@ -1712,11 +1854,21 @@ func (core *coreService) isGasLimitEnough(
 	ctx context.Context,
 	caller address.Address,
 	elp action.Envelope,
+	height uint64,
 	opts ...protocol.SimulateOption,
 ) (bool, *action.Receipt, []byte, error) {
 	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
 	defer span.End()
-	ret, receipt, err := core.simulateExecution(ctx, core.bc.TipHeight(), false, caller, elp, opts...)
+	var (
+		ret     []byte
+		receipt *action.Receipt
+		err     error
+	)
+	if height == 0 {
+		ret, receipt, err = core.simulateExecution(ctx, core.bc.TipHeight(), false, caller, elp, opts...)
+	} else {
+		ret, receipt, err = core.simulateExecution(ctx, height, true, caller, elp, opts...)
+	}
 	if err != nil {
 		return false, nil, nil, err
 	}
@@ -1853,6 +2005,15 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 	return evm.ReadContractStorage(ctx, ws, addr, key)
 }
 
+func (core *coreService) ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error) {
+	ctx, ws, err := core.getStateManager(ctx, height)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
+	return evm.ReadContractStorage(ctx, ws, addr, key)
+}
+
 func (core *coreService) ReceiveBlock(blk *block.Block) error {
 	core.readCache.Clear()
 	return core.chainListener.ReceiveBlock(blk)
@@ -1887,25 +2048,86 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	if _, ok := act.Action().(*action.Execution); !ok {
 		return nil, nil, nil, errors.New("the type of action is not supported")
 	}
-	addr, _ := address.FromString(address.ZeroAddress)
-	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, core.bc.TipHeight(), false, addr, act.Envelope)
+	blk, err := core.dao.GetBlockByHeight(actInfo.BlkHeight)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	preActs := make([]*action.SealedEnvelope, 0)
+	hash, err := act.Hash()
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "failed to hash action")
+	}
+	for i := range blk.Actions {
+		shash, err := blk.Actions[i].Hash()
+		if err != nil {
+			return nil, nil, nil, errors.Wrap(err, "failed to hash action")
+		}
+		if bytes.Equal(shash[:], hash[:]) {
+			break
+		}
+		preActs = append(preActs, blk.Actions[i])
+	}
+	// generate the working set just before the target action
+	ctx, err = core.bc.ContextAtHeight(ctx, actInfo.BlkHeight)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	g := core.bc.Genesis()
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    blk.Height(),
+		BlockTimeStamp: blk.Timestamp(),
+		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
+		Producer:       blk.PublicKey().Address(),
 	})
+	ctx = protocol.WithRegistry(ctx, core.registry)
+	ctx = protocol.WithFeatureCtx(ctx)
+	ws, err := core.sf.WorkingSetAtHeight(ctx, actInfo.BlkHeight, preActs...)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer ws.Close()
+	intrinsicGas, err := act.IntrinsicGas()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:       act.SenderAddress(),
+			ActionHash:   hash,
+			GasPrice:     act.GasPrice(),
+			IntrinsicGas: intrinsicGas,
+			Nonce:        act.Nonce(),
+		},
+	)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	retval, receipt, tracer, err := core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
+		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+			GetBlockHash:   bcCtx.GetBlockHash,
+			GetBlockTime:   bcCtx.GetBlockTime,
+			DepositGasFunc: rewarding.DepositGas,
+		})
+		return evm.ExecuteContract(ctx, ws, act)
+	})
+	return retval, receipt, tracer, err
 }
 
 // TraceCall returns the trace result of call
 func (core *coreService) TraceCall(ctx context.Context,
 	callerAddr address.Address,
-	blkNumOrHash any,
+	height uint64,
 	contractAddress string,
 	nonce uint64,
 	amount *big.Int,
 	gasLimit uint64,
 	data []byte,
 	config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
+	if height == 0 {
+		height = core.bc.TipHeight()
+	}
 	var (
 		g             = core.bc.Genesis()
-		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+		blockGasLimit = g.BlockGasLimitByHeight(height)
 	)
 	if gasLimit == 0 {
 		gasLimit = blockGasLimit
@@ -1917,8 +2139,28 @@ func (core *coreService) TraceCall(ctx context.Context,
 	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contractAddress, amount, data)).
 		SetGasLimit(gasLimit).Build()
 	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-		return core.simulateExecution(ctx, core.bc.TipHeight(), false, callerAddr, elp)
+		return core.simulateExecution(ctx, height, true, callerAddr, elp)
 	})
+}
+
+func (core *coreService) TraceBlockByNumber(ctx context.Context, height uint64, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	blk, err := core.dao.GetBlockByHeight(height)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return core.traceBlock(ctx, blk, config)
+}
+
+func (core *coreService) TraceBlockByHash(ctx context.Context, blkHash string, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	h, err := hash.HexStringToHash256(util.Remove0xPrefix(blkHash))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	blk, err := core.dao.GetBlock(h)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return core.traceBlock(ctx, blk, config)
 }
 
 // Track tracks the api call
@@ -1936,44 +2178,21 @@ func (core *coreService) Track(ctx context.Context, start time.Time, method stri
 }
 
 func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig, simulateFn func(ctx context.Context) ([]byte, *action.Receipt, error)) ([]byte, *action.Receipt, any, error) {
-	var (
-		tracer vm.EVMLogger
-		err    error
-	)
-	switch {
-	case config == nil:
-		tracer = logger.NewStructLogger(nil)
-	case config.Tracer != nil:
-		// Define a meaningful timeout of a single transaction trace
-		timeout := defaultTraceTimeout
-		if config.Timeout != nil {
-			if timeout, err = time.ParseDuration(*config.Timeout); err != nil {
-				return nil, nil, nil, err
-			}
-		}
-		t, err := tracers.DefaultDirectory.New(*config.Tracer, txctx, config.TracerConfig)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		deadlineCtx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
-		go func() {
-			<-deadlineCtx.Done()
-			if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
-				t.Stop(errors.New("execution timeout"))
-			}
-		}()
-		tracer = t
+	ctx, tracer, err := core.traceContext(ctx, txctx, config)
+	retval, receipt, err := simulateFn(ctx)
+	return retval, receipt, tracer, err
+}
 
-	default:
-		tracer = logger.NewStructLogger(config.Config)
+func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (context.Context, *evmTracer, error) {
+	tracer := newEVMTracer(txctx, config)
+	if err := tracer.Reset(); err != nil {
+		return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("failed to reset tracer: %v", err))
 	}
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
-	retval, receipt, err := simulateFn(ctx)
-	return retval, receipt, tracer, err
+	return ctx, tracer, nil
 }
 
 func (core *coreService) simulateExecution(
@@ -1985,7 +2204,7 @@ func (core *coreService) simulateExecution(
 	opts ...protocol.SimulateOption) ([]byte, *action.Receipt, error) {
 	var (
 		err error
-		ws  protocol.StateManager
+		ws  protocol.StateManagerWithCloser
 	)
 	if archive {
 		ctx, err = core.bc.ContextAtHeight(ctx, height)
@@ -2003,6 +2222,7 @@ func (core *coreService) simulateExecution(
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
+	defer ws.Close()
 	state, err := accountutil.AccountState(ctx, ws, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
@@ -2011,10 +2231,6 @@ func (core *coreService) simulateExecution(
 	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: height,
 	}))
-	ctx, err = core.bc.Context(ctx)
-	if err != nil {
-		return nil, nil, status.Error(codes.Internal, err.Error())
-	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
 		pendingNonce = state.PendingNonceConsideringFreshAccount()
@@ -2028,6 +2244,84 @@ func (core *coreService) simulateExecution(
 		DepositGasFunc: rewarding.DepositGas,
 	})
 	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
+}
+
+func (core *coreService) getStateManager(ctx context.Context, height uint64) (context.Context, protocol.StateManagerWithCloser, error) {
+	if height == 0 {
+		ctx, err := core.bc.Context(ctx)
+		if err != nil {
+			return ctx, nil, err
+		}
+		ws, err := core.sf.WorkingSet(ctx)
+		return ctx, ws, err
+	}
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return nil, nil, err
+	}
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
+	return ctx, ws, err
+}
+
+func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	ctx, err := core.bc.ContextAtHeight(ctx, blk.Height())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	g := core.bc.Genesis()
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    blk.Height(),
+		BlockTimeStamp: blk.Timestamp(),
+		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
+		Producer:       blk.PublicKey().Address(),
+	})
+	ctx = protocol.WithRegistry(ctx, core.registry)
+	ctx = protocol.WithFeatureCtx(ctx)
+	retvals := make([][]byte, 0)
+	receipts := make([]*action.Receipt, 0)
+	results := make([]*blockTraceResult, 0)
+	ctx, tracer, err := core.traceContext(ctx, new(tracers.Context), config)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	ctx = evm.WithTracerCtx(ctx, evm.TracerContext{
+		CaptureTx: func(retval []byte, receipt *action.Receipt) {
+			defer tracer.Reset()
+			var res any
+			switch innerTracer := tracer.EVMLogger.(type) {
+			case *logger.StructLogger:
+				res = &debugTraceTransactionResult{
+					Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+					Revert:      receipt.ExecutionRevertMsg(),
+					ReturnValue: byteToHex(retval),
+					StructLogs:  fromLoggerStructLogs(innerTracer.StructLogs()),
+					Gas:         receipt.GasConsumed,
+				}
+			case tracers.Tracer:
+				res, err = innerTracer.GetResult()
+				if err != nil {
+					log.L().Error("failed to get tracer result", zap.Error(err))
+					return
+				}
+			default:
+				log.L().Error("unknown tracer type", zap.Any("tracer", innerTracer))
+				return
+			}
+			results = append(results, &blockTraceResult{
+				TxHash: receipt.ActionHash,
+				Result: res,
+			})
+			retvals = append(retvals, retval)
+			receipts = append(receipts, receipt)
+		},
+	})
+	ws, err := core.sf.WorkingSetAtHeight(ctx, blk.Height()-1, blk.Actions...)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer ws.Close()
+
+	return retvals, receipts, results, nil
 }
 
 func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {

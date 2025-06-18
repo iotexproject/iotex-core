@@ -484,21 +484,6 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 		ctx = context.Background()
 	)
 
-	t.Run("FailedToAccountState", func(t *testing.T) {
-		p := NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyFuncReturn(accountutil.AccountStateWithHeight, nil, uint64(0), errors.New(t.Name()))
-
-		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
-		bc.EXPECT().TipHeight().Return(uint64(1)).Times(2)
-		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
-		sf.EXPECT().WorkingSet(gomock.Any()).Return(nil, nil).Times(1)
-		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
-		_, _, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
-		require.ErrorContains(err, t.Name())
-	})
-
 	t.Run("FailedToCheckGasLimitEnough", func(t *testing.T) {
 		p := NewPatches()
 		defer p.Reset()
@@ -638,7 +623,7 @@ func TestTraceTransaction(t *testing.T) {
 	require.Equal(uint64(1), receipt.Status)
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
-	require.Equal(0, len(traces.(*logger.StructLogger).StructLogs()))
+	require.Equal(0, len(traces.(*evmTracer).EVMLogger.(*logger.StructLogger).StructLogs()))
 }
 
 func TestTraceCall(t *testing.T) {
@@ -676,7 +661,7 @@ func TestTraceCall(t *testing.T) {
 	require.Equal(uint64(1), receipt.Status)
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
-	require.Equal(0, len(traces.(*logger.StructLogger).StructLogs()))
+	require.Equal(0, len(traces.(*evmTracer).EVMLogger.(*logger.StructLogger).StructLogs()))
 }
 
 func TestProofAndCompareReverseActions(t *testing.T) {
@@ -1034,20 +1019,6 @@ func TestSimulateExecution(t *testing.T) {
 		ctx = context.Background()
 	)
 
-	t.Run("FailedToAccountState", func(t *testing.T) {
-		p := NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyFuncReturn(accountutil.AccountState, nil, errors.New(t.Name()))
-		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
-		bc.EXPECT().TipHeight().Return(uint64(1)).Times(1)
-		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
-		sf.EXPECT().WorkingSet(gomock.Any()).Return(nil, nil).Times(1)
-		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
-		_, _, err := cs.SimulateExecution(ctx, &address.AddrV1{}, elp)
-		require.ErrorContains(err, t.Name())
-	})
-
 	t.Run("FailedToContext", func(t *testing.T) {
 		p := NewPatches()
 		defer p.Reset()
@@ -1112,85 +1083,5 @@ func TestTrack(t *testing.T) {
 		p = p.ApplyFuncReturn(time.Since, time.Duration(0))
 		p = p.ApplyMethodReturn(cs.apiStats, "ReportCall")
 		cs.Track(nil, time.Now(), "", 0, true)
-	})
-}
-
-func TestTraceTx(t *testing.T) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	var (
-		bc = mock_blockchain.NewMockBlockchain(ctrl)
-		cs = &coreService{
-			bc: bc,
-		}
-		ctx = context.Background()
-	)
-
-	t.Run("ConfigIsNil", func(t *testing.T) {
-		p := NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyFuncReturn(logger.NewStructLogger, nil)
-		p = p.ApplyFuncReturn(protocol.WithVMConfigCtx, ctx)
-		p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
-		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
-		p = p.ApplyFuncReturn(protocol.WithBlockchainCtx, ctx)
-		p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
-		retval, receipt, tracer, err := cs.traceTx(ctx, nil, nil, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-			return nil, nil, nil
-		})
-		require.NoError(err)
-		require.Empty(retval)
-		require.Empty(receipt)
-		require.Empty(tracer)
-	})
-
-	t.Run("TracerIsNotNil", func(t *testing.T) {
-
-		t.Run("FailedToParseDuration", func(t *testing.T) {
-			p := NewPatches()
-			defer p.Reset()
-
-			p = p.ApplyFuncReturn(time.ParseDuration, nil, errors.New(t.Name()))
-
-			testStr := "TestTracer"
-			_, _, _, err := cs.traceTx(ctx, nil, &tracers.TraceConfig{Tracer: &testStr, Timeout: &testStr}, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-				return nil, nil, nil
-			})
-			require.ErrorContains(err, t.Name())
-		})
-
-		t.Run("FailedToNewTracer", func(t *testing.T) {
-			p := NewPatches()
-			defer p.Reset()
-
-			p = p.ApplyMethodReturn(&tracers.DefaultDirectory, "New", nil, errors.New(t.Name()))
-			testStr := "TestTracer"
-			_, _, _, err := cs.traceTx(ctx, nil, &tracers.TraceConfig{Tracer: &testStr}, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-				return nil, nil, nil
-			})
-			require.ErrorContains(err, t.Name())
-		})
-	})
-
-	t.Run("TracerIsNil", func(t *testing.T) {
-		p := NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyFuncReturn(logger.NewStructLogger, nil)
-		p = p.ApplyFuncReturn(protocol.WithVMConfigCtx, ctx)
-		p = p.ApplyFuncReturn(protocol.WithBlockCtx, ctx)
-		p = p.ApplyFuncReturn(genesis.WithGenesisContext, ctx)
-		p = p.ApplyFuncReturn(protocol.WithBlockchainCtx, ctx)
-		p = p.ApplyFuncReturn(protocol.WithFeatureCtx, ctx)
-		retval, receipt, tracer, err := cs.traceTx(ctx, nil, &tracers.TraceConfig{}, func(ctx context.Context) ([]byte, *action.Receipt, error) {
-			return nil, nil, nil
-		})
-		require.NoError(err)
-		require.Empty(retval)
-		require.Empty(receipt)
-		require.Empty(tracer)
 	})
 }

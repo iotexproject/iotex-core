@@ -1025,7 +1025,7 @@ func TestGrpcServer_TraceTransactionStructLogs(t *testing.T) {
 	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
-	core.EXPECT().TraceTransaction(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, logger.NewStructLogger(nil), nil)
+	core.EXPECT().TraceTransaction(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, &evmTracer{EVMLogger: logger.NewStructLogger(nil)}, nil)
 	resp, err := grpcSvr.TraceTransactionStructLogs(context.Background(), &iotexapi.TraceTransactionStructLogsRequest{
 		ActionHash: "_actionHash",
 	})
