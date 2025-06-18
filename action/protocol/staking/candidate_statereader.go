@@ -176,8 +176,9 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 	}
 
 	return &ViewData{
-		candCenter: center,
-		bucketPool: pool,
+		candCenter:     center,
+		bucketPool:     pool,
+		contractsStake: &contractStakeView{},
 	}, height, nil
 }
 
