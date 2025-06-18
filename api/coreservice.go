@@ -192,6 +192,8 @@ type (
 		BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSidecarResult, error)
 		// TraceBlockByNumber returns the trace result of a block by its height
 		TraceBlockByNumber(ctx context.Context, height uint64, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error)
+		//  TraceBlockByHash returns the trace result of a block by its hash
+		TraceBlockByHash(ctx context.Context, blkHash string, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error)
 
 		// Historical methods
 		BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error)
@@ -2123,6 +2125,18 @@ func (core *coreService) TraceCall(ctx context.Context,
 
 func (core *coreService) TraceBlockByNumber(ctx context.Context, height uint64, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
 	blk, err := core.dao.GetBlockByHeight(height)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return core.traceBlock(ctx, blk, config)
+}
+
+func (core *coreService) TraceBlockByHash(ctx context.Context, blkHash string, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	h, err := hash.HexStringToHash256(util.Remove0xPrefix(blkHash))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	blk, err := core.dao.GetBlock(h)
 	if err != nil {
 		return nil, nil, nil, err
 	}
