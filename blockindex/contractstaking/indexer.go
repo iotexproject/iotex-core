@@ -8,6 +8,7 @@ package contractstaking
 import (
 	"context"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/math"
@@ -15,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
@@ -35,6 +37,8 @@ type (
 		kvstore db.KVStore            // persistent storage, used to initialize index cache at startup
 		cache   *contractStakingCache // in-memory index for clean data, used to query index data
 		config  Config                // indexer config
+		height  uint64
+		mu      sync.RWMutex
 		lifecycle.Readiness
 	}
 
@@ -88,7 +92,7 @@ func (s *Indexer) StartView(ctx context.Context) (staking.ContractStakeView, err
 	return &stakeView{
 		helper: s,
 		cache:  s.cache.Clone(),
-		height: s.cache.Height(),
+		height: s.height,
 	}, nil
 }
 
@@ -96,6 +100,8 @@ func (s *Indexer) start(ctx context.Context) error {
 	if err := s.kvstore.Start(ctx); err != nil {
 		return err
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.loadFromDB(); err != nil {
 		return err
 	}
@@ -115,7 +121,9 @@ func (s *Indexer) Stop(ctx context.Context) error {
 
 // Height returns the tip block height
 func (s *Indexer) Height() (uint64, error) {
-	return s.cache.Height(), nil
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.height, nil
 }
 
 // StartHeight returns the start height of the indexer
@@ -133,7 +141,43 @@ func (s *Indexer) CandidateVotes(ctx context.Context, candidate address.Address,
 	if s.isIgnored(height) {
 		return big.NewInt(0), nil
 	}
-	return s.cache.CandidateVotes(ctx, candidate, height)
+	if err := s.validateHeight(height); err != nil {
+		return nil, err
+	}
+	fn := s.genBlockDurationFn()
+	s.mu.RLock()
+	ids, types, infos := s.cache.BucketsByCandidate(candidate)
+	s.mu.RUnlock()
+	if len(types) != len(infos) || len(types) != len(ids) {
+		return nil, errors.New("inconsistent bucket data")
+	}
+	if len(ids) == 0 {
+		return big.NewInt(0), nil
+	}
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	votes := big.NewInt(0)
+	for i, id := range ids {
+		bi := infos[i]
+		if bi == nil || bi.UnstakedAt != maxBlockNumber {
+			continue
+		}
+		if featureCtx.FixContractStakingWeightedVotes {
+			votes.Add(votes, s.config.CalculateVoteWeight(assembleBucket(id, bi, types[i], s.config.ContractAddress, fn)))
+		} else {
+			votes.Add(votes, types[i].Amount)
+		}
+	}
+
+	return votes, nil
+}
+
+func (s *Indexer) genBlockDurationFn() func(start, end uint64) time.Duration {
+	s.mu.RLock()
+	height := s.height
+	s.mu.RUnlock()
+	return func(start, end uint64) time.Duration {
+		return s.config.BlocksToDuration(start, end, height)
+	}
 }
 
 // Buckets returns the buckets
@@ -141,7 +185,29 @@ func (s *Indexer) Buckets(height uint64) ([]*Bucket, error) {
 	if s.isIgnored(height) {
 		return []*Bucket{}, nil
 	}
-	return s.cache.Buckets(height)
+	if err := s.validateHeight(height); err != nil {
+		return nil, err
+	}
+	fn := s.genBlockDurationFn()
+	s.mu.RLock()
+	ids, types, infos := s.cache.Buckets()
+	s.mu.RUnlock()
+	if len(types) != len(infos) || len(types) != len(ids) {
+		return nil, errors.New("inconsistent bucket data")
+	}
+	if len(ids) == 0 {
+		return []*Bucket{}, nil
+	}
+
+	buckets := make([]*Bucket, 0, len(ids))
+	for i, id := range ids {
+		bucket := assembleBucket(id, infos[i], types[i], s.config.ContractAddress, fn)
+		if bucket != nil {
+			buckets = append(buckets, bucket)
+		}
+	}
+
+	return buckets, nil
 }
 
 // Bucket returns the bucket
@@ -149,7 +215,18 @@ func (s *Indexer) Bucket(id uint64, height uint64) (*Bucket, bool, error) {
 	if s.isIgnored(height) {
 		return nil, false, nil
 	}
-	return s.cache.Bucket(id, height)
+	if err := s.validateHeight(height); err != nil {
+		return nil, false, err
+	}
+	fn := s.genBlockDurationFn()
+	s.mu.RLock()
+	bt, bi := s.cache.Bucket(id)
+	s.mu.RUnlock()
+	if bt == nil || bi == nil {
+		return nil, false, nil
+	}
+
+	return assembleBucket(id, bi, bt, s.config.ContractAddress, fn), true, nil
 }
 
 // BucketsByIndices returns the buckets by indices
@@ -157,7 +234,28 @@ func (s *Indexer) BucketsByIndices(indices []uint64, height uint64) ([]*Bucket, 
 	if s.isIgnored(height) {
 		return []*Bucket{}, nil
 	}
-	return s.cache.BucketsByIndices(indices, height)
+	if err := s.validateHeight(height); err != nil {
+		return nil, err
+	}
+	fn := s.genBlockDurationFn()
+	s.mu.RLock()
+	ts, infos := s.cache.BucketsByIndices(indices)
+	s.mu.RUnlock()
+	if len(ts) != len(infos) || len(ts) != len(indices) {
+		return nil, errors.New("inconsistent bucket data")
+	}
+	buckets := make([]*Bucket, 0, len(ts))
+	for i, id := range indices {
+		if ts[i] == nil || infos[i] == nil {
+			continue
+		}
+		bucket := assembleBucket(id, infos[i], ts[i], s.config.ContractAddress, fn)
+		if bucket != nil {
+			buckets = append(buckets, bucket)
+		}
+	}
+
+	return buckets, nil
 }
 
 // BucketsByCandidate returns the buckets by candidate
@@ -165,7 +263,21 @@ func (s *Indexer) BucketsByCandidate(candidate address.Address, height uint64) (
 	if s.isIgnored(height) {
 		return []*Bucket{}, nil
 	}
-	return s.cache.BucketsByCandidate(candidate, height)
+	if err := s.validateHeight(height); err != nil {
+		return nil, err
+	}
+	fn := s.genBlockDurationFn()
+	s.mu.RLock()
+	ids, types, infos := s.cache.BucketsByCandidate(candidate)
+	s.mu.RUnlock()
+	buckets := make([]*Bucket, 0, len(infos))
+	for i, id := range ids {
+		info := infos[i]
+		bucket := assembleBucket(id, info, types[i], s.config.ContractAddress, fn)
+		buckets = append(buckets, bucket)
+	}
+
+	return buckets, nil
 }
 
 // TotalBucketCount returns the total bucket count including active and burnt buckets
@@ -173,7 +285,12 @@ func (s *Indexer) TotalBucketCount(height uint64) (uint64, error) {
 	if s.isIgnored(height) {
 		return 0, nil
 	}
-	return s.cache.TotalBucketCount(height)
+	if err := s.validateHeight(height); err != nil {
+		return 0, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.cache.TotalBucketCount(), nil
 }
 
 // BucketTypes returns the active bucket types
@@ -181,10 +298,12 @@ func (s *Indexer) BucketTypes(height uint64) ([]*BucketType, error) {
 	if s.isIgnored(height) {
 		return []*BucketType{}, nil
 	}
-	btMap, err := s.cache.ActiveBucketTypes(height)
-	if err != nil {
+	if err := s.validateHeight(height); err != nil {
 		return nil, err
 	}
+	s.mu.RLock()
+	btMap := s.cache.ActiveBucketTypes()
+	s.mu.RUnlock()
 	bts := make([]*BucketType, 0, len(btMap))
 	for _, bt := range btMap {
 		bts = append(bts, bt)
@@ -194,7 +313,10 @@ func (s *Indexer) BucketTypes(height uint64) ([]*BucketType, error) {
 
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
-	expectHeight := s.cache.Height() + 1
+	s.mu.RLock()
+	expectHeight := s.height + 1
+	cache := newWrappedCache(s.cache)
+	s.mu.RUnlock()
 	if expectHeight < s.config.ContractDeployHeight {
 		expectHeight = s.config.ContractDeployHeight
 	}
@@ -205,7 +327,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expectHeight)
 	}
 	// new event handler for this block
-	handler := newContractStakingEventHandler(s.cache)
+	handler := newContractStakingEventHandler(cache)
 
 	// handle events of block
 	for _, receipt := range blk.Receipts {
@@ -222,32 +344,48 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 	}
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	// commit the result
-	return s.commit(handler, blk.Height())
-}
-
-func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) error {
-	batch, delta := handler.Result()
-	// update cache
-	if err := s.cache.Merge(delta, height); err != nil {
-		s.reloadCache()
-		return err
-	}
-	// update db
-	batch.Put(_StakingNS, _stakingHeightKey, byteutil.Uint64ToBytesBigEndian(height), "failed to put height")
-	if err := s.kvstore.WriteBatch(batch); err != nil {
-		s.reloadCache()
-		return err
+	if err := s.commit(handler, blk.Height()); err != nil {
+		return errors.Wrapf(err, "failed to commit block %d", blk.Height())
 	}
 	return nil
 }
 
-func (s *Indexer) reloadCache() error {
-	s.cache = newContractStakingCache(s.config)
-	return s.loadFromDB()
+func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) error {
+	batch, delta := handler.Result()
+	delta.Commit()
+	cache := delta.Base()
+	base, ok := cache.(*contractStakingCache)
+	if !ok {
+		return errors.New("invalid cache type of base")
+	}
+	// update db
+	batch.Put(_StakingNS, _stakingHeightKey, byteutil.Uint64ToBytesBigEndian(height), "failed to put height")
+	if err := s.kvstore.WriteBatch(batch); err != nil {
+		s.cache = newContractStakingCache(s.config)
+		return s.loadFromDB()
+	}
+	s.height = height
+	s.cache = base
+	return nil
 }
 
 func (s *Indexer) loadFromDB() error {
+	// load height
+	var height uint64
+	h, err := s.kvstore.Get(_StakingNS, _stakingHeightKey)
+	if err != nil {
+		if !errors.Is(err, db.ErrNotExist) {
+			return err
+		}
+		height = 0
+	} else {
+		height = byteutil.BytesToUint64BigEndian(h)
+
+	}
+	s.height = height
 	return s.cache.LoadFromDB(s.kvstore)
 }
 
@@ -256,4 +394,21 @@ func (s *Indexer) loadFromDB() error {
 // read interface should return empty result instead of invalid height error if it returns true
 func (s *Indexer) isIgnored(height uint64) bool {
 	return height < s.config.ContractDeployHeight
+}
+
+func (s *Indexer) validateHeight(height uint64) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	// means latest height
+	if height == 0 {
+		return nil
+	}
+	// Currently, historical block data query is not supported.
+	// However, the latest data is actually returned when querying historical block data, for the following reasons:
+	//	1. to maintain compatibility with the current code's invocation of ActiveCandidate
+	//	2. to cause consensus errors when the indexer is lagging behind
+	if height > s.height {
+		return errors.Wrapf(ErrInvalidHeight, "expected %d, actual %d", s.height, height)
+	}
+	return nil
 }
