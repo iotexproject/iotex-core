@@ -636,8 +636,10 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	for i := range list {
 		var csVotes *big.Int
 		if protocol.MustGetFeatureCtx(ctx).CreatePostActionStates {
+			log.L().Error("read contract staking votes from view", zap.Uint64("height", protocol.MustGetBlockCtx(ctx).BlockHeight))
 			csVotes, err = p.contractStakingVotesFromView(ctx, list[i].GetIdentifier(), c.BaseView())
 		} else {
+			log.L().Error("read contract staking votes from indexer", zap.Uint64("height", protocol.MustGetBlockCtx(ctx).BlockHeight))
 			// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind.
 			// the reason of using srHeight-1 is contract indexer is not updated before the block is committed.
 			csVotes, err = p.contractStakingVotesFromIndexer(ctx, list[i].GetIdentifier(), srHeight-1)
@@ -883,13 +885,16 @@ func (p *Protocol) contractStakingVotesFromView(ctx context.Context, candidate a
 	if p.contractStakingIndexerV3 != nil && featureCtx.TimestampedStakingContract {
 		views = append(views, view.contractsStake.v3)
 	}
-	for _, cv := range views {
+	uuid := time.Now().UnixNano()
+	for idx, cv := range views {
 		btks, err := cv.BucketsByCandidate(candidate)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get BucketsByCandidate from contractStakingIndexer")
 		}
 		for _, b := range btks {
-			votes.Add(votes, p.contractBucketVotes(featureCtx, b))
+			vts := p.contractBucketVotes(featureCtx, b)
+			votes.Add(votes, vts)
+			log.S().Errorf("vote bucket view %d, index %d, votes %s, candidate %s, ctxheight %d, uuid %d", idx, b.Index, vts.String(), b.Candidate.String(), protocol.MustGetBlockCtx(ctx).BlockHeight, uuid)
 		}
 	}
 	return votes, nil
