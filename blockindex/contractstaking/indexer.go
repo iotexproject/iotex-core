@@ -204,8 +204,16 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	if blk.Height() > expectHeight {
 		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expectHeight)
 	}
+	handler, err := handleBlock(ctx, blk, &s.config, s.cache)
+	if err != nil {
+		return errors.Wrapf(err, "failed to put block %d", blk.Height())
+	}
+	return s.commit(handler, blk.Height())
+}
+
+func handleBlock(ctx context.Context, blk *block.Block, cfg *Config, cache *contractStakingCache) (*contractStakingEventHandler, error) {
 	// new event handler for this block
-	handler := newContractStakingEventHandler(s.cache)
+	handler := newContractStakingEventHandler(cache)
 
 	// handle events of block
 	for _, receipt := range blk.Receipts {
@@ -213,17 +221,15 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 			continue
 		}
 		for _, log := range receipt.Logs() {
-			if log.Address != s.config.ContractAddress {
+			if log.Address != cfg.ContractAddress {
 				continue
 			}
 			if err := handler.HandleEvent(ctx, blk.Height(), log); err != nil {
-				return err
+				return handler, err
 			}
 		}
 	}
-
-	// commit the result
-	return s.commit(handler, blk.Height())
+	return handler, nil
 }
 
 func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) error {
