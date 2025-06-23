@@ -341,6 +341,11 @@ func (d *IotxDispatcher) dispatchMsg(message *message) {
 		if err := subscriber.HandleConsensusMsg(msg); err != nil {
 			log.L().Warn("Failed to handle consensus message.", zap.Error(err))
 		}
+	case *iotextypes.Bundle:
+		if err := subscriber.HandleBundle(message.ctx, msg); err != nil {
+			requestMtc.WithLabelValues("AddBundle", "false").Inc()
+			log.L().Warn("Failed to handle bundle message.", zap.Error(err))
+		}
 	case *iotextypes.Action:
 		if err := subscriber.HandleAction(message.ctx, msg); err != nil {
 			requestMtc.WithLabelValues("AddAction", "false").Inc()

@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
+	"github.com/google/uuid"
 
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
@@ -89,6 +90,10 @@ type (
 		ChainMeta() (*iotextypes.ChainMeta, string, error)
 		// ServerMeta gets the server metadata
 		ServerMeta() (packageVersion string, packageCommitID string, gitStatus string, goVersion string, buildTime string)
+		// SendBundle is the API to send a bundle to blockchain.
+		SendBundle(ctx context.Context, in *iotextypes.Bundle, sender address.Address, id string) (string, error)
+		// DeleteBundle deletes a bundle from the bundle pool.
+		DeleteBundle(ctx context.Context, sender address.Address, uuid string) error
 		// SendAction is the API to send an action to blockchain.
 		SendAction(ctx context.Context, in *iotextypes.Action) (string, error)
 		// ReadContract reads the state in a contract address specified by the slot
@@ -307,6 +312,17 @@ func newCoreService(
 	if core.broadcastHandler != nil {
 		core.actionRadio = NewActionRadio(core.broadcastHandler, core.bc.ChainID(), WithMessageBatch())
 		actPool.AddSubscriber(core.actionRadio)
+		bp := core.ap.BundlePool()
+		if bp != nil {
+			bp.SetBroadcastHandler(func(ctx context.Context, sender address.Address, uuid string, bundle *action.Bundle) {
+				if _, fromAPI := GetAPIContext(ctx); !fromAPI {
+					return
+				}
+				if err := core.broadcastHandler(ctx, core.bc.ChainID(), bundle.Proto()); err != nil {
+					log.L().Error("failed to broadcast bundle", zap.Error(err), zap.String("uuid", uuid))
+				}
+			})
+		}
 	}
 
 	return &core, nil
@@ -459,6 +475,43 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 	goVersion = version.GoVersion
 	buildTime = version.BuildTime
 	return
+}
+
+func (core *coreService) SendBundle(ctx context.Context, in *iotextypes.Bundle, sender address.Address, id string) (string, error) {
+	log.T(ctx).Debug("receive send bundle request")
+	bp := core.ap.BundlePool()
+	if bp == nil {
+		return "", status.Error(codes.Unavailable, "bundle pool is not available")
+	}
+	if in == nil || len(in.Actions) == 0 {
+		return "", status.Error(codes.InvalidArgument, "bundle is empty")
+	}
+
+	bundle := action.NewBundle()
+	if err := bundle.LoadProto(in, (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID())); err != nil {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("failed to load bundle: %v", err))
+	}
+	if id == "" {
+		id = uuid.New().String()
+	}
+	ctx = WithAPIContext(ctx)
+	if err := bp.AddBundle(ctx, sender, id, bundle); err != nil {
+		return "", status.Error(codes.Internal, fmt.Sprintf("failed to add bundle: %v", err))
+	}
+	return id, nil
+}
+
+// DeleteBundle deletes a bundle from the bundle pool.
+func (core *coreService) DeleteBundle(ctx context.Context, sender address.Address, id string) error {
+	log.T(ctx).Debug("receive delete bundle request")
+	bp := core.ap.BundlePool()
+	if bp == nil {
+		return status.Error(codes.Unavailable, "bundle pool is not available")
+	}
+	if err := bp.DeleteBundle(sender, id); err != nil {
+		return status.Error(codes.Internal, fmt.Sprintf("failed to delete bundle: %v", err))
+	}
+	return nil
 }
 
 // SendAction is the API to send an action to blockchain.

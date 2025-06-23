@@ -216,6 +216,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.getBlockByNumber(web3Req)
 	case "eth_estimateGas":
 		res, err = svr.estimateGas(ctx, web3Req)
+	case "eth_sendBundle":
+		res, err = svr.sendBundle(ctx, web3Req)
 	case "eth_sendRawTransaction":
 		res, err = svr.sendRawTransaction(ctx, web3Req)
 	case "eth_getTransactionByHash":
@@ -263,6 +265,9 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
 		res, err = svr.unimplemented()
+	case "eth_deleteBundle":
+		// TODO: implement delete bundle
+		fallthrough
 	default:
 		res, err = nil, errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 	}
@@ -560,23 +565,91 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 	return uint64ToHex(estimatedGas), nil
 }
 
-func (svr *web3Handler) sendRawTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {
-	dataStr := in.Get("params.0")
-	if !dataStr.Exists() {
-		return nil, errInvalidFormat
-	}
-	// parse raw data string from json request
+type sendBundleReqest struct {
+	txs    []string
+	height uint64
+	id     string
+}
+
+func parseBundleRequest(in *gjson.Result) (*sendBundleReqest, error) {
 	var (
-		cs        = svr.coreService
-		rawString = dataStr.String()
-		tx        *types.Transaction
-		encoding  iotextypes.Encoding
-		sig       []byte
-		pubkey    crypto.PublicKey
-		err       error
-		req       *iotextypes.Action
+		height uint64
+		txs    []string
+		err    error
+		id     string
 	)
-	tx, err = action.DecodeEtherTx(rawString)
+	txsRaw, blockNumRaw := in.Get("params.0.txs"), in.Get("params.0.blockNumber")
+
+	// Check if both required parameters exist
+	if !txsRaw.Exists() || !blockNumRaw.Exists() {
+		return nil, errors.Wrapf(errInvalidFormat, "missing required parameters: txs=%s, blockNumber=%s",
+			txsRaw.String(), blockNumRaw.String())
+	}
+
+	// Parse block number
+	if height, err = hexStringToNumber(blockNumRaw.String()); err != nil {
+		return nil, errors.Wrap(err, "failed to parse block number")
+	}
+
+	// Parse transactions array
+	if !txsRaw.IsArray() {
+		return nil, errors.Wrapf(errInvalidFormat, "txs parameter must be an array")
+	}
+
+	txs = make([]string, 0, len(txsRaw.Array()))
+	for i, txRaw := range txsRaw.Array() {
+		if !txRaw.Exists() || txRaw.String() == "" {
+			return nil, errors.Wrapf(errInvalidFormat, "empty transaction at index %d", i)
+		}
+		txs = append(txs, txRaw.String())
+	}
+
+	if uid := in.Get("params.0.replacementUuid"); uid.Exists() && uid.String() != "" {
+		id = uid.String()
+	}
+	return &sendBundleReqest{
+		txs:    txs,
+		height: height,
+		id:     id,
+	}, nil
+}
+
+func (svr *web3Handler) sendBundle(ctx context.Context, in *gjson.Result) (interface{}, error) {
+	req, err := parseBundleRequest(in)
+	if err != nil {
+		return nil, err
+	}
+	bundle := iotextypes.Bundle{
+		TargetBlockNumber: req.height,
+	}
+	for _, txRaw := range req.txs {
+		act, err := svr.decodeEthTx(txRaw)
+		if err != nil {
+			return nil, err
+		}
+		bundle.Actions = append(bundle.Actions, act)
+	}
+	addr, _ := address.FromString(address.ZeroAddress)
+	h, err := svr.coreService.SendBundle(ctx, &bundle, addr, req.id)
+	if err != nil {
+		return nil, err
+	}
+	return &sendBundleResult{
+		BundleHash: h,
+	}, nil
+}
+
+func (svr *web3Handler) decodeEthTx(hexedRaw string) (*iotextypes.Action, error) {
+	var (
+		cs       = svr.coreService
+		tx       *types.Transaction
+		encoding iotextypes.Encoding
+		sig      []byte
+		pubkey   crypto.PublicKey
+		err      error
+		req      *iotextypes.Action
+	)
+	tx, err = action.DecodeEtherTx(hexedRaw)
 	if err != nil {
 		return nil, err
 	}
@@ -601,7 +674,7 @@ func (svr *web3Handler) sendRawTransaction(ctx context.Context, in *gjson.Result
 			}
 		} else {
 			// tx is not staking or rewarding
-			actCore, err := action.EthRawToContainer(svr.coreService.ChainID(), rawString)
+			actCore, err := action.EthRawToContainer(svr.coreService.ChainID(), hexedRaw)
 			if err != nil {
 				return nil, err
 			}
@@ -623,6 +696,21 @@ func (svr *web3Handler) sendRawTransaction(ctx context.Context, in *gjson.Result
 			Signature:    sig,
 			Encoding:     encoding,
 		}
+	}
+	return req, nil
+}
+
+func (svr *web3Handler) sendRawTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {
+	dataStr := in.Get("params.0")
+	if !dataStr.Exists() {
+		return nil, errInvalidFormat
+	}
+	var (
+		cs = svr.coreService
+	)
+	req, err := svr.decodeEthTx(dataStr.String())
+	if err != nil {
+		return nil, err
 	}
 	actionHash, err := cs.SendAction(ctx, req)
 	if err != nil {

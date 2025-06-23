@@ -96,6 +96,10 @@ type (
 		BlobGasUsedRatio  []float64  `json:"blobGasUsedRatio"`
 		Reward            [][]string `json:"reward,omitempty"`
 	}
+
+	sendBundleResult struct {
+		BundleHash string `json:"bundleHash"` // The hash of the bundle
+	}
 )
 
 var (

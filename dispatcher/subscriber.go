@@ -12,6 +12,7 @@ import (
 // Subscriber is the dispatcher subscriber interface
 type Subscriber interface {
 	ReportFullness(context.Context, iotexrpc.MessageType, float32)
+	HandleBundle(context.Context, *iotextypes.Bundle) error
 	HandleAction(context.Context, *iotextypes.Action) error
 	HandleBlock(context.Context, string, *iotextypes.Block) error
 	HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error
