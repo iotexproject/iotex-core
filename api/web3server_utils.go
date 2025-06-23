@@ -284,16 +284,16 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 }
 
 type callMsg struct {
-	From        address.Address  // the sender of the 'transaction'
-	To          string           // the destination contract (empty for contract creation)
-	Gas         uint64           // if 0, the call executes with near-infinite gas
-	GasPrice    *big.Int         // wei <-> gas exchange ratio
-	GasFeeCap   *big.Int         // EIP-1559 fee cap per gas.
-	GasTipCap   *big.Int         // EIP-1559 tip per gas.
-	Value       *big.Int         // amount of wei sent along with the call
-	Data        []byte           // input data, usually an ABI-encoded contract method invocation
-	AccessList  types.AccessList // EIP-2930 access list.
-	BlockNumber rpc.BlockNumber
+	From              address.Address       // the sender of the 'transaction'
+	To                string                // the destination contract (empty for contract creation)
+	Gas               uint64                // if 0, the call executes with near-infinite gas
+	GasPrice          *big.Int              // wei <-> gas exchange ratio
+	GasFeeCap         *big.Int              // EIP-1559 fee cap per gas.
+	GasTipCap         *big.Int              // EIP-1559 tip per gas.
+	Value             *big.Int              // amount of wei sent along with the call
+	Data              []byte                // input data, usually an ABI-encoded contract method invocation
+	AccessList        types.AccessList      // EIP-2930 access list.
+	BlockNumberOrHash rpc.BlockNumberOrHash // EIP-1898
 }
 
 func parseCallObject(in *gjson.Result) (*callMsg, error) {
@@ -307,7 +307,7 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 		value     *big.Int = big.NewInt(0)
 		data      []byte
 		acl       types.AccessList
-		bn        = rpc.LatestBlockNumber
+		bn        = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
 		err       error
 	)
 	fromStr := in.Get("params.0.from").String()
@@ -383,19 +383,20 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 		}
 	}
 	return &callMsg{
-		From:        from,
-		To:          to,
-		Gas:         gasLimit,
-		GasPrice:    gasPrice,
-		GasFeeCap:   gasFeeCap,
-		GasTipCap:   gasTipCap,
-		Value:       value,
-		Data:        data,
-		AccessList:  acl,
-		BlockNumber: bn,
+		From:              from,
+		To:                to,
+		Gas:               gasLimit,
+		GasPrice:          gasPrice,
+		GasFeeCap:         gasFeeCap,
+		GasTipCap:         gasTipCap,
+		Value:             value,
+		Data:              data,
+		AccessList:        acl,
+		BlockNumberOrHash: bn,
 	}, nil
 }
 
+// TODO: fix this to support eip 1898
 func parseBlockNumber(in *gjson.Result) (rpc.BlockNumber, error) {
 	if !in.Exists() {
 		return rpc.LatestBlockNumber, nil
@@ -407,14 +408,23 @@ func parseBlockNumber(in *gjson.Result) (rpc.BlockNumber, error) {
 	return height, nil
 }
 
-func blockNumberToHeight(bn rpc.BlockNumber) (uint64, bool) {
-	switch bn {
+func (svr *web3Handler) blockNumberOrHashToHeight(bn rpc.BlockNumberOrHash) (uint64, bool, error) {
+	if bn.BlockHash != nil {
+		bh := (*bn.BlockHash).String()
+		blk, err := svr.coreService.BlockByHash(util.Remove0xPrefix(bh))
+		if err != nil {
+			return 0, false, errors.Wrapf(err, "failed to get block height by hash %s", bh)
+		}
+		return uint64(blk.Block.Height()), true, nil
+	}
+
+	switch *bn.BlockNumber {
 	case rpc.SafeBlockNumber, rpc.FinalizedBlockNumber, rpc.LatestBlockNumber, rpc.PendingBlockNumber:
-		return 0, false
+		return 0, false, nil
 	case rpc.EarliestBlockNumber:
-		return 1, true
+		return 1, true, nil
 	default:
-		return uint64(bn), true
+		return uint64(*bn.BlockNumber), true, nil
 	}
 }
 
