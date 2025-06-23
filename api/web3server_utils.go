@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -378,8 +379,17 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 		}
 	}
 	if bnParam := in.Get("params.1"); bnParam.Exists() {
-		if err = bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
-			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
+		matched, err := regexp.MatchString("^[\"0-9]+$", bnParam.String())
+		if err == nil && matched {
+			// if the block number is a string of digits, parse it as a number
+			if bnParam.Int() < 0 {
+				return nil, errors.Wrapf(errUnkownType, "block number %s is negative", bnParam.String())
+			}
+			bn = rpc.BlockNumber(bnParam.Int())
+		} else {
+			if err = bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
+				return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
+			}
 		}
 	}
 	return &callMsg{
