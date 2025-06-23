@@ -378,7 +378,7 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 		}
 	}
 	if bnParam := in.Get("params.1"); bnParam.Exists() {
-		if err = bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
+		if err = bn.UnmarshalJSON([]byte(bnParam.Raw)); err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
 		}
 	}
