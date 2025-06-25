@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
@@ -418,9 +419,12 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 		return nil, err
 	}
 	var (
-		accountMeta     *iotextypes.AccountMeta
-		height, archive = blockNumberToHeight(bn)
+		accountMeta *iotextypes.AccountMeta
 	)
+	height, archive, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	if err != nil {
+		return nil, err
+	}
 	if !archive {
 		accountMeta, _, err = svr.coreService.Account(ioAddr)
 	} else {
@@ -496,10 +500,13 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 	var (
 		elp = (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, callMsg.Value, data)).
 			SetGasLimit(callMsg.Gas).Build()
-		ret             string
-		receipt         *iotextypes.Receipt
-		height, archive = blockNumberToHeight(callMsg.BlockNumber)
+		ret     string
+		receipt *iotextypes.Receipt
 	)
+	height, archive, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
+	if err != nil {
+		return nil, err
+	}
 	if !archive {
 		ret, receipt, err = svr.coreService.ReadContract(context.Background(), callMsg.From, elp)
 	} else {
@@ -1153,6 +1160,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		err     error
 		callMsg *callMsg
 	)
+	// TODO: refactor blkNumOrHashObj to avoid code duplication
 	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
 	callMsg, err = parseCallObject(in)
 	if err != nil {
