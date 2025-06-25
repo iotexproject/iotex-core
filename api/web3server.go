@@ -421,7 +421,10 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	height, _ := blockNumberToHeight(bn)
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
+	if err != nil {
+		return nil, err
+	}
 	balance, err := svr.coreService.BalanceAt(context.Background(), ioAddr, height)
 	if err != nil {
 		return nil, err
@@ -435,9 +438,9 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 	if !addr.Exists() {
 		return nil, errInvalidFormat
 	}
-	var bn = rpc.LatestBlockNumber
+	var bn = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
 	if bnParam := in.Get("params.1"); bnParam.Exists() {
-		if err := bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
+		if err := bn.UnmarshalJSON([]byte(bnParam.Raw)); err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
 		}
 	}
@@ -445,7 +448,10 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 	if err != nil {
 		return nil, err
 	}
-	height, _ := blockNumberToHeight(bn)
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
+	if err != nil {
+		return nil, err
+	}
 	pendingNonce, err := svr.coreService.PendingNonceAt(context.Background(), ioAddr, height)
 	if err != nil {
 		return nil, err
@@ -498,10 +504,13 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 	var (
 		elp = (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(to, callMsg.Value, data)).
 			SetGasLimit(callMsg.Gas).Build()
-		ret             string
-		receipt         *iotextypes.Receipt
-		height, archive = blockNumberToHeight(callMsg.BlockNumber)
+		ret     string
+		receipt *iotextypes.Receipt
 	)
+	height, archive, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
+	if err != nil {
+		return nil, err
+	}
 	if !archive {
 		ret, receipt, err = svr.coreService.ReadContract(context.Background(), callMsg.From, elp)
 	} else {
@@ -537,8 +546,11 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 		estimatedGas uint64
 		retval       []byte
 		from         = callMsg.From
-		height, _    = blockNumberToHeight(callMsg.BlockNumber)
 	)
+	height, _, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
+	if err != nil {
+		return nil, err
+	}
 
 	switch act := elp.Action().(type) {
 	case *action.Execution:
@@ -642,7 +654,10 @@ func (svr *web3Handler) getCode(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	height, _ := blockNumberToHeight(bn)
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
+	if err != nil {
+		return nil, err
+	}
 	code, err := svr.coreService.CodeAt(context.Background(), ioAddr, height)
 	if err != nil {
 		return nil, err
@@ -888,7 +903,10 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	height, _ := blockNumberToHeight(bn)
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
+	if err != nil {
+		return nil, err
+	}
 	contractAddr, err := address.FromHex(ethAddr.String())
 	if err != nil {
 		return nil, err
@@ -1152,8 +1170,10 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		return nil, err
 	}
 	tracerCfg := parseTracerConfig(&options)
-	height, _ := blockNumberToHeight(callMsg.BlockNumber)
-
+	height, _, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
+	if err != nil {
+		return nil, err
+	}
 	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callMsg.From, height, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, tracerCfg)
 	if err != nil {
 		return nil, err
@@ -1180,7 +1200,10 @@ func (svr *web3Handler) traceBlockByNumber(ctx context.Context, in *gjson.Result
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse block number")
 	}
-	height, _ := blockNumberToHeight(blkNum)
+	height, _, err := svr.blockNumberOrHashToHeight(blkNum)
+	if err != nil {
+		return nil, err
+	}
 	tracer := parseTracerConfig(&tracerParam)
 	_, _, results, err := svr.coreService.TraceBlockByNumber(ctx, height, tracer)
 	return results, err
