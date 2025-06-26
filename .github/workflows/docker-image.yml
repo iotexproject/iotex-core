@@ -1,0 +1,24 @@
+name: Push DockerHub image to GHCR
+
+on:
+  workflow_dispatch:
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull from Docker Hub
+        run: docker pull iotex/iotex-core:v2.2.1-rc9
+
+      - name: Retag image for GHCR
+        run: docker tag iotex/iotex-core:v2.2.1-rc9 ghcr.io/iotexproject/iotex-core:v2.2.1-rc9
+
+      - name: Push to GHCR
+        run: docker push ghcr.io/iotexproject/iotex-core:v2.2.1-rc9
