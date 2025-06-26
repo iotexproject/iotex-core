@@ -311,11 +311,11 @@ func (ws *workingSet) freshAccountConversion(ctx context.Context, actCtx *protoc
 }
 
 // Commit persists all changes in RunActions() into the DB
-func (ws *workingSet) Commit(ctx context.Context) error {
+func (ws *workingSet) Commit(ctx context.Context, retention uint64) error {
 	if err := protocolPreCommit(ctx, ws); err != nil {
 		return err
 	}
-	if err := ws.store.Commit(ctx); err != nil {
+	if err := ws.store.Commit(ctx, retention); err != nil {
 		return err
 	}
 	if err := protocolCommit(ctx, ws); err != nil {

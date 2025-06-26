@@ -22,7 +22,7 @@ import (
 type (
 	workingSetStore interface {
 		db.KVStore
-		Commit(context.Context) error
+		Commit(context.Context, uint64) error
 		States(string, [][]byte) ([][]byte, [][]byte, error)
 		Digest() hash.Hash256
 		Finalize(context.Context) error
@@ -93,7 +93,7 @@ func (store *stateDBWorkingSetStore) Digest() hash.Hash256 {
 	return hash.Hash256b(store.flusher.SerializeQueue())
 }
 
-func (store *stateDBWorkingSetStore) Commit(_ context.Context) error {
+func (store *stateDBWorkingSetStore) Commit(_ context.Context, _ uint64) error {
 	store.lock.Lock()
 	defer store.lock.Unlock()
 	if store.committed {

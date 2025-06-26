@@ -418,8 +418,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			sdb.currentChainHeight, h,
 		)
 	}
-
-	if err := ws.Commit(ctx); err != nil {
+	if err := ws.Commit(ctx, sdb.cfg.Chain.HistoryBlockRetention); err != nil {
 		return err
 	}
 	sdb.protocolViews = ws.views
@@ -539,7 +538,7 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 		return err
 	}
 
-	if err := ws.Commit(ctx); err != nil {
+	if err := ws.Commit(ctx, 0); err != nil {
 		return err
 	}
 	sdb.protocolViews = ws.views

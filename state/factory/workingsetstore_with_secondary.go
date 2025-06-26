@@ -99,14 +99,14 @@ func (store *workingSetStoreWithSecondary) Delete(ns string, key []byte) error {
 	return store.writerSecondary.Delete(ns, key)
 }
 
-func (store *workingSetStoreWithSecondary) Commit(ctx context.Context) error {
+func (store *workingSetStoreWithSecondary) Commit(ctx context.Context, retention uint64) error {
 	t1 := time.Now()
-	if err := store.writer.Commit(ctx); err != nil {
+	if err := store.writer.Commit(ctx, retention); err != nil {
 		return err
 	}
 	perfMtc.WithLabelValues("commitstore").Set(float64(time.Since(t1).Nanoseconds()))
 	t2 := time.Now()
-	err := store.writerSecondary.Commit(ctx)
+	err := store.writerSecondary.Commit(ctx, retention)
 	perfMtc.WithLabelValues("commiterigon").Set(float64(time.Since(t2).Nanoseconds()))
 	return err
 }
