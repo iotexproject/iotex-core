@@ -169,6 +169,21 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	default:
 		return err
 	}
+	if sdb.erigonDB != nil {
+		eh, err := sdb.erigonDB.Height()
+		if err != nil {
+			return errors.Wrap(err, "failed to get erigonDB height")
+		}
+		if eh != sdb.currentChainHeight {
+			return errors.Errorf(
+				"erigonDB height %d does not match state factory height %d",
+				eh, sdb.currentChainHeight,
+			)
+		}
+	}
+	log.L().Info("State factory started",
+		zap.Uint64("height", sdb.currentChainHeight),
+	)
 	return nil
 }
 
