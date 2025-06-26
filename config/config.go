@@ -173,7 +173,15 @@ func New(configPaths []string, _plugins []string, validates ...Validate) (Config
 
 	// set network master key to private key
 	if cfg.Network.MasterKey == "" {
-		cfg.Network.MasterKey = cfg.Chain.ProducerPrivKey
+		if cfg.System.Active {
+			pks := cfg.Chain.ProducerPrivateKeys()
+			if len(pks) > 0 {
+				cfg.Network.MasterKey = pks[0].HexString()
+			}
+		}
+		if cfg.Network.MasterKey == "" {
+			cfg.Network.MasterKey = blockchain.GenerateRandomKey(blockchain.SigP256k1)
+		}
 	}
 
 	// set plugins
