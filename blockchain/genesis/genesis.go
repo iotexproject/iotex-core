@@ -399,7 +399,7 @@ type (
 		NativeStakingContractAddress string `yaml:"nativeStakingContractAddress"`
 		// NativeStakingContractCode is the code of native staking contract
 		NativeStakingContractCode string `yaml:"nativeStakingContractCode"`
-		// ConsortiumCommitteeCode is the code of consortiumCommittee contract
+		// ConsortiumCommitteeContractCode is the code of consortiumCommittee contract
 		ConsortiumCommitteeContractCode string `yaml:"consortiumCommitteeContractCode"`
 		// VoteThreshold is the vote threshold amount in decimal string format
 		VoteThreshold string `yaml:"voteThreshold"`
