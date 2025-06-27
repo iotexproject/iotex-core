@@ -84,7 +84,7 @@ all: clean build-all test
 
 .PHONY: build
 build: ioctl
-	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
+	$(GOBUILD) -tags nosilkworm -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 
 .PHONY: build-all
 build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer build-readtip
