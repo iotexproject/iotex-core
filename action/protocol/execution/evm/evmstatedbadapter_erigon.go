@@ -141,7 +141,7 @@ func (s *ErigonStateDBAdapter) SelfDestruct(evmAddr common.Address) {
 	s.intra.Selfdestruct(libcommon.Address(evmAddr))
 }
 
-// SelfDestruct6780 marks the given address for self-destruction
+// Selfdestruct6780 marks the given address for self-destruction
 func (s *ErigonStateDBAdapter) Selfdestruct6780(evmAddr common.Address) {
 	s.StateDBAdapter.Selfdestruct6780(evmAddr)
 	s.intra.Selfdestruct6780(libcommon.Address(evmAddr))
