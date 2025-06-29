@@ -56,7 +56,7 @@ func (s *cache) Load(kvstore db.KVStore) error {
 	return nil
 }
 
-func (s *cache) Copy() *cache {
+func (s *cache) Copy() bucketCache {
 	c := newCache(s.ns, s.bucketNS)
 	for k, v := range s.buckets {
 		c.buckets[k] = v.Clone()
