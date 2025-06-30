@@ -180,6 +180,11 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 				eh, sdb.currentChainHeight,
 			)
 		}
+		if sdb.cfg.Chain.HistoryBlockRetention > 0 && eh > sdb.cfg.Chain.HistoryBlockRetention {
+			if err := sdb.erigonDB.BatchPrune(ctx, eh-sdb.cfg.Chain.HistoryBlockRetention, eh, 1000); err != nil {
+				return errors.Wrap(err, "failed to prune erigonDB")
+			}
+		}
 	}
 	log.L().Info("State factory started",
 		zap.Uint64("height", sdb.currentChainHeight),

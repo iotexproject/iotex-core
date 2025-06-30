@@ -9,6 +9,7 @@ import (
 	"github.com/erigontech/erigon-lib/common/datadir"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/kv/mdbx"
+	"github.com/erigontech/erigon-lib/kv/temporal/historyv2"
 	erigonlog "github.com/erigontech/erigon-lib/log/v3"
 	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/eth/ethconfig"
@@ -104,6 +105,69 @@ func (db *erigonDB) newErigonStoreDryrun(ctx context.Context, height uint64) (*e
 	}, nil
 }
 
+func (db *erigonDB) BatchPrune(ctx context.Context, from, to, batch uint64) error {
+	if from >= to {
+		return errors.Errorf("invalid prune range: from %d >= to %d", from, to)
+	}
+	tx, err := db.rw.BeginRo(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to begin erigon working set store transaction")
+	}
+	base, err := historyv2.AvailableFrom(tx)
+	if err != nil {
+		tx.Rollback()
+		return errors.Wrap(err, "failed to get available from erigon working set store")
+	}
+	tx.Rollback()
+
+	if base >= from {
+		log.L().Debug("batch prune nothing", zap.Uint64("from", from), zap.Uint64("to", to), zap.Uint64("base", base))
+		// nothing to prune
+		return nil
+	}
+
+	for batchFrom := base; batchFrom < from; batchFrom += batch {
+		log.L().Info("batch prune", zap.Uint64("from", batchFrom), zap.Uint64("to", to))
+		if err = db.Prune(ctx, nil, batchFrom, to); err != nil {
+			return err
+		}
+	}
+	log.L().Info("batch prune", zap.Uint64("from", from), zap.Uint64("to", to))
+	return db.Prune(ctx, nil, from, to)
+}
+
+func (db *erigonDB) Prune(ctx context.Context, tx kv.RwTx, from, to uint64) error {
+	if from >= to {
+		return errors.Errorf("invalid prune range: from %d >= to %d", from, to)
+	}
+	log.L().Debug("erigon working set store prune execution stage",
+		zap.Uint64("from", from),
+		zap.Uint64("to", to),
+	)
+	s := stagedsync.PruneState{ID: stages.Execution, ForwardProgress: to}
+	num := to - from
+	cfg := stagedsync.StageExecuteBlocksCfg(db.rw,
+		prune.Mode{
+			History:    prune.Distance(num),
+			Receipts:   prune.Distance(num),
+			CallTraces: prune.Distance(num),
+		},
+		0, nil, nil, nil, nil, nil, false, false, false, datadir.Dirs{}, nil, nil, nil, ethconfig.Sync{}, nil, nil)
+	err := stagedsync.PruneExecutionStage(&s, tx, cfg, ctx, false)
+	if err != nil {
+		return errors.Wrapf(err, "failed to prune execution stage from %d to %d", from, to)
+	}
+	log.L().Debug("erigon working set store prune execution stage done",
+		zap.Uint64("from", from),
+		zap.Uint64("to", to),
+		zap.Uint64("progress", s.PruneProgress),
+	)
+	if to%5000 == 0 {
+		log.L().Info("prune execution stage", zap.Uint64("from", from), zap.Uint64("to", to), zap.Uint64("progress", s.PruneProgress))
+	}
+	return nil
+}
+
 func (store *erigonWorkingSetStore) Start(ctx context.Context) error {
 	return nil
 }
@@ -168,7 +232,7 @@ func (store *erigonWorkingSetStore) prepareCommit(ctx context.Context, tx kv.RwT
 		return nil
 	}
 	from, to := blkCtx.BlockHeight-retention, blkCtx.BlockHeight
-	return store.prune(ctx, tx, from, to)
+	return store.db.Prune(ctx, tx, from, to)
 }
 
 func (store *erigonWorkingSetStore) Commit(ctx context.Context, retention uint64) error {
@@ -256,33 +320,6 @@ func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
 	default:
 		return nil, errors.Errorf("unexpected erigon get namespace %s, key %x", ns, key)
 	}
-}
-
-func (store *erigonWorkingSetStore) prune(ctx context.Context, tx kv.RwTx, from, to uint64) error {
-	if from >= to {
-		return errors.Errorf("invalid prune range: from %d >= to %d", from, to)
-	}
-	log.L().Debug("erigon working set store prune execution stage",
-		zap.Uint64("from", from),
-		zap.Uint64("to", to),
-	)
-	s := stagedsync.PruneState{ID: stages.Execution, ForwardProgress: to}
-	num := to - from
-	cfg := stagedsync.StageExecuteBlocksCfg(nil,
-		prune.Mode{
-			History:    prune.Distance(num),
-			Receipts:   prune.Distance(num),
-			CallTraces: prune.Distance(num),
-		},
-		0, nil, nil, nil, nil, nil, false, false, false, datadir.Dirs{}, nil, nil, nil, ethconfig.Sync{}, nil, nil)
-	err := stagedsync.PruneExecutionStage(&s, tx, cfg, ctx, false)
-	if err != nil {
-		return errors.Wrapf(err, "failed to prune execution stage from %d to %d", from, to)
-	}
-	if to%5000 == 0 {
-		log.L().Info("prune execution stage", zap.Uint64("from", from), zap.Uint64("to", to))
-	}
-	return nil
 }
 
 func (store *erigonWorkingSetStore) Delete(ns string, key []byte) error {
