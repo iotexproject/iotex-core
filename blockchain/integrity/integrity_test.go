@@ -2449,7 +2449,7 @@ func TestHistoryForContract(t *testing.T) {
 	require.True(ok)
 	require.Equal(expect, balance)
 
-	// check the the original balance again
+	// check the original balance again
 	_, err = sf.WorkingSetAtHeight(ctx, bc.TipHeight()-1)
 	require.NoError(err)
 }
