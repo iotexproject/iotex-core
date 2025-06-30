@@ -390,6 +390,18 @@ func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (prot
 		return nil, err
 	}
 	if sdb.erigonDB != nil {
+		if sdb.cfg.Chain.HistoryBlockRetention > 0 {
+			sdb.mutex.RLock()
+			tip := sdb.currentChainHeight
+			sdb.mutex.RUnlock()
+			if height < tip-sdb.cfg.Chain.HistoryBlockRetention {
+				return nil, errors.Wrapf(
+					ErrNotSupported,
+					"history is pruned, only supported for latest %d blocks, but requested height %d",
+					sdb.cfg.Chain.HistoryBlockRetention, height,
+				)
+			}
+		}
 		e, err := sdb.erigonDB.newErigonStoreDryrun(ctx, height+1)
 		if err != nil {
 			return nil, err
