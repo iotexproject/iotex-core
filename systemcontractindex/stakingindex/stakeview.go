@@ -70,7 +70,10 @@ func (s *stakeView) Commit() {}
 func (s *stakeView) BuildWithBlock(ctx context.Context, blk *block.Block) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if blk.Height() != s.height+1 {
+	if blk.Height() < s.helper.common.StartHeight() {
+		return nil
+	}
+	if blk.Height() != s.height+1 && blk.Height() != s.helper.StartHeight() {
 		return errors.Errorf("block height %d does not match stake view height %d", blk.Height(), s.height+1)
 	}
 	g, ok := genesis.ExtractGenesisContext(ctx)
