@@ -234,6 +234,18 @@ func (mr *MockBlockDAOMockRecorder) PutBlock(arg0, arg1 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutBlock", reflect.TypeOf((*MockBlockDAO)(nil).PutBlock), arg0, arg1)
 }
 
+// SetBlockValidator mocks base method.
+func (m *MockBlockDAO) SetBlockValidator(arg0 block.BlockValidator) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetBlockValidator", arg0)
+}
+
+// SetBlockValidator indicates an expected call of SetBlockValidator.
+func (mr *MockBlockDAOMockRecorder) SetBlockValidator(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBlockValidator", reflect.TypeOf((*MockBlockDAO)(nil).SetBlockValidator), arg0)
+}
+
 // Start mocks base method.
 func (m *MockBlockDAO) Start(arg0 context.Context) error {
 	m.ctrl.T.Helper()

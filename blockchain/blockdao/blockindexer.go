@@ -34,15 +34,25 @@ type (
 		StartHeight() uint64
 	}
 
+	BlockIndexerStateDBWriter interface {
+		BlockIndexer
+		// StateDBWriter indicates this indexer writes to state DB
+		StateDBWriter()
+	}
+
 	// BlockIndexerChecker defines a checker of block indexer
 	BlockIndexerChecker struct {
-		dao BlockDAO
+		dao       BlockDAO
+		validator block.BlockValidator
 	}
 )
 
 // NewBlockIndexerChecker creates a new block indexer checker
-func NewBlockIndexerChecker(dao BlockDAO) *BlockIndexerChecker {
-	return &BlockIndexerChecker{dao: dao}
+func NewBlockIndexerChecker(dao BlockDAO, v block.BlockValidator) *BlockIndexerChecker {
+	return &BlockIndexerChecker{
+		dao:       dao,
+		validator: v,
+	}
 }
 
 // CheckIndexer checks a block indexer against block dao
@@ -115,18 +125,29 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 			bcCtx.Tip.Hash = g.Hash()
 			bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 		}
+		checkCtx := protocol.WithFeatureCtx(protocol.WithBlockCtx(
+			protocol.WithBlockchainCtx(ctx, bcCtx),
+			protocol.BlockCtx{
+				BlockHeight:    i,
+				BlockTimeStamp: blk.Timestamp(),
+				Producer:       producer,
+				GasLimit:       g.BlockGasLimitByHeight(i),
+				BaseFee:        blk.BaseFee(),
+				ExcessBlobGas:  blk.ExcessBlobGas(),
+			},
+		))
 		for {
-			if err = indexer.PutBlock(protocol.WithFeatureCtx(protocol.WithBlockCtx(
-				protocol.WithBlockchainCtx(ctx, bcCtx),
-				protocol.BlockCtx{
-					BlockHeight:    i,
-					BlockTimeStamp: blk.Timestamp(),
-					Producer:       producer,
-					GasLimit:       g.BlockGasLimitByHeight(i),
-					BaseFee:        blk.BaseFee(),
-					ExcessBlobGas:  blk.ExcessBlobGas(),
-				},
-			)), blk); err == nil {
+			if bic.validator != nil {
+				if err := bic.validator(checkCtx, blk); err != nil {
+					if i < g.HawaiiBlockHeight && errors.Cause(err) == block.ErrDeltaStateMismatch {
+						log.L().Info("delta state mismatch", zap.Uint64("block", i))
+					} else {
+						log.L().Info("erro when validating block", zap.Uint64("block", i), zap.Error(err))
+						return err
+					}
+				}
+			}
+			if err = indexer.PutBlock(checkCtx, blk); err == nil {
 				break
 			}
 			if i < g.HawaiiBlockHeight && errors.Cause(err) == block.ErrDeltaStateMismatch {
