@@ -156,8 +156,22 @@ if [ -z "$CLI_RELEASE_TAG" ]; then
 fi
 
 if [ "$1" = "unstable" ]; then
-    BINARY_URL="$S3URL/$BINARY"
-
+    if [ -z "$2" ]; then
+        echo "Usage: sh $0 unstable [branch | tag]\n"
+        echo "eg: sh $0 unstable master or v1.14.0\n"
+        echo "Here is the last 10 tags:\n"
+        echo $(git describe --tags $(git rev-list --tags --max-count=10))
+        exit 1
+    else
+        mkdir -p tmp && cd tmp
+        git clone https://github.com/iotexproject/iotex-core.git
+        cd iotex-core
+        git checkout $2
+        make $INSTALL_NAME
+        sudo mv bin/$INSTALL_NAME $INSTALL_DIRECTORY/
+        cd ../ && rm -rf tmp
+        exit 0
+    fi
 else
     # fetch the real release data to make sure it exists before we attempt a download
     downloadJSON RELEASE_DATA "$RELEASES_URL/tag/$CLI_RELEASE_TAG"
