@@ -105,7 +105,7 @@ var (
 		ContractStakingIndexDBPath: "/var/data/contractstaking.index.db",
 		BlobStoreDBPath:            "/var/data/blob.db",
 		BlobStoreRetentionDays:     21,
-		HistoryBlockRetention:      256,
+		HistoryBlockRetention:      0,
 		ID:                         1,
 		EVMNetworkID:               4689,
 		Address:                    "",
