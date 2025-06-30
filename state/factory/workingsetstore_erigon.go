@@ -127,6 +127,11 @@ func (db *erigonDB) BatchPrune(ctx context.Context, from, to, batch uint64) erro
 	}
 
 	for batchFrom := base; batchFrom < from; batchFrom += batch {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		log.L().Info("batch prune", zap.Uint64("from", batchFrom), zap.Uint64("to", to))
 		if err = db.Prune(ctx, nil, batchFrom, to); err != nil {
 			return err
