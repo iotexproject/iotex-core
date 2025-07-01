@@ -242,7 +242,9 @@ func (store *erigonWorkingSetStore) prepareCommit(ctx context.Context, tx kv.RwT
 
 func (store *erigonWorkingSetStore) Commit(ctx context.Context, retention uint64) error {
 	defer store.tx.Rollback()
-	tx, err := store.db.rw.BeginRw(ctx)
+	// BeginRw accounting for the context Done signal
+	// statedb has been committed, so we should not use the context
+	tx, err := store.db.rw.BeginRw(context.Background())
 	if err != nil {
 		return errors.Wrap(err, "failed to begin erigon working set store transaction")
 	}
