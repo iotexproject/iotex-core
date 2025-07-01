@@ -83,7 +83,7 @@ func Test_blockDAO_Start(t *testing.T) {
 		p := gomonkey.NewPatches()
 		defer p.Reset()
 
-		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", errors.New(t.Name()))
+		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStartSequentially", errors.New(t.Name()))
 
 		err := blockdao.Start(context.Background())
 		r.ErrorContains(err, t.Name())
@@ -93,7 +93,7 @@ func Test_blockDAO_Start(t *testing.T) {
 		p := gomonkey.NewPatches()
 		defer p.Reset()
 
-		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", nil)
+		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStartSequentially", nil)
 		mockblockdao.EXPECT().Height().Return(uint64(0), errors.New(t.Name())).Times(1)
 
 		err := blockdao.Start(context.Background())
@@ -106,7 +106,7 @@ func Test_blockDAO_Start(t *testing.T) {
 
 		expectedHeight := uint64(1)
 
-		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", nil)
+		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStartSequentially", nil)
 		mockblockdao.EXPECT().Height().Return(expectedHeight, nil).Times(1)
 		p.ApplyPrivateMethod(&blockDAO{}, "checkIndexers", func(*blockDAO, context.Context) error { return nil })
 
