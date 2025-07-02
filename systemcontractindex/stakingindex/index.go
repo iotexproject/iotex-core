@@ -59,12 +59,12 @@ type (
 		HandleMergedEvent(event *abiutil.EventParam) error
 		HandleBucketExpandedEvent(event *abiutil.EventParam) error
 		HandleDonatedEvent(event *abiutil.EventParam) error
-		Finalize() (batch.KVStoreBatch, bucketCache)
+		Finalize() (batch.KVStoreBatch, *cache)
 	}
 	// Indexer is the staking indexer
 	Indexer struct {
 		common           *systemcontractindex.IndexerCommon
-		cache            bucketCache // in-memory cache, used to query index data
+		cache            *cache // in-memory cache, used to query index data
 		mutex            sync.RWMutex
 		blocksToDuration blocksDurationAtFn // function to calculate duration from block range
 		bucketNS         string
@@ -130,7 +130,7 @@ func (s *Indexer) StartView(ctx context.Context) (staking.ContractStakeView, err
 	}
 	return &stakeView{
 		helper: s,
-		cache:  newCowCache(s.cache.Copy()),
+		cache:  s.cache.Copy(),
 		height: s.common.Height(),
 	}, nil
 }

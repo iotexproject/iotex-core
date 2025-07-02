@@ -87,7 +87,7 @@ func (s *Indexer) StartView(ctx context.Context) (staking.ContractStakeView, err
 	}
 	return &stakeView{
 		helper: s,
-		clean:  s.cache.Clone(),
+		cache:  s.cache.Clone(),
 		height: s.cache.Height(),
 	}, nil
 }

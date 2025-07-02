@@ -62,10 +62,9 @@ func prepareViewData(t *testing.T) (*ViewData, int) {
 		},
 	}
 	viewData := &ViewData{
-		candCenter:     candCenter,
-		bucketPool:     bucketPool,
-		snapshots:      []Snapshot{},
-		contractsStake: &contractStakeView{},
+		candCenter: candCenter,
+		bucketPool: bucketPool,
+		snapshots:  []Snapshot{},
 	}
 	return viewData, viewData.Snapshot()
 }
