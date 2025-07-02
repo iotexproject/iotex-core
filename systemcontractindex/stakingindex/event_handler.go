@@ -32,7 +32,7 @@ var (
 
 type eventHandler struct {
 	stakingBucketNS string
-	dirty           bucketCache        // dirty cache, a view for current block
+	dirty           *cache             // dirty cache, a view for current block
 	delta           batch.KVStoreBatch // delta for db to store buckets of current block
 	tokenOwner      map[uint64]address.Address
 	// context for event handler
@@ -49,7 +49,7 @@ func init() {
 	}
 }
 
-func newEventHandler(bucketNS string, dirty bucketCache, blkCtx protocol.BlockCtx, timestamped, muted bool) *eventHandler {
+func newEventHandler(bucketNS string, dirty *cache, blkCtx protocol.BlockCtx, timestamped, muted bool) *eventHandler {
 	return &eventHandler{
 		stakingBucketNS: bucketNS,
 		dirty:           dirty,
@@ -284,7 +284,7 @@ func (eh *eventHandler) HandleDonatedEvent(event *abiutil.EventParam) error {
 	return nil
 }
 
-func (eh *eventHandler) Finalize() (batch.KVStoreBatch, bucketCache) {
+func (eh *eventHandler) Finalize() (batch.KVStoreBatch, *cache) {
 	delta, dirty := eh.delta, eh.dirty
 	eh.delta, eh.dirty = nil, nil
 	return delta, dirty
