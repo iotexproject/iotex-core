@@ -42,7 +42,6 @@ type (
 		totalBucketCount      uint64                      // total number of buckets including burned buckets
 		height                uint64                      // current block height, it's put in cache for consistency on merge
 		mutex                 sync.RWMutex                // a RW mutex for the cache to protect concurrent access
-		config                Config
 	}
 )
 
@@ -53,13 +52,12 @@ var (
 	ErrInvalidHeight = errors.New("invalid height")
 )
 
-func newContractStakingCache(config Config) *contractStakingCache {
+func newContractStakingCache() *contractStakingCache {
 	return &contractStakingCache{
 		bucketInfoMap:         make(map[uint64]*bucketInfo),
 		bucketTypeMap:         make(map[uint64]*BucketType),
 		propertyBucketTypeMap: make(map[int64]map[uint64]uint64),
 		candidateBucketMap:    make(map[string]map[uint64]bool),
-		config:                config,
 	}
 }
 
@@ -249,7 +247,6 @@ func (s *contractStakingCache) Clone() *contractStakingCache {
 	defer s.mutex.RUnlock()
 
 	c := &contractStakingCache{
-		config:           s.config,
 		totalBucketCount: s.totalBucketCount,
 	}
 	c.bucketInfoMap = make(map[uint64]*bucketInfo, len(s.bucketInfoMap))
@@ -329,22 +326,23 @@ func (s *contractStakingCache) getBucket(id uint64) (*BucketType, *bucketInfo) {
 func (s *contractStakingCache) putBucketType(id uint64, bt *BucketType) {
 	// remove old bucket map
 	if oldBt, existed := s.bucketTypeMap[id]; existed {
-		amount := oldBt.Amount.Int64()
-		if _, existed := s.propertyBucketTypeMap[amount]; existed {
-			delete(s.propertyBucketTypeMap[amount], oldBt.Duration)
-			if len(s.propertyBucketTypeMap[amount]) == 0 {
-				delete(s.propertyBucketTypeMap, amount)
-			}
+		if oldBt.Amount.Cmp(bt.Amount) != 0 || oldBt.Duration != bt.Duration {
+			panic("bucket type amount or duration cannot be changed")
 		}
 	}
 	// add new bucket map
-	s.bucketTypeMap[id] = bt
 	amount := bt.Amount.Int64()
 	m, ok := s.propertyBucketTypeMap[amount]
 	if !ok {
 		s.propertyBucketTypeMap[amount] = make(map[uint64]uint64)
 		m = s.propertyBucketTypeMap[amount]
+	} else {
+		oldId, ok := m[bt.Duration]
+		if ok && oldId != id {
+			panic("bucket type with same amount and duration already exists")
+		}
 	}
+	s.bucketTypeMap[id] = bt
 	m[bt.Duration] = id
 }
 

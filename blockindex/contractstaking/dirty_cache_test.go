@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -14,7 +13,7 @@ import (
 
 func TestContractStakingDirty_getBucketType(t *testing.T) {
 	require := require.New(t)
-	clean := newContractStakingCache(Config{CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts)})
+	clean := newContractStakingCache()
 	dirty := newContractStakingDirty(clean)
 
 	// no bucket type
@@ -41,7 +40,7 @@ func TestContractStakingDirty_getBucketType(t *testing.T) {
 
 func TestContractStakingDirty_getBucketInfo(t *testing.T) {
 	require := require.New(t)
-	clean := newContractStakingCache(Config{CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts)})
+	clean := newContractStakingCache()
 	dirty := newContractStakingDirty(clean)
 
 	// no bucket info
@@ -93,7 +92,7 @@ func TestContractStakingDirty_getBucketInfo(t *testing.T) {
 
 func TestContractStakingDirty_matchBucketType(t *testing.T) {
 	require := require.New(t)
-	clean := newContractStakingCache(Config{CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts)})
+	clean := newContractStakingCache()
 	dirty := newContractStakingDirty(clean)
 
 	// no bucket type
@@ -123,7 +122,7 @@ func TestContractStakingDirty_matchBucketType(t *testing.T) {
 
 func TestContractStakingDirty_getBucketTypeCount(t *testing.T) {
 	require := require.New(t)
-	clean := newContractStakingCache(Config{CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts)})
+	clean := newContractStakingCache()
 	dirty := newContractStakingDirty(clean)
 
 	// no bucket type
@@ -143,7 +142,7 @@ func TestContractStakingDirty_getBucketTypeCount(t *testing.T) {
 
 func TestContractStakingDirty_finalize(t *testing.T) {
 	require := require.New(t)
-	clean := newContractStakingCache(Config{CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts)})
+	clean := newContractStakingCache()
 	dirty := newContractStakingDirty(newWrappedCache(clean))
 	totalCnt := clean.TotalBucketCount()
 	require.EqualValues(0, totalCnt)
@@ -184,12 +183,12 @@ func TestContractStakingDirty_finalize(t *testing.T) {
 	require.EqualValues(byteutil.Uint64ToBytesBigEndian(1), info.Key())
 	require.EqualValues(bi.Serialize(), info.Value())
 	totalCnt = cache.TotalBucketCount()
-	require.EqualValues(2, totalCnt)
+	require.EqualValues(1, totalCnt)
 }
 
 func TestContractStakingDirty_noSideEffectOnClean(t *testing.T) {
 	require := require.New(t)
-	clean := newContractStakingCache(Config{CalculateVoteWeight: calculateVoteWeightGen(genesis.TestDefault().VoteWeightCalConsts)})
+	clean := newContractStakingCache()
 	dirty := newContractStakingDirty(newWrappedCache(clean))
 
 	// add bucket type to dirty cache
