@@ -69,7 +69,7 @@ func NewContractStakingIndexer(kvStore db.KVStore, config Config) (*Indexer, err
 	}
 	return &Indexer{
 		kvstore: kvStore,
-		cache:   newContractStakingCache(config),
+		cache:   newContractStakingCache(),
 		config:  config,
 	}, nil
 }
@@ -114,7 +114,7 @@ func (s *Indexer) Stop(ctx context.Context) error {
 	if err := s.kvstore.Stop(ctx); err != nil {
 		return err
 	}
-	s.cache = newContractStakingCache(s.config)
+	s.cache = newContractStakingCache()
 	s.TurnOff()
 	return nil
 }
@@ -364,7 +364,7 @@ func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) er
 	// update db
 	batch.Put(_StakingNS, _stakingHeightKey, byteutil.Uint64ToBytesBigEndian(height), "failed to put height")
 	if err := s.kvstore.WriteBatch(batch); err != nil {
-		s.cache = newContractStakingCache(s.config)
+		s.cache = newContractStakingCache()
 		return s.loadFromDB()
 	}
 	s.height = height
