@@ -334,7 +334,7 @@ type (
 		// 3. fix gas and nonce update
 		// 4. fix unproductive delegates in staking protocol
 		OkhotskBlockHeight uint64 `yaml:"okhotskHeight"`
-		// PalauBlockHeight is the the start height to
+		// PalauBlockHeight is the start height to
 		// 1. enable rewarding action via web3
 		// 2. broadcast node info into the p2p network
 		PalauBlockHeight uint64 `yaml:"palauHeight"`
