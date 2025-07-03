@@ -374,7 +374,7 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 
 	if accessList := in.Get("params.0.accessList"); accessList.Exists() {
 		acl = types.AccessList{}
-		log.L().Info("raw acl", zap.String("accessList", accessList.Raw))
+		log.L().Debug("raw acl", zap.String("accessList", accessList.Raw))
 		if err := json.Unmarshal([]byte(accessList.Raw), &acl); err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal access list %s", accessList.Raw)
 		}
