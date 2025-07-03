@@ -206,7 +206,7 @@ func TestContractStakingDirty_noSideEffectOnClean(t *testing.T) {
 	require.Nil(bi)
 
 	// update bucket type in dirty cache
-	dirty.updateBucketType(1, &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 2})
+	dirty.updateBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 3})
 	// check that clean cache is not affected
 	bt, ok = clean.getBucketType(1)
 	require.False(ok)
