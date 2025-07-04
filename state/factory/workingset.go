@@ -7,6 +7,7 @@ package factory
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sort"
 	"time"
@@ -489,7 +490,11 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		return err
 	}
 	userActions, systemActions := ws.splitActions(actions)
-	if protocol.MustGetFeatureCtx(ctx).PreStateSystemAction {
+	// due to archive states only support for account and contract, this may cause
+	// validation failure for PutPollResult system action
+	// TODO: remove this when archive states support state for all protocols
+	ignoreSystemValidation := protocol.MustGetBlockCtx(ctx).ReadOnly
+	if protocol.MustGetFeatureCtx(ctx).PreStateSystemAction && !ignoreSystemValidation {
 		if err := ws.validatePostSystemActions(ctx, systemActions); err != nil {
 			return err
 		}
@@ -537,7 +542,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		}
 	}
 	// Handle post system actions
-	if !protocol.MustGetFeatureCtx(ctx).PreStateSystemAction {
+	if !protocol.MustGetFeatureCtx(ctx).PreStateSystemAction && !ignoreSystemValidation {
 		if err := ws.validatePostSystemActions(ctxWithBlockContext, systemActions); err != nil {
 			return err
 		}
@@ -661,6 +666,17 @@ func (ws *workingSet) validatePostSystemActions(ctx context.Context, systemActio
 		return err
 	}
 	if len(postSystemActions) != len(systemActions) {
+		log.L().Error("the number of system actions is incorrect",
+			zap.Int("expected", len(postSystemActions)),
+			zap.Int("got", len(systemActions)),
+			zap.Uint64("height", protocol.MustGetBlockCtx(ctx).BlockHeight),
+		)
+		for i, act := range postSystemActions {
+			log.L().Error("expected system action",
+				zap.Int("index", i),
+				zap.String("action", fmt.Sprintf("%+T", act.Action())),
+			)
+		}
 		return errors.Wrapf(errInvalidSystemActionLayout, "the number of system actions is incorrect, expected %d, got %d", len(postSystemActions), len(systemActions))
 	}
 	reg := protocol.MustGetRegistry(ctx)
