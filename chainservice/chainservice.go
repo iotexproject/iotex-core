@@ -128,8 +128,18 @@ func (cs *ChainService) Pause(pause bool) {
 }
 
 // ReportFullness switch on or off block sync
-func (cs *ChainService) ReportFullness(_ context.Context, messageType iotexrpc.MessageType, fullness float32) {
+func (cs *ChainService) ReportFullness(_ context.Context, messageType iotexrpc.MessageType, msg proto.Message, fullness float32) {
 	_blockchainFullnessMtc.WithLabelValues(iotexrpc.MessageType_name[int32(messageType)]).Set(float64(fullness))
+	switch messageType {
+	case iotexrpc.MessageType_BLOCK:
+		blk, ok := msg.(*iotextypes.Block)
+		if !ok || blk == nil {
+			return
+		}
+		if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
+			atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
+		}
+	}
 }
 
 // HandleAction handles incoming action request.
@@ -185,9 +195,6 @@ func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *i
 	ctx, err = cs.chain.Context(ctx)
 	if err != nil {
 		return err
-	}
-	if atomic.LoadUint64(&cs.lastReceivedBlockHeight) < blk.Height() {
-		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Height())
 	}
 	return cs.blocksync.ProcessBlock(ctx, peer, blk)
 }
