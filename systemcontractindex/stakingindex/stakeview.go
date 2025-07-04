@@ -52,3 +52,8 @@ func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 	handler := newEventHandler(s.helper.bucketNS, s.cache, blkCtx, s.helper.timestamped, muted)
 	return s.helper.handleReceipt(ctx, handler, receipt)
 }
+
+func (s *stakeView) Commit() {
+	s.cache.Commit()
+	s.cache = s.cache.Base()
+}

@@ -2,6 +2,7 @@ package stakingindex
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/iotexproject/iotex-address/address"
 
@@ -19,7 +20,7 @@ type (
 		BucketIdsByCandidate(candidate address.Address) []uint64
 		TotalBucketCount() uint64
 		Base() indexerCache
-		Commit() error
+		Commit()
 		IsDirty() bool
 	}
 	// base is the in-memory base for staking index
@@ -34,7 +35,6 @@ type (
 		cache              indexerCache
 		bucketsByCandidate map[string]map[uint64]bool // buckets by candidate in current block
 		updatedBuckets     map[uint64]*Bucket         // updated buckets in current block
-		deletedBucketIds   map[uint64]struct{}        // deleted buckets in current block
 	}
 )
 
@@ -166,16 +166,13 @@ func (s *base) IsDirty() bool {
 	return false
 }
 
-func (s *base) Commit() error {
-	return nil
-}
+func (s *base) Commit() {}
 
 func newWrappedCache(cache indexerCache) *wrappedCache {
 	return &wrappedCache{
 		cache:              cache,
 		bucketsByCandidate: make(map[string]map[uint64]bool),
 		updatedBuckets:     make(map[uint64]*Bucket),
-		deletedBucketIds:   make(map[uint64]struct{}),
 	}
 }
 
@@ -192,7 +189,6 @@ func (w *wrappedCache) PutBucket(id uint64, bkt *Bucket) {
 		w.bucketsByCandidate[oldCand][id] = false
 	}
 	w.updatedBuckets[id] = bkt
-	delete(w.deletedBucketIds, id)
 	cand := bkt.Candidate.String()
 	if w.bucketsByCandidate[cand] == nil {
 		w.bucketsByCandidate[cand] = make(map[uint64]bool)
@@ -201,27 +197,20 @@ func (w *wrappedCache) PutBucket(id uint64, bkt *Bucket) {
 }
 
 func (w *wrappedCache) DeleteBucket(id uint64) {
-	w.deletedBucketIds[id] = struct{}{}
-	delete(w.updatedBuckets, id)
-	for cand := range w.bucketsByCandidate {
-		delete(w.bucketsByCandidate[cand], id)
-		if len(w.bucketsByCandidate[cand]) == 0 {
-			delete(w.bucketsByCandidate, cand)
-		}
-	}
+	w.updatedBuckets[id] = nil
 }
 
 func (w *wrappedCache) BucketIdxs() []uint64 {
 	idxMap := make(map[uint64]struct{})
 	// Load from underlying cache
 	for _, id := range w.cache.BucketIdxs() {
-		if _, deleted := w.deletedBucketIds[id]; !deleted {
+		if bucket, exist := w.updatedBuckets[id]; !exist || bucket != nil {
 			idxMap[id] = struct{}{}
 		}
 	}
 	// Add updatedBuckets
-	for id := range w.updatedBuckets {
-		if _, deleted := w.deletedBucketIds[id]; !deleted {
+	for id, bucket := range w.updatedBuckets {
+		if bucket != nil {
 			idxMap[id] = struct{}{}
 		}
 	}
@@ -229,14 +218,15 @@ func (w *wrappedCache) BucketIdxs() []uint64 {
 	for id := range idxMap {
 		idxs = append(idxs, id)
 	}
+	slices.Sort(idxs)
 	return idxs
 }
 
 func (w *wrappedCache) Bucket(id uint64) *Bucket {
-	if _, deleted := w.deletedBucketIds[id]; deleted {
-		return nil
-	}
 	if bkt, ok := w.updatedBuckets[id]; ok {
+		if bkt == nil {
+			return nil
+		}
 		return bkt.Clone()
 	}
 	return w.cache.Bucket(id)
@@ -245,11 +235,12 @@ func (w *wrappedCache) Bucket(id uint64) *Bucket {
 func (w *wrappedCache) Buckets(indices []uint64) []*Bucket {
 	buckets := make([]*Bucket, 0, len(indices))
 	for _, idx := range indices {
-		if _, deleted := w.deletedBucketIds[idx]; deleted {
-			continue
-		}
 		if bkt, ok := w.updatedBuckets[idx]; ok {
-			buckets = append(buckets, bkt.Clone())
+			if bkt == nil {
+				buckets = append(buckets, nil)
+			} else {
+				buckets = append(buckets, bkt.Clone())
+			}
 		} else if bkt := w.cache.Bucket(idx); bkt != nil {
 			buckets = append(buckets, bkt.Clone())
 		}
@@ -275,13 +266,16 @@ func (w *wrappedCache) BucketIdsByCandidate(candidate address.Address) []uint64 
 		}
 	}
 	// Remove deleted ids
-	for id := range w.deletedBucketIds {
-		delete(ids, id)
+	for id, bucket := range w.updatedBuckets {
+		if bucket == nil {
+			delete(ids, id)
+		}
 	}
 	result := make([]uint64, 0, len(ids))
 	for id := range ids {
 		result = append(result, id)
 	}
+	slices.Sort(result)
 	return result
 }
 
@@ -294,23 +288,23 @@ func (w *wrappedCache) TotalBucketCount() uint64 {
 	return w.cache.TotalBucketCount()
 }
 
-func (w *wrappedCache) Commit() error {
+func (w *wrappedCache) Commit() {
 	if w.isDirty() {
 		for id, bkt := range w.updatedBuckets {
-			w.cache.PutBucket(id, bkt)
-		}
-		for id := range w.deletedBucketIds {
-			w.cache.DeleteBucket(id)
+			if bkt == nil {
+				w.cache.DeleteBucket(id)
+			} else {
+				w.cache.PutBucket(id, bkt)
+			}
 		}
 		w.updatedBuckets = make(map[uint64]*Bucket)
-		w.deletedBucketIds = make(map[uint64]struct{})
 		w.bucketsByCandidate = make(map[string]map[uint64]bool)
 	}
-	return w.cache.Commit()
+	w.cache.Commit()
 }
 
 func (w *wrappedCache) isDirty() bool {
-	return len(w.updatedBuckets) > 0 || len(w.deletedBucketIds) > 0 || len(w.bucketsByCandidate) > 0
+	return len(w.updatedBuckets) > 0 || len(w.bucketsByCandidate) > 0
 }
 
 func (w *wrappedCache) IsDirty() bool {

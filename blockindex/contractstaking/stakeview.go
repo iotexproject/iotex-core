@@ -76,3 +76,7 @@ func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 
 	return nil
 }
+
+func (s *stakeView) Commit() {
+	s.cache.Commit()
+}
