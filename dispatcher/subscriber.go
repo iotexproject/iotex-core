@@ -7,11 +7,12 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"google.golang.org/protobuf/proto"
 )
 
 // Subscriber is the dispatcher subscriber interface
 type Subscriber interface {
-	ReportFullness(context.Context, iotexrpc.MessageType, float32)
+	ReportFullness(context.Context, iotexrpc.MessageType, proto.Message, float32)
 	HandleAction(context.Context, *iotextypes.Action) error
 	HandleBlock(context.Context, string, *iotextypes.Block) error
 	HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error

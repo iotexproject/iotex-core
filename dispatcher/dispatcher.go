@@ -309,7 +309,7 @@ func (d *IotxDispatcher) updateMetrics(msg *message, queue chan *message) {
 	d.updateEventAudit(msg.msgType)
 	subscriber := d.subscriber(msg.chainID)
 	if subscriber != nil {
-		subscriber.ReportFullness(msg.ctx, msg.msgType, float32(len(queue))/float32(cap(queue)))
+		subscriber.ReportFullness(msg.ctx, msg.msgType, msg.msg, float32(len(queue))/float32(cap(queue)))
 	}
 }
 

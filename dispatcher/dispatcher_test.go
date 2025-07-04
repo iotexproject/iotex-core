@@ -181,7 +181,8 @@ func dispatcherIsClean(dsp *IotxDispatcher) bool {
 
 type dummySubscriber struct{}
 
-func (ds *dummySubscriber) ReportFullness(context.Context, iotexrpc.MessageType, float32) {}
+func (ds *dummySubscriber) ReportFullness(context.Context, iotexrpc.MessageType, proto.Message, float32) {
+}
 
 func (ds *dummySubscriber) HandleBlock(context.Context, string, *iotextypes.Block) error { return nil }
 
@@ -220,7 +221,8 @@ type counterSubscriber struct {
 	actionHash  atomic.Int32
 }
 
-func (cs *counterSubscriber) ReportFullness(context.Context, iotexrpc.MessageType, float32) {}
+func (cs *counterSubscriber) ReportFullness(context.Context, iotexrpc.MessageType, proto.Message, float32) {
+}
 
 func (cs *counterSubscriber) HandleBlock(context.Context, string, *iotextypes.Block) error {
 	cs.block.Inc()
