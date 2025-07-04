@@ -346,9 +346,7 @@ func (s *Indexer) commit(handler stakingEventHandler, height uint64) error {
 	if err := s.common.Commit(height, delta); err != nil {
 		return err
 	}
-	if err := dirty.Commit(); err != nil {
-		return errors.Wrapf(err, "commit dirty cache failed")
-	}
+	dirty.Commit()
 	cache, ok := dirty.Base().(*base)
 	if !ok {
 		return errors.Errorf("unexpected cache type %T, expect *base", dirty)
