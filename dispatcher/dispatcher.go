@@ -232,7 +232,16 @@ func (d *IotxDispatcher) ValidateMessage(pMsg proto.Message) (bool, error) {
 }
 
 func (d *IotxDispatcher) queueMessage(msg *message) {
+	subscriber := d.subscriber(msg.chainID)
+	if subscriber == nil {
+		log.L().Warn("chainID has not been registered in dispatcher.", zap.Uint32("chainID", msg.chainID))
+		return
+	}
 	queue := d.queueMgr.Queue(msg)
+	if subscriber.Filter(msg.msgType, msg.msg, cap(queue)) {
+		log.L().Debug("Message filtered by subscriber.", zap.Uint32("chainID", msg.chainID), zap.String("msgType", msg.msgType.String()))
+		return
+	}
 	select {
 	case queue <- msg:
 	default:

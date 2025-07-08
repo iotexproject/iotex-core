@@ -12,6 +12,7 @@ import (
 
 // Subscriber is the dispatcher subscriber interface
 type Subscriber interface {
+	Filter(iotexrpc.MessageType, proto.Message, int) bool
 	ReportFullness(context.Context, iotexrpc.MessageType, proto.Message, float32)
 	HandleAction(context.Context, *iotextypes.Action) error
 	HandleBlock(context.Context, string, *iotextypes.Block) error

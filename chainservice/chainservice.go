@@ -13,6 +13,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -125,6 +126,26 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 
 func (cs *ChainService) Pause(pause bool) {
 	cs.paused.Store(pause)
+}
+
+func (cs *ChainService) Filter(messageType iotexrpc.MessageType, msg proto.Message, cap int) bool {
+	// Filter out messages that are not relevant to the chain service
+	if messageType != iotexrpc.MessageType_BLOCK {
+		return false
+	}
+	blk, ok := msg.(*iotextypes.Block)
+	if !ok || blk == nil {
+		return true // filter out invalid block messages
+	}
+	if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
+		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
+	}
+	tip, err := cs.blockdao.Height()
+	if err != nil {
+		log.L().Error("failed to get tip height from blockdao", zap.Error(err))
+		return false
+	}
+	return blk.Header.Core.Height > tip+uint64(cap)
 }
 
 // ReportFullness switch on or off block sync
