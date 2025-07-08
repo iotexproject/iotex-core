@@ -131,11 +131,11 @@ func (cs *ChainService) Pause(pause bool) {
 func (cs *ChainService) Filter(messageType iotexrpc.MessageType, msg proto.Message, cap int) bool {
 	// Filter out messages that are not relevant to the chain service
 	if messageType != iotexrpc.MessageType_BLOCK {
-		return false
+		return true
 	}
 	blk, ok := msg.(*iotextypes.Block)
 	if !ok || blk == nil {
-		return true // filter out invalid block messages
+		return false
 	}
 	if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
 		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
@@ -143,9 +143,9 @@ func (cs *ChainService) Filter(messageType iotexrpc.MessageType, msg proto.Messa
 	tip, err := cs.blockdao.Height()
 	if err != nil {
 		log.L().Error("failed to get tip height from blockdao", zap.Error(err))
-		return false
+		return true
 	}
-	return blk.Header.Core.Height > tip+uint64(cap)
+	return blk.Header.Core.Height < tip+uint64(cap)
 }
 
 // ReportFullness switch on or off block sync

@@ -238,7 +238,7 @@ func (d *IotxDispatcher) queueMessage(msg *message) {
 		return
 	}
 	queue := d.queueMgr.Queue(msg)
-	if subscriber.Filter(msg.msgType, msg.msg, cap(queue)) {
+	if !subscriber.Filter(msg.msgType, msg.msg, cap(queue)) {
 		log.L().Debug("Message filtered by subscriber.", zap.Uint32("chainID", msg.chainID), zap.String("msgType", msg.msgType.String()))
 		return
 	}

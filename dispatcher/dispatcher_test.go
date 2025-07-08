@@ -181,6 +181,10 @@ func dispatcherIsClean(dsp *IotxDispatcher) bool {
 
 type dummySubscriber struct{}
 
+func (ds *dummySubscriber) Filter(iotexrpc.MessageType, proto.Message, int) bool {
+	return true
+}
+
 func (ds *dummySubscriber) ReportFullness(context.Context, iotexrpc.MessageType, proto.Message, float32) {
 }
 
@@ -219,6 +223,10 @@ type counterSubscriber struct {
 	nodeInfoReq atomic.Int32
 	actionReq   atomic.Int32
 	actionHash  atomic.Int32
+}
+
+func (cs *counterSubscriber) Filter(iotexrpc.MessageType, proto.Message, int) bool {
+	return true
 }
 
 func (cs *counterSubscriber) ReportFullness(context.Context, iotexrpc.MessageType, proto.Message, float32) {
