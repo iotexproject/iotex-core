@@ -9,10 +9,13 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 
 	"github.com/iotexproject/iotex-address/address"
 )
@@ -42,7 +45,15 @@ type (
 
 	// CandidateMap is a map of Candidates using Hash160 as key
 	CandidateMap map[hash.Hash160]*Candidate
+
+	Storage interface {
+		StorageAddr(ns string, key []byte) hash.Hash160
+		Storage(ns string, key []byte) map[hash.Hash256]uint256.Int
+		Load(ns string, key []byte, store func(hash.Hash256) (uint256.Int, bool)) error
+	}
 )
+
+var _ Storage = &CandidateList{}
 
 // Equal compares two candidate instances
 func (c *Candidate) Equal(d *Candidate) bool {
@@ -139,6 +150,192 @@ func (l *CandidateList) LoadProto(candList *iotextypes.CandidateList) error {
 	*l = candidates
 
 	return nil
+}
+
+// StorageAddr returns the storage address for the candidate list
+func (l CandidateList) StorageAddr(_ string, _ []byte) hash.Hash160 {
+	return hash.Hash160(address.StakingProtocolAddrHash)
+}
+
+// Storage converts the candidate list to a storage map
+func (l CandidateList) Storage(ns string, key []byte) map[hash.Hash256]uint256.Int {
+	prefix := append([]byte(ns), key...)
+	store := make(map[hash.Hash256]uint256.Int)
+
+	// Store the number of candidates
+	countKey := hash.Hash256b(append(prefix, []byte("count")...))
+	store[countKey] = *uint256.NewInt(uint64(len(l)))
+
+	// Store each candidate with an index prefix
+	validIndex := 0
+	for _, cand := range l {
+		if cand == nil {
+			continue
+		}
+
+		// Use validIndex instead of i to ensure consecutive indices
+		indexBytes := make([]byte, 4)
+		indexBytes[0] = byte(validIndex >> 24)
+		indexBytes[1] = byte(validIndex >> 16)
+		indexBytes[2] = byte(validIndex >> 8)
+		indexBytes[3] = byte(validIndex)
+
+		candPrefix := append(prefix, indexBytes...)
+
+		// Store candidate address (field 0)
+		addr, err := address.FromString(cand.Address)
+		if err != nil {
+			log.S().Panicf("failed to get address from candidate %s: %v", cand.Address, err)
+		}
+		store[hash.Hash256b(append(candPrefix, byte(0)))] = *uint256.NewInt(0).SetBytes(addr.Bytes())
+
+		// Store candidate votes (field 1)
+		store[hash.Hash256b(append(candPrefix, byte(1)))] = *uint256.NewInt(0).SetBytes(cand.Votes.Bytes())
+
+		// Store reward address (field 2) - always store, even if empty
+		if cand.RewardAddress != "" {
+			rewardAddr, err := address.FromString(cand.RewardAddress)
+			if err != nil {
+				log.S().Panicf("failed to get reward address from candidate %s: %v", cand.RewardAddress, err)
+			}
+			store[hash.Hash256b(append(candPrefix, byte(2)))] = *uint256.NewInt(0).SetBytes(rewardAddr.Bytes())
+		} else {
+			// Store empty address as zero bytes
+			store[hash.Hash256b(append(candPrefix, byte(2)))] = *uint256.NewInt(0)
+		}
+
+		// Store candidate name (field 3) - always store, even if empty
+		if len(cand.CanName) > 0 {
+			if len(cand.CanName) > 32 {
+				log.S().Panicf("candidate name %x is too long, should not exceed 32 bytes", cand.CanName)
+			}
+			store[hash.Hash256b(append(candPrefix, byte(3)))] = *uint256.NewInt(0).SetBytes(cand.CanName)
+		} else {
+			// Store empty name as zero bytes
+			store[hash.Hash256b(append(candPrefix, byte(3)))] = *uint256.NewInt(0)
+		}
+
+		validIndex++
+	}
+
+	return store
+}
+
+// Load restores the candidate list from storage
+func (l *CandidateList) Load(ns string, key []byte, store func(hash.Hash256) (uint256.Int, bool)) error {
+	prefix := append([]byte(ns), key...)
+
+	// Get the number of candidates
+	countKey := hash.Hash256b(append(prefix, []byte("count")...))
+	countVal, exists := store(countKey)
+	if !exists {
+		*l = CandidateList{}
+		return nil
+	}
+
+	count := countVal.Uint64()
+	candidates := make(CandidateList, 0, count)
+
+	// Load each candidate by index
+	for i := uint64(0); i < count; i++ {
+		// Create index bytes
+		indexBytes := make([]byte, 4)
+		indexBytes[0] = byte(i >> 24)
+		indexBytes[1] = byte(i >> 16)
+		indexBytes[2] = byte(i >> 8)
+		indexBytes[3] = byte(i)
+
+		candPrefix := append(prefix, indexBytes...)
+
+		// Load candidate address (field 0)
+		addrKey := hash.Hash256b(append(candPrefix, byte(0)))
+		addrVal, exists := store(addrKey)
+		if !exists {
+			return errors.Wrapf(ErrCandidateMap, "missing address for candidate at index %d", i)
+		}
+
+		addr, err := address.FromBytes(addrVal.Bytes())
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse address for candidate at index %d", i)
+		}
+
+		// Load candidate votes (field 1)
+		votesKey := hash.Hash256b(append(candPrefix, byte(1)))
+		votesVal, exists := store(votesKey)
+		if !exists {
+			return errors.Wrapf(ErrCandidateMap, "missing votes for candidate at index %d", i)
+		}
+
+		votes := big.NewInt(0).SetBytes(votesVal.Bytes())
+
+		// Create candidate
+		candidate := &Candidate{
+			Address: addr.String(),
+			Votes:   votes,
+		}
+
+		// Load reward address (field 2) - always expected to be present
+		rewardKey := hash.Hash256b(append(candPrefix, byte(2)))
+		rewardVal, exists := store(rewardKey)
+		if !exists {
+			return errors.Wrapf(ErrCandidateMap, "missing reward address for candidate at index %d", i)
+		}
+
+		// Check if reward address is empty (zero value)
+		if !rewardVal.IsZero() {
+			rewardAddr, err := address.FromBytes(rewardVal.Bytes())
+			if err != nil {
+				return errors.Wrapf(err, "failed to parse reward address for candidate at index %d", i)
+			}
+			candidate.RewardAddress = rewardAddr.String()
+		} else {
+			candidate.RewardAddress = ""
+		}
+
+		// Load candidate name (field 3) - always expected to be present
+		nameKey := hash.Hash256b(append(candPrefix, byte(3)))
+		nameVal, exists := store(nameKey)
+		if !exists {
+			return errors.Wrapf(ErrCandidateMap, "missing candidate name for candidate at index %d", i)
+		}
+
+		// Check if candidate name is empty (zero value)
+		if !nameVal.IsZero() {
+			candidate.CanName = nameVal.Bytes()
+		} else {
+			candidate.CanName = nil
+		}
+
+		candidates = append(candidates, candidate)
+	}
+
+	*l = candidates
+	return nil
+}
+
+func (l *CandidateList) String() string {
+	if l == nil {
+		return "[]"
+	}
+	var sb strings.Builder
+	sb.WriteString("[")
+	for i, cand := range *l {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(cand.Address)
+		if cand.Votes != nil {
+			sb.WriteString(" (Votes: " + cand.Votes.String() + ")")
+		}
+		if cand.RewardAddress != "" {
+			sb.WriteString(" (Reward: " + cand.RewardAddress + ")")
+		}
+		if len(cand.CanName) > 0 {
+			sb.WriteString(" (Name: " + string(cand.CanName) + ")")
+		}
+	}
+	sb.WriteString("]")
+	return sb.String()
 }
 
 // candidateToPb converts a candidate to protobuf's candidate message

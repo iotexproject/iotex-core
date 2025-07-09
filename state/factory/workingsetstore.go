@@ -31,6 +31,9 @@ type (
 		RevertSnapshot(int) error
 		ResetSnapshots()
 		Close()
+
+		PutObj(ns string, key []byte, storage Storage) (err error)
+		GetObj(ns string, key []byte, storage Storage) error
 	}
 
 	stateDBWorkingSetStore struct {
@@ -162,3 +165,22 @@ func (store *stateDBWorkingSetStore) FinalizeTx(_ context.Context) error {
 }
 
 func (store *stateDBWorkingSetStore) Close() {}
+
+func (store *stateDBWorkingSetStore) PutObj(ns string, key []byte, storage Storage) (err error) {
+	ss, err := state.Serialize(storage)
+	if err != nil {
+		return errors.Wrapf(err, "failed to convert %v to bytes", storage)
+	}
+	return store.Put(ns, key, ss)
+}
+
+func (store *stateDBWorkingSetStore) GetObj(ns string, key []byte, storage Storage) error {
+	data, err := store.Get(ns, key)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get %s from namespace %s", key, ns)
+	}
+	if err := state.Deserialize(storage, data); err != nil {
+		return errors.Wrapf(err, "failed to deserialize %s from namespace %s", key, ns)
+	}
+	return nil
+}

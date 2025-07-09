@@ -52,6 +52,12 @@ type erigonWorkingSetStore struct {
 	tx              kv.Tx
 }
 
+type Storage interface {
+	StorageAddr(ns string, key []byte) hash.Hash160
+	Storage(ns string, key []byte) map[hash.Hash256]uint256.Int
+	Load(ns string, key []byte, store func(hash.Hash256) (uint256.Int, bool)) error
+}
+
 func newErigonDB(path string) *erigonDB {
 	return &erigonDB{path: path}
 }
@@ -274,6 +280,30 @@ func (store *erigonWorkingSetStore) RevertSnapshot(sn int) error {
 
 func (store *erigonWorkingSetStore) ResetSnapshots() {}
 
+func (store *erigonWorkingSetStore) PutObj(ns string, key []byte, storage Storage) (err error) {
+	addr := libcommon.Address(storage.StorageAddr(ns, key))
+	log.L().Info("put obj to erigon working set store",
+		zap.String("ns", ns),
+		log.Hex("key", key),
+		log.Hex("addr", addr[:]),
+		zap.String("storage", fmt.Sprintf("%T", storage)),
+		zap.String("content", fmt.Sprintf("%+v", storage)),
+	)
+	if !store.intraBlockState.Exist(addr) {
+		store.intraBlockState.CreateAccount(addr, true)
+		store.intraBlockState.SetNonce(addr, 1)
+		store.intraBlockState.SetBalance(addr, uint256.NewInt(0))
+	}
+	st := storage.Storage(ns, key)
+	for k, v := range st {
+		kk := libcommon.Hash(k)
+		log.L().Info("put obj storage", log.Hex("key", k[:]), log.Hex("value", v.Bytes()))
+		store.intraBlockState.SetState(addr, &kk, v)
+	}
+
+	return nil
+}
+
 func (store *erigonWorkingSetStore) Put(ns string, key []byte, value []byte) (err error) {
 	// only handling account, contract storage handled by evm adapter
 	// others are ignored
@@ -299,6 +329,31 @@ func (store *erigonWorkingSetStore) Put(ns string, key []byte, value []byte) (er
 	store.intraBlockState.SetBalance(addr, uint256.MustFromBig(acc.Balance))
 	store.intraBlockState.SetNonce(addr, acc.PendingNonce()) // TODO(erigon): not sure if this is correct
 	return nil
+}
+
+func (store *erigonWorkingSetStore) GetObj(ns string, key []byte, storage Storage) error {
+	addr := libcommon.Address(storage.StorageAddr(ns, key))
+	defer func() {
+		log.L().Info("get obj from erigon working set store",
+			zap.String("ns", ns),
+			log.Hex("key", key),
+			log.Hex("addr", addr[:]),
+			zap.String("storage", fmt.Sprintf("%T", storage)),
+			zap.String("content", fmt.Sprintf("%+v", storage)),
+		)
+	}()
+	if !store.intraBlockState.Exist(addr) {
+		return state.ErrStateNotExist
+	}
+	return storage.Load(ns, key, func(h hash.Hash256) (uint256.Int, bool) {
+		key := libcommon.Hash(h)
+		val := uint256.NewInt(0)
+		store.intraBlockState.GetState(addr, &key, val)
+		if val.IsZero() {
+			return uint256.Int{}, false
+		}
+		return *val, true
+	})
 }
 
 func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
