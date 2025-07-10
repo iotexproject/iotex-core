@@ -301,6 +301,11 @@ func (store *erigonWorkingSetStore) Put(ns string, key []byte, value []byte) (er
 	return nil
 }
 
+func (store *erigonWorkingSetStore) GetFromStateDB(ns string, key []byte) ([]byte, error) {
+	// erigon working set store does not support GetFromStateDB, it should be used for simulation only
+	return nil, errors.Wrapf(state.ErrStateNotExist, "key %x in namespace %s not found in erigon store", key, ns)
+}
+
 func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
 	switch ns {
 	case AccountKVNamespace:

@@ -24,6 +24,7 @@ var (
 
 type reader interface {
 	Get(string, []byte) ([]byte, error)
+	GetFromStateDB(string, []byte) ([]byte, error)
 	States(string, [][]byte) ([][]byte, [][]byte, error)
 	Digest() hash.Hash256
 	Filter(string, db.Condition, []byte, []byte) ([][]byte, [][]byte, error)

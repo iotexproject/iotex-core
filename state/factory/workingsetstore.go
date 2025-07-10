@@ -31,6 +31,7 @@ type (
 		RevertSnapshot(int) error
 		ResetSnapshots()
 		Close()
+		GetFromStateDB(string, []byte) ([]byte, error)
 	}
 
 	stateDBWorkingSetStore struct {
@@ -136,6 +137,10 @@ func (store *stateDBWorkingSetStore) Get(ns string, key []byte) ([]byte, error) 
 		return nil, err
 	}
 	return data, nil
+}
+
+func (store *stateDBWorkingSetStore) GetFromStateDB(ns string, key []byte) ([]byte, error) {
+	return store.Get(ns, key)
 }
 
 func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte) ([][]byte, [][]byte, error) {
