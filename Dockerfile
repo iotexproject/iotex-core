@@ -2,7 +2,7 @@ FROM golang:1.23.0-alpine AS build
 
 WORKDIR /go/apps/iotex-core
 
-RUN apk add --no-cache make gcc musl-dev linux-headers git ca-certificates
+RUN apk add --no-cache make gcc build-base musl-dev linux-headers git ca-certificates libstdc++
 
 COPY go.mod .
 COPY go.sum .
