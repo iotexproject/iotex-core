@@ -34,6 +34,10 @@ func (store *erigonWorkingSetStoreForSimulate) Stop(context.Context) error {
 	return nil
 }
 
+func (store *erigonWorkingSetStoreForSimulate) GetFromStateDB(ns string, key []byte) ([]byte, error) {
+	return store.store.GetFromStateDB(ns, key)
+}
+
 func (store *erigonWorkingSetStoreForSimulate) Get(ns string, key []byte) ([]byte, error) {
 	switch ns {
 	case AccountKVNamespace, evm.CodeKVNameSpace:

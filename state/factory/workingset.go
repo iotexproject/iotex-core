@@ -336,7 +336,12 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	value, err := ws.store.Get(cfg.Namespace, cfg.Key)
+	var value []byte
+	if _, ok := s.(*state.Account); !ok && cfg.Namespace == AccountKVNamespace {
+		value, err = ws.store.GetFromStateDB(cfg.Namespace, cfg.Key)
+	} else {
+		value, err = ws.store.Get(cfg.Namespace, cfg.Key)
+	}
 	if err != nil {
 		return ws.height, err
 	}
