@@ -282,6 +282,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	}
 	if !isExist {
 		if err = ws.ValidateBlock(ctx, blk); err != nil {
+			ws.Close()
 			return errors.Wrap(err, "failed to validate block with workingset in statedb")
 		}
 		if existed := sdb.addWorkingSetIfNotExist(blkHash, ws); existed != nil {
@@ -290,6 +291,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
+		ws.Close()
 		return err
 	}
 	blk.Receipts = receipts
@@ -371,6 +373,7 @@ func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preac
 	// prepare workingset at height, and run acts
 	ws.height++
 	if err := ws.Process(ctx, preacts); err != nil {
+		ws.Close()
 		return nil, err
 	}
 	return ws, nil
@@ -391,6 +394,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	if err != nil {
 		return err
 	}
+	defer ws.Close()
 	if !isExist {
 		if !sdb.skipBlockValidationOnPut {
 			err = ws.ValidateBlock(ctx, blk)
@@ -399,7 +403,6 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
-			ws.Close()
 			return err
 		}
 	}
