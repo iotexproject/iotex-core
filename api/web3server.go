@@ -1143,7 +1143,7 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 	if err != nil {
 		return nil, err
 	}
-	switch tracer := tracer.(type) {
+	switch tracer := tracer.(*evmTracer).EVMLogger.(type) {
 	case *logger.StructLogger:
 		return &debugTraceTransactionResult{
 			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
@@ -1178,7 +1178,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 	if err != nil {
 		return nil, err
 	}
-	switch tracer := tracer.(type) {
+	switch tracer := tracer.(*evmTracer).EVMLogger.(type) {
 	case *logger.StructLogger:
 		return &debugTraceTransactionResult{
 			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
