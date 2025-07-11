@@ -10,19 +10,18 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/pkg/errors"
 )
 
 type (
 	// ContractStakeView is the interface for contract stake view
 	ContractStakeView interface {
 		Clone() ContractStakeView
+		Commit()
 		CreatePreStates(ctx context.Context) error
 		Handle(ctx context.Context, receipt *action.Receipt) error
-		Commit()
 		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
 	}
 	// ViewData is the data that need to be stored in protocol's view
@@ -81,7 +80,9 @@ func (v *ViewData) Commit(ctx context.Context, sr protocol.StateReader) error {
 	if err := v.bucketPool.Commit(sr); err != nil {
 		return err
 	}
-	v.contractsStake.Commit()
+	if v.contractsStake != nil {
+		v.contractsStake.Commit()
+	}
 	v.snapshots = []Snapshot{}
 
 	return nil
@@ -93,13 +94,15 @@ func (v *ViewData) IsDirty() bool {
 
 func (v *ViewData) Snapshot() int {
 	snapshot := len(v.snapshots)
+	clone := v.contractsStake.Clone()
 	v.snapshots = append(v.snapshots, Snapshot{
 		size:           v.candCenter.size,
 		changes:        v.candCenter.change.size(),
 		amount:         new(big.Int).Set(v.bucketPool.total.amount),
 		count:          v.bucketPool.total.count,
-		contractsStake: v.contractsStake.Clone(),
+		contractsStake: v.contractsStake,
 	})
+	v.contractsStake = clone
 	return snapshot
 }
 
@@ -157,6 +160,18 @@ func (csv *contractStakeView) CreatePreStates(ctx context.Context) error {
 	return nil
 }
 
+func (csv *contractStakeView) Commit() {
+	if csv.v1 != nil {
+		csv.v1.Commit()
+	}
+	if csv.v2 != nil {
+		csv.v2.Commit()
+	}
+	if csv.v3 != nil {
+		csv.v3.Commit()
+	}
+}
+
 func (csv *contractStakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 	if csv.v1 != nil {
 		if err := csv.v1.Handle(ctx, receipt); err != nil {
@@ -174,16 +189,4 @@ func (csv *contractStakeView) Handle(ctx context.Context, receipt *action.Receip
 		}
 	}
 	return nil
-}
-
-func (csv *contractStakeView) Commit() {
-	if csv.v1 != nil {
-		csv.v1.Commit()
-	}
-	if csv.v2 != nil {
-		csv.v2.Commit()
-	}
-	if csv.v3 != nil {
-		csv.v3.Commit()
-	}
 }
