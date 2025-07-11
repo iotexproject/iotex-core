@@ -91,7 +91,11 @@ func (s *base) Clone() indexerCache {
 	c.totalBucketCount = s.totalBucketCount
 
 	for k, v := range s.delta {
-		c.delta[k] = v.Clone()
+		if v == nil {
+			c.delta[k] = nil
+		} else {
+			c.delta[k] = v.Clone()
+		}
 	}
 
 	return c
