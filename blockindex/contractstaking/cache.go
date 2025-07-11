@@ -6,12 +6,16 @@
 package contractstaking
 
 import (
+	"context"
+	"log"
 	"math/big"
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
@@ -24,6 +28,7 @@ type (
 		MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool)
 		BucketType(id uint64) (*BucketType, bool)
 		BucketTypeCount() int
+		Buckets() ([]uint64, []*BucketType, []*bucketInfo)
 		BucketsByCandidate(candidate address.Address) ([]uint64, []*BucketType, []*bucketInfo)
 		TotalBucketCount() uint64
 		IsDirty() bool
@@ -31,7 +36,7 @@ type (
 		PutBucketType(id uint64, bt *BucketType)
 		PutBucketInfo(id uint64, bi *bucketInfo)
 		DeleteBucketInfo(id uint64)
-		Commit() stakingCache
+		Commit(context.Context, address.Address, protocol.StateManager) (stakingCache, error)
 		Clone() stakingCache
 	}
 	contractStakingCache struct {
@@ -42,6 +47,9 @@ type (
 		totalBucketCount      uint64                      // total number of buckets including burned buckets
 		height                uint64                      // current block height, it's put in cache for consistency on merge
 		mutex                 sync.RWMutex                // a RW mutex for the cache to protect concurrent access
+
+		deltaBucketTypes map[uint64]*BucketType
+		deltaBuckets     map[uint64]*contractstaking.Bucket
 	}
 )
 
@@ -58,6 +66,8 @@ func newContractStakingCache() *contractStakingCache {
 		bucketTypeMap:         make(map[uint64]*BucketType),
 		propertyBucketTypeMap: make(map[int64]map[uint64]uint64),
 		candidateBucketMap:    make(map[string]map[uint64]bool),
+		deltaBucketTypes:      make(map[uint64]*BucketType),
+		deltaBuckets:          make(map[uint64]*contractstaking.Bucket),
 	}
 }
 
@@ -170,6 +180,7 @@ func (s *contractStakingCache) PutBucketType(id uint64, bt *BucketType) {
 	defer s.mutex.Unlock()
 
 	s.putBucketType(id, bt)
+	s.deltaBucketTypes[id] = bt
 }
 
 func (s *contractStakingCache) PutBucketInfo(id uint64, bi *bucketInfo) {
@@ -177,6 +188,18 @@ func (s *contractStakingCache) PutBucketInfo(id uint64, bi *bucketInfo) {
 	defer s.mutex.Unlock()
 
 	s.putBucketInfo(id, bi)
+	bt := s.mustGetBucketType(bi.TypeIndex)
+	s.deltaBuckets[id] = &contractstaking.Bucket{
+		Candidate:        bi.Delegate,
+		Owner:            bi.Owner,
+		StakedAmount:     bt.Amount,
+		StakedDuration:   bt.Duration,
+		CreatedAt:        bi.CreatedAt,
+		UnstakedAt:       bi.UnstakedAt,
+		UnlockedAt:       bi.UnlockedAt,
+		Muted:            false,
+		IsTimestampBased: false,
+	}
 }
 
 func (s *contractStakingCache) DeleteBucketInfo(id uint64) {
@@ -184,6 +207,7 @@ func (s *contractStakingCache) DeleteBucketInfo(id uint64) {
 	defer s.mutex.Unlock()
 
 	s.deleteBucketInfo(id)
+	s.deltaBuckets[id] = nil
 }
 
 func (s *contractStakingCache) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
@@ -271,6 +295,14 @@ func (s *contractStakingCache) Clone() stakingCache {
 			c.propertyBucketTypeMap[k][k1] = v1
 		}
 	}
+	c.deltaBucketTypes = make(map[uint64]*BucketType, len(s.deltaBucketTypes))
+	for k, v := range s.deltaBucketTypes {
+		c.deltaBucketTypes[k] = v.Clone()
+	}
+	c.deltaBuckets = make(map[uint64]*contractstaking.Bucket, len(s.deltaBuckets))
+	for k, v := range s.deltaBuckets {
+		c.deltaBuckets[k] = v.Clone()
+	}
 	return c
 }
 
@@ -294,7 +326,7 @@ func (s *contractStakingCache) getBucketType(id uint64) (*BucketType, bool) {
 func (s *contractStakingCache) mustGetBucketType(id uint64) *BucketType {
 	bt, ok := s.getBucketType(id)
 	if !ok {
-		panic("bucket type not found")
+		log.Panicf("bucket type not found: %d", id)
 	}
 	return bt
 }
@@ -401,8 +433,45 @@ func (s *contractStakingCache) IsDirty() bool {
 	return false
 }
 
-func (s *contractStakingCache) Commit() stakingCache {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s
+func (s *contractStakingCache) Commit(ctx context.Context, ca address.Address, sm protocol.StateManager) (stakingCache, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if sm == nil {
+		s.deltaBucketTypes = make(map[uint64]*BucketType)
+		s.deltaBuckets = make(map[uint64]*contractstaking.Bucket)
+		return s, nil
+	}
+	featureCtx, ok := protocol.GetFeatureCtx(ctx)
+	if !ok {
+		return s, nil
+	}
+	if featureCtx.LoadContractStakingFromIndexer {
+		return s, nil
+	}
+	if len(s.deltaBucketTypes) == 0 && len(s.deltaBuckets) == 0 {
+		return s, nil
+	}
+	cssm := contractstaking.NewContractStakingStateManager(sm)
+	for id, bt := range s.deltaBucketTypes {
+		if err := cssm.UpsertBucketType(ca, id, bt); err != nil {
+			return nil, errors.Wrapf(err, "failed to upsert bucket type %d", id)
+		}
+	}
+	for id, bucket := range s.deltaBuckets {
+		if bucket == nil {
+			if err := cssm.DeleteBucket(ca, id); err != nil {
+				return nil, errors.Wrapf(err, "failed to delete bucket %d", id)
+			}
+		} else {
+			if err := cssm.UpsertBucket(ca, id, bucket); err != nil {
+				return nil, errors.Wrapf(err, "failed to upsert bucket %d", id)
+			}
+		}
+	}
+	if err := cssm.UpdateNumOfBuckets(ca, s.totalBucketCount); err != nil {
+		return nil, errors.Wrapf(err, "failed to update total bucket count %d", s.totalBucketCount)
+	}
+	s.deltaBucketTypes = make(map[uint64]*BucketType)
+	s.deltaBuckets = make(map[uint64]*contractstaking.Bucket)
+	return s, nil
 }

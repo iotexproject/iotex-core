@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	address "github.com/iotexproject/iotex-address/address"
+	protocol "github.com/iotexproject/iotex-core/v2/action/protocol"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -87,10 +88,10 @@ func (mr *MockContractStakingIndexerMockRecorder) BucketsByIndices(arg0, arg1 an
 }
 
 // ContractAddress mocks base method.
-func (m *MockContractStakingIndexer) ContractAddress() string {
+func (m *MockContractStakingIndexer) ContractAddress() address.Address {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractAddress")
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(address.Address)
 	return ret0
 }
 
@@ -115,19 +116,19 @@ func (mr *MockContractStakingIndexerMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockContractStakingIndexer)(nil).Height))
 }
 
-// StartView mocks base method.
-func (m *MockContractStakingIndexer) StartView(ctx context.Context) (ContractStakeView, error) {
+// LoadStakeView mocks base method.
+func (m *MockContractStakingIndexer) LoadStakeView(arg0 context.Context, arg1 protocol.StateReader) (ContractStakeView, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartView", ctx)
+	ret := m.ctrl.Call(m, "LoadStakeView", arg0, arg1)
 	ret0, _ := ret[0].(ContractStakeView)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// StartView indicates an expected call of StartView.
-func (mr *MockContractStakingIndexerMockRecorder) StartView(ctx any) *gomock.Call {
+// LoadStakeView indicates an expected call of LoadStakeView.
+func (mr *MockContractStakingIndexerMockRecorder) LoadStakeView(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartView", reflect.TypeOf((*MockContractStakingIndexer)(nil).StartView), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadStakeView", reflect.TypeOf((*MockContractStakingIndexer)(nil).LoadStakeView), arg0, arg1)
 }
 
 // TotalBucketCount mocks base method.
@@ -230,10 +231,10 @@ func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) BucketsByIndices
 }
 
 // ContractAddress mocks base method.
-func (m *MockContractStakingIndexerWithBucketType) ContractAddress() string {
+func (m *MockContractStakingIndexerWithBucketType) ContractAddress() address.Address {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractAddress")
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(address.Address)
 	return ret0
 }
 
@@ -258,19 +259,19 @@ func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) Height() *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).Height))
 }
 
-// StartView mocks base method.
-func (m *MockContractStakingIndexerWithBucketType) StartView(ctx context.Context) (ContractStakeView, error) {
+// LoadStakeView mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) LoadStakeView(arg0 context.Context, arg1 protocol.StateReader) (ContractStakeView, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartView", ctx)
+	ret := m.ctrl.Call(m, "LoadStakeView", arg0, arg1)
 	ret0, _ := ret[0].(ContractStakeView)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// StartView indicates an expected call of StartView.
-func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) StartView(ctx any) *gomock.Call {
+// LoadStakeView indicates an expected call of LoadStakeView.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) LoadStakeView(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartView", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).StartView), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadStakeView", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).LoadStakeView), arg0, arg1)
 }
 
 // TotalBucketCount mocks base method.
