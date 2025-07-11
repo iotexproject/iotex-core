@@ -2081,7 +2081,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	})
 	ctx = protocol.WithRegistry(ctx, core.registry)
 	ctx = protocol.WithFeatureCtx(ctx)
-	ws, err := core.sf.WorkingSetAtHeight(ctx, actInfo.BlkHeight, preActs...)
+	ws, err := core.sf.WorkingSetAtHeight(ctx, actInfo.BlkHeight-1, preActs...)
 	if err != nil {
 		return nil, nil, nil, err
 	}
