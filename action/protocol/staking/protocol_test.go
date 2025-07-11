@@ -99,7 +99,7 @@ func TestProtocol(t *testing.T) {
 	}, nil, nil, nil)
 	r.NotNil(stk)
 	r.NoError(err)
-	buckets, _, err := csr.getAllBuckets()
+	buckets, _, err := csr.NativeBuckets()
 	r.NoError(err)
 	r.Equal(0, len(buckets))
 	c, _, err := csr.getAllCandidates()
@@ -182,14 +182,14 @@ func TestProtocol(t *testing.T) {
 	r.Equal(c1, c2)
 
 	// load buckets from stateDB and verify
-	buckets, _, err = csr.getAllBuckets()
+	buckets, _, err = csr.NativeBuckets()
 	r.NoError(err)
 	r.Equal(len(tests), len(buckets))
 	// delete one bucket
 	r.NoError(csm.delBucket(1))
-	buckets, _, err = csr.getAllBuckets()
+	buckets, _, err = csr.NativeBuckets()
 	r.NoError(csm.delBucket(1))
-	buckets, _, err = csr.getAllBuckets()
+	buckets, _, err = csr.NativeBuckets()
 	for _, e := range tests {
 		for i := range buckets {
 			if buckets[i].StakedAmount == e.amount {
@@ -462,7 +462,7 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 	sm.EXPECT().Height().DoAndReturn(func() (uint64, error) {
 		return blkHeight, nil
 	}).AnyTimes()
-	csIndexer.EXPECT().StartView(gomock.Any()).Return(nil, nil)
+	csIndexer.EXPECT().LoadStakeView(gomock.Any(), gomock.Any()).Return(nil, nil)
 
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
