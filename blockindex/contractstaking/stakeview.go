@@ -53,6 +53,10 @@ func (s *stakeView) assembleBuckets(ids []uint64, types []*BucketType, infos []*
 	return vbs
 }
 
+func (s *stakeView) IsDirty() bool {
+	return s.cache.IsDirty()
+}
+
 func (s *stakeView) WriteBuckets(sm protocol.StateManager) error {
 	ids, types, infos := s.cache.Buckets()
 	cssm := contractstaking.NewContractStakingStateManager(sm)

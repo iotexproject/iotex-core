@@ -22,6 +22,8 @@ type (
 		Wrap() ContractStakeView
 		// Fork forks the contract stake view, commit will not affect the original view
 		Fork() ContractStakeView
+		// IsDirty checks if the contract stake view is dirty
+		IsDirty() bool
 		// Commit commits the contract stake view
 		Commit(context.Context, protocol.StateManager) error
 		// CreatePreStates creates pre states for the contract stake view
@@ -91,7 +93,7 @@ func (v *viewData) Commit(ctx context.Context, sm protocol.StateManager) error {
 }
 
 func (v *viewData) IsDirty() bool {
-	return v.candCenter.IsDirty() || v.bucketPool.IsDirty()
+	return v.candCenter.IsDirty() || v.bucketPool.IsDirty() || (v.contractsStake != nil && v.contractsStake.IsDirty())
 }
 
 func (v *viewData) Snapshot() int {
@@ -196,6 +198,19 @@ func (csv *contractStakeView) CreatePreStates(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (csv *contractStakeView) IsDirty() bool {
+	if csv.v1 != nil && csv.v1.IsDirty() {
+		return true
+	}
+	if csv.v2 != nil && csv.v2.IsDirty() {
+		return true
+	}
+	if csv.v3 != nil && csv.v3.IsDirty() {
+		return true
+	}
+	return false
 }
 
 func (csv *contractStakeView) Commit(ctx context.Context, sm protocol.StateManager) error {
