@@ -23,17 +23,19 @@ type (
 		// Fork forks the contract stake view, commit will not affect the original view
 		Fork() ContractStakeView
 		// Commit commits the contract stake view
-		Commit()
+		Commit(context.Context, protocol.StateManager) error
 		// CreatePreStates creates pre states for the contract stake view
 		CreatePreStates(ctx context.Context) error
 		// Handle handles the receipt for the contract stake view
 		Handle(ctx context.Context, receipt *action.Receipt) error
+		// WriteBuckets writes the buckets to the state manager
+		WriteBuckets(protocol.StateManager) error
 		// BucketsByCandidate returns the buckets by candidate address
 		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
 		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error
 	}
-	// ViewData is the data that need to be stored in protocol's view
-	ViewData struct {
+	// viewData is the data that need to be stored in protocol's view
+	viewData struct {
 		candCenter     *CandidateCenter
 		bucketPool     *BucketPool
 		snapshots      []Snapshot
@@ -53,8 +55,8 @@ type (
 	}
 )
 
-func (v *ViewData) Fork() protocol.View {
-	fork := &ViewData{}
+func (v *viewData) Fork() protocol.View {
+	fork := &viewData{}
 	fork.candCenter = v.candCenter.Clone()
 	fork.bucketPool = v.bucketPool.Clone()
 	fork.snapshots = make([]Snapshot, len(v.snapshots))
@@ -71,26 +73,28 @@ func (v *ViewData) Fork() protocol.View {
 	return fork
 }
 
-func (v *ViewData) Commit(ctx context.Context, sr protocol.StateReader) error {
-	if err := v.candCenter.Commit(ctx, sr); err != nil {
+func (v *viewData) Commit(ctx context.Context, sm protocol.StateManager) error {
+	if err := v.candCenter.Commit(ctx, sm); err != nil {
 		return err
 	}
-	if err := v.bucketPool.Commit(sr); err != nil {
+	if err := v.bucketPool.Commit(); err != nil {
 		return err
 	}
 	if v.contractsStake != nil {
-		v.contractsStake.Commit()
+		if err := v.contractsStake.Commit(ctx, sm); err != nil {
+			return err
+		}
 	}
 	v.snapshots = []Snapshot{}
 
 	return nil
 }
 
-func (v *ViewData) IsDirty() bool {
+func (v *viewData) IsDirty() bool {
 	return v.candCenter.IsDirty() || v.bucketPool.IsDirty()
 }
 
-func (v *ViewData) Snapshot() int {
+func (v *viewData) Snapshot() int {
 	snapshot := len(v.snapshots)
 	wrapped := v.contractsStake.Wrap()
 	v.snapshots = append(v.snapshots, Snapshot{
@@ -104,7 +108,7 @@ func (v *ViewData) Snapshot() int {
 	return snapshot
 }
 
-func (v *ViewData) Revert(snapshot int) error {
+func (v *viewData) Revert(snapshot int) error {
 	if snapshot < 0 || snapshot >= len(v.snapshots) {
 		return errors.Errorf("invalid snapshot index %d", snapshot)
 	}
@@ -119,6 +123,25 @@ func (v *ViewData) Revert(snapshot int) error {
 	v.bucketPool.total.count = s.count
 	v.contractsStake = s.contractsStake
 	v.snapshots = v.snapshots[:snapshot]
+	return nil
+}
+
+func (csv *contractStakeView) FlushBuckets(sm protocol.StateManager) error {
+	if csv.v1 != nil {
+		if err := csv.v1.WriteBuckets(sm); err != nil {
+			return err
+		}
+	}
+	if csv.v2 != nil {
+		if err := csv.v2.WriteBuckets(sm); err != nil {
+			return err
+		}
+	}
+	if csv.v3 != nil {
+		if err := csv.v3.WriteBuckets(sm); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -175,16 +198,27 @@ func (csv *contractStakeView) CreatePreStates(ctx context.Context) error {
 	return nil
 }
 
-func (csv *contractStakeView) Commit() {
+func (csv *contractStakeView) Commit(ctx context.Context, sm protocol.StateManager) error {
+	featureCtx, ok := protocol.GetFeatureCtx(ctx)
+	if !ok || featureCtx.LoadContractStakingFromIndexer {
+		sm = nil
+	}
 	if csv.v1 != nil {
-		csv.v1.Commit()
+		if err := csv.v1.Commit(ctx, sm); err != nil {
+			return err
+		}
 	}
 	if csv.v2 != nil {
-		csv.v2.Commit()
+		if err := csv.v2.Commit(ctx, sm); err != nil {
+			return err
+		}
 	}
 	if csv.v3 != nil {
-		csv.v3.Commit()
+		if err := csv.v3.Commit(ctx, sm); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (csv *contractStakeView) Handle(ctx context.Context, receipt *action.Receipt) error {

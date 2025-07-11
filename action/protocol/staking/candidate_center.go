@@ -126,15 +126,21 @@ func (m *CandidateCenter) commit() error {
 }
 
 // Commit writes the change into base
-func (m *CandidateCenter) Commit(ctx context.Context, sr protocol.StateReader) error {
-	height, err := sr.Height()
+func (m *CandidateCenter) Commit(ctx context.Context, sm protocol.StateManager) error {
+	height, err := sm.Height()
 	if err != nil {
 		return err
 	}
 	if featureWithHeightCtx, ok := protocol.GetFeatureWithHeightCtx(ctx); ok && featureWithHeightCtx.CandCenterHasAlias(height) {
-		return m.legacyCommit()
+		if err := m.legacyCommit(); err != nil {
+			return err
+		}
+	} else {
+		if err := m.commit(); err != nil {
+			return err
+		}
 	}
-	return m.commit()
+	return m.writeToStateDB(sm)
 }
 
 // legacyCommit writes the change into base with legacy logic
@@ -286,14 +292,14 @@ func (m *CandidateCenter) Upsert(d *Candidate) error {
 	return nil
 }
 
-// WriteToStateDB writes the candidate center to stateDB
-func (m *CandidateCenter) WriteToStateDB(sm protocol.StateManager) error {
+// writeToStateDB writes the candidate center to stateDB
+func (m *CandidateCenter) writeToStateDB(sm protocol.StateManager) error {
 	// persist nameMap/operatorMap and ownerList to stateDB
 	name := m.base.candsInNameMap()
 	op := m.base.candsInOperatorMap()
 	owners := m.base.ownersList()
-	if len(name) == 0 || len(op) == 0 {
-		return ErrNilParameters
+	if len(name) == 0 || len(op) == 0 || len(owners) == 0 {
+		return nil
 	}
 	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
 		return err

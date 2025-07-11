@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 var (
@@ -37,9 +38,9 @@ type (
 		// TotalBucketCount returns the total number of buckets including burned buckets
 		TotalBucketCount(height uint64) (uint64, error)
 		// ContractAddress returns the contract address
-		ContractAddress() string
-		// StartView returns the contract stake view
-		StartView(ctx context.Context) (ContractStakeView, error)
+		ContractAddress() address.Address
+		// LoadStakeView loads the contract stake view from state reader
+		LoadStakeView(context.Context, protocol.StateReader) (ContractStakeView, error)
 	}
 	// ContractStakingIndexerWithBucketType defines the interface of contract staking reader with bucket type
 	ContractStakingIndexerWithBucketType interface {

@@ -945,6 +945,9 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
 	}
+	if err := ws.views.Commit(ctx, ws); err != nil {
+		return err
+	}
 
 	digest, err := ws.digest()
 	if err != nil {
@@ -969,6 +972,9 @@ func (ws *workingSet) CreateBuilder(
 ) (*block.Builder, error) {
 	actions, err := ws.pickAndRunActions(ctx, ap, sign, allowedBlockGasResidue)
 	if err != nil {
+		return nil, err
+	}
+	if err := ws.views.Commit(ctx, ws); err != nil {
 		return nil, err
 	}
 
