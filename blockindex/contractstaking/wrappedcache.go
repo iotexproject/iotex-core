@@ -287,6 +287,11 @@ func (wc *wrappedCache) Commit(ctx context.Context, ca address.Address, sm proto
 			wc.base.PutBucketInfo(id, bi)
 		}
 	}
+	wc.updatedBucketInfos = make(map[uint64]*bucketInfo)
+	wc.updatedBucketTypes = make(map[uint64]*BucketType)
+	wc.updatedCandidates = make(map[string]map[uint64]bool)
+	wc.propertyBucketTypeMap = make(map[uint64]map[uint64]uint64)
+
 	return wc.base.Commit(ctx, ca, sm)
 }
 
