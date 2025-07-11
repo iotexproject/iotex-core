@@ -50,6 +50,10 @@ func (s *stakeView) Fork() staking.ContractStakeView {
 	}
 }
 
+func (s *stakeView) IsDirty() bool {
+	return s.cache.IsDirty()
+}
+
 func (s *stakeView) WriteBuckets(sm protocol.StateManager) error {
 	ids := s.cache.BucketIdxs()
 	slices.Sort(ids)
