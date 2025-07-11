@@ -113,7 +113,7 @@ func NewClaimFromRewardingFund(amount *big.Int,
 // note that this amount won't be charged/deducted from sender
 func (c *ClaimFromRewardingFund) ClaimAmount() *big.Int { return c.amount }
 
-// Address returns the the account to claim
+// Address returns the account to claim
 // if it's nil, the default is the action sender
 func (c *ClaimFromRewardingFund) Address() address.Address { return c.address }
 

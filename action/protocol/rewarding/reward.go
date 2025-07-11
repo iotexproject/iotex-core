@@ -38,7 +38,7 @@ func (b rewardHistory) Serialize() ([]byte, error) {
 // Deserialize deserializes bytes into reward history state
 func (b *rewardHistory) Deserialize(data []byte) error { return nil }
 
-// rewardHistory stores the unclaimed balance of an account
+// rewardAccount stores the unclaimed balance of an account
 type rewardAccount struct {
 	balance *big.Int
 }
