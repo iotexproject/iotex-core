@@ -474,7 +474,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				}
 				// check buckets
 				for _, expectBkt := range test.expectBuckets {
-					bkt, err := csm.getBucket(expectBkt.id)
+					bkt, err := csm.NativeBucket(expectBkt.id)
 					require.NoError(err)
 					require.Equal(expectBkt.candidate, bkt.Candidate)
 				}

@@ -19,9 +19,10 @@ type (
 	// ContractStakeView is the interface for contract stake view
 	ContractStakeView interface {
 		Clone() ContractStakeView
-		Commit()
+		Commit(context.Context, protocol.StateManager) error
 		CreatePreStates(ctx context.Context) error
 		Handle(ctx context.Context, receipt *action.Receipt) error
+		WriteBuckets(protocol.StateManager) error
 		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
 	}
 	// ViewData is the data that need to be stored in protocol's view
@@ -63,8 +64,8 @@ func (v *ViewData) Clone() protocol.View {
 	return clone
 }
 
-func (v *ViewData) Commit(ctx context.Context, sr protocol.StateReader) error {
-	height, err := sr.Height()
+func (v *ViewData) Commit(ctx context.Context, sm protocol.StateManager) error {
+	height, err := sm.Height()
 	if err != nil {
 		return err
 	}
@@ -77,11 +78,13 @@ func (v *ViewData) Commit(ctx context.Context, sr protocol.StateReader) error {
 			return err
 		}
 	}
-	if err := v.bucketPool.Commit(sr); err != nil {
+	if err := v.bucketPool.Commit(sm); err != nil {
 		return err
 	}
 	if v.contractsStake != nil {
-		v.contractsStake.Commit()
+		if err := v.contractsStake.Commit(ctx, sm); err != nil {
+			return err
+		}
 	}
 	v.snapshots = []Snapshot{}
 
@@ -124,6 +127,25 @@ func (v *ViewData) Revert(snapshot int) error {
 	return nil
 }
 
+func (csv *contractStakeView) FlushBuckets(sm protocol.StateManager) error {
+	if csv.v1 != nil {
+		if err := csv.v1.WriteBuckets(sm); err != nil {
+			return err
+		}
+	}
+	if csv.v2 != nil {
+		if err := csv.v2.WriteBuckets(sm); err != nil {
+			return err
+		}
+	}
+	if csv.v3 != nil {
+		if err := csv.v3.WriteBuckets(sm); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (csv *contractStakeView) Clone() *contractStakeView {
 	if csv == nil {
 		return nil
@@ -160,16 +182,27 @@ func (csv *contractStakeView) CreatePreStates(ctx context.Context) error {
 	return nil
 }
 
-func (csv *contractStakeView) Commit() {
+func (csv *contractStakeView) Commit(ctx context.Context, sm protocol.StateManager) error {
+	featureCtx, ok := protocol.GetFeatureCtx(ctx)
+	if !ok || featureCtx.LoadContractStakingFromIndexer {
+		sm = nil
+	}
 	if csv.v1 != nil {
-		csv.v1.Commit()
+		if err := csv.v1.Commit(ctx, sm); err != nil {
+			return err
+		}
 	}
 	if csv.v2 != nil {
-		csv.v2.Commit()
+		if err := csv.v2.Commit(ctx, sm); err != nil {
+			return err
+		}
 	}
 	if csv.v3 != nil {
-		csv.v3.Commit()
+		if err := csv.v3.Commit(ctx, sm); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (csv *contractStakeView) Handle(ctx context.Context, receipt *action.Receipt) error {

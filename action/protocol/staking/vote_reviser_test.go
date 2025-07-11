@@ -207,10 +207,10 @@ func TestVoteReviser(t *testing.T) {
 		}
 		for _, v := range tests {
 			if address.Equal(v.cand, c.Owner) && v.index != c.SelfStakeBucketIdx {
-				bucket, err := csr.getBucket(v.index)
+				bucket, err := csr.NativeBucket(v.index)
 				r.NoError(err)
 				total := CalculateVoteWeight(cv, bucket, false)
-				bucket, err = csr.getBucket(c.SelfStakeBucketIdx)
+				bucket, err = csr.NativeBucket(c.SelfStakeBucketIdx)
 				r.NoError(err)
 				total.Add(total, CalculateVoteWeight(cv, bucket, true))
 				r.Equal(0, total.Cmp(c.Votes))
