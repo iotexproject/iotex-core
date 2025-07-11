@@ -1,11 +1,14 @@
 package stakingindex
 
 import (
+	"context"
 	"errors"
 	"slices"
 
 	"github.com/iotexproject/iotex-address/address"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
@@ -20,7 +23,7 @@ type (
 		BucketIdsByCandidate(candidate address.Address) []uint64
 		TotalBucketCount() uint64
 		Base() indexerCache
-		Commit()
+		Commit(context.Context, address.Address, bool, protocol.StateManager) error
 		IsDirty() bool
 	}
 	// base is the in-memory base for staking index
@@ -29,6 +32,8 @@ type (
 		buckets            map[uint64]*Bucket
 		bucketsByCandidate map[string]map[uint64]struct{}
 		totalBucketCount   uint64
+
+		delta map[uint64]*Bucket
 	}
 
 	wrappedCache struct {
@@ -42,6 +47,7 @@ func newCache() *base {
 	return &base{
 		buckets:            make(map[uint64]*Bucket),
 		bucketsByCandidate: make(map[string]map[uint64]struct{}),
+		delta:              make(map[uint64]*Bucket),
 	}
 }
 
@@ -86,6 +92,11 @@ func (s *base) DeepClone() indexerCache {
 		}
 	}
 	c.totalBucketCount = s.totalBucketCount
+
+	for k, v := range s.delta {
+		c.delta[k] = v.Clone()
+	}
+
 	return c
 }
 
@@ -105,6 +116,8 @@ func (s *base) PutBucket(id uint64, bkt *Bucket) {
 		s.bucketsByCandidate[cand] = make(map[uint64]struct{})
 	}
 	s.bucketsByCandidate[cand][id] = struct{}{}
+
+	s.delta[id] = bkt
 }
 
 func (s *base) DeleteBucket(id uint64) {
@@ -118,6 +131,8 @@ func (s *base) DeleteBucket(id uint64) {
 		delete(s.bucketsByCandidate, cand)
 	}
 	delete(s.buckets, id)
+
+	s.delta[id] = nil
 }
 
 func (s *base) BucketIdxs() []uint64 {
@@ -166,7 +181,21 @@ func (s *base) IsDirty() bool {
 	return false
 }
 
-func (s *base) Commit() {}
+func (s *base) Commit(ctx context.Context, ca address.Address, timestamp bool, sm protocol.StateManager) error {
+	if sm == nil {
+		return nil
+	}
+	cssm := contractstaking.NewContractStakingStateManager(sm)
+	for id, bkt := range s.delta {
+		if bkt != nil {
+			bkt.IsTimestampBased = timestamp
+		}
+		if err := cssm.UpsertBucket(ca, id, bkt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func newWrappedCache(cache indexerCache) *wrappedCache {
 	return &wrappedCache{
@@ -288,7 +317,7 @@ func (w *wrappedCache) TotalBucketCount() uint64 {
 	return w.cache.TotalBucketCount()
 }
 
-func (w *wrappedCache) Commit() {
+func (w *wrappedCache) Commit(ctx context.Context, ca address.Address, timestamp bool, sm protocol.StateManager) error {
 	if w.isDirty() {
 		for id, bkt := range w.updatedBuckets {
 			if bkt == nil {
@@ -300,7 +329,7 @@ func (w *wrappedCache) Commit() {
 		w.updatedBuckets = make(map[uint64]*Bucket)
 		w.bucketsByCandidate = make(map[string]map[uint64]bool)
 	}
-	w.cache.Commit()
+	return w.cache.Commit(ctx, ca, timestamp, sm)
 }
 
 func (w *wrappedCache) isDirty() bool {

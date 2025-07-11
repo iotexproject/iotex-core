@@ -6,11 +6,13 @@
 package contractstaking
 
 import (
+	"context"
 	"math/big"
 	"sort"
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 type (
@@ -100,6 +102,27 @@ func (wc *wrappedCache) bucketType(id uint64) (*BucketType, bool) {
 		return wc.base.BucketType(id)
 	}
 	return bt, ok
+}
+
+func (wc *wrappedCache) Buckets() ([]uint64, []*BucketType, []*bucketInfo) {
+	wc.mu.RLock()
+	defer wc.mu.RUnlock()
+	ids, types, infos := wc.base.Buckets()
+	reverseMap := make(map[uint64]int, len(ids))
+	for i, id := range ids {
+		reverseMap[id] = i
+	}
+	for id, info := range wc.updatedBucketInfos {
+		if i, ok := reverseMap[id]; ok {
+			infos[i] = info.Clone()
+		} else {
+			ids = append(ids, id)
+			infos = append(infos, info.Clone())
+			types = append(types, wc.mustGetBucketType(info.TypeIndex))
+			reverseMap[id] = len(infos) - 1
+		}
+	}
+	return ids, types, infos
 }
 
 func (wc *wrappedCache) BucketsByCandidate(candidate address.Address) ([]uint64, []*BucketType, []*bucketInfo) {
@@ -211,7 +234,7 @@ func (wc *wrappedCache) Base() stakingCache {
 	return wc.base
 }
 
-func (wc *wrappedCache) Commit() {
+func (wc *wrappedCache) Commit(ctx context.Context, ca address.Address, sm protocol.StateManager) error {
 	wc.mu.Lock()
 	defer wc.mu.Unlock()
 
@@ -225,6 +248,7 @@ func (wc *wrappedCache) Commit() {
 			wc.base.PutBucketInfo(id, bi)
 		}
 	}
+	return wc.base.Commit(ctx, ca, sm)
 }
 
 func (wc *wrappedCache) IsDirty() bool {

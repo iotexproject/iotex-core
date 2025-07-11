@@ -6,12 +6,15 @@
 package contractstaking
 
 import (
+	"context"
 	"math/big"
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
@@ -24,6 +27,7 @@ type (
 		MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool)
 		BucketType(id uint64) (*BucketType, bool)
 		BucketTypeCount() int
+		Buckets() ([]uint64, []*BucketType, []*bucketInfo)
 		BucketsByCandidate(candidate address.Address) ([]uint64, []*BucketType, []*bucketInfo)
 		TotalBucketCount() uint64
 		IsDirty() bool
@@ -32,7 +36,7 @@ type (
 		PutBucketType(id uint64, bt *BucketType)
 		PutBucketInfo(id uint64, bi *bucketInfo)
 		DeleteBucketInfo(id uint64)
-		Commit()
+		Commit(context.Context, address.Address, protocol.StateManager) error
 	}
 	contractStakingCache struct {
 		bucketInfoMap         map[uint64]*bucketInfo      // map[token]bucketInfo
@@ -42,6 +46,9 @@ type (
 		totalBucketCount      uint64                      // total number of buckets including burned buckets
 		height                uint64                      // current block height, it's put in cache for consistency on merge
 		mutex                 sync.RWMutex                // a RW mutex for the cache to protect concurrent access
+
+		deltaBucketTypes map[uint64]*BucketType
+		deltaBuckets     map[uint64]*contractstaking.Bucket
 	}
 )
 
@@ -58,6 +65,8 @@ func newContractStakingCache() *contractStakingCache {
 		bucketTypeMap:         make(map[uint64]*BucketType),
 		propertyBucketTypeMap: make(map[int64]map[uint64]uint64),
 		candidateBucketMap:    make(map[string]map[uint64]bool),
+		deltaBucketTypes:      make(map[uint64]*BucketType),
+		deltaBuckets:          make(map[uint64]*contractstaking.Bucket),
 	}
 }
 
@@ -170,6 +179,7 @@ func (s *contractStakingCache) PutBucketType(id uint64, bt *BucketType) {
 	defer s.mutex.Unlock()
 
 	s.putBucketType(id, bt)
+	s.deltaBucketTypes[id] = bt
 }
 
 func (s *contractStakingCache) PutBucketInfo(id uint64, bi *bucketInfo) {
@@ -177,6 +187,18 @@ func (s *contractStakingCache) PutBucketInfo(id uint64, bi *bucketInfo) {
 	defer s.mutex.Unlock()
 
 	s.putBucketInfo(id, bi)
+	bt := s.mustGetBucketType(bi.TypeIndex)
+	s.deltaBuckets[id] = &contractstaking.Bucket{
+		Candidate:        bi.Delegate,
+		Owner:            bi.Owner,
+		StakedAmount:     bt.Amount,
+		StakedDuration:   bt.Duration,
+		CreatedAt:        bi.CreatedAt,
+		UnstakedAt:       bi.UnstakedAt,
+		UnlockedAt:       bi.UnlockedAt,
+		Muted:            false,
+		IsTimestampBased: false,
+	}
 }
 
 func (s *contractStakingCache) DeleteBucketInfo(id uint64) {
@@ -184,6 +206,7 @@ func (s *contractStakingCache) DeleteBucketInfo(id uint64) {
 	defer s.mutex.Unlock()
 
 	s.deleteBucketInfo(id)
+	s.deltaBuckets[id] = nil
 }
 
 func (s *contractStakingCache) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
@@ -405,5 +428,32 @@ func (s *contractStakingCache) IsDirty() bool {
 	return false
 }
 
-func (s *contractStakingCache) Commit() {
+func (s *contractStakingCache) Commit(ctx context.Context, ca address.Address, sm protocol.StateManager) error {
+	if sm == nil {
+		return nil
+	}
+	featureCtx, ok := protocol.GetFeatureCtx(ctx)
+	if !ok {
+		return nil
+	}
+	if featureCtx.LoadContractStakingFromIndexer {
+		return nil
+	}
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if len(s.deltaBucketTypes) == 0 && len(s.deltaBuckets) == 0 {
+		return nil
+	}
+	cssm := contractstaking.NewContractStakingStateManager(sm)
+	for id, bt := range s.deltaBucketTypes {
+		if err := cssm.UpsertBucketType(ca, id, bt); err != nil {
+			return errors.Wrapf(err, "failed to upsert bucket type %d", id)
+		}
+	}
+	for id, bucket := range s.deltaBuckets {
+		if err := cssm.UpsertBucket(ca, id, bucket); err != nil {
+			return errors.Wrapf(err, "failed to upsert bucket %d", id)
+		}
+	}
+	return errors.Wrapf(cssm.UpdateNumOfBuckets(ca, s.totalBucketCount), "failed to update total bucket count %d", s.totalBucketCount)
 }
