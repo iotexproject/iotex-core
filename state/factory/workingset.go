@@ -755,7 +755,7 @@ func (ws *workingSet) pickAndRunActions(
 			case nil:
 				for i, bundle := range bundles {
 					bh := bundle.Hash()
-					log.L().Info("processing bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.String("hash", hex.EncodeToString(bh[:])))
+					log.L().Info("processing bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.String("hash", hex.EncodeToString(bh[:])), zap.Int("size", bundle.Len()), zap.Uint64("gas", bundle.Gas()))
 					bBlkCtx := blkCtx
 					bGasLimit := bBlkCtx.GasLimit
 					if deadline != nil && time.Now().After(*deadline) {
@@ -765,7 +765,7 @@ func (ws *workingSet) pickAndRunActions(
 						break
 					}
 					if bundle.Gas() > bGasLimit {
-						log.L().Debug("skip bundle exceeds gas limit", zap.String("hash", hex.EncodeToString(bh[:])), zap.Uint64("height", ws.height), zap.Uint64("gas", bundle.Gas()), zap.Uint64("blkGasLimit", bGasLimit))
+						log.L().Info("Skip bundle exceeds gas limit", zap.String("hash", hex.EncodeToString(bh[:])), zap.Uint64("height", ws.height), zap.Uint64("gas", bundle.Gas()), zap.Uint64("blkGasLimit", bGasLimit))
 						continue
 					}
 					bBlobCnt := blobCnt
@@ -777,7 +777,11 @@ func (ws *workingSet) pickAndRunActions(
 							return errors.Wrapf(err, "failed to run action in bundle %s at height %d", bids[i], ws.height)
 						}
 						if receipt == nil {
-							return errors.New("receipt is nil")
+							h, err := selp.Hash()
+							if err != nil {
+								log.L().Error("failed to get hash for action in bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.Error(err))
+							}
+							return errors.Errorf("receipt is nil for transaction %x", h)
 						}
 						bGasLimit -= receipt.GasConsumed
 						if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
@@ -789,7 +793,7 @@ func (ws *workingSet) pickAndRunActions(
 
 						return nil
 					}); err != nil {
-						log.L().Debug("failed to process bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.Error(err))
+						log.L().Warn("failed to process bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.Error(err))
 						if err := ws.store.RevertSnapshot(si); err != nil {
 							return nil, errors.Wrapf(err, "failed to revert snapshot %d for bundle %s at height %d", si, bids[i], ws.height)
 						}
@@ -896,19 +900,21 @@ func (ws *workingSet) validateAndRun(
 	blobLimit uint64,
 ) (bool, bool, *action.Receipt, error) {
 	if nextAction.Gas() > gasLimit {
+		log.L().Info("action gas exceeds limit", zap.Uint64("height", ws.height), zap.Uint64("gasLimit", gasLimit), zap.Uint64("actionGas", nextAction.Gas()))
 		return true, false, nil, nil
 	}
 	if blobCnt+uint64(len(nextAction.BlobHashes())) > uint64(blobLimit) {
+		log.L().Info("blob count exceeds limit", zap.Uint64("height", ws.height), zap.Uint64("blobCnt", blobCnt), zap.Uint64("blobLimit", blobLimit))
 		return true, false, nil, nil
 	}
 	if container, ok := nextAction.Envelope.(action.TxContainer); ok {
 		if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
-			log.L().Debug("failed to unfold tx container", zap.Uint64("height", ws.height), zap.Error(err))
+			log.L().Info("failed to unfold tx container", zap.Uint64("height", ws.height), zap.Error(err))
 			return true, true, nil, nil
 		}
 	}
 	if err := ws.txValidator.ValidateWithState(ctx, nextAction); err != nil {
-		log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
+		log.L().Info("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
 		if !errors.Is(err, action.ErrNonceTooLow) {
 			return true, true, nil, nil
 		}
@@ -929,7 +935,7 @@ func (ws *workingSet) validateAndRun(
 		if caller == nil {
 			return false, false, nil, errors.New("failed to get address")
 		}
-		log.L().Debug("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
+		log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, true, nil, nil
 	}
 	receipt, err := ws.runAction(actionCtx, nextAction)
@@ -937,9 +943,10 @@ func (ws *workingSet) validateAndRun(
 	case nil:
 		// do nothing
 	case action.ErrGasLimit:
+		log.L().Info("runAction() failed due to gas limit", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, false, nil, nil
 	case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
-		log.L().Debug("runAction() failed", zap.Uint64("height", ws.height), zap.Error(err))
+		log.L().Info("runAction() failed", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, true, nil, nil
 	default:
 		nextActionHash, hashErr := nextAction.Hash()
