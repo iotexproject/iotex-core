@@ -190,7 +190,9 @@ func (ws *workingSet) runAction(
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
-	defer ws.ResetSnapshots()
+	if _, ok := protocol.GetBundleCtx(ctx); !ok {
+		defer ws.ResetSnapshots()
+	}
 	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
 		return nil, err
 	}
@@ -772,7 +774,8 @@ func (ws *workingSet) pickAndRunActions(
 					bReceipts := make([]*action.Receipt, 0, bundle.Len())
 					si := ws.store.Snapshot()
 					if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
-						_, _, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, selp, bGasLimit, bBlobCnt, uint64(blobLimit))
+						bundleCtx := protocol.WithBundleCtx(ctxWithBlockContext, protocol.BundleCtx{})
+						_, _, receipt, err := ws.validateAndRun(bundleCtx, reg, selp, bGasLimit, bBlobCnt, uint64(blobLimit))
 						if err != nil {
 							return errors.Wrapf(err, "failed to run action in bundle %s at height %d", bids[i], ws.height)
 						}

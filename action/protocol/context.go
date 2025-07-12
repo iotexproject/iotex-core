@@ -35,6 +35,8 @@ type (
 
 	vmConfigContextKey struct{}
 
+	bundleContextKey struct{}
+
 	// TipInfo contains the tip block information
 	TipInfo struct {
 		Height        uint64
@@ -95,6 +97,8 @@ type (
 		// ReadOnly indicates two scenarios: eth_estimateGas and eth_call
 		ReadOnly bool
 	}
+
+	BundleCtx struct{}
 
 	// CheckFunc is function type to check by height.
 	CheckFunc func(height uint64) bool
@@ -408,4 +412,15 @@ func WithVMConfigCtx(ctx context.Context, vmConfig vm.Config) context.Context {
 func GetVMConfigCtx(ctx context.Context) (vm.Config, bool) {
 	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
 	return cfg, ok
+}
+
+// WithBundleCtx adds BundleCtx to context
+func WithBundleCtx(ctx context.Context, bundleCtx BundleCtx) context.Context {
+	return context.WithValue(ctx, bundleContextKey{}, bundleCtx)
+}
+
+// GetBundleCtx returns the BundleCtx from context
+func GetBundleCtx(ctx context.Context) (BundleCtx, bool) {
+	bundleCtx, ok := ctx.Value(bundleContextKey{}).(BundleCtx)
+	return bundleCtx, ok
 }
