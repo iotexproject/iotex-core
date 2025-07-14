@@ -359,6 +359,9 @@ func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, he
 	ctx, span := tracer.NewSpan(context.Background(), "coreService.BalanceAt")
 	defer span.End()
 	addrStr := addr.String()
+	if height == 0 {
+		height = core.bc.TipHeight()
+	}
 	ctx, err := core.bc.ContextAtHeight(ctx, height)
 	if err != nil {
 		return "", status.Error(codes.Internal, err.Error())
@@ -370,14 +373,7 @@ func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, he
 		}
 		return acc.Balance, nil
 	}
-	var (
-		ws protocol.StateManagerWithCloser
-	)
-	if height == 0 {
-		ws, err = core.sf.WorkingSet(ctx)
-	} else {
-		ws, err = core.sf.WorkingSetAtHeight(ctx, height)
-	}
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return "", status.Error(codes.Internal, err.Error())
 	}
@@ -397,15 +393,10 @@ func (core *coreService) CodeAt(ctx context.Context, addr address.Address, heigh
 		return nil, nil
 	}
 	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
-	var (
-		ws  protocol.StateManagerWithCloser
-		err error
-	)
 	if height == 0 {
-		ws, err = core.sf.WorkingSet(ctx)
-	} else {
-		ws, err = core.sf.WorkingSetAtHeight(ctx, height)
+		height = core.bc.TipHeight()
 	}
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1865,7 +1856,7 @@ func (core *coreService) isGasLimitEnough(
 		err     error
 	)
 	if height == 0 {
-		ret, receipt, err = core.simulateExecution(ctx, core.bc.TipHeight(), false, caller, elp, opts...)
+		ret, receipt, err = core.simulateExecution(ctx, core.bc.TipHeight(), true, caller, elp, opts...)
 	} else {
 		ret, receipt, err = core.simulateExecution(ctx, height, true, caller, elp, opts...)
 	}

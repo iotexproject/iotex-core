@@ -507,15 +507,11 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		ret     string
 		receipt *iotextypes.Receipt
 	)
-	height, archive, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
+	height, _, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
 	if err != nil {
 		return nil, err
 	}
-	if !archive {
-		ret, receipt, err = svr.coreService.ReadContract(context.Background(), callMsg.From, elp)
-	} else {
-		ret, receipt, err = svr.coreService.WithHeight(height).ReadContract(context.Background(), callMsg.From, elp)
-	}
+	ret, receipt, err = svr.coreService.WithHeight(height).ReadContract(context.Background(), callMsg.From, elp)
 	if err != nil {
 		return nil, err
 	}
