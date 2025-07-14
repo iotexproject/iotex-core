@@ -161,6 +161,7 @@ func withActionCtx(ctx context.Context, selp *action.SealedEnvelope) (context.Co
 func (ws *workingSet) runAction(
 	ctx context.Context,
 	selp *action.SealedEnvelope,
+	revertAllSnapshots bool,
 ) (*action.Receipt, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	if protocol.MustGetBlockCtx(ctx).GasLimit < actCtx.IntrinsicGas {
@@ -190,7 +191,9 @@ func (ws *workingSet) runAction(
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
-	defer ws.ResetSnapshots()
+	if revertAllSnapshots {
+		defer ws.store.ResetSnapshots()
+	}
 	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
 		return nil, err
 	}
@@ -291,10 +294,6 @@ func (ws *workingSet) Snapshot() int {
 
 func (ws *workingSet) Revert(snapshot int) error {
 	return ws.store.RevertSnapshot(snapshot)
-}
-
-func (ws *workingSet) ResetSnapshots() {
-	ws.store.ResetSnapshots()
 }
 
 // freshAccountConversion happens between UseZeroNonceForFreshAccount height
@@ -529,7 +528,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 				}
 			}
 		}
-		receipt, err := ws.runAction(actionCtx, act)
+		receipt, err := ws.runAction(actionCtx, act, true)
 		if err != nil {
 			return errors.Wrap(err, "error when run action")
 		}
@@ -553,7 +552,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		if err != nil {
 			return err
 		}
-		receipt, err := ws.runAction(actionCtx, act)
+		receipt, err := ws.runAction(actionCtx, act, true)
 		if err != nil {
 			return errors.Wrap(err, "error when run action")
 		}
@@ -614,7 +613,7 @@ func (ws *workingSet) runActionsLegacy(
 		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(protocol.WithBlockCtx(ctxWithActionContext, blkCtx), elp)
+		receipt, err := ws.runAction(protocol.WithBlockCtx(ctxWithActionContext, blkCtx), elp, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
@@ -772,7 +771,7 @@ func (ws *workingSet) pickAndRunActions(
 					bReceipts := make([]*action.Receipt, 0, bundle.Len())
 					si := ws.store.Snapshot()
 					if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
-						_, _, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, selp, bGasLimit, bBlobCnt, uint64(blobLimit))
+						_, _, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, selp, bGasLimit, bBlobCnt, uint64(blobLimit), false)
 						if err != nil {
 							return errors.Wrapf(err, "failed to run action in bundle %s at height %d", bids[i], ws.height)
 						}
@@ -833,7 +832,7 @@ func (ws *workingSet) pickAndRunActions(
 				_mintAbility.WithLabelValues("saturation").Set(0)
 				break
 			}
-			popAccount, deleteAction, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, nextAction, blkCtx.GasLimit, blobCnt, uint64(blobLimit))
+			popAccount, deleteAction, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, nextAction, blkCtx.GasLimit, blobCnt, uint64(blobLimit), true)
 			if popAccount {
 				actionIterator.PopAccount()
 			}
@@ -876,7 +875,7 @@ func (ws *workingSet) pickAndRunActions(
 		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(actionCtx, selp)
+		receipt, err := ws.runAction(actionCtx, selp, true)
 		if err != nil {
 			return nil, err
 		}
@@ -898,6 +897,7 @@ func (ws *workingSet) validateAndRun(
 	gasLimit uint64,
 	blobCnt uint64,
 	blobLimit uint64,
+	revertAllSnapshots bool,
 ) (bool, bool, *action.Receipt, error) {
 	if nextAction.Gas() > gasLimit {
 		log.L().Info("action gas exceeds limit", zap.Uint64("height", ws.height), zap.Uint64("gasLimit", gasLimit), zap.Uint64("actionGas", nextAction.Gas()))
@@ -938,7 +938,7 @@ func (ws *workingSet) validateAndRun(
 		log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, true, nil, nil
 	}
-	receipt, err := ws.runAction(actionCtx, nextAction)
+	receipt, err := ws.runAction(actionCtx, nextAction, revertAllSnapshots)
 	switch errors.Cause(err) {
 	case nil:
 		// do nothing

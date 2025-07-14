@@ -155,6 +155,9 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 	blobValidator := newBlobValidator(cfg.MaxNumBlobsPerAcct)
 	ap.privateValidators = append(ap.privateValidators, blobValidator)
 	ap.AddSubscriber(blobValidator)
+	if ap.bundlePool != nil {
+		ap.bundlePool.SetValidator(ap.Validate)
+	}
 
 	timerFactory, err := prometheustimer.New(
 		"iotex_action_pool_perf",

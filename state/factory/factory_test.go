@@ -705,7 +705,7 @@ func testNonce(ctx context.Context, sf Factory, t *testing.T) {
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		ChainID: 1,
 	})
-	_, err = ws.runAction(ctx, selp)
+	_, err = ws.runAction(ctx, selp, true)
 	require.NoError(t, err)
 	state, err := accountutil.AccountState(ctx, sf, a)
 	require.NoError(t, err)

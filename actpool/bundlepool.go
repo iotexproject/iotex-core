@@ -29,6 +29,8 @@ var (
 )
 
 type (
+	// ValidateActionFunc is the function validating an action.
+	ValidateActionFunc func(context.Context, *action.SealedEnvelope) error
 	// BroadcastBundleFunc is the interface for broadcasting bundles.
 	BroadcastBundleFunc func(ctx context.Context, sender address.Address, uuid string, bundle *action.Bundle)
 	meta                struct {
@@ -45,6 +47,7 @@ type (
 		uuids                 map[string]hash.Hash256   // UUID to bundle hash mapping
 		targetHeightToBundles map[uint64][]hash.Hash256 // Target block height to bundles mapping
 		broadcast             BroadcastBundleFunc       // Function to broadcast bundles
+		validate              ValidateActionFunc        // Function to validate actions in bundles
 	}
 )
 
@@ -57,7 +60,14 @@ func NewBundlePool() *BundlePool {
 		uuids:                 make(map[string]hash.Hash256),
 		targetHeightToBundles: make(map[uint64][]hash.Hash256),
 		broadcast:             nil,
+		validate:              nil,
 	}
+}
+
+func (bp *BundlePool) SetValidator(validateFunc ValidateActionFunc) {
+	bp.mu.Lock()
+	defer bp.mu.Unlock()
+	bp.validate = validateFunc
 }
 
 func (bp *BundlePool) SetBroadcastHandler(broadcast BroadcastBundleFunc) {
@@ -86,6 +96,13 @@ func (bp *BundlePool) AddBundle(ctx context.Context, sender address.Address, uui
 	}
 	if _, ok := bp.uuids[uuid]; ok {
 		return errors.Wrapf(ErrBundleUUIDExists, "bundle with UUID %s already exists", uuid)
+	}
+	if bp.validate != nil {
+		if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
+			return bp.validate(ctx, selp)
+		}); err != nil {
+			return errors.Wrapf(err, "failed to validate bundle %s", uuid)
+		}
 	}
 	bp.metas[h] = &meta{
 		bundle: bundle,
