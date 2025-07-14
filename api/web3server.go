@@ -301,7 +301,7 @@ func parseWeb3Reqs(reader io.Reader) (gjson.Result, error) {
 		return gjson.Result{}, errors.New("request json format is not valid")
 	}
 	ret := gjson.Parse(string(data))
-	// check rquired field
+	// check required field
 	for _, req := range ret.Array() {
 		id := req.Get("id")
 		method := req.Get("method")
