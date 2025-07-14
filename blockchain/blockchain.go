@@ -400,8 +400,6 @@ func (bc *blockchain) Context(ctx context.Context) (context.Context, error) {
 }
 
 func (bc *blockchain) ContextAtHeight(ctx context.Context, height uint64) (context.Context, error) {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
 	return bc.context(ctx, height)
 }
 
