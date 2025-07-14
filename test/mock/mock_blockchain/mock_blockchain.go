@@ -232,7 +232,7 @@ func (m *MockBlockchain) Pause(arg0 bool) {
 }
 
 // Pause indicates an expected call of Pause.
-func (mr *MockBlockchainMockRecorder) Pause(arg0 interface{}) *gomock.Call {
+func (mr *MockBlockchainMockRecorder) Pause(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pause", reflect.TypeOf((*MockBlockchain)(nil).Pause), arg0)
 }
