@@ -131,10 +131,17 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	if err := sdb.dao.Start(ctx); err != nil {
 		return err
 	}
+	erigonHeight := uint64(0)
 	if sdb.erigonDB != nil {
 		if err := sdb.erigonDB.Start(ctx); err != nil {
 			return err
 		}
+		eh, err := sdb.erigonDB.Height()
+		if err != nil {
+			return errors.Wrap(err, "failed to get erigonDB height")
+		}
+		erigonHeight = eh
+		log.L().Info("ErigonDB started", zap.Uint64("height", erigonHeight))
 	}
 	// check factory height
 	h, err := sdb.dao.getHeight()
@@ -170,18 +177,15 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		return err
 	}
 	if sdb.erigonDB != nil {
-		eh, err := sdb.erigonDB.Height()
-		if err != nil {
-			return errors.Wrap(err, "failed to get erigonDB height")
-		}
-		if eh != sdb.currentChainHeight {
+		// allow erigonDB to be 1 height ahead of state factory
+		if erigonHeight != sdb.currentChainHeight && erigonHeight != sdb.currentChainHeight+1 {
 			return errors.Errorf(
 				"erigonDB height %d does not match state factory height %d",
-				eh, sdb.currentChainHeight,
+				erigonHeight, sdb.currentChainHeight,
 			)
 		}
-		if sdb.cfg.Chain.HistoryBlockRetention > 0 && eh > sdb.cfg.Chain.HistoryBlockRetention {
-			if err := sdb.erigonDB.BatchPrune(ctx, eh-sdb.cfg.Chain.HistoryBlockRetention, eh, 1000); err != nil {
+		if sdb.cfg.Chain.HistoryBlockRetention > 0 && erigonHeight > sdb.cfg.Chain.HistoryBlockRetention {
+			if err := sdb.erigonDB.BatchPrune(ctx, erigonHeight-sdb.cfg.Chain.HistoryBlockRetention, erigonHeight, 1000); err != nil {
 				return errors.Wrap(err, "failed to prune erigonDB")
 			}
 		}
