@@ -13,6 +13,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -83,6 +84,7 @@ type ChainService struct {
 	minter                   *factory.Minter
 
 	lastReceivedBlockHeight uint64
+	paused                  atomic.Bool
 }
 
 // Start starts the server
@@ -101,6 +103,9 @@ func (cs *ChainService) Start(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				if cs.paused.Load() {
+					continue
+				}
 				currentHeight := cs.chain.TipHeight()
 				lrbh := atomic.LoadUint64(&cs.lastReceivedBlockHeight)
 				if currentHeight == lastHeight && lastReceivedBlockHeight != lrbh {
@@ -119,9 +124,43 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	return cs.lifecycle.OnStopSequentially(ctx)
 }
 
+func (cs *ChainService) Pause(pause bool) {
+	cs.paused.Store(pause)
+}
+
+func (cs *ChainService) Filter(messageType iotexrpc.MessageType, msg proto.Message, cap int) bool {
+	// Filter out messages that are not relevant to the chain service
+	if messageType != iotexrpc.MessageType_BLOCK {
+		return true
+	}
+	blk, ok := msg.(*iotextypes.Block)
+	if !ok || blk == nil {
+		return false
+	}
+	if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
+		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
+	}
+	tip, err := cs.blockdao.Height()
+	if err != nil {
+		log.L().Error("failed to get tip height from blockdao", zap.Error(err))
+		return true
+	}
+	return blk.Header.Core.Height < tip+uint64(cap)
+}
+
 // ReportFullness switch on or off block sync
-func (cs *ChainService) ReportFullness(_ context.Context, messageType iotexrpc.MessageType, fullness float32) {
+func (cs *ChainService) ReportFullness(_ context.Context, messageType iotexrpc.MessageType, msg proto.Message, fullness float32) {
 	_blockchainFullnessMtc.WithLabelValues(iotexrpc.MessageType_name[int32(messageType)]).Set(float64(fullness))
+	switch messageType {
+	case iotexrpc.MessageType_BLOCK:
+		blk, ok := msg.(*iotextypes.Block)
+		if !ok || blk == nil {
+			return
+		}
+		if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
+			atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
+		}
+	}
 }
 
 // HandleAction handles incoming action request.
@@ -177,9 +216,6 @@ func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *i
 	ctx, err = cs.chain.Context(ctx)
 	if err != nil {
 		return err
-	}
-	if atomic.LoadUint64(&cs.lastReceivedBlockHeight) < blk.Height() {
-		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Height())
 	}
 	return cs.blocksync.ProcessBlock(ctx, peer, blk)
 }

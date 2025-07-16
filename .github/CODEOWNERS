@@ -3,22 +3,3 @@
 
 # These owners will be the default owners for everything in the repo.
 *       @iotexproject/protocol-team
-
-#Specific owners
-/consensus/	    @CoderZhi @dustinxie @Liuhaai @envestcc
-/ioctl/  	    @CoderZhi @dustinxie @Liuhaai @envestcc
-/api/   		    @CoderZhi @dustinxie @Liuhaai @envestcc
-/config/	        @CoderZhi @dustinxie @Liuhaai @envestcc
-/p2p/		    @CoderZhi @dustinxie @Liuhaai @envestcc
-/action/		    @CoderZhi @dustinxie @Liuhaai @envestcc
-/blockchain/	    @CoderZhi @dustinxie @Liuhaai @envestcc
-/blockindex/	    @CoderZhi @dustinxie @Liuhaai @envestcc
-/crypto/		    @CoderZhi @dustinxie @Liuhaai @envestcc
-/db/		        @CoderZhi @dustinxie @Liuhaai @envestcc
-/dispatcher/	    @CoderZhi @dustinxie @Liuhaai @envestcc
-/pkg/		    @CoderZhi @dustinxie @Liuhaai @envestcc
-/server/		    @CoderZhi @dustinxie @Liuhaai @envestcc
-/state/		    @CoderZhi @dustinxie @Liuhaai @envestcc
-/actpool/		@CoderZhi @dustinxie @Liuhaai @envestcc
-/nodeinfo/ 		@CoderZhi @dustinxie @Liuhaai @envestcc
-/.github/ 		@CoderZhi @dustinxie @Liuhaai @envestcc
