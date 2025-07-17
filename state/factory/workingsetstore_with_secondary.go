@@ -1,7 +1,9 @@
 package factory
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -27,6 +29,7 @@ type reader interface {
 	States(string, [][]byte) ([][]byte, [][]byte, error)
 	Digest() hash.Hash256
 	Filter(string, db.Condition, []byte, []byte) ([][]byte, [][]byte, error)
+	GetObj(ns string, key []byte, storage Storage) error
 }
 
 type writer interface {
@@ -36,6 +39,7 @@ type writer interface {
 	RevertSnapshot(snapshot int) error
 	ResetSnapshots()
 	WriteBatch(batch.KVStoreBatch) error
+	PutObj(ns string, key []byte, storage Storage) error
 }
 
 // treat erigon as 3rd output, still read from statedb
@@ -142,4 +146,26 @@ func (store *workingSetStoreWithSecondary) ResetSnapshots() {
 func (store *workingSetStoreWithSecondary) Close() {
 	store.writer.Close()
 	store.writerSecondary.Close()
+}
+
+func (store *workingSetStoreWithSecondary) PutObj(ns string, key []byte, s Storage) error {
+	if err := store.writer.PutObj(ns, key, s); err != nil {
+		return err
+	}
+	if err := store.writerSecondary.PutObj(ns, key, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+var (
+	specialKey1, _ = hex.DecodeString("04405b318e8d222900c0d0df38d0955161cdbbede7ca07f0ec4ec87bd1612bcb")
+	specialKey2, _ = hex.DecodeString("5b9c29a0e19db48db274eac52abdbea0b88d70af3a6fc45173c35aae3940be68")
+)
+
+func (store *workingSetStoreWithSecondary) GetObj(ns string, key []byte, storage Storage) error {
+	if ns == "System" && (bytes.Equal(key, specialKey1) || bytes.Equal(key, specialKey2)) {
+		return store.writerSecondary.GetObj(ns, key, storage)
+	}
+	return store.reader.GetObj(ns, key, storage)
 }

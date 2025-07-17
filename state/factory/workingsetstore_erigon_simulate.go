@@ -72,3 +72,7 @@ func (store *erigonWorkingSetStoreForSimulate) Commit(context.Context, uint64) e
 func (store *erigonWorkingSetStoreForSimulate) Close() {
 	store.erigonStore.Close()
 }
+
+func (store *erigonWorkingSetStoreForSimulate) GetObj(ns string, key []byte, storage Storage) error {
+	return store.erigonStore.GetObj(ns, key, storage)
+}

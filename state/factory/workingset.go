@@ -335,6 +335,10 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
+	storage, isStorage := s.(Storage)
+	if isStorage {
+		return ws.height, ws.store.GetObj(cfg.Namespace, cfg.Key, storage)
+	}
 	value, err := ws.store.Get(cfg.Namespace, cfg.Key)
 	if err != nil {
 		return ws.height, err
@@ -367,6 +371,10 @@ func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uin
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return ws.height, err
+	}
+	storage, isStorage := s.(Storage)
+	if isStorage {
+		return ws.height, ws.store.PutObj(cfg.Namespace, cfg.Key, storage)
 	}
 	ss, err := state.Serialize(s)
 	if err != nil {

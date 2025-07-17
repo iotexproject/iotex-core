@@ -108,7 +108,7 @@ func (cs *ChainService) Start(ctx context.Context) error {
 				currentHeight := cs.chain.TipHeight()
 				lrbh := atomic.LoadUint64(&cs.lastReceivedBlockHeight)
 				if currentHeight == lastHeight && lastReceivedBlockHeight != lrbh {
-					log.L().Panic("Blockchain height has not changed, restarting service")
+					// log.L().Panic("Blockchain height has not changed, restarting service")
 				}
 				lastHeight = currentHeight
 				lastReceivedBlockHeight = lrbh
