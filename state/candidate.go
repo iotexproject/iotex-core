@@ -6,9 +6,11 @@
 package state
 
 import (
+	"bytes"
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -16,6 +18,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 
 	"github.com/iotexproject/iotex-address/address"
 )
@@ -154,7 +157,62 @@ func (l *CandidateList) LoadProto(candList *iotextypes.CandidateList) error {
 
 // StorageAddr returns the storage address for the candidate list
 func (l CandidateList) StorageAddr(_ string, _ []byte) hash.Hash160 {
-	return hash.Hash160(address.StakingProtocolAddrHash)
+	return hash.Hash160(systemcontracts.SystemContractAddresses.PollContractAddress.Bytes())
+	// return hash.Hash160(address.StakingProtocolAddrHash)
+}
+
+func (l CandidateList) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	solidityCandidates := make([]systemcontracts.SolidityCandidate, 0, len(l))
+	for _, cand := range l {
+		solCand, err := convertToSolidityCandidate(cand)
+		if err != nil {
+			return errors.Wrap(err, "failed to convert candidate to solidity candidate")
+		}
+		solidityCandidates = append(solidityCandidates, *solCand)
+	}
+
+	contractAddr := common.Address(l.StorageAddr(ns, key))
+	contract, err := systemcontracts.NewCandidateStorageContract(contractAddr, backend)
+	if err != nil {
+		return errors.Wrap(err, "failed to create candidate storage contract")
+	}
+	if err = contract.StoreCandidateList(ns, key, solidityCandidates); err != nil {
+		return errors.Wrap(err, "failed to store candidate list in contract")
+	}
+	return nil
+}
+
+// LoadFromContract loads candidate list from the contract storage
+func (l *CandidateList) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	contractAddr := common.Address(l.StorageAddr(ns, key))
+	contract, err := systemcontracts.NewCandidateStorageContract(contractAddr, backend)
+	if err != nil {
+		return errors.Wrap(err, "failed to create candidate storage contract")
+	}
+	solidityCandidates, err := contract.GetCandidateList(ns, key)
+	if err != nil {
+		return errors.Wrap(err, "failed to get candidate list from contract")
+	}
+	candidates := make(CandidateList, 0, len(solidityCandidates))
+	for _, solCand := range solidityCandidates {
+		addr, err := address.FromBytes(solCand.CandidateAddress.Bytes())
+		if err != nil {
+			return errors.Wrap(err, "failed to parse candidate address")
+		}
+		rewardAddr, err := address.FromBytes(solCand.RewardAddress.Bytes())
+		if err != nil {
+			return errors.Wrap(err, "failed to parse reward address")
+		}
+		cand := &Candidate{
+			Address:       addr.String(),
+			Votes:         new(big.Int).Set(solCand.Votes),
+			RewardAddress: rewardAddr.String(),
+			CanName:       bytes.TrimRight(solCand.CanName[:], "\x00"),
+		}
+		candidates = append(candidates, cand)
+	}
+	*l = candidates
+	return nil
 }
 
 // Storage converts the candidate list to a storage map
@@ -388,4 +446,38 @@ func CandidatesToMap(candidates CandidateList) (CandidateMap, error) {
 		candidateMap[pkHash] = candidate
 	}
 	return candidateMap, nil
+}
+
+func convertToSolidityCandidate(candidate *Candidate) (*systemcontracts.SolidityCandidate, error) {
+	// Parse candidate address
+	addr, err := address.FromString(candidate.Address)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid candidate address")
+	}
+
+	// Parse reward address
+	var rewardAddr common.Address
+	if candidate.RewardAddress != "" {
+		rewardAddrIoTeX, err := address.FromString(candidate.RewardAddress)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid reward address")
+		}
+		rewardAddr = common.BytesToAddress(rewardAddrIoTeX.Bytes())
+	}
+
+	// Convert candidate name to bytes32
+	var canName [32]byte
+	if len(candidate.CanName) > 0 {
+		if len(candidate.CanName) > 32 {
+			return nil, errors.New("candidate name too long")
+		}
+		copy(canName[:], candidate.CanName)
+	}
+
+	return &systemcontracts.SolidityCandidate{
+		CandidateAddress: common.BytesToAddress(addr.Bytes()),
+		Votes:            candidate.Votes,
+		RewardAddress:    rewardAddr,
+		CanName:          canName,
+	}, nil
 }

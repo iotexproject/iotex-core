@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 const (
@@ -50,12 +51,15 @@ type erigonWorkingSetStore struct {
 	db              *erigonDB
 	intraBlockState *erigonstate.IntraBlockState
 	tx              kv.Tx
+	contractBackend systemcontracts.ContractBackend
 }
 
 type Storage interface {
 	StorageAddr(ns string, key []byte) hash.Hash160
 	Storage(ns string, key []byte) map[hash.Hash256]uint256.Int
 	Load(ns string, key []byte, store func(hash.Hash256) (uint256.Int, bool)) error
+	StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
+	LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
 }
 
 func newErigonDB(path string) *erigonDB {
@@ -83,7 +87,7 @@ func (db *erigonDB) Stop(ctx context.Context) {
 	}
 }
 
-func (db *erigonDB) newErigonStore(ctx context.Context, height uint64) (*erigonWorkingSetStore, error) {
+func (db *erigonDB) newErigonStore(ctx context.Context, height uint64, backend systemcontracts.ContractBackend) (*erigonWorkingSetStore, error) {
 	tx, err := db.rw.BeginRo(ctx)
 	if err != nil {
 		return nil, err
@@ -94,6 +98,7 @@ func (db *erigonDB) newErigonStore(ctx context.Context, height uint64) (*erigonW
 		db:              db,
 		tx:              tx,
 		intraBlockState: intraBlockState,
+		contractBackend: backend,
 	}, nil
 }
 
@@ -294,14 +299,15 @@ func (store *erigonWorkingSetStore) PutObj(ns string, key []byte, storage Storag
 		store.intraBlockState.SetNonce(addr, 1)
 		store.intraBlockState.SetBalance(addr, uint256.NewInt(0))
 	}
-	st := storage.Storage(ns, key)
-	for k, v := range st {
-		kk := libcommon.Hash(k)
-		log.L().Info("put obj storage", log.Hex("key", k[:]), log.Hex("value", v.Bytes()))
-		store.intraBlockState.SetState(addr, &kk, v)
-	}
+	return storage.StoreToContract(ns, key, store.contractBackend)
+	// st := storage.Storage(ns, key)
+	// for k, v := range st {
+	// 	kk := libcommon.Hash(k)
+	// 	log.L().Info("put obj storage", log.Hex("key", k[:]), log.Hex("value", v.Bytes()))
+	// 	store.intraBlockState.SetState(addr, &kk, v)
+	// }
 
-	return nil
+	// return nil
 }
 
 func (store *erigonWorkingSetStore) Put(ns string, key []byte, value []byte) (err error) {
@@ -345,15 +351,16 @@ func (store *erigonWorkingSetStore) GetObj(ns string, key []byte, storage Storag
 	if !store.intraBlockState.Exist(addr) {
 		return state.ErrStateNotExist
 	}
-	return storage.Load(ns, key, func(h hash.Hash256) (uint256.Int, bool) {
-		key := libcommon.Hash(h)
-		val := uint256.NewInt(0)
-		store.intraBlockState.GetState(addr, &key, val)
-		if val.IsZero() {
-			return uint256.Int{}, false
-		}
-		return *val, true
-	})
+	return storage.LoadFromContract(ns, key, store.contractBackend)
+	// return storage.Load(ns, key, func(h hash.Hash256) (uint256.Int, bool) {
+	// 	key := libcommon.Hash(h)
+	// 	val := uint256.NewInt(0)
+	// 	store.intraBlockState.GetState(addr, &key, val)
+	// 	if val.IsZero() {
+	// 		return uint256.Int{}, false
+	// 	}
+	// 	return *val, true
+	// })
 }
 
 func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {

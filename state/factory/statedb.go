@@ -6,18 +6,27 @@
 package factory
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/erigontech/erigon-lib/chain"
+	erigonComm "github.com/erigontech/erigon-lib/common"
+	erigonstate "github.com/erigontech/erigon/core/state"
+	"github.com/erigontech/erigon/core/vm"
+	"github.com/erigontech/erigon/core/vm/evmtypes"
+	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -32,6 +41,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
@@ -154,12 +164,17 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		if sdb.protocolViews, err = sdb.registry.StartAll(ctx, sdb); err != nil {
 			return err
 		}
+		producer, err := address.FromString(address.ZeroAddress)
+		if err != nil {
+			return errors.Wrap(err, "failed to get producer address")
+		}
 		ctx = protocol.WithBlockCtx(
 			ctx,
 			protocol.BlockCtx{
 				BlockHeight:    0,
 				BlockTimeStamp: time.Unix(sdb.cfg.Genesis.Timestamp, 0),
 				GasLimit:       sdb.cfg.Genesis.BlockGasLimitByHeight(0),
+				Producer:       producer,
 			})
 		ctx = protocol.WithFeatureCtx(ctx)
 		// init the state factory
@@ -221,7 +236,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	if sdb.erigonDB == nil {
 		return ws, nil
 	}
-	e, err := sdb.erigonDB.newErigonStore(ctx, height)
+	e, err := sdb.erigonDB.newErigonStore(ctx, height, newContractBacked(ctx, ws, sdb.registry))
 	if err != nil {
 		return nil, err
 	}
@@ -551,6 +566,11 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if state, _ := ws.Erigon(); state != nil {
+		if err := sdb.createErigonGenesisStates(ctx, state); err != nil {
+			return errors.Wrap(err, "failed to create erigon genesis states")
+		}
+	}
 	if err := ws.CreateGenesisStates(ctx); err != nil {
 		return err
 	}
@@ -559,6 +579,81 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 		return err
 	}
 	sdb.protocolViews = ws.views
+	return nil
+}
+
+func (sdb *stateDB) createErigonGenesisStates(ctx context.Context, intra *erigonstate.IntraBlockState) error {
+	// deploy system contracts
+	blkCtx := evmtypes.BlockContext{
+		CanTransfer: func(state evmtypes.IntraBlockState, addr erigonComm.Address, amount *uint256.Int) bool {
+			log.L().Info("CanTransfer called in erigon genesis state creation",
+				zap.String("address", addr.String()),
+				zap.String("amount", amount.String()),
+			)
+			return true
+		},
+		Transfer: func(state evmtypes.IntraBlockState, from erigonComm.Address, to erigonComm.Address, amount *uint256.Int, bailout bool) {
+			log.L().Info("Transfer called in erigon genesis state creation",
+				zap.String("from", from.String()),
+				zap.String("to", to.String()),
+				zap.String("amount", amount.String()),
+			)
+			return
+		},
+		GetHash: func(block uint64) erigonComm.Hash {
+			log.L().Info("GetHash called in erigon genesis state creation",
+				zap.Uint64("block", block),
+			)
+			return erigonComm.Hash{}
+		},
+		PostApplyMessage: func(ibs evmtypes.IntraBlockState, sender erigonComm.Address, coinbase erigonComm.Address, result *evmtypes.ExecutionResult) {
+			log.L().Info("PostApplyMessage called in erigon genesis state creation",
+				zap.String("sender", sender.String()),
+				zap.String("coinbase", coinbase.String()),
+			)
+			return
+		},
+		Coinbase:    erigonComm.Address{},
+		GasLimit:    100000000,
+		MaxGasLimit: true,
+		BlockNumber: 0,
+		Time:        uint64(sdb.cfg.Genesis.Timestamp),
+		Difficulty:  big.NewInt(0),
+		BaseFee:     nil,
+		PrevRanDao:  nil,
+		BlobBaseFee: nil,
+	}
+	txCtx := evmtypes.TxContext{
+		TxHash:     erigonComm.Hash{},
+		Origin:     erigonComm.Address{},
+		GasPrice:   uint256.NewInt(0),
+		BlobFee:    nil,
+		BlobHashes: nil,
+	}
+	chainConfig := &chain.Config{
+		ConstantinopleBlock: big.NewInt(0),
+	}
+	vmConfig := vm.Config{
+		NoBaseFee: true,
+	}
+	evm := vm.NewEVM(blkCtx, txCtx, intra, chainConfig, vmConfig)
+	caller := vm.AccountRef{}
+	code := systemcontracts.CandidateStorageByteCode
+	gasRemaining := uint64(100000000)
+	amount := uint256.NewInt(0)
+	bailout := true
+	ret, contractAddr, gasLeft, err := evm.Create(caller, code, gasRemaining, amount, bailout)
+	if err != nil {
+		return errors.Wrap(err, "failed to create candidate storage contract")
+	}
+	log.L().Info("Deployed candidate storage contract",
+		zap.String("contractAddress", contractAddr.String()),
+		zap.Uint64("gasLeft", gasLeft),
+		log.Hex("returnData", ret),
+	)
+	if !bytes.Equal(contractAddr.Bytes(), systemcontracts.SystemContractAddresses.PollContractAddress.Bytes()) {
+		return errors.New("deployed candidate storage contract address does not match expected address")
+	}
 	return nil
 }
 
