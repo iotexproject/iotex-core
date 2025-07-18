@@ -16,25 +16,25 @@ func TestUnproductiveDelegate(t *testing.T) {
 	upd, err := NewUnproductiveDelegate(2, 10)
 	r.NoError(err)
 
-	str1 := []string{"a", "b", "c", "d", "e"}
-	str2 := []string{"d"}
-	str3 := []string{"f", "g"}
-	str4 := []string{"a", "f", "g"}
+	str1 := map[string]uint64{"a": 1, "b": 2, "c": 3, "d": 4, "e": 5}
+	str2 := map[string]uint64{"d": 6}
+	str3 := map[string]uint64{"f": 7, "g": 8}
+	str4 := map[string]uint64{"a": 1, "f": 7, "g": 8}
 
 	r.NoError(upd.AddRecentUPD(str1))
 	r.NoError(upd.AddRecentUPD(str2))
 	r.NoError(upd.AddRecentUPD(str3))
 	oldestData := upd.ReadOldestUPD()
 	r.Equal(len(str2), len(oldestData))
-	for i, data := range oldestData {
-		r.Equal(str2[i], data)
+	for _, data := range oldestData {
+		r.Contains(str2, data)
 	}
 
 	r.NoError(upd.AddRecentUPD(str4))
 	oldestData = upd.ReadOldestUPD()
 	r.Equal(len(str3), len(oldestData))
-	for i, data := range oldestData {
-		r.Equal(str3[i], data)
+	for _, data := range oldestData {
+		r.Contains(str3, data)
 	}
 
 	sbytes, err := upd.Serialize()
