@@ -34,7 +34,7 @@ func NewUnproductiveDelegate(probationPeriod uint64, cacheSize uint64) (*Unprodu
 }
 
 // AddRecentUPD adds new epoch upd-list at the leftmost and shift existing lists to the right
-func (upd *UnproductiveDelegate) AddRecentUPD(new []string) error {
+func (upd *UnproductiveDelegate) AddRecentUPD(new map[string]uint64) error {
 	delegates := make([]string, len(new))
 	copy(delegates, new)
 	sort.Strings(delegates)

@@ -318,6 +318,27 @@ func (p *Protocol) CreateGenesisStates(
 	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
 }
 
+func (p *Protocol) SlashCandidate(
+	ctx context.Context,
+	sm protocol.StateManager,
+	owner address.Address,
+	amount *big.Int,
+) error {
+	if amount == nil || amount.Sign() <= 0 {
+		return errors.New("nil or non-positive amount")
+	}
+	csm, err := NewCandidateStateManager(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create candidate state manager")
+	}
+	candidate := csm.GetByIdentifier(owner)
+	if candidate == nil {
+		return errors.Wrapf(state.ErrStateNotExist, "candidate %s does not exist", owner.String())
+	}
+	// TODO: slash the candidate's self stake bucket
+	return nil
+}
+
 // CreatePreStates updates state manager
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
 	var (
