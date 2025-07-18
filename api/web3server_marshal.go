@@ -380,15 +380,15 @@ func (obj *getReceiptResult) MarshalJSON() ([]byte, error) {
 		BlockHash         string           `json:"blockHash"`
 		BlockNumber       string           `json:"blockNumber"`
 		From              string           `json:"from"`
-		To                *string          `json:"to"`
+		To                *string          `json:"to,omitempty"`
 		CumulativeGasUsed string           `json:"cumulativeGasUsed"`
 		GasUsed           string           `json:"gasUsed"`
-		ContractAddress   *string          `json:"contractAddress"`
+		ContractAddress   *string          `json:"contractAddress,omitempty"`
 		LogsBloom         string           `json:"logsBloom"`
-		Logs              []*getLogsResult `json:"logs"`
+		Logs              []*getLogsResult `json:"logs,omitempty"`
 		Status            string           `json:"status"`
 		Type              hexutil.Uint     `json:"type"`
-		EffectiveGasPrice *hexutil.Big     `json:"effectiveGasPrice"`
+		EffectiveGasPrice *hexutil.Big     `json:"effectiveGasPrice,omitempty"`
 		BlobGasUsed       hexutil.Uint64   `json:"blobGasUsed,omitempty"`
 		BlobGasPrice      *hexutil.Big     `json:"blobGasPrice,omitempty"`
 	}{
@@ -432,7 +432,7 @@ func (obj *getLogsResult) MarshalJSON() ([]byte, error) {
 		BlockNumber      string   `json:"blockNumber"`
 		Address          string   `json:"address"`
 		Data             string   `json:"data"`
-		Topics           []string `json:"topics"`
+		Topics           []string `json:"topics,omitempty"`
 	}{
 		Removed:          false,
 		LogIndex:         uint64ToHex(uint64(obj.log.Index)),

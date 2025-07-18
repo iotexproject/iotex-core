@@ -228,6 +228,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.getBlockTransactionCountByNumber(web3Req)
 	case "eth_getTransactionReceipt":
 		res, err = svr.getTransactionReceipt(web3Req)
+	case "eth_getBlockReceipts":
+		res, err = svr.getBlockReceipts(web3Req)
 	case "eth_getStorageAt":
 		res, err = svr.getStorageAt(web3Req)
 	case "eth_getFilterLogs":
@@ -821,6 +823,80 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 		txType:          uint(tx.Type()),
 	}, nil
 
+}
+
+func (svr *web3Handler) getBlockReceipts(in *gjson.Result) (interface{}, error) {
+	// parse block parameter from request
+	blkParam := in.Get("params.0")
+	if !blkParam.Exists() {
+		return nil, errInvalidFormat
+	}
+	bn, err := parseBlockNumber(&blkParam)
+	if err != nil {
+		return nil, err
+	}
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
+	if err != nil {
+		return nil, err
+	}
+
+	blk, err := svr.coreService.BlockByHeight(height)
+	if err != nil {
+		if errors.Cause(err) == ErrNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// Build receipt array for all transactions in the block
+	receipts := make([]*getReceiptResult, 0, len(blk.Block.Actions))
+	blockHash := blk.Block.HashBlock()
+
+	// Get logs bloom filter
+	var logsBloomStr string
+	if logsBloom := blk.Block.LogsBloomfilter(); logsBloom != nil {
+		logsBloomStr = hex.EncodeToString(logsBloom.Bytes())
+	}
+
+	// Process each transaction in the block
+	for i, selp := range blk.Block.Actions {
+		receipt := blk.Receipts[i]
+
+		// Convert action to ethereum transaction to get type
+		tx, err := selp.ToEthTx()
+		if err != nil {
+			if errors.Is(err, errUnsupportedAction) {
+				txHash, _ := selp.Hash()
+				log.Logger("api").Debug("getBlockReceipts: unsupported action type",
+					zap.String("action", fmt.Sprintf("%T", selp.Action())),
+					log.Hex("actionHash", txHash[:]),
+					zap.Int("index", i))
+				continue // Skip unsupported actions
+			}
+			return nil, err
+		}
+
+		// Get recipient and contract address
+		to, contractAddr, err := getRecipientAndContractAddrFromAction(selp, receipt)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create receipt result
+		receiptResult := &getReceiptResult{
+			blockHash:       blockHash,
+			from:            selp.SenderAddress(),
+			to:              to,
+			contractAddress: contractAddr,
+			logsBloom:       logsBloomStr,
+			receipt:         receipt,
+			txType:          uint(tx.Type()),
+		}
+
+		receipts = append(receipts, receiptResult)
+	}
+
+	return receipts, nil
 }
 
 func (svr *web3Handler) getBlockTransactionCountByNumber(in *gjson.Result) (interface{}, error) {
