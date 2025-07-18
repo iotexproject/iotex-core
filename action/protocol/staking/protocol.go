@@ -335,8 +335,29 @@ func (p *Protocol) SlashCandidate(
 	if candidate == nil {
 		return errors.Wrapf(state.ErrStateNotExist, "candidate %s does not exist", owner.String())
 	}
-	// TODO: slash the candidate's self stake bucket
-	return nil
+	bucket, err := p.fetchBucket(csm, candidate.SelfStakeBucketIdx)
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch bucket")
+	}
+	prevWeightedVotes := p.calculateVoteWeight(bucket, true)
+	bucket.StakedAmount.Sub(bucket.StakedAmount, amount)
+	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
+		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)
+	}
+	if err := candidate.SubVote(prevWeightedVotes); err != nil {
+		return errors.Wrapf(err, "failed to sub candidate votes")
+	}
+	weightedVotes := p.calculateVoteWeight(bucket, true)
+	if err := candidate.AddVote(weightedVotes); err != nil {
+		return errors.Wrapf(err, "failed to add candidate votes")
+	}
+	if err := candidate.SubSelfStake(amount); err != nil {
+		return errors.Wrap(err, "failed to update self stake")
+	}
+	if err := csm.Upsert(candidate); err != nil {
+		return errors.Wrap(err, "failed to upsert candidate")
+	}
+	return csm.CreditBucketPool(amount)
 }
 
 // CreatePreStates updates state manager

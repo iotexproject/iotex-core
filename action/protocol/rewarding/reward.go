@@ -201,13 +201,15 @@ func (p *Protocol) GrantEpochReward(
 		}
 		filteredCandidates = append(filteredCandidates, candidate)
 	}
+	actualTotalReward := big.NewInt(0)
 	candidates = filteredCandidates
-	// TODO: add hardfork
-	slashAmount, err := p.slashUqd(ctx, sm, candidates, a.blockReward, uqdMap)
-	if err != nil {
-		return nil, err
+	if !protocol.MustGetFeatureCtx(ctx).NotSlashUnproductiveDelegates {
+		slashAmount, err := p.slashUqd(ctx, sm, candidates, a.blockReward, uqdMap)
+		if err != nil {
+			return nil, err
+		}
+		actualTotalReward = big.NewInt(0).Sub(actualTotalReward, slashAmount)
 	}
-	actualTotalReward := big.NewInt(0).Neg(slashAmount)
 	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, uqdMap)
 	if err != nil {
 		return nil, err
@@ -457,6 +459,11 @@ func (p *Protocol) slashUqd(ctx context.Context, sm protocol.StateManager, candi
 	if stakingProtocol == nil {
 		return nil, errors.New("staking protocol not found")
 	}
+	view, err := sm.ReadView(stakingProtocol.Name())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read view of staking protocol")
+	}
+	snapshot := view.Snapshot()
 	for _, candidate := range candidates {
 		if missed, ok := uqdMap[candidate.Address]; ok {
 			if missed == 0 {
@@ -466,9 +473,15 @@ func (p *Protocol) slashUqd(ctx context.Context, sm protocol.StateManager, candi
 			amount := big.NewInt(0).Mul(slashRate, big.NewInt(0).SetUint64(missed))
 			candidateAddr, err := address.FromString(candidate.Address)
 			if err != nil {
+				if err := view.Revert(snapshot); err != nil {
+					return nil, errors.Wrap(err, "failed to revert view")
+				}
 				return nil, err
 			}
 			if err := stakingProtocol.SlashCandidate(ctx, sm, candidateAddr, amount); err != nil {
+				if err := view.Revert(snapshot); err != nil {
+					return nil, errors.Wrap(err, "failed to revert view")
+				}
 				return nil, errors.Wrapf(err, "failed to slash candidate %s", candidate.Address)
 			}
 			totalSlashAmount.Add(totalSlashAmount, amount)
