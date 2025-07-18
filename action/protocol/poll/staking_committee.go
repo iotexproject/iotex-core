@@ -234,7 +234,7 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr 
 func (sc *stakingCommittee) CalculateUnproductiveDelegates(
 	ctx context.Context,
 	sr protocol.StateReader,
-) ([]string, error) {
+) (map[string]uint64, error) {
 	return sc.governanceStaking.CalculateUnproductiveDelegates(ctx, sr)
 }
 

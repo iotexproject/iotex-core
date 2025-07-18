@@ -471,7 +471,7 @@ func (sh *Slasher) CalculateProbationList(
 	if err := upd.AddRecentUPD(addList); err != nil {
 		return nil, errors.Wrap(err, "failed to add recent upd")
 	}
-	for _, addr := range addList {
+	for addr := range addList {
 		if _, ok := probationMap[addr]; ok {
 			probationMap[addr]++
 			continue

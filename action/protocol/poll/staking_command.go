@@ -106,7 +106,7 @@ func (sc *stakingCommand) CalculateCandidatesByHeight(ctx context.Context, sr pr
 func (sc *stakingCommand) CalculateUnproductiveDelegates(
 	ctx context.Context,
 	sr protocol.StateReader,
-) ([]string, error) {
+) (map[string]uint64, error) {
 	if sc.useV2(ctx, sr) && protocol.MustGetFeatureCtx(ctx).FixUnproductiveDelegates {
 		return sc.stakingV2.CalculateUnproductiveDelegates(ctx, sr)
 	}
