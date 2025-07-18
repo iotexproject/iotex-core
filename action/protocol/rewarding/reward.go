@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -180,28 +181,37 @@ func (p *Protocol) GrantEpochReward(
 	}
 
 	var err error
-	uqdMap := make(map[string]bool)
+	uqdMap := make(map[string]uint64)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
 		// Get unqualified delegate list
-		uqd, err := pp.CalculateUnproductiveDelegates(ctx, sm)
+		uqdMap, err = pp.CalculateUnproductiveDelegates(ctx, sm)
 		if err != nil {
 			return nil, err
 		}
-		for _, addr := range uqd {
-			uqdMap[addr] = true
-		}
-
 	}
 	candidates, err := poll.MustGetProtocol(protocol.MustGetRegistry(ctx)).Candidates(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
-	addrs, amounts, err := p.splitEpochReward(epochStartHeight, sm, candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqdMap)
+	filteredCandidates := make([]*state.Candidate, 0)
+	for _, candidate := range candidates {
+		if _, ok := exemptAddrs[candidate.Address]; ok {
+			continue
+		}
+		filteredCandidates = append(filteredCandidates, candidate)
+	}
+	candidates = filteredCandidates
+	// TODO: add hardfork
+	slashAmount, err := p.slashUqd(ctx, sm, candidates, a.blockReward, uqdMap)
 	if err != nil {
 		return nil, err
 	}
-	actualTotalReward := big.NewInt(0)
+	actualTotalReward := big.NewInt(0).Neg(slashAmount)
+	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, uqdMap)
+	if err != nil {
+		return nil, err
+	}
 	rewardLogs := make([]*action.Log, 0)
 	for i := range addrs {
 		// If reward address doesn't exist, do nothing
@@ -237,9 +247,6 @@ func (p *Protocol) GrantEpochReward(
 	// Reward additional bootstrap bonus
 	if a.grantFoundationBonus(epochNum) || (epochNum >= p.cfg.FoundationBonusP2StartEpoch && epochNum <= p.cfg.FoundationBonusP2EndEpoch) {
 		for i, count := 0, uint64(0); i < len(candidates) && count < a.numDelegatesForFoundationBonus; i++ {
-			if _, ok := exemptAddrs[candidates[i].Address]; ok {
-				continue
-			}
 			if candidates[i].Votes.Cmp(big.NewInt(0)) == 0 {
 				// hard probation
 				continue
@@ -444,23 +451,38 @@ func (p *Protocol) updateRewardHistory(ctx context.Context, sm protocol.StateMan
 	return p.putState(ctx, sm, append(prefix, indexBytes[:]...), &rewardHistory{})
 }
 
+func (p *Protocol) slashUqd(ctx context.Context, sm protocol.StateManager, candidates []*state.Candidate, slashRate *big.Int, uqdMap map[string]uint64) (*big.Int, error) {
+	totalSlashAmount := big.NewInt(0)
+	stakingProtocol := staking.FindProtocol(protocol.MustGetRegistry(ctx))
+	if stakingProtocol == nil {
+		return nil, errors.New("staking protocol not found")
+	}
+	for _, candidate := range candidates {
+		if missed, ok := uqdMap[candidate.Address]; ok {
+			if missed == 0 {
+				// hard probation, no slash
+				continue
+			}
+			amount := big.NewInt(0).Mul(slashRate, big.NewInt(0).SetUint64(missed))
+			candidateAddr, err := address.FromString(candidate.Address)
+			if err != nil {
+				return nil, err
+			}
+			if err := stakingProtocol.SlashCandidate(ctx, sm, candidateAddr, amount); err != nil {
+				return nil, errors.Wrapf(err, "failed to slash candidate %s", candidate.Address)
+			}
+			totalSlashAmount.Add(totalSlashAmount, amount)
+		}
+	}
+	return totalSlashAmount, nil
+}
+
 func (p *Protocol) splitEpochReward(
-	epochStartHeight uint64,
-	sm protocol.StateManager,
 	candidates []*state.Candidate,
 	totalAmount *big.Int,
 	numDelegatesForEpochReward uint64,
-	exemptAddrs map[string]interface{},
-	uqd map[string]bool,
+	uqd map[string]uint64,
 ) ([]address.Address, []*big.Int, error) {
-	filteredCandidates := make([]*state.Candidate, 0)
-	for _, candidate := range candidates {
-		if _, ok := exemptAddrs[candidate.Address]; ok {
-			continue
-		}
-		filteredCandidates = append(filteredCandidates, candidate)
-	}
-	candidates = filteredCandidates
 	if len(candidates) == 0 {
 		return nil, nil, nil
 	}

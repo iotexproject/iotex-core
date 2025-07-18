@@ -162,7 +162,7 @@ func (p *governanceChainCommitteeProtocol) CalculateCandidatesByHeight(ctx conte
 func (p *governanceChainCommitteeProtocol) CalculateUnproductiveDelegates(
 	ctx context.Context,
 	sr protocol.StateReader,
-) ([]string, error) {
+) (map[string]uint64, error) {
 	return p.sh.calculateUnproductiveDelegates(ctx, sr)
 }
 
