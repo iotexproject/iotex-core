@@ -7,6 +7,7 @@ package blockdao
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -334,7 +335,6 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 	}
 	atomic.StoreUint64(&dao.tipHeight, blk.Height())
-	timer.End()
 	defer func() {
 		header := blk.Header
 		hash := blk.HashBlock()
@@ -343,14 +343,17 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		lruCachePut(dao.blockCache, hash, blk)
 		lruCachePut(dao.blockCache, blk.Height(), blk)
 	}()
+	timer.End()
 
 	// index the block if there's indexer
 	timer = dao.timerFactory.NewTimer("index_block")
 	defer timer.End()
 	for _, indexer := range dao.indexers {
+		indexerTimer := dao.timerFactory.NewTimer(fmt.Sprintf("index_block_%T", indexer))
 		if err := indexer.PutBlock(ctx, blk); err != nil {
 			return err
 		}
+		indexerTimer.End()
 	}
 	return nil
 }
