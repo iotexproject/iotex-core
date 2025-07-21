@@ -865,7 +865,7 @@ func (svr *web3Handler) getBlockReceipts(in *gjson.Result) (interface{}, error) 
 		// Convert action to ethereum transaction to get type
 		tx, err := selp.ToEthTx()
 		if err != nil {
-			if errors.Is(err, errUnsupportedAction) {
+			if errors.Is(err, errUnsupportedAction) || errors.Is(err, action.ErrInvalidAct) {
 				txHash, _ := selp.Hash()
 				log.Logger("api").Debug("getBlockReceipts: unsupported action type",
 					zap.String("action", fmt.Sprintf("%T", selp.Action())),
