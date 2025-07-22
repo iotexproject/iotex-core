@@ -253,7 +253,7 @@ func (builder *Builder) buildActionPool() error {
 				}))
 		}
 		if builder.cfg.ActPool.EnableBundlePool {
-			bp := actpool.NewBundlePool()
+			bp := actpool.NewBundlePool(builder.cfg.Genesis)
 			options = append(options, actpool.WithBundlePool(bp))
 		}
 		ac, err := actpool.NewActPool(builder.cfg.Genesis, builder.cs.factory, builder.cfg.ActPool, options...)

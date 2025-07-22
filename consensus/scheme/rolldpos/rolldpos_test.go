@@ -76,6 +76,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().AddSubscriber(gomock.Any()).Times(2)
 		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
@@ -94,6 +95,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("mock-clock", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().AddSubscriber(gomock.Any()).Times(2)
 		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
@@ -116,6 +118,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("root chain API", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().AddSubscriber(gomock.Any()).Times(2)
 		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(builderCfg).
@@ -204,6 +207,7 @@ func TestValidateBlockFooter(t *testing.T) {
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	bc.EXPECT().AddSubscriber(gomock.Any()).Times(2)
 	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).AnyTimes()
 	bc.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 	bc.EXPECT().TipHeight().Return(blockHeight).AnyTimes()
@@ -320,6 +324,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		Genesis:            g,
 		SystemActive:       true,
 	}
+	bc.EXPECT().AddSubscriber(gomock.Any()).Times(2)
 	bc.EXPECT().Genesis().Return(g).Times(2)
 	sf := mock_factory.NewMockFactory(ctrl)
 	rp := rolldpos.NewProtocol(

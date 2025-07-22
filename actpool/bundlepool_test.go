@@ -9,12 +9,13 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 func TestBundlePool_AddAndGetBundles(t *testing.T) {
 	require := require.New(t)
-	bp := NewBundlePool()
+	bp := NewBundlePool(genesis.Default)
 	blk, err := block.NewTestingBuilder().SetHeight(100).SignAndBuild(identityset.PrivateKey(0))
 	require.NoError(err)
 	se, err := action.SignedTransfer(
@@ -77,6 +78,7 @@ func TestBundlePool_AddAndGetBundles(t *testing.T) {
 			bundle.SetTargetBlockHeight(103)
 			require.Error(bp.AddBundle(ctx, sender, "uuid-valid", bundle))
 			require.Equal(1, bp.Size())
+			bundle.SetTargetBlockHeight(102)
 		})
 		t.Run("Delete bundle", func(t *testing.T) {
 			require.NoError(bp.DeleteBundle(sender, "uuid-valid"))

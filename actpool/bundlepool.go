@@ -11,7 +11,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
@@ -43,6 +45,7 @@ type (
 	BundlePool struct {
 		mu                    sync.RWMutex
 		height                uint64
+		genesis               genesis.Genesis
 		metas                 map[hash.Hash256]*meta
 		uuids                 map[string]hash.Hash256   // UUID to bundle hash mapping
 		targetHeightToBundles map[uint64][]hash.Hash256 // Target block height to bundles mapping
@@ -52,10 +55,11 @@ type (
 )
 
 // NewBundlePool creates a new BundlePool
-func NewBundlePool() *BundlePool {
+func NewBundlePool(g genesis.Genesis) *BundlePool {
 	return &BundlePool{
 		mu:                    sync.RWMutex{},
 		height:                0,
+		genesis:               g,
 		metas:                 make(map[hash.Hash256]*meta),
 		uuids:                 make(map[string]hash.Hash256),
 		targetHeightToBundles: make(map[uint64][]hash.Hash256),
@@ -98,8 +102,12 @@ func (bp *BundlePool) AddBundle(ctx context.Context, sender address.Address, uui
 		return errors.Wrapf(ErrBundleUUIDExists, "bundle with UUID %s already exists", uuid)
 	}
 	if bp.validate != nil {
+		blkCtx := protocol.WithFeatureCtx(protocol.WithBlockCtx(
+			genesis.WithGenesisContext(ctx, bp.genesis), protocol.BlockCtx{
+				BlockHeight: height,
+			}))
 		if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
-			return bp.validate(ctx, selp)
+			return bp.validate(blkCtx, selp)
 		}); err != nil {
 			return errors.Wrapf(err, "failed to validate bundle %s", uuid)
 		}
@@ -170,6 +178,9 @@ func (bp *BundlePool) DeleteBundle(caller address.Address, uuid string) error {
 	}
 	delete(bp.uuids, uuid)
 	delete(bp.metas, h)
+	if len(bp.targetHeightToBundles[height]) == 0 {
+		delete(bp.targetHeightToBundles, height)
+	}
 
 	return nil
 }

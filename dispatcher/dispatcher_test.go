@@ -189,6 +189,10 @@ func (ds *dummySubscriber) HandleSyncRequest(context.Context, peer.AddrInfo, *io
 	return nil
 }
 
+func (ds *dummySubscriber) HandleBundle(context.Context, *iotextypes.Bundle) error {
+	return nil
+}
+
 func (ds *dummySubscriber) HandleAction(context.Context, *iotextypes.Action) error { return nil }
 
 func (ds *dummySubscriber) HandleConsensusMsg(*iotextypes.ConsensusMessage) error { return nil }
@@ -229,6 +233,13 @@ func (cs *counterSubscriber) HandleBlock(context.Context, string, *iotextypes.Bl
 
 func (cs *counterSubscriber) HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error {
 	cs.blockSync.Inc()
+	return nil
+}
+
+func (cs *counterSubscriber) HandleBundle(_ context.Context, bundle *iotextypes.Bundle) error {
+	for range bundle.Actions {
+		cs.action.Inc()
+	}
 	return nil
 }
 
