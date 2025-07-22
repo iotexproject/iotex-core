@@ -358,14 +358,11 @@ func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, he
 		}
 		return acc.Balance, nil
 	}
-	var (
-		ws protocol.StateManagerWithCloser
-	)
+
 	if height == 0 {
-		ws, err = core.sf.WorkingSet(ctx)
-	} else {
-		ws, err = core.sf.WorkingSetAtHeight(ctx, height)
+		height = core.bc.TipHeight()
 	}
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return "", status.Error(codes.Internal, err.Error())
 	}
