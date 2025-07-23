@@ -331,7 +331,7 @@ func ExecuteContract(
 		revertMsg := string(data[64 : 64+msgLength])
 		receipt.SetExecutionRevertMsg(revertMsg)
 	}
-	log.S().Debugf("Receipt: %+v, %v", receipt, err)
+	log.S().Debugf("Retval: %x, Receipt: %+v, %v", retval, receipt, err)
 	return retval, receipt, nil
 }
 
@@ -516,12 +516,18 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
-		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, amount)
+		var createRet []byte
+		createRet, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, amount)
 		log.T(ctx).Debug("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
 		if evmErr == nil {
 			if contractAddress, err := address.FromBytes(evmContractAddress.Bytes()); err == nil {
 				contractRawAddress = contractAddress.String()
 			}
+		}
+		// ret updates may need hard fork
+		// so we change it only when readonly mode now
+		if evmParams.actionCtx.ReadOnly {
+			ret = createRet
 		}
 	} else {
 		stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1)
