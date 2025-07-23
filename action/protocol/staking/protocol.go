@@ -340,6 +340,9 @@ func (p *Protocol) SlashCandidate(
 		return errors.Wrap(err, "failed to fetch bucket")
 	}
 	prevWeightedVotes := p.calculateVoteWeight(bucket, true)
+	if bucket.StakedAmount.Cmp(amount) < 0 {
+		return errors.Errorf("amount %s is greater than staked amount %s", amount.String(), bucket.StakedAmount.String())
+	}
 	bucket.StakedAmount.Sub(bucket.StakedAmount, amount)
 	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
 		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)

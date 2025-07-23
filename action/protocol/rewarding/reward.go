@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -194,27 +195,20 @@ func (p *Protocol) GrantEpochReward(
 	if err != nil {
 		return nil, err
 	}
-	filteredCandidates := make([]*state.Candidate, 0)
-	for _, candidate := range candidates {
-		if _, ok := exemptAddrs[candidate.Address]; ok {
-			continue
-		}
-		filteredCandidates = append(filteredCandidates, candidate)
-	}
 	actualTotalReward := big.NewInt(0)
-	candidates = filteredCandidates
+	rewardLogs := make([]*action.Log, 0)
 	if !protocol.MustGetFeatureCtx(ctx).NotSlashUnproductiveDelegates {
-		slashAmount, err := p.slashUqd(ctx, sm, candidates, a.blockReward, uqdMap)
+		slashAmount, slashLogs, err := p.slashUqd(ctx, sm, blkCtx.BlockHeight, actionCtx.ActionHash, candidates, a.blockReward, uqdMap)
 		if err != nil {
 			return nil, err
 		}
+		rewardLogs = append(rewardLogs, slashLogs...)
 		actualTotalReward = big.NewInt(0).Sub(actualTotalReward, slashAmount)
 	}
-	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, uqdMap)
+	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqdMap)
 	if err != nil {
 		return nil, err
 	}
-	rewardLogs := make([]*action.Log, 0)
 	for i := range addrs {
 		// If reward address doesn't exist, do nothing
 		if addrs[i] == nil {
@@ -227,12 +221,7 @@ func (p *Protocol) GrantEpochReward(
 		if err := p.grantToAccount(ctx, sm, addrs[i], amounts[i]); err != nil {
 			return nil, err
 		}
-		rewardLog := rewardingpb.RewardLog{
-			Type:   rewardingpb.RewardLog_EPOCH_REWARD,
-			Addr:   addrs[i].String(),
-			Amount: amounts[i].String(),
-		}
-		data, err := proto.Marshal(&rewardLog)
+		data, err := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, addrs[i].String(), amounts[i])
 		if err != nil {
 			return nil, err
 		}
@@ -249,6 +238,9 @@ func (p *Protocol) GrantEpochReward(
 	// Reward additional bootstrap bonus
 	if a.grantFoundationBonus(epochNum) || (epochNum >= p.cfg.FoundationBonusP2StartEpoch && epochNum <= p.cfg.FoundationBonusP2EndEpoch) {
 		for i, count := 0, uint64(0); i < len(candidates) && count < a.numDelegatesForFoundationBonus; i++ {
+			if _, ok := exemptAddrs[candidates[i].Address]; ok {
+				continue
+			}
 			if candidates[i].Votes.Cmp(big.NewInt(0)) == 0 {
 				// hard probation
 				continue
@@ -266,12 +258,7 @@ func (p *Protocol) GrantEpochReward(
 			if err := p.grantToAccount(ctx, sm, rewardAddr, a.foundationBonus); err != nil {
 				return nil, err
 			}
-			rewardLog := rewardingpb.RewardLog{
-				Type:   rewardingpb.RewardLog_FOUNDATION_BONUS,
-				Addr:   candidates[i].RewardAddress,
-				Amount: a.foundationBonus.String(),
-			}
-			data, err := proto.Marshal(&rewardLog)
+			data, err := p.encodeRewardLog(rewardingpb.RewardLog_FOUNDATION_BONUS, candidates[i].RewardAddress, a.foundationBonus)
 			if err != nil {
 				return nil, err
 			}
@@ -294,6 +281,19 @@ func (p *Protocol) GrantEpochReward(
 		return nil, err
 	}
 	return rewardLogs, nil
+}
+
+func (p *Protocol) encodeRewardLog(
+	rewardType rewardingpb.RewardLog_RewardType,
+	addr string,
+	amount *big.Int,
+) ([]byte, error) {
+	rewardLog := rewardingpb.RewardLog{
+		Type:   rewardType,
+		Addr:   addr,
+		Amount: amount.String(),
+	}
+	return proto.Marshal(&rewardLog)
 }
 
 // Claim claims the token from the rewarding fund
@@ -453,16 +453,25 @@ func (p *Protocol) updateRewardHistory(ctx context.Context, sm protocol.StateMan
 	return p.putState(ctx, sm, append(prefix, indexBytes[:]...), &rewardHistory{})
 }
 
-func (p *Protocol) slashUqd(ctx context.Context, sm protocol.StateManager, candidates []*state.Candidate, slashRate *big.Int, uqdMap map[string]uint64) (*big.Int, error) {
+func (p *Protocol) slashUqd(
+	ctx context.Context,
+	sm protocol.StateManager,
+	blockHeight uint64,
+	actionHash hash.Hash256,
+	candidates []*state.Candidate,
+	slashRate *big.Int,
+	uqdMap map[string]uint64,
+) (*big.Int, []*action.Log, error) {
 	totalSlashAmount := big.NewInt(0)
 	stakingProtocol := staking.FindProtocol(protocol.MustGetRegistry(ctx))
 	if stakingProtocol == nil {
-		return nil, errors.New("staking protocol not found")
+		return nil, nil, errors.New("staking protocol not found")
 	}
 	view, err := sm.ReadView(stakingProtocol.Name())
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read view of staking protocol")
+		return nil, nil, errors.Wrap(err, "failed to read view of staking protocol")
 	}
+	slashLogs := make([]*action.Log, 0)
 	snapshot := view.Snapshot()
 	for _, candidate := range candidates {
 		if missed, ok := uqdMap[candidate.Address]; ok {
@@ -474,28 +483,45 @@ func (p *Protocol) slashUqd(ctx context.Context, sm protocol.StateManager, candi
 			candidateAddr, err := address.FromString(candidate.Address)
 			if err != nil {
 				if err := view.Revert(snapshot); err != nil {
-					return nil, errors.Wrap(err, "failed to revert view")
+					return nil, nil, errors.Wrap(err, "failed to revert view")
 				}
-				return nil, err
+				return nil, nil, err
 			}
 			if err := stakingProtocol.SlashCandidate(ctx, sm, candidateAddr, amount); err != nil {
 				if err := view.Revert(snapshot); err != nil {
-					return nil, errors.Wrap(err, "failed to revert view")
+					return nil, nil, errors.Wrap(err, "failed to revert view")
 				}
-				return nil, errors.Wrapf(err, "failed to slash candidate %s", candidate.Address)
+				return nil, nil, errors.Wrapf(err, "failed to slash candidate %s", candidate.Address)
 			}
+			data, err := p.encodeRewardLog(rewardingpb.RewardLog_UNPRODUCTIVE_SLASH, address.RewardingPoolAddr.String(), slashAmount)
+			slashLogs = append(slashLogs, &action.Log{
+				Address:     p.addr.String(),
+				Topics:      nil,
+				Data:        data,
+				BlockHeight: blockHeight,
+				ActionHash:  actionHash,
+			})
 			totalSlashAmount.Add(totalSlashAmount, amount)
 		}
 	}
-	return totalSlashAmount, nil
+	return totalSlashAmount, slashLogs, nil
 }
 
 func (p *Protocol) splitEpochReward(
 	candidates []*state.Candidate,
 	totalAmount *big.Int,
 	numDelegatesForEpochReward uint64,
+	exemptAddrs map[string]interface{},
 	uqd map[string]uint64,
 ) ([]address.Address, []*big.Int, error) {
+	filteredCandidates := make([]*state.Candidate, 0)
+	for _, candidate := range candidates {
+		if _, ok := exemptAddrs[candidate.Address]; ok {
+			continue
+		}
+		filteredCandidates = append(filteredCandidates, candidate)
+	}
+	candidates = filteredCandidates
 	if len(candidates) == 0 {
 		return nil, nil, nil
 	}
