@@ -153,7 +153,7 @@ func (p *Protocol) GrantBlockReward(
 func (p *Protocol) GrantEpochReward(
 	ctx context.Context,
 	sm protocol.StateManager,
-) ([]*action.Log, error) {
+) ([]*action.TransactionLog, []*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
@@ -161,20 +161,20 @@ func (p *Protocol) GrantEpochReward(
 	pp := poll.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	if err := p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := p.assertLastBlockInEpoch(blkCtx.BlockHeight, epochNum, rp); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	a := admin{}
 	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Get the delegate list who exempts epoch reward
 	e := exempt{}
 	if _, err := p.state(ctx, sm, _exemptKey, &e); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	exemptAddrs := make(map[string]interface{})
 	for _, addr := range e.addrs {
@@ -188,26 +188,35 @@ func (p *Protocol) GrantEpochReward(
 		// Get unqualified delegate list
 		uqdMap, err = pp.CalculateUnproductiveDelegates(ctx, sm)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	candidates, err := poll.MustGetProtocol(protocol.MustGetRegistry(ctx)).Candidates(ctx, sm)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	actualTotalReward := big.NewInt(0)
+	transactionLogs := make([]*action.TransactionLog, 0)
 	rewardLogs := make([]*action.Log, 0)
 	if !protocol.MustGetFeatureCtx(ctx).NotSlashUnproductiveDelegates {
 		slashAmount, slashLogs, err := p.slashUqd(ctx, sm, blkCtx.BlockHeight, actionCtx.ActionHash, candidates, a.blockReward, uqdMap)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		if slashAmount.Cmp(big.NewInt(0)) > 0 {
+			transactionLogs = append(transactionLogs, &action.TransactionLog{
+				Type:      iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND,
+				Amount:    slashAmount,
+				Sender:    address.StakingBucketPoolAddr,
+				Recipient: address.RewardingPoolAddr,
+			})
 		}
 		rewardLogs = append(rewardLogs, slashLogs...)
 		actualTotalReward = big.NewInt(0).Sub(actualTotalReward, slashAmount)
 	}
 	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqdMap)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for i := range addrs {
 		// If reward address doesn't exist, do nothing
@@ -219,11 +228,11 @@ func (p *Protocol) GrantEpochReward(
 			continue
 		}
 		if err := p.grantToAccount(ctx, sm, addrs[i], amounts[i]); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		data, err := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, addrs[i].String(), amounts[i])
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		rewardLogs = append(rewardLogs, &action.Log{
 			Address:     p.addr.String(),
@@ -253,14 +262,14 @@ func (p *Protocol) GrantEpochReward(
 			}
 			rewardAddr, err := address.FromString(candidates[i].RewardAddress)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			if err := p.grantToAccount(ctx, sm, rewardAddr, a.foundationBonus); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			data, err := p.encodeRewardLog(rewardingpb.RewardLog_FOUNDATION_BONUS, candidates[i].RewardAddress, a.foundationBonus)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			rewardLogs = append(rewardLogs, &action.Log{
 				Address:     p.addr.String(),
@@ -275,12 +284,12 @@ func (p *Protocol) GrantEpochReward(
 
 	// Update actual reward
 	if err := p.updateAvailableBalance(ctx, sm, actualTotalReward); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := p.updateRewardHistory(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return rewardLogs, nil
+	return transactionLogs, rewardLogs, nil
 }
 
 func (p *Protocol) encodeRewardLog(
@@ -453,6 +462,36 @@ func (p *Protocol) updateRewardHistory(ctx context.Context, sm protocol.StateMan
 	return p.putState(ctx, sm, append(prefix, indexBytes[:]...), &rewardHistory{})
 }
 
+func (p *Protocol) slashDelegate(
+	ctx context.Context,
+	sm protocol.StateManager,
+	stakingProtocol *staking.Protocol,
+	blockHeight uint64,
+	actionHash hash.Hash256,
+	candidate *state.Candidate,
+	amount *big.Int,
+) (*action.Log, error) {
+	candidateAddr, err := address.FromString(candidate.Address)
+	if err != nil {
+		return nil, err
+	}
+	if err := stakingProtocol.SlashCandidate(ctx, sm, candidateAddr, amount); err != nil {
+		return nil, errors.Wrapf(err, "failed to slash candidate %s", candidate.Address)
+	}
+	data, err := p.encodeRewardLog(rewardingpb.RewardLog_UNPRODUCTIVE_SLASH, candidateAddr.String(), amount)
+	if err != nil {
+		return nil, err
+	}
+
+	return &action.Log{
+		Address:     p.addr.String(),
+		Topics:      nil,
+		Data:        data,
+		BlockHeight: blockHeight,
+		ActionHash:  actionHash,
+	}, nil
+}
+
 func (p *Protocol) slashUqd(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -480,27 +519,14 @@ func (p *Protocol) slashUqd(
 				continue
 			}
 			amount := big.NewInt(0).Mul(slashRate, big.NewInt(0).SetUint64(missed))
-			candidateAddr, err := address.FromString(candidate.Address)
+			actLog, err := p.slashDelegate(ctx, sm, stakingProtocol, blockHeight, actionHash, candidate, amount)
 			if err != nil {
 				if err := view.Revert(snapshot); err != nil {
 					return nil, nil, errors.Wrap(err, "failed to revert view")
 				}
 				return nil, nil, err
 			}
-			if err := stakingProtocol.SlashCandidate(ctx, sm, candidateAddr, amount); err != nil {
-				if err := view.Revert(snapshot); err != nil {
-					return nil, nil, errors.Wrap(err, "failed to revert view")
-				}
-				return nil, nil, errors.Wrapf(err, "failed to slash candidate %s", candidate.Address)
-			}
-			data, err := p.encodeRewardLog(rewardingpb.RewardLog_UNPRODUCTIVE_SLASH, address.RewardingPoolAddr.String(), slashAmount)
-			slashLogs = append(slashLogs, &action.Log{
-				Address:     p.addr.String(),
-				Topics:      nil,
-				Data:        data,
-				BlockHeight: blockHeight,
-				ActionHash:  actionHash,
-			})
+			slashLogs = append(slashLogs, actLog)
 			totalSlashAmount.Add(totalSlashAmount, amount)
 		}
 	}
