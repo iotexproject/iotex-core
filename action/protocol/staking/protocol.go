@@ -483,10 +483,7 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if !vd.IsDirty() {
 		return nil
 	}
-	vd = vd.Clone().(*ViewData)
-	if err := vd.Commit(ctx, sm); err != nil {
-		return err
-	}
+	vd = vd.Fork().(*ViewData)
 	// persist nameMap/operatorMap and ownerList to stateDB
 	name := vd.candCenter.base.candsInNameMap()
 	op := vd.candCenter.base.candsInOperatorMap()

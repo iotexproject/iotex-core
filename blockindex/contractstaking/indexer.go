@@ -355,8 +355,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 
 func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) error {
 	batch, delta := handler.Result()
-	delta.Commit()
-	cache := delta.Base()
+	cache := delta.Commit()
 	base, ok := cache.(*contractStakingCache)
 	if !ok {
 		return errors.New("invalid cache type of base")

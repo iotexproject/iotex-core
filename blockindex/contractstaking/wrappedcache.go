@@ -21,10 +21,17 @@ type (
 		updatedCandidates     map[string]map[uint64]bool
 		propertyBucketTypeMap map[uint64]map[uint64]uint64
 
-		mu   sync.RWMutex
-		base stakingCache
+		mu              sync.RWMutex
+		base            stakingCache
+		commitWithClone bool
 	}
 )
+
+func newWrappedCacheWithCloneInCommit(base stakingCache) *wrappedCache {
+	cache := newWrappedCache(base)
+	cache.commitWithClone = true
+	return cache
+}
 
 func newWrappedCache(base stakingCache) *wrappedCache {
 	if base == nil {
@@ -205,16 +212,48 @@ func (wc *wrappedCache) PutBucketInfo(id uint64, bi *bucketInfo) {
 	wc.updatedCandidates[bi.Delegate.String()][id] = true
 }
 
-func (wc *wrappedCache) Base() stakingCache {
+func (wc *wrappedCache) Clone() stakingCache {
 	wc.mu.RLock()
 	defer wc.mu.RUnlock()
-	return wc.base
+	updatedBucketTypes := make(map[uint64]*BucketType, len(wc.updatedBucketTypes))
+	for id, bt := range wc.updatedBucketTypes {
+		if bt != nil {
+			updatedBucketTypes[id] = bt.Clone()
+		} else {
+			updatedBucketTypes[id] = nil
+		}
+	}
+	updatedBucketInfos := make(map[uint64]*bucketInfo, len(wc.updatedBucketInfos))
+	for id, bi := range wc.updatedBucketInfos {
+		if bi != nil {
+			updatedBucketInfos[id] = bi.Clone()
+		} else {
+			updatedBucketInfos[id] = nil
+		}
+	}
+	updatedCandidates := make(map[string]map[uint64]bool, len(wc.updatedCandidates))
+	for delegate, buckets := range wc.updatedCandidates {
+		updatedBuckets := make(map[uint64]bool, len(buckets))
+		for id, updated := range buckets {
+			updatedBuckets[id] = updated
+		}
+		updatedCandidates[delegate] = updatedBuckets
+	}
+	return &wrappedCache{
+		base:               wc.base.Clone(),
+		updatedBucketTypes: updatedBucketTypes,
+		updatedBucketInfos: updatedBucketInfos,
+		updatedCandidates:  updatedCandidates,
+		commitWithClone:    wc.commitWithClone,
+	}
 }
 
-func (wc *wrappedCache) Commit() {
+func (wc *wrappedCache) Commit() stakingCache {
 	wc.mu.Lock()
 	defer wc.mu.Unlock()
-
+	if wc.commitWithClone {
+		wc.base = wc.base.Clone()
+	}
 	for id, bt := range wc.updatedBucketTypes {
 		wc.base.PutBucketType(id, bt)
 	}
@@ -225,6 +264,7 @@ func (wc *wrappedCache) Commit() {
 			wc.base.PutBucketInfo(id, bi)
 		}
 	}
+	return wc.base.Commit()
 }
 
 func (wc *wrappedCache) IsDirty() bool {

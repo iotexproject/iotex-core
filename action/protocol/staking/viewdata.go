@@ -18,10 +18,17 @@ import (
 type (
 	// ContractStakeView is the interface for contract stake view
 	ContractStakeView interface {
-		Clone() ContractStakeView
+		// Wrap wraps the contract stake view
+		Wrap() ContractStakeView
+		// Fork forks the contract stake view, commit will not affect the original view
+		Fork() ContractStakeView
+		// Commit commits the contract stake view
 		Commit()
+		// CreatePreStates creates pre states for the contract stake view
 		CreatePreStates(ctx context.Context) error
+		// Handle handles the receipt for the contract stake view
 		Handle(ctx context.Context, receipt *action.Receipt) error
+		// BucketsByCandidate returns the buckets by candidate address
 		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
 	}
 	// ViewData is the data that need to be stored in protocol's view
@@ -45,22 +52,22 @@ type (
 	}
 )
 
-func (v *ViewData) Clone() protocol.View {
-	clone := &ViewData{}
-	clone.candCenter = v.candCenter.Clone()
-	clone.bucketPool = v.bucketPool.Clone()
-	clone.snapshots = make([]Snapshot, len(v.snapshots))
+func (v *ViewData) Fork() protocol.View {
+	fork := &ViewData{}
+	fork.candCenter = v.candCenter.Clone()
+	fork.bucketPool = v.bucketPool.Clone()
+	fork.snapshots = make([]Snapshot, len(v.snapshots))
 	for i := range v.snapshots {
-		clone.snapshots[i] = Snapshot{
+		fork.snapshots[i] = Snapshot{
 			size:           v.snapshots[i].size,
 			changes:        v.snapshots[i].changes,
 			amount:         new(big.Int).Set(v.snapshots[i].amount),
 			count:          v.snapshots[i].count,
-			contractsStake: v.snapshots[i].contractsStake.Clone(),
+			contractsStake: v.snapshots[i].contractsStake,
 		}
 	}
-	clone.contractsStake = v.contractsStake.Clone()
-	return clone
+	fork.contractsStake = v.contractsStake.Fork()
+	return fork
 }
 
 func (v *ViewData) Commit(ctx context.Context, sr protocol.StateReader) error {
@@ -94,7 +101,7 @@ func (v *ViewData) IsDirty() bool {
 
 func (v *ViewData) Snapshot() int {
 	snapshot := len(v.snapshots)
-	clone := v.contractsStake.Clone()
+	wrapped := v.contractsStake.Wrap()
 	v.snapshots = append(v.snapshots, Snapshot{
 		size:           v.candCenter.size,
 		changes:        v.candCenter.change.size(),
@@ -102,7 +109,7 @@ func (v *ViewData) Snapshot() int {
 		count:          v.bucketPool.total.count,
 		contractsStake: v.contractsStake,
 	})
-	v.contractsStake = clone
+	v.contractsStake = wrapped
 	return snapshot
 }
 
@@ -124,19 +131,36 @@ func (v *ViewData) Revert(snapshot int) error {
 	return nil
 }
 
-func (csv *contractStakeView) Clone() *contractStakeView {
+func (csv *contractStakeView) Wrap() *contractStakeView {
+	if csv == nil {
+		return nil
+	}
+	wrapped := &contractStakeView{}
+	if csv.v1 != nil {
+		wrapped.v1 = csv.v1.Wrap()
+	}
+	if csv.v2 != nil {
+		wrapped.v2 = csv.v2.Wrap()
+	}
+	if csv.v3 != nil {
+		wrapped.v3 = csv.v3.Wrap()
+	}
+	return wrapped
+}
+
+func (csv *contractStakeView) Fork() *contractStakeView {
 	if csv == nil {
 		return nil
 	}
 	clone := &contractStakeView{}
 	if csv.v1 != nil {
-		clone.v1 = csv.v1.Clone()
+		clone.v1 = csv.v1.Fork()
 	}
 	if csv.v2 != nil {
-		clone.v2 = csv.v2.Clone()
+		clone.v2 = csv.v2.Fork()
 	}
 	if csv.v3 != nil {
-		clone.v3 = csv.v3.Clone()
+		clone.v3 = csv.v3.Fork()
 	}
 	return clone
 }

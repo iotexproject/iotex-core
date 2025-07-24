@@ -27,12 +27,12 @@ type (
 		BucketsByCandidate(candidate address.Address) ([]uint64, []*BucketType, []*bucketInfo)
 		TotalBucketCount() uint64
 		IsDirty() bool
-		Base() stakingCache
 
 		PutBucketType(id uint64, bt *BucketType)
 		PutBucketInfo(id uint64, bi *bucketInfo)
 		DeleteBucketInfo(id uint64)
-		Commit()
+		Commit() stakingCache
+		Clone() stakingCache
 	}
 	contractStakingCache struct {
 		bucketInfoMap         map[uint64]*bucketInfo      // map[token]bucketInfo
@@ -242,7 +242,7 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 	return nil
 }
 
-func (s *contractStakingCache) Clone() *contractStakingCache {
+func (s *contractStakingCache) Clone() stakingCache {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -397,13 +397,12 @@ func (s *contractStakingCache) BucketTypeCount() int {
 	return len(s.bucketTypeMap)
 }
 
-func (s *contractStakingCache) Base() stakingCache {
-	return s
-}
-
 func (s *contractStakingCache) IsDirty() bool {
 	return false
 }
 
-func (s *contractStakingCache) Commit() {
+func (s *contractStakingCache) Commit() stakingCache {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s
 }

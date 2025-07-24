@@ -130,7 +130,7 @@ func (s *Indexer) StartView(ctx context.Context) (staking.ContractStakeView, err
 	}
 	return &stakeView{
 		helper: s,
-		cache:  s.cache.DeepClone(),
+		cache:  s.cache.Clone(),
 		height: s.common.Height(),
 	}, nil
 }
@@ -271,7 +271,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	// handle events of block
 	muted := s.muteHeight > 0 && blk.Height() >= s.muteHeight
-	handler := newEventHandler(s.bucketNS, s.cache.DeepClone(), protocol.MustGetBlockCtx(ctx), s.timestamped, muted)
+	handler := newEventHandler(s.bucketNS, newWrappedCache(s.cache), protocol.MustGetBlockCtx(ctx), s.timestamped, muted)
 	for _, receipt := range blk.Receipts {
 		if err := s.handleReceipt(ctx, handler, receipt); err != nil {
 			return errors.Wrapf(err, "handle receipt %x failed", receipt.ActionHash)
@@ -346,8 +346,7 @@ func (s *Indexer) commit(handler stakingEventHandler, height uint64) error {
 	if err := s.common.Commit(height, delta); err != nil {
 		return err
 	}
-	dirty.Commit()
-	cache, ok := dirty.Base().(*base)
+	cache, ok := dirty.Commit().(*base)
 	if !ok {
 		return errors.Errorf("unexpected cache type %T, expect *base", dirty)
 	}
