@@ -270,7 +270,6 @@ func (m *CandidateCenter) Upsert(d *Candidate) error {
 	if _, hit := m.base.getByIdentifier(d.GetIdentifier().String()); !hit {
 		m.size++
 	}
-	// fmt.Printf("upsert done %+v\n", d)
 	return nil
 }
 

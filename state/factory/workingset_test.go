@@ -66,7 +66,7 @@ func newStateDBWorkingSet(t testing.TB) *workingSet {
 
 type mockView string
 
-func (v mockView) Clone() protocol.View {
+func (v mockView) Fork() protocol.View {
 	return v
 }
 

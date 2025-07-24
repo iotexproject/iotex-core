@@ -83,7 +83,6 @@ func (dirty *contractStakingDirty) getBucketInfo(id uint64) (*bucketInfo, bool) 
 
 func (dirty *contractStakingDirty) finalize() (batch.KVStoreBatch, stakingCache) {
 	b := dirty.finalizeBatch()
-	dirty.cache.Commit()
 
 	return b, dirty.cache
 }
