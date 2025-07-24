@@ -17,10 +17,18 @@ type stakeView struct {
 	height uint64
 }
 
-func (s *stakeView) Clone() staking.ContractStakeView {
+func (s *stakeView) Wrap() staking.ContractStakeView {
 	return &stakeView{
 		helper: s.helper,
 		cache:  newWrappedCache(s.cache),
+		height: s.height,
+	}
+}
+
+func (s *stakeView) Fork() staking.ContractStakeView {
+	return &stakeView{
+		helper: s.helper,
+		cache:  newWrappedCacheWithCloneInCommit(s.cache),
 		height: s.height,
 	}
 }
@@ -78,5 +86,5 @@ func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 }
 
 func (s *stakeView) Commit() {
-	s.cache.Commit()
+	s.cache = s.cache.Commit()
 }
