@@ -39,8 +39,8 @@ func (bi *bucketInfo) Deserialize(b []byte) error {
 	return bi.loadProto(&m)
 }
 
-// clone clones the bucket info
-func (bi *bucketInfo) clone() *bucketInfo {
+// Clone clones the bucket info
+func (bi *bucketInfo) Clone() *bucketInfo {
 	delegate := bi.Delegate
 	if delegate != nil {
 		delegate, _ = address.FromBytes(delegate.Bytes())
