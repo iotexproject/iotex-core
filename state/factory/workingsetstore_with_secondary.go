@@ -39,6 +39,7 @@ type writer interface {
 	RevertSnapshot(snapshot int) error
 	ResetSnapshots()
 	WriteBatch(batch.KVStoreBatch) error
+	CreateGenesisStates(context.Context) error
 }
 
 // treat erigon as 3rd output, still read from statedb
@@ -159,4 +160,11 @@ func (store *workingSetStoreWithSecondary) ResetSnapshots() {
 func (store *workingSetStoreWithSecondary) Close() {
 	store.writer.Close()
 	store.writerSecondary.Close()
+}
+
+func (store *workingSetStoreWithSecondary) CreateGenesisStates(ctx context.Context) error {
+	if err := store.writer.CreateGenesisStates(ctx); err != nil {
+		return err
+	}
+	return store.writerSecondary.CreateGenesisStates(ctx)
 }

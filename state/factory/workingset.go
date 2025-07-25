@@ -392,6 +392,9 @@ func (ws *workingSet) WriteView(name string, v protocol.View) error {
 
 // CreateGenesisStates initialize the genesis states
 func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
+	if err := ws.store.CreateGenesisStates(ctx); err != nil {
+		return err
+	}
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
 			if gsc, ok := p.(protocol.GenesisStateCreator); ok {

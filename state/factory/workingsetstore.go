@@ -36,6 +36,7 @@ type (
 		RevertSnapshot(int) error
 		ResetSnapshots()
 		Close()
+		CreateGenesisStates(context.Context) error
 	}
 
 	stateDBWorkingSetStore struct {
@@ -71,6 +72,9 @@ func (store *stateDBWorkingSetStore) WriteBatch(bat batch.KVStoreBatch) error {
 }
 
 func (store *stateDBWorkingSetStore) PutObject(ns string, key []byte, obj any) error {
+	if _, ok := obj.(ErigonOnly); ok {
+		return nil
+	}
 	store.lock.Lock()
 	defer store.lock.Unlock()
 	value, err := state.Serialize(obj)
@@ -97,6 +101,9 @@ func (store *stateDBWorkingSetStore) putKV(ns string, key []byte, value []byte) 
 }
 
 func (store *stateDBWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
+	if _, ok := obj.(ErigonOnly); ok {
+		return nil
+	}
 	return store.Delete(ns, key)
 }
 
@@ -151,9 +158,12 @@ func (store *stateDBWorkingSetStore) Stop(context.Context) error {
 }
 
 func (store *stateDBWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
+	if _, ok := obj.(ErigonOnly); ok {
+		return errors.Wrapf(ErrNotSupported, "GetObject is not supported for erigon-only objects in namespace %s with key %x", ns, key)
+	}
 	v, err := store.getKV(ns, key)
 	if err != nil {
-		return errors.Errorf("failed to get state of ns = %x and key = %x: %v", ns, key, err)
+		return err
 	}
 	return state.Deserialize(obj, v)
 }
@@ -174,6 +184,9 @@ func (store *stateDBWorkingSetStore) getKV(ns string, key []byte) ([]byte, error
 }
 
 func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
+	if _, ok := obj.(ErigonOnly); ok {
+		return nil, nil, errors.Wrapf(ErrNotSupported, "States is not supported for erigon-only objects in namespace %s", ns)
+	}
 	if store.readBuffer {
 		// TODO: after the 180 HF, we can revert readBuffer, and always go this case
 		return readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
@@ -197,3 +210,7 @@ func (store *stateDBWorkingSetStore) FinalizeTx(_ context.Context) error {
 }
 
 func (store *stateDBWorkingSetStore) Close() {}
+
+func (store *stateDBWorkingSetStore) CreateGenesisStates(ctx context.Context) error {
+	return nil
+}

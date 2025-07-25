@@ -91,3 +91,7 @@ func (store *erigonWorkingSetStoreForSimulate) Commit(context.Context, uint64) e
 func (store *erigonWorkingSetStoreForSimulate) Close() {
 	store.erigonStore.Close()
 }
+
+func (store *erigonWorkingSetStoreForSimulate) CreateGenesisStates(ctx context.Context) error {
+	return nil
+}

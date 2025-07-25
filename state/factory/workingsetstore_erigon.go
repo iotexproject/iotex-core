@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 const (
@@ -55,11 +56,15 @@ type erigonWorkingSetStore struct {
 }
 
 type ContractStorage interface {
-	StoreToContract(ns string, key []byte, backend ContractBackend) error
-	LoadFromContract(ns string, key []byte, backend ContractBackend) error
-	DeleteFromContract(ns string, key []byte, backend ContractBackend) error
-	ListFromContract(ns string, backend ContractBackend) ([][]byte, []any, error)
-	BatchFromContract(ns string, keys [][]byte, backend ContractBackend) ([]any, error)
+	StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
+	LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
+	DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
+	ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error)
+	BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error)
+}
+
+type ErigonOnly interface {
+	ErigonOnly()
 }
 
 func newErigonDB(path string) *erigonDB {
@@ -427,6 +432,10 @@ func (store *erigonWorkingSetStore) States(ns string, keys [][]byte, obj any) ([
 
 func (store *erigonWorkingSetStore) Digest() hash.Hash256 {
 	return hash.ZeroHash256
+}
+
+func (store *erigonWorkingSetStore) CreateGenesisStates(ctx context.Context) error {
+	return systemcontracts.DeploySystemContractsIfNotExist(newContractBackend(ctx, store.intraBlockState, store.sr))
 }
 
 func (store *erigonDB) Height() (uint64, error) {

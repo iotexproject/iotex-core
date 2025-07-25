@@ -17,6 +17,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -24,11 +26,6 @@ import (
 )
 
 type (
-	ContractBackend interface {
-		Call(callMsg *ethereum.CallMsg) ([]byte, error)
-		Handle(callMsg *ethereum.CallMsg) error
-	}
-
 	contractBacked struct {
 		intraBlockState *erigonstate.IntraBlockState
 		org             erigonstate.StateReader
@@ -76,7 +73,41 @@ func (backend *contractBacked) Handle(callMsg *ethereum.CallMsg) error {
 	return err
 }
 
-func (backend *contractBacked) call(callMsg *ethereum.CallMsg, intra evmtypes.IntraBlockState) ([]byte, error) {
+func (backend *contractBacked) Deploy(callMsg *ethereum.CallMsg) (address.Address, error) {
+	evm, err := backend.prepare(backend.intraBlockState)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to prepare EVM for contract deployment")
+	}
+	ret, addr, leftGas, err := evm.Create(vm.AccountRef(callMsg.From), callMsg.Data, callMsg.Gas, uint256.MustFromBig(callMsg.Value), true)
+	if err != nil {
+		if errors.Is(err, vm.ErrExecutionReverted) {
+			revertMsg := extractRevertMessage(ret)
+			log.L().Error("EVM deployment reverted",
+				zap.String("from", callMsg.From.String()),
+				zap.String("data", hex.EncodeToString(callMsg.Data)),
+				zap.String("revertMessage", revertMsg),
+				zap.String("returnData", hex.EncodeToString(ret)),
+			)
+			return nil, errors.Wrapf(err, "deployment reverted: %s", revertMsg)
+		}
+		return nil, errors.Wrap(err, "failed to deploy contract")
+	}
+	log.L().Info("EVM deployment result",
+		zap.String("from", callMsg.From.String()),
+		zap.String("data", hex.EncodeToString(callMsg.Data)),
+		zap.String("ret", hex.EncodeToString(ret)),
+		zap.String("address", addr.String()),
+		zap.Uint64("gasLeft", leftGas),
+	)
+
+	return address.FromBytes(addr.Bytes())
+}
+
+func (backend *contractBacked) Exists(addr address.Address) bool {
+	return backend.intraBlockState.Exist(erigonComm.BytesToAddress(addr.Bytes()))
+}
+
+func (backend *contractBacked) prepare(intra evmtypes.IntraBlockState) (*vm.EVM, error) {
 	ctx := backend.ctx
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
@@ -163,6 +194,14 @@ func (backend *contractBacked) call(callMsg *ethereum.CallMsg, intra evmtypes.In
 		NoBaseFee: true,
 	}
 	evm := vm.NewEVM(blkCtxE, txCtxE, intra, chainConfig, vmConfig)
+	return evm, nil
+}
+
+func (backend *contractBacked) call(callMsg *ethereum.CallMsg, intra evmtypes.IntraBlockState) ([]byte, error) {
+	evm, err := backend.prepare(intra)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to prepare EVM for contract call")
+	}
 	ret, gasLeft, err := evm.Call(vm.AccountRef(callMsg.From), erigonComm.Address(*callMsg.To), callMsg.Data, callMsg.Gas, uint256.MustFromBig(callMsg.Value), true)
 	if err != nil {
 		// Check if it's a revert error and extract the revert message
