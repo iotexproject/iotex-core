@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // erigonWorkingSetStoreForSimulate is a working set store that uses erigon as the main store
@@ -34,8 +35,16 @@ func (store *erigonWorkingSetStoreForSimulate) Stop(context.Context) error {
 	return nil
 }
 
-func (store *erigonWorkingSetStoreForSimulate) GetFromStateDB(ns string, key []byte) ([]byte, error) {
-	return store.store.GetFromStateDB(ns, key)
+func (store *erigonWorkingSetStoreForSimulate) GetObject(ns string, key []byte, obj any) error {
+	if _, ok := obj.(*state.Account); !ok && ns == AccountKVNamespace {
+		return store.store.GetObject(ns, key, obj)
+	}
+	switch ns {
+	case AccountKVNamespace, evm.CodeKVNameSpace:
+		return store.erigonStore.GetObject(ns, key, obj)
+	default:
+		return store.store.GetObject(ns, key, obj)
+	}
 }
 
 func (store *erigonWorkingSetStoreForSimulate) Get(ns string, key []byte) ([]byte, error) {
@@ -47,9 +56,9 @@ func (store *erigonWorkingSetStoreForSimulate) Get(ns string, key []byte) ([]byt
 	}
 }
 
-func (store *erigonWorkingSetStoreForSimulate) States(ns string, keys [][]byte) ([][]byte, [][]byte, error) {
+func (store *erigonWorkingSetStoreForSimulate) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
 	// currently only used for staking & poll, no need to read from erigon
-	return store.store.States(ns, keys)
+	return store.store.States(ns, keys, obj)
 }
 
 func (store *erigonWorkingSetStoreForSimulate) Finalize(_ context.Context) error {

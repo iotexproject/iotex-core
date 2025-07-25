@@ -336,16 +336,8 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	var value []byte
-	if _, ok := s.(*state.Account); !ok && cfg.Namespace == AccountKVNamespace {
-		value, err = ws.store.GetFromStateDB(cfg.Namespace, cfg.Key)
-	} else {
-		value, err = ws.store.Get(cfg.Namespace, cfg.Key)
-	}
-	if err != nil {
-		return ws.height, err
-	}
-	return ws.height, state.Deserialize(s, value)
+
+	return ws.height, ws.store.GetObject(cfg.Namespace, cfg.Key, s)
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
@@ -356,7 +348,7 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys)
+	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys, nil)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -374,11 +366,7 @@ func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uin
 	if err != nil {
 		return ws.height, err
 	}
-	ss, err := state.Serialize(s)
-	if err != nil {
-		return ws.height, errors.Wrapf(err, "failed to convert account %v to bytes", s)
-	}
-	return ws.height, ws.store.Put(cfg.Namespace, cfg.Key, ss)
+	return ws.height, ws.store.PutObject(cfg.Namespace, cfg.Key, s)
 }
 
 // DelState deletes a state from DB
@@ -388,7 +376,7 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.store.Delete(cfg.Namespace, cfg.Key)
+	return ws.height, ws.store.DeleteObject(cfg.Namespace, cfg.Key, cfg.Object)
 }
 
 // ReadView reads the view

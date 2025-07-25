@@ -24,15 +24,17 @@ var (
 
 type reader interface {
 	Get(string, []byte) ([]byte, error)
-	GetFromStateDB(string, []byte) ([]byte, error)
-	States(string, [][]byte) ([][]byte, [][]byte, error)
+	GetObject(string, []byte, any) error
+	States(string, [][]byte, any) ([][]byte, [][]byte, error)
 	Digest() hash.Hash256
 	Filter(string, db.Condition, []byte, []byte) ([][]byte, [][]byte, error)
 }
 
 type writer interface {
 	Put(ns string, key []byte, value []byte) error
+	PutObject(ns string, key []byte, obj any) error
 	Delete(ns string, key []byte) error
+	DeleteObject(ns string, key []byte, obj any) error
 	Snapshot() int
 	RevertSnapshot(snapshot int) error
 	ResetSnapshots()
@@ -93,11 +95,25 @@ func (store *workingSetStoreWithSecondary) Put(ns string, key []byte, value []by
 	return store.writerSecondary.Put(ns, key, value)
 }
 
+func (store *workingSetStoreWithSecondary) PutObject(ns string, key []byte, obj any) error {
+	if err := store.writer.PutObject(ns, key, obj); err != nil {
+		return err
+	}
+	return store.writerSecondary.PutObject(ns, key, obj)
+}
+
 func (store *workingSetStoreWithSecondary) Delete(ns string, key []byte) error {
 	if err := store.writer.Delete(ns, key); err != nil {
 		return err
 	}
 	return store.writerSecondary.Delete(ns, key)
+}
+
+func (store *workingSetStoreWithSecondary) DeleteObject(ns string, key []byte, obj any) error {
+	if err := store.writer.DeleteObject(ns, key, obj); err != nil {
+		return err
+	}
+	return store.writerSecondary.DeleteObject(ns, key, obj)
 }
 
 func (store *workingSetStoreWithSecondary) Commit(ctx context.Context, retention uint64) error {

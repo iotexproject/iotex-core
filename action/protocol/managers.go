@@ -54,12 +54,20 @@ func CreateStateConfig(opts ...StateOption) (*StateConfig, error) {
 	return &cfg, nil
 }
 
+func ObjectOption(obj any) StateOption {
+	return func(cfg *StateConfig) error {
+		cfg.Object = obj
+		return nil
+	}
+}
+
 type (
 	// StateConfig is the config for accessing stateDB
 	StateConfig struct {
 		Namespace string // namespace used by state's storage
 		Key       []byte
 		Keys      [][]byte
+		Object    any
 	}
 
 	// StateOption sets parameter for access state

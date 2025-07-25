@@ -274,6 +274,14 @@ func (store *erigonWorkingSetStore) RevertSnapshot(sn int) error {
 
 func (store *erigonWorkingSetStore) ResetSnapshots() {}
 
+func (store *erigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (err error) {
+	value, err := state.Serialize(obj)
+	if err != nil {
+		return errors.Wrapf(err, "failed to serialize object for namespace %s and key %x", ns, key)
+	}
+	return store.Put(ns, key, value)
+}
+
 func (store *erigonWorkingSetStore) Put(ns string, key []byte, value []byte) (err error) {
 	// only handling account, contract storage handled by evm adapter
 	// others are ignored
@@ -301,9 +309,12 @@ func (store *erigonWorkingSetStore) Put(ns string, key []byte, value []byte) (er
 	return nil
 }
 
-func (store *erigonWorkingSetStore) GetFromStateDB(ns string, key []byte) ([]byte, error) {
-	// erigon working set store does not support GetFromStateDB, it should be used for simulation only
-	return nil, errors.Wrapf(state.ErrStateNotExist, "key %x in namespace %s not found in erigon store", key, ns)
+func (store *erigonWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
+	value, err := store.Get(ns, key)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get object for namespace %s and key %x", ns, key)
+	}
+	return state.Deserialize(obj, value)
 }
 
 func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
@@ -334,6 +345,10 @@ func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
 	}
 }
 
+func (store *erigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
+	return nil
+}
+
 func (store *erigonWorkingSetStore) Delete(ns string, key []byte) error {
 	return nil
 }
@@ -346,7 +361,7 @@ func (store *erigonWorkingSetStore) Filter(string, db.Condition, []byte, []byte)
 	return nil, nil, nil
 }
 
-func (store *erigonWorkingSetStore) States(string, [][]byte) ([][]byte, [][]byte, error) {
+func (store *erigonWorkingSetStore) States(string, [][]byte, any) ([][]byte, [][]byte, error) {
 	return nil, nil, nil
 }
 
