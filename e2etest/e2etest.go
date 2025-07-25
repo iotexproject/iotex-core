@@ -73,11 +73,14 @@ func (m accountNonceManager) pop(addr string) uint64 {
 }
 
 func newE2ETest(t *testing.T, cfg config.Config) *e2etest {
+	return newE2ETestWithCtx(context.Background(), t, cfg)
+}
+
+func newE2ETestWithCtx(ctx context.Context, t *testing.T, cfg config.Config) *e2etest {
 	require := require.New(t)
 	// Create a new blockchain
 	svr, err := itx.NewServer(cfg)
 	require.NoError(err)
-	ctx := context.Background()
 	require.NoError(svr.Start(ctx))
 	// Create a new API service client
 	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", cfg.API.GRPCPort), grpc.WithTransportCredentials(insecure.NewCredentials()))
