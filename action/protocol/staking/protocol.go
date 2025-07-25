@@ -76,15 +76,16 @@ type (
 
 	// Protocol defines the protocol of handling staking
 	Protocol struct {
-		addr                     address.Address
-		config                   Configuration
-		candBucketsIndexer       *CandidatesBucketsIndexer
-		contractStakingIndexer   ContractStakingIndexerWithBucketType
-		contractStakingIndexerV2 ContractStakingIndexer
-		contractStakingIndexerV3 ContractStakingIndexer
-		voteReviser              *VoteReviser
-		patch                    *PatchStore
-		helperCtx                HelperCtx
+		addr                       address.Address
+		config                     Configuration
+		candBucketsIndexer         *CandidatesBucketsIndexer
+		candBucketsContractIndexer *CandidatesBucketsContractIndexer
+		contractStakingIndexer     ContractStakingIndexerWithBucketType
+		contractStakingIndexerV2   ContractStakingIndexer
+		contractStakingIndexerV3   ContractStakingIndexer
+		voteReviser                *VoteReviser
+		patch                      *PatchStore
+		helperCtx                  HelperCtx
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -192,6 +193,9 @@ func NewProtocol(
 		contractStakingIndexer:   contractStakingIndexer,
 		helperCtx:                helperCtx,
 		contractStakingIndexerV2: contractStakingIndexerV2,
+	}
+	if candBucketsIndexer != nil {
+		p.candBucketsContractIndexer = newCandidatesBucketsContractIndexer()
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -368,7 +372,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return err
 	}
 
-	if p.candBucketsIndexer == nil {
+	if p.candBucketsContractIndexer == nil {
 		return nil
 	}
 	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
@@ -379,8 +383,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	if currentEpochNum == 0 {
 		return nil
 	}
-	epochStartHeight := rp.GetEpochHeight(currentEpochNum)
-	if epochStartHeight != blkCtx.BlockHeight || featureCtx.SkipStakingIndexer {
+	if featureCtx.SkipStakingIndexer {
 		return nil
 	}
 	return p.handleStakingIndexer(ctx, rp.GetEpochHeight(currentEpochNum-1), sm)
@@ -399,7 +402,7 @@ func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight ui
 	if err != nil {
 		return err
 	}
-	err = p.candBucketsIndexer.PutBuckets(epochStartHeight, buckets)
+	err = p.candBucketsContractIndexer.PutBuckets(sm, buckets)
 	if err != nil {
 		return err
 	}
@@ -411,7 +414,7 @@ func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight ui
 	if err != nil {
 		return err
 	}
-	return p.candBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
+	return p.candBucketsContractIndexer.PutCandidates(sm, candidateList)
 }
 
 // PreCommit preforms pre-commit
