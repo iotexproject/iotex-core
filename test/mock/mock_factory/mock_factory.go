@@ -218,10 +218,10 @@ func (mr *MockFactoryMockRecorder) Validate(arg0, arg1 any) *gomock.Call {
 }
 
 // WorkingSet mocks base method.
-func (m *MockFactory) WorkingSet(arg0 context.Context) (protocol.StateManager, error) {
+func (m *MockFactory) WorkingSet(arg0 context.Context) (protocol.StateManagerWithCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WorkingSet", arg0)
-	ret0, _ := ret[0].(protocol.StateManager)
+	ret0, _ := ret[0].(protocol.StateManagerWithCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -233,14 +233,14 @@ func (mr *MockFactoryMockRecorder) WorkingSet(arg0 any) *gomock.Call {
 }
 
 // WorkingSetAtHeight mocks base method.
-func (m *MockFactory) WorkingSetAtHeight(arg0 context.Context, arg1 uint64, arg2 ...*action.SealedEnvelope) (protocol.StateManager, error) {
+func (m *MockFactory) WorkingSetAtHeight(arg0 context.Context, arg1 uint64, arg2 ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "WorkingSetAtHeight", varargs...)
-	ret0, _ := ret[0].(protocol.StateManager)
+	ret0, _ := ret[0].(protocol.StateManagerWithCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
