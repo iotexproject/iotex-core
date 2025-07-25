@@ -49,7 +49,17 @@ type erigonDB struct {
 type erigonWorkingSetStore struct {
 	db              *erigonDB
 	intraBlockState *erigonstate.IntraBlockState
+	sr              erigonstate.StateReader
 	tx              kv.Tx
+	ctx             context.Context
+}
+
+type ContractStorage interface {
+	StoreToContract(ns string, key []byte, backend ContractBackend) error
+	LoadFromContract(ns string, key []byte, backend ContractBackend) error
+	DeleteFromContract(ns string, key []byte, backend ContractBackend) error
+	ListFromContract(ns string, backend ContractBackend) ([][]byte, []any, error)
+	BatchFromContract(ns string, keys [][]byte, backend ContractBackend) ([]any, error)
 }
 
 func newErigonDB(path string) *erigonDB {
@@ -88,6 +98,8 @@ func (db *erigonDB) newErigonStore(ctx context.Context, height uint64) (*erigonW
 		db:              db,
 		tx:              tx,
 		intraBlockState: intraBlockState,
+		sr:              r,
+		ctx:             ctx,
 	}, nil
 }
 
@@ -102,6 +114,8 @@ func (db *erigonDB) newErigonStoreDryrun(ctx context.Context, height uint64) (*e
 		db:              db,
 		tx:              tx,
 		intraBlockState: intraBlockState,
+		sr:              tsw,
+		ctx:             ctx,
 	}, nil
 }
 
@@ -275,6 +289,9 @@ func (store *erigonWorkingSetStore) RevertSnapshot(sn int) error {
 func (store *erigonWorkingSetStore) ResetSnapshots() {}
 
 func (store *erigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (err error) {
+	if cs, ok := obj.(ContractStorage); ok {
+		return cs.StoreToContract(ns, key, newContractBackend(store.ctx, store.intraBlockState, store.sr))
+	}
 	value, err := state.Serialize(obj)
 	if err != nil {
 		return errors.Wrapf(err, "failed to serialize object for namespace %s and key %x", ns, key)
@@ -310,6 +327,9 @@ func (store *erigonWorkingSetStore) Put(ns string, key []byte, value []byte) (er
 }
 
 func (store *erigonWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
+	if cs, ok := obj.(ContractStorage); ok {
+		return cs.LoadFromContract(ns, key, newContractBackend(store.ctx, store.intraBlockState, store.sr))
+	}
 	value, err := store.Get(ns, key)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get object for namespace %s and key %x", ns, key)
@@ -346,6 +366,9 @@ func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
 }
 
 func (store *erigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
+	if cs, ok := obj.(ContractStorage); ok {
+		return cs.DeleteFromContract(ns, key, newContractBackend(store.ctx, store.intraBlockState, store.sr))
+	}
 	return nil
 }
 
@@ -361,8 +384,45 @@ func (store *erigonWorkingSetStore) Filter(string, db.Condition, []byte, []byte)
 	return nil, nil, nil
 }
 
-func (store *erigonWorkingSetStore) States(string, [][]byte, any) ([][]byte, [][]byte, error) {
-	return nil, nil, nil
+func (store *erigonWorkingSetStore) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
+	cs, ok := obj.(ContractStorage)
+	if !ok {
+		return nil, nil, errors.Wrapf(ErrNotSupported, "unsupported object type %T in ns %s", obj, ns)
+	}
+	var (
+		objs    []any
+		err     error
+		results [][]byte
+		backend = newContractBackend(store.ctx, store.intraBlockState, store.sr)
+	)
+	if len(keys) == 0 {
+		keys, objs, err = cs.ListFromContract(ns, backend)
+	} else {
+		objs, err = cs.BatchFromContract(ns, keys, backend)
+	}
+	log.L().Info("list objs from erigon working set store",
+		zap.String("ns", ns),
+		zap.Int("num", len(keys)),
+		zap.Int("objsize", len(objs)),
+		zap.String("obj", fmt.Sprintf("%T", obj)),
+	)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to list objects from erigon working set store for namespace %s", ns)
+	}
+	for i, obj := range objs {
+		log.L().Info("list obj from erigon working set store",
+			zap.String("ns", ns),
+			log.Hex("key", keys[i]),
+			zap.String("storage", fmt.Sprintf("%T", obj)),
+			zap.String("content", fmt.Sprintf("%+v", obj)),
+		)
+		res, err := state.Serialize(obj)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to serialize object for namespace %s and key %x", ns, keys[i])
+		}
+		results = append(results, res)
+	}
+	return keys, results, nil
 }
 
 func (store *erigonWorkingSetStore) Digest() hash.Hash256 {
