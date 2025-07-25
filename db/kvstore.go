@@ -6,9 +6,11 @@
 package db
 
 import (
-	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 type (
@@ -62,3 +64,34 @@ type (
 		SeekPrev([]byte, uint64) ([]byte, error)
 	}
 )
+
+func ReadStates(kvStore KVStore, namespace string, keys [][]byte) ([][]byte, [][]byte, error) {
+	var (
+		ks, values [][]byte
+		err        error
+	)
+	if keys == nil {
+		ks, values, err = kvStore.Filter(namespace, func(k, v []byte) bool { return true }, nil, nil)
+		if err != nil {
+			if errors.Cause(err) == ErrNotExist || errors.Cause(err) == ErrBucketNotExist {
+				return nil, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", namespace)
+			}
+			return nil, nil, err
+		}
+		return ks, values, nil
+	}
+	for _, key := range keys {
+		value, err := kvStore.Get(namespace, key)
+		switch errors.Cause(err) {
+		case ErrNotExist, ErrBucketNotExist:
+			values = append(values, nil)
+			ks = append(ks, key)
+		case nil:
+			values = append(values, value)
+			ks = append(ks, key)
+		default:
+			return nil, nil, err
+		}
+	}
+	return ks, values, nil
+}
