@@ -5,8 +5,9 @@
 package consensusfsm
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockEndorsement is a mock of Endorsement interface
