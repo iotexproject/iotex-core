@@ -96,7 +96,7 @@ func (p *lifeLongDelegatesProtocol) NextCandidates(ctx context.Context, sr proto
 func (p *lifeLongDelegatesProtocol) CalculateUnproductiveDelegates(
 	ctx context.Context,
 	sr protocol.StateReader,
-) ([]string, error) {
+) (map[string]uint64, error) {
 	return nil, nil
 }
 

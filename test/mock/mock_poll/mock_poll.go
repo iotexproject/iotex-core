@@ -59,10 +59,10 @@ func (mr *MockProtocolMockRecorder) CalculateCandidatesByHeight(arg0, arg1, arg2
 }
 
 // CalculateUnproductiveDelegates mocks base method.
-func (m *MockProtocol) CalculateUnproductiveDelegates(arg0 context.Context, arg1 protocol.StateReader) ([]string, error) {
+func (m *MockProtocol) CalculateUnproductiveDelegates(arg0 context.Context, arg1 protocol.StateReader) (map[string]uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CalculateUnproductiveDelegates", arg0, arg1)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].(map[string]uint64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

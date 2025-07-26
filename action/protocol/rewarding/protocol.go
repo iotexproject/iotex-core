@@ -245,12 +245,12 @@ func (p *Protocol) Handle(
 			}
 			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog})
 		case action.EpochReward:
-			rewardLogs, err := p.GrantEpochReward(ctx, sm)
+			transactionLogs, rewardLogs, err := p.GrantEpochReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
 				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
-			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs)
+			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs, transactionLogs...)
 		}
 	}
 	return nil, nil
