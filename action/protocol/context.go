@@ -157,6 +157,7 @@ type (
 		TimestampedStakingContract              bool
 		PreStateSystemAction                    bool
 		CreatePostActionStates                  bool
+		LoadContractStakingFromIndexer          bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -319,6 +320,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			TimestampedStakingContract:              g.IsWake(height),
 			PreStateSystemAction:                    !g.IsWake(height),
 			CreatePostActionStates:                  g.IsWake(height),
+			LoadContractStakingFromIndexer:          !g.IsToBeEnabled(height),
 		},
 	)
 }
