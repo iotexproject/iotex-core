@@ -321,6 +321,7 @@ func (store *erigonWorkingSetStore) ResetSnapshots() {}
 
 func (store *erigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (err error) {
 	if cs, ok := obj.(ContractStorage); ok {
+		log.L().Debug("put object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)), zap.String("content", fmt.Sprintf("%+v", obj)))
 		return cs.StoreToContract(ns, key, newContractBackend(store.ctx, store.intraBlockState, store.sr))
 	}
 	value, err := state.Serialize(obj)
@@ -359,6 +360,9 @@ func (store *erigonWorkingSetStore) Put(ns string, key []byte, value []byte) (er
 
 func (store *erigonWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
 	if cs, ok := obj.(ContractStorage); ok {
+		defer func() {
+			log.L().Debug("get object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
+		}()
 		return cs.LoadFromContract(ns, key, newContractBackend(store.ctx, store.intraBlockState, store.sr))
 	}
 	value, err := store.Get(ns, key)
@@ -398,6 +402,7 @@ func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
 
 func (store *erigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
 	if cs, ok := obj.(ContractStorage); ok {
+		log.L().Debug("delete object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
 		return cs.DeleteFromContract(ns, key, newContractBackend(store.ctx, store.intraBlockState, store.sr))
 	}
 	return nil
@@ -431,7 +436,7 @@ func (store *erigonWorkingSetStore) States(ns string, keys [][]byte, obj any) ([
 	} else {
 		objs, err = cs.BatchFromContract(ns, keys, backend)
 	}
-	log.L().Info("list objs from erigon working set store",
+	log.L().Debug("list objs from erigon working set store",
 		zap.String("ns", ns),
 		zap.Int("num", len(keys)),
 		zap.Int("objsize", len(objs)),
@@ -441,7 +446,7 @@ func (store *erigonWorkingSetStore) States(ns string, keys [][]byte, obj any) ([
 		return nil, nil, errors.Wrapf(err, "failed to list objects from erigon working set store for namespace %s", ns)
 	}
 	for i, obj := range objs {
-		log.L().Info("list obj from erigon working set store",
+		log.L().Debug("list obj from erigon working set store",
 			zap.String("ns", ns),
 			log.Hex("key", keys[i]),
 			zap.String("storage", fmt.Sprintf("%T", obj)),
