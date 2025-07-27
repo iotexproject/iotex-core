@@ -108,7 +108,7 @@ func DeploySystemContractsIfNotExist(deployer ContractDeployer) error {
 				From:  common.Address{},
 				Data:  contract.Code,
 				Value: big.NewInt(0),
-				Gas:   1000000,
+				Gas:   10000000,
 			}
 			if addr, err := deployer.Deploy(msg); err != nil {
 				return fmt.Errorf("failed to deploy system contract %s: %w", contract.Address.String(), err)

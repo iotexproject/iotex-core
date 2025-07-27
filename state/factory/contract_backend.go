@@ -173,11 +173,11 @@ func (backend *contractBacked) prepare(intra evmtypes.IntraBlockState) (*vm.EVM,
 		cancunTime = big.NewInt(int64(*chainCfg.CancunTime))
 	}
 	chainConfig := &chain.Config{
-		HomesteadBlock:        chainCfg.HomesteadBlock,
-		DAOForkBlock:          chainCfg.DAOForkBlock,
-		TangerineWhistleBlock: chainCfg.EIP150Block,
-		SpuriousDragonBlock:   chainCfg.EIP155Block,
-		ByzantiumBlock:        chainCfg.ByzantiumBlock,
+		HomesteadBlock:        chainCfg.ConstantinopleBlock,
+		DAOForkBlock:          chainCfg.ConstantinopleBlock,
+		TangerineWhistleBlock: chainCfg.ConstantinopleBlock,
+		SpuriousDragonBlock:   chainCfg.ConstantinopleBlock,
+		ByzantiumBlock:        chainCfg.ConstantinopleBlock,
 		ConstantinopleBlock:   chainCfg.ConstantinopleBlock,
 		PetersburgBlock:       chainCfg.PetersburgBlock,
 		IstanbulBlock:         chainCfg.IstanbulBlock,
