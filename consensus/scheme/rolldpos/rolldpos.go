@@ -228,7 +228,7 @@ func (r *RollDPoS) CurrentState() fsm.State {
 }
 
 // Activate activates or pauses the roll-DPoS consensus. When it is deactivated, the node will finish the current
-// consensus round if it is doing the work and then return the the initial state
+// consensus round if it is doing the work and then return the initial state
 func (r *RollDPoS) Activate(active bool) {
 	r.ctx.Activate(active)
 	// reactivate cfsm if the node is reactivated

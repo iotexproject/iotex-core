@@ -621,7 +621,7 @@ func (stateDB *StateDBAdapter) AddSlotToAccessList(addr common.Address, slot com
 	stateDB.accessList.AddSlot(addr, slot)
 }
 
-// Empty returns true if the the contract is empty
+// Empty returns true if the contract is empty
 func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 	log.T(stateDB.ctx).Debug("Check whether the contract is empty.")
 	s, err := stateDB.accountState(evmAddr)
