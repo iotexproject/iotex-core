@@ -686,7 +686,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if p.contractStakingIndexerV3 != nil {
 		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV3, time.Second))
 	}
-	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
+	stakeSR, err := newCompositeStakingStateReader(p.candBucketsContractIndexer, sr, p.calculateVoteWeight, indexers...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -711,8 +711,8 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	)
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
-		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
-			resp, height, err = p.candBucketsIndexer.GetBuckets(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
+		if epochStartHeight != 0 && p.candBucketsContractIndexer != nil {
+			resp, height, err = p.candBucketsContractIndexer.GetBuckets(sr, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
 		} else {
 			resp, height, err = nativeSR.readStateBuckets(ctx, r.GetBuckets())
 		}

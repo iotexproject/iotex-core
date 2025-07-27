@@ -22,14 +22,14 @@ type (
 	// compositeStakingStateReader is the compositive staking state reader, which combine native and contract staking
 	compositeStakingStateReader struct {
 		contractIndexers    []ContractStakingIndexer
-		nativeIndexer       *CandidatesBucketsIndexer
+		nativeIndexer       *CandidatesBucketsContractIndexer
 		nativeSR            CandidateStateReader
 		calculateVoteWeight func(v *VoteBucket, selfStake bool) *big.Int
 	}
 )
 
 // newCompositeStakingStateReader creates a new compositive staking state reader
-func newCompositeStakingStateReader(nativeIndexer *CandidatesBucketsIndexer, sr protocol.StateReader, calculateVoteWeight func(v *VoteBucket, selfStake bool) *big.Int, contractIndexers ...ContractStakingIndexer) (*compositeStakingStateReader, error) {
+func newCompositeStakingStateReader(nativeIndexer *CandidatesBucketsContractIndexer, sr protocol.StateReader, calculateVoteWeight func(v *VoteBucket, selfStake bool) *big.Int, contractIndexers ...ContractStakingIndexer) (*compositeStakingStateReader, error) {
 	nativeSR, err := ConstructBaseView(sr)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (c *compositeStakingStateReader) readStateBuckets(ctx context.Context, req 
 	)
 	if epochStartHeight != 0 && c.nativeIndexer != nil {
 		// read native buckets from indexer
-		buckets, height, err = c.nativeIndexer.GetBuckets(epochStartHeight, req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
+		buckets, height, err = c.nativeIndexer.GetBuckets(c.nativeSR.SR(), req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
 		if err != nil {
 			return nil, 0, err
 		}
@@ -230,7 +230,7 @@ func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, r
 	)
 	if epochStartHeight != 0 && c.nativeIndexer != nil {
 		// read candidates from indexer
-		candidates, height, err = c.nativeIndexer.GetCandidates(epochStartHeight, req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
+		candidates, height, err = c.nativeIndexer.GetCandidates(c.nativeSR.SR(), req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
 		if err != nil {
 			return nil, 0, err
 		}
