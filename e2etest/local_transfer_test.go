@@ -69,7 +69,7 @@ type AccountState int
 const (
 	//This account should be created on blockchain in run time with the given balance
 	AcntCreate AccountState = iota
-	//This account already exist, need to load the the key, address, balance to this test case
+	//This account already exist, need to load the key, address, balance to this test case
 	AcntExist
 	//This account doesnt exist on blockchain, but have a valid key and address
 	AcntNotRegistered
@@ -526,7 +526,7 @@ func TestLocalTransfer(t *testing.T) {
 
 // initStateKeyAddr, if the given private key is nil,
 // creates key, address, and init the new account with given balance
-// otherwise, calculate the the address, and load test with existing
+// otherwise, calculate the address, and load test with existing
 // balance state.
 func initStateKeyAddr(
 	accountState AccountState,

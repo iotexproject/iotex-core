@@ -12,12 +12,12 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
