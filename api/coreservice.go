@@ -195,7 +195,7 @@ type (
 		BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error)
 		// PendingNonceAt returns the pending nonce of an account at a specific height
 		PendingNonceAt(ctx context.Context, addr address.Address, height uint64) (uint64, error)
-		//  CodeAt returns the code at a specific address at a specific height
+		// CodeAt returns the code at a specific address at a specific height
 		CodeAt(ctx context.Context, addr address.Address, height uint64) ([]byte, error)
 		// ReadContractStorageAt reads contract's storage at a specific height
 		ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error)
@@ -391,10 +391,9 @@ func (core *coreService) CodeAt(ctx context.Context, addr address.Address, heigh
 		err error
 	)
 	if height == 0 {
-		ws, err = core.sf.WorkingSet(ctx)
-	} else {
-		ws, err = core.sf.WorkingSetAtHeight(ctx, height)
+		height = core.bc.TipHeight()
 	}
+	ws, err = core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -410,11 +409,7 @@ func (core *coreService) CodeAt(ctx context.Context, addr address.Address, heigh
 		code protocol.SerializableBytes
 		key  protocol.StateOption
 	)
-	if height == 0 {
-		key = protocol.KeyOption(state.CodeHash)
-	} else {
-		key = protocol.KeyOption(addr.Bytes())
-	}
+	key = protocol.KeyOption(addr.Bytes())
 	_, err = ws.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), key)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
@@ -1962,7 +1957,11 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 }
 
 func (core *coreService) ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error) {
-	ctx, ws, err := core.getStateManager(ctx, height)
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -2145,23 +2144,6 @@ func (core *coreService) simulateExecution(
 		DepositGasFunc: rewarding.DepositGas,
 	})
 	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
-}
-
-func (core *coreService) getStateManager(ctx context.Context, height uint64) (context.Context, protocol.StateManagerWithCloser, error) {
-	if height == 0 {
-		ctx, err := core.bc.Context(ctx)
-		if err != nil {
-			return ctx, nil, err
-		}
-		ws, err := core.sf.WorkingSet(ctx)
-		return ctx, ws, err
-	}
-	ctx, err := core.bc.ContextAtHeight(ctx, height)
-	if err != nil {
-		return nil, nil, err
-	}
-	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
-	return ctx, ws, err
 }
 
 func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {

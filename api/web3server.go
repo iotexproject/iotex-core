@@ -646,7 +646,10 @@ func (svr *web3Handler) getCode(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	height, _ := blockNumberToHeight(bn)
+	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	if err != nil {
+		return nil, err
+	}
 	code, err := svr.coreService.CodeAt(context.Background(), ioAddr, height)
 	if err != nil {
 		return nil, err
@@ -892,7 +895,10 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	height, _ := blockNumberToHeight(bn)
+	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	if err != nil {
+		return nil, err
+	}
 	contractAddr, err := address.FromHex(ethAddr.String())
 	if err != nil {
 		return nil, err
