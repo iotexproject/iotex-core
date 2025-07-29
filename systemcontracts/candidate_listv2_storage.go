@@ -1,6 +1,7 @@
 package systemcontracts
 
 import (
+	"math"
 	"math/big"
 	"strings"
 
@@ -76,7 +77,7 @@ func (c *CandidateListV2StorageContract) PutCandidates(candidates []*iotextypes.
 		To:    &c.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
-		Gas:   1000000,
+		Gas:   math.MaxUint64,
 	}
 
 	if err := c.backend.Handle(callMsg); err != nil {
@@ -102,7 +103,7 @@ func (c *CandidateListV2StorageContract) GetCandidates(offset, limit uint64) (*i
 		To:    &c.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
-		Gas:   1000000,
+		Gas:   math.MaxUint64,
 	}
 
 	result, err := c.backend.Call(callMsg)

@@ -1,6 +1,7 @@
 package systemcontracts
 
 import (
+	"math"
 	"math/big"
 	"strings"
 	"time"
@@ -92,7 +93,7 @@ func (c *VoteBucketStorageContract) PutBuckets(buckets []*iotextypes.VoteBucket)
 		To:    &c.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
-		Gas:   1000000,
+		Gas:   math.MaxUint64,
 	}
 
 	if err := c.backend.Handle(callMsg); err != nil {
@@ -118,7 +119,7 @@ func (c *VoteBucketStorageContract) GetBuckets(offset, limit uint64) (*iotextype
 		To:    &c.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
-		Gas:   1000000,
+		Gas:   math.MaxUint64,
 	}
 
 	result, err := c.backend.Call(callMsg)
