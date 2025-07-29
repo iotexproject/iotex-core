@@ -3,6 +3,7 @@ package factory
 import (
 	"context"
 	"encoding/hex"
+	"math"
 	"math/big"
 	"strings"
 
@@ -114,14 +115,14 @@ func (backend *contractBacked) prepare(intra evmtypes.IntraBlockState) (*vm.EVM,
 	// deploy system contracts
 	blkCtxE := evmtypes.BlockContext{
 		CanTransfer: func(state evmtypes.IntraBlockState, addr erigonComm.Address, amount *uint256.Int) bool {
-			log.L().Info("CanTransfer called in erigon genesis state creation",
+			log.L().Debug("CanTransfer called in erigon genesis state creation",
 				zap.String("address", addr.String()),
 				zap.String("amount", amount.String()),
 			)
 			return true
 		},
 		Transfer: func(state evmtypes.IntraBlockState, from erigonComm.Address, to erigonComm.Address, amount *uint256.Int, bailout bool) {
-			log.L().Info("Transfer called in erigon genesis state creation",
+			log.L().Debug("Transfer called in erigon genesis state creation",
 				zap.String("from", from.String()),
 				zap.String("to", to.String()),
 				zap.String("amount", amount.String()),
@@ -129,20 +130,20 @@ func (backend *contractBacked) prepare(intra evmtypes.IntraBlockState) (*vm.EVM,
 			return
 		},
 		GetHash: func(block uint64) erigonComm.Hash {
-			log.L().Info("GetHash called in erigon genesis state creation",
+			log.L().Debug("GetHash called in erigon genesis state creation",
 				zap.Uint64("block", block),
 			)
 			return erigonComm.Hash{}
 		},
 		PostApplyMessage: func(ibs evmtypes.IntraBlockState, sender erigonComm.Address, coinbase erigonComm.Address, result *evmtypes.ExecutionResult) {
-			log.L().Info("PostApplyMessage called in erigon genesis state creation",
+			log.L().Debug("PostApplyMessage called in erigon genesis state creation",
 				zap.String("sender", sender.String()),
 				zap.String("coinbase", coinbase.String()),
 			)
 			return
 		},
 		Coinbase:    erigonComm.Address{},
-		GasLimit:    100000000,
+		GasLimit:    math.MaxUint64,
 		MaxGasLimit: true,
 		BlockNumber: blkCtx.BlockHeight,
 		Time:        uint64(blkCtx.BlockTimeStamp.Unix()),
@@ -210,7 +211,7 @@ func (backend *contractBacked) call(callMsg *ethereum.CallMsg, intra evmtypes.In
 			log.L().Error("EVM call reverted",
 				zap.String("from", callMsg.From.String()),
 				zap.String("to", callMsg.To.String()),
-				zap.String("data", hex.EncodeToString(callMsg.Data)),
+				zap.Uint64("dataSize", uint64(len(callMsg.Data))),
 				zap.String("revertMessage", revertMsg),
 				zap.String("returnData", hex.EncodeToString(ret)),
 			)
@@ -221,9 +222,9 @@ func (backend *contractBacked) call(callMsg *ethereum.CallMsg, intra evmtypes.In
 	log.L().Info("EVM call result",
 		zap.String("from", callMsg.From.String()),
 		zap.String("to", callMsg.To.String()),
-		zap.String("data", hex.EncodeToString(callMsg.Data)),
+		zap.Uint64("dataSize", uint64(len(callMsg.Data))),
 		zap.String("ret", hex.EncodeToString(ret)),
-		zap.Uint64("gasLeft", gasLeft),
+		zap.Uint64("gasUsed", callMsg.Gas-gasLeft),
 	)
 	return ret, nil
 }
