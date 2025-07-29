@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/erigontech/erigon-lib/chain"
 	erigonComm "github.com/erigontech/erigon-lib/common"
@@ -203,6 +204,7 @@ func (backend *contractBacked) call(callMsg *ethereum.CallMsg, intra evmtypes.In
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to prepare EVM for contract call")
 	}
+	t := time.Now()
 	ret, gasLeft, err := evm.Call(vm.AccountRef(callMsg.From), erigonComm.Address(*callMsg.To), callMsg.Data, callMsg.Gas, uint256.MustFromBig(callMsg.Value), true)
 	if err != nil {
 		// Check if it's a revert error and extract the revert message
@@ -225,6 +227,7 @@ func (backend *contractBacked) call(callMsg *ethereum.CallMsg, intra evmtypes.In
 		zap.Uint64("dataSize", uint64(len(callMsg.Data))),
 		zap.String("ret", hex.EncodeToString(ret)),
 		zap.Uint64("gasUsed", callMsg.Gas-gasLeft),
+		zap.Duration("duration", time.Since(t)),
 	)
 	return ret, nil
 }
