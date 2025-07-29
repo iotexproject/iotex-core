@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -34,6 +35,8 @@ const (
 var SystemContracts []SystemContract
 var systemContractsInitialized bool
 
+var systemContractCreatorAddr = hash.Hash160b([]byte("system_contract_creator"))
+
 func init() {
 	initSystemContracts()
 }
@@ -52,11 +55,11 @@ func initSystemContracts() {
 		log.S().Panic("failed to decode VoteBucketStorageByteCode: " + err.Error())
 	}
 
-	candidateListV2Storage, err := address.FromBytes(crypto.CreateAddress(common.Address{}, 0).Bytes())
+	candidateListV2Storage, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 0).Bytes())
 	if err != nil {
 		log.S().Panic("Invalid candidate list v2 storage contract address: " + err.Error())
 	}
-	voteBucketStorage, err := address.FromBytes(crypto.CreateAddress(common.Address{}, 1).Bytes())
+	voteBucketStorage, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 1).Bytes())
 	if err != nil {
 		log.S().Panic("Invalid vote bucket storage contract address: " + err.Error())
 	}
@@ -105,7 +108,7 @@ func DeploySystemContractsIfNotExist(deployer ContractDeployer) error {
 		if !exists {
 			log.S().Infof("Deploying system contract [%d] %s", idx, contract.Address.String())
 			msg := &ethereum.CallMsg{
-				From:  common.Address{},
+				From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 				Data:  contract.Code,
 				Value: big.NewInt(0),
 				Gas:   10000000,
