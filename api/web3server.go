@@ -468,6 +468,9 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 	if err != nil {
 		return nil, err
 	}
+	if height == 0 {
+		height = svr.coreService.TipHeight()
+	}
 	var (
 		to   = callMsg.To
 		data = callMsg.Data
