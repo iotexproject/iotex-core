@@ -160,7 +160,7 @@ func BenchmarkMapKey_ValueOperate(b *testing.B) {
 			}
 		}
 	})
-	b.Run("orign map assign", func(b *testing.B) {
+	b.Run("origin map assign", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for k := range keyTags2 {
 				keyTags2[k] = []int{0}
