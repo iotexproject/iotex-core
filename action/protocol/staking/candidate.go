@@ -6,6 +6,7 @@
 package staking
 
 import (
+	"encoding/hex"
 	"math/big"
 	"sort"
 	"strings"
@@ -27,6 +28,7 @@ type (
 		Operator           address.Address
 		Reward             address.Address
 		Identifier         address.Address
+		Pubkey             []byte // BLS public key
 		Name               string
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
@@ -202,6 +204,10 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 	if d.Identifier != nil {
 		voter = d.Identifier.String()
 	}
+	pubkey := ""
+	if len(d.Pubkey) > 0 {
+		pubkey = hex.EncodeToString(d.Pubkey)
+	}
 
 	return &stakingpb.Candidate{
 		OwnerAddress:       d.Owner.String(),
@@ -212,6 +218,7 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		Votes:              d.Votes.String(),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          d.SelfStake.String(),
+		Pubkey:             pubkey,
 	}, nil
 }
 
@@ -255,6 +262,15 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	if !ok {
 		return action.ErrInvalidAmount
 	}
+	if len(pb.GetPubkey()) > 0 {
+		d.Pubkey, err = hex.DecodeString(pb.GetPubkey())
+		if err != nil {
+			return errors.Wrap(err, "failed to decode public key")
+		}
+		if len(d.Pubkey) != 48 {
+			return errors.Wrap(err, "invalid public key length")
+		}
+	}
 	return nil
 }
 
@@ -277,6 +293,7 @@ func (d *Candidate) toStateCandidate() *state.Candidate {
 		Votes:         new(big.Int).Set(d.Votes),
 		RewardAddress: d.Reward.String(),
 		CanName:       []byte(d.Name),
+		Pubkey:        d.Pubkey,
 	}
 }
 
