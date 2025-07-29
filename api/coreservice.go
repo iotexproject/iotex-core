@@ -393,6 +393,10 @@ func (core *coreService) CodeAt(ctx context.Context, addr address.Address, heigh
 	if height == 0 {
 		height = core.bc.TipHeight()
 	}
+	ctx, err = core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 	ws, err = core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -405,16 +409,11 @@ func (core *coreService) CodeAt(ctx context.Context, addr address.Address, heigh
 	if !state.IsContract() {
 		return nil, nil
 	}
-	var (
-		code protocol.SerializableBytes
-		key  protocol.StateOption
-	)
-	key = protocol.KeyOption(addr.Bytes())
-	_, err = ws.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), key)
+	code, err := evm.ReadContractCode(ctx, ws, addr)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	return code, nil
+	return protocol.SerializableBytes(code), nil
 }
 
 func (core *coreService) acccount(ctx context.Context, height uint64, state *state.Account, pendingNonce uint64, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
@@ -1957,6 +1956,9 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 }
 
 func (core *coreService) ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error) {
+	if height == 0 {
+		height = core.bc.TipHeight()
+	}
 	ctx, err := core.bc.ContextAtHeight(ctx, height)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

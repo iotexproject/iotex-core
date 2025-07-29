@@ -791,7 +791,7 @@ func getCode(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao b
 
 	result := serveTestHTTP(require, handler, "eth_getCode", fmt.Sprintf(`["%s", "latest"]`, contractAddr))
 	actual, ok := result.(string)
-	require.True(ok)
+	require.True(ok, "result should be a string but got %T, %+v", result, result)
 	require.Contains(contractCode, util.Remove0xPrefix(actual))
 }
 
