@@ -119,6 +119,13 @@ func WithContractStakingIndexerV3(indexer ContractStakingIndexer) Option {
 	}
 }
 
+// EnableStakingIndexer is the option to enable staking indexer
+func EnableStakingIndexer() Option {
+	return func(p *Protocol) {
+		p.candBucketsContractIndexer = newCandidatesBucketsContractIndexer()
+	}
+}
+
 // FindProtocol return a registered protocol from registry
 func FindProtocol(registry *protocol.Registry) *Protocol {
 	if registry == nil {
@@ -139,7 +146,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 func NewProtocol(
 	helperCtx HelperCtx,
 	cfg *BuilderConfig,
-	candBucketsIndexer *CandidatesBucketsIndexer,
+	_ *CandidatesBucketsIndexer,
 	contractStakingIndexer ContractStakingIndexerWithBucketType,
 	contractStakingIndexerV2 ContractStakingIndexer,
 	opts ...Option,
@@ -187,15 +194,11 @@ func NewProtocol(
 			EndorsementWithdrawWaitingBlocks: cfg.Staking.EndorsementWithdrawWaitingBlocks,
 			MigrateContractAddress:           migrateContractAddress,
 		},
-		candBucketsIndexer:       candBucketsIndexer,
 		voteReviser:              voteReviser,
 		patch:                    NewPatchStore(cfg.StakingPatchDir),
 		contractStakingIndexer:   contractStakingIndexer,
 		helperCtx:                helperCtx,
 		contractStakingIndexerV2: contractStakingIndexerV2,
-	}
-	if candBucketsIndexer != nil {
-		p.candBucketsContractIndexer = newCandidatesBucketsContractIndexer()
 	}
 	for _, opt := range opts {
 		opt(p)

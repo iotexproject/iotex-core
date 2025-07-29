@@ -406,17 +406,13 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 }
 
 func (builder *Builder) buildGatewayComponents(forTest bool) error {
-	indexer, bfIndexer, candidateIndexer, candBucketsIndexer, err := builder.createGateWayComponents(forTest)
+	indexer, bfIndexer, candidateIndexer, err := builder.createGateWayComponents(forTest)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create gateway components")
 	}
 	builder.cs.candidateIndexer = candidateIndexer
 	if builder.cs.candidateIndexer != nil {
 		builder.cs.lifecycle.Add(builder.cs.candidateIndexer)
-	}
-	builder.cs.candBucketsIndexer = candBucketsIndexer
-	if builder.cs.candBucketsIndexer != nil {
-		builder.cs.lifecycle.Add(builder.cs.candBucketsIndexer)
 	}
 	builder.cs.bfIndexer = bfIndexer
 	builder.cs.indexer = indexer
@@ -428,7 +424,6 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 	indexer blockindex.Indexer,
 	bfIndexer blockindex.BloomFilterIndexer,
 	candidateIndexer *poll.CandidateIndexer,
-	candBucketsIndexer *staking.CandidatesBucketsIndexer,
 	err error,
 ) {
 	_, gateway := builder.cfg.Plugins[config.GatewayPlugin]
@@ -448,9 +443,6 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 		candidateIndexer, err = poll.NewCandidateIndexer(db.NewMemKVStore())
 		if err != nil {
 			return
-		}
-		if builder.cfg.Chain.EnableStakingIndexer {
-			candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewMemKVStore())
 		}
 		return
 	}
@@ -473,12 +465,6 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 	candidateIndexer, err = poll.NewCandidateIndexer(db.NewBoltDB(dbConfig))
 	if err != nil {
 		return
-	}
-
-	// create staking indexer
-	if builder.cfg.Chain.EnableStakingIndexer {
-		dbConfig.DbPath = builder.cfg.Chain.StakingIndexDBPath
-		candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewBoltDB(dbConfig))
 	}
 	return
 }
@@ -685,6 +671,9 @@ func (builder *Builder) registerStakingProtocol() error {
 	if builder.cs.contractStakingIndexerV3 != nil {
 		opts = append(opts, staking.WithContractStakingIndexerV3(builder.cs.contractStakingIndexerV3))
 	}
+	if builder.cfg.Chain.EnableStakingIndexer {
+		opts = append(opts, staking.EnableStakingIndexer())
+	}
 	stakingProtocol, err := staking.NewProtocol(
 		staking.HelperCtx{
 			DepositGas:    rewarding.DepositGas,
@@ -703,7 +692,7 @@ func (builder *Builder) registerStakingProtocol() error {
 				CorrectCandSelfStakeHeight:  builder.cfg.Genesis.VanuatuBlockHeight,
 			},
 		},
-		builder.cs.candBucketsIndexer,
+		nil,
 		builder.cs.contractStakingIndexer,
 		builder.cs.contractStakingIndexerV2,
 		opts...,
