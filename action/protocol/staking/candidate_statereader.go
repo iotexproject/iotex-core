@@ -230,6 +230,7 @@ func (c *candSR) getAllBuckets() ([]*VoteBucket, uint64, error) {
 			}
 			return keys, nil
 		}),
+		protocol.ObjectOption(&VoteBucket{}),
 	)
 	if err != nil {
 		return nil, height, err

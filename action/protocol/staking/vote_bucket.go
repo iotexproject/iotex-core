@@ -6,10 +6,12 @@
 package staking
 
 import (
+	"bytes"
 	"math"
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -19,7 +21,10 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 const (
@@ -193,6 +198,135 @@ func (vb *VoteBucket) isUnstaked() bool {
 	return vb.UnstakeStartBlockHeight < maxBlockNumber
 }
 
+func (vb VoteBucket) storageContractAddress(ns string) (address.Address, error) {
+	if ns != _stakingNameSpace {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, _stakingNameSpace)
+	}
+	return systemcontracts.SystemContracts[systemcontracts.StakingBucketsContractIndex].Address, nil
+}
+
+func (vb VoteBucket) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	contractAddr, err := vb.storageContractAddress(ns)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(key, bucketKey(vb.Index)) {
+		return errors.Errorf("invalid key %x, expected %x", key, bucketKey(vb.Index))
+	}
+	voteBucketContract, err := systemcontracts.NewGenericStorageContract(
+		common.BytesToAddress(contractAddr.Bytes()),
+		backend,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to create vote bucket storage contract")
+	}
+	storeKey := byteutil.Uint64ToBytes(vb.Index)
+	body, err := vb.Serialize()
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize vote bucket")
+	}
+	storeVal := systemcontracts.GenericValue{
+		PrimaryData: body,
+	}
+	log.S().Infof("Storing vote bucket %d to contract %s with key %+v", vb.Index, contractAddr.String(), vb)
+	return voteBucketContract.Put(storeKey, storeVal)
+}
+
+func (vb *VoteBucket) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	contractAddr, err := vb.storageContractAddress(ns)
+	if err != nil {
+		return err
+	}
+	voteBucketContract, err := systemcontracts.NewGenericStorageContract(
+		common.BytesToAddress(contractAddr.Bytes()),
+		backend,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to create vote bucket storage contract")
+	}
+	storeKey := byteutil.Uint64ToBytes(vb.Index)
+	result, err := voteBucketContract.Get(storeKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get vote bucket from contract")
+	}
+	if !result.KeyExists {
+		return errors.Wrapf(state.ErrStateNotExist, "vote bucket %d not found in contract %s", vb.Index, contractAddr.String())
+	}
+	if err = vb.Deserialize(result.Value.PrimaryData); err != nil {
+		return errors.Wrapf(err, "failed to deserialize vote bucket %d", vb.Index)
+	}
+	if !bytes.Equal(key, bucketKey(vb.Index)) {
+		return errors.Errorf("invalid key %x, expected %x", key, bucketKey(vb.Index))
+	}
+	log.S().Infof("Loaded vote bucket %d from contract %s with key %+v", vb.Index, contractAddr.String(), vb)
+	return nil
+}
+
+func (w VoteBucket) DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	contractAddr, err := w.storageContractAddress(ns)
+	if err != nil {
+		return err
+	}
+	voteBucketContract, err := systemcontracts.NewGenericStorageContract(
+		common.BytesToAddress(contractAddr.Bytes()),
+		backend,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to create vote bucket storage contract")
+	}
+	storeKey := byteutil.Uint64ToBytes(bucketIndexRecover(key))
+	log.S().Infof("Deleting vote bucket %d from contract %s with key %+v", bucketIndexRecover(key), contractAddr.String(), key)
+	return voteBucketContract.Remove(storeKey)
+}
+
+// ListFromContract lists all probation data from the contract storage
+func (w *VoteBucket) ListFromContract(_ string, _ systemcontracts.ContractBackend) ([][]byte, []any, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
+// BatchFromContract retrieves multiple probation lists from the contract storage
+func (w VoteBucket) BatchFromContract(ns string, key [][]byte, backend systemcontracts.ContractBackend) ([]any, error) {
+	if len(key) == 0 {
+		return nil, nil
+	}
+	contractAddr, err := w.storageContractAddress(ns)
+	if err != nil {
+		return nil, err
+	}
+	voteBucketContract, err := systemcontracts.NewGenericStorageContract(
+		common.BytesToAddress(contractAddr.Bytes()),
+		backend,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create vote bucket storage contract")
+	}
+	storeKeys := make([][]byte, len(key))
+	for i, k := range key {
+		storeKeys[i] = byteutil.Uint64ToBytes(bucketIndexRecover(k))
+	}
+	storeResult, err := voteBucketContract.BatchGet(storeKeys)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to batch get vote buckets from contract")
+	}
+	results := make([]any, 0, len(storeResult.Values))
+	for i, value := range storeResult.Values {
+		if !storeResult.ExistsFlags[i] {
+			results = append(results, nil)
+			continue
+		}
+		voteBucket := &VoteBucket{}
+		if err := voteBucket.Deserialize(value.PrimaryData); err != nil {
+			return nil, errors.Wrapf(err, "failed to deserialize vote bucket %d", bucketIndexRecover(storeKeys[i]))
+		}
+		if !bytes.Equal(key[i], bucketKey(voteBucket.Index)) {
+			return nil, errors.Errorf("invalid key %x, expected %x", key[i], bucketKey(voteBucket.Index))
+		}
+		results = append(results, voteBucket)
+	}
+	log.S().Infof("Batch loaded %d vote buckets from contract %s with keys %+v", len(results), contractAddr.String(), key)
+	return results, nil
+}
+
 func (vb *VoteBucket) isNative() bool {
 	return vb.ContractAddress == ""
 }
@@ -216,6 +350,13 @@ func (tc *totalBucketCount) Count() uint64 {
 func bucketKey(index uint64) []byte {
 	key := []byte{_bucket}
 	return append(key, byteutil.Uint64ToBytesBigEndian(index)...)
+}
+
+func bucketIndexRecover(key []byte) uint64 {
+	if len(key) < 9 {
+		log.S().Panicf("invalid key length %d, expected at least 9 bytes", len(key))
+	}
+	return byteutil.BytesToUint64BigEndian(key[1:])
 }
 
 // CalculateVoteWeight calculates the vote weight

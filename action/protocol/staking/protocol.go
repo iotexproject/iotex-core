@@ -213,12 +213,37 @@ func ProtocolAddr() address.Address {
 
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol.View, error) {
+	contractsStake := &contractStakeView{}
+	if p.contractStakingIndexer != nil {
+		view, err := p.contractStakingIndexer.StartView(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to start contract staking indexer")
+		}
+		contractsStake.v1 = view
+	}
+	if p.contractStakingIndexerV2 != nil {
+		view, err := p.contractStakingIndexerV2.StartView(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to start contract staking indexer v2")
+		}
+		contractsStake.v2 = view
+	}
+	if p.contractStakingIndexerV3 != nil {
+		view, err := p.contractStakingIndexerV3.StartView(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to start contract staking indexer v3")
+		}
+		contractsStake.v3 = view
+	}
+	return p.createViewAt(ctx, sr, contractsStake)
+}
+
+func (p *Protocol) createViewAt(ctx context.Context, sr protocol.StateReader, csv *contractStakeView) (*ViewData, error) {
 	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sr.Height()
 	if err != nil {
 		return nil, err
 	}
-
 	// load view from SR
 	c, _, err := CreateBaseView(sr, featureCtx.ReadStateFromDB(height))
 	if err != nil {
@@ -238,28 +263,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 	}
 
-	c.contractsStake = &contractStakeView{}
-	if p.contractStakingIndexer != nil {
-		view, err := p.contractStakingIndexer.StartView(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to start contract staking indexer")
-		}
-		c.contractsStake.v1 = view
-	}
-	if p.contractStakingIndexerV2 != nil {
-		view, err := p.contractStakingIndexerV2.StartView(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to start contract staking indexer v2")
-		}
-		c.contractsStake.v2 = view
-	}
-	if p.contractStakingIndexerV3 != nil {
-		view, err := p.contractStakingIndexerV3.StartView(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to start contract staking indexer v3")
-		}
-		c.contractsStake.v3 = view
-	}
+	c.contractsStake = csv
 	return c, nil
 }
 
@@ -703,9 +707,18 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
 		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
 	}
-	nativeSR, err := ConstructBaseView(sr)
+	latestView, err := sr.ReadView(_protocolID)
 	if err != nil {
 		return nil, 0, err
+	}
+	vd, err := p.createViewAt(ctx, sr, latestView.(*ViewData).contractsStake)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "failed to create staking view")
+	}
+	nativeSR := &candSR{
+		StateReader: sr,
+		height:      inputHeight,
+		view:        vd,
 	}
 
 	var (

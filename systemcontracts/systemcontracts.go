@@ -27,6 +27,8 @@ const (
 	CandidateListV2Storage int = iota
 	// VoteBucketStorage is the system contract for vote bucket storage
 	VoteBucketStorage
+	// StakingBucketsContractIndex is the system contract for staking buckets
+	StakingBucketsContractIndex
 	// SystemContractCount is the total number of system contracts
 	SystemContractCount
 )
@@ -55,6 +57,11 @@ func initSystemContracts() {
 		log.S().Panic("failed to decode VoteBucketStorageByteCode: " + err.Error())
 	}
 
+	genericStorageByteCode, err := hex.DecodeString(GenericStorageByteCodeStr)
+	if err != nil {
+		log.S().Panic("failed to decode GenericStorageByteCode: " + err.Error())
+	}
+
 	candidateListV2Storage, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 0).Bytes())
 	if err != nil {
 		log.S().Panic("Invalid candidate list v2 storage contract address: " + err.Error())
@@ -62,6 +69,10 @@ func initSystemContracts() {
 	voteBucketStorage, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 1).Bytes())
 	if err != nil {
 		log.S().Panic("Invalid vote bucket storage contract address: " + err.Error())
+	}
+	stakingBucketAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 2).Bytes())
+	if err != nil {
+		log.S().Panic("Invalid staking bucket contract address: " + err.Error())
 	}
 
 	SystemContracts = make([]SystemContract, SystemContractCount)
@@ -72,6 +83,10 @@ func initSystemContracts() {
 	SystemContracts[VoteBucketStorage] = SystemContract{
 		Address: voteBucketStorage,
 		Code:    VoteBucketStorageByteCode,
+	}
+	SystemContracts[StakingBucketsContractIndex] = SystemContract{
+		Address: stakingBucketAddr,
+		Code:    genericStorageByteCode,
 	}
 }
 

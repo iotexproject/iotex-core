@@ -220,7 +220,9 @@ func (csm *candSM) putBucket(bucket *VoteBucket) (uint64, error) {
 func (csm *candSM) delBucket(index uint64) error {
 	_, err := csm.DelState(
 		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(bucketKey(index)))
+		protocol.KeyOption(bucketKey(index)),
+		protocol.ObjectOption(&VoteBucket{}),
+	)
 	return err
 }
 
