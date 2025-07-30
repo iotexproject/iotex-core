@@ -29,6 +29,16 @@ const (
 	VoteBucketStorage
 	// StakingBucketsContractIndex is the system contract for staking buckets
 	StakingBucketsContractIndex
+	// BucketPoolContractIndex is the system contract for bucket pool storage
+	BucketPoolContractIndex
+	// BucketIndicesContractIndex is the system contract for bucket indices storage
+	BucketIndicesContractIndex
+	// EndorsementContractIndex is the system contract for endorsement storage
+	EndorsementContractIndex
+	// CandidateMapContractIndex is the system contract for candidate map storage
+	CandidateMapContractIndex
+	// CandidatesContractIndex is the system contract for candidates storage
+	CandidatesContractIndex
 	// SystemContractCount is the total number of system contracts
 	SystemContractCount
 )
@@ -74,6 +84,26 @@ func initSystemContracts() {
 	if err != nil {
 		log.S().Panic("Invalid staking bucket contract address: " + err.Error())
 	}
+	bucketPoolAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 3).Bytes())
+	if err != nil {
+		log.S().Panic("Invalid bucket pool contract address: " + err.Error())
+	}
+	bucketIndicesAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 4).Bytes())
+	if err != nil {
+		log.S().Panic("Invalid bucket indices contract address: " + err.Error())
+	}
+	endorsementAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 5).Bytes())
+	if err != nil {
+		log.S().Panic("Invalid endorsement contract address: " + err.Error())
+	}
+	candidateMapAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 6).Bytes())
+	if err != nil {
+		log.S().Panic("Invalid candidate map contract address: " + err.Error())
+	}
+	candidatesAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 7).Bytes())
+	if err != nil {
+		log.S().Panic("Invalid candidates contract address: " + err.Error())
+	}
 
 	SystemContracts = make([]SystemContract, SystemContractCount)
 	SystemContracts[CandidateListV2Storage] = SystemContract{
@@ -86,6 +116,26 @@ func initSystemContracts() {
 	}
 	SystemContracts[StakingBucketsContractIndex] = SystemContract{
 		Address: stakingBucketAddr,
+		Code:    genericStorageByteCode,
+	}
+	SystemContracts[BucketPoolContractIndex] = SystemContract{
+		Address: bucketPoolAddr,
+		Code:    genericStorageByteCode,
+	}
+	SystemContracts[BucketIndicesContractIndex] = SystemContract{
+		Address: bucketIndicesAddr,
+		Code:    genericStorageByteCode,
+	}
+	SystemContracts[EndorsementContractIndex] = SystemContract{
+		Address: endorsementAddr,
+		Code:    genericStorageByteCode,
+	}
+	SystemContracts[CandidateMapContractIndex] = SystemContract{
+		Address: candidateMapAddr,
+		Code:    genericStorageByteCode,
+	}
+	SystemContracts[CandidatesContractIndex] = SystemContract{
+		Address: candidatesAddr,
 		Code:    genericStorageByteCode,
 	}
 }

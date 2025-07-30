@@ -10,14 +10,18 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
@@ -42,6 +46,9 @@ type (
 		MinSelfStake *big.Int
 	}
 )
+
+var _ protocol.ContractStorage = (*Candidate)(nil)
+var _ protocol.ContractStorage = (*CandidateList)(nil)
 
 // Clone returns a copy
 func (d *Candidate) Clone() *Candidate {
@@ -280,6 +287,102 @@ func (d *Candidate) toStateCandidate() *state.Candidate {
 	}
 }
 
+func (d Candidate) storageContractAddress(ns string) (address.Address, error) {
+	if ns != _candidateNameSpace {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, _candidateNameSpace)
+	}
+	// Use the system contract address for candidates
+	return systemcontracts.SystemContracts[systemcontracts.CandidatesContractIndex].Address, nil
+}
+
+func (d Candidate) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	addr, err := d.storageContractAddress(ns)
+	if err != nil {
+		return err
+	}
+	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create candidate storage contract")
+	}
+	log.S().Infof("Storing candidate %s to contract %s: %+v", d.GetIdentifier().String(), addr.String(), d)
+	var (
+		primaryData   []byte
+		secondaryData []byte
+	)
+	secondaryData = d.Votes.Bytes()
+	d.Votes = big.NewInt(0)
+	primaryData, err = d.Serialize()
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize candidate")
+	}
+	return contract.Put(key, systemcontracts.GenericValue{PrimaryData: primaryData, SecondaryData: secondaryData})
+}
+
+func (d *Candidate) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	addr, err := d.storageContractAddress(ns)
+	if err != nil {
+		return err
+	}
+	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create candidate storage contract")
+	}
+	value, err := contract.Get(key)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get candidate from contract")
+	}
+	if !value.KeyExists {
+		return errors.Wrapf(state.ErrStateNotExist, "candidate does not exist in contract")
+	}
+	if err := d.Deserialize(value.Value.PrimaryData); err != nil {
+		return errors.Wrap(err, "failed to deserialize candidate")
+	}
+	d.Votes = new(big.Int).SetBytes(value.Value.SecondaryData)
+	log.S().Infof("Loaded candidate %s from contract %s: %+v", d.GetIdentifier().String(), addr.String(), d)
+	return nil
+}
+
+func (d *Candidate) DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	return errors.New("not implemented")
+}
+
+func (d *Candidate) ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error) {
+	addr, err := d.storageContractAddress(ns)
+	if err != nil {
+		return nil, nil, err
+	}
+	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to create candidate storage contract")
+	}
+	count, err := contract.Count()
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to count candidates in contract")
+	}
+	value, err := contract.List(0, count.Uint64())
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to list candidates in contract")
+	}
+	var (
+		result = make([]any, 0, len(value.Values))
+	)
+	log.S().Infof("Loaded %d candidates from contract %s", len(value.Values), addr.String())
+	for _, v := range value.Values {
+		c := &Candidate{}
+		if err := c.Deserialize(v.PrimaryData); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to deserialize candidate")
+		}
+		c.Votes = new(big.Int).SetBytes(v.SecondaryData)
+		result = append(result, c)
+		log.S().Infof("Loaded candidate %s from contract %s: %+v", c.GetIdentifier().String(), addr.String(), c)
+	}
+	return value.KeyList, result, nil
+}
+
+func (d *Candidate) BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (l CandidateList) Len() int      { return len(l) }
 func (l CandidateList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 func (l CandidateList) Less(i, j int) bool {
@@ -353,4 +456,61 @@ func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {
 	}
 	sort.Sort(list)
 	return list, nil
+}
+
+func (l CandidateList) storageContractAddress(ns string, key []byte) (address.Address, error) {
+	if ns != CandsMapNS {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, CandsMapNS)
+	}
+	return systemcontracts.SystemContracts[systemcontracts.CandidateMapContractIndex].Address, nil
+}
+
+func (l CandidateList) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	addr, err := l.storageContractAddress(ns, key)
+	if err != nil {
+		return err
+	}
+	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create candidate storage contract")
+	}
+	data, err := l.Serialize()
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize candidate list")
+	}
+	if err := contract.Put(key, systemcontracts.GenericValue{PrimaryData: data}); err != nil {
+		return errors.Wrapf(err, "failed to put candidate list to contract")
+	}
+	return nil
+}
+
+func (l *CandidateList) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	addr, err := l.storageContractAddress(ns, key)
+	if err != nil {
+		return err
+	}
+	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create candidate storage contract")
+	}
+	storeResult, err := contract.Get(key)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get candidate list from contract")
+	}
+	if !storeResult.KeyExists {
+		return errors.Wrapf(state.ErrStateNotExist, "candidate list does not exist in contract")
+	}
+	return l.Deserialize(storeResult.Value.PrimaryData)
+}
+
+func (l *CandidateList) DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	return errors.New("not implemented")
+}
+
+func (l *CandidateList) ListFromContract(_ string, _ systemcontracts.ContractBackend) ([][]byte, []any, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
+func (l *CandidateList) BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error) {
+	return nil, errors.New("not implemented")
 }

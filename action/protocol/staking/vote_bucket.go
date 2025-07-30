@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -57,6 +58,9 @@ type (
 		count uint64
 	}
 )
+
+var _ protocol.ContractStorage = (*VoteBucket)(nil)
+var _ protocol.ContractStorage = (*totalBucketCount)(nil)
 
 // NewVoteBucket creates a new vote bucket
 func NewVoteBucket(cand, owner address.Address, amount *big.Int, duration uint32, ctime time.Time, autoStake bool) *VoteBucket {
@@ -244,7 +248,7 @@ func (vb *VoteBucket) LoadFromContract(ns string, key []byte, backend systemcont
 	if err != nil {
 		return errors.Wrap(err, "failed to create vote bucket storage contract")
 	}
-	storeKey := byteutil.Uint64ToBytes(vb.Index)
+	storeKey := byteutil.Uint64ToBytes(bucketIndexRecover(key))
 	result, err := voteBucketContract.Get(storeKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get vote bucket from contract")
@@ -345,6 +349,63 @@ func (tc *totalBucketCount) Serialize() ([]byte, error) {
 
 func (tc *totalBucketCount) Count() uint64 {
 	return tc.count
+}
+
+func (tc totalBucketCount) storageContractAddress(ns string, key []byte) (address.Address, error) {
+	if ns != _stakingNameSpace {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, _stakingNameSpace)
+	}
+	if !bytes.Equal(key, TotalBucketKey) {
+		return nil, errors.Errorf("invalid key %x, expected %x", key, TotalBucketKey)
+	}
+	return systemcontracts.SystemContracts[systemcontracts.BucketPoolContractIndex].Address, nil
+}
+
+func (tc totalBucketCount) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	addr, err := tc.storageContractAddress(ns, key)
+	if err != nil {
+		return err
+	}
+	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create bucket pool storage contract")
+	}
+	body, err := tc.Serialize()
+	if err != nil {
+		return errors.Wrapf(err, "failed to serialize bucket pool total count")
+	}
+	return contract.Put(key, systemcontracts.GenericValue{PrimaryData: body})
+}
+
+func (tc *totalBucketCount) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	addr, err := tc.storageContractAddress(ns, key)
+	if err != nil {
+		return err
+	}
+	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create bucket pool storage contract")
+	}
+	storeResult, err := contract.Get(key)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get bucket pool total count from contract")
+	}
+	if !storeResult.KeyExists {
+		return errors.Wrapf(state.ErrStateNotExist, "bucket pool total count does not exist in contract")
+	}
+	return tc.Deserialize(storeResult.Value.PrimaryData)
+}
+
+func (tc *totalBucketCount) DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	return errors.New("not implemented")
+}
+
+func (tc *totalBucketCount) ListFromContract(_ string, _ systemcontracts.ContractBackend) ([][]byte, []any, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
+func (tc *totalBucketCount) BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error) {
+	return nil, errors.New("not implemented")
 }
 
 func bucketKey(index uint64) []byte {

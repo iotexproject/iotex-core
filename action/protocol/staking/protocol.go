@@ -238,6 +238,27 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 	return p.createViewAt(ctx, sr, contractsStake)
 }
 
+func (p *Protocol) candidateStateReaderAt(ctx context.Context, sr protocol.StateReader) (*candSR, error) {
+	inputHeight, err := sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	latestView, err := sr.ReadView(_protocolID)
+	if err != nil {
+		return nil, err
+	}
+	vd, err := p.createViewAt(ctx, sr, latestView.(*ViewData).contractsStake)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create staking view")
+	}
+	csr := &candSR{
+		StateReader: sr,
+		height:      inputHeight,
+		view:        vd,
+	}
+	return csr, nil
+}
+
 func (p *Protocol) createViewAt(ctx context.Context, sr protocol.StateReader, csv *contractStakeView) (*ViewData, error) {
 	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sr.Height()
@@ -693,10 +714,6 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if p.contractStakingIndexerV3 != nil {
 		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV3, time.Second))
 	}
-	stakeSR, err := newCompositeStakingStateReader(p.candBucketsContractIndexer, sr, p.calculateVoteWeight, indexers...)
-	if err != nil {
-		return nil, 0, err
-	}
 
 	// get height arg
 	inputHeight, err := sr.Height()
@@ -707,18 +724,13 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
 		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
 	}
-	latestView, err := sr.ReadView(_protocolID)
+	nativeSR, err := p.candidateStateReaderAt(ctx, sr)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "failed to get candidate state reader")
+	}
+	stakeSR, err := newCompositeStakingStateReader(p.candBucketsContractIndexer, nativeSR, p.calculateVoteWeight, indexers...)
 	if err != nil {
 		return nil, 0, err
-	}
-	vd, err := p.createViewAt(ctx, sr, latestView.(*ViewData).contractsStake)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "failed to create staking view")
-	}
-	nativeSR := &candSR{
-		StateReader: sr,
-		height:      inputHeight,
-		view:        vd,
 	}
 
 	var (
