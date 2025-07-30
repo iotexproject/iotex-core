@@ -671,9 +671,6 @@ func (builder *Builder) registerStakingProtocol() error {
 	if builder.cs.contractStakingIndexerV3 != nil {
 		opts = append(opts, staking.WithContractStakingIndexerV3(builder.cs.contractStakingIndexerV3))
 	}
-	if builder.cfg.Chain.EnableStakingIndexer {
-		opts = append(opts, staking.EnableStakingIndexer())
-	}
 	stakingProtocol, err := staking.NewProtocol(
 		staking.HelperCtx{
 			DepositGas:    rewarding.DepositGas,

@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -76,16 +75,14 @@ type (
 
 	// Protocol defines the protocol of handling staking
 	Protocol struct {
-		addr                       address.Address
-		config                     Configuration
-		candBucketsIndexer         *CandidatesBucketsIndexer
-		candBucketsContractIndexer *CandidatesBucketsContractIndexer
-		contractStakingIndexer     ContractStakingIndexerWithBucketType
-		contractStakingIndexerV2   ContractStakingIndexer
-		contractStakingIndexerV3   ContractStakingIndexer
-		voteReviser                *VoteReviser
-		patch                      *PatchStore
-		helperCtx                  HelperCtx
+		addr                     address.Address
+		config                   Configuration
+		contractStakingIndexer   ContractStakingIndexerWithBucketType
+		contractStakingIndexerV2 ContractStakingIndexer
+		contractStakingIndexerV3 ContractStakingIndexer
+		voteReviser              *VoteReviser
+		patch                    *PatchStore
+		helperCtx                HelperCtx
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -116,13 +113,6 @@ func WithContractStakingIndexerV3(indexer ContractStakingIndexer) Option {
 		p.contractStakingIndexerV3 = indexer
 		p.config.TimestampedMigrateContractAddress = indexer.ContractAddress()
 		return
-	}
-}
-
-// EnableStakingIndexer is the option to enable staking indexer
-func EnableStakingIndexer() Option {
-	return func(p *Protocol) {
-		p.candBucketsContractIndexer = newCandidatesBucketsContractIndexer()
 	}
 }
 
@@ -399,50 +389,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	if err = v.(*ViewData).contractsStake.CreatePreStates(ctx); err != nil {
 		return err
 	}
-
-	if p.candBucketsContractIndexer == nil {
-		return nil
-	}
-	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
-	if rp == nil {
-		return nil
-	}
-	currentEpochNum := rp.GetEpochNum(blkCtx.BlockHeight)
-	if currentEpochNum == 0 {
-		return nil
-	}
-	if featureCtx.SkipStakingIndexer {
-		return nil
-	}
-	return p.handleStakingIndexer(ctx, rp.GetEpochHeight(currentEpochNum-1), sm)
-}
-
-func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight uint64, sm protocol.StateManager) error {
-	csr, err := ConstructBaseView(sm)
-	if err != nil {
-		return err
-	}
-	allBuckets, _, err := csr.getAllBuckets()
-	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return err
-	}
-	buckets, err := toIoTeXTypesVoteBucketList(sm, allBuckets)
-	if err != nil {
-		return err
-	}
-	err = p.candBucketsContractIndexer.PutBuckets(sm, buckets)
-	if err != nil {
-		return err
-	}
-	all, _, err := csr.getAllCandidates()
-	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return err
-	}
-	candidateList, err := toIoTeXTypesCandidateListV2(csr, all, protocol.MustGetFeatureCtx(ctx))
-	if err != nil {
-		return err
-	}
-	return p.candBucketsContractIndexer.PutCandidates(sm, candidateList)
+	return nil
 }
 
 // PreCommit preforms pre-commit
@@ -715,20 +662,11 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV3, time.Second))
 	}
 
-	// get height arg
-	inputHeight, err := sr.Height()
-	if err != nil {
-		return nil, 0, err
-	}
-	epochStartHeight := inputHeight
-	if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
-		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
-	}
 	nativeSR, err := p.candidateStateReaderAt(ctx, sr)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "failed to get candidate state reader")
 	}
-	stakeSR, err := newCompositeStakingStateReader(p.candBucketsContractIndexer, nativeSR, p.calculateVoteWeight, indexers...)
+	stakeSR, err := newCompositeStakingStateReader(nativeSR, p.calculateVoteWeight, indexers...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -739,11 +677,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	)
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
-		if epochStartHeight != 0 && p.candBucketsContractIndexer != nil {
-			resp, height, err = p.candBucketsContractIndexer.GetBuckets(sr, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
-		} else {
-			resp, height, err = nativeSR.readStateBuckets(ctx, r.GetBuckets())
-		}
+		resp, height, err = nativeSR.readStateBuckets(ctx, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
 		resp, height, err = nativeSR.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:

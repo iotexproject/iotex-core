@@ -23,12 +23,7 @@ type SystemContract struct {
 }
 
 const (
-	// CandidateListV2Storage is the system contract for candidate list v2 storage
-	CandidateListV2Storage int = iota
-	// VoteBucketStorage is the system contract for vote bucket storage
-	VoteBucketStorage
-	// StakingBucketsContractIndex is the system contract for staking buckets
-	StakingBucketsContractIndex
+	StakingBucketsContractIndex int = iota
 	// BucketPoolContractIndex is the system contract for bucket pool storage
 	BucketPoolContractIndex
 	// BucketIndicesContractIndex is the system contract for bucket indices storage
@@ -55,65 +50,37 @@ func init() {
 
 // initSystemContracts initializes the system contracts array
 func initSystemContracts() {
-	// Initialize bytecodes first
-	var err error
-	CandidateListV2StorageByteCode, err = hex.DecodeString(CandidateListV2StorageByteCodeStr)
-	if err != nil {
-		log.S().Panic("failed to decode CandidateListV2StorageByteCode: " + err.Error())
-	}
-
-	VoteBucketStorageByteCode, err = hex.DecodeString(VoteBucketStorageByteCodeStr)
-	if err != nil {
-		log.S().Panic("failed to decode VoteBucketStorageByteCode: " + err.Error())
-	}
-
 	genericStorageByteCode, err := hex.DecodeString(GenericStorageByteCodeStr)
 	if err != nil {
 		log.S().Panic("failed to decode GenericStorageByteCode: " + err.Error())
 	}
 
-	candidateListV2Storage, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 0).Bytes())
-	if err != nil {
-		log.S().Panic("Invalid candidate list v2 storage contract address: " + err.Error())
-	}
-	voteBucketStorage, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 1).Bytes())
-	if err != nil {
-		log.S().Panic("Invalid vote bucket storage contract address: " + err.Error())
-	}
-	stakingBucketAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 2).Bytes())
+	stakingBucketAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 0).Bytes())
 	if err != nil {
 		log.S().Panic("Invalid staking bucket contract address: " + err.Error())
 	}
-	bucketPoolAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 3).Bytes())
+	bucketPoolAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 1).Bytes())
 	if err != nil {
 		log.S().Panic("Invalid bucket pool contract address: " + err.Error())
 	}
-	bucketIndicesAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 4).Bytes())
+	bucketIndicesAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 2).Bytes())
 	if err != nil {
 		log.S().Panic("Invalid bucket indices contract address: " + err.Error())
 	}
-	endorsementAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 5).Bytes())
+	endorsementAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 3).Bytes())
 	if err != nil {
 		log.S().Panic("Invalid endorsement contract address: " + err.Error())
 	}
-	candidateMapAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 6).Bytes())
+	candidateMapAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 4).Bytes())
 	if err != nil {
 		log.S().Panic("Invalid candidate map contract address: " + err.Error())
 	}
-	candidatesAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 7).Bytes())
+	candidatesAddr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), 5).Bytes())
 	if err != nil {
 		log.S().Panic("Invalid candidates contract address: " + err.Error())
 	}
 
 	SystemContracts = make([]SystemContract, SystemContractCount)
-	SystemContracts[CandidateListV2Storage] = SystemContract{
-		Address: candidateListV2Storage,
-		Code:    CandidateListV2StorageByteCode,
-	}
-	SystemContracts[VoteBucketStorage] = SystemContract{
-		Address: voteBucketStorage,
-		Code:    VoteBucketStorageByteCode,
-	}
 	SystemContracts[StakingBucketsContractIndex] = SystemContract{
 		Address: stakingBucketAddr,
 		Code:    genericStorageByteCode,

@@ -15,56 +15,35 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 )
 
 type (
 	// compositeStakingStateReader is the compositive staking state reader, which combine native and contract staking
 	compositeStakingStateReader struct {
 		contractIndexers    []ContractStakingIndexer
-		nativeIndexer       *CandidatesBucketsContractIndexer
 		nativeSR            CandidateStateReader
 		calculateVoteWeight func(v *VoteBucket, selfStake bool) *big.Int
 	}
 )
 
 // newCompositeStakingStateReader creates a new compositive staking state reader
-func newCompositeStakingStateReader(nativeIndexer *CandidatesBucketsContractIndexer, csr CandidateStateReader, calculateVoteWeight func(v *VoteBucket, selfStake bool) *big.Int, contractIndexers ...ContractStakingIndexer) (*compositeStakingStateReader, error) {
+func newCompositeStakingStateReader(csr CandidateStateReader, calculateVoteWeight func(v *VoteBucket, selfStake bool) *big.Int, contractIndexers ...ContractStakingIndexer) (*compositeStakingStateReader, error) {
 	return &compositeStakingStateReader{
 		contractIndexers:    contractIndexers,
-		nativeIndexer:       nativeIndexer,
 		nativeSR:            csr,
 		calculateVoteWeight: calculateVoteWeight,
 	}, nil
 }
 
 func (c *compositeStakingStateReader) readStateBuckets(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, uint64, error) {
-	// get height arg
-	inputHeight, err := c.nativeSR.SR().Height()
-	if err != nil {
-		return nil, 0, err
-	}
-	epochStartHeight := inputHeight
-	if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
-		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
-	}
-
 	var (
 		buckets *iotextypes.VoteBucketList
 		height  uint64
 	)
-	if epochStartHeight != 0 && c.nativeIndexer != nil {
-		// read native buckets from indexer
-		buckets, height, err = c.nativeIndexer.GetBuckets(c.nativeSR.SR(), req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
-		if err != nil {
-			return nil, 0, err
-		}
-	} else {
-		// read native buckets from state
-		buckets, height, err = c.nativeSR.readStateBuckets(ctx, req)
-		if err != nil {
-			return nil, 0, err
-		}
+	// read native buckets from state
+	buckets, height, err := c.nativeSR.readStateBuckets(ctx, req)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	if !c.isContractStakingEnabled() {
@@ -209,33 +188,15 @@ func (c *compositeStakingStateReader) readStateBucketCount(ctx context.Context, 
 }
 
 func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, req *iotexapi.ReadStakingDataRequest_Candidates) (*iotextypes.CandidateListV2, uint64, error) {
-	// get height arg
-	inputHeight, err := c.nativeSR.SR().Height()
-	if err != nil {
-		return nil, 0, err
-	}
-	epochStartHeight := inputHeight
-	if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
-		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
-	}
-
 	// read native candidates
 	var (
 		candidates *iotextypes.CandidateListV2
 		height     uint64
 	)
-	if epochStartHeight != 0 && c.nativeIndexer != nil {
-		// read candidates from indexer
-		candidates, height, err = c.nativeIndexer.GetCandidates(c.nativeSR.SR(), req.GetPagination().GetOffset(), req.GetPagination().GetLimit())
-		if err != nil {
-			return nil, 0, err
-		}
-	} else {
-		// read candidates from native state
-		candidates, height, err = c.nativeSR.readStateCandidates(ctx, req)
-		if err != nil {
-			return nil, 0, err
-		}
+	// read candidates from native state
+	candidates, height, err := c.nativeSR.readStateCandidates(ctx, req)
+	if err != nil {
+		return nil, 0, err
 	}
 	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
 		return candidates, height, nil
