@@ -452,6 +452,10 @@ func (store *erigonWorkingSetStore) States(ns string, keys [][]byte, obj any) ([
 			zap.String("storage", fmt.Sprintf("%T", obj)),
 			zap.String("content", fmt.Sprintf("%+v", obj)),
 		)
+		if obj == nil {
+			results = append(results, nil)
+			continue
+		}
 		res, err := state.Serialize(obj)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to serialize object for namespace %s and key %x", ns, keys[i])

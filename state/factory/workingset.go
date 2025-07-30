@@ -348,7 +348,7 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys, nil)
+	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys, cfg.Object)
 	if err != nil {
 		return 0, nil, err
 	}
