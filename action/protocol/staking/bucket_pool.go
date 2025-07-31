@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
@@ -117,6 +118,7 @@ func (t totalAmount) StoreToContract(ns string, key []byte, backend systemcontra
 	if err != nil {
 		return errors.Wrapf(err, "failed to create bucket pool storage contract")
 	}
+	log.S().Infof("Storing bucket pool total amount to contract %s with key %x value %+v", addr.String(), key, t)
 	body, err := t.Serialize()
 	if err != nil {
 		return errors.Wrapf(err, "failed to serialize bucket pool total amount")
@@ -140,6 +142,9 @@ func (t *totalAmount) LoadFromContract(ns string, key []byte, backend systemcont
 	if !storeResult.KeyExists {
 		return errors.Wrapf(state.ErrStateNotExist, "bucket pool total amount does not exist in contract")
 	}
+	defer func() {
+		log.S().Infof("Loaded bucket pool total amount from contract %s with key %x value %+v", addr.String(), key, t)
+	}()
 	return t.Deserialize(storeResult.Value.PrimaryData)
 }
 

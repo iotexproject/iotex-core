@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
@@ -73,6 +74,7 @@ func (bis BucketIndices) StoreToContract(ns string, key []byte, backend systemco
 	if err != nil {
 		return errors.Wrapf(err, "failed to create bucket indices storage contract")
 	}
+	log.S().Infof("Storing bucket indices to contract %s with key %x value %+v", addr.String(), key, bis)
 	data, err := bis.Serialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize bucket indices")
@@ -99,6 +101,9 @@ func (bis *BucketIndices) LoadFromContract(ns string, key []byte, backend system
 	if !value.KeyExists {
 		return errors.Wrapf(state.ErrStateNotExist, "bucket indices does not exist in contract")
 	}
+	defer func() {
+		log.S().Infof("Loaded bucket indices from contract %s with key %x value %+v", addr.String(), key, bis)
+	}()
 	return bis.Deserialize(value.Value.PrimaryData)
 }
 
@@ -111,6 +116,7 @@ func (bis BucketIndices) DeleteFromContract(ns string, key []byte, backend syste
 	if err != nil {
 		return errors.Wrapf(err, "failed to create bucket indices storage contract")
 	}
+	log.S().Infof("Deleting bucket indices from contract %s with key %x", addr.String(), key)
 	if err := contract.Remove(key); err != nil {
 		return errors.Wrapf(err, "failed to delete bucket indices from contract")
 	}

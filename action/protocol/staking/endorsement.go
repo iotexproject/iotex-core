@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
@@ -109,6 +110,7 @@ func (e Endorsement) StoreToContract(ns string, key []byte, backend systemcontra
 	if err != nil {
 		return errors.Wrapf(err, "failed to create endorsement storage contract")
 	}
+	log.S().Infof("Storing endorsement to contract %s with key %x value %+v", addr.String(), key, e)
 	data, err := e.Serialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize endorsement")
@@ -135,6 +137,9 @@ func (e *Endorsement) LoadFromContract(ns string, key []byte, backend systemcont
 	if !storeResult.KeyExists {
 		return errors.Wrapf(state.ErrStateNotExist, "endorsement does not exist in contract")
 	}
+	defer func() {
+		log.S().Infof("Loaded endorsement from contract %s with key %x value %+v", addr.String(), key, e)
+	}()
 	return e.Deserialize(storeResult.Value.PrimaryData)
 }
 
@@ -147,6 +152,7 @@ func (e *Endorsement) DeleteFromContract(ns string, key []byte, backend systemco
 	if err != nil {
 		return errors.Wrapf(err, "failed to create endorsement storage contract")
 	}
+	log.S().Infof("Deleting endorsement from contract %s with key %x", addr.String(), key)
 	return contract.Remove(key)
 }
 

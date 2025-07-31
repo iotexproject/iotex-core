@@ -370,6 +370,7 @@ func (tc totalBucketCount) StoreToContract(ns string, key []byte, backend system
 	if err != nil {
 		return errors.Wrapf(err, "failed to create bucket pool storage contract")
 	}
+	log.S().Infof("Storing bucket pool total count to contract %s with key %x value %+v", addr.String(), key, tc)
 	body, err := tc.Serialize()
 	if err != nil {
 		return errors.Wrapf(err, "failed to serialize bucket pool total count")
@@ -393,6 +394,9 @@ func (tc *totalBucketCount) LoadFromContract(ns string, key []byte, backend syst
 	if !storeResult.KeyExists {
 		return errors.Wrapf(state.ErrStateNotExist, "bucket pool total count does not exist in contract")
 	}
+	defer func() {
+		log.S().Infof("Loaded bucket pool total count from contract %s with key %x value %+v", addr.String(), key, tc)
+	}()
 	return tc.Deserialize(storeResult.Value.PrimaryData)
 }
 
