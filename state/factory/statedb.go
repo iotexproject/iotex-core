@@ -359,7 +359,7 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManagerWithCl
 	return sdb.newReadOnlyWorkingSet(ctx, height+1)
 }
 
-func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
+func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (_ protocol.StateManagerWithCloser, err error) {
 	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
 		return nil, err
@@ -374,9 +374,16 @@ func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preac
 	if len(preacts) == 0 {
 		return ws, nil
 	}
+	// handle panic to ensure workingset is closed
+	defer func() {
+		if r := recover(); r != nil {
+			ws.Close()
+			err = errors.Errorf("panic occurred while processing actions: %v", r)
+		}
+	}()
 	// prepare workingset at height, and run acts
 	ws.height++
-	if err := ws.Process(ctx, preacts); err != nil {
+	if err = ws.Process(ctx, preacts); err != nil {
 		ws.Close()
 		return nil, err
 	}
