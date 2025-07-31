@@ -309,7 +309,12 @@ func (d Candidate) StoreToContract(ns string, key []byte, backend systemcontract
 		primaryData   []byte
 		secondaryData []byte
 	)
-	secondaryData = d.Votes.Bytes()
+	if d.Votes.Sign() > 0 {
+		secondaryData, err = proto.Marshal(&stakingpb.Candidate{Votes: d.Votes.String()})
+		if err != nil {
+			return errors.Wrap(err, "failed to marshal candidate votes")
+		}
+	}
 	d.Votes = big.NewInt(0)
 	primaryData, err = d.Serialize()
 	if err != nil {
@@ -337,7 +342,17 @@ func (d *Candidate) LoadFromContract(ns string, key []byte, backend systemcontra
 	if err := d.Deserialize(value.Value.PrimaryData); err != nil {
 		return errors.Wrap(err, "failed to deserialize candidate")
 	}
-	d.Votes = new(big.Int).SetBytes(value.Value.SecondaryData)
+	if len(value.Value.SecondaryData) > 0 {
+		votes := &stakingpb.Candidate{}
+		if err := proto.Unmarshal(value.Value.SecondaryData, votes); err != nil {
+			return errors.Wrap(err, "failed to unmarshal candidate votes")
+		}
+		var ok bool
+		d.Votes, ok = new(big.Int).SetString(votes.Votes, 10)
+		if !ok {
+			return errors.Wrapf(action.ErrInvalidAmount, "failed to parse candidate votes: %s", votes.Votes)
+		}
+	}
 	log.S().Infof("Loaded candidate %s from contract %s: %+v", d.GetIdentifier().String(), addr.String(), d)
 	return nil
 }
@@ -372,7 +387,17 @@ func (d *Candidate) ListFromContract(ns string, backend systemcontracts.Contract
 		if err := c.Deserialize(v.PrimaryData); err != nil {
 			return nil, nil, errors.Wrap(err, "failed to deserialize candidate")
 		}
-		c.Votes = new(big.Int).SetBytes(v.SecondaryData)
+		if len(v.SecondaryData) > 0 {
+			votes := &stakingpb.Candidate{}
+			if err := proto.Unmarshal(v.SecondaryData, votes); err != nil {
+				return nil, nil, errors.Wrap(err, "failed to unmarshal candidate votes")
+			}
+			var ok bool
+			c.Votes, ok = new(big.Int).SetString(votes.Votes, 10)
+			if !ok {
+				return nil, nil, errors.Wrapf(action.ErrInvalidAmount, "failed to parse candidate votes: %s", votes.Votes)
+			}
+		}
 		result = append(result, c)
 		log.S().Infof("Loaded candidate %s from contract %s: %+v", c.GetIdentifier().String(), addr.String(), c)
 	}
@@ -474,6 +499,7 @@ func (l CandidateList) StoreToContract(ns string, key []byte, backend systemcont
 	if err != nil {
 		return errors.Wrapf(err, "failed to create candidate storage contract")
 	}
+	log.S().Infof("Storing candidate list to contract %s with key %x value %+v", addr.String(), key, l)
 	data, err := l.Serialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize candidate list")
@@ -500,6 +526,9 @@ func (l *CandidateList) LoadFromContract(ns string, key []byte, backend systemco
 	if !storeResult.KeyExists {
 		return errors.Wrapf(state.ErrStateNotExist, "candidate list does not exist in contract")
 	}
+	defer func() {
+		log.S().Infof("Loaded candidate list from contract %s with key %x value %+v", addr.String(), key, l)
+	}()
 	return l.Deserialize(storeResult.Value.PrimaryData)
 }
 
