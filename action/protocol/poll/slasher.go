@@ -89,7 +89,7 @@ func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
 	if featureCtx.UpdateBlockMeta {
 		if err := sh.updateCurrentBlockMeta(ctx, sm); err != nil {
-			return errors.Wrap(err, "faild to update current epoch meta")
+			return errors.Wrap(err, "failed to update current epoch meta")
 		}
 	}
 	if blkCtx.BlockHeight == epochLastHeight && featureWithHeightCtx.CalculateProbationList(nextEpochStartHeight) {

@@ -301,7 +301,7 @@ func parseWeb3Reqs(reader io.Reader) (gjson.Result, error) {
 		return gjson.Result{}, errors.New("request json format is not valid")
 	}
 	ret := gjson.Parse(string(data))
-	// check rquired field
+	// check required field
 	for _, req := range ret.Array() {
 		id := req.Get("id")
 		method := req.Get("method")
@@ -418,22 +418,15 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	var (
-		accountMeta *iotextypes.AccountMeta
-	)
-	height, archive, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
 	if err != nil {
 		return nil, err
 	}
-	if !archive {
-		accountMeta, _, err = svr.coreService.Account(ioAddr)
-	} else {
-		accountMeta, _, err = svr.coreService.WithHeight(height).Account(ioAddr)
-	}
+	balance, err := svr.coreService.BalanceAt(context.Background(), ioAddr, height)
 	if err != nil {
 		return nil, err
 	}
-	return intStrToHex(accountMeta.Balance)
+	return intStrToHex(balance)
 }
 
 // getTransactionCount returns the nonce for the given address
@@ -442,13 +435,21 @@ func (svr *web3Handler) getTransactionCount(in *gjson.Result) (interface{}, erro
 	if !addr.Exists() {
 		return nil, errInvalidFormat
 	}
+	var bn = rpc.LatestBlockNumber
+	if bnParam := in.Get("params.1"); bnParam.Exists() {
+		if err := bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
+		}
+	}
 	ioAddr, err := ethAddrToIoAddr(addr.String())
 	if err != nil {
 		return nil, err
 	}
-	// TODO (liuhaai): returns the nonce in given block height after archive mode is supported
-	// blkNum, err := getStringFromArray(in, 1)
-	pendingNonce, err := svr.coreService.PendingNonce(ioAddr)
+	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	if err != nil {
+		return nil, err
+	}
+	pendingNonce, err := svr.coreService.PendingNonceAt(context.Background(), ioAddr, height)
 	if err != nil {
 		return nil, err
 	}

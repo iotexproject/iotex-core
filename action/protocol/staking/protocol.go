@@ -459,7 +459,7 @@ func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight ui
 	return p.candBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
 }
 
-// PreCommit preforms pre-commit
+// PreCommit performs pre-commit
 func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) error {
 	height, err := sm.Height()
 	if err != nil {

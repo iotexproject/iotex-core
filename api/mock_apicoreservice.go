@@ -146,6 +146,21 @@ func (mr *MockCoreServiceMockRecorder) ActionsInActPool(actHashes any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionsInActPool", reflect.TypeOf((*MockCoreService)(nil).ActionsInActPool), actHashes)
 }
 
+// BalanceAt mocks base method.
+func (m *MockCoreService) BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BalanceAt", ctx, addr, height)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BalanceAt indicates an expected call of BalanceAt.
+func (mr *MockCoreServiceMockRecorder) BalanceAt(ctx, addr, height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BalanceAt", reflect.TypeOf((*MockCoreService)(nil).BalanceAt), ctx, addr, height)
+}
+
 // BlobSidecarsByHeight mocks base method.
 func (m *MockCoreService) BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSidecarResult, error) {
 	m.ctrl.T.Helper()
@@ -471,6 +486,21 @@ func (m *MockCoreService) PendingNonce(arg0 address.Address) (uint64, error) {
 func (mr *MockCoreServiceMockRecorder) PendingNonce(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingNonce", reflect.TypeOf((*MockCoreService)(nil).PendingNonce), arg0)
+}
+
+// PendingNonceAt mocks base method.
+func (m *MockCoreService) PendingNonceAt(ctx context.Context, addr address.Address, height uint64) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingNonceAt", ctx, addr, height)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PendingNonceAt indicates an expected call of PendingNonceAt.
+func (mr *MockCoreServiceMockRecorder) PendingNonceAt(ctx, addr, height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingNonceAt", reflect.TypeOf((*MockCoreService)(nil).PendingNonceAt), ctx, addr, height)
 }
 
 // RawBlocks mocks base method.
