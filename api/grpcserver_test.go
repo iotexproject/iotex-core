@@ -440,8 +440,8 @@ func TestGrpcServer_GetReceiptByAction(t *testing.T) {
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
-	t.Run("failed to get reciept by action hash", func(t *testing.T) {
-		expectedErr := errors.New("failed to get reciept by action hash")
+	t.Run("failed to get receipt by action hash", func(t *testing.T) {
+		expectedErr := errors.New("failed to get receipt by action hash")
 		core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, expectedErr)
 
 		_, err := grpcSvr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{})
