@@ -368,8 +368,17 @@ func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, 
 		}
 		ws.store = newErigonWorkingSetStoreForSimulate(ws.store, e)
 	}
+	// handle panic to ensure workingset is closed
+	defer func() {
+		if r := recover(); r != nil {
+			ws.Close()
+			err = errors.Errorf("panic occurred while processing actions: %v", r)
+			log.L().Error("Recovered from panic in WorkingSetAtTransaction", zap.Error(err))
+		}
+	}()
+	ws.height++
 	if err := ws.Process(ctx, acts); err != nil {
-		wsc.Close()
+		ws.Close()
 		return nil, err
 	}
 	return ws, nil
