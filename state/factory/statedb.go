@@ -361,6 +361,14 @@ func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, 
 	if err != nil {
 		return nil, err
 	}
+	// handle panic to ensure workingset is closed
+	defer func() {
+		if r := recover(); r != nil {
+			wsc.Close()
+			err = errors.Errorf("panic occurred while processing actions: %v", r)
+			log.L().Error("Recovered from panic in WorkingSetAtTransaction", zap.Error(err))
+		}
+	}()
 	ws := wsc.(*workingSet)
 	ws.height++
 	if err := ws.Process(ctx, acts); err != nil {
