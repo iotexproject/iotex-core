@@ -318,6 +318,51 @@ func (p *Protocol) CreateGenesisStates(
 	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
 }
 
+func (p *Protocol) SlashCandidate(
+	ctx context.Context,
+	sm protocol.StateManager,
+	owner address.Address,
+	amount *big.Int,
+) error {
+	if amount == nil || amount.Sign() <= 0 {
+		return errors.New("nil or non-positive amount")
+	}
+	csm, err := NewCandidateStateManager(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create candidate state manager")
+	}
+	candidate := csm.GetByIdentifier(owner)
+	if candidate == nil {
+		return errors.Wrapf(state.ErrStateNotExist, "candidate %s does not exist", owner.String())
+	}
+	bucket, err := p.fetchBucket(csm, candidate.SelfStakeBucketIdx)
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch bucket")
+	}
+	prevWeightedVotes := p.calculateVoteWeight(bucket, true)
+	if bucket.StakedAmount.Cmp(amount) < 0 {
+		return errors.Errorf("amount %s is greater than staked amount %s", amount.String(), bucket.StakedAmount.String())
+	}
+	bucket.StakedAmount.Sub(bucket.StakedAmount, amount)
+	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
+		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)
+	}
+	if err := candidate.SubVote(prevWeightedVotes); err != nil {
+		return errors.Wrapf(err, "failed to sub candidate votes")
+	}
+	weightedVotes := p.calculateVoteWeight(bucket, true)
+	if err := candidate.AddVote(weightedVotes); err != nil {
+		return errors.Wrapf(err, "failed to add candidate votes")
+	}
+	if err := candidate.SubSelfStake(amount); err != nil {
+		return errors.Wrap(err, "failed to update self stake")
+	}
+	if err := csm.Upsert(candidate); err != nil {
+		return errors.Wrap(err, "failed to upsert candidate")
+	}
+	return csm.CreditBucketPool(amount)
+}
+
 // CreatePreStates updates state manager
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
 	var (

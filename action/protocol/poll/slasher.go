@@ -429,7 +429,7 @@ func (sh *Slasher) CalculateProbationList(
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
 		}
-		for _, addr := range uq {
+		for addr, _ := range uq {
 			if _, ok := unqualifiedDelegates[addr]; !ok {
 				unqualifiedDelegates[addr] = 1
 			} else {
@@ -471,7 +471,7 @@ func (sh *Slasher) CalculateProbationList(
 	if err := upd.AddRecentUPD(addList); err != nil {
 		return nil, errors.Wrap(err, "failed to add recent upd")
 	}
-	for _, addr := range addList {
+	for addr := range addList {
 		if _, ok := probationMap[addr]; ok {
 			probationMap[addr]++
 			continue
@@ -488,7 +488,7 @@ func (sh *Slasher) CalculateProbationList(
 	return nextProbationlist, setUnproductiveDelegates(sm, upd)
 }
 
-func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protocol.StateReader) ([]string, error) {
+func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protocol.StateReader) (map[string]uint64, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
@@ -526,11 +526,11 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 			produce[abp.Address] = 0
 		}
 	}
-	unqualified := make([]string, 0)
+	unqualified := make(map[string]uint64, 0)
 	expectedNumBlks := numBlks / uint64(len(produce))
 	for addr, actualNumBlks := range produce {
 		if actualNumBlks*100/expectedNumBlks < sh.prodThreshold {
-			unqualified = append(unqualified, addr)
+			unqualified[addr] = expectedNumBlks - actualNumBlks
 		}
 	}
 	return unqualified, nil
