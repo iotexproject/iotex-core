@@ -890,13 +890,13 @@ func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, Can
 }
 
 func writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners CandidateList) error {
-	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
+	if _, err := sm.PutState(&name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
 		return err
 	}
-	if _, err := sm.PutState(op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+	if _, err := sm.PutState(&op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
 		return err
 	}
-	_, err := sm.PutState(owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
+	_, err := sm.PutState(&owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
 	return err
 }
 
