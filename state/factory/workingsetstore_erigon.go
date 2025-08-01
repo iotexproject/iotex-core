@@ -104,7 +104,7 @@ func (db *erigonDB) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to create erigon working set store")
 		}
 		defer store.Close()
-		if err := systemcontracts.DeploySystemContractsIfNotExist(newContractBackend(ctx, store.intraBlockState, store.sr)); err != nil {
+		if err := systemcontracts.DeploySystemContractsIfNotExist(NewContractBackend(ctx, store.intraBlockState, store.sr)); err != nil {
 			return errors.Wrap(err, "failed to deploy system contracts")
 		}
 		return store.Commit(ctx, 0)
@@ -322,7 +322,7 @@ func (store *erigonWorkingSetStore) ResetSnapshots() {}
 func (store *erigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (err error) {
 	if cs, ok := obj.(ContractStorage); ok {
 		log.L().Debug("put object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)), zap.String("content", fmt.Sprintf("%+v", obj)))
-		return cs.StoreToContract(ns, key, newContractBackend(store.ctx, store.intraBlockState, store.sr))
+		return cs.StoreToContract(ns, key, NewContractBackend(store.ctx, store.intraBlockState, store.sr))
 	}
 	value, err := state.Serialize(obj)
 	if err != nil {
@@ -363,7 +363,7 @@ func (store *erigonWorkingSetStore) GetObject(ns string, key []byte, obj any) er
 		defer func() {
 			log.L().Debug("get object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
 		}()
-		return cs.LoadFromContract(ns, key, newContractBackend(store.ctx, store.intraBlockState, store.sr))
+		return cs.LoadFromContract(ns, key, NewContractBackend(store.ctx, store.intraBlockState, store.sr))
 	}
 	value, err := store.Get(ns, key)
 	if err != nil {
@@ -403,7 +403,7 @@ func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
 func (store *erigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
 	if cs, ok := obj.(ContractStorage); ok {
 		log.L().Debug("delete object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
-		return cs.DeleteFromContract(ns, key, newContractBackend(store.ctx, store.intraBlockState, store.sr))
+		return cs.DeleteFromContract(ns, key, NewContractBackend(store.ctx, store.intraBlockState, store.sr))
 	}
 	return nil
 }
@@ -429,7 +429,7 @@ func (store *erigonWorkingSetStore) States(ns string, keys [][]byte, obj any) ([
 		objs    []any
 		err     error
 		results [][]byte
-		backend = newContractBackend(store.ctx, store.intraBlockState, store.sr)
+		backend = NewContractBackend(store.ctx, store.intraBlockState, store.sr)
 	)
 	if len(keys) == 0 {
 		keys, objs, err = cs.ListFromContract(ns, backend)
@@ -470,7 +470,7 @@ func (store *erigonWorkingSetStore) Digest() hash.Hash256 {
 }
 
 func (store *erigonWorkingSetStore) CreateGenesisStates(ctx context.Context) error {
-	return systemcontracts.DeploySystemContractsIfNotExist(newContractBackend(ctx, store.intraBlockState, store.sr))
+	return systemcontracts.DeploySystemContractsIfNotExist(NewContractBackend(ctx, store.intraBlockState, store.sr))
 }
 
 func (store *erigonDB) Height() (uint64, error) {

@@ -483,7 +483,7 @@ func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {
 	return list, nil
 }
 
-func (l CandidateList) storageContractAddress(ns string, key []byte) (address.Address, error) {
+func (l CandidateList) storageContractAddress(ns string) (address.Address, error) {
 	if ns != CandsMapNS {
 		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, CandsMapNS)
 	}
@@ -491,7 +491,7 @@ func (l CandidateList) storageContractAddress(ns string, key []byte) (address.Ad
 }
 
 func (l CandidateList) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
-	addr, err := l.storageContractAddress(ns, key)
+	addr, err := l.storageContractAddress(ns)
 	if err != nil {
 		return err
 	}
@@ -511,7 +511,7 @@ func (l CandidateList) StoreToContract(ns string, key []byte, backend systemcont
 }
 
 func (l *CandidateList) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
-	addr, err := l.storageContractAddress(ns, key)
+	addr, err := l.storageContractAddress(ns)
 	if err != nil {
 		return err
 	}
@@ -536,8 +536,36 @@ func (l *CandidateList) DeleteFromContract(ns string, key []byte, backend system
 	return errors.New("not implemented")
 }
 
-func (l *CandidateList) ListFromContract(_ string, _ systemcontracts.ContractBackend) ([][]byte, []any, error) {
-	return nil, nil, errors.New("not implemented")
+func (l *CandidateList) ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error) {
+	addr, err := l.storageContractAddress(ns)
+	if err != nil {
+		return nil, nil, err
+	}
+	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to create candidate storage contract")
+	}
+	count, err := contract.Count()
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to count candidate lists in contract")
+	}
+	value, err := contract.List(0, count.Uint64())
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to list candidate lists in contract")
+	}
+	var (
+		result = make([]any, 0, len(value.Values))
+	)
+	log.S().Infof("Loaded %d candidate lists from contract %s", len(value.Values), addr.String())
+	for i, v := range value.Values {
+		cl := &CandidateList{}
+		if err := cl.Deserialize(v.PrimaryData); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to deserialize candidate list")
+		}
+		result = append(result, cl)
+		log.S().Infof("Loaded candidate list from contract %s with key %x value %+v", addr.String(), value.KeyList[i], cl)
+	}
+	return value.KeyList, result, nil
 }
 
 func (l *CandidateList) BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error) {

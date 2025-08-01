@@ -58,7 +58,7 @@ func extractRevertMessage(ret []byte) string {
 	return hex.EncodeToString(ret)
 }
 
-func newContractBackend(ctx context.Context, intraBlockState *erigonstate.IntraBlockState, org erigonstate.StateReader) *contractBacked {
+func NewContractBackend(ctx context.Context, intraBlockState *erigonstate.IntraBlockState, org erigonstate.StateReader) *contractBacked {
 	return &contractBacked{
 		intraBlockState: intraBlockState,
 		org:             org,

@@ -57,10 +57,18 @@ type (
 	totalBucketCount struct {
 		count uint64
 	}
+
+	TotalBucketCount struct {
+		totalBucketCount
+	}
 )
 
 var _ protocol.ContractStorage = (*VoteBucket)(nil)
 var _ protocol.ContractStorage = (*totalBucketCount)(nil)
+
+func NewTotalBucketCount(count uint64) *TotalBucketCount {
+	return &TotalBucketCount{totalBucketCount: totalBucketCount{count: count}}
+}
 
 // NewVoteBucket creates a new vote bucket
 func NewVoteBucket(cand, owner address.Address, amount *big.Int, duration uint32, ctime time.Time, autoStake bool) *VoteBucket {
@@ -284,8 +292,36 @@ func (w VoteBucket) DeleteFromContract(ns string, key []byte, backend systemcont
 }
 
 // ListFromContract lists all probation data from the contract storage
-func (w *VoteBucket) ListFromContract(_ string, _ systemcontracts.ContractBackend) ([][]byte, []any, error) {
-	return nil, nil, errors.New("not implemented")
+func (w *VoteBucket) ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error) {
+	addr, err := w.storageContractAddress(ns)
+	if err != nil {
+		return nil, nil, err
+	}
+	voteBucketContract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to create vote bucket storage contract")
+	}
+	count, err := voteBucketContract.Count()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to get vote bucket count from contract")
+	}
+	if count.Sign() == 0 {
+		log.S().Infof("No vote buckets found in contract %s", addr.String())
+		return nil, nil, nil
+	}
+	storeValues := make([]any, 0, count.Uint64())
+	listResult, err := voteBucketContract.List(0, count.Uint64())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to list vote buckets from contract")
+	}
+	for _, item := range listResult.Values {
+		voteBucket := &VoteBucket{}
+		if err := voteBucket.Deserialize(item.PrimaryData); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to deserialize vote bucket from contract")
+		}
+		storeValues = append(storeValues, voteBucket)
+	}
+	return listResult.KeyList, storeValues, nil
 }
 
 // BatchFromContract retrieves multiple probation lists from the contract storage

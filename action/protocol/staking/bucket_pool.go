@@ -53,9 +53,22 @@ type (
 		amount *big.Int
 		count  uint64
 	}
+
+	TotalAmount struct {
+		totalAmount
+	}
 )
 
 var _ protocol.ContractStorage = (*totalAmount)(nil)
+
+func NewTotalAmount() *TotalAmount {
+	return &TotalAmount{
+		totalAmount: totalAmount{
+			amount: big.NewInt(0),
+			count:  0,
+		},
+	}
+}
 
 func (t *totalAmount) Serialize() ([]byte, error) {
 	gen := stakingpb.TotalAmount{

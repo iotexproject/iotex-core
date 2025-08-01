@@ -123,8 +123,38 @@ func (bis BucketIndices) DeleteFromContract(ns string, key []byte, backend syste
 	return nil
 }
 
-func (bis BucketIndices) ListFromContract(_ string, _ systemcontracts.ContractBackend) ([][]byte, []any, error) {
-	return nil, nil, errors.New("not implemented")
+func (bis BucketIndices) ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error) {
+	addr, err := bis.storageContractAddress(ns, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to create bucket indices storage contract")
+	}
+	count, err := contract.Count()
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to count bucket indices in contract")
+	}
+	if count.Sign() == 0 {
+		log.S().Infof("No bucket indices found in contract %s", addr.String())
+		return nil, nil, nil
+	}
+	listResult, err := contract.List(0, count.Uint64())
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to list bucket indices from contract")
+	}
+	log.S().Infof("Listed bucket indices from contract %s with keys %v", addr.String(), listResult.KeyList)
+	var indices []any
+	for _, value := range listResult.Values {
+		bi := &BucketIndices{}
+		if err := bi.Deserialize(value.PrimaryData); err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to deserialize bucket indices from contract")
+		}
+		indices = append(indices, bi)
+	}
+	log.S().Infof("Listed %d bucket indices from contract %s", len(indices), addr.String())
+	return listResult.KeyList, indices, nil
 }
 
 func (bis BucketIndices) BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error) {
