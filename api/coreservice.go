@@ -195,6 +195,10 @@ type (
 		BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error)
 		// PendingNonceAt returns the pending nonce of an account at a specific height
 		PendingNonceAt(ctx context.Context, addr address.Address, height uint64) (uint64, error)
+		// CodeAt returns the code at a specific address at a specific height
+		CodeAt(ctx context.Context, addr address.Address, height uint64) ([]byte, error)
+		// ReadContractStorageAt reads contract's storage at a specific height
+		ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -372,6 +376,29 @@ func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, he
 		return "", status.Error(codes.NotFound, err.Error())
 	}
 	return state.Balance.String(), nil
+}
+
+func (core *coreService) CodeAt(ctx context.Context, addr address.Address, height uint64) ([]byte, error) {
+	ctx, span := tracer.NewSpan(ctx, "coreService.CodeAt")
+	defer span.End()
+	addrStr := addr.String()
+	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
+		return nil, nil
+	}
+	ctx, ws, err := core.workingSetAt(ctx, height)
+	defer ws.Close()
+	state, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	if !state.IsContract() {
+		return nil, nil
+	}
+	code, err := evm.ReadContractCode(ctx, ws, addr)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return protocol.SerializableBytes(code), nil
 }
 
 func (core *coreService) acccount(ctx context.Context, height uint64, state *state.Account, pendingNonce uint64, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
@@ -1913,6 +1940,19 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 	return evm.ReadContractStorage(ctx, ws, addr, key)
 }
 
+func (core *coreService) ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error) {
+	ctx, ws, err := core.workingSetAt(ctx, height)
+	defer ws.Close()
+	state, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	if !state.IsContract() {
+		return nil, nil
+	}
+	return evm.ReadContractStorage(ctx, ws, addr, key)
+}
+
 func (core *coreService) ReceiveBlock(blk *block.Block) error {
 	core.readCache.Clear()
 	return core.chainListener.ReceiveBlock(blk)
@@ -2088,6 +2128,21 @@ func (core *coreService) simulateExecution(
 		DepositGasFunc: rewarding.DepositGas,
 	})
 	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
+}
+
+func (core *coreService) workingSetAt(ctx context.Context, height uint64) (context.Context, protocol.StateManagerWithCloser, error) {
+	if height == 0 {
+		height = core.bc.TipHeight()
+	}
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return ctx, nil, status.Error(codes.Internal, err.Error())
+	}
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
+	if err != nil {
+		return ctx, nil, status.Error(codes.Internal, err.Error())
+	}
+	return ctx, ws, nil
 }
 
 func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {

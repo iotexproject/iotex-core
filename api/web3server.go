@@ -641,11 +641,20 @@ func (svr *web3Handler) getCode(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	bnParam := in.Get("params.1")
+	bn, err := parseBlockNumber(&bnParam)
 	if err != nil {
 		return nil, err
 	}
-	return "0x" + hex.EncodeToString(accountMeta.ContractByteCode), nil
+	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	if err != nil {
+		return nil, err
+	}
+	code, err := svr.coreService.CodeAt(context.Background(), ioAddr, height)
+	if err != nil {
+		return nil, err
+	}
+	return "0x" + hex.EncodeToString(code), nil
 }
 
 func (svr *web3Handler) getNodeInfo() (interface{}, error) {
@@ -881,6 +890,15 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	if !ethAddr.Exists() || !storagePos.Exists() {
 		return nil, errInvalidFormat
 	}
+	bnParam := in.Get("params.2")
+	bn, err := parseBlockNumber(&bnParam)
+	if err != nil {
+		return nil, err
+	}
+	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	if err != nil {
+		return nil, err
+	}
 	contractAddr, err := address.FromHex(ethAddr.String())
 	if err != nil {
 		return nil, err
@@ -889,7 +907,7 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	val, err := svr.coreService.ReadContractStorage(context.Background(), contractAddr, pos)
+	val, err := svr.coreService.ReadContractStorageAt(context.Background(), contractAddr, pos, height)
 	if err != nil {
 		return nil, err
 	}
