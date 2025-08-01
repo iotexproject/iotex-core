@@ -1968,6 +1968,13 @@ func (core *coreService) ReadContractStorageAt(ctx context.Context, addr address
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	defer ws.Close()
+	state, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	if !state.IsContract() {
+		return nil, nil
+	}
 	return evm.ReadContractStorage(ctx, ws, addr, key)
 }
 

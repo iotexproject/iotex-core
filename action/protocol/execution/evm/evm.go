@@ -363,7 +363,7 @@ func ReadContractStorage(
 			if dryrun {
 				stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
 			} else {
-				return nil, errors.New("should not happen, use dryrun instead")
+				log.S().Panic("should not happen, use dryrun instead")
 			}
 		}
 	}
@@ -398,7 +398,7 @@ func ReadContractCode(
 			if dryrun {
 				stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
 			} else {
-				return nil, errors.New("should not happen, use dryrun instead")
+				log.S().Panic("should not happen, use dryrun instead")
 			}
 		}
 	}
