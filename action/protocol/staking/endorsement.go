@@ -178,11 +178,12 @@ func (e *Endorsement) ListFromContract(ns string, backend systemcontracts.Contra
 		return nil, nil, errors.Wrapf(err, "failed to list endorsements from contract")
 	}
 	values := make([]any, 0, len(listResult.Values))
-	for i, v := range listResult.Values {
-		values[i] = &Endorsement{}
-		if err := values[i].(*Endorsement).Deserialize(v.PrimaryData); err != nil {
+	for _, v := range listResult.Values {
+		e := &Endorsement{}
+		if err := e.Deserialize(v.PrimaryData); err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to deserialize endorsement from contract")
 		}
+		values = append(values, e)
 	}
 	log.S().Infof("Listed %d endorsements from contract %s", len(values), addr.String())
 	return listResult.KeyList, values, nil

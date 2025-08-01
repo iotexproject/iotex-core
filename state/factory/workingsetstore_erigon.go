@@ -83,32 +83,6 @@ func (db *erigonDB) Start(ctx context.Context) error {
 		return errors.Wrap(err, "failed to open history state index")
 	}
 	db.rw = rw
-
-	// Initialize system contracts if not exist
-	height, err := db.Height()
-	if err != nil {
-		return errors.Wrap(err, "failed to get height from erigon working set store")
-	}
-	if height > 0 {
-		bcCtx := protocol.MustGetBlockchainCtx(ctx)
-		ts, err := bcCtx.GetBlockTime(height)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get block timestamp for height %d", height)
-		}
-		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-			BlockHeight:    height,
-			BlockTimeStamp: ts,
-		})
-		store, err := db.newErigonStore(ctx, height)
-		if err != nil {
-			return errors.Wrap(err, "failed to create erigon working set store")
-		}
-		defer store.Close()
-		if err := systemcontracts.DeploySystemContractsIfNotExist(NewContractBackend(ctx, store.intraBlockState, store.sr)); err != nil {
-			return errors.Wrap(err, "failed to deploy system contracts")
-		}
-		return store.Commit(ctx, 0)
-	}
 	return nil
 }
 
