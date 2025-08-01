@@ -360,11 +360,10 @@ func ReadContractStorage(
 		Erigon() (*erigonstate.IntraBlockState, bool)
 	}); ok {
 		if in, dryrun := erigonsm.Erigon(); in != nil {
-			if dryrun {
-				stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
-			} else {
+			if !dryrun {
 				log.S().Panic("should not happen, use dryrun instead")
 			}
+			stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
 		}
 	}
 	res := stateDB.GetState(common.BytesToAddress(contract.Bytes()), common.BytesToHash(key))
@@ -395,11 +394,10 @@ func ReadContractCode(
 		Erigon() (*erigonstate.IntraBlockState, bool)
 	}); ok {
 		if in, dryrun := erigonsm.Erigon(); in != nil {
-			if dryrun {
-				stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
-			} else {
+			if !dryrun {
 				log.S().Panic("should not happen, use dryrun instead")
 			}
+			stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
 		}
 	}
 	code := stateDB.GetCode(common.BytesToAddress(contract.Bytes()))
