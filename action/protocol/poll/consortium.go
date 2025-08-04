@@ -201,7 +201,7 @@ func (cc *consortiumCommittee) CalculateCandidatesByHeight(ctx context.Context, 
 func (cc *consortiumCommittee) CalculateUnproductiveDelegates(
 	ctx context.Context,
 	sr protocol.StateReader,
-) ([]string, error) {
+) (map[string]uint64, error) {
 	return nil, nil
 }
 

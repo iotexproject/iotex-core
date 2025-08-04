@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -130,7 +130,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
 		// Grant epoch reward
-		rewardLogs, err := p.GrantEpochReward(ctx, sm)
+		_, rewardLogs, err := p.GrantEpochReward(ctx, sm)
 		require.NoError(t, err)
 		require.Equal(t, 8, len(rewardLogs))
 
@@ -221,13 +221,13 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		}
 
 		// Grant the same epoch reward again will fail
-		_, err = p.GrantEpochReward(ctx, sm)
+		_, _, err = p.GrantEpochReward(ctx, sm)
 		require.Error(t, err)
 
 		// Grant the epoch reward on a block that is not the last one in an epoch will fail
 		blkCtx.BlockHeight++
 		ctx = protocol.WithBlockCtx(ctx, blkCtx)
-		_, err = p.GrantEpochReward(ctx, sm)
+		_, _, err = p.GrantEpochReward(ctx, sm)
 		require.Error(t, err)
 	}, false)
 
@@ -237,7 +237,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
 		// Grant epoch reward
-		_, err = p.GrantEpochReward(ctx, sm)
+		_, _, err = p.GrantEpochReward(ctx, sm)
 		require.NoError(t, err)
 
 		// The 5-th candidate can't get the reward because exempting from the epoch reward
@@ -501,7 +501,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 
 	// Grant epoch reward
 	ctx = protocol.WithFeatureCtx(ctx)
-	rewardLogs, err := p.GrantEpochReward(ctx, sm)
+	_, rewardLogs, err := p.GrantEpochReward(ctx, sm)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(rewardLogs))
 

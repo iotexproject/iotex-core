@@ -5,8 +5,9 @@
 package batch
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockKVStoreBatch is a mock of KVStoreBatch interface

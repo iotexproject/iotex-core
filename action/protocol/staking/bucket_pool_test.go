@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -79,6 +79,7 @@ func TestBucketPool(t *testing.T) {
 	}
 
 	view, _, err := CreateBaseView(sm, false)
+	view.contractsStake = &contractStakeView{}
 	r.NoError(err)
 	r.NoError(sm.WriteView(_protocolID, view))
 	pool = view.bucketPool

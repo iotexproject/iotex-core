@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
-	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -263,8 +263,7 @@ func TestGetBalance(t *testing.T) {
 	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	balance := "111111111111111111"
-	core.EXPECT().WithHeight(gomock.Any()).Return(core).Times(1)
-	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{Balance: balance}, nil, nil)
+	core.EXPECT().BalanceAt(gomock.Any(), gomock.Any(), gomock.Any()).Return(balance, nil)
 
 	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"]}`)
 	ret, err := web3svr.getBalance(&in)
@@ -280,13 +279,13 @@ func TestGetTransactionCount(t *testing.T) {
 	defer ctrl.Finish()
 	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
-	core.EXPECT().PendingNonce(gomock.Any()).Return(uint64(2), nil)
+	core.EXPECT().PendingNonceAt(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(2), nil)
 
 	inNil := gjson.Parse(`{"params":[]}`)
 	_, err := web3svr.getTransactionCount(&inNil)
 	require.EqualError(err, errInvalidFormat.Error())
 
-	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
+	in := gjson.Parse(`{"params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"]}`)
 	ret, err := web3svr.getTransactionCount(&in)
 	require.NoError(err)
 	require.Equal("0x2", ret.(string))
@@ -462,7 +461,7 @@ func TestGetCode(t *testing.T) {
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	code := "608060405234801561001057600080fd5b50610150806100206contractbytecode"
 	data, _ := hex.DecodeString(code)
-	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{ContractByteCode: data}, nil, nil)
+	core.EXPECT().CodeAt(gomock.Any(), gomock.Any(), gomock.Any()).Return(data, nil)
 
 	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
@@ -908,7 +907,7 @@ func TestGetStorageAt(t *testing.T) {
 	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
 	val := []byte("test")
-	core.EXPECT().ReadContractStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(val, nil)
+	core.EXPECT().ReadContractStorageAt(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(val, nil)
 
 	in := gjson.Parse(`{"params":["0x123456789abc", "0"]}`)
 	ret, err := web3svr.getStorageAt(&in)

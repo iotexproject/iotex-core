@@ -331,14 +331,14 @@ func (sdb *stateDB) Mint(
 	return &blk, nil
 }
 
-func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, error) {
+func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManagerWithCloser, error) {
 	sdb.mutex.RLock()
 	height := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
 	return sdb.newReadOnlyWorkingSet(ctx, height+1)
 }
 
-func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
+func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
 	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
 		return nil, err
