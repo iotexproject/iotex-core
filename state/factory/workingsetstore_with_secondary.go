@@ -24,19 +24,22 @@ var (
 
 type reader interface {
 	Get(string, []byte) ([]byte, error)
-	GetFromStateDB(string, []byte) ([]byte, error)
-	States(string, [][]byte) ([][]byte, [][]byte, error)
+	GetObject(string, []byte, any) error
+	States(string, [][]byte, any) ([][]byte, [][]byte, error)
 	Digest() hash.Hash256
 	Filter(string, db.Condition, []byte, []byte) ([][]byte, [][]byte, error)
 }
 
 type writer interface {
 	Put(ns string, key []byte, value []byte) error
+	PutObject(ns string, key []byte, obj any) error
 	Delete(ns string, key []byte) error
+	DeleteObject(ns string, key []byte, obj any) error
 	Snapshot() int
 	RevertSnapshot(snapshot int) error
 	ResetSnapshots()
 	WriteBatch(batch.KVStoreBatch) error
+	CreateGenesisStates(context.Context) error
 }
 
 // treat erigon as 3rd output, still read from statedb
@@ -93,6 +96,13 @@ func (store *workingSetStoreWithSecondary) Put(ns string, key []byte, value []by
 	return store.writerSecondary.Put(ns, key, value)
 }
 
+func (store *workingSetStoreWithSecondary) PutObject(ns string, key []byte, obj any) error {
+	if err := store.writer.PutObject(ns, key, obj); err != nil {
+		return err
+	}
+	return store.writerSecondary.PutObject(ns, key, obj)
+}
+
 func (store *workingSetStoreWithSecondary) Delete(ns string, key []byte) error {
 	if err := store.writer.Delete(ns, key); err != nil {
 		return err
@@ -100,15 +110,25 @@ func (store *workingSetStoreWithSecondary) Delete(ns string, key []byte) error {
 	return store.writerSecondary.Delete(ns, key)
 }
 
-func (store *workingSetStoreWithSecondary) Commit(ctx context.Context, retention uint64) error {
-	t1 := time.Now()
-	if err := store.writer.Commit(ctx, retention); err != nil {
+func (store *workingSetStoreWithSecondary) DeleteObject(ns string, key []byte, obj any) error {
+	if err := store.writer.DeleteObject(ns, key, obj); err != nil {
 		return err
 	}
-	perfMtc.WithLabelValues("commitstore").Set(float64(time.Since(t1).Nanoseconds()))
+	return store.writerSecondary.DeleteObject(ns, key, obj)
+}
+
+func (store *workingSetStoreWithSecondary) Commit(ctx context.Context, retention uint64) error {
+	// Commit to secondary store first, then commit to main store
+	// This ensures that if the secondary store fails, the main store is not committed
+	// the main store can be committed independently, but the secondary store cannot
+	t1 := time.Now()
+	if err := store.writerSecondary.Commit(ctx, retention); err != nil {
+		return err
+	}
+	perfMtc.WithLabelValues("commiterigon").Set(float64(time.Since(t1).Nanoseconds()))
 	t2 := time.Now()
-	err := store.writerSecondary.Commit(ctx, retention)
-	perfMtc.WithLabelValues("commiterigon").Set(float64(time.Since(t2).Nanoseconds()))
+	err := store.writer.Commit(ctx, retention)
+	perfMtc.WithLabelValues("commitstore").Set(float64(time.Since(t2).Nanoseconds()))
 	return err
 }
 
@@ -143,4 +163,11 @@ func (store *workingSetStoreWithSecondary) ResetSnapshots() {
 func (store *workingSetStoreWithSecondary) Close() {
 	store.writer.Close()
 	store.writerSecondary.Close()
+}
+
+func (store *workingSetStoreWithSecondary) CreateGenesisStates(ctx context.Context) error {
+	if err := store.writer.CreateGenesisStates(ctx); err != nil {
+		return err
+	}
+	return store.writerSecondary.CreateGenesisStates(ctx)
 }

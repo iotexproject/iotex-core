@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -78,7 +77,6 @@ type (
 	Protocol struct {
 		addr                     address.Address
 		config                   Configuration
-		candBucketsIndexer       *CandidatesBucketsIndexer
 		contractStakingIndexer   ContractStakingIndexerWithBucketType
 		contractStakingIndexerV2 ContractStakingIndexer
 		contractStakingIndexerV3 ContractStakingIndexer
@@ -138,7 +136,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 func NewProtocol(
 	helperCtx HelperCtx,
 	cfg *BuilderConfig,
-	candBucketsIndexer *CandidatesBucketsIndexer,
+	_ *CandidatesBucketsIndexer,
 	contractStakingIndexer ContractStakingIndexerWithBucketType,
 	contractStakingIndexerV2 ContractStakingIndexer,
 	opts ...Option,
@@ -186,7 +184,6 @@ func NewProtocol(
 			EndorsementWithdrawWaitingBlocks: cfg.Staking.EndorsementWithdrawWaitingBlocks,
 			MigrateContractAddress:           migrateContractAddress,
 		},
-		candBucketsIndexer:       candBucketsIndexer,
 		voteReviser:              voteReviser,
 		patch:                    NewPatchStore(cfg.StakingPatchDir),
 		contractStakingIndexer:   contractStakingIndexer,
@@ -206,12 +203,58 @@ func ProtocolAddr() address.Address {
 
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol.View, error) {
+	contractsStake := &contractStakeView{}
+	if p.contractStakingIndexer != nil {
+		view, err := p.contractStakingIndexer.StartView(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to start contract staking indexer")
+		}
+		contractsStake.v1 = view
+	}
+	if p.contractStakingIndexerV2 != nil {
+		view, err := p.contractStakingIndexerV2.StartView(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to start contract staking indexer v2")
+		}
+		contractsStake.v2 = view
+	}
+	if p.contractStakingIndexerV3 != nil {
+		view, err := p.contractStakingIndexerV3.StartView(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to start contract staking indexer v3")
+		}
+		contractsStake.v3 = view
+	}
+	return p.createViewAt(ctx, sr, contractsStake)
+}
+
+func (p *Protocol) candidateStateReaderAt(ctx context.Context, sr protocol.StateReader) (*candSR, error) {
+	inputHeight, err := sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	latestView, err := sr.ReadView(_protocolID)
+	if err != nil {
+		return nil, err
+	}
+	vd, err := p.createViewAt(ctx, sr, latestView.(*ViewData).contractsStake)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create staking view")
+	}
+	csr := &candSR{
+		StateReader: sr,
+		height:      inputHeight,
+		view:        vd,
+	}
+	return csr, nil
+}
+
+func (p *Protocol) createViewAt(ctx context.Context, sr protocol.StateReader, csv *contractStakeView) (*ViewData, error) {
 	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sr.Height()
 	if err != nil {
 		return nil, err
 	}
-
 	// load view from SR
 	c, _, err := CreateBaseView(sr, featureCtx.ReadStateFromDB(height))
 	if err != nil {
@@ -231,28 +274,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 	}
 
-	c.contractsStake = &contractStakeView{}
-	if p.contractStakingIndexer != nil {
-		view, err := p.contractStakingIndexer.StartView(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to start contract staking indexer")
-		}
-		c.contractsStake.v1 = view
-	}
-	if p.contractStakingIndexerV2 != nil {
-		view, err := p.contractStakingIndexerV2.StartView(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to start contract staking indexer v2")
-		}
-		c.contractsStake.v2 = view
-	}
-	if p.contractStakingIndexerV3 != nil {
-		view, err := p.contractStakingIndexerV3.StartView(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to start contract staking indexer v3")
-		}
-		c.contractsStake.v3 = view
-	}
+	c.contractsStake = csv
 	return c, nil
 }
 
@@ -367,51 +389,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	if err = v.(*ViewData).contractsStake.CreatePreStates(ctx); err != nil {
 		return err
 	}
-
-	if p.candBucketsIndexer == nil {
-		return nil
-	}
-	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
-	if rp == nil {
-		return nil
-	}
-	currentEpochNum := rp.GetEpochNum(blkCtx.BlockHeight)
-	if currentEpochNum == 0 {
-		return nil
-	}
-	epochStartHeight := rp.GetEpochHeight(currentEpochNum)
-	if epochStartHeight != blkCtx.BlockHeight || featureCtx.SkipStakingIndexer {
-		return nil
-	}
-	return p.handleStakingIndexer(ctx, rp.GetEpochHeight(currentEpochNum-1), sm)
-}
-
-func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight uint64, sm protocol.StateManager) error {
-	csr, err := ConstructBaseView(sm)
-	if err != nil {
-		return err
-	}
-	allBuckets, _, err := csr.getAllBuckets()
-	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return err
-	}
-	buckets, err := toIoTeXTypesVoteBucketList(sm, allBuckets)
-	if err != nil {
-		return err
-	}
-	err = p.candBucketsIndexer.PutBuckets(epochStartHeight, buckets)
-	if err != nil {
-		return err
-	}
-	all, _, err := csr.getAllCandidates()
-	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return err
-	}
-	candidateList, err := toIoTeXTypesCandidateListV2(csr, all, protocol.MustGetFeatureCtx(ctx))
-	if err != nil {
-		return err
-	}
-	return p.candBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
+	return nil
 }
 
 // PreCommit preforms pre-commit
@@ -683,21 +661,12 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if p.contractStakingIndexerV3 != nil {
 		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV3, time.Second))
 	}
-	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
-	if err != nil {
-		return nil, 0, err
-	}
 
-	// get height arg
-	inputHeight, err := sr.Height()
+	nativeSR, err := p.candidateStateReaderAt(ctx, sr)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.Wrap(err, "failed to get candidate state reader")
 	}
-	epochStartHeight := inputHeight
-	if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
-		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
-	}
-	nativeSR, err := ConstructBaseView(sr)
+	stakeSR, err := newCompositeStakingStateReader(nativeSR, p.calculateVoteWeight, indexers...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -708,11 +677,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	)
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
-		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
-			resp, height, err = p.candBucketsIndexer.GetBuckets(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
-		} else {
-			resp, height, err = nativeSR.readStateBuckets(ctx, r.GetBuckets())
-		}
+		resp, height, err = nativeSR.readStateBuckets(ctx, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
 		resp, height, err = nativeSR.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
@@ -925,13 +890,13 @@ func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, Can
 }
 
 func writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners CandidateList) error {
-	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
+	if _, err := sm.PutState(&name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
 		return err
 	}
-	if _, err := sm.PutState(op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+	if _, err := sm.PutState(&op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
 		return err
 	}
-	_, err := sm.PutState(owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
+	_, err := sm.PutState(&owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
 	return err
 }
 

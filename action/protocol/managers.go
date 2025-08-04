@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // NamespaceOption creates an option for given namesapce
@@ -54,12 +55,20 @@ func CreateStateConfig(opts ...StateOption) (*StateConfig, error) {
 	return &cfg, nil
 }
 
+func ObjectOption(obj any) StateOption {
+	return func(cfg *StateConfig) error {
+		cfg.Object = obj
+		return nil
+	}
+}
+
 type (
 	// StateConfig is the config for accessing stateDB
 	StateConfig struct {
 		Namespace string // namespace used by state's storage
 		Key       []byte
 		Keys      [][]byte
+		Object    any
 	}
 
 	// StateOption sets parameter for access state
@@ -88,6 +97,14 @@ type (
 	StateManagerWithCloser interface {
 		StateManager
 		Close()
+	}
+
+	ContractStorage interface {
+		StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
+		LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
+		DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
+		ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error)
+		BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error)
 	}
 )
 
