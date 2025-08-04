@@ -99,6 +99,7 @@ type (
 		EndorsementWithdrawWaitingBlocks  uint64
 		MigrateContractAddress            string
 		TimestampedMigrateContractAddress string
+		MinSelfStakeToBeActive            *big.Int
 	}
 	// HelperCtx is the helper context for staking protocol
 	HelperCtx struct {
@@ -154,6 +155,11 @@ func NewProtocol(
 		return nil, action.ErrInvalidAmount
 	}
 
+	minSelfStakeToBeActive, ok := new(big.Int).SetString(cfg.Staking.MinSelfStakeToBeActive, 10)
+	if !ok {
+		return nil, errors.Wrapf(action.ErrInvalidAmount, "invalid min self stake to be active: %s", cfg.Staking.MinSelfStakeToBeActive)
+	}
+
 	regFee, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.Fee, 10)
 	if !ok {
 		return nil, action.ErrInvalidAmount
@@ -180,6 +186,7 @@ func NewProtocol(
 			},
 			WithdrawWaitingPeriod:            cfg.Staking.WithdrawWaitingPeriod,
 			MinStakeAmount:                   minStakeAmount,
+			MinSelfStakeToBeActive:           minSelfStakeToBeActive,
 			BootstrapCandidates:              cfg.Staking.BootstrapCandidates,
 			PersistStakingPatchBlock:         cfg.PersistStakingPatchBlock,
 			FixAliasForNonStopHeight:         cfg.FixAliasForNonStopHeight,
@@ -642,10 +649,16 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 }
 
 func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidiateStateCommon, cand *Candidate) (bool, error) {
-	if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
-		return false, nil
-	}
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.NotUseMinSelfStakeToBeActive {
+		if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
+			return false, nil
+		}
+	} else {
+		if cand.SelfStake.Cmp(p.config.MinSelfStakeToBeActive) < 0 {
+			return false, nil
+		}
+	}
 	if featureCtx.DisableDelegateEndorsement {
 		// before endorsement feature, candidates with enough amount must be active
 		return true, nil
