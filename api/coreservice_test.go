@@ -492,8 +492,8 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
 		bc.EXPECT().TipHeight().Return(uint64(1)).Times(2)
-		bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).Times(1)
-		sf.EXPECT().WorkingSet(gomock.Any()).Return(nil, nil).Times(1)
+		bc.EXPECT().ContextAtHeight(gomock.Any(), gomock.Any()).Return(ctx, nil).Times(1)
+		sf.EXPECT().WorkingSetAtHeight(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).Times(1)
 		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
 		_, _, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
 		require.ErrorContains(err, t.Name())
@@ -512,6 +512,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 				context.Context,
 				address.Address,
 				*action.Envelope,
+				uint64,
 				...protocol.SimulateOption,
 			) (bool, *action.Receipt, []byte, error) {
 				return false, nil, nil, errors.New(t.Name())
@@ -540,6 +541,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 					context.Context,
 					address.Address,
 					*action.Envelope,
+					uint64,
 					...protocol.SimulateOption,
 				) (bool, *action.Receipt, []byte, error) {
 					return false, receipt, nil, nil
@@ -570,6 +572,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 					context.Context,
 					address.Address,
 					*action.Envelope,
+					uint64,
 					...protocol.SimulateOption,
 				) (bool, *action.Receipt, []byte, error) {
 					return false, receipt, nil, nil
