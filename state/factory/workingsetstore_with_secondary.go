@@ -2,6 +2,7 @@ package factory
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -170,4 +171,24 @@ func (store *workingSetStoreWithSecondary) CreateGenesisStates(ctx context.Conte
 		return err
 	}
 	return store.writerSecondary.CreateGenesisStates(ctx)
+}
+
+var erigonSupportedNamespace = []string{
+	"Staking",
+	"Candidate",
+	"CandsMap",
+}
+
+func (store *workingSetStoreWithSecondary) GetObject(ns string, key []byte, obj any) error {
+	if slices.Contains(erigonSupportedNamespace, ns) {
+		return store.writerSecondary.GetObject(ns, key, obj)
+	}
+	return store.reader.GetObject(ns, key, obj)
+}
+
+func (store *workingSetStoreWithSecondary) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
+	if slices.Contains(erigonSupportedNamespace, ns) {
+		return store.writerSecondary.States(ns, keys, obj)
+	}
+	return store.reader.States(ns, keys, obj)
 }
