@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -31,6 +32,7 @@ var (
 	// _candidateRegisterInterface is the interface of the abi encoding of stake action
 	_candidateRegisterMethod        abi.Method
 	_candidateRegisterWithBLSMethod abi.Method
+	_candidateRegisterWithBLSEvent  abi.Event
 
 	// ErrInvalidAmount represents that amount is 0 or negative
 	ErrInvalidAmount = errors.New("invalid amount")
@@ -71,6 +73,10 @@ func init() {
 	_candidateRegisterWithBLSMethod, ok = NativeStakingContractABI().Methods["candidateRegisterWithBLS"]
 	if !ok {
 		panic("fail to load the method")
+	}
+	_candidateRegisterWithBLSEvent, ok = NativeStakingContractABI().Events["CandidateRegisterWithBLS"]
+	if !ok {
+		panic("fail to load the event")
 	}
 }
 
@@ -322,6 +328,37 @@ func (cr *CandidateRegister) EthData() ([]byte, error) {
 		}
 		return append(_candidateRegisterMethod.ID, data...), nil
 	}
+}
+
+// PackCandidateRegisterWithBLSEvent packs the CandidateRegisterWithBLS event
+func PackCandidateRegisterWithBLSEvent(
+	candidate,
+	operatorAddress,
+	ownerAddress address.Address,
+	name string,
+	rewardAddress address.Address,
+	amount *big.Int,
+	duration uint32,
+	autoStake bool,
+	blsPublicKey []byte,
+) (Topics, []byte, error) {
+	data, err := _candidateRegisterWithBLSEvent.Inputs.NonIndexed().Pack(
+		name,
+		rewardAddress.Bytes(),
+		amount,
+		duration,
+		autoStake,
+		blsPublicKey,
+	)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to pack CandidateRegisterWithBLS event")
+	}
+	topics := make(Topics, 4)
+	topics[0] = hash.Hash256(_candidateRegisterWithBLSEvent.ID)
+	topics[1] = hash.Hash256(candidate.Bytes())
+	topics[2] = hash.Hash256(operatorAddress.Bytes())
+	topics[3] = hash.Hash256(ownerAddress.Bytes())
+	return topics, data, nil
 }
 
 // NewCandidateRegisterFromABIBinary decodes data into CandidateRegister action

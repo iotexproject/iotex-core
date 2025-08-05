@@ -2,6 +2,19 @@
 pragma solidity ^0.8.24;
 
 interface INativeStakingContract {
+    // Events
+    event CandidateRegisterWithBLS(
+        address indexed candidate,
+        address indexed operatorAddress,
+        address indexed ownerAddress,
+        string name,
+        address rewardAddress,
+        uint256 amount,
+        uint32 duration,
+        bool autoStake,
+        bytes blsPublicKey
+    );
+
     function candidateRegister(
         string memory name,
         address operatorAddress,
