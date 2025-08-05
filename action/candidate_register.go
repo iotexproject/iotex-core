@@ -8,7 +8,6 @@ package action
 import (
 	"bytes"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -25,57 +24,6 @@ const (
 	CandidateRegisterPayloadGas = uint64(100)
 	// CandidateRegisterBaseIntrinsicGas represents the base intrinsic gas for CandidateRegister
 	CandidateRegisterBaseIntrinsicGas = uint64(10000)
-
-	_candidateRegisterInterfaceABI = `[
-		{
-			"inputs": [
-				{
-					"internalType": "string",
-					"name": "name",
-					"type": "string"
-				},
-				{
-					"internalType": "address",
-					"name": "operatorAddress",
-					"type": "address"
-				},
-				{
-					"internalType": "address",
-					"name": "rewardAddress",
-					"type": "address"
-				},
-				{
-					"internalType": "address",
-					"name": "ownerAddress",
-					"type": "address"
-				},
-				{
-					"internalType": "uint256",
-					"name": "amount",
-					"type": "uint256"
-				},
-				{
-					"internalType": "uint32",
-					"name": "duration",
-					"type": "uint32"
-				},
-				{
-					"internalType": "bool",
-					"name": "autoStake",
-					"type": "bool"
-				},
-				{
-					"internalType": "uint8[]",
-					"name": "data",
-					"type": "uint8[]"
-				}
-			],
-			"name": "candidateRegister",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
 )
 
 var (
@@ -109,12 +57,8 @@ type CandidateRegister struct {
 }
 
 func init() {
-	candidateRegisterInterface, err := abi.JSON(strings.NewReader(_candidateRegisterInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
 	var ok bool
-	_candidateRegisterMethod, ok = candidateRegisterInterface.Methods["candidateRegister"]
+	_candidateRegisterMethod, ok = NativeStakingContractABI().Methods["candidateRegister"]
 	if !ok {
 		panic("fail to load the method")
 	}

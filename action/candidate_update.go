@@ -7,7 +7,6 @@ package action
 
 import (
 	"bytes"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,32 +21,6 @@ import (
 const (
 	// CandidateUpdateBaseIntrinsicGas represents the base intrinsic gas for CandidateUpdate
 	CandidateUpdateBaseIntrinsicGas = uint64(10000)
-
-	_candidateUpdateInterfaceABI = `[
-		{
-			"inputs": [
-				{
-					"internalType": "string",
-					"name": "name",
-					"type": "string"
-				},
-				{
-					"internalType": "address",
-					"name": "operatorAddress",
-					"type": "address"
-				},
-				{
-					"internalType": "address",
-					"name": "rewardAddress",
-					"type": "address"
-				}
-			],
-			"name": "candidateUpdate",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
 )
 
 var (
@@ -65,12 +38,8 @@ type CandidateUpdate struct {
 }
 
 func init() {
-	_candidateUpdateInterface, err := abi.JSON(strings.NewReader(_candidateUpdateInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
 	var ok bool
-	_candidateUpdateMethod, ok = _candidateUpdateInterface.Methods["candidateUpdate"]
+	_candidateUpdateMethod, ok = NativeStakingContractABI().Methods["candidateUpdate"]
 	if !ok {
 		panic("fail to load the method")
 	}
