@@ -512,6 +512,12 @@ github.com/iotexproject/iotex-election v0.3.8-0.20250722071821-26e7794c6dcd h1:H
 github.com/iotexproject/iotex-election v0.3.8-0.20250722071821-26e7794c6dcd/go.mod h1:w9HriT1coMRbuknaSD2xqiOqDTnowBDzvFZv8tg1j2M=
 github.com/iotexproject/iotex-proto v0.6.5-0.20250722150208-39ab0efeb78d h1:96LUhbRxrHUUp3mymWfUsOQjibbX2sBh3tb0KTKDDCU=
 github.com/iotexproject/iotex-proto v0.6.5-0.20250722150208-39ab0efeb78d/go.mod h1:OOXZIG6Q9tInog8Y5zzEJQsDv9IaG/xxpDtl4KzdWZs=
+github.com/iotexproject/iotex-proto v0.6.5-0.20250805122953-5de63830b607 h1:CnhYs215/MzPV1liQSXwMS8dxww2AJ2dXUOke1vy6LE=
+github.com/iotexproject/iotex-proto v0.6.5-0.20250805122953-5de63830b607/go.mod h1:Hxct427jhlu08PHQ44Jwh//hZVhXKq+XO/Mdqwc6dNc=
+github.com/iotexproject/iotex-proto v0.6.5-0.20250805123444-9de5eca34b8d h1:Aq82xKDv5nV0PCzGvrdD8FSatwobKysa0UC1v4FEpVc=
+github.com/iotexproject/iotex-proto v0.6.5-0.20250805123444-9de5eca34b8d/go.mod h1:OOXZIG6Q9tInog8Y5zzEJQsDv9IaG/xxpDtl4KzdWZs=
+github.com/iotexproject/iotex-proto v0.6.5-0.20250805125222-9cdc028f4a74 h1:piMZ7PflGeuOKCv4xtgpM6w398tZd14EgF5BYuQ4TRs=
+github.com/iotexproject/iotex-proto v0.6.5-0.20250805125222-9cdc028f4a74/go.mod h1:OOXZIG6Q9tInog8Y5zzEJQsDv9IaG/xxpDtl4KzdWZs=
 github.com/ipfs/boxo v0.27.2 h1:sGo4KdwBaMjdBjH08lqPJyt27Z4CO6sugne3ryX513s=
 github.com/ipfs/boxo v0.27.2/go.mod h1:qEIRrGNr0bitDedTCzyzBHxzNWqYmyuHgK8LG9Q83EM=
 github.com/ipfs/go-block-format v0.2.0 h1:ZqrkxBA2ICbDRbK8KJs/u0O3dlp6gmAuuXUJNiW1Ycs=

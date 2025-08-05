@@ -81,6 +81,54 @@
   {
     "inputs": [
       {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "operatorAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "rewardAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "ownerAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint32",
+        "name": "duration",
+        "type": "uint32"
+      },
+      {
+        "internalType": "bool",
+        "name": "autoStake",
+        "type": "bool"
+      },
+      {
+        "internalType": "bytes",
+        "name": "blsPublicKey",
+        "type": "bytes"
+      },
+      {
+        "internalType": "uint8[]",
+        "name": "data",
+        "type": "uint8[]"
+      }
+    ],
+    "name": "candidateRegisterWithBLS",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "newOwner",
         "type": "address"

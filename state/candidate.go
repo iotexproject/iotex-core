@@ -161,7 +161,7 @@ func candidateToPb(cand *Candidate) *iotextypes.Candidate {
 		candidatePb.Votes = cand.Votes.Bytes()
 	}
 	if len(cand.Pubkey) > 0 {
-		candidatePb.PubKey = cand.Pubkey
+		candidatePb.BlsPubKey = cand.Pubkey
 	}
 	return candidatePb
 }
@@ -175,7 +175,7 @@ func pbToCandidate(candPb *iotextypes.Candidate) (*Candidate, error) {
 		Address:       candPb.Address,
 		Votes:         big.NewInt(0).SetBytes(candPb.Votes),
 		RewardAddress: candPb.RewardAddress,
-		Pubkey:        candPb.PubKey,
+		Pubkey:        candPb.BlsPubKey,
 	}
 	return candidate, nil
 }

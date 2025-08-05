@@ -76,17 +76,23 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	if !action.IsValidCandidateName(act.Name()) {
 		return action.ErrInvalidCanName
 	}
-
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
-		if !protocol.MustGetFeatureCtx(ctx).CandidateRegisterMustWithStake &&
+		if !featureCtx.CandidateRegisterMustWithStake &&
 			act.Amount().Sign() == 0 {
 			return nil
 		}
 		return errors.Wrap(action.ErrInvalidAmount, "self staking amount is not valid")
 	}
-	if protocol.MustGetFeatureCtx(ctx).CheckStakingDurationUpperLimit && act.Duration() > _stakeDurationLimit {
+	if featureCtx.CheckStakingDurationUpperLimit && act.Duration() > _stakeDurationLimit {
 		return ErrDurationTooHigh
 	}
+	if featureCtx.CandidateBLSPublicKey && !act.WithBLS() {
+		return errors.Wrap(action.ErrInvalidAct, "candidate registration must include BLS public key")
+	} else if !featureCtx.CandidateBLSPublicKey && act.WithBLS() {
+		return errors.Wrap(action.ErrInvalidAct, "candidate registration cannot include BLS public key")
+	}
+
 	return nil
 }
 

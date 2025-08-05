@@ -6,7 +6,6 @@
 package staking
 
 import (
-	"encoding/hex"
 	"math/big"
 	"sort"
 	"strings"
@@ -204,9 +203,10 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 	if d.Identifier != nil {
 		voter = d.Identifier.String()
 	}
-	pubkey := ""
+	var pubkey []byte
 	if len(d.Pubkey) > 0 {
-		pubkey = hex.EncodeToString(d.Pubkey)
+		pubkey = make([]byte, len(d.Pubkey))
+		copy(pubkey, d.Pubkey)
 	}
 
 	return &stakingpb.Candidate{
@@ -263,13 +263,10 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 		return action.ErrInvalidAmount
 	}
 	if len(pb.GetPubkey()) > 0 {
-		d.Pubkey, err = hex.DecodeString(pb.GetPubkey())
-		if err != nil {
-			return errors.Wrap(err, "failed to decode public key")
-		}
-		if len(d.Pubkey) != 48 {
-			return errors.Wrap(err, "invalid public key length")
-		}
+		d.Pubkey = make([]byte, len(pb.GetPubkey()))
+		copy(d.Pubkey, pb.GetPubkey())
+	} else {
+		d.Pubkey = nil
 	}
 	return nil
 }

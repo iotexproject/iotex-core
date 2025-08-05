@@ -775,7 +775,9 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	if !featureCtx.CandidateIdentifiedByOwner {
 		c.Identifier = candID
 	}
-
+	if featureCtx.CandidateBLSPublicKey {
+		c.Pubkey = act.PubKey()
+	}
 	if err := csm.Upsert(c); err != nil {
 		return log, nil, csmErrorToHandleError(owner.String(), err)
 	}

@@ -13,6 +13,17 @@ interface INativeStakingContract {
         uint8[] memory data
     ) external;
 
+    function candidateRegisterWithBLS(
+        string memory name,
+        address operatorAddress,
+        address rewardAddress,
+        address ownerAddress,
+        uint32 duration,
+        bool autoStake,
+        bytes memory blsPublicKey,
+        uint8[] memory data
+    ) external payable;
+
     function candidateActivate(uint64 bucketIndex) external;
 
     // Candidate Endorsement methods
