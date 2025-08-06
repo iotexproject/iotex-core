@@ -15,6 +15,15 @@ interface INativeStakingContract {
         bytes blsPublicKey
     );
 
+    event CandidateUpdateWithBLS(
+        address indexed candidate,
+        address indexed operatorAddress,
+        address indexed ownerAddress,
+        string name,
+        address rewardAddress,
+        bytes blsPublicKey
+    );
+
     function candidateRegister(
         string memory name,
         address operatorAddress,
@@ -59,6 +68,13 @@ interface INativeStakingContract {
         string memory name,
         address operatorAddress,
         address rewardAddress
+    ) external;
+
+    function candidateUpdateWithBLS(
+        string memory name,
+        address operatorAddress,
+        address rewardAddress,
+        bytes memory blsPublicKey
     ) external;
 
     // Stake Management

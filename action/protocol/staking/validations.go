@@ -102,6 +102,12 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 			return action.ErrInvalidCanName
 		}
 	}
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.CandidateBLSPublicKey && !act.WithBLS() {
+		return errors.Wrap(action.ErrInvalidAct, "candidate update must include BLS public key")
+	} else if !featureCtx.CandidateBLSPublicKey && act.WithBLS() {
+		return errors.Wrap(action.ErrInvalidAct, "candidate update cannot include BLS public key")
+	}
 	return nil
 }
 

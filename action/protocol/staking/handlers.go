@@ -862,6 +862,19 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	if act.RewardAddress() != nil {
 		c.Reward = act.RewardAddress()
 	}
+
+	var (
+		topics    action.Topics
+		eventData []byte
+		err       error
+	)
+	if act.WithBLS() {
+		c.Pubkey = act.PubKey()
+		topics, eventData, err = action.PackCandidateUpdateWithBLSEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.PubKey())
+		if err != nil {
+			return log, errors.Wrap(err, "failed to pack candidate register with BLS event")
+		}
+	}
 	log.AddTopics(c.GetIdentifier().Bytes())
 
 	if err := csm.Upsert(c); err != nil {
@@ -873,6 +886,9 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	}
 
 	log.AddAddress(actCtx.Caller)
+	if act.WithBLS() {
+		log.SetEvent(topics, eventData)
+	}
 	return log, nil
 }
 
