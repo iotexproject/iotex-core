@@ -28,6 +28,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
 	rewardingabi "github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/ethabi"
 	stakingabi "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
@@ -757,6 +758,7 @@ func (svr *web3Handler) getLogs(filter *filterObject) (interface{}, error) {
 	return svr.getLogsWithFilter(from, to, filter.Address, filter.Topics)
 }
 
+// TODO: improve the performance of this function
 func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, error) {
 	// parse action hash from request
 	actHashStr := in.Get("params.0")
@@ -792,6 +794,44 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 		return nil, err
 	}
 
+	_, tlogs, err := svr.coreService.TransactionLogByBlockHeight(blk.Height())
+	if err != nil {
+		return nil, err
+	}
+	txLogMap := make(map[hash.Hash256][]*action.TransactionLog)
+	for _, tlog := range tlogs.GetLogs() {
+		logs := make([]*action.TransactionLog, 0, len(tlog.Transactions))
+		for _, tx := range tlog.Transactions {
+			amount, ok := big.NewInt(0).SetString(tx.Amount, 10)
+			if !ok {
+				return nil, errors.Wrapf(errUnkownType, "failed to convert amount %s to big.Int", tx.Amount)
+			}
+			logs = append(logs, &action.TransactionLog{
+				Type:      tx.Type,
+				Amount:    amount,
+				Sender:    tx.Sender,
+				Recipient: tx.Recipient,
+			})
+		}
+		txLogMap[hash.Hash256(tlog.ActionHash)] = logs
+	}
+
+	blkWithReceipt, err := svr.coreService.BlockByHeight(blk.Height())
+	if err != nil {
+		return nil, errors.Wrapf(errInvalidBlock, "failed to get block by height %d", blk.Height())
+	}
+	var logIndex uint32
+	for _, r := range blkWithReceipt.Receipts {
+		logIndex += uint32(len(r.Logs()))
+		if r.TxIndex < receipt.TxIndex {
+			logIndex += uint32(len(txLogMap[r.ActionHash]))
+		}
+	}
+	transferLogs, err := receipt.TransferLogs(account.ProtocolAddr().String(), logIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	// acquire logsBloom from blockMeta
 	var logsBloomStr string
 	if logsBloom := blk.LogsBloomfilter(); logsBloom != nil {
@@ -805,6 +845,7 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 		logsBloom:       logsBloomStr,
 		receipt:         receipt,
 		txType:          uint(tx.Type()),
+		transferEvents:  transferLogs,
 	}, nil
 
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
@@ -441,6 +442,13 @@ func getTransactionReceipt(t *testing.T, handler *hTTPHandler) {
 		blockNumber, ok := result.(map[string]interface{})["blockNumber"]
 		require.True(ok)
 		require.Equal(uint64ToHex(1), blockNumber)
+		// Check logs
+		logs, ok := result.(map[string]interface{})["logs"]
+		require.True(ok)
+		require.Equal(1, len(logs.([]interface{})))
+		log, ok := logs.([]interface{})[0].(map[string]interface{})
+		require.True(ok)
+		require.Equal(strings.ToUpper(account.ProtocolAddr().Hex()), strings.ToUpper(log["address"].(string)))
 	}
 }
 
