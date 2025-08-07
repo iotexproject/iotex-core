@@ -20,24 +20,9 @@ import (
 )
 
 type (
-	// BucketGetByIndex related to obtaining bucket by index
-	BucketGetByIndex interface {
-		getBucket(index uint64) (*VoteBucket, error)
-	}
-	// BucketGet related to obtaining bucket
-	BucketGet interface {
-		BucketGetByIndex
-		getTotalBucketCount() (uint64, error)
-		getAllBuckets() ([]*VoteBucket, uint64, error)
-		getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error)
-		getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error)
-		voterBucketIndices(addr address.Address) (*BucketIndices, uint64, error)
-		candBucketIndices(addr address.Address) (*BucketIndices, uint64, error)
-	}
-	// CandidateGet related to obtaining Candidate
-	CandidateGet interface {
-		getCandidate(name address.Address) (*Candidate, uint64, error)
-		getAllCandidates() (CandidateList, uint64, error)
+	// NativeBucketGetByIndex related to obtaining bucket by index
+	NativeBucketGetByIndex interface {
+		NativeBucket(index uint64) (*VoteBucket, error)
 	}
 	// ReadState related to read bucket and candidate by request
 	ReadState interface {
@@ -53,8 +38,15 @@ type (
 	}
 	// CandidateStateReader contains candidate center and bucket pool
 	CandidateStateReader interface {
-		BucketGet
-		CandidateGet
+		NativeBucketGetByIndex
+		NumOfNativeBucket() (uint64, error)
+		NativeBuckets() ([]*VoteBucket, uint64, error)
+		NativeBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error)
+		NativeBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error)
+		NativeBucketIndicesByVoter(addr address.Address) (*BucketIndices, uint64, error)
+		NativeBucketIndicesByCandidate(addr address.Address) (*BucketIndices, uint64, error)
+		CandidateByAddress(name address.Address) (*Candidate, uint64, error)
+		getAllCandidates() (CandidateList, uint64, error)
 		ReadState
 		Height() uint64
 		SR() protocol.StateReader
@@ -176,13 +168,12 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 	}
 
 	return &ViewData{
-		candCenter:     center,
-		bucketPool:     pool,
-		contractsStake: &contractStakeView{},
+		candCenter: center,
+		bucketPool: pool,
 	}, height, nil
 }
 
-func (c *candSR) getTotalBucketCount() (uint64, error) {
+func (c *candSR) NumOfNativeBucket() (uint64, error) {
 	var tc totalBucketCount
 	_, err := c.State(
 		&tc,
@@ -191,7 +182,7 @@ func (c *candSR) getTotalBucketCount() (uint64, error) {
 	return tc.count, err
 }
 
-func (c *candSR) getBucket(index uint64) (*VoteBucket, error) {
+func (c *candSR) NativeBucket(index uint64) (*VoteBucket, error) {
 	var (
 		vb  VoteBucket
 		err error
@@ -215,12 +206,12 @@ func (c *candSR) getBucket(index uint64) (*VoteBucket, error) {
 	return &vb, nil
 }
 
-func (c *candSR) getAllBuckets() ([]*VoteBucket, uint64, error) {
+func (c *candSR) NativeBuckets() ([]*VoteBucket, uint64, error) {
 	height, iter, err := c.States(
 		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeysOption(func() ([][]byte, error) {
 			// TODO (zhi): fix potential racing issue
-			count, err := c.getTotalBucketCount()
+			count, err := c.NumOfNativeBucket()
 			if err != nil {
 				return nil, err
 			}
@@ -249,10 +240,10 @@ func (c *candSR) getAllBuckets() ([]*VoteBucket, uint64, error) {
 	return buckets, height, nil
 }
 
-func (c *candSR) getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error) {
+func (c *candSR) NativeBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error) {
 	buckets := make([]*VoteBucket, 0, len(indices))
 	for _, i := range indices {
-		b, err := c.getBucket(i)
+		b, err := c.NativeBucket(i)
 		if err != nil && err != ErrWithdrawnBucket {
 			return buckets, err
 		}
@@ -266,7 +257,7 @@ func (c *candSR) getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, er
 func (c *candSR) getExistingBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error) {
 	buckets := make([]*VoteBucket, 0, len(indices))
 	for _, i := range indices {
-		b, err := c.getBucket(i)
+		b, err := c.NativeBucket(i)
 		if err != nil {
 			if errors.Is(err, state.ErrStateNotExist) {
 				continue
@@ -278,7 +269,7 @@ func (c *candSR) getExistingBucketsWithIndices(indices BucketIndices) ([]*VoteBu
 	return buckets, nil
 }
 
-func (c *candSR) getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error) {
+func (c *candSR) NativeBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error) {
 	var (
 		bis BucketIndices
 		key = AddrKeyWithPrefix(addr, prefix)
@@ -293,15 +284,15 @@ func (c *candSR) getBucketIndices(addr address.Address, prefix byte) (*BucketInd
 	return &bis, height, nil
 }
 
-func (c *candSR) voterBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
-	return c.getBucketIndices(addr, _voterIndex)
+func (c *candSR) NativeBucketIndicesByVoter(addr address.Address) (*BucketIndices, uint64, error) {
+	return c.NativeBucketIndices(addr, _voterIndex)
 }
 
-func (c *candSR) candBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
-	return c.getBucketIndices(addr, _candIndex)
+func (c *candSR) NativeBucketIndicesByCandidate(addr address.Address) (*BucketIndices, uint64, error) {
+	return c.NativeBucketIndices(addr, _candIndex)
 }
 
-func (c *candSR) getCandidate(name address.Address) (*Candidate, uint64, error) {
+func (c *candSR) CandidateByAddress(name address.Address) (*Candidate, uint64, error) {
 	if name == nil {
 		return nil, 0, ErrNilParameters
 	}
@@ -347,7 +338,7 @@ func (c *candSR) NewBucketPool(enableSMStorage bool) (*BucketPool, error) {
 	}
 
 	// sum up all existing buckets
-	all, _, err := c.getAllBuckets()
+	all, _, err := c.NativeBuckets()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return nil, err
 	}
@@ -363,7 +354,7 @@ func (c *candSR) NewBucketPool(enableSMStorage bool) (*BucketPool, error) {
 }
 
 func (c *candSR) readStateBuckets(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, uint64, error) {
-	all, height, err := c.getAllBuckets()
+	all, height, err := c.NativeBuckets()
 	if err != nil {
 		return nil, height, err
 	}
@@ -381,14 +372,14 @@ func (c *candSR) readStateBucketsByVoter(ctx context.Context, req *iotexapi.Read
 		return nil, 0, err
 	}
 
-	indices, height, err := c.voterBucketIndices(voter)
+	indices, height, err := c.NativeBucketIndicesByVoter(voter)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
 	if indices == nil || err != nil {
 		return nil, height, err
 	}
-	buckets, err := c.getBucketsWithIndices(*indices)
+	buckets, err := c.NativeBucketsWithIndices(*indices)
 	if err != nil {
 		return nil, height, err
 	}
@@ -406,14 +397,14 @@ func (c *candSR) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.
 		return &iotextypes.VoteBucketList{}, 0, nil
 	}
 
-	indices, height, err := c.candBucketIndices(cand.GetIdentifier())
+	indices, height, err := c.NativeBucketIndicesByCandidate(cand.GetIdentifier())
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
 	if indices == nil || err != nil {
 		return nil, height, err
 	}
-	buckets, err := c.getBucketsWithIndices(*indices)
+	buckets, err := c.NativeBucketsWithIndices(*indices)
 	if err != nil {
 		return nil, height, err
 	}
@@ -439,7 +430,7 @@ func (c *candSR) readStateBucketByIndices(ctx context.Context, req *iotexapi.Rea
 }
 
 func (c *candSR) readStateBucketCount(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_BucketsCount) (*iotextypes.BucketsCount, uint64, error) {
-	total, err := c.getTotalBucketCount()
+	total, err := c.NumOfNativeBucket()
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.BucketsCount{}, c.Height(), nil
 	}
