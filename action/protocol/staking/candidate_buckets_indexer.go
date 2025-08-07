@@ -141,10 +141,7 @@ func (cbi *CandidatesBucketsIndexer) GetCandidates(height uint64, offset, limit 
 	if offset >= length {
 		return &iotextypes.CandidateListV2{}, height, nil
 	}
-	end := offset + limit
-	if end > uint32(len(candidateList.Candidates)) {
-		end = uint32(len(candidateList.Candidates))
-	}
+	end := min(offset+limit, uint32(len(candidateList.Candidates)))
 	candidateList.Candidates = candidateList.Candidates[offset:end]
 	// fill id if it's empty for backward compatibility
 	for i := range candidateList.Candidates {
@@ -190,10 +187,7 @@ func (cbi *CandidatesBucketsIndexer) GetBuckets(height uint64, offset, limit uin
 	if offset >= length {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
-	end := offset + limit
-	if end > uint32(len(buckets.Buckets)) {
-		end = uint32(len(buckets.Buckets))
-	}
+	end := min(offset+limit, uint32(len(buckets.Buckets)))
 	buckets.Buckets = buckets.Buckets[offset:end]
 	return buckets, height, nil
 }
