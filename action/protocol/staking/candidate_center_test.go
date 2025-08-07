@@ -65,8 +65,8 @@ func testEqualAllCommit(r *require.Assertions, m *CandidateCenter, old Candidate
 	r.True(testEqual(m, list))
 
 	// test commit
-	r.NoError(m.LegacyCommit())
-	r.NoError(m.LegacyCommit()) // commit is idempotent
+	r.NoError(m.legacyCommit())
+	r.NoError(m.legacyCommit()) // commit is idempotent
 	r.Equal(size+increase, m.Size())
 	// m equal to current list, not equal to old
 	r.True(testEqual(m, list))
@@ -95,7 +95,7 @@ func TestCandCenter(t *testing.T) {
 	r.Equal(len(testCandidates), m.Size())
 
 	// test export changes and commit
-	r.NoError(m.LegacyCommit())
+	r.NoError(m.legacyCommit())
 	r.Equal(len(testCandidates), m.Size())
 	old := m.All()
 	r.True(testEqual(m, old))
@@ -197,7 +197,7 @@ func TestCandCenter(t *testing.T) {
 
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
-	r.NoError(m.LegacyCommit())
+	r.NoError(m.legacyCommit())
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
 
@@ -321,9 +321,9 @@ func TestFixAlias(t *testing.T) {
 			r.Equal(v.d, m.GetByName(v.d.Name))
 		}
 		if hasAlias {
-			r.NoError(m.LegacyCommit())
+			r.NoError(m.legacyCommit())
 		} else {
-			r.NoError(m.Commit())
+			r.NoError(m.commit())
 		}
 		views.Write(_protocolID, &ViewData{
 			candCenter: m,
@@ -372,9 +372,9 @@ func TestFixAlias(t *testing.T) {
 		// cand center Commit()
 		{
 			if hasAlias {
-				r.NoError(center.LegacyCommit())
+				r.NoError(center.legacyCommit())
 			} else {
-				r.NoError(center.Commit())
+				r.NoError(center.commit())
 			}
 			views.Write(_protocolID, &ViewData{
 				candCenter: center,
@@ -472,7 +472,7 @@ func TestMultipleNonStakingCandidate(t *testing.T) {
 	checkCandidates := func(candcenter *CandidateCenter, cands []*Candidate) {
 		r.True(testEqual(candcenter, CandidateList(cands)))
 		// commit
-		r.NoError(candcenter.Commit())
+		r.NoError(candcenter.commit())
 		r.True(testEqual(candcenter, CandidateList(cands)))
 		// from state manager
 		views := protocol.NewViews()
@@ -561,7 +561,7 @@ func TestCandidateUpsert(t *testing.T) {
 	r.Equal(len(tests), m.Size())
 
 	// test export changes and commit
-	r.NoError(m.LegacyCommit())
+	r.NoError(m.legacyCommit())
 	r.Equal(len(tests), m.Size())
 	old := m.All()
 	r.True(testEqual(m, old))
@@ -594,7 +594,7 @@ func TestCandidateUpsert(t *testing.T) {
 	})
 	t.Run("upsert the same candidate", func(t *testing.T) {
 		r.NoError(m.Upsert(tests[0]))
-		r.NoError(m.Commit())
+		r.NoError(m.commit())
 		r.Equal(len(tests), m.Size())
 		testEqual(m, old)
 	})
@@ -608,7 +608,7 @@ func TestCandidateUpsert(t *testing.T) {
 		ownerChange := tests[0].Clone()
 		ownerChange.Owner = identityset.Address(28)
 		r.NoError(m.Upsert(ownerChange))
-		r.NoError(m.Commit())
+		r.NoError(m.commit())
 		r.Equal(ownerChange, m.GetByName(ownerChange.Name))
 		r.Equal(ownerChange, m.GetByOwner(ownerChange.Owner))
 		r.Equal(ownerChange, m.GetBySelfStakingIndex(ownerChange.SelfStakeBucketIdx))
@@ -640,7 +640,7 @@ func TestCandidateUpsert(t *testing.T) {
 		cand.Identifier = identityset.Address2(100)
 		cand.Owner = identityset.Address2(104)
 		r.NoError(m.Upsert(cand))
-		r.NoError(m.Commit())
+		r.NoError(m.commit())
 		r.Equal(len(tests)+1, m.Size())
 		r.Equal(cand, m.GetByIdentifier(cand.GetIdentifier()))
 	})

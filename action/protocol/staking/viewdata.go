@@ -71,18 +71,8 @@ func (v *ViewData) Fork() protocol.View {
 }
 
 func (v *ViewData) Commit(ctx context.Context, sr protocol.StateReader) error {
-	height, err := sr.Height()
-	if err != nil {
+	if err := v.candCenter.Commit(ctx, sr); err != nil {
 		return err
-	}
-	if featureWithHeightCtx, ok := protocol.GetFeatureWithHeightCtx(ctx); ok && featureWithHeightCtx.CandCenterHasAlias(height) {
-		if err := v.candCenter.LegacyCommit(); err != nil {
-			return err
-		}
-	} else {
-		if err := v.candCenter.Commit(); err != nil {
-			return err
-		}
 	}
 	if err := v.bucketPool.Commit(sr); err != nil {
 		return err
