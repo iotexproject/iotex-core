@@ -321,7 +321,8 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	ctx, span := tracer.NewSpan(context.Background(), "coreService.Account")
 	defer span.End()
 	addrStr := addr.String()
-	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
+	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr ||
+		addrStr == address.RewardingProtocol || addrStr == address.StakingProtocolAddr {
 		return core.getProtocolAccount(ctx, addrStr)
 	}
 	span.AddEvent("accountutil.AccountStateWithHeight")
@@ -1760,7 +1761,7 @@ func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*
 		err     error
 	)
 	switch addr {
-	case address.RewardingPoolAddr:
+	case address.RewardingPoolAddr, address.RewardingProtocol:
 		if out, err = core.ReadState("rewarding", "", []byte("TotalBalance"), nil); err != nil {
 			return nil, nil, err
 		}
@@ -1769,7 +1770,7 @@ func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*
 			return nil, nil, errors.New("balance convert error")
 		}
 		balance = val.String()
-	case address.StakingBucketPoolAddr:
+	case address.StakingBucketPoolAddr, address.StakingProtocolAddr:
 		methodName, err := proto.Marshal(&iotexapi.ReadStakingDataMethod{
 			Method: iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT,
 		})

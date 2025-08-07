@@ -45,7 +45,8 @@ func (core *coreServiceReaderWithHeight) Account(addr address.Address) (*iotexty
 	ctx, span := tracer.NewSpan(context.Background(), "coreServiceReaderWithHeight.Account")
 	defer span.End()
 	addrStr := addr.String()
-	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
+	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr ||
+		addrStr == address.RewardingProtocol || addrStr == address.StakingProtocolAddr {
 		return core.cs.getProtocolAccount(ctx, addrStr)
 	}
 	state, pendingNonce, err := core.stateAndNonce(addr)
