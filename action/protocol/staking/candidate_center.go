@@ -6,11 +6,13 @@
 package staking
 
 import (
+	"context"
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 type (
@@ -69,7 +71,7 @@ func NewCandidateCenter(all CandidateList) (*CandidateCenter, error) {
 		return &c, nil
 	}
 
-	if err := c.Commit(); err != nil {
+	if err := c.commit(); err != nil {
 		return nil, err
 	}
 	return &c, nil
@@ -112,8 +114,7 @@ func (m CandidateCenter) Base() *CandidateCenter {
 	}
 }
 
-// Commit writes the change into base
-func (m *CandidateCenter) Commit() error {
+func (m *CandidateCenter) commit() error {
 	size, err := m.base.commit(m.change, false)
 	if err != nil {
 		return err
@@ -124,8 +125,20 @@ func (m *CandidateCenter) Commit() error {
 	return nil
 }
 
-// LegacyCommit writes the change into base with legacy logic
-func (m *CandidateCenter) LegacyCommit() error {
+// Commit writes the change into base
+func (m *CandidateCenter) Commit(ctx context.Context, sr protocol.StateReader) error {
+	height, err := sr.Height()
+	if err != nil {
+		return err
+	}
+	if featureWithHeightCtx, ok := protocol.GetFeatureWithHeightCtx(ctx); ok && featureWithHeightCtx.CandCenterHasAlias(height) {
+		return m.legacyCommit()
+	}
+	return m.commit()
+}
+
+// legacyCommit writes the change into base with legacy logic
+func (m *CandidateCenter) legacyCommit() error {
 	size, err := m.base.commit(m.change, true)
 	if err != nil {
 		return err
@@ -271,6 +284,25 @@ func (m *CandidateCenter) Upsert(d *Candidate) error {
 		m.size++
 	}
 	return nil
+}
+
+// WriteToStateDB writes the candidate center to stateDB
+func (m *CandidateCenter) WriteToStateDB(sm protocol.StateManager) error {
+	// persist nameMap/operatorMap and ownerList to stateDB
+	name := m.base.candsInNameMap()
+	op := m.base.candsInOperatorMap()
+	owners := m.base.ownersList()
+	if len(name) == 0 || len(op) == 0 {
+		return ErrNilParameters
+	}
+	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
+		return err
+	}
+	if _, err := sm.PutState(op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+		return err
+	}
+	_, err := sm.PutState(owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
+	return err
 }
 
 func (m *CandidateCenter) collision(d *Candidate) error {
