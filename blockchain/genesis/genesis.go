@@ -174,6 +174,7 @@ func defaultConfig() Genesis {
 			MinStakeAmount:                   unit.ConvertIotxToRau(100).String(),
 			BootstrapCandidates:              []BootstrapCandidate{},
 			EndorsementWithdrawWaitingBlocks: 24 * 60 * 60 / 5,
+			MinSelfStakeToBeActive:           unit.ConvertIotxToRau(1000000).String(),
 		},
 	}
 }
@@ -480,6 +481,7 @@ type (
 		MinStakeAmount                   string               `yaml:"minStakeAmount"`
 		BootstrapCandidates              []BootstrapCandidate `yaml:"bootstrapCandidates"`
 		EndorsementWithdrawWaitingBlocks uint64               `yaml:"endorsementWithdrawWaitingBlocks"`
+		MinSelfStakeToBeActive           string               `yaml:"minSelfStakeToBeActive"`
 	}
 
 	// VoteWeightCalConsts contains the configs for calculating vote weight
