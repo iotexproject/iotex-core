@@ -2,7 +2,6 @@ package action
 
 import (
 	"bytes"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,27 +17,6 @@ const (
 	CandidateTransferOwnershipPayloadGas = uint64(100)
 	// CandidateTransferOwnershipBaseIntrinsicGas represents the base intrinsic gas for CandidateTransferOwnership
 	CandidateTransferOwnershipBaseIntrinsicGas = uint64(10000)
-
-	_candidateTransferOwnershipInterfaceABI = `[
-		{
-			"inputs": [
-				{
-					"internalType": "address",
-					"name": "newOwner",
-					"type": "address"
-				},
-				{
-					"internalType": "uint8[]",
-					"name": "payload",
-					"type": "uint8[]"
-				}
-			],
-			"name": "candidateTransferOwnership",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
 )
 
 var (
@@ -48,12 +26,8 @@ var (
 )
 
 func init() {
-	candidateTransferOwnershipInterface, err := abi.JSON(strings.NewReader(_candidateTransferOwnershipInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
 	var ok bool
-	_candidateTransferOwnershipMethod, ok = candidateTransferOwnershipInterface.Methods["candidateTransferOwnership"]
+	_candidateTransferOwnershipMethod, ok = NativeStakingContractABI().Methods["candidateTransferOwnership"]
 	if !ok {
 		panic("fail to load the method")
 	}
