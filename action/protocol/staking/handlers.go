@@ -741,6 +741,8 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		withSelfStake = act.Amount().Sign() > 0
 		txLogs        []*action.TransactionLog
 		err           error
+		topics        action.Topics
+		eventData     []byte
 	)
 	if withSelfStake {
 		// register with self-stake
@@ -775,7 +777,13 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	if !featureCtx.CandidateIdentifiedByOwner {
 		c.Identifier = candID
 	}
-
+	if act.WithBLS() {
+		c.Pubkey = act.PubKey()
+		topics, eventData, err = action.PackCandidateRegisterWithBLSEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.Amount(), act.Duration(), act.AutoStake(), act.PubKey())
+		if err != nil {
+			return log, nil, errors.Wrap(err, "failed to pack candidate register with BLS event")
+		}
+	}
 	if err := csm.Upsert(c); err != nil {
 		return log, nil, csmErrorToHandleError(owner.String(), err)
 	}
@@ -813,6 +821,9 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	log.AddAddress(candID)
 	log.AddAddress(actCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
+	if act.WithBLS() {
+		log.SetEvent(topics, eventData)
+	}
 
 	txLogs = append(txLogs, &action.TransactionLog{
 		Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
@@ -851,6 +862,19 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	if act.RewardAddress() != nil {
 		c.Reward = act.RewardAddress()
 	}
+
+	var (
+		topics    action.Topics
+		eventData []byte
+		err       error
+	)
+	if act.WithBLS() {
+		c.Pubkey = act.PubKey()
+		topics, eventData, err = action.PackCandidateUpdateWithBLSEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.PubKey())
+		if err != nil {
+			return log, errors.Wrap(err, "failed to pack candidate register with BLS event")
+		}
+	}
 	log.AddTopics(c.GetIdentifier().Bytes())
 
 	if err := csm.Upsert(c); err != nil {
@@ -862,6 +886,9 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	}
 
 	log.AddAddress(actCtx.Caller)
+	if act.WithBLS() {
+		log.SetEvent(topics, eventData)
+	}
 	return log, nil
 }
 

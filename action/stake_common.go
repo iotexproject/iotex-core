@@ -13,10 +13,12 @@ import (
 
 // this struct is meant to return constant value for all staking actions, so we
 // can use value receiver below
-type stake_common struct{}
+type stake_common struct {
+	value *big.Int
+}
 
 func (stake_common) EthTo() (*common.Address, error) {
 	return &_stakingProtocolEthAddr, nil
 }
 
-func (stake_common) Value() *big.Int { return nil }
+func (c stake_common) Value() *big.Int { return c.value }

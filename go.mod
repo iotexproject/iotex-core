@@ -30,7 +30,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.8
 	github.com/iotexproject/iotex-antenna-go/v2 v2.6.4
 	github.com/iotexproject/iotex-election v0.3.8-0.20250722071821-26e7794c6dcd
-	github.com/iotexproject/iotex-proto v0.6.5-0.20250722150208-39ab0efeb78d
+	github.com/iotexproject/iotex-proto v0.6.5-0.20250805125222-9cdc028f4a74
 	github.com/ipfs/go-ipfs-api v0.7.0
 	github.com/libp2p/go-libp2p v0.39.0
 	github.com/mackerelio/go-osstat v0.2.4

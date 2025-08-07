@@ -20,6 +20,7 @@ type receiptLog struct {
 	topics                action.Topics
 	data                  []byte
 	postFairbankMigration bool
+	eventData             []byte
 }
 
 func newReceiptLog(addr, topic string, postFairbankMigration bool) *receiptLog {
@@ -54,6 +55,11 @@ func (r *receiptLog) SetData(data []byte) {
 	r.data = data
 }
 
+func (r *receiptLog) SetEvent(topics action.Topics, data []byte) {
+	r.topics = topics
+	r.eventData = data
+}
+
 func (r *receiptLog) Build(ctx context.Context, err error) *action.Log {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	actionCtx := protocol.MustGetActionCtx(ctx)
@@ -63,6 +69,7 @@ func (r *receiptLog) Build(ctx context.Context, err error) *action.Log {
 		Topics:      r.topics,
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
+		Data:        r.eventData,
 	}
 
 	if r.postFairbankMigration {

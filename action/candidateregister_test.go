@@ -141,7 +141,7 @@ func TestCandidateRegisterABIEncodeAndDecode(t *testing.T) {
 
 	data, err := stake.EthData()
 	require.NoError(err)
-	stake, err = NewCandidateRegisterFromABIBinary(data)
+	stake, err = NewCandidateRegisterFromABIBinary(data, stake.Amount())
 	require.NoError(err)
 	require.Equal(test.Name, stake.Name())
 	require.Equal(test.OperatorAddrStr, stake.OperatorAddress().String())
