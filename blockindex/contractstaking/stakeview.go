@@ -2,96 +2,133 @@ package contractstaking
 
 import (
 	"context"
-	"sync"
+	"slices"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type stakeView struct {
-	helper *Indexer
-	clean  *contractStakingCache
-	dirty  *contractStakingCache
-	height uint64
-	mu     sync.RWMutex
+	contractAddr       address.Address
+	cache              stakingCache
+	genBlockDurationFn func(view uint64) blocksDurationFn
+	height             uint64
 }
 
-func (s *stakeView) Clone() staking.ContractStakeView {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	clone := &stakeView{
-		helper: s.helper,
-		clean:  s.clean,
-		dirty:  nil,
-		height: s.height,
+func (s *stakeView) Wrap() staking.ContractStakeView {
+	return &stakeView{
+		contractAddr:       s.contractAddr,
+		cache:              newWrappedCache(s.cache),
+		height:             s.height,
+		genBlockDurationFn: s.genBlockDurationFn,
 	}
-	if s.dirty != nil {
-		clone.clean = s.dirty.Clone()
+}
+
+func (s *stakeView) Fork() staking.ContractStakeView {
+	return &stakeView{
+		contractAddr:       s.contractAddr,
+		cache:              newWrappedCacheWithCloneInCommit(s.cache),
+		height:             s.height,
+		genBlockDurationFn: s.genBlockDurationFn,
 	}
-	return clone
+}
+
+func (s *stakeView) assembleBuckets(ids []uint64, types []*BucketType, infos []*bucketInfo) []*Bucket {
+	vbs := make([]*Bucket, 0, len(ids))
+	for i, id := range ids {
+		bt := types[i]
+		info := infos[i]
+		if bt != nil && info != nil {
+			vbs = append(vbs, s.assembleBucket(id, info, bt))
+		}
+	}
+	return vbs
+}
+
+func (s *stakeView) IsDirty() bool {
+	return s.cache.IsDirty()
+}
+
+func (s *stakeView) WriteBuckets(sm protocol.StateManager) error {
+	ids, types, infos := s.cache.Buckets()
+	cssm := contractstaking.NewContractStakingStateManager(sm)
+	bucketMap := make(map[uint64]*bucketInfo, len(ids))
+	typeMap := make(map[uint64]*BucketType, len(ids))
+	for i, id := range ids {
+		bucketMap[id] = infos[i]
+		typeMap[id] = types[i]
+	}
+	slices.Sort(ids)
+	for _, id := range ids {
+		info, ok := bucketMap[id]
+		if !ok {
+			continue
+		}
+		bt := typeMap[id]
+		if err := cssm.UpsertBucket(s.contractAddr, id, &contractstaking.Bucket{
+			Candidate:        info.Delegate,
+			Owner:            info.Owner,
+			StakedAmount:     bt.Amount,
+			StakedDuration:   bt.Duration,
+			CreatedAt:        info.CreatedAt,
+			UnstakedAt:       info.UnstakedAt,
+			UnlockedAt:       info.UnlockedAt,
+			Muted:            false,
+			IsTimestampBased: false,
+		}); err != nil {
+			return err
+		}
+	}
+	return cssm.UpdateNumOfBuckets(s.contractAddr, s.cache.TotalBucketCount())
 }
 
 func (s *stakeView) BucketsByCandidate(candidate address.Address) ([]*Bucket, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.dirty != nil {
-		return s.dirty.bucketsByCandidate(candidate, s.height)
-	}
-	return s.clean.bucketsByCandidate(candidate, s.height)
+	ids, types, infos := s.cache.BucketsByCandidate(candidate)
+	return s.assembleBuckets(ids, types, infos), nil
+}
+
+func (s *stakeView) assembleBucket(token uint64, bi *bucketInfo, bt *BucketType) *Bucket {
+	return assembleBucket(token, bi, bt, s.contractAddr.String(), s.genBlockDurationFn(s.height))
 }
 
 func (s *stakeView) CreatePreStates(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	s.height = blkCtx.BlockHeight
 	return nil
 }
 
 func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	// new event handler for this receipt
+	handler := newContractStakingEventHandler(newWrappedCache(s.cache))
+
+	// handle events of receipt
 	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		return nil
 	}
-	var (
-		blkCtx  = protocol.MustGetBlockCtx(ctx)
-		handler *contractStakingEventHandler
-	)
 	for _, log := range receipt.Logs() {
-		if log.Address != s.helper.config.ContractAddress {
+		if log.Address != s.contractAddr.String() {
 			continue
-		}
-		if handler == nil {
-			s.mu.Lock()
-			// new event handler for this receipt
-			if s.dirty == nil {
-				s.dirty = s.clean.Clone()
-			}
-			handler = newContractStakingEventHandler(s.dirty)
-			s.mu.Unlock()
 		}
 		if err := handler.HandleEvent(ctx, blkCtx.BlockHeight, log); err != nil {
 			return err
 		}
 	}
-	if handler == nil {
-		return nil
-	}
 	_, delta := handler.Result()
-	// update cache
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.dirty.Merge(delta, blkCtx.BlockHeight)
+	s.cache = delta
+
+	return nil
 }
 
-func (s *stakeView) Commit() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.dirty != nil {
-		s.clean = s.dirty
-		s.dirty = nil
+func (s *stakeView) Commit(ctx context.Context, sm protocol.StateManager) error {
+	cache, err := s.cache.Commit(ctx, s.contractAddr, sm)
+	if err != nil {
+		return err
 	}
+	s.cache = cache
+	return nil
 }

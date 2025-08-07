@@ -12,30 +12,30 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 )
 
-func TestViewData_Clone(t *testing.T) {
+func TestViewData_Fork(t *testing.T) {
 	viewData, _ := prepareViewData(t)
-	clone, ok := viewData.Clone().(*ViewData)
+	fork, ok := viewData.Fork().(*ViewData)
 	require.True(t, ok)
-	require.NotNil(t, clone)
+	require.NotNil(t, fork)
 
-	require.Equal(t, viewData.candCenter.size, clone.candCenter.size)
-	require.Equal(t, viewData.candCenter.base, clone.candCenter.base)
-	require.Equal(t, viewData.candCenter.change, clone.candCenter.change)
-	require.NotSame(t, viewData.bucketPool, clone.bucketPool)
-	require.Equal(t, viewData.snapshots, clone.snapshots)
+	require.Equal(t, viewData.candCenter.size, fork.candCenter.size)
+	require.Equal(t, viewData.candCenter.base, fork.candCenter.base)
+	require.Equal(t, viewData.candCenter.change, fork.candCenter.change)
+	require.NotSame(t, viewData.bucketPool, fork.bucketPool)
+	require.Equal(t, viewData.snapshots, fork.snapshots)
 
-	sr := mock_chainmanager.NewMockStateReader(gomock.NewController(t))
-	sr.EXPECT().Height().Return(uint64(100), nil).Times(1)
-	require.NoError(t, viewData.Commit(context.Background(), sr))
+	sm := mock_chainmanager.NewMockStateManager(gomock.NewController(t))
+	sm.EXPECT().Height().Return(uint64(100), nil).Times(1)
+	require.NoError(t, viewData.Commit(context.Background(), sm))
 
-	clone, ok = viewData.Clone().(*ViewData)
+	fork, ok = viewData.Fork().(*ViewData)
 	require.True(t, ok)
-	require.NotNil(t, clone)
-	require.Equal(t, viewData.candCenter.size, clone.candCenter.size)
-	require.Equal(t, viewData.candCenter.base, clone.candCenter.base)
-	require.Equal(t, viewData.candCenter.change, clone.candCenter.change)
-	require.Equal(t, viewData.bucketPool, clone.bucketPool)
-	require.Equal(t, viewData.snapshots, clone.snapshots)
+	require.NotNil(t, fork)
+	require.Equal(t, viewData.candCenter.size, fork.candCenter.size)
+	require.Equal(t, viewData.candCenter.base, fork.candCenter.base)
+	require.Equal(t, viewData.candCenter.change, fork.candCenter.change)
+	require.Equal(t, viewData.bucketPool, fork.bucketPool)
+	require.Equal(t, viewData.snapshots, fork.snapshots)
 }
 
 func prepareViewData(t *testing.T) (*ViewData, int) {
@@ -62,10 +62,9 @@ func prepareViewData(t *testing.T) (*ViewData, int) {
 		},
 	}
 	viewData := &ViewData{
-		candCenter:     candCenter,
-		bucketPool:     bucketPool,
-		snapshots:      []Snapshot{},
-		contractsStake: &contractStakeView{},
+		candCenter: candCenter,
+		bucketPool: bucketPool,
+		snapshots:  []Snapshot{},
 	}
 	return viewData, viewData.Snapshot()
 }
@@ -73,9 +72,9 @@ func prepareViewData(t *testing.T) (*ViewData, int) {
 func TestViewData_Commit(t *testing.T) {
 	viewData, _ := prepareViewData(t)
 	require.True(t, viewData.IsDirty())
-	mockStateReader := mock_chainmanager.NewMockStateReader(gomock.NewController(t))
-	mockStateReader.EXPECT().Height().Return(uint64(100), nil).Times(1)
-	require.NoError(t, viewData.Commit(context.Background(), mockStateReader))
+	mockStateManager := mock_chainmanager.NewMockStateManager(gomock.NewController(t))
+	mockStateManager.EXPECT().Height().Return(uint64(100), nil).Times(1)
+	require.NoError(t, viewData.Commit(context.Background(), mockStateManager))
 	require.False(t, viewData.IsDirty())
 	require.Empty(t, viewData.candCenter.change.dirty)
 	require.False(t, viewData.bucketPool.dirty)

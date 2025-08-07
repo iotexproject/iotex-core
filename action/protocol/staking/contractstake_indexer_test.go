@@ -83,10 +83,12 @@ func TestDelayTolerantIndexer(t *testing.T) {
 	count, err := delayIndexer.TotalBucketCount(delayHeight)
 	r.NoError(err)
 	r.Equal(uint64(len(indexerBuckets)), count)
+	addr, err := address.FromString(indexerAddress)
+	r.NoError(err)
 	// ContractAddress
-	indexer.EXPECT().ContractAddress().Return(indexerAddress).AnyTimes()
+	indexer.EXPECT().ContractAddress().Return(addr).AnyTimes()
 	ca := delayIndexer.ContractAddress()
-	r.Equal(indexerAddress, ca)
+	r.Equal(indexerAddress, ca.String())
 	// BucketTypes
 	indexer.EXPECT().BucketTypes(gomock.Any()).DoAndReturn(func(height uint64) ([]*ContractStakingBucketType, error) {
 		if height <= atomic.LoadUint64(&indexerHeight) {
