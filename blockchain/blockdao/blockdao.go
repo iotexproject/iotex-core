@@ -7,6 +7,7 @@ package blockdao
 
 import (
 	"context"
+	"math/big"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -297,6 +298,26 @@ func (dao *blockDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
 	if err != nil {
 		return nil, err
 	}
+	tlogs, err := dao.blockStore.TransactionLogs(height)
+	if err != nil {
+		return nil, err
+	}
+	tlogMap := make(map[hash.Hash256][]*action.TransactionLog)
+	for _, tlog := range tlogs.GetLogs() {
+		t, err := transactionLogsConvert(tlog)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to convert transaction log %v", tlog)
+		}
+		tlogMap[hash.Hash256(tlog.ActionHash)] = t
+	}
+	for _, r := range receipts {
+		if len(r.TransactionLogs()) > 0 {
+			continue
+		}
+		if txLogs, ok := tlogMap[r.ActionHash]; ok {
+			r.AddTransactionLogs(txLogs...)
+		}
+	}
 	lruCachePut(dao.receiptCache, height, receipts)
 	return receipts, nil
 }
@@ -384,4 +405,21 @@ func lruCachePut(c cache.LRUCache, k, v interface{}) {
 	if c != nil {
 		c.Add(k, v)
 	}
+}
+
+func transactionLogsConvert(logs *iotextypes.TransactionLog) ([]*action.TransactionLog, error) {
+	tlogs := make([]*action.TransactionLog, 0, len(logs.Transactions))
+	for _, log := range logs.Transactions {
+		amount, ok := big.NewInt(0).SetString(log.Amount, 10)
+		if !ok {
+			return nil, errors.Errorf("failed to convert amount %s to big.Int", log.Amount)
+		}
+		tlogs = append(tlogs, &action.TransactionLog{
+			Sender:    log.Sender,
+			Recipient: log.Recipient,
+			Amount:    amount,
+			Type:      log.Type,
+		})
+	}
+	return tlogs, nil
 }

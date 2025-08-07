@@ -67,6 +67,7 @@ type (
 		logsBloom       string
 		receipt         *action.Receipt
 		txType          uint
+		transferEvents  []*action.Log
 	}
 
 	getLogsResult struct {
@@ -365,7 +366,7 @@ func (obj *getReceiptResult) MarshalJSON() ([]byte, error) {
 		return nil, errInvalidObject
 	}
 	logs := make([]*getLogsResult, 0, len(obj.receipt.Logs()))
-	for _, v := range obj.receipt.Logs() {
+	for _, v := range append(obj.receipt.Logs(), obj.transferEvents...) {
 		logs = append(logs, &getLogsResult{obj.blockHash, v})
 	}
 

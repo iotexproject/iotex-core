@@ -12,7 +12,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
@@ -195,6 +197,25 @@ func (receipt *Receipt) UpdateIndex(txIndex, logIndex uint32) uint32 {
 	return logIndex
 }
 
+// TransferLogs converts transaction logs to logs with given account contract address and starting log index
+func (receipt *Receipt) TransferLogs(accountContractAddr string, logIndex uint32) ([]*Log, error) {
+	logs := make([]*Log, 0, len(receipt.transactionLogs))
+	for _, tlog := range receipt.transactionLogs {
+		log, err := tlog.convertToLog()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to convert transaction log to log: %s", tlog.Type)
+		}
+		log.Address = accountContractAddr
+		log.BlockHeight = receipt.BlockHeight
+		log.ActionHash = receipt.ActionHash
+		log.Index = logIndex
+		log.TxIndex = receipt.TxIndex
+		logs = append(logs, log)
+		logIndex++
+	}
+	return logs, nil
+}
+
 // ConvertToLogPb converts a Log to protobuf's Log
 func (log *Log) ConvertToLogPb() *iotextypes.Log {
 	l := &iotextypes.Log{}
@@ -245,4 +266,35 @@ func (log *Log) Deserialize(buf []byte) error {
 	}
 	log.ConvertFromLogPb(pbLog)
 	return nil
+}
+
+func convertSpecialAddress(addr string) string {
+	switch addr {
+	case address.StakingBucketPoolAddr:
+		return address.StakingProtocolAddr
+	case address.RewardingPoolAddr:
+		return address.RewardingProtocol
+	}
+	return addr
+}
+
+func (tlog *TransactionLog) convertToLog() (*Log, error) {
+	sender := convertSpecialAddress(tlog.Sender)
+	recipient := convertSpecialAddress(tlog.Recipient)
+	from, err := address.FromString(sender)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to convert sender address from string: %s", sender)
+	}
+	to, err := address.FromString(recipient)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to convert recipient address from string: %s", recipient)
+	}
+	topics, data, err := PackAccountTransferEvent(from, to, tlog.Amount, uint8(tlog.Type))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to pack account transfer event: %s", tlog.Type)
+	}
+	return &Log{
+		Topics: topics,
+		Data:   data,
+	}, nil
 }
