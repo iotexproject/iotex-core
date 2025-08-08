@@ -59,12 +59,12 @@ type (
 		HandleMergedEvent(event *abiutil.EventParam) error
 		HandleBucketExpandedEvent(event *abiutil.EventParam) error
 		HandleDonatedEvent(event *abiutil.EventParam) error
-		Finalize() (batch.KVStoreBatch, bucketCache)
+		Finalize() (batch.KVStoreBatch, indexerCache)
 	}
 	// Indexer is the staking indexer
 	Indexer struct {
 		common           *systemcontractindex.IndexerCommon
-		cache            bucketCache // in-memory cache, used to query index data
+		cache            *base // in-memory cache, used to query index data
 		mutex            sync.RWMutex
 		blocksToDuration blocksDurationAtFn // function to calculate duration from block range
 		bucketNS         string
@@ -99,7 +99,7 @@ func NewIndexer(kvstore db.KVStore, contractAddr string, startHeight uint64, blo
 	ns := contractAddr + "#" + stakingNS
 	idx := &Indexer{
 		common:           systemcontractindex.NewIndexerCommon(kvstore, ns, stakingHeightKey, contractAddr, startHeight),
-		cache:            newCache(ns, bucketNS),
+		cache:            newCache(),
 		blocksToDuration: blocksToDurationFn,
 		bucketNS:         bucketNS,
 		ns:               ns,
@@ -130,7 +130,7 @@ func (s *Indexer) StartView(ctx context.Context) (staking.ContractStakeView, err
 	}
 	return &stakeView{
 		helper: s,
-		cache:  newCowCache(s.cache.Copy()),
+		cache:  s.cache.Clone(),
 		height: s.common.Height(),
 	}, nil
 }
@@ -139,7 +139,7 @@ func (s *Indexer) start(ctx context.Context) error {
 	if err := s.common.Start(ctx); err != nil {
 		return err
 	}
-	return s.cache.Load(s.common.KVStore())
+	return s.cache.Load(s.common.KVStore(), s.ns, s.bucketNS)
 }
 
 // Stop stops the indexer
@@ -271,7 +271,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	// handle events of block
 	muted := s.muteHeight > 0 && blk.Height() >= s.muteHeight
-	handler := newEventHandler(s.bucketNS, s.cache.Copy(), protocol.MustGetBlockCtx(ctx), s.timestamped, muted)
+	handler := newEventHandler(s.bucketNS, newWrappedCache(s.cache), protocol.MustGetBlockCtx(ctx), s.timestamped, muted)
 	for _, receipt := range blk.Receipts {
 		if err := s.handleReceipt(ctx, handler, receipt); err != nil {
 			return errors.Wrapf(err, "handle receipt %x failed", receipt.ActionHash)
@@ -346,8 +346,12 @@ func (s *Indexer) commit(handler stakingEventHandler, height uint64) error {
 	if err := s.common.Commit(height, delta); err != nil {
 		return err
 	}
+	cache, ok := dirty.Commit().(*base)
+	if !ok {
+		return errors.Errorf("unexpected cache type %T, expect *base", dirty)
+	}
 	// update cache
-	s.cache = dirty
+	s.cache = cache
 	return nil
 }
 
