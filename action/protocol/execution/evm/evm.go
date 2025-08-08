@@ -331,7 +331,7 @@ func ExecuteContract(
 		revertMsg := string(data[64 : 64+msgLength])
 		receipt.SetExecutionRevertMsg(revertMsg)
 	}
-	log.S().Debugf("Receipt: %+v, %v", receipt, err)
+	log.S().Debugf("Retval: %x, Receipt: %+v, %v", retval, receipt, err)
 	return retval, receipt, nil
 }
 
@@ -351,12 +351,57 @@ func ReadContractStorage(
 			BlockHeight: bcCtx.Tip.Height + 1,
 		},
 	))
+	var stateDB stateDB
 	stateDB, err := prepareStateDB(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
+	if erigonsm, ok := sm.(interface {
+		Erigon() (*erigonstate.IntraBlockState, bool)
+	}); ok {
+		if in, dryrun := erigonsm.Erigon(); in != nil {
+			if !dryrun {
+				log.S().Panic("should not happen, use dryrun instead")
+			}
+			stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
+		}
+	}
 	res := stateDB.GetState(common.BytesToAddress(contract.Bytes()), common.BytesToHash(key))
 	return res[:], nil
+}
+
+// ReadContractCode reads contract's code
+func ReadContractCode(
+	ctx context.Context,
+	sm protocol.StateManager,
+	contract address.Address,
+) ([]byte, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(protocol.WithActionCtx(ctx,
+		protocol.ActionCtx{
+			ActionHash: hash.ZeroHash256,
+		}),
+		protocol.BlockCtx{
+			BlockHeight: bcCtx.Tip.Height + 1,
+		},
+	))
+	var stateDB stateDB
+	stateDB, err := prepareStateDB(ctx, sm)
+	if err != nil {
+		return nil, err
+	}
+	if erigonsm, ok := sm.(interface {
+		Erigon() (*erigonstate.IntraBlockState, bool)
+	}); ok {
+		if in, dryrun := erigonsm.Erigon(); in != nil {
+			if !dryrun {
+				log.S().Panic("should not happen, use dryrun instead")
+			}
+			stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
+		}
+	}
+	code := stateDB.GetCode(common.BytesToAddress(contract.Bytes()))
+	return code, nil
 }
 
 func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdapter, error) {
@@ -516,12 +561,18 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
-		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, amount)
+		var createRet []byte
+		createRet, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, amount)
 		log.T(ctx).Debug("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
 		if evmErr == nil {
 			if contractAddress, err := address.FromBytes(evmContractAddress.Bytes()); err == nil {
 				contractRawAddress = contractAddress.String()
 			}
+		}
+		// ret updates may need hard fork
+		// so we change it only when readonly mode now
+		if evmParams.actionCtx.ReadOnly {
+			ret = createRet
 		}
 	} else {
 		stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1)

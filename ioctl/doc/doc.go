@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// GenMarkdownTreeCustom is the the same as GenMarkdownTree, but
+// GenMarkdownTreeCustom is the same as GenMarkdownTree, but
 // with custom filePrepender and linkHandler.
 func GenMarkdownTreeCustom(c *cobra.Command, dir string, name string, path string, filePrepender func(string) string,
 	linkHandler func(*cobra.Command, string) string) (err error) {

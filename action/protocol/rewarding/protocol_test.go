@@ -10,9 +10,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -148,9 +148,9 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		return reg.Register("poll", pp)
 	}).AnyTimes()
 	pp.EXPECT().CalculateUnproductiveDelegates(gomock.Any(), gomock.Any()).Return(
-		[]string{
-			identityset.Address(29).String(),
-			identityset.Address(31).String(),
+		map[string]uint64{
+			identityset.Address(29).String(): 1,
+			identityset.Address(31).String(): 2,
 		}, nil,
 	).AnyTimes()
 	require.NoError(t, rp.Register(registry))

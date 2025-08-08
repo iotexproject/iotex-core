@@ -174,6 +174,7 @@ func defaultConfig() Genesis {
 			MinStakeAmount:                   unit.ConvertIotxToRau(100).String(),
 			BootstrapCandidates:              []BootstrapCandidate{},
 			EndorsementWithdrawWaitingBlocks: 24 * 60 * 60 / 5,
+			MinSelfStakeToBeActive:           unit.ConvertIotxToRau(1000000).String(),
 		},
 	}
 }
@@ -334,7 +335,7 @@ type (
 		// 3. fix gas and nonce update
 		// 4. fix unproductive delegates in staking protocol
 		OkhotskBlockHeight uint64 `yaml:"okhotskHeight"`
-		// PalauBlockHeight is the the start height to
+		// PalauBlockHeight is the start height to
 		// 1. enable rewarding action via web3
 		// 2. broadcast node info into the p2p network
 		PalauBlockHeight uint64 `yaml:"palauHeight"`
@@ -480,6 +481,7 @@ type (
 		MinStakeAmount                   string               `yaml:"minStakeAmount"`
 		BootstrapCandidates              []BootstrapCandidate `yaml:"bootstrapCandidates"`
 		EndorsementWithdrawWaitingBlocks uint64               `yaml:"endorsementWithdrawWaitingBlocks"`
+		MinSelfStakeToBeActive           string               `yaml:"minSelfStakeToBeActive"`
 	}
 
 	// VoteWeightCalConsts contains the configs for calculating vote weight

@@ -7,7 +7,6 @@ package action
 
 import (
 	"bytes"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"google.golang.org/protobuf/proto"
@@ -22,45 +21,6 @@ const (
 	ReclaimStakePayloadGas = uint64(100)
 	// ReclaimStakeBaseIntrinsicGas represents the base intrinsic gas for stake reclaim
 	ReclaimStakeBaseIntrinsicGas = uint64(10000)
-
-	_reclaimStakeInterfaceABI = `[
-		{
-			"inputs": [
-				{
-					"internalType": "uint64",
-					"name": "bucketIndex",
-					"type": "uint64"
-				},
-				{
-					"internalType": "uint8[]",
-					"name": "data",
-					"type": "uint8[]"
-				}
-			],
-			"name": "unstake",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		},
-		{
-			"inputs": [
-				{
-					"internalType": "uint64",
-					"name": "bucketIndex",
-					"type": "uint64"
-				},
-				{
-					"internalType": "uint8[]",
-					"name": "data",
-					"type": "uint8[]"
-				}
-			],
-			"name": "withdrawStake",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
 )
 
 var (
@@ -73,10 +33,7 @@ var (
 )
 
 func init() {
-	reclaimStakeInterface, err := abi.JSON(strings.NewReader(_reclaimStakeInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
+	reclaimStakeInterface := NativeStakingContractABI()
 	var ok bool
 	_unstakeMethod, ok = reclaimStakeInterface.Methods["unstake"]
 	if !ok {

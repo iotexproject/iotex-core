@@ -107,6 +107,7 @@ type (
 		EndorsementWithdrawWaitingBlocks  uint64
 		MigrateContractAddress            string
 		TimestampedMigrateContractAddress string
+		MinSelfStakeToBeActive            *big.Int
 	}
 	// HelperCtx is the helper context for staking protocol
 	HelperCtx struct {
@@ -168,6 +169,11 @@ func NewProtocol(
 		return nil, action.ErrInvalidAmount
 	}
 
+	minSelfStakeToBeActive, ok := new(big.Int).SetString(cfg.Staking.MinSelfStakeToBeActive, 10)
+	if !ok {
+		return nil, errors.Wrapf(action.ErrInvalidAmount, "invalid min self stake to be active: %s", cfg.Staking.MinSelfStakeToBeActive)
+	}
+
 	regFee, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.Fee, 10)
 	if !ok {
 		return nil, action.ErrInvalidAmount
@@ -194,6 +200,7 @@ func NewProtocol(
 			},
 			WithdrawWaitingPeriod:            cfg.Staking.WithdrawWaitingPeriod,
 			MinStakeAmount:                   minStakeAmount,
+			MinSelfStakeToBeActive:           minSelfStakeToBeActive,
 			BootstrapCandidates:              cfg.Staking.BootstrapCandidates,
 			PersistStakingPatchBlock:         cfg.PersistStakingPatchBlock,
 			FixAliasForNonStopHeight:         cfg.FixAliasForNonStopHeight,
@@ -341,6 +348,51 @@ func (p *Protocol) CreateGenesisStates(
 	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
 }
 
+func (p *Protocol) SlashCandidate(
+	ctx context.Context,
+	sm protocol.StateManager,
+	owner address.Address,
+	amount *big.Int,
+) error {
+	if amount == nil || amount.Sign() <= 0 {
+		return errors.New("nil or non-positive amount")
+	}
+	csm, err := NewCandidateStateManager(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create candidate state manager")
+	}
+	candidate := csm.GetByIdentifier(owner)
+	if candidate == nil {
+		return errors.Wrapf(state.ErrStateNotExist, "candidate %s does not exist", owner.String())
+	}
+	bucket, err := p.fetchBucket(csm, candidate.SelfStakeBucketIdx)
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch bucket")
+	}
+	prevWeightedVotes := p.calculateVoteWeight(bucket, true)
+	if bucket.StakedAmount.Cmp(amount) < 0 {
+		return errors.Errorf("amount %s is greater than staked amount %s", amount.String(), bucket.StakedAmount.String())
+	}
+	bucket.StakedAmount.Sub(bucket.StakedAmount, amount)
+	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
+		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)
+	}
+	if err := candidate.SubVote(prevWeightedVotes); err != nil {
+		return errors.Wrapf(err, "failed to sub candidate votes")
+	}
+	weightedVotes := p.calculateVoteWeight(bucket, true)
+	if err := candidate.AddVote(weightedVotes); err != nil {
+		return errors.Wrapf(err, "failed to add candidate votes")
+	}
+	if err := candidate.SubSelfStake(amount); err != nil {
+		return errors.Wrap(err, "failed to update self stake")
+	}
+	if err := csm.Upsert(candidate); err != nil {
+		return errors.Wrap(err, "failed to upsert candidate")
+	}
+	return csm.CreditBucketPool(amount)
+}
+
 // CreatePreStates updates state manager
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
 	var (
@@ -437,7 +489,7 @@ func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight ui
 	return p.candBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
 }
 
-// PreCommit preforms pre-commit
+// PreCommit performs pre-commit
 func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) error {
 	height, err := sm.Height()
 	if err != nil {
@@ -620,10 +672,16 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 }
 
 func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidiateStateCommon, cand *Candidate) (bool, error) {
-	if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
-		return false, nil
-	}
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.NotUseMinSelfStakeToBeActive {
+		if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
+			return false, nil
+		}
+	} else {
+		if cand.SelfStake.Cmp(p.config.MinSelfStakeToBeActive) < 0 {
+			return false, nil
+		}
+	}
 	if featureCtx.DisableDelegateEndorsement {
 		// before endorsement feature, candidates with enough amount must be active
 		return true, nil

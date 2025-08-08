@@ -190,6 +190,19 @@ type (
 		Track(ctx context.Context, start time.Time, method string, size int64, success bool)
 		// BlobSidecarsByHeight returns blob sidecars by height
 		BlobSidecarsByHeight(height uint64) ([]*apitypes.BlobSidecarResult, error)
+
+		// Historical methods
+		BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error)
+		// PendingNonceAt returns the pending nonce of an account at a specific height
+		PendingNonceAt(ctx context.Context, addr address.Address, height uint64) (uint64, error)
+		// CodeAt returns the code at a specific address at a specific height
+		CodeAt(ctx context.Context, addr address.Address, height uint64) ([]byte, error)
+		// ReadContractStorageAt reads contract's storage at a specific height
+		ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error)
+		// EstimateMigrateStakeGasConsumptionAt estimates gas for migrate stake at a specific height
+		EstimateMigrateStakeGasConsumptionAt(context.Context, *action.MigrateStake, address.Address, uint64) (uint64, []byte, error)
+		// EstimateExecutionGasConsumptionAt estimates gas consumption for execution action at a specific height
+		EstimateExecutionGasConsumptionAt(ctx context.Context, sc action.Envelope, callerAddr address.Address, height uint64, opts ...protocol.SimulateOption) (uint64, []byte, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -336,6 +349,60 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
 	return core.acccount(ctx, tipHeight, state, pendingNonce, addr)
+}
+
+func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error) {
+	ctx, span := tracer.NewSpan(context.Background(), "coreService.BalanceAt")
+	defer span.End()
+	addrStr := addr.String()
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return "", status.Error(codes.Internal, err.Error())
+	}
+	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
+		acc, _, err := core.getProtocolAccount(ctx, addrStr)
+		if err != nil {
+			return "", err
+		}
+		return acc.Balance, nil
+	}
+
+	if height == 0 {
+		height = core.bc.TipHeight()
+	}
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
+	if err != nil {
+		return "", status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
+	state, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return "", status.Error(codes.NotFound, err.Error())
+	}
+	return state.Balance.String(), nil
+}
+
+func (core *coreService) CodeAt(ctx context.Context, addr address.Address, height uint64) ([]byte, error) {
+	ctx, span := tracer.NewSpan(ctx, "coreService.CodeAt")
+	defer span.End()
+	addrStr := addr.String()
+	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
+		return nil, nil
+	}
+	ctx, ws, err := core.workingSetAt(ctx, height)
+	defer ws.Close()
+	state, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	if !state.IsContract() {
+		return nil, nil
+	}
+	code, err := evm.ReadContractCode(ctx, ws, addr)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return protocol.SerializableBytes(code), nil
 }
 
 func (core *coreService) acccount(ctx context.Context, height uint64, state *state.Account, pendingNonce uint64, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
@@ -517,6 +584,30 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 
 func (core *coreService) PendingNonce(addr address.Address) (uint64, error) {
 	return core.ap.GetPendingNonce(addr.String())
+}
+
+func (core *coreService) PendingNonceAt(ctx context.Context, addr address.Address, height uint64) (uint64, error) {
+	if height == 0 {
+		return core.ap.GetPendingNonce(addr.String())
+	}
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height}))
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	defer ws.Close()
+	confirmedState, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+		return confirmedState.PendingNonceConsideringFreshAccount(), nil
+	}
+	return confirmedState.PendingNonce(), nil
 }
 
 func (core *coreService) validateChainID(chainID uint32) error {
@@ -1612,8 +1703,19 @@ func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint
 
 // EstimateMigrateStakeGasConsumption estimates gas consumption for migrate stake action
 func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context, ms *action.MigrateStake, caller address.Address) (uint64, []byte, error) {
+	return core.estimateMigrateStakeGasConsumptionAt(ctx, ms, caller, core.bc.TipHeight())
+}
+
+func (core *coreService) EstimateMigrateStakeGasConsumptionAt(ctx context.Context, ms *action.MigrateStake, caller address.Address, height uint64) (uint64, []byte, error) {
+	if height == 0 {
+		height = core.bc.TipHeight()
+	}
+	return core.estimateMigrateStakeGasConsumptionAt(ctx, ms, caller, height)
+}
+
+func (core *coreService) estimateMigrateStakeGasConsumptionAt(ctx context.Context, ms *action.MigrateStake, caller address.Address, height uint64) (uint64, []byte, error) {
 	g := core.bc.Genesis()
-	header, err := core.bc.BlockHeaderByHeight(core.bc.TipHeight())
+	header, err := core.bc.BlockHeaderByHeight(height)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -1621,7 +1723,7 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 	if err != nil {
 		return 0, nil, err
 	}
-	ctx, err = core.bc.Context(ctx)
+	ctx, err = core.bc.ContextAtHeight(ctx, height)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -1662,12 +1764,23 @@ func (core *coreService) EstimateMigrateStakeGasConsumption(ctx context.Context,
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
 func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, elp action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, []byte, error) {
+	return core.estimateExecutionGasConsumptionAt(ctx, elp, callerAddr, 0, opts...)
+}
+
+func (core *coreService) EstimateExecutionGasConsumptionAt(ctx context.Context, elp action.Envelope, callerAddr address.Address, height uint64, opts ...protocol.SimulateOption) (uint64, []byte, error) {
+	return core.estimateExecutionGasConsumptionAt(ctx, elp, callerAddr, height, opts...)
+}
+
+func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, elp action.Envelope, callerAddr address.Address, height uint64, opts ...protocol.SimulateOption) (uint64, []byte, error) {
 	var (
 		g             = core.bc.Genesis()
 		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
 	)
+	if height != 0 {
+		blockGasLimit = g.BlockGasLimitByHeight(height)
+	}
 	elp.SetGas(blockGasLimit)
-	enough, receipt, retval, err := core.isGasLimitEnough(ctx, callerAddr, elp, opts...)
+	enough, receipt, retval, err := core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
 	if err != nil {
 		return 0, nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1682,7 +1795,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, el
 	}
 	estimatedGas := receipt.GasConsumed
 	elp.SetGas(estimatedGas)
-	enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, opts...)
+	enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
 	if err != nil && err != action.ErrInsufficientFunds {
 		return 0, nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1692,7 +1805,7 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, el
 		for low <= high {
 			mid := (low + high) / 2
 			elp.SetGas(mid)
-			enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, opts...)
+			enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
 			if err != nil && err != action.ErrInsufficientFunds {
 				return 0, nil, status.Error(codes.Internal, err.Error())
 			}
@@ -1712,11 +1825,21 @@ func (core *coreService) isGasLimitEnough(
 	ctx context.Context,
 	caller address.Address,
 	elp action.Envelope,
+	height uint64,
 	opts ...protocol.SimulateOption,
 ) (bool, *action.Receipt, []byte, error) {
 	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
 	defer span.End()
-	ret, receipt, err := core.simulateExecution(ctx, core.bc.TipHeight(), false, caller, elp, opts...)
+	var (
+		ret     []byte
+		receipt *action.Receipt
+		err     error
+	)
+	if height == 0 {
+		ret, receipt, err = core.simulateExecution(ctx, core.bc.TipHeight(), true, caller, elp, opts...)
+	} else {
+		ret, receipt, err = core.simulateExecution(ctx, height, true, caller, elp, opts...)
+	}
 	if err != nil {
 		return false, nil, nil, err
 	}
@@ -1849,6 +1972,19 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 	ws, err := core.sf.WorkingSet(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return evm.ReadContractStorage(ctx, ws, addr, key)
+}
+
+func (core *coreService) ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error) {
+	ctx, ws, err := core.workingSetAt(ctx, height)
+	defer ws.Close()
+	state, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	if !state.IsContract() {
+		return nil, nil
 	}
 	return evm.ReadContractStorage(ctx, ws, addr, key)
 }
@@ -2028,6 +2164,21 @@ func (core *coreService) simulateExecution(
 		DepositGasFunc: rewarding.DepositGas,
 	})
 	return evm.SimulateExecution(ctx, ws, addr, elp, opts...)
+}
+
+func (core *coreService) workingSetAt(ctx context.Context, height uint64) (context.Context, protocol.StateManagerWithCloser, error) {
+	if height == 0 {
+		height = core.bc.TipHeight()
+	}
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
+	if err != nil {
+		return ctx, nil, status.Error(codes.Internal, err.Error())
+	}
+	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
+	if err != nil {
+		return ctx, nil, status.Error(codes.Internal, err.Error())
+	}
+	return ctx, ws, nil
 }
 
 func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Receipt {
