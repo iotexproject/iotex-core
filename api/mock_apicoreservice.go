@@ -11,17 +11,18 @@ import (
 	time "time"
 
 	tracers "github.com/ethereum/go-ethereum/eth/tracers"
-	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
+	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
+	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
+	gomock "go.uber.org/mock/gomock"
+
 	action "github.com/iotexproject/iotex-core/v2/action"
 	protocol "github.com/iotexproject/iotex-core/v2/action/protocol"
 	logfilter "github.com/iotexproject/iotex-core/v2/api/logfilter"
 	types "github.com/iotexproject/iotex-core/v2/api/types"
 	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
 	genesis "github.com/iotexproject/iotex-core/v2/blockchain/genesis"
-	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
-	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // MockCoreService is a mock of CoreService interface.

@@ -488,12 +488,12 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 		p := NewPatches()
 		defer p.Reset()
 
-		p = p.ApplyFuncReturn(accountutil.AccountStateWithHeight, nil, uint64(0), errors.New(t.Name()))
+		p = p.ApplyFuncReturn(accountutil.AccountState, nil, errors.New(t.Name()))
 
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
 		bc.EXPECT().TipHeight().Return(uint64(1)).Times(2)
 		bc.EXPECT().ContextAtHeight(gomock.Any(), gomock.Any()).Return(ctx, nil).Times(1)
-		sf.EXPECT().WorkingSetAtHeight(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).Times(1)
+		sf.EXPECT().WorkingSetAtHeight(gomock.Any(), gomock.Any(), gomock.Any()).Return(&mockWS{}, nil).Times(1)
 		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
 		_, _, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
 		require.ErrorContains(err, t.Name())
@@ -1103,3 +1103,11 @@ func TestTrack(t *testing.T) {
 		cs.Track(nil, time.Now(), "", 0, true)
 	})
 }
+
+type mockWS struct {
+	protocol.StateManagerWithCloser
+}
+
+var _ protocol.StateManagerWithCloser = (*mockWS)(nil)
+
+func (m *mockWS) Close() {}

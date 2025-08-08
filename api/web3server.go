@@ -1201,7 +1201,10 @@ func (svr *web3Handler) traceBlockByNumber(ctx context.Context, in *gjson.Result
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse block number")
 	}
-	height, _ := blockNumberToHeight(blkNum)
+	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(blkNum))
+	if err != nil {
+		return nil, err
+	}
 	tracer := parseTracerConfig(&tracerParam)
 	_, _, results, err := svr.coreService.TraceBlockByNumber(ctx, height, tracer)
 	return results, err
