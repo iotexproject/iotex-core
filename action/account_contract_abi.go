@@ -19,11 +19,11 @@ var (
 	accountContractABI           abi.ABI
 	accountContractTransferEvent abi.Event
 
-	once sync.Once
+	onceAcc sync.Once
 )
 
 func initAccountContractABI() {
-	once.Do(func() {
+	onceAcc.Do(func() {
 		var err error
 		accountContractABI, err = abi.JSON(strings.NewReader(AccountContractABIJSON))
 		if err != nil {
