@@ -274,6 +274,8 @@ func convertSpecialAddress(addr string) string {
 		return address.StakingProtocolAddr
 	case address.RewardingPoolAddr:
 		return address.RewardingProtocol
+	case "":
+		return address.ZeroAddress
 	}
 	return addr
 }
