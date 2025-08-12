@@ -289,21 +289,9 @@ func (tlog *TransactionLog) convertToLog() (*Log, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to convert recipient address from string: %s", recipient)
 	}
-	var (
-		topics Topics
-		data   []byte
-	)
-	if tlog.Type == iotextypes.TransactionLogType_GAS_FEE && tlog.Recipient == "" {
-		// legacy gas fee burn event
-		topics, data, err = PackGasFeeBurnEvent(from, tlog.Amount)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to pack gas fee burn event")
-		}
-	} else {
-		topics, data, err = PackAccountTransferEvent(from, to, tlog.Amount, uint8(tlog.Type))
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to pack account transfer event: %s", tlog.Type)
-		}
+	topics, data, err := PackAccountTransferEvent(from, to, tlog.Amount, uint8(tlog.Type))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to pack account transfer event: %s", tlog.Type)
 	}
 	return &Log{
 		Topics: topics,

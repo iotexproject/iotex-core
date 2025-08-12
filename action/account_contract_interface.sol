@@ -26,12 +26,4 @@ interface IAccountProtocolContract {
         TransactionLogType indexed logType,
         uint256 amount
     );
-    
-    // Event emitted when gas fee is burned
-    // NOTE: This is a legacy event, deprecated after Pacific hardfork
-    event GasFeeBurn(
-        address indexed from,
-        uint256 amount
-    );
-    
 }
