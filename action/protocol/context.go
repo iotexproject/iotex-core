@@ -159,6 +159,7 @@ type (
 		CreatePostActionStates                  bool
 		NotSlashUnproductiveDelegates           bool
 		CandidateBLSPublicKey                   bool
+		NotUseMinSelfStakeToBeActive            bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -323,6 +324,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CreatePostActionStates:                  g.IsWake(height),
 			NotSlashUnproductiveDelegates:           !g.IsToBeEnabled(height),
 			CandidateBLSPublicKey:                   g.IsToBeEnabled(height),
+			NotUseMinSelfStakeToBeActive:            !g.IsToBeEnabled(height),
 		},
 	)
 }
