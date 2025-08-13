@@ -13,11 +13,11 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/v2/pkg/bls"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
@@ -171,11 +171,6 @@ func (cu *CandidateUpdate) SanityCheck() error {
 	if !IsValidCandidateName(cu.Name()) {
 		return ErrInvalidCanName
 	}
-	if cu.WithBLS() {
-		if len(cu.pubKey) != bls.BLSPubkeyLength {
-			return errors.Wrapf(ErrInvalidBLSPubKey, "invalid BLS public key length %d", len(cu.pubKey))
-		}
-	}
 	return nil
 }
 
@@ -248,6 +243,10 @@ func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 		}
 		if len(cu.pubKey) == 0 {
 			return nil, errors.Wrapf(errDecodeFailure, "empty BLS public key")
+		}
+		_, err := crypto.BLS12381PublicKeyFromBytes(cu.pubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse BLS public key")
 		}
 	}
 	return &cu, nil

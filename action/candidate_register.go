@@ -11,13 +11,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/v2/pkg/bls"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
@@ -278,11 +278,6 @@ func (cr *CandidateRegister) SanityCheck() error {
 	if !IsValidCandidateName(cr.Name()) {
 		return ErrInvalidCanName
 	}
-	if cr.WithBLS() {
-		if len(cr.pubKey) != bls.BLSPubkeyLength {
-			return errors.Wrapf(ErrInvalidBLSPubKey, "invalid BLS public key length %d", len(cr.pubKey))
-		}
-	}
 	return nil
 }
 
@@ -419,6 +414,10 @@ func NewCandidateRegisterFromABIBinary(data []byte, value *big.Int) (*CandidateR
 		}
 		if len(cr.pubKey) == 0 {
 			return nil, errors.Wrap(errDecodeFailure, "pubKey is empty")
+		}
+		_, err := crypto.BLS12381PublicKeyFromBytes(cr.pubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse BLS public key")
 		}
 	} else {
 		if cr.amount, ok = paramsMap["amount"].(*big.Int); !ok {

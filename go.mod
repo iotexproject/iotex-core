@@ -156,7 +156,7 @@ require (
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/supranational/blst v0.3.13 // indirect
+	github.com/supranational/blst v0.3.15 // indirect
 	github.com/tidwall/btree v1.6.0 // indirect
 	github.com/ugorji/go/codec v1.1.13 // indirect
 	github.com/valyala/fastjson v1.6.4 // indirect
@@ -295,7 +295,7 @@ replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
 
-replace github.com/iotexproject/go-pkgs => github.com/iotexproject/go-pkgs v0.1.15-0.20250409042536-4996a88dd629
+replace github.com/iotexproject/go-pkgs => github.com/iotexproject/go-pkgs v0.1.16-0.20250813094138-d89b145b833c
 
 // replace github.com/erigontech/erigon => github.com/erigontech/erigon v1.9.7-0.20250305121304-76181961ed24
 

@@ -502,8 +502,8 @@ github.com/iotexproject/go-fsm v1.0.0 h1:Zrg9JnNDUZg4Anpj6oa0Tk4+sXbHTpJzI0v5/Cj
 github.com/iotexproject/go-fsm v1.0.0/go.mod h1:t3aYXtCCcQxyS7oduQZyuUpPnVI4ddFTwbAagHN7fT0=
 github.com/iotexproject/go-p2p v0.3.7 h1:NtGvLb9MsLYdl+VhUkkXoulVMEU1iSAyYIP6F9FSaI0=
 github.com/iotexproject/go-p2p v0.3.7/go.mod h1:zVhUDhhz9huiuhvR2ws7+wb3knRRdDQlQYtF99Xx++A=
-github.com/iotexproject/go-pkgs v0.1.15-0.20250409042536-4996a88dd629 h1:BfW5r6MJIUBSLDEL4Aves4sD3o/lSfwB+ZvipKx+riM=
-github.com/iotexproject/go-pkgs v0.1.15-0.20250409042536-4996a88dd629/go.mod h1:5iLqJuJkMoquCE877rwKXvJruozJHBRa5wxMvbR6s6M=
+github.com/iotexproject/go-pkgs v0.1.16-0.20250813094138-d89b145b833c h1:eapiiTvd9sTgTHP2FbO9fSgp5bMS1mewsZBlzDKC5e8=
+github.com/iotexproject/go-pkgs v0.1.16-0.20250813094138-d89b145b833c/go.mod h1:UFzcLDeXZFxZqQrHXKe5P5wXMgT/lCD7NbUTBkU855Y=
 github.com/iotexproject/iotex-address v0.2.8 h1:jaTR5pZe/ljiYW4OqHl9NKPs0h1o91Gi6FILOTaBCXw=
 github.com/iotexproject/iotex-address v0.2.8/go.mod h1:K78yPSMB4K7gF/iQ7djT1amph0RBrP3rSkFfH7gNG70=
 github.com/iotexproject/iotex-antenna-go/v2 v2.6.4 h1:7e0VyBDFT+iqwvr/BIk38yf7nCX5a2IEvziI88mlCQs=
@@ -980,8 +980,8 @@ github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXl
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
-github.com/supranational/blst v0.3.13 h1:AYeSxdOMacwu7FBmpfloBz5pbFXDmJL33RuwnKtmTjk=
-github.com/supranational/blst v0.3.13/go.mod h1:jZJtfjgudtNl4en1tzwPIV3KjUnQUvG3/j+w+fVonLw=
+github.com/supranational/blst v0.3.15 h1:rd9viN6tfARE5wv3KZJ9H8e1cg0jXW8syFCcsbHa76o=
+github.com/supranational/blst v0.3.15/go.mod h1:jZJtfjgudtNl4en1tzwPIV3KjUnQUvG3/j+w+fVonLw=
 github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 h1:epCh84lMvA70Z7CTTCmYQn2CKbY8j86K7/FAIr141uY=
 github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7/go.mod h1:q4W45IWZaF22tdD+VEXcAWRA037jwmWEB5VWYORlTpc=
 github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07/go.mod h1:kDXzergiv9cbyO7IOYJZWg1U88JhDg3PB6klq9Hg2pA=
