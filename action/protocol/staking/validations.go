@@ -87,10 +87,10 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	if featureCtx.CheckStakingDurationUpperLimit && act.Duration() > _stakeDurationLimit {
 		return ErrDurationTooHigh
 	}
-	if featureCtx.CandidateBLSPublicKey && !act.WithBLS() {
-		return errors.Wrap(action.ErrInvalidAct, "candidate registration must include BLS public key")
-	} else if !featureCtx.CandidateBLSPublicKey && act.WithBLS() {
-		return errors.Wrap(action.ErrInvalidAct, "candidate registration cannot include BLS public key")
+	if featureCtx.CandidateBLSPublicKey && (!act.WithBLS() || act.LegacyAmount() != nil) {
+		return errors.Wrap(action.ErrInvalidAct, "candidate registration must include BLS public key and cannot include legacy amount")
+	} else if !featureCtx.CandidateBLSPublicKey && (act.WithBLS() || act.Value() != nil) {
+		return errors.Wrap(action.ErrInvalidAct, "candidate registration cannot include BLS public key or value")
 	}
 
 	return nil

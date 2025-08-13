@@ -53,7 +53,7 @@ func init() {
 	if !ok {
 		panic("fail to load the method")
 	}
-	_candidateUpdateWithBLSEvent, ok = NativeStakingContractABI().Events["CandidateUpdateWithBLS"]
+	_candidateUpdateWithBLSEvent, ok = NativeStakingContractABI().Events["CandidateUpdated"]
 	if !ok {
 		panic("fail to load the event")
 	}
@@ -252,7 +252,7 @@ func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 	return &cu, nil
 }
 
-func PackCandidateUpdateWithBLSEvent(
+func PackCandidateUpdatedEvent(
 	candidate,
 	operatorAddress,
 	ownerAddress address.Address,
@@ -261,6 +261,7 @@ func PackCandidateUpdateWithBLSEvent(
 	blsPublicKey []byte,
 ) (Topics, []byte, error) {
 	data, err := _candidateUpdateWithBLSEvent.Inputs.NonIndexed().Pack(
+		rewardAddress.Bytes(),
 		name,
 		common.BytesToAddress(operatorAddress.Bytes()),
 		blsPublicKey,
@@ -268,10 +269,9 @@ func PackCandidateUpdateWithBLSEvent(
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to pack CandidateUpdateWithBLS event data")
 	}
-	topics := make(Topics, 4)
+	topics := make(Topics, 3)
 	topics[0] = hash.Hash256(_candidateUpdateWithBLSEvent.ID)
 	topics[1] = hash.Hash256(candidate.Bytes())
-	topics[2] = hash.Hash256(rewardAddress.Bytes())
-	topics[3] = hash.Hash256(ownerAddress.Bytes())
+	topics[2] = hash.Hash256(ownerAddress.Bytes())
 	return topics, data, nil
 }

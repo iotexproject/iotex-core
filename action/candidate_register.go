@@ -32,7 +32,9 @@ var (
 	// _candidateRegisterInterface is the interface of the abi encoding of stake action
 	_candidateRegisterMethod        abi.Method
 	_candidateRegisterWithBLSMethod abi.Method
-	_candidateRegisterWithBLSEvent  abi.Event
+	_candidateRegisteredEvent       abi.Event
+	_stakedEvent                    abi.Event
+	_candidateActivatedEvent        abi.Event
 
 	// ErrInvalidAmount represents that amount is 0 or negative
 	ErrInvalidAmount = errors.New("invalid amount")
@@ -74,7 +76,15 @@ func init() {
 	if !ok {
 		panic("fail to load the method")
 	}
-	_candidateRegisterWithBLSEvent, ok = NativeStakingContractABI().Events["CandidateRegisterWithBLS"]
+	_candidateRegisteredEvent, ok = NativeStakingContractABI().Events["CandidateRegistered"]
+	if !ok {
+		panic("fail to load the event")
+	}
+	_stakedEvent, ok = NativeStakingContractABI().Events["Staked"]
+	if !ok {
+		panic("fail to load the event")
+	}
+	_candidateActivatedEvent, ok = NativeStakingContractABI().Events["CandidateActivated"]
 	if !ok {
 		panic("fail to load the event")
 	}
@@ -120,6 +130,11 @@ func NewCandidateRegister(
 		cr.ownerAddress = ownerAddress
 	}
 	return cr, nil
+}
+
+// LegacyAmount returns the legacy amount
+func (cr *CandidateRegister) LegacyAmount() *big.Int {
+	return cr.amount
 }
 
 // Amount returns the amount
@@ -325,34 +340,66 @@ func (cr *CandidateRegister) EthData() ([]byte, error) {
 	}
 }
 
-// PackCandidateRegisterWithBLSEvent packs the CandidateRegisterWithBLS event
-func PackCandidateRegisterWithBLSEvent(
+// PackCandidateRegisteredEvent packs the CandidateRegisterWithBLS event
+func PackCandidateRegisteredEvent(
 	candidate,
 	operatorAddress,
 	ownerAddress address.Address,
 	name string,
 	rewardAddress address.Address,
-	amount *big.Int,
-	duration uint32,
-	autoStake bool,
 	blsPublicKey []byte,
 ) (Topics, []byte, error) {
-	data, err := _candidateRegisterWithBLSEvent.Inputs.NonIndexed().Pack(
+	data, err := _candidateRegisteredEvent.Inputs.NonIndexed().Pack(
+		operatorAddress.Bytes(),
 		name,
 		rewardAddress.Bytes(),
-		amount,
-		duration,
-		autoStake,
 		blsPublicKey,
 	)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to pack CandidateRegisterWithBLS event")
 	}
-	topics := make(Topics, 4)
-	topics[0] = hash.Hash256(_candidateRegisterWithBLSEvent.ID)
+	topics := make(Topics, 3)
+	topics[0] = hash.Hash256(_candidateRegisteredEvent.ID)
 	topics[1] = hash.Hash256(candidate.Bytes())
-	topics[2] = hash.Hash256(operatorAddress.Bytes())
-	topics[3] = hash.Hash256(ownerAddress.Bytes())
+	topics[2] = hash.Hash256(ownerAddress.Bytes())
+	return topics, data, nil
+}
+
+func PackStakedEvent(
+	voter,
+	candidate address.Address,
+	bucketIndex uint64,
+	amount *big.Int,
+	duration uint32,
+	autoStake bool) (Topics, []byte, error) {
+	data, err := _stakedEvent.Inputs.NonIndexed().Pack(
+		bucketIndex,
+		amount,
+		duration,
+		autoStake,
+	)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to pack Staked event")
+	}
+	topics := make(Topics, 3)
+	topics[0] = hash.Hash256(_stakedEvent.ID)
+	topics[1] = hash.Hash256(voter.Bytes())
+	topics[2] = hash.Hash256(candidate.Bytes())
+	return topics, data, nil
+}
+
+func PackCandidateActivatedEvent(
+	candidate address.Address, bucketIndex uint64,
+) (Topics, []byte, error) {
+	data, err := _candidateActivatedEvent.Inputs.NonIndexed().Pack(
+		bucketIndex,
+	)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to pack CandidateActivated event")
+	}
+	topics := make(Topics, 2)
+	topics[0] = hash.Hash256(_candidateActivatedEvent.ID)
+	topics[1] = hash.Hash256(candidate.Bytes())
 	return topics, data, nil
 }
 

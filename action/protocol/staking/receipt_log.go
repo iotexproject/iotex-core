@@ -15,12 +15,17 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
+type contractEvent struct {
+	topics action.Topics
+	data   []byte
+}
+
 type receiptLog struct {
 	addr                  string
 	topics                action.Topics
 	data                  []byte
 	postFairbankMigration bool
-	eventData             []byte
+	events                []contractEvent
 }
 
 func newReceiptLog(addr, topic string, postFairbankMigration bool) *receiptLog {
@@ -55,30 +60,45 @@ func (r *receiptLog) SetData(data []byte) {
 	r.data = data
 }
 
-func (r *receiptLog) SetEvent(topics action.Topics, data []byte) {
-	r.topics = topics
-	r.eventData = data
+func (r *receiptLog) AddEvent(topics action.Topics, data []byte) {
+	r.events = append(r.events, contractEvent{
+		topics: topics,
+		data:   data,
+	})
 }
 
-func (r *receiptLog) Build(ctx context.Context, err error) *action.Log {
+func (r *receiptLog) Build(ctx context.Context, err error) []*action.Log {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	actionCtx := protocol.MustGetActionCtx(ctx)
+
+	if len(r.events) > 0 {
+		logs := make([]*action.Log, len(r.events))
+		for i, event := range r.events {
+			logs[i] = &action.Log{
+				Address:     r.addr,
+				Topics:      event.topics,
+				Data:        event.data,
+				BlockHeight: blkCtx.BlockHeight,
+				ActionHash:  actionCtx.ActionHash,
+			}
+		}
+		return logs
+	}
 
 	log := action.Log{
 		Address:     r.addr,
 		Topics:      r.topics,
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
-		Data:        r.eventData,
 	}
 
 	if r.postFairbankMigration {
-		return &log
+		return []*action.Log{&log}
 	}
 
 	if err == nil {
 		log.Data = r.data
-		return &log
+		return []*action.Log{&log}
 	}
 	return nil
 }
