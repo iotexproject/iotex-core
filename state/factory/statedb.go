@@ -338,7 +338,20 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManagerWithCl
 	return sdb.newReadOnlyWorkingSet(ctx, height+1)
 }
 
-func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
+func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
+	wsc, err := sdb.WorkingSetAtHeight(ctx, height-1)
+	if err != nil {
+		return nil, err
+	}
+	ws := wsc.(*workingSet)
+	ws.height++
+	if err := ws.Process(ctx, acts); err != nil {
+		return nil, err
+	}
+	return ws, nil
+}
+
+func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManagerWithCloser, error) {
 	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
 		return nil, err
@@ -349,14 +362,6 @@ func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preac
 			return nil, err
 		}
 		ws.store = newErigonWorkingSetStoreForSimulate(ws.store, e)
-	}
-	if len(preacts) == 0 {
-		return ws, nil
-	}
-	// prepare workingset at height, and run acts
-	ws.height++
-	if err := ws.Process(ctx, preacts); err != nil {
-		return nil, err
 	}
 	return ws, nil
 }

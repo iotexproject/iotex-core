@@ -76,7 +76,8 @@ type (
 		Mint(context.Context, actpool.ActPool, crypto.PrivateKey) (*block.Block, error)
 		PutBlock(context.Context, *block.Block) error
 		WorkingSet(context.Context) (protocol.StateManagerWithCloser, error)
-		WorkingSetAtHeight(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error)
+		WorkingSetAtHeight(context.Context, uint64) (protocol.StateManagerWithCloser, error)
+		WorkingSetAtTransaction(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error)
 		StateReaderAt(blkHeight uint64, blkHash hash.Hash256) (protocol.StateReader, error)
 	}
 
