@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -52,6 +53,9 @@ func TestErigonArchiveContract(t *testing.T) {
 	holder := identityset.Address(11).String()
 	ethHolder := common.BytesToAddress(identityset.Address(11).Bytes())
 	cfg := initCfg(r)
+	historyIndexPath, err := os.MkdirTemp("", "historyindex")
+	r.NoError(err)
+	cfg.Chain.HistoryIndexPath = historyIndexPath
 	cfg.API.GRPCPort = testutil.RandomPort()
 	cfg.API.HTTPPort = testutil.RandomPort()
 	cfg.API.WebSocketPort = 0
@@ -208,6 +212,9 @@ func TestErigonArchiveContract(t *testing.T) {
 func TestErigonArchiveAccountForAllActions(t *testing.T) {
 	r := require.New(t)
 	cfg := initCfg(r)
+	historyIndexPath, err := os.MkdirTemp("", "historyindex")
+	r.NoError(err)
+	cfg.Chain.HistoryIndexPath = historyIndexPath
 	cfg.API.GRPCPort = testutil.RandomPort()
 	cfg.API.HTTPPort = testutil.RandomPort()
 	cfg.API.WebSocketPort = 0

@@ -493,7 +493,7 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
 		bc.EXPECT().TipHeight().Return(uint64(1)).Times(2)
 		bc.EXPECT().ContextAtHeight(gomock.Any(), gomock.Any()).Return(ctx, nil).Times(1)
-		sf.EXPECT().WorkingSetAtHeight(gomock.Any(), gomock.Any(), gomock.Any()).Return(&mockWS{}, nil).Times(1)
+		sf.EXPECT().WorkingSetAtHeight(gomock.Any(), gomock.Any()).Return(&mockWS{}, nil).Times(1)
 		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
 		_, _, err := cs.EstimateExecutionGasConsumption(ctx, elp, &address.AddrV1{})
 		require.ErrorContains(err, t.Name())

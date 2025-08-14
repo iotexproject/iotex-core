@@ -2061,7 +2061,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 	})
 	ctx = protocol.WithRegistry(ctx, core.registry)
 	ctx = protocol.WithFeatureCtx(ctx)
-	ws, err := core.sf.WorkingSetAtHeight(ctx, actInfo.BlkHeight, preActs...)
+	ws, err := core.sf.WorkingSetAtTransaction(ctx, actInfo.BlkHeight, preActs...)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -2294,7 +2294,7 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 			receipts = append(receipts, receipt)
 		},
 	})
-	ws, err := core.sf.WorkingSetAtHeight(ctx, blk.Height()-1, blk.Actions...)
+	ws, err := core.sf.WorkingSetAtTransaction(ctx, blk.Height(), blk.Actions...)
 	if err != nil {
 		return nil, nil, nil, err
 	}
