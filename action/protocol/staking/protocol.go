@@ -587,7 +587,7 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 	}
 	if rLog != nil {
 		if l := rLog.Build(ctx, err); l != nil {
-			logs = append(logs, l)
+			logs = append(logs, l...)
 		}
 	}
 	if err == nil {

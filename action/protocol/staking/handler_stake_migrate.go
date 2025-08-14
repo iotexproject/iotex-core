@@ -73,7 +73,7 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, elp action.Envelope, 
 		revertSM()
 		return nil, nil, gasConsumed, gasToBeDeducted, err
 	}
-	actLogs = append(actLogs, actLog.Build(ctx, nil))
+	actLogs = append(actLogs, actLog.Build(ctx, nil)...)
 	transferLogs = append(transferLogs, tLog)
 	// call staking contract to stake
 	excReceipt, err := p.createNFTBucket(ctx, exec, csm.SM())
