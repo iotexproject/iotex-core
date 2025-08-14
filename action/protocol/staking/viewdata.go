@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
 type (
@@ -24,6 +25,7 @@ type (
 		Handle(ctx context.Context, receipt *action.Receipt) error
 		Commit()
 		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
+		BuildWithBlock(ctx context.Context, blk *block.Block) error
 	}
 	// ViewData is the data that need to be stored in protocol's view
 	ViewData struct {
