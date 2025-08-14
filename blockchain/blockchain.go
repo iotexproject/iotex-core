@@ -467,7 +467,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time, opts ...MintOption) (*bl
 		producerPrivateKey = privateKeys[0]
 	}
 	minterAddress := producerPrivateKey.PublicKey().Address()
-	log.L().Info("Minting a new block.", zap.Uint64("height", newblockHeight), zap.String("minter", minterAddress.String()))
+	log.L().Debug("Minting a new block.", zap.Uint64("height", newblockHeight), zap.String("minter", minterAddress.String()))
 	ctx = bc.contextWithBlock(ctx, minterAddress, newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
