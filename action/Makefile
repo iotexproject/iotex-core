@@ -2,28 +2,52 @@
 
 # Variables
 SOLC := solc
-SOL_FILE := native_staking_contract_interface.sol
-ABI_FILE := native_staking_contract_abi.json
+NATIVE_SOL_FILE := native_staking_contract_interface.sol
+NATIVE_ABI_FILE := native_staking_contract_abi.json
+ACCOUNT_SOL_FILE := account_contract_interface.sol
+ACCOUNT_ABI_FILE := account_contract_abi.json
 TEMP_DIR := .temp
 
 # Default target
 .PHONY: all
 all: abi
 
-# Generate ABI from Solidity interface
+# Generate all ABI files
 .PHONY: abi
-abi: $(ABI_FILE)
+abi: native-abi account-abi
 
-$(ABI_FILE): $(SOL_FILE)
-	@echo "Generating ABI from $(SOL_FILE)..."
+# Generate ABI from native staking contract interface
+.PHONY: native-abi
+native-abi: $(NATIVE_ABI_FILE)
+
+$(NATIVE_ABI_FILE): $(NATIVE_SOL_FILE)
+	@echo "Generating ABI from $(NATIVE_SOL_FILE)..."
 	@mkdir -p $(TEMP_DIR)
-	@$(SOLC) --abi $(SOL_FILE) -o $(TEMP_DIR) --overwrite
+	@$(SOLC) --abi $(NATIVE_SOL_FILE) -o $(TEMP_DIR) --overwrite
 	@# Extract the ABI from the generated file and format it
 	@if [ -f "$(TEMP_DIR)/INativeStakingContract.abi" ]; then \
-		cat "$(TEMP_DIR)/INativeStakingContract.abi" | jq '.' > $(ABI_FILE); \
-		echo "ABI generated successfully: $(ABI_FILE)"; \
+		cat "$(TEMP_DIR)/INativeStakingContract.abi" | jq '.' > $(NATIVE_ABI_FILE); \
+		echo "ABI generated successfully: $(NATIVE_ABI_FILE)"; \
 	else \
-		echo "Error: ABI file not generated"; \
+		echo "Error: Native staking ABI file not generated"; \
+		exit 1; \
+	fi
+	@rm -rf $(TEMP_DIR)
+
+# Generate ABI from account contract interface
+.PHONY: account-abi
+account-abi: $(ACCOUNT_ABI_FILE)
+
+$(ACCOUNT_ABI_FILE): $(ACCOUNT_SOL_FILE)
+	@echo "Generating ABI from $(ACCOUNT_SOL_FILE)..."
+	@mkdir -p $(TEMP_DIR)
+	@$(SOLC) --abi $(ACCOUNT_SOL_FILE) -o $(TEMP_DIR) --overwrite
+	@# Extract the ABI from the generated file and format it
+	@if [ -f "$(TEMP_DIR)/IAccountProtocolContract.abi" ]; then \
+		cat "$(TEMP_DIR)/IAccountProtocolContract.abi" | jq '.' > $(ACCOUNT_ABI_FILE); \
+		echo "ABI generated successfully: $(ACCOUNT_ABI_FILE)"; \
+	else \
+		echo "Error: Account contract ABI file not generated"; \
 		exit 1; \
 	fi
 	@rm -rf $(TEMP_DIR)
@@ -32,7 +56,7 @@ $(ABI_FILE): $(SOL_FILE)
 .PHONY: clean
 clean:
 	@echo "Cleaning generated files..."
-	@rm -f $(ABI_FILE)
+	@rm -f $(NATIVE_ABI_FILE) $(ACCOUNT_ABI_FILE)
 	@rm -rf $(TEMP_DIR)
 
 # Install dependencies (solc and jq)
@@ -82,24 +106,34 @@ check-deps:
 # Watch for changes and regenerate ABI
 .PHONY: watch
 watch: check-deps
-	@echo "Watching $(SOL_FILE) for changes..."
+	@echo "Watching $(NATIVE_SOL_FILE) and $(ACCOUNT_SOL_FILE) for changes..."
 	@while true; do \
-		inotifywait -e modify $(SOL_FILE) 2>/dev/null || \
+		inotifywait -e modify $(NATIVE_SOL_FILE) $(ACCOUNT_SOL_FILE) 2>/dev/null || \
 		(echo "inotifywait not available, using sleep instead"; sleep 5); \
 		make abi; \
 		echo "Waiting for changes..."; \
 	done
 
-# Validate generated ABI
+# Validate generated ABI files
 .PHONY: validate
-validate: $(ABI_FILE)
-	@echo "Validating ABI file..."
-	@if jq empty $(ABI_FILE) 2>/dev/null; then \
-		echo "✅ ABI file is valid JSON"; \
-		echo "Functions found: $$(jq '[.[] | select(.type=="function")] | length' $(ABI_FILE))"; \
-		echo "Events found: $$(jq '[.[] | select(.type=="event")] | length' $(ABI_FILE))"; \
+validate: $(NATIVE_ABI_FILE) $(ACCOUNT_ABI_FILE)
+	@echo "Validating ABI files..."
+	@echo "Validating $(NATIVE_ABI_FILE)..."
+	@if jq empty $(NATIVE_ABI_FILE) 2>/dev/null; then \
+		echo "✅ Native staking ABI file is valid JSON"; \
+		echo "Functions found: $$(jq '[.[] | select(.type=="function")] | length' $(NATIVE_ABI_FILE))"; \
+		echo "Events found: $$(jq '[.[] | select(.type=="event")] | length' $(NATIVE_ABI_FILE))"; \
 	else \
-		echo "❌ ABI file is not valid JSON"; \
+		echo "❌ Native staking ABI file is not valid JSON"; \
+		exit 1; \
+	fi
+	@echo "Validating $(ACCOUNT_ABI_FILE)..."
+	@if jq empty $(ACCOUNT_ABI_FILE) 2>/dev/null; then \
+		echo "✅ Account contract ABI file is valid JSON"; \
+		echo "Functions found: $$(jq '[.[] | select(.type=="function")] | length' $(ACCOUNT_ABI_FILE))"; \
+		echo "Events found: $$(jq '[.[] | select(.type=="event")] | length' $(ACCOUNT_ABI_FILE))"; \
+	else \
+		echo "❌ Account contract ABI file is not valid JSON"; \
 		exit 1; \
 	fi
 
@@ -107,14 +141,16 @@ validate: $(ABI_FILE)
 .PHONY: help
 help:
 	@echo "Available targets:"
-	@echo "  abi           - Generate ABI from Solidity interface (default)"
+	@echo "  abi           - Generate all ABI files from Solidity interfaces (default)"
+	@echo "  native-abi    - Generate ABI from native staking contract interface"
+	@echo "  account-abi   - Generate ABI from account contract interface"
 	@echo "  clean         - Remove generated files"
 	@echo "  install-deps  - Install solc and jq dependencies"
 	@echo "  check-deps    - Check if dependencies are installed"
 	@echo "  watch         - Watch for changes and regenerate ABI"
-	@echo "  validate      - Validate generated ABI file"
+	@echo "  validate      - Validate generated ABI files"
 	@echo "  help          - Show this help message"
 	@echo ""
 	@echo "Files:"
-	@echo "  Input:  $(SOL_FILE)"
-	@echo "  Output: $(ABI_FILE)"
+	@echo "  Input:  $(NATIVE_SOL_FILE) -> Output: $(NATIVE_ABI_FILE)"
+	@echo "  Input:  $(ACCOUNT_SOL_FILE) -> Output: $(ACCOUNT_ABI_FILE)"
