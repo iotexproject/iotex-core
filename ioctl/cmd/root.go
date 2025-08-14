@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/addrgen"
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/contract"
@@ -60,6 +61,7 @@ func NewIoctl() *cobra.Command {
 
 	rootCmd.AddCommand(config.ConfigCmd)
 	rootCmd.AddCommand(account.AccountCmd)
+	rootCmd.AddCommand(addrgen.AddrgenCmd)
 	rootCmd.AddCommand(alias.AliasCmd)
 	rootCmd.AddCommand(action.ActionCmd)
 	rootCmd.AddCommand(action.Xrc20Cmd)
@@ -91,6 +93,7 @@ func NewXctl() *cobra.Command {
 
 	rootCmd.AddCommand(config.ConfigCmd)
 	rootCmd.AddCommand(account.AccountCmd)
+	rootCmd.AddCommand(addrgen.AddrgenCmd)
 	rootCmd.AddCommand(alias.AliasCmd)
 	rootCmd.AddCommand(action.ActionCmd)
 	rootCmd.AddCommand(action.Xrc20Cmd)
