@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 const (
@@ -49,7 +50,21 @@ type erigonDB struct {
 type erigonWorkingSetStore struct {
 	db              *erigonDB
 	intraBlockState *erigonstate.IntraBlockState
+	sr              erigonstate.StateReader
 	tx              kv.Tx
+	ctx             context.Context
+}
+
+type ContractStorage interface {
+	StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
+	LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
+	DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
+	ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error)
+	BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error)
+}
+
+type ErigonOnly interface {
+	ErigonOnly()
 }
 
 func newErigonDB(path string) *erigonDB {
@@ -88,6 +103,8 @@ func (db *erigonDB) newErigonStore(ctx context.Context, height uint64) (*erigonW
 		db:              db,
 		tx:              tx,
 		intraBlockState: intraBlockState,
+		sr:              r,
+		ctx:             ctx,
 	}, nil
 }
 
@@ -102,6 +119,8 @@ func (db *erigonDB) newErigonStoreDryrun(ctx context.Context, height uint64) (*e
 		db:              db,
 		tx:              tx,
 		intraBlockState: intraBlockState,
+		sr:              tsw,
+		ctx:             ctx,
 	}, nil
 }
 
@@ -274,6 +293,18 @@ func (store *erigonWorkingSetStore) RevertSnapshot(sn int) error {
 
 func (store *erigonWorkingSetStore) ResetSnapshots() {}
 
+func (store *erigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (err error) {
+	if cs, ok := obj.(ContractStorage); ok {
+		log.L().Debug("put object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)), zap.String("content", fmt.Sprintf("%+v", obj)))
+		return cs.StoreToContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
+	}
+	value, err := state.Serialize(obj)
+	if err != nil {
+		return errors.Wrapf(err, "failed to serialize object for namespace %s and key %x", ns, key)
+	}
+	return store.Put(ns, key, value)
+}
+
 func (store *erigonWorkingSetStore) Put(ns string, key []byte, value []byte) (err error) {
 	// only handling account, contract storage handled by evm adapter
 	// others are ignored
@@ -301,9 +332,18 @@ func (store *erigonWorkingSetStore) Put(ns string, key []byte, value []byte) (er
 	return nil
 }
 
-func (store *erigonWorkingSetStore) GetFromStateDB(ns string, key []byte) ([]byte, error) {
-	// erigon working set store does not support GetFromStateDB, it should be used for simulation only
-	return nil, errors.Wrapf(state.ErrStateNotExist, "key %x in namespace %s not found in erigon store", key, ns)
+func (store *erigonWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
+	if cs, ok := obj.(ContractStorage); ok {
+		defer func() {
+			log.L().Debug("get object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
+		}()
+		return cs.LoadFromContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
+	}
+	value, err := store.Get(ns, key)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get object for namespace %s and key %x", ns, key)
+	}
+	return state.Deserialize(obj, value)
 }
 
 func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
@@ -334,6 +374,14 @@ func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
 	}
 }
 
+func (store *erigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
+	if cs, ok := obj.(ContractStorage); ok {
+		log.L().Debug("delete object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
+		return cs.DeleteFromContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
+	}
+	return nil
+}
+
 func (store *erigonWorkingSetStore) Delete(ns string, key []byte) error {
 	return nil
 }
@@ -346,12 +394,57 @@ func (store *erigonWorkingSetStore) Filter(string, db.Condition, []byte, []byte)
 	return nil, nil, nil
 }
 
-func (store *erigonWorkingSetStore) States(string, [][]byte) ([][]byte, [][]byte, error) {
-	return nil, nil, nil
+func (store *erigonWorkingSetStore) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
+	cs, ok := obj.(ContractStorage)
+	if !ok {
+		return nil, nil, errors.Wrapf(ErrNotSupported, "unsupported object type %T in ns %s", obj, ns)
+	}
+	var (
+		objs    []any
+		err     error
+		results [][]byte
+		backend = store.newContractBackend(store.ctx, store.intraBlockState, store.sr)
+	)
+	if len(keys) == 0 {
+		keys, objs, err = cs.ListFromContract(ns, backend)
+	} else {
+		objs, err = cs.BatchFromContract(ns, keys, backend)
+	}
+	log.L().Debug("list objs from erigon working set store",
+		zap.String("ns", ns),
+		zap.Int("num", len(keys)),
+		zap.Int("objsize", len(objs)),
+		zap.String("obj", fmt.Sprintf("%T", obj)),
+	)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to list objects from erigon working set store for namespace %s", ns)
+	}
+	for i, obj := range objs {
+		log.L().Debug("list obj from erigon working set store",
+			zap.String("ns", ns),
+			log.Hex("key", keys[i]),
+			zap.String("storage", fmt.Sprintf("%T", obj)),
+			zap.String("content", fmt.Sprintf("%+v", obj)),
+		)
+		if obj == nil {
+			results = append(results, nil)
+			continue
+		}
+		res, err := state.Serialize(obj)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to serialize object for namespace %s and key %x", ns, keys[i])
+		}
+		results = append(results, res)
+	}
+	return keys, results, nil
 }
 
 func (store *erigonWorkingSetStore) Digest() hash.Hash256 {
 	return hash.ZeroHash256
+}
+
+func (store *erigonWorkingSetStore) CreateGenesisStates(ctx context.Context) error {
+	return systemcontracts.DeploySystemContractsIfNotExist(store.newContractBackend(ctx, store.intraBlockState, store.sr))
 }
 
 func (store *erigonDB) Height() (uint64, error) {
@@ -373,4 +466,14 @@ func (store *erigonDB) Height() (uint64, error) {
 		return 0, errors.Wrap(err, "failed to get height from erigon working set store")
 	}
 	return height, nil
+}
+
+func (store *erigonWorkingSetStore) newContractBackend(ctx context.Context, intraBlockState *erigonstate.IntraBlockState, sr erigonstate.StateReader) *contractBacked {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	g, ok := genesis.ExtractGenesisContext(ctx)
+	if !ok {
+		log.S().Panic("failed to extract genesis context from block context")
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	return NewContractBackend(store.intraBlockState, store.sr, blkCtx.BlockHeight, blkCtx.BlockTimeStamp, &g, bcCtx.EvmNetworkID)
 }

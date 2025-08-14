@@ -22,8 +22,13 @@ import (
 type (
 	workingSetStore interface {
 		db.KVStore
+
+		PutObject(ns string, key []byte, object any) (err error)
+		GetObject(ns string, key []byte, object any) error
+		DeleteObject(ns string, key []byte, object any) error
+		States(ns string, keys [][]byte, object any) ([][]byte, [][]byte, error)
+
 		Commit(context.Context, uint64) error
-		States(string, [][]byte) ([][]byte, [][]byte, error)
 		Digest() hash.Hash256
 		Finalize(context.Context) error
 		FinalizeTx(context.Context) error
@@ -31,7 +36,7 @@ type (
 		RevertSnapshot(int) error
 		ResetSnapshots()
 		Close()
-		GetFromStateDB(string, []byte) ([]byte, error)
+		CreateGenesisStates(context.Context) error
 	}
 
 	stateDBWorkingSetStore struct {
@@ -66,9 +71,26 @@ func (store *stateDBWorkingSetStore) WriteBatch(bat batch.KVStoreBatch) error {
 	return store.flusher.Flush()
 }
 
+func (store *stateDBWorkingSetStore) PutObject(ns string, key []byte, obj any) error {
+	if _, ok := obj.(ErigonOnly); ok {
+		return nil
+	}
+	store.lock.Lock()
+	defer store.lock.Unlock()
+	value, err := state.Serialize(obj)
+	if err != nil {
+		return errors.Wrapf(err, "failed to serialize object of ns = %x and key = %x", ns, key)
+	}
+	return store.putKV(ns, key, value)
+}
+
 func (store *stateDBWorkingSetStore) Put(ns string, key []byte, value []byte) error {
 	store.lock.Lock()
 	defer store.lock.Unlock()
+	return store.putKV(ns, key, value)
+}
+
+func (store *stateDBWorkingSetStore) putKV(ns string, key []byte, value []byte) error {
 	if err := store.flusher.KVStoreWithBuffer().Put(ns, key, value); err != nil {
 		return errors.Wrap(err, "failed to put value")
 	}
@@ -76,6 +98,13 @@ func (store *stateDBWorkingSetStore) Put(ns string, key []byte, value []byte) er
 		return nil
 	}
 	return store.flusher.Flush()
+}
+
+func (store *stateDBWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
+	if _, ok := obj.(ErigonOnly); ok {
+		return nil
+	}
+	return store.Delete(ns, key)
 }
 
 func (store *stateDBWorkingSetStore) Delete(ns string, key []byte) error {
@@ -128,7 +157,22 @@ func (store *stateDBWorkingSetStore) Stop(context.Context) error {
 	return nil
 }
 
+func (store *stateDBWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
+	if _, ok := obj.(ErigonOnly); ok {
+		return errors.Wrapf(ErrNotSupported, "GetObject is not supported for erigon-only objects in namespace %s with key %x", ns, key)
+	}
+	v, err := store.getKV(ns, key)
+	if err != nil {
+		return err
+	}
+	return state.Deserialize(obj, v)
+}
+
 func (store *stateDBWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
+	return store.getKV(ns, key)
+}
+
+func (store *stateDBWorkingSetStore) getKV(ns string, key []byte) ([]byte, error) {
 	data, err := store.flusher.KVStoreWithBuffer().Get(ns, key)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
@@ -139,11 +183,10 @@ func (store *stateDBWorkingSetStore) Get(ns string, key []byte) ([]byte, error) 
 	return data, nil
 }
 
-func (store *stateDBWorkingSetStore) GetFromStateDB(ns string, key []byte) ([]byte, error) {
-	return store.Get(ns, key)
-}
-
-func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte) ([][]byte, [][]byte, error) {
+func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
+	if _, ok := obj.(ErigonOnly); ok {
+		return nil, nil, errors.Wrapf(ErrNotSupported, "States is not supported for erigon-only objects in namespace %s", ns)
+	}
 	if store.readBuffer {
 		// TODO: after the 180 HF, we can revert readBuffer, and always go this case
 		return readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
@@ -167,3 +210,7 @@ func (store *stateDBWorkingSetStore) FinalizeTx(_ context.Context) error {
 }
 
 func (store *stateDBWorkingSetStore) Close() {}
+
+func (store *stateDBWorkingSetStore) CreateGenesisStates(ctx context.Context) error {
+	return nil
+}

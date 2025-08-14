@@ -6,10 +6,12 @@
 package staking
 
 import (
+	"bytes"
 	"math"
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -17,9 +19,13 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 const (
@@ -51,7 +57,18 @@ type (
 	totalBucketCount struct {
 		count uint64
 	}
+
+	TotalBucketCount struct {
+		totalBucketCount
+	}
 )
+
+var _ protocol.ContractStorage = (*VoteBucket)(nil)
+var _ protocol.ContractStorage = (*totalBucketCount)(nil)
+
+func NewTotalBucketCount(count uint64) *TotalBucketCount {
+	return &TotalBucketCount{totalBucketCount: totalBucketCount{count: count}}
+}
 
 // NewVoteBucket creates a new vote bucket
 func NewVoteBucket(cand, owner address.Address, amount *big.Int, duration uint32, ctime time.Time, autoStake bool) *VoteBucket {
@@ -193,6 +210,139 @@ func (vb *VoteBucket) isUnstaked() bool {
 	return vb.UnstakeStartBlockHeight < maxBlockNumber
 }
 
+func (vb *VoteBucket) storageContractAddress(ns string) (address.Address, error) {
+	if ns != _stakingNameSpace {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, _stakingNameSpace)
+	}
+	return systemcontracts.SystemContracts[systemcontracts.StakingBucketsContractIndex].Address, nil
+}
+
+func (vb *VoteBucket) storageContract(ns string, key []byte, backend systemcontracts.ContractBackend) (*systemcontracts.GenericStorageContract, error) {
+	addr, err := vb.storageContractAddress(ns)
+	if err != nil {
+		return nil, err
+	}
+	return systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+}
+
+func (vb *VoteBucket) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	contract, err := vb.storageContract(ns, key, backend)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(key, bucketKey(vb.Index)) {
+		return errors.Errorf("invalid key %x, expected %x", key, bucketKey(vb.Index))
+	}
+	storeKey := byteutil.Uint64ToBytes(vb.Index)
+	body, err := vb.Serialize()
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize vote bucket")
+	}
+	storeVal := systemcontracts.GenericValue{
+		PrimaryData: body,
+	}
+	log.S().Debugf("Storing vote bucket %d to contract %s with key %+v", vb.Index, contract.Address().Hex(), vb)
+	return contract.Put(storeKey, storeVal)
+}
+
+func (vb *VoteBucket) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	contract, err := vb.storageContract(ns, key, backend)
+	if err != nil {
+		return err
+	}
+	storeKey := byteutil.Uint64ToBytes(bucketIndexRecover(key))
+	result, err := contract.Get(storeKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get vote bucket from contract")
+	}
+	if !result.KeyExists {
+		return errors.Wrapf(state.ErrStateNotExist, "vote bucket %d not found in contract %s", vb.Index, contract.Address().Hex())
+	}
+	if err = vb.Deserialize(result.Value.PrimaryData); err != nil {
+		return errors.Wrapf(err, "failed to deserialize vote bucket %d", vb.Index)
+	}
+	if !bytes.Equal(key, bucketKey(vb.Index)) {
+		return errors.Errorf("invalid key %x, expected %x", key, bucketKey(vb.Index))
+	}
+	log.S().Debugf("Loaded vote bucket %d from contract %s with key %+v", vb.Index, contract.Address().Hex(), vb)
+	return nil
+}
+
+func (w *VoteBucket) DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	contract, err := w.storageContract(ns, key, backend)
+	if err != nil {
+		return err
+	}
+	storeKey := byteutil.Uint64ToBytes(bucketIndexRecover(key))
+	log.S().Debugf("Deleting vote bucket %d from contract %s with key %+v", bucketIndexRecover(key), contract.Address().Hex(), key)
+	return contract.Remove(storeKey)
+}
+
+// ListFromContract lists all probation data from the contract storage
+func (w *VoteBucket) ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error) {
+	contract, err := w.storageContract(ns, nil, backend)
+	if err != nil {
+		return nil, nil, err
+	}
+	count, err := contract.Count()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to get vote bucket count from contract")
+	}
+	if count.Sign() == 0 {
+		log.S().Debugf("No vote buckets found in contract %s", contract.Address().Hex())
+		return nil, nil, nil
+	}
+	storeValues := make([]any, 0, count.Uint64())
+	listResult, err := contract.List(0, count.Uint64())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to list vote buckets from contract")
+	}
+	for _, item := range listResult.Values {
+		voteBucket := &VoteBucket{}
+		if err := voteBucket.Deserialize(item.PrimaryData); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to deserialize vote bucket from contract")
+		}
+		storeValues = append(storeValues, voteBucket)
+	}
+	return listResult.KeyList, storeValues, nil
+}
+
+// BatchFromContract retrieves multiple probation lists from the contract storage
+func (w *VoteBucket) BatchFromContract(ns string, key [][]byte, backend systemcontracts.ContractBackend) ([]any, error) {
+	if len(key) == 0 {
+		return nil, nil
+	}
+	contract, err := w.storageContract(ns, nil, backend)
+	if err != nil {
+		return nil, err
+	}
+	storeKeys := make([][]byte, len(key))
+	for i, k := range key {
+		storeKeys[i] = byteutil.Uint64ToBytes(bucketIndexRecover(k))
+	}
+	storeResult, err := contract.BatchGet(storeKeys)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to batch get vote buckets from contract")
+	}
+	results := make([]any, 0, len(storeResult.Values))
+	for i, value := range storeResult.Values {
+		if !storeResult.ExistsFlags[i] {
+			results = append(results, nil)
+			continue
+		}
+		voteBucket := &VoteBucket{}
+		if err := voteBucket.Deserialize(value.PrimaryData); err != nil {
+			return nil, errors.Wrapf(err, "failed to deserialize vote bucket %d", bucketIndexRecover(storeKeys[i]))
+		}
+		if !bytes.Equal(key[i], bucketKey(voteBucket.Index)) {
+			return nil, errors.Errorf("invalid key %x, expected %x", key[i], bucketKey(voteBucket.Index))
+		}
+		results = append(results, voteBucket)
+	}
+	log.S().Debugf("Batch loaded %d vote buckets from contract %s with keys %+v", len(results), contract.Address().Hex(), key)
+	return results, nil
+}
+
 func (vb *VoteBucket) isNative() bool {
 	return vb.ContractAddress == ""
 }
@@ -213,9 +363,81 @@ func (tc *totalBucketCount) Count() uint64 {
 	return tc.count
 }
 
+func (tc *totalBucketCount) storageContractAddress(ns string, key []byte) (address.Address, error) {
+	if ns != _stakingNameSpace {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, _stakingNameSpace)
+	}
+	if !bytes.Equal(key, TotalBucketKey) {
+		return nil, errors.Errorf("invalid key %x, expected %x", key, TotalBucketKey)
+	}
+	return systemcontracts.SystemContracts[systemcontracts.BucketPoolContractIndex].Address, nil
+}
+
+func (tc *totalBucketCount) storageContract(ns string, key []byte, backend systemcontracts.ContractBackend) (*systemcontracts.GenericStorageContract, error) {
+	addr, err := tc.storageContractAddress(ns, key)
+	if err != nil {
+		return nil, err
+	}
+	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create bucket pool storage contract")
+	}
+	return contract, nil
+}
+
+func (tc *totalBucketCount) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	contract, err := tc.storageContract(ns, key, backend)
+	if err != nil {
+		return err
+	}
+	log.S().Debugf("Storing bucket pool total count to contract %s with key %x value %+v", contract.Address().Hex(), key, tc)
+	body, err := tc.Serialize()
+	if err != nil {
+		return errors.Wrapf(err, "failed to serialize bucket pool total count")
+	}
+	return contract.Put(key, systemcontracts.GenericValue{PrimaryData: body})
+}
+
+func (tc *totalBucketCount) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	contract, err := tc.storageContract(ns, key, backend)
+	if err != nil {
+		return err
+	}
+	storeResult, err := contract.Get(key)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get bucket pool total count from contract")
+	}
+	if !storeResult.KeyExists {
+		return errors.Wrapf(state.ErrStateNotExist, "bucket pool total count does not exist in contract")
+	}
+	defer func() {
+		log.S().Debugf("Loaded bucket pool total count from contract %s with key %x value %+v", contract.Address().Hex(), key, tc)
+	}()
+	return tc.Deserialize(storeResult.Value.PrimaryData)
+}
+
+func (tc *totalBucketCount) DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	return errors.New("not implemented")
+}
+
+func (tc *totalBucketCount) ListFromContract(_ string, _ systemcontracts.ContractBackend) ([][]byte, []any, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
+func (tc *totalBucketCount) BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error) {
+	return nil, errors.New("not implemented")
+}
+
 func bucketKey(index uint64) []byte {
 	key := []byte{_bucket}
 	return append(key, byteutil.Uint64ToBytesBigEndian(index)...)
+}
+
+func bucketIndexRecover(key []byte) uint64 {
+	if len(key) < 9 {
+		log.S().Panicf("invalid key length %d, expected at least 9 bytes", len(key))
+	}
+	return byteutil.BytesToUint64BigEndian(key[1:])
 }
 
 // CalculateVoteWeight calculates the vote weight

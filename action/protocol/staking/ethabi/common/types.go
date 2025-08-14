@@ -88,7 +88,9 @@ func EncodeVoteBucketListToEth(outputs abi.Arguments, buckets *iotextypes.VoteBu
 			args[i].StakedDuration = bucket.StakedDuration
 			args[i].CreateTime = bucket.CreateTime.Seconds
 			args[i].StakeStartTime = bucket.StakeStartTime.Seconds
-			args[i].UnstakeStartTime = bucket.UnstakeStartTime.Seconds
+			if bucket.UnstakeStartTime != nil {
+				args[i].UnstakeStartTime = bucket.UnstakeStartTime.Seconds
+			}
 		} else {
 			args[i].StakedDurationBlockNumber = bucket.StakedDurationBlockNumber
 			args[i].CreateBlockHeight = bucket.CreateBlockHeight

@@ -278,4 +278,4 @@ newxctl:
 
 .PHONY: iomigrater
 iomigrater:
-	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOMIGRATER) -v ./tools/iomigrater
+	$(GOBUILD) -tags $(BUILD_TAGS) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOMIGRATER) -v ./tools/iomigrater
