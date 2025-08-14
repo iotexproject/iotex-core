@@ -67,6 +67,10 @@ func NewGenericStorageContract(contractAddress common.Address, backend ContractB
 	}, nil
 }
 
+func (g *GenericStorageContract) Address() common.Address {
+	return g.contractAddress
+}
+
 // Put stores data with the given key
 func (g *GenericStorageContract) Put(key []byte, value GenericValue) error {
 	// Validate input

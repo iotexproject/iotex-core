@@ -122,16 +122,24 @@ func (t *totalAmount) storageContractAddress(ns string, key []byte) (address.Add
 	return systemcontracts.SystemContracts[systemcontracts.BucketPoolContractIndex].Address, nil
 }
 
-func (t totalAmount) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+func (t *totalAmount) storageContract(ns string, key []byte, backend systemcontracts.ContractBackend) (*systemcontracts.GenericStorageContract, error) {
 	addr, err := t.storageContractAddress(ns, key)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create bucket pool storage contract")
+		return nil, errors.Wrapf(err, "failed to create bucket pool storage contract")
 	}
-	log.S().Infof("Storing bucket pool total amount to contract %s with key %x value %+v", addr.String(), key, t)
+	return contract, nil
+}
+
+func (t *totalAmount) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	contract, err := t.storageContract(ns, key, backend)
+	if err != nil {
+		return err
+	}
+	log.S().Debugf("Storing bucket pool total amount to contract %s with key %x value %+v", contract.Address().Hex(), key, t)
 	body, err := t.Serialize()
 	if err != nil {
 		return errors.Wrapf(err, "failed to serialize bucket pool total amount")
@@ -140,13 +148,9 @@ func (t totalAmount) StoreToContract(ns string, key []byte, backend systemcontra
 }
 
 func (t *totalAmount) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
-	addr, err := t.storageContractAddress(ns, key)
+	contract, err := t.storageContract(ns, key, backend)
 	if err != nil {
 		return err
-	}
-	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create bucket pool storage contract")
 	}
 	storeResult, err := contract.Get(key)
 	if err != nil {
@@ -156,7 +160,7 @@ func (t *totalAmount) LoadFromContract(ns string, key []byte, backend systemcont
 		return errors.Wrapf(state.ErrStateNotExist, "bucket pool total amount does not exist in contract")
 	}
 	defer func() {
-		log.S().Infof("Loaded bucket pool total amount from contract %s with key %x value %+v", addr.String(), key, t)
+		log.S().Debugf("Loaded bucket pool total amount from contract %s with key %x value %+v", contract.Address().Hex(), key, t)
 	}()
 	return t.Deserialize(storeResult.Value.PrimaryData)
 }

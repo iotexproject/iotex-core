@@ -93,7 +93,7 @@ func (e *Endorsement) Deserialize(buf []byte) error {
 	return e.fromProto(pb)
 }
 
-func (e Endorsement) storageContractAddress(ns string) (address.Address, error) {
+func (e *Endorsement) storageContractAddress(ns string) (address.Address, error) {
 	if ns != _stakingNameSpace {
 		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, _stakingNameSpace)
 	}
@@ -101,16 +101,24 @@ func (e Endorsement) storageContractAddress(ns string) (address.Address, error) 
 	return systemcontracts.SystemContracts[systemcontracts.EndorsementContractIndex].Address, nil
 }
 
-func (e Endorsement) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+func (e *Endorsement) storageContract(ns string, key []byte, backend systemcontracts.ContractBackend) (*systemcontracts.GenericStorageContract, error) {
 	addr, err := e.storageContractAddress(ns)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create endorsement storage contract")
+		return nil, errors.Wrapf(err, "failed to create endorsement storage contract")
 	}
-	log.S().Infof("Storing endorsement to contract %s with key %x value %+v", addr.String(), key, e)
+	return contract, nil
+}
+
+func (e *Endorsement) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+	contract, err := e.storageContract(ns, key, backend)
+	if err != nil {
+		return err
+	}
+	log.S().Debugf("Storing endorsement to contract %s with key %x value %+v", contract.Address().Hex(), key, e)
 	data, err := e.Serialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize endorsement")
@@ -122,13 +130,9 @@ func (e Endorsement) StoreToContract(ns string, key []byte, backend systemcontra
 }
 
 func (e *Endorsement) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
-	addr, err := e.storageContractAddress(ns)
+	contract, err := e.storageContract(ns, key, backend)
 	if err != nil {
 		return err
-	}
-	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create endorsement storage contract")
 	}
 	storeResult, err := contract.Get(key)
 	if err != nil {
@@ -138,39 +142,31 @@ func (e *Endorsement) LoadFromContract(ns string, key []byte, backend systemcont
 		return errors.Wrapf(state.ErrStateNotExist, "endorsement does not exist in contract")
 	}
 	defer func() {
-		log.S().Infof("Loaded endorsement from contract %s with key %x value %+v", addr.String(), key, e)
+		log.S().Debugf("Loaded endorsement from contract %s with key %x value %+v", contract.Address().Hex(), key, e)
 	}()
 	return e.Deserialize(storeResult.Value.PrimaryData)
 }
 
 func (e *Endorsement) DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
-	addr, err := e.storageContractAddress(ns)
+	contract, err := e.storageContract(ns, key, backend)
 	if err != nil {
 		return err
 	}
-	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create endorsement storage contract")
-	}
-	log.S().Infof("Deleting endorsement from contract %s with key %x", addr.String(), key)
+	log.S().Debugf("Deleting endorsement from contract %s with key %x", contract.Address().Hex(), key)
 	return contract.Remove(key)
 }
 
 func (e *Endorsement) ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error) {
-	addr, err := e.storageContractAddress(ns)
+	contract, err := e.storageContract(ns, nil, backend)
 	if err != nil {
 		return nil, nil, err
-	}
-	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to create endorsement storage contract")
 	}
 	count, err := contract.Count()
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to count endorsements in contract")
 	}
 	if count.Sign() == 0 {
-		log.S().Infof("No endorsements found in contract %s", addr.String())
+		log.S().Debugf("No endorsements found in contract %s", contract.Address().Hex())
 		return nil, nil, nil
 	}
 	listResult, err := contract.List(0, count.Uint64())
@@ -185,7 +181,7 @@ func (e *Endorsement) ListFromContract(ns string, backend systemcontracts.Contra
 		}
 		values = append(values, e)
 	}
-	log.S().Infof("Listed %d endorsements from contract %s", len(values), addr.String())
+	log.S().Debugf("Listed %d endorsements from contract %s", len(values), contract.Address().Hex())
 	return listResult.KeyList, values, nil
 }
 

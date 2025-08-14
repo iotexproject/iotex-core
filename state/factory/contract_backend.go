@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"math"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/erigontech/erigon-lib/chain"
@@ -23,46 +22,32 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	iotexevm "github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 type (
 	contractBacked struct {
 		intraBlockState *erigonstate.IntraBlockState
 		org             erigonstate.StateReader
-		ctx             context.Context
+
+		// helper fields
+		height       uint64
+		timestamp    time.Time
+		g            *genesis.Genesis
+		evmNetworkID uint32
 	}
 )
 
-// extractRevertMessage extracts the revert message from the return data
-func extractRevertMessage(ret []byte) string {
-	// Check if the return data contains a revert message
-	// The revert message is encoded as Error(string) with selector 0x08c379a0
-	revertSelector := []byte{0x08, 0xc3, 0x79, 0xa0}
-
-	if len(ret) >= 4 && strings.HasPrefix(hex.EncodeToString(ret[:4]), hex.EncodeToString(revertSelector)) {
-		// Skip the function selector (first 4 bytes)
-		data := ret[4:]
-		if len(data) >= 64 {
-			// Extract the message length from bytes 32-63 (offset 32 in the ABI encoding)
-			msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
-			if len(data) >= 64+int(msgLength) {
-				// Extract the actual message
-				return string(data[64 : 64+msgLength])
-			}
-		}
-	}
-
-	// If no structured revert message, return the hex representation
-	return hex.EncodeToString(ret)
-}
-
-func NewContractBackend(ctx context.Context, intraBlockState *erigonstate.IntraBlockState, org erigonstate.StateReader) *contractBacked {
+func NewContractBackend(intraBlockState *erigonstate.IntraBlockState, org erigonstate.StateReader, height uint64, timestamp time.Time, g *genesis.Genesis, evmNetworkID uint32) *contractBacked {
 	return &contractBacked{
 		intraBlockState: intraBlockState,
 		org:             org,
-		ctx:             ctx,
+		height:          height,
+		timestamp:       timestamp,
+		g:               g,
+		evmNetworkID:    evmNetworkID,
 	}
 }
 
@@ -83,7 +68,7 @@ func (backend *contractBacked) Deploy(callMsg *ethereum.CallMsg) (address.Addres
 	ret, addr, leftGas, err := evm.Create(vm.AccountRef(callMsg.From), callMsg.Data, callMsg.Gas, uint256.MustFromBig(callMsg.Value), true)
 	if err != nil {
 		if errors.Is(err, vm.ErrExecutionReverted) {
-			revertMsg := extractRevertMessage(ret)
+			revertMsg := iotexevm.ExtractRevertMessage(ret)
 			log.L().Error("EVM deployment reverted",
 				zap.String("from", callMsg.From.String()),
 				zap.String("data", hex.EncodeToString(callMsg.Data)),
@@ -110,8 +95,6 @@ func (backend *contractBacked) Exists(addr address.Address) bool {
 }
 
 func (backend *contractBacked) prepare(intra evmtypes.IntraBlockState) (*vm.EVM, error) {
-	ctx := backend.ctx
-	blkCtx := protocol.MustGetBlockCtx(ctx)
 
 	// deploy system contracts
 	blkCtxE := evmtypes.BlockContext{
@@ -146,8 +129,8 @@ func (backend *contractBacked) prepare(intra evmtypes.IntraBlockState) (*vm.EVM,
 		Coinbase:    erigonComm.Address{},
 		GasLimit:    math.MaxUint64,
 		MaxGasLimit: true,
-		BlockNumber: blkCtx.BlockHeight,
-		Time:        uint64(blkCtx.BlockTimeStamp.Unix()),
+		BlockNumber: backend.height,
+		Time:        uint64(backend.timestamp.Unix()),
 		Difficulty:  big.NewInt(50),
 		BaseFee:     nil,
 		PrevRanDao:  nil,
@@ -160,6 +143,17 @@ func (backend *contractBacked) prepare(intra evmtypes.IntraBlockState) (*vm.EVM,
 		BlobFee:    nil,
 		BlobHashes: nil,
 	}
+	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+		BlockHeight:    backend.height,
+		BlockTimeStamp: backend.timestamp})
+	ctx = genesis.WithGenesisContext(ctx, *backend.g)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		GetBlockTime: func(u uint64) (time.Time, error) {
+			interval := 2500 * time.Millisecond
+			return backend.timestamp.Add(interval * time.Duration(u-backend.height)), nil
+		},
+		EvmNetworkID: backend.evmNetworkID,
+	})
 	chainCfg, err := evm.NewChainConfig(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create chain config")
@@ -209,7 +203,7 @@ func (backend *contractBacked) call(callMsg *ethereum.CallMsg, intra evmtypes.In
 	if err != nil {
 		// Check if it's a revert error and extract the revert message
 		if errors.Is(err, vm.ErrExecutionReverted) {
-			revertMsg := extractRevertMessage(ret)
+			revertMsg := iotexevm.ExtractRevertMessage(ret)
 			log.L().Error("EVM call reverted",
 				zap.String("from", callMsg.From.String()),
 				zap.String("to", callMsg.To.String()),

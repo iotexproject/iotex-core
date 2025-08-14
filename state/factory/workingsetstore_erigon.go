@@ -296,7 +296,7 @@ func (store *erigonWorkingSetStore) ResetSnapshots() {}
 func (store *erigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (err error) {
 	if cs, ok := obj.(ContractStorage); ok {
 		log.L().Debug("put object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)), zap.String("content", fmt.Sprintf("%+v", obj)))
-		return cs.StoreToContract(ns, key, NewContractBackend(store.ctx, store.intraBlockState, store.sr))
+		return cs.StoreToContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
 	}
 	value, err := state.Serialize(obj)
 	if err != nil {
@@ -337,7 +337,7 @@ func (store *erigonWorkingSetStore) GetObject(ns string, key []byte, obj any) er
 		defer func() {
 			log.L().Debug("get object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
 		}()
-		return cs.LoadFromContract(ns, key, NewContractBackend(store.ctx, store.intraBlockState, store.sr))
+		return cs.LoadFromContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
 	}
 	value, err := store.Get(ns, key)
 	if err != nil {
@@ -377,7 +377,7 @@ func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
 func (store *erigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
 	if cs, ok := obj.(ContractStorage); ok {
 		log.L().Debug("delete object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
-		return cs.DeleteFromContract(ns, key, NewContractBackend(store.ctx, store.intraBlockState, store.sr))
+		return cs.DeleteFromContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
 	}
 	return nil
 }
@@ -403,7 +403,7 @@ func (store *erigonWorkingSetStore) States(ns string, keys [][]byte, obj any) ([
 		objs    []any
 		err     error
 		results [][]byte
-		backend = NewContractBackend(store.ctx, store.intraBlockState, store.sr)
+		backend = store.newContractBackend(store.ctx, store.intraBlockState, store.sr)
 	)
 	if len(keys) == 0 {
 		keys, objs, err = cs.ListFromContract(ns, backend)
@@ -444,7 +444,7 @@ func (store *erigonWorkingSetStore) Digest() hash.Hash256 {
 }
 
 func (store *erigonWorkingSetStore) CreateGenesisStates(ctx context.Context) error {
-	return systemcontracts.DeploySystemContractsIfNotExist(NewContractBackend(ctx, store.intraBlockState, store.sr))
+	return systemcontracts.DeploySystemContractsIfNotExist(store.newContractBackend(ctx, store.intraBlockState, store.sr))
 }
 
 func (store *erigonDB) Height() (uint64, error) {
@@ -466,4 +466,14 @@ func (store *erigonDB) Height() (uint64, error) {
 		return 0, errors.Wrap(err, "failed to get height from erigon working set store")
 	}
 	return height, nil
+}
+
+func (store *erigonWorkingSetStore) newContractBackend(ctx context.Context, intraBlockState *erigonstate.IntraBlockState, sr erigonstate.StateReader) *contractBacked {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	g, ok := genesis.ExtractGenesisContext(ctx)
+	if !ok {
+		log.S().Panic("failed to extract genesis context from block context")
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	return NewContractBackend(store.intraBlockState, store.sr, blkCtx.BlockHeight, blkCtx.BlockTimeStamp, &g, bcCtx.EvmNetworkID)
 }

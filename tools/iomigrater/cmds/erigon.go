@@ -113,7 +113,7 @@ func initErigonDB(trieDBPath, erigonDBPath string, dryRun bool, validate bool) e
 	// initializing includes:
 	// 1. create system contracts on erigonDB if not exists
 	var backend systemcontracts.ContractDeployer
-	backend = factory.NewContractBackend(ctx, intraBlockState, r)
+	backend = newContractBackend(ctx, intraBlockState, r)
 	if err := systemcontracts.DeploySystemContractsIfNotExist(backend); err != nil {
 		return err
 	}
@@ -353,7 +353,7 @@ type stateWriter struct {
 func (store *stateWriter) PutObject(ns string, key []byte, obj any) (err error) {
 	if cs, ok := obj.(protocol.ContractStorage); ok {
 		log.L().Debug("put object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)), zap.String("content", fmt.Sprintf("%+v", obj)))
-		return cs.StoreToContract(ns, key, factory.NewContractBackend(store.ctx, store.intraBlockState, store.sr))
+		return cs.StoreToContract(ns, key, newContractBackend(store.ctx, store.intraBlockState, store.sr))
 	}
 	return errors.Wrapf(factory.ErrNotSupported, "PutObject is not supported for type %T in namespace %s with key %x", obj, ns, key)
 }
@@ -361,7 +361,7 @@ func (store *stateWriter) PutObject(ns string, key []byte, obj any) (err error) 
 func (store *stateWriter) GetObject(ns string, key []byte, obj any) error {
 	if cs, ok := obj.(protocol.ContractStorage); ok {
 		log.L().Debug("get object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
-		return cs.LoadFromContract(ns, key, factory.NewContractBackend(store.ctx, store.intraBlockState, store.sr))
+		return cs.LoadFromContract(ns, key, newContractBackend(store.ctx, store.intraBlockState, store.sr))
 	}
 	return errors.Wrapf(factory.ErrNotSupported, "GetObject is not supported for type %T in namespace %s with key %x", obj, ns, key)
 }
@@ -369,7 +369,7 @@ func (store *stateWriter) GetObject(ns string, key []byte, obj any) error {
 func (store *stateWriter) List(ns string, obj any) ([][]byte, []any, error) {
 	if cs, ok := obj.(protocol.ContractStorage); ok {
 		log.L().Debug("list object", zap.String("namespace", ns), zap.String("type", fmt.Sprintf("%T", obj)))
-		return cs.ListFromContract(ns, factory.NewContractBackend(store.ctx, store.intraBlockState, store.sr))
+		return cs.ListFromContract(ns, newContractBackend(store.ctx, store.intraBlockState, store.sr))
 	}
 	return nil, nil, errors.Wrapf(factory.ErrNotSupported, "List is not supported for type %T in namespace %s", obj, ns)
 }
@@ -736,4 +736,19 @@ func readStakingStates(sr *stateReader) (*stakingStates, error) {
 		}
 	}
 	return &stakingStates, nil
+}
+
+type contractBackend interface {
+	systemcontracts.ContractBackend
+	systemcontracts.ContractDeployer
+}
+
+func newContractBackend(ctx context.Context, intraBlockState *erigonstate.IntraBlockState, sr erigonstate.StateReader) contractBackend {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	g, ok := genesis.ExtractGenesisContext(ctx)
+	if !ok {
+		return nil
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	return factory.NewContractBackend(intraBlockState, sr, blkCtx.BlockHeight, blkCtx.BlockTimeStamp, &g, bcCtx.EvmNetworkID)
 }
