@@ -66,6 +66,22 @@ type CandidateRegister struct {
 	pubKey          []byte // BLS public key
 }
 
+// CandidateRegisterOption defines the functional options for CandidateRegister
+type CandidateRegisterOption func(*CandidateRegister) error
+
+// WithCandidateRegisterPubKey sets the BLS public key for the candidate register action
+func WithCandidateRegisterPubKey(pubKey []byte) CandidateRegisterOption {
+	return func(cr *CandidateRegister) error {
+		_, err := crypto.BLS12381PublicKeyFromBytes(pubKey)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse BLS public key")
+		}
+		cr.pubKey = make([]byte, len(pubKey))
+		copy(cr.pubKey, pubKey)
+		return nil
+	}
+}
+
 func init() {
 	var ok bool
 	_candidateRegisterMethod, ok = NativeStakingContractABI().Methods["candidateRegister"]
@@ -96,6 +112,7 @@ func NewCandidateRegister(
 	duration uint32,
 	autoStake bool,
 	payload []byte,
+	options ...CandidateRegisterOption,
 ) (*CandidateRegister, error) {
 	operatorAddr, err := address.FromString(operatorAddrStr)
 	if err != nil {
@@ -128,6 +145,12 @@ func NewCandidateRegister(
 			return nil, err
 		}
 		cr.ownerAddress = ownerAddress
+	}
+	// Apply options
+	for _, opt := range options {
+		if err := opt(cr); err != nil {
+			return nil, errors.Wrap(err, "failed to apply option")
+		}
 	}
 	return cr, nil
 }
