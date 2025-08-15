@@ -158,6 +158,7 @@ type (
 		PreStateSystemAction                    bool
 		CreatePostActionStates                  bool
 		NotSlashUnproductiveDelegates           bool
+		CandidateBLSPublicKey                   bool
 		NotUseMinSelfStakeToBeActive            bool
 	}
 
@@ -322,6 +323,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			PreStateSystemAction:                    !g.IsWake(height),
 			CreatePostActionStates:                  g.IsWake(height),
 			NotSlashUnproductiveDelegates:           !g.IsToBeEnabled(height),
+			CandidateBLSPublicKey:                   g.IsToBeEnabled(height),
 			NotUseMinSelfStakeToBeActive:            !g.IsToBeEnabled(height),
 		},
 	)
