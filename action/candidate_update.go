@@ -76,7 +76,7 @@ func init() {
 }
 
 // NewCandidateUpdate creates a CandidateUpdate instance
-func NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr string, opts ...CandidateUpdateOption) (*CandidateUpdate, error) {
+func NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr string) (*CandidateUpdate, error) {
 	cu := &CandidateUpdate{
 		name: name,
 	}
@@ -95,13 +95,21 @@ func NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr string, opts ...Can
 			return nil, err
 		}
 	}
+	return cu, nil
+}
 
-	// Apply options
-	for _, opt := range opts {
-		if err := opt(cu); err != nil {
-			return nil, errors.Wrap(err, "failed to apply option")
-		}
+// NewCandidateUpdateWithBLS creates a CandidateUpdate instance with BLS public key
+func NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr string, pubkey []byte) (*CandidateUpdate, error) {
+	cu, err := NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr)
+	if err != nil {
+		return nil, err
 	}
+	_, err = crypto.BLS12381PublicKeyFromBytes(pubkey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse BLS public key")
+	}
+	cu.pubKey = make([]byte, len(pubkey))
+	copy(cu.pubKey, pubkey)
 	return cu, nil
 }
 

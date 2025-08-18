@@ -10,6 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/output"
@@ -66,6 +68,9 @@ func stake2Update(args []string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to decode BLS public key", err)
 	}
+	if _, err = crypto.BLS12381PublicKeyFromBytes(blsPubKeyBytes); err != nil {
+		return output.NewError(output.ValidationError, "invalid BLS public key", err)
+	}
 
 	sender, err := Signer()
 	if err != nil {
@@ -86,7 +91,7 @@ func stake2Update(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2u, err := action.NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr, action.WithCandidateUpdatePubKey(blsPubKeyBytes))
+	s2u, err := action.NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr, blsPubKeyBytes)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateUpdate instance", err)
 	}

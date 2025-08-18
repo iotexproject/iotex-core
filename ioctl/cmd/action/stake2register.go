@@ -10,6 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/output"
@@ -71,6 +73,9 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to decode BLS public key", err)
 	}
+	if _, err = crypto.BLS12381PublicKeyFromBytes(blsPubKeyBytes); err != nil {
+		return output.NewError(output.ValidationError, "invalid BLS public key", err)
+	}
 
 	amountInRau, err := util.StringToRau(args[5], util.IotxDecimalNum)
 	if err != nil {
@@ -110,7 +115,7 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	cr, err := action.NewCandidateRegister(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, _stake2AutoStake, payload, action.WithCandidateRegisterPubKey(blsPubKeyBytes))
+	cr, err := action.NewCandidateRegisterWithBLS(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, _stake2AutoStake, payload, blsPubKeyBytes)
 
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateRegister instance", err)
