@@ -265,6 +265,7 @@ func TestBlockIndexerChecker_CheckIndexer(t *testing.T) {
 				Header: block.Header{},
 			}, nil).Times(2)
 			store.EXPECT().GetReceipts(gomock.Any()).Return([]*action.Receipt{}, nil).Times(1)
+			store.EXPECT().TransactionLogs(gomock.Any()).Return(&iotextypes.TransactionLogs{Logs: nil}, nil).AnyTimes()
 
 			err := bic.CheckIndexer(ctx, indexer, 0, nil)
 			r.ErrorContains(err, "failed to get pubkey")

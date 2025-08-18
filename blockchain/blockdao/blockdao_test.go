@@ -480,6 +480,7 @@ func Test_blockDAO_GetReceipts(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		store.EXPECT().GetReceipts(gomock.Any()).Return([]*action.Receipt{{}, {}}, nil).Times(1)
+		store.EXPECT().TransactionLogs(gomock.Any()).Return(&iotextypes.TransactionLogs{Logs: nil}, nil).Times(1)
 
 		receipts, err := dao.GetReceipts(100)
 

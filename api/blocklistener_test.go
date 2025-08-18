@@ -20,9 +20,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
-var (
-	errorSend error = errors.New("send error")
-)
+var errorSend error = errors.New("send error")
 
 func TestBlockListener(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -62,4 +60,36 @@ func TestBlockListener(t *testing.T) {
 
 	require.Equal(t, errorSend, <-errChan)
 	require.NoError(t, <-errChan)
+}
+
+func TestWeb3BlockListener(t *testing.T) {
+	require := require.New(t)
+
+	var streamErr error
+	handler := func(in interface{}) (int, error) {
+		return 0, streamErr
+	}
+
+	responder := NewWeb3BlockListener(handler)
+
+	builder := block.NewTestingBuilder().
+		SetHeight(1).
+		SetVersion(111).
+		SetTimeStamp(time.Now())
+	testBlock, err := builder.SignAndBuild(identityset.PrivateKey(0))
+	require.NoError(err)
+
+	t.Run("success send blockInfo", func(t *testing.T) {
+		streamErr = nil
+		err = responder.Respond("test", &testBlock)
+		require.NoError(err)
+	})
+
+	t.Run("stream handle raise error", func(t *testing.T) {
+		streamErr = errorSend
+		err = responder.Respond("test", &testBlock)
+		require.Equal(errorSend, err)
+	})
+
+	responder.Exit()
 }
