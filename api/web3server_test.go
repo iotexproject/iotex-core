@@ -753,6 +753,8 @@ func TestGetTransactionReceipt(t *testing.T) {
 	require.NoError(err)
 	core.EXPECT().ActionByActionHash(gomock.Any()).Return(selp, &blk, uint32(0), nil)
 	core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, nil)
+	core.EXPECT().TransactionLogByBlockHeight(gomock.Any()).Return(nil, nil, nil)
+	core.EXPECT().BlockByHeight(gomock.Any()).Return(&apitypes.BlockWithReceipts{}, nil)
 
 	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
