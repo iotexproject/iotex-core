@@ -10,8 +10,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/blockchain/block"
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 type stakeView struct {
@@ -67,35 +65,25 @@ func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 
 func (s *stakeView) Commit() {}
 
-func (s *stakeView) BuildWithBlock(ctx context.Context, blk *block.Block) error {
+func (s *stakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if blk.Height() < s.helper.common.StartHeight() {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	height := blkCtx.BlockHeight
+	if height < s.helper.common.StartHeight() {
 		return nil
 	}
-	if blk.Height() != s.height+1 && blk.Height() != s.helper.StartHeight() {
-		return errors.Errorf("block height %d does not match stake view height %d", blk.Height(), s.height+1)
-	}
-	g, ok := genesis.ExtractGenesisContext(ctx)
-	if !ok {
-		return errors.New("failed to extract genesis context")
-	}
-	blkCtx := protocol.BlockCtx{
-		BlockHeight:    blk.Height(),
-		BlockTimeStamp: blk.Timestamp(),
-		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
-		Producer:       blk.PublicKey().Address(),
-		BaseFee:        blk.BaseFee(),
-		ExcessBlobGas:  blk.BlobGasUsed(),
+	if height != s.height+1 && height != s.helper.StartHeight() {
+		return errors.Errorf("block height %d does not match stake view height %d", height, s.height+1)
 	}
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
-	muted := s.helper.muteHeight > 0 && blk.Height() >= s.helper.muteHeight
+	muted := s.helper.muteHeight > 0 && height >= s.helper.muteHeight
 	handler := newEventHandler(s.helper.bucketNS, s.cache, blkCtx, s.helper.timestamped, muted)
-	for _, receipt := range blk.Receipts {
+	for _, receipt := range receipts {
 		if err := s.helper.handleReceipt(ctx, handler, receipt); err != nil {
-			return errors.Wrapf(err, "failed to handle receipt at height %d", blk.Height())
+			return errors.Wrapf(err, "failed to handle receipt at height %d", height)
 		}
 	}
-	s.height = blk.Height()
+	s.height = height
 	return nil
 }

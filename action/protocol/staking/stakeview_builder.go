@@ -6,13 +6,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
 type (
 	BlockStore interface {
-		GetBlockByHeight(uint64) (*block.Block, error)
 		GetReceipts(uint64) ([]*action.Receipt, error)
+		HeaderByHeight(height uint64) (*block.Header, error)
 	}
 
 	contractStakeViewBuilder struct {
@@ -42,25 +43,27 @@ func (b *contractStakeViewBuilder) Build(ctx context.Context, height uint64) (Co
 	}
 	if indexerHeight == height {
 		return view, nil
-	} else if indexerHeight > height {
+	}
+	if indexerHeight > height {
 		return nil, errors.Errorf("indexer height %d is greater than requested height %d", indexerHeight, height)
 	}
 	if b.blockdao == nil {
 		return nil, errors.Errorf("blockdao is nil, cannot build view for height %d", height)
 	}
 	for h := indexerHeight + 1; h <= height; h++ {
-		blk, err := b.blockdao.GetBlockByHeight(h)
+		receipts, err := b.blockdao.GetReceipts(h)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get block at height %d", h)
+			return nil, errors.Wrapf(err, "failed to get receipts at height %d", h)
 		}
-		if blk.Receipts == nil {
-			receipts, err := b.blockdao.GetReceipts(h)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get receipts at height %d", h)
-			}
-			blk.Receipts = receipts
+		header, err := b.blockdao.HeaderByHeight(h)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get header at height %d", h)
 		}
-		if err = view.BuildWithBlock(ctx, blk); err != nil {
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    h,
+			BlockTimeStamp: header.Timestamp(),
+		})
+		if err = view.AddBlockReceipts(ctx, receipts); err != nil {
 			return nil, errors.Wrapf(err, "failed to build view with block at height %d", h)
 		}
 	}

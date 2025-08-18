@@ -80,19 +80,16 @@ type (
 
 	// Protocol defines the protocol of handling staking
 	Protocol struct {
-		addr                         address.Address
-		config                       Configuration
-		candBucketsIndexer           *CandidatesBucketsIndexer
-		contractStakingIndexer       ContractStakingIndexerWithBucketType
-		contractStakingIndexerV2     ContractStakingIndexer
-		contractStakingIndexerV3     ContractStakingIndexer
-		voteReviser                  *VoteReviser
-		patch                        *PatchStore
-		helperCtx                    HelperCtx
-		contractStakingViewBuilder   ContractStakeViewBuilder
-		contractStakingViewV2Builder ContractStakeViewBuilder
-		contractStakingViewV3Builder ContractStakeViewBuilder
-		blockStore                   BlockStore
+		addr                     address.Address
+		config                   Configuration
+		candBucketsIndexer       *CandidatesBucketsIndexer
+		contractStakingIndexer   ContractStakingIndexerWithBucketType
+		contractStakingIndexerV2 ContractStakingIndexer
+		contractStakingIndexerV3 ContractStakingIndexer
+		voteReviser              *VoteReviser
+		patch                    *PatchStore
+		helperCtx                HelperCtx
+		blockStore               BlockStore
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -127,6 +124,7 @@ func WithContractStakingIndexerV3(indexer ContractStakingIndexer) Option {
 	}
 }
 
+// WithBlockStore sets the block store
 func WithBlockStore(bs BlockStore) Option {
 	return func(p *Protocol) {
 		p.blockStore = bs
@@ -217,15 +215,6 @@ func NewProtocol(
 	for _, opt := range opts {
 		opt(p)
 	}
-	if p.contractStakingIndexer != nil {
-		p.contractStakingViewBuilder = NewContractStakeViewBuilder(p.contractStakingIndexer, p.blockStore)
-	}
-	if p.contractStakingIndexerV2 != nil {
-		p.contractStakingViewV2Builder = NewContractStakeViewBuilder(p.contractStakingIndexerV2, p.blockStore)
-	}
-	if p.contractStakingIndexerV3 != nil {
-		p.contractStakingViewV3Builder = NewContractStakeViewBuilder(p.contractStakingIndexerV3, p.blockStore)
-	}
 	return p, nil
 }
 
@@ -262,22 +251,22 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 	}
 
 	c.contractsStake = &contractStakeView{}
-	if p.contractStakingViewBuilder != nil {
-		view, err := p.contractStakingViewBuilder.Build(ctx, height)
+	if p.contractStakingIndexer != nil {
+		view, err := NewContractStakeViewBuilder(p.contractStakingIndexer, p.blockStore).Build(ctx, height)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to start contract staking indexer")
 		}
 		c.contractsStake.v1 = view
 	}
-	if p.contractStakingViewV2Builder != nil {
-		view, err := p.contractStakingViewV2Builder.Build(ctx, height)
+	if p.contractStakingIndexerV2 != nil {
+		view, err := NewContractStakeViewBuilder(p.contractStakingIndexerV2, p.blockStore).Build(ctx, height)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to start contract staking indexer v2")
 		}
 		c.contractsStake.v2 = view
 	}
-	if p.contractStakingViewV3Builder != nil {
-		view, err := p.contractStakingViewV3Builder.Build(ctx, height)
+	if p.contractStakingIndexerV3 != nil {
+		view, err := NewContractStakeViewBuilder(p.contractStakingIndexerV3, p.blockStore).Build(ctx, height)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to start contract staking indexer v3")
 		}

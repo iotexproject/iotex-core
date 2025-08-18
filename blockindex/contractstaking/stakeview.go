@@ -11,7 +11,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
 type stakeView struct {
@@ -98,24 +97,26 @@ func (s *stakeView) Commit() {
 	}
 }
 
-func (s *stakeView) BuildWithBlock(ctx context.Context, blk *block.Block) error {
+func (s *stakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	height := blkCtx.BlockHeight
 	expectHeight := s.clean.Height() + 1
 	if expectHeight < s.helper.config.ContractDeployHeight {
 		expectHeight = s.helper.config.ContractDeployHeight
 	}
-	if blk.Height() < expectHeight {
+	if height < expectHeight {
 		return nil
 	}
-	if blk.Height() > expectHeight {
-		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expectHeight)
+	if height > expectHeight {
+		return errors.Errorf("invalid block height %d, expect %d", height, expectHeight)
 	}
 
-	handler, err := handleBlock(ctx, blk, &s.helper.config, s.clean)
+	handler, err := handleReceipts(ctx, height, receipts, &s.helper.config, s.clean)
 	if err != nil {
 		return err
 	}
 	_, delta := handler.Result()
-	return s.clean.Merge(delta, blk.Height())
+	return s.clean.Merge(delta, height)
 }
