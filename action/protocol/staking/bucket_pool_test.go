@@ -79,7 +79,6 @@ func TestBucketPool(t *testing.T) {
 	}
 
 	view, _, err := CreateBaseView(sm, false)
-	view.contractsStake = &contractStakeView{}
 	r.NoError(err)
 	r.NoError(sm.WriteView(_protocolID, view))
 	pool = view.bucketPool

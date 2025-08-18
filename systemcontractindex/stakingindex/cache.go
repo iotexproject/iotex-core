@@ -2,6 +2,7 @@ package stakingindex
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
 
@@ -9,28 +10,41 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
-// cache is the in-memory cache for staking index
-// it is not thread-safe and should be protected by the caller
-type cache struct {
-	buckets            map[uint64]*Bucket
-	bucketsByCandidate map[string]map[uint64]struct{}
-	totalBucketCount   uint64
-	ns, bucketNS       string
-}
+type (
+	indexerCache interface {
+		PutBucket(id uint64, bkt *Bucket)
+		DeleteBucket(id uint64)
+		BucketIdxs() []uint64
+		Bucket(id uint64) *Bucket
+		Buckets(indices []uint64) []*Bucket
+		BucketIdsByCandidate(candidate address.Address) []uint64
+		TotalBucketCount() uint64
+		Clone() indexerCache
+		Commit() indexerCache
+		IsDirty() bool
+	}
+	// base is the in-memory base for staking index
+	// it is not thread-safe and should be protected by the caller
+	base struct {
+		buckets            map[uint64]*Bucket
+		bucketsByCandidate map[string]map[uint64]struct{}
+		totalBucketCount   uint64
+		mu                 sync.RWMutex
+	}
+)
 
-func newCache(ns, bucketNS string) *cache {
-	return &cache{
+func newCache() *base {
+	return &base{
 		buckets:            make(map[uint64]*Bucket),
 		bucketsByCandidate: make(map[string]map[uint64]struct{}),
-		ns:                 ns,
-		bucketNS:           bucketNS,
 	}
 }
 
-func (s *cache) Load(kvstore db.KVStore) error {
-	// load total bucket count
+func (s *base) Load(kvstore db.KVStore, ns, bucketNS string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var totalBucketCount uint64
-	tbc, err := kvstore.Get(s.ns, stakingTotalBucketCountKey)
+	tbc, err := kvstore.Get(ns, stakingTotalBucketCountKey)
 	if err != nil {
 		if !errors.Is(err, db.ErrNotExist) {
 			return err
@@ -42,7 +56,7 @@ func (s *cache) Load(kvstore db.KVStore) error {
 	s.totalBucketCount = totalBucketCount
 
 	// load buckets
-	ks, vs, err := kvstore.Filter(s.bucketNS, func(k, v []byte) bool { return true }, nil, nil)
+	ks, vs, err := kvstore.Filter(bucketNS, func(k, v []byte) bool { return true }, nil, nil)
 	if err != nil && !errors.Is(err, db.ErrBucketNotExist) {
 		return err
 	}
@@ -56,8 +70,10 @@ func (s *cache) Load(kvstore db.KVStore) error {
 	return nil
 }
 
-func (s *cache) Copy() bucketCache {
-	c := newCache(s.ns, s.bucketNS)
+func (s *base) Clone() indexerCache {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	c := newCache()
 	for k, v := range s.buckets {
 		c.buckets[k] = v.Clone()
 	}
@@ -71,7 +87,9 @@ func (s *cache) Copy() bucketCache {
 	return c
 }
 
-func (s *cache) PutBucket(id uint64, bkt *Bucket) {
+func (s *base) PutBucket(id uint64, bkt *Bucket) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	cand := bkt.Candidate.String()
 	if s.buckets[id] != nil {
 		prevCand := s.buckets[id].Candidate.String()
@@ -87,10 +105,11 @@ func (s *cache) PutBucket(id uint64, bkt *Bucket) {
 		s.bucketsByCandidate[cand] = make(map[uint64]struct{})
 	}
 	s.bucketsByCandidate[cand][id] = struct{}{}
-	return
 }
 
-func (s *cache) DeleteBucket(id uint64) {
+func (s *base) DeleteBucket(id uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	bkt, ok := s.buckets[id]
 	if !ok {
 		return
@@ -103,7 +122,9 @@ func (s *cache) DeleteBucket(id uint64) {
 	delete(s.buckets, id)
 }
 
-func (s *cache) BucketIdxs() []uint64 {
+func (s *base) BucketIdxs() []uint64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	idxs := make([]uint64, 0, len(s.buckets))
 	for id := range s.buckets {
 		idxs = append(idxs, id)
@@ -111,14 +132,18 @@ func (s *cache) BucketIdxs() []uint64 {
 	return idxs
 }
 
-func (s *cache) Bucket(id uint64) *Bucket {
+func (s *base) Bucket(id uint64) *Bucket {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if bkt, ok := s.buckets[id]; ok {
 		return bkt.Clone()
 	}
 	return nil
 }
 
-func (s *cache) Buckets(indices []uint64) []*Bucket {
+func (s *base) Buckets(indices []uint64) []*Bucket {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	buckets := make([]*Bucket, 0, len(indices))
 	for _, idx := range indices {
 		if bkt, ok := s.buckets[idx]; ok {
@@ -128,7 +153,9 @@ func (s *cache) Buckets(indices []uint64) []*Bucket {
 	return buckets
 }
 
-func (s *cache) BucketIdsByCandidate(candidate address.Address) []uint64 {
+func (s *base) BucketIdsByCandidate(candidate address.Address) []uint64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	cand := candidate.String()
 	buckets := make([]uint64, 0, len(s.bucketsByCandidate[cand]))
 	for idx := range s.bucketsByCandidate[cand] {
@@ -137,6 +164,20 @@ func (s *cache) BucketIdsByCandidate(candidate address.Address) []uint64 {
 	return buckets
 }
 
-func (s *cache) TotalBucketCount() uint64 {
+func (s *base) TotalBucketCount() uint64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.totalBucketCount
+}
+
+func (s *base) IsDirty() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return false
+}
+
+func (s *base) Commit() indexerCache {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s
 }
