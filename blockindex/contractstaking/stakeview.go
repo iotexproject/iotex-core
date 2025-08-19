@@ -2,7 +2,7 @@ package contractstaking
 
 import (
 	"context"
-	"sync"
+	"time"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -15,94 +15,86 @@ import (
 
 type stakeView struct {
 	helper *Indexer
-	clean  *contractStakingCache
-	dirty  *contractStakingCache
+	cache  stakingCache
 	height uint64
-	mu     sync.RWMutex
 }
 
-func (s *stakeView) Clone() staking.ContractStakeView {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	clone := &stakeView{
+func (s *stakeView) Wrap() staking.ContractStakeView {
+	return &stakeView{
 		helper: s.helper,
-		clean:  s.clean,
-		dirty:  nil,
+		cache:  newWrappedCache(s.cache),
 		height: s.height,
 	}
-	if s.dirty != nil {
-		clone.clean = s.dirty.Clone()
+}
+
+func (s *stakeView) Fork() staking.ContractStakeView {
+	return &stakeView{
+		helper: s.helper,
+		cache:  newWrappedCacheWithCloneInCommit(s.cache),
+		height: s.height,
 	}
-	return clone
 }
 
 func (s *stakeView) BucketsByCandidate(candidate address.Address) ([]*Bucket, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.dirty != nil {
-		return s.dirty.bucketsByCandidate(candidate, s.height)
+	ids, types, infos := s.cache.BucketsByCandidate(candidate)
+	vbs := make([]*Bucket, 0, len(ids))
+	for i, id := range ids {
+		bt := types[i]
+		info := infos[i]
+		if bt != nil && info != nil {
+			vbs = append(vbs, s.assembleBucket(id, info, bt))
+		}
 	}
-	return s.clean.bucketsByCandidate(candidate, s.height)
+	return vbs, nil
+}
+
+func (s *stakeView) assembleBucket(token uint64, bi *bucketInfo, bt *BucketType) *Bucket {
+	return assembleBucket(token, bi, bt, s.helper.config.ContractAddress, s.genBlockDurationFn(s.height))
+}
+
+func (s *stakeView) genBlockDurationFn(view uint64) blocksDurationFn {
+	return func(start, end uint64) time.Duration {
+		return s.helper.config.BlocksToDuration(start, end, view)
+	}
 }
 
 func (s *stakeView) CreatePreStates(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	s.height = blkCtx.BlockHeight
 	return nil
 }
 
 func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	// new event handler for this receipt
+	handler := newContractStakingEventHandler(newWrappedCache(s.cache))
+
+	// handle events of receipt
 	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		return nil
 	}
-	var (
-		blkCtx  = protocol.MustGetBlockCtx(ctx)
-		handler *contractStakingEventHandler
-	)
 	for _, log := range receipt.Logs() {
 		if log.Address != s.helper.config.ContractAddress {
 			continue
-		}
-		if handler == nil {
-			s.mu.Lock()
-			// new event handler for this receipt
-			if s.dirty == nil {
-				s.dirty = s.clean.Clone()
-			}
-			handler = newContractStakingEventHandler(s.dirty)
-			s.mu.Unlock()
 		}
 		if err := handler.HandleEvent(ctx, blkCtx.BlockHeight, log); err != nil {
 			return err
 		}
 	}
-	if handler == nil {
-		return nil
-	}
 	_, delta := handler.Result()
-	// update cache
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.dirty.Merge(delta, blkCtx.BlockHeight)
+	s.cache = delta
+
+	return nil
 }
 
 func (s *stakeView) Commit() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.dirty != nil {
-		s.clean = s.dirty
-		s.dirty = nil
-	}
+	s.cache = s.cache.Commit()
 }
 
 func (s *stakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	height := blkCtx.BlockHeight
-	expectHeight := s.clean.Height() + 1
+	expectHeight := s.height + 1
 	if expectHeight < s.helper.config.ContractDeployHeight {
 		expectHeight = s.helper.config.ContractDeployHeight
 	}
@@ -113,10 +105,11 @@ func (s *stakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Rec
 		return errors.Errorf("invalid block height %d, expect %d", height, expectHeight)
 	}
 
-	handler, err := handleReceipts(ctx, height, receipts, &s.helper.config, s.clean)
+	handler, err := handleReceipts(ctx, height, receipts, &s.helper.config, s.cache)
 	if err != nil {
 		return err
 	}
 	_, delta := handler.Result()
-	return s.clean.Merge(delta, height)
+	s.cache = delta.Commit()
+	return nil
 }

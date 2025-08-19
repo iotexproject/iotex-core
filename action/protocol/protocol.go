@@ -112,7 +112,7 @@ type (
 	DepositGas func(context.Context, StateManager, *big.Int, ...DepositOption) ([]*action.TransactionLog, error)
 
 	View interface {
-		Clone() View
+		Fork() View
 		Snapshot() int
 		Revert(int) error
 		Commit(context.Context, StateReader) error
@@ -130,12 +130,12 @@ func NewViews() *Views {
 	}
 }
 
-func (views *Views) Clone() *Views {
-	clone := NewViews()
+func (views *Views) Fork() *Views {
+	fork := NewViews()
 	for key, view := range views.vm {
-		clone.vm[key] = view.Clone()
+		fork.vm[key] = view.Fork()
 	}
-	return clone
+	return fork
 }
 
 func (views *Views) Commit(ctx context.Context, sr StateReader) error {
