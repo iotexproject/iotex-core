@@ -283,13 +283,20 @@ func (sdb *stateDB) Mint(
 	ctx context.Context,
 	ap actpool.ActPool,
 	pk crypto.PrivateKey,
-) (*block.Block, error) {
+) (blk *block.Block, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.L().Error("Panic recovered in Mint function", zap.Any("panic", r))
+			blk = nil
+			err = errors.Errorf("panic occurred in Mint function: %v", r)
+		}
+	}()
+
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	expectedBlockHeight := bcCtx.Tip.Height + 1
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	var (
-		ws  *workingSet
-		err error
+		ws *workingSet
 	)
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
@@ -317,15 +324,16 @@ func (sdb *stateDB) Mint(
 		return nil, err
 	}
 
-	blk, err := blkBuilder.SignAndBuild(pk)
+	blockResult, err := blkBuilder.SignAndBuild(pk)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", expectedBlockHeight)
 	}
+	blk = &blockResult
 	blkHash := blk.HashBlock()
 	if existed := sdb.addWorkingSetIfNotExist(blkHash, ws); existed != nil {
 		log.L().Debug("WorkingSet already exists, skip adding it to cache", log.Hex("hash", blkHash[:]))
 	}
-	return &blk, nil
+	return blk, nil
 }
 
 func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManagerWithCloser, error) {
