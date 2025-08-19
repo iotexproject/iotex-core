@@ -220,10 +220,7 @@ func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64,
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-	views := sdb.protocolViews.Clone()
-	if err := views.Commit(ctx, sdb); err != nil {
-		return nil, err
-	}
+	views := sdb.protocolViews.Fork()
 	return newWorkingSet(height, views, store, sdb), nil
 }
 

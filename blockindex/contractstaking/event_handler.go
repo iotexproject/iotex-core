@@ -365,7 +365,7 @@ func init() {
 	}
 }
 
-func newContractStakingEventHandler(cache *contractStakingCache) *contractStakingEventHandler {
+func newContractStakingEventHandler(cache stakingCache) *contractStakingEventHandler {
 	dirty := newContractStakingDirty(cache)
 	return &contractStakingEventHandler{
 		dirty:      dirty,
@@ -418,7 +418,7 @@ func (eh *contractStakingEventHandler) HandleEvent(ctx context.Context, height u
 	}
 }
 
-func (eh *contractStakingEventHandler) Result() (batch.KVStoreBatch, *contractStakingDelta) {
+func (eh *contractStakingEventHandler) Result() (batch.KVStoreBatch, stakingCache) {
 	return eh.dirty.finalize()
 }
 
@@ -438,7 +438,7 @@ func (eh *contractStakingEventHandler) handleTransferEvent(event eventParam) err
 	// update bucket owner if token exists
 	if bi, ok := eh.dirty.getBucketInfo(tokenID); ok {
 		bi.Owner = to
-		return eh.dirty.updateBucketInfo(tokenID, bi)
+		eh.dirty.updateBucketInfo(tokenID, bi)
 	}
 
 	return nil
@@ -459,7 +459,8 @@ func (eh *contractStakingEventHandler) handleBucketTypeActivatedEvent(event even
 		Duration:    durationParam.Uint64(),
 		ActivatedAt: height,
 	}
-	return eh.dirty.putBucketType(&bt)
+	eh.dirty.putBucketType(&bt)
+	return nil
 }
 
 func (eh *contractStakingEventHandler) handleBucketTypeDeactivatedEvent(event eventParam, height uint64) error {
@@ -477,7 +478,9 @@ func (eh *contractStakingEventHandler) handleBucketTypeDeactivatedEvent(event ev
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
 	bt.ActivatedAt = maxBlockNumber
-	return eh.dirty.updateBucketType(id, bt)
+	eh.dirty.updateBucketType(id, bt)
+
+	return nil
 }
 
 func (eh *contractStakingEventHandler) handleStakedEvent(event eventParam, height uint64) error {
@@ -514,7 +517,8 @@ func (eh *contractStakingEventHandler) handleStakedEvent(event eventParam, heigh
 		UnlockedAt: maxBlockNumber,
 		UnstakedAt: maxBlockNumber,
 	}
-	return eh.dirty.addBucketInfo(tokenIDParam.Uint64(), &bucket)
+	eh.dirty.addBucketInfo(tokenIDParam.Uint64(), &bucket)
+	return nil
 }
 
 func (eh *contractStakingEventHandler) handleLockedEvent(event eventParam) error {
@@ -541,7 +545,9 @@ func (eh *contractStakingEventHandler) handleLockedEvent(event eventParam) error
 	}
 	b.TypeIndex = newBtIdx
 	b.UnlockedAt = maxBlockNumber
-	return eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
+	eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
+
+	return nil
 }
 
 func (eh *contractStakingEventHandler) handleUnlockedEvent(event eventParam, height uint64) error {
@@ -555,7 +561,9 @@ func (eh *contractStakingEventHandler) handleUnlockedEvent(event eventParam, hei
 		return errors.Wrapf(ErrBucketNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	b.UnlockedAt = height
-	return eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
+	eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
+
+	return nil
 }
 
 func (eh *contractStakingEventHandler) handleUnstakedEvent(event eventParam, height uint64) error {
@@ -569,7 +577,9 @@ func (eh *contractStakingEventHandler) handleUnstakedEvent(event eventParam, hei
 		return errors.Wrapf(ErrBucketNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	b.UnstakedAt = height
-	return eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
+	eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
+
+	return nil
 }
 
 func (eh *contractStakingEventHandler) handleMergedEvent(event eventParam) error {
@@ -598,11 +608,11 @@ func (eh *contractStakingEventHandler) handleMergedEvent(event eventParam) error
 	b.TypeIndex = btIdx
 	b.UnlockedAt = maxBlockNumber
 	for i := 1; i < len(tokenIDsParam); i++ {
-		if err = eh.dirty.deleteBucketInfo(tokenIDsParam[i].Uint64()); err != nil {
-			return err
-		}
+		eh.dirty.deleteBucketInfo(tokenIDsParam[i].Uint64())
 	}
-	return eh.dirty.updateBucketInfo(tokenIDsParam[0].Uint64(), b)
+	eh.dirty.updateBucketInfo(tokenIDsParam[0].Uint64(), b)
+
+	return nil
 }
 
 func (eh *contractStakingEventHandler) handleBucketExpandedEvent(event eventParam) error {
@@ -628,7 +638,9 @@ func (eh *contractStakingEventHandler) handleBucketExpandedEvent(event eventPara
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
 	b.TypeIndex = newBtIdx
-	return eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
+	eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
+
+	return nil
 }
 
 func (eh *contractStakingEventHandler) handleDelegateChangedEvent(event eventParam) error {
@@ -646,7 +658,9 @@ func (eh *contractStakingEventHandler) handleDelegateChangedEvent(event eventPar
 		return errors.Wrapf(ErrBucketNotExist, "token id %d", tokenIDParam.Uint64())
 	}
 	b.Delegate = delegateParam
-	return eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
+	eh.dirty.updateBucketInfo(tokenIDParam.Uint64(), b)
+
+	return nil
 }
 
 func (eh *contractStakingEventHandler) handleWithdrawalEvent(event eventParam) error {
@@ -654,6 +668,7 @@ func (eh *contractStakingEventHandler) handleWithdrawalEvent(event eventParam) e
 	if err != nil {
 		return err
 	}
+	eh.dirty.deleteBucketInfo(tokenIDParam.Uint64())
 
-	return eh.dirty.deleteBucketInfo(tokenIDParam.Uint64())
+	return nil
 }
