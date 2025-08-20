@@ -880,7 +880,7 @@ func (svr *web3Handler) getBlockReceipts(in *gjson.Result) (interface{}, error) 
 	if err != nil {
 		return nil, err
 	}
-	height, _, err := svr.blockNumberOrHashToHeight(bn)
+	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
 	if err != nil {
 		return nil, err
 	}
