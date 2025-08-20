@@ -561,8 +561,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		refund             uint64
 		amount             = uint256.MustFromBig(evmParams.amount)
 	)
-	debug := evm.Config.Tracer != nil
-	if debug {
+	if evm.Config.Tracer != nil {
 		evm.Config.Tracer.CaptureTxStart(remainingGas)
 		defer func() {
 			evm.Config.Tracer.CaptureTxEnd(remainingGas)

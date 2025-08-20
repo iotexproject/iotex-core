@@ -2159,6 +2159,9 @@ func (core *coreService) Track(ctx context.Context, start time.Time, method stri
 
 func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig, simulateFn func(ctx context.Context) ([]byte, *action.Receipt, error)) ([]byte, *action.Receipt, any, error) {
 	ctx, tracer, err := core.traceContext(ctx, txctx, config)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	retval, receipt, err := simulateFn(ctx)
 	return retval, receipt, tracer, err
 }
@@ -2252,7 +2255,7 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 		BlockTimeStamp: blk.Timestamp(),
 		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
 		Producer:       blk.PublicKey().Address(),
-		ReadOnly:       true,
+		Simulate:       true,
 	})
 	ctx = protocol.WithRegistry(ctx, core.registry)
 	ctx = protocol.WithFeatureCtx(ctx)

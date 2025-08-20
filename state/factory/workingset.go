@@ -493,7 +493,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 	// due to archive states only support for account and contract, this may cause
 	// validation failure for PutPollResult system action
 	// TODO: remove this when archive states support state for all protocols
-	ignoreSystemValidation := protocol.MustGetBlockCtx(ctx).ReadOnly
+	ignoreSystemValidation := protocol.MustGetBlockCtx(ctx).Simulate
 	if protocol.MustGetFeatureCtx(ctx).PreStateSystemAction && !ignoreSystemValidation {
 		if err := ws.validatePostSystemActions(ctx, systemActions); err != nil {
 			return err
