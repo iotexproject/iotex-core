@@ -26,11 +26,11 @@ require (
 	github.com/holiman/uint256 v1.2.4
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.3.7
-	github.com/iotexproject/go-pkgs v0.1.15
+	github.com/iotexproject/go-pkgs v0.1.16-0.20250813090621-fc1c4ebefcb4
 	github.com/iotexproject/iotex-address v0.2.8
 	github.com/iotexproject/iotex-antenna-go/v2 v2.6.4
 	github.com/iotexproject/iotex-election v0.3.8-0.20250722071821-26e7794c6dcd
-	github.com/iotexproject/iotex-proto v0.6.5-0.20250722150208-39ab0efeb78d
+	github.com/iotexproject/iotex-proto v0.6.5-0.20250805125222-9cdc028f4a74
 	github.com/ipfs/go-ipfs-api v0.7.0
 	github.com/libp2p/go-libp2p v0.39.0
 	github.com/mackerelio/go-osstat v0.2.4
@@ -156,7 +156,7 @@ require (
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/supranational/blst v0.3.13 // indirect
+	github.com/supranational/blst v0.3.15 // indirect
 	github.com/tidwall/btree v1.6.0 // indirect
 	github.com/ugorji/go/codec v1.1.13 // indirect
 	github.com/valyala/fastjson v1.6.4 // indirect
@@ -295,7 +295,7 @@ replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
 
-replace github.com/iotexproject/go-pkgs => github.com/iotexproject/go-pkgs v0.1.15-0.20250409042536-4996a88dd629
+replace github.com/iotexproject/go-pkgs => github.com/iotexproject/go-pkgs v0.1.16-0.20250813094138-d89b145b833c
 
 // replace github.com/erigontech/erigon => github.com/erigontech/erigon v1.9.7-0.20250305121304-76181961ed24
 

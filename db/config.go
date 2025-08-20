@@ -20,7 +20,7 @@ type Config struct {
 	Compressor string `yaml:"compressor"`
 	// CompressLegacy enables gzip compression on block data, used by legacy DB file before v1.1.2
 	CompressLegacy bool `yaml:"compressLegacy"`
-	// SplitDBSize is the config for DB's split file size
+	// SplitDBSizeMB is the config for DB's split file size
 	SplitDBSizeMB uint64 `yaml:"splitDBSizeMB"`
 	// SplitDBHeight is the config for DB's split start height
 	SplitDBHeight uint64 `yaml:"splitDBHeight"`

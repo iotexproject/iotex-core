@@ -1012,10 +1012,7 @@ func (ws *workingSet) NewWorkingSet(ctx context.Context) (*workingSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	views := ws.views.Clone()
-	if err := views.Commit(ctx, ws); err != nil {
-		return nil, err
-	}
+	views := ws.views.Fork()
 	return newWorkingSet(ws.height+1, views, store, ws.workingSetStoreFactory), nil
 }
 

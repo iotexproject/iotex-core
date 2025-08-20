@@ -6,20 +6,34 @@
 package contractstaking
 
 import (
-	"context"
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 type (
+	stakingCache interface {
+		BucketInfo(id uint64) (*bucketInfo, bool)
+		MustGetBucketInfo(id uint64) *bucketInfo
+		MustGetBucketType(id uint64) *BucketType
+		MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool)
+		BucketType(id uint64) (*BucketType, bool)
+		BucketTypeCount() int
+		BucketsByCandidate(candidate address.Address) ([]uint64, []*BucketType, []*bucketInfo)
+		TotalBucketCount() uint64
+		IsDirty() bool
+
+		PutBucketType(id uint64, bt *BucketType)
+		PutBucketInfo(id uint64, bi *bucketInfo)
+		DeleteBucketInfo(id uint64)
+		Commit() stakingCache
+		Clone() stakingCache
+	}
 	contractStakingCache struct {
 		bucketInfoMap         map[uint64]*bucketInfo      // map[token]bucketInfo
 		candidateBucketMap    map[string]map[uint64]bool  // map[candidate]bucket
@@ -28,7 +42,6 @@ type (
 		totalBucketCount      uint64                      // total number of buckets including burned buckets
 		height                uint64                      // current block height, it's put in cache for consistency on merge
 		mutex                 sync.RWMutex                // a RW mutex for the cache to protect concurrent access
-		config                Config
 	}
 )
 
@@ -39,80 +52,37 @@ var (
 	ErrInvalidHeight = errors.New("invalid height")
 )
 
-func newContractStakingCache(config Config) *contractStakingCache {
+func newContractStakingCache() *contractStakingCache {
 	return &contractStakingCache{
 		bucketInfoMap:         make(map[uint64]*bucketInfo),
 		bucketTypeMap:         make(map[uint64]*BucketType),
 		propertyBucketTypeMap: make(map[int64]map[uint64]uint64),
 		candidateBucketMap:    make(map[string]map[uint64]bool),
-		config:                config,
 	}
 }
 
-func (s *contractStakingCache) Height() uint64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.height
-}
-
-func (s *contractStakingCache) CandidateVotes(ctx context.Context, candidate address.Address, height uint64) (*big.Int, error) {
+func (s *contractStakingCache) Buckets() ([]uint64, []*BucketType, []*bucketInfo) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	if err := s.validateHeight(height); err != nil {
-		return nil, err
-	}
-	votes := big.NewInt(0)
-	m, ok := s.candidateBucketMap[candidate.String()]
-	if !ok {
-		return votes, nil
-	}
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	for id, existed := range m {
-		if !existed {
-			continue
-		}
-		bi := s.mustGetBucketInfo(id)
-		// only count the bucket that is not unstaked
-		if bi.UnstakedAt != maxBlockNumber {
-			continue
-		}
-		bt := s.mustGetBucketType(bi.TypeIndex)
-		if featureCtx.FixContractStakingWeightedVotes {
-			votes.Add(votes, s.config.CalculateVoteWeight(assembleBucket(id, bi, bt, s.config.ContractAddress, s.genBlockDurationFn(height))))
-		} else {
-			votes.Add(votes, bt.Amount)
-		}
-	}
-	return votes, nil
-}
-
-func (s *contractStakingCache) Buckets(height uint64) ([]*Bucket, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	if err := s.validateHeight(height); err != nil {
-		return nil, err
-	}
-
-	vbs := []*Bucket{}
+	ids := make([]uint64, 0, len(s.bucketInfoMap))
+	ts := make([]*BucketType, 0, len(s.bucketInfoMap))
+	infos := make([]*bucketInfo, 0, len(s.bucketInfoMap))
 	for id, bi := range s.bucketInfoMap {
+		ids = append(ids, id)
 		bt := s.mustGetBucketType(bi.TypeIndex)
-		vb := assembleBucket(id, bi.clone(), bt, s.config.ContractAddress, s.genBlockDurationFn(height))
-		vbs = append(vbs, vb)
+		ts = append(ts, bt)
+		infos = append(infos, bi.Clone())
 	}
-	return vbs, nil
+
+	return sortByIds(ids, ts, infos)
 }
 
-func (s *contractStakingCache) Bucket(id, height uint64) (*Bucket, bool, error) {
+func (s *contractStakingCache) Bucket(id uint64) (*BucketType, *bucketInfo) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	if err := s.validateHeight(height); err != nil {
-		return nil, false, err
-	}
-	bt, ok := s.getBucket(id, height)
-	return bt, ok, nil
+	return s.getBucket(id)
 }
 
 func (s *contractStakingCache) BucketInfo(id uint64) (*bucketInfo, bool) {
@@ -143,67 +113,56 @@ func (s *contractStakingCache) BucketType(id uint64) (*BucketType, bool) {
 	return s.getBucketType(id)
 }
 
-func (s *contractStakingCache) BucketsByCandidate(candidate address.Address, height uint64) ([]*Bucket, error) {
+func (s *contractStakingCache) BucketsByCandidate(candidate address.Address) ([]uint64, []*BucketType, []*bucketInfo) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-
-	if err := s.validateHeight(height); err != nil {
-		return nil, err
-	}
-	return s.bucketsByCandidate(candidate, height)
-}
-
-func (s *contractStakingCache) bucketsByCandidate(candidate address.Address, height uint64) ([]*Bucket, error) {
 	bucketMap := s.candidateBucketMap[candidate.String()]
-	vbs := make([]*Bucket, 0, len(bucketMap))
+	ids := make([]uint64, 0, len(bucketMap))
+	ts := make([]*BucketType, 0, len(bucketMap))
+	infos := make([]*bucketInfo, 0, len(bucketMap))
 	for id := range bucketMap {
-		vb := s.mustGetBucket(id, height)
-		vbs = append(vbs, vb)
+		info := s.mustGetBucketInfo(id)
+		t := s.mustGetBucketType(info.TypeIndex)
+		ids = append(ids, id)
+		ts = append(ts, t)
+		infos = append(infos, info)
 	}
-	return vbs, nil
+
+	return sortByIds(ids, ts, infos)
 }
 
-func (s *contractStakingCache) BucketsByIndices(indices []uint64, height uint64) ([]*Bucket, error) {
+func (s *contractStakingCache) BucketsByIndices(indices []uint64) ([]*BucketType, []*bucketInfo) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	if err := s.validateHeight(height); err != nil {
-		return nil, err
-	}
-	vbs := make([]*Bucket, 0, len(indices))
+	vbs := make([]*BucketType, 0, len(indices))
+	infos := make([]*bucketInfo, 0, len(indices))
 	for _, id := range indices {
-		vb, ok := s.getBucket(id, height)
-		if ok {
-			vbs = append(vbs, vb)
-		}
+		bt, info := s.getBucket(id)
+		vbs = append(vbs, bt)
+		infos = append(infos, info)
 	}
-	return vbs, nil
+	return vbs, infos
 }
 
-func (s *contractStakingCache) TotalBucketCount(height uint64) (uint64, error) {
+func (s *contractStakingCache) TotalBucketCount() uint64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	if err := s.validateHeight(height); err != nil {
-		return 0, err
-	}
-	return s.totalBucketCount, nil
+	return s.totalBucketCount
 }
 
-func (s *contractStakingCache) ActiveBucketTypes(height uint64) (map[uint64]*BucketType, error) {
+func (s *contractStakingCache) ActiveBucketTypes() map[uint64]*BucketType {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	if err := s.validateHeight(height); err != nil {
-		return nil, err
-	}
 	m := make(map[uint64]*BucketType)
 	for k, v := range s.bucketTypeMap {
 		if v.ActivatedAt != maxBlockNumber {
 			m[k] = v.Clone()
 		}
 	}
-	return m, nil
+	return m
 }
 
 func (s *contractStakingCache) PutBucketType(id uint64, bt *BucketType) {
@@ -227,18 +186,6 @@ func (s *contractStakingCache) DeleteBucketInfo(id uint64) {
 	s.deleteBucketInfo(id)
 }
 
-func (s *contractStakingCache) Merge(delta *contractStakingDelta, height uint64) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if err := s.mergeDelta(delta); err != nil {
-		return err
-	}
-	s.putHeight(height)
-	s.putTotalBucketCount(s.totalBucketCount + delta.AddedBucketCnt())
-	return nil
-}
-
 func (s *contractStakingCache) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -250,33 +197,9 @@ func (s *contractStakingCache) MatchBucketType(amount *big.Int, duration uint64)
 	return id, s.mustGetBucketType(id), true
 }
 
-func (s *contractStakingCache) BucketTypeCount(height uint64) (uint64, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	if err := s.validateHeight(height); err != nil {
-		return 0, err
-	}
-	return uint64(len(s.bucketTypeMap)), nil
-}
-
 func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-
-	// load height
-	var height uint64
-	h, err := kvstore.Get(_StakingNS, _stakingHeightKey)
-	if err != nil {
-		if !errors.Is(err, db.ErrNotExist) {
-			return err
-		}
-		height = 0
-	} else {
-		height = byteutil.BytesToUint64BigEndian(h)
-
-	}
-	s.putHeight(height)
 
 	// load total bucket count
 	var totalBucketCount uint64
@@ -289,7 +212,7 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 	} else {
 		totalBucketCount = byteutil.BytesToUint64BigEndian(tbc)
 	}
-	s.putTotalBucketCount(totalBucketCount)
+	s.totalBucketCount = totalBucketCount
 
 	// load bucket info
 	ks, vs, err := kvstore.Filter(_StakingBucketInfoNS, func(k, v []byte) bool { return true }, nil, nil)
@@ -319,18 +242,16 @@ func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
 	return nil
 }
 
-func (s *contractStakingCache) Clone() *contractStakingCache {
+func (s *contractStakingCache) Clone() stakingCache {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	c := &contractStakingCache{
-		config:           s.config,
 		totalBucketCount: s.totalBucketCount,
-		height:           s.height,
 	}
 	c.bucketInfoMap = make(map[uint64]*bucketInfo, len(s.bucketInfoMap))
 	for k, v := range s.bucketInfoMap {
-		c.bucketInfoMap[k] = v.clone()
+		c.bucketInfoMap[k] = v.Clone()
 	}
 	c.candidateBucketMap = make(map[string]map[uint64]bool, len(s.candidateBucketMap))
 	for k, v := range s.candidateBucketMap {
@@ -383,7 +304,7 @@ func (s *contractStakingCache) getBucketInfo(id uint64) (*bucketInfo, bool) {
 	if !ok {
 		return nil, false
 	}
-	return bi.clone(), ok
+	return bi.Clone(), ok
 }
 
 func (s *contractStakingCache) mustGetBucketInfo(id uint64) *bucketInfo {
@@ -394,46 +315,43 @@ func (s *contractStakingCache) mustGetBucketInfo(id uint64) *bucketInfo {
 	return bt
 }
 
-func (s *contractStakingCache) mustGetBucket(id, at uint64) *Bucket {
-	bi := s.mustGetBucketInfo(id)
-	bt := s.mustGetBucketType(bi.TypeIndex)
-	return assembleBucket(id, bi, bt, s.config.ContractAddress, s.genBlockDurationFn(at))
-}
-
-func (s *contractStakingCache) getBucket(id, at uint64) (*Bucket, bool) {
+func (s *contractStakingCache) getBucket(id uint64) (*BucketType, *bucketInfo) {
 	bi, ok := s.getBucketInfo(id)
 	if !ok {
-		return nil, false
+		return nil, nil
 	}
-	bt := s.mustGetBucketType(bi.TypeIndex)
-	return assembleBucket(id, bi, bt, s.config.ContractAddress, s.genBlockDurationFn(at)), true
+	return s.mustGetBucketType(bi.TypeIndex), bi
 }
 
 func (s *contractStakingCache) putBucketType(id uint64, bt *BucketType) {
 	// remove old bucket map
 	if oldBt, existed := s.bucketTypeMap[id]; existed {
-		amount := oldBt.Amount.Int64()
-		if _, existed := s.propertyBucketTypeMap[amount]; existed {
-			delete(s.propertyBucketTypeMap[amount], oldBt.Duration)
-			if len(s.propertyBucketTypeMap[amount]) == 0 {
-				delete(s.propertyBucketTypeMap, amount)
-			}
+		if oldBt.Amount.Cmp(bt.Amount) != 0 || oldBt.Duration != bt.Duration {
+			panic("bucket type amount or duration cannot be changed")
 		}
 	}
 	// add new bucket map
-	s.bucketTypeMap[id] = bt
 	amount := bt.Amount.Int64()
 	m, ok := s.propertyBucketTypeMap[amount]
 	if !ok {
 		s.propertyBucketTypeMap[amount] = make(map[uint64]uint64)
 		m = s.propertyBucketTypeMap[amount]
+	} else {
+		oldId, ok := m[bt.Duration]
+		if ok && oldId != id {
+			panic("bucket type with same amount and duration already exists")
+		}
 	}
+	s.bucketTypeMap[id] = bt
 	m[bt.Duration] = id
 }
 
 func (s *contractStakingCache) putBucketInfo(id uint64, bi *bucketInfo) {
 	oldBi := s.bucketInfoMap[id]
 	s.bucketInfoMap[id] = bi
+	if id > s.totalBucketCount {
+		s.totalBucketCount = id
+	}
 	// update candidate bucket map
 	newDelegate := bi.Delegate.String()
 	if _, ok := s.candidateBucketMap[newDelegate]; !ok {
@@ -466,56 +384,25 @@ func (s *contractStakingCache) deleteBucketInfo(id uint64) {
 	delete(s.candidateBucketMap[bi.Delegate.String()], id)
 }
 
-func (s *contractStakingCache) putTotalBucketCount(count uint64) {
-	s.totalBucketCount = count
-}
-
-func (s *contractStakingCache) putHeight(height uint64) {
+func (s *contractStakingCache) SetHeight(height uint64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.height = height
 }
 
-func (s *contractStakingCache) mergeDelta(delta *contractStakingDelta) error {
-	if delta == nil {
-		return errors.New("invalid contract staking delta")
-	}
-	for state, btMap := range delta.BucketTypeDelta() {
-		if state == deltaStateAdded || state == deltaStateModified {
-			for id, bt := range btMap {
-				s.putBucketType(id, bt)
-			}
-		}
-	}
-	for state, biMap := range delta.BucketInfoDelta() {
-		if state == deltaStateAdded || state == deltaStateModified {
-			for id, bi := range biMap {
-				s.putBucketInfo(id, bi)
-			}
-		} else if state == deltaStateRemoved {
-			for id := range biMap {
-				s.deleteBucketInfo(id)
-			}
-		}
-	}
-	return nil
+func (s *contractStakingCache) BucketTypeCount() int {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return len(s.bucketTypeMap)
 }
 
-func (s *contractStakingCache) validateHeight(height uint64) error {
-	// means latest height
-	if height == 0 {
-		return nil
-	}
-	// Currently, historical block data query is not supported.
-	// However, the latest data is actually returned when querying historical block data, for the following reasons:
-	//	1. to maintain compatibility with the current code's invocation of ActiveCandidate
-	//	2. to cause consensus errors when the indexer is lagging behind
-	if height > s.height {
-		return errors.Wrapf(ErrInvalidHeight, "expected %d, actual %d", s.height, height)
-	}
-	return nil
+func (s *contractStakingCache) IsDirty() bool {
+	return false
 }
 
-func (s *contractStakingCache) genBlockDurationFn(view uint64) blocksDurationFn {
-	return func(start, end uint64) time.Duration {
-		return s.config.BlocksToDuration(start, end, view)
-	}
+func (s *contractStakingCache) Commit() stakingCache {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s
 }

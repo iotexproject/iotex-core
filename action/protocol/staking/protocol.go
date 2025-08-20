@@ -483,21 +483,11 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if !vd.IsDirty() {
 		return nil
 	}
-	vd = vd.Clone().(*ViewData)
-	if err := vd.Commit(ctx, sm); err != nil {
+	clone := vd.candCenter.Clone()
+	if err := clone.Commit(ctx, sm); err != nil {
 		return err
 	}
-	// persist nameMap/operatorMap and ownerList to stateDB
-	name := vd.candCenter.base.candsInNameMap()
-	op := vd.candCenter.base.candsInOperatorMap()
-	owners := vd.candCenter.base.ownersList()
-	if len(name) == 0 || len(op) == 0 {
-		return ErrNilParameters
-	}
-	if err := writeCandCenterStateToStateDB(sm, name, op, owners); err != nil {
-		return errors.Wrap(err, "failed to write name/operator map to stateDB")
-	}
-	return nil
+	return clone.WriteToStateDB(sm)
 }
 
 // Commit commits the last change
@@ -587,7 +577,7 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 	}
 	if rLog != nil {
 		if l := rLog.Build(ctx, err); l != nil {
-			logs = append(logs, l)
+			logs = append(logs, l...)
 		}
 	}
 	if err == nil {
@@ -695,6 +685,9 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 		var csVotes *big.Int
 		if protocol.MustGetFeatureCtx(ctx).CreatePostActionStates {
 			csVotes, err = p.contractStakingVotesFromView(ctx, list[i].GetIdentifier(), c.BaseView())
+			if err != nil {
+				return nil, err
+			}
 		} else {
 			// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind.
 			// the reason of using srHeight-1 is contract indexer is not updated before the block is committed.

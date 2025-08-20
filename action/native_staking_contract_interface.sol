@@ -2,6 +2,36 @@
 pragma solidity ^0.8.24;
 
 interface INativeStakingContract {
+    // Events
+    event CandidateRegistered(
+        address indexed candidate,
+        address indexed ownerAddress,
+        address operatorAddress,
+        string name,
+        address rewardAddress,
+        bytes blsPublicKey
+    );
+    event Staked(
+        address indexed voter,
+        address indexed candidate,
+        uint64 bucketIndex,
+        uint256 amount,
+        uint32 duration,
+        bool autoStake
+    );
+    event CandidateActivated(
+        address indexed candidate,
+        uint64 bucketIndex
+    );
+    event CandidateUpdated(
+        address indexed candidate,
+        address indexed ownerAddress,
+        address operatorAddress,
+        string name,
+        address rewardAddress,
+        bytes blsPublicKey
+    );
+
     function candidateRegister(
         string memory name,
         address operatorAddress,
@@ -12,6 +42,17 @@ interface INativeStakingContract {
         bool autoStake,
         uint8[] memory data
     ) external;
+
+    function candidateRegisterWithBLS(
+        string memory name,
+        address operatorAddress,
+        address rewardAddress,
+        address ownerAddress,
+        uint32 duration,
+        bool autoStake,
+        bytes memory blsPublicKey,
+        uint8[] memory data
+    ) external payable;
 
     function candidateActivate(uint64 bucketIndex) external;
 
@@ -35,6 +76,13 @@ interface INativeStakingContract {
         string memory name,
         address operatorAddress,
         address rewardAddress
+    ) external;
+
+    function candidateUpdateWithBLS(
+        string memory name,
+        address operatorAddress,
+        address rewardAddress,
+        bytes memory blsPublicKey
     ) external;
 
     // Stake Management
