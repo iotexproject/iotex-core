@@ -446,11 +446,11 @@ type (
 	Rewarding struct {
 		// InitBalanceStr is the initial balance of the rewarding protocol in decimal string format
 		InitBalanceStr string `yaml:"initBalance"`
-		// BlockReward is the block reward amount in decimal string format
+		// BlockRewardStr is the block reward amount in decimal string format
 		BlockRewardStr string `yaml:"blockReward"`
-		// DardanellesBlockReward is the block reward amount starts from dardanelles height in decimal string format
+		// DardanellesBlockRewardStr is the block reward amount starts from dardanelles height in decimal string format
 		DardanellesBlockRewardStr string `yaml:"dardanellesBlockReward"`
-		// EpochReward is the epoch reward amount in decimal string format
+		// EpochRewardStr is the epoch reward amount in decimal string format
 		EpochRewardStr string `yaml:"epochReward"`
 		// AleutianEpochRewardStr is the epoch reward amount in decimal string format after aleutian fork
 		AleutianEpochRewardStr string `yaml:"aleutianEpochReward"`

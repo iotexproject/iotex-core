@@ -29,9 +29,8 @@ type (
 	// 2. get up-to-date bucket
 	// 3. store delta to merge to clean cache
 	contractStakingDirty struct {
-		clean *contractStakingCache // clean cache to get buckets of last block
-		delta *contractStakingDelta // delta for cache to store buckets of current block
-		batch batch.KVStoreBatch    // batch for db to store buckets of current block
+		cache stakingCache       // clean cache to get buckets of last block
+		batch batch.KVStoreBatch // batch for db to store buckets of current block
 		once  sync.Once
 	}
 )
@@ -43,94 +42,73 @@ var (
 	errBucketTypeNotExist = errors.New("bucket type does not exist")
 )
 
-func newContractStakingDirty(clean *contractStakingCache) *contractStakingDirty {
+func newContractStakingDirty(clean stakingCache) *contractStakingDirty {
 	return &contractStakingDirty{
-		clean: clean,
-		delta: newContractStakingDelta(),
+		cache: clean,
 		batch: batch.NewBatch(),
 	}
 }
 
-func (dirty *contractStakingDirty) addBucketInfo(id uint64, bi *bucketInfo) error {
+func (dirty *contractStakingDirty) addBucketInfo(id uint64, bi *bucketInfo) {
 	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
-	return dirty.delta.AddBucketInfo(id, bi)
+	dirty.cache.PutBucketInfo(id, bi)
 }
 
-func (dirty *contractStakingDirty) updateBucketInfo(id uint64, bi *bucketInfo) error {
+func (dirty *contractStakingDirty) updateBucketInfo(id uint64, bi *bucketInfo) {
 	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
-	return dirty.delta.UpdateBucketInfo(id, bi)
+	dirty.cache.PutBucketInfo(id, bi)
 }
 
-func (dirty *contractStakingDirty) deleteBucketInfo(id uint64) error {
+func (dirty *contractStakingDirty) deleteBucketInfo(id uint64) {
 	dirty.batch.Delete(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), "failed to delete bucket info")
-	return dirty.delta.DeleteBucketInfo(id)
+	dirty.cache.DeleteBucketInfo(id)
 }
 
-func (dirty *contractStakingDirty) putBucketType(bt *BucketType) error {
+func (dirty *contractStakingDirty) putBucketType(bt *BucketType) {
 	id, _, ok := dirty.matchBucketType(bt.Amount, bt.Duration)
 	if !ok {
 		id = dirty.getBucketTypeCount()
-		if err := dirty.addBucketType(id, bt); err != nil {
-			return err
-		}
+		dirty.addBucketType(id, bt)
 	}
-	return dirty.updateBucketType(id, bt)
+	dirty.updateBucketType(id, bt)
 }
 
 func (dirty *contractStakingDirty) getBucketType(id uint64) (*BucketType, bool) {
-	bt, state := dirty.delta.GetBucketType(id)
-	switch state {
-	case deltaStateAdded, deltaStateModified:
-		return bt, true
-	default:
-		return dirty.clean.BucketType(id)
-	}
+	return dirty.cache.BucketType(id)
 }
 
 func (dirty *contractStakingDirty) getBucketInfo(id uint64) (*bucketInfo, bool) {
-	bi, state := dirty.delta.GetBucketInfo(id)
-	switch state {
-	case deltaStateAdded, deltaStateModified:
-		return bi, true
-	case deltaStateRemoved:
-		return nil, false
-	default:
-		return dirty.clean.BucketInfo(id)
-	}
+	return dirty.cache.BucketInfo(id)
 }
 
-func (dirty *contractStakingDirty) finalize() (batch.KVStoreBatch, *contractStakingDelta) {
-	return dirty.finalizeBatch(), dirty.delta
+func (dirty *contractStakingDirty) finalize() (batch.KVStoreBatch, stakingCache) {
+	b := dirty.finalizeBatch()
+
+	return b, dirty.cache
 }
 
 func (dirty *contractStakingDirty) finalizeBatch() batch.KVStoreBatch {
 	dirty.once.Do(func() {
-		tbc, _ := dirty.clean.TotalBucketCount(0)
-		total := tbc + dirty.delta.AddedBucketCnt()
+		total := dirty.cache.TotalBucketCount()
 		dirty.batch.Put(_StakingNS, _stakingTotalBucketCountKey, byteutil.Uint64ToBytesBigEndian(total), "failed to put total bucket count")
 	})
 	return dirty.batch
 }
 
-func (dirty *contractStakingDirty) addBucketType(id uint64, bt *BucketType) error {
+func (dirty *contractStakingDirty) addBucketType(id uint64, bt *BucketType) {
 	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.Serialize(), "failed to put bucket type")
-	return dirty.delta.AddBucketType(id, bt)
+	dirty.cache.PutBucketType(id, bt)
 }
 
 func (dirty *contractStakingDirty) matchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
-	id, bt, ok := dirty.delta.MatchBucketType(amount, duration)
-	if ok {
-		return id, bt, true
-	}
-	return dirty.clean.MatchBucketType(amount, duration)
+	return dirty.cache.MatchBucketType(amount, duration)
 }
 
 func (dirty *contractStakingDirty) getBucketTypeCount() uint64 {
-	btc, _ := dirty.clean.BucketTypeCount(0)
-	return uint64(btc) + dirty.delta.AddedBucketTypeCnt()
+	return uint64(dirty.cache.BucketTypeCount())
 }
 
-func (dirty *contractStakingDirty) updateBucketType(id uint64, bt *BucketType) error {
+func (dirty *contractStakingDirty) updateBucketType(id uint64, bt *BucketType) {
 	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.Serialize(), "failed to put bucket type")
-	return dirty.delta.UpdateBucketType(id, bt)
+	dirty.cache.PutBucketType(id, bt)
 }
