@@ -336,12 +336,17 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManagerWithCl
 }
 
 func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
-	wsc, err := sdb.WorkingSetAtHeight(ctx, height-1)
+	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
 		return nil, err
 	}
-	ws := wsc.(*workingSet)
-	ws.height++
+	if sdb.erigonDB != nil {
+		e, err := sdb.erigonDB.newErigonStoreDryrun(ctx, height)
+		if err != nil {
+			return nil, err
+		}
+		ws.store = newErigonWorkingSetStoreForSimulate(ws.store, e)
+	}
 	if err := ws.Process(ctx, acts); err != nil {
 		return nil, err
 	}
