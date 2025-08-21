@@ -488,11 +488,7 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if !vd.IsDirty() {
 		return nil
 	}
-	clone := vd.candCenter.Clone()
-	if err := clone.Commit(ctx, sm); err != nil {
-		return err
-	}
-	return clone.WriteToStateDB(sm)
+	return vd.Commit(ctx, sm)
 }
 
 // Commit commits the last change
