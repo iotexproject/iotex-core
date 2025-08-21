@@ -15,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
+
 	"github.com/iotexproject/iotex-address/address"
 )
 
@@ -45,6 +47,8 @@ type (
 	// CandidateMap is a map of Candidates using Hash160 as key
 	CandidateMap map[hash.Hash160]*Candidate
 )
+
+var _ ContractStorageStandard = (*CandidateList)(nil)
 
 // Equal compares two candidate instances
 func (c *Candidate) Equal(d *Candidate) bool {
@@ -148,6 +152,21 @@ func (l *CandidateList) LoadProto(candList *iotextypes.CandidateList) error {
 	*l = candidates
 
 	return nil
+}
+
+// ContractStorageAddress returns the address of the candidate list contract
+func (l *CandidateList) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	if ns == SystemNamespace {
+		return systemcontracts.SystemContracts[systemcontracts.PollCandidateListContractIndex].Address, nil
+	} else if ns == AccountKVNamespace {
+		return systemcontracts.SystemContracts[systemcontracts.PollLegacyCandidateListContractIndex].Address, nil
+	}
+	return nil, errors.Errorf("invalid namespace %s, expected %s or %s", ns, SystemNamespace, AccountKVNamespace)
+}
+
+// New creates a new instance of CandidateList
+func (l *CandidateList) New() ContractStorageStandard {
+	return &CandidateList{}
 }
 
 // candidateToPb converts a candidate to protobuf's candidate message
