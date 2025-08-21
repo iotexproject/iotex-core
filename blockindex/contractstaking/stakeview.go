@@ -111,5 +111,6 @@ func (s *stakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Rec
 	}
 	_, delta := handler.Result()
 	s.cache = delta.Commit()
+	s.height = height
 	return nil
 }
