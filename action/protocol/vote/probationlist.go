@@ -11,7 +11,12 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // ProbationList defines a map where key is candidate's name and value is the counter which counts the unproductivity during probation epoch.
@@ -19,6 +24,8 @@ type ProbationList struct {
 	ProbationInfo map[string]uint32
 	IntensityRate uint32
 }
+
+var _ state.ContractStorageStandard = (*ProbationList)(nil)
 
 // NewProbationList returns a new probation list
 func NewProbationList(intensity uint32) *ProbationList {
@@ -73,4 +80,17 @@ func (pl *ProbationList) LoadProto(probationListpb *iotextypes.ProbationCandidat
 	pl.IntensityRate = probationListpb.IntensityRate
 
 	return nil
+}
+
+// ContractStorageAddress returns the address of the probation list contract
+func (pl *ProbationList) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	if ns != protocol.SystemNamespace {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, protocol.SystemNamespace)
+	}
+	return systemcontracts.SystemContracts[systemcontracts.PollProbationListContractIndex].Address, nil
+}
+
+// New creates a new instance of ProbationList
+func (pl *ProbationList) New() state.ContractStorageStandard {
+	return &ProbationList{}
 }

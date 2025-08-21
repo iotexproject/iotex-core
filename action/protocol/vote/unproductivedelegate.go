@@ -11,7 +11,12 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	updpb "github.com/iotexproject/iotex-core/v2/action/protocol/vote/unproductivedelegatepb"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // UnproductiveDelegate defines unproductive delegates information within probation period
@@ -20,6 +25,8 @@ type UnproductiveDelegate struct {
 	probationPeriod uint64
 	cacheSize       uint64
 }
+
+var _ state.ContractStorageStandard = (*UnproductiveDelegate)(nil)
 
 // NewUnproductiveDelegate creates new UnproductiveDelegate with probationperiod and cacheSize
 func NewUnproductiveDelegate(probationPeriod uint64, cacheSize uint64) (*UnproductiveDelegate, error) {
@@ -123,4 +130,17 @@ func (upd *UnproductiveDelegate) Equal(upd2 *UnproductiveDelegate) bool {
 // DelegateList returns delegate list 2D array
 func (upd *UnproductiveDelegate) DelegateList() [][]string {
 	return upd.delegatelist
+}
+
+// ContractStorageAddress returns the address of the unproductive delegate contract
+func (upd *UnproductiveDelegate) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	if ns != protocol.SystemNamespace {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, protocol.SystemNamespace)
+	}
+	return systemcontracts.SystemContracts[systemcontracts.PollUnproductiveDelegateContractIndex].Address, nil
+}
+
+// New creates a new instance of UnproductiveDelegate
+func (upd *UnproductiveDelegate) New() state.ContractStorageStandard {
+	return &UnproductiveDelegate{}
 }
