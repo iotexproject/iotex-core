@@ -481,3 +481,7 @@ func (store *erigonWorkingSetStore) objectContractStorage(obj any) state.Contrac
 	}
 	return nil
 }
+
+func (store *erigonWorkingSetStore) KVStore() db.KVStore {
+	return nil
+}

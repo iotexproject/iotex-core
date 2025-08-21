@@ -1003,7 +1003,11 @@ func (ws *workingSet) NewWorkingSet(ctx context.Context) (*workingSet, error) {
 	if !ws.finalized {
 		return nil, errors.New("workingset has not been finalized yet")
 	}
-	store, err := ws.workingSetStoreFactory.CreateWorkingSetStore(ctx, ws.height+1, ws.store)
+	kvStore := ws.store.KVStore()
+	if kvStore == nil {
+		return nil, errors.Errorf("KVStore() not supported in %T", ws.store)
+	}
+	store, err := ws.workingSetStoreFactory.CreateWorkingSetStore(ctx, ws.height+1, kvStore)
 	if err != nil {
 		return nil, err
 	}

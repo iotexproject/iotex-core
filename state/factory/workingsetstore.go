@@ -21,7 +21,9 @@ import (
 
 type (
 	workingSetStore interface {
-		db.KVStore
+		Start(context.Context) error
+		Stop(context.Context) error
+		KVStore() db.KVStore
 		PutObject(ns string, key []byte, object any) (err error)
 		GetObject(ns string, key []byte, object any) error
 		DeleteObject(ns string, key []byte, object any) error
@@ -201,4 +203,8 @@ func (store *stateDBWorkingSetStore) Close() {}
 
 func (store *stateDBWorkingSetStore) CreateGenesisStates(ctx context.Context) error {
 	return nil
+}
+
+func (store *stateDBWorkingSetStore) KVStore() db.KVStore {
+	return store
 }

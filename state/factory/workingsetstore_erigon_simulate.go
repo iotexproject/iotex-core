@@ -50,15 +50,6 @@ func (store *erigonWorkingSetStoreForSimulate) GetObject(ns string, key []byte, 
 	}
 }
 
-func (store *erigonWorkingSetStoreForSimulate) Get(ns string, key []byte) ([]byte, error) {
-	switch ns {
-	case AccountKVNamespace, evm.CodeKVNameSpace:
-		return store.erigonStore.Get(ns, key)
-	default:
-		return store.store.Get(ns, key)
-	}
-}
-
 func (store *erigonWorkingSetStoreForSimulate) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
 	if _, ok := obj.(state.ContractStorage); ok {
 		return store.erigonStore.States(ns, keys, obj)
@@ -75,10 +66,6 @@ func (store *erigonWorkingSetStoreForSimulate) FinalizeTx(ctx context.Context) e
 	return nil
 }
 
-func (store *erigonWorkingSetStoreForSimulate) Filter(ns string, cond db.Condition, start, limit []byte) ([][]byte, [][]byte, error) {
-	return store.store.Filter(ns, cond, start, limit)
-}
-
 func (store *erigonWorkingSetStoreForSimulate) Digest() hash.Hash256 {
 	return store.store.Digest()
 }
@@ -93,5 +80,9 @@ func (store *erigonWorkingSetStoreForSimulate) Close() {
 }
 
 func (store *erigonWorkingSetStoreForSimulate) CreateGenesisStates(ctx context.Context) error {
+	return nil
+}
+
+func (store *erigonWorkingSetStoreForSimulate) KVStore() db.KVStore {
 	return nil
 }

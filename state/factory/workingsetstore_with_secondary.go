@@ -8,7 +8,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
@@ -23,22 +22,19 @@ var (
 )
 
 type reader interface {
-	Get(string, []byte) ([]byte, error)
+	// Get(string, []byte) ([]byte, error)
 	GetObject(string, []byte, any) error
 	States(string, [][]byte, any) ([][]byte, [][]byte, error)
 	Digest() hash.Hash256
-	Filter(string, db.Condition, []byte, []byte) ([][]byte, [][]byte, error)
+	// Filter(string, db.Condition, []byte, []byte) ([][]byte, [][]byte, error)
 }
 
 type writer interface {
-	Put(ns string, key []byte, value []byte) error
 	PutObject(ns string, key []byte, obj any) error
-	Delete(ns string, key []byte) error
 	DeleteObject(ns string, key []byte, obj any) error
 	Snapshot() int
 	RevertSnapshot(snapshot int) error
 	ResetSnapshots()
-	WriteBatch(batch.KVStoreBatch) error
 	CreateGenesisStates(context.Context) error
 }
 
@@ -82,32 +78,11 @@ func (store *workingSetStoreWithSecondary) FinalizeTx(ctx context.Context) error
 	return store.writerSecondary.FinalizeTx(ctx)
 }
 
-func (store *workingSetStoreWithSecondary) WriteBatch(batch batch.KVStoreBatch) error {
-	if err := store.writer.WriteBatch(batch); err != nil {
-		return err
-	}
-	return store.writerSecondary.WriteBatch(batch)
-}
-
-func (store *workingSetStoreWithSecondary) Put(ns string, key []byte, value []byte) error {
-	if err := store.writer.Put(ns, key, value); err != nil {
-		return err
-	}
-	return store.writerSecondary.Put(ns, key, value)
-}
-
 func (store *workingSetStoreWithSecondary) PutObject(ns string, key []byte, obj any) error {
 	if err := store.writer.PutObject(ns, key, obj); err != nil {
 		return err
 	}
 	return store.writerSecondary.PutObject(ns, key, obj)
-}
-
-func (store *workingSetStoreWithSecondary) Delete(ns string, key []byte) error {
-	if err := store.writer.Delete(ns, key); err != nil {
-		return err
-	}
-	return store.writerSecondary.Delete(ns, key)
 }
 
 func (store *workingSetStoreWithSecondary) DeleteObject(ns string, key []byte, obj any) error {
@@ -178,4 +153,8 @@ func (store *workingSetStoreWithSecondary) GetObject(ns string, key []byte, obj 
 
 func (store *workingSetStoreWithSecondary) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
 	return store.reader.States(ns, keys, obj)
+}
+
+func (store *workingSetStoreWithSecondary) KVStore() db.KVStore {
+	return nil
 }
