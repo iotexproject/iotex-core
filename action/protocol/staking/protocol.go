@@ -74,6 +74,10 @@ type (
 		ReceiptStatus() uint64
 	}
 
+	ContractStakeViewBuilder interface {
+		Build(ctx context.Context, target uint64) (ContractStakeView, error)
+	}
+
 	// Protocol defines the protocol of handling staking
 	Protocol struct {
 		addr                     address.Address
@@ -85,6 +89,7 @@ type (
 		voteReviser              *VoteReviser
 		patch                    *PatchStore
 		helperCtx                HelperCtx
+		blockStore               BlockStore
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -116,6 +121,13 @@ func WithContractStakingIndexerV3(indexer ContractStakingIndexer) Option {
 		p.contractStakingIndexerV3 = indexer
 		p.config.TimestampedMigrateContractAddress = indexer.ContractAddress()
 		return
+	}
+}
+
+// WithBlockStore sets the block store
+func WithBlockStore(bs BlockStore) Option {
+	return func(p *Protocol) {
+		p.blockStore = bs
 	}
 }
 
@@ -240,21 +252,21 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 
 	c.contractsStake = &contractStakeView{}
 	if p.contractStakingIndexer != nil {
-		view, err := p.contractStakingIndexer.StartView(ctx)
+		view, err := NewContractStakeViewBuilder(p.contractStakingIndexer, p.blockStore).Build(ctx, height)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to start contract staking indexer")
 		}
 		c.contractsStake.v1 = view
 	}
 	if p.contractStakingIndexerV2 != nil {
-		view, err := p.contractStakingIndexerV2.StartView(ctx)
+		view, err := NewContractStakeViewBuilder(p.contractStakingIndexerV2, p.blockStore).Build(ctx, height)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to start contract staking indexer v2")
 		}
 		c.contractsStake.v2 = view
 	}
 	if p.contractStakingIndexerV3 != nil {
-		view, err := p.contractStakingIndexerV3.StartView(ctx)
+		view, err := NewContractStakeViewBuilder(p.contractStakingIndexerV3, p.blockStore).Build(ctx, height)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to start contract staking indexer v3")
 		}
