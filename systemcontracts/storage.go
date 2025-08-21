@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/pkg/errors"
 )
 
@@ -21,14 +20,6 @@ type (
 	GenericValueContainer interface {
 		Decode(data GenericValue) error
 		Encode() (GenericValue, error)
-	}
-
-	// GenericValueObjectIterator is an iterator for GenericValue objects
-	GenericValueObjectIterator struct {
-		keys   [][]byte
-		values []GenericValue
-		exists []bool
-		cur    int
 	}
 
 	// BatchGetResult represents the result of a batch get operation
@@ -78,37 +69,4 @@ func DecodeGenericValue(o interface{}, data GenericValue) error {
 		return oo.Decode(data)
 	}
 	return errors.New("unsupported object type")
-}
-
-// NewGenericValueObjectIterator creates a new GenericValueObjectIterator
-func NewGenericValueObjectIterator(keys [][]byte, values []GenericValue, exists []bool) (state.Iterator, error) {
-	return &GenericValueObjectIterator{
-		keys:   keys,
-		values: values,
-		exists: exists,
-		cur:    0,
-	}, nil
-}
-
-// Size returns the size of the iterator
-func (gvoi *GenericValueObjectIterator) Size() int {
-	return len(gvoi.values)
-}
-
-// Next returns the next key-value pair from the iterator
-func (gvoi *GenericValueObjectIterator) Next(o interface{}) ([]byte, error) {
-	if gvoi.cur >= len(gvoi.values) {
-		return nil, state.ErrOutOfBoundary
-	}
-	value := gvoi.values[gvoi.cur]
-	key := gvoi.keys[gvoi.cur]
-	gvoi.cur++
-	if gvoi.exists != nil && !gvoi.exists[gvoi.cur] {
-		gvoi.cur++
-		return key, state.ErrNilValue
-	}
-	if err := DecodeGenericValue(o, value); err != nil {
-		return nil, err
-	}
-	return key, nil
 }

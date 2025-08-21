@@ -69,7 +69,7 @@ func (cos *contractObjectStorage) List() (state.Iterator, error) {
 		return nil, err
 	}
 
-	return systemcontracts.NewGenericValueObjectIterator(retval.KeyList, retval.Values, nil)
+	return NewGenericValueObjectIterator(retval.KeyList, retval.Values, nil)
 }
 
 func (cos *contractObjectStorage) Batch(keys [][]byte) (state.Iterator, error) {
@@ -78,7 +78,7 @@ func (cos *contractObjectStorage) Batch(keys [][]byte) (state.Iterator, error) {
 		return nil, err
 	}
 
-	return systemcontracts.NewGenericValueObjectIterator(keys, retval.Values, retval.ExistsFlags)
+	return NewGenericValueObjectIterator(keys, retval.Values, retval.ExistsFlags)
 }
 
 func (cos *contractObjectStorage) Count() (*big.Int, error) {

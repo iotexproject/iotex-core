@@ -5,9 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
@@ -29,9 +28,9 @@ type ObjectStorageRegistry struct {
 }
 
 func init() {
-	if err := storageRegistry.RegisterAccount(state.AccountKVNamespace, &state.Account{}); err != nil {
-		log.L().Panic("failed to register account storage", zap.Error(err))
-	}
+	assertions.MustNoError(storageRegistry.RegisterAccount(state.AccountKVNamespace, &state.Account{}))
+	assertions.MustNoError(storageRegistry.RegisterPollCandidateList(state.SystemNamespace, &state.CandidateList{}))
+	assertions.MustNoError(storageRegistry.RegisterPollLegacyCandidateList(state.AccountKVNamespace, &state.CandidateList{}))
 }
 
 // GetObjectStorageRegistry returns the global object storage registry

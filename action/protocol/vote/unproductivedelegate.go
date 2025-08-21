@@ -11,7 +11,11 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	updpb "github.com/iotexproject/iotex-core/v2/action/protocol/vote/unproductivedelegatepb"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // UnproductiveDelegate defines unproductive delegates information within probation period
@@ -19,6 +23,10 @@ type UnproductiveDelegate struct {
 	delegatelist    [][]string
 	probationPeriod uint64
 	cacheSize       uint64
+}
+
+func init() {
+	assertions.MustNoError(erigonstore.GetObjectStorageRegistry().RegisterPollUnproductiveDelegate(protocol.SystemNamespace, &UnproductiveDelegate{}))
 }
 
 // NewUnproductiveDelegate creates new UnproductiveDelegate with probationperiod and cacheSize
@@ -123,4 +131,17 @@ func (upd *UnproductiveDelegate) Equal(upd2 *UnproductiveDelegate) bool {
 // DelegateList returns delegate list 2D array
 func (upd *UnproductiveDelegate) DelegateList() [][]string {
 	return upd.delegatelist
+}
+
+// New creates a new instance of UnproductiveDelegate
+func (upd *UnproductiveDelegate) Encode() (systemcontracts.GenericValue, error) {
+	data, err := upd.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+func (upd *UnproductiveDelegate) Decode(data systemcontracts.GenericValue) error {
+	return upd.Deserialize(data.PrimaryData)
 }
