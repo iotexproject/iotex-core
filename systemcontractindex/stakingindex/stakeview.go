@@ -2,34 +2,65 @@ package stakingindex
 
 import (
 	"context"
+	"slices"
 
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 )
 
 type stakeView struct {
-	helper *Indexer
-	cache  indexerCache
-	height uint64
+	cache              indexerCache
+	height             uint64
+	contractAddr       address.Address
+	muteHeight         uint64
+	timestamped        bool
+	bucketNS           string
+	genBlockDurationFn func(view uint64) blocksDurationFn
 }
 
 func (s *stakeView) Wrap() staking.ContractStakeView {
 	return &stakeView{
-		helper: s.helper,
-		cache:  newWrappedCache(s.cache),
-		height: s.height,
+		cache:              newWrappedCache(s.cache),
+		height:             s.height,
+		contractAddr:       s.contractAddr,
+		muteHeight:         s.muteHeight,
+		timestamped:        s.timestamped,
+		bucketNS:           s.bucketNS,
+		genBlockDurationFn: s.genBlockDurationFn,
 	}
 }
 
 func (s *stakeView) Fork() staking.ContractStakeView {
 	return &stakeView{
-		helper: s.helper,
-		cache:  newWrappedCacheWithCloneInCommit(s.cache),
-		height: s.height,
+		cache:              newWrappedCacheWithCloneInCommit(s.cache),
+		height:             s.height,
+		contractAddr:       s.contractAddr,
+		muteHeight:         s.muteHeight,
+		timestamped:        s.timestamped,
+		bucketNS:           s.bucketNS,
+		genBlockDurationFn: s.genBlockDurationFn,
 	}
+}
+
+func (s *stakeView) IsDirty() bool {
+	return s.cache.IsDirty()
+}
+
+func (s *stakeView) WriteBuckets(sm protocol.StateManager) error {
+	ids := s.cache.BucketIdxs()
+	slices.Sort(ids)
+	buckets := s.cache.Buckets(ids)
+	cssm := contractstaking.NewContractStakingStateManager(sm)
+	for _, id := range ids {
+		if err := cssm.UpsertBucket(s.contractAddr, id, buckets[id]); err != nil {
+			return err
+		}
+	}
+	return cssm.UpdateNumOfBuckets(s.contractAddr, s.cache.TotalBucketCount())
 }
 
 func (s *stakeView) BucketsByCandidate(candidate address.Address) ([]*VoteBucket, error) {
@@ -44,7 +75,7 @@ func (s *stakeView) BucketsByCandidate(candidate address.Address) ([]*VoteBucket
 			bktsFiltered = append(bktsFiltered, bkts[i])
 		}
 	}
-	vbs := batchAssembleVoteBucket(idxsFiltered, bktsFiltered, s.helper.common.ContractAddress(), s.helper.genBlockDurationFn(s.height))
+	vbs := batchAssembleVoteBucket(idxsFiltered, bktsFiltered, s.contractAddr.String(), s.genBlockDurationFn(s.height))
 	return vbs, nil
 }
 
@@ -56,11 +87,17 @@ func (s *stakeView) CreatePreStates(ctx context.Context) error {
 
 func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	muted := s.helper.muteHeight > 0 && blkCtx.BlockHeight >= s.helper.muteHeight
-	handler := newEventHandler(s.helper.bucketNS, s.cache, blkCtx, s.helper.timestamped, muted)
-	return s.helper.handleReceipt(ctx, handler, receipt)
+	muted := s.muteHeight > 0 && blkCtx.BlockHeight >= s.muteHeight
+	handler := newEventHandler(s.bucketNS, s.cache, blkCtx, s.timestamped, muted)
+	return handler.handleReceipt(ctx, s.contractAddr.String(), receipt)
 }
 
-func (s *stakeView) Commit() {
-	s.cache = s.cache.Commit()
+func (s *stakeView) Commit(ctx context.Context, sm protocol.StateManager) error {
+	cache, err := s.cache.Commit(ctx, s.contractAddr, s.timestamped, sm)
+	if err != nil {
+		return err
+	}
+	s.cache = cache
+
+	return nil
 }

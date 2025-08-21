@@ -24,9 +24,9 @@ func TestViewData_Fork(t *testing.T) {
 	require.NotSame(t, viewData.bucketPool, fork.bucketPool)
 	require.Equal(t, viewData.snapshots, fork.snapshots)
 
-	sr := mock_chainmanager.NewMockStateReader(gomock.NewController(t))
-	sr.EXPECT().Height().Return(uint64(100), nil).Times(1)
-	require.NoError(t, viewData.Commit(context.Background(), sr))
+	sm := mock_chainmanager.NewMockStateManager(gomock.NewController(t))
+	sm.EXPECT().Height().Return(uint64(100), nil).Times(1)
+	require.NoError(t, viewData.Commit(context.Background(), sm))
 
 	fork, ok = viewData.Fork().(*ViewData)
 	require.True(t, ok)
@@ -72,9 +72,9 @@ func prepareViewData(t *testing.T) (*ViewData, int) {
 func TestViewData_Commit(t *testing.T) {
 	viewData, _ := prepareViewData(t)
 	require.True(t, viewData.IsDirty())
-	mockStateReader := mock_chainmanager.NewMockStateReader(gomock.NewController(t))
-	mockStateReader.EXPECT().Height().Return(uint64(100), nil).Times(1)
-	require.NoError(t, viewData.Commit(context.Background(), mockStateReader))
+	mockStateManager := mock_chainmanager.NewMockStateManager(gomock.NewController(t))
+	mockStateManager.EXPECT().Height().Return(uint64(100), nil).Times(1)
+	require.NoError(t, viewData.Commit(context.Background(), mockStateManager))
 	require.False(t, viewData.IsDirty())
 	require.Empty(t, viewData.candCenter.change.dirty)
 	require.False(t, viewData.bucketPool.dirty)

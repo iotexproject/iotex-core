@@ -168,7 +168,9 @@ func TestContractStakingDirty_finalize(t *testing.T) {
 	require.EqualValues(_StakingBucketTypeNS, info.Namespace())
 	require.EqualValues(batch.Put, info.WriteType())
 	require.EqualValues(byteutil.Uint64ToBytesBigEndian(1), info.Key())
-	require.EqualValues(bt.Serialize(), info.Value())
+	btdata, err := bt.Serialize()
+	require.NoError(err)
+	require.EqualValues(btdata, info.Value())
 	require.Equal(1, cache.BucketTypeCount())
 
 	// add bucket info
@@ -181,7 +183,9 @@ func TestContractStakingDirty_finalize(t *testing.T) {
 	require.EqualValues(_StakingBucketInfoNS, info.Namespace())
 	require.EqualValues(batch.Put, info.WriteType())
 	require.EqualValues(byteutil.Uint64ToBytesBigEndian(1), info.Key())
-	require.EqualValues(bi.Serialize(), info.Value())
+	bidata, err := bi.Serialize()
+	require.NoError(err)
+	require.EqualValues(bidata, info.Value())
 	totalCnt = cache.TotalBucketCount()
 	require.EqualValues(1, totalCnt)
 }
@@ -219,6 +223,7 @@ func TestContractStakingDirty_noSideEffectOnClean(t *testing.T) {
 	require.False(ok)
 	require.Nil(bi)
 
+	clean.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
 	// update bucket info existed in clean cache
 	clean.PutBucketInfo(2, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
 	// update bucket info in dirty cache
