@@ -184,8 +184,8 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 				erigonHeight, sdb.currentChainHeight,
 			)
 		}
-		if sdb.cfg.Chain.HistoryBlockRetention > 0 && eh > sdb.cfg.Chain.HistoryBlockRetention {
-			if err := sdb.erigonDB.BatchPrune(ctx, eh-sdb.cfg.Chain.HistoryBlockRetention, eh, 1000); err != nil {
+		if sdb.cfg.Chain.HistoryBlockRetention > 0 && erigonHeight > sdb.cfg.Chain.HistoryBlockRetention {
+			if err := sdb.erigonDB.BatchPrune(ctx, erigonHeight-sdb.cfg.Chain.HistoryBlockRetention, erigonHeight, 1000); err != nil {
 				return errors.Wrap(err, "failed to prune erigonDB")
 			}
 		}
