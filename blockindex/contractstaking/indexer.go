@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
@@ -34,11 +35,12 @@ type (
 	// 		1. handle contract staking contract events when new block comes to generate index data
 	// 		2. provide query interface for contract staking index data
 	Indexer struct {
-		kvstore db.KVStore            // persistent storage, used to initialize index cache at startup
-		cache   *contractStakingCache // in-memory index for clean data, used to query index data
-		config  Config                // indexer config
-		height  uint64
-		mu      sync.RWMutex
+		kvstore      db.KVStore            // persistent storage, used to initialize index cache at startup
+		cache        *contractStakingCache // in-memory index for clean data, used to query index data
+		config       Config                // indexer config
+		height       uint64
+		mu           sync.RWMutex
+		contractAddr address.Address
 		lifecycle.Readiness
 	}
 
@@ -61,16 +63,18 @@ func NewContractStakingIndexer(kvStore db.KVStore, config Config) (*Indexer, err
 	if kvStore == nil {
 		return nil, errors.New("kv store is nil")
 	}
-	if _, err := address.FromString(config.ContractAddress); err != nil {
+	contractAddr, err := address.FromString(config.ContractAddress)
+	if err != nil {
 		return nil, errors.Wrapf(err, "invalid contract address %s", config.ContractAddress)
 	}
 	if config.CalculateVoteWeight == nil {
 		return nil, errors.New("calculate vote weight function is nil")
 	}
 	return &Indexer{
-		kvstore: kvStore,
-		cache:   newContractStakingCache(),
-		config:  config,
+		kvstore:      kvStore,
+		cache:        newContractStakingCache(),
+		config:       config,
+		contractAddr: contractAddr,
 	}, nil
 }
 
@@ -82,17 +86,70 @@ func (s *Indexer) Start(ctx context.Context) error {
 	return s.start(ctx)
 }
 
-// StartView starts the indexer view
-func (s *Indexer) StartView(ctx context.Context) (staking.ContractStakeView, error) {
+// LoadStakeView loads the contract stake view
+func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (staking.ContractStakeView, error) {
 	if !s.IsReady() {
 		if err := s.start(ctx); err != nil {
 			return nil, err
 		}
 	}
+	featureCtx, ok := protocol.GetFeatureCtx(ctx)
+	if !ok || featureCtx.LoadContractStakingFromIndexer {
+		return &stakeView{
+			contractAddr: s.contractAddr,
+			cache:        s.cache.Clone(),
+			height:       s.height,
+		}, nil
+	}
+	cssr := contractstaking.NewStateReader(sr)
+	tids, types, err := cssr.BucketTypes(s.contractAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get bucket types for contract %s", s.contractAddr)
+	}
+	if len(tids) != len(types) {
+		return nil, errors.Errorf("length of tids (%d) does not match length of types (%d)", len(tids), len(types))
+	}
+	ids, buckets, err := contractstaking.NewStateReader(sr).Buckets(s.contractAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get buckets for contract %s", s.contractAddr)
+	}
+	if len(ids) != len(buckets) {
+		return nil, errors.Errorf("length of ids (%d) does not match length of buckets (%d)", len(ids), len(buckets))
+	}
+	cache := &contractStakingCache{}
+	for i, id := range tids {
+		if types[i] == nil {
+			return nil, errors.Errorf("bucket type %d is nil", id)
+		}
+		cache.PutBucketType(id, types[i])
+	}
+	for i, id := range ids {
+		if buckets[i] == nil {
+			return nil, errors.New("bucket is nil")
+		}
+		tid, _, ok := cache.MatchBucketType(buckets[i].StakedAmount, buckets[i].StakedDuration)
+		if !ok {
+			return nil, errors.Errorf(
+				"no bucket type found for bucket %d with staked amount %s and duration %d",
+				id,
+				buckets[i].StakedAmount.String(),
+				buckets[i].StakedDuration,
+			)
+		}
+		cache.PutBucketInfo(id, &bucketInfo{
+			TypeIndex:  tid,
+			CreatedAt:  buckets[i].CreatedAt,
+			UnlockedAt: buckets[i].UnlockedAt,
+			UnstakedAt: buckets[i].UnstakedAt,
+			Delegate:   buckets[i].Candidate,
+			Owner:      buckets[i].Owner,
+		})
+	}
+
 	return &stakeView{
-		helper: s,
-		cache:  s.cache.Clone(),
-		height: s.height,
+		cache:        cache,
+		height:       s.height,
+		contractAddr: s.contractAddr,
 	}, nil
 }
 
@@ -132,8 +189,8 @@ func (s *Indexer) StartHeight() uint64 {
 }
 
 // ContractAddress returns the contract address
-func (s *Indexer) ContractAddress() string {
-	return s.config.ContractAddress
+func (s *Indexer) ContractAddress() address.Address {
+	return s.contractAddr
 }
 
 // CandidateVotes returns the candidate votes
@@ -347,15 +404,18 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// commit the result
-	if err := s.commit(handler, blk.Height()); err != nil {
+	if err := s.commit(ctx, handler, blk.Height()); err != nil {
 		return errors.Wrapf(err, "failed to commit block %d", blk.Height())
 	}
 	return nil
 }
 
-func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) error {
+func (s *Indexer) commit(ctx context.Context, handler *contractStakingEventHandler, height uint64) error {
 	batch, delta := handler.Result()
-	cache := delta.Commit()
+	cache, err := delta.Commit(ctx, s.contractAddr, nil)
+	if err != nil {
+		return errors.Wrapf(err, "failed to commit delta")
+	}
 	base, ok := cache.(*contractStakingCache)
 	if !ok {
 		return errors.New("invalid cache type of base")

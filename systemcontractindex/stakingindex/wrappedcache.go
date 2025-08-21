@@ -1,10 +1,12 @@
 package stakingindex
 
 import (
+	"context"
 	"slices"
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 type wrappedCache struct {
@@ -183,26 +185,24 @@ func (w *wrappedCache) Clone() indexerCache {
 	return wc
 }
 
-func (w *wrappedCache) Commit() indexerCache {
+func (w *wrappedCache) Commit(ctx context.Context, ca address.Address, timestamp bool, sm protocol.StateManager) (indexerCache, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.isDirty() {
-		cache := w.cache
 		if w.commitWithClone {
-			cache = w.cache.Clone()
+			w.cache = w.cache.Clone()
 		}
 		for id, bkt := range w.updatedBuckets {
 			if bkt == nil {
-				cache.DeleteBucket(id)
+				w.cache.DeleteBucket(id)
 			} else {
-				cache.PutBucket(id, bkt)
+				w.cache.PutBucket(id, bkt)
 			}
 		}
 		w.updatedBuckets = make(map[uint64]*Bucket)
 		w.bucketsByCandidate = make(map[string]map[uint64]bool)
-		w.cache = cache
 	}
-	return w.cache.Commit()
+	return w.cache.Commit(ctx, ca, timestamp, sm)
 }
 
 func (w *wrappedCache) isDirty() bool {
