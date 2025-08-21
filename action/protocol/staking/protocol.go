@@ -34,13 +34,13 @@ const (
 	_protocolID = "staking"
 
 	// _stakingNameSpace is the bucket name for staking state
-	_stakingNameSpace = "Staking"
+	_stakingNameSpace = state.StakingNamespace
 
 	// _candidateNameSpace is the bucket name for candidate state
-	_candidateNameSpace = "Candidate"
+	_candidateNameSpace = state.CandidateNamespace
 
 	// CandsMapNS is the bucket name to store candidate map
-	CandsMapNS = "CandsMap"
+	CandsMapNS = state.CandsMapNamespace
 )
 
 const (

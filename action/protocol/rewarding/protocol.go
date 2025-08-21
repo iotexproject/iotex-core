@@ -28,7 +28,7 @@ import (
 const (
 	// TODO: it works only for one instance per protocol definition now
 	_protocolID           = "rewarding"
-	_v2RewardingNamespace = "Rewarding"
+	_v2RewardingNamespace = state.RewardingNamespace
 )
 
 var (
