@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"math"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,8 +21,10 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
@@ -57,7 +60,6 @@ func TestContractStakingV2(t *testing.T) {
 	cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
 	cfg.Plugins[config.GatewayPlugin] = nil
 	test := newE2ETest(t, cfg)
-	defer test.teardown()
 
 	var (
 		successExpect       = &basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_Success), ""}
@@ -673,6 +675,8 @@ func TestContractStakingV2(t *testing.T) {
 			},
 		},
 	})
+
+	checkStakingViewInit(test, require)
 }
 
 func TestContractStakingV3(t *testing.T) {
@@ -692,7 +696,6 @@ func TestContractStakingV3(t *testing.T) {
 	cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
 	cfg.Plugins[config.GatewayPlugin] = nil
 	test := newE2ETest(t, cfg)
-	defer test.teardown()
 
 	var (
 		successExpect        = &basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_Success), ""}
@@ -730,6 +733,13 @@ func TestContractStakingV3(t *testing.T) {
 		data, err := abiCall(stakingContractV3ABI, m, args...)
 		require.NoError(err)
 		return data
+	}
+	genTransferActionsWithPrice := func(n int, price *big.Int) []*actionWithTime {
+		acts := make([]*actionWithTime, n)
+		for i := 0; i < n; i++ {
+			acts[i] = &actionWithTime{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, price, action.WithChainID(chainID))), time.Now()}
+		}
+		return acts
 	}
 	test.run([]*testcase{
 		{
@@ -947,6 +957,13 @@ func TestContractStakingV3(t *testing.T) {
 			},
 		},
 	})
+
+	test.run([]*testcase{
+		{
+			preActs: genTransferActionsWithPrice(int(cfg.Genesis.WakeBlockHeight), gasPrice1559),
+		},
+	})
+	checkStakingViewInit(test, require)
 }
 
 func TestMigrateStake(t *testing.T) {
@@ -1192,6 +1209,119 @@ func TestMigrateStake(t *testing.T) {
 			},
 		})
 	})
+}
+
+func TestStakingViewInit(t *testing.T) {
+	require := require.New(t)
+	contractAddress := "io1dkqh5mu9djfas3xyrmzdv9frsmmytel4mp7a64"
+	cfg := initCfg(require)
+	cfg.Genesis.WakeBlockHeight = 10 // mute staking v2 & enable staking v3
+	cfg.Genesis.SystemStakingContractAddress = contractAddress
+	cfg.Genesis.SystemStakingContractHeight = 1
+	cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
+	cfg.Plugins[config.GatewayPlugin] = nil
+	test := newE2ETest(t, cfg)
+
+	var (
+		chainID             = test.cfg.Chain.ID
+		contractCreator     = 1
+		registerAmount      = unit.ConvertIotxToRau(1200000)
+		stakeTime           = time.Now()
+		candOwnerID         = 3
+		blocksPerDay        = 24 * time.Hour / cfg.DardanellesUpgrade.BlockInterval
+		stakeDurationBlocks = big.NewInt(int64(blocksPerDay))
+	)
+	bytecodeV2, err := hex.DecodeString(_stakingContractByteCode)
+	require.NoError(err)
+	v1ABI, err := abi.JSON(strings.NewReader(_stakingContractABI))
+	require.NoError(err)
+	mustCallData := func(m string, args ...any) []byte {
+		data, err := abiCall(v1ABI, m, args...)
+		require.NoError(err)
+		return data
+	}
+	genTransferActionsWithPrice := func(n int, price *big.Int) []*actionWithTime {
+		acts := make([]*actionWithTime, n)
+		for i := 0; i < n; i++ {
+			acts[i] = &actionWithTime{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, price, action.WithChainID(chainID))), time.Now()}
+		}
+		return acts
+	}
+	test.run([]*testcase{
+		{
+			name: "deploy_contract",
+			preActs: []*actionWithTime{
+				{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(candOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(candOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID), action.WithChainID(chainID))), time.Now()},
+			},
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedExecution("", identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(0), gasLimit, gasPrice, append(bytecodeV2, mustCallData("")...), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(0), gasLimit, gasPrice, mustCallData("addBucketType(uint256,uint256)", big.NewInt(100), stakeDurationBlocks), action.WithChainID(chainID))), stakeTime},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(3, len(blk.Receipts))
+				for _, receipt := range blk.Receipts {
+					require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+				}
+				require.Equal(contractAddress, blk.Receipts[0].ContractAddress)
+			},
+		},
+		{
+			name: "stake",
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(100), gasLimit, gasPrice, mustCallData("stake(uint256,address)", stakeDurationBlocks, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), stakeTime},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(2, len(blk.Receipts))
+				for _, receipt := range blk.Receipts {
+					require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+				}
+			},
+		},
+	})
+
+	test.run([]*testcase{
+		{
+			preActs: genTransferActionsWithPrice(int(cfg.Genesis.WakeBlockHeight), gasPrice1559),
+		},
+	})
+	checkStakingViewInit(test, require)
+}
+
+func checkStakingViewInit(test *e2etest, require *require.Assertions) {
+	tipHeight, err := test.cs.BlockDAO().Height()
+	require.NoError(err)
+	test.t.Log("tip height:", tipHeight)
+	tipHeader, err := test.cs.BlockDAO().HeaderByHeight(tipHeight)
+	require.NoError(err)
+
+	stkProtocol, ok := test.cs.Registry().Find("staking")
+	require.True(ok, "staking protocol should be registered")
+	stk := stkProtocol.(*staking.Protocol)
+	ctx := context.Background()
+	ctx = genesis.WithGenesisContext(ctx, test.cfg.Genesis)
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    tipHeight,
+		BlockTimeStamp: tipHeader.Timestamp(),
+	})
+	ctx = protocol.WithFeatureCtx(ctx)
+	cands, err := stk.ActiveCandidates(ctx, test.cs.StateFactory(), 0)
+	require.NoError(err)
+
+	require.NoError(test.svr.Stop(ctx))
+	testutil.CleanupPath(test.cfg.Chain.ContractStakingIndexDBPath)
+	test.cfg.Chain.ContractStakingIndexDBPath, err = testutil.PathOfTempFile("contractindex.db")
+	require.NoError(err)
+
+	test = newE2ETestWithCtx(ctx, test.t, test.cfg)
+	defer test.teardown()
+	stkProtocol, ok = test.cs.Registry().Find("staking")
+	require.True(ok, "staking protocol should be registered")
+	stk = stkProtocol.(*staking.Protocol)
+	newCands, err := stk.ActiveCandidates(ctx, test.cs.StateFactory(), 0)
+	require.NoError(err)
+	require.ElementsMatch(cands, newCands, "candidates should be the same after restart")
 }
 
 func methodSignToID(sign string) []byte {

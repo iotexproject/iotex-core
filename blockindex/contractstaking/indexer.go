@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -326,24 +327,10 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	if blk.Height() > expectHeight {
 		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expectHeight)
 	}
-	// new event handler for this block
-	handler := newContractStakingEventHandler(cache)
-
-	// handle events of block
-	for _, receipt := range blk.Receipts {
-		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-			continue
-		}
-		for _, log := range receipt.Logs() {
-			if log.Address != s.config.ContractAddress {
-				continue
-			}
-			if err := handler.HandleEvent(ctx, blk.Height(), log); err != nil {
-				return err
-			}
-		}
+	handler, err := handleReceipts(ctx, blk.Height(), blk.Receipts, &s.config, cache)
+	if err != nil {
+		return errors.Wrapf(err, "failed to put block %d", blk.Height())
 	}
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// commit the result
@@ -351,6 +338,27 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 		return errors.Wrapf(err, "failed to commit block %d", blk.Height())
 	}
 	return nil
+}
+
+func handleReceipts(ctx context.Context, height uint64, receipts []*action.Receipt, cfg *Config, cache stakingCache) (*contractStakingEventHandler, error) {
+	// new event handler for this block
+	handler := newContractStakingEventHandler(cache)
+
+	// handle events of block
+	for _, receipt := range receipts {
+		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+			continue
+		}
+		for _, log := range receipt.Logs() {
+			if log.Address != cfg.ContractAddress {
+				continue
+			}
+			if err := handler.HandleEvent(ctx, height, log); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return handler, nil
 }
 
 func (s *Indexer) commit(handler *contractStakingEventHandler, height uint64) error {

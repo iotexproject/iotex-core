@@ -30,6 +30,7 @@ type (
 		Handle(ctx context.Context, receipt *action.Receipt) error
 		// BucketsByCandidate returns the buckets by candidate address
 		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
+		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error
 	}
 	// ViewData is the data that need to be stored in protocol's view
 	ViewData struct {
