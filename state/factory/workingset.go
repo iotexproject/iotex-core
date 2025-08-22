@@ -8,7 +8,7 @@ package factory
 import (
 	"context"
 	"math/big"
-	"sort"
+	"slices"
 	"time"
 
 	erigonstate "github.com/erigontech/erigon/core/state"
@@ -455,7 +455,7 @@ func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap 
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
-		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
+		slices.Sort(receivedNonces)
 		if useZeroNonce {
 			pendingNonce = confirmedState.PendingNonceConsideringFreshAccount()
 		} else {
