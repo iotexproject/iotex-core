@@ -6,12 +6,14 @@
 package rewarding
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -20,6 +22,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // fund stores the balance of the rewarding fund. The difference between total and available balance should be
@@ -28,6 +31,8 @@ type fund struct {
 	totalBalance     *big.Int
 	unclaimedBalance *big.Int
 }
+
+var _ state.ContractStorageStandard = (*fund)(nil)
 
 // Serialize serializes fund state into bytes
 func (f fund) Serialize() ([]byte, error) {
@@ -55,6 +60,28 @@ func (f *fund) Deserialize(data []byte) error {
 	f.totalBalance = totalBalance
 	f.unclaimedBalance = unclaimedBalance
 	return nil
+}
+
+func (f *fund) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	prefix := hash.Hash160b([]byte(_protocolID))
+	if ns == state.AccountKVNamespace {
+		expectKey := hash.Hash160b(append(prefix[:], _fundKey...))
+		if !bytes.Equal(expectKey[:], key) {
+			return nil, errors.Errorf("unexpected key %x, expected %x", key, expectKey)
+		}
+		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV1Index].Address, nil
+	} else if ns == _v2RewardingNamespace {
+		expectKey := append(prefix[:], _fundKey...)
+		if !bytes.Equal(expectKey[:], key) {
+			return nil, errors.Errorf("unexpected key %x, expected %x", key, expectKey)
+		}
+		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV2Index].Address, nil
+	}
+	return nil, errors.Errorf("unexpected namespace %s", ns)
+}
+
+func (f *fund) New() state.ContractStorageStandard {
+	return &fund{}
 }
 
 // Deposit deposits token into the rewarding fund

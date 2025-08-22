@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -45,7 +46,6 @@ func init() {
 }
 
 func TestErigonArchiveContract(t *testing.T) {
-	t.Skip("TODO: enable this test only when erigon is used in API")
 	r := require.New(t)
 	sender := identityset.Address(10).String()
 	senderSK := identityset.PrivateKey(10)
@@ -53,6 +53,9 @@ func TestErigonArchiveContract(t *testing.T) {
 	holder := identityset.Address(11).String()
 	ethHolder := common.BytesToAddress(identityset.Address(11).Bytes())
 	cfg := initCfg(r)
+	historyIndexPath, err := os.MkdirTemp("", "historyindex")
+	r.NoError(err)
+	cfg.Chain.HistoryIndexPath = historyIndexPath
 	cfg.API.GRPCPort = testutil.RandomPort()
 	cfg.API.HTTPPort = testutil.RandomPort()
 	cfg.API.WebSocketPort = 0
@@ -89,6 +92,14 @@ func TestErigonArchiveContract(t *testing.T) {
 		return fee
 	}
 	test.runCase(ctx, &testcase{
+		name: "skip block 1",
+		act: &actionWithTime{
+			mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(identityset.Address(0).String())), action.NewTransfer(big.NewInt(10), identityset.Address(1).String(), nil)), identityset.PrivateKey(0))),
+			time.Now(),
+		},
+		expect: []actionExpect{successExpect},
+	})
+	test.runCase(ctx, &testcase{
 		name: "transfer",
 		act: &actionWithTime{
 			mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(sender)), action.NewTransfer(big.NewInt(10), holder, nil)), senderSK)),
@@ -100,14 +111,14 @@ func TestErigonArchiveContract(t *testing.T) {
 			t.Log("transfer success, block height:", blk.Height())
 			// check holder balance
 			amount := big.NewInt(10)
-			b0, err := test.ethcli.BalanceAt(ctx, ethHolder, big.NewInt(int64(blk.Height())))
+			b0, err := test.ethcli.BalanceAt(ctx, ethHolder, big.NewInt(int64(blk.Height()-1)))
 			r.NoError(err)
-			b1, err := test.ethcli.BalanceAt(ctx, ethHolder, nil)
+			b1, err := test.ethcli.BalanceAt(ctx, ethHolder, big.NewInt(int64(blk.Height())))
 			r.NoError(err)
 			r.Equal(new(big.Int).Add(b0, amount).String(), b1.String())
-			b0, err = test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height())))
+			b0, err = test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height()-1)))
 			r.NoError(err)
-			b1, err = test.ethcli.BalanceAt(ctx, ethSender, nil)
+			b1, err = test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height())))
 			r.NoError(err)
 			consumed := new(big.Int).Mul(gasPrice, big.NewInt(int64(blk.Receipts[0].GasConsumed)))
 			r.Equal(new(big.Int).Sub(balance, consumed.Add(consumed, amount)).String(), b1.String())
@@ -127,10 +138,10 @@ func TestErigonArchiveContract(t *testing.T) {
 			// check sender balance
 			consumed := consumeFee(blk.Receipts[0], sender)
 			ctx := context.Background()
-			b, err := test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height())))
+			b, err := test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height()-1)))
 			r.NoError(err)
 			r.Equal(balance.String(), b.String())
-			b, err = test.ethcli.BalanceAt(ctx, ethSender, nil)
+			b, err = test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height())))
 			r.NoError(err)
 			balance.Sub(balance, consumed)
 			r.Equal(balance.String(), b.String())
@@ -154,10 +165,10 @@ func TestErigonArchiveContract(t *testing.T) {
 			t.Log("contract address:", contractAddr, "block height:", blk.Height())
 			// check sender balance
 			ctx := context.Background()
-			b, err := test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height())))
+			b, err := test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height()-1)))
 			r.NoError(err)
 			r.Equal(balance.String(), b.String())
-			b, err = test.ethcli.BalanceAt(ctx, ethSender, nil)
+			b, err = test.ethcli.BalanceAt(ctx, ethSender, big.NewInt(int64(blk.Height())))
 			r.NoError(err)
 			consumed := new(big.Int).Mul(gasPrice, big.NewInt(int64(blk.Receipts[0].GasConsumed)))
 			balance.Sub(balance, consumed)
@@ -181,13 +192,13 @@ func TestErigonArchiveContract(t *testing.T) {
 			b, err := test.ethcli.CallContract(ctx, ethereum.CallMsg{
 				To:   &ethContractAddr,
 				Data: mustCallData("balanceOf(address)", ethHolder),
-			}, big.NewInt(int64(blk.Height())))
+			}, big.NewInt(int64(blk.Height()-1)))
 			r.NoError(err)
 			r.Equal("0", big.NewInt(0).SetBytes(b).String())
 			b, err = test.ethcli.CallContract(ctx, ethereum.CallMsg{
 				To:   &ethContractAddr,
 				Data: mustCallData("balanceOf(address)", ethHolder),
-			}, nil)
+			}, big.NewInt(int64(blk.Height())))
 			r.NoError(err)
 			r.Equal("1", big.NewInt(0).SetBytes(b).String())
 			// check code
@@ -199,9 +210,11 @@ func TestErigonArchiveContract(t *testing.T) {
 }
 
 func TestErigonArchiveAccountForAllActions(t *testing.T) {
-	t.Skip("TODO: enable this test only when erigon is used in API")
 	r := require.New(t)
 	cfg := initCfg(r)
+	historyIndexPath, err := os.MkdirTemp("", "historyindex")
+	r.NoError(err)
+	cfg.Chain.HistoryIndexPath = historyIndexPath
 	cfg.API.GRPCPort = testutil.RandomPort()
 	cfg.API.HTTPPort = testutil.RandomPort()
 	cfg.API.WebSocketPort = 0
@@ -216,6 +229,7 @@ func TestErigonArchiveAccountForAllActions(t *testing.T) {
 	}
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	gasPrice := big.NewInt(unit.Qev)
 	newLegacyTx := func(nonce uint64) action.TxCommonInternal {
@@ -244,7 +258,7 @@ func TestErigonArchiveAccountForAllActions(t *testing.T) {
 				r.EqualValues(iotextypes.ReceiptStatus_Success, receipt.Status)
 				t.Log("contract address", receipt.ContractAddress)
 				sender := act.SrcPubkey().Address()
-				preBalance, err := test.ethcli.BalanceAt(ctx, common.BytesToAddress(sender.Bytes()), big.NewInt(int64(receipt.BlockHeight)))
+				preBalance, err := test.ethcli.BalanceAt(ctx, common.BytesToAddress(sender.Bytes()), big.NewInt(int64(receipt.BlockHeight-1)))
 				r.NoError(err)
 				t.Log("pre balance:", preBalance, "block height:", receipt.BlockHeight)
 				postBalance, err := test.ethcli.BalanceAt(ctx, common.BytesToAddress(sender.Bytes()), big.NewInt(int64(receipt.BlockHeight)))
@@ -279,6 +293,15 @@ func TestErigonArchiveAccountForAllActions(t *testing.T) {
 		{action.NewMigrateStake(1), 1},
 	}
 
+	// skip block 1 for cannot get block at height 0
+	test.runCase(ctx, &testcase{
+		name: "skip block 1",
+		act: &actionWithTime{
+			mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(identityset.Address(0).String())), action.NewTransfer(big.NewInt(10), identityset.Address(1).String(), nil)), identityset.PrivateKey(0))),
+			time.Now(),
+		},
+		expect: []actionExpect{successExpect},
+	})
 	for i := range payloads {
 		senderIdx := payloads[i].sender
 		act := mustNoErr(action.Sign(action.NewEnvelope(newLegacyTx(test.nonceMgr.pop(identityset.Address(senderIdx).String())), payloads[i].payload), identityset.PrivateKey(senderIdx)))

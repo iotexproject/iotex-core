@@ -8,6 +8,7 @@ package evm
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"math"
 	"math/big"
 	"time"
@@ -326,12 +327,12 @@ func ExecuteContract(
 
 	if ps.featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], _revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
-		data := retval[4:]
-		msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
-		revertMsg := string(data[64 : 64+msgLength])
-		receipt.SetExecutionRevertMsg(revertMsg)
+		receipt.SetExecutionRevertMsg(ExtractRevertMessage(retval))
 	}
 	log.S().Debugf("Retval: %x, Receipt: %+v, %v", retval, receipt, err)
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
+		tCtx.CaptureTx(retval, receipt)
+	}
 	return retval, receipt, nil
 }
 
@@ -558,6 +559,12 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		refund             uint64
 		amount             = uint256.MustFromBig(evmParams.amount)
 	)
+	if evm.Config.Tracer != nil {
+		evm.Config.Tracer.CaptureTxStart(remainingGas)
+		defer func() {
+			evm.Config.Tracer.CaptureTxEnd(remainingGas)
+		}()
+	}
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
@@ -755,4 +762,18 @@ func SimulateExecution(
 		},
 	))
 	return ExecuteContract(ctx, sm, ex)
+}
+
+// ExtractRevertMessage extracts the revert message from the return value
+func ExtractRevertMessage(ret []byte) string {
+	if len(ret) < 4 {
+		return hex.EncodeToString(ret)
+	}
+	if !bytes.Equal(ret[:4], _revertSelector) {
+		return hex.EncodeToString(ret)
+	}
+	data := ret[4:]
+	msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
+	revertMsg := string(data[64 : 64+msgLength])
+	return revertMsg
 }
