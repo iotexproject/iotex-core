@@ -5,6 +5,8 @@
 
 package batch
 
+import "maps"
+
 type (
 	// KVStoreCache is a local cache of batched <k, v> for fast query
 	KVStoreCache interface {
@@ -145,9 +147,7 @@ func (c *kvCache) Append(caches ...KVStoreCache) error {
 			if _, ok := c.cache[key1]; !ok {
 				c.cache[key1] = make(map[string]*node)
 			}
-			for key2, node := range ns {
-				c.cache[key1][key2] = node
-			}
+			maps.Copy(c.cache[key1], ns)
 		}
 	}
 	return nil
