@@ -33,13 +33,15 @@ type (
 		IndexDBPath            string `yaml:"indexDBPath"`
 		BloomfilterIndexDBPath string `yaml:"bloomfilterIndexDBPath"`
 		CandidateIndexDBPath   string `yaml:"candidateIndexDBPath"`
-		StakingIndexDBPath     string `yaml:"stakingIndexDBPath"`
+		// deprecated
+		StakingIndexDBPath string `yaml:"stakingIndexDBPath"`
 		// deprecated
 		SGDIndexDBPath             string           `yaml:"sgdIndexDBPath"`
 		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
 		BlobStoreDBPath            string           `yaml:"blobStoreDBPath"`
 		BlobStoreRetentionDays     uint32           `yaml:"blobStoreRetentionDays"`
 		HistoryIndexPath           string           `yaml:"historyIndexPath"`
+		HistoryBlockRetention      uint64           `yaml:"historyBlockRetention"`
 		ID                         uint32           `yaml:"id"`
 		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
 		Address                    string           `yaml:"address"`
@@ -65,6 +67,7 @@ type (
 		// EnableStakingProtocol enables staking protocol
 		EnableStakingProtocol bool `yaml:"enableStakingProtocol"`
 		// EnableStakingIndexer enables staking indexer
+		// deprecated
 		EnableStakingIndexer bool `yaml:"enableStakingIndexer"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
@@ -104,6 +107,7 @@ var (
 		ContractStakingIndexDBPath: "/var/data/contractstaking.index.db",
 		BlobStoreDBPath:            "/var/data/blob.db",
 		BlobStoreRetentionDays:     21,
+		HistoryBlockRetention:      0,
 		ID:                         1,
 		EVMNetworkID:               4689,
 		Address:                    "",

@@ -7,6 +7,7 @@ package factory
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sort"
 	"time"
@@ -311,11 +312,11 @@ func (ws *workingSet) freshAccountConversion(ctx context.Context, actCtx *protoc
 }
 
 // Commit persists all changes in RunActions() into the DB
-func (ws *workingSet) Commit(ctx context.Context) error {
+func (ws *workingSet) Commit(ctx context.Context, retention uint64) error {
 	if err := protocolPreCommit(ctx, ws); err != nil {
 		return err
 	}
-	if err := ws.store.Commit(ctx); err != nil {
+	if err := ws.store.Commit(ctx, retention); err != nil {
 		return err
 	}
 	if err := protocolCommit(ctx, ws); err != nil {
@@ -335,11 +336,7 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	value, err := ws.store.Get(cfg.Namespace, cfg.Key)
-	if err != nil {
-		return ws.height, err
-	}
-	return ws.height, state.Deserialize(s, value)
+	return ws.height, ws.store.GetObject(cfg.Namespace, cfg.Key, s)
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
@@ -350,7 +347,7 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys)
+	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys, cfg.Object)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -368,11 +365,7 @@ func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uin
 	if err != nil {
 		return ws.height, err
 	}
-	ss, err := state.Serialize(s)
-	if err != nil {
-		return ws.height, errors.Wrapf(err, "failed to convert account %v to bytes", s)
-	}
-	return ws.height, ws.store.Put(cfg.Namespace, cfg.Key, ss)
+	return ws.height, ws.store.PutObject(cfg.Namespace, cfg.Key, s)
 }
 
 // DelState deletes a state from DB
@@ -382,7 +375,7 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.store.Delete(cfg.Namespace, cfg.Key)
+	return ws.height, ws.store.DeleteObject(cfg.Namespace, cfg.Key, cfg.Object)
 }
 
 // ReadView reads the view
@@ -398,6 +391,9 @@ func (ws *workingSet) WriteView(name string, v protocol.View) error {
 
 // CreateGenesisStates initialize the genesis states
 func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
+	if err := ws.store.CreateGenesisStates(ctx); err != nil {
+		return err
+	}
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
 			if gsc, ok := p.(protocol.GenesisStateCreator); ok {
@@ -489,7 +485,11 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		return err
 	}
 	userActions, systemActions := ws.splitActions(actions)
-	if protocol.MustGetFeatureCtx(ctx).PreStateSystemAction {
+	// due to archive states only support for account and contract, this may cause
+	// validation failure for PutPollResult system action
+	// TODO: remove this when archive states support state for all protocols
+	ignoreSystemValidation := protocol.MustGetBlockCtx(ctx).Simulate
+	if protocol.MustGetFeatureCtx(ctx).PreStateSystemAction && !ignoreSystemValidation {
 		if err := ws.validatePostSystemActions(ctx, systemActions); err != nil {
 			return err
 		}
@@ -537,7 +537,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		}
 	}
 	// Handle post system actions
-	if !protocol.MustGetFeatureCtx(ctx).PreStateSystemAction {
+	if !protocol.MustGetFeatureCtx(ctx).PreStateSystemAction && !ignoreSystemValidation {
 		if err := ws.validatePostSystemActions(ctxWithBlockContext, systemActions); err != nil {
 			return err
 		}
@@ -661,6 +661,17 @@ func (ws *workingSet) validatePostSystemActions(ctx context.Context, systemActio
 		return err
 	}
 	if len(postSystemActions) != len(systemActions) {
+		log.L().Error("the number of system actions is incorrect",
+			zap.Int("expected", len(postSystemActions)),
+			zap.Int("got", len(systemActions)),
+			zap.Uint64("height", protocol.MustGetBlockCtx(ctx).BlockHeight),
+		)
+		for i, act := range postSystemActions {
+			log.L().Error("expected system action",
+				zap.Int("index", i),
+				zap.String("action", fmt.Sprintf("%+T", act.Action())),
+			)
+		}
 		return errors.Wrapf(errInvalidSystemActionLayout, "the number of system actions is incorrect, expected %d, got %d", len(postSystemActions), len(systemActions))
 	}
 	reg := protocol.MustGetRegistry(ctx)
@@ -992,7 +1003,11 @@ func (ws *workingSet) NewWorkingSet(ctx context.Context) (*workingSet, error) {
 	if !ws.finalized {
 		return nil, errors.New("workingset has not been finalized yet")
 	}
-	store, err := ws.workingSetStoreFactory.CreateWorkingSetStore(ctx, ws.height+1, ws.store)
+	kvStore := ws.store.KVStore()
+	if kvStore == nil {
+		return nil, errors.Errorf("KVStore() not supported in %T", ws.store)
+	}
+	store, err := ws.workingSetStoreFactory.CreateWorkingSetStore(ctx, ws.height+1, kvStore)
 	if err != nil {
 		return nil, err
 	}

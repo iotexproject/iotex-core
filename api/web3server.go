@@ -229,6 +229,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.getBlockTransactionCountByNumber(web3Req)
 	case "eth_getTransactionReceipt":
 		res, err = svr.getTransactionReceipt(web3Req)
+	case "eth_getBlockReceipts":
+		res, err = svr.getBlockReceipts(web3Req)
 	case "eth_getStorageAt":
 		res, err = svr.getStorageAt(web3Req)
 	case "eth_getFilterLogs":
@@ -255,11 +257,14 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.unsubscribe(web3Req)
 	case "eth_getBlobSidecars":
 		res, err = svr.getBlobSidecars(web3Req)
-	//TODO: enable debug api after archive mode is supported
-	// case "debug_traceTransaction":
-	// 	res, err = svr.traceTransaction(ctx, web3Req)
-	// case "debug_traceCall":
-	// 	res, err = svr.traceCall(ctx, web3Req)
+	case "debug_traceTransaction":
+		res, err = svr.traceTransaction(ctx, web3Req)
+	case "debug_traceCall":
+		res, err = svr.traceCall(ctx, web3Req)
+	case "debug_traceBlockByNumber":
+		res, err = svr.traceBlockByNumber(ctx, web3Req)
+	case "debug_traceBlockByHash":
+		res, err = svr.traceBlockByHash(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
@@ -462,6 +467,13 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 	if err != nil {
 		return nil, err
 	}
+	height, _, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
+	if err != nil {
+		return nil, err
+	}
+	if height == 0 {
+		height = svr.coreService.TipHeight()
+	}
 	var (
 		to   = callMsg.To
 		data = callMsg.Data
@@ -474,7 +486,7 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		if err != nil {
 			return nil, err
 		}
-		states, err := svr.coreService.ReadState("staking", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		states, err := svr.coreService.ReadState("staking", fmt.Sprintf("%d", height), sctx.Parameters().MethodName, sctx.Parameters().Arguments)
 		if err != nil {
 			return nil, err
 		}
@@ -489,7 +501,7 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		if err != nil {
 			return nil, err
 		}
-		states, err := svr.coreService.ReadState("rewarding", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		states, err := svr.coreService.ReadState("rewarding", fmt.Sprintf("%d", height), sctx.Parameters().MethodName, sctx.Parameters().Arguments)
 		if err != nil {
 			return nil, err
 		}
@@ -865,6 +877,80 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 
 }
 
+func (svr *web3Handler) getBlockReceipts(in *gjson.Result) (interface{}, error) {
+	// parse block parameter from request
+	blkParam := in.Get("params.0")
+	if !blkParam.Exists() {
+		return nil, errInvalidFormat
+	}
+	bn, err := parseBlockNumber(&blkParam)
+	if err != nil {
+		return nil, err
+	}
+	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	if err != nil {
+		return nil, err
+	}
+
+	blk, err := svr.coreService.BlockByHeight(height)
+	if err != nil {
+		if errors.Cause(err) == ErrNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// Build receipt array for all transactions in the block
+	receipts := make([]*getReceiptResult, 0, len(blk.Block.Actions))
+	blockHash := blk.Block.HashBlock()
+
+	// Get logs bloom filter
+	var logsBloomStr string
+	if logsBloom := blk.Block.LogsBloomfilter(); logsBloom != nil {
+		logsBloomStr = hex.EncodeToString(logsBloom.Bytes())
+	}
+
+	// Process each transaction in the block
+	for i, selp := range blk.Block.Actions {
+		receipt := blk.Receipts[i]
+
+		// Convert action to ethereum transaction to get type
+		tx, err := selp.ToEthTx()
+		if err != nil {
+			if errors.Is(err, errUnsupportedAction) || errors.Is(err, action.ErrInvalidAct) {
+				txHash, _ := selp.Hash()
+				log.Logger("api").Debug("getBlockReceipts: unsupported action type",
+					zap.String("action", fmt.Sprintf("%T", selp.Action())),
+					log.Hex("actionHash", txHash[:]),
+					zap.Int("index", i))
+				continue // Skip unsupported actions
+			}
+			return nil, err
+		}
+
+		// Get recipient and contract address
+		to, contractAddr, err := getRecipientAndContractAddrFromAction(selp, receipt)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create receipt result
+		receiptResult := &getReceiptResult{
+			blockHash:       blockHash,
+			from:            selp.SenderAddress(),
+			to:              to,
+			contractAddress: contractAddr,
+			logsBloom:       logsBloomStr,
+			receipt:         receipt,
+			txType:          uint(tx.Type()),
+		}
+
+		receipts = append(receipts, receiptResult)
+	}
+
+	return receipts, nil
+}
+
 func (svr *web3Handler) getBlockTransactionCountByNumber(in *gjson.Result) (interface{}, error) {
 	blkNum := in.Get("params.0")
 	if !blkNum.Exists() {
@@ -1176,35 +1262,12 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 	if !actHash.Exists() {
 		return nil, errInvalidFormat
 	}
-	var (
-		enableMemory, disableStack, disableStorage, enableReturnData bool
-	)
-	if options.Exists() {
-		enableMemory = options.Get("enableMemory").Bool()
-		disableStack = options.Get("disableStack").Bool()
-		disableStorage = options.Get("disableStorage").Bool()
-		enableReturnData = options.Get("enableReturnData").Bool()
-	}
-	cfg := &tracers.TraceConfig{
-		Config: &logger.Config{
-			EnableMemory:     enableMemory,
-			DisableStack:     disableStack,
-			DisableStorage:   disableStorage,
-			EnableReturnData: enableReturnData,
-		},
-	}
-	if tracer := options.Get("tracer"); tracer.Exists() {
-		cfg.Tracer = new(string)
-		*cfg.Tracer = tracer.String()
-		if tracerConfig := options.Get("tracerConfig"); tracerConfig.Exists() {
-			cfg.TracerConfig = json.RawMessage(tracerConfig.Raw)
-		}
-	}
+	cfg := parseTracerConfig(&options)
 	retval, receipt, tracer, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
 	if err != nil {
 		return nil, err
 	}
-	switch tracer := tracer.(type) {
+	switch tracer := tracer.(*evmTracer).EVMLogger.(type) {
 	case *logger.StructLogger:
 		return &debugTraceTransactionResult{
 			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
@@ -1225,57 +1288,22 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		err     error
 		callMsg *callMsg
 	)
-	// TODO: refactor blkNumOrHashObj to avoid code duplication
-	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
+	options := in.Get("params.2")
 	callMsg, err = parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
-
-	var blkNumOrHash any
-	if blkNumOrHashObj.Exists() {
-		blkNumOrHash = blkNumOrHashObj.Get("blockHash").String()
-		if blkNumOrHash == "" {
-			blkNumOrHash = blkNumOrHashObj.Get("blockNumber").Uint()
-		}
-	}
-
-	var (
-		enableMemory, disableStack, disableStorage, enableReturnData bool
-		tracerJs, tracerTimeout                                      *string
-	)
-	if options.Exists() {
-		enableMemory = options.Get("enableMemory").Bool()
-		disableStack = options.Get("disableStack").Bool()
-		disableStorage = options.Get("disableStorage").Bool()
-		enableReturnData = options.Get("enableReturnData").Bool()
-		trace := options.Get("tracer")
-		if trace.Exists() {
-			tracerJs = new(string)
-			*tracerJs = trace.String()
-		}
-		traceTimeout := options.Get("timeout")
-		if traceTimeout.Exists() {
-			tracerTimeout = new(string)
-			*tracerTimeout = traceTimeout.String()
-		}
-	}
-	cfg := &tracers.TraceConfig{
-		Tracer:  tracerJs,
-		Timeout: tracerTimeout,
-		Config: &logger.Config{
-			EnableMemory:     enableMemory,
-			DisableStack:     disableStack,
-			DisableStorage:   disableStorage,
-			EnableReturnData: enableReturnData,
-		},
-	}
-
-	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callMsg.From, blkNumOrHash, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, cfg)
+	tracerCfg := parseTracerConfig(&options)
+	height, _, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
 	if err != nil {
 		return nil, err
 	}
-	switch tracer := tracer.(type) {
+
+	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callMsg.From, height, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, tracerCfg)
+	if err != nil {
+		return nil, err
+	}
+	switch tracer := tracer.(*evmTracer).EVMLogger.(type) {
 	case *logger.StructLogger:
 		return &debugTraceTransactionResult{
 			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
@@ -1289,6 +1317,28 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 	default:
 		return nil, fmt.Errorf("unknown tracer type: %T", tracer)
 	}
+}
+
+func (svr *web3Handler) traceBlockByNumber(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	blkNum, err := parseBlockNumber(&blkParam)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse block number")
+	}
+	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(blkNum))
+	if err != nil {
+		return nil, err
+	}
+	tracer := parseTracerConfig(&tracerParam)
+	_, _, results, err := svr.coreService.TraceBlockByNumber(ctx, height, tracer)
+	return results, err
+}
+
+func (svr *web3Handler) traceBlockByHash(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	tracer := parseTracerConfig(&tracerParam)
+	_, _, results, err := svr.coreService.TraceBlockByHash(ctx, blkParam.String(), tracer)
+	return results, err
 }
 
 func (svr *web3Handler) unimplemented() (interface{}, error) {

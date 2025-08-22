@@ -21,9 +21,14 @@ import (
 
 type (
 	workingSetStore interface {
-		db.KVStore
-		Commit(context.Context) error
-		States(string, [][]byte) ([][]byte, [][]byte, error)
+		Start(context.Context) error
+		Stop(context.Context) error
+		KVStore() db.KVStore
+		PutObject(ns string, key []byte, object any) (err error)
+		GetObject(ns string, key []byte, object any) error
+		DeleteObject(ns string, key []byte, object any) error
+		States(ns string, keys [][]byte, object any) ([][]byte, [][]byte, error)
+		Commit(context.Context, uint64) error
 		Digest() hash.Hash256
 		Finalize(context.Context) error
 		FinalizeTx(context.Context) error
@@ -31,6 +36,7 @@ type (
 		RevertSnapshot(int) error
 		ResetSnapshots()
 		Close()
+		CreateGenesisStates(context.Context) error
 	}
 
 	stateDBWorkingSetStore struct {
@@ -65,7 +71,23 @@ func (store *stateDBWorkingSetStore) WriteBatch(bat batch.KVStoreBatch) error {
 	return store.flusher.Flush()
 }
 
+func (store *stateDBWorkingSetStore) PutObject(ns string, key []byte, obj any) error {
+	store.lock.Lock()
+	defer store.lock.Unlock()
+	value, err := state.Serialize(obj)
+	if err != nil {
+		return errors.Wrapf(err, "failed to serialize object of ns = %x and key = %x", ns, key)
+	}
+	return store.putKV(ns, key, value)
+}
+
 func (store *stateDBWorkingSetStore) Put(ns string, key []byte, value []byte) error {
+	store.lock.Lock()
+	defer store.lock.Unlock()
+	return store.putKV(ns, key, value)
+}
+
+func (store *stateDBWorkingSetStore) putKV(ns string, key []byte, value []byte) error {
 	store.lock.Lock()
 	defer store.lock.Unlock()
 	if err := store.flusher.KVStoreWithBuffer().Put(ns, key, value); err != nil {
@@ -75,6 +97,10 @@ func (store *stateDBWorkingSetStore) Put(ns string, key []byte, value []byte) er
 		return nil
 	}
 	return store.flusher.Flush()
+}
+
+func (store *stateDBWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
+	return store.Delete(ns, key)
 }
 
 func (store *stateDBWorkingSetStore) Delete(ns string, key []byte) error {
@@ -93,7 +119,7 @@ func (store *stateDBWorkingSetStore) Digest() hash.Hash256 {
 	return hash.Hash256b(store.flusher.SerializeQueue())
 }
 
-func (store *stateDBWorkingSetStore) Commit(_ context.Context) error {
+func (store *stateDBWorkingSetStore) Commit(_ context.Context, _ uint64) error {
 	store.lock.Lock()
 	defer store.lock.Unlock()
 	if store.committed {
@@ -127,7 +153,19 @@ func (store *stateDBWorkingSetStore) Stop(context.Context) error {
 	return nil
 }
 
+func (store *stateDBWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
+	v, err := store.getKV(ns, key)
+	if err != nil {
+		return err
+	}
+	return state.Deserialize(obj, v)
+}
+
 func (store *stateDBWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
+	return store.getKV(ns, key)
+}
+
+func (store *stateDBWorkingSetStore) getKV(ns string, key []byte) ([]byte, error) {
 	data, err := store.flusher.KVStoreWithBuffer().Get(ns, key)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
@@ -138,7 +176,7 @@ func (store *stateDBWorkingSetStore) Get(ns string, key []byte) ([]byte, error) 
 	return data, nil
 }
 
-func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte) ([][]byte, [][]byte, error) {
+func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
 	if store.readBuffer {
 		// TODO: after the 180 HF, we can revert readBuffer, and always go this case
 		return readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
@@ -162,3 +200,11 @@ func (store *stateDBWorkingSetStore) FinalizeTx(_ context.Context) error {
 }
 
 func (store *stateDBWorkingSetStore) Close() {}
+
+func (store *stateDBWorkingSetStore) CreateGenesisStates(ctx context.Context) error {
+	return nil
+}
+
+func (store *stateDBWorkingSetStore) KVStore() db.KVStore {
+	return store
+}

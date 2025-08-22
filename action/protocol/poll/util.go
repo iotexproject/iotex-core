@@ -271,7 +271,7 @@ func shiftCandidates(sm protocol.StateManager) (uint64, error) {
 	if stateHeight != putStateHeight {
 		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
 	}
-	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace), protocol.ObjectOption(&state.CandidateList{})); err != nil {
 		return 0, errors.Wrap(
 			err,
 			"failed to delete next candidatelist after shifting",
@@ -306,7 +306,7 @@ func shiftProbationList(sm protocol.StateManager) (uint64, error) {
 	if stateHeight != putStateHeight {
 		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
 	}
-	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace), protocol.ObjectOption(&vote.ProbationList{})); err != nil {
 		return 0, errors.Wrap(
 			err,
 			"failed to delete next probationlist after shifting",
@@ -341,6 +341,7 @@ func allBlockMetasFromDB(sr protocol.StateReader, blocksInEpoch uint64) ([]*Bloc
 		protocol.KeysOption(func() ([][]byte, error) {
 			return keys, nil
 		}),
+		protocol.ObjectOption(&BlockMeta{}),
 	)
 	if err != nil {
 		return nil, err

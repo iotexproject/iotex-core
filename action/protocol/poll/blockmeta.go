@@ -12,7 +12,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll/blockmetapb"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // BlockMeta is a struct to store block metadata
@@ -21,6 +26,8 @@ type BlockMeta struct {
 	Producer string
 	MintTime time.Time
 }
+
+var _ state.ContractStorageStandard = (*BlockMeta)(nil)
 
 // NewBlockMeta constructs new blockmeta struct with given fieldss
 func NewBlockMeta(height uint64, producer string, mintTime time.Time) *BlockMeta {
@@ -69,4 +76,15 @@ func (bm *BlockMeta) LoadProto(pb *blockmetapb.BlockMeta) error {
 	bm.Producer = pb.GetBlockProducer()
 	bm.MintTime = mintTime.UTC()
 	return nil
+}
+
+func (bm *BlockMeta) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	if ns != protocol.SystemNamespace {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, protocol.SystemNamespace)
+	}
+	return systemcontracts.SystemContracts[systemcontracts.PollBlockMetaContractIndex].Address, nil
+}
+
+func (bm *BlockMeta) New() state.ContractStorageStandard {
+	return &BlockMeta{}
 }
