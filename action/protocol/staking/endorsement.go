@@ -6,7 +6,11 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // EndorsementStatus
@@ -33,6 +37,8 @@ type (
 		ExpireHeight uint64
 	}
 )
+
+var _ state.ContractStorageStandard = (*Endorsement)(nil)
 
 // String returns a human-readable string of the endorsement status
 func (s EndorsementStatus) String() string {
@@ -82,6 +88,20 @@ func (e *Endorsement) Deserialize(buf []byte) error {
 		return errors.Wrap(err, "failed to unmarshal endorsement")
 	}
 	return e.fromProto(pb)
+}
+
+// ContractStorageAddress returns the address of the endorsement contract
+func (e *Endorsement) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	if ns != _stakingNameSpace {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, _stakingNameSpace)
+	}
+	// Use the system contract address for endorsements
+	return systemcontracts.SystemContracts[systemcontracts.EndorsementContractIndex].Address, nil
+}
+
+// New creates a new instance of Endorsement
+func (e *Endorsement) New() state.ContractStorageStandard {
+	return &Endorsement{}
 }
 
 func (e *Endorsement) toProto() (*stakingpb.Endorsement, error) {
