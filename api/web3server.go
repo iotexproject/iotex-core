@@ -467,6 +467,13 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 	if err != nil {
 		return nil, err
 	}
+	height, _, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
+	if err != nil {
+		return nil, err
+	}
+	if height == 0 {
+		height = svr.coreService.TipHeight()
+	}
 	var (
 		to   = callMsg.To
 		data = callMsg.Data
@@ -479,7 +486,7 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		if err != nil {
 			return nil, err
 		}
-		states, err := svr.coreService.ReadState("staking", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		states, err := svr.coreService.ReadState("staking", fmt.Sprintf("%d", height), sctx.Parameters().MethodName, sctx.Parameters().Arguments)
 		if err != nil {
 			return nil, err
 		}
@@ -494,7 +501,7 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		if err != nil {
 			return nil, err
 		}
-		states, err := svr.coreService.ReadState("rewarding", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		states, err := svr.coreService.ReadState("rewarding", fmt.Sprintf("%d", height), sctx.Parameters().MethodName, sctx.Parameters().Arguments)
 		if err != nil {
 			return nil, err
 		}

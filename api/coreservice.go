@@ -1051,13 +1051,17 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 		return d, h, nil
 	}
 
-	// TODO: need to complete the context
-	ctx, err := core.bc.Context(ctx)
-	if err != nil {
-		return nil, 0, err
+	var err error
+	inputHeight := tipHeight
+	if height != "" {
+		inputHeight, err = strconv.ParseUint(height, 0, 64)
+		if err != nil {
+			return nil, 0, err
+		}
 	}
+	ctx, err = core.bc.ContextAtHeight(ctx, inputHeight)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: tipHeight,
+		BlockHeight: inputHeight,
 	})
 	ctx = genesis.WithGenesisContext(
 		protocol.WithRegistry(ctx, core.registry),
@@ -1065,36 +1069,13 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 
-	if height != "" {
-		inputHeight, err := strconv.ParseUint(height, 0, 64)
-		if err != nil {
-			return nil, 0, err
-		}
-		rp := rolldpos.FindProtocol(core.registry)
-		if rp != nil {
-			tipEpochNum := rp.GetEpochNum(tipHeight)
-			inputEpochNum := rp.GetEpochNum(inputHeight)
-			if inputEpochNum < tipEpochNum {
-				inputHeight = rp.GetEpochHeight(inputEpochNum)
-			}
-		}
-		if inputHeight < tipHeight {
-			// old data, wrap to history state reader
-			historySR, err := core.sf.WorkingSetAtHeight(ctx, inputHeight)
-			if err != nil {
-				return nil, 0, err
-			}
-			defer historySR.Close()
-			d, h, err := p.ReadState(ctx, historySR, methodName, arguments...)
-			if err == nil {
-				key.Height = strconv.FormatUint(h, 10)
-				core.readCache.Put(key.Hash(), d)
-			}
-			return d, h, err
-		}
+	historySR, err := core.sf.WorkingSetAtHeight(ctx, inputHeight)
+	if err != nil {
+		return nil, 0, err
 	}
-	// TODO: need to distinguish user error and system error
-	d, h, err := p.ReadState(ctx, core.sf, methodName, arguments...)
+	defer historySR.Close()
+	// read state
+	d, h, err := p.ReadState(ctx, historySR, methodName, arguments...)
 	if err == nil {
 		key.Height = strconv.FormatUint(h, 10)
 		core.readCache.Put(key.Hash(), d)

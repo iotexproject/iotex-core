@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -82,7 +81,6 @@ type (
 	Protocol struct {
 		addr                     address.Address
 		config                   Configuration
-		candBucketsIndexer       *CandidatesBucketsIndexer
 		contractStakingIndexer   ContractStakingIndexerWithBucketType
 		contractStakingIndexerV2 ContractStakingIndexer
 		contractStakingIndexerV3 ContractStakingIndexer
@@ -151,7 +149,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 func NewProtocol(
 	helperCtx HelperCtx,
 	cfg *BuilderConfig,
-	candBucketsIndexer *CandidatesBucketsIndexer,
+	_ *CandidatesBucketsIndexer, // TODO: remove this parameter
 	contractStakingIndexer ContractStakingIndexerWithBucketType,
 	contractStakingIndexerV2 ContractStakingIndexer,
 	opts ...Option,
@@ -205,7 +203,6 @@ func NewProtocol(
 			EndorsementWithdrawWaitingBlocks: cfg.Staking.EndorsementWithdrawWaitingBlocks,
 			MigrateContractAddress:           migrateContractAddress,
 		},
-		candBucketsIndexer:       candBucketsIndexer,
 		voteReviser:              voteReviser,
 		patch:                    NewPatchStore(cfg.StakingPatchDir),
 		contractStakingIndexer:   contractStakingIndexer,
@@ -436,51 +433,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	if err = v.(*viewData).contractsStake.CreatePreStates(ctx); err != nil {
 		return err
 	}
-
-	if p.candBucketsIndexer == nil {
-		return nil
-	}
-	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
-	if rp == nil {
-		return nil
-	}
-	currentEpochNum := rp.GetEpochNum(blkCtx.BlockHeight)
-	if currentEpochNum == 0 {
-		return nil
-	}
-	epochStartHeight := rp.GetEpochHeight(currentEpochNum)
-	if epochStartHeight != blkCtx.BlockHeight || featureCtx.SkipStakingIndexer {
-		return nil
-	}
-	return p.handleStakingIndexer(ctx, rp.GetEpochHeight(currentEpochNum-1), sm)
-}
-
-func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight uint64, sm protocol.StateManager) error {
-	csr, err := ConstructBaseView(sm)
-	if err != nil {
-		return err
-	}
-	allBuckets, _, err := csr.NativeBuckets()
-	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return err
-	}
-	buckets, err := toIoTeXTypesVoteBucketList(sm, allBuckets)
-	if err != nil {
-		return err
-	}
-	err = p.candBucketsIndexer.PutBuckets(epochStartHeight, buckets)
-	if err != nil {
-		return err
-	}
-	all, _, err := csr.getAllCandidates()
-	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return err
-	}
-	candidateList, err := toIoTeXTypesCandidateListV2(csr, all, protocol.MustGetFeatureCtx(ctx))
-	if err != nil {
-		return err
-	}
-	return p.candBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
+	return nil
 }
 
 // PreCommit performs pre-commit
@@ -750,21 +703,12 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if p.contractStakingIndexerV3 != nil {
 		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV3, time.Second))
 	}
-	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	// get height arg
-	inputHeight, err := sr.Height()
-	if err != nil {
-		return nil, 0, err
-	}
-	epochStartHeight := inputHeight
-	if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
-		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(inputHeight))
-	}
+	// TODO: make sure view states is at the same height as sr
 	nativeSR, err := ConstructBaseView(sr)
+	if err != nil {
+		return nil, 0, err
+	}
+	stakeSR, err := newCompositeStakingStateReader(nativeSR, p.calculateVoteWeight, indexers...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -775,11 +719,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	)
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
-		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
-			resp, height, err = p.candBucketsIndexer.GetBuckets(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
-		} else {
-			resp, height, err = nativeSR.readStateBuckets(ctx, r.GetBuckets())
-		}
+		resp, height, err = nativeSR.readStateBuckets(ctx, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
 		resp, height, err = nativeSR.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
