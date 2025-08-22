@@ -24,20 +24,30 @@ contract GenericStorage {
         bytes auxiliaryData;    // Additional data field for flexibility
     }
 
-    // Main storage mapping
-    mapping(bytes => GenericValue) private storage_;
-
     // Array to keep track of all keys for listing functionality
     bytes[] private keys_;
 
-    // Mapping to check if a key exists (for efficient existence checks)
-    mapping(bytes => bool) private keyExists_;
+    // Array to store values corresponding to keys (parallel arrays)
+    GenericValue[] private values_;
+
+    // Mapping to store the index of each key in the keys_ array for O(1) removal
+    // Note: We store (actualIndex + 1) to distinguish between non-existent keys (0) and keys at index 0 (1)
+    mapping(bytes => uint256) private keyIndex_;
 
     // Events
     event DataStored(bytes indexed key);
     event DataDeleted(bytes indexed key);
     event BatchDataRetrieved(uint256 keyCount);
     event StorageCleared();
+
+    /**
+     * @dev Internal function to check if a key exists
+     * @param key The storage key to check
+     * @return Whether the key exists
+     */
+    function _keyExists(bytes memory key) private view returns (bool) {
+        return keyIndex_[key] != 0;
+    }
 
     /**
      * @dev Store data with a given key
@@ -51,13 +61,15 @@ contract GenericStorage {
         require(key.length > 0, "Key cannot be empty");
 
         // If key doesn't exist, add it to keys array
-        if (!keyExists_[key]) {
+        if (!_keyExists(key)) {
+            keyIndex_[key] = keys_.length + 1;  // Store (index + 1) to distinguish from non-existent keys
             keys_.push(key);
-            keyExists_[key] = true;
+            values_.push(value);  // Add corresponding value to values array
+        } else {
+            // Update existing value
+            uint256 index = keyIndex_[key] - 1;
+            values_[index] = value;
         }
-
-        // Store the value
-        storage_[key] = value;
 
         emit DataStored(key);
     }
@@ -67,21 +79,26 @@ contract GenericStorage {
      * @param key The storage key to delete
      */
     function remove(bytes memory key) external {
-        require(keyExists_[key], "Key does not exist");
+        require(_keyExists(key), "Key does not exist");
 
-        // Remove from storage
-        delete storage_[key];
-        keyExists_[key] = false;
+        // Get the index of the key to remove (subtract 1 since we stored index + 1)
+        uint256 indexToRemove = keyIndex_[key] - 1;
+        uint256 lastIndex = keys_.length - 1;
 
-        // Remove from keys array
-        for (uint256 i = 0; i < keys_.length; i++) {
-            if (keccak256(keys_[i]) == keccak256(key)) {
-                // Move last element to current position and pop
-                keys_[i] = keys_[keys_.length - 1];
-                keys_.pop();
-                break;
-            }
+        // If it's not the last element, move the last element to the removed position
+        if (indexToRemove != lastIndex) {
+            bytes memory lastKey = keys_[lastIndex];
+            GenericValue memory lastValue = values_[lastIndex];
+            
+            keys_[indexToRemove] = lastKey;
+            values_[indexToRemove] = lastValue;  // Move the corresponding value
+            keyIndex_[lastKey] = indexToRemove + 1;  // Update the moved key's index (add 1)
         }
+
+        // Remove the last elements from both arrays
+        keys_.pop();
+        values_.pop();
+        delete keyIndex_[key];
 
         emit DataDeleted(key);
     }
@@ -93,9 +110,10 @@ contract GenericStorage {
      * @return keyExists Whether the key exists
      */
     function get(bytes memory key) external view returns (GenericValue memory value, bool keyExists) {
-        keyExists = keyExists_[key];
+        keyExists = _keyExists(key);
         if (keyExists) {
-            value = storage_[key];
+            uint256 index = keyIndex_[key] - 1;
+            value = values_[index];  // Get value from values array
         }
         return (value, keyExists);
     }
@@ -114,9 +132,10 @@ contract GenericStorage {
         existsFlags = new bool[](keyList.length);
 
         for (uint256 i = 0; i < keyList.length; i++) {
-            existsFlags[i] = keyExists_[keyList[i]];
+            existsFlags[i] = _keyExists(keyList[i]);
             if (existsFlags[i]) {
-                values[i] = storage_[keyList[i]];
+                uint256 index = keyIndex_[keyList[i]] - 1;
+                values[i] = values_[index];  // Get value from values array
             }
         }
 
@@ -153,11 +172,11 @@ contract GenericStorage {
         keyList = new bytes[](actualLimit);
         values = new GenericValue[](actualLimit);
 
-        // Fill result arrays
+        // Fill result arrays - much more efficient with parallel arrays
         for (uint256 i = 0; i < actualLimit; i++) {
-            bytes memory key = keys_[offset + i];
-            keyList[i] = key;
-            values[i] = storage_[key];
+            uint256 arrayIndex = offset + i;
+            keyList[i] = keys_[arrayIndex];
+            values[i] = values_[arrayIndex];  // Direct array access, no mapping lookup needed
         }
 
         return (keyList, values, total);
@@ -199,7 +218,7 @@ contract GenericStorage {
      * @return keyExists Whether the key exists
      */
     function exists(bytes memory key) external view returns (bool keyExists) {
-        return keyExists_[key];
+        return _keyExists(key);
     }
 
     /**
@@ -218,12 +237,12 @@ contract GenericStorage {
         // Clear all mappings and arrays
         for (uint256 i = 0; i < keys_.length; i++) {
             bytes memory key = keys_[i];
-            delete storage_[key];
-            keyExists_[key] = false;
+            delete keyIndex_[key];
         }
 
-        // Clear keys array
+        // Clear both arrays
         delete keys_;
+        delete values_;
 
         emit StorageCleared();
     }

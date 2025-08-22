@@ -20,14 +20,13 @@ contract NamespaceStorage {
         bytes auxiliaryData;    // Additional data field for flexibility
     }
 
-    // Nested mapping: namespace => key => value
-    mapping(string => mapping(bytes => GenericValue)) private namespaceStorage_;
-
-    // Track keys for each namespace
+    // Track keys for each namespace (parallel arrays)
     mapping(string => bytes[]) private namespaceKeys_;
+    mapping(string => GenericValue[]) private namespaceValues_;
 
-    // Track if a key exists in a namespace
-    mapping(string => mapping(bytes => bool)) private keyExists_;
+    // Mapping to store the index of each key in the namespace's keys array for O(1) removal
+    // Note: We store (actualIndex + 1) to distinguish between non-existent keys (0) and keys at index 0 (1)
+    mapping(string => mapping(bytes => uint256)) private keyIndex_;
 
     // Track all namespaces
     string[] private namespaces_;
@@ -39,6 +38,16 @@ contract NamespaceStorage {
     event BatchDataRetrieved(string indexed namespace, uint256 keyCount);
     event NamespaceCleared(string indexed namespace);
     event AllDataCleared();
+
+    /**
+     * @dev Internal function to check if a key exists in a namespace
+     * @param namespace The namespace to check
+     * @param key The storage key to check
+     * @return Whether the key exists in the namespace
+     */
+    function _keyExists(string memory namespace, bytes memory key) private view returns (bool) {
+        return keyIndex_[namespace][key] != 0;
+    }
 
     /**
      * @dev Store data with a given namespace and key
@@ -60,14 +69,16 @@ contract NamespaceStorage {
             namespaceExists_[namespace] = true;
         }
 
-        // If key doesn't exist in this namespace, add it to keys array
-        if (!keyExists_[namespace][key]) {
+        // If key doesn't exist in this namespace, add it to both arrays
+        if (!_keyExists(namespace, key)) {
+            keyIndex_[namespace][key] = namespaceKeys_[namespace].length + 1;  // Store (index + 1)
             namespaceKeys_[namespace].push(key);
-            keyExists_[namespace][key] = true;
+            namespaceValues_[namespace].push(value);
+        } else {
+            // Update existing value
+            uint256 index = keyIndex_[namespace][key] - 1;
+            namespaceValues_[namespace][index] = value;
         }
-
-        // Store the value
-        namespaceStorage_[namespace][key] = value;
 
         emit DataStored(namespace, key);
     }
@@ -83,9 +94,10 @@ contract NamespaceStorage {
         GenericValue memory value, 
         bool keyExists
     ) {
-        keyExists = keyExists_[namespace][key];
+        keyExists = _keyExists(namespace, key);
         if (keyExists) {
-            value = namespaceStorage_[namespace][key];
+            uint256 index = keyIndex_[namespace][key] - 1;
+            value = namespaceValues_[namespace][index];
         }
         return (value, keyExists);
     }
@@ -97,22 +109,26 @@ contract NamespaceStorage {
      */
     function remove(string memory namespace, bytes memory key) external {
         require(namespaceExists_[namespace], "Namespace does not exist");
-        require(keyExists_[namespace][key], "Key does not exist in namespace");
+        require(_keyExists(namespace, key), "Key does not exist in namespace");
 
-        // Remove from storage
-        delete namespaceStorage_[namespace][key];
-        keyExists_[namespace][key] = false;
+        // Get the index of the key to remove (subtract 1 since we stored index + 1)
+        uint256 indexToRemove = keyIndex_[namespace][key] - 1;
+        uint256 lastIndex = namespaceKeys_[namespace].length - 1;
 
-        // Remove from keys array
-        bytes[] storage keys = namespaceKeys_[namespace];
-        for (uint256 i = 0; i < keys.length; i++) {
-            if (keccak256(keys[i]) == keccak256(key)) {
-                // Move last element to current position and pop
-                keys[i] = keys[keys.length - 1];
-                keys.pop();
-                break;
-            }
+        // If it's not the last element, move the last element to the removed position
+        if (indexToRemove != lastIndex) {
+            bytes memory lastKey = namespaceKeys_[namespace][lastIndex];
+            GenericValue memory lastValue = namespaceValues_[namespace][lastIndex];
+            
+            namespaceKeys_[namespace][indexToRemove] = lastKey;
+            namespaceValues_[namespace][indexToRemove] = lastValue;
+            keyIndex_[namespace][lastKey] = indexToRemove + 1;  // Update the moved key's index (add 1)
         }
+
+        // Remove the last elements from both arrays
+        namespaceKeys_[namespace].pop();
+        namespaceValues_[namespace].pop();
+        delete keyIndex_[namespace][key];
 
         emit DataDeleted(namespace, key);
     }
@@ -132,9 +148,10 @@ contract NamespaceStorage {
         existsFlags = new bool[](keyList.length);
 
         for (uint256 i = 0; i < keyList.length; i++) {
-            existsFlags[i] = keyExists_[namespace][keyList[i]];
+            existsFlags[i] = _keyExists(namespace, keyList[i]);
             if (existsFlags[i]) {
-                values[i] = namespaceStorage_[namespace][keyList[i]];
+                uint256 index = keyIndex_[namespace][keyList[i]] - 1;
+                values[i] = namespaceValues_[namespace][index];
             }
         }
 
@@ -164,14 +181,16 @@ contract NamespaceStorage {
         for (uint256 i = 0; i < keys.length; i++) {
             require(keys[i].length > 0, "Key cannot be empty");
 
-            // If key doesn't exist in this namespace, add it to keys array
-            if (!keyExists_[namespace][keys[i]]) {
+            // If key doesn't exist in this namespace, add it to both arrays
+            if (!_keyExists(namespace, keys[i])) {
+                keyIndex_[namespace][keys[i]] = namespaceKeys_[namespace].length + 1;
                 namespaceKeys_[namespace].push(keys[i]);
-                keyExists_[namespace][keys[i]] = true;
+                namespaceValues_[namespace].push(values[i]);
+            } else {
+                // Update existing value
+                uint256 index = keyIndex_[namespace][keys[i]] - 1;
+                namespaceValues_[namespace][index] = values[i];
             }
-
-            // Store the value
-            namespaceStorage_[namespace][keys[i]] = values[i];
 
             emit DataStored(namespace, keys[i]);
         }
@@ -209,11 +228,11 @@ contract NamespaceStorage {
         keyList = new bytes[](actualLimit);
         values = new GenericValue[](actualLimit);
 
-        // Fill result arrays
+        // Fill result arrays - much more efficient with parallel arrays
         for (uint256 i = 0; i < actualLimit; i++) {
-            bytes memory key = keys[offset + i];
-            keyList[i] = key;
-            values[i] = namespaceStorage_[namespace][key];
+            uint256 arrayIndex = offset + i;
+            keyList[i] = keys[arrayIndex];
+            values[i] = namespaceValues_[namespace][arrayIndex];  // Direct array access, no mapping lookup
         }
 
         return (keyList, values, total);
@@ -294,7 +313,7 @@ contract NamespaceStorage {
      * @return keyExists Whether the key exists in the namespace
      */
     function exists(string memory namespace, bytes memory key) external view returns (bool keyExists) {
-        return keyExists_[namespace][key];
+        return _keyExists(namespace, key);
     }
 
     /**
@@ -343,15 +362,15 @@ contract NamespaceStorage {
 
         bytes[] storage keys = namespaceKeys_[namespace];
 
-        // Clear all data in the namespace
+        // Clear all key indices in the namespace
         for (uint256 i = 0; i < keys.length; i++) {
             bytes memory key = keys[i];
-            delete namespaceStorage_[namespace][key];
-            keyExists_[namespace][key] = false;
+            delete keyIndex_[namespace][key];
         }
 
-        // Clear keys array for the namespace
+        // Clear both arrays for the namespace
         delete namespaceKeys_[namespace];
+        delete namespaceValues_[namespace];
 
         emit NamespaceCleared(namespace);
     }
@@ -366,15 +385,15 @@ contract NamespaceStorage {
             string memory namespace = namespaces_[i];
             bytes[] storage keys = namespaceKeys_[namespace];
 
-            // Clear all data in this namespace
+            // Clear all key indices in this namespace
             for (uint256 j = 0; j < keys.length; j++) {
                 bytes memory key = keys[j];
-                delete namespaceStorage_[namespace][key];
-                keyExists_[namespace][key] = false;
+                delete keyIndex_[namespace][key];
             }
 
-            // Clear keys array for this namespace
+            // Clear both arrays for this namespace
             delete namespaceKeys_[namespace];
+            delete namespaceValues_[namespace];
             namespaceExists_[namespace] = false;
         }
 
