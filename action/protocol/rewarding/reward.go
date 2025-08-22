@@ -26,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
-	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // rewardHistory is the dummy struct to record a reward. Only key matters.
@@ -44,13 +43,7 @@ func (b rewardHistory) Serialize() ([]byte, error) {
 func (b *rewardHistory) Deserialize(data []byte) error { return nil }
 
 func (b *rewardHistory) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
-	if ns == state.AccountKVNamespace {
-		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV1Index].Address, nil
-	} else if ns == _v2RewardingNamespace {
-		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV2Index].Address, nil
-	} else {
-		return nil, errors.Errorf("unexpected namespace %s", ns)
-	}
+	return namespaceToContractAddress(ns)
 }
 
 func (b *rewardHistory) New() state.ContractStorageStandard {
@@ -87,13 +80,7 @@ func (a *rewardAccount) Deserialize(data []byte) error {
 }
 
 func (a *rewardAccount) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
-	if ns == state.AccountKVNamespace {
-		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV1Index].Address, nil
-	} else if ns == _v2RewardingNamespace {
-		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV2Index].Address, nil
-	} else {
-		return nil, errors.Errorf("unexpected namespace %s", ns)
-	}
+	return namespaceToContractAddress(ns)
 }
 
 func (a *rewardAccount) New() state.ContractStorageStandard {
