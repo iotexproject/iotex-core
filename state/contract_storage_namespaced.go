@@ -31,7 +31,7 @@ func (cs *contractStorageNamespacedWrapper) StoreToContract(ns string, key []byt
 	if err := contract.Put(ns, key, systemcontracts.NamespaceGenericValue{PrimaryData: data}); err != nil {
 		return errors.Wrapf(err, "failed to store storage standard to contract %s", contract.Address().Hex())
 	}
-	log.S().Infof("Stored storage standard to contract %s with key %x, value: %+v", contract.Address().Hex(), key, cs.standard)
+	log.S().Debugf("Stored storage standard to contract %s with key %x, value: %+v", contract.Address().Hex(), key, cs.standard)
 	return nil
 }
 
@@ -50,7 +50,7 @@ func (cs *contractStorageNamespacedWrapper) LoadFromContract(ns string, key []by
 	if err := cs.standard.Deserialize(value.Value.PrimaryData); err != nil {
 		return errors.Wrap(err, "failed to deserialize storage standard")
 	}
-	log.S().Infof("Loaded storage standard from contract %s with key %x, value: %+v", contract.Address().Hex(), key, cs.standard)
+	log.S().Debugf("Loaded storage standard from contract %s with key %x, value: %+v", contract.Address().Hex(), key, cs.standard)
 	return nil
 }
 
@@ -62,7 +62,7 @@ func (cs *contractStorageNamespacedWrapper) DeleteFromContract(ns string, key []
 	if err := contract.Remove(ns, key); err != nil {
 		return errors.Wrapf(err, "failed to delete storage standard from contract %s with key %x", contract.Address().Hex(), key)
 	}
-	log.S().Infof("Deleted storage standard from contract %s with key %x", contract.Address().Hex(), key)
+	log.S().Debugf("Deleted storage standard from contract %s with key %x", contract.Address().Hex(), key)
 	return nil
 }
 
@@ -82,7 +82,7 @@ func (cs *contractStorageNamespacedWrapper) ListFromContract(ns string, backend 
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to list storage standards from contract %s", contract.Address().Hex())
 	}
-	log.S().Infof("Listed storage standards from contract %s with keys %v", contract.Address().Hex(), listResult.KeyList)
+	log.S().Debugf("Listed storage standards from contract %s with keys %v", contract.Address().Hex(), listResult.KeyList)
 	var indices []any
 	for _, value := range listResult.Values {
 		bi := cs.standard.New()
@@ -116,7 +116,7 @@ func (cs *contractStorageNamespacedWrapper) BatchFromContract(ns string, keys []
 		}
 		results = append(results, res)
 	}
-	log.S().Infof("Batch loaded %d storage standard from contract %s with keys %d", len(results), contract.Address().Hex(), len(keys))
+	log.S().Debugf("Batch loaded %d storage standard from contract %s with keys %d", len(results), contract.Address().Hex(), len(keys))
 	return results, nil
 }
 
