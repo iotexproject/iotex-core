@@ -6,6 +6,7 @@
 package staking
 
 import (
+	"bytes"
 	"math"
 	"math/big"
 	"time"
@@ -20,6 +21,8 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 const (
@@ -53,6 +56,9 @@ type (
 	}
 )
 
+var _ state.ContractStorageStandard = (*VoteBucket)(nil)
+var _ state.ContractStorageStandard = (*totalBucketCount)(nil)
+
 // NewVoteBucket creates a new vote bucket
 func NewVoteBucket(cand, owner address.Address, amount *big.Int, duration uint32, ctime time.Time, autoStake bool) *VoteBucket {
 	return &VoteBucket{
@@ -75,6 +81,19 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 	}
 
 	return vb.fromProto(pb)
+}
+
+// ContractStorageAddress returns the address of the bucket contract
+func (vb *VoteBucket) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	if ns != _stakingNameSpace {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, _stakingNameSpace)
+	}
+	return systemcontracts.SystemContracts[systemcontracts.StakingBucketsContractIndex].Address, nil
+}
+
+// New creates a new instance of VoteBucket
+func (vb *VoteBucket) New() state.ContractStorageStandard {
+	return &VoteBucket{}
 }
 
 func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
@@ -211,6 +230,22 @@ func (tc *totalBucketCount) Serialize() ([]byte, error) {
 
 func (tc *totalBucketCount) Count() uint64 {
 	return tc.count
+}
+
+// ContractStorageAddress returns the address of the total bucket count contract
+func (tc *totalBucketCount) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	if ns != _stakingNameSpace {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, _stakingNameSpace)
+	}
+	if !bytes.Equal(key, TotalBucketKey) {
+		return nil, errors.Errorf("invalid key %x, expected %x", key, TotalBucketKey)
+	}
+	return systemcontracts.SystemContracts[systemcontracts.BucketPoolContractIndex].Address, nil
+}
+
+// New creates a new instance of totalBucketCount
+func (tc *totalBucketCount) New() state.ContractStorageStandard {
+	return &totalBucketCount{}
 }
 
 func bucketKey(index uint64) []byte {

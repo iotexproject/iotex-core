@@ -229,6 +229,7 @@ func (c *candSR) getAllBuckets() ([]*VoteBucket, uint64, error) {
 			}
 			return keys, nil
 		}),
+		protocol.ObjectOption(&VoteBucket{}),
 	)
 	if err != nil {
 		return nil, height, err
@@ -310,7 +311,7 @@ func (c *candSR) getCandidate(name address.Address) (*Candidate, uint64, error) 
 }
 
 func (c *candSR) getAllCandidates() (CandidateList, uint64, error) {
-	height, iter, err := c.States(protocol.NamespaceOption(_candidateNameSpace))
+	height, iter, err := c.States(protocol.NamespaceOption(_candidateNameSpace), protocol.ObjectOption(&Candidate{}))
 	if err != nil {
 		return nil, height, err
 	}
