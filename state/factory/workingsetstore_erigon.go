@@ -6,10 +6,16 @@ import (
 	"math/big"
 
 	libcommon "github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/common/datadir"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/kv/mdbx"
+	"github.com/erigontech/erigon-lib/kv/temporal/historyv2"
 	erigonlog "github.com/erigontech/erigon-lib/log/v3"
 	erigonstate "github.com/erigontech/erigon/core/state"
+	"github.com/erigontech/erigon/eth/ethconfig"
+	"github.com/erigontech/erigon/eth/stagedsync"
+	"github.com/erigontech/erigon/eth/stagedsync/stages"
+	"github.com/erigontech/erigon/ethdb/prune"
 	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -25,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 const (
@@ -44,6 +51,8 @@ type erigonWorkingSetStore struct {
 	db              *erigonDB
 	intraBlockState *erigonstate.IntraBlockState
 	tx              kv.Tx
+	sr              erigonstate.StateReader
+	ctx             context.Context
 }
 
 func newErigonDB(path string) *erigonDB {
@@ -82,6 +91,8 @@ func (db *erigonDB) newErigonStore(ctx context.Context, height uint64) (*erigonW
 		db:              db,
 		tx:              tx,
 		intraBlockState: intraBlockState,
+		sr:              r,
+		ctx:             ctx,
 	}, nil
 }
 
@@ -96,7 +107,77 @@ func (db *erigonDB) newErigonStoreDryrun(ctx context.Context, height uint64) (*e
 		db:              db,
 		tx:              tx,
 		intraBlockState: intraBlockState,
+		sr:              tsw,
+		ctx:             ctx,
 	}, nil
+}
+
+func (db *erigonDB) BatchPrune(ctx context.Context, from, to, batch uint64) error {
+	if from >= to {
+		return errors.Errorf("invalid prune range: from %d >= to %d", from, to)
+	}
+	tx, err := db.rw.BeginRo(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to begin erigon working set store transaction")
+	}
+	base, err := historyv2.AvailableFrom(tx)
+	if err != nil {
+		tx.Rollback()
+		return errors.Wrap(err, "failed to get available from erigon working set store")
+	}
+	tx.Rollback()
+
+	if base >= from {
+		log.L().Debug("batch prune nothing", zap.Uint64("from", from), zap.Uint64("to", to), zap.Uint64("base", base))
+		// nothing to prune
+		return nil
+	}
+
+	for batchFrom := base; batchFrom < from; batchFrom += batch {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		log.L().Info("batch prune", zap.Uint64("from", batchFrom), zap.Uint64("to", to))
+		if err = db.Prune(ctx, nil, batchFrom, to); err != nil {
+			return err
+		}
+	}
+	log.L().Info("batch prune", zap.Uint64("from", from), zap.Uint64("to", to))
+	return db.Prune(ctx, nil, from, to)
+}
+
+func (db *erigonDB) Prune(ctx context.Context, tx kv.RwTx, from, to uint64) error {
+	if from >= to {
+		return errors.Errorf("invalid prune range: from %d >= to %d", from, to)
+	}
+	log.L().Debug("erigon working set store prune execution stage",
+		zap.Uint64("from", from),
+		zap.Uint64("to", to),
+	)
+	s := stagedsync.PruneState{ID: stages.Execution, ForwardProgress: to}
+	num := to - from
+	cfg := stagedsync.StageExecuteBlocksCfg(db.rw,
+		prune.Mode{
+			History:    prune.Distance(num),
+			Receipts:   prune.Distance(num),
+			CallTraces: prune.Distance(num),
+		},
+		0, nil, nil, nil, nil, nil, false, false, false, datadir.Dirs{}, nil, nil, nil, ethconfig.Sync{}, nil, nil)
+	err := stagedsync.PruneExecutionStage(&s, tx, cfg, ctx, false)
+	if err != nil {
+		return errors.Wrapf(err, "failed to prune execution stage from %d to %d", from, to)
+	}
+	log.L().Debug("erigon working set store prune execution stage done",
+		zap.Uint64("from", from),
+		zap.Uint64("to", to),
+		zap.Uint64("progress", s.PruneProgress),
+	)
+	if to%5000 == 0 {
+		log.L().Info("prune execution stage", zap.Uint64("from", from), zap.Uint64("to", to), zap.Uint64("progress", s.PruneProgress))
+	}
+	return nil
 }
 
 func (store *erigonWorkingSetStore) Start(ctx context.Context) error {
@@ -123,7 +204,7 @@ func (store *erigonWorkingSetStore) Finalize(ctx context.Context) error {
 	return nil
 }
 
-func (store *erigonWorkingSetStore) prepareCommit(ctx context.Context, tx kv.RwTx) error {
+func (store *erigonWorkingSetStore) prepareCommit(ctx context.Context, tx kv.RwTx, retention uint64) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	height := blkCtx.BlockHeight
 	ts := blkCtx.BlockTimeStamp.Unix()
@@ -158,18 +239,25 @@ func (store *erigonWorkingSetStore) prepareCommit(ctx context.Context, tx kv.RwT
 	if err != nil {
 		return err
 	}
-	return nil
+	// Prune store if retention is set
+	if retention == 0 || retention >= blkCtx.BlockHeight {
+		return nil
+	}
+	from, to := blkCtx.BlockHeight-retention, blkCtx.BlockHeight
+	return store.db.Prune(ctx, tx, from, to)
 }
 
-func (store *erigonWorkingSetStore) Commit(ctx context.Context) error {
+func (store *erigonWorkingSetStore) Commit(ctx context.Context, retention uint64) error {
 	defer store.tx.Rollback()
-	tx, err := store.db.rw.BeginRw(ctx)
+	// BeginRw accounting for the context Done signal
+	// statedb has been committed, so we should not use the context
+	tx, err := store.db.rw.BeginRw(context.Background())
 	if err != nil {
 		return errors.Wrap(err, "failed to begin erigon working set store transaction")
 	}
 	defer tx.Rollback()
 
-	if err = store.prepareCommit(ctx, tx); err != nil {
+	if err = store.prepareCommit(ctx, tx, retention); err != nil {
 		return errors.Wrap(err, "failed to prepare erigon working set store commit")
 	}
 	if err = tx.Commit(); err != nil {
@@ -192,6 +280,19 @@ func (store *erigonWorkingSetStore) RevertSnapshot(sn int) error {
 }
 
 func (store *erigonWorkingSetStore) ResetSnapshots() {}
+
+func (store *erigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (err error) {
+	storage := store.objectContractStorage(obj)
+	if storage != nil {
+		log.L().Debug("put object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)), zap.Any("content", obj))
+		return storage.StoreToContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
+	}
+	value, err := state.Serialize(obj)
+	if err != nil {
+		return errors.Wrapf(err, "failed to serialize object for namespace %s and key %x", ns, key)
+	}
+	return store.Put(ns, key, value)
+}
 
 func (store *erigonWorkingSetStore) Put(ns string, key []byte, value []byte) (err error) {
 	// only handling account, contract storage handled by evm adapter
@@ -218,6 +319,21 @@ func (store *erigonWorkingSetStore) Put(ns string, key []byte, value []byte) (er
 	store.intraBlockState.SetBalance(addr, uint256.MustFromBig(acc.Balance))
 	store.intraBlockState.SetNonce(addr, acc.PendingNonce()) // TODO(erigon): not sure if this is correct
 	return nil
+}
+
+func (store *erigonWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
+	storage := store.objectContractStorage(obj)
+	if storage != nil {
+		defer func() {
+			log.L().Debug("get object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
+		}()
+		return storage.LoadFromContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
+	}
+	value, err := store.Get(ns, key)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get object for namespace %s and key %x", ns, key)
+	}
+	return state.Deserialize(obj, value)
 }
 
 func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
@@ -248,6 +364,15 @@ func (store *erigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
 	}
 }
 
+func (store *erigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
+	storage := store.objectContractStorage(obj)
+	if storage != nil {
+		log.L().Debug("delete object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
+		return storage.DeleteFromContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
+	}
+	return nil
+}
+
 func (store *erigonWorkingSetStore) Delete(ns string, key []byte) error {
 	return nil
 }
@@ -260,10 +385,103 @@ func (store *erigonWorkingSetStore) Filter(string, db.Condition, []byte, []byte)
 	return nil, nil, nil
 }
 
-func (store *erigonWorkingSetStore) States(string, [][]byte) ([][]byte, [][]byte, error) {
-	return nil, nil, nil
+func (store *erigonWorkingSetStore) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
+	storage := store.objectContractStorage(obj)
+	if storage == nil {
+		return nil, nil, errors.Wrapf(ErrNotSupported, "unsupported object type %T in ns %s", obj, ns)
+	}
+	var (
+		objs    []any
+		err     error
+		results [][]byte
+		backend = store.newContractBackend(store.ctx, store.intraBlockState, store.sr)
+	)
+	if len(keys) == 0 {
+		keys, objs, err = storage.ListFromContract(ns, backend)
+	} else {
+		objs, err = storage.BatchFromContract(ns, keys, backend)
+	}
+	log.L().Debug("list objs from erigon working set store",
+		zap.String("ns", ns),
+		zap.Int("num", len(keys)),
+		zap.Int("objsize", len(objs)),
+		zap.String("obj", fmt.Sprintf("%T", obj)),
+	)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to list objects from erigon working set store for namespace %s", ns)
+	}
+	for i, obj := range objs {
+		log.L().Debug("list obj from erigon working set store",
+			zap.String("ns", ns),
+			log.Hex("key", keys[i]),
+			zap.String("storage", fmt.Sprintf("%T", obj)),
+			zap.Any("content", obj),
+		)
+		if obj == nil {
+			results = append(results, nil)
+			continue
+		}
+		res, err := state.Serialize(obj)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to serialize object for namespace %s and key %x", ns, keys[i])
+		}
+		results = append(results, res)
+	}
+	return keys, results, nil
 }
 
 func (store *erigonWorkingSetStore) Digest() hash.Hash256 {
 	return hash.ZeroHash256
+}
+
+func (store *erigonWorkingSetStore) CreateGenesisStates(ctx context.Context) error {
+	return systemcontracts.DeploySystemContractsIfNotExist(store.newContractBackend(ctx, store.intraBlockState, store.sr))
+}
+
+func (store *erigonDB) Height() (uint64, error) {
+	var height uint64
+	err := store.rw.View(context.Background(), func(tx kv.Tx) error {
+		heightBytes, err := tx.GetOne(systemNS, heightKey)
+		if err != nil {
+			return errors.Wrap(err, "failed to get height from erigon working set store")
+		}
+		if len(heightBytes) == 0 {
+			return nil // height not set yet
+		}
+		height256 := new(uint256.Int)
+		height256.SetBytes(heightBytes)
+		height = height256.Uint64()
+		return nil
+	})
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get height from erigon working set store")
+	}
+	return height, nil
+}
+
+func (store *erigonWorkingSetStore) newContractBackend(ctx context.Context, intraBlockState *erigonstate.IntraBlockState, sr erigonstate.StateReader) *contractBacked {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	g, ok := genesis.ExtractGenesisContext(ctx)
+	if !ok {
+		log.S().Panic("failed to extract genesis context from block context")
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	return NewContractBackend(store.intraBlockState, store.sr, blkCtx.BlockHeight, blkCtx.BlockTimeStamp, &g, bcCtx.EvmNetworkID)
+}
+
+func (store *erigonWorkingSetStore) objectContractStorage(obj any) state.ContractStorage {
+	if cs, ok := obj.(state.ContractStorage); ok {
+		return cs
+	}
+	if cs, ok := obj.(state.ContractStorageProxy); ok {
+		return cs.ContractStorageProxy()
+	}
+	if cs, ok := obj.(state.ContractStorageStandard); ok {
+		return state.NewContractStorageStandardWrapper(cs)
+	}
+	return nil
+}
+
+func (store *erigonWorkingSetStore) KVStore() db.KVStore {
+	return nil
 }

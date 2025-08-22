@@ -31,6 +31,8 @@ import (
 // rewardHistory is the dummy struct to record a reward. Only key matters.
 type rewardHistory struct{}
 
+var _ state.ContractStorageStandard = (*rewardHistory)(nil)
+
 // Serialize serializes reward history state into bytes
 func (b rewardHistory) Serialize() ([]byte, error) {
 	gen := rewardingpb.RewardHistory{}
@@ -40,10 +42,20 @@ func (b rewardHistory) Serialize() ([]byte, error) {
 // Deserialize deserializes bytes into reward history state
 func (b *rewardHistory) Deserialize(data []byte) error { return nil }
 
+func (b *rewardHistory) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	return namespaceToContractAddress(ns)
+}
+
+func (b *rewardHistory) New() state.ContractStorageStandard {
+	return &rewardHistory{}
+}
+
 // rewardAccount stores the unclaimed balance of an account
 type rewardAccount struct {
 	balance *big.Int
 }
+
+var _ state.ContractStorageStandard = (*rewardAccount)(nil)
 
 // Serialize serializes account state into bytes
 func (a rewardAccount) Serialize() ([]byte, error) {
@@ -65,6 +77,14 @@ func (a *rewardAccount) Deserialize(data []byte) error {
 	}
 	a.balance = balance
 	return nil
+}
+
+func (a *rewardAccount) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	return namespaceToContractAddress(ns)
+}
+
+func (a *rewardAccount) New() state.ContractStorageStandard {
+	return &rewardAccount{}
 }
 
 // GrantBlockReward grants the block reward (token) to the block producer
@@ -389,7 +409,7 @@ func (p *Protocol) grantToAccount(ctx context.Context, sm protocol.StateManager,
 		// entry exist
 		// check if from legacy, and we have started using v2, delete v1
 		if fromLegacy && useV2Storage(ctx) {
-			if err := p.deleteStateV1(sm, accKey); err != nil {
+			if err := p.deleteStateV1(sm, accKey, &rewardAccount{}); err != nil {
 				return err
 			}
 		}
@@ -416,7 +436,7 @@ func (p *Protocol) claimFromAccount(ctx context.Context, sm protocol.StateManage
 		return err
 	}
 	if fromLegacy && useV2Storage(ctx) {
-		if err := p.deleteStateV1(sm, accKey); err != nil {
+		if err := p.deleteStateV1(sm, accKey, &rewardAccount{}); err != nil {
 			return err
 		}
 	}
