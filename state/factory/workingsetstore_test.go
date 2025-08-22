@@ -95,7 +95,7 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 		require.True(bytes.Equal(heightInStore, byteutil.Uint64ToBytes(height)))
 		_, err = inMemStore.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 		require.Error(err)
-		require.NoError(store.Commit(ctx))
+		require.NoError(store.Commit(ctx, 0))
 		heightInStore, err = inMemStore.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 		require.NoError(err)
 		require.True(bytes.Equal(heightInStore, byteutil.Uint64ToBytes(height)))

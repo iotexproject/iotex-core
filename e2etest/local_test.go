@@ -283,10 +283,10 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(p.BroadcastOutbound(ctx, blk3.ConvertToBlockPb()))
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
-		return int(height) == 9, nil
+		return int(height) == int(blk4.Height()), nil
 	})
 	require.NoError(err)
-	require.True(9 == bc.TipHeight())
+	require.True(blk4.Height() == bc.TipHeight())
 
 	// check balance
 	change.SetBytes(nil)

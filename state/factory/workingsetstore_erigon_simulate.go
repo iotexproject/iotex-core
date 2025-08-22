@@ -64,7 +64,7 @@ func (store *erigonWorkingSetStoreForSimulate) Digest() hash.Hash256 {
 	return store.store.Digest()
 }
 
-func (store *erigonWorkingSetStoreForSimulate) Commit(context.Context) error {
+func (store *erigonWorkingSetStoreForSimulate) Commit(context.Context, uint64) error {
 	// do nothing for dryrun
 	return nil
 }
