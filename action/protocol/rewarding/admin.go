@@ -6,14 +6,12 @@
 package rewarding
 
 import (
-	"bytes"
 	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -83,22 +81,7 @@ func (a *admin) grantFoundationBonus(epoch uint64) bool {
 }
 
 func (a *admin) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
-	prefix := hash.Hash160b([]byte(_protocolID))
-	if ns == state.AccountKVNamespace {
-		expectKey := hash.Hash160b(append(prefix[:], _adminKey...))
-		if !bytes.Equal(expectKey[:], key) {
-			return nil, errors.Errorf("unexpected key %x, expected %x", key, expectKey)
-		}
-		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV1Index].Address, nil
-	} else if ns == _v2RewardingNamespace {
-		expectKey := append(prefix[:], _adminKey...)
-		if !bytes.Equal(expectKey[:], key) {
-			return nil, errors.Errorf("unexpected key %x, expected %x", key, expectKey)
-		}
-		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV2Index].Address, nil
-	} else {
-		return nil, errors.Errorf("unexpected namespace %s", ns)
-	}
+	return namespaceToContractAddress(ns)
 }
 
 func (a *admin) New() state.ContractStorageStandard {
@@ -139,22 +122,7 @@ func (e *exempt) Deserialize(data []byte) error {
 }
 
 func (e *exempt) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
-	prefix := hash.Hash160b([]byte(_protocolID))
-	if ns == state.AccountKVNamespace {
-		expectKey := hash.Hash160b(append(prefix[:], _exemptKey...))
-		if !bytes.Equal(expectKey[:], key) {
-			return nil, errors.Errorf("unexpected key %x, expected %x", key, expectKey)
-		}
-		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV1Index].Address, nil
-	} else if ns == _v2RewardingNamespace {
-		expectKey := append(prefix[:], _exemptKey...)
-		if !bytes.Equal(expectKey[:], key) {
-			return nil, errors.Errorf("unexpected key %x, expected %x", key, expectKey)
-		}
-		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV2Index].Address, nil
-	} else {
-		return nil, errors.Errorf("unexpected namespace %s", ns)
-	}
+	return namespaceToContractAddress(ns)
 }
 
 func (e *exempt) New() state.ContractStorageStandard {
@@ -327,4 +295,15 @@ func (p *Protocol) assertZeroBlockHeight(height uint64) error {
 		return errors.Errorf("current block height %d is not zero", height)
 	}
 	return nil
+}
+
+func namespaceToContractAddress(ns string) (address.Address, error) {
+	switch ns {
+	case state.AccountKVNamespace:
+		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV1Index].Address, nil
+	case _v2RewardingNamespace:
+		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV2Index].Address, nil
+	default:
+		return nil, errors.Errorf("unexpected namespace %s", ns)
+	}
 }
