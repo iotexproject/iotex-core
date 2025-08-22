@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/actsync"
 	"github.com/iotexproject/iotex-core/v2/api"
@@ -73,7 +72,6 @@ type ChainService struct {
 	indexer                  blockindex.Indexer
 	bfIndexer                blockindex.BloomFilterIndexer
 	candidateIndexer         *poll.CandidateIndexer
-	candBucketsIndexer       *staking.CandidatesBucketsIndexer
 	contractStakingIndexer   *contractstaking.Indexer
 	contractStakingIndexerV2 stakingindex.StakingIndexer
 	contractStakingIndexerV3 stakingindex.StakingIndexer

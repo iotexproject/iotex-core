@@ -137,7 +137,9 @@ func TestStakingStateReader(t *testing.T) {
 			}
 			return buckets, nil
 		}).AnyTimes()
-		stakeSR, err := newCompositeStakingStateReader(nil, sf, func(v *VoteBucket, selfStake bool) *big.Int {
+		csr, err := ConstructBaseView(sf)
+		r.NoError(err)
+		stakeSR, err := newCompositeStakingStateReader(csr, func(v *VoteBucket, selfStake bool) *big.Int {
 			return v.StakedAmount
 		}, contractIndexer)
 		r.NoError(err)
