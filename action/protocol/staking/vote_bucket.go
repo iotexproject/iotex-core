@@ -19,7 +19,10 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 const (
@@ -53,6 +56,12 @@ type (
 	}
 )
 
+func init() {
+	registry := erigonstore.GetObjectStorageRegistry()
+	assertions.MustNoError(registry.RegisterStakingBuckets(_stakingNameSpace, &VoteBucket{}))
+	assertions.MustNoError(registry.RegisterBucketPool(_stakingNameSpace, &totalBucketCount{}))
+}
+
 // NewVoteBucket creates a new vote bucket
 func NewVoteBucket(cand, owner address.Address, amount *big.Int, duration uint32, ctime time.Time, autoStake bool) *VoteBucket {
 	return &VoteBucket{
@@ -75,6 +84,20 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 	}
 
 	return vb.fromProto(pb)
+}
+
+// Encode encodes VoteBucket into generic value
+func (vb *VoteBucket) Encode() (systemcontracts.GenericValue, error) {
+	data, err := vb.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize bucket")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes VoteBucket from generic value
+func (vb *VoteBucket) Decode(gv systemcontracts.GenericValue) error {
+	return vb.Deserialize(gv.PrimaryData)
 }
 
 func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
@@ -211,6 +234,20 @@ func (tc *totalBucketCount) Serialize() ([]byte, error) {
 
 func (tc *totalBucketCount) Count() uint64 {
 	return tc.count
+}
+
+// Encode encodes totalBucketCount into generic value
+func (tc *totalBucketCount) Encode() (systemcontracts.GenericValue, error) {
+	data, err := tc.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize total bucket count")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes totalBucketCount from generic value
+func (tc *totalBucketCount) Decode(gv systemcontracts.GenericValue) error {
+	return tc.Deserialize(gv.PrimaryData)
 }
 
 func bucketKey(index uint64) []byte {
