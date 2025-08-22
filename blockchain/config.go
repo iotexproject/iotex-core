@@ -33,7 +33,8 @@ type (
 		IndexDBPath            string `yaml:"indexDBPath"`
 		BloomfilterIndexDBPath string `yaml:"bloomfilterIndexDBPath"`
 		CandidateIndexDBPath   string `yaml:"candidateIndexDBPath"`
-		StakingIndexDBPath     string `yaml:"stakingIndexDBPath"`
+		// deprecated
+		StakingIndexDBPath string `yaml:"stakingIndexDBPath"`
 		// deprecated
 		SGDIndexDBPath             string           `yaml:"sgdIndexDBPath"`
 		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
@@ -66,6 +67,7 @@ type (
 		// EnableStakingProtocol enables staking protocol
 		EnableStakingProtocol bool `yaml:"enableStakingProtocol"`
 		// EnableStakingIndexer enables staking indexer
+		// deprecated
 		EnableStakingIndexer bool `yaml:"enableStakingIndexer"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
