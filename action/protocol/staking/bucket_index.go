@@ -12,12 +12,16 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
 	// BucketIndices defines the array of bucket index for a
 	BucketIndices []uint64
 )
+
+var _ state.ContractStorageStandard = (*BucketIndices)(nil)
 
 // Proto converts bucket indices to protobuf
 func (bis *BucketIndices) Proto() *stakingpb.BucketIndices {
@@ -49,6 +53,19 @@ func (bis *BucketIndices) Deserialize(data []byte) error {
 // Serialize serializes bucket indices into bytes
 func (bis *BucketIndices) Serialize() ([]byte, error) {
 	return proto.Marshal(bis.Proto())
+}
+
+// ContractStorageAddress returns the address of the bucket indices contract
+func (bis *BucketIndices) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	if ns != _stakingNameSpace {
+		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, _stakingNameSpace)
+	}
+	return systemcontracts.SystemContracts[systemcontracts.BucketIndicesContractIndex].Address, nil
+}
+
+// New creates a new instance of BucketIndices
+func (bis *BucketIndices) New() state.ContractStorageStandard {
+	return &BucketIndices{}
 }
 
 func (bis *BucketIndices) addBucketIndex(index uint64) {
