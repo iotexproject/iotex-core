@@ -76,8 +76,7 @@ contract NamespaceStorage {
             namespaceValues_[namespace].push(value);
         } else {
             // Update existing value
-            uint256 index = keyIndex_[namespace][key] - 1;
-            namespaceValues_[namespace][index] = value;
+            namespaceValues_[namespace][keyIndex_[namespace][key] - 1] = value;
         }
 
         emit DataStored(namespace, key);
@@ -96,8 +95,7 @@ contract NamespaceStorage {
     ) {
         keyExists = _keyExists(namespace, key);
         if (keyExists) {
-            uint256 index = keyIndex_[namespace][key] - 1;
-            value = namespaceValues_[namespace][index];
+            value = namespaceValues_[namespace][keyIndex_[namespace][key] - 1];
         }
         return (value, keyExists);
     }
@@ -117,12 +115,9 @@ contract NamespaceStorage {
 
         // If it's not the last element, move the last element to the removed position
         if (indexToRemove != lastIndex) {
-            bytes memory lastKey = namespaceKeys_[namespace][lastIndex];
-            GenericValue memory lastValue = namespaceValues_[namespace][lastIndex];
-            
-            namespaceKeys_[namespace][indexToRemove] = lastKey;
-            namespaceValues_[namespace][indexToRemove] = lastValue;
-            keyIndex_[namespace][lastKey] = indexToRemove + 1;  // Update the moved key's index (add 1)
+            namespaceKeys_[namespace][indexToRemove] = namespaceKeys_[namespace][lastIndex];
+            namespaceValues_[namespace][indexToRemove] = namespaceValues_[namespace][lastIndex];
+            keyIndex_[namespace][namespaceKeys_[namespace][lastIndex]] = indexToRemove + 1;  // Update the moved key's index (add 1)
         }
 
         // Remove the last elements from both arrays
@@ -150,8 +145,7 @@ contract NamespaceStorage {
         for (uint256 i = 0; i < keyList.length; i++) {
             existsFlags[i] = _keyExists(namespace, keyList[i]);
             if (existsFlags[i]) {
-                uint256 index = keyIndex_[namespace][keyList[i]] - 1;
-                values[i] = namespaceValues_[namespace][index];
+                values[i] = namespaceValues_[namespace][keyIndex_[namespace][keyList[i]] - 1];
             }
         }
 
@@ -188,8 +182,7 @@ contract NamespaceStorage {
                 namespaceValues_[namespace].push(values[i]);
             } else {
                 // Update existing value
-                uint256 index = keyIndex_[namespace][keys[i]] - 1;
-                namespaceValues_[namespace][index] = values[i];
+                namespaceValues_[namespace][keyIndex_[namespace][keys[i]] - 1] = values[i];
             }
 
             emit DataStored(namespace, keys[i]);
@@ -298,9 +291,8 @@ contract NamespaceStorage {
         counts = new uint256[](actualLimit);
 
         for (uint256 i = 0; i < actualLimit; i++) {
-            string memory ns = namespaces_[offset + i];
-            namespaceList[i] = ns;
-            counts[i] = namespaceKeys_[ns].length;
+            namespaceList[i] = namespaces_[offset + i];
+            counts[i] = namespaceKeys_[namespaces_[offset + i]].length;
         }
 
         return (namespaceList, counts, total);
@@ -364,8 +356,7 @@ contract NamespaceStorage {
 
         // Clear all key indices in the namespace
         for (uint256 i = 0; i < keys.length; i++) {
-            bytes memory key = keys[i];
-            delete keyIndex_[namespace][key];
+            delete keyIndex_[namespace][keys[i]];
         }
 
         // Clear both arrays for the namespace
@@ -387,8 +378,7 @@ contract NamespaceStorage {
 
             // Clear all key indices in this namespace
             for (uint256 j = 0; j < keys.length; j++) {
-                bytes memory key = keys[j];
-                delete keyIndex_[namespace][key];
+                delete keyIndex_[namespace][keys[j]];
             }
 
             // Clear both arrays for this namespace
