@@ -420,11 +420,11 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 		return nil, err
 	}
 	bnParam := in.Get("params.1")
-	bn, err := parseBlockNumber(&bnParam)
+	bn, err := parseBlockNumberOrHash(&bnParam)
 	if err != nil {
 		return nil, err
 	}
-	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
 	if err != nil {
 		return nil, err
 	}
@@ -653,11 +653,11 @@ func (svr *web3Handler) getCode(in *gjson.Result) (interface{}, error) {
 		return nil, err
 	}
 	bnParam := in.Get("params.1")
-	bn, err := parseBlockNumber(&bnParam)
+	bn, err := parseBlockNumberOrHash(&bnParam)
 	if err != nil {
 		return nil, err
 	}
-	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
 	if err != nil {
 		return nil, err
 	}
@@ -876,11 +876,11 @@ func (svr *web3Handler) getBlockReceipts(in *gjson.Result) (interface{}, error) 
 	if !blkParam.Exists() {
 		return nil, errInvalidFormat
 	}
-	bn, err := parseBlockNumber(&blkParam)
+	bn, err := parseBlockNumberOrHash(&blkParam)
 	if err != nil {
 		return nil, err
 	}
-	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
 	if err != nil {
 		return nil, err
 	}
@@ -1016,11 +1016,11 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 		return nil, errInvalidFormat
 	}
 	bnParam := in.Get("params.2")
-	bn, err := parseBlockNumber(&bnParam)
+	bn, err := parseBlockNumberOrHash(&bnParam)
 	if err != nil {
 		return nil, err
 	}
-	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
 	if err != nil {
 		return nil, err
 	}
@@ -1314,11 +1314,11 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 
 func (svr *web3Handler) traceBlockByNumber(ctx context.Context, in *gjson.Result) (any, error) {
 	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
-	blkNum, err := parseBlockNumber(&blkParam)
+	blkNum, err := parseBlockNumberOrHash(&blkParam)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse block number")
 	}
-	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(blkNum))
+	height, _, err := svr.blockNumberOrHashToHeight(blkNum)
 	if err != nil {
 		return nil, err
 	}
