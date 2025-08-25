@@ -19,7 +19,7 @@ type (
 		GetBlockTime   GetBlockTime
 		DepositGasFunc protocol.DepositGas
 	}
-
+	// TracerContext is the context for EVM tracer
 	TracerContext struct {
 		CaptureTx func([]byte, *action.Receipt)
 	}
@@ -39,10 +39,12 @@ func mustGetHelperCtx(ctx context.Context) HelperContext {
 	return hc
 }
 
+// WithTracerCtx returns a new context with tracer context
 func WithTracerCtx(ctx context.Context, tctx TracerContext) context.Context {
 	return context.WithValue(ctx, tracerContextKey{}, tctx)
 }
 
+// GetTracerCtx returns the tracer context from the context
 func GetTracerCtx(ctx context.Context) (TracerContext, bool) {
 	tc, ok := ctx.Value(tracerContextKey{}).(TracerContext)
 	return tc, ok
