@@ -67,8 +67,7 @@ contract GenericStorage {
             values_.push(value);  // Add corresponding value to values array
         } else {
             // Update existing value
-            uint256 index = keyIndex_[key] - 1;
-            values_[index] = value;
+            values_[keyIndex_[key] - 1] = value;
         }
 
         emit DataStored(key);
@@ -87,12 +86,9 @@ contract GenericStorage {
 
         // If it's not the last element, move the last element to the removed position
         if (indexToRemove != lastIndex) {
-            bytes memory lastKey = keys_[lastIndex];
-            GenericValue memory lastValue = values_[lastIndex];
-            
-            keys_[indexToRemove] = lastKey;
-            values_[indexToRemove] = lastValue;  // Move the corresponding value
-            keyIndex_[lastKey] = indexToRemove + 1;  // Update the moved key's index (add 1)
+            keys_[indexToRemove] = keys_[lastIndex];
+            values_[indexToRemove] = values_[lastIndex];
+            keyIndex_[keys_[lastIndex]] = indexToRemove + 1;  // Update the moved key's index (add 1)
         }
 
         // Remove the last elements from both arrays
@@ -112,8 +108,7 @@ contract GenericStorage {
     function get(bytes memory key) external view returns (GenericValue memory value, bool keyExists) {
         keyExists = _keyExists(key);
         if (keyExists) {
-            uint256 index = keyIndex_[key] - 1;
-            value = values_[index];  // Get value from values array
+            value = values_[keyIndex_[key] - 1];  // Get value from values array
         }
         return (value, keyExists);
     }
@@ -134,8 +129,7 @@ contract GenericStorage {
         for (uint256 i = 0; i < keyList.length; i++) {
             existsFlags[i] = _keyExists(keyList[i]);
             if (existsFlags[i]) {
-                uint256 index = keyIndex_[keyList[i]] - 1;
-                values[i] = values_[index];  // Get value from values array
+                values[i] = values_[keyIndex_[keyList[i]] - 1];  // Get value from values array
             }
         }
 
