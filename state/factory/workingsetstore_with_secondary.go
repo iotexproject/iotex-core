@@ -8,7 +8,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
@@ -23,19 +22,20 @@ var (
 )
 
 type reader interface {
-	Get(string, []byte) ([]byte, error)
-	States(string, [][]byte) ([][]byte, [][]byte, error)
+	// Get(string, []byte) ([]byte, error)
+	GetObject(string, []byte, any) error
+	States(string, [][]byte, any) ([][]byte, [][]byte, error)
 	Digest() hash.Hash256
-	Filter(string, db.Condition, []byte, []byte) ([][]byte, [][]byte, error)
+	// Filter(string, db.Condition, []byte, []byte) ([][]byte, [][]byte, error)
 }
 
 type writer interface {
-	Put(ns string, key []byte, value []byte) error
-	Delete(ns string, key []byte) error
+	PutObject(ns string, key []byte, obj any) error
+	DeleteObject(ns string, key []byte, obj any) error
 	Snapshot() int
 	RevertSnapshot(snapshot int) error
 	ResetSnapshots()
-	WriteBatch(batch.KVStoreBatch) error
+	CreateGenesisStates(context.Context) error
 }
 
 // treat erigon as 3rd output, still read from statedb
@@ -78,36 +78,32 @@ func (store *workingSetStoreWithSecondary) FinalizeTx(ctx context.Context) error
 	return store.writerSecondary.FinalizeTx(ctx)
 }
 
-func (store *workingSetStoreWithSecondary) WriteBatch(batch batch.KVStoreBatch) error {
-	if err := store.writer.WriteBatch(batch); err != nil {
+func (store *workingSetStoreWithSecondary) PutObject(ns string, key []byte, obj any) error {
+	if err := store.writer.PutObject(ns, key, obj); err != nil {
 		return err
 	}
-	return store.writerSecondary.WriteBatch(batch)
+	return store.writerSecondary.PutObject(ns, key, obj)
 }
 
-func (store *workingSetStoreWithSecondary) Put(ns string, key []byte, value []byte) error {
-	if err := store.writer.Put(ns, key, value); err != nil {
+func (store *workingSetStoreWithSecondary) DeleteObject(ns string, key []byte, obj any) error {
+	if err := store.writer.DeleteObject(ns, key, obj); err != nil {
 		return err
 	}
-	return store.writerSecondary.Put(ns, key, value)
+	return store.writerSecondary.DeleteObject(ns, key, obj)
 }
 
-func (store *workingSetStoreWithSecondary) Delete(ns string, key []byte) error {
-	if err := store.writer.Delete(ns, key); err != nil {
-		return err
-	}
-	return store.writerSecondary.Delete(ns, key)
-}
-
-func (store *workingSetStoreWithSecondary) Commit(ctx context.Context) error {
+func (store *workingSetStoreWithSecondary) Commit(ctx context.Context, retention uint64) error {
+	// Commit to secondary store first, then commit to main store
+	// This ensures that if the secondary store fails, the main store is not committed
+	// the main store can be committed independently, but the secondary store cannot
 	t1 := time.Now()
-	if err := store.writer.Commit(ctx); err != nil {
+	if err := store.writerSecondary.Commit(ctx, retention); err != nil {
 		return err
 	}
-	perfMtc.WithLabelValues("commitstore").Set(float64(time.Since(t1).Nanoseconds()))
+	perfMtc.WithLabelValues("commiterigon").Set(float64(time.Since(t1).Nanoseconds()))
 	t2 := time.Now()
-	err := store.writerSecondary.Commit(ctx)
-	perfMtc.WithLabelValues("commiterigon").Set(float64(time.Since(t2).Nanoseconds()))
+	err := store.writer.Commit(ctx, retention)
+	perfMtc.WithLabelValues("commitstore").Set(float64(time.Since(t2).Nanoseconds()))
 	return err
 }
 
@@ -142,4 +138,23 @@ func (store *workingSetStoreWithSecondary) ResetSnapshots() {
 func (store *workingSetStoreWithSecondary) Close() {
 	store.writer.Close()
 	store.writerSecondary.Close()
+}
+
+func (store *workingSetStoreWithSecondary) CreateGenesisStates(ctx context.Context) error {
+	if err := store.writer.CreateGenesisStates(ctx); err != nil {
+		return err
+	}
+	return store.writerSecondary.CreateGenesisStates(ctx)
+}
+
+func (store *workingSetStoreWithSecondary) GetObject(ns string, key []byte, obj any) error {
+	return store.reader.GetObject(ns, key, obj)
+}
+
+func (store *workingSetStoreWithSecondary) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
+	return store.reader.States(ns, keys, obj)
+}
+
+func (store *workingSetStoreWithSecondary) KVStore() db.KVStore {
+	return nil
 }
