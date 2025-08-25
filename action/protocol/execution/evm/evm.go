@@ -332,6 +332,9 @@ func ExecuteContract(
 		receipt.SetExecutionRevertMsg(revertMsg)
 	}
 	log.S().Debugf("Retval: %x, Receipt: %+v, %v", retval, receipt, err)
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
+		tCtx.CaptureTx(retval, receipt)
+	}
 	return retval, receipt, nil
 }
 
@@ -558,6 +561,12 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		refund             uint64
 		amount             = uint256.MustFromBig(evmParams.amount)
 	)
+	if evm.Config.Tracer != nil {
+		evm.Config.Tracer.CaptureTxStart(remainingGas)
+		defer func() {
+			evm.Config.Tracer.CaptureTxEnd(remainingGas)
+		}()
+	}
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address

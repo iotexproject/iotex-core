@@ -33,6 +33,8 @@ ALL_PKGS := $(shell go list ./... )
 PKGS := $(shell go list ./... | grep -v /test/ )
 ROOT_PKG := "github.com/iotexproject/iotex-core"
 TEST_PKGS := $(shell go list ./... | grep -E -v 'pb$|testdata|mock')
+TEST_PKGS_NO_E2E := $(shell go list ./... | grep -E -v 'pb$|testdata|mock|e2etest')
+E2E_TEST_PKGS := $(shell go list ./... | grep e2etest)
 
 # Docker parameters
 DOCKERCMD=docker
@@ -124,7 +126,19 @@ lint-rich:
 
 .PHONY: test
 test: fmt
-	@$(GOTEST) -gcflags="all=-N -l" -short -race ${TEST_PKGS}
+	@echo "Running unit tests with race detector..."
+	@$(GOTEST) -gcflags="all=-N -l" -short -race ${TEST_PKGS_NO_E2E}
+	@echo "Running e2e tests without race detector..."
+	@$(GOTEST) -gcflags="all=-N -l" -short ${E2E_TEST_PKGS}
+
+.PHONY: test-unit
+test-unit: fmt
+	@$(GOTEST) -gcflags="all=-N -l" -short -race ${TEST_PKGS_NO_E2E}
+
+.PHONY: test-e2e
+test-e2e: fmt
+	@echo "Running e2e tests without race detector..."
+	@$(GOTEST) -gcflags="all=-N -l" -short ${E2E_TEST_PKGS}
 
 .PHONY: test-rich
 test-rich:

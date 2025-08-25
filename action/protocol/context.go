@@ -78,6 +78,8 @@ type (
 		ExcessBlobGas uint64
 		// SkipSidecarValidation dictates to validate sidecar (for blob tx) or not
 		SkipSidecarValidation bool
+		// Simulate is used for read-only APIs
+		Simulate bool
 	}
 
 	// ActionCtx provides action auxiliary information.
