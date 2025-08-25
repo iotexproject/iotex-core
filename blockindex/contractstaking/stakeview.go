@@ -5,10 +5,12 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type stakeView struct {
@@ -87,4 +89,28 @@ func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 
 func (s *stakeView) Commit() {
 	s.cache = s.cache.Commit()
+}
+
+func (s *stakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	height := blkCtx.BlockHeight
+	expectHeight := s.height + 1
+	if expectHeight < s.helper.config.ContractDeployHeight {
+		expectHeight = s.helper.config.ContractDeployHeight
+	}
+	if height < expectHeight {
+		return nil
+	}
+	if height > expectHeight {
+		return errors.Errorf("invalid block height %d, expect %d", height, expectHeight)
+	}
+
+	handler, err := handleReceipts(ctx, height, receipts, &s.helper.config, s.cache)
+	if err != nil {
+		return err
+	}
+	_, delta := handler.Result()
+	s.cache = delta.Commit()
+	s.height = height
+	return nil
 }

@@ -43,6 +43,22 @@ type CandidateUpdate struct {
 	pubKey          []byte
 }
 
+// CandidateUpdateOption defines the method to customize CandidateUpdate
+type CandidateUpdateOption func(*CandidateUpdate) error
+
+// WithCandidateUpdatePubKey sets the BLS public key for CandidateUpdate
+func WithCandidateUpdatePubKey(pubKey []byte) CandidateUpdateOption {
+	return func(cu *CandidateUpdate) error {
+		_, err := crypto.BLS12381PublicKeyFromBytes(pubKey)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse BLS public key")
+		}
+		cu.pubKey = make([]byte, len(pubKey))
+		copy(cu.pubKey, pubKey)
+		return nil
+	}
+}
+
 func init() {
 	var ok bool
 	_candidateUpdateMethod, ok = NativeStakingContractABI().Methods["candidateUpdate"]
@@ -79,6 +95,21 @@ func NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr string) (*Candidate
 			return nil, err
 		}
 	}
+	return cu, nil
+}
+
+// NewCandidateUpdateWithBLS creates a CandidateUpdate instance with BLS public key
+func NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr string, pubkey []byte) (*CandidateUpdate, error) {
+	cu, err := NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr)
+	if err != nil {
+		return nil, err
+	}
+	_, err = crypto.BLS12381PublicKeyFromBytes(pubkey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse BLS public key")
+	}
+	cu.pubKey = make([]byte, len(pubkey))
+	copy(cu.pubKey, pubkey)
 	return cu, nil
 }
 

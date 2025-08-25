@@ -10,6 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/output"
@@ -19,8 +21,8 @@ import (
 // Multi-language support
 var (
 	_registerCmdUses = map[config.Language]string{
-		config.English: "register NAME (ALIAS|OPERATOR_ADDRESS) (ALIAS|REWARD_ADDRESS) (ALIAS|OWNER_ADDRESS) AMOUNT_IOTX STAKE_DURATION [DATA] [--auto-stake] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "register 名字 (别名|操作者地址）（别名|奖励地址）（别名|所有者地址）IOTX数量 质押持续时间 [数据] [--auto-stake] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.English: "register NAME (ALIAS|OPERATOR_ADDRESS) (ALIAS|REWARD_ADDRESS) (ALIAS|OWNER_ADDRESS) BLS_PUBKEY AMOUNT_IOTX STAKE_DURATION [DATA] [--auto-stake] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "register 名字 (别名|操作者地址）（别名|奖励地址）（别名|所有者地址）BLS公钥 IOTX数量 质押持续时间 [数据] [--auto-stake] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
 	_registerCmdShorts = map[config.Language]string{
@@ -33,7 +35,7 @@ var (
 var _stake2RegisterCmd = &cobra.Command{
 	Use:   config.TranslateInLang(_registerCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(_registerCmdShorts, config.UILanguage),
-	Args:  cobra.RangeArgs(6, 7),
+	Args:  cobra.RangeArgs(7, 8),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := register(args)
@@ -65,20 +67,30 @@ func register(args []string) error {
 		return output.NewError(output.AddressError, "failed to get owner address", err)
 	}
 
-	amountInRau, err := util.StringToRau(args[4], util.IotxDecimalNum)
+	// Validate and parse BLS public key
+	blsPubKeyStr := args[4]
+	blsPubKeyBytes, err := hex.DecodeString(blsPubKeyStr)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to decode BLS public key", err)
+	}
+	if _, err = crypto.BLS12381PublicKeyFromBytes(blsPubKeyBytes); err != nil {
+		return output.NewError(output.ValidationError, "invalid BLS public key", err)
+	}
+
+	amountInRau, err := util.StringToRau(args[5], util.IotxDecimalNum)
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid amount", err)
 	}
 
-	stakeDuration, err := parseStakeDuration(args[5])
+	stakeDuration, err := parseStakeDuration(args[6])
 	if err != nil {
 		return output.NewError(0, "", err)
 	}
 	duration := uint32(stakeDuration.Uint64())
 
 	var payload []byte
-	if len(args) == 7 {
-		payload, err = hex.DecodeString(args[6])
+	if len(args) == 8 {
+		payload, err = hex.DecodeString(args[7])
 		if err != nil {
 			return output.NewError(output.ConvertError, "failed to decode data", err)
 		}
@@ -103,7 +115,7 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	cr, err := action.NewCandidateRegister(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, _stake2AutoStake, payload)
+	cr, err := action.NewCandidateRegisterWithBLS(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, _stake2AutoStake, payload, blsPubKeyBytes)
 
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateRegister instance", err)

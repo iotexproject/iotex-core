@@ -132,6 +132,27 @@ func NewCandidateRegister(
 	return cr, nil
 }
 
+// NewCandidateRegisterWithBLS creates a CandidateRegister instance with BLS public key
+func NewCandidateRegisterWithBLS(
+	name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr string,
+	duration uint32,
+	autoStake bool,
+	payload []byte,
+	pubKey []byte,
+) (*CandidateRegister, error) {
+	cr, err := NewCandidateRegister(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr, duration, autoStake, payload)
+	if err != nil {
+		return nil, err
+	}
+	_, err = crypto.BLS12381PublicKeyFromBytes(pubKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse BLS public key")
+	}
+	cr.pubKey = make([]byte, len(pubKey))
+	copy(cr.pubKey, pubKey)
+	return cr, nil
+}
+
 // LegacyAmount returns the legacy amount
 func (cr *CandidateRegister) LegacyAmount() *big.Int {
 	return cr.amount
