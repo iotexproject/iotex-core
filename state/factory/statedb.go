@@ -131,10 +131,17 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	if err := sdb.dao.Start(ctx); err != nil {
 		return err
 	}
+	erigonHeight := uint64(0)
 	if sdb.erigonDB != nil {
 		if err := sdb.erigonDB.Start(ctx); err != nil {
 			return err
 		}
+		eh, err := sdb.erigonDB.Height()
+		if err != nil {
+			return errors.Wrap(err, "failed to get erigonDB height")
+		}
+		erigonHeight = eh
+		log.L().Info("ErigonDB started", zap.Uint64("height", erigonHeight))
 	}
 	// check factory height
 	h, err := sdb.dao.getHeight()
@@ -169,6 +176,18 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	default:
 		return err
 	}
+	if sdb.erigonDB != nil {
+		// allow erigonDB to be 1 height ahead of state factory
+		if erigonHeight != sdb.currentChainHeight && erigonHeight != sdb.currentChainHeight+1 {
+			return errors.Errorf(
+				"erigonDB height %d does not match state factory height %d",
+				erigonHeight, sdb.currentChainHeight,
+			)
+		}
+	}
+	log.L().Info("State factory started",
+		zap.Uint64("height", sdb.currentChainHeight),
+	)
 	return nil
 }
 
@@ -264,6 +283,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	}
 	if !isExist {
 		if err = ws.ValidateBlock(ctx, blk); err != nil {
+			ws.Close()
 			return errors.Wrap(err, "failed to validate block with workingset in statedb")
 		}
 		if existed := sdb.addWorkingSetIfNotExist(blkHash, ws); existed != nil {
@@ -272,6 +292,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
+		ws.Close()
 		return err
 	}
 	blk.Receipts = receipts
@@ -335,7 +356,29 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManagerWithCl
 	return sdb.newReadOnlyWorkingSet(ctx, height+1)
 }
 
-func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
+func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
+	wsc, err := sdb.WorkingSetAtHeight(ctx, height-1)
+	if err != nil {
+		return nil, err
+	}
+	// handle panic to ensure workingset is closed
+	defer func() {
+		if r := recover(); r != nil {
+			wsc.Close()
+			err = errors.Errorf("panic occurred while processing actions: %v", r)
+			log.L().Error("Recovered from panic in WorkingSetAtTransaction", zap.Error(err))
+		}
+	}()
+	ws := wsc.(*workingSet)
+	ws.height++
+	if err := ws.Process(ctx, acts); err != nil {
+		wsc.Close()
+		return nil, err
+	}
+	return ws, nil
+}
+
+func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManagerWithCloser, error) {
 	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
 		return nil, err
@@ -346,14 +389,6 @@ func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preac
 			return nil, err
 		}
 		ws.store = newErigonWorkingSetStoreForSimulate(ws.store, e)
-	}
-	if len(preacts) == 0 {
-		return ws, nil
-	}
-	// prepare workingset at height, and run acts
-	ws.height++
-	if err := ws.Process(ctx, preacts); err != nil {
-		return nil, err
 	}
 	return ws, nil
 }
@@ -373,6 +408,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	if err != nil {
 		return err
 	}
+	defer ws.Close()
 	if !isExist {
 		if !sdb.skipBlockValidationOnPut {
 			err = ws.ValidateBlock(ctx, blk)
@@ -381,7 +417,6 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
-			ws.Close()
 			return err
 		}
 	}

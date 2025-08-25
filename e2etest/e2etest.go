@@ -408,6 +408,7 @@ func clearDBPaths(cfg *config.Config) {
 	if cfg.ActPool.Store != nil {
 		testutil.CleanupPath(cfg.ActPool.Store.Datadir)
 	}
+	testutil.CleanupPath(cfg.Chain.HistoryIndexPath)
 }
 
 func parseV2StakedBucketIdx(contract string, receipt *action.Receipt) ([]uint64, error) {
