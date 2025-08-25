@@ -398,14 +398,13 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 	}, nil
 }
 
-// TODO: fix this to support eip 1898
-func parseBlockNumber(in *gjson.Result) (rpc.BlockNumber, error) {
+func parseBlockNumberOrHash(in *gjson.Result) (rpc.BlockNumberOrHash, error) {
 	if !in.Exists() {
-		return rpc.LatestBlockNumber, nil
+		return rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber), nil
 	}
-	var height rpc.BlockNumber
-	if err := height.UnmarshalJSON([]byte(in.String())); err != nil {
-		return 0, err
+	var height rpc.BlockNumberOrHash
+	if err := height.UnmarshalJSON([]byte(in.Raw)); err != nil {
+		return height, err
 	}
 	return height, nil
 }
