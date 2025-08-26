@@ -357,7 +357,7 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManagerWithCl
 }
 
 func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
-	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
+	ws, err := sdb.newReadOnlyWorkingSet(ctx, height-1)
 	if err != nil {
 		return nil, err
 	}
