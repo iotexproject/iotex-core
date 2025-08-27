@@ -374,7 +374,7 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 
 	if accessList := in.Get("params.0.accessList"); accessList.Exists() {
 		acl = types.AccessList{}
-		log.L().Info("raw acl", zap.String("accessList", accessList.Raw))
+		log.L().Debug("raw acl", zap.String("accessList", accessList.Raw))
 		if err := json.Unmarshal([]byte(accessList.Raw), &acl); err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal access list %s", accessList.Raw)
 		}
@@ -398,14 +398,13 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 	}, nil
 }
 
-// TODO: fix this to support eip 1898
-func parseBlockNumber(in *gjson.Result) (rpc.BlockNumber, error) {
+func parseBlockNumberOrHash(in *gjson.Result) (rpc.BlockNumberOrHash, error) {
 	if !in.Exists() {
-		return rpc.LatestBlockNumber, nil
+		return rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber), nil
 	}
-	var height rpc.BlockNumber
-	if err := height.UnmarshalJSON([]byte(in.String())); err != nil {
-		return 0, err
+	var height rpc.BlockNumberOrHash
+	if err := height.UnmarshalJSON([]byte(in.Raw)); err != nil {
+		return height, err
 	}
 	return height, nil
 }

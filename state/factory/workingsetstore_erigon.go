@@ -163,7 +163,9 @@ func (store *erigonWorkingSetStore) prepareCommit(ctx context.Context, tx kv.RwT
 
 func (store *erigonWorkingSetStore) Commit(ctx context.Context) error {
 	defer store.tx.Rollback()
-	tx, err := store.db.rw.BeginRw(ctx)
+	// BeginRw accounting for the context Done signal
+	// statedb has been committed, so we should not use the context
+	tx, err := store.db.rw.BeginRw(context.Background())
 	if err != nil {
 		return errors.Wrap(err, "failed to begin erigon working set store transaction")
 	}
@@ -266,4 +268,25 @@ func (store *erigonWorkingSetStore) States(string, [][]byte) ([][]byte, [][]byte
 
 func (store *erigonWorkingSetStore) Digest() hash.Hash256 {
 	return hash.ZeroHash256
+}
+
+func (store *erigonDB) Height() (uint64, error) {
+	var height uint64
+	err := store.rw.View(context.Background(), func(tx kv.Tx) error {
+		heightBytes, err := tx.GetOne(systemNS, heightKey)
+		if err != nil {
+			return errors.Wrap(err, "failed to get height from erigon working set store")
+		}
+		if len(heightBytes) == 0 {
+			return nil // height not set yet
+		}
+		height256 := new(uint256.Int)
+		height256.SetBytes(heightBytes)
+		height = height256.Uint64()
+		return nil
+	})
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get height from erigon working set store")
+	}
+	return height, nil
 }

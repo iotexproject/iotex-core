@@ -8,8 +8,11 @@ package blockindex
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 // SyncIndexers is a special index that includes multiple indexes,
@@ -106,6 +109,11 @@ func (ig *SyncIndexers) initStartHeight() error {
 				indexStartHeight = startHeight
 			}
 		}
+		log.L().Info("sync indexers",
+			zap.Uint64("indexer", uint64(i)),
+			zap.Uint64("tipHeight", tipHeight),
+			zap.Uint64("startHeight", indexStartHeight),
+		)
 		ig.startHeights[i] = indexStartHeight
 		if i == 0 || indexStartHeight < ig.minStartHeight {
 			ig.minStartHeight = indexStartHeight
