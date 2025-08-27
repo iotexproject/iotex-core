@@ -64,6 +64,8 @@ PackageFlags += -X '$(VersionImportPath).GoVersion=$(GO_VERSION)'
 PackageFlags += -X '$(VersionImportPath).BuildTime=$(BUILD_TIME)'
 PackageFlags += -s -w
 
+BUILD_TAGS = nosilkworm
+
 TEST_IGNORE= ".git,vendor"
 COV_OUT := profile.coverprofile
 COV_REPORT := overalls.coverprofile
@@ -84,30 +86,30 @@ all: clean build-all test
 
 .PHONY: build
 build: ioctl
-	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
+	$(GOBUILD) -tags $(BUILD_TAGS) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 
 .PHONY: build-all
 build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer build-readtip
 
 .PHONY: build-actioninjector
 build-actioninjector: 
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
 
 .PHONY: build-addrgen
 build-addrgen:
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
 
 .PHONY: build-minicluster
 build-minicluster:
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 
 .PHONY: build-staterecoverer
 build-staterecoverer:
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
 
 .PHONY: build-readtip
 build-readtip:
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_READTIP) -v ./tools/readtip
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_READTIP) -v ./tools/readtip
 
 .PHONY: fmt
 fmt:

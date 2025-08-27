@@ -2,7 +2,7 @@ FROM golang:1.23.0-alpine AS build
 
 WORKDIR /go/apps/iotex-core
 
-RUN apk add --no-cache make gcc musl-dev linux-headers git ca-certificates
+RUN apk add --no-cache make gcc build-base musl-dev linux-headers git ca-certificates libstdc++
 
 COPY go.mod .
 COPY go.sum .
@@ -18,6 +18,8 @@ RUN mkdir -p $GOPATH/pkg/linux_amd64/github.com/iotexproject/ && \
     PACKAGE_VERSION=$PACKAGE_VERSION PACKAGE_COMMIT_ID=$PACKAGE_COMMIT_ID GIT_STATUS=$GIT_STATUS make clean build-all
 
 FROM alpine
+
+RUN apk add --no-cache libstdc++
 
 RUN mkdir -p /etc/iotex/
 COPY --from=build /go/apps/iotex-core/bin/server /usr/local/bin/iotex-server

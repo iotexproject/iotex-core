@@ -6,10 +6,16 @@ import (
 	"math/big"
 
 	libcommon "github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/common/datadir"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/kv/mdbx"
+	"github.com/erigontech/erigon-lib/kv/temporal/historyv2"
 	erigonlog "github.com/erigontech/erigon-lib/log/v3"
 	erigonstate "github.com/erigontech/erigon/core/state"
+	"github.com/erigontech/erigon/eth/ethconfig"
+	"github.com/erigontech/erigon/eth/stagedsync"
+	"github.com/erigontech/erigon/eth/stagedsync/stages"
+	"github.com/erigontech/erigon/ethdb/prune"
 	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -99,6 +105,74 @@ func (db *erigonDB) newErigonStoreDryrun(ctx context.Context, height uint64) (*e
 	}, nil
 }
 
+func (db *erigonDB) BatchPrune(ctx context.Context, from, to, batch uint64) error {
+	if from >= to {
+		return errors.Errorf("invalid prune range: from %d >= to %d", from, to)
+	}
+	tx, err := db.rw.BeginRo(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to begin erigon working set store transaction")
+	}
+	base, err := historyv2.AvailableFrom(tx)
+	if err != nil {
+		tx.Rollback()
+		return errors.Wrap(err, "failed to get available from erigon working set store")
+	}
+	tx.Rollback()
+
+	if base >= from {
+		log.L().Debug("batch prune nothing", zap.Uint64("from", from), zap.Uint64("to", to), zap.Uint64("base", base))
+		// nothing to prune
+		return nil
+	}
+
+	for batchFrom := base; batchFrom < from; batchFrom += batch {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		log.L().Info("batch prune", zap.Uint64("from", batchFrom), zap.Uint64("to", to))
+		if err = db.Prune(ctx, nil, batchFrom, to); err != nil {
+			return err
+		}
+	}
+	log.L().Info("batch prune", zap.Uint64("from", from), zap.Uint64("to", to))
+	return db.Prune(ctx, nil, from, to)
+}
+
+func (db *erigonDB) Prune(ctx context.Context, tx kv.RwTx, from, to uint64) error {
+	if from >= to {
+		return errors.Errorf("invalid prune range: from %d >= to %d", from, to)
+	}
+	log.L().Debug("erigon working set store prune execution stage",
+		zap.Uint64("from", from),
+		zap.Uint64("to", to),
+	)
+	s := stagedsync.PruneState{ID: stages.Execution, ForwardProgress: to}
+	num := to - from
+	cfg := stagedsync.StageExecuteBlocksCfg(db.rw,
+		prune.Mode{
+			History:    prune.Distance(num),
+			Receipts:   prune.Distance(num),
+			CallTraces: prune.Distance(num),
+		},
+		0, nil, nil, nil, nil, nil, false, false, false, datadir.Dirs{}, nil, nil, nil, ethconfig.Sync{}, nil, nil)
+	err := stagedsync.PruneExecutionStage(&s, tx, cfg, ctx, false)
+	if err != nil {
+		return errors.Wrapf(err, "failed to prune execution stage from %d to %d", from, to)
+	}
+	log.L().Debug("erigon working set store prune execution stage done",
+		zap.Uint64("from", from),
+		zap.Uint64("to", to),
+		zap.Uint64("progress", s.PruneProgress),
+	)
+	if to%5000 == 0 {
+		log.L().Info("prune execution stage", zap.Uint64("from", from), zap.Uint64("to", to), zap.Uint64("progress", s.PruneProgress))
+	}
+	return nil
+}
+
 func (store *erigonWorkingSetStore) Start(ctx context.Context) error {
 	return nil
 }
@@ -123,7 +197,7 @@ func (store *erigonWorkingSetStore) Finalize(ctx context.Context) error {
 	return nil
 }
 
-func (store *erigonWorkingSetStore) prepareCommit(ctx context.Context, tx kv.RwTx) error {
+func (store *erigonWorkingSetStore) prepareCommit(ctx context.Context, tx kv.RwTx, retention uint64) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	height := blkCtx.BlockHeight
 	ts := blkCtx.BlockTimeStamp.Unix()
@@ -158,10 +232,15 @@ func (store *erigonWorkingSetStore) prepareCommit(ctx context.Context, tx kv.RwT
 	if err != nil {
 		return err
 	}
-	return nil
+	// Prune store if retention is set
+	if retention == 0 || retention >= blkCtx.BlockHeight {
+		return nil
+	}
+	from, to := blkCtx.BlockHeight-retention, blkCtx.BlockHeight
+	return store.db.Prune(ctx, tx, from, to)
 }
 
-func (store *erigonWorkingSetStore) Commit(ctx context.Context) error {
+func (store *erigonWorkingSetStore) Commit(ctx context.Context, retention uint64) error {
 	defer store.tx.Rollback()
 	// BeginRw accounting for the context Done signal
 	// statedb has been committed, so we should not use the context
@@ -171,7 +250,7 @@ func (store *erigonWorkingSetStore) Commit(ctx context.Context) error {
 	}
 	defer tx.Rollback()
 
-	if err = store.prepareCommit(ctx, tx); err != nil {
+	if err = store.prepareCommit(ctx, tx, retention); err != nil {
 		return errors.Wrap(err, "failed to prepare erigon working set store commit")
 	}
 	if err = tx.Commit(); err != nil {

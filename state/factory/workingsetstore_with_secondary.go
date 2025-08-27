@@ -99,17 +99,17 @@ func (store *workingSetStoreWithSecondary) Delete(ns string, key []byte) error {
 	return store.writerSecondary.Delete(ns, key)
 }
 
-func (store *workingSetStoreWithSecondary) Commit(ctx context.Context) error {
+func (store *workingSetStoreWithSecondary) Commit(ctx context.Context, retention uint64) error {
 	// Commit to secondary store first, then commit to main store
 	// This ensures that if the secondary store fails, the main store is not committed
 	// the main store can be committed independently, but the secondary store cannot
 	t1 := time.Now()
-	if err := store.writerSecondary.Commit(ctx); err != nil {
+	if err := store.writerSecondary.Commit(ctx, retention); err != nil {
 		return err
 	}
 	perfMtc.WithLabelValues("commiterigon").Set(float64(time.Since(t1).Nanoseconds()))
 	t2 := time.Now()
-	err := store.writer.Commit(ctx)
+	err := store.writer.Commit(ctx, retention)
 	perfMtc.WithLabelValues("commitstore").Set(float64(time.Since(t2).Nanoseconds()))
 	return err
 }

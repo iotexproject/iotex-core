@@ -184,6 +184,11 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 				erigonHeight, sdb.currentChainHeight,
 			)
 		}
+		if sdb.cfg.Chain.HistoryBlockRetention > 0 && erigonHeight > sdb.cfg.Chain.HistoryBlockRetention {
+			if err := sdb.erigonDB.BatchPrune(ctx, erigonHeight-sdb.cfg.Chain.HistoryBlockRetention, erigonHeight, 1000); err != nil {
+				return errors.Wrap(err, "failed to prune erigonDB")
+			}
+		}
 	}
 	log.L().Info("State factory started",
 		zap.Uint64("height", sdb.currentChainHeight),
@@ -390,6 +395,18 @@ func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (prot
 		return nil, err
 	}
 	if sdb.erigonDB != nil {
+		if sdb.cfg.Chain.HistoryBlockRetention > 0 {
+			sdb.mutex.RLock()
+			tip := sdb.currentChainHeight
+			sdb.mutex.RUnlock()
+			if height < tip-sdb.cfg.Chain.HistoryBlockRetention {
+				return nil, errors.Wrapf(
+					ErrNotSupported,
+					"history is pruned, only supported for latest %d blocks, but requested height %d",
+					sdb.cfg.Chain.HistoryBlockRetention, height,
+				)
+			}
+		}
 		e, err := sdb.erigonDB.newErigonStoreDryrun(ctx, height+1)
 		if err != nil {
 			return nil, err
@@ -441,8 +458,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			sdb.currentChainHeight, h,
 		)
 	}
-
-	if err := ws.Commit(ctx); err != nil {
+	if err := ws.Commit(ctx, sdb.cfg.Chain.HistoryBlockRetention); err != nil {
 		return err
 	}
 	sdb.protocolViews = ws.views
@@ -562,7 +578,7 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 		return err
 	}
 
-	if err := ws.Commit(ctx); err != nil {
+	if err := ws.Commit(ctx, 0); err != nil {
 		return err
 	}
 	sdb.protocolViews = ws.views
