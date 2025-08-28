@@ -40,10 +40,10 @@ type (
 	// CandidateStateManager is candidate state manager on top of StateManager
 	CandidateStateManager interface {
 		BucketSet
-		BucketGetByIndex
+		NativeBucketGetByIndex
 		CandidateSet
 		// candidate and bucket pool related
-		DirtyView() *ViewData
+		DirtyView() *viewData
 		ContainsName(string) bool
 		ContainsOwner(address.Address) bool
 		ContainsOperator(address.Address) bool
@@ -64,7 +64,7 @@ type (
 		ContainsSelfStakingBucket(uint64) bool
 		GetByIdentifier(address.Address) *Candidate
 		SR() protocol.StateReader
-		BucketGetByIndex
+		NativeBucketGetByIndex
 	}
 
 	candSM struct {
@@ -108,15 +108,15 @@ func (csm *candSM) SR() protocol.StateReader {
 }
 
 // DirtyView is csm's current state, which reflects base view + applying delta saved in csm's dock
-func (csm *candSM) DirtyView() *ViewData {
+func (csm *candSM) DirtyView() *viewData {
 	v, err := csm.StateManager.ReadView(_protocolID)
 	if err != nil {
 		log.S().Panic("failed to read view", zap.Error(err))
 	}
-	return &ViewData{
+	return &viewData{
 		candCenter:     csm.candCenter,
 		bucketPool:     csm.bucketPool,
-		contractsStake: v.(*ViewData).contractsStake,
+		contractsStake: v.(*viewData).contractsStake,
 	}
 }
 
@@ -175,12 +175,12 @@ func (csm *candSM) Commit(ctx context.Context) error {
 	return csm.WriteView(_protocolID, view)
 }
 
-func (csm *candSM) getBucket(index uint64) (*VoteBucket, error) {
-	return newCandidateStateReader(csm).getBucket(index)
+func (csm *candSM) NativeBucket(index uint64) (*VoteBucket, error) {
+	return newCandidateStateReader(csm).NativeBucket(index)
 }
 
 func (csm *candSM) updateBucket(index uint64, bucket *VoteBucket) error {
-	if _, err := csm.getBucket(index); err != nil {
+	if _, err := csm.NativeBucket(index); err != nil {
 		return err
 	}
 

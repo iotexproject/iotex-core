@@ -514,9 +514,13 @@ func TestContractStakingCache_LoadFromDB(t *testing.T) {
 
 	// load from db with bucket
 	bucketInfo := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
-	kvstore.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(1), bucketInfo.Serialize())
+	bidata, err := bucketInfo.Serialize()
+	require.NoError(err)
+	kvstore.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(1), bidata)
 	bucketType := &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1}
-	kvstore.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(1), bucketType.Serialize())
+	btdata, err := bucketType.Serialize()
+	require.NoError(err)
+	kvstore.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(1), btdata)
 	err = cache.LoadFromDB(kvstore)
 	require.NoError(err)
 	require.Equal(uint64(10), cache.TotalBucketCount())
@@ -560,6 +564,7 @@ func checkBucket(r *require.Assertions, id uint64, bt *BucketType, bucket *bucke
 func TestContractStakingCache_MustGetBucketInfo(t *testing.T) {
 	// build test condition to add a bucketInfo
 	cache := newContractStakingCache()
+	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
 	cache.PutBucketInfo(1, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
 
 	tryCatchMustGetBucketInfo := func(i uint64) (v *bucketInfo, err error) {
@@ -606,12 +611,14 @@ func TestContractStakingCache_MustGetBucketType(t *testing.T) {
 	v, err = tryCatchMustGetBucketType(2)
 	r.Nil(v)
 	r.Error(err)
-	r.Equal(err.Error(), "bucket type not found")
+	r.Equal(err.Error(), "bucket type not found: 2")
 }
 
 func TestContractStakingCache_DeleteBucketInfo(t *testing.T) {
 	// build test condition to add a bucketInfo
 	cache := newContractStakingCache()
+	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
+	cache.PutBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 1})
 	bi1 := &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(1)}
 	bi2 := &bucketInfo{TypeIndex: 2, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
 	cache.PutBucketInfo(1, bi1)
