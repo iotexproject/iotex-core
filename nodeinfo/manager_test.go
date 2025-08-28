@@ -117,10 +117,14 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 		require.Equal(msg.Info.Height, nodeInfo.Height)
 		require.Equal(msg.Info.Version, nodeInfo.Version)
 		require.Equal(msg.Info.Timestamp.AsTime().String(), nodeInfo.Timestamp.String())
+		require.Equal(msg.Info.Address, nodeInfo.Address)
 		require.Equal("abc", nodeInfo.PeerID)
 		m := dto.Metric{}
 		_nodeInfoHeightGauge.WithLabelValues(addr, msg.Info.Version).Write(&m)
 		require.Equal(msg.Info.Height, uint64(m.Gauge.GetValue()))
+		m = dto.Metric{}
+		_nodeInfoAddressHeightGauge.WithLabelValues(addr, nodeInfo.PeerID, nodeInfo.Version).Write(&m)
+		require.Equal(nodeInfo.Height, uint64(m.Gauge.GetValue()))
 	})
 
 	t.Run("verify_fail", func(t *testing.T) {
@@ -143,7 +147,10 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 		require.False(ok)
 		m := dto.Metric{}
 		_nodeInfoHeightGauge.WithLabelValues(addr, msg.Info.Version).Write(&m)
-		require.Equal(uint64(0), uint64(m.Gauge.GetValue()))
+		require.Zero(m.Gauge.GetValue())
+		m = dto.Metric{}
+		_nodeInfoAddressHeightGauge.WithLabelValues(addr, "abc", msg.Info.Version).Write(&m)
+		require.Zero(m.Gauge.GetValue())
 	})
 }
 
