@@ -503,7 +503,7 @@ func (mr *MockViewMockRecorder) Clone() *gomock.Call {
 }
 
 // Commit mocks base method.
-func (m *MockView) Commit(arg0 context.Context, arg1 StateReader) error {
+func (m *MockView) Commit(arg0 context.Context, arg1 StateManager) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Commit", arg0, arg1)
 	ret0, _ := ret[0].(error)

@@ -124,7 +124,7 @@ func (bp *BucketPool) Clone() *BucketPool {
 }
 
 // Commit is called upon workingset commit
-func (bp *BucketPool) Commit(sr protocol.StateReader) error {
+func (bp *BucketPool) Commit() error {
 	bp.dirty = false
 	return nil
 }

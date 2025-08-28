@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
@@ -371,6 +372,23 @@ func newContractStakingEventHandler(cache stakingCache) *contractStakingEventHan
 		dirty:      dirty,
 		tokenOwner: make(map[uint64]address.Address),
 	}
+}
+
+func (eh *contractStakingEventHandler) HandleReceipts(ctx context.Context, height uint64, receipts []*action.Receipt, contractAddr string) error {
+	for _, receipt := range receipts {
+		if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+			continue
+		}
+		for _, log := range receipt.Logs() {
+			if log.Address != contractAddr {
+				continue
+			}
+			if err := eh.HandleEvent(ctx, height, log); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (eh *contractStakingEventHandler) HandleEvent(ctx context.Context, height uint64, log *action.Log) error {
