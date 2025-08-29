@@ -470,7 +470,7 @@ type (
 		FoundationBonusP2EndEpoch uint64 `yaml:"foundationBonusP2EndEpoch"`
 		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach not to get probation
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
-		// WakeBlockReward is the block reward amount starts from wake height in decimal string format
+		// WakeBlockRewardStr is the block reward amount starts from wake height in decimal string format
 		WakeBlockRewardStr string `yaml:"wakeBlockRewardStr"`
 	}
 	// Staking contains the configs for staking protocol
