@@ -35,27 +35,27 @@ func (store *erigonWorkingSetStoreForSimulate) Stop(context.Context) error {
 	return nil
 }
 
-func (store *erigonWorkingSetStoreForSimulate) GetObject(ns string, key []byte, obj any) error {
+func (store *erigonWorkingSetStoreForSimulate) GetObject(ns string, key []byte, obj any, secondaryOnly bool) error {
 	if _, ok := obj.(state.ContractStorage); ok {
-		return store.erigonStore.GetObject(ns, key, obj)
+		return store.erigonStore.GetObject(ns, key, obj, secondaryOnly)
 	}
 	if _, ok := obj.(*state.Account); !ok && ns == AccountKVNamespace {
-		return store.store.GetObject(ns, key, obj)
+		return store.store.GetObject(ns, key, obj, secondaryOnly)
 	}
 	switch ns {
 	case AccountKVNamespace, evm.CodeKVNameSpace:
-		return store.erigonStore.GetObject(ns, key, obj)
+		return store.erigonStore.GetObject(ns, key, obj, secondaryOnly)
 	default:
-		return store.store.GetObject(ns, key, obj)
+		return store.store.GetObject(ns, key, obj, secondaryOnly)
 	}
 }
 
-func (store *erigonWorkingSetStoreForSimulate) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
+func (store *erigonWorkingSetStoreForSimulate) States(ns string, keys [][]byte, obj any, secondaryOnly bool) ([][]byte, [][]byte, error) {
 	if _, ok := obj.(state.ContractStorage); ok {
-		return store.erigonStore.States(ns, keys, obj)
+		return store.erigonStore.States(ns, keys, obj, secondaryOnly)
 	}
 	// currently only used for staking & poll, no need to read from erigon
-	return store.store.States(ns, keys, obj)
+	return store.store.States(ns, keys, obj, secondaryOnly)
 }
 
 func (store *erigonWorkingSetStoreForSimulate) Finalize(_ context.Context) error {

@@ -22,16 +22,14 @@ var (
 )
 
 type reader interface {
-	// Get(string, []byte) ([]byte, error)
-	GetObject(string, []byte, any) error
-	States(string, [][]byte, any) ([][]byte, [][]byte, error)
+	GetObject(string, []byte, any, bool) error
+	States(string, [][]byte, any, bool) ([][]byte, [][]byte, error)
 	Digest() hash.Hash256
-	// Filter(string, db.Condition, []byte, []byte) ([][]byte, [][]byte, error)
 }
 
 type writer interface {
-	PutObject(ns string, key []byte, obj any) error
-	DeleteObject(ns string, key []byte, obj any) error
+	PutObject(ns string, key []byte, obj any, secondaryOnly bool) error
+	DeleteObject(ns string, key []byte, obj any, secondaryOnly bool) error
 	Snapshot() int
 	RevertSnapshot(snapshot int) error
 	ResetSnapshots()
@@ -78,18 +76,18 @@ func (store *workingSetStoreWithSecondary) FinalizeTx(ctx context.Context) error
 	return store.writerSecondary.FinalizeTx(ctx)
 }
 
-func (store *workingSetStoreWithSecondary) PutObject(ns string, key []byte, obj any) error {
-	if err := store.writer.PutObject(ns, key, obj); err != nil {
+func (store *workingSetStoreWithSecondary) PutObject(ns string, key []byte, obj any, secondaryOnly bool) error {
+	if err := store.writer.PutObject(ns, key, obj, secondaryOnly); err != nil {
 		return err
 	}
-	return store.writerSecondary.PutObject(ns, key, obj)
+	return store.writerSecondary.PutObject(ns, key, obj, secondaryOnly)
 }
 
-func (store *workingSetStoreWithSecondary) DeleteObject(ns string, key []byte, obj any) error {
-	if err := store.writer.DeleteObject(ns, key, obj); err != nil {
+func (store *workingSetStoreWithSecondary) DeleteObject(ns string, key []byte, obj any, secondaryOnly bool) error {
+	if err := store.writer.DeleteObject(ns, key, obj, secondaryOnly); err != nil {
 		return err
 	}
-	return store.writerSecondary.DeleteObject(ns, key, obj)
+	return store.writerSecondary.DeleteObject(ns, key, obj, secondaryOnly)
 }
 
 func (store *workingSetStoreWithSecondary) Commit(ctx context.Context, retention uint64) error {
@@ -147,12 +145,12 @@ func (store *workingSetStoreWithSecondary) CreateGenesisStates(ctx context.Conte
 	return store.writerSecondary.CreateGenesisStates(ctx)
 }
 
-func (store *workingSetStoreWithSecondary) GetObject(ns string, key []byte, obj any) error {
-	return store.reader.GetObject(ns, key, obj)
+func (store *workingSetStoreWithSecondary) GetObject(ns string, key []byte, obj any, secondaryOnly bool) error {
+	return store.reader.GetObject(ns, key, obj, secondaryOnly)
 }
 
-func (store *workingSetStoreWithSecondary) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
-	return store.reader.States(ns, keys, obj)
+func (store *workingSetStoreWithSecondary) States(ns string, keys [][]byte, obj any, secondaryOnly bool) ([][]byte, [][]byte, error) {
+	return store.reader.States(ns, keys, obj, secondaryOnly)
 }
 
 func (store *workingSetStoreWithSecondary) KVStore() db.KVStore {

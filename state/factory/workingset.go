@@ -336,7 +336,7 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	return ws.height, ws.store.GetObject(cfg.Namespace, cfg.Key, s)
+	return ws.height, ws.store.GetObject(cfg.Namespace, cfg.Key, s, cfg.SecondaryOnly)
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
@@ -347,7 +347,7 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys, cfg.Object)
+	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys, cfg.Object, cfg.SecondaryOnly)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -365,7 +365,7 @@ func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uin
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.store.PutObject(cfg.Namespace, cfg.Key, s)
+	return ws.height, ws.store.PutObject(cfg.Namespace, cfg.Key, s, cfg.SecondaryOnly)
 }
 
 // DelState deletes a state from DB
@@ -375,7 +375,7 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.store.DeleteObject(cfg.Namespace, cfg.Key, cfg.Object)
+	return ws.height, ws.store.DeleteObject(cfg.Namespace, cfg.Key, cfg.Object, cfg.SecondaryOnly)
 }
 
 // ReadView reads the view

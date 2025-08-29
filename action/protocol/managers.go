@@ -62,13 +62,22 @@ func ObjectOption(obj any) StateOption {
 	}
 }
 
+// SecondaryOnlyOption sets the option to only access secondary workingset store
+func SecondaryOnlyOption() StateOption {
+	return func(cfg *StateConfig) error {
+		cfg.SecondaryOnly = true
+		return nil
+	}
+}
+
 type (
 	// StateConfig is the config for accessing stateDB
 	StateConfig struct {
-		Namespace string // namespace used by state's storage
-		Key       []byte
-		Keys      [][]byte
-		Object    any // object used by state's storage
+		Namespace     string // namespace used by state's storage
+		Key           []byte
+		Keys          [][]byte
+		Object        any  // object used by state's storage
+		SecondaryOnly bool // only access secondary workingset store
 	}
 
 	// StateOption sets parameter for access state

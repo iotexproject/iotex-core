@@ -24,10 +24,10 @@ type (
 		Start(context.Context) error
 		Stop(context.Context) error
 		KVStore() db.KVStore
-		PutObject(ns string, key []byte, object any) (err error)
-		GetObject(ns string, key []byte, object any) error
-		DeleteObject(ns string, key []byte, object any) error
-		States(ns string, keys [][]byte, object any) ([][]byte, [][]byte, error)
+		PutObject(ns string, key []byte, object any, secondaryOnly bool) (err error)
+		GetObject(ns string, key []byte, object any, secondaryOnly bool) error
+		DeleteObject(ns string, key []byte, object any, secondaryOnly bool) error
+		States(ns string, keys [][]byte, object any, secondaryOnly bool) ([][]byte, [][]byte, error)
 		Commit(context.Context, uint64) error
 		Digest() hash.Hash256
 		Finalize(context.Context) error
@@ -71,7 +71,10 @@ func (store *stateDBWorkingSetStore) WriteBatch(bat batch.KVStoreBatch) error {
 	return store.flusher.Flush()
 }
 
-func (store *stateDBWorkingSetStore) PutObject(ns string, key []byte, obj any) error {
+func (store *stateDBWorkingSetStore) PutObject(ns string, key []byte, obj any, secondaryOnly bool) error {
+	if secondaryOnly {
+		return nil
+	}
 	store.lock.Lock()
 	defer store.lock.Unlock()
 	value, err := state.Serialize(obj)
@@ -99,7 +102,10 @@ func (store *stateDBWorkingSetStore) putKV(ns string, key []byte, value []byte) 
 	return store.flusher.Flush()
 }
 
-func (store *stateDBWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
+func (store *stateDBWorkingSetStore) DeleteObject(ns string, key []byte, obj any, secondaryOnly bool) error {
+	if secondaryOnly {
+		return nil
+	}
 	return store.Delete(ns, key)
 }
 
@@ -153,7 +159,10 @@ func (store *stateDBWorkingSetStore) Stop(context.Context) error {
 	return nil
 }
 
-func (store *stateDBWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
+func (store *stateDBWorkingSetStore) GetObject(ns string, key []byte, obj any, secondaryOnly bool) error {
+	if secondaryOnly {
+		return errors.Wrap(state.ErrStateNotExist, "working set store not support secondary only")
+	}
 	v, err := store.getKV(ns, key)
 	if err != nil {
 		return err
@@ -176,7 +185,10 @@ func (store *stateDBWorkingSetStore) getKV(ns string, key []byte) ([]byte, error
 	return data, nil
 }
 
-func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
+func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte, obj any, secondaryOnly bool) ([][]byte, [][]byte, error) {
+	if secondaryOnly {
+		return nil, nil, errors.Wrap(state.ErrStateNotExist, "working set store not support secondary only")
+	}
 	if store.readBuffer {
 		// TODO: after the 180 HF, we can revert readBuffer, and always go this case
 		return readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
