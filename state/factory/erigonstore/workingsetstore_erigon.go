@@ -296,7 +296,7 @@ func (store *ErigonWorkingSetStore) RevertSnapshot(sn int) error {
 func (store *ErigonWorkingSetStore) ResetSnapshots() {}
 
 // PutObject puts an object into the ErigonWorkingSetStore
-func (store *ErigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (err error) {
+func (store *ErigonWorkingSetStore) PutObject(ns string, key []byte, obj any, secondaryOnly bool) (err error) {
 	storage := ObjectContractStorage(obj)
 	if storage == nil {
 		// TODO: return error after all types are supported
@@ -307,7 +307,7 @@ func (store *ErigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (e
 }
 
 // GetObject gets an object from the ErigonWorkingSetStore
-func (store *ErigonWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
+func (store *ErigonWorkingSetStore) GetObject(ns string, key []byte, obj any, secondaryOnly bool) error {
 	storage := ObjectContractStorage(obj)
 	if storage == nil {
 		// TODO: return error after all types are supported
@@ -320,7 +320,7 @@ func (store *ErigonWorkingSetStore) GetObject(ns string, key []byte, obj any) er
 }
 
 // DeleteObject deletes an object from the ErigonWorkingSetStore
-func (store *ErigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
+func (store *ErigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any, secondaryOnly bool) error {
 	storage := ObjectContractStorage(obj)
 	if storage == nil {
 		// TODO: return error after all types are supported
@@ -331,7 +331,7 @@ func (store *ErigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any)
 }
 
 // States gets multiple objects from the ErigonWorkingSetStore
-func (store *ErigonWorkingSetStore) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
+func (store *ErigonWorkingSetStore) States(ns string, keys [][]byte, obj any, secondaryOnly bool) ([][]byte, [][]byte, error) {
 	storage := ObjectContractStorage(obj)
 	if storage == nil {
 		return nil, nil, errors.Errorf("unsupported object type %T in ns %s", obj, ns)

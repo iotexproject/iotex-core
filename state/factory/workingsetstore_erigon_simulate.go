@@ -34,21 +34,21 @@ func (store *erigonWorkingSetStoreForSimulate) Stop(context.Context) error {
 	return nil
 }
 
-func (store *erigonWorkingSetStoreForSimulate) GetObject(ns string, key []byte, obj any) error {
+func (store *erigonWorkingSetStoreForSimulate) GetObject(ns string, key []byte, obj any, secondaryOnly bool) error {
 	storage := erigonstore.ObjectContractStorage(obj)
 	if storage != nil {
-		return store.erigonStore.GetObject(ns, key, obj)
+		return store.erigonStore.GetObject(ns, key, obj, secondaryOnly)
 	}
-	return store.store.GetObject(ns, key, obj)
+	return store.store.GetObject(ns, key, obj, secondaryOnly)
 }
 
-func (store *erigonWorkingSetStoreForSimulate) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
+func (store *erigonWorkingSetStoreForSimulate) States(ns string, keys [][]byte, obj any, secondaryOnly bool) ([][]byte, [][]byte, error) {
 	storage := erigonstore.ObjectContractStorage(obj)
 	if storage != nil {
-		return store.erigonStore.States(ns, keys, obj)
+		return store.erigonStore.States(ns, keys, obj, secondaryOnly)
 	}
 	// currently only used for staking & poll, no need to read from erigon
-	return store.store.States(ns, keys, obj)
+	return store.store.States(ns, keys, obj, secondaryOnly)
 }
 
 func (store *erigonWorkingSetStoreForSimulate) Finalize(_ context.Context) error {
