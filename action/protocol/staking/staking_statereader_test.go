@@ -61,7 +61,7 @@ func TestStakingStateReader(t *testing.T) {
 			StakeStartTime:          time.Now(),
 			AutoStake:               true,
 			ContractAddress:         contractAddress,
-			UnstakeStartBlockHeight: maxBlockNumber,
+			UnstakeStartBlockHeight: MaxDurationNumber,
 		},
 		{
 			Index:                   2,
@@ -73,7 +73,7 @@ func TestStakingStateReader(t *testing.T) {
 			StakeStartTime:          time.Now(),
 			AutoStake:               true,
 			ContractAddress:         contractAddress,
-			UnstakeStartBlockHeight: maxBlockNumber,
+			UnstakeStartBlockHeight: MaxDurationNumber,
 		},
 	}
 	testNativeBuckets := []*VoteBucket{

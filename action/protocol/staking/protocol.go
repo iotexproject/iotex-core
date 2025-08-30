@@ -8,6 +8,7 @@ package staking
 import (
 	"context"
 	"encoding/hex"
+	"math"
 	"math/big"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -41,6 +43,9 @@ const (
 
 	// CandsMapNS is the bucket name to store candidate map
 	CandsMapNS = "CandsMap"
+
+	// MaxDurationNumber is the maximum duration number
+	MaxDurationNumber = math.MaxUint64
 )
 
 const (
@@ -90,6 +95,7 @@ type (
 		patch                    *PatchStore
 		helperCtx                HelperCtx
 		blockStore               BlockStore
+		blocksToDurationFn       func(startHeight, endHeight, currentHeight uint64) time.Duration
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -101,6 +107,7 @@ type (
 		BootstrapCandidates               []genesis.BootstrapCandidate
 		PersistStakingPatchBlock          uint64
 		FixAliasForNonStopHeight          uint64
+		SkipContractStakingViewHeight     uint64
 		EndorsementWithdrawWaitingBlocks  uint64
 		MigrateContractAddress            string
 		TimestampedMigrateContractAddress string
@@ -151,6 +158,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 func NewProtocol(
 	helperCtx HelperCtx,
 	cfg *BuilderConfig,
+	blocksToDurationFn func(startHeight, endHeight, currentHeight uint64) time.Duration,
 	candBucketsIndexer *CandidatesBucketsIndexer,
 	contractStakingIndexer ContractStakingIndexerWithBucketType,
 	contractStakingIndexerV2 ContractStakingIndexer,
@@ -202,9 +210,11 @@ func NewProtocol(
 			BootstrapCandidates:              cfg.Staking.BootstrapCandidates,
 			PersistStakingPatchBlock:         cfg.PersistStakingPatchBlock,
 			FixAliasForNonStopHeight:         cfg.FixAliasForNonStopHeight,
+			SkipContractStakingViewHeight:    cfg.SkipContractStakingViewHeight,
 			EndorsementWithdrawWaitingBlocks: cfg.Staking.EndorsementWithdrawWaitingBlocks,
 			MigrateContractAddress:           migrateContractAddress,
 		},
+		blocksToDurationFn:       blocksToDurationFn,
 		candBucketsIndexer:       candBucketsIndexer,
 		voteReviser:              voteReviser,
 		patch:                    NewPatchStore(cfg.StakingPatchDir),
@@ -249,7 +259,9 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			return nil, errors.Wrap(err, "failed to load name/operator map to cand center")
 		}
 	}
-
+	if p.skipContractStakingView(height) {
+		return c, nil
+	}
 	c.contractsStake = &contractStakeView{}
 	if p.contractStakingIndexer != nil {
 		view, err := NewContractStakeViewBuilder(p.contractStakingIndexer, p.blockStore).Build(ctx, sr, height)
@@ -428,13 +440,23 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	if err != nil {
 		return err
 	}
+	vd := v.(*viewData)
 	if blkCtx.BlockHeight == g.ToBeEnabledBlockHeight {
-		if err := v.(*viewData).contractsStake.FlushBuckets(sm); err != nil {
-			return errors.Wrap(err, "failed to write buckets")
+		handler, err := newNFTBucketEventHandler(sm, func(bucket *contractstaking.Bucket, height uint64) *big.Int {
+			vb := p.convertToVoteBucket(bucket, height)
+			return p.calculateVoteWeight(vb, false)
+		})
+		if err != nil {
+			return err
+		}
+		if err := vd.contractsStake.Migrate(handler); err != nil {
+			return errors.Wrap(err, "failed to flush buckets for contract staking")
 		}
 	}
-	if err = v.(*viewData).contractsStake.CreatePreStates(ctx); err != nil {
-		return err
+	if featureCtx.StoreVoteOfNFTBucketIntoView {
+		if err := vd.contractsStake.CreatePreStates(ctx); err != nil {
+			return err
+		}
 	}
 
 	if p.candBucketsIndexer == nil {
@@ -611,11 +633,43 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 
 // HandleReceipt handles a receipt
 func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm protocol.StateManager, receipt *action.Receipt) error {
-	v, err := sm.ReadView(_protocolID)
+	featureCtx, ok := protocol.GetFeatureCtx(ctx)
+	if !ok {
+		return errors.New("failed to get feature context from action context")
+	}
+	if featureCtx.StoreVoteOfNFTBucketIntoView {
+		v, err := sm.ReadView(_protocolID)
+		if err != nil {
+			return err
+		}
+		return v.(*viewData).contractsStake.Handle(ctx, receipt)
+	}
+	handler, err := newNFTBucketEventHandler(sm, func(bucket *contractstaking.Bucket, height uint64) *big.Int {
+		vb := p.convertToVoteBucket(bucket, height)
+		return p.calculateVoteWeight(vb, false)
+	})
 	if err != nil {
 		return err
 	}
-	return v.(*viewData).contractsStake.Handle(ctx, receipt)
+	if p.contractStakingIndexer != nil {
+		processor := p.contractStakingIndexer.CreateEventProcessor(ctx, handler)
+		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
+			return errors.Wrap(err, "failed to process receipt for contract staking indexer")
+		}
+	}
+	if p.contractStakingIndexerV2 != nil {
+		processor := p.contractStakingIndexerV2.CreateEventProcessor(ctx, handler)
+		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
+			return errors.Wrap(err, "failed to process receipt for contract staking indexer v2")
+		}
+	}
+	if p.contractStakingIndexerV3 != nil {
+		processor := p.contractStakingIndexerV3.CreateEventProcessor(ctx, handler)
+		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
+			return errors.Wrap(err, "failed to process receipt for contract staking indexer v3")
+		}
+	}
+	return nil
 }
 
 // Validate validates a staking message
@@ -698,22 +752,24 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	list := c.AllCandidates()
 	cand := make(CandidateList, 0, len(list))
 	for i := range list {
-		var csVotes *big.Int
-		if protocol.MustGetFeatureCtx(ctx).CreatePostActionStates {
-			csVotes, err = p.contractStakingVotesFromView(ctx, list[i].GetIdentifier(), c.BaseView())
-			if err != nil {
-				return nil, err
+		if protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
+			var csVotes *big.Int
+			if protocol.MustGetFeatureCtx(ctx).CreatePostActionStates {
+				csVotes, err = p.contractStakingVotesFromView(ctx, list[i].GetIdentifier(), c.BaseView())
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind.
+				// the reason of using srHeight-1 is contract indexer is not updated before the block is committed.
+				csVotes, err = p.contractStakingVotesFromIndexer(ctx, list[i].GetIdentifier(), srHeight-1)
+				if err != nil {
+					return nil, err
+				}
 			}
-		} else {
-			// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind.
-			// the reason of using srHeight-1 is contract indexer is not updated before the block is committed.
-			csVotes, err = p.contractStakingVotesFromIndexer(ctx, list[i].GetIdentifier(), srHeight-1)
-			if err != nil {
-				return nil, err
-			}
-		}
 
-		list[i].Votes.Add(list[i].Votes, csVotes)
+			list[i].Votes.Add(list[i].Votes, csVotes)
+		}
 		active, err := p.isActiveCandidate(ctx, c, list[i])
 		if err != nil {
 			return nil, err
@@ -838,6 +894,44 @@ func (p *Protocol) Name() string {
 	return _protocolID
 }
 
+func (p *Protocol) convertToVoteBucket(bkt *contractstaking.Bucket, height uint64) *VoteBucket {
+	vb := VoteBucket{
+		Index:           0,
+		StakedAmount:    bkt.StakedAmount,
+		AutoStake:       bkt.UnlockedAt == MaxDurationNumber,
+		Candidate:       bkt.Candidate,
+		Owner:           bkt.Owner,
+		ContractAddress: "",
+		Timestamped:     bkt.IsTimestampBased,
+	}
+	if bkt.IsTimestampBased {
+		vb.StakedDuration = time.Duration(bkt.StakedDuration) * time.Second
+		vb.StakeStartTime = time.Unix(int64(bkt.CreatedAt), 0)
+		vb.CreateTime = time.Unix(int64(bkt.CreatedAt), 0)
+		if bkt.UnlockedAt != MaxDurationNumber {
+			vb.StakeStartTime = time.Unix(int64(bkt.UnlockedAt), 0)
+		}
+		if bkt.UnstakedAt == MaxDurationNumber {
+			vb.UnstakeStartTime = time.Unix(0, 0)
+		} else {
+			vb.UnstakeStartTime = time.Unix(int64(bkt.UnstakedAt), 0)
+		}
+	} else {
+		vb.StakedDuration = p.blocksToDurationFn(bkt.CreatedAt, bkt.CreatedAt+bkt.StakedDuration, height)
+		vb.StakedDurationBlockNumber = bkt.StakedDuration
+		vb.CreateBlockHeight = bkt.CreatedAt
+		vb.StakeStartBlockHeight = bkt.CreatedAt
+		vb.UnstakeStartBlockHeight = bkt.UnstakedAt
+		if bkt.UnlockedAt != MaxDurationNumber {
+			vb.StakeStartBlockHeight = bkt.UnlockedAt
+		}
+	}
+	if bkt.Muted {
+		vb.Candidate, _ = address.FromString(address.ZeroAddress)
+	}
+	return &vb
+}
+
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
 	return CalculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
 }
@@ -899,6 +993,10 @@ func (p *Protocol) settleAction(
 	}
 	r.AddLogs(logs...).AddTransactionLogs(depositLog...).AddTransactionLogs(tLogs...)
 	return &r, nil
+}
+
+func (p *Protocol) skipContractStakingView(height uint64) bool {
+	return height >= p.config.SkipContractStakingViewHeight
 }
 
 func (p *Protocol) needToReadCandsMap(ctx context.Context, height uint64) bool {
