@@ -88,6 +88,10 @@ func (r *ContractStakingStateReader) Bucket(contractAddr address.Address, bucket
 		contractNamespaceOption(contractAddr),
 		bucketIDKeyOption(bucketID),
 	); err != nil {
+		switch errors.Cause(err) {
+		case state.ErrStateNotExist:
+			return nil, errors.Wrapf(ErrBucketNotExist, "bucket %d for contract %s", bucketID, contractAddr.String())
+		}
 		return nil, err
 	}
 

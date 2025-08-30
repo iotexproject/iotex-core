@@ -134,12 +134,12 @@ func (s *Indexer) CreateEventProcessor(ctx context.Context, handler staking.Even
 func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (staking.ContractStakeView, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	if !s.common.Started() {
-		if err := s.start(ctx); err != nil {
-			return nil, err
+	if protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
+		if !s.common.Started() {
+			if err := s.start(ctx); err != nil {
+				return nil, err
+			}
 		}
-	}
-	if protocol.MustGetFeatureCtx(ctx).LoadContractStakingFromIndexer {
 		return &stakeView{
 			cache:              s.cache.Clone(),
 			height:             s.common.Height(),

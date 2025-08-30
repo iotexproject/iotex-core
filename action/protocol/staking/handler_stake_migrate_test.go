@@ -42,13 +42,14 @@ func TestHandleStakeMigrate(t *testing.T) {
 	p, err := NewProtocol(
 		HelperCtx{getBlockInterval, depositGas},
 		&BuilderConfig{
-			Staking:                  g.Staking,
-			PersistStakingPatchBlock: math.MaxUint64,
+			Staking:                       g.Staking,
+			PersistStakingPatchBlock:      math.MaxUint64,
+			SkipContractStakingViewHeight: math.MaxUint64,
 			Revise: ReviseConfig{
 				VoteWeight: g.Staking.VoteWeightCalConsts,
 			},
 		},
-		nil, nil, nil)
+		nil, nil, nil, nil)
 	r.NoError(err)
 	cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 	initCfg := func(cfg *genesis.Genesis) {

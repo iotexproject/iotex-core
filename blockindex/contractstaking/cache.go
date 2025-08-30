@@ -28,6 +28,7 @@ type (
 		MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType)
 		BucketType(id uint64) (*BucketType, bool)
 		BucketTypeCount() int
+		BucketTypes() map[uint64]*BucketType
 		Buckets() ([]uint64, []*BucketType, []*bucketInfo)
 		BucketsByCandidate(candidate address.Address) ([]uint64, []*BucketType, []*bucketInfo)
 		TotalBucketCount() uint64
@@ -114,6 +115,16 @@ func (s *contractStakingCache) MustGetBucketType(id uint64) *BucketType {
 	defer s.mutex.RUnlock()
 
 	return s.mustGetBucketType(id)
+}
+
+func (s *contractStakingCache) BucketTypes() map[uint64]*BucketType {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	ts := make(map[uint64]*BucketType, len(s.bucketTypeMap))
+	for k, v := range s.bucketTypeMap {
+		ts[k] = v.Clone()
+	}
+	return ts
 }
 
 func (s *contractStakingCache) BucketType(id uint64) (*BucketType, bool) {
@@ -439,13 +450,6 @@ func (s *contractStakingCache) Commit(ctx context.Context, ca address.Address, s
 	if sm == nil {
 		s.deltaBucketTypes = make(map[uint64]*BucketType)
 		s.deltaBuckets = make(map[uint64]*contractstaking.Bucket)
-		return s, nil
-	}
-	featureCtx, ok := protocol.GetFeatureCtx(ctx)
-	if !ok {
-		return s, nil
-	}
-	if featureCtx.LoadContractStakingFromIndexer {
 		return s, nil
 	}
 	if len(s.deltaBucketTypes) == 0 && len(s.deltaBuckets) == 0 {

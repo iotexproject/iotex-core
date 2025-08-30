@@ -3,7 +3,6 @@ package stakingindex
 import (
 	"context"
 	_ "embed"
-	"math"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -23,7 +22,7 @@ import (
 )
 
 const (
-	maxStakingNumber uint64 = math.MaxUint64
+	maxStakingNumber uint64 = staking.MaxDurationNumber
 )
 
 var (

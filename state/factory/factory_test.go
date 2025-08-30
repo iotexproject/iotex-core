@@ -1368,9 +1368,11 @@ func TestMintBlocksWithCandidateUpdate(t *testing.T) {
 			},
 		},
 		&staking.BuilderConfig{
-			Staking:                  genesis.TestDefault().Staking,
-			PersistStakingPatchBlock: math.MaxUint64,
+			Staking:                       genesis.TestDefault().Staking,
+			PersistStakingPatchBlock:      math.MaxUint64,
+			SkipContractStakingViewHeight: math.MaxUint64,
 		},
+		nil,
 		nil,
 		nil,
 		nil,
