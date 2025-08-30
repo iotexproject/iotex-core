@@ -10,7 +10,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 )
 
 type stakeView struct {
@@ -54,17 +53,16 @@ func (s *stakeView) IsDirty() bool {
 	return s.cache.IsDirty()
 }
 
-func (s *stakeView) Migrate(sm protocol.StateManager) error {
+func (s *stakeView) Migrate(handler staking.EventHandler) error {
 	ids := s.cache.BucketIdxs()
 	slices.Sort(ids)
 	buckets := s.cache.Buckets(ids)
-	cssm := contractstaking.NewContractStakingStateManager(sm)
 	for _, id := range ids {
-		if err := cssm.UpsertBucket(s.contractAddr, id, buckets[id]); err != nil {
+		if err := handler.PutBucket(s.contractAddr, id, buckets[id]); err != nil {
 			return err
 		}
 	}
-	return cssm.UpdateNumOfBuckets(s.contractAddr, s.cache.TotalBucketCount())
+	return nil
 }
 
 func (s *stakeView) BucketsByCandidate(candidate address.Address) ([]*VoteBucket, error) {

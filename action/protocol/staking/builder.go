@@ -6,10 +6,11 @@ type (
 
 	// BuilderConfig returns the configuration of the builder
 	BuilderConfig struct {
-		Staking                  genesis.Staking
-		PersistStakingPatchBlock uint64
-		FixAliasForNonStopHeight uint64
-		StakingPatchDir          string
-		Revise                   ReviseConfig
+		Staking                       genesis.Staking
+		PersistStakingPatchBlock      uint64
+		FixAliasForNonStopHeight      uint64
+		SkipContractStakingViewHeight uint64
+		StakingPatchDir               string
+		Revise                        ReviseConfig
 	}
 )

@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
@@ -25,7 +24,7 @@ import (
 )
 
 const (
-	maxBlockNumber uint64 = math.MaxUint64
+	maxBlockNumber uint64 = staking.MaxDurationNumber
 )
 
 type (
@@ -95,13 +94,12 @@ func (s *Indexer) CreateEventProcessor(ctx context.Context, handler staking.Even
 
 // LoadStakeView loads the contract stake view
 func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (staking.ContractStakeView, error) {
-	if !s.IsReady() {
-		if err := s.start(ctx); err != nil {
-			return nil, err
+	if protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
+		if !s.IsReady() {
+			if err := s.start(ctx); err != nil {
+				return nil, err
+			}
 		}
-	}
-	featureCtx, ok := protocol.GetFeatureCtx(ctx)
-	if !ok || featureCtx.LoadContractStakingFromIndexer {
 		return &stakeView{
 			contractAddr:       s.contractAddr,
 			config:             s.config,
