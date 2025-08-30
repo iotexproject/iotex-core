@@ -56,9 +56,19 @@ func (s *stakeView) IsDirty() bool {
 	return s.cache.IsDirty()
 }
 
-func (s *stakeView) Migrate(sm protocol.StateManager) error {
+func (s *stakeView) Migrate(handler staking.EventHandler) error {
+	bts := s.cache.BucketTypes()
+	tids := make([]uint64, 0, len(bts))
+	for id := range bts {
+		tids = append(tids, id)
+	}
+	slices.Sort(tids)
+	for _, id := range tids {
+		if err := handler.PutBucketType(s.contractAddr, bts[id]); err != nil {
+			return err
+		}
+	}
 	ids, types, infos := s.cache.Buckets()
-	cssm := contractstaking.NewContractStakingStateManager(sm)
 	bucketMap := make(map[uint64]*bucketInfo, len(ids))
 	typeMap := make(map[uint64]*BucketType, len(ids))
 	for i, id := range ids {
@@ -72,7 +82,7 @@ func (s *stakeView) Migrate(sm protocol.StateManager) error {
 			continue
 		}
 		bt := typeMap[id]
-		if err := cssm.UpsertBucket(s.contractAddr, id, &contractstaking.Bucket{
+		if err := handler.PutBucket(s.contractAddr, id, &contractstaking.Bucket{
 			Candidate:        info.Delegate,
 			Owner:            info.Owner,
 			StakedAmount:     bt.Amount,
@@ -86,7 +96,7 @@ func (s *stakeView) Migrate(sm protocol.StateManager) error {
 			return err
 		}
 	}
-	return cssm.UpdateNumOfBuckets(s.contractAddr, s.cache.TotalBucketCount())
+	return nil
 }
 
 func (s *stakeView) BucketsByCandidate(candidate address.Address) ([]*Bucket, error) {

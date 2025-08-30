@@ -22,11 +22,11 @@ func Test_CandidateStateReader(t *testing.T) {
 	sm := testdb.NewMockStateManager(ctrl)
 	h, err := sm.Height()
 	require.NoError(err)
-	csr, err := ConstructBaseView(sm)
+	_, err = ConstructBaseView(sm)
 	require.Equal(err, protocol.ErrNoName)
 	view, _, err := CreateBaseView(sm, false)
 	require.NoError(err)
-	csr = &candSR{
+	csr := &candSR{
 		StateReader: sm,
 		height:      h,
 		view:        view,
