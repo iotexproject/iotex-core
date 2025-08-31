@@ -19,6 +19,17 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
+type valueBytes []byte
+
+func (v *valueBytes) Serialize() ([]byte, error) {
+	return *v, nil
+}
+
+func (v *valueBytes) Deserialize(data []byte) error {
+	*v = data
+	return nil
+}
+
 func TestStateDBWorkingSetStore(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
@@ -30,28 +41,28 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 	require.NoError(store.Start(ctx))
 	namespace := "namespace"
 	key1 := []byte("key1")
-	value1 := []byte("value1")
+	value1 := valueBytes("value1")
 	key2 := []byte("key2")
-	value2 := []byte("value2")
+	value2 := valueBytes("value2")
 	key3 := []byte("key3")
-	value3 := []byte("value3")
+	value3 := valueBytes("value3")
 	t.Run("test kvstore feature", func(t *testing.T) {
-		var value []byte
+		var value valueBytes
 		err := store.GetObject(namespace, key1, &value)
 		require.Error(err)
 		require.NoError(store.DeleteObject(namespace, key1, &value))
-		require.NoError(store.PutObject(namespace, key1, value1))
-		var valueInStore []byte
+		require.NoError(store.PutObject(namespace, key1, &value1))
+		var valueInStore valueBytes
 		err = store.GetObject(namespace, key1, &valueInStore)
 		require.NoError(err)
 		require.True(bytes.Equal(value1, valueInStore))
 		sn1 := store.Snapshot()
-		require.NoError(store.PutObject(namespace, key2, value2))
+		require.NoError(store.PutObject(namespace, key2, &value2))
 		err = store.GetObject(namespace, key2, &valueInStore)
 		require.NoError(err)
 		require.True(bytes.Equal(value2, valueInStore))
 		store.Snapshot()
-		require.NoError(store.PutObject(namespace, key3, value3))
+		require.NoError(store.PutObject(namespace, key3, &value3))
 		err = store.GetObject(namespace, key3, &valueInStore)
 		require.NoError(err)
 		require.True(bytes.Equal(value3, valueInStore))
@@ -84,7 +95,7 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 	t.Run("finalize & commit", func(t *testing.T) {
 		height := uint64(100)
 		ctx := context.Background()
-		var value []byte
+		var value valueBytes
 		err := store.GetObject(AccountKVNamespace, []byte(CurrentHeightKey), &value)
 		require.Error(err)
 		_, err = inMemStore.Get(AccountKVNamespace, []byte(CurrentHeightKey))
@@ -93,7 +104,7 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 			BlockHeight: height,
 		})
 		require.NoError(store.Finalize(ctx))
-		var heightInStore []byte
+		var heightInStore valueBytes
 		err = store.GetObject(AccountKVNamespace, []byte(CurrentHeightKey), &heightInStore)
 		require.NoError(err)
 		require.True(bytes.Equal(heightInStore, byteutil.Uint64ToBytes(height)))
