@@ -92,8 +92,9 @@ func (s *stakeView) CreatePreStates(ctx context.Context) error {
 func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	muted := s.muteHeight > 0 && blkCtx.BlockHeight >= s.muteHeight
-	handler := newEventHandler(s.bucketNS, s.cache, blkCtx, s.timestamped, muted)
-	return handler.handleReceipt(ctx, s.contractAddr.String(), receipt)
+	return newEventProcessor(
+		s.contractAddr, blkCtx, newEventHandler(s.bucketNS, s.cache), s.timestamped, muted,
+	).ProcessReceipts(ctx, receipt)
 }
 
 func (s *stakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error {
@@ -107,11 +108,10 @@ func (s *stakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Rec
 	}
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
 	muted := s.muteHeight > 0 && height >= s.muteHeight
-	handler := newEventHandler(s.bucketNS, s.cache, blkCtx, s.timestamped, muted)
-	for _, receipt := range receipts {
-		if err := handler.handleReceipt(ctx, s.contractAddr.String(), receipt); err != nil {
-			return errors.Wrapf(err, "failed to handle receipt at height %d", height)
-		}
+	if err := newEventProcessor(
+		s.contractAddr, blkCtx, newEventHandler(s.bucketNS, s.cache), s.timestamped, muted,
+	).ProcessReceipts(ctx, receipts...); err != nil {
+		return errors.Wrapf(err, "failed to handle receipts at height %d", height)
 	}
 	s.height = height
 	return nil
