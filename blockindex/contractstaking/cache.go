@@ -25,7 +25,7 @@ type (
 		BucketInfo(id uint64) (*bucketInfo, bool)
 		MustGetBucketInfo(id uint64) *bucketInfo
 		MustGetBucketType(id uint64) *BucketType
-		MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool)
+		MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType)
 		BucketType(id uint64) (*BucketType, bool)
 		BucketTypeCount() int
 		Buckets() ([]uint64, []*BucketType, []*bucketInfo)
@@ -210,15 +210,15 @@ func (s *contractStakingCache) DeleteBucketInfo(id uint64) {
 	s.deltaBuckets[id] = nil
 }
 
-func (s *contractStakingCache) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
+func (s *contractStakingCache) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	id, ok := s.getBucketTypeIndex(amount, duration)
 	if !ok {
-		return 0, nil, false
+		return 0, nil
 	}
-	return id, s.mustGetBucketType(id), true
+	return id, s.mustGetBucketType(id)
 }
 
 func (s *contractStakingCache) LoadFromDB(kvstore db.KVStore) error {
