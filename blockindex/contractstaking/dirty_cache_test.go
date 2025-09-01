@@ -147,7 +147,7 @@ func TestContractStakingDirty_finalize(t *testing.T) {
 	require.EqualValues(0, totalCnt)
 
 	// no dirty data
-	batcher, cache := dirty.finalize()
+	batcher, cache := dirty.Finalize()
 	require.EqualValues(1, batcher.Size())
 	info, err := batcher.Entry(0)
 	require.NoError(err)
@@ -160,7 +160,7 @@ func TestContractStakingDirty_finalize(t *testing.T) {
 	// added bucket type
 	bt := &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1}
 	dirty.addBucketType(1, bt)
-	batcher, cache = dirty.finalize()
+	batcher, cache = dirty.Finalize()
 	require.EqualValues(2, batcher.Size())
 	info, err = batcher.Entry(1)
 	require.NoError(err)
@@ -175,7 +175,7 @@ func TestContractStakingDirty_finalize(t *testing.T) {
 	// add bucket info
 	bi := &bucketInfo{TypeIndex: 1, CreatedAt: 2, UnlockedAt: 3, UnstakedAt: 4, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
 	dirty.addBucketInfo(1, bi)
-	batcher, cache = dirty.finalize()
+	batcher, cache = dirty.Finalize()
 	require.EqualValues(3, batcher.Size())
 	info, err = batcher.Entry(2)
 	require.NoError(err)
