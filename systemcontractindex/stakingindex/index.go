@@ -14,10 +14,8 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/abiutil"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex"
 )
 
@@ -45,19 +43,7 @@ type (
 		TotalBucketCount(height uint64) (uint64, error)
 		PutBlock(ctx context.Context, blk *block.Block) error
 		LoadStakeView(context.Context, protocol.StateReader) (staking.ContractStakeView, error)
-	}
-	stakingEventHandler interface {
-		HandleStakedEvent(event *abiutil.EventParam) error
-		HandleLockedEvent(event *abiutil.EventParam) error
-		HandleUnlockedEvent(event *abiutil.EventParam) error
-		HandleUnstakedEvent(event *abiutil.EventParam) error
-		HandleDelegateChangedEvent(event *abiutil.EventParam) error
-		HandleWithdrawalEvent(event *abiutil.EventParam) error
-		HandleTransferEvent(event *abiutil.EventParam) error
-		HandleMergedEvent(event *abiutil.EventParam) error
-		HandleBucketExpandedEvent(event *abiutil.EventParam) error
-		HandleDonatedEvent(event *abiutil.EventParam) error
-		Finalize() (batch.KVStoreBatch, indexerCache)
+		CreateEventProcessor(context.Context, staking.EventHandler) staking.EventProcessor
 	}
 	// Indexer is the staking indexer
 	Indexer struct {
@@ -130,6 +116,18 @@ func (s *Indexer) Stop(ctx context.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.common.Stop(ctx)
+}
+
+// CreateEventProcessor creates a new event processor
+func (s *Indexer) CreateEventProcessor(ctx context.Context, handler staking.EventHandler) staking.EventProcessor {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	return newEventProcessor(
+		s.common.ContractAddress(),
+		blkCtx,
+		handler,
+		s.timestamped,
+		s.muteHeight > 0 && blkCtx.BlockHeight >= s.muteHeight,
+	)
 }
 
 // LoadStakeView loads the contract stake view from state reader
@@ -303,17 +301,22 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	// handle events of block
 	muted := s.muteHeight > 0 && blk.Height() >= s.muteHeight
-	handler := newEventHandler(s.bucketNS, newWrappedCache(s.cache), protocol.MustGetBlockCtx(ctx), s.timestamped, muted)
-	for _, receipt := range blk.Receipts {
-		if err := handler.handleReceipt(ctx, s.common.ContractAddress().String(), receipt); err != nil {
-			return errors.Wrapf(err, "handle receipt %x failed", receipt.ActionHash)
-		}
+	handler := newEventHandler(s.bucketNS, newWrappedCache(s.cache))
+	processor := newEventProcessor(
+		s.common.ContractAddress(),
+		protocol.MustGetBlockCtx(ctx),
+		handler,
+		s.timestamped,
+		muted,
+	)
+	if err := processor.ProcessReceipts(ctx, blk.Receipts...); err != nil {
+		return err
 	}
 	// commit
 	return s.commit(ctx, handler, blk.Height())
 }
 
-func (s *Indexer) commit(ctx context.Context, handler stakingEventHandler, height uint64) error {
+func (s *Indexer) commit(ctx context.Context, handler *eventHandler, height uint64) error {
 	delta, dirty := handler.Finalize()
 	// update db
 	if err := s.common.Commit(height, delta); err != nil {
