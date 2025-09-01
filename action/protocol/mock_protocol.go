@@ -488,20 +488,6 @@ func (m *MockView) EXPECT() *MockViewMockRecorder {
 	return m.recorder
 }
 
-// Clone mocks base method.
-func (m *MockView) Clone() View {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Clone")
-	ret0, _ := ret[0].(View)
-	return ret0
-}
-
-// Clone indicates an expected call of Clone.
-func (mr *MockViewMockRecorder) Clone() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockView)(nil).Clone))
-}
-
 // Commit mocks base method.
 func (m *MockView) Commit(arg0 context.Context, arg1 StateManager) error {
 	m.ctrl.T.Helper()
@@ -514,6 +500,20 @@ func (m *MockView) Commit(arg0 context.Context, arg1 StateManager) error {
 func (mr *MockViewMockRecorder) Commit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockView)(nil).Commit), arg0, arg1)
+}
+
+// Fork mocks base method.
+func (m *MockView) Fork() View {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Fork")
+	ret0, _ := ret[0].(View)
+	return ret0
+}
+
+// Fork indicates an expected call of Fork.
+func (mr *MockViewMockRecorder) Fork() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fork", reflect.TypeOf((*MockView)(nil).Fork))
 }
 
 // Revert mocks base method.
