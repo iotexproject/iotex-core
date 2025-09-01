@@ -7,6 +7,8 @@ package blockindex
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -120,4 +122,13 @@ func (ig *SyncIndexers) initStartHeight() error {
 		}
 	}
 	return nil
+}
+
+func (ig *SyncIndexers) String() string {
+	var sb strings.Builder
+	for i, indexer := range ig.indexers {
+		height, _ := indexer.Height()
+		sb.WriteString(fmt.Sprintf("Indexer %d: %T, Height: %d\n", i, indexer, height))
+	}
+	return sb.String()
 }

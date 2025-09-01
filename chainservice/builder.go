@@ -336,6 +336,9 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if err != nil {
 		return err
 	}
+	if cfg.Chain.BlockIndexerTargetHeight > 0 {
+		opts = append(opts, blockdao.WithIndexerTargetHeight(cfg.Chain.BlockIndexerTargetHeight))
+	}
 	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(
 		store, indexers, cfg.DB.MaxCacheSize, opts...)
 

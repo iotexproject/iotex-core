@@ -137,7 +137,7 @@ func Test_blockDAO_checkIndexers(t *testing.T) {
 
 		p.ApplyMethodReturn(&BlockIndexerChecker{}, "CheckIndexer", errors.New(t.Name()))
 
-		err := blockdao.checkIndexers(context.Background())
+		err := blockdao.checker.CheckIndexers(context.Background(), blockdao.indexers)
 		r.ErrorContains(err, t.Name())
 	})
 
@@ -158,7 +158,7 @@ func Test_blockDAO_checkIndexers(t *testing.T) {
 		mockblockdao.EXPECT().Height().Return(daoTip, nil).Times(1)
 		mockblockdao.EXPECT().GetBlockByHeight(gomock.Any()).Return(&block.Block{}, nil).Times(1)
 
-		err := blockdao.checkIndexers(ctx)
+		err := blockdao.checker.CheckIndexers(ctx, blockdao.indexers)
 		r.NoError(err)
 	})
 }

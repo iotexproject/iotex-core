@@ -16,13 +16,11 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
 )
 
@@ -74,6 +72,7 @@ type (
 		blockCache   cache.LRUCache
 		txLogCache   cache.LRUCache
 		tipHeight    uint64
+		checker      *BlockIndexerChecker
 	}
 )
 
@@ -82,6 +81,12 @@ type Option func(*blockDAO)
 func WithBlobStore(bs BlobStore) Option {
 	return func(dao *blockDAO) {
 		dao.blobStore = bs
+	}
+}
+
+func WithIndexerTargetHeight(target uint64) Option {
+	return func(dao *blockDAO) {
+		dao.checker = NewBlockIndexerChecker(dao, target)
 	}
 }
 
@@ -96,6 +101,7 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexe
 		blockStore: blkStore,
 		indexers:   indexers,
 	}
+	blockDAO.checker = NewBlockIndexerChecker(blockDAO, 0)
 	for _, opt := range opts {
 		opt(blockDAO)
 	}
@@ -139,29 +145,7 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
-	return dao.checkIndexers(ctx)
-}
-
-func (dao *blockDAO) checkIndexers(ctx context.Context) error {
-	checker := NewBlockIndexerChecker(dao)
-	for i, indexer := range dao.indexers {
-		if err := checker.CheckIndexer(ctx, indexer, 0, func(height uint64) {
-			if height%5000 == 0 {
-				log.L().Info(
-					"indexer is catching up.",
-					zap.Int("indexer", i),
-					zap.Uint64("height", height),
-				)
-			}
-		}); err != nil {
-			return err
-		}
-		log.L().Info(
-			"indexer is up to date.",
-			zap.Int("indexer", i),
-		)
-	}
-	return nil
+	return dao.checker.CheckIndexers(ctx, dao.indexers)
 }
 
 func (dao *blockDAO) Stop(ctx context.Context) error {
