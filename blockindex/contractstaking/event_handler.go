@@ -491,8 +491,8 @@ func (eh *contractStakingEventHandler) handleBucketTypeDeactivatedEvent(event ev
 		return err
 	}
 
-	id, bt, ok := eh.dirty.matchBucketType(amountParam, durationParam.Uint64())
-	if !ok {
+	id, bt := eh.dirty.matchBucketType(amountParam, durationParam.Uint64())
+	if bt == nil {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
 	bt.ActivatedAt = maxBlockNumber
@@ -519,8 +519,8 @@ func (eh *contractStakingEventHandler) handleStakedEvent(event eventParam, heigh
 		return err
 	}
 
-	btIdx, _, ok := eh.dirty.matchBucketType(amountParam, durationParam.Uint64())
-	if !ok {
+	btIdx, bt := eh.dirty.matchBucketType(amountParam, durationParam.Uint64())
+	if bt == nil {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
 	owner, ok := eh.tokenOwner[tokenIDParam.Uint64()]
@@ -557,8 +557,8 @@ func (eh *contractStakingEventHandler) handleLockedEvent(event eventParam) error
 	if !ok {
 		return errors.Wrapf(errBucketTypeNotExist, "id %d", b.TypeIndex)
 	}
-	newBtIdx, _, ok := eh.dirty.matchBucketType(bt.Amount, durationParam.Uint64())
-	if !ok {
+	newBtIdx, newBt := eh.dirty.matchBucketType(bt.Amount, durationParam.Uint64())
+	if newBt == nil {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %v, duration %d", bt.Amount, durationParam.Uint64())
 	}
 	b.TypeIndex = newBtIdx
@@ -615,8 +615,8 @@ func (eh *contractStakingEventHandler) handleMergedEvent(event eventParam) error
 	}
 
 	// merge to the first bucket
-	btIdx, _, ok := eh.dirty.matchBucketType(amountParam, durationParam.Uint64())
-	if !ok {
+	btIdx, bt := eh.dirty.matchBucketType(amountParam, durationParam.Uint64())
+	if bt == nil {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
 	b, ok := eh.dirty.getBucketInfo(tokenIDsParam[0].Uint64())
@@ -651,8 +651,8 @@ func (eh *contractStakingEventHandler) handleBucketExpandedEvent(event eventPara
 	if !ok {
 		return errors.Wrapf(ErrBucketNotExist, "token id %d", tokenIDParam.Uint64())
 	}
-	newBtIdx, _, ok := eh.dirty.matchBucketType(amountParam, durationParam.Uint64())
-	if !ok {
+	newBtIdx, newBucketType := eh.dirty.matchBucketType(amountParam, durationParam.Uint64())
+	if newBucketType == nil {
 		return errors.Wrapf(errBucketTypeNotExist, "amount %d, duration %d", amountParam.Int64(), durationParam.Uint64())
 	}
 	b.TypeIndex = newBtIdx
