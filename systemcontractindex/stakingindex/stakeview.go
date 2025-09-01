@@ -54,7 +54,7 @@ func (s *stakeView) IsDirty() bool {
 	return s.cache.IsDirty()
 }
 
-func (s *stakeView) WriteBuckets(sm protocol.StateManager) error {
+func (s *stakeView) Migrate(sm protocol.StateManager) error {
 	ids := s.cache.BucketIdxs()
 	slices.Sort(ids)
 	buckets := s.cache.Buckets(ids)

@@ -214,8 +214,9 @@ func TestGetPutCandidate(t *testing.T) {
 	}
 
 	// get all candidates
-	all, _, err := csr.getAllCandidates()
+	cc, _, err := csr.CreateCandidateCenter()
 	require.NoError(err)
+	all := cc.All()
 	require.Equal(len(testCandidates), len(all))
 	for _, e := range testCandidates {
 		for i := range all {
