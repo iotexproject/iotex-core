@@ -472,11 +472,11 @@ func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight ui
 	if err != nil {
 		return err
 	}
-	all, _, err := csr.getAllCandidates()
-	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
+	cc, _, err := csr.CreateCandidateCenter()
+	if err != nil {
 		return err
 	}
-	candidateList, err := toIoTeXTypesCandidateListV2(csr, all, protocol.MustGetFeatureCtx(ctx))
+	candidateList, err := toIoTeXTypesCandidateListV2(csr, cc.All(), protocol.MustGetFeatureCtx(ctx))
 	if err != nil {
 		return err
 	}
