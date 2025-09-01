@@ -31,8 +31,8 @@ type (
 		CreatePreStates(ctx context.Context) error
 		// Handle handles the receipt for the contract stake view
 		Handle(ctx context.Context, receipt *action.Receipt) error
-		// WriteBuckets writes the buckets to the state manager
-		WriteBuckets(protocol.StateManager) error
+		// Migrate migrate the buckets to the state manager
+		Migrate(protocol.StateManager) error
 		// BucketsByCandidate returns the buckets by candidate address
 		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
 		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error
@@ -131,17 +131,17 @@ func (v *viewData) Revert(snapshot int) error {
 
 func (csv *contractStakeView) FlushBuckets(sm protocol.StateManager) error {
 	if csv.v1 != nil {
-		if err := csv.v1.WriteBuckets(sm); err != nil {
+		if err := csv.v1.Migrate(sm); err != nil {
 			return err
 		}
 	}
 	if csv.v2 != nil {
-		if err := csv.v2.WriteBuckets(sm); err != nil {
+		if err := csv.v2.Migrate(sm); err != nil {
 			return err
 		}
 	}
 	if csv.v3 != nil {
-		if err := csv.v3.WriteBuckets(sm); err != nil {
+		if err := csv.v3.Migrate(sm); err != nil {
 			return err
 		}
 	}
