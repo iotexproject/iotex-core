@@ -266,6 +266,15 @@ func (s *Server) Dispatcher() dispatcher.Dispatcher {
 
 // StartServer starts a node server
 func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg config.Config) {
+
+	if adminSvr := startAdminServer(ctx, svr, cfg); adminSvr != nil {
+		defer func() {
+			if err := adminSvr.Shutdown(ctx); err != nil {
+				log.L().Error("Error when serving metrics data.", zap.Error(err))
+			}
+		}()
+	}
+
 	if err := svr.Start(ctx); err != nil {
 		log.L().Fatal("Failed to start server.", zap.Error(err))
 		return
@@ -298,44 +307,43 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		}()
 	}
 
-	var adminserv http.Server
-	if cfg.System.HTTPAdminPort > 0 {
-		mux := http.NewServeMux()
-		log.RegisterLevelConfigMux(mux)
-		haCtl := ha.New(svr.rootChainService.Consensus())
-		mux.Handle("/ha", http.HandlerFunc(haCtl.Handle))
-		mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
-		mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
-		mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
-		mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
-		mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
-		mux.Handle("/pause", http.HandlerFunc(svr.pauseMgr.HandlePause))
-		mux.Handle("/unpause", http.HandlerFunc(svr.pauseMgr.HandleUnPause))
-		mux.Handle("/pause/", http.HandlerFunc(svr.pauseMgr.HandlePauseAtHeight))
-
-		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
-		adminserv = httputil.NewServer(port, mux)
-		defer func() {
-			if err := adminserv.Shutdown(ctx); err != nil {
-				log.L().Error("Error when serving metrics data.", zap.Error(err))
-			}
-		}()
-		go func() {
-			runtime.SetMutexProfileFraction(1)
-			runtime.SetBlockProfileRate(1)
-			ln, err := httputil.LimitListener(adminserv.Addr)
-			if err != nil {
-				log.L().Error("Error when listen to profiling port.", zap.Error(err))
-				return
-			}
-			if err := adminserv.Serve(ln); err != nil {
-				log.L().Error("Error when serving performance profiling data.", zap.Error(err))
-			}
-		}()
-	}
-
 	<-ctx.Done()
 	if err := probeSvr.TurnOff(); err != nil {
 		log.L().Panic("Failed to turn off probe server.", zap.Error(err))
 	}
+}
+
+func startAdminServer(ctx context.Context, svr *Server, cfg config.Config) *http.Server {
+	if cfg.System.HTTPAdminPort == 0 {
+		return nil
+	}
+	mux := http.NewServeMux()
+	log.RegisterLevelConfigMux(mux)
+	haCtl := ha.New(svr.rootChainService.Consensus())
+	mux.Handle("/ha", http.HandlerFunc(haCtl.Handle))
+	mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+	mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+	mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+	mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+	mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+	mux.Handle("/pause", http.HandlerFunc(svr.pauseMgr.HandlePause))
+	mux.Handle("/unpause", http.HandlerFunc(svr.pauseMgr.HandleUnPause))
+	mux.Handle("/pause/", http.HandlerFunc(svr.pauseMgr.HandlePauseAtHeight))
+
+	port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
+	adminserv := httputil.NewServer(port, mux)
+
+	go func() {
+		runtime.SetMutexProfileFraction(1)
+		runtime.SetBlockProfileRate(1)
+		ln, err := httputil.LimitListener(adminserv.Addr)
+		if err != nil {
+			log.L().Error("Error when listen to profiling port.", zap.Error(err))
+			return
+		}
+		if err := adminserv.Serve(ln); err != nil {
+			log.L().Error("Error when serving performance profiling data.", zap.Error(err))
+		}
+	}()
+	return &adminserv
 }
