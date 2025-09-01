@@ -128,8 +128,8 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 		if buckets[i] == nil {
 			return nil, errors.New("bucket is nil")
 		}
-		tid, _, ok := cache.MatchBucketType(buckets[i].StakedAmount, buckets[i].StakedDuration)
-		if !ok {
+		tid, bt := cache.MatchBucketType(buckets[i].StakedAmount, buckets[i].StakedDuration)
+		if bt == nil {
 			return nil, errors.Errorf(
 				"no bucket type found for bucket %d with staked amount %s and duration %d",
 				id,

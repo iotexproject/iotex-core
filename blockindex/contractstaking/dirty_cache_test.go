@@ -96,15 +96,14 @@ func TestContractStakingDirty_matchBucketType(t *testing.T) {
 	dirty := newContractStakingDirty(clean)
 
 	// no bucket type
-	id, bt, ok := dirty.matchBucketType(big.NewInt(100), 100)
-	require.False(ok)
+	id, bt := dirty.matchBucketType(big.NewInt(100), 100)
 	require.Nil(bt)
 	require.EqualValues(0, id)
 
 	// bucket type in clean cache
 	clean.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	id, bt, ok = dirty.matchBucketType(big.NewInt(100), 100)
-	require.True(ok)
+	id, bt = dirty.matchBucketType(big.NewInt(100), 100)
+	require.NotNil(bt)
 	require.EqualValues(100, bt.Amount.Int64())
 	require.EqualValues(100, bt.Duration)
 	require.EqualValues(1, bt.ActivatedAt)
@@ -112,8 +111,8 @@ func TestContractStakingDirty_matchBucketType(t *testing.T) {
 
 	// added bucket type
 	dirty.addBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 2})
-	id, bt, ok = dirty.matchBucketType(big.NewInt(200), 200)
-	require.True(ok)
+	id, bt = dirty.matchBucketType(big.NewInt(200), 200)
+	require.NotNil(bt)
 	require.EqualValues(200, bt.Amount.Int64())
 	require.EqualValues(200, bt.Duration)
 	require.EqualValues(2, bt.ActivatedAt)

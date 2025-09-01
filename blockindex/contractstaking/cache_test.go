@@ -376,33 +376,29 @@ func TestContractStakingCache_MatchBucketType(t *testing.T) {
 	cache := newContractStakingCache()
 
 	// no bucket types
-	_, bucketType, ok := cache.MatchBucketType(big.NewInt(100), 100)
-	require.False(ok)
+	_, bucketType := cache.MatchBucketType(big.NewInt(100), 100)
 	require.Nil(bucketType)
 
 	// one bucket type
 	cache.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
 	// match exact bucket type
-	id, bucketType, ok := cache.MatchBucketType(big.NewInt(100), 100)
-	require.True(ok)
+	id, bucketType := cache.MatchBucketType(big.NewInt(100), 100)
+	require.NotNil(bucketType)
 	require.EqualValues(1, id)
 	require.EqualValues(100, bucketType.Amount.Int64())
 	require.EqualValues(100, bucketType.Duration)
 	require.EqualValues(1, bucketType.ActivatedAt)
 
 	// match bucket type with different amount
-	_, bucketType, ok = cache.MatchBucketType(big.NewInt(200), 100)
-	require.False(ok)
+	_, bucketType = cache.MatchBucketType(big.NewInt(200), 100)
 	require.Nil(bucketType)
 
 	// match bucket type with different duration
-	_, bucketType, ok = cache.MatchBucketType(big.NewInt(100), 200)
-	require.False(ok)
+	_, bucketType = cache.MatchBucketType(big.NewInt(100), 200)
 	require.Nil(bucketType)
 
 	// no match
-	_, bucketType, ok = cache.MatchBucketType(big.NewInt(200), 200)
-	require.False(ok)
+	_, bucketType = cache.MatchBucketType(big.NewInt(200), 200)
 	require.Nil(bucketType)
 }
 
@@ -533,8 +529,8 @@ func TestContractStakingCache_LoadFromDB(t *testing.T) {
 	require.Equal(bucketInfo, bi)
 	btc = cache.BucketTypeCount()
 	require.EqualValues(1, btc)
-	id, bt, ok := cache.MatchBucketType(big.NewInt(100), 100)
-	require.True(ok)
+	id, bt := cache.MatchBucketType(big.NewInt(100), 100)
+	require.NotNil(bt)
 	require.EqualValues(1, id)
 	require.EqualValues(100, bt.Amount.Int64())
 	require.EqualValues(100, bt.Duration)
