@@ -132,6 +132,10 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			return nil, errors.Wrap(err, "failed to add api server as subscriber")
 		}
 	}
+	// Add pauseMgr as a block subscriber to receive block notifications
+	if err := cs.Blockchain().AddSubscriber(pauseMgr); err != nil {
+		return nil, errors.Wrap(err, "failed to add pause manager as subscriber")
+	}
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
@@ -307,6 +311,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 		mux.Handle("/pause", http.HandlerFunc(svr.pauseMgr.HandlePause))
 		mux.Handle("/unpause", http.HandlerFunc(svr.pauseMgr.HandleUnPause))
+		mux.Handle("/pause/", http.HandlerFunc(svr.pauseMgr.HandlePauseAtHeight))
 
 		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
 		adminserv = httputil.NewServer(port, mux)
