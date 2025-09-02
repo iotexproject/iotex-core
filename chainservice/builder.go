@@ -179,6 +179,12 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 	if err != nil {
 		return nil, err
 	}
+	if builder.cfg.Chain.TrieDBAutoFlushThreshold > 0 {
+		dao, err = db.NewKVStoreAutoFlush(dao, builder.cfg.Chain.TrieDBAutoFlushThreshold)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return factory.NewStateDB(factoryCfg, dao, opts...)
 }
 

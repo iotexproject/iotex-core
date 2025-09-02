@@ -89,6 +89,8 @@ type (
 		MintTimeout time.Duration `yaml:"-"`
 		// BlockIndexerTargetHeight is the target height for block indexer
 		BlockIndexerTargetHeight uint64 `yaml:"blockIndexerTargetHeight"`
+		// KVStoreAutoFlushThreshold is the threshold for auto flushing the KVStore
+		TrieDBAutoFlushThreshold int `yaml:"trieDBAutoFlushThreshold"`
 	}
 )
 
