@@ -10,9 +10,10 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/pkg/errors"
 )
 
 type (
