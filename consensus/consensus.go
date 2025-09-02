@@ -225,7 +225,7 @@ func (c *IotxConsensus) Stop(ctx context.Context) error {
 
 	err := c.scheme.Stop(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "failed to stop scheme %s", c.cfg.Scheme)
+		log.Logger("consensus").Error("Failed to stop the consensus scheme.", zap.Error(err))
 	}
 	return nil
 }

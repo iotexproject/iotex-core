@@ -90,6 +90,9 @@ func (as *ActionSync) Start(ctx context.Context) error {
 
 // Stop stops the action syncer
 func (as *ActionSync) Stop(ctx context.Context) error {
+	if !as.IsReady() {
+		return nil
+	}
 	log.L().Info("stopping action sync")
 	if err := as.TurnOff(); err != nil {
 		return err

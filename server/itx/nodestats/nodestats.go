@@ -40,6 +40,9 @@ func (s *NodeStats) Start(ctx context.Context) error {
 
 // Stop stops the node stats
 func (s *NodeStats) Stop(ctx context.Context) error {
+	if s.task == nil {
+		return nil
+	}
 	return s.task.Stop(ctx)
 }
 

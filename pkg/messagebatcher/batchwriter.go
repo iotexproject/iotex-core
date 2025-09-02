@@ -83,6 +83,9 @@ func (bm *Manager) Start() error {
 
 // Stop stops the Manager
 func (bm *Manager) Stop() error {
+	if bm.cancelHanlders == nil {
+		return nil
+	}
 	bm.cancelHanlders()
 	return nil
 }

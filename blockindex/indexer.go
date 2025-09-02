@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
@@ -62,6 +63,7 @@ type (
 
 	// blockIndexer implements the Indexer interface
 	blockIndexer struct {
+		lifecycle.Readiness
 		mutex       sync.RWMutex
 		genesisHash hash.Hash256
 		kvStore     db.KVStoreWithRange
@@ -95,6 +97,9 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 	if err := x.kvStore.Start(ctx); err != nil {
 		return err
 	}
+	if err := x.TurnOn(); err != nil {
+		return err
+	}
 	// create the total block and action index
 	var err error
 	if x.tbk, err = db.NewCountingIndexNX(x.kvStore, _totalBlocksBucket); err != nil {
@@ -115,6 +120,12 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 
 // Stop stops the indexer
 func (x *blockIndexer) Stop(ctx context.Context) error {
+	if !x.IsReady() {
+		return nil
+	}
+	if err := x.TurnOff(); err != nil {
+		return err
+	}
 	return x.kvStore.Stop(ctx)
 }
 
