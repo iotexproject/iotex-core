@@ -500,7 +500,10 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if !vd.IsDirty() {
 		return nil
 	}
-	return vd.Commit(ctx, sm)
+	if err := vd.Commit(ctx, sm); err != nil {
+		return err
+	}
+	return vd.candCenter.WriteToStateDB(sm)
 }
 
 // Commit commits the last change
@@ -986,15 +989,4 @@ func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, Can
 		return nil, nil, nil, err
 	}
 	return name, operator, owner, nil
-}
-
-func writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners CandidateList) error {
-	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
-		return err
-	}
-	if _, err := sm.PutState(op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
-		return err
-	}
-	_, err := sm.PutState(owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
-	return err
 }

@@ -69,7 +69,7 @@ func TestDeleteBucket_Error(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockSM := mock_chainmanager.NewMockStateManager(ctrl)
-	mockSM.EXPECT().DelState(gomock.Any(), gomock.Any()).Return(errors.New("delstate error"))
+	mockSM.EXPECT().DelState(gomock.Any(), gomock.Any()).Return(uint64(0), errors.New("delstate error"))
 	csm := NewContractStakingStateManager(mockSM)
 
 	contractAddr := identityset.Address(1)
@@ -86,7 +86,7 @@ func TestDeleteBucket_Success(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockSM := mock_chainmanager.NewMockStateManager(ctrl)
-	mockSM.EXPECT().DelState(gomock.Any(), gomock.Any()).Return(nil)
+	mockSM.EXPECT().DelState(gomock.Any(), gomock.Any()).Return(uint64(0), nil)
 	csm := NewContractStakingStateManager(mockSM)
 
 	contractAddr := identityset.Address(1)
