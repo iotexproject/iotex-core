@@ -78,7 +78,7 @@ func (v mockView) Revert(int) error {
 	return nil
 }
 
-func (v mockView) Commit(context.Context, protocol.StateReader) error {
+func (v mockView) Commit(context.Context, protocol.StateManager) error {
 	return nil
 }
 

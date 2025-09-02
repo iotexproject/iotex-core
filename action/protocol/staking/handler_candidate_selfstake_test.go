@@ -161,7 +161,7 @@ func initTestStateWithHeight(t *testing.T, ctrl *gomock.Controller, bucketCfgs [
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := v.(*ViewData)
+	cc, ok := v.(*viewData)
 	require.True(ok)
 	require.NoError(sm.WriteView(_protocolID, cc))
 
@@ -474,7 +474,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				}
 				// check buckets
 				for _, expectBkt := range test.expectBuckets {
-					bkt, err := csm.getBucket(expectBkt.id)
+					bkt, err := csm.NativeBucket(expectBkt.id)
 					require.NoError(err)
 					require.Equal(expectBkt.candidate, bkt.Candidate)
 				}

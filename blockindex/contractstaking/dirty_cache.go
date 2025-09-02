@@ -50,12 +50,20 @@ func newContractStakingDirty(clean stakingCache) *contractStakingDirty {
 }
 
 func (dirty *contractStakingDirty) addBucketInfo(id uint64, bi *bucketInfo) {
-	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
+	data, err := bi.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket info"))
+	}
+	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket info")
 	dirty.cache.PutBucketInfo(id, bi)
 }
 
 func (dirty *contractStakingDirty) updateBucketInfo(id uint64, bi *bucketInfo) {
-	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
+	data, err := bi.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket info"))
+	}
+	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket info")
 	dirty.cache.PutBucketInfo(id, bi)
 }
 
@@ -96,7 +104,11 @@ func (dirty *contractStakingDirty) finalizeBatch() batch.KVStoreBatch {
 }
 
 func (dirty *contractStakingDirty) addBucketType(id uint64, bt *BucketType) {
-	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.Serialize(), "failed to put bucket type")
+	data, err := bt.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket type"))
+	}
+	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket type")
 	dirty.cache.PutBucketType(id, bt)
 }
 
@@ -109,6 +121,10 @@ func (dirty *contractStakingDirty) getBucketTypeCount() uint64 {
 }
 
 func (dirty *contractStakingDirty) updateBucketType(id uint64, bt *BucketType) {
-	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.Serialize(), "failed to put bucket type")
+	data, err := bt.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket type"))
+	}
+	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket type")
 	dirty.cache.PutBucketType(id, bt)
 }

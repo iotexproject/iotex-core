@@ -66,41 +66,41 @@ func TestGetPutStaking(t *testing.T) {
 	// put buckets and get
 	for _, e := range tests {
 		addr, _ := address.FromBytes(e.name[:])
-		_, err := csr.getBucket(e.index)
+		_, err := csr.NativeBucket(e.index)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 
 		vb := NewVoteBucket(addr, identityset.Address(1), big.NewInt(2100000000), 21*uint32(e.index+1), time.Now(), true)
 
-		count, err := csr.getTotalBucketCount()
+		count, err := csr.NumOfNativeBucket()
 		require.NoError(err)
 		require.Equal(e.index, count)
 		count, err = csm.putBucket(vb)
 		require.NoError(err)
 		require.Equal(e.index, count)
-		count, err = csr.getTotalBucketCount()
+		count, err = csr.NumOfNativeBucket()
 		require.NoError(err)
 		require.Equal(e.index+1, count)
-		vb1, err := csr.getBucket(e.index)
+		vb1, err := csr.NativeBucket(e.index)
 		require.NoError(err)
 		require.Equal(e.index, vb1.Index)
 		require.Equal(vb, vb1)
 	}
 
-	vb, err := csr.getBucket(2)
+	vb, err := csr.NativeBucket(2)
 	require.NoError(err)
 	vb.AutoStake = false
 	vb.StakedAmount.Sub(vb.StakedAmount, big.NewInt(100))
 	vb.UnstakeStartTime = time.Now().UTC()
 	require.True(vb.isUnstaked())
 	require.NoError(csm.updateBucket(2, vb))
-	vb1, err := csr.getBucket(2)
+	vb1, err := csr.NativeBucket(2)
 	require.NoError(err)
 	require.Equal(vb, vb1)
 
 	// delete buckets and get
 	for _, e := range tests {
 		require.NoError(csm.delBucket(e.index))
-		_, err := csr.getBucket(e.index)
+		_, err := csr.NativeBucket(e.index)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 	}
 }
