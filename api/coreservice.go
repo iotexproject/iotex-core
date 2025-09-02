@@ -657,7 +657,7 @@ func (core *coreService) readContract(
 	}
 	var (
 		g             = core.bc.Genesis()
-		blockGasLimit = g.BlockGasLimitByHeight(height)
+		blockGasLimit = g.BlockGasLimitByHeight(height + 1)
 	)
 	if elp.Gas() == 0 || blockGasLimit < elp.Gas() {
 		elp.SetGas(blockGasLimit)
@@ -2004,7 +2004,7 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 	var (
 		g             = core.bc.Genesis()
 		tipHeight     = core.bc.TipHeight()
-		blockGasLimit = g.BlockGasLimitByHeight(tipHeight)
+		blockGasLimit = g.BlockGasLimitByHeight(tipHeight + 1)
 	)
 	elp.SetGas(blockGasLimit)
 	return core.simulateExecution(ctx, tipHeight, false, addr, elp)
@@ -2108,7 +2108,7 @@ func (core *coreService) TraceCall(ctx context.Context,
 	}
 	var (
 		g             = core.bc.Genesis()
-		blockGasLimit = g.BlockGasLimitByHeight(height)
+		blockGasLimit = g.BlockGasLimitByHeight(height + 1)
 	)
 	if gasLimit == 0 {
 		gasLimit = blockGasLimit
