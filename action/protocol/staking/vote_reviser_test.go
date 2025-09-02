@@ -152,7 +152,7 @@ func TestVoteReviser(t *testing.T) {
 	v, err := stk.Start(ctx, sm)
 	r.NoError(err)
 	r.NoError(sm.WriteView(_protocolID, v))
-	_, ok := v.(*ViewData)
+	_, ok := v.(*viewData)
 	r.True(ok)
 
 	csm, err = NewCandidateStateManager(sm)
@@ -207,10 +207,10 @@ func TestVoteReviser(t *testing.T) {
 		}
 		for _, v := range tests {
 			if address.Equal(v.cand, c.Owner) && v.index != c.SelfStakeBucketIdx {
-				bucket, err := csr.getBucket(v.index)
+				bucket, err := csr.NativeBucket(v.index)
 				r.NoError(err)
 				total := CalculateVoteWeight(cv, bucket, false)
-				bucket, err = csr.getBucket(c.SelfStakeBucketIdx)
+				bucket, err = csr.NativeBucket(c.SelfStakeBucketIdx)
 				r.NoError(err)
 				total.Add(total, CalculateVoteWeight(cv, bucket, true))
 				r.Equal(0, total.Cmp(c.Votes))

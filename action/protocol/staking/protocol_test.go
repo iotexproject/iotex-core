@@ -99,12 +99,12 @@ func TestProtocol(t *testing.T) {
 	}, nil, nil, nil)
 	r.NotNil(stk)
 	r.NoError(err)
-	buckets, _, err := csr.getAllBuckets()
+	buckets, _, err := csr.NativeBuckets()
 	r.NoError(err)
 	r.Equal(0, len(buckets))
-	c, _, err := csr.getAllCandidates()
-	r.Equal(state.ErrStateNotExist, err)
-	r.Equal(0, len(c))
+	cc, _, err := csr.CreateCandidateCenter()
+	r.NoError(err)
+	r.Equal(0, len(cc.All()))
 
 	// address package also defined protocol address, make sure they match
 	r.Equal(stk.addr.Bytes(), address.StakingProtocolAddrHash[:])
@@ -129,7 +129,7 @@ func TestProtocol(t *testing.T) {
 	v, err := stk.Start(ctx, sm)
 	r.NoError(err)
 	r.NoError(sm.WriteView(_protocolID, v))
-	_, ok := v.(*ViewData)
+	_, ok := v.(*viewData)
 	r.True(ok)
 
 	csm, err := NewCandidateStateManager(sm)
@@ -162,8 +162,9 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load all candidates from stateDB and verify
-	all, _, err := csr.getAllCandidates()
+	cc, _, err = csr.CreateCandidateCenter()
 	r.NoError(err)
+	all := cc.All()
 	r.Equal(len(testCandidates), len(all))
 	for _, e := range testCandidates {
 		for i := range all {
@@ -182,14 +183,16 @@ func TestProtocol(t *testing.T) {
 	r.Equal(c1, c2)
 
 	// load buckets from stateDB and verify
-	buckets, _, err = csr.getAllBuckets()
+	buckets, _, err = csr.NativeBuckets()
 	r.NoError(err)
 	r.Equal(len(tests), len(buckets))
 	// delete one bucket
 	r.NoError(csm.delBucket(1))
-	buckets, _, err = csr.getAllBuckets()
+	buckets, _, err = csr.NativeBuckets()
+	require.NoError(t, err)
 	r.NoError(csm.delBucket(1))
-	buckets, _, err = csr.getAllBuckets()
+	buckets, _, err = csr.NativeBuckets()
+	require.NoError(t, err)
 	for _, e := range tests {
 		for i := range buckets {
 			if buckets[i].StakedAmount == e.amount {
@@ -462,8 +465,9 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 	sm.EXPECT().Height().DoAndReturn(func() (uint64, error) {
 		return blkHeight, nil
 	}).AnyTimes()
-	csIndexer.EXPECT().StartView(gomock.Any()).Return(nil, nil)
+	// csIndexer.EXPECT().StartView(gomock.Any()).Return(nil, nil)
 	csIndexer.EXPECT().Height().Return(uint64(blkHeight), nil).AnyTimes()
+	csIndexer.EXPECT().LoadStakeView(gomock.Any(), gomock.Any()).Return(nil, nil)
 
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)

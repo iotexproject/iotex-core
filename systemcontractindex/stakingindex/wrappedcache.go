@@ -1,10 +1,12 @@
 package stakingindex
 
 import (
+	"context"
 	"slices"
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 type wrappedCache struct {
@@ -14,6 +16,7 @@ type wrappedCache struct {
 
 	mu              sync.RWMutex
 	commitWithClone bool // whether to commit with deep clone
+	readOnly        bool
 }
 
 func newWrappedCache(cache indexerCache) *wrappedCache {
@@ -36,6 +39,9 @@ func newWrappedCacheWithCloneInCommit(cache indexerCache) *wrappedCache {
 func (w *wrappedCache) PutBucket(id uint64, bkt *Bucket) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.readOnly {
+		panic("cannot delete bucket in read-only mode")
+	}
 	oldBucket, ok := w.updatedBuckets[id]
 	if !ok {
 		oldBucket = w.cache.Bucket(id)
@@ -58,6 +64,9 @@ func (w *wrappedCache) PutBucket(id uint64, bkt *Bucket) {
 func (w *wrappedCache) DeleteBucket(id uint64) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.readOnly {
+		panic("cannot delete bucket in read-only mode")
+	}
 	w.updatedBuckets[id] = nil
 }
 
@@ -158,7 +167,7 @@ func (w *wrappedCache) TotalBucketCount() uint64 {
 func (w *wrappedCache) IsDirty() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.cache.IsDirty() || w.isDirty()
+	return w.isDirty() || w.cache.IsDirty()
 }
 
 func (w *wrappedCache) Clone() indexerCache {
@@ -180,29 +189,29 @@ func (w *wrappedCache) Clone() indexerCache {
 		}
 	}
 	wc.commitWithClone = w.commitWithClone
+	wc.readOnly = w.readOnly
 	return wc
 }
 
-func (w *wrappedCache) Commit() indexerCache {
+func (w *wrappedCache) Commit(ctx context.Context, ca address.Address, timestamp bool, sm protocol.StateManager) (indexerCache, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.isDirty() {
-		cache := w.cache
 		if w.commitWithClone {
-			cache = w.cache.Clone()
+			w.cache = w.cache.Clone()
 		}
 		for id, bkt := range w.updatedBuckets {
 			if bkt == nil {
-				cache.DeleteBucket(id)
+				w.cache.DeleteBucket(id)
 			} else {
-				cache.PutBucket(id, bkt)
+				w.cache.PutBucket(id, bkt)
 			}
 		}
 		w.updatedBuckets = make(map[uint64]*Bucket)
 		w.bucketsByCandidate = make(map[string]map[uint64]bool)
-		w.cache = cache
 	}
-	return w.cache.Commit()
+	w.readOnly = true
+	return w.cache.Commit(ctx, ca, timestamp, sm)
 }
 
 func (w *wrappedCache) isDirty() bool {
