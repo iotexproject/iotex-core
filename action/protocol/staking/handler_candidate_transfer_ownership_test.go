@@ -80,7 +80,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	vv, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := vv.(*ViewData)
+	cc, ok := vv.(*viewData)
 	require.True(ok)
 	require.NoError(sm.WriteView(_protocolID, cc))
 

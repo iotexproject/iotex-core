@@ -116,7 +116,7 @@ type (
 		Fork() View
 		Snapshot() int
 		Revert(int) error
-		Commit(context.Context, StateReader) error
+		Commit(context.Context, StateManager) error
 	}
 
 	// Views stores the view for all protocols
@@ -139,9 +139,9 @@ func (views *Views) Fork() *Views {
 	return fork
 }
 
-func (views *Views) Commit(ctx context.Context, sr StateReader) error {
+func (views *Views) Commit(ctx context.Context, sm StateManager) error {
 	for _, view := range views.vm {
-		if err := view.Commit(ctx, sr); err != nil {
+		if err := view.Commit(ctx, sm); err != nil {
 			return err
 		}
 	}

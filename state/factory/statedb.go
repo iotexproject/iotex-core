@@ -157,10 +157,6 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		if err = sdb.dao.putHeight(0); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
-		// start all protocols
-		if sdb.protocolViews, err = sdb.registry.StartAll(ctx, sdb); err != nil {
-			return err
-		}
 		ctx = protocol.WithBlockCtx(
 			ctx,
 			protocol.BlockCtx{
@@ -169,6 +165,10 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 				GasLimit:       sdb.cfg.Genesis.BlockGasLimitByHeight(0),
 			})
 		ctx = protocol.WithFeatureCtx(ctx)
+		// start all protocols
+		if sdb.protocolViews, err = sdb.registry.StartAll(ctx, sdb); err != nil {
+			return err
+		}
 		// init the state factory
 		if err = sdb.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
@@ -244,8 +244,7 @@ func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64,
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-	views := sdb.protocolViews.Fork()
-	return newWorkingSet(height, views, store, sdb), nil
+	return newWorkingSet(height, sdb.protocolViews.Fork(), store, sdb), nil
 }
 
 func (sdb *stateDB) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {

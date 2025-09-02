@@ -123,18 +123,18 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 		// put buckets and get
 		for i, e := range tests {
-			_, _, err := csr.voterBucketIndices(e.voterAddr)
+			_, _, err := csr.NativeBucketIndicesByVoter(e.voterAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
-			_, _, err = csr.candBucketIndices(e.candAddr)
+			_, _, err = csr.NativeBucketIndicesByCandidate(e.candAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
 
 			// put voter bucket index
 			require.NoError(csm.putVoterBucketIndex(e.voterAddr, e.index))
-			bis, _, err := csr.voterBucketIndices(e.voterAddr)
+			bis, _, err := csr.NativeBucketIndicesByVoter(e.voterAddr)
 			require.NoError(err)
 			bucketIndices := *bis
 			require.Equal(e.voterIndexSize, len(bucketIndices))
@@ -142,7 +142,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 			// put candidate bucket index
 			require.NoError(csm.putCandBucketIndex(e.candAddr, e.index))
-			bis, _, err = csr.candBucketIndices(e.candAddr)
+			bis, _, err = csr.NativeBucketIndicesByCandidate(e.candAddr)
 			require.NoError(err)
 			bucketIndices = *bis
 			require.Equal(e.candIndexSize, len(bucketIndices))
@@ -152,7 +152,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 		for _, e := range tests {
 			// delete voter bucket index
 			require.NoError(csm.delVoterBucketIndex(e.voterAddr, e.index))
-			bis, _, err := csr.voterBucketIndices(e.voterAddr)
+			bis, _, err := csr.NativeBucketIndicesByVoter(e.voterAddr)
 			if e.voterIndexSize != indexSize {
 				bucketIndices := *bis
 				require.Equal(indexSize-e.voterIndexSize, len(bucketIndices))
@@ -162,7 +162,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 			// delete candidate bucket index
 			require.NoError(csm.delCandBucketIndex(e.candAddr, e.index))
-			bis, _, err = csr.candBucketIndices(e.candAddr)
+			bis, _, err = csr.NativeBucketIndicesByCandidate(e.candAddr)
 			if e.candIndexSize != indexSize {
 				bucketIndices := *bis
 				require.Equal(indexSize-e.candIndexSize, len(bucketIndices))

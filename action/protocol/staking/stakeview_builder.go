@@ -32,8 +32,8 @@ func NewContractStakeViewBuilder(
 	}
 }
 
-func (b *contractStakeViewBuilder) Build(ctx context.Context, height uint64) (ContractStakeView, error) {
-	view, err := b.indexer.StartView(ctx)
+func (b *contractStakeViewBuilder) Build(ctx context.Context, sr protocol.StateReader, height uint64) (ContractStakeView, error) {
+	view, err := b.indexer.LoadStakeView(ctx, sr)
 	if err != nil {
 		return nil, err
 	}

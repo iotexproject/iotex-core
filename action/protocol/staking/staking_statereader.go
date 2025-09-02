@@ -277,7 +277,7 @@ func (c *compositeStakingStateReader) readStateContractStakingBucketTypes(ctx co
 	height := c.nativeSR.Height()
 	var targetIndexer ContractStakingIndexerWithBucketType
 	for _, indexer := range c.contractIndexers {
-		if indexer.ContractAddress() == req.GetContractAddress() {
+		if indexer.ContractAddress().String() == req.GetContractAddress() {
 			if bt, ok := indexer.(ContractStakingIndexerWithBucketType); ok {
 				targetIndexer = bt
 			}

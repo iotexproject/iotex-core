@@ -1,11 +1,14 @@
 package stakingindex
 
 import (
+	"context"
 	"errors"
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
@@ -20,7 +23,7 @@ type (
 		BucketIdsByCandidate(candidate address.Address) []uint64
 		TotalBucketCount() uint64
 		Clone() indexerCache
-		Commit() indexerCache
+		Commit(context.Context, address.Address, bool, protocol.StateManager) (indexerCache, error)
 		IsDirty() bool
 	}
 	// base is the in-memory base for staking index
@@ -30,6 +33,7 @@ type (
 		bucketsByCandidate map[string]map[uint64]struct{}
 		totalBucketCount   uint64
 		mu                 sync.RWMutex
+		delta              map[uint64]*Bucket
 	}
 )
 
@@ -37,6 +41,7 @@ func newCache() *base {
 	return &base{
 		buckets:            make(map[uint64]*Bucket),
 		bucketsByCandidate: make(map[string]map[uint64]struct{}),
+		delta:              make(map[uint64]*Bucket),
 	}
 }
 
@@ -84,6 +89,15 @@ func (s *base) Clone() indexerCache {
 		}
 	}
 	c.totalBucketCount = s.totalBucketCount
+
+	for k, v := range s.delta {
+		if v == nil {
+			c.delta[k] = nil
+		} else {
+			c.delta[k] = v.Clone()
+		}
+	}
+
 	return c
 }
 
@@ -105,6 +119,8 @@ func (s *base) PutBucket(id uint64, bkt *Bucket) {
 		s.bucketsByCandidate[cand] = make(map[uint64]struct{})
 	}
 	s.bucketsByCandidate[cand][id] = struct{}{}
+
+	s.delta[id] = bkt
 }
 
 func (s *base) DeleteBucket(id uint64) {
@@ -120,6 +136,8 @@ func (s *base) DeleteBucket(id uint64) {
 		delete(s.bucketsByCandidate, cand)
 	}
 	delete(s.buckets, id)
+
+	s.delta[id] = nil
 }
 
 func (s *base) BucketIdxs() []uint64 {
@@ -176,8 +194,26 @@ func (s *base) IsDirty() bool {
 	return false
 }
 
-func (s *base) Commit() indexerCache {
+func (s *base) Commit(ctx context.Context, ca address.Address, timestamp bool, sm protocol.StateManager) (indexerCache, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s
+	if sm == nil {
+		s.delta = make(map[uint64]*Bucket)
+		return s, nil
+	}
+	cssm := contractstaking.NewContractStakingStateManager(sm)
+	for id, bkt := range s.delta {
+		if bkt == nil {
+			if err := cssm.DeleteBucket(ca, id); err != nil {
+				return nil, err
+			}
+		} else {
+			bkt.IsTimestampBased = timestamp
+			if err := cssm.UpsertBucket(ca, id, bkt); err != nil {
+				return nil, err
+			}
+		}
+	}
+	s.delta = make(map[uint64]*Bucket)
+	return s, nil
 }
