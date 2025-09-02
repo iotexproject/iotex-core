@@ -325,7 +325,7 @@ func TestFixAlias(t *testing.T) {
 		} else {
 			r.NoError(m.commit())
 		}
-		views.Write(_protocolID, &ViewData{
+		views.Write(_protocolID, &viewData{
 			candCenter: m,
 		})
 
@@ -376,7 +376,7 @@ func TestFixAlias(t *testing.T) {
 			} else {
 				r.NoError(center.commit())
 			}
-			views.Write(_protocolID, &ViewData{
+			views.Write(_protocolID, &viewData{
 				candCenter: center,
 			})
 		}
@@ -476,7 +476,7 @@ func TestMultipleNonStakingCandidate(t *testing.T) {
 		r.True(testEqual(candcenter, CandidateList(cands)))
 		// from state manager
 		views := protocol.NewViews()
-		views.Write(_protocolID, &ViewData{
+		views.Write(_protocolID, &viewData{
 			candCenter: candcenter,
 		})
 		candcenter = candCenterFromNewCandidateStateManager(r, views)
@@ -538,7 +538,7 @@ func candCenterFromNewCandidateStateManager(r *require.Assertions, views *protoc
 	// get cand center: csm.ConstructBaseView
 	v, err := views.Read(_protocolID)
 	r.NoError(err)
-	return v.(*ViewData).candCenter
+	return v.(*viewData).candCenter
 }
 
 func TestCandidateUpsert(t *testing.T) {

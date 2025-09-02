@@ -13,6 +13,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 )
 
 var (
@@ -24,7 +27,18 @@ var (
 )
 
 type (
-
+	// EventHandler is the interface for handling staking events
+	EventHandler interface {
+		PutBucketType(address.Address, *ContractStakingBucketType) error
+		DeductBucket(address.Address, uint64) (*contractstaking.Bucket, error)
+		PutBucket(address.Address, uint64, *contractstaking.Bucket) error
+		DeleteBucket(address.Address, uint64) error
+	}
+	// EventProcessor is the interface for processing staking events
+	EventProcessor interface {
+		// ProcessReceipts processes receipts
+		ProcessReceipts(context.Context, ...*action.Receipt) error
+	}
 	// ContractStakingIndexer defines the interface of contract staking reader
 	ContractStakingIndexer interface {
 		Height() (uint64, error)
@@ -37,9 +51,11 @@ type (
 		// TotalBucketCount returns the total number of buckets including burned buckets
 		TotalBucketCount(height uint64) (uint64, error)
 		// ContractAddress returns the contract address
-		ContractAddress() string
-		// StartView returns the contract stake view
-		StartView(ctx context.Context) (ContractStakeView, error)
+		ContractAddress() address.Address
+		// LoadStakeView loads the contract stake view from state reader
+		LoadStakeView(context.Context, protocol.StateReader) (ContractStakeView, error)
+		// CreateEventProcessor creates a new event processor
+		CreateEventProcessor(context.Context, EventHandler) EventProcessor
 	}
 	// ContractStakingIndexerWithBucketType defines the interface of contract staking reader with bucket type
 	ContractStakingIndexerWithBucketType interface {

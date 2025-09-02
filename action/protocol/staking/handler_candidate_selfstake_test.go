@@ -88,12 +88,13 @@ func initTestStateWithHeight(t *testing.T, ctrl *gomock.Controller, bucketCfgs [
 		DepositGas:    depositGas,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  g.Staking,
-		PersistStakingPatchBlock: math.MaxUint64,
+		Staking:                       g.Staking,
+		PersistStakingPatchBlock:      math.MaxUint64,
+		SkipContractStakingViewHeight: math.MaxUint64,
 		Revise: ReviseConfig{
 			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 	require.NoError(err)
 
 	// set up bucket
@@ -161,7 +162,7 @@ func initTestStateWithHeight(t *testing.T, ctrl *gomock.Controller, bucketCfgs [
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := v.(*ViewData)
+	cc, ok := v.(*viewData)
 	require.True(ok)
 	require.NoError(sm.WriteView(_protocolID, cc))
 
@@ -474,7 +475,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 				}
 				// check buckets
 				for _, expectBkt := range test.expectBuckets {
-					bkt, err := csm.getBucket(expectBkt.id)
+					bkt, err := csm.NativeBucket(expectBkt.id)
 					require.NoError(err)
 					require.Equal(expectBkt.candidate, bkt.Candidate)
 				}

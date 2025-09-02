@@ -205,17 +205,18 @@ func TestGetPutCandidate(t *testing.T) {
 
 	// put candidates and get
 	for _, e := range testCandidates {
-		_, _, err := csr.getCandidate(e.d.Owner)
+		_, _, err := csr.CandidateByAddress(e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 		require.NoError(csm.putCandidate(e.d))
-		d1, _, err := csr.getCandidate(e.d.Owner)
+		d1, _, err := csr.CandidateByAddress(e.d.Owner)
 		require.NoError(err)
 		require.Equal(e.d, d1)
 	}
 
 	// get all candidates
-	all, _, err := csr.getAllCandidates()
+	cc, _, err := csr.CreateCandidateCenter()
 	require.NoError(err)
+	all := cc.All()
 	require.Equal(len(testCandidates), len(all))
 	for _, e := range testCandidates {
 		for i := range all {
@@ -229,7 +230,7 @@ func TestGetPutCandidate(t *testing.T) {
 	// delete buckets and get
 	for _, e := range testCandidates {
 		require.NoError(csm.delCandidate(e.d.GetIdentifier()))
-		_, _, err := csr.getCandidate(e.d.Owner)
+		_, _, err := csr.CandidateByAddress(e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 	}
 }

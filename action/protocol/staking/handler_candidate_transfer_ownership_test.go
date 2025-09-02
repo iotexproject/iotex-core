@@ -40,12 +40,13 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 		DepositGas:    depositGas,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  g.Staking,
-		PersistStakingPatchBlock: math.MaxUint64,
+		Staking:                       g.Staking,
+		PersistStakingPatchBlock:      math.MaxUint64,
+		SkipContractStakingViewHeight: math.MaxUint64,
 		Revise: ReviseConfig{
 			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 	require.NoError(err)
 	initCandidateCfgs := []struct {
 		Owner      address.Address
@@ -80,7 +81,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	vv, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := vv.(*ViewData)
+	cc, ok := vv.(*viewData)
 	require.True(ok)
 	require.NoError(sm.WriteView(_protocolID, cc))
 

@@ -123,14 +123,16 @@ func TestVoteReviser(t *testing.T) {
 			BlockInterval: getBlockInterval,
 		},
 		&BuilderConfig{
-			Staking:                  g.Staking,
-			PersistStakingPatchBlock: math.MaxUint64,
+			Staking:                       g.Staking,
+			PersistStakingPatchBlock:      math.MaxUint64,
+			SkipContractStakingViewHeight: math.MaxUint64,
 			Revise: ReviseConfig{
 				VoteWeight:         g.Staking.VoteWeightCalConsts,
 				CorrectCandsHeight: g.OkhotskBlockHeight,
 				ReviseHeights:      []uint64{g.HawaiiBlockHeight, g.GreenlandBlockHeight},
 			},
 		},
+		nil,
 		nil,
 		nil,
 		nil,
@@ -152,7 +154,7 @@ func TestVoteReviser(t *testing.T) {
 	v, err := stk.Start(ctx, sm)
 	r.NoError(err)
 	r.NoError(sm.WriteView(_protocolID, v))
-	_, ok := v.(*ViewData)
+	_, ok := v.(*viewData)
 	r.True(ok)
 
 	csm, err = NewCandidateStateManager(sm)
@@ -207,10 +209,10 @@ func TestVoteReviser(t *testing.T) {
 		}
 		for _, v := range tests {
 			if address.Equal(v.cand, c.Owner) && v.index != c.SelfStakeBucketIdx {
-				bucket, err := csr.getBucket(v.index)
+				bucket, err := csr.NativeBucket(v.index)
 				r.NoError(err)
 				total := CalculateVoteWeight(cv, bucket, false)
-				bucket, err = csr.getBucket(c.SelfStakeBucketIdx)
+				bucket, err = csr.NativeBucket(c.SelfStakeBucketIdx)
 				r.NoError(err)
 				total.Add(total, CalculateVoteWeight(cv, bucket, true))
 				r.Equal(0, total.Cmp(c.Votes))
@@ -266,6 +268,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 		r.NoError(err)
 		sm.WriteView(_protocolID, view)
 		csm, err := NewCandidateStateManager(sm)
+		r.NoError(err)
 		esm := NewEndorsementStateManager(sm)
 		// prepare endorsements
 		r.NoError(esm.Put(0, &Endorsement{ExpireHeight: endorsementNotExpireHeight}))
