@@ -198,8 +198,8 @@ func (wc *wrappedCache) PutBucketType(id uint64, bt *BucketType) {
 			panic("bucket type amount or duration cannot be changed")
 		}
 	}
-	oldId, _, ok := wc.matchBucketType(bt.Amount, bt.Duration)
-	if ok && oldId != id {
+	oldId, oldBucketType := wc.matchBucketType(bt.Amount, bt.Duration)
+	if oldBucketType != nil && oldId != id {
 		panic("bucket type with same amount and duration already exists")
 	}
 	if _, ok := wc.propertyBucketTypeMap[bt.Amount.Uint64()]; !ok {
@@ -313,21 +313,21 @@ func (wc *wrappedCache) DeleteBucketInfo(id uint64) {
 	wc.updatedBucketInfos[id] = nil
 }
 
-func (wc *wrappedCache) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
+func (wc *wrappedCache) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType) {
 	wc.mu.RLock()
 	defer wc.mu.RUnlock()
 	return wc.matchBucketType(amount, duration)
 }
 
-func (wc *wrappedCache) matchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
+func (wc *wrappedCache) matchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType) {
 	amountUint64 := amount.Uint64()
 	if amountMap, ok := wc.propertyBucketTypeMap[amountUint64]; ok {
 		if id, ok := amountMap[duration]; ok {
 			if bt, ok := wc.updatedBucketTypes[id]; ok {
 				if bt != nil {
-					return id, bt, true
+					return id, bt
 				}
-				return 0, nil, false
+				return 0, nil
 			}
 		}
 	}

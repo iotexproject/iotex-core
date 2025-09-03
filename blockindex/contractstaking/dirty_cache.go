@@ -73,8 +73,8 @@ func (dirty *contractStakingDirty) deleteBucketInfo(id uint64) {
 }
 
 func (dirty *contractStakingDirty) putBucketType(bt *BucketType) {
-	id, _, ok := dirty.matchBucketType(bt.Amount, bt.Duration)
-	if !ok {
+	id, old := dirty.matchBucketType(bt.Amount, bt.Duration)
+	if old == nil {
 		id = dirty.getBucketTypeCount()
 		dirty.addBucketType(id, bt)
 	}
@@ -112,7 +112,7 @@ func (dirty *contractStakingDirty) addBucketType(id uint64, bt *BucketType) {
 	dirty.cache.PutBucketType(id, bt)
 }
 
-func (dirty *contractStakingDirty) matchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
+func (dirty *contractStakingDirty) matchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType) {
 	return dirty.cache.MatchBucketType(amount, duration)
 }
 
