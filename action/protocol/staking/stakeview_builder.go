@@ -37,20 +37,17 @@ func (b *contractStakeViewBuilder) Build(ctx context.Context, sr protocol.StateR
 	if err != nil {
 		return nil, err
 	}
-	indexerHeight, err := b.indexer.Height()
-	if err != nil {
-		return nil, err
-	}
-	if indexerHeight == height {
+	viewHeight := view.Height()
+	if viewHeight == height {
 		return view, nil
 	}
-	if indexerHeight > height {
-		return nil, errors.Errorf("indexer height %d is greater than requested height %d", indexerHeight, height)
+	if viewHeight > height {
+		return nil, errors.Errorf("indexer height %d is greater than requested height %d", viewHeight, height)
 	}
 	if b.blockdao == nil {
 		return nil, errors.Errorf("blockdao is nil, cannot build view for height %d", height)
 	}
-	for h := indexerHeight + 1; h <= height; h++ {
+	for h := viewHeight + 1; h <= height; h++ {
 		receipts, err := b.blockdao.GetReceipts(h)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get receipts at height %d", h)

@@ -61,9 +61,14 @@ func (cs *ContractStakingStateManager) UpsertBucket(contractAddr address.Address
 
 // UpdateNumOfBuckets updates the number of buckets.
 func (cs *ContractStakingStateManager) UpdateNumOfBuckets(contractAddr address.Address, numOfBuckets uint64) error {
-	_, err := cs.sm.PutState(
+	height, err := cs.sm.Height()
+	if err != nil {
+		return err
+	}
+	_, err = cs.sm.PutState(
 		&StakingContract{
 			NumOfBuckets: uint64(numOfBuckets),
+			Height:       height,
 		},
 		cs.makeOpts(
 			metaNamespaceOption(),

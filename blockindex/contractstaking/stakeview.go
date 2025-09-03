@@ -21,6 +21,10 @@ type stakeView struct {
 	height             uint64
 }
 
+func (s *stakeView) Height() uint64 {
+	return s.height
+}
+
 func (s *stakeView) Wrap() staking.ContractStakeView {
 	return &stakeView{
 		contractAddr:       s.contractAddr,

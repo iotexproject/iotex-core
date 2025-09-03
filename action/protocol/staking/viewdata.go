@@ -36,6 +36,8 @@ type (
 		// BucketsByCandidate returns the buckets by candidate address
 		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
 		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error
+		// Height returns the height of the contract stake view
+		Height() uint64
 	}
 	// viewData is the data that need to be stored in protocol's view
 	viewData struct {

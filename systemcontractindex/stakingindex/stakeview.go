@@ -23,6 +23,10 @@ type stakeView struct {
 	genBlockDurationFn func(view uint64) blocksDurationFn
 }
 
+func (s *stakeView) Height() uint64 {
+	return s.height
+}
+
 func (s *stakeView) Wrap() staking.ContractStakeView {
 	return &stakeView{
 		cache:              newWrappedCache(s.cache),
