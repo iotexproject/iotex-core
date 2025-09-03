@@ -213,7 +213,6 @@ func NewProtocol(
 			MigrateContractAddress:           migrateContractAddress,
 		},
 		blocksToDurationFn:       blocksToDurationFn,
-		candBucketsIndexer:       candBucketsIndexer,
 		voteReviser:              voteReviser,
 		patch:                    NewPatchStore(cfg.StakingPatchDir),
 		contractStakingIndexer:   contractStakingIndexer,

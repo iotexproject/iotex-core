@@ -700,7 +700,7 @@ func (builder *Builder) registerStakingProtocol() error {
 			},
 		},
 		builder.blocksToDurationFn,
-		builder.cs.candBucketsIndexer,
+		nil,
 		builder.cs.contractStakingIndexer,
 		builder.cs.contractStakingIndexerV2,
 		opts...,
