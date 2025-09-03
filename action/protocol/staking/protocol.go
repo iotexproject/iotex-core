@@ -232,6 +232,11 @@ func ProtocolAddr() address.Address {
 
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol.View, error) {
+	return p.ViewsAt(ctx, sr)
+}
+
+// ViewsAt returns the view at a specific height
+func (p *Protocol) ViewsAt(ctx context.Context, sr protocol.StateReader) (protocol.View, error) {
 	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sr.Height()
 	if err != nil {

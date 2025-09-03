@@ -134,7 +134,15 @@ func (s *Indexer) CreateEventProcessor(ctx context.Context, handler staking.Even
 func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (staking.ContractStakeView, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	if protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
+
+	contractAddr := s.common.ContractAddress()
+	csr := contractstaking.NewStateReader(sr)
+	csrHeight, err := csr.Height(contractAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get height for contract %s", contractAddr)
+	}
+	// contract staking state have not been initialized in state reader, we need to read from index
+	if csrHeight == 0 {
 		if !s.common.Started() {
 			if err := s.start(ctx); err != nil {
 				return nil, err
@@ -151,7 +159,7 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 			genBlockDurationFn: s.genBlockDurationFn,
 		}, nil
 	}
-	contractAddr := s.common.ContractAddress()
+	// otherwise, we need to read from state reader
 	ids, buckets, err := contractstaking.NewStateReader(sr).Buckets(contractAddr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get buckets for contract %s", contractAddr)
@@ -169,7 +177,7 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	}
 	return &stakeView{
 		cache:              cache,
-		height:             s.common.Height(),
+		height:             csrHeight,
 		contractAddr:       s.common.ContractAddress(),
 		muteHeight:         s.muteHeight,
 		startHeight:        s.common.StartHeight(),

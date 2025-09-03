@@ -94,7 +94,13 @@ func (s *Indexer) CreateEventProcessor(ctx context.Context, handler staking.Even
 
 // LoadStakeView loads the contract stake view
 func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (staking.ContractStakeView, error) {
-	if protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
+	cssr := contractstaking.NewStateReader(sr)
+	cssrHeight, err := cssr.Height(s.contractAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get height for contract %s", s.contractAddr)
+	}
+	// contract staking state have not been initialized in state reader, we need to read from index
+	if cssrHeight == 0 {
 		if !s.IsReady() {
 			if err := s.start(ctx); err != nil {
 				return nil, err
@@ -108,7 +114,7 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 			genBlockDurationFn: s.genBlockDurationFn,
 		}, nil
 	}
-	cssr := contractstaking.NewStateReader(sr)
+	// otherwise, we need to read from state reader
 	tids, types, err := cssr.BucketTypes(s.contractAddr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get bucket types for contract %s", s.contractAddr)
@@ -155,7 +161,7 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 
 	return &stakeView{
 		cache:        cache,
-		height:       s.height,
+		height:       cssrHeight,
 		config:       s.config,
 		contractAddr: s.contractAddr,
 	}, nil

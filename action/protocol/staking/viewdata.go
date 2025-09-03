@@ -10,9 +10,10 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -35,6 +36,8 @@ type (
 		// BucketsByCandidate returns the buckets by candidate address
 		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
 		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error
+		// Height returns the height of the contract stake view
+		Height() uint64
 	}
 	// viewData is the data that need to be stored in protocol's view
 	viewData struct {

@@ -45,6 +45,11 @@ type Starter interface {
 	Start(context.Context, StateReader) (View, error)
 }
 
+// Viewer defines the viewer interface for the protocol
+type Viewer interface {
+	ViewAt(context.Context, StateReader) (View, error)
+}
+
 // GenesisStateCreator creates some genesis states
 type GenesisStateCreator interface {
 	CreateGenesisStates(context.Context, StateManager) error

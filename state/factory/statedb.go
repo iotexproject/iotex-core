@@ -371,6 +371,11 @@ func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, 
 			return nil, err
 		}
 		ws.store = newErigonWorkingSetStoreForSimulate(ws.store, e)
+		views, err := sdb.registry.ViewsAt(ctx, ws)
+		if err != nil {
+			return nil, err
+		}
+		ws.views = views
 	}
 	// handle panic to ensure workingset is closed
 	defer func() {
@@ -411,6 +416,11 @@ func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (prot
 			return nil, err
 		}
 		ws.store = newErigonWorkingSetStoreForSimulate(ws.store, e)
+		views, err := sdb.registry.ViewsAt(ctx, ws)
+		if err != nil {
+			return nil, err
+		}
+		ws.views = views
 	}
 	return ws, nil
 }

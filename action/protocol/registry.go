@@ -113,3 +113,28 @@ func (r *Registry) StartAll(ctx context.Context, sr StateReader) (*Views, error)
 	}
 	return allViews, nil
 }
+
+// ViewsAt returns the views of all protocols at a specific state
+func (r *Registry) ViewsAt(ctx context.Context, sr StateReader) (*Views, error) {
+	if r == nil {
+		return nil, nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	allViews := NewViews()
+	for _, p := range r.all() {
+		s, ok := p.(Viewer)
+		if !ok {
+			continue
+		}
+		view, err := s.ViewAt(ctx, sr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to start protocol %s", reflect.TypeOf(p))
+		}
+		if view == nil {
+			continue
+		}
+		allViews.Write(p.Name(), view)
+	}
+	return allViews, nil
+}

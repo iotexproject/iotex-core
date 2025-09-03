@@ -15,6 +15,8 @@ import (
 type StakingContract struct {
 	// NumOfBuckets is the number of buckets in the staking contract
 	NumOfBuckets uint64
+	// Height is the height of the staking contract
+	Height uint64
 }
 
 var _ state.ContractStorageProxy = (*StakingContract)(nil)
@@ -25,6 +27,7 @@ func (sc *StakingContract) toProto() *stakingpb.SystemStakingContract {
 	}
 	return &stakingpb.SystemStakingContract{
 		NumOfBuckets: sc.NumOfBuckets,
+		Height:       sc.Height,
 	}
 }
 
@@ -35,6 +38,7 @@ func LoadStakingContractFromProto(pb *stakingpb.SystemStakingContract) (*Staking
 	}
 	sc := &StakingContract{
 		NumOfBuckets: pb.NumOfBuckets,
+		Height:       pb.Height,
 	}
 	return sc, nil
 }

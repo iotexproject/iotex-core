@@ -72,6 +72,15 @@ func (r *ContractStakingStateReader) NumOfBuckets(contractAddr address.Address) 
 	return contract.NumOfBuckets, nil
 }
 
+// Height returns the height of the staking contract.
+func (r *ContractStakingStateReader) Height(contractAddr address.Address) (uint64, error) {
+	contract, err := r.contract(contractAddr)
+	if err != nil {
+		return 0, err
+	}
+	return contract.Height, nil
+}
+
 // BucketType returns the BucketType for a given contract and bucket id.
 func (r *ContractStakingStateReader) BucketType(contractAddr address.Address, tID uint64) (*BucketType, error) {
 	var bktType stakingpb.BucketType
