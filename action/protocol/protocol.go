@@ -121,14 +121,48 @@ type (
 
 	// Views stores the view for all protocols
 	Views struct {
-		vm map[string]View
+		snapshotID int
+		snapshots  map[int]map[string]int
+		vm         map[string]View
 	}
 )
 
 func NewViews() *Views {
 	return &Views{
-		vm: make(map[string]View),
+		snapshotID: 0,
+		snapshots:  make(map[int]map[string]int),
+		vm:         make(map[string]View),
 	}
+}
+
+func (views *Views) Snapshot() int {
+	views.snapshotID++
+	views.snapshots[views.snapshotID] = make(map[string]int)
+	keys := make([]string, 0, len(views.vm))
+	for key := range views.vm {
+		keys = append(keys, key)
+	}
+	for _, key := range keys {
+		views.snapshots[views.snapshotID][key] = views.vm[key].Snapshot()
+	}
+	return views.snapshotID
+}
+
+func (views *Views) Revert(id int) error {
+	if id > views.snapshotID || id < 0 {
+		return errors.Errorf("invalid snapshot id %d, max id is %d", id, views.snapshotID)
+	}
+	for k, v := range views.snapshots[id] {
+		if err := views.vm[k].Revert(v); err != nil {
+			return err
+		}
+	}
+	views.snapshotID = id
+	// clean up snapshots that are not needed anymore
+	for i := id + 1; i <= views.snapshotID; i++ {
+		delete(views.snapshots, i)
+	}
+	return nil
 }
 
 func (views *Views) Fork() *Views {

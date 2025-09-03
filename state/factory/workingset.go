@@ -71,6 +71,7 @@ type (
 		workingSetStoreFactory WorkingSetStoreFactory
 		height                 uint64
 		views                  *protocol.Views
+		viewsSnapshots         map[int]int
 		store                  workingSetStore
 		finalized              bool
 		txValidator            *protocol.GenericValidator
@@ -82,6 +83,7 @@ func newWorkingSet(height uint64, views *protocol.Views, store workingSetStore, 
 	ws := &workingSet{
 		height:                 height,
 		views:                  views,
+		viewsSnapshots:         make(map[int]int),
 		store:                  store,
 		workingSetStoreFactory: storeFactory,
 	}
@@ -281,14 +283,28 @@ func (ws *workingSet) finalizeTx(ctx context.Context) {
 }
 
 func (ws *workingSet) Snapshot() int {
-	return ws.store.Snapshot()
+	id := ws.store.Snapshot()
+	vid := ws.views.Snapshot()
+	ws.viewsSnapshots[id] = vid
+
+	return id
 }
 
 func (ws *workingSet) Revert(snapshot int) error {
+	vid, ok := ws.viewsSnapshots[snapshot]
+	if !ok {
+		return errors.Errorf("snapshot %d not found", snapshot)
+	}
+	if err := ws.views.Revert(vid); err != nil {
+		return errors.Wrapf(err, "failed to revert views to snapshot %d", vid)
+	}
 	return ws.store.RevertSnapshot(snapshot)
 }
 
 func (ws *workingSet) ResetSnapshots() {
+	if len(ws.viewsSnapshots) > 0 {
+		ws.viewsSnapshots = make(map[int]int)
+	}
 	ws.store.ResetSnapshots()
 }
 
