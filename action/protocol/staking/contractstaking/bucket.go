@@ -4,9 +4,12 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
@@ -34,6 +37,8 @@ type (
 		Muted bool
 	}
 )
+
+var _ state.ContractStorageProxy = (*Bucket)(nil)
 
 // ErrBucketNotExist is the error when bucket does not exist
 var ErrBucketNotExist = errors.New("bucket does not exist")
@@ -112,4 +117,19 @@ func (b *Bucket) Clone() *Bucket {
 		IsTimestampBased: b.IsTimestampBased,
 		Muted:            b.Muted,
 	}
+}
+
+// ContractStorageAddress returns the contract storage address for the bucket.
+func (b *Bucket) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	return systemcontracts.SystemContracts[systemcontracts.StakingContractIndex].Address, nil
+}
+
+// New creates a new instance of the bucket.
+func (b *Bucket) New() state.ContractStorageStandard {
+	return &Bucket{}
+}
+
+// ContractStorageProxy returns the contract storage proxy for the bucket.
+func (b *Bucket) ContractStorageProxy() state.ContractStorage {
+	return state.NewContractStorageNamespacedWrapper(b)
 }
