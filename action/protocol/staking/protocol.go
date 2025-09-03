@@ -590,17 +590,26 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 	if !ok {
 		return errors.New("failed to get feature context from action context")
 	}
+	var (
+		handler    EventHandler
+		err        error
+		voteCalcFn = func(bucket *contractstaking.Bucket, height uint64) *big.Int {
+			vb := p.convertToVoteBucket(bucket, height)
+			return p.calculateVoteWeight(vb, false)
+		}
+	)
 	if featureCtx.StoreVoteOfNFTBucketIntoView {
 		v, err := sm.ReadView(_protocolID)
 		if err != nil {
 			return err
 		}
-		return v.(*viewData).contractsStake.Handle(ctx, receipt)
+		if err = v.(*viewData).contractsStake.Handle(ctx, receipt); err != nil {
+			return err
+		}
+		handler, err = newNFTBucketEventHandlerSecondaryOnly(sm, voteCalcFn)
+	} else {
+		handler, err = newNFTBucketEventHandler(sm, voteCalcFn)
 	}
-	handler, err := newNFTBucketEventHandler(sm, func(bucket *contractstaking.Bucket, height uint64) *big.Int {
-		vb := p.convertToVoteBucket(bucket, height)
-		return p.calculateVoteWeight(vb, false)
-	})
 	if err != nil {
 		return err
 	}

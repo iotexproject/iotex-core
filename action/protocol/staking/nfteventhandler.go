@@ -4,9 +4,10 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -30,6 +31,20 @@ func newNFTBucketEventHandler(sm protocol.StateManager, calculateVoteWeight Calc
 	return &nftEventHandler{
 		calculateVoteWeight: calculateVoteWeight,
 		cssm:                contractstaking.NewContractStakingStateManager(sm),
+		csm:                 csm,
+		bucketTypes:         make(map[address.Address]map[uint64]*contractstaking.BucketType),
+		bucketTypesLookup:   make(map[address.Address]map[int64]map[uint64]uint64),
+	}, nil
+}
+
+func newNFTBucketEventHandlerSecondaryOnly(sm protocol.StateManager, calculateVoteWeight CalculateVoteWeightFunc) (*nftEventHandler, error) {
+	csm, err := NewCandidateStateManager(sm)
+	if err != nil {
+		return nil, err
+	}
+	return &nftEventHandler{
+		calculateVoteWeight: calculateVoteWeight,
+		cssm:                contractstaking.NewContractStakingStateManager(sm, protocol.SecondaryOnlyOption()),
 		csm:                 csm,
 		bucketTypes:         make(map[address.Address]map[uint64]*contractstaking.BucketType),
 		bucketTypesLookup:   make(map[address.Address]map[int64]map[uint64]uint64),

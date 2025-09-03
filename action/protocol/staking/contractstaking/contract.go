@@ -1,9 +1,14 @@
 package contractstaking
 
 import (
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // StakingContract represents the staking contract in the system
@@ -11,6 +16,8 @@ type StakingContract struct {
 	// NumOfBuckets is the number of buckets in the staking contract
 	NumOfBuckets uint64
 }
+
+var _ state.ContractStorageProxy = (*StakingContract)(nil)
 
 func (sc *StakingContract) toProto() *stakingpb.SystemStakingContract {
 	if sc == nil {
@@ -49,4 +56,19 @@ func (sc *StakingContract) Deserialize(b []byte) error {
 	}
 	*sc = *loaded
 	return nil
+}
+
+// ContractStorageAddress returns the address of the contract storage
+func (sc *StakingContract) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	return systemcontracts.SystemContracts[systemcontracts.StakingContractIndex].Address, nil
+}
+
+// New creates a new instance of the staking contract
+func (sc *StakingContract) New() state.ContractStorageStandard {
+	return &StakingContract{}
+}
+
+// ContractStorageProxy returns the contract storage proxy
+func (sc *StakingContract) ContractStorageProxy() state.ContractStorage {
+	return state.NewContractStorageNamespacedWrapper(sc)
 }
