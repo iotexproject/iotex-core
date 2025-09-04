@@ -1,21 +1,20 @@
 package stakingindex
 
 import (
-	"math/big"
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 )
 
 type VoteBucket = staking.VoteBucket
 
-type Bucket struct {
+type Bucket = contractstaking.Bucket
+
+/*
+struct {
 	Candidate    address.Address
 	Owner        address.Address
 	StakedAmount *big.Int
@@ -102,6 +101,7 @@ func (b *Bucket) Clone() *Bucket {
 	clone.StakedAmount = new(big.Int).Set(b.StakedAmount)
 	return clone
 }
+*/
 
 func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blocksToDurationFn blocksDurationFn) *VoteBucket {
 	vb := VoteBucket{
@@ -111,9 +111,9 @@ func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blocksTo
 		Candidate:       bkt.Candidate,
 		Owner:           bkt.Owner,
 		ContractAddress: contractAddr,
-		Timestamped:     bkt.Timestamped,
+		Timestamped:     bkt.IsTimestampBased,
 	}
-	if bkt.Timestamped {
+	if bkt.IsTimestampBased {
 		vb.StakedDuration = time.Duration(bkt.StakedDuration) * time.Second
 		vb.StakeStartTime = time.Unix(int64(bkt.CreatedAt), 0)
 		vb.CreateTime = time.Unix(int64(bkt.CreatedAt), 0)

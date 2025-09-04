@@ -50,12 +50,20 @@ func newContractStakingDirty(clean stakingCache) *contractStakingDirty {
 }
 
 func (dirty *contractStakingDirty) addBucketInfo(id uint64, bi *bucketInfo) {
-	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
+	data, err := bi.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket info"))
+	}
+	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket info")
 	dirty.cache.PutBucketInfo(id, bi)
 }
 
 func (dirty *contractStakingDirty) updateBucketInfo(id uint64, bi *bucketInfo) {
-	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
+	data, err := bi.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket info"))
+	}
+	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket info")
 	dirty.cache.PutBucketInfo(id, bi)
 }
 
@@ -65,8 +73,8 @@ func (dirty *contractStakingDirty) deleteBucketInfo(id uint64) {
 }
 
 func (dirty *contractStakingDirty) putBucketType(bt *BucketType) {
-	id, _, ok := dirty.matchBucketType(bt.Amount, bt.Duration)
-	if !ok {
+	id, old := dirty.matchBucketType(bt.Amount, bt.Duration)
+	if old == nil {
 		id = dirty.getBucketTypeCount()
 		dirty.addBucketType(id, bt)
 	}
@@ -96,11 +104,15 @@ func (dirty *contractStakingDirty) finalizeBatch() batch.KVStoreBatch {
 }
 
 func (dirty *contractStakingDirty) addBucketType(id uint64, bt *BucketType) {
-	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.Serialize(), "failed to put bucket type")
+	data, err := bt.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket type"))
+	}
+	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket type")
 	dirty.cache.PutBucketType(id, bt)
 }
 
-func (dirty *contractStakingDirty) matchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
+func (dirty *contractStakingDirty) matchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType) {
 	return dirty.cache.MatchBucketType(amount, duration)
 }
 
@@ -109,6 +121,10 @@ func (dirty *contractStakingDirty) getBucketTypeCount() uint64 {
 }
 
 func (dirty *contractStakingDirty) updateBucketType(id uint64, bt *BucketType) {
-	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.Serialize(), "failed to put bucket type")
+	data, err := bt.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket type"))
+	}
+	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket type")
 	dirty.cache.PutBucketType(id, bt)
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
@@ -22,12 +23,12 @@ type IndexerCommon struct {
 	key             []byte
 	startHeight     uint64
 	height          uint64
-	contractAddress string
+	contractAddress address.Address
 	lifecycle.Readiness
 }
 
 // NewIndexerCommon creates a new IndexerCommon
-func NewIndexerCommon(kvstore db.KVStore, ns string, key []byte, contractAddress string, startHeight uint64) *IndexerCommon {
+func NewIndexerCommon(kvstore db.KVStore, ns string, key []byte, contractAddress address.Address, startHeight uint64) *IndexerCommon {
 	return &IndexerCommon{
 		kvstore:         kvstore,
 		ns:              ns,
@@ -69,7 +70,7 @@ func (s *IndexerCommon) Stop(ctx context.Context) error {
 func (s *IndexerCommon) KVStore() db.KVStore { return s.kvstore }
 
 // ContractAddress returns the contract address
-func (s *IndexerCommon) ContractAddress() string { return s.contractAddress }
+func (s *IndexerCommon) ContractAddress() address.Address { return s.contractAddress }
 
 // Height returns the tip block height
 func (s *IndexerCommon) Height() uint64 {

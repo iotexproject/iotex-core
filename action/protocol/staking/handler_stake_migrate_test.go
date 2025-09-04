@@ -286,7 +286,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 		preVotes := csm.GetByOwner(identityset.Address(candOwnerID)).Votes
-		bkt, err := csm.getBucket(bktIdx)
+		bkt, err := csm.NativeBucket(bktIdx)
 		r.NoError(err)
 		receipt := &action.Receipt{
 			Status:      uint64(iotextypes.ReceiptStatus_Success),
@@ -339,7 +339,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		// native bucket burned
 		csm, err = NewCandidateStateManager(sm)
 		r.NoError(err)
-		_, err = csm.getBucket(bktIdx)
+		_, err = csm.NativeBucket(bktIdx)
 		r.ErrorIs(err, state.ErrStateNotExist)
 		// votes reduced for staking indexer not enabled
 		cand := csm.GetByOwner(identityset.Address(candOwnerID))

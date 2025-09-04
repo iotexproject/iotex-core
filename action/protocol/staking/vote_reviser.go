@@ -130,7 +130,7 @@ func (vr *VoteReviser) correctCandSelfStake(ctx protocol.FeatureCtx, csm Candida
 			cand.SelfStake = big.NewInt(0)
 			continue
 		}
-		sb, err := csm.getBucket(cand.SelfStakeBucketIdx)
+		sb, err := csm.NativeBucket(cand.SelfStakeBucketIdx)
 		switch errors.Cause(err) {
 		case state.ErrStateNotExist:
 			// bucket has been withdrawn
@@ -194,7 +194,7 @@ func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager, cands Cand
 		candm[cand.GetIdentifier().String()].Votes = new(big.Int)
 		candm[cand.GetIdentifier().String()].SelfStake = new(big.Int)
 	}
-	buckets, _, err := csr.getAllBuckets()
+	buckets, _, err := csr.NativeBuckets()
 	switch {
 	case errors.Cause(err) == state.ErrStateNotExist:
 	case err != nil:

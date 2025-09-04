@@ -893,8 +893,8 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	return log, nil
 }
 
-func (p *Protocol) fetchBucket(csm BucketGetByIndex, index uint64) (*VoteBucket, ReceiptError) {
-	bucket, err := csm.getBucket(index)
+func (p *Protocol) fetchBucket(csm NativeBucketGetByIndex, index uint64) (*VoteBucket, ReceiptError) {
+	bucket, err := csm.NativeBucket(index)
 	if err != nil {
 		fetchErr := &handleError{
 			err:           errors.Wrapf(err, "failed to fetch bucket by index %d", index),

@@ -6,11 +6,13 @@
 package contractstaking
 
 import (
+	"context"
 	"math/big"
 	"sort"
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 type (
@@ -109,6 +111,27 @@ func (wc *wrappedCache) bucketType(id uint64) (*BucketType, bool) {
 	return bt, ok
 }
 
+func (wc *wrappedCache) Buckets() ([]uint64, []*BucketType, []*bucketInfo) {
+	wc.mu.RLock()
+	defer wc.mu.RUnlock()
+	ids, types, infos := wc.base.Buckets()
+	reverseMap := make(map[uint64]int, len(ids))
+	for i, id := range ids {
+		reverseMap[id] = i
+	}
+	for id, info := range wc.updatedBucketInfos {
+		if i, ok := reverseMap[id]; ok {
+			infos[i] = info.Clone()
+		} else {
+			ids = append(ids, id)
+			infos = append(infos, info.Clone())
+			types = append(types, wc.mustGetBucketType(info.TypeIndex))
+			reverseMap[id] = len(infos) - 1
+		}
+	}
+	return ids, types, infos
+}
+
 func (wc *wrappedCache) BucketsByCandidate(candidate address.Address) ([]uint64, []*BucketType, []*bucketInfo) {
 	wc.mu.RLock()
 	defer wc.mu.RUnlock()
@@ -175,8 +198,8 @@ func (wc *wrappedCache) PutBucketType(id uint64, bt *BucketType) {
 			panic("bucket type amount or duration cannot be changed")
 		}
 	}
-	oldId, _, ok := wc.matchBucketType(bt.Amount, bt.Duration)
-	if ok && oldId != id {
+	oldId, oldBucketType := wc.matchBucketType(bt.Amount, bt.Duration)
+	if oldBucketType != nil && oldId != id {
 		panic("bucket type with same amount and duration already exists")
 	}
 	if _, ok := wc.propertyBucketTypeMap[bt.Amount.Uint64()]; !ok {
@@ -248,7 +271,7 @@ func (wc *wrappedCache) Clone() stakingCache {
 	}
 }
 
-func (wc *wrappedCache) Commit() stakingCache {
+func (wc *wrappedCache) Commit(ctx context.Context, ca address.Address, sm protocol.StateManager) (stakingCache, error) {
 	wc.mu.Lock()
 	defer wc.mu.Unlock()
 	if wc.commitWithClone {
@@ -264,13 +287,18 @@ func (wc *wrappedCache) Commit() stakingCache {
 			wc.base.PutBucketInfo(id, bi)
 		}
 	}
-	return wc.base.Commit()
+	wc.updatedBucketInfos = make(map[uint64]*bucketInfo)
+	wc.updatedBucketTypes = make(map[uint64]*BucketType)
+	wc.updatedCandidates = make(map[string]map[uint64]bool)
+	wc.propertyBucketTypeMap = make(map[uint64]map[uint64]uint64)
+
+	return wc.base.Commit(ctx, ca, sm)
 }
 
 func (wc *wrappedCache) IsDirty() bool {
 	wc.mu.RLock()
 	defer wc.mu.RUnlock()
-	return len(wc.updatedBucketInfos) > 0 || len(wc.updatedBucketTypes) > 0
+	return len(wc.updatedBucketInfos) > 0 || len(wc.updatedBucketTypes) > 0 || len(wc.updatedCandidates) > 0 || wc.base.IsDirty()
 }
 
 func (wc *wrappedCache) DeleteBucketInfo(id uint64) {
@@ -285,21 +313,21 @@ func (wc *wrappedCache) DeleteBucketInfo(id uint64) {
 	wc.updatedBucketInfos[id] = nil
 }
 
-func (wc *wrappedCache) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
+func (wc *wrappedCache) MatchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType) {
 	wc.mu.RLock()
 	defer wc.mu.RUnlock()
 	return wc.matchBucketType(amount, duration)
 }
 
-func (wc *wrappedCache) matchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
+func (wc *wrappedCache) matchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType) {
 	amountUint64 := amount.Uint64()
 	if amountMap, ok := wc.propertyBucketTypeMap[amountUint64]; ok {
 		if id, ok := amountMap[duration]; ok {
 			if bt, ok := wc.updatedBucketTypes[id]; ok {
 				if bt != nil {
-					return id, bt, true
+					return id, bt
 				}
-				return 0, nil, false
+				return 0, nil
 			}
 		}
 	}

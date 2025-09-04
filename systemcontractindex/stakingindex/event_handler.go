@@ -1,17 +1,23 @@
 package stakingindex
 
 import (
+	"context"
 	_ "embed"
 	"math"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/abiutil"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
@@ -87,15 +93,15 @@ func (eh *eventHandler) HandleStakedEvent(event *abiutil.EventParam) error {
 		createdAt = uint64(eh.blockCtx.BlockTimeStamp.Unix())
 	}
 	bucket := &Bucket{
-		Candidate:      delegateParam,
-		Owner:          owner,
-		StakedAmount:   amountParam,
-		StakedDuration: durationParam.Uint64(),
-		CreatedAt:      createdAt,
-		UnlockedAt:     maxStakingNumber,
-		UnstakedAt:     maxStakingNumber,
-		Timestamped:    eh.timestamped,
-		Muted:          eh.muted,
+		Candidate:        delegateParam,
+		Owner:            owner,
+		StakedAmount:     amountParam,
+		StakedDuration:   durationParam.Uint64(),
+		CreatedAt:        createdAt,
+		UnlockedAt:       maxStakingNumber,
+		UnstakedAt:       maxStakingNumber,
+		IsTimestampBased: eh.timestamped,
+		Muted:            eh.muted,
 	}
 	eh.putBucket(tokenIDParam.Uint64(), bucket)
 	return nil
@@ -291,11 +297,74 @@ func (eh *eventHandler) Finalize() (batch.KVStoreBatch, indexerCache) {
 }
 
 func (eh *eventHandler) putBucket(id uint64, bkt *Bucket) {
+	data, err := bkt.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket"))
+	}
 	eh.dirty.PutBucket(id, bkt)
-	eh.delta.Put(eh.stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), bkt.Serialize(), "failed to put bucket")
+	eh.delta.Put(eh.stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket")
 }
 
 func (eh *eventHandler) delBucket(id uint64) {
 	eh.dirty.DeleteBucket(id)
 	eh.delta.Delete(eh.stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), "failed to delete bucket")
+}
+
+func (eh *eventHandler) handleReceipt(ctx context.Context, contractAddr string, receipt *action.Receipt) error {
+	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+		return nil
+	}
+	for _, log := range receipt.Logs() {
+		if log.Address != contractAddr {
+			continue
+		}
+		if err := eh.handleEvent(ctx, log); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (eh *eventHandler) handleEvent(ctx context.Context, actLog *action.Log) error {
+	// get event abi
+	abiEvent, err := StakingContractABI.EventByID(common.Hash(actLog.Topics[0]))
+	if err != nil {
+		return errors.Wrapf(err, "get event abi from topic %v failed", actLog.Topics[0])
+	}
+
+	// unpack event data
+	event, err := abiutil.UnpackEventParam(abiEvent, actLog)
+	if err != nil {
+		return err
+	}
+	log.L().Debug("handle staking event", zap.String("event", abiEvent.Name), zap.Any("event", event))
+	// handle different kinds of event
+	switch abiEvent.Name {
+	case "Staked":
+		return eh.HandleStakedEvent(event)
+	case "Locked":
+		return eh.HandleLockedEvent(event)
+	case "Unlocked":
+		return eh.HandleUnlockedEvent(event)
+	case "Unstaked":
+		return eh.HandleUnstakedEvent(event)
+	case "Merged":
+		return eh.HandleMergedEvent(event)
+	case "BucketExpanded":
+		return eh.HandleBucketExpandedEvent(event)
+	case "DelegateChanged":
+		return eh.HandleDelegateChangedEvent(event)
+	case "Withdrawal":
+		return eh.HandleWithdrawalEvent(event)
+	case "Donated":
+		return eh.HandleDonatedEvent(event)
+	case "Transfer":
+		return eh.HandleTransferEvent(event)
+	case "Approval", "ApprovalForAll", "OwnershipTransferred", "Paused", "Unpaused", "BeneficiaryChanged",
+		"Migrated":
+		// not require handling events
+		return nil
+	default:
+		return errors.Errorf("unknown event name %s", abiEvent.Name)
+	}
 }

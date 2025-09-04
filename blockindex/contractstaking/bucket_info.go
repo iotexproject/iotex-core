@@ -10,7 +10,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/blockindex/contractstaking/contractstakingpb"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 type (
@@ -26,8 +25,8 @@ type (
 )
 
 // Serialize serializes the bucket info
-func (bi *bucketInfo) Serialize() []byte {
-	return byteutil.Must(proto.Marshal(bi.toProto()))
+func (bi *bucketInfo) Serialize() ([]byte, error) {
+	return proto.Marshal(bi.toProto())
 }
 
 // Deserialize deserializes the bucket info

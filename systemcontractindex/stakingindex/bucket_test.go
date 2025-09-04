@@ -20,20 +20,22 @@ func TestBucket_SerializeDeserialize(t *testing.T) {
 	owner := identityset.Address(2)
 
 	original := &Bucket{
-		Candidate:      candidate,
-		Owner:          owner,
-		StakedAmount:   big.NewInt(123456),
-		Timestamped:    true,
-		StakedDuration: 3600,
-		CreatedAt:      111111,
-		UnlockedAt:     222222,
-		UnstakedAt:     333333,
-		Muted:          true,
+		Candidate:        candidate,
+		Owner:            owner,
+		StakedAmount:     big.NewInt(123456),
+		IsTimestampBased: true,
+		StakedDuration:   3600,
+		CreatedAt:        111111,
+		UnlockedAt:       222222,
+		UnstakedAt:       333333,
+		Muted:            true,
 	}
-	data := original.Serialize()
+	data, err := original.Serialize()
+	r.NoError(err, "Serialize failed")
 
 	var deserialized Bucket
 	r.NoError(deserialized.Deserialize(data), "Deserialize failed")
+	deserialized.IsTimestampBased = original.IsTimestampBased // IsTimestampBased is not serialized, so we set it manually
 	r.Equal(*original, deserialized)
 }
 
@@ -42,15 +44,15 @@ func TestBucket_Clone(t *testing.T) {
 	candidate := identityset.Address(1)
 	owner := identityset.Address(2)
 	original := &Bucket{
-		Candidate:      candidate,
-		Owner:          owner,
-		StakedAmount:   big.NewInt(123456),
-		Muted:          true,
-		Timestamped:    true,
-		StakedDuration: 3600,
-		CreatedAt:      111111,
-		UnlockedAt:     222222,
-		UnstakedAt:     333333,
+		Candidate:        candidate,
+		Owner:            owner,
+		StakedAmount:     big.NewInt(123456),
+		Muted:            true,
+		IsTimestampBased: true,
+		StakedDuration:   3600,
+		CreatedAt:        111111,
+		UnlockedAt:       222222,
+		UnstakedAt:       333333,
 	}
 
 	clone := original.Clone()
@@ -71,48 +73,48 @@ func TestAssembleVoteBucket(t *testing.T) {
 		bucket *Bucket
 	}{
 		{"timestamped", &Bucket{
-			Candidate:      candidate,
-			Owner:          owner,
-			StakedAmount:   big.NewInt(1000),
-			Timestamped:    true,
-			StakedDuration: 3600,
-			CreatedAt:      111111,
-			UnlockedAt:     222222,
-			UnstakedAt:     333333,
-			Muted:          false,
+			Candidate:        candidate,
+			Owner:            owner,
+			StakedAmount:     big.NewInt(1000),
+			IsTimestampBased: true,
+			StakedDuration:   3600,
+			CreatedAt:        111111,
+			UnlockedAt:       222222,
+			UnstakedAt:       333333,
+			Muted:            false,
 		}},
 		{"timestamped/muted", &Bucket{
-			Candidate:      candidate,
-			Owner:          owner,
-			StakedAmount:   big.NewInt(1000),
-			Timestamped:    true,
-			StakedDuration: 3600,
-			CreatedAt:      111111,
-			UnlockedAt:     222222,
-			UnstakedAt:     333333,
-			Muted:          true,
+			Candidate:        candidate,
+			Owner:            owner,
+			StakedAmount:     big.NewInt(1000),
+			IsTimestampBased: true,
+			StakedDuration:   3600,
+			CreatedAt:        111111,
+			UnlockedAt:       222222,
+			UnstakedAt:       333333,
+			Muted:            true,
 		}},
 		{"block-based", &Bucket{
-			Candidate:      candidate,
-			Owner:          owner,
-			StakedAmount:   big.NewInt(2000),
-			Timestamped:    false,
-			StakedDuration: 100,
-			CreatedAt:      10,
-			UnlockedAt:     20,
-			UnstakedAt:     110,
-			Muted:          false,
+			Candidate:        candidate,
+			Owner:            owner,
+			StakedAmount:     big.NewInt(2000),
+			IsTimestampBased: false,
+			StakedDuration:   100,
+			CreatedAt:        10,
+			UnlockedAt:       20,
+			UnstakedAt:       110,
+			Muted:            false,
 		}},
 		{"block-based/muted", &Bucket{
-			Candidate:      candidate,
-			Owner:          owner,
-			StakedAmount:   big.NewInt(2000),
-			Timestamped:    false,
-			StakedDuration: 100,
-			CreatedAt:      10,
-			UnlockedAt:     20,
-			UnstakedAt:     110,
-			Muted:          true,
+			Candidate:        candidate,
+			Owner:            owner,
+			StakedAmount:     big.NewInt(2000),
+			IsTimestampBased: false,
+			StakedDuration:   100,
+			CreatedAt:        10,
+			UnlockedAt:       20,
+			UnstakedAt:       110,
+			Muted:            true,
 		}},
 	}
 
@@ -124,7 +126,7 @@ func TestAssembleVoteBucket(t *testing.T) {
 			if c.bucket.Muted {
 				expectCandidate, _ = address.FromString(address.ZeroAddress)
 			}
-			if c.bucket.Timestamped {
+			if c.bucket.IsTimestampBased {
 				stakeStartTime := time.Unix(int64(c.bucket.CreatedAt), 0)
 				unstakeStartTime := time.Unix(0, 0)
 				if c.bucket.UnlockedAt != maxStakingNumber {

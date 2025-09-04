@@ -126,8 +126,8 @@ func (m *CandidateCenter) commit() error {
 }
 
 // Commit writes the change into base
-func (m *CandidateCenter) Commit(ctx context.Context, sr protocol.StateReader) error {
-	height, err := sr.Height()
+func (m *CandidateCenter) Commit(ctx context.Context, sm protocol.StateManager) error {
+	height, err := sm.Height()
 	if err != nil {
 		return err
 	}
@@ -292,8 +292,8 @@ func (m *CandidateCenter) WriteToStateDB(sm protocol.StateManager) error {
 	name := m.base.candsInNameMap()
 	op := m.base.candsInOperatorMap()
 	owners := m.base.ownersList()
-	if len(name) == 0 || len(op) == 0 {
-		return ErrNilParameters
+	if len(name) == 0 || len(op) == 0 || len(owners) == 0 {
+		return nil
 	}
 	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
 		return err
