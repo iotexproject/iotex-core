@@ -92,6 +92,10 @@ func (s *Indexer) CreateEventProcessor(ctx context.Context, handler staking.Even
 	)
 }
 
+func (s *Indexer) CreateMemoryEventHandler(ctx context.Context) staking.EventHandler {
+	return newContractStakingDirty(newWrappedCache(s.cache))
+}
+
 // LoadStakeView loads the contract stake view
 func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (staking.ContractStakeView, error) {
 	cssr := contractstaking.NewStateReader(sr)

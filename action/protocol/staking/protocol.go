@@ -232,11 +232,11 @@ func ProtocolAddr() address.Address {
 
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol.View, error) {
-	return p.ViewsAt(ctx, sr)
+	return p.ViewAt(ctx, sr)
 }
 
-// ViewsAt returns the view at a specific height
-func (p *Protocol) ViewsAt(ctx context.Context, sr protocol.StateReader) (protocol.View, error) {
+// ViewAt returns the view at a specific height
+func (p *Protocol) ViewAt(ctx context.Context, sr protocol.StateReader) (protocol.View, error) {
 	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sr.Height()
 	if err != nil {
@@ -708,10 +708,6 @@ func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidiateStateCom
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
-	srHeight, err := sr.Height()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get StateReader height")
-	}
 	c, err := ConstructBaseView(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
@@ -721,20 +717,23 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	for i := range list {
 		if protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
 			var csVotes *big.Int
-			if protocol.MustGetFeatureCtx(ctx).CreatePostActionStates {
-				csVotes, err = p.contractStakingVotesFromView(ctx, list[i].GetIdentifier(), c.BaseView())
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind.
-				// the reason of using srHeight-1 is contract indexer is not updated before the block is committed.
-				csVotes, err = p.contractStakingVotesFromIndexer(ctx, list[i].GetIdentifier(), srHeight-1)
-				if err != nil {
-					return nil, err
-				}
+			// if protocol.MustGetFeatureCtx(ctx).CreatePostActionStates {
+			// 	csVotes, err = p.contractStakingVotesFromView(ctx, list[i].GetIdentifier(), c.BaseView())
+			// 	if err != nil {
+			// 		return nil, err
+			// 	}
+			// } else {
+			// 	// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind.
+			// 	// the reason of using srHeight-1 is contract indexer is not updated before the block is committed.
+			// 	csVotes, err = p.contractStakingVotesFromIndexer(ctx, list[i].GetIdentifier(), srHeight-1)
+			// 	if err != nil {
+			// 		return nil, err
+			// 	}
+			// }
+			csVotes, err = p.contractStakingVotesFromVoteView(ctx, list[i].GetIdentifier(), c.BaseView())
+			if err != nil {
+				return nil, err
 			}
-
 			list[i].Votes.Add(list[i].Votes, csVotes)
 		}
 		active, err := p.isActiveCandidate(ctx, c, list[i])
@@ -989,7 +988,7 @@ func (p *Protocol) contractStakingVotesFromIndexer(ctx context.Context, candidat
 	return votes, nil
 }
 
-func (p *Protocol) contractStakingVotesFromView(ctx context.Context, candidate address.Address, view *viewData) (*big.Int, error) {
+func (p *Protocol) contractStakingVotesFromVoteView(ctx context.Context, candidate address.Address, view *viewData) (*big.Int, error) {
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	votes := big.NewInt(0)
 	views := []ContractStakeView{}
@@ -1003,16 +1002,39 @@ func (p *Protocol) contractStakingVotesFromView(ctx context.Context, candidate a
 		views = append(views, view.contractsStake.v3)
 	}
 	for _, cv := range views {
-		btks, err := cv.BucketsByCandidate(candidate)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get BucketsByCandidate from contractStakingIndexer")
+		v := cv.CandidateStakeVotes(ctx, candidate)
+		if v == nil {
+			continue
 		}
-		for _, b := range btks {
-			votes.Add(votes, p.contractBucketVotes(featureCtx, b))
-		}
+		votes.Add(votes, v)
 	}
 	return votes, nil
 }
+
+// func (p *Protocol) contractStakingVotesFromView(ctx context.Context, candidate address.Address, view *viewData) (*big.Int, error) {
+// 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+// 	votes := big.NewInt(0)
+// 	views := []ContractStakeView{}
+// 	if p.contractStakingIndexer != nil && featureCtx.AddContractStakingVotes {
+// 		views = append(views, view.contractsStake.v1)
+// 	}
+// 	if p.contractStakingIndexerV2 != nil && !featureCtx.LimitedStakingContract {
+// 		views = append(views, view.contractsStake.v2)
+// 	}
+// 	if p.contractStakingIndexerV3 != nil && featureCtx.TimestampedStakingContract {
+// 		views = append(views, view.contractsStake.v3)
+// 	}
+// 	for _, cv := range views {
+// 		btks, err := cv.BucketsByCandidate(candidate)
+// 		if err != nil {
+// 			return nil, errors.Wrap(err, "failed to get BucketsByCandidate from contractStakingIndexer")
+// 		}
+// 		for _, b := range btks {
+// 			votes.Add(votes, p.contractBucketVotes(featureCtx, b))
+// 		}
+// 	}
+// 	return votes, nil
+// }
 
 func (p *Protocol) contractBucketVotes(fCtx protocol.FeatureCtx, bkt *VoteBucket) *big.Int {
 	votes := big.NewInt(0)

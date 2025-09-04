@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
@@ -56,6 +57,8 @@ type (
 		LoadStakeView(context.Context, protocol.StateReader) (ContractStakeView, error)
 		// CreateEventProcessor creates a new event processor
 		CreateEventProcessor(context.Context, EventHandler) EventProcessor
+		// CreateMemoryEventHandler creates a new memory event handler
+		CreateMemoryEventHandler(context.Context) EventHandler
 	}
 	// ContractStakingIndexerWithBucketType defines the interface of contract staking reader with bucket type
 	ContractStakingIndexerWithBucketType interface {
