@@ -33,9 +33,10 @@ type (
 		Handle(ctx context.Context, receipt *action.Receipt) error
 		// Migrate writes the bucket types and buckets to the state manager
 		Migrate(EventHandler) error
-		// BucketsByCandidate returns the buckets by candidate address
-		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
-		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error
+		// CandidateStakeVotes returns the candidate votes by identity address
+		CandidateStakeVotes(ctx context.Context, id address.Address) *big.Int
+		// AddBlockReceipts adds block receipts to the contract stake view
+		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt, handler EventHandler) error
 		// Height returns the height of the contract stake view
 		Height() uint64
 	}

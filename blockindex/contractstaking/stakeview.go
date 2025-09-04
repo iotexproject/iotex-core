@@ -2,6 +2,7 @@ package contractstaking
 
 import (
 	"context"
+	"math/big"
 	"slices"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -108,6 +109,10 @@ func (s *stakeView) BucketsByCandidate(candidate address.Address) ([]*Bucket, er
 	return s.assembleBuckets(ids, types, infos), nil
 }
 
+func (s *stakeView) CandidateStakeVotes(ctx context.Context, candidate address.Address) *big.Int {
+	return nil
+}
+
 func (s *stakeView) assembleBucket(token uint64, bi *bucketInfo, bt *BucketType) *Bucket {
 	return assembleBucket(token, bi, bt, s.contractAddr.String(), s.genBlockDurationFn(s.height))
 }
@@ -140,7 +145,7 @@ func (s *stakeView) Commit(ctx context.Context, sm protocol.StateManager) error 
 	return nil
 }
 
-func (s *stakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error {
+func (s *stakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Receipt, _ staking.EventHandler) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	height := blkCtx.BlockHeight
 	expectHeight := s.height + 1
