@@ -116,7 +116,7 @@ initOS
 # assemble expected release artifact name
 if [ "${OS}" != "linux" ] && { [ "${ARCH}" = "ppc64" ] || [ "${ARCH}" = "ppc64le" ];}; then
     # ppc64 and ppc64le are only supported on Linux.
-    echo "${OS}-${ARCH} is not supported by this instalation script"
+    echo "${OS}-${ARCH} is not supported by this installation script"
 else
     BINARY="ioctl-${OS}-${ARCH}"
 fi
