@@ -144,6 +144,9 @@ func (s *actionStore) Open(onData onAction) error {
 func (s *actionStore) Close() error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+	if !s.IsReady() {
+		return nil
+	}
 
 	if err := s.TurnOff(); err != nil {
 		return err

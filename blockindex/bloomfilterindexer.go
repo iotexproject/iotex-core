@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
@@ -60,6 +61,7 @@ type (
 
 	// bloomfilterIndexer is a struct for bloomfilter indexer
 	bloomfilterIndexer struct {
+		lifecycle.Readiness
 		mutex               sync.RWMutex // mutex for curRangeBloomfilter
 		kvStore             db.KVStore
 		rangeSize           uint64
@@ -93,6 +95,9 @@ func NewBloomfilterIndexer(kv db.KVStore, cfg Config) (BloomFilterIndexer, error
 // Start starts the bloomfilter indexer
 func (bfx *bloomfilterIndexer) Start(ctx context.Context) error {
 	if err := bfx.kvStore.Start(ctx); err != nil {
+		return err
+	}
+	if err := bfx.TurnOn(); err != nil {
 		return err
 	}
 
@@ -142,7 +147,15 @@ func (bfx *bloomfilterIndexer) initRangeBloomFilter(height uint64) error {
 
 // Stop stops the bloomfilter indexer
 func (bfx *bloomfilterIndexer) Stop(ctx context.Context) error {
-	bfx.totalRange.Close()
+	if bfx.totalRange != nil {
+		bfx.totalRange.Close()
+	}
+	if !bfx.IsReady() {
+		return nil
+	}
+	if err := bfx.TurnOff(); err != nil {
+		return err
+	}
 	return bfx.kvStore.Stop(ctx)
 }
 

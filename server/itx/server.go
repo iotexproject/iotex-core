@@ -132,6 +132,10 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			return nil, errors.Wrap(err, "failed to add api server as subscriber")
 		}
 	}
+	// Add pauseMgr as a block subscriber to receive block notifications
+	if err := cs.Blockchain().AddSubscriber(pauseMgr); err != nil {
+		return nil, errors.Wrap(err, "failed to add pause manager as subscriber")
+	}
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
@@ -179,7 +183,11 @@ func (s *Server) Start(ctx context.Context) error {
 
 // Stop stops the server
 func (s *Server) Stop(ctx context.Context) error {
-	defer s.subModuleCancel()
+	defer func() {
+		if s.subModuleCancel != nil {
+			s.subModuleCancel()
+		}
+	}()
 	if err := s.nodeStats.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping node stats")
 	}
@@ -262,15 +270,25 @@ func (s *Server) Dispatcher() dispatcher.Dispatcher {
 
 // StartServer starts a node server
 func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg config.Config) {
-	if err := svr.Start(ctx); err != nil {
-		log.L().Fatal("Failed to start server.", zap.Error(err))
-		return
+
+	if adminSvr := startAdminServer(ctx, svr, cfg); adminSvr != nil {
+		defer func() {
+			if err := adminSvr.Shutdown(ctx); err != nil {
+				log.L().Error("Error when serving metrics data.", zap.Error(err))
+			}
+		}()
 	}
+
 	defer func() {
 		if err := svr.Stop(context.Background()); err != nil {
 			log.L().Panic("Failed to stop server.", zap.Error(err))
 		}
 	}()
+	if err := svr.Start(ctx); err != nil {
+		log.L().Fatal("Failed to start server.", zap.Error(err))
+		return
+	}
+
 	if _, isGateway := cfg.Plugins[config.GatewayPlugin]; isGateway && cfg.API.ReadyDuration > 0 {
 		// wait for a while to make sure the server is ready
 		// The original intention was to ensure that all transactions that were not received during the restart were included in block, thereby avoiding inconsistencies in the state of the API node.
@@ -294,43 +312,43 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		}()
 	}
 
-	var adminserv http.Server
-	if cfg.System.HTTPAdminPort > 0 {
-		mux := http.NewServeMux()
-		log.RegisterLevelConfigMux(mux)
-		haCtl := ha.New(svr.rootChainService.Consensus())
-		mux.Handle("/ha", http.HandlerFunc(haCtl.Handle))
-		mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
-		mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
-		mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
-		mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
-		mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
-		mux.Handle("/pause", http.HandlerFunc(svr.pauseMgr.HandlePause))
-		mux.Handle("/unpause", http.HandlerFunc(svr.pauseMgr.HandleUnPause))
-
-		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
-		adminserv = httputil.NewServer(port, mux)
-		defer func() {
-			if err := adminserv.Shutdown(ctx); err != nil {
-				log.L().Error("Error when serving metrics data.", zap.Error(err))
-			}
-		}()
-		go func() {
-			runtime.SetMutexProfileFraction(1)
-			runtime.SetBlockProfileRate(1)
-			ln, err := httputil.LimitListener(adminserv.Addr)
-			if err != nil {
-				log.L().Error("Error when listen to profiling port.", zap.Error(err))
-				return
-			}
-			if err := adminserv.Serve(ln); err != nil {
-				log.L().Error("Error when serving performance profiling data.", zap.Error(err))
-			}
-		}()
-	}
-
 	<-ctx.Done()
 	if err := probeSvr.TurnOff(); err != nil {
 		log.L().Panic("Failed to turn off probe server.", zap.Error(err))
 	}
+}
+
+func startAdminServer(ctx context.Context, svr *Server, cfg config.Config) *http.Server {
+	if cfg.System.HTTPAdminPort == 0 {
+		return nil
+	}
+	mux := http.NewServeMux()
+	log.RegisterLevelConfigMux(mux)
+	haCtl := ha.New(svr.rootChainService.Consensus())
+	mux.Handle("/ha", http.HandlerFunc(haCtl.Handle))
+	mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+	mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+	mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+	mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+	mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+	mux.Handle("/pause", http.HandlerFunc(svr.pauseMgr.HandlePause))
+	mux.Handle("/unpause", http.HandlerFunc(svr.pauseMgr.HandleUnPause))
+	mux.Handle("/pause/", http.HandlerFunc(svr.pauseMgr.HandlePauseAtHeight))
+
+	port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
+	adminserv := httputil.NewServer(port, mux)
+
+	go func() {
+		runtime.SetMutexProfileFraction(1)
+		runtime.SetBlockProfileRate(1)
+		ln, err := httputil.LimitListener(adminserv.Addr)
+		if err != nil {
+			log.L().Error("Error when listen to profiling port.", zap.Error(err))
+			return
+		}
+		if err := adminserv.Serve(ln); err != nil {
+			log.L().Error("Error when serving performance profiling data.", zap.Error(err))
+		}
+	}()
+	return &adminserv
 }

@@ -164,6 +164,9 @@ func (d *IotxDispatcher) Start(ctx context.Context) error {
 
 // Stop gracefully shuts down the dispatcher by stopping all handlers and waiting for them to finish.
 func (d *IotxDispatcher) Stop(ctx context.Context) error {
+	if !d.IsReady() {
+		return nil
+	}
 	if err := d.TurnOff(); err != nil {
 		log.L().Warn("Dispatcher already in the process of shutting down.")
 		return err
