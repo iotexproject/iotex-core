@@ -29,6 +29,8 @@ type fund struct {
 	unclaimedBalance *big.Int
 }
 
+var _ state.ContractStorageStandard = (*fund)(nil)
+
 // Serialize serializes fund state into bytes
 func (f fund) Serialize() ([]byte, error) {
 	gen := rewardingpb.Fund{
@@ -55,6 +57,14 @@ func (f *fund) Deserialize(data []byte) error {
 	f.totalBalance = totalBalance
 	f.unclaimedBalance = unclaimedBalance
 	return nil
+}
+
+func (f *fund) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	return namespaceToContractAddress(ns)
+}
+
+func (f *fund) New() state.ContractStorageStandard {
+	return &fund{}
 }
 
 // Deposit deposits token into the rewarding fund

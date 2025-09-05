@@ -28,7 +28,7 @@ import (
 const (
 	// TODO: it works only for one instance per protocol definition now
 	_protocolID           = "rewarding"
-	_v2RewardingNamespace = "Rewarding"
+	_v2RewardingNamespace = state.RewardingNamespace
 )
 
 var (
@@ -138,7 +138,7 @@ func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value inte
 	if err := p.putStateV2(sm, key, value); err != nil {
 		return err
 	}
-	return p.deleteStateV1(sm, key)
+	return p.deleteStateV1(sm, key, value)
 }
 
 func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.StateManager) error {
@@ -359,26 +359,9 @@ func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interf
 	return err
 }
 
-func (p *Protocol) deleteState(ctx context.Context, sm protocol.StateManager, key []byte) error {
-	if useV2Storage(ctx) {
-		return p.deleteStateV2(sm, key)
-	}
-	return p.deleteStateV1(sm, key)
-}
-
-func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte) error {
+func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte, obj any) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash))
-	if errors.Cause(err) == state.ErrStateNotExist {
-		// don't care if not exist
-		return nil
-	}
-	return err
-}
-
-func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
-	k := append(p.keyPrefix, key...)
-	_, err := sm.DelState(protocol.KeyOption(k), protocol.NamespaceOption(_v2RewardingNamespace))
+	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash), protocol.ObjectOption(obj))
 	if errors.Cause(err) == state.ErrStateNotExist {
 		// don't care if not exist
 		return nil
