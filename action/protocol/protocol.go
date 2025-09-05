@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 var (
@@ -27,7 +28,7 @@ var (
 
 const (
 	// SystemNamespace is the namespace to store system information such as candidates/probationList/unproductiveDelegates
-	SystemNamespace = "System"
+	SystemNamespace = state.SystemNamespace
 )
 
 // Protocol defines the protocol interfaces atop IoTeX blockchain

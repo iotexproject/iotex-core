@@ -13,9 +13,12 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // admin stores the admin data of the rewarding protocol
@@ -28,6 +31,8 @@ type admin struct {
 	foundationBonusLastEpoch       uint64
 	productivityThreshold          uint64
 }
+
+var _ state.ContractStorageStandard = (*admin)(nil)
 
 // Serialize serializes admin state into bytes
 func (a admin) Serialize() ([]byte, error) {
@@ -75,10 +80,20 @@ func (a *admin) grantFoundationBonus(epoch uint64) bool {
 	return epoch <= a.foundationBonusLastEpoch
 }
 
+func (a *admin) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	return namespaceToContractAddress(ns)
+}
+
+func (a *admin) New() state.ContractStorageStandard {
+	return &admin{}
+}
+
 // exempt stores the addresses that exempt from epoch reward
 type exempt struct {
 	addrs []address.Address
 }
+
+var _ state.ContractStorageStandard = (*exempt)(nil)
 
 // Serialize serializes exempt state into bytes
 func (e *exempt) Serialize() ([]byte, error) {
@@ -104,6 +119,14 @@ func (e *exempt) Deserialize(data []byte) error {
 		e.addrs = append(e.addrs, addr)
 	}
 	return nil
+}
+
+func (e *exempt) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	return namespaceToContractAddress(ns)
+}
+
+func (e *exempt) New() state.ContractStorageStandard {
+	return &exempt{}
 }
 
 // CreateGenesisStates initializes the rewarding protocol by setting the original admin, block and epoch reward
@@ -272,4 +295,15 @@ func (p *Protocol) assertZeroBlockHeight(height uint64) error {
 		return errors.Errorf("current block height %d is not zero", height)
 	}
 	return nil
+}
+
+func namespaceToContractAddress(ns string) (address.Address, error) {
+	switch ns {
+	case state.AccountKVNamespace:
+		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV1Index].Address, nil
+	case _v2RewardingNamespace:
+		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV2Index].Address, nil
+	default:
+		return nil, errors.Errorf("unexpected namespace %s", ns)
+	}
 }

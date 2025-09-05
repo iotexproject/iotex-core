@@ -26,19 +26,14 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db/trie"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 const (
 	// AccountKVNamespace is the bucket name for account
-	AccountKVNamespace = "Account"
-	// ArchiveNamespacePrefix is the prefix of the buckets storing history data
-	ArchiveNamespacePrefix = "Archive"
+	AccountKVNamespace = state.AccountKVNamespace
 	// CurrentHeightKey indicates the key of current factory height in underlying DB
 	CurrentHeightKey = "currentHeight"
-	// ArchiveTrieNamespace is the bucket for the latest state view
-	ArchiveTrieNamespace = "AccountTrie"
-	// ArchiveTrieRootKey indicates the key of accountTrie root hash in underlying DB
-	ArchiveTrieRootKey = "archiveTrieRoot"
 )
 
 var (
