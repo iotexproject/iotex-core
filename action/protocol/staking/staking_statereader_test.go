@@ -110,7 +110,7 @@ func TestStakingStateReader(t *testing.T) {
 		sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 		candCenter, err := NewCandidateCenter(testCandidates)
 		r.NoError(err)
-		testNativeData := &ViewData{
+		testNativeData := &viewData{
 			candCenter: candCenter,
 			bucketPool: &BucketPool{
 				total: &totalAmount{

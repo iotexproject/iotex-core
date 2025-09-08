@@ -96,15 +96,14 @@ func TestContractStakingDirty_matchBucketType(t *testing.T) {
 	dirty := newContractStakingDirty(clean)
 
 	// no bucket type
-	id, bt, ok := dirty.matchBucketType(big.NewInt(100), 100)
-	require.False(ok)
+	id, bt := dirty.matchBucketType(big.NewInt(100), 100)
 	require.Nil(bt)
 	require.EqualValues(0, id)
 
 	// bucket type in clean cache
 	clean.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
-	id, bt, ok = dirty.matchBucketType(big.NewInt(100), 100)
-	require.True(ok)
+	id, bt = dirty.matchBucketType(big.NewInt(100), 100)
+	require.NotNil(bt)
 	require.EqualValues(100, bt.Amount.Int64())
 	require.EqualValues(100, bt.Duration)
 	require.EqualValues(1, bt.ActivatedAt)
@@ -112,8 +111,8 @@ func TestContractStakingDirty_matchBucketType(t *testing.T) {
 
 	// added bucket type
 	dirty.addBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 2})
-	id, bt, ok = dirty.matchBucketType(big.NewInt(200), 200)
-	require.True(ok)
+	id, bt = dirty.matchBucketType(big.NewInt(200), 200)
+	require.NotNil(bt)
 	require.EqualValues(200, bt.Amount.Int64())
 	require.EqualValues(200, bt.Duration)
 	require.EqualValues(2, bt.ActivatedAt)
@@ -168,7 +167,9 @@ func TestContractStakingDirty_finalize(t *testing.T) {
 	require.EqualValues(_StakingBucketTypeNS, info.Namespace())
 	require.EqualValues(batch.Put, info.WriteType())
 	require.EqualValues(byteutil.Uint64ToBytesBigEndian(1), info.Key())
-	require.EqualValues(bt.Serialize(), info.Value())
+	btdata, err := bt.Serialize()
+	require.NoError(err)
+	require.EqualValues(btdata, info.Value())
 	require.Equal(1, cache.BucketTypeCount())
 
 	// add bucket info
@@ -181,7 +182,9 @@ func TestContractStakingDirty_finalize(t *testing.T) {
 	require.EqualValues(_StakingBucketInfoNS, info.Namespace())
 	require.EqualValues(batch.Put, info.WriteType())
 	require.EqualValues(byteutil.Uint64ToBytesBigEndian(1), info.Key())
-	require.EqualValues(bi.Serialize(), info.Value())
+	bidata, err := bi.Serialize()
+	require.NoError(err)
+	require.EqualValues(bidata, info.Value())
 	totalCnt = cache.TotalBucketCount()
 	require.EqualValues(1, totalCnt)
 }
@@ -219,6 +222,7 @@ func TestContractStakingDirty_noSideEffectOnClean(t *testing.T) {
 	require.False(ok)
 	require.Nil(bi)
 
+	clean.PutBucketType(1, &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1})
 	// update bucket info existed in clean cache
 	clean.PutBucketInfo(2, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
 	// update bucket info in dirty cache
