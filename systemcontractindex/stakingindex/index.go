@@ -14,7 +14,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex"
@@ -57,7 +56,7 @@ type (
 		ns                         string
 		muteHeight                 uint64
 		timestamped                bool
-		calculateUnmutedVoteWeight calculateUnmutedVoteWeightFn
+		calculateUnmutedVoteWeight CalculateUnmutedVoteWeightFn
 	}
 	// IndexerOption is the option to create an indexer
 	IndexerOption func(*Indexer)
@@ -149,6 +148,12 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get height for contract %s", contractAddr)
 	}
+	cfg := &VoteViewConfig{
+		ContractAddr: s.common.ContractAddress(),
+		StartHeight:  s.common.StartHeight(),
+		MuteHeight:   s.muteHeight,
+		Timestamped:  s.timestamped,
+	}
 	// contract staking state have not been initialized in state reader, we need to read from index
 	if csrHeight == 0 {
 		if !s.common.Started() {
@@ -156,45 +161,36 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 				return nil, err
 			}
 		}
-		cur := s.createCandidateVotes(s.cache.buckets)
-		flusher, err := db.NewKVStoreFlusher(s.common.KVStore(), batch.NewCachedBatch())
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create KVStoreFlusher")
-		}
-		handler, err := newVoteViewEventHandler(cur, s.calculateUnmutedVoteWeight, s.common.ContractAddress().String(), flusher.KVStoreWithBuffer())
-		if err != nil {
-			return nil, err
-		}
-		return &voteView{
-			indexer:                    s,
-			height:                     s.common.Height(),
-			contractAddr:               s.common.ContractAddress(),
-			muteHeight:                 s.muteHeight,
-			timestamped:                s.timestamped,
-			startHeight:                s.common.StartHeight(),
-			bucketNS:                   s.bucketNS,
-			cur:                        s.createCandidateVotes(s.cache.buckets),
-			handler:                    handler,
-			calculateUnmutedVoteWeight: s.calculateUnmutedVoteWeight,
-		}, nil
+		builder := NewEventHandlerFactory(s.bucketNS, s.common.KVStore())
+		processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
+		mgr := NewCandidateVotesManager(s.ContractAddress())
+		return NewVoteView(cfg, s.common.Height(), s.createCandidateVotes(s.cache.buckets), builder, processorBuilder, s, mgr), nil
 	}
 	// otherwise, we need to read from state reader
-	vv := &voteView{
-		indexer:                    s,
-		height:                     csrHeight,
-		contractAddr:               s.common.ContractAddress(),
-		muteHeight:                 s.muteHeight,
-		startHeight:                s.common.StartHeight(),
-		timestamped:                s.timestamped,
-		bucketNS:                   s.bucketNS,
-		cur:                        newCandidateVotes(),
-		handler:                    nil,
-		calculateUnmutedVoteWeight: s.calculateUnmutedVoteWeight,
-	}
-	if err = vv.loadVotes(ctx, sr); err != nil {
+	cache := NewContractBucketCache(s.common.ContractAddress(), csr)
+	builder := NewContractEventHandlerFactory(csr, s.calculateUnmutedVoteWeight)
+	processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
+	mgr := NewCandidateVotesManager(s.ContractAddress())
+	cur, err := mgr.Load(ctx, sr)
+	if err != nil {
 		return nil, err
 	}
+	vv := NewVoteView(cfg, csrHeight, cur, builder, processorBuilder, cache, mgr)
 	return vv, nil
+}
+
+// ContractStakingBuckets returns all the contract staking buckets
+func (s *Indexer) ContractStakingBuckets() (uint64, map[uint64]*Bucket, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	idxs := s.cache.BucketIdxs()
+	bkts := s.cache.Buckets(idxs)
+	res := make(map[uint64]*Bucket)
+	for i, id := range idxs {
+		res[id] = bkts[i]
+	}
+	return s.common.Height(), res, nil
 }
 
 // Height returns the tip block height
@@ -375,12 +371,14 @@ func (s *Indexer) genBlockDurationFn(view uint64) blocksDurationFn {
 }
 
 func (s *Indexer) createCandidateVotes(bkts map[uint64]*Bucket) CandidateVotes {
+	return AggregateCandidateVotes(bkts, s.calculateUnmutedVoteWeight)
+}
+
+// AggregateCandidateVotes aggregates the votes for each candidate from the given buckets
+func AggregateCandidateVotes(bkts map[uint64]*Bucket, calculateUnmutedVoteWeight CalculateUnmutedVoteWeightFn) CandidateVotes {
 	res := newCandidateVotes()
 	for _, bkt := range bkts {
-		if bkt.UnstakedAt != maxStakingNumber || bkt.Muted {
-			continue
-		}
-		res.Add(bkt.Candidate.String(), bkt.StakedAmount, s.calculateUnmutedVoteWeight(bkt))
+		res.Add(bkt.Candidate.String(), bkt.StakedAmount, calculateUnmutedVoteWeight(bkt))
 	}
 	return res
 }
