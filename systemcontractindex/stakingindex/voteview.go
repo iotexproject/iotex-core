@@ -27,6 +27,7 @@ type (
 	EventHandlerFactory interface {
 		NewEventHandler(CandidateVotes) (BucketStore, error)
 		NewEventHandlerWithStore(BucketStore, CandidateVotes) (BucketStore, error)
+		NewEventHandlerWithHandler(BucketStore, CandidateVotes) (BucketStore, error)
 	}
 
 	voteView struct {
@@ -73,31 +74,45 @@ func (s *voteView) Height() uint64 {
 
 func (s *voteView) Wrap() staking.ContractStakeView {
 	cur := newCandidateVotesWrapper(s.cur)
-	handler, err := s.handlerBuilder.NewEventHandlerWithStore(s.handler, cur)
-	if err != nil {
-		panic(errors.Wrap(err, "failed to wrap vote view event handler"))
+	var handler BucketStore
+	if s.handler != nil {
+		h, err := s.handlerBuilder.NewEventHandlerWithStore(s.handler, cur)
+		if err != nil {
+			panic(errors.Wrap(err, "failed to wrap vote view event handler"))
+		}
+		handler = h
 	}
 	return &voteView{
-		config:      s.config,
-		height:      s.height,
-		cur:         cur,
-		handler:     handler,
-		bucketCache: s.bucketCache,
+		config:           s.config,
+		height:           s.height,
+		cur:              cur,
+		handler:          handler,
+		bucketCache:      s.bucketCache,
+		store:            s.store,
+		handlerBuilder:   s.handlerBuilder,
+		processorBuilder: s.processorBuilder,
 	}
 }
 
 func (s *voteView) Fork() staking.ContractStakeView {
 	cur := newCandidateVotesWrapperCommitInClone(s.cur)
-	handler, err := s.handlerBuilder.NewEventHandlerWithStore(s.handler, cur)
-	if err != nil {
-		panic(errors.Wrap(err, "failed to fork vote view event handler"))
+	var handler BucketStore
+	if s.handler != nil {
+		h, err := s.handlerBuilder.NewEventHandlerWithStore(s.handler, cur)
+		if err != nil {
+			panic(errors.Wrap(err, "failed to fork vote view event handler"))
+		}
+		handler = h
 	}
 	return &voteView{
-		config:      s.config,
-		height:      s.height,
-		cur:         cur,
-		handler:     handler,
-		bucketCache: s.bucketCache,
+		config:           s.config,
+		height:           s.height,
+		cur:              cur,
+		handler:          handler,
+		bucketCache:      s.bucketCache,
+		store:            s.store,
+		handlerBuilder:   s.handlerBuilder,
+		processorBuilder: s.processorBuilder,
 	}
 }
 
@@ -153,8 +168,12 @@ func (s *voteView) AddBlockReceipts(ctx context.Context, receipts []*action.Rece
 	if height != s.height+1 && height != s.config.StartHeight {
 		return errors.Errorf("block height %d does not match stake view height %d", height, s.height+1)
 	}
+	store, err := s.handlerBuilder.NewEventHandlerWithHandler(handler, s.cur)
+	if err != nil {
+		return errors.Wrap(err, "failed to create event handler with existing handler")
+	}
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
-	if err := s.processorBuilder.Build(ctx, s.handler).ProcessReceipts(ctx, receipts...); err != nil {
+	if err := s.processorBuilder.Build(ctx, store).ProcessReceipts(ctx, receipts...); err != nil {
 		return errors.Wrapf(err, "failed to handle receipts at height %d", height)
 	}
 	s.height = height

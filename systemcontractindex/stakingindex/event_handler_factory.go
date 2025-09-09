@@ -25,10 +25,19 @@ func (f *eventHandlerFactory) NewEventHandler(view CandidateVotes) (BucketStore,
 }
 
 func (f *eventHandlerFactory) NewEventHandlerWithStore(handler BucketStore, view CandidateVotes) (BucketStore, error) {
-	if storer, ok := handler.(interface{ KVStore() db.KVStore }); ok {
-		return newVoteViewEventHandler(view, f.fn, f.bucketNS, storer.KVStore())
+	veh, ok := handler.(*voteViewEventHandler)
+	if !ok {
+		return nil, errors.Errorf("handler %T is not voteViewEventHandler", handler)
 	}
-	return nil, errors.New("handler does not support KVStore()")
+	store, ok := veh.BucketStore.(*storeWithBuffer)
+	if !ok {
+		return nil, errors.Errorf("handler %T is not storeWithBuffer", handler)
+	}
+	return newVoteViewEventHandler(view, f.fn, f.bucketNS, store.KVStore())
+}
+
+func (f *eventHandlerFactory) NewEventHandlerWithHandler(handler BucketStore, view CandidateVotes) (BucketStore, error) {
+	return newVoteViewEventHandlerWraper(handler, view, f.fn)
 }
 
 type contractEventHandlerFactory struct {
@@ -51,4 +60,8 @@ func (f *contractEventHandlerFactory) NewEventHandler(view CandidateVotes) (Buck
 func (f *contractEventHandlerFactory) NewEventHandlerWithStore(handler BucketStore, view CandidateVotes) (BucketStore, error) {
 	store := NewStoreWrapper(handler)
 	return newVoteViewEventHandlerWraper(store, view, f.fn)
+}
+
+func (f *contractEventHandlerFactory) NewEventHandlerWithHandler(handler BucketStore, view CandidateVotes) (BucketStore, error) {
+	return newVoteViewEventHandlerWraper(handler, view, f.fn)
 }

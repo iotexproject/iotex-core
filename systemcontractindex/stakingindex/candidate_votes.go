@@ -72,10 +72,14 @@ func (cv *candidateVotes) IsDirty() bool {
 }
 
 func (cv *candidateVotes) Votes(fCtx protocol.FeatureCtx, cand string) *big.Int {
-	if !fCtx.FixContractStakingWeightedVotes {
-		return cv.cands[cand].amount
+	c := cv.cands[cand]
+	if c == nil {
+		return nil
 	}
-	return cv.cands[cand].votes
+	if !fCtx.FixContractStakingWeightedVotes {
+		return c.amount
+	}
+	return c.votes
 }
 
 func (cv *candidateVotes) Add(cand string, amount *big.Int, votes *big.Int) {
@@ -194,11 +198,11 @@ func (cv *candidateVotesWraper) Commit() {
 }
 
 func (cv *candidateVotesWraper) Serialize() ([]byte, error) {
-	return nil, errors.New("not implemented")
+	return cv.base.Serialize()
 }
 
 func (cv *candidateVotesWraper) Deserialize(data []byte) error {
-	return errors.New("not implemented")
+	return cv.base.Deserialize(data)
 }
 
 func (cv *candidateVotesWraper) Base() CandidateVotes {
