@@ -91,8 +91,6 @@ func (store *stateDBWorkingSetStore) Put(ns string, key []byte, value []byte) er
 }
 
 func (store *stateDBWorkingSetStore) putKV(ns string, key []byte, value []byte) error {
-	store.lock.Lock()
-	defer store.lock.Unlock()
 	if err := store.flusher.KVStoreWithBuffer().Put(ns, key, value); err != nil {
 		return errors.Wrap(err, "failed to put value")
 	}
