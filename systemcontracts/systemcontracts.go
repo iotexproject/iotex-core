@@ -50,6 +50,8 @@ const (
 	RewardingContractV2Index
 	// StakingContractIndex is the system contract for staking view storage
 	StakingContractIndex
+	// StakingViewContractIndex is the system contract for staking view storage
+	StakingViewContractIndex
 	// SystemContractCount is the total number of system contracts
 	SystemContractCount
 )
@@ -60,7 +62,8 @@ const (
 )
 
 var systemContractTypes = map[int]int{
-	StakingContractIndex: namespaceStorageContractType,
+	StakingContractIndex:     namespaceStorageContractType,
+	StakingViewContractIndex: namespaceStorageContractType,
 }
 
 // SystemContracts holds all system contracts
