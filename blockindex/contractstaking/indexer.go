@@ -100,9 +100,15 @@ func (s *Indexer) CreateMemoryEventHandler(ctx context.Context) staking.EventHan
 
 // LoadStakeView loads the contract stake view
 func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (staking.ContractStakeView, error) {
+	if !s.IsReady() {
+		if err := s.start(ctx); err != nil {
+			return nil, err
+		}
+	}
 	cssr := contractstaking.NewStateReader(sr)
-	_, err := cssr.NumOfBuckets(s.contractAddr)
+	mgr := stakingindex.NewCandidateVotesManager(s.contractAddr)
 	hasContractState := false
+	cur, err := mgr.Load(ctx, sr)
 	switch errors.Cause(err) {
 	case nil:
 		hasContractState = true
@@ -120,11 +126,6 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	}
 	// contract staking state have not been initialized in state reader, we need to read from index
 	if !hasContractState {
-		if !s.IsReady() {
-			if err := s.start(ctx); err != nil {
-				return nil, err
-			}
-		}
 		ids, typs, infos := s.cache.Buckets()
 		buckets := make(map[uint64]*contractstaking.Bucket)
 		for i, id := range ids {
@@ -140,8 +141,6 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	cache := stakingindex.NewContractBucketCache(s.contractAddr, cssr)
 	builder := stakingindex.NewContractEventHandlerFactory(cssr, calculateUnmutedVoteWeight)
 	processorBuilder := newEventProcessorBuilder(s.contractAddr)
-	mgr := stakingindex.NewCandidateVotesManager(s.contractAddr)
-	cur, err := mgr.Load(ctx, sr)
 	if err != nil {
 		return nil, err
 	}
