@@ -12,8 +12,9 @@ func TestStakingTransfer(t *testing.T) {
 	require := require.New(t)
 	stake, err := NewTransferStake(_canAddress, _index, _payload)
 	require.NoError(err)
-	elp := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
+	elp, err := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
 		SetGasPrice(_gasPrice).SetAction(stake).Build()
+	require.NoError(err)
 	t.Run("proto", func(t *testing.T) {
 		ser := stake.Serialize()
 		require.Equal("080a1229696f3178707136326177383575717a72636367397935686e727976386c64326e6b7079636333677a611a077061796c6f6164", hex.EncodeToString(ser))

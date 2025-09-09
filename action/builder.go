@@ -161,11 +161,11 @@ func (b *EnvelopeBuilder) SetBlobTxData(
 }
 
 // Build builds a new action.
-func (b *EnvelopeBuilder) Build() Envelope {
+func (b *EnvelopeBuilder) Build() (Envelope, error) {
 	return b.build()
 }
 
-func (b *EnvelopeBuilder) build() Envelope {
+func (b *EnvelopeBuilder) build() (Envelope, error) {
 	if b.ab.gasPrice == nil {
 		b.ab.gasPrice = big.NewInt(0)
 	}
@@ -174,13 +174,13 @@ func (b *EnvelopeBuilder) build() Envelope {
 		b.ab.version = version.ProtocolVersion
 	}
 	if err := b.ab.validateTx(); err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 	if b.elp.payload == nil {
-		panic("cannot build Envelope w/o a valid payload")
+		return nil, errors.New("cannot build Envelope w/o a valid payload")
 	}
 	b.elp.common = b.ab.convertToTx()
-	return &b.elp
+	return &b.elp, nil
 }
 
 // BuildTransfer loads transfer action into envelope
@@ -192,7 +192,7 @@ func (b *EnvelopeBuilder) BuildTransfer(tx *types.Transaction) (Envelope, error)
 		return nil, err
 	}
 	b.elp.payload = NewTransfer(tx.Value(), getRecipientAddr(tx.To()), tx.Data())
-	return b.build(), nil
+	return b.build()
 }
 
 func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) error {
@@ -248,7 +248,7 @@ func (b *EnvelopeBuilder) BuildExecution(tx *types.Transaction) (Envelope, error
 		return nil, err
 	}
 	b.elp.payload = NewExecution(getRecipientAddr(tx.To()), tx.Value(), tx.Data())
-	return b.build(), nil
+	return b.build()
 }
 
 // BuildStakingAction loads staking action into envelope from abi-encoded data
@@ -264,7 +264,7 @@ func (b *EnvelopeBuilder) BuildStakingAction(tx *types.Transaction) (Envelope, e
 		return nil, err
 	}
 	b.elp.payload = act
-	return b.build(), nil
+	return b.build()
 }
 
 // BuildRewardingAction loads rewarding action into envelope from abi-encoded data
@@ -280,7 +280,7 @@ func (b *EnvelopeBuilder) BuildRewardingAction(tx *types.Transaction) (Envelope,
 		return nil, err
 	}
 	b.elp.payload = act
-	return b.build(), nil
+	return b.build()
 }
 
 func newStakingActionFromABIBinary(data []byte, value *big.Int) (actionPayload, error) {

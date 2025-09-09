@@ -47,7 +47,8 @@ func TestClaimReward(t *testing.T) {
 	t.Run("cost", func(t *testing.T) {
 		rc := &ClaimFromRewardingFund{}
 		builder := (&EnvelopeBuilder{}).SetGasPrice(big.NewInt(1000000000000))
-		elp := builder.SetAction(rc).Build()
+		elp, err := builder.SetAction(rc).Build()
+		r.NoError(err)
 		cost, err := elp.Cost()
 		r.NoError(err)
 		r.Equal("10000000000000000", cost.String())
@@ -193,8 +194,9 @@ func TestClaimFromRewardingFund(t *testing.T) {
 			r.NoError(c.SanityCheck())
 			intrinsicGas, err := c.IntrinsicGas()
 			r.NoError(err)
-			elp := (&EnvelopeBuilder{}).SetGasPrice(big.NewInt(10)).
+			elp, err := (&EnvelopeBuilder{}).SetGasPrice(big.NewInt(10)).
 				SetAction(c).Build()
+			r.NoError(err)
 			cost, err := elp.Cost()
 			r.NoError(err)
 			gas := new(big.Int).SetUint64(intrinsicGas)
