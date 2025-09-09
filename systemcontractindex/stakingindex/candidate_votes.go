@@ -6,8 +6,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type CandidateVotes interface {
@@ -31,6 +35,8 @@ type candidate struct {
 type candidateVotes struct {
 	cands map[string]*candidate
 }
+
+var _ state.ContractStorageStandard = (*candidateVotes)(nil)
 
 type candidateVotesWraper struct {
 	base   CandidateVotes
@@ -121,6 +127,20 @@ func (cv *candidateVotes) Commit() {
 
 func (cv *candidateVotes) Base() CandidateVotes {
 	return cv
+}
+
+func (cv *candidateVotes) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+	return systemcontracts.SystemContracts[systemcontracts.StakingViewContractIndex].Address, nil
+}
+
+func (cv *candidateVotes) New() state.ContractStorageStandard {
+	return &candidateVotes{
+		cands: make(map[string]*candidate),
+	}
+}
+
+func (cv *candidateVotes) ContractStorageProxy() state.ContractStorage {
+	return state.NewContractStorageNamespacedWrapper(cv)
 }
 
 func newCandidateVotes() *candidateVotes {
