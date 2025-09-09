@@ -80,6 +80,13 @@ func EnableTimestamped() IndexerOption {
 	}
 }
 
+// WithCalculateUnmutedVoteWeightFn sets the function to calculate unmuted vote weight
+func WithCalculateUnmutedVoteWeightFn(f CalculateUnmutedVoteWeightFn) IndexerOption {
+	return func(s *Indexer) {
+		s.calculateUnmutedVoteWeight = f
+	}
+}
+
 // NewIndexer creates a new staking indexer
 func NewIndexer(kvstore db.KVStore, contractAddr address.Address, startHeight uint64, blocksToDurationFn blocksDurationAtFn, opts ...IndexerOption) *Indexer {
 	bucketNS := contractAddr.String() + "#" + stakingBucketNS
@@ -143,10 +150,16 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	if !s.common.Started() {
+		if err := s.start(ctx); err != nil {
+			return nil, err
+		}
+	}
 	contractAddr := s.common.ContractAddress()
 	csr := contractstaking.NewStateReader(sr)
 	hasContractState := false
-	_, err := csr.NumOfBuckets(contractAddr)
+	mgr := NewCandidateVotesManager(s.ContractAddress())
+	cur, err := mgr.Load(ctx, sr)
 	switch errors.Cause(err) {
 	case nil:
 		hasContractState = true
@@ -162,11 +175,6 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	}
 	// contract staking state have not been initialized in state reader, we need to read from index
 	if !hasContractState {
-		if !s.common.Started() {
-			if err := s.start(ctx); err != nil {
-				return nil, err
-			}
-		}
 		builder := NewEventHandlerFactory(s.bucketNS, s.common.KVStore())
 		processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
 		mgr := NewCandidateVotesManager(s.ContractAddress())
@@ -176,8 +184,6 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	cache := NewContractBucketCache(s.common.ContractAddress(), csr)
 	builder := NewContractEventHandlerFactory(csr, s.calculateUnmutedVoteWeight)
 	processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
-	mgr := NewCandidateVotesManager(s.ContractAddress())
-	cur, err := mgr.Load(ctx, sr)
 	if err != nil {
 		return nil, err
 	}

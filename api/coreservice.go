@@ -2171,6 +2171,10 @@ func (core *coreService) simulateExecution(
 		err error
 		ws  protocol.StateManagerWithCloser
 	)
+	ctx = genesis.WithGenesisContext(ctx, core.Genesis())
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: height,
+	}))
 	if archive {
 		ctx, err = core.bc.ContextAtHeight(ctx, height)
 		if err != nil {
@@ -2193,9 +2197,6 @@ func (core *coreService) simulateExecution(
 		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	var pendingNonce uint64
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: height,
-	}))
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
 		pendingNonce = state.PendingNonceConsideringFreshAccount()

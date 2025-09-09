@@ -103,6 +103,11 @@ func (b *Bucket) Clone() *Bucket {
 }
 */
 
+// AssembleVoteBucket assembles a VoteBucket from a Bucket
+func AssembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blocksToDurationFn blocksDurationFn) *VoteBucket {
+	return assembleVoteBucket(token, bkt, contractAddr, blocksToDurationFn)
+}
+
 func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blocksToDurationFn blocksDurationFn) *VoteBucket {
 	vb := VoteBucket{
 		Index:           token,
