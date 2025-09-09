@@ -39,6 +39,10 @@ func (f *eventHandlerFactory) NewEventHandlerWithStore(store stakingindex.Bucket
 	return handler, nil
 }
 
+func (f *eventHandlerFactory) NewEventHandlerWithHandler(handler stakingindex.BucketStore, v stakingindex.CandidateVotes) (stakingindex.BucketStore, error) {
+	return stakingindex.NewVoteViewEventHandlerWraper(handler, v, f.calculateVoteWeightFunc)
+}
+
 type readOnlyEventHandler interface {
 	DeductBucket(address.Address, uint64) (*contractstaking.Bucket, error)
 }
