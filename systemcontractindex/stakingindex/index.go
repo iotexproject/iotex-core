@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex"
 )
 
@@ -144,9 +145,14 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 
 	contractAddr := s.common.ContractAddress()
 	csr := contractstaking.NewStateReader(sr)
-	csrHeight, err := csr.Height(contractAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get height for contract %s", contractAddr)
+	hasContractState := false
+	_, err := csr.NumOfBuckets(contractAddr)
+	switch errors.Cause(err) {
+	case nil:
+		hasContractState = true
+	case state.ErrStateNotExist:
+	default:
+		return nil, errors.Wrapf(err, "failed to get num of buckets for contract %s", contractAddr)
 	}
 	cfg := &VoteViewConfig{
 		ContractAddr: s.common.ContractAddress(),
@@ -155,7 +161,7 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 		Timestamped:  s.timestamped,
 	}
 	// contract staking state have not been initialized in state reader, we need to read from index
-	if csrHeight == 0 {
+	if !hasContractState {
 		if !s.common.Started() {
 			if err := s.start(ctx); err != nil {
 				return nil, err
@@ -175,7 +181,11 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	if err != nil {
 		return nil, err
 	}
-	vv := NewVoteView(cfg, csrHeight, cur, builder, processorBuilder, cache, mgr)
+	srHeight, err := sr.Height()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get state reader height")
+	}
+	vv := NewVoteView(cfg, srHeight, cur, builder, processorBuilder, cache, mgr)
 	return vv, nil
 }
 
