@@ -32,8 +32,9 @@ func TestGrandReward(t *testing.T) {
 		intrinsicGas, err := g.IntrinsicGas()
 		require.NoError(err)
 		require.Zero(intrinsicGas)
-		elp := (&EnvelopeBuilder{}).SetGasPrice(_defaultGasPrice).
+		elp, err := (&EnvelopeBuilder{}).SetGasPrice(_defaultGasPrice).
 			SetAction(g).Build()
+		require.NoError(err)
 		cost, err := elp.Cost()
 		require.NoError(err)
 		require.Equal(big.NewInt(0), cost)

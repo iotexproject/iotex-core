@@ -58,8 +58,9 @@ func TestDepositRewardSerialize(t *testing.T) {
 	})
 	t.Run("cost", func(t *testing.T) {
 		rp := &DepositToRewardingFund{amount: big.NewInt(100)}
-		elp := (&EnvelopeBuilder{}).SetGasPrice(_defaultGasPrice).
+		elp, err := (&EnvelopeBuilder{}).SetGasPrice(_defaultGasPrice).
 			SetAction(rp).Build()
+		r.NoError(err)
 		cost, err := elp.Cost()
 		r.NoError(err)
 		r.EqualValues("10000000000000100", cost.String())

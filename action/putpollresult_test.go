@@ -28,8 +28,9 @@ func TestPutPollResult(t *testing.T) {
 	igas, err := r.IntrinsicGas()
 	assert.NoError(t, err)
 	assert.Zero(t, igas)
-	elp := (&EnvelopeBuilder{}).SetNonce(1).SetGasLimit(uint64(100000)).
+	elp, err := (&EnvelopeBuilder{}).SetNonce(1).SetGasLimit(uint64(100000)).
 		SetAction(r).Build()
+	assert.NoError(t, err)
 	cost, err := elp.Cost()
 	assert.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), cost)

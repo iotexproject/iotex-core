@@ -71,8 +71,9 @@ func TestCandidateTransferOwnership(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		elp := (&EnvelopeBuilder{}).SetNonce(test.nonce).SetGasLimit(test.gasLimit).
+		elp, err := (&EnvelopeBuilder{}).SetNonce(test.nonce).SetGasLimit(test.gasLimit).
 			SetGasPrice(test.gasPrice).SetAction(cr).Build()
+		require.NoError(err)
 		err = elp.SanityCheck()
 		require.Equal(test.sanityCheck, errors.Cause(err))
 		if err != nil {
