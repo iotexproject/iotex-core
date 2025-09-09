@@ -47,6 +47,11 @@ func (b *contractStakeViewBuilder) Build(ctx context.Context, sr protocol.StateR
 	if b.blockdao == nil {
 		return nil, errors.Errorf("blockdao is nil, cannot build view for height %d", height)
 	}
+	if starter, ok := b.indexer.(interface{ StartHeight() uint64 }); ok {
+		if viewHeight < starter.StartHeight() {
+			return view, nil
+		}
+	}
 	handler := b.indexer.CreateMemoryEventHandler(ctx)
 	for h := viewHeight + 1; h <= height; h++ {
 		receipts, err := b.blockdao.GetReceipts(h)
