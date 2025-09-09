@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
 )
 
@@ -100,9 +101,14 @@ func (s *Indexer) CreateMemoryEventHandler(ctx context.Context) staking.EventHan
 // LoadStakeView loads the contract stake view
 func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (staking.ContractStakeView, error) {
 	cssr := contractstaking.NewStateReader(sr)
-	cssrHeight, err := cssr.Height(s.contractAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get height for contract %s", s.contractAddr)
+	_, err := cssr.NumOfBuckets(s.contractAddr)
+	hasContractState := false
+	switch errors.Cause(err) {
+	case nil:
+		hasContractState = true
+	case state.ErrStateNotExist:
+	default:
+		return nil, errors.Wrapf(err, "failed to get num of buckets for contract %s", s.contractAddr)
 	}
 	cfg := &stakingindex.VoteViewConfig{
 		ContractAddr: s.contractAddr,
@@ -113,7 +119,7 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 		return s.config.CalculateVoteWeight(vb)
 	}
 	// contract staking state have not been initialized in state reader, we need to read from index
-	if cssrHeight == 0 {
+	if !hasContractState {
 		if !s.IsReady() {
 			if err := s.start(ctx); err != nil {
 				return nil, err
@@ -139,7 +145,11 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	if err != nil {
 		return nil, err
 	}
-	return stakingindex.NewVoteView(cfg, cssrHeight, cur, builder, processorBuilder, cache, mgr), nil
+	srHeight, err := sr.Height()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get state reader height")
+	}
+	return stakingindex.NewVoteView(cfg, srHeight, cur, builder, processorBuilder, cache, mgr), nil
 }
 
 func (s *Indexer) ContractStakingBuckets() (uint64, map[uint64]*contractstaking.Bucket, error) {
