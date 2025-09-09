@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
 )
 
 const (
@@ -103,6 +104,14 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get height for contract %s", s.contractAddr)
 	}
+	cfg := &stakingindex.VoteViewConfig{
+		ContractAddr: s.contractAddr,
+		StartHeight:  s.config.ContractDeployHeight,
+	}
+	calculateUnmutedVoteWeight := func(b *contractstaking.Bucket) *big.Int {
+		vb := contractBucketToVoteBucket(0, b, s.contractAddr.String(), s.genBlockDurationFn(s.height))
+		return s.config.CalculateVoteWeight(vb)
+	}
 	// contract staking state have not been initialized in state reader, we need to read from index
 	if cssrHeight == 0 {
 		if !s.IsReady() {
@@ -110,65 +119,39 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 				return nil, err
 			}
 		}
-		return &stakeView{
-			contractAddr:       s.contractAddr,
-			config:             s.config,
-			cache:              s.cache.Clone(),
-			height:             s.height,
-			genBlockDurationFn: s.genBlockDurationFn,
-		}, nil
+		ids, typs, infos := s.cache.Buckets()
+		buckets := make(map[uint64]*contractstaking.Bucket)
+		for i, id := range ids {
+			buckets[id] = assembleContractBucket(infos[i], typs[i])
+		}
+		cur := stakingindex.AggregateCandidateVotes(buckets, calculateUnmutedVoteWeight)
+		builder := newEventHandlerFactory(s.kvstore, calculateUnmutedVoteWeight)
+		processorBuilder := newEventProcessorBuilder(s.contractAddr)
+		mgr := stakingindex.NewCandidateVotesManager(s.contractAddr)
+		return stakingindex.NewVoteView(cfg, s.height, cur, builder, processorBuilder, s, mgr), nil
 	}
 	// otherwise, we need to read from state reader
-	tids, types, err := cssr.BucketTypes(s.contractAddr)
+	cache := stakingindex.NewContractBucketCache(s.contractAddr, cssr)
+	builder := stakingindex.NewContractEventHandlerFactory(cssr, calculateUnmutedVoteWeight)
+	processorBuilder := newEventProcessorBuilder(s.contractAddr)
+	mgr := stakingindex.NewCandidateVotesManager(s.contractAddr)
+	cur, err := mgr.Load(ctx, sr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get bucket types for contract %s", s.contractAddr)
+		return nil, err
 	}
-	if len(tids) != len(types) {
-		return nil, errors.Errorf("length of tids (%d) does not match length of types (%d)", len(tids), len(types))
-	}
-	ids, buckets, err := contractstaking.NewStateReader(sr).Buckets(s.contractAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get buckets for contract %s", s.contractAddr)
-	}
-	if len(ids) != len(buckets) {
-		return nil, errors.Errorf("length of ids (%d) does not match length of buckets (%d)", len(ids), len(buckets))
-	}
-	cache := &contractStakingCache{}
-	for i, id := range tids {
-		if types[i] == nil {
-			return nil, errors.Errorf("bucket type %d is nil", id)
-		}
-		cache.PutBucketType(id, types[i])
-	}
-	for i, id := range ids {
-		if buckets[i] == nil {
-			return nil, errors.New("bucket is nil")
-		}
-		tid, bt := cache.MatchBucketType(buckets[i].StakedAmount, buckets[i].StakedDuration)
-		if bt == nil {
-			return nil, errors.Errorf(
-				"no bucket type found for bucket %d with staked amount %s and duration %d",
-				id,
-				buckets[i].StakedAmount.String(),
-				buckets[i].StakedDuration,
-			)
-		}
-		cache.PutBucketInfo(id, &bucketInfo{
-			TypeIndex:  tid,
-			CreatedAt:  buckets[i].CreatedAt,
-			UnlockedAt: buckets[i].UnlockedAt,
-			UnstakedAt: buckets[i].UnstakedAt,
-			Delegate:   buckets[i].Candidate,
-			Owner:      buckets[i].Owner,
-		})
-	}
+	return stakingindex.NewVoteView(cfg, cssrHeight, cur, builder, processorBuilder, cache, mgr), nil
+}
 
-	return &stakeView{
-		cache:        cache,
-		height:       cssrHeight,
-		config:       s.config,
-		contractAddr: s.contractAddr,
-	}, nil
+func (s *Indexer) ContractStakingBuckets() (uint64, map[uint64]*contractstaking.Bucket, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	ids, typs, infos := s.cache.Buckets()
+	res := make(map[uint64]*contractstaking.Bucket)
+	for i, id := range ids {
+		res[id] = assembleContractBucket(infos[i], typs[i])
+	}
+	return s.height, res, nil
 }
 
 func (s *Indexer) start(ctx context.Context) error {
