@@ -679,6 +679,10 @@ func (builder *Builder) registerStakingProtocol() error {
 	if builder.cs.contractStakingIndexerV3 != nil {
 		opts = append(opts, staking.WithContractStakingIndexerV3(builder.cs.contractStakingIndexerV3))
 	}
+	var indexerV1 staking.ContractStakingIndexerWithBucketType
+	if builder.cs.contractStakingIndexer != nil {
+		indexerV1 = builder.cs.contractStakingIndexer
+	}
 	opts = append(opts, staking.WithBlockStore(builder.cs.blockdao))
 	stakingProtocol, err := staking.NewProtocol(
 		staking.HelperCtx{
@@ -701,7 +705,7 @@ func (builder *Builder) registerStakingProtocol() error {
 		},
 		builder.blocksToDurationFn,
 		nil,
-		builder.cs.contractStakingIndexer,
+		indexerV1,
 		builder.cs.contractStakingIndexerV2,
 		opts...,
 	)
