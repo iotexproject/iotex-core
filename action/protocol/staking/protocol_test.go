@@ -672,3 +672,90 @@ func TestIsSelfStakeBucket(t *testing.T) {
 		r.False(selfStake)
 	})
 }
+
+func TestSlashCandidate(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm := testdb.NewMockStateManager(ctrl)
+
+	owner := identityset.Address(1)
+	operator := identityset.Address(2)
+	reward := identityset.Address(3)
+	selfStake := big.NewInt(1000)
+	bucket := NewVoteBucket(owner, owner, new(big.Int).Set(selfStake), 10, time.Now(), true)
+	bucketIdx := uint64(0)
+	bucket.Index = bucketIdx
+
+	cand := &Candidate{
+		Owner:              owner,
+		Operator:           operator,
+		Reward:             reward,
+		Name:               "cand1",
+		Votes:              big.NewInt(1000),
+		SelfStakeBucketIdx: bucketIdx,
+		SelfStake:          new(big.Int).Set(selfStake),
+	}
+	cc, err := NewCandidateCenter(CandidateList{cand})
+	require.NoError(err)
+	require.NoError(sm.WriteView(_protocolID, &viewData{
+		candCenter: cc,
+		bucketPool: &BucketPool{
+			enableSMStorage: true,
+			total: &totalAmount{
+				amount: big.NewInt(0),
+			},
+		},
+	}))
+	csm, err := NewCandidateStateManager(sm)
+	require.NoError(err)
+
+	p := &Protocol{
+		config: Configuration{
+			RegistrationConsts: RegistrationConsts{
+				MinSelfStake: big.NewInt(1),
+			},
+			MinSelfStakeToBeActive: big.NewInt(1),
+		},
+	}
+	ctx := context.Background()
+
+	t.Run("nil amount", func(t *testing.T) {
+		err := p.SlashCandidate(ctx, sm, owner, nil)
+		require.ErrorContains(err, "nil or non-positive amount")
+	})
+
+	t.Run("zero amount", func(t *testing.T) {
+		err := p.SlashCandidate(ctx, sm, owner, big.NewInt(0))
+		require.ErrorContains(err, "nil or non-positive amount")
+	})
+
+	t.Run("candidate not exist", func(t *testing.T) {
+		err := p.SlashCandidate(ctx, sm, identityset.Address(9), big.NewInt(1))
+		require.ErrorContains(err, "does not exist")
+	})
+
+	t.Run("bucket not exist", func(t *testing.T) {
+		err := p.SlashCandidate(ctx, sm, owner, big.NewInt(1))
+		require.ErrorContains(err, "failed to fetch bucket")
+	})
+
+	_, err = csm.putBucket(bucket)
+	require.NoError(err)
+	require.NoError(csm.DebitBucketPool(bucket.StakedAmount, true))
+	t.Run("amount greater than staked", func(t *testing.T) {
+		err := p.SlashCandidate(ctx, sm, owner, big.NewInt(2000))
+		require.ErrorContains(err, "is greater than staked amount")
+	})
+
+	t.Run("success", func(t *testing.T) {
+		amount := big.NewInt(400)
+		remaining := bucket.StakedAmount.Sub(bucket.StakedAmount, amount)
+		err := p.SlashCandidate(ctx, sm, owner, amount)
+		require.NoError(err)
+		bucket, err := csm.NativeBucket(bucketIdx)
+		require.NoError(err)
+		require.Equal(remaining.String(), bucket.StakedAmount.String())
+		cand := csm.GetByIdentifier(owner)
+		require.Equal(remaining.String(), cand.SelfStake.String())
+	})
+}
