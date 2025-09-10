@@ -120,8 +120,8 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 		ContractAddr: s.contractAddr,
 		StartHeight:  s.config.ContractDeployHeight,
 	}
-	calculateUnmutedVoteWeight := func(b *contractstaking.Bucket) *big.Int {
-		vb := contractBucketToVoteBucket(0, b, s.contractAddr.String(), s.genBlockDurationFn(s.height))
+	calculateUnmutedVoteWeightAt := func(b *contractstaking.Bucket, height uint64) *big.Int {
+		vb := contractBucketToVoteBucket(0, b, s.contractAddr.String(), s.genBlockDurationFn(height))
 		return s.config.CalculateVoteWeight(vb)
 	}
 	// contract staking state have not been initialized in state reader, we need to read from index
@@ -131,15 +131,17 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 		for i, id := range ids {
 			buckets[id] = assembleContractBucket(infos[i], typs[i])
 		}
-		cur := stakingindex.AggregateCandidateVotes(buckets, calculateUnmutedVoteWeight)
-		builder := newEventHandlerFactory(s.kvstore, calculateUnmutedVoteWeight)
+		cur := stakingindex.AggregateCandidateVotes(buckets, func(b *contractstaking.Bucket) *big.Int {
+			return calculateUnmutedVoteWeightAt(b, s.height)
+		})
+		builder := newEventHandlerFactory(s.kvstore, calculateUnmutedVoteWeightAt)
 		processorBuilder := newEventProcessorBuilder(s.contractAddr)
 		mgr := stakingindex.NewCandidateVotesManager(s.contractAddr)
 		return stakingindex.NewVoteView(cfg, s.height, cur, builder, processorBuilder, s, mgr), nil
 	}
 	// otherwise, we need to read from state reader
 	cache := stakingindex.NewContractBucketCache(s.contractAddr, cssr)
-	builder := stakingindex.NewContractEventHandlerFactory(cssr, calculateUnmutedVoteWeight)
+	builder := stakingindex.NewContractEventHandlerFactory(cssr, calculateUnmutedVoteWeightAt)
 	processorBuilder := newEventProcessorBuilder(s.contractAddr)
 	if err != nil {
 		return nil, err
