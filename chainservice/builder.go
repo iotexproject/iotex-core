@@ -387,13 +387,17 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to parse contract address %s", builder.cfg.Genesis.SystemStakingContractV2Address)
 		}
-		indexer := stakingindex.NewIndexer(
+		indexer, err := stakingindex.NewIndexer(
 			kvstore,
 			contractAddr,
 			builder.cfg.Genesis.SystemStakingContractV2Height,
 			builder.blocksToDurationFn,
 			stakingindex.WithMuteHeight(builder.cfg.Genesis.WakeBlockHeight),
+			stakingindex.WithCalculateUnmutedVoteWeightFn(calculateVotesWeight),
 		)
+		if err != nil {
+			return errors.Wrapf(err, "failed to create contract staking indexer v2")
+		}
 		builder.cs.contractStakingIndexerV2 = indexer
 	}
 	// build contract staking indexer v3
@@ -402,13 +406,17 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to parse contract address %s", builder.cfg.Genesis.SystemStakingContractV3Address)
 		}
-		indexer := stakingindex.NewIndexer(
+		indexer, err := stakingindex.NewIndexer(
 			kvstore,
 			contractAddr,
 			builder.cfg.Genesis.SystemStakingContractV3Height,
 			builder.blocksToDurationFn,
 			stakingindex.EnableTimestamped(),
+			stakingindex.WithCalculateUnmutedVoteWeightFn(calculateVotesWeight),
 		)
+		if err != nil {
+			return errors.Wrapf(err, "failed to create contract staking indexer v3")
+		}
 		builder.cs.contractStakingIndexerV3 = indexer
 	}
 	return nil

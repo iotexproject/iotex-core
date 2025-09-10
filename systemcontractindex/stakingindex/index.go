@@ -2,6 +2,7 @@ package stakingindex
 
 import (
 	"context"
+	"math/big"
 	"sync"
 	"time"
 
@@ -49,21 +50,22 @@ type (
 	}
 	// Indexer is the staking indexer
 	Indexer struct {
-		common                     *systemcontractindex.IndexerCommon
-		cache                      *base // in-memory cache, used to query index data
-		mutex                      sync.RWMutex
-		blocksToDuration           blocksDurationAtFn // function to calculate duration from block range
-		bucketNS                   string
-		ns                         string
-		muteHeight                 uint64
-		timestamped                bool
-		calculateUnmutedVoteWeight CalculateUnmutedVoteWeightFn
+		common              *systemcontractindex.IndexerCommon
+		cache               *base // in-memory cache, used to query index data
+		mutex               sync.RWMutex
+		blocksToDuration    blocksDurationAtFn // function to calculate duration from block range
+		bucketNS            string
+		ns                  string
+		muteHeight          uint64
+		timestamped         bool
+		calculateVoteWeight CalculateVoteWeightFunc
 	}
 	// IndexerOption is the option to create an indexer
 	IndexerOption func(*Indexer)
 
-	blocksDurationFn   func(start uint64, end uint64) time.Duration
-	blocksDurationAtFn func(start uint64, end uint64, viewAt uint64) time.Duration
+	blocksDurationFn        func(start uint64, end uint64) time.Duration
+	blocksDurationAtFn      func(start uint64, end uint64, viewAt uint64) time.Duration
+	CalculateVoteWeightFunc func(v *VoteBucket) *big.Int
 )
 
 // WithMuteHeight sets the mute height
@@ -81,14 +83,14 @@ func EnableTimestamped() IndexerOption {
 }
 
 // WithCalculateUnmutedVoteWeightFn sets the function to calculate unmuted vote weight
-func WithCalculateUnmutedVoteWeightFn(f CalculateUnmutedVoteWeightFn) IndexerOption {
+func WithCalculateUnmutedVoteWeightFn(f CalculateVoteWeightFunc) IndexerOption {
 	return func(s *Indexer) {
-		s.calculateUnmutedVoteWeight = f
+		s.calculateVoteWeight = f
 	}
 }
 
 // NewIndexer creates a new staking indexer
-func NewIndexer(kvstore db.KVStore, contractAddr address.Address, startHeight uint64, blocksToDurationFn blocksDurationAtFn, opts ...IndexerOption) *Indexer {
+func NewIndexer(kvstore db.KVStore, contractAddr address.Address, startHeight uint64, blocksToDurationFn blocksDurationAtFn, opts ...IndexerOption) (*Indexer, error) {
 	bucketNS := contractAddr.String() + "#" + stakingBucketNS
 	ns := contractAddr.String() + "#" + stakingNS
 	idx := &Indexer{
@@ -101,7 +103,10 @@ func NewIndexer(kvstore db.KVStore, contractAddr address.Address, startHeight ui
 	for _, opt := range opts {
 		opt(idx)
 	}
-	return idx
+	if idx.calculateVoteWeight == nil {
+		return nil, errors.New("calculateVoteWeight function is not set")
+	}
+	return idx, nil
 }
 
 // Start starts the indexer
@@ -175,14 +180,14 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	}
 	// contract staking state have not been initialized in state reader, we need to read from index
 	if !hasContractState {
-		builder := NewEventHandlerFactory(s.bucketNS, s.common.KVStore())
+		builder := NewEventHandlerFactory(s.bucketNS, s.common.KVStore(), s.calculateContractVoteWeight)
 		processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
 		mgr := NewCandidateVotesManager(s.ContractAddress())
 		return NewVoteView(cfg, s.common.Height(), s.createCandidateVotes(s.cache.buckets), builder, processorBuilder, s, mgr), nil
 	}
 	// otherwise, we need to read from state reader
 	cache := NewContractBucketCache(s.common.ContractAddress(), csr)
-	builder := NewContractEventHandlerFactory(csr, s.calculateUnmutedVoteWeight)
+	builder := NewContractEventHandlerFactory(csr, s.calculateContractVoteWeight)
 	processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
 	if err != nil {
 		return nil, err
@@ -387,7 +392,14 @@ func (s *Indexer) genBlockDurationFn(view uint64) blocksDurationFn {
 }
 
 func (s *Indexer) createCandidateVotes(bkts map[uint64]*Bucket) CandidateVotes {
-	return AggregateCandidateVotes(bkts, s.calculateUnmutedVoteWeight)
+	return AggregateCandidateVotes(bkts, func(b *contractstaking.Bucket) *big.Int {
+		return s.calculateContractVoteWeight(b, s.common.Height())
+	})
+}
+
+func (s *Indexer) calculateContractVoteWeight(b *Bucket, height uint64) *big.Int {
+	vb := assembleVoteBucket(0, b, s.common.ContractAddress().String(), s.genBlockDurationFn(height))
+	return s.calculateVoteWeight(vb)
 }
 
 // AggregateCandidateVotes aggregates the votes for each candidate from the given buckets
