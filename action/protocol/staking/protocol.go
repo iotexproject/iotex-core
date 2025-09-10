@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -526,7 +527,17 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 }
 
 // Handle handles a staking message
-func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (receipt *action.Receipt, err error) {
+	defer func() {
+		if receipt != nil {
+			if err := evm.TraceStart(ctx, sm, elp); err != nil {
+				log.L().Warn("failed to start tracing EVM execution", zap.Error(err))
+				return
+			}
+			evm.TraceEnd(ctx, sm, elp, receipt, nil)
+		}
+	}()
+
 	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return nil, err
@@ -536,7 +547,7 @@ func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.
 		return nil, err
 	}
 	snapshot := view.Snapshot()
-	receipt, err := p.handle(ctx, elp, csm)
+	receipt, err = p.handle(ctx, elp, csm)
 	if err != nil {
 		if err := view.Revert(snapshot); err != nil {
 			return nil, errors.Wrap(err, "failed to revert view")
