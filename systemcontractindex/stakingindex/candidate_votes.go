@@ -18,7 +18,7 @@ type CandidateVotes interface {
 	Clone() CandidateVotes
 	Votes(fCtx protocol.FeatureCtx, cand string) *big.Int
 	Add(cand string, amount *big.Int, votes *big.Int)
-	Commit()
+	Commit() CandidateVotes
 	Base() CandidateVotes
 	IsDirty() bool
 	Serialize() ([]byte, error)
@@ -125,8 +125,8 @@ func (cv *candidateVotes) Deserialize(data []byte) error {
 	return nil
 }
 
-func (cv *candidateVotes) Commit() {
-	// nothing to do
+func (cv *candidateVotes) Commit() CandidateVotes {
+	return cv
 }
 
 func (cv *candidateVotes) Base() CandidateVotes {
@@ -187,22 +187,22 @@ func (cv *candidateVotesWraper) Add(cand string, amount *big.Int, votes *big.Int
 	cv.change.Add(cand, amount, votes)
 }
 
-func (cv *candidateVotesWraper) Commit() {
+func (cv *candidateVotesWraper) Commit() CandidateVotes {
 	// Commit the changes to the base
 	for cand, change := range cv.change.cands {
 		cv.base.Add(cand, change.amount, change.votes)
 	}
 	cv.change = newCandidateVotes()
 	// base commit
-	cv.base.Commit()
+	return cv.base.Commit()
 }
 
 func (cv *candidateVotesWraper) Serialize() ([]byte, error) {
-	return cv.base.Serialize()
+	return nil, errors.New("not implemented")
 }
 
 func (cv *candidateVotesWraper) Deserialize(data []byte) error {
-	return cv.base.Deserialize(data)
+	return errors.New("not implemented")
 }
 
 func (cv *candidateVotesWraper) Base() CandidateVotes {
@@ -221,8 +221,7 @@ func (cv *candidateVotesWraperCommitInClone) Clone() CandidateVotes {
 	}
 }
 
-func (cv *candidateVotesWraperCommitInClone) Commit() {
+func (cv *candidateVotesWraperCommitInClone) Commit() CandidateVotes {
 	cv.base = cv.base.Clone()
-	cv.candidateVotesWraper.Commit()
-	return
+	return cv.candidateVotesWraper.Commit()
 }

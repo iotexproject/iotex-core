@@ -12,6 +12,7 @@ import (
 )
 
 type CalculateUnmutedVoteWeightFn func(*contractstaking.Bucket) *big.Int
+type CalculateUnmutedVoteWeightAtFn func(*contractstaking.Bucket, uint64) *big.Int
 
 type voteViewEventHandler struct {
 	BucketStore
