@@ -1,6 +1,8 @@
 package contractstaking
 
 import (
+	"math/big"
+
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
@@ -12,35 +14,41 @@ import (
 
 type eventHandlerFactory struct {
 	store                   db.KVStore
-	calculateVoteWeightFunc stakingindex.CalculateUnmutedVoteWeightFn
+	calculateVoteWeightFunc stakingindex.CalculateUnmutedVoteWeightAtFn
 }
 
-func newEventHandlerFactory(store db.KVStore, fn stakingindex.CalculateUnmutedVoteWeightFn) *eventHandlerFactory {
+func newEventHandlerFactory(store db.KVStore, fn stakingindex.CalculateUnmutedVoteWeightAtFn) *eventHandlerFactory {
 	return &eventHandlerFactory{
 		store:                   store,
 		calculateVoteWeightFunc: fn,
 	}
 }
 
-func (f *eventHandlerFactory) NewEventHandler(v stakingindex.CandidateVotes) (stakingindex.BucketStore, error) {
+func (f *eventHandlerFactory) NewEventHandler(v stakingindex.CandidateVotes, height uint64) (stakingindex.BucketStore, error) {
 	store := newStoreWithBuffer(newStoreEventReader(f.store))
-	handler, err := stakingindex.NewVoteViewEventHandlerWraper(store, v, f.calculateVoteWeightFunc)
+	handler, err := stakingindex.NewVoteViewEventHandlerWraper(store, v, f.genCalculateUnmutedVoteWeight(height))
 	if err != nil {
 		return nil, err
 	}
 	return handler, nil
 }
 
-func (f *eventHandlerFactory) NewEventHandlerWithStore(store stakingindex.BucketStore, v stakingindex.CandidateVotes) (stakingindex.BucketStore, error) {
-	handler, err := stakingindex.NewVoteViewEventHandlerWraper(store, v, f.calculateVoteWeightFunc)
+func (f *eventHandlerFactory) NewEventHandlerWithStore(store stakingindex.BucketStore, v stakingindex.CandidateVotes, height uint64) (stakingindex.BucketStore, error) {
+	handler, err := stakingindex.NewVoteViewEventHandlerWraper(store, v, f.genCalculateUnmutedVoteWeight(height))
 	if err != nil {
 		return nil, err
 	}
 	return handler, nil
 }
 
-func (f *eventHandlerFactory) NewEventHandlerWithHandler(handler stakingindex.BucketStore, v stakingindex.CandidateVotes) (stakingindex.BucketStore, error) {
-	return stakingindex.NewVoteViewEventHandlerWraper(handler, v, f.calculateVoteWeightFunc)
+func (f *eventHandlerFactory) NewEventHandlerWithHandler(handler stakingindex.BucketStore, v stakingindex.CandidateVotes, height uint64) (stakingindex.BucketStore, error) {
+	return stakingindex.NewVoteViewEventHandlerWraper(handler, v, f.genCalculateUnmutedVoteWeight(height))
+}
+
+func (f *eventHandlerFactory) genCalculateUnmutedVoteWeight(height uint64) stakingindex.CalculateUnmutedVoteWeightFn {
+	return func(b *contractstaking.Bucket) *big.Int {
+		return f.calculateVoteWeightFunc(b, height)
+	}
 }
 
 type readOnlyEventHandler interface {
