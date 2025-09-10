@@ -2183,6 +2183,12 @@ func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Contex
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash:   bcCtx.GetBlockHash,
+		GetBlockTime:   bcCtx.GetBlockTime,
+		DepositGasFunc: rewarding.DepositGas,
+	})
 	return ctx, tracer, nil
 }
 
