@@ -3,8 +3,8 @@ package stakingindex
 import (
 	"math/big"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
 
