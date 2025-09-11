@@ -17,7 +17,7 @@ func NewContractStorageStandardWrapper(standard ContractStorageStandard) Contrac
 	return &contractStorageStandardWrapper{standard: standard}
 }
 
-func (cs *contractStorageStandardWrapper) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+func (cs *contractStorageStandardWrapper) StoreToContract(ns string, key []byte, backend ContractBackend) error {
 	contract, err := cs.storageContract(ns, key, backend)
 	if err != nil {
 		return err
@@ -32,7 +32,7 @@ func (cs *contractStorageStandardWrapper) StoreToContract(ns string, key []byte,
 	return nil
 }
 
-func (cs *contractStorageStandardWrapper) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+func (cs *contractStorageStandardWrapper) LoadFromContract(ns string, key []byte, backend ContractBackend) error {
 	contract, err := cs.storageContract(ns, key, backend)
 	if err != nil {
 		return err
@@ -50,7 +50,7 @@ func (cs *contractStorageStandardWrapper) LoadFromContract(ns string, key []byte
 	return nil
 }
 
-func (cs *contractStorageStandardWrapper) DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+func (cs *contractStorageStandardWrapper) DeleteFromContract(ns string, key []byte, backend ContractBackend) error {
 	contract, err := cs.storageContract(ns, key, backend)
 	if err != nil {
 		return err
@@ -61,7 +61,7 @@ func (cs *contractStorageStandardWrapper) DeleteFromContract(ns string, key []by
 	return nil
 }
 
-func (cs *contractStorageStandardWrapper) ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error) {
+func (cs *contractStorageStandardWrapper) ListFromContract(ns string, backend ContractBackend) ([][]byte, []any, error) {
 	contract, err := cs.storageContract(ns, nil, backend)
 	if err != nil {
 		return nil, nil, err
@@ -90,7 +90,7 @@ func (cs *contractStorageStandardWrapper) ListFromContract(ns string, backend sy
 	return listResult.KeyList, indices, nil
 }
 
-func (cs *contractStorageStandardWrapper) BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error) {
+func (cs *contractStorageStandardWrapper) BatchFromContract(ns string, keys [][]byte, backend ContractBackend) ([]any, error) {
 	contract, err := cs.storageContract(ns, nil, backend)
 	if err != nil {
 		return nil, err
@@ -115,7 +115,7 @@ func (cs *contractStorageStandardWrapper) BatchFromContract(ns string, keys [][]
 	return results, nil
 }
 
-func (cs *contractStorageStandardWrapper) storageContract(ns string, key []byte, backend systemcontracts.ContractBackend) (*systemcontracts.GenericStorageContract, error) {
+func (cs *contractStorageStandardWrapper) storageContract(ns string, key []byte, backend ContractBackend) (*systemcontracts.GenericStorageContract, error) {
 	addr, err := cs.standard.ContractStorageAddress(ns, key)
 	if err != nil {
 		return nil, err

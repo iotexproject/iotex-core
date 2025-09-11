@@ -25,6 +25,7 @@ import (
 	iotexevm "github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 type (
@@ -92,6 +93,40 @@ func (backend *contractBacked) Deploy(callMsg *ethereum.CallMsg) (address.Addres
 
 func (backend *contractBacked) Exists(addr address.Address) bool {
 	return backend.intraBlockState.Exist(erigonComm.BytesToAddress(addr.Bytes()))
+}
+
+func (backend *contractBacked) PutAccount(_addr address.Address, acc *state.Account) {
+	addr := erigonComm.BytesToAddress(_addr.Bytes())
+	if !backend.intraBlockState.Exist(addr) {
+		backend.intraBlockState.CreateAccount(addr, acc.IsContract())
+	}
+	backend.intraBlockState.SetBalance(addr, uint256.MustFromBig(acc.Balance))
+	ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), *backend.g), protocol.BlockCtx{BlockHeight: backend.height}))
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	nonce := acc.PendingNonce()
+	if fCtx.UseZeroNonceForFreshAccount {
+		nonce = acc.PendingNonceConsideringFreshAccount()
+	}
+	backend.intraBlockState.SetNonce(addr, nonce)
+}
+
+func (backend *contractBacked) Account(_addr address.Address) (*state.Account, error) {
+	addr := erigonComm.BytesToAddress(_addr.Bytes())
+	if !backend.intraBlockState.Exist(addr) {
+		return nil, errors.Wrapf(state.ErrStateNotExist, "address: %x", addr.Bytes())
+	}
+	balance := backend.intraBlockState.GetBalance(addr)
+	nonce := backend.intraBlockState.GetNonce(addr)
+	acc, err := state.NewAccount()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create account")
+	}
+	acc.AddBalance(balance.ToBig())
+	acc.SetPendingNonce(nonce)
+	if ch := backend.intraBlockState.GetCodeHash(addr); len(ch) > 0 {
+		acc.CodeHash = ch.Bytes()
+	}
+	return acc, nil
 }
 
 func (backend *contractBacked) prepare(intra evmtypes.IntraBlockState) (*vm.EVM, error) {

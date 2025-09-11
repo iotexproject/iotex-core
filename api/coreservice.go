@@ -359,10 +359,18 @@ func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, he
 	ctx, span := tracer.NewSpan(context.Background(), "coreService.BalanceAt")
 	defer span.End()
 	addrStr := addr.String()
+	if height == 0 {
+		height = core.bc.TipHeight()
+	}
 	ctx, err := core.bc.ContextAtHeight(ctx, height)
 	if err != nil {
 		return "", status.Error(codes.Internal, err.Error())
 	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    bcCtx.Tip.Height,
+		BlockTimeStamp: bcCtx.Tip.Timestamp,
+	})
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr ||
 		addrStr == address.RewardingProtocol || addrStr == address.StakingProtocolAddr {
 		acc, _, err := core.getProtocolAccount(ctx, addrStr)
@@ -372,9 +380,6 @@ func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, he
 		return acc.Balance, nil
 	}
 
-	if height == 0 {
-		height = core.bc.TipHeight()
-	}
 	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return "", status.Error(codes.Internal, err.Error())

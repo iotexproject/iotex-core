@@ -3,16 +3,18 @@ package erigonstore
 import (
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/v2/systemcontracts"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
+
+type ContractBackend = state.ContractBackend
 
 // ContractStorage defines the interface for contract storage operations
 type ContractStorage interface {
-	StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
-	LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
-	DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error
-	ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error)
-	BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error)
+	StoreToContract(ns string, key []byte, backend ContractBackend) error
+	LoadFromContract(ns string, key []byte, backend ContractBackend) error
+	DeleteFromContract(ns string, key []byte, backend ContractBackend) error
+	ListFromContract(ns string, backend ContractBackend) ([][]byte, []any, error)
+	BatchFromContract(ns string, keys [][]byte, backend ContractBackend) ([]any, error)
 }
 
 // ContractStorageStandard defines the interface for standard contract storage operations

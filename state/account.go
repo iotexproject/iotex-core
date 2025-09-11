@@ -9,6 +9,7 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -269,6 +270,40 @@ func (st *Account) Clone() *Account {
 		copy(s.CodeHash, st.CodeHash)
 	}
 	return &s
+}
+
+func (st *Account) StoreToContract(ns string, key []byte, backend ContractBackend) error {
+	addr, err := address.FromBytes(key)
+	if err != nil {
+		return errors.Wrapf(err, "failed to convert key to address %x", key)
+	}
+	backend.PutAccount(addr, st)
+	return nil
+}
+
+func (st *Account) LoadFromContract(ns string, key []byte, backend ContractBackend) error {
+	addr, err := address.FromBytes(key)
+	if err != nil {
+		return errors.Wrapf(err, "failed to convert key to address %x", key)
+	}
+	acc, err := backend.Account(addr)
+	if err != nil {
+		return err
+	}
+	*st = *acc
+	return nil
+}
+
+func (st *Account) DeleteFromContract(ns string, key []byte, backend ContractBackend) error {
+	return errors.New("not implemented")
+}
+
+func (st *Account) ListFromContract(ns string, backend ContractBackend) ([][]byte, []any, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
+func (st *Account) BatchFromContract(ns string, keys [][]byte, backend ContractBackend) ([]any, error) {
+	return nil, errors.New("not implemented")
 }
 
 // NewAccount creates a new account with options

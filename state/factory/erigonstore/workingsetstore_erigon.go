@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/datadir"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/kv/mdbx"
@@ -19,16 +18,13 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/account/accountpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
@@ -283,106 +279,34 @@ func (store *ErigonWorkingSetStore) ResetSnapshots() {}
 
 func (store *ErigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (err error) {
 	storage := ObjectContractStorage(obj)
-	if storage != nil {
-		log.L().Debug("put object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)), zap.Any("content", obj))
-		return storage.StoreToContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
-	}
-	value, err := state.Serialize(obj)
-	if err != nil {
-		return errors.Wrapf(err, "failed to serialize object for namespace %s and key %x", ns, key)
-	}
-	return store.Put(ns, key, value)
-}
-
-func (store *ErigonWorkingSetStore) Put(ns string, key []byte, value []byte) (err error) {
-	// only handling account, contract storage handled by evm adapter
-	// others are ignored
-	if ns != state.AccountKVNamespace {
+	if storage == nil {
+		// TODO: return error after all types are supported
 		return nil
 	}
-	defer func() {
-		if r := recover(); r != nil {
-			log.L().Warn("store no account in account namespace", zap.Any("recover", r), log.Hex("key", key), zap.String("ns", ns), zap.ByteString("value", value))
-			err = nil
-		}
-	}()
-	acc := &state.Account{}
-	if err := acc.Deserialize(value); err != nil {
-		// should be legacy rewarding funds
-		log.L().Warn("store no account in account namespace", log.Hex("key", key), zap.String("ns", ns), zap.ByteString("value", value))
-		return nil
-	}
-	addr := libcommon.Address(key)
-	if !store.intraBlockState.Exist(addr) {
-		store.intraBlockState.CreateAccount(addr, false)
-	}
-	store.intraBlockState.SetBalance(addr, uint256.MustFromBig(acc.Balance))
-	store.intraBlockState.SetNonce(addr, acc.PendingNonce()) // TODO(erigon): not sure if this is correct
-	return nil
+	log.L().Debug("put object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)), zap.Any("content", obj))
+	return storage.StoreToContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
 }
 
 func (store *ErigonWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
 	storage := ObjectContractStorage(obj)
-	if storage != nil {
-		defer func() {
-			log.L().Debug("get object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
-		}()
-		return storage.LoadFromContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
+	if storage == nil {
+		// TODO: return error after all types are supported
+		return nil
 	}
-	value, err := store.Get(ns, key)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get object for namespace %s and key %x", ns, key)
-	}
-	return state.Deserialize(obj, value)
-}
-
-func (store *ErigonWorkingSetStore) Get(ns string, key []byte) ([]byte, error) {
-	switch ns {
-	case state.AccountKVNamespace:
-		accProto := &accountpb.Account{}
-		addr := libcommon.Address(key)
-		if !store.intraBlockState.Exist(addr) {
-			return nil, state.ErrStateNotExist
-		}
-		balance := store.intraBlockState.GetBalance(addr)
-		accProto.Balance = balance.String()
-		nonce := store.intraBlockState.GetNonce(addr)
-		accProto.Nonce = nonce
-		accProto.Type = accountpb.AccountType_ZERO_NONCE
-		if ch := store.intraBlockState.GetCodeHash(addr); len(ch) > 0 {
-			accProto.CodeHash = store.intraBlockState.GetCodeHash(addr).Bytes()
-		}
-		return proto.Marshal(accProto)
-	case evm.CodeKVNameSpace:
-		addr := libcommon.Address(key)
-		if !store.intraBlockState.Exist(addr) {
-			return nil, state.ErrStateNotExist
-		}
-		return store.intraBlockState.GetCode(addr), nil
-	default:
-		return nil, errors.Errorf("unexpected erigon get namespace %s, key %x", ns, key)
-	}
+	defer func() {
+		log.L().Debug("get object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
+	}()
+	return storage.LoadFromContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
 }
 
 func (store *ErigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
 	storage := ObjectContractStorage(obj)
-	if storage != nil {
-		log.L().Debug("delete object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
-		return storage.DeleteFromContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
+	if storage == nil {
+		// TODO: return error after all types are supported
+		return nil
 	}
-	return nil
-}
-
-func (store *ErigonWorkingSetStore) Delete(ns string, key []byte) error {
-	return nil
-}
-
-func (store *ErigonWorkingSetStore) WriteBatch(batch.KVStoreBatch) error {
-	return nil
-}
-
-func (store *ErigonWorkingSetStore) Filter(string, db.Condition, []byte, []byte) ([][]byte, [][]byte, error) {
-	return nil, nil, nil
+	log.L().Debug("delete object", zap.String("namespace", ns), log.Hex("key", key), zap.String("type", fmt.Sprintf("%T", obj)))
+	return storage.DeleteFromContract(ns, key, store.newContractBackend(store.ctx, store.intraBlockState, store.sr))
 }
 
 func (store *ErigonWorkingSetStore) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
