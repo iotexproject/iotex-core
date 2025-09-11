@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+
 /**
  * @title NamespaceStorage
  * @dev Namespace-aware storage contract for key-value data with flexible value structure
  * This contract extends the GenericStorage concept with namespace support for data isolation
+ * - Owner-only access control for modification operations
  */
-contract NamespaceStorage {
+contract NamespaceStorage is Ownable {
 
     /**
      * @dev Generic value structure with multiple fields for flexibility
@@ -40,6 +43,11 @@ contract NamespaceStorage {
     event AllDataCleared();
 
     /**
+     * @dev Constructor that sets the deployer as the owner
+     */
+    constructor() Ownable(msg.sender) {}
+
+    /**
      * @dev Internal function to check if a key exists in a namespace
      * @param namespace The namespace to check
      * @param key The storage key to check
@@ -59,7 +67,7 @@ contract NamespaceStorage {
         string memory namespace,
         bytes memory key, 
         GenericValue memory value
-    ) external {
+    ) external onlyOwner {
         require(bytes(namespace).length > 0, "Namespace cannot be empty");
         require(key.length > 0, "Key cannot be empty");
 
@@ -105,7 +113,7 @@ contract NamespaceStorage {
      * @param namespace The namespace containing the key
      * @param key The storage key to delete
      */
-    function remove(string memory namespace, bytes memory key) external {
+    function remove(string memory namespace, bytes memory key) external onlyOwner {
         require(namespaceExists_[namespace], "Namespace does not exist");
         require(_keyExists(namespace, key), "Key does not exist in namespace");
 
@@ -162,7 +170,7 @@ contract NamespaceStorage {
         string memory namespace,
         bytes[] memory keys,
         GenericValue[] memory values
-    ) external {
+    ) external onlyOwner {
         require(keys.length == values.length, "Keys and values arrays must have same length");
         require(bytes(namespace).length > 0, "Namespace cannot be empty");
 
@@ -349,7 +357,7 @@ contract NamespaceStorage {
      * @dev Clear all data in a specific namespace
      * @param namespace The namespace to clear
      */
-    function clearNamespace(string memory namespace) external {
+    function clearNamespace(string memory namespace) external onlyOwner {
         require(namespaceExists_[namespace], "Namespace does not exist");
 
         bytes[] storage keys = namespaceKeys_[namespace];
@@ -370,7 +378,7 @@ contract NamespaceStorage {
      * @dev Clear all stored data across all namespaces (emergency function)
      * Note: This function should be carefully protected in production
      */
-    function clearAll() external {
+    function clearAll() external onlyOwner {
         // Clear all namespaces
         for (uint256 i = 0; i < namespaces_.length; i++) {
             string memory namespace = namespaces_[i];

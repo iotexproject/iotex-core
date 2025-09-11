@@ -86,6 +86,7 @@ func (g *GenericStorageContract) Put(key []byte, value GenericValue) error {
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &g.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -130,6 +131,7 @@ func (g *GenericStorageContract) Get(key []byte) (*GetResult, error) {
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &g.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -177,6 +179,7 @@ func (g *GenericStorageContract) Remove(key []byte) error {
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &g.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -211,6 +214,7 @@ func (g *GenericStorageContract) BatchGet(keys [][]byte) (*BatchGetResult, error
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &g.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -253,6 +257,7 @@ func (g *GenericStorageContract) List(offset, limit uint64) (*ListResult, error)
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &g.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -299,6 +304,7 @@ func (g *GenericStorageContract) ListKeys(offset, limit uint64) (*ListKeysResult
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &g.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -348,6 +354,7 @@ func (g *GenericStorageContract) Exists(key []byte) (bool, error) {
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &g.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -386,6 +393,7 @@ func (g *GenericStorageContract) Count() (*big.Int, error) {
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &g.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -423,6 +431,7 @@ func (g *GenericStorageContract) Clear() error {
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &g.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),

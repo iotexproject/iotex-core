@@ -98,6 +98,7 @@ func (ns *NamespaceStorageContract) Put(namespace string, key []byte, value Name
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -133,6 +134,7 @@ func (ns *NamespaceStorageContract) Get(namespace string, key []byte) (*Namespac
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -184,6 +186,7 @@ func (ns *NamespaceStorageContract) Remove(namespace string, key []byte) error {
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -219,6 +222,7 @@ func (ns *NamespaceStorageContract) Exists(namespace string, key []byte) (bool, 
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -261,6 +265,7 @@ func (ns *NamespaceStorageContract) BatchGet(namespace string, keys [][]byte) (*
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -314,6 +319,7 @@ func (ns *NamespaceStorageContract) BatchPut(namespace string, keys [][]byte, va
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -352,6 +358,7 @@ func (ns *NamespaceStorageContract) List(namespace string, offset, limit *big.In
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -407,6 +414,7 @@ func (ns *NamespaceStorageContract) ListKeys(namespace string, offset, limit *bi
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -456,6 +464,7 @@ func (ns *NamespaceStorageContract) ListNamespaces(offset, limit *big.Int) (*Nam
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -504,6 +513,7 @@ func (ns *NamespaceStorageContract) HasNamespace(namespace string) (bool, error)
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -540,6 +550,7 @@ func (ns *NamespaceStorageContract) CountInNamespace(namespace string) (*big.Int
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -571,6 +582,7 @@ func (ns *NamespaceStorageContract) NamespaceCount() (*big.Int, error) {
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -602,6 +614,7 @@ func (ns *NamespaceStorageContract) TotalCount() (*big.Int, error) {
 
 	// Execute the call
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -638,6 +651,7 @@ func (ns *NamespaceStorageContract) ClearNamespace(namespace string) error {
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -664,6 +678,7 @@ func (ns *NamespaceStorageContract) ClearAll() error {
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
+		From:  common.BytesToAddress(systemContractCreatorAddr[:]),
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+
 /**
  * @title GenericStorage
  * @dev Generic storage contract for key-value data with flexible value structure
@@ -9,8 +11,9 @@ pragma solidity ^0.8.0;
  * - Batch operations (batchGet)
  * - Listing all stored data
  * - Flexible value structure with immutable and mutable fields
+ * - Owner-only access control for modification operations
  */
-contract GenericStorage {
+contract GenericStorage is Ownable {
 
     /**
      * @dev Generic value structure with multiple fields for flexibility
@@ -41,6 +44,11 @@ contract GenericStorage {
     event StorageCleared();
 
     /**
+     * @dev Constructor that sets the deployer as the owner
+     */
+    constructor() Ownable(msg.sender) {}
+
+    /**
      * @dev Internal function to check if a key exists
      * @param key The storage key to check
      * @return Whether the key exists
@@ -57,7 +65,7 @@ contract GenericStorage {
     function put(
         bytes memory key, 
         GenericValue memory value
-    ) external {
+    ) external onlyOwner {
         require(key.length > 0, "Key cannot be empty");
 
         // If key doesn't exist, add it to keys array
@@ -77,7 +85,7 @@ contract GenericStorage {
      * @dev Delete data by key
      * @param key The storage key to delete
      */
-    function remove(bytes memory key) external {
+    function remove(bytes memory key) external onlyOwner {
         require(_keyExists(key), "Key does not exist");
 
         // Get the index of the key to remove (subtract 1 since we stored index + 1)
@@ -227,7 +235,7 @@ contract GenericStorage {
      * @dev Clear all stored data (emergency function)
      * Note: This function should be carefully protected in production
      */
-    function clear() external {
+    function clear() external onlyOwner {
         // Clear all mappings and arrays
         for (uint256 i = 0; i < keys_.length; i++) {
             bytes memory key = keys_[i];
