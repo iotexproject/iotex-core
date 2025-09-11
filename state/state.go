@@ -57,6 +57,6 @@ func Deserialize(x interface{}, data []byte) error {
 
 type ContractBackend interface {
 	systemcontracts.ContractBackend
-	PutAccount(addr address.Address, acc *Account)
+	PutAccount(addr address.Address, acc *Account) error
 	Account(addr address.Address) (*Account, error)
 }

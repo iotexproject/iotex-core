@@ -50,6 +50,8 @@ const (
 	RewardingContractV2Index
 	// StakingViewContractIndex is the system contract for staking view storage
 	StakingViewContractIndex
+	// AccountInfoContractIndex is the system contract for account info storage
+	AccountInfoContractIndex
 	// SystemContractCount is the total number of system contracts
 	SystemContractCount
 )

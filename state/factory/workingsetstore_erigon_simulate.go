@@ -5,9 +5,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 )
 
@@ -41,15 +39,7 @@ func (store *erigonWorkingSetStoreForSimulate) GetObject(ns string, key []byte, 
 	if storage != nil {
 		return store.erigonStore.GetObject(ns, key, obj)
 	}
-	if _, ok := obj.(*state.Account); !ok && ns == AccountKVNamespace {
-		return store.store.GetObject(ns, key, obj)
-	}
-	switch ns {
-	case AccountKVNamespace, evm.CodeKVNameSpace:
-		return store.erigonStore.GetObject(ns, key, obj)
-	default:
-		return store.store.GetObject(ns, key, obj)
-	}
+	return store.store.GetObject(ns, key, obj)
 }
 
 func (store *erigonWorkingSetStoreForSimulate) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {

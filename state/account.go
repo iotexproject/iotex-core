@@ -277,8 +277,7 @@ func (st *Account) StoreToContract(ns string, key []byte, backend ContractBacken
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert key to address %x", key)
 	}
-	backend.PutAccount(addr, st)
-	return nil
+	return backend.PutAccount(addr, st)
 }
 
 func (st *Account) LoadFromContract(ns string, key []byte, backend ContractBackend) error {

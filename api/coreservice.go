@@ -2243,6 +2243,11 @@ func (core *coreService) workingSetAt(ctx context.Context, height uint64) (conte
 	if err != nil {
 		return ctx, nil, status.Error(codes.Internal, err.Error())
 	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    bcCtx.Tip.Height,
+		BlockTimeStamp: bcCtx.Tip.Timestamp,
+	})
 	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return ctx, nil, status.Error(codes.Internal, err.Error())
