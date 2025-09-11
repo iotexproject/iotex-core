@@ -32,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 )
 
 type (
@@ -54,7 +55,7 @@ type (
 		protocolViews            *protocol.Views
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
-		erigonDB                 *erigonDB
+		erigonDB                 *erigonstore.ErigonDB
 	}
 )
 
@@ -120,7 +121,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 	}
 	sdb.timerFactory = timerFactory
 	if len(cfg.Chain.HistoryIndexPath) > 0 {
-		sdb.erigonDB = newErigonDB(cfg.Chain.HistoryIndexPath)
+		sdb.erigonDB = erigonstore.NewErigonDB(cfg.Chain.HistoryIndexPath)
 	}
 
 	return &sdb, nil
@@ -225,7 +226,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	if sdb.erigonDB == nil {
 		return ws, nil
 	}
-	e, err := sdb.erigonDB.newErigonStore(ctx, height)
+	e, err := sdb.erigonDB.NewErigonStore(ctx, height)
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +367,7 @@ func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, 
 		return nil, err
 	}
 	if sdb.erigonDB != nil {
-		e, err := sdb.erigonDB.newErigonStoreDryrun(ctx, height)
+		e, err := sdb.erigonDB.NewErigonStoreDryrun(ctx, height)
 		if err != nil {
 			return nil, err
 		}
@@ -406,7 +407,7 @@ func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (prot
 				)
 			}
 		}
-		e, err := sdb.erigonDB.newErigonStoreDryrun(ctx, height+1)
+		e, err := sdb.erigonDB.NewErigonStoreDryrun(ctx, height+1)
 		if err != nil {
 			return nil, err
 		}

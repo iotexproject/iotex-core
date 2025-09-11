@@ -1,22 +1,26 @@
-package state
+package erigonstore
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
-type contractStorageStandardWrapper struct {
+type contractStorageNamespacedWrapper struct {
 	standard ContractStorageStandard
 }
 
-func NewContractStorageStandardWrapper(standard ContractStorageStandard) ContractStorage {
-	return &contractStorageStandardWrapper{standard: standard}
+// NewContractStorageNamespacedWrapper creates a new ContractStorage wrapper for namespaced storage
+func NewContractStorageNamespacedWrapper(standard ContractStorageStandard) ContractStorage {
+	return &contractStorageNamespacedWrapper{standard: standard}
 }
 
-func (cs *contractStorageStandardWrapper) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+func (cs *contractStorageNamespacedWrapper) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
 	contract, err := cs.storageContract(ns, key, backend)
 	if err != nil {
 		return err
@@ -25,54 +29,57 @@ func (cs *contractStorageStandardWrapper) StoreToContract(ns string, key []byte,
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize storage standard")
 	}
-	if err := contract.Put(key, systemcontracts.GenericValue{PrimaryData: data}); err != nil {
+	if err := contract.Put(ns, key, systemcontracts.NamespaceGenericValue{PrimaryData: data}); err != nil {
 		return errors.Wrapf(err, "failed to store storage standard to contract %s", contract.Address().Hex())
 	}
+	log.S().Debugf("Stored storage standard to contract %s with key %x, value: %+v", contract.Address().Hex(), key, cs.standard)
 	return nil
 }
 
-func (cs *contractStorageStandardWrapper) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+func (cs *contractStorageNamespacedWrapper) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
 	contract, err := cs.storageContract(ns, key, backend)
 	if err != nil {
 		return err
 	}
-	value, err := contract.Get(key)
+	value, err := contract.Get(ns, key)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get storage standard from contract %s with key %x", contract.Address().Hex(), key)
 	}
 	if !value.KeyExists {
-		return errors.Wrapf(ErrStateNotExist, "storage standard does not exist in contract %s with key %x", contract.Address().Hex(), key)
+		return errors.Wrapf(state.ErrStateNotExist, "storage standard does not exist in contract %s with key %x", contract.Address().Hex(), key)
 	}
 	if err := cs.standard.Deserialize(value.Value.PrimaryData); err != nil {
 		return errors.Wrap(err, "failed to deserialize storage standard")
 	}
+	log.S().Debugf("Loaded storage standard from contract %s with key %x, value: %+v", contract.Address().Hex(), key, cs.standard)
 	return nil
 }
 
-func (cs *contractStorageStandardWrapper) DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+func (cs *contractStorageNamespacedWrapper) DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
 	contract, err := cs.storageContract(ns, key, backend)
 	if err != nil {
 		return err
 	}
-	if err := contract.Remove(key); err != nil {
+	if err := contract.Remove(ns, key); err != nil {
 		return errors.Wrapf(err, "failed to delete storage standard from contract %s with key %x", contract.Address().Hex(), key)
 	}
+	log.S().Debugf("Deleted storage standard from contract %s with key %x", contract.Address().Hex(), key)
 	return nil
 }
 
-func (cs *contractStorageStandardWrapper) ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error) {
+func (cs *contractStorageNamespacedWrapper) ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error) {
 	contract, err := cs.storageContract(ns, nil, backend)
 	if err != nil {
 		return nil, nil, err
 	}
-	count, err := contract.Count()
+	count, err := contract.CountInNamespace(ns)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to count storage standards in contract %s", contract.Address().Hex())
 	}
 	if count.Sign() == 0 {
 		return nil, nil, nil
 	}
-	listResult, err := contract.List(0, count.Uint64())
+	listResult, err := contract.List(ns, big.NewInt(0), count)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to list storage standards from contract %s", contract.Address().Hex())
 	}
@@ -89,12 +96,12 @@ func (cs *contractStorageStandardWrapper) ListFromContract(ns string, backend sy
 	return listResult.KeyList, indices, nil
 }
 
-func (cs *contractStorageStandardWrapper) BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error) {
+func (cs *contractStorageNamespacedWrapper) BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error) {
 	contract, err := cs.storageContract(ns, nil, backend)
 	if err != nil {
 		return nil, err
 	}
-	storeResult, err := contract.BatchGet(keys)
+	storeResult, err := contract.BatchGet(ns, keys)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to batch get storage standards from contract")
 	}
@@ -114,12 +121,12 @@ func (cs *contractStorageStandardWrapper) BatchFromContract(ns string, keys [][]
 	return results, nil
 }
 
-func (cs *contractStorageStandardWrapper) storageContract(ns string, key []byte, backend systemcontracts.ContractBackend) (*systemcontracts.GenericStorageContract, error) {
+func (cs *contractStorageNamespacedWrapper) storageContract(ns string, key []byte, backend systemcontracts.ContractBackend) (*systemcontracts.NamespaceStorageContract, error) {
 	addr, err := cs.standard.ContractStorageAddress(ns, key)
 	if err != nil {
 		return nil, err
 	}
-	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(addr.Bytes()), backend)
+	contract, err := systemcontracts.NewNamespaceStorageContract(common.BytesToAddress(addr.Bytes()), backend)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block meta storage contract")
 	}

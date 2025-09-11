@@ -1,4 +1,4 @@
-package state
+package erigonstore
 
 import (
 	"github.com/iotexproject/iotex-address/address"

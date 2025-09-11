@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 )
 
 var (
@@ -1044,12 +1045,12 @@ func (ws *workingSet) Close() {
 func (ws *workingSet) Erigon() (*erigonstate.IntraBlockState, bool) {
 	switch st := ws.store.(type) {
 	case *workingSetStoreWithSecondary:
-		if wss, ok := st.writerSecondary.(*erigonWorkingSetStore); ok {
-			return wss.intraBlockState, false
+		if wss, ok := st.writerSecondary.(*erigonstore.ErigonWorkingSetStore); ok {
+			return wss.IntraBlockState(), false
 		}
 		return nil, false
 	case *erigonWorkingSetStoreForSimulate:
-		return st.erigonStore.intraBlockState, true
+		return st.erigonStore.(*erigonstore.ErigonWorkingSetStore).IntraBlockState(), true
 	default:
 		return nil, false
 	}
