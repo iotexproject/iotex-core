@@ -73,11 +73,15 @@ func (ns *nativeStakingV2) CreatePostSystemActions(ctx context.Context, sr proto
 }
 
 func (ns *nativeStakingV2) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
-	if err := evm.TraceStart(ctx, sm, elp); err != nil {
-		log.L().Warn("failed to start tracing EVM execution", zap.Error(err))
-	}
 	r, err := handle(ctx, elp.Action(), sm, ns.candIndexer, ns.addr.String())
-	evm.TraceEnd(ctx, sm, elp, r, nil)
+	if r != nil {
+		if err := evm.TraceStart(ctx, sm, elp); err != nil {
+			log.L().Warn("failed to start tracing EVM execution", zap.Error(err))
+		} else {
+			evm.TraceEnd(ctx, sm, elp, r, nil)
+		}
+	}
+
 	return r, err
 }
 

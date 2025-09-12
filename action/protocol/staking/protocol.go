@@ -470,10 +470,15 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (receipt *action.Receipt, err error) {
-	if err := evm.TraceStart(ctx, sm, elp); err != nil {
-		log.L().Warn("failed to start tracing EVM execution", zap.Error(err))
-	}
-	defer evm.TraceEnd(ctx, sm, elp, receipt, nil)
+	defer func() {
+		if receipt != nil {
+			if err := evm.TraceStart(ctx, sm, elp); err != nil {
+				log.L().Warn("failed to start tracing EVM execution", zap.Error(err))
+				return
+			}
+			evm.TraceEnd(ctx, sm, elp, receipt, nil)
+		}
+	}()
 
 	csm, err := NewCandidateStateManager(sm)
 	if err != nil {

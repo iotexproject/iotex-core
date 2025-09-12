@@ -210,10 +210,15 @@ func (p *Protocol) Handle(
 	sm protocol.StateManager,
 ) (receipt *action.Receipt, err error) {
 	// TODO: simplify the boilerplate
-	if err := evm.TraceStart(ctx, sm, elp); err != nil {
-		log.L().Warn("failed to start tracing EVM execution", zap.Error(err))
-	}
-	defer evm.TraceEnd(ctx, sm, elp, receipt, nil)
+	defer func() {
+		if receipt != nil {
+			if err := evm.TraceStart(ctx, sm, elp); err != nil {
+				log.L().Warn("failed to start tracing EVM execution", zap.Error(err))
+				return
+			}
+			evm.TraceEnd(ctx, sm, elp, receipt, nil)
+		}
+	}()
 
 	var (
 		si  = sm.Snapshot()
