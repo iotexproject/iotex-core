@@ -35,6 +35,9 @@ type (
 	}
 )
 
+// ErrBucketNotExist is the error when bucket does not exist
+var ErrBucketNotExist = errors.New("bucket does not exist")
+
 func (b *Bucket) toProto() *stakingpb.SystemStakingBucket {
 	if b == nil {
 		return nil
