@@ -2200,12 +2200,22 @@ func (core *coreService) simulateExecution(
 		if err != nil {
 			return nil, nil, status.Error(codes.Internal, err.Error())
 		}
+		bcCtx := protocol.MustGetBlockchainCtx(ctx)
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    bcCtx.Tip.Height,
+			BlockTimeStamp: bcCtx.Tip.Timestamp,
+		}))
 		ws, err = core.sf.WorkingSetAtHeight(ctx, height)
 	} else {
 		ctx, err = core.bc.Context(ctx)
 		if err != nil {
 			return nil, nil, status.Error(codes.Internal, err.Error())
 		}
+		bcCtx := protocol.MustGetBlockchainCtx(ctx)
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    bcCtx.Tip.Height,
+			BlockTimeStamp: bcCtx.Tip.Timestamp,
+		}))
 		ws, err = core.sf.WorkingSet(ctx)
 	}
 	if err != nil {
@@ -2217,9 +2227,6 @@ func (core *coreService) simulateExecution(
 		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	var pendingNonce uint64
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: height,
-	}))
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
 		pendingNonce = state.PendingNonceConsideringFreshAccount()
