@@ -14,13 +14,45 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
+type tracerWrapper struct {
+	vm.EVMLogger
+	started bool
+}
+
+// NewTracerWrapper wraps the EVMLogger to ignore the CaptureStart and CaptureEnd calls
+func NewTracerWrapper(tracer vm.EVMLogger) vm.EVMLogger {
+	return &tracerWrapper{EVMLogger: tracer}
+}
+
+func (tw *tracerWrapper) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+	if tw.started {
+		tw.EVMLogger.CaptureEnter(vm.CALL, from, to, input, gas, value)
+		return
+	}
+	tw.EVMLogger.CaptureStart(env, from, to, create, input, gas, value)
+	tw.started = true
+}
+
+func (tw *tracerWrapper) CaptureEnd(output []byte, gasUsed uint64, err error) {
+	if tw.started {
+		tw.EVMLogger.CaptureExit(output, gasUsed, err)
+		return
+	}
+	tw.EVMLogger.CaptureEnd(output, gasUsed, err)
+	tw.started = false
+}
+
+func (tw *tracerWrapper) Unwrap() vm.EVMLogger {
+	return tw.EVMLogger
+}
+
 // TraceStart starts tracing the execution of the action in the sealed envelope
 func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.Envelope) error {
 	vmCtx, vmCtxExist := protocol.GetVMConfigCtx(ctx)
 	if !vmCtxExist || vmCtx.Tracer == nil {
 		return nil
 	}
-	vm, err := newEVM(ctx, ws, elp)
+	evm, err := newEVM(ctx, ws, elp)
 	if err != nil {
 		return errors.Wrap(err, "failed to create EVM instance for tracing")
 	}
@@ -47,16 +79,17 @@ func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.Envelo
 	}
 	vmCtx.Tracer.CaptureTxStart(elp.Gas())
 	actCtx := protocol.MustGetActionCtx(ctx)
-	vmCtx.Tracer.CaptureStart(vm, common.Address(actCtx.Caller.Bytes()), *to, false, input, elp.Gas(), value)
+	vmCtx.Tracer.CaptureStart(evm, common.Address(actCtx.Caller.Bytes()), *to, false, input, elp.Gas(), value)
 	return nil
 }
 
 // TraceEnd ends tracing the execution of the action in the sealed envelope
-func TraceEnd(ctx context.Context, ws protocol.StateManager, elp action.Envelope, receipt *action.Receipt, output []byte) {
+func TraceEnd(ctx context.Context, ws protocol.StateManager, elp action.Envelope, receipt *action.Receipt) {
 	vmCtx, vmCtxExist := protocol.GetVMConfigCtx(ctx)
 	if !vmCtxExist || vmCtx.Tracer == nil || receipt == nil {
 		return
 	}
+	output := receipt.Output
 	vmCtx.Tracer.CaptureEnd(output, receipt.GasConsumed, nil)
 	vmCtx.Tracer.CaptureTxEnd(elp.Gas() - receipt.GasConsumed)
 	if t, ok := GetTracerCtx(ctx); ok {

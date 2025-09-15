@@ -8,13 +8,10 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/util"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -73,16 +70,7 @@ func (ns *nativeStakingV2) CreatePostSystemActions(ctx context.Context, sr proto
 }
 
 func (ns *nativeStakingV2) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
-	r, err := handle(ctx, elp.Action(), sm, ns.candIndexer, ns.addr.String())
-	if r != nil {
-		if err := evm.TraceStart(ctx, sm, elp); err != nil {
-			log.L().Warn("failed to start tracing EVM execution", zap.Error(err))
-		} else {
-			evm.TraceEnd(ctx, sm, elp, r, nil)
-		}
-	}
-
-	return r, err
+	return handle(ctx, elp.Action(), sm, ns.candIndexer, ns.addr.String())
 }
 
 func (ns *nativeStakingV2) Validate(ctx context.Context, elp action.Envelope, sr protocol.StateReader) error {

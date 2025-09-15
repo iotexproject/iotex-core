@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -210,16 +209,6 @@ func (p *Protocol) Handle(
 	sm protocol.StateManager,
 ) (receipt *action.Receipt, err error) {
 	// TODO: simplify the boilerplate
-	defer func() {
-		if receipt != nil {
-			if err := evm.TraceStart(ctx, sm, elp); err != nil {
-				log.L().Warn("failed to start tracing EVM execution", zap.Error(err))
-				return
-			}
-			evm.TraceEnd(ctx, sm, elp, receipt, nil)
-		}
-	}()
-
 	var (
 		si  = sm.Snapshot()
 		act = elp.Action()

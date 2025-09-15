@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -68,12 +67,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 // Handle handles an account
 func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
 	if _, ok := elp.Action().(*action.Transfer); ok {
-		if err := evm.TraceStart(ctx, sm, elp); err != nil {
-			log.L().Warn("failed to start tracing EVM execution", zap.Error(err))
-		}
-		r, err := p.handleTransfer(ctx, elp, sm)
-		evm.TraceEnd(ctx, sm, elp, r, nil)
-		return r, err
+		return p.handleTransfer(ctx, elp, sm)
 	}
 	return nil, nil
 }

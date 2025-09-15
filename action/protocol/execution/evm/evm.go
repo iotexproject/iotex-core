@@ -279,6 +279,7 @@ func ExecuteContract(
 		ContractAddress:   contractAddress,
 		Status:            uint64(statusCode),
 		EffectiveGasPrice: protocol.EffectiveGasPrice(ctx, execution),
+		Output:            retval,
 	}
 	var (
 		depositLog  []*action.TransactionLog
@@ -330,10 +331,6 @@ func ExecuteContract(
 		msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
 		revertMsg := string(data[64 : 64+msgLength])
 		receipt.SetExecutionRevertMsg(revertMsg)
-	}
-	log.S().Debugf("Retval: %x, Receipt: %+v, %v", retval, receipt, err)
-	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
-		tCtx.CaptureTx(retval, receipt)
 	}
 	return retval, receipt, nil
 }
@@ -763,5 +760,9 @@ func SimulateExecution(
 			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
 		},
 	))
-	return ExecuteContract(ctx, sm, ex)
+	retval, receipt, err := ExecuteContract(ctx, sm, ex)
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
+		tCtx.CaptureTx(retval, receipt)
+	}
+	return retval, receipt, err
 }
