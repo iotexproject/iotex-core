@@ -21,7 +21,7 @@ func NewContractStorageNamespacedWrapper(standard ContractStorageStandard) Contr
 }
 
 func (cs *contractStorageNamespacedWrapper) StoreToContract(ns string, key []byte, backend ContractBackend) error {
-	contract, err := cs.storageContract(ns, key, backend)
+	contract, err := cs.storageContract(ns, backend)
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func (cs *contractStorageNamespacedWrapper) StoreToContract(ns string, key []byt
 }
 
 func (cs *contractStorageNamespacedWrapper) LoadFromContract(ns string, key []byte, backend ContractBackend) error {
-	contract, err := cs.storageContract(ns, key, backend)
+	contract, err := cs.storageContract(ns, backend)
 	if err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func (cs *contractStorageNamespacedWrapper) LoadFromContract(ns string, key []by
 }
 
 func (cs *contractStorageNamespacedWrapper) DeleteFromContract(ns string, key []byte, backend ContractBackend) error {
-	contract, err := cs.storageContract(ns, key, backend)
+	contract, err := cs.storageContract(ns, backend)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func (cs *contractStorageNamespacedWrapper) DeleteFromContract(ns string, key []
 }
 
 func (cs *contractStorageNamespacedWrapper) ListFromContract(ns string, backend ContractBackend) ([][]byte, []any, error) {
-	contract, err := cs.storageContract(ns, nil, backend)
+	contract, err := cs.storageContract(ns, backend)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -97,7 +97,7 @@ func (cs *contractStorageNamespacedWrapper) ListFromContract(ns string, backend 
 }
 
 func (cs *contractStorageNamespacedWrapper) BatchFromContract(ns string, keys [][]byte, backend ContractBackend) ([]any, error) {
-	contract, err := cs.storageContract(ns, nil, backend)
+	contract, err := cs.storageContract(ns, backend)
 	if err != nil {
 		return nil, err
 	}
@@ -121,8 +121,8 @@ func (cs *contractStorageNamespacedWrapper) BatchFromContract(ns string, keys []
 	return results, nil
 }
 
-func (cs *contractStorageNamespacedWrapper) storageContract(ns string, key []byte, backend ContractBackend) (*systemcontracts.NamespaceStorageContract, error) {
-	addr, err := cs.standard.ContractStorageAddress(ns, key)
+func (cs *contractStorageNamespacedWrapper) storageContract(ns string, backend ContractBackend) (*systemcontracts.NamespaceStorageContract, error) {
+	addr, err := cs.standard.ContractStorageAddress(ns)
 	if err != nil {
 		return nil, err
 	}

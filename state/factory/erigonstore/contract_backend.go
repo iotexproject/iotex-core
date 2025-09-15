@@ -34,39 +34,42 @@ import (
 )
 
 type (
-	contractBacked struct {
+	contractBackend struct {
 		intraBlockState *erigonstate.IntraBlockState
 		org             erigonstate.StateReader
 
 		// helper fields
 		height       uint64
 		timestamp    time.Time
+		producer     erigonComm.Address
 		g            *genesis.Genesis
 		evmNetworkID uint32
 	}
 )
 
-func NewContractBackend(intraBlockState *erigonstate.IntraBlockState, org erigonstate.StateReader, height uint64, timestamp time.Time, g *genesis.Genesis, evmNetworkID uint32) *contractBacked {
-	return &contractBacked{
+// NewContractBackend creates a new contract backend for system contract interaction
+func NewContractBackend(intraBlockState *erigonstate.IntraBlockState, org erigonstate.StateReader, height uint64, timestamp time.Time, producer address.Address, g *genesis.Genesis, evmNetworkID uint32) *contractBackend {
+	return &contractBackend{
 		intraBlockState: intraBlockState,
 		org:             org,
 		height:          height,
 		timestamp:       timestamp,
 		g:               g,
 		evmNetworkID:    evmNetworkID,
+		producer:        erigonComm.BytesToAddress(producer.Bytes()),
 	}
 }
 
-func (backend *contractBacked) Call(callMsg *ethereum.CallMsg) ([]byte, error) {
+func (backend *contractBackend) Call(callMsg *ethereum.CallMsg) ([]byte, error) {
 	return backend.call(callMsg, erigonstate.New(&intraStateReader{backend.intraBlockState, backend.org}))
 }
 
-func (backend *contractBacked) Handle(callMsg *ethereum.CallMsg) error {
+func (backend *contractBackend) Handle(callMsg *ethereum.CallMsg) error {
 	_, err := backend.call(callMsg, backend.intraBlockState)
 	return err
 }
 
-func (backend *contractBacked) Deploy(callMsg *ethereum.CallMsg) (address.Address, error) {
+func (backend *contractBackend) Deploy(callMsg *ethereum.CallMsg) (address.Address, error) {
 	evm, err := backend.prepare(backend.intraBlockState)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to prepare EVM for contract deployment")
@@ -85,7 +88,7 @@ func (backend *contractBacked) Deploy(callMsg *ethereum.CallMsg) (address.Addres
 		}
 		return nil, errors.Wrap(err, "failed to deploy contract")
 	}
-	log.L().Info("EVM deployment result",
+	log.L().Debug("EVM deployment result",
 		zap.String("from", callMsg.From.String()),
 		zap.String("data", hex.EncodeToString(callMsg.Data)),
 		zap.String("ret", hex.EncodeToString(ret)),
@@ -96,11 +99,11 @@ func (backend *contractBacked) Deploy(callMsg *ethereum.CallMsg) (address.Addres
 	return address.FromBytes(addr.Bytes())
 }
 
-func (backend *contractBacked) Exists(addr address.Address) bool {
+func (backend *contractBackend) Exists(addr address.Address) bool {
 	return backend.intraBlockState.Exist(erigonComm.BytesToAddress(addr.Bytes()))
 }
 
-func (backend *contractBacked) PutAccount(_addr address.Address, acc *state.Account) error {
+func (backend *contractBackend) PutAccount(_addr address.Address, acc *state.Account) error {
 	addr := erigonComm.BytesToAddress(_addr.Bytes())
 	if !backend.intraBlockState.Exist(addr) {
 		backend.intraBlockState.CreateAccount(addr, acc.IsContract())
@@ -128,7 +131,7 @@ func (backend *contractBacked) PutAccount(_addr address.Address, acc *state.Acco
 	return contract.Put(_addr.Bytes(), systemcontracts.GenericValue{PrimaryData: data})
 }
 
-func (backend *contractBacked) Account(_addr address.Address) (*state.Account, error) {
+func (backend *contractBackend) Account(_addr address.Address) (*state.Account, error) {
 	addr := erigonComm.BytesToAddress(_addr.Bytes())
 	if !backend.intraBlockState.Exist(addr) {
 		return nil, errors.Wrapf(state.ErrStateNotExist, "address: %x", addr.Bytes())
@@ -170,13 +173,11 @@ func (backend *contractBacked) Account(_addr address.Address) (*state.Account, e
 	return acc, nil
 }
 
-func (backend *contractBacked) accountContractAddr() common.Address {
+func (backend *contractBackend) accountContractAddr() common.Address {
 	return common.BytesToAddress(systemcontracts.SystemContracts[systemcontracts.AccountInfoContractIndex].Address.Bytes())
 }
 
-func (backend *contractBacked) prepare(intra evmtypes.IntraBlockState) (*vm.EVM, error) {
-
-	// deploy system contracts
+func (backend *contractBackend) prepare(intra evmtypes.IntraBlockState) (*vm.EVM, error) {
 	blkCtxE := evmtypes.BlockContext{
 		CanTransfer: func(state evmtypes.IntraBlockState, addr erigonComm.Address, amount *uint256.Int) bool {
 			log.L().Debug("CanTransfer called in erigon genesis state creation",
@@ -206,7 +207,7 @@ func (backend *contractBacked) prepare(intra evmtypes.IntraBlockState) (*vm.EVM,
 			)
 			return
 		},
-		Coinbase:    erigonComm.Address{},
+		Coinbase:    backend.producer,
 		GasLimit:    math.MaxUint64,
 		MaxGasLimit: true,
 		BlockNumber: backend.height,
@@ -273,7 +274,7 @@ func (backend *contractBacked) prepare(intra evmtypes.IntraBlockState) (*vm.EVM,
 	return evm, nil
 }
 
-func (backend *contractBacked) call(callMsg *ethereum.CallMsg, intra evmtypes.IntraBlockState) ([]byte, error) {
+func (backend *contractBackend) call(callMsg *ethereum.CallMsg, intra evmtypes.IntraBlockState) ([]byte, error) {
 	evm, err := backend.prepare(intra)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to prepare EVM for contract call")
@@ -295,7 +296,7 @@ func (backend *contractBacked) call(callMsg *ethereum.CallMsg, intra evmtypes.In
 		}
 		return ret, errors.Wrapf(err, "error when system contract %x action mutates states", callMsg.To.Bytes())
 	}
-	log.L().Info("EVM call result",
+	log.L().Debug("EVM call result",
 		zap.String("from", callMsg.From.String()),
 		zap.String("to", callMsg.To.String()),
 		zap.Uint64("dataSize", uint64(len(callMsg.Data))),

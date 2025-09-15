@@ -19,7 +19,7 @@ type ContractStorage interface {
 
 // ContractStorageStandard defines the interface for standard contract storage operations
 type ContractStorageStandard interface {
-	ContractStorageAddress(ns string, key []byte) (address.Address, error)
+	ContractStorageAddress(ns string) (address.Address, error)
 	New() ContractStorageStandard
 	Serialize() ([]byte, error)
 	Deserialize([]byte) error
