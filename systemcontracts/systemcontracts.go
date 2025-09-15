@@ -68,6 +68,7 @@ var systemContractTypes = map[int]int{
 // SystemContracts holds all system contracts
 var SystemContracts []SystemContract
 
+// systemContractCreatorAddr is the address used to create system contracts
 var systemContractCreatorAddr = hash.Hash160b([]byte("system_contract_creator"))
 
 func init() {
@@ -103,6 +104,15 @@ func initSystemContracts() {
 			Code:    byteCode,
 		}
 	}
+}
+
+// SystemContractCreatorAddr returns the address used to create system contracts
+func SystemContractCreatorAddr() address.Address {
+	addr, err := address.FromBytes(systemContractCreatorAddr[:])
+	if err != nil {
+		log.S().Panic("Invalid system contract creator address: " + err.Error())
+	}
+	return addr
 }
 
 // ContractBackend defines the interface for contract backend operations

@@ -49,6 +49,10 @@ type (
 
 // NewContractBackend creates a new contract backend for system contract interaction
 func NewContractBackend(intraBlockState *erigonstate.IntraBlockState, org erigonstate.StateReader, height uint64, timestamp time.Time, producer address.Address, g *genesis.Genesis, evmNetworkID uint32) *contractBackend {
+	var producerAddr erigonComm.Address
+	if producer != nil {
+		producerAddr = erigonComm.BytesToAddress(producer.Bytes())
+	}
 	return &contractBackend{
 		intraBlockState: intraBlockState,
 		org:             org,
@@ -56,7 +60,7 @@ func NewContractBackend(intraBlockState *erigonstate.IntraBlockState, org erigon
 		timestamp:       timestamp,
 		g:               g,
 		evmNetworkID:    evmNetworkID,
-		producer:        erigonComm.BytesToAddress(producer.Bytes()),
+		producer:        producerAddr,
 	}
 }
 

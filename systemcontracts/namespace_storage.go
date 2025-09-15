@@ -16,30 +16,16 @@ import (
 
 // NamespaceGenericValue represents the value structure in the NamespaceStorage contract
 // This is the same as GenericValue but renamed to avoid conflicts
-type NamespaceGenericValue struct {
-	PrimaryData   []byte `json:"primaryData"`
-	SecondaryData []byte `json:"secondaryData"`
-	AuxiliaryData []byte `json:"auxiliaryData"`
-}
+type NamespaceGenericValue = GenericValue
 
 // NamespaceBatchGetResult represents the result of a batch get operation
-type NamespaceBatchGetResult struct {
-	Values      []NamespaceGenericValue `json:"values"`
-	ExistsFlags []bool                  `json:"existsFlags"`
-}
+type NamespaceBatchGetResult = BatchGetResult
 
 // NamespaceListResult represents the result of a list operation
-type NamespaceListResult struct {
-	KeyList [][]byte                `json:"keyList"`
-	Values  []NamespaceGenericValue `json:"values"`
-	Total   *big.Int                `json:"total"`
-}
+type NamespaceListResult = ListResult
 
 // NamespaceListKeysResult represents the result of a listKeys operation
-type NamespaceListKeysResult struct {
-	KeyList [][]byte `json:"keyList"`
-	Total   *big.Int `json:"total"`
-}
+type NamespaceListKeysResult = ListKeysResult
 
 // NamespaceListNamespacesResult represents the result of a listNamespaces operation
 type NamespaceListNamespacesResult struct {
@@ -49,10 +35,7 @@ type NamespaceListNamespacesResult struct {
 }
 
 // NamespaceGetResult represents the result of a get operation
-type NamespaceGetResult struct {
-	Value     NamespaceGenericValue `json:"value"`
-	KeyExists bool                  `json:"keyExists"`
-}
+type NamespaceGetResult = GetResult
 
 // NamespaceStorageContract provides an interface to interact with the NamespaceStorage smart contract
 type NamespaceStorageContract struct {
