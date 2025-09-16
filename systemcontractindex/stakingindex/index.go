@@ -160,6 +160,10 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 			return nil, err
 		}
 	}
+	srHeight, err := sr.Height()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get state reader height")
+	}
 	contractAddr := s.common.ContractAddress()
 	csr := contractstaking.NewStateReader(sr)
 	hasContractState := false
@@ -179,7 +183,7 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 		Timestamped:  s.timestamped,
 	}
 	// contract staking state have not been initialized in state reader, we need to read from index
-	if !hasContractState {
+	if !hasContractState && srHeight >= s.common.Height() {
 		builder := NewEventHandlerFactory(s.bucketNS, s.common.KVStore(), s.calculateContractVoteWeight)
 		processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
 		mgr := NewCandidateVotesManager(s.ContractAddress())
@@ -189,13 +193,6 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	cache := NewContractBucketCache(s.common.ContractAddress(), csr)
 	builder := NewContractEventHandlerFactory(csr, s.calculateContractVoteWeight)
 	processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
-	if err != nil {
-		return nil, err
-	}
-	srHeight, err := sr.Height()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get state reader height")
-	}
 	vv := NewVoteView(cfg, srHeight, cur, builder, processorBuilder, cache, mgr)
 	return vv, nil
 }
