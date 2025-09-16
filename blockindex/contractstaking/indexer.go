@@ -105,6 +105,10 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 			return nil, err
 		}
 	}
+	srHeight, err := sr.Height()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get state reader height")
+	}
 	cssr := contractstaking.NewStateReader(sr)
 	mgr := stakingindex.NewCandidateVotesManager(s.contractAddr)
 	hasContractState := false
@@ -125,7 +129,7 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 		return s.config.CalculateVoteWeight(vb)
 	}
 	// contract staking state have not been initialized in state reader, we need to read from index
-	if !hasContractState {
+	if !hasContractState && srHeight >= s.height {
 		ids, typs, infos := s.cache.Buckets()
 		buckets := make(map[uint64]*contractstaking.Bucket)
 		for i, id := range ids {
@@ -143,13 +147,6 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	cache := stakingindex.NewContractBucketCache(s.contractAddr, cssr)
 	builder := stakingindex.NewContractEventHandlerFactory(cssr, calculateUnmutedVoteWeightAt)
 	processorBuilder := newEventProcessorBuilder(s.contractAddr)
-	if err != nil {
-		return nil, err
-	}
-	srHeight, err := sr.Height()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get state reader height")
-	}
 	return stakingindex.NewVoteView(cfg, srHeight, cur, builder, processorBuilder, cache, mgr), nil
 }
 
