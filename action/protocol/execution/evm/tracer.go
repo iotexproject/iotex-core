@@ -19,18 +19,32 @@ type tracerWrapper struct {
 	started bool
 }
 
-// NewTracerWrapper wraps the EVMLogger to ignore the CaptureStart and CaptureEnd calls
+// NewTracerWrapper wraps the EVMLogger
 func NewTracerWrapper(tracer vm.EVMLogger) vm.EVMLogger {
 	return &tracerWrapper{EVMLogger: tracer}
 }
 
+func (tw *tracerWrapper) CaptureStartX(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+	tw.EVMLogger.CaptureStart(env, from, to, create, input, gas, value)
+	tw.started = true
+}
+
+func (tw *tracerWrapper) CaptureEndX(output []byte, gasUsed uint64, err error) {
+	if tw.started {
+		tw.EVMLogger.CaptureEnd(output, gasUsed, err)
+	}
+}
+
 func (tw *tracerWrapper) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	if tw.started {
-		tw.EVMLogger.CaptureEnter(vm.CALL, from, to, input, gas, value)
+		op := vm.CALL
+		if create {
+			op = vm.CREATE
+		}
+		tw.EVMLogger.CaptureEnter(op, from, to, input, gas, value)
 		return
 	}
 	tw.EVMLogger.CaptureStart(env, from, to, create, input, gas, value)
-	tw.started = true
 }
 
 func (tw *tracerWrapper) CaptureEnd(output []byte, gasUsed uint64, err error) {
@@ -39,7 +53,6 @@ func (tw *tracerWrapper) CaptureEnd(output []byte, gasUsed uint64, err error) {
 		return
 	}
 	tw.EVMLogger.CaptureEnd(output, gasUsed, err)
-	tw.started = false
 }
 
 func (tw *tracerWrapper) Unwrap() vm.EVMLogger {
@@ -78,8 +91,12 @@ func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.Envelo
 		return errors.New("only eth compatible action is supported for tracing")
 	}
 	vmCtx.Tracer.CaptureTxStart(elp.Gas())
+	if to == nil {
+		// contract creation, CaptureStart will be called in evm
+		return nil
+	}
 	actCtx := protocol.MustGetActionCtx(ctx)
-	vmCtx.Tracer.CaptureStart(evm, common.Address(actCtx.Caller.Bytes()), *to, false, input, elp.Gas(), value)
+	vmCtx.Tracer.(*tracerWrapper).CaptureStartX(evm, common.Address(actCtx.Caller.Bytes()), *to, false, input, elp.Gas(), value)
 	return nil
 }
 
@@ -90,7 +107,7 @@ func TraceEnd(ctx context.Context, ws protocol.StateManager, elp action.Envelope
 		return
 	}
 	output := receipt.Output
-	vmCtx.Tracer.CaptureEnd(output, receipt.GasConsumed, nil)
+	vmCtx.Tracer.(*tracerWrapper).CaptureEndX(output, receipt.GasConsumed, nil)
 	vmCtx.Tracer.CaptureTxEnd(elp.Gas() - receipt.GasConsumed)
 	if t, ok := GetTracerCtx(ctx); ok {
 		t.CaptureTx(output, receipt)
