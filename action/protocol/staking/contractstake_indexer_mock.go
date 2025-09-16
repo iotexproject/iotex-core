@@ -241,6 +241,20 @@ func (mr *MockContractStakingIndexerMockRecorder) CreateEventProcessor(arg0, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEventProcessor", reflect.TypeOf((*MockContractStakingIndexer)(nil).CreateEventProcessor), arg0, arg1)
 }
 
+// CreateMemoryEventHandler mocks base method.
+func (m *MockContractStakingIndexer) CreateMemoryEventHandler(arg0 context.Context) EventHandler {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateMemoryEventHandler", arg0)
+	ret0, _ := ret[0].(EventHandler)
+	return ret0
+}
+
+// CreateMemoryEventHandler indicates an expected call of CreateMemoryEventHandler.
+func (mr *MockContractStakingIndexerMockRecorder) CreateMemoryEventHandler(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMemoryEventHandler", reflect.TypeOf((*MockContractStakingIndexer)(nil).CreateMemoryEventHandler), arg0)
+}
+
 // Height mocks base method.
 func (m *MockContractStakingIndexer) Height() (uint64, error) {
 	m.ctrl.T.Helper()
@@ -396,6 +410,20 @@ func (m *MockContractStakingIndexerWithBucketType) CreateEventProcessor(arg0 con
 func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) CreateEventProcessor(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEventProcessor", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).CreateEventProcessor), arg0, arg1)
+}
+
+// CreateMemoryEventHandler mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) CreateMemoryEventHandler(arg0 context.Context) EventHandler {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateMemoryEventHandler", arg0)
+	ret0, _ := ret[0].(EventHandler)
+	return ret0
+}
+
+// CreateMemoryEventHandler indicates an expected call of CreateMemoryEventHandler.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) CreateMemoryEventHandler(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMemoryEventHandler", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).CreateMemoryEventHandler), arg0)
 }
 
 // Height mocks base method.

@@ -2065,6 +2065,10 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 				GetBlockHash: func(uint64) (hash.Hash256, error) { return hash.ZeroHash256, nil },
 				GetBlockTime: func(uint64) (time.Time, error) { return time.Now(), nil },
 			}), nil).AnyTimes()
+			mbc.EXPECT().ContextAtHeight(gomock.Any(), gomock.Any()).Return(protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+				GetBlockHash: func(uint64) (hash.Hash256, error) { return hash.ZeroHash256, nil },
+				GetBlockTime: func(uint64) (time.Time, error) { return time.Now(), nil },
+			}), nil).AnyTimes()
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
