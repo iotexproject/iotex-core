@@ -641,7 +641,7 @@ func TestTraceTransaction(t *testing.T) {
 	require.Equal(uint64(1), receipt.Status)
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
-	require.Equal(0, len(traces.(*evmTracer).EVMLogger.(*logger.StructLogger).StructLogs()))
+	require.Equal(0, len(traces.(*evmTracer).Unwrap().(*logger.StructLogger).StructLogs()))
 }
 
 func TestTraceCall(t *testing.T) {
@@ -679,7 +679,7 @@ func TestTraceCall(t *testing.T) {
 	require.Equal(uint64(1), receipt.Status)
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
-	require.Equal(0, len(traces.(*evmTracer).EVMLogger.(*logger.StructLogger).StructLogs()))
+	require.Equal(0, len(traces.(*evmTracer).Unwrap().(*logger.StructLogger).StructLogs()))
 }
 
 func TestProofAndCompareReverseActions(t *testing.T) {
