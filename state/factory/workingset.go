@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
 
@@ -33,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -888,11 +890,37 @@ func (ws *workingSet) pickAndRunActions(
 		executedActions = append(executedActions, selp)
 	}
 	if fCtx.CorrectTxLogIndex {
+		logPatch.Stop(ctx)
+		log.L().Panic("Done")
 		updateReceiptIndex(receipts)
+	} else {
+		crs := correctLogIndexAndTopic(receipts)
+		trs := iotextypes.Receipts{}
+		for _, r := range crs {
+			trs.Receipts = append(trs.Receipts, r.ConvertToReceiptPb())
+		}
+		if receiptsBytes, err := proto.Marshal(&trs); err == nil {
+			err = logPatch.Put("receipts", byteutil.Uint64ToBytes(ws.height), receiptsBytes)
+		}
+		if err != nil {
+			logPatch.Stop(ctx)
+			log.L().Panic("failed to put receipits for block", zap.Uint64("height", ws.height), zap.Error(err))
+		}
 	}
 	ws.receipts = receipts
 
 	return executedActions, ws.finalize(ctx)
+}
+
+var logPatch *db.BoltDB
+
+func init() {
+	dbconfig := db.DefaultConfig
+	dbconfig.DbPath = "./log.patch"
+	db.NewBoltDB(dbconfig)
+	if err := logPatch.Start(context.Background()); err != nil {
+		log.L().Panic("failed to start log patch db", zap.Error(err))
+	}
 }
 
 func (ws *workingSet) generateSignedSystemActions(ctx context.Context, sign func(elp action.Envelope) (*action.SealedEnvelope, error)) ([]*action.SealedEnvelope, error) {
@@ -917,6 +945,47 @@ func updateReceiptIndex(receipts []*action.Receipt) {
 		logIndex = r.UpdateIndex(txIndex, logIndex)
 		txIndex++
 	}
+}
+
+func correctLogIndexAndTopic(receipts []*action.Receipt) []*action.Receipt {
+	crs := make([]*action.Receipt, 0, len(receipts))
+	var txIndex, logIndex uint32
+	for _, r := range receipts {
+		cr := &action.Receipt{
+			Status:            r.Status,
+			BlockHeight:       r.BlockHeight,
+			ActionHash:        r.ActionHash,
+			GasConsumed:       r.GasConsumed,
+			BlobGasUsed:       r.BlobGasUsed,
+			BlobGasPrice:      big.NewInt(0).Set(r.BlobGasPrice),
+			ContractAddress:   r.ContractAddress,
+			TxIndex:           txIndex,
+			EffectiveGasPrice: big.NewInt(0).Set(r.EffectiveGasPrice),
+		}
+		cr.SetExecutionRevertMsg(r.ExecutionRevertMsg())
+		cr.AddTransactionLogs(r.TransactionLogs()...)
+		for _, l := range r.Logs() {
+			data := make([]byte, len(l.Data))
+			copy(data, l.Data)
+			topics := make(action.Topics, len(l.Topics))
+			copy(topics, l.Topics)
+			cl := &action.Log{
+				Address:            l.Address,
+				Topics:             topics,
+				Data:               data,
+				BlockHeight:        l.BlockHeight,
+				ActionHash:         l.ActionHash,
+				TxIndex:            txIndex,
+				Index:              logIndex,
+				NotFixTopicCopyBug: false,
+			}
+			cr.AddLogs(cl)
+			logIndex++
+		}
+		txIndex++
+		crs = append(crs, cr)
+	}
+	return crs
 }
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
