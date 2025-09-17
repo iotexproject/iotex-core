@@ -6,7 +6,6 @@
 package staking
 
 import (
-	"bytes"
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -17,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -53,7 +53,7 @@ type (
 	}
 )
 
-var _ state.ContractStorageStandard = (*totalAmount)(nil)
+var _ erigonstore.ContractStorageStandard = (*totalAmount)(nil)
 
 func (t *totalAmount) Serialize() ([]byte, error) {
 	gen := stakingpb.TotalAmount{
@@ -98,19 +98,20 @@ func (t *totalAmount) SubBalance(amount *big.Int) error {
 }
 
 // ContractStorageAddress returns the address of the bucket pool contract
-func (t *totalAmount) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (t *totalAmount) ContractStorageAddress(ns string) (address.Address, error) {
 	if ns != _stakingNameSpace {
 		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, _stakingNameSpace)
-	}
-	if !bytes.Equal(key, _bucketPoolAddrKey) {
-		return nil, errors.Errorf("invalid key %x, expected %x", key, _bucketPoolAddrKey)
 	}
 	return systemcontracts.SystemContracts[systemcontracts.BucketPoolContractIndex].Address, nil
 }
 
 // New creates a new instance of totalAmount
-func (t *totalAmount) New() state.ContractStorageStandard {
-	return &totalAmount{}
+func (t *totalAmount) New(data []byte) (any, error) {
+	c := &totalAmount{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // IsDirty returns true if the bucket pool is dirty

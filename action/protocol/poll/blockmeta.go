@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll/blockmetapb"
-	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -27,7 +27,7 @@ type BlockMeta struct {
 	MintTime time.Time
 }
 
-var _ state.ContractStorageStandard = (*BlockMeta)(nil)
+var _ erigonstore.ContractStorageStandard = (*BlockMeta)(nil)
 
 // NewBlockMeta constructs new blockmeta struct with given fieldss
 func NewBlockMeta(height uint64, producer string, mintTime time.Time) *BlockMeta {
@@ -78,13 +78,17 @@ func (bm *BlockMeta) LoadProto(pb *blockmetapb.BlockMeta) error {
 	return nil
 }
 
-func (bm *BlockMeta) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (bm *BlockMeta) ContractStorageAddress(ns string) (address.Address, error) {
 	if ns != protocol.SystemNamespace {
 		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, protocol.SystemNamespace)
 	}
 	return systemcontracts.SystemContracts[systemcontracts.PollBlockMetaContractIndex].Address, nil
 }
 
-func (bm *BlockMeta) New() state.ContractStorageStandard {
-	return &BlockMeta{}
+func (bm *BlockMeta) New(data []byte) (any, error) {
+	c := &BlockMeta{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }

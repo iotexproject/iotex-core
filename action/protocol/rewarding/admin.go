@@ -6,20 +6,19 @@
 package rewarding
 
 import (
-	"bytes"
 	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -34,7 +33,7 @@ type admin struct {
 	productivityThreshold          uint64
 }
 
-var _ state.ContractStorageStandard = (*admin)(nil)
+var _ erigonstore.ContractStorageStandard = (*admin)(nil)
 
 // Serialize serializes admin state into bytes
 func (a admin) Serialize() ([]byte, error) {
@@ -82,27 +81,22 @@ func (a *admin) grantFoundationBonus(epoch uint64) bool {
 	return epoch <= a.foundationBonusLastEpoch
 }
 
-func (a *admin) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
-	prefix := hash.Hash160b([]byte(_protocolID))
+func (a *admin) ContractStorageAddress(ns string) (address.Address, error) {
 	if ns == state.AccountKVNamespace {
-		expectKey := hash.Hash160b(append(prefix[:], _adminKey...))
-		if !bytes.Equal(expectKey[:], key) {
-			return nil, errors.Errorf("unexpected key %x, expected %x", key, expectKey)
-		}
 		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV1Index].Address, nil
 	} else if ns == _v2RewardingNamespace {
-		expectKey := append(prefix[:], _adminKey...)
-		if !bytes.Equal(expectKey[:], key) {
-			return nil, errors.Errorf("unexpected key %x, expected %x", key, expectKey)
-		}
 		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV2Index].Address, nil
 	} else {
 		return nil, errors.Errorf("unexpected namespace %s", ns)
 	}
 }
 
-func (a *admin) New() state.ContractStorageStandard {
-	return &admin{}
+func (a *admin) New(data []byte) (any, error) {
+	c := &admin{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // exempt stores the addresses that exempt from epoch reward
@@ -110,7 +104,7 @@ type exempt struct {
 	addrs []address.Address
 }
 
-var _ state.ContractStorageStandard = (*exempt)(nil)
+var _ erigonstore.ContractStorageStandard = (*exempt)(nil)
 
 // Serialize serializes exempt state into bytes
 func (e *exempt) Serialize() ([]byte, error) {
@@ -138,27 +132,22 @@ func (e *exempt) Deserialize(data []byte) error {
 	return nil
 }
 
-func (e *exempt) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
-	prefix := hash.Hash160b([]byte(_protocolID))
+func (e *exempt) ContractStorageAddress(ns string) (address.Address, error) {
 	if ns == state.AccountKVNamespace {
-		expectKey := hash.Hash160b(append(prefix[:], _exemptKey...))
-		if !bytes.Equal(expectKey[:], key) {
-			return nil, errors.Errorf("unexpected key %x, expected %x", key, expectKey)
-		}
 		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV1Index].Address, nil
 	} else if ns == _v2RewardingNamespace {
-		expectKey := append(prefix[:], _exemptKey...)
-		if !bytes.Equal(expectKey[:], key) {
-			return nil, errors.Errorf("unexpected key %x, expected %x", key, expectKey)
-		}
 		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV2Index].Address, nil
 	} else {
 		return nil, errors.Errorf("unexpected namespace %s", ns)
 	}
 }
 
-func (e *exempt) New() state.ContractStorageStandard {
-	return &exempt{}
+func (e *exempt) New(data []byte) (any, error) {
+	c := &exempt{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // CreateGenesisStates initializes the rewarding protocol by setting the original admin, block and epoch reward

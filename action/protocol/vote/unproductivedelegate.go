@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	updpb "github.com/iotexproject/iotex-core/v2/action/protocol/vote/unproductivedelegatepb"
-	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -26,7 +26,7 @@ type UnproductiveDelegate struct {
 	cacheSize       uint64
 }
 
-var _ state.ContractStorageStandard = (*UnproductiveDelegate)(nil)
+var _ erigonstore.ContractStorageStandard = (*UnproductiveDelegate)(nil)
 
 // NewUnproductiveDelegate creates new UnproductiveDelegate with probationperiod and cacheSize
 func NewUnproductiveDelegate(probationPeriod uint64, cacheSize uint64) (*UnproductiveDelegate, error) {
@@ -133,7 +133,7 @@ func (upd *UnproductiveDelegate) DelegateList() [][]string {
 }
 
 // ContractStorageAddress returns the address of the unproductive delegate contract
-func (upd *UnproductiveDelegate) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (upd *UnproductiveDelegate) ContractStorageAddress(ns string) (address.Address, error) {
 	if ns != protocol.SystemNamespace {
 		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, protocol.SystemNamespace)
 	}
@@ -141,6 +141,10 @@ func (upd *UnproductiveDelegate) ContractStorageAddress(ns string, key []byte) (
 }
 
 // New creates a new instance of UnproductiveDelegate
-func (upd *UnproductiveDelegate) New() state.ContractStorageStandard {
-	return &UnproductiveDelegate{}
+func (upd *UnproductiveDelegate) New(data []byte) (any, error) {
+	c := &UnproductiveDelegate{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }

@@ -8,7 +8,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -38,7 +38,7 @@ type (
 	}
 )
 
-var _ state.ContractStorageProxy = (*Bucket)(nil)
+var _ erigonstore.ContractStorageProxy = (*Bucket)(nil)
 
 // ErrBucketNotExist is the error when bucket does not exist
 var ErrBucketNotExist = errors.New("bucket does not exist")
@@ -120,16 +120,20 @@ func (b *Bucket) Clone() *Bucket {
 }
 
 // ContractStorageAddress returns the contract storage address for the bucket.
-func (b *Bucket) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (b *Bucket) ContractStorageAddress(ns string) (address.Address, error) {
 	return systemcontracts.SystemContracts[systemcontracts.StakingContractIndex].Address, nil
 }
 
 // New creates a new instance of the bucket.
-func (b *Bucket) New() state.ContractStorageStandard {
-	return &Bucket{}
+func (b *Bucket) New(data []byte) (any, error) {
+	c := &Bucket{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // ContractStorageProxy returns the contract storage proxy for the bucket.
-func (b *Bucket) ContractStorageProxy() state.ContractStorage {
-	return state.NewContractStorageNamespacedWrapper(b)
+func (b *Bucket) ContractStorageProxy() erigonstore.ContractStorage {
+	return erigonstore.NewContractStorageNamespacedWrapper(b)
 }

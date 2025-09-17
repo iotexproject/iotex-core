@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -47,8 +48,8 @@ type (
 	}
 )
 
-var _ state.ContractStorage = (*Candidate)(nil)
-var _ state.ContractStorageStandard = (*CandidateList)(nil)
+var _ erigonstore.ContractStorage = (*Candidate)(nil)
+var _ erigonstore.ContractStorageStandard = (*CandidateList)(nil)
 
 // Clone returns a copy
 func (d *Candidate) Clone() *Candidate {
@@ -221,7 +222,7 @@ func (d *Candidate) storageContract(ns string, key []byte, backend systemcontrac
 }
 
 // StoreToContract stores candidate to contract
-func (d *Candidate) StoreToContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+func (d *Candidate) StoreToContract(ns string, key []byte, backend state.ContractBackend) error {
 	contract, err := d.storageContract(ns, key, backend)
 	if err != nil {
 		return err
@@ -247,7 +248,7 @@ func (d *Candidate) StoreToContract(ns string, key []byte, backend systemcontrac
 }
 
 // LoadFromContract loads candidate from contract
-func (d *Candidate) LoadFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+func (d *Candidate) LoadFromContract(ns string, key []byte, backend state.ContractBackend) error {
 	contract, err := d.storageContract(ns, key, backend)
 	if err != nil {
 		return err
@@ -278,12 +279,12 @@ func (d *Candidate) LoadFromContract(ns string, key []byte, backend systemcontra
 }
 
 // DeleteFromContract deletes candidate from contract
-func (d *Candidate) DeleteFromContract(ns string, key []byte, backend systemcontracts.ContractBackend) error {
+func (d *Candidate) DeleteFromContract(ns string, key []byte, backend state.ContractBackend) error {
 	return errors.New("not implemented")
 }
 
 // ListFromContract lists candidates from contract
-func (d *Candidate) ListFromContract(ns string, backend systemcontracts.ContractBackend) ([][]byte, []any, error) {
+func (d *Candidate) ListFromContract(ns string, backend state.ContractBackend) ([][]byte, []any, error) {
 	contract, err := d.storageContract(ns, nil, backend)
 	if err != nil {
 		return nil, nil, err
@@ -323,7 +324,7 @@ func (d *Candidate) ListFromContract(ns string, backend systemcontracts.Contract
 }
 
 // BatchFromContract is not implemented for Candidate
-func (d *Candidate) BatchFromContract(ns string, keys [][]byte, backend systemcontracts.ContractBackend) ([]any, error) {
+func (d *Candidate) BatchFromContract(ns string, keys [][]byte, backend state.ContractBackend) ([]any, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -494,7 +495,7 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 }
 
 // ContractStorageAddress returns the address of the candidate list contract
-func (l *CandidateList) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (l *CandidateList) ContractStorageAddress(ns string) (address.Address, error) {
 	if ns != CandsMapNS {
 		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, CandsMapNS)
 	}
@@ -502,8 +503,12 @@ func (l *CandidateList) ContractStorageAddress(ns string, key []byte) (address.A
 }
 
 // New creates a new instance of CandidateList
-func (l *CandidateList) New() state.ContractStorageStandard {
-	return &CandidateList{}
+func (l *CandidateList) New(data []byte) (any, error) {
+	c := &CandidateList{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {

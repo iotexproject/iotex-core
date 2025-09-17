@@ -48,8 +48,6 @@ type (
 	CandidateMap map[hash.Hash160]*Candidate
 )
 
-var _ ContractStorageStandard = (*CandidateList)(nil)
-
 // Equal compares two candidate instances
 func (c *Candidate) Equal(d *Candidate) bool {
 	if c == d {
@@ -155,7 +153,7 @@ func (l *CandidateList) LoadProto(candList *iotextypes.CandidateList) error {
 }
 
 // ContractStorageAddress returns the address of the candidate list contract
-func (l *CandidateList) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (l *CandidateList) ContractStorageAddress(ns string) (address.Address, error) {
 	if ns == SystemNamespace {
 		return systemcontracts.SystemContracts[systemcontracts.PollCandidateListContractIndex].Address, nil
 	} else if ns == AccountKVNamespace {
@@ -165,8 +163,12 @@ func (l *CandidateList) ContractStorageAddress(ns string, key []byte) (address.A
 }
 
 // New creates a new instance of CandidateList
-func (l *CandidateList) New() ContractStorageStandard {
-	return &CandidateList{}
+func (l *CandidateList) New(data []byte) (any, error) {
+	c := &CandidateList{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // candidateToPb converts a candidate to protobuf's candidate message

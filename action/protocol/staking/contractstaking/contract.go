@@ -7,7 +7,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -19,7 +19,7 @@ type StakingContract struct {
 	Height uint64
 }
 
-var _ state.ContractStorageProxy = (*StakingContract)(nil)
+var _ erigonstore.ContractStorageProxy = (*StakingContract)(nil)
 
 func (sc *StakingContract) toProto() *stakingpb.SystemStakingContract {
 	if sc == nil {
@@ -63,16 +63,20 @@ func (sc *StakingContract) Deserialize(b []byte) error {
 }
 
 // ContractStorageAddress returns the address of the contract storage
-func (sc *StakingContract) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (sc *StakingContract) ContractStorageAddress(ns string) (address.Address, error) {
 	return systemcontracts.SystemContracts[systemcontracts.StakingContractIndex].Address, nil
 }
 
 // New creates a new instance of the staking contract
-func (sc *StakingContract) New() state.ContractStorageStandard {
-	return &StakingContract{}
+func (sc *StakingContract) New(data []byte) (any, error) {
+	c := &StakingContract{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // ContractStorageProxy returns the contract storage proxy
-func (sc *StakingContract) ContractStorageProxy() state.ContractStorage {
-	return state.NewContractStorageNamespacedWrapper(sc)
+func (sc *StakingContract) ContractStorageProxy() erigonstore.ContractStorage {
+	return erigonstore.NewContractStorageNamespacedWrapper(sc)
 }

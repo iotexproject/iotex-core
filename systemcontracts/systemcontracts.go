@@ -54,8 +54,6 @@ const (
 	AccountInfoContractIndex
 	// StakingContractIndex is the system contract for staking view storage
 	StakingContractIndex
-	// StakingViewContractIndex is the system contract for staking view storage
-	StakingViewContractIndex
 	// SystemContractCount is the total number of system contracts
 	SystemContractCount
 )

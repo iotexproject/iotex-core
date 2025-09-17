@@ -6,14 +6,12 @@
 package rewarding
 
 import (
-	"bytes"
 	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -22,6 +20,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -32,7 +31,7 @@ type fund struct {
 	unclaimedBalance *big.Int
 }
 
-var _ state.ContractStorageStandard = (*fund)(nil)
+var _ erigonstore.ContractStorageStandard = (*fund)(nil)
 
 // Serialize serializes fund state into bytes
 func (f fund) Serialize() ([]byte, error) {
@@ -62,26 +61,21 @@ func (f *fund) Deserialize(data []byte) error {
 	return nil
 }
 
-func (f *fund) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
-	prefix := hash.Hash160b([]byte(_protocolID))
+func (f *fund) ContractStorageAddress(ns string) (address.Address, error) {
 	if ns == state.AccountKVNamespace {
-		expectKey := hash.Hash160b(append(prefix[:], _fundKey...))
-		if !bytes.Equal(expectKey[:], key) {
-			return nil, errors.Errorf("unexpected key %x, expected %x", key, expectKey)
-		}
 		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV1Index].Address, nil
 	} else if ns == _v2RewardingNamespace {
-		expectKey := append(prefix[:], _fundKey...)
-		if !bytes.Equal(expectKey[:], key) {
-			return nil, errors.Errorf("unexpected key %x, expected %x", key, expectKey)
-		}
 		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV2Index].Address, nil
 	}
 	return nil, errors.Errorf("unexpected namespace %s", ns)
 }
 
-func (f *fund) New() state.ContractStorageStandard {
-	return &fund{}
+func (f *fund) New(data []byte) (any, error) {
+	c := &fund{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // Deposit deposits token into the rewarding fund

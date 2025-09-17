@@ -26,13 +26,14 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // rewardHistory is the dummy struct to record a reward. Only key matters.
 type rewardHistory struct{}
 
-var _ state.ContractStorageStandard = (*rewardHistory)(nil)
+var _ erigonstore.ContractStorageStandard = (*rewardHistory)(nil)
 
 // Serialize serializes reward history state into bytes
 func (b rewardHistory) Serialize() ([]byte, error) {
@@ -43,7 +44,7 @@ func (b rewardHistory) Serialize() ([]byte, error) {
 // Deserialize deserializes bytes into reward history state
 func (b *rewardHistory) Deserialize(data []byte) error { return nil }
 
-func (b *rewardHistory) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (b *rewardHistory) ContractStorageAddress(ns string) (address.Address, error) {
 	if ns == state.AccountKVNamespace {
 		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV1Index].Address, nil
 	} else if ns == _v2RewardingNamespace {
@@ -53,8 +54,12 @@ func (b *rewardHistory) ContractStorageAddress(ns string, key []byte) (address.A
 	}
 }
 
-func (b *rewardHistory) New() state.ContractStorageStandard {
-	return &rewardHistory{}
+func (b *rewardHistory) New(data []byte) (any, error) {
+	c := &rewardHistory{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // rewardAccount stores the unclaimed balance of an account
@@ -62,7 +67,7 @@ type rewardAccount struct {
 	balance *big.Int
 }
 
-var _ state.ContractStorageStandard = (*rewardAccount)(nil)
+var _ erigonstore.ContractStorageStandard = (*rewardAccount)(nil)
 
 // Serialize serializes account state into bytes
 func (a rewardAccount) Serialize() ([]byte, error) {
@@ -86,7 +91,7 @@ func (a *rewardAccount) Deserialize(data []byte) error {
 	return nil
 }
 
-func (a *rewardAccount) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (a *rewardAccount) ContractStorageAddress(ns string) (address.Address, error) {
 	if ns == state.AccountKVNamespace {
 		return systemcontracts.SystemContracts[systemcontracts.RewardingContractV1Index].Address, nil
 	} else if ns == _v2RewardingNamespace {
@@ -96,8 +101,12 @@ func (a *rewardAccount) ContractStorageAddress(ns string, key []byte) (address.A
 	}
 }
 
-func (a *rewardAccount) New() state.ContractStorageStandard {
-	return &rewardAccount{}
+func (a *rewardAccount) New(data []byte) (any, error) {
+	c := &rewardAccount{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // GrantBlockReward grants the block reward (token) to the block producer

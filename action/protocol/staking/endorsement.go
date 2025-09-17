@@ -9,7 +9,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -38,7 +38,7 @@ type (
 	}
 )
 
-var _ state.ContractStorageStandard = (*Endorsement)(nil)
+var _ erigonstore.ContractStorageStandard = (*Endorsement)(nil)
 
 // String returns a human-readable string of the endorsement status
 func (s EndorsementStatus) String() string {
@@ -91,7 +91,7 @@ func (e *Endorsement) Deserialize(buf []byte) error {
 }
 
 // ContractStorageAddress returns the address of the endorsement contract
-func (e *Endorsement) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (e *Endorsement) ContractStorageAddress(ns string) (address.Address, error) {
 	if ns != _stakingNameSpace {
 		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, _stakingNameSpace)
 	}
@@ -100,8 +100,12 @@ func (e *Endorsement) ContractStorageAddress(ns string, key []byte) (address.Add
 }
 
 // New creates a new instance of Endorsement
-func (e *Endorsement) New() state.ContractStorageStandard {
-	return &Endorsement{}
+func (e *Endorsement) New(data []byte) (any, error) {
+	c := &Endorsement{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (e *Endorsement) toProto() (*stakingpb.Endorsement, error) {

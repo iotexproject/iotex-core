@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -25,7 +25,7 @@ type ProbationList struct {
 	IntensityRate uint32
 }
 
-var _ state.ContractStorageStandard = (*ProbationList)(nil)
+var _ erigonstore.ContractStorageStandard = (*ProbationList)(nil)
 
 // NewProbationList returns a new probation list
 func NewProbationList(intensity uint32) *ProbationList {
@@ -83,7 +83,7 @@ func (pl *ProbationList) LoadProto(probationListpb *iotextypes.ProbationCandidat
 }
 
 // ContractStorageAddress returns the address of the probation list contract
-func (pl *ProbationList) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (pl *ProbationList) ContractStorageAddress(ns string) (address.Address, error) {
 	if ns != protocol.SystemNamespace {
 		return nil, errors.Errorf("invalid namespace %s, expected %s", ns, protocol.SystemNamespace)
 	}
@@ -91,6 +91,10 @@ func (pl *ProbationList) ContractStorageAddress(ns string, key []byte) (address.
 }
 
 // New creates a new instance of ProbationList
-func (pl *ProbationList) New() state.ContractStorageStandard {
-	return &ProbationList{}
+func (pl *ProbationList) New(data []byte) (any, error) {
+	c := &ProbationList{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }

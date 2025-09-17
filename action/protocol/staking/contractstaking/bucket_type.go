@@ -8,7 +8,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -21,7 +21,7 @@ type (
 	}
 )
 
-var _ state.ContractStorageProxy = (*BucketType)(nil)
+var _ erigonstore.ContractStorageProxy = (*BucketType)(nil)
 
 func (bt *BucketType) toProto() *stakingpb.BucketType {
 	return &stakingpb.BucketType{
@@ -73,16 +73,20 @@ func (bt *BucketType) Clone() *BucketType {
 }
 
 // ContractStorageAddress returns the contract storage address for the bucket type
-func (bt *BucketType) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (bt *BucketType) ContractStorageAddress(ns string) (address.Address, error) {
 	return systemcontracts.SystemContracts[systemcontracts.StakingContractIndex].Address, nil
 }
 
 // New creates a new instance of the bucket type
-func (bt *BucketType) New() state.ContractStorageStandard {
-	return &BucketType{}
+func (bt *BucketType) New(data []byte) (any, error) {
+	c := &BucketType{}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // ContractStorageProxy returns the contract storage proxy for the bucket type
-func (bt *BucketType) ContractStorageProxy() state.ContractStorage {
-	return state.NewContractStorageNamespacedWrapper(bt)
+func (bt *BucketType) ContractStorageProxy() erigonstore.ContractStorage {
+	return erigonstore.NewContractStorageNamespacedWrapper(bt)
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
@@ -35,8 +35,6 @@ type candidate struct {
 type candidateVotes struct {
 	cands map[string]*candidate
 }
-
-var _ state.ContractStorageStandard = (*candidateVotes)(nil)
 
 type candidateVotesWraper struct {
 	base   CandidateVotes
@@ -133,18 +131,22 @@ func (cv *candidateVotes) Base() CandidateVotes {
 	return cv
 }
 
-func (cv *candidateVotes) ContractStorageAddress(ns string, key []byte) (address.Address, error) {
+func (cv *candidateVotes) ContractStorageAddress(ns string) (address.Address, error) {
 	return systemcontracts.SystemContracts[systemcontracts.StakingViewContractIndex].Address, nil
 }
 
-func (cv *candidateVotes) New() state.ContractStorageStandard {
-	return &candidateVotes{
+func (cv *candidateVotes) New(data []byte) (any, error) {
+	c := &candidateVotes{
 		cands: make(map[string]*candidate),
 	}
+	if err := c.Deserialize(data); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
-func (cv *candidateVotes) ContractStorageProxy() state.ContractStorage {
-	return state.NewContractStorageNamespacedWrapper(cv)
+func (cv *candidateVotes) ContractStorageProxy() erigonstore.ContractStorage {
+	return erigonstore.NewContractStorageNamespacedWrapper(cv)
 }
 
 func newCandidateVotes() *candidateVotes {

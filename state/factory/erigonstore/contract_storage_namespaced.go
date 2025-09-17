@@ -86,9 +86,9 @@ func (cs *contractStorageNamespacedWrapper) ListFromContract(ns string, backend 
 	log.S().Debugf("Listed storage standards from contract %s with keys %v", contract.Address().Hex(), listResult.KeyList)
 	var indices []any
 	for _, value := range listResult.Values {
-		bi := cs.standard.New()
-		if err := bi.Deserialize(value.PrimaryData); err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to deserialize storage standard from contract %s", contract.Address().Hex())
+		bi, err := cs.standard.New(value.PrimaryData)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to create new storage standard from contract %s", contract.Address().Hex())
 		}
 		indices = append(indices, bi)
 	}
@@ -111,9 +111,9 @@ func (cs *contractStorageNamespacedWrapper) BatchFromContract(ns string, keys []
 			results = append(results, nil)
 			continue
 		}
-		res := cs.standard.New()
-		if err := res.Deserialize(value.PrimaryData); err != nil {
-			return nil, errors.Wrapf(err, "failed to deserialize storage standard %x", keys[i])
+		res, err := cs.standard.New(value.PrimaryData)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create new storage standard %x", keys[i])
 		}
 		results = append(results, res)
 	}
