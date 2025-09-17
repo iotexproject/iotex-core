@@ -1,18 +1,15 @@
-// Package systemcontracts provides system contract management functionality
-package systemcontracts
+package erigonstore
 
 import (
 	"encoding/hex"
-	"fmt"
-	"math/big"
+	"log"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
+	"github.com/pkg/errors"
 )
 
 // SystemContract represents a system contract with its address and bytecode
@@ -65,32 +62,28 @@ var systemContractTypes = map[int]int{
 	StakingViewContractIndex: namespaceStorageContractType,
 }
 
-// SystemContracts holds all system contracts
-var SystemContracts []SystemContract
+// systemContracts holds all system contracts
+var systemContracts []SystemContract
 
 // systemContractCreatorAddr is the address used to create system contracts
+// TODO: review and delete it
 var systemContractCreatorAddr = hash.Hash160b([]byte("system_contract_creator"))
 
 func init() {
-	initSystemContracts()
-}
-
-// initSystemContracts initializes the system contracts array
-func initSystemContracts() {
-	genericStorageByteCode, err := hex.DecodeString(GenericStorageByteCodeStr)
+	genericStorageByteCode, err := hex.DecodeString(systemcontracts.GenericStorageByteCodeStr)
 	if err != nil {
-		log.S().Panic("failed to decode GenericStorageByteCode: " + err.Error())
+		log.Panic(errors.Wrap(err, "failed to decode GenericStorageByteCode"))
 	}
-	namespaceStorageByteCode, err := hex.DecodeString(NamespaceStorageContractByteCodeStr)
+	namespaceStorageByteCode, err := hex.DecodeString(systemcontracts.NamespaceStorageContractByteCodeStr)
 	if err != nil {
-		log.S().Panic("failed to decode NamespaceStorageContractByteCode: " + err.Error())
+		log.Panic(errors.Wrap(err, "failed to decode NamespaceStorageContractByteCode"))
 	}
 
-	SystemContracts = make([]SystemContract, SystemContractCount)
+	systemContracts = make([]SystemContract, SystemContractCount)
 	for i := 0; i < SystemContractCount; i++ {
 		addr, err := address.FromBytes(crypto.CreateAddress(common.BytesToAddress(systemContractCreatorAddr[:]), uint64(i)).Bytes())
 		if err != nil {
-			log.S().Panic("Invalid system contract address: " + err.Error())
+			log.Panic(errors.Wrap(err, "invalid system contract address"))
 		}
 		var byteCode []byte
 		switch systemContractTypes[i] {
@@ -99,55 +92,9 @@ func initSystemContracts() {
 		default:
 			byteCode = genericStorageByteCode
 		}
-		SystemContracts[i] = SystemContract{
+		systemContracts[i] = SystemContract{
 			Address: addr,
 			Code:    byteCode,
 		}
 	}
-}
-
-// SystemContractCreatorAddr returns the address used to create system contracts
-func SystemContractCreatorAddr() address.Address {
-	addr, err := address.FromBytes(systemContractCreatorAddr[:])
-	if err != nil {
-		log.S().Panic("Invalid system contract creator address: " + err.Error())
-	}
-	return addr
-}
-
-// ContractBackend defines the interface for contract backend operations
-type ContractBackend interface {
-	Call(callMsg *ethereum.CallMsg) ([]byte, error)
-	Handle(callMsg *ethereum.CallMsg) error
-}
-
-// ContractDeployer defines the interface for contract deployment operations
-type ContractDeployer interface {
-	Deploy(callMsg *ethereum.CallMsg) (address.Address, error)
-	Exists(addr address.Address) bool
-}
-
-// DeploySystemContractsIfNotExist deploys system contracts if they don't exist
-func DeploySystemContractsIfNotExist(deployer ContractDeployer) error {
-	for idx, contract := range SystemContracts {
-		exists := deployer.Exists(contract.Address)
-		if !exists {
-			log.S().Infof("Deploying system contract [%d] %s", idx, contract.Address.String())
-			msg := &ethereum.CallMsg{
-				From:  common.BytesToAddress(systemContractCreatorAddr[:]),
-				Data:  contract.Code,
-				Value: big.NewInt(0),
-				Gas:   10000000,
-			}
-			if addr, err := deployer.Deploy(msg); err != nil {
-				return fmt.Errorf("failed to deploy system contract %s: %w", contract.Address.String(), err)
-			} else if addr.String() != contract.Address.String() {
-				return fmt.Errorf("deployed contract address %s does not match expected address %s", addr.String(), contract.Address.String())
-			}
-			log.S().Infof("System contract [%d] %s deployed successfully", idx, contract.Address.String())
-		} else {
-			log.S().Infof("System contract [%d] %s already exists", idx, contract.Address.String())
-		}
-	}
-	return nil
 }

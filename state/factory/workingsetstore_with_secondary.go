@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 var (
@@ -24,7 +25,7 @@ var (
 type reader interface {
 	// Get(string, []byte) ([]byte, error)
 	GetObject(string, []byte, any) error
-	States(string, [][]byte, any) ([][]byte, [][]byte, error)
+	States(string, any, [][]byte) (state.Iterator, error)
 	Digest() hash.Hash256
 	// Filter(string, db.Condition, []byte, []byte) ([][]byte, [][]byte, error)
 }
@@ -151,8 +152,8 @@ func (store *workingSetStoreWithSecondary) GetObject(ns string, key []byte, obj 
 	return store.reader.GetObject(ns, key, obj)
 }
 
-func (store *workingSetStoreWithSecondary) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
-	return store.reader.States(ns, keys, obj)
+func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]byte) (state.Iterator, error) {
+	return store.reader.States(ns, obj, keys)
 }
 
 func (store *workingSetStoreWithSecondary) KVStore() db.KVStore {

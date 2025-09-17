@@ -6,10 +6,7 @@
 package state
 
 import (
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 var (
@@ -53,10 +50,4 @@ func Deserialize(x interface{}, data []byte) error {
 		return s.Deserialize(data)
 	}
 	panic("data holder doesn't implement Deserializer interface!")
-}
-
-type ContractBackend interface {
-	systemcontracts.ContractBackend
-	PutAccount(addr address.Address, acc *Account) error
-	Account(addr address.Address) (*Account, error)
 }

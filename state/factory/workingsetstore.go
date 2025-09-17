@@ -27,7 +27,7 @@ type (
 		PutObject(ns string, key []byte, object any) (err error)
 		GetObject(ns string, key []byte, object any) error
 		DeleteObject(ns string, key []byte, object any) error
-		States(ns string, keys [][]byte, object any) ([][]byte, [][]byte, error)
+		States(ns string, object any, keys [][]byte) (state.Iterator, error)
 		Commit(context.Context, uint64) error
 		Digest() hash.Hash256
 		Finalize(context.Context) error
@@ -174,12 +174,19 @@ func (store *stateDBWorkingSetStore) getKV(ns string, key []byte) ([]byte, error
 	return data, nil
 }
 
-func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
+func (store *stateDBWorkingSetStore) States(ns string, obj any, keys [][]byte) (state.Iterator, error) {
+	var values [][]byte
+	var err error
 	if store.readBuffer {
 		// TODO: after the 180 HF, we can revert readBuffer, and always go this case
-		return readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
+		keys, values, err = readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
+	} else {
+		keys, values, err = readStates(store.flusher.BaseKVStore(), ns, keys)
 	}
-	return readStates(store.flusher.BaseKVStore(), ns, keys)
+	if err != nil {
+		return nil, err
+	}
+	return state.NewIterator(keys, values)
 }
 
 func (store *stateDBWorkingSetStore) Finalize(ctx context.Context) error {

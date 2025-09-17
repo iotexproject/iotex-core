@@ -10,27 +10,21 @@ import (
 	"github.com/erigontech/erigon-lib/chain"
 	erigonComm "github.com/erigontech/erigon-lib/common"
 	erigonstate "github.com/erigontech/erigon/core/state"
-	"github.com/erigontech/erigon/core/types/accounts"
 	erigonAcc "github.com/erigontech/erigon/core/types/accounts"
 	"github.com/erigontech/erigon/core/vm"
 	"github.com/erigontech/erigon/core/vm/evmtypes"
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/account/accountpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	iotexevm "github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
-	"github.com/iotexproject/iotex-core/v2/state"
-	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
@@ -44,23 +38,26 @@ type (
 		producer     erigonComm.Address
 		g            *genesis.Genesis
 		evmNetworkID uint32
+
+		useZeroNonceForFreshAccount bool
 	}
 )
 
 // NewContractBackend creates a new contract backend for system contract interaction
-func NewContractBackend(intraBlockState *erigonstate.IntraBlockState, org erigonstate.StateReader, height uint64, timestamp time.Time, producer address.Address, g *genesis.Genesis, evmNetworkID uint32) *contractBackend {
+func NewContractBackend(intraBlockState *erigonstate.IntraBlockState, org erigonstate.StateReader, height uint64, timestamp time.Time, producer address.Address, g *genesis.Genesis, evmNetworkID uint32, useZeroNonceForFreshAccount bool) *contractBackend {
 	var producerAddr erigonComm.Address
 	if producer != nil {
 		producerAddr = erigonComm.BytesToAddress(producer.Bytes())
 	}
 	return &contractBackend{
-		intraBlockState: intraBlockState,
-		org:             org,
-		height:          height,
-		timestamp:       timestamp,
-		g:               g,
-		evmNetworkID:    evmNetworkID,
-		producer:        producerAddr,
+		intraBlockState:             intraBlockState,
+		org:                         org,
+		height:                      height,
+		timestamp:                   timestamp,
+		g:                           g,
+		evmNetworkID:                evmNetworkID,
+		producer:                    producerAddr,
+		useZeroNonceForFreshAccount: useZeroNonceForFreshAccount,
 	}
 }
 
@@ -105,80 +102,6 @@ func (backend *contractBackend) Deploy(callMsg *ethereum.CallMsg) (address.Addre
 
 func (backend *contractBackend) Exists(addr address.Address) bool {
 	return backend.intraBlockState.Exist(erigonComm.BytesToAddress(addr.Bytes()))
-}
-
-func (backend *contractBackend) PutAccount(_addr address.Address, acc *state.Account) error {
-	addr := erigonComm.BytesToAddress(_addr.Bytes())
-	if !backend.intraBlockState.Exist(addr) {
-		backend.intraBlockState.CreateAccount(addr, acc.IsContract())
-	}
-	backend.intraBlockState.SetBalance(addr, uint256.MustFromBig(acc.Balance))
-	ctx := protocol.WithFeatureCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(), *backend.g), protocol.BlockCtx{BlockHeight: backend.height}))
-	fCtx := protocol.MustGetFeatureCtx(ctx)
-	nonce := acc.PendingNonce()
-	if fCtx.UseZeroNonceForFreshAccount {
-		nonce = acc.PendingNonceConsideringFreshAccount()
-	}
-	backend.intraBlockState.SetNonce(addr, nonce)
-	// store other fields in the account storage contract
-	pbAcc := acc.ToProto()
-	pbAcc.Balance = ""
-	pbAcc.Nonce = 0
-	data, err := proto.Marshal(pbAcc)
-	if err != nil {
-		return errors.Wrapf(err, "failed to marshal account %x", addr.Bytes())
-	}
-	contract, err := systemcontracts.NewGenericStorageContract(backend.accountContractAddr(), backend)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create account storage contract for address %x", addr.Bytes())
-	}
-	return contract.Put(_addr.Bytes(), systemcontracts.GenericValue{PrimaryData: data})
-}
-
-func (backend *contractBackend) Account(_addr address.Address) (*state.Account, error) {
-	addr := erigonComm.BytesToAddress(_addr.Bytes())
-	if !backend.intraBlockState.Exist(addr) {
-		return nil, errors.Wrapf(state.ErrStateNotExist, "address: %x", addr.Bytes())
-	}
-	// load other fields from the account storage contract
-	contract, err := systemcontracts.NewGenericStorageContract(backend.accountContractAddr(), backend)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create account storage contract for address %x", addr.Bytes())
-	}
-	value, err := contract.Get(_addr.Bytes())
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get account data for address %x", addr.Bytes())
-	}
-	if !value.KeyExists {
-		return nil, errors.Errorf("account info not found for address %x", addr.Bytes())
-	}
-	pbAcc := &accountpb.Account{}
-	if err := proto.Unmarshal(value.Value.PrimaryData, pbAcc); err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal account data for address %x", addr.Bytes())
-	}
-
-	balance := backend.intraBlockState.GetBalance(addr)
-	nonce := backend.intraBlockState.GetNonce(addr)
-	pbAcc.Balance = balance.String()
-	switch pbAcc.Type {
-	case accountpb.AccountType_ZERO_NONCE:
-		pbAcc.Nonce = nonce
-	case accountpb.AccountType_DEFAULT:
-		pbAcc.Nonce = nonce - 1
-	default:
-		return nil, errors.Errorf("unknown account type %v for address %x", pbAcc.Type, addr.Bytes())
-	}
-
-	if ch := backend.intraBlockState.GetCodeHash(addr); !accounts.IsEmptyCodeHash(ch) {
-		pbAcc.CodeHash = ch.Bytes()
-	}
-	acc := &state.Account{}
-	acc.FromProto(pbAcc)
-	return acc, nil
-}
-
-func (backend *contractBackend) accountContractAddr() common.Address {
-	return common.BytesToAddress(systemcontracts.SystemContracts[systemcontracts.AccountInfoContractIndex].Address.Bytes())
 }
 
 func (backend *contractBackend) prepare(intra evmtypes.IntraBlockState) (*vm.EVM, error) {

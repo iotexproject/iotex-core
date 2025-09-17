@@ -6,6 +6,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 )
 
@@ -15,10 +16,10 @@ import (
 type erigonWorkingSetStoreForSimulate struct {
 	writer
 	store       workingSetStore // fallback to statedb for staking, rewarding and poll
-	erigonStore workingSetStore
+	erigonStore *erigonstore.ErigonWorkingSetStore
 }
 
-func newErigonWorkingSetStoreForSimulate(store workingSetStore, erigonStore workingSetStore) *erigonWorkingSetStoreForSimulate {
+func newErigonWorkingSetStoreForSimulate(store workingSetStore, erigonStore *erigonstore.ErigonWorkingSetStore) *erigonWorkingSetStoreForSimulate {
 	return &erigonWorkingSetStoreForSimulate{
 		store:       store,
 		erigonStore: erigonStore,
@@ -35,20 +36,26 @@ func (store *erigonWorkingSetStoreForSimulate) Stop(context.Context) error {
 }
 
 func (store *erigonWorkingSetStoreForSimulate) GetObject(ns string, key []byte, obj any) error {
-	storage := erigonstore.ObjectContractStorage(obj)
+	storage, err := store.erigonStore.NewObjectStorage(ns, obj)
+	if err != nil {
+		return err
+	}
 	if storage != nil {
 		return store.erigonStore.GetObject(ns, key, obj)
 	}
 	return store.store.GetObject(ns, key, obj)
 }
 
-func (store *erigonWorkingSetStoreForSimulate) States(ns string, keys [][]byte, obj any) ([][]byte, [][]byte, error) {
-	storage := erigonstore.ObjectContractStorage(obj)
+func (store *erigonWorkingSetStoreForSimulate) States(ns string, obj any, keys [][]byte) (state.Iterator, error) {
+	storage, err := store.erigonStore.NewObjectStorage(ns, obj)
+	if err != nil {
+		return nil, err
+	}
 	if storage != nil {
-		return store.erigonStore.States(ns, keys, obj)
+		return store.erigonStore.States(ns, obj, keys)
 	}
 	// currently only used for staking & poll, no need to read from erigon
-	return store.store.States(ns, keys, obj)
+	return store.store.States(ns, obj, keys)
 }
 
 func (store *erigonWorkingSetStoreForSimulate) Finalize(_ context.Context) error {

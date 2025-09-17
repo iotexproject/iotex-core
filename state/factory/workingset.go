@@ -364,14 +364,11 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys, cfg.Object)
+	iter, err := ws.store.States(cfg.Namespace, cfg.Object, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
 	}
-	iter, err := state.NewIterator(keys, values)
-	if err != nil {
-		return 0, nil, err
-	}
+
 	return ws.height, iter, nil
 }
 
@@ -1050,7 +1047,7 @@ func (ws *workingSet) Erigon() (*erigonstate.IntraBlockState, bool) {
 		}
 		return nil, false
 	case *erigonWorkingSetStoreForSimulate:
-		return st.erigonStore.(*erigonstore.ErigonWorkingSetStore).IntraBlockState(), true
+		return st.erigonStore.IntraBlockState(), true
 	default:
 		return nil, false
 	}

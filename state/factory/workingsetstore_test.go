@@ -11,12 +11,14 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 type valueBytes []byte
@@ -66,8 +68,18 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 		err = store.GetObject(namespace, key3, &valueInStore)
 		require.NoError(err)
 		require.True(bytes.Equal(value3, valueInStore))
-		_, valuesInStore, err := store.States(namespace, [][]byte{key1, key2, key3}, nil)
-		require.Equal(3, len(valuesInStore))
+		iter, err := store.States(namespace, nil, [][]byte{key1, key2, key3})
+		require.NoError(err)
+		require.Equal(3, iter.Size())
+		var valuesInStore []valueBytes
+		for {
+			vb := valueBytes{}
+			if _, err := iter.Next(&vb); err == nil {
+				valuesInStore = append(valuesInStore, vb)
+			} else {
+				break
+			}
+		}
 		require.True(bytes.Equal(value1, valuesInStore[0]))
 		require.True(bytes.Equal(value2, valuesInStore[1]))
 		require.True(bytes.Equal(value3, valuesInStore[2]))
@@ -79,8 +91,22 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 		require.NoError(store.DeleteObject(namespace, key1, &valueInStore))
 		err = store.GetObject(namespace, key1, &valueInStore)
 		require.Error(err)
-		_, valuesInStore, err = store.States(namespace, [][]byte{key1, key2, key3}, &valueInStore)
-		require.Equal(3, len(valuesInStore))
+		iter, err = store.States(namespace, &valueInStore, [][]byte{key1, key2, key3})
+		require.NoError(err)
+		require.Equal(3, iter.Size())
+		valuesInStore = []valueBytes{}
+		for {
+			vb := valueBytes{}
+			switch _, err := iter.Next(&vb); errors.Cause(err) {
+			case state.ErrNilValue:
+				valuesInStore = append(valuesInStore, nil)
+				continue
+			case nil:
+				valuesInStore = append(valuesInStore, vb)
+				continue
+			}
+			break
+		}
 		require.Nil(valuesInStore[0])
 		require.True(bytes.Equal(value2, valuesInStore[1]))
 		require.True(bytes.Equal(value3, valuesInStore[2]))
