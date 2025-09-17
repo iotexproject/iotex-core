@@ -371,6 +371,7 @@ func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, he
 		BlockHeight:    bcCtx.Tip.Height,
 		BlockTimeStamp: bcCtx.Tip.Timestamp,
 	})
+	ctx = protocol.WithFeatureCtx(ctx)
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr ||
 		addrStr == address.RewardingProtocol || addrStr == address.StakingProtocolAddr {
 		acc, _, err := core.getProtocolAccount(ctx, addrStr)

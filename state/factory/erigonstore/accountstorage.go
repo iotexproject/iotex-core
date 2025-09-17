@@ -22,6 +22,7 @@ func newAccountStorage(addr common.Address, backend *contractBackend) (*accountS
 	contract, err := systemcontracts.NewGenericStorageContract(
 		addr,
 		backend,
+		common.Address(systemContractCreatorAddr),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create account storage contract")

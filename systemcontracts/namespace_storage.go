@@ -42,10 +42,11 @@ type NamespaceStorageContract struct {
 	contractAddress common.Address
 	backend         ContractBackend
 	abi             abi.ABI
+	owner           common.Address
 }
 
 // NewNamespaceStorageContract creates a new NamespaceStorage contract instance
-func NewNamespaceStorageContract(contractAddress common.Address, backend ContractBackend) (*NamespaceStorageContract, error) {
+func NewNamespaceStorageContract(contractAddress common.Address, backend ContractBackend, owner common.Address) (*NamespaceStorageContract, error) {
 	abi, err := abi.JSON(strings.NewReader(NamespaceStorageABI))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse NamespaceStorage ABI")
@@ -55,6 +56,7 @@ func NewNamespaceStorageContract(contractAddress common.Address, backend Contrac
 		contractAddress: contractAddress,
 		backend:         backend,
 		abi:             abi,
+		owner:           owner,
 	}, nil
 }
 
@@ -81,7 +83,7 @@ func (ns *NamespaceStorageContract) Put(namespace string, key []byte, value Name
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
-		From:  common.Address{},
+		From:  ns.owner,
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -169,7 +171,7 @@ func (ns *NamespaceStorageContract) Remove(namespace string, key []byte) error {
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
-		From:  common.Address{},
+		From:  ns.owner,
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -302,7 +304,7 @@ func (ns *NamespaceStorageContract) BatchPut(namespace string, keys [][]byte, va
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
-		From:  common.Address{},
+		From:  ns.owner,
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -634,7 +636,7 @@ func (ns *NamespaceStorageContract) ClearNamespace(namespace string) error {
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
-		From:  common.Address{},
+		From:  ns.owner,
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -661,7 +663,7 @@ func (ns *NamespaceStorageContract) ClearAll() error {
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
-		From:  common.Address{},
+		From:  ns.owner,
 		To:    &ns.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),

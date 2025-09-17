@@ -25,10 +25,11 @@ type GenericStorageContract struct {
 	contractAddress common.Address
 	backend         ContractBackend
 	abi             abi.ABI
+	owner           common.Address
 }
 
 // NewGenericStorageContract creates a new GenericStorage contract instance
-func NewGenericStorageContract(contractAddress common.Address, backend ContractBackend) (*GenericStorageContract, error) {
+func NewGenericStorageContract(contractAddress common.Address, backend ContractBackend, owner common.Address) (*GenericStorageContract, error) {
 	abi, err := abi.JSON(strings.NewReader(GenericStorageABI))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse GenericStorage ABI")
@@ -38,9 +39,11 @@ func NewGenericStorageContract(contractAddress common.Address, backend ContractB
 		contractAddress: contractAddress,
 		backend:         backend,
 		abi:             abi,
+		owner:           owner,
 	}, nil
 }
 
+// Address returns the contract address
 func (g *GenericStorageContract) Address() common.Address {
 	return g.contractAddress
 }
@@ -60,7 +63,7 @@ func (g *GenericStorageContract) Put(key []byte, value GenericValue) error {
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
-		From:  common.Address{},
+		From:  g.owner,
 		To:    &g.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),
@@ -153,7 +156,7 @@ func (g *GenericStorageContract) Remove(key []byte) error {
 
 	// Execute the transaction
 	callMsg := &ethereum.CallMsg{
-		From:  common.Address{},
+		From:  g.owner,
 		To:    &g.contractAddress,
 		Data:  data,
 		Value: big.NewInt(0),

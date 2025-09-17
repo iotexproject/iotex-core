@@ -434,17 +434,22 @@ func (store *ErigonWorkingSetStore) NewObjectStorage(ns string, obj any) (Object
 	var contractAddr address.Address
 	switch ns {
 	case "Account":
+		if _, ok := obj.(*state.Account); !ok {
+			return nil, nil
+		}
 		return newAccountStorage(
 			common.BytesToAddress(systemContracts[AccountInfoContractIndex].Address.Bytes()),
 			store.backend,
 		)
 	case "BlockMeta":
 		contractAddr = systemContracts[PollBlockMetaContractIndex].Address
+	case "Staking", "Rewarding":
+		return nil, nil
 	default:
 		return nil, fmt.Errorf("unsupported namespace: %s", ns)
 	}
 	// TODO: cache storage
-	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(contractAddr.Bytes()[:]), store.backend)
+	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(contractAddr.Bytes()[:]), store.backend, common.Address(systemContractCreatorAddr))
 	if err != nil {
 		return nil, err
 	}

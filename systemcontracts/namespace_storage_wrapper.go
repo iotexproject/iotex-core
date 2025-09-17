@@ -13,12 +13,12 @@ type NamespaceStorageContractWrapper struct {
 	ns       string
 }
 
-func NewNamespaceStorageContractWrapper(contractAddress common.Address, backend ContractBackend, ns string) (*NamespaceStorageContractWrapper, error) {
+func NewNamespaceStorageContractWrapper(contractAddress common.Address, backend ContractBackend, owner common.Address, ns string) (*NamespaceStorageContractWrapper, error) {
 	if ns == "" {
 		return nil, errors.New("namespace cannot be empty")
 	}
 
-	contract, err := NewNamespaceStorageContract(contractAddress, backend)
+	contract, err := NewNamespaceStorageContract(contractAddress, backend, owner)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create NamespaceStorage contract")
 	}
