@@ -443,10 +443,9 @@ func (store *ErigonWorkingSetStore) NewObjectStorage(ns string, obj any) (Object
 		)
 	case "BlockMeta":
 		contractAddr = systemContracts[PollBlockMetaContractIndex].Address
-	case "Staking", "Rewarding":
-		return nil, nil
 	default:
-		return nil, fmt.Errorf("unsupported namespace: %s", ns)
+		// TODO: fail unknown namespace
+		return nil, nil
 	}
 	// TODO: cache storage
 	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(contractAddr.Bytes()[:]), store.backend, common.Address(systemContractCreatorAddr))

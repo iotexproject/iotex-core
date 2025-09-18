@@ -2256,6 +2256,7 @@ func (core *coreService) workingSetAt(ctx context.Context, height uint64) (conte
 		BlockHeight:    bcCtx.Tip.Height,
 		BlockTimeStamp: bcCtx.Tip.Timestamp,
 	})
+	ctx = protocol.WithFeatureCtx(ctx)
 	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return ctx, nil, status.Error(codes.Internal, err.Error())

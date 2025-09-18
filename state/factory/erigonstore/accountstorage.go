@@ -4,9 +4,9 @@ import (
 	erigonComm "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon/core/types/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gogo/protobuf/proto"
 	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/account/accountpb"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -120,7 +120,6 @@ func (as *accountStorage) Store(key []byte, value any) error {
 	pbAcc := acc.ToProto()
 	pbAcc.Balance = ""
 	pbAcc.Nonce = 0
-	pbAcc.CodeHash = nil
 	data, err := proto.Marshal(pbAcc)
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal account %x", addr.Bytes())
