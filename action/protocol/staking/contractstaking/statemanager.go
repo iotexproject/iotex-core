@@ -37,7 +37,7 @@ func (cs *ContractStakingStateManager) UpsertBucketType(contractAddr address.Add
 func (cs *ContractStakingStateManager) DeleteBucket(contractAddr address.Address, bucketID uint64) error {
 	_, err := cs.sm.DelState(
 		cs.makeOpts(
-			bucketTypeNamespaceOption(contractAddr),
+			contractNamespaceOption(contractAddr),
 			bucketIDKeyOption(bucketID),
 			protocol.ObjectOption(&Bucket{}),
 		)...,
