@@ -2,6 +2,7 @@ package contractstaking
 
 import (
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
