@@ -69,12 +69,13 @@ message SystemStakingContract {
 }
 
 message SystemStakingBucket {
-    bytes owner = 1;
-    bytes candidate = 2;
-    bytes amount = 3;
+    string candidate = 1;
+    string owner = 2;
+    string amount = 3;
     uint64 duration = 4;
     uint64 createdAt = 5;
     uint64 unlockedAt = 6;
     uint64 unstakedAt = 7;
     bool muted = 8;
+    bool timestamped = 9;
 }
