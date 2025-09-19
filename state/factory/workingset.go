@@ -966,7 +966,7 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 		return err
 	}
 	if !blk.VerifyDeltaStateDigest(digest) {
-		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x'", blk.DeltaStateDigest(), digest)
+		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x' at block height %d", blk.DeltaStateDigest(), digest, blk.Height())
 	}
 	receiptRoot := calculateReceiptRoot(ws.receipts)
 	if !blk.VerifyReceiptRoot(receiptRoot) {

@@ -11,9 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 func VerifyEIP1559Header(g genesis.Blockchain, parent *TipInfo, header blockHeader) error {
@@ -22,6 +24,9 @@ func VerifyEIP1559Header(g genesis.Blockchain, parent *TipInfo, header blockHead
 	}
 	// Verify the baseFee is correct based on the parent header.
 	expectedBaseFee := CalcBaseFee(g, parent)
+	if expectedBaseFee == nil {
+		log.L().Error("no base fee block", zap.Uint64("parentHeight", parent.Height), zap.Uint64("vanuatuBlockHeight", g.VanuatuBlockHeight))
+	}
 	if header.BaseFee().Cmp(expectedBaseFee) != 0 {
 		return errors.Errorf("invalid baseFee: have %s, want %s, parentBaseFee %s, parentGasUsed %d",
 			header.BaseFee(), expectedBaseFee, parent.BaseFee, parent.GasUsed)
