@@ -38,14 +38,10 @@ func newNFTBucketEventHandler(sm protocol.StateManager, calculateVoteWeight Calc
 }
 
 func newNFTBucketEventHandlerSecondaryOnly(sm protocol.StateManager, calculateVoteWeight CalculateVoteWeightFunc) (*nftEventHandler, error) {
-	csm, err := NewCandidateStateManager(sm)
-	if err != nil {
-		return nil, err
-	}
 	return &nftEventHandler{
 		calculateVoteWeight: calculateVoteWeight,
 		cssm:                contractstaking.NewContractStakingStateManager(sm, protocol.SecondaryOnlyOption()),
-		csm:                 csm,
+		csm:                 nil,
 		bucketTypes:         make(map[address.Address]map[uint64]*contractstaking.BucketType),
 		bucketTypesLookup:   make(map[address.Address]map[int64]map[uint64]uint64),
 	}, nil
@@ -100,6 +96,9 @@ func (handler *nftEventHandler) DeductBucket(contractAddr address.Address, id ui
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get bucket")
 	}
+	if handler.csm == nil {
+		return bucket, nil
+	}
 	height, err := handler.csm.SR().Height()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get height")
@@ -115,6 +114,12 @@ func (handler *nftEventHandler) DeductBucket(contractAddr address.Address, id ui
 }
 
 func (handler *nftEventHandler) PutBucket(contractAddr address.Address, id uint64, bkt *contractstaking.Bucket) error {
+	if err := handler.cssm.UpsertBucket(contractAddr, id, bkt); err != nil {
+		return errors.Wrap(err, "failed to put bucket")
+	}
+	if handler.csm == nil {
+		return nil
+	}
 	height, err := handler.csm.SR().Height()
 	if err != nil {
 		return errors.Wrap(err, "failed to get height")
@@ -122,9 +127,6 @@ func (handler *nftEventHandler) PutBucket(contractAddr address.Address, id uint6
 	candidate := handler.csm.GetByIdentifier(bkt.Candidate)
 	if err := candidate.AddVote(handler.calculateVoteWeight(bkt, height)); err != nil {
 		return errors.Wrap(err, "failed to add vote")
-	}
-	if err := handler.cssm.UpsertBucket(contractAddr, id, bkt); err != nil {
-		return errors.Wrap(err, "failed to put bucket")
 	}
 	return handler.csm.Upsert(candidate)
 }
@@ -134,6 +136,12 @@ func (handler *nftEventHandler) DeleteBucket(contractAddr address.Address, id ui
 	if err != nil {
 		return errors.Wrap(err, "failed to get bucket")
 	}
+	if err := handler.cssm.DeleteBucket(contractAddr, id); err != nil {
+		return errors.Wrap(err, "failed to delete bucket")
+	}
+	if handler.csm == nil {
+		return nil
+	}
 	height, err := handler.csm.SR().Height()
 	if err != nil {
 		return errors.Wrap(err, "failed to get height")
@@ -141,9 +149,6 @@ func (handler *nftEventHandler) DeleteBucket(contractAddr address.Address, id ui
 	candidate := handler.csm.GetByIdentifier(bucket.Candidate)
 	if err := candidate.SubVote(handler.calculateVoteWeight(bucket, height)); err != nil {
 		return errors.Wrap(err, "failed to subtract vote")
-	}
-	if err := handler.cssm.DeleteBucket(contractAddr, id); err != nil {
-		return errors.Wrap(err, "failed to delete bucket")
 	}
 	return handler.csm.Upsert(candidate)
 }
