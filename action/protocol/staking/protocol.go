@@ -8,7 +8,6 @@ package staking
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math"
 	"math/big"
 	"time"
@@ -735,7 +734,6 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 			if err != nil {
 				return nil, err
 			}
-			fmt.Printf("candidate %s has native votes %s, contract staking votes %s\n", list[i].GetIdentifier().String(), list[i].Votes.String(), csVotes.String())
 			list[i].Votes.Add(list[i].Votes, csVotes)
 		}
 		active, err := p.isActiveCandidate(ctx, c, list[i])

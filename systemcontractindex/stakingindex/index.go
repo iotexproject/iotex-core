@@ -2,7 +2,6 @@ package stakingindex
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -185,14 +184,12 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	}
 	// contract staking state have not been initialized in state reader, we need to read from index
 	if !hasContractState && srHeight >= s.common.Height() {
-		log.L().Info("contract staking state not exist in state reader, load from indexer cache", zap.String("contract", contractAddr.String()))
 		builder := NewEventHandlerFactory(s.bucketNS, s.common.KVStore(), s.calculateContractVoteWeight)
 		processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
 		mgr := NewCandidateVotesManager(s.ContractAddress())
 		return NewVoteView(cfg, s.common.Height(), s.createCandidateVotes(s.cache.buckets), builder, processorBuilder, s, mgr), nil
 	}
 	// otherwise, we need to read from state reader
-	log.L().Info("load contract staking state from state reader", zap.String("contract", contractAddr.String()))
 	cache := NewContractBucketCache(s.common.ContractAddress(), csr)
 	builder := NewContractEventHandlerFactory(csr, s.calculateContractVoteWeight)
 	processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
@@ -405,12 +402,11 @@ func (s *Indexer) calculateContractVoteWeight(b *Bucket, height uint64) *big.Int
 // AggregateCandidateVotes aggregates the votes for each candidate from the given buckets
 func AggregateCandidateVotes(bkts map[uint64]*Bucket, calculateUnmutedVoteWeight CalculateUnmutedVoteWeightFn) CandidateVotes {
 	res := newCandidateVotes()
-	for index, bkt := range bkts {
+	for _, bkt := range bkts {
 		if bkt.Muted || bkt.UnstakedAt < maxStakingNumber {
 			continue
 		}
 		votes := calculateUnmutedVoteWeight(bkt)
-		fmt.Printf("nft bucket %d, amount %s, muted %t, votes %s, indexer %s, candidate %s\n", index, bkt.StakedAmount.String(), bkt.Muted, votes.String(), bkt.Candidate.String(), bkt.Candidate.String())
 		res.Add(bkt.Candidate.String(), bkt.StakedAmount, votes)
 	}
 	return res
