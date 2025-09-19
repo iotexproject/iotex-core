@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -611,7 +612,16 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		if err = v.(*viewData).contractsStake.Handle(ctx, receipt); err != nil {
 			return err
 		}
-		handler, err = newNFTBucketEventHandlerSecondaryOnly(sm, voteCalcFn)
+		if erigonsm, ok := sm.(interface {
+			Erigon() (*erigonstate.IntraBlockState, bool)
+		}); ok {
+			if e, _ := erigonsm.Erigon(); e == nil {
+				return nil
+			}
+			handler, err = newNFTBucketEventHandlerSecondaryOnly(sm, voteCalcFn)
+		} else {
+			return nil
+		}
 	} else {
 		handler, err = newNFTBucketEventHandler(sm, voteCalcFn)
 	}
