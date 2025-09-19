@@ -406,6 +406,9 @@ func (s *Indexer) calculateContractVoteWeight(b *Bucket, height uint64) *big.Int
 func AggregateCandidateVotes(bkts map[uint64]*Bucket, calculateUnmutedVoteWeight CalculateUnmutedVoteWeightFn) CandidateVotes {
 	res := newCandidateVotes()
 	for index, bkt := range bkts {
+		if bkt.Muted || bkt.UnstakedAt < maxStakingNumber {
+			continue
+		}
 		votes := calculateUnmutedVoteWeight(bkt)
 		fmt.Printf("nft bucket %d, amount %s, muted %t, votes %s, indexer %s, candidate %s\n", index, bkt.StakedAmount.String(), bkt.Muted, votes.String(), bkt.Candidate.String(), bkt.Candidate.String())
 		res.Add(bkt.Candidate.String(), bkt.StakedAmount, votes)
