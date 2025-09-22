@@ -59,7 +59,7 @@ func (s *voteViewEventHandler) PutBucket(addr address.Address, id uint64, bucket
 		deltaVotes = new(big.Int).Sub(deltaVotes, orgVotes)
 		deltaAmount = new(big.Int).Sub(deltaAmount, orgAmount)
 	}
-	s.view.Add(addr.String(), deltaAmount, deltaVotes)
+	s.view.Add(bucket.Candidate.String(), deltaAmount, deltaVotes)
 
 	s.BucketStore.PutBucket(addr, id, bucket)
 	return nil
