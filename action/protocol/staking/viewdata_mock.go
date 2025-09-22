@@ -45,7 +45,7 @@ func (m *MockContractStakeView) EXPECT() *MockContractStakeViewMockRecorder {
 }
 
 // AddBlockReceipts mocks base method.
-func (m *MockContractStakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Receipt, handler EventHandler) error {
+func (m *MockContractStakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Receipt, handler CachedEventHandler) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddBlockReceipts", ctx, receipts, handler)
 	ret0, _ := ret[0].(error)
