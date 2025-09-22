@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"math"
 	"math/big"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil"
@@ -55,8 +57,10 @@ func TestContractStakingV2(t *testing.T) {
 	cfg.Genesis.UpernavikBlockHeight = 1
 	cfg.Genesis.VanuatuBlockHeight = 100
 	cfg.Genesis.WakeBlockHeight = 120 // mute staking v2
+	cfg.Genesis.SystemStakingContractAddress = ""
 	cfg.Genesis.SystemStakingContractV2Address = contractAddress
 	cfg.Genesis.SystemStakingContractV2Height = 1
+	cfg.Genesis.SystemStakingContractV3Address = ""
 	cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
 	cfg.Plugins[config.GatewayPlugin] = nil
 	test := newE2ETest(t, cfg)
@@ -127,6 +131,8 @@ func TestContractStakingV2(t *testing.T) {
 					require.NoError(err)
 					deltaVotes := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{AutoStake: true, StakedDuration: time.Duration(stakeDurationBlocks.Uint64()/uint64(blocksPerDay)*24) * (time.Hour), StakedAmount: stakeAmount}, false)
 					require.Equal(tmpVotes.Add(tmpVotes, deltaVotes).String(), candidate.TotalWeightedVotes)
+
+					checkStakingVoteView(test, require, "cand1")
 				}},
 			},
 		},
@@ -143,6 +149,8 @@ func TestContractStakingV2(t *testing.T) {
 					tmpVotes.Sub(tmpVotes, lockedStakeVotes)
 					tmpVotes.Add(tmpVotes, unlockedVotes)
 					require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+
+					checkStakingVoteView(test, require, "cand1")
 				}},
 			},
 		},
@@ -159,6 +167,8 @@ func TestContractStakingV2(t *testing.T) {
 					tmpVotes.Sub(tmpVotes, preStakeVotes)
 					tmpVotes.Add(tmpVotes, postVotes)
 					require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+
+					checkStakingVoteView(test, require, "cand1")
 				}},
 			},
 		},
@@ -176,6 +186,8 @@ func TestContractStakingV2(t *testing.T) {
 					preStakeVotes := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{AutoStake: true, StakedDuration: time.Duration(2*stakeDurationBlocks.Uint64()/uint64(blocksPerDay)*24) * (time.Hour), StakedAmount: stakeAmount}, false)
 					tmpVotes.Sub(tmpVotes, preStakeVotes)
 					require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+
+					checkStakingVoteView(test, require, "cand1")
 				}},
 			},
 		},
@@ -196,6 +208,8 @@ func TestContractStakingV2(t *testing.T) {
 					require.NoError(err)
 					tmpBalance.Add(tmpBalance, stakeAmount)
 					require.Equal(tmpBalance.String(), acc.AccountMeta.Balance)
+
+					checkStakingVoteView(test, require, "cand1")
 				}},
 			},
 		},
@@ -212,6 +226,9 @@ func TestContractStakingV2(t *testing.T) {
 					candidate, err := test.getCandidateByName("cand1")
 					require.NoError(err)
 					require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+
+					checkStakingVoteView(test, require, "cand1")
+					checkStakingVoteView(test, require, "cand2")
 				}},
 			},
 		},
@@ -233,6 +250,8 @@ func TestContractStakingV2(t *testing.T) {
 					deltaVotes := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{AutoStake: true, StakedDuration: time.Duration(stakeDurationBlocks.Uint64()/uint64(blocksPerDay)*24) * (time.Hour), StakedAmount: stakeAmount}, false)
 					tmpVotes.Add(tmpVotes, deltaVotes.Mul(deltaVotes, big.NewInt(10)))
 					require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+
+					checkStakingVoteView(test, require, "cand2")
 				}},
 			},
 		},
@@ -250,6 +269,8 @@ func TestContractStakingV2(t *testing.T) {
 					tmpVotes.Sub(tmpVotes, subVotes.Mul(subVotes, big.NewInt(3)))
 					tmpVotes.Add(tmpVotes, addVotes)
 					require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+
+					checkStakingVoteView(test, require, "cand2")
 				}},
 			},
 		},
@@ -258,6 +279,9 @@ func TestContractStakingV2(t *testing.T) {
 			act:  &actionWithTime{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice, mustCallData("expandBucket(uint256,uint256)", big.NewInt(3), big.NewInt(0).Mul(stakeDurationBlocks, big.NewInt(2))), action.WithChainID(chainID))), time.Now()},
 			expect: []actionExpect{successExpect,
 				&bucketExpect{&iotextypes.VoteBucket{Index: 3, ContractAddress: contractAddress, Owner: identityset.Address(stakerID).String(), CandidateAddress: identityset.Address(candOwnerID2).String(), StakedDuration: uint32(stakeDurationBlocks.Uint64()/uint64(blocksPerDay)) * 2, StakedDurationBlockNumber: stakeDurationBlocks.Uint64() * 2, CreateTime: timestamppb.New(time.Time{}), StakeStartTime: timestamppb.New(time.Time{}), StakeStartBlockHeight: 63, CreateBlockHeight: 63, UnstakeStartTime: timestamppb.New(time.Time{}), UnstakeStartBlockHeight: math.MaxUint64, StakedAmount: big.NewInt(0).Mul(stakeAmount, big.NewInt(4)).String(), AutoStake: true}},
+				&functionExpect{func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+					checkStakingVoteView(test, require, "cand2")
+				}},
 			},
 		},
 		{
@@ -276,6 +300,7 @@ func TestContractStakingV2(t *testing.T) {
 					require.NoError(err)
 					tmpBalance.Add(tmpBalance, stakeAmount)
 					require.Equal(tmpBalance.String(), resp.AccountMeta.Balance)
+					checkStakingVoteView(test, require, "cand2")
 				}},
 			},
 		},
@@ -313,6 +338,8 @@ func TestContractStakingV2(t *testing.T) {
 					_, err := test.getBucket(idx, contractAddress)
 					require.NoError(err)
 				}
+				checkStakingVoteView(test, require, "cand1")
+				checkStakingVoteView(test, require, "cand2")
 			},
 		},
 	})
@@ -327,6 +354,7 @@ func TestContractStakingV2(t *testing.T) {
 				require.NoError(err)
 				_, ok := tmpVotes.SetString(candidate.TotalWeightedVotes, 10)
 				require.True(ok)
+				checkStakingVoteView(test, require, "cand2")
 			},
 			preActs: genTransferActionsWithPrice(int(cfg.Genesis.WakeBlockHeight-tipHeight), gasPrice1559),
 			acts: []*actionWithTime{
@@ -349,6 +377,8 @@ func TestContractStakingV2(t *testing.T) {
 				candidate, err := test.getCandidateByName("cand1")
 				require.NoError(err)
 				require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+				checkStakingVoteView(test, require, "cand1")
+				checkStakingVoteView(test, require, "cand2")
 			},
 		},
 		{
@@ -381,6 +411,7 @@ func TestContractStakingV2(t *testing.T) {
 				require.NoError(err)
 				require.Equal(candidate.Id, bkt.CandidateAddress)
 				require.Equal(new(big.Int).Add(tmpVotes, new(big.Int).Sub(bktVotes, bktVotesOrg)).String(), candidate.TotalWeightedVotes)
+				checkStakingVoteView(test, require, "cand1")
 			},
 		},
 		{
@@ -408,6 +439,7 @@ func TestContractStakingV2(t *testing.T) {
 				candidate, err := test.getCandidateByName("cand1")
 				require.NoError(err)
 				require.Equal(new(big.Int).Sub(tmpVotes, bktVotes).String(), candidate.TotalWeightedVotes)
+				checkStakingVoteView(test, require, "cand1")
 			},
 		},
 		{
@@ -435,6 +467,7 @@ func TestContractStakingV2(t *testing.T) {
 				candidate, err := test.getCandidateByName("cand1")
 				require.NoError(err)
 				require.Equal(new(big.Int).Sub(tmpVotes, bktVotes).String(), candidate.TotalWeightedVotes)
+				checkStakingVoteView(test, require, "cand1")
 			},
 		},
 		{
@@ -468,6 +501,7 @@ func TestContractStakingV2(t *testing.T) {
 				candidate, err := test.getCandidateByName("cand1")
 				require.NoError(err)
 				require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+				checkStakingVoteView(test, require, "cand1")
 			},
 		},
 		{
@@ -496,6 +530,7 @@ func TestContractStakingV2(t *testing.T) {
 				candidate, err := test.getCandidateByName("cand1")
 				require.NoError(err)
 				require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+				checkStakingVoteView(test, require, "cand1")
 			},
 		},
 		{
@@ -519,6 +554,7 @@ func TestContractStakingV2(t *testing.T) {
 				candidate, err := test.getCandidateByName("cand1")
 				require.NoError(err)
 				require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+				checkStakingVoteView(test, require, "cand1")
 			},
 		},
 	})
@@ -553,6 +589,7 @@ func TestContractStakingV2(t *testing.T) {
 				require.NoError(err)
 				require.Equal(candidate.Id, bkt.CandidateAddress)
 				require.Equal(new(big.Int).Add(tmpVotes, new(big.Int).Sub(bktVotes, bktVotesOrg)).String(), candidate.TotalWeightedVotes)
+				checkStakingVoteView(test, require, "cand1")
 			},
 		},
 		{
@@ -582,6 +619,7 @@ func TestContractStakingV2(t *testing.T) {
 				require.NoError(err)
 				require.Equal(candidate.Id, bkt.CandidateAddress)
 				require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+				checkStakingVoteView(test, require, "cand1")
 			},
 		},
 		{
@@ -611,6 +649,7 @@ func TestContractStakingV2(t *testing.T) {
 				bkt, err := test.getBucket(legacyBucketIdxs[5], contractAddress)
 				require.NoError(err)
 				require.Nil(bkt)
+				checkStakingVoteView(test, require, "cand1")
 			},
 		},
 		{
@@ -632,6 +671,8 @@ func TestContractStakingV2(t *testing.T) {
 				_, ok = tmpVotes2.SetString(cand2.TotalWeightedVotes, 10)
 				require.True(ok)
 				tmpVotes2.Add(tmpVotes2, bktVotes)
+				checkStakingVoteView(test, require, "cand1")
+				checkStakingVoteView(test, require, "cand2")
 			},
 			act: &actionWithTime{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice1559, mustCallData("changeDelegate(uint256,address)", big.NewInt(int64(legacyBucketIdxs[6])), common.BytesToAddress(identityset.Address(candOwnerID2).Bytes())), action.WithChainID(chainID))), time.Now()},
 			blockExpect: func(test *e2etest, blk *block.Block, err error) {
@@ -649,6 +690,8 @@ func TestContractStakingV2(t *testing.T) {
 				require.NoError(err)
 				require.Equal(tmpVotes.String(), cand1.TotalWeightedVotes)
 				require.Equal(tmpVotes2.String(), cand2.TotalWeightedVotes)
+				checkStakingVoteView(test, require, "cand1")
+				checkStakingVoteView(test, require, "cand2")
 			},
 		},
 		{
@@ -672,6 +715,7 @@ func TestContractStakingV2(t *testing.T) {
 				cand1, err := test.getCandidateByName("cand1")
 				require.NoError(err)
 				require.Equal(tmpVotes.String(), cand1.TotalWeightedVotes)
+				checkStakingVoteView(test, require, "cand1")
 			},
 		},
 	})
@@ -1322,6 +1366,32 @@ func checkStakingViewInit(test *e2etest, require *require.Assertions) {
 	newCands, err := stk.ActiveCandidates(ctx, test.cs.StateFactory(), 0)
 	require.NoError(err)
 	require.ElementsMatch(cands, newCands, "candidates should be the same after restart")
+}
+
+func checkStakingVoteView(test *e2etest, require *require.Assertions, candName string) {
+	tipHeight, err := test.cs.BlockDAO().Height()
+	require.NoError(err)
+	test.t.Log("tip height:", tipHeight)
+	tipHeader, err := test.cs.BlockDAO().HeaderByHeight(tipHeight)
+	require.NoError(err)
+	stkPtl := staking.FindProtocol(test.svr.ChainService(test.cfg.Chain.ID).Registry())
+	ctx := context.Background()
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    tipHeight,
+		BlockTimeStamp: tipHeader.Timestamp(),
+	})
+	ctx = genesis.WithGenesisContext(ctx, test.cfg.Genesis)
+	ctx = protocol.WithFeatureCtx(ctx)
+	cands, err := stkPtl.ActiveCandidates(ctx, test.cs.StateFactory(), 0)
+	require.NoError(err)
+	cand1 := slices.IndexFunc(cands, func(c *state.Candidate) bool {
+		return string(c.CanName) == candName
+	})
+	require.Greater(cand1, -1)
+
+	candidate, err := test.getCandidateByName(candName)
+	require.NoError(err)
+	require.Equal(candidate.TotalWeightedVotes, cands[cand1].Votes.String())
 }
 
 func methodSignToID(sign string) []byte {
