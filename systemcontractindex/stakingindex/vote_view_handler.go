@@ -56,8 +56,12 @@ func (s *voteViewEventHandler) PutBucket(addr address.Address, id uint64, bucket
 	deltaVotes, deltaAmount := s.calculateBucket(bucket)
 	if org != nil {
 		orgVotes, orgAmount := s.calculateBucket(org)
-		deltaVotes = new(big.Int).Sub(deltaVotes, orgVotes)
-		deltaAmount = new(big.Int).Sub(deltaAmount, orgAmount)
+		if org.Candidate.String() != bucket.Candidate.String() {
+			s.view.Add(org.Candidate.String(), new(big.Int).Neg(orgAmount), new(big.Int).Neg(orgVotes))
+		} else {
+			deltaVotes = new(big.Int).Sub(deltaVotes, orgVotes)
+			deltaAmount = new(big.Int).Sub(deltaAmount, orgAmount)
+		}
 	}
 	s.view.Add(bucket.Candidate.String(), deltaAmount, deltaVotes)
 
@@ -71,7 +75,7 @@ func (s *voteViewEventHandler) DeleteBucket(addr address.Address, id uint64) err
 	case nil:
 		// subtract original votes
 		deltaVotes, deltaAmount := s.calculateBucket(org)
-		s.view.Add(addr.String(), deltaAmount.Neg(deltaAmount), deltaVotes.Neg(deltaVotes))
+		s.view.Add(org.Candidate.String(), deltaAmount.Neg(deltaAmount), deltaVotes.Neg(deltaVotes))
 	case contractstaking.ErrBucketNotExist:
 		// do nothing
 	default:
@@ -81,7 +85,7 @@ func (s *voteViewEventHandler) DeleteBucket(addr address.Address, id uint64) err
 }
 
 func (s *voteViewEventHandler) calculateBucket(bucket *contractstaking.Bucket) (votes *big.Int, amount *big.Int) {
-	if bucket.Muted {
+	if bucket.Muted || bucket.UnstakedAt < maxStakingNumber {
 		return big.NewInt(0), big.NewInt(0)
 	}
 	return s.calculateUnmutedVoteWeight(bucket), bucket.StakedAmount

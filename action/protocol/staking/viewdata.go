@@ -36,7 +36,7 @@ type (
 		// CandidateStakeVotes returns the candidate votes by identity address
 		CandidateStakeVotes(ctx context.Context, id address.Address) *big.Int
 		// AddBlockReceipts adds block receipts to the contract stake view
-		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt, handler EventHandler) error
+		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt, handler CachedEventHandler) error
 		// Height returns the height of the contract stake view
 		Height() uint64
 	}

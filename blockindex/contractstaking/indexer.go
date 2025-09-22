@@ -94,8 +94,8 @@ func (s *Indexer) CreateEventProcessor(ctx context.Context, handler staking.Even
 	)
 }
 
-func (s *Indexer) CreateMemoryEventHandler(ctx context.Context) staking.EventHandler {
-	return newContractStakingDirty(newWrappedCache(s.cache))
+func (s *Indexer) CreateMemoryEventHandler(ctx context.Context) staking.CachedEventHandler {
+	return newContractStakingDirtyWithHeight(newContractStakingDirty(newWrappedCache(s.cache)), s.height)
 }
 
 // LoadStakeView loads the contract stake view
@@ -141,13 +141,13 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 		builder := newEventHandlerFactory(s.kvstore, calculateUnmutedVoteWeightAt)
 		processorBuilder := newEventProcessorBuilder(s.contractAddr)
 		mgr := stakingindex.NewCandidateVotesManager(s.contractAddr)
-		return stakingindex.NewVoteView(cfg, s.height, cur, builder, processorBuilder, s, mgr), nil
+		return stakingindex.NewVoteView(cfg, s.height, cur, builder, processorBuilder, s, mgr, calculateUnmutedVoteWeightAt), nil
 	}
 	// otherwise, we need to read from state reader
 	cache := stakingindex.NewContractBucketCache(s.contractAddr, cssr)
 	builder := stakingindex.NewContractEventHandlerFactory(cssr, calculateUnmutedVoteWeightAt)
 	processorBuilder := newEventProcessorBuilder(s.contractAddr)
-	return stakingindex.NewVoteView(cfg, srHeight, cur, builder, processorBuilder, cache, mgr), nil
+	return stakingindex.NewVoteView(cfg, srHeight, cur, builder, processorBuilder, cache, mgr, calculateUnmutedVoteWeightAt), nil
 }
 
 func (s *Indexer) ContractStakingBuckets() (uint64, map[uint64]*contractstaking.Bucket, error) {

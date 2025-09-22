@@ -10,13 +10,12 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 type (
 	// BucketCache is the interface to get all buckets from the underlying storage
-	BucketCache interface {
-		ContractStakingBuckets() (uint64, map[uint64]*Bucket, error)
-	}
+	BucketCache = staking.BucketCache
 	BucketStore staking.EventHandler
 	// VoteViewConfig is the configuration for the vote view
 	VoteViewConfig struct {
@@ -44,8 +43,9 @@ type (
 
 		store CandidateVotesManager
 
-		handlerBuilder   EventHandlerFactory
-		processorBuilder EventProcessorBuilder
+		handlerBuilder        EventHandlerFactory
+		processorBuilder      EventProcessorBuilder
+		calculateVoteWeightFn CalculateUnmutedVoteWeightAtFn
 	}
 )
 
@@ -56,15 +56,17 @@ func NewVoteView(cfg *VoteViewConfig,
 	processorBuilder EventProcessorBuilder,
 	bucketCache BucketCache,
 	store CandidateVotesManager,
+	fn CalculateUnmutedVoteWeightAtFn,
 ) staking.ContractStakeView {
 	return &voteView{
-		config:           cfg,
-		height:           height,
-		cur:              cur,
-		handlerBuilder:   handlerBuilder,
-		processorBuilder: processorBuilder,
-		bucketCache:      bucketCache,
-		store:            store,
+		config:                cfg,
+		height:                height,
+		cur:                   cur,
+		handlerBuilder:        handlerBuilder,
+		processorBuilder:      processorBuilder,
+		bucketCache:           bucketCache,
+		store:                 store,
+		calculateVoteWeightFn: fn,
 	}
 }
 
@@ -83,14 +85,15 @@ func (s *voteView) Wrap() staking.ContractStakeView {
 		handler = h
 	}
 	return &voteView{
-		config:           s.config,
-		height:           s.height,
-		cur:              cur,
-		handler:          handler,
-		bucketCache:      s.bucketCache,
-		store:            s.store,
-		handlerBuilder:   s.handlerBuilder,
-		processorBuilder: s.processorBuilder,
+		config:                s.config,
+		height:                s.height,
+		cur:                   cur,
+		handler:               handler,
+		bucketCache:           s.bucketCache,
+		store:                 s.store,
+		handlerBuilder:        s.handlerBuilder,
+		processorBuilder:      s.processorBuilder,
+		calculateVoteWeightFn: s.calculateVoteWeightFn,
 	}
 }
 
@@ -105,14 +108,15 @@ func (s *voteView) Fork() staking.ContractStakeView {
 		handler = h
 	}
 	return &voteView{
-		config:           s.config,
-		height:           s.height,
-		cur:              cur,
-		handler:          handler,
-		bucketCache:      s.bucketCache,
-		store:            s.store,
-		handlerBuilder:   s.handlerBuilder,
-		processorBuilder: s.processorBuilder,
+		config:                s.config,
+		height:                s.height,
+		cur:                   cur,
+		handler:               handler,
+		bucketCache:           s.bucketCache,
+		store:                 s.store,
+		handlerBuilder:        s.handlerBuilder,
+		processorBuilder:      s.processorBuilder,
+		calculateVoteWeightFn: s.calculateVoteWeightFn,
 	}
 }
 
@@ -136,6 +140,21 @@ func (s *voteView) Migrate(handler staking.EventHandler) error {
 	return nil
 }
 
+func (s *voteView) wakeMigrate(bc BucketCache) error {
+	height, buckets, err := bc.ContractStakingBuckets()
+	if err != nil {
+		return err
+	}
+	if height != s.height-1 {
+		return errors.Errorf("bucket cache height %d does not match vote view height %d", height, s.height)
+	}
+	s.cur.Clear()
+	for id := range buckets {
+		s.cur.Add(buckets[id].Candidate.String(), buckets[id].StakedAmount, s.calculateVoteWeightFn(buckets[id], s.height))
+	}
+	return nil
+}
+
 func (s *voteView) CandidateStakeVotes(ctx context.Context, candidate address.Address) *big.Int {
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	if !featureCtx.CreatePostActionStates {
@@ -152,6 +171,11 @@ func (s *voteView) CreatePreStates(ctx context.Context) error {
 		return err
 	}
 	s.handler = handler
+	if s.height == genesis.MustExtractGenesisContext(ctx).WakeBlockHeight {
+		if err := s.wakeMigrate(s.bucketCache); err != nil {
+			return errors.Wrap(err, "failed to wake migrate vote view")
+		}
+	}
 	return nil
 }
 
@@ -159,7 +183,7 @@ func (s *voteView) Handle(ctx context.Context, receipt *action.Receipt) error {
 	return s.processorBuilder.Build(ctx, s.handler).ProcessReceipts(ctx, receipt)
 }
 
-func (s *voteView) AddBlockReceipts(ctx context.Context, receipts []*action.Receipt, handler staking.EventHandler) error {
+func (s *voteView) AddBlockReceipts(ctx context.Context, receipts []*action.Receipt, handler staking.CachedEventHandler) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	height := blkCtx.BlockHeight
 	if height < s.config.StartHeight {
@@ -167,6 +191,12 @@ func (s *voteView) AddBlockReceipts(ctx context.Context, receipts []*action.Rece
 	}
 	if height != s.height+1 && height != s.config.StartHeight {
 		return errors.Errorf("block height %d does not match stake view height %d", height, s.height+1)
+	}
+	s.height = height
+	if height == genesis.MustExtractGenesisContext(ctx).WakeBlockHeight {
+		if err := s.wakeMigrate(handler); err != nil {
+			return errors.Wrap(err, "failed to wake migrate vote view")
+		}
 	}
 	store, err := s.handlerBuilder.NewEventHandlerWithHandler(handler, s.cur, height)
 	if err != nil {
@@ -176,7 +206,7 @@ func (s *voteView) AddBlockReceipts(ctx context.Context, receipts []*action.Rece
 	if err := s.processorBuilder.Build(ctx, store).ProcessReceipts(ctx, receipts...); err != nil {
 		return errors.Wrapf(err, "failed to handle receipts at height %d", height)
 	}
-	s.height = height
+	handler.Finalize(height)
 	return nil
 }
 

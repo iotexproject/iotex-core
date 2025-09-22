@@ -46,7 +46,7 @@ type (
 		PutBlock(ctx context.Context, blk *block.Block) error
 		LoadStakeView(context.Context, protocol.StateReader) (staking.ContractStakeView, error)
 		CreateEventProcessor(context.Context, staking.EventHandler) staking.EventProcessor
-		CreateMemoryEventHandler(context.Context) staking.EventHandler
+		CreateMemoryEventHandler(context.Context) staking.CachedEventHandler
 	}
 	// Indexer is the staking indexer
 	Indexer struct {
@@ -146,8 +146,8 @@ func (s *Indexer) CreateEventProcessor(ctx context.Context, handler staking.Even
 }
 
 // CreateMemoryEventHandler creates a new memory event handler
-func (s *Indexer) CreateMemoryEventHandler(ctx context.Context) staking.EventHandler {
-	return newEventHandler(s.bucketNS, newWrappedCache(s.cache))
+func (s *Indexer) CreateMemoryEventHandler(ctx context.Context) staking.CachedEventHandler {
+	return newCachedEventHandler(newEventHandler(s.bucketNS, newWrappedCache(s.cache)), s.common.Height())
 }
 
 // LoadStakeView loads the contract stake view from state reader
@@ -187,13 +187,13 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 		builder := NewEventHandlerFactory(s.bucketNS, s.common.KVStore(), s.calculateContractVoteWeight)
 		processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
 		mgr := NewCandidateVotesManager(s.ContractAddress())
-		return NewVoteView(cfg, s.common.Height(), s.createCandidateVotes(s.cache.buckets), builder, processorBuilder, s, mgr), nil
+		return NewVoteView(cfg, s.common.Height(), s.createCandidateVotes(s.cache.buckets), builder, processorBuilder, s, mgr, s.calculateContractVoteWeight), nil
 	}
 	// otherwise, we need to read from state reader
 	cache := NewContractBucketCache(s.common.ContractAddress(), csr)
 	builder := NewContractEventHandlerFactory(csr, s.calculateContractVoteWeight)
 	processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
-	vv := NewVoteView(cfg, srHeight, cur, builder, processorBuilder, cache, mgr)
+	vv := NewVoteView(cfg, srHeight, cur, builder, processorBuilder, cache, mgr, s.calculateContractVoteWeight)
 	return vv, nil
 }
 

@@ -16,6 +16,11 @@ type (
 		dirty           indexerCache       // dirty cache, a view for current block
 		delta           batch.KVStoreBatch // delta for db to store buckets of current block
 	}
+
+	cachedEventHandler struct {
+		*eventHandler
+		height uint64
+	}
 )
 
 func newEventHandler(bucketNS string, dirty indexerCache) *eventHandler {
@@ -23,6 +28,13 @@ func newEventHandler(bucketNS string, dirty indexerCache) *eventHandler {
 		stakingBucketNS: bucketNS,
 		dirty:           dirty,
 		delta:           batch.NewBatch(),
+	}
+}
+
+func newCachedEventHandler(handler *eventHandler, height uint64) *cachedEventHandler {
+	return &cachedEventHandler{
+		eventHandler: handler,
+		height:       height,
 	}
 }
 
@@ -58,4 +70,18 @@ func (eh *eventHandler) DeleteBucket(_ address.Address, id uint64) error {
 	eh.dirty.DeleteBucket(id)
 	eh.delta.Delete(eh.stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), "failed to delete bucket")
 	return nil
+}
+
+func (eh *cachedEventHandler) ContractStakingBuckets() (uint64, map[uint64]*Bucket, error) {
+	idxs := eh.dirty.BucketIdxs()
+	bkts := eh.dirty.Buckets(idxs)
+	res := make(map[uint64]*Bucket)
+	for i, id := range idxs {
+		res[id] = bkts[i]
+	}
+	return eh.height, res, nil
+}
+
+func (eh *cachedEventHandler) Finalize(height uint64) {
+	eh.height = height
 }

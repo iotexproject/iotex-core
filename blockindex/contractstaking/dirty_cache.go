@@ -36,6 +36,11 @@ type (
 		batch batch.KVStoreBatch // batch for db to store buckets of current block
 		once  sync.Once
 	}
+
+	contractStakingDirtyWithHeight struct {
+		*contractStakingDirty
+		height uint64
+	}
 )
 
 var (
@@ -49,6 +54,13 @@ func newContractStakingDirty(clean stakingCache) *contractStakingDirty {
 	return &contractStakingDirty{
 		cache: clean,
 		batch: batch.NewBatch(),
+	}
+}
+
+func newContractStakingDirtyWithHeight(dirty *contractStakingDirty, height uint64) *contractStakingDirtyWithHeight {
+	return &contractStakingDirtyWithHeight{
+		contractStakingDirty: dirty,
+		height:               height,
 	}
 }
 
@@ -187,4 +199,17 @@ func (dirty *contractStakingDirty) updateBucketType(id uint64, bt *BucketType) {
 	}
 	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket type")
 	dirty.cache.PutBucketType(id, bt)
+}
+
+func (dirty *contractStakingDirtyWithHeight) Finalize(height uint64) {
+	dirty.height = height
+}
+
+func (dirty *contractStakingDirtyWithHeight) ContractStakingBuckets() (uint64, map[uint64]*contractstaking.Bucket, error) {
+	ids, typs, infos := dirty.contractStakingDirty.cache.Buckets()
+	res := make(map[uint64]*contractstaking.Bucket)
+	for i, id := range ids {
+		res[id] = assembleContractBucket(infos[i], typs[i])
+	}
+	return dirty.height, res, nil
 }

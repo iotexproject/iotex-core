@@ -35,6 +35,16 @@ type (
 		PutBucket(address.Address, uint64, *contractstaking.Bucket) error
 		DeleteBucket(address.Address, uint64) error
 	}
+	// BucketCache is the interface for caching bucket data
+	BucketCache interface {
+		ContractStakingBuckets() (uint64, map[uint64]*contractstaking.Bucket, error)
+	}
+	// CachedEventHandler is the interface for handling staking events with bucket cache
+	CachedEventHandler interface {
+		EventHandler
+		BucketCache
+		Finalize(height uint64)
+	}
 	// EventProcessor is the interface for processing staking events
 	EventProcessor interface {
 		// ProcessReceipts processes receipts
@@ -58,7 +68,7 @@ type (
 		// CreateEventProcessor creates a new event processor
 		CreateEventProcessor(context.Context, EventHandler) EventProcessor
 		// CreateMemoryEventHandler creates a new memory event handler
-		CreateMemoryEventHandler(context.Context) EventHandler
+		CreateMemoryEventHandler(context.Context) CachedEventHandler
 	}
 	// ContractStakingIndexerWithBucketType defines the interface of contract staking reader with bucket type
 	ContractStakingIndexerWithBucketType interface {

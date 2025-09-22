@@ -18,6 +18,7 @@ type CandidateVotes interface {
 	Clone() CandidateVotes
 	Votes(fCtx protocol.FeatureCtx, cand string) *big.Int
 	Add(cand string, amount *big.Int, votes *big.Int)
+	Clear()
 	Commit() CandidateVotes
 	Base() CandidateVotes
 	IsDirty() bool
@@ -90,6 +91,10 @@ func (cv *candidateVotes) Add(cand string, amount *big.Int, votes *big.Int) {
 	if votes != nil {
 		cv.cands[cand].votes = new(big.Int).Add(cv.cands[cand].votes, votes)
 	}
+}
+
+func (cv *candidateVotes) Clear() {
+	cv.cands = make(map[string]*candidate)
 }
 
 func (cv *candidateVotes) Serialize() ([]byte, error) {
@@ -187,6 +192,11 @@ func (cv *candidateVotesWraper) Votes(fCtx protocol.FeatureCtx, cand string) *bi
 
 func (cv *candidateVotesWraper) Add(cand string, amount *big.Int, votes *big.Int) {
 	cv.change.Add(cand, amount, votes)
+}
+
+func (cv *candidateVotesWraper) Clear() {
+	cv.change.Clear()
+	cv.base.Clear()
 }
 
 func (cv *candidateVotesWraper) Commit() CandidateVotes {
