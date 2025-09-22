@@ -146,10 +146,16 @@ func (store *workingSetStoreWithSecondary) CreateGenesisStates(ctx context.Conte
 }
 
 func (store *workingSetStoreWithSecondary) GetObject(ns string, key []byte, obj any, secondaryOnly bool) error {
+	if secondaryOnly {
+		return store.writerSecondary.GetObject(ns, key, obj, secondaryOnly)
+	}
 	return store.reader.GetObject(ns, key, obj, secondaryOnly)
 }
 
 func (store *workingSetStoreWithSecondary) States(ns string, keys [][]byte, obj any, secondaryOnly bool) ([][]byte, [][]byte, error) {
+	if secondaryOnly {
+		return store.writerSecondary.States(ns, keys, obj, secondaryOnly)
+	}
 	return store.reader.States(ns, keys, obj, secondaryOnly)
 }
 

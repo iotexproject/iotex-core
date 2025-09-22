@@ -44,7 +44,11 @@ func (s *candidateVotesManager) Store(ctx context.Context, sm protocol.StateMana
 
 func (s *candidateVotesManager) Load(ctx context.Context, sr protocol.StateReader) (CandidateVotes, error) {
 	cur := newCandidateVotes()
-	_, err := sr.State(cur, protocol.KeyOption(voteViewKey), protocol.NamespaceOption(s.namespace()))
+	_, err := sr.State(cur,
+		protocol.KeyOption(voteViewKey),
+		protocol.NamespaceOption(s.namespace()),
+		protocol.SecondaryOnlyOption(),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get candidate votes state")
 	}
