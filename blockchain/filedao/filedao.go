@@ -162,7 +162,7 @@ func (fd *fileDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
 	if fd.legacyFd != nil {
 		return fd.legacyFd.GetBlockHash(height)
 	}
-	return hash.ZeroHash256, ErrNotSupported
+	return hash.ZeroHash256, errors.Wrap(ErrNotSupported, "GetBlockHash")
 }
 
 func (fd *fileDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
@@ -209,7 +209,7 @@ func (fd *fileDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
 	if fd.legacyFd != nil {
 		return fd.legacyFd.GetBlockByHeight(height)
 	}
-	return nil, ErrNotSupported
+	return nil, errors.Wrapf(ErrNotSupported, "GetBlockByHeight %d", height)
 }
 
 func (fd *fileDAO) Header(hash hash.Hash256) (*block.Header, error) {
@@ -243,7 +243,7 @@ func (fd *fileDAO) HeaderByHeight(height uint64) (*block.Header, error) {
 	if fd.legacyFd != nil {
 		return fd.legacyFd.HeaderByHeight(height)
 	}
-	return nil, ErrNotSupported
+	return nil, errors.Wrap(ErrNotSupported, "HeaderByHeight")
 }
 
 func (fd *fileDAO) FooterByHeight(height uint64) (*block.Footer, error) {
@@ -260,7 +260,7 @@ func (fd *fileDAO) FooterByHeight(height uint64) (*block.Footer, error) {
 	if fd.legacyFd != nil {
 		return fd.legacyFd.FooterByHeight(height)
 	}
-	return nil, ErrNotSupported
+	return nil, errors.Wrap(ErrNotSupported, "FooterByHeight")
 }
 
 func (fd *fileDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
@@ -273,7 +273,7 @@ func (fd *fileDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
 	if fd.legacyFd != nil {
 		return fd.legacyFd.GetReceipts(height)
 	}
-	return nil, ErrNotSupported
+	return nil, errors.Wrap(ErrNotSupported, "GetReceipts")
 }
 
 func (fd *fileDAO) ContainsTransactionLog() bool {
@@ -291,7 +291,7 @@ func (fd *fileDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, 
 	if fd.legacyFd != nil {
 		return fd.legacyFd.TransactionLogs(height)
 	}
-	return nil, ErrNotSupported
+	return nil, errors.Wrap(ErrNotSupported, "TransactionLogs")
 }
 
 func (fd *fileDAO) PutBlock(ctx context.Context, blk *block.Block) error {

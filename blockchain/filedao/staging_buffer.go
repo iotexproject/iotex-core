@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
@@ -43,7 +44,7 @@ func (s *stagingBuffer) Get(height uint64) *block.Store {
 
 func (s *stagingBuffer) Put(height uint64, blk *block.Store) (bool, error) {
 	if height < s.start {
-		return false, ErrNotSupported
+		return false, errors.Wrap(ErrNotSupported, "Put")
 	}
 	pos := s.slot(height)
 	s.lock.Lock()

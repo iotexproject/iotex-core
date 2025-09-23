@@ -54,7 +54,7 @@ type (
 // newFileDAOv2 creates a new v2 file
 func newFileDAOv2(bottom uint64, cfg db.Config, deser *block.Deserializer) (*fileDAOv2, error) {
 	if bottom == 0 {
-		return nil, ErrNotSupported
+		return nil, errors.Wrap(ErrNotSupported, "newFileDAOv2")
 	}
 
 	fd := fileDAOv2{
@@ -206,7 +206,7 @@ func (fd *fileDAOv2) ContainsTransactionLog() bool {
 
 func (fd *fileDAOv2) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, error) {
 	if !fd.ContainsHeight(height) {
-		return nil, ErrNotSupported
+		return nil, errors.Wrap(ErrNotSupported, "TransactionLogs")
 	}
 
 	value, err := fd.sysStore.Get(height - fd.header.Start)
@@ -257,7 +257,7 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 
 	if !fd.ContainsHeight(height) {
 		// cannot delete block that does not exist
-		return ErrNotSupported
+		return errors.Wrap(ErrNotSupported, "DeleteTipBlock")
 	}
 
 	// delete hash
