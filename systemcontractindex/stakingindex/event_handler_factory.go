@@ -3,8 +3,6 @@ package stakingindex
 import (
 	"math/big"
 
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/db"
 )
@@ -28,15 +26,7 @@ func (f *eventHandlerFactory) NewEventHandler(view CandidateVotes, height uint64
 }
 
 func (f *eventHandlerFactory) NewEventHandlerWithStore(handler BucketStore, view CandidateVotes, height uint64) (BucketStore, error) {
-	veh, ok := handler.(*voteViewEventHandler)
-	if !ok {
-		return nil, errors.Errorf("handler %T is not voteViewEventHandler", handler)
-	}
-	store, ok := veh.BucketStore.(*storeWithBuffer)
-	if !ok {
-		return nil, errors.Errorf("handler %T is not storeWithBuffer", handler)
-	}
-	return newVoteViewEventHandler(view, f.genCalculateUnmutedVoteWeight(height), f.bucketNS, store.KVStore())
+	return newVoteViewEventHandlerWraper(NewStoreWrapper(handler), view, f.genCalculateUnmutedVoteWeight(height))
 }
 
 func (f *eventHandlerFactory) NewEventHandlerWithHandler(handler BucketStore, view CandidateVotes, height uint64) (BucketStore, error) {

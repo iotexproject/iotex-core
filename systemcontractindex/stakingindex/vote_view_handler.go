@@ -27,7 +27,7 @@ func newVoteViewEventHandler(view CandidateVotes, fn CalculateUnmutedVoteWeightF
 		return nil, err
 	}
 	return &voteViewEventHandler{
-		BucketStore:                storeWithBuffer,
+		BucketStore:                NewStoreWrapper(storeWithBuffer),
 		view:                       view,
 		calculateUnmutedVoteWeight: fn,
 	}, nil
