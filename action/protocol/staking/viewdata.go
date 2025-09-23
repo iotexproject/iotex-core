@@ -103,7 +103,7 @@ func (v *viewData) Snapshot() int {
 	wrapped := v.contractsStake.Wrap()
 	v.snapshots = append(v.snapshots, Snapshot{
 		size:           v.candCenter.size,
-		changes:        v.candCenter.change.size(),
+		changes:        len(v.candCenter.change.candidates),
 		amount:         new(big.Int).Set(v.bucketPool.total.amount),
 		count:          v.bucketPool.total.count,
 		contractsStake: v.contractsStake,
