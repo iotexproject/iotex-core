@@ -34,7 +34,8 @@ func (f *eventHandlerFactory) NewEventHandler(v stakingindex.CandidateVotes, hei
 }
 
 func (f *eventHandlerFactory) NewEventHandlerWithStore(store stakingindex.BucketStore, v stakingindex.CandidateVotes, height uint64) (stakingindex.BucketStore, error) {
-	handler, err := stakingindex.NewVoteViewEventHandlerWraper(store, v, f.genCalculateUnmutedVoteWeight(height))
+	wStore := stakingindex.NewStoreWrapper(store)
+	handler, err := stakingindex.NewVoteViewEventHandlerWraper(wStore, v, f.genCalculateUnmutedVoteWeight(height))
 	if err != nil {
 		return nil, err
 	}

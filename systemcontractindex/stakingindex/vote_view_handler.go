@@ -237,7 +237,7 @@ func NewStoreWrapper(store BucketStore) *storeWrapper {
 }
 
 func (swb *storeWrapper) PutBucketType(addr address.Address, bt *contractstaking.BucketType) error {
-	return errors.New("not supported")
+	return nil
 }
 
 func (swb *storeWrapper) DeductBucket(addr address.Address, id uint64) (*contractstaking.Bucket, error) {
