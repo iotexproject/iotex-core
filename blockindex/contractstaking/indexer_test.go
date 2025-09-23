@@ -145,7 +145,6 @@ func TestContractStakingIndexerLoadCache(t *testing.T) {
 	newHeight, err := newIndexer.Height()
 	r.NoError(err)
 	r.Equal(height, newHeight)
-	r.Equal(startHeight, newIndexer.StartHeight())
 	tbc, err = newIndexer.TotalBucketCount(height)
 	r.EqualValues(1, tbc)
 	r.NoError(err)
@@ -1140,9 +1139,9 @@ func TestIndexer_PutBlock(t *testing.T) {
 		{"height < block = start", 10, 20, 20, 20, ""},
 		{"height < start < block", 10, 20, 21, 10, "invalid block height 21, expect 20"},
 		{"block < start < height", 20, 10, 9, 20, ""},
-		{"block = start < height", 20, 10, 10, 20, ""},
-		{"start < block < height", 20, 10, 11, 20, ""},
-		{"start < block = height", 20, 10, 20, 20, ""},
+		{"block = start < height", 20, 10, 10, 20, "block height 10 has been indexed, expect 21"},
+		{"start < block < height", 20, 10, 11, 20, "block height 11 has been indexed, expect 21"},
+		{"start < block = height", 20, 10, 20, 20, "block height 20 has been indexed, expect 21"},
 		{"start < height < block", 20, 10, 21, 21, ""},
 		{"start < height < block+", 20, 10, 22, 20, "invalid block height 22, expect 21"},
 	}

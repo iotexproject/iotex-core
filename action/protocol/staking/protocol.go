@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"math"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -26,6 +27,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -262,27 +264,63 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 	if p.skipContractStakingView(height) {
 		return c, nil
 	}
+
+	wg := sync.WaitGroup{}
+	errChan := make(chan error, 3)
+	checker := blockdao.GetChecker(ctx)
+	checkIndex := func(indexer ContractStakingIndexer) error {
+		if checker == nil {
+			return nil
+		}
+		if err := indexer.Start(ctx); err != nil {
+			return errors.Wrap(err, "failed to start contract staking indexer")
+		}
+		checkerHeight, err := checker.Height()
+		if err != nil {
+			return errors.Wrap(err, "failed to get checker height")
+		}
+		if indexer.StartHeight() > checkerHeight {
+			return nil
+		}
+		return checker.CheckIndexer(ctx, indexer, height, func(h uint64) {
+			log.L().Info("Checking contract staking indexer", zap.Uint64("height", h))
+		})
+	}
+	buildView := func(indexer ContractStakingIndexer, callback func(ContractStakeView)) {
+		if indexer == nil {
+			return
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := checkIndex(indexer); err != nil {
+				errChan <- errors.Wrap(err, "failed to check contract staking indexer")
+				return
+			}
+			view, err := NewContractStakeViewBuilder(indexer, p.blockStore).Build(ctx, sr, height)
+			if err != nil {
+				errChan <- errors.Wrapf(err, "failed to create stake view for contract %s", p.contractStakingIndexer.ContractAddress())
+				return
+			}
+			callback(view)
+		}()
+	}
 	c.contractsStake = &contractStakeView{}
-	if p.contractStakingIndexer != nil {
-		view, err := NewContractStakeViewBuilder(p.contractStakingIndexer, p.blockStore).Build(ctx, sr, height)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create stake view for contract %s", p.contractStakingIndexer.ContractAddress())
-		}
+	buildView(p.contractStakingIndexer, func(view ContractStakeView) {
 		c.contractsStake.v1 = view
-	}
-	if p.contractStakingIndexerV2 != nil {
-		view, err := NewContractStakeViewBuilder(p.contractStakingIndexerV2, p.blockStore).Build(ctx, sr, height)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create stake view for contract %s", p.contractStakingIndexerV2.ContractAddress())
-		}
+	})
+	buildView(p.contractStakingIndexerV2, func(view ContractStakeView) {
 		c.contractsStake.v2 = view
-	}
-	if p.contractStakingIndexerV3 != nil {
-		view, err := NewContractStakeViewBuilder(p.contractStakingIndexerV3, p.blockStore).Build(ctx, sr, height)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create stake view for contract %s", p.contractStakingIndexerV3.ContractAddress())
-		}
+	})
+	buildView(p.contractStakingIndexerV3, func(view ContractStakeView) {
 		c.contractsStake.v3 = view
+	})
+	wg.Wait()
+	close(errChan)
+	for err := range errChan {
+		if err != nil {
+			return nil, err
+		}
 	}
 	return c, nil
 }
