@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -250,8 +251,30 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 	}
 
+	checker := blockdao.GetChecker(ctx)
+	checkIndexer := func(indexer ContractStakingIndexer) error {
+		if checker == nil {
+			return nil
+		}
+		checkerHeight, err := checker.Height()
+		if err != nil {
+			return err
+		}
+		if indexer.StartHeight() > checkerHeight {
+			return nil
+		}
+		return checker.CheckIndexer(ctx, indexer, height, func(h uint64) {
+			log.L().Info("Checking contract staking indexer", zap.Uint64("height", h))
+		})
+	}
 	c.contractsStake = &contractStakeView{}
 	if p.contractStakingIndexer != nil {
+		if err := p.contractStakingIndexer.Start(ctx); err != nil {
+			return nil, err
+		}
+		if err := checkIndexer(p.contractStakingIndexer); err != nil {
+			return nil, errors.Wrap(err, "failed to check contract staking indexer")
+		}
 		view, err := NewContractStakeViewBuilder(p.contractStakingIndexer, p.blockStore).Build(ctx, sr, height)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create stake view for contract %s", p.contractStakingIndexer.ContractAddress())
@@ -259,6 +282,12 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		c.contractsStake.v1 = view
 	}
 	if p.contractStakingIndexerV2 != nil {
+		if err := p.contractStakingIndexerV2.Start(ctx); err != nil {
+			return nil, err
+		}
+		if err := checkIndexer(p.contractStakingIndexerV2); err != nil {
+			return nil, errors.Wrap(err, "failed to check contract staking indexer v2")
+		}
 		view, err := NewContractStakeViewBuilder(p.contractStakingIndexerV2, p.blockStore).Build(ctx, sr, height)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create stake view for contract %s", p.contractStakingIndexerV2.ContractAddress())
@@ -266,6 +295,12 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		c.contractsStake.v2 = view
 	}
 	if p.contractStakingIndexerV3 != nil {
+		if err := p.contractStakingIndexerV3.Start(ctx); err != nil {
+			return nil, err
+		}
+		if err := checkIndexer(p.contractStakingIndexerV3); err != nil {
+			return nil, errors.Wrap(err, "failed to check contract staking indexer v3")
+		}
 		view, err := NewContractStakeViewBuilder(p.contractStakingIndexerV3, p.blockStore).Build(ctx, sr, height)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create stake view for contract %s", p.contractStakingIndexerV3.ContractAddress())

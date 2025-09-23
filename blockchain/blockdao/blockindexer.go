@@ -19,6 +19,8 @@ import (
 )
 
 type (
+	blockIndexerCheckerKeyType struct{}
+
 	// BlockIndexer defines an interface to accept block to build index
 	BlockIndexer interface {
 		Start(ctx context.Context) error
@@ -27,26 +29,51 @@ type (
 		PutBlock(context.Context, *block.Block) error
 	}
 
-	// BlockIndexerWithStart defines an interface to accept block to build index from a start height
-	BlockIndexerWithStart interface {
-		BlockIndexer
-		// StartHeight returns the start height of the indexer
-		StartHeight() uint64
-	}
-
 	// BlockIndexerChecker defines a checker of block indexer
-	BlockIndexerChecker struct {
+	BlockIndexerChecker interface {
+		Height() (uint64, error)
+		CheckIndexer(ctx context.Context, indexer BlockIndexer, targetHeight uint64, progressReporter func(uint64)) error
+	}
+	blockIndexerChecker struct {
 		dao BlockDAO
 	}
 )
 
+// WithChecker adds BlockIndexerChecker to context
+func WithChecker(ctx context.Context, checker BlockIndexerChecker) context.Context {
+	return context.WithValue(ctx, blockIndexerCheckerKeyType{}, checker)
+}
+
+// GetChecker returns the BlockIndexerChecker from context
+func GetChecker(ctx context.Context) BlockIndexerChecker {
+	if v := ctx.Value(blockIndexerCheckerKeyType{}); v != nil {
+		if checker, ok := v.(BlockIndexerChecker); ok {
+			return checker
+		}
+	}
+	return nil
+}
+
+// MustGetChecker returns the BlockIndexerChecker from context, panic if not found
+func MustGetChecker(ctx context.Context) BlockIndexerChecker {
+	checker := GetChecker(ctx)
+	if checker == nil {
+		log.L().Panic("failed to get BlockIndexerChecker from context")
+	}
+	return checker
+}
+
 // NewBlockIndexerChecker creates a new block indexer checker
-func NewBlockIndexerChecker(dao BlockDAO) *BlockIndexerChecker {
-	return &BlockIndexerChecker{dao: dao}
+func NewBlockIndexerChecker(dao BlockDAO) BlockIndexerChecker {
+	return &blockIndexerChecker{dao: dao}
+}
+
+func (bic *blockIndexerChecker) Height() (uint64, error) {
+	return bic.dao.Height()
 }
 
 // CheckIndexer checks a block indexer against block dao
-func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockIndexer, targetHeight uint64, progressReporter func(uint64)) error {
+func (bic *blockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockIndexer, targetHeight uint64, progressReporter func(uint64)) error {
 	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
 	if !ok {
 		return errors.New("failed to find blockchain ctx")
@@ -74,14 +101,8 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 		targetHeight = daoTip
 	}
 	startHeight := tipHeight + 1
-	if indexerWS, ok := indexer.(BlockIndexerWithStart); ok {
-		indexStartHeight := indexerWS.StartHeight()
-		if indexStartHeight > startHeight {
-			startHeight = indexStartHeight
-		}
-	}
 	for i := startHeight; i <= targetHeight; i++ {
-		// ternimate if context is done
+		// terminate if context is done
 		if err := ctx.Err(); err != nil {
 			return errors.Wrap(err, "terminate the indexer checking")
 		}
