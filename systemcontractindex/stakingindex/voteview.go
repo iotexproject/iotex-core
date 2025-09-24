@@ -140,7 +140,11 @@ func (s *voteView) Migrate(handler staking.EventHandler) error {
 	return nil
 }
 
-func (s *voteView) wakeMigrate(bc BucketCache) error {
+func (s *voteView) Revise() error {
+	return s.revise(s.bucketCache)
+}
+
+func (s *voteView) revise(bc BucketCache) error {
 	height, buckets, err := bc.ContractStakingBuckets()
 	if err != nil {
 		return err
@@ -172,7 +176,7 @@ func (s *voteView) CreatePreStates(ctx context.Context) error {
 	}
 	s.handler = handler
 	if s.height == genesis.MustExtractGenesisContext(ctx).WakeBlockHeight {
-		if err := s.wakeMigrate(s.bucketCache); err != nil {
+		if err := s.revise(s.bucketCache); err != nil {
 			return errors.Wrap(err, "failed to wake migrate vote view")
 		}
 	}
@@ -194,7 +198,7 @@ func (s *voteView) AddBlockReceipts(ctx context.Context, receipts []*action.Rece
 	}
 	s.height = height
 	if height == genesis.MustExtractGenesisContext(ctx).WakeBlockHeight {
-		if err := s.wakeMigrate(handler); err != nil {
+		if err := s.revise(handler); err != nil {
 			return errors.Wrap(err, "failed to wake migrate vote view")
 		}
 	}
