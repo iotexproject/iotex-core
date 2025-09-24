@@ -154,6 +154,8 @@ func (ws *workingSet) runAction(
 	selp *action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
+	to, _ := selp.Destination()
+	fmt.Printf("runaction: %x, %T, to: %s\n\n", actCtx.ActionHash, selp.Action(), to)
 	if protocol.MustGetBlockCtx(ctx).GasLimit < actCtx.IntrinsicGas {
 		return nil, action.ErrGasLimit
 	}

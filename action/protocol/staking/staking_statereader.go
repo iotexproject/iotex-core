@@ -7,6 +7,7 @@ package staking
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -215,11 +216,15 @@ func (c *compositeStakingStateReader) readStateCandidateByName(ctx context.Conte
 	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
 		return candidate, height, nil
 	}
+	nativeVotes, _ := new(big.Int).SetString(candidate.TotalWeightedVotes, 10)
 	for _, indexer := range c.contractIndexers {
 		if err := c.addContractStakingVotes(ctx, candidate, indexer, height); err != nil {
 			return nil, 0, err
 		}
 	}
+	total, _ := new(big.Int).SetString(candidate.TotalWeightedVotes, 10)
+	contractVotes := new(big.Int).Sub(total, nativeVotes)
+	fmt.Printf("[index]:candidate %s has %s native votes, and %s contract votes\n", candidate.GetName(), nativeVotes.String(), contractVotes.String())
 	return candidate, height, nil
 }
 
@@ -318,12 +323,14 @@ func (c *compositeStakingStateReader) addContractStakingVotes(ctx context.Contex
 	if err != nil {
 		return errors.Wrap(err, "failed to get BucketsByCandidate from contractStakingIndexerV2")
 	}
+	orgVotes := new(big.Int).Set(votes)
 	for _, b := range bkts {
 		if b.isUnstaked() {
 			continue
 		}
 		votes.Add(votes, c.calculateVoteWeight(b, false))
 	}
+	fmt.Printf("[index]:candidate %s has %s votes from contract staking\n", candidate.Name, new(big.Int).Sub(votes, orgVotes).String())
 	candidate.TotalWeightedVotes = votes.String()
 	return nil
 }
