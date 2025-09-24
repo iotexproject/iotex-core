@@ -185,7 +185,7 @@ func (cv *candidateVotesWraper) Votes(fCtx protocol.FeatureCtx, cand string) *bi
 		return base
 	}
 	if base == nil {
-		return nil
+		return change
 	}
 	return new(big.Int).Add(base, change)
 }
