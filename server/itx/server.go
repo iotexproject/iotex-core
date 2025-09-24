@@ -277,6 +277,9 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		log.L().Info("Waiting for server to be ready.", zap.Duration("duration", cfg.API.ReadyDuration))
 		time.Sleep(cfg.API.ReadyDuration)
 	}
+	if err := svr.rootChainService.Blockchain().AddSubscriber(probeSvr); err != nil {
+		log.L().Panic("Failed to add probe server as subscriber.", zap.Error(err))
+	}
 	if err := probeSvr.TurnOn(); err != nil {
 		log.L().Panic("Failed to turn on probe server.", zap.Error(err))
 	}

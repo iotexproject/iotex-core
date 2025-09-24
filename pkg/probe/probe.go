@@ -9,10 +9,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/httputil"
@@ -75,6 +77,20 @@ func (s *Server) Start(_ context.Context) error {
 
 // Stop shutdown the probe server.
 func (s *Server) Stop(ctx context.Context) error { return s.server.Shutdown(ctx) }
+
+// ReceiveBlock receives the new block and update the readiness status
+func (s *Server) ReceiveBlock(blk *block.Block) error {
+	if time.Now().After(blk.Timestamp().Add(10 * time.Second)) {
+		if s.IsReady() {
+			s.TurnOff()
+		}
+	} else {
+		if !s.IsReady() {
+			s.TurnOn()
+		}
+	}
+	return nil
+}
 
 func successHandleFunc(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
