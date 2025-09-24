@@ -13,8 +13,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type testCase struct {
@@ -72,6 +76,31 @@ func TestBasicProbe(t *testing.T) {
 	testFunc(t, test2)
 	require.NoError(t, s.TurnOff())
 	testFunc(t, test1)
+
+	now := time.Now()
+	createHeader := func(ts time.Time) block.Header {
+		header := block.Header{}
+		require.NoError(t, header.LoadFromBlockHeaderProto(
+			&iotextypes.BlockHeader{
+				Core: &iotextypes.BlockHeaderCore{
+					Version:          1,
+					Height:           123,
+					Timestamp:        timestamppb.New(ts),
+					PrevBlockHash:    []byte(""),
+					TxRoot:           []byte(""),
+					DeltaStateDigest: []byte(""),
+					ReceiptRoot:      []byte(""),
+				},
+				ProducerPubkey: identityset.PrivateKey(0).PublicKey().Bytes(),
+			},
+		))
+		return header
+	}
+
+	require.NoError(t, s.ReceiveBlock(&block.Block{Header: createHeader(now.Add(-9 * time.Second))}))
+	require.True(t, s.IsReady())
+	require.NoError(t, s.ReceiveBlock(&block.Block{Header: createHeader(now.Add(-11 * time.Second))}))
+	require.False(t, s.IsReady())
 
 	require.NoError(t, s.Stop(ctx))
 	_, err := http.Get("http://localhost:7788/liveness")
