@@ -8,8 +8,9 @@ import (
 	"github.com/erigontech/erigon-lib/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // SystemContract represents a system contract with its address and bytecode
@@ -19,6 +20,8 @@ type SystemContract struct {
 }
 
 const (
+	// AccountIndex is the system contract for account storage
+	AccountIndex = -1
 	// StakingBucketsContractIndex is the system contract for staking buckets storage
 	StakingBucketsContractIndex int = iota
 	// BucketPoolContractIndex is the system contract for bucket pool storage
@@ -56,10 +59,12 @@ const (
 const (
 	defaultSystemContractType = iota
 	namespaceStorageContractType
+	accountStorageType
 )
 
 var systemContractTypes = map[int]int{
 	StakingViewContractIndex: namespaceStorageContractType,
+	AccountIndex:             accountStorageType,
 }
 
 // systemContracts holds all system contracts

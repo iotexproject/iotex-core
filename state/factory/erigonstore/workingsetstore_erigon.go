@@ -22,7 +22,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
@@ -30,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
-	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 const (
@@ -431,26 +429,14 @@ func (store *ErigonWorkingSetStore) StateReader() erigonstate.StateReader {
 }
 
 func (store *ErigonWorkingSetStore) NewObjectStorage(ns string, obj any) (ObjectStorage, error) {
-	var contractAddr address.Address
-	switch ns {
-	case "Account":
-		if _, ok := obj.(*state.Account); !ok {
-			return nil, nil
-		}
-		return newAccountStorage(
-			common.BytesToAddress(systemContracts[AccountInfoContractIndex].Address.Bytes()),
-			store.backend,
-		)
-	case "BlockMeta":
-		contractAddr = systemContracts[PollBlockMetaContractIndex].Address
-	default:
+	cs, err := storageRegistry.ObjectStorage(ns, obj, store.backend)
+	switch errors.Cause(err) {
+	case nil:
+		return cs, nil
+	case ErrObjectStorageNotRegistered:
 		// TODO: fail unknown namespace
 		return nil, nil
-	}
-	// TODO: cache storage
-	contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(contractAddr.Bytes()[:]), store.backend, common.Address(systemContractCreatorAddr))
-	if err != nil {
+	default:
 		return nil, err
 	}
-	return newContractObjectStorage(contract), nil
 }
