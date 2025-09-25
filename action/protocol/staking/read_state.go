@@ -16,6 +16,10 @@ import (
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
+func ToIoTeXTypesVoteBucketList(sr protocol.StateReader, buckets []*VoteBucket) (*iotextypes.VoteBucketList, error) {
+	return toIoTeXTypesVoteBucketList(sr, buckets)
+}
+
 func toIoTeXTypesVoteBucketList(sr protocol.StateReader, buckets []*VoteBucket) (*iotextypes.VoteBucketList, error) {
 	esr := NewEndorsementStateReader(sr)
 	res := iotextypes.VoteBucketList{
@@ -96,6 +100,10 @@ func toIoTeXTypesCandidateV2(csr CandidateStateReader, cand *Candidate, featureC
 		c.SelfStakingTokens = "0"
 	}
 	return c, nil
+}
+
+func ToIoTeXTypesCandidateListV2(csr CandidateStateReader, candidates CandidateList, featureCtx protocol.FeatureCtx) (*iotextypes.CandidateListV2, error) {
+	return toIoTeXTypesCandidateListV2(csr, candidates, featureCtx)
 }
 
 func toIoTeXTypesCandidateListV2(csr CandidateStateReader, candidates CandidateList, featureCtx protocol.FeatureCtx) (*iotextypes.CandidateListV2, error) {

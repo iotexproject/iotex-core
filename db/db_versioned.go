@@ -32,6 +32,9 @@ type (
 	VersionedDB interface {
 		lifecycle.StartStopper
 
+		// Base returns the underlying KVStore
+		Base() KVStore
+
 		// Put insert or update a record identified by (namespace, key)
 		Put(uint64, string, []byte, []byte) error
 
@@ -59,8 +62,8 @@ type (
 
 	// Namespace specifies the name and key length of the versioned namespace
 	Namespace struct {
-		ns     string
-		keyLen uint32
+		Ns     string
+		KeyLen uint32
 	}
 )
 
@@ -70,7 +73,7 @@ type BoltDBVersionedOption func(*BoltDBVersioned)
 func VnsOption(ns ...Namespace) BoltDBVersionedOption {
 	return func(k *BoltDBVersioned) {
 		for _, v := range ns {
-			k.vns[v.ns] = int(v.keyLen)
+			k.vns[v.Ns] = int(v.KeyLen)
 		}
 	}
 }
@@ -120,6 +123,10 @@ func (b *BoltDBVersioned) addVersionedNamespace() error {
 		}
 	}
 	return nil
+}
+
+func (b *BoltDBVersioned) Base() KVStore {
+	return b.db
 }
 
 // Put writes a <key, value> record
