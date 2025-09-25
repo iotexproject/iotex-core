@@ -503,7 +503,7 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 // blockHeightToTime returns the block time by height
 // if height is greater than current block height, return nil
 // if height is equal to current block height, return current block time
-// otherwise, return the block time by height from the blockchain
+// otherwise, return a fake time less than current block time
 func blockHeightToTime(ctx context.Context, height uint64) (*time.Time, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if height > blkCtx.BlockHeight {
@@ -512,10 +512,7 @@ func blockHeightToTime(ctx context.Context, height uint64) (*time.Time, error) {
 	if height == blkCtx.BlockHeight {
 		return &blkCtx.BlockTimeStamp, nil
 	}
-	t, err := protocol.MustGetBlockchainCtx(ctx).GetBlockTime(height)
-	if err != nil {
-		return nil, err
-	}
+	t := blkCtx.BlockTimeStamp.Add(time.Duration(height-blkCtx.BlockHeight) * time.Second)
 	return &t, nil
 }
 
