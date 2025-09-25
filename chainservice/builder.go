@@ -271,26 +271,7 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		return nil
 	}
 
-	var indexers []blockdao.BlockIndexer
-	// indexers in synchronizedIndexers will need to run PutBlock() one by one
-	// factory is dependent on sgdIndexer and contractStakingIndexer, so it should be put in the first place
-	synchronizedIndexers := []blockdao.BlockIndexer{builder.cs.factory}
-	// TODO: the three contract staking indexers should be removed from blockdao indexers
-	// and commit them in statedb instead. Otherwise, their processing will be executed twice for each block.
-	if builder.cs.contractStakingIndexer != nil {
-		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexer)
-	}
-	if builder.cs.contractStakingIndexerV2 != nil {
-		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV2)
-	}
-	if builder.cs.contractStakingIndexerV3 != nil {
-		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV3)
-	}
-	if len(synchronizedIndexers) > 1 {
-		indexers = append(indexers, blockindex.NewSyncIndexers(synchronizedIndexers...))
-	} else {
-		indexers = append(indexers, builder.cs.factory)
-	}
+	indexers := []blockdao.BlockIndexer{builder.cs.factory}
 	if !builder.cfg.Chain.EnableAsyncIndexWrite && builder.cs.indexer != nil {
 		indexers = append(indexers, builder.cs.indexer)
 	}
@@ -379,6 +360,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 			return err
 		}
 		builder.cs.contractStakingIndexer = indexer
+		builder.cs.factory.AddDependency(indexer)
 	}
 	// build contract staking indexer v2
 	if builder.cs.contractStakingIndexerV2 == nil && len(builder.cfg.Genesis.SystemStakingContractV2Address) > 0 {
@@ -394,6 +376,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 			stakingindex.WithMuteHeight(builder.cfg.Genesis.WakeBlockHeight),
 		)
 		builder.cs.contractStakingIndexerV2 = indexer
+		builder.cs.factory.AddDependency(indexer)
 	}
 	// build contract staking indexer v3
 	if builder.cs.contractStakingIndexerV3 == nil && len(builder.cfg.Genesis.SystemStakingContractV3Address) > 0 {
@@ -409,6 +392,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 			stakingindex.EnableTimestamped(),
 		)
 		builder.cs.contractStakingIndexerV3 = indexer
+		builder.cs.factory.AddDependency(indexer)
 	}
 	return nil
 }

@@ -169,10 +169,6 @@ mockgen -destination=./test/mock/mock_blockdao/mock_blockindexer.go  \
         -package=mock_blockdao \
         github.com/iotexproject/iotex-core/v2/blockchain/blockdao \
         BlockIndexer
-mockgen -destination=./test/mock/mock_blockdao/mock_blockindexer_withstart.go  \
-        -package=mock_blockdao \
-        github.com/iotexproject/iotex-core/v2/blockchain/blockdao \
-        BlockIndexerWithStart
 
 mkdir -p ./test/mock/mock_envelope
 mockgen -destination=./test/mock/mock_envelope/mock_envelope.go \
