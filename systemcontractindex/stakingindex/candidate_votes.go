@@ -1,7 +1,6 @@
 package stakingindex
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -85,9 +84,6 @@ func (cv *candidateVotes) Votes(fCtx protocol.FeatureCtx, cand string) *big.Int 
 func (cv *candidateVotes) Add(cand string, amount *big.Int, votes *big.Int) {
 	if cv.cands[cand] == nil {
 		cv.cands[cand] = newCandidate()
-	}
-	if votes.Sign() != 0 {
-		fmt.Printf("candidate %s, votes: %s + %s = %s\n", cand, cv.cands[cand].votes.String(), votes.String(), new(big.Int).Add(cv.cands[cand].votes, votes).String())
 	}
 	if amount != nil {
 		cv.cands[cand].amount = new(big.Int).Add(cv.cands[cand].amount, amount)

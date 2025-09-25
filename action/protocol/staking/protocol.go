@@ -8,7 +8,6 @@ package staking
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math"
 	"math/big"
 	"time"
@@ -745,7 +744,6 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 			if err != nil {
 				return nil, err
 			}
-			fmt.Printf("[view]:candidate %s has %s native votes, and %s contract votes\n", list[i].GetIdentifier(), list[i].Votes, csVotes.String())
 			list[i].Votes.Add(list[i].Votes, csVotes)
 		}
 		active, err := p.isActiveCandidate(ctx, c, list[i])
@@ -1013,12 +1011,11 @@ func (p *Protocol) contractStakingVotesFromVoteView(ctx context.Context, candida
 	if p.contractStakingIndexerV3 != nil && featureCtx.TimestampedStakingContract {
 		views = append(views, view.contractsStake.v3)
 	}
-	for idx, cv := range views {
+	for _, cv := range views {
 		v := cv.CandidateStakeVotes(ctx, candidate)
 		if v == nil {
 			continue
 		}
-		fmt.Printf("[view]:candidate %s has %s votes from %d contract staking\n", candidate.String(), v.String(), idx)
 		votes.Add(votes, v)
 	}
 	return votes, nil
