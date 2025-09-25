@@ -85,72 +85,72 @@ func (osr *ObjectStorageRegistry) RegisterAccount(ns string, obj any) error {
 }
 
 // RegisterStakingBuckets registers a staking buckets object storage
-func (osr *ObjectStorageRegistry) RegisterStakingBuckets(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterStakingBuckets(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, StakingBucketsContractIndex)
 }
 
 // RegisterBucketPool registers a bucket pool object storage
-func (osr *ObjectStorageRegistry) RegisterBucketPool(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterBucketPool(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, BucketPoolContractIndex)
 }
 
 // RegisterBucketIndices registers a bucket indices object storage
-func (osr *ObjectStorageRegistry) RegisterBucketIndices(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterBucketIndices(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, BucketIndicesContractIndex)
 }
 
 // RegisterEndorsement registers an endorsement object storage
-func (osr *ObjectStorageRegistry) RegisterEndorsement(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterEndorsement(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, EndorsementContractIndex)
 }
 
 // RegisterCandidateMap registers a candidate map object storage
-func (osr *ObjectStorageRegistry) RegisterCandidateMap(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterCandidateMap(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, CandidateMapContractIndex)
 }
 
 // RegisterCandidates registers a candidates object storage
-func (osr *ObjectStorageRegistry) RegisterCandidates(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterCandidates(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, CandidatesContractIndex)
 }
 
 // RegisterPollCandidateList registers a poll candidate list object storage
-func (osr *ObjectStorageRegistry) RegisterPollCandidateList(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterPollCandidateList(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, PollCandidateListContractIndex)
 }
 
 // RegisterPollLegacyCandidateList registers a poll legacy candidate list object storage
-func (osr *ObjectStorageRegistry) RegisterPollLegacyCandidateList(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterPollLegacyCandidateList(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, PollLegacyCandidateListContractIndex)
 }
 
 // RegisterPollProbationList registers a poll probation list object storage
-func (osr *ObjectStorageRegistry) RegisterPollProbationList(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterPollProbationList(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, PollProbationListContractIndex)
 }
 
 // RegisterPollUnproductiveDelegate registers a poll unproductive delegate object storage
-func (osr *ObjectStorageRegistry) RegisterPollUnproductiveDelegate(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterPollUnproductiveDelegate(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, PollUnproductiveDelegateContractIndex)
 }
 
 // RegisterPollBlockMeta registers a poll block meta object storage
-func (osr *ObjectStorageRegistry) RegisterPollBlockMeta(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterPollBlockMeta(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, PollBlockMetaContractIndex)
 }
 
 // RegisterRewardingV1 registers a rewarding v1 object storage
-func (osr *ObjectStorageRegistry) RegisterRewardingV1(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterRewardingV1(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, RewardingContractV1Index)
 }
 
 // RegisterRewardingV2 registers a rewarding v2 object storage
-func (osr *ObjectStorageRegistry) RegisterRewardingV2(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterRewardingV2(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, RewardingContractV2Index)
 }
 
 // RegisterStakingView registers a staking view object storage
-func (osr *ObjectStorageRegistry) RegisterStakingView(ns string, obj systemcontracts.GenericStorageContract) error {
+func (osr *ObjectStorageRegistry) RegisterStakingView(ns string, obj systemcontracts.GenericValueContainer) error {
 	return osr.register(ns, obj, StakingViewContractIndex)
 }
 
