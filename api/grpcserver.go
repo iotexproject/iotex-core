@@ -28,6 +28,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
@@ -52,6 +53,7 @@ type (
 	GRPCServer struct {
 		port string
 		svr  *grpc.Server
+		sem  *semaphore.Weighted
 	}
 
 	// GRPCHandler contains the pointer to api coreservice
@@ -87,6 +89,7 @@ func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int) *GRPCSe
 		return nil
 	}
 
+	sem := semaphore.NewWeighted(_maxRequestLimit)
 	gSvr := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
@@ -96,6 +99,20 @@ func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int) *GRPCSe
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_prometheus.UnaryServerInterceptor,
 			otelgrpc.UnaryServerInterceptor(),
+			grpc.UnaryServerInterceptor(func(
+				ctx context.Context,
+				req any,
+				info *grpc.UnaryServerInfo,
+				handler grpc.UnaryHandler,
+			) (any, error) {
+				acquireCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				defer cancel()
+				if err := sem.Acquire(acquireCtx, 1); err != nil {
+					return nil, status.Error(codes.ResourceExhausted, "server busy")
+				}
+				defer sem.Release(1)
+				return handler(ctx, req)
+			}),
 			grpc_recovery.UnaryServerInterceptor(RecoveryInterceptor()),
 		)),
 		grpc.KeepaliveEnforcementPolicy(kaep),
@@ -114,6 +131,7 @@ func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int) *GRPCSe
 	return &GRPCServer{
 		port: ":" + strconv.Itoa(grpcPort),
 		svr:  gSvr,
+		sem:  sem,
 	}
 }
 
