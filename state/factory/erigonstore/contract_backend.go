@@ -157,8 +157,10 @@ func (backend *contractBackend) prepare(intra evmtypes.IntraBlockState) (*vm.EVM
 	ctx = genesis.WithGenesisContext(ctx, *backend.g)
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		GetBlockTime: func(u uint64) (time.Time, error) {
-			interval := 2500 * time.Millisecond
-			return backend.timestamp.Add(interval * time.Duration(u-backend.height)), nil
+			if u == backend.height {
+				return backend.timestamp, nil
+			}
+			return time.Time{}, errors.New("only current block is supported")
 		},
 		EvmNetworkID: backend.evmNetworkID,
 	})
