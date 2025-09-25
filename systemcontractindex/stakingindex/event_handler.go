@@ -47,7 +47,7 @@ func (eh *eventHandler) DeductBucket(_ address.Address, id uint64) (*Bucket, err
 	if bkt == nil {
 		return nil, errors.Wrapf(contractstaking.ErrBucketNotExist, "token id %d", id)
 	}
-	return bkt, nil
+	return bkt.Clone(), nil
 }
 
 func (eh *eventHandler) Finalize() (batch.KVStoreBatch, indexerCache) {
@@ -61,7 +61,7 @@ func (eh *eventHandler) PutBucket(_ address.Address, id uint64, bkt *Bucket) err
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize bucket")
 	}
-	eh.dirty.PutBucket(id, bkt)
+	eh.dirty.PutBucket(id, bkt.Clone())
 	eh.delta.Put(eh.stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket")
 	return nil
 }

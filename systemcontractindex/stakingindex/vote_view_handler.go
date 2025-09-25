@@ -161,7 +161,7 @@ func (swb *storeWithContract) DeductBucket(addr address.Address, id uint64) (*co
 		if dirty == nil {
 			return nil, errors.Wrap(contractstaking.ErrBucketNotExist, "bucket not exist")
 		}
-		return dirty, nil
+		return dirty.Clone(), nil
 	}
 	bucket, err := swb.csr.Bucket(addr, id)
 	if err != nil {
@@ -174,7 +174,7 @@ func (swb *storeWithContract) PutBucket(addr address.Address, id uint64, bkt *co
 	if _, ok := swb.dirty[addr.String()]; !ok {
 		swb.dirty[addr.String()] = make(map[uint64]*Bucket)
 	}
-	swb.dirty[addr.String()][id] = bkt
+	swb.dirty[addr.String()][id] = bkt.Clone()
 	return nil
 }
 
@@ -246,7 +246,7 @@ func (swb *storeWrapper) DeductBucket(addr address.Address, id uint64) (*contrac
 		if dirty == nil {
 			return nil, errors.Wrap(contractstaking.ErrBucketNotExist, "bucket not exist")
 		}
-		return dirty, nil
+		return dirty.Clone(), nil
 	}
 	bucket, err := swb.store.DeductBucket(addr, id)
 	if err != nil {
@@ -259,7 +259,7 @@ func (swb *storeWrapper) PutBucket(addr address.Address, id uint64, bkt *contrac
 	if _, ok := swb.dirty[addr.String()]; !ok {
 		swb.dirty[addr.String()] = make(map[uint64]*Bucket)
 	}
-	swb.dirty[addr.String()][id] = bkt
+	swb.dirty[addr.String()][id] = bkt.Clone()
 	return nil
 }
 

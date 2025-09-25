@@ -77,7 +77,7 @@ func (e *storeWithBuffer) DeductBucket(addr address.Address, id uint64) (*contra
 	if bm, ok := e.buffer[addr.String()]; ok {
 		if bkt, ok := bm[id]; ok {
 			if bkt != nil {
-				return bkt, nil
+				return bkt.Clone(), nil
 			} else {
 				return nil, errors.Wrap(contractstaking.ErrBucketNotExist, "bucket has been deleted")
 			}
@@ -87,9 +87,9 @@ func (e *storeWithBuffer) DeductBucket(addr address.Address, id uint64) (*contra
 }
 func (e *storeWithBuffer) PutBucket(addr address.Address, id uint64, bucket *contractstaking.Bucket) error {
 	if bm, ok := e.buffer[addr.String()]; ok {
-		bm[id] = bucket
+		bm[id] = bucket.Clone()
 	} else {
-		e.buffer[addr.String()] = map[uint64]*contractstaking.Bucket{id: bucket}
+		e.buffer[addr.String()] = map[uint64]*contractstaking.Bucket{id: bucket.Clone()}
 	}
 	return nil
 }
