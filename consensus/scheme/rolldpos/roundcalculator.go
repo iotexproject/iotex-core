@@ -6,6 +6,7 @@
 package rolldpos
 
 import (
+	"slices"
 	"time"
 
 	"github.com/pkg/errors"
@@ -118,13 +119,7 @@ func (c *roundCalculator) IsDelegate(addr string, height uint64) bool {
 		log.L().Warn("Failed to get delegates", zap.Error(err))
 		return false
 	}
-	for _, d := range delegates {
-		if addr == d {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(delegates, addr)
 }
 
 // RoundInfo returns information of round by the given height and current time
