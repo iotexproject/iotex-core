@@ -43,6 +43,7 @@ type (
 		BlockStore
 		GetBlob(hash.Hash256) (*types.BlobTxSidecar, string, error)
 		GetBlobsByHeight(uint64) ([]*types.BlobTxSidecar, []string, error)
+		SetBlockValidator(block.BlockValidator)
 	}
 
 	BlockStore interface {
@@ -66,6 +67,7 @@ type (
 		blockStore   BlockStore
 		blobStore    BlobStore
 		indexers     []BlockIndexer
+		validator    block.BlockValidator
 		timerFactory *prometheustimer.TimerFactory
 		lifecycle    lifecycle.Lifecycle
 		headerCache  cache.LRUCache
@@ -127,6 +129,10 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexe
 	return blockDAO
 }
 
+func (dao *blockDAO) SetBlockValidator(v block.BlockValidator) {
+	dao.validator = v
+}
+
 // Start starts block DAO and initiates the top height if it doesn't exist
 func (dao *blockDAO) Start(ctx context.Context) error {
 	err := dao.lifecycle.OnStartSequentially(ctx)
@@ -143,8 +149,13 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 }
 
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
-	checker := NewBlockIndexerChecker(dao)
+	var checker *BlockIndexerChecker
 	for i, indexer := range dao.indexers {
+		if _, ok := indexer.(BlockIndexerStateDBWriter); ok {
+			checker = NewBlockIndexerChecker(dao, dao.validator)
+		} else {
+			checker = NewBlockIndexerChecker(dao, nil)
+		}
 		if err := checker.CheckIndexer(ctx, indexer, 0, func(height uint64) {
 			if height%5000 == 0 {
 				log.L().Info(
