@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
@@ -25,7 +24,7 @@ import (
 )
 
 const (
-	maxBlockNumber uint64 = math.MaxUint64
+	maxBlockNumber uint64 = staking.MaxDurationNumber
 )
 
 type (
@@ -85,15 +84,22 @@ func (s *Indexer) Start(ctx context.Context) error {
 	return s.start(ctx)
 }
 
+// CreateEventProcessor creates a new event processor for contract staking
+func (s *Indexer) CreateEventProcessor(ctx context.Context, handler staking.EventHandler) staking.EventProcessor {
+	return newContractStakingEventProcessor(
+		s.contractAddr,
+		handler,
+	)
+}
+
 // LoadStakeView loads the contract stake view
 func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (staking.ContractStakeView, error) {
-	if !s.IsReady() {
-		if err := s.start(ctx); err != nil {
-			return nil, err
+	if protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
+		if !s.IsReady() {
+			if err := s.start(ctx); err != nil {
+				return nil, err
+			}
 		}
-	}
-	featureCtx, ok := protocol.GetFeatureCtx(ctx)
-	if !ok || featureCtx.LoadContractStakingFromIndexer {
 		return &stakeView{
 			contractAddr:       s.contractAddr,
 			config:             s.config,
@@ -382,8 +388,9 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	if blk.Height() > expectHeight {
 		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expectHeight)
 	}
-	handler := newContractStakingEventHandler(cache)
-	if err := handler.HandleReceipts(ctx, blk.Height(), blk.Receipts, s.contractAddr.String()); err != nil {
+	handler := newContractStakingDirty(cache)
+	processor := newContractStakingEventProcessor(s.contractAddr, handler)
+	if err := processor.ProcessReceipts(ctx, blk.Receipts...); err != nil {
 		return errors.Wrapf(err, "failed to handle receipts at height %d", blk.Height())
 	}
 	s.mu.Lock()
@@ -395,8 +402,8 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (s *Indexer) commit(ctx context.Context, handler *contractStakingEventHandler, height uint64) error {
-	batch, delta := handler.Result()
+func (s *Indexer) commit(ctx context.Context, handler *contractStakingDirty, height uint64) error {
+	batch, delta := handler.Finalize()
 	cache, err := delta.Commit(ctx, s.contractAddr, nil)
 	if err != nil {
 		return errors.Wrapf(err, "failed to commit delta")

@@ -91,20 +91,21 @@ func TestProtocol(t *testing.T) {
 		DepositGas:    nil,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  g.Staking,
-		PersistStakingPatchBlock: math.MaxUint64,
+		Staking:                       g.Staking,
+		PersistStakingPatchBlock:      math.MaxUint64,
+		SkipContractStakingViewHeight: math.MaxUint64,
 		Revise: ReviseConfig{
 			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 	r.NotNil(stk)
 	r.NoError(err)
 	buckets, _, err := csr.NativeBuckets()
 	r.NoError(err)
 	r.Equal(0, len(buckets))
-	c, _, err := csr.getAllCandidates()
-	r.Equal(state.ErrStateNotExist, err)
-	r.Equal(0, len(c))
+	cc, _, err := csr.CreateCandidateCenter()
+	r.NoError(err)
+	r.Equal(0, len(cc.All()))
 
 	// address package also defined protocol address, make sure they match
 	r.Equal(stk.addr.Bytes(), address.StakingProtocolAddrHash[:])
@@ -162,8 +163,9 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load all candidates from stateDB and verify
-	all, _, err := csr.getAllCandidates()
+	cc, _, err = csr.CreateCandidateCenter()
 	r.NoError(err)
+	all := cc.All()
 	r.Equal(len(testCandidates), len(all))
 	for _, e := range testCandidates {
 		for i := range all {
@@ -188,8 +190,10 @@ func TestProtocol(t *testing.T) {
 	// delete one bucket
 	r.NoError(csm.delBucket(1))
 	buckets, _, err = csr.NativeBuckets()
+	require.NoError(t, err)
 	r.NoError(csm.delBucket(1))
 	buckets, _, err = csr.NativeBuckets()
+	require.NoError(t, err)
 	for _, e := range tests {
 		for i := range buckets {
 			if buckets[i].StakedAmount == e.amount {
@@ -210,12 +214,13 @@ func TestCreatePreStates(t *testing.T) {
 		DepositGas:    nil,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  g.Staking,
-		PersistStakingPatchBlock: math.MaxUint64,
+		Staking:                       g.Staking,
+		PersistStakingPatchBlock:      math.MaxUint64,
+		SkipContractStakingViewHeight: math.MaxUint64,
 		Revise: ReviseConfig{
 			VoteWeight:    g.Staking.VoteWeightCalConsts,
 			ReviseHeights: []uint64{g.GreenlandBlockHeight}},
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 	require.NoError(err)
 	ctx := protocol.WithBlockCtx(
 		genesis.WithGenesisContext(context.Background(), g),
@@ -278,13 +283,14 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 		DepositGas:    nil,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  g.Staking,
-		PersistStakingPatchBlock: math.MaxUint64,
+		Staking:                       g.Staking,
+		PersistStakingPatchBlock:      math.MaxUint64,
+		SkipContractStakingViewHeight: math.MaxUint64,
 		Revise: ReviseConfig{
 			VoteWeight:    g.Staking.VoteWeightCalConsts,
 			ReviseHeights: []uint64{g.GreenlandBlockHeight},
 		},
-	}, cbi, nil, nil)
+	}, nil, cbi, nil, nil)
 	require.NoError(err)
 
 	rol := rolldpos.NewProtocol(23, 4, 3)
@@ -402,12 +408,13 @@ func Test_CreateGenesisStates(t *testing.T) {
 			DepositGas:    nil,
 			BlockInterval: getBlockInterval,
 		}, &BuilderConfig{
-			Staking:                  cfg,
-			PersistStakingPatchBlock: math.MaxUint64,
+			Staking:                       cfg,
+			PersistStakingPatchBlock:      math.MaxUint64,
+			SkipContractStakingViewHeight: math.MaxUint64,
 			Revise: ReviseConfig{
 				VoteWeight: g.Staking.VoteWeightCalConsts,
 			},
-		}, nil, nil, nil)
+		}, nil, nil, nil, nil)
 		require.NoError(err)
 
 		v, err := p.Start(ctx, sm)
@@ -443,12 +450,13 @@ func TestProtocol_ActiveCandidates(t *testing.T) {
 		DepositGas:    nil,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  cfg,
-		PersistStakingPatchBlock: math.MaxUint64,
+		Staking:                       cfg,
+		PersistStakingPatchBlock:      math.MaxUint64,
+		SkipContractStakingViewHeight: math.MaxUint64,
 		Revise: ReviseConfig{
 			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
-	}, nil, csIndexer, nil)
+	}, nil, nil, csIndexer, nil)
 	require.NoError(err)
 
 	blkHeight := g.QuebecBlockHeight + 1
