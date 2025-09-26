@@ -115,7 +115,7 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	cr, err := action.NewCandidateRegisterWithBLS(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, _stake2AutoStake, payload, blsPubKeyBytes)
+	cr, err := action.NewCandidateRegisterWithBLS(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, _stake2AutoStake, blsPubKeyBytes, payload)
 
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateRegister instance", err)
