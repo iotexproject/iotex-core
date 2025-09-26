@@ -34,8 +34,7 @@ type fund struct {
 
 func init() {
 	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterRewardingV1(state.AccountKVNamespace, &fund{}))
-	assertions.MustNoError(registry.RegisterRewardingV2(_v2RewardingNamespace, &fund{}))
+	assertions.MustNoError(registry.RegisterObjectStorage(state.AccountKVNamespace, &fund{}, erigonstore.RewardingContractV1Index))
 }
 
 // Serialize serializes fund state into bytes

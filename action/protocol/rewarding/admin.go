@@ -36,10 +36,8 @@ type admin struct {
 
 func init() {
 	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterRewardingV1(state.AccountKVNamespace, &admin{}))
-	assertions.MustNoError(registry.RegisterRewardingV1(state.AccountKVNamespace, &exempt{}))
-	assertions.MustNoError(registry.RegisterRewardingV2(_v2RewardingNamespace, &admin{}))
-	assertions.MustNoError(registry.RegisterRewardingV2(_v2RewardingNamespace, &exempt{}))
+	assertions.MustNoError(registry.RegisterObjectStorage(state.AccountKVNamespace, &admin{}, erigonstore.RewardingContractV1Index))
+	assertions.MustNoError(registry.RegisterObjectStorage(state.AccountKVNamespace, &exempt{}, erigonstore.RewardingContractV1Index))
 }
 
 // Serialize serializes admin state into bytes

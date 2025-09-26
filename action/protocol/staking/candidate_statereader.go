@@ -216,6 +216,7 @@ func (c *candSR) NativeBuckets() ([]*VoteBucket, uint64, error) {
 			}
 			return keys, nil
 		}),
+		protocol.ObjectOption(&VoteBucket{}),
 	)
 	if err != nil {
 		return nil, height, err
@@ -297,7 +298,7 @@ func (c *candSR) CandidateByAddress(name address.Address) (*Candidate, uint64, e
 }
 
 func (c *candSR) CreateCandidateCenter() (*CandidateCenter, uint64, error) {
-	height, iter, err := c.States(protocol.NamespaceOption(_candidateNameSpace))
+	height, iter, err := c.States(protocol.NamespaceOption(_candidateNameSpace), protocol.ObjectOption(&Candidate{}))
 	var cands CandidateList
 	switch errors.Cause(err) {
 	case nil:
