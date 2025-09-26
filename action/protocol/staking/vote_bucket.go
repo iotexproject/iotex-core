@@ -25,10 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
-const (
-	maxBlockNumber = math.MaxUint64
-)
-
 type (
 	// VoteBucket represents a vote
 	VoteBucket struct {
@@ -213,7 +209,7 @@ func (vb *VoteBucket) isUnstaked() bool {
 	if vb.isNative() || vb.Timestamped {
 		return vb.UnstakeStartTime.After(vb.StakeStartTime)
 	}
-	return vb.UnstakeStartBlockHeight < maxBlockNumber
+	return vb.UnstakeStartBlockHeight < MaxDurationNumber
 }
 
 func (vb *VoteBucket) isNative() bool {
