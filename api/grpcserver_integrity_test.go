@@ -98,7 +98,7 @@ var (
 		big.NewInt(testutil.TestGasPriceInt64))
 	_testTransferInvalid6Pb = _testTransferInvalid6.Proto()
 
-	// negative transfer amout
+	// negative transfer amount
 	_testTransferInvalid7, _ = action.SignedTransfer(identityset.Address(28).String(),
 		identityset.PrivateKey(28), 3, big.NewInt(-10), []byte{}, 10000,
 		big.NewInt(testutil.TestGasPriceInt64))
@@ -2634,7 +2634,7 @@ func TestGrpcServer_TraceTransactionStructLogsIntegrity(t *testing.T) {
 	_, err = grpcHandler.TraceTransactionStructLogs(context.Background(), request)
 	require.Error(err)
 
-	//unsupport type
+	// unsupported type
 	request.ActionHash = hex.EncodeToString(_transferHash1[:])
 	_, err = grpcHandler.TraceTransactionStructLogs(context.Background(), request)
 	require.Error(err)
