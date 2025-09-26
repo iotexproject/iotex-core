@@ -63,7 +63,7 @@ func (osr *ObjectStorageRegistry) ObjectStorage(ns string, obj any, backend *con
 		)
 	case namespaceStorageContractType:
 		contractAddr := systemContracts[contractIndex].Address
-		contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(contractAddr.Bytes()[:]), backend, common.Address(systemContractCreatorAddr))
+		contract, err := systemcontracts.NewNamespaceStorageContractWrapper(common.BytesToAddress(contractAddr.Bytes()[:]), backend, common.Address(systemContractCreatorAddr), ns)
 		if err != nil {
 			return nil, err
 		}
