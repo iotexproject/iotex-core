@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 )
 
 var (
@@ -352,11 +353,7 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	value, err := ws.store.Get(cfg.Namespace, cfg.Key)
-	if err != nil {
-		return ws.height, err
-	}
-	return ws.height, state.Deserialize(s, value)
+	return ws.height, ws.store.GetObject(cfg.Namespace, cfg.Key, s)
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
@@ -367,14 +364,11 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys)
+	iter, err := ws.store.States(cfg.Namespace, cfg.Object, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
 	}
-	iter, err := state.NewIterator(keys, values)
-	if err != nil {
-		return 0, nil, err
-	}
+
 	return ws.height, iter, nil
 }
 
@@ -385,11 +379,7 @@ func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uin
 	if err != nil {
 		return ws.height, err
 	}
-	ss, err := state.Serialize(s)
-	if err != nil {
-		return ws.height, errors.Wrapf(err, "failed to convert account %v to bytes", s)
-	}
-	return ws.height, ws.store.Put(cfg.Namespace, cfg.Key, ss)
+	return ws.height, ws.store.PutObject(cfg.Namespace, cfg.Key, s)
 }
 
 // DelState deletes a state from DB
@@ -399,7 +389,7 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.store.Delete(cfg.Namespace, cfg.Key)
+	return ws.height, ws.store.DeleteObject(cfg.Namespace, cfg.Key, cfg.Object)
 }
 
 // ReadView reads the view
@@ -415,6 +405,9 @@ func (ws *workingSet) WriteView(name string, v protocol.View) error {
 
 // CreateGenesisStates initialize the genesis states
 func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
+	if err := ws.store.CreateGenesisStates(ctx); err != nil {
+		return err
+	}
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
 			if gsc, ok := p.(protocol.GenesisStateCreator); ok {
@@ -1030,7 +1023,11 @@ func (ws *workingSet) NewWorkingSet(ctx context.Context) (*workingSet, error) {
 	if !ws.finalized {
 		return nil, errors.New("workingset has not been finalized yet")
 	}
-	store, err := ws.workingSetStoreFactory.CreateWorkingSetStore(ctx, ws.height+1, ws.store)
+	kvStore := ws.store.KVStore()
+	if kvStore == nil {
+		return nil, errors.Errorf("KVStore() not supported in %T", ws.store)
+	}
+	store, err := ws.workingSetStoreFactory.CreateWorkingSetStore(ctx, ws.height+1, kvStore)
 	if err != nil {
 		return nil, err
 	}
@@ -1045,12 +1042,12 @@ func (ws *workingSet) Close() {
 func (ws *workingSet) Erigon() (*erigonstate.IntraBlockState, bool) {
 	switch st := ws.store.(type) {
 	case *workingSetStoreWithSecondary:
-		if wss, ok := st.writerSecondary.(*erigonWorkingSetStore); ok {
-			return wss.intraBlockState, false
+		if wss, ok := st.writerSecondary.(*erigonstore.ErigonWorkingSetStore); ok {
+			return wss.IntraBlockState(), false
 		}
 		return nil, false
 	case *erigonWorkingSetStoreForSimulate:
-		return st.erigonStore.intraBlockState, true
+		return st.erigonStore.IntraBlockState(), true
 	default:
 		return nil, false
 	}
