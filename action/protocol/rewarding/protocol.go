@@ -207,7 +207,7 @@ func (p *Protocol) Handle(
 	ctx context.Context,
 	elp action.Envelope,
 	sm protocol.StateManager,
-) (*action.Receipt, error) {
+) (receipt *action.Receipt, err error) {
 	// TODO: simplify the boilerplate
 	var (
 		si  = sm.Snapshot()

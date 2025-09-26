@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/actpool/actioniterator"
@@ -187,6 +188,10 @@ func (ws *workingSet) runAction(
 	}
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	var receipt *action.Receipt
+	traceErr := evm.TraceStart(ctx, ws, selp.Envelope)
+	if traceErr != nil {
+		log.L().Error("failed to start tracing EVM execution", zap.Error(traceErr))
+	}
 	for _, actionHandler := range reg.All() {
 		receipt, err = actionHandler.Handle(ctx, selp.Envelope, ws)
 		if err != nil {
@@ -202,6 +207,9 @@ func (ws *workingSet) runAction(
 	}
 	if receipt == nil {
 		return nil, errors.New("receipt is empty")
+	}
+	if traceErr == nil {
+		evm.TraceEnd(ctx, ws, selp.Envelope, receipt)
 	}
 	if fCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
 		if err = ws.handleBlob(ctx, selp, receipt); err != nil {

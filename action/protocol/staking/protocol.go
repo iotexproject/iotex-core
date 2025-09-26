@@ -548,7 +548,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 }
 
 // Handle handles a staking message
-func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (receipt *action.Receipt, err error) {
 	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return nil, err
@@ -558,7 +558,7 @@ func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.
 		return nil, err
 	}
 	snapshot := view.Snapshot()
-	receipt, err := p.handle(ctx, elp, csm)
+	receipt, err = p.handle(ctx, elp, csm)
 	if err != nil {
 		if err := view.Revert(snapshot); err != nil {
 			return nil, errors.Wrap(err, "failed to revert view")

@@ -2182,6 +2182,12 @@ func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Contex
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash:   bcCtx.GetBlockHash,
+		GetBlockTime:   bcCtx.GetBlockTime,
+		DepositGasFunc: rewarding.DepositGas,
+	})
 	return ctx, tracer, nil
 }
 
@@ -2290,7 +2296,7 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 		CaptureTx: func(retval []byte, receipt *action.Receipt) {
 			defer tracer.Reset()
 			var res any
-			switch innerTracer := tracer.EVMLogger.(type) {
+			switch innerTracer := tracer.Unwrap().(type) {
 			case *logger.StructLogger:
 				res = &debugTraceTransactionResult{
 					Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
