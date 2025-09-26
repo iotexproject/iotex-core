@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -106,23 +105,13 @@ func (s *stakeView) CreatePreStates(ctx context.Context) error {
 }
 
 func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
-	blkCtx := protocol.MustGetBlockCtx(ctx)
 	// new event handler for this receipt
-	handler := newContractStakingEventHandler(newWrappedCache(s.cache))
-
-	// handle events of receipt
-	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		return nil
+	handler := newContractStakingDirty(newWrappedCache(s.cache))
+	processor := newContractStakingEventProcessor(s.contractAddr, handler)
+	if err := processor.ProcessReceipts(ctx, receipt); err != nil {
+		return err
 	}
-	for _, log := range receipt.Logs() {
-		if log.Address != s.contractAddr.String() {
-			continue
-		}
-		if err := handler.HandleEvent(ctx, blkCtx.BlockHeight, log); err != nil {
-			return err
-		}
-	}
-	_, delta := handler.Result()
+	_, delta := handler.Finalize()
 	s.cache = delta
 
 	return nil
@@ -151,11 +140,12 @@ func (s *stakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Rec
 		return errors.Errorf("invalid block height %d, expect %d", height, expectHeight)
 	}
 
-	handler := newContractStakingEventHandler(newWrappedCache(s.cache))
-	if err := handler.HandleReceipts(ctx, height, receipts, s.contractAddr.String()); err != nil {
+	handler := newContractStakingDirty(newWrappedCache(s.cache))
+	processor := newContractStakingEventProcessor(s.contractAddr, handler)
+	if err := processor.ProcessReceipts(ctx, receipts...); err != nil {
 		return err
 	}
-	_, delta := handler.Result()
+	_, delta := handler.Finalize()
 	s.cache = delta
 	s.height = height
 	return nil
