@@ -25,12 +25,17 @@ var (
 // ObjectStorageRegistry is a registry for object storage
 type ObjectStorageRegistry struct {
 	contracts map[string]map[reflect.Type]int
+	fallback  map[string]int
 }
 
 func init() {
-	assertions.MustNoError(storageRegistry.RegisterAccount(state.AccountKVNamespace, &state.Account{}))
-	assertions.MustNoError(storageRegistry.RegisterPollCandidateList(state.SystemNamespace, &state.CandidateList{}))
-	assertions.MustNoError(storageRegistry.RegisterPollLegacyCandidateList(state.AccountKVNamespace, &state.CandidateList{}))
+	assertions.MustNoError(storageRegistry.RegisterNamespace(state.RewardingNamespace, RewardingContractV2Index))
+	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandidateNamespace, CandidatesContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandsMapNamespace, CandidateMapContractIndex))
+
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.Account{}, AccountIndex))
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &state.CandidateList{}, PollCandidateListContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex))
 }
 
 // GetObjectStorageRegistry returns the global object storage registry
@@ -41,18 +46,15 @@ func GetObjectStorageRegistry() *ObjectStorageRegistry {
 func newObjectStorageRegistry() *ObjectStorageRegistry {
 	return &ObjectStorageRegistry{
 		contracts: make(map[string]map[reflect.Type]int),
+		fallback:  make(map[string]int),
 	}
 }
 
 // ObjectStorage returns the object storage for the given namespace and object type
 func (osr *ObjectStorageRegistry) ObjectStorage(ns string, obj any, backend *contractBackend) (ObjectStorage, error) {
-	types, ok := osr.contracts[ns]
-	if !ok {
-		return nil, errors.Wrapf(ErrObjectStorageNotRegistered, "namespace: %s", ns)
-	}
-	contractIndex, ok := types[reflect.TypeOf(obj)]
-	if !ok {
-		return nil, errors.Wrapf(ErrObjectStorageNotRegistered, "namespace: %s, object: %T", ns, obj)
+	contractIndex, exist := osr.matchContractIndex(ns, obj)
+	if !exist {
+		return nil, errors.Wrapf(ErrObjectStorageNotRegistered, "namespace: %s, type: %T", ns, obj)
 	}
 	// TODO: cache storage
 	switch systemContractTypes[contractIndex] {
@@ -78,82 +80,30 @@ func (osr *ObjectStorageRegistry) ObjectStorage(ns string, obj any, backend *con
 	}
 }
 
-// RegisterAccount registers an account object storage
-func (osr *ObjectStorageRegistry) RegisterAccount(ns string, obj any) error {
-	return osr.register(ns, obj, AccountIndex)
+// RegisterObjectStorage registers a generic object storage
+func (osr *ObjectStorageRegistry) RegisterObjectStorage(ns string, obj any, index int) error {
+	if index < AccountIndex || index >= SystemContractCount {
+		return errors.Errorf("invalid system contract index %d", index)
+	}
+	return osr.register(ns, obj, index)
 }
 
-// RegisterStakingBuckets registers a staking buckets object storage
-func (osr *ObjectStorageRegistry) RegisterStakingBuckets(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, StakingBucketsContractIndex)
-}
-
-// RegisterBucketPool registers a bucket pool object storage
-func (osr *ObjectStorageRegistry) RegisterBucketPool(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, BucketPoolContractIndex)
-}
-
-// RegisterBucketIndices registers a bucket indices object storage
-func (osr *ObjectStorageRegistry) RegisterBucketIndices(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, BucketIndicesContractIndex)
-}
-
-// RegisterEndorsement registers an endorsement object storage
-func (osr *ObjectStorageRegistry) RegisterEndorsement(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, EndorsementContractIndex)
-}
-
-// RegisterCandidateMap registers a candidate map object storage
-func (osr *ObjectStorageRegistry) RegisterCandidateMap(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, CandidateMapContractIndex)
-}
-
-// RegisterCandidates registers a candidates object storage
-func (osr *ObjectStorageRegistry) RegisterCandidates(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, CandidatesContractIndex)
-}
-
-// RegisterPollCandidateList registers a poll candidate list object storage
-func (osr *ObjectStorageRegistry) RegisterPollCandidateList(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, PollCandidateListContractIndex)
-}
-
-// RegisterPollLegacyCandidateList registers a poll legacy candidate list object storage
-func (osr *ObjectStorageRegistry) RegisterPollLegacyCandidateList(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, PollLegacyCandidateListContractIndex)
-}
-
-// RegisterPollProbationList registers a poll probation list object storage
-func (osr *ObjectStorageRegistry) RegisterPollProbationList(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, PollProbationListContractIndex)
-}
-
-// RegisterPollUnproductiveDelegate registers a poll unproductive delegate object storage
-func (osr *ObjectStorageRegistry) RegisterPollUnproductiveDelegate(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, PollUnproductiveDelegateContractIndex)
-}
-
-// RegisterPollBlockMeta registers a poll block meta object storage
-func (osr *ObjectStorageRegistry) RegisterPollBlockMeta(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, PollBlockMetaContractIndex)
-}
-
-// RegisterRewardingV1 registers a rewarding v1 object storage
-func (osr *ObjectStorageRegistry) RegisterRewardingV1(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, RewardingContractV1Index)
-}
-
-// RegisterRewardingV2 registers a rewarding v2 object storage
-func (osr *ObjectStorageRegistry) RegisterRewardingV2(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, RewardingContractV2Index)
-}
-
-// RegisterStakingView registers a staking view object storage
-func (osr *ObjectStorageRegistry) RegisterStakingView(ns string, obj systemcontracts.GenericValueContainer) error {
-	return osr.register(ns, obj, StakingViewContractIndex)
+// RegisterNamespace registers a namespace object storage
+func (osr *ObjectStorageRegistry) RegisterNamespace(ns string, index int) error {
+	if index < AccountIndex || index >= SystemContractCount {
+		return errors.Errorf("invalid system contract index %d", index)
+	}
+	return osr.register(ns, nil, index)
 }
 
 func (osr *ObjectStorageRegistry) register(ns string, obj any, index int) error {
+	if obj == nil {
+		if _, exists := osr.fallback[ns]; exists {
+			return errors.Wrapf(ErrObjectStorageAlreadyRegistered, "registered: %v", osr.fallback[ns])
+		}
+		osr.fallback[ns] = index
+		return nil
+	}
 	types, ok := osr.contracts[ns]
 	if !ok {
 		osr.contracts[ns] = make(map[reflect.Type]int)
@@ -164,4 +114,17 @@ func (osr *ObjectStorageRegistry) register(ns string, obj any, index int) error 
 	}
 	types[reflect.TypeOf(obj)] = index
 	return nil
+}
+
+func (osr *ObjectStorageRegistry) matchContractIndex(ns string, obj any) (int, bool) {
+	if obj == nil {
+		index, exist := osr.fallback[ns]
+		return index, exist
+	}
+	types, ok := osr.contracts[ns]
+	if !ok {
+		return 0, false
+	}
+	index, exist := types[reflect.TypeOf(obj)]
+	return index, exist
 }

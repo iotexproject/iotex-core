@@ -55,7 +55,7 @@ type (
 
 func init() {
 	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterBucketPool(_stakingNameSpace, &totalAmount{}))
+	assertions.MustNoError(registry.RegisterObjectStorage(_stakingNameSpace, &totalAmount{}, erigonstore.BucketPoolContractIndex))
 }
 
 func (t *totalAmount) Serialize() ([]byte, error) {

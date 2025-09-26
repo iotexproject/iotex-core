@@ -58,8 +58,8 @@ type (
 
 func init() {
 	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterStakingBuckets(_stakingNameSpace, &VoteBucket{}))
-	assertions.MustNoError(registry.RegisterBucketPool(_stakingNameSpace, &totalBucketCount{}))
+	assertions.MustNoError(registry.RegisterObjectStorage(_stakingNameSpace, &VoteBucket{}, erigonstore.StakingBucketsContractIndex))
+	assertions.MustNoError(registry.RegisterObjectStorage(_stakingNameSpace, &totalBucketCount{}, erigonstore.BucketPoolContractIndex))
 }
 
 // NewVoteBucket creates a new vote bucket

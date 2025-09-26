@@ -26,7 +26,7 @@ type UnproductiveDelegate struct {
 }
 
 func init() {
-	assertions.MustNoError(erigonstore.GetObjectStorageRegistry().RegisterPollUnproductiveDelegate(protocol.SystemNamespace, &UnproductiveDelegate{}))
+	assertions.MustNoError(erigonstore.GetObjectStorageRegistry().RegisterObjectStorage(protocol.SystemNamespace, &UnproductiveDelegate{}, erigonstore.PollUnproductiveDelegateContractIndex))
 }
 
 // NewUnproductiveDelegate creates new UnproductiveDelegate with probationperiod and cacheSize

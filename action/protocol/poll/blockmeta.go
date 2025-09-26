@@ -27,7 +27,7 @@ type BlockMeta struct {
 }
 
 func init() {
-	assertions.MustNoError(erigonstore.GetObjectStorageRegistry().RegisterPollBlockMeta(protocol.SystemNamespace, &BlockMeta{}))
+	assertions.MustNoError(erigonstore.GetObjectStorageRegistry().RegisterObjectStorage(protocol.SystemNamespace, &BlockMeta{}, erigonstore.PollBlockMetaContractIndex))
 }
 
 // NewBlockMeta constructs new blockmeta struct with given fieldss

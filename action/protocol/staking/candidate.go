@@ -17,9 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/state"
-	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -46,12 +44,6 @@ type (
 		MinSelfStake *big.Int
 	}
 )
-
-func init() {
-	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterCandidateMap(CandsMapNS, &CandidateList{}))
-	assertions.MustNoError(registry.RegisterCandidates(_candidateNameSpace, &Candidate{}))
-}
 
 // Clone returns a copy
 func (d *Candidate) Clone() *Candidate {

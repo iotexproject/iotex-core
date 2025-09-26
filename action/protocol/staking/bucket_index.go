@@ -24,7 +24,7 @@ type (
 
 func init() {
 	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterBucketIndices(_stakingNameSpace, &BucketIndices{}))
+	assertions.MustNoError(registry.RegisterObjectStorage(_stakingNameSpace, &BucketIndices{}, erigonstore.BucketIndicesContractIndex))
 }
 
 // Proto converts bucket indices to protobuf

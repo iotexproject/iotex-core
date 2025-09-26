@@ -36,10 +36,8 @@ type rewardHistory struct{}
 
 func init() {
 	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterRewardingV1(state.AccountKVNamespace, &rewardHistory{}))
-	assertions.MustNoError(registry.RegisterRewardingV1(state.AccountKVNamespace, &rewardAccount{}))
-	assertions.MustNoError(registry.RegisterRewardingV2(_v2RewardingNamespace, &rewardHistory{}))
-	assertions.MustNoError(registry.RegisterRewardingV2(_v2RewardingNamespace, &rewardAccount{}))
+	assertions.MustNoError(registry.RegisterObjectStorage(state.AccountKVNamespace, &rewardHistory{}, erigonstore.RewardingContractV1Index))
+	assertions.MustNoError(registry.RegisterObjectStorage(state.AccountKVNamespace, &rewardAccount{}, erigonstore.RewardingContractV1Index))
 }
 
 // Serialize serializes reward history state into bytes

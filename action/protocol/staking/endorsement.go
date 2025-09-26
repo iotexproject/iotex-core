@@ -39,7 +39,7 @@ type (
 
 func init() {
 	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterEndorsement(_stakingNameSpace, &Endorsement{}))
+	assertions.MustNoError(registry.RegisterObjectStorage(_stakingNameSpace, &Endorsement{}, erigonstore.EndorsementContractIndex))
 }
 
 // String returns a human-readable string of the endorsement status

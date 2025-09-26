@@ -26,7 +26,7 @@ type ProbationList struct {
 }
 
 func init() {
-	assertions.MustNoError(erigonstore.GetObjectStorageRegistry().RegisterPollProbationList(protocol.SystemNamespace, &ProbationList{}))
+	assertions.MustNoError(erigonstore.GetObjectStorageRegistry().RegisterObjectStorage(protocol.SystemNamespace, &ProbationList{}, erigonstore.PollProbationListContractIndex))
 }
 
 // NewProbationList returns a new probation list
