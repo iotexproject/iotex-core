@@ -6,8 +6,10 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type (
@@ -30,6 +32,11 @@ type (
 	kvStoreWithBuffer struct {
 		store  KVStore
 		buffer batch.CachedBatch
+	}
+
+	kvStoreAutoWriteBatch struct {
+		*kvStoreWithBuffer
+		threshold int
 	}
 
 	// KVStoreFlusher is a wrapper of KVStoreWithBuffer, which has flush api
@@ -108,6 +115,25 @@ func NewKVStoreFlusher(store KVStore, buffer batch.CachedBatch, opts ...KVStoreF
 	}
 
 	return f, nil
+}
+
+// NewKVStoreAutoFlush creates a new KVStoreAutoFlusher
+func NewKVStoreAutoFlush(store KVStore, threshold int) (KVStore, error) {
+	if store == nil {
+		return nil, errors.New("store cannot be nil")
+	}
+	if threshold <= 0 {
+		return nil, errors.New("invalid threshold")
+	}
+	buffer := batch.NewCachedBatch()
+	kva := &kvStoreAutoWriteBatch{
+		kvStoreWithBuffer: &kvStoreWithBuffer{
+			store:  store,
+			buffer: buffer,
+		},
+		threshold: threshold,
+	}
+	return kva, nil
 }
 
 func (f *flusher) Flush() error {
@@ -248,5 +274,32 @@ func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey [
 
 func (kvb *kvStoreWithBuffer) WriteBatch(b batch.KVStoreBatch) (err error) {
 	kvb.buffer.Append(b)
+	return nil
+}
+
+func (kva *kvStoreAutoWriteBatch) WriteBatch(b batch.KVStoreBatch) (err error) {
+	log.L().Debug("writing batch", zap.Int("size", kva.buffer.Size()))
+	kva.buffer.Append(b)
+	if kva.buffer.Size() >= kva.threshold {
+		kva.flush()
+	}
+	return nil
+}
+
+func (kva *kvStoreAutoWriteBatch) Stop(ctx context.Context) (err error) {
+	log.L().Debug("stopping kv store with final flush")
+	if err := kva.flush(); err != nil {
+		return err
+	}
+	return kva.kvStoreWithBuffer.Stop(ctx)
+}
+
+func (kva *kvStoreAutoWriteBatch) flush() (err error) {
+	log.L().Debug("flushing batch", zap.Int("size", kva.buffer.Size()))
+	if err := kva.store.WriteBatch(kva.buffer.Translate(func(wi *batch.WriteInfo) *batch.WriteInfo { return wi })); err != nil {
+		return err
+	}
+	kva.buffer.Lock()
+	kva.buffer.ClearAndUnlock()
 	return nil
 }

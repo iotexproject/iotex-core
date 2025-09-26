@@ -7,6 +7,7 @@ package blockdao
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -36,13 +37,14 @@ type (
 
 	// BlockIndexerChecker defines a checker of block indexer
 	BlockIndexerChecker struct {
-		dao BlockDAO
+		dao          BlockDAO
+		targetHeight uint64
 	}
 )
 
 // NewBlockIndexerChecker creates a new block indexer checker
-func NewBlockIndexerChecker(dao BlockDAO) *BlockIndexerChecker {
-	return &BlockIndexerChecker{dao: dao}
+func NewBlockIndexerChecker(dao BlockDAO, target uint64) *BlockIndexerChecker {
+	return &BlockIndexerChecker{dao: dao, targetHeight: target}
 }
 
 // CheckIndexer checks a block indexer against block dao
@@ -66,10 +68,6 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 	if tipHeight > daoTip {
 		return errors.New("indexer tip height cannot by higher than dao tip height")
 	}
-	tipBlk, err := bic.dao.GetBlockByHeight(tipHeight)
-	if err != nil {
-		return err
-	}
 	if targetHeight == 0 || targetHeight > daoTip {
 		targetHeight = daoTip
 	}
@@ -79,6 +77,10 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 		if indexStartHeight > startHeight {
 			startHeight = indexStartHeight
 		}
+	}
+	tipBlk, err := bic.dao.GetBlockByHeight(startHeight - 1)
+	if err != nil {
+		return err
 	}
 	for i := startHeight; i <= targetHeight; i++ {
 		// ternimate if context is done
@@ -139,6 +141,37 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 			progressReporter(i)
 		}
 		tipBlk = blk
+	}
+	return nil
+}
+
+func (bic *BlockIndexerChecker) CheckIndexers(ctx context.Context, indexers []BlockIndexer) error {
+	for i, indexer := range indexers {
+		if err := bic.CheckIndexer(ctx, indexer, bic.targetHeight, func(height uint64) {
+			if height%5000 == 0 {
+				log.L().Info(
+					"indexer is catching up.",
+					zap.Int("indexer", i),
+					zap.Uint64("height", height),
+				)
+			}
+		}); err != nil {
+			return err
+		}
+		log.L().Info(
+			"indexer is up to date.",
+			zap.Int("indexer", i),
+		)
+	}
+	for _, indexer := range indexers {
+		height, err := indexer.Height()
+		if err != nil {
+			return errors.Wrap(err, "failed to get indexer height")
+		}
+		log.L().Info("indexer height", zap.Uint64("height", height), zap.String("indexer", fmt.Sprintf("%T", indexer)), zap.Any("content", indexer))
+	}
+	if bic.targetHeight > 0 {
+		return errors.Errorf("indexers are up to target height %d", bic.targetHeight)
 	}
 	return nil
 }

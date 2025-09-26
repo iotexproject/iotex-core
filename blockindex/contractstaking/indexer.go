@@ -176,6 +176,9 @@ func (s *Indexer) start(ctx context.Context) error {
 
 // Stop stops the indexer
 func (s *Indexer) Stop(ctx context.Context) error {
+	if !s.IsReady() {
+		return nil
+	}
 	if err := s.kvstore.Stop(ctx); err != nil {
 		return err
 	}

@@ -52,6 +52,7 @@ type (
 	// InfoManager manage delegate node info
 	InfoManager struct {
 		lifecycle.Lifecycle
+		lifecycle.Readiness
 		version              string
 		broadcastList        atomic.Value // []string, whitelist to force enable broadcast
 		nodeMap              *lru.Cache
@@ -121,11 +122,21 @@ func NewInfoManager(cfg *Config, t transmitter, ch chain, broadcastListFunc getB
 // Start start delegate broadcast task
 func (dm *InfoManager) Start(ctx context.Context) error {
 	dm.updateBroadcastList()
-	return dm.OnStart(ctx)
+	err := dm.OnStart(ctx)
+	if err != nil {
+		return err
+	}
+	return dm.TurnOn()
 }
 
 // Stop stop delegate broadcast task
 func (dm *InfoManager) Stop(ctx context.Context) error {
+	if !dm.IsReady() {
+		return nil
+	}
+	if err := dm.TurnOff(); err != nil {
+		return err
+	}
 	return dm.OnStop(ctx)
 }
 

@@ -115,6 +115,9 @@ func (s *Indexer) start(ctx context.Context) error {
 func (s *Indexer) Stop(ctx context.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if !s.common.Started() {
+		return nil
+	}
 	return s.common.Stop(ctx)
 }
 
