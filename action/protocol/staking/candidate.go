@@ -27,7 +27,7 @@ type (
 		Operator           address.Address
 		Reward             address.Address
 		Identifier         address.Address
-		Pubkey             []byte // BLS public key
+		BLSPubKey          []byte // BLS public key
 		Name               string
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
@@ -204,9 +204,9 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		voter = d.Identifier.String()
 	}
 	var pubkey []byte
-	if len(d.Pubkey) > 0 {
-		pubkey = make([]byte, len(d.Pubkey))
-		copy(pubkey, d.Pubkey)
+	if len(d.BLSPubKey) > 0 {
+		pubkey = make([]byte, len(d.BLSPubKey))
+		copy(pubkey, d.BLSPubKey)
 	}
 
 	return &stakingpb.Candidate{
@@ -263,10 +263,10 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 		return action.ErrInvalidAmount
 	}
 	if len(pb.GetPubkey()) > 0 {
-		d.Pubkey = make([]byte, len(pb.GetPubkey()))
-		copy(d.Pubkey, pb.GetPubkey())
+		d.BLSPubKey = make([]byte, len(pb.GetPubkey()))
+		copy(d.BLSPubKey, pb.GetPubkey())
 	} else {
-		d.Pubkey = nil
+		d.BLSPubKey = nil
 	}
 	return nil
 }
@@ -290,7 +290,7 @@ func (d *Candidate) toStateCandidate() *state.Candidate {
 		Votes:         new(big.Int).Set(d.Votes),
 		RewardAddress: d.Reward.String(),
 		CanName:       []byte(d.Name),
-		Pubkey:        d.Pubkey,
+		BLSPubKey:     d.BLSPubKey,
 	}
 }
 
