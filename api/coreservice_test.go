@@ -492,6 +492,9 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
 		bc.EXPECT().TipHeight().Return(uint64(1)).Times(2)
+		ctx := protocol.WithBlockchainCtx(genesis.WithGenesisContext(ctx, genesis.Genesis{}), protocol.BlockchainCtx{
+			Tip: protocol.TipInfo{Height: 1, Timestamp: time.Now()},
+		})
 		bc.EXPECT().ContextAtHeight(gomock.Any(), gomock.Any()).Return(ctx, nil).Times(1)
 		sf.EXPECT().WorkingSetAtHeight(gomock.Any(), gomock.Any()).Return(&mockWS{}, nil).Times(1)
 		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
