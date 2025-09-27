@@ -38,7 +38,10 @@ func SignedTransfer(recipientAddr string, senderPriKey crypto.PrivateKey, nonce 
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, senderPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign transfer %v", elp)
@@ -57,7 +60,10 @@ func SignedExecution(contractAddr string, executorPriKey crypto.PrivateKey, nonc
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, executorPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign execution %v", elp)
@@ -90,7 +96,10 @@ func SignedCandidateRegister(
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, registererPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign candidate register %v", elp)
@@ -119,7 +128,10 @@ func SignedCandidateUpdate(
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, registererPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign candidate update %v", elp)
@@ -145,7 +157,10 @@ func SignedCandidateActivate(
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, registererPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign candidate selfstake %v", elp)
@@ -172,7 +187,10 @@ func SignedCandidateEndorsementLegacy(
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, registererPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign candidate endorsement %v", elp)
@@ -202,7 +220,10 @@ func SignedCandidateEndorsement(
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, registererPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign candidate endorsement %v", elp)
@@ -233,7 +254,10 @@ func SignedCreateStake(nonce uint64,
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, stakerPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign create stake %v", elp)
@@ -259,14 +283,20 @@ func SignedReclaimStake(
 	for _, opt := range options {
 		opt(bd)
 	}
-	var elp Envelope
+	var (
+		elp Envelope
+		err error
+	)
 	// unstake
 	if !withdraw {
 		us := NewUnstake(bucketIndex, payload)
-		elp = bd.SetAction(us).Build()
+		elp, err = bd.SetAction(us).Build()
 	} else {
 		w := NewWithdrawStake(bucketIndex, payload)
-		elp = bd.SetAction(w).Build()
+		elp, err = bd.SetAction(w).Build()
+	}
+	if err != nil {
+		return nil, err
 	}
 	selp, err := Sign(elp, reclaimerPriKey)
 	if err != nil {
@@ -295,7 +325,10 @@ func SignedChangeCandidate(
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, stakerPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign change candidate %v", elp)
@@ -326,7 +359,10 @@ func SignedTransferStake(
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, stakerPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign transfer stake %v", elp)
@@ -357,7 +393,10 @@ func SignedDepositToStake(
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, depositorPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign deposit to stake %v", elp)
@@ -386,7 +425,10 @@ func SignedRestake(
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, restakerPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign restake %v", elp)
@@ -416,7 +458,10 @@ func SignedCandidateTransferOwnership(
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, senderPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign candidate transfer ownership %v", elp)
@@ -441,7 +486,10 @@ func SignedMigrateStake(
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, senderPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign candidate transfer ownership %v", elp)
@@ -480,7 +528,10 @@ func SignedClaimReward(
 	for _, opt := range options {
 		opt(bd)
 	}
-	elp := bd.Build()
+	elp, err := bd.Build()
+	if err != nil {
+		return nil, err
+	}
 	selp, err := Sign(elp, senderPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to sign candidate transfer ownership %v", elp)

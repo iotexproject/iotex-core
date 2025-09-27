@@ -30,8 +30,9 @@ var (
 func TestUnstake(t *testing.T) {
 	require := require.New(t)
 	stake := NewUnstake(_index, _payload)
-	elp := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
+	elp, err := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
 		SetGasPrice(_gasPrice).SetAction(stake).Build()
+	require.NoError(err)
 	t.Run("proto", func(t *testing.T) {
 		ser := stake.Serialize()
 		require.Equal("080a12077061796c6f6164", hex.EncodeToString(ser))
@@ -79,8 +80,9 @@ func TestUnstake(t *testing.T) {
 func TestWithdraw(t *testing.T) {
 	require := require.New(t)
 	stake := NewWithdrawStake(_index, _payload)
-	elp := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
+	elp, err := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
 		SetGasPrice(_gasPrice).SetAction(stake).Build()
+	require.NoError(err)
 	t.Run("proto", func(t *testing.T) {
 		ser := stake.Serialize()
 		require.Equal("080a12077061796c6f6164", hex.EncodeToString(ser))

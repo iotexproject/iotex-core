@@ -18,8 +18,9 @@ import (
 func TestChangeCandidate(t *testing.T) {
 	require := require.New(t)
 	stake := NewChangeCandidate(_canName, _index, _payload)
-	elp := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
+	elp, err := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
 		SetGasPrice(_gasPrice).SetAction(stake).Build()
+	require.NoError(err)
 	t.Run("proto", func(t *testing.T) {
 		ser := stake.Serialize()
 		require.Equal("080a120a63616e646964617465311a077061796c6f6164", hex.EncodeToString(ser))
@@ -47,8 +48,9 @@ func TestChangeCandidate(t *testing.T) {
 	})
 	t.Run("Invalid Gas Price", func(t *testing.T) {
 		cc := NewChangeCandidate(_canName, _index, _payload)
-		elp := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
+		elp, err := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
 			SetGasPrice(big.NewInt(-1)).SetAction(cc).Build()
+		require.NoError(err)
 		require.Equal(ErrNegativeValue, errors.Cause(elp.SanityCheck()))
 	})
 	t.Run("sign and verify", func(t *testing.T) {

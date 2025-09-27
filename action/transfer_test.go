@@ -24,8 +24,9 @@ func TestTransferSignVerify(t *testing.T) {
 	require.EqualValues(66, tsf.Size())
 
 	bd := &EnvelopeBuilder{}
-	eb := bd.SetNonce(1).SetGasLimit(100000).SetGasPrice(big.NewInt(10)).
+	eb, err := bd.SetNonce(1).SetGasLimit(100000).SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
+	require.NoError(err)
 	elp, ok := eb.(*envelope)
 	require.True(ok)
 	require.EqualValues(87, eb.Size())
@@ -51,8 +52,9 @@ func TestTransfer(t *testing.T) {
 
 	tsf := NewTransfer(big.NewInt(10), recipientAddr.String(), []byte{})
 	bd := &EnvelopeBuilder{}
-	eb := bd.SetGasLimit(uint64(100000)).SetGasPrice(big.NewInt(10)).
+	eb, err := bd.SetGasLimit(uint64(100000)).SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
+	require.NoError(err)
 	elp, ok := eb.(*envelope)
 	require.True(ok)
 	require.EqualValues(87, eb.Size())
@@ -90,8 +92,9 @@ func TestTransfer(t *testing.T) {
 	})
 	t.Run("Negative gas fee", func(t *testing.T) {
 		tsf := NewTransfer(big.NewInt(100), identityset.Address(28).String(), nil)
-		elp := (&EnvelopeBuilder{}).SetGasLimit(100000).
+		elp, err := (&EnvelopeBuilder{}).SetGasLimit(100000).
 			SetGasPrice(big.NewInt(-1)).SetAction(tsf).Build()
+		require.NoError(err)
 		require.Equal(ErrNegativeValue, errors.Cause(elp.SanityCheck()))
 	})
 }
