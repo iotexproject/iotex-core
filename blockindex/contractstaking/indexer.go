@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
 )
 
 const (
@@ -107,66 +108,25 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 		return nil, errors.New("indexer not started")
 	}
 	featureCtx, ok := protocol.GetFeatureCtx(ctx)
-	if !ok || featureCtx.StoreVoteOfNFTBucketIntoView {
-		return &stakeView{
-			contractAddr:       s.contractAddr,
-			config:             s.config,
-			cache:              s.cache.Clone(),
-			height:             s.height,
-			genBlockDurationFn: s.genBlockDurationFn,
-		}, nil
-	}
-	cssr := contractstaking.NewStateReader(sr)
-	tids, types, err := cssr.BucketTypes(s.contractAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get bucket types for contract %s", s.contractAddr)
-	}
-	if len(tids) != len(types) {
-		return nil, errors.Errorf("length of tids (%d) does not match length of types (%d)", len(tids), len(types))
-	}
-	ids, buckets, err := contractstaking.NewStateReader(sr).Buckets(s.contractAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get buckets for contract %s", s.contractAddr)
-	}
-	if len(ids) != len(buckets) {
-		return nil, errors.Errorf("length of ids (%d) does not match length of buckets (%d)", len(ids), len(buckets))
-	}
-	cache := &contractStakingCache{}
-	for i, id := range tids {
-		if types[i] == nil {
-			return nil, errors.Errorf("bucket type %d is nil", id)
-		}
-		cache.PutBucketType(id, types[i])
-	}
-	for i, id := range ids {
-		if buckets[i] == nil {
-			return nil, errors.New("bucket is nil")
-		}
-		tid, bt := cache.MatchBucketType(buckets[i].StakedAmount, buckets[i].StakedDuration)
-		if bt == nil {
-			return nil, errors.Errorf(
-				"no bucket type found for bucket %d with staked amount %s and duration %d",
-				id,
-				buckets[i].StakedAmount.String(),
-				buckets[i].StakedDuration,
-			)
-		}
-		cache.PutBucketInfo(id, &bucketInfo{
-			TypeIndex:  tid,
-			CreatedAt:  buckets[i].CreatedAt,
-			UnlockedAt: buckets[i].UnlockedAt,
-			UnstakedAt: buckets[i].UnstakedAt,
-			Delegate:   buckets[i].Candidate,
-			Owner:      buckets[i].Owner,
-		})
+	if ok && !featureCtx.StoreVoteOfNFTBucketIntoView {
+		return nil, nil
 	}
 
-	return &stakeView{
-		cache:        cache,
-		height:       s.height,
-		config:       s.config,
-		contractAddr: s.contractAddr,
-	}, nil
+	ids, typs, infos := s.cache.Buckets()
+	buckets := make(map[uint64]*contractstaking.Bucket)
+	for i, id := range ids {
+		buckets[id] = assembleContractBucket(infos[i], typs[i])
+	}
+	calculateUnmutedVoteWeightAt := func(b *contractstaking.Bucket, height uint64) *big.Int {
+		vb := contractBucketToVoteBucket(0, b, s.contractAddr.String(), s.genBlockDurationFn(height))
+		return s.config.CalculateVoteWeight(vb)
+	}
+	cur := stakingindex.AggregateCandidateVotes(buckets, func(b *contractstaking.Bucket) *big.Int {
+		return calculateUnmutedVoteWeightAt(b, s.height)
+	})
+	processorBuilder := newEventProcessorBuilder(s.contractAddr)
+	cfg := &stakingindex.VoteViewConfig{ContractAddr: s.contractAddr}
+	return stakingindex.NewVoteView(cfg, s.height, cur, processorBuilder, calculateUnmutedVoteWeightAt), nil
 }
 
 // Stop stops the indexer
@@ -241,6 +201,20 @@ func (s *Indexer) genBlockDurationFn(height uint64) blocksDurationFn {
 	return func(start, end uint64) time.Duration {
 		return s.config.BlocksToDuration(start, end, height)
 	}
+}
+
+// DeductBucket deducts the bucket by address and id
+func (s *Indexer) DeductBucket(addr address.Address, id uint64) (*contractstaking.Bucket, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.contractAddr.String() != addr.String() {
+		return nil, errors.Wrapf(contractstaking.ErrBucketNotExist, "contract address not match: %s vs %s", s.contractAddr.String(), addr.String())
+	}
+	bt, bi := s.cache.Bucket(id)
+	if bt == nil || bi == nil {
+		return nil, errors.Wrapf(contractstaking.ErrBucketNotExist, "bucket %d not found", id)
+	}
+	return assembleContractBucket(bi, bt), nil
 }
 
 // Buckets returns the buckets
@@ -372,6 +346,19 @@ func (s *Indexer) BucketTypes(height uint64) ([]*BucketType, error) {
 		bts = append(bts, bt)
 	}
 	return bts, nil
+}
+
+// ContractStakingBuckets returns all contract staking buckets
+func (s *Indexer) ContractStakingBuckets() (uint64, map[uint64]*contractstaking.Bucket, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	ids, typs, infos := s.cache.Buckets()
+	res := make(map[uint64]*contractstaking.Bucket)
+	for i, id := range ids {
+		res[id] = assembleContractBucket(infos[i], typs[i])
+	}
+	return s.height, res, nil
 }
 
 // PutBlock puts a block into indexer
