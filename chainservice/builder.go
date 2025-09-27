@@ -368,13 +368,16 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to parse contract address %s", builder.cfg.Genesis.SystemStakingContractV2Address)
 		}
-		indexer := stakingindex.NewIndexer(
+		indexer, err := stakingindex.NewIndexer(
 			kvstore,
 			contractAddr,
 			builder.cfg.Genesis.SystemStakingContractV2Height,
 			builder.blocksToDurationFn,
 			stakingindex.WithMuteHeight(builder.cfg.Genesis.WakeBlockHeight),
 		)
+		if err != nil {
+			return err
+		}
 		builder.cs.contractStakingIndexerV2 = indexer
 		builder.cs.factory.AddDependency(indexer)
 	}
@@ -384,13 +387,16 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to parse contract address %s", builder.cfg.Genesis.SystemStakingContractV3Address)
 		}
-		indexer := stakingindex.NewIndexer(
+		indexer, err := stakingindex.NewIndexer(
 			kvstore,
 			contractAddr,
 			builder.cfg.Genesis.SystemStakingContractV3Height,
 			builder.blocksToDurationFn,
 			stakingindex.EnableTimestamped(),
 		)
+		if err != nil {
+			return err
+		}
 		builder.cs.contractStakingIndexerV3 = indexer
 		builder.cs.factory.AddDependency(indexer)
 	}
