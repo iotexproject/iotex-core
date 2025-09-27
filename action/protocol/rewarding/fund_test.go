@@ -46,7 +46,7 @@ func TestProtocol_Fund(t *testing.T) {
 		// Deposit another 6 token will fail because
 		_, err = p.Deposit(ctx, sm, big.NewInt(996), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.Error(t, err)
-	}, false)
+	}, nil, false, 0)
 
 }
 
@@ -54,5 +54,5 @@ func TestDepositNegativeGasFee(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		_, err := DepositGas(ctx, sm, big.NewInt(-1))
 		require.Error(t, err)
-	}, false)
+	}, nil, false, 0)
 }
