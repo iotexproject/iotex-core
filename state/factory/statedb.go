@@ -8,6 +8,7 @@ package factory
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -567,15 +568,22 @@ func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 			return wi.Serialize()
 		}),
 	}
-	if !preEaster {
-		return opts
+	serializeFilterNs := []string{state.StakingViewNamespace}
+	if preEaster {
+		serializeFilterNs = append(serializeFilterNs, evm.CodeKVNameSpace, staking.CandsMapNS)
 	}
-	return append(
-		opts,
+	opts = append(opts,
+		db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
+			if wi.Namespace() == state.StakingViewNamespace {
+				return nil
+			}
+			return wi
+		}),
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
-			return wi.Namespace() == evm.CodeKVNameSpace || wi.Namespace() == staking.CandsMapNS
+			return slices.Contains(serializeFilterNs, wi.Namespace())
 		}),
 	)
+	return opts
 }
 
 func (sdb *stateDB) state(h uint64, ns string, addr []byte, s interface{}) error {

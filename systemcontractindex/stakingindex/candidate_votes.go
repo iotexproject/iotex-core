@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // CandidateVotes is the interface to manage candidate votes
@@ -123,6 +124,18 @@ func (cv *candidateVotes) Deserialize(data []byte) error {
 		cv.Add(c.Address, amount, votes)
 	}
 	return nil
+}
+
+func (cv *candidateVotes) Encode() (systemcontracts.GenericValue, error) {
+	data, err := cv.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+func (cv *candidateVotes) Decode(data systemcontracts.GenericValue) error {
+	return cv.Deserialize(data.PrimaryData)
 }
 
 func (cv *candidateVotes) Commit() CandidateVotes {
