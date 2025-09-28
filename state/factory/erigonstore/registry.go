@@ -37,6 +37,7 @@ func init() {
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandidateNamespace, CandidatesContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandsMapNamespace, CandidateMapContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingNamespace, BucketPoolContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingViewNamespace, StakingViewContractIndex))
 
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.Account{}, AccountIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex))

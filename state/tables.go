@@ -38,6 +38,10 @@ const (
 	//   - "4" + <bucketID> --> Endorsement
 	StakingNamespace = "Staking"
 
+	// StakingViewNamespace is the namespace to store staking view information
+	//   - "voteview" + <contractAddress> --> CandidateVotes
+	StakingViewNamespace = "StakingView"
+
 	// CandidateNamespace is the namespace to store candidate information
 	//   - <ID> --> Candidate
 	CandidateNamespace = "Candidate"

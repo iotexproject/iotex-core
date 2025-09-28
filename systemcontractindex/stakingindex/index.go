@@ -176,8 +176,9 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	cfg := &VoteViewConfig{
 		ContractAddr: s.common.ContractAddress(),
 	}
+	mgr := NewCandidateVotesManager(s.ContractAddress())
 	processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
-	return NewVoteView(s, cfg, s.common.Height(), s.createCandidateVotes(s.cache.buckets), processorBuilder, s.calculateContractVoteWeight), nil
+	return NewVoteView(s, cfg, s.common.Height(), s.createCandidateVotes(s.cache.buckets), processorBuilder, mgr, s.calculateContractVoteWeight), nil
 }
 
 // ContractStakingBuckets returns all the contract staking buckets
