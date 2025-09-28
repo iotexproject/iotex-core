@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -57,9 +56,19 @@ func (s *stakeView) IsDirty() bool {
 	return s.cache.IsDirty()
 }
 
-func (s *stakeView) WriteBuckets(sm protocol.StateManager) error {
+func (s *stakeView) Migrate(handler staking.EventHandler) error {
+	bts := s.cache.BucketTypes()
+	tids := make([]uint64, 0, len(bts))
+	for id := range bts {
+		tids = append(tids, id)
+	}
+	slices.Sort(tids)
+	for _, id := range tids {
+		if err := handler.PutBucketType(s.contractAddr, bts[id]); err != nil {
+			return err
+		}
+	}
 	ids, types, infos := s.cache.Buckets()
-	cssm := contractstaking.NewContractStakingStateManager(sm)
 	bucketMap := make(map[uint64]*bucketInfo, len(ids))
 	typeMap := make(map[uint64]*BucketType, len(ids))
 	for i, id := range ids {
@@ -73,7 +82,7 @@ func (s *stakeView) WriteBuckets(sm protocol.StateManager) error {
 			continue
 		}
 		bt := typeMap[id]
-		if err := cssm.UpsertBucket(s.contractAddr, id, &contractstaking.Bucket{
+		if err := handler.PutBucket(s.contractAddr, id, &contractstaking.Bucket{
 			Candidate:        info.Delegate,
 			Owner:            info.Owner,
 			StakedAmount:     bt.Amount,
@@ -87,7 +96,7 @@ func (s *stakeView) WriteBuckets(sm protocol.StateManager) error {
 			return err
 		}
 	}
-	return cssm.UpdateNumOfBuckets(s.contractAddr, s.cache.TotalBucketCount())
+	return nil
 }
 
 func (s *stakeView) BucketsByCandidate(candidate address.Address) ([]*Bucket, error) {
@@ -106,23 +115,13 @@ func (s *stakeView) CreatePreStates(ctx context.Context) error {
 }
 
 func (s *stakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
-	blkCtx := protocol.MustGetBlockCtx(ctx)
 	// new event handler for this receipt
-	handler := newContractStakingEventHandler(newWrappedCache(s.cache))
-
-	// handle events of receipt
-	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		return nil
+	handler := newContractStakingDirty(newWrappedCache(s.cache))
+	processor := newContractStakingEventProcessor(s.contractAddr, handler)
+	if err := processor.ProcessReceipts(ctx, receipt); err != nil {
+		return err
 	}
-	for _, log := range receipt.Logs() {
-		if log.Address != s.contractAddr.String() {
-			continue
-		}
-		if err := handler.HandleEvent(ctx, blkCtx.BlockHeight, log); err != nil {
-			return err
-		}
-	}
-	_, delta := handler.Result()
+	_, delta := handler.Finalize()
 	s.cache = delta
 
 	return nil
@@ -151,11 +150,12 @@ func (s *stakeView) AddBlockReceipts(ctx context.Context, receipts []*action.Rec
 		return errors.Errorf("invalid block height %d, expect %d", height, expectHeight)
 	}
 
-	handler := newContractStakingEventHandler(newWrappedCache(s.cache))
-	if err := handler.HandleReceipts(ctx, height, receipts, s.contractAddr.String()); err != nil {
+	handler := newContractStakingDirty(newWrappedCache(s.cache))
+	processor := newContractStakingEventProcessor(s.contractAddr, handler)
+	if err := processor.ProcessReceipts(ctx, receipts...); err != nil {
 		return err
 	}
-	_, delta := handler.Result()
+	_, delta := handler.Finalize()
 	s.cache = delta
 	s.height = height
 	return nil

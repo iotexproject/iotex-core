@@ -103,6 +103,20 @@ func (wc *wrappedCache) BucketType(id uint64) (*BucketType, bool) {
 	return wc.bucketType(id)
 }
 
+func (wc *wrappedCache) BucketTypes() map[uint64]*BucketType {
+	wc.mu.RLock()
+	defer wc.mu.RUnlock()
+	types := wc.base.BucketTypes()
+	for id, bt := range wc.updatedBucketTypes {
+		if bt != nil {
+			types[id] = bt.Clone()
+		} else {
+			delete(types, id)
+		}
+	}
+	return types
+}
+
 func (wc *wrappedCache) bucketType(id uint64) (*BucketType, bool) {
 	bt, ok := wc.updatedBucketTypes[id]
 	if !ok {

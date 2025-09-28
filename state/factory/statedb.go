@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
@@ -56,6 +57,7 @@ type (
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
 		erigonDB                 *erigonstore.ErigonDB
+		dependencies             []blockdao.BlockIndexer
 	}
 )
 
@@ -102,6 +104,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		registry:           protocol.NewRegistry(),
 		protocolViews:      &protocol.Views{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
+		dependencies:       []blockdao.BlockIndexer{},
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, &cfg); err != nil {
@@ -128,6 +131,11 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 }
 
 func (sdb *stateDB) Start(ctx context.Context) error {
+	for _, dependency := range sdb.dependencies {
+		if err := dependency.Start(ctx); err != nil {
+			return errors.Wrapf(err, "failed to start dependency %T", dependency)
+		}
+	}
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	if err := sdb.dao.Start(ctx); err != nil {
 		return err
@@ -204,7 +212,15 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 	if sdb.erigonDB != nil {
 		sdb.erigonDB.Stop(ctx)
 	}
-	return sdb.dao.Stop(ctx)
+	if err := sdb.dao.Stop(ctx); err != nil {
+		return err
+	}
+	for _, dependency := range sdb.dependencies {
+		if err := dependency.Stop(ctx); err != nil {
+			return errors.Wrapf(err, "failed to stop dependency %T", dependency)
+		}
+	}
+	return nil
 }
 
 // Height returns factory's height
@@ -212,6 +228,12 @@ func (sdb *stateDB) Height() (uint64, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	return sdb.dao.getHeight()
+}
+
+func (sdb *stateDB) AddDependency(indexer blockdao.BlockIndexer) {
+	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
+	sdb.dependencies = append(sdb.dependencies, indexer)
 }
 
 func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
@@ -463,6 +485,11 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	sdb.protocolViews = ws.views
 	sdb.currentChainHeight = h
+	for _, indexer := range sdb.dependencies {
+		if err := indexer.PutBlock(ctx, blk); err != nil {
+			return errors.Wrapf(err, "failed to update indexer %T", indexer)
+		}
+	}
 	return nil
 }
 
