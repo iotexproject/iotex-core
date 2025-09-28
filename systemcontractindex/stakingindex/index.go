@@ -170,7 +170,7 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get state reader height")
 	}
-	if srHeight != s.common.Height() {
+	if s.common.StartHeight() <= srHeight && srHeight != s.common.Height() {
 		return nil, errors.New("state reader height does not match indexer height")
 	}
 	cfg := &VoteViewConfig{
