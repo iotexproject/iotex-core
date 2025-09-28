@@ -42,6 +42,15 @@ const (
 	//   - "voteview" + <contractAddress> --> CandidateVotes
 	StakingViewNamespace = "StakingView"
 
+	// ContractStakingBucketNamespacePrefix is the namespace to store staking contract buckets
+	//   - <contractAddress> --> <bucketID> --> Bucket
+	ContractStakingBucketNamespacePrefix = "cs_bucket_"
+	// ContractStakingBucketTypeNamespacePrefix is the namespace to store staking contract bucket types
+	//   - <contractAddress> --> <typeID> --> BucketType
+	ContractStakingBucketTypeNamespacePrefix = "cs_bucket_type_"
+	// StakingContractMetaNamespace is the namespace to store staking contract meta information
+	StakingContractMetaNamespace = "staking_contract_meta"
+
 	// CandidateNamespace is the namespace to store candidate information
 	//   - <ID> --> Candidate
 	CandidateNamespace = "Candidate"

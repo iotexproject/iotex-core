@@ -2,6 +2,7 @@ package erigonstore
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -28,7 +29,8 @@ var (
 // ObjectStorageRegistry is a registry for object storage
 type ObjectStorageRegistry struct {
 	contracts map[string]map[reflect.Type]int
-	fallback  map[string]int
+	ns        map[string]int
+	nsPrefix  map[string]int
 }
 
 func init() {
@@ -38,7 +40,9 @@ func init() {
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandsMapNamespace, CandidateMapContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingNamespace, BucketPoolContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingViewNamespace, StakingViewContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingNamespace, BucketPoolContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingContractMetaNamespace, StakingViewContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketNamespacePrefix, StakingViewContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketTypeNamespacePrefix, StakingViewContractIndex))
 
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.Account{}, AccountIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex))
@@ -59,7 +63,8 @@ func GetObjectStorageRegistry() *ObjectStorageRegistry {
 func newObjectStorageRegistry() *ObjectStorageRegistry {
 	return &ObjectStorageRegistry{
 		contracts: make(map[string]map[reflect.Type]int),
-		fallback:  make(map[string]int),
+		ns:        make(map[string]int),
+		nsPrefix:  make(map[string]int),
 	}
 }
 
@@ -109,12 +114,28 @@ func (osr *ObjectStorageRegistry) RegisterNamespace(ns string, index int) error 
 	return osr.register(ns, nil, index)
 }
 
+// RegisterNamespacePrefix registers a namespace prefix object storage
+func (osr *ObjectStorageRegistry) RegisterNamespacePrefix(prefix string, index int) error {
+	if index < AccountIndex || index >= SystemContractCount {
+		return errors.Errorf("invalid system contract index %d", index)
+	}
+	return osr.registerPrefix(prefix, index)
+}
+
+func (osr *ObjectStorageRegistry) registerPrefix(ns string, index int) error {
+	if _, exists := osr.nsPrefix[ns]; exists {
+		return errors.Wrapf(ErrObjectStorageAlreadyRegistered, "registered: %v", osr.nsPrefix[ns])
+	}
+	osr.nsPrefix[ns] = index
+	return nil
+}
+
 func (osr *ObjectStorageRegistry) register(ns string, obj any, index int) error {
 	if obj == nil {
-		if _, exists := osr.fallback[ns]; exists {
-			return errors.Wrapf(ErrObjectStorageAlreadyRegistered, "registered: %v", osr.fallback[ns])
+		if _, exists := osr.ns[ns]; exists {
+			return errors.Wrapf(ErrObjectStorageAlreadyRegistered, "registered: %v", osr.ns[ns])
 		}
-		osr.fallback[ns] = index
+		osr.ns[ns] = index
 		return nil
 	}
 	types, ok := osr.contracts[ns]
@@ -130,6 +151,7 @@ func (osr *ObjectStorageRegistry) register(ns string, obj any, index int) error 
 }
 
 func (osr *ObjectStorageRegistry) matchContractIndex(ns string, obj any) (int, bool) {
+	// object specific storage
 	if obj != nil {
 		types, ok := osr.contracts[ns]
 		if ok {
@@ -139,6 +161,16 @@ func (osr *ObjectStorageRegistry) matchContractIndex(ns string, obj any) (int, b
 			}
 		}
 	}
-	index, exist := osr.fallback[ns]
-	return index, exist
+	// namespace specific storage
+	index, exist := osr.ns[ns]
+	if exist {
+		return index, true
+	}
+	// namespace prefix specific storage
+	for prefix, index := range osr.nsPrefix {
+		if strings.HasPrefix(ns, prefix) {
+			return index, true
+		}
+	}
+	return 0, false
 }

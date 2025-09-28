@@ -4,9 +4,11 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
@@ -112,4 +114,18 @@ func (b *Bucket) Clone() *Bucket {
 		IsTimestampBased: b.IsTimestampBased,
 		Muted:            b.Muted,
 	}
+}
+
+// Encode encodes the bucket into a GenericValue
+func (b *Bucket) Encode() (systemcontracts.GenericValue, error) {
+	data, err := b.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize bucket")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes the bucket from a GenericValue
+func (b *Bucket) Decode(gv systemcontracts.GenericValue) error {
+	return b.Deserialize(gv.PrimaryData)
 }

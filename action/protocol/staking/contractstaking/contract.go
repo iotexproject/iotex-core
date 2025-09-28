@@ -1,9 +1,11 @@
 package contractstaking
 
 import (
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // StakingContract represents the staking contract in the system
@@ -49,4 +51,18 @@ func (sc *StakingContract) Deserialize(b []byte) error {
 	}
 	*sc = *loaded
 	return nil
+}
+
+// Encode encodes the staking contract into a GenericValue
+func (sc *StakingContract) Encode() (systemcontracts.GenericValue, error) {
+	data, err := sc.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize staking contract")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes the staking contract from a GenericValue
+func (sc *StakingContract) Decode(gv systemcontracts.GenericValue) error {
+	return sc.Deserialize(gv.PrimaryData)
 }
