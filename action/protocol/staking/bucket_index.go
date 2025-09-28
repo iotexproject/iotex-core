@@ -12,8 +12,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
-	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -21,11 +19,6 @@ type (
 	// BucketIndices defines the array of bucket index for a
 	BucketIndices []uint64
 )
-
-func init() {
-	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterObjectStorage(_stakingNameSpace, &BucketIndices{}, erigonstore.BucketIndicesContractIndex))
-}
 
 // Proto converts bucket indices to protobuf
 func (bis *BucketIndices) Proto() *stakingpb.BucketIndices {

@@ -13,9 +13,6 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
-	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -23,10 +20,6 @@ import (
 type ProbationList struct {
 	ProbationInfo map[string]uint32
 	IntensityRate uint32
-}
-
-func init() {
-	assertions.MustNoError(erigonstore.GetObjectStorageRegistry().RegisterObjectStorage(protocol.SystemNamespace, &ProbationList{}, erigonstore.PollProbationListContractIndex))
 }
 
 // NewProbationList returns a new probation list

@@ -11,10 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	updpb "github.com/iotexproject/iotex-core/v2/action/protocol/vote/unproductivedelegatepb"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
-	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -23,10 +20,6 @@ type UnproductiveDelegate struct {
 	delegatelist    [][]string
 	probationPeriod uint64
 	cacheSize       uint64
-}
-
-func init() {
-	assertions.MustNoError(erigonstore.GetObjectStorageRegistry().RegisterObjectStorage(protocol.SystemNamespace, &UnproductiveDelegate{}, erigonstore.PollUnproductiveDelegateContractIndex))
 }
 
 // NewUnproductiveDelegate creates new UnproductiveDelegate with probationperiod and cacheSize
