@@ -17,9 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
-	"github.com/iotexproject/iotex-core/v2/state"
-	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -32,12 +29,6 @@ type admin struct {
 	numDelegatesForFoundationBonus uint64
 	foundationBonusLastEpoch       uint64
 	productivityThreshold          uint64
-}
-
-func init() {
-	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterObjectStorage(state.AccountKVNamespace, &admin{}, erigonstore.RewardingContractV1Index))
-	assertions.MustNoError(registry.RegisterObjectStorage(state.AccountKVNamespace, &exempt{}, erigonstore.RewardingContractV1Index))
 }
 
 // Serialize serializes admin state into bytes

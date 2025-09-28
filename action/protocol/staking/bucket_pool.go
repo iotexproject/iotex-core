@@ -14,9 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/state"
-	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -52,11 +50,6 @@ type (
 		count  uint64
 	}
 )
-
-func init() {
-	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterObjectStorage(_stakingNameSpace, &totalAmount{}, erigonstore.BucketPoolContractIndex))
-}
 
 func (t *totalAmount) Serialize() ([]byte, error) {
 	gen := stakingpb.TotalAmount{

@@ -25,20 +25,12 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/state"
-	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // rewardHistory is the dummy struct to record a reward. Only key matters.
 type rewardHistory struct{}
-
-func init() {
-	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterObjectStorage(state.AccountKVNamespace, &rewardHistory{}, erigonstore.RewardingContractV1Index))
-	assertions.MustNoError(registry.RegisterObjectStorage(state.AccountKVNamespace, &rewardAccount{}, erigonstore.RewardingContractV1Index))
-}
 
 // Serialize serializes reward history state into bytes
 func (b rewardHistory) Serialize() ([]byte, error) {

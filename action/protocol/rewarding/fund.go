@@ -19,9 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/state"
-	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -30,11 +28,6 @@ import (
 type fund struct {
 	totalBalance     *big.Int
 	unclaimedBalance *big.Int
-}
-
-func init() {
-	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterObjectStorage(state.AccountKVNamespace, &fund{}, erigonstore.RewardingContractV1Index))
 }
 
 // Serialize serializes fund state into bytes

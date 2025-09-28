@@ -19,9 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -51,12 +49,6 @@ type (
 		count uint64
 	}
 )
-
-func init() {
-	registry := erigonstore.GetObjectStorageRegistry()
-	assertions.MustNoError(registry.RegisterObjectStorage(_stakingNameSpace, &VoteBucket{}, erigonstore.StakingBucketsContractIndex))
-	assertions.MustNoError(registry.RegisterObjectStorage(_stakingNameSpace, &totalBucketCount{}, erigonstore.BucketPoolContractIndex))
-}
 
 // NewVoteBucket creates a new vote bucket
 func NewVoteBucket(cand, owner address.Address, amount *big.Int, duration uint32, ctime time.Time, autoStake bool) *VoteBucket {
