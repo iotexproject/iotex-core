@@ -343,18 +343,19 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 	dbConfig := builder.cfg.DB
 	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
 	kvstore := db.NewBoltDB(dbConfig)
+	voteCalcConsts := builder.cfg.Genesis.VoteWeightCalConsts
+	calculateVotesWeight := func(v *staking.VoteBucket) *big.Int {
+		return staking.CalculateVoteWeight(voteCalcConsts, v, false)
+	}
 	// build contract staking indexer
 	if builder.cs.contractStakingIndexer == nil && len(builder.cfg.Genesis.SystemStakingContractAddress) > 0 {
-		voteCalcConsts := builder.cfg.Genesis.VoteWeightCalConsts
 		indexer, err := contractstaking.NewContractStakingIndexer(
 			kvstore,
 			contractstaking.Config{
 				ContractAddress:      builder.cfg.Genesis.SystemStakingContractAddress,
 				ContractDeployHeight: builder.cfg.Genesis.SystemStakingContractHeight,
-				CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
-					return staking.CalculateVoteWeight(voteCalcConsts, v, false)
-				},
-				BlocksToDuration: builder.blocksToDurationFn,
+				CalculateVoteWeight:  calculateVotesWeight,
+				BlocksToDuration:     builder.blocksToDurationFn,
 			})
 		if err != nil {
 			return err
@@ -374,6 +375,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 			builder.cfg.Genesis.SystemStakingContractV2Height,
 			builder.blocksToDurationFn,
 			stakingindex.WithMuteHeight(builder.cfg.Genesis.WakeBlockHeight),
+			stakingindex.WithCalculateUnmutedVoteWeightFn(calculateVotesWeight),
 		)
 		if err != nil {
 			return err
@@ -393,6 +395,7 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 			builder.cfg.Genesis.SystemStakingContractV3Height,
 			builder.blocksToDurationFn,
 			stakingindex.EnableTimestamped(),
+			stakingindex.WithCalculateUnmutedVoteWeightFn(calculateVotesWeight),
 		)
 		if err != nil {
 			return err
