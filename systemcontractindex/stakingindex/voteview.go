@@ -29,6 +29,7 @@ type (
 		height                uint64
 		cur                   CandidateVotes
 		store                 BucketStore
+		cvm                   CandidateVotesManager
 		processorBuilder      EventProcessorBuilder
 		calculateVoteWeightFn CalculateUnmutedVoteWeightAtFn
 	}
@@ -39,6 +40,7 @@ func NewVoteView(cfg *VoteViewConfig,
 	height uint64,
 	cur CandidateVotes,
 	processorBuilder EventProcessorBuilder,
+	cvm CandidateVotesManager,
 	fn CalculateUnmutedVoteWeightAtFn,
 ) staking.ContractStakeView {
 	return &voteView{
@@ -46,6 +48,7 @@ func NewVoteView(cfg *VoteViewConfig,
 		height:                height,
 		cur:                   cur,
 		processorBuilder:      processorBuilder,
+		cvm:                   cvm,
 		calculateVoteWeightFn: fn,
 	}
 }
@@ -66,6 +69,7 @@ func (s *voteView) Wrap() staking.ContractStakeView {
 		cur:                   cur,
 		store:                 store,
 		processorBuilder:      s.processorBuilder,
+		cvm:                   s.cvm,
 		calculateVoteWeightFn: s.calculateVoteWeightFn,
 	}
 }
@@ -82,6 +86,7 @@ func (s *voteView) Fork() staking.ContractStakeView {
 		cur:                   cur,
 		store:                 store,
 		processorBuilder:      s.processorBuilder,
+		cvm:                   s.cvm,
 		calculateVoteWeightFn: s.calculateVoteWeightFn,
 	}
 }
@@ -136,5 +141,5 @@ func (s *voteView) AddBlockReceipts(ctx context.Context, receipts []*action.Rece
 
 func (s *voteView) Commit(ctx context.Context, sm protocol.StateManager) error {
 	s.cur = s.cur.Commit()
-	return nil
+	return s.cvm.Store(ctx, sm, s.cur)
 }
