@@ -503,7 +503,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			if err != nil {
 				return err
 			}
-			if h != blkCtx.BlockHeight-1 {
+			if indexer.StartHeight() <= blkCtx.BlockHeight && h != blkCtx.BlockHeight-1 {
 				return errors.Errorf("bucket cache height %d does not match current height %d", h, blkCtx.BlockHeight-1)
 			}
 			buckets[i] = bs
@@ -527,7 +527,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 				if err != nil {
 					return err
 				}
-				if h != blkCtx.BlockHeight-1 {
+				if indexer.StartHeight() <= blkCtx.BlockHeight && h != blkCtx.BlockHeight-1 {
 					return errors.Errorf("bucket cache height %d does not match current height %d", h, blkCtx.BlockHeight-1)
 				}
 				buckets[i] = bs

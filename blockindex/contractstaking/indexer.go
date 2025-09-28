@@ -111,7 +111,13 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	if ok && !featureCtx.StoreVoteOfNFTBucketIntoView {
 		return nil, nil
 	}
-
+	srHeight, err := sr.Height()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get state reader height")
+	}
+	if s.config.ContractDeployHeight <= srHeight && srHeight != s.height {
+		return nil, errors.New("state reader height does not match indexer height")
+	}
 	ids, typs, infos := s.cache.Buckets()
 	buckets := make(map[uint64]*contractstaking.Bucket)
 	for i, id := range ids {
