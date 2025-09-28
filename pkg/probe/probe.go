@@ -80,7 +80,7 @@ func (s *Server) Stop(ctx context.Context) error { return s.server.Shutdown(ctx)
 
 // ReceiveBlock receives the new block and update the readiness status
 func (s *Server) ReceiveBlock(blk *block.Block) error {
-	if time.Now().After(blk.Timestamp().Add(10 * time.Second)) {
+	if time.Now().After(blk.CommitTime().Add(10 * time.Second)) {
 		if s.IsReady() {
 			s.TurnOff()
 		}
