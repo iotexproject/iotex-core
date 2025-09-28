@@ -683,7 +683,9 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		if err != nil {
 			return err
 		}
-		return v.(*viewData).contractsStake.Handle(ctx, receipt)
+		if err := v.(*viewData).contractsStake.Handle(ctx, receipt); err != nil {
+			return err
+		}
 	}
 	handler, err := newNFTBucketEventHandler(sm, func(bucket *contractstaking.Bucket, height uint64) *big.Int {
 		vb := p.convertToVoteBucket(bucket, height)
