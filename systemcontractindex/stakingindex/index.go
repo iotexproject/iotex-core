@@ -7,7 +7,6 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
@@ -15,7 +14,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex"
 )
 
@@ -101,10 +99,6 @@ func (s *Indexer) Start(ctx context.Context) error {
 	if s.common.Started() {
 		return nil
 	}
-	return s.start(ctx)
-}
-
-func (s *Indexer) start(ctx context.Context) error {
 	if err := s.common.Start(ctx); err != nil {
 		return err
 	}
@@ -115,6 +109,9 @@ func (s *Indexer) start(ctx context.Context) error {
 func (s *Indexer) Stop(ctx context.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if !s.common.Started() {
+		return nil
+	}
 	return s.common.Stop(ctx)
 }
 
@@ -134,12 +131,10 @@ func (s *Indexer) CreateEventProcessor(ctx context.Context, handler staking.Even
 func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (staking.ContractStakeView, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+	if !s.common.Started() {
+		return nil, errors.New("indexer not started")
+	}
 	if protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
-		if !s.common.Started() {
-			if err := s.start(ctx); err != nil {
-				return nil, err
-			}
-		}
 		return &stakeView{
 			cache:              s.cache.Clone(),
 			height:             s.common.Height(),
@@ -179,18 +174,23 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	}, nil
 }
 
-// Height returns the tip block height
-func (s *Indexer) Height() (uint64, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.common.Height(), nil
-}
-
 // StartHeight returns the start height of the indexer
 func (s *Indexer) StartHeight() uint64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.common.StartHeight()
+}
+
+// Height returns the tip block height
+func (s *Indexer) Height() (uint64, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	height := s.common.Height()
+	startHeight := s.common.StartHeight()
+	if height < startHeight {
+		return startHeight - 1, nil
+	}
+	return height, nil
 }
 
 // ContractAddress returns the contract address
@@ -291,13 +291,16 @@ func (s *Indexer) TotalBucketCount(height uint64) (uint64, error) {
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if blk.Height() < s.common.StartHeight() {
+		return nil
+	}
 	// check block continuity
 	expect := s.common.ExpectedHeight()
 	if blk.Height() > expect {
 		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expect)
-	} else if blk.Height() < expect {
-		log.L().Debug("indexer skip block", zap.Uint64("height", blk.Height()), zap.Uint64("expect", expect))
-		return nil
+	}
+	if blk.Height() < expect {
+		return errors.Errorf("block height %d has been indexed, expect %d", blk.Height(), expect)
 	}
 	// handle events of block
 	muted := s.muteHeight > 0 && blk.Height() >= s.muteHeight
