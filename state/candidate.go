@@ -15,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
+
 	"github.com/iotexproject/iotex-address/address"
 )
 
@@ -148,6 +150,20 @@ func (l *CandidateList) LoadProto(candList *iotextypes.CandidateList) error {
 	*l = candidates
 
 	return nil
+}
+
+// Encode encodes a CandidateList into a GenericValue
+func (l *CandidateList) Encode() (systemcontracts.GenericValue, error) {
+	data, err := l.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes a GenericValue into CandidateList
+func (l *CandidateList) Decode(data systemcontracts.GenericValue) error {
+	return l.Deserialize(data.PrimaryData)
 }
 
 // candidateToPb converts a candidate to protobuf's candidate message

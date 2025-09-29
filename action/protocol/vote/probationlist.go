@@ -12,12 +12,21 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // ProbationList defines a map where key is candidate's name and value is the counter which counts the unproductivity during probation epoch.
 type ProbationList struct {
 	ProbationInfo map[string]uint32
 	IntensityRate uint32
+}
+
+func init() {
+	assertions.MustNoError(erigonstore.GetObjectStorageRegistry().RegisterPollProbationList(protocol.SystemNamespace, &ProbationList{}))
 }
 
 // NewProbationList returns a new probation list
@@ -73,4 +82,18 @@ func (pl *ProbationList) LoadProto(probationListpb *iotextypes.ProbationCandidat
 	pl.IntensityRate = probationListpb.IntensityRate
 
 	return nil
+}
+
+// New creates a new instance of ProbationList
+func (pl *ProbationList) Encode() (systemcontracts.GenericValue, error) {
+	data, err := pl.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes a GenericValue into ProbationList
+func (pl *ProbationList) Decode(data systemcontracts.GenericValue) error {
+	return pl.Deserialize(data.PrimaryData)
 }

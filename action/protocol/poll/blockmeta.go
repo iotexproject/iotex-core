@@ -12,7 +12,11 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll/blockmetapb"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // BlockMeta is a struct to store block metadata
@@ -20,6 +24,10 @@ type BlockMeta struct {
 	Height   uint64
 	Producer string
 	MintTime time.Time
+}
+
+func init() {
+	assertions.MustNoError(erigonstore.GetObjectStorageRegistry().RegisterPollBlockMeta(protocol.SystemNamespace, &BlockMeta{}))
 }
 
 // NewBlockMeta constructs new blockmeta struct with given fieldss
@@ -69,4 +77,18 @@ func (bm *BlockMeta) LoadProto(pb *blockmetapb.BlockMeta) error {
 	bm.Producer = pb.GetBlockProducer()
 	bm.MintTime = mintTime.UTC()
 	return nil
+}
+
+// Encode encodes BlockMeta into a GenericValue
+func (bm *BlockMeta) Encode() (systemcontracts.GenericValue, error) {
+	data, err := bm.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize block meta")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes a GenericValue into BlockMeta
+func (bm *BlockMeta) Decode(data systemcontracts.GenericValue) error {
+	return bm.Deserialize(data.PrimaryData)
 }
