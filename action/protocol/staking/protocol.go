@@ -479,16 +479,6 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return err
 	}
 	vd := v.(*viewData)
-	indexers := []ContractStakingIndexer{}
-	if p.contractStakingIndexer != nil {
-		indexers = append(indexers, p.contractStakingIndexer)
-	}
-	if p.contractStakingIndexerV2 != nil {
-		indexers = append(indexers, p.contractStakingIndexerV2)
-	}
-	if p.contractStakingIndexerV3 != nil {
-		indexers = append(indexers, p.contractStakingIndexerV3)
-	}
 	if blkCtx.BlockHeight == g.ToBeEnabledBlockHeight {
 		handler, err := newNFTBucketEventHandler(sm, func(bucket *contractstaking.Bucket, height uint64) *big.Int {
 			vb := p.convertToVoteBucket(bucket, height)
@@ -497,42 +487,16 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		if err != nil {
 			return err
 		}
-		buckets := make([]map[uint64]*contractstaking.Bucket, 3)
-		for i, indexer := range indexers {
-			h, bs, err := indexer.ContractStakingBuckets()
-			if err != nil {
-				return err
-			}
-			if indexer.StartHeight() <= blkCtx.BlockHeight && h != blkCtx.BlockHeight-1 {
-				return errors.Errorf("bucket cache height %d does not match current height %d", h, blkCtx.BlockHeight-1)
-			}
-			buckets[i] = bs
-		}
-		if err := vd.contractsStake.Migrate(handler, buckets); err != nil {
+		if err := vd.contractsStake.Migrate(ctx, handler); err != nil {
 			return errors.Wrap(err, "failed to flush buckets for contract staking")
 		}
 	}
 	if featureCtx.StoreVoteOfNFTBucketIntoView {
-		brs := make([]BucketReader, len(indexers))
-		for i, indexer := range indexers {
-			brs[i] = indexer
-		}
-		if err := vd.contractsStake.CreatePreStates(ctx, brs); err != nil {
+		if err := vd.contractsStake.CreatePreStates(ctx); err != nil {
 			return err
 		}
 		if blkCtx.BlockHeight == g.WakeBlockHeight {
-			buckets := make([]map[uint64]*contractstaking.Bucket, 3)
-			for i, indexer := range indexers {
-				h, bs, err := indexer.ContractStakingBuckets()
-				if err != nil {
-					return err
-				}
-				if indexer.StartHeight() <= blkCtx.BlockHeight && h != blkCtx.BlockHeight-1 {
-					return errors.Errorf("bucket cache height %d does not match current height %d", h, blkCtx.BlockHeight-1)
-				}
-				buckets[i] = bs
-			}
-			vd.contractsStake.Revise(buckets)
+			vd.contractsStake.Revise(ctx)
 		}
 	}
 
@@ -1072,32 +1036,6 @@ func (p *Protocol) needToWriteCandsMap(ctx context.Context, height uint64) bool 
 	return height >= p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
 }
 
-func (p *Protocol) contractStakingVotesFromIndexer(ctx context.Context, candidate address.Address, height uint64) (*big.Int, error) {
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	votes := big.NewInt(0)
-	indexers := []ContractStakingIndexer{}
-	if p.contractStakingIndexer != nil && featureCtx.AddContractStakingVotes {
-		indexers = append(indexers, p.contractStakingIndexer)
-	}
-	if p.contractStakingIndexerV2 != nil && !featureCtx.LimitedStakingContract {
-		indexers = append(indexers, p.contractStakingIndexerV2)
-	}
-	if p.contractStakingIndexerV3 != nil && featureCtx.TimestampedStakingContract {
-		indexers = append(indexers, p.contractStakingIndexerV3)
-	}
-
-	for _, indexer := range indexers {
-		btks, err := indexer.BucketsByCandidate(candidate, height)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get BucketsByCandidate from contractStakingIndexer")
-		}
-		for _, b := range btks {
-			votes.Add(votes, p.contractBucketVotes(featureCtx, b))
-		}
-	}
-	return votes, nil
-}
-
 func (p *Protocol) contractStakingVotesFromView(ctx context.Context, candidate address.Address, view *viewData) (*big.Int, error) {
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	votes := big.NewInt(0)
@@ -1119,19 +1057,6 @@ func (p *Protocol) contractStakingVotesFromView(ctx context.Context, candidate a
 		votes.Add(votes, v)
 	}
 	return votes, nil
-}
-
-func (p *Protocol) contractBucketVotes(fCtx protocol.FeatureCtx, bkt *VoteBucket) *big.Int {
-	votes := big.NewInt(0)
-	if bkt.isUnstaked() {
-		return votes
-	}
-	if fCtx.FixContractStakingWeightedVotes {
-		votes.Add(votes, p.calculateVoteWeight(bkt, false))
-	} else {
-		votes.Add(votes, bkt.StakedAmount)
-	}
-	return votes
 }
 
 func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, CandidateList, CandidateList, error) {

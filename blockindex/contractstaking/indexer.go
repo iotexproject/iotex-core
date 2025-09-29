@@ -132,7 +132,7 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	})
 	processorBuilder := newEventProcessorBuilder(s.contractAddr)
 	cfg := &stakingindex.VoteViewConfig{ContractAddr: s.contractAddr}
-	return stakingindex.NewVoteView(cfg, s.height, cur, processorBuilder, calculateUnmutedVoteWeightAt), nil
+	return stakingindex.NewVoteView(s, cfg, s.height, cur, processorBuilder, calculateUnmutedVoteWeightAt), nil
 }
 
 // Stop stops the indexer

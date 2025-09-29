@@ -34,13 +34,13 @@ type (
 		// Commit commits the contract stake view
 		Commit(context.Context, protocol.StateManager) error
 		// CreatePreStates creates pre states for the contract stake view
-		CreatePreStates(ctx context.Context, br BucketReader) error
+		CreatePreStates(ctx context.Context) error
 		// Handle handles the receipt for the contract stake view
 		Handle(ctx context.Context, receipt *action.Receipt) error
 		// Migrate writes the bucket types and buckets to the state manager
-		Migrate(EventHandler, map[uint64]*contractstaking.Bucket) error
+		Migrate(context.Context, EventHandler) error
 		// Revise updates the contract stake view with the latest bucket data
-		Revise(map[uint64]*contractstaking.Bucket)
+		Revise(context.Context)
 		// BucketsByCandidate returns the buckets by candidate address
 		CandidateStakeVotes(ctx context.Context, id address.Address) *big.Int
 		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error
@@ -135,37 +135,31 @@ func (v *viewData) Revert(snapshot int) error {
 	return nil
 }
 
-func (csv *contractStakeView) Revise(buckets []map[uint64]*contractstaking.Bucket) {
-	idx := 0
+func (csv *contractStakeView) Revise(ctx context.Context) {
 	if csv.v1 != nil {
-		csv.v1.Revise(buckets[idx])
-		idx++
+		csv.v1.Revise(ctx)
 	}
 	if csv.v2 != nil {
-		csv.v2.Revise(buckets[idx])
-		idx++
+		csv.v2.Revise(ctx)
 	}
 	if csv.v3 != nil {
-		csv.v3.Revise(buckets[idx])
+		csv.v3.Revise(ctx)
 	}
 }
 
-func (csv *contractStakeView) Migrate(nftHandler EventHandler, buckets []map[uint64]*contractstaking.Bucket) error {
-	idx := 0
+func (csv *contractStakeView) Migrate(ctx context.Context, nftHandler EventHandler) error {
 	if csv.v1 != nil {
-		if err := csv.v1.Migrate(nftHandler, buckets[idx]); err != nil {
+		if err := csv.v1.Migrate(ctx, nftHandler); err != nil {
 			return err
 		}
-		idx++
 	}
 	if csv.v2 != nil {
-		if err := csv.v2.Migrate(nftHandler, buckets[idx]); err != nil {
+		if err := csv.v2.Migrate(ctx, nftHandler); err != nil {
 			return err
 		}
-		idx++
 	}
 	if csv.v3 != nil {
-		if err := csv.v3.Migrate(nftHandler, buckets[idx]); err != nil {
+		if err := csv.v3.Migrate(ctx, nftHandler); err != nil {
 			return err
 		}
 	}
@@ -206,22 +200,19 @@ func (csv *contractStakeView) Fork() *contractStakeView {
 	return clone
 }
 
-func (csv *contractStakeView) CreatePreStates(ctx context.Context, brs []BucketReader) error {
-	idx := 0
+func (csv *contractStakeView) CreatePreStates(ctx context.Context) error {
 	if csv.v1 != nil {
-		if err := csv.v1.CreatePreStates(ctx, brs[idx]); err != nil {
+		if err := csv.v1.CreatePreStates(ctx); err != nil {
 			return err
 		}
-		idx++
 	}
 	if csv.v2 != nil {
-		if err := csv.v2.CreatePreStates(ctx, brs[idx]); err != nil {
+		if err := csv.v2.CreatePreStates(ctx); err != nil {
 			return err
 		}
-		idx++
 	}
 	if csv.v3 != nil {
-		if err := csv.v3.CreatePreStates(ctx, brs[idx]); err != nil {
+		if err := csv.v3.CreatePreStates(ctx); err != nil {
 			return err
 		}
 	}

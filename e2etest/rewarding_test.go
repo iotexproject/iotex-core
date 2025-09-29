@@ -69,6 +69,8 @@ func TestBlockReward(t *testing.T) {
 	cfg.Genesis = genesis.TestDefault()
 	initDBPaths(r, &cfg)
 	defer func() { clearDBPaths(&cfg) }()
+	cfg.API.GRPCPort = 0
+	cfg.API.HTTPPort = 0
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.NumDelegates = 1
 	cfg.Genesis.NumSubEpochs = 10
