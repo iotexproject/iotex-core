@@ -481,13 +481,25 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	vd := v.(*viewData)
 	indexers := []ContractStakingIndexer{}
 	if p.contractStakingIndexer != nil {
-		indexers = append(indexers, p.contractStakingIndexer)
+		index, err := contractStakingIndexerAt(p.contractStakingIndexer, sm, true)
+		if err != nil {
+			return err
+		}
+		indexers = append(indexers, index)
 	}
 	if p.contractStakingIndexerV2 != nil {
-		indexers = append(indexers, p.contractStakingIndexerV2)
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV2, sm, true)
+		if err != nil {
+			return err
+		}
+		indexers = append(indexers, index)
 	}
 	if p.contractStakingIndexerV3 != nil {
-		indexers = append(indexers, p.contractStakingIndexerV3)
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV3, sm, true)
+		if err != nil {
+			return err
+		}
+		indexers = append(indexers, index)
 	}
 	if blkCtx.BlockHeight == g.ToBeEnabledBlockHeight {
 		handler, err := newNFTBucketEventHandler(sm, func(bucket *contractstaking.Bucket, height uint64) *big.Int {
@@ -731,19 +743,31 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		return err
 	}
 	if p.contractStakingIndexer != nil {
-		processor := p.contractStakingIndexer.CreateEventProcessor(ctx, handler)
+		index, err := contractStakingIndexerAt(p.contractStakingIndexer, sm, true)
+		if err != nil {
+			return err
+		}
+		processor := index.CreateEventProcessor(ctx, handler)
 		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
 			return errors.Wrap(err, "failed to process receipt for contract staking indexer")
 		}
 	}
 	if p.contractStakingIndexerV2 != nil {
-		processor := p.contractStakingIndexerV2.CreateEventProcessor(ctx, handler)
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV2, sm, true)
+		if err != nil {
+			return err
+		}
+		processor := index.CreateEventProcessor(ctx, handler)
 		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
 			return errors.Wrap(err, "failed to process receipt for contract staking indexer v2")
 		}
 	}
 	if p.contractStakingIndexerV3 != nil {
-		processor := p.contractStakingIndexerV3.CreateEventProcessor(ctx, handler)
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV3, sm, true)
+		if err != nil {
+			return err
+		}
+		processor := index.CreateEventProcessor(ctx, handler)
 		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
 			return errors.Wrap(err, "failed to process receipt for contract staking indexer v3")
 		}
@@ -1150,4 +1174,27 @@ func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, Can
 		return nil, nil, nil, err
 	}
 	return name, operator, owner, nil
+}
+
+func contractStakingIndexerAt(index ContractStakingIndexer, sr protocol.StateReader, delay bool) (ContractStakingIndexer, error) {
+	if index == nil {
+		return nil, nil
+	}
+	srHeight, err := sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	if delay {
+		srHeight--
+	}
+	indexHeight, err := index.Height()
+	if err != nil {
+		return nil, err
+	}
+	if index.StartHeight() > srHeight || indexHeight == srHeight {
+		return index, nil
+	} else if indexHeight < srHeight {
+		return nil, errors.Errorf("indexer height %d is too old for state reader height %d", indexHeight, srHeight)
+	}
+	return index.IndexerAt(sr), nil
 }

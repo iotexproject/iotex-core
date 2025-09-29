@@ -67,7 +67,9 @@ type (
 		CreateEventProcessor(context.Context, EventHandler) EventProcessor
 		// ContractStakingBuckets returns all the contract staking buckets
 		ContractStakingBuckets() (uint64, map[uint64]*contractstaking.Bucket, error)
-
+		// IndexerAt returns the contract staking indexer at a specific height
+		IndexerAt(protocol.StateReader) ContractStakingIndexer
+		// BucketReader defines the interface to read buckets
 		BucketReader
 	}
 	// ContractStakingIndexerWithBucketType defines the interface of contract staking reader with bucket type

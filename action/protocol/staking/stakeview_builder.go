@@ -33,42 +33,9 @@ func NewContractStakeViewBuilder(
 }
 
 func (b *contractStakeViewBuilder) Build(ctx context.Context, sr protocol.StateReader, height uint64) (ContractStakeView, error) {
-	view, err := b.indexer.LoadStakeView(ctx, sr)
+	index, err := contractStakingIndexerAt(b.indexer, sr, false)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get contract staking indexer at height")
 	}
-	if b.indexer.StartHeight() > height {
-		return view, nil
-	}
-	indexerHeight, err := b.indexer.Height()
-	if err != nil {
-		return nil, err
-	}
-	if indexerHeight == height {
-		return view, nil
-	}
-	if indexerHeight > height {
-		return nil, errors.Errorf("indexer height %d is greater than requested height %d", indexerHeight, height)
-	}
-	if b.blockdao == nil {
-		return nil, errors.Errorf("blockdao is nil, cannot build view for height %d", height)
-	}
-	for h := indexerHeight + 1; h <= height; h++ {
-		receipts, err := b.blockdao.GetReceipts(h)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get receipts at height %d", h)
-		}
-		header, err := b.blockdao.HeaderByHeight(h)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get header at height %d", h)
-		}
-		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-			BlockHeight:    h,
-			BlockTimeStamp: header.Timestamp(),
-		})
-		if err = view.AddBlockReceipts(ctx, receipts); err != nil {
-			return nil, errors.Wrapf(err, "failed to build view with block at height %d", h)
-		}
-	}
-	return view, nil
+	return index.LoadStakeView(ctx, sr)
 }

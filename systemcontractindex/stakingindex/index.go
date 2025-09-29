@@ -45,6 +45,7 @@ type (
 		CreateEventProcessor(context.Context, staking.EventHandler) staking.EventProcessor
 		ContractStakingBuckets() (uint64, map[uint64]*Bucket, error)
 		staking.BucketReader
+		IndexerAt(protocol.StateReader) staking.ContractStakingIndexer
 	}
 	// Indexer is the staking indexer
 	Indexer struct {
@@ -338,6 +339,12 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	// commit
 	return s.commit(ctx, handler, blk.Height())
+}
+
+// IndexerAt returns the staking indexer at the given state reader
+func (s *Indexer) IndexerAt(sr protocol.StateReader) staking.ContractStakingIndexer {
+	epb := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
+	return NewHistoryIndexer(sr, s.common.ContractAddress(), s.common.StartHeight(), epb, s.calculateContractVoteWeight)
 }
 
 func (s *Indexer) commit(ctx context.Context, handler *eventHandler, height uint64) error {
