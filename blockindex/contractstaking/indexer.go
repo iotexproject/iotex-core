@@ -81,7 +81,16 @@ func (s *Indexer) Start(ctx context.Context) error {
 	if s.IsReady() {
 		return nil
 	}
-	return s.start(ctx)
+	if err := s.kvstore.Start(ctx); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.loadFromDB(); err != nil {
+		return err
+	}
+	s.TurnOn()
+	return nil
 }
 
 // CreateEventProcessor creates a new event processor for contract staking
@@ -94,12 +103,11 @@ func (s *Indexer) CreateEventProcessor(ctx context.Context, handler staking.Even
 
 // LoadStakeView loads the contract stake view
 func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (staking.ContractStakeView, error) {
-	if protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
-		if !s.IsReady() {
-			if err := s.start(ctx); err != nil {
-				return nil, err
-			}
-		}
+	if !s.IsReady() {
+		return nil, errors.New("indexer not started")
+	}
+	featureCtx, ok := protocol.GetFeatureCtx(ctx)
+	if !ok || featureCtx.StoreVoteOfNFTBucketIntoView {
 		return &stakeView{
 			contractAddr:       s.contractAddr,
 			config:             s.config,
@@ -161,21 +169,11 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	}, nil
 }
 
-func (s *Indexer) start(ctx context.Context) error {
-	if err := s.kvstore.Start(ctx); err != nil {
-		return err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.loadFromDB(); err != nil {
-		return err
-	}
-	s.TurnOn()
-	return nil
-}
-
 // Stop stops the indexer
 func (s *Indexer) Stop(ctx context.Context) error {
+	if !s.IsReady() {
+		return nil
+	}
 	if err := s.kvstore.Stop(ctx); err != nil {
 		return err
 	}
@@ -188,6 +186,9 @@ func (s *Indexer) Stop(ctx context.Context) error {
 func (s *Indexer) Height() (uint64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if s.height < s.config.ContractDeployHeight {
+		return s.config.ContractDeployHeight - 1, nil
+	}
 	return s.height, nil
 }
 
@@ -375,6 +376,9 @@ func (s *Indexer) BucketTypes(height uint64) ([]*BucketType, error) {
 
 // PutBlock puts a block into indexer
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
+	if blk.Height() < s.config.ContractDeployHeight {
+		return nil
+	}
 	s.mu.RLock()
 	expectHeight := s.height + 1
 	cache := newWrappedCache(s.cache)
@@ -383,7 +387,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 		expectHeight = s.config.ContractDeployHeight
 	}
 	if blk.Height() < expectHeight {
-		return nil
+		return errors.Errorf("block height %d has been indexed, expect %d", blk.Height(), expectHeight)
 	}
 	if blk.Height() > expectHeight {
 		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expectHeight)

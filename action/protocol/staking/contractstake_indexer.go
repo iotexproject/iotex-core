@@ -16,6 +16,8 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 )
 
 var (
@@ -41,6 +43,12 @@ type (
 	}
 	// ContractStakingIndexer defines the interface of contract staking reader
 	ContractStakingIndexer interface {
+		lifecycle.StartStopper
+		// PutBlock puts a block into the indexer
+		PutBlock(context.Context, *block.Block) error
+		// StartHeight returns the start height of the indexer
+		StartHeight() uint64
+		// Height returns the latest indexed height
 		Height() (uint64, error)
 		// Buckets returns active buckets
 		Buckets(height uint64) ([]*VoteBucket, error)
@@ -86,11 +94,7 @@ func init() {
 
 // NewDelayTolerantIndexer creates a delay tolerant indexer
 func NewDelayTolerantIndexer(indexer ContractStakingIndexer, duration time.Duration) ContractStakingIndexer {
-	d := &delayTolerantIndexer{ContractStakingIndexer: indexer, duration: duration}
-	if indexWithStart, ok := indexer.(interface{ StartHeight() uint64 }); ok {
-		d.startHeight = indexWithStart.StartHeight()
-	}
-	return d
+	return &delayTolerantIndexer{ContractStakingIndexer: indexer, duration: duration}
 }
 
 // NewDelayTolerantIndexerWithBucketType creates a delay tolerant indexer with bucket type

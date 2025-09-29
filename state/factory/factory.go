@@ -7,12 +7,10 @@ package factory
 
 import (
 	"context"
-	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 
@@ -21,11 +19,9 @@ import (
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/db/trie"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -66,6 +62,7 @@ type (
 	Factory interface {
 		lifecycle.StartStopper
 		protocol.StateReader
+		AddDependency(blockdao.BlockIndexer)
 		Register(protocol.Protocol) error
 		Validate(context.Context, *block.Block) error
 		Mint(context.Context, actpool.ActPool, crypto.PrivateKey) (*block.Block, error)
@@ -74,23 +71,6 @@ type (
 		WorkingSetAtHeight(context.Context, uint64) (protocol.StateManagerWithCloser, error)
 		WorkingSetAtTransaction(context.Context, uint64, ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error)
 		StateReaderAt(blkHeight uint64, blkHash hash.Hash256) (protocol.StateReader, error)
-	}
-
-	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
-	factory struct {
-		lifecycle                lifecycle.Lifecycle
-		mutex                    sync.RWMutex
-		cfg                      Config
-		registry                 *protocol.Registry
-		currentChainHeight       uint64
-		saveHistory              bool
-		twoLayerTrie             trie.TwoLayerTrie // global state trie, this is a read only trie
-		dao                      db.KVStore        // the underlying DB for account/contract storage
-		timerFactory             *prometheustimer.TimerFactory
-		workingsets              cache.LRUCache // lru cache for workingsets
-		protocolView             *protocol.Views
-		skipBlockValidationOnPut bool
-		ps                       *patchStore
 	}
 
 	// Config contains the config for factory
