@@ -299,7 +299,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			}
 			view, err := NewContractStakeViewBuilder(indexer, p.blockStore).Build(ctx, sr, height)
 			if err != nil {
-				errChan <- errors.Wrapf(err, "failed to create stake view for contract %s", p.contractStakingIndexer.ContractAddress())
+				errChan <- errors.Wrapf(err, "failed to create stake view for contract %s", indexer.ContractAddress())
 				return
 			}
 			callback(view)
