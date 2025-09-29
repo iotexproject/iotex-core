@@ -742,7 +742,11 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		return err
 	}
 	if p.contractStakingIndexer != nil {
-		processor := p.contractStakingIndexer.CreateEventProcessor(ctx, handler)
+		index, err := contractStakingIndexerAt(p.contractStakingIndexer, sm, true)
+		if err != nil {
+			return err
+		}
+		processor := index.CreateEventProcessor(ctx, handler)
 		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
 			if !errors.Is(err, state.ErrErigonStoreNotSupported) {
 				return errors.Wrap(err, "failed to process receipt for contract staking indexer")
@@ -751,7 +755,11 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		}
 	}
 	if p.contractStakingIndexerV2 != nil {
-		processor := p.contractStakingIndexerV2.CreateEventProcessor(ctx, handler)
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV2, sm, true)
+		if err != nil {
+			return err
+		}
+		processor := index.CreateEventProcessor(ctx, handler)
 		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
 			if !errors.Is(err, state.ErrErigonStoreNotSupported) {
 				return errors.Wrap(err, "failed to process receipt for contract staking indexer v2")
@@ -760,7 +768,11 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		}
 	}
 	if p.contractStakingIndexerV3 != nil {
-		processor := p.contractStakingIndexerV3.CreateEventProcessor(ctx, handler)
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV3, sm, true)
+		if err != nil {
+			return err
+		}
+		processor := index.CreateEventProcessor(ctx, handler)
 		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
 			if !errors.Is(err, state.ErrErigonStoreNotSupported) {
 				return errors.Wrap(err, "failed to process receipt for contract staking indexer v3")
@@ -884,13 +896,25 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	// stakeSR is the stake state reader including native and contract staking
 	indexers := []ContractStakingIndexer{}
 	if p.contractStakingIndexer != nil {
-		indexers = append(indexers, NewDelayTolerantIndexerWithBucketType(p.contractStakingIndexer, time.Second))
+		index, err := contractStakingIndexerAt(p.contractStakingIndexer, sr, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		indexers = append(indexers, NewDelayTolerantIndexerWithBucketType(index.(ContractStakingIndexerWithBucketType), time.Second))
 	}
 	if p.contractStakingIndexerV2 != nil {
-		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV2, time.Second))
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV2, sr, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		indexers = append(indexers, NewDelayTolerantIndexer(index, time.Second))
 	}
 	if p.contractStakingIndexerV3 != nil {
-		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV3, time.Second))
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV3, sr, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		indexers = append(indexers, NewDelayTolerantIndexer(index, time.Second))
 	}
 	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
 	if err != nil {
@@ -1143,4 +1167,27 @@ func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, Can
 		return nil, nil, nil, err
 	}
 	return name, operator, owner, nil
+}
+
+func contractStakingIndexerAt(index ContractStakingIndexer, sr protocol.StateReader, delay bool) (ContractStakingIndexer, error) {
+	if index == nil {
+		return nil, nil
+	}
+	srHeight, err := sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	if delay {
+		srHeight--
+	}
+	indexHeight, err := index.Height()
+	if err != nil {
+		return nil, err
+	}
+	if index.StartHeight() > srHeight || indexHeight == srHeight {
+		return index, nil
+	} else if indexHeight < srHeight {
+		return nil, errors.Errorf("indexer height %d is too old for state reader height %d", indexHeight, srHeight)
+	}
+	return index.IndexerAt(sr), nil
 }
