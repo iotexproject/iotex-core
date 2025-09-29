@@ -314,6 +314,59 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	require.NoError(p.CreatePreStates(ctx, sm))
 }
 
+func TestCreatePreStatesMigration(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm := testdb.NewMockStateManager(ctrl)
+	g := genesis.TestDefault()
+	mockView := NewMockContractStakeView(ctrl)
+	mockContractStaking := NewMockContractStakingIndexer(ctrl)
+	mockContractStaking.EXPECT().ContractAddress().Return(identityset.Address(1)).Times(1)
+	mockContractStaking.EXPECT().LoadStakeView(gomock.Any(), gomock.Any()).Return(mockView, nil).Times(1)
+	mockContractStaking.EXPECT().StartHeight().Return(uint64(0)).Times(1)
+	mockContractStaking.EXPECT().Height().Return(uint64(0), nil).Times(1)
+	p, err := NewProtocol(HelperCtx{
+		DepositGas:    nil,
+		BlockInterval: getBlockInterval,
+	}, &BuilderConfig{
+		Staking:                       g.Staking,
+		PersistStakingPatchBlock:      math.MaxUint64,
+		SkipContractStakingViewHeight: math.MaxUint64,
+		Revise: ReviseConfig{
+			VoteWeight:    g.Staking.VoteWeightCalConsts,
+			ReviseHeights: []uint64{g.GreenlandBlockHeight}},
+	}, nil, nil, nil, mockContractStaking)
+	require.NoError(err)
+	ctx := genesis.WithGenesisContext(context.Background(), g)
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: g.ToBeEnabledBlockHeight,
+		},
+	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+	v, err := p.Start(ctx, sm)
+	require.NoError(err)
+	require.NoError(sm.WriteView(_protocolID, v))
+	mockView.EXPECT().Migrate(gomock.Any(), gomock.Any()).Return(errors.New("migration error")).Times(1)
+	require.ErrorContains(p.CreatePreStates(ctx, sm), "migration error")
+	mockView.EXPECT().Migrate(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	require.NoError(p.CreatePreStates(ctx, sm))
+	require.NoError(p.CreatePreStates(protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: g.ToBeEnabledBlockHeight - 1,
+		},
+	), sm))
+	require.NoError(p.CreatePreStates(protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: g.ToBeEnabledBlockHeight + 1,
+		},
+	), sm))
+}
+
 func Test_CreateGenesisStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
