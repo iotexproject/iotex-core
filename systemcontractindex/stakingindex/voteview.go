@@ -50,7 +50,6 @@ func NewVoteView(
 		height:                height,
 		cur:                   cur,
 		processorBuilder:      processorBuilder,
-		store:                 newBucketStore(indexer),
 		calculateVoteWeightFn: fn,
 	}
 }
@@ -148,6 +147,7 @@ func (s *voteView) CandidateStakeVotes(ctx context.Context, candidate address.Ad
 func (s *voteView) CreatePreStates(ctx context.Context) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	s.height = blkCtx.BlockHeight
+	s.store = newBucketStore(s.indexer)
 	return nil
 }
 
