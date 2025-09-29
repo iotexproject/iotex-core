@@ -55,7 +55,7 @@ type (
 	}
 
 	calculateVoteWeightFunc func(v *Bucket) *big.Int
-	blocksDurationFn        func(start uint64, end uint64) time.Duration
+	blocksDurationFn        = stakingindex.BlocksDurationFn
 	blocksDurationAtFn      func(start uint64, end uint64, viewAt uint64) time.Duration
 )
 
@@ -126,17 +126,13 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	for i, id := range ids {
 		buckets[id] = assembleContractBucket(infos[i], typs[i])
 	}
-	calculateUnmutedVoteWeightAt := func(b *contractstaking.Bucket, height uint64) *big.Int {
-		vb := contractBucketToVoteBucket(0, b, s.contractAddr.String(), s.genBlockDurationFn(height))
-		return s.config.CalculateVoteWeight(vb)
-	}
 	cur := stakingindex.AggregateCandidateVotes(buckets, func(b *contractstaking.Bucket) *big.Int {
-		return calculateUnmutedVoteWeightAt(b, s.height)
+		return s.calculateUnmutedVoteWeightAt(b, s.height)
 	})
 	processorBuilder := newEventProcessorBuilder(s.contractAddr)
 	cfg := &stakingindex.VoteViewConfig{ContractAddr: s.contractAddr}
 	mgr := stakingindex.NewCandidateVotesManager(s.ContractAddress())
-	return stakingindex.NewVoteView(s, cfg, s.height, cur, processorBuilder, mgr, calculateUnmutedVoteWeightAt), nil
+	return stakingindex.NewVoteView(s, cfg, s.height, cur, processorBuilder, mgr, s.calculateUnmutedVoteWeightAt), nil
 }
 
 // Stop stops the indexer
@@ -403,6 +399,13 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
+// IndexerAt returns the contract staking indexer at a specific height
+func (s *Indexer) IndexerAt(sr protocol.StateReader) staking.ContractStakingIndexer {
+	epb := newEventProcessorBuilder(s.contractAddr)
+	h := stakingindex.NewHistoryIndexer(sr, s.contractAddr, s.config.ContractDeployHeight, epb, s.calculateUnmutedVoteWeightAt, s.genBlockDurationFn)
+	return newHistoryIndexer(h)
+}
+
 func (s *Indexer) commit(ctx context.Context, handler *contractStakingDirty, height uint64) error {
 	batch, delta := handler.Finalize()
 	cache, err := delta.Commit(ctx, s.contractAddr, nil)
@@ -463,4 +466,9 @@ func (s *Indexer) validateHeight(height uint64) error {
 		return errors.Wrapf(ErrInvalidHeight, "expected %d, actual %d", s.height, height)
 	}
 	return nil
+}
+
+func (s *Indexer) calculateUnmutedVoteWeightAt(b *contractstaking.Bucket, height uint64) *big.Int {
+	vb := contractBucketToVoteBucket(0, b, s.contractAddr.String(), s.genBlockDurationFn(height))
+	return s.config.CalculateVoteWeight(vb)
 }
