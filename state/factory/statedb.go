@@ -243,11 +243,39 @@ func (sdb *stateDB) AddDependency(indexer blockdao.BlockIndexer) {
 }
 
 func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
-	return sdb.newWorkingSetWithKVStore(ctx, height, &readOnlyKV{sdb.dao.atHeight(height)})
+	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, &readOnlyKV{sdb.dao.atHeight(height)}, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create new read-only working set")
+	}
+	if sdb.erigonDB != nil {
+		if sdb.cfg.Chain.HistoryBlockRetention > 0 {
+			sdb.mutex.RLock()
+			tip := sdb.currentChainHeight
+			sdb.mutex.RUnlock()
+			if height < tip-sdb.cfg.Chain.HistoryBlockRetention {
+				return nil, errors.Wrapf(
+					ErrNotSupported,
+					"history is pruned, only supported for latest %d blocks, but requested height %d",
+					sdb.cfg.Chain.HistoryBlockRetention, height,
+				)
+			}
+		}
+		e, err := sdb.erigonDB.NewErigonStoreDryrun(ctx, height+1)
+		if err != nil {
+			return nil, err
+		}
+		ws.store = newErigonWorkingSetStoreForSimulate(e)
+	}
+	views, err := sdb.registry.StartAll(ctx, ws)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create new read-only working set")
+	}
+	ws.views = views
+	return ws, nil
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
-	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height))
+	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height), sdb.protocolViews.Fork())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create new working set")
 	}
@@ -265,7 +293,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	return ws, nil
 }
 
-func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64, kvstore db.KVStore) (*workingSet, error) {
+func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64, kvstore db.KVStore, views *protocol.Views) (*workingSet, error) {
 	store, err := sdb.createWorkingSetStore(ctx, height, kvstore)
 	if err != nil {
 		return nil, err
@@ -273,7 +301,7 @@ func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64,
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-	return newWorkingSet(height, sdb.protocolViews.Fork(), store, sdb), nil
+	return newWorkingSet(height, views, store, sdb), nil
 }
 
 func (sdb *stateDB) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
@@ -394,13 +422,6 @@ func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, 
 	if err != nil {
 		return nil, err
 	}
-	if sdb.erigonDB != nil {
-		e, err := sdb.erigonDB.NewErigonStoreDryrun(ctx, height)
-		if err != nil {
-			return nil, err
-		}
-		ws.store = newErigonWorkingSetStoreForSimulate(e)
-	}
 	// handle panic to ensure workingset is closed
 	defer func() {
 		if r := recover(); r != nil {
@@ -421,25 +442,6 @@ func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (prot
 	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
 		return nil, err
-	}
-	if sdb.erigonDB != nil {
-		if sdb.cfg.Chain.HistoryBlockRetention > 0 {
-			sdb.mutex.RLock()
-			tip := sdb.currentChainHeight
-			sdb.mutex.RUnlock()
-			if height < tip-sdb.cfg.Chain.HistoryBlockRetention {
-				return nil, errors.Wrapf(
-					ErrNotSupported,
-					"history is pruned, only supported for latest %d blocks, but requested height %d",
-					sdb.cfg.Chain.HistoryBlockRetention, height,
-				)
-			}
-		}
-		e, err := sdb.erigonDB.NewErigonStoreDryrun(ctx, height+1)
-		if err != nil {
-			return nil, err
-		}
-		ws.store = newErigonWorkingSetStoreForSimulate(e)
 	}
 	return ws, nil
 }

@@ -47,6 +47,7 @@ type (
 		CreateEventProcessor(context.Context, staking.EventHandler) staking.EventProcessor
 		ContractStakingBuckets() (uint64, map[uint64]*Bucket, error)
 		staking.BucketReader
+		IndexerAt(protocol.StateReader) staking.ContractStakingIndexer
 	}
 	// Indexer is the staking indexer
 	Indexer struct {
@@ -63,7 +64,7 @@ type (
 	// IndexerOption is the option to create an indexer
 	IndexerOption func(*Indexer)
 
-	blocksDurationFn        func(start uint64, end uint64) time.Duration
+	BlocksDurationFn        func(start uint64, end uint64) time.Duration
 	blocksDurationAtFn      func(start uint64, end uint64, viewAt uint64) time.Duration
 	CalculateVoteWeightFunc func(v *VoteBucket) *big.Int
 )
@@ -343,6 +344,12 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	return s.commit(ctx, handler, blk.Height())
 }
 
+// IndexerAt returns the staking indexer at the given state reader
+func (s *Indexer) IndexerAt(sr protocol.StateReader) staking.ContractStakingIndexer {
+	epb := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
+	return NewHistoryIndexer(sr, s.common.ContractAddress(), s.common.StartHeight(), epb, s.calculateContractVoteWeight, s.genBlockDurationFn)
+}
+
 func (s *Indexer) commit(ctx context.Context, handler *eventHandler, height uint64) error {
 	delta, dirty := handler.Finalize()
 	// update db
@@ -377,7 +384,7 @@ func (s *Indexer) checkHeight(height uint64) (unstart bool, err error) {
 	return false, nil
 }
 
-func (s *Indexer) genBlockDurationFn(view uint64) blocksDurationFn {
+func (s *Indexer) genBlockDurationFn(view uint64) BlocksDurationFn {
 	return func(start uint64, end uint64) time.Duration {
 		return s.blocksToDuration(start, end, view)
 	}
