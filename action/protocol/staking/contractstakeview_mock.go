@@ -127,17 +127,17 @@ func (mr *MockContractStakeViewMockRecorder) Commit(arg0, arg1 any) *gomock.Call
 }
 
 // CreatePreStates mocks base method.
-func (m *MockContractStakeView) CreatePreStates(ctx context.Context, br BucketReader) error {
+func (m *MockContractStakeView) CreatePreStates(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreatePreStates", ctx, br)
+	ret := m.ctrl.Call(m, "CreatePreStates", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreatePreStates indicates an expected call of CreatePreStates.
-func (mr *MockContractStakeViewMockRecorder) CreatePreStates(ctx, br any) *gomock.Call {
+func (mr *MockContractStakeViewMockRecorder) CreatePreStates(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePreStates", reflect.TypeOf((*MockContractStakeView)(nil).CreatePreStates), ctx, br)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePreStates", reflect.TypeOf((*MockContractStakeView)(nil).CreatePreStates), ctx)
 }
 
 // Fork mocks base method.
@@ -183,7 +183,7 @@ func (mr *MockContractStakeViewMockRecorder) IsDirty() *gomock.Call {
 }
 
 // Migrate mocks base method.
-func (m *MockContractStakeView) Migrate(arg0 EventHandler, arg1 map[uint64]*contractstaking.Bucket) error {
+func (m *MockContractStakeView) Migrate(arg0 context.Context, arg1 EventHandler) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Migrate", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -197,7 +197,7 @@ func (mr *MockContractStakeViewMockRecorder) Migrate(arg0, arg1 any) *gomock.Cal
 }
 
 // Revise mocks base method.
-func (m *MockContractStakeView) Revise(arg0 map[uint64]*contractstaking.Bucket) {
+func (m *MockContractStakeView) Revise(arg0 context.Context) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Revise", arg0)
 }

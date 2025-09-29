@@ -25,6 +25,7 @@ type (
 		Build(context.Context, staking.EventHandler) staking.EventProcessor
 	}
 	voteView struct {
+		indexer               staking.ContractStakingIndexer
 		config                *VoteViewConfig
 		height                uint64
 		cur                   CandidateVotes
@@ -35,17 +36,21 @@ type (
 )
 
 // NewVoteView creates a new vote view
-func NewVoteView(cfg *VoteViewConfig,
+func NewVoteView(
+	indexer staking.ContractStakingIndexer,
+	cfg *VoteViewConfig,
 	height uint64,
 	cur CandidateVotes,
 	processorBuilder EventProcessorBuilder,
 	fn CalculateUnmutedVoteWeightAtFn,
 ) staking.ContractStakeView {
 	return &voteView{
+		indexer:               indexer,
 		config:                cfg,
 		height:                height,
 		cur:                   cur,
 		processorBuilder:      processorBuilder,
+		store:                 newBucketStore(indexer),
 		calculateVoteWeightFn: fn,
 	}
 }
@@ -61,6 +66,7 @@ func (s *voteView) Wrap() staking.ContractStakeView {
 		store = newBucketStore(s.store)
 	}
 	return &voteView{
+		indexer:               s.indexer,
 		config:                s.config,
 		height:                s.height,
 		cur:                   cur,
@@ -77,6 +83,7 @@ func (s *voteView) Fork() staking.ContractStakeView {
 		store = newBucketStore(s.store)
 	}
 	return &voteView{
+		indexer:               s.indexer,
 		config:                s.config,
 		height:                s.height,
 		cur:                   cur,
@@ -90,7 +97,28 @@ func (s *voteView) IsDirty() bool {
 	return s.cur.IsDirty()
 }
 
-func (s *voteView) Migrate(handler staking.EventHandler, buckets map[uint64]*contractstaking.Bucket) error {
+func (s *voteView) buckets(ctx context.Context) (map[uint64]*contractstaking.Bucket, error) {
+	h, buckets, err := s.indexer.ContractStakingBuckets()
+	if err != nil {
+		return nil, err
+	}
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if s.indexer.StartHeight() <= blkCtx.BlockHeight && h != blkCtx.BlockHeight-1 {
+		return nil, errors.Errorf("bucket cache height %d does not match current height %d", h, blkCtx.BlockHeight-1)
+	}
+	return buckets, nil
+}
+
+func (s *voteView) Migrate(ctx context.Context, handler staking.EventHandler) error {
+	h, buckets, err := s.indexer.ContractStakingBuckets()
+	if err != nil {
+		return err
+	}
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if s.indexer.StartHeight() <= blkCtx.BlockHeight && h != blkCtx.BlockHeight-1 {
+		return errors.Errorf("bucket cache height %d does not match current height %d", h, blkCtx.BlockHeight-1)
+	}
+
 	for id := range buckets {
 		if err := handler.PutBucket(s.config.ContractAddr, id, buckets[id]); err != nil {
 			return err
@@ -99,7 +127,11 @@ func (s *voteView) Migrate(handler staking.EventHandler, buckets map[uint64]*con
 	return nil
 }
 
-func (s *voteView) Revise(buckets map[uint64]*contractstaking.Bucket) {
+func (s *voteView) Revise(ctx context.Context) {
+	buckets, err := s.buckets(ctx)
+	if err != nil {
+		return
+	}
 	s.cur = AggregateCandidateVotes(buckets, func(b *contractstaking.Bucket) *big.Int {
 		return s.calculateVoteWeightFn(b, s.height)
 	})
@@ -113,10 +145,9 @@ func (s *voteView) CandidateStakeVotes(ctx context.Context, candidate address.Ad
 	return s.cur.Votes(featureCtx, candidate.String())
 }
 
-func (s *voteView) CreatePreStates(ctx context.Context, br BucketReader) error {
+func (s *voteView) CreatePreStates(ctx context.Context) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	s.height = blkCtx.BlockHeight
-	s.store = newBucketStore(br)
 	return nil
 }
 
