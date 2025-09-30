@@ -402,7 +402,8 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 // IndexerAt returns the contract staking indexer at a specific height
 func (s *Indexer) IndexerAt(sr protocol.StateReader) staking.ContractStakingIndexer {
 	epb := newEventProcessorBuilder(s.contractAddr)
-	return stakingindex.NewHistoryIndexer(sr, s.contractAddr, s.config.ContractDeployHeight, epb, s.calculateUnmutedVoteWeightAt)
+	h := stakingindex.NewHistoryIndexer(sr, s.contractAddr, s.config.ContractDeployHeight, epb, s.calculateUnmutedVoteWeightAt)
+	return newHistoryIndexer(h)
 }
 
 func (s *Indexer) commit(ctx context.Context, handler *contractStakingDirty, height uint64) error {
