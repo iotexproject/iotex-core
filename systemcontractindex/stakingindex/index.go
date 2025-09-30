@@ -164,9 +164,6 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	if !s.common.Started() {
 		return nil, errors.New("indexer not started")
 	}
-	if !protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
-		return nil, nil
-	}
 	srHeight, err := sr.Height()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get state reader height")
