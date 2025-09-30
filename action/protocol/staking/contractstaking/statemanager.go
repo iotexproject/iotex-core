@@ -36,6 +36,7 @@ func (cs *ContractStakingStateManager) DeleteBucket(contractAddr address.Address
 	_, err := cs.sm.DelState(
 		contractNamespaceOption(contractAddr),
 		bucketIDKeyOption(bucketID),
+		protocol.ObjectOption(&Bucket{}),
 	)
 
 	return err

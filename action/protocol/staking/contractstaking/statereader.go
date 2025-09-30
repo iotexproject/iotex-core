@@ -101,7 +101,7 @@ func (r *ContractStakingStateReader) Bucket(contractAddr address.Address, bucket
 
 // BucketTypes returns all BucketType for a given contract and bucket id.
 func (r *ContractStakingStateReader) BucketTypes(contractAddr address.Address) ([]uint64, []*BucketType, error) {
-	_, iter, err := r.sr.States(bucketTypeNamespaceOption(contractAddr))
+	_, iter, err := r.sr.States(bucketTypeNamespaceOption(contractAddr), protocol.ObjectOption(&BucketType{}))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get bucket types for contract %s: %w", contractAddr.String(), err)
 	}
@@ -127,7 +127,7 @@ func (r *ContractStakingStateReader) BucketTypes(contractAddr address.Address) (
 
 // Buckets returns all BucketInfo for a given contract.
 func (r *ContractStakingStateReader) Buckets(contractAddr address.Address) ([]uint64, []*Bucket, error) {
-	_, iter, err := r.sr.States(contractNamespaceOption(contractAddr))
+	_, iter, err := r.sr.States(contractNamespaceOption(contractAddr), protocol.ObjectOption(&Bucket{}))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get buckets for contract %s: %w", contractAddr.String(), err)
 	}
