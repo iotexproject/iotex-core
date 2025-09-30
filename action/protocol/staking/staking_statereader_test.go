@@ -61,7 +61,7 @@ func TestStakingStateReader(t *testing.T) {
 			StakeStartTime:          time.Now(),
 			AutoStake:               true,
 			ContractAddress:         contractAddress,
-			UnstakeStartBlockHeight: maxBlockNumber,
+			UnstakeStartBlockHeight: MaxDurationNumber,
 		},
 		{
 			Index:                   2,
@@ -73,7 +73,7 @@ func TestStakingStateReader(t *testing.T) {
 			StakeStartTime:          time.Now(),
 			AutoStake:               true,
 			ContractAddress:         contractAddress,
-			UnstakeStartBlockHeight: maxBlockNumber,
+			UnstakeStartBlockHeight: MaxDurationNumber,
 		},
 	}
 	testNativeBuckets := []*VoteBucket{
@@ -165,7 +165,7 @@ func TestStakingStateReader(t *testing.T) {
 	}
 	t.Run("readStateBuckets", func(t *testing.T) {
 		sf, _, stakeSR, ctx, r := prepare(t)
-		sf.EXPECT().States(gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
+		sf.EXPECT().States(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
 			iter, err := state.NewIterator(keys, states)
 			r.NoError(err)
 			return uint64(1), iter, nil
@@ -195,7 +195,7 @@ func TestStakingStateReader(t *testing.T) {
 	})
 	t.Run("readStateBucketsWithEndorsement", func(t *testing.T) {
 		sf, _, stakeSR, ctx, r := prepare(t)
-		sf.EXPECT().States(gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
+		sf.EXPECT().States(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
 			iter, err := state.NewIterator(keys, states)
 			r.NoError(err)
 			return uint64(1), iter, nil

@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	logfilter "github.com/iotexproject/iotex-core/v2/api/logfilter"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -743,6 +744,15 @@ func (et *evmTracer) Reset() error {
 	default:
 		tracer = logger.NewStructLogger(et.config.Config)
 	}
-	et.EVMLogger = tracer
+	et.EVMLogger = evm.NewTracerWrapper(tracer)
 	return nil
+}
+
+func (et *evmTracer) Unwrap() vm.EVMLogger {
+	if wrapper, ok := et.EVMLogger.(interface {
+		Unwrap() vm.EVMLogger
+	}); ok {
+		return wrapper.Unwrap()
+	}
+	return et.EVMLogger
 }
