@@ -401,5 +401,5 @@ func AggregateCandidateVotes(bkts map[uint64]*Bucket, calculateUnmutedVoteWeight
 		votes := calculateUnmutedVoteWeight(bkt)
 		res.Add(bkt.Candidate.String(), bkt.StakedAmount, votes)
 	}
-	return res
+	return newCandidateVotesWithBuffer(res)
 }

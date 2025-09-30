@@ -52,7 +52,7 @@ func (s *candidateVotesManager) Load(ctx context.Context, sr protocol.StateReade
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get candidate votes state")
 	}
-	return cur, nil
+	return newCandidateVotesWithBuffer(cur), nil
 }
 
 func (s *candidateVotesManager) key() []byte {

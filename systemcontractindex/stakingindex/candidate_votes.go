@@ -11,12 +11,16 @@ import (
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
+var (
+	// ErrCandidateVotesIsDirty is returned when candidate votes are dirty
+	ErrCandidateVotesIsDirty = errors.New("candidate votes is dirty")
+)
+
 // CandidateVotes is the interface to manage candidate votes
 type CandidateVotes interface {
 	Clone() CandidateVotes
 	Votes(fCtx protocol.FeatureCtx, cand string) *big.Int
 	Add(cand string, amount *big.Int, votes *big.Int)
-	Clear()
 	Commit() CandidateVotes
 	Base() CandidateVotes
 	IsDirty() bool
@@ -35,6 +39,11 @@ type candidateVotes struct {
 	cands map[string]*candidate
 }
 
+type candidateVotesWithBuffer struct {
+	base   *candidateVotes
+	change *candidateVotes
+}
+
 type candidateVotesWraper struct {
 	base   CandidateVotes
 	change *candidateVotes
@@ -51,7 +60,7 @@ func newCandidate() *candidate {
 	}
 }
 
-func (cv *candidateVotes) Clone() CandidateVotes {
+func (cv *candidateVotes) Clone() *candidateVotes {
 	newCands := make(map[string]*candidate)
 	for cand, c := range cv.cands {
 		newCands[cand] = &candidate{
@@ -62,10 +71,6 @@ func (cv *candidateVotes) Clone() CandidateVotes {
 	return &candidateVotes{
 		cands: newCands,
 	}
-}
-
-func (cv *candidateVotes) IsDirty() bool {
-	return false
 }
 
 func (cv *candidateVotes) Votes(fCtx protocol.FeatureCtx, cand string) *big.Int {
@@ -89,10 +94,6 @@ func (cv *candidateVotes) Add(cand string, amount *big.Int, votes *big.Int) {
 	if votes != nil {
 		cv.cands[cand].votes = new(big.Int).Add(cv.cands[cand].votes, votes)
 	}
-}
-
-func (cv *candidateVotes) Clear() {
-	cv.cands = make(map[string]*candidate)
 }
 
 func (cv *candidateVotes) Serialize() ([]byte, error) {
@@ -138,14 +139,6 @@ func (cv *candidateVotes) Decode(data systemcontracts.GenericValue) error {
 	return cv.Deserialize(data.PrimaryData)
 }
 
-func (cv *candidateVotes) Commit() CandidateVotes {
-	return cv
-}
-
-func (cv *candidateVotes) Base() CandidateVotes {
-	return cv
-}
-
 func newCandidateVotes() *candidateVotes {
 	return &candidateVotes{
 		cands: make(map[string]*candidate),
@@ -162,12 +155,12 @@ func newCandidateVotesWrapper(base CandidateVotes) *candidateVotesWraper {
 func (cv *candidateVotesWraper) Clone() CandidateVotes {
 	return &candidateVotesWraper{
 		base:   cv.base.Clone(),
-		change: cv.change.Clone().(*candidateVotes),
+		change: cv.change.Clone(),
 	}
 }
 
 func (cv *candidateVotesWraper) IsDirty() bool {
-	return cv.change.IsDirty() || cv.base.IsDirty()
+	return len(cv.change.cands) > 0 || cv.base.IsDirty()
 }
 
 func (cv *candidateVotesWraper) Votes(fCtx protocol.FeatureCtx, cand string) *big.Int {
@@ -186,11 +179,6 @@ func (cv *candidateVotesWraper) Add(cand string, amount *big.Int, votes *big.Int
 	cv.change.Add(cand, amount, votes)
 }
 
-func (cv *candidateVotesWraper) Clear() {
-	cv.change.Clear()
-	cv.base.Clear()
-}
-
 func (cv *candidateVotesWraper) Commit() CandidateVotes {
 	// Commit the changes to the base
 	for cand, change := range cv.change.cands {
@@ -202,15 +190,19 @@ func (cv *candidateVotesWraper) Commit() CandidateVotes {
 }
 
 func (cv *candidateVotesWraper) Serialize() ([]byte, error) {
-	return nil, errors.New("not implemented")
+	if cv.IsDirty() {
+		return nil, errors.Wrap(ErrCandidateVotesIsDirty, "cannot serialize dirty candidate votes")
+	}
+	return cv.base.Serialize()
 }
 
 func (cv *candidateVotesWraper) Deserialize(data []byte) error {
-	return errors.New("not implemented")
+	cv.change = newCandidateVotes()
+	return cv.base.Deserialize(data)
 }
 
 func (cv *candidateVotesWraper) Base() CandidateVotes {
-	return cv.base
+	return cv.base.Base()
 }
 
 func newCandidateVotesWrapperCommitInClone(base CandidateVotes) *candidateVotesWraperCommitInClone {
@@ -228,4 +220,67 @@ func (cv *candidateVotesWraperCommitInClone) Clone() CandidateVotes {
 func (cv *candidateVotesWraperCommitInClone) Commit() CandidateVotes {
 	cv.base = cv.base.Clone()
 	return cv.candidateVotesWraper.Commit()
+}
+
+func (cv *candidateVotesWraperCommitInClone) Base() CandidateVotes {
+	return cv.base
+}
+
+func newCandidateVotesWithBuffer(base *candidateVotes) *candidateVotesWithBuffer {
+	return &candidateVotesWithBuffer{
+		base:   base,
+		change: newCandidateVotes(),
+	}
+}
+
+func (cv *candidateVotesWithBuffer) Clone() CandidateVotes {
+	return &candidateVotesWithBuffer{
+		base:   cv.base.Clone(),
+		change: cv.change.Clone(),
+	}
+}
+
+func (cv *candidateVotesWithBuffer) IsDirty() bool {
+	return len(cv.change.cands) > 0
+}
+
+func (cv *candidateVotesWithBuffer) Votes(fCtx protocol.FeatureCtx, cand string) *big.Int {
+	base := cv.base.Votes(fCtx, cand)
+	change := cv.change.Votes(fCtx, cand)
+	if change == nil {
+		return base
+	}
+	if base == nil {
+		return change
+	}
+	return new(big.Int).Add(base, change)
+}
+
+func (cv *candidateVotesWithBuffer) Add(cand string, amount *big.Int, votes *big.Int) {
+	cv.change.Add(cand, amount, votes)
+}
+
+func (cv *candidateVotesWithBuffer) Commit() CandidateVotes {
+	// Commit the changes to the base
+	for cand, change := range cv.change.cands {
+		cv.base.Add(cand, change.amount, change.votes)
+	}
+	cv.change = newCandidateVotes()
+	return cv
+}
+
+func (cv *candidateVotesWithBuffer) Serialize() ([]byte, error) {
+	if cv.IsDirty() {
+		return nil, errors.Wrap(ErrCandidateVotesIsDirty, "cannot serialize dirty candidate votes")
+	}
+	return cv.base.Serialize()
+}
+
+func (cv *candidateVotesWithBuffer) Deserialize(data []byte) error {
+	cv.change = newCandidateVotes()
+	return cv.base.Deserialize(data)
+}
+
+func (cv *candidateVotesWithBuffer) Base() CandidateVotes {
+	return newCandidateVotesWithBuffer(cv.base)
 }
