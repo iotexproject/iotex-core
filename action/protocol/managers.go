@@ -65,10 +65,11 @@ func ObjectOption(obj any) StateOption {
 type (
 	// StateConfig is the config for accessing stateDB
 	StateConfig struct {
-		Namespace string // namespace used by state's storage
-		Key       []byte
-		Keys      [][]byte
-		Object    any // object used by state's storage
+		Namespace       string // namespace used by state's storage
+		Key             []byte
+		Keys            [][]byte
+		Object          any  // object used by state's storage
+		ErigonStoreOnly bool // whether only read/write from/to erigon store
 	}
 
 	// StateOption sets parameter for access state

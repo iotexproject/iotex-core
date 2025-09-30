@@ -159,3 +159,7 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 func (store *workingSetStoreWithSecondary) KVStore() db.KVStore {
 	return nil
 }
+
+func (store *workingSetStoreWithSecondary) ErigonStore() (any, error) {
+	return store.writerSecondary, nil
+}
