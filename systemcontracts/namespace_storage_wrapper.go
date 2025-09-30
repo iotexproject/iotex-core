@@ -65,13 +65,13 @@ func (ns *NamespaceStorageContractWrapper) BatchPut(keys [][]byte, values []Name
 }
 
 // List retrieves all stored data in a namespace with pagination
-func (ns *NamespaceStorageContractWrapper) List(offset, limit *big.Int) (*NamespaceListResult, error) {
-	return ns.contract.List(ns.ns, offset, limit)
+func (ns *NamespaceStorageContractWrapper) List(offset, limit uint64) (*NamespaceListResult, error) {
+	return ns.contract.List(ns.ns, big.NewInt(int64(offset)), big.NewInt(int64(limit)))
 }
 
 // ListKeys retrieves all keys in a namespace with pagination
-func (ns *NamespaceStorageContractWrapper) ListKeys(offset, limit *big.Int) (*NamespaceListKeysResult, error) {
-	return ns.contract.ListKeys(ns.ns, offset, limit)
+func (ns *NamespaceStorageContractWrapper) ListKeys(offset, limit uint64) (*NamespaceListKeysResult, error) {
+	return ns.contract.ListKeys(ns.ns, big.NewInt(int64(offset)), big.NewInt(int64(limit)))
 }
 
 // Count returns the number of items in the namespace
