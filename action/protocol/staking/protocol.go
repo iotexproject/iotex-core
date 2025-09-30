@@ -429,7 +429,7 @@ func (p *Protocol) SlashCandidate(
 	if err := csm.Upsert(candidate); err != nil {
 		return errors.Wrap(err, "failed to upsert candidate")
 	}
-	return csm.CreditBucketPool(amount)
+	return csm.CreditBucketPool(amount, false)
 }
 
 // CreatePreStates updates state manager

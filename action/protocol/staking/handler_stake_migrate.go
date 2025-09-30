@@ -125,7 +125,7 @@ func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account
 	}
 
 	// update bucket pool
-	if err := csm.CreditBucketPool(bucket.StakedAmount); err != nil {
+	if err := csm.CreditBucketPool(bucket.StakedAmount, true); err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error())
 	}
 	// update candidate vote

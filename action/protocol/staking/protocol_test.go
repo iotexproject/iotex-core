@@ -759,15 +759,15 @@ func TestSlashCandidate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		amount := big.NewInt(400)
 		remaining := bucket.StakedAmount.Sub(bucket.StakedAmount, amount)
-		err := p.SlashCandidate(ctx, sm, owner, amount)
-		require.NoError(err)
+		require.NoError(p.SlashCandidate(ctx, sm, owner, amount))
 		cl, err = p.ActiveCandidates(ctx, sm, 0)
 		require.NoError(err)
 		require.Equal(0, len(cl))
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight: genesis.Default.ToBeEnabledBlockHeight,
+		}))
 		cl, err = p.ActiveCandidates(
-			protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-				BlockHeight: genesis.Default.ToBeEnabledBlockHeight,
-			})),
+			ctx,
 			sm,
 			0,
 		)
@@ -778,5 +778,22 @@ func TestSlashCandidate(t *testing.T) {
 		require.Equal(remaining.String(), bucket.StakedAmount.String())
 		cand := csm.GetByIdentifier(owner)
 		require.Equal(remaining.String(), cand.SelfStake.String())
+		require.NoError(p.SlashCandidate(ctx, sm, owner, big.NewInt(11)))
+		cl, err = p.ActiveCandidates(
+			ctx,
+			sm,
+			0,
+		)
+		require.NoError(err)
+		require.Equal(0, len(cl))
+		require.NoError(cand.AddSelfStake(big.NewInt(21)))
+		require.NoError(csm.Upsert(cand))
+		cl, err = p.ActiveCandidates(
+			ctx,
+			sm,
+			0,
+		)
+		require.NoError(err)
+		require.Equal(1, len(cl))
 	})
 }
