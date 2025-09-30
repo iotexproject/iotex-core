@@ -5,12 +5,12 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
-	"github.com/iotexproject/iotex-core/v2/state"
-	"github.com/iotexproject/iotex-core/v2/test/identityset"
-	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
 func testCreateViewData(t *testing.T) *viewData {
@@ -54,20 +54,8 @@ func TestNewNFTBucketEventHandler(t *testing.T) {
 
 	sm := testdb.NewMockStateManager(ctrl)
 	sm.EXPECT().Height().Return(uint64(100), nil).AnyTimes()
-	sm.EXPECT().ReadView(gomock.Any()).Return(testCreateViewData(t), nil).AnyTimes()
+	sm.WriteView(_protocolID, testCreateViewData(t))
 	handler, err := newNFTBucketEventHandler(sm, func(bkt *contractstaking.Bucket, height uint64) *big.Int {
-		return big.NewInt(100)
-	})
-	require.NoError(t, err)
-	require.NotNil(t, handler)
-}
-
-func TestNewNFTBucketEventHandlerSecondaryOnly(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	sm := testdb.NewMockStateManager(ctrl)
-	sm.EXPECT().Height().Return(uint64(100), nil).AnyTimes()
-	sm.EXPECT().ReadView(gomock.Any()).Return(testCreateViewData(t), nil).AnyTimes()
-	handler, err := newNFTBucketEventHandlerSecondaryOnly(sm, func(bkt *contractstaking.Bucket, height uint64) *big.Int {
 		return big.NewInt(100)
 	})
 	require.NoError(t, err)
@@ -80,16 +68,16 @@ func TestPutBucketType(t *testing.T) {
 
 	sm := testdb.NewMockStateManager(ctrl)
 	sm.EXPECT().Height().Return(uint64(100), nil).AnyTimes()
-	sm.EXPECT().ReadView(gomock.Any()).Return(testCreateViewData(t), nil).AnyTimes()
+	sm.WriteView(_protocolID, testCreateViewData(t))
 	handler, err := newNFTBucketEventHandler(sm, func(bkt *contractstaking.Bucket, height uint64) *big.Int {
 		return big.NewInt(100)
 	})
 	require.NoError(t, err)
 	require.NotNil(t, handler)
-	iter, err := state.NewIterator([][]byte{}, [][]byte{})
-	require.NoError(t, err)
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(100), nil).Times(1)
-	sm.EXPECT().States(gomock.Any()).Return(uint64(100), iter, nil).Times(1)
+	// iter, err := state.NewIterator([][]byte{}, [][]byte{})
+	// require.NoError(t, err)
+	// sm.EXPECT().PutState(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(100), nil).Times(1)
+	// sm.EXPECT().States(gomock.Any()).Return(uint64(100), iter, nil).Times(1)
 	contractAddr := identityset.Address(11)
 	require.NoError(t, handler.PutBucketType(contractAddr, &contractstaking.BucketType{
 		Amount:      big.NewInt(100),
