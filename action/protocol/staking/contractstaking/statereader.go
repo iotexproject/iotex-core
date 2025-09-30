@@ -15,13 +15,15 @@ import (
 
 // ContractStakingStateReader wraps a state reader to provide staking contract-specific reads.
 type ContractStakingStateReader struct {
-	sr protocol.StateReader
+	sr         protocol.StateReader
+	globalOpts []protocol.StateOption
 }
 
 // NewStateReader creates a new ContractStakingStateReader.
-func NewStateReader(sr protocol.StateReader) *ContractStakingStateReader {
+func NewStateReader(sr protocol.StateReader, opts ...protocol.StateOption) *ContractStakingStateReader {
 	return &ContractStakingStateReader{
-		sr: sr,
+		sr:         sr,
+		globalOpts: opts,
 	}
 }
 
@@ -50,8 +52,10 @@ func (r *ContractStakingStateReader) contract(contractAddr address.Address) (*St
 	var contract StakingContract
 	_, err := r.sr.State(
 		&contract,
-		metaNamespaceOption(),
-		contractKeyOption(contractAddr),
+		r.makeOpts(
+			metaNamespaceOption(),
+			contractKeyOption(contractAddr),
+		)...,
 	)
 	if err != nil {
 		return nil, err
@@ -73,10 +77,12 @@ func (r *ContractStakingStateReader) BucketType(contractAddr address.Address, tI
 	var bktType stakingpb.BucketType
 	if _, err := r.sr.State(
 		&bktType,
-		bucketTypeNamespaceOption(contractAddr),
-		bucketIDKeyOption(tID),
+		r.makeOpts(
+			bucketTypeNamespaceOption(contractAddr),
+			bucketIDKeyOption(tID),
+		)...,
 	); err != nil {
-		return nil, fmt.Errorf("failed to get bucket type %d for contract %s: %w", tID, contractAddr.String(), err)
+		return nil, errors.Wrapf(err, "failed to get bucket type %d for contract %s", tID, contractAddr.String())
 	}
 	return LoadBucketTypeFromProto(&bktType)
 }
@@ -86,8 +92,10 @@ func (r *ContractStakingStateReader) Bucket(contractAddr address.Address, bucket
 	var ssb Bucket
 	if _, err := r.sr.State(
 		&ssb,
-		contractNamespaceOption(contractAddr),
-		bucketIDKeyOption(bucketID),
+		r.makeOpts(
+			contractNamespaceOption(contractAddr),
+			bucketIDKeyOption(bucketID),
+		)...,
 	); err != nil {
 		switch errors.Cause(err) {
 		case state.ErrStateNotExist:
@@ -101,13 +109,16 @@ func (r *ContractStakingStateReader) Bucket(contractAddr address.Address, bucket
 
 // BucketTypes returns all BucketType for a given contract and bucket id.
 func (r *ContractStakingStateReader) BucketTypes(contractAddr address.Address) ([]uint64, []*BucketType, error) {
-	_, iter, err := r.sr.States(bucketTypeNamespaceOption(contractAddr), protocol.ObjectOption(&BucketType{}))
+	_, iter, err := r.sr.States(r.makeOpts(
+		bucketTypeNamespaceOption(contractAddr),
+		protocol.ObjectOption(&BucketType{}),
+	)...)
 	switch errors.Cause(err) {
 	case nil:
 	case state.ErrStateNotExist:
 		return nil, nil, nil
 	default:
-		return nil, nil, fmt.Errorf("failed to get bucket types for contract %s: %w", contractAddr.String(), err)
+		return nil, nil, errors.Wrapf(err, "failed to get bucket types for contract %s", contractAddr.String())
 	}
 	ids := make([]uint64, 0, iter.Size())
 	types := make([]*BucketType, 0, iter.Size())
@@ -123,7 +134,7 @@ func (r *ContractStakingStateReader) BucketTypes(contractAddr address.Address) (
 			types = append(types, bt)
 		case state.ErrNilValue:
 		default:
-			return nil, nil, fmt.Errorf("failed to read bucket type %d for contract %s: %w", byteutil.BytesToUint64(key), contractAddr.String(), err)
+			return nil, nil, errors.Wrapf(err, "failed to read bucket type %d for contract %s", byteutil.BytesToUint64(key), contractAddr.String())
 		}
 	}
 	return ids, types, nil
@@ -131,13 +142,16 @@ func (r *ContractStakingStateReader) BucketTypes(contractAddr address.Address) (
 
 // Buckets returns all BucketInfo for a given contract.
 func (r *ContractStakingStateReader) Buckets(contractAddr address.Address) ([]uint64, []*Bucket, error) {
-	_, iter, err := r.sr.States(contractNamespaceOption(contractAddr), protocol.ObjectOption(&Bucket{}))
+	_, iter, err := r.sr.States(r.makeOpts(
+		contractNamespaceOption(contractAddr),
+		protocol.ObjectOption(&Bucket{}),
+	)...)
 	switch errors.Cause(err) {
 	case nil:
 	case state.ErrStateNotExist:
 		return nil, nil, nil
 	default:
-		return nil, nil, fmt.Errorf("failed to get buckets for contract %s: %w", contractAddr.String(), err)
+		return nil, nil, errors.Wrapf(err, "failed to get buckets for contract %s", contractAddr.String())
 	}
 	ids := make([]uint64, 0, iter.Size())
 	buckets := make([]*Bucket, 0, iter.Size())
@@ -155,8 +169,12 @@ func (r *ContractStakingStateReader) Buckets(contractAddr address.Address) ([]ui
 			}
 		case state.ErrNilValue:
 		default:
-			return nil, nil, fmt.Errorf("failed to read bucket %d for contract %s: %w", byteutil.BytesToUint64(key), contractAddr.String(), err)
+			return nil, nil, errors.Wrapf(err, "failed to read bucket %d for contract %s", byteutil.BytesToUint64(key), contractAddr.String())
 		}
 	}
 	return ids, buckets, nil
+}
+
+func (cs *ContractStakingStateReader) makeOpts(opts ...protocol.StateOption) []protocol.StateOption {
+	return append(cs.globalOpts, opts...)
 }

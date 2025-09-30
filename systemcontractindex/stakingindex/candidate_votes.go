@@ -284,3 +284,15 @@ func (cv *candidateVotesWithBuffer) Deserialize(data []byte) error {
 func (cv *candidateVotesWithBuffer) Base() CandidateVotes {
 	return newCandidateVotesWithBuffer(cv.base)
 }
+
+func (cv *candidateVotesWithBuffer) Encode() (systemcontracts.GenericValue, error) {
+	if cv.IsDirty() {
+		return systemcontracts.GenericValue{}, errors.Wrap(ErrCandidateVotesIsDirty, "cannot encode dirty candidate votes")
+	}
+	return cv.base.Encode()
+}
+
+func (cv *candidateVotesWithBuffer) Decode(data systemcontracts.GenericValue) error {
+	cv.change = newCandidateVotes()
+	return cv.base.Decode(data)
+}

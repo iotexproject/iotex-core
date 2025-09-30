@@ -678,6 +678,14 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 	if !ok {
 		return errors.New("failed to get feature context from action context")
 	}
+	var (
+		handler *nftEventHandler
+		err     error
+	)
+	ccvw := func(bucket *contractstaking.Bucket, height uint64) *big.Int {
+		vb := p.convertToVoteBucket(bucket, height)
+		return p.calculateVoteWeight(vb, false)
+	}
 	if featureCtx.StoreVoteOfNFTBucketIntoView {
 		v, err := sm.ReadView(_protocolID)
 		if err != nil {
@@ -686,30 +694,38 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		if err := v.(*viewData).contractsStake.Handle(ctx, receipt); err != nil {
 			return err
 		}
+		handler = newNFTBucketEventHandlerErigonOnly(sm, ccvw)
+	} else {
+		handler, err = newNFTBucketEventHandler(sm, ccvw)
 	}
-	handler, err := newNFTBucketEventHandler(sm, func(bucket *contractstaking.Bucket, height uint64) *big.Int {
-		vb := p.convertToVoteBucket(bucket, height)
-		return p.calculateVoteWeight(vb, false)
-	})
 	if err != nil {
 		return err
 	}
 	if p.contractStakingIndexer != nil {
 		processor := p.contractStakingIndexer.CreateEventProcessor(ctx, handler)
 		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
-			return errors.Wrap(err, "failed to process receipt for contract staking indexer")
+			if !errors.Is(err, state.ErrErigonStoreNotSupported) {
+				return errors.Wrap(err, "failed to process receipt for contract staking indexer")
+			}
+			log.L().Debug("skip processing receipt for contract staking indexer due to erigon store not supported")
 		}
 	}
 	if p.contractStakingIndexerV2 != nil {
 		processor := p.contractStakingIndexerV2.CreateEventProcessor(ctx, handler)
 		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
-			return errors.Wrap(err, "failed to process receipt for contract staking indexer v2")
+			if !errors.Is(err, state.ErrErigonStoreNotSupported) {
+				return errors.Wrap(err, "failed to process receipt for contract staking indexer v2")
+			}
+			log.L().Debug("skip processing receipt for contract staking indexer v2 due to erigon store not supported")
 		}
 	}
 	if p.contractStakingIndexerV3 != nil {
 		processor := p.contractStakingIndexerV3.CreateEventProcessor(ctx, handler)
 		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
-			return errors.Wrap(err, "failed to process receipt for contract staking indexer v3")
+			if !errors.Is(err, state.ErrErigonStoreNotSupported) {
+				return errors.Wrap(err, "failed to process receipt for contract staking indexer v3")
+			}
+			log.L().Debug("skip processing receipt for contract staking indexer v3 due to erigon store not supported")
 		}
 	}
 	return nil

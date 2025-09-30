@@ -13,9 +13,9 @@ type ContractStakingStateManager struct {
 }
 
 // NewContractStakingStateManager creates a new ContractStakingStateManager
-func NewContractStakingStateManager(sm protocol.StateManager) *ContractStakingStateManager {
+func NewContractStakingStateManager(sm protocol.StateManager, opts ...protocol.StateOption) *ContractStakingStateManager {
 	return &ContractStakingStateManager{
-		ContractStakingStateReader: ContractStakingStateReader{sr: sm},
+		ContractStakingStateReader: *NewStateReader(sm, opts...),
 		sm:                         sm,
 	}
 }
@@ -24,8 +24,10 @@ func NewContractStakingStateManager(sm protocol.StateManager) *ContractStakingSt
 func (cs *ContractStakingStateManager) UpsertBucketType(contractAddr address.Address, bucketID uint64, bucketType *BucketType) error {
 	_, err := cs.sm.PutState(
 		bucketType,
-		bucketTypeNamespaceOption(contractAddr),
-		bucketIDKeyOption(bucketID),
+		cs.makeOpts(
+			bucketTypeNamespaceOption(contractAddr),
+			bucketIDKeyOption(bucketID),
+		)...,
 	)
 
 	return err
@@ -34,9 +36,11 @@ func (cs *ContractStakingStateManager) UpsertBucketType(contractAddr address.Add
 // DeleteBucket removes a bucket for a given contract and bucket ID.
 func (cs *ContractStakingStateManager) DeleteBucket(contractAddr address.Address, bucketID uint64) error {
 	_, err := cs.sm.DelState(
-		contractNamespaceOption(contractAddr),
-		bucketIDKeyOption(bucketID),
-		protocol.ObjectOption(&Bucket{}),
+		cs.makeOpts(
+			contractNamespaceOption(contractAddr),
+			bucketIDKeyOption(bucketID),
+			protocol.ObjectOption(&Bucket{}),
+		)...,
 	)
 
 	return err
@@ -46,8 +50,10 @@ func (cs *ContractStakingStateManager) DeleteBucket(contractAddr address.Address
 func (cs *ContractStakingStateManager) UpsertBucket(contractAddr address.Address, bid uint64, bucket *Bucket) error {
 	_, err := cs.sm.PutState(
 		bucket,
-		contractNamespaceOption(contractAddr),
-		bucketIDKeyOption(bid),
+		cs.makeOpts(
+			contractNamespaceOption(contractAddr),
+			bucketIDKeyOption(bid),
+		)...,
 	)
 
 	return err
@@ -59,8 +65,10 @@ func (cs *ContractStakingStateManager) UpdateNumOfBuckets(contractAddr address.A
 		&StakingContract{
 			NumOfBuckets: uint64(numOfBuckets),
 		},
-		metaNamespaceOption(),
-		contractKeyOption(contractAddr),
+		cs.makeOpts(
+			metaNamespaceOption(),
+			contractKeyOption(contractAddr),
+		)...,
 	)
 
 	return err

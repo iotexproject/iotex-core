@@ -19,10 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
-var (
-	ErrErigonStoreNotSupported = errors.New("erigon store not supported")
-)
-
 type (
 	workingSetStore interface {
 		Start(context.Context) error
@@ -220,5 +216,5 @@ func (store *stateDBWorkingSetStore) KVStore() db.KVStore {
 }
 
 func (store *stateDBWorkingSetStore) ErigonStore() (any, error) {
-	return nil, errors.Wrap(ErrErigonStoreNotSupported, "failed to get erigon store")
+	return nil, errors.Wrap(state.ErrErigonStoreNotSupported, "failed to get erigon store")
 }
