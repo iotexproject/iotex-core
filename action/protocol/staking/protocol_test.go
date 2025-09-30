@@ -342,7 +342,7 @@ func TestCreatePreStatesMigration(t *testing.T) {
 	ctx = protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
-			BlockHeight: g.ToBeEnabledBlockHeight,
+			BlockHeight: g.XinguBlockHeight,
 		},
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
@@ -356,13 +356,13 @@ func TestCreatePreStatesMigration(t *testing.T) {
 	require.NoError(p.CreatePreStates(protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
-			BlockHeight: g.ToBeEnabledBlockHeight - 1,
+			BlockHeight: g.XinguBlockHeight - 1,
 		},
 	), sm))
 	require.NoError(p.CreatePreStates(protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
-			BlockHeight: g.ToBeEnabledBlockHeight + 1,
+			BlockHeight: g.XinguBlockHeight + 1,
 		},
 	), sm))
 }

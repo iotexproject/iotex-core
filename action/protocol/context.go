@@ -325,10 +325,10 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			TimestampedStakingContract:              g.IsWake(height),
 			PreStateSystemAction:                    !g.IsWake(height),
 			CreatePostActionStates:                  g.IsWake(height),
-			NotSlashUnproductiveDelegates:           !g.IsToBeEnabled(height),
-			CandidateBLSPublicKey:                   g.IsToBeEnabled(height),
-			NotUseMinSelfStakeToBeActive:            !g.IsToBeEnabled(height),
-			StoreVoteOfNFTBucketIntoView:            !g.IsToBeEnabled(height),
+			NotSlashUnproductiveDelegates:           !g.IsXingu(height),
+			CandidateBLSPublicKey:                   g.IsXingu(height),
+			NotUseMinSelfStakeToBeActive:            !g.IsXingu(height),
+			StoreVoteOfNFTBucketIntoView:            !g.IsXingu(height),
 		},
 	)
 }

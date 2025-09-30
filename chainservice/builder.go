@@ -696,7 +696,7 @@ func (builder *Builder) registerStakingProtocol() error {
 			Staking:                       builder.cfg.Genesis.Staking,
 			PersistStakingPatchBlock:      builder.cfg.Chain.PersistStakingPatchBlock,
 			FixAliasForNonStopHeight:      builder.cfg.Chain.FixAliasForNonStopHeight,
-			SkipContractStakingViewHeight: builder.cfg.Genesis.ToBeEnabledBlockHeight,
+			SkipContractStakingViewHeight: builder.cfg.Genesis.XinguBlockHeight,
 			StakingPatchDir:               builder.cfg.Chain.StakingPatchDir,
 			Revise: staking.ReviseConfig{
 				VoteWeight:                  builder.cfg.Genesis.VoteWeightCalConsts,
