@@ -479,7 +479,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return err
 	}
 	vd := v.(*viewData)
-	if blkCtx.BlockHeight == g.ToBeEnabledBlockHeight {
+	if blkCtx.BlockHeight == g.XinguBlockHeight {
 		handler, err := newNFTBucketEventHandler(sm, func(bucket *contractstaking.Bucket, height uint64) *big.Int {
 			vb := p.convertToVoteBucket(bucket, height)
 			return p.calculateVoteWeight(vb, false)
