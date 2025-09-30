@@ -651,7 +651,7 @@ func (processor *contractStakingEventProcessor) handleDelegateChangedEvent(event
 
 	bucket, err := processor.dirty.DeductBucket(processor.contractAddr, tokenIDParam.Uint64())
 	if err != nil {
-		return errors.Wrapf(ErrBucketNotExist, "token id %d", tokenIDParam.Uint64())
+		return errors.Wrapf(err, "token id %d", tokenIDParam.Uint64())
 	}
 	bucket.Candidate = delegateParam
 

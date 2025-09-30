@@ -351,7 +351,7 @@ func GetFeatureCtx(ctx context.Context) (FeatureCtx, bool) {
 func MustGetFeatureCtx(ctx context.Context) FeatureCtx {
 	fc, ok := ctx.Value(featureContextKey{}).(FeatureCtx)
 	if !ok {
-		log.S().Panic("Miss feature context")
+		log.L().Panic("Miss feature context")
 	}
 	return fc
 }

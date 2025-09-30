@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -33,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/abiutil"
 	"github.com/iotexproject/iotex-core/v2/server/itx"
+	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
@@ -411,7 +413,15 @@ func clearDBPaths(cfg *config.Config) {
 	testutil.CleanupPath(cfg.Chain.HistoryIndexPath)
 }
 
+func parseV3StakedBucketIdx(contract string, receipt *action.Receipt) ([]uint64, error) {
+	return parseStakedBucketIdx(contract, stakingindex.StakingContractABI, receipt)
+}
+
 func parseV2StakedBucketIdx(contract string, receipt *action.Receipt) ([]uint64, error) {
+	return parseStakedBucketIdx(contract, staking.StakingContractABI, receipt)
+}
+
+func parseStakedBucketIdx(contract string, _abi abi.ABI, receipt *action.Receipt) ([]uint64, error) {
 	if uint64(iotextypes.ReceiptStatus_Success) != receipt.Status {
 		return nil, nil
 	}
@@ -420,7 +430,7 @@ func parseV2StakedBucketIdx(contract string, receipt *action.Receipt) ([]uint64,
 		if log.Address != contract {
 			continue
 		}
-		abiEvent, err := staking.StakingContractABI.EventByID(common.Hash(log.Topics[0]))
+		abiEvent, err := _abi.EventByID(common.Hash(log.Topics[0]))
 		if err != nil {
 			return nil, errors.Wrapf(err, "get event abi from topic %v failed", log.Topics[0])
 		}

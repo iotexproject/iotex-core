@@ -284,7 +284,7 @@ func (sdb *stateDB) createWorkingSetStore(ctx context.Context, height uint64, kv
 	flusher, err := db.NewKVStoreFlusher(
 		kvstore,
 		batch.NewCachedBatch(),
-		sdb.flusherOptions(!g.IsEaster(height), g.IsToBeEnabled(height))...,
+		sdb.flusherOptions(!g.IsEaster(height), g.IsXingu(height))...,
 	)
 	if err != nil {
 		return nil, err

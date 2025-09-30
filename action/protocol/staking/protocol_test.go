@@ -618,3 +618,128 @@ func TestIsSelfStakeBucket(t *testing.T) {
 		r.False(selfStake)
 	})
 }
+
+func TestSlashCandidate(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm := testdb.NewMockStateManager(ctrl)
+
+	owner := identityset.Address(1)
+	operator := identityset.Address(2)
+	reward := identityset.Address(3)
+	selfStake := big.NewInt(1000)
+	bucket := NewVoteBucket(owner, owner, new(big.Int).Set(selfStake), 10, time.Now(), true)
+	bucketIdx := uint64(0)
+	bucket.Index = bucketIdx
+
+	cand := &Candidate{
+		Owner:              owner,
+		Operator:           operator,
+		Reward:             reward,
+		Name:               "cand1",
+		Votes:              big.NewInt(1000),
+		SelfStakeBucketIdx: bucketIdx,
+		SelfStake:          new(big.Int).Set(selfStake),
+	}
+	cc, err := NewCandidateCenter(CandidateList{cand})
+	require.NoError(err)
+	require.NoError(sm.WriteView(_protocolID, &viewData{
+		candCenter: cc,
+		bucketPool: &BucketPool{
+			enableSMStorage: true,
+			total: &totalAmount{
+				amount: big.NewInt(0),
+			},
+		},
+	}))
+	csm, err := NewCandidateStateManager(sm)
+	require.NoError(err)
+
+	p := &Protocol{
+		config: Configuration{
+			RegistrationConsts: RegistrationConsts{
+				MinSelfStake: big.NewInt(1000),
+			},
+			MinSelfStakeToBeActive: big.NewInt(590),
+		},
+	}
+	ctx := context.Background()
+	ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 100,
+	})
+	ctx = protocol.WithFeatureCtx(ctx)
+
+	t.Run("nil amount", func(t *testing.T) {
+		err := p.SlashCandidate(ctx, sm, owner, nil)
+		require.ErrorContains(err, "nil or non-positive amount")
+	})
+
+	t.Run("zero amount", func(t *testing.T) {
+		err := p.SlashCandidate(ctx, sm, owner, big.NewInt(0))
+		require.ErrorContains(err, "nil or non-positive amount")
+	})
+
+	t.Run("candidate not exist", func(t *testing.T) {
+		err := p.SlashCandidate(ctx, sm, identityset.Address(9), big.NewInt(1))
+		require.ErrorContains(err, "does not exist")
+	})
+
+	t.Run("bucket not exist", func(t *testing.T) {
+		err := p.SlashCandidate(ctx, sm, owner, big.NewInt(1))
+		require.ErrorContains(err, "failed to fetch bucket")
+	})
+
+	_, err = csm.putBucket(bucket)
+	require.NoError(err)
+	require.NoError(csm.DebitBucketPool(bucket.StakedAmount, true))
+	cl, err := p.ActiveCandidates(ctx, sm, 0)
+	require.NoError(err)
+	require.Equal(1, len(cl))
+
+	t.Run("amount greater than staked", func(t *testing.T) {
+		err := p.SlashCandidate(ctx, sm, owner, big.NewInt(2000))
+		require.ErrorContains(err, "is greater than staked amount")
+	})
+
+	t.Run("success", func(t *testing.T) {
+		amount := big.NewInt(400)
+		remaining := bucket.StakedAmount.Sub(bucket.StakedAmount, amount)
+		require.NoError(p.SlashCandidate(ctx, sm, owner, amount))
+		cl, err = p.ActiveCandidates(ctx, sm, 0)
+		require.NoError(err)
+		require.Equal(0, len(cl))
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight: genesis.Default.XinguBlockHeight,
+		}))
+		cl, err = p.ActiveCandidates(
+			ctx,
+			sm,
+			0,
+		)
+		require.NoError(err)
+		require.Equal(1, len(cl))
+		bucket, err := csm.NativeBucket(bucketIdx)
+		require.NoError(err)
+		require.Equal(remaining.String(), bucket.StakedAmount.String())
+		cand := csm.GetByIdentifier(owner)
+		require.Equal(remaining.String(), cand.SelfStake.String())
+		require.NoError(p.SlashCandidate(ctx, sm, owner, big.NewInt(11)))
+		cl, err = p.ActiveCandidates(
+			ctx,
+			sm,
+			0,
+		)
+		require.NoError(err)
+		require.Equal(0, len(cl))
+		require.NoError(cand.AddSelfStake(big.NewInt(21)))
+		require.NoError(csm.Upsert(cand))
+		cl, err = p.ActiveCandidates(
+			ctx,
+			sm,
+			0,
+		)
+		require.NoError(err)
+		require.Equal(1, len(cl))
+	})
+}

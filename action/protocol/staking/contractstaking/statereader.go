@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 
@@ -15,13 +14,15 @@ import (
 
 // ContractStakingStateReader wraps a state reader to provide staking contract-specific reads.
 type ContractStakingStateReader struct {
-	sr protocol.StateReader
+	sr         protocol.StateReader
+	globalOpts []protocol.StateOption
 }
 
 // NewStateReader creates a new ContractStakingStateReader.
-func NewStateReader(sr protocol.StateReader) *ContractStakingStateReader {
+func NewStateReader(sr protocol.StateReader, opts ...protocol.StateOption) *ContractStakingStateReader {
 	return &ContractStakingStateReader{
-		sr: sr,
+		sr:         sr,
+		globalOpts: opts,
 	}
 }
 
@@ -50,8 +51,10 @@ func (r *ContractStakingStateReader) contract(contractAddr address.Address) (*St
 	var contract StakingContract
 	_, err := r.sr.State(
 		&contract,
-		metaNamespaceOption(),
-		contractKeyOption(contractAddr),
+		r.makeOpts(
+			metaNamespaceOption(),
+			contractKeyOption(contractAddr),
+		)...,
 	)
 	if err != nil {
 		return nil, err
@@ -70,15 +73,17 @@ func (r *ContractStakingStateReader) NumOfBuckets(contractAddr address.Address) 
 
 // BucketType returns the BucketType for a given contract and bucket id.
 func (r *ContractStakingStateReader) BucketType(contractAddr address.Address, tID uint64) (*BucketType, error) {
-	var bktType stakingpb.BucketType
+	var bktType BucketType
 	if _, err := r.sr.State(
 		&bktType,
-		bucketTypeNamespaceOption(contractAddr),
-		bucketIDKeyOption(tID),
+		r.makeOpts(
+			bucketTypeNamespaceOption(contractAddr),
+			bucketIDKeyOption(tID),
+		)...,
 	); err != nil {
-		return nil, fmt.Errorf("failed to get bucket type %d for contract %s: %w", tID, contractAddr.String(), err)
+		return nil, errors.Wrapf(err, "failed to get bucket type %d for contract %s", tID, contractAddr.String())
 	}
-	return LoadBucketTypeFromProto(&bktType)
+	return &bktType, nil
 }
 
 // Bucket returns the Bucket for a given contract and bucket id.
@@ -86,8 +91,10 @@ func (r *ContractStakingStateReader) Bucket(contractAddr address.Address, bucket
 	var ssb Bucket
 	if _, err := r.sr.State(
 		&ssb,
-		contractNamespaceOption(contractAddr),
-		bucketIDKeyOption(bucketID),
+		r.makeOpts(
+			contractNamespaceOption(contractAddr),
+			bucketIDKeyOption(bucketID),
+		)...,
 	); err != nil {
 		switch errors.Cause(err) {
 		case state.ErrStateNotExist:
@@ -101,25 +108,28 @@ func (r *ContractStakingStateReader) Bucket(contractAddr address.Address, bucket
 
 // BucketTypes returns all BucketType for a given contract and bucket id.
 func (r *ContractStakingStateReader) BucketTypes(contractAddr address.Address) ([]uint64, []*BucketType, error) {
-	_, iter, err := r.sr.States(bucketTypeNamespaceOption(contractAddr))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get bucket types for contract %s: %w", contractAddr.String(), err)
+	_, iter, err := r.sr.States(r.makeOpts(
+		bucketTypeNamespaceOption(contractAddr),
+		protocol.ObjectOption(&BucketType{}),
+	)...)
+	switch errors.Cause(err) {
+	case nil:
+	case state.ErrStateNotExist:
+		return nil, nil, nil
+	default:
+		return nil, nil, errors.Wrapf(err, "failed to get bucket types for contract %s", contractAddr.String())
 	}
 	ids := make([]uint64, 0, iter.Size())
 	types := make([]*BucketType, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
-		var bktType stakingpb.BucketType
+		var bktType BucketType
 		switch key, err := iter.Next(&bktType); err {
 		case nil:
-			bt, err := LoadBucketTypeFromProto(&bktType)
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "failed to load bucket type from proto")
-			}
 			ids = append(ids, byteutil.BytesToUint64(key))
-			types = append(types, bt)
+			types = append(types, &bktType)
 		case state.ErrNilValue:
 		default:
-			return nil, nil, fmt.Errorf("failed to read bucket type %d for contract %s: %w", byteutil.BytesToUint64(key), contractAddr.String(), err)
+			return nil, nil, errors.Wrapf(err, "failed to read bucket type %x for contract %s", key, contractAddr.String())
 		}
 	}
 	return ids, types, nil
@@ -127,28 +137,33 @@ func (r *ContractStakingStateReader) BucketTypes(contractAddr address.Address) (
 
 // Buckets returns all BucketInfo for a given contract.
 func (r *ContractStakingStateReader) Buckets(contractAddr address.Address) ([]uint64, []*Bucket, error) {
-	_, iter, err := r.sr.States(contractNamespaceOption(contractAddr))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get buckets for contract %s: %w", contractAddr.String(), err)
+	_, iter, err := r.sr.States(r.makeOpts(
+		contractNamespaceOption(contractAddr),
+		protocol.ObjectOption(&Bucket{}),
+	)...)
+	switch errors.Cause(err) {
+	case nil:
+	case state.ErrStateNotExist:
+		return nil, nil, nil
+	default:
+		return nil, nil, errors.Wrapf(err, "failed to get buckets for contract %s", contractAddr.String())
 	}
 	ids := make([]uint64, 0, iter.Size())
 	buckets := make([]*Bucket, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
-		var ssb stakingpb.SystemStakingBucket
+		var ssb Bucket
 		switch key, err := iter.Next(&ssb); err {
 		case nil:
-			bucket, err := LoadBucketFromProto(&ssb)
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "failed to load bucket from proto")
-			}
-			if bucket != nil {
-				ids = append(ids, byteutil.BytesToUint64(key))
-				buckets = append(buckets, bucket)
-			}
+			ids = append(ids, byteutil.BytesToUint64(key))
+			buckets = append(buckets, &ssb)
 		case state.ErrNilValue:
 		default:
-			return nil, nil, fmt.Errorf("failed to read bucket %d for contract %s: %w", byteutil.BytesToUint64(key), contractAddr.String(), err)
+			return nil, nil, errors.Wrapf(err, "failed to read bucket %d for contract %s", byteutil.BytesToUint64(key), contractAddr.String())
 		}
 	}
 	return ids, buckets, nil
+}
+
+func (cs *ContractStakingStateReader) makeOpts(opts ...protocol.StateOption) []protocol.StateOption {
+	return append(cs.globalOpts, opts...)
 }

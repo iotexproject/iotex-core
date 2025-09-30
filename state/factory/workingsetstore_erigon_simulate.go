@@ -86,3 +86,7 @@ func (store *erigonWorkingSetStoreForSimulate) CreateGenesisStates(ctx context.C
 func (store *erigonWorkingSetStoreForSimulate) KVStore() db.KVStore {
 	return nil
 }
+
+func (store *erigonWorkingSetStoreForSimulate) ErigonStore() (any, error) {
+	return store, nil
+}

@@ -361,7 +361,11 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	return ws.height, ws.store.GetObject(cfg.Namespace, cfg.Key, s)
+	store, err := ws.matchStore(cfg)
+	if err != nil {
+		return 0, err
+	}
+	return ws.height, store.GetObject(cfg.Namespace, cfg.Key, s)
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
@@ -372,7 +376,11 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	iter, err := ws.store.States(cfg.Namespace, cfg.Object, cfg.Keys)
+	store, err := ws.matchStore(cfg)
+	if err != nil {
+		return 0, nil, err
+	}
+	iter, err := store.States(cfg.Namespace, cfg.Object, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -387,7 +395,11 @@ func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uin
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.store.PutObject(cfg.Namespace, cfg.Key, s)
+	store, err := ws.matchStore(cfg)
+	if err != nil {
+		return ws.height, err
+	}
+	return ws.height, store.PutObject(cfg.Namespace, cfg.Key, s)
 }
 
 // DelState deletes a state from DB
@@ -397,7 +409,11 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.store.DeleteObject(cfg.Namespace, cfg.Key, cfg.Object)
+	store, err := ws.matchStore(cfg)
+	if err != nil {
+		return ws.height, err
+	}
+	return ws.height, store.DeleteObject(cfg.Namespace, cfg.Key, cfg.Object)
 }
 
 // ReadView reads the view
@@ -1059,4 +1075,16 @@ func (ws *workingSet) Erigon() (*erigonstate.IntraBlockState, bool) {
 	default:
 		return nil, false
 	}
+}
+
+func (ws *workingSet) matchStore(cfg *protocol.StateConfig) (workingSetStore, error) {
+	store := ws.store
+	if cfg.ErigonStoreOnly {
+		erigonStore, err := store.ErigonStore()
+		if err != nil {
+			return nil, err
+		}
+		store = erigonStore.(workingSetStore)
+	}
+	return store, nil
 }
