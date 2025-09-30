@@ -710,7 +710,7 @@ func TestSlashCandidate(t *testing.T) {
 		require.NoError(err)
 		require.Equal(0, len(cl))
 		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-			BlockHeight: genesis.Default.ToBeEnabledBlockHeight,
+			BlockHeight: genesis.Default.XinguBlockHeight,
 		}))
 		cl, err = p.ActiveCandidates(
 			ctx,
