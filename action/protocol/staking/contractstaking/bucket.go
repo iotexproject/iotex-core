@@ -23,7 +23,7 @@ type (
 		StakedDuration uint64 // in seconds if timestamped, in block number if not
 		// CreatedAt is the time when the bucket was created.
 		CreatedAt uint64 // in unix timestamp if timestamped, in block height if not
-		// UnlockedAt is the time when the bucket can be unlocked.
+		// UnlockedAt is the time when the bucket was unlocked.
 		UnlockedAt uint64 // in unix timestamp if timestamped, in block height if not
 		// UnstakedAt is the time when the bucket was unstaked.
 		UnstakedAt uint64 // in unix timestamp if timestamped, in block height if not
