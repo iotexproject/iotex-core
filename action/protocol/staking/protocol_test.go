@@ -712,12 +712,17 @@ func TestSlashCandidate(t *testing.T) {
 	p := &Protocol{
 		config: Configuration{
 			RegistrationConsts: RegistrationConsts{
-				MinSelfStake: big.NewInt(1),
+				MinSelfStake: big.NewInt(1000),
 			},
-			MinSelfStakeToBeActive: big.NewInt(1),
+			MinSelfStakeToBeActive: big.NewInt(590),
 		},
 	}
 	ctx := context.Background()
+	ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 100,
+	})
+	ctx = protocol.WithFeatureCtx(ctx)
 
 	t.Run("nil amount", func(t *testing.T) {
 		err := p.SlashCandidate(ctx, sm, owner, nil)
@@ -742,6 +747,10 @@ func TestSlashCandidate(t *testing.T) {
 	_, err = csm.putBucket(bucket)
 	require.NoError(err)
 	require.NoError(csm.DebitBucketPool(bucket.StakedAmount, true))
+	cl, err := p.ActiveCandidates(ctx, sm, 0)
+	require.NoError(err)
+	require.Equal(1, len(cl))
+
 	t.Run("amount greater than staked", func(t *testing.T) {
 		err := p.SlashCandidate(ctx, sm, owner, big.NewInt(2000))
 		require.ErrorContains(err, "is greater than staked amount")
@@ -752,6 +761,18 @@ func TestSlashCandidate(t *testing.T) {
 		remaining := bucket.StakedAmount.Sub(bucket.StakedAmount, amount)
 		err := p.SlashCandidate(ctx, sm, owner, amount)
 		require.NoError(err)
+		cl, err = p.ActiveCandidates(ctx, sm, 0)
+		require.NoError(err)
+		require.Equal(0, len(cl))
+		cl, err = p.ActiveCandidates(
+			protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+				BlockHeight: genesis.Default.ToBeEnabledBlockHeight,
+			})),
+			sm,
+			0,
+		)
+		require.NoError(err)
+		require.Equal(1, len(cl))
 		bucket, err := csm.NativeBucket(bucketIdx)
 		require.NoError(err)
 		require.Equal(remaining.String(), bucket.StakedAmount.String())
