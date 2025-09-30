@@ -280,6 +280,7 @@ func ExecuteContract(
 		ContractAddress:   contractAddress,
 		Status:            uint64(statusCode),
 		EffectiveGasPrice: protocol.EffectiveGasPrice(ctx, execution),
+		Output:            retval,
 	}
 	var (
 		depositLog  []*action.TransactionLog
@@ -328,10 +329,6 @@ func ExecuteContract(
 	if ps.featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], _revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
 		receipt.SetExecutionRevertMsg(ExtractRevertMessage(retval))
-	}
-	log.S().Debugf("Retval: %x, Receipt: %+v, %v", retval, receipt, err)
-	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
-		tCtx.CaptureTx(retval, receipt)
 	}
 	return retval, receipt, nil
 }
@@ -758,7 +755,11 @@ func SimulateExecution(
 			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
 		},
 	))
-	return ExecuteContract(ctx, sm, ex)
+	retval, receipt, err := ExecuteContract(ctx, sm, ex)
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
+		tCtx.CaptureTx(retval, receipt)
+	}
+	return retval, receipt, err
 }
 
 // ExtractRevertMessage extracts the revert message from the return value

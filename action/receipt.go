@@ -37,6 +37,9 @@ type (
 		logs               []*Log
 		transactionLogs    []*TransactionLog
 		executionRevertMsg string
+		// Output is used to store the Output of contract execution IN MEMORY only, not serialized to DB
+		// it is used for the caller to get the Output of a contract call
+		Output []byte
 	}
 
 	// Log stores an evm contract event
