@@ -51,6 +51,9 @@ func (cos *contractObjectStorage) Load(key []byte, obj any) error {
 	if err != nil {
 		return err
 	}
+	if !value.KeyExists {
+		return errors.Wrapf(state.ErrStateNotExist, "key %x does not exist", key)
+	}
 	// TODO: handle value.KeyExists
 	return gvc.Decode(value.Value)
 }
