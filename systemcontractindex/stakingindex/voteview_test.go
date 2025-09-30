@@ -22,6 +22,7 @@ func TestVoteView(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockIndexer := staking.NewMockContractStakingIndexer(ctrl)
+	mr := NewCandidateVotesManager(identityset.Address(0))
 	vv := NewVoteView(
 		mockIndexer,
 		&VoteViewConfig{
@@ -30,6 +31,7 @@ func TestVoteView(t *testing.T) {
 		100,
 		nil,
 		nil,
+		mr,
 		func(b *contractstaking.Bucket, h uint64) *big.Int {
 			return big.NewInt(1)
 		},
