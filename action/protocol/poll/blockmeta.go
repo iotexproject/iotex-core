@@ -12,10 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll/blockmetapb"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
-	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -24,10 +21,6 @@ type BlockMeta struct {
 	Height   uint64
 	Producer string
 	MintTime time.Time
-}
-
-func init() {
-	assertions.MustNoError(erigonstore.GetObjectStorageRegistry().RegisterPollBlockMeta(protocol.SystemNamespace, &BlockMeta{}))
 }
 
 // NewBlockMeta constructs new blockmeta struct with given fieldss

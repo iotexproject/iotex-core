@@ -32,7 +32,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockindex"
-	"github.com/iotexproject/iotex-core/v2/blockindex/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blocksync"
 	"github.com/iotexproject/iotex-core/v2/consensus"
 	"github.com/iotexproject/iotex-core/v2/nodeinfo"
@@ -74,7 +73,7 @@ type ChainService struct {
 	bfIndexer                blockindex.BloomFilterIndexer
 	candidateIndexer         *poll.CandidateIndexer
 	candBucketsIndexer       *staking.CandidatesBucketsIndexer
-	contractStakingIndexer   *contractstaking.Indexer
+	contractStakingIndexer   staking.ContractStakingIndexerWithBucketType
 	contractStakingIndexerV2 stakingindex.StakingIndexer
 	contractStakingIndexerV3 stakingindex.StakingIndexer
 	registry                 *protocol.Registry

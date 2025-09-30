@@ -52,7 +52,7 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 		var value valueBytes
 		err := store.GetObject(namespace, key1, &value)
 		require.Error(err)
-		require.NoError(store.DeleteObject(namespace, key1, &value))
+		require.NoError(store.DeleteObject(namespace, key1, nil))
 		require.NoError(store.PutObject(namespace, key1, &value1))
 		var valueInStore valueBytes
 		err = store.GetObject(namespace, key1, &valueInStore)
@@ -88,7 +88,7 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 			require.Equal("e1f83be0a44ae601061724990036b8a40edbf81cffc639657c9bb2c5d384defa", hex.EncodeToString(h[:]))
 		})
 		sn3 := store.Snapshot()
-		require.NoError(store.DeleteObject(namespace, key1, &valueInStore))
+		require.NoError(store.DeleteObject(namespace, key1, nil))
 		err = store.GetObject(namespace, key1, &valueInStore)
 		require.Error(err)
 		iter, err = store.States(namespace, &valueInStore, [][]byte{key1, key2, key3})

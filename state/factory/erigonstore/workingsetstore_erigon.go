@@ -428,15 +428,7 @@ func (store *ErigonWorkingSetStore) StateReader() erigonstate.StateReader {
 	return store.backend.org
 }
 
+// NewObjectStorage creates a new ObjectStorage for the given namespace and object type
 func (store *ErigonWorkingSetStore) NewObjectStorage(ns string, obj any) (ObjectStorage, error) {
-	cs, err := storageRegistry.ObjectStorage(ns, obj, store.backend)
-	switch errors.Cause(err) {
-	case nil:
-		return cs, nil
-	case ErrObjectStorageNotRegistered:
-		// TODO: fail unknown namespace
-		return nil, nil
-	default:
-		return nil, err
-	}
+	return storageRegistry.ObjectStorage(ns, obj, store.backend)
 }

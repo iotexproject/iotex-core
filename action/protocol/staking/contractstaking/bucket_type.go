@@ -3,9 +3,11 @@ package contractstaking
 import (
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
@@ -64,4 +66,18 @@ func (bt *BucketType) Clone() *BucketType {
 		Duration:    bt.Duration,
 		ActivatedAt: bt.ActivatedAt,
 	}
+}
+
+// Encode encodes the bucket type into a GenericValue
+func (bt *BucketType) Encode() (systemcontracts.GenericValue, error) {
+	data, err := bt.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize bucket type")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes the bucket type from a GenericValue
+func (bt *BucketType) Decode(gv systemcontracts.GenericValue) error {
+	return bt.Deserialize(gv.PrimaryData)
 }
