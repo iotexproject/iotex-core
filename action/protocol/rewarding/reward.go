@@ -554,14 +554,18 @@ func (p *Protocol) slashUqd(
 			}
 			amount := big.NewInt(0).Mul(slashRate, big.NewInt(0).SetUint64(missed))
 			actLog, err := p.slashDelegate(ctx, sm, stakingProtocol, blockHeight, actionHash, candidate, amount)
-			if err != nil {
+			switch errors.Cause(err) {
+			case nil:
+				slashLogs = append(slashLogs, actLog)
+				totalSlashAmount.Add(totalSlashAmount, amount)
+			case staking.ErrNoSelfStakeBucket:
+				log.S().Errorf("Candidate %s doesn't have self-stake bucket, no slash", candidate.Address)
+			default:
 				if err := view.Revert(snapshot); err != nil {
 					return nil, nil, errors.Wrap(err, "failed to revert view")
 				}
 				return nil, nil, err
 			}
-			slashLogs = append(slashLogs, actLog)
-			totalSlashAmount.Add(totalSlashAmount, amount)
 		}
 	}
 	return totalSlashAmount, slashLogs, nil

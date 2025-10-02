@@ -65,6 +65,7 @@ const (
 var (
 	ErrWithdrawnBucket     = errors.New("the bucket is already withdrawn")
 	ErrEndorsementNotExist = errors.New("the endorsement does not exist")
+	ErrNoSelfStakeBucket   = errors.New("no self-stake bucket")
 	TotalBucketKey         = append([]byte{_const}, []byte("totalBucket")...)
 )
 
@@ -418,6 +419,9 @@ func (p *Protocol) SlashCandidate(
 	candidate := csm.GetByIdentifier(owner)
 	if candidate == nil {
 		return errors.Wrapf(state.ErrStateNotExist, "candidate %s does not exist", owner.String())
+	}
+	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
+		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
 	}
 	bucket, err := p.fetchBucket(csm, candidate.SelfStakeBucketIdx)
 	if err != nil {
