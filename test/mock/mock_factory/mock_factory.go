@@ -19,6 +19,7 @@ import (
 	protocol "github.com/iotexproject/iotex-core/v2/action/protocol"
 	actpool "github.com/iotexproject/iotex-core/v2/actpool"
 	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
+	blockdao "github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	state "github.com/iotexproject/iotex-core/v2/state"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -45,6 +46,18 @@ func NewMockFactory(ctrl *gomock.Controller) *MockFactory {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockFactory) EXPECT() *MockFactoryMockRecorder {
 	return m.recorder
+}
+
+// AddDependency mocks base method.
+func (m *MockFactory) AddDependency(arg0 blockdao.BlockIndexer) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddDependency", arg0)
+}
+
+// AddDependency indicates an expected call of AddDependency.
+func (mr *MockFactoryMockRecorder) AddDependency(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddDependency", reflect.TypeOf((*MockFactory)(nil).AddDependency), arg0)
 }
 
 // Height mocks base method.

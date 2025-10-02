@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
@@ -194,6 +195,50 @@ func (d *Candidate) GetIdentifier() address.Address {
 	return d.Identifier
 }
 
+// Encode encodes candidate into generic value
+func (d *Candidate) Encode() (systemcontracts.GenericValue, error) {
+	var (
+		primaryData   []byte
+		secondaryData []byte
+		err           error
+		value         systemcontracts.GenericValue
+	)
+	if d.Votes.Sign() > 0 {
+		secondaryData, err = proto.Marshal(&stakingpb.Candidate{Votes: d.Votes.String()})
+		if err != nil {
+			return value, errors.Wrap(err, "failed to marshal candidate votes")
+		}
+	}
+	clone := d.Clone()
+	clone.Votes = big.NewInt(0)
+	primaryData, err = clone.Serialize()
+	if err != nil {
+		return value, errors.Wrap(err, "failed to serialize candidate")
+	}
+	value.PrimaryData = primaryData
+	value.SecondaryData = secondaryData
+	return value, nil
+}
+
+// Decode decodes candidate from generic value
+func (d *Candidate) Decode(gv systemcontracts.GenericValue) error {
+	if err := d.Deserialize(gv.PrimaryData); err != nil {
+		return errors.Wrap(err, "failed to deserialize candidate")
+	}
+	if len(gv.SecondaryData) > 0 {
+		votes := &stakingpb.Candidate{}
+		if err := proto.Unmarshal(gv.SecondaryData, votes); err != nil {
+			return errors.Wrap(err, "failed to unmarshal candidate votes")
+		}
+		vote, ok := new(big.Int).SetString(votes.Votes, 10)
+		if !ok {
+			return errors.Wrapf(action.ErrInvalidAmount, "failed to parse candidate votes: %s", votes.Votes)
+		}
+		d.Votes = vote
+	}
+	return nil
+}
+
 func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 	if d.Owner == nil || d.Operator == nil || d.Reward == nil ||
 		len(d.Name) == 0 || d.Votes == nil || d.SelfStake == nil {
@@ -358,6 +403,20 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 		*l = append(*l, c)
 	}
 	return nil
+}
+
+// Encode encodes candidate list into generic value
+func (l *CandidateList) Encode() (systemcontracts.GenericValue, error) {
+	data, err := l.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize candidate list")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes candidate list from generic value
+func (l *CandidateList) Decode(gv systemcontracts.GenericValue) error {
+	return l.Deserialize(gv.PrimaryData)
 }
 
 func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {
