@@ -65,6 +65,7 @@ const (
 var (
 	ErrWithdrawnBucket     = errors.New("the bucket is already withdrawn")
 	ErrEndorsementNotExist = errors.New("the endorsement does not exist")
+	ErrNoSelfStakeBucket   = errors.New("no self-stake bucket")
 	TotalBucketKey         = append([]byte{_const}, []byte("totalBucket")...)
 )
 
@@ -404,10 +405,14 @@ func (p *Protocol) SlashCandidate(
 	if candidate == nil {
 		return errors.Wrapf(state.ErrStateNotExist, "candidate %s does not exist", owner.String())
 	}
+	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
+		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
+	}
 	bucket, err := p.fetchBucket(csm, candidate.SelfStakeBucketIdx)
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch bucket")
 	}
+	prevWeightedVotes := p.calculateVoteWeight(bucket, true)
 	if bucket.StakedAmount.Cmp(amount) < 0 {
 		return errors.Errorf("amount %s is greater than staked amount %s", amount.String(), bucket.StakedAmount.String())
 	}
@@ -415,7 +420,6 @@ func (p *Protocol) SlashCandidate(
 	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
 		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)
 	}
-	prevWeightedVotes := p.calculateVoteWeight(bucket, true)
 	if err := candidate.SubVote(prevWeightedVotes); err != nil {
 		return errors.Wrapf(err, "failed to sub candidate votes")
 	}
