@@ -431,10 +431,14 @@ func (p *Protocol) SlashCandidate(
 	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
 		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
 	}
+	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
+		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
+	}
 	bucket, err := p.fetchBucket(csm, candidate.SelfStakeBucketIdx)
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch bucket")
 	}
+	prevWeightedVotes := p.calculateVoteWeight(bucket, true)
 	if bucket.StakedAmount.Cmp(amount) < 0 {
 		return errors.Errorf("amount %s is greater than staked amount %s", amount.String(), bucket.StakedAmount.String())
 	}
@@ -442,7 +446,6 @@ func (p *Protocol) SlashCandidate(
 	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
 		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)
 	}
-	prevWeightedVotes := p.calculateVoteWeight(bucket, true)
 	if err := candidate.SubVote(prevWeightedVotes); err != nil {
 		return errors.Wrapf(err, "failed to sub candidate votes")
 	}
