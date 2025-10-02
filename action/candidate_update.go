@@ -40,7 +40,7 @@ type CandidateUpdate struct {
 	name            string
 	operatorAddress address.Address
 	rewardAddress   address.Address
-	pubKey          []byte
+	blsPubKey       []byte
 }
 
 // CandidateUpdateOption defines the method to customize CandidateUpdate
@@ -53,8 +53,8 @@ func WithCandidateUpdatePubKey(pubKey []byte) CandidateUpdateOption {
 		if err != nil {
 			return errors.Wrap(err, "failed to parse BLS public key")
 		}
-		cu.pubKey = make([]byte, len(pubKey))
-		copy(cu.pubKey, pubKey)
+		cu.blsPubKey = make([]byte, len(pubKey))
+		copy(cu.blsPubKey, pubKey)
 		return nil
 	}
 }
@@ -108,8 +108,8 @@ func NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr string, pubk
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse BLS public key")
 	}
-	cu.pubKey = make([]byte, len(pubkey))
-	copy(cu.pubKey, pubkey)
+	cu.blsPubKey = make([]byte, len(pubkey))
+	copy(cu.blsPubKey, pubkey)
 	return cu, nil
 }
 
@@ -122,14 +122,14 @@ func (cu *CandidateUpdate) OperatorAddress() address.Address { return cu.operato
 // RewardAddress returns candidate rewardAddress to update
 func (cu *CandidateUpdate) RewardAddress() address.Address { return cu.rewardAddress }
 
-// PubKey returns candidate public key to update
-func (cu *CandidateUpdate) PubKey() []byte {
-	return cu.pubKey
+// BLSPubKey returns candidate public key to update
+func (cu *CandidateUpdate) BLSPubKey() []byte {
+	return cu.blsPubKey
 }
 
 // WithBLS returns true if the candidate update action is with BLS public key
 func (cu *CandidateUpdate) WithBLS() bool {
-	return len(cu.pubKey) > 0
+	return len(cu.blsPubKey) > 0
 }
 
 // Serialize returns a raw byte stream of the CandidateUpdate struct
@@ -155,9 +155,9 @@ func (cu *CandidateUpdate) Proto() *iotextypes.CandidateBasicInfo {
 		act.RewardAddress = cu.rewardAddress.String()
 	}
 
-	if len(cu.pubKey) > 0 {
-		act.PubKey = make([]byte, len(cu.pubKey))
-		copy(act.PubKey, cu.pubKey)
+	if len(cu.blsPubKey) > 0 {
+		act.BlsPubKey = make([]byte, len(cu.blsPubKey))
+		copy(act.BlsPubKey, cu.blsPubKey)
 	}
 	return act
 }
@@ -185,9 +185,9 @@ func (cu *CandidateUpdate) LoadProto(pbAct *iotextypes.CandidateBasicInfo) error
 		}
 		cu.rewardAddress = rewardAddr
 	}
-	if len(pbAct.GetPubKey()) > 0 {
-		cu.pubKey = make([]byte, len(pbAct.GetPubKey()))
-		copy(cu.pubKey, pbAct.GetPubKey())
+	if len(pbAct.GetBlsPubKey()) > 0 {
+		cu.blsPubKey = make([]byte, len(pbAct.GetBlsPubKey()))
+		copy(cu.blsPubKey, pbAct.GetBlsPubKey())
 	}
 	return nil
 }
@@ -217,7 +217,7 @@ func (cu *CandidateUpdate) EthData() ([]byte, error) {
 	case cu.WithBLS():
 		data, err := _candidateUpdateWithBLSMethod.Inputs.Pack(cu.name,
 			common.BytesToAddress(cu.operatorAddress.Bytes()),
-			common.BytesToAddress(cu.rewardAddress.Bytes()), cu.pubKey)
+			common.BytesToAddress(cu.rewardAddress.Bytes()), cu.blsPubKey)
 		if err != nil {
 			return nil, err
 		}
@@ -269,13 +269,13 @@ func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 		return nil, err
 	}
 	if withBLS {
-		if cu.pubKey, ok = paramsMap["pubKey"].([]byte); !ok {
-			return nil, errors.Wrapf(errDecodeFailure, "pubKey is not []byte: %v", paramsMap["pubKey"])
+		if cu.blsPubKey, ok = paramsMap["blsPubKey"].([]byte); !ok {
+			return nil, errors.Wrapf(errDecodeFailure, "blsPubKey is not []byte: %v", paramsMap["pubKey"])
 		}
-		if len(cu.pubKey) == 0 {
+		if len(cu.blsPubKey) == 0 {
 			return nil, errors.Wrapf(errDecodeFailure, "empty BLS public key")
 		}
-		_, err := crypto.BLS12381PublicKeyFromBytes(cu.pubKey)
+		_, err := crypto.BLS12381PublicKeyFromBytes(cu.blsPubKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse BLS public key")
 		}
@@ -289,13 +289,13 @@ func PackCandidateUpdatedEvent(
 	ownerAddress address.Address,
 	name string,
 	rewardAddress address.Address,
-	blsPublicKey []byte,
+	blsPubKey []byte,
 ) (Topics, []byte, error) {
 	data, err := _candidateUpdateWithBLSEvent.Inputs.NonIndexed().Pack(
 		rewardAddress.Bytes(),
 		name,
 		common.BytesToAddress(operatorAddress.Bytes()),
-		blsPublicKey,
+		blsPubKey,
 	)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to pack CandidateUpdateWithBLS event data")
