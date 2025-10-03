@@ -84,12 +84,14 @@ func (t *totalAmount) AddBalance(amount *big.Int, newBucket bool) {
 	}
 }
 
-func (t *totalAmount) SubBalance(amount *big.Int) error {
+func (t *totalAmount) SubBalance(amount *big.Int, deleteBucket bool) error {
 	if amount.Cmp(t.amount) == 1 || t.count == 0 {
 		return state.ErrNotEnoughBalance
 	}
 	t.amount.Sub(t.amount, amount)
-	t.count--
+	if deleteBucket {
+		t.count--
+	}
 	return nil
 }
 
@@ -146,8 +148,8 @@ func (bp *BucketPool) Commit() error {
 }
 
 // CreditPool subtracts staked amount out of the pool
-func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int) error {
-	if err := bp.total.SubBalance(amount); err != nil {
+func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int, deleteBucket bool) error {
+	if err := bp.total.SubBalance(amount, deleteBucket); err != nil {
 		return err
 	}
 
