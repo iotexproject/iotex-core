@@ -10,12 +10,19 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/pkg/errors"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 )
 
 type (
+	// BucketReader defines the interface to read bucket info
+	BucketReader interface {
+		DeductBucket(address.Address, uint64) (*contractstaking.Bucket, error)
+	}
+
 	// ContractStakeView is the interface for contract stake view
 	ContractStakeView interface {
 		// Wrap wraps the contract stake view
@@ -31,9 +38,11 @@ type (
 		// Handle handles the receipt for the contract stake view
 		Handle(ctx context.Context, receipt *action.Receipt) error
 		// Migrate writes the bucket types and buckets to the state manager
-		Migrate(EventHandler) error
+		Migrate(context.Context, EventHandler) error
+		// Revise updates the contract stake view with the latest bucket data
+		Revise(context.Context)
 		// BucketsByCandidate returns the buckets by candidate address
-		BucketsByCandidate(ownerAddr address.Address) ([]*VoteBucket, error)
+		CandidateStakeVotes(ctx context.Context, id address.Address) *big.Int
 		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error
 	}
 	// viewData is the data that need to be stored in protocol's view
@@ -126,19 +135,31 @@ func (v *viewData) Revert(snapshot int) error {
 	return nil
 }
 
-func (csv *contractStakeView) Migrate(nftHandler EventHandler) error {
+func (csv *contractStakeView) Revise(ctx context.Context) {
 	if csv.v1 != nil {
-		if err := csv.v1.Migrate(nftHandler); err != nil {
+		csv.v1.Revise(ctx)
+	}
+	if csv.v2 != nil {
+		csv.v2.Revise(ctx)
+	}
+	if csv.v3 != nil {
+		csv.v3.Revise(ctx)
+	}
+}
+
+func (csv *contractStakeView) Migrate(ctx context.Context, nftHandler EventHandler) error {
+	if csv.v1 != nil {
+		if err := csv.v1.Migrate(ctx, nftHandler); err != nil {
 			return err
 		}
 	}
 	if csv.v2 != nil {
-		if err := csv.v2.Migrate(nftHandler); err != nil {
+		if err := csv.v2.Migrate(ctx, nftHandler); err != nil {
 			return err
 		}
 	}
 	if csv.v3 != nil {
-		if err := csv.v3.Migrate(nftHandler); err != nil {
+		if err := csv.v3.Migrate(ctx, nftHandler); err != nil {
 			return err
 		}
 	}
