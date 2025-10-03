@@ -99,10 +99,11 @@ func TestBlobTx(t *testing.T) {
 		r.Equal(expect, blob)
 	})
 	t.Run("build from setter", func(t *testing.T) {
-		tx := (&EnvelopeBuilder{}).SetTxType(BlobTxType).SetChainID(expect.ChainID()).SetNonce(expect.Nonce()).
+		tx, err := (&EnvelopeBuilder{}).SetTxType(BlobTxType).SetChainID(expect.ChainID()).SetNonce(expect.Nonce()).
 			SetGasLimit(expect.Gas()).SetDynamicGas(expect.GasFeeCap(), expect.GasTipCap()).
 			SetAccessList(expect.AccessList()).SetBlobTxData(testBlob.blobFeeCap, testBlob.blobHashes, testBlob.sidecar).
 			SetAction(&Transfer{}).Build()
+		r.NoError(err)
 		blob, ok := tx.(*envelope).common.(*BlobTx)
 		r.True(ok)
 		r.EqualValues(BlobTxType, blob.TxType())

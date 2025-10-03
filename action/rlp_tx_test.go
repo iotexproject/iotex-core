@@ -68,7 +68,8 @@ func TestGenerateRlp(t *testing.T) {
 			data:     _signByte,
 		}, _validSig, "", hash.BytesToHash256(MustNoErrorV(hex.DecodeString("fee3db88ee7d7defa9eded672d08fc8641f760f3a11d404a53276ad6f412b8a5")))},
 	} {
-		elp := builder.SetAction(v.act).Build()
+		elp, err := builder.SetAction(v.act).Build()
+		require.NoError(err)
 		tx, err := elp.ToEthTx(0, iotextypes.Encoding_ETHEREUM_EIP155)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
@@ -826,7 +827,10 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			}
 			// build eth tx from test case
 			var (
-				elp       = elpbuilder.SetAction(tt.action).Build()
+				elp, err = elpbuilder.SetAction(tt.action).Build()
+			)
+			require.NoError(t, err)
+			var (
 				tx        = MustNoErrorV(elp.ToEthTx(chainID, tt.encoding))
 				signer    = MustNoErrorV(NewEthSigner(tt.encoding, chainID))
 				signature = MustNoErrorV(sk.Sign(tx.Hash().Bytes()))

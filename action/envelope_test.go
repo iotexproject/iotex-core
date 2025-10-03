@@ -116,8 +116,9 @@ func TestEnvelope_Actions(t *testing.T) {
 			if txtype == BlobTxType {
 				bd.SetBlobTxData(uint256.NewInt(1), []common.Hash{}, nil)
 			}
-			elp := bd.SetNonce(1).SetGasLimit(_gasLimit).SetGasPrice(_gasPrice).
+			elp, err := bd.SetNonce(1).SetGasLimit(_gasLimit).SetGasPrice(_gasPrice).
 				SetTxType(txtype).SetAction(test).SetChainID(1).Build()
+			require.NoError(err)
 			evlp := envelope{}
 			require.NoError(evlp.LoadProto(elp.Proto()))
 			require.Equal(elp.TxType(), evlp.TxType())
@@ -134,9 +135,12 @@ func createEnvelope(chainID uint32) (Envelope, *Transfer) {
 	tsf := NewTransfer(unit.ConvertIotxToRau(1000+int64(10)),
 		identityset.Address(10%identityset.Size()).String(),
 		nil)
-	evlp := (&EnvelopeBuilder{}).SetAction(tsf).SetGasLimit(20010).
+	evlp, err := (&EnvelopeBuilder{}).SetAction(tsf).SetGasLimit(20010).
 		SetGasPrice(unit.ConvertIotxToRau(11)).SetNonce(10).
 		SetVersion(1).SetChainID(chainID).Build()
+	if err != nil {
+		panic(err)
+	}
 	return evlp, tsf
 }
 
