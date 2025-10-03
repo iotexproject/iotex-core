@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -226,12 +227,7 @@ func isValidEndpoint(endpoint string) bool {
 
 // isValidExplorer checks if the explorer is a valid option
 func isValidExplorer(arg string) bool {
-	for _, exp := range _validExpl {
-		if arg == exp {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(_validExpl, arg)
 }
 
 // isSupportedLanguage checks if the language is a supported option and returns index when supported
