@@ -333,7 +333,9 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	}
 
 	<-ctx.Done()
-	if err := probeSvr.TurnOff(); err != nil {
-		log.L().Panic("Failed to turn off probe server.", zap.Error(err))
+	if probeSvr.IsReady() {
+		if err := probeSvr.TurnOff(); err != nil {
+			log.L().Panic("Failed to turn off probe server.", zap.Error(err))
+		}
 	}
 }
