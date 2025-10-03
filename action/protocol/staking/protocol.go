@@ -275,15 +275,30 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		if err := indexer.Start(ctx); err != nil {
 			return errors.Wrap(err, "failed to start contract staking indexer")
 		}
+		if indexer.StartHeight() > height {
+			return nil
+		}
+		indexerHeight, err := indexer.Height()
+		if err != nil {
+			return errors.Wrap(err, "failed to get contract staking indexer height")
+		}
+		if indexerHeight > height {
+			return errors.Errorf("contract staking indexer height %d > current height %d", indexerHeight, height)
+		}
+		if height == 0 {
+			return nil
+		}
 		checkerHeight, err := checker.Height()
 		if err != nil {
 			return errors.Wrap(err, "failed to get checker height")
 		}
-		if indexer.StartHeight() > checkerHeight {
-			return nil
+		if checkerHeight < height {
+			return errors.Errorf("checker height %d < target height %d", checkerHeight, height)
 		}
 		return checker.CheckIndexer(ctx, indexer, height, func(h uint64) {
-			log.L().Info("Checking contract staking indexer", zap.Uint64("height", h))
+			if h%5000 == 0 || h == height {
+				log.L().Info("Checking contract staking indexer", zap.Uint64("height", h))
+			}
 		})
 	}
 	buildView := func(indexer ContractStakingIndexer, callback func(ContractStakeView)) {
