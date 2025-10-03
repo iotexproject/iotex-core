@@ -28,7 +28,7 @@ xctl is a command-line interface for interacting with consortium blockchain.
 # Build
 ` + "`./buildcli.sh`\n" + `
 
-If you want to build xctl on Windows, you need to install mingw. Package manager [Chocolatey](https://chocolatey.org/) provides an easy way to intall latest mingw.
+If you want to build xctl on Windows, you need to install mingw. Package manager [Chocolatey](https://chocolatey.org/) provides an easy way to install latest mingw.
 ` + "`C:\\Windows\\system32> choco install mingw`\n" + `
 
 After this command, target bin files will be placed in ./release/ folder, upload them to
