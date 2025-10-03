@@ -438,9 +438,6 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.SuicideTxLogMismatchPanic {
 		opts = append(opts, SuicideTxLogMismatchPanicOption())
 	}
-	if featureCtx.PanicUnrecoverableError {
-		opts = append(opts, PanicUnrecoverableErrorOption())
-	}
 	if featureCtx.EnableCancunEVM {
 		opts = append(opts, EnableCancunEVMOption())
 	}
