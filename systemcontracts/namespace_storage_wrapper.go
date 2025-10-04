@@ -45,7 +45,7 @@ func (ns *NamespaceStorageContractWrapper) Get(key []byte) (*NamespaceGetResult,
 }
 
 // Remove deletes data by namespace and key
-func (ns *NamespaceStorageContractWrapper) Remove(key []byte) error {
+func (ns *NamespaceStorageContractWrapper) Remove(key []byte) (bool, error) {
 	return ns.contract.Remove(ns.ns, key)
 }
 

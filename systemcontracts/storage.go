@@ -51,7 +51,7 @@ type (
 		Address() common.Address
 		Put(key []byte, value GenericValue) error
 		Get(key []byte) (*GetResult, error)
-		Remove(key []byte) error
+		Remove(key []byte) (bool, error)
 		Exists(key []byte) (bool, error)
 		List(uint64, uint64) (*ListResult, error)
 		ListKeys(uint64, uint64) (*ListKeysResult, error)
