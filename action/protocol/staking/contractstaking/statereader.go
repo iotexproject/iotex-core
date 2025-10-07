@@ -134,7 +134,7 @@ func (r *ContractStakingStateReader) BucketTypes(contractAddr address.Address) (
 			types = append(types, bt)
 		case state.ErrNilValue:
 		default:
-			return nil, nil, errors.Wrapf(err, "failed to read bucket type %d for contract %s", byteutil.BytesToUint64(key), contractAddr.String())
+			return nil, nil, errors.Wrapf(err, "failed to read bucket type %x for contract %s", key, contractAddr.String())
 		}
 	}
 	return ids, types, nil
