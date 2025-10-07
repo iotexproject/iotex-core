@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 
@@ -74,7 +73,7 @@ func (r *ContractStakingStateReader) NumOfBuckets(contractAddr address.Address) 
 
 // BucketType returns the BucketType for a given contract and bucket id.
 func (r *ContractStakingStateReader) BucketType(contractAddr address.Address, tID uint64) (*BucketType, error) {
-	var bktType stakingpb.BucketType
+	var bktType BucketType
 	if _, err := r.sr.State(
 		&bktType,
 		r.makeOpts(
@@ -84,7 +83,7 @@ func (r *ContractStakingStateReader) BucketType(contractAddr address.Address, tI
 	); err != nil {
 		return nil, errors.Wrapf(err, "failed to get bucket type %d for contract %s", tID, contractAddr.String())
 	}
-	return LoadBucketTypeFromProto(&bktType)
+	return &bktType, nil
 }
 
 // Bucket returns the Bucket for a given contract and bucket id.
@@ -123,15 +122,11 @@ func (r *ContractStakingStateReader) BucketTypes(contractAddr address.Address) (
 	ids := make([]uint64, 0, iter.Size())
 	types := make([]*BucketType, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
-		var bktType stakingpb.BucketType
+		var bktType BucketType
 		switch key, err := iter.Next(&bktType); err {
 		case nil:
-			bt, err := LoadBucketTypeFromProto(&bktType)
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "failed to load bucket type from proto")
-			}
 			ids = append(ids, byteutil.BytesToUint64(key))
-			types = append(types, bt)
+			types = append(types, &bktType)
 		case state.ErrNilValue:
 		default:
 			return nil, nil, errors.Wrapf(err, "failed to read bucket type %x for contract %s", key, contractAddr.String())
@@ -156,17 +151,11 @@ func (r *ContractStakingStateReader) Buckets(contractAddr address.Address) ([]ui
 	ids := make([]uint64, 0, iter.Size())
 	buckets := make([]*Bucket, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
-		var ssb stakingpb.SystemStakingBucket
+		var ssb Bucket
 		switch key, err := iter.Next(&ssb); err {
 		case nil:
-			bucket, err := LoadBucketFromProto(&ssb)
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "failed to load bucket from proto")
-			}
-			if bucket != nil {
-				ids = append(ids, byteutil.BytesToUint64(key))
-				buckets = append(buckets, bucket)
-			}
+			ids = append(ids, byteutil.BytesToUint64(key))
+			buckets = append(buckets, &ssb)
 		case state.ErrNilValue:
 		default:
 			return nil, nil, errors.Wrapf(err, "failed to read bucket %d for contract %s", byteutil.BytesToUint64(key), contractAddr.String())
