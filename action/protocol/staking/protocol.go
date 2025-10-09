@@ -832,6 +832,7 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 			if err != nil {
 				return nil, err
 			}
+			log.L().Info("candidate native votes", zap.String("candidate", list[i].GetIdentifier().String()), zap.String("votes", list[i].Votes.String()))
 			list[i].Votes.Add(list[i].Votes, csVotes)
 		}
 		active, err := p.isActiveCandidate(ctx, c, list[i])

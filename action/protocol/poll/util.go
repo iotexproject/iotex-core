@@ -99,6 +99,12 @@ func validate(ctx context.Context, sr protocol.StateReader, p Protocol, act acti
 			msg := fmt.Sprintf(", %+v vs %+v (expected)",
 				proposedDelegates[i],
 				d)
+			for k, x := range ds {
+				log.L().Info("Expected delegate", zap.String("address", x.Address), zap.String("rewardAddress", x.RewardAddress), zap.String("votes", x.Votes.String()), zap.Int("index", k))
+			}
+			for k, x := range proposedDelegates {
+				log.L().Info("Proposed delegate", zap.String("address", x.Address), zap.String("rewardAddress", x.RewardAddress), zap.String("votes", x.Votes.String()), zap.Int("index", k))
+			}
 			return errors.Wrap(ErrDelegatesNotAsExpected, msg)
 		}
 	}
