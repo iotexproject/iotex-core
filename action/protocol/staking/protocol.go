@@ -1086,11 +1086,13 @@ func (p *Protocol) contractStakingVotesFromView(ctx context.Context, candidate a
 	if p.contractStakingIndexerV3 != nil && featureCtx.TimestampedStakingContract {
 		views = append(views, view.contractsStake.v3)
 	}
-	for _, cv := range views {
+	for idx, cv := range views {
 		v := cv.CandidateStakeVotes(ctx, candidate)
 		if v == nil {
+			log.L().Info("no votes for candidate from contract staking", zap.String("candidate", candidate.String()), zap.Int("idx", idx))
 			continue
 		}
+		log.L().Info("contract staking votes", zap.String("candidate", candidate.String()), zap.String("votes", v.String()), zap.Int("idx", idx))
 		votes.Add(votes, v)
 	}
 	return votes, nil
