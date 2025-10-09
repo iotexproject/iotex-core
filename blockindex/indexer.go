@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
@@ -92,6 +93,7 @@ func NewIndexer(kv db.KVStore, genesisHash hash.Hash256) (Indexer, error) {
 
 // Start starts the indexer
 func (x *blockIndexer) Start(ctx context.Context) error {
+	log.L().Debug("Starting block indexer...")
 	if err := x.kvStore.Start(ctx); err != nil {
 		return err
 	}

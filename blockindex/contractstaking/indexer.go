@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
@@ -20,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
 )
@@ -79,6 +81,7 @@ func NewContractStakingIndexer(kvStore db.KVStore, config Config) (*Indexer, err
 
 // Start starts the indexer
 func (s *Indexer) Start(ctx context.Context) error {
+	log.L().Debug("Starting contract staking indexer...", zap.String("contract", s.config.ContractAddress))
 	if s.IsReady() {
 		return nil
 	}

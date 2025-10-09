@@ -133,7 +133,9 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 }
 
 func (sdb *stateDB) Start(ctx context.Context) error {
+	log.L().Debug("Starting statedb...")
 	for _, dependency := range sdb.dependencies {
+		log.L().Debug("Starting dependency", zap.String("type", fmt.Sprintf("%T", dependency)))
 		if err := dependency.Start(ctx); err != nil {
 			return errors.Wrapf(err, "failed to start dependency %T", dependency)
 		}
