@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
@@ -92,6 +93,7 @@ func NewBloomfilterIndexer(kv db.KVStore, cfg Config) (BloomFilterIndexer, error
 
 // Start starts the bloomfilter indexer
 func (bfx *bloomfilterIndexer) Start(ctx context.Context) error {
+	log.L().Debug("Starting bloomfilter indexer...")
 	if err := bfx.kvStore.Start(ctx); err != nil {
 		return err
 	}
