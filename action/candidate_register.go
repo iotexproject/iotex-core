@@ -373,9 +373,9 @@ func PackCandidateRegisteredEvent(
 	blsPubKey []byte,
 ) (Topics, []byte, error) {
 	data, err := _candidateRegisteredEvent.Inputs.NonIndexed().Pack(
-		operatorAddress.Bytes(),
+		common.BytesToAddress(operatorAddress.Bytes()),
 		name,
-		rewardAddress.Bytes(),
+		common.BytesToAddress(rewardAddress.Bytes()),
 		blsPubKey,
 	)
 	if err != nil {
@@ -383,8 +383,8 @@ func PackCandidateRegisteredEvent(
 	}
 	topics := make(Topics, 3)
 	topics[0] = hash.Hash256(_candidateRegisteredEvent.ID)
-	topics[1] = hash.Hash256(candidate.Bytes())
-	topics[2] = hash.Hash256(ownerAddress.Bytes())
+	topics[1] = hash.BytesToHash256(candidate.Bytes())
+	topics[2] = hash.BytesToHash256(ownerAddress.Bytes())
 	return topics, data, nil
 }
 
@@ -406,8 +406,8 @@ func PackStakedEvent(
 	}
 	topics := make(Topics, 3)
 	topics[0] = hash.Hash256(_stakedEvent.ID)
-	topics[1] = hash.Hash256(voter.Bytes())
-	topics[2] = hash.Hash256(candidate.Bytes())
+	topics[1] = hash.BytesToHash256(voter.Bytes())
+	topics[2] = hash.BytesToHash256(candidate.Bytes())
 	return topics, data, nil
 }
 
@@ -422,7 +422,7 @@ func PackCandidateActivatedEvent(
 	}
 	topics := make(Topics, 2)
 	topics[0] = hash.Hash256(_candidateActivatedEvent.ID)
-	topics[1] = hash.Hash256(candidate.Bytes())
+	topics[1] = hash.BytesToHash256(candidate.Bytes())
 	return topics, data, nil
 }
 
