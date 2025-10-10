@@ -186,6 +186,7 @@ func (p *Protocol) GrantEpochReward(
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	pp := poll.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
@@ -213,7 +214,7 @@ func (p *Protocol) GrantEpochReward(
 	var err error
 	uqdMap := make(map[string]uint64)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
-	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
+	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) || !featureCtx.NotSlashUnproductiveDelegates {
 		// Get unqualified delegate list
 		uqdMap, err = pp.CalculateUnproductiveDelegates(ctx, sm)
 		if err != nil {
@@ -227,7 +228,7 @@ func (p *Protocol) GrantEpochReward(
 	actualTotalReward := big.NewInt(0)
 	transactionLogs := make([]*action.TransactionLog, 0)
 	rewardLogs := make([]*action.Log, 0)
-	if !protocol.MustGetFeatureCtx(ctx).NotSlashUnproductiveDelegates {
+	if !featureCtx.NotSlashUnproductiveDelegates {
 		slashAmount, slashLogs, err := p.slashUqd(ctx, sm, blkCtx.BlockHeight, actionCtx.ActionHash, candidates, a.blockReward, uqdMap)
 		if err != nil {
 			return nil, nil, err
@@ -243,7 +244,11 @@ func (p *Protocol) GrantEpochReward(
 		rewardLogs = append(rewardLogs, slashLogs...)
 		actualTotalReward = big.NewInt(0).Sub(actualTotalReward, slashAmount)
 	}
-	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqdMap)
+	epochRewardSplitUqdMap := make(map[string]uint64)
+	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
+		epochRewardSplitUqdMap = uqdMap
+	}
+	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap)
 	if err != nil {
 		return nil, nil, err
 	}
