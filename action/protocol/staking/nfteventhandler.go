@@ -103,6 +103,9 @@ func (handler *nftEventHandler) DeductBucket(contractAddr address.Address, id ui
 		return nil, errors.Wrap(err, "failed to get height")
 	}
 	candidate := handler.csm.GetByIdentifier(bucket.Candidate)
+	if candidate == nil {
+		return bucket, nil
+	}
 	if err := candidate.SubVote(handler.calculateVoteWeight(bucket, height)); err != nil {
 		return nil, errors.Wrap(err, "failed to subtract vote")
 	}
@@ -124,6 +127,9 @@ func (handler *nftEventHandler) PutBucket(contractAddr address.Address, id uint6
 		return errors.Wrap(err, "failed to get height")
 	}
 	candidate := handler.csm.GetByIdentifier(bkt.Candidate)
+	if candidate == nil {
+		return nil
+	}
 	if err := candidate.AddVote(handler.calculateVoteWeight(bkt, height)); err != nil {
 		return errors.Wrap(err, "failed to add vote")
 	}
@@ -146,6 +152,9 @@ func (handler *nftEventHandler) DeleteBucket(contractAddr address.Address, id ui
 		return errors.Wrap(err, "failed to get height")
 	}
 	candidate := handler.csm.GetByIdentifier(bucket.Candidate)
+	if candidate == nil {
+		return nil
+	}
 	if err := candidate.SubVote(handler.calculateVoteWeight(bucket, height)); err != nil {
 		return errors.Wrap(err, "failed to subtract vote")
 	}
