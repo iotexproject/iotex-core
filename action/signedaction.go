@@ -98,6 +98,40 @@ func SignedCandidateRegister(
 	return selp, nil
 }
 
+// SignedCandidateRegisterWithBLS returns a signed candidate register with BLS public key
+func SignedCandidateRegisterWithBLS(
+	nonce uint64,
+	name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr string,
+	duration uint32,
+	autoStake bool,
+	blsPubKey []byte,
+	payload []byte,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	registererPriKey crypto.PrivateKey,
+	options ...SignedActionOption,
+) (*SealedEnvelope, error) {
+	cr, err := NewCandidateRegisterWithBLS(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr,
+		duration, autoStake, blsPubKey, payload)
+	if err != nil {
+		return nil, err
+	}
+	bd := &EnvelopeBuilder{}
+	bd = bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetAction(cr)
+	for _, opt := range options {
+		opt(bd)
+	}
+	elp := bd.Build()
+	selp, err := Sign(elp, registererPriKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to sign candidate register %v", elp)
+	}
+	return selp, nil
+}
+
 // SignedCandidateUpdate returns a signed candidate update
 func SignedCandidateUpdate(
 	nonce uint64,
