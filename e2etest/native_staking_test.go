@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -1569,6 +1570,69 @@ func TestNativeStakingVoteBug(t *testing.T) {
 				deltaVotes.Sub(deltaVotes, staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{AutoStake: true, StakedDuration: time.Duration(stakeDurationDays*24) * (time.Hour), StakedAmount: new(big.Int).Mul(stakeAmount, big.NewInt(4))}, false))
 				r.Equal(tmpVotes.Add(tmpVotes, deltaVotes).String(), candidate.TotalWeightedVotes)
 				checkStakingVoteView(test, r, "cand1")
+			},
+		},
+	})
+}
+
+func TestCandidateBLSPublicKey(t *testing.T) {
+	require := require.New(t)
+	cfg := initCfg(require)
+	cfg.Genesis.WakeBlockHeight = 1
+	cfg.Genesis.XinguBlockHeight = 10 // enable CandidateBLSPublicKey feature
+	cfg.Genesis.SystemStakingContractAddress = ""
+	cfg.Genesis.SystemStakingContractV2Address = ""
+	cfg.Genesis.SystemStakingContractV3Address = ""
+	cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
+	cfg.Plugins[config.GatewayPlugin] = nil
+	test := newE2ETest(t, cfg)
+
+	var (
+		chainID        = test.cfg.Chain.ID
+		registerAmount = unit.ConvertIotxToRau(1200000)
+		candOwnerID    = 3
+		candOwnerID2   = 4
+	)
+	genTransferActionsWithPrice := func(n int, price *big.Int) []*actionWithTime {
+		acts := make([]*actionWithTime, n)
+		for i := 0; i < n; i++ {
+			acts[i] = &actionWithTime{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, price, action.WithChainID(chainID))), time.Now()}
+		}
+		return acts
+	}
+	blsPrivKey, err := crypto.GenerateBLS12381PrivateKey(identityset.PrivateKey(0).Bytes())
+	require.NoError(err)
+	blsPubKey := blsPrivKey.PublicKey().Bytes()
+	test.run([]*testcase{
+		{
+			name: "register without bls key",
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(candOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(candOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice1559, identityset.PrivateKey(candOwnerID), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(2, len(blk.Receipts))
+				require.EqualValues(iotextypes.ReceiptStatus_Success, blk.Receipts[0].Status)
+				cand, err := test.getCandidateByName("cand1")
+				require.NoError(err)
+				require.EqualValues(identityset.Address(candOwnerID).String(), cand.Id)
+				require.EqualValues("cand1", cand.Name)
+			},
+		},
+		{
+			name:    "register with bls key",
+			preActs: genTransferActionsWithPrice(int(cfg.Genesis.XinguBlockHeight), gasPrice1559),
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedCandidateRegisterWithBLS(test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), "cand2", identityset.Address(2).String(), identityset.Address(2).String(), identityset.Address(candOwnerID2).String(), registerAmount.String(), 1, true, blsPubKey, []byte{1, 2, 3}, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID2), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(2, len(blk.Receipts))
+				require.EqualValues(iotextypes.ReceiptStatus_Success, blk.Receipts[0].Status)
+				cand, err := test.getCandidateByName("cand2")
+				require.NoError(err)
+				require.EqualValues(identityset.Address(candOwnerID2).String(), cand.Id)
+				require.EqualValues("cand2", cand.Name)
 			},
 		},
 	})
