@@ -354,7 +354,7 @@ func (p *Protocol) CreateGenesisStates(
 	if err != nil {
 		return err
 	}
-
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 	for _, bc := range p.config.BootstrapCandidates {
 		owner, err := address.FromString(bc.OwnerAddress)
 		if err != nil {
@@ -375,7 +375,7 @@ func (p *Protocol) CreateGenesisStates(
 		if !ok {
 			return action.ErrInvalidAmount
 		}
-		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
+		bucket := NewVoteBucket(owner, owner, selfStake, 7, blkCtx.BlockTimeStamp, true)
 		bucketIdx, err := csm.putBucketAndIndex(bucket)
 		if err != nil {
 			return err
