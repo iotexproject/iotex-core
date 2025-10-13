@@ -313,6 +313,10 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 			)
 			opts = append(opts, blockdao.WithBlobStore(blobStore))
 		}
+		if path := cfg.Chain.PatchReceiptIndexPath; len(path) > 0 {
+			dbConfig.DbPath = path
+			opts = append(opts, blockdao.WithReceiptIndexer(blockdao.NewReceiptIndexer(db.NewBoltDB(dbConfig), cfg.Chain.PatchReceiptIndexEndHeight)))
+		}
 	}
 	if err != nil {
 		return err
