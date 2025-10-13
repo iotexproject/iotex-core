@@ -959,7 +959,7 @@ func (p *Protocol) convertToVoteBucket(bkt *contractstaking.Bucket, height uint6
 		AutoStake:       bkt.UnlockedAt == MaxDurationNumber,
 		Candidate:       bkt.Candidate,
 		Owner:           bkt.Owner,
-		ContractAddress: "",
+		ContractAddress: address.ZeroAddress,
 		Timestamped:     bkt.IsTimestampBased,
 	}
 	if bkt.IsTimestampBased {
