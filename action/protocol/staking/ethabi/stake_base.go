@@ -6,6 +6,7 @@ import (
 	v1 "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi/v1"
 	v2 "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi/v2"
 	v3 "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi/v3"
+	v4 "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi/v4"
 )
 
 // BuildReadStateRequest decode eth_call data to StateContext
@@ -23,6 +24,10 @@ func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 		return methodSig, nil
 	}
 	methodSig, err = v3.BuildReadStateRequest(data)
+	if err == nil {
+		return methodSig, nil
+	}
+	methodSig, err = v4.BuildReadStateRequest(data)
 	if err == nil {
 		return methodSig, nil
 	}

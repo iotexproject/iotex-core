@@ -47,6 +47,7 @@ type (
 		TotalWeightedVotes *big.Int
 		SelfStakeBucketIdx uint64
 		SelfStakingTokens  *big.Int
+		BlsPubKey          []byte
 	}
 )
 
@@ -138,6 +139,10 @@ func EncodeCandidateToEth(candidate *iotextypes.CandidateV2) (*CandidateEth, err
 		return nil, err
 	}
 	result.Id = addr
+	if len(candidate.BlsPubKey) > 0 {
+		result.BlsPubKey = make([]byte, len(candidate.BlsPubKey))
+		copy(result.BlsPubKey, candidate.BlsPubKey)
+	}
 	return result, nil
 }
 
