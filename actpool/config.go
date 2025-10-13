@@ -19,6 +19,7 @@ var (
 		MinGasPriceStr:     big.NewInt(unit.Qev).String(),
 		BlackList:          []string{},
 		MaxNumBlobsPerAcct: 16,
+		EnableBundlePool:   true,
 		Store: &StoreConfig{
 			Datadir: "/var/data/actpool.cache",
 		},
@@ -45,6 +46,8 @@ type Config struct {
 	Store *StoreConfig `yaml:"store"`
 	// MaxNumBlobsPerAcct defines the maximum number of blob txs an account can have
 	MaxNumBlobsPerAcct uint64 `yaml:"maxNumBlobsPerAcct"`
+	// EnableBundlePool indicates whether to enable bundle pool
+	EnableBundlePool bool `yaml:"enableBundlePool"`
 }
 
 // MinGasPrice returns the minimal gas price threshold

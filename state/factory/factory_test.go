@@ -361,6 +361,7 @@ func TestSDBTwoBlocksSamePrevHash(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	ap := mock_actpool.NewMockActPool(ctrl)
+	ap.EXPECT().BundlePool().Return(nil).AnyTimes()
 	ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{}).Times(4)
 	blk1, err := sdb.Mint(
 		protocol.WithBlockchainCtx(
@@ -845,7 +846,7 @@ func testNonce(ctx context.Context, sf Factory, t *testing.T) {
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		ChainID: 1,
 	})
-	_, err = ws.runAction(ctx, selp)
+	_, err = ws.runAction(ctx, selp, true)
 	require.NoError(t, err)
 	state, err := accountutil.AccountState(ctx, sf, a)
 	require.NoError(t, err)
@@ -1073,6 +1074,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 	accMap[identityset.Address(29).String()] = []*action.SealedEnvelope{selp2}
 	ctrl := gomock.NewController(t)
 	ap := mock_actpool.NewMockActPool(ctrl)
+	ap.EXPECT().BundlePool().Return(nil).Times(1)
 	ap.EXPECT().PendingActionMap().Return(accMap).Times(1)
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(context.Background(),
@@ -1411,6 +1413,7 @@ func TestMintBlocksWithCandidateUpdate(t *testing.T) {
 	)
 	ctx = protocol.WithFeatureCtx(ctx)
 	mockActPool := mock_actpool.NewMockActPool(gomock.NewController(t))
+	mockActPool.EXPECT().BundlePool().Return(nil).AnyTimes()
 	mockActPool.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
 		a.String(): {selp1},
 	}).Times(1)
@@ -1548,6 +1551,7 @@ func TestMintBlocksWithTransfers(t *testing.T) {
 	)
 	ctx = protocol.WithFeatureCtx(ctx)
 	mockActPool := mock_actpool.NewMockActPool(gomock.NewController(t))
+	mockActPool.EXPECT().BundlePool().Return(nil).AnyTimes()
 	mockActPool.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
 		a.String(): {selp1},
 	}).Times(1)
