@@ -499,10 +499,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	}
 	vd := v.(*viewData)
 	if blkCtx.BlockHeight == g.XinguBlockHeight {
-		handler, err := newNFTBucketEventHandler(sm, func(bucket *contractstaking.Bucket, height uint64) *big.Int {
-			vb := p.convertToVoteBucket(bucket, height)
-			return p.calculateVoteWeight(vb, false)
-		})
+		handler, err := newNFTBucketEventHandler(sm, p.calculateContractBucketVoteWeight)
 		if err != nil {
 			return err
 		}
@@ -701,10 +698,7 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		handler *nftEventHandler
 		err     error
 	)
-	ccvw := func(bucket *contractstaking.Bucket, height uint64) *big.Int {
-		vb := p.convertToVoteBucket(bucket, height)
-		return p.calculateVoteWeight(vb, false)
-	}
+	ccvw := p.calculateContractBucketVoteWeight
 	if featureCtx.StoreVoteOfNFTBucketIntoView {
 		v, err := sm.ReadView(_protocolID)
 		if err != nil {
@@ -998,6 +992,14 @@ func (p *Protocol) convertToVoteBucket(bkt *contractstaking.Bucket, height uint6
 
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
 	return CalculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
+}
+
+func (p *Protocol) calculateContractBucketVoteWeight(bucket *contractstaking.Bucket, height uint64) *big.Int {
+	vb := p.convertToVoteBucket(bucket, height)
+	if bucket.Muted || vb.isUnstaked() {
+		return big.NewInt(0)
+	}
+	return p.calculateVoteWeight(vb, false)
 }
 
 type nonceUpdateType bool
