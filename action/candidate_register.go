@@ -229,8 +229,8 @@ func (cr *CandidateRegister) Proto() *iotextypes.CandidateRegister {
 
 	switch {
 	case cr.WithBLS():
-		act.Candidate.PubKey = make([]byte, len(cr.pubKey))
-		copy(act.Candidate.PubKey, cr.pubKey)
+		act.Candidate.BlsPubKey = make([]byte, len(cr.pubKey))
+		copy(act.Candidate.BlsPubKey, cr.pubKey)
 		if cr.value != nil {
 			act.StakedAmount = cr.value.String()
 		}
@@ -266,10 +266,10 @@ func (cr *CandidateRegister) LoadProto(pbAct *iotextypes.CandidateRegister) erro
 	cr.duration = pbAct.GetStakedDuration()
 	cr.autoStake = pbAct.GetAutoStake()
 
-	withBLS := len(pbAct.Candidate.GetPubKey()) > 0
+	withBLS := len(pbAct.Candidate.GetBlsPubKey()) > 0
 	if withBLS {
-		cr.pubKey = make([]byte, len(pbAct.Candidate.GetPubKey()))
-		copy(cr.pubKey, pbAct.Candidate.GetPubKey())
+		cr.pubKey = make([]byte, len(pbAct.Candidate.GetBlsPubKey()))
+		copy(cr.pubKey, pbAct.Candidate.GetBlsPubKey())
 	}
 	if len(pbAct.GetStakedAmount()) > 0 {
 		amount, ok := new(big.Int).SetString(pbAct.GetStakedAmount(), 10)
