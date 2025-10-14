@@ -3,6 +3,7 @@ package stakingindex
 import (
 	"context"
 	"math/big"
+	"slices"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -122,8 +123,12 @@ func (s *voteView) Migrate(ctx context.Context, handler staking.EventHandler) er
 	if s.indexer.StartHeight() <= blkCtx.BlockHeight && h != blkCtx.BlockHeight-1 {
 		return errors.Errorf("bucket cache height %d does not match current height %d", h, blkCtx.BlockHeight-1)
 	}
-
+	sortedIDs := make([]uint64, 0, len(buckets))
 	for id := range buckets {
+		sortedIDs = append(sortedIDs, id)
+	}
+	slices.Sort(sortedIDs)
+	for _, id := range sortedIDs {
 		if err := handler.PutBucket(s.config.ContractAddr, id, buckets[id]); err != nil {
 			return err
 		}
