@@ -77,6 +77,8 @@ var (
 )
 
 type (
+	// IsDelegateFunc defines the function to check if a candidate is a delegate
+	IsDelegateFunc func(ctx context.Context, sr protocol.StateReader, candidate string) (bool, error)
 	// ReceiptError indicates a non-critical error with corresponding receipt status
 	ReceiptError interface {
 		Error() string
@@ -100,6 +102,7 @@ type (
 		helperCtx                HelperCtx
 		blockStore               BlockStore
 		blocksToDurationFn       func(startHeight, endHeight, currentHeight uint64) time.Duration
+		isDelegate               IsDelegateFunc
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -340,6 +343,11 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 	}
 	return c, nil
+}
+
+// SetIsDelegateFunc sets the function to check if an address is a delegate
+func (p *Protocol) SetIsDelegateFunc(f IsDelegateFunc) {
+	p.isDelegate = f
 }
 
 // CreateGenesisStates is used to setup BootstrapCandidates from genesis config.

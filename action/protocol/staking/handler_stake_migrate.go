@@ -43,7 +43,7 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, elp action.Envelope, 
 	if rErr != nil {
 		return nil, nil, gasConsumed, gasToBeDeducted, rErr
 	}
-	staker, rerr := fetchCaller(ctx, csm, big.NewInt(0))
+	staker, rerr := fetchCaller(ctx, csm.SM(), big.NewInt(0))
 	if rerr != nil {
 		return nil, nil, gasConsumed, gasToBeDeducted, errors.Wrap(rerr, "failed to fetch caller")
 	}

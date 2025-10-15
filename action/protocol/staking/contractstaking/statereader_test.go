@@ -8,7 +8,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
@@ -101,7 +100,7 @@ func (d *dummyIter) Next(s interface{}) ([]byte, error) {
 	if d.idx >= d.size {
 		return nil, state.ErrNilValue
 	}
-	*(s.(*stakingpb.SystemStakingBucket)) = stakingpb.SystemStakingBucket{}
+	*(s.(*Bucket)) = Bucket{}
 	key := d.keys[d.idx]
 	d.idx++
 	return key, nil

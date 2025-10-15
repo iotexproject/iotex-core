@@ -747,6 +747,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 	}
 	factory := builder.cs.factory
 	chain := builder.cs.chain
+	stakingProtocol := staking.FindProtocol(builder.cs.registry)
 	pollProtocol, err := poll.NewProtocol(
 		builder.cfg.Consensus.Scheme,
 		builder.cfg.Chain,
@@ -781,7 +782,7 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 		candidatesutil.ProbationListFromDB,
 		candidatesutil.UnproductiveDelegateFromDB,
 		builder.cs.electionCommittee,
-		staking.FindProtocol(builder.cs.registry),
+		stakingProtocol,
 		nil,
 		func(start, end uint64) (map[string]uint64, error) {
 			return blockchain.Productivity(chain, start, end)
@@ -791,6 +792,20 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate poll protocol")
+	}
+	if stakingProtocol != nil {
+		stakingProtocol.SetIsDelegateFunc(func(ctx context.Context, sr protocol.StateReader, candname string) (bool, error) {
+			delegates, err := pollProtocol.Delegates(ctx, sr)
+			if err != nil {
+				return false, err
+			}
+			for _, d := range delegates {
+				if string(d.CanName) == candname {
+					return true, nil
+				}
+			}
+			return false, nil
+		})
 	}
 	return pollProtocol.Register(builder.cs.registry)
 }
