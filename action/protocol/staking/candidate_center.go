@@ -266,6 +266,22 @@ func (m *CandidateCenter) GetBySelfStakingIndex(index uint64) *Candidate {
 	return nil
 }
 
+// GetByOperator returns the candidate by operator
+func (m *CandidateCenter) GetByOperator(operator address.Address) *Candidate {
+	if operator == nil {
+		return nil
+	}
+
+	if d := m.change.getByOperator(operator); d != nil {
+		return d
+	}
+
+	if d, hit := m.base.getByOperator(operator.String()); hit {
+		return d.Clone()
+	}
+	return nil
+}
+
 // Upsert adds a candidate into map, overwrites if already exist
 func (m *CandidateCenter) Upsert(d *Candidate) error {
 	if err := d.Validate(); err != nil {
@@ -455,6 +471,19 @@ func (cc *candChange) getByIdentifier(identifier address.Address) *Candidate {
 func (cc *candChange) getBySelfStakingIndex(index uint64) *Candidate {
 	for _, d := range cc.dirty {
 		if d.isSelfStakeBucketSettled() && index == d.SelfStakeBucketIdx {
+			return d.Clone()
+		}
+	}
+	return nil
+}
+
+func (cc *candChange) getByOperator(operator address.Address) *Candidate {
+	if operator == nil {
+		return nil
+	}
+
+	for _, d := range cc.dirty {
+		if address.Equal(operator, d.Operator) {
 			return d.Clone()
 		}
 	}

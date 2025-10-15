@@ -51,6 +51,7 @@ type (
 		GetByName(string) *Candidate
 		GetByOwner(address.Address) *Candidate
 		GetByIdentifier(address.Address) *Candidate
+		GetByOperator(address.Address) *Candidate
 		Upsert(*Candidate) error
 		CreditBucketPool(*big.Int, bool) error
 		DebitBucketPool(*big.Int, bool) error
@@ -146,6 +147,10 @@ func (csm *candSM) GetByOwner(addr address.Address) *Candidate {
 
 func (csm *candSM) GetByIdentifier(addr address.Address) *Candidate {
 	return csm.candCenter.GetByIdentifier(addr)
+}
+
+func (csm *candSM) GetByOperator(addr address.Address) *Candidate {
+	return csm.candCenter.GetByOperator(addr)
 }
 
 // Upsert writes the candidate into state manager and cand center

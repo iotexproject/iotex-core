@@ -546,6 +546,7 @@ func (p *Protocol) slashUqd(
 	}
 	slashLogs := make([]*action.Log, 0)
 	snapshot := view.Snapshot()
+	fCtx := protocol.MustGetFeatureCtx(ctx)
 	for _, candidate := range candidates {
 		if missed, ok := uqdMap[candidate.Address]; ok {
 			if missed == 0 {
@@ -560,6 +561,12 @@ func (p *Protocol) slashUqd(
 				totalSlashAmount.Add(totalSlashAmount, amount)
 			case staking.ErrNoSelfStakeBucket:
 				log.S().Errorf("Candidate %s doesn't have self-stake bucket, no slash", candidate.Address)
+			case staking.ErrCandidateNotExist:
+				if !fCtx.CandidateSlashByOwner {
+					log.S().Errorf("Candidate %s doesn't exist, ignore slash", candidate.Address)
+					continue
+				}
+				fallthrough
 			default:
 				if err := view.Revert(snapshot); err != nil {
 					return nil, nil, errors.Wrap(err, "failed to revert view")

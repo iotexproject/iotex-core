@@ -66,6 +66,7 @@ var (
 	ErrWithdrawnBucket     = errors.New("the bucket is already withdrawn")
 	ErrEndorsementNotExist = errors.New("the endorsement does not exist")
 	ErrNoSelfStakeBucket   = errors.New("no self-stake bucket")
+	ErrCandidateNotExist   = errors.New("the candidate does not exist")
 	TotalBucketKey         = append([]byte{_const}, []byte("totalBucket")...)
 )
 
@@ -406,7 +407,7 @@ func (p *Protocol) CreateGenesisStates(
 func (p *Protocol) SlashCandidate(
 	ctx context.Context,
 	sm protocol.StateManager,
-	owner address.Address,
+	operator address.Address,
 	amount *big.Int,
 ) error {
 	if amount == nil || amount.Sign() <= 0 {
@@ -416,9 +417,15 @@ func (p *Protocol) SlashCandidate(
 	if err != nil {
 		return errors.Wrap(err, "failed to create candidate state manager")
 	}
-	candidate := csm.GetByIdentifier(owner)
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	var candidate *Candidate
+	if fCtx.CandidateSlashByOwner {
+		candidate = csm.GetByIdentifier(operator)
+	} else {
+		candidate = csm.GetByOperator(operator)
+	}
 	if candidate == nil {
-		return errors.Wrapf(state.ErrStateNotExist, "candidate %s does not exist", owner.String())
+		return errors.Wrapf(ErrCandidateNotExist, "candidate operator %s does not exist", operator.String())
 	}
 	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
 		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
