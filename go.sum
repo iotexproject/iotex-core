@@ -208,8 +208,6 @@ github.com/btcsuite/snappy-go v1.0.0/go.mod h1:8woku9dyThutzjeg+3xrA5iCpBRH8XEEg
 github.com/btcsuite/websocket v0.0.0-20150119174127-31079b680792/go.mod h1:ghJtEyQwv5/p4Mg4C0fgbePVuGr935/5ddU9Z3TmDRY=
 github.com/btcsuite/winsvc v1.0.0/go.mod h1:jsenWakMcC0zFBFurPLEAyrnc/teJEM1O46fmI40EZs=
 github.com/buger/jsonparser v0.0.0-20181115193947-bf1c66bbce23/go.mod h1:bbYlZJ7hK1yFx9hf58LP0zeX7UjIGs20ufpu3evjr+s=
-github.com/bwmarrin/discordgo v0.19.0 h1:kMED/DB0NR1QhRcalb85w0Cu3Ep2OrGAqZH1R5awQiY=
-github.com/bwmarrin/discordgo v0.19.0/go.mod h1:O9S4p+ofTFwB02em7jkpkV8M3R0/PUVOwN61zSZ0r4Q=
 github.com/c2h5oh/datasize v0.0.0-20231215233829-aa82cc1e6500 h1:6lhrsTEnloDPXyeZBvSYvQf8u86jbKehZPVDDlkgDl4=
 github.com/c2h5oh/datasize v0.0.0-20231215233829-aa82cc1e6500/go.mod h1:S/7n9copUssQ56c7aAgHqftWO4LTf4xY6CGWt8Bc+3M=
 github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEet03Pg2g16Swow4=
@@ -575,9 +573,6 @@ github.com/grpc-ecosystem/go-grpc-middleware v1.4.0/go.mod h1:g5qyo/la0ALbONm6Vb
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 h1:Ovs26xHkKqVztRpIrF/92BcuyuQ/YW4NSIpoGtfXNho=
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgfV/d3M/q6VIi02HzZEHgUlZvzk=
 github.com/grpc-ecosystem/grpc-gateway v1.5.0/go.mod h1:RSKVYQBd5MCa4OVpNdGskqpgL2+G+NZTnrVHpWWfpdw=
-github.com/grpc-ecosystem/grpc-gateway v1.16.0 h1:gmcG1KaJ57LophUzW0Hy8NmPhnMZb4M0+kPpLofRdBo=
-github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 h1:asbCHRVmodnJTuQ3qamDwqVOIjwqUPTYmYuemVOx+Ys=
-github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0/go.mod h1:ggCgvZ2r7uOoQjOyu2Y1NhHmEPPzzuhWgcza5M1Ji1I=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/errwrap v1.1.0 h1:OxrOeh75EUXMY8TBjag2fzXGZ40LB6IKw45YeGUDY2I=
 github.com/hashicorp/errwrap v1.1.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
@@ -667,10 +662,6 @@ github.com/iotexproject/iotex-address v0.2.8 h1:jaTR5pZe/ljiYW4OqHl9NKPs0h1o91Gi
 github.com/iotexproject/iotex-address v0.2.8/go.mod h1:K78yPSMB4K7gF/iQ7djT1amph0RBrP3rSkFfH7gNG70=
 github.com/iotexproject/iotex-antenna-go/v2 v2.6.4 h1:7e0VyBDFT+iqwvr/BIk38yf7nCX5a2IEvziI88mlCQs=
 github.com/iotexproject/iotex-antenna-go/v2 v2.6.4/go.mod h1:L6AzDHo2TBFDAPA3ly+/PCS4JSX2g3zzhwV8RGQsTDI=
-github.com/iotexproject/iotex-election v0.3.8-0.20250722071821-26e7794c6dcd h1:HuIbAgT5Qi+hy0BsW8FuyZcxiTAwW3vQSI7nyMNWbMM=
-github.com/iotexproject/iotex-election v0.3.8-0.20250722071821-26e7794c6dcd/go.mod h1:w9HriT1coMRbuknaSD2xqiOqDTnowBDzvFZv8tg1j2M=
-github.com/iotexproject/iotex-election v0.3.8-0.20251014025613-2bd07cad1e27 h1:OG53NUvnbKQ8Bv3VKsplq7uCgqlAB7GfdgI3ULqwyi8=
-github.com/iotexproject/iotex-election v0.3.8-0.20251014025613-2bd07cad1e27/go.mod h1:lPe6nU80ySdtM8bX0rEW6jVhx00KI1sPiiEbwbmcRI4=
 github.com/iotexproject/iotex-election v0.3.8-0.20251015031218-8df952babca1 h1:jPLni/qKAnxv87HMCutde2tP9JmfWuLZgGpB4OArQGM=
 github.com/iotexproject/iotex-election v0.3.8-0.20251015031218-8df952babca1/go.mod h1:w9HriT1coMRbuknaSD2xqiOqDTnowBDzvFZv8tg1j2M=
 github.com/iotexproject/iotex-proto v0.6.5-0.20250926025103-f0e973cdb041 h1:BiLn8s/BsqW9GAmMQV44Wlzo5LKpK0GZX16ApI2Ou+M=

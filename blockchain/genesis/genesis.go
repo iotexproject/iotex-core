@@ -79,6 +79,7 @@ func defaultConfig() Genesis {
 			VanuatuBlockHeight:        33730921,
 			WakeBlockHeight:           36893881,
 			XinguBlockHeight:          96893881,
+			XinguBetaBlockHeight:      96893881,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
@@ -375,6 +376,9 @@ type (
 		// 2. enable candidate BLS pubkey registration and update
 		// 3. enable contract staking buckets storage in trie
 		XinguBlockHeight uint64 `yaml:"xinguHeight"`
+		// XinguBetaBlockHeight is the start height to
+		// 1. slash candidate by operator
+		XinguBetaBlockHeight uint64 `yaml:"xinguBetaHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -758,6 +762,11 @@ func (g *Blockchain) IsWake(height uint64) bool {
 // IsXingu checks whether height is equal to or larger than xingu height
 func (g *Blockchain) IsXingu(height uint64) bool {
 	return g.isPost(g.XinguBlockHeight, height)
+}
+
+// IsXinguBeta checks whether height is equal to or larger than xingu beta height
+func (g *Blockchain) IsXinguBeta(height uint64) bool {
+	return g.isPost(g.XinguBetaBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
