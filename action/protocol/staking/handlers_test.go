@@ -699,8 +699,9 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 		gasLimit        uint64
 		blkGasLimit     uint64
 		gasPrice        *big.Int
-		newProtocol     bool
 		// candidate update
+		allowUpdate    bool
+		isActive       bool
 		updateName     string
 		updateOperator string
 		updateReward   string
@@ -725,6 +726,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			uint64(1000000),
 			big.NewInt(1000),
 			true,
+			false,
 			"update",
 			identityset.Address(31).String(),
 			identityset.Address(32).String(),
@@ -749,6 +751,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			uint64(1000000),
 			big.NewInt(1000),
 			true,
+			false,
 			"update",
 			identityset.Address(31).String(),
 			identityset.Address(32).String(),
@@ -773,6 +776,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			uint64(1000000),
 			big.NewInt(1000),
 			true,
+			false,
 			"",
 			"",
 			"",
@@ -797,6 +801,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			uint64(1000000),
 			big.NewInt(1000),
 			true,
+			false,
 			"test2",
 			"",
 			"",
@@ -821,11 +826,62 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			uint64(1000000),
 			big.NewInt(1000),
 			true,
+			false,
 			"!invalidname",
 			identityset.Address(31).String(),
 			identityset.Address(32).String(),
 			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_Failure,
+		},
+		// invalid update of active delegate
+		{
+			1201000,
+			identityset.Address(27),
+			1,
+			"test",
+			identityset.Address(27).String(),
+			identityset.Address(29).String(),
+			identityset.Address(27).String(),
+			"1200000000000000000000000",
+			"1806204150552640363969204",
+			uint32(10000),
+			false,
+			[]byte("payload"),
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			false,
+			true,
+			"update",
+			identityset.Address(31).String(),
+			identityset.Address(32).String(),
+			nil,
+			iotextypes.ReceiptStatus_ErrWriteCandidate,
+		},
+		// success, update non-active delegate, name, operator and reward address
+		{
+			1201000,
+			identityset.Address(27),
+			1,
+			"test",
+			identityset.Address(27).String(),
+			identityset.Address(29).String(),
+			identityset.Address(27).String(),
+			"1200000000000000000000000",
+			"1806204150552640363969204",
+			uint32(10000),
+			false,
+			[]byte("payload"),
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			true,
+			false,
+			"update",
+			identityset.Address(31).String(),
+			identityset.Address(32).String(),
+			nil,
+			iotextypes.ReceiptStatus_Success,
 		},
 		// success,update name, operator and reward address
 		{
@@ -845,6 +901,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			uint64(1000000),
 			big.NewInt(1000),
 			true,
+			false,
 			"update",
 			identityset.Address(31).String(),
 			identityset.Address(32).String(),
@@ -868,6 +925,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			uint64(1000000),
 			uint64(1000000),
 			big.NewInt(1000),
+			true,
 			false,
 			"test1",
 			"",
@@ -892,6 +950,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			uint64(1000000),
 			uint64(1000000),
 			big.NewInt(1000),
+			true,
 			false,
 			"test",
 			identityset.Address(7).String(),
@@ -912,25 +971,41 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			SetGasPrice(test.gasPrice).SetAction(act).Build()
 		registerCost, err := elp.Cost()
 		require.NoError(err)
+		g := genesis.TestDefault()
 		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
 			IntrinsicGas: intrinsic,
 			Nonce:        test.nonce,
 		})
+		blockHeight := uint64(1)
+		var cu *action.CandidateUpdate
+		if test.allowUpdate {
+			cu, err = action.NewCandidateUpdate(test.updateName, test.updateOperator, test.updateReward)
+			require.NoError(err)
+			p.SetIsDelegateFunc(nil)
+		} else {
+			blockHeight = g.XinguBlockHeight
+			blsPrivKey, err := crypto.GenerateBLS12381PrivateKey(identityset.PrivateKey(0).Bytes())
+			require.NoError(err)
+			cu, err = action.NewCandidateUpdateWithBLS(test.updateName, test.updateOperator, test.updateReward, blsPrivKey.PublicKey().Bytes())
+			require.NoError(err)
+			p.SetIsDelegateFunc(func(ctx context.Context, sr protocol.StateReader, candidate string) (bool, error) {
+				return test.isActive, nil
+			})
+		}
+
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-			BlockHeight:    1,
+			BlockHeight:    blockHeight,
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
 		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{}})
-		ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
+		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		_, err = p.Handle(ctx, elp, sm)
 		require.NoError(err)
 
-		cu, err := action.NewCandidateUpdate(test.updateName, test.updateOperator, test.updateReward)
-		require.NoError(err)
 		intrinsic, _ = cu.IntrinsicGas()
 		elp = builder.SetNonce(test.nonce + 1).SetGasLimit(test.gasLimit).
 			SetGasPrice(test.gasPrice).SetAction(cu).Build()
