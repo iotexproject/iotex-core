@@ -163,6 +163,7 @@ type (
 		CandidateBLSPublicKey                   bool
 		NotUseMinSelfStakeToBeActive            bool
 		StoreVoteOfNFTBucketIntoView            bool
+		CandidateSlashByOwner                   bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -329,6 +330,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CandidateBLSPublicKey:                   g.IsXingu(height),
 			NotUseMinSelfStakeToBeActive:            !g.IsXingu(height),
 			StoreVoteOfNFTBucketIntoView:            !g.IsXingu(height),
+			CandidateSlashByOwner:                   !g.IsToBeEnabled(height),
 		},
 	)
 }
