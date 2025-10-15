@@ -671,6 +671,8 @@ github.com/iotexproject/iotex-election v0.3.8-0.20250722071821-26e7794c6dcd h1:H
 github.com/iotexproject/iotex-election v0.3.8-0.20250722071821-26e7794c6dcd/go.mod h1:w9HriT1coMRbuknaSD2xqiOqDTnowBDzvFZv8tg1j2M=
 github.com/iotexproject/iotex-election v0.3.8-0.20251014025613-2bd07cad1e27 h1:OG53NUvnbKQ8Bv3VKsplq7uCgqlAB7GfdgI3ULqwyi8=
 github.com/iotexproject/iotex-election v0.3.8-0.20251014025613-2bd07cad1e27/go.mod h1:lPe6nU80ySdtM8bX0rEW6jVhx00KI1sPiiEbwbmcRI4=
+github.com/iotexproject/iotex-election v0.3.8-0.20251015031218-8df952babca1 h1:jPLni/qKAnxv87HMCutde2tP9JmfWuLZgGpB4OArQGM=
+github.com/iotexproject/iotex-election v0.3.8-0.20251015031218-8df952babca1/go.mod h1:w9HriT1coMRbuknaSD2xqiOqDTnowBDzvFZv8tg1j2M=
 github.com/iotexproject/iotex-proto v0.6.5-0.20250926025103-f0e973cdb041 h1:BiLn8s/BsqW9GAmMQV44Wlzo5LKpK0GZX16ApI2Ou+M=
 github.com/iotexproject/iotex-proto v0.6.5-0.20250926025103-f0e973cdb041/go.mod h1:OOXZIG6Q9tInog8Y5zzEJQsDv9IaG/xxpDtl4KzdWZs=
 github.com/ipfs/boxo v0.27.2 h1:sGo4KdwBaMjdBjH08lqPJyt27Z4CO6sugne3ryX513s=
