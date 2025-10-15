@@ -323,7 +323,7 @@ func (dao *blockDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
 		receipts, err = dao.receiptIndexer.Receipts(height)
 		switch errors.Cause(err) {
 		case nil:
-		case ErrIndexOutOfRange:
+		case ErrIndexOutOfRange, db.ErrNotExist, db.ErrBucketNotExist:
 			receipts = nil
 		default:
 			return nil, err

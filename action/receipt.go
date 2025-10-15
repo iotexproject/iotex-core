@@ -219,7 +219,7 @@ func (receipt *Receipt) TransferLogs(accountContractAddr string, logIndex uint32
 	return logs, nil
 }
 
-func (receipt *Receipt) FixAndClone() *Receipt {
+func (receipt *Receipt) CloneFixed() *Receipt {
 	var cls []*Log
 	if receipt.logs != nil {
 		cls = make([]*Log, len(receipt.logs))
@@ -253,16 +253,24 @@ func (receipt *Receipt) FixAndClone() *Receipt {
 			}
 		}
 	}
+	var blobGasPrice *big.Int
+	if receipt.BlobGasPrice != nil {
+		blobGasPrice = new(big.Int).Set(receipt.BlobGasPrice)
+	}
+	var effectiveGasPrice *big.Int
+	if receipt.EffectiveGasPrice != nil {
+		effectiveGasPrice = new(big.Int).Set(receipt.EffectiveGasPrice)
+	}
 	return &Receipt{
 		Status:             receipt.Status,
 		BlockHeight:        receipt.BlockHeight,
 		ActionHash:         receipt.ActionHash,
 		GasConsumed:        receipt.GasConsumed,
 		BlobGasUsed:        receipt.BlobGasUsed,
-		BlobGasPrice:       new(big.Int).Set(receipt.BlobGasPrice),
+		BlobGasPrice:       blobGasPrice,
 		ContractAddress:    receipt.ContractAddress,
 		TxIndex:            receipt.TxIndex,
-		EffectiveGasPrice:  new(big.Int).Set(receipt.EffectiveGasPrice),
+		EffectiveGasPrice:  effectiveGasPrice,
 		logs:               cls,
 		transactionLogs:    ctls,
 		executionRevertMsg: receipt.executionRevertMsg,

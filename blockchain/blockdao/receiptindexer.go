@@ -58,7 +58,7 @@ func (ri *ReceiptIndexer) Start(ctx context.Context) error {
 	value, err := ri.kvstore.Get(_receiptMetaNS, _heightKey)
 	switch errors.Cause(err) {
 	case nil:
-	case db.ErrNotExist:
+	case db.ErrNotExist, db.ErrBucketNotExist:
 		return nil
 	default:
 		return err
@@ -97,7 +97,7 @@ func (ri *ReceiptIndexer) PutBlock(ctx context.Context, blk *block.Block) error 
 	logIndex := uint32(0)
 	receipts := iotextypes.Receipts{}
 	for i, receipt := range blk.Receipts {
-		cr := receipt.FixAndClone()
+		cr := receipt.CloneFixed()
 		logIndex = cr.UpdateIndex(uint32(i), logIndex)
 		receipts.Receipts = append(receipts.Receipts, cr.ConvertToReceiptPb())
 	}
