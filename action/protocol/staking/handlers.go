@@ -269,7 +269,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	// update bucket pool
-	if err := csm.CreditBucketPool(bucket.StakedAmount); err != nil {
+	if err := csm.CreditBucketPool(bucket.StakedAmount, true); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
 			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
