@@ -143,7 +143,6 @@ type (
 		DisableDelegateEndorsement              bool
 		RefactorFreshAccountConversion          bool
 		SuicideTxLogMismatchPanic               bool
-		PanicUnrecoverableError                 bool
 		CandidateIdentifiedByOwner              bool
 		LimitedStakingContract                  bool
 		MigrateNativeStake                      bool
@@ -309,7 +308,6 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			DisableDelegateEndorsement:              !g.IsTsunami(height),
 			RefactorFreshAccountConversion:          g.IsTsunami(height),
 			SuicideTxLogMismatchPanic:               g.IsUpernavik(height),
-			PanicUnrecoverableError:                 g.IsUpernavik(height),
 			CandidateIdentifiedByOwner:              !g.IsUpernavik(height),
 			LimitedStakingContract:                  !g.IsUpernavik(height),
 			MigrateNativeStake:                      g.IsUpernavik(height),
