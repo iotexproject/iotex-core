@@ -776,8 +776,8 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		c.Identifier = candID
 	}
 	if act.WithBLS() {
-		c.Pubkey = act.PubKey()
-		topics, eventData, err := action.PackCandidateRegisteredEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.PubKey())
+		c.BLSPubKey = act.BLSPubKey()
+		topics, eventData, err := action.PackCandidateRegisteredEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
 		if err != nil {
 			return log, nil, errors.Wrap(err, "failed to pack candidate register with BLS event")
 		}
@@ -872,8 +872,8 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	}
 
 	if act.WithBLS() {
-		c.Pubkey = act.PubKey()
-		topics, eventData, err := action.PackCandidateUpdatedEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.PubKey())
+		c.BLSPubKey = act.BLSPubKey()
+		topics, eventData, err := action.PackCandidateUpdatedEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
 		if err != nil {
 			return log, errors.Wrap(err, "failed to pack candidate register with BLS event")
 		}

@@ -54,7 +54,7 @@
       {
         "indexed": false,
         "internalType": "bytes",
-        "name": "blsPublicKey",
+        "name": "blsPubKey",
         "type": "bytes"
       }
     ],
@@ -97,7 +97,7 @@
       {
         "indexed": false,
         "internalType": "bytes",
-        "name": "blsPublicKey",
+        "name": "blsPubKey",
         "type": "bytes"
       }
     ],
@@ -260,7 +260,7 @@
       },
       {
         "internalType": "bytes",
-        "name": "blsPublicKey",
+        "name": "blsPubKey",
         "type": "bytes"
       },
       {
@@ -334,7 +334,7 @@
       },
       {
         "internalType": "bytes",
-        "name": "blsPublicKey",
+        "name": "blsPubKey",
         "type": "bytes"
       }
     ],
