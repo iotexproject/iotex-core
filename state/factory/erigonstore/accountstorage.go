@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/account/accountpb"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -34,13 +33,13 @@ func newAccountStorage(addr common.Address, backend *contractBackend) (*accountS
 }
 
 func (as *accountStorage) Delete(key []byte) error {
-	exist, err := as.contract.Remove(key)
-	if err != nil {
-		return errors.Wrapf(err, "failed to remove account data for key %x", key)
-	}
-	if !exist {
-		return errors.Wrapf(state.ErrStateNotExist, "key: %x", key)
-	}
+	// exist, err := as.contract.Remove(key)
+	// if err != nil {
+	// 	return errors.Wrapf(err, "failed to remove account data for key %x", key)
+	// }
+	// if !exist {
+	// 	return errors.Wrapf(state.ErrStateNotExist, "key: %x", key)
+	// }
 	return nil
 }
 
@@ -62,29 +61,31 @@ func (as *accountStorage) Load(key []byte, obj any) error {
 		return errors.Wrapf(state.ErrStateNotExist, "address: %x", addr.Bytes())
 	}
 	// load other fields from the account storage contract
-	value, err := as.contract.Get(addr.Bytes())
-	if err != nil {
-		return errors.Wrapf(err, "failed to get account data for address %x", addr.Bytes())
-	}
-	if !value.KeyExists {
-		return errors.Errorf("account info not found for address %x", addr.Bytes())
-	}
+	// value, err := as.contract.Get(addr.Bytes())
+	// if err != nil {
+	// 	return errors.Wrapf(err, "failed to get account data for address %x", addr.Bytes())
+	// }
+	// if !value.KeyExists {
+	// 	return errors.Errorf("account info not found for address %x", addr.Bytes())
+	// }
 	pbAcc := &accountpb.Account{}
-	if err := proto.Unmarshal(value.Value.PrimaryData, pbAcc); err != nil {
-		return errors.Wrapf(err, "failed to unmarshal account data for address %x", addr.Bytes())
-	}
+	// if err := proto.Unmarshal(value.Value.PrimaryData, pbAcc); err != nil {
+	// 	return errors.Wrapf(err, "failed to unmarshal account data for address %x", addr.Bytes())
+	// }
 
 	balance := as.backend.intraBlockState.GetBalance(addr)
 	nonce := as.backend.intraBlockState.GetNonce(addr)
 	pbAcc.Balance = balance.String()
-	switch pbAcc.Type {
-	case accountpb.AccountType_ZERO_NONCE:
-		pbAcc.Nonce = nonce
-	case accountpb.AccountType_DEFAULT:
-		pbAcc.Nonce = nonce - 1
-	default:
-		return errors.Errorf("unknown account type %v for address %x", pbAcc.Type, addr.Bytes())
-	}
+	pbAcc.Nonce = nonce
+	pbAcc.Type = accountpb.AccountType_ZERO_NONCE
+	// switch pbAcc.Type {
+	// case accountpb.AccountType_ZERO_NONCE:
+	// 	pbAcc.Nonce = nonce
+	// case accountpb.AccountType_DEFAULT:
+	// 	pbAcc.Nonce = nonce - 1
+	// default:
+	// 	return errors.Errorf("unknown account type %v for address %x", pbAcc.Type, addr.Bytes())
+	// }
 
 	if ch := as.backend.intraBlockState.GetCodeHash(addr); !accounts.IsEmptyCodeHash(ch) {
 		pbAcc.CodeHash = ch.Bytes()
@@ -123,14 +124,15 @@ func (as *accountStorage) Store(key []byte, value any) error {
 		nonce = acc.PendingNonceConsideringFreshAccount()
 	}
 	as.backend.intraBlockState.SetNonce(addr, nonce)
+	return nil
 	// store other fields in the account storage contract
-	pbAcc := acc.ToProto()
-	pbAcc.Balance = ""
-	pbAcc.Nonce = 0
-	data, err := proto.Marshal(pbAcc)
-	if err != nil {
-		return errors.Wrapf(err, "failed to marshal account %x", addr.Bytes())
-	}
+	// pbAcc := acc.ToProto()
+	// pbAcc.Balance = ""
+	// pbAcc.Nonce = 0
+	// data, err := proto.Marshal(pbAcc)
+	// if err != nil {
+	// 	return errors.Wrapf(err, "failed to marshal account %x", addr.Bytes())
+	// }
 
-	return as.contract.Put(key, systemcontracts.GenericValue{PrimaryData: data})
+	// return as.contract.Put(key, systemcontracts.GenericValue{PrimaryData: data})
 }

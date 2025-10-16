@@ -7,9 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
@@ -34,25 +31,25 @@ type ObjectStorageRegistry struct {
 }
 
 func init() {
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.AccountKVNamespace, RewardingContractV1Index))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.RewardingNamespace, RewardingContractV2Index))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandidateNamespace, CandidatesContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandsMapNamespace, CandidateMapContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingNamespace, BucketPoolContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingViewNamespace, StakingViewContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingContractMetaNamespace, StakingViewContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketNamespacePrefix, StakingViewContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketTypeNamespacePrefix, StakingViewContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterNamespace(state.AccountKVNamespace, RewardingContractV1Index))
+	// assertions.MustNoError(storageRegistry.RegisterNamespace(state.RewardingNamespace, RewardingContractV2Index))
+	// assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandidateNamespace, CandidatesContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandsMapNamespace, CandidateMapContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingNamespace, BucketPoolContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingViewNamespace, StakingViewContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingContractMetaNamespace, StakingViewContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketNamespacePrefix, StakingViewContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketTypeNamespacePrefix, StakingViewContractIndex))
 
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.Account{}, AccountIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &state.CandidateList{}, PollCandidateListContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.UnproductiveDelegate{}, PollUnproductiveDelegateContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.ProbationList{}, PollProbationListContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &poll.BlockMeta{}, PollBlockMetaContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.VoteBucket{}, StakingBucketsContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.Endorsement{}, EndorsementContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.BucketIndices{}, BucketIndicesContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &state.CandidateList{}, PollCandidateListContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.UnproductiveDelegate{}, PollUnproductiveDelegateContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.ProbationList{}, PollProbationListContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &poll.BlockMeta{}, PollBlockMetaContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.VoteBucket{}, StakingBucketsContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.Endorsement{}, EndorsementContractIndex))
+	// assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.BucketIndices{}, BucketIndicesContractIndex))
 }
 
 // GetObjectStorageRegistry returns the global object storage registry
