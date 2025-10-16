@@ -156,8 +156,8 @@ func (cu *CandidateUpdate) Proto() *iotextypes.CandidateBasicInfo {
 	}
 
 	if len(cu.pubKey) > 0 {
-		act.PubKey = make([]byte, len(cu.pubKey))
-		copy(act.PubKey, cu.pubKey)
+		act.BlsPubKey = make([]byte, len(cu.pubKey))
+		copy(act.BlsPubKey, cu.pubKey)
 	}
 	return act
 }
@@ -185,9 +185,9 @@ func (cu *CandidateUpdate) LoadProto(pbAct *iotextypes.CandidateBasicInfo) error
 		}
 		cu.rewardAddress = rewardAddr
 	}
-	if len(pbAct.GetPubKey()) > 0 {
-		cu.pubKey = make([]byte, len(pbAct.GetPubKey()))
-		copy(cu.pubKey, pbAct.GetPubKey())
+	if len(pbAct.GetBlsPubKey()) > 0 {
+		cu.pubKey = make([]byte, len(pbAct.GetBlsPubKey()))
+		copy(cu.pubKey, pbAct.GetBlsPubKey())
 	}
 	return nil
 }
