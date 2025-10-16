@@ -427,6 +427,9 @@ func (p *Protocol) SlashCandidate(
 	if candidate == nil {
 		return errors.Wrapf(ErrCandidateNotExist, "candidate operator %s does not exist", operator.String())
 	}
+	if fCtx.CandidateBLSPublicKeyNotCopied {
+		candidate.BLSPubKey = nil
+	}
 	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
 		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
 	}
@@ -826,14 +829,18 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	}
 	list := c.AllCandidates()
 	cand := make(CandidateList, 0, len(list))
+	fCtx := protocol.MustGetFeatureCtx(ctx)
 	for i := range list {
-		if protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
+		if fCtx.StoreVoteOfNFTBucketIntoView {
 			var csVotes *big.Int
 			csVotes, err = p.contractStakingVotesFromView(ctx, list[i].GetIdentifier(), c.BaseView())
 			if err != nil {
 				return nil, err
 			}
 			list[i].Votes.Add(list[i].Votes, csVotes)
+		}
+		if fCtx.CandidateBLSPublicKeyNotCopied {
+			list[i].BLSPubKey = nil
 		}
 		active, err := p.isActiveCandidate(ctx, c, list[i])
 		if err != nil {
