@@ -724,7 +724,7 @@ func TestSlashCandidate(t *testing.T) {
 		require.Equal(remaining.String(), bucket.StakedAmount.String())
 		cand := csm.GetByIdentifier(owner)
 		require.Equal(remaining.String(), cand.SelfStake.String())
-		require.NoError(p.SlashCandidate(ctx, sm, owner, big.NewInt(11)))
+		require.NoError(p.SlashCandidate(ctx, sm, cand.Operator, big.NewInt(11)))
 		cl, err = p.ActiveCandidates(
 			ctx,
 			sm,
