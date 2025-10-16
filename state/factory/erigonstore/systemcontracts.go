@@ -22,6 +22,9 @@ type SystemContract struct {
 const (
 	// AccountIndex is the system contract for account storage
 	AccountIndex = -1
+)
+
+const (
 	// StakingBucketsContractIndex is the system contract for staking buckets storage
 	StakingBucketsContractIndex int = iota
 	// BucketPoolContractIndex is the system contract for bucket pool storage
