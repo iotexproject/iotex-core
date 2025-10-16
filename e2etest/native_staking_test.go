@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -1585,6 +1586,9 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 	cfg.Genesis.SystemStakingContractV3Address = ""
 	cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
 	cfg.Plugins[config.GatewayPlugin] = nil
+	cfg.API.GRPCPort = 14014 + rand.Intn(3000)
+	cfg.API.HTTPPort = cfg.API.GRPCPort + 1000
+	cfg.API.WebSocketPort = cfg.API.HTTPPort + 1000
 	test := newE2ETest(t, cfg)
 
 	var (
