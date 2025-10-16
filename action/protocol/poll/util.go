@@ -96,9 +96,9 @@ func validate(ctx context.Context, sr protocol.StateReader, p Protocol, act acti
 	}
 	for i, d := range ds {
 		if !proposedDelegates[i].Equal(d) {
-			msg := fmt.Sprintf(", %v vs %v (expected)",
-				proposedDelegates,
-				ds)
+			msg := fmt.Sprintf(", %+v vs %+v (expected)",
+				proposedDelegates[i],
+				d)
 			return errors.Wrap(ErrDelegatesNotAsExpected, msg)
 		}
 	}
