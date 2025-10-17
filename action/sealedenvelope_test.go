@@ -56,8 +56,9 @@ func TestSealedEnvelope_InvalidType(t *testing.T) {
 	candidates := state.CandidateList{}
 	r := NewPutPollResult(10001, candidates)
 
-	elp := (&EnvelopeBuilder{}).SetNonce(1).SetAction(r).
+	elp, err := (&EnvelopeBuilder{}).SetNonce(1).SetAction(r).
 		SetGasLimit(100000).Build()
+	require.NoError(err)
 	selp := FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
 	selp.encoding = iotextypes.Encoding_ETHEREUM_EIP155
 	hash1, err := selp.envelopeHash()
@@ -102,9 +103,10 @@ func TestSealedEnvelope_Actions(t *testing.T) {
 
 	for _, test := range tests {
 		bd := &EnvelopeBuilder{}
-		elp := bd.SetNonce(1).
+		elp, err := bd.SetNonce(1).
 			SetAction(test).
 			SetGasLimit(100000).Build()
+		require.NoError(err)
 		selp := FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
 		rlp, err := selp.ToEthTx()
 		require.NoError(err)

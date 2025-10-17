@@ -25,10 +25,10 @@ func TestActionProtoAndVerify(t *testing.T) {
 	v := NewExecution("", big.NewInt(10), data)
 	t.Run("no error", func(t *testing.T) {
 		bd := &EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
+		elp, err := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(100000)).
 			SetAction(v).Build()
-
+		require.NoError(err)
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		require.Equal(65, len(selp.SrcPubkey().Bytes()))
@@ -45,10 +45,10 @@ func TestActionProtoAndVerify(t *testing.T) {
 	})
 	t.Run("empty public key", func(t *testing.T) {
 		bd := &EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
+		elp, err := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(100000)).
 			SetAction(v).Build()
-
+		require.NoError(err)
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 
@@ -58,10 +58,10 @@ func TestActionProtoAndVerify(t *testing.T) {
 	})
 	t.Run("invalid signature", func(t *testing.T) {
 		bd := &EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
+		elp, err := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(100000)).
 			SetAction(v).Build()
-
+		require.NoError(err)
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		selp.signature = []byte("invalid signature")
@@ -107,19 +107,22 @@ func TestIsSystemAction(t *testing.T) {
 	require := require.New(t)
 	builder := EnvelopeBuilder{}
 	actClaimFromRewarding := ClaimFromRewardingFund{}
-	act := builder.SetAction(&actClaimFromRewarding).Build()
+	act, err := builder.SetAction(&actClaimFromRewarding).Build()
+	require.NoError(err)
 	sel, err := Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
 	require.False(IsSystemAction(sel))
 
 	actGrantReward := NewGrantReward(EpochReward, 1)
-	act = builder.SetAction(actGrantReward).Build()
+	act, err = builder.SetAction(actGrantReward).Build()
+	require.NoError(err)
 	sel, err = Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
 	require.True(IsSystemAction(sel))
 
 	actPollResult := NewPutPollResult(1, nil)
-	act = builder.SetAction(actPollResult).Build()
+	act, err = builder.SetAction(actPollResult).Build()
+	require.NoError(err)
 	sel, err = Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
 	require.True(IsSystemAction(sel))

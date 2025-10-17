@@ -27,8 +27,9 @@ func TestCandidateUpdate(t *testing.T) {
 	require := require.New(t)
 	cu, err := NewCandidateUpdate(_cuName, _cuOperatorAddrStr, _cuRewardAddrStr)
 	require.NoError(err)
-	elp := (&EnvelopeBuilder{}).SetNonce(_cuNonce).SetGasLimit(_cuGasLimit).
+	elp, err := (&EnvelopeBuilder{}).SetNonce(_cuNonce).SetGasLimit(_cuGasLimit).
 		SetGasPrice(_cuGasPrice).SetAction(cu).Build()
+	require.NoError(err)
 	t.Run("proto", func(t *testing.T) {
 		ser := cu.Serialize()
 		require.Equal("0a04746573741229696f31636c36726c32657635646661393838716d677a673278346866617a6d7039766e326736366e671a29696f316a757678356730363365753474733833326e756b7034766763776b32676e6335637539617964", hex.EncodeToString(ser))

@@ -45,6 +45,23 @@ func TestActionBuilder(t *testing.T) {
 	r.Equal(big.NewInt(10004), act.GasPrice())
 }
 
+func TestEnvelopeBuilderBuildError(t *testing.T) {
+	r := require.New(t)
+
+	b := &EnvelopeBuilder{}
+	// build without payload
+	_, err := b.Build()
+	r.Error(err)
+
+	// invalid tx type
+	_, err = b.SetTxType(255).SetAction(&Transfer{}).Build()
+	r.Error(err)
+
+	// BuildTransfer with nil recipient should return error, not panic
+	_, err = (&EnvelopeBuilder{}).BuildTransfer(types.NewTx(&types.LegacyTx{Nonce: 1, GasPrice: big.NewInt(1), Gas: 1}))
+	r.Error(err)
+}
+
 func TestBuildRewardingAction(t *testing.T) {
 	r := require.New(t)
 
@@ -159,8 +176,9 @@ func TestEthTxUtils(t *testing.T) {
 	addr, err := address.FromHex("0xA576C141e5659137ddDa4223d209d4744b2106BE")
 	r.NoError(err)
 	act := NewClaimFromRewardingFund(big.NewInt(1), addr, []byte("any"))
-	elp := (&EnvelopeBuilder{}).SetNonce(100).SetGasLimit(21000).
+	elp, err := (&EnvelopeBuilder{}).SetNonce(100).SetGasLimit(21000).
 		SetGasPrice(big.NewInt(101)).SetAction(act).Build()
+	r.NoError(err)
 	tx, err := elp.ToEthTx(chainID, iotextypes.Encoding_ETHEREUM_EIP155)
 	r.NoError(err)
 

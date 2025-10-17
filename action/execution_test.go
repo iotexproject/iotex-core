@@ -29,8 +29,9 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.EqualValues(66, ex.Size())
 
 	bd := &EnvelopeBuilder{}
-	eb := bd.SetNonce(2).SetGasLimit(100000).SetGasPrice(big.NewInt(10)).
+	eb, err := bd.SetNonce(2).SetGasLimit(100000).SetGasPrice(big.NewInt(10)).
 		SetAction(ex).Build()
+	require.NoError(err)
 	elp, ok := eb.(*envelope)
 	require.True(ok)
 	require.EqualValues(87, eb.Size())
@@ -79,7 +80,8 @@ func TestExecutionSanityCheck(t *testing.T) {
 
 	t.Run("Negative gas price", func(t *testing.T) {
 		ex := NewExecution(identityset.Address(29).String(), big.NewInt(100), []byte{})
-		elp := (&EnvelopeBuilder{}).SetGasPrice(big.NewInt(-1)).SetAction(ex).Build()
+		elp, err := (&EnvelopeBuilder{}).SetGasPrice(big.NewInt(-1)).SetAction(ex).Build()
+		require.NoError(err)
 		require.Equal(ErrNegativeValue, errors.Cause(elp.SanityCheck()))
 	})
 }
@@ -125,8 +127,9 @@ func TestExecutionAccessList(t *testing.T) {
 			identityset.Address(29).String(),
 			big.NewInt(20),
 			[]byte("test"))
-		elp := (&EnvelopeBuilder{}).SetTxType(AccessListTxType).SetNonce(1).SetAccessList(v.list).
+		elp, err := (&EnvelopeBuilder{}).SetTxType(AccessListTxType).SetNonce(1).SetAccessList(v.list).
 			SetGasPrice(big.NewInt(1000000)).SetGasLimit(100).SetAction(ex).Build()
+		require.NoError(err)
 		require.NoError(ex1.LoadProto(ex.Proto()))
 		require.Equal(ex, ex1)
 		gas, err := elp.IntrinsicGas()

@@ -21,8 +21,9 @@ var (
 func TestRestake(t *testing.T) {
 	require := require.New(t)
 	stake := NewRestake(_index, _duration, _autoStake, _payload)
-	elp := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
+	elp, err := (&EnvelopeBuilder{}).SetNonce(_nonce).SetGasLimit(_gasLimit).
 		SetGasPrice(_gasPrice).SetAction(stake).Build()
+	require.NoError(err)
 	t.Run("proto", func(t *testing.T) {
 		ser := stake.Serialize()
 		require.Equal("080a10e807180122077061796c6f6164", hex.EncodeToString(ser))

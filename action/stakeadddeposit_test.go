@@ -63,8 +63,9 @@ func TestDeposit(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		elp := (&EnvelopeBuilder{}).SetNonce(test.Nonce).SetGasLimit(test.GasLimit).
+		elp, err := (&EnvelopeBuilder{}).SetNonce(test.Nonce).SetGasLimit(test.GasLimit).
 			SetGasPrice(test.GasPrice).SetAction(stake).Build()
+		require.NoError(err)
 		err = elp.SanityCheck()
 		require.Equal(test.SanityCheck, errors.Cause(err))
 		if err != nil {
