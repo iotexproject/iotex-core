@@ -9,10 +9,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
 func Test_CandidateStateReader(t *testing.T) {
@@ -24,7 +25,7 @@ func Test_CandidateStateReader(t *testing.T) {
 	require.NoError(err)
 	_, err = ConstructBaseView(sm)
 	require.Equal(err, protocol.ErrNoName)
-	view, _, err := CreateBaseView(sm, false)
+	view, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, false)
 	require.NoError(err)
 	csr := &candSR{
 		StateReader: sm,

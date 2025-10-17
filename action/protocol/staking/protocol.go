@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"math"
 	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -246,7 +247,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 	}
 
 	// load view from SR
-	c, _, err := CreateBaseView(sr, featureCtx.ReadStateFromDB(height))
+	c, _, err := CreateBaseView(protocol.MustGetFeatureCtx(ctx), sr, featureCtx.ReadStateFromDB(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -427,9 +428,6 @@ func (p *Protocol) SlashCandidate(
 	if candidate == nil {
 		return errors.Wrapf(ErrCandidateNotExist, "candidate operator %s does not exist", operator.String())
 	}
-	if fCtx.CandidateBLSPublicKeyNotCopied {
-		candidate.BLSPubKey = nil
-	}
 	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
 		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
 	}
@@ -525,6 +523,25 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			vd.contractsStake.Revise(ctx)
 		}
 	}
+	// remove BLS public key of all candidates at XinguBeta
+	if blkCtx.BlockHeight == g.XinguBetaBlockHeight {
+		csm, err := NewCandidateStateManager(sm)
+		if err != nil {
+			return err
+		}
+		csr, err := ConstructBaseView(sm)
+		if err != nil {
+			return err
+		}
+		cands := csr.AllCandidates()
+		sort.Sort(cands)
+		for _, c := range cands {
+			c.BLSPubKey = nil
+			if err := csm.Upsert(c); err != nil {
+				return errors.Wrapf(err, "failed to update candidate %s", c.GetIdentifier().String())
+			}
+		}
+	}
 
 	if p.candBucketsIndexer == nil {
 		return nil
@@ -561,7 +578,7 @@ func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight ui
 	if err != nil {
 		return err
 	}
-	cc, _, err := csr.CreateCandidateCenter()
+	cc, _, err := csr.CreateCandidateCenter(protocol.MustGetFeatureCtx(ctx))
 	if err != nil {
 		return err
 	}
@@ -838,9 +855,6 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 				return nil, err
 			}
 			list[i].Votes.Add(list[i].Votes, csVotes)
-		}
-		if fCtx.CandidateBLSPublicKeyNotCopied {
-			list[i].BLSPubKey = nil
 		}
 		active, err := p.isActiveCandidate(ctx, c, list[i])
 		if err != nil {

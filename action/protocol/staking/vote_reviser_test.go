@@ -151,6 +151,7 @@ func TestVoteReviser(t *testing.T) {
 	// load candidates from stateDB and verify
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	v, err := stk.Start(ctx, sm)
 	r.NoError(err)
 	r.NoError(sm.WriteView(_protocolID, v))
@@ -264,7 +265,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 			count:  0,
 		}, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		r.NoError(err)
-		view, _, err := CreateBaseView(sm, true)
+		view, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, true)
 		r.NoError(err)
 		sm.WriteView(_protocolID, view)
 		csm, err := NewCandidateStateManager(sm)
@@ -336,7 +337,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 			count:  0,
 		}, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		r.NoError(err)
-		view, _, err := CreateBaseView(sm, true)
+		view, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, true)
 		r.NoError(err)
 		sm.WriteView(_protocolID, view)
 		t.Run("not change selfstaked candidate", func(t *testing.T) {
@@ -519,7 +520,7 @@ func TestVoteRevise_CorrectSelfStake(t *testing.T) {
 			count:  0,
 		}, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		r.NoError(err)
-		view, _, err := CreateBaseView(sm, true)
+		view, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, true)
 		r.NoError(err)
 		sm.WriteView(_protocolID, view)
 		revise := NewVoteReviser(ReviseConfig{
