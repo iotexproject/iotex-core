@@ -78,7 +78,7 @@ func TestBucketPool(t *testing.T) {
 		r.NoError(err)
 	}
 
-	view, _, err := CreateBaseView(sm, false)
+	view, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, false)
 	r.NoError(err)
 	r.NoError(sm.WriteView(_protocolID, view))
 	pool = view.bucketPool

@@ -103,7 +103,7 @@ func TestProtocol(t *testing.T) {
 	buckets, _, err := csr.NativeBuckets()
 	r.NoError(err)
 	r.Equal(0, len(buckets))
-	cc, _, err := csr.CreateCandidateCenter()
+	cc, _, err := csr.CreateCandidateCenter(protocol.FeatureCtx{})
 	r.NoError(err)
 	r.Equal(0, len(cc.All()))
 
@@ -163,7 +163,7 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load all candidates from stateDB and verify
-	cc, _, err = csr.CreateCandidateCenter()
+	cc, _, err = csr.CreateCandidateCenter(protocol.FeatureCtx{})
 	r.NoError(err)
 	all := cc.All()
 	r.Equal(len(testCandidates), len(all))

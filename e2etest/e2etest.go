@@ -30,6 +30,7 @@ import (
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/chainservice"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/abiutil"
@@ -83,6 +84,8 @@ func newE2ETestWithCtx(ctx context.Context, t *testing.T, cfg config.Config) *e2
 	// Create a new blockchain
 	svr, err := itx.NewServer(cfg)
 	require.NoError(err)
+	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	require.NoError(svr.Start(ctx))
 	// Create a new API service client
 	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", cfg.API.GRPCPort), grpc.WithTransportCredentials(insecure.NewCredentials()))

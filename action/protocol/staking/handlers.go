@@ -76,9 +76,6 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	if candidate == nil {
 		return log, nil, errCandNotExist
 	}
-	if featureCtx.CandidateBLSPublicKeyNotCopied {
-		candidate.BLSPubKey = nil
-	}
 	bucket := NewVoteBucket(candidate.GetIdentifier(), actionCtx.Caller, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
 	bucketIdx, err := csm.putBucketAndIndex(bucket)
 	if err != nil {

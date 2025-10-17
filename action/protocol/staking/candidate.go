@@ -48,8 +48,11 @@ type (
 
 // Clone returns a copy
 func (d *Candidate) Clone() *Candidate {
-	blsPubKey := make([]byte, len(d.BLSPubKey))
-	copy(blsPubKey, d.BLSPubKey)
+	var blsPubKey []byte
+	if len(d.BLSPubKey) > 0 {
+		blsPubKey = make([]byte, len(d.BLSPubKey))
+		copy(blsPubKey, d.BLSPubKey)
+	}
 	return &Candidate{
 		Owner:              d.Owner,
 		Operator:           d.Operator,
