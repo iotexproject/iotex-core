@@ -162,6 +162,8 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	case nil:
 		sdb.currentChainHeight = h
 		// start all protocols
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: h})
+		ctx = protocol.WithFeatureCtx(ctx)
 		if sdb.protocolViews, err = sdb.registry.StartAll(ctx, sdb); err != nil {
 			return err
 		}
