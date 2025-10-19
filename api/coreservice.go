@@ -359,10 +359,19 @@ func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, he
 	ctx, span := tracer.NewSpan(context.Background(), "coreService.BalanceAt")
 	defer span.End()
 	addrStr := addr.String()
+	if height == 0 {
+		height = core.bc.TipHeight()
+	}
 	ctx, err := core.bc.ContextAtHeight(ctx, height)
 	if err != nil {
 		return "", status.Error(codes.Internal, err.Error())
 	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    bcCtx.Tip.Height,
+		BlockTimeStamp: bcCtx.Tip.Timestamp,
+	})
+	ctx = protocol.WithFeatureCtx(ctx)
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr ||
 		addrStr == address.RewardingProtocol || addrStr == address.StakingProtocolAddr {
 		acc, _, err := core.getProtocolAccount(ctx, addrStr)
@@ -372,9 +381,6 @@ func (core *coreService) BalanceAt(ctx context.Context, addr address.Address, he
 		return acc.Balance, nil
 	}
 
-	if height == 0 {
-		height = core.bc.TipHeight()
-	}
 	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return "", status.Error(codes.Internal, err.Error())
@@ -2176,6 +2182,12 @@ func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Contex
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash:   bcCtx.GetBlockHash,
+		GetBlockTime:   bcCtx.GetBlockTime,
+		DepositGasFunc: rewarding.DepositGas,
+	})
 	return ctx, tracer, nil
 }
 
@@ -2195,12 +2207,22 @@ func (core *coreService) simulateExecution(
 		if err != nil {
 			return nil, nil, status.Error(codes.Internal, err.Error())
 		}
+		bcCtx := protocol.MustGetBlockchainCtx(ctx)
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    bcCtx.Tip.Height,
+			BlockTimeStamp: bcCtx.Tip.Timestamp,
+		}))
 		ws, err = core.sf.WorkingSetAtHeight(ctx, height)
 	} else {
 		ctx, err = core.bc.Context(ctx)
 		if err != nil {
 			return nil, nil, status.Error(codes.Internal, err.Error())
 		}
+		bcCtx := protocol.MustGetBlockchainCtx(ctx)
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    bcCtx.Tip.Height,
+			BlockTimeStamp: bcCtx.Tip.Timestamp,
+		}))
 		ws, err = core.sf.WorkingSet(ctx)
 	}
 	if err != nil {
@@ -2212,9 +2234,6 @@ func (core *coreService) simulateExecution(
 		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	var pendingNonce uint64
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: height,
-	}))
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
 		pendingNonce = state.PendingNonceConsideringFreshAccount()
@@ -2238,6 +2257,12 @@ func (core *coreService) workingSetAt(ctx context.Context, height uint64) (conte
 	if err != nil {
 		return ctx, nil, status.Error(codes.Internal, err.Error())
 	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    bcCtx.Tip.Height,
+		BlockTimeStamp: bcCtx.Tip.Timestamp,
+	})
+	ctx = protocol.WithFeatureCtx(ctx)
 	ws, err := core.sf.WorkingSetAtHeight(ctx, height)
 	if err != nil {
 		return ctx, nil, status.Error(codes.Internal, err.Error())
@@ -2271,7 +2296,7 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 		CaptureTx: func(retval []byte, receipt *action.Receipt) {
 			defer tracer.Reset()
 			var res any
-			switch innerTracer := tracer.EVMLogger.(type) {
+			switch innerTracer := tracer.Unwrap().(type) {
 			case *logger.StructLogger:
 				res = &debugTraceTransactionResult{
 					Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),

@@ -33,7 +33,7 @@ func (cs *ContractStakingStateManager) UpsertBucketType(contractAddr address.Add
 // DeleteBucket removes a bucket for a given contract and bucket ID.
 func (cs *ContractStakingStateManager) DeleteBucket(contractAddr address.Address, bucketID uint64) error {
 	_, err := cs.sm.DelState(
-		bucketTypeNamespaceOption(contractAddr),
+		contractNamespaceOption(contractAddr),
 		bucketIDKeyOption(bucketID),
 	)
 

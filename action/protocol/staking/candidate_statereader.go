@@ -46,7 +46,7 @@ type (
 		NativeBucketIndicesByVoter(addr address.Address) (*BucketIndices, uint64, error)
 		NativeBucketIndicesByCandidate(addr address.Address) (*BucketIndices, uint64, error)
 		CandidateByAddress(name address.Address) (*Candidate, uint64, error)
-		getAllCandidates() (CandidateList, uint64, error)
+		CreateCandidateCenter() (*CandidateCenter, uint64, error)
 		ReadState
 		Height() uint64
 		SR() protocol.StateReader
@@ -152,12 +152,7 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*viewData, u
 	}
 
 	csr := newCandidateStateReader(sr)
-	all, height, err := csr.getAllCandidates()
-	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return nil, height, err
-	}
-
-	center, err := NewCandidateCenter(all)
+	center, height, err := csr.CreateCandidateCenter()
 	if err != nil {
 		return nil, height, err
 	}
@@ -221,6 +216,7 @@ func (c *candSR) NativeBuckets() ([]*VoteBucket, uint64, error) {
 			}
 			return keys, nil
 		}),
+		protocol.ObjectOption(&VoteBucket{}),
 	)
 	if err != nil {
 		return nil, height, err
@@ -301,21 +297,29 @@ func (c *candSR) CandidateByAddress(name address.Address) (*Candidate, uint64, e
 	return &d, height, err
 }
 
-func (c *candSR) getAllCandidates() (CandidateList, uint64, error) {
-	height, iter, err := c.States(protocol.NamespaceOption(_candidateNameSpace))
+func (c *candSR) CreateCandidateCenter() (*CandidateCenter, uint64, error) {
+	height, iter, err := c.States(protocol.NamespaceOption(_candidateNameSpace), protocol.ObjectOption(&Candidate{}))
+	var cands CandidateList
+	switch errors.Cause(err) {
+	case nil:
+		cands = make(CandidateList, 0, iter.Size())
+		for i := 0; i < iter.Size(); i++ {
+			c := &Candidate{}
+			if _, err := iter.Next(c); err != nil {
+				return nil, height, errors.Wrapf(err, "failed to deserialize candidate")
+			}
+			cands = append(cands, c)
+		}
+	case state.ErrStateNotExist:
+	default:
+		return nil, height, err
+	}
+	center, err := NewCandidateCenter(cands)
 	if err != nil {
 		return nil, height, err
 	}
 
-	cands := make(CandidateList, 0, iter.Size())
-	for i := 0; i < iter.Size(); i++ {
-		c := &Candidate{}
-		if _, err := iter.Next(c); err != nil {
-			return nil, height, errors.Wrapf(err, "failed to deserialize candidate")
-		}
-		cands = append(cands, c)
-	}
-	return cands, height, nil
+	return center, height, nil
 }
 
 func (c *candSR) NewBucketPool(enableSMStorage bool) (*BucketPool, error) {

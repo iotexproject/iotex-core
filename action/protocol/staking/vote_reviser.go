@@ -42,12 +42,11 @@ func NewVoteReviser(cfg ReviseConfig) *VoteReviser {
 // Revise recalculate candidate votes on preset revising height.
 func (vr *VoteReviser) Revise(ctx protocol.FeatureCtx, csm CandidateStateManager, height uint64) error {
 	if !vr.isCacheExist(height) {
-		cands, _, err := newCandidateStateReader(csm.SM()).getAllCandidates()
-		switch {
-		case errors.Cause(err) == state.ErrStateNotExist:
-		case err != nil:
+		cc, _, err := newCandidateStateReader(csm.SM()).CreateCandidateCenter()
+		if err != nil {
 			return err
 		}
+		cands := cc.All()
 		if vr.shouldCorrectCandSelfStake(height) {
 			cands, err = vr.correctCandSelfStake(ctx, csm, height, cands)
 			if err != nil {

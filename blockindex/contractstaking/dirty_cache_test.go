@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -62,7 +63,15 @@ func TestContractStakingDirty_getBucketInfo(t *testing.T) {
 
 	// added bucket info
 	dirty.addBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 2})
-	dirty.addBucketInfo(2, &bucketInfo{TypeIndex: 2, CreatedAt: 2, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(2), Owner: identityset.Address(3)})
+	dirty.PutBucket(identityset.Address(1), 2, &contractstaking.Bucket{
+		StakedAmount:   big.NewInt(200),
+		StakedDuration: 200,
+		CreatedAt:      2,
+		UnlockedAt:     maxBlockNumber,
+		UnstakedAt:     maxBlockNumber,
+		Candidate:      identityset.Address(2),
+		Owner:          identityset.Address(3),
+	})
 	bi, ok = dirty.getBucketInfo(2)
 	require.True(ok)
 	require.EqualValues(2, bi.TypeIndex)
@@ -84,7 +93,7 @@ func TestContractStakingDirty_getBucketInfo(t *testing.T) {
 	require.Equal(identityset.Address(4), bi.Owner)
 
 	// removed bucket info
-	dirty.deleteBucketInfo(1)
+	require.NoError(dirty.DeleteBucket(identityset.Address(1), 1))
 	bi, ok = dirty.getBucketInfo(1)
 	require.False(ok)
 	require.Nil(bi)
@@ -147,7 +156,7 @@ func TestContractStakingDirty_finalize(t *testing.T) {
 	require.EqualValues(0, totalCnt)
 
 	// no dirty data
-	batcher, cache := dirty.finalize()
+	batcher, cache := dirty.Finalize()
 	require.EqualValues(1, batcher.Size())
 	info, err := batcher.Entry(0)
 	require.NoError(err)
@@ -160,7 +169,7 @@ func TestContractStakingDirty_finalize(t *testing.T) {
 	// added bucket type
 	bt := &BucketType{Amount: big.NewInt(100), Duration: 100, ActivatedAt: 1}
 	dirty.addBucketType(1, bt)
-	batcher, cache = dirty.finalize()
+	batcher, cache = dirty.Finalize()
 	require.EqualValues(2, batcher.Size())
 	info, err = batcher.Entry(1)
 	require.NoError(err)
@@ -175,7 +184,7 @@ func TestContractStakingDirty_finalize(t *testing.T) {
 	// add bucket info
 	bi := &bucketInfo{TypeIndex: 1, CreatedAt: 2, UnlockedAt: 3, UnstakedAt: 4, Delegate: identityset.Address(1), Owner: identityset.Address(2)}
 	dirty.addBucketInfo(1, bi)
-	batcher, cache = dirty.finalize()
+	batcher, cache = dirty.Finalize()
 	require.EqualValues(3, batcher.Size())
 	info, err = batcher.Entry(2)
 	require.NoError(err)
@@ -240,7 +249,7 @@ func TestContractStakingDirty_noSideEffectOnClean(t *testing.T) {
 	// remove bucket info existed in clean cache
 	clean.PutBucketInfo(3, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
 	// remove bucket info from dirty cache
-	dirty.deleteBucketInfo(3)
+	require.NoError(dirty.DeleteBucket(identityset.Address(5), 3))
 	// check that clean cache is not affected
 	bi, ok = clean.getBucketInfo(3)
 	require.True(ok)
@@ -250,5 +259,4 @@ func TestContractStakingDirty_noSideEffectOnClean(t *testing.T) {
 	require.EqualValues(maxBlockNumber, bi.UnstakedAt)
 	require.EqualValues(identityset.Address(1).String(), bi.Delegate.String())
 	require.EqualValues(identityset.Address(2).String(), bi.Owner.String())
-
 }

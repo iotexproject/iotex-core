@@ -288,7 +288,7 @@ func TestIsUnstaked(t *testing.T) {
 	vb.ContractAddress = identityset.Address(1).String()
 	vb.CreateBlockHeight = 1
 	vb.StakeStartBlockHeight = 1
-	vb.UnstakeStartBlockHeight = maxBlockNumber
+	vb.UnstakeStartBlockHeight = MaxDurationNumber
 	r.False(vb.isUnstaked())
 	vb.UnstakeStartBlockHeight = 2
 	r.True(vb.isUnstaked())

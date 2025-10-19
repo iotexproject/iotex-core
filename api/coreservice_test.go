@@ -492,6 +492,9 @@ func TestEstimateExecutionGasConsumption(t *testing.T) {
 
 		bc.EXPECT().Genesis().Return(genesis.Genesis{}).Times(1)
 		bc.EXPECT().TipHeight().Return(uint64(1)).Times(2)
+		ctx := protocol.WithBlockchainCtx(genesis.WithGenesisContext(ctx, genesis.Genesis{}), protocol.BlockchainCtx{
+			Tip: protocol.TipInfo{Height: 1, Timestamp: time.Now()},
+		})
 		bc.EXPECT().ContextAtHeight(gomock.Any(), gomock.Any()).Return(ctx, nil).Times(1)
 		sf.EXPECT().WorkingSetAtHeight(gomock.Any(), gomock.Any()).Return(&mockWS{}, nil).Times(1)
 		elp := (&action.EnvelopeBuilder{}).SetAction(&action.Execution{}).Build()
@@ -641,7 +644,7 @@ func TestTraceTransaction(t *testing.T) {
 	require.Equal(uint64(1), receipt.Status)
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
-	require.Equal(0, len(traces.(*evmTracer).EVMLogger.(*logger.StructLogger).StructLogs()))
+	require.Equal(0, len(traces.(*evmTracer).Unwrap().(*logger.StructLogger).StructLogs()))
 }
 
 func TestTraceCall(t *testing.T) {
@@ -679,7 +682,7 @@ func TestTraceCall(t *testing.T) {
 	require.Equal(uint64(1), receipt.Status)
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
-	require.Equal(0, len(traces.(*evmTracer).EVMLogger.(*logger.StructLogger).StructLogs()))
+	require.Equal(0, len(traces.(*evmTracer).Unwrap().(*logger.StructLogger).StructLogs()))
 }
 
 func TestProofAndCompareReverseActions(t *testing.T) {

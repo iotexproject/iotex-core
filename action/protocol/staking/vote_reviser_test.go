@@ -123,14 +123,16 @@ func TestVoteReviser(t *testing.T) {
 			BlockInterval: getBlockInterval,
 		},
 		&BuilderConfig{
-			Staking:                  g.Staking,
-			PersistStakingPatchBlock: math.MaxUint64,
+			Staking:                       g.Staking,
+			PersistStakingPatchBlock:      math.MaxUint64,
+			SkipContractStakingViewHeight: math.MaxUint64,
 			Revise: ReviseConfig{
 				VoteWeight:         g.Staking.VoteWeightCalConsts,
 				CorrectCandsHeight: g.OkhotskBlockHeight,
 				ReviseHeights:      []uint64{g.HawaiiBlockHeight, g.GreenlandBlockHeight},
 			},
 		},
+		nil,
 		nil,
 		nil,
 		nil,
@@ -266,6 +268,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 		r.NoError(err)
 		sm.WriteView(_protocolID, view)
 		csm, err := NewCandidateStateManager(sm)
+		r.NoError(err)
 		esm := NewEndorsementStateManager(sm)
 		// prepare endorsements
 		r.NoError(esm.Put(0, &Endorsement{ExpireHeight: endorsementNotExpireHeight}))

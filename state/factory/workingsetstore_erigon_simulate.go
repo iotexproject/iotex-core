@@ -5,8 +5,9 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 )
 
 // erigonWorkingSetStoreForSimulate is a working set store that uses erigon as the main store
@@ -15,10 +16,10 @@ import (
 type erigonWorkingSetStoreForSimulate struct {
 	writer
 	store       workingSetStore // fallback to statedb for staking, rewarding and poll
-	erigonStore *erigonWorkingSetStore
+	erigonStore *erigonstore.ErigonWorkingSetStore
 }
 
-func newErigonWorkingSetStoreForSimulate(store workingSetStore, erigonStore *erigonWorkingSetStore) *erigonWorkingSetStoreForSimulate {
+func newErigonWorkingSetStoreForSimulate(store workingSetStore, erigonStore *erigonstore.ErigonWorkingSetStore) *erigonWorkingSetStoreForSimulate {
 	return &erigonWorkingSetStoreForSimulate{
 		store:       store,
 		erigonStore: erigonStore,
@@ -34,18 +35,27 @@ func (store *erigonWorkingSetStoreForSimulate) Stop(context.Context) error {
 	return nil
 }
 
-func (store *erigonWorkingSetStoreForSimulate) Get(ns string, key []byte) ([]byte, error) {
-	switch ns {
-	case AccountKVNamespace, evm.CodeKVNameSpace:
-		return store.erigonStore.Get(ns, key)
-	default:
-		return store.store.Get(ns, key)
+func (store *erigonWorkingSetStoreForSimulate) GetObject(ns string, key []byte, obj any) error {
+	storage, err := store.erigonStore.NewObjectStorage(ns, obj)
+	if err != nil {
+		return err
 	}
+	if storage != nil {
+		return store.erigonStore.GetObject(ns, key, obj)
+	}
+	return store.store.GetObject(ns, key, obj)
 }
 
-func (store *erigonWorkingSetStoreForSimulate) States(ns string, keys [][]byte) ([][]byte, [][]byte, error) {
+func (store *erigonWorkingSetStoreForSimulate) States(ns string, obj any, keys [][]byte) (state.Iterator, error) {
+	storage, err := store.erigonStore.NewObjectStorage(ns, obj)
+	if err != nil {
+		return nil, err
+	}
+	if storage != nil {
+		return store.erigonStore.States(ns, obj, keys)
+	}
 	// currently only used for staking & poll, no need to read from erigon
-	return store.store.States(ns, keys)
+	return store.store.States(ns, obj, keys)
 }
 
 func (store *erigonWorkingSetStoreForSimulate) Finalize(_ context.Context) error {
@@ -54,10 +64,6 @@ func (store *erigonWorkingSetStoreForSimulate) Finalize(_ context.Context) error
 
 func (store *erigonWorkingSetStoreForSimulate) FinalizeTx(ctx context.Context) error {
 	return nil
-}
-
-func (store *erigonWorkingSetStoreForSimulate) Filter(ns string, cond db.Condition, start, limit []byte) ([][]byte, [][]byte, error) {
-	return store.store.Filter(ns, cond, start, limit)
 }
 
 func (store *erigonWorkingSetStoreForSimulate) Digest() hash.Hash256 {
@@ -71,4 +77,12 @@ func (store *erigonWorkingSetStoreForSimulate) Commit(context.Context, uint64) e
 
 func (store *erigonWorkingSetStoreForSimulate) Close() {
 	store.erigonStore.Close()
+}
+
+func (store *erigonWorkingSetStoreForSimulate) CreateGenesisStates(ctx context.Context) error {
+	return nil
+}
+
+func (store *erigonWorkingSetStoreForSimulate) KVStore() db.KVStore {
+	return nil
 }

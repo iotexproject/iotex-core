@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // rewardHistory is the dummy struct to record a reward. Only key matters.
@@ -39,6 +40,20 @@ func (b rewardHistory) Serialize() ([]byte, error) {
 
 // Deserialize deserializes bytes into reward history state
 func (b *rewardHistory) Deserialize(data []byte) error { return nil }
+
+func (b *rewardHistory) Encode() (systemcontracts.GenericValue, error) {
+	data, err := b.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{
+		AuxiliaryData: data,
+	}, nil
+}
+
+func (b *rewardHistory) Decode(v systemcontracts.GenericValue) error {
+	return b.Deserialize(v.AuxiliaryData)
+}
 
 // rewardAccount stores the unclaimed balance of an account
 type rewardAccount struct {
@@ -65,6 +80,20 @@ func (a *rewardAccount) Deserialize(data []byte) error {
 	}
 	a.balance = balance
 	return nil
+}
+
+func (a *rewardAccount) Encode() (systemcontracts.GenericValue, error) {
+	data, err := a.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{
+		AuxiliaryData: data,
+	}, nil
+}
+
+func (a *rewardAccount) Decode(v systemcontracts.GenericValue) error {
+	return a.Deserialize(v.AuxiliaryData)
 }
 
 // GrantBlockReward grants the block reward (token) to the block producer
@@ -389,7 +418,7 @@ func (p *Protocol) grantToAccount(ctx context.Context, sm protocol.StateManager,
 		// entry exist
 		// check if from legacy, and we have started using v2, delete v1
 		if fromLegacy && useV2Storage(ctx) {
-			if err := p.deleteStateV1(sm, accKey); err != nil {
+			if err := p.deleteStateV1(sm, accKey, &rewardAccount{}); err != nil {
 				return err
 			}
 		}
@@ -416,7 +445,7 @@ func (p *Protocol) claimFromAccount(ctx context.Context, sm protocol.StateManage
 		return err
 	}
 	if fromLegacy && useV2Storage(ctx) {
-		if err := p.deleteStateV1(sm, accKey); err != nil {
+		if err := p.deleteStateV1(sm, accKey, &rewardAccount{}); err != nil {
 			return err
 		}
 	}
