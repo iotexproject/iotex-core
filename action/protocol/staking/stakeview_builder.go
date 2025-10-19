@@ -37,6 +37,9 @@ func (b *contractStakeViewBuilder) Build(ctx context.Context, sr protocol.StateR
 	if err != nil {
 		return nil, err
 	}
+	if b.indexer.StartHeight() > height {
+		return view, nil
+	}
 	indexerHeight, err := b.indexer.Height()
 	if err != nil {
 		return nil, err

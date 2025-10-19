@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -25,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
@@ -116,7 +118,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 			req.NoError(err)
 			tv.blockReward.Lsh(tv.blockReward, 1)
 			req.Equal(tv.blockReward.Add(tv.blockReward, &blkCtx.AccumulatedTips), unclaimedBalance)
-		}, false)
+		}, nil, false, 0)
 	}
 }
 
@@ -128,15 +130,30 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		_, err := p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
+		registry := protocol.MustGetRegistry(ctx)
+		sp := &staking.Protocol{}
+		require.NoError(t, sp.Register(registry))
+		patches := gomonkey.NewPatches()
+		patches = patches.ApplyMethodReturn(sp, "SlashCandidate", nil)
+		defer patches.Reset()
+		ctx = protocol.WithFeatureCtx(ctx)
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
-		// Grant epoch reward
-		_, rewardLogs, err := p.GrantEpochReward(ctx, sm)
+		a := admin{}
+		_, err = p.state(ctx, sm, _adminKey, &a)
 		require.NoError(t, err)
-		require.Equal(t, 8, len(rewardLogs))
+		// Grant epoch reward
+		transactionLogs, rewardLogs, err := p.GrantEpochReward(ctx, sm)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(transactionLogs))
+		require.Equal(t, iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND, transactionLogs[0].Type)
+		require.Equal(t, big.NewInt(0).Mul(a.blockReward, big.NewInt(6+1)), transactionLogs[0].Amount) // 100 - block - priority - foundation*4
+		require.Equal(t, address.StakingBucketPoolAddr, transactionLogs[0].Sender)
+		require.Equal(t, address.RewardingPoolAddr, transactionLogs[0].Recipient)
+		require.Equal(t, 10, len(rewardLogs))
 
 		availableBalance, _, err := p.AvailableBalance(ctx, sm)
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(90+5), availableBalance)
+		assert.Equal(t, big.NewInt(90+5+70), availableBalance)
 		// Operator shouldn't get reward
 		unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, identityset.Address(27))
 		require.NoError(t, err)
@@ -170,6 +187,16 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 			addr   string
 			amount string
 		}{
+			{
+				rewardingpb.RewardLog_UNPRODUCTIVE_SLASH,
+				identityset.Address(29).String(),
+				"10",
+			},
+			{
+				rewardingpb.RewardLog_UNPRODUCTIVE_SLASH,
+				identityset.Address(31).String(),
+				"60",
+			},
 			{
 				rewardingpb.RewardLog_EPOCH_REWARD,
 				identityset.Address(0).String(),
@@ -211,7 +238,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 				"5",
 			},
 		}
-		for i := 0; i < 8; i++ {
+		for i := 0; i < 10; i++ {
 			require.Equal(t, p.addr.String(), rewardLogs[i].Address)
 			var rl rewardingpb.RewardLog
 			require.NoError(t, proto.Unmarshal(rewardLogs[i].Data, &rl))
@@ -229,7 +256,10 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		ctx = protocol.WithBlockCtx(ctx, blkCtx)
 		_, _, err = p.GrantEpochReward(ctx, sm)
 		require.Error(t, err)
-	}, false)
+	}, map[string]uint64{
+		identityset.Address(29).String(): 1,
+		identityset.Address(31).String(): 6,
+	}, false, 1)
 
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		_, err := p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
@@ -248,7 +278,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(32))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(4+5), unclaimedBalance)
-	}, true)
+	}, nil, true, 1)
 }
 
 func TestProtocol_ClaimReward(t *testing.T) {
@@ -341,7 +371,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		claimCtx = protocol.WithActionCtx(ctx, claimActionCtx)
 		_, err = p.Claim(claimCtx, sm, big.NewInt(1), claimActionCtx.Caller)
 		require.Error(t, err)
-	}, false)
+	}, nil, false, 0)
 }
 
 func TestProtocol_NoRewardAddr(t *testing.T) {
@@ -600,6 +630,6 @@ func TestProtocol_CalculateReward(t *testing.T) {
 			req.Zero(tv.totalReward.Cmp(total))
 			req.Zero(tv.tip.Cmp(tip))
 			req.Zero(total.Cmp(br.Add(br, tip)))
-		}, false)
+		}, nil, false, 0)
 	}
 }

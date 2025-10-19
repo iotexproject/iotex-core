@@ -8,6 +8,7 @@ package evm
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"math"
 	"math/big"
 	"time"
@@ -279,6 +280,7 @@ func ExecuteContract(
 		ContractAddress:   contractAddress,
 		Status:            uint64(statusCode),
 		EffectiveGasPrice: protocol.EffectiveGasPrice(ctx, execution),
+		Output:            retval,
 	}
 	var (
 		depositLog  []*action.TransactionLog
@@ -326,14 +328,7 @@ func ExecuteContract(
 
 	if ps.featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], _revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
-		data := retval[4:]
-		msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
-		revertMsg := string(data[64 : 64+msgLength])
-		receipt.SetExecutionRevertMsg(revertMsg)
-	}
-	log.S().Debugf("Retval: %x, Receipt: %+v, %v", retval, receipt, err)
-	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
-		tCtx.CaptureTx(retval, receipt)
+		receipt.SetExecutionRevertMsg(ExtractRevertMessage(retval))
 	}
 	return retval, receipt, nil
 }
@@ -503,7 +498,7 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 // blockHeightToTime returns the block time by height
 // if height is greater than current block height, return nil
 // if height is equal to current block height, return current block time
-// otherwise, return the block time by height from the blockchain
+// otherwise, return a fake time less than current block time
 func blockHeightToTime(ctx context.Context, height uint64) (*time.Time, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if height > blkCtx.BlockHeight {
@@ -512,10 +507,7 @@ func blockHeightToTime(ctx context.Context, height uint64) (*time.Time, error) {
 	if height == blkCtx.BlockHeight {
 		return &blkCtx.BlockTimeStamp, nil
 	}
-	t, err := protocol.MustGetBlockchainCtx(ctx).GetBlockTime(height)
-	if err != nil {
-		return nil, err
-	}
+	t := blkCtx.BlockTimeStamp.Add(time.Duration(height-blkCtx.BlockHeight) * time.Second)
 	return &t, nil
 }
 
@@ -763,5 +755,23 @@ func SimulateExecution(
 			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
 		},
 	))
-	return ExecuteContract(ctx, sm, ex)
+	retval, receipt, err := ExecuteContract(ctx, sm, ex)
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
+		tCtx.CaptureTx(retval, receipt)
+	}
+	return retval, receipt, err
+}
+
+// ExtractRevertMessage extracts the revert message from the return value
+func ExtractRevertMessage(ret []byte) string {
+	if len(ret) < 4 {
+		return hex.EncodeToString(ret)
+	}
+	if !bytes.Equal(ret[:4], _revertSelector) {
+		return hex.EncodeToString(ret)
+	}
+	data := ret[4:]
+	msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
+	revertMsg := string(data[64 : 64+msgLength])
+	return revertMsg
 }
