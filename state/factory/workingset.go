@@ -602,12 +602,16 @@ func (ws *workingSet) processLegacy(ctx context.Context, actions []*action.Seale
 	if err := ws.validate(ctx); err != nil {
 		return err
 	}
-
+	// TODO: remove this when archive states support state for all protocols
+	ignoreSystemValidation := protocol.MustGetBlockCtx(ctx).Simulate
 	reg := protocol.MustGetRegistry(ctx)
 	for _, act := range actions {
 		ctxWithActionContext, err := withActionCtx(ctx, act)
 		if err != nil {
 			return err
+		}
+		if action.IsSystemAction(act) && ignoreSystemValidation {
+			continue
 		}
 		for _, p := range reg.All() {
 			if validator, ok := p.(protocol.ActionValidator); ok {
