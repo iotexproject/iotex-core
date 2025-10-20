@@ -264,6 +264,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			return nil, errors.Wrap(err, "failed to load name/operator map to cand center")
 		}
 	}
+	c.contractsStake = &contractStakeView{}
 	if p.skipContractStakingView(height) {
 		return c, nil
 	}
@@ -323,7 +324,6 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			callback(view)
 		}()
 	}
-	c.contractsStake = &contractStakeView{}
 	buildView(p.contractStakingIndexer, func(view ContractStakeView) {
 		c.contractsStake.v1 = view
 	})
@@ -1110,13 +1110,13 @@ func (p *Protocol) contractStakingVotesFromView(ctx context.Context, candidate a
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	votes := big.NewInt(0)
 	views := []ContractStakeView{}
-	if p.contractStakingIndexer != nil && featureCtx.AddContractStakingVotes {
+	if view.contractsStake.v1 != nil && featureCtx.AddContractStakingVotes {
 		views = append(views, view.contractsStake.v1)
 	}
-	if p.contractStakingIndexerV2 != nil && !featureCtx.LimitedStakingContract {
+	if view.contractsStake.v2 != nil && !featureCtx.LimitedStakingContract {
 		views = append(views, view.contractsStake.v2)
 	}
-	if p.contractStakingIndexerV3 != nil && featureCtx.TimestampedStakingContract {
+	if view.contractsStake.v3 != nil && featureCtx.TimestampedStakingContract {
 		views = append(views, view.contractsStake.v3)
 	}
 	for _, cv := range views {
