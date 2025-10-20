@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"math/big"
 	"sort"
 
@@ -800,9 +801,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	}
 	// save a copy of current SelfDestruct accounts
 	sa := make(deleteAccount)
-	for k, v := range stateDB.selfDestructed {
-		sa[k] = v
-	}
+	maps.Copy(sa, stateDB.selfDestructed)
 	stateDB.selfDestructedSnapshot[sn] = sa
 	if !stateDB.fixSnapshotOrder {
 		for _, addr := range stateDB.cachedContractAddrs() {
@@ -812,9 +811,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	stateDB.contractSnapshot[sn] = c
 	// save a copy of preimages
 	p := make(preimageMap)
-	for k, v := range stateDB.preimages {
-		p[k] = v
-	}
+	maps.Copy(p, stateDB.preimages)
 	stateDB.preimageSnapshot[sn] = p
 	// save a copy of access list
 	stateDB.accessListSnapshot[sn] = stateDB.accessList.Copy()
@@ -823,9 +820,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		stateDB.transientStorageSnapshot[sn] = stateDB.transientStorage.Copy()
 		// save a copy of created account map
 		ca := make(createdAccount)
-		for k, v := range stateDB.createdAccount {
-			ca[k] = v
-		}
+		maps.Copy(ca, stateDB.createdAccount)
 		stateDB.createdAccountSnapshot[sn] = ca
 	}
 	return sn

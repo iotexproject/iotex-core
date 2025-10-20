@@ -7,6 +7,7 @@ package dispatcher
 
 import (
 	"context"
+	"maps"
 	"sync"
 	"time"
 
@@ -186,9 +187,7 @@ func (d *IotxDispatcher) EventAudit() map[iotexrpc.MessageType]int {
 	d.eventAuditLock.RLock()
 	defer d.eventAuditLock.RUnlock()
 	snapshot := make(map[iotexrpc.MessageType]int)
-	for k, v := range d.eventAudit {
-		snapshot[k] = v
-	}
+	maps.Copy(snapshot, d.eventAudit)
 	return snapshot
 }
 

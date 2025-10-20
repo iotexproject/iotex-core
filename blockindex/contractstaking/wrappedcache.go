@@ -7,6 +7,7 @@ package contractstaking
 
 import (
 	"context"
+	"maps"
 	"math/big"
 	"sort"
 	"sync"
@@ -271,9 +272,7 @@ func (wc *wrappedCache) Clone() stakingCache {
 	updatedCandidates := make(map[string]map[uint64]bool, len(wc.updatedCandidates))
 	for delegate, buckets := range wc.updatedCandidates {
 		updatedBuckets := make(map[uint64]bool, len(buckets))
-		for id, updated := range buckets {
-			updatedBuckets[id] = updated
-		}
+		maps.Copy(updatedBuckets, buckets)
 		updatedCandidates[delegate] = updatedBuckets
 	}
 	return &wrappedCache{
