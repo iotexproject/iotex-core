@@ -8,6 +8,7 @@ package blockchain
 import (
 	"crypto/ecdsa"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -263,11 +264,5 @@ func (cfg *Config) whitelistSignatureScheme(sk crypto.PrivateKey) bool {
 	if sigScheme == "" {
 		return false
 	}
-	for _, e := range cfg.SignatureScheme {
-		if sigScheme == e {
-			// signature scheme is whitelisted
-			return true
-		}
-	}
-	return false
+	return slices.Contains(cfg.SignatureScheme, sigScheme)
 }
