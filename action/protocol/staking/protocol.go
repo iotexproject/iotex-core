@@ -1110,6 +1110,9 @@ func (p *Protocol) contractStakingVotesFromView(ctx context.Context, candidate a
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	votes := big.NewInt(0)
 	views := []ContractStakeView{}
+	if view.contractsStake == nil {
+		return votes, nil
+	}
 	if view.contractsStake.v1 != nil && featureCtx.AddContractStakingVotes {
 		views = append(views, view.contractsStake.v1)
 	}
