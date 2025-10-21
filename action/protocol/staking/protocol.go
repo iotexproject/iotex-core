@@ -431,9 +431,6 @@ func (p *Protocol) SlashCandidate(
 	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
 		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
 	}
-	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
-		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
-	}
 	bucket, err := p.fetchBucket(csm, candidate.SelfStakeBucketIdx)
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch bucket")
