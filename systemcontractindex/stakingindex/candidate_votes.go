@@ -2,6 +2,7 @@ package stakingindex
 
 import (
 	"math/big"
+	"sort"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -98,7 +99,17 @@ func (cv *candidateVotes) Add(cand string, amount *big.Int, votes *big.Int) {
 
 func (cv *candidateVotes) Serialize() ([]byte, error) {
 	cl := stakingpb.CandidateList{}
-	for cand, c := range cv.cands {
+
+	// Create a slice of candidate addresses and sort them for consistent ordering
+	addresses := make([]string, 0, len(cv.cands))
+	for cand := range cv.cands {
+		addresses = append(addresses, cand)
+	}
+	sort.Strings(addresses)
+
+	// Add candidates in sorted order
+	for _, cand := range addresses {
+		c := cv.cands[cand]
 		cl.Candidates = append(cl.Candidates, &stakingpb.Candidate{
 			Address: cand,
 			Votes:   c.votes.String(),
