@@ -78,8 +78,8 @@ func defaultConfig() Genesis {
 			UpernavikBlockHeight:      31174201,
 			VanuatuBlockHeight:        33730921,
 			WakeBlockHeight:           36893881,
-			XinguBlockHeight:          96893881,
-			XinguBetaBlockHeight:      96893881,
+			XinguBlockHeight:          41648761,
+			XinguBetaBlockHeight:      41648761,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{

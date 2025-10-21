@@ -69,10 +69,10 @@ func TestNewHeightChange(t *testing.T) {
 	require.True(cfg.IsVanuatu(uint64(33730921)))
 	require.False(cfg.IsWake(uint64(36893880)))
 	require.True(cfg.IsWake(uint64(36893881)))
-	require.False(cfg.IsXingu(uint64(96893880)))
-	require.True(cfg.IsXingu(uint64(96893881)))
-	require.False(cfg.IsXinguBeta(uint64(96893880)))
-	require.True(cfg.IsXinguBeta(uint64(96893881)))
+	require.False(cfg.IsXingu(uint64(41648760)))
+	require.True(cfg.IsXingu(uint64(41648761)))
+	require.False(cfg.IsXinguBeta(uint64(41648760)))
+	require.True(cfg.IsXinguBeta(uint64(41648761)))
 
 	require.Equal(cfg.PacificBlockHeight, uint64(432001))
 	require.Equal(cfg.AleutianBlockHeight, uint64(864001))
@@ -100,6 +100,6 @@ func TestNewHeightChange(t *testing.T) {
 	require.Equal(cfg.UpernavikBlockHeight, uint64(31174201))
 	require.Equal(cfg.VanuatuBlockHeight, uint64(33730921))
 	require.Equal(cfg.WakeBlockHeight, uint64(36893881))
-	require.Equal(cfg.XinguBlockHeight, uint64(96893881))
-	require.Equal(cfg.XinguBetaBlockHeight, uint64(96893881))
+	require.Equal(cfg.XinguBlockHeight, uint64(41648761))
+	require.Equal(cfg.XinguBetaBlockHeight, uint64(41648761))
 }
