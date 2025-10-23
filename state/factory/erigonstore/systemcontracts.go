@@ -63,11 +63,14 @@ const (
 	defaultSystemContractType = iota
 	namespaceStorageContractType
 	accountStorageType
+	keySplitStorageContractType
 )
 
 var systemContractTypes = map[int]int{
 	StakingViewContractIndex: namespaceStorageContractType,
 	AccountIndex:             accountStorageType,
+	RewardingContractV1Index: keySplitStorageContractType,
+	RewardingContractV2Index: keySplitStorageContractType,
 }
 
 // systemContracts holds all system contracts
