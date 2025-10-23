@@ -126,7 +126,7 @@ func TestLogsInRange(t *testing.T) {
 		require.NoError(err)
 
 		_, _, err = svr.LogsInRange(logfilter.NewLogFilter(filter), from, to, uint64(0))
-		expectedErr := errors.New("start block > tip height")
+		expectedErr := errors.Errorf("start block %d > tip height %d", from, 4)
 		require.Error(err)
 		require.Equal(expectedErr.Error(), err.Error())
 	})
