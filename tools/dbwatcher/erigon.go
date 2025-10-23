@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"slices"
 
-	"github.com/ledgerwatch/erigon-lib/kv"
-	"github.com/ledgerwatch/erigon-lib/kv/mdbx"
-	erigonlog "github.com/ledgerwatch/log/v3"
+	"github.com/erigontech/erigon-lib/kv"
+	"github.com/erigontech/erigon-lib/kv/mdbx"
+	erigonlog "github.com/erigontech/erigon-lib/log/v3"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -20,11 +21,15 @@ var WatchErigon = &cobra.Command{
 	},
 }
 var (
-	keyLimit = uint64(10)
+	keyLimit   = uint64(10)
+	namespaces = []string{}
 )
+
+var errLimitReached = errors.New("key limit reached")
 
 func init() {
 	WatchErigon.PersistentFlags().Uint64VarP(&keyLimit, "limit", "l", 10, "key limit")
+	WatchErigon.PersistentFlags().StringArrayVarP(&namespaces, "namespace", "n", []string{}, "namespaces to watch")
 }
 
 func watchErigon(path string) error {
@@ -58,7 +63,15 @@ func walkdbkv(rw kv.RoDB) error {
 	if err != nil {
 		return errors.Wrap(err, "list tables")
 	}
-	// fmt.Printf("tables: %v\n", tables)
+	if len(namespaces) > 0 {
+		filtered := []string{}
+		for _, table := range tables {
+			if slices.Contains(namespaces, table) {
+				filtered = append(filtered, table)
+			}
+		}
+		tables = filtered
+	}
 	total := uint64(0)
 	for _, table := range tables {
 		tsize, err := tx.BucketSize(table)
@@ -74,10 +87,13 @@ func walkdbkv(rw kv.RoDB) error {
 			if keyLimit == 0 || keynum < keyLimit {
 				fmt.Printf("table: %s, key: %x, value: %x\n", table, k, v)
 			}
+			if keyLimit > 0 && keynum >= keyLimit {
+				return errLimitReached
+			}
 			keynum++
 			return nil
 		})
-		if err != nil {
+		if err != nil && !errors.Is(err, errLimitReached) {
 			return errors.Wrapf(err, "for each table: %s", table)
 		}
 		fmt.Printf("table: %s, size: %d, keynum: %d\n\n", table, tsize, keynum)
