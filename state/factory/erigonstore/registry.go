@@ -1,6 +1,7 @@
 package erigonstore
 
 import (
+	"bytes"
 	"reflect"
 	"strings"
 
@@ -31,11 +32,25 @@ type ObjectStorageRegistry struct {
 	contracts map[string]map[reflect.Type]int
 	ns        map[string]int
 	nsPrefix  map[string]int
+	spliter   map[int]KeySplitter
 }
 
 func init() {
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.AccountKVNamespace, RewardingContractV1Index))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.RewardingNamespace, RewardingContractV2Index))
+	rewardHistoryPrefixs := [][]byte{
+		append(state.RewardingKeyPrefix[:], state.BlockRewardHistoryKeyPrefix...),
+		append(state.RewardingKeyPrefix[:], state.EpochRewardHistoryKeyPrefix...),
+	}
+	keysplit := func(key []byte) (part1 []byte, part2 []byte) {
+		for _, p := range rewardHistoryPrefixs {
+			if len(key) == len(p)+8 && bytes.Equal(key[:len(p)], p) {
+				// split into prefix + last 8 bytes
+				return key[:len(key)-8], key[len(key)-8:]
+			}
+		}
+		return key, nil
+	}
+	assertions.MustNoError(storageRegistry.RegisterNamespaceWithKeySplit(state.AccountKVNamespace, RewardingContractV1Index, keysplit))
+	assertions.MustNoError(storageRegistry.RegisterNamespaceWithKeySplit(state.RewardingNamespace, RewardingContractV2Index, keysplit))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandidateNamespace, CandidatesContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandsMapNamespace, CandidateMapContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingNamespace, BucketPoolContractIndex))
@@ -65,6 +80,7 @@ func newObjectStorageRegistry() *ObjectStorageRegistry {
 		contracts: make(map[string]map[reflect.Type]int),
 		ns:        make(map[string]int),
 		nsPrefix:  make(map[string]int),
+		spliter:   make(map[int]KeySplitter),
 	}
 }
 
@@ -94,7 +110,11 @@ func (osr *ObjectStorageRegistry) ObjectStorage(ns string, obj any, backend *con
 		if err != nil {
 			return nil, err
 		}
-		return newContractObjectStorage(contract), nil
+		split := osr.spliter[contractIndex]
+		if split == nil {
+			return newContractObjectStorage(contract), nil
+		}
+		return newKeySplitContractStorage(contract, split), nil
 	}
 }
 
@@ -112,6 +132,19 @@ func (osr *ObjectStorageRegistry) RegisterNamespace(ns string, index int) error 
 		return errors.Errorf("invalid system contract index %d", index)
 	}
 	return osr.register(ns, nil, index)
+}
+
+func (osr *ObjectStorageRegistry) RegisterNamespaceWithKeySplit(ns string, index int, split KeySplitter) error {
+	if index < AccountIndex || index >= SystemContractCount {
+		return errors.Errorf("invalid system contract index %d", index)
+	}
+	if err := osr.register(ns, nil, index); err != nil {
+		return err
+	}
+	if split != nil {
+		osr.spliter[index] = split
+	}
+	return nil
 }
 
 // RegisterNamespacePrefix registers a namespace prefix object storage

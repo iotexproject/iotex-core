@@ -1,5 +1,7 @@
 package state
 
+import "github.com/iotexproject/go-pkgs/hash"
+
 const (
 	// SystemNamespace is the namespace to store system information such as candidates/probationList/unproductiveDelegates
 	// Poll Protocol uses this namespace to store states:
@@ -71,4 +73,14 @@ const (
 
 	// PreimageKVNameSpace is the bucket name for preimage data storage
 	PreimageKVNameSpace = "Preimage"
+)
+
+// Key prefixes
+var (
+	// RewardingKeyPrefix is the prefix for rewarding protocol
+	RewardingKeyPrefix = hash.Hash160b([]byte("rewarding"))
+	// BlockRewardHistoryKeyPrefix is the key prefix for block reward history
+	BlockRewardHistoryKeyPrefix = []byte("brh")
+	// EpochRewardHistoryKeyPrefix is the key prefix for epoch reward history
+	EpochRewardHistoryKeyPrefix = []byte("erh")
 )
