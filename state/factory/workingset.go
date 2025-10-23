@@ -365,7 +365,11 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	if err != nil {
 		return 0, err
 	}
-	return ws.height, store.GetObject(cfg.Namespace, cfg.Key, s)
+	key, err := ws.matchStoreKey(store, cfg)
+	if err != nil {
+		return 0, err
+	}
+	return ws.height, store.GetObject(cfg.Namespace, key, s)
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
@@ -399,7 +403,16 @@ func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uin
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, store.PutObject(cfg.Namespace, cfg.Key, s)
+	for _, store := range ws.matchStoreWrites(store) {
+		key, err := ws.matchStoreKey(store, cfg)
+		if err != nil {
+			return ws.height, err
+		}
+		if err := store.PutObject(cfg.Namespace, key, s); err != nil {
+			return ws.height, err
+		}
+	}
+	return ws.height, nil
 }
 
 // DelState deletes a state from DB
@@ -413,7 +426,16 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, store.DeleteObject(cfg.Namespace, cfg.Key, cfg.Object)
+	for _, store := range ws.matchStoreWrites(store) {
+		key, err := ws.matchStoreKey(store, cfg)
+		if err != nil {
+			return ws.height, err
+		}
+		if err := store.DeleteObject(cfg.Namespace, key, cfg.Object); err != nil {
+			return ws.height, err
+		}
+	}
+	return ws.height, nil
 }
 
 // ReadView reads the view
@@ -1071,7 +1093,7 @@ func (ws *workingSet) Erigon() (*erigonstate.IntraBlockState, bool) {
 		}
 		return nil, false
 	case *erigonWorkingSetStoreForSimulate:
-		return st.erigonStore.IntraBlockState(), true
+		return st.IntraBlockState(), true
 	default:
 		return nil, false
 	}
@@ -1087,4 +1109,25 @@ func (ws *workingSet) matchStore(cfg *protocol.StateConfig) (workingSetStore, er
 		store = erigonStore.(workingSetStore)
 	}
 	return store, nil
+}
+
+func (ws *workingSet) matchStoreWrites(store workingSetStore) []workingSetStore {
+	if ss, ok := store.(*workingSetStoreWithSecondary); ok {
+		return []workingSetStore{ss.writer, ss.writerSecondary}
+	}
+	return []workingSetStore{store}
+}
+
+func (ws *workingSet) matchStoreKey(store workingSetStore, cfg *protocol.StateConfig) ([]byte, error) {
+	if len(cfg.ErigonStoreKey) == 0 {
+		return cfg.Key, nil
+	}
+	switch store.(type) {
+	case *erigonWorkingSetStoreForSimulate, *erigonstore.ErigonWorkingSetStore:
+		return cfg.ErigonStoreKey, nil
+	case *workingSetStoreWithSecondary, *stateDBWorkingSetStore:
+		return cfg.Key, nil
+	default:
+		return nil, errors.Errorf("unsupported store type %T", store)
+	}
 }
