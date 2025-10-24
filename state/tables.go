@@ -84,3 +84,5 @@ var (
 	// EpochRewardHistoryKeyPrefix is the key prefix for epoch reward history
 	EpochRewardHistoryKeyPrefix = []byte("erh")
 )
+
+const PollCandidatesPrefix = "Candidates."
