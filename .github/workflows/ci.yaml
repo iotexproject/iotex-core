@@ -18,16 +18,11 @@ jobs:
     name: ci flow
     runs-on: self-hosted
     container:
-      image: debian:12
+      image: ubuntu:latest
     steps:
       - uses: actions/checkout@v3
         # with:
         #   submodules: recursive
-      - name: Install dependencies
-        run: |
-          apt-get update
-          apt-get install -y ca-certificates
-          update-ca-certificates
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
