@@ -1125,7 +1125,7 @@ func (ws *workingSet) matchStoreKey(store workingSetStore, cfg *protocol.StateCo
 	switch store.(type) {
 	case *erigonWorkingSetStoreForSimulate, *erigonstore.ErigonWorkingSetStore:
 		return cfg.ErigonStoreKey, nil
-	case *workingSetStoreWithSecondary, *stateDBWorkingSetStore:
+	case *stateDBWorkingSetStore, *workingSetStoreWithSecondary:
 		return cfg.Key, nil
 	default:
 		return nil, errors.Errorf("unsupported store type %T", store)
