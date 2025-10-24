@@ -55,6 +55,8 @@ const (
 	StakingViewContractIndex
 	// AccountInfoContractIndex is the system contract for account info storage
 	AccountInfoContractIndex
+	// ContractStakingBucketContractIndex is the system contract for contract staking bucket storage
+	ContractStakingBucketContractIndex
 	// SystemContractCount is the total number of system contracts
 	SystemContractCount
 )
@@ -63,14 +65,12 @@ const (
 	defaultSystemContractType = iota
 	namespaceStorageContractType
 	accountStorageType
-	keySplitStorageContractType
 )
 
 var systemContractTypes = map[int]int{
-	StakingViewContractIndex: namespaceStorageContractType,
-	AccountIndex:             accountStorageType,
-	RewardingContractV1Index: keySplitStorageContractType,
-	RewardingContractV2Index: keySplitStorageContractType,
+	StakingViewContractIndex:           namespaceStorageContractType,
+	AccountIndex:                       accountStorageType,
+	ContractStakingBucketContractIndex: namespaceStorageContractType,
 }
 
 // systemContracts holds all system contracts

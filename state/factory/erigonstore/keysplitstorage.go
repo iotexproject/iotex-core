@@ -16,25 +16,25 @@ type keySplitContainer interface {
 type keySplitContractStorage struct {
 	contract systemcontracts.StorageContract
 	keySplit KeySplitter
-	cos      *contractObjectStorage
+	fallback ObjectStorage
 }
 
-func newKeySplitContractStorage(contract systemcontracts.StorageContract, split KeySplitter) *keySplitContractStorage {
+func newKeySplitContractStorageWithfallback(contract systemcontracts.StorageContract, split KeySplitter, fallback ObjectStorage) *keySplitContractStorage {
 	return &keySplitContractStorage{
 		contract: contract,
 		keySplit: split,
-		cos:      newContractObjectStorage(contract),
+		fallback: fallback,
 	}
 }
 
 func (rhs *keySplitContractStorage) Store(key []byte, obj any) error {
 	pf, sf := rhs.keySplit(key)
 	if len(sf) == 0 {
-		return rhs.cos.Store(key, obj)
+		return rhs.fallback.Store(key, obj)
 	}
 	gvc, ok := obj.(keySplitContainer)
 	if !ok {
-		return errors.New("object does not implement GenericValueContainer")
+		return rhs.fallback.Store(pf, obj)
 	}
 	value, err := gvc.Encode(sf)
 	if err != nil {
@@ -46,11 +46,11 @@ func (rhs *keySplitContractStorage) Store(key []byte, obj any) error {
 func (rhs *keySplitContractStorage) Load(key []byte, obj any) error {
 	pf, sf := rhs.keySplit(key)
 	if len(sf) == 0 {
-		return rhs.cos.Load(key, obj)
+		return rhs.fallback.Load(key, obj)
 	}
 	gvc, ok := obj.(keySplitContainer)
 	if !ok {
-		return errors.New("object does not implement GenericValueContainer")
+		return rhs.fallback.Load(pf, obj)
 	}
 	value, err := rhs.contract.Get(pf)
 	if err != nil {
@@ -65,16 +65,9 @@ func (rhs *keySplitContractStorage) Load(key []byte, obj any) error {
 func (rhs *keySplitContractStorage) Delete(key []byte) error {
 	pf, sf := rhs.keySplit(key)
 	if len(sf) == 0 {
-		return rhs.cos.Delete(key)
+		return rhs.fallback.Delete(key)
 	}
-	exist, err := rhs.contract.Remove(pf)
-	if err != nil {
-		return errors.Wrapf(err, "failed to remove data for key %x", key)
-	}
-	if !exist {
-		return errors.Wrapf(state.ErrStateNotExist, "key: %x", key)
-	}
-	return nil
+	return rhs.fallback.Delete(pf)
 }
 
 func (rhs *keySplitContractStorage) List() (state.Iterator, error) {
