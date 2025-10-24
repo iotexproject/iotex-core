@@ -40,17 +40,25 @@ func init() {
 		append(state.RewardingKeyPrefix[:], state.BlockRewardHistoryKeyPrefix...),
 		append(state.RewardingKeyPrefix[:], state.EpochRewardHistoryKeyPrefix...),
 	}
-	keysplit := func(key []byte) (part1 []byte, part2 []byte) {
-		for _, p := range rewardHistoryPrefixs {
-			if len(key) == len(p)+8 && bytes.Equal(key[:len(p)], p) {
-				// split into prefix + last 8 bytes
-				return key[:len(key)-8], key[len(key)-8:]
-			}
-		}
-		return key, nil
+	pollPrefix := [][]byte{
+		[]byte(state.PollCandidatesPrefix),
 	}
-	assertions.MustNoError(storageRegistry.RegisterNamespaceWithKeySplit(state.AccountKVNamespace, RewardingContractV1Index, keysplit))
-	assertions.MustNoError(storageRegistry.RegisterNamespaceWithKeySplit(state.RewardingNamespace, RewardingContractV2Index, keysplit))
+	genKeySplit := func(prefixs [][]byte) KeySplitter {
+		return func(key []byte) (part1 []byte, part2 []byte) {
+			for _, p := range prefixs {
+				if len(key) == len(p)+8 && bytes.Equal(key[:len(p)], p) {
+					// split into prefix + last 8 bytes
+					return key[:len(key)-8], key[len(key)-8:]
+				}
+			}
+			return key, nil
+		}
+	}
+	rewardKeySplit := genKeySplit(rewardHistoryPrefixs)
+	pollKeySplit := genKeySplit(pollPrefix)
+
+	assertions.MustNoError(storageRegistry.RegisterNamespaceWithKeySplit(state.AccountKVNamespace, RewardingContractV1Index, rewardKeySplit))
+	assertions.MustNoError(storageRegistry.RegisterNamespaceWithKeySplit(state.RewardingNamespace, RewardingContractV2Index, rewardKeySplit))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandidateNamespace, CandidatesContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandsMapNamespace, CandidateMapContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingNamespace, BucketPoolContractIndex))
@@ -60,7 +68,7 @@ func init() {
 	assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketTypeNamespacePrefix, StakingViewContractIndex))
 
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.Account{}, AccountIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterObjectStorageWithKeySplit(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex, pollKeySplit))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &state.CandidateList{}, PollCandidateListContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.UnproductiveDelegate{}, PollUnproductiveDelegateContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.ProbationList{}, PollProbationListContractIndex))
@@ -124,6 +132,19 @@ func (osr *ObjectStorageRegistry) RegisterObjectStorage(ns string, obj any, inde
 		return errors.Errorf("invalid system contract index %d", index)
 	}
 	return osr.register(ns, obj, index)
+}
+
+func (osr *ObjectStorageRegistry) RegisterObjectStorageWithKeySplit(ns string, obj any, index int, split KeySplitter) error {
+	if index < AccountIndex || index >= SystemContractCount {
+		return errors.Errorf("invalid system contract index %d", index)
+	}
+	if err := osr.register(ns, obj, index); err != nil {
+		return err
+	}
+	if split != nil {
+		osr.spliter[index] = split
+	}
+	return nil
 }
 
 // RegisterNamespace registers a namespace object storage
