@@ -17,6 +17,8 @@ jobs:
   ci:
     name: ci flow
     runs-on: self-hosted
+    container:
+      image: debian:12
     steps:
       - uses: actions/checkout@v3
         # with:
