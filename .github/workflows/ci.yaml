@@ -16,26 +16,20 @@ env:
 jobs:
   ci:
     name: ci flow
-    runs-on: self-hosted
-    container:
-      image: ubuntu:latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         # with:
         #   submodules: recursive
 
-      - name: Install build tools
-        run: |
-          apt-get update
-          apt-get install -y build-essential ca-certificates
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: 1.23.0
-          cache: true
+          cache: false
 
       - name: Build Go
-        run:  CGO_ENABLED=1 go build ./...
+        run: go build ./...
 
       - name: Run Test
         id: unittest
