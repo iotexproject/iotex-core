@@ -8,7 +8,9 @@ package factory
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -282,7 +284,7 @@ func (sdb *stateDB) createWorkingSetStore(ctx context.Context, height uint64, kv
 	flusher, err := db.NewKVStoreFlusher(
 		kvstore,
 		batch.NewCachedBatch(),
-		sdb.flusherOptions(!g.IsEaster(height))...,
+		sdb.flusherOptions(!g.IsEaster(height), g.IsToBeEnabled(height))...,
 	)
 	if err != nil {
 		return nil, err
@@ -558,7 +560,7 @@ func (sdb *stateDB) StateReaderAt(blkHeight uint64, blkHash hash.Hash256) (proto
 // private trie constructor functions
 //======================================
 
-func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
+func (sdb *stateDB) flusherOptions(preEaster, storeContractStaking bool) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
 			if preEaster {
@@ -567,15 +569,46 @@ func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 			return wi.Serialize()
 		}),
 	}
-	if !preEaster {
-		return opts
+	var (
+		serializeFilterNs         = []string{state.StakingViewNamespace}
+		serializeFilterNsPrefixes = []string{}
+		flushFilterNs             = []string{state.StakingViewNamespace}
+		flushFilterNsPrefixes     = []string{}
+	)
+	if preEaster {
+		serializeFilterNs = append(serializeFilterNs, evm.CodeKVNameSpace, staking.CandsMapNS)
 	}
-	return append(
-		opts,
+	if !storeContractStaking {
+		serializeFilterNs = append(serializeFilterNs, state.StakingContractMetaNamespace)
+		serializeFilterNsPrefixes = append(serializeFilterNsPrefixes,
+			state.ContractStakingBucketNamespacePrefix,
+			state.ContractStakingBucketTypeNamespacePrefix,
+		)
+		flushFilterNs = append(flushFilterNs, state.StakingContractMetaNamespace)
+		flushFilterNsPrefixes = append(flushFilterNsPrefixes,
+			state.ContractStakingBucketNamespacePrefix,
+			state.ContractStakingBucketTypeNamespacePrefix,
+		)
+	}
+	opts = append(opts,
+		db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
+			if slices.Contains(flushFilterNs, wi.Namespace()) ||
+				slices.ContainsFunc(flushFilterNsPrefixes, func(prefix string) bool {
+					return strings.HasPrefix(wi.Namespace(), prefix)
+				}) {
+				// skip flushing the write
+				return nil
+			}
+			return wi
+		}),
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
-			return wi.Namespace() == evm.CodeKVNameSpace || wi.Namespace() == staking.CandsMapNS
+			return slices.Contains(serializeFilterNs, wi.Namespace()) ||
+				slices.ContainsFunc(serializeFilterNsPrefixes, func(prefix string) bool {
+					return strings.HasPrefix(wi.Namespace(), prefix)
+				})
 		}),
 	)
+	return opts
 }
 
 func (sdb *stateDB) state(h uint64, ns string, addr []byte, s interface{}) error {

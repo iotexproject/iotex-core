@@ -3,11 +3,12 @@ package contractstaking
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
 )
@@ -25,11 +26,11 @@ func NewStateReader(sr protocol.StateReader) *ContractStakingStateReader {
 }
 
 func contractNamespaceOption(contractAddr address.Address) protocol.StateOption {
-	return protocol.NamespaceOption(fmt.Sprintf("cs_bucket_%x", contractAddr.Bytes()))
+	return protocol.NamespaceOption(fmt.Sprintf("%s%x", state.ContractStakingBucketNamespacePrefix, contractAddr.Bytes()))
 }
 
 func bucketTypeNamespaceOption(contractAddr address.Address) protocol.StateOption {
-	return protocol.NamespaceOption(fmt.Sprintf("cs_bucket_type_%x", contractAddr.Bytes()))
+	return protocol.NamespaceOption(fmt.Sprintf("%s%x", state.ContractStakingBucketTypeNamespacePrefix, contractAddr.Bytes()))
 }
 
 func contractKeyOption(contractAddr address.Address) protocol.StateOption {
@@ -42,7 +43,7 @@ func bucketIDKeyOption(bucketID uint64) protocol.StateOption {
 
 // metaNamespaceOption is the namespace for meta information (e.g., total number of buckets).
 func metaNamespaceOption() protocol.StateOption {
-	return protocol.NamespaceOption("staking_contract_meta")
+	return protocol.NamespaceOption(state.StakingContractMetaNamespace)
 }
 
 func (r *ContractStakingStateReader) contract(contractAddr address.Address) (*StakingContract, error) {

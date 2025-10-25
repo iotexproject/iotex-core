@@ -7,6 +7,7 @@ package contractstaking
 
 import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 )
 
 // Bucket defines the bucket struct for contract staking
@@ -30,4 +31,29 @@ func assembleBucket(token uint64, bi *bucketInfo, bt *BucketType, contractAddr s
 		vb.StakeStartBlockHeight = bi.UnlockedAt
 	}
 	return &vb
+}
+
+func assembleContractBucket(bi *bucketInfo, bt *BucketType) *contractstaking.Bucket {
+	return &contractstaking.Bucket{
+		Candidate:      bi.Delegate,
+		Owner:          bi.Owner,
+		StakedAmount:   bt.Amount,
+		StakedDuration: bt.Duration,
+		CreatedAt:      bi.CreatedAt,
+		UnlockedAt:     bi.UnlockedAt,
+		UnstakedAt:     bi.UnstakedAt,
+	}
+}
+
+func contractBucketToVoteBucket(token uint64, b *contractstaking.Bucket, contractAddr string, blocksToDurationFn blocksDurationFn) *Bucket {
+	return assembleBucket(token, &bucketInfo{
+		Owner:      b.Owner,
+		Delegate:   b.Candidate,
+		CreatedAt:  b.CreatedAt,
+		UnlockedAt: b.UnlockedAt,
+		UnstakedAt: b.UnstakedAt,
+	}, &BucketType{
+		Amount:   b.StakedAmount,
+		Duration: b.StakedDuration,
+	}, contractAddr, blocksToDurationFn)
 }
