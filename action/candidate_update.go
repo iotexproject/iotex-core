@@ -292,7 +292,7 @@ func PackCandidateUpdatedEvent(
 	blsPubKey []byte,
 ) (Topics, []byte, error) {
 	data, err := _candidateUpdateWithBLSEvent.Inputs.NonIndexed().Pack(
-		rewardAddress.Bytes(),
+		common.BytesToAddress(rewardAddress.Bytes()),
 		name,
 		common.BytesToAddress(operatorAddress.Bytes()),
 		blsPubKey,
@@ -302,7 +302,7 @@ func PackCandidateUpdatedEvent(
 	}
 	topics := make(Topics, 3)
 	topics[0] = hash.Hash256(_candidateUpdateWithBLSEvent.ID)
-	topics[1] = hash.Hash256(candidate.Bytes())
-	topics[2] = hash.Hash256(ownerAddress.Bytes())
+	topics[1] = hash.BytesToHash256(candidate.Bytes())
+	topics[2] = hash.BytesToHash256(ownerAddress.Bytes())
 	return topics, data, nil
 }

@@ -440,3 +440,7 @@ func (store *ErigonWorkingSetStore) NewObjectStorage(ns string, obj any) (Object
 		return nil, err
 	}
 }
+
+func (store *ErigonWorkingSetStore) ErigonStore() (any, error) {
+	return store, nil
+}

@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -214,7 +215,7 @@ func TestGetPutCandidate(t *testing.T) {
 	}
 
 	// get all candidates
-	cc, _, err := csr.CreateCandidateCenter()
+	cc, _, err := csr.CreateCandidateCenter(protocol.FeatureCtx{})
 	require.NoError(err)
 	all := cc.All()
 	require.Equal(len(testCandidates), len(all))

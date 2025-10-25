@@ -51,12 +51,21 @@ func (cos *contractObjectStorage) Load(key []byte, obj any) error {
 	if err != nil {
 		return err
 	}
-	// TODO: handle value.KeyExists
+	if !value.KeyExists {
+		return errors.Wrapf(state.ErrStateNotExist, "key: %x", key)
+	}
 	return gvc.Decode(value.Value)
 }
 
 func (cos *contractObjectStorage) Delete(key []byte) error {
-	return cos.contract.Remove(key)
+	exist, err := cos.contract.Remove(key)
+	if err != nil {
+		return errors.Wrapf(err, "failed to remove data for key %x", key)
+	}
+	if !exist {
+		return errors.Wrapf(state.ErrStateNotExist, "key: %x", key)
+	}
+	return nil
 }
 
 func (cos *contractObjectStorage) List() (state.Iterator, error) {

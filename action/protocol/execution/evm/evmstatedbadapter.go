@@ -1092,7 +1092,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 	sort.Slice(contractAddrs, func(i, j int) bool { return bytes.Compare(contractAddrs[i][:], contractAddrs[j][:]) < 0 })
 
 	for _, addr := range contractAddrs {
-		_, err := stateDB.sm.DelState(protocol.KeyOption(addr[:]))
+		_, err := stateDB.sm.DelState(protocol.KeyOption(addr[:]), protocol.ObjectOption(&state.Account{}))
 		if stateDB.assertError(err, "failed to delete SelfDestruct account/contract", zap.Error(err), zap.String("address", addr.Hex())) {
 			return errors.Wrapf(err, "failed to delete SelfDestruct account/contract %x", addr[:])
 		}

@@ -6,6 +6,7 @@
 package staking
 
 import (
+	"bytes"
 	"math/big"
 	"sort"
 	"strings"
@@ -47,6 +48,11 @@ type (
 
 // Clone returns a copy
 func (d *Candidate) Clone() *Candidate {
+	var blsPubKey []byte
+	if len(d.BLSPubKey) > 0 {
+		blsPubKey = make([]byte, len(d.BLSPubKey))
+		copy(blsPubKey, d.BLSPubKey)
+	}
 	return &Candidate{
 		Owner:              d.Owner,
 		Operator:           d.Operator,
@@ -56,6 +62,7 @@ func (d *Candidate) Clone() *Candidate {
 		Votes:              new(big.Int).Set(d.Votes),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          new(big.Int).Set(d.SelfStake),
+		BLSPubKey:          blsPubKey,
 	}
 }
 
@@ -68,7 +75,8 @@ func (d *Candidate) Equal(c *Candidate) bool {
 		address.Equal(d.Reward, c.Reward) &&
 		address.Equal(d.Identifier, c.Identifier) &&
 		d.Votes.Cmp(c.Votes) == 0 &&
-		d.SelfStake.Cmp(c.SelfStake) == 0
+		d.SelfStake.Cmp(c.SelfStake) == 0 &&
+		bytes.Equal(d.BLSPubKey, c.BLSPubKey)
 }
 
 // Validate does the sanity check
@@ -317,6 +325,8 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 }
 
 func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
+	blsPubKey := make([]byte, len(d.BLSPubKey))
+	copy(blsPubKey, d.BLSPubKey)
 	return &iotextypes.CandidateV2{
 		OwnerAddress:       d.Owner.String(),
 		OperatorAddress:    d.Operator.String(),
@@ -326,6 +336,7 @@ func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStakingTokens:  d.SelfStake.String(),
 		Id:                 d.GetIdentifier().String(),
+		BlsPubKey:          blsPubKey,
 	}
 }
 

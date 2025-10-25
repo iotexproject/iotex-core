@@ -33,6 +33,10 @@ func NewContractStakeViewBuilder(
 }
 
 func (b *contractStakeViewBuilder) Build(ctx context.Context, sr protocol.StateReader, height uint64) (ContractStakeView, error) {
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: height,
+	})
+	ctx = protocol.WithFeatureCtx(ctx)
 	view, err := b.indexer.LoadStakeView(ctx, sr)
 	if err != nil {
 		return nil, err

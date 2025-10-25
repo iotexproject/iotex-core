@@ -55,8 +55,6 @@ type (
 )
 
 var (
-	// ErrBucketNotExist is the error when bucket does not exist
-	ErrBucketNotExist = errors.New("bucket does not exist")
 	// ErrInvalidHeight is the error when height is invalid
 	ErrInvalidHeight = errors.New("invalid height")
 )
