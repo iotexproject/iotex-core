@@ -3,6 +3,7 @@ package e2etest
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
@@ -1432,4 +1434,153 @@ func TestCandidateOwnerCollision(t *testing.T) {
 			expect:  []actionExpect{&basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_ErrCandidateAlreadyExist), ""}},
 		},
 	})
+}
+
+func TestNativeStakingVoteBug(t *testing.T) {
+	r := require.New(t)
+	cfg := initCfg(r)
+	cfg.Genesis.LordHoweBlockHeight = 1
+	cfg.Genesis.MidwayBlockHeight = 1000
+	cfg.Genesis.SystemStakingContractAddress = ""
+	cfg.Genesis.SystemStakingContractV2Address = ""
+	cfg.Genesis.SystemStakingContractV3Address = ""
+	cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
+	cfg.Plugins[config.GatewayPlugin] = nil
+	test := newE2ETest(t, cfg)
+
+	var (
+		// successExpect       = &basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_Success), ""}
+		chainID = test.cfg.Chain.ID
+		// contractCreator = 1
+		stakerID = 2
+		// beneficiaryID       = 10
+		stakeAmount    = unit.ConvertIotxToRau(10000)
+		registerAmount = unit.ConvertIotxToRau(1200000)
+		stakeTime      = time.Now()
+		// unlockTime          = stakeTime.Add(time.Hour)
+		candOwnerID = 3
+		// candOwnerID2        = 4
+		// blocksPerDay        = 24 * time.Hour / cfg.DardanellesUpgrade.BlockInterval
+		// stakeDurationBlocks = big.NewInt(int64(blocksPerDay))
+		stakeDurationDays = 91
+		// blocksToWithdraw    = 3 * blocksPerDay
+		minAmount = unit.ConvertIotxToRau(1000)
+
+		tmpVotes = big.NewInt(0)
+		// tmpVotes2  = big.NewInt(0)
+		// tmpBalance = big.NewInt(0)
+		// tmpBkt     = &iotextypes.VoteBucket{}
+		bktIdx uint64
+	)
+	bytecode, err := hex.DecodeString(stakingContractV2Bytecode)
+	r.NoError(err)
+	mustCallData := func(m string, args ...any) []byte {
+		data, err := abiCall(staking.StakingContractABI, m, args...)
+		r.NoError(err)
+		return data
+	}
+	contractAddress := "io137rkkuxzdgsfw0gdmae88gpq349vwlsljy2ycm"
+	test.run([]*testcase{
+		{
+			name: "register candidate",
+			preFunc: func(*e2etest) {
+				fmt.Printf("newblock\n")
+			},
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(candOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(candOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				r.NoError(err)
+			},
+		},
+		{
+			name: "create stake",
+			preFunc: func(e *e2etest) {
+				candidate, err := e.getCandidateByName("cand1")
+				r.NoError(err)
+				_, ok := tmpVotes.SetString(candidate.TotalWeightedVotes, 10)
+				r.True(ok)
+				fmt.Printf("newblock\n")
+			},
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", stakeAmount.String(), uint32(stakeDurationDays), true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				candidate, err := test.getCandidateByName("cand1")
+				r.NoError(err)
+				deltaVotes := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{AutoStake: true, StakedDuration: time.Duration(stakeDurationDays*24) * (time.Hour), StakedAmount: stakeAmount}, false)
+				r.Equal(tmpVotes.Add(tmpVotes, deltaVotes).String(), candidate.TotalWeightedVotes)
+				checkStakingVoteView(test, r, "cand1")
+				idxs := parseNativeStakedBucketIndex(blk.Receipts[0])
+				r.Len(idxs, 1)
+				bktIdx = idxs[0]
+				bkt, err := test.getBucket(bktIdx, "")
+				r.NoError(err)
+				r.Equal(stakeAmount.String(), bkt.StakedAmount)
+			},
+		},
+	})
+	test.run([]*testcase{
+		{
+			name: "deposit to stake",
+			preFunc: func(e *e2etest) {
+				fmt.Printf("newblock\n")
+			},
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedDepositToStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), bktIdx, stakeAmount.String(), nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedDepositToStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), bktIdx, stakeAmount.String(), nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedExecution("", identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice, append(bytecode, mustCallData("", minAmount)...), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedDepositToStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), bktIdx, stakeAmount.String(), nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				r.NoError(err)
+				r.Len(blk.Receipts, 5)
+				candidate, err := test.getCandidateByName("cand1")
+				r.NoError(err)
+				deltaVotes := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{AutoStake: true, StakedDuration: time.Duration(stakeDurationDays*24) * (time.Hour), StakedAmount: new(big.Int).Mul(stakeAmount, big.NewInt(4))}, false)
+				deltaVotes.Sub(deltaVotes, staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{AutoStake: true, StakedDuration: time.Duration(stakeDurationDays*24) * (time.Hour), StakedAmount: stakeAmount}, false))
+				r.Equal(tmpVotes.Add(tmpVotes, deltaVotes).String(), candidate.TotalWeightedVotes)
+				checkStakingVoteView(test, r, "cand1")
+				bkt, err := test.getBucket(bktIdx, "")
+				r.NoError(err)
+				r.Equal(new(big.Int).Mul(stakeAmount, big.NewInt(4)).String(), bkt.StakedAmount)
+				r.EqualValues(iotextypes.ReceiptStatus_Success, blk.Receipts[2].Status)
+				r.Equal(contractAddress, blk.Receipts[2].ContractAddress)
+			},
+		},
+		{
+			name: "deposit to stake II",
+			preFunc: func(e *e2etest) {
+				fmt.Printf("newblock\n")
+			},
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedDepositToStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), bktIdx, stakeAmount.String(), nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedDepositToStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), bktIdx, stakeAmount.String(), nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedExecution(contractAddress, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(1), gasLimit, gasPrice, mustCallData("unlock(uint256)", big.NewInt(1)), action.WithChainID(chainID))), stakeTime},
+				{mustNoErr(action.SignedDepositToStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), bktIdx, stakeAmount.String(), nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				r.NoError(err)
+				r.Len(blk.Receipts, 5)
+				r.EqualValues(iotextypes.ReceiptStatus_ErrExecutionReverted, blk.Receipts[2].Status)
+				candidate, err := test.getCandidateByName("cand1")
+				r.NoError(err)
+				deltaVotes := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{AutoStake: true, StakedDuration: time.Duration(stakeDurationDays*24) * (time.Hour), StakedAmount: new(big.Int).Mul(stakeAmount, big.NewInt(7))}, false)
+				deltaVotes.Sub(deltaVotes, staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{AutoStake: true, StakedDuration: time.Duration(stakeDurationDays*24) * (time.Hour), StakedAmount: new(big.Int).Mul(stakeAmount, big.NewInt(4))}, false))
+				r.Equal(tmpVotes.Add(tmpVotes, deltaVotes).String(), candidate.TotalWeightedVotes)
+				checkStakingVoteView(test, r, "cand1")
+			},
+		},
+	})
+}
+
+func parseNativeStakedBucketIndex(receipt *action.Receipt) []uint64 {
+	var bucketIndexes []uint64
+	for _, log := range receipt.Logs() {
+		if log.Address == address.StakingProtocolAddr && len(log.Topics) > 1 {
+			bucketIndex := new(big.Int).SetBytes(log.Topics[1][:])
+			bucketIndexes = append(bucketIndexes, bucketIndex.Uint64())
+		}
+	}
+	return bucketIndexes
 }

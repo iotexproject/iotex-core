@@ -196,6 +196,8 @@ func TestStakingContract(t *testing.T) {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
+	cfg.API.GRPCPort = 0
+	cfg.API.HTTPPort = 0
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
