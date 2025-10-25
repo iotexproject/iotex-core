@@ -18,6 +18,9 @@ var (
 
 	// ErrStateNotExist is the error that the state does not exist
 	ErrStateNotExist = errors.New("state does not exist")
+
+	// ErrErigonStoreNotSupported is the error that the erigon store is not supported
+	ErrErigonStoreNotSupported = errors.New("erigon store not supported")
 )
 
 // State is the interface, which defines the common methods for state struct to be handled by state factory

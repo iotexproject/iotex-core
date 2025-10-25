@@ -4,9 +4,11 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
@@ -23,7 +25,7 @@ type (
 		StakedDuration uint64 // in seconds if timestamped, in block number if not
 		// CreatedAt is the time when the bucket was created.
 		CreatedAt uint64 // in unix timestamp if timestamped, in block height if not
-		// UnlockedAt is the time when the bucket can be unlocked.
+		// UnlockedAt is the time when the bucket was unlocked.
 		UnlockedAt uint64 // in unix timestamp if timestamped, in block height if not
 		// UnstakedAt is the time when the bucket was unstaked.
 		UnstakedAt uint64 // in unix timestamp if timestamped, in block height if not
@@ -43,14 +45,15 @@ func (b *Bucket) toProto() *stakingpb.SystemStakingBucket {
 		return nil
 	}
 	return &stakingpb.SystemStakingBucket{
-		Owner:      b.Owner.Bytes(),
-		Candidate:  b.Candidate.Bytes(),
-		Amount:     b.StakedAmount.Bytes(),
-		Duration:   b.StakedDuration,
-		CreatedAt:  b.CreatedAt,
-		UnlockedAt: b.UnlockedAt,
-		UnstakedAt: b.UnstakedAt,
-		Muted:      b.Muted,
+		Owner:       b.Owner.String(),
+		Candidate:   b.Candidate.String(),
+		Amount:      b.StakedAmount.String(),
+		Duration:    b.StakedDuration,
+		CreatedAt:   b.CreatedAt,
+		UnlockedAt:  b.UnlockedAt,
+		UnstakedAt:  b.UnstakedAt,
+		Muted:       b.Muted,
+		Timestamped: b.IsTimestampBased,
 	}
 }
 
@@ -60,22 +63,27 @@ func LoadBucketFromProto(pb *stakingpb.SystemStakingBucket) (*Bucket, error) {
 		return nil, nil
 	}
 	b := &Bucket{}
-	owner, err := address.FromBytes(pb.Owner)
+	owner, err := address.FromString(pb.Owner)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert owner bytes to address")
 	}
 	b.Owner = owner
-	cand, err := address.FromBytes(pb.Candidate)
+	cand, err := address.FromString(pb.Candidate)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert candidate bytes to address")
 	}
+	amount, ok := new(big.Int).SetString(pb.Amount, 10)
+	if !ok {
+		return nil, errors.Errorf("invalid staked amount %s", pb.Amount)
+	}
 	b.Candidate = cand
-	b.StakedAmount = new(big.Int).SetBytes(pb.Amount)
+	b.StakedAmount = amount
 	b.StakedDuration = pb.Duration
 	b.CreatedAt = pb.CreatedAt
 	b.UnlockedAt = pb.UnlockedAt
 	b.UnstakedAt = pb.UnstakedAt
 	b.Muted = pb.Muted
+	b.IsTimestampBased = pb.Timestamped
 
 	return b, nil
 }
@@ -112,4 +120,18 @@ func (b *Bucket) Clone() *Bucket {
 		IsTimestampBased: b.IsTimestampBased,
 		Muted:            b.Muted,
 	}
+}
+
+// Encode encodes the bucket into a GenericValue
+func (b *Bucket) Encode() (systemcontracts.GenericValue, error) {
+	data, err := b.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize bucket")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes the bucket from a GenericValue
+func (b *Bucket) Decode(gv systemcontracts.GenericValue) error {
+	return b.Deserialize(gv.PrimaryData)
 }

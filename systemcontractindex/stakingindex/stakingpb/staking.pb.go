@@ -139,6 +139,116 @@ func (x *Bucket) GetTimestamped() bool {
 	return false
 }
 
+type Candidate struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Votes   string `protobuf:"bytes,2,opt,name=votes,proto3" json:"votes,omitempty"`
+	Amount  string `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount,omitempty"`
+}
+
+func (x *Candidate) Reset() {
+	*x = Candidate{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_systemcontractindex_stakingindex_stakingpb_staking_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Candidate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Candidate) ProtoMessage() {}
+
+func (x *Candidate) ProtoReflect() protoreflect.Message {
+	mi := &file_systemcontractindex_stakingindex_stakingpb_staking_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Candidate.ProtoReflect.Descriptor instead.
+func (*Candidate) Descriptor() ([]byte, []int) {
+	return file_systemcontractindex_stakingindex_stakingpb_staking_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Candidate) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *Candidate) GetVotes() string {
+	if x != nil {
+		return x.Votes
+	}
+	return ""
+}
+
+func (x *Candidate) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+type CandidateList struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Candidates []*Candidate `protobuf:"bytes,1,rep,name=candidates,proto3" json:"candidates,omitempty"`
+}
+
+func (x *CandidateList) Reset() {
+	*x = CandidateList{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_systemcontractindex_stakingindex_stakingpb_staking_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CandidateList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CandidateList) ProtoMessage() {}
+
+func (x *CandidateList) ProtoReflect() protoreflect.Message {
+	mi := &file_systemcontractindex_stakingindex_stakingpb_staking_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CandidateList.ProtoReflect.Descriptor instead.
+func (*CandidateList) Descriptor() ([]byte, []int) {
+	return file_systemcontractindex_stakingindex_stakingpb_staking_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CandidateList) GetCandidates() []*Candidate {
+	if x != nil {
+		return x.Candidates
+	}
+	return nil
+}
+
 var File_systemcontractindex_stakingindex_stakingpb_staking_proto protoreflect.FileDescriptor
 
 var file_systemcontractindex_stakingindex_stakingpb_staking_proto_rawDesc = []byte{
@@ -163,12 +273,23 @@ var file_systemcontractindex_stakingindex_stakingpb_staking_proto_rawDesc = []by
 	0x0a, 0x05, 0x6d, 0x75, 0x74, 0x65, 0x64, 0x18, 0x08, 0x20, 0x01, 0x28, 0x08, 0x52, 0x05, 0x6d,
 	0x75, 0x74, 0x65, 0x64, 0x12, 0x20, 0x0a, 0x0b, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d,
 	0x70, 0x65, 0x64, 0x18, 0x09, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0b, 0x74, 0x69, 0x6d, 0x65, 0x73,
-	0x74, 0x61, 0x6d, 0x70, 0x65, 0x64, 0x42, 0x4f, 0x5a, 0x4d, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
-	0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63,
-	0x74, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x2d, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x73, 0x79, 0x73,
-	0x74, 0x65, 0x6d, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x69, 0x6e, 0x64, 0x65, 0x78,
-	0x2f, 0x73, 0x74, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x2f, 0x73, 0x74,
-	0x61, 0x6b, 0x69, 0x6e, 0x67, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x74, 0x61, 0x6d, 0x70, 0x65, 0x64, 0x22, 0x53, 0x0a, 0x09, 0x43, 0x61, 0x6e, 0x64, 0x69, 0x64,
+	0x61, 0x74, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x14, 0x0a,
+	0x05, 0x76, 0x6f, 0x74, 0x65, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x6f,
+	0x74, 0x65, 0x73, 0x12, 0x16, 0x0a, 0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x03, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0x4d, 0x0a, 0x0d, 0x43,
+	0x61, 0x6e, 0x64, 0x69, 0x64, 0x61, 0x74, 0x65, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x3c, 0x0a, 0x0a,
+	0x63, 0x61, 0x6e, 0x64, 0x69, 0x64, 0x61, 0x74, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b,
+	0x32, 0x1c, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x73, 0x74, 0x61, 0x6b, 0x69,
+	0x6e, 0x67, 0x70, 0x62, 0x2e, 0x43, 0x61, 0x6e, 0x64, 0x69, 0x64, 0x61, 0x74, 0x65, 0x52, 0x0a,
+	0x63, 0x61, 0x6e, 0x64, 0x69, 0x64, 0x61, 0x74, 0x65, 0x73, 0x42, 0x4f, 0x5a, 0x4d, 0x67, 0x69,
+	0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x70, 0x72,
+	0x6f, 0x6a, 0x65, 0x63, 0x74, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x2d, 0x63, 0x6f, 0x72, 0x65,
+	0x2f, 0x73, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x69,
+	0x6e, 0x64, 0x65, 0x78, 0x2f, 0x73, 0x74, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x69, 0x6e, 0x64, 0x65,
+	0x78, 0x2f, 0x73, 0x74, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x33,
 }
 
 var (
@@ -183,16 +304,19 @@ func file_systemcontractindex_stakingindex_stakingpb_staking_proto_rawDescGZIP()
 	return file_systemcontractindex_stakingindex_stakingpb_staking_proto_rawDescData
 }
 
-var file_systemcontractindex_stakingindex_stakingpb_staking_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_systemcontractindex_stakingindex_stakingpb_staking_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_systemcontractindex_stakingindex_stakingpb_staking_proto_goTypes = []interface{}{
-	(*Bucket)(nil), // 0: contractstakingpb.Bucket
+	(*Bucket)(nil),        // 0: contractstakingpb.Bucket
+	(*Candidate)(nil),     // 1: contractstakingpb.Candidate
+	(*CandidateList)(nil), // 2: contractstakingpb.CandidateList
 }
 var file_systemcontractindex_stakingindex_stakingpb_staking_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: contractstakingpb.CandidateList.candidates:type_name -> contractstakingpb.Candidate
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_systemcontractindex_stakingindex_stakingpb_staking_proto_init() }
@@ -213,6 +337,30 @@ func file_systemcontractindex_stakingindex_stakingpb_staking_proto_init() {
 				return nil
 			}
 		}
+		file_systemcontractindex_stakingindex_stakingpb_staking_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Candidate); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_systemcontractindex_stakingindex_stakingpb_staking_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CandidateList); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -220,7 +368,7 @@ func file_systemcontractindex_stakingindex_stakingpb_staking_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_systemcontractindex_stakingindex_stakingpb_staking_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

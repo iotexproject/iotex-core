@@ -8,9 +8,10 @@ import (
 
 	"go.uber.org/mock/gomock"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBase(t *testing.T) {
@@ -64,7 +65,7 @@ func TestBase(t *testing.T) {
 			require.Equal(1, len(cache.BucketIdxs()))
 			t.Run("commit", func(t *testing.T) {
 				sm := mock_chainmanager.NewMockStateManager(ctrl)
-				sm.EXPECT().DelState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).Times(1)
+				sm.EXPECT().DelState(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(0), nil).Times(1)
 				sm.EXPECT().PutState(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint64(0), nil).Times(1)
 				_, err := cache.Commit(context.Background(), identityset.Address(10), false, sm)
 				require.NoError(err)

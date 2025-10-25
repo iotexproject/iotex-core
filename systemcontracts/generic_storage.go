@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/erigontech/erigon/core/vm"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -142,16 +143,16 @@ func (g *GenericStorageContract) Get(key []byte) (*GetResult, error) {
 }
 
 // Remove deletes data by key
-func (g *GenericStorageContract) Remove(key []byte) error {
+func (g *GenericStorageContract) Remove(key []byte) (bool, error) {
 	// Validate input
 	if len(key) == 0 {
-		return errors.New("key cannot be empty")
+		return false, errors.New("key cannot be empty")
 	}
 
 	// Pack the function call
 	data, err := g.abi.Pack("remove", key)
 	if err != nil {
-		return errors.Wrap(err, "failed to pack remove call")
+		return false, errors.Wrap(err, "failed to pack remove call")
 	}
 
 	// Execute the transaction
@@ -164,13 +165,16 @@ func (g *GenericStorageContract) Remove(key []byte) error {
 	}
 
 	if err := g.backend.Handle(callMsg); err != nil {
-		return errors.Wrap(err, "failed to execute remove")
+		if errors.Is(err, vm.ErrExecutionReverted) && strings.Contains(err.Error(), "Key does not exist") {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "failed to execute remove")
 	}
 
 	log.L().Debug("Successfully removed data",
 		zap.String("key", string(key)))
 
-	return nil
+	return true, nil
 }
 
 // BatchGet retrieves multiple values by their keys

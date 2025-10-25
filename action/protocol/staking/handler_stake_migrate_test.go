@@ -82,7 +82,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 
 	ctx := genesis.WithGenesisContext(context.Background(), cfg)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
-
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	view, err := p.Start(ctx, sm)
 	r.NoError(err)
 	r.NoError(sm.WriteView(p.Name(), view))

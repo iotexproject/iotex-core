@@ -163,6 +163,8 @@ type (
 		CandidateBLSPublicKey                   bool
 		NotUseMinSelfStakeToBeActive            bool
 		StoreVoteOfNFTBucketIntoView            bool
+		CandidateSlashByOwner                   bool
+		CandidateBLSPublicKeyNotCopied          bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -325,10 +327,12 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			TimestampedStakingContract:              g.IsWake(height),
 			PreStateSystemAction:                    !g.IsWake(height),
 			CreatePostActionStates:                  g.IsWake(height),
-			NotSlashUnproductiveDelegates:           !g.IsToBeEnabled(height),
-			CandidateBLSPublicKey:                   g.IsToBeEnabled(height),
-			NotUseMinSelfStakeToBeActive:            !g.IsToBeEnabled(height),
-			StoreVoteOfNFTBucketIntoView:            !g.IsToBeEnabled(height),
+			NotSlashUnproductiveDelegates:           !g.IsXingu(height),
+			CandidateBLSPublicKey:                   g.IsXingu(height),
+			NotUseMinSelfStakeToBeActive:            !g.IsXingu(height),
+			StoreVoteOfNFTBucketIntoView:            !g.IsXingu(height),
+			CandidateSlashByOwner:                   !g.IsXinguBeta(height),
+			CandidateBLSPublicKeyNotCopied:          !g.IsXinguBeta(height),
 		},
 	)
 }
@@ -351,7 +355,7 @@ func GetFeatureCtx(ctx context.Context) (FeatureCtx, bool) {
 func MustGetFeatureCtx(ctx context.Context) FeatureCtx {
 	fc, ok := ctx.Value(featureContextKey{}).(FeatureCtx)
 	if !ok {
-		log.S().Panic("Miss feature context")
+		log.L().Panic("Miss feature context")
 	}
 	return fc
 }

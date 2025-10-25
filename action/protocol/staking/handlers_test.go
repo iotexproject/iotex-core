@@ -111,6 +111,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	g.VanuatuBlockHeight = 1
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(*viewData)
@@ -3355,6 +3356,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	require.NoError(csm.putCandidate(candidate2))
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(*viewData)

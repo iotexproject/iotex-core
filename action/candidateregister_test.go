@@ -9,11 +9,14 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
@@ -238,4 +241,103 @@ func TestIsValidCandidateName(t *testing.T) {
 		output := IsValidCandidateName(tt.input)
 		require.Equal(tt.output, output)
 	}
+}
+
+func TestStakingEvent(t *testing.T) {
+	require := require.New(t)
+	cand := identityset.Address(0)
+	owner := identityset.Address(1)
+	operator := identityset.Address(2)
+	reward := identityset.Address(3)
+	voter := identityset.Address(4)
+	blsPrivKey, err := crypto.GenerateBLS12381PrivateKey(identityset.PrivateKey(0).Bytes())
+	require.NoError(err)
+	blsPubKey := blsPrivKey.PublicKey().Bytes()
+	name := "test"
+
+	t.Run("register", func(t *testing.T) {
+		topics, data, err := PackCandidateRegisteredEvent(cand, operator, owner, name, reward, blsPubKey)
+		require.NoError(err)
+		checkCandidateRegisterEvent(require, topics, data, owner, cand, operator, reward, name, blsPubKey)
+	})
+	t.Run("staked", func(t *testing.T) {
+		bktIdx := uint64(1)
+		amount := big.NewInt(100)
+		duration := uint32(3600)
+		autoStake := true
+		topics, data, err := PackStakedEvent(voter, cand, bktIdx, amount, duration, autoStake)
+		require.NoError(err)
+		checkStakedEvent(require, topics, data, voter, cand, bktIdx, amount, duration, autoStake)
+	})
+	t.Run("activate", func(t *testing.T) {
+		bktIdx := uint64(1)
+		topics, data, err := PackCandidateActivatedEvent(cand, bktIdx)
+		require.NoError(err)
+		checkActivatedEvent(require, topics, data, cand, bktIdx)
+	})
+	t.Run("update", func(t *testing.T) {
+		topics, data, err := PackCandidateUpdatedEvent(cand, operator, owner, name, reward, blsPubKey)
+		require.NoError(err)
+		checkCandidateUpdateEvent(require, topics, data, owner, cand, operator, reward, name, blsPubKey)
+	})
+}
+
+func checkCandidateRegisterEvent(require *require.Assertions, topics Topics, data []byte,
+	owner, cand, operator, reward address.Address, name string, blsPubKey []byte,
+) {
+	paramsNonIndexed, err := _candidateRegisteredEvent.Inputs.Unpack(data)
+	require.NoError(err)
+	require.Equal(4, len(paramsNonIndexed))
+	require.Equal(operator.Bytes(), paramsNonIndexed[0].(common.Address).Bytes())
+	require.Equal(name, paramsNonIndexed[1].(string))
+	require.Equal(reward.Bytes(), paramsNonIndexed[2].(common.Address).Bytes())
+	require.Equal(blsPubKey, paramsNonIndexed[3].([]byte))
+	require.Equal(3, len(topics))
+	require.Equal(hash.Hash256(_candidateRegisteredEvent.ID), topics[0])
+	require.Equal(hash.BytesToHash256(cand.Bytes()), topics[1])
+	require.Equal(hash.BytesToHash256(owner.Bytes()), topics[2])
+}
+
+func checkStakedEvent(require *require.Assertions, topics Topics, data []byte,
+	voter, cand address.Address, bktIdx uint64, amount *big.Int, duration uint32, autoStake bool,
+) {
+	paramsNonIndexed, err := _stakedEvent.Inputs.Unpack(data)
+	require.NoError(err)
+	require.Equal(4, len(paramsNonIndexed))
+	require.Equal(bktIdx, paramsNonIndexed[0].(uint64))
+	require.Equal(amount, paramsNonIndexed[1].(*big.Int))
+	require.Equal(duration, paramsNonIndexed[2].(uint32))
+	require.Equal(autoStake, paramsNonIndexed[3].(bool))
+	require.Equal(3, len(topics))
+	require.Equal(hash.Hash256(_stakedEvent.ID), topics[0])
+	require.Equal(hash.BytesToHash256(voter.Bytes()), topics[1])
+	require.Equal(hash.BytesToHash256(cand.Bytes()), topics[2])
+}
+
+func checkActivatedEvent(require *require.Assertions, topics Topics, data []byte,
+	cand address.Address, bktIdx uint64,
+) {
+	paramsNonIndexed, err := _candidateActivatedEvent.Inputs.Unpack(data)
+	require.NoError(err)
+	require.Equal(1, len(paramsNonIndexed))
+	require.Equal(bktIdx, paramsNonIndexed[0].(uint64))
+	require.Equal(2, len(topics))
+	require.Equal(hash.Hash256(_candidateActivatedEvent.ID), topics[0])
+	require.Equal(hash.BytesToHash256(cand.Bytes()), topics[1])
+}
+
+func checkCandidateUpdateEvent(require *require.Assertions, topics Topics, data []byte,
+	owner, cand, operator, reward address.Address, name string, blsPubKey []byte,
+) {
+	paramsNonIndexed, err := _candidateUpdateWithBLSEvent.Inputs.Unpack(data)
+	require.NoError(err)
+	require.Equal(4, len(paramsNonIndexed))
+	require.Equal(reward.Bytes(), paramsNonIndexed[0].(common.Address).Bytes())
+	require.Equal(name, paramsNonIndexed[1].(string))
+	require.Equal(operator.Bytes(), paramsNonIndexed[2].(common.Address).Bytes())
+	require.Equal(blsPubKey, paramsNonIndexed[3].([]byte))
+	require.Equal(3, len(topics))
+	require.Equal(hash.Hash256(_candidateUpdateWithBLSEvent.ID), topics[0])
+	require.Equal(hash.BytesToHash256(cand.Bytes()), topics[1])
+	require.Equal(hash.BytesToHash256(owner.Bytes()), topics[2])
 }

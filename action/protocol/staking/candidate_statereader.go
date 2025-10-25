@@ -46,7 +46,7 @@ type (
 		NativeBucketIndicesByVoter(addr address.Address) (*BucketIndices, uint64, error)
 		NativeBucketIndicesByCandidate(addr address.Address) (*BucketIndices, uint64, error)
 		CandidateByAddress(name address.Address) (*Candidate, uint64, error)
-		CreateCandidateCenter() (*CandidateCenter, uint64, error)
+		CreateCandidateCenter(ctx protocol.FeatureCtx) (*CandidateCenter, uint64, error)
 		ReadState
 		Height() uint64
 		SR() protocol.StateReader
@@ -146,13 +146,13 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 }
 
 // CreateBaseView creates the base view from state reader
-func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*viewData, uint64, error) {
+func CreateBaseView(ctx protocol.FeatureCtx, sr protocol.StateReader, enableSMStorage bool) (*viewData, uint64, error) {
 	if sr == nil {
 		return nil, 0, ErrMissingField
 	}
 
 	csr := newCandidateStateReader(sr)
-	center, height, err := csr.CreateCandidateCenter()
+	center, height, err := csr.CreateCandidateCenter(ctx)
 	if err != nil {
 		return nil, height, err
 	}
@@ -297,7 +297,7 @@ func (c *candSR) CandidateByAddress(name address.Address) (*Candidate, uint64, e
 	return &d, height, err
 }
 
-func (c *candSR) CreateCandidateCenter() (*CandidateCenter, uint64, error) {
+func (c *candSR) CreateCandidateCenter(ctx protocol.FeatureCtx) (*CandidateCenter, uint64, error) {
 	height, iter, err := c.States(protocol.NamespaceOption(_candidateNameSpace), protocol.ObjectOption(&Candidate{}))
 	var cands CandidateList
 	switch errors.Cause(err) {
@@ -313,6 +313,11 @@ func (c *candSR) CreateCandidateCenter() (*CandidateCenter, uint64, error) {
 	case state.ErrStateNotExist:
 	default:
 		return nil, height, err
+	}
+	if ctx.CandidateBLSPublicKeyNotCopied {
+		for i := range cands {
+			cands[i].BLSPubKey = nil
+		}
 	}
 	center, err := NewCandidateCenter(cands)
 	if err != nil {

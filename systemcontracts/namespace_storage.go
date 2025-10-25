@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/erigontech/erigon/core/vm"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -154,19 +155,19 @@ func (ns *NamespaceStorageContract) Get(namespace string, key []byte) (*Namespac
 }
 
 // Remove deletes data by namespace and key
-func (ns *NamespaceStorageContract) Remove(namespace string, key []byte) error {
+func (ns *NamespaceStorageContract) Remove(namespace string, key []byte) (bool, error) {
 	// Validate input
 	if len(namespace) == 0 {
-		return errors.New("namespace cannot be empty")
+		return false, errors.New("namespace cannot be empty")
 	}
 	if len(key) == 0 {
-		return errors.New("key cannot be empty")
+		return false, errors.New("key cannot be empty")
 	}
 
 	// Pack the function call
 	data, err := ns.abi.Pack("remove", namespace, key)
 	if err != nil {
-		return errors.Wrap(err, "failed to pack remove call")
+		return false, errors.Wrap(err, "failed to pack remove call")
 	}
 
 	// Execute the transaction
@@ -179,14 +180,18 @@ func (ns *NamespaceStorageContract) Remove(namespace string, key []byte) error {
 	}
 
 	if err := ns.backend.Handle(callMsg); err != nil {
-		return errors.Wrap(err, "failed to execute remove")
+		if errors.Is(err, vm.ErrExecutionReverted) && (strings.Contains(err.Error(), "Key does not exist") ||
+			strings.Contains(err.Error(), "Namespace does not exist")) {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "failed to execute remove")
 	}
 
 	log.L().Debug("Successfully removed data",
 		zap.String("namespace", namespace),
 		zap.String("key", string(key)))
 
-	return nil
+	return true, nil
 }
 
 // Exists checks if a key exists in a namespace

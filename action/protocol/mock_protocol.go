@@ -158,6 +158,45 @@ func (mr *MockStarterMockRecorder) Start(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockStarter)(nil).Start), arg0, arg1)
 }
 
+// MockViewer is a mock of Viewer interface.
+type MockViewer struct {
+	ctrl     *gomock.Controller
+	recorder *MockViewerMockRecorder
+	isgomock struct{}
+}
+
+// MockViewerMockRecorder is the mock recorder for MockViewer.
+type MockViewerMockRecorder struct {
+	mock *MockViewer
+}
+
+// NewMockViewer creates a new mock instance.
+func NewMockViewer(ctrl *gomock.Controller) *MockViewer {
+	mock := &MockViewer{ctrl: ctrl}
+	mock.recorder = &MockViewerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockViewer) EXPECT() *MockViewerMockRecorder {
+	return m.recorder
+}
+
+// ViewAt mocks base method.
+func (m *MockViewer) ViewAt(arg0 context.Context, arg1 StateReader) (View, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ViewAt", arg0, arg1)
+	ret0, _ := ret[0].(View)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ViewAt indicates an expected call of ViewAt.
+func (mr *MockViewerMockRecorder) ViewAt(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ViewAt", reflect.TypeOf((*MockViewer)(nil).ViewAt), arg0, arg1)
+}
+
 // MockGenesisStateCreator is a mock of GenesisStateCreator interface.
 type MockGenesisStateCreator struct {
 	ctrl     *gomock.Controller

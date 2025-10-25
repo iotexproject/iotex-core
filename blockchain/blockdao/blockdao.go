@@ -128,6 +128,7 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexe
 
 // Start starts block DAO and initiates the top height if it doesn't exist
 func (dao *blockDAO) Start(ctx context.Context) error {
+	log.L().Debug("Starting block DAO...")
 	if dao.blockStore != nil {
 		if err := dao.blockStore.Start(ctx); err != nil {
 			return errors.Wrap(err, "failed to start block store")

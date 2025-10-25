@@ -33,8 +33,15 @@ func newAccountStorage(addr common.Address, backend *contractBackend) (*accountS
 	}, nil
 }
 
-func (as *accountStorage) Delete([]byte) error {
-	return errors.New("not implemented")
+func (as *accountStorage) Delete(key []byte) error {
+	exist, err := as.contract.Remove(key)
+	if err != nil {
+		return errors.Wrapf(err, "failed to remove account data for key %x", key)
+	}
+	if !exist {
+		return errors.Wrapf(state.ErrStateNotExist, "key: %x", key)
+	}
+	return nil
 }
 
 func (as *accountStorage) Batch([][]byte) (state.Iterator, error) {
