@@ -65,6 +65,7 @@ const (
 var (
 	ErrWithdrawnBucket     = errors.New("the bucket is already withdrawn")
 	ErrEndorsementNotExist = errors.New("the endorsement does not exist")
+	ErrNoSelfStakeBucket   = errors.New("no self-stake bucket")
 	TotalBucketKey         = append([]byte{_const}, []byte("totalBucket")...)
 )
 
@@ -404,6 +405,9 @@ func (p *Protocol) SlashCandidate(
 	if candidate == nil {
 		return errors.Wrapf(state.ErrStateNotExist, "candidate %s does not exist", owner.String())
 	}
+	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
+		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
+	}
 	bucket, err := p.fetchBucket(csm, candidate.SelfStakeBucketIdx)
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch bucket")
@@ -429,7 +433,7 @@ func (p *Protocol) SlashCandidate(
 	if err := csm.Upsert(candidate); err != nil {
 		return errors.Wrap(err, "failed to upsert candidate")
 	}
-	return csm.CreditBucketPool(amount)
+	return csm.CreditBucketPool(amount, false)
 }
 
 // CreatePreStates updates state manager

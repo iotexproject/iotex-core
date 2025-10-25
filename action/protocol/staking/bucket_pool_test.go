@@ -41,11 +41,11 @@ func TestTotalAmount(t *testing.T) {
 	r.Equal(a, b)
 
 	// test sub balance
-	r.Equal(state.ErrNotEnoughBalance, a.SubBalance(big.NewInt(11)))
-	r.NoError(a.SubBalance(big.NewInt(4)))
+	r.Equal(state.ErrNotEnoughBalance, a.SubBalance(big.NewInt(11), true))
+	r.NoError(a.SubBalance(big.NewInt(4), true))
 	r.Equal(big.NewInt(6), a.amount)
 	r.EqualValues(0, a.count)
-	r.Equal(state.ErrNotEnoughBalance, a.SubBalance(big.NewInt(1)))
+	r.Equal(state.ErrNotEnoughBalance, a.SubBalance(big.NewInt(1), true))
 
 	// test add balance
 	a.AddBalance(big.NewInt(1), true)
@@ -128,7 +128,7 @@ func TestBucketPool(t *testing.T) {
 		if v.debit {
 			err = csm.DebitBucketPool(v.amount, v.newBucket)
 		} else {
-			err = csm.CreditBucketPool(v.amount)
+			err = csm.CreditBucketPool(v.amount, true)
 		}
 		r.Equal(v.expected, err)
 
