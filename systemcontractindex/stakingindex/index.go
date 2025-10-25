@@ -134,6 +134,13 @@ func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (s
 	if !s.common.Started() {
 		return nil, errors.New("indexer not started")
 	}
+	tip, err := sr.Height()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get tip height from state reader")
+	}
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: tip + 1,
+	}))
 	if protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
 		return &stakeView{
 			cache:              s.cache.Clone(),
