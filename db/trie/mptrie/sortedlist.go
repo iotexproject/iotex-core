@@ -1,6 +1,7 @@
 package mptrie
 
 import (
+	"slices"
 	"sort"
 )
 
@@ -31,9 +32,7 @@ func (sl *SortedList) sort() {
 	if sl.sorted {
 		return
 	}
-	sort.Slice(sl.li, func(i, j int) bool {
-		return sl.li[i] < sl.li[j]
-	})
+	slices.Sort(sl.li)
 	sl.sorted = true
 }
 
