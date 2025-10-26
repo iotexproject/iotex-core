@@ -486,8 +486,8 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			sdb.currentChainHeight, h,
 		)
 	}
-	if blk.Height() >= 10000 {
-		panic("stop 10000 for debugging")
+	if blk.Height() >= 10000000 {
+		panic("stop 10000000 for debugging")
 	}
 	if err := ws.Commit(ctx, sdb.cfg.Chain.HistoryBlockRetention); err != nil {
 		return err
