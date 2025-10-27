@@ -73,7 +73,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	g.Rewarding.NumDelegatesForFoundationBonus = 5
 	g.Rewarding.FoundationBonusLastEpoch = 365
 	g.Rewarding.ProductivityThreshold = 50
-	g.ToBeEnabledBlockHeight = slashHeight
+	g.XinguBlockHeight = slashHeight
 	// Initialize the protocol
 	if withExempt {
 		g.Rewarding.ExemptAddrStrsFromEpochReward = []string{

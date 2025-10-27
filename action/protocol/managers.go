@@ -62,13 +62,22 @@ func ObjectOption(obj any) StateOption {
 	}
 }
 
+// ErigonStoreOnlyOption sets the option to only read/write from/to erigon store
+func ErigonStoreOnlyOption() StateOption {
+	return func(cfg *StateConfig) error {
+		cfg.ErigonStoreOnly = true
+		return nil
+	}
+}
+
 type (
 	// StateConfig is the config for accessing stateDB
 	StateConfig struct {
-		Namespace string // namespace used by state's storage
-		Key       []byte
-		Keys      [][]byte
-		Object    any // object used by state's storage
+		Namespace       string // namespace used by state's storage
+		Key             []byte
+		Keys            [][]byte
+		Object          any  // object used by state's storage
+		ErigonStoreOnly bool // whether only read/write from/to erigon store
 	}
 
 	// StateOption sets parameter for access state

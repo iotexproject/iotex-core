@@ -186,6 +186,7 @@ func (p *Protocol) GrantEpochReward(
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	pp := poll.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
@@ -213,7 +214,7 @@ func (p *Protocol) GrantEpochReward(
 	var err error
 	uqdMap := make(map[string]uint64)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
-	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
+	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) || !featureCtx.NotSlashUnproductiveDelegates {
 		// Get unqualified delegate list
 		uqdMap, err = pp.CalculateUnproductiveDelegates(ctx, sm)
 		if err != nil {
@@ -227,7 +228,7 @@ func (p *Protocol) GrantEpochReward(
 	actualTotalReward := big.NewInt(0)
 	transactionLogs := make([]*action.TransactionLog, 0)
 	rewardLogs := make([]*action.Log, 0)
-	if !protocol.MustGetFeatureCtx(ctx).NotSlashUnproductiveDelegates {
+	if !featureCtx.NotSlashUnproductiveDelegates {
 		slashAmount, slashLogs, err := p.slashUqd(ctx, sm, blkCtx.BlockHeight, actionCtx.ActionHash, candidates, a.blockReward, uqdMap)
 		if err != nil {
 			return nil, nil, err
@@ -243,7 +244,11 @@ func (p *Protocol) GrantEpochReward(
 		rewardLogs = append(rewardLogs, slashLogs...)
 		actualTotalReward = big.NewInt(0).Sub(actualTotalReward, slashAmount)
 	}
-	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqdMap)
+	epochRewardSplitUqdMap := make(map[string]uint64)
+	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
+		epochRewardSplitUqdMap = uqdMap
+	}
+	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -541,6 +546,7 @@ func (p *Protocol) slashUqd(
 	}
 	slashLogs := make([]*action.Log, 0)
 	snapshot := view.Snapshot()
+	fCtx := protocol.MustGetFeatureCtx(ctx)
 	for _, candidate := range candidates {
 		if missed, ok := uqdMap[candidate.Address]; ok {
 			if missed == 0 {
@@ -549,14 +555,24 @@ func (p *Protocol) slashUqd(
 			}
 			amount := big.NewInt(0).Mul(slashRate, big.NewInt(0).SetUint64(missed))
 			actLog, err := p.slashDelegate(ctx, sm, stakingProtocol, blockHeight, actionHash, candidate, amount)
-			if err != nil {
+			switch errors.Cause(err) {
+			case nil:
+				slashLogs = append(slashLogs, actLog)
+				totalSlashAmount.Add(totalSlashAmount, amount)
+			case staking.ErrNoSelfStakeBucket:
+				log.S().Errorf("Candidate %s doesn't have self-stake bucket, no slash", candidate.Address)
+			case staking.ErrCandidateNotExist:
+				if !fCtx.CandidateSlashByOwner {
+					log.S().Errorf("Candidate %s doesn't exist, ignore slash", candidate.Address)
+					continue
+				}
+				fallthrough
+			default:
 				if err := view.Revert(snapshot); err != nil {
 					return nil, nil, errors.Wrap(err, "failed to revert view")
 				}
 				return nil, nil, err
 			}
-			slashLogs = append(slashLogs, actLog)
-			totalSlashAmount.Add(totalSlashAmount, amount)
 		}
 	}
 	return totalSlashAmount, slashLogs, nil

@@ -160,6 +160,7 @@ func initTestStateWithHeight(t *testing.T, ctrl *gomock.Controller, bucketCfgs [
 	cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 	ctx := genesis.WithGenesisContext(context.Background(), cfg)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(*viewData)

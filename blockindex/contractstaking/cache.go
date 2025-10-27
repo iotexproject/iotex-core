@@ -8,6 +8,7 @@ package contractstaking
 import (
 	"context"
 	"log"
+	"maps"
 	"math/big"
 	"sync"
 
@@ -55,8 +56,6 @@ type (
 )
 
 var (
-	// ErrBucketNotExist is the error when bucket does not exist
-	ErrBucketNotExist = errors.New("bucket does not exist")
 	// ErrInvalidHeight is the error when height is invalid
 	ErrInvalidHeight = errors.New("invalid height")
 )
@@ -291,9 +290,7 @@ func (s *contractStakingCache) Clone() stakingCache {
 	c.candidateBucketMap = make(map[string]map[uint64]bool, len(s.candidateBucketMap))
 	for k, v := range s.candidateBucketMap {
 		c.candidateBucketMap[k] = make(map[uint64]bool, len(v))
-		for k1, v1 := range v {
-			c.candidateBucketMap[k][k1] = v1
-		}
+		maps.Copy(c.candidateBucketMap[k], v)
 	}
 	c.bucketTypeMap = make(map[uint64]*BucketType, len(s.bucketTypeMap))
 	for k, v := range s.bucketTypeMap {
@@ -302,9 +299,7 @@ func (s *contractStakingCache) Clone() stakingCache {
 	c.propertyBucketTypeMap = make(map[int64]map[uint64]uint64, len(s.propertyBucketTypeMap))
 	for k, v := range s.propertyBucketTypeMap {
 		c.propertyBucketTypeMap[k] = make(map[uint64]uint64, len(v))
-		for k1, v1 := range v {
-			c.propertyBucketTypeMap[k][k1] = v1
-		}
+		maps.Copy(c.propertyBucketTypeMap[k], v)
 	}
 	c.deltaBucketTypes = make(map[uint64]*BucketType, len(s.deltaBucketTypes))
 	for k, v := range s.deltaBucketTypes {

@@ -70,7 +70,7 @@ func (s *base) Load(kvstore db.KVStore, ns, bucketNS string) error {
 		if err := b.Deserialize(vs[i]); err != nil {
 			return err
 		}
-		s.PutBucket(byteutil.BytesToUint64BigEndian(ks[i]), &b)
+		s.putBucket(byteutil.BytesToUint64BigEndian(ks[i]), &b)
 	}
 	return nil
 }
@@ -104,6 +104,10 @@ func (s *base) Clone() indexerCache {
 func (s *base) PutBucket(id uint64, bkt *Bucket) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.putBucket(id, bkt)
+}
+
+func (s *base) putBucket(id uint64, bkt *Bucket) {
 	cand := bkt.Candidate.String()
 	if s.buckets[id] != nil {
 		prevCand := s.buckets[id].Candidate.String()

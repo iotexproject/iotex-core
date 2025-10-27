@@ -228,6 +228,22 @@ func (mr *MockContractStakingIndexerMockRecorder) ContractAddress() *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractAddress", reflect.TypeOf((*MockContractStakingIndexer)(nil).ContractAddress))
 }
 
+// ContractStakingBuckets mocks base method.
+func (m *MockContractStakingIndexer) ContractStakingBuckets() (uint64, map[uint64]*contractstaking.Bucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContractStakingBuckets")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(map[uint64]*contractstaking.Bucket)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ContractStakingBuckets indicates an expected call of ContractStakingBuckets.
+func (mr *MockContractStakingIndexerMockRecorder) ContractStakingBuckets() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStakingBuckets", reflect.TypeOf((*MockContractStakingIndexer)(nil).ContractStakingBuckets))
+}
+
 // CreateEventProcessor mocks base method.
 func (m *MockContractStakingIndexer) CreateEventProcessor(arg0 context.Context, arg1 EventHandler) EventProcessor {
 	m.ctrl.T.Helper()
@@ -240,6 +256,21 @@ func (m *MockContractStakingIndexer) CreateEventProcessor(arg0 context.Context, 
 func (mr *MockContractStakingIndexerMockRecorder) CreateEventProcessor(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEventProcessor", reflect.TypeOf((*MockContractStakingIndexer)(nil).CreateEventProcessor), arg0, arg1)
+}
+
+// DeductBucket mocks base method.
+func (m *MockContractStakingIndexer) DeductBucket(arg0 address.Address, arg1 uint64) (*contractstaking.Bucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeductBucket", arg0, arg1)
+	ret0, _ := ret[0].(*contractstaking.Bucket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeductBucket indicates an expected call of DeductBucket.
+func (mr *MockContractStakingIndexerMockRecorder) DeductBucket(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeductBucket", reflect.TypeOf((*MockContractStakingIndexer)(nil).DeductBucket), arg0, arg1)
 }
 
 // Height mocks base method.
@@ -441,6 +472,22 @@ func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) ContractAddress(
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractAddress", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).ContractAddress))
 }
 
+// ContractStakingBuckets mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) ContractStakingBuckets() (uint64, map[uint64]*contractstaking.Bucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContractStakingBuckets")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(map[uint64]*contractstaking.Bucket)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ContractStakingBuckets indicates an expected call of ContractStakingBuckets.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) ContractStakingBuckets() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStakingBuckets", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).ContractStakingBuckets))
+}
+
 // CreateEventProcessor mocks base method.
 func (m *MockContractStakingIndexerWithBucketType) CreateEventProcessor(arg0 context.Context, arg1 EventHandler) EventProcessor {
 	m.ctrl.T.Helper()
@@ -453,6 +500,21 @@ func (m *MockContractStakingIndexerWithBucketType) CreateEventProcessor(arg0 con
 func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) CreateEventProcessor(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEventProcessor", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).CreateEventProcessor), arg0, arg1)
+}
+
+// DeductBucket mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) DeductBucket(arg0 address.Address, arg1 uint64) (*contractstaking.Bucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeductBucket", arg0, arg1)
+	ret0, _ := ret[0].(*contractstaking.Bucket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeductBucket indicates an expected call of DeductBucket.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) DeductBucket(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeductBucket", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).DeductBucket), arg0, arg1)
 }
 
 // Height mocks base method.

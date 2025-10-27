@@ -20,7 +20,7 @@ func TestValidateBucket(t *testing.T) {
 	initState := func() (CandidateStateManager, *EndorsementStateManager) {
 		ctrl := gomock.NewController(t)
 		sm := testdb.NewMockStateManager(ctrl)
-		v, _, err := CreateBaseView(sm, false)
+		v, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, false)
 		r.NoError(err)
 		sm.WriteView(_protocolID, v)
 		csm, err := NewCandidateStateManager(sm)

@@ -9,7 +9,7 @@ interface INativeStakingContract {
         address operatorAddress,
         string name,
         address rewardAddress,
-        bytes blsPublicKey
+        bytes blsPubKey
     );
     event Staked(
         address indexed voter,
@@ -29,7 +29,7 @@ interface INativeStakingContract {
         address operatorAddress,
         string name,
         address rewardAddress,
-        bytes blsPublicKey
+        bytes blsPubKey
     );
 
     function candidateRegister(
@@ -50,7 +50,7 @@ interface INativeStakingContract {
         address ownerAddress,
         uint32 duration,
         bool autoStake,
-        bytes memory blsPublicKey,
+        bytes memory blsPubKey,
         uint8[] memory data
     ) external payable;
 
@@ -82,7 +82,7 @@ interface INativeStakingContract {
         string memory name,
         address operatorAddress,
         address rewardAddress,
-        bytes memory blsPublicKey
+        bytes memory blsPubKey
     ) external;
 
     // Stake Management

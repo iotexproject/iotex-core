@@ -51,8 +51,9 @@ type (
 		GetByName(string) *Candidate
 		GetByOwner(address.Address) *Candidate
 		GetByIdentifier(address.Address) *Candidate
+		GetByOperator(address.Address) *Candidate
 		Upsert(*Candidate) error
-		CreditBucketPool(*big.Int) error
+		CreditBucketPool(*big.Int, bool) error
 		DebitBucketPool(*big.Int, bool) error
 		Commit(context.Context) error
 		SM() protocol.StateManager
@@ -148,6 +149,10 @@ func (csm *candSM) GetByIdentifier(addr address.Address) *Candidate {
 	return csm.candCenter.GetByIdentifier(addr)
 }
 
+func (csm *candSM) GetByOperator(addr address.Address) *Candidate {
+	return csm.candCenter.GetByOperator(addr)
+}
+
 // Upsert writes the candidate into state manager and cand center
 func (csm *candSM) Upsert(d *Candidate) error {
 	if err := csm.candCenter.Upsert(d); err != nil {
@@ -157,8 +162,8 @@ func (csm *candSM) Upsert(d *Candidate) error {
 	return csm.putCandidate(d)
 }
 
-func (csm *candSM) CreditBucketPool(amount *big.Int) error {
-	return csm.bucketPool.CreditPool(csm.StateManager, amount)
+func (csm *candSM) CreditBucketPool(amount *big.Int, deleteBucket bool) error {
+	return csm.bucketPool.CreditPool(csm.StateManager, amount, deleteBucket)
 }
 
 func (csm *candSM) DebitBucketPool(amount *big.Int, newBucket bool) error {

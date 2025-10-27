@@ -38,7 +38,7 @@ type (
 		Votes         *big.Int
 		RewardAddress string
 		CanName       []byte // used as identifier to merge with native staking result, not part of protobuf
-		Pubkey        []byte // BLS public key, used for verification
+		BLSPubKey     []byte // BLS public key, used for verification
 	}
 
 	// CandidateList indicates the list of Candidates which is sortable
@@ -59,7 +59,7 @@ func (c *Candidate) Equal(d *Candidate) bool {
 	return strings.Compare(c.Address, d.Address) == 0 &&
 		c.RewardAddress == d.RewardAddress &&
 		c.Votes.Cmp(d.Votes) == 0 &&
-		bytes.Equal(c.Pubkey, d.Pubkey)
+		bytes.Equal(c.BLSPubKey, d.BLSPubKey)
 }
 
 // Clone makes a copy of the candidate
@@ -70,16 +70,16 @@ func (c *Candidate) Clone() *Candidate {
 	name := make([]byte, len(c.CanName))
 	copy(name, c.CanName)
 	var pubkey []byte
-	if len(c.Pubkey) > 0 {
-		pubkey = make([]byte, len(c.Pubkey))
-		copy(pubkey, c.Pubkey)
+	if len(c.BLSPubKey) > 0 {
+		pubkey = make([]byte, len(c.BLSPubKey))
+		copy(pubkey, c.BLSPubKey)
 	}
 	return &Candidate{
 		Address:       c.Address,
 		Votes:         new(big.Int).Set(c.Votes),
 		RewardAddress: c.RewardAddress,
 		CanName:       name,
-		Pubkey:        pubkey,
+		BLSPubKey:     pubkey,
 	}
 }
 
@@ -176,8 +176,8 @@ func candidateToPb(cand *Candidate) *iotextypes.Candidate {
 	if cand.Votes != nil && len(cand.Votes.Bytes()) > 0 {
 		candidatePb.Votes = cand.Votes.Bytes()
 	}
-	if len(cand.Pubkey) > 0 {
-		candidatePb.BlsPubKey = cand.Pubkey
+	if len(cand.BLSPubKey) > 0 {
+		candidatePb.BlsPubKey = cand.BLSPubKey
 	}
 	return candidatePb
 }
@@ -191,7 +191,7 @@ func pbToCandidate(candPb *iotextypes.Candidate) (*Candidate, error) {
 		Address:       candPb.Address,
 		Votes:         big.NewInt(0).SetBytes(candPb.Votes),
 		RewardAddress: candPb.RewardAddress,
-		Pubkey:        candPb.BlsPubKey,
+		BLSPubKey:     candPb.BlsPubKey,
 	}
 	return candidate, nil
 }

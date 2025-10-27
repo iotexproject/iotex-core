@@ -37,6 +37,7 @@ type (
 		ResetSnapshots()
 		Close()
 		CreateGenesisStates(context.Context) error
+		ErigonStore() (any, error)
 	}
 
 	stateDBWorkingSetStore struct {
@@ -212,4 +213,8 @@ func (store *stateDBWorkingSetStore) CreateGenesisStates(ctx context.Context) er
 
 func (store *stateDBWorkingSetStore) KVStore() db.KVStore {
 	return store
+}
+
+func (store *stateDBWorkingSetStore) ErigonStore() (any, error) {
+	return nil, errors.Wrap(state.ErrErigonStoreNotSupported, "failed to get erigon store")
 }

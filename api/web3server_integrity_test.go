@@ -681,10 +681,14 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"candidateRegister", data8})
 
-	act9, err := action.NewCandidateUpdate(
+	blsPubKey, err := hex.DecodeString("a3bef398a17925efe474e00676a03eee0f40d560c9981429fe733d72ef1b442e3bf136d267b0cd78fa3350698d40a290")
+	require.NoError(err)
+	act9, err := action.NewCandidateUpdateWithBLS(
 		"test",
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
-		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza")
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		blsPubKey,
+	)
 	require.NoError(err)
 	data9, err := act9.EthData()
 	require.NoError(err)
