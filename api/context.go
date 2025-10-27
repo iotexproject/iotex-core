@@ -12,6 +12,8 @@ type (
 		listenerIDs map[string]struct{}
 		mutex       sync.Mutex
 	}
+
+	apiContextKey struct{}
 )
 
 func (sc *StreamContext) AddListener(id string) {
@@ -45,4 +47,16 @@ func WithStreamContext(ctx context.Context) context.Context {
 func StreamFromContext(ctx context.Context) (*StreamContext, bool) {
 	sc, ok := ctx.Value(streamContextKey{}).(*StreamContext)
 	return sc, ok
+}
+
+func WithAPIContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, apiContextKey{}, struct{}{})
+}
+
+func GetAPIContext(ctx context.Context) (struct{}, bool) {
+	c := ctx.Value(apiContextKey{})
+	if c == nil {
+		return struct{}{}, false
+	}
+	return c.(struct{}), true
 }

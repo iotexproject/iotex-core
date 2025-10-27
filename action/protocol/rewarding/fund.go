@@ -20,6 +20,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // fund stores the balance of the rewarding fund. The difference between total and available balance should be
@@ -55,6 +56,20 @@ func (f *fund) Deserialize(data []byte) error {
 	f.totalBalance = totalBalance
 	f.unclaimedBalance = unclaimedBalance
 	return nil
+}
+
+func (f *fund) Encode() (systemcontracts.GenericValue, error) {
+	data, err := f.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{
+		AuxiliaryData: data,
+	}, nil
+}
+
+func (f *fund) Decode(v systemcontracts.GenericValue) error {
+	return f.Deserialize(v.AuxiliaryData)
 }
 
 // Deposit deposits token into the rewarding fund

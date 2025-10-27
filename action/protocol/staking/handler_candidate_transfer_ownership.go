@@ -39,7 +39,7 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 	candidate.Owner = act.NewOwner()
 	// clear selfstake
 	needClear := func() (bool, *big.Int, error) {
-		bucket, err := csm.getBucket(candidate.SelfStakeBucketIdx)
+		bucket, err := csm.NativeBucket(candidate.SelfStakeBucketIdx)
 		if err == nil {
 			// keep the self-stake bucket if it's endorse bucket
 			esm := NewEndorsementStateReader(csm.SR())

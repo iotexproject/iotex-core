@@ -11,12 +11,12 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/mohae/deepcopy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -347,7 +347,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 					csm, err := NewCandidateStateManager(sm)
 					require.NoError(err)
 					esm := NewEndorsementStateManager(csm.SM())
-					bucket, err := csm.getBucket(1)
+					bucket, err := csm.NativeBucket(1)
 					require.NoError(err)
 					endorsement, err := esm.Get(bucket.Index)
 					require.NoError(err)
@@ -385,7 +385,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 					csm, err := NewCandidateStateManager(sm)
 					require.NoError(err)
 					esm := NewEndorsementStateManager(csm.SM())
-					bucket, err := csm.getBucket(1)
+					bucket, err := csm.NativeBucket(1)
 					require.NoError(err)
 					endorsement, err := esm.Get(bucket.Index)
 					require.NoError(err)
@@ -573,7 +573,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				// check buckets
 				esm := NewEndorsementStateManager(csm.SM())
 				for _, expectBkt := range test.expectBuckets {
-					bkt, err := csm.getBucket(expectBkt.id)
+					bkt, err := csm.NativeBucket(expectBkt.id)
 					require.NoError(err)
 					require.Equal(expectBkt.candidate, bkt.Candidate)
 					endorse, err := esm.Get(expectBkt.id)

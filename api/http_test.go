@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_web3server"
 	"github.com/iotexproject/iotex-core/v2/testutil"

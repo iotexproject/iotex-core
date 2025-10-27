@@ -32,6 +32,9 @@ type (
 )
 
 func newCoreServiceWithHeight(cs *coreService, height uint64) *coreServiceReaderWithHeight {
+	if height == 0 {
+		height = cs.TipHeight()
+	}
 	return &coreServiceReaderWithHeight{
 		cs:     cs,
 		height: height,

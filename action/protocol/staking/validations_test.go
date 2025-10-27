@@ -28,7 +28,7 @@ func initTestProtocol(t *testing.T) (*Protocol, []*Candidate) {
 		Revise: ReviseConfig{
 			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 	require.NoError(err)
 
 	var cans []*Candidate

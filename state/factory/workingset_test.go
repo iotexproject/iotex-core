@@ -66,7 +66,7 @@ func newStateDBWorkingSet(t testing.TB) *workingSet {
 
 type mockView string
 
-func (v mockView) Clone() protocol.View {
+func (v mockView) Fork() protocol.View {
 	return v
 }
 
@@ -78,7 +78,7 @@ func (v mockView) Revert(int) error {
 	return nil
 }
 
-func (v mockView) Commit(context.Context, protocol.StateReader) error {
+func (v mockView) Commit(context.Context, protocol.StateManager) error {
 	return nil
 }
 

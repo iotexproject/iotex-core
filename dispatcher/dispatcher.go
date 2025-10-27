@@ -7,6 +7,7 @@ package dispatcher
 
 import (
 	"context"
+	"maps"
 	"sync"
 	"time"
 
@@ -186,9 +187,7 @@ func (d *IotxDispatcher) EventAudit() map[iotexrpc.MessageType]int {
 	d.eventAuditLock.RLock()
 	defer d.eventAuditLock.RUnlock()
 	snapshot := make(map[iotexrpc.MessageType]int)
-	for k, v := range d.eventAudit {
-		snapshot[k] = v
-	}
+	maps.Copy(snapshot, d.eventAudit)
 	return snapshot
 }
 
@@ -232,7 +231,16 @@ func (d *IotxDispatcher) ValidateMessage(pMsg proto.Message) (bool, error) {
 }
 
 func (d *IotxDispatcher) queueMessage(msg *message) {
+	subscriber := d.subscriber(msg.chainID)
+	if subscriber == nil {
+		log.L().Warn("chainID has not been registered in dispatcher.", zap.Uint32("chainID", msg.chainID))
+		return
+	}
 	queue := d.queueMgr.Queue(msg)
+	if !subscriber.Filter(msg.msgType, msg.msg, cap(queue)) {
+		log.L().Debug("Message filtered by subscriber.", zap.Uint32("chainID", msg.chainID), zap.String("msgType", msg.msgType.String()))
+		return
+	}
 	select {
 	case queue <- msg:
 	default:
@@ -309,7 +317,7 @@ func (d *IotxDispatcher) updateMetrics(msg *message, queue chan *message) {
 	d.updateEventAudit(msg.msgType)
 	subscriber := d.subscriber(msg.chainID)
 	if subscriber != nil {
-		subscriber.ReportFullness(msg.ctx, msg.msgType, float32(len(queue))/float32(cap(queue)))
+		subscriber.ReportFullness(msg.ctx, msg.msgType, msg.msg, float32(len(queue))/float32(cap(queue)))
 	}
 }
 

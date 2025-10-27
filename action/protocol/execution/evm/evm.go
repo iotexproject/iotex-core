@@ -8,6 +8,7 @@ package evm
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"math"
 	"math/big"
 	"time"
@@ -279,6 +280,7 @@ func ExecuteContract(
 		ContractAddress:   contractAddress,
 		Status:            uint64(statusCode),
 		EffectiveGasPrice: protocol.EffectiveGasPrice(ctx, execution),
+		Output:            retval,
 	}
 	var (
 		depositLog  []*action.TransactionLog
@@ -326,12 +328,8 @@ func ExecuteContract(
 
 	if ps.featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], _revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
-		data := retval[4:]
-		msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
-		revertMsg := string(data[64 : 64+msgLength])
-		receipt.SetExecutionRevertMsg(revertMsg)
+		receipt.SetExecutionRevertMsg(ExtractRevertMessage(retval))
 	}
-	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
 }
 
@@ -351,12 +349,57 @@ func ReadContractStorage(
 			BlockHeight: bcCtx.Tip.Height + 1,
 		},
 	))
+	var stateDB stateDB
 	stateDB, err := prepareStateDB(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
+	if erigonsm, ok := sm.(interface {
+		Erigon() (*erigonstate.IntraBlockState, bool)
+	}); ok {
+		if in, dryrun := erigonsm.Erigon(); in != nil {
+			if !dryrun {
+				log.S().Panic("should not happen, use dryrun instead")
+			}
+			stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
+		}
+	}
 	res := stateDB.GetState(common.BytesToAddress(contract.Bytes()), common.BytesToHash(key))
 	return res[:], nil
+}
+
+// ReadContractCode reads contract's code
+func ReadContractCode(
+	ctx context.Context,
+	sm protocol.StateManager,
+	contract address.Address,
+) ([]byte, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(protocol.WithActionCtx(ctx,
+		protocol.ActionCtx{
+			ActionHash: hash.ZeroHash256,
+		}),
+		protocol.BlockCtx{
+			BlockHeight: bcCtx.Tip.Height + 1,
+		},
+	))
+	var stateDB stateDB
+	stateDB, err := prepareStateDB(ctx, sm)
+	if err != nil {
+		return nil, err
+	}
+	if erigonsm, ok := sm.(interface {
+		Erigon() (*erigonstate.IntraBlockState, bool)
+	}); ok {
+		if in, dryrun := erigonsm.Erigon(); in != nil {
+			if !dryrun {
+				log.S().Panic("should not happen, use dryrun instead")
+			}
+			stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
+		}
+	}
+	code := stateDB.GetCode(common.BytesToAddress(contract.Bytes()))
+	return code, nil
 }
 
 func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdapter, error) {
@@ -455,7 +498,7 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 // blockHeightToTime returns the block time by height
 // if height is greater than current block height, return nil
 // if height is equal to current block height, return current block time
-// otherwise, return the block time by height from the blockchain
+// otherwise, return a fake time less than current block time
 func blockHeightToTime(ctx context.Context, height uint64) (*time.Time, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if height > blkCtx.BlockHeight {
@@ -464,10 +507,7 @@ func blockHeightToTime(ctx context.Context, height uint64) (*time.Time, error) {
 	if height == blkCtx.BlockHeight {
 		return &blkCtx.BlockTimeStamp, nil
 	}
-	t, err := protocol.MustGetBlockchainCtx(ctx).GetBlockTime(height)
-	if err != nil {
-		return nil, err
-	}
+	t := blkCtx.BlockTimeStamp.Add(time.Duration(height-blkCtx.BlockHeight) * time.Second)
 	return &t, nil
 }
 
@@ -513,15 +553,27 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		refund             uint64
 		amount             = uint256.MustFromBig(evmParams.amount)
 	)
+	if evm.Config.Tracer != nil {
+		evm.Config.Tracer.CaptureTxStart(remainingGas)
+		defer func() {
+			evm.Config.Tracer.CaptureTxEnd(remainingGas)
+		}()
+	}
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
-		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, amount)
+		var createRet []byte
+		createRet, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, amount)
 		log.T(ctx).Debug("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
 		if evmErr == nil {
 			if contractAddress, err := address.FromBytes(evmContractAddress.Bytes()); err == nil {
 				contractRawAddress = contractAddress.String()
 			}
+		}
+		// ret updates may need hard fork
+		// so we change it only when readonly mode now
+		if evmParams.actionCtx.ReadOnly {
+			ret = createRet
 		}
 	} else {
 		stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1)
@@ -703,5 +755,23 @@ func SimulateExecution(
 			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
 		},
 	))
-	return ExecuteContract(ctx, sm, ex)
+	retval, receipt, err := ExecuteContract(ctx, sm, ex)
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
+		tCtx.CaptureTx(retval, receipt)
+	}
+	return retval, receipt, err
+}
+
+// ExtractRevertMessage extracts the revert message from the return value
+func ExtractRevertMessage(ret []byte) string {
+	if len(ret) < 4 {
+		return hex.EncodeToString(ret)
+	}
+	if !bytes.Equal(ret[:4], _revertSelector) {
+		return hex.EncodeToString(ret)
+	}
+	data := ret[4:]
+	msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
+	revertMsg := string(data[64 : 64+msgLength])
+	return revertMsg
 }

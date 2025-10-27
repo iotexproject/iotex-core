@@ -18,6 +18,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/api"
 	"github.com/iotexproject/iotex-core/v2/chainservice"
@@ -30,7 +32,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/routine"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/httputil"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Server is the iotex server instance containing all components.
@@ -42,6 +43,7 @@ type Server struct {
 	p2pAgent             p2p.Agent
 	dispatcher           dispatcher.Dispatcher
 	nodeStats            *nodestats.NodeStats
+	pauseMgr             *PauseMgr
 	initializedSubChains map[uint32]bool
 	mutex                sync.RWMutex
 	subModuleCancel      context.CancelFunc
@@ -98,6 +100,9 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			dispatcher.ValidateMessage,
 			dispatcher.HandleBroadcast,
 			dispatcher.HandleTell,
+			p2p.WithUnifiedTopicHelper(func(height uint64) bool {
+				return height <= cfg.Genesis.WakeBlockHeight
+			}),
 		)
 	}
 	chains := make(map[uint32]*chainservice.ChainService)
@@ -116,7 +121,8 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
 	nodeStats := nodestats.NewNodeStats(rpcStats, cs.BlockSync(), p2pAgent)
-	apiServer, err := cs.NewAPIServer(cfg.API, cfg.Chain.EnableArchiveMode)
+	pauseMgr := NewPauseMgr(cs.Blockchain(), cs)
+	apiServer, err := cs.NewAPIServer(cfg.API, len(cfg.Chain.HistoryIndexPath) > 0)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create api server")
 	}
@@ -137,6 +143,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		chainservices:        chains,
 		apiServers:           apiServers,
 		nodeStats:            nodeStats,
+		pauseMgr:             pauseMgr,
 		initializedSubChains: map[uint32]bool{},
 	}
 	// Setup sub-chain starter
@@ -270,6 +277,9 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		log.L().Info("Waiting for server to be ready.", zap.Duration("duration", cfg.API.ReadyDuration))
 		time.Sleep(cfg.API.ReadyDuration)
 	}
+	if err := svr.rootChainService.Blockchain().AddSubscriber(probeSvr); err != nil {
+		log.L().Panic("Failed to add probe server as subscriber.", zap.Error(err))
+	}
 	if err := probeSvr.TurnOn(); err != nil {
 		log.L().Panic("Failed to turn on probe server.", zap.Error(err))
 	}
@@ -298,6 +308,8 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 		mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 		mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+		mux.Handle("/pause", http.HandlerFunc(svr.pauseMgr.HandlePause))
+		mux.Handle("/unpause", http.HandlerFunc(svr.pauseMgr.HandleUnPause))
 
 		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
 		adminserv = httputil.NewServer(port, mux)
@@ -321,7 +333,9 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	}
 
 	<-ctx.Done()
-	if err := probeSvr.TurnOff(); err != nil {
-		log.L().Panic("Failed to turn off probe server.", zap.Error(err))
+	if probeSvr.IsReady() {
+		if err := probeSvr.TurnOff(); err != nil {
+			log.L().Panic("Failed to turn off probe server.", zap.Error(err))
+		}
 	}
 }

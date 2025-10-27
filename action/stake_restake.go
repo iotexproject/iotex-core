@@ -7,7 +7,6 @@ package action
 
 import (
 	"bytes"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"google.golang.org/protobuf/proto"
@@ -22,37 +21,6 @@ const (
 	RestakePayloadGas = uint64(100)
 	// RestakeBaseIntrinsicGas represents the base intrinsic gas for stake again
 	RestakeBaseIntrinsicGas = uint64(10000)
-
-	_restakeInterfaceABI = `[
-		{
-			"inputs": [
-				{
-					"internalType": "uint64",
-					"name": "bucketIndex",
-					"type": "uint64"
-				},
-				{
-					"internalType": "uint32",
-					"name": "duration",
-					"type": "uint32"
-				},
-				{
-					"internalType": "bool",
-					"name": "autoStake",
-					"type": "bool"
-				},
-				{
-					"internalType": "uint8[]",
-					"name": "data",
-					"type": "uint8[]"
-				}
-			],
-			"name": "restake",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
 )
 
 var (
@@ -71,12 +39,8 @@ type Restake struct {
 }
 
 func init() {
-	restakeInterface, err := abi.JSON(strings.NewReader(_restakeInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
 	var ok bool
-	_restakeMethod, ok = restakeInterface.Methods["restake"]
+	_restakeMethod, ok = NativeStakingContractABI().Methods["restake"]
 	if !ok {
 		panic("fail to load the method")
 	}

@@ -13,10 +13,10 @@ import (
 	"time"
 
 	. "github.com/agiledragon/gomonkey/v2"
-	"github.com/golang/mock/gomock"
 	"github.com/mohae/deepcopy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -42,13 +42,14 @@ func TestHandleStakeMigrate(t *testing.T) {
 	p, err := NewProtocol(
 		HelperCtx{getBlockInterval, depositGas},
 		&BuilderConfig{
-			Staking:                  g.Staking,
-			PersistStakingPatchBlock: math.MaxUint64,
+			Staking:                       g.Staking,
+			PersistStakingPatchBlock:      math.MaxUint64,
+			SkipContractStakingViewHeight: math.MaxUint64,
 			Revise: ReviseConfig{
 				VoteWeight: g.Staking.VoteWeightCalConsts,
 			},
 		},
-		nil, nil, nil)
+		nil, nil, nil, nil)
 	r.NoError(err)
 	cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 	initCfg := func(cfg *genesis.Genesis) {
@@ -81,7 +82,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 
 	ctx := genesis.WithGenesisContext(context.Background(), cfg)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
-
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	view, err := p.Start(ctx, sm)
 	r.NoError(err)
 	r.NoError(sm.WriteView(p.Name(), view))
@@ -286,7 +287,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
 		preVotes := csm.GetByOwner(identityset.Address(candOwnerID)).Votes
-		bkt, err := csm.getBucket(bktIdx)
+		bkt, err := csm.NativeBucket(bktIdx)
 		r.NoError(err)
 		receipt := &action.Receipt{
 			Status:      uint64(iotextypes.ReceiptStatus_Success),
@@ -339,7 +340,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		// native bucket burned
 		csm, err = NewCandidateStateManager(sm)
 		r.NoError(err)
-		_, err = csm.getBucket(bktIdx)
+		_, err = csm.NativeBucket(bktIdx)
 		r.ErrorIs(err, state.ErrStateNotExist)
 		// votes reduced for staking indexer not enabled
 		cand := csm.GetByOwner(identityset.Address(candOwnerID))

@@ -1,5 +1,11 @@
 package assertions
 
+func MustNoError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func MustNoErrorV[V any](v V, err error) V {
 	if err != nil {
 		panic(err)

@@ -2,7 +2,6 @@ package action
 
 import (
 	"bytes"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -12,66 +11,6 @@ import (
 const (
 	// CandidateEndorsementBaseIntrinsicGas represents the base intrinsic gas for CandidateEndorsement
 	CandidateEndorsementBaseIntrinsicGas = uint64(10000)
-
-	candidateEndorsementInterfaceABI = `[
-		{
-			"inputs": [
-				{
-					"internalType": "uint64",
-					"name": "bucketIndex",
-					"type": "uint64"
-				},
-				{
-					"internalType": "bool",
-					"name": "endorse",
-					"type": "bool"
-				}
-			],
-			"name": "candidateEndorsement",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		},
-		{
-			"inputs": [
-				{
-					"internalType": "uint64",
-					"name": "bucketIndex",
-					"type": "uint64"
-				}
-			],
-			"name": "endorseCandidate",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		},
-		{
-			"inputs": [
-				{
-					"internalType": "uint64",
-					"name": "bucketIndex",
-					"type": "uint64"
-				}
-			],
-			"name": "intentToRevokeEndorsement",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		},
-		{
-			"inputs": [
-				{
-					"internalType": "uint64",
-					"name": "bucketIndex",
-					"type": "uint64"
-				}
-			],
-			"name": "revokeEndorsement",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
 )
 
 // CandidateEndorsementOp defines the operation of CandidateEndorsement
@@ -111,10 +50,7 @@ type (
 )
 
 func init() {
-	candidateEndorsementInterface, err := abi.JSON(strings.NewReader(candidateEndorsementInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
+	candidateEndorsementInterface := NativeStakingContractABI()
 	var ok bool
 	candidateEndorsementLegacyMethod, ok = candidateEndorsementInterface.Methods["candidateEndorsement"]
 	if !ok {

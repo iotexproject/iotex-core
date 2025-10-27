@@ -2,24 +2,21 @@ package stakingindex
 
 import (
 	"context"
+	"math/big"
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/abiutil"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex"
 )
 
@@ -39,44 +36,36 @@ type (
 		lifecycle.StartStopper
 		Height() (uint64, error)
 		StartHeight() uint64
-		ContractAddress() string
+		ContractAddress() address.Address
 		Buckets(height uint64) ([]*VoteBucket, error)
 		Bucket(id uint64, height uint64) (*VoteBucket, bool, error)
 		BucketsByIndices(indices []uint64, height uint64) ([]*VoteBucket, error)
 		BucketsByCandidate(candidate address.Address, height uint64) ([]*VoteBucket, error)
 		TotalBucketCount(height uint64) (uint64, error)
 		PutBlock(ctx context.Context, blk *block.Block) error
-		StartView(ctx context.Context) (staking.ContractStakeView, error)
-	}
-	stakingEventHandler interface {
-		HandleStakedEvent(event *abiutil.EventParam) error
-		HandleLockedEvent(event *abiutil.EventParam) error
-		HandleUnlockedEvent(event *abiutil.EventParam) error
-		HandleUnstakedEvent(event *abiutil.EventParam) error
-		HandleDelegateChangedEvent(event *abiutil.EventParam) error
-		HandleWithdrawalEvent(event *abiutil.EventParam) error
-		HandleTransferEvent(event *abiutil.EventParam) error
-		HandleMergedEvent(event *abiutil.EventParam) error
-		HandleBucketExpandedEvent(event *abiutil.EventParam) error
-		HandleDonatedEvent(event *abiutil.EventParam) error
-		Finalize() (batch.KVStoreBatch, *cache)
+		LoadStakeView(context.Context, protocol.StateReader) (staking.ContractStakeView, error)
+		CreateEventProcessor(context.Context, staking.EventHandler) staking.EventProcessor
+		ContractStakingBuckets() (uint64, map[uint64]*Bucket, error)
+		staking.BucketReader
 	}
 	// Indexer is the staking indexer
 	Indexer struct {
-		common           *systemcontractindex.IndexerCommon
-		cache            *cache // in-memory cache, used to query index data
-		mutex            sync.RWMutex
-		blocksToDuration blocksDurationAtFn // function to calculate duration from block range
-		bucketNS         string
-		ns               string
-		muteHeight       uint64
-		timestamped      bool
+		common              *systemcontractindex.IndexerCommon
+		cache               *base // in-memory cache, used to query index data
+		mutex               sync.RWMutex
+		blocksToDuration    blocksDurationAtFn // function to calculate duration from block range
+		bucketNS            string
+		ns                  string
+		muteHeight          uint64
+		timestamped         bool
+		calculateVoteWeight CalculateVoteWeightFunc
 	}
 	// IndexerOption is the option to create an indexer
 	IndexerOption func(*Indexer)
 
-	blocksDurationFn   func(start uint64, end uint64) time.Duration
-	blocksDurationAtFn func(start uint64, end uint64, viewAt uint64) time.Duration
+	blocksDurationFn        func(start uint64, end uint64) time.Duration
+	blocksDurationAtFn      func(start uint64, end uint64, viewAt uint64) time.Duration
+	CalculateVoteWeightFunc func(v *VoteBucket) *big.Int
 )
 
 // WithMuteHeight sets the mute height
@@ -93,13 +82,20 @@ func EnableTimestamped() IndexerOption {
 	}
 }
 
+// WithCalculateUnmutedVoteWeightFn sets the function to calculate unmuted vote weight
+func WithCalculateUnmutedVoteWeightFn(f CalculateVoteWeightFunc) IndexerOption {
+	return func(s *Indexer) {
+		s.calculateVoteWeight = f
+	}
+}
+
 // NewIndexer creates a new staking indexer
-func NewIndexer(kvstore db.KVStore, contractAddr string, startHeight uint64, blocksToDurationFn blocksDurationAtFn, opts ...IndexerOption) *Indexer {
-	bucketNS := contractAddr + "#" + stakingBucketNS
-	ns := contractAddr + "#" + stakingNS
+func NewIndexer(kvstore db.KVStore, contractAddr address.Address, startHeight uint64, blocksToDurationFn blocksDurationAtFn, opts ...IndexerOption) (*Indexer, error) {
+	bucketNS := contractAddr.String() + "#" + stakingBucketNS
+	ns := contractAddr.String() + "#" + stakingNS
 	idx := &Indexer{
 		common:           systemcontractindex.NewIndexerCommon(kvstore, ns, stakingHeightKey, contractAddr, startHeight),
-		cache:            newCache(ns, bucketNS),
+		cache:            newCache(),
 		blocksToDuration: blocksToDurationFn,
 		bucketNS:         bucketNS,
 		ns:               ns,
@@ -107,53 +103,99 @@ func NewIndexer(kvstore db.KVStore, contractAddr string, startHeight uint64, blo
 	for _, opt := range opts {
 		opt(idx)
 	}
-	return idx
+	if idx.calculateVoteWeight == nil {
+		return nil, errors.New("calculateVoteWeight function is not set")
+	}
+	return idx, nil
 }
 
 // Start starts the indexer
 func (s *Indexer) Start(ctx context.Context) error {
+	log.L().Debug("Starting contract staking indexer...", zap.String("contract", s.common.ContractAddress().String()))
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.common.Started() {
 		return nil
 	}
-	return s.start(ctx)
-}
-
-func (s *Indexer) StartView(ctx context.Context) (staking.ContractStakeView, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if !s.common.Started() {
-		if err := s.start(ctx); err != nil {
-			return nil, err
-		}
-	}
-	return &stakeView{
-		helper: s,
-		cache:  s.cache.Copy(),
-		height: s.common.Height(),
-	}, nil
-}
-
-func (s *Indexer) start(ctx context.Context) error {
 	if err := s.common.Start(ctx); err != nil {
 		return err
 	}
-	return s.cache.Load(s.common.KVStore())
+	return s.cache.Load(s.common.KVStore(), s.ns, s.bucketNS)
 }
 
 // Stop stops the indexer
 func (s *Indexer) Stop(ctx context.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if !s.common.Started() {
+		return nil
+	}
 	return s.common.Stop(ctx)
 }
 
-// Height returns the tip block height
-func (s *Indexer) Height() (uint64, error) {
+// CreateEventProcessor creates a new event processor
+func (s *Indexer) CreateEventProcessor(ctx context.Context, handler staking.EventHandler) staking.EventProcessor {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	return newEventProcessor(
+		s.common.ContractAddress(),
+		blkCtx,
+		handler,
+		s.timestamped,
+		s.muteHeight > 0 && blkCtx.BlockHeight >= s.muteHeight,
+	)
+}
+
+// DeductBucket deducts the bucket from the indexer
+func (s *Indexer) DeductBucket(addr address.Address, id uint64) (*contractstaking.Bucket, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return s.common.Height(), nil
+	if s.ContractAddress().String() != addr.String() {
+		return nil, errors.Wrap(contractstaking.ErrBucketNotExist, "contract address not match")
+	}
+	bkt := s.cache.Bucket(id)
+	if bkt == nil {
+		return nil, errors.Wrap(contractstaking.ErrBucketNotExist, "bucket not exist")
+	}
+	return bkt, nil
+}
+
+// LoadStakeView loads the contract stake view from state reader
+func (s *Indexer) LoadStakeView(ctx context.Context, sr protocol.StateReader) (staking.ContractStakeView, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	if !s.common.Started() {
+		return nil, errors.New("indexer not started")
+	}
+	if !protocol.MustGetFeatureCtx(ctx).StoreVoteOfNFTBucketIntoView {
+		return nil, nil
+	}
+	srHeight, err := sr.Height()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get state reader height")
+	}
+	if s.common.StartHeight() <= srHeight && srHeight != s.common.Height() {
+		return nil, errors.New("state reader height does not match indexer height")
+	}
+	cfg := &VoteViewConfig{
+		ContractAddr: s.common.ContractAddress(),
+	}
+	mgr := NewCandidateVotesManager(s.ContractAddress())
+	processorBuilder := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
+	return NewVoteView(s, cfg, s.common.Height(), s.createCandidateVotes(s.cache.buckets), processorBuilder, mgr, s.calculateContractVoteWeight), nil
+}
+
+// ContractStakingBuckets returns all the contract staking buckets
+func (s *Indexer) ContractStakingBuckets() (uint64, map[uint64]*Bucket, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	idxs := s.cache.BucketIdxs()
+	bkts := s.cache.Buckets(idxs)
+	res := make(map[uint64]*Bucket)
+	for i, id := range idxs {
+		res[id] = bkts[i]
+	}
+	return s.common.Height(), res, nil
 }
 
 // StartHeight returns the start height of the indexer
@@ -163,8 +205,20 @@ func (s *Indexer) StartHeight() uint64 {
 	return s.common.StartHeight()
 }
 
+// Height returns the tip block height
+func (s *Indexer) Height() (uint64, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	height := s.common.Height()
+	startHeight := s.common.StartHeight()
+	if height < startHeight {
+		return startHeight - 1, nil
+	}
+	return height, nil
+}
+
 // ContractAddress returns the contract address
-func (s *Indexer) ContractAddress() string {
+func (s *Indexer) ContractAddress() address.Address {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.common.ContractAddress()
@@ -182,7 +236,7 @@ func (s *Indexer) Buckets(height uint64) ([]*VoteBucket, error) {
 	}
 	idxs := s.cache.BucketIdxs()
 	bkts := s.cache.Buckets(idxs)
-	vbs := batchAssembleVoteBucket(idxs, bkts, s.common.ContractAddress(), s.genBlockDurationFn(height))
+	vbs := batchAssembleVoteBucket(idxs, bkts, s.common.ContractAddress().String(), s.genBlockDurationFn(height))
 	return vbs, nil
 }
 
@@ -200,7 +254,7 @@ func (s *Indexer) Bucket(id uint64, height uint64) (*VoteBucket, bool, error) {
 	if bkt == nil {
 		return nil, false, nil
 	}
-	vbs := assembleVoteBucket(id, bkt, s.common.ContractAddress(), s.genBlockDurationFn(height))
+	vbs := assembleVoteBucket(id, bkt, s.common.ContractAddress().String(), s.genBlockDurationFn(height))
 	return vbs, true, nil
 }
 
@@ -215,7 +269,7 @@ func (s *Indexer) BucketsByIndices(indices []uint64, height uint64) ([]*VoteBuck
 		return nil, nil
 	}
 	bkts := s.cache.Buckets(indices)
-	vbs := batchAssembleVoteBucket(indices, bkts, s.common.ContractAddress(), s.genBlockDurationFn(height))
+	vbs := batchAssembleVoteBucket(indices, bkts, s.common.ContractAddress().String(), s.genBlockDurationFn(height))
 	return vbs, nil
 }
 
@@ -240,7 +294,7 @@ func (s *Indexer) BucketsByCandidate(candidate address.Address, height uint64) (
 			bktsFiltered = append(bktsFiltered, bkts[i])
 		}
 	}
-	vbs := batchAssembleVoteBucket(idxsFiltered, bktsFiltered, s.common.ContractAddress(), s.genBlockDurationFn(height))
+	vbs := batchAssembleVoteBucket(idxsFiltered, bktsFiltered, s.common.ContractAddress().String(), s.genBlockDurationFn(height))
 	return vbs, nil
 }
 
@@ -261,93 +315,50 @@ func (s *Indexer) TotalBucketCount(height uint64) (uint64, error) {
 func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if blk.Height() < s.common.StartHeight() {
+		return nil
+	}
 	// check block continuity
 	expect := s.common.ExpectedHeight()
 	if blk.Height() > expect {
 		return errors.Errorf("invalid block height %d, expect %d", blk.Height(), expect)
-	} else if blk.Height() < expect {
-		log.L().Debug("indexer skip block", zap.Uint64("height", blk.Height()), zap.Uint64("expect", expect))
-		return nil
+	}
+	if blk.Height() < expect {
+		return errors.Errorf("block height %d has been indexed, expect %d", blk.Height(), expect)
 	}
 	// handle events of block
 	muted := s.muteHeight > 0 && blk.Height() >= s.muteHeight
-	handler := newEventHandler(s.bucketNS, s.cache.Copy(), protocol.MustGetBlockCtx(ctx), s.timestamped, muted)
-	for _, receipt := range blk.Receipts {
-		if err := s.handleReceipt(ctx, handler, receipt); err != nil {
-			return errors.Wrapf(err, "handle receipt %x failed", receipt.ActionHash)
-		}
-	}
-	// commit
-	return s.commit(handler, blk.Height())
-}
-
-func (s *Indexer) handleReceipt(ctx context.Context, eh stakingEventHandler, receipt *action.Receipt) error {
-	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		return nil
-	}
-	for _, log := range receipt.Logs() {
-		if log.Address != s.common.ContractAddress() {
-			continue
-		}
-		if err := s.handleEvent(ctx, eh, log); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *Indexer) handleEvent(ctx context.Context, eh stakingEventHandler, actLog *action.Log) error {
-	// get event abi
-	abiEvent, err := StakingContractABI.EventByID(common.Hash(actLog.Topics[0]))
-	if err != nil {
-		return errors.Wrapf(err, "get event abi from topic %v failed", actLog.Topics[0])
-	}
-
-	// unpack event data
-	event, err := abiutil.UnpackEventParam(abiEvent, actLog)
-	if err != nil {
+	handler := newEventHandler(s.bucketNS, newWrappedCache(s.cache))
+	processor := newEventProcessor(
+		s.common.ContractAddress(),
+		protocol.MustGetBlockCtx(ctx),
+		handler,
+		s.timestamped,
+		muted,
+	)
+	if err := processor.ProcessReceipts(ctx, blk.Receipts...); err != nil {
 		return err
 	}
-	log.L().Debug("handle staking event", zap.String("event", abiEvent.Name), zap.Any("event", event))
-	// handle different kinds of event
-	switch abiEvent.Name {
-	case "Staked":
-		return eh.HandleStakedEvent(event)
-	case "Locked":
-		return eh.HandleLockedEvent(event)
-	case "Unlocked":
-		return eh.HandleUnlockedEvent(event)
-	case "Unstaked":
-		return eh.HandleUnstakedEvent(event)
-	case "Merged":
-		return eh.HandleMergedEvent(event)
-	case "BucketExpanded":
-		return eh.HandleBucketExpandedEvent(event)
-	case "DelegateChanged":
-		return eh.HandleDelegateChangedEvent(event)
-	case "Withdrawal":
-		return eh.HandleWithdrawalEvent(event)
-	case "Donated":
-		return eh.HandleDonatedEvent(event)
-	case "Transfer":
-		return eh.HandleTransferEvent(event)
-	case "Approval", "ApprovalForAll", "OwnershipTransferred", "Paused", "Unpaused", "BeneficiaryChanged",
-		"Migrated":
-		// not require handling events
-		return nil
-	default:
-		return errors.Errorf("unknown event name %s", abiEvent.Name)
-	}
+	// commit
+	return s.commit(ctx, handler, blk.Height())
 }
 
-func (s *Indexer) commit(handler stakingEventHandler, height uint64) error {
+func (s *Indexer) commit(ctx context.Context, handler *eventHandler, height uint64) error {
 	delta, dirty := handler.Finalize()
 	// update db
 	if err := s.common.Commit(height, delta); err != nil {
 		return err
 	}
+	cache, err := dirty.Commit(ctx, s.common.ContractAddress(), s.timestamped, nil)
+	if err != nil {
+		return errors.Wrapf(err, "failed to commit dirty cache at height %d", height)
+	}
+	base, ok := cache.(*base)
+	if !ok {
+		return errors.Errorf("unexpected cache type %T, expect *base", dirty)
+	}
 	// update cache
-	s.cache = dirty
+	s.cache = base
 	return nil
 }
 
@@ -370,4 +381,28 @@ func (s *Indexer) genBlockDurationFn(view uint64) blocksDurationFn {
 	return func(start uint64, end uint64) time.Duration {
 		return s.blocksToDuration(start, end, view)
 	}
+}
+
+func (s *Indexer) createCandidateVotes(bkts map[uint64]*Bucket) CandidateVotes {
+	return AggregateCandidateVotes(bkts, func(b *contractstaking.Bucket) *big.Int {
+		return s.calculateContractVoteWeight(b, s.common.Height())
+	})
+}
+
+func (s *Indexer) calculateContractVoteWeight(b *Bucket, height uint64) *big.Int {
+	vb := assembleVoteBucket(0, b, s.common.ContractAddress().String(), s.genBlockDurationFn(height))
+	return s.calculateVoteWeight(vb)
+}
+
+// AggregateCandidateVotes aggregates the votes for each candidate from the given buckets
+func AggregateCandidateVotes(bkts map[uint64]*Bucket, calculateUnmutedVoteWeight CalculateUnmutedVoteWeightFn) CandidateVotes {
+	res := newCandidateVotes()
+	for _, bkt := range bkts {
+		if bkt.Muted || bkt.UnstakedAt < maxStakingNumber {
+			continue
+		}
+		votes := calculateUnmutedVoteWeight(bkt)
+		res.Add(bkt.Candidate.String(), bkt.StakedAmount, votes)
+	}
+	return newCandidateVotesWithBuffer(res)
 }

@@ -2,7 +2,6 @@ package action
 
 import (
 	"bytes"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -11,23 +10,6 @@ import (
 const (
 	// CandidateActivateBaseIntrinsicGas represents the base intrinsic gas for CandidateActivate
 	CandidateActivateBaseIntrinsicGas = uint64(10000)
-
-	// TODO: move all parts of staking abi to a unified file
-	candidateActivateInterfaceABI = `[
-		{
-			"inputs": [
-				{
-					"internalType": "uint64",
-					"name": "bucketIndex",
-					"type": "uint64"
-				}
-			],
-			"name": "candidateActivate",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
 )
 
 var (
@@ -43,12 +25,8 @@ type CandidateActivate struct {
 }
 
 func init() {
-	candidateActivateInterface, err := abi.JSON(strings.NewReader(candidateActivateInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
 	var ok bool
-	candidateActivateMethod, ok = candidateActivateInterface.Methods["candidateActivate"]
+	candidateActivateMethod, ok = NativeStakingContractABI().Methods["candidateActivate"]
 	if !ok {
 		panic("fail to load the candidateActivate method")
 	}

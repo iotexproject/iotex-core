@@ -8,7 +8,9 @@ package factory
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
@@ -32,6 +35,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 )
 
 type (
@@ -54,7 +58,8 @@ type (
 		protocolViews            *protocol.Views
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
-		erigonDB                 *erigonDB
+		erigonDB                 *erigonstore.ErigonDB
+		dependencies             []blockdao.BlockIndexer
 	}
 )
 
@@ -101,6 +106,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		registry:           protocol.NewRegistry(),
 		protocolViews:      &protocol.Views{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
+		dependencies:       []blockdao.BlockIndexer{},
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, &cfg); err != nil {
@@ -120,21 +126,35 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 	}
 	sdb.timerFactory = timerFactory
 	if len(cfg.Chain.HistoryIndexPath) > 0 {
-		sdb.erigonDB = newErigonDB(cfg.Chain.HistoryIndexPath)
+		sdb.erigonDB = erigonstore.NewErigonDB(cfg.Chain.HistoryIndexPath)
 	}
 
 	return &sdb, nil
 }
 
 func (sdb *stateDB) Start(ctx context.Context) error {
+	log.L().Debug("Starting statedb...")
+	for _, dependency := range sdb.dependencies {
+		log.L().Debug("Starting dependency", zap.String("type", fmt.Sprintf("%T", dependency)))
+		if err := dependency.Start(ctx); err != nil {
+			return errors.Wrapf(err, "failed to start dependency %T", dependency)
+		}
+	}
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	if err := sdb.dao.Start(ctx); err != nil {
 		return err
 	}
+	erigonHeight := uint64(0)
 	if sdb.erigonDB != nil {
 		if err := sdb.erigonDB.Start(ctx); err != nil {
 			return err
 		}
+		eh, err := sdb.erigonDB.Height()
+		if err != nil {
+			return errors.Wrap(err, "failed to get erigonDB height")
+		}
+		erigonHeight = eh
+		log.L().Info("ErigonDB started", zap.Uint64("height", erigonHeight))
 	}
 	// check factory height
 	h, err := sdb.dao.getHeight()
@@ -142,6 +162,8 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	case nil:
 		sdb.currentChainHeight = h
 		// start all protocols
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: h})
+		ctx = protocol.WithFeatureCtx(ctx)
 		if sdb.protocolViews, err = sdb.registry.StartAll(ctx, sdb); err != nil {
 			return err
 		}
@@ -149,10 +171,6 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		sdb.currentChainHeight = 0
 		if err = sdb.dao.putHeight(0); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
-		}
-		// start all protocols
-		if sdb.protocolViews, err = sdb.registry.StartAll(ctx, sdb); err != nil {
-			return err
 		}
 		ctx = protocol.WithBlockCtx(
 			ctx,
@@ -162,6 +180,10 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 				GasLimit:       sdb.cfg.Genesis.BlockGasLimitByHeight(0),
 			})
 		ctx = protocol.WithFeatureCtx(ctx)
+		// start all protocols
+		if sdb.protocolViews, err = sdb.registry.StartAll(ctx, sdb); err != nil {
+			return err
+		}
 		// init the state factory
 		if err = sdb.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
@@ -169,6 +191,23 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	default:
 		return err
 	}
+	if sdb.erigonDB != nil {
+		// allow erigonDB to be 1 height ahead of state factory
+		if erigonHeight != sdb.currentChainHeight && erigonHeight != sdb.currentChainHeight+1 {
+			return errors.Errorf(
+				"erigonDB height %d does not match state factory height %d",
+				erigonHeight, sdb.currentChainHeight,
+			)
+		}
+		if sdb.cfg.Chain.HistoryBlockRetention > 0 && erigonHeight > sdb.cfg.Chain.HistoryBlockRetention {
+			if err := sdb.erigonDB.BatchPrune(ctx, erigonHeight-sdb.cfg.Chain.HistoryBlockRetention, erigonHeight, 1000); err != nil {
+				return errors.Wrap(err, "failed to prune erigonDB")
+			}
+		}
+	}
+	log.L().Info("State factory started",
+		zap.Uint64("height", sdb.currentChainHeight),
+	)
 	return nil
 }
 
@@ -179,7 +218,15 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 	if sdb.erigonDB != nil {
 		sdb.erigonDB.Stop(ctx)
 	}
-	return sdb.dao.Stop(ctx)
+	if err := sdb.dao.Stop(ctx); err != nil {
+		return err
+	}
+	for _, dependency := range sdb.dependencies {
+		if err := dependency.Stop(ctx); err != nil {
+			return errors.Wrapf(err, "failed to stop dependency %T", dependency)
+		}
+	}
+	return nil
 }
 
 // Height returns factory's height
@@ -187,6 +234,12 @@ func (sdb *stateDB) Height() (uint64, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	return sdb.dao.getHeight()
+}
+
+func (sdb *stateDB) AddDependency(indexer blockdao.BlockIndexer) {
+	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
+	sdb.dependencies = append(sdb.dependencies, indexer)
 }
 
 func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
@@ -201,7 +254,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	if sdb.erigonDB == nil {
 		return ws, nil
 	}
-	e, err := sdb.erigonDB.newErigonStore(ctx, height)
+	e, err := sdb.erigonDB.NewErigonStore(ctx, height)
 	if err != nil {
 		return nil, err
 	}
@@ -220,11 +273,7 @@ func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64,
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-	views := sdb.protocolViews.Clone()
-	if err := views.Commit(ctx, sdb); err != nil {
-		return nil, err
-	}
-	return newWorkingSet(height, views, store, sdb), nil
+	return newWorkingSet(height, sdb.protocolViews.Fork(), store, sdb), nil
 }
 
 func (sdb *stateDB) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
@@ -239,7 +288,7 @@ func (sdb *stateDB) createWorkingSetStore(ctx context.Context, height uint64, kv
 	flusher, err := db.NewKVStoreFlusher(
 		kvstore,
 		batch.NewCachedBatch(),
-		sdb.flusherOptions(!g.IsEaster(height))...,
+		sdb.flusherOptions(!g.IsEaster(height), g.IsXingu(height))...,
 	)
 	if err != nil {
 		return nil, err
@@ -267,6 +316,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	}
 	if !isExist {
 		if err = ws.ValidateBlock(ctx, blk); err != nil {
+			ws.Close()
 			return errors.Wrap(err, "failed to validate block with workingset in statedb")
 		}
 		if existed := sdb.addWorkingSetIfNotExist(blkHash, ws); existed != nil {
@@ -275,6 +325,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	}
 	receipts, err := ws.Receipts()
 	if err != nil {
+		ws.Close()
 		return err
 	}
 	blk.Receipts = receipts
@@ -331,32 +382,64 @@ func (sdb *stateDB) Mint(
 	return &blk, nil
 }
 
-func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManager, error) {
+func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManagerWithCloser, error) {
 	sdb.mutex.RLock()
 	height := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
 	return sdb.newReadOnlyWorkingSet(ctx, height+1)
 }
 
-func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64, preacts ...*action.SealedEnvelope) (protocol.StateManager, error) {
-	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
+func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
+	ws, err := sdb.newReadOnlyWorkingSet(ctx, height-1)
 	if err != nil {
 		return nil, err
 	}
 	if sdb.erigonDB != nil {
-		e, err := sdb.erigonDB.newErigonStoreDryrun(ctx, height+1)
+		e, err := sdb.erigonDB.NewErigonStoreDryrun(ctx, height)
 		if err != nil {
 			return nil, err
 		}
 		ws.store = newErigonWorkingSetStoreForSimulate(ws.store, e)
 	}
-	if len(preacts) == 0 {
-		return ws, nil
-	}
-	// prepare workingset at height, and run acts
+	// handle panic to ensure workingset is closed
+	defer func() {
+		if r := recover(); r != nil {
+			ws.Close()
+			err = errors.Errorf("panic occurred while processing actions: %v", r)
+			log.L().Error("Recovered from panic in WorkingSetAtTransaction", zap.Error(err))
+		}
+	}()
 	ws.height++
-	if err := ws.Process(ctx, preacts); err != nil {
+	if err := ws.Process(ctx, acts); err != nil {
+		ws.Close()
 		return nil, err
+	}
+	return ws, nil
+}
+
+func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManagerWithCloser, error) {
+	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	if sdb.erigonDB != nil {
+		if sdb.cfg.Chain.HistoryBlockRetention > 0 {
+			sdb.mutex.RLock()
+			tip := sdb.currentChainHeight
+			sdb.mutex.RUnlock()
+			if height < tip-sdb.cfg.Chain.HistoryBlockRetention {
+				return nil, errors.Wrapf(
+					ErrNotSupported,
+					"history is pruned, only supported for latest %d blocks, but requested height %d",
+					sdb.cfg.Chain.HistoryBlockRetention, height,
+				)
+			}
+		}
+		e, err := sdb.erigonDB.NewErigonStoreDryrun(ctx, height+1)
+		if err != nil {
+			return nil, err
+		}
+		ws.store = newErigonWorkingSetStoreForSimulate(ws.store, e)
 	}
 	return ws, nil
 }
@@ -376,6 +459,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	if err != nil {
 		return err
 	}
+	defer ws.Close()
 	if !isExist {
 		if !sdb.skipBlockValidationOnPut {
 			err = ws.ValidateBlock(ctx, blk)
@@ -384,7 +468,6 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
-			ws.Close()
 			return err
 		}
 	}
@@ -403,12 +486,16 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			sdb.currentChainHeight, h,
 		)
 	}
-
-	if err := ws.Commit(ctx); err != nil {
+	if err := ws.Commit(ctx, sdb.cfg.Chain.HistoryBlockRetention); err != nil {
 		return err
 	}
 	sdb.protocolViews = ws.views
 	sdb.currentChainHeight = h
+	for _, indexer := range sdb.dependencies {
+		if err := indexer.PutBlock(ctx, blk); err != nil {
+			return errors.Wrapf(err, "failed to update indexer %T", indexer)
+		}
+	}
 	return nil
 }
 
@@ -477,7 +564,7 @@ func (sdb *stateDB) StateReaderAt(blkHeight uint64, blkHash hash.Hash256) (proto
 // private trie constructor functions
 //======================================
 
-func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
+func (sdb *stateDB) flusherOptions(preEaster, storeContractStaking bool) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
 			if preEaster {
@@ -486,15 +573,46 @@ func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 			return wi.Serialize()
 		}),
 	}
-	if !preEaster {
-		return opts
+	var (
+		serializeFilterNs         = []string{state.StakingViewNamespace}
+		serializeFilterNsPrefixes = []string{}
+		flushFilterNs             = []string{state.StakingViewNamespace}
+		flushFilterNsPrefixes     = []string{}
+	)
+	if preEaster {
+		serializeFilterNs = append(serializeFilterNs, evm.CodeKVNameSpace, staking.CandsMapNS)
 	}
-	return append(
-		opts,
+	if !storeContractStaking {
+		serializeFilterNs = append(serializeFilterNs, state.StakingContractMetaNamespace)
+		serializeFilterNsPrefixes = append(serializeFilterNsPrefixes,
+			state.ContractStakingBucketNamespacePrefix,
+			state.ContractStakingBucketTypeNamespacePrefix,
+		)
+		flushFilterNs = append(flushFilterNs, state.StakingContractMetaNamespace)
+		flushFilterNsPrefixes = append(flushFilterNsPrefixes,
+			state.ContractStakingBucketNamespacePrefix,
+			state.ContractStakingBucketTypeNamespacePrefix,
+		)
+	}
+	opts = append(opts,
+		db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
+			if slices.Contains(flushFilterNs, wi.Namespace()) ||
+				slices.ContainsFunc(flushFilterNsPrefixes, func(prefix string) bool {
+					return strings.HasPrefix(wi.Namespace(), prefix)
+				}) {
+				// skip flushing the write
+				return nil
+			}
+			return wi
+		}),
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
-			return wi.Namespace() == evm.CodeKVNameSpace || wi.Namespace() == staking.CandsMapNS
+			return slices.Contains(serializeFilterNs, wi.Namespace()) ||
+				slices.ContainsFunc(serializeFilterNsPrefixes, func(prefix string) bool {
+					return strings.HasPrefix(wi.Namespace(), prefix)
+				})
 		}),
 	)
+	return opts
 }
 
 func (sdb *stateDB) state(h uint64, ns string, addr []byte, s interface{}) error {
@@ -524,7 +642,7 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 		return err
 	}
 
-	if err := ws.Commit(ctx); err != nil {
+	if err := ws.Commit(ctx, 0); err != nil {
 		return err
 	}
 	sdb.protocolViews = ws.views

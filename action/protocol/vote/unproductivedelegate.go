@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	updpb "github.com/iotexproject/iotex-core/v2/action/protocol/vote/unproductivedelegatepb"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // UnproductiveDelegate defines unproductive delegates information within probation period
@@ -34,9 +35,11 @@ func NewUnproductiveDelegate(probationPeriod uint64, cacheSize uint64) (*Unprodu
 }
 
 // AddRecentUPD adds new epoch upd-list at the leftmost and shift existing lists to the right
-func (upd *UnproductiveDelegate) AddRecentUPD(new []string) error {
-	delegates := make([]string, len(new))
-	copy(delegates, new)
+func (upd *UnproductiveDelegate) AddRecentUPD(new map[string]uint64) error {
+	delegates := make([]string, 0, len(new))
+	for d := range new {
+		delegates = append(delegates, d)
+	}
 	sort.Strings(delegates)
 	upd.delegatelist = append([][]string{delegates}, upd.delegatelist[0:upd.probationPeriod-1]...)
 	if len(upd.delegatelist) > int(upd.probationPeriod) {
@@ -121,4 +124,17 @@ func (upd *UnproductiveDelegate) Equal(upd2 *UnproductiveDelegate) bool {
 // DelegateList returns delegate list 2D array
 func (upd *UnproductiveDelegate) DelegateList() [][]string {
 	return upd.delegatelist
+}
+
+// New creates a new instance of UnproductiveDelegate
+func (upd *UnproductiveDelegate) Encode() (systemcontracts.GenericValue, error) {
+	data, err := upd.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+func (upd *UnproductiveDelegate) Decode(data systemcontracts.GenericValue) error {
+	return upd.Deserialize(data.PrimaryData)
 }

@@ -32,6 +32,9 @@ func TestActionRadio(t *testing.T) {
 	selp, err := action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(1), 1, big.NewInt(1), nil, gas, gasPrice)
 	r.NoError(err)
 
-	radio.OnAdded(selp)
+	radio.OnAdded(WithAPIContext(context.Background()), selp)
+	r.Equal(uint64(1), atomic.LoadUint64(&broadcastCount))
+
+	radio.OnAdded(context.Background(), selp)
 	r.Equal(uint64(1), atomic.LoadUint64(&broadcastCount))
 }

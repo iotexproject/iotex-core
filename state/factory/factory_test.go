@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -1368,9 +1368,11 @@ func TestMintBlocksWithCandidateUpdate(t *testing.T) {
 			},
 		},
 		&staking.BuilderConfig{
-			Staking:                  genesis.TestDefault().Staking,
-			PersistStakingPatchBlock: math.MaxUint64,
+			Staking:                       genesis.TestDefault().Staking,
+			PersistStakingPatchBlock:      math.MaxUint64,
+			SkipContractStakingViewHeight: math.MaxUint64,
 		},
+		nil,
 		nil,
 		nil,
 		nil,

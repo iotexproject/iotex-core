@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -23,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao/blockdaopb"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type GrpcBlockDAO struct {
@@ -55,6 +57,7 @@ func NewGrpcBlockDAO(
 }
 
 func (gbd *GrpcBlockDAO) Start(ctx context.Context) error {
+	log.L().Debug("Starting gRPC block DAO...", zap.String("url", gbd.url))
 	var err error
 	opts := []grpc.DialOption{}
 	if gbd.insecure {

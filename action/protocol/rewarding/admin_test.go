@@ -49,5 +49,5 @@ func TestProtocol_SetEpochReward(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(200), amount)
 
-	}, false)
+	}, nil, false, 0)
 }

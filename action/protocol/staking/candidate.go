@@ -6,6 +6,7 @@
 package staking
 
 import (
+	"bytes"
 	"math/big"
 	"sort"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
@@ -27,6 +29,7 @@ type (
 		Operator           address.Address
 		Reward             address.Address
 		Identifier         address.Address
+		BLSPubKey          []byte // BLS public key
 		Name               string
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
@@ -45,6 +48,11 @@ type (
 
 // Clone returns a copy
 func (d *Candidate) Clone() *Candidate {
+	var blsPubKey []byte
+	if len(d.BLSPubKey) > 0 {
+		blsPubKey = make([]byte, len(d.BLSPubKey))
+		copy(blsPubKey, d.BLSPubKey)
+	}
 	return &Candidate{
 		Owner:              d.Owner,
 		Operator:           d.Operator,
@@ -54,6 +62,7 @@ func (d *Candidate) Clone() *Candidate {
 		Votes:              new(big.Int).Set(d.Votes),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          new(big.Int).Set(d.SelfStake),
+		BLSPubKey:          blsPubKey,
 	}
 }
 
@@ -66,7 +75,8 @@ func (d *Candidate) Equal(c *Candidate) bool {
 		address.Equal(d.Reward, c.Reward) &&
 		address.Equal(d.Identifier, c.Identifier) &&
 		d.Votes.Cmp(c.Votes) == 0 &&
-		d.SelfStake.Cmp(c.SelfStake) == 0
+		d.SelfStake.Cmp(c.SelfStake) == 0 &&
+		bytes.Equal(d.BLSPubKey, c.BLSPubKey)
 }
 
 // Validate does the sanity check
@@ -193,6 +203,50 @@ func (d *Candidate) GetIdentifier() address.Address {
 	return d.Identifier
 }
 
+// Encode encodes candidate into generic value
+func (d *Candidate) Encode() (systemcontracts.GenericValue, error) {
+	var (
+		primaryData   []byte
+		secondaryData []byte
+		err           error
+		value         systemcontracts.GenericValue
+	)
+	if d.Votes.Sign() > 0 {
+		secondaryData, err = proto.Marshal(&stakingpb.Candidate{Votes: d.Votes.String()})
+		if err != nil {
+			return value, errors.Wrap(err, "failed to marshal candidate votes")
+		}
+	}
+	clone := d.Clone()
+	clone.Votes = big.NewInt(0)
+	primaryData, err = clone.Serialize()
+	if err != nil {
+		return value, errors.Wrap(err, "failed to serialize candidate")
+	}
+	value.PrimaryData = primaryData
+	value.SecondaryData = secondaryData
+	return value, nil
+}
+
+// Decode decodes candidate from generic value
+func (d *Candidate) Decode(gv systemcontracts.GenericValue) error {
+	if err := d.Deserialize(gv.PrimaryData); err != nil {
+		return errors.Wrap(err, "failed to deserialize candidate")
+	}
+	if len(gv.SecondaryData) > 0 {
+		votes := &stakingpb.Candidate{}
+		if err := proto.Unmarshal(gv.SecondaryData, votes); err != nil {
+			return errors.Wrap(err, "failed to unmarshal candidate votes")
+		}
+		vote, ok := new(big.Int).SetString(votes.Votes, 10)
+		if !ok {
+			return errors.Wrapf(action.ErrInvalidAmount, "failed to parse candidate votes: %s", votes.Votes)
+		}
+		d.Votes = vote
+	}
+	return nil
+}
+
 func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 	if d.Owner == nil || d.Operator == nil || d.Reward == nil ||
 		len(d.Name) == 0 || d.Votes == nil || d.SelfStake == nil {
@@ -201,6 +255,11 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 	voter := ""
 	if d.Identifier != nil {
 		voter = d.Identifier.String()
+	}
+	var pubkey []byte
+	if len(d.BLSPubKey) > 0 {
+		pubkey = make([]byte, len(d.BLSPubKey))
+		copy(pubkey, d.BLSPubKey)
 	}
 
 	return &stakingpb.Candidate{
@@ -212,6 +271,7 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		Votes:              d.Votes.String(),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          d.SelfStake.String(),
+		Pubkey:             pubkey,
 	}, nil
 }
 
@@ -255,10 +315,18 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	if !ok {
 		return action.ErrInvalidAmount
 	}
+	if len(pb.GetPubkey()) > 0 {
+		d.BLSPubKey = make([]byte, len(pb.GetPubkey()))
+		copy(d.BLSPubKey, pb.GetPubkey())
+	} else {
+		d.BLSPubKey = nil
+	}
 	return nil
 }
 
 func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
+	blsPubKey := make([]byte, len(d.BLSPubKey))
+	copy(blsPubKey, d.BLSPubKey)
 	return &iotextypes.CandidateV2{
 		OwnerAddress:       d.Owner.String(),
 		OperatorAddress:    d.Operator.String(),
@@ -268,6 +336,7 @@ func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStakingTokens:  d.SelfStake.String(),
 		Id:                 d.GetIdentifier().String(),
+		BlsPubKey:          blsPubKey,
 	}
 }
 
@@ -277,6 +346,7 @@ func (d *Candidate) toStateCandidate() *state.Candidate {
 		Votes:         new(big.Int).Set(d.Votes),
 		RewardAddress: d.Reward.String(),
 		CanName:       []byte(d.Name),
+		BLSPubKey:     d.BLSPubKey,
 	}
 }
 
@@ -344,6 +414,20 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 		*l = append(*l, c)
 	}
 	return nil
+}
+
+// Encode encodes candidate list into generic value
+func (l *CandidateList) Encode() (systemcontracts.GenericValue, error) {
+	data, err := l.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize candidate list")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes candidate list from generic value
+func (l *CandidateList) Decode(gv systemcontracts.GenericValue) error {
+	return l.Deserialize(gv.PrimaryData)
 }
 
 func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {

@@ -67,6 +67,7 @@ type (
 		logsBloom       string
 		receipt         *action.Receipt
 		txType          uint
+		transferEvents  []*action.Log
 	}
 
 	getLogsResult struct {
@@ -86,6 +87,11 @@ type (
 		ReturnValue string               `json:"returnValue"`
 		Gas         uint64               `json:"gas"`
 		StructLogs  []apitypes.StructLog `json:"structLogs"`
+	}
+
+	blockTraceResult struct {
+		TxHash hash.Hash256 `json:"txHash"`
+		Result any          `json:"result"`
 	}
 
 	feeHistoryResult struct {
@@ -365,7 +371,7 @@ func (obj *getReceiptResult) MarshalJSON() ([]byte, error) {
 		return nil, errInvalidObject
 	}
 	logs := make([]*getLogsResult, 0, len(obj.receipt.Logs()))
-	for _, v := range obj.receipt.Logs() {
+	for _, v := range append(obj.receipt.Logs(), obj.transferEvents...) {
 		logs = append(logs, &getLogsResult{obj.blockHash, v})
 	}
 
@@ -453,5 +459,15 @@ func (obj *streamResponse) MarshalJSON() ([]byte, error) {
 			Subscription: obj.id,
 			Result:       obj.result,
 		},
+	})
+}
+
+func (obj *blockTraceResult) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		TxHash string `json:"txHash"`
+		Result any    `json:"result"`
+	}{
+		TxHash: "0x" + hex.EncodeToString(obj.TxHash[:]),
+		Result: obj.Result,
 	})
 }

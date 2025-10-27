@@ -269,7 +269,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	// update bucket pool
-	if err := csm.CreditBucketPool(bucket.StakedAmount); err != nil {
+	if err := csm.CreditBucketPool(bucket.StakedAmount, true); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
 			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
@@ -775,7 +775,26 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	if !featureCtx.CandidateIdentifiedByOwner {
 		c.Identifier = candID
 	}
-
+	if act.WithBLS() {
+		c.BLSPubKey = act.BLSPubKey()
+		topics, eventData, err := action.PackCandidateRegisteredEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
+		if err != nil {
+			return log, nil, errors.Wrap(err, "failed to pack candidate register with BLS event")
+		}
+		log.AddEvent(topics, eventData)
+		if withSelfStake {
+			topics, eventData, err = action.PackStakedEvent(owner, candID, bucketIdx, act.Amount(), act.Duration(), act.AutoStake())
+			if err != nil {
+				return log, nil, errors.Wrap(err, "failed to pack staked event")
+			}
+			log.AddEvent(topics, eventData)
+			topics, eventData, err = action.PackCandidateActivatedEvent(candID, bucketIdx)
+			if err != nil {
+				return log, nil, errors.Wrap(err, "failed to pack candidate activated event")
+			}
+			log.AddEvent(topics, eventData)
+		}
+	}
 	if err := csm.Upsert(c); err != nil {
 		return log, nil, csmErrorToHandleError(owner.String(), err)
 	}
@@ -851,6 +870,15 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	if act.RewardAddress() != nil {
 		c.Reward = act.RewardAddress()
 	}
+
+	if act.WithBLS() {
+		c.BLSPubKey = act.BLSPubKey()
+		topics, eventData, err := action.PackCandidateUpdatedEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
+		if err != nil {
+			return log, errors.Wrap(err, "failed to pack candidate register with BLS event")
+		}
+		log.AddEvent(topics, eventData)
+	}
 	log.AddTopics(c.GetIdentifier().Bytes())
 
 	if err := csm.Upsert(c); err != nil {
@@ -865,8 +893,8 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	return log, nil
 }
 
-func (p *Protocol) fetchBucket(csm BucketGetByIndex, index uint64) (*VoteBucket, ReceiptError) {
-	bucket, err := csm.getBucket(index)
+func (p *Protocol) fetchBucket(csm NativeBucketGetByIndex, index uint64) (*VoteBucket, ReceiptError) {
+	bucket, err := csm.NativeBucket(index)
 	if err != nil {
 		fetchErr := &handleError{
 			err:           errors.Wrapf(err, "failed to fetch bucket by index %d", index),

@@ -11,7 +11,7 @@ GOVET=$(GOCMD) vet
 GOBUILD=$(GOCMD) build
 GOINSTALL=$(GOCMD) install
 GOCLEAN=$(GOCMD) clean
-GOTEST=GOARCH=amd64 CGO_ENABLED=1 $(GOCMD) test
+GOTEST=CGO_ENABLED=1 $(GOCMD) test
 GOGET=$(GOCMD) get
 GOPATH=$(shell go env GOPATH)
 BUILD_TARGET_SERVER=server
@@ -33,6 +33,8 @@ ALL_PKGS := $(shell go list ./... )
 PKGS := $(shell go list ./... | grep -v /test/ )
 ROOT_PKG := "github.com/iotexproject/iotex-core"
 TEST_PKGS := $(shell go list ./... | grep -E -v 'pb$|testdata|mock')
+TEST_PKGS_NO_E2E := $(shell go list ./... | grep -E -v 'pb$|testdata|mock|e2etest')
+E2E_TEST_PKGS := $(shell go list ./... | grep e2etest)
 
 # Docker parameters
 DOCKERCMD=docker
@@ -62,6 +64,8 @@ PackageFlags += -X '$(VersionImportPath).GoVersion=$(GO_VERSION)'
 PackageFlags += -X '$(VersionImportPath).BuildTime=$(BUILD_TIME)'
 PackageFlags += -s -w
 
+BUILD_TAGS = nosilkworm
+
 TEST_IGNORE= ".git,vendor"
 COV_OUT := profile.coverprofile
 COV_REPORT := overalls.coverprofile
@@ -82,30 +86,30 @@ all: clean build-all test
 
 .PHONY: build
 build: ioctl
-	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
+	$(GOBUILD) -tags $(BUILD_TAGS) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 
 .PHONY: build-all
 build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer build-readtip
 
 .PHONY: build-actioninjector
 build-actioninjector: 
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
 
 .PHONY: build-addrgen
 build-addrgen:
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
 
 .PHONY: build-minicluster
 build-minicluster:
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 
 .PHONY: build-staterecoverer
 build-staterecoverer:
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
 
 .PHONY: build-readtip
 build-readtip:
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_READTIP) -v ./tools/readtip
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_READTIP) -v ./tools/readtip
 
 .PHONY: fmt
 fmt:
@@ -124,7 +128,19 @@ lint-rich:
 
 .PHONY: test
 test: fmt
-	@$(GOTEST) -gcflags="all=-N -l" -short -race ${TEST_PKGS}
+	@echo "Running unit tests with race detector..."
+	@$(GOTEST) -gcflags="all=-N -l" -short -race ${TEST_PKGS_NO_E2E}
+	@echo "Running e2e tests without race detector..."
+	@$(GOTEST) -gcflags="all=-N -l" -short ${E2E_TEST_PKGS}
+
+.PHONY: test-unit
+test-unit: fmt
+	@$(GOTEST) -gcflags="all=-N -l" -short -race ${TEST_PKGS_NO_E2E}
+
+.PHONY: test-e2e
+test-e2e: fmt
+	@echo "Running e2e tests without race detector..."
+	@$(GOTEST) -gcflags="all=-N -l" -short ${E2E_TEST_PKGS}
 
 .PHONY: test-rich
 test-rich:
@@ -240,7 +256,7 @@ recover:
 
 .PHONY: ioctl
 ioctl:
-	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./tools/ioctl
+	$(GOBUILD) -tags $(BUILD_TAGS) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./tools/ioctl
 
 .PHONY: newioctl
 newioctl:

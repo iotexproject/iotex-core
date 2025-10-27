@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -277,12 +277,12 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			43730920,
+			36893880,
 		},
 		// after Wake
 		{
 			action.EmptyAddress,
-			43730921,
+			36893881,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",

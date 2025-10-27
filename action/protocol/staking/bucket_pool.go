@@ -9,11 +9,13 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // const
@@ -82,13 +84,29 @@ func (t *totalAmount) AddBalance(amount *big.Int, newBucket bool) {
 	}
 }
 
-func (t *totalAmount) SubBalance(amount *big.Int) error {
+func (t *totalAmount) SubBalance(amount *big.Int, deleteBucket bool) error {
 	if amount.Cmp(t.amount) == 1 || t.count == 0 {
 		return state.ErrNotEnoughBalance
 	}
 	t.amount.Sub(t.amount, amount)
-	t.count--
+	if deleteBucket {
+		t.count--
+	}
 	return nil
+}
+
+// Encode encodes total amount into generic value
+func (t *totalAmount) Encode() (systemcontracts.GenericValue, error) {
+	data, err := t.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize total amount")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes total amount from generic value
+func (t *totalAmount) Decode(gv systemcontracts.GenericValue) error {
+	return t.Deserialize(gv.PrimaryData)
 }
 
 // IsDirty returns true if the bucket pool is dirty
@@ -124,14 +142,14 @@ func (bp *BucketPool) Clone() *BucketPool {
 }
 
 // Commit is called upon workingset commit
-func (bp *BucketPool) Commit(sr protocol.StateReader) error {
+func (bp *BucketPool) Commit() error {
 	bp.dirty = false
 	return nil
 }
 
 // CreditPool subtracts staked amount out of the pool
-func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int) error {
-	if err := bp.total.SubBalance(amount); err != nil {
+func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int, deleteBucket bool) error {
+	if err := bp.total.SubBalance(amount, deleteBucket); err != nil {
 		return err
 	}
 

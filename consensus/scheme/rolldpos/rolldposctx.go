@@ -593,6 +593,9 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	switch err := ctx.chain.CommitBlock(pendingBlock); errors.Cause(err) {
 	case blockchain.ErrInvalidTipHeight:
 		return true, nil
+	case blockchain.ErrPaused:
+		ctx.logger().Info("chain is paused, block will not be committed")
+		return false, nil
 	case nil:
 		break
 	default:

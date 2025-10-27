@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -25,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/util"

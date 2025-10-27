@@ -8,6 +8,8 @@ package blockchain
 import (
 	"crypto/ecdsa"
 	"os"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,11 +41,13 @@ type (
 		BlobStoreDBPath            string           `yaml:"blobStoreDBPath"`
 		BlobStoreRetentionDays     uint32           `yaml:"blobStoreRetentionDays"`
 		HistoryIndexPath           string           `yaml:"historyIndexPath"`
+		HistoryBlockRetention      uint64           `yaml:"historyBlockRetention"`
 		ID                         uint32           `yaml:"id"`
 		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
 		Address                    string           `yaml:"address"`
 		ProducerPrivKey            string           `yaml:"producerPrivKey"`
 		ProducerPrivKeySchema      string           `yaml:"producerPrivKeySchema"`
+		ProducerPrivKeyRange       string           `yaml:"producerPrivKeyRange"`
 		SignatureScheme            []string         `yaml:"signatureScheme"`
 		EmptyGenesis               bool             `yaml:"emptyGenesis"`
 		GravityChainDB             db.Config        `yaml:"gravityChainDB"`
@@ -54,6 +58,7 @@ type (
 		// EnableStateDBCaching enables cachedStateDBOption
 		EnableStateDBCaching bool `yaml:"enableStateDBCaching"`
 		// EnableArchiveMode is only meaningful when EnableTrielessStateDB is false
+		// Deprecated: HistoryIndexPath is used to store the archived state
 		EnableArchiveMode bool `yaml:"enableArchiveMode"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
@@ -101,10 +106,11 @@ var (
 		ContractStakingIndexDBPath: "/var/data/contractstaking.index.db",
 		BlobStoreDBPath:            "/var/data/blob.db",
 		BlobStoreRetentionDays:     21,
+		HistoryBlockRetention:      0,
 		ID:                         1,
 		EVMNetworkID:               4689,
 		Address:                    "",
-		ProducerPrivKey:            generateRandomKey(SigP256k1),
+		ProducerPrivKey:            GenerateRandomKey(SigP256k1),
 		SignatureScheme:            []string{SigP256k1},
 		EmptyGenesis:               false,
 		GravityChainDB:             db.Config{DbPath: "/var/data/poll.db", NumRetries: 10},
@@ -169,7 +175,35 @@ func (cfg *Config) ProducerPrivateKeys() []crypto.PrivateKey {
 		}
 		privateKeys = append(privateKeys, sk)
 	}
-	return privateKeys
+
+	if cfg.ProducerPrivKeyRange == "" {
+		return privateKeys
+	}
+	// Expecting format "[$start:$end]"
+	r := strings.Trim(cfg.ProducerPrivKeyRange, "[]")
+	parts := strings.Split(r, ":")
+	if len(parts) != 2 {
+		log.L().Panic("invalid format", zap.String("ProducerPrivKeyRange", cfg.ProducerPrivKeyRange))
+	}
+	start, end := 0, len(privateKeys)
+	var err error
+	if parts[0] != "" {
+		start, err = strconv.Atoi(parts[0])
+		if err != nil {
+			log.L().Panic("invalid start", zap.String("start", parts[0]), zap.Error(err))
+		}
+	}
+	if parts[1] != "" {
+		end, err = strconv.Atoi(parts[1])
+		if err != nil {
+			log.L().Panic("invalid end", zap.String("end", parts[1]), zap.Error(err))
+		}
+	}
+	if start < 0 || end > len(privateKeys) || start > end {
+		log.L().Panic("ProducerPrivKeyRange out of bounds", zap.Int("start", start), zap.Int("end", end), zap.Int("len", len(privateKeys)))
+	}
+
+	return privateKeys[start:end]
 }
 
 // SetProducerPrivKey set producer privKey by PrivKeyConfigFile info
@@ -203,7 +237,8 @@ func (cfg *Config) SetProducerPrivKey() error {
 	return nil
 }
 
-func generateRandomKey(scheme string) string {
+// GenerateRandomKey generates a random private key based on the signature scheme
+func GenerateRandomKey(scheme string) string {
 	// generate a random key
 	switch scheme {
 	case SigP256k1:
@@ -229,11 +264,5 @@ func (cfg *Config) whitelistSignatureScheme(sk crypto.PrivateKey) bool {
 	if sigScheme == "" {
 		return false
 	}
-	for _, e := range cfg.SignatureScheme {
-		if sigScheme == e {
-			// signature scheme is whitelisted
-			return true
-		}
-	}
-	return false
+	return slices.Contains(cfg.SignatureScheme, sigScheme)
 }

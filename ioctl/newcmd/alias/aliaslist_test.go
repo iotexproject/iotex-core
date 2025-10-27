@@ -7,11 +7,11 @@ package alias
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/util"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_ioctlclient"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 // test for alias list command

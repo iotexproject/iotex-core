@@ -20,11 +20,11 @@ import (
 
 const (
 	// CodeKVNameSpace is the bucket name for code
-	CodeKVNameSpace = "Code"
+	CodeKVNameSpace = state.CodeKVNameSpace
 	// ContractKVNameSpace is the bucket name for contract data storage
-	ContractKVNameSpace = "Contract"
+	ContractKVNameSpace = state.ContractKVNameSpace
 	// PreimageKVNameSpace is the bucket name for preimage data storage
-	PreimageKVNameSpace = "Preimage"
+	PreimageKVNameSpace = state.PreimageKVNameSpace
 )
 
 type (

@@ -6,10 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"go.uber.org/mock/gomock"
 )
 
 func TestParseCallObject(t *testing.T) {

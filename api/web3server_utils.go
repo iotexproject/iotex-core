@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-redis/redis/v8"
@@ -26,6 +28,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	logfilter "github.com/iotexproject/iotex-core/v2/api/logfilter"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -284,16 +287,16 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 }
 
 type callMsg struct {
-	From        address.Address  // the sender of the 'transaction'
-	To          string           // the destination contract (empty for contract creation)
-	Gas         uint64           // if 0, the call executes with near-infinite gas
-	GasPrice    *big.Int         // wei <-> gas exchange ratio
-	GasFeeCap   *big.Int         // EIP-1559 fee cap per gas.
-	GasTipCap   *big.Int         // EIP-1559 tip per gas.
-	Value       *big.Int         // amount of wei sent along with the call
-	Data        []byte           // input data, usually an ABI-encoded contract method invocation
-	AccessList  types.AccessList // EIP-2930 access list.
-	BlockNumber rpc.BlockNumber
+	From              address.Address       // the sender of the 'transaction'
+	To                string                // the destination contract (empty for contract creation)
+	Gas               uint64                // if 0, the call executes with near-infinite gas
+	GasPrice          *big.Int              // wei <-> gas exchange ratio
+	GasFeeCap         *big.Int              // EIP-1559 fee cap per gas.
+	GasTipCap         *big.Int              // EIP-1559 tip per gas.
+	Value             *big.Int              // amount of wei sent along with the call
+	Data              []byte                // input data, usually an ABI-encoded contract method invocation
+	AccessList        types.AccessList      // EIP-2930 access list.
+	BlockNumberOrHash rpc.BlockNumberOrHash // EIP-1898
 }
 
 func parseCallObject(in *gjson.Result) (*callMsg, error) {
@@ -307,7 +310,7 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 		value     *big.Int = big.NewInt(0)
 		data      []byte
 		acl       types.AccessList
-		bn        = rpc.LatestBlockNumber
+		bn        = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
 		err       error
 	)
 	fromStr := in.Get("params.0.from").String()
@@ -372,49 +375,58 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 
 	if accessList := in.Get("params.0.accessList"); accessList.Exists() {
 		acl = types.AccessList{}
-		log.L().Info("raw acl", zap.String("accessList", accessList.Raw))
+		log.L().Debug("raw acl", zap.String("accessList", accessList.Raw))
 		if err := json.Unmarshal([]byte(accessList.Raw), &acl); err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal access list %s", accessList.Raw)
 		}
 	}
 	if bnParam := in.Get("params.1"); bnParam.Exists() {
-		if err = bn.UnmarshalJSON([]byte(bnParam.String())); err != nil {
+		if err = bn.UnmarshalJSON([]byte(bnParam.Raw)); err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
 		}
 	}
 	return &callMsg{
-		From:        from,
-		To:          to,
-		Gas:         gasLimit,
-		GasPrice:    gasPrice,
-		GasFeeCap:   gasFeeCap,
-		GasTipCap:   gasTipCap,
-		Value:       value,
-		Data:        data,
-		AccessList:  acl,
-		BlockNumber: bn,
+		From:              from,
+		To:                to,
+		Gas:               gasLimit,
+		GasPrice:          gasPrice,
+		GasFeeCap:         gasFeeCap,
+		GasTipCap:         gasTipCap,
+		Value:             value,
+		Data:              data,
+		AccessList:        acl,
+		BlockNumberOrHash: bn,
 	}, nil
 }
 
-func parseBlockNumber(in *gjson.Result) (rpc.BlockNumber, error) {
+func parseBlockNumberOrHash(in *gjson.Result) (rpc.BlockNumberOrHash, error) {
 	if !in.Exists() {
-		return rpc.LatestBlockNumber, nil
+		return rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber), nil
 	}
-	var height rpc.BlockNumber
-	if err := height.UnmarshalJSON([]byte(in.String())); err != nil {
-		return 0, err
+	var height rpc.BlockNumberOrHash
+	if err := height.UnmarshalJSON([]byte(in.Raw)); err != nil {
+		return height, err
 	}
 	return height, nil
 }
 
-func blockNumberToHeight(bn rpc.BlockNumber) (uint64, bool) {
-	switch bn {
+func (svr *web3Handler) blockNumberOrHashToHeight(bn rpc.BlockNumberOrHash) (uint64, bool, error) {
+	if bn.BlockHash != nil {
+		bh := (*bn.BlockHash).String()
+		blk, err := svr.coreService.BlockByHash(util.Remove0xPrefix(bh))
+		if err != nil {
+			return 0, false, errors.Wrapf(err, "failed to get block height by hash %s", bh)
+		}
+		return uint64(blk.Block.Height()), true, nil
+	}
+
+	switch *bn.BlockNumber {
 	case rpc.SafeBlockNumber, rpc.FinalizedBlockNumber, rpc.LatestBlockNumber, rpc.PendingBlockNumber:
-		return 0, false
+		return 0, false, nil
 	case rpc.EarliestBlockNumber:
-		return 1, true
+		return 1, true, nil
 	default:
-		return uint64(bn), true
+		return uint64(*bn.BlockNumber), true, nil
 	}
 }
 
@@ -645,4 +657,102 @@ func newGetTransactionResult(
 		receipt:   receipt,
 		pubkey:    selp.SrcPubkey(),
 	}, nil
+}
+
+func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
+	var (
+		enableMemory, disableStack, disableStorage, enableReturnData bool
+		tracerJs, tracerTimeout                                      *string
+		tracerConfig                                                 json.RawMessage
+	)
+	if options.Exists() {
+		enableMemory = options.Get("enableMemory").Bool()
+		disableStack = options.Get("disableStack").Bool()
+		disableStorage = options.Get("disableStorage").Bool()
+		enableReturnData = options.Get("enableReturnData").Bool()
+		trace := options.Get("tracer")
+		if trace.Exists() {
+			tracerJs = new(string)
+			*tracerJs = trace.String()
+		}
+		traceTimeout := options.Get("timeout")
+		if traceTimeout.Exists() {
+			tracerTimeout = new(string)
+			*tracerTimeout = traceTimeout.String()
+		}
+		if options.Get("tracerConfig").Exists() {
+			tracerConfig = json.RawMessage(options.Get("tracerConfig").Raw)
+		}
+	}
+	cfg := &tracers.TraceConfig{
+		Tracer:  tracerJs,
+		Timeout: tracerTimeout,
+		Config: &logger.Config{
+			EnableMemory:     enableMemory,
+			DisableStack:     disableStack,
+			DisableStorage:   disableStorage,
+			EnableReturnData: enableReturnData,
+		},
+		TracerConfig: tracerConfig,
+	}
+	return cfg
+}
+
+type evmTracer struct {
+	vm.EVMLogger
+	txctx  *tracers.Context
+	config *tracers.TraceConfig
+}
+
+func newEVMTracer(txctx *tracers.Context, config *tracers.TraceConfig) *evmTracer {
+	return &evmTracer{
+		txctx:  txctx,
+		config: config,
+	}
+}
+
+func (et *evmTracer) Reset() error {
+	var (
+		tracer vm.EVMLogger
+		err    error
+	)
+	switch {
+	case et.config == nil:
+		tracer = logger.NewStructLogger(nil)
+	case et.config.Tracer != nil:
+		// Define a meaningful timeout of a single transaction trace
+		timeout := defaultTraceTimeout
+		if et.config.Timeout != nil {
+			if timeout, err = time.ParseDuration(*et.config.Timeout); err != nil {
+				return err
+			}
+		}
+		t, err := tracers.DefaultDirectory.New(*et.config.Tracer, et.txctx, et.config.TracerConfig)
+		if err != nil {
+			return err
+		}
+		deadlineCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		go func() {
+			<-deadlineCtx.Done()
+			if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
+				t.Stop(errors.New("execution timeout"))
+			}
+		}()
+		tracer = t
+
+	default:
+		tracer = logger.NewStructLogger(et.config.Config)
+	}
+	et.EVMLogger = evm.NewTracerWrapper(tracer)
+	return nil
+}
+
+func (et *evmTracer) Unwrap() vm.EVMLogger {
+	if wrapper, ok := et.EVMLogger.(interface {
+		Unwrap() vm.EVMLogger
+	}); ok {
+		return wrapper.Unwrap()
+	}
+	return et.EVMLogger
 }

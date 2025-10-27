@@ -18,10 +18,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/golang/mock/gomock"
 	iotexcrypto "github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -2449,7 +2449,7 @@ func TestHistoryForContract(t *testing.T) {
 	require.True(ok)
 	require.Equal(expect, balance)
 
-	// check the the original balance again
+	// check the original balance again
 	_, err = sf.WorkingSetAtHeight(ctx, bc.TipHeight()-1)
 	require.NoError(err)
 }

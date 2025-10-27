@@ -6,11 +6,13 @@
 package staking
 
 import (
+	"context"
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 type (
@@ -69,7 +71,7 @@ func NewCandidateCenter(all CandidateList) (*CandidateCenter, error) {
 		return &c, nil
 	}
 
-	if err := c.Commit(); err != nil {
+	if err := c.commit(); err != nil {
 		return nil, err
 	}
 	return &c, nil
@@ -112,9 +114,8 @@ func (m CandidateCenter) Base() *CandidateCenter {
 	}
 }
 
-// Commit writes the change into base
-func (m *CandidateCenter) Commit() error {
-	size, err := m.base.commit(m.change, false)
+func (m *CandidateCenter) commit() error {
+	size, err := m.base.commit(m.change, false, false)
 	if err != nil {
 		return err
 	}
@@ -124,9 +125,35 @@ func (m *CandidateCenter) Commit() error {
 	return nil
 }
 
-// LegacyCommit writes the change into base with legacy logic
-func (m *CandidateCenter) LegacyCommit() error {
-	size, err := m.base.commit(m.change, true)
+// Commit writes the change into base
+func (m *CandidateCenter) Commit(ctx context.Context, sm protocol.StateManager) error {
+	height, err := sm.Height()
+	if err != nil {
+		return err
+	}
+	if featureWithHeightCtx, ok := protocol.GetFeatureWithHeightCtx(ctx); ok && featureWithHeightCtx.CandCenterHasAlias(height) {
+		return m.legacyCommit()
+	}
+	if fCtx, ok := protocol.GetFeatureCtx(ctx); ok && fCtx.CandidateBLSPublicKeyNotCopied {
+		return m.xinguCommit()
+	}
+	return m.commit()
+}
+
+// legacyCommit writes the change into base with legacy logic
+func (m *CandidateCenter) legacyCommit() error {
+	size, err := m.base.commit(m.change, true, false)
+	if err != nil {
+		return err
+	}
+	m.size = size
+	m.change = nil
+	m.change = newCandChange()
+	return nil
+}
+
+func (m *CandidateCenter) xinguCommit() error {
+	size, err := m.base.commit(m.change, false, true)
 	if err != nil {
 		return err
 	}
@@ -253,6 +280,22 @@ func (m *CandidateCenter) GetBySelfStakingIndex(index uint64) *Candidate {
 	return nil
 }
 
+// GetByOperator returns the candidate by operator
+func (m *CandidateCenter) GetByOperator(operator address.Address) *Candidate {
+	if operator == nil {
+		return nil
+	}
+
+	if d := m.change.getByOperator(operator); d != nil {
+		return d
+	}
+
+	if d, hit := m.base.getByOperator(operator.String()); hit {
+		return d.Clone()
+	}
+	return nil
+}
+
 // Upsert adds a candidate into map, overwrites if already exist
 func (m *CandidateCenter) Upsert(d *Candidate) error {
 	if err := d.Validate(); err != nil {
@@ -270,8 +313,26 @@ func (m *CandidateCenter) Upsert(d *Candidate) error {
 	if _, hit := m.base.getByIdentifier(d.GetIdentifier().String()); !hit {
 		m.size++
 	}
-	// fmt.Printf("upsert done %+v\n", d)
 	return nil
+}
+
+// WriteToStateDB writes the candidate center to stateDB
+func (m *CandidateCenter) WriteToStateDB(sm protocol.StateManager) error {
+	// persist nameMap/operatorMap and ownerList to stateDB
+	name := m.base.candsInNameMap()
+	op := m.base.candsInOperatorMap()
+	owners := m.base.ownersList()
+	if len(name) == 0 || len(op) == 0 || len(owners) == 0 {
+		return nil
+	}
+	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
+		return err
+	}
+	if _, err := sm.PutState(op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+		return err
+	}
+	_, err := sm.PutState(owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
+	return err
 }
 
 func (m *CandidateCenter) collision(d *Candidate) error {
@@ -430,6 +491,19 @@ func (cc *candChange) getBySelfStakingIndex(index uint64) *Candidate {
 	return nil
 }
 
+func (cc *candChange) getByOperator(operator address.Address) *Candidate {
+	if operator == nil {
+		return nil
+	}
+
+	for _, d := range cc.dirty {
+		if address.Equal(operator, d.Operator) {
+			return d.Clone()
+		}
+	}
+	return nil
+}
+
 func (cc *candChange) upsert(d *Candidate) error {
 	if err := d.Validate(); err != nil {
 		return err
@@ -482,7 +556,7 @@ func (cb *candBase) all() CandidateList {
 	return list
 }
 
-func (cb *candBase) commit(change *candChange, keepAliasBug bool) (int, error) {
+func (cb *candBase) commit(change *candChange, keepAliasBug, notCopyBLSKey bool) (int, error) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	if keepAliasBug {
@@ -503,6 +577,9 @@ func (cb *candBase) commit(change *candChange, keepAliasBug bool) (int, error) {
 				return 0, err
 			}
 			d := v.Clone()
+			if notCopyBLSKey {
+				d.BLSPubKey = nil
+			}
 			if curr, ok := cb.identifierMap[d.GetIdentifier().String()]; ok {
 				delete(cb.nameMap, curr.Name)
 				delete(cb.operatorMap, curr.Operator.String())

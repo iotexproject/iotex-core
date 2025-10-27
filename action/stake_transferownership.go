@@ -7,7 +7,6 @@ package action
 
 import (
 	"bytes"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,34 +16,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
-)
-
-const (
-	_transferStakeInterfaceABI = `[
-		{
-			"inputs": [
-				{
-					"internalType": "address",
-					"name": "voterAddress",
-					"type": "address"
-				},
-				{
-					"internalType": "uint64",
-					"name": "bucketIndex",
-					"type": "uint64"
-				},
-				{
-					"internalType": "uint8[]",
-					"name": "data",
-					"type": "uint8[]"
-				}
-			],
-			"name": "transferStake",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
 )
 
 var (
@@ -62,12 +33,8 @@ type TransferStake struct {
 }
 
 func init() {
-	transferStakeInterface, err := abi.JSON(strings.NewReader(_transferStakeInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
 	var ok bool
-	_transferStakeMethod, ok = transferStakeInterface.Methods["transferStake"]
+	_transferStakeMethod, ok = NativeStakingContractABI().Methods["transferStake"]
 	if !ok {
 		panic("fail to load the method")
 	}

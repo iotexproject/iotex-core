@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -78,22 +78,28 @@ func Test_blockDAO_Start(t *testing.T) {
 		lifecycle:  lifecycle.Lifecycle{},
 		blockStore: mockblockdao,
 	}
-
+	t.Run("FailedToStartBlockStore", func(t *testing.T) {
+		p := gomonkey.NewPatches()
+		defer p.Reset()
+		mockblockdao.EXPECT().Start(gomock.Any()).Return(errors.New(t.Name())).Times(1)
+		r.ErrorContains(blockdao.Start(context.Background()), t.Name())
+	})
 	t.Run("FailedToStartLifeCycle", func(t *testing.T) {
 		p := gomonkey.NewPatches()
 		defer p.Reset()
+		mockblockdao.EXPECT().Start(gomock.Any()).Return(nil).Times(1)
+		mockblockdao.EXPECT().Height().Return(uint64(0), nil).Times(1)
+		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStartSequentially", errors.New(t.Name()))
 
-		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", errors.New(t.Name()))
-
-		err := blockdao.Start(context.Background())
-		r.ErrorContains(err, t.Name())
+		r.ErrorContains(blockdao.Start(context.Background()), t.Name())
 	})
 
 	t.Run("FailedToGetBlockStoreHeight", func(t *testing.T) {
 		p := gomonkey.NewPatches()
 		defer p.Reset()
 
-		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", nil)
+		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStartSequentially", nil)
+		mockblockdao.EXPECT().Start(gomock.Any()).Return(nil).Times(1)
 		mockblockdao.EXPECT().Height().Return(uint64(0), errors.New(t.Name())).Times(1)
 
 		err := blockdao.Start(context.Background())
@@ -106,7 +112,8 @@ func Test_blockDAO_Start(t *testing.T) {
 
 		expectedHeight := uint64(1)
 
-		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStart", nil)
+		p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStartSequentially", nil)
+		mockblockdao.EXPECT().Start(gomock.Any()).Return(nil).Times(1)
 		mockblockdao.EXPECT().Height().Return(expectedHeight, nil).Times(1)
 		p.ApplyPrivateMethod(&blockDAO{}, "checkIndexers", func(*blockDAO, context.Context) error { return nil })
 
@@ -135,9 +142,9 @@ func Test_blockDAO_checkIndexers(t *testing.T) {
 		p := gomonkey.NewPatches()
 		defer p.Reset()
 
-		p.ApplyMethodReturn(&BlockIndexerChecker{}, "CheckIndexer", errors.New(t.Name()))
-
-		err := blockdao.checkIndexers(context.Background())
+		p.ApplyMethodReturn(&blockIndexerChecker{}, "CheckIndexer", errors.New(t.Name()))
+		checker := NewBlockIndexerChecker(mockblockdao)
+		err := blockdao.checkIndexers(context.Background(), checker)
 		r.ErrorContains(err, t.Name())
 	})
 
@@ -157,9 +164,8 @@ func Test_blockDAO_checkIndexers(t *testing.T) {
 		// mock doaTip return
 		mockblockdao.EXPECT().Height().Return(daoTip, nil).Times(1)
 		mockblockdao.EXPECT().GetBlockByHeight(gomock.Any()).Return(&block.Block{}, nil).Times(1)
-
-		err := blockdao.checkIndexers(ctx)
-		r.NoError(err)
+		checker := NewBlockIndexerChecker(mockblockdao)
+		r.NoError(blockdao.checkIndexers(ctx, checker))
 	})
 }
 
@@ -172,7 +178,7 @@ func Test_blockDAO_Stop(t *testing.T) {
 		p := gomonkey.NewPatches()
 		defer p.Reset()
 
-		p = p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStop", errors.New(t.Name()))
+		p = p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStopSequentially", errors.New(t.Name()))
 
 		err := dao.Stop(context.Background())
 
@@ -183,7 +189,7 @@ func Test_blockDAO_Stop(t *testing.T) {
 		p := gomonkey.NewPatches()
 		defer p.Reset()
 
-		p = p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStop", nil)
+		p = p.ApplyMethodReturn(&lifecycle.Lifecycle{}, "OnStopSequentially", nil)
 
 		err := dao.Stop(context.Background())
 
@@ -480,6 +486,7 @@ func Test_blockDAO_GetReceipts(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		store.EXPECT().GetReceipts(gomock.Any()).Return([]*action.Receipt{{}, {}}, nil).Times(1)
+		store.EXPECT().TransactionLogs(gomock.Any()).Return(&iotextypes.TransactionLogs{Logs: nil}, nil).Times(1)
 
 		receipts, err := dao.GetReceipts(100)
 

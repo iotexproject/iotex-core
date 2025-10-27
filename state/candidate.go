@@ -6,6 +6,7 @@
 package state
 
 import (
+	"bytes"
 	"math/big"
 	"strings"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 
 	"github.com/iotexproject/iotex-address/address"
 )
@@ -35,6 +38,7 @@ type (
 		Votes         *big.Int
 		RewardAddress string
 		CanName       []byte // used as identifier to merge with native staking result, not part of protobuf
+		BLSPubKey     []byte // BLS public key, used for verification
 	}
 
 	// CandidateList indicates the list of Candidates which is sortable
@@ -54,7 +58,8 @@ func (c *Candidate) Equal(d *Candidate) bool {
 	}
 	return strings.Compare(c.Address, d.Address) == 0 &&
 		c.RewardAddress == d.RewardAddress &&
-		c.Votes.Cmp(d.Votes) == 0
+		c.Votes.Cmp(d.Votes) == 0 &&
+		bytes.Equal(c.BLSPubKey, d.BLSPubKey)
 }
 
 // Clone makes a copy of the candidate
@@ -64,11 +69,17 @@ func (c *Candidate) Clone() *Candidate {
 	}
 	name := make([]byte, len(c.CanName))
 	copy(name, c.CanName)
+	var pubkey []byte
+	if len(c.BLSPubKey) > 0 {
+		pubkey = make([]byte, len(c.BLSPubKey))
+		copy(pubkey, c.BLSPubKey)
+	}
 	return &Candidate{
 		Address:       c.Address,
 		Votes:         new(big.Int).Set(c.Votes),
 		RewardAddress: c.RewardAddress,
 		CanName:       name,
+		BLSPubKey:     pubkey,
 	}
 }
 
@@ -141,6 +152,20 @@ func (l *CandidateList) LoadProto(candList *iotextypes.CandidateList) error {
 	return nil
 }
 
+// Encode encodes a CandidateList into a GenericValue
+func (l *CandidateList) Encode() (systemcontracts.GenericValue, error) {
+	data, err := l.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes a GenericValue into CandidateList
+func (l *CandidateList) Decode(data systemcontracts.GenericValue) error {
+	return l.Deserialize(data.PrimaryData)
+}
+
 // candidateToPb converts a candidate to protobuf's candidate message
 func candidateToPb(cand *Candidate) *iotextypes.Candidate {
 	candidatePb := &iotextypes.Candidate{
@@ -150,6 +175,9 @@ func candidateToPb(cand *Candidate) *iotextypes.Candidate {
 	}
 	if cand.Votes != nil && len(cand.Votes.Bytes()) > 0 {
 		candidatePb.Votes = cand.Votes.Bytes()
+	}
+	if len(cand.BLSPubKey) > 0 {
+		candidatePb.BlsPubKey = cand.BLSPubKey
 	}
 	return candidatePb
 }
@@ -163,6 +191,7 @@ func pbToCandidate(candPb *iotextypes.Candidate) (*Candidate, error) {
 		Address:       candPb.Address,
 		Votes:         big.NewInt(0).SetBytes(candPb.Votes),
 		RewardAddress: candPb.RewardAddress,
+		BLSPubKey:     candPb.BlsPubKey,
 	}
 	return candidate, nil
 }

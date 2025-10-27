@@ -176,12 +176,12 @@ func (kvb *kvStoreWithBuffer) Get(ns string, key []byte) ([]byte, error) {
 }
 
 func (kvb *kvStoreWithBuffer) Put(ns string, key, value []byte) error {
-	kvb.buffer.Put(ns, key, value, fmt.Sprintf("faild to put %x in %s", key, ns))
+	kvb.buffer.Put(ns, key, value, fmt.Sprintf("failed to put %x in %s", key, ns))
 	return nil
 }
 
 func (kvb *kvStoreWithBuffer) MustPut(ns string, key, value []byte) {
-	kvb.buffer.Put(ns, key, value, fmt.Sprintf("faild to put %x in %s", key, ns))
+	kvb.buffer.Put(ns, key, value, fmt.Sprintf("failed to put %x in %s", key, ns))
 }
 
 func (kvb *kvStoreWithBuffer) Delete(ns string, key []byte) error {

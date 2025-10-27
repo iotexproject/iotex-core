@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/mohae/deepcopy"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-address/address"
 
@@ -123,14 +123,16 @@ func TestVoteReviser(t *testing.T) {
 			BlockInterval: getBlockInterval,
 		},
 		&BuilderConfig{
-			Staking:                  g.Staking,
-			PersistStakingPatchBlock: math.MaxUint64,
+			Staking:                       g.Staking,
+			PersistStakingPatchBlock:      math.MaxUint64,
+			SkipContractStakingViewHeight: math.MaxUint64,
 			Revise: ReviseConfig{
 				VoteWeight:         g.Staking.VoteWeightCalConsts,
 				CorrectCandsHeight: g.OkhotskBlockHeight,
 				ReviseHeights:      []uint64{g.HawaiiBlockHeight, g.GreenlandBlockHeight},
 			},
 		},
+		nil,
 		nil,
 		nil,
 		nil,
@@ -149,10 +151,11 @@ func TestVoteReviser(t *testing.T) {
 	// load candidates from stateDB and verify
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	v, err := stk.Start(ctx, sm)
-	sm.WriteView(_protocolID, v)
 	r.NoError(err)
-	_, ok := v.(*ViewData)
+	r.NoError(sm.WriteView(_protocolID, v))
+	_, ok := v.(*viewData)
 	r.True(ok)
 
 	csm, err = NewCandidateStateManager(sm)
@@ -207,10 +210,10 @@ func TestVoteReviser(t *testing.T) {
 		}
 		for _, v := range tests {
 			if address.Equal(v.cand, c.Owner) && v.index != c.SelfStakeBucketIdx {
-				bucket, err := csr.getBucket(v.index)
+				bucket, err := csr.NativeBucket(v.index)
 				r.NoError(err)
 				total := CalculateVoteWeight(cv, bucket, false)
-				bucket, err = csr.getBucket(c.SelfStakeBucketIdx)
+				bucket, err = csr.NativeBucket(c.SelfStakeBucketIdx)
 				r.NoError(err)
 				total.Add(total, CalculateVoteWeight(cv, bucket, true))
 				r.Equal(0, total.Cmp(c.Votes))
@@ -262,10 +265,11 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 			count:  0,
 		}, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		r.NoError(err)
-		view, _, err := CreateBaseView(sm, true)
+		view, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, true)
 		r.NoError(err)
 		sm.WriteView(_protocolID, view)
 		csm, err := NewCandidateStateManager(sm)
+		r.NoError(err)
 		esm := NewEndorsementStateManager(sm)
 		// prepare endorsements
 		r.NoError(esm.Put(0, &Endorsement{ExpireHeight: endorsementNotExpireHeight}))
@@ -333,7 +337,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 			count:  0,
 		}, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		r.NoError(err)
-		view, _, err := CreateBaseView(sm, true)
+		view, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, true)
 		r.NoError(err)
 		sm.WriteView(_protocolID, view)
 		t.Run("not change selfstaked candidate", func(t *testing.T) {
@@ -516,7 +520,7 @@ func TestVoteRevise_CorrectSelfStake(t *testing.T) {
 			count:  0,
 		}, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		r.NoError(err)
-		view, _, err := CreateBaseView(sm, true)
+		view, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, true)
 		r.NoError(err)
 		sm.WriteView(_protocolID, view)
 		revise := NewVoteReviser(ReviseConfig{

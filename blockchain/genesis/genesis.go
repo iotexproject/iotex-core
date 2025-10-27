@@ -77,7 +77,9 @@ func defaultConfig() Genesis {
 			TsunamiBlockHeight:        29275561,
 			UpernavikBlockHeight:      31174201,
 			VanuatuBlockHeight:        33730921,
-			WakeBlockHeight:           43730921,
+			WakeBlockHeight:           36893881,
+			XinguBlockHeight:          41648761,
+			XinguBetaBlockHeight:      41648761,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
@@ -95,18 +97,17 @@ func defaultConfig() Genesis {
 			SystemStakingContractHeight:      24486464,
 			SystemStakingContractV2Address:   "io13mjjr5shj4mte39axwsqjp8fdggk0qzjhatprp", // https://iotexscan.io/tx/b838b7a7c95e511fd8b256c5cbafde0547a72215d682eb60668d1b475a1beb70
 			SystemStakingContractV2Height:    30934838,
-			// TODO:  update the address and height after the v3 contract is deployed
-			SystemStakingContractV3Address: "",
-			SystemStakingContractV3Height:  90934838,
-			NativeStakingContractAddress:   "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
-			VoteThreshold:                  "100000000000000000000",
-			StakingContractAddress:         "0x87c9dbff0016af23f5b1ab9b8e072124ab729193",
-			SelfStakingThreshold:           "1200000000000000000000000",
-			ScoreThreshold:                 "2000000000000000000000000",
-			RegisterContractAddress:        "0x95724986563028deb58f15c5fac19fa09304f32d",
-			GravityChainStartHeight:        7614500,
-			GravityChainHeightInterval:     100,
-			Delegates:                      []Delegate{},
+			SystemStakingContractV3Address:   "io1vkcvq4ywarvfj4u9zwlqedfsttalq55jmtmqcu", // https://iotexscan.io/tx/0261599524be26cd0a5bdfffc4df1316b244306b4d31488bf60d3f6cbfa6722e
+			SystemStakingContractV3Height:    36726575,
+			NativeStakingContractAddress:     "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+			VoteThreshold:                    "100000000000000000000",
+			StakingContractAddress:           "0x87c9dbff0016af23f5b1ab9b8e072124ab729193",
+			SelfStakingThreshold:             "1200000000000000000000000",
+			ScoreThreshold:                   "2000000000000000000000000",
+			RegisterContractAddress:          "0x95724986563028deb58f15c5fac19fa09304f32d",
+			GravityChainStartHeight:          7614500,
+			GravityChainHeightInterval:       100,
+			Delegates:                        []Delegate{},
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:             unit.ConvertIotxToRau(200000000).String(),
@@ -175,6 +176,7 @@ func defaultConfig() Genesis {
 			MinStakeAmount:                   unit.ConvertIotxToRau(100).String(),
 			BootstrapCandidates:              []BootstrapCandidate{},
 			EndorsementWithdrawWaitingBlocks: 24 * 60 * 60 / 5,
+			MinSelfStakeToBeActive:           unit.ConvertIotxToRau(1000000).String(),
 		},
 	}
 }
@@ -335,7 +337,7 @@ type (
 		// 3. fix gas and nonce update
 		// 4. fix unproductive delegates in staking protocol
 		OkhotskBlockHeight uint64 `yaml:"okhotskHeight"`
-		// PalauBlockHeight is the the start height to
+		// PalauBlockHeight is the start height to
 		// 1. enable rewarding action via web3
 		// 2. broadcast node info into the p2p network
 		PalauBlockHeight uint64 `yaml:"palauHeight"`
@@ -369,6 +371,14 @@ type (
 		// WakeBlockHeight is the start height to
 		// 1. enable 3s block interval
 		WakeBlockHeight uint64 `yaml:"wakeHeight"`
+		// XinguBlockHeight is the start height to
+		// 1. enable IIP-50 slash delegates
+		// 2. enable candidate BLS pubkey registration and update
+		// 3. enable contract staking buckets storage in trie
+		XinguBlockHeight uint64 `yaml:"xinguHeight"`
+		// XinguBetaBlockHeight is the start height to
+		// 1. slash candidate by operator
+		XinguBetaBlockHeight uint64 `yaml:"xinguBetaHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -400,7 +410,7 @@ type (
 		NativeStakingContractAddress string `yaml:"nativeStakingContractAddress"`
 		// NativeStakingContractCode is the code of native staking contract
 		NativeStakingContractCode string `yaml:"nativeStakingContractCode"`
-		// ConsortiumCommitteeCode is the code of consortiumCommittee contract
+		// ConsortiumCommitteeContractCode is the code of consortiumCommittee contract
 		ConsortiumCommitteeContractCode string `yaml:"consortiumCommitteeContractCode"`
 		// VoteThreshold is the vote threshold amount in decimal string format
 		VoteThreshold string `yaml:"voteThreshold"`
@@ -446,11 +456,11 @@ type (
 	Rewarding struct {
 		// InitBalanceStr is the initial balance of the rewarding protocol in decimal string format
 		InitBalanceStr string `yaml:"initBalance"`
-		// BlockReward is the block reward amount in decimal string format
+		// BlockRewardStr is the block reward amount in decimal string format
 		BlockRewardStr string `yaml:"blockReward"`
-		// DardanellesBlockReward is the block reward amount starts from dardanelles height in decimal string format
+		// DardanellesBlockRewardStr is the block reward amount starts from dardanelles height in decimal string format
 		DardanellesBlockRewardStr string `yaml:"dardanellesBlockReward"`
-		// EpochReward is the epoch reward amount in decimal string format
+		// EpochRewardStr is the epoch reward amount in decimal string format
 		EpochRewardStr string `yaml:"epochReward"`
 		// AleutianEpochRewardStr is the epoch reward amount in decimal string format after aleutian fork
 		AleutianEpochRewardStr string `yaml:"aleutianEpochReward"`
@@ -481,6 +491,7 @@ type (
 		MinStakeAmount                   string               `yaml:"minStakeAmount"`
 		BootstrapCandidates              []BootstrapCandidate `yaml:"bootstrapCandidates"`
 		EndorsementWithdrawWaitingBlocks uint64               `yaml:"endorsementWithdrawWaitingBlocks"`
+		MinSelfStakeToBeActive           string               `yaml:"minSelfStakeToBeActive"`
 	}
 
 	// VoteWeightCalConsts contains the configs for calculating vote weight
@@ -746,6 +757,16 @@ func (g *Blockchain) IsVanuatu(height uint64) bool {
 // IsWake checks whether height is equal to or larger than wake height
 func (g *Blockchain) IsWake(height uint64) bool {
 	return g.isPost(g.WakeBlockHeight, height)
+}
+
+// IsXingu checks whether height is equal to or larger than xingu height
+func (g *Blockchain) IsXingu(height uint64) bool {
+	return g.isPost(g.XinguBlockHeight, height)
+}
+
+// IsXinguBeta checks whether height is equal to or larger than xingu beta height
+func (g *Blockchain) IsXinguBeta(height uint64) bool {
+	return g.isPost(g.XinguBetaBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

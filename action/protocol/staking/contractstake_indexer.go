@@ -13,6 +13,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 )
 
 var (
@@ -24,9 +30,26 @@ var (
 )
 
 type (
-
+	// EventHandler is the interface for handling staking events
+	EventHandler interface {
+		PutBucketType(address.Address, *ContractStakingBucketType) error
+		DeductBucket(address.Address, uint64) (*contractstaking.Bucket, error)
+		PutBucket(address.Address, uint64, *contractstaking.Bucket) error
+		DeleteBucket(address.Address, uint64) error
+	}
+	// EventProcessor is the interface for processing staking events
+	EventProcessor interface {
+		// ProcessReceipts processes receipts
+		ProcessReceipts(context.Context, ...*action.Receipt) error
+	}
 	// ContractStakingIndexer defines the interface of contract staking reader
 	ContractStakingIndexer interface {
+		lifecycle.StartStopper
+		// PutBlock puts a block into the indexer
+		PutBlock(context.Context, *block.Block) error
+		// StartHeight returns the start height of the indexer
+		StartHeight() uint64
+		// Height returns the latest indexed height
 		Height() (uint64, error)
 		// Buckets returns active buckets
 		Buckets(height uint64) ([]*VoteBucket, error)
@@ -37,9 +60,15 @@ type (
 		// TotalBucketCount returns the total number of buckets including burned buckets
 		TotalBucketCount(height uint64) (uint64, error)
 		// ContractAddress returns the contract address
-		ContractAddress() string
-		// StartView returns the contract stake view
-		StartView(ctx context.Context) (ContractStakeView, error)
+		ContractAddress() address.Address
+		// LoadStakeView loads the contract stake view from state reader
+		LoadStakeView(context.Context, protocol.StateReader) (ContractStakeView, error)
+		// CreateEventProcessor creates a new event processor
+		CreateEventProcessor(context.Context, EventHandler) EventProcessor
+		// ContractStakingBuckets returns all the contract staking buckets
+		ContractStakingBuckets() (uint64, map[uint64]*contractstaking.Bucket, error)
+
+		BucketReader
 	}
 	// ContractStakingIndexerWithBucketType defines the interface of contract staking reader with bucket type
 	ContractStakingIndexerWithBucketType interface {
@@ -70,11 +99,7 @@ func init() {
 
 // NewDelayTolerantIndexer creates a delay tolerant indexer
 func NewDelayTolerantIndexer(indexer ContractStakingIndexer, duration time.Duration) ContractStakingIndexer {
-	d := &delayTolerantIndexer{ContractStakingIndexer: indexer, duration: duration}
-	if indexWithStart, ok := indexer.(interface{ StartHeight() uint64 }); ok {
-		d.startHeight = indexWithStart.StartHeight()
-	}
-	return d
+	return &delayTolerantIndexer{ContractStakingIndexer: indexer, duration: duration}
 }
 
 // NewDelayTolerantIndexerWithBucketType creates a delay tolerant indexer with bucket type

@@ -13,8 +13,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/testutil"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type testCase struct {
@@ -72,6 +75,22 @@ func TestBasicProbe(t *testing.T) {
 	testFunc(t, test2)
 	require.NoError(t, s.TurnOff())
 	testFunc(t, test1)
+
+	now := time.Now()
+	createFooter := func(ts time.Time) block.Footer {
+		footer := block.Footer{}
+		require.NoError(t, footer.ConvertFromBlockFooterPb(
+			&iotextypes.BlockFooter{
+				Timestamp: timestamppb.New(ts),
+			},
+		))
+		return footer
+	}
+
+	require.NoError(t, s.ReceiveBlock(&block.Block{Footer: createFooter(now.Add(-9 * time.Second))}))
+	require.True(t, s.IsReady())
+	require.NoError(t, s.ReceiveBlock(&block.Block{Footer: createFooter(now.Add(-11 * time.Second))}))
+	require.False(t, s.IsReady())
 
 	require.NoError(t, s.Stop(ctx))
 	_, err := http.Get("http://localhost:7788/liveness")

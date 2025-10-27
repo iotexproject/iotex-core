@@ -94,10 +94,7 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 				require.Zero(len(r.Candidates))
 				continue
 			}
-			end := v2.offset + v2.limit
-			if end > expectLen {
-				end = expectLen
-			}
+			end := min(v2.offset+v2.limit, expectLen)
 			// check the returned list
 			expect := tests[v.height].candidates.Candidates[v2.offset:end]
 			for i, v := range expect {
@@ -226,10 +223,7 @@ func TestCandidatesBucketsIndexer_PutGetBuckets(t *testing.T) {
 				require.Zero(len(r.Buckets))
 				continue
 			}
-			end := v2.offset + v2.limit
-			if end > expectLen {
-				end = expectLen
-			}
+			end := min(v2.offset+v2.limit, expectLen)
 			// check the returned list
 			expect := tests[v.height].buckets.Buckets[v2.offset:end]
 			for i, v := range expect {

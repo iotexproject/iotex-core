@@ -8,7 +8,6 @@ package action
 import (
 	"bytes"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -23,42 +22,6 @@ const (
 	CreateStakePayloadGas = uint64(100)
 	// CreateStakeBaseIntrinsicGas represents the base intrinsic gas for CreateStake
 	CreateStakeBaseIntrinsicGas = uint64(10000)
-
-	_createStakeInterfaceABI = `[
-		{
-			"inputs": [
-				{
-					"internalType": "string",
-					"name": "candName",
-					"type": "string"
-				},
-				{
-					"internalType": "uint256",
-					"name": "amount",
-					"type": "uint256"
-				},
-				{
-					"internalType": "uint32",
-					"name": "duration",
-					"type": "uint32"
-				},
-				{
-					"internalType": "bool",
-					"name": "autoStake",
-					"type": "bool"
-				},
-				{
-					"internalType": "uint8[]",
-					"name": "data",
-					"type": "uint8[]"
-				}
-			],
-			"name": "createStake",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
 )
 
 var (
@@ -81,12 +44,8 @@ type CreateStake struct {
 }
 
 func init() {
-	createStakeInterface, err := abi.JSON(strings.NewReader(_createStakeInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
 	var ok bool
-	_createStakeMethod, ok = createStakeInterface.Methods["createStake"]
+	_createStakeMethod, ok = NativeStakingContractABI().Methods["createStake"]
 	if !ok {
 		panic("fail to load the method")
 	}

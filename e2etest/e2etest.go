@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -29,10 +30,12 @@ import (
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/chainservice"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/abiutil"
 	"github.com/iotexproject/iotex-core/v2/server/itx"
+	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
@@ -73,11 +76,16 @@ func (m accountNonceManager) pop(addr string) uint64 {
 }
 
 func newE2ETest(t *testing.T, cfg config.Config) *e2etest {
+	return newE2ETestWithCtx(context.Background(), t, cfg)
+}
+
+func newE2ETestWithCtx(ctx context.Context, t *testing.T, cfg config.Config) *e2etest {
 	require := require.New(t)
 	// Create a new blockchain
 	svr, err := itx.NewServer(cfg)
 	require.NoError(err)
-	ctx := context.Background()
+	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	require.NoError(svr.Start(ctx))
 	// Create a new API service client
 	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", cfg.API.GRPCPort), grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -405,9 +413,18 @@ func clearDBPaths(cfg *config.Config) {
 	if cfg.ActPool.Store != nil {
 		testutil.CleanupPath(cfg.ActPool.Store.Datadir)
 	}
+	testutil.CleanupPath(cfg.Chain.HistoryIndexPath)
+}
+
+func parseV3StakedBucketIdx(contract string, receipt *action.Receipt) ([]uint64, error) {
+	return parseStakedBucketIdx(contract, stakingindex.StakingContractABI, receipt)
 }
 
 func parseV2StakedBucketIdx(contract string, receipt *action.Receipt) ([]uint64, error) {
+	return parseStakedBucketIdx(contract, staking.StakingContractABI, receipt)
+}
+
+func parseStakedBucketIdx(contract string, _abi abi.ABI, receipt *action.Receipt) ([]uint64, error) {
 	if uint64(iotextypes.ReceiptStatus_Success) != receipt.Status {
 		return nil, nil
 	}
@@ -416,7 +433,7 @@ func parseV2StakedBucketIdx(contract string, receipt *action.Receipt) ([]uint64,
 		if log.Address != contract {
 			continue
 		}
-		abiEvent, err := staking.StakingContractABI.EventByID(common.Hash(log.Topics[0]))
+		abiEvent, err := _abi.EventByID(common.Hash(log.Topics[0]))
 		if err != nil {
 			return nil, errors.Wrapf(err, "get event abi from topic %v failed", log.Topics[0])
 		}

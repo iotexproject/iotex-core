@@ -8,11 +8,11 @@ package bc
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 

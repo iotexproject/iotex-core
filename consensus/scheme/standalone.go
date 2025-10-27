@@ -12,11 +12,12 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/routine"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Standalone is the consensus scheme that periodically create blocks
@@ -39,6 +40,10 @@ func (s *standaloneHandler) Run() {
 	}
 
 	if err := s.commitCb(blk); err != nil {
+		if errors.Is(err, blockchain.ErrPaused) {
+			log.L().Info("Consensus is paused, skip committing block", zap.Uint64("height", blk.Height()))
+			return
+		}
 		log.L().Error("Failed to commit.", zap.Error(err))
 		return
 	}

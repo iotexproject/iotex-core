@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
@@ -164,6 +165,10 @@ func TestWeb3ServerIntegrity(t *testing.T) {
 
 	t.Run("eth_blobBaseFee", func(t *testing.T) {
 		blobBaseFee(t, handler, bc, dao, actPool)
+	})
+
+	t.Run("eth_getBlockReceipts", func(t *testing.T) {
+		getBlockReceipts(t, handler, bc)
 	})
 }
 
@@ -441,6 +446,13 @@ func getTransactionReceipt(t *testing.T, handler *hTTPHandler) {
 		blockNumber, ok := result.(map[string]interface{})["blockNumber"]
 		require.True(ok)
 		require.Equal(uint64ToHex(1), blockNumber)
+		// Check logs
+		logs, ok := result.(map[string]interface{})["logs"]
+		require.True(ok)
+		require.Equal(1, len(logs.([]interface{})))
+		log, ok := logs.([]interface{})[0].(map[string]interface{})
+		require.True(ok)
+		require.Equal(strings.ToUpper(account.ProtocolAddr().Hex()), strings.ToUpper(log["address"].(string)))
 	}
 }
 
@@ -669,10 +681,14 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 	require.NoError(err)
 	testDatas = append(testDatas, stakeData{"candidateRegister", data8})
 
-	act9, err := action.NewCandidateUpdate(
+	blsPubKey, err := hex.DecodeString("a3bef398a17925efe474e00676a03eee0f40d560c9981429fe733d72ef1b442e3bf136d267b0cd78fa3350698d40a290")
+	require.NoError(err)
+	act9, err := action.NewCandidateUpdateWithBLS(
 		"test",
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
-		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza")
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		blsPubKey,
+	)
 	require.NoError(err)
 	data9, err := act9.EthData()
 	require.NoError(err)
@@ -789,9 +805,9 @@ func getCode(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao b
 	contract, _ := deployContractV2(bc, dao, actPool, identityset.PrivateKey(13), 2, bc.TipHeight(), contractCode)
 	contractAddr, _ := ioAddrToEthAddr(contract)
 
-	result := serveTestHTTP(require, handler, "eth_getCode", fmt.Sprintf(`["%s", "0x1"]`, contractAddr))
+	result := serveTestHTTP(require, handler, "eth_getCode", fmt.Sprintf(`["%s", "latest"]`, contractAddr))
 	actual, ok := result.(string)
-	require.True(ok)
+	require.True(ok, "result should be a string but got %T, %+v", result, result)
 	require.Contains(contractCode, util.Remove0xPrefix(actual))
 }
 
@@ -870,5 +886,41 @@ func blobBaseFee(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, d
 		actual, ok := result.(string)
 		require.True(ok)
 		require.Equal("0x1", actual)
+	}
+}
+
+func getBlockReceipts(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain) {
+	require := require.New(t)
+	header, err := bc.BlockHeaderByHeight(1)
+	require.NoError(err)
+	blkHash := header.HashBlock()
+
+	for _, test := range []struct {
+		params   string
+		expected int
+	}{
+		{fmt.Sprintf(`["0x%s"]`, hex.EncodeToString(blkHash[:])), 2},
+		{`["0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a"]`, 0},
+	} {
+		result := serveTestHTTP(require, handler, "eth_getBlockReceipts", test.params)
+		if test.expected == 0 {
+			require.Nil(result)
+			continue
+		}
+		actual, ok := result.([]interface{})
+		require.True(ok, "Expected result to be []interface{}, got %T", result)
+		require.Equal(test.expected, len(actual))
+		actualByte, err := json.Marshal(result)
+		require.NoError(err)
+		require.JSONEq(fmt.Sprintf(`[
+	{
+		"blockHash":"0x%s", "blockNumber":"0x1", "contractAddress":null, "effectiveGasPrice":null, "cumulativeGasUsed":"0x2710", "from":"0xda7e12ef57c236a06117c5e0d04a228e7181cf36", "gasUsed":"0x2710", "logs":[], "logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "status":"0x1", "to":"0x6d714f86B9ED7D4aB8958950A594BccF9C327283", "transactionHash":"0x20451c75036f0e092c8bdd4d2472b71ec1d8c83d0c11228b2617e6e8f225ce8b", "transactionIndex":"0x0", "type":"0x0"
+	},
+	{
+		"blockHash":"0x%s", "blockNumber":"0x1", "contractAddress":null, "effectiveGasPrice":null, "cumulativeGasUsed":"0x0", "from":"0x97186a21fa8e7955c0f154f960d588c3aca44f14", "gasUsed":"0x0", 
+		"logs": [{"address":"0xA576C141e5659137ddDa4223d209d4744b2106BE", "blockHash":"0x%s", "blockNumber":"0x1", "data":"0x1229696f316a757678356730363365753474733833326e756b7034766763776b32676e63356375396179641a143136303030303030303030303030303030303030", "logIndex":"0x0", "removed":false, "topics":[], "transactionHash":"0xe0c62efd2eff70c4de294cc8a8c9dba3ac43b998aff604dd70c4f99272567bbd", "transactionIndex":"0x0"}],
+		"logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "status":"0x1", "to":"0xA576C141e5659137ddDa4223d209d4744b2106BE", "transactionHash":"0xe0c62efd2eff70c4de294cc8a8c9dba3ac43b998aff604dd70c4f99272567bbd", "transactionIndex":"0x0", "type":"0x0"
+	}
+]`, hex.EncodeToString(blkHash[:]), hex.EncodeToString(blkHash[:]), hex.EncodeToString(blkHash[:])), string(actualByte))
 	}
 }
