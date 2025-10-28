@@ -23,6 +23,7 @@ var WatchErigon = &cobra.Command{
 var (
 	keyLimit   = uint64(10)
 	namespaces = []string{}
+	summary    = false
 )
 
 var errLimitReached = errors.New("key limit reached")
@@ -30,6 +31,7 @@ var errLimitReached = errors.New("key limit reached")
 func init() {
 	WatchErigon.PersistentFlags().Uint64VarP(&keyLimit, "limit", "l", 10, "key limit")
 	WatchErigon.PersistentFlags().StringArrayVarP(&namespaces, "namespace", "n", []string{}, "namespaces to watch")
+	WatchErigon.PersistentFlags().BoolVarP(&summary, "summary", "s", false, "show summary")
 }
 
 func watchErigon(path string) error {
@@ -84,7 +86,7 @@ func walkdbkv(rw kv.RoDB) error {
 		total += tsize
 		keynum := uint64(0)
 		err = tx.ForEach(table, nil, func(k, v []byte) error {
-			if keyLimit == 0 || keynum < keyLimit {
+			if (keyLimit == 0 || keynum < keyLimit) && !summary {
 				fmt.Printf("table: %s, key: %x, value: %x\n", table, k, v)
 			}
 			if keyLimit > 0 && keynum >= keyLimit {
