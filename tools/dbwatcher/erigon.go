@@ -24,6 +24,7 @@ var (
 	keyLimit   = uint64(10)
 	namespaces = []string{}
 	summary    = false
+	showValue  = false
 )
 
 var errLimitReached = errors.New("key limit reached")
@@ -32,6 +33,7 @@ func init() {
 	WatchErigon.PersistentFlags().Uint64VarP(&keyLimit, "limit", "l", 10, "key limit")
 	WatchErigon.PersistentFlags().StringArrayVarP(&namespaces, "namespace", "n", []string{}, "namespaces to watch")
 	WatchErigon.PersistentFlags().BoolVarP(&summary, "summary", "s", false, "show summary")
+	WatchErigon.PersistentFlags().BoolVarP(&showValue, "show-value", "v", false, "show value")
 }
 
 func watchErigon(path string) error {
@@ -87,7 +89,11 @@ func walkdbkv(rw kv.RoDB) error {
 		keynum := uint64(0)
 		err = tx.ForEach(table, nil, func(k, v []byte) error {
 			if (keyLimit == 0 || keynum < keyLimit) && !summary {
-				fmt.Printf("table: %s, key: %x, value: %x\n", table, k, v)
+				if showValue {
+					fmt.Printf("table: %s, key: %x, value: %x\n", table, k, v)
+				} else {
+					fmt.Printf("table: %s, key: %x\n", table, k)
+				}
 			}
 			if keyLimit > 0 && keynum >= keyLimit {
 				return errLimitReached
