@@ -60,6 +60,8 @@ type (
 		// EnableArchiveMode is only meaningful when EnableTrielessStateDB is false
 		// Deprecated: HistoryIndexPath is used to store the archived state
 		EnableArchiveMode bool `yaml:"enableArchiveMode"`
+		// EnableArchiveValidation enables archive data validation
+		EnableArchiveValidation bool `yaml:"enableArchiveValidation"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
 		// deprecated

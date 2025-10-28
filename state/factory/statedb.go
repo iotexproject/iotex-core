@@ -455,6 +455,9 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		return errors.New("failed to get address")
 	}
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
+	if sdb.erigonDB != nil {
+		ctx = protocol.WithErigonCtx(ctx, protocol.ErigonCtx{ConsistencyCheck: sdb.cfg.Chain.EnableArchiveValidation})
+	}
 	ws, isExist, err := sdb.getFromWorkingSets(ctx, blk.HashBlock())
 	if err != nil {
 		return err

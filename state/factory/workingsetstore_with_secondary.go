@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/v2/db"
@@ -43,9 +44,10 @@ type writer interface {
 // it's used for PutBlock, generating historical states in erigon
 type workingSetStoreWithSecondary struct {
 	reader
-	writer          workingSetStore
-	writerSecondary workingSetStore
-	snMap           map[int]int
+	writer           workingSetStore
+	writerSecondary  workingSetStore
+	snMap            map[int]int
+	consistencyCheck bool
 }
 
 func newWorkingSetStoreWithSecondary(store workingSetStore, erigonStore workingSetStore) *workingSetStoreWithSecondary {
@@ -149,11 +151,52 @@ func (store *workingSetStoreWithSecondary) CreateGenesisStates(ctx context.Conte
 }
 
 func (store *workingSetStoreWithSecondary) GetObject(ns string, key []byte, obj any) error {
-	return store.reader.GetObject(ns, key, obj)
+	if !store.consistencyCheck {
+		return store.reader.GetObject(ns, key, obj)
+	}
+	// consistency check between two stores
+	cco, ok := obj.(interface {
+		New() any
+		ConsistentEqual(other any) bool
+	})
+	if !ok {
+		return store.reader.GetObject(ns, key, obj)
+	}
+	other := cco.New()
+	err := store.reader.GetObject(ns, key, obj)
+	errOther := store.writerSecondary.GetObject(ns, key, other)
+	if errors.Cause(err) != errors.Cause(errOther) {
+		return errors.Errorf("inconsistent existence for ns %s key %x: %v vs %v", ns, key, err, errOther)
+	}
+	if err != nil {
+		return err
+	}
+	if !cco.ConsistentEqual(other) {
+		return errors.Errorf("inconsistent object for ns %s key %x: %+v vs %+v", ns, key, cco, other)
+	}
+	return nil
 }
 
 func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]byte) (state.Iterator, error) {
-	return store.reader.States(ns, obj, keys)
+	iter, err := store.reader.States(ns, obj, keys)
+	if !store.consistencyCheck {
+		return iter, err
+	}
+	cco, ok := iter.(interface{ ConsistentEqual(other any) bool })
+	if !ok {
+		return iter, err
+	}
+	otherIter, errOther := store.writerSecondary.States(ns, obj, keys)
+	if errors.Cause(err) != errors.Cause(errOther) {
+		return nil, errors.Errorf("inconsistent existence for ns %s keys %x: %v vs %v", ns, keys, err, errOther)
+	}
+	if err != nil {
+		return iter, err
+	}
+	if !cco.ConsistentEqual(otherIter) {
+		return nil, errors.Errorf("inconsistent iterator for ns %s keys %x: %+v vs %+v", ns, keys, cco, otherIter)
+	}
+	return iter, nil
 }
 
 func (store *workingSetStoreWithSecondary) KVStore() db.KVStore {

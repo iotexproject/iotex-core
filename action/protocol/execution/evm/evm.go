@@ -265,7 +265,11 @@ func ExecuteContract(
 			if dryrun {
 				stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
 			} else {
-				stateDB = NewErigonStateDBAdapter(stateDB.(*StateDBAdapter), in)
+				if eCtx, ok := protocol.GetErigonCtx(ctx); ok && eCtx.ConsistencyCheck {
+					stateDB = NewErigonStateDBAdapterCheck(stateDB.(*StateDBAdapter), in)
+				} else {
+					stateDB = NewErigonStateDBAdapter(stateDB.(*StateDBAdapter), in)
+				}
 			}
 		}
 	}

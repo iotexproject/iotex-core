@@ -47,13 +47,29 @@ func NewErigonStateDBAdapter(adapter *StateDBAdapter,
 	}
 }
 
+// NewErigonStateDBAdapterCheck creates a new ErigonStateDBAdapter with consistency check
+func NewErigonStateDBAdapterCheck(adapter *StateDBAdapter,
+	intra *erigonstate.IntraBlockState) *ErigonStateDBAdapter {
+	adapter.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
+		adapter, err := newContractAdapter(addr, account, adapter.sm, intra, adapter.asyncContractTrie)
+		if err != nil {
+			return nil, err
+		}
+		return newContractAdapterCheck(adapter.(*contractAdapter)), nil
+	}
+	return &ErigonStateDBAdapter{
+		StateDBAdapter: adapter,
+		intra:          intra,
+	}
+}
+
 // NewErigonStateDBAdapterDryrun creates a new ErigonStateDBAdapterDryrun
 func NewErigonStateDBAdapterDryrun(adapter *StateDBAdapter,
 	intra *erigonstate.IntraBlockState,
 ) *ErigonStateDBAdapterDryrun {
 	a := NewErigonStateDBAdapter(adapter, intra)
 	adapter.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
-		return newContractErigon(addr, account, intra)
+		return newContractErigon(addr, account, intra, adapter.sm)
 	}
 	return &ErigonStateDBAdapterDryrun{
 		ErigonStateDBAdapter: a,

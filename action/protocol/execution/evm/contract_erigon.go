@@ -5,10 +5,12 @@ import (
 
 	libcommon "github.com/erigontech/erigon-lib/common"
 	erigonstate "github.com/erigontech/erigon/core/state"
+	"github.com/erigontech/erigon/core/types/accounts"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db/trie"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
@@ -16,14 +18,16 @@ import (
 type contractErigon struct {
 	*state.Account
 	intra *erigonstate.IntraBlockState
+	sr    protocol.StateReader
 	addr  hash.Hash160
 }
 
-func newContractErigon(addr hash.Hash160, account *state.Account, intra *erigonstate.IntraBlockState) (Contract, error) {
+func newContractErigon(addr hash.Hash160, account *state.Account, intra *erigonstate.IntraBlockState, sr protocol.StateReader) (Contract, error) {
 	c := &contractErigon{
 		Account: account,
 		intra:   intra,
 		addr:    addr,
+		sr:      sr,
 	}
 	return c, nil
 }
@@ -61,7 +65,9 @@ func (c *contractErigon) SelfState() *state.Account {
 	acc.SetPendingNonce(c.intra.GetNonce(libcommon.Address(c.addr)))
 	acc.AddBalance(c.intra.GetBalance(libcommon.Address(c.addr)).ToBig())
 	codeHash := c.intra.GetCodeHash(libcommon.Address(c.addr))
-	acc.CodeHash = codeHash[:]
+	if !accounts.IsEmptyCodeHash(codeHash) {
+		acc.CodeHash = codeHash[:]
+	}
 	return acc
 }
 

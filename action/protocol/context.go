@@ -35,6 +35,8 @@ type (
 
 	vmConfigContextKey struct{}
 
+	erigonContextKey struct{}
+
 	// TipInfo contains the tip block information
 	TipInfo struct {
 		Height        uint64
@@ -177,6 +179,11 @@ type (
 		CalculateProbationList   CheckFunc
 		LoadCandidatesLegacy     CheckFunc
 		CandCenterHasAlias       CheckFunc
+	}
+
+	// ErigonCtx provides Erigon specific context.
+	ErigonCtx struct {
+		ConsistencyCheck bool
 	}
 )
 
@@ -420,4 +427,15 @@ func WithVMConfigCtx(ctx context.Context, vmConfig vm.Config) context.Context {
 func GetVMConfigCtx(ctx context.Context) (vm.Config, bool) {
 	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
 	return cfg, ok
+}
+
+// WithErigonCtx adds the Erigon context to context
+func WithErigonCtx(ctx context.Context, erigonCtx ErigonCtx) context.Context {
+	return context.WithValue(ctx, erigonContextKey{}, erigonCtx)
+}
+
+// GetErigonCtx returns the Erigon context from context
+func GetErigonCtx(ctx context.Context) (ErigonCtx, bool) {
+	erigonCtx, ok := ctx.Value(erigonContextKey{}).(ErigonCtx)
+	return erigonCtx, ok
 }
