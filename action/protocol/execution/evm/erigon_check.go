@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
+	"github.com/iotexproject/iotex-core/v2/db/trie"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
@@ -25,7 +26,7 @@ func newContractAdapterCheck(adapter *contractAdapter) *contractAdapterCheck {
 func (c *contractAdapterCheck) GetCommittedState(addr hash.Hash256) ([]byte, error) {
 	org, err := c.contractAdapter.Contract.GetCommittedState(addr)
 	erigon, err2 := c.contractAdapter.erigon.GetCommittedState(addr)
-	if e := consistentEqualVE(org, erigon, err, err2, func(v1, v2 []byte) bool {
+	if e := consistentEqualStateE(org, erigon, err, err2, func(v1, v2 []byte) bool {
 		return bytes.Equal(v1, v2)
 	}); e != nil {
 		return nil, e
@@ -36,7 +37,7 @@ func (c *contractAdapterCheck) GetCommittedState(addr hash.Hash256) ([]byte, err
 func (c *contractAdapterCheck) GetState(addr hash.Hash256) ([]byte, error) {
 	org, err := c.contractAdapter.Contract.GetState(addr)
 	erigon, err2 := c.contractAdapter.erigon.GetState(addr)
-	if e := consistentEqualVE(org, erigon, err, err2, func(v1, v2 []byte) bool {
+	if e := consistentEqualStateE(org, erigon, err, err2, func(v1, v2 []byte) bool {
 		return bytes.Equal(v1, v2)
 	}); e != nil {
 		return nil, e
@@ -83,6 +84,7 @@ func (c *contractAdapterCheck) SelfState() *state.Account {
 
 func consistentEqual[T any](a, b T, equal func(T, T) bool) error {
 	if !equal(a, b) {
+		log.S().Panicf("inconsistent value: %+v vs %+v", a, b)
 		return errors.Errorf("inconsistent value: %v vs %v", a, b)
 	}
 	return nil
@@ -99,7 +101,21 @@ func consistentEqualVE[V any](a, b V, err1, err2 error, equal func(V, V) bool) e
 		return e
 	}
 	if err1 != nil {
-		return nil
+		return err1
+	}
+	return consistentEqual(a, b, equal)
+}
+
+func consistentEqualStateE(a, b []byte, err1, err2 error, equal func([]byte, []byte) bool) error {
+	// special case: erigon returns zero value instead of not exist error
+	if err2 == nil && errors.Is(err1, trie.ErrNotExist) && bytes.Equal(b, hash.ZeroHash256[:]) {
+		return err1
+	}
+	if e := consistentError(err1, err2); e != nil {
+		return e
+	}
+	if err1 != nil {
+		return err1
 	}
 	return consistentEqual(a, b, equal)
 }
