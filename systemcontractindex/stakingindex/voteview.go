@@ -176,8 +176,9 @@ func (s *voteView) AddBlockReceipts(ctx context.Context, receipts []*action.Rece
 }
 
 func (s *voteView) Commit(ctx context.Context, sm protocol.StateManager) error {
+	isDirty := s.cur.IsDirty()
 	s.cur = s.cur.Commit()
-	if sm == nil {
+	if sm == nil || !isDirty {
 		return nil
 	}
 	return s.cvm.Store(ctx, sm, s.cur)
