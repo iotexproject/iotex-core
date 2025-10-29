@@ -96,6 +96,7 @@ func init() {
 		if err != nil {
 			log.Panic(errors.Wrap(err, "invalid system contract address"))
 		}
+		log.Printf("System Contract %d address: %x", i, addr.Bytes())
 		var byteCode []byte
 		switch systemContractTypes[i] {
 		case namespaceStorageContractType:
