@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -160,7 +159,16 @@ func (l *CandidateList) Encode() ([][]byte, []systemcontracts.GenericValue, erro
 		values []systemcontracts.GenericValue
 	)
 	for idx, cand := range *l {
-		data, err := cand.Serialize()
+		pbCand := candidateToPb(cand)
+		dataVotes, err := proto.Marshal(&iotextypes.Candidate{
+			Votes: pbCand.Votes,
+		})
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to serialize candidate votes")
+		}
+		pbCand.Address = "" // address is stored in the suffix
+		pbCand.Votes = nil  // votes is stored in the secondary data
+		data, err := proto.Marshal(pbCand)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to serialize candidate")
 		}
@@ -168,29 +176,52 @@ func (l *CandidateList) Encode() ([][]byte, []systemcontracts.GenericValue, erro
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to get the hash of the address %s", cand.Address)
 		}
+		// Use linked list format: AuxiliaryData stores the next node's address
+		// For the last element, AuxiliaryData is nil
+		var nextAddr []byte
+		if idx < len(*l)-1 {
+			nextAddrObj, err := address.FromString((*l)[idx+1].Address)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "failed to get the address of the next candidate %s", (*l)[idx+1].Address)
+			}
+			nextAddr = nextAddrObj.Bytes()
+		}
 		suffix = append(suffix, addr.Bytes())
-		values = append(values, systemcontracts.GenericValue{PrimaryData: data, SecondaryData: byteutil.Uint64ToBytes(uint64(idx))})
+		values = append(values, systemcontracts.GenericValue{
+			PrimaryData:   data,
+			SecondaryData: dataVotes,
+			AuxiliaryData: nextAddr})
 	}
 	return suffix, values, nil
 }
 
 // Decode decodes a GenericValue into CandidateList
 func (l *CandidateList) Decode(suffixs [][]byte, values []systemcontracts.GenericValue) error {
-	// reconstruct candidate list from values
-	// the order of candidates in the list is determined by the SecondaryData of GenericValue
-	candidateMap := make(map[uint64]*Candidate)
-	for _, gv := range values {
-		cand := &Candidate{}
-		if err := cand.Deserialize(gv.PrimaryData); err != nil {
-			return errors.Wrap(err, "failed to deserialize candidate")
-		}
-		index := byteutil.BytesToUint64(gv.SecondaryData)
-		candidateMap[index] = cand
+	if len(suffixs) != len(values) {
+		return errors.New("suffix and values length mismatch")
 	}
-	candidates := make(CandidateList, 0, len(candidateMap))
-	for i := 0; i < len(candidateMap); i++ {
-		candidates = append(candidates, candidateMap[uint64(i)])
+	if len(suffixs) == 0 {
+		*l = CandidateList{}
+		return nil
 	}
+	// Build address to candidate node mapping
+	nodeMap, err := buildCandidateMap(suffixs, values)
+	if err != nil {
+		return err
+	}
+
+	// Find the head of the linked list
+	headAddr, err := findLinkedListHead(nodeMap)
+	if err != nil {
+		return err
+	}
+
+	// Traverse the linked list to reconstruct the candidate list
+	candidates, err := traverseLinkedList(headAddr, nodeMap)
+	if err != nil {
+		return err
+	}
+
 	*l = candidates
 	return nil
 }
@@ -249,4 +280,108 @@ func CandidatesToMap(candidates CandidateList) (CandidateMap, error) {
 		candidateMap[pkHash] = candidate
 	}
 	return candidateMap, nil
+}
+
+// candidateNode represents a node in the candidate linked list
+type candidateNode struct {
+	candidate *Candidate
+	nextAddr  string
+}
+
+// buildCandidateMap builds a map from address bytes to candidate node
+func buildCandidateMap(suffixs [][]byte, values []systemcontracts.GenericValue) (map[string]*candidateNode, error) {
+	nodeMap := make(map[string]*candidateNode, len(suffixs))
+
+	for kid, gv := range values {
+		pb := &iotextypes.Candidate{}
+		if err := proto.Unmarshal(gv.PrimaryData, pb); err != nil {
+			return nil, errors.Wrap(err, "failed to unmarshal candidate")
+		}
+
+		addr, err := address.FromBytes(suffixs[kid])
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get the string of the address from bytes %x", suffixs[kid])
+		}
+		pb.Address = addr.String()
+
+		// Load votes from SecondaryData
+		pbVotes := &iotextypes.Candidate{}
+		if err := proto.Unmarshal(gv.SecondaryData, pbVotes); err != nil {
+			return nil, errors.Wrap(err, "failed to unmarshal candidate votes")
+		}
+		pb.Votes = pbVotes.Votes
+
+		// Convert pb to candidate
+		cand, err := pbToCandidate(pb)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert protobuf's candidate message to candidate")
+		}
+		var next string
+		if len(gv.AuxiliaryData) > 0 {
+			nextAddr, err := address.FromBytes(gv.AuxiliaryData)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get the string of the next address from bytes %x", gv.AuxiliaryData)
+			}
+			next = nextAddr.String()
+		}
+		nodeMap[addr.String()] = &candidateNode{
+			candidate: cand,
+			nextAddr:  next,
+		}
+	}
+
+	return nodeMap, nil
+}
+
+// findLinkedListHead finds the head of the linked list (not pointed to by any node)
+func findLinkedListHead(nodeMap map[string]*candidateNode) (string, error) {
+	// Mark all addresses that are pointed to
+	pointedTo := make(map[string]bool, len(nodeMap))
+	for _, node := range nodeMap {
+		if len(node.nextAddr) > 0 {
+			pointedTo[node.nextAddr] = true
+		}
+	}
+
+	// Find the address that is not pointed to by any node
+	for addrKey := range nodeMap {
+		if !pointedTo[addrKey] {
+			return addrKey, nil
+		}
+	}
+
+	return "", errors.New("failed to find head of candidate list")
+}
+
+// traverseLinkedList traverses the linked list and returns an ordered candidate list
+func traverseLinkedList(headAddr string, nodeMap map[string]*candidateNode) (CandidateList, error) {
+	candidates := make(CandidateList, 0, len(nodeMap))
+	visited := make(map[string]bool, len(nodeMap))
+	currentAddr := headAddr
+
+	for currentAddr != "" {
+		addrKey := currentAddr
+
+		// Check for circular reference
+		if visited[addrKey] {
+			return nil, errors.New("circular reference detected in candidate list")
+		}
+		visited[addrKey] = true
+
+		// Get current node
+		node, exists := nodeMap[addrKey]
+		if !exists {
+			return nil, errors.Errorf("missing candidate for address %x in linked list", currentAddr)
+		}
+
+		candidates = append(candidates, node.candidate)
+		currentAddr = node.nextAddr
+	}
+
+	// Verify all nodes were traversed
+	if len(candidates) != len(nodeMap) {
+		return nil, errors.Errorf("incomplete traversal: %d/%d candidates", len(candidates), len(nodeMap))
+	}
+
+	return candidates, nil
 }
