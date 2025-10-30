@@ -51,7 +51,7 @@ func (it *iterator) Next(s interface{}) ([]byte, error) {
 	}
 	it.index = i + 1
 	if it.states[i] == nil {
-		return nil, ErrNilValue
+		return it.keys[i], ErrNilValue
 	}
 	return it.keys[i], Deserialize(s, it.states[i])
 }

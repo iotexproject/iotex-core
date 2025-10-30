@@ -1,9 +1,10 @@
 package erigonstore
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
-	"github.com/pkg/errors"
 )
 
 type KeySplitter func(key []byte) (part1 []byte, part2 []byte)
@@ -14,27 +15,30 @@ type keySplitContainer interface {
 }
 
 type keySplitContractStorage struct {
-	contract systemcontracts.StorageContract
-	keySplit KeySplitter
-	fallback ObjectStorage
+	contract         systemcontracts.StorageContract
+	keySplit         KeySplitter
+	keyPrefixStorage map[string]ObjectStorage
+	fallback         ObjectStorage
 }
 
-func newKeySplitContractStorageWithfallback(contract systemcontracts.StorageContract, split KeySplitter, fallback ObjectStorage) *keySplitContractStorage {
+func newKeySplitContractStorageWithfallback(contract systemcontracts.StorageContract, split KeySplitter, fallback ObjectStorage, keyPrefixStorage map[string]ObjectStorage) *keySplitContractStorage {
 	return &keySplitContractStorage{
-		contract: contract,
-		keySplit: split,
-		fallback: fallback,
+		contract:         contract,
+		keySplit:         split,
+		fallback:         fallback,
+		keyPrefixStorage: keyPrefixStorage,
 	}
 }
 
 func (rhs *keySplitContractStorage) Store(key []byte, obj any) error {
 	pf, sf := rhs.keySplit(key)
+	fallback := rhs.matchStorage(key)
 	if len(sf) == 0 {
-		return rhs.fallback.Store(key, obj)
+		return fallback.Store(key, obj)
 	}
 	gvc, ok := obj.(keySplitContainer)
 	if !ok {
-		return rhs.fallback.Store(pf, obj)
+		return fallback.Store(pf, obj)
 	}
 	value, err := gvc.Encode(sf)
 	if err != nil {
@@ -45,12 +49,13 @@ func (rhs *keySplitContractStorage) Store(key []byte, obj any) error {
 
 func (rhs *keySplitContractStorage) Load(key []byte, obj any) error {
 	pf, sf := rhs.keySplit(key)
+	fallback := rhs.matchStorage(key)
 	if len(sf) == 0 {
-		return rhs.fallback.Load(key, obj)
+		return fallback.Load(key, obj)
 	}
 	gvc, ok := obj.(keySplitContainer)
 	if !ok {
-		return rhs.fallback.Load(pf, obj)
+		return fallback.Load(pf, obj)
 	}
 	value, err := rhs.contract.Get(pf)
 	if err != nil {
@@ -64,10 +69,11 @@ func (rhs *keySplitContractStorage) Load(key []byte, obj any) error {
 
 func (rhs *keySplitContractStorage) Delete(key []byte) error {
 	pf, sf := rhs.keySplit(key)
+	fallback := rhs.matchStorage(key)
 	if len(sf) == 0 {
-		return rhs.fallback.Delete(key)
+		return fallback.Delete(key)
 	}
-	return rhs.fallback.Delete(pf)
+	return fallback.Delete(pf)
 }
 
 func (rhs *keySplitContractStorage) List() (state.Iterator, error) {
@@ -76,4 +82,14 @@ func (rhs *keySplitContractStorage) List() (state.Iterator, error) {
 
 func (rhs *keySplitContractStorage) Batch(keys [][]byte) (state.Iterator, error) {
 	return nil, errors.New("not implemented")
+}
+
+func (rhs *keySplitContractStorage) matchStorage(key []byte) ObjectStorage {
+	for prefix, os := range rhs.keyPrefixStorage {
+		sk := string(key)
+		if len(sk) >= len(prefix) && sk[:len(prefix)] == prefix {
+			return os
+		}
+	}
+	return rhs.fallback
 }

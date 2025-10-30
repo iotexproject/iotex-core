@@ -153,7 +153,23 @@ func (l *CandidateList) LoadProto(candList *iotextypes.CandidateList) error {
 }
 
 // Encode encodes a CandidateList into a GenericValue
-func (l *CandidateList) Encode() ([][]byte, []systemcontracts.GenericValue, error) {
+func (l *CandidateList) Encode() (systemcontracts.GenericValue, error) {
+	data, err := l.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize candidate list")
+	}
+	return systemcontracts.GenericValue{
+		PrimaryData: data,
+	}, nil
+}
+
+// Decode decodes a GenericValue into CandidateList
+func (l *CandidateList) Decode(gv systemcontracts.GenericValue) error {
+	return l.Deserialize(gv.PrimaryData)
+}
+
+// Encodes encodes a CandidateList into a GenericValue
+func (l *CandidateList) Encodes() ([][]byte, []systemcontracts.GenericValue, error) {
 	var (
 		suffix [][]byte
 		values []systemcontracts.GenericValue
@@ -195,8 +211,8 @@ func (l *CandidateList) Encode() ([][]byte, []systemcontracts.GenericValue, erro
 	return suffix, values, nil
 }
 
-// Decode decodes a GenericValue into CandidateList
-func (l *CandidateList) Decode(suffixs [][]byte, values []systemcontracts.GenericValue) error {
+// Decodes decodes a GenericValue into CandidateList
+func (l *CandidateList) Decodes(suffixs [][]byte, values []systemcontracts.GenericValue) error {
 	if len(suffixs) != len(values) {
 		return errors.New("suffix and values length mismatch")
 	}
