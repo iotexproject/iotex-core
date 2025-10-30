@@ -367,9 +367,9 @@ func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interf
 
 func (p *Protocol) deleteState(ctx context.Context, sm protocol.StateManager, key []byte, obj any, opts ...protocol.StateOption) error {
 	if useV2Storage(ctx) {
-		return p.deleteStateV2(sm, key, obj)
+		return p.deleteStateV2(sm, key, obj, opts...)
 	}
-	return p.deleteStateV1(sm, key, obj)
+	return p.deleteStateV1(sm, key, obj, opts...)
 }
 
 func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte, obj any, opts ...protocol.StateOption) error {
