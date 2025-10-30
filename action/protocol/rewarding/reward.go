@@ -68,6 +68,15 @@ func (b *rewardHistory) Decode(suffix []byte, v systemcontracts.GenericValue) er
 	return nil
 }
 
+func (b *rewardHistory) New() any {
+	return &rewardHistory{}
+}
+
+func (b *rewardHistory) ConsistentEqual(other any) bool {
+	_, ok := other.(*rewardHistory)
+	return ok
+}
+
 // rewardAccount stores the unclaimed balance of an account
 type rewardAccount struct {
 	balance *big.Int
