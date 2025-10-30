@@ -29,6 +29,8 @@ import (
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
+type RewardHistory = rewardHistory
+
 // rewardHistory is the dummy struct to record a reward. Only key matters.
 type rewardHistory struct{}
 
