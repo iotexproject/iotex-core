@@ -21,6 +21,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
@@ -114,7 +115,10 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	case g.WakeBlockHeight:
 		return p.SetReward(ctx, sm, g.WakeBlockReward(), true)
 	}
-	return nil
+	// set current block reward not granted for erigon db
+	var indexBytes [8]byte
+	enc.MachineEndian.PutUint64(indexBytes[:], blkCtx.BlockHeight)
+	return p.deleteState(ctx, sm, append(_blockRewardHistoryKeyPrefix, indexBytes[:]...), &rewardHistory{}, protocol.ErigonStoreOnlyOption())
 }
 
 func (p *Protocol) migrateValueGreenland(_ context.Context, sm protocol.StateManager) error {
@@ -361,10 +365,29 @@ func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interf
 	return err
 }
 
-func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte, obj any) error {
+func (p *Protocol) deleteState(ctx context.Context, sm protocol.StateManager, key []byte, obj any, opts ...protocol.StateOption) error {
+	if useV2Storage(ctx) {
+		return p.deleteStateV2(sm, key, obj)
+	}
+	return p.deleteStateV1(sm, key, obj)
+}
+
+func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte, obj any, opts ...protocol.StateOption) error {
 	orgKey := append(p.keyPrefix, key...)
 	keyHash := hash.Hash160b(orgKey)
-	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash), protocol.ObjectOption(obj), protocol.ErigonStoreKeyOption(orgKey))
+	opt := append(opts, protocol.LegacyKeyOption(keyHash), protocol.ObjectOption(obj), protocol.ErigonStoreKeyOption(orgKey))
+	_, err := sm.DelState(opt...)
+	if errors.Cause(err) == state.ErrStateNotExist {
+		// don't care if not exist
+		return nil
+	}
+	return err
+}
+
+func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte, value any, opts ...protocol.StateOption) error {
+	k := append(p.keyPrefix, key...)
+	opt := append(opts, protocol.KeyOption(k), protocol.ObjectOption(value), protocol.NamespaceOption(_v2RewardingNamespace))
+	_, err := sm.DelState(opt...)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		// don't care if not exist
 		return nil
