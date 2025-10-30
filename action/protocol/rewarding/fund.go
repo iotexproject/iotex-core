@@ -23,6 +23,8 @@ import (
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
+type Fund = fund
+
 // fund stores the balance of the rewarding fund. The difference between total and available balance should be
 // equal to the unclaimed balance in all reward accounts
 type fund struct {
@@ -59,17 +61,52 @@ func (f *fund) Deserialize(data []byte) error {
 }
 
 func (f *fund) Encode() (systemcontracts.GenericValue, error) {
-	data, err := f.Serialize()
+	d1, err := proto.Marshal(&rewardingpb.Fund{
+		TotalBalance: f.totalBalance.String(),
+	})
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	d2, err := proto.Marshal(&rewardingpb.Fund{
+		UnclaimedBalance: f.unclaimedBalance.String(),
+	})
 	if err != nil {
 		return systemcontracts.GenericValue{}, err
 	}
 	return systemcontracts.GenericValue{
-		AuxiliaryData: data,
+		PrimaryData:   d1,
+		SecondaryData: d2,
 	}, nil
 }
 
 func (f *fund) Decode(v systemcontracts.GenericValue) error {
-	return f.Deserialize(v.AuxiliaryData)
+	gen1 := rewardingpb.Fund{}
+	if err := proto.Unmarshal(v.PrimaryData, &gen1); err != nil {
+		return err
+	}
+	var totalBalance = big.NewInt(0)
+	if len(gen1.TotalBalance) > 0 {
+		b, ok := new(big.Int).SetString(gen1.TotalBalance, 10)
+		if !ok {
+			return errors.Errorf("failed to set total balance from string: %s", gen1.TotalBalance)
+		}
+		totalBalance = b
+	}
+	gen2 := rewardingpb.Fund{}
+	if err := proto.Unmarshal(v.SecondaryData, &gen2); err != nil {
+		return err
+	}
+	var unclaimedBalance = big.NewInt(0)
+	if len(gen2.UnclaimedBalance) > 0 {
+		b, ok := new(big.Int).SetString(gen2.UnclaimedBalance, 10)
+		if !ok {
+			return errors.Errorf("failed to set unclaimed balance from string: %s", gen2.UnclaimedBalance)
+		}
+		unclaimedBalance = b
+	}
+	f.totalBalance = totalBalance
+	f.unclaimedBalance = unclaimedBalance
+	return nil
 }
 
 // Deposit deposits token into the rewarding fund

@@ -8,9 +8,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
@@ -129,6 +131,54 @@ func TestErigonStoreNativeState(t *testing.T) {
 		r.ErrorIs(store.GetObject(ns, key, rh), state.ErrStateNotExist)
 		r.NoError(store.PutObject(ns, key, rh))
 		r.NoError(store.GetObject(ns, key, rh))
+		r.NoError(store.FinalizeTx(ctx))
+		r.NoError(store.Commit(ctx, 0))
+	})
+
+	t.Run("rewarding.Fund", func(t *testing.T) {
+		height++
+		fmt.Printf("block: %d -----------------------\n", height)
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
+		ctx = protocol.WithFeatureCtx(ctx)
+		store, err = edb.NewErigonStore(ctx, height)
+		r.NoError(err)
+		defer store.Close()
+		rh := &rewarding.Fund{}
+		rhpb := &rewardingpb.Fund{
+			TotalBalance:     "1000000000000000000",
+			UnclaimedBalance: "500000000000000000",
+		}
+		data, err := proto.Marshal(rhpb)
+		r.NoError(err)
+		r.NoError(rh.Deserialize(data))
+		ns := state.AccountKVNamespace
+		_fundKey := []byte("fnd")
+		key := append(state.RewardingKeyPrefix[:], _fundKey...)
+		r.NoError(store.PutObject(ns, key, rh))
+		got := &rewarding.Fund{}
+		r.NoError(store.GetObject(ns, key, got))
+		r.EqualValues(rh, got)
+		r.NoError(store.FinalizeTx(ctx))
+		r.NoError(store.Commit(ctx, 0))
+
+		height++
+		fmt.Printf("block: %d -----------------------\n", height)
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
+		ctx = protocol.WithFeatureCtx(ctx)
+		store, err = edb.NewErigonStore(ctx, height)
+		r.NoError(err)
+		defer store.Close()
+		rhpb = &rewardingpb.Fund{
+			TotalBalance:     "1000000000000000000",
+			UnclaimedBalance: "400000000000000000",
+		}
+		data, err = proto.Marshal(rhpb)
+		r.NoError(err)
+		r.NoError(rh.Deserialize(data))
+		r.NoError(store.PutObject(ns, key, rh))
+		got = &rewarding.Fund{}
+		r.NoError(store.GetObject(ns, key, got))
+		r.EqualValues(rh, got)
 		r.NoError(store.FinalizeTx(ctx))
 		r.NoError(store.Commit(ctx, 0))
 	})
