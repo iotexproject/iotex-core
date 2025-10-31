@@ -70,9 +70,9 @@ func init() {
 		append(state.RewardingKeyPrefix[:], state.BlockRewardHistoryKeyPrefix...),
 		append(state.RewardingKeyPrefix[:], state.EpochRewardHistoryKeyPrefix...),
 	}
-	pollPrefix := [][]byte{
-		[]byte(state.PollCandidatesPrefix),
-	}
+	// pollPrefix := [][]byte{
+	// 	[]byte(state.PollCandidatesPrefix),
+	// }
 	genKeySplit := func(prefixs [][]byte) KeySplitter {
 		return func(key []byte) (part1 []byte, part2 []byte) {
 			for _, p := range prefixs {
@@ -86,7 +86,7 @@ func init() {
 	}
 	epochRewardKeySplit := genKeySplit(rewardHistoryPrefixs[1:])
 	blockRewardKeySplit := genKeySplit(rewardHistoryPrefixs[:1])
-	pollKeySplit := genKeySplit(pollPrefix)
+	// pollKeySplit := genKeySplit(pollPrefix)
 
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.AccountKVNamespace, RewardingContractV1Index, WithKeySplitOption(epochRewardKeySplit), WithRewardingHistoryPrefixOption(blockRewardKeySplit, rewardHistoryPrefixs[0])))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.RewardingNamespace, RewardingContractV2Index, WithKeySplitOption(epochRewardKeySplit), WithRewardingHistoryPrefixOption(blockRewardKeySplit, rewardHistoryPrefixs[0])))
@@ -99,7 +99,7 @@ func init() {
 	assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketTypeNamespacePrefix, ContractStakingBucketContractIndex))
 
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.Account{}, AccountIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex, WithKeySplitOption(pollKeySplit), WithKVListOption()))
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex, WithKVListOption()))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &state.CandidateList{}, PollCandidateListContractIndex, WithKVListOption()))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.UnproductiveDelegate{}, PollUnproductiveDelegateContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.ProbationList{}, PollProbationListContractIndex))
