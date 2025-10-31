@@ -118,7 +118,11 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	// set current block reward not granted for erigon db
 	var indexBytes [8]byte
 	enc.MachineEndian.PutUint64(indexBytes[:], blkCtx.BlockHeight)
-	return p.deleteState(ctx, sm, append(_blockRewardHistoryKeyPrefix, indexBytes[:]...), &rewardHistory{}, protocol.ErigonStoreOnlyOption())
+	err := p.deleteState(ctx, sm, append(_blockRewardHistoryKeyPrefix, indexBytes[:]...), &rewardHistory{}, protocol.ErigonStoreOnlyOption())
+	if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {
+		return err
+	}
+	return nil
 }
 
 func (p *Protocol) migrateValueGreenland(_ context.Context, sm protocol.StateManager) error {
