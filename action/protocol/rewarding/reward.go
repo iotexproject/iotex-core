@@ -118,6 +118,18 @@ func (a *rewardAccount) Decode(v systemcontracts.GenericValue) error {
 	return a.Deserialize(v.AuxiliaryData)
 }
 
+func (a *rewardAccount) New() any {
+	return &rewardAccount{}
+}
+
+func (a *rewardAccount) ConsistentEqual(other any) bool {
+	o, ok := other.(*rewardAccount)
+	if !ok {
+		return false
+	}
+	return a.balance.Cmp(o.balance) == 0
+}
+
 // GrantBlockReward grants the block reward (token) to the block producer
 func (p *Protocol) GrantBlockReward(
 	ctx context.Context,

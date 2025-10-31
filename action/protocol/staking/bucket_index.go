@@ -66,6 +66,26 @@ func (bis *BucketIndices) Decode(gv systemcontracts.GenericValue) error {
 	return bis.Deserialize(gv.PrimaryData)
 }
 
+func (bis *BucketIndices) New() any {
+	return &BucketIndices{}
+}
+
+func (bis *BucketIndices) ConsistentEqual(other any) bool {
+	obis, ok := other.(*BucketIndices)
+	if !ok {
+		return false
+	}
+	if len(*bis) != len(*obis) {
+		return false
+	}
+	for i := range *bis {
+		if (*bis)[i] != (*obis)[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func (bis *BucketIndices) addBucketIndex(index uint64) {
 	*bis = append(*bis, index)
 }

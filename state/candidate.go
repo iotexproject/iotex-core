@@ -245,6 +245,26 @@ func (l *CandidateList) Decode(suffixs [][]byte, values []systemcontracts.Generi
 	return nil
 }
 
+func (l *CandidateList) New() any {
+	return &CandidateList{}
+}
+
+func (l *CandidateList) ConsistentEqual(other any) bool {
+	ol, ok := other.(*CandidateList)
+	if !ok {
+		return false
+	}
+	if len(*l) != len(*ol) {
+		return false
+	}
+	for i := range *l {
+		if !(*l)[i].Equal((*ol)[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 // candidateToPb converts a candidate to protobuf's candidate message
 func candidateToPb(cand *Candidate) *iotextypes.Candidate {
 	candidatePb := &iotextypes.Candidate{

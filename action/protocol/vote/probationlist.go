@@ -90,3 +90,26 @@ func (pl *ProbationList) Encode() (systemcontracts.GenericValue, error) {
 func (pl *ProbationList) Decode(data systemcontracts.GenericValue) error {
 	return pl.Deserialize(data.PrimaryData)
 }
+
+func (pl *ProbationList) New() any {
+	return &ProbationList{}
+}
+
+func (pl *ProbationList) ConsistentEqual(other any) bool {
+	op, ok := other.(*ProbationList)
+	if !ok {
+		return false
+	}
+	if pl.IntensityRate != op.IntensityRate {
+		return false
+	}
+	if len(pl.ProbationInfo) != len(op.ProbationInfo) {
+		return false
+	}
+	for k, v := range pl.ProbationInfo {
+		if ov, ok := op.ProbationInfo[k]; !ok || ov != v {
+			return false
+		}
+	}
+	return true
+}

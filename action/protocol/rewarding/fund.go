@@ -109,6 +109,19 @@ func (f *fund) Decode(v systemcontracts.GenericValue) error {
 	return nil
 }
 
+func (f *fund) New() any {
+	return &fund{}
+}
+
+func (f *fund) ConsistentEquals(other any) bool {
+	o, ok := other.(*fund)
+	if !ok {
+		return false
+	}
+	return f.totalBalance.Cmp(o.totalBalance) == 0 &&
+		f.unclaimedBalance.Cmp(o.unclaimedBalance) == 0
+}
+
 // Deposit deposits token into the rewarding fund
 func (p *Protocol) Deposit(
 	ctx context.Context,

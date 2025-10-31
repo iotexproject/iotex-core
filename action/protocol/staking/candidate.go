@@ -247,6 +247,18 @@ func (d *Candidate) Decode(gv systemcontracts.GenericValue) error {
 	return nil
 }
 
+func (d *Candidate) New() any {
+	return &Candidate{}
+}
+
+func (d *Candidate) ConsistentEqual(other any) bool {
+	od, ok := other.(*Candidate)
+	if !ok {
+		return false
+	}
+	return d.Equal(od)
+}
+
 func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 	if d.Owner == nil || d.Operator == nil || d.Reward == nil ||
 		len(d.Name) == 0 || d.Votes == nil || d.SelfStake == nil {
@@ -469,6 +481,26 @@ func (l *CandidateList) Decode(keys [][]byte, gvs []systemcontracts.GenericValue
 	}
 	*l = candidates
 	return nil
+}
+
+func (l *CandidateList) New() any {
+	return &CandidateList{}
+}
+
+func (l *CandidateList) ConsistentEqual(other any) bool {
+	ol, ok := other.(*CandidateList)
+	if !ok {
+		return false
+	}
+	if len(*l) != len(*ol) {
+		return false
+	}
+	for i := range *l {
+		if !(*l)[i].Equal((*ol)[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {

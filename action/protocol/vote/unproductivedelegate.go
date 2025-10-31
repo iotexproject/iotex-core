@@ -138,3 +138,15 @@ func (upd *UnproductiveDelegate) Encode() (systemcontracts.GenericValue, error) 
 func (upd *UnproductiveDelegate) Decode(data systemcontracts.GenericValue) error {
 	return upd.Deserialize(data.PrimaryData)
 }
+
+func (upd *UnproductiveDelegate) New() any {
+	return &UnproductiveDelegate{}
+}
+
+func (upd *UnproductiveDelegate) ConsistentEqual(other any) bool {
+	oupd, ok := other.(*UnproductiveDelegate)
+	if !ok {
+		return false
+	}
+	return upd.Equal(oupd)
+}

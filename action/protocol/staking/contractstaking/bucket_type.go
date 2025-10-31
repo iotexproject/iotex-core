@@ -81,3 +81,17 @@ func (bt *BucketType) Encode() (systemcontracts.GenericValue, error) {
 func (bt *BucketType) Decode(gv systemcontracts.GenericValue) error {
 	return bt.Deserialize(gv.PrimaryData)
 }
+
+func (bt *BucketType) New() any {
+	return &BucketType{}
+}
+
+func (bt *BucketType) ConsistentEqual(other any) bool {
+	obt, ok := other.(*BucketType)
+	if !ok {
+		return false
+	}
+	return bt.Amount.Cmp(obt.Amount) == 0 &&
+		bt.Duration == obt.Duration &&
+		bt.ActivatedAt == obt.ActivatedAt
+}

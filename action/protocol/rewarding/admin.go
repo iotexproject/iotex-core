@@ -87,6 +87,24 @@ func (a *admin) Decode(v systemcontracts.GenericValue) error {
 	return a.Deserialize(v.AuxiliaryData)
 }
 
+func (a *admin) New() any {
+	return &admin{}
+}
+
+func (a *admin) ConsistentEqual(other any) bool {
+	o, ok := other.(*admin)
+	if !ok {
+		return false
+	}
+	return a.blockReward.Cmp(o.blockReward) == 0 &&
+		a.epochReward.Cmp(o.epochReward) == 0 &&
+		a.numDelegatesForEpochReward == o.numDelegatesForEpochReward &&
+		a.foundationBonus.Cmp(o.foundationBonus) == 0 &&
+		a.numDelegatesForFoundationBonus == o.numDelegatesForFoundationBonus &&
+		a.foundationBonusLastEpoch == o.foundationBonusLastEpoch &&
+		a.productivityThreshold == o.productivityThreshold
+}
+
 func (a *admin) grantFoundationBonus(epoch uint64) bool {
 	return epoch <= a.foundationBonusLastEpoch
 }

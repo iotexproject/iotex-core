@@ -85,3 +85,17 @@ func (bm *BlockMeta) Encode() (systemcontracts.GenericValue, error) {
 func (bm *BlockMeta) Decode(data systemcontracts.GenericValue) error {
 	return bm.Deserialize(data.PrimaryData)
 }
+
+func (bm *BlockMeta) New() any {
+	return &BlockMeta{}
+}
+
+func (bm *BlockMeta) ConsistentEqual(other any) bool {
+	obm, ok := other.(*BlockMeta)
+	if !ok {
+		return false
+	}
+	return bm.Height == obm.Height &&
+		bm.Producer == obm.Producer &&
+		bm.MintTime.Equal(obm.MintTime)
+}

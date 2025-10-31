@@ -369,6 +369,9 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	if err != nil {
 		return 0, err
 	}
+	if sstore, ok := store.(*workingSetStoreWithSecondary); ok && sstore.consistencyCheck && len(cfg.ErigonStoreKey) > 0 {
+		return ws.height, sstore.GetObjectWithValidate(cfg.Namespace, key, cfg.ErigonStoreKey, s)
+	}
 	return ws.height, store.GetObject(cfg.Namespace, key, s)
 }
 

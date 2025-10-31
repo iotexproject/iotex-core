@@ -99,6 +99,18 @@ func (e *Endorsement) Decode(gv systemcontracts.GenericValue) error {
 	return e.Deserialize(gv.PrimaryData)
 }
 
+func (e *Endorsement) New() any {
+	return &Endorsement{}
+}
+
+func (e *Endorsement) ConsistentEqual(other any) bool {
+	oe, ok := other.(*Endorsement)
+	if !ok {
+		return false
+	}
+	return e.ExpireHeight == oe.ExpireHeight
+}
+
 func (e *Endorsement) toProto() (*stakingpb.Endorsement, error) {
 	return &stakingpb.Endorsement{
 		ExpireHeight: e.ExpireHeight,

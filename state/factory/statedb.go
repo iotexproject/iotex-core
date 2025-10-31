@@ -261,6 +261,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	ws.store = newWorkingSetStoreWithSecondary(
 		ws.store.(*stateDBWorkingSetStore),
 		e,
+		sdb.cfg.Chain.EnableArchiveValidation,
 	)
 	return ws, nil
 }

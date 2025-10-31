@@ -88,6 +88,31 @@ func (vb *VoteBucket) Decode(gv systemcontracts.GenericValue) error {
 	return vb.Deserialize(gv.PrimaryData)
 }
 
+func (vb *VoteBucket) New() any {
+	return &VoteBucket{}
+}
+
+func (vb *VoteBucket) ConsistentEqual(other any) bool {
+	ovb, ok := other.(*VoteBucket)
+	if !ok {
+		return false
+	}
+	return vb.Index == ovb.Index &&
+		vb.Candidate == ovb.Candidate &&
+		vb.Owner == ovb.Owner &&
+		vb.StakedAmount.Cmp(ovb.StakedAmount) == 0 &&
+		vb.StakedDuration == ovb.StakedDuration &&
+		vb.CreateTime.Equal(ovb.CreateTime) &&
+		vb.StakeStartTime.Equal(ovb.StakeStartTime) &&
+		vb.UnstakeStartTime.Equal(ovb.UnstakeStartTime) &&
+		vb.AutoStake == ovb.AutoStake &&
+		vb.ContractAddress == ovb.ContractAddress &&
+		vb.StakedDurationBlockNumber == ovb.StakedDurationBlockNumber &&
+		vb.CreateBlockHeight == ovb.CreateBlockHeight &&
+		vb.StakeStartBlockHeight == ovb.StakeStartBlockHeight &&
+		vb.UnstakeStartBlockHeight == ovb.UnstakeStartBlockHeight
+}
+
 func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
 	vote, ok := new(big.Int).SetString(pb.GetStakedAmount(), 10)
 	if !ok {
@@ -237,6 +262,20 @@ func (tc *totalBucketCount) Encode() (systemcontracts.GenericValue, error) {
 func (tc *totalBucketCount) Decode(gv systemcontracts.GenericValue) error {
 	return tc.Deserialize(gv.PrimaryData)
 }
+
+func (tc *totalBucketCount) New() any {
+	return &totalBucketCount{}
+}
+
+func (tc *totalBucketCount) ConsistentEqual(other any) bool {
+	otc, ok := other.(*totalBucketCount)
+	if !ok {
+		return false
+	}
+	return tc.count == otc.count
+}
+
+// bucketKey returns the key of the bucket index
 
 func bucketKey(index uint64) []byte {
 	key := []byte{_bucket}

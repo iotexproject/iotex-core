@@ -66,3 +66,15 @@ func (sc *StakingContract) Encode() (systemcontracts.GenericValue, error) {
 func (sc *StakingContract) Decode(gv systemcontracts.GenericValue) error {
 	return sc.Deserialize(gv.PrimaryData)
 }
+
+func (sc *StakingContract) New() any {
+	return &StakingContract{}
+}
+
+func (sc *StakingContract) ConsistentEqual(other any) bool {
+	osc, ok := other.(*StakingContract)
+	if !ok {
+		return false
+	}
+	return sc.NumOfBuckets == osc.NumOfBuckets
+}

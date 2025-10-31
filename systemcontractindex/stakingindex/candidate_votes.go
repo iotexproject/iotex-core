@@ -183,6 +183,30 @@ func (cv *candidateVotes) Decode(keys [][]byte, values []systemcontracts.Generic
 	return nil
 }
 
+func (cv *candidateVotes) New() any {
+	return newCandidateVotes()
+}
+
+func (cv *candidateVotes) ConsistentEqual(other any) bool {
+	ocv, ok := other.(*candidateVotes)
+	if !ok {
+		return false
+	}
+	if len(cv.cands) != len(ocv.cands) {
+		return false
+	}
+	for cand, c := range cv.cands {
+		oc, ok := ocv.cands[cand]
+		if !ok {
+			return false
+		}
+		if c.amount.Cmp(oc.amount) != 0 || c.votes.Cmp(oc.votes) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func newCandidateVotes() *candidateVotes {
 	return &candidateVotes{
 		cands: make(map[string]*candidate),

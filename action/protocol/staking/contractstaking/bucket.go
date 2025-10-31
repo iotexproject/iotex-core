@@ -135,3 +135,23 @@ func (b *Bucket) Encode() (systemcontracts.GenericValue, error) {
 func (b *Bucket) Decode(gv systemcontracts.GenericValue) error {
 	return b.Deserialize(gv.PrimaryData)
 }
+
+func (b *Bucket) New() any {
+	return &Bucket{}
+}
+
+func (b *Bucket) ConsistentEqual(other any) bool {
+	ob, ok := other.(*Bucket)
+	if !ok {
+		return false
+	}
+	return b.Candidate == ob.Candidate &&
+		b.Owner == ob.Owner &&
+		b.StakedAmount.Cmp(ob.StakedAmount) == 0 &&
+		b.StakedDuration == ob.StakedDuration &&
+		b.CreatedAt == ob.CreatedAt &&
+		b.UnlockedAt == ob.UnlockedAt &&
+		b.UnstakedAt == ob.UnstakedAt &&
+		b.IsTimestampBased == ob.IsTimestampBased &&
+		b.Muted == ob.Muted
+}

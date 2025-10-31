@@ -109,6 +109,18 @@ func (t *totalAmount) Decode(gv systemcontracts.GenericValue) error {
 	return t.Deserialize(gv.PrimaryData)
 }
 
+func (t *totalAmount) New() any {
+	return &totalAmount{}
+}
+
+func (t *totalAmount) ConsistentEqual(other any) bool {
+	ot, ok := other.(*totalAmount)
+	if !ok {
+		return false
+	}
+	return t.amount.Cmp(ot.amount) == 0 && t.count == ot.count
+}
+
 // IsDirty returns true if the bucket pool is dirty
 func (bp *BucketPool) IsDirty() bool {
 	return bp.dirty

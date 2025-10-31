@@ -2,6 +2,7 @@ package factory
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -50,12 +51,13 @@ type workingSetStoreWithSecondary struct {
 	consistencyCheck bool
 }
 
-func newWorkingSetStoreWithSecondary(store workingSetStore, erigonStore workingSetStore) *workingSetStoreWithSecondary {
+func newWorkingSetStoreWithSecondary(store workingSetStore, erigonStore workingSetStore, consistencyCheck bool) *workingSetStoreWithSecondary {
 	return &workingSetStoreWithSecondary{
-		reader:          store,
-		writer:          store,
-		writerSecondary: erigonStore,
-		snMap:           make(map[int]int),
+		reader:           store,
+		writer:           store,
+		writerSecondary:  erigonStore,
+		snMap:            make(map[int]int),
+		consistencyCheck: consistencyCheck,
 	}
 }
 
@@ -151,6 +153,10 @@ func (store *workingSetStoreWithSecondary) CreateGenesisStates(ctx context.Conte
 }
 
 func (store *workingSetStoreWithSecondary) GetObject(ns string, key []byte, obj any) error {
+	return store.GetObjectWithValidate(ns, key, key, obj)
+}
+
+func (store *workingSetStoreWithSecondary) GetObjectWithValidate(ns string, key, erigonKey []byte, obj any) error {
 	if !store.consistencyCheck {
 		return store.reader.GetObject(ns, key, obj)
 	}
@@ -164,14 +170,20 @@ func (store *workingSetStoreWithSecondary) GetObject(ns string, key []byte, obj 
 	}
 	other := cco.New()
 	err := store.reader.GetObject(ns, key, obj)
-	errOther := store.writerSecondary.GetObject(ns, key, other)
+	errOther := store.writerSecondary.GetObject(ns, erigonKey, other)
 	if errors.Cause(err) != errors.Cause(errOther) {
-		return errors.Errorf("inconsistent existence for ns %s key %x: %v vs %v", ns, key, err, errOther)
+		prefix := state.PollCandidatesPrefix
+		if ns == state.AccountKVNamespace && errors.Cause(err) == state.ErrStateNotExist && strings.HasPrefix(string(erigonKey), prefix) {
+			// special case for legacy candidate list
+			return err
+		}
+		return errors.Errorf("inconsistent existence %T for ns %s key %x: %v vs %v", obj, ns, key, err, errOther)
 	}
 	if err != nil {
 		return err
 	}
 	if !cco.ConsistentEqual(other) {
+		log.S().Panicf("inconsistent object for ns %s key %x: %T vs %T", ns, key, cco, other)
 		return errors.Errorf("inconsistent object for ns %s key %x: %+v vs %+v", ns, key, cco, other)
 	}
 	return nil
@@ -194,6 +206,7 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 		return iter, err
 	}
 	if !cco.ConsistentEqual(otherIter) {
+		log.S().Panicf("inconsistent iterator for ns %s keys %x: %T vs %T", ns, keys, cco, otherIter)
 		return nil, errors.Errorf("inconsistent iterator for ns %s keys %x: %+v vs %+v", ns, keys, cco, otherIter)
 	}
 	return iter, nil
