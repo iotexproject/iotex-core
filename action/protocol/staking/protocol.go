@@ -466,6 +466,10 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		blkCtx     = protocol.MustGetBlockCtx(ctx)
 		featureCtx = protocol.MustGetFeatureCtx(ctx)
 	)
+	if blkCtx.Simulate {
+		// skip pre-state creation during traceBlock, until we support tracing in archive db
+		return nil
+	}
 	if blkCtx.BlockHeight == g.GreenlandBlockHeight {
 		csr, err := ConstructBaseView(sm)
 		if err != nil {
@@ -717,6 +721,10 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 
 // HandleReceipt handles a receipt
 func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm protocol.StateManager, receipt *action.Receipt) error {
+	if protocol.MustGetBlockCtx(ctx).Simulate {
+		// skip receipt handling during traceBlock, until we support tracing in archive db
+		return nil
+	}
 	featureCtx, ok := protocol.GetFeatureCtx(ctx)
 	if !ok {
 		return errors.New("failed to get feature context from action context")

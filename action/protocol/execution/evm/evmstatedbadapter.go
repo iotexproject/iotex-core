@@ -459,6 +459,14 @@ func (stateDB *StateDBAdapter) SubRefund(gas uint64) {
 	log.T(stateDB.ctx).Debug("Called SubRefund.", zap.Uint64("gas", gas))
 	// stateDB.journal.append(refundChange{prev: self.refund})
 	if gas > stateDB.refund {
+		debug := false
+		if blkCtx, ok := protocol.GetBlockCtx(stateDB.ctx); ok && blkCtx.Simulate {
+			debug = true
+		}
+		if debug {
+			log.T(stateDB.ctx).Error("Refund counter not enough, skip subtracting refund in debug mode.", zap.Uint64("requested", gas), zap.Uint64("available", stateDB.refund))
+			return
+		}
 		log.T(stateDB.ctx).Panic("Refund counter not enough!")
 	}
 	stateDB.refund -= gas

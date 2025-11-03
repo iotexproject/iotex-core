@@ -68,6 +68,10 @@ func (sc *stakingCommand) Start(ctx context.Context, sr protocol.StateReader) (i
 }
 
 func (sc *stakingCommand) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
+	if blkCtx, ok := protocol.GetBlockCtx(ctx); ok && blkCtx.Simulate {
+		// skip pre-state creation during traceBlock, until we support tracing in archive db
+		return nil
+	}
 	if sc.useV2(ctx, sm) {
 		if p, ok := sc.stakingV2.(protocol.PreStatesCreator); ok {
 			return p.CreatePreStates(ctx, sm)

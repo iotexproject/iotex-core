@@ -102,6 +102,10 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
 	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if blkCtx.Simulate {
+		// skip pre-state creation during traceBlock, until we support tracing in archive db
+		return nil
+	}
 	switch blkCtx.BlockHeight {
 	case g.AleutianBlockHeight:
 		return p.SetReward(ctx, sm, g.AleutianEpochReward(), false)

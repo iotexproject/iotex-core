@@ -155,7 +155,8 @@ func (ws *workingSet) runAction(
 	selp *action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
-	if protocol.MustGetBlockCtx(ctx).GasLimit < actCtx.IntrinsicGas {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if blkCtx.GasLimit < actCtx.IntrinsicGas {
 		return nil, action.ErrGasLimit
 	}
 	// Reject execution of chainID not equal the node's chainID
@@ -195,6 +196,14 @@ func (ws *workingSet) runAction(
 	for _, actionHandler := range reg.All() {
 		receipt, err = actionHandler.Handle(ctx, selp.Envelope, ws)
 		if err != nil {
+			if blkCtx.Simulate && action.IsSystemAction(selp) {
+				// during traceBlock, ignore error from system action
+				receipt = &action.Receipt{
+					Status:      uint64(iotextypes.ReceiptStatus_Success),
+					BlockHeight: blkCtx.BlockHeight,
+					ActionHash:  selpHash,
+				}
+			}
 			return nil, errors.Wrapf(
 				err,
 				"error when action %x mutates states",

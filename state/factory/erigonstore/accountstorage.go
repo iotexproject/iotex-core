@@ -78,6 +78,10 @@ func (as *accountStorage) Load(key []byte, obj any) error {
 	pbAcc.Balance = balance.String()
 	pbAcc.Nonce = nonce
 	pbAcc.Type = accountpb.AccountType_ZERO_NONCE
+	if !as.backend.useZeroNonceForFreshAccount {
+		pbAcc.Type = accountpb.AccountType_DEFAULT
+		pbAcc.Nonce = nonce - 1
+	}
 	// switch pbAcc.Type {
 	// case accountpb.AccountType_ZERO_NONCE:
 	// 	pbAcc.Nonce = nonce
