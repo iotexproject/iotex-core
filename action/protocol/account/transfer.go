@@ -11,12 +11,14 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -74,7 +76,11 @@ func (p *Protocol) handleTransfer(ctx context.Context, elp action.Envelope, sm p
 	if fCtx.FixGasAndNonceUpdate || elp.Nonce() != 0 {
 		// update sender Nonce
 		if err := sender.SetPendingNonce(elp.Nonce() + 1); err != nil {
-			return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
+			if !blkCtx.Simulate {
+				return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
+			}
+			// ignore the error in traceBlock mode
+			log.L().Error("failed to update pending nonce of sender in traceBlock", zap.Error(err))
 		}
 	}
 
