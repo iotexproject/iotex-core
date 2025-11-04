@@ -209,12 +209,13 @@ func (ws *workingSet) runAction(
 					BlockHeight: blkCtx.BlockHeight,
 					ActionHash:  selpHash,
 				}
+			} else {
+				return nil, errors.Wrapf(
+					err,
+					"error when action %x mutates states",
+					selpHash,
+				)
 			}
-			return nil, errors.Wrapf(
-				err,
-				"error when action %x mutates states",
-				selpHash,
-			)
 		}
 		if receipt != nil {
 			break
