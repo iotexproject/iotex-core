@@ -177,6 +177,7 @@ func (store *workingSetStoreWithSecondary) GetObjectWithValidate(ns string, key,
 			// special case for legacy candidate list
 			return err
 		}
+		log.S().Panicf("inconsistent existence %T for ns %s key %x: %v vs %v", obj, ns, key, err, errOther)
 		return errors.Errorf("inconsistent existence %T for ns %s key %x: %v vs %v", obj, ns, key, err, errOther)
 	}
 	if err != nil {

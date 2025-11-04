@@ -59,7 +59,7 @@ type ErigonWorkingSetStore struct {
 func NewErigonDB(path string) *ErigonDB {
 	return &ErigonDB{
 		path:            path,
-		performanceMode: true,
+		performanceMode: false,
 	}
 }
 
