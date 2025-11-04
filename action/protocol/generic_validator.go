@@ -110,6 +110,7 @@ func (v *GenericValidator) ValidateWithState(ctx context.Context, selp *action.S
 	var (
 		caller     = selp.SenderAddress()
 		featureCtx = MustGetFeatureCtx(ctx)
+		blkCtx     = MustGetBlockCtx(ctx)
 	)
 	if caller == nil {
 		return errors.New("failed to get address")
@@ -126,7 +127,10 @@ func (v *GenericValidator) ValidateWithState(ctx context.Context, selp *action.S
 			nonce = confirmedState.PendingNonce()
 		}
 		if nonce > selp.Nonce() {
-			return action.ErrNonceTooLow
+			if !blkCtx.Simulate {
+				return errors.Wrapf(action.ErrNonceTooLow, "account %s confirmed nonce %d, action nonce %d", caller.String(), nonce, selp.Nonce())
+			}
+			// ignore nonce error in trace block
 		}
 	}
 	if featureCtx.SufficentBalanceGuarantee {
@@ -143,7 +147,6 @@ func (v *GenericValidator) ValidateWithState(ctx context.Context, selp *action.S
 			return errors.Wrapf(state.ErrNotEnoughBalance, "sender %s balance %s, cost %s", caller.String(), acc.Balance, cost)
 		}
 	}
-	blkCtx := MustGetBlockCtx(ctx)
 	if featureCtx.EnableDynamicFeeTx {
 		// check transaction's max fee can cover base fee
 		if baseFee := blkCtx.BaseFee; baseFee != nil && selp.GasFeeCap().Cmp(baseFee) < 0 {
