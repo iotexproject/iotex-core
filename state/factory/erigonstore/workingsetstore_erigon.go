@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/erigontech/erigon-lib/common/datadir"
 	"github.com/erigontech/erigon-lib/kv"
@@ -15,6 +16,7 @@ import (
 	"github.com/erigontech/erigon/eth/stagedsync"
 	"github.com/erigontech/erigon/eth/stagedsync/stages"
 	"github.com/erigontech/erigon/ethdb/prune"
+	mdbxgo "github.com/erigontech/mdbx-go/mdbx"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
@@ -41,8 +43,9 @@ var (
 
 // ErigonDB implements the Erigon database
 type ErigonDB struct {
-	path string
-	rw   kv.RwDB
+	path            string
+	rw              kv.RwDB
+	performanceMode bool
 }
 
 // ErigonWorkingSetStore implements the Erigon working set store
@@ -54,7 +57,10 @@ type ErigonWorkingSetStore struct {
 
 // NewErigonDB creates a new ErigonDB
 func NewErigonDB(path string) *ErigonDB {
-	return &ErigonDB{path: path}
+	return &ErigonDB{
+		path:            path,
+		performanceMode: true,
+	}
 }
 
 // Start starts the ErigonDB
@@ -62,10 +68,19 @@ func (db *ErigonDB) Start(ctx context.Context) error {
 	log.L().Info("starting history state index")
 	lg := erigonlog.New()
 	lg.SetHandler(erigonlog.StdoutHandler)
-	rw, err := mdbx.NewMDBX(lg).Path(db.path).WithTableCfg(func(defaultBuckets kv.TableCfg) kv.TableCfg {
+	opts := mdbx.NewMDBX(lg).Path(db.path).WithTableCfg(func(defaultBuckets kv.TableCfg) kv.TableCfg {
 		defaultBuckets[systemNS] = kv.TableCfgItem{}
 		return defaultBuckets
-	}).Open(ctx)
+	})
+	if db.performanceMode {
+		opts.Flags(func(u uint) uint {
+			// High performance but risky configuration
+			return u | mdbxgo.UtterlyNoSync
+		}).LifoReclaim().
+			SyncPeriod(time.Hour).
+			WriteMap().DirtySpace(512 * 1024 * 1024).WriteMergeThreshold(64 * 1024)
+	}
+	rw, err := opts.Open(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to open history state index")
 	}
