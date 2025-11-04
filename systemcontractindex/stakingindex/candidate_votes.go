@@ -138,7 +138,7 @@ func (cv *candidateVotes) Deserialize(data []byte) error {
 	return nil
 }
 
-func (cv *candidateVotes) Encode() ([][]byte, []systemcontracts.GenericValue, error) {
+func (cv *candidateVotes) Encodes() ([][]byte, []systemcontracts.GenericValue, error) {
 	var (
 		keys   [][]byte
 		values []systemcontracts.GenericValue
@@ -161,7 +161,7 @@ func (cv *candidateVotes) Encode() ([][]byte, []systemcontracts.GenericValue, er
 	return keys, values, nil
 }
 
-func (cv *candidateVotes) Decode(keys [][]byte, values []systemcontracts.GenericValue) error {
+func (cv *candidateVotes) Decodes(keys [][]byte, values []systemcontracts.GenericValue) error {
 	ncv := newCandidateVotes()
 	for i, key := range keys {
 		cand := string(key)
@@ -353,14 +353,14 @@ func (cv *candidateVotesWithBuffer) Base() CandidateVotes {
 	return newCandidateVotesWithBuffer(cv.base)
 }
 
-func (cv *candidateVotesWithBuffer) Encode() ([][]byte, []systemcontracts.GenericValue, error) {
+func (cv *candidateVotesWithBuffer) Encodes() ([][]byte, []systemcontracts.GenericValue, error) {
 	if cv.IsDirty() {
 		return nil, nil, errors.Wrap(ErrCandidateVotesIsDirty, "cannot encode dirty candidate votes")
 	}
-	return cv.base.Encode()
+	return cv.base.Encodes()
 }
 
-func (cv *candidateVotesWithBuffer) Decode(keys [][]byte, data []systemcontracts.GenericValue) error {
+func (cv *candidateVotesWithBuffer) Decodes(keys [][]byte, data []systemcontracts.GenericValue) error {
 	cv.change = newCandidateVotes()
-	return cv.base.Decode(keys, data)
+	return cv.base.Decodes(keys, data)
 }

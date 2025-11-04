@@ -10,8 +10,8 @@ import (
 )
 
 type kvListContainer interface {
-	Encode() ([][]byte, []systemcontracts.GenericValue, error)
-	Decode(keys [][]byte, values []systemcontracts.GenericValue) error
+	Encodes() ([][]byte, []systemcontracts.GenericValue, error)
+	Decodes(keys [][]byte, values []systemcontracts.GenericValue) error
 }
 
 type kvListStorage struct {
@@ -37,7 +37,7 @@ func (cos *kvListStorage) Store(prefix []byte, obj any) error {
 	if err != nil {
 		return err
 	}
-	keys, values, err := ct.Encode()
+	keys, values, err := ct.Encodes()
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (cos *kvListStorage) Load(prefix []byte, obj any) error {
 	if len(keys) == 0 {
 		return errors.Wrapf(state.ErrStateNotExist, "prefix: %x", prefix)
 	}
-	return ct.Decode(keys, values)
+	return ct.Decodes(keys, values)
 }
 
 func (cos *kvListStorage) Delete(prefix []byte) error {

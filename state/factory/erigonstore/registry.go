@@ -99,7 +99,7 @@ func init() {
 	assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketTypeNamespacePrefix, ContractStakingBucketContractIndex))
 
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.Account{}, AccountIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex, WithKVListOption()))
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &state.CandidateList{}, PollCandidateListContractIndex, WithKVListOption()))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.UnproductiveDelegate{}, PollUnproductiveDelegateContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.ProbationList{}, PollProbationListContractIndex))

@@ -429,7 +429,7 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 }
 
 // Encode encodes candidate list into generic value
-func (l *CandidateList) Encode() ([][]byte, []systemcontracts.GenericValue, error) {
+func (l *CandidateList) Encodes() ([][]byte, []systemcontracts.GenericValue, error) {
 	var (
 		keys   [][]byte
 		values []systemcontracts.GenericValue
@@ -452,7 +452,7 @@ func (l *CandidateList) Encode() ([][]byte, []systemcontracts.GenericValue, erro
 }
 
 // Decode decodes candidate list from generic value
-func (l *CandidateList) Decode(keys [][]byte, gvs []systemcontracts.GenericValue) error {
+func (l *CandidateList) Decodes(keys [][]byte, gvs []systemcontracts.GenericValue) error {
 	if len(keys) != len(gvs) {
 		return errors.New("mismatched keys and generic values length")
 	}
