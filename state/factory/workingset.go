@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 	"sort"
 	"time"
 
@@ -193,10 +194,15 @@ func (ws *workingSet) runAction(
 	if traceErr != nil {
 		log.L().Error("failed to start tracing EVM execution", zap.Error(traceErr))
 	}
+	traceErrorIngoreProtocols := []string{
+		"poll",
+		"rewarding",
+		"staking",
+	}
 	for _, actionHandler := range reg.All() {
 		receipt, err = actionHandler.Handle(ctx, selp.Envelope, ws)
 		if err != nil {
-			if blkCtx.Simulate && action.IsSystemAction(selp) {
+			if blkCtx.Simulate && (action.IsSystemAction(selp) || slices.Contains(traceErrorIngoreProtocols, actionHandler.Name())) {
 				// during traceBlock, ignore error from system action
 				receipt = &action.Receipt{
 					Status:      uint64(iotextypes.ReceiptStatus_Success),
