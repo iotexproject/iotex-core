@@ -24,7 +24,7 @@ var DefaultConfig = Config{
 	Interval:              30 * time.Second,
 	ProcessSyncRequestTTL: 10 * time.Second,
 	BufferSize:            200,
-	IntervalSize:          20,
+	IntervalSize:          100,
 	MaxRepeat:             3,
 	RepeatDecayStep:       1,
 }
