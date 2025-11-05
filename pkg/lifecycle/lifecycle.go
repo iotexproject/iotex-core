@@ -46,7 +46,7 @@ func (lc *Lifecycle) Add(m Model) { lc.models = append(lc.models, m) }
 // AddModels adds multiple models into LifeCycle.
 func (lc *Lifecycle) AddModels(m ...Model) { lc.models = append(lc.models, m...) }
 
-// OnStart runs models OnStart function if models implmented it. All OnStart functions will be run in parallel.
+// OnStart runs models OnStart function if models implemented it. All OnStart functions will be run in parallel.
 // context passed into models' OnStart method will be canceled on the first time a model's OnStart function return non-nil error.
 func (lc *Lifecycle) OnStart(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
@@ -58,7 +58,7 @@ func (lc *Lifecycle) OnStart(ctx context.Context) error {
 	return g.Wait()
 }
 
-// OnStop runs models Stop function if models implmented it. All OnStop functions will be run in parallel.
+// OnStop runs models Stop function if models implemented it. All OnStop functions will be run in parallel.
 // context passed into models' OnStop method will be canceled on the first time a model's OnStop function return non-nil error.
 func (lc *Lifecycle) OnStop(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
@@ -70,7 +70,7 @@ func (lc *Lifecycle) OnStop(ctx context.Context) error {
 	return g.Wait()
 }
 
-// OnStartSequentially runs models' Start function if models implmented it.
+// OnStartSequentially runs models' Start function if models implemented it.
 func (lc *Lifecycle) OnStartSequentially(ctx context.Context) error {
 	for _, m := range lc.models {
 		if starter, ok := m.(Starter); ok {
@@ -82,7 +82,7 @@ func (lc *Lifecycle) OnStartSequentially(ctx context.Context) error {
 	return nil
 }
 
-// OnStopSequentially runs models' Stop function if models implmented it.
+// OnStopSequentially runs models' Stop function if models implemented it.
 func (lc *Lifecycle) OnStopSequentially(ctx context.Context) error {
 	for i := len(lc.models) - 1; i >= 0; i-- {
 		if stopper, ok := lc.models[i].(Stopper); ok {

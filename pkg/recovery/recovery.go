@@ -47,7 +47,7 @@ type (
 // _crashlogDir saves the directory of crashlog
 var _crashlogDir string = "/"
 
-// Recover catchs the crashing goroutine
+// Recover catches the crashing goroutine
 func Recover() {
 	if r := recover(); r != nil {
 		LogCrash(r)
