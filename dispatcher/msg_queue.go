@@ -57,8 +57,10 @@ func (m *msgQueueMgr) Start(ctx context.Context) error {
 	m.wg.Add(1)
 	go m.consume(blockQ)
 
-	m.wg.Add(1)
-	go m.consume(blockSyncQ)
+	for i := 0; i < 6; i++ {
+		m.wg.Add(1)
+		go m.consume(blockSyncQ)
+	}
 
 	m.wg.Add(1)
 	go m.consume(consensusQ)
