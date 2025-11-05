@@ -6,6 +6,7 @@
 package staking
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
@@ -93,24 +95,73 @@ func (vb *VoteBucket) New() any {
 }
 
 func (vb *VoteBucket) ConsistentEqual(other any) bool {
+	var errMsg string
+	defer func() {
+		if len(errMsg) > 0 {
+			log.S().Errorf("inconsistent VoteBucket: %s", errMsg)
+		}
+	}()
 	ovb, ok := other.(*VoteBucket)
 	if !ok {
 		return false
 	}
-	return vb.Index == ovb.Index &&
-		vb.Candidate == ovb.Candidate &&
-		vb.Owner == ovb.Owner &&
-		vb.StakedAmount.Cmp(ovb.StakedAmount) == 0 &&
-		vb.StakedDuration == ovb.StakedDuration &&
-		vb.CreateTime.Equal(ovb.CreateTime) &&
-		vb.StakeStartTime.Equal(ovb.StakeStartTime) &&
-		vb.UnstakeStartTime.Equal(ovb.UnstakeStartTime) &&
-		vb.AutoStake == ovb.AutoStake &&
-		vb.ContractAddress == ovb.ContractAddress &&
-		vb.StakedDurationBlockNumber == ovb.StakedDurationBlockNumber &&
-		vb.CreateBlockHeight == ovb.CreateBlockHeight &&
-		vb.StakeStartBlockHeight == ovb.StakeStartBlockHeight &&
-		vb.UnstakeStartBlockHeight == ovb.UnstakeStartBlockHeight
+	if vb.Index != ovb.Index {
+		errMsg = fmt.Sprintf("Index %d vs %d", vb.Index, ovb.Index)
+		return false
+	}
+	if vb.Candidate.String() != ovb.Candidate.String() {
+		errMsg = fmt.Sprintf("Candidate %s vs %s", vb.Candidate.String(), ovb.Candidate.String())
+		return false
+	}
+	if vb.Owner.String() != ovb.Owner.String() {
+		errMsg = fmt.Sprintf("Owner %s vs %s", vb.Owner.String(), ovb.Owner.String())
+		return false
+	}
+	if vb.StakedAmount.Cmp(ovb.StakedAmount) != 0 {
+		errMsg = fmt.Sprintf("StakedAmount %s vs %s", vb.StakedAmount.String(), ovb.StakedAmount.String())
+		return false
+	}
+	if vb.StakedDuration != ovb.StakedDuration {
+		errMsg = fmt.Sprintf("StakedDuration %s vs %s", vb.StakedDuration.String(), ovb.StakedDuration.String())
+		return false
+	}
+	if !vb.CreateTime.Equal(ovb.CreateTime) {
+		errMsg = fmt.Sprintf("CreateTime %s vs %s", vb.CreateTime.String(), ovb.CreateTime.String())
+		return false
+	}
+	if !vb.StakeStartTime.Equal(ovb.StakeStartTime) {
+		errMsg = fmt.Sprintf("StakeStartTime %s vs %s", vb.StakeStartTime.String(), ovb.StakeStartTime.String())
+		return false
+	}
+	if !vb.UnstakeStartTime.Equal(ovb.UnstakeStartTime) {
+		errMsg = fmt.Sprintf("UnstakeStartTime %s vs %s", vb.UnstakeStartTime.String(), ovb.UnstakeStartTime.String())
+		return false
+	}
+	if vb.AutoStake != ovb.AutoStake {
+		errMsg = fmt.Sprintf("AutoStake %t vs %t", vb.AutoStake, ovb.AutoStake)
+		return false
+	}
+	if vb.ContractAddress != ovb.ContractAddress {
+		errMsg = fmt.Sprintf("ContractAddress %s vs %s", vb.ContractAddress, ovb.ContractAddress)
+		return false
+	}
+	if vb.StakedDurationBlockNumber != ovb.StakedDurationBlockNumber {
+		errMsg = fmt.Sprintf("StakedDurationBlockNumber %d vs %d", vb.StakedDurationBlockNumber, ovb.StakedDurationBlockNumber)
+		return false
+	}
+	if vb.CreateBlockHeight != ovb.CreateBlockHeight {
+		errMsg = fmt.Sprintf("CreateBlockHeight %d vs %d", vb.CreateBlockHeight, ovb.CreateBlockHeight)
+		return false
+	}
+	if vb.StakeStartBlockHeight != ovb.StakeStartBlockHeight {
+		errMsg = fmt.Sprintf("StakeStartBlockHeight %d vs %d", vb.StakeStartBlockHeight, ovb.StakeStartBlockHeight)
+		return false
+	}
+	if vb.UnstakeStartBlockHeight != ovb.UnstakeStartBlockHeight {
+		errMsg = fmt.Sprintf("UnstakeStartBlockHeight %d vs %d", vb.UnstakeStartBlockHeight, ovb.UnstakeStartBlockHeight)
+		return false
+	}
+	return true
 }
 
 func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
