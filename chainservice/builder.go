@@ -886,6 +886,7 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	cs := builder.cs
+	cs.stuckThreshold = builder.cfg.Chain.StuckThreshold
 	builder.cs = nil
 
 	return cs, nil
