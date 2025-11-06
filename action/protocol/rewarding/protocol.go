@@ -356,10 +356,11 @@ func (p *Protocol) putState(ctx context.Context, sm protocol.StateManager, key [
 	return p.putStateV1(sm, key, value)
 }
 
-func (p *Protocol) putStateV1(sm protocol.StateManager, key []byte, value interface{}) error {
+func (p *Protocol) putStateV1(sm protocol.StateManager, key []byte, value interface{}, opts ...protocol.StateOption) error {
 	orgKey := append(p.keyPrefix, key...)
 	keyHash := hash.Hash160b(orgKey)
-	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash), protocol.ErigonStoreKeyOption(orgKey))
+	opts = append(opts, protocol.LegacyKeyOption(keyHash), protocol.ErigonStoreKeyOption(orgKey))
+	_, err := sm.PutState(value, opts...)
 	return err
 }
 
