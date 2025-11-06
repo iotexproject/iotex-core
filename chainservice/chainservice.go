@@ -84,6 +84,7 @@ type ChainService struct {
 
 	lastReceivedBlockHeight uint64
 	paused                  atomic.Bool
+	stuckThreshold          time.Duration
 }
 
 // Start starts the server
@@ -92,7 +93,7 @@ func (cs *ChainService) Start(ctx context.Context) error {
 		return errors.Wrap(err, "failed to start chain service")
 	}
 	go func() {
-		ticker := time.NewTicker(time.Minute)
+		ticker := time.NewTicker(cs.stuckThreshold)
 		defer ticker.Stop()
 
 		var lastHeight uint64

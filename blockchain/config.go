@@ -87,6 +87,8 @@ type (
 		FactoryDBType string `yaml:"factoryDBType"`
 		// MintTimeout is the timeout for minting
 		MintTimeout time.Duration `yaml:"-"`
+		// StuckThreshold is the duration to detect chain stuck
+		StuckThreshold time.Duration `yaml:"stuckThreshold"`
 	}
 )
 
@@ -133,6 +135,7 @@ var (
 		FixAliasForNonStopHeight:      19778036,
 		FactoryDBType:                 db.DBBolt,
 		MintTimeout:                   700 * time.Millisecond,
+		StuckThreshold:                10 * time.Minute,
 	}
 
 	// ErrConfig config error
