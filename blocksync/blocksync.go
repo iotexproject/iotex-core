@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/nodeinfo"
 	"github.com/iotexproject/iotex-core/v2/pkg/fastrand"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -69,6 +70,7 @@ type (
 		p2pNeighbor          Neighbors
 		unicastOutbound      UniCastOutbound
 		blockP2pPeer         BlockPeer
+		nodeInfoManager      *nodeinfo.InfoManager
 
 		syncTask      *routine.RecurringTask
 		syncStageTask *routine.RecurringTask
@@ -138,6 +140,7 @@ func NewBlockSyncer(
 	p2pNeighbor Neighbors,
 	uniCastHandler UniCastOutbound,
 	blockP2pPeer BlockPeer,
+	nodeInfoManager *nodeinfo.InfoManager,
 ) (BlockSync, error) {
 	bs := &blockSyncer{
 		cfg:                  cfg,
@@ -150,6 +153,7 @@ func NewBlockSyncer(
 		unicastOutbound:      uniCastHandler,
 		blockP2pPeer:         blockP2pPeer,
 		targetHeight:         0,
+		nodeInfoManager:      nodeInfoManager,
 	}
 	if bs.cfg.Interval != 0 {
 		bs.syncTask = routine.NewRecurringTask(bs.sync, bs.cfg.Interval)
@@ -224,10 +228,19 @@ func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint6
 		repeat = len(peers)
 	}
 	for i := 0; i < repeat; i++ {
-		peer := peers[fastrand.Uint32n(uint32(len(peers)))]
+		var peer *peer.AddrInfo
+		for j := 0; j < 10; j++ {
+			peer = &peers[fastrand.Uint32n(uint32(len(peers)))]
+			if !bs.nodeInfoManager.MayHaveBlock(peer.ID.String(), start) {
+				continue
+			}
+		}
+		if peer == nil {
+			continue
+		}
 		if err := bs.unicastOutbound(
 			ctx,
-			peer,
+			*peer,
 			&iotexrpc.BlockSync{Start: start, End: end},
 		); err != nil {
 			log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.String()), zap.Uint64("start", start), zap.Uint64("end", end))
