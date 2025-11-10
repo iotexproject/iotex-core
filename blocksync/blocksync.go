@@ -78,11 +78,11 @@ type (
 		syncStageHeight   uint64
 		syncBlockIncrease uint64
 
-		startingHeight    uint64 // block number this node started to synchronise from
-		lastTip           uint64
-		lastTipUpdateTime time.Time
-		targetHeight      uint64 // block number of the highest block header this node has received from peers
-		mu                sync.RWMutex
+		startingHeight uint64 // block number this node started to synchronise from
+		lastTip        uint64
+		lastTipTime    time.Time
+		targetHeight   uint64 // block number of the highest block header this node has received from peers
+		mu             sync.RWMutex
 	}
 
 	peerBlock struct {
@@ -144,7 +144,7 @@ func NewBlockSyncer(
 ) (BlockSync, error) {
 	bs := &blockSyncer{
 		cfg:                  cfg,
-		lastTipUpdateTime:    time.Now(),
+		lastTipTime:          time.Time{},
 		buf:                  newBlockBuffer(cfg.BufferSize, cfg.IntervalSize),
 		tipHeightHandler:     tipHeightHandler,
 		blockByHeightHandler: blockByHeightHandler,
@@ -171,6 +171,10 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 		err := bs.commitBlockHandler(blk.block)
 		switch errors.Cause(err) {
 		case nil:
+			if blk.block.Height() > bs.lastTip {
+				bs.lastTip = blk.block.Height()
+				bs.lastTipTime = blk.block.Timestamp()
+			}
 			return true
 		case blockdao.ErrRemoteHeightTooLow:
 			log.L().Info("remote height too low", zap.Uint64("height", blk.block.Height()))
@@ -188,7 +192,7 @@ func (bs *blockSyncer) flushInfo() (time.Time, uint64) {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
 
-	return bs.lastTipUpdateTime, bs.targetHeight
+	return bs.lastTipTime, bs.targetHeight
 }
 
 func (bs *blockSyncer) sync() {
@@ -307,10 +311,6 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		syncedHeight++
 	}
 	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", syncedHeight))
-	if syncedHeight > bs.lastTip {
-		bs.lastTip = syncedHeight
-		bs.lastTipUpdateTime = time.Now()
-	}
 	return nil
 }
 
