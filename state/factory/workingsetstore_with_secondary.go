@@ -242,6 +242,9 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 			log.S().Panicf("inconsistent keys for ns %s: %x vs %x", ns, _keys[i], otherKeys[i])
 			return nil, errors.Errorf("inconsistent keys for ns %s: %x vs %x", ns, _keys[i], otherKeys[i])
 		}
+		cco := objs[i].(interface {
+			ConsistentEqual(other any) bool
+		})
 		if !cco.ConsistentEqual(otherObjs[i]) {
 			log.S().Panicf("inconsistent object for ns %s key %x: %+v vs %+v", ns, _keys[i], objs[i], otherObjs[i])
 			return nil, errors.Errorf("inconsistent object for ns %s key %x: %+v vs %+v", ns, _keys[i], objs[i], otherObjs[i])
