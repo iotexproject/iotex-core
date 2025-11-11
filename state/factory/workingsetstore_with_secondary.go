@@ -205,6 +205,7 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 	}
 	otherIter, errOther := store.writerSecondary.States(ns, obj, keys)
 	if errors.Cause(err) != errors.Cause(errOther) {
+		log.S().Panicf("inconsistent existence for ns %s keys %x: %v vs %v", ns, keys, err, errOther)
 		return nil, errors.Errorf("inconsistent existence for ns %s keys %x: %v vs %v", ns, keys, err, errOther)
 	}
 	if err != nil {
@@ -233,13 +234,16 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 		otherKeys = append(otherKeys, key)
 	}
 	if len(objs) != len(otherObjs) {
+		log.S().Panicf("inconsistent number of objects for ns %s keys %x: %d vs %d", ns, _keys, len(objs), len(otherObjs))
 		return nil, errors.Errorf("inconsistent number of objects for ns %s keys %x: %d vs %d", ns, keys, len(objs), len(otherObjs))
 	}
 	for i := range objs {
 		if !bytes.Equal(_keys[i], otherKeys[i]) {
+			log.S().Panicf("inconsistent keys for ns %s: %x vs %x", ns, _keys[i], otherKeys[i])
 			return nil, errors.Errorf("inconsistent keys for ns %s: %x vs %x", ns, _keys[i], otherKeys[i])
 		}
 		if !cco.ConsistentEqual(otherObjs[i]) {
+			log.S().Panicf("inconsistent object for ns %s key %x: %+v vs %+v", ns, _keys[i], objs[i], otherObjs[i])
 			return nil, errors.Errorf("inconsistent object for ns %s key %x: %+v vs %+v", ns, _keys[i], objs[i], otherObjs[i])
 		}
 	}
