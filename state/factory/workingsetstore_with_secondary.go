@@ -2,7 +2,6 @@ package factory
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -271,7 +270,6 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 			log.S().Panicf("inconsistent object for ns %s key %x: %+v vs %+v", ns, k, objs[i], otherObjs[otherObjsIndex])
 			return nil, errors.Errorf("inconsistent object for ns %s key %x: %+v vs %+v", ns, k, objs[i], otherObjs[otherObjsIndex])
 		}
-		fmt.Printf("Consistent object for ns %s key %x: %+v vs %+v\n", ns, k, objs[i], otherObjs[otherObjsIndex])
 	}
 	return store.reader.States(ns, obj, keys)
 }
