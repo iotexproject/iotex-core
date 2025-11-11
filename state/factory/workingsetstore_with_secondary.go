@@ -1,6 +1,7 @@
 package factory
 
 import (
+	"bytes"
 	"context"
 	"strings"
 	"time"
@@ -195,7 +196,10 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 	if !store.consistencyCheck {
 		return iter, err
 	}
-	cco, ok := iter.(interface{ ConsistentEqual(other any) bool })
+	cco, ok := obj.(interface {
+		New() any
+		ConsistentEqual(other any) bool
+	})
 	if !ok {
 		return iter, err
 	}
@@ -206,11 +210,40 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 	if err != nil {
 		return iter, err
 	}
-	if !cco.ConsistentEqual(otherIter) {
-		log.S().Panicf("inconsistent iterator for ns %s keys %x: %T vs %T", ns, keys, cco, otherIter)
-		return nil, errors.Errorf("inconsistent iterator for ns %s keys %x: %+v vs %+v", ns, keys, cco, otherIter)
+	var (
+		_keys, otherKeys [][]byte
+		objs, otherObjs  []any
+	)
+	for {
+		newObj := cco.New()
+		key, iterErr := iter.Next(newObj)
+		if iterErr != nil {
+			break
+		}
+		objs = append(objs, newObj)
+		_keys = append(_keys, key)
 	}
-	return iter, nil
+	for {
+		newObj := cco.New()
+		key, iterErr := otherIter.Next(newObj)
+		if iterErr != nil {
+			break
+		}
+		otherObjs = append(otherObjs, newObj)
+		otherKeys = append(otherKeys, key)
+	}
+	if len(objs) != len(otherObjs) {
+		return nil, errors.Errorf("inconsistent number of objects for ns %s keys %x: %d vs %d", ns, keys, len(objs), len(otherObjs))
+	}
+	for i := range objs {
+		if !bytes.Equal(_keys[i], otherKeys[i]) {
+			return nil, errors.Errorf("inconsistent keys for ns %s: %x vs %x", ns, _keys[i], otherKeys[i])
+		}
+		if !cco.ConsistentEqual(otherObjs[i]) {
+			return nil, errors.Errorf("inconsistent object for ns %s key %x: %+v vs %+v", ns, _keys[i], objs[i], otherObjs[i])
+		}
+	}
+	return store.reader.States(ns, obj, keys)
 }
 
 func (store *workingSetStoreWithSecondary) KVStore() db.KVStore {
