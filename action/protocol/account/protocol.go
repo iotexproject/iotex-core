@@ -40,7 +40,15 @@ func NewProtocol(depositGas protocol.DepositGas) *Protocol {
 		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
 	}
 
-	return &Protocol{addr: addr, depositGas: depositGas}
+	return &Protocol{addr: addr, depositGas: func(ctx context.Context, sm protocol.StateManager, i *big.Int, do ...protocol.DepositOption) ([]*action.TransactionLog, error) {
+		blkCtx, ok := protocol.GetBlockCtx(ctx)
+		simulate := ok && blkCtx.Simulate
+		logs, err := depositGas(ctx, sm, i, do...)
+		if err != nil && simulate {
+			return logs, nil
+		}
+		return logs, err
+	}}
 }
 
 // ProtocolAddr returns the address generated from protocol id

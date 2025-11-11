@@ -7,6 +7,7 @@ package execution
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -41,7 +42,15 @@ func NewProtocol(_ evm.GetBlockHash, depositGas protocol.DepositGas, _ evm.GetBl
 	if err != nil {
 		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
 	}
-	return &Protocol{depositGas: depositGas, addr: addr}
+	return &Protocol{depositGas: func(ctx context.Context, sm protocol.StateManager, i *big.Int, do ...protocol.DepositOption) ([]*action.TransactionLog, error) {
+		blkCtx, ok := protocol.GetBlockCtx(ctx)
+		simulate := ok && blkCtx.Simulate
+		logs, err := depositGas(ctx, sm, i, do...)
+		if err != nil && simulate {
+			return logs, nil
+		}
+		return logs, err
+	}, addr: addr}
 }
 
 // FindProtocol finds the registered protocol from registry
