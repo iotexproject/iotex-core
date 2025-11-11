@@ -74,6 +74,10 @@ func (c *contractAdapterCheck) SelfState() *state.Account {
 		pa.Root = nil
 		pa.VotingWeight = nil
 		pa.IsCandidate = false
+		if len(pa.CodeHash) == 0 || bytes.Equal(pa.CodeHash, hash.ZeroHash256[:]) {
+			emptyHash := hash.Hash256b(nil)
+			pa.CodeHash = emptyHash[:]
+		}
 		d1, err := proto.Marshal(pa)
 		if err != nil {
 			log.S().Panicf("failed to serialize account %+v: %v", a, err)
