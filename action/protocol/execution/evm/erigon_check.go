@@ -27,7 +27,14 @@ func (c *contractAdapterCheck) GetCommittedState(addr hash.Hash256) ([]byte, err
 	org, err := c.contractAdapter.Contract.GetCommittedState(addr)
 	erigon, err2 := c.contractAdapter.erigon.GetCommittedState(addr)
 	if e := consistentEqualStateE(org, erigon, err, err2, func(v1, v2 []byte) bool {
-		return bytes.Equal(v1, v2)
+		if bytes.Equal(v1, v2) {
+			return true
+		}
+		if !bytes.Equal(erigon, hash.ZeroHash256[:]) {
+			return false
+		}
+		erigonCur, _ := c.contractAdapter.erigon.GetState(addr)
+		return bytes.Equal(v1, erigonCur)
 	}); e != nil {
 		return nil, e
 	}

@@ -36,9 +36,6 @@ func (c *contractErigon) GetCommittedState(key hash.Hash256) ([]byte, error) {
 	k := libcommon.Hash(key)
 	v := uint256.NewInt(0)
 	c.intra.GetCommittedState(libcommon.Address(c.addr), &k, v)
-	if v.IsZero() {
-		c.intra.GetState(libcommon.Address(c.addr), &k, v)
-	}
 	h := hash.BytesToHash256(v.Bytes())
 	return h[:], nil
 }
