@@ -220,7 +220,15 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 		newObj := cco.New()
 		key, iterErr := iter.Next(newObj)
 		if iterErr != nil {
-			break
+			if errors.Is(iterErr, state.ErrOutOfBoundary) {
+				break
+			} else if errors.Is(iterErr, state.ErrNilValue) {
+				objs = append(objs, nil)
+				_keys[string(key)] = len(objs) - 1
+				continue
+			} else {
+				return nil, iterErr
+			}
 		}
 		objs = append(objs, newObj)
 		_keys[string(key)] = len(objs) - 1
@@ -229,7 +237,15 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 		newObj := cco.New()
 		key, iterErr := otherIter.Next(newObj)
 		if iterErr != nil {
-			break
+			if errors.Is(iterErr, state.ErrOutOfBoundary) {
+				break
+			} else if errors.Is(iterErr, state.ErrNilValue) {
+				otherObjs = append(otherObjs, nil)
+				otherKeys[string(key)] = len(otherObjs) - 1
+				continue
+			} else {
+				return nil, iterErr
+			}
 		}
 		otherObjs = append(otherObjs, newObj)
 		otherKeys[string(key)] = len(otherObjs) - 1
