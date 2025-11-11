@@ -1,7 +1,6 @@
 package factory
 
 import (
-	"bytes"
 	"context"
 	"strings"
 	"time"
@@ -212,9 +211,11 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 		return iter, err
 	}
 	var (
-		_keys, otherKeys [][]byte
+		_keys, otherKeys map[string]int
 		objs, otherObjs  []any
 	)
+	_keys = make(map[string]int)
+	otherKeys = make(map[string]int)
 	for {
 		newObj := cco.New()
 		key, iterErr := iter.Next(newObj)
@@ -222,7 +223,7 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 			break
 		}
 		objs = append(objs, newObj)
-		_keys = append(_keys, key)
+		_keys[string(key)] = len(objs) - 1
 	}
 	for {
 		newObj := cco.New()
@@ -231,23 +232,26 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 			break
 		}
 		otherObjs = append(otherObjs, newObj)
-		otherKeys = append(otherKeys, key)
+		otherKeys[string(key)] = len(otherObjs) - 1
 	}
 	if len(objs) != len(otherObjs) {
 		log.S().Panicf("inconsistent number of objects for ns %s keys %x: %d vs %d", ns, _keys, len(objs), len(otherObjs))
 		return nil, errors.Errorf("inconsistent number of objects for ns %s keys %x: %d vs %d", ns, keys, len(objs), len(otherObjs))
 	}
-	for i := range objs {
-		if !bytes.Equal(_keys[i], otherKeys[i]) {
-			log.S().Panicf("inconsistent keys for ns %s: %x vs %x", ns, _keys[i], otherKeys[i])
-			return nil, errors.Errorf("inconsistent keys for ns %s: %x vs %x", ns, _keys[i], otherKeys[i])
+	for k := range _keys {
+		i := _keys[k]
+		otherIndex, ok := otherKeys[k]
+		if !ok {
+			log.S().Panicf("missing key %x in other store for ns %s", k, ns)
+			return nil, errors.Errorf("missing key %x in other store for ns %s", k, ns)
 		}
+		otherObjsIndex := otherIndex
 		cco := objs[i].(interface {
 			ConsistentEqual(other any) bool
 		})
-		if !cco.ConsistentEqual(otherObjs[i]) {
-			log.S().Panicf("inconsistent object for ns %s key %x: %+v vs %+v", ns, _keys[i], objs[i], otherObjs[i])
-			return nil, errors.Errorf("inconsistent object for ns %s key %x: %+v vs %+v", ns, _keys[i], objs[i], otherObjs[i])
+		if !cco.ConsistentEqual(otherObjs[otherObjsIndex]) {
+			log.S().Panicf("inconsistent object for ns %s key %x: %+v vs %+v", ns, k, objs[i], otherObjs[otherObjsIndex])
+			return nil, errors.Errorf("inconsistent object for ns %s key %x: %+v vs %+v", ns, k, objs[i], otherObjs[otherObjsIndex])
 		}
 	}
 	return store.reader.States(ns, obj, keys)
