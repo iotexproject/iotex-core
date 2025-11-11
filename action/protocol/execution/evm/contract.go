@@ -7,6 +7,7 @@ package evm
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
@@ -62,6 +63,7 @@ func (c *contract) Iterator() (trie.Iterator, error) {
 // GetCommittedState get the committed value of a key
 func (c *contract) GetCommittedState(key hash.Hash256) ([]byte, error) {
 	if v, ok := c.committed[key]; ok {
+		fmt.Printf("GetCommittedState: contract codehash %x key %x value in cache %x\n", c.CodeHash[:], key[:], v)
 		return v, nil
 	}
 	return c.GetState(key)
@@ -71,16 +73,19 @@ func (c *contract) GetCommittedState(key hash.Hash256) ([]byte, error) {
 func (c *contract) GetState(key hash.Hash256) ([]byte, error) {
 	v, err := c.trie.Get(key[:])
 	if err != nil {
+		fmt.Printf("GetState: contract codehash %x key %x error %v\n", c.CodeHash[:], key[:], errors.Cause(err))
 		return nil, err
 	}
 	if _, ok := c.committed[key]; !ok {
 		c.committed[key] = v
 	}
+	fmt.Printf("GetState: contract codehash %x key %x value %x\n", c.CodeHash[:], key[:], v)
 	return v, nil
 }
 
 // SetState set the value into contract storage
 func (c *contract) SetState(key hash.Hash256, value []byte) error {
+	fmt.Printf("SetState: contract codehash %x key %x value %x\n", c.CodeHash[:], key[:], value)
 	if _, ok := c.committed[key]; !ok {
 		_, _ = c.GetState(key)
 	}
