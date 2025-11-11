@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"fmt"
 	"math/big"
 
 	libcommon "github.com/erigontech/erigon-lib/common"
@@ -41,7 +40,6 @@ func (c *contractErigon) GetCommittedState(key hash.Hash256) ([]byte, error) {
 		c.intra.GetState(libcommon.Address(c.addr), &k, v)
 	}
 	h := hash.BytesToHash256(v.Bytes())
-	fmt.Printf("GetCommittedState(erigon): contract %x codehash %x key %x value %x\n", c.addr[:], c.CodeHash[:], key[:], h[:])
 	return h[:], nil
 }
 
@@ -50,13 +48,11 @@ func (c *contractErigon) GetState(key hash.Hash256) ([]byte, error) {
 	v := uint256.NewInt(0)
 	c.intra.GetState(libcommon.Address(c.addr), &k, v)
 	h := hash.BytesToHash256(v.Bytes())
-	fmt.Printf("GetState(erigon): contract %x codehash %x key %x value %x\n", c.addr[:], c.CodeHash[:], key[:], h[:])
 	return h[:], nil
 }
 
 func (c *contractErigon) SetState(key hash.Hash256, value []byte) error {
 	k := libcommon.Hash(key)
-	fmt.Printf("SetState(erigon): contract %x codehash %x key %x value %x\n", c.addr[:], c.CodeHash[:], key[:], value)
 	c.intra.SetState(libcommon.Address(c.addr), &k, *uint256.MustFromBig(big.NewInt(0).SetBytes(value)))
 	return nil
 }

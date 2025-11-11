@@ -1069,7 +1069,6 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 			continue
 		}
 		contract := stateDB.cachedContract[addr]
-		fmt.Printf("Committing contract %x\n", addr[:])
 		err := contract.Commit()
 		if stateDB.assertError(err, "failed to commit contract", zap.Error(err), zap.String("address", addr.Hex())) {
 			return errors.Wrap(err, "failed to commit contract")
