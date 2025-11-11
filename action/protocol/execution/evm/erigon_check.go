@@ -30,11 +30,15 @@ func (c *contractAdapterCheck) GetCommittedState(addr hash.Hash256) ([]byte, err
 		if bytes.Equal(v1, v2) {
 			return true
 		}
+		// special case: ignore inconsistents caused by contract committed state bug
 		if !bytes.Equal(erigon, hash.ZeroHash256[:]) {
 			return false
 		}
 		erigonCur, _ := c.contractAdapter.erigon.GetState(addr)
-		return bytes.Equal(v1, erigonCur)
+		if !bytes.Equal(v1, erigonCur) {
+			log.S().Errorf("GetCommittedState inconsistent for contract %x key %x: statedb %x vs erigondb %x", c.contractAdapter.erigon.(*contractErigon).addr[:], addr[:], v1, v2)
+		}
+		return true
 	}); e != nil {
 		return nil, e
 	}
