@@ -25,6 +25,7 @@ message Fund {
 }
 
 message RewardHistory {
+    uint64 height = 1;
 }
 
 message Account {

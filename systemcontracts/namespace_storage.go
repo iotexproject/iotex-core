@@ -415,6 +415,12 @@ func (ns *NamespaceStorageContract) ListKeys(namespace string, offset, limit *bi
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call listKeys")
 	}
+	if len(result) == 0 {
+		return &NamespaceListKeysResult{
+			KeyList: [][]byte{},
+			Total:   big.NewInt(0),
+		}, nil
+	}
 
 	// Unpack the result
 	var listKeysResult struct {
@@ -550,6 +556,9 @@ func (ns *NamespaceStorageContract) CountInNamespace(namespace string) (*big.Int
 	result, err := ns.backend.Call(callMsg)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call countInNamespace")
+	}
+	if len(result) == 0 {
+		return big.NewInt(0), nil
 	}
 
 	// Unpack the result

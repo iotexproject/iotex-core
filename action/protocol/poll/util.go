@@ -213,7 +213,8 @@ func setCandidates(
 		}
 	}
 	if loadCandidatesLegacy {
-		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(height)))
+		key, org := candidatesutil.ConstructLegacyKeyWithOrg(height)
+		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(key), protocol.ErigonStoreKeyOption(org))
 		return err
 	}
 	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)

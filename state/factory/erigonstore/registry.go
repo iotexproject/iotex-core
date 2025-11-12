@@ -1,6 +1,7 @@
 package erigonstore
 
 import (
+	"bytes"
 	"reflect"
 	"strings"
 
@@ -31,22 +32,59 @@ type ObjectStorageRegistry struct {
 	contracts map[string]map[reflect.Type]int
 	ns        map[string]int
 	nsPrefix  map[string]int
+	spliter   map[int]KeySplitter
+	kvList    map[int]struct{}
+}
+
+type RegisterOption func(int, *ObjectStorageRegistry)
+
+func WithKeySplitOption(split KeySplitter) RegisterOption {
+	return func(index int, osr *ObjectStorageRegistry) {
+		osr.spliter[index] = split
+	}
+}
+
+func WithKVListOption() RegisterOption {
+	return func(index int, osr *ObjectStorageRegistry) {
+		osr.kvList[index] = struct{}{}
+	}
 }
 
 func init() {
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.AccountKVNamespace, RewardingContractV1Index))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.RewardingNamespace, RewardingContractV2Index))
+	rewardHistoryPrefixs := [][]byte{
+		append(state.RewardingKeyPrefix[:], state.BlockRewardHistoryKeyPrefix...),
+		append(state.RewardingKeyPrefix[:], state.EpochRewardHistoryKeyPrefix...),
+	}
+	pollPrefix := [][]byte{
+		[]byte(state.PollCandidatesPrefix),
+	}
+	genKeySplit := func(prefixs [][]byte) KeySplitter {
+		return func(key []byte) (part1 []byte, part2 []byte) {
+			for _, p := range prefixs {
+				if len(key) >= len(p)+8 && bytes.Equal(key[:len(p)], p) {
+					// split into prefix + last 8 bytes
+					return key[:len(key)-8], key[len(key)-8:]
+				}
+			}
+			return key, nil
+		}
+	}
+	rewardKeySplit := genKeySplit(rewardHistoryPrefixs)
+	pollKeySplit := genKeySplit(pollPrefix)
+
+	assertions.MustNoError(storageRegistry.RegisterNamespace(state.AccountKVNamespace, RewardingContractV1Index, WithKeySplitOption(rewardKeySplit)))
+	assertions.MustNoError(storageRegistry.RegisterNamespace(state.RewardingNamespace, RewardingContractV2Index, WithKeySplitOption(rewardKeySplit)))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandidateNamespace, CandidatesContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandsMapNamespace, CandidateMapContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandsMapNamespace, CandidateMapContractIndex, WithKVListOption()))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingNamespace, BucketPoolContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingViewNamespace, StakingViewContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingContractMetaNamespace, StakingViewContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketNamespacePrefix, StakingViewContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketTypeNamespacePrefix, StakingViewContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingViewNamespace, StakingViewContractIndex, WithKVListOption()))
+	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingContractMetaNamespace, ContractStakingBucketContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketNamespacePrefix, ContractStakingBucketContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketTypeNamespacePrefix, ContractStakingBucketContractIndex))
 
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.Account{}, AccountIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &state.CandidateList{}, PollCandidateListContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex, WithKeySplitOption(pollKeySplit), WithKVListOption()))
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &state.CandidateList{}, PollCandidateListContractIndex, WithKVListOption()))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.UnproductiveDelegate{}, PollUnproductiveDelegateContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.ProbationList{}, PollProbationListContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &poll.BlockMeta{}, PollBlockMetaContractIndex))
@@ -65,6 +103,8 @@ func newObjectStorageRegistry() *ObjectStorageRegistry {
 		contracts: make(map[string]map[reflect.Type]int),
 		ns:        make(map[string]int),
 		nsPrefix:  make(map[string]int),
+		spliter:   make(map[int]KeySplitter),
+		kvList:    make(map[int]struct{}),
 	}
 }
 
@@ -87,31 +127,63 @@ func (osr *ObjectStorageRegistry) ObjectStorage(ns string, obj any, backend *con
 		if err != nil {
 			return nil, err
 		}
-		return newContractObjectStorage(contract), nil
+		var os ObjectStorage
+		os = newContractObjectStorage(contract)
+		split := osr.spliter[contractIndex]
+		_, kvList := osr.kvList[contractIndex]
+		if kvList {
+			os = newKVListStorage(contract)
+		}
+		if split != nil {
+			os = newKeySplitContractStorageWithfallback(contract, split, os)
+		}
+		return os, nil
 	default:
 		contractAddr := systemContracts[contractIndex].Address
 		contract, err := systemcontracts.NewGenericStorageContract(common.BytesToAddress(contractAddr.Bytes()[:]), backend, common.Address(systemContractCreatorAddr))
 		if err != nil {
 			return nil, err
 		}
-		return newContractObjectStorage(contract), nil
+		var os ObjectStorage
+		split := osr.spliter[contractIndex]
+		_, kvList := osr.kvList[contractIndex]
+		os = newContractObjectStorage(contract)
+		if kvList {
+			os = newKVListStorage(contract)
+		}
+		if split != nil {
+			os = newKeySplitContractStorageWithfallback(contract, split, os)
+		}
+		return os, nil
 	}
 }
 
 // RegisterObjectStorage registers a generic object storage
-func (osr *ObjectStorageRegistry) RegisterObjectStorage(ns string, obj any, index int) error {
+func (osr *ObjectStorageRegistry) RegisterObjectStorage(ns string, obj any, index int, opts ...RegisterOption) error {
 	if index < AccountIndex || index >= SystemContractCount {
 		return errors.Errorf("invalid system contract index %d", index)
 	}
-	return osr.register(ns, obj, index)
+	if err := osr.register(ns, obj, index); err != nil {
+		return err
+	}
+	for _, opt := range opts {
+		opt(index, osr)
+	}
+	return nil
 }
 
 // RegisterNamespace registers a namespace object storage
-func (osr *ObjectStorageRegistry) RegisterNamespace(ns string, index int) error {
+func (osr *ObjectStorageRegistry) RegisterNamespace(ns string, index int, opts ...RegisterOption) error {
 	if index < AccountIndex || index >= SystemContractCount {
 		return errors.Errorf("invalid system contract index %d", index)
 	}
-	return osr.register(ns, nil, index)
+	if err := osr.register(ns, nil, index); err != nil {
+		return err
+	}
+	for _, opt := range opts {
+		opt(index, osr)
+	}
+	return nil
 }
 
 // RegisterNamespacePrefix registers a namespace prefix object storage

@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -153,17 +154,45 @@ func (l *CandidateList) LoadProto(candList *iotextypes.CandidateList) error {
 }
 
 // Encode encodes a CandidateList into a GenericValue
-func (l *CandidateList) Encode() (systemcontracts.GenericValue, error) {
-	data, err := l.Serialize()
-	if err != nil {
-		return systemcontracts.GenericValue{}, err
+func (l *CandidateList) Encode() ([][]byte, []systemcontracts.GenericValue, error) {
+	var (
+		suffix [][]byte
+		values []systemcontracts.GenericValue
+	)
+	for idx, cand := range *l {
+		data, err := cand.Serialize()
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to serialize candidate")
+		}
+		addr, err := address.FromString(cand.Address)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to get the hash of the address %s", cand.Address)
+		}
+		suffix = append(suffix, addr.Bytes())
+		values = append(values, systemcontracts.GenericValue{PrimaryData: data, SecondaryData: byteutil.Uint64ToBytes(uint64(idx))})
 	}
-	return systemcontracts.GenericValue{PrimaryData: data}, nil
+	return suffix, values, nil
 }
 
 // Decode decodes a GenericValue into CandidateList
-func (l *CandidateList) Decode(data systemcontracts.GenericValue) error {
-	return l.Deserialize(data.PrimaryData)
+func (l *CandidateList) Decode(suffixs [][]byte, values []systemcontracts.GenericValue) error {
+	// reconstruct candidate list from values
+	// the order of candidates in the list is determined by the SecondaryData of GenericValue
+	candidateMap := make(map[uint64]*Candidate)
+	for _, gv := range values {
+		cand := &Candidate{}
+		if err := cand.Deserialize(gv.PrimaryData); err != nil {
+			return errors.Wrap(err, "failed to deserialize candidate")
+		}
+		index := byteutil.BytesToUint64(gv.SecondaryData)
+		candidateMap[index] = cand
+	}
+	candidates := make(CandidateList, 0, len(candidateMap))
+	for i := 0; i < len(candidateMap); i++ {
+		candidates = append(candidates, candidateMap[uint64(i)])
+	}
+	*l = candidates
+	return nil
 }
 
 // candidateToPb converts a candidate to protobuf's candidate message

@@ -296,6 +296,12 @@ func (g *GenericStorageContract) ListKeys(offset, limit uint64) (*ListKeysResult
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call listKeys")
 	}
+	if len(result) == 0 {
+		return &ListKeysResult{
+			KeyList: [][]byte{},
+			Total:   big.NewInt(0),
+		}, nil
+	}
 
 	// Unpack the result
 	var listKeysResult struct {
@@ -384,6 +390,9 @@ func (g *GenericStorageContract) Count() (*big.Int, error) {
 	result, err := g.backend.Call(callMsg)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call count")
+	}
+	if len(result) == 0 {
+		return big.NewInt(0), nil
 	}
 
 	// Unpack the result

@@ -70,14 +70,24 @@ func ErigonStoreOnlyOption() StateOption {
 	}
 }
 
+// ErigonStoreKeyOption sets the erigon store key for call
+func ErigonStoreKeyOption(key []byte) StateOption {
+	return func(cfg *StateConfig) error {
+		cfg.ErigonStoreKey = make([]byte, len(key))
+		copy(cfg.ErigonStoreKey, key)
+		return nil
+	}
+}
+
 type (
 	// StateConfig is the config for accessing stateDB
 	StateConfig struct {
 		Namespace       string // namespace used by state's storage
 		Key             []byte
 		Keys            [][]byte
-		Object          any  // object used by state's storage
-		ErigonStoreOnly bool // whether only read/write from/to erigon store
+		Object          any    // object used by state's storage
+		ErigonStoreOnly bool   // whether only read/write from/to erigon store
+		ErigonStoreKey  []byte // erigon store key used by state's storage. If nil, use Key field
 	}
 
 	// StateOption sets parameter for access state
