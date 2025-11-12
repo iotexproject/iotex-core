@@ -59,7 +59,7 @@ func (c *contractAdapterCheck) GetState(addr hash.Hash256) ([]byte, error) {
 func (c *contractAdapterCheck) GetCode() ([]byte, error) {
 	org, err := c.contractAdapter.Contract.GetCode()
 	erigon, err2 := c.contractAdapter.erigon.GetCode()
-	if e := consistentEqualVE(org, erigon, err, err2, func(v1, v2 []byte) bool {
+	if e := consistentEqualCodeE(org, erigon, err, err2, func(v1, v2 []byte) bool {
 		return bytes.Equal(v1, v2)
 	}); e != nil {
 		return nil, e
@@ -137,7 +137,7 @@ func consistentEqualStateE(a, b []byte, err1, err2 error, equal func([]byte, []b
 
 func consistentEqualCodeE(a, b []byte, err1, err2 error, equal func([]byte, []byte) bool) error {
 	// special case: erigon returns nil instead of not exist error
-	if err2 == nil && errors.Is(err1, trie.ErrNotExist) && len(b) == 0 {
+	if err2 == nil && errors.Is(err1, state.ErrStateNotExist) && len(b) == 0 {
 		return err1
 	}
 	if e := consistentError(err1, err2); e != nil {
