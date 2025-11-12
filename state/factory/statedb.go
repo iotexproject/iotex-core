@@ -243,7 +243,15 @@ func (sdb *stateDB) AddDependency(indexer blockdao.BlockIndexer) {
 }
 
 func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
-	return sdb.newWorkingSetWithKVStore(ctx, height, &readOnlyKV{sdb.dao.atHeight(height)})
+	store, err := sdb.createWorkingSetStore(ctx, height, &readOnlyKV{sdb.dao.atHeight(height)})
+	if err != nil {
+		return nil, err
+	}
+	if err := store.Start(ctx); err != nil {
+		return nil, err
+	}
+
+	return newWorkingSet(height, sdb.protocolViews, store, sdb), nil
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
