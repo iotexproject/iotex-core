@@ -134,3 +134,17 @@ func consistentEqualStateE(a, b []byte, err1, err2 error, equal func([]byte, []b
 	}
 	return consistentEqual(a, b, equal)
 }
+
+func consistentEqualCodeE(a, b []byte, err1, err2 error, equal func([]byte, []byte) bool) error {
+	// special case: erigon returns nil instead of not exist error
+	if err2 == nil && errors.Is(err1, trie.ErrNotExist) && len(b) == 0 {
+		return err1
+	}
+	if e := consistentError(err1, err2); e != nil {
+		return e
+	}
+	if err1 != nil {
+		return err1
+	}
+	return consistentEqual(a, b, equal)
+}
