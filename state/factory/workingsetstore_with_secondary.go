@@ -263,6 +263,13 @@ func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]b
 			return nil, errors.Errorf("missing key %x in other store for ns %s", k, ns)
 		}
 		otherObjsIndex := otherIndex
+		if objs[i] == nil && otherObjs[otherObjsIndex] == nil {
+			continue
+		}
+		if objs[i] == nil || otherObjs[otherObjsIndex] == nil {
+			log.S().Panicf("inconsistent nil object for ns %s key %x: %+v vs %+v\n", ns, k, objs[i], otherObjs[otherObjsIndex])
+			continue
+		}
 		cco := objs[i].(interface {
 			ConsistentEqual(other any) bool
 		})
