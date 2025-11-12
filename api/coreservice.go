@@ -330,6 +330,11 @@ func newCoreService(
 }
 
 func (core *coreService) WithHeight(height uint64) CoreServiceReaderWithHeight {
+	// TODO (chenchen): remove this check after archive mode is fully supported
+	// or check the height against tip
+	if !core.archiveSupported {
+		return core
+	}
 	return newCoreServiceWithHeight(core, height)
 }
 
@@ -1696,7 +1701,7 @@ func (core *coreService) correctQueryRange(start, end uint64) (uint64, uint64, e
 		return 0, 0, errors.New("invalid start or end height")
 	}
 	if start > bfTipHeight {
-		return 0, 0, errors.New("start block > tip height")
+		return 0, 0, errors.Errorf("start block %d > tip height %d", start, bfTipHeight)
 	}
 	if end > bfTipHeight {
 		end = bfTipHeight
