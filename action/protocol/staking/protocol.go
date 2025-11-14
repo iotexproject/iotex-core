@@ -265,12 +265,6 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 	}
 	c.contractsStake = &contractStakeView{}
-	if p.skipContractStakingView(height) {
-		return c, nil
-	}
-
-	wg := sync.WaitGroup{}
-	errChan := make(chan error, 3)
 	checker := blockdao.GetChecker(ctx)
 	checkIndex := func(indexer ContractStakingIndexer) error {
 		if checker == nil {
@@ -305,6 +299,27 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			}
 		})
 	}
+	if p.skipContractStakingView(height) {
+		if p.contractStakingIndexer != nil {
+			if err = checkIndex(p.contractStakingIndexer); err != nil {
+				return nil, errors.Wrap(err, "failed to check contract staking indexer")
+			}
+		}
+		if p.contractStakingIndexerV2 != nil {
+			if err = checkIndex(p.contractStakingIndexerV2); err != nil {
+				return nil, errors.Wrap(err, "failed to check contract staking indexer V2")
+			}
+		}
+		if p.contractStakingIndexerV3 != nil {
+			if err = checkIndex(p.contractStakingIndexerV3); err != nil {
+				return nil, errors.Wrap(err, "failed to check contract staking indexer V3")
+			}
+		}
+		return c, nil
+	}
+
+	wg := sync.WaitGroup{}
+	errChan := make(chan error, 3)
 	buildView := func(indexer ContractStakingIndexer, callback func(ContractStakeView)) {
 		if indexer == nil {
 			return
