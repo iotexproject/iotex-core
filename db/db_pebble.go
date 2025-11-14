@@ -59,10 +59,12 @@ func (b *PebbleDB) Start(_ context.Context) error {
 	comparer.Split = func(a []byte) int {
 		return prefixLength
 	}
+	cache := pebble.NewCache(1024 * 1024 * 1024) // 1GB
 	db, err := pebble.Open(b.path, &pebble.Options{
 		Comparer:           comparer,
 		FormatMajorVersion: pebble.FormatPrePebblev1MarkedCompacted,
 		ReadOnly:           b.config.ReadOnly,
+		Cache:              cache,
 	})
 	if err != nil {
 		return errors.Wrap(ErrIO, err.Error())
