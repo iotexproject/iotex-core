@@ -9,7 +9,7 @@ import (
 	"context"
 	"maps"
 	"math/big"
-	"sort"
+	"slices"
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -178,7 +178,7 @@ func (wc *wrappedCache) BucketsByCandidate(candidate address.Address) ([]uint64,
 	}
 	retInfos := make([]*bucketInfo, 0, len(retIDs))
 	retTypes := make([]*BucketType, 0, len(retIDs))
-	sort.Slice(retIDs, func(i, j int) bool { return retIDs[i] < retIDs[j] })
+	slices.Sort(retIDs)
 	for _, id := range retIDs {
 		info, ok := wc.updatedBucketInfos[id]
 		if !ok {
