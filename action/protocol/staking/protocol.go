@@ -265,8 +265,8 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 	}
 	c.contractsStake = &contractStakeView{}
-	checker := blockdao.GetChecker(ctx)
 	checkIndex := func(indexer ContractStakingIndexer) error {
+		checker := blockdao.GetChecker(ctx)
 		if checker == nil {
 			return nil
 		}
@@ -295,59 +295,46 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 		return checker.CheckIndexer(ctx, indexer, height, func(h uint64) {
 			if h%5000 == 0 || h == height {
-				log.L().Info("Checking contract staking indexer", zap.Uint64("height", h))
+				log.L().Info("Checking contract staking indexer", zap.Uint64("height", h), zap.String("contract", indexer.ContractAddress().String()))
 			}
 		})
 	}
-	if p.skipContractStakingView(height) {
-		if p.contractStakingIndexer != nil {
-			if err = checkIndex(p.contractStakingIndexer); err != nil {
-				return nil, errors.Wrap(err, "failed to check contract staking indexer")
-			}
-		}
-		if p.contractStakingIndexerV2 != nil {
-			if err = checkIndex(p.contractStakingIndexerV2); err != nil {
-				return nil, errors.Wrap(err, "failed to check contract staking indexer V2")
-			}
-		}
-		if p.contractStakingIndexerV3 != nil {
-			if err = checkIndex(p.contractStakingIndexerV3); err != nil {
-				return nil, errors.Wrap(err, "failed to check contract staking indexer V3")
-			}
-		}
-		return c, nil
+	// List of all indexers to process
+	indexers := []struct {
+		indexer ContractStakingIndexer
+		setter  func(ContractStakeView)
+	}{
+		{p.contractStakingIndexer, func(v ContractStakeView) { c.contractsStake.v1 = v }},
+		{p.contractStakingIndexerV2, func(v ContractStakeView) { c.contractsStake.v2 = v }},
+		{p.contractStakingIndexerV3, func(v ContractStakeView) { c.contractsStake.v3 = v }},
 	}
-
+	// Process all indexers in parallel
 	wg := sync.WaitGroup{}
-	errChan := make(chan error, 3)
-	buildView := func(indexer ContractStakingIndexer, callback func(ContractStakeView)) {
-		if indexer == nil {
-			return
+	errChan := make(chan error, len(indexers))
+	skipView := p.skipContractStakingView(height)
+	for _, idx := range indexers {
+		if idx.indexer == nil {
+			continue
 		}
 		wg.Add(1)
-		go func() {
+		go func(indexer ContractStakingIndexer, setter func(ContractStakeView)) {
 			defer wg.Done()
+			// First, checking the indexer
 			if err := checkIndex(indexer); err != nil {
-				errChan <- errors.Wrap(err, "failed to check contract staking indexer")
+				errChan <- errors.Wrapf(err, "failed to check contract staking indexer %s", indexer.ContractAddress())
 				return
 			}
-			view, err := NewContractStakeViewBuilder(indexer, p.blockStore).Build(ctx, sr, height)
-			if err != nil {
-				errChan <- errors.Wrapf(err, "failed to create stake view for contract %s", indexer.ContractAddress())
-				return
+			// If not skipping view creation, build the view
+			if !skipView {
+				view, err := NewContractStakeViewBuilder(indexer, p.blockStore).Build(ctx, sr, height)
+				if err != nil {
+					errChan <- errors.Wrapf(err, "failed to create stake view for contract %s", indexer.ContractAddress())
+					return
+				}
+				setter(view)
 			}
-			callback(view)
-		}()
+		}(idx.indexer, idx.setter)
 	}
-	buildView(p.contractStakingIndexer, func(view ContractStakeView) {
-		c.contractsStake.v1 = view
-	})
-	buildView(p.contractStakingIndexerV2, func(view ContractStakeView) {
-		c.contractsStake.v2 = view
-	})
-	buildView(p.contractStakingIndexerV3, func(view ContractStakeView) {
-		c.contractsStake.v3 = view
-	})
 	wg.Wait()
 	close(errChan)
 	for err := range errChan {
