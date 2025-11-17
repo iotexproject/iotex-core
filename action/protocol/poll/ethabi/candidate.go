@@ -15,11 +15,12 @@ import (
 
 // Candidate represents a candidate in the Ethereum ABI format
 type Candidate struct {
-	Name            string
-	OperatorAddress common.Address
-	RewardAddress   common.Address
-	BlsPubKey       []byte
-	Votes           *big.Int
+	ID              common.Address `abi:"id"`
+	Name            string         `abi:"name"`
+	OperatorAddress common.Address `abi:"operatorAddress"`
+	RewardAddress   common.Address `abi:"rewardAddress"`
+	BlsPubKey       []byte         `abi:"blsPubKey"`
+	Votes           *big.Int       `abi:"votes"`
 }
 
 // NewCandidateFromState converts a state.Candidate to ethabi.Candidate

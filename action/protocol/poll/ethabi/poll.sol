@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 interface IPollProtocolContract {
     struct Candidate {
+        address id;
         string name;
         address operatorAddress;
         address rewardAddress;
@@ -11,7 +12,8 @@ interface IPollProtocolContract {
     }
 
     struct ProbationInfo {
-        address addr;
+        address candidate;
+        address operatorAddress;
         uint32 count;
     }
 

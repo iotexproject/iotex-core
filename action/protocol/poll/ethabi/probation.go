@@ -15,8 +15,9 @@ import (
 
 // ProbationInfo represents a probation info in the Ethereum ABI format
 type ProbationInfo struct {
-	Addr  common.Address
-	Count uint32
+	Candidate       common.Address
+	OperatorAddress common.Address
+	Count           uint32
 }
 
 // ProbationList represents a probation list in the Ethereum ABI format
@@ -34,8 +35,8 @@ func NewProbationInfoFromState(addrStr string, count uint32) (*ProbationInfo, er
 	}
 
 	return &ProbationInfo{
-		Addr:  common.BytesToAddress(addr.Bytes()),
-		Count: count,
+		OperatorAddress: common.BytesToAddress(addr.Bytes()),
+		Count:           count,
 	}, nil
 }
 
