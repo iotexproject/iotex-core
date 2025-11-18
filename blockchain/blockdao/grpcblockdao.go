@@ -87,9 +87,9 @@ func (gbd *grpcBlockDAO) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	gbd.cache.Init(blk)
 
-	// NOTE: it won't work correctly if block height is zero
-	return gbd.cache.PutBlock(blk)
+	return nil
 }
 
 func (gbd *grpcBlockDAO) Stop(ctx context.Context) error {

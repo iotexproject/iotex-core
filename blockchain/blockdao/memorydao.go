@@ -41,6 +41,15 @@ func (md *memoryDao) TipHeight() uint64 {
 	return md.tipHeight
 }
 
+func (md *memoryDao) Init(blk *block.Block) {
+	md.mu.Lock()
+	defer md.mu.Unlock()
+	md.blocks[blk.Height()] = blk
+	md.hashesToBlockHeight[blk.HashBlock()] = blk.Height()
+	md.blockHashes[blk.Height()] = blk.HashBlock()
+	md.tipHeight = blk.Height()
+}
+
 func (md *memoryDao) PutBlock(blk *block.Block) error {
 	md.mu.Lock()
 	defer md.mu.Unlock()
