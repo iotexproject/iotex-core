@@ -231,8 +231,8 @@ func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint6
 		var peer *peer.AddrInfo
 		for j := 0; j < 10; j++ {
 			peer = &peers[fastrand.Uint32n(uint32(len(peers)))]
-			if !bs.nodeInfoManager.MayHaveBlock(peer.ID.String(), start) {
-				continue
+			if bs.nodeInfoManager.MayHaveBlock(peer.ID.String(), start) {
+				break
 			}
 		}
 		if peer == nil {
