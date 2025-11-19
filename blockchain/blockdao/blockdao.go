@@ -74,6 +74,8 @@ type (
 		blockCache   cache.LRUCache
 		txLogCache   cache.LRUCache
 		tipHeight    uint64
+		// allowIndexerAhead indicates whether indexers are allowed to be ahead of DAO tip height
+		allowIndexerAhead bool
 	}
 )
 
@@ -82,6 +84,13 @@ type Option func(*blockDAO)
 func WithBlobStore(bs BlobStore) Option {
 	return func(dao *blockDAO) {
 		dao.blobStore = bs
+	}
+}
+
+// WithAllowIndexerAhead allows indexer to be ahead of DAO tip height
+func WithAllowIndexerAhead() Option {
+	return func(dao *blockDAO) {
+		dao.allowIndexerAhead = true
 	}
 }
 
@@ -123,6 +132,9 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexe
 		return nil
 	}
 	blockDAO.timerFactory = timerFactory
+	if blockDAO.allowIndexerAhead {
+		log.L().Warn("BlockDAO is configured to allow indexers to be ahead of DAO tip height")
+	}
 	return blockDAO
 }
 
@@ -151,7 +163,21 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 }
 
 func (dao *blockDAO) checkIndexers(ctx context.Context, checker BlockIndexerChecker) error {
+	tip := atomic.LoadUint64(&dao.tipHeight)
 	for i, indexer := range dao.indexers {
+		if dao.allowIndexerAhead {
+			idxHeight, err := indexer.Height()
+			if err != nil {
+				return errors.Wrap(err, "failed to get indexer height")
+			}
+			if idxHeight > tip {
+				log.L().Info(
+					"indexer is ahead of dao tip height, skipping check.",
+					zap.Int("indexer", i),
+				)
+				continue
+			}
+		}
 		if err := checker.CheckIndexer(ctx, indexer, 0, func(height uint64) {
 			if height%5000 == 0 {
 				log.L().Info(
@@ -381,7 +407,20 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	// index the block if there's indexer
 	timer = dao.timerFactory.NewTimer("index_block")
 	defer timer.End()
-	for _, indexer := range dao.indexers {
+	for i, indexer := range dao.indexers {
+		if dao.allowIndexerAhead {
+			idxHeight, err := indexer.Height()
+			if err != nil {
+				return errors.Wrap(err, "failed to get indexer height")
+			}
+			if idxHeight >= blk.Height() {
+				log.L().Debug(
+					"indexer is ahead of dao tip height, skipping indexing.",
+					zap.Int("indexer", i),
+				)
+				continue
+			}
+		}
 		if err := indexer.PutBlock(ctx, blk); err != nil {
 			return err
 		}
@@ -405,6 +444,14 @@ func (dao *blockDAO) GetBlobsByHeight(height uint64) ([]*types.BlobTxSidecar, []
 		return nil, nil, errors.Wrapf(db.ErrNotExist, "requested height %d higher than current tip %d", height, tip)
 	}
 	return dao.blobStore.GetBlobsByHeight(height)
+}
+
+func (dao *blockDAO) indexerAhead(indexer BlockIndexer, target uint64) (bool, error) {
+	idxHeight, err := indexer.Height()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to get indexer height")
+	}
+	return idxHeight > target, nil
 }
 
 func lruCacheGet(c cache.LRUCache, key interface{}) (interface{}, bool) {
