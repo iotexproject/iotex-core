@@ -50,10 +50,12 @@ type IndexBuilder struct {
 	dao          blockdao.BlockStore
 	indexer      Indexer
 	genesis      genesis.Genesis
+	// allowIndexerAhead indicates whether indexers are allowed to be ahead of DAO tip height
+	allowIndexerAhead bool
 }
 
 // NewIndexBuilder instantiates an index builder
-func NewIndexBuilder(chainID uint32, g genesis.Genesis, dao blockdao.BlockStore, indexer Indexer) (*IndexBuilder, error) {
+func NewIndexBuilder(chainID uint32, g genesis.Genesis, dao blockdao.BlockStore, indexer Indexer, allowIndexerAhead bool) (*IndexBuilder, error) {
 	timerFactory, err := prometheustimer.New(
 		"iotex_indexer_batch_time",
 		"Indexer batch time",
@@ -64,10 +66,11 @@ func NewIndexBuilder(chainID uint32, g genesis.Genesis, dao blockdao.BlockStore,
 		return nil, err
 	}
 	return &IndexBuilder{
-		timerFactory: timerFactory,
-		dao:          dao,
-		indexer:      indexer,
-		genesis:      g,
+		timerFactory:      timerFactory,
+		dao:               dao,
+		indexer:           indexer,
+		genesis:           g,
+		allowIndexerAhead: allowIndexerAhead,
 	}, nil
 }
 
@@ -96,6 +99,20 @@ func (ib *IndexBuilder) Indexer() Indexer {
 // ReceiveBlock handles the block and create the indices for the actions and receipts in it
 func (ib *IndexBuilder) ReceiveBlock(blk *block.Block) error {
 	timer := ib.timerFactory.NewTimer("indexBlock")
+	if ib.allowIndexerAhead {
+		height, err := ib.indexer.Height()
+		if err != nil {
+			return err
+		}
+		if height >= blk.Height() {
+			log.L().Debug(
+				"indexer is ahead of or equal to the block height, skipping indexing.",
+				zap.Uint64("indexerHeight", height),
+				zap.Uint64("blockHeight", blk.Height()),
+			)
+			return nil
+		}
+	}
 	if err := ib.indexer.PutBlock(genesis.WithGenesisContext(context.Background(), ib.genesis), blk); err != nil {
 		log.L().Error(
 			"Error when indexing the block",
@@ -126,6 +143,12 @@ func (ib *IndexBuilder) init(ctx context.Context) error {
 		return nil
 	}
 	if startHeight > tipHeight {
+		if ib.allowIndexerAhead {
+			zap.L().Warn("IndexDB is ahead of BlockDAO",
+				zap.Uint64("indexerHeight", startHeight),
+				zap.Uint64("daoHeight", tipHeight))
+			return nil
+		}
 		// indexer height > dao height
 		// this shouldn't happen unless blocks are deliberately removed from dao w/o removing index
 		// in this case we revert the extra block index, but nothing we can do to revert action index
