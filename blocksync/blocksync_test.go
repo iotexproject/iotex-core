@@ -74,6 +74,7 @@ func newBlockSyncerForTest(cfg Config, chain blockchain.Blockchain, dao blockdao
 		func(string) {
 			return
 		},
+		nil,
 	)
 	if err != nil {
 		return nil, err
