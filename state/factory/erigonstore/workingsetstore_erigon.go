@@ -47,9 +47,11 @@ type ErigonDB struct {
 
 // ErigonWorkingSetStore implements the Erigon working set store
 type ErigonWorkingSetStore struct {
-	db      *ErigonDB
-	backend *contractBackend
-	tx      kv.Tx
+	db               *ErigonDB
+	backend          *contractBackend
+	tx               kv.Tx
+	clean            *contractBackend
+	statesReadBuffer bool
 }
 
 // NewErigonDB creates a new ErigonDB
@@ -88,10 +90,13 @@ func (db *ErigonDB) NewErigonStore(ctx context.Context, height uint64) (*ErigonW
 	}
 	r := erigonstate.NewPlainStateReader(tx)
 	intraBlockState := erigonstate.New(r)
+	g := genesis.MustExtractGenesisContext(ctx)
 	return &ErigonWorkingSetStore{
-		db:      db,
-		tx:      tx,
-		backend: newContractBackend(ctx, intraBlockState, r),
+		db:               db,
+		tx:               tx,
+		backend:          newContractBackend(ctx, intraBlockState, r),
+		clean:            newContractBackend(ctx, erigonstate.New(r), r),
+		statesReadBuffer: g.IsNewfoundland(height),
 	}, nil
 }
 
@@ -103,10 +108,13 @@ func (db *ErigonDB) NewErigonStoreDryrun(ctx context.Context, height uint64) (*E
 	}
 	tsw := erigonstate.NewPlainState(tx, height, nil)
 	intraBlockState := erigonstate.New(tsw)
+	g := genesis.MustExtractGenesisContext(ctx)
 	return &ErigonWorkingSetStore{
-		db:      db,
-		tx:      tx,
-		backend: newContractBackend(ctx, intraBlockState, tsw),
+		db:               db,
+		tx:               tx,
+		backend:          newContractBackend(ctx, intraBlockState, tsw),
+		clean:            newContractBackend(ctx, erigonstate.New(tsw), tsw),
+		statesReadBuffer: g.IsNewfoundland(height),
 	}, nil
 }
 
@@ -337,7 +345,13 @@ func (store *ErigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any)
 
 // States gets multiple objects from the ErigonWorkingSetStore
 func (store *ErigonWorkingSetStore) States(ns string, obj any, keys [][]byte) (state.Iterator, error) {
-	storage, err := store.NewObjectStorage(ns, obj)
+	var storage ObjectStorage
+	var err error
+	if store.statesReadBuffer {
+		storage, err = store.NewObjectStorage(ns, obj)
+	} else {
+		storage, err = store.NewObjectStorageClean(ns, obj)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -430,6 +444,19 @@ func (store *ErigonWorkingSetStore) StateReader() erigonstate.StateReader {
 
 func (store *ErigonWorkingSetStore) NewObjectStorage(ns string, obj any) (ObjectStorage, error) {
 	cs, err := storageRegistry.ObjectStorage(ns, obj, store.backend)
+	switch errors.Cause(err) {
+	case nil:
+		return cs, nil
+	case ErrObjectStorageNotRegistered:
+		// TODO: fail unknown namespace
+		return nil, nil
+	default:
+		return nil, err
+	}
+}
+
+func (store *ErigonWorkingSetStore) NewObjectStorageClean(ns string, obj any) (ObjectStorage, error) {
+	cs, err := storageRegistry.ObjectStorage(ns, obj, store.clean)
 	switch errors.Cause(err) {
 	case nil:
 		return cs, nil

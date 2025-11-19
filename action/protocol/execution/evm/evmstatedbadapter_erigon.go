@@ -53,7 +53,7 @@ func NewErigonStateDBAdapterDryrun(adapter *StateDBAdapter,
 ) *ErigonStateDBAdapterDryrun {
 	a := NewErigonStateDBAdapter(adapter, intra)
 	adapter.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
-		return newContractErigon(addr, account, intra)
+		return newContractErigon(addr, account, intra, adapter.sm)
 	}
 	return &ErigonStateDBAdapterDryrun{
 		ErigonStateDBAdapter: a,
