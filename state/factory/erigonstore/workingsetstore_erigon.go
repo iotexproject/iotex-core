@@ -39,6 +39,11 @@ var (
 	heightKey = []byte("height")
 )
 
+var (
+	// ErrErigonStoreClosed is returned when the erigon working set store is closed
+	ErrErigonStoreClosed = errors.New("erigon working set store is closed")
+)
+
 // ErigonDB implements the Erigon database
 type ErigonDB struct {
 	path string
@@ -261,7 +266,7 @@ func (store *ErigonWorkingSetStore) prepareCommit(ctx context.Context, tx kv.RwT
 
 // Commit commits the ErigonWorkingSetStore
 func (store *ErigonWorkingSetStore) Commit(ctx context.Context, retention uint64) error {
-	defer store.tx.Rollback()
+	defer store.close()
 	// BeginRw accounting for the context Done signal
 	// statedb has been committed, so we should not use the context
 	tx, err := store.db.rw.BeginRw(context.Background())
@@ -281,7 +286,18 @@ func (store *ErigonWorkingSetStore) Commit(ctx context.Context, retention uint64
 
 // Close closes the ErigonWorkingSetStore
 func (store *ErigonWorkingSetStore) Close() {
-	store.tx.Rollback()
+	store.close()
+}
+
+func (store *ErigonWorkingSetStore) close() {
+	if store.tx != nil {
+		store.tx.Rollback()
+		store.tx = nil
+	}
+}
+
+func (store *ErigonWorkingSetStore) closed() bool {
+	return store.tx == nil
 }
 
 // Snapshot creates a snapshot of the ErigonWorkingSetStore
@@ -300,6 +316,9 @@ func (store *ErigonWorkingSetStore) ResetSnapshots() {}
 
 // PutObject puts an object into the ErigonWorkingSetStore
 func (store *ErigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (err error) {
+	if store.closed() {
+		return errors.Wrapf(ErrErigonStoreClosed, "cannot put object into closed erigon working set store")
+	}
 	storage, err := store.NewObjectStorage(ns, obj)
 	if err != nil {
 		return err
@@ -314,6 +333,9 @@ func (store *ErigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (e
 
 // GetObject gets an object from the ErigonWorkingSetStore
 func (store *ErigonWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
+	if store.closed() {
+		return errors.Wrapf(ErrErigonStoreClosed, "cannot get object from closed erigon working set store")
+	}
 	storage, err := store.NewObjectStorage(ns, obj)
 	if err != nil {
 		return err
@@ -331,6 +353,9 @@ func (store *ErigonWorkingSetStore) GetObject(ns string, key []byte, obj any) er
 
 // DeleteObject deletes an object from the ErigonWorkingSetStore
 func (store *ErigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any) error {
+	if store.closed() {
+		return errors.Wrapf(ErrErigonStoreClosed, "cannot delete object from closed erigon working set store")
+	}
 	storage, err := store.NewObjectStorage(ns, obj)
 	if err != nil {
 		return err
@@ -345,6 +370,9 @@ func (store *ErigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any)
 
 // States gets multiple objects from the ErigonWorkingSetStore
 func (store *ErigonWorkingSetStore) States(ns string, obj any, keys [][]byte) (state.Iterator, error) {
+	if store.closed() {
+		return nil, errors.Wrapf(ErrErigonStoreClosed, "cannot get states from closed erigon working set store")
+	}
 	var storage ObjectStorage
 	var err error
 	if store.statesReadBuffer {
