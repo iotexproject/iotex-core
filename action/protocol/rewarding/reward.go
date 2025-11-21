@@ -41,18 +41,29 @@ func (b rewardHistory) Serialize() ([]byte, error) {
 // Deserialize deserializes bytes into reward history state
 func (b *rewardHistory) Deserialize(data []byte) error { return nil }
 
-func (b *rewardHistory) Encode() (systemcontracts.GenericValue, error) {
-	data, err := b.Serialize()
+func (b *rewardHistory) Encode(suffix []byte) (systemcontracts.GenericValue, error) {
+	height := enc.MachineEndian.Uint64(suffix)
+	data, err := proto.Marshal(&rewardingpb.RewardHistory{
+		Height: height,
+	})
 	if err != nil {
 		return systemcontracts.GenericValue{}, err
 	}
 	return systemcontracts.GenericValue{
-		AuxiliaryData: data,
+		PrimaryData: data,
 	}, nil
 }
 
-func (b *rewardHistory) Decode(v systemcontracts.GenericValue) error {
-	return b.Deserialize(v.AuxiliaryData)
+func (b *rewardHistory) Decode(suffix []byte, v systemcontracts.GenericValue) error {
+	rh := &rewardingpb.RewardHistory{}
+	if err := proto.Unmarshal(v.PrimaryData, rh); err != nil {
+		return err
+	}
+	height := enc.MachineEndian.Uint64(suffix)
+	if rh.Height != height {
+		return errors.Wrapf(state.ErrStateNotExist, "expected height %d, got %d", height, rh.Height)
+	}
+	return nil
 }
 
 // rewardAccount stores the unclaimed balance of an account

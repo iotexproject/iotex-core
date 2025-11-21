@@ -34,8 +34,8 @@ const (
 var (
 	_adminKey                    = []byte("adm")
 	_fundKey                     = []byte("fnd")
-	_blockRewardHistoryKeyPrefix = []byte("brh")
-	_epochRewardHistoryKeyPrefix = []byte("erh")
+	_blockRewardHistoryKeyPrefix = state.BlockRewardHistoryKeyPrefix
+	_epochRewardHistoryKeyPrefix = state.EpochRewardHistoryKeyPrefix
 	_accountKeyPrefix            = []byte("acc")
 	_exemptKey                   = []byte("xpt")
 	errInvalidEpoch              = errors.New("invalid start/end epoch number")
@@ -61,7 +61,7 @@ func NewProtocol(cfg genesis.Rewarding) *Protocol {
 		log.L().Panic("failed to validate foundation bonus extension", zap.Error(err))
 	}
 	return &Protocol{
-		keyPrefix: h[:],
+		keyPrefix: state.RewardingKeyPrefix[:],
 		addr:      addr,
 		cfg:       cfg,
 	}
@@ -331,8 +331,9 @@ func (p *Protocol) stateCheckLegacy(ctx context.Context, sm protocol.StateReader
 }
 
 func (p *Protocol) stateV1(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
-	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	return sm.State(value, protocol.LegacyKeyOption(keyHash))
+	orgKey := append(p.keyPrefix, key...)
+	keyHash := hash.Hash160b(orgKey)
+	return sm.State(value, protocol.LegacyKeyOption(keyHash), protocol.ErigonStoreKeyOption(orgKey))
 }
 
 func (p *Protocol) stateV2(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
@@ -348,8 +349,9 @@ func (p *Protocol) putState(ctx context.Context, sm protocol.StateManager, key [
 }
 
 func (p *Protocol) putStateV1(sm protocol.StateManager, key []byte, value interface{}) error {
-	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash))
+	orgKey := append(p.keyPrefix, key...)
+	keyHash := hash.Hash160b(orgKey)
+	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash), protocol.ErigonStoreKeyOption(orgKey))
 	return err
 }
 
@@ -360,8 +362,9 @@ func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interf
 }
 
 func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte, obj any) error {
-	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash), protocol.ObjectOption(obj))
+	orgKey := append(p.keyPrefix, key...)
+	keyHash := hash.Hash160b(orgKey)
+	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash), protocol.ObjectOption(obj), protocol.ErigonStoreKeyOption(orgKey))
 	if errors.Cause(err) == state.ErrStateNotExist {
 		// don't care if not exist
 		return nil
