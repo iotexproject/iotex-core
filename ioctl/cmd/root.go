@@ -13,6 +13,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/contract"
+	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/db"
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/did"
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/hdwallet"
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/ins"
@@ -65,6 +66,7 @@ func NewIoctl() *cobra.Command {
 	rootCmd.AddCommand(action.Xrc20Cmd)
 	rootCmd.AddCommand(action.Stake2Cmd)
 	rootCmd.AddCommand(bc.BCCmd)
+	rootCmd.AddCommand(db.DBCmd)
 	rootCmd.AddCommand(node.NodeCmd)
 	rootCmd.AddCommand(version.VersionCmd)
 	rootCmd.AddCommand(update.UpdateCmd)
