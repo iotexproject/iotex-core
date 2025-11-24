@@ -348,10 +348,16 @@ func (store *ErigonWorkingSetStore) PutObject(ns string, key []byte, obj any) (e
 
 // GetObject gets an object from the ErigonWorkingSetStore
 func (store *ErigonWorkingSetStore) GetObject(ns string, key []byte, obj any) error {
-	if store.closed() {
-		return errors.Wrapf(ErrErigonStoreClosed, "cannot get object from closed erigon working set store")
+	st := store
+	if st.closed() {
+		sr, err := st.newDryrun()
+		if err != nil {
+			return err
+		}
+		st = sr
+		defer st.Close()
 	}
-	storage, err := store.NewObjectStorage(ns, obj)
+	storage, err := st.NewObjectStorage(ns, obj)
 	if err != nil {
 		return err
 	}
@@ -385,15 +391,21 @@ func (store *ErigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any)
 
 // States gets multiple objects from the ErigonWorkingSetStore
 func (store *ErigonWorkingSetStore) States(ns string, obj any, keys [][]byte) (state.Iterator, error) {
+	st := store
 	if store.closed() {
-		return nil, errors.Wrapf(ErrErigonStoreClosed, "cannot get states from closed erigon working set store")
+		sr, err := store.newDryrun()
+		if err != nil {
+			return nil, err
+		}
+		st = sr
+		defer st.Close()
 	}
 	var storage ObjectStorage
 	var err error
-	if store.statesReadBuffer {
-		storage, err = store.NewObjectStorage(ns, obj)
+	if st.statesReadBuffer {
+		storage, err = st.NewObjectStorage(ns, obj)
 	} else {
-		storage, err = store.NewObjectStorageClean(ns, obj)
+		storage, err = st.NewObjectStorageClean(ns, obj)
 	}
 	if err != nil {
 		return nil, err
@@ -513,4 +525,22 @@ func (store *ErigonWorkingSetStore) NewObjectStorageClean(ns string, obj any) (O
 
 func (store *ErigonWorkingSetStore) ErigonStore() (any, error) {
 	return store, nil
+}
+
+func (store *ErigonWorkingSetStore) newDryrun() (*ErigonWorkingSetStore, error) {
+	tx, err := store.db.rw.BeginRo(context.Background())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to begin erigon working set store dryrun transaction")
+	}
+	height := store.backend.height + 1
+	tsw := erigonstate.NewPlainState(tx, height, nil)
+	intraBlockState := erigonstate.New(tsw)
+	backend := store.backend
+	return &ErigonWorkingSetStore{
+		db:               store.db,
+		tx:               tx,
+		backend:          NewContractBackend(intraBlockState, tsw, backend.height, backend.timestamp, backend.producer, backend.g, backend.evmNetworkID, backend.useZeroNonceForFreshAccount),
+		clean:            NewContractBackend(erigonstate.New(tsw), tsw, backend.height, backend.timestamp, backend.producer, backend.g, backend.evmNetworkID, backend.useZeroNonceForFreshAccount),
+		statesReadBuffer: backend.g.IsNewfoundland(height),
+	}, nil
 }
