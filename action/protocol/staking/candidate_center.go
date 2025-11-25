@@ -6,7 +6,9 @@
 package staking
 
 import (
+	"bytes"
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -325,13 +327,19 @@ func (m *CandidateCenter) WriteToStateDB(sm protocol.StateManager) error {
 	if len(name) == 0 || len(op) == 0 {
 		return nil
 	}
-	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
+	compare := func(a, b *Candidate) int {
+		return bytes.Compare(a.GetIdentifier().Bytes(), b.GetIdentifier().Bytes())
+	}
+	slices.SortStableFunc(name, compare)
+	slices.SortStableFunc(op, compare)
+	slices.SortStableFunc(owners, compare)
+	if _, err := sm.PutState(&name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
 		return err
 	}
-	if _, err := sm.PutState(op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+	if _, err := sm.PutState(&op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
 		return err
 	}
-	_, err := sm.PutState(owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
+	_, err := sm.PutState(&owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
 	return err
 }
 
