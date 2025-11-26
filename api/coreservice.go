@@ -1618,6 +1618,9 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	if err != nil {
 		return nil, nil, err
 	}
+	if end > start+core.cfg.RangeQueryLimit {
+		return nil, nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
 	// getLogs via range Blooom filter [start, end]
 	blockNumbers, err := core.bfIndexer.FilterBlocksInRange(filter, start, end, paginationSize)
 	if err != nil {
