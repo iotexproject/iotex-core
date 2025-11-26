@@ -35,7 +35,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/blockindex"
 	"github.com/iotexproject/iotex-core/v2/blockindex/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blocksync"
@@ -547,29 +546,11 @@ func (builder *Builder) buildNodeInfoManager() error {
 	if stk == nil {
 		return errors.New("cannot find staking protocol")
 	}
-	chain := builder.cs.chain
 	var dm *nodeinfo.InfoManager
 	if builder.cfg.System.Active {
-		dm = nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, func() []string {
-			ctx := protocol.WithFeatureCtx(
-				protocol.WithBlockCtx(
-					genesis.WithGenesisContext(context.Background(), chain.Genesis()),
-					protocol.BlockCtx{BlockHeight: chain.TipHeight()},
-				),
-			)
-			candidates, err := stk.ActiveCandidates(ctx, cs.factory, 0)
-			if err != nil {
-				log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
-				return nil
-			}
-			whiteList := make([]string, len(candidates))
-			for i := range whiteList {
-				whiteList[i] = candidates[i].Address
-			}
-			return whiteList
-		}, builder.cfg.Chain.ProducerPrivateKeys()...)
+		dm = nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.WakeUpgrade.BlockInterval, builder.cfg.Chain.ProducerPrivateKeys()...)
 	} else {
-		dm = nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, nil)
+		dm = nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.WakeUpgrade.BlockInterval)
 	}
 	builder.cs.nodeInfoManager = dm
 	builder.cs.lifecycle.Add(dm)
@@ -663,6 +644,7 @@ func (builder *Builder) buildBlockSyncer() error {
 		p2pAgent.ConnectedPeers,
 		p2pAgent.UnicastOutbound,
 		p2pAgent.BlockPeer,
+		builder.cs.nodeInfoManager,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create block syncer")
