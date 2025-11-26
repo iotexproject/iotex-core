@@ -8,6 +8,7 @@ package alias
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -96,11 +97,12 @@ func NewAliasImport(c ioctl.Client) *cobra.Command {
 				return errors.Wrapf(err, failToWriteToConfigFile)
 			}
 
-			line := fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", message.ImportedNumber, message.TotalNumber)
+			var line strings.Builder
+			line.WriteString(fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", message.ImportedNumber, message.TotalNumber))
 			for _, alias := range message.Unimported {
-				line += fmt.Sprint(" " + alias.Name)
+				line.WriteString(fmt.Sprint(" " + alias.Name))
 			}
-			cmd.Println(line)
+			cmd.Println(line.String())
 			return nil
 		},
 	}

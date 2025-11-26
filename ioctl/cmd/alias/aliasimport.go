@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"
@@ -106,11 +107,12 @@ func aliasImport(cmd *cobra.Command, args []string) error {
 
 func (m *importMessage) String() string {
 	if output.Format == "" {
-		line := fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", m.ImportedNumber, m.TotalNumber)
+		var line strings.Builder
+		line.WriteString(fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", m.ImportedNumber, m.TotalNumber))
 		for _, alias := range m.Unimported {
-			line += fmt.Sprint(" " + alias.Name)
+			line.WriteString(fmt.Sprint(" " + alias.Name))
 		}
-		return line
+		return line.String()
 	}
 	return output.FormatString(output.Result, m)
 }
