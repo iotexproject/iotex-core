@@ -1,0 +1,420 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "epoch",
+        "type": "uint256"
+      }
+    ],
+    "name": "ActiveBlockProducersByEpoch",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "id",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "operatorAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "rewardAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes",
+            "name": "blsPubKey",
+            "type": "bytes"
+          },
+          {
+            "internalType": "uint256",
+            "name": "votes",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IPollProtocolContract.Candidate[]",
+        "name": "candidates",
+        "type": "tuple[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "ActiveBlockProducersByEpoch",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "id",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "operatorAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "rewardAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes",
+            "name": "blsPubKey",
+            "type": "bytes"
+          },
+          {
+            "internalType": "uint256",
+            "name": "votes",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IPollProtocolContract.Candidate[]",
+        "name": "candidates",
+        "type": "tuple[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "BlockProducersByEpoch",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "id",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "operatorAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "rewardAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes",
+            "name": "blsPubKey",
+            "type": "bytes"
+          },
+          {
+            "internalType": "uint256",
+            "name": "votes",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IPollProtocolContract.Candidate[]",
+        "name": "candidates",
+        "type": "tuple[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "epoch",
+        "type": "uint256"
+      }
+    ],
+    "name": "BlockProducersByEpoch",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "id",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "operatorAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "rewardAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes",
+            "name": "blsPubKey",
+            "type": "bytes"
+          },
+          {
+            "internalType": "uint256",
+            "name": "votes",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IPollProtocolContract.Candidate[]",
+        "name": "candidates",
+        "type": "tuple[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "CandidatesByEpoch",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "id",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "operatorAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "rewardAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes",
+            "name": "blsPubKey",
+            "type": "bytes"
+          },
+          {
+            "internalType": "uint256",
+            "name": "votes",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IPollProtocolContract.Candidate[]",
+        "name": "candidates",
+        "type": "tuple[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "epoch",
+        "type": "uint256"
+      }
+    ],
+    "name": "CandidatesByEpoch",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "id",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "operatorAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "rewardAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes",
+            "name": "blsPubKey",
+            "type": "bytes"
+          },
+          {
+            "internalType": "uint256",
+            "name": "votes",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IPollProtocolContract.Candidate[]",
+        "name": "candidates",
+        "type": "tuple[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "epoch",
+        "type": "uint256"
+      }
+    ],
+    "name": "ProbationListByEpoch",
+    "outputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "candidate",
+                "type": "address"
+              },
+              {
+                "internalType": "address",
+                "name": "operatorAddress",
+                "type": "address"
+              },
+              {
+                "internalType": "uint32",
+                "name": "count",
+                "type": "uint32"
+              }
+            ],
+            "internalType": "struct IPollProtocolContract.ProbationInfo[]",
+            "name": "probationInfo",
+            "type": "tuple[]"
+          },
+          {
+            "internalType": "uint32",
+            "name": "intensityRate",
+            "type": "uint32"
+          }
+        ],
+        "internalType": "struct IPollProtocolContract.ProbationList",
+        "name": "probation",
+        "type": "tuple"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "ProbationListByEpoch",
+    "outputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "candidate",
+                "type": "address"
+              },
+              {
+                "internalType": "address",
+                "name": "operatorAddress",
+                "type": "address"
+              },
+              {
+                "internalType": "uint32",
+                "name": "count",
+                "type": "uint32"
+              }
+            ],
+            "internalType": "struct IPollProtocolContract.ProbationInfo[]",
+            "name": "probationInfo",
+            "type": "tuple[]"
+          },
+          {
+            "internalType": "uint32",
+            "name": "intensityRate",
+            "type": "uint32"
+          }
+        ],
+        "internalType": "struct IPollProtocolContract.ProbationList",
+        "name": "probation",
+        "type": "tuple"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
