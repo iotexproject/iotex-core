@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
@@ -18,21 +19,47 @@ const (
 )
 
 type (
+	queueLimit struct {
+		counts map[string]int
+		limit  int
+		mu     sync.RWMutex
+	}
 	msgQueueMgr struct {
-		queues    map[string]msgQueue
-		wg        sync.WaitGroup
-		handleMsg func(msg *message)
-		quit      chan struct{}
+		queues            map[string]msgQueue
+		blockRequestPeers queueLimit
+		wg                sync.WaitGroup
+		handleMsg         func(msg *message)
+		quit              chan struct{}
 	}
 	msgQueue       chan *message
 	msgQueueConfig struct {
 		actionChanSize uint
 		blockChanSize  uint
 		blockSyncSize  uint
+		blockSyncLimit uint
 		consensusSize  uint
 		miscSize       uint
 	}
 )
+
+func (q *queueLimit) increment(peer string) bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.counts[peer] >= q.limit {
+		return false
+	}
+	q.counts[peer]++
+	return true
+}
+
+func (q *queueLimit) decrement(peer string) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.counts[peer] <= 0 {
+		return
+	}
+	q.counts[peer]--
+}
 
 func newMsgQueueMgr(cfg msgQueueConfig, handler func(msg *message)) *msgQueueMgr {
 	queues := make(map[string]msgQueue)
@@ -42,9 +69,10 @@ func newMsgQueueMgr(cfg msgQueueConfig, handler func(msg *message)) *msgQueueMgr
 	queues[consensusQ] = make(chan *message, cfg.consensusSize)
 	queues[miscQ] = make(chan *message, cfg.miscSize)
 	return &msgQueueMgr{
-		queues:    queues,
-		handleMsg: handler,
-		quit:      make(chan struct{}),
+		queues:            queues,
+		blockRequestPeers: queueLimit{counts: make(map[string]int), limit: int(cfg.blockSyncLimit), mu: sync.RWMutex{}},
+		handleMsg:         handler,
+		quit:              make(chan struct{}),
 	}
 }
 
@@ -57,10 +85,12 @@ func (m *msgQueueMgr) Start(ctx context.Context) error {
 	m.wg.Add(1)
 	go m.consume(blockQ)
 
-	for i := 0; i < 6; i++ {
+	for i := 0; i <= 2; i++ {
 		m.wg.Add(1)
 		go m.consume(blockSyncQ)
 	}
+	m.wg.Add(1)
+	go m.consume(blockSyncQ)
 
 	m.wg.Add(1)
 	go m.consume(consensusQ)
@@ -81,6 +111,9 @@ func (m *msgQueueMgr) consume(q string) {
 	for {
 		select {
 		case msg := <-m.queues[q]:
+			if q == blockSyncQ {
+				m.blockRequestPeers.decrement(msg.peer)
+			}
 			m.handleMsg(msg)
 		case <-m.quit:
 			log.L().Debug("message handler is terminated.")
@@ -89,17 +122,34 @@ func (m *msgQueueMgr) consume(q string) {
 	}
 }
 
-func (m *msgQueueMgr) Queue(msg *message) msgQueue {
+func (m *msgQueueMgr) Queue(msg *message, subscriber Subscriber) bool {
+	var queue msgQueue
 	switch msg.msgType {
 	case iotexrpc.MessageType_ACTION, iotexrpc.MessageType_ACTIONS, iotexrpc.MessageType_ACTION_HASH, iotexrpc.MessageType_ACTION_REQUEST:
-		return m.queues[actionQ]
+		queue = m.queues[actionQ]
 	case iotexrpc.MessageType_BLOCK:
-		return m.queues[blockQ]
+		queue = m.queues[blockQ]
 	case iotexrpc.MessageType_BLOCK_REQUEST:
-		return m.queues[blockSyncQ]
+		if !m.blockRequestPeers.increment(msg.peer) {
+			log.L().Warn("Peer has reached the block sync request limit.", zap.String("peer", msg.peer), zap.Int("limit", m.blockRequestPeers.limit))
+			return false
+		}
+		queue = m.queues[blockSyncQ]
 	case iotexrpc.MessageType_CONSENSUS:
-		return m.queues[consensusQ]
+		queue = m.queues[consensusQ]
 	default:
-		return m.queues[miscQ]
+		queue = m.queues[miscQ]
 	}
+	if !subscriber.Filter(msg.msgType, msg.msg, cap(queue)) {
+		log.L().Debug("Message filtered by subscriber.", zap.Uint32("chainID", msg.chainID), zap.String("msgType", msg.msgType.String()))
+		return false
+	}
+	select {
+	case queue <- msg:
+	default:
+		log.L().Warn("Queue is full.", zap.Any("msgType", msg.msgType))
+		return false
+	}
+	subscriber.ReportFullness(msg.ctx, msg.msgType, msg.msg, float32(len(queue))/float32(cap(queue)))
+	return true
 }
