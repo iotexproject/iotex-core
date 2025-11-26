@@ -282,7 +282,7 @@ func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 			return nil, ErrInvalidArg
 		}
 
-		bytesType := reflect.ArrayOf(t.Size, reflect.TypeOf(uint8(0)))
+		bytesType := reflect.ArrayOf(t.Size, reflect.TypeFor[uint8]())
 		bytes := reflect.New(bytesType).Elem()
 
 		for i, oneByte := range bytecode {
@@ -349,7 +349,7 @@ func parseOutputArgument(v interface{}, t *abi.Type) (string, bool) {
 		}
 
 	case abi.AddressTy:
-		if reflect.TypeOf(v) == reflect.TypeOf(common.Address{}) {
+		if reflect.TypeOf(v) == reflect.TypeFor[common.Address]() {
 			var ethAddr common.Address
 			ethAddr, ok = v.(common.Address)
 			if ok {
@@ -361,7 +361,7 @@ func parseOutputArgument(v interface{}, t *abi.Type) (string, bool) {
 		}
 
 	case abi.BytesTy:
-		if reflect.TypeOf(v) == reflect.TypeOf([]byte{}) {
+		if reflect.TypeOf(v) == reflect.TypeFor[[]byte]() {
 			var bytes []byte
 			bytes, ok = v.([]byte)
 			if ok {
@@ -370,9 +370,9 @@ func parseOutputArgument(v interface{}, t *abi.Type) (string, bool) {
 		}
 
 	case abi.FixedBytesTy, abi.FunctionTy:
-		if reflect.TypeOf(v).Kind() == reflect.Array && reflect.TypeOf(v).Elem() == reflect.TypeOf(byte(0)) {
+		if reflect.TypeOf(v).Kind() == reflect.Array && reflect.TypeOf(v).Elem() == reflect.TypeFor[byte]() {
 			bytesValue := reflect.ValueOf(v)
-			byteSlice := reflect.MakeSlice(reflect.TypeOf([]byte{}), bytesValue.Len(), bytesValue.Len())
+			byteSlice := reflect.MakeSlice(reflect.TypeFor[[]byte](), bytesValue.Len(), bytesValue.Len())
 			reflect.Copy(byteSlice, bytesValue)
 
 			str = "0x" + hex.EncodeToString(byteSlice.Bytes())
