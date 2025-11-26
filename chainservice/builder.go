@@ -292,13 +292,23 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to parse chain db path %s", path)
 		}
+		serializer := block.NewDeserializer(builder.cfg.Chain.EVMNetworkID)
 		switch uri.Scheme {
 		case "grpc":
-			store = blockdao.NewGrpcBlockDAO(uri.Host, uri.Query().Get("insecure") == "true", block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+			cacheSize := uint64(256)
+			if cfg.Chain.HistoryBlockRetention > 0 {
+				cacheSize = cfg.Chain.HistoryBlockRetention
+			}
+			store = blockdao.NewGrpcBlockDAO(
+				uri.Host,
+				uri.Query().Get("insecure") == "true",
+				serializer,
+				cacheSize,
+			)
 		case "file", "":
 			dbConfig := cfg.DB
 			dbConfig.DbPath = uri.Path
-			store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+			store, err = filedao.NewFileDAO(dbConfig, serializer)
 		default:
 			return errors.Errorf("unsupported blockdao scheme %s", uri.Scheme)
 		}
