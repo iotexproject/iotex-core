@@ -396,7 +396,7 @@ func (svr *gRPCHandler) EstimateGasForAction(ctx context.Context, in *iotexapi.E
 	return &iotexapi.EstimateGasForActionResponse{Gas: estimateGas}, nil
 }
 
-// EstimateActionGasConsumption estimate gas consume for action without signature
+// EstimateActionGasConsumption estimates gas consumption for action without signature
 func (svr *gRPCHandler) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
 	if in.GetExecution() != nil {
 		callerAddr, err := address.FromString(in.GetCallerAddress())
@@ -652,7 +652,7 @@ func (svr *gRPCHandler) GetTransactionLogByBlockHeight(ctx context.Context, in *
 	}, nil
 }
 
-// GetActPoolActions returns the all Transaction Identifiers in the mempool
+// GetActPoolActions returns all Transaction Identifiers in the mempool
 func (svr *gRPCHandler) GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoolActionsRequest) (*iotexapi.GetActPoolActionsResponse, error) {
 	acts, err := svr.coreService.ActionsInActPool(in.ActionHashes)
 	if err != nil {
