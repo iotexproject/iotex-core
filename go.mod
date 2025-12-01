@@ -32,8 +32,8 @@ require (
 	github.com/iotexproject/go-pkgs v0.1.16-0.20250813090621-fc1c4ebefcb4
 	github.com/iotexproject/iotex-address v0.2.9-0.20251203033311-6e8aa4fd43ef
 	github.com/iotexproject/iotex-antenna-go/v2 v2.6.4
-	github.com/iotexproject/iotex-election v0.3.8
-	github.com/iotexproject/iotex-proto v0.6.6-0.20260209070502-f518cfc1981c
+	github.com/iotexproject/iotex-election v0.3.8-0.20251015031218-8df952babca1
+	github.com/iotexproject/iotex-proto v0.6.6-0.20260211020747-f26bd969ed16
 	github.com/ipfs/go-ipfs-api v0.7.0
 	github.com/libp2p/go-libp2p v0.39.0
 	github.com/libp2p/go-libp2p-pubsub v0.13.0
