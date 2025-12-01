@@ -35,7 +35,8 @@ var (
 type (
 	// Candidate indicates the structure of a candidate
 	Candidate struct {
-		Address       string
+		Identity      string // Candidate Identity
+		Address       string // Operator address
 		Votes         *big.Int
 		RewardAddress string
 		CanName       []byte // used as identifier to merge with native staking result, not part of protobuf
@@ -57,7 +58,8 @@ func (c *Candidate) Equal(d *Candidate) bool {
 	if c == nil || d == nil {
 		return false
 	}
-	return strings.Compare(c.Address, d.Address) == 0 &&
+	return strings.Compare(c.Identity, d.Identity) == 0 &&
+		strings.Compare(c.Address, d.Address) == 0 &&
 		c.RewardAddress == d.RewardAddress &&
 		c.Votes.Cmp(d.Votes) == 0 &&
 		bytes.Equal(c.BLSPubKey, d.BLSPubKey)
@@ -76,6 +78,7 @@ func (c *Candidate) Clone() *Candidate {
 		copy(pubkey, c.BLSPubKey)
 	}
 	return &Candidate{
+		Identity:      c.Identity,
 		Address:       c.Address,
 		Votes:         new(big.Int).Set(c.Votes),
 		RewardAddress: c.RewardAddress,
@@ -198,6 +201,7 @@ func (l *CandidateList) Decode(suffixs [][]byte, values []systemcontracts.Generi
 // candidateToPb converts a candidate to protobuf's candidate message
 func candidateToPb(cand *Candidate) *iotextypes.Candidate {
 	candidatePb := &iotextypes.Candidate{
+		Identity:      cand.Identity,
 		Address:       cand.Address,
 		Votes:         cand.Votes.Bytes(),
 		RewardAddress: cand.RewardAddress,
@@ -217,6 +221,7 @@ func pbToCandidate(candPb *iotextypes.Candidate) (*Candidate, error) {
 		return nil, errors.Wrap(ErrCandidatePb, "protobuf's candidate message cannot be nil")
 	}
 	candidate := &Candidate{
+		Identity:      candPb.Identity,
 		Address:       candPb.Address,
 		Votes:         big.NewInt(0).SetBytes(candPb.Votes),
 		RewardAddress: candPb.RewardAddress,
