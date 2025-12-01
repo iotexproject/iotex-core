@@ -341,14 +341,18 @@ func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 	}
 }
 
-func (d *Candidate) toStateCandidate() *state.Candidate {
-	return &state.Candidate{
+func (d *Candidate) toStateCandidate(ignoreIdentity bool) *state.Candidate {
+	c := &state.Candidate{
 		Address:       d.Operator.String(), // state need candidate operator not owner address
 		Votes:         new(big.Int).Set(d.Votes),
 		RewardAddress: d.Reward.String(),
 		CanName:       []byte(d.Name),
 		BLSPubKey:     d.BLSPubKey,
 	}
+	if !ignoreIdentity {
+		c.Identity = d.GetIdentifier().String()
+	}
+	return c
 }
 
 func (l CandidateList) Len() int      { return len(l) }
@@ -457,10 +461,10 @@ func (l *CandidateList) Decode(keys [][]byte, gvs []systemcontracts.GenericValue
 	return nil
 }
 
-func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {
+func (l CandidateList) toStateCandidateList(ignoreIdentity bool) (state.CandidateList, error) {
 	list := make(state.CandidateList, 0, len(l))
 	for _, c := range l {
-		list = append(list, c.toStateCandidate())
+		list = append(list, c.toStateCandidate(ignoreIdentity))
 	}
 	sort.Sort(list)
 	return list, nil

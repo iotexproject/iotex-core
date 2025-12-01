@@ -2065,6 +2065,7 @@ func checkStakingViewInit(test *e2etest, require *require.Assertions) {
 		BlockTimeStamp: tipHeader.Timestamp(),
 	})
 	ctx = protocol.WithFeatureCtx(ctx)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	cands, err := stk.ActiveCandidates(ctx, test.cs.StateFactory(), 0)
 	require.NoError(err)
 
@@ -2097,6 +2098,7 @@ func checkStakingVoteView(test *e2etest, require *require.Assertions, candName s
 	})
 	ctx = genesis.WithGenesisContext(ctx, test.cfg.Genesis)
 	ctx = protocol.WithFeatureCtx(ctx)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	cands, err := stkPtl.ActiveCandidates(ctx, test.cs.StateFactory(), 0)
 	require.NoError(err)
 	cand1 := slices.IndexFunc(cands, func(c *state.Candidate) bool {
