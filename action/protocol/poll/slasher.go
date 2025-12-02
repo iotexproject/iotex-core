@@ -520,11 +520,12 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 	} else {
 		produce[blkCtx.Producer.String()] = 1
 	}
-
+	producerToOwner := make(map[string]string)
 	for _, abp := range delegates {
 		if _, ok := produce[abp.Address]; !ok {
 			produce[abp.Address] = 0
 		}
+		producerToOwner[abp.Address] = abp.Identity
 	}
 	unqualified := make(map[string]uint64, 0)
 	expectedNumBlks := numBlks / uint64(len(produce))
@@ -533,7 +534,18 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 			unqualified[addr] = expectedNumBlks - actualNumBlks
 		}
 	}
-	return unqualified, nil
+	if protocol.MustGetFeatureWithHeightCtx(ctx).CandidateWithoutIdentity(blkCtx.BlockHeight) {
+		return unqualified, nil
+	}
+	retval := make(map[string]uint64, len(unqualified))
+	for addr, count := range unqualified {
+		if owner, ok := producerToOwner[addr]; ok {
+			retval[owner] = count
+		} else {
+			retval[addr] = count
+		}
+	}
+	return retval, nil
 }
 
 func (sh *Slasher) updateCurrentBlockMeta(ctx context.Context, sm protocol.StateManager) error {
