@@ -176,15 +176,16 @@ type (
 
 	// FeatureWithHeightCtx provides feature check functions.
 	FeatureWithHeightCtx struct {
-		GetUnproductiveDelegates CheckFunc
-		ReadStateFromDB          CheckFunc
-		UseV2Staking             CheckFunc
-		EnableNativeStaking      CheckFunc
-		StakingCorrectGas        CheckFunc
-		CalculateProbationList   CheckFunc
-		LoadCandidatesLegacy     CheckFunc
-		CandCenterHasAlias       CheckFunc
-		CandidateWithoutIdentity CheckFunc
+		GetUnproductiveDelegates        CheckFunc
+		ReadStateFromDB                 CheckFunc
+		UseV2Staking                    CheckFunc
+		EnableNativeStaking             CheckFunc
+		StakingCorrectGas               CheckFunc
+		CalculateProbationList          CheckFunc
+		LoadCandidatesLegacy            CheckFunc
+		CandCenterHasAlias              CheckFunc
+		CandidateWithoutIdentity        CheckFunc
+		CandidateWithoutIdentityStorage CheckFunc
 	}
 )
 
@@ -405,6 +406,9 @@ func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 			},
 			CandidateWithoutIdentity: func(height uint64) bool {
 				return !g.IsYap(height)
+			},
+			CandidateWithoutIdentityStorage: func(height uint64) bool {
+				return !g.IsToBeEnabled(height)
 			},
 		},
 	)
