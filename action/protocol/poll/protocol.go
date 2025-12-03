@@ -129,7 +129,7 @@ func NewProtocol(
 	candidateIndexer *CandidateIndexer,
 	readContract ReadContract,
 	getCandidates GetCandidates,
-	getprobationList GetProbationList,
+	getProbationList GetProbationList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
 	stakingProto *staking.Protocol,
@@ -155,7 +155,7 @@ func NewProtocol(
 		slasher, err = NewSlasher(
 			productivity,
 			getCandidates,
-			getprobationList,
+			getProbationList,
 			getUnproductiveDelegate,
 			candidateIndexer,
 			genesisConfig.NumCandidateDelegates,
