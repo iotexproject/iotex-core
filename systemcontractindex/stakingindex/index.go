@@ -64,7 +64,7 @@ type (
 	// IndexerOption is the option to create an indexer
 	IndexerOption func(*Indexer)
 
-	blocksDurationFn        func(start uint64, end uint64) time.Duration
+	BlocksDurationFn        func(start uint64, end uint64) time.Duration
 	blocksDurationAtFn      func(start uint64, end uint64, viewAt uint64) time.Duration
 	CalculateVoteWeightFunc func(v *VoteBucket) *big.Int
 )
@@ -347,7 +347,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 // IndexerAt returns the staking indexer at the given state reader
 func (s *Indexer) IndexerAt(sr protocol.StateReader) staking.ContractStakingIndexer {
 	epb := newEventProcessorBuilder(s.common.ContractAddress(), s.timestamped, s.muteHeight)
-	return NewHistoryIndexer(sr, s.common.ContractAddress(), s.common.StartHeight(), epb, s.calculateContractVoteWeight)
+	return NewHistoryIndexer(sr, s.common.ContractAddress(), s.common.StartHeight(), epb, s.calculateContractVoteWeight, s.genBlockDurationFn)
 }
 
 func (s *Indexer) commit(ctx context.Context, handler *eventHandler, height uint64) error {
@@ -384,7 +384,7 @@ func (s *Indexer) checkHeight(height uint64) (unstart bool, err error) {
 	return false, nil
 }
 
-func (s *Indexer) genBlockDurationFn(view uint64) blocksDurationFn {
+func (s *Indexer) genBlockDurationFn(view uint64) BlocksDurationFn {
 	return func(start uint64, end uint64) time.Duration {
 		return s.blocksToDuration(start, end, view)
 	}

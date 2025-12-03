@@ -12,6 +12,8 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
 
+type genBlockDurationFn func(view uint64) BlocksDurationFn
+
 // historyIndexer implements historical staking indexer
 type historyIndexer struct {
 	sr           protocol.StateReader
@@ -19,16 +21,18 @@ type historyIndexer struct {
 	contractAddr address.Address
 	epb          EventProcessorBuilder
 	cuvwFn       CalculateUnmutedVoteWeightAtFn
+	gbdFn        genBlockDurationFn
 }
 
 // NewHistoryIndexer creates a new instance of historyIndexer
-func NewHistoryIndexer(sr protocol.StateReader, contract address.Address, startHeight uint64, epb EventProcessorBuilder, cuvwFn CalculateUnmutedVoteWeightAtFn) staking.ContractStakingIndexer {
+func NewHistoryIndexer(sr protocol.StateReader, contract address.Address, startHeight uint64, epb EventProcessorBuilder, cuvwFn CalculateUnmutedVoteWeightAtFn, gbdFn genBlockDurationFn) staking.ContractStakingIndexer {
 	return &historyIndexer{
 		sr:           sr,
 		contractAddr: contract,
 		startHeight:  startHeight,
 		epb:          epb,
 		cuvwFn:       cuvwFn,
+		gbdFn:        gbdFn,
 	}
 }
 
@@ -55,21 +59,53 @@ func (h *historyIndexer) Height() (uint64, error) {
 }
 
 func (h *historyIndexer) Buckets(height uint64) ([]*VoteBucket, error) {
-	return nil, errors.New("not implemented")
+	cssr := contractstaking.NewStateReader(h.sr)
+	idxs, btks, err := cssr.Buckets(h.contractAddr)
+	if err != nil {
+		return nil, err
+	}
+	return batchAssembleVoteBucket(idxs, btks, h.contractAddr.String(), h.gbdFn(height)), nil
 }
 
 // BucketsByIndices returns active buckets by indices
-func (h *historyIndexer) BucketsByIndices([]uint64, uint64) ([]*VoteBucket, error) {
-	return nil, errors.New("not implemented")
+func (h *historyIndexer) BucketsByIndices(idxs []uint64, height uint64) ([]*VoteBucket, error) {
+	cssr := contractstaking.NewStateReader(h.sr)
+	var btks []*contractstaking.Bucket
+	for _, idx := range idxs {
+		bkt, err := cssr.Bucket(h.contractAddr, idx)
+		if err != nil {
+			return nil, err
+		}
+		btks = append(btks, bkt)
+	}
+	return batchAssembleVoteBucket(idxs, btks, h.contractAddr.String(), h.gbdFn(height)), nil
 }
 
 // BucketsByCandidate returns active buckets by candidate
 func (h *historyIndexer) BucketsByCandidate(ownerAddr address.Address, height uint64) ([]*VoteBucket, error) {
-	return nil, errors.New("not implemented")
+	cssr := contractstaking.NewStateReader(h.sr)
+	idxs, btks, err := cssr.Buckets(h.contractAddr)
+	if err != nil {
+		return nil, err
+	}
+	var filteredIdxs []uint64
+	var filteredBtks []*contractstaking.Bucket
+	for i, bkt := range btks {
+		if bkt.Candidate.String() == ownerAddr.String() {
+			filteredIdxs = append(filteredIdxs, idxs[i])
+			filteredBtks = append(filteredBtks, bkt)
+		}
+	}
+	return batchAssembleVoteBucket(filteredIdxs, filteredBtks, h.contractAddr.String(), h.gbdFn(height)), nil
 }
 
 func (h *historyIndexer) TotalBucketCount(height uint64) (uint64, error) {
-	return 0, errors.New("not implemented")
+	cssr := contractstaking.NewStateReader(h.sr)
+	ssb, err := cssr.NumOfBuckets(h.contractAddr)
+	if err != nil {
+		return 0, err
+	}
+	return ssb, nil
 }
 
 func (h *historyIndexer) ContractAddress() address.Address {
@@ -116,5 +152,5 @@ func (h *historyIndexer) DeductBucket(addr address.Address, id uint64) (*contrac
 }
 
 func (h *historyIndexer) IndexerAt(sr protocol.StateReader) staking.ContractStakingIndexer {
-	return NewHistoryIndexer(sr, h.contractAddr, h.startHeight, h.epb, h.cuvwFn)
+	return NewHistoryIndexer(sr, h.contractAddr, h.startHeight, h.epb, h.cuvwFn, h.gbdFn)
 }

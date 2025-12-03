@@ -1071,14 +1071,6 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 		if err != nil {
 			return nil, 0, err
 		}
-		rp := rolldpos.FindProtocol(core.registry)
-		if rp != nil {
-			tipEpochNum := rp.GetEpochNum(tipHeight)
-			inputEpochNum := rp.GetEpochNum(inputHeight)
-			if inputEpochNum < tipEpochNum {
-				inputHeight = rp.GetEpochHeight(inputEpochNum)
-			}
-		}
 		if inputHeight < tipHeight {
 			// old data, wrap to history state reader
 			historySR, err := core.sf.WorkingSetAtHeight(ctx, inputHeight)

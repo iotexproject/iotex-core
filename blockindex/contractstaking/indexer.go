@@ -55,7 +55,7 @@ type (
 	}
 
 	calculateVoteWeightFunc func(v *Bucket) *big.Int
-	blocksDurationFn        func(start uint64, end uint64) time.Duration
+	blocksDurationFn        = stakingindex.BlocksDurationFn
 	blocksDurationAtFn      func(start uint64, end uint64, viewAt uint64) time.Duration
 )
 
@@ -402,7 +402,7 @@ func (s *Indexer) PutBlock(ctx context.Context, blk *block.Block) error {
 // IndexerAt returns the contract staking indexer at a specific height
 func (s *Indexer) IndexerAt(sr protocol.StateReader) staking.ContractStakingIndexer {
 	epb := newEventProcessorBuilder(s.contractAddr)
-	h := stakingindex.NewHistoryIndexer(sr, s.contractAddr, s.config.ContractDeployHeight, epb, s.calculateUnmutedVoteWeightAt)
+	h := stakingindex.NewHistoryIndexer(sr, s.contractAddr, s.config.ContractDeployHeight, epb, s.calculateUnmutedVoteWeightAt, s.genBlockDurationFn)
 	return newHistoryIndexer(h)
 }
 
