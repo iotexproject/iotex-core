@@ -36,6 +36,7 @@ type Config struct {
 const (
 	DBBolt   string = "boltdb"
 	DBPebble        = "pebbledb"
+	DBAuto          = "auto"
 )
 
 // SplitDBSize returns the configured SplitDBSizeMB
@@ -54,5 +55,5 @@ var DefaultConfig = Config{
 	SplitDBSizeMB:         0,
 	SplitDBHeight:         900000,
 	HistoryStateRetention: 2000,
-	DBType:                DBBolt,
+	DBType:                DBAuto,
 }
