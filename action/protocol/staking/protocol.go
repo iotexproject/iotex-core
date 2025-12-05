@@ -310,19 +310,17 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			return
 		}
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := checkIndex(indexer); err != nil {
-				errChan <- errors.Wrap(err, "failed to check contract staking indexer")
-				return
-			}
-			view, err := NewContractStakeViewBuilder(indexer, p.blockStore).Build(ctx, sr, height)
-			if err != nil {
-				errChan <- errors.Wrapf(err, "failed to create stake view for contract %s", indexer.ContractAddress())
-				return
-			}
-			callback(view)
-		}()
+		defer wg.Done()
+		if err := checkIndex(indexer); err != nil {
+			errChan <- errors.Wrap(err, "failed to check contract staking indexer")
+			return
+		}
+		view, err := NewContractStakeViewBuilder(indexer, p.blockStore).Build(ctx, sr, height)
+		if err != nil {
+			errChan <- errors.Wrapf(err, "failed to create stake view for contract %s", indexer.ContractAddress())
+			return
+		}
+		callback(view)
 	}
 	buildView(p.contractStakingIndexer, func(view ContractStakeView) {
 		c.contractsStake.v1 = view
