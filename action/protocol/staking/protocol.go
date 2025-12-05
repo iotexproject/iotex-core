@@ -349,7 +349,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			continue
 		}
 		wg.Add(1)
-		go func(indexer ContractStakingIndexer, setter func(ContractStakeView)) {
+		func(indexer ContractStakingIndexer, setter func(ContractStakeView)) {
 			defer wg.Done()
 			// First, checking the indexer
 			if err := checkIndex(indexer); err != nil {
