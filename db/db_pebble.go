@@ -46,6 +46,7 @@ type PebbleDB struct {
 
 // NewPebbleDB creates a new PebbleDB instance
 func NewPebbleDB(cfg Config) *PebbleDB {
+	log.L().Debug("Creating PebbleDB", zap.String("path", cfg.DbPath))
 	return &PebbleDB{
 		db:     nil,
 		path:   cfg.DbPath,
