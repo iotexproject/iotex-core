@@ -742,5 +742,10 @@ func TestSlashCandidate(t *testing.T) {
 		)
 		require.NoError(err)
 		require.Equal(1, len(cl))
+		require.Equal(cl[0].Identity, "")
+		cl, err = p.ActiveCandidates(ctx, sm, genesis.Default.ToBeEnabledBlockHeight)
+		require.NoError(err)
+		require.Equal(1, len(cl))
+		require.Equal(cl[0].Identity, owner.String())
 	})
 }
