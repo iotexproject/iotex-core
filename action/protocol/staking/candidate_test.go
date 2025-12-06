@@ -62,6 +62,19 @@ func TestSer(t *testing.T) {
 	r.NoError(l1.Deserialize(ser))
 	r.Equal(l, l1)
 
+	sl, err := l.toStateCandidateList(true)
+	r.NoError(err)
+	r.Equal(l.Len(), len(sl))
+	for _, sc := range sl {
+		r.Equal("", sc.Identity)
+	}
+	sl, err = l.toStateCandidateList(false)
+	r.NoError(err)
+	r.Equal(l.Len(), len(sl))
+	for _, sc := range sl {
+		r.NotEqual("", sc.Identity)
+	}
+
 	// empty CandidateList can successfully Serialize/Deserialize
 	var m CandidateList
 	ser, err = m.Serialize()
@@ -102,7 +115,15 @@ func TestClone(t *testing.T) {
 	d.Identifier = identityset.Address(3)
 	r.Equal(d.Identifier, d.GetIdentifier())
 
-	c := d.toStateCandidate()
+	c := d.toStateCandidate(false)
+	r.Equal(d.GetIdentifier().String(), c.Identity)
+	r.Equal(d.Owner.String(), c.Address)
+	r.Equal(d.Reward.String(), c.RewardAddress)
+	r.Equal(d.Votes, c.Votes)
+	r.Equal(d.Name, string(c.CanName))
+
+	c = d.toStateCandidate(true)
+	r.Equal("", c.Identity)
 	r.Equal(d.Owner.String(), c.Address)
 	r.Equal(d.Reward.String(), c.RewardAddress)
 	r.Equal(d.Votes, c.Votes)
