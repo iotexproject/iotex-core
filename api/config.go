@@ -41,7 +41,7 @@ var DefaultConfig = Config{
 	WebSocketPort:      16014,
 	TpsWindow:          10,
 	GasStation:         gasstation.DefaultConfig,
-	RangeQueryLimit:    1000,
+	RangeQueryLimit:    2000,
 	BatchRequestLimit:  _defaultBatchRequestLimit,
 	WebsocketRateLimit: 5,
 	ListenerLimit:      5000,
