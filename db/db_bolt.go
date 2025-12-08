@@ -49,6 +49,7 @@ type BoltDB struct {
 
 // NewBoltDB instantiates an BoltDB with implements KVStore
 func NewBoltDB(cfg Config) *BoltDB {
+	log.L().Debug("Creating BoltDB", zap.String("path", cfg.DbPath))
 	return &BoltDB{
 		db:     nil,
 		path:   cfg.DbPath,
