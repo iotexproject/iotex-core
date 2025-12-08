@@ -132,7 +132,7 @@ var (
 		StreamingBlockBufferSize:      200,
 		PersistStakingPatchBlock:      19778037,
 		FixAliasForNonStopHeight:      19778036,
-		FactoryDBType:                 db.DBBolt,
+		FactoryDBType:                 db.DBAuto,
 		MintTimeout:                   700 * time.Millisecond,
 	}
 
