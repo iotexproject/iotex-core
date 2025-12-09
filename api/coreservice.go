@@ -131,7 +131,7 @@ type (
 		ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error)
 		// PendingActionByActionHash returns action by action hash
 		PendingActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, error)
-		// ActionsInActPool returns the all Transaction Identifiers in the actpool
+		// ActionsInActPool returns all Transaction Identifiers in the actpool
 		ActionsInActPool(actHashes []string) ([]*action.SealedEnvelope, error)
 		// BlockByHeightRange returns blocks within the height range
 		BlockByHeightRange(uint64, uint64) ([]*apitypes.BlockWithReceipts, error)
@@ -145,7 +145,7 @@ type (
 		EstimateMigrateStakeGasConsumption(context.Context, *action.MigrateStake, address.Address) (uint64, []byte, error)
 		// EstimateGasForNonExecution  estimates action gas except execution
 		EstimateGasForNonExecution(action.Action) (uint64, error)
-		// EstimateExecutionGasConsumption estimate gas consumption for execution action
+		// EstimateExecutionGasConsumption estimates gas consumption for execution action
 		EstimateExecutionGasConsumption(ctx context.Context, sc action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, []byte, error)
 		// LogsInBlockByHash filter logs in the block by hash
 		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*action.Log, error)
@@ -1777,7 +1777,7 @@ func (core *coreService) estimateMigrateStakeGasConsumptionAt(ctx context.Contex
 	return gas + intrinsicGas, retval, nil
 }
 
-// EstimateExecutionGasConsumption estimate gas consumption for execution action
+// EstimateExecutionGasConsumption estimates gas consumption for execution action
 func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, elp action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, []byte, error) {
 	return core.estimateExecutionGasConsumptionAt(ctx, elp, callerAddr, 0, opts...)
 }
@@ -1939,7 +1939,7 @@ func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*
 	}, out.GetBlockIdentifier(), nil
 }
 
-// ActionsInActPool returns the all Transaction Identifiers in the actpool
+// ActionsInActPool returns all Transaction Identifiers in the actpool
 func (core *coreService) ActionsInActPool(actHashes []string) ([]*action.SealedEnvelope, error) {
 	var ret []*action.SealedEnvelope
 	if len(actHashes) == 0 {
