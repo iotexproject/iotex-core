@@ -75,6 +75,8 @@ var (
 	_nameKey     = []byte("name")
 	_operatorKey = []byte("operator")
 	_ownerKey    = []byte("owner")
+
+	_lastExitEpoch = []byte("last_exit_epoch")
 )
 
 type (
@@ -82,6 +84,10 @@ type (
 	ReceiptError interface {
 		Error() string
 		ReceiptStatus() uint64
+	}
+
+	lastExitEpoch struct {
+		epoch uint64
 	}
 
 	ContractStakeViewBuilder interface {
@@ -523,6 +529,45 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			vd.contractsStake.Revise(ctx)
 		}
 	}
+	if !featureCtx.NoCandidateExitQueue {
+		if rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx)); rp != nil {
+			if currentEpochNum := rp.GetEpochNum(blkCtx.BlockHeight); currentEpochNum > 0 {
+				epochStartHeight := rp.GetEpochHeight(currentEpochNum)
+				if epochStartHeight == blkCtx.BlockHeight {
+					var last lastExitEpoch
+					if _, err := sm.State(&last, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_lastExitEpoch)); err != nil {
+						return err
+					}
+					if last.epoch+24 < currentEpochNum {
+						csm, err := NewCandidateStateManager(sm)
+						if err != nil {
+							return err
+						}
+						csr, err := ConstructBaseView(sm)
+						if err != nil {
+							return err
+						}
+						cands := csr.AllCandidates()
+						sort.Sort(cands)
+						for _, c := range cands {
+							if c.ExitBlock == candidateExitRequested {
+								// TODO: set 24 in config
+								c.ExitBlock = blkCtx.BlockHeight + 24*rp.NumBlocksByEpoch(currentEpochNum)
+								if err := csm.Upsert(c); err != nil {
+									return errors.Wrapf(err, "failed to update candidate %s", c.GetIdentifier().String())
+								}
+								last.epoch = currentEpochNum
+								if _, err := sm.PutState(&last, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_lastExitEpoch)); err != nil {
+									return err
+								}
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 	// remove BLS public key of all candidates at XinguBeta
 	if blkCtx.BlockHeight == g.XinguBetaBlockHeight {
 		csm, err := NewCandidateStateManager(sm)
@@ -683,6 +728,8 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		rLog, tLogs, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
+	case *action.CandidateDeactivate:
+		rLog, tLogs, err = p.handleCandidateDeactivate(ctx, act, csm)
 	case *action.CandidateActivate:
 		rLog, tLogs, err = p.handleCandidateActivate(ctx, act, csm)
 	case *action.CandidateEndorsement:
@@ -815,6 +862,15 @@ func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidiateStateCom
 		}
 	} else {
 		if cand.SelfStake.Cmp(p.config.MinSelfStakeToBeActive) < 0 {
+			return false, nil
+		}
+	}
+	if !featureCtx.NoCandidateExitQueue {
+		curr, err := csr.SR().Height()
+		if err != nil {
+			return false, errors.Wrap(err, "failed to get current height")
+		}
+		if cand.ExitBlock != 0 && cand.ExitBlock < curr {
 			return false, nil
 		}
 	}

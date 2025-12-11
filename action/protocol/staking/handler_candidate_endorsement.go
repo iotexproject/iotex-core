@@ -64,6 +64,9 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 		}
 		if selfStake {
 			expireHeight += p.config.EndorsementWithdrawWaitingBlocks
+			if !featureCtx.NoCandidateExitQueue {
+				// TODO: Put it into exit queue
+			}
 		}
 	case action.CandidateEndorsementOpRevoke:
 		if err := p.validateRevokeEndorsement(ctx, esm, actCtx.Caller, bucket); err != nil {
@@ -71,6 +74,9 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 		}
 		// clear self-stake if the endorse bucket is used
 		if cand.SelfStakeBucketIdx == bucket.Index {
+			if !featureCtx.NoCandidateExitQueue {
+			}
+			// TODO: Check that the bucket is ready for dequeue
 			if err := p.clearCandidateSelfStake(bucket, cand); err != nil {
 				return log, nil, errors.Wrap(err, "failed to clear candidate self-stake")
 			}
