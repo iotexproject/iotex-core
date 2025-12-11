@@ -405,28 +405,43 @@ func (p *Protocol) CreateGenesisStates(
 	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
 }
 
-func (p *Protocol) SlashCandidate(
+func (p *Protocol) SlashCandidateByOperator(
 	ctx context.Context,
 	sm protocol.StateManager,
 	operator address.Address,
 	amount *big.Int,
 ) error {
-	if amount == nil || amount.Sign() <= 0 {
-		return errors.New("nil or non-positive amount")
-	}
 	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return errors.Wrap(err, "failed to create candidate state manager")
 	}
-	fCtx := protocol.MustGetFeatureCtx(ctx)
-	var candidate *Candidate
-	if fCtx.CandidateSlashByOwner {
-		candidate = csm.GetByIdentifier(operator)
-	} else {
-		candidate = csm.GetByOperator(operator)
+	return p.slashCandidate(ctx, csm, csm.GetByOperator(operator), amount)
+}
+
+func (p *Protocol) SlashCandidateByID(
+	ctx context.Context,
+	sm protocol.StateManager,
+	id address.Address,
+	amount *big.Int,
+) error {
+	csm, err := NewCandidateStateManager(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create candidate state manager")
+	}
+	return p.slashCandidate(ctx, csm, csm.GetByIdentifier(id), amount)
+}
+
+func (p *Protocol) slashCandidate(
+	ctx context.Context,
+	csm CandidateStateManager,
+	candidate *Candidate,
+	amount *big.Int,
+) error {
+	if amount == nil || amount.Sign() <= 0 {
+		return errors.New("nil or non-positive amount")
 	}
 	if candidate == nil {
-		return errors.Wrapf(ErrCandidateNotExist, "candidate operator %s does not exist", operator.String())
+		return ErrCandidateNotExist
 	}
 	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
 		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
