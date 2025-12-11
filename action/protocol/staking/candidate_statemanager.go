@@ -30,6 +30,9 @@ type (
 	}
 	// CandidateSet related to setting candidates
 	CandidateSet interface {
+		requestExit(address.Address) error
+		cancelExitRequest(address.Address) error
+		confirmExit(address.Address, uint64) error
 		putCandidate(*Candidate) error
 		delCandidate(address.Address) error
 		putVoterBucketIndex(address.Address, uint64) error
@@ -155,6 +158,10 @@ func (csm *candSM) GetByOperator(addr address.Address) *Candidate {
 
 // Upsert writes the candidate into state manager and cand center
 func (csm *candSM) Upsert(d *Candidate) error {
+	return csm.upsert(d)
+}
+
+func (csm *candSM) upsert(d *Candidate) error {
 	if err := csm.candCenter.Upsert(d); err != nil {
 		return err
 	}
@@ -182,6 +189,56 @@ func (csm *candSM) Commit(ctx context.Context) error {
 
 func (csm *candSM) NativeBucket(index uint64) (*VoteBucket, error) {
 	return newCandidateStateReader(csm).NativeBucket(index)
+}
+
+func (csm *candSM) requestExit(owner address.Address) error {
+	cand := csm.candCenter.GetByOwner(owner)
+	if cand == nil {
+		return errors.Wrapf(errCandNotExist, "failed to get candidate with owner %s", owner)
+	}
+	if cand.ExitBlock != 0 {
+		return ErrAlreadyRequested
+	}
+	cand.ExitBlock = candidateExitRequested
+
+	return csm.upsert(cand)
+}
+
+func (csm *candSM) cancelExitRequest(owner address.Address) error {
+	cand := csm.candCenter.GetByOwner(owner)
+	if cand == nil {
+		return errors.Wrapf(errCandNotExist, "failed to get candidate with owner %s", owner)
+	}
+	if cand.ExitBlock != candidateExitRequested {
+		return ErrExitNotRequested
+	}
+	cand.ExitBlock = 0
+
+	return csm.upsert(cand)
+}
+
+func (csm *candSM) confirmExit(id address.Address, height uint64) error {
+	cand := csm.candCenter.GetByIdentifier(id)
+	if cand == nil {
+		return errors.Wrapf(errCandNotExist, "failed to get candidate with id %s", id)
+	}
+	switch {
+	case cand.ExitBlock == 0:
+		return ErrExitNotRequested
+	case cand.ExitBlock == candidateExitRequested:
+		return ErrExitNotScheduled
+	case cand.ExitBlock > height:
+		return ErrExitNotReady
+	}
+	cand.Deleted = true
+	cand.Votes = big.NewInt(0)
+	cand.SelfStake = big.NewInt(0)
+	cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
+	if err := csm.candCenter.Upsert(cand); err != nil {
+		return err
+	}
+
+	return csm.putCandidate(cand)
 }
 
 func (csm *candSM) updateBucket(index uint64, bucket *VoteBucket) error {
