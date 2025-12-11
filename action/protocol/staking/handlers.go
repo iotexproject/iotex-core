@@ -699,6 +699,12 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 				failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
 			}
 		}
+		if c.Deleted {
+			return log, nil, &handleError{
+				err:           ErrCandidateDeleted,
+				failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+			}
+		}
 	}
 	// cannot collide with existing identifier
 	candID := owner

@@ -72,6 +72,35 @@ func TestSer(t *testing.T) {
 	r.Nil(m1)
 }
 
+func TestSerWithExitBlockAndDeleted(t *testing.T) {
+	r := require.New(t)
+
+	original := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(2),
+		Reward:             identityset.Address(3),
+		Name:               "test_candidate",
+		Votes:              big.NewInt(100),
+		SelfStake:          big.NewInt(1000),
+		SelfStakeBucketIdx: 1,
+		ExitBlock:          99999,
+		Deleted:            true,
+	}
+
+	data, err := original.Serialize()
+	r.NoError(err)
+
+	deserialized := &Candidate{}
+	r.NoError(deserialized.Deserialize(data))
+
+	r.Equal(original.ExitBlock, deserialized.ExitBlock)
+	r.Equal(original.Deleted, deserialized.Deleted)
+	r.Equal(uint64(99999), deserialized.ExitBlock)
+	r.True(deserialized.Deleted)
+
+	r.True(original.Equal(deserialized))
+}
+
 func TestClone(t *testing.T) {
 	r := require.New(t)
 
@@ -115,6 +144,35 @@ func TestClone(t *testing.T) {
 	r.Equal(d.Reward.String(), c.RewardAddress)
 	r.Equal(d.Votes, c.Votes)
 	r.Equal(d.Name, string(c.CanName))
+}
+
+func TestCloneWithExitBlockAndDeleted(t *testing.T) {
+	r := require.New(t)
+
+	original := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(2),
+		Reward:             identityset.Address(3),
+		Name:               "test_candidate",
+		Votes:              big.NewInt(100),
+		SelfStake:          big.NewInt(1000),
+		SelfStakeBucketIdx: 1,
+		ExitBlock:          12345,
+		Deleted:            true,
+	}
+
+	clone := original.Clone()
+
+	r.True(original.Equal(clone))
+	r.Equal(original.ExitBlock, clone.ExitBlock)
+	r.Equal(original.Deleted, clone.Deleted)
+	r.Equal(uint64(12345), clone.ExitBlock)
+	r.True(clone.Deleted)
+
+	clone.ExitBlock = 99999
+	clone.Deleted = false
+	r.Equal(uint64(12345), original.ExitBlock)
+	r.True(original.Deleted)
 }
 
 var (
@@ -391,4 +449,60 @@ func TestLess(t *testing.T) {
 	for _, pair := range pairs {
 		r.True(pair.Less(0, 1))
 	}
+}
+
+func TestCandidate_DeletedCannotReceiveVotes(t *testing.T) {
+	r := require.New(t)
+
+	candidate := &Candidate{
+		Owner:              identityset.Address(0),
+		Operator:           identityset.Address(0),
+		Reward:             identityset.Address(0),
+		Name:               "test_candidate",
+		Votes:              big.NewInt(100),
+		SelfStake:          big.NewInt(1000),
+		SelfStakeBucketIdx: 1,
+		ExitBlock:          0,
+		Deleted:            false,
+	}
+
+	r.NoError(candidate.AddVote(big.NewInt(50)))
+	r.Equal(uint64(150), candidate.Votes.Uint64())
+
+	candidate.Deleted = true
+	initialVotes := candidate.Votes.Uint64()
+
+	r.NoError(candidate.AddVote(big.NewInt(50)))
+	r.Equal(initialVotes, candidate.Votes.Uint64())
+
+	r.NoError(candidate.SubVote(big.NewInt(10)))
+	r.Equal(initialVotes, candidate.Votes.Uint64())
+}
+
+func TestCandidate_DeletedCannotModifySelfStake(t *testing.T) {
+	r := require.New(t)
+
+	candidate := &Candidate{
+		Owner:              identityset.Address(0),
+		Operator:           identityset.Address(0),
+		Reward:             identityset.Address(0),
+		Name:               "test_candidate",
+		Votes:              big.NewInt(100),
+		SelfStake:          big.NewInt(1000),
+		SelfStakeBucketIdx: 1,
+		ExitBlock:          0,
+		Deleted:            false,
+	}
+
+	r.NoError(candidate.AddSelfStake(big.NewInt(500)))
+	r.Equal(uint64(1500), candidate.SelfStake.Uint64())
+
+	candidate.Deleted = true
+	initialSelfStake := candidate.SelfStake.Uint64()
+
+	r.NoError(candidate.AddSelfStake(big.NewInt(500)))
+	r.Equal(initialSelfStake, candidate.SelfStake.Uint64())
+
+	r.NoError(candidate.SubSelfStake(big.NewInt(100)))
+	r.Equal(initialSelfStake, candidate.SelfStake.Uint64())
 }

@@ -9,13 +9,16 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 const (
 	handleCandidateActivate = "candidateActivate"
 
-	candidateNoSelfStakeBucketIndex = math.MaxUint64
+	candidateNoSelfStakeBucketIndex        = math.MaxUint64
+	candidateExitRequested          uint64 = math.MaxUint64
 )
 
 func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.CandidateActivate, csm CandidateStateManager,
@@ -32,6 +35,9 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 	cand := csm.GetByOwner(actCtx.Caller)
 	if cand == nil {
 		return log, nil, errCandNotExist
+	}
+	if cand.Deleted {
+		return log, nil, ErrCandidateDeleted
 	}
 
 	if err := p.validateBucketSelfStake(ctx, csm, NewEndorsementStateManager(csm.SM()), bucket, cand); err != nil {
@@ -67,6 +73,91 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 		return log, nil, csmErrorToHandleError(cand.GetIdentifier().String(), err)
 	}
 	return log, nil, nil
+}
+
+func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.CandidateDeactivate, csm CandidateStateManager) (*receiptLog, []*action.TransactionLog, error) {
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.NoCandidateExitQueue {
+		return nil, nil, &handleError{
+			err:           errors.New("no candidate exit queue"),
+			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
+		}
+	}
+	actCtx := protocol.MustGetActionCtx(ctx)
+	cand := csm.GetByOwner(actCtx.Caller)
+	if cand == nil {
+		return nil, nil, errCandNotExist
+	}
+	if cand.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
+		return nil, nil, ErrInvalidSelfStkIndex
+	}
+	id := cand.GetIdentifier()
+	var topics action.Topics
+	var eventData []byte
+	var err error
+	switch act.Op() {
+	case action.CandidateDeactivateOpRequest:
+		if err = csm.requestExit(id); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to exit candidate")
+		}
+		topics, eventData, err = action.PackCandidateDeactivationRequestedEvent(id)
+	case action.CandidateDeactivateOpCancel:
+		if err := csm.cancelExitRequest(id); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to cancel exit")
+		}
+		topics, eventData, err = action.PackCandidateDeactivationCanceledEvent(id)
+	case action.CandidateDeactivateOpConfirm:
+		if err := csm.confirmExit(id, protocol.MustGetBlockCtx(ctx).BlockHeight); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to exit candidate")
+		}
+		topics, eventData, err = action.PackCandidateDeactivatedEvent(id)
+	default:
+		return nil, nil, errors.New("invalid operation")
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return &receiptLog{
+		addr:                  p.addr.String(),
+		postFairbankMigration: true,
+		topics:                topics,
+		data:                  eventData,
+	}, nil, nil
+}
+
+func (p *Protocol) handleScheduleCandidateDeactivation(ctx context.Context, act *action.ScheduleCandidateDeactivation, csm CandidateStateManager) (*receiptLog, []*action.TransactionLog, error) {
+	c := csm.GetByIdentifier(act.Delegate())
+	g := genesis.MustExtractGenesisContext(ctx)
+	if c == nil {
+		return nil, nil, errCandNotExist
+	}
+	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
+	if rp == nil {
+		return nil, nil, errors.New("rolldpos protocol not found")
+	}
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	currentEpochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+	if currentEpochNum == 0 {
+		return nil, nil, errors.New("invalid epoch number")
+	}
+	c.ExitBlock = blkCtx.BlockHeight + g.ExitAdmissionInterval*rp.NumBlocksByEpoch(currentEpochNum)
+	if err := csm.Upsert(c); err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to update candidate %s", c.GetIdentifier().String())
+	}
+	if _, err := csm.SM().PutState(&lastExitEpoch{epoch: currentEpochNum}, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_lastExitEpoch)); err != nil {
+		return nil, nil, err
+	}
+	topics, eventData, err := action.PackCandidateDeactivationScheduledEvent(c.GetIdentifier(), c.ExitBlock)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &receiptLog{
+		addr:                  p.addr.String(),
+		postFairbankMigration: true,
+		topics:                topics,
+		data:                  eventData,
+	}, nil, nil
 }
 
 func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateStateManager, esm *EndorsementStateManager, bucket *VoteBucket, cand *Candidate) ReceiptError {

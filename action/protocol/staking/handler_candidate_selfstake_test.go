@@ -493,3 +493,136 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 		})
 	}
 }
+
+func TestProtocol_HandleCandidateDeactivate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tests := []struct {
+		name        string
+		exitBlock   uint64
+		deleted     bool
+		blkHeight   uint64
+		setupFunc   func(CandidateStateManager, *Candidate) error
+		expectedErr error
+		verifyFunc  func(*require.Assertions, CandidateStateManager, address.Address)
+	}{
+		{
+			name:      "request exit - success",
+			exitBlock: 0,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
+				return csm.requestExit(cand.GetIdentifier())
+			},
+			expectedErr: nil,
+			verifyFunc: func(r *require.Assertions, csm CandidateStateManager, id address.Address) {
+				r.Equal(candidateExitRequested, csm.GetByIdentifier(id).ExitBlock)
+			},
+		},
+		{
+			name:      "request exit - already requested",
+			exitBlock: math.MaxUint64,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
+				return csm.requestExit(cand.GetIdentifier())
+			},
+			expectedErr: ErrAlreadyRequested,
+			verifyFunc:  nil,
+		},
+		{
+			name:      "cancel exit - success",
+			exitBlock: math.MaxUint64,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
+				return csm.cancelExitRequest(cand.GetIdentifier())
+			},
+			expectedErr: nil,
+			verifyFunc: func(r *require.Assertions, csm CandidateStateManager, id address.Address) {
+				r.Equal(uint64(0), csm.GetByIdentifier(id).ExitBlock)
+			},
+		},
+		{
+			name:      "cancel exit - not requested",
+			exitBlock: 0,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
+				return csm.cancelExitRequest(cand.GetIdentifier())
+			},
+			expectedErr: ErrExitNotRequested,
+			verifyFunc:  nil,
+		},
+		{
+			name:      "confirm exit - success",
+			exitBlock: 90,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
+				return csm.confirmExit(cand.GetIdentifier(), 100)
+			},
+			expectedErr: nil,
+			verifyFunc: func(r *require.Assertions, csm CandidateStateManager, id address.Address) {
+				cand := csm.GetByIdentifier(id)
+				r.True(cand.Deleted)
+				r.Equal(uint64(0), cand.Votes.Uint64())
+				r.Equal(uint64(0), cand.SelfStake.Uint64())
+			},
+		},
+		{
+			name:      "confirm exit - not ready",
+			exitBlock: 110,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
+				return csm.confirmExit(cand.GetIdentifier(), 100)
+			},
+			expectedErr: ErrExitNotReady,
+			verifyFunc:  nil,
+		},
+		{
+			name:      "confirm exit - not scheduled",
+			exitBlock: math.MaxUint64,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
+				return csm.confirmExit(cand.GetIdentifier(), 100)
+			},
+			expectedErr: ErrExitNotScheduled,
+			verifyFunc:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := require.New(t)
+			sm, _, _, candidates := initTestState(t, ctrl, nil, []*candidateConfig{
+				{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
+			})
+			candidate := candidates[0]
+			candidate.ExitBlock = tt.exitBlock
+			candidate.Deleted = tt.deleted
+			if candidate.SelfStakeBucketIdx == math.MaxUint64 {
+				candidate.SelfStakeBucketIdx = 1
+			}
+			csm, err := NewCandidateStateManager(sm)
+			r.NoError(err)
+			r.NoError(csm.Upsert(candidate))
+
+			err = tt.setupFunc(csm, candidate)
+
+			if tt.expectedErr != nil {
+				r.Error(err)
+				r.Contains(err.Error(), tt.expectedErr.Error())
+			} else {
+				r.NoError(err)
+			}
+
+			if tt.verifyFunc != nil {
+				tt.verifyFunc(r, csm, candidate.GetIdentifier())
+			}
+		})
+	}
+}

@@ -177,6 +177,8 @@ func defaultConfig() Genesis {
 			BootstrapCandidates:              []BootstrapCandidate{},
 			EndorsementWithdrawWaitingBlocks: 24 * 60 * 60 / 5,
 			MinSelfStakeToBeActive:           unit.ConvertIotxToRau(1000000).String(),
+			ExitAdmissionInterval:            24,
+			ExitUnboundingDuration:           2,
 		},
 	}
 }
@@ -492,6 +494,8 @@ type (
 		BootstrapCandidates              []BootstrapCandidate `yaml:"bootstrapCandidates"`
 		EndorsementWithdrawWaitingBlocks uint64               `yaml:"endorsementWithdrawWaitingBlocks"`
 		MinSelfStakeToBeActive           string               `yaml:"minSelfStakeToBeActive"`
+		ExitAdmissionInterval            uint64               `yaml:"exitAdmissionInterval"`
+		ExitUnboundingDuration           uint64               `yaml:"exitUnbondingDuration"`
 	}
 
 	// VoteWeightCalConsts contains the configs for calculating vote weight
