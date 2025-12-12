@@ -94,7 +94,7 @@ func register(args []string) error {
 	}
 
 	projectId := new(big.Int).SetBytes(receipt.ReceiptInfo.Receipt.Logs[0].Topics[3])
-	fmt.Printf("Registerd ioID project id is %s\n", projectId.String())
+	fmt.Printf("Registered ioID project id is %s\n", projectId.String())
 
 	return nil
 }
