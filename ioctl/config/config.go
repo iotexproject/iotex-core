@@ -87,6 +87,10 @@ type Config struct {
 	WsRouterContract string `json:"wsRouterContract" yaml:"wsRouterContract"`
 	// WsVmTypeContract w3bstream VMType contract address
 	WsVmTypeContract string `json:"wsVmTypeContract" yaml:"wsVmTypeContract"`
+	// IoidProjectRegisterContract is the ioID project register contract address
+	IoidProjectRegisterContract string `json:"ioidProjectRegisterContract" yaml:"ioidProjectRegisterContract"`
+	// IoidProjectStoreContract is the ioID project store contract address
+	IoidProjectStoreContract string `json:"ioidProjectStoreContract" yaml:"ioidProjectStoreContract"`
 }
 
 var (
@@ -179,6 +183,12 @@ func init() {
 	if ReadConfig.WsVmTypeContract == "" {
 		ReadConfig.WsVmTypeContract = _defaultWsVmTypeContract
 		completeness = false
+	}
+	if ReadConfig.IoidProjectRegisterContract == "" {
+		ReadConfig.IoidProjectRegisterContract = _defaultIoidProjectRegisterContract
+	}
+	if ReadConfig.IoidProjectStoreContract == "" {
+		ReadConfig.IoidProjectStoreContract = _defaultIoidProjectStoreContract
 	}
 	if !completeness {
 		err := writeConfig()
