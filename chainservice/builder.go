@@ -326,6 +326,9 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if err != nil {
 		return err
 	}
+	if _, ok := builder.cfg.Plugins[config.AllowBlockDaoIndexerAheadPlugin]; ok {
+		opts = append(opts, blockdao.WithAllowIndexerAhead())
+	}
 	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(
 		store, indexers, cfg.DB.MaxCacheSize, opts...)
 
@@ -510,7 +513,8 @@ func (builder *Builder) buildBlockchain(forSubChain, forTest bool) error {
 
 	if builder.cs.indexer != nil && builder.cfg.Chain.EnableAsyncIndexWrite {
 		// config asks for a standalone indexer
-		indexBuilder, err := blockindex.NewIndexBuilder(builder.cs.chain.ChainID(), builder.cfg.Genesis, builder.cs.blockdao, builder.cs.indexer)
+		_, allowIndexerAhead := builder.cfg.Plugins[config.AllowBlockDaoIndexerAheadPlugin]
+		indexBuilder, err := blockindex.NewIndexBuilder(builder.cs.chain.ChainID(), builder.cfg.Genesis, builder.cs.blockdao, builder.cs.indexer, allowIndexerAhead)
 		if err != nil {
 			return errors.Wrap(err, "failed to create index builder")
 		}
