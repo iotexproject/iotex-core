@@ -177,9 +177,9 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// csm's candidate center should be identical to all candidates in stateDB
-	c1, err := all.toStateCandidateList()
+	c1, err := all.toStateCandidateList(true)
 	r.NoError(err)
-	c2, err := csm.DirtyView().candCenter.All().toStateCandidateList()
+	c2, err := csm.DirtyView().candCenter.All().toStateCandidateList(true)
 	r.NoError(err)
 	r.Equal(c1, c2)
 
@@ -669,6 +669,7 @@ func TestSlashCandidate(t *testing.T) {
 		BlockHeight: 100,
 	})
 	ctx = protocol.WithFeatureCtx(ctx)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 
 	t.Run("nil amount", func(t *testing.T) {
 		err := p.SlashCandidate(ctx, sm, owner, nil)
@@ -741,5 +742,10 @@ func TestSlashCandidate(t *testing.T) {
 		)
 		require.NoError(err)
 		require.Equal(1, len(cl))
+		require.Equal(cl[0].Identity, "")
+		cl, err = p.ActiveCandidates(ctx, sm, genesis.Default.ToBeEnabledBlockHeight)
+		require.NoError(err)
+		require.Equal(1, len(cl))
+		require.Equal(cl[0].Identity, owner.String())
 	})
 }
