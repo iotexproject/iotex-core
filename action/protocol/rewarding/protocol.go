@@ -108,7 +108,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	enc.MachineEndian.PutUint64(indexBytes[:], blkCtx.BlockHeight)
 	err := p.deleteState(ctx, sm, append(_blockRewardHistoryKeyPrefix, indexBytes[:]...), &rewardHistory{}, protocol.ErigonStoreOnlyOption())
 	if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {
-		return err
+		return errors.Wrap(err, "failed to delete block reward history for erigon store")
 	}
 	switch blkCtx.BlockHeight {
 	case g.AleutianBlockHeight:
