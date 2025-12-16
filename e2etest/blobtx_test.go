@@ -48,8 +48,8 @@ func TestBlobTx(t *testing.T) {
 	blobFeeCap := uint256.NewInt(1)
 	var (
 		testBlob       = kzg4844.Blob{1, 2, 3, 4}
-		testBlobCommit = mustNoErr(kzg4844.BlobToCommitment(testBlob))
-		testBlobProof  = mustNoErr(kzg4844.ComputeBlobProof(testBlob, testBlobCommit))
+		testBlobCommit = mustNoErr(kzg4844.BlobToCommitment(&testBlob))
+		testBlobProof  = mustNoErr(kzg4844.ComputeBlobProof(&testBlob, testBlobCommit))
 	)
 	sidecar := &types.BlobTxSidecar{
 		Blobs:       []kzg4844.Blob{testBlob},

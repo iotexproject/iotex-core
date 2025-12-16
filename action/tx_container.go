@@ -280,8 +280,8 @@ func (etx *txContainer) SanityCheck() error {
 		if size == 0 {
 			return errors.New("blobless blob transaction")
 		}
-		if permitted := params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; size > permitted {
-			return errors.Errorf("too many blobs in transaction: have %d, permitted %d", size, params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
+		if permitted := MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; size > permitted {
+			return errors.Errorf("too many blobs in transaction: have %d, permitted %d", size, MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
 		}
 		fallthrough
 	case types.DynamicFeeTxType:

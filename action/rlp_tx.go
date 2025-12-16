@@ -57,7 +57,11 @@ func NewEthSigner(txType iotextypes.Encoding, chainID uint32) (types.Signer, err
 		// native tx use same signature format as that of Homestead (for pre-EIP155 unprotected tx)
 		return types.HomesteadSigner{}, nil
 	case iotextypes.Encoding_ETHEREUM_EIP155:
-		return types.NewCancunSigner(big.NewInt(int64(chainID))), nil
+		var cid *big.Int
+		if chainID != 0 {
+			cid = big.NewInt(int64(chainID))
+		}
+		return types.LatestSignerForChainID(cid), nil
 	default:
 		return nil, ErrInvalidAct
 	}
@@ -86,9 +90,13 @@ func DecodeEtherTx(rawData string) (*types.Transaction, error) {
 func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, crypto.PublicKey, error) {
 	var (
 		encoding = iotextypes.Encoding_ETHEREUM_EIP155
-		signer   = types.NewCancunSigner(tx.ChainId()) // by default assume latest signer
 		V, R, S  = tx.RawSignatureValues()
 	)
+	chainID := tx.ChainId()
+	if chainID != nil && chainID.Sign() == 0 {
+		chainID = nil
+	}
+	signer := types.LatestSignerForChainID(chainID)
 	// extract correct V value
 	switch tx.Type() {
 	case types.LegacyTxType:

@@ -9,7 +9,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -56,8 +55,10 @@ func CalcBaseFee(g genesis.Blockchain, parent *TipInfo) *big.Int {
 		num.Mul(num, parent.BaseFee)
 		num.Div(num, denom.SetUint64(parentGasTarget))
 		num.Div(num, denom.SetUint64(action.DefaultBaseFeeChangeDenominator))
-		baseFeeDelta := math.BigMax(num, common.Big1)
-		return num.Add(parent.BaseFee, baseFeeDelta)
+		if num.Cmp(common.Big1) < 0 {
+			return num.Add(parent.BaseFee, common.Big1)
+		}
+		return num.Add(parent.BaseFee, num)
 	} else {
 		// Otherwise if the parent block used less gas than its target, the baseFee should decrease.
 		// max(0, parentBaseFee * gasUsedDelta / parentGasTarget / baseFeeChangeDenominator)
@@ -66,6 +67,10 @@ func CalcBaseFee(g genesis.Blockchain, parent *TipInfo) *big.Int {
 		num.Div(num, denom.SetUint64(parentGasTarget))
 		num.Div(num, denom.SetUint64(action.DefaultBaseFeeChangeDenominator))
 		baseFee := num.Sub(parent.BaseFee, num)
-		return math.BigMax(baseFee, new(big.Int).SetUint64(action.InitialBaseFee))
+		initBaseFee := new(big.Int).SetUint64(action.InitialBaseFee)
+		if baseFee.Cmp(initBaseFee) < 0 {
+			baseFee = initBaseFee
+		}
+		return baseFee
 	}
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -698,38 +697,34 @@ func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
 	return cfg
 }
 
-type evmTracer struct {
-	vm.EVMLogger
-	txctx  *tracers.Context
-	config *tracers.TraceConfig
-}
-
-func newEVMTracer(txctx *tracers.Context, config *tracers.TraceConfig) *evmTracer {
-	return &evmTracer{
-		txctx:  txctx,
-		config: config,
-	}
-}
-
-func (et *evmTracer) Reset() error {
+func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (*tracers.Tracer, error) {
 	var (
-		tracer vm.EVMLogger
+		tracer *tracers.Tracer
 		err    error
 	)
 	switch {
-	case et.config == nil:
-		tracer = logger.NewStructLogger(nil)
-	case et.config.Tracer != nil:
+	case config == nil:
+		loger := logger.NewStructLogger(nil)
+		tracer = &tracers.Tracer{
+			Hooks:     loger.Hooks(),
+			GetResult: loger.GetResult,
+			Stop:      loger.Stop,
+		}
+	case config.Tracer != nil:
 		// Define a meaningful timeout of a single transaction trace
 		timeout := defaultTraceTimeout
-		if et.config.Timeout != nil {
-			if timeout, err = time.ParseDuration(*et.config.Timeout); err != nil {
-				return err
+		if config.Timeout != nil {
+			if timeout, err = time.ParseDuration(*config.Timeout); err != nil {
+				return nil, err
 			}
 		}
-		t, err := tracers.DefaultDirectory.New(*et.config.Tracer, et.txctx, et.config.TracerConfig)
+		cc, err := evm.NewChainConfig(ctx)
 		if err != nil {
-			return err
+			return nil, err
+		}
+		t, err := tracers.DefaultDirectory.New(*config.Tracer, txctx, config.TracerConfig, cc)
+		if err != nil {
+			return nil, err
 		}
 		deadlineCtx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
@@ -740,19 +735,13 @@ func (et *evmTracer) Reset() error {
 			}
 		}()
 		tracer = t
-
 	default:
-		tracer = logger.NewStructLogger(et.config.Config)
+		loger := logger.NewStructLogger(config.Config)
+		tracer = &tracers.Tracer{
+			Hooks:     loger.Hooks(),
+			GetResult: loger.GetResult,
+			Stop:      loger.Stop,
+		}
 	}
-	et.EVMLogger = evm.NewTracerWrapper(tracer)
-	return nil
-}
-
-func (et *evmTracer) Unwrap() vm.EVMLogger {
-	if wrapper, ok := et.EVMLogger.(interface {
-		Unwrap() vm.EVMLogger
-	}); ok {
-		return wrapper.Unwrap()
-	}
-	return et.EVMLogger
+	return tracer, nil
 }

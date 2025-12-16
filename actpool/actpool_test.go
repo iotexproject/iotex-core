@@ -300,7 +300,7 @@ func TestActPool_AddActs(t *testing.T) {
 
 	t.Run("blobTx", func(t *testing.T) {
 		blob := kzg4844.Blob{}
-		commitment := MustNoErrorV(kzg4844.BlobToCommitment(blob))
+		commitment := MustNoErrorV(kzg4844.BlobToCommitment(&blob))
 		testBlobTxWithNonce := func(n uint64, tip, fee, blobFee int64) *action.SealedEnvelope {
 			tx := types.MustSignNewTx(identityset.PrivateKey(1).EcdsaPrivateKey().(*ecdsa.PrivateKey),
 				types.NewCancunSigner(big.NewInt(int64(4689))), &types.BlobTx{
@@ -315,7 +315,7 @@ func TestActPool_AddActs(t *testing.T) {
 					Sidecar: &types.BlobTxSidecar{
 						Blobs:       []kzg4844.Blob{blob},
 						Commitments: []kzg4844.Commitment{commitment},
-						Proofs:      []kzg4844.Proof{MustNoErrorV(kzg4844.ComputeBlobProof(blob, commitment))},
+						Proofs:      []kzg4844.Proof{MustNoErrorV(kzg4844.ComputeBlobProof(&blob, commitment))},
 					},
 				})
 			_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)

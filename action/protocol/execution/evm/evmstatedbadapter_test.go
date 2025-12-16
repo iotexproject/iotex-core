@@ -101,16 +101,16 @@ func TestAddBalance(t *testing.T) {
 	)
 	require.NoError(err)
 	addAmount := big.NewInt(40000)
-	stateDB.AddBalance(addr, uint256.MustFromBig(addAmount))
+	stateDB.AddBalance(addr, uint256.MustFromBig(addAmount), 0)
 	require.Equal(addAmount, stateDB.lastAddBalanceAmount)
 	beneficiary, _ := address.FromBytes(addr[:])
 	require.Equal(beneficiary.String(), stateDB.lastAddBalanceAddr)
 	amount := stateDB.GetBalance(addr)
 	require.Equal(amount.ToBig(), addAmount)
-	stateDB.AddBalance(addr, uint256.MustFromBig(addAmount))
+	stateDB.AddBalance(addr, uint256.MustFromBig(addAmount), 0)
 	amount = stateDB.GetBalance(addr)
 	require.Equal(amount, uint256.NewInt(80000))
-	stateDB.AddBalance(addr, common.U2560)
+	stateDB.AddBalance(addr, common.U2560, 0)
 	require.Zero(len(stateDB.lastAddBalanceAmount.Bytes()))
 }
 
@@ -262,7 +262,7 @@ func TestNonce(t *testing.T) {
 		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 		require.NoError(err)
 		require.Equal(uint64(0), stateDB.GetNonce(addr))
-		stateDB.SetNonce(addr, 1)
+		stateDB.SetNonce(addr, 1, 0)
 		require.Equal(uint64(1), stateDB.GetNonce(addr))
 	})
 	t.Run("legacy nonce account with pending nonce", func(t *testing.T) {
@@ -276,7 +276,7 @@ func TestNonce(t *testing.T) {
 		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 		require.NoError(err)
 		require.Equal(uint64(1), stateDB.GetNonce(addr))
-		stateDB.SetNonce(addr, 2)
+		stateDB.SetNonce(addr, 2, 0)
 		require.Equal(uint64(2), stateDB.GetNonce(addr))
 	})
 	t.Run("zero nonce account with confirmed nonce", func(t *testing.T) {
@@ -300,7 +300,7 @@ func TestNonce(t *testing.T) {
 		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 		require.NoError(err)
 		require.Equal(uint64(0), stateDB.GetNonce(addr))
-		stateDB.SetNonce(addr, 1)
+		stateDB.SetNonce(addr, 1, 0)
 		require.Equal(uint64(1), stateDB.GetNonce(addr))
 	})
 	t.Run("legacy fresh nonce account with pending nonce", func(t *testing.T) {
@@ -314,7 +314,7 @@ func TestNonce(t *testing.T) {
 		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 		require.NoError(err)
 		require.Equal(uint64(0), stateDB.GetNonce(addr))
-		stateDB.SetNonce(addr, 1)
+		stateDB.SetNonce(addr, 1, 0)
 		require.Equal(uint64(1), stateDB.GetNonce(addr))
 	})
 }
@@ -446,7 +446,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		for i, test := range tests {
 			// add balance
 			for _, e := range test.balance {
-				stateDB.AddBalance(e.addr, uint256.MustFromBig(e.v))
+				stateDB.AddBalance(e.addr, uint256.MustFromBig(e.v), 0)
 			}
 			// set code
 			for _, e := range test.codes {
@@ -463,9 +463,9 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			// set SelfDestruct
 			for _, e := range test.selfDestruct {
 				if e.amount != nil {
-					stateDB.AddBalance(e.addr, uint256.MustFromBig(e.amount))
+					stateDB.AddBalance(e.addr, uint256.MustFromBig(e.amount), 0)
 				}
-				stateDB.AddBalance(e.beneficiary, stateDB.GetBalance(e.addr)) // simulate transfer to beneficiary inside Suicide()
+				stateDB.AddBalance(e.beneficiary, stateDB.GetBalance(e.addr), 0) // simulate transfer to beneficiary inside Suicide()
 				stateDB.SelfDestruct(e.addr)
 				require.Equal(e.exist, stateDB.Exist(e.addr))
 				require.Zero(new(uint256.Int).Cmp(stateDB.GetBalance(e.addr)))
@@ -756,7 +756,7 @@ func TestClearSnapshots(t *testing.T) {
 		for i, test := range tests {
 			// add balance
 			for _, e := range test.balance {
-				stateDB.AddBalance(e.addr, uint256.MustFromBig(e.v))
+				stateDB.AddBalance(e.addr, uint256.MustFromBig(e.v), 0)
 			}
 			// set code
 			for _, e := range test.codes {
@@ -1038,7 +1038,7 @@ func TestSelfdestruct6780(t *testing.T) {
 	state := MustNoErrorV(NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...))
 	r.NoError(err)
 	_, err = accountutil.LoadOrCreateAccount(state.sm, _c4)
-	state.AddBalance(_c4, uint256.NewInt(100))
+	state.AddBalance(_c4, uint256.NewInt(100), 0)
 	r.NoError(state.CommitContracts())
 	state.clear()
 	acc := MustNoErrorV(accountutil.LoadOrCreateAccount(state.sm, _c4))
@@ -1052,7 +1052,7 @@ func TestSelfdestruct6780(t *testing.T) {
 		} else {
 			state.CreateAccount(addr)
 		}
-		state.Selfdestruct6780(addr)
+		state.SelfDestruct6780(addr)
 		r.True(state.Exist(addr))
 		state.Snapshot()
 	}
