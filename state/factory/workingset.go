@@ -1000,8 +1000,11 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
 	}
-	if err := ws.views.Commit(ctx, ws); err != nil {
-		return err
+	fwCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	if !fwCtx.CandCenterHasAlias(blk.Height()) {
+		if err := ws.views.Commit(ctx, ws); err != nil {
+			return err
+		}
 	}
 
 	digest, err := ws.digest()
