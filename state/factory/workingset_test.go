@@ -176,6 +176,7 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 	zctx = protocol.WithFeatureCtx(protocol.WithBlockchainCtx(zctx, protocol.BlockchainCtx{
 		ChainID: 1,
 	}))
+	zctx = protocol.WithFeatureWithHeightCtx(zctx)
 	for _, f := range factories {
 		for _, test := range tests {
 			require.Equal(test.err, errors.Cause(f.Validate(zctx, test.block)))
@@ -217,6 +218,7 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 	zctx = protocol.WithFeatureCtx(protocol.WithBlockchainCtx(zctx, protocol.BlockchainCtx{
 		ChainID: 1,
 	}))
+	zctx = protocol.WithFeatureWithHeightCtx(zctx)
 
 	t.Run("missing system action", func(t *testing.T) {
 		digestHash, err := hash.HexStringToHash256("8f9b7694c325a4f4b0065cd382f8af0a4e913113a4ce7ef1ac899f96158c74f4")
