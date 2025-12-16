@@ -25,7 +25,7 @@ const (
 )
 
 type (
-	// Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
+	// Action is the action that can be executed in protocols. The method is added to avoid mistakenly using empty interface as action.
 	Action interface {
 		SanityCheck() error
 	}
@@ -89,7 +89,7 @@ func FakeSeal(act Envelope, pubk crypto.PublicKey) *SealedEnvelope {
 	return sealed
 }
 
-// AssembleSealedEnvelope assembles a SealedEnvelope use Envelope, Sender Address and Signature.
+// AssembleSealedEnvelope assembles a SealedEnvelope using Envelope, Sender Address and Signature.
 // This method should be only used in tests.
 func AssembleSealedEnvelope(act Envelope, pk crypto.PublicKey, sig []byte) *SealedEnvelope {
 	sealed := &SealedEnvelope{

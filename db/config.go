@@ -30,12 +30,15 @@ type Config struct {
 	ReadOnly bool `yaml:"readOnly"`
 	// DBType is the type of database
 	DBType string `yaml:"dbType"`
+	// MemCacheSize is the size of the in-memory cache
+	MemCacheSize uint64 `yaml:"memCacheSize"`
 }
 
 // Database types
 const (
 	DBBolt   string = "boltdb"
 	DBPebble        = "pebbledb"
+	DBAuto          = "auto"
 )
 
 // SplitDBSize returns the configured SplitDBSizeMB
@@ -54,5 +57,6 @@ var DefaultConfig = Config{
 	SplitDBSizeMB:         0,
 	SplitDBHeight:         900000,
 	HistoryStateRetention: 2000,
-	DBType:                DBBolt,
+	DBType:                DBAuto,
+	MemCacheSize:          1024 * 1024 * 128,
 }
