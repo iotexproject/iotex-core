@@ -178,6 +178,7 @@ type (
 		CalculateProbationList   CheckFunc
 		LoadCandidatesLegacy     CheckFunc
 		CandCenterHasAlias       CheckFunc
+		CandidateWithoutIdentity CheckFunc
 	}
 )
 
@@ -392,6 +393,9 @@ func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 			},
 			CandCenterHasAlias: func(height uint64) bool {
 				return !g.IsOkhotsk(height)
+			},
+			CandidateWithoutIdentity: func(height uint64) bool {
+				return !g.IsToBeEnabled(height)
 			},
 		},
 	)
