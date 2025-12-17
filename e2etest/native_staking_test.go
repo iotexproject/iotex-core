@@ -1581,6 +1581,8 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 	cfg := initCfg(require)
 	cfg.Genesis.WakeBlockHeight = 1
 	cfg.Genesis.XinguBlockHeight = 10 // enable CandidateBLSPublicKey feature
+	cfg.Genesis.XinguBetaBlockHeight = 11
+	cfg.Genesis.ToBeEnabledBlockHeight = 20 // enable candidate BLS key update by operator feature
 	cfg.Genesis.SystemStakingContractAddress = ""
 	cfg.Genesis.SystemStakingContractV2Address = ""
 	cfg.Genesis.SystemStakingContractV3Address = ""
@@ -1592,10 +1594,12 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 	test := newE2ETest(t, cfg)
 
 	var (
-		chainID        = test.cfg.Chain.ID
-		registerAmount = unit.ConvertIotxToRau(1200000)
-		candOwnerID    = 3
-		candOwnerID2   = 4
+		chainID         = test.cfg.Chain.ID
+		registerAmount  = unit.ConvertIotxToRau(1200000)
+		candOwnerID     = 3
+		candOperatorID  = 1
+		candOwnerID2    = 4
+		candOperatorID2 = 2
 	)
 	genTransferActionsWithPrice := func(n int, price *big.Int) []*actionWithTime {
 		acts := make([]*actionWithTime, n)
@@ -1611,7 +1615,7 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 		{
 			name: "register without bls key",
 			acts: []*actionWithTime{
-				{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(candOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(candOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice1559, identityset.PrivateKey(candOwnerID), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(candOwnerID).String()), "cand1", identityset.Address(candOperatorID).String(), identityset.Address(1).String(), identityset.Address(candOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice1559, identityset.PrivateKey(candOwnerID), action.WithChainID(chainID))), time.Now()},
 			},
 			blockExpect: func(test *e2etest, blk *block.Block, err error) {
 				require.NoError(err)
@@ -1627,7 +1631,7 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 			name:    "register with bls key",
 			preActs: genTransferActionsWithPrice(int(cfg.Genesis.XinguBlockHeight), gasPrice1559),
 			acts: []*actionWithTime{
-				{mustNoErr(action.SignedCandidateRegisterWithBLS(test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), "cand2", identityset.Address(2).String(), identityset.Address(2).String(), identityset.Address(candOwnerID2).String(), registerAmount.String(), 1, true, blsPubKey, []byte{1, 2, 3}, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID2), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedCandidateRegisterWithBLS(test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), "cand2", identityset.Address(candOperatorID2).String(), identityset.Address(2).String(), identityset.Address(candOwnerID2).String(), registerAmount.String(), 1, true, blsPubKey, []byte{1, 2, 3}, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID2), action.WithChainID(chainID))), time.Now()},
 			},
 			blockExpect: func(test *e2etest, blk *block.Block, err error) {
 				require.NoError(err)
@@ -1637,6 +1641,31 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 				require.NoError(err)
 				require.EqualValues(identityset.Address(candOwnerID2).String(), cand.Id)
 				require.EqualValues("cand2", cand.Name)
+			},
+		},
+	})
+	height, err := test.cs.BlockDAO().Height()
+	require.NoError(err)
+	jumps := int(cfg.Genesis.ToBeEnabledBlockHeight - height)
+	if jumps <= 0 {
+		jumps = 1
+	}
+	blsPrivKey2, err := crypto.GenerateBLS12381PrivateKey(identityset.PrivateKey(candOperatorID).Bytes())
+	require.NoError(err)
+	test.run([]*testcase{
+		{
+			name:    "update bls key by operator",
+			preActs: genTransferActionsWithPrice(jumps, gasPrice1559),
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedCandidateUpdateWithBLS(test.nonceMgr.pop(identityset.Address(candOperatorID).String()), "cand1", identityset.Address(candOperatorID).String(), "", blsPrivKey2.PublicKey().Bytes(), gasLimit, gasPrice, identityset.PrivateKey(candOperatorID), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(2, len(blk.Receipts))
+				require.EqualValues(iotextypes.ReceiptStatus_Success, blk.Receipts[0].Status)
+				cand, err := test.getCandidateByName("cand1")
+				require.NoError(err)
+				require.EqualValues(blsPrivKey2.PublicKey().Bytes(), cand.BlsPubKey)
 			},
 		},
 	})
