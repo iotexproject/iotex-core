@@ -51,6 +51,7 @@ func (rc *ReadCache) Get(key hash.Hash160) ([]byte, bool) {
 	if rc.hit%100 == 0 {
 		log.Logger("api").Info("API cache hit", zap.Int("total", rc.total), zap.Int("hit", rc.hit))
 	}
+	return nil, false
 	return d.([]byte), true
 }
 
