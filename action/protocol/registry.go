@@ -90,7 +90,7 @@ func (r *Registry) all() []Protocol {
 }
 
 // StartAll starts all protocols which are startable
-func (r *Registry) StartAll(ctx context.Context, sr StateReader) (*Views, error) {
+func (r *Registry) StartAll(ctx context.Context, sr StateReader) (Views, error) {
 	if r == nil {
 		return nil, nil
 	}
