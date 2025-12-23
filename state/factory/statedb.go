@@ -266,7 +266,11 @@ func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*
 		}
 		ws.store = newErigonWorkingSetStoreForSimulate(e)
 	}
-	ws.views = sdb.protocolViews.Fork()
+	views, err := sdb.registry.StartAll(ctx, ws)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create new read-only working set")
+	}
+	ws.views = views
 	return ws, nil
 }
 
