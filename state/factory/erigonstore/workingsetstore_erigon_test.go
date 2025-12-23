@@ -7,10 +7,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account/accountpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
@@ -182,4 +184,36 @@ func TestErigonStoreNativeState(t *testing.T) {
 		r.NoError(store.FinalizeTx(ctx))
 		r.NoError(store.Commit(ctx, 0))
 	})
+
+	t.Run("state.Account", func(t *testing.T) {
+		height++
+		fmt.Printf("block: %d -----------------------\n", height)
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
+		ctx = protocol.WithFeatureCtx(ctx)
+		store, err = edb.NewErigonStore(ctx, height)
+		r.NoError(err)
+		defer store.Close()
+		empty := crypto.Keccak256Hash(nil)
+		acctPb := &accountpb.Account{
+			Type:     accountpb.AccountType_DEFAULT,
+			Balance:  "1000000000000000000",
+			Nonce:    10,
+			Root:     []byte("root"),
+			CodeHash: empty[:],
+		}
+		acct := &state.Account{}
+		acct.FromProto(acctPb)
+		ns := state.AccountKVNamespace
+		key := identityset.Address(0).Bytes()
+		gotAcct := &state.Account{}
+		r.ErrorIs(store.GetObject(ns, key, gotAcct), state.ErrStateNotExist)
+		fmt.Printf("Storing account at address: %x\n", key)
+		r.NoError(store.PutObject(ns, key, acct))
+		fmt.Printf("Stored account at address: %x\n", key)
+		r.NoError(store.GetObject(ns, key, gotAcct))
+		r.Equal(acct, gotAcct)
+		r.NoError(store.FinalizeTx(ctx))
+		r.NoError(store.Commit(ctx, 0))
+	})
+
 }
