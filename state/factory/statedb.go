@@ -55,7 +55,7 @@ type (
 		dao                      daoRetrofitter
 		timerFactory             *prometheustimer.TimerFactory
 		workingsets              cache.LRUCache // lru cache for workingsets
-		protocolViews            *protocol.Views
+		protocolViews            protocol.Views
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
 		erigonDB                 *erigonstore.ErigonDB
@@ -104,7 +104,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		cfg:                cfg,
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
-		protocolViews:      &protocol.Views{},
+		protocolViews:      protocol.NewViews(),
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 		dependencies:       []blockdao.BlockIndexer{},
 	}
@@ -266,11 +266,13 @@ func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*
 		}
 		ws.store = newErigonWorkingSetStoreForSimulate(e)
 	}
-	views, err := sdb.registry.StartAll(ctx, ws)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create new read-only working set")
-	}
-	ws.views = views
+	ws.views = protocol.NewLazyViews(func() protocol.Views {
+		views, err := sdb.registry.StartAll(ctx, ws)
+		if err != nil {
+			log.L().Panic("Failed to start all protocols for lazy views", zap.Error(err))
+		}
+		return views
+	})
 	return ws, nil
 }
 
@@ -293,7 +295,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	return ws, nil
 }
 
-func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64, kvstore db.KVStore, views *protocol.Views) (*workingSet, error) {
+func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64, kvstore db.KVStore, views protocol.Views) (*workingSet, error) {
 	store, err := sdb.createWorkingSetStore(ctx, height, kvstore)
 	if err != nil {
 		return nil, err

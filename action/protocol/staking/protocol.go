@@ -502,22 +502,28 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 	}
-	// create pre-states for contract staking
-	v, err := sm.ReadView(_protocolID)
-	if err != nil {
-		return err
-	}
-	vd := v.(*viewData)
 	if blkCtx.BlockHeight == g.XinguBlockHeight {
 		handler, err := newNFTBucketEventHandler(sm, p.calculateContractBucketVoteWeight)
 		if err != nil {
 			return err
 		}
+		// create pre-states for contract staking
+		v, err := sm.ReadView(_protocolID)
+		if err != nil {
+			return err
+		}
+		vd := v.(*viewData)
 		if err := vd.contractsStake.Migrate(ctx, handler); err != nil {
 			return errors.Wrap(err, "failed to flush buckets for contract staking")
 		}
 	}
 	if featureCtx.StoreVoteOfNFTBucketIntoView {
+		// create pre-states for contract staking
+		v, err := sm.ReadView(_protocolID)
+		if err != nil {
+			return err
+		}
+		vd := v.(*viewData)
 		if err := vd.contractsStake.CreatePreStates(ctx); err != nil {
 			return err
 		}
