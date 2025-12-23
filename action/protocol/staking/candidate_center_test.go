@@ -534,7 +534,7 @@ func TestMultipleNonStakingCandidate(t *testing.T) {
 	})
 }
 
-func candCenterFromNewCandidateStateManager(r *require.Assertions, views *protocol.Views) *CandidateCenter {
+func candCenterFromNewCandidateStateManager(r *require.Assertions, views protocol.Views) *CandidateCenter {
 	// get cand center: csm.ConstructBaseView
 	v, err := views.Read(_protocolID)
 	r.NoError(err)
