@@ -750,11 +750,7 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		return err
 	}
 	if p.contractStakingIndexer != nil {
-		index, err := contractStakingIndexerAt(p.contractStakingIndexer, sm, true)
-		if err != nil {
-			return err
-		}
-		processor := index.CreateEventProcessor(ctx, handler)
+		processor := p.contractStakingIndexer.CreateEventProcessor(ctx, handler)
 		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
 			if !errors.Is(err, state.ErrErigonStoreNotSupported) {
 				return errors.Wrap(err, "failed to process receipt for contract staking indexer")
@@ -763,11 +759,7 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		}
 	}
 	if p.contractStakingIndexerV2 != nil {
-		index, err := contractStakingIndexerAt(p.contractStakingIndexerV2, sm, true)
-		if err != nil {
-			return err
-		}
-		processor := index.CreateEventProcessor(ctx, handler)
+		processor := p.contractStakingIndexerV2.CreateEventProcessor(ctx, handler)
 		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
 			if !errors.Is(err, state.ErrErigonStoreNotSupported) {
 				return errors.Wrap(err, "failed to process receipt for contract staking indexer v2")
@@ -776,11 +768,7 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		}
 	}
 	if p.contractStakingIndexerV3 != nil {
-		index, err := contractStakingIndexerAt(p.contractStakingIndexerV3, sm, true)
-		if err != nil {
-			return err
-		}
-		processor := index.CreateEventProcessor(ctx, handler)
+		processor := p.contractStakingIndexerV3.CreateEventProcessor(ctx, handler)
 		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
 			if !errors.Is(err, state.ErrErigonStoreNotSupported) {
 				return errors.Wrap(err, "failed to process receipt for contract staking indexer v3")
