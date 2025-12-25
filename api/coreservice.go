@@ -2060,6 +2060,7 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 		BlockTimeStamp: blk.Timestamp(),
 		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
 		Producer:       blk.PublicKey().Address(),
+		Simulate:       true,
 	})
 	ctx = protocol.WithRegistry(ctx, core.registry)
 	ctx = protocol.WithFeatureCtx(ctx)
