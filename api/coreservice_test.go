@@ -911,7 +911,7 @@ func TestActions(t *testing.T) {
 			},
 		)
 
-		_, err := cs.Actions(0, 1001)
+		_, err := cs.Actions(0, 2001)
 		require.ErrorContains(err, "range exceeds the limit")
 	})
 

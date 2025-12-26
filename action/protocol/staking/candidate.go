@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
@@ -417,17 +418,43 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 }
 
 // Encode encodes candidate list into generic value
-func (l *CandidateList) Encode() (systemcontracts.GenericValue, error) {
-	data, err := l.Serialize()
-	if err != nil {
-		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize candidate list")
+func (l *CandidateList) Encode() ([][]byte, []systemcontracts.GenericValue, error) {
+	var (
+		keys   [][]byte
+		values []systemcontracts.GenericValue
+	)
+	for idx, c := range *l {
+		key := []byte(c.GetIdentifier().Bytes())
+		gv, err := c.Encode()
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to encode candidate")
+		}
+		gv.AuxiliaryData = byteutil.Uint64ToBytes(uint64(idx))
+		keys = append(keys, key)
+		values = append(values, gv)
 	}
-	return systemcontracts.GenericValue{PrimaryData: data}, nil
+	return keys, values, nil
 }
 
 // Decode decodes candidate list from generic value
-func (l *CandidateList) Decode(gv systemcontracts.GenericValue) error {
-	return l.Deserialize(gv.PrimaryData)
+func (l *CandidateList) Decode(keys [][]byte, gvs []systemcontracts.GenericValue) error {
+	// reconstruct candidate list
+	// the order of keys and gvs are guaranteed to be the same
+	candidateMap := make(map[uint64]*Candidate)
+	for _, gv := range gvs {
+		c := &Candidate{}
+		if err := c.Decode(gv); err != nil {
+			return errors.Wrap(err, "failed to decode candidate")
+		}
+		idx := byteutil.BytesToUint64(gv.AuxiliaryData)
+		candidateMap[idx] = c
+	}
+	candidates := make(CandidateList, 0, len(candidateMap))
+	for i := 0; i < len(candidateMap); i++ {
+		candidates = append(candidates, candidateMap[uint64(i)])
+	}
+	*l = candidates
+	return nil
 }
 
 func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {
