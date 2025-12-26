@@ -310,6 +310,14 @@ func TestProtocol_Handle(t *testing.T) {
 		}).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
+	sm.EXPECT().DelState(gomock.Any()).DoAndReturn(func(opts ...protocol.StateOption) (uint64, error) {
+		cfg, err := protocol.CreateStateConfig(opts...)
+		if err != nil {
+			return 0, err
+		}
+		cb.Delete("state", cfg.Key, "failed to delete state")
+		return 0, nil
+	}).AnyTimes()
 
 	g.Rewarding.InitBalanceStr = "1000000"
 	g.Rewarding.BlockRewardStr = "10"
@@ -656,6 +664,9 @@ func TestMigrateValue(t *testing.T) {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			blkCtx.BlockHeight = v.height
 			fCtx = protocol.WithFeatureCtx(protocol.WithBlockCtx(fCtx, blkCtx))
+			// init storage bucket
+			_, err = sm.PutState(&rewardHistory{}, protocol.NamespaceOption(_v2RewardingNamespace), protocol.KeyOption([]byte("test")))
+			r.NoError(err)
 			r.NoError(p.CreatePreStates(fCtx, sm))
 
 			// verify v1 is deleted

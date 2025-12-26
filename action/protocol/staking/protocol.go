@@ -310,19 +310,17 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			return
 		}
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := checkIndex(indexer); err != nil {
-				errChan <- errors.Wrap(err, "failed to check contract staking indexer")
-				return
-			}
-			view, err := NewContractStakeViewBuilder(indexer, p.blockStore).Build(ctx, sr, height)
-			if err != nil {
-				errChan <- errors.Wrapf(err, "failed to create stake view for contract %s", indexer.ContractAddress())
-				return
-			}
-			callback(view)
-		}()
+		defer wg.Done()
+		if err := checkIndex(indexer); err != nil {
+			errChan <- errors.Wrap(err, "failed to check contract staking indexer")
+			return
+		}
+		view, err := NewContractStakeViewBuilder(indexer, p.blockStore).Build(ctx, sr, height)
+		if err != nil {
+			errChan <- errors.Wrapf(err, "failed to create stake view for contract %s", indexer.ContractAddress())
+			return
+		}
+		callback(view)
 	}
 	buildView(p.contractStakingIndexer, func(view ContractStakeView) {
 		c.contractsStake.v1 = view
@@ -500,22 +498,28 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 	}
-	// create pre-states for contract staking
-	v, err := sm.ReadView(_protocolID)
-	if err != nil {
-		return err
-	}
-	vd := v.(*viewData)
 	if blkCtx.BlockHeight == g.XinguBlockHeight {
 		handler, err := newNFTBucketEventHandler(sm, p.calculateContractBucketVoteWeight)
 		if err != nil {
 			return err
 		}
+		// create pre-states for contract staking
+		v, err := sm.ReadView(_protocolID)
+		if err != nil {
+			return err
+		}
+		vd := v.(*viewData)
 		if err := vd.contractsStake.Migrate(ctx, handler); err != nil {
 			return errors.Wrap(err, "failed to flush buckets for contract staking")
 		}
 	}
 	if featureCtx.StoreVoteOfNFTBucketIntoView {
+		// create pre-states for contract staking
+		v, err := sm.ReadView(_protocolID)
+		if err != nil {
+			return err
+		}
+		vd := v.(*viewData)
 		if err := vd.contractsStake.CreatePreStates(ctx); err != nil {
 			return err
 		}
@@ -884,13 +888,25 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	// stakeSR is the stake state reader including native and contract staking
 	indexers := []ContractStakingIndexer{}
 	if p.contractStakingIndexer != nil {
-		indexers = append(indexers, NewDelayTolerantIndexerWithBucketType(p.contractStakingIndexer, time.Second))
+		index, err := contractStakingIndexerAt(p.contractStakingIndexer, sr, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		indexers = append(indexers, NewDelayTolerantIndexerWithBucketType(index.(ContractStakingIndexerWithBucketType), time.Second))
 	}
 	if p.contractStakingIndexerV2 != nil {
-		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV2, time.Second))
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV2, sr, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		indexers = append(indexers, NewDelayTolerantIndexer(index, time.Second))
 	}
 	if p.contractStakingIndexerV3 != nil {
-		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV3, time.Second))
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV3, sr, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		indexers = append(indexers, NewDelayTolerantIndexer(index, time.Second))
 	}
 	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
 	if err != nil {
@@ -1143,4 +1159,27 @@ func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, Can
 		return nil, nil, nil, err
 	}
 	return name, operator, owner, nil
+}
+
+func contractStakingIndexerAt(index ContractStakingIndexer, sr protocol.StateReader, delay bool) (ContractStakingIndexer, error) {
+	if index == nil {
+		return nil, nil
+	}
+	srHeight, err := sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	if delay {
+		srHeight--
+	}
+	indexHeight, err := index.Height()
+	if err != nil {
+		return nil, err
+	}
+	if index.StartHeight() > srHeight || indexHeight == srHeight {
+		return index, nil
+	} else if indexHeight < srHeight {
+		return nil, errors.Errorf("indexer height %d is too old for state reader height %d", indexHeight, srHeight)
+	}
+	return index.IndexerAt(sr), nil
 }

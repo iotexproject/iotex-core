@@ -473,6 +473,14 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		to   = callMsg.To
 		data = callMsg.Data
 	)
+	height, archive, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
+	if err != nil {
+		return nil, err
+	}
+	heightStr := ""
+	if height > 0 {
+		heightStr = strconv.FormatUint(height, 10)
+	}
 	if to == _metamaskBalanceContractAddr {
 		return nil, nil
 	}
@@ -481,7 +489,7 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		if err != nil {
 			return nil, err
 		}
-		states, err := svr.coreService.ReadState("staking", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		states, err := svr.coreService.ReadState("staking", heightStr, sctx.Parameters().MethodName, sctx.Parameters().Arguments)
 		if err != nil {
 			return nil, err
 		}
@@ -496,7 +504,7 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		if err != nil {
 			return nil, err
 		}
-		states, err := svr.coreService.ReadState("rewarding", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		states, err := svr.coreService.ReadState("rewarding", heightStr, sctx.Parameters().MethodName, sctx.Parameters().Arguments)
 		if err != nil {
 			return nil, err
 		}
@@ -542,10 +550,6 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		ret     string
 		receipt *iotextypes.Receipt
 	)
-	height, archive, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
-	if err != nil {
-		return nil, err
-	}
 	if !archive {
 		ret, receipt, err = svr.coreService.ReadContract(context.Background(), callMsg.From, elp)
 	} else {

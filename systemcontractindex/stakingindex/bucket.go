@@ -103,7 +103,7 @@ func (b *Bucket) Clone() *Bucket {
 }
 */
 
-func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blocksToDurationFn blocksDurationFn) *VoteBucket {
+func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blocksToDurationFn BlocksDurationFn) *VoteBucket {
 	vb := VoteBucket{
 		Index:           token,
 		StakedAmount:    bkt.StakedAmount,
@@ -141,7 +141,7 @@ func assembleVoteBucket(token uint64, bkt *Bucket, contractAddr string, blocksTo
 	return &vb
 }
 
-func batchAssembleVoteBucket(idxs []uint64, bkts []*Bucket, contractAddr string, blocksToDurationFn blocksDurationFn) []*VoteBucket {
+func batchAssembleVoteBucket(idxs []uint64, bkts []*Bucket, contractAddr string, blocksToDurationFn BlocksDurationFn) []*VoteBucket {
 	vbs := make([]*VoteBucket, 0, len(bkts))
 	for i := range bkts {
 		if bkts[i] == nil {
