@@ -30,11 +30,13 @@ const (
 
 var (
 	// _candidateRegisterInterface is the interface of the abi encoding of stake action
-	_candidateRegisterMethod        abi.Method
-	_candidateRegisterWithBLSMethod abi.Method
-	_candidateRegisteredEvent       abi.Event
-	_stakedEvent                    abi.Event
-	_candidateActivatedEvent        abi.Event
+	_candidateRegisterMethod             abi.Method
+	_candidateRegisterWithBLSMethod      abi.Method
+	_candidateRegisteredEvent            abi.Event
+	_stakedEvent                         abi.Event
+	_candidateActivatedEvent             abi.Event
+	_candidateDeactivationRequestedEvent abi.Event
+	_candidateDeactivationCanceledEvent  abi.Event
 
 	// ErrInvalidAmount represents that amount is 0 or negative
 	ErrInvalidAmount = errors.New("invalid amount")
@@ -86,6 +88,14 @@ func init() {
 		panic("fail to load the event")
 	}
 	_candidateActivatedEvent, ok = abi.Events["CandidateActivated"]
+	if !ok {
+		panic("fail to load the event")
+	}
+	_candidateDeactivationRequestedEvent, ok = abi.Events["CandidateDeactivationRequested"]
+	if !ok {
+		panic("fail to load the event")
+	}
+	_candidateDeactivationCanceledEvent, ok = abi.Events["CandidateDeactivationCanceled"]
 	if !ok {
 		panic("fail to load the event")
 	}
@@ -422,6 +432,30 @@ func PackCandidateActivatedEvent(
 	}
 	topics := make(Topics, 2)
 	topics[0] = hash.Hash256(_candidateActivatedEvent.ID)
+	topics[1] = hash.BytesToHash256(candidate.Bytes())
+	return topics, data, nil
+}
+
+// PackCandidateDeactivationRequestedEvent packs the CandidateDeactivationRequested event
+func PackCandidateDeactivationRequestedEvent(candidate address.Address) (Topics, []byte, error) {
+	data, err := _candidateDeactivationRequestedEvent.Inputs.NonIndexed().Pack()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to pack CandidateDeactivationRequested event")
+	}
+	topics := make(Topics, 2)
+	topics[0] = hash.Hash256(_candidateDeactivationRequestedEvent.ID)
+	topics[1] = hash.BytesToHash256(candidate.Bytes())
+	return topics, data, nil
+}
+
+// PackCandidateDeactivationCanceledEvent packs the CandidateDeactivationCanceled event
+func PackCandidateDeactivationCanceledEvent(candidate address.Address) (Topics, []byte, error) {
+	data, err := _candidateDeactivationCanceledEvent.Inputs.NonIndexed().Pack()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to pack CandidateDeactivationCanceled event")
+	}
+	topics := make(Topics, 2)
+	topics[0] = hash.Hash256(_candidateDeactivationCanceledEvent.ID)
 	topics[1] = hash.BytesToHash256(candidate.Bytes())
 	return topics, data, nil
 }
