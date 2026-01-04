@@ -49,7 +49,7 @@ func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.Envelo
 		if err != nil {
 			return errors.Wrap(err, "failed to get eth compatible action data")
 		}
-		ethTx, err = elp.ToEthTx(0, 0)
+		ethTx, err = elp.ToEthTx()
 		if err != nil {
 			return errors.Wrap(err, "failed to convert to eth tx")
 		}
@@ -82,6 +82,9 @@ func TraceEnd(ctx context.Context, ws protocol.StateManager, elp action.Envelope
 }
 
 func toEthReceipt(receipt *action.Receipt) *types.Receipt {
+	if receipt == nil {
+		return nil
+	}
 	ethReceipt := &types.Receipt{
 		Status:            uint64(receipt.Status),
 		CumulativeGasUsed: receipt.GasConsumed,

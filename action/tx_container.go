@@ -136,7 +136,7 @@ func (etx *txContainer) Size() uint32 {
 
 func (etx *txContainer) Action() Action { return etx }
 
-func (etx *txContainer) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
+func (etx *txContainer) ToEthTx() (*types.Transaction, error) {
 	return etx.tx, nil
 }
 
