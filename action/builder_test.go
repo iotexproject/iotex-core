@@ -161,7 +161,7 @@ func TestEthTxUtils(t *testing.T) {
 	act := NewClaimFromRewardingFund(big.NewInt(1), addr, []byte("any"))
 	elp := (&EnvelopeBuilder{}).SetNonce(100).SetGasLimit(21000).
 		SetGasPrice(big.NewInt(101)).SetAction(act).Build()
-	tx, err := elp.ToEthTx(chainID, iotextypes.Encoding_ETHEREUM_EIP155)
+	tx, err := elp.ToEthTx()
 	r.NoError(err)
 
 	var (
