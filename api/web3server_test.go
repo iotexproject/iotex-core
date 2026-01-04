@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
@@ -14,6 +15,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -27,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -1203,7 +1208,6 @@ func TestLocalAPICache(t *testing.T) {
 }
 
 func TestDebugTraceTransaction(t *testing.T) {
-	t.Skip("TODO(pectra): fix trace")
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1217,10 +1221,20 @@ func TestDebugTraceTransaction(t *testing.T) {
 	require.NoError(err)
 	tsfhash, err := tsf.Hash()
 	require.NoError(err)
-	receipt := &action.Receipt{Status: 1, BlockHeight: 1, ActionHash: tsfhash, GasConsumed: 100000}
+	receipt := &action.Receipt{Status: 1, BlockHeight: 1, ActionHash: tsfhash, GasConsumed: 100000, Output: []byte{0x01}}
 	structLogger := &logger.StructLogger{}
+	ethTx, err := tsf.ToEthTx()
+	require.NoError(err)
+	structLogger.OnTxStart(&tracing.VMContext{}, ethTx, common.BytesToAddress(tsf.SenderAddress().Bytes()))
+	structLogger.OnExit(0, receipt.Output, 0, nil, false)
+	structLogger.OnTxEnd(evm.ToEthReceipt(receipt), nil)
+	tracer := &tracers.Tracer{
+		Hooks:     structLogger.Hooks(),
+		GetResult: structLogger.GetResult,
+		Stop:      structLogger.Stop,
+	}
 
-	core.EXPECT().TraceTransaction(ctx, gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, structLogger, nil)
+	core.EXPECT().TraceTransaction(ctx, gomock.Any(), gomock.Any()).AnyTimes().Return(receipt.Output, receipt, tracer, nil)
 
 	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
@@ -1232,8 +1246,8 @@ func TestDebugTraceTransaction(t *testing.T) {
 		in := gjson.Parse(`{"params":["` + hex.EncodeToString(tsfhash[:]) + `"]}`)
 		ret, err := web3svr.traceTransaction(ctx, &in)
 		require.NoError(err)
-		rlt, ok := ret.(*debugTraceTransactionResult)
-		require.True(ok)
+		rlt := &debugTraceTransactionResult{}
+		require.NoError(json.Unmarshal(ret.(json.RawMessage), rlt))
 		require.Equal("0x01", rlt.ReturnValue)
 		require.False(rlt.Failed)
 		require.Equal(uint64(100000), rlt.Gas)
@@ -1243,7 +1257,6 @@ func TestDebugTraceTransaction(t *testing.T) {
 }
 
 func TestDebugTraceCall(t *testing.T) {
-	t.Skip("TODO(pectra): fix trace")
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1257,16 +1270,26 @@ func TestDebugTraceCall(t *testing.T) {
 	require.NoError(err)
 	tsfhash, err := tsf.Hash()
 	require.NoError(err)
-	receipt := &action.Receipt{Status: 1, BlockHeight: 1, ActionHash: tsfhash, GasConsumed: 100000}
+	receipt := &action.Receipt{Status: 1, BlockHeight: 1, ActionHash: tsfhash, GasConsumed: 100000, Output: []byte{0x01}}
 	structLogger := &logger.StructLogger{}
+	ethTx, err := tsf.ToEthTx()
+	require.NoError(err)
+	structLogger.OnTxStart(&tracing.VMContext{}, ethTx, common.BytesToAddress(tsf.SenderAddress().Bytes()))
+	structLogger.OnExit(0, receipt.Output, 0, nil, false)
+	structLogger.OnTxEnd(evm.ToEthReceipt(receipt), nil)
+	tracer := &tracers.Tracer{
+		Hooks:     structLogger.Hooks(),
+		GetResult: structLogger.GetResult,
+		Stop:      structLogger.Stop,
+	}
 
-	core.EXPECT().TraceCall(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, structLogger, nil)
+	core.EXPECT().TraceCall(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(receipt.Output, receipt, tracer, nil)
 
 	in := gjson.Parse(`{"method":"debug_traceCall","params":[{"from":null,"to":"0x6b175474e89094c44da98b954eedeac495271d0f","data":"0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE"}],"id":1,"jsonrpc":"2.0"}`)
 	ret, err := web3svr.traceCall(ctx, &in)
 	require.NoError(err)
-	rlt, ok := ret.(*debugTraceTransactionResult)
-	require.True(ok)
+	rlt := &debugTraceTransactionResult{}
+	require.NoError(json.Unmarshal(ret.(json.RawMessage), rlt))
 	require.Equal("0x01", rlt.ReturnValue)
 	require.False(rlt.Failed)
 	require.Equal(uint64(100000), rlt.Gas)

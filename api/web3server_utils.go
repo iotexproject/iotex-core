@@ -602,7 +602,7 @@ func fromLoggerStructLogs(logs []logger.StructLog) []apitypes.StructLog {
 	for index, log := range logs {
 		ret[index] = apitypes.StructLog{
 			Pc:            log.Pc,
-			Op:            log.Op,
+			Op:            apitypes.StructLogVmOpCode(log.Op),
 			Gas:           math.HexOrDecimal64(log.Gas),
 			GasCost:       math.HexOrDecimal64(log.GasCost),
 			Memory:        log.Memory,

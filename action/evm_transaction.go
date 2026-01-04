@@ -17,6 +17,7 @@ type (
 		TxData
 		SanityCheck() error
 		Proto() *iotextypes.ActionCore
+		Action() Action
 	}
 )
 
