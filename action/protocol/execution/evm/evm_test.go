@@ -476,7 +476,7 @@ func TestGasEstimate(t *testing.T) {
 func gasExecuteInEVM(gas, consume, refund, size uint64) (uint64, uint64, error) {
 	remainingGas := gas
 
-	intriGas, err := intrinsicGas(size, nil)
+	intriGas, err := intrinsicGas(size, nil, nil)
 	if err != nil {
 		return 0, 0, err
 	}

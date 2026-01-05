@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-redis/redis/v8"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
@@ -185,7 +186,7 @@ func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope,
 	if err != nil {
 		return nil, err
 	}
-	if isContract {
+	if isContract || len(tx.SetCodeAuthorizations()) > 0 {
 		return elpBuilder.BuildExecution(tx)
 	}
 	return elpBuilder.BuildTransfer(tx)
@@ -286,16 +287,17 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 }
 
 type callMsg struct {
-	From              address.Address       // the sender of the 'transaction'
-	To                string                // the destination contract (empty for contract creation)
-	Gas               uint64                // if 0, the call executes with near-infinite gas
-	GasPrice          *big.Int              // wei <-> gas exchange ratio
-	GasFeeCap         *big.Int              // EIP-1559 fee cap per gas.
-	GasTipCap         *big.Int              // EIP-1559 tip per gas.
-	Value             *big.Int              // amount of wei sent along with the call
-	Data              []byte                // input data, usually an ABI-encoded contract method invocation
-	AccessList        types.AccessList      // EIP-2930 access list.
-	BlockNumberOrHash rpc.BlockNumberOrHash // EIP-1898
+	From              address.Address              // the sender of the 'transaction'
+	To                string                       // the destination contract (empty for contract creation)
+	Gas               uint64                       // if 0, the call executes with near-infinite gas
+	GasPrice          *big.Int                     // wei <-> gas exchange ratio
+	GasFeeCap         *big.Int                     // EIP-1559 fee cap per gas.
+	GasTipCap         *big.Int                     // EIP-1559 tip per gas.
+	Value             *big.Int                     // amount of wei sent along with the call
+	Data              []byte                       // input data, usually an ABI-encoded contract method invocation
+	AccessList        types.AccessList             // EIP-2930 access list.
+	AuthorizationList []types.SetCodeAuthorization // EIP-7702 set code authorization list.
+	BlockNumberOrHash rpc.BlockNumberOrHash        // EIP-1898
 }
 
 func parseCallObject(in *gjson.Result) (*callMsg, error) {
@@ -309,6 +311,7 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 		value     *big.Int = big.NewInt(0)
 		data      []byte
 		acl       types.AccessList
+		auths     []types.SetCodeAuthorization
 		bn        = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
 		err       error
 	)
@@ -379,6 +382,11 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 			return nil, errors.Wrapf(err, "failed to unmarshal access list %s", accessList.Raw)
 		}
 	}
+	if authList := in.Get("params.0.authorizationList"); authList.Exists() {
+		if err := json.Unmarshal([]byte(authList.Raw), &auths); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal authorization list %s", authList.Raw)
+		}
+	}
 	if bnParam := in.Get("params.1"); bnParam.Exists() {
 		if err = bn.UnmarshalJSON([]byte(bnParam.Raw)); err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
@@ -394,6 +402,7 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 		Value:             value,
 		Data:              data,
 		AccessList:        acl,
+		AuthorizationList: auths,
 		BlockNumberOrHash: bn,
 	}, nil
 }
@@ -442,6 +451,19 @@ func (call *callMsg) toUnsignedTx(chainID uint32) (*types.Transaction, error) {
 		toAddr = &addr
 	}
 	switch {
+	case len(call.AuthorizationList) > 0:
+		if toAddr == nil {
+			return nil, errors.Wrap(action.ErrSetCodeTxCreate, "contract creation with SetCodeTx is not supported")
+		}
+		tx = types.NewTx(&types.SetCodeTx{
+			ChainID:    uint256.NewInt(uint64(chainID)),
+			Gas:        call.Gas,
+			To:         *toAddr,
+			Value:      uint256.MustFromBig(call.Value),
+			Data:       call.Data,
+			AccessList: call.AccessList,
+			AuthList:   call.AuthorizationList,
+		})
 	case call.GasFeeCap != nil || call.GasTipCap != nil:
 		tx = types.NewTx(&types.DynamicFeeTx{
 			ChainID:    big.NewInt(int64(chainID)),

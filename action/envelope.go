@@ -53,6 +53,7 @@ type (
 		TxDynamicGas
 		AccessList() types.AccessList
 		TxBlob
+		SetCodeAuthorizations() []types.SetCodeAuthorization
 	}
 
 	TxCommonInternal interface {
@@ -146,6 +147,10 @@ func (elp *envelope) BlobTxSidecar() *types.BlobTxSidecar {
 	return elp.common.BlobTxSidecar()
 }
 
+func (elp *envelope) SetCodeAuthorizations() []types.SetCodeAuthorization {
+	return elp.common.SetCodeAuthorizations()
+}
+
 func (elp *envelope) Value() *big.Int {
 	if exec, ok := elp.Action().(*Execution); ok {
 		return exec.Value()
@@ -213,6 +218,9 @@ func (elp *envelope) IntrinsicGas() (uint64, error) {
 	if acl := elp.AccessList(); len(acl) > 0 {
 		gas += uint64(len(acl)) * TxAccessListAddressGas
 		gas += uint64(acl.StorageKeys()) * TxAccessListStorageKeyGas
+	}
+	if auths := elp.SetCodeAuthorizations(); len(auths) > 0 {
+		gas += uint64(len(auths)) * CallNewAccountGas
 	}
 	return gas, nil
 }
@@ -303,6 +311,11 @@ func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 		}
 	case BlobTxType:
 		tx := BlobTx{}
+		if err = tx.fromProto(pbAct); err == nil {
+			elp.common = &tx
+		}
+	case SetCodeTxType:
+		tx := SetCodeTx{}
 		if err = tx.fromProto(pbAct); err == nil {
 			elp.common = &tx
 		}
