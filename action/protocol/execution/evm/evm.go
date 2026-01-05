@@ -90,6 +90,7 @@ type (
 		gas         uint64
 		data        []byte
 		accessList  types.AccessList
+		authList    []types.SetCodeAuthorization
 		evmConfig   vm.Config
 		chainConfig *params.ChainConfig
 		genesis     genesis.Blockchain
@@ -214,6 +215,7 @@ func newParams(
 		gasLimit,
 		execution.Data(),
 		execution.AccessList(),
+		execution.SetCodeAuthorizations(),
 		vmConfig,
 		chainConfig,
 		g.Blockchain,
@@ -496,6 +498,14 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 		cancunTimestamp := (uint64)(cancunTime.Unix())
 		chainConfig.CancunTime = &cancunTimestamp
 	}
+	// enable Prague
+	pragueTime, err := getBlockTime(g.ToBeEnabledBlockHeight)
+	if err != nil {
+		return nil, err
+	} else if pragueTime != nil {
+		pragueTimestamp := (uint64)(pragueTime.Unix())
+		chainConfig.PragueTime = &pragueTimestamp
+	}
 	return &chainConfig, nil
 }
 
@@ -536,7 +546,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
 	}
-	intriGas, err := intrinsicGas(uint64(len(evmParams.data)), accessList)
+	intriGas, err := intrinsicGas(uint64(len(evmParams.data)), accessList, evmParams.authList)
 	if err != nil {
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
 	}
@@ -576,6 +586,24 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		}
 	} else {
 		stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1, tracing.NonceChangeUnspecified)
+
+		// Apply EIP-7702 authorizations.
+		for _, auth := range evmParams.authList {
+			// Note errors are ignored, we simply skip invalid authorizations here.
+			if err := applyAuthorization(evm, stateDB, &auth); err != nil {
+				log.T(ctx).Debug("failed to apply authorization", zap.Error(err), zap.String("auth", auth.Address.String()))
+			}
+		}
+
+		// Perform convenience warming of sender's delegation target. Although the
+		// sender is already warmed in Prepare(..), it's possible a delegation to
+		// the account was deployed during this transaction. To handle correctly,
+		// simply wait until the final state of delegations is determined before
+		// performing the resolution and warming.
+		if addr, ok := types.ParseDelegation(stateDB.GetCode(*evmParams.contract)); ok {
+			stateDB.AddAddressToAccessList(addr)
+		}
+
 		// process contract
 		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, amount)
 	}
@@ -692,7 +720,7 @@ func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) io
 }
 
 // intrinsicGas returns the intrinsic gas of an execution
-func intrinsicGas(size uint64, list types.AccessList) (uint64, error) {
+func intrinsicGas(size uint64, list types.AccessList, authList []types.SetCodeAuthorization) (uint64, error) {
 	if action.ExecutionDataGas == 0 {
 		panic("payload gas price cannot be zero")
 	}
@@ -705,7 +733,11 @@ func intrinsicGas(size uint64, list types.AccessList) (uint64, error) {
 	if (math.MaxInt64-action.ExecutionBaseIntrinsicGas-accessListGas)/action.ExecutionDataGas < size {
 		return 0, action.ErrInsufficientFunds
 	}
-	return size*action.ExecutionDataGas + action.ExecutionBaseIntrinsicGas + accessListGas, nil
+	var authListGas uint64
+	if len(authList) > 0 {
+		authListGas = uint64(len(authList)) * action.CallNewAccountGas
+	}
+	return size*action.ExecutionDataGas + action.ExecutionBaseIntrinsicGas + accessListGas + authListGas, nil
 }
 
 // SimulateExecution simulates the execution in evm
@@ -787,4 +819,60 @@ func ExtractRevertMessage(ret []byte) string {
 	msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
 	revertMsg := string(data[64 : 64+msgLength])
 	return revertMsg
+}
+
+func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization) (authority common.Address, err error) {
+	chainID := evm.ChainConfig().ChainID.Uint64()
+	// Verify chain ID is 0 or equal to current chain ID.
+	if !auth.ChainID.IsZero() && chainID != (auth.ChainID.Uint64()) {
+		return authority, errors.Errorf("authorization chain ID %v does not match current chain ID %v", auth.ChainID, chainID)
+	}
+	// Limit nonce to 2^64-1 per EIP-2681.
+	if auth.Nonce+1 < auth.Nonce {
+		return authority, errors.Errorf("authorization nonce %d exceeds maximum value", auth.Nonce)
+	}
+	// Validate signature values and recover authority.
+	authority, err = auth.Authority()
+	if err != nil {
+		return authority, errors.Wrap(err, "failed to recover authority from authorization")
+	}
+	// Check the authority account
+	//  1) doesn't have code or has exisiting delegation
+	//  2) matches the auth's nonce
+	//
+	// Note it is added to the access list even if the authorization is invalid.
+	sdb.AddAddressToAccessList(authority)
+	code := sdb.GetCode(authority)
+	if _, ok := types.ParseDelegation(code); len(code) != 0 && !ok {
+		return authority, errors.Errorf("authorization destination %s has code", authority.String())
+	}
+	if have := sdb.GetNonce(authority); have != auth.Nonce {
+		return authority, errors.Errorf("authorization nonce %d does not match account %s nonce %d", auth.Nonce, authority.String(), have)
+	}
+	return authority, nil
+}
+
+func applyAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization) error {
+	authority, err := validateAuthorization(evm, sdb, auth)
+	if err != nil {
+		return err
+	}
+	// If the account already exists in state, refund the new account cost
+	// charged in the intrinsic calculation.
+	if sdb.Exist(authority) {
+		sdb.AddRefund(action.CallNewAccountGas - action.TxAuthTupleGas)
+	}
+
+	// Update nonce and account code.
+	sdb.SetNonce(authority, auth.Nonce+1, tracing.NonceChangeAuthorization)
+	if auth.Address == (common.Address{}) {
+		// Delegation to zero address means clear.
+		sdb.SetCode(authority, nil)
+		return nil
+	}
+
+	// Otherwise install delegation to auth.Address.
+	sdb.SetCode(authority, types.AddressToDelegation(auth.Address))
+
+	return nil
 }

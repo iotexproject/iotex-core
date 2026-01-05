@@ -42,7 +42,7 @@ func (etx *txContainer) typeToEncoding() (iotextypes.Encoding, error) {
 			// tx has pre-EIP155 signature
 			return iotextypes.Encoding_ETHEREUM_UNPROTECTED, nil
 		}
-	case types.AccessListTxType, types.DynamicFeeTxType, types.BlobTxType:
+	case types.AccessListTxType, types.DynamicFeeTxType, types.BlobTxType, types.SetCodeTxType:
 	default:
 		return 0, ErrNotSupported
 	}
@@ -108,6 +108,10 @@ func (etx *txContainer) BlobHashes() []common.Hash {
 
 func (etx *txContainer) BlobTxSidecar() *types.BlobTxSidecar {
 	return etx.tx.BlobTxSidecar()
+}
+
+func (etx *txContainer) SetCodeAuthorizations() []types.SetCodeAuthorization {
+	return etx.tx.SetCodeAuthorizations()
 }
 
 func (etx *txContainer) Value() *big.Int {
@@ -204,12 +208,13 @@ func (etx *txContainer) Unfold(selp *SealedEnvelope, ctx context.Context, checke
 	if err != nil {
 		return err
 	}
-	if isContract {
-		elp, err = elpBuilder.BuildExecution(etx.tx)
-	} else if isStaking {
+	if isStaking {
 		elp, err = elpBuilder.BuildStakingAction(etx.tx)
 	} else if isRewarding {
 		elp, err = elpBuilder.BuildRewardingAction(etx.tx)
+	} else if isContract || len(etx.SetCodeAuthorizations()) > 0 {
+		// consider SetCodeTx as contract execution
+		elp, err = elpBuilder.BuildExecution(etx.tx)
 	} else {
 		elp, err = elpBuilder.BuildTransfer(etx.tx)
 	}
@@ -240,6 +245,9 @@ func (etx *txContainer) IntrinsicGas() (uint64, error) {
 	if acl := etx.tx.AccessList(); len(acl) > 0 {
 		gas += uint64(len(acl)) * TxAccessListAddressGas
 		gas += uint64(acl.StorageKeys()) * TxAccessListStorageKeyGas
+	}
+	if auths := etx.tx.SetCodeAuthorizations(); len(auths) > 0 {
+		gas += uint64(len(auths)) * CallNewAccountGas
 	}
 	return gas, nil
 }

@@ -89,6 +89,8 @@ func (tx *AccessListTx) BlobHashes() []common.Hash { return nil }
 
 func (tx *AccessListTx) BlobTxSidecar() *types.BlobTxSidecar { return nil }
 
+func (tx *AccessListTx) SetCodeAuthorizations() []types.SetCodeAuthorization { return nil }
+
 func (tx *AccessListTx) SanityCheck() error {
 	if tx.gasPrice == nil {
 		return ErrMissRequiredField

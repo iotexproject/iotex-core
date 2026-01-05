@@ -87,6 +87,8 @@ func (tx *LegacyTx) BlobHashes() []common.Hash { return nil }
 
 func (tx *LegacyTx) BlobTxSidecar() *types.BlobTxSidecar { return nil }
 
+func (tx *LegacyTx) SetCodeAuthorizations() []types.SetCodeAuthorization { return nil }
+
 func (tx *LegacyTx) SanityCheck() error {
 	// Reject execution of negative gas price
 	if tx.gasPrice != nil && tx.gasPrice.Sign() < 0 {

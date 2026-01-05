@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	. "github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 func TestGenerateRlp(t *testing.T) {
@@ -313,6 +314,14 @@ var (
 			[]byte{1, 2, 3},
 			"526b46d97b334cc5edb6095448406c9df74c8d6310d22044cb9a3a2a305bc398",
 		},
+		{
+			"setcode", 120, 21000, "1000000000", "0",
+			"0x3141df3f2e4415533bb6d6be2A351B2db9ee84EF",
+			_evmNetworkID,
+			iotextypes.Encoding_ETHEREUM_EIP155,
+			nil,
+			"71c1e2127a2fd8b944fc00691df6cb734a75afe4c1063c3fac15a3e1a5abda09",
+		},
 	}
 )
 
@@ -375,7 +384,7 @@ func TestEthTxDecodeVerify(t *testing.T) {
 				case types.LegacyTxType:
 					require.True(tx.Protected())
 					require.Less(uint64(28), recID)
-				case types.AccessListTxType, types.DynamicFeeTxType, types.BlobTxType:
+				case types.AccessListTxType, types.DynamicFeeTxType, types.BlobTxType, types.SetCodeTxType:
 					require.True(tx.Protected())
 					// // accesslist tx has V = 0, 1
 					require.LessOrEqual(recID, uint64(1))
@@ -881,7 +890,7 @@ func convertToNativeProto(tx *types.Transaction, actType string) (*iotextypes.Ac
 	switch actType {
 	case "transfer", "blobtx":
 		elp, err = elpBuilder.BuildTransfer(tx)
-	case "execution", "unprotected", "accesslist", "dynamicfee":
+	case "execution", "unprotected", "accesslist", "dynamicfee", "setcode":
 		elp, err = elpBuilder.BuildExecution(tx)
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
 		"transferStake", "candidateRegister", "candidateUpdate", "candidateActivate", "candidateEndorsement", "candidateTransferOwnership",
@@ -923,7 +932,7 @@ func checkContract(to string, actType string) func(context.Context, *common.Addr
 		return func(context.Context, *common.Address) (bool, bool, bool, error) {
 			return false, false, false, nil
 		}
-	case "execution", "unprotected", "accesslist", "dynamicfee":
+	case "execution", "unprotected", "accesslist", "dynamicfee", "setcode":
 		return func(context.Context, *common.Address) (bool, bool, bool, error) {
 			return true, false, false, nil
 		}
@@ -1062,10 +1071,44 @@ func generateRLPTestRaw(sk *ecdsa.PrivateKey, test *rlpTest) string {
 			BlobHashes: blob.hashes(),
 			Sidecar:    blob.sidecar,
 		}
+	case "setcode":
+		price := new(uint256.Int)
+		if err := price.SetFromDecimal(test.price); err != nil {
+			panic(err.Error())
+		}
+		value := new(uint256.Int)
+		if err := value.SetFromDecimal(test.amount); err != nil {
+			panic(err.Error())
+		}
+		sk := identityset.PrivateKey(1)
+		auth, err := types.SignSetCode(sk.EcdsaPrivateKey().(*ecdsa.PrivateKey), types.SetCodeAuthorization{
+			ChainID: *uint256.NewInt(uint64(test.chainID)),
+			Address: common.Address(identityset.Address(5).Bytes()),
+			Nonce:   3,
+		})
+		if err != nil {
+			panic(err.Error())
+		}
+		auths := []types.SetCodeAuthorization{auth}
+		tx = &types.SetCodeTx{
+			ChainID:   uint256.NewInt(uint64(test.chainID)),
+			Nonce:     test.nonce,
+			GasTipCap: price,
+			GasFeeCap: new(uint256.Int).Lsh(price, 1),
+			Gas:       test.limit,
+			Value:     value,
+			Data:      test.data,
+			AccessList: types.AccessList{
+				{Address: common.Address{}, StorageKeys: nil},
+				{Address: _c1, StorageKeys: []common.Hash{_k1, {}, _k3}},
+				{Address: _c2, StorageKeys: []common.Hash{_k2, _k3, _k4, _k1}},
+			},
+			AuthList: auths,
+		}
 	default:
 		panic("not supported")
 	}
-	signer := types.NewCancunSigner(big.NewInt(int64(test.chainID)))
+	signer := types.LatestSignerForChainID(big.NewInt(int64(test.chainID)))
 	signedtx := types.MustSignNewTx(sk, signer, tx)
 	return hex.EncodeToString(MustNoErrorV(signedtx.MarshalBinary()))
 }
