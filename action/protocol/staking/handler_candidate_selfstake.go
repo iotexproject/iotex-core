@@ -16,6 +16,7 @@ const (
 	handleCandidateActivate = "candidateActivate"
 
 	candidateNoSelfStakeBucketIndex = math.MaxUint64
+	candidateExitRequested          = math.MaxUint64
 )
 
 func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.CandidateActivate, csm CandidateStateManager,
@@ -67,6 +68,54 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 		return log, nil, csmErrorToHandleError(cand.GetIdentifier().String(), err)
 	}
 	return log, nil, nil
+}
+
+func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.CandidateDeactivate, csm CandidateStateManager) (*receiptLog, []*action.TransactionLog, error) {
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.NoCandidateExitQueue {
+		return nil, nil, errors.New("no candidate exit queue")
+	}
+	actCtx := protocol.MustGetActionCtx(ctx)
+	cand := csm.GetByOwner(actCtx.Caller)
+	if cand == nil {
+		return nil, nil, errCandNotExist
+	}
+	if cand.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
+		return nil, nil, ErrInvalidSelfStkIndex
+	}
+	id := cand.GetIdentifier()
+	switch act.Op() {
+	case action.CandidateDeactivateOpRequest:
+		if err := csm.requestExit(id); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to exit candidate")
+		}
+		topics, eventData, err := action.PackCandidateDeactivationRequestedEvent(id)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &receiptLog{
+			addr:                  p.addr.String(),
+			postFairbankMigration: true,
+			topics:                topics,
+			data:                  eventData,
+		}, nil, nil
+	case action.CandidateDeactivateOpCancel:
+		if err := csm.cancelExitRequest(id); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to exit candidate")
+		}
+		topics, eventData, err := action.PackCandidateDeactivationCanceledEvent(id)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &receiptLog{
+			addr:                  p.addr.String(),
+			postFairbankMigration: true,
+			topics:                topics,
+			data:                  eventData,
+		}, nil, nil
+	default:
+		return nil, nil, errors.New("invalid operation")
+	}
 }
 
 func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateStateManager, esm *EndorsementStateManager, bucket *VoteBucket, cand *Candidate) ReceiptError {

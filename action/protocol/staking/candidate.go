@@ -31,6 +31,7 @@ type (
 		Reward             address.Address
 		Identifier         address.Address
 		BLSPubKey          []byte // BLS public key
+		ExitBlock          uint64
 		Name               string
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
