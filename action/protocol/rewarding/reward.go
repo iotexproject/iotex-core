@@ -10,6 +10,7 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -28,6 +29,8 @@ import (
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
+
+type RewardHistory = rewardHistory
 
 // rewardHistory is the dummy struct to record a reward. Only key matters.
 type rewardHistory struct{}
@@ -114,6 +117,24 @@ func (p *Protocol) GrantBlockReward(
 ) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+
+	if fCtx.UseV2Storage {
+		var indexBytes [8]byte
+		enc.MachineEndian.PutUint64(indexBytes[:], blkCtx.BlockHeight)
+		key := append(_blockRewardHistoryKeyPrefix, indexBytes[:]...)
+		err := p.deleteStateV1(sm, key, &rewardHistory{}, protocol.ErigonStoreOnlyOption())
+		if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {
+			return nil, err
+		}
+		defer func() {
+			err = p.putStateV1(sm, key, &rewardHistory{}, protocol.ErigonStoreOnlyOption())
+			if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {
+				log.L().Panic("failed to put block reward history in Erigon store", zap.Error(err))
+			}
+		}()
+	}
+
 	if err := p.assertNoRewardYet(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
