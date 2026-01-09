@@ -539,12 +539,18 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		return nil, 0, 0, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
 	}
 	var (
-		accessList types.AccessList
+		accessList   types.AccessList
+		floorDataGas uint64
 	)
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, evmParams.evmConfig)
 	evm.SetTxContext(evmParams.txCtx)
 	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
+	}
+	traceGasChange := func(old, new uint64, reason tracing.GasChangeReason) {
+		if t := evm.Config.Tracer; t != nil && t.OnGasChange != nil {
+			t.OnGasChange(old, new, reason)
+		}
 	}
 	intriGas, err := intrinsicGas(uint64(len(evmParams.data)), accessList, evmParams.authList)
 	if err != nil {
@@ -553,12 +559,22 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 	if remainingGas < intriGas {
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, action.ErrInsufficientFunds
 	}
+	traceGasChange(remainingGas, remainingGas-intriGas, tracing.GasChangeTxIntrinsicGas)
 	remainingGas -= intriGas
 
 	// Set up the initial access list
 	rules := chainConfig.Rules(evm.Context.BlockNumber, g.IsSumatra(evmParams.blkCtx.BlockHeight), evmParams.context.Time)
 	if rules.IsBerlin {
 		stateDB.Prepare(rules, evmParams.txCtx.Origin, evmParams.context.Coinbase, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
+	}
+	if rules.IsPrague {
+		floorDataGas, err = action.FloorDataGas(evmParams.data)
+		if err != nil {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
+		}
+		if evmParams.gas < floorDataGas {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, errors.Wrapf(action.ErrFloorDataGas, "have %d, want %d", evmParams.gas, floorDataGas)
+		}
 	}
 	var (
 		contractRawAddress = action.EmptyAddress
@@ -644,6 +660,17 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		refund = stateDB.GetRefund()
 	}
 	remainingGas += refund
+	traceGasChange(remainingGas-refund, remainingGas, tracing.GasChangeTxRefunds)
+
+	if rules.IsPrague {
+		// After EIP-7623: Data-heavy transactions pay the floor gas.
+		gasUsed := evmParams.gas - remainingGas
+		if gasUsed < floorDataGas {
+			prev := remainingGas
+			remainingGas = evmParams.gas - floorDataGas
+			traceGasChange(prev, remainingGas, tracing.GasChangeTxDataFloor)
+		}
+	}
 
 	errCode := iotextypes.ReceiptStatus_Success
 	if evmErr != nil {
@@ -737,6 +764,10 @@ func intrinsicGas(size uint64, list types.AccessList, authList []types.SetCodeAu
 	if len(authList) > 0 {
 		authListGas = uint64(len(authList)) * action.CallNewAccountGas
 	}
+	log.L().Debug("Intrinsic Gas Calculation", zap.Uint64("sizeGas", size*action.ExecutionDataGas),
+		zap.Uint64("baseGas", action.ExecutionBaseIntrinsicGas),
+		zap.Uint64("accessListGas", accessListGas),
+		zap.Uint64("authListGas", authListGas))
 	return size*action.ExecutionDataGas + action.ExecutionBaseIntrinsicGas + accessListGas + authListGas, nil
 }
 
@@ -860,6 +891,7 @@ func applyAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorizati
 	// If the account already exists in state, refund the new account cost
 	// charged in the intrinsic calculation.
 	if sdb.Exist(authority) {
+		log.L().Debug("EVM Authorization Refund", zap.Uint64("refund", action.CallNewAccountGas-action.TxAuthTupleGas))
 		sdb.AddRefund(action.CallNewAccountGas - action.TxAuthTupleGas)
 	}
 
