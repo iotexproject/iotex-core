@@ -1064,7 +1064,7 @@ func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) []by
 		return nil
 	}
 	prev, err := contract.GetCode()
-	if err != nil {
+	if err != nil && !errors.Is(err, state.ErrStateNotExist) {
 		log.T(stateDB.ctx).Error("Failed to get code.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		stateDB.logError(err)
 	}
@@ -1081,7 +1081,7 @@ func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k commo
 		return common.Hash{}
 	}
 	v, err := contract.GetCommittedState(hash.BytesToHash256(k[:]))
-	if err != nil {
+	if err != nil && !errors.Is(err, state.ErrStateNotExist) && !errors.Is(err, trie.ErrNotExist) {
 		log.T(stateDB.ctx).Debug("Failed to get committed state.", zap.Error(err))
 		stateDB.logError(err)
 		return common.Hash{}
@@ -1098,7 +1098,7 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 		return common.Hash{}
 	}
 	v, err := contract.GetState(hash.BytesToHash256(k[:]))
-	if err != nil {
+	if err != nil && !errors.Is(err, trie.ErrNotExist) {
 		log.T(stateDB.ctx).Debug("Failed to get state.", zap.Error(err))
 		stateDB.logError(err)
 		return common.Hash{}

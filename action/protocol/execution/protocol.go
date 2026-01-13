@@ -7,7 +7,10 @@ package execution
 
 import (
 	"context"
+	"math"
+	"math/big"
 
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -15,7 +18,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
@@ -25,6 +30,16 @@ const (
 	_executionSizeLimit32KB = uint32(32 * 1024)
 	// TODO: it works only for one instance per protocol definition now
 	_protocolID = "smart_contract"
+)
+
+// System contracts.
+var (
+	// SystemAddress is where the system-transaction is sent from as per EIP-4788
+	SystemAddress = params.SystemAddress
+
+	// EIP-2935 - Serve historical block hashes from state
+	HistoryStorageAddress = params.HistoryStorageAddress
+	HistoryStorageCode    = params.HistoryStorageCode
 )
 
 // Protocol defines the protocol of handling executions
@@ -58,6 +73,95 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 		log.S().Panic("fail to cast execution protocol")
 	}
 	return ep
+}
+
+// CreatePreStates creates states for state manager
+func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
+	g := genesis.MustExtractGenesisContext(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	if fCtx.PrePectraEVM {
+		return nil
+	}
+	// deploy the history storage contract at block
+	if blkCtx.BlockHeight == g.ToBeEnabledBlockHeight {
+		if err := p.deployHistoryBlockStorageContract(ctx, sm); err != nil {
+			return err
+		}
+	}
+	// set the block hash of previous block
+	return p.setPreviousBlockHash(ctx, sm)
+}
+
+func (p *Protocol) systemCallContext(ctx context.Context, sm protocol.StateManager) (context.Context, error) {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	systemAddr, err := address.FromBytes(SystemAddress.Bytes())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse system address")
+	}
+	acc, err := accountutil.LoadAccount(sm, systemAddr)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load system account")
+	}
+	ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+		Caller:   systemAddr,
+		Nonce:    acc.PendingNonceConsideringFreshAccount(),
+		GasPrice: big.NewInt(0),
+	})
+	blkCtx.BaseFee = nil
+	blkCtx.GasLimit = math.MaxUint64
+	ctx = protocol.WithBlockCtx(ctx, blkCtx)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		DepositGasFunc: func(ctx context.Context, sm protocol.StateManager, i *big.Int, do ...protocol.DepositOption) ([]*action.TransactionLog, error) {
+			return nil, nil
+		},
+		GetBlockHash: bcCtx.GetBlockHash,
+		GetBlockTime: bcCtx.GetBlockTime,
+	})
+	return ctx, nil
+}
+
+func (p *Protocol) deployHistoryBlockStorageContract(ctx context.Context, sm protocol.StateManager) error {
+	sctx, err := p.systemCallContext(ctx, sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create system call context")
+	}
+	contractAddr, err := address.FromBytes(HistoryStorageAddress.Bytes())
+	if err != nil {
+		return errors.Wrap(err, "failed to parse contract address")
+	}
+	if err := evm.DeploySystemContracts(sctx, sm,
+		[]address.Address{contractAddr},
+		[][]byte{HistoryStorageCode},
+	); err != nil {
+		return errors.Wrap(err, "failed to deploy history storage contract")
+	}
+	log.L().Info("Deployed history block storage contract", zap.String("address", contractAddr.String()))
+	return nil
+}
+
+func (p *Protocol) setPreviousBlockHash(ctx context.Context, sm protocol.StateManager) error {
+	sctx, err := p.systemCallContext(ctx, sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create system call context")
+	}
+	contractAddr, err := address.FromBytes(HistoryStorageAddress.Bytes())
+	if err != nil {
+		return errors.Wrap(err, "failed to parse contract address")
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(sctx)
+	actCtx := protocol.MustGetActionCtx(sctx)
+
+	// construct the envelope and execute the transaction
+	elp := action.NewEnvelope(action.NewLegacyTx(bcCtx.ChainID, actCtx.Nonce, 30_000_000, actCtx.GasPrice),
+		action.NewExecution(contractAddr.String(), big.NewInt(0), bcCtx.Tip.Hash[:]))
+	output, err := evm.HandleSystemContractCall(sctx, sm, elp)
+	if err != nil {
+		return err
+	}
+	log.L().Debug("Set previous block hash", log.Hex("hash", bcCtx.Tip.Hash[:]), log.Hex("output", output))
+	return nil
 }
 
 // Handle handles an execution

@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 // TraceStart starts tracing the execution of the action in the sealed envelope
@@ -117,19 +115,9 @@ func ToEthReceipt(receipt *action.Receipt) *types.Receipt {
 
 func newEVM(ctx context.Context, sm protocol.StateManager, execution action.TxData) (*vm.EVM, error) {
 	var stateDB stateDB
-	stateDB, err := prepareStateDB(ctx, sm)
+	stateDB, err := prepareSimulateStateDB(ctx, sm)
 	if err != nil {
 		return nil, err
-	}
-	if erigonsm, ok := sm.(interface {
-		Erigon() (*erigonstate.IntraBlockState, bool)
-	}); ok {
-		if in, dryrun := erigonsm.Erigon(); in != nil {
-			if !dryrun {
-				log.S().Panic("should not happen, use dryrun instead")
-			}
-			stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
-		}
 	}
 	evmParams, err := newParams(ctx, execution)
 	if err != nil {
