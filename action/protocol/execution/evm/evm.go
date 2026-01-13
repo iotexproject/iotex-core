@@ -244,6 +244,59 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 	return nil
 }
 
+// DeploySystemContracts deploys system contracts
+func DeploySystemContracts(ctx context.Context, sm protocol.StateManager,
+	addrs []address.Address, codes [][]byte) error {
+	if len(addrs) != len(codes) {
+		return errors.Errorf("the length of addresses %d and codes %d are not equal", len(addrs), len(codes))
+	}
+	if len(addrs) == 0 {
+		return nil
+	}
+	var stateDB stateDB
+	stateDB, err := prepareStateDB(ctx, sm)
+	if err != nil {
+		return err
+	}
+
+	for i := range addrs {
+		addr := common.BytesToAddress(addrs[i].Bytes())
+		stateDB.CreateAccount(addr)
+		stateDB.CreateContract(addr)
+		stateDB.SetCode(addr, codes[i])
+		stateDB.SetNonce(addr, stateDB.GetNonce(addr)+1, tracing.NonceChangeContractCreator)
+	}
+	return stateDB.CommitContracts()
+}
+
+// HandleSystemContractCall handles system contract call
+func HandleSystemContractCall(ctx context.Context, sm protocol.StateManager, execution action.TxData) ([]byte, error) {
+	var stateDB stateDB
+	stateDB, err := prepareStateDB(ctx, sm)
+	if err != nil {
+		return nil, err
+	}
+	params, err := newParams(ctx, execution)
+	if err != nil {
+		return nil, err
+	}
+	if params.contract == nil {
+		return nil, errors.New("contract address is nil")
+	}
+	evm := vm.NewEVM(params.context, stateDB, params.chainConfig, params.evmConfig)
+	evm.SetTxContext(params.txCtx)
+	stateDB.AddAddressToAccessList(*params.contract)
+	output, _, err := evm.Call(params.txCtx.Origin, *params.contract, params.data, params.gas, uint256.MustFromBig(params.amount))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to call system contract %s", params.contract.String())
+	}
+	stateDB.Finalise(true)
+	if err := stateDB.CommitContracts(); err != nil {
+		return nil, errors.Wrap(err, "failed to commit contracts to underlying db")
+	}
+	return output, nil
+}
+
 // ExecuteContract processes a transfer which contains a contract
 func ExecuteContract(
 	ctx context.Context,
@@ -260,17 +313,6 @@ func ExecuteContract(
 	ps, err := newParams(ctx, execution)
 	if err != nil {
 		return nil, nil, err
-	}
-	if erigonsm, ok := sm.(interface {
-		Erigon() (*erigonstate.IntraBlockState, bool)
-	}); ok {
-		if in, dryrun := erigonsm.Erigon(); in != nil {
-			if dryrun {
-				stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
-			} else {
-				stateDB = NewErigonStateDBAdapter(stateDB.(*StateDBAdapter), in)
-			}
-		}
 	}
 	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ctx, ps, stateDB)
 	if err != nil {
@@ -353,7 +395,7 @@ func ReadContractStorage(
 		},
 	))
 	var stateDB stateDB
-	stateDB, err := prepareStateDB(ctx, sm)
+	stateDB, err := prepareStateDBAdapter(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +429,17 @@ func ReadContractCode(
 		},
 	))
 	var stateDB stateDB
-	stateDB, err := prepareStateDB(ctx, sm)
+	stateDB, err := prepareSimulateStateDB(ctx, sm)
+	if err != nil {
+		return nil, err
+	}
+	code := stateDB.GetCode(common.BytesToAddress(contract.Bytes()))
+	return code, nil
+}
+
+func prepareSimulateStateDB(ctx context.Context, sm protocol.StateManager) (stateDB, error) {
+	var stateDB stateDB
+	stateDB, err := prepareStateDBAdapter(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
@@ -401,11 +453,30 @@ func ReadContractCode(
 			stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
 		}
 	}
-	code := stateDB.GetCode(common.BytesToAddress(contract.Bytes()))
-	return code, nil
+	return stateDB, nil
 }
 
-func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdapter, error) {
+func prepareStateDB(ctx context.Context, sm protocol.StateManager) (stateDB, error) {
+	var stateDB stateDB
+	stateDB, err := prepareStateDBAdapter(ctx, sm)
+	if err != nil {
+		return nil, err
+	}
+	if erigonsm, ok := sm.(interface {
+		Erigon() (*erigonstate.IntraBlockState, bool)
+	}); ok {
+		if in, dryrun := erigonsm.Erigon(); in != nil {
+			if dryrun {
+				stateDB = NewErigonStateDBAdapterDryrun(stateDB.(*StateDBAdapter), in)
+			} else {
+				stateDB = NewErigonStateDBAdapter(stateDB.(*StateDBAdapter), in)
+			}
+		}
+	}
+	return stateDB, nil
+}
+
+func prepareStateDBAdapter(ctx context.Context, sm protocol.StateManager) (*StateDBAdapter, error) {
 	var (
 		actionCtx  = protocol.MustGetActionCtx(ctx)
 		blkCtx     = protocol.MustGetBlockCtx(ctx)
