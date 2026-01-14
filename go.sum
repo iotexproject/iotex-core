@@ -627,8 +627,8 @@ github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c h1:qSH
 github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
 github.com/influxdata/line-protocol v0.0.0-20200327222509-2487e7298839 h1:W9WBk7wlPfJLvMCdtV4zPulc4uCPrlywQOmbFOhgQNU=
 github.com/influxdata/line-protocol v0.0.0-20200327222509-2487e7298839/go.mod h1:xaLFMmpvUxqXtVkUJfg9QmT88cDaCJ3ZKgdZ78oO8Qo=
-github.com/iotexproject/go-ethereum v1.7.4-0.20251229031914-43224fa51b0e h1:hZIYnx8CIjsroidhPVXuJyFHWP/xYHxDiAQiRseKCGk=
-github.com/iotexproject/go-ethereum v1.7.4-0.20251229031914-43224fa51b0e/go.mod h1:jwOeu6lAFPwW5ewmovizj6w5Zn+VKbySwTSkj5eoEGU=
+github.com/iotexproject/go-ethereum v1.7.4-0.20260114032628-a8ad6229e289 h1:ELZ6NKud7C4eEcXEPKsqwT2D7JWHfzeiwvsq1qqXU7s=
+github.com/iotexproject/go-ethereum v1.7.4-0.20260114032628-a8ad6229e289/go.mod h1:jwOeu6lAFPwW5ewmovizj6w5Zn+VKbySwTSkj5eoEGU=
 github.com/iotexproject/go-fsm v1.0.0 h1:Zrg9JnNDUZg4Anpj6oa0Tk4+sXbHTpJzI0v5/Cj5N6A=
 github.com/iotexproject/go-fsm v1.0.0/go.mod h1:t3aYXtCCcQxyS7oduQZyuUpPnVI4ddFTwbAagHN7fT0=
 github.com/iotexproject/go-p2p v0.3.7 h1:NtGvLb9MsLYdl+VhUkkXoulVMEU1iSAyYIP6F9FSaI0=
