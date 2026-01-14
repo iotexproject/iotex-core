@@ -1342,6 +1342,9 @@ func TestPragueEVM(t *testing.T) {
 	t.Run("eip2935-historical_block_hashes", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-prague/historical_block_hashes.json")
 	})
+	t.Run("eip2537-bls12381", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-prague/bls12381.json")
+	})
 }
 
 func benchmarkHotContractWithFactory(b *testing.B, async bool) {
