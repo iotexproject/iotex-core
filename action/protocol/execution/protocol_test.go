@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"dario.cat/mergo"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/mohae/deepcopy"
@@ -261,6 +262,24 @@ func NewSmartContractTest(t *testing.T, file string) {
 	sct.run(require)
 }
 
+func NewSmartContractTestWithOverwrite(t *testing.T, file, overwrite string) {
+	require := require.New(t)
+	jsonFile, err := os.Open(file)
+	require.NoError(err)
+	sctBytes, err := io.ReadAll(jsonFile)
+	require.NoError(err)
+	sct := &SmartContractTest{}
+	require.NoError(json.Unmarshal(sctBytes, sct))
+	overwriteFile, err := os.Open(overwrite)
+	require.NoError(err)
+	overwriteBytes, err := io.ReadAll(overwriteFile)
+	require.NoError(err)
+	overwriteSCT := &SmartContractTest{}
+	require.NoError(json.Unmarshal(overwriteBytes, overwriteSCT))
+	require.NoError(sct.merge(overwriteSCT))
+	sct.run(require)
+}
+
 func readExecution(
 	bc blockchain.Blockchain,
 	sf factory.Factory,
@@ -299,6 +318,40 @@ func readExecution(
 		return nil, nil, err
 	}
 	return evm.SimulateExecution(ctx, ws, addr, elp)
+}
+
+func (sct *SmartContractTest) merge(overwrite *SmartContractTest) error {
+	if err := mergo.Merge(&sct.InitGenesis, overwrite.InitGenesis, mergo.WithOverride); err != nil {
+		return errors.Wrap(err, "failed to merge InitGenesis")
+	}
+	for i := 0; i < len(overwrite.InitBalances); i++ {
+		if i < len(sct.InitBalances) {
+			if err := mergo.Merge(&sct.InitBalances[i], overwrite.InitBalances[i], mergo.WithOverride); err != nil {
+				return errors.Wrapf(err, "failed to merge InitBalances at index %d", i)
+			}
+		} else {
+			sct.InitBalances = append(sct.InitBalances, overwrite.InitBalances[i])
+		}
+	}
+	for i := 0; i < len(overwrite.Deployments); i++ {
+		if i < len(sct.Deployments) {
+			if err := mergo.Merge(&sct.Deployments[i], overwrite.Deployments[i], mergo.WithOverride); err != nil {
+				return errors.Wrapf(err, "failed to merge Deployments at index %d", i)
+			}
+		} else {
+			sct.Deployments = append(sct.Deployments, overwrite.Deployments[i])
+		}
+	}
+	for i := 0; i < len(overwrite.Executions); i++ {
+		if i < len(sct.Executions) {
+			if err := mergo.Merge(&sct.Executions[i], overwrite.Executions[i], mergo.WithOverride); err != nil {
+				return errors.Wrapf(err, "failed to merge Executions at index %d", i)
+			}
+		} else {
+			sct.Executions = append(sct.Executions, overwrite.Executions[i])
+		}
+	}
+	return nil
 }
 
 func (sct *SmartContractTest) runExecutions(
@@ -442,9 +495,25 @@ func (sct *SmartContractTest) prepareBlockchain(
 	}
 	if sct.InitGenesis.IsPrague {
 		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 1
+		testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
+	}
+	if cfg.Genesis.VanuatuBlockHeight <= 1 {
+		// set gas price to 2x base fee to cover the Cancun gas cost requirement
+		for i := range sct.Deployments {
+			dep := &sct.Deployments[i]
+			if dep.RawGasPrice == "" || dep.RawGasPrice == "0" {
+				dep.RawGasPrice = fmt.Sprintf("%d", 2*action.InitialBaseFee)
+			}
+		}
+		for i := range sct.Executions {
+			exec := &sct.Executions[i]
+			if exec.RawGasPrice == "" || exec.RawGasPrice == "0" {
+				exec.RawGasPrice = fmt.Sprintf("%d", 2*action.InitialBaseFee)
+			}
+		}
 	}
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -619,7 +688,8 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			r.Equal(
 				0,
 				state.Balance.Cmp(expectedBalance.Balance()),
-				"balance of account %s is different from expectation, %d vs %d",
+				"executions[%d] balance of account %s is different from expectation, %d vs %d",
+				i,
 				account,
 				state.Balance,
 				expectedBalance.Balance(),
@@ -633,6 +703,98 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			r.Equal(exec.ExpectedErrorMsg, receipt.ExecutionRevertMsg())
 		}
 	}
+}
+
+func TestSmartContractTestMerge(t *testing.T) {
+	require := require.New(t)
+
+	// base config with full data
+	base := &SmartContractTest{
+		InitGenesis: GenesisBlockHeight{
+			IsCancun: true,
+		},
+		Executions: []ExecutionConfig{
+			{
+				RawByteCode:            "15e812ad",
+				RawExpectedGasConsumed: 10722,
+				RawGasLimit:            1000000,
+				Comment:                "original comment",
+				RawAccessList: []AccessTuple{
+					{
+						Address:     "0xabcde",
+						StorageKeys: []string{"0x12345"},
+					},
+				},
+				ExpectedBalances: []ExpectedBalance{
+					{
+						Account:    "io1exampleaddress",
+						RawBalance: "1000000000000000000",
+					},
+					{
+						Account:    "io1anotheraddress",
+						RawBalance: "500000000000000000",
+					},
+				},
+			},
+		},
+	}
+
+	// overwrite config with partial data (only override specific fields)
+	overwrite := &SmartContractTest{
+		InitGenesis: GenesisBlockHeight{
+			IsPrague: true,
+		},
+		Executions: []ExecutionConfig{
+			{
+				RawExpectedGasConsumed: 11000,
+				ExpectedBalances: []ExpectedBalance{
+					{
+						Account:    "io1exampleaddress",
+						RawBalance: "2000000000000000000",
+					},
+					{
+						Account:    "io1anotheraddress",
+						RawBalance: "600000000000000000",
+					},
+				},
+			},
+		},
+	}
+
+	// perform merge
+	err := base.merge(overwrite)
+	require.NoError(err)
+
+	// verify InitGenesis merge: IsPrague should be true, IsCancun should remain true
+	require.True(base.InitGenesis.IsCancun, "IsCancun should remain true")
+	require.True(base.InitGenesis.IsPrague, "IsPrague should be merged to true")
+
+	// verify Executions[0] merge
+	require.Equal(1, len(base.Executions))
+	// RawByteCode should remain from base (not overwritten by zero value)
+	require.Equal("15e812ad", base.Executions[0].RawByteCode, "RawByteCode should remain unchanged")
+	// RawGasLimit should remain from base
+	require.Equal(uint(1000000), base.Executions[0].RawGasLimit, "RawGasLimit should remain unchanged")
+	// Comment should remain from base
+	require.Equal("original comment", base.Executions[0].Comment, "Comment should remain unchanged")
+	// RawExpectedGasConsumed should be overwritten by overwrite value
+	require.Equal(uint(11000), base.Executions[0].RawExpectedGasConsumed,
+		"RawExpectedGasConsumed should be overwritten to 11000, but got %d", base.Executions[0].RawExpectedGasConsumed)
+	// RawAccessList should remain from base
+	require.Equal(1, len(base.Executions[0].RawAccessList), "RawAccessList should remain unchanged")
+	require.Equal("0xabcde", base.Executions[0].RawAccessList[0].Address, "RawAccessList[0].Address should remain unchanged")
+	require.Equal("0x12345", base.Executions[0].RawAccessList[0].StorageKeys[0],
+		"RawAccessList[0].StorageKeys[0] should remain unchanged")
+	// verify ExpectedBalances merge
+	require.Equal(2, len(base.Executions[0].ExpectedBalances), "There should be 2 ExpectedBalances after merge")
+	// ExpectedBalances[0].RawBalance should be overwritten by overwrite value
+	require.Equal("2000000000000000000", base.Executions[0].ExpectedBalances[0].RawBalance,
+		"ExpectedBalances[0].RawBalance should be overwritten to 2000000000000000000, but got %s",
+		base.Executions[0].ExpectedBalances[0].RawBalance)
+	// ExpectedBalances[1].RawBalance should be overwritten by overwrite value
+	require.Equal("600000000000000000", base.Executions[0].ExpectedBalances[1].RawBalance,
+		"ExpectedBalances[1].RawBalance should be overwritten to 600000000000000000, but got %s",
+		base.Executions[0].ExpectedBalances[1].RawBalance)
 }
 
 func TestProtocol_Validate(t *testing.T) {
@@ -1344,6 +1506,111 @@ func TestPragueEVM(t *testing.T) {
 	})
 	t.Run("eip2537-bls12381", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-prague/bls12381.json")
+	})
+	t.Run("array-return", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/array-return.json", "testdata-prague/array-return.json")
+	})
+	t.Run("basic-token", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/basic-token.json", "testdata-prague/basic-token.json")
+	})
+	t.Run("basefee", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/basefee.json", "testdata-prague/basefee.json")
+	})
+	t.Run("call-dynamic", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/call-dynamic.json", "testdata-prague/call-dynamic.json")
+	})
+	t.Run("changestate", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/changestate.json", "testdata-prague/changestate.json")
+	})
+	t.Run("chainid-selfbalance", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/chainid-selfbalance.json", "testdata-prague/chainid-selfbalance.json")
+	})
+	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/CVE-2021-39137-attack-replay.json", "testdata-prague/CVE-2021-39137-attack-replay.json")
+	})
+	t.Run("datacopy", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/datacopy.json", "testdata-prague/datacopy.json")
+	})
+	t.Run("datacopy-accesslist", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/datacopy-accesslist.json", "testdata-prague/datacopy-accesslist.json")
+	})
+	t.Run("f.value", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/f.value.json", "testdata-prague/f.value.json")
+	})
+	t.Run("factory", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/factory.json", "testdata-prague/factory.json")
+	})
+	t.Run("gas-test", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/gas-test.json", "testdata-prague/gas-test.json")
+	})
+	t.Run("infiniteloop", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/infiniteloop.json", "testdata-prague/infiniteloop.json")
+	})
+	t.Run("mapping-delete", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/mapping-delete.json", "testdata-prague/mapping-delete.json")
+	})
+	t.Run("maxtime", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/maxtime.json", "testdata-prague/maxtime.json")
+	})
+	t.Run("modifiers", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/modifiers.json", "testdata-prague/modifiers.json")
+	})
+	t.Run("multisend", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/multisend.json", "testdata-prague/multisend.json")
+	})
+	t.Run("no-variable-length-returns", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/no-variable-length-returns.json", "testdata-prague/no-variable-length-returns.json")
+	})
+	t.Run("prevrandao", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/prevrandao.json", "testdata-prague/prevrandao.json")
+	})
+	t.Run("public-mapping", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/public-mapping.json", "testdata-prague/public-mapping.json")
+	})
+	t.Run("push0", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/push0.json", "testdata-prague/push0.json")
+	})
+	t.Run("reentry-attack", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/reentry-attack.json", "testdata-prague/reentry-attack.json")
+	})
+	t.Run("remove-from-array", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/remove-from-array.json", "testdata-prague/remove-from-array.json")
+	})
+	t.Run("selfdestruct", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/selfdestruct.json", "testdata-prague/selfdestruct.json")
+	})
+	t.Run("send-eth", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/send-eth.json", "testdata-prague/send-eth.json")
+	})
+	t.Run("sha3", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/sha3.json", "testdata-prague/sha3.json")
+	})
+	t.Run("storage-test", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/storage-test.json", "testdata-prague/storage-test.json")
+	})
+	t.Run("tail-recursion", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/tail-recursion.json", "testdata-prague/tail-recursion.json")
+	})
+	t.Run("tuple", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/tuple.json", "testdata-prague/tuple.json")
+	})
+	t.Run("wireconnection", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/wireconnection.json", "testdata-prague/wireconnection.json")
+	})
+	t.Run("blobbasefee", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/blobbasefee.json", "testdata-prague/blobbasefee.json")
+	})
+	t.Run("blobhash", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/blobhash.json", "testdata-prague/blobhash.json")
+	})
+	t.Run("mcopy", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/mcopy.json", "testdata-prague/mcopy.json")
+	})
+	t.Run("point_evaluation", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/point_evaluation.json", "testdata-prague/point_evaluation.json")
+	})
+	t.Run("transientstorage", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/transientstorage.json", "testdata-prague/transientstorage.json")
 	})
 }
 

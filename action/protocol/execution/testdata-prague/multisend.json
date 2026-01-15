@@ -1,0 +1,62 @@
+{
+    "initGenesis": {
+        "isPrague": true
+    },
+    "executions": [
+        {"expectedBalances": [{
+                "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
+                "rawBalance": "999999999739791999999999556"
+            }, {
+                "account": "io18jaldgzc8wlyfnzamgas62yu3kg5nw527czg37",
+                "rawBalance": "123"
+            }, {
+                "account": "io1ntprz4p5zw38fvtfrcczjtcv3rkr3nqs6sm3pj",
+                "rawBalance": "321"
+            }]},
+        {"rawExpectedGasConsumed": 99000,
+            "expectedBalances": [{
+                "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
+                "rawBalance": "999999999541791999999999556"
+            }, {
+                "account": "io18jaldgzc8wlyfnzamgas62yu3kg5nw527czg37",
+                "rawBalance": "123"
+            }, {
+                "account": "io1ntprz4p5zw38fvtfrcczjtcv3rkr3nqs6sm3pj",
+                "rawBalance": "321"
+            }]
+        },
+        {"rawExpectedGasConsumed": 98000,
+            "expectedBalances": [{
+                "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
+                "rawBalance": "999999999345791999999999556"
+            }, {
+                "account": "io18jaldgzc8wlyfnzamgas62yu3kg5nw527czg37",
+                "rawBalance": "123"
+            }, {
+                "account": "io1ntprz4p5zw38fvtfrcczjtcv3rkr3nqs6sm3pj",
+                "rawBalance": "321"
+            }]},
+        {"rawExpectedGasConsumed": 4899000, 
+            "expectedBalances": [{
+                "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
+                "rawBalance": "999999989547791999999999556"
+            }, {
+                "account": "io18jaldgzc8wlyfnzamgas62yu3kg5nw527czg37",
+                "rawBalance": "123"
+            }, {
+                "account": "io1ntprz4p5zw38fvtfrcczjtcv3rkr3nqs6sm3pj",
+                "rawBalance": "321"
+            }]},
+        {"rawExpectedGasConsumed": 4867000, 
+            "expectedBalances": [{
+                "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
+                "rawBalance": "999999979813791999999962656"
+            }, {
+                "account": "io18jaldgzc8wlyfnzamgas62yu3kg5nw527czg37",
+                "rawBalance": "37023"
+            }, {
+                "account": "io1ntprz4p5zw38fvtfrcczjtcv3rkr3nqs6sm3pj",
+                "rawBalance": "321"
+            }]}
+    ]
+}

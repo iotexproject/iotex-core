@@ -41,7 +41,7 @@
         "rawAccessList": [],
         "expectedStatus": 1,
         "readOnly": true,
-        "rawReturnValue": "ffbf1d0a00663d1b074e7d63c8df11fdff781424ffabfe8bb5a3b9c961d6aae7",
+        "rawReturnValue": "d10775ed3fae295632e4d129d5a0e54d1310c163dcff177d684c691ad6d619c6",
         "comment": "call get blockhash from history storage contract"
     }]
 }
