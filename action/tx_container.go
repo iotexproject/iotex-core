@@ -136,7 +136,7 @@ func (etx *txContainer) Size() uint32 {
 
 func (etx *txContainer) Action() Action { return etx }
 
-func (etx *txContainer) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
+func (etx *txContainer) ToEthTx() (*types.Transaction, error) {
 	return etx.tx, nil
 }
 
@@ -280,8 +280,8 @@ func (etx *txContainer) SanityCheck() error {
 		if size == 0 {
 			return errors.New("blobless blob transaction")
 		}
-		if permitted := params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; size > permitted {
-			return errors.Errorf("too many blobs in transaction: have %d, permitted %d", size, params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
+		if permitted := MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; size > permitted {
+			return errors.Errorf("too many blobs in transaction: have %d, permitted %d", size, MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
 		}
 		fallthrough
 	case types.DynamicFeeTxType:
