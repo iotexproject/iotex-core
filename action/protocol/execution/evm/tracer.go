@@ -6,52 +6,17 @@ import (
 
 	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
-
-type tracerWrapper struct {
-	vm.EVMLogger
-	depth int
-}
-
-// NewTracerWrapper wraps the EVMLogger
-func NewTracerWrapper(tracer vm.EVMLogger) vm.EVMLogger {
-	return &tracerWrapper{EVMLogger: tracer}
-}
-
-func (tw *tracerWrapper) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
-	tw.depth++
-	if tw.depth > 1 {
-		op := vm.CALL
-		if create {
-			op = vm.CREATE
-		}
-		tw.EVMLogger.CaptureEnter(op, from, to, input, gas, value)
-		return
-	}
-	tw.EVMLogger.CaptureStart(env, from, to, create, input, gas, value)
-}
-
-func (tw *tracerWrapper) CaptureEnd(output []byte, gasUsed uint64, err error) {
-	if tw.depth < 1 {
-		return
-	}
-	defer func() { tw.depth-- }()
-	if tw.depth > 1 {
-		tw.EVMLogger.CaptureExit(output, gasUsed, err)
-		return
-	}
-	tw.EVMLogger.CaptureEnd(output, gasUsed, err)
-}
-
-func (tw *tracerWrapper) Unwrap() vm.EVMLogger {
-	return tw.EVMLogger
-}
 
 // TraceStart starts tracing the execution of the action in the sealed envelope
 func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.Envelope) error {
@@ -63,10 +28,13 @@ func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.Envelo
 	if err != nil {
 		return errors.Wrap(err, "failed to create EVM instance for tracing")
 	}
+	actCtx := protocol.MustGetActionCtx(ctx)
 	var (
+		from  = common.Address(actCtx.Caller.Bytes())
 		to    *common.Address
 		value = big.NewInt(0)
 		input = elp.Data()
+		ethTx *types.Transaction
 	)
 	switch a := elp.Action().(type) {
 	case action.EthCompatibleAction:
@@ -81,16 +49,20 @@ func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.Envelo
 		if err != nil {
 			return errors.Wrap(err, "failed to get eth compatible action data")
 		}
+		ethTx, err = elp.ToEthTx(0, 0)
+		if err != nil {
+			return errors.Wrap(err, "failed to convert to eth tx")
+		}
 	default:
 		return errors.New("only eth compatible action is supported for tracing")
 	}
-	vmCtx.Tracer.CaptureTxStart(elp.Gas())
+	vmCtx.Tracer.OnTxStart(evm.GetVMContext(), ethTx, from)
 	if _, isExecution := elp.Action().(*action.Execution); isExecution {
 		// CaptureStart will be called in evm
 		return nil
 	}
-	actCtx := protocol.MustGetActionCtx(ctx)
-	vmCtx.Tracer.CaptureStart(evm, common.Address(actCtx.Caller.Bytes()), *to, false, input, elp.Gas(), value)
+
+	vmCtx.Tracer.OnEnter(0, byte(vm.CALL), from, *to, input, elp.Gas(), value)
 	return nil
 }
 
@@ -101,11 +73,42 @@ func TraceEnd(ctx context.Context, ws protocol.StateManager, elp action.Envelope
 		return
 	}
 	output := receipt.Output
-	vmCtx.Tracer.CaptureEnd(output, receipt.GasConsumed, nil)
-	vmCtx.Tracer.CaptureTxEnd(elp.Gas() - receipt.GasConsumed)
+	vmCtx.Tracer.OnExit(0, output, receipt.GasConsumed, nil, receipt.Status != uint64(iotextypes.ReceiptStatus_Success))
+	ethReceipt := toEthReceipt(receipt)
+	vmCtx.Tracer.OnTxEnd(ethReceipt, nil)
 	if t, ok := GetTracerCtx(ctx); ok {
 		t.CaptureTx(output, receipt)
 	}
+}
+
+func toEthReceipt(receipt *action.Receipt) *types.Receipt {
+	ethReceipt := &types.Receipt{
+		Status:            uint64(receipt.Status),
+		CumulativeGasUsed: receipt.GasConsumed,
+		Bloom:             types.Bloom{},
+		Logs:              []*types.Log{},
+		TxHash:            common.Hash{},
+		ContractAddress:   common.Address{},
+		GasUsed:           receipt.GasConsumed,
+	}
+	for _, lg := range receipt.Logs() {
+		addr, _ := address.FromString(lg.Address)
+		ethLog := &types.Log{
+			Address:     common.Address(addr.Bytes()),
+			Topics:      make([]common.Hash, len(lg.Topics)),
+			Data:        lg.Data,
+			BlockNumber: lg.BlockHeight,
+			TxHash:      common.Hash(lg.ActionHash[:]),
+			TxIndex:     uint(lg.TxIndex),
+			Index:       uint(lg.Index),
+			Removed:     false,
+		}
+		for i, topic := range lg.Topics {
+			ethLog.Topics[i] = common.Hash(topic[:])
+		}
+		ethReceipt.Logs = append(ethReceipt.Logs, ethLog)
+	}
+	return ethReceipt
 }
 
 func newEVM(ctx context.Context, sm protocol.StateManager, execution action.TxData) (*vm.EVM, error) {
@@ -128,6 +131,7 @@ func newEVM(ctx context.Context, sm protocol.StateManager, execution action.TxDa
 	if err != nil {
 		return nil, err
 	}
-	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, evmParams.chainConfig, evmParams.evmConfig)
+	evm := vm.NewEVM(evmParams.context, stateDB, evmParams.chainConfig, evmParams.evmConfig)
+	evm.SetTxContext(evmParams.txCtx)
 	return evm, nil
 }
