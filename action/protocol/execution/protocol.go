@@ -102,6 +102,10 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, _ protocol
 	if len(elp.BlobHashes()) > 0 && elp.To() == nil {
 		return errors.New("cannot create contract in blob tx")
 	}
+	// Reject SetCodeTxType before Pectra EVM upgrade
+	if fCtx.PrePectraEVM && elp.TxType() == action.SetCodeTxType {
+		return errors.Wrapf(action.ErrInvalidAct, "SetCodeTxType is not allowed before Pectra EVM upgrade")
+	}
 	return nil
 }
 
