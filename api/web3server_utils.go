@@ -12,11 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-redis/redis/v8"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
@@ -186,7 +186,7 @@ func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope,
 	if err != nil {
 		return nil, err
 	}
-	if isContract {
+	if isContract || len(tx.SetCodeAuthorizations()) > 0 {
 		return elpBuilder.BuildExecution(tx)
 	}
 	return elpBuilder.BuildTransfer(tx)
@@ -287,16 +287,17 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 }
 
 type callMsg struct {
-	From              address.Address       // the sender of the 'transaction'
-	To                string                // the destination contract (empty for contract creation)
-	Gas               uint64                // if 0, the call executes with near-infinite gas
-	GasPrice          *big.Int              // wei <-> gas exchange ratio
-	GasFeeCap         *big.Int              // EIP-1559 fee cap per gas.
-	GasTipCap         *big.Int              // EIP-1559 tip per gas.
-	Value             *big.Int              // amount of wei sent along with the call
-	Data              []byte                // input data, usually an ABI-encoded contract method invocation
-	AccessList        types.AccessList      // EIP-2930 access list.
-	BlockNumberOrHash rpc.BlockNumberOrHash // EIP-1898
+	From              address.Address              // the sender of the 'transaction'
+	To                string                       // the destination contract (empty for contract creation)
+	Gas               uint64                       // if 0, the call executes with near-infinite gas
+	GasPrice          *big.Int                     // wei <-> gas exchange ratio
+	GasFeeCap         *big.Int                     // EIP-1559 fee cap per gas.
+	GasTipCap         *big.Int                     // EIP-1559 tip per gas.
+	Value             *big.Int                     // amount of wei sent along with the call
+	Data              []byte                       // input data, usually an ABI-encoded contract method invocation
+	AccessList        types.AccessList             // EIP-2930 access list.
+	AuthorizationList []types.SetCodeAuthorization // EIP-7702 set code authorization list.
+	BlockNumberOrHash rpc.BlockNumberOrHash        // EIP-1898
 }
 
 func parseCallObject(in *gjson.Result) (*callMsg, error) {
@@ -310,6 +311,7 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 		value     *big.Int = big.NewInt(0)
 		data      []byte
 		acl       types.AccessList
+		auths     []types.SetCodeAuthorization
 		bn        = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
 		err       error
 	)
@@ -380,6 +382,11 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 			return nil, errors.Wrapf(err, "failed to unmarshal access list %s", accessList.Raw)
 		}
 	}
+	if authList := in.Get("params.0.authorizationList"); authList.Exists() {
+		if err := json.Unmarshal([]byte(authList.Raw), &auths); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal authorization list %s", authList.Raw)
+		}
+	}
 	if bnParam := in.Get("params.1"); bnParam.Exists() {
 		if err = bn.UnmarshalJSON([]byte(bnParam.Raw)); err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal height %s", bnParam.String())
@@ -395,6 +402,7 @@ func parseCallObject(in *gjson.Result) (*callMsg, error) {
 		Value:             value,
 		Data:              data,
 		AccessList:        acl,
+		AuthorizationList: auths,
 		BlockNumberOrHash: bn,
 	}, nil
 }
@@ -443,6 +451,19 @@ func (call *callMsg) toUnsignedTx(chainID uint32) (*types.Transaction, error) {
 		toAddr = &addr
 	}
 	switch {
+	case len(call.AuthorizationList) > 0:
+		if toAddr == nil {
+			return nil, errors.Wrap(action.ErrSetCodeTxCreate, "contract creation with SetCodeTx is not supported")
+		}
+		tx = types.NewTx(&types.SetCodeTx{
+			ChainID:    uint256.NewInt(uint64(chainID)),
+			Gas:        call.Gas,
+			To:         *toAddr,
+			Value:      uint256.MustFromBig(call.Value),
+			Data:       call.Data,
+			AccessList: call.AccessList,
+			AuthList:   call.AuthorizationList,
+		})
 	case call.GasFeeCap != nil || call.GasTipCap != nil:
 		tx = types.NewTx(&types.DynamicFeeTx{
 			ChainID:    big.NewInt(int64(chainID)),
@@ -603,7 +624,7 @@ func fromLoggerStructLogs(logs []logger.StructLog) []apitypes.StructLog {
 	for index, log := range logs {
 		ret[index] = apitypes.StructLog{
 			Pc:            log.Pc,
-			Op:            log.Op,
+			Op:            apitypes.StructLogVmOpCode(log.Op),
 			Gas:           math.HexOrDecimal64(log.Gas),
 			GasCost:       math.HexOrDecimal64(log.GasCost),
 			Memory:        log.Memory,
@@ -698,38 +719,34 @@ func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
 	return cfg
 }
 
-type evmTracer struct {
-	vm.EVMLogger
-	txctx  *tracers.Context
-	config *tracers.TraceConfig
-}
-
-func newEVMTracer(txctx *tracers.Context, config *tracers.TraceConfig) *evmTracer {
-	return &evmTracer{
-		txctx:  txctx,
-		config: config,
-	}
-}
-
-func (et *evmTracer) Reset() error {
+func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (*tracers.Tracer, error) {
 	var (
-		tracer vm.EVMLogger
+		tracer *tracers.Tracer
 		err    error
 	)
 	switch {
-	case et.config == nil:
-		tracer = logger.NewStructLogger(nil)
-	case et.config.Tracer != nil:
+	case config == nil:
+		loger := logger.NewStructLogger(nil)
+		tracer = &tracers.Tracer{
+			Hooks:     loger.Hooks(),
+			GetResult: loger.GetResult,
+			Stop:      loger.Stop,
+		}
+	case config.Tracer != nil:
 		// Define a meaningful timeout of a single transaction trace
 		timeout := defaultTraceTimeout
-		if et.config.Timeout != nil {
-			if timeout, err = time.ParseDuration(*et.config.Timeout); err != nil {
-				return err
+		if config.Timeout != nil {
+			if timeout, err = time.ParseDuration(*config.Timeout); err != nil {
+				return nil, err
 			}
 		}
-		t, err := tracers.DefaultDirectory.New(*et.config.Tracer, et.txctx, et.config.TracerConfig)
+		cc, err := evm.NewChainConfig(ctx)
 		if err != nil {
-			return err
+			return nil, err
+		}
+		t, err := tracers.DefaultDirectory.New(*config.Tracer, txctx, config.TracerConfig, cc)
+		if err != nil {
+			return nil, err
 		}
 		deadlineCtx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
@@ -740,19 +757,13 @@ func (et *evmTracer) Reset() error {
 			}
 		}()
 		tracer = t
-
 	default:
-		tracer = logger.NewStructLogger(et.config.Config)
+		loger := logger.NewStructLogger(config.Config)
+		tracer = &tracers.Tracer{
+			Hooks:     loger.Hooks(),
+			GetResult: loger.GetResult,
+			Stop:      loger.Stop,
+		}
 	}
-	et.EVMLogger = evm.NewTracerWrapper(tracer)
-	return nil
-}
-
-func (et *evmTracer) Unwrap() vm.EVMLogger {
-	if wrapper, ok := et.EVMLogger.(interface {
-		Unwrap() vm.EVMLogger
-	}); ok {
-		return wrapper.Unwrap()
-	}
-	return et.EVMLogger
+	return tracer, nil
 }
