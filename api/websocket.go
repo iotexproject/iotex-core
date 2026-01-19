@@ -143,8 +143,11 @@ func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websock
 				return
 			}
 			func() {
+				// Record request start time for total duration tracking
+				requestStart := time.Now()
 				wsCtx, span := tracer.NewSpan(ctx, "wss")
 				defer span.End()
+				wsCtx = WithRequestStartTime(wsCtx, requestStart)
 				err = wsSvr.msgHandler.HandlePOSTReq(wsCtx, reader,
 					apitypes.NewResponseWriter(
 						func(resp interface{}) (int, error) {

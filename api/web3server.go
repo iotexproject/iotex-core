@@ -78,6 +78,32 @@ var (
 		Help:       "web3 api latency.",
 		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	}, []string{"method"})
+	// Fine-grained duration metrics
+	_web3ServerTotalDuration = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Name:       "iotex_web3_api_total_duration",
+		Help:       "web3 api end-to-end total duration in milliseconds.",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+	}, []string{"method"})
+	_web3ServerParseDuration = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Name:       "iotex_web3_api_parse_duration",
+		Help:       "web3 api JSON parsing duration in milliseconds.",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+	}, []string{"method"})
+	_web3ServerHandleDuration = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Name:       "iotex_web3_api_handle_duration",
+		Help:       "web3 api business logic handling duration in milliseconds.",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+	}, []string{"method"})
+	_web3ServerWriteDuration = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Name:       "iotex_web3_api_write_duration",
+		Help:       "web3 api response write duration in milliseconds.",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+	}, []string{"method"})
+	_web3ServerBatchSize = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    "iotex_web3_api_batch_size",
+		Help:    "web3 api batch request size.",
+		Buckets: []float64{1, 2, 5, 10, 20, 50, 100},
+	})
 
 	errUnkownType        = errors.New("wrong type of params")
 	errNullPointer       = errors.New("null pointer")
@@ -99,6 +125,16 @@ var (
 func init() {
 	prometheus.MustRegister(_web3ServerMtc)
 	prometheus.MustRegister(_web3ServerLatency)
+	prometheus.MustRegister(_web3ServerTotalDuration)
+	prometheus.MustRegister(_web3ServerParseDuration)
+	prometheus.MustRegister(_web3ServerHandleDuration)
+	prometheus.MustRegister(_web3ServerWriteDuration)
+	prometheus.MustRegister(_web3ServerBatchSize)
+}
+
+// trackDuration records duration metrics for web3 API
+func trackDuration(metric *prometheus.SummaryVec, method string, start time.Time) {
+	metric.WithLabelValues(method).Observe(float64(time.Since(start).Milliseconds()))
 }
 
 // NewWeb3Handler creates a handle to process web3 requests
@@ -114,8 +150,11 @@ func NewWeb3Handler(core CoreService, cacheURL string, batchRequestLimit int) We
 func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, writer apitypes.Web3ResponseWriter) (err error) {
 	ctx, span := tracer.NewSpan(ctx, "svr.HandlePOSTReq")
 	defer span.End()
+	parseStart := time.Now()
 	web3Reqs, err := parseWeb3Reqs(reader)
+	parseDuration := time.Since(parseStart)
 	if err != nil {
+		trackDuration(_web3ServerParseDuration, "unknown", parseStart)
 		err := errors.Wrap(err, "failed to parse web3 requests.")
 		span.RecordError(err)
 		_, err = writer.Write(&web3Response{err: err})
@@ -131,7 +170,9 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 		}
 	}()
 	if !web3Reqs.IsArray() {
-		return svr.handleWeb3Req(ctx, &web3Reqs, writer)
+		method, _ := web3Reqs.Get("method").Value().(string)
+		_web3ServerParseDuration.WithLabelValues(method).Observe(float64(parseDuration.Milliseconds()))
+		return svr.handleWeb3Req(ctx, &web3Reqs, writer, method)
 	}
 	web3ReqArr := web3Reqs.Array()
 	if len(web3ReqArr) > int(svr.batchRequestLimit) {
@@ -145,26 +186,35 @@ func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, wri
 		_, err = writer.Write(&web3Response{err: err})
 		return err
 	}
+	// For batch requests, record parse duration per method and batch size
+	_web3ServerBatchSize.Observe(float64(len(web3ReqArr)))
 	batchWriter := apitypes.NewBatchWriter(writer)
 	for i := range web3ReqArr {
-		if err := svr.handleWeb3Req(ctx, &web3ReqArr[i], batchWriter); err != nil {
+		method, _ := web3ReqArr[i].Get("method").Value().(string)
+		_web3ServerParseDuration.WithLabelValues(method).Observe(float64(parseDuration.Milliseconds()))
+		if err := svr.handleWeb3Req(ctx, &web3ReqArr[i], batchWriter, method); err != nil {
 			return err
 		}
 	}
+	defer func() {
+		if requestStart, ok := RequestStartTimeFromContext(ctx); ok {
+			trackDuration(_web3ServerTotalDuration, "batch", requestStart)
+		}
+	}()
 	return batchWriter.Flush()
 }
 
-func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result, writer apitypes.Web3ResponseWriter) error {
+func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result, writer apitypes.Web3ResponseWriter, method string) error {
 	var (
-		res       interface{}
-		err, err1 error
-		method    = web3Req.Get("method").Value()
-		size      int
+		res         interface{}
+		err, err1   error
+		size        int
+		handleStart = time.Now()
 	)
-	defer func(start time.Time) { svr.coreService.Track(ctx, start, method.(string), int64(size), err == nil) }(time.Now())
+	defer func(start time.Time) { svr.coreService.Track(ctx, start, method, int64(size), err == nil) }(handleStart)
 
-	log.T(ctx).Debug("handleWeb3Req", zap.String("method", method.(string)), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
-	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
+	log.T(ctx).Debug("handleWeb3Req", zap.String("method", method), zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
+	_web3ServerMtc.WithLabelValues(method).Inc()
 	_web3ServerMtc.WithLabelValues("requests_total").Inc()
 	switch method {
 	case "eth_accounts":
@@ -274,6 +324,10 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 	default:
 		res, err = nil, errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 	}
+
+	// Record handle duration (business logic processing time)
+	_web3ServerHandleDuration.WithLabelValues(method).Observe(float64(time.Since(handleStart).Milliseconds()))
+
 	if err != nil {
 		log.Logger("api").Debug("web3server",
 			zap.String("requestParams", fmt.Sprintf("%+v", web3Req)),
@@ -292,11 +346,21 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		id = 0
 		res, err = nil, errors.New("invalid id type")
 	}
+
+	// Track write duration
+	writeStart := time.Now()
 	size, err1 = writer.Write(&web3Response{
 		id:     id,
 		result: res,
 		err:    err,
 	})
+	_web3ServerWriteDuration.WithLabelValues(method).Observe(float64(time.Since(writeStart).Milliseconds()))
+
+	// Track total duration from request start (if available in context)
+	if requestStart, ok := RequestStartTimeFromContext(ctx); ok {
+		_web3ServerTotalDuration.WithLabelValues(method).Observe(float64(time.Since(requestStart).Milliseconds()))
+	}
+
 	return err1
 }
 

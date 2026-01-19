@@ -25,7 +25,21 @@ type (
 	hTTPHandler struct {
 		msgHandler Web3Handler
 	}
+
+	// requestStartTimeKey is the context key for request start time
+	requestStartTimeKey struct{}
 )
+
+// WithRequestStartTime adds request start time to context
+func WithRequestStartTime(ctx context.Context, t time.Time) context.Context {
+	return context.WithValue(ctx, requestStartTimeKey{}, t)
+}
+
+// RequestStartTimeFromContext retrieves request start time from context
+func RequestStartTimeFromContext(ctx context.Context) (time.Time, bool) {
+	t, ok := ctx.Value(requestStartTimeKey{}).(time.Time)
+	return t, ok
+}
 
 // NewHTTPServer creates a new http server
 func NewHTTPServer(route string, port int, handler http.Handler) *HTTPServer {
@@ -69,8 +83,11 @@ func (handler *hTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
+	// Record request start time for total duration tracking
+	requestStart := time.Now()
 	ctx, span := tracer.NewSpan(req.Context(), "http")
 	defer span.End()
+	ctx = WithRequestStartTime(ctx, requestStart)
 	if err := handler.msgHandler.HandlePOSTReq(ctx, req.Body,
 		apitypes.NewResponseWriter(
 			func(resp interface{}) (int, error) {
