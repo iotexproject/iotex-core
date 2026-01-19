@@ -313,7 +313,8 @@ func TestConstantinople(t *testing.T) {
 		ps, err := newParams(fCtx, elp)
 		require.NoError(err)
 
-		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, ps.chainConfig, ps.evmConfig)
+		evm := vm.NewEVM(ps.context, stateDB, ps.chainConfig, ps.evmConfig)
+		evm.SetTxContext(ps.txCtx)
 		evmChainConfig := evm.ChainConfig()
 		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsHomestead(evm.Context.BlockNumber))
 		require.False(evmChainConfig.IsDAOFork(evm.Context.BlockNumber))
@@ -475,7 +476,7 @@ func TestGasEstimate(t *testing.T) {
 func gasExecuteInEVM(gas, consume, refund, size uint64) (uint64, uint64, error) {
 	remainingGas := gas
 
-	intriGas, err := intrinsicGas(size, nil)
+	intriGas, err := intrinsicGas(size, nil, nil)
 	if err != nil {
 		return 0, 0, err
 	}

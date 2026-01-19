@@ -15,6 +15,7 @@ import (
 
 	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -65,8 +66,8 @@ func CanTransfer(db vm.StateDB, fromHash common.Address, balance *uint256.Int) b
 
 // MakeTransfer transfers account
 func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *uint256.Int) {
-	db.SubBalance(fromHash, amount)
-	db.AddBalance(toHash, amount)
+	db.SubBalance(fromHash, amount, tracing.BalanceChangeUnspecified)
+	db.AddBalance(toHash, amount, tracing.BalanceChangeUnspecified)
 
 	db.AddLog(&types.Log{
 		Topics: []common.Hash{
@@ -89,6 +90,7 @@ type (
 		gas         uint64
 		data        []byte
 		accessList  types.AccessList
+		authList    []types.SetCodeAuthorization
 		evmConfig   vm.Config
 		chainConfig *params.ChainConfig
 		genesis     genesis.Blockchain
@@ -213,6 +215,7 @@ func newParams(
 		gasLimit,
 		execution.Data(),
 		execution.AccessList(),
+		execution.SetCodeAuthorizations(),
 		vmConfig,
 		chainConfig,
 		g.Blockchain,
@@ -237,7 +240,7 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 	if stateDB.GetBalance(ps.txCtx.Origin).Cmp(gasConsumed) < 0 {
 		return action.ErrInsufficientFunds
 	}
-	stateDB.SubBalance(ps.txCtx.Origin, gasConsumed)
+	stateDB.SubBalance(ps.txCtx.Origin, gasConsumed, tracing.BalanceChangeUnspecified)
 	return nil
 }
 
@@ -289,11 +292,11 @@ func ExecuteContract(
 	)
 	if ps.featureCtx.FixDoubleChargeGas {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
-		stateDB.AddBalance(ps.txCtx.Origin, uint256.MustFromBig(big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice)))
+		stateDB.AddBalance(ps.txCtx.Origin, uint256.MustFromBig(big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice)), tracing.BalanceChangeUnspecified)
 	} else {
 		if remainingGas > 0 {
 			remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.txCtx.GasPrice)
-			stateDB.AddBalance(ps.txCtx.Origin, uint256.MustFromBig(remainingValue))
+			stateDB.AddBalance(ps.txCtx.Origin, uint256.MustFromBig(remainingValue), tracing.BalanceChangeUnspecified)
 		}
 		if consumedGas > 0 {
 			burnLog = &action.TransactionLog{
@@ -448,6 +451,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 		opts = append(opts, FixRevertSnapshotOption())
 		opts = append(opts, WithContext(ctx))
 	}
+	if featureCtx.PrePectraEVM {
+		opts = append(opts, IgnoreBalanceChangeTouchAccountOption())
+	}
 	return NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
@@ -492,6 +498,14 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 		cancunTimestamp := (uint64)(cancunTime.Unix())
 		chainConfig.CancunTime = &cancunTimestamp
 	}
+	// enable Prague
+	pragueTime, err := getBlockTime(g.ToBeEnabledBlockHeight)
+	if err != nil {
+		return nil, err
+	} else if pragueTime != nil {
+		pragueTimestamp := (uint64)(pragueTime.Unix())
+		chainConfig.PragueTime = &pragueTimestamp
+	}
 	return &chainConfig, nil
 }
 
@@ -525,19 +539,27 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		return nil, 0, 0, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
 	}
 	var (
-		accessList types.AccessList
+		accessList   types.AccessList
+		floorDataGas uint64
 	)
-	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, evmParams.evmConfig)
+	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, evmParams.evmConfig)
+	evm.SetTxContext(evmParams.txCtx)
 	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
 	}
-	intriGas, err := intrinsicGas(uint64(len(evmParams.data)), accessList)
+	traceGasChange := func(old, new uint64, reason tracing.GasChangeReason) {
+		if t := evm.Config.Tracer; t != nil && t.OnGasChange != nil {
+			t.OnGasChange(old, new, reason)
+		}
+	}
+	intriGas, err := intrinsicGas(uint64(len(evmParams.data)), accessList, evmParams.authList)
 	if err != nil {
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
 	}
 	if remainingGas < intriGas {
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, action.ErrInsufficientFunds
 	}
+	traceGasChange(remainingGas, remainingGas-intriGas, tracing.GasChangeTxIntrinsicGas)
 	remainingGas -= intriGas
 
 	// Set up the initial access list
@@ -545,20 +567,23 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 	if rules.IsBerlin {
 		stateDB.Prepare(rules, evmParams.txCtx.Origin, evmParams.context.Coinbase, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
 	}
+	if rules.IsPrague {
+		floorDataGas, err = action.FloorDataGas(evmParams.data)
+		if err != nil {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
+		}
+		if evmParams.gas < floorDataGas {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, errors.Wrapf(action.ErrFloorDataGas, "have %d, want %d", evmParams.gas, floorDataGas)
+		}
+	}
 	var (
 		contractRawAddress = action.EmptyAddress
-		executor           = vm.AccountRef(evmParams.txCtx.Origin)
+		executor           = evmParams.txCtx.Origin
 		ret                []byte
 		evmErr             error
 		refund             uint64
 		amount             = uint256.MustFromBig(evmParams.amount)
 	)
-	if evm.Config.Tracer != nil {
-		evm.Config.Tracer.CaptureTxStart(remainingGas)
-		defer func() {
-			evm.Config.Tracer.CaptureTxEnd(remainingGas)
-		}()
-	}
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
@@ -576,7 +601,25 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 			ret = createRet
 		}
 	} else {
-		stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1)
+		stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1, tracing.NonceChangeUnspecified)
+
+		// Apply EIP-7702 authorizations.
+		for _, auth := range evmParams.authList {
+			// Note errors are ignored, we simply skip invalid authorizations here.
+			if err := applyAuthorization(evm, stateDB, &auth); err != nil {
+				log.T(ctx).Debug("failed to apply authorization", zap.Error(err), zap.String("auth", auth.Address.String()))
+			}
+		}
+
+		// Perform convenience warming of sender's delegation target. Although the
+		// sender is already warmed in Prepare(..), it's possible a delegation to
+		// the account was deployed during this transaction. To handle correctly,
+		// simply wait until the final state of delegations is determined before
+		// performing the resolution and warming.
+		if addr, ok := types.ParseDelegation(stateDB.GetCode(*evmParams.contract)); ok {
+			stateDB.AddAddressToAccessList(addr)
+		}
+
 		// process contract
 		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, amount)
 	}
@@ -617,6 +660,17 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		refund = stateDB.GetRefund()
 	}
 	remainingGas += refund
+	traceGasChange(remainingGas-refund, remainingGas, tracing.GasChangeTxRefunds)
+
+	if rules.IsPrague {
+		// After EIP-7623: Data-heavy transactions pay the floor gas.
+		gasUsed := evmParams.gas - remainingGas
+		if gasUsed < floorDataGas {
+			prev := remainingGas
+			remainingGas = evmParams.gas - floorDataGas
+			traceGasChange(prev, remainingGas, tracing.GasChangeTxDataFloor)
+		}
+	}
 
 	errCode := iotextypes.ReceiptStatus_Success
 	if evmErr != nil {
@@ -641,41 +695,42 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) iotextypes.ReceiptStatus {
 	// specific error starting London
 	if g.IsOkhotsk(height) {
-		if evmErr == vm.ErrInvalidCode {
+		if errors.Is(evmErr, vm.ErrInvalidCode) {
 			return iotextypes.ReceiptStatus_ErrInvalidCode
 		}
 	}
 
 	// specific error starting Jutland
 	if g.IsJutland(height) {
-		switch evmErr {
-		case vm.ErrInsufficientBalance:
+		switch {
+		case errors.Is(evmErr, vm.ErrInsufficientBalance):
 			return iotextypes.ReceiptStatus_ErrInsufficientBalance
-		case vm.ErrInvalidJump:
+		case errors.Is(evmErr, vm.ErrInvalidJump):
 			return iotextypes.ReceiptStatus_ErrInvalidJump
-		case vm.ErrReturnDataOutOfBounds:
+		case errors.Is(evmErr, vm.ErrReturnDataOutOfBounds):
 			return iotextypes.ReceiptStatus_ErrReturnDataOutOfBounds
-		case vm.ErrGasUintOverflow:
+		case errors.Is(evmErr, vm.ErrGasUintOverflow):
 			return iotextypes.ReceiptStatus_ErrGasUintOverflow
 		}
 	}
 
 	// specific error starting Bering
 	if g.IsBering(height) {
-		switch evmErr {
-		case vm.ErrOutOfGas:
+		switch {
+		// the evm error may be wrapped by fmt.Errorf("%w: ..."), so we use errors.Is to check
+		case errors.Is(evmErr, vm.ErrOutOfGas):
 			return iotextypes.ReceiptStatus_ErrOutOfGas
-		case vm.ErrCodeStoreOutOfGas:
+		case errors.Is(evmErr, vm.ErrCodeStoreOutOfGas):
 			return iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas
-		case vm.ErrDepth:
+		case errors.Is(evmErr, vm.ErrDepth):
 			return iotextypes.ReceiptStatus_ErrDepth
-		case vm.ErrContractAddressCollision:
+		case errors.Is(evmErr, vm.ErrContractAddressCollision):
 			return iotextypes.ReceiptStatus_ErrContractAddressCollision
-		case vm.ErrExecutionReverted:
+		case errors.Is(evmErr, vm.ErrExecutionReverted):
 			return iotextypes.ReceiptStatus_ErrExecutionReverted
-		case vm.ErrMaxCodeSizeExceeded:
+		case errors.Is(evmErr, vm.ErrMaxCodeSizeExceeded):
 			return iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded
-		case vm.ErrWriteProtection:
+		case errors.Is(evmErr, vm.ErrWriteProtection):
 			return iotextypes.ReceiptStatus_ErrWriteProtection
 		default:
 			// internal errors from go-ethereum are not directly accessible
@@ -692,7 +747,7 @@ func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) io
 }
 
 // intrinsicGas returns the intrinsic gas of an execution
-func intrinsicGas(size uint64, list types.AccessList) (uint64, error) {
+func intrinsicGas(size uint64, list types.AccessList, authList []types.SetCodeAuthorization) (uint64, error) {
 	if action.ExecutionDataGas == 0 {
 		panic("payload gas price cannot be zero")
 	}
@@ -705,7 +760,15 @@ func intrinsicGas(size uint64, list types.AccessList) (uint64, error) {
 	if (math.MaxInt64-action.ExecutionBaseIntrinsicGas-accessListGas)/action.ExecutionDataGas < size {
 		return 0, action.ErrInsufficientFunds
 	}
-	return size*action.ExecutionDataGas + action.ExecutionBaseIntrinsicGas + accessListGas, nil
+	var authListGas uint64
+	if len(authList) > 0 {
+		authListGas = uint64(len(authList)) * action.CallNewAccountGas
+	}
+	log.L().Debug("Intrinsic Gas Calculation", zap.Uint64("sizeGas", size*action.ExecutionDataGas),
+		zap.Uint64("baseGas", action.ExecutionBaseIntrinsicGas),
+		zap.Uint64("accessListGas", accessListGas),
+		zap.Uint64("authListGas", authListGas))
+	return size*action.ExecutionDataGas + action.ExecutionBaseIntrinsicGas + accessListGas + authListGas, nil
 }
 
 // SimulateExecution simulates the execution in evm
@@ -755,10 +818,23 @@ func SimulateExecution(
 			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
 		},
 	))
-	retval, receipt, err := ExecuteContract(ctx, sm, ex)
-	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
-		tCtx.CaptureTx(retval, receipt)
+	var (
+		retval  []byte
+		receipt *action.Receipt
+	)
+	tErr := TraceStart(ctx, sm, ex)
+	if tErr != nil {
+		log.L().Warn("failed to start trace for simulation", zap.Error(tErr))
 	}
+	defer func() {
+		if tErr == nil {
+			TraceEnd(ctx, receipt)
+		}
+		if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
+			tCtx.CaptureTx(retval, receipt)
+		}
+	}()
+	retval, receipt, err = ExecuteContract(ctx, sm, ex)
 	return retval, receipt, err
 }
 
@@ -774,4 +850,61 @@ func ExtractRevertMessage(ret []byte) string {
 	msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
 	revertMsg := string(data[64 : 64+msgLength])
 	return revertMsg
+}
+
+func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization) (authority common.Address, err error) {
+	chainID := evm.ChainConfig().ChainID.Uint64()
+	// Verify chain ID is 0 or equal to current chain ID.
+	if !auth.ChainID.IsZero() && chainID != (auth.ChainID.Uint64()) {
+		return authority, errors.Errorf("authorization chain ID %v does not match current chain ID %v", auth.ChainID, chainID)
+	}
+	// Limit nonce to 2^64-1 per EIP-2681.
+	if auth.Nonce+1 < auth.Nonce {
+		return authority, errors.Errorf("authorization nonce %d exceeds maximum value", auth.Nonce)
+	}
+	// Validate signature values and recover authority.
+	authority, err = auth.Authority()
+	if err != nil {
+		return authority, errors.Wrap(err, "failed to recover authority from authorization")
+	}
+	// Check the authority account
+	//  1) doesn't have code or has exisiting delegation
+	//  2) matches the auth's nonce
+	//
+	// Note it is added to the access list even if the authorization is invalid.
+	sdb.AddAddressToAccessList(authority)
+	code := sdb.GetCode(authority)
+	if _, ok := types.ParseDelegation(code); len(code) != 0 && !ok {
+		return authority, errors.Errorf("authorization destination %s has code", authority.String())
+	}
+	if have := sdb.GetNonce(authority); have != auth.Nonce {
+		return authority, errors.Errorf("authorization nonce %d does not match account %s nonce %d", auth.Nonce, authority.String(), have)
+	}
+	return authority, nil
+}
+
+func applyAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization) error {
+	authority, err := validateAuthorization(evm, sdb, auth)
+	if err != nil {
+		return err
+	}
+	// If the account already exists in state, refund the new account cost
+	// charged in the intrinsic calculation.
+	if sdb.Exist(authority) {
+		log.L().Debug("EVM Authorization Refund", zap.Uint64("refund", action.CallNewAccountGas-action.TxAuthTupleGas))
+		sdb.AddRefund(action.CallNewAccountGas - action.TxAuthTupleGas)
+	}
+
+	// Update nonce and account code.
+	sdb.SetNonce(authority, auth.Nonce+1, tracing.NonceChangeAuthorization)
+	if auth.Address == (common.Address{}) {
+		// Delegation to zero address means clear.
+		sdb.SetCode(authority, nil)
+		return nil
+	}
+
+	// Otherwise install delegation to auth.Address.
+	sdb.SetCode(authority, types.AddressToDelegation(auth.Address))
+
+	return nil
 }
