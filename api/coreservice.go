@@ -24,7 +24,6 @@ import (
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
-	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -1811,7 +1810,7 @@ func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, 
 	estimatedGas := receipt.GasConsumed
 	elp.SetGas(estimatedGas)
 	enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
-	if err != nil && err != action.ErrInsufficientFunds {
+	if err != nil && !isInsufficientFundsError(err) {
 		return 0, nil, status.Error(codes.Internal, err.Error())
 	}
 	if !enough {
@@ -1821,7 +1820,7 @@ func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, 
 			mid := (low + high) / 2
 			elp.SetGas(mid)
 			enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
-			if err != nil && err != action.ErrInsufficientFunds {
+			if err != nil && !isInsufficientFundsError(err) {
 				return 0, nil, status.Error(codes.Internal, err.Error())
 			}
 			if enough {
@@ -2097,7 +2096,15 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 			GetBlockTime:   bcCtx.GetBlockTime,
 			DepositGasFunc: rewarding.DepositGas,
 		})
-		return evm.ExecuteContract(ctx, ws, act)
+		tErr := evm.TraceStart(ctx, ws, act.Envelope)
+		if tErr != nil {
+			log.L().Warn("failed to start trace", zap.Error(tErr))
+		}
+		retval, receipt, err := evm.ExecuteContract(ctx, ws, act)
+		if tErr == nil {
+			evm.TraceEnd(ctx, receipt)
+		}
+		return retval, receipt, err
 	})
 	return retval, receipt, tracer, err
 }
@@ -2176,20 +2183,20 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 	return retval, receipt, tracer, err
 }
 
-func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (context.Context, *evmTracer, error) {
-	tracer := newEVMTracer(txctx, config)
-	if err := tracer.Reset(); err != nil {
-		return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("failed to reset tracer: %v", err))
-	}
-	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Tracer:    tracer,
-		NoBaseFee: true,
-	})
+func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (context.Context, *tracers.Tracer, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash:   bcCtx.GetBlockHash,
 		GetBlockTime:   bcCtx.GetBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
+	})
+	tracer, err := parseTracer(ctx, txctx, config)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Tracer:    tracer.Hooks,
+		NoBaseFee: true,
 	})
 	return ctx, tracer, nil
 }
@@ -2297,25 +2304,9 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 	}
 	ctx = evm.WithTracerCtx(ctx, evm.TracerContext{
 		CaptureTx: func(retval []byte, receipt *action.Receipt) {
-			defer tracer.Reset()
-			var res any
-			switch innerTracer := tracer.Unwrap().(type) {
-			case *logger.StructLogger:
-				res = &debugTraceTransactionResult{
-					Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
-					Revert:      receipt.ExecutionRevertMsg(),
-					ReturnValue: byteToHex(retval),
-					StructLogs:  fromLoggerStructLogs(innerTracer.StructLogs()),
-					Gas:         receipt.GasConsumed,
-				}
-			case tracers.Tracer:
-				res, err = innerTracer.GetResult()
-				if err != nil {
-					log.L().Error("failed to get tracer result", zap.Error(err))
-					return
-				}
-			default:
-				log.L().Error("unknown tracer type", zap.Any("tracer", innerTracer))
+			res, err := tracer.GetResult()
+			if err != nil {
+				log.L().Error("failed to get tracer result", zap.Error(err))
 				return
 			}
 			results = append(results, &blockTraceResult{
@@ -2342,4 +2333,8 @@ func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Re
 		}
 	}
 	return nil
+}
+
+func isInsufficientFundsError(err error) bool {
+	return errors.Is(err, action.ErrInsufficientFunds) || errors.Is(err, action.ErrFloorDataGas)
 }

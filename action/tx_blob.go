@@ -138,6 +138,8 @@ func (tx *BlobTx) SanityCheck() error {
 
 func (tx *BlobTx) ValidateSidecar() error { return tx.blob.ValidateSidecar() }
 
+func (tx *BlobTx) SetCodeAuthorizations() []types.SetCodeAuthorization { return nil }
+
 func (tx *BlobTx) toProto() *iotextypes.ActionCore {
 	actCore := iotextypes.ActionCore{
 		TxType:   BlobTxType,

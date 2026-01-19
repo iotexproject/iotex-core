@@ -8,6 +8,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/erigontech/erigon/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -696,8 +698,16 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 	}
 	structLogs := make([]*iotextypes.TransactionStructLog, 0)
 	//grpc not support javascript tracing, so we only return native traces
-	traces := tracer.(*evmTracer).Unwrap().(*logger.StructLogger)
-	for _, log := range traces.StructLogs() {
+	res, err := tracer.(*tracers.Tracer).GetResult()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	fmt.Printf("trace transaction struct logs: %s\n", string(res))
+	debug := &debugTraceTransactionResult{}
+	if err := json.Unmarshal(res, debug); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	for _, log := range debug.StructLogs {
 		var stack []string
 		for _, s := range log.Stack {
 			stack = append(stack, s.String())
@@ -705,16 +715,16 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 		structLogs = append(structLogs, &iotextypes.TransactionStructLog{
 			Pc:         log.Pc,
 			Op:         uint64(log.Op),
-			Gas:        log.Gas,
-			GasCost:    log.GasCost,
+			Gas:        uint64(log.Gas),
+			GasCost:    uint64(log.GasCost),
 			Memory:     fmt.Sprintf("%#x", log.Memory),
 			MemSize:    int32(log.MemorySize),
 			Stack:      stack,
 			ReturnData: fmt.Sprintf("%#x", log.ReturnData),
 			Depth:      int32(log.Depth),
 			Refund:     log.RefundCounter,
-			OpName:     log.OpName(),
-			Error:      log.ErrorString(),
+			OpName:     vm.OpCode(log.Op).String(),
+			Error:      log.ErrorString,
 		})
 	}
 	return &iotexapi.TraceTransactionStructLogsResponse{
