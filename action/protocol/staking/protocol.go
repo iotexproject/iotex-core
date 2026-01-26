@@ -68,13 +68,23 @@ var (
 	ErrEndorsementNotExist = errors.New("the endorsement does not exist")
 	ErrNoSelfStakeBucket   = errors.New("no self-stake bucket")
 	ErrCandidateNotExist   = errors.New("the candidate does not exist")
-	TotalBucketKey         = append([]byte{_const}, []byte("totalBucket")...)
+	ErrCandidateDeleted    = errors.New("candidate has been deleted")
+	ErrExitNotRequested    = errors.New("exit not requested")
+	ErrExitNotScheduled    = errors.New("exit not scheduled")
+	ErrExitNotReady        = errors.New("exit not ready")
+	ErrAlreadyRequested    = errors.New("already request exit")
+)
+
+var (
+	TotalBucketKey = append([]byte{_const}, []byte("totalBucket")...)
 )
 
 var (
 	_nameKey     = []byte("name")
 	_operatorKey = []byte("operator")
 	_ownerKey    = []byte("owner")
+
+	_lastExitEpoch = []byte("last_exit_epoch")
 )
 
 type (
@@ -82,6 +92,10 @@ type (
 	ReceiptError interface {
 		Error() string
 		ReceiptStatus() uint64
+	}
+
+	lastExitEpoch struct {
+		epoch uint64
 	}
 
 	ContractStakeViewBuilder interface {
@@ -563,6 +577,48 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	return p.handleStakingIndexer(ctx, rp.GetEpochHeight(currentEpochNum-1), sm)
 }
 
+func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.NoCandidateExitQueue {
+		return nil, nil
+	}
+	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
+	if rp == nil {
+		return nil, nil
+	}
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	currentEpochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+	if currentEpochNum == 0 {
+		return nil, nil
+	}
+	epochStartHeight := rp.GetEpochHeight(currentEpochNum)
+	if epochStartHeight == blkCtx.BlockHeight {
+		var last lastExitEpoch
+		if _, err := sr.State(&last, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_lastExitEpoch)); err != nil {
+			return nil, err
+		}
+		g := genesis.MustExtractGenesisContext(ctx)
+		if last.epoch+g.ExitAdmissionInterval > currentEpochNum {
+			return nil, nil
+		}
+		csr, err := ConstructBaseView(sr)
+		if err != nil {
+			return nil, err
+		}
+		cands := csr.AllCandidates()
+		sort.Sort(cands)
+		for _, c := range cands {
+			if c.ExitBlock == candidateExitRequested {
+				exitAction := action.NewScheduleCandidateDeactivation(c.GetIdentifier())
+				builder := action.EnvelopeBuilder{}
+
+				return []action.Envelope{builder.SetNonce(uint64(0)).SetAction(exitAction).Build()}, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
 func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight uint64, sm protocol.StateManager) error {
 	csr, err := ConstructBaseView(sm)
 	if err != nil {
@@ -685,12 +741,16 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		rLog, tLogs, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
+	case *action.CandidateDeactivate:
+		rLog, tLogs, err = p.handleCandidateDeactivate(ctx, act, csm)
 	case *action.CandidateActivate:
 		rLog, tLogs, err = p.handleCandidateActivate(ctx, act, csm)
 	case *action.CandidateEndorsement:
 		rLog, tLogs, err = p.handleCandidateEndorsement(ctx, act, csm)
 	case *action.CandidateTransferOwnership:
 		rLog, tLogs, err = p.handleCandidateTransferOwnership(ctx, act, csm)
+	case *action.ScheduleCandidateDeactivation:
+		rLog, tLogs, err = p.handleScheduleCandidateDeactivation(ctx, act, csm)
 	case *action.MigrateStake:
 		logs, tLogs, gasConsumed, gasToBeDeducted, err = p.handleStakeMigrate(ctx, elp, csm)
 		if err == nil {
@@ -817,6 +877,18 @@ func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidiateStateCom
 		}
 	} else {
 		if cand.SelfStake.Cmp(p.config.MinSelfStakeToBeActive) < 0 {
+			return false, nil
+		}
+	}
+	if cand.Deleted {
+		return false, nil
+	}
+	if !featureCtx.NoCandidateExitQueue {
+		curr, err := csr.SR().Height()
+		if err != nil {
+			return false, errors.Wrap(err, "failed to get current height")
+		}
+		if cand.ExitBlock != 0 && cand.ExitBlock < curr {
 			return false, nil
 		}
 	}

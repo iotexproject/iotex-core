@@ -193,6 +193,12 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
 		}
 	}
+	if selfStake && !featureCtx.NoCandidateExitQueue {
+		return log, &handleError{
+			err:           ErrExitNotReady,
+			failureStatus: iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity,
+		}
+	}
 	if !featureCtx.UnstakedButNotClearSelfStakeAmount {
 		// update bucket
 		bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
@@ -696,6 +702,12 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		if !featureCtx.CandidateIdentifiedByOwner || (featureCtx.CandidateIdentifiedByOwner && c.SelfStake.Cmp(big.NewInt(0)) != 0) {
 			return log, nil, &handleError{
 				err:           ErrInvalidOwner,
+				failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+			}
+		}
+		if c.Deleted {
+			return log, nil, &handleError{
+				err:           ErrCandidateDeleted,
 				failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
 			}
 		}

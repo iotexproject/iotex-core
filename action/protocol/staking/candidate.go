@@ -31,6 +31,8 @@ type (
 		Reward             address.Address
 		Identifier         address.Address
 		BLSPubKey          []byte // BLS public key
+		ExitBlock          uint64
+		Deleted            bool
 		Name               string
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
@@ -60,6 +62,8 @@ func (d *Candidate) Clone() *Candidate {
 		Reward:             d.Reward,
 		Identifier:         d.Identifier,
 		Name:               d.Name,
+		Deleted:            d.Deleted,
+		ExitBlock:          d.ExitBlock,
 		Votes:              new(big.Int).Set(d.Votes),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          new(big.Int).Set(d.SelfStake),
@@ -77,6 +81,8 @@ func (d *Candidate) Equal(c *Candidate) bool {
 		address.Equal(d.Identifier, c.Identifier) &&
 		d.Votes.Cmp(c.Votes) == 0 &&
 		d.SelfStake.Cmp(c.SelfStake) == 0 &&
+		d.ExitBlock == c.ExitBlock &&
+		d.Deleted == c.Deleted &&
 		bytes.Equal(d.BLSPubKey, c.BLSPubKey)
 }
 
@@ -138,7 +144,9 @@ func (d *Candidate) AddVote(amount *big.Int) error {
 	if amount.Sign() < 0 {
 		return action.ErrInvalidAmount
 	}
-	d.Votes.Add(d.Votes, amount)
+	if !d.Deleted {
+		d.Votes.Add(d.Votes, amount)
+	}
 	return nil
 }
 
@@ -147,11 +155,12 @@ func (d *Candidate) SubVote(amount *big.Int) error {
 	if amount.Sign() < 0 {
 		return action.ErrInvalidAmount
 	}
-
-	if d.Votes.Cmp(amount) == -1 {
-		return action.ErrInvalidAmount
+	if !d.Deleted {
+		if d.Votes.Cmp(amount) == -1 {
+			return action.ErrInvalidAmount
+		}
+		d.Votes.Sub(d.Votes, amount)
 	}
-	d.Votes.Sub(d.Votes, amount)
 	return nil
 }
 
@@ -160,7 +169,9 @@ func (d *Candidate) AddSelfStake(amount *big.Int) error {
 	if amount.Sign() < 0 {
 		return action.ErrInvalidAmount
 	}
-	d.SelfStake.Add(d.SelfStake, amount)
+	if !d.Deleted {
+		d.SelfStake.Add(d.SelfStake, amount)
+	}
 	return nil
 }
 
@@ -169,11 +180,12 @@ func (d *Candidate) SubSelfStake(amount *big.Int) error {
 	if amount.Sign() < 0 {
 		return action.ErrInvalidAmount
 	}
-
-	if d.Votes.Cmp(amount) == -1 {
-		return action.ErrInvalidAmount
+	if !d.Deleted {
+		if d.Votes.Cmp(amount) == -1 {
+			return action.ErrInvalidAmount
+		}
+		d.SelfStake.Sub(d.SelfStake, amount)
 	}
-	d.SelfStake.Sub(d.SelfStake, amount)
 	return nil
 }
 
@@ -273,6 +285,8 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          d.SelfStake.String(),
 		Pubkey:             pubkey,
+		ExitBlock:          d.ExitBlock,
+		Deleted:            d.Deleted,
 	}, nil
 }
 
@@ -322,6 +336,8 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	} else {
 		d.BLSPubKey = nil
 	}
+	d.ExitBlock = pb.GetExitBlock()
+	d.Deleted = pb.GetDeleted()
 	return nil
 }
 
@@ -338,6 +354,8 @@ func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 		SelfStakingTokens:  d.SelfStake.String(),
 		Id:                 d.GetIdentifier().String(),
 		BlsPubKey:          blsPubKey,
+		ExitBlock:          d.ExitBlock,
+		Deleted:            d.Deleted,
 	}
 }
 
