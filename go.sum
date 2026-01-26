@@ -664,10 +664,6 @@ github.com/iotexproject/iotex-antenna-go/v2 v2.6.4 h1:7e0VyBDFT+iqwvr/BIk38yf7nC
 github.com/iotexproject/iotex-antenna-go/v2 v2.6.4/go.mod h1:L6AzDHo2TBFDAPA3ly+/PCS4JSX2g3zzhwV8RGQsTDI=
 github.com/iotexproject/iotex-election v0.3.8-0.20251015031218-8df952babca1 h1:jPLni/qKAnxv87HMCutde2tP9JmfWuLZgGpB4OArQGM=
 github.com/iotexproject/iotex-election v0.3.8-0.20251015031218-8df952babca1/go.mod h1:w9HriT1coMRbuknaSD2xqiOqDTnowBDzvFZv8tg1j2M=
-github.com/iotexproject/iotex-proto v0.6.6-0.20260121070911-8d3e91f62d98 h1:yEkmvSCVpK2zUNtTNrJDQ7Q7ovjTEJB46AqosfbuV/E=
-github.com/iotexproject/iotex-proto v0.6.6-0.20260121070911-8d3e91f62d98/go.mod h1:OOXZIG6Q9tInog8Y5zzEJQsDv9IaG/xxpDtl4KzdWZs=
-github.com/iotexproject/iotex-proto v0.6.6-0.20260121092235-4b05c9ad6704 h1:OpEfKkdIuhp3CT7NEpJLDe/rRUL+t8ZR9wWYNhyWml8=
-github.com/iotexproject/iotex-proto v0.6.6-0.20260121092235-4b05c9ad6704/go.mod h1:OOXZIG6Q9tInog8Y5zzEJQsDv9IaG/xxpDtl4KzdWZs=
 github.com/iotexproject/iotex-proto v0.6.6-0.20260122072200-7df29dad73b1 h1:T6cVPRTrPYtH7g7hKSdhh9sbAj9tG1RyifmzhUrkyQ0=
 github.com/iotexproject/iotex-proto v0.6.6-0.20260122072200-7df29dad73b1/go.mod h1:OOXZIG6Q9tInog8Y5zzEJQsDv9IaG/xxpDtl4KzdWZs=
 github.com/ipfs/boxo v0.27.2 h1:sGo4KdwBaMjdBjH08lqPJyt27Z4CO6sugne3ryX513s=
