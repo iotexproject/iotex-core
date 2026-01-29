@@ -285,6 +285,163 @@ func TestSetCodeTx_E2E(t *testing.T) {
 	})
 }
 
+// TestSetCodeTx_BatchTransfer tests the batch transfer scenario using EIP-7702
+// This demonstrates one of the key use cases of EIP-7702: executing multiple transfers in a single transaction
+func TestSetCodeTx_BatchTransfer(t *testing.T) {
+	r := require.New(t)
+	sender := identityset.Address(10).String()
+	senderSK := identityset.PrivateKey(10)
+	cfg := initCfg(r)
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = 0
+	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis.XinguBetaBlockHeight = 1
+	cfg.Genesis.ToBeEnabledBlockHeight = 1 // enable setcode tx from the start
+	cfg.Genesis.InitBalanceMap[sender] = unit.ConvertIotxToRau(1000000).String()
+	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
+	test := newE2ETest(t, cfg)
+	chainID := cfg.Chain.ID
+	evmNetworkID := cfg.Chain.EVMNetworkID
+	gasPrice := big.NewInt(unit.Qev)
+	gasFeeCap := big.NewInt(unit.Qev * 2)
+	gasTipCap := big.NewInt(1)
+
+	// Deploy BatchTransfer contract
+	batchTransferContractAddress := "io1dkqh5mu9djfas3xyrmzdv9frsmmytel4mp7a64"
+	batchTransferContractAddressEth := common.BytesToAddress(assertions.MustNoErrorV(address.FromString(batchTransferContractAddress)).Bytes())
+	bytecode, err := hex.DecodeString(batchTransferBytecode)
+	r.NoError(err)
+
+	mustBatchTransferCalldata := func(recipients []common.Address, amounts []*big.Int) []byte {
+		data, err := abiCall(batchTransferContractABI, "batchTransfer(address[],uint256[])", recipients, amounts)
+		r.NoError(err)
+		return data
+	}
+
+	newSetCodeTxWeb3 := func(nonce uint64, sk crypto.PrivateKey, addr string, value *big.Int, data []byte, auths []types.SetCodeAuthorization) (*action.SealedEnvelope, error) {
+		var to common.Address
+		if addr != "" {
+			to = common.BytesToAddress(mustNoErr(address.FromString(addr)).Bytes())
+		}
+		txdata := types.SetCodeTx{
+			ChainID:   uint256.NewInt(uint64(evmNetworkID)),
+			Nonce:     nonce,
+			GasTipCap: uint256.MustFromBig(gasTipCap),
+			GasFeeCap: uint256.MustFromBig(gasFeeCap),
+			Gas:       gasLimit,
+			To:        to,
+			Value:     uint256.MustFromBig(value),
+			Data:      data,
+			AuthList:  auths,
+		}
+		tx := types.MustSignNewTx(sk.EcdsaPrivateKey().(*ecdsa.PrivateKey), types.LatestSignerForChainID(txdata.ChainID.ToBig()), &txdata)
+		_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+		if err != nil {
+			return nil, err
+		}
+		req := &iotextypes.Action{
+			Core:         mustNoErr(action.EthRawToContainer(chainID, hex.EncodeToString(mustNoErr(tx.MarshalBinary())))),
+			SenderPubKey: pubkey.Bytes(),
+			Signature:    sig,
+			Encoding:     iotextypes.Encoding_TX_CONTAINER,
+		}
+		return (&action.Deserializer{}).SetEvmNetworkID(evmNetworkID).ActionToSealedEnvelope(req)
+	}
+
+	// Recipients for batch transfer test
+	recipient1 := identityset.Address(20)
+	recipient2 := identityset.Address(21)
+	recipient3 := identityset.Address(22)
+	recipients := []common.Address{
+		common.BytesToAddress(recipient1.Bytes()),
+		common.BytesToAddress(recipient2.Bytes()),
+		common.BytesToAddress(recipient3.Bytes()),
+	}
+	transferAmount := unit.ConvertIotxToRau(100)
+	amounts := []*big.Int{transferAmount, transferAmount, transferAmount}
+	totalAmount := new(big.Int).Mul(transferAmount, big.NewInt(int64(len(amounts))))
+
+	var (
+		contractCreator = 1
+		accountContract = 11 // EOA that will delegate to batch transfer contract
+	)
+
+	test.run([]*testcase{
+		{
+			name: "deploy_batch_transfer_contract",
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedExecution("", identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(0), gasLimit, gasPrice, bytecode, action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				r.NoError(err)
+				r.EqualValues(2, len(blk.Receipts))
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), blk.Receipts[0].Status)
+				r.Equal(batchTransferContractAddress, blk.Receipts[0].ContractAddress)
+			},
+		},
+	})
+
+	// Get initial balances
+	var initialBalances [3]*big.Int
+	for i, addr := range []address.Address{recipient1, recipient2, recipient3} {
+		balance, err := test.ethcli.BalanceAt(context.Background(), common.BytesToAddress(addr.Bytes()), nil)
+		r.NoError(err)
+		initialBalances[i] = balance
+	}
+
+	// Create authorization for account to delegate to batch transfer contract
+	auth, err := types.SignSetCode(identityset.PrivateKey(accountContract).EcdsaPrivateKey().(*ecdsa.PrivateKey), types.SetCodeAuthorization{
+		ChainID: *uint256.NewInt(uint64(evmNetworkID)),
+		Address: batchTransferContractAddressEth,
+		Nonce:   test.nonceMgr.pop(identityset.Address(accountContract).String()),
+	})
+	r.NoError(err)
+	auths := []types.SetCodeAuthorization{auth}
+
+	// Build batch transfer calldata
+	calldata := mustBatchTransferCalldata(recipients, amounts)
+
+	test.run([]*testcase{
+		{
+			name: "setcode_and_batch_transfer",
+			preFunc: func(*e2etest) {
+				// Verify account has no code before setcode
+				code, err := test.ethcli.CodeAt(context.Background(), common.Address(identityset.Address(accountContract).Bytes()), nil)
+				r.NoError(err)
+				r.Equal(0, len(code), "account should have no code before setcode")
+			},
+			act: &actionWithTime{
+				mustNoErr(newSetCodeTxWeb3(test.nonceMgr.pop(sender), senderSK, identityset.Address(accountContract).String(), totalAmount, calldata, auths)),
+				time.Now(),
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				r.NoError(err)
+				r.EqualValues(2, len(blk.Receipts))
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), blk.Receipts[0].Status)
+
+				// Verify code delegation is set correctly
+				code, err := test.ethcli.CodeAt(context.Background(), common.Address(identityset.Address(accountContract).Bytes()), nil)
+				r.NoError(err)
+				delegate, isDelegated := types.ParseDelegation(code)
+				r.True(isDelegated, "contract code not set correctly by setcodetx")
+				r.Equal(batchTransferContractAddressEth, delegate, "delegation target mismatch")
+
+				// Verify all recipients received their transfers
+				for i, addr := range []address.Address{recipient1, recipient2, recipient3} {
+					balance, err := test.ethcli.BalanceAt(context.Background(), common.BytesToAddress(addr.Bytes()), nil)
+					r.NoError(err)
+					expectedBalance := new(big.Int).Add(initialBalances[i], transferAmount)
+					r.Equal(expectedBalance, balance, "recipient %d balance mismatch: expected %s, got %s", i+1, expectedBalance.String(), balance.String())
+				}
+
+				t.Logf("Batch transfer successful: transferred %s wei to %d recipients in a single transaction", transferAmount.String(), len(recipients))
+			},
+		},
+	})
+}
+
 func TestEstimateGas(t *testing.T) {
 	t.Skip("TODO: fix test")
 	r := require.New(t)
