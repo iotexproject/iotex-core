@@ -681,6 +681,236 @@ func TestSetCodeTx_ERC20ApproveAndTransfer(t *testing.T) {
 	})
 }
 
+// TestSetCodeTx_GasSponsorship tests EIP-7702 gas sponsorship scenario
+// This demonstrates that a sponsor can pay gas fees for an EOA's transaction
+func TestSetCodeTx_GasSponsorship(t *testing.T) {
+	r := require.New(t)
+	cfg := initCfg(r)
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = 0
+	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis.XinguBetaBlockHeight = 1
+	cfg.Genesis.ToBeEnabledBlockHeight = 1 // enable setcode tx from the start
+
+	// Sponsor has native tokens to pay for gas
+	sponsor := identityset.Address(10)
+	sponsorSK := identityset.PrivateKey(10)
+	cfg.Genesis.InitBalanceMap[sponsor.String()] = unit.ConvertIotxToRau(1000000).String()
+
+	// Token holder has NO native tokens but will hold ERC20 tokens
+	tokenHolder := identityset.Address(30) // use an account with no initial balance
+	tokenHolderSK := identityset.PrivateKey(30)
+	tokenHolderEth := common.BytesToAddress(tokenHolder.Bytes())
+
+	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
+	test := newE2ETest(t, cfg)
+	chainID := cfg.Chain.ID
+	evmNetworkID := cfg.Chain.EVMNetworkID
+	gasPrice := big.NewInt(unit.Qev)
+	gasFeeCap := big.NewInt(unit.Qev * 2)
+	gasTipCap := big.NewInt(1)
+
+	// Deploy ERC20 and Multicall contracts
+	erc20Bytecode, err := hex.DecodeString(erc20Bytecode)
+	r.NoError(err)
+	multicallBytecode, err := hex.DecodeString(multicallBytecode)
+	r.NoError(err)
+
+	var erc20ContractAddress string
+	var erc20ContractAddressEth common.Address
+	var multicallContractAddress string
+	var multicallContractAddressEth common.Address
+
+	mustERC20Calldata := func(m string, args ...any) []byte {
+		data, err := abiCall(erc20ABI, m, args...)
+		r.NoError(err)
+		return data
+	}
+
+	// Call struct for multicall
+	type Call struct {
+		Target common.Address
+		Data   []byte
+	}
+
+	mustMulticallCalldata := func(calls []Call) []byte {
+		data, err := abiCall(multicallContractABI, "multicall((address,bytes)[])", calls)
+		r.NoError(err)
+		return data
+	}
+
+	newSetCodeTxWeb3 := func(nonce uint64, sk crypto.PrivateKey, addr string, value *big.Int, data []byte, auths []types.SetCodeAuthorization) (*action.SealedEnvelope, error) {
+		var to common.Address
+		if addr != "" {
+			to = common.BytesToAddress(mustNoErr(address.FromString(addr)).Bytes())
+		}
+		txdata := types.SetCodeTx{
+			ChainID:   uint256.NewInt(uint64(evmNetworkID)),
+			Nonce:     nonce,
+			GasTipCap: uint256.MustFromBig(gasTipCap),
+			GasFeeCap: uint256.MustFromBig(gasFeeCap),
+			Gas:       gasLimit,
+			To:        to,
+			Value:     uint256.MustFromBig(value),
+			Data:      data,
+			AuthList:  auths,
+		}
+		tx := types.MustSignNewTx(sk.EcdsaPrivateKey().(*ecdsa.PrivateKey), types.LatestSignerForChainID(txdata.ChainID.ToBig()), &txdata)
+		_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+		if err != nil {
+			return nil, err
+		}
+		req := &iotextypes.Action{
+			Core:         mustNoErr(action.EthRawToContainer(chainID, hex.EncodeToString(mustNoErr(tx.MarshalBinary())))),
+			SenderPubKey: pubkey.Bytes(),
+			Signature:    sig,
+			Encoding:     iotextypes.Encoding_TX_CONTAINER,
+		}
+		return (&action.Deserializer{}).SetEvmNetworkID(evmNetworkID).ActionToSealedEnvelope(req)
+	}
+
+	contractCreator := 1
+	recipient := identityset.Address(23)
+	recipientEth := common.BytesToAddress(recipient.Bytes())
+	tokenAmount := big.NewInt(1000000)
+	transferAmount := big.NewInt(500000)
+
+	// Step 1: Deploy ERC20 and Multicall contracts
+	test.run([]*testcase{
+		{
+			name: "deploy_contracts",
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedExecution("", identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(0), gasLimit, gasPrice, erc20Bytecode, action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedExecution("", identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(0), gasLimit, gasPrice, multicallBytecode, action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				r.NoError(err)
+				r.EqualValues(3, len(blk.Receipts))
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), blk.Receipts[0].Status)
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), blk.Receipts[1].Status)
+				erc20ContractAddress = blk.Receipts[0].ContractAddress
+				erc20ContractAddressEth = common.BytesToAddress(assertions.MustNoErrorV(address.FromString(erc20ContractAddress)).Bytes())
+				multicallContractAddress = blk.Receipts[1].ContractAddress
+				multicallContractAddressEth = common.BytesToAddress(assertions.MustNoErrorV(address.FromString(multicallContractAddress)).Bytes())
+				t.Logf("ERC20 deployed at: %s, Multicall deployed at: %s", erc20ContractAddress, multicallContractAddress)
+			},
+		},
+	})
+
+	// Step 2: Mint ERC20 tokens to token holder (who has no native tokens)
+	test.run([]*testcase{
+		{
+			name: "mint_tokens_to_holder",
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedExecution(erc20ContractAddress, identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(0), gasLimit, gasPrice, mustERC20Calldata("mint(address,uint256)", tokenHolderEth, tokenAmount), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				r.NoError(err)
+				r.EqualValues(2, len(blk.Receipts))
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), blk.Receipts[0].Status)
+				t.Logf("Minted %s tokens to %s (who has no native tokens)", tokenAmount.String(), tokenHolder.String())
+			},
+		},
+	})
+
+	// Step 3: Token holder (with no gas) delegates to Multicall, sponsor pays gas
+	auth, err := types.SignSetCode(tokenHolderSK.EcdsaPrivateKey().(*ecdsa.PrivateKey), types.SetCodeAuthorization{
+		ChainID: *uint256.NewInt(uint64(evmNetworkID)),
+		Address: multicallContractAddressEth,
+		Nonce:   test.nonceMgr.pop(tokenHolder.String()),
+	})
+	r.NoError(err)
+	auths := []types.SetCodeAuthorization{auth}
+
+	// Create multicall data: transfer ERC20 tokens to recipient
+	calls := []Call{
+		{
+			Target: erc20ContractAddressEth,
+			Data:   mustERC20Calldata("transfer(address,uint256)", recipientEth, transferAmount),
+		},
+	}
+	multicallData := mustMulticallCalldata(calls)
+
+	var sponsorBalanceBefore, sponsorBalanceAfter *big.Int
+
+	test.run([]*testcase{
+		{
+			name: "gas_sponsored_transfer",
+			preFunc: func(*e2etest) {
+				// Verify token holder has NO native tokens
+				balance, err := test.ethcli.BalanceAt(context.Background(), tokenHolderEth, nil)
+				r.NoError(err)
+				r.True(balance.Sign() == 0, "token holder should have no native tokens, but has %s", balance.String())
+
+				// Record sponsor's balance before
+				sponsorBalanceBefore, err = test.ethcli.BalanceAt(context.Background(), common.BytesToAddress(sponsor.Bytes()), nil)
+				r.NoError(err)
+
+				// Verify token holder has ERC20 tokens
+				balanceData := mustERC20Calldata("balanceOf(address)", tokenHolderEth)
+				result, err := test.ethcli.CallContract(context.Background(), ethereum.CallMsg{
+					To:   &erc20ContractAddressEth,
+					Data: balanceData,
+				}, nil)
+				r.NoError(err)
+				erc20Balance := new(big.Int).SetBytes(result)
+				r.Equal(tokenAmount, erc20Balance, "token holder should have ERC20 tokens")
+
+				t.Logf("Before: sponsor balance=%s, token holder native balance=0, token holder ERC20 balance=%s",
+					sponsorBalanceBefore.String(), erc20Balance.String())
+			},
+			act: &actionWithTime{
+				// Sponsor sends the transaction and pays gas, but the ERC20 transfer is executed as token holder
+				mustNoErr(newSetCodeTxWeb3(test.nonceMgr.pop(sponsor.String()), sponsorSK, tokenHolder.String(), big.NewInt(0), multicallData, auths)),
+				time.Now(),
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				r.NoError(err)
+				r.EqualValues(2, len(blk.Receipts))
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), blk.Receipts[0].Status)
+
+				// Verify token holder STILL has no native tokens (didn't pay gas)
+				balance, err := test.ethcli.BalanceAt(context.Background(), tokenHolderEth, nil)
+				r.NoError(err)
+				r.True(balance.Sign() == 0, "token holder should still have no native tokens after sponsored tx")
+
+				// Verify sponsor paid gas
+				sponsorBalanceAfter, err = test.ethcli.BalanceAt(context.Background(), common.BytesToAddress(sponsor.Bytes()), nil)
+				r.NoError(err)
+				gasPaid := new(big.Int).Sub(sponsorBalanceBefore, sponsorBalanceAfter)
+				r.True(gasPaid.Sign() > 0, "sponsor should have paid gas")
+
+				// Verify ERC20 transfer succeeded
+				balanceData := mustERC20Calldata("balanceOf(address)", tokenHolderEth)
+				result, err := test.ethcli.CallContract(context.Background(), ethereum.CallMsg{
+					To:   &erc20ContractAddressEth,
+					Data: balanceData,
+				}, nil)
+				r.NoError(err)
+				holderBalance := new(big.Int).SetBytes(result)
+				expectedHolderBalance := new(big.Int).Sub(tokenAmount, transferAmount)
+				r.Equal(expectedHolderBalance, holderBalance, "token holder ERC20 balance mismatch")
+
+				balanceData = mustERC20Calldata("balanceOf(address)", recipientEth)
+				result, err = test.ethcli.CallContract(context.Background(), ethereum.CallMsg{
+					To:   &erc20ContractAddressEth,
+					Data: balanceData,
+				}, nil)
+				r.NoError(err)
+				recipientBalance := new(big.Int).SetBytes(result)
+				r.Equal(transferAmount, recipientBalance, "recipient ERC20 balance mismatch")
+
+				t.Logf("Gas sponsorship successful!")
+				t.Logf("  - Sponsor paid %s wei for gas", gasPaid.String())
+				t.Logf("  - Token holder (with 0 native balance) transferred %s ERC20 tokens", transferAmount.String())
+				t.Logf("  - Recipient received %s ERC20 tokens", transferAmount.String())
+			},
+		},
+	})
+}
+
 func TestEstimateGas(t *testing.T) {
 	t.Skip("TODO: fix test")
 	r := require.New(t)
