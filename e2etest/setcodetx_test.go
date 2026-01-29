@@ -442,6 +442,237 @@ func TestSetCodeTx_BatchTransfer(t *testing.T) {
 	})
 }
 
+// TestSetCodeTx_ERC20ApproveAndTransfer tests EIP-7702 with ERC20 approve + transfer in one transaction
+// This demonstrates the classic DEX use case: approve tokens and transfer them atomically
+func TestSetCodeTx_ERC20ApproveAndTransfer(t *testing.T) {
+	r := require.New(t)
+	sender := identityset.Address(10).String()
+	senderSK := identityset.PrivateKey(10)
+	cfg := initCfg(r)
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = 0
+	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis.XinguBetaBlockHeight = 1
+	cfg.Genesis.ToBeEnabledBlockHeight = 1 // enable setcode tx from the start
+	cfg.Genesis.InitBalanceMap[sender] = unit.ConvertIotxToRau(1000000).String()
+	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
+	test := newE2ETest(t, cfg)
+	chainID := cfg.Chain.ID
+	evmNetworkID := cfg.Chain.EVMNetworkID
+	gasPrice := big.NewInt(unit.Qev)
+	gasFeeCap := big.NewInt(unit.Qev * 2)
+	gasTipCap := big.NewInt(1)
+
+	// Deploy contracts
+	erc20Bytecode, err := hex.DecodeString(erc20Bytecode)
+	r.NoError(err)
+	multicallBytecode, err := hex.DecodeString(multicallBytecode)
+	r.NoError(err)
+
+	var erc20ContractAddress string
+	var erc20ContractAddressEth common.Address
+	var multicallContractAddress string
+	var multicallContractAddressEth common.Address
+
+	mustERC20Calldata := func(m string, args ...any) []byte {
+		data, err := abiCall(erc20ABI, m, args...)
+		r.NoError(err)
+		return data
+	}
+
+	// Multicall struct for encoding calls
+	type Call struct {
+		Target common.Address
+		Data   []byte
+	}
+
+	mustMulticallCalldata := func(calls []Call) []byte {
+		data, err := abiCall(multicallContractABI, "multicall((address,bytes)[])", calls)
+		r.NoError(err)
+		return data
+	}
+
+	newSetCodeTxWeb3 := func(nonce uint64, sk crypto.PrivateKey, addr string, value *big.Int, data []byte, auths []types.SetCodeAuthorization) (*action.SealedEnvelope, error) {
+		var to common.Address
+		if addr != "" {
+			to = common.BytesToAddress(mustNoErr(address.FromString(addr)).Bytes())
+		}
+		txdata := types.SetCodeTx{
+			ChainID:   uint256.NewInt(uint64(evmNetworkID)),
+			Nonce:     nonce,
+			GasTipCap: uint256.MustFromBig(gasTipCap),
+			GasFeeCap: uint256.MustFromBig(gasFeeCap),
+			Gas:       gasLimit,
+			To:        to,
+			Value:     uint256.MustFromBig(value),
+			Data:      data,
+			AuthList:  auths,
+		}
+		tx := types.MustSignNewTx(sk.EcdsaPrivateKey().(*ecdsa.PrivateKey), types.LatestSignerForChainID(txdata.ChainID.ToBig()), &txdata)
+		_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+		if err != nil {
+			return nil, err
+		}
+		req := &iotextypes.Action{
+			Core:         mustNoErr(action.EthRawToContainer(chainID, hex.EncodeToString(mustNoErr(tx.MarshalBinary())))),
+			SenderPubKey: pubkey.Bytes(),
+			Signature:    sig,
+			Encoding:     iotextypes.Encoding_TX_CONTAINER,
+		}
+		return (&action.Deserializer{}).SetEvmNetworkID(evmNetworkID).ActionToSealedEnvelope(req)
+	}
+
+	var (
+		contractCreator = 1
+		tokenHolder     = 12 // EOA that holds tokens and will delegate to multicall
+		recipient       = identityset.Address(23)
+	)
+	tokenHolderAddr := identityset.Address(tokenHolder)
+	tokenHolderAddrEth := common.BytesToAddress(tokenHolderAddr.Bytes())
+	recipientEth := common.BytesToAddress(recipient.Bytes())
+	tokenAmount := big.NewInt(1000000) // 1M tokens
+
+	// Step 1: Deploy ERC20 and Multicall contracts
+	test.run([]*testcase{
+		{
+			name: "deploy_erc20_and_multicall",
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedExecution("", identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(0), gasLimit, gasPrice, erc20Bytecode, action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedExecution("", identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(0), gasLimit, gasPrice, multicallBytecode, action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				r.NoError(err)
+				r.EqualValues(3, len(blk.Receipts))
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), blk.Receipts[0].Status)
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), blk.Receipts[1].Status)
+				erc20ContractAddress = blk.Receipts[0].ContractAddress
+				erc20ContractAddressEth = common.BytesToAddress(assertions.MustNoErrorV(address.FromString(erc20ContractAddress)).Bytes())
+				multicallContractAddress = blk.Receipts[1].ContractAddress
+				multicallContractAddressEth = common.BytesToAddress(assertions.MustNoErrorV(address.FromString(multicallContractAddress)).Bytes())
+				t.Logf("ERC20 deployed at: %s, Multicall deployed at: %s", erc20ContractAddress, multicallContractAddress)
+			},
+		},
+	})
+
+	// Step 2: Mint tokens to token holder
+	test.run([]*testcase{
+		{
+			name: "mint_tokens_to_holder",
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedExecution(erc20ContractAddress, identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(0), gasLimit, gasPrice, mustERC20Calldata("mint(address,uint256)", tokenHolderAddrEth, tokenAmount), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				r.NoError(err)
+				r.EqualValues(2, len(blk.Receipts))
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), blk.Receipts[0].Status)
+				t.Logf("Minted %s tokens to %s", tokenAmount.String(), tokenHolderAddr.String())
+			},
+		},
+	})
+
+	// Step 3: Token holder delegates to Multicall and executes approve + transfer atomically
+	auth, err := types.SignSetCode(identityset.PrivateKey(tokenHolder).EcdsaPrivateKey().(*ecdsa.PrivateKey), types.SetCodeAuthorization{
+		ChainID: *uint256.NewInt(uint64(evmNetworkID)),
+		Address: multicallContractAddressEth,
+		Nonce:   test.nonceMgr.pop(tokenHolderAddr.String()),
+	})
+	r.NoError(err)
+	auths := []types.SetCodeAuthorization{auth}
+
+	// Create multicall data: approve spender (sender) + transfer to recipient
+	// Note: Since we're executing in the context of tokenHolder (via delegation),
+	// we can directly call transfer instead of transferFrom
+	transferAmount := big.NewInt(500000)
+	calls := []Call{
+		{
+			Target: erc20ContractAddressEth,
+			Data:   mustERC20Calldata("approve(address,uint256)", common.BytesToAddress(identityset.Address(10).Bytes()), transferAmount),
+		},
+		{
+			Target: erc20ContractAddressEth,
+			Data:   mustERC20Calldata("transfer(address,uint256)", recipientEth, transferAmount),
+		},
+	}
+	multicallData := mustMulticallCalldata(calls)
+
+	test.run([]*testcase{
+		{
+			name: "setcode_multicall_approve_and_transfer",
+			preFunc: func(*e2etest) {
+				// Verify token holder has tokens
+				balanceData := mustERC20Calldata("balanceOf(address)", tokenHolderAddrEth)
+				result, err := test.ethcli.CallContract(context.Background(), ethereum.CallMsg{
+					To:   &erc20ContractAddressEth,
+					Data: balanceData,
+				}, nil)
+				r.NoError(err)
+				balance := new(big.Int).SetBytes(result)
+				r.Equal(tokenAmount, balance, "token holder should have tokens before transfer")
+
+				// Verify recipient has no tokens
+				balanceData = mustERC20Calldata("balanceOf(address)", recipientEth)
+				result, err = test.ethcli.CallContract(context.Background(), ethereum.CallMsg{
+					To:   &erc20ContractAddressEth,
+					Data: balanceData,
+				}, nil)
+				r.NoError(err)
+				balance = new(big.Int).SetBytes(result)
+				r.True(balance.Sign() == 0, "recipient should have no tokens before transfer")
+			},
+			act: &actionWithTime{
+				mustNoErr(newSetCodeTxWeb3(test.nonceMgr.pop(sender), senderSK, tokenHolderAddr.String(), big.NewInt(0), multicallData, auths)),
+				time.Now(),
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				r.NoError(err)
+				r.EqualValues(2, len(blk.Receipts))
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), blk.Receipts[0].Status)
+
+				// Verify code delegation is set correctly
+				code, err := test.ethcli.CodeAt(context.Background(), tokenHolderAddrEth, nil)
+				r.NoError(err)
+				delegate, isDelegated := types.ParseDelegation(code)
+				r.True(isDelegated, "code delegation not set")
+				r.Equal(multicallContractAddressEth, delegate, "delegation target mismatch")
+
+				// Verify token balances after transfer
+				balanceData := mustERC20Calldata("balanceOf(address)", tokenHolderAddrEth)
+				result, err := test.ethcli.CallContract(context.Background(), ethereum.CallMsg{
+					To:   &erc20ContractAddressEth,
+					Data: balanceData,
+				}, nil)
+				r.NoError(err)
+				holderBalance := new(big.Int).SetBytes(result)
+				expectedHolderBalance := new(big.Int).Sub(tokenAmount, transferAmount)
+				r.Equal(expectedHolderBalance, holderBalance, "token holder balance mismatch")
+
+				balanceData = mustERC20Calldata("balanceOf(address)", recipientEth)
+				result, err = test.ethcli.CallContract(context.Background(), ethereum.CallMsg{
+					To:   &erc20ContractAddressEth,
+					Data: balanceData,
+				}, nil)
+				r.NoError(err)
+				recipientBalance := new(big.Int).SetBytes(result)
+				r.Equal(transferAmount, recipientBalance, "recipient balance mismatch")
+
+				// Verify allowance is set
+				allowanceData := mustERC20Calldata("allowance(address,address)", tokenHolderAddrEth, common.BytesToAddress(identityset.Address(10).Bytes()))
+				result, err = test.ethcli.CallContract(context.Background(), ethereum.CallMsg{
+					To:   &erc20ContractAddressEth,
+					Data: allowanceData,
+				}, nil)
+				r.NoError(err)
+				allowance := new(big.Int).SetBytes(result)
+				r.Equal(transferAmount, allowance, "allowance not set correctly")
+
+				t.Logf("ERC20 approve + transfer successful: approved %s tokens and transferred %s tokens in one tx", transferAmount.String(), transferAmount.String())
+			},
+		},
+	})
+}
+
 func TestEstimateGas(t *testing.T) {
 	t.Skip("TODO: fix test")
 	r := require.New(t)
