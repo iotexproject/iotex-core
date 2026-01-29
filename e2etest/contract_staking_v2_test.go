@@ -49,12 +49,6 @@ var (
 	stakingContractV3ABI      = stakingindex.StakingContractABI
 	stakingContractV3Address  = "io1894t0guunycg206syanwal0yqdq4kghe6yj2z8"
 
-	//go:embed batch_transfer_bytecode
-	batchTransferBytecode    string
-	batchTransferABIJSON     = `[{"inputs":[{"internalType":"address[]","name":"recipients","type":"address[]"},{"internalType":"uint256[]","name":"amounts","type":"uint256[]"}],"name":"batchTransfer","outputs":[],"stateMutability":"payable","type":"function"},{"stateMutability":"payable","type":"receive"}]`
-	batchTransferContractABI abi.ABI
-	batchTransferAddress     = "io14j96vg9pkx28htpgt2jx0tf3v9etpg4j9h3p67"
-
 	//go:embed multicall_bytecode
 	multicallBytecode    string
 	multicallABIJSON     = `[{"inputs":[{"components":[{"internalType":"address","name":"target","type":"address"},{"internalType":"bytes","name":"data","type":"bytes"}],"internalType":"struct Multicall.Call[]","name":"calls","type":"tuple[]"}],"name":"multicall","outputs":[{"internalType":"bytes[]","name":"results","type":"bytes[]"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"components":[{"internalType":"address","name":"target","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"}],"internalType":"struct Multicall.CallWithValue[]","name":"calls","type":"tuple[]"}],"name":"multicallWithValue","outputs":[{"internalType":"bytes[]","name":"results","type":"bytes[]"}],"stateMutability":"payable","type":"function"},{"stateMutability":"payable","type":"receive"}]`
@@ -65,10 +59,6 @@ var (
 
 func init() {
 	var err error
-	batchTransferContractABI, err = abi.JSON(strings.NewReader(batchTransferABIJSON))
-	if err != nil {
-		panic(err)
-	}
 	multicallContractABI, err = abi.JSON(strings.NewReader(multicallABIJSON))
 	if err != nil {
 		panic(err)

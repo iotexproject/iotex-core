@@ -285,8 +285,8 @@ func TestSetCodeTx_E2E(t *testing.T) {
 	})
 }
 
-// TestSetCodeTx_BatchTransfer tests the batch transfer scenario using EIP-7702
-// This demonstrates one of the key use cases of EIP-7702: executing multiple transfers in a single transaction
+// TestSetCodeTx_BatchTransfer tests the batch transfer scenario using EIP-7702 with Multicall
+// This demonstrates one of the key use cases of EIP-7702: executing multiple native token transfers in a single transaction
 func TestSetCodeTx_BatchTransfer(t *testing.T) {
 	r := require.New(t)
 	sender := identityset.Address(10).String()
@@ -308,14 +308,21 @@ func TestSetCodeTx_BatchTransfer(t *testing.T) {
 	gasFeeCap := big.NewInt(unit.Qev * 2)
 	gasTipCap := big.NewInt(1)
 
-	// Deploy BatchTransfer contract
-	batchTransferContractAddress := "io1dkqh5mu9djfas3xyrmzdv9frsmmytel4mp7a64"
-	batchTransferContractAddressEth := common.BytesToAddress(assertions.MustNoErrorV(address.FromString(batchTransferContractAddress)).Bytes())
-	bytecode, err := hex.DecodeString(batchTransferBytecode)
+	// Deploy Multicall contract
+	multicallContractAddress := "io1dkqh5mu9djfas3xyrmzdv9frsmmytel4mp7a64"
+	multicallContractAddressEth := common.BytesToAddress(assertions.MustNoErrorV(address.FromString(multicallContractAddress)).Bytes())
+	bytecode, err := hex.DecodeString(multicallBytecode)
 	r.NoError(err)
 
-	mustBatchTransferCalldata := func(recipients []common.Address, amounts []*big.Int) []byte {
-		data, err := abiCall(batchTransferContractABI, "batchTransfer(address[],uint256[])", recipients, amounts)
+	// CallWithValue struct for multicallWithValue
+	type CallWithValue struct {
+		Target common.Address
+		Value  *big.Int
+		Data   []byte
+	}
+
+	mustMulticallWithValueCalldata := func(calls []CallWithValue) []byte {
+		data, err := abiCall(multicallContractABI, "multicallWithValue((address,uint256,bytes)[])", calls)
 		r.NoError(err)
 		return data
 	}
@@ -354,23 +361,24 @@ func TestSetCodeTx_BatchTransfer(t *testing.T) {
 	recipient1 := identityset.Address(20)
 	recipient2 := identityset.Address(21)
 	recipient3 := identityset.Address(22)
-	recipients := []common.Address{
-		common.BytesToAddress(recipient1.Bytes()),
-		common.BytesToAddress(recipient2.Bytes()),
-		common.BytesToAddress(recipient3.Bytes()),
-	}
 	transferAmount := unit.ConvertIotxToRau(100)
-	amounts := []*big.Int{transferAmount, transferAmount, transferAmount}
-	totalAmount := new(big.Int).Mul(transferAmount, big.NewInt(int64(len(amounts))))
+	totalAmount := new(big.Int).Mul(transferAmount, big.NewInt(3))
+
+	// Build multicall with value calls - each call transfers native token to a recipient
+	calls := []CallWithValue{
+		{Target: common.BytesToAddress(recipient1.Bytes()), Value: transferAmount, Data: []byte{}},
+		{Target: common.BytesToAddress(recipient2.Bytes()), Value: transferAmount, Data: []byte{}},
+		{Target: common.BytesToAddress(recipient3.Bytes()), Value: transferAmount, Data: []byte{}},
+	}
 
 	var (
 		contractCreator = 1
-		accountContract = 11 // EOA that will delegate to batch transfer contract
+		accountContract = 11 // EOA that will delegate to multicall contract
 	)
 
 	test.run([]*testcase{
 		{
-			name: "deploy_batch_transfer_contract",
+			name: "deploy_multicall_contract",
 			acts: []*actionWithTime{
 				{mustNoErr(action.SignedExecution("", identityset.PrivateKey(contractCreator), test.nonceMgr.pop(identityset.Address(contractCreator).String()), big.NewInt(0), gasLimit, gasPrice, bytecode, action.WithChainID(chainID))), time.Now()},
 			},
@@ -378,7 +386,7 @@ func TestSetCodeTx_BatchTransfer(t *testing.T) {
 				r.NoError(err)
 				r.EqualValues(2, len(blk.Receipts))
 				r.Equal(uint64(iotextypes.ReceiptStatus_Success), blk.Receipts[0].Status)
-				r.Equal(batchTransferContractAddress, blk.Receipts[0].ContractAddress)
+				r.Equal(multicallContractAddress, blk.Receipts[0].ContractAddress)
 			},
 		},
 	})
@@ -391,17 +399,17 @@ func TestSetCodeTx_BatchTransfer(t *testing.T) {
 		initialBalances[i] = balance
 	}
 
-	// Create authorization for account to delegate to batch transfer contract
+	// Create authorization for account to delegate to multicall contract
 	auth, err := types.SignSetCode(identityset.PrivateKey(accountContract).EcdsaPrivateKey().(*ecdsa.PrivateKey), types.SetCodeAuthorization{
 		ChainID: *uint256.NewInt(uint64(evmNetworkID)),
-		Address: batchTransferContractAddressEth,
+		Address: multicallContractAddressEth,
 		Nonce:   test.nonceMgr.pop(identityset.Address(accountContract).String()),
 	})
 	r.NoError(err)
 	auths := []types.SetCodeAuthorization{auth}
 
-	// Build batch transfer calldata
-	calldata := mustBatchTransferCalldata(recipients, amounts)
+	// Build multicall calldata
+	calldata := mustMulticallWithValueCalldata(calls)
 
 	test.run([]*testcase{
 		{
@@ -426,7 +434,7 @@ func TestSetCodeTx_BatchTransfer(t *testing.T) {
 				r.NoError(err)
 				delegate, isDelegated := types.ParseDelegation(code)
 				r.True(isDelegated, "contract code not set correctly by setcodetx")
-				r.Equal(batchTransferContractAddressEth, delegate, "delegation target mismatch")
+				r.Equal(multicallContractAddressEth, delegate, "delegation target mismatch")
 
 				// Verify all recipients received their transfers
 				for i, addr := range []address.Address{recipient1, recipient2, recipient3} {
@@ -436,7 +444,7 @@ func TestSetCodeTx_BatchTransfer(t *testing.T) {
 					r.Equal(expectedBalance, balance, "recipient %d balance mismatch: expected %s, got %s", i+1, expectedBalance.String(), balance.String())
 				}
 
-				t.Logf("Batch transfer successful: transferred %s wei to %d recipients in a single transaction", transferAmount.String(), len(recipients))
+				t.Logf("Batch transfer successful: transferred %s wei to %d recipients in a single transaction", transferAmount.String(), len(calls))
 			},
 		},
 	})
