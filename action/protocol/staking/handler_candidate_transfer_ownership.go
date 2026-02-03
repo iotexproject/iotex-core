@@ -95,12 +95,6 @@ func (p *Protocol) validateCandidateTransferOwnership(_ context.Context, act *ac
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateNotExist,
 		}
 	}
-	if candidate.Deleted {
-		return &handleError{
-			err:           ErrCandidateDeleted,
-			failureStatus: iotextypes.ReceiptStatus_ErrCandidateNotExist,
-		}
-	}
 	//check if the new owner is self
 	if address.Equal(act.NewOwner(), caller) {
 		return &handleError{

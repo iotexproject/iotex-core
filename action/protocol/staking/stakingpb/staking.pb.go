@@ -233,8 +233,7 @@ type Candidate struct {
 	SelfStake          string                 `protobuf:"bytes,7,opt,name=selfStake,proto3" json:"selfStake,omitempty"`
 	IdentifierAddress  string                 `protobuf:"bytes,8,opt,name=identifierAddress,proto3" json:"identifierAddress,omitempty"` //if the field is empty, set it to the old owner address
 	Pubkey             []byte                 `protobuf:"bytes,9,opt,name=pubkey,proto3" json:"pubkey,omitempty"`                       // BLS public key
-	ExitBlock          uint64                 `protobuf:"varint,10,opt,name=ExitBlock,proto3" json:"ExitBlock,omitempty"`
-	Deleted            bool                   `protobuf:"varint,11,opt,name=Deleted,proto3" json:"Deleted,omitempty"`
+	DeactivatedAt      uint64                 `protobuf:"varint,10,opt,name=deactivatedAt,proto3" json:"deactivatedAt,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -332,18 +331,11 @@ func (x *Candidate) GetPubkey() []byte {
 	return nil
 }
 
-func (x *Candidate) GetExitBlock() uint64 {
+func (x *Candidate) GetDeactivatedAt() uint64 {
 	if x != nil {
-		return x.ExitBlock
+		return x.DeactivatedAt
 	}
 	return 0
-}
-
-func (x *Candidate) GetDeleted() bool {
-	if x != nil {
-		return x.Deleted
-	}
-	return false
 }
 
 type Candidates struct {
@@ -722,7 +714,7 @@ const file_staking_proto_rawDesc = "" +
 	"\x15stakeStartBlockHeight\x18\r \x01(\x04R\x15stakeStartBlockHeight\x128\n" +
 	"\x17unstakeStartBlockHeight\x18\x0e \x01(\x04R\x17unstakeStartBlockHeight\")\n" +
 	"\rBucketIndices\x12\x18\n" +
-	"\aindices\x18\x01 \x03(\x04R\aindices\"\xf5\x02\n" +
+	"\aindices\x18\x01 \x03(\x04R\aindices\"\xe3\x02\n" +
 	"\tCandidate\x12\"\n" +
 	"\fownerAddress\x18\x01 \x01(\tR\fownerAddress\x12(\n" +
 	"\x0foperatorAddress\x18\x02 \x01(\tR\x0foperatorAddress\x12$\n" +
@@ -732,10 +724,9 @@ const file_staking_proto_rawDesc = "" +
 	"\x12selfStakeBucketIdx\x18\x06 \x01(\x04R\x12selfStakeBucketIdx\x12\x1c\n" +
 	"\tselfStake\x18\a \x01(\tR\tselfStake\x12,\n" +
 	"\x11identifierAddress\x18\b \x01(\tR\x11identifierAddress\x12\x16\n" +
-	"\x06pubkey\x18\t \x01(\fR\x06pubkey\x12\x1c\n" +
-	"\tExitBlock\x18\n" +
-	" \x01(\x04R\tExitBlock\x12\x18\n" +
-	"\aDeleted\x18\v \x01(\bR\aDeleted\"B\n" +
+	"\x06pubkey\x18\t \x01(\fR\x06pubkey\x12$\n" +
+	"\rdeactivatedAt\x18\n" +
+	" \x01(\x04R\rdeactivatedAt\"B\n" +
 	"\n" +
 	"Candidates\x124\n" +
 	"\n" +

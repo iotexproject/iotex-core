@@ -64,15 +64,15 @@ const (
 
 // Errors
 var (
-	ErrWithdrawnBucket     = errors.New("the bucket is already withdrawn")
-	ErrEndorsementNotExist = errors.New("the endorsement does not exist")
-	ErrNoSelfStakeBucket   = errors.New("no self-stake bucket")
-	ErrCandidateNotExist   = errors.New("the candidate does not exist")
-	ErrCandidateDeleted    = errors.New("candidate has been deleted")
-	ErrExitNotRequested    = errors.New("exit not requested")
-	ErrExitNotScheduled    = errors.New("exit not scheduled")
-	ErrExitNotReady        = errors.New("exit not ready")
-	ErrAlreadyRequested    = errors.New("already request exit")
+	ErrWithdrawnBucket      = errors.New("the bucket is already withdrawn")
+	ErrEndorsementNotExist  = errors.New("the endorsement does not exist")
+	ErrNoSelfStakeBucket    = errors.New("no self-stake bucket")
+	ErrCandidateNotExist    = errors.New("the candidate does not exist")
+	ErrCandidateDeleted     = errors.New("candidate has been deleted")
+	ErrExitNotRequested     = errors.New("exit not requested")
+	ErrExitNotScheduled     = errors.New("exit not scheduled")
+	ErrExitNotReady         = errors.New("exit not ready")
+	ErrExitAlreadyRequested = errors.New("already request exit")
 )
 
 var (
@@ -594,7 +594,8 @@ func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.Stat
 	epochStartHeight := rp.GetEpochHeight(currentEpochNum)
 	if epochStartHeight == blkCtx.BlockHeight {
 		var last lastExitEpoch
-		if _, err := sr.State(&last, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_lastExitEpoch)); err != nil {
+		_, err := sr.State(&last, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_lastExitEpoch))
+		if err != nil && errors.Is(err, state.ErrStateNotExist) {
 			return nil, err
 		}
 		g := genesis.MustExtractGenesisContext(ctx)
@@ -608,7 +609,7 @@ func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.Stat
 		cands := csr.AllCandidates()
 		sort.Sort(cands)
 		for _, c := range cands {
-			if c.ExitBlock == candidateExitRequested {
+			if c.DeactivatedAt == candidateExitRequested {
 				exitAction := action.NewScheduleCandidateDeactivation(c.GetIdentifier())
 				builder := action.EnvelopeBuilder{}
 
@@ -865,6 +866,8 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		return p.validateCandidateTransferOwnershipAction(ctx, act)
 	case *action.MigrateStake:
 		return p.validateMigrateStake(ctx, act)
+	case *action.CandidateDeactivate:
+		return p.validateCandidateDeactivate(ctx, act)
 	}
 	return nil
 }
@@ -880,15 +883,9 @@ func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidiateStateCom
 			return false, nil
 		}
 	}
-	if cand.Deleted {
-		return false, nil
-	}
 	if !featureCtx.NoCandidateExitQueue {
-		curr, err := csr.SR().Height()
-		if err != nil {
-			return false, errors.Wrap(err, "failed to get current height")
-		}
-		if cand.ExitBlock != 0 && cand.ExitBlock < curr {
+		// A candidate scheduled to exit
+		if cand.DeactivatedAt != 0 && cand.DeactivatedAt != candidateExitRequested {
 			return false, nil
 		}
 	}

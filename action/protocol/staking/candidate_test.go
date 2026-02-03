@@ -72,7 +72,7 @@ func TestSer(t *testing.T) {
 	r.Nil(m1)
 }
 
-func TestSerWithExitBlockAndDeleted(t *testing.T) {
+func TestSerWithDeactivation(t *testing.T) {
 	r := require.New(t)
 
 	original := &Candidate{
@@ -83,8 +83,7 @@ func TestSerWithExitBlockAndDeleted(t *testing.T) {
 		Votes:              big.NewInt(100),
 		SelfStake:          big.NewInt(1000),
 		SelfStakeBucketIdx: 1,
-		ExitBlock:          99999,
-		Deleted:            true,
+		DeactivatedAt:      99999,
 	}
 
 	data, err := original.Serialize()
@@ -93,10 +92,8 @@ func TestSerWithExitBlockAndDeleted(t *testing.T) {
 	deserialized := &Candidate{}
 	r.NoError(deserialized.Deserialize(data))
 
-	r.Equal(original.ExitBlock, deserialized.ExitBlock)
-	r.Equal(original.Deleted, deserialized.Deleted)
-	r.Equal(uint64(99999), deserialized.ExitBlock)
-	r.True(deserialized.Deleted)
+	r.Equal(original.DeactivatedAt, deserialized.DeactivatedAt)
+	r.Equal(uint64(99999), deserialized.DeactivatedAt)
 
 	r.True(original.Equal(deserialized))
 }
@@ -146,7 +143,7 @@ func TestClone(t *testing.T) {
 	r.Equal(d.Name, string(c.CanName))
 }
 
-func TestCloneWithExitBlockAndDeleted(t *testing.T) {
+func TestCloneWithDeactivation(t *testing.T) {
 	r := require.New(t)
 
 	original := &Candidate{
@@ -157,22 +154,17 @@ func TestCloneWithExitBlockAndDeleted(t *testing.T) {
 		Votes:              big.NewInt(100),
 		SelfStake:          big.NewInt(1000),
 		SelfStakeBucketIdx: 1,
-		ExitBlock:          12345,
-		Deleted:            true,
+		DeactivatedAt:      12345,
 	}
 
 	clone := original.Clone()
 
 	r.True(original.Equal(clone))
-	r.Equal(original.ExitBlock, clone.ExitBlock)
-	r.Equal(original.Deleted, clone.Deleted)
-	r.Equal(uint64(12345), clone.ExitBlock)
-	r.True(clone.Deleted)
+	r.Equal(original.DeactivatedAt, clone.DeactivatedAt)
+	r.Equal(uint64(12345), clone.DeactivatedAt)
 
-	clone.ExitBlock = 99999
-	clone.Deleted = false
-	r.Equal(uint64(12345), original.ExitBlock)
-	r.True(original.Deleted)
+	clone.DeactivatedAt = 99999
+	r.Equal(uint64(12345), original.DeactivatedAt)
 }
 
 var (
@@ -462,21 +454,14 @@ func TestCandidate_DeletedCannotReceiveVotes(t *testing.T) {
 		Votes:              big.NewInt(100),
 		SelfStake:          big.NewInt(1000),
 		SelfStakeBucketIdx: 1,
-		ExitBlock:          0,
-		Deleted:            false,
+		DeactivatedAt:      0,
 	}
 
 	r.NoError(candidate.AddVote(big.NewInt(50)))
 	r.Equal(uint64(150), candidate.Votes.Uint64())
 
-	candidate.Deleted = true
-	initialVotes := candidate.Votes.Uint64()
-
-	r.NoError(candidate.AddVote(big.NewInt(50)))
-	r.Equal(initialVotes, candidate.Votes.Uint64())
-
 	r.NoError(candidate.SubVote(big.NewInt(10)))
-	r.Equal(initialVotes, candidate.Votes.Uint64())
+	r.Equal(uint64(140), candidate.Votes.Uint64())
 }
 
 func TestCandidate_DeletedCannotModifySelfStake(t *testing.T) {
@@ -490,19 +475,12 @@ func TestCandidate_DeletedCannotModifySelfStake(t *testing.T) {
 		Votes:              big.NewInt(100),
 		SelfStake:          big.NewInt(1000),
 		SelfStakeBucketIdx: 1,
-		ExitBlock:          0,
-		Deleted:            false,
+		DeactivatedAt:      0,
 	}
 
 	r.NoError(candidate.AddSelfStake(big.NewInt(500)))
 	r.Equal(uint64(1500), candidate.SelfStake.Uint64())
 
-	candidate.Deleted = true
-	initialSelfStake := candidate.SelfStake.Uint64()
-
-	r.NoError(candidate.AddSelfStake(big.NewInt(500)))
-	r.Equal(initialSelfStake, candidate.SelfStake.Uint64())
-
 	r.NoError(candidate.SubSelfStake(big.NewInt(100)))
-	r.Equal(initialSelfStake, candidate.SelfStake.Uint64())
+	r.Equal(uint64(1400), candidate.SelfStake.Uint64())
 }

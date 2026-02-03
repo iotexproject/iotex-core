@@ -517,7 +517,7 @@ func TestProtocol_HandleCandidateDeactivate(t *testing.T) {
 			},
 			expectedErr: nil,
 			verifyFunc: func(r *require.Assertions, csm CandidateStateManager, id address.Address) {
-				r.Equal(candidateExitRequested, csm.GetByIdentifier(id).ExitBlock)
+				r.Equal(candidateExitRequested, csm.GetByIdentifier(id).DeactivatedAt)
 			},
 		},
 		{
@@ -528,7 +528,7 @@ func TestProtocol_HandleCandidateDeactivate(t *testing.T) {
 			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
 				return csm.requestExit(cand.GetIdentifier())
 			},
-			expectedErr: ErrAlreadyRequested,
+			expectedErr: ErrExitAlreadyRequested,
 			verifyFunc:  nil,
 		},
 		{
@@ -541,7 +541,7 @@ func TestProtocol_HandleCandidateDeactivate(t *testing.T) {
 			},
 			expectedErr: nil,
 			verifyFunc: func(r *require.Assertions, csm CandidateStateManager, id address.Address) {
-				r.Equal(uint64(0), csm.GetByIdentifier(id).ExitBlock)
+				r.Equal(uint64(0), csm.GetByIdentifier(id).DeactivatedAt)
 			},
 		},
 		{
@@ -561,12 +561,11 @@ func TestProtocol_HandleCandidateDeactivate(t *testing.T) {
 			deleted:   false,
 			blkHeight: 100,
 			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
-				return csm.confirmExit(cand.GetIdentifier(), 100)
+				return csm.deactivate(cand.GetIdentifier(), 100)
 			},
 			expectedErr: nil,
 			verifyFunc: func(r *require.Assertions, csm CandidateStateManager, id address.Address) {
 				cand := csm.GetByIdentifier(id)
-				r.True(cand.Deleted)
 				r.Equal(uint64(0), cand.Votes.Uint64())
 				r.Equal(uint64(0), cand.SelfStake.Uint64())
 			},
@@ -577,7 +576,7 @@ func TestProtocol_HandleCandidateDeactivate(t *testing.T) {
 			deleted:   false,
 			blkHeight: 100,
 			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
-				return csm.confirmExit(cand.GetIdentifier(), 100)
+				return csm.deactivate(cand.GetIdentifier(), 100)
 			},
 			expectedErr: ErrExitNotReady,
 			verifyFunc:  nil,
@@ -588,10 +587,31 @@ func TestProtocol_HandleCandidateDeactivate(t *testing.T) {
 			deleted:   false,
 			blkHeight: 100,
 			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
-				return csm.confirmExit(cand.GetIdentifier(), 100)
+				return csm.deactivate(cand.GetIdentifier(), 100)
 			},
 			expectedErr: ErrExitNotScheduled,
 			verifyFunc:  nil,
+		},
+		{
+			name:      "confirm exit - success with votes",
+			exitBlock: 90,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
+				// Set up candidate with votes and self-stake
+				cand.Votes = big.NewInt(1000)
+				cand.SelfStake = big.NewInt(200)
+				cand.SelfStakeBucketIdx = 1
+				return csm.deactivate(cand.GetIdentifier(), 100)
+			},
+			expectedErr: nil,
+			verifyFunc: func(r *require.Assertions, csm CandidateStateManager, id address.Address) {
+				cand := csm.GetByIdentifier(id)
+				// Votes should be reduced by SelfStake (1000 - 200 = 800)
+				r.Equal(uint64(800), cand.Votes.Uint64())
+				r.Equal(uint64(0), cand.SelfStake.Uint64())
+				r.Equal(uint64(candidateNoSelfStakeBucketIndex), cand.SelfStakeBucketIdx)
+			},
 		},
 	}
 
@@ -602,8 +622,7 @@ func TestProtocol_HandleCandidateDeactivate(t *testing.T) {
 				{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
 			})
 			candidate := candidates[0]
-			candidate.ExitBlock = tt.exitBlock
-			candidate.Deleted = tt.deleted
+			candidate.DeactivatedAt = tt.exitBlock
 			if candidate.SelfStakeBucketIdx == math.MaxUint64 {
 				candidate.SelfStakeBucketIdx = 1
 			}

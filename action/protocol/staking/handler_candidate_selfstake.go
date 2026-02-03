@@ -36,9 +36,6 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 	if cand == nil {
 		return log, nil, errCandNotExist
 	}
-	if cand.Deleted {
-		return log, nil, ErrCandidateDeleted
-	}
 
 	if err := p.validateBucketSelfStake(ctx, csm, NewEndorsementStateManager(csm.SM()), bucket, cand); err != nil {
 		return log, nil, err
@@ -76,20 +73,16 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 }
 
 func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.CandidateDeactivate, csm CandidateStateManager) (*receiptLog, []*action.TransactionLog, error) {
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	if featureCtx.NoCandidateExitQueue {
-		return nil, nil, &handleError{
-			err:           errors.New("no candidate exit queue"),
-			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
-		}
-	}
 	actCtx := protocol.MustGetActionCtx(ctx)
 	cand := csm.GetByOwner(actCtx.Caller)
 	if cand == nil {
 		return nil, nil, errCandNotExist
 	}
 	if cand.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
-		return nil, nil, ErrInvalidSelfStkIndex
+		return nil, nil, &handleError{
+			err:           ErrInvalidSelfStkIndex,
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketIndex,
+		}
 	}
 	id := cand.GetIdentifier()
 	var topics action.Topics
@@ -97,25 +90,25 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 	var err error
 	switch act.Op() {
 	case action.CandidateDeactivateOpRequest:
-		if err = csm.requestExit(id); err != nil {
-			return nil, nil, errors.Wrap(err, "failed to exit candidate")
+		if err = csm.requestExit(id); err == nil {
+			topics, eventData, err = action.PackCandidateDeactivationRequestedEvent(id)
 		}
-		topics, eventData, err = action.PackCandidateDeactivationRequestedEvent(id)
 	case action.CandidateDeactivateOpCancel:
-		if err := csm.cancelExitRequest(id); err != nil {
-			return nil, nil, errors.Wrap(err, "failed to cancel exit")
+		if err := csm.cancelExitRequest(id); err == nil {
+			topics, eventData, err = action.PackCandidateDeactivationCanceledEvent(id)
 		}
-		topics, eventData, err = action.PackCandidateDeactivationCanceledEvent(id)
 	case action.CandidateDeactivateOpConfirm:
-		if err := csm.confirmExit(id, protocol.MustGetBlockCtx(ctx).BlockHeight); err != nil {
-			return nil, nil, errors.Wrap(err, "failed to exit candidate")
+		if err := csm.deactivate(id, protocol.MustGetBlockCtx(ctx).BlockHeight); err == nil {
+			topics, eventData, err = action.PackCandidateDeactivatedEvent(id)
 		}
-		topics, eventData, err = action.PackCandidateDeactivatedEvent(id)
 	default:
-		return nil, nil, errors.New("invalid operation")
+		return nil, nil, &handleError{
+			err:           errors.New("invalid operation"),
+			failureStatus: iotextypes.ReceiptStatus_Failure,
+		}
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, csmErrorToHandleError(actCtx.Caller.String(), err)
 	}
 	return &receiptLog{
 		addr:                  p.addr.String(),
@@ -140,14 +133,14 @@ func (p *Protocol) handleScheduleCandidateDeactivation(ctx context.Context, act 
 	if currentEpochNum == 0 {
 		return nil, nil, errors.New("invalid epoch number")
 	}
-	c.ExitBlock = blkCtx.BlockHeight + g.ExitAdmissionInterval*rp.NumBlocksByEpoch(currentEpochNum)
+	c.DeactivatedAt = blkCtx.BlockHeight + g.ExitAdmissionInterval*rp.NumBlocksByEpoch(currentEpochNum)
 	if err := csm.Upsert(c); err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to update candidate %s", c.GetIdentifier().String())
 	}
 	if _, err := csm.SM().PutState(&lastExitEpoch{epoch: currentEpochNum}, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_lastExitEpoch)); err != nil {
 		return nil, nil, err
 	}
-	topics, eventData, err := action.PackCandidateDeactivationScheduledEvent(c.GetIdentifier(), c.ExitBlock)
+	topics, eventData, err := action.PackCandidateDeactivationScheduledEvent(c.GetIdentifier(), c.DeactivatedAt)
 	if err != nil {
 		return nil, nil, err
 	}
