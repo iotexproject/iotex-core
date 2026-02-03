@@ -14,8 +14,6 @@ const (
 
 	// CandidateDeactivateOpRequest is an operation to request deactivation
 	CandidateDeactivateOpRequest = iota
-	// CandidateDeactivateOpCancel is an operation to cancel deactivation
-	CandidateDeactivateOpCancel
 	// CandidateDeactivateOpConfirm is an operation to confirm deactivation
 	CandidateDeactivateOpConfirm
 )
@@ -92,10 +90,8 @@ func (cd *CandidateDeactivate) LoadProto(pbAct *iotextypes.CandidateDeactivate) 
 func (cd *CandidateDeactivate) EthData() ([]byte, error) {
 	var method abi.Method
 	switch cd.op {
-	case CandidateDeactivateOpCancel:
-		method = requestCandidateDeactivationMethod
 	case CandidateDeactivateOpRequest:
-		method = cancelCandidateDeactivationMethod
+		method = requestCandidateDeactivationMethod
 	case CandidateDeactivateOpConfirm:
 		method = confirmCandidateDeactivationMethod
 	default:
@@ -117,8 +113,6 @@ func NewCandidateDeactivateFromABIBinary(data []byte) (*CandidateDeactivate, err
 		return nil, errDecodeFailure
 	case bytes.Equal(requestCandidateDeactivationMethod.ID, data[:4]):
 		cd.op = CandidateDeactivateOpRequest
-	case bytes.Equal(cancelCandidateDeactivationMethod.ID, data[:4]):
-		cd.op = CandidateDeactivateOpCancel
 	case bytes.Equal(confirmCandidateDeactivationMethod.ID, data[:4]):
 		cd.op = CandidateDeactivateOpConfirm
 	default:

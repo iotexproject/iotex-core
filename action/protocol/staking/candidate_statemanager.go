@@ -30,8 +30,7 @@ type (
 	}
 	// CandidateSet related to setting candidates
 	CandidateSet interface {
-		requestExit(address.Address) error
-		cancelExitRequest(address.Address) error
+		requestDeactivation(address.Address) error
 		deactivate(address.Address, uint64) error
 		putCandidate(*Candidate) error
 		delCandidate(address.Address) error
@@ -191,7 +190,7 @@ func (csm *candSM) NativeBucket(index uint64) (*VoteBucket, error) {
 	return newCandidateStateReader(csm).NativeBucket(index)
 }
 
-func (csm *candSM) requestExit(owner address.Address) error {
+func (csm *candSM) requestDeactivation(owner address.Address) error {
 	cand := csm.candCenter.GetByOwner(owner)
 	if cand == nil {
 		return errors.Wrapf(errCandNotExist, "failed to get candidate with owner %s", owner)
@@ -200,19 +199,6 @@ func (csm *candSM) requestExit(owner address.Address) error {
 		return ErrExitAlreadyRequested
 	}
 	cand.DeactivatedAt = candidateExitRequested
-
-	return csm.upsert(cand)
-}
-
-func (csm *candSM) cancelExitRequest(owner address.Address) error {
-	cand := csm.candCenter.GetByOwner(owner)
-	if cand == nil {
-		return errors.Wrapf(errCandNotExist, "failed to get candidate with owner %s", owner)
-	}
-	if cand.DeactivatedAt != candidateExitRequested {
-		return ErrExitNotRequested
-	}
-	cand.DeactivatedAt = 0
 
 	return csm.upsert(cand)
 }

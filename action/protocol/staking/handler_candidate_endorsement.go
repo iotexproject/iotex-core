@@ -63,27 +63,28 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 			return log, nil, err
 		}
 		if selfStake {
-			// after the hardfork, request exit for the candidate when self-stake bucket is being revoked
-			if !featureCtx.NoCandidateExitQueue {
-				if err := csm.requestExit(cand.GetIdentifier()); err != nil {
-					return log, nil, errors.Wrap(err, "failed to request exit")
-				}
-			} else {
-				expireHeight += p.config.EndorsementWithdrawWaitingBlocks
-			}
+			expireHeight += p.config.EndorsementWithdrawWaitingBlocks
 		}
 	case action.CandidateEndorsementOpRevoke:
 		if err := p.validateRevokeEndorsement(ctx, esm, actCtx.Caller, bucket); err != nil {
 			return log, nil, err
 		}
-		// TODO: if the request is before hardfork, go to legacy process
-		if !featureCtx.NoCandidateExitQueue {
-			if err := csm.deactivate(cand.GetIdentifier(), protocol.MustGetBlockCtx(ctx).BlockHeight); err != nil {
-				return log, nil, errors.Wrap(err, "failed to deactivate candidate")
-			}
-		} else {
-			// clear self-stake if the endorse bucket is used
-			if cand.SelfStakeBucketIdx == bucket.Index {
+		// clear self-stake if the endorse bucket is in used
+		if cand.SelfStakeBucketIdx == bucket.Index {
+			if !featureCtx.NoCandidateExitQueue {
+				if cand.DeactivatedAt == 0 {
+					topics, eventData, err := action.PackCandidateDeactivationRequestedEvent(cand.Identifier)
+					if err != nil {
+						return log, nil, err
+					}
+					// overwrite the event
+					log.AddEvent(topics, eventData)
+					return log, nil, csm.requestDeactivation(cand.Owner)
+				}
+				if err := csm.deactivate(cand.Identifier, protocol.MustGetBlockCtx(ctx).BlockHeight); err != nil {
+					return log, nil, csmErrorToHandleError(cand.Identifier.String(), err)
+				}
+			} else {
 				// TODO: Check that the bucket is ready for dequeue
 				if err := p.clearCandidateSelfStake(bucket, cand); err != nil {
 					return log, nil, errors.Wrap(err, "failed to clear candidate self-stake")
@@ -91,15 +92,12 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 				if err := csm.Upsert(cand); err != nil {
 					return log, nil, csmErrorToHandleError(actCtx.Caller.String(), err)
 				}
-				if !featureCtx.NoCandidateExitQueue {
-					// TODO (chenchen): Request exit for delegate?
-				}
 			}
-			if err := esm.Delete(bucket.Index); err != nil {
-				return log, nil, errors.Wrapf(err, "failed to delete endorsement with bucket index %d", bucket.Index)
-			}
-			return log, nil, nil
 		}
+		if err := esm.Delete(bucket.Index); err != nil {
+			return log, nil, errors.Wrapf(err, "failed to delete endorsement with bucket index %d", bucket.Index)
+		}
+		return log, nil, nil
 	default:
 		return log, nil, errors.New("invalid operation")
 	}

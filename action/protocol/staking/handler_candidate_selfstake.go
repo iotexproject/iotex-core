@@ -90,12 +90,8 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 	var err error
 	switch act.Op() {
 	case action.CandidateDeactivateOpRequest:
-		if err = csm.requestExit(id); err == nil {
+		if err = csm.requestDeactivation(id); err == nil {
 			topics, eventData, err = action.PackCandidateDeactivationRequestedEvent(id)
-		}
-	case action.CandidateDeactivateOpCancel:
-		if err := csm.cancelExitRequest(id); err == nil {
-			topics, eventData, err = action.PackCandidateDeactivationCanceledEvent(id)
 		}
 	case action.CandidateDeactivateOpConfirm:
 		if err := csm.deactivate(id, protocol.MustGetBlockCtx(ctx).BlockHeight); err == nil {

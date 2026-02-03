@@ -39,19 +39,6 @@
         "internalType": "address",
         "name": "candidate",
         "type": "address"
-      }
-    ],
-    "name": "CandidateDeactivationCanceled",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "candidate",
-        "type": "address"
       },
       {
         "indexed": false,

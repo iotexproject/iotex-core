@@ -513,7 +513,7 @@ func TestProtocol_HandleCandidateDeactivate(t *testing.T) {
 			deleted:   false,
 			blkHeight: 100,
 			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
-				return csm.requestExit(cand.GetIdentifier())
+				return csm.requestDeactivation(cand.GetIdentifier())
 			},
 			expectedErr: nil,
 			verifyFunc: func(r *require.Assertions, csm CandidateStateManager, id address.Address) {
@@ -526,33 +526,9 @@ func TestProtocol_HandleCandidateDeactivate(t *testing.T) {
 			deleted:   false,
 			blkHeight: 100,
 			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
-				return csm.requestExit(cand.GetIdentifier())
+				return csm.requestDeactivation(cand.GetIdentifier())
 			},
 			expectedErr: ErrExitAlreadyRequested,
-			verifyFunc:  nil,
-		},
-		{
-			name:      "cancel exit - success",
-			exitBlock: math.MaxUint64,
-			deleted:   false,
-			blkHeight: 100,
-			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
-				return csm.cancelExitRequest(cand.GetIdentifier())
-			},
-			expectedErr: nil,
-			verifyFunc: func(r *require.Assertions, csm CandidateStateManager, id address.Address) {
-				r.Equal(uint64(0), csm.GetByIdentifier(id).DeactivatedAt)
-			},
-		},
-		{
-			name:      "cancel exit - not requested",
-			exitBlock: 0,
-			deleted:   false,
-			blkHeight: 100,
-			setupFunc: func(csm CandidateStateManager, cand *Candidate) error {
-				return csm.cancelExitRequest(cand.GetIdentifier())
-			},
-			expectedErr: ErrExitNotRequested,
 			verifyFunc:  nil,
 		},
 		{

@@ -36,7 +36,6 @@ var (
 	_stakedEvent                         abi.Event
 	_candidateActivatedEvent             abi.Event
 	_candidateDeactivationRequestedEvent abi.Event
-	_candidateDeactivationCanceledEvent  abi.Event
 	_candidateDeactivationScheduledEvent abi.Event
 	_candidateDeactivatedEvent           abi.Event
 
@@ -94,10 +93,6 @@ func init() {
 		panic("fail to load the event")
 	}
 	_candidateDeactivationRequestedEvent, ok = abi.Events["CandidateDeactivationRequested"]
-	if !ok {
-		panic("fail to load the event")
-	}
-	_candidateDeactivationCanceledEvent, ok = abi.Events["CandidateDeactivationCanceled"]
 	if !ok {
 		panic("fail to load the event")
 	}
@@ -454,18 +449,6 @@ func PackCandidateDeactivationRequestedEvent(candidate address.Address) (Topics,
 	}
 	topics := make(Topics, 2)
 	topics[0] = hash.Hash256(_candidateDeactivationRequestedEvent.ID)
-	topics[1] = hash.BytesToHash256(candidate.Bytes())
-	return topics, data, nil
-}
-
-// PackCandidateDeactivationCanceledEvent packs the CandidateDeactivationCanceled event
-func PackCandidateDeactivationCanceledEvent(candidate address.Address) (Topics, []byte, error) {
-	data, err := _candidateDeactivationCanceledEvent.Inputs.NonIndexed().Pack()
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to pack CandidateDeactivationCanceled event")
-	}
-	topics := make(Topics, 2)
-	topics[0] = hash.Hash256(_candidateDeactivationCanceledEvent.ID)
 	topics[1] = hash.BytesToHash256(candidate.Bytes())
 	return topics, data, nil
 }
