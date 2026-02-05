@@ -73,7 +73,7 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 		if cand.SelfStakeBucketIdx == bucket.Index {
 			if !featureCtx.NoCandidateExitQueue {
 				if cand.DeactivatedAt == 0 {
-					topics, eventData, err := action.PackCandidateDeactivationRequestedEvent(cand.Identifier)
+					topics, eventData, err := action.PackCandidateDeactivationRequestedEvent(cand.GetIdentifier())
 					if err != nil {
 						return log, nil, err
 					}
@@ -81,8 +81,8 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 					log.AddEvent(topics, eventData)
 					return log, nil, csm.requestDeactivation(cand.Owner)
 				}
-				if err := csm.deactivate(cand.Identifier, protocol.MustGetBlockCtx(ctx).BlockHeight); err != nil {
-					return log, nil, csmErrorToHandleError(cand.Identifier.String(), err)
+				if err := csm.deactivate(cand.GetIdentifier(), protocol.MustGetBlockCtx(ctx).BlockHeight); err != nil {
+					return log, nil, csmErrorToHandleError(cand.GetIdentifier().String(), err)
 				}
 			} else {
 				// TODO: Check that the bucket is ready for dequeue
