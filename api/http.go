@@ -59,10 +59,10 @@ func (hSvr *HTTPServer) Stop(ctx context.Context) error {
 }
 
 // newHTTPHandler creates a new http handler
-func newHTTPHandler(web3Handler Web3Handler) *hTTPHandler {
+func newHTTPHandler(web3Handler Web3Handler, limit int) *hTTPHandler {
 	return &hTTPHandler{
 		msgHandler: web3Handler,
-		sem:        semaphore.NewWeighted(_maxRequestLimit),
+		sem:        semaphore.NewWeighted(int64(limit)),
 	}
 }
 

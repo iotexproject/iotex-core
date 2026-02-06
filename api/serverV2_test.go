@@ -25,8 +25,8 @@ func TestServerV2(t *testing.T) {
 	web3Handler := NewWeb3Handler(core, "", _defaultBatchRequestLimit)
 	svr := &ServerV2{
 		core:         core,
-		grpcServer:   NewGRPCServer(core, nil, testutil.RandomPort()),
-		httpSvr:      NewHTTPServer("", testutil.RandomPort(), newHTTPHandler(web3Handler)),
+		grpcServer:   NewGRPCServer(core, nil, testutil.RandomPort(), 10),
+		httpSvr:      NewHTTPServer("", testutil.RandomPort(), newHTTPHandler(web3Handler, 10)),
 		websocketSvr: NewHTTPServer("", testutil.RandomPort(), NewWebsocketHandler(core, web3Handler, nil)),
 	}
 	ctx := context.Background()

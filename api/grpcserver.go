@@ -84,12 +84,12 @@ func RecoveryInterceptor() grpc_recovery.Option {
 }
 
 // NewGRPCServer creates a new grpc server
-func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int) *GRPCServer {
+func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int, limit int) *GRPCServer {
 	if grpcPort == 0 {
 		return nil
 	}
 
-	sem := semaphore.NewWeighted(_maxRequestLimit)
+	sem := semaphore.NewWeighted(int64(limit))
 	gSvr := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,

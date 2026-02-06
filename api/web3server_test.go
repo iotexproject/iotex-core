@@ -102,7 +102,7 @@ func TestHandlePost(t *testing.T) {
 	defer ctrl.Finish()
 	core := NewMockCoreService(ctrl)
 	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
-	svr := newHTTPHandler(NewWeb3Handler(core, "", _defaultBatchRequestLimit))
+	svr := newHTTPHandler(NewWeb3Handler(core, "", _defaultBatchRequestLimit), 10)
 	getServerResp := func(svr *hTTPHandler, req *http.Request) *httptest.ResponseRecorder {
 		req.Header.Set("Content-Type", "application/json")
 		resp := httptest.NewRecorder()
@@ -1279,7 +1279,7 @@ func TestResponseIDMatchTypeWithRequest(t *testing.T) {
 	core := NewMockCoreService(ctrl)
 	core.EXPECT().TipHeight().Return(uint64(1)).AnyTimes()
 	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
-	svr := newHTTPHandler(NewWeb3Handler(core, "", _defaultBatchRequestLimit))
+	svr := newHTTPHandler(NewWeb3Handler(core, "", _defaultBatchRequestLimit), 10)
 	getServerResp := func(svr *hTTPHandler, req *http.Request) *httptest.ResponseRecorder {
 		req.Header.Set("Content-Type", "application/json")
 		resp := httptest.NewRecorder()
