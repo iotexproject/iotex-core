@@ -44,6 +44,8 @@ const (
 const (
 	// GatewayPlugin is the plugin of accepting user API requests and serving blockchain data to users
 	GatewayPlugin = iota
+	// AllowBlockDaoIndexerAheadPlugin allows the block DAO indexer to be ahead of the DAO tip height
+	AllowBlockDaoIndexerAheadPlugin
 )
 
 type strs []string
@@ -189,6 +191,8 @@ func New(configPaths []string, _plugins []string, validates ...Validate) (Config
 		switch strings.ToLower(plugin) {
 		case "gateway":
 			cfg.Plugins[GatewayPlugin] = nil
+		case "relax":
+			cfg.Plugins[AllowBlockDaoIndexerAheadPlugin] = nil
 		default:
 			return Config{}, errors.Errorf("Plugin %s is not supported", plugin)
 		}
