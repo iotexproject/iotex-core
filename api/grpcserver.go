@@ -28,6 +28,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
@@ -52,6 +53,7 @@ type (
 	GRPCServer struct {
 		port string
 		svr  *grpc.Server
+		sem  *semaphore.Weighted
 	}
 
 	// GRPCHandler contains the pointer to api coreservice
@@ -82,11 +84,12 @@ func RecoveryInterceptor() grpc_recovery.Option {
 }
 
 // NewGRPCServer creates a new grpc server
-func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int) *GRPCServer {
+func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int, limit int) *GRPCServer {
 	if grpcPort == 0 {
 		return nil
 	}
 
+	sem := semaphore.NewWeighted(int64(limit))
 	gSvr := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
@@ -96,6 +99,20 @@ func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int) *GRPCSe
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_prometheus.UnaryServerInterceptor,
 			otelgrpc.UnaryServerInterceptor(),
+			grpc.UnaryServerInterceptor(func(
+				ctx context.Context,
+				req any,
+				info *grpc.UnaryServerInfo,
+				handler grpc.UnaryHandler,
+			) (any, error) {
+				acquireCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				defer cancel()
+				if err := sem.Acquire(acquireCtx, 1); err != nil {
+					return nil, status.Error(codes.ResourceExhausted, "server busy")
+				}
+				defer sem.Release(1)
+				return handler(ctx, req)
+			}),
 			grpc_recovery.UnaryServerInterceptor(RecoveryInterceptor()),
 		)),
 		grpc.KeepaliveEnforcementPolicy(kaep),
@@ -114,6 +131,7 @@ func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int) *GRPCSe
 	return &GRPCServer{
 		port: ":" + strconv.Itoa(grpcPort),
 		svr:  gSvr,
+		sem:  sem,
 	}
 }
 
@@ -396,7 +414,7 @@ func (svr *gRPCHandler) EstimateGasForAction(ctx context.Context, in *iotexapi.E
 	return &iotexapi.EstimateGasForActionResponse{Gas: estimateGas}, nil
 }
 
-// EstimateActionGasConsumption estimate gas consume for action without signature
+// EstimateActionGasConsumption estimates gas consumption for action without signature
 func (svr *gRPCHandler) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
 	if in.GetExecution() != nil {
 		callerAddr, err := address.FromString(in.GetCallerAddress())
@@ -652,7 +670,7 @@ func (svr *gRPCHandler) GetTransactionLogByBlockHeight(ctx context.Context, in *
 	}, nil
 }
 
-// GetActPoolActions returns the all Transaction Identifiers in the mempool
+// GetActPoolActions returns all Transaction Identifiers in the mempool
 func (svr *gRPCHandler) GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoolActionsRequest) (*iotexapi.GetActPoolActionsResponse, error) {
 	acts, err := svr.coreService.ActionsInActPool(in.ActionHashes)
 	if err != nil {

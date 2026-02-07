@@ -32,6 +32,7 @@ type (
 		ActionChanSize             uint          `yaml:"actionChanSize"`
 		BlockChanSize              uint          `yaml:"blockChanSize"`
 		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
+		BlockSyncLimit             uint          `yaml:"blockSyncLimit"`
 		ConsensusChanSize          uint          `yaml:"consensusChanSize"`
 		MiscChanSize               uint          `yaml:"miscChanSize"`
 		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
@@ -46,6 +47,7 @@ var (
 		ActionChanSize:    5000,
 		BlockChanSize:     1000,
 		BlockSyncChanSize: 400,
+		BlockSyncLimit:    2,
 		ConsensusChanSize: 1000,
 		MiscChanSize:      1000,
 		AccountRateLimit:  100,
@@ -131,6 +133,7 @@ func NewDispatcher(cfg Config, verificationFunc VerificationFunc) (Dispatcher, e
 		actionChanSize: cfg.ActionChanSize,
 		blockChanSize:  cfg.BlockChanSize,
 		blockSyncSize:  cfg.BlockSyncChanSize,
+		blockSyncLimit: cfg.BlockSyncLimit,
 		consensusSize:  cfg.ConsensusChanSize,
 		miscSize:       cfg.MiscChanSize,
 	}, func(msg *message) {
@@ -236,17 +239,10 @@ func (d *IotxDispatcher) queueMessage(msg *message) {
 		log.L().Warn("chainID has not been registered in dispatcher.", zap.Uint32("chainID", msg.chainID))
 		return
 	}
-	queue := d.queueMgr.Queue(msg)
-	if !subscriber.Filter(msg.msgType, msg.msg, cap(queue)) {
-		log.L().Debug("Message filtered by subscriber.", zap.Uint32("chainID", msg.chainID), zap.String("msgType", msg.msgType.String()))
+	if !d.queueMgr.Queue(msg, subscriber) {
 		return
 	}
-	select {
-	case queue <- msg:
-	default:
-		log.L().Warn("Queue is full.", zap.Any("msgType", msg.msgType))
-	}
-	d.updateMetrics(msg, queue)
+	d.updateEventAudit(msg.msgType)
 }
 
 // HandleBroadcast handles incoming broadcast message
@@ -311,14 +307,6 @@ func (d *IotxDispatcher) updateEventAudit(t iotexrpc.MessageType) {
 	d.eventAuditLock.Lock()
 	defer d.eventAuditLock.Unlock()
 	d.eventAudit[t]++
-}
-
-func (d *IotxDispatcher) updateMetrics(msg *message, queue chan *message) {
-	d.updateEventAudit(msg.msgType)
-	subscriber := d.subscriber(msg.chainID)
-	if subscriber != nil {
-		subscriber.ReportFullness(msg.ctx, msg.msgType, msg.msg, float32(len(queue))/float32(cap(queue)))
-	}
 }
 
 func (d *IotxDispatcher) filter(msg *message) bool {

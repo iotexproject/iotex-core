@@ -29,7 +29,9 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
+	pollingabi "github.com/iotexproject/iotex-core/v2/action/protocol/poll/ethabi"
 	rewardingabi "github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/ethabi"
+	rolldposabi "github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos/ethabi"
 	stakingabi "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -495,6 +497,36 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 			return nil, err
 		}
 		states, err := svr.coreService.ReadState("rewarding", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := sctx.EncodeToEth(states)
+		if err != nil {
+			return nil, err
+		}
+		return "0x" + ret, nil
+	}
+	if to == address.PollProtocol {
+		sctx, err := pollingabi.BuildReadStateRequest(data)
+		if err != nil {
+			return nil, err
+		}
+		states, err := svr.coreService.ReadState("poll", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := sctx.EncodeToEth(states)
+		if err != nil {
+			return nil, err
+		}
+		return "0x" + ret, nil
+	}
+	if to == address.RollDPoSProtocol {
+		sctx, err := rolldposabi.BuildReadStateRequest(data)
+		if err != nil {
+			return nil, err
+		}
+		states, err := svr.coreService.ReadState("rolldpos", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
 		if err != nil {
 			return nil, err
 		}

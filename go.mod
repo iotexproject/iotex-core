@@ -9,6 +9,7 @@ require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cespare/xxhash/v2 v2.3.0
+	github.com/cockroachdb/errors v1.8.1
 	github.com/cockroachdb/pebble v0.0.0-20230928194634-aa077af62593
 	github.com/erigontech/erigon v1.9.7-0.20250305121304-76181961ed24
 	github.com/erigontech/erigon-lib v1.0.0
@@ -27,7 +28,7 @@ require (
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.3.7
 	github.com/iotexproject/go-pkgs v0.1.16-0.20250813090621-fc1c4ebefcb4
-	github.com/iotexproject/iotex-address v0.2.8
+	github.com/iotexproject/iotex-address v0.2.9-0.20251203033311-6e8aa4fd43ef
 	github.com/iotexproject/iotex-antenna-go/v2 v2.6.4
 	github.com/iotexproject/iotex-election v0.3.8-0.20251015031218-8df952babca1
 	github.com/iotexproject/iotex-proto v0.6.5
@@ -107,7 +108,6 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/btcsuite/btcd/btcutil v1.1.5 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0 // indirect
-	github.com/cockroachdb/errors v1.8.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f // indirect
 	github.com/cockroachdb/redact v1.0.8 // indirect
 	github.com/cockroachdb/sentry-go v0.6.1-cockroachdb.2 // indirect
