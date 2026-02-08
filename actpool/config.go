@@ -19,6 +19,7 @@ var (
 		MinGasPriceStr:     big.NewInt(unit.Qev).String(),
 		BlackList:          []string{},
 		MaxNumBlobsPerAcct: 16,
+		EnableBundlePool:   true,
 		Store: &StoreConfig{
 			Datadir: "/var/data/actpool.cache",
 		},
