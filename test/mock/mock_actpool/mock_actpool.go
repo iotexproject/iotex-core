@@ -87,20 +87,6 @@ func (mr *MockActPoolMockRecorder) AddSubscriber(sub any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubscriber", reflect.TypeOf((*MockActPool)(nil).AddSubscriber), sub)
 }
 
-// BundlePool mocks base method.
-func (m *MockActPool) BundlePool() *actpool.BundlePool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BundlePool")
-	ret0, _ := ret[0].(*actpool.BundlePool)
-	return ret0
-}
-
-// BundlePool indicates an expected call of BundlePool.
-func (mr *MockActPoolMockRecorder) BundlePool() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BundlePool", reflect.TypeOf((*MockActPool)(nil).BundlePool))
-}
-
 // DeleteAction mocks base method.
 func (m *MockActPool) DeleteAction(arg0 address.Address) {
 	m.ctrl.T.Helper()

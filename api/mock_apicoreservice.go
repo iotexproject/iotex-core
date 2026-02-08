@@ -295,20 +295,6 @@ func (mr *MockCoreServiceMockRecorder) CodeAt(ctx, addr, height any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CodeAt", reflect.TypeOf((*MockCoreService)(nil).CodeAt), ctx, addr, height)
 }
 
-// DeleteBundle mocks base method.
-func (m *MockCoreService) DeleteBundle(ctx context.Context, sender address.Address, uuid string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteBundle", ctx, sender, uuid)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteBundle indicates an expected call of DeleteBundle.
-func (mr *MockCoreServiceMockRecorder) DeleteBundle(ctx, sender, uuid any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBundle", reflect.TypeOf((*MockCoreService)(nil).DeleteBundle), ctx, sender, uuid)
-}
-
 // EVMNetworkID mocks base method.
 func (m *MockCoreService) EVMNetworkID() uint32 {
 	m.ctrl.T.Helper()
@@ -687,21 +673,6 @@ func (m *MockCoreService) SendAction(ctx context.Context, in *iotextypes.Action)
 func (mr *MockCoreServiceMockRecorder) SendAction(ctx, in any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendAction", reflect.TypeOf((*MockCoreService)(nil).SendAction), ctx, in)
-}
-
-// SendBundle mocks base method.
-func (m *MockCoreService) SendBundle(ctx context.Context, in *iotextypes.Bundle, sender address.Address, id string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendBundle", ctx, in, sender, id)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SendBundle indicates an expected call of SendBundle.
-func (mr *MockCoreServiceMockRecorder) SendBundle(ctx, in, sender, id any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendBundle", reflect.TypeOf((*MockCoreService)(nil).SendBundle), ctx, in, sender, id)
 }
 
 // ServerMeta mocks base method.

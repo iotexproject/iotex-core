@@ -78,8 +78,6 @@ type ActPool interface {
 	DeleteAction(address.Address)
 	// ReceiveBlock will be called when a new block is committed
 	ReceiveBlock(*block.Block) error
-	// BundlePool returns a BundlePool instance
-	BundlePool() *BundlePool
 
 	AddActionEnvelopeValidators(...action.SealedEnvelopeValidator)
 	AddSubscriber(sub Subscriber)
@@ -106,7 +104,6 @@ type actPool struct {
 	cfg            Config
 	g              genesis.Genesis
 	sf             protocol.StateReader
-	bundlePool     *BundlePool
 	accountDesActs *destinationMap
 	allActions     *ttl.Cache
 	gasInPool      uint64
@@ -155,9 +152,6 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 	blobValidator := newBlobValidator(cfg.MaxNumBlobsPerAcct)
 	ap.privateValidators = append(ap.privateValidators, blobValidator)
 	ap.AddSubscriber(blobValidator)
-	if ap.bundlePool != nil {
-		ap.bundlePool.SetValidator(ap.Validate)
-	}
 
 	timerFactory, err := prometheustimer.New(
 		"iotex_action_pool_perf",
@@ -249,15 +243,8 @@ func (ap *actPool) reset() {
 	wg.Wait()
 }
 
-func (ap *actPool) BundlePool() *BundlePool {
-	return ap.bundlePool
-}
-
-func (ap *actPool) ReceiveBlock(blk *block.Block) error {
+func (ap *actPool) ReceiveBlock(*block.Block) error {
 	ap.reset()
-	if ap.bundlePool != nil {
-		return ap.bundlePool.ReceiveBlock(blk)
-	}
 	return nil
 }
 

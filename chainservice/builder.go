@@ -251,10 +251,6 @@ func (builder *Builder) buildActionPool() error {
 					return se, nil
 				}))
 		}
-		if builder.cfg.ActPool.EnableBundlePool {
-			bp := actpool.NewBundlePool(builder.cfg.Genesis)
-			options = append(options, actpool.WithBundlePool(bp))
-		}
 		ac, err := actpool.NewActPool(builder.cfg.Genesis, builder.cs.factory, builder.cfg.ActPool, options...)
 		if err != nil {
 			return errors.Wrap(err, "failed to create actpool")
@@ -325,11 +321,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 				uint64(blocksPerHour)*uint64(cfg.Chain.BlobStoreRetentionDays)*24,
 			)
 			opts = append(opts, blockdao.WithBlobStore(blobStore))
-		}
-		if path := cfg.Chain.PatchReceiptIndexPath; len(path) > 0 {
-			dbConfig.DbPath = path
-			dbConfig.ReadOnly = true
-			opts = append(opts, blockdao.WithReceiptIndexer(blockdao.NewReceiptIndexer(db.NewBoltDB(dbConfig), cfg.Chain.PatchReceiptIndexEndHeight)))
 		}
 	}
 	if err != nil {

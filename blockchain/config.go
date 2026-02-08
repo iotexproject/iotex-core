@@ -40,8 +40,6 @@ type (
 		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
 		BlobStoreDBPath            string           `yaml:"blobStoreDBPath"`
 		BlobStoreRetentionDays     uint32           `yaml:"blobStoreRetentionDays"`
-		PatchReceiptIndexPath      string           `yaml:"patchReceiptIndexPath"`
-		PatchReceiptIndexEndHeight uint64           `yaml:"patchReceiptIndexEndHeight"`
 		HistoryIndexPath           string           `yaml:"historyIndexPath"`
 		HistoryBlockRetention      uint64           `yaml:"historyBlockRetention"`
 		ID                         uint32           `yaml:"id"`

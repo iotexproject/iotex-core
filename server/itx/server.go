@@ -103,7 +103,6 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			p2p.WithUnifiedTopicHelper(func(height uint64) bool {
 				return height <= cfg.Genesis.WakeBlockHeight
 			}),
-			p2p.WithBundleEnabledOption(),
 		)
 	}
 	chains := make(map[uint32]*chainservice.ChainService)

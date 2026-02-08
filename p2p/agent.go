@@ -72,7 +72,6 @@ const (
 	_broadcastTopic             = "broadcast"
 	_broadcastSubTopicConsensus = "_consensus"
 	_broadcastSubTopicAction    = "_action"
-	_broadcastSubBundle         = "_bundle"
 	_unicastTopic               = "unicast"
 	_numDialRetries             = 8
 	_dialRetryInterval          = 2 * time.Second
@@ -145,7 +144,6 @@ type (
 		qosMetrics                 *Qos
 		unifiedTopic               atomic.Bool
 		isUnifiedTopic             func(height uint64) bool
-		enableBundleTopic          bool
 	}
 
 	cacheValue struct {
@@ -161,13 +159,6 @@ type (
 var WithUnifiedTopicHelper = func(isUnifiedTopic func(height uint64) bool) Option {
 	return func(a *agent) {
 		a.isUnifiedTopic = isUnifiedTopic
-	}
-}
-
-// WithUnifiedTopicOption enables the unified topic for broadcast and unicast messages
-var WithBundleEnabledOption = func() Option {
-	return func(a *agent) {
-		a.enableBundleTopic = true
 	}
 }
 
@@ -419,17 +410,6 @@ func (p *agent) Start(ctx context.Context) error {
 		broadcastValidator, broadcastHandler); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
-	if p.enableBundleTopic {
-		// add bundle topic
-		if err := host.AddBroadcastPubSub(
-			ctx,
-			_broadcastTopic+_broadcastSubBundle+p.topicSuffix,
-			broadcastValidator,
-			broadcastHandler,
-		); err != nil {
-			return errors.Wrap(err, "error when adding bundle broadcast pubsub")
-		}
-	}
 	if err := host.AddUnicastPubSub(_unicastTopic+p.topicSuffix, func(ctx context.Context, peerInfo peer.AddrInfo, data []byte) (err error) {
 		// Blocking handling the unicast message until the agent is started
 		<-ready
@@ -576,8 +556,6 @@ func (p *agent) messageTopic(msgType iotexrpc.MessageType) string {
 			return defaultTopic
 		}
 		return _broadcastTopic + _broadcastSubTopicAction + p.topicSuffix
-	case iotexrpc.MessageType_BUNDLE:
-		return _broadcastTopic + _broadcastSubBundle + p.topicSuffix
 	case iotexrpc.MessageType_CONSENSUS:
 		// TODO: can be removed after wake activated
 		if p.unifiedTopic.Load() {

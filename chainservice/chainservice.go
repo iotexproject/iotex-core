@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,7 +17,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -162,28 +160,6 @@ func (cs *ChainService) ReportFullness(_ context.Context, messageType iotexrpc.M
 			atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
 		}
 	}
-}
-
-// HandleBundle handles incoming bundle request.
-func (cs *ChainService) HandleBundle(ctx context.Context, bundlePb *iotextypes.Bundle) error {
-	if bundlePb == nil {
-		return errors.New("nil bundle")
-	}
-	bp := cs.actpool.BundlePool()
-	if bp == nil {
-		return errors.New("bundle pool is not initialized")
-	}
-	bundle := action.NewBundle()
-	if err := bundle.LoadProto(bundlePb, (&action.Deserializer{}).SetEvmNetworkID(cs.chain.EvmNetworkID())); err != nil {
-		log.L().Debug("failed to deserialize bundle", zap.Error(err))
-		return errors.Wrap(err, "failed to deserialize bundle")
-	}
-	zeroAddr, err := address.FromString(address.ZeroAddress)
-	if err != nil {
-		return err
-	}
-
-	return bp.AddBundle(ctx, zeroAddr, uuid.New().String(), bundle)
 }
 
 // HandleAction handles incoming action request.
