@@ -308,7 +308,7 @@ func TestConstantinople(t *testing.T) {
 			},
 			GetBlockTime: getBlockTime,
 		})
-		stateDB, err := prepareStateDB(fCtx, sm)
+		stateDB, err := prepareStateDBAdapter(fCtx, sm)
 		require.NoError(err)
 		ps, err := newParams(fCtx, elp)
 		require.NoError(err)

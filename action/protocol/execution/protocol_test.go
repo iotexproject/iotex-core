@@ -73,6 +73,7 @@ type (
 		IsLondon   bool `json:"isLondon"`
 		IsShanghai bool `json:"isShanghai"`
 		IsCancun   bool `json:"isCancun"`
+		IsPrague   bool `json:"isPrague"`
 	}
 
 	Log struct {
@@ -438,6 +439,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	}
 	if sct.InitGenesis.IsCancun {
 		cfg.Genesis.Blockchain.VanuatuBlockHeight = 1
+	}
+	if sct.InitGenesis.IsPrague {
+		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 1
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -1331,6 +1335,12 @@ func TestCancunEVM(t *testing.T) {
 	})
 	t.Run("eip6780-selfdestruct", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-cancun/selfdestruct.json")
+	})
+}
+
+func TestPragueEVM(t *testing.T) {
+	t.Run("eip2935-historical_block_hashes", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-prague/historical_block_hashes.json")
 	})
 }
 
