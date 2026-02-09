@@ -1,6 +1,6 @@
 module github.com/iotexproject/iotex-core/v2
 
-go 1.23.3
+go 1.23.0
 
 toolchain go1.23.7
 
