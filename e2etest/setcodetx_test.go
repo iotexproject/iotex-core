@@ -912,7 +912,6 @@ func TestSetCodeTx_GasSponsorship(t *testing.T) {
 }
 
 func TestEstimateGas(t *testing.T) {
-	t.Skip("TODO: fix test")
 	r := require.New(t)
 	sender := identityset.Address(10).String()
 	senderSK := identityset.PrivateKey(10)
