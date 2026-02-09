@@ -9,6 +9,7 @@ import (
 	types2 "github.com/erigontech/erigon-lib/types"
 	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
@@ -61,26 +62,26 @@ func NewErigonStateDBAdapterDryrun(adapter *StateDBAdapter,
 }
 
 // SubBalance subtracts the balance of the given address by the given value
-func (s *ErigonStateDBAdapter) SubBalance(evmAddr common.Address, v *uint256.Int) {
-	s.StateDBAdapter.SubBalance(evmAddr, v)
+func (s *ErigonStateDBAdapter) SubBalance(evmAddr common.Address, v *uint256.Int, r tracing.BalanceChangeReason) uint256.Int {
+	return s.StateDBAdapter.SubBalance(evmAddr, v, r)
 	// balance updates for erigon will be done in statedb
 }
 
 // AddBalance adds the balance of the given address by the given value
-func (s *ErigonStateDBAdapter) AddBalance(evmAddr common.Address, v *uint256.Int) {
-	s.StateDBAdapter.AddBalance(evmAddr, v)
+func (s *ErigonStateDBAdapter) AddBalance(evmAddr common.Address, v *uint256.Int, r tracing.BalanceChangeReason) uint256.Int {
+	return s.StateDBAdapter.AddBalance(evmAddr, v, r)
 	// balance updates for erigon will be done in statedb
 }
 
 // SetCode set the code of the given address
-func (s *ErigonStateDBAdapter) SetCode(evmAddr common.Address, c []byte) {
-	s.StateDBAdapter.SetCode(evmAddr, c)
+func (s *ErigonStateDBAdapter) SetCode(evmAddr common.Address, c []byte) []byte {
+	return s.StateDBAdapter.SetCode(evmAddr, c)
 	// code updates for erigon will be done by Contract
 }
 
 // SetState set the state of the given address
-func (s *ErigonStateDBAdapter) SetState(evmAddr common.Address, k common.Hash, v common.Hash) {
-	s.StateDBAdapter.SetState(evmAddr, k, v)
+func (s *ErigonStateDBAdapter) SetState(evmAddr common.Address, k common.Hash, v common.Hash) common.Hash {
+	return s.StateDBAdapter.SetState(evmAddr, k, v)
 	// state updates for erigon will be done by Contract
 }
 
@@ -118,8 +119,8 @@ func (s *ErigonStateDBAdapter) CreateAccount(evmAddr common.Address) {
 }
 
 // SetNonce sets the nonce of the given address
-func (s *ErigonStateDBAdapter) SetNonce(evmAddr common.Address, n uint64) {
-	s.StateDBAdapter.SetNonce(evmAddr, n)
+func (s *ErigonStateDBAdapter) SetNonce(evmAddr common.Address, n uint64, r tracing.NonceChangeReason) {
+	s.StateDBAdapter.SetNonce(evmAddr, n, r)
 	// nonce updates for erigon will be done in statedb
 }
 
@@ -136,15 +137,17 @@ func (s *ErigonStateDBAdapter) SubRefund(r uint64) {
 }
 
 // SelfDestruct marks the given address for self-destruction
-func (s *ErigonStateDBAdapter) SelfDestruct(evmAddr common.Address) {
-	s.StateDBAdapter.SelfDestruct(evmAddr)
+func (s *ErigonStateDBAdapter) SelfDestruct(evmAddr common.Address) uint256.Int {
+	prev := s.StateDBAdapter.SelfDestruct(evmAddr)
 	s.intra.Selfdestruct(libcommon.Address(evmAddr))
+	return prev
 }
 
 // Selfdestruct6780 marks the given address for self-destruction
-func (s *ErigonStateDBAdapter) Selfdestruct6780(evmAddr common.Address) {
-	s.StateDBAdapter.Selfdestruct6780(evmAddr)
+func (s *ErigonStateDBAdapter) Selfdestruct6780(evmAddr common.Address) (uint256.Int, bool) {
+	prev, ok := s.StateDBAdapter.SelfDestruct6780(evmAddr)
 	s.intra.Selfdestruct6780(libcommon.Address(evmAddr))
+	return prev, ok
 }
 
 // AddAddressToAccessList adds the given address to the access list

@@ -67,16 +67,13 @@ func StoreAccount(sm protocol.StateManager, addr address.Address, account *state
 }
 
 // Recorded tests if an account has been actually stored
-func Recorded(sr protocol.StateReader, addr address.Address) (bool, error) {
+func Recorded(sr protocol.StateReader, addr address.Address) (*state.Account, error) {
 	account := &state.Account{}
 	_, err := sr.State(account, protocol.LegacyKeyOption(hash.BytesToHash160(addr.Bytes())))
-	switch errors.Cause(err) {
-	case nil:
-		return true, nil
-	case state.ErrStateNotExist:
-		return false, nil
+	if err != nil {
+		return nil, err
 	}
-	return false, err
+	return account, nil
 }
 
 // AccountState returns the confirmed account state on the chain

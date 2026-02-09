@@ -25,7 +25,6 @@ import (
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
-	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -2234,20 +2233,20 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 	return retval, receipt, tracer, err
 }
 
-func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (context.Context, *evmTracer, error) {
-	tracer := newEVMTracer(txctx, config)
-	if err := tracer.Reset(); err != nil {
-		return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("failed to reset tracer: %v", err))
-	}
-	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Tracer:    tracer,
-		NoBaseFee: true,
-	})
+func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (context.Context, *tracers.Tracer, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash:   bcCtx.GetBlockHash,
 		GetBlockTime:   bcCtx.GetBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
+	})
+	tracer, err := parseTracer(ctx, txctx, config)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Tracer:    tracer.Hooks,
+		NoBaseFee: true,
 	})
 	return ctx, tracer, nil
 }
@@ -2355,25 +2354,9 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 	}
 	ctx = evm.WithTracerCtx(ctx, evm.TracerContext{
 		CaptureTx: func(retval []byte, receipt *action.Receipt) {
-			defer tracer.Reset()
-			var res any
-			switch innerTracer := tracer.Unwrap().(type) {
-			case *logger.StructLogger:
-				res = &debugTraceTransactionResult{
-					Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
-					Revert:      receipt.ExecutionRevertMsg(),
-					ReturnValue: byteToHex(retval),
-					StructLogs:  fromLoggerStructLogs(innerTracer.StructLogs()),
-					Gas:         receipt.GasConsumed,
-				}
-			case tracers.Tracer:
-				res, err = innerTracer.GetResult()
-				if err != nil {
-					log.L().Error("failed to get tracer result", zap.Error(err))
-					return
-				}
-			default:
-				log.L().Error("unknown tracer type", zap.Any("tracer", innerTracer))
+			res, err := tracer.GetResult()
+			if err != nil {
+				log.L().Error("failed to get tracer result", zap.Error(err))
 				return
 			}
 			results = append(results, &blockTraceResult{

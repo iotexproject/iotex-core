@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers"
-	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -1376,24 +1375,11 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 		return nil, errInvalidFormat
 	}
 	cfg := parseTracerConfig(&options)
-	retval, receipt, tracer, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
+	_, _, tracer, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
 	if err != nil {
 		return nil, err
 	}
-	switch tracer := tracer.(type) {
-	case *logger.StructLogger:
-		return &debugTraceTransactionResult{
-			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
-			Revert:      receipt.ExecutionRevertMsg(),
-			ReturnValue: byteToHex(retval),
-			StructLogs:  fromLoggerStructLogs(tracer.StructLogs()),
-			Gas:         receipt.GasConsumed,
-		}, nil
-	case tracers.Tracer:
-		return tracer.GetResult()
-	default:
-		return nil, fmt.Errorf("unknown tracer type: %T", tracer)
-	}
+	return tracer.(*tracers.Tracer).GetResult()
 }
 
 func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interface{}, error) {
@@ -1412,24 +1398,11 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		return nil, err
 	}
 
-	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callMsg.From, height, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, tracerCfg)
+	_, _, tracer, err := svr.coreService.TraceCall(ctx, callMsg.From, height, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, tracerCfg)
 	if err != nil {
 		return nil, err
 	}
-	switch tracer := tracer.(type) {
-	case *logger.StructLogger:
-		return &debugTraceTransactionResult{
-			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
-			Revert:      receipt.ExecutionRevertMsg(),
-			ReturnValue: byteToHex(retval),
-			StructLogs:  fromLoggerStructLogs(tracer.StructLogs()),
-			Gas:         receipt.GasConsumed,
-		}, nil
-	case tracers.Tracer:
-		return tracer.GetResult()
-	default:
-		return nil, fmt.Errorf("unknown tracer type: %T", tracer)
-	}
+	return tracer.(*tracers.Tracer).GetResult()
 }
 
 func (svr *web3Handler) traceBlockByNumber(ctx context.Context, in *gjson.Result) (any, error) {

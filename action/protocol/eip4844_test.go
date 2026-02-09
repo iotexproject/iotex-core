@@ -7,6 +7,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/v2/action"
 )
 
 func TestCalcExcessBlobGas(t *testing.T) {
@@ -20,20 +22,20 @@ func TestCalcExcessBlobGas(t *testing.T) {
 		// slots are below - or equal - to the target.
 		{0, 0, 0},
 		{0, 1, 0},
-		{0, params.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob, 0},
+		{0, action.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob, 0},
 
 		// If the target blob gas is exceeded, the excessBlobGas should increase
 		// by however much it was overshot
-		{0, (params.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob) + 1, params.BlobTxBlobGasPerBlob},
-		{1, (params.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob) + 1, params.BlobTxBlobGasPerBlob + 1},
-		{1, (params.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob) + 2, 2*params.BlobTxBlobGasPerBlob + 1},
+		{0, (action.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob) + 1, params.BlobTxBlobGasPerBlob},
+		{1, (action.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob) + 1, params.BlobTxBlobGasPerBlob + 1},
+		{1, (action.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob) + 2, 2*params.BlobTxBlobGasPerBlob + 1},
 
 		// The excess blob gas should decrease by however much the target was
 		// under-shot, capped at zero.
-		{params.BlobTxTargetBlobGasPerBlock, params.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob, params.BlobTxTargetBlobGasPerBlock},
-		{params.BlobTxTargetBlobGasPerBlock, (params.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob) - 1, params.BlobTxTargetBlobGasPerBlock - params.BlobTxBlobGasPerBlob},
-		{params.BlobTxTargetBlobGasPerBlock, (params.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob) - 2, params.BlobTxTargetBlobGasPerBlock - (2 * params.BlobTxBlobGasPerBlob)},
-		{params.BlobTxBlobGasPerBlob - 1, (params.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob) - 1, 0},
+		{action.BlobTxTargetBlobGasPerBlock, action.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob, action.BlobTxTargetBlobGasPerBlock},
+		{action.BlobTxTargetBlobGasPerBlock, (action.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob) - 1, action.BlobTxTargetBlobGasPerBlock - params.BlobTxBlobGasPerBlob},
+		{action.BlobTxTargetBlobGasPerBlock, (action.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob) - 2, action.BlobTxTargetBlobGasPerBlock - (2 * params.BlobTxBlobGasPerBlob)},
+		{params.BlobTxBlobGasPerBlob - 1, (action.BlobTxTargetBlobGasPerBlock / params.BlobTxBlobGasPerBlob) - 1, 0},
 	}
 	for i, tt := range tests {
 		result := CalcExcessBlobGas(tt.excess, tt.blobs*params.BlobTxBlobGasPerBlob)
@@ -96,10 +98,7 @@ func TestFakeExponential(t *testing.T) {
 func TestEIP4844Params(t *testing.T) {
 	require := require.New(t)
 	require.Equal(1<<17, params.BlobTxBlobGasPerBlob)
-	require.Equal(3*params.BlobTxBlobGasPerBlob, params.BlobTxTargetBlobGasPerBlock)
-	require.Equal(6*params.BlobTxBlobGasPerBlob, params.MaxBlobGasPerBlock)
 	require.Equal(1, params.BlobTxMinBlobGasprice)
-	require.Equal(3338477, params.BlobTxBlobGaspriceUpdateFraction)
 	require.Equal(4096, params.BlobTxFieldElementsPerBlob)
 	require.Equal(32, params.BlobTxBytesPerFieldElement)
 }

@@ -15,6 +15,7 @@ import (
 
 	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -65,8 +66,8 @@ func CanTransfer(db vm.StateDB, fromHash common.Address, balance *uint256.Int) b
 
 // MakeTransfer transfers account
 func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *uint256.Int) {
-	db.SubBalance(fromHash, amount)
-	db.AddBalance(toHash, amount)
+	db.SubBalance(fromHash, amount, tracing.BalanceChangeUnspecified)
+	db.AddBalance(toHash, amount, tracing.BalanceChangeUnspecified)
 
 	db.AddLog(&types.Log{
 		Topics: []common.Hash{
@@ -237,7 +238,7 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 	if stateDB.GetBalance(ps.txCtx.Origin).Cmp(gasConsumed) < 0 {
 		return action.ErrInsufficientFunds
 	}
-	stateDB.SubBalance(ps.txCtx.Origin, gasConsumed)
+	stateDB.SubBalance(ps.txCtx.Origin, gasConsumed, tracing.BalanceChangeUnspecified)
 	return nil
 }
 
@@ -289,11 +290,11 @@ func ExecuteContract(
 	)
 	if ps.featureCtx.FixDoubleChargeGas {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
-		stateDB.AddBalance(ps.txCtx.Origin, uint256.MustFromBig(big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice)))
+		stateDB.AddBalance(ps.txCtx.Origin, uint256.MustFromBig(big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice)), tracing.BalanceChangeUnspecified)
 	} else {
 		if remainingGas > 0 {
 			remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.txCtx.GasPrice)
-			stateDB.AddBalance(ps.txCtx.Origin, uint256.MustFromBig(remainingValue))
+			stateDB.AddBalance(ps.txCtx.Origin, uint256.MustFromBig(remainingValue), tracing.BalanceChangeUnspecified)
 		}
 		if consumedGas > 0 {
 			burnLog = &action.TransactionLog{
@@ -448,6 +449,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 		opts = append(opts, FixRevertSnapshotOption())
 		opts = append(opts, WithContext(ctx))
 	}
+	if featureCtx.PrePectraEVM {
+		opts = append(opts, IgnoreBalanceChangeTouchAccountOption())
+	}
 	return NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
@@ -527,7 +531,8 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 	var (
 		accessList types.AccessList
 	)
-	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, evmParams.evmConfig)
+	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, evmParams.evmConfig)
+	evm.SetTxContext(evmParams.txCtx)
 	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
 	}
@@ -547,17 +552,18 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 	}
 	var (
 		contractRawAddress = action.EmptyAddress
-		executor           = vm.AccountRef(evmParams.txCtx.Origin)
+		executor           = evmParams.txCtx.Origin
 		ret                []byte
 		evmErr             error
 		refund             uint64
 		amount             = uint256.MustFromBig(evmParams.amount)
 	)
 	if evm.Config.Tracer != nil {
-		evm.Config.Tracer.CaptureTxStart(remainingGas)
-		defer func() {
-			evm.Config.Tracer.CaptureTxEnd(remainingGas)
-		}()
+		// TODO(pectra): add proper tracing support
+		// evm.Config.Tracer.OnTxStart(remainingGas)
+		// defer func() {
+		// 	evm.Config.Tracer.CaptureTxEnd(remainingGas)
+		// }()
 	}
 	if evmParams.contract == nil {
 		// create contract
@@ -576,7 +582,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 			ret = createRet
 		}
 	} else {
-		stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1)
+		stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1, tracing.NonceChangeUnspecified)
 		// process contract
 		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, amount)
 	}
@@ -641,41 +647,42 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) iotextypes.ReceiptStatus {
 	// specific error starting London
 	if g.IsOkhotsk(height) {
-		if evmErr == vm.ErrInvalidCode {
+		if errors.Is(evmErr, vm.ErrInvalidCode) {
 			return iotextypes.ReceiptStatus_ErrInvalidCode
 		}
 	}
 
 	// specific error starting Jutland
 	if g.IsJutland(height) {
-		switch evmErr {
-		case vm.ErrInsufficientBalance:
+		switch {
+		case errors.Is(evmErr, vm.ErrInsufficientBalance):
 			return iotextypes.ReceiptStatus_ErrInsufficientBalance
-		case vm.ErrInvalidJump:
+		case errors.Is(evmErr, vm.ErrInvalidJump):
 			return iotextypes.ReceiptStatus_ErrInvalidJump
-		case vm.ErrReturnDataOutOfBounds:
+		case errors.Is(evmErr, vm.ErrReturnDataOutOfBounds):
 			return iotextypes.ReceiptStatus_ErrReturnDataOutOfBounds
-		case vm.ErrGasUintOverflow:
+		case errors.Is(evmErr, vm.ErrGasUintOverflow):
 			return iotextypes.ReceiptStatus_ErrGasUintOverflow
 		}
 	}
 
 	// specific error starting Bering
 	if g.IsBering(height) {
-		switch evmErr {
-		case vm.ErrOutOfGas:
+		switch {
+		// the evm error may be wrapped by fmt.Errorf("%w: ..."), so we use errors.Is to check
+		case errors.Is(evmErr, vm.ErrOutOfGas):
 			return iotextypes.ReceiptStatus_ErrOutOfGas
-		case vm.ErrCodeStoreOutOfGas:
+		case errors.Is(evmErr, vm.ErrCodeStoreOutOfGas):
 			return iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas
-		case vm.ErrDepth:
+		case errors.Is(evmErr, vm.ErrDepth):
 			return iotextypes.ReceiptStatus_ErrDepth
-		case vm.ErrContractAddressCollision:
+		case errors.Is(evmErr, vm.ErrContractAddressCollision):
 			return iotextypes.ReceiptStatus_ErrContractAddressCollision
-		case vm.ErrExecutionReverted:
+		case errors.Is(evmErr, vm.ErrExecutionReverted):
 			return iotextypes.ReceiptStatus_ErrExecutionReverted
-		case vm.ErrMaxCodeSizeExceeded:
+		case errors.Is(evmErr, vm.ErrMaxCodeSizeExceeded):
 			return iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded
-		case vm.ErrWriteProtection:
+		case errors.Is(evmErr, vm.ErrWriteProtection):
 			return iotextypes.ReceiptStatus_ErrWriteProtection
 		default:
 			// internal errors from go-ethereum are not directly accessible

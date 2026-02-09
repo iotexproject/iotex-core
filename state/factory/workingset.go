@@ -800,7 +800,7 @@ func (ws *workingSet) pickAndRunActions(
 		blkCtx              = protocol.MustGetBlockCtx(ctx)
 		fCtx                = protocol.MustGetFeatureCtx(ctx)
 		blobCnt             = uint64(0)
-		blobLimit           = params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob
+		blobLimit           = action.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob
 		deadline            *time.Time
 		fullGas             = blkCtx.GasLimit
 	)
@@ -1069,7 +1069,7 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 	}
 	if fCtx.EnableBlobTransaction {
 		blobCnt := uint64(0)
-		blobLimit := uint64(params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob)
+		blobLimit := uint64(action.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob)
 		for _, selp := range blk.Actions {
 			blobCnt += uint64(len(selp.BlobHashes()))
 			if blobCnt > blobLimit {

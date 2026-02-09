@@ -234,7 +234,8 @@ func (elp *envelope) Size() uint32 {
 func (elp *envelope) Action() Action { return elp.payload }
 
 // ToEthTx converts to Ethereum tx
-func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
+// TODO: remove unused parameters
+func (elp *envelope) ToEthTx(_ uint32, _ iotextypes.Encoding) (*types.Transaction, error) {
 	tx, ok := elp.Action().(EthCompatibleAction)
 	if !ok {
 		// action type not supported

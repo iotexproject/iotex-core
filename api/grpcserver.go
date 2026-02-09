@@ -15,8 +15,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/eth/tracers"
-	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -700,44 +698,8 @@ func (svr *gRPCHandler) ReadContractStorage(ctx context.Context, in *iotexapi.Re
 
 // TraceTransactionStructLogs get trace transaction struct logs
 func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iotexapi.TraceTransactionStructLogsRequest) (*iotexapi.TraceTransactionStructLogsResponse, error) {
-	cfg := &tracers.TraceConfig{
-		Config: &logger.Config{
-			EnableMemory:     true,
-			DisableStack:     false,
-			DisableStorage:   false,
-			EnableReturnData: true,
-		},
-	}
-	_, _, tracer, err := svr.coreService.TraceTransaction(ctx, in.GetActionHash(), cfg)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	structLogs := make([]*iotextypes.TransactionStructLog, 0)
-	//grpc not support javascript tracing, so we only return native traces
-	traces := tracer.(*evmTracer).Unwrap().(*logger.StructLogger)
-	for _, log := range traces.StructLogs() {
-		var stack []string
-		for _, s := range log.Stack {
-			stack = append(stack, s.String())
-		}
-		structLogs = append(structLogs, &iotextypes.TransactionStructLog{
-			Pc:         log.Pc,
-			Op:         uint64(log.Op),
-			Gas:        log.Gas,
-			GasCost:    log.GasCost,
-			Memory:     fmt.Sprintf("%#x", log.Memory),
-			MemSize:    int32(log.MemorySize),
-			Stack:      stack,
-			ReturnData: fmt.Sprintf("%#x", log.ReturnData),
-			Depth:      int32(log.Depth),
-			Refund:     log.RefundCounter,
-			OpName:     log.OpName(),
-			Error:      log.ErrorString(),
-		})
-	}
-	return &iotexapi.TraceTransactionStructLogsResponse{
-		StructLogs: structLogs,
-	}, nil
+	// TODO(pectra): implement TraceTransactionStructLogs
+	return nil, status.Error(codes.Unimplemented, "TraceTransactionStructLogs is deprecated")
 }
 
 // generateBlockMeta generates BlockMeta from block

@@ -132,8 +132,8 @@ func NewBlockDeprecated(
 
 func createTestBlobSidecar(m, n int) *types.BlobTxSidecar {
 	testBlob := kzg4844.Blob{byte(m), byte(n)}
-	testBlobCommit := MustNoErrorV(kzg4844.BlobToCommitment(testBlob))
-	testBlobProof := MustNoErrorV(kzg4844.ComputeBlobProof(testBlob, testBlobCommit))
+	testBlobCommit := MustNoErrorV(kzg4844.BlobToCommitment(&testBlob))
+	testBlobProof := MustNoErrorV(kzg4844.ComputeBlobProof(&testBlob, testBlobCommit))
 	return &types.BlobTxSidecar{
 		Blobs:       []kzg4844.Blob{testBlob},
 		Commitments: []kzg4844.Commitment{testBlobCommit},
