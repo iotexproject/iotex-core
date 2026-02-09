@@ -7,6 +7,8 @@ package byteutil
 
 import (
 	"encoding/binary"
+	"encoding/hex"
+	"strings"
 
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 )
@@ -66,4 +68,12 @@ func BoolToByte(value bool) byte {
 		return 1
 	}
 	return 0
+}
+
+// HexToBytes converts a hexadecimal string to a byte slice.
+func HexToBytes(hexStr string) ([]byte, error) {
+	if strings.HasPrefix(hexStr, "0x") || strings.HasPrefix(hexStr, "0X") {
+		hexStr = hexStr[2:]
+	}
+	return hex.DecodeString(hexStr)
 }

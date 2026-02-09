@@ -75,6 +75,7 @@ func TestClient(t *testing.T) {
 	blh := block.Header{}
 	require.NoError(blh.LoadFromBlockHeaderProto(bh))
 	bc.EXPECT().BlockHeaderByHeight(gomock.Any()).Return(&blh, nil).AnyTimes()
+	ap.EXPECT().BundlePool().Return(nil).AnyTimes()
 	ap.EXPECT().GetPendingNonce(gomock.Any()).Return(uint64(1), nil).AnyTimes()
 	ap.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	ap.EXPECT().AddSubscriber(gomock.Any()).AnyTimes()

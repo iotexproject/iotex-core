@@ -29,21 +29,24 @@ type Config struct {
 	WebsocketRateLimit int `yaml:"websocketRateLimit"`
 	// ListenerLimit is the maximum number of listeners.
 	ListenerLimit int `yaml:"listenerLimit"`
+	// ConcurrentRequestLimit is the maximum number of concurrent requests
+	ConcurrentRequestLimit int `yaml:"concurrentRequestLimit"`
 	// ReadyDuration is the duration to wait for the server to be ready.
 	ReadyDuration time.Duration `yaml:"readyDuration"`
 }
 
 // DefaultConfig is the default config
 var DefaultConfig = Config{
-	UseRDS:             false,
-	GRPCPort:           14014,
-	HTTPPort:           15014,
-	WebSocketPort:      16014,
-	TpsWindow:          10,
-	GasStation:         gasstation.DefaultConfig,
-	RangeQueryLimit:    2000,
-	BatchRequestLimit:  _defaultBatchRequestLimit,
-	WebsocketRateLimit: 5,
-	ListenerLimit:      5000,
-	ReadyDuration:      time.Second * 30,
+	UseRDS:                 false,
+	GRPCPort:               14014,
+	HTTPPort:               15014,
+	WebSocketPort:          16014,
+	TpsWindow:              10,
+	GasStation:             gasstation.DefaultConfig,
+	RangeQueryLimit:        2000,
+	BatchRequestLimit:      _defaultBatchRequestLimit,
+	WebsocketRateLimit:     5,
+	ConcurrentRequestLimit: 100,
+	ListenerLimit:          5000,
+	ReadyDuration:          time.Second * 30,
 }

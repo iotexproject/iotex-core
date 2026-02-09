@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -24,6 +25,7 @@ type (
 	// hTTPHandler handles requests from http protocol
 	hTTPHandler struct {
 		msgHandler Web3Handler
+		sem        *semaphore.Weighted
 	}
 )
 
@@ -57,9 +59,10 @@ func (hSvr *HTTPServer) Stop(ctx context.Context) error {
 }
 
 // newHTTPHandler creates a new http handler
-func newHTTPHandler(web3Handler Web3Handler) *hTTPHandler {
+func newHTTPHandler(web3Handler Web3Handler, limit int) *hTTPHandler {
 	return &hTTPHandler{
 		msgHandler: web3Handler,
+		sem:        semaphore.NewWeighted(int64(limit)),
 	}
 }
 
@@ -71,6 +74,16 @@ func (handler *hTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 
 	ctx, span := tracer.NewSpan(req.Context(), "http")
 	defer span.End()
+	acquireCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := handler.sem.Acquire(acquireCtx, 1); err != nil {
+		w.WriteHeader(http.StatusTooManyRequests)
+		log.L().Error("fail to acquire semaphore", zap.Error(err))
+		return
+	}
+	// TODO: add metrics
+	defer handler.sem.Release(1)
+
 	if err := handler.msgHandler.HandlePOSTReq(ctx, req.Body,
 		apitypes.NewResponseWriter(
 			func(resp interface{}) (int, error) {
