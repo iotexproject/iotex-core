@@ -109,7 +109,7 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 			encoding = iotextypes.Encoding_ETHEREUM_UNPROTECTED
 			signer = types.HomesteadSigner{}
 		}
-	case types.AccessListTxType, types.DynamicFeeTxType, types.BlobTxType:
+	case types.AccessListTxType, types.DynamicFeeTxType, types.BlobTxType, types.SetCodeTxType:
 		// AL txs are defined to use 0 and 1 as their recovery id,
 		// DynamicFee txs are defined to use 0 and 1 as their recovery id,
 		// Blob txs are defined to use 0 and 1 as their recovery id,

@@ -22,6 +22,7 @@ const (
 	AccessListTxType = 1
 	DynamicFeeTxType = 2
 	BlobTxType       = 3
+	SetCodeTxType    = 4
 )
 
 type (

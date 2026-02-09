@@ -160,6 +160,12 @@ func (b *EnvelopeBuilder) SetBlobTxData(
 	return b
 }
 
+// SetAuthList sets the set code authorization list.
+func (b *EnvelopeBuilder) SetAuthList(auths []types.SetCodeAuthorization) *EnvelopeBuilder {
+	b.ab.authList = auths
+	return b
+}
+
 // Build builds a new action.
 func (b *EnvelopeBuilder) Build() Envelope {
 	return b.build()
@@ -216,6 +222,7 @@ func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) error {
 			sidecar:    tx.BlobTxSidecar(),
 		}
 	}
+	b.ab.authList = tx.SetCodeAuthorizations()
 	return nil
 }
 
@@ -229,6 +236,8 @@ func convertEthTxType(typ uint8) (int, error) {
 		return DynamicFeeTxType, nil
 	case types.BlobTxType:
 		return BlobTxType, nil
+	case types.SetCodeTxType:
+		return SetCodeTxType, nil
 	default:
 		return 0, errors.Wrapf(ErrInvalidAct, "unsupported eth tx type %d", typ)
 	}

@@ -27,6 +27,7 @@ type AbstractAction struct {
 	gasFeeCap  *big.Int
 	accessList types.AccessList
 	blobData   *BlobTxData
+	authList   []types.SetCodeAuthorization
 }
 
 // ChainID returns the chainID
@@ -207,6 +208,18 @@ func (act *AbstractAction) convertToTx() TxCommonInternal {
 			accessList: act.accessList,
 			blob:       act.blobData,
 		}
+	case SetCodeTxType:
+		return &SetCodeTx{
+			DynamicFeeTx: DynamicFeeTx{
+				chainID:    act.chainID,
+				nonce:      act.nonce,
+				gasLimit:   act.gasLimit,
+				gasTipCap:  act.gasTipCap,
+				gasFeeCap:  act.gasFeeCap,
+				accessList: act.accessList,
+			},
+			authList: act.authList,
+		}
 	default:
 		panic(fmt.Sprintf("unsupported action type = %d", act.txType))
 	}
@@ -214,7 +227,7 @@ func (act *AbstractAction) convertToTx() TxCommonInternal {
 
 func (act *AbstractAction) validateTx() error {
 	switch act.txType {
-	case LegacyTxType, AccessListTxType, DynamicFeeTxType, BlobTxType:
+	case LegacyTxType, AccessListTxType, DynamicFeeTxType, BlobTxType, SetCodeTxType:
 		// these are allowed tx types
 	default:
 		return errors.Wrapf(ErrInvalidAct, "unsupported tx type = %d", act.txType)

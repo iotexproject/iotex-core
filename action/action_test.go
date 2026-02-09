@@ -131,4 +131,5 @@ func TestNewActionType(t *testing.T) {
 	r.Equal(types.AccessListTxType, AccessListTxType)
 	r.Equal(types.DynamicFeeTxType, DynamicFeeTxType)
 	r.Equal(types.BlobTxType, BlobTxType)
+	r.Equal(types.SetCodeTxType, SetCodeTxType)
 }
