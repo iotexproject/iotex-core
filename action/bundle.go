@@ -23,16 +23,6 @@ func (b *Bundle) validateItem(item *SealedEnvelope) error {
 	if item == nil {
 		return ErrNilAction
 	}
-	/*
-		switch act := item.Action().(type) {
-		case *Transfer, *Execution:
-			// Transfer and Execution actions are allowed in bundles
-		case *txContainer:
-			// act
-		default:
-			return ErrInvalidAct
-		}
-	*/
 	return nil
 }
 
