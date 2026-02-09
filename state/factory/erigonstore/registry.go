@@ -29,11 +29,17 @@ var (
 
 // ObjectStorageRegistry is a registry for object storage
 type ObjectStorageRegistry struct {
-	contracts map[string]map[reflect.Type]int
-	ns        map[string]int
-	nsPrefix  map[string]int
-	spliter   map[int]KeySplitter
-	kvList    map[int]struct{}
+	contracts              map[string]map[reflect.Type]int
+	ns                     map[string]int
+	nsPrefix               map[string]int
+	spliter                map[int]KeySplitter
+	kvList                 map[int]struct{}
+	rewardingHistoryPrefix map[int]rewardingHistoryConfig
+}
+
+type rewardingHistoryConfig struct {
+	Prefixs  [][]byte
+	KeySplit KeySplitter
 }
 
 type RegisterOption func(int, *ObjectStorageRegistry)
@@ -50,14 +56,23 @@ func WithKVListOption() RegisterOption {
 	}
 }
 
+func WithRewardingHistoryPrefixOption(split KeySplitter, prefix ...[]byte) RegisterOption {
+	return func(index int, osr *ObjectStorageRegistry) {
+		osr.rewardingHistoryPrefix[index] = rewardingHistoryConfig{
+			Prefixs:  prefix,
+			KeySplit: split,
+		}
+	}
+}
+
 func init() {
 	rewardHistoryPrefixs := [][]byte{
 		append(state.RewardingKeyPrefix[:], state.BlockRewardHistoryKeyPrefix...),
 		append(state.RewardingKeyPrefix[:], state.EpochRewardHistoryKeyPrefix...),
 	}
-	pollPrefix := [][]byte{
-		[]byte(state.PollCandidatesPrefix),
-	}
+	// pollPrefix := [][]byte{
+	// 	[]byte(state.PollCandidatesPrefix),
+	// }
 	genKeySplit := func(prefixs [][]byte) KeySplitter {
 		return func(key []byte) (part1 []byte, part2 []byte) {
 			for _, p := range prefixs {
@@ -69,11 +84,12 @@ func init() {
 			return key, nil
 		}
 	}
-	rewardKeySplit := genKeySplit(rewardHistoryPrefixs)
-	pollKeySplit := genKeySplit(pollPrefix)
+	epochRewardKeySplit := genKeySplit(rewardHistoryPrefixs[1:])
+	blockRewardKeySplit := genKeySplit(rewardHistoryPrefixs[:1])
+	// pollKeySplit := genKeySplit(pollPrefix)
 
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.AccountKVNamespace, RewardingContractV1Index, WithKeySplitOption(rewardKeySplit)))
-	assertions.MustNoError(storageRegistry.RegisterNamespace(state.RewardingNamespace, RewardingContractV2Index, WithKeySplitOption(rewardKeySplit)))
+	assertions.MustNoError(storageRegistry.RegisterNamespace(state.AccountKVNamespace, RewardingContractV1Index, WithKeySplitOption(epochRewardKeySplit), WithRewardingHistoryPrefixOption(blockRewardKeySplit, rewardHistoryPrefixs[0])))
+	assertions.MustNoError(storageRegistry.RegisterNamespace(state.RewardingNamespace, RewardingContractV2Index, WithKeySplitOption(epochRewardKeySplit), WithRewardingHistoryPrefixOption(blockRewardKeySplit, rewardHistoryPrefixs[0])))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandidateNamespace, CandidatesContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.CandsMapNamespace, CandidateMapContractIndex, WithKVListOption()))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.StakingNamespace, BucketPoolContractIndex))
@@ -83,7 +99,7 @@ func init() {
 	assertions.MustNoError(storageRegistry.RegisterNamespacePrefix(state.ContractStakingBucketTypeNamespacePrefix, ContractStakingBucketContractIndex))
 
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.Account{}, AccountIndex))
-	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex, WithKeySplitOption(pollKeySplit), WithKVListOption()))
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.AccountKVNamespace, &state.CandidateList{}, PollLegacyCandidateListContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &state.CandidateList{}, PollCandidateListContractIndex, WithKVListOption()))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.UnproductiveDelegate{}, PollUnproductiveDelegateContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.SystemNamespace, &vote.ProbationList{}, PollProbationListContractIndex))
@@ -100,11 +116,12 @@ func GetObjectStorageRegistry() *ObjectStorageRegistry {
 
 func newObjectStorageRegistry() *ObjectStorageRegistry {
 	return &ObjectStorageRegistry{
-		contracts: make(map[string]map[reflect.Type]int),
-		ns:        make(map[string]int),
-		nsPrefix:  make(map[string]int),
-		spliter:   make(map[int]KeySplitter),
-		kvList:    make(map[int]struct{}),
+		contracts:              make(map[string]map[reflect.Type]int),
+		ns:                     make(map[string]int),
+		nsPrefix:               make(map[string]int),
+		spliter:                make(map[int]KeySplitter),
+		kvList:                 make(map[int]struct{}),
+		rewardingHistoryPrefix: make(map[int]rewardingHistoryConfig),
 	}
 }
 
@@ -135,7 +152,13 @@ func (osr *ObjectStorageRegistry) ObjectStorage(ns string, obj any, backend *con
 			os = newKVListStorage(contract)
 		}
 		if split != nil {
-			os = newKeySplitContractStorageWithfallback(contract, split, os)
+			prefixFallbacks := map[string]ObjectStorage{}
+			if config, ok := osr.rewardingHistoryPrefix[contractIndex]; ok {
+				for _, prefix := range config.Prefixs {
+					prefixFallbacks[string(prefix)] = newRewardHistoryStorage(contract, backend.height, config.KeySplit)
+				}
+			}
+			os = newKeySplitContractStorageWithfallback(contract, split, os, prefixFallbacks)
 		}
 		return os, nil
 	default:
@@ -152,7 +175,13 @@ func (osr *ObjectStorageRegistry) ObjectStorage(ns string, obj any, backend *con
 			os = newKVListStorage(contract)
 		}
 		if split != nil {
-			os = newKeySplitContractStorageWithfallback(contract, split, os)
+			prefixFallbacks := map[string]ObjectStorage{}
+			if config, ok := osr.rewardingHistoryPrefix[contractIndex]; ok {
+				for _, prefix := range config.Prefixs {
+					prefixFallbacks[string(prefix)] = newRewardHistoryStorage(contract, backend.height, config.KeySplit)
+				}
+			}
+			os = newKeySplitContractStorageWithfallback(contract, split, os, prefixFallbacks)
 		}
 		return os, nil
 	}
