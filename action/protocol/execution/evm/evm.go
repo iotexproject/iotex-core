@@ -558,13 +558,6 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		refund             uint64
 		amount             = uint256.MustFromBig(evmParams.amount)
 	)
-	if evm.Config.Tracer != nil {
-		// TODO(pectra): add proper tracing support
-		// evm.Config.Tracer.OnTxStart(remainingGas)
-		// defer func() {
-		// 	evm.Config.Tracer.CaptureTxEnd(remainingGas)
-		// }()
-	}
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
@@ -762,10 +755,23 @@ func SimulateExecution(
 			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
 		},
 	))
-	retval, receipt, err := ExecuteContract(ctx, sm, ex)
-	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
-		tCtx.CaptureTx(retval, receipt)
+	var (
+		retval  []byte
+		receipt *action.Receipt
+	)
+	tErr := TraceStart(ctx, sm, ex)
+	if tErr != nil {
+		log.L().Warn("failed to start trace for simulation", zap.Error(tErr))
 	}
+	defer func() {
+		if tErr == nil {
+			TraceEnd(ctx, receipt)
+		}
+		if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureTx != nil {
+			tCtx.CaptureTx(retval, receipt)
+		}
+	}()
+	retval, receipt, err = ExecuteContract(ctx, sm, ex)
 	return retval, receipt, err
 }
 

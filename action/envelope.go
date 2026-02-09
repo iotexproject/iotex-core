@@ -26,7 +26,6 @@ type (
 		IntrinsicGas() (uint64, error)
 		Size() uint32
 		Action() Action
-		ToEthTx(uint32, iotextypes.Encoding) (*types.Transaction, error)
 		Proto() *iotextypes.ActionCore
 		ProtoForHash() *iotextypes.ActionCore
 		LoadProto(*iotextypes.ActionCore) error
@@ -44,6 +43,7 @@ type (
 		Value() *big.Int
 		To() *common.Address
 		Data() []byte
+		ToEthTx() (*types.Transaction, error)
 	}
 
 	TxCommon interface {
@@ -234,8 +234,7 @@ func (elp *envelope) Size() uint32 {
 func (elp *envelope) Action() Action { return elp.payload }
 
 // ToEthTx converts to Ethereum tx
-// TODO: remove unused parameters
-func (elp *envelope) ToEthTx(_ uint32, _ iotextypes.Encoding) (*types.Transaction, error) {
+func (elp *envelope) ToEthTx() (*types.Transaction, error) {
 	tx, ok := elp.Action().(EthCompatibleAction)
 	if !ok {
 		// action type not supported

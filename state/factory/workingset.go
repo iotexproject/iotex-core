@@ -214,7 +214,7 @@ func (ws *workingSet) runAction(
 		return nil, errors.New("receipt is empty")
 	}
 	if traceErr == nil {
-		evm.TraceEnd(ctx, ws, selp.Envelope, receipt)
+		evm.TraceEnd(ctx, receipt)
 	}
 	if fCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
 		if err = ws.handleBlob(ctx, selp, receipt); err != nil {

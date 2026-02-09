@@ -2154,7 +2154,15 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 			GetBlockTime:   bcCtx.GetBlockTime,
 			DepositGasFunc: rewarding.DepositGas,
 		})
-		return evm.ExecuteContract(ctx, ws, act)
+		tErr := evm.TraceStart(ctx, ws, act.Envelope)
+		if tErr != nil {
+			log.L().Warn("failed to start trace", zap.Error(tErr))
+		}
+		retval, receipt, err := evm.ExecuteContract(ctx, ws, act)
+		if tErr == nil {
+			evm.TraceEnd(ctx, receipt)
+		}
+		return retval, receipt, err
 	})
 	return retval, receipt, tracer, err
 }

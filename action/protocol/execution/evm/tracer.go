@@ -19,7 +19,7 @@ import (
 )
 
 // TraceStart starts tracing the execution of the action in the sealed envelope
-func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.Envelope) error {
+func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.TxDataForSimulation) error {
 	vmCtx, vmCtxExist := protocol.GetVMConfigCtx(ctx)
 	if !vmCtxExist || vmCtx.Tracer == nil {
 		return nil
@@ -49,7 +49,7 @@ func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.Envelo
 		if err != nil {
 			return errors.Wrap(err, "failed to get eth compatible action data")
 		}
-		ethTx, err = elp.ToEthTx(0, 0)
+		ethTx, err = elp.ToEthTx()
 		if err != nil {
 			return errors.Wrap(err, "failed to convert to eth tx")
 		}
@@ -67,21 +67,25 @@ func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.Envelo
 }
 
 // TraceEnd ends tracing the execution of the action in the sealed envelope
-func TraceEnd(ctx context.Context, ws protocol.StateManager, elp action.Envelope, receipt *action.Receipt) {
+func TraceEnd(ctx context.Context, receipt *action.Receipt) {
 	vmCtx, vmCtxExist := protocol.GetVMConfigCtx(ctx)
 	if !vmCtxExist || vmCtx.Tracer == nil || receipt == nil {
 		return
 	}
 	output := receipt.Output
 	vmCtx.Tracer.OnExit(0, output, receipt.GasConsumed, nil, receipt.Status != uint64(iotextypes.ReceiptStatus_Success))
-	ethReceipt := toEthReceipt(receipt)
+	ethReceipt := ToEthReceipt(receipt)
 	vmCtx.Tracer.OnTxEnd(ethReceipt, nil)
 	if t, ok := GetTracerCtx(ctx); ok {
 		t.CaptureTx(output, receipt)
 	}
 }
 
-func toEthReceipt(receipt *action.Receipt) *types.Receipt {
+// ToEthReceipt converts iotex receipt to eth receipt
+func ToEthReceipt(receipt *action.Receipt) *types.Receipt {
+	if receipt == nil {
+		return nil
+	}
 	ethReceipt := &types.Receipt{
 		Status:            uint64(receipt.Status),
 		CumulativeGasUsed: receipt.GasConsumed,
