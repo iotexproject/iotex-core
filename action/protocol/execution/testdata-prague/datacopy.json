@@ -1,0 +1,14 @@
+{
+    "initGenesis": {
+        "isPrague": true
+    },
+    "executions": [
+        {
+            "expectedBlockInfos" : {
+                "receiptRootHash": "e260ee7aba04ee01a8e28920f1c7c9ab2cb26b52cb9a76699f86799991eaf7e2",
+                "txRootHash": "d56f386cdc02533af5483a5c95b8fa96f8f26d86081f89f17689b2bf3d538408",
+                "stateRootHash": "18224591d503335869153834ba3a00811eb73f6836f8b46f8560a04cb459c267"
+            }
+        }
+    ]
+}

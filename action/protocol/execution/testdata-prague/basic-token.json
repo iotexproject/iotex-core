@@ -1,0 +1,9 @@
+{
+    "initGenesis": {
+        "isPrague": true
+    },
+    "executions": [
+        {},
+        {"rawExpectedGasConsumed": 19000}
+    ]
+}
