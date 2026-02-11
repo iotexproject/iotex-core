@@ -198,9 +198,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "uint256",
-        "name": "_taskId",
-        "type": "uint256"
+        "internalType": "string",
+        "name": "_clientId",
+        "type": "string"
       },
       {
         "internalType": "bytes",
