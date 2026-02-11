@@ -81,7 +81,7 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 					log.AddEvent(topics, eventData)
 					return log, nil, csm.requestDeactivation(cand.Owner)
 				}
-				if err := csm.deactivate(cand.GetIdentifier(), protocol.MustGetBlockCtx(ctx).BlockHeight); err != nil {
+				if err := csm.deactivate(cand, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight, p.calculateVoteWeight); err != nil {
 					return log, nil, csmErrorToHandleError(cand.GetIdentifier().String(), err)
 				}
 			} else {

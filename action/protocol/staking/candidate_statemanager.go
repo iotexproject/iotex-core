@@ -31,7 +31,7 @@ type (
 	// CandidateSet related to setting candidates
 	CandidateSet interface {
 		requestDeactivation(address.Address) error
-		deactivate(address.Address, uint64) error
+		deactivate(*Candidate, *VoteBucket, uint64, func(*VoteBucket, bool) *big.Int) error
 		putCandidate(*Candidate) error
 		delCandidate(address.Address) error
 		putVoterBucketIndex(address.Address, uint64) error
@@ -203,11 +203,17 @@ func (csm *candSM) requestDeactivation(owner address.Address) error {
 	return csm.upsert(cand)
 }
 
-func (csm *candSM) deactivate(id address.Address, height uint64) error {
-	cand := csm.candCenter.GetByIdentifier(id)
+func (csm *candSM) deactivate(cand *Candidate, bucket *VoteBucket, height uint64, calcVote func(bucket *VoteBucket, selfStake bool) *big.Int) error {
 	if cand == nil {
-		return errors.Wrapf(errCandNotExist, "failed to get candidate with id %s", id)
+		return errors.Wrapf(errCandNotExist, "invalid candidate")
 	}
+	if bucket == nil {
+		return errors.Wrapf(ErrNoSelfStakeBucket, "invalid bucket")
+	}
+	if cand.SelfStakeBucketIdx != bucket.Index {
+		return errors.New("self-stake bucket index mismatch")
+	}
+
 	switch {
 	case cand.DeactivatedAt == 0:
 		return ErrExitNotRequested
@@ -216,9 +222,11 @@ func (csm *candSM) deactivate(id address.Address, height uint64) error {
 	case cand.DeactivatedAt > height:
 		return ErrExitNotReady
 	}
-	// Subtract self-stake weighted votes from total votes
-	if cand.SelfStake.Sign() > 0 {
-		cand.Votes.Sub(cand.Votes, cand.SelfStake)
+	if err := cand.SubVote(calcVote(bucket, true)); err != nil {
+		return err
+	}
+	if err := cand.AddVote(calcVote(bucket, false)); err != nil {
+		return err
 	}
 	cand.SelfStake = big.NewInt(0)
 	cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex

@@ -595,7 +595,7 @@ func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.Stat
 	if epochStartHeight == blkCtx.BlockHeight {
 		var last lastExitEpoch
 		_, err := sr.State(&last, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_lastExitEpoch))
-		if err != nil && errors.Is(err, state.ErrStateNotExist) {
+		if err != nil && !errors.Is(err, state.ErrStateNotExist) {
 			return nil, err
 		}
 		g := genesis.MustExtractGenesisContext(ctx)

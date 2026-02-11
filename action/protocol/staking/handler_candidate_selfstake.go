@@ -84,17 +84,22 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketIndex,
 		}
 	}
-	id := cand.GetIdentifier()
 	var topics action.Topics
 	var eventData []byte
 	var err error
 	switch act.Op() {
 	case action.CandidateDeactivateOpRequest:
-		if err = csm.requestDeactivation(id); err == nil {
-			topics, eventData, err = action.PackCandidateDeactivationRequestedEvent(id)
+		owner := cand.Owner
+		if err = csm.requestDeactivation(owner); err == nil {
+			topics, eventData, err = action.PackCandidateDeactivationRequestedEvent(owner)
 		}
 	case action.CandidateDeactivateOpConfirm:
-		if err := csm.deactivate(id, protocol.MustGetBlockCtx(ctx).BlockHeight); err == nil {
+		id := cand.GetIdentifier()
+		bucket, rErr := p.fetchBucket(csm, cand.SelfStakeBucketIdx)
+		if rErr != nil {
+			return nil, nil, rErr
+		}
+		if err := csm.deactivate(cand, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight, p.calculateVoteWeight); err == nil {
 			topics, eventData, err = action.PackCandidateDeactivatedEvent(id)
 		}
 	default:
