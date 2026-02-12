@@ -28,6 +28,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -140,6 +141,23 @@ type (
 	// Option is the option to create a protocol
 	Option func(*Protocol)
 )
+
+// Serialize serializes last exit epoch into bytes
+func (le *lastExitEpoch) Serialize() ([]byte, error) {
+	return proto.Marshal(&stakingpb.ExitQueue{
+		Epoch: le.epoch,
+	})
+}
+
+// Deserialize deserializes bytes into last exit epoch
+func (le *lastExitEpoch) Deserialize(data []byte) error {
+	var pb stakingpb.ExitQueue
+	if err := proto.Unmarshal(data, &pb); err != nil {
+		return err
+	}
+	le.epoch = pb.Epoch
+	return nil
+}
 
 // WithContractStakingIndexerV3 sets the contract staking indexer v3
 func WithContractStakingIndexerV3(indexer ContractStakingIndexer) Option {
@@ -722,6 +740,7 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		actionCtx         = protocol.MustGetActionCtx(ctx)
 		gasConsumed       = actionCtx.IntrinsicGas
 		gasToBeDeducted   = gasConsumed
+		isSystemAction    bool
 	)
 	switch act := elp.Action().(type) {
 	case *action.CreateStake:
@@ -751,6 +770,7 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 	case *action.CandidateTransferOwnership:
 		rLog, tLogs, err = p.handleCandidateTransferOwnership(ctx, act, csm)
 	case *action.ScheduleCandidateDeactivation:
+		isSystemAction = true
 		rLog, tLogs, err = p.handleScheduleCandidateDeactivation(ctx, act, csm)
 	case *action.MigrateStake:
 		logs, tLogs, gasConsumed, gasToBeDeducted, err = p.handleStakeMigrate(ctx, elp, csm)
@@ -766,14 +786,14 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		}
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm.SM(), elp, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
+		return p.settleAction(ctx, csm.SM(), elp, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption, isSystemAction)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
 			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
-		return p.settleAction(ctx, csm.SM(), elp, receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
+		return p.settleAction(ctx, csm.SM(), elp, receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption, isSystemAction)
 	}
 	return nil, err
 }
@@ -1119,33 +1139,38 @@ func (p *Protocol) settleAction(
 	gasConsumed uint64,
 	gasToBeDeducted uint64,
 	updateNonce nonceUpdateType,
+	isSystemAction bool,
 ) (*action.Receipt, error) {
 	var (
 		actionCtx = protocol.MustGetActionCtx(ctx)
 		blkCtx    = protocol.MustGetBlockCtx(ctx)
 	)
-	priorityFee, baseFee, err := protocol.SplitGas(ctx, act, gasToBeDeducted)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to split gas")
-	}
-	depositLog, err := p.helperCtx.DepositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(priorityFee))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deposit gas")
-	}
-	if updateNonce {
-		accountCreationOpts := []state.AccountCreationOption{}
-		if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
-			accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
-		}
-		acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
+	var depositLog []*action.TransactionLog
+	if !isSystemAction {
+		priorityFee, baseFee, err := protocol.SplitGas(ctx, act, gasToBeDeducted)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to split gas")
 		}
-		if err := acc.SetPendingNonce(actionCtx.Nonce + 1); err != nil {
-			return nil, errors.Wrap(err, "failed to set nonce")
+		var err2 error
+		depositLog, err2 = p.helperCtx.DepositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(priorityFee))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "failed to deposit gas")
 		}
-		if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
-			return nil, errors.Wrap(err, "failed to update nonce")
+		if updateNonce {
+			accountCreationOpts := []state.AccountCreationOption{}
+			if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+				accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
+			}
+			acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
+			if err != nil {
+				return nil, err
+			}
+			if err := acc.SetPendingNonce(actionCtx.Nonce + 1); err != nil {
+				return nil, errors.Wrap(err, "failed to set nonce")
+			}
+			if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
+				return nil, errors.Wrap(err, "failed to update nonce")
+			}
 		}
 	}
 	r := action.Receipt{

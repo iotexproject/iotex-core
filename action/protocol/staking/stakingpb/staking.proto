@@ -79,3 +79,7 @@ message SystemStakingBucket {
     bool muted = 8;
     bool timestamped = 9;
 }
+
+message ExitQueue {
+    uint64 epoch = 1;
+}
