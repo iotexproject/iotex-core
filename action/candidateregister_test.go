@@ -275,6 +275,16 @@ func TestStakingEvent(t *testing.T) {
 		require.NoError(err)
 		checkActivatedEvent(require, topics, data, cand, bktIdx)
 	})
+	t.Run("deactivate", func(t *testing.T) {
+		topics, data, err := PackCandidateDeactivationRequestedEvent(cand)
+		require.NoError(err)
+		paramsNonIndexed, err := _candidateDeactivationRequestedEvent.Inputs.Unpack(data)
+		require.NoError(err)
+		require.Equal(0, len(paramsNonIndexed))
+		require.Equal(2, len(topics))
+		require.Equal(hash.Hash256(_candidateDeactivationRequestedEvent.ID), topics[0])
+		require.Equal(hash.BytesToHash256(cand.Bytes()), topics[1])
+	})
 	t.Run("update", func(t *testing.T) {
 		topics, data, err := PackCandidateUpdatedEvent(cand, operator, owner, name, reward, blsPubKey)
 		require.NoError(err)

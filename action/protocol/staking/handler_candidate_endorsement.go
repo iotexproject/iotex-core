@@ -69,13 +69,29 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 		if err := p.validateRevokeEndorsement(ctx, esm, actCtx.Caller, bucket); err != nil {
 			return log, nil, err
 		}
-		// clear self-stake if the endorse bucket is used
+		// clear self-stake if the endorse bucket is in used
 		if cand.SelfStakeBucketIdx == bucket.Index {
-			if err := p.clearCandidateSelfStake(bucket, cand); err != nil {
-				return log, nil, errors.Wrap(err, "failed to clear candidate self-stake")
-			}
-			if err := csm.Upsert(cand); err != nil {
-				return log, nil, csmErrorToHandleError(actCtx.Caller.String(), err)
+			if !featureCtx.NoCandidateExitQueue {
+				if cand.DeactivatedAt == 0 {
+					topics, eventData, err := action.PackCandidateDeactivationRequestedEvent(cand.GetIdentifier())
+					if err != nil {
+						return log, nil, err
+					}
+					// overwrite the event
+					log.AddEvent(topics, eventData)
+					return log, nil, csm.requestDeactivation(cand.Owner)
+				}
+				if err := csm.deactivate(cand, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight, p.calculateVoteWeight); err != nil {
+					return log, nil, csmErrorToHandleError(cand.GetIdentifier().String(), err)
+				}
+			} else {
+				// TODO: Check that the bucket is ready for dequeue
+				if err := p.clearCandidateSelfStake(bucket, cand); err != nil {
+					return log, nil, errors.Wrap(err, "failed to clear candidate self-stake")
+				}
+				if err := csm.Upsert(cand); err != nil {
+					return log, nil, csmErrorToHandleError(actCtx.Caller.String(), err)
+				}
 			}
 		}
 		if err := esm.Delete(bucket.Index); err != nil {

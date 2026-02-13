@@ -30,6 +30,8 @@ type (
 	}
 	// CandidateSet related to setting candidates
 	CandidateSet interface {
+		requestDeactivation(address.Address) error
+		deactivate(*Candidate, *VoteBucket, uint64, func(*VoteBucket, bool) *big.Int) error
 		putCandidate(*Candidate) error
 		delCandidate(address.Address) error
 		putVoterBucketIndex(address.Address, uint64) error
@@ -155,6 +157,10 @@ func (csm *candSM) GetByOperator(addr address.Address) *Candidate {
 
 // Upsert writes the candidate into state manager and cand center
 func (csm *candSM) Upsert(d *Candidate) error {
+	return csm.upsert(d)
+}
+
+func (csm *candSM) upsert(d *Candidate) error {
 	if err := csm.candCenter.Upsert(d); err != nil {
 		return err
 	}
@@ -182,6 +188,53 @@ func (csm *candSM) Commit(ctx context.Context) error {
 
 func (csm *candSM) NativeBucket(index uint64) (*VoteBucket, error) {
 	return newCandidateStateReader(csm).NativeBucket(index)
+}
+
+func (csm *candSM) requestDeactivation(owner address.Address) error {
+	cand := csm.candCenter.GetByOwner(owner)
+	if cand == nil {
+		return errors.Wrapf(errCandNotExist, "failed to get candidate with owner %s", owner)
+	}
+	if cand.DeactivatedAt != 0 {
+		return ErrExitAlreadyRequested
+	}
+	cand.DeactivatedAt = candidateExitRequested
+
+	return csm.upsert(cand)
+}
+
+func (csm *candSM) deactivate(cand *Candidate, bucket *VoteBucket, height uint64, calcVote func(bucket *VoteBucket, selfStake bool) *big.Int) error {
+	if cand == nil {
+		return errors.Wrapf(errCandNotExist, "invalid candidate")
+	}
+	if bucket == nil {
+		return errors.Wrapf(ErrNoSelfStakeBucket, "invalid bucket")
+	}
+	if cand.SelfStakeBucketIdx != bucket.Index {
+		return errors.New("self-stake bucket index mismatch")
+	}
+
+	switch {
+	case cand.DeactivatedAt == 0:
+		return ErrExitNotRequested
+	case cand.DeactivatedAt == candidateExitRequested:
+		return ErrExitNotScheduled
+	case cand.DeactivatedAt > height:
+		return ErrExitNotReady
+	}
+	if err := cand.SubVote(calcVote(bucket, true)); err != nil {
+		return err
+	}
+	if err := cand.AddVote(calcVote(bucket, false)); err != nil {
+		return err
+	}
+	cand.SelfStake = big.NewInt(0)
+	cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
+	if err := csm.candCenter.Upsert(cand); err != nil {
+		return err
+	}
+
+	return csm.upsert(cand)
 }
 
 func (csm *candSM) updateBucket(index uint64, bucket *VoteBucket) error {

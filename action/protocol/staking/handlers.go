@@ -193,6 +193,12 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
 		}
 	}
+	if selfStake && !featureCtx.NoCandidateExitQueue {
+		return log, &handleError{
+			err:           ErrExitNotReady,
+			failureStatus: iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity,
+		}
+	}
 	if !featureCtx.UnstakedButNotClearSelfStakeAmount {
 		// update bucket
 		bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
@@ -1063,6 +1069,9 @@ func csmErrorToHandleError(caller string, err error) error {
 		return hErr
 	case ErrInvalidReward:
 		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateNotExist
+		return hErr
+	case ErrExitNotReady, ErrExitNotScheduled, ErrExitNotRequested, ErrExitAlreadyRequested:
+		hErr.failureStatus = iotextypes.ReceiptStatus_Failure
 		return hErr
 	default:
 		return err
