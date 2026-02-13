@@ -171,4 +171,147 @@ func TestExitQueue(t *testing.T) {
 			},
 		})
 	})
+
+	// This test verifies the integration between endorsement and exit queue:
+	// When an endorser revokes endorsement on a self-stake bucket with exit queue enabled,
+	// instead of immediately clearing the self-stake (legacy behavior), it auto-triggers
+	// the exit queue flow (requestDeactivation). A second revoke after the scheduled
+	// deactivation height completes the deactivation.
+	//
+	// Flow: endorse → activate as self-stake → intent-to-revoke → first revoke (auto exit request)
+	// → system schedules deactivation → second revoke (completes deactivation)
+	t.Run("endorsement revoke triggers exit queue and completes deactivation", func(t *testing.T) {
+		cfg := initExitQueueCfg(r)
+		cfg.Genesis.EndorsementWithdrawWaitingBlocks = 10
+		test := newE2ETest(t, cfg)
+		defer test.teardown()
+		registerEpochProtocols(r, test)
+
+		candOwnerID := 1
+		stakerID := 2
+		chainID := test.cfg.Chain.ID
+
+		// Timeline (EndorsementWithdrawWaitingBlocks=10, blocksPerEpoch=24, ExitAdmissionInterval=1):
+		//   height  1: register candidate (bucket 0 = self-stake)
+		//   height  2: staker creates bucket 1
+		//   height  3: staker endorses bucket 1
+		//   height  4: candidate activates bucket 1 as new self-stake
+		//   height  5: staker IntentToRevoke (ExpireHeight = 5 + 10 = 15)
+		//   height 15: endorsement becomes UnEndorsing; first Revoke → exit requested
+		//   height 25: epoch 2 start → system schedules deactivation (DeactivatedAt = 49)
+		//   height 49: second Revoke → deactivation completes
+
+		test.run([]*testcase{
+			{
+				name:   "register candidate with self-stake",
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(candOwnerID).String()), "cand1", identityset.Address(candOwnerID).String(), identityset.Address(candOwnerID).String(), identityset.Address(candOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{successExpect},
+			},
+			{
+				name: "staker creates and endorses bucket",
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", registerAmount.String(), 91, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				},
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpEndorse, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{successExpect},
+			},
+			{
+				name: "candidate activates endorsed bucket as self-stake",
+				act:  &actionWithTime{mustNoErr(action.SignedCandidateActivate(test.nonceMgr.pop(identityset.Address(candOwnerID).String()), 1, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect,
+					&functionExpect{fn: func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+						r := require.New(test.t)
+						cand, err := test.getCandidateByName("cand1")
+						r.NoError(err)
+						r.Equal(uint64(1), cand.SelfStakeBucketIdx)
+						r.Equal(registerAmount.String(), cand.SelfStakingTokens)
+					}},
+				},
+			},
+			{
+				name:   "staker intent to revoke endorsement on self-stake bucket",
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpIntentToRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{successExpect},
+			},
+			{
+				// Advance to height 15 where endorsement becomes UnEndorsing (ExpireHeight = 5 + 10 = 15).
+				// First Revoke auto-triggers exit request instead of clearing self-stake.
+				name: "first revoke auto-triggers exit request",
+				preFunc: func(e *e2etest) {
+					bc := e.cs.Blockchain()
+					ap := e.cs.ActionPool()
+					for bc.TipHeight() < 14 {
+						_, err := createAndCommitBlock(bc, ap, time.Now())
+						require.NoError(e.t, err)
+					}
+				},
+				act: &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect,
+					&functionExpect{fn: func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+						r := require.New(test.t)
+						cand, err := test.getCandidateByName("cand1")
+						r.NoError(err)
+						// exit requested but not yet scheduled
+						r.Equal(uint64(math.MaxUint64), cand.DeactivatedAt)
+						// self-stake still intact (not cleared like legacy behavior)
+						r.Equal(registerAmount.String(), cand.SelfStakingTokens)
+						r.Equal(uint64(1), cand.SelfStakeBucketIdx)
+					}},
+				},
+			},
+			{
+				// Advance to epoch 2 start (height 25). System generates
+				// ScheduleCandidateDeactivation, setting DeactivatedAt = 25 + 1*24 = 49.
+				name: "system schedules deactivation at epoch 2 start",
+				preFunc: func(e *e2etest) {
+					bc := e.cs.Blockchain()
+					ap := e.cs.ActionPool()
+					for bc.TipHeight() < 24 {
+						_, err := createAndCommitBlock(bc, ap, time.Now())
+						require.NoError(e.t, err)
+					}
+				},
+				act: &actionWithTime{mustNoErr(action.SignedTransfer(identityset.Address(stakerID).String(), identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect,
+					&functionExpect{fn: func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+						r := require.New(test.t)
+						cand, err := test.getCandidateByName("cand1")
+						r.NoError(err)
+						r.Equal(uint64(49), cand.DeactivatedAt)
+						r.Equal(registerAmount.String(), cand.SelfStakingTokens)
+					}},
+				},
+			},
+			{
+				// Advance past DeactivatedAt (49). Second Revoke completes the
+				// deactivation: self-stake is cleared and endorsement is deleted.
+				// The endorsement is still UnEndorsing (ExpireHeight=15) since the
+				// first Revoke returned early without deleting it.
+				name: "second revoke completes deactivation",
+				preFunc: func(e *e2etest) {
+					bc := e.cs.Blockchain()
+					ap := e.cs.ActionPool()
+					for bc.TipHeight() < 48 {
+						_, err := createAndCommitBlock(bc, ap, time.Now())
+						require.NoError(e.t, err)
+					}
+				},
+				act: &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect,
+					&functionExpect{fn: func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+						r := require.New(test.t)
+						cand, err := test.getCandidateByName("cand1")
+						r.NoError(err)
+						// deactivation completed
+						r.Equal("0", cand.SelfStakingTokens)
+						r.Equal(uint64(math.MaxUint64), cand.SelfStakeBucketIdx)
+					}},
+				},
+			},
+		})
+	})
 }
