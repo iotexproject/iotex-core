@@ -73,7 +73,7 @@ type (
 	workingSet struct {
 		workingSetStoreFactory WorkingSetStoreFactory
 		height                 uint64
-		views                  *protocol.Views
+		views                  protocol.Views
 		viewsSnapshots         map[int]int
 		store                  workingSetStore
 		finalized              bool
@@ -82,7 +82,7 @@ type (
 	}
 )
 
-func newWorkingSet(height uint64, views *protocol.Views, store workingSetStore, storeFactory WorkingSetStoreFactory) *workingSet {
+func newWorkingSet(height uint64, views protocol.Views, store workingSetStore, storeFactory WorkingSetStoreFactory) *workingSet {
 	ws := &workingSet{
 		height:                 height,
 		views:                  views,

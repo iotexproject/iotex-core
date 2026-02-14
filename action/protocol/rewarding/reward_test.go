@@ -612,6 +612,8 @@ func TestProtocol_CalculateReward(t *testing.T) {
 			g := genesis.MustExtractGenesisContext(ctx)
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			blkCtx.AccumulatedTips.Set(tv.accumuTips)
+			_, err := sm.PutState(&rewardHistory{}, protocol.NamespaceOption(_v2RewardingNamespace), protocol.KeyOption([]byte("test")))
+			req.NoError(err)
 			if tv.isWakeBlock {
 				g.WakeBlockRewardStr = wakeBlockReward.String()
 				blkCtx.BlockHeight = g.WakeBlockHeight
