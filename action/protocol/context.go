@@ -165,6 +165,7 @@ type (
 		StoreVoteOfNFTBucketIntoView            bool
 		CandidateSlashByOwner                   bool
 		CandidateBLSPublicKeyNotCopied          bool
+		PreBlackList                            bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -333,6 +334,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			StoreVoteOfNFTBucketIntoView:            !g.IsXingu(height),
 			CandidateSlashByOwner:                   !g.IsXinguBeta(height),
 			CandidateBLSPublicKeyNotCopied:          !g.IsXinguBeta(height),
+			PreBlackList:                            !g.IsYellowsea(height),
 		},
 	)
 }

@@ -80,6 +80,7 @@ func defaultConfig() Genesis {
 			WakeBlockHeight:           36893881,
 			XinguBlockHeight:          41648761,
 			XinguBetaBlockHeight:      41648761,
+			YellowseaBlockHeight:      45404174,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
@@ -222,6 +223,7 @@ func TestDefault() Genesis {
 	cfg.Timestamp = 1546329600
 	cfg.TimeBasedRotation = false
 	cfg.PacificBlockHeight = 0
+	cfg.YellowseaBlockHeight = 0
 	cfg.NumSubEpochs = 2
 	cfg.EnableGravityChainVoting = false
 	for i := 0; i < identityset.Size(); i++ {
@@ -379,6 +381,8 @@ type (
 		// XinguBetaBlockHeight is the start height to
 		// 1. slash candidate by operator
 		XinguBetaBlockHeight uint64 `yaml:"xinguBetaHeight"`
+		// YellowseaBlockHeight is the start height to enforce sender blacklist check
+		YellowseaBlockHeight uint64 `yaml:"yellowseaHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -772,6 +776,11 @@ func (g *Blockchain) IsXinguBeta(height uint64) bool {
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
 func (g *Blockchain) IsToBeEnabled(height uint64) bool {
 	return g.isPost(g.ToBeEnabledBlockHeight, height)
+}
+
+// IsYellowsea checks whether height is equal to or larger than yellowsea height
+func (g *Blockchain) IsYellowsea(height uint64) bool {
+	return g.isPost(g.YellowseaBlockHeight, height)
 }
 
 // BlockGasLimitByHeight returns the block gas limit by height

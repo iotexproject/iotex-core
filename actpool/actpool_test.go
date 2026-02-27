@@ -11,6 +11,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -108,6 +109,7 @@ func TestValidate(t *testing.T) {
 		g,
 	)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	sev := mock_sealed_envelope_validator.NewMockSealedEnvelopeValidator(ctrl)
 	mockError := errors.New("mock error")
 	sev.EXPECT().Validate(gomock.Any(), gomock.Any()).Return(mockError).Times(1)
@@ -1225,4 +1227,99 @@ func TestValidateMinGasPrice(t *testing.T) {
 	ap := Config{MinGasPriceStr: DefaultConfig.MinGasPriceStr}
 	mgp := ap.MinGasPrice()
 	require.IsType(t, &big.Int{}, mgp)
+}
+
+func TestBlackListActivationHeight(t *testing.T) {
+	require := require.New(t)
+
+	t.Run("before activation height, blacklist not enforced", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		g := genesis.TestDefault()
+		g.YellowseaBlockHeight = 100
+		sf := mock_chainmanager.NewMockStateReader(ctrl)
+		sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			acct, ok := account.(*state.Account)
+			require.True(ok)
+			require.NoError(acct.AddBalance(big.NewInt(100)))
+			return 0, nil
+		}).AnyTimes()
+		sf.EXPECT().Height().Return(uint64(5), nil).AnyTimes()
+		apConfig := Config{
+			MaxNumActsPerPool:  _maxNumActsPerPool,
+			MaxGasLimitPerPool: _maxGasLimitPerPool,
+			MaxNumActsPerAcct:  _maxNumActsPerAcct,
+			MinGasPriceStr:     "0",
+			BlackList:          []string{_addr6},
+			MaxNumBlobsPerAcct: _maxNumBlobTxPerAcct,
+		}
+		Ap, err := NewActPool(g, sf, apConfig)
+		require.NoError(err)
+		ap, ok := Ap.(*actPool)
+		require.True(ok)
+		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+		// tip height = 5, next block = 6 < 100, blacklist should NOT be enforced
+		ctx := genesis.WithGenesisContext(context.Background(), g)
+		bannedTsf, err := action.SignedTransfer(_addr1, _priKey6, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
+		require.NoError(err)
+		require.NoError(ap.Add(ctx, bannedTsf))
+	})
+
+	t.Run("at activation height, blacklist enforced", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		g := genesis.TestDefault()
+		g.YellowseaBlockHeight = 100
+		sf := mock_chainmanager.NewMockStateReader(ctrl)
+		sf.EXPECT().Height().Return(uint64(99), nil).AnyTimes()
+		apConfig := Config{
+			MaxNumActsPerPool:  _maxNumActsPerPool,
+			MaxGasLimitPerPool: _maxGasLimitPerPool,
+			MaxNumActsPerAcct:  _maxNumActsPerAcct,
+			MinGasPriceStr:     "0",
+			BlackList:          []string{_addr6},
+			MaxNumBlobsPerAcct: _maxNumBlobTxPerAcct,
+		}
+		Ap, err := NewActPool(g, sf, apConfig)
+		require.NoError(err)
+		ap, ok := Ap.(*actPool)
+		require.True(ok)
+		// tip height = 99, next block = 100 >= 100, blacklist should be enforced
+		ctx := genesis.WithGenesisContext(context.Background(), g)
+		bannedTsf, err := action.SignedTransfer(_addr1, _priKey6, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
+		require.NoError(err)
+		err = ap.Add(ctx, bannedTsf)
+		require.Error(err)
+		require.Contains(err.Error(), "action source address is blacklisted")
+	})
+
+	t.Run("MaxUint64 height means never enforced", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		g := genesis.TestDefault()
+		g.YellowseaBlockHeight = math.MaxUint64
+		sf := mock_chainmanager.NewMockStateReader(ctrl)
+		sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			acct, ok := account.(*state.Account)
+			require.True(ok)
+			require.NoError(acct.AddBalance(big.NewInt(100)))
+			return 0, nil
+		}).AnyTimes()
+		sf.EXPECT().Height().Return(uint64(0), nil).AnyTimes()
+		apConfig := Config{
+			MaxNumActsPerPool:  _maxNumActsPerPool,
+			MaxGasLimitPerPool: _maxGasLimitPerPool,
+			MaxNumActsPerAcct:  _maxNumActsPerAcct,
+			MinGasPriceStr:     "0",
+			BlackList:          []string{_addr6},
+			MaxNumBlobsPerAcct: _maxNumBlobTxPerAcct,
+		}
+		Ap, err := NewActPool(g, sf, apConfig)
+		require.NoError(err)
+		ap, ok := Ap.(*actPool)
+		require.True(ok)
+		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+		// YellowseaBlockHeight = MaxUint64, blacklist should never be enforced
+		ctx := genesis.WithGenesisContext(context.Background(), g)
+		bannedTsf, err := action.SignedTransfer(_addr1, _priKey6, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
+		require.NoError(err)
+		require.NoError(ap.Add(ctx, bannedTsf))
+	})
 }

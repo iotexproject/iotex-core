@@ -102,4 +102,5 @@ func TestNewHeightChange(t *testing.T) {
 	require.Equal(cfg.WakeBlockHeight, uint64(36893881))
 	require.Equal(cfg.XinguBlockHeight, uint64(41648761))
 	require.Equal(cfg.XinguBetaBlockHeight, uint64(41648761))
+	require.Equal(cfg.YellowseaBlockHeight, uint64(45404174))
 }

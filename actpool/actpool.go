@@ -355,7 +355,7 @@ func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.Seale
 		return action.ErrUnderpriced
 	}
 
-	if _, ok := ap.senderBlackList[selp.SenderAddress().String()]; ok {
+	if ap.isBlackListed(ctx, selp.SenderAddress().String()) {
 		_actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
@@ -466,7 +466,7 @@ func (ap *actPool) validate(ctx context.Context, selp *action.SealedEnvelope) er
 	if caller == nil {
 		return errors.New("failed to get address")
 	}
-	if _, ok := ap.senderBlackList[caller.String()]; ok {
+	if ap.isBlackListed(ctx, caller.String()) {
 		_actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
@@ -515,6 +515,17 @@ func (ap *actPool) context(ctx context.Context) context.Context {
 		genesis.WithGenesisContext(ctx, ap.g), protocol.BlockCtx{
 			BlockHeight: height + 1,
 		}))
+}
+
+func (ap *actPool) isBlackListed(ctx context.Context, addr string) bool {
+	if _, ok := ap.senderBlackList[addr]; !ok {
+		return false
+	}
+	fCtx, ok := protocol.GetFeatureCtx(ctx)
+	if !ok {
+		fCtx = protocol.MustGetFeatureCtx(ap.context(ctx))
+	}
+	return !fCtx.PreBlackList
 }
 
 func (ap *actPool) enqueue(ctx context.Context, act *action.SealedEnvelope, replace bool) error {
