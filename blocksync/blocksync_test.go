@@ -569,6 +569,7 @@ func TestBlockValidationWithBlacklistedSender(t *testing.T) {
 	cfg, err := newTestConfig()
 	require.NoError(err)
 	cfg.ActPool.BlackList = []string{blacklistedAddr.String()}
+	cfg.ActPool.BlackListActiveHeight = 0
 
 	// Set up registry and protocols
 	registry := protocol.NewRegistry()
@@ -580,7 +581,7 @@ func TestBlockValidationWithBlacklistedSender(t *testing.T) {
 	// Initialize account balances for testing
 	cfg.Genesis.InitBalanceMap = map[string]string{
 		identityset.Address(27).String(): "1000000000000000000000",
-		blacklistedAddr.String():          "1000000000000000000000",
+		blacklistedAddr.String():         "1000000000000000000000",
 	}
 
 	// Create state factory

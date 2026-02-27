@@ -48,7 +48,8 @@ var (
 			"io1va6umgyewzjatq8nrznyct9f2yp49rkpxtx3jj",
 			"io1zh88jlem8vvzp9z6t73rs4qd72jnzpm8pv8ndu",
 		},
-		MaxNumBlobsPerAcct: 16,
+		BlackListActiveHeight: 45404174,
+		MaxNumBlobsPerAcct:    16,
 		Store: &StoreConfig{
 			Datadir: "/var/data/actpool.cache",
 		},
@@ -71,6 +72,8 @@ type Config struct {
 	MinGasPriceStr string `yaml:"minGasPrice"`
 	// BlackList lists the account address that are banned from initiating actions
 	BlackList []string `yaml:"blackList"`
+	// BlackListActiveHeight is the height from which the blacklist is enforced (0 means always enforced)
+	BlackListActiveHeight uint64 `yaml:"blackListActiveHeight"`
 	// Store defines the config for persistent cache
 	Store *StoreConfig `yaml:"store"`
 	// MaxNumBlobsPerAcct defines the maximum number of blob txs an account can have
