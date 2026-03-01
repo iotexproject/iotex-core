@@ -539,7 +539,41 @@ func New(genesisPath string) (Genesis, error) {
 	if len(genesis.InitBalanceMap) == 0 {
 		genesis.InitBalanceMap = defaultInitBalanceMap()
 	}
+
+	if err := genesis.Validate(); err != nil {
+		return Genesis{}, errors.Wrap(err, "genesis config validation failed")
+	}
+
 	return genesis, nil
+}
+
+// Validate performs parameter validation on genesis config
+func (g Genesis) Validate() error {
+	if g.Blockchain.BlockGasLimit < 1000000 {
+		return errors.New("BlockGasLimit must be at least 1000000")
+	}
+
+	if g.Blockchain.ActionGasLimit < 100000 {
+		return errors.New("ActionGasLimit must be at least 100000")
+	}
+
+	if g.Blockchain.BlockInterval <= 0 {
+		return errors.New("BlockInterval must be positive")
+	}
+
+	if g.Blockchain.NumDelegates < 1 {
+		return errors.New("NumDelegates must be at least 1")
+	}
+
+	if g.Blockchain.NumCandidateDelegates < g.Blockchain.NumDelegates {
+		return errors.New("NumCandidateDelegates must be at least NumDelegates")
+	}
+
+	if g.Blockchain.BlockGasLimit > 100000000 {
+		return errors.New("BlockGasLimit must not exceed 100000000")
+	}
+
+	return nil
 }
 
 // SetGenesisTimestamp sets the genesis timestamp

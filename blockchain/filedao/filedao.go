@@ -166,6 +166,11 @@ func (fd *fileDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
 }
 
 func (fd *fileDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
+	// Input validation: ensure hash is valid
+	if hash == [32]byte{} {
+		return 0, errors.New("invalid hash: hash cannot be empty")
+	}
+
 	var (
 		height uint64
 		err    error
@@ -177,12 +182,21 @@ func (fd *fileDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 	}
 
 	if fd.legacyFd != nil {
-		return fd.legacyFd.GetBlockHeight(hash)
+		h, err := fd.legacyFd.GetBlockHeight(hash)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to get block height from legacy FD")
+		}
+		return h, nil
 	}
-	return 0, err
+	return 0, errors.New("failed to get block height: both v2 and legacy FD are unavailable")
 }
 
 func (fd *fileDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
+	// Input validation: ensure hash is valid
+	if hash == [32]byte{} {
+		return nil, errors.New("invalid hash: hash cannot be empty")
+	}
+
 	var (
 		blk *block.Block
 		err error
@@ -194,9 +208,13 @@ func (fd *fileDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
 	}
 
 	if fd.legacyFd != nil {
-		return fd.legacyFd.GetBlock(hash)
+		b, err := fd.legacyFd.GetBlock(hash)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get block from legacy FD")
+		}
+		return b, nil
 	}
-	return nil, err
+	return nil, errors.New("failed to get block: both v2 and legacy FD are unavailable")
 }
 
 func (fd *fileDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
