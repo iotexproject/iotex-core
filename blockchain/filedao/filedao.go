@@ -188,7 +188,7 @@ func (fd *fileDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 		}
 		return h, nil
 	}
-	return 0, errors.New("failed to get block height: both v2 and legacy FD are unavailable")
+	return 0, errors.Wrap(err, "both v2 and legacy FD are unavailable")
 }
 
 func (fd *fileDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
@@ -214,7 +214,7 @@ func (fd *fileDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
 		}
 		return b, nil
 	}
-	return nil, errors.New("failed to get block: both v2 and legacy FD are unavailable")
+	return nil, errors.Wrap(err, "both v2 and legacy FD are unavailable")
 }
 
 func (fd *fileDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
