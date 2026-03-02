@@ -368,7 +368,7 @@ func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.Seale
 		return action.ErrUnderpriced
 	}
 
-	if _, ok := ap.senderBlackList[selp.SenderAddress().String()]; ok {
+	if ap.isBlackListed(selp.SenderAddress().String(), ap.getBlockHeight(ctx)) {
 		_actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
@@ -479,7 +479,7 @@ func (ap *actPool) validate(ctx context.Context, selp *action.SealedEnvelope) er
 	if caller == nil {
 		return errors.New("failed to get address")
 	}
-	if _, ok := ap.senderBlackList[caller.String()]; ok {
+	if ap.isBlackListed(caller.String(), ap.getBlockHeight(ctx)) {
 		_actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
@@ -528,6 +528,24 @@ func (ap *actPool) context(ctx context.Context) context.Context {
 		genesis.WithGenesisContext(ctx, ap.g), protocol.BlockCtx{
 			BlockHeight: height + 1,
 		}))
+}
+
+func (ap *actPool) isBlackListed(addr string, height uint64) bool {
+	if _, ok := ap.senderBlackList[addr]; !ok {
+		return false
+	}
+	if ap.cfg.BlackListActiveHeight == 0 {
+		return true
+	}
+	return height >= ap.cfg.BlackListActiveHeight
+}
+
+func (ap *actPool) getBlockHeight(ctx context.Context) uint64 {
+	if blkCtx, ok := protocol.GetBlockCtx(ctx); ok {
+		return blkCtx.BlockHeight
+	}
+	height, _ := ap.sf.Height()
+	return height + 1
 }
 
 func (ap *actPool) enqueue(ctx context.Context, act *action.SealedEnvelope, replace bool) error {

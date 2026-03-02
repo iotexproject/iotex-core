@@ -7,6 +7,7 @@ package blocksync
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
@@ -548,4 +550,104 @@ func TestDummyBlockSync(t *testing.T) {
 	require.Zero(currentHeight)
 	require.Zero(targetHeight)
 	require.Empty(desc)
+}
+
+// TestBlockValidationWithBlacklistedSender tests that blocks containing actions
+// from blacklisted senders are rejected during validation
+func TestBlockValidationWithBlacklistedSender(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	ctx := context.Background()
+
+	// Use identity 27 as the producer and identity 28 as the blacklisted sender
+	producerPriKey := identityset.PrivateKey(27)
+	blacklistedPriKey := identityset.PrivateKey(28)
+	blacklistedAddr := blacklistedPriKey.PublicKey().Address()
+
+	// Create a config with the blacklisted address
+	cfg, err := newTestConfig()
+	require.NoError(err)
+	cfg.ActPool.BlackList = []string{blacklistedAddr.String()}
+	cfg.ActPool.BlackListActiveHeight = 0
+
+	// Set up registry and protocols
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(rp.Register(registry))
+
+	// Initialize account balances for testing
+	cfg.Genesis.InitBalanceMap = map[string]string{
+		identityset.Address(27).String(): "1000000000000000000000",
+		blacklistedAddr.String():         "1000000000000000000000",
+	}
+
+	// Create state factory
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(registry))
+	require.NoError(err)
+
+	// Create actpool with blacklist
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
+	require.NotNil(ap)
+	require.NoError(err)
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+
+	// Create blockchain with actpool as validator
+	store, err := filedao.NewFileDAOInMemForTest()
+	require.NoError(err)
+	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf}, 16)
+	chain := blockchain.NewBlockchain(
+		cfg.Chain,
+		cfg.Genesis,
+		dao,
+		factory.NewMinter(sf, ap),
+		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
+	)
+	require.NotNil(chain)
+	require.NoError(chain.Start(ctx))
+
+	// Create mock consensus
+	cs := mock_consensus.NewMockConsensus(ctrl)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).AnyTimes()
+
+	defer func() {
+		require.NoError(chain.Stop(ctx))
+	}()
+
+	// Create a transfer action from the blacklisted sender
+	transfer, err := action.SignedTransfer(
+		identityset.Address(27).String(),
+		blacklistedPriKey,
+		1,
+		big.NewInt(100),
+		nil,
+		1000000,
+		big.NewInt(1),
+	)
+	require.NoError(err)
+
+	// Get the tip info for creating the new block
+	tipHeight := chain.TipHeight()
+	blkCtx, err := chain.Context(ctx)
+	require.NoError(err)
+	tip := protocol.MustGetBlockchainCtx(blkCtx).Tip
+
+	// Create a properly signed block containing the blacklisted sender's action
+	blk, err := block.NewTestingBuilder().
+		SetHeight(tipHeight + 1).
+		SetPrevBlockHash(tip.Hash).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(transfer).
+		SignAndBuild(producerPriKey)
+	require.NoError(err)
+
+	// The block validation should fail because the sender is blacklisted
+	err = chain.ValidateBlock(&blk)
+	require.Error(err)
+	// The full error message should contain "blacklisted"
+	// The error chain is: "failed to validate action: action source address is blacklisted: invalid address"
+	require.Contains(err.Error(), "blacklisted")
 }
