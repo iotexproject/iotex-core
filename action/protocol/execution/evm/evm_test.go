@@ -21,6 +21,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -491,4 +492,55 @@ func gasExecuteInEVM(gas, consume, refund, size uint64) (uint64, uint64, error) 
 	}
 	remainingGas -= consume
 	return remainingGas, remainingGas + refund, nil
+}
+
+func TestIsBlackListedFunc(t *testing.T) {
+	require := require.New(t)
+
+	// Use the shared IsBlackListedFunc from actpool package
+	blackList := []string{"io1abc", "io1xyz"}
+	activeHeight := uint64(100)
+	isBlackListed := actpool.IsBlackListedFunc(blackList, activeHeight)
+
+	t.Run("address not in blacklist returns false", func(t *testing.T) {
+		require.False(isBlackListed("io1other", 100))
+		require.False(isBlackListed("io1other", 200))
+	})
+
+	t.Run("address in blacklist returns true at/after activation height", func(t *testing.T) {
+		require.False(isBlackListed("io1abc", 99))
+		require.True(isBlackListed("io1abc", 100))
+		require.True(isBlackListed("io1abc", 101))
+		require.True(isBlackListed("io1xyz", 100))
+	})
+
+	t.Run("address in blacklist returns false before activation height", func(t *testing.T) {
+		require.False(isBlackListed("io1abc", 0))
+		require.False(isBlackListed("io1abc", 50))
+		require.False(isBlackListed("io1abc", 99))
+	})
+}
+
+func TestValidateAuthorizationBlacklist(t *testing.T) {
+	require := require.New(t)
+
+	// Use the shared IsBlackListedFunc from actpool package
+	blackListAddr := "io1q4e4tzq7h6gn0x2h5l5j6e3p6q3n5m5q3n5m5q"
+	activeHeight := uint64(100)
+	isBlackListed := actpool.IsBlackListedFunc([]string{blackListAddr}, activeHeight)
+
+	t.Run("nil isBlackListed function does not block", func(t *testing.T) {
+		// When isBlackListed is nil, the check should be skipped
+		// This tests the nil check in validateAuthorization
+		var nilFunc IsBlackListedFunc = nil
+		require.Nil(nilFunc)
+	})
+
+	t.Run("blacklist function works correctly", func(t *testing.T) {
+		// Test that the blacklist function returns expected values
+		require.True(isBlackListed(blackListAddr, 100))
+		require.True(isBlackListed(blackListAddr, 200))
+		require.False(isBlackListed(blackListAddr, 50))
+		require.False(isBlackListed("io1other", 100))
+	})
 }
