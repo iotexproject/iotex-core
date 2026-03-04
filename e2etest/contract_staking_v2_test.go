@@ -49,8 +49,21 @@ var (
 	stakingContractV3ABI      = stakingindex.StakingContractABI
 	stakingContractV3Address  = "io1894t0guunycg206syanwal0yqdq4kghe6yj2z8"
 
+	//go:embed multicall_bytecode
+	multicallBytecode    string
+	multicallABIJSON     = `[{"inputs":[{"components":[{"internalType":"address","name":"target","type":"address"},{"internalType":"bytes","name":"data","type":"bytes"}],"internalType":"struct Multicall.Call[]","name":"calls","type":"tuple[]"}],"name":"multicall","outputs":[{"internalType":"bytes[]","name":"results","type":"bytes[]"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"components":[{"internalType":"address","name":"target","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"}],"internalType":"struct Multicall.CallWithValue[]","name":"calls","type":"tuple[]"}],"name":"multicallWithValue","outputs":[{"internalType":"bytes[]","name":"results","type":"bytes[]"}],"stateMutability":"payable","type":"function"},{"stateMutability":"payable","type":"receive"}]`
+	multicallContractABI abi.ABI
+
 	gasPrice1559 = big.NewInt(unit.Qev)
 )
+
+func init() {
+	var err error
+	multicallContractABI, err = abi.JSON(strings.NewReader(multicallABIJSON))
+	if err != nil {
+		panic(err)
+	}
+}
 
 func TestContractStakingV1(t *testing.T) {
 	require := require.New(t)
@@ -2065,6 +2078,7 @@ func checkStakingViewInit(test *e2etest, require *require.Assertions) {
 		BlockTimeStamp: tipHeader.Timestamp(),
 	})
 	ctx = protocol.WithFeatureCtx(ctx)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	cands, err := stk.ActiveCandidates(ctx, test.cs.StateFactory(), 0)
 	require.NoError(err)
 
@@ -2097,6 +2111,7 @@ func checkStakingVoteView(test *e2etest, require *require.Assertions, candName s
 	})
 	ctx = genesis.WithGenesisContext(ctx, test.cfg.Genesis)
 	ctx = protocol.WithFeatureCtx(ctx)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	cands, err := stkPtl.ActiveCandidates(ctx, test.cs.StateFactory(), 0)
 	require.NoError(err)
 	cand1 := slices.IndexFunc(cands, func(c *state.Candidate) bool {

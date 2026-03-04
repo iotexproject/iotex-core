@@ -80,10 +80,10 @@ func (as *accountStorage) Load(key []byte, obj any) error {
 	case accountpb.AccountType_ZERO_NONCE:
 		pbAcc.Nonce = nonce
 	case accountpb.AccountType_DEFAULT:
-		if nonce == 0 {
-			pbAcc.Nonce = nonce
-		} else {
+		if nonce > 0 {
 			pbAcc.Nonce = nonce - 1
+		} else {
+			pbAcc.Nonce = 0
 		}
 	default:
 		return errors.Errorf("unknown account type %v for address %x", pbAcc.Type, addr.Bytes())

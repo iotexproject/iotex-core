@@ -219,7 +219,7 @@ run:
 
 .PHONY: docker
 docker:
-	DOCKER_BUILDKIT=1 $(DOCKERCMD) build -t $(USER)/iotex-core:latest .
+	DOCKER_BUILDKIT=1 $(DOCKERCMD) buildx build --platform linux/amd64 -t iotex$(USER)/iotex-core:latest --load .
 
 .PHONY: docker-scan
 docker-scan: docker

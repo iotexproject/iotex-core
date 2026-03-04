@@ -8,6 +8,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/erigontech/erigon/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -28,6 +30,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
@@ -52,6 +55,7 @@ type (
 	GRPCServer struct {
 		port string
 		svr  *grpc.Server
+		sem  *semaphore.Weighted
 	}
 
 	// GRPCHandler contains the pointer to api coreservice
@@ -82,11 +86,12 @@ func RecoveryInterceptor() grpc_recovery.Option {
 }
 
 // NewGRPCServer creates a new grpc server
-func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int) *GRPCServer {
+func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int, limit int) *GRPCServer {
 	if grpcPort == 0 {
 		return nil
 	}
 
+	sem := semaphore.NewWeighted(int64(limit))
 	gSvr := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
@@ -96,6 +101,20 @@ func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int) *GRPCSe
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_prometheus.UnaryServerInterceptor,
 			otelgrpc.UnaryServerInterceptor(),
+			grpc.UnaryServerInterceptor(func(
+				ctx context.Context,
+				req any,
+				info *grpc.UnaryServerInfo,
+				handler grpc.UnaryHandler,
+			) (any, error) {
+				acquireCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				defer cancel()
+				if err := sem.Acquire(acquireCtx, 1); err != nil {
+					return nil, status.Error(codes.ResourceExhausted, "server busy")
+				}
+				defer sem.Release(1)
+				return handler(ctx, req)
+			}),
 			grpc_recovery.UnaryServerInterceptor(RecoveryInterceptor()),
 		)),
 		grpc.KeepaliveEnforcementPolicy(kaep),
@@ -114,6 +133,7 @@ func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int) *GRPCSe
 	return &GRPCServer{
 		port: ":" + strconv.Itoa(grpcPort),
 		svr:  gSvr,
+		sem:  sem,
 	}
 }
 
@@ -696,8 +716,16 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 	}
 	structLogs := make([]*iotextypes.TransactionStructLog, 0)
 	//grpc not support javascript tracing, so we only return native traces
-	traces := tracer.(*evmTracer).Unwrap().(*logger.StructLogger)
-	for _, log := range traces.StructLogs() {
+	res, err := tracer.(*tracers.Tracer).GetResult()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	fmt.Printf("trace transaction struct logs: %s\n", string(res))
+	debug := &debugTraceTransactionResult{}
+	if err := json.Unmarshal(res, debug); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	for _, log := range debug.StructLogs {
 		var stack []string
 		for _, s := range log.Stack {
 			stack = append(stack, s.String())
@@ -705,16 +733,16 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 		structLogs = append(structLogs, &iotextypes.TransactionStructLog{
 			Pc:         log.Pc,
 			Op:         uint64(log.Op),
-			Gas:        log.Gas,
-			GasCost:    log.GasCost,
+			Gas:        uint64(log.Gas),
+			GasCost:    uint64(log.GasCost),
 			Memory:     fmt.Sprintf("%#x", log.Memory),
 			MemSize:    int32(log.MemorySize),
 			Stack:      stack,
 			ReturnData: fmt.Sprintf("%#x", log.ReturnData),
 			Depth:      int32(log.Depth),
 			Refund:     log.RefundCounter,
-			OpName:     log.OpName(),
-			Error:      log.ErrorString(),
+			OpName:     vm.OpCode(log.Op).String(),
+			Error:      log.ErrorString,
 		})
 	}
 	return &iotexapi.TraceTransactionStructLogsResponse{

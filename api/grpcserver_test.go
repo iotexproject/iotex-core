@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -1024,8 +1025,14 @@ func TestGrpcServer_TraceTransactionStructLogs(t *testing.T) {
 	defer ctrl.Finish()
 	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
+	structLogger := &logger.StructLogger{}
+	tracer := &tracers.Tracer{
+		Hooks:     structLogger.Hooks(),
+		GetResult: structLogger.GetResult,
+		Stop:      structLogger.Stop,
+	}
 
-	core.EXPECT().TraceTransaction(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, &evmTracer{EVMLogger: logger.NewStructLogger(nil)}, nil)
+	core.EXPECT().TraceTransaction(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, tracer, nil)
 	resp, err := grpcSvr.TraceTransactionStructLogs(context.Background(), &iotexapi.TraceTransactionStructLogsRequest{
 		ActionHash: "_actionHash",
 	})

@@ -19,12 +19,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
+	"github.com/google/uuid"
 
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
-	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -89,6 +89,10 @@ type (
 		ChainMeta() (*iotextypes.ChainMeta, string, error)
 		// ServerMeta gets the server metadata
 		ServerMeta() (packageVersion string, packageCommitID string, gitStatus string, goVersion string, buildTime string)
+		// SendBundle is the API to send a bundle to blockchain.
+		SendBundle(ctx context.Context, in *iotextypes.Bundle, sender address.Address, id string) (string, error)
+		// DeleteBundle deletes a bundle from the bundle pool.
+		DeleteBundle(ctx context.Context, sender address.Address, uuid string) error
 		// SendAction is the API to send an action to blockchain.
 		SendAction(ctx context.Context, in *iotextypes.Action) (string, error)
 		// ReadContract reads the state in a contract address specified by the slot
@@ -324,12 +328,28 @@ func newCoreService(
 	if core.broadcastHandler != nil {
 		core.actionRadio = NewActionRadio(core.broadcastHandler, core.bc.ChainID(), WithMessageBatch())
 		actPool.AddSubscriber(core.actionRadio)
+		bp := core.ap.BundlePool()
+		if bp != nil {
+			bp.SetBroadcastHandler(func(ctx context.Context, sender address.Address, uuid string, bundle *action.Bundle) {
+				if _, fromAPI := GetAPIContext(ctx); !fromAPI {
+					return
+				}
+				if err := core.broadcastHandler(ctx, core.bc.ChainID(), bundle.Proto()); err != nil {
+					log.L().Error("failed to broadcast bundle", zap.Error(err), zap.String("uuid", uuid))
+				}
+			})
+		}
 	}
 
 	return &core, nil
 }
 
 func (core *coreService) WithHeight(height uint64) CoreServiceReaderWithHeight {
+	// TODO (chenchen): remove this check after archive mode is fully supported
+	// or check the height against tip
+	if !core.archiveSupported {
+		return core
+	}
 	return newCoreServiceWithHeight(core, height)
 }
 
@@ -537,6 +557,43 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 	goVersion = version.GoVersion
 	buildTime = version.BuildTime
 	return
+}
+
+func (core *coreService) SendBundle(ctx context.Context, in *iotextypes.Bundle, sender address.Address, id string) (string, error) {
+	log.T(ctx).Debug("receive send bundle request")
+	bp := core.ap.BundlePool()
+	if bp == nil {
+		return "", status.Error(codes.Unavailable, "bundle pool is not available")
+	}
+	if in == nil || len(in.Actions) == 0 {
+		return "", status.Error(codes.InvalidArgument, "bundle is empty")
+	}
+
+	bundle := action.NewBundle()
+	if err := bundle.LoadProto(in, (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID())); err != nil {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("failed to load bundle: %v", err))
+	}
+	if id == "" {
+		id = uuid.New().String()
+	}
+	ctx = WithAPIContext(ctx)
+	if err := bp.AddBundle(ctx, sender, id, bundle); err != nil {
+		return "", status.Error(codes.Internal, fmt.Sprintf("failed to add bundle: %v", err))
+	}
+	return id, nil
+}
+
+// DeleteBundle deletes a bundle from the bundle pool.
+func (core *coreService) DeleteBundle(ctx context.Context, sender address.Address, id string) error {
+	log.T(ctx).Debug("receive delete bundle request")
+	bp := core.ap.BundlePool()
+	if bp == nil {
+		return status.Error(codes.Unavailable, "bundle pool is not available")
+	}
+	if err := bp.DeleteBundle(sender, id); err != nil {
+		return status.Error(codes.Internal, fmt.Sprintf("failed to delete bundle: %v", err))
+	}
+	return nil
 }
 
 // SendAction is the API to send an action to blockchain.
@@ -1699,7 +1756,7 @@ func (core *coreService) correctQueryRange(start, end uint64) (uint64, uint64, e
 		return 0, 0, errors.New("invalid start or end height")
 	}
 	if start > bfTipHeight {
-		return 0, 0, errors.New("start block > tip height")
+		return 0, 0, errors.Errorf("start block %d > tip height %d", start, bfTipHeight)
 	}
 	if end > bfTipHeight {
 		end = bfTipHeight
@@ -1811,7 +1868,7 @@ func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, 
 	estimatedGas := receipt.GasConsumed
 	elp.SetGas(estimatedGas)
 	enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
-	if err != nil && err != action.ErrInsufficientFunds {
+	if err != nil && !isInsufficientFundsError(err) {
 		return 0, nil, status.Error(codes.Internal, err.Error())
 	}
 	if !enough {
@@ -1821,7 +1878,7 @@ func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, 
 			mid := (low + high) / 2
 			elp.SetGas(mid)
 			enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
-			if err != nil && err != action.ErrInsufficientFunds {
+			if err != nil && !isInsufficientFundsError(err) {
 				return 0, nil, status.Error(codes.Internal, err.Error())
 			}
 			if enough {
@@ -2097,7 +2154,15 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 			GetBlockTime:   bcCtx.GetBlockTime,
 			DepositGasFunc: rewarding.DepositGas,
 		})
-		return evm.ExecuteContract(ctx, ws, act)
+		tErr := evm.TraceStart(ctx, ws, act.Envelope)
+		if tErr != nil {
+			log.L().Warn("failed to start trace", zap.Error(tErr))
+		}
+		retval, receipt, err := evm.ExecuteContract(ctx, ws, act)
+		if tErr == nil {
+			evm.TraceEnd(ctx, receipt)
+		}
+		return retval, receipt, err
 	})
 	return retval, receipt, tracer, err
 }
@@ -2176,20 +2241,20 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 	return retval, receipt, tracer, err
 }
 
-func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (context.Context, *evmTracer, error) {
-	tracer := newEVMTracer(txctx, config)
-	if err := tracer.Reset(); err != nil {
-		return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("failed to reset tracer: %v", err))
-	}
-	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
-		Tracer:    tracer,
-		NoBaseFee: true,
-	})
+func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (context.Context, *tracers.Tracer, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash:   bcCtx.GetBlockHash,
 		GetBlockTime:   bcCtx.GetBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
+	})
+	tracer, err := parseTracer(ctx, txctx, config)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Tracer:    tracer.Hooks,
+		NoBaseFee: true,
 	})
 	return ctx, tracer, nil
 }
@@ -2297,25 +2362,9 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 	}
 	ctx = evm.WithTracerCtx(ctx, evm.TracerContext{
 		CaptureTx: func(retval []byte, receipt *action.Receipt) {
-			defer tracer.Reset()
-			var res any
-			switch innerTracer := tracer.Unwrap().(type) {
-			case *logger.StructLogger:
-				res = &debugTraceTransactionResult{
-					Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
-					Revert:      receipt.ExecutionRevertMsg(),
-					ReturnValue: byteToHex(retval),
-					StructLogs:  fromLoggerStructLogs(innerTracer.StructLogs()),
-					Gas:         receipt.GasConsumed,
-				}
-			case tracers.Tracer:
-				res, err = innerTracer.GetResult()
-				if err != nil {
-					log.L().Error("failed to get tracer result", zap.Error(err))
-					return
-				}
-			default:
-				log.L().Error("unknown tracer type", zap.Any("tracer", innerTracer))
+			res, err := tracer.GetResult()
+			if err != nil {
+				log.L().Error("failed to get tracer result", zap.Error(err))
 				return
 			}
 			results = append(results, &blockTraceResult{
@@ -2342,4 +2391,8 @@ func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Re
 		}
 	}
 	return nil
+}
+
+func isInsufficientFundsError(err error) bool {
+	return errors.Is(err, action.ErrInsufficientFunds) || errors.Is(err, action.ErrFloorDataGas)
 }
