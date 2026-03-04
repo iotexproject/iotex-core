@@ -70,9 +70,6 @@ func init() {
 		append(state.RewardingKeyPrefix[:], state.BlockRewardHistoryKeyPrefix...),
 		append(state.RewardingKeyPrefix[:], state.EpochRewardHistoryKeyPrefix...),
 	}
-	// pollPrefix := [][]byte{
-	// 	[]byte(state.PollCandidatesPrefix),
-	// }
 	genKeySplit := func(prefixs [][]byte) KeySplitter {
 		return func(key []byte) (part1 []byte, part2 []byte) {
 			for _, p := range prefixs {

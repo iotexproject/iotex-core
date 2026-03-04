@@ -2,7 +2,6 @@ package erigonstore
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"os"
 	"testing"
@@ -31,7 +30,6 @@ func TestErigonStoreNativeState(t *testing.T) {
 	}()
 	g := genesis.TestDefault()
 
-	fmt.Printf("block: %d -----------------------\n", 0)
 	ctx := context.Background()
 	ctx = genesis.WithGenesisContext(ctx, g)
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{})
@@ -45,7 +43,6 @@ func TestErigonStoreNativeState(t *testing.T) {
 
 	height := uint64(1)
 	t.Run("state.CandidateList", func(t *testing.T) {
-		fmt.Printf("block: %d -----------------------\n", height)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
 		ctx = protocol.WithFeatureCtx(ctx)
 		store, err = edb.NewErigonStore(ctx, 1)
@@ -64,7 +61,6 @@ func TestErigonStoreNativeState(t *testing.T) {
 		r.NoError(store.Commit(ctx, 0))
 
 		height = 2
-		fmt.Printf("block: %d -----------------------\n", height)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
 		ctx = protocol.WithFeatureCtx(ctx)
 		store, err = edb.NewErigonStore(ctx, height)
@@ -77,7 +73,6 @@ func TestErigonStoreNativeState(t *testing.T) {
 
 	t.Run("staking.Candidate", func(t *testing.T) {
 		height++
-		fmt.Printf("block: %d -----------------------\n", height)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
 		ctx = protocol.WithFeatureCtx(ctx)
 		store, err = edb.NewErigonStore(ctx, 1)
@@ -96,7 +91,6 @@ func TestErigonStoreNativeState(t *testing.T) {
 		r.NoError(store.Commit(ctx, 0))
 
 		height++
-		fmt.Printf("block: %d -----------------------\n", height)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
 		ctx = protocol.WithFeatureCtx(ctx)
 		store, err = edb.NewErigonStore(ctx, height)
@@ -109,7 +103,6 @@ func TestErigonStoreNativeState(t *testing.T) {
 
 	t.Run("rewarding.RewardHistory", func(t *testing.T) {
 		height++
-		fmt.Printf("block: %d -----------------------\n", height)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
 		ctx = protocol.WithFeatureCtx(ctx)
 		store, err = edb.NewErigonStore(ctx, height)
@@ -137,7 +130,6 @@ func TestErigonStoreNativeState(t *testing.T) {
 
 	t.Run("rewarding.Fund", func(t *testing.T) {
 		height++
-		fmt.Printf("block: %d -----------------------\n", height)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
 		ctx = protocol.WithFeatureCtx(ctx)
 		store, err = edb.NewErigonStore(ctx, height)
@@ -162,7 +154,6 @@ func TestErigonStoreNativeState(t *testing.T) {
 		r.NoError(store.Commit(ctx, 0))
 
 		height++
-		fmt.Printf("block: %d -----------------------\n", height)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
 		ctx = protocol.WithFeatureCtx(ctx)
 		store, err = edb.NewErigonStore(ctx, height)

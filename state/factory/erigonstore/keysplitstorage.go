@@ -85,8 +85,8 @@ func (rhs *keySplitContractStorage) Batch(keys [][]byte) (state.Iterator, error)
 }
 
 func (rhs *keySplitContractStorage) matchStorage(key []byte) ObjectStorage {
+	sk := string(key)
 	for prefix, os := range rhs.keyPrefixStorage {
-		sk := string(key)
 		if len(sk) >= len(prefix) && sk[:len(prefix)] == prefix {
 			return os
 		}

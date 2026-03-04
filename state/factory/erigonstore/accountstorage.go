@@ -88,9 +88,6 @@ func (as *accountStorage) Load(key []byte, obj any) error {
 	default:
 		return errors.Errorf("unknown account type %v for address %x", pbAcc.Type, addr.Bytes())
 	}
-	// if ch := as.backend.intraBlockState.GetCodeHash(addr); !accounts.IsEmptyCodeHash(ch) {
-	// 	pbAcc.CodeHash = ch.Bytes()
-	// }
 	pbAcc.CodeHash = as.backend.intraBlockState.GetCodeHash(addr).Bytes()
 	acct.FromProto(pbAcc)
 	return nil

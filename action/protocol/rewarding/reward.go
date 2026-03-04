@@ -120,6 +120,7 @@ func (p *Protocol) GrantBlockReward(
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 
 	if fCtx.UseV2Storage {
+		// mark v1 reward history as not granted during the transition period
 		var indexBytes [8]byte
 		enc.MachineEndian.PutUint64(indexBytes[:], blkCtx.BlockHeight)
 		key := append(_blockRewardHistoryKeyPrefix, indexBytes[:]...)
@@ -127,6 +128,7 @@ func (p *Protocol) GrantBlockReward(
 		if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {
 			return nil, err
 		}
+		// revert the changese for erigon storage optimazation
 		defer func() {
 			err = p.putStateV1(sm, key, &rewardHistory{}, protocol.ErigonStoreOnlyOption())
 			if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {

@@ -34,6 +34,7 @@ func (ds *rewardHistoryStorage) Delete(key []byte) error {
 func (ds *rewardHistoryStorage) Load(key []byte, obj any) error {
 	_, heightKey := ds.keySplit(key)
 	height := enc.MachineEndian.Uint64(heightKey)
+	// if the requested height is greater than the storage height, it means the reward history for the requested height has not been granted yet
 	if height > ds.height {
 		return errors.Wrapf(state.ErrStateNotExist, "key: %x at height %d", key, height)
 	}
