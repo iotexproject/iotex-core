@@ -17,7 +17,7 @@ var (
 	_                       EthCompatibleAction = (*CandidateActivate)(nil)
 )
 
-// CandidateActivate is the action to update a candidate's bucket
+// CandidateActivate is the action to activate a candidate
 type CandidateActivate struct {
 	stake_common
 	// bucketID is the bucket index want to be changed to
@@ -42,7 +42,7 @@ func NewCandidateActivate(bucketID uint64) *CandidateActivate {
 // BucketID returns the bucket index want to be changed to
 func (cr *CandidateActivate) BucketID() uint64 { return cr.bucketID }
 
-// IntrinsicGas returns the intrinsic gas of a CandidateRegister
+// IntrinsicGas returns the intrinsic gas of a CandidateActivate
 func (cr *CandidateActivate) IntrinsicGas() (uint64, error) {
 	return CandidateActivateBaseIntrinsicGas, nil
 }

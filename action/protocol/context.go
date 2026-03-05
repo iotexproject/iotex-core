@@ -167,6 +167,7 @@ type (
 		CandidateBLSPublicKeyNotCopied          bool
 		OnlyOwnerCanUpdateBLSPublicKey          bool
 		PrePectraEVM                            bool
+		NoCandidateExitQueue                    bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -338,6 +339,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CandidateBLSPublicKeyNotCopied:          !g.IsXinguBeta(height),
 			OnlyOwnerCanUpdateBLSPublicKey:          !g.IsToBeEnabled(height),
 			PrePectraEVM:                            !g.IsToBeEnabled(height),
+			NoCandidateExitQueue:                    !g.IsToBeEnabled(height),
 		},
 	)
 }
