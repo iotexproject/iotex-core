@@ -89,5 +89,6 @@ func (c *contractErigon) Snapshot() Contract {
 		Account: c.Account.Clone(),
 		intra:   c.intra,
 		addr:    c.addr,
+		sr:      c.sr,
 	}
 }
