@@ -173,10 +173,10 @@ func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.
 	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
-		GetBlockHash:  bcCtx.GetBlockHash,
-		GetBlockTime:  bcCtx.GetBlockTime,
+		GetBlockHash:   bcCtx.GetBlockHash,
+		GetBlockTime:   bcCtx.GetBlockTime,
 		DepositGasFunc: p.depositGas,
-		IsBlackListed: p.isBlackListed,
+		IsBlackListed:  p.isBlackListed,
 	})
 	_, receipt, err := evm.ExecuteContract(ctx, sm, elp)
 

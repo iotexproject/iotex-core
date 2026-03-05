@@ -103,14 +103,14 @@ type Option func(pool *actPool) error
 
 // actPool implements ActPool interface
 type actPool struct {
-	cfg             Config
-	g               genesis.Genesis
-	sf              protocol.StateReader
-	bundlePool      *BundlePool
-	accountDesActs  *destinationMap
-	allActions      *ttl.Cache
-	gasInPool       uint64
-	isBlackListed   func(addr string, height uint64) bool
+	cfg            Config
+	g              genesis.Genesis
+	sf             protocol.StateReader
+	bundlePool     *BundlePool
+	accountDesActs *destinationMap
+	allActions     *ttl.Cache
+	gasInPool      uint64
+	isBlackListed  func(addr string, height uint64) bool
 	// actionEnvelopeValidators are the validators that are used in both actpool.Add and actpool.Validate
 	// TODO: can combine with privateValidators after NOT use actpool to call generic_validator in block validate
 	actionEnvelopeValidators []action.SealedEnvelopeValidator

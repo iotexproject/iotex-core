@@ -799,9 +799,9 @@ func TestSmartContractTestMerge(t *testing.T) {
 
 func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
-	p := execution.NewProtocol(func(uint64, nil) (hash.Hash256, error) {
+	p := execution.NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, rewarding.DepositGas, getBlockTimeForTest)
+	}, rewarding.DepositGas, getBlockTimeForTest, nil)
 	g := genesis.TestDefault()
 
 	cases := []struct {
