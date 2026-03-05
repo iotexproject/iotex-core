@@ -131,7 +131,7 @@ func FloorDataGas(data []byte) (uint64, error) {
 // IsSystemAction determine whether input action belongs to system action
 func IsSystemAction(act *SealedEnvelope) bool {
 	switch act.Action().(type) {
-	case *GrantReward, *PutPollResult:
+	case *GrantReward, *PutPollResult, *ScheduleCandidateDeactivation:
 		return true
 	default:
 		return false
