@@ -9,21 +9,25 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db/trie"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 type contractErigon struct {
 	*state.Account
 	intra *erigonstate.IntraBlockState
+	sr    protocol.StateReader
 	addr  hash.Hash160
 }
 
-func newContractErigon(addr hash.Hash160, account *state.Account, intra *erigonstate.IntraBlockState) (Contract, error) {
+func newContractErigon(addr hash.Hash160, account *state.Account, intra *erigonstate.IntraBlockState, sr protocol.StateReader) (Contract, error) {
 	c := &contractErigon{
 		Account: account,
 		intra:   intra,
 		addr:    addr,
+		sr:      sr,
 	}
 	return c, nil
 }
@@ -32,14 +36,16 @@ func (c *contractErigon) GetCommittedState(key hash.Hash256) ([]byte, error) {
 	k := libcommon.Hash(key)
 	v := uint256.NewInt(0)
 	c.intra.GetCommittedState(libcommon.Address(c.addr), &k, v)
-	return v.Bytes(), nil
+	h := hash.BytesToHash256(v.Bytes())
+	return h[:], nil
 }
 
 func (c *contractErigon) GetState(key hash.Hash256) ([]byte, error) {
 	k := libcommon.Hash(key)
 	v := uint256.NewInt(0)
 	c.intra.GetState(libcommon.Address(c.addr), &k, v)
-	return v.Bytes(), nil
+	h := hash.BytesToHash256(v.Bytes())
+	return h[:], nil
 }
 
 func (c *contractErigon) SetState(key hash.Hash256, value []byte) error {
@@ -58,10 +64,10 @@ func (c *contractErigon) SetCode(hash hash.Hash256, code []byte) {
 
 func (c *contractErigon) SelfState() *state.Account {
 	acc := &state.Account{}
-	acc.SetPendingNonce(c.intra.GetNonce(libcommon.Address(c.addr)))
-	acc.AddBalance(c.intra.GetBalance(libcommon.Address(c.addr)).ToBig())
-	codeHash := c.intra.GetCodeHash(libcommon.Address(c.addr))
-	acc.CodeHash = codeHash[:]
+	_, err := c.sr.State(acc, protocol.LegacyKeyOption(c.addr), protocol.ErigonStoreOnlyOption())
+	if err != nil {
+		log.S().Panicf("failed to load account %x: %v", c.addr, err)
+	}
 	return acc
 }
 
@@ -83,5 +89,6 @@ func (c *contractErigon) Snapshot() Contract {
 		Account: c.Account.Clone(),
 		intra:   c.intra,
 		addr:    c.addr,
+		sr:      c.sr,
 	}
 }
