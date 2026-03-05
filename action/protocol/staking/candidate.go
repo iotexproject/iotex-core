@@ -30,6 +30,7 @@ type (
 		Reward             address.Address
 		Identifier         address.Address
 		BLSPubKey          []byte // BLS public key
+		DeactivatedAt      uint64
 		Name               string
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
@@ -59,6 +60,7 @@ func (d *Candidate) Clone() *Candidate {
 		Reward:             d.Reward,
 		Identifier:         d.Identifier,
 		Name:               d.Name,
+		DeactivatedAt:      d.DeactivatedAt,
 		Votes:              new(big.Int).Set(d.Votes),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          new(big.Int).Set(d.SelfStake),
@@ -76,6 +78,7 @@ func (d *Candidate) Equal(c *Candidate) bool {
 		address.Equal(d.Identifier, c.Identifier) &&
 		d.Votes.Cmp(c.Votes) == 0 &&
 		d.SelfStake.Cmp(c.SelfStake) == 0 &&
+		d.DeactivatedAt == c.DeactivatedAt &&
 		bytes.Equal(d.BLSPubKey, c.BLSPubKey)
 }
 
@@ -146,7 +149,6 @@ func (d *Candidate) SubVote(amount *big.Int) error {
 	if amount.Sign() < 0 {
 		return action.ErrInvalidAmount
 	}
-
 	if d.Votes.Cmp(amount) == -1 {
 		return action.ErrInvalidAmount
 	}
@@ -168,8 +170,7 @@ func (d *Candidate) SubSelfStake(amount *big.Int) error {
 	if amount.Sign() < 0 {
 		return action.ErrInvalidAmount
 	}
-
-	if d.Votes.Cmp(amount) == -1 {
+	if d.SelfStake.Cmp(amount) == -1 {
 		return action.ErrInvalidAmount
 	}
 	d.SelfStake.Sub(d.SelfStake, amount)
@@ -272,6 +273,7 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          d.SelfStake.String(),
 		Pubkey:             pubkey,
+		DeactivatedAt:      d.DeactivatedAt,
 	}, nil
 }
 
@@ -321,6 +323,7 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	} else {
 		d.BLSPubKey = nil
 	}
+	d.DeactivatedAt = pb.GetDeactivatedAt()
 	return nil
 }
 
@@ -337,6 +340,7 @@ func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 		SelfStakingTokens:  d.SelfStake.String(),
 		Id:                 d.GetIdentifier().String(),
 		BlsPubKey:          blsPubKey,
+		DeactivatedAt:      d.DeactivatedAt,
 	}
 }
 

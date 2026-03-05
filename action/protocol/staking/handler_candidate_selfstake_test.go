@@ -493,3 +493,184 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 		})
 	}
 }
+
+func TestProtocol_HandleCandidateDeactivate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tests := []struct {
+		name        string
+		exitBlock   uint64
+		deleted     bool
+		blkHeight   uint64
+		setupFunc   func(*Protocol, CandidateStateManager, *Candidate) error
+		expectedErr error
+		verifyFunc  func(*require.Assertions, CandidateStateManager, address.Address)
+	}{
+		{
+			name:      "request exit - success",
+			exitBlock: 0,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(p *Protocol, csm CandidateStateManager, cand *Candidate) error {
+				return csm.requestDeactivation(cand.Owner)
+			},
+			expectedErr: nil,
+			verifyFunc: func(r *require.Assertions, csm CandidateStateManager, id address.Address) {
+				r.Equal(candidateExitRequested, csm.GetByIdentifier(id).DeactivatedAt)
+			},
+		},
+		{
+			name:      "request exit - already requested",
+			exitBlock: math.MaxUint64,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(p *Protocol, csm CandidateStateManager, cand *Candidate) error {
+				return csm.requestDeactivation(cand.Owner)
+			},
+			expectedErr: ErrExitAlreadyRequested,
+			verifyFunc:  nil,
+		},
+		{
+			name:      "confirm exit - success",
+			exitBlock: 90,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(p *Protocol, csm CandidateStateManager, cand *Candidate) error {
+				bucket, err := csm.NativeBucket(cand.SelfStakeBucketIdx)
+				if err != nil {
+					return err
+				}
+				// Use a vote calculation function that returns self-stake votes and 0 for non-self-stake
+				// This matches the original behavior: only subtract self-stake, don't add back non-self-stake
+				return csm.deactivate(cand, bucket, 100, func(b *VoteBucket, selfStake bool) *big.Int {
+					if selfStake {
+						return p.calculateVoteWeight(b, true)
+					}
+					return big.NewInt(0)
+				})
+			},
+			expectedErr: nil,
+			verifyFunc: func(r *require.Assertions, csm CandidateStateManager, id address.Address) {
+				cand := csm.GetByIdentifier(id)
+				r.Equal(uint64(0), cand.Votes.Uint64())
+				r.Equal(uint64(0), cand.SelfStake.Uint64())
+			},
+		},
+		{
+			name:      "confirm exit - not ready",
+			exitBlock: 110,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(p *Protocol, csm CandidateStateManager, cand *Candidate) error {
+				bucket, err := csm.NativeBucket(cand.SelfStakeBucketIdx)
+				if err != nil {
+					return err
+				}
+				return csm.deactivate(cand, bucket, 100, p.calculateVoteWeight)
+			},
+			expectedErr: ErrExitNotReady,
+			verifyFunc:  nil,
+		},
+		{
+			name:      "confirm exit - not scheduled",
+			exitBlock: math.MaxUint64,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(p *Protocol, csm CandidateStateManager, cand *Candidate) error {
+				bucket, err := csm.NativeBucket(cand.SelfStakeBucketIdx)
+				if err != nil {
+					return err
+				}
+				return csm.deactivate(cand, bucket, 100, p.calculateVoteWeight)
+			},
+			expectedErr: ErrExitNotScheduled,
+			verifyFunc:  nil,
+		},
+		{
+			name:      "confirm exit - success with votes",
+			exitBlock: 90,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(p *Protocol, csm CandidateStateManager, cand *Candidate) error {
+				// Set up candidate with extra votes (in addition to self-stake bucket votes)
+				cand.Votes = big.NewInt(1000)
+				// Note: SelfStake and SelfStakeBucketIdx are already set by initTestState
+				bucket, err := csm.NativeBucket(cand.SelfStakeBucketIdx)
+				if err != nil {
+					return err
+				}
+				return csm.deactivate(cand, bucket, 100, p.calculateVoteWeight)
+			},
+			expectedErr: nil,
+			verifyFunc: func(r *require.Assertions, csm CandidateStateManager, id address.Address) {
+				cand := csm.GetByIdentifier(id)
+				// Votes should be: initialVotes - selfStakeVoteWeight + nonSelfStakeVoteWeight
+				// Since bucket duration (30 days) < 91 days, both selfStake=true and false
+				// return the same vote weight. So: 1000 - W + W = 1000
+				r.Equal(uint64(1000), cand.Votes.Uint64())
+				r.Equal(uint64(0), cand.SelfStake.Uint64())
+				r.Equal(uint64(candidateNoSelfStakeBucketIndex), cand.SelfStakeBucketIdx)
+			},
+		},
+		{
+			name:      "confirm exit - no self-stake bucket",
+			exitBlock: 90,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(p *Protocol, csm CandidateStateManager, cand *Candidate) error {
+				// Test with nil bucket to simulate candidate without self-stake bucket
+				return csm.deactivate(cand, nil, 100, p.calculateVoteWeight)
+			},
+			expectedErr: errors.Wrapf(ErrNoSelfStakeBucket, "invalid bucket"),
+			verifyFunc:  nil,
+		},
+		{
+			name:      "confirm exit - bucket index mismatch",
+			exitBlock: 90,
+			deleted:   false,
+			blkHeight: 100,
+			setupFunc: func(p *Protocol, csm CandidateStateManager, cand *Candidate) error {
+				// Create a mismatched bucket index to test validation
+				bucket, err := csm.NativeBucket(cand.SelfStakeBucketIdx)
+				if err != nil {
+					return err
+				}
+				// Manually set wrong bucket index to trigger validation error
+				cand.SelfStakeBucketIdx = 999
+				return csm.deactivate(cand, bucket, 100, p.calculateVoteWeight)
+			},
+			expectedErr: errors.New("self-stake bucket index mismatch"),
+			verifyFunc:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := require.New(t)
+			sm, p, _, candidates := initTestState(t, ctrl, []*bucketConfig{
+				{identityset.Address(1), identityset.Address(1), "200", 30, true, true, nil, 0},
+			}, []*candidateConfig{
+				{identityset.Address(1), identityset.Address(7), identityset.Address(1), "test1"},
+			})
+			candidate := candidates[0]
+			candidate.DeactivatedAt = tt.exitBlock
+			csm, err := NewCandidateStateManager(sm)
+			r.NoError(err)
+			r.NoError(csm.Upsert(candidate))
+
+			err = tt.setupFunc(p, csm, candidate)
+
+			if tt.expectedErr != nil {
+				r.Error(err)
+				r.Contains(err.Error(), tt.expectedErr.Error())
+			} else {
+				r.NoError(err)
+			}
+
+			if tt.verifyFunc != nil {
+				tt.verifyFunc(r, csm, candidate.GetIdentifier())
+			}
+		})
+	}
+}

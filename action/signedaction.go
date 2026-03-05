@@ -513,6 +513,33 @@ func SignedMigrateStake(
 	return selp, nil
 }
 
+// SignedCandidateDeactivate returns a signed candidate deactivate action
+func SignedCandidateDeactivate(
+	nonce uint64,
+	op CandidateDeactivateOp,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	senderPriKey crypto.PrivateKey,
+	options ...SignedActionOption,
+) (*SealedEnvelope, error) {
+	cd := NewCandidateDeactivate()
+	cd.op = op
+	bd := &EnvelopeBuilder{}
+	bd = bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetAction(cd)
+	for _, opt := range options {
+		opt(bd)
+	}
+	elp := bd.Build()
+	selp, err := Sign(elp, senderPriKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to sign candidate deactivate %v", elp)
+	}
+	return selp, nil
+}
+
 func SignedClaimRewardLegacy(
 	nonce uint64,
 	gasLimit uint64,
