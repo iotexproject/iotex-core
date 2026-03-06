@@ -35,7 +35,7 @@ func (gvoi *GenericValueObjectIterator) Next(o interface{}) ([]byte, error) {
 	}
 	value := gvoi.values[gvoi.cur]
 	key := gvoi.keys[gvoi.cur]
-	if gvoi.exists != nil && !gvoi.exists[gvoi.cur] {
+	if gvoi.exists != nil && gvoi.cur < len(gvoi.exists) && !gvoi.exists[gvoi.cur] {
 		gvoi.cur++
 		return key, state.ErrNilValue
 	}

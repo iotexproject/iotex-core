@@ -66,15 +66,15 @@ func (tx *DynamicFeeTx) GasFeeCap() *big.Int {
 }
 
 func (tx *DynamicFeeTx) EffectiveGasPrice(baseFee *big.Int) *big.Int {
-	tip := tx.GasFeeCap()
+	gasFeeCap := tx.GasFeeCap()
 	if baseFee == nil {
-		return tip
+		return gasFeeCap
 	}
-	tip.Sub(tip, baseFee)
+	tip := new(big.Int).Sub(gasFeeCap, baseFee)
 	if tipCap := tx.GasTipCap(); tip.Cmp(tipCap) > 0 {
 		tip.Set(tipCap)
 	}
-	return tip.Add(tip, baseFee)
+	return new(big.Int).Add(tip, baseFee)
 }
 
 func (tx *DynamicFeeTx) AccessList() types.AccessList {
