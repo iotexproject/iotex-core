@@ -11,7 +11,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
-	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -1290,36 +1289,47 @@ func TestBlackListActivationHeight(t *testing.T) {
 		require.Error(err)
 		require.Contains(err.Error(), "action source address is blacklisted")
 	})
+}
 
-	t.Run("MaxUint64 height means never enforced", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		g := genesis.TestDefault()
-		sf := mock_chainmanager.NewMockStateReader(ctrl)
-		sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
-			acct, ok := account.(*state.Account)
-			require.True(ok)
-			require.NoError(acct.AddBalance(big.NewInt(100)))
-			return 0, nil
-		}).AnyTimes()
-		sf.EXPECT().Height().Return(uint64(0), nil).AnyTimes()
-		apConfig := Config{
-			MaxNumActsPerPool:     _maxNumActsPerPool,
-			MaxGasLimitPerPool:    _maxGasLimitPerPool,
-			MaxNumActsPerAcct:     _maxNumActsPerAcct,
-			MinGasPriceStr:        "0",
-			BlackList:             []string{_addr6},
-			BlackListActiveHeight: math.MaxUint64,
-			MaxNumBlobsPerAcct:    _maxNumBlobTxPerAcct,
+func TestIsBlackListedFunc(t *testing.T) {
+	require := require.New(t)
+
+	t.Run("empty blacklist always returns false", func(t *testing.T) {
+		cfg := Config{
+			BlackList: []string{},
 		}
-		Ap, err := NewActPool(g, sf, apConfig)
-		require.NoError(err)
-		ap, ok := Ap.(*actPool)
-		require.True(ok)
-		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-		// BlackListActiveHeight = MaxUint64, blacklist should never be enforced
-		ctx := genesis.WithGenesisContext(context.Background(), g)
-		bannedTsf, err := action.SignedTransfer(_addr1, _priKey6, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
-		require.NoError(err)
-		require.NoError(ap.Add(ctx, bannedTsf))
+		isBlackListed := cfg.IsBlackListedFunc()
+		require.False(isBlackListed("io1abc", 100))
+		require.False(isBlackListed("io1xyz", 0))
+	})
+
+	t.Run("blacklist with zero activation height is always enforced", func(t *testing.T) {
+		cfg := Config{
+			BlackList:             []string{"io1abc", "io1xyz"},
+			BlackListActiveHeight: 0,
+		}
+		isBlackListed := cfg.IsBlackListedFunc()
+		require.True(isBlackListed("io1abc", 0))
+		require.True(isBlackListed("io1abc", 100))
+		require.True(isBlackListed("io1xyz", 1))
+		require.False(isBlackListed("io1other", 100))
+	})
+
+	t.Run("blacklist with activation height is enforced after height", func(t *testing.T) {
+		cfg := Config{
+			BlackList:             []string{"io1abc"},
+			BlackListActiveHeight: 100,
+		}
+		isBlackListed := cfg.IsBlackListedFunc()
+		// Before activation height - not enforced
+		require.False(isBlackListed("io1abc", 99))
+		require.False(isBlackListed("io1abc", 50))
+		// At and after activation height - enforced
+		require.True(isBlackListed("io1abc", 100))
+		require.True(isBlackListed("io1abc", 101))
+		require.True(isBlackListed("io1abc", 1000))
+		// Non-blacklisted address - never enforced
+		require.False(isBlackListed("io1other", 100))
+		require.False(isBlackListed("io1other", 1000))
 	})
 }

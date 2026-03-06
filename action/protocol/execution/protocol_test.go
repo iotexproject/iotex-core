@@ -557,7 +557,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	execution := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, getBlockTimeForTest)
+	execution := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, getBlockTimeForTest, nil)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
@@ -799,7 +799,7 @@ func TestSmartContractTestMerge(t *testing.T) {
 
 func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
-	p := execution.NewProtocol(func(uint64) (hash.Hash256, error) {
+	p := execution.NewProtocol(func(uint64, nil) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, rewarding.DepositGas, getBlockTimeForTest)
 	g := genesis.TestDefault()
@@ -897,7 +897,7 @@ func TestProtocol_Handle(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		exeProtocol := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, getBlockTimeForTest)
+		exeProtocol := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, getBlockTimeForTest, nil)
 		require.NoError(exeProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
