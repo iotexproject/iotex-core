@@ -64,7 +64,7 @@ func (e *Endorsement) Status(height uint64) EndorsementStatus {
 	if height < e.ExpireHeight {
 		return Endorsed
 	}
-	return EndorseExpired
+	return UnEndorsing
 }
 
 // Serialize serializes endorsement to bytes
