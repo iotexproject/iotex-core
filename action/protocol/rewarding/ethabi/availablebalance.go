@@ -59,7 +59,7 @@ func (r *AvailableBalanceStateContext) EncodeToEth(resp *iotexapi.ReadStateRespo
 
 	data, err := _availableBalanceMethod.Outputs.Pack(total)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return hex.EncodeToString(data), nil

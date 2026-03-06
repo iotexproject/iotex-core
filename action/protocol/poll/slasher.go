@@ -364,7 +364,7 @@ func (sh *Slasher) GetProbationList(ctx context.Context, sr protocol.StateReader
 		return nil, uint64(0), err
 	}
 	// make sure it's epochStartHeight
-	targetEpochStartHeight := rp.GetEpochHeight(rp.GetEpochHeight(targetHeight))
+	targetEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(targetHeight))
 	if readFromNext {
 		targetEpochNum := rp.GetEpochNum(targetEpochStartHeight) + 1
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
