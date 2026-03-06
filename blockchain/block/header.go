@@ -182,7 +182,7 @@ func (h *Header) loadFromBlockHeaderCoreProto(pb *iotextypes.BlockHeaderCore) er
 	}
 	h.blobGasUsed = pb.GetBlobGasUsed()
 	h.excessBlobGas = pb.GetExcessBlobGas()
-	return err
+	return nil
 }
 
 // SerializeCore returns byte stream for header core.

@@ -116,10 +116,14 @@ func (csm *candSM) DirtyView() *viewData {
 	if err != nil {
 		log.S().Panic("failed to read view", zap.Error(err))
 	}
+	vd, ok := v.(*viewData)
+	if !ok {
+		log.S().Panicf("unexpected view type %T", v)
+	}
 	return &viewData{
 		candCenter:     csm.candCenter,
 		bucketPool:     csm.bucketPool,
-		contractsStake: v.(*viewData).contractsStake,
+		contractsStake: vd.contractsStake,
 	}
 }
 

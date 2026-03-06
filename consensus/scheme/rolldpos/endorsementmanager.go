@@ -420,7 +420,7 @@ func (m *endorsementManager) Log(
 		commitEndorsments := c.Endorsements(
 			[]ConsensusVoteTopic{COMMIT},
 		)
-		return logger.With(
+		logger = logger.With(
 			zap.Int("numProposals:"+encoded, len(proposalEndorsements)),
 			zap.Int("numLocks:"+encoded, len(lockEndorsements)),
 			zap.Int("numCommits:"+encoded, len(commitEndorsments)),
