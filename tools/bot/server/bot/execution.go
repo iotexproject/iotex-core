@@ -117,36 +117,37 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 		err = errors.New("address len is not equal to amount len")
 		return
 	}
-	data := _multiSendSha3 + _multiSendOffset
+	var data strings.Builder
+	data.WriteString(_multiSendSha3 + _multiSendOffset)
 	params2Offset := 32*3 + 1*32 + len(s.cfg.Execution.To.Address)*32
 	params := fmt.Sprintf("%x", params2Offset)
-	data += strings.Repeat("0", 64-len(params)) + params
+	data.WriteString(strings.Repeat("0", 64-len(params)) + params)
 
 	params3Offset := params2Offset + 1*32 + len(s.cfg.Execution.To.Address)*32
 	params = fmt.Sprintf("%x", params3Offset)
-	data += strings.Repeat("0", 64-len(params)) + params
+	data.WriteString(strings.Repeat("0", 64-len(params)) + params)
 
 	lenOfAddress := fmt.Sprintf("%x", len(s.cfg.Execution.To.Address))
-	data += strings.Repeat("0", 64-len(lenOfAddress)) + lenOfAddress
+	data.WriteString(strings.Repeat("0", 64-len(lenOfAddress)) + lenOfAddress)
 	for _, addr := range s.cfg.Execution.To.Address {
 		a, errs := address.FromString(addr)
 		if errs != nil {
 			err = errs
 			return
 		}
-		data += _prefixZero + hex.EncodeToString(a.Bytes())
+		data.WriteString(_prefixZero + hex.EncodeToString(a.Bytes()))
 	}
-	data += strings.Repeat("0", 64-len(lenOfAddress)) + lenOfAddress
+	data.WriteString(strings.Repeat("0", 64-len(lenOfAddress)) + lenOfAddress)
 	for _, amount := range s.cfg.Execution.To.Amount {
 		amo, ok := new(big.Int).SetString(amount, 10)
 		if !ok {
 			err = errors.New("amount convert error")
 			return
 		}
-		data += strings.Repeat("0", 64-len(amo.Text(16))) + amo.Text(16)
+		data.WriteString(strings.Repeat("0", 64-len(amo.Text(16))) + amo.Text(16))
 	}
-	data += _fixPayLoad
-	dataBytes, err := hex.DecodeString(data)
+	data.WriteString(_fixPayLoad)
+	dataBytes, err := hex.DecodeString(data.String())
 	if err != nil {
 		return
 	}
