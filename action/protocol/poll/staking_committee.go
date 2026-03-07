@@ -6,6 +6,7 @@
 package poll
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"math/big"
@@ -297,8 +298,8 @@ func (sc *stakingCommittee) mergeCandidates(list state.CandidateList, votes *Vot
 			clone.Votes.Add(clone.Votes, v.Votes)
 		}
 		if clone.Votes.Cmp(sc.scoreThreshold) >= 0 {
-			candidates[hex.EncodeToString(name[:])] = clone
-			candidateScores[hex.EncodeToString(name[:])] = clone.Votes
+			candidates[hex.EncodeToString(bytes.TrimRight(name[:], "\x00"))] = clone
+			candidateScores[hex.EncodeToString(bytes.TrimRight(name[:], "\x00"))] = clone.Votes
 		}
 	}
 	sorted := util.Sort(candidateScores, uint64(ts.Unix()))

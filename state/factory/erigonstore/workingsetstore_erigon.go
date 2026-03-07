@@ -132,12 +132,12 @@ func (db *ErigonDB) BatchPrune(ctx context.Context, from, to, batch uint64) erro
 	if err != nil {
 		return errors.Wrap(err, "failed to begin erigon working set store transaction")
 	}
+	defer tx.Rollback()
+
 	base, err := historyv2.AvailableFrom(tx)
 	if err != nil {
-		tx.Rollback()
 		return errors.Wrap(err, "failed to get available from erigon working set store")
 	}
-	tx.Rollback()
 
 	if base >= from {
 		log.L().Debug("batch prune nothing", zap.Uint64("from", from), zap.Uint64("to", to), zap.Uint64("base", base))

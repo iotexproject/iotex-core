@@ -359,7 +359,11 @@ func SendAction(client ioctl.Client,
 	if err != nil {
 		return errors.Wrap(err, "failed to sign action")
 	}
-	if err := isBalanceEnough(client, signer, sealed); err != nil {
+	sender, err := Signer(client, signer)
+	if err != nil {
+		return errors.Wrap(err, "failed to get signer address")
+	}
+	if err := isBalanceEnough(client, sender, sealed); err != nil {
 		return errors.Wrap(err, "failed to pass balance check")
 	}
 

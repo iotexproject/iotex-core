@@ -100,7 +100,7 @@ func EncodeVoteBucketListToEth(outputs abi.Arguments, buckets *iotextypes.VoteBu
 
 	data, err := outputs.Pack(args)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return hex.EncodeToString(data), nil
 }

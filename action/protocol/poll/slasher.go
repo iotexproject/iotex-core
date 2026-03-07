@@ -364,7 +364,7 @@ func (sh *Slasher) GetProbationList(ctx context.Context, sr protocol.StateReader
 		return nil, uint64(0), err
 	}
 	// make sure it's epochStartHeight
-	targetEpochStartHeight := rp.GetEpochHeight(rp.GetEpochHeight(targetHeight))
+	targetEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(targetHeight))
 	if readFromNext {
 		targetEpochNum := rp.GetEpochNum(targetEpochStartHeight) + 1
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
@@ -596,6 +596,9 @@ func filterCandidates(
 	unqualifiedList *vote.ProbationList,
 	epochStartHeight uint64,
 ) (state.CandidateList, error) {
+	if unqualifiedList == nil || unqualifiedList.ProbationInfo == nil {
+		return candidates, nil
+	}
 	candidatesMap := make(map[string]*state.Candidate)
 	updatedVotingPower := make(map[string]*big.Int)
 	intensityRate := float64(uint32(100)-unqualifiedList.IntensityRate) / float64(100)
