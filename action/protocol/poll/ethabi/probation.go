@@ -3,6 +3,7 @@ package ethabi
 import (
 	"encoding/hex"
 	"math/big"
+	"sort"
 
 	"github.com/cockroachdb/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -51,7 +52,14 @@ func ConvertProbationListFromState(stateProbationList *vote.ProbationList) (*Pro
 
 	probationInfos := make([]ProbationInfo, 0, len(stateProbationList.ProbationInfo))
 
-	for addrStr, count := range stateProbationList.ProbationInfo {
+	keys := make([]string, 0, len(stateProbationList.ProbationInfo))
+	for addrStr := range stateProbationList.ProbationInfo {
+		keys = append(keys, addrStr)
+	}
+	sort.Strings(keys)
+
+	for _, addrStr := range keys {
+		count := stateProbationList.ProbationInfo[addrStr]
 		probationInfo, err := NewProbationInfoFromState(addrStr, count)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to convert probation info for address %s", addrStr)
