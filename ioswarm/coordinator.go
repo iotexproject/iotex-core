@@ -389,11 +389,22 @@ func (c *Coordinator) enrichL3Task(task *pb.TaskPackage, tx *PendingTx, blockHei
 		Coinbase:  c.cfg.DelegateAddress,
 	}
 
-	// Fetch contract bytecode for receiver (if it has CodeHash)
+	// Fetch contract bytecode and storage for receiver (if it has CodeHash)
 	if task.Receiver != nil && len(task.Receiver.CodeHash) > 0 && tx.To != "" {
 		codes := c.prefetcher.PrefetchCode([]string{tx.To})
 		if len(codes) > 0 {
 			task.ContractCode = codes
+		}
+		// Prefetch storage slots touched by this contract.
+		// In production, use static analysis or access lists to determine slots.
+		// For now, prefetch slot 0 (common for simple contracts).
+		storage := c.prefetcher.PrefetchStorage(tx.To, []string{
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
+		})
+		if len(storage) > 0 {
+			task.StorageSlots = map[string]map[string]string{
+				tx.To: storage,
+			}
 		}
 	}
 }
