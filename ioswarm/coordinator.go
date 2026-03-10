@@ -300,6 +300,11 @@ func (c *Coordinator) OnBlockExecuted(blockHeight uint64, actualResults map[uint
 	c.prefetcher.InvalidateCache()
 }
 
+// LastTaskID returns the most recently assigned task ID.
+func (c *Coordinator) LastTaskID() uint32 {
+	return c.taskIDSeq.Load()
+}
+
 // NewGRPCHandler creates a gRPC handler for this coordinator.
 // Use with RegisterIOSwarmServer to register on a grpc.Server.
 func NewGRPCHandler(c *Coordinator) IOSwarmServer {

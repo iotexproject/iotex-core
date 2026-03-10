@@ -7,11 +7,11 @@ package main
 
 import (
 	"context"
-	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"math/big"
 	"os"
 	"os/signal"
 	"sync"
@@ -134,16 +134,18 @@ func (m *mockState) GetStorageAt(address, slot string) (string, error) {
 	return "0x0000000000000000000000000000000000000000000000000000000000000000", nil
 }
 
+// secp256k1N is the order of the secp256k1 curve used by IoTeX/Ethereum signatures.
+var secp256k1N, _ = new(big.Int).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16)
+
 // buildMockTxRaw creates a mock transaction with nonce in the first 8 bytes
-// and valid P-256 signature components in the last 65 bytes.
+// and valid secp256k1 signature components in the last 65 bytes.
 func buildMockTxRaw(nonce uint64) []byte {
 	payload := make([]byte, 80)
 	// Encode nonce in first 8 bytes (big-endian)
 	binary.BigEndian.PutUint64(payload[:8], nonce)
 	rand.Read(payload[8:])
-	curve := elliptic.P256()
-	r, _ := rand.Int(rand.Reader, curve.Params().N)
-	s, _ := rand.Int(rand.Reader, curve.Params().N)
+	r, _ := rand.Int(rand.Reader, secp256k1N)
+	s, _ := rand.Int(rand.Reader, secp256k1N)
 	raw := append(payload, r.FillBytes(make([]byte, 32))...)
 	raw = append(raw, s.FillBytes(make([]byte, 32))...)
 	raw = append(raw, byte(0))
@@ -217,6 +219,32 @@ func main() {
 					zap.Int("batch", batch),
 					zap.Int("tx_count", count),
 					zap.Uint64("block_height", actPool.BlockHeight()))
+			}
+		}
+	}()
+
+	// Shadow mode: simulate block execution every 5 seconds.
+	// Treats all dispatched tasks as valid (mock scenario).
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		var lastTaskID uint32
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				currentID := coord.LastTaskID()
+				if currentID <= lastTaskID {
+					continue
+				}
+				actualResults := make(map[uint32]bool)
+				for id := lastTaskID + 1; id <= currentID; id++ {
+					actualResults[id] = true
+				}
+				blockHeight := actPool.BlockHeight()
+				coord.OnBlockExecuted(blockHeight, actualResults)
+				lastTaskID = currentID
 			}
 		}
 	}()
