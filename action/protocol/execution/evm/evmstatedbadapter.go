@@ -1125,14 +1125,21 @@ func (stateDB *StateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash
 }
 
 func (stateDB *StateDBAdapter) GetStorageRoot(evmAddr common.Address) common.Hash {
-	contract, err := stateDB.getContractWoCreate(evmAddr)
+	// check the contract cache first for up-to-date Root
+	if contract, ok := stateDB.cachedContract[evmAddr]; ok {
+		return common.BytesToHash(contract.SelfState().Root[:])
+	}
+	// read the account directly without adding to cachedContract, so that
+	// CommitContracts won't write back an unmodified account with a recomputed
+	// (non-zero) empty-trie Root
+	account, err := accountutil.Recorded(stateDB.sm, evmAddr)
 	switch errors.Cause(err) {
 	case nil:
-		return common.BytesToHash(contract.SelfState().Root[:])
+		return common.BytesToHash(account.Root[:])
 	case state.ErrStateNotExist:
 		return common.Hash{}
 	default:
-		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.T(stateDB.ctx).Error("Failed to get account.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		stateDB.logError(err)
 		return common.Hash{}
 	}
@@ -1225,24 +1232,6 @@ func (stateDB *StateDBAdapter) getNewContract(evmAddr common.Address) (Contract,
 	account, err := accountutil.LoadAccountByHash160(stateDB.sm, addr, stateDB.accountCreationOpts()...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
-	}
-	contract, err := stateDB.newContract(addr, account)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
-	}
-	// add to contract cache
-	stateDB.cachedContract[evmAddr] = contract
-	return contract, nil
-}
-
-func (stateDB *StateDBAdapter) getContractWoCreate(evmAddr common.Address) (Contract, error) {
-	if contract, ok := stateDB.cachedContract[evmAddr]; ok {
-		return contract, nil
-	}
-	addr := hash.BytesToHash160(evmAddr.Bytes())
-	account, err := accountutil.Recorded(stateDB.sm, evmAddr)
-	if err != nil {
-		return nil, err
 	}
 	contract, err := stateDB.newContract(addr, account)
 	if err != nil {
