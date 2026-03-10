@@ -77,6 +77,9 @@ func (l *LogFilter) match(log *iotextypes.Log) bool {
 		if e == nil || len(e.Topic) == 0 {
 			continue
 		}
+		if i >= len(log.Topics) {
+			return false
+		}
 		target := log.Topics[i]
 		match := false
 		for _, v := range e.Topic {

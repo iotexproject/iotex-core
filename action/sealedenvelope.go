@@ -247,7 +247,10 @@ func (sealed *SealedEnvelope) VerifySignature() error {
 func (sealed *SealedEnvelope) Protected() bool {
 	switch sealed.encoding {
 	case iotextypes.Encoding_TX_CONTAINER:
-		return sealed.Envelope.(*txContainer).tx.Protected()
+		if txCont, ok := sealed.Envelope.(*txContainer); ok {
+			return txCont.tx.Protected()
+		}
+		return false
 	default:
 		return sealed.encoding != iotextypes.Encoding_ETHEREUM_UNPROTECTED
 	}
