@@ -39,6 +39,9 @@ type Coordinator struct {
 	// Metrics
 	totalDispatched atomic.Uint64
 	totalReceived   atomic.Uint64
+
+	// Recent results buffer for EVM shadow comparison
+	recentResults   sync.Map // task_id → *pb.TaskResult
 }
 
 // NewCoordinator creates a new IOSwarm coordinator.
@@ -256,6 +259,11 @@ func (c *Coordinator) handleResults(result *pb.BatchResult) {
 		c.shadow.RecordAgentResults(result.AgentID, result)
 	}
 
+	// Store results for EVM shadow comparison
+	for _, r := range result.Results {
+		c.recentResults.Store(r.TaskID, r)
+	}
+
 	// Feed reward system: count tasks and valid results
 	var totalLatencyUs uint64
 	correct := uint64(0)
@@ -303,6 +311,23 @@ func (c *Coordinator) OnBlockExecuted(blockHeight uint64, actualResults map[uint
 // LastTaskID returns the most recently assigned task ID.
 func (c *Coordinator) LastTaskID() uint32 {
 	return c.taskIDSeq.Load()
+}
+
+// DrainRecentResults removes and returns all recent task results (for EVM shadow comparison).
+func (c *Coordinator) DrainRecentResults() []*pb.TaskResult {
+	var results []*pb.TaskResult
+	c.recentResults.Range(func(key, value any) bool {
+		results = append(results, value.(*pb.TaskResult))
+		c.recentResults.Delete(key)
+		return true
+	})
+	return results
+}
+
+// CompareEVMShadow feeds EVM reference results to the shadow comparator
+// for comparison against agent-submitted EVM results.
+func (c *Coordinator) CompareEVMShadow(agentResults []*pb.TaskResult, actualResults map[uint32]*EVMActualResult, blockHeight uint64) {
+	c.shadow.CompareEVMResults(agentResults, actualResults, blockHeight)
 }
 
 // NewGRPCHandler creates a gRPC handler for this coordinator.

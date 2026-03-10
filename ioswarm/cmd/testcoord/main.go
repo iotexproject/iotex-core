@@ -225,6 +225,7 @@ func main() {
 
 	// Shadow mode: simulate block execution every 5 seconds.
 	// Treats all dispatched tasks as valid (mock scenario).
+	// Also runs EVM shadow comparison for L3 tasks.
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
@@ -244,6 +245,29 @@ func main() {
 				}
 				blockHeight := actPool.BlockHeight()
 				coord.OnBlockExecuted(blockHeight, actualResults)
+
+				// EVM shadow comparison: compare agent gas/state results
+				// against expected values for known task types
+				if *taskLevel == "L3" {
+					agentResults := coord.DrainRecentResults()
+					if len(agentResults) > 0 {
+						evmActual := make(map[uint32]*ioswarm.EVMActualResult)
+						for _, r := range agentResults {
+							if r.GasUsed > 0 {
+								evmActual[r.TaskID] = &ioswarm.EVMActualResult{
+									TaskID:       r.TaskID,
+									GasUsed:      r.GasUsed,
+									StateChanges: r.StateChanges,
+									ExecError:    r.ExecError,
+								}
+							}
+						}
+						if len(evmActual) > 0 {
+							coord.CompareEVMShadow(agentResults, evmActual, blockHeight)
+						}
+					}
+				}
+
 				lastTaskID = currentID
 			}
 		}
