@@ -11,6 +11,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/v2/action"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
@@ -126,12 +127,46 @@ func (s *StateReaderAdapter) AccountState(addr string) (*pb.AccountSnapshot, err
 	}, nil
 }
 
-// GetCode returns contract bytecode. Returns nil for L2 shadow mode (not needed).
+// GetCode returns contract bytecode from the stateDB.
 func (s *StateReaderAdapter) GetCode(addr string) ([]byte, error) {
-	return nil, nil
+	ioAddr, err := address.FromString(addr)
+	if err != nil {
+		return nil, err
+	}
+	ctx := context.Background()
+	ws, err := s.sf.WorkingSet(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer ws.Close()
+	return evm.ReadContractCode(ctx, ws, ioAddr)
 }
 
-// GetStorageAt returns a storage slot value. Returns empty for L2 shadow mode (not needed).
+// GetStorageAt returns a storage slot value from the stateDB.
+// slot is a hex-encoded 32-byte key (e.g. "0x0000...0000").
 func (s *StateReaderAdapter) GetStorageAt(addr, slot string) (string, error) {
-	return "", nil
+	ioAddr, err := address.FromString(addr)
+	if err != nil {
+		return "", err
+	}
+	// Decode hex slot to 32-byte key
+	slotHex := slot
+	if len(slotHex) > 2 && slotHex[:2] == "0x" {
+		slotHex = slotHex[2:]
+	}
+	key, err := hex.DecodeString(slotHex)
+	if err != nil {
+		return "", err
+	}
+	ctx := context.Background()
+	ws, err := s.sf.WorkingSet(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer ws.Close()
+	val, err := evm.ReadContractStorage(ctx, ws, ioAddr, key)
+	if err != nil {
+		return "", err
+	}
+	return "0x" + hex.EncodeToString(val), nil
 }
