@@ -2,7 +2,6 @@ package ioswarm
 
 import (
 	"context"
-	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
 	"math/big"
@@ -11,11 +10,14 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/iotexproject/iotex-core/ioswarm/proto"
+	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
+
+// secp256k1N is the order of the secp256k1 curve used by IoTeX/Ethereum signatures.
+var secp256k1N, _ = new(big.Int).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16)
 
 // --- Mock actpool and state reader ---
 
@@ -64,9 +66,8 @@ func buildMockTxRaw() []byte {
 	payload := make([]byte, 80)
 	rand.Read(payload)
 
-	curve := elliptic.P256()
-	r, _ := rand.Int(rand.Reader, curve.Params().N)
-	s, _ := rand.Int(rand.Reader, curve.Params().N)
+	r, _ := rand.Int(rand.Reader, secp256k1N)
+	s, _ := rand.Int(rand.Reader, secp256k1N)
 
 	raw := append(payload, r.FillBytes(make([]byte, 32))...)
 	raw = append(raw, s.FillBytes(make([]byte, 32))...)
@@ -214,8 +215,7 @@ func TestIntegrationE2E(t *testing.T) {
 			sigStart := len(task.TxRaw) - 65
 			r := new(big.Int).SetBytes(task.TxRaw[sigStart : sigStart+32])
 			s := new(big.Int).SetBytes(task.TxRaw[sigStart+32 : sigStart+64])
-			curve := elliptic.P256()
-			if r.Sign() == 0 || s.Sign() == 0 || r.Cmp(curve.Params().N) >= 0 || s.Cmp(curve.Params().N) >= 0 {
+			if r.Sign() == 0 || s.Sign() == 0 || r.Cmp(secp256k1N) >= 0 || s.Cmp(secp256k1N) >= 0 {
 				valid = false
 				reason = "invalid sig"
 			}

@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/chainservice"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/dispatcher"
+	"github.com/iotexproject/iotex-core/v2/ioswarm"
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/pkg/ha"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -44,6 +45,7 @@ type Server struct {
 	dispatcher           dispatcher.Dispatcher
 	nodeStats            *nodestats.NodeStats
 	pauseMgr             *PauseMgr
+	ioswarmCoord         *ioswarm.Coordinator
 	initializedSubChains map[uint32]bool
 	mutex                sync.RWMutex
 	subModuleCancel      context.CancelFunc
@@ -148,6 +150,16 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	}
 	// Setup sub-chain starter
 	// TODO: sub-chain infra should use main-chain API instead of protocol directly
+
+	// IOSwarm coordinator (optional)
+	if cfg.IOSwarm.Enabled {
+		svr.ioswarmCoord = ioswarm.NewCoordinator(
+			cfg.IOSwarm,
+			ioswarm.NewActPoolAdapter(cs.ActionPool(), cs.Blockchain()),
+			ioswarm.NewStateReaderAdapter(cs.StateFactory()),
+		)
+	}
+
 	return &svr, nil
 }
 
@@ -174,12 +186,20 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.nodeStats.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting node stats")
 	}
+	if s.ioswarmCoord != nil {
+		if err := s.ioswarmCoord.Start(cctx); err != nil {
+			return errors.Wrap(err, "error when starting IOSwarm coordinator")
+		}
+	}
 	return nil
 }
 
 // Stop stops the server
 func (s *Server) Stop(ctx context.Context) error {
 	defer s.subModuleCancel()
+	if s.ioswarmCoord != nil {
+		s.ioswarmCoord.Stop()
+	}
 	if err := s.nodeStats.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping node stats")
 	}

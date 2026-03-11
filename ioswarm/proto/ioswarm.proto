@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package ioswarm;
 
-option go_package = "github.com/iotexproject/iotex-core/ioswarm/proto";
+option go_package = "github.com/iotexproject/iotex-core/v2/ioswarm/proto";
 
 // IOSwarm service — coordinator ↔ agent communication
 service IOSwarm {

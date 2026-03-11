@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/iotexproject/iotex-core/ioswarm/proto"
+	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
 	"go.uber.org/zap"
 )
 

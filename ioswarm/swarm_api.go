@@ -7,7 +7,7 @@ import (
 	"sort"
 	"time"
 
-	pb "github.com/iotexproject/iotex-core/ioswarm/proto"
+	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
 )
 
 // SwarmAPI serves HTTP endpoints for monitoring the IOSwarm.

@@ -19,8 +19,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/iotexproject/iotex-core/ioswarm"
-	pb "github.com/iotexproject/iotex-core/ioswarm/proto"
+	"github.com/iotexproject/iotex-core/v2/ioswarm"
+	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
 	"go.uber.org/zap"
 )
 
