@@ -3,6 +3,7 @@ package ioswarm
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"go.uber.org/zap"
@@ -14,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
 	"github.com/iotexproject/iotex-core/v2/state/factory"
 )
@@ -37,9 +39,14 @@ func NewActPoolAdapter(pool actpool.ActPool, bc blockchain.Blockchain) *ActPoolA
 
 // PendingActions reads all pending transactions from the actpool and converts
 // them to the ioswarm PendingTx format.
-func (a *ActPoolAdapter) PendingActions() []*PendingTx {
+func (a *ActPoolAdapter) PendingActions() (txs []*PendingTx) {
+	defer func() {
+		if r := recover(); r != nil {
+			a.logger.Error("panic in PendingActions", zap.Any("recover", r))
+			txs = nil
+		}
+	}()
 	actionMap := a.pool.PendingActionMap()
-	var txs []*PendingTx
 	for _, actions := range actionMap {
 		for _, act := range actions {
 			tx, err := sealedEnvelopeToTx(act)
@@ -96,21 +103,33 @@ func sealedEnvelopeToTx(act *action.SealedEnvelope) (*PendingTx, error) {
 // StateReaderAdapter wraps iotex-core's factory.Factory to implement StateReader
 // for production use.
 type StateReaderAdapter struct {
-	sf     factory.Factory
-	logger *zap.Logger
+	sf      factory.Factory
+	genesis genesis.Genesis
+	logger  *zap.Logger
 }
 
 // NewStateReaderAdapter creates a new StateReaderAdapter.
-func NewStateReaderAdapter(sf factory.Factory) *StateReaderAdapter {
+func NewStateReaderAdapter(sf factory.Factory, g genesis.Genesis) *StateReaderAdapter {
 	logger, _ := zap.NewProduction()
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &StateReaderAdapter{sf: sf, logger: logger}
+	return &StateReaderAdapter{sf: sf, genesis: g, logger: logger}
+}
+
+// genesisCtx returns a context with genesis info attached (required by WorkingSet).
+func (s *StateReaderAdapter) genesisCtx() context.Context {
+	return genesis.WithGenesisContext(context.Background(), s.genesis)
 }
 
 // AccountState reads the confirmed account state from the stateDB.
-func (s *StateReaderAdapter) AccountState(addr string) (*pb.AccountSnapshot, error) {
+func (s *StateReaderAdapter) AccountState(addr string) (snap *pb.AccountSnapshot, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.Error("panic in AccountState", zap.String("addr", addr), zap.Any("recover", r))
+			snap, err = nil, fmt.Errorf("AccountState panic: %v", r)
+		}
+	}()
 	ioAddr, err := address.FromString(addr)
 	if err != nil {
 		return nil, err
@@ -128,12 +147,18 @@ func (s *StateReaderAdapter) AccountState(addr string) (*pb.AccountSnapshot, err
 }
 
 // GetCode returns contract bytecode from the stateDB.
-func (s *StateReaderAdapter) GetCode(addr string) ([]byte, error) {
+func (s *StateReaderAdapter) GetCode(addr string) (code []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.Error("panic in GetCode", zap.String("addr", addr), zap.Any("recover", r))
+			code, err = nil, fmt.Errorf("GetCode panic: %v", r)
+		}
+	}()
 	ioAddr, err := address.FromString(addr)
 	if err != nil {
 		return nil, err
 	}
-	ctx := context.Background()
+	ctx := s.genesisCtx()
 	ws, err := s.sf.WorkingSet(ctx)
 	if err != nil {
 		return nil, err
@@ -144,12 +169,17 @@ func (s *StateReaderAdapter) GetCode(addr string) ([]byte, error) {
 
 // GetStorageAt returns a storage slot value from the stateDB.
 // slot is a hex-encoded 32-byte key (e.g. "0x0000...0000").
-func (s *StateReaderAdapter) GetStorageAt(addr, slot string) (string, error) {
+func (s *StateReaderAdapter) GetStorageAt(addr, slot string) (val string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.Error("panic in GetStorageAt", zap.String("addr", addr), zap.Any("recover", r))
+			val, err = "", fmt.Errorf("GetStorageAt panic: %v", r)
+		}
+	}()
 	ioAddr, err := address.FromString(addr)
 	if err != nil {
 		return "", err
 	}
-	// Decode hex slot to 32-byte key
 	slotHex := slot
 	if len(slotHex) > 2 && slotHex[:2] == "0x" {
 		slotHex = slotHex[2:]
@@ -158,15 +188,15 @@ func (s *StateReaderAdapter) GetStorageAt(addr, slot string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	ctx := context.Background()
+	ctx := s.genesisCtx()
 	ws, err := s.sf.WorkingSet(ctx)
 	if err != nil {
 		return "", err
 	}
 	defer ws.Close()
-	val, err := evm.ReadContractStorage(ctx, ws, ioAddr, key)
+	raw, err := evm.ReadContractStorage(ctx, ws, ioAddr, key)
 	if err != nil {
 		return "", err
 	}
-	return "0x" + hex.EncodeToString(val), nil
+	return "0x" + hex.EncodeToString(raw), nil
 }

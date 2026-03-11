@@ -445,6 +445,11 @@ func (c *Coordinator) consumePayout(agentID string) *pb.PayoutInfo {
 // enrichL3Task attaches EVM execution data to an L3 task.
 // It fetches contract bytecode, storage, and builds the BlockContext + EvmTx.
 func (c *Coordinator) enrichL3Task(task *pb.TaskPackage, tx *PendingTx, blockHeight uint64) {
+	defer func() {
+		if r := recover(); r != nil {
+			c.logger.Error("panic in enrichL3Task", zap.Any("recover", r), zap.String("tx", tx.Hash))
+		}
+	}()
 	// Build EvmTx from PendingTx fields
 	task.EvmTx = &pb.EvmTx{
 		To:       tx.To,
