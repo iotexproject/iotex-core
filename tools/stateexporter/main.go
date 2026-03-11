@@ -221,6 +221,11 @@ func exportContract(
 		return nodeCount, leafCount, errors.Wrapf(err, "failed to copy trie nodes for %s", addrStr)
 	}
 
+	// 5. Verify root node exists in output DB
+	if _, err := outDAO.Get(evm.ContractKVNameSpace, account.Root[:]); err != nil {
+		return nodeCount, leafCount, errors.Wrapf(err, "verification failed: root node %x not found in output DB for %s", account.Root, addrStr)
+	}
+
 	log.L().Info("exported contract storage",
 		zap.String("address", addrStr),
 		zap.Int("trieNodes", nodeCount),
