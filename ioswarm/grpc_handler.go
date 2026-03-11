@@ -291,11 +291,19 @@ func (h *grpcHandler) StreamStateDiffs(req *pb.StreamStateDiffsRequest, stream I
 		return status.Error(codes.InvalidArgument, "agent_id is required")
 	}
 
-	h.coord.logger.Info("agent started state diff stream",
+	h.coord.logger.Debug("agent started state diff stream",
 		zap.String("agent", agentID),
 		zap.Uint64("from_height", req.FromHeight))
 
 	broadcaster := h.coord.DiffBroadcaster()
+
+	// C1 fix: Subscribe FIRST, then catch-up, then deduplicate.
+	// This ensures no diffs are lost between GetRange() and Subscribe().
+	ch := broadcaster.Subscribe(agentID)
+	defer broadcaster.Unsubscribe(agentID)
+
+	// Track the highest height we've sent for deduplication
+	var lastSentHeight uint64
 
 	// Send catch-up diffs from ring buffer if requested
 	if req.FromHeight > 0 {
@@ -307,28 +315,37 @@ func (h *grpcHandler) StreamStateDiffs(req *pb.StreamStateDiffsRequest, stream I
 				if err := stream.Send(resp); err != nil {
 					return err
 				}
+				lastSentHeight = diff.Height
 			}
 		}
 	}
 
-	// Subscribe and stream new diffs
-	ch := broadcaster.Subscribe(agentID)
-	defer broadcaster.Unsubscribe(agentID)
-
 	for {
 		select {
 		case <-stream.Context().Done():
-			h.coord.logger.Info("state diff stream ended",
+			h.coord.logger.Debug("state diff stream ended",
 				zap.String("agent", agentID))
 			return nil
 		case diff, ok := <-ch:
 			if !ok {
 				return nil // channel closed
 			}
+			// Deduplicate: skip diffs already sent during catch-up
+			if diff.Height <= lastSentHeight {
+				continue
+			}
+			// Check for gaps — if subscriber dropped diffs, notify agent
+			if lastSentHeight > 0 && diff.Height > lastSentHeight+1 {
+				h.coord.logger.Warn("state diff gap detected",
+					zap.String("agent", agentID),
+					zap.Uint64("last_sent", lastSentHeight),
+					zap.Uint64("received", diff.Height))
+			}
 			resp := stateDiffToResponse(diff)
 			if err := stream.Send(resp); err != nil {
 				return err
 			}
+			lastSentHeight = diff.Height
 		}
 	}
 }

@@ -598,7 +598,7 @@ func (c *Coordinator) ReceiveStateDiff(height uint64, entries []StateDiffEntry, 
 		DigestBytes: digest,
 	}
 	c.diffBroadcaster.Publish(diff)
-	c.logger.Info("state diff published",
+	c.logger.Debug("state diff published",
 		zap.Uint64("height", height),
 		zap.Int("entries", len(entries)),
 		zap.Int("subscribers", c.diffBroadcaster.SubscriberCount()))

@@ -501,14 +501,15 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 	}
 	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
 	receipts, err := ws.Receipts()
 	if err != nil {
+		sdb.mutex.Unlock()
 		return err
 	}
 	blk.Receipts = receipts
 	h, _ := ws.Height()
 	if sdb.currentChainHeight+1 != h {
+		sdb.mutex.Unlock()
 		// another working set with correct version already committed, do nothing
 		return fmt.Errorf(
 			"current state height %d + 1 doesn't match working set height %d",
@@ -516,14 +517,21 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 	if err := ws.Commit(ctx, sdb.cfg.Chain.HistoryBlockRetention); err != nil {
+		sdb.mutex.Unlock()
 		return err
 	}
-	// Invoke state diff callback with entries and digest captured during finalize()
-	if sdb.diffCallback != nil && len(ws.stateDiffEntries) > 0 {
-		sdb.diffCallback(h, ws.stateDiffEntries, ws.stateDiffDigest)
-	}
+	// Capture callback and entries before releasing lock
+	cb := sdb.diffCallback
+	diffEntries := ws.stateDiffEntries
+	diffDigest := ws.stateDiffDigest
 	sdb.protocolViews = ws.views
 	sdb.currentChainHeight = h
+	sdb.mutex.Unlock()
+	// Invoke state diff callback outside the mutex to avoid holding
+	// the lock during potentially slow broadcast operations
+	if cb != nil && len(diffEntries) > 0 {
+		cb(h, diffEntries, diffDigest)
+	}
 	for _, indexer := range sdb.dependencies {
 		if err := indexer.PutBlock(ctx, blk); err != nil {
 			return errors.Wrapf(err, "failed to update indexer %T", indexer)

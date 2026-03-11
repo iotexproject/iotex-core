@@ -2,6 +2,7 @@ package ioswarm
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"go.uber.org/zap"
 )
@@ -28,8 +29,13 @@ type StateDiffBroadcaster struct {
 	maxBuffer   int
 	head        int // ring buffer write position
 	count       int // number of items in buffer
-	subscribers map[string]chan *StateDiff
+	subscribers map[string]*diffSubscriber
 	logger      *zap.Logger
+}
+
+type diffSubscriber struct {
+	ch      chan *StateDiff
+	dropped atomic.Int64
 }
 
 // NewStateDiffBroadcaster creates a new broadcaster with the given buffer size.
@@ -40,7 +46,7 @@ func NewStateDiffBroadcaster(maxBuffer int, logger *zap.Logger) *StateDiffBroadc
 	return &StateDiffBroadcaster{
 		buffer:      make([]*StateDiff, maxBuffer),
 		maxBuffer:   maxBuffer,
-		subscribers: make(map[string]chan *StateDiff),
+		subscribers: make(map[string]*diffSubscriber),
 		logger:      logger,
 	}
 }
@@ -54,43 +60,69 @@ func (b *StateDiffBroadcaster) Publish(diff *StateDiff) {
 	if b.count < b.maxBuffer {
 		b.count++
 	}
-	// Copy subscriber channels under lock
-	subs := make([]chan *StateDiff, 0, len(b.subscribers))
-	for _, ch := range b.subscribers {
-		subs = append(subs, ch)
+	// Copy subscriber refs under lock
+	subs := make([]*diffSubscriber, 0, len(b.subscribers))
+	for _, sub := range b.subscribers {
+		subs = append(subs, sub)
 	}
 	b.mu.Unlock()
 
 	// Fan out to subscribers (non-blocking)
-	for _, ch := range subs {
+	for _, sub := range subs {
 		select {
-		case ch <- diff:
+		case sub.ch <- diff:
 		default:
-			// subscriber is slow, drop this diff for them
+			// subscriber is slow, track the drop
+			sub.dropped.Add(1)
 		}
 	}
 }
 
 // Subscribe returns a channel that receives new state diffs.
-// The channel has a buffer of 32 to absorb brief bursts.
+// The channel has a buffer of 64 to absorb brief bursts.
+// If an agent is already subscribed, the old subscription is closed first.
 func (b *StateDiffBroadcaster) Subscribe(agentID string) <-chan *StateDiff {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	ch := make(chan *StateDiff, 32)
-	b.subscribers[agentID] = ch
-	b.logger.Info("state diff subscriber added", zap.String("agent", agentID))
-	return ch
+	// Close existing subscription if any (M3 fix)
+	if old, ok := b.subscribers[agentID]; ok {
+		close(old.ch)
+		b.logger.Debug("closing duplicate subscription", zap.String("agent", agentID))
+	}
+	sub := &diffSubscriber{
+		ch: make(chan *StateDiff, 64),
+	}
+	b.subscribers[agentID] = sub
+	b.logger.Debug("state diff subscriber added", zap.String("agent", agentID))
+	return sub.ch
 }
 
 // Unsubscribe removes a subscriber and closes its channel.
 func (b *StateDiffBroadcaster) Unsubscribe(agentID string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if ch, ok := b.subscribers[agentID]; ok {
-		close(ch)
+	if sub, ok := b.subscribers[agentID]; ok {
+		close(sub.ch)
+		dropped := sub.dropped.Load()
 		delete(b.subscribers, agentID)
-		b.logger.Info("state diff subscriber removed", zap.String("agent", agentID))
+		if dropped > 0 {
+			b.logger.Warn("state diff subscriber removed with drops",
+				zap.String("agent", agentID),
+				zap.Int64("dropped_diffs", dropped))
+		} else {
+			b.logger.Debug("state diff subscriber removed", zap.String("agent", agentID))
+		}
 	}
+}
+
+// DroppedCount returns the number of diffs dropped for a subscriber.
+func (b *StateDiffBroadcaster) DroppedCount(agentID string) int64 {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	if sub, ok := b.subscribers[agentID]; ok {
+		return sub.dropped.Load()
+	}
+	return 0
 }
 
 // GetRange returns state diffs for heights [from, to] inclusive.

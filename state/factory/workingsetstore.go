@@ -233,8 +233,8 @@ func (store *stateDBWorkingSetStore) CaptureWriteQueue() []WriteQueueEntry {
 		entries = append(entries, WriteQueueEntry{
 			WriteType: uint8(wi.WriteType()),
 			Namespace: wi.Namespace(),
-			Key:       wi.Key(),
-			Value:     wi.Value(),
+			Key:       append([]byte(nil), wi.Key()...),
+			Value:     append([]byte(nil), wi.Value()...),
 		})
 	}
 	return entries
