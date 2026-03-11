@@ -12,6 +12,7 @@ type Config struct {
 	MasterSecret    string       `yaml:"masterSecret"`    // HMAC master secret for agent auth (empty = no auth)
 	DelegateAddress string       `yaml:"delegateAddress"` // delegate's IOTX address for reward payout
 	EpochRewardIOTX float64      `yaml:"epochRewardIOTX"` // IOTX per epoch for reward distribution (default 800)
+	DiffBufferSize  int          `yaml:"diffBufferSize"`  // ring buffer size for state diff broadcaster (default 100)
 	Reward          RewardConfig `yaml:"reward"`
 }
 
@@ -26,6 +27,7 @@ func DefaultConfig() Config {
 		ShadowMode:      true,
 		PollIntervalMS:  1000,
 		EpochRewardIOTX: 800,
+		DiffBufferSize:  100,
 		Reward:          DefaultRewardConfig(),
 	}
 }

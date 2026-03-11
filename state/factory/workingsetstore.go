@@ -218,3 +218,32 @@ func (store *stateDBWorkingSetStore) KVStore() db.KVStore {
 func (store *stateDBWorkingSetStore) ErigonStore() (any, error) {
 	return nil, errors.Wrap(state.ErrErigonStoreNotSupported, "failed to get erigon store")
 }
+
+// CaptureWriteQueue returns a snapshot of all entries in the write queue.
+// Must be called BEFORE Commit() which flushes and clears the buffer.
+func (store *stateDBWorkingSetStore) CaptureWriteQueue() []WriteQueueEntry {
+	kvb := store.flusher.KVStoreWithBuffer()
+	size := kvb.Size()
+	entries := make([]WriteQueueEntry, 0, size)
+	for i := 0; i < size; i++ {
+		wi, err := kvb.Entry(i)
+		if err != nil {
+			continue
+		}
+		entries = append(entries, WriteQueueEntry{
+			WriteType: uint8(wi.WriteType()),
+			Namespace: wi.Namespace(),
+			Key:       wi.Key(),
+			Value:     wi.Value(),
+		})
+	}
+	return entries
+}
+
+// WriteQueueEntry is a captured state mutation from the write queue.
+type WriteQueueEntry struct {
+	WriteType uint8  // 0=Put, 1=Delete
+	Namespace string
+	Key       []byte
+	Value     []byte
+}

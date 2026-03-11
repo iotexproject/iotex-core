@@ -154,3 +154,37 @@ type PayoutInfo struct {
 	Rank        int     `json:"rank"`
 	TotalAgents int     `json:"total_agents"`
 }
+
+// StreamStateDiffsRequest is sent by L4 agents to subscribe to state diffs.
+type StreamStateDiffsRequest struct {
+	AgentID    string `json:"agent_id"`
+	FromHeight uint64 `json:"from_height"` // resume from this height (0 = latest only)
+}
+
+// StateDiffResponse is a single block's state diff streamed to agents.
+type StateDiffResponse struct {
+	Height      uint64            `json:"height"`
+	Entries     []*StateDiffEntry `json:"entries"`
+	DigestBytes []byte            `json:"digest_bytes"` // for verification
+}
+
+// StateDiffEntry is a single state mutation in a block.
+type StateDiffEntry struct {
+	WriteType uint8  `json:"write_type"` // 0=Put, 1=Delete
+	Namespace string `json:"namespace"`
+	Key       []byte `json:"key"`
+	Value     []byte `json:"value,omitempty"`
+}
+
+// DownloadSnapshotRequest is sent by L4 agents to download a full state snapshot.
+type DownloadSnapshotRequest struct {
+	AgentID string `json:"agent_id"`
+}
+
+// SnapshotChunk is a chunk of snapshot data streamed to agents.
+type SnapshotChunk struct {
+	ChunkIndex  uint32 `json:"chunk_index"`
+	Data        []byte `json:"data"`
+	TotalChunks uint32 `json:"total_chunks"` // 0 until last chunk
+	Height      uint64 `json:"height"`       // snapshot height
+}

@@ -162,6 +162,8 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		if err := cs.Blockchain().AddSubscriber(svr.ioswarmCoord); err != nil {
 			log.L().Warn("IOSwarm: failed to subscribe to blocks (shadow comparison disabled)", zap.Error(err))
 		}
+		// Wire state diff callback for L4 agent support
+		ioswarm.SetupStateDiffCallback(cs.StateFactory(), svr.ioswarmCoord)
 	}
 
 	return &svr, nil

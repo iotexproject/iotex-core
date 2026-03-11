@@ -19,11 +19,18 @@ type IOSwarmServer interface {
 	GetTasks(*pb.GetTasksRequest, IOSwarm_GetTasksServer) error
 	SubmitResults(context.Context, *pb.BatchResult) (*pb.SubmitResponse, error)
 	Heartbeat(context.Context, *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error)
+	StreamStateDiffs(*pb.StreamStateDiffsRequest, IOSwarm_StreamStateDiffsServer) error
 }
 
 // IOSwarm_GetTasksServer is the server-side streaming interface for GetTasks.
 type IOSwarm_GetTasksServer interface {
 	Send(*pb.TaskBatch) error
+	grpc.ServerStream
+}
+
+// IOSwarm_StreamStateDiffsServer is the server-side streaming interface for StreamStateDiffs.
+type IOSwarm_StreamStateDiffsServer interface {
+	Send(*pb.StateDiffResponse) error
 	grpc.ServerStream
 }
 
@@ -52,9 +59,14 @@ var _IOSwarm_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "GetTasks",
-			Handler:       _IOSwarm_GetTasks_Handler,
-			ServerStreams:  true,
+			StreamName:   "GetTasks",
+			Handler:      _IOSwarm_GetTasks_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:   "StreamStateDiffs",
+			Handler:      _IOSwarm_StreamStateDiffs_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "ioswarm.proto",
@@ -115,6 +127,22 @@ type ioswarmGetTasksServer struct {
 }
 
 func (x *ioswarmGetTasksServer) Send(m *pb.TaskBatch) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _IOSwarm_StreamStateDiffs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(pb.StreamStateDiffsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(IOSwarmServer).StreamStateDiffs(m, &ioswarmStreamStateDiffsServer{stream})
+}
+
+type ioswarmStreamStateDiffsServer struct {
+	grpc.ServerStream
+}
+
+func (x *ioswarmStreamStateDiffsServer) Send(m *pb.StateDiffResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -252,6 +280,74 @@ func (h *grpcHandler) SubmitResults(ctx context.Context, result *pb.BatchResult)
 
 	h.coord.handleResults(result)
 	return &pb.SubmitResponse{Accepted: true}, nil
+}
+
+func (h *grpcHandler) StreamStateDiffs(req *pb.StreamStateDiffsRequest, stream IOSwarm_StreamStateDiffsServer) error {
+	agentID := req.AgentID
+	if verifiedID := AgentIDFromContext(stream.Context()); verifiedID != "" {
+		agentID = verifiedID
+	}
+	if agentID == "" {
+		return status.Error(codes.InvalidArgument, "agent_id is required")
+	}
+
+	h.coord.logger.Info("agent started state diff stream",
+		zap.String("agent", agentID),
+		zap.Uint64("from_height", req.FromHeight))
+
+	broadcaster := h.coord.DiffBroadcaster()
+
+	// Send catch-up diffs from ring buffer if requested
+	if req.FromHeight > 0 {
+		latest := broadcaster.LatestHeight()
+		if latest > 0 && req.FromHeight <= latest {
+			catchUp := broadcaster.GetRange(req.FromHeight, latest)
+			for _, diff := range catchUp {
+				resp := stateDiffToResponse(diff)
+				if err := stream.Send(resp); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// Subscribe and stream new diffs
+	ch := broadcaster.Subscribe(agentID)
+	defer broadcaster.Unsubscribe(agentID)
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			h.coord.logger.Info("state diff stream ended",
+				zap.String("agent", agentID))
+			return nil
+		case diff, ok := <-ch:
+			if !ok {
+				return nil // channel closed
+			}
+			resp := stateDiffToResponse(diff)
+			if err := stream.Send(resp); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func stateDiffToResponse(diff *StateDiff) *pb.StateDiffResponse {
+	entries := make([]*pb.StateDiffEntry, len(diff.Entries))
+	for i, e := range diff.Entries {
+		entries[i] = &pb.StateDiffEntry{
+			WriteType: e.Type,
+			Namespace: e.Namespace,
+			Key:       e.Key,
+			Value:     e.Value,
+		}
+	}
+	return &pb.StateDiffResponse{
+		Height:      diff.Height,
+		Entries:     entries,
+		DigestBytes: diff.DigestBytes,
+	}
 }
 
 func (h *grpcHandler) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error) {

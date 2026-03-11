@@ -49,6 +49,9 @@ type Coordinator struct {
 
 	// txHash → taskID mapping for shadow comparison with on-chain results
 	txHashToTaskID sync.Map // hex tx hash → uint32 task ID
+
+	// State diff broadcaster for L4 agents
+	diffBroadcaster *StateDiffBroadcaster
 }
 
 // NewCoordinator creates a new IOSwarm coordinator.
@@ -62,14 +65,15 @@ func NewCoordinator(cfg Config, actPool ActPoolReader, stateReader StateReader, 
 
 	registry := NewRegistry(cfg.MaxAgents)
 	return &Coordinator{
-		cfg:        cfg,
-		actPool:    actPool,
-		prefetcher: NewPrefetcher(stateReader, logger),
-		registry:   registry,
-		scheduler:  NewScheduler(registry, logger),
-		shadow:     NewShadowComparator(logger),
-		reward:     NewRewardDistributor(cfg.Reward, cfg.DelegateAddress, logger),
-		logger:     logger,
+		cfg:             cfg,
+		actPool:         actPool,
+		prefetcher:      NewPrefetcher(stateReader, logger),
+		registry:        registry,
+		scheduler:       NewScheduler(registry, logger),
+		shadow:          NewShadowComparator(logger),
+		reward:          NewRewardDistributor(cfg.Reward, cfg.DelegateAddress, logger),
+		diffBroadcaster: NewStateDiffBroadcaster(cfg.DiffBufferSize, logger),
+		logger:          logger,
 	}
 }
 
@@ -583,6 +587,26 @@ func (c *Coordinator) enrichL3Task(task *pb.TaskPackage, tx *PendingTx, blockHei
 			}
 		}
 	}
+}
+
+// ReceiveStateDiff is called by the stateDB diff callback after each block commit.
+// It converts WriteQueueEntry to StateDiffEntry and publishes to the broadcaster.
+func (c *Coordinator) ReceiveStateDiff(height uint64, entries []StateDiffEntry, digest []byte) {
+	diff := &StateDiff{
+		Height:      height,
+		Entries:     entries,
+		DigestBytes: digest,
+	}
+	c.diffBroadcaster.Publish(diff)
+	c.logger.Info("state diff published",
+		zap.Uint64("height", height),
+		zap.Int("entries", len(entries)),
+		zap.Int("subscribers", c.diffBroadcaster.SubscriberCount()))
+}
+
+// DiffBroadcaster returns the state diff broadcaster for gRPC streaming.
+func (c *Coordinator) DiffBroadcaster() *StateDiffBroadcaster {
+	return c.diffBroadcaster
 }
 
 func parseTaskLevel(s string) pb.TaskLevel {

@@ -46,6 +46,9 @@ type (
 		getHeight() (uint64, error)
 		putHeight(uint64) error
 	}
+	// StateDiffCallback is called after a block is committed with the captured state diff entries.
+	StateDiffCallback func(height uint64, entries []WriteQueueEntry, digest []byte)
+
 	// stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
 	stateDB struct {
 		mutex                    sync.RWMutex
@@ -60,6 +63,7 @@ type (
 		ps                       *patchStore
 		erigonDB                 *erigonstore.ErigonDB
 		dependencies             []blockdao.BlockIndexer
+		diffCallback             StateDiffCallback
 	}
 )
 
@@ -88,6 +92,27 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 		sdb.skipBlockValidationOnPut = true
 		return nil
 	}
+}
+
+// DiffCallbackStateDBOption sets a callback invoked after each block commit
+// with the block's state diff entries. Used by ioSwarm for state diff streaming.
+func DiffCallbackStateDBOption(cb StateDiffCallback) StateDBOption {
+	return func(sdb *stateDB, cfg *Config) error {
+		sdb.diffCallback = cb
+		return nil
+	}
+}
+
+// SetDiffCallback sets the state diff callback on a Factory.
+// Returns false if the factory is not a stateDB (e.g., in-memory test factory).
+func SetDiffCallback(f Factory, cb StateDiffCallback) bool {
+	if sdb, ok := f.(*stateDB); ok {
+		sdb.mutex.Lock()
+		sdb.diffCallback = cb
+		sdb.mutex.Unlock()
+		return true
+	}
+	return false
 }
 
 // DisableWorkingSetCacheOption disable workingset cache
@@ -492,6 +517,10 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	if err := ws.Commit(ctx, sdb.cfg.Chain.HistoryBlockRetention); err != nil {
 		return err
+	}
+	// Invoke state diff callback with entries and digest captured during finalize()
+	if sdb.diffCallback != nil && len(ws.stateDiffEntries) > 0 {
+		sdb.diffCallback(h, ws.stateDiffEntries, ws.stateDiffDigest)
 	}
 	sdb.protocolViews = ws.views
 	sdb.currentChainHeight = h
