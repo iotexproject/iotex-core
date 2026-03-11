@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/actpool"
@@ -104,22 +105,31 @@ func sealedEnvelopeToTx(act *action.SealedEnvelope) (*PendingTx, error) {
 // for production use.
 type StateReaderAdapter struct {
 	sf      factory.Factory
+	bc      blockchain.Blockchain
 	genesis genesis.Genesis
 	logger  *zap.Logger
 }
 
 // NewStateReaderAdapter creates a new StateReaderAdapter.
-func NewStateReaderAdapter(sf factory.Factory, g genesis.Genesis) *StateReaderAdapter {
+func NewStateReaderAdapter(sf factory.Factory, bc blockchain.Blockchain, g genesis.Genesis) *StateReaderAdapter {
 	logger, _ := zap.NewProduction()
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &StateReaderAdapter{sf: sf, genesis: g, logger: logger}
+	return &StateReaderAdapter{sf: sf, bc: bc, genesis: g, logger: logger}
 }
 
-// genesisCtx returns a context with genesis info attached (required by WorkingSet).
-func (s *StateReaderAdapter) genesisCtx() context.Context {
-	return genesis.WithGenesisContext(context.Background(), s.genesis)
+// chainCtx returns a context with both genesis and blockchain info attached
+// (required by WorkingSet and EVM operations).
+func (s *StateReaderAdapter) chainCtx() context.Context {
+	ctx := genesis.WithGenesisContext(context.Background(), s.genesis)
+	return protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Tip: protocol.TipInfo{
+			Height: s.bc.TipHeight(),
+		},
+		ChainID:      s.bc.ChainID(),
+		EvmNetworkID: s.bc.EvmNetworkID(),
+	})
 }
 
 // AccountState reads the confirmed account state from the stateDB.
@@ -158,7 +168,7 @@ func (s *StateReaderAdapter) GetCode(addr string) (code []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx := s.genesisCtx()
+	ctx := s.chainCtx()
 	ws, err := s.sf.WorkingSet(ctx)
 	if err != nil {
 		return nil, err
@@ -188,7 +198,7 @@ func (s *StateReaderAdapter) GetStorageAt(addr, slot string) (val string, err er
 	if err != nil {
 		return "", err
 	}
-	ctx := s.genesisCtx()
+	ctx := s.chainCtx()
 	ws, err := s.sf.WorkingSet(ctx)
 	if err != nil {
 		return "", err

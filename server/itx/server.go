@@ -156,7 +156,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		svr.ioswarmCoord = ioswarm.NewCoordinator(
 			cfg.IOSwarm,
 			ioswarm.NewActPoolAdapter(cs.ActionPool(), cs.Blockchain()),
-			ioswarm.NewStateReaderAdapter(cs.StateFactory(), cfg.Genesis),
+			ioswarm.NewStateReaderAdapter(cs.StateFactory(), cs.Blockchain(), cfg.Genesis),
 		)
 	}
 
