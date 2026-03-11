@@ -118,6 +118,11 @@ func (c *Coordinator) Start(ctx context.Context) error {
 	RegisterIOSwarmServer(c.grpcServer, &grpcHandler{coord: c})
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				c.logger.Error("panic in gRPC server goroutine", zap.Any("recover", r))
+			}
+		}()
 		c.logger.Info("gRPC server listening", zap.Int("port", c.cfg.GRPCPort))
 		if err := c.grpcServer.Serve(lis); err != nil {
 			c.logger.Error("gRPC server error", zap.Error(err))
@@ -125,13 +130,34 @@ func (c *Coordinator) Start(ctx context.Context) error {
 	}()
 
 	// Start main polling loop
-	go c.runLoop(ctx)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				c.logger.Error("panic in IOSwarm runLoop", zap.Any("recover", r))
+			}
+		}()
+		c.runLoop(ctx)
+	}()
 
 	// Start agent eviction loop
-	go c.evictionLoop(ctx)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				c.logger.Error("panic in IOSwarm evictionLoop", zap.Any("recover", r))
+			}
+		}()
+		c.evictionLoop(ctx)
+	}()
 
 	// Start epoch reward loop
-	go c.epochLoop(ctx)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				c.logger.Error("panic in IOSwarm epochLoop", zap.Any("recover", r))
+			}
+		}()
+		c.epochLoop(ctx)
+	}()
 
 	// Start SwarmAPI HTTP server
 	if c.cfg.SwarmAPIPort > 0 {
@@ -141,6 +167,11 @@ func (c *Coordinator) Start(ctx context.Context) error {
 			handler = tokenHTTPMiddleware(c.cfg.MasterSecret, handler)
 		}
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					c.logger.Error("panic in SwarmAPI server", zap.Any("recover", r))
+				}
+			}()
 			addr := fmt.Sprintf(":%d", c.cfg.SwarmAPIPort)
 			c.logger.Info("swarm API listening", zap.Int("port", c.cfg.SwarmAPIPort))
 			if err := http.ListenAndServe(addr, handler); err != nil {
@@ -152,11 +183,24 @@ func (c *Coordinator) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop gracefully shuts down the coordinator.
+// Stop gracefully shuts down the coordinator with a 5-second timeout.
+// If GracefulStop doesn't complete in time, it falls back to a hard Stop
+// to avoid blocking the node's shutdown sequence.
 func (c *Coordinator) Stop() {
 	c.logger.Info("stopping IOSwarm coordinator")
 	if c.grpcServer != nil {
-		c.grpcServer.GracefulStop()
+		done := make(chan struct{})
+		go func() {
+			c.grpcServer.GracefulStop()
+			close(done)
+		}()
+		select {
+		case <-done:
+			c.logger.Info("IOSwarm gRPC server stopped gracefully")
+		case <-time.After(5 * time.Second):
+			c.logger.Warn("IOSwarm gRPC graceful stop timed out, forcing stop")
+			c.grpcServer.Stop()
+		}
 	}
 }
 

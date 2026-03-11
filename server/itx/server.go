@@ -188,7 +188,9 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	if s.ioswarmCoord != nil {
 		if err := s.ioswarmCoord.Start(cctx); err != nil {
-			return errors.Wrap(err, "error when starting IOSwarm coordinator")
+			// IOSwarm failure is non-fatal: log warning but don't block consensus
+			log.L().Warn("IOSwarm coordinator failed to start (node continues without it)", zap.Error(err))
+			s.ioswarmCoord = nil
 		}
 	}
 	return nil
