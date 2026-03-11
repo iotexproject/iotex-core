@@ -322,7 +322,7 @@ Port the core of `workingset.go`'s `pickAndRunActions()` to the agent:
 - Receipt collection, bloom filter, state digest computation
 - Block gas limit enforcement
 
-Note: this requires porting significant logic from iotex-core. Evaluate whether the agent should import iotex-core as a library vs duplicating code.
+**Recommended approach**: import `iotex-core` as a Go module rather than re-implementing. The EVM execution path (`evmstatedbadapter.go`, `workingset.go`) contains extensive fork-specific logic, gas refund handling, and precompile contracts that would be error-prone to duplicate. The agent's `go.mod` adds `require github.com/iotexproject/iotex-core`, and the Pebble state store implements iotex-core's `StateManager` interface so the existing EVM adapter works directly.
 
 ### Phase E: Candidate Block Submission — L5 only
 
@@ -372,13 +372,129 @@ NOW                        L4                              L5
 | Trust model | Shadow comparison | Shadow comparison | Re-execute → Optimistic + slash |
 | Agent cost | $5/mo VPS, <64MB RAM | $5-10/mo VPS, ~1-2 GB RAM | $10-20/mo VPS |
 
-## Open Questions
+## Design Decisions (Resolved)
 
-1. **Snapshot distribution**: HTTP download? BitTorrent? IPFS? How often to regenerate full snapshots vs rely on diffs?
-2. **State hash computation**: What hash function for `post_state_hash`? Hash of sorted KV pairs? Or reuse `deltaStateDigest` chain?
-3. **Genesis config delivery**: Agents need chain config (chain ID, fork heights, gas limits). Distribute as part of snapshot or separate config endpoint?
-4. **iotex-core as library**: For Phase D, should the agent import iotex-core packages directly (EVM, state manager) rather than re-implementing?
-5. **Diff window sizing**: How many blocks of diffs should coordinator buffer? Trade-off between memory and re-snapshot frequency.
+1. **Snapshot distribution**: HTTP download via coordinator gRPC endpoint (`DownloadSnapshot`). Snapshots are snappy-compressed flat KV (~300 MB–1.2 GB compressed). Regenerated on-demand when agents request; coordinator can cache the latest snapshot. BitTorrent/IPFS deferred to future optimization if agent count exceeds coordinator bandwidth.
+
+2. **State hash computation**: `post_state_hash = SHA256(sorted KV pairs)`. Pebble's sorted iterator makes this natural — iterate all keys in order, feed into SHA256 streaming hash. Simple, deterministic, no additional data structures needed.
+
+3. **Genesis config delivery**: Bundled with the state snapshot as a `chain_config` field (chain ID, fork heights, gas limits, coinbase). Updated via state diffs when protocol upgrades occur.
+
+4. **iotex-core as library**: Yes — agent imports `iotex-core` as a Go module for EVM execution. Pebble state store implements `StateManager` interface as an adapter. This avoids re-implementing fork logic, precompiles, and gas accounting.
+
+5. **Diff window sizing**: 100 blocks (~16 minutes at 10s block time). Each diff is small (typically <10 KB for IoTeX's current tx volume), so 100 diffs ≈ <1 MB memory. Beyond the window, agent must full re-snapshot.
+
+## Implementation Plan
+
+Concrete engineering plan building on existing ioSwarm infrastructure (coordinator, agent, reward pool — all tested and running on mainnet).
+
+### Stage 0: L4 Infrastructure (~2-3 weeks)
+
+Two repos change in parallel.
+
+**Delegate side (`iotex-core/ioswarm/`)**:
+
+| File | Operation | Description |
+|------|-----------|-------------|
+| `snapshot.go` | New | `ExportEVMSnapshot()` — iterate Account/Code/Contract namespaces, snappy compress, serve via gRPC |
+| `statediff.go` | New | Hook `workingset.go` `Commit()`, capture `SerializeQueue()`, compute pre/post state hash, broadcast to coordinator |
+| `diff_buffer.go` | New | Rolling buffer of last 100 diffs for agent catch-up |
+| `proto/statediff.proto` | New | `StateDiff`, `StateSnapshot`, `DownloadSnapshotRequest` protobuf definitions |
+| `grpc_handler.go` | Modify | Add `DownloadSnapshot` and `StreamStateDiffs` RPC endpoints |
+
+Integration point: `workingset.go`'s `Commit()` already computes the ordered changeset via `flusher.SerializeQueue()`. The hook captures this before flushing to DB — zero performance overhead for the existing execution path.
+
+**Agent side (`ioswarm-agent/`)**:
+
+| File | Operation | Description |
+|------|-----------|-------------|
+| `statestore.go` | New | Pebble KV wrapper — Get/Put/Delete/Iterator, implements `StateManager` interface |
+| `statesync.go` | New | Download snapshot, apply diffs, state hash verification, auto-resync on divergence |
+| `go.mod` | Modify | Add `github.com/cockroachdb/pebble` dependency |
+
+Agent startup flow:
+1. Check local Pebble DB exists and has state
+2. No → call `DownloadSnapshot`, load into Pebble (takes ~1 min for 1 GB)
+3. Yes → compare local height vs coordinator tip, request missing diffs
+4. Subscribe to `StreamStateDiffs`, apply each diff + verify `post_state_hash`
+5. On hash mismatch → automatic re-snapshot
+
+**Acceptance criteria**: Agent downloads snapshot, syncs diffs for 24 hours without divergence. Kill and restart agent — resumes from local Pebble state without re-downloading.
+
+### Stage 1: L4 Stateful Validation (~2 weeks)
+
+Minimal change — swap the EVM state source.
+
+Current L3: `evm.go` reads from `MemStateDB` populated by coordinator per-task snapshots (~10 KB/tx → 14% accuracy).
+
+L4: `evm.go` reads from local Pebble state store (full chain state → 100% accuracy).
+
+| File | Operation | Description |
+|------|-----------|-------------|
+| `validator.go` | Modify | Add `ValidateL4()` — same as L3 but reads local Pebble state instead of task-provided snapshots |
+| `stateadapter.go` | New | Adapter: Pebble KV → iotex-core `StateManager` interface → `evmstatedbadapter.go` |
+| `main.go` | Modify | Add `--level=L4` flag, require `--datadir` for Pebble path |
+
+**Key validation**: Shadow mode comparison over 1000+ blocks. Agent L4 execution results must match delegate execution exactly (same `deltaStateDigest`). Target: ≥99.9% accuracy. Any mismatch indicates a state sync bug that must be fixed before proceeding.
+
+**This is the critical milestone.** L4 accuracy at 100% proves the entire state sync infrastructure works and agent execution results can be trusted.
+
+### Stage 2: L4 Trusted Execution Cache (~1-2 weeks)
+
+Agent results feed back into delegate block production.
+
+| File | Operation | Description |
+|------|-----------|-------------|
+| `iotex-core/ioswarm/execache.go` | New | LRU cache of agent execution results keyed by tx hash |
+| `iotex-core/state/factory/workingset.go` | Modify | `runAction()` checks execution cache before EVM execution; cache hit with matching preconditions → skip re-execution |
+| `iotex-core/ioswarm/coordinator.go` | Modify | Forward L4 agent results to execution cache |
+
+Cache hit conditions:
+- `txHash` exists in cache
+- Sender nonce matches current state
+- Sender balance sufficient
+- If all match → apply agent's state changes directly, skip EVM
+
+**Acceptance criteria**: Cache hit rate >90% under normal load. Delegate block production time decreases measurably. Disabling ioSwarm falls back cleanly to full execution (no impact on block production).
+
+### Stage 3: L5 Block Building (~3-4 weeks)
+
+**3a: Agent Block Builder**
+
+| File | Operation | Description |
+|------|-----------|-------------|
+| `ioswarm-agent/blockbuilder.go` | New | Import iotex-core's `pickAndRunActions()` logic, execute txs in delegate-specified order, compute deltaStateDigest/receiptRoot/logsBloom |
+| `ioswarm-agent/stateadapter.go` | Modify | Add Snapshot/Revert support for EVM tx rollback during block building |
+| `ioswarm-agent/main.go` | Modify | Add `--level=L5` mode, block building loop |
+
+**3b: Coordinator Scheduling**
+
+| File | Operation | Description |
+|------|-----------|-------------|
+| `iotex-core/ioswarm/builder_scheduler.go` | New | Primary/standby assignment (round-robin by block height % agent count) |
+| `iotex-core/ioswarm/candidate_pool.go` | New | Collect candidate blocks from agents, select best, timeout handling |
+| `iotex-core/ioswarm/proto/builder.proto` | New | `SubmitCandidateBlock`, `BlockAcceptance` protobuf definitions |
+| `iotex-core/ioswarm/grpc_handler.go` | Modify | Add `SubmitCandidateBlock` RPC |
+
+**3c: Delegate Verification**
+
+Delegate re-executes the winning candidate block, compares `deltaStateDigest`. Match → sign and broadcast. Mismatch → reject + penalize agent, fall back to standby.
+
+**Acceptance criteria**: Primary agent builds block whose `deltaStateDigest` matches delegate re-execution 100%. Primary timeout → standby takes over within 3 seconds. Reward distribution: 70/20/10 split verified on-chain.
+
+### Timeline Summary
+
+```
+Week 1-3      Week 4-5       Week 6-7       Week 8-11
+Stage 0        Stage 1        Stage 2        Stage 3
+Infrastructure L4 Validation  L4 Cache       L5 Block Building
+─────────────►─────────────►─────────────►─────────────►
+Snapshot       100% accuracy  Delegate uses   Full ePBS
+StateDiff      Shadow proof   agent results   Primary+Standby
+Pebble store                  for execution
+```
+
+Each stage delivers independently: Stage 0 gives agents state access (useful beyond validation). Stage 1 proves 100% accuracy. Stage 2 reduces delegate CPU load. Stage 3 is full proposer-builder separation.
 
 ## References
 
