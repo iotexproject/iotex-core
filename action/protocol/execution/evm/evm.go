@@ -525,6 +525,9 @@ func prepareStateDBAdapter(ctx context.Context, sm protocol.StateManager) (*Stat
 	if featureCtx.PrePectraEVM {
 		opts = append(opts, IgnoreBalanceChangeTouchAccountOption())
 	}
+	if !featureCtx.AlwaysWriteCachedContract {
+		opts = append(opts, SkipWriteCleanContractOption())
+	}
 	return NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
