@@ -93,6 +93,10 @@ type (
 		fixRevertSnapshot          bool
 		// ignoreBalanceChangeTouchAccount indicates whether to ignore balance change touch account
 		ignoreBalanceChangeTouchAccount bool
+		// skipWriteCleanContract indicates whether to skip writing back read-only
+		// contracts in CommitContracts; when true, only contracts with dirty state
+		// or code are committed and written back to the state trie
+		skipWriteCleanContract bool
 	}
 )
 
@@ -217,6 +221,14 @@ func WithContext(ctx context.Context) StateDBAdapterOption {
 func IgnoreBalanceChangeTouchAccountOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.ignoreBalanceChangeTouchAccount = true
+		return nil
+	}
+}
+
+// SkipWriteCleanContractOption set skipWriteCleanContract as true
+func SkipWriteCleanContractOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.skipWriteCleanContract = true
 		return nil
 	}
 }
@@ -1174,6 +1186,13 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 			continue
 		}
 		contract := stateDB.cachedContract[addr]
+		if stateDB.skipWriteCleanContract && !contract.Dirty() {
+			// a read-only contract (loaded by GetState/GetCommittedState but never
+			// modified by SetState/SetCode) does not need Commit or PutState;
+			// skipping it avoids writing back a stale Root that was recomputed by
+			// Snapshot() on an empty storage trie
+			continue
+		}
 		err := contract.Commit()
 		if stateDB.assertError(err, "failed to commit contract", zap.Error(err), zap.String("address", addr.Hex())) {
 			return errors.Wrap(err, "failed to commit contract")
