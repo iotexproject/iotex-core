@@ -3,10 +3,14 @@ package ioswarm
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // IOSwarmServer is the gRPC service interface.
@@ -116,7 +120,47 @@ func (x *ioswarmGetTasksServer) Send(m *pb.TaskBatch) error {
 
 // grpcHandler implements IOSwarmServer for the coordinator.
 type grpcHandler struct {
-	coord *Coordinator
+	coord       *Coordinator
+	rateLimiter sync.Map // agentID → *rateBucket
+}
+
+// rateBucket implements a simple token bucket rate limiter per agent.
+type rateBucket struct {
+	mu       sync.Mutex
+	tokens   int
+	maxBurst int
+	lastTime time.Time
+	rate     float64 // tokens per second
+}
+
+func newRateBucket(rate float64, burst int) *rateBucket {
+	return &rateBucket{tokens: burst, maxBurst: burst, rate: rate, lastTime: time.Now()}
+}
+
+func (b *rateBucket) allow() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	now := time.Now()
+	elapsed := now.Sub(b.lastTime).Seconds()
+	b.lastTime = now
+	b.tokens += int(elapsed * b.rate)
+	if b.tokens > b.maxBurst {
+		b.tokens = b.maxBurst
+	}
+	if b.tokens <= 0 {
+		return false
+	}
+	b.tokens--
+	return true
+}
+
+func (h *grpcHandler) getRateBucket(agentID string) *rateBucket {
+	if v, ok := h.rateLimiter.Load(agentID); ok {
+		return v.(*rateBucket)
+	}
+	b := newRateBucket(10, 20) // 10 requests/sec, burst of 20
+	actual, _ := h.rateLimiter.LoadOrStore(agentID, b)
+	return actual.(*rateBucket)
 }
 
 // Compile-time check that grpcHandler implements IOSwarmServer.
@@ -191,6 +235,11 @@ func (h *grpcHandler) SubmitResults(ctx context.Context, result *pb.BatchResult)
 				Reason:   "agent_id mismatch with authenticated identity",
 			}, nil
 		}
+	}
+
+	// Rate limiting per agent
+	if !h.getRateBucket(result.AgentID).allow() {
+		return nil, status.Error(codes.ResourceExhausted, "rate limit exceeded")
 	}
 
 	// Verify agent is registered

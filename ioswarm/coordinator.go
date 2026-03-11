@@ -30,13 +30,15 @@ type Coordinator struct {
 	reward     *RewardDistributor
 	logger     *zap.Logger
 	grpcServer *grpc.Server
+	httpServer *http.Server
 	taskIDSeq  atomic.Uint32
 
 	// Pending payouts: agent_id → PayoutInfo (consumed by next heartbeat)
 	pendingPayouts sync.Map
 
 	// Block tracking
-	lastBlockHeight atomic.Uint64
+	lastBlockHeight    atomic.Uint64
+	lastBlockTimestamp atomic.Uint64
 
 	// Metrics
 	totalDispatched atomic.Uint64
@@ -171,15 +173,18 @@ func (c *Coordinator) Start(ctx context.Context) error {
 		if c.cfg.MasterSecret != "" {
 			handler = tokenHTTPMiddleware(c.cfg.MasterSecret, handler)
 		}
+		c.httpServer = &http.Server{
+			Addr:    fmt.Sprintf(":%d", c.cfg.SwarmAPIPort),
+			Handler: handler,
+		}
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
 					c.logger.Error("panic in SwarmAPI server", zap.Any("recover", r))
 				}
 			}()
-			addr := fmt.Sprintf(":%d", c.cfg.SwarmAPIPort)
 			c.logger.Info("swarm API listening", zap.Int("port", c.cfg.SwarmAPIPort))
-			if err := http.ListenAndServe(addr, handler); err != nil {
+			if err := c.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				c.logger.Error("swarm API error", zap.Error(err))
 			}
 		}()
@@ -193,6 +198,15 @@ func (c *Coordinator) Start(ctx context.Context) error {
 // to avoid blocking the node's shutdown sequence.
 func (c *Coordinator) Stop() {
 	c.logger.Info("stopping IOSwarm coordinator")
+	if c.httpServer != nil {
+		shutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := c.httpServer.Shutdown(shutCtx); err != nil {
+			c.logger.Warn("IOSwarm HTTP server shutdown error", zap.Error(err))
+		} else {
+			c.logger.Info("IOSwarm HTTP server stopped")
+		}
+	}
 	if c.grpcServer != nil {
 		done := make(chan struct{})
 		go func() {
@@ -257,9 +271,15 @@ func (c *Coordinator) pollAndDispatch() {
 
 		if snap, ok := stateMap[tx.From]; ok {
 			task.Sender = snap
+		} else {
+			task.Sender = &pb.AccountSnapshot{Address: tx.From}
 		}
-		if snap, ok := stateMap[tx.To]; ok {
-			task.Receiver = snap
+		if tx.To != "" {
+			if snap, ok := stateMap[tx.To]; ok {
+				task.Receiver = snap
+			} else {
+				task.Receiver = &pb.AccountSnapshot{Address: tx.To}
+			}
 		}
 
 		// L3: attach EVM execution data
@@ -371,7 +391,9 @@ func (c *Coordinator) ReceiveBlock(blk *block.Block) error {
 	}()
 
 	blockHeight := blk.Height()
+	c.lastBlockTimestamp.Store(uint64(blk.Timestamp().Unix()))
 	actualResults := make(map[uint32]bool)
+	matched := 0
 
 	for i, act := range blk.Actions {
 		h, err := act.Hash()
@@ -386,6 +408,7 @@ func (c *Coordinator) ReceiveBlock(blk *block.Block) error {
 			continue // tx wasn't dispatched by us (or already processed)
 		}
 		taskID := val.(uint32)
+		matched++
 
 		// Receipt status: 1 = success (tx valid and executed), 0 = reverted
 		valid := true
@@ -393,6 +416,13 @@ func (c *Coordinator) ReceiveBlock(blk *block.Block) error {
 			valid = blk.Receipts[i].Status == 1
 		}
 		actualResults[taskID] = valid
+	}
+
+	if matched > 0 || blockHeight%100 == 0 {
+		c.logger.Info("ReceiveBlock",
+			zap.Uint64("block", blockHeight),
+			zap.Int("actions", len(blk.Actions)),
+			zap.Int("matched", matched))
 	}
 
 	// Run shadow comparison
@@ -468,11 +498,17 @@ func (c *Coordinator) distributeEpochReward() {
 		return
 	}
 
-	// TODO: In production, fetch actual delegate epoch reward from chain.
-	// For now, use a placeholder: 800 IOTX per epoch (realistic for a top delegate).
-	epochReward := new(big.Int).Mul(big.NewInt(800), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+	// Use configured epoch reward (configurable via epochRewardIOTX in config).
+	// In future, fetch actual delegate epoch reward from chain.
+	rewardIOTX := c.cfg.EpochRewardIOTX
+	if rewardIOTX <= 0 {
+		rewardIOTX = 800
+	}
+	one := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	epochReward := new(big.Float).Mul(big.NewFloat(rewardIOTX), new(big.Float).SetInt(one))
+	epochRewardInt, _ := epochReward.Int(nil)
 
-	summary := c.reward.Distribute(epochReward)
+	summary := c.reward.Distribute(epochRewardInt)
 
 	// Queue payout notifications for each agent's next heartbeat
 	for i, p := range summary.Payouts {
@@ -516,10 +552,14 @@ func (c *Coordinator) enrichL3Task(task *pb.TaskPackage, tx *PendingTx, blockHei
 		GasPrice: tx.GasPrice,
 	}
 
-	// Build BlockContext
+	// Build BlockContext — use last known block timestamp (not time.Now)
+	ts := c.lastBlockTimestamp.Load()
+	if ts == 0 {
+		ts = uint64(time.Now().Unix()) // fallback before first ReceiveBlock
+	}
 	task.BlockContext = &pb.BlockCtx{
 		Number:    blockHeight,
-		Timestamp: uint64(time.Now().Unix()),
+		Timestamp: ts,
 		GasLimit:  30_000_000,
 		BaseFee:   "0",
 		Coinbase:  c.cfg.DelegateAddress,

@@ -2,6 +2,8 @@ package ioswarm
 
 import (
 	"sync"
+	"sync/atomic"
+	"time"
 
 	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
 	"go.uber.org/zap"
@@ -39,15 +41,17 @@ type ActPoolReader interface {
 type Prefetcher struct {
 	stateReader StateReader
 	logger      *zap.Logger
-	cache       sync.Map // address -> *pb.AccountSnapshot
+	cache       atomic.Pointer[sync.Map]
 }
 
 // NewPrefetcher creates a new state prefetcher.
 func NewPrefetcher(sr StateReader, logger *zap.Logger) *Prefetcher {
-	return &Prefetcher{
+	p := &Prefetcher{
 		stateReader: sr,
 		logger:      logger,
 	}
+	p.cache.Store(&sync.Map{})
+	return p
 }
 
 // addrResult is used to collect concurrent prefetch results via channel.
@@ -71,9 +75,10 @@ func (p *Prefetcher) Prefetch(txs []*PendingTx) map[string]*pb.AccountSnapshot {
 	result := make(map[string]*pb.AccountSnapshot, len(addrSet))
 
 	// Separate cached from uncached
+	cache := p.cache.Load()
 	var toFetch []string
 	for addr := range addrSet {
-		if cached, ok := p.cache.Load(addr); ok {
+		if cached, ok := cache.Load(addr); ok {
 			result[addr] = cached.(*pb.AccountSnapshot)
 		} else {
 			toFetch = append(toFetch, addr)
@@ -99,7 +104,7 @@ func (p *Prefetcher) Prefetch(txs []*PendingTx) map[string]*pb.AccountSnapshot {
 					zap.Error(err))
 				return
 			}
-			p.cache.Store(a, snap)
+			cache.Store(a, snap)
 			ch <- addrResult{addr: a, snap: snap}
 		}(addr)
 	}
@@ -118,65 +123,87 @@ func (p *Prefetcher) Prefetch(txs []*PendingTx) map[string]*pb.AccountSnapshot {
 	return result
 }
 
-// PrefetchCode fetches contract bytecode for the given addresses.
+// PrefetchCode fetches contract bytecode for the given addresses with a 5s timeout.
 func (p *Prefetcher) PrefetchCode(addresses []string) map[string][]byte {
 	codes := make(map[string][]byte, len(addresses))
 	var mu sync.Mutex
-	var wg sync.WaitGroup
 
-	for _, addr := range addresses {
-		wg.Add(1)
-		go func(a string) {
-			defer wg.Done()
-			code, err := p.stateReader.GetCode(a)
-			if err != nil {
-				p.logger.Warn("failed to get code",
-					zap.String("address", a),
-					zap.Error(err))
-				return
-			}
-			if len(code) > 0 {
-				mu.Lock()
-				codes[a] = code
-				mu.Unlock()
-			}
-		}(addr)
+	done := make(chan struct{})
+	go func() {
+		var wg sync.WaitGroup
+		for _, addr := range addresses {
+			wg.Add(1)
+			go func(a string) {
+				defer wg.Done()
+				code, err := p.stateReader.GetCode(a)
+				if err != nil {
+					p.logger.Warn("failed to get code",
+						zap.String("address", a),
+						zap.Error(err))
+					return
+				}
+				if len(code) > 0 {
+					mu.Lock()
+					codes[a] = code
+					mu.Unlock()
+				}
+			}(addr)
+		}
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		p.logger.Warn("PrefetchCode timed out")
 	}
-	wg.Wait()
+	mu.Lock()
+	defer mu.Unlock()
 	return codes
 }
 
-// PrefetchStorage fetches storage slots for a contract address.
+// PrefetchStorage fetches storage slots for a contract address with a 5s timeout.
 func (p *Prefetcher) PrefetchStorage(address string, slots []string) map[string]string {
 	storage := make(map[string]string, len(slots))
 	var mu sync.Mutex
-	var wg sync.WaitGroup
 
-	for _, slot := range slots {
-		wg.Add(1)
-		go func(s string) {
-			defer wg.Done()
-			val, err := p.stateReader.GetStorageAt(address, s)
-			if err != nil {
-				p.logger.Warn("failed to get storage",
-					zap.String("address", address),
-					zap.String("slot", s),
-					zap.Error(err))
-				return
-			}
-			mu.Lock()
-			storage[s] = val
-			mu.Unlock()
-		}(slot)
+	done := make(chan struct{})
+	go func() {
+		var wg sync.WaitGroup
+		for _, slot := range slots {
+			wg.Add(1)
+			go func(s string) {
+				defer wg.Done()
+				val, err := p.stateReader.GetStorageAt(address, s)
+				if err != nil {
+					p.logger.Warn("failed to get storage",
+						zap.String("address", address),
+						zap.String("slot", s),
+						zap.Error(err))
+					return
+				}
+				mu.Lock()
+				storage[s] = val
+				mu.Unlock()
+			}(slot)
+		}
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		p.logger.Warn("PrefetchStorage timed out", zap.String("address", address))
 	}
-	wg.Wait()
+	mu.Lock()
+	defer mu.Unlock()
 	return storage
 }
 
 // InvalidateCache clears cached state (call on new block).
+// Uses atomic pointer swap to avoid races with concurrent Prefetch.
 func (p *Prefetcher) InvalidateCache() {
-	p.cache.Range(func(key, value any) bool {
-		p.cache.Delete(key)
-		return true
-	})
+	p.cache.Store(&sync.Map{})
 }
