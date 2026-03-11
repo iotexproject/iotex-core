@@ -158,6 +158,10 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			ioswarm.NewActPoolAdapter(cs.ActionPool(), cs.Blockchain()),
 			ioswarm.NewStateReaderAdapter(cs.StateFactory(), cs.Blockchain(), cfg.Genesis),
 		)
+		// Subscribe to block events for shadow comparison
+		if err := cs.Blockchain().AddSubscriber(svr.ioswarmCoord); err != nil {
+			log.L().Warn("IOSwarm: failed to subscribe to blocks (shadow comparison disabled)", zap.Error(err))
+		}
 	}
 
 	return &svr, nil

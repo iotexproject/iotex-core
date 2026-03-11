@@ -2,6 +2,7 @@ package ioswarm
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -41,7 +43,10 @@ type Coordinator struct {
 	totalReceived   atomic.Uint64
 
 	// Recent results buffer for EVM shadow comparison
-	recentResults   sync.Map // task_id → *pb.TaskResult
+	recentResults sync.Map // task_id → *pb.TaskResult
+
+	// txHash → taskID mapping for shadow comparison with on-chain results
+	txHashToTaskID sync.Map // hex tx hash → uint32 task ID
 }
 
 // NewCoordinator creates a new IOSwarm coordinator.
@@ -262,6 +267,9 @@ func (c *Coordinator) pollAndDispatch() {
 			c.enrichL3Task(task, tx, blockHeight)
 		}
 
+		// Track txHash → taskID for shadow comparison
+		c.txHashToTaskID.Store(tx.Hash, taskID)
+
 		tasks = append(tasks, task)
 	}
 
@@ -350,6 +358,55 @@ func (c *Coordinator) OnBlockExecuted(blockHeight uint64, actualResults map[uint
 
 	// 2. Invalidate prefetcher cache — state has changed
 	c.prefetcher.InvalidateCache()
+}
+
+// ReceiveBlock implements blockchain.BlockCreationSubscriber.
+// Called by iotex-core after each block is committed to chain.
+// It maps on-chain tx results back to dispatched task IDs for shadow comparison.
+func (c *Coordinator) ReceiveBlock(blk *block.Block) error {
+	defer func() {
+		if r := recover(); r != nil {
+			c.logger.Error("panic in ReceiveBlock", zap.Any("recover", r))
+		}
+	}()
+
+	blockHeight := blk.Height()
+	actualResults := make(map[uint32]bool)
+
+	for i, act := range blk.Actions {
+		h, err := act.Hash()
+		if err != nil {
+			continue
+		}
+		txHash := hex.EncodeToString(h[:])
+
+		// Look up the task ID we assigned to this tx
+		val, ok := c.txHashToTaskID.LoadAndDelete(txHash)
+		if !ok {
+			continue // tx wasn't dispatched by us (or already processed)
+		}
+		taskID := val.(uint32)
+
+		// Receipt status: 1 = success (tx valid and executed), 0 = reverted
+		valid := true
+		if i < len(blk.Receipts) {
+			valid = blk.Receipts[i].Status == 1
+		}
+		actualResults[taskID] = valid
+	}
+
+	// Run shadow comparison
+	c.OnBlockExecuted(blockHeight, actualResults)
+
+	// Periodic cleanup of stale txHash entries (>10000 blocks old)
+	if blockHeight%1000 == 0 {
+		c.txHashToTaskID.Range(func(key, _ any) bool {
+			c.txHashToTaskID.Delete(key)
+			return true
+		})
+	}
+
+	return nil
 }
 
 // LastTaskID returns the most recently assigned task ID.
