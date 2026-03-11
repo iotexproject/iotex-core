@@ -153,7 +153,21 @@ func (m *rawStateManager) PutState(s interface{}, opts ...protocol.StateOption) 
 }
 
 func (m *rawStateManager) DelState(opts ...protocol.StateOption) (uint64, error) {
-	return 0, errors.New("DelState() not supported")
+	cfg, err := protocol.CreateStateConfig(opts...)
+	if err != nil {
+		return 0, err
+	}
+	ns := cfg.Namespace
+	if ns == "" {
+		ns = factory.AccountKVNamespace
+	}
+	if err := m.outDAO.Delete(ns, cfg.Key); err != nil {
+		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
+			return m.height, nil
+		}
+		return 0, errors.Wrap(err, "failed to delete state from output DB")
+	}
+	return m.height, nil
 }
 
 // exportContract exports a single contract's data (account, code, all storage slots)
