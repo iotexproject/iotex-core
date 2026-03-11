@@ -15,6 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/ioswarm"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
 	"github.com/iotexproject/iotex-core/v2/server/itx"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -112,13 +113,14 @@ func TestL4StressTest(t *testing.T) {
 				return
 			case <-ticker.C:
 				round++
+				gasPrice := big.NewInt(unit.Qev) // minimum gas price accepted by actpool
 				for i := 0; i < txBatchSize; i++ {
 					senderID := (round*txBatchSize + i) % 26 // identityset has 0..27+
 					nonce := nonces[senderID].Add(1) - 1
 
 					var selp *action.SealedEnvelope
 
-					// Every 20th tx: deploy a simple contract (minimal EVM bytecode)
+					// Every 20th round: deploy a simple contract (minimal EVM bytecode)
 					if round%20 == 0 && i == 0 {
 						// PUSH1 0x42, PUSH1 0x00, SSTORE, STOP
 						// Stores 0x42 at slot 0
@@ -129,7 +131,7 @@ func TestL4StressTest(t *testing.T) {
 							nonce,
 							big.NewInt(0),
 							1000000,
-							big.NewInt(0),
+							gasPrice,
 							bytecode,
 						)
 						if err == nil {
@@ -147,7 +149,7 @@ func TestL4StressTest(t *testing.T) {
 							big.NewInt(1000000000000000), // 0.001 IOTX
 							nil,
 							21000,
-							big.NewInt(0),
+							gasPrice,
 						)
 					}
 
@@ -157,7 +159,9 @@ func TestL4StressTest(t *testing.T) {
 					}
 
 					if addErr := ap.Add(ctx, selp); addErr != nil {
-						txErrors.Add(1)
+						if txErrors.Add(1) <= 3 {
+							t.Logf("tx injection error (sender=%d nonce=%d): %v", senderID, nonce, addErr)
+						}
 						continue
 					}
 					txCount.Add(1)
