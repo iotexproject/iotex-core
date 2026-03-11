@@ -13,6 +13,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -23,12 +24,12 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/db/trie"
-	"github.com/iotexproject/iotex-core/v2/db/trie/mptrie"
+	"github.com/iotexproject/iotex-core/v2/db/trie/triepb"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -108,87 +109,81 @@ func (r *rawStateReader) ReadView(name string) (protocol.View, error) {
 	return nil, errors.New("ReadView() not supported in rawStateReader")
 }
 
-// rawStateManager wraps rawStateReader and adds write capabilities for the output DB.
-// It implements protocol.StateManager to allow contract trie construction in the output.
-type rawStateManager struct {
-	*rawStateReader
-	outDAO db.KVStore
-}
+// copyTrieNodes copies all trie nodes reachable from rootHash in the "Contract" namespace
+// from srcDAO to outDAO. It walks the trie structure via protobuf parsing (DFS)
+// and copies each node's raw bytes directly, preserving the exact trie structure and root hash.
+func copyTrieNodes(srcDAO, outDAO db.KVStore, rootHash []byte) (nodeCount, leafCount int, err error) {
+	if len(rootHash) == 0 || bytes.Equal(rootHash, hash.ZeroHash256[:]) {
+		return 0, 0, nil
+	}
 
-func newRawStateManager(outDAO db.KVStore, height uint64) *rawStateManager {
-	return &rawStateManager{
-		rawStateReader: &rawStateReader{
-			dao:    outDAO,
-			height: height,
-		},
-		outDAO: outDAO,
-	}
-}
+	ns := evm.ContractKVNameSpace
+	stack := [][]byte{rootHash}
+	visited := make(map[string]bool)
 
-func (m *rawStateManager) Snapshot() int  { return 0 }
-func (m *rawStateManager) Revert(int) error { return nil }
-func (m *rawStateManager) WriteView(string, protocol.View) error { return nil }
+	for len(stack) > 0 {
+		h := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
 
-func (m *rawStateManager) PutState(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-	cfg, err := protocol.CreateStateConfig(opts...)
-	if err != nil {
-		return 0, err
-	}
-	ns := cfg.Namespace
-	if ns == "" {
-		ns = factory.AccountKVNamespace
-	}
-	ss, ok := s.(state.Serializer)
-	if !ok {
-		return 0, errors.New("failed to convert to Serializer")
-	}
-	data, err := ss.Serialize()
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to serialize state")
-	}
-	if err := m.outDAO.Put(ns, cfg.Key, data); err != nil {
-		return 0, errors.Wrap(err, "failed to put state into output DB")
-	}
-	return m.height, nil
-}
-
-func (m *rawStateManager) DelState(opts ...protocol.StateOption) (uint64, error) {
-	cfg, err := protocol.CreateStateConfig(opts...)
-	if err != nil {
-		return 0, err
-	}
-	ns := cfg.Namespace
-	if ns == "" {
-		ns = factory.AccountKVNamespace
-	}
-	if err := m.outDAO.Delete(ns, cfg.Key); err != nil {
-		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
-			return m.height, nil
+		key := string(h)
+		if visited[key] {
+			continue
 		}
-		return 0, errors.Wrap(err, "failed to delete state from output DB")
+		visited[key] = true
+
+		// Read raw node data from source
+		data, err := srcDAO.Get(ns, h)
+		if err != nil {
+			return nodeCount, leafCount, errors.Wrapf(err, "failed to read trie node %x", h)
+		}
+
+		// Write to output (exact same key and value)
+		if err := outDAO.Put(ns, h, data); err != nil {
+			return nodeCount, leafCount, errors.Wrapf(err, "failed to write trie node %x", h)
+		}
+		nodeCount++
+
+		// Parse protobuf to find child references
+		pb := &triepb.NodePb{}
+		if err := proto.Unmarshal(data, pb); err != nil {
+			return nodeCount, leafCount, errors.Wrapf(err, "failed to unmarshal trie node %x", h)
+		}
+
+		switch {
+		case pb.GetBranch() != nil:
+			for _, child := range pb.GetBranch().Branches {
+				stack = append(stack, child.Path)
+			}
+		case pb.GetExtend() != nil:
+			stack = append(stack, pb.GetExtend().Value)
+		case pb.GetLeaf() != nil:
+			leafCount++
+		}
+
+		if nodeCount%10000 == 0 {
+			log.L().Info("copying trie nodes...", zap.Int("nodes", nodeCount), zap.Int("leaves", leafCount))
+		}
 	}
-	return m.height, nil
+	return nodeCount, leafCount, nil
 }
 
-// exportContract exports a single contract's data (account, code, all storage slots)
-// from source DB to output DB.
+// exportContract exports a single contract's data (account, code, all storage trie nodes)
+// from source DB to output DB via direct raw copy.
 func exportContract(
-	ctx context.Context,
 	srcReader *rawStateReader,
 	outDAO db.KVStore,
 	addr address.Address,
-	height uint64,
-) (slotCount int, err error) {
+) (nodeCount, leafCount int, err error) {
 	addrHash := hash.BytesToHash160(addr.Bytes())
 	addrStr := addr.String()
 
 	// 1. Load account from source
 	account := &state.Account{}
 	if _, err := srcReader.State(account, protocol.LegacyKeyOption(addrHash)); err != nil {
-		return 0, errors.Wrapf(err, "failed to load account for %s", addrStr)
+		return 0, 0, errors.Wrapf(err, "failed to load account for %s", addrStr)
 	}
 	if !account.IsContract() {
-		return 0, fmt.Errorf("address %s is not a contract (no CodeHash)", addrStr)
+		return 0, 0, fmt.Errorf("address %s is not a contract (no CodeHash)", addrStr)
 	}
 	log.L().Info("loaded account",
 		zap.String("address", addrStr),
@@ -200,110 +195,39 @@ func exportContract(
 
 	// 2. Write account to output
 	if err := outDAO.Put(factory.AccountKVNamespace, addrHash[:], mustSerialize(account)); err != nil {
-		return 0, errors.Wrapf(err, "failed to write account for %s", addrStr)
+		return 0, 0, errors.Wrapf(err, "failed to write account for %s", addrStr)
 	}
 
 	// 3. Copy contract code
 	if len(account.CodeHash) > 0 {
 		code, err := srcReader.dao.Get(evm.CodeKVNameSpace, account.CodeHash)
 		if err != nil {
-			return 0, errors.Wrapf(err, "failed to read code for %s", addrStr)
+			return 0, 0, errors.Wrapf(err, "failed to read code for %s", addrStr)
 		}
 		if err := outDAO.Put(evm.CodeKVNameSpace, account.CodeHash, code); err != nil {
-			return 0, errors.Wrapf(err, "failed to write code for %s", addrStr)
+			return 0, 0, errors.Wrapf(err, "failed to write code for %s", addrStr)
 		}
 		log.L().Info("copied code", zap.String("address", addrStr), zap.Int("codeSize", len(code)))
 	}
 
-	// 4. Iterate all storage slots via MPTrie and write to output
+	// 4. Copy all trie nodes (raw byte-for-byte copy preserves exact root hash)
 	if account.Root == hash.ZeroHash256 {
 		log.L().Info("contract has empty storage (zero root)", zap.String("address", addrStr))
-		return 0, nil
+		return 0, 0, nil
 	}
 
-	// Build an output state manager so the trie can write nodes to the output DB
-	outSM := newRawStateManager(outDAO, height)
-
-	// Create a read-only trie from source to iterate slots
-	srcTrieKV := protocol.NewKVStoreForTrieWithStateReader(evm.ContractKVNameSpace, srcReader)
-	addr160 := addrHash
-	srcTrie, err := mptrie.New(
-		mptrie.KVStoreOption(srcTrieKV),
-		mptrie.KeyLengthOption(len(hash.Hash256{})),
-		mptrie.HashFuncOption(func(data []byte) []byte {
-			h := hash.Hash256b(append(addr160[:], data...))
-			return h[:]
-		}),
-		mptrie.RootHashOption(account.Root[:]),
-	)
+	nodeCount, leafCount, err = copyTrieNodes(srcReader.dao, outDAO, account.Root[:])
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to create source trie for %s", addrStr)
-	}
-	if err := srcTrie.Start(ctx); err != nil {
-		return 0, errors.Wrapf(err, "failed to start source trie for %s", addrStr)
-	}
-	defer srcTrie.Stop(ctx)
-
-	// Create an output trie to insert the slots (this builds the trie in the output DB)
-	outTrieKV := protocol.NewKVStoreForTrieWithStateManager(evm.ContractKVNameSpace, outSM)
-	outTrie, err := mptrie.New(
-		mptrie.KVStoreOption(outTrieKV),
-		mptrie.KeyLengthOption(len(hash.Hash256{})),
-		mptrie.HashFuncOption(func(data []byte) []byte {
-			h := hash.Hash256b(append(addr160[:], data...))
-			return h[:]
-		}),
-	)
-	if err != nil {
-		return 0, errors.Wrapf(err, "failed to create output trie for %s", addrStr)
-	}
-	if err := outTrie.Start(ctx); err != nil {
-		return 0, errors.Wrapf(err, "failed to start output trie for %s", addrStr)
-	}
-
-	// Iterate source trie and upsert each slot into output trie
-	iter, err := mptrie.NewLeafIterator(srcTrie)
-	if err != nil {
-		return 0, errors.Wrapf(err, "failed to create iterator for %s", addrStr)
-	}
-
-	for {
-		key, value, err := iter.Next()
-		if err != nil {
-			if errors.Cause(err) == trie.ErrEndOfIterator {
-				break
-			}
-			return slotCount, errors.Wrapf(err, "iterator error for %s at slot %d", addrStr, slotCount)
-		}
-		if err := outTrie.Upsert(key, value); err != nil {
-			return slotCount, errors.Wrapf(err, "failed to upsert slot for %s", addrStr)
-		}
-		slotCount++
-		if slotCount%10000 == 0 {
-			log.L().Info("progress", zap.String("address", addrStr), zap.Int("slots", slotCount))
-		}
-	}
-
-	// Verify the output trie root matches
-	outRootHash, err := outTrie.RootHash()
-	if err != nil {
-		return slotCount, errors.Wrapf(err, "failed to get output root hash for %s", addrStr)
-	}
-	outRoot := hash.BytesToHash256(outRootHash)
-	if outRoot != account.Root {
-		return slotCount, fmt.Errorf("root mismatch for %s: source=%x output=%x", addrStr, account.Root, outRoot)
-	}
-
-	if err := outTrie.Stop(ctx); err != nil {
-		return slotCount, errors.Wrapf(err, "failed to stop output trie for %s", addrStr)
+		return nodeCount, leafCount, errors.Wrapf(err, "failed to copy trie nodes for %s", addrStr)
 	}
 
 	log.L().Info("exported contract storage",
 		zap.String("address", addrStr),
-		zap.Int("totalSlots", slotCount),
+		zap.Int("trieNodes", nodeCount),
+		zap.Int("storageSlots", leafCount),
 		zap.String("rootHash", fmt.Sprintf("%x", account.Root)),
 	)
-	return slotCount, nil
+	return nodeCount, leafCount, nil
 }
 
 func mustSerialize(s state.Serializer) []byte {
@@ -434,9 +358,10 @@ func main() {
 	}
 
 	// Export each contract
-	totalSlots := 0
+	totalNodes := 0
+	totalLeaves := 0
 	for _, addr := range addrs {
-		slots, err := exportContract(ctx, srcReader, outDAO, addr, srcReader.height)
+		nodes, leaves, err := exportContract(srcReader, outDAO, addr)
 		if err != nil {
 			log.L().Error("failed to export contract",
 				zap.String("address", addr.String()),
@@ -444,12 +369,14 @@ func main() {
 			)
 			continue
 		}
-		totalSlots += slots
+		totalNodes += nodes
+		totalLeaves += leaves
 	}
 
 	log.L().Info("export complete",
 		zap.Int("contracts", len(addrs)),
-		zap.Int("totalSlots", totalSlots),
+		zap.Int("trieNodes", totalNodes),
+		zap.Int("storageSlots", totalLeaves),
 		zap.Uint64("height", srcReader.height),
 		zap.String("output", _outputPath),
 	)
