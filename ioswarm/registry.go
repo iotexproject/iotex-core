@@ -50,12 +50,17 @@ func (r *Registry) Register(req *pb.RegisterRequest) (*AgentInfo, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Close old agent's channel if reconnecting
+	// If agent is reconnecting, reuse the existing channel so that
+	// any active GetTasks stream continues without interruption.
 	if old, ok := r.agents[req.AgentID]; ok {
-		old.CloseTaskChan()
+		old.Capability = req.Capability
+		old.Region = req.Region
+		old.Version = req.Version
+		old.LastHeartbeat = time.Now()
+		return old, true
 	}
 
-	if len(r.agents) >= r.maxAgents && r.agents[req.AgentID] == nil {
+	if len(r.agents) >= r.maxAgents {
 		return nil, false
 	}
 
