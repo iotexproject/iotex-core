@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"path/filepath"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -52,6 +53,9 @@ type Coordinator struct {
 
 	// State diff broadcaster for L4 agents
 	diffBroadcaster *StateDiffBroadcaster
+
+	// Persistent diff store (disk-backed) for catch-up
+	diffStore *DiffStore
 }
 
 // NewCoordinator creates a new IOSwarm coordinator.
@@ -64,7 +68,7 @@ func NewCoordinator(cfg Config, actPool ActPoolReader, stateReader StateReader, 
 	logger := o.logger
 
 	registry := NewRegistry(cfg.MaxAgents)
-	return &Coordinator{
+	coord := &Coordinator{
 		cfg:             cfg,
 		actPool:         actPool,
 		prefetcher:      NewPrefetcher(stateReader, logger),
@@ -75,13 +79,32 @@ func NewCoordinator(cfg Config, actPool ActPoolReader, stateReader StateReader, 
 		diffBroadcaster: NewStateDiffBroadcaster(cfg.DiffBufferSize, logger),
 		logger:          logger,
 	}
+
+	// Open persistent diff store if enabled
+	if cfg.DiffStoreEnabled {
+		path := cfg.DiffStorePath
+		if path == "" && o.dataDir != "" {
+			path = filepath.Join(o.dataDir, "statediffs.db")
+		}
+		if path != "" {
+			ds, err := OpenDiffStore(path, logger)
+			if err != nil {
+				logger.Error("failed to open diffstore, continuing without persistence", zap.Error(err))
+			} else {
+				coord.diffStore = ds
+			}
+		}
+	}
+
+	return coord
 }
 
 // Option configures the coordinator.
 type Option func(*options)
 
 type options struct {
-	logger *zap.Logger
+	logger  *zap.Logger
+	dataDir string // data directory for persistent stores
 }
 
 func defaultOptions() options {
@@ -95,6 +118,11 @@ func defaultOptions() options {
 // WithLogger sets the coordinator's logger.
 func WithLogger(l *zap.Logger) Option {
 	return func(o *options) { o.logger = l }
+}
+
+// WithDataDir sets the directory for persistent stores (e.g. statediffs.db).
+func WithDataDir(dir string) Option {
+	return func(o *options) { o.dataDir = dir }
 }
 
 // Start launches the coordinator's gRPC server and main polling loop.
@@ -202,6 +230,11 @@ func (c *Coordinator) Start(ctx context.Context) error {
 // to avoid blocking the node's shutdown sequence.
 func (c *Coordinator) Stop() {
 	c.logger.Info("stopping IOSwarm coordinator")
+	if c.diffStore != nil {
+		if err := c.diffStore.Close(); err != nil {
+			c.logger.Warn("diffstore close error", zap.Error(err))
+		}
+	}
 	if c.httpServer != nil {
 		shutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
@@ -597,6 +630,14 @@ func (c *Coordinator) ReceiveStateDiff(height uint64, entries []StateDiffEntry, 
 		Entries:     entries,
 		DigestBytes: digest,
 	}
+
+	// Persist to disk before broadcasting
+	if c.diffStore != nil {
+		if err := c.diffStore.Append(diff); err != nil {
+			c.logger.Error("failed to persist state diff", zap.Uint64("height", height), zap.Error(err))
+		}
+	}
+
 	c.diffBroadcaster.Publish(diff)
 	c.logger.Debug("state diff published",
 		zap.Uint64("height", height),
@@ -607,6 +648,11 @@ func (c *Coordinator) ReceiveStateDiff(height uint64, entries []StateDiffEntry, 
 // DiffBroadcaster returns the state diff broadcaster for gRPC streaming.
 func (c *Coordinator) DiffBroadcaster() *StateDiffBroadcaster {
 	return c.diffBroadcaster
+}
+
+// DiffStore returns the persistent diff store (may be nil if disabled).
+func (c *Coordinator) DiffStore() *DiffStore {
+	return c.diffStore
 }
 
 func parseTaskLevel(s string) pb.TaskLevel {

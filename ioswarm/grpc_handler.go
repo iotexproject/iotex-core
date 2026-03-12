@@ -305,17 +305,36 @@ func (h *grpcHandler) StreamStateDiffs(req *pb.StreamStateDiffsRequest, stream I
 	// Track the highest height we've sent for deduplication
 	var lastSentHeight uint64
 
-	// Send catch-up diffs from ring buffer if requested
+	// Send catch-up diffs: prefer persistent DiffStore, fall back to ring buffer
 	if req.FromHeight > 0 {
-		latest := broadcaster.LatestHeight()
-		if latest > 0 && req.FromHeight <= latest {
-			catchUp := broadcaster.GetRange(req.FromHeight, latest)
-			for _, diff := range catchUp {
-				resp := stateDiffToResponse(diff)
-				if err := stream.Send(resp); err != nil {
-					return err
+		diffStore := h.coord.DiffStore()
+		if diffStore != nil && diffStore.LatestHeight() > 0 && req.FromHeight <= diffStore.LatestHeight() {
+			// Use persistent store for catch-up (unlimited history)
+			catchUp, err := diffStore.GetRange(req.FromHeight, diffStore.LatestHeight())
+			if err != nil {
+				h.coord.logger.Warn("diffstore GetRange failed, falling back to ring buffer",
+					zap.Error(err))
+			} else {
+				for _, diff := range catchUp {
+					if err := stream.Send(stateDiffToResponse(diff)); err != nil {
+						return err
+					}
+					lastSentHeight = diff.Height
 				}
-				lastSentHeight = diff.Height
+			}
+		}
+		// Fall back to ring buffer if DiffStore didn't cover the range
+		if lastSentHeight < req.FromHeight {
+			latest := broadcaster.LatestHeight()
+			if latest > 0 && req.FromHeight <= latest {
+				catchUp := broadcaster.GetRange(req.FromHeight, latest)
+				for _, diff := range catchUp {
+					resp := stateDiffToResponse(diff)
+					if err := stream.Send(resp); err != nil {
+						return err
+					}
+					lastSentHeight = diff.Height
+				}
 			}
 		}
 	}

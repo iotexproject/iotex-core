@@ -12,8 +12,11 @@ type Config struct {
 	MasterSecret    string       `yaml:"masterSecret"`    // HMAC master secret for agent auth (empty = no auth)
 	DelegateAddress string       `yaml:"delegateAddress"` // delegate's IOTX address for reward payout
 	EpochRewardIOTX float64      `yaml:"epochRewardIOTX"` // IOTX per epoch for reward distribution (default 800)
-	DiffBufferSize  int          `yaml:"diffBufferSize"`  // ring buffer size for state diff broadcaster (default 100)
-	Reward          RewardConfig `yaml:"reward"`
+	DiffBufferSize   int          `yaml:"diffBufferSize"`   // ring buffer size for state diff broadcaster (default 100)
+	DiffStoreEnabled bool         `yaml:"diffStoreEnabled"` // persist state diffs to disk (default true for L4)
+	DiffStorePath    string       `yaml:"diffStorePath"`    // path to statediffs.db (default: <datadir>/statediffs.db)
+	DiffRetainHeight uint64       `yaml:"diffRetainHeight"` // prune diffs older than this many blocks (0 = keep all)
+	Reward           RewardConfig `yaml:"reward"`
 }
 
 // DefaultConfig returns a Config with sane defaults.
@@ -27,7 +30,8 @@ func DefaultConfig() Config {
 		ShadowMode:      true,
 		PollIntervalMS:  1000,
 		EpochRewardIOTX: 800,
-		DiffBufferSize:  100,
-		Reward:          DefaultRewardConfig(),
+		DiffBufferSize:   100,
+		DiffStoreEnabled: true,
+		Reward:           DefaultRewardConfig(),
 	}
 }
