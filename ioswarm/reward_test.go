@@ -143,10 +143,10 @@ func TestRewardEpochReset(t *testing.T) {
 	rd.RecordWork("ant-1", 100, 100, 1000)
 	rd.Distribute(iotx(50))
 
-	// After distribute, work should be reset
+	// After distribute, agents without wallets should be cleared
 	work := rd.CurrentWork()
 	if len(work) != 0 {
-		t.Fatalf("expected work reset after distribute, got %d entries", len(work))
+		t.Fatalf("expected no work entries (no wallet set), got %d", len(work))
 	}
 
 	// Epoch should advance
@@ -154,6 +154,51 @@ func TestRewardEpochReset(t *testing.T) {
 	summary := rd.Distribute(iotx(50))
 	if summary.Epoch != 1 {
 		t.Fatalf("expected epoch 1, got %d", summary.Epoch)
+	}
+}
+
+func TestRewardWalletSurvivesEpochReset(t *testing.T) {
+	logger := zap.NewNop()
+	cfg := DefaultRewardConfig()
+	rd := NewRewardDistributor(cfg, "", logger)
+
+	// Epoch 0: set wallet + do work (both above MinTasksForReward=10)
+	rd.SetAgentWallet("ant-1", "0xWallet1")
+	rd.SetAgentWallet("ant-2", "0xWallet2")
+	rd.RecordWork("ant-1", 20, 20, 500)
+	rd.RecordWork("ant-2", 15, 15, 300)
+
+	summary := rd.Distribute(iotx(50))
+	if len(summary.Payouts) != 2 {
+		t.Fatalf("epoch 0: expected 2 payouts, got %d", len(summary.Payouts))
+	}
+	for _, p := range summary.Payouts {
+		if p.WalletAddress == "" {
+			t.Fatalf("epoch 0: wallet empty for %s", p.AgentID)
+		}
+	}
+
+	// Epoch 1: only ant-1 does work, but both wallets should be preserved
+	rd.RecordWork("ant-1", 15, 15, 400)
+	summary = rd.Distribute(iotx(50))
+	if summary.Epoch != 1 {
+		t.Fatalf("expected epoch 1, got %d", summary.Epoch)
+	}
+	if len(summary.Payouts) != 1 {
+		t.Fatalf("epoch 1: expected 1 payout (only ant-1 worked), got %d", len(summary.Payouts))
+	}
+	if summary.Payouts[0].WalletAddress != "0xWallet1" {
+		t.Fatalf("epoch 1: expected wallet 0xWallet1, got %q", summary.Payouts[0].WalletAddress)
+	}
+
+	// Epoch 2: ant-2 does work — wallet should still be there from epoch 0
+	rd.RecordWork("ant-2", 12, 12, 200)
+	summary = rd.Distribute(iotx(50))
+	if len(summary.Payouts) != 1 {
+		t.Fatalf("epoch 2: expected 1 payout, got %d", len(summary.Payouts))
+	}
+	if summary.Payouts[0].WalletAddress != "0xWallet2" {
+		t.Fatalf("epoch 2: expected wallet 0xWallet2, got %q", summary.Payouts[0].WalletAddress)
 	}
 }
 

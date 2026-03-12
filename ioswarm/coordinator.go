@@ -572,10 +572,18 @@ func (c *Coordinator) distributeEpochReward() {
 		zap.Uint64("total_tasks", summary.TotalTasks))
 
 	// On-chain settlement: call depositAndSettle on the reward pool contract
+	c.logger.Info("settlement check",
+		zap.Bool("settler_nil", c.settler == nil),
+		zap.Int("payouts", len(summary.Payouts)),
+		zap.Uint64("epoch", summary.Epoch))
 	if c.settler != nil && len(summary.Payouts) > 0 {
 		agents := make([]string, 0, len(summary.Payouts))
 		weights := make([]*big.Int, 0, len(summary.Payouts))
 		for _, p := range summary.Payouts {
+			c.logger.Info("settlement payout entry",
+				zap.String("agent", p.AgentID),
+				zap.String("wallet", p.WalletAddress),
+				zap.Uint64("tasks", p.TasksDone))
 			if p.WalletAddress == "" {
 				continue
 			}
@@ -587,6 +595,9 @@ func (c *Coordinator) distributeEpochReward() {
 			weights = append(weights, big.NewInt(effectiveWeight))
 		}
 
+		c.logger.Info("settlement agents collected",
+			zap.Int("count", len(agents)),
+			zap.Strings("wallets", agents))
 		if len(agents) > 0 {
 			agentPool := new(big.Int).Set(summary.AgentPool)
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
