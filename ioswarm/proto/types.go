@@ -10,6 +10,7 @@ const (
 	TaskLevel_L1_SIG_VERIFY   TaskLevel = 0
 	TaskLevel_L2_STATE_VERIFY TaskLevel = 1
 	TaskLevel_L3_FULL_EXECUTE TaskLevel = 2
+	TaskLevel_L4_STATE_SYNC   TaskLevel = 3
 )
 
 // AccountSnapshot holds a point-in-time view of an account.

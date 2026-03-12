@@ -211,6 +211,8 @@ func levelStr(l pb.TaskLevel) string {
 		return "L2"
 	case pb.TaskLevel_L3_FULL_EXECUTE:
 		return "L3"
+	case pb.TaskLevel_L4_STATE_SYNC:
+		return "L4"
 	default:
 		return "unknown"
 	}
