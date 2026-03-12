@@ -598,8 +598,8 @@
 - [x] Total claimed: 16.673 IOTX (12 claims from various agents)
 - [x] Contract balance: 30.277 IOTX
 - [x] **Invariant: sum(deposits) == sum(claims) + balance → 46.95 = 46.95 — exact match (0 wei diff)**
-- [ ] `contractBalance == sum(deposited) - sum(claimed)`
-- [ ] This is the **golden test** — full ledger reconciliation
+- [x] `contractBalance (30.277) == sum(deposited) (46.95) - sum(claimed) (16.673)` — exact match
+- [x] **Golden test** — full ledger reconciliation PASS with 0 wei difference
 
 ### 9.9 Cross-Epoch Claim Timing ✅ (with caveat)
 - [x] Agent-01 worked across many epochs, accumulated rewards without claiming
@@ -642,7 +642,6 @@
 - [x] weight=25,000, rewardDebt=cumulativeRewardPerWeight, pending=5.390 IOTX
 - [x] F1 formula: `pending + weight × (cumulative - rewardDebt) / 1e18 = 5.390 + 0 = 5.390 IOTX`
 - [x] Matches `claimable()` return value exactly — F1 math verified correct
-- [ ] Verify on-chain claimable matches F1 math
 
 ### 10.5 Zero-Weight Edge Case in Contract ✅
 - [x] Called `claimable(0x0000...0001)` for never-registered address
