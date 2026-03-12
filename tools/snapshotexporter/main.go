@@ -20,6 +20,11 @@ import (
 // namespaces to export from trie.db
 var exportNamespaces = []string{"Account", "Code", "Contract"}
 
+// forEacher is implemented by both BoltDB and PebbleDB
+type forEacher interface {
+	ForEach(string, func([]byte, []byte) error) error
+}
+
 func main() {
 	source := flag.String("source", "", "path to trie.db (BoltDB)")
 	output := flag.String("output", "snapshot.bin.gz", "output snapshot file path")
@@ -38,30 +43,24 @@ func main() {
 func run(source, output string) error {
 	start := time.Now()
 
-	// Open trie.db read-only
-	cfg := db.Config{
-		DbPath:     source,
-		NumRetries: 1,
-		ReadOnly:   true,
+	// Open trie.db read-only (auto-detects BoltDB vs PebbleDB)
+	cfg := db.DefaultConfig
+	cfg.ReadOnly = true
+	kvStore, err := db.CreateKVStore(cfg, source)
+	if err != nil {
+		return fmt.Errorf("create kvstore: %w", err)
 	}
-	boltDB := db.NewBoltDB(cfg)
-	if err := boltDB.Start(context.Background()); err != nil {
+	if err := kvStore.Start(context.Background()); err != nil {
 		return fmt.Errorf("open trie.db: %w", err)
 	}
-	defer boltDB.Stop(context.Background())
+	defer kvStore.Stop(context.Background())
 
 	// Read current height from Account/"currentHeight"
-	heightBytes, err := boltDB.Get("Account", []byte("currentHeight"))
+	heightBytes, err := kvStore.Get("Account", []byte("currentHeight"))
 	if err != nil {
 		return fmt.Errorf("read currentHeight: %w", err)
 	}
-	var height uint64
-	if len(heightBytes) == 8 {
-		height = binary.BigEndian.Uint64(heightBytes)
-	} else {
-		// Try little-endian (iotex-core uses byteutil which is big-endian)
-		return fmt.Errorf("unexpected currentHeight length: %d bytes", len(heightBytes))
-	}
+	height := binary.BigEndian.Uint64(heightBytes)
 	log.Printf("source height: %d", height)
 
 	// Create output file
@@ -77,12 +76,18 @@ func run(source, output string) error {
 		return fmt.Errorf("create snapshot writer: %w", err)
 	}
 
+	// Type-assert to get ForEach (available on both BoltDB and PebbleDB)
+	fe, ok := kvStore.(forEacher)
+	if !ok {
+		return fmt.Errorf("kvstore does not support ForEach iteration")
+	}
+
 	// Export each namespace
 	for _, ns := range exportNamespaces {
 		log.Printf("exporting namespace: %s", ns)
 		nsCount := uint64(0)
 
-		err := boltDB.ForEach(ns, func(k, v []byte) error {
+		err := fe.ForEach(ns, func(k, v []byte) error {
 			if err := sw.WriteEntry(ns, k, v); err != nil {
 				return err
 			}
