@@ -1,7 +1,7 @@
 # IOSwarm Production Test Plan
 
-**Environment:** Delegate node `178.62.196.98` | Image: `raullen/iotex-core:ioswarm-v2` (v2.3.5 + IOSwarm + on-chain reward)
-**Date:** 2026-03-11
+**Environment:** Delegate node `178.62.196.98` | Image: `raullen/iotex-core:ioswarm-v3` (v2.3.5 + IOSwarm + on-chain reward + L4 state diff)
+**Date:** 2026-03-11 (Phases 1-10), 2026-03-12 (Phase 11)
 **Branch:** `ioswarm-v2.3.5`
 
 ---
@@ -262,7 +262,8 @@
 | **8** Security/Attack | Sybil, reentrancy, front-running | 10 | 10 | **100%** |
 | **9** Stress/Endurance | 100 agents, 1-hour run, memory | 2 | 10 | **20%** |
 | **10** Contract Verification | F1 math, events, balance invariant | 1 | 5 | **20%** |
-| | **Total** | **56** | **89** | **63%** |
+| **11** L4 State Diff & Snapshot | DiffStore, streaming, snapshot, full pipeline | 0 | 15 | **0%** |
+| | **Total** | **56** | **104** | **54%** |
 
 ---
 
@@ -633,6 +634,105 @@
 - [x] Called `claimable(0x0000...0001)` for never-registered address
 - [x] Returns 0 (no revert, no division-by-zero)
 - [x] Contract handles zero-weight agents gracefully
+
+---
+
+## Phase 11: L4 State Diff & Snapshot
+
+### 11.1 DiffStore Persistence
+- [ ] Verify `statediffs.db` is created on delegate at configured path
+- [ ] Restart delegate (`docker restart iotex`), check diffstore reopens with correct oldest/latest height
+- [ ] After 10 minutes, check file size is growing (new blocks appending diffs)
+
+### 11.2 State Diff Content Validation
+- [ ] Query DiffStore for a recent height via gRPC `StreamStateDiffs(fromHeight=tip-5)`
+- [ ] Each diff has: Height > 0, Entries[] non-empty, DigestBytes non-empty
+- [ ] Entry namespaces are valid: Account, Code, Contract, or _meta
+- [ ] WriteType is 0 (Put) or 1 (Delete)
+- [ ] No duplicate heights in consecutive diffs
+
+### 11.3 StreamStateDiffs — Live Streaming
+- [ ] Connect L4 agent to delegate's gRPC port (14689) with `StreamStateDiffs(fromHeight=tip)`
+- [ ] Agent receives new diffs as blocks are committed (within ~5s of block commit)
+- [ ] Heights are strictly monotonically increasing
+- [ ] Stream stays alive for >5 minutes without disconnect
+
+### 11.4 StreamStateDiffs — Historical Catch-Up
+- [ ] Connect agent with `fromHeight = tip - 100`
+- [ ] Agent receives catch-up diffs (heights tip-100 through tip) before switching to live
+- [ ] No gaps in height sequence during catch-up
+- [ ] Catch-up completes within a few seconds (not blocked by live stream)
+
+### 11.5 StreamStateDiffs — Late Join (Large Catch-Up)
+- [ ] Let delegate run for 30+ minutes accumulating diffs
+- [ ] Connect new agent with `fromHeight = 1` (or oldest available height)
+- [ ] Agent catches up from diffstore, then transitions to live
+- [ ] Verify: no gaps, no duplicates, memory usage stays bounded
+
+### 11.6 Multi-Agent State Diff Streaming
+- [ ] Connect 3 L4 agents simultaneously, each with different `fromHeight`
+- [ ] All 3 receive correct diffs independently (no cross-contamination)
+- [ ] Disconnect 1 agent — other 2 continue unaffected
+- [ ] Subscriber count in broadcaster matches active agents
+
+### 11.7 Agent Disconnect & Reconnect
+- [ ] Agent streaming live diffs, kill agent
+- [ ] Wait 30 seconds (miss ~6 blocks at 5s/block)
+- [ ] Reconnect with `fromHeight = lastReceivedHeight + 1`
+- [ ] Agent catches up missed blocks from diffstore, then resumes live
+- [ ] No gaps in agent's received height sequence
+
+### 11.8 DiffStore Pruning
+- [ ] Set `diffRetainHeight: 100` in config
+- [ ] Wait for >100 blocks
+- [ ] Verify oldest height in diffstore advances (old diffs pruned)
+- [ ] Agent requesting pruned height gets error or starts from oldest available
+
+### 11.9 Snapshot Export (IOSWSNAP Format)
+- [ ] Run `l4baseline --source trie.db --stats` — prints bucket stats
+- [ ] Run `l4baseline --source trie.db --output baseline.snap.gz`
+- [ ] Verify output file: correct magic header (IOSWSNAP), valid gzip
+- [ ] Import with `SnapshotReader` — all entries readable, SHA-256 digest matches
+- [ ] Entry count matches trailer count
+
+### 11.10 Snapshot Round-Trip Integrity
+- [ ] Export baseline snapshot from trie.db
+- [ ] Read back with `SnapshotReader`: verify height, entry count, digest
+- [ ] Spot-check: Account namespace entries are valid protobuf (account state)
+- [ ] Spot-check: Code namespace entries are non-empty bytecode
+- [ ] Compare entry count with `l4baseline --stats` output
+
+### 11.11 Snapshot + Diff Catch-Up (Full L4 Pipeline)
+- [ ] Agent loads baseline snapshot (height H)
+- [ ] Agent connects to delegate `StreamStateDiffs(fromHeight=H+1)`
+- [ ] Agent receives diffs from H+1 to current tip
+- [ ] Agent's local state matches delegate's current state at tip
+- [ ] This is the core L4 value proposition: snapshot + diffs = full state sync
+
+### 11.12 DiffStore Across Coordinator Restart
+- [ ] Delegate running, diffs accumulating (oldest=X, latest=Y)
+- [ ] `docker restart iotex`
+- [ ] Diffstore reopens: oldest=X, latest=Y (no data loss)
+- [ ] New blocks append diffs starting from Y+1 (no gap)
+- [ ] Agent reconnects and catches up from where it left off
+
+### 11.13 Diff Size & Performance
+- [ ] Measure average diff size per block (bytes) over 100 blocks
+- [ ] Measure statediffs.db growth rate (MB/hour)
+- [ ] Estimate disk usage for 1 day, 1 week, 1 month of diffs
+- [ ] Measure StreamStateDiffs bandwidth per agent (bytes/s)
+
+### 11.14 Broadcaster Backpressure (Slow Consumer)
+- [ ] Connect agent that sleeps 500ms per diff (simulating slow processing)
+- [ ] Broadcaster ring buffer (size 100) should drop old diffs for slow agent
+- [ ] Fast agents are unaffected
+- [ ] Slow agent eventually gets `fromHeight` ahead of its last received → detectable gap
+
+### 11.15 No L4 Agents — Zero Overhead
+- [ ] No L4 agents connected
+- [ ] Diffs still written to DiffStore (for future catch-up)
+- [ ] Broadcaster subscriber count = 0, no publish overhead
+- [ ] CPU/memory impact of diff generation is negligible
 
 ---
 
