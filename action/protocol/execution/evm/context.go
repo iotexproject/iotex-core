@@ -13,11 +13,15 @@ type (
 
 	tracerContextKey struct{}
 
+	// IsBlackListedFunc is the callback function to check if an address is blacklisted
+	IsBlackListedFunc func(addr string, height uint64) bool
+
 	// HelperContext is the context for EVM helper
 	HelperContext struct {
 		GetBlockHash   GetBlockHash
 		GetBlockTime   GetBlockTime
 		DepositGasFunc protocol.DepositGas
+		IsBlackListed  IsBlackListedFunc
 	}
 	// TracerContext is the context for EVM tracer
 	TracerContext struct {
