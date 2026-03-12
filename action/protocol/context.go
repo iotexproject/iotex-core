@@ -167,6 +167,10 @@ type (
 		CandidateBLSPublicKeyNotCopied          bool
 		OnlyOwnerCanUpdateBLSPublicKey          bool
 		PrePectraEVM                            bool
+		// AlwaysWriteCachedContract if true, CommitContracts writes back all cached
+		// contracts regardless of whether they were modified; if false, only dirty
+		// contracts are committed and written back
+		AlwaysWriteCachedContract               bool
 		NoCandidateExitQueue                    bool
 	}
 
@@ -339,6 +343,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CandidateBLSPublicKeyNotCopied:          !g.IsXinguBeta(height),
 			OnlyOwnerCanUpdateBLSPublicKey:          !g.IsToBeEnabled(height),
 			PrePectraEVM:                            !g.IsToBeEnabled(height),
+			AlwaysWriteCachedContract:               !g.IsToBeEnabled(height),
 			NoCandidateExitQueue:                    !g.IsToBeEnabled(height),
 		},
 	)

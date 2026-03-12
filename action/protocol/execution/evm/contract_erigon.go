@@ -71,6 +71,15 @@ func (c *contractErigon) SelfState() *state.Account {
 	return acc
 }
 
+// Dirty returns false because contractErigon does not track dirty state itself;
+// all mutations go directly into Erigon's IntraBlockState, which is persisted
+// separately via IntraBlockState.CommitBlock() at the block level.
+// In normal execution mode, contractErigon is wrapped inside contractAdapter
+// whose Dirty() is delegated to the embedded mptrie contract.
+func (c *contractErigon) Dirty() bool {
+	return false
+}
+
 func (c *contractErigon) Commit() error {
 	return nil
 }
