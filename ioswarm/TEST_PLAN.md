@@ -263,7 +263,8 @@
 | **9** Stress/Endurance | 100 agents, 1-hour run, memory | 4 | 10 | **40%** |
 | **10** Contract Verification | F1 math, events, balance invariant | 1 | 5 | **20%** |
 | **11** L4 State Diff & Snapshot | DiffStore, streaming, snapshot, full pipeline | 9 | 15 | **60%** |
-| | **Total** | **72** | **104** | **69%** |
+| **12** Concurrency & Hardening | Race detector, crash recovery, config validation | 1 | 5 | **20%** |
+| | **Total** | **73** | **109** | **67%** |
 
 ---
 
@@ -343,6 +344,7 @@
 | 11.14 | PASS | Unit tests: RingBuffer drops old diffs for slow consumer, NonBlockingPublish verified. | 2026-03-12 |
 | 9.2 | PASS | 2 agents sustained 33+ min, 34+ epochs, no crashes or disconnects. | 2026-03-12 |
 | 9.6 | PASS | 34 back-to-back epochs (epochBlocks=1), all strictly monotonic, no nonce collisions. | 2026-03-12 |
+| 12.1 | PASS* | Race detector: 19 warnings, all in upstream actpool (not IOSwarm). Zero IOSwarm races. | 2026-03-12 |
 | 7.1 | PASS | Code review: send failure resets nonce, error logged, epoch continues. Known Limitation #6. | 2026-03-12 |
 | 7.7 | PASS | Code review: length mismatch caught pre-tx, nonce only incremented after successful send. | 2026-03-12 |
 | 7.9 | PASS | Code review: 30s settlement timeout, 90s receipt timeout, both with proper context cleanup. | 2026-03-12 |
@@ -750,6 +752,40 @@
 - [x] Diffs still written to DiffStore (confirmed: catch-up from any historical height works)
 - [x] When no subscribers, broadcaster publishes to empty list (no overhead)
 - [x] Diff generation is part of block commit — negligible extra CPU
+
+---
+
+## Phase 12: Concurrency & Production Hardening
+
+### 12.1 Race Detector (`go test -race`) ✅
+- [x] Run `go test -race ./ioswarm/ -timeout 300s`
+- [x] 19 race warnings detected — ALL in upstream `actpool/accountpool.go` (pre-existing)
+- [x] Race: `PendingActionMap` reads priority queue while `Reset` writes (Less vs Swap concurrency)
+- [x] Zero races in IOSwarm code (coordinator, reward, diffstore, broadcaster, auth)
+- [x] IOSwarm's agentWork map, epochHistory, pendingPayouts all race-free
+
+### 12.2 DiffStore Consistency After Unclean Shutdown
+- [ ] Start coordinator, accumulate 50 diffs, kill -9 (simulate crash)
+- [ ] Reopen DiffStore: oldest/latest heights correct, no corrupt entries
+- [ ] Agent can catch up from any height in the store
+
+### 12.3 Nonce Tracking Across Coordinator Restarts
+- [ ] Coordinator sends depositAndSettle (nonce N), then restarts before receipt
+- [ ] After restart, `nonceLoaded = false` → re-fetches from chain
+- [ ] Next settlement uses correct nonce (N+1 if previous confirmed, N if not)
+
+### 12.4 Config Validation Edge Cases
+- [ ] Empty `masterSecret` → auth disabled, agents connect without tokens
+- [ ] `epochRewardIOTX: -1` → treated as 0 or defaults to 800
+- [ ] `maxAgents: 0` → no agents can register
+- [ ] `grpcPort: 0` → should fail gracefully
+
+### 12.5 Sustained 24-Hour Run
+- [ ] Run 5 agents for 24 hours (~2880 epochs at 30s each)
+- [ ] Monitor: memory growth via `docker stats`
+- [ ] Monitor: no goroutine leak (runtime.NumGoroutine stays bounded)
+- [ ] Monitor: DiffStore file size growth is linear, not exponential
+- [ ] All agents can claim accumulated rewards at end
 
 ---
 
