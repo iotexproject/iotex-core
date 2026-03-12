@@ -134,6 +134,10 @@ func (m *mockState) GetStorageAt(address, slot string) (string, error) {
 	return "0x0000000000000000000000000000000000000000000000000000000000000000", nil
 }
 
+func (m *mockState) SimulateAccessList(from, to string, data []byte, value string, gasLimit uint64) (map[string][]string, error) {
+	return nil, nil
+}
+
 // secp256k1N is the order of the secp256k1 curve used by IoTeX/Ethereum signatures.
 var secp256k1N, _ = new(big.Int).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16)
 

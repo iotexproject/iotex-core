@@ -145,6 +145,10 @@ func (s *simStateDB) GetStorageAt(address, slot string) (string, error) {
 	return "0x0000000000000000000000000000000000000000000000000000000000000000", nil
 }
 
+func (s *simStateDB) SimulateAccessList(from, to string, data []byte, value string, gasLimit uint64) (map[string][]string, error) {
+	return nil, nil
+}
+
 // --- Agent stats ---
 
 type agentStats struct {

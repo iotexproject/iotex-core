@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
 	"go.uber.org/zap"
@@ -317,14 +318,16 @@ func (c *Coordinator) pollAndDispatch() {
 
 		if snap, ok := stateMap[tx.From]; ok {
 			task.Sender = snap
+			task.Sender.Address = io1ToHex(task.Sender.Address)
 		} else {
-			task.Sender = &pb.AccountSnapshot{Address: tx.From}
+			task.Sender = &pb.AccountSnapshot{Address: io1ToHex(tx.From)}
 		}
 		if tx.To != "" {
 			if snap, ok := stateMap[tx.To]; ok {
 				task.Receiver = snap
+				task.Receiver.Address = io1ToHex(task.Receiver.Address)
 			} else {
-				task.Receiver = &pb.AccountSnapshot{Address: tx.To}
+				task.Receiver = &pb.AccountSnapshot{Address: io1ToHex(tx.To)}
 			}
 		}
 
@@ -634,9 +637,10 @@ func (c *Coordinator) enrichL3Task(task *pb.TaskPackage, tx *PendingTx, blockHei
 			c.logger.Error("panic in enrichL3Task", zap.Any("recover", r), zap.String("tx", tx.Hash))
 		}
 	}()
-	// Build EvmTx from PendingTx fields
+	// Build EvmTx from PendingTx fields (convert io1 addresses to 0x hex
+	// so the agent can use common.HexToAddress correctly)
 	task.EvmTx = &pb.EvmTx{
-		To:       tx.To,
+		To:       io1ToHex(tx.To),
 		Value:    tx.Amount,
 		Data:     tx.Data,
 		GasLimit: tx.GasLimit,
@@ -653,27 +657,74 @@ func (c *Coordinator) enrichL3Task(task *pb.TaskPackage, tx *PendingTx, blockHei
 		Timestamp: ts,
 		GasLimit:  30_000_000,
 		BaseFee:   "0",
-		Coinbase:  c.cfg.DelegateAddress,
+		Coinbase:  io1ToHex(c.cfg.DelegateAddress),
 	}
 
 	// Fetch contract bytecode and storage for receiver (if it has CodeHash)
 	if task.Receiver != nil && len(task.Receiver.CodeHash) > 0 && tx.To != "" {
-		codes := c.prefetcher.PrefetchCode([]string{tx.To})
-		if len(codes) > 0 {
-			task.ContractCode = codes
+		// Simulate EVM execution to discover all accessed storage slots and addresses.
+		// This pre-executes the tx read-only against current state to capture
+		// the exact slots the EVM touches (via EIP-2929 access list tracking).
+		accessedSlots, err := c.prefetcher.stateReader.SimulateAccessList(
+			tx.From, tx.To, tx.Data, tx.Amount, tx.GasLimit,
+		)
+		if err != nil {
+			c.logger.Warn("SimulateAccessList failed, falling back to slot 0",
+				zap.String("tx", tx.Hash), zap.Error(err))
+			// Fallback: prefetch slot 0 only
+			accessedSlots = map[string][]string{
+				tx.To: {"0x0000000000000000000000000000000000000000000000000000000000000000"},
+			}
+		} else {
+			totalSlots := 0
+			for _, s := range accessedSlots {
+				totalSlots += len(s)
+			}
+			c.logger.Debug("SimulateAccessList OK",
+				zap.String("tx", tx.Hash),
+				zap.Int("addresses", len(accessedSlots)),
+				zap.Int("totalSlots", totalSlots))
 		}
-		// Prefetch storage slots touched by this contract.
-		// In production, use static analysis or access lists to determine slots.
-		// For now, prefetch slot 0 (common for simple contracts).
-		storage := c.prefetcher.PrefetchStorage(tx.To, []string{
-			"0x0000000000000000000000000000000000000000000000000000000000000000",
-		})
-		if len(storage) > 0 {
-			task.StorageSlots = map[string]map[string]string{
-				tx.To: storage,
+
+		// Prefetch code for all accessed contract addresses (including cross-contract calls)
+		codeAddrs := []string{tx.To}
+		for addr := range accessedSlots {
+			if addr != tx.To {
+				codeAddrs = append(codeAddrs, addr)
+			}
+		}
+		codes := c.prefetcher.PrefetchCode(codeAddrs)
+		// Re-key ContractCode map from io1 → 0x hex
+		if len(codes) > 0 {
+			task.ContractCode = make(map[string][]byte, len(codes))
+			for addr, code := range codes {
+				task.ContractCode[io1ToHex(addr)] = code
+			}
+		}
+
+		// Prefetch all discovered storage slots, re-keying to 0x hex
+		task.StorageSlots = make(map[string]map[string]string)
+		for addr, slots := range accessedSlots {
+			if len(slots) == 0 {
+				continue
+			}
+			storage := c.prefetcher.PrefetchStorage(addr, slots)
+			if len(storage) > 0 {
+				task.StorageSlots[io1ToHex(addr)] = storage
 			}
 		}
 	}
+}
+
+// io1ToHex converts an io1-format address to its 0x-hex representation.
+// This is necessary because the agent uses common.HexToAddress() which only
+// works with hex addresses, not bech32-encoded io1 addresses.
+func io1ToHex(addr string) string {
+	ioAddr, err := address.FromString(addr)
+	if err != nil {
+		return addr // return as-is if not parseable
+	}
+	return "0x" + hex.EncodeToString(ioAddr.Bytes())
 }
 
 // ReceiveStateDiff is called by the stateDB diff callback after each block commit.

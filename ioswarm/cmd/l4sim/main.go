@@ -803,3 +803,6 @@ type noopStateReader struct{}
 func (n *noopStateReader) AccountState(_ string) (*pb.AccountSnapshot, error) { return nil, nil }
 func (n *noopStateReader) GetCode(_ string) ([]byte, error)                   { return nil, nil }
 func (n *noopStateReader) GetStorageAt(_, _ string) (string, error)           { return "", nil }
+func (n *noopStateReader) SimulateAccessList(_, _ string, _ []byte, _ string, _ uint64) (map[string][]string, error) {
+	return nil, nil
+}

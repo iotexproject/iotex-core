@@ -119,17 +119,23 @@ func NewStateReaderAdapter(sf factory.Factory, bc blockchain.Blockchain, g genes
 	return &StateReaderAdapter{sf: sf, bc: bc, genesis: g, logger: logger}
 }
 
-// chainCtx returns a context with both genesis and blockchain info attached
-// (required by WorkingSet and EVM operations).
+// chainCtx returns a context with genesis, blockchain, and tip info attached
+// (required by WorkingSet, EVM operations, and EIP-1559 base fee calculation).
 func (s *StateReaderAdapter) chainCtx() context.Context {
-	ctx := genesis.WithGenesisContext(context.Background(), s.genesis)
-	return protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Tip: protocol.TipInfo{
-			Height: s.bc.TipHeight(),
-		},
-		ChainID:      s.bc.ChainID(),
-		EvmNetworkID: s.bc.EvmNetworkID(),
-	})
+	ctx, err := s.bc.Context(context.Background())
+	if err != nil {
+		// Fallback to minimal context if blockchain context fails
+		s.logger.Warn("failed to get blockchain context, using minimal", zap.Error(err))
+		ctx = genesis.WithGenesisContext(context.Background(), s.genesis)
+		return protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Tip: protocol.TipInfo{
+				Height: s.bc.TipHeight(),
+			},
+			ChainID:      s.bc.ChainID(),
+			EvmNetworkID: s.bc.EvmNetworkID(),
+		})
+	}
+	return ctx
 }
 
 // AccountState reads the confirmed account state from the stateDB.
@@ -209,4 +215,86 @@ func (s *StateReaderAdapter) GetStorageAt(addr, slot string) (val string, err er
 		return "", err
 	}
 	return "0x" + hex.EncodeToString(raw), nil
+}
+
+// SimulateAccessList runs a read-only EVM simulation and returns all storage
+// slots accessed during execution, keyed by contract address (io1 format).
+func (s *StateReaderAdapter) SimulateAccessList(from, to string, data []byte, value string, gasLimit uint64) (result map[string][]string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.Error("panic in SimulateAccessList",
+				zap.String("from", from), zap.String("to", to), zap.Any("recover", r))
+			result, err = nil, fmt.Errorf("SimulateAccessList panic: %v", r)
+		}
+	}()
+
+	callerAddr, err := address.FromString(from)
+	if err != nil {
+		return nil, fmt.Errorf("invalid caller address: %w", err)
+	}
+
+	amt := big.NewInt(0)
+	if value != "" && value != "0" {
+		var ok bool
+		amt, ok = new(big.Int).SetString(value, 10)
+		if !ok {
+			return nil, fmt.Errorf("invalid value: %s", value)
+		}
+	}
+
+	ctx := s.chainCtx()
+
+	// Add EVM helper context required by newParams() — use blockchain context
+	// helpers for GetBlockHash/GetBlockTime, and a no-op DepositGas for simulation.
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash: bcCtx.GetBlockHash,
+		GetBlockTime: bcCtx.GetBlockTime,
+		DepositGasFunc: func(ctx context.Context, sm protocol.StateManager, amount *big.Int, opts ...protocol.DepositOption) ([]*action.TransactionLog, error) {
+			return nil, nil
+		},
+	})
+
+	ws, err := s.sf.WorkingSet(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get working set: %w", err)
+	}
+	defer ws.Close()
+
+	// Read account state to get correct nonce (required by EVM security deposit check)
+	callerState, err := accountutil.AccountState(ctx, ws, callerAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read caller state: %w", err)
+	}
+	nonce := callerState.PendingNonce()
+
+	ex := action.NewExecution(to, amt, data)
+	elp := (&action.EnvelopeBuilder{}).
+		SetGasLimit(gasLimit).
+		SetNonce(nonce).
+		SetAction(ex).
+		Build()
+
+	slots, err := evm.SimulateAndCollectAccessList(ctx, ws, callerAddr, elp)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert common.Address/Hash to hex strings
+	result = make(map[string][]string, len(slots))
+	for addr, hashes := range slots {
+		addrHex := "0x" + hex.EncodeToString(addr.Bytes())
+		// Convert EVM address to io1 format for consistency
+		ioAddr, convErr := address.FromBytes(addr.Bytes())
+		key := addrHex
+		if convErr == nil {
+			key = ioAddr.String()
+		}
+		slotStrs := make([]string, 0, len(hashes))
+		for _, h := range hashes {
+			slotStrs = append(slotStrs, "0x"+hex.EncodeToString(h.Bytes()))
+		}
+		result[key] = slotStrs
+	}
+	return result, nil
 }

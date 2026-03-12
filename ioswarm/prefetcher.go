@@ -28,6 +28,9 @@ type StateReader interface {
 	AccountState(address string) (*pb.AccountSnapshot, error)
 	GetCode(address string) ([]byte, error)           // contract bytecode
 	GetStorageAt(address, slot string) (string, error) // storage slot value (hex)
+	// SimulateAccessList runs a read-only EVM simulation and returns all storage
+	// slots accessed by the transaction. Returns nil map if not supported.
+	SimulateAccessList(from, to string, data []byte, value string, gasLimit uint64) (map[string][]string, error)
 }
 
 // ActPoolReader is the interface for reading pending transactions.

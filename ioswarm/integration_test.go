@@ -60,6 +60,9 @@ func (m *mockState) AccountState(address string) (*pb.AccountSnapshot, error) {
 
 func (m *mockState) GetCode(address string) ([]byte, error)           { return nil, nil }
 func (m *mockState) GetStorageAt(address, slot string) (string, error) { return "", nil }
+func (m *mockState) SimulateAccessList(from, to string, data []byte, value string, gasLimit uint64) (map[string][]string, error) {
+	return nil, nil
+}
 
 // buildMockTxRaw creates a fake serialized tx with valid-looking ECDSA sig.
 func buildMockTxRaw() []byte {
