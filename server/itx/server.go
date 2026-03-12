@@ -45,6 +45,7 @@ type Server struct {
 	nodeStats            *nodestats.NodeStats
 	pauseMgr             *PauseMgr
 	initializedSubChains map[uint32]bool
+	stopHeightController *stopHeightController
 	mutex                sync.RWMutex
 	subModuleCancel      context.CancelFunc
 }
@@ -109,6 +110,10 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	apiServers := make(map[uint32]*api.ServerV2)
 	var cs *chainservice.ChainService
 	builder := chainservice.NewBuilder(cfg)
+	stopHeightCtl := newStopHeightController(cfg.System.StopAtHeight)
+	if stopHeightCtl != nil {
+		builder.SetStopAtHeightHandler(stopHeightCtl.markReached)
+	}
 	builder.SetP2PAgent(p2pAgent)
 	rpcStats := nodestats.NewAPILocalStats()
 	builder.SetRPCStats(rpcStats)
@@ -145,6 +150,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		nodeStats:            nodeStats,
 		pauseMgr:             pauseMgr,
 		initializedSubChains: map[uint32]bool{},
+		stopHeightController: stopHeightCtl,
 	}
 	// Setup sub-chain starter
 	// TODO: sub-chain infra should use main-chain API instead of protocol directly
@@ -297,6 +303,13 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		}()
 	}
 
+	if stopCtl := svr.stopHeightController; stopCtl != nil {
+		if tipHeight := svr.rootChainService.Blockchain().TipHeight(); tipHeight >= stopCtl.target {
+			svr.pauseMgr.Pause(true)
+			stopCtl.markReached(tipHeight)
+		}
+	}
+
 	var adminserv http.Server
 	if cfg.System.HTTPAdminPort > 0 {
 		mux := http.NewServeMux()
@@ -332,10 +345,33 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		}()
 	}
 
-	<-ctx.Done()
+	select {
+	case <-ctx.Done():
+	case <-svr.stopHeightDone():
+		svr.pauseMgr.Pause(true)
+		log.L().Info(
+			"Stop height reached, shutting down server.",
+			zap.Uint64("stopHeight", cfg.System.StopAtHeight),
+			zap.Uint64("height", svr.stopHeightReached()),
+		)
+	}
 	if probeSvr.IsReady() {
 		if err := probeSvr.TurnOff(); err != nil {
 			log.L().Panic("Failed to turn off probe server.", zap.Error(err))
 		}
 	}
+}
+
+func (s *Server) stopHeightDone() <-chan struct{} {
+	if s.stopHeightController == nil {
+		return nil
+	}
+	return s.stopHeightController.doneCh()
+}
+
+func (s *Server) stopHeightReached() uint64 {
+	if s.stopHeightController == nil {
+		return 0
+	}
+	return s.stopHeightController.reachedHeight()
 }

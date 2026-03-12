@@ -7,6 +7,7 @@ chain:
     dbPath: /var/data/poll.db
 system:
   systemLogDBPath: /var/log/systemlog.db
+  stopAtHeight: 0
 log:
   zap:
     level: info

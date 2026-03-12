@@ -137,8 +137,11 @@ type (
 		timerFactory   *prometheustimer.TimerFactory
 
 		// used by account-based model
-		bbf   BlockMinter
-		pause bool
+		bbf                  BlockMinter
+		pause                bool
+		stopAtHeight         uint64
+		stopAtHeightHandler  func(uint64)
+		stopAtHeightHandlerW sync.Once
 	}
 )
 
@@ -179,6 +182,16 @@ func BlockValidatorOption(blockValidator block.Validator) Option {
 func ClockOption(clk clock.Clock) Option {
 	return func(bc *blockchain) error {
 		bc.clk = clk
+		return nil
+	}
+}
+
+// StopAtHeightOption pauses the blockchain after the target height is committed
+// and invokes the given handler exactly once.
+func StopAtHeightOption(height uint64, handler func(uint64)) Option {
+	return func(bc *blockchain) error {
+		bc.stopAtHeight = height
+		bc.stopAtHeightHandler = handler
 		return nil
 	}
 }
@@ -577,6 +590,19 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	_blockMtc.WithLabelValues("excessBlobGas").Set(float64(blk.ExcessBlobGas()))
 	_blockMtc.WithLabelValues("blobGasUsed").Set(float64(blk.BlobGasUsed()))
 	_blockMtc.WithLabelValues("gasUsed").Set(float64(blk.GasUsed()))
+	if bc.stopAtHeight > 0 && blk.Height() >= bc.stopAtHeight {
+		bc.pause = true
+		bc.stopAtHeightHandlerW.Do(func() {
+			log.L().Info(
+				"Reached configured stop height, blockchain paused.",
+				zap.Uint64("stopHeight", bc.stopAtHeight),
+				zap.Uint64("height", blk.Height()),
+			)
+			if bc.stopAtHeightHandler != nil {
+				bc.stopAtHeightHandler(blk.Height())
+			}
+		})
+	}
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
 	return nil

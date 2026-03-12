@@ -53,8 +53,9 @@ import (
 
 // Builder is a builder to build chainservice
 type Builder struct {
-	cfg config.Config
-	cs  *ChainService
+	cfg                 config.Config
+	cs                  *ChainService
+	stopAtHeightHandler func(uint64)
 }
 
 // NewBuilder creates a new chainservice builder
@@ -62,6 +63,12 @@ func NewBuilder(cfg config.Config) *Builder {
 	builder := &Builder{cfg: cfg}
 	builder.createInstance()
 
+	return builder
+}
+
+// SetStopAtHeightHandler sets the callback invoked when the configured stop height is committed.
+func (builder *Builder) SetStopAtHeightHandler(handler func(uint64)) *Builder {
+	builder.stopAtHeightHandler = handler
 	return builder
 }
 
@@ -531,6 +538,12 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(block.NewValidator(builder.cs.factory, builder.cs.actpool)))
 	} else {
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(builder.cs.factory))
+	}
+	if builder.cfg.System.StopAtHeight > 0 {
+		chainOpts = append(
+			chainOpts,
+			blockchain.StopAtHeightOption(builder.cfg.System.StopAtHeight, builder.stopAtHeightHandler),
+		)
 	}
 	var mintOpts []factory.MintOption
 	if builder.cfg.Consensus.Scheme == config.RollDPoSScheme {

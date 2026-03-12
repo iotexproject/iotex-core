@@ -43,6 +43,7 @@ var (
 	_overwritePath string
 	_secretPath    string
 	_subChainPath  string
+	_stopAtHeight  uint64
 	_plugins       strs
 )
 
@@ -64,6 +65,7 @@ func init() {
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
+	flag.Uint64Var(&_stopAtHeight, "stop-at-height", 0, "Stop the node cleanly after committing the specified height")
 	flag.Var(&_plugins, "plugin", "Plugin of the node")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
@@ -79,7 +81,6 @@ func main() {
 	signal.Notify(stop, os.Interrupt)
 	signal.Notify(stop, syscall.SIGTERM)
 	ctx, cancel := context.WithCancel(context.Background())
-	stopped := make(chan struct{})
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
 
 	genesisCfg, err := genesis.New(_genesisPath)
@@ -100,6 +101,9 @@ func main() {
 	cfg, err := config.New([]string{_overwritePath, _secretPath}, _plugins)
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
+	}
+	if _stopAtHeight > 0 {
+		cfg.System.StopAtHeight = _stopAtHeight
 	}
 	if err = initLogger(cfg); err != nil {
 		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
@@ -131,15 +135,7 @@ func main() {
 	}
 	go func() {
 		<-stop
-		// start stopping
 		cancel()
-		<-stopped
-
-		// liveness end
-		if err := probeSvr.Stop(livenessCtx); err != nil {
-			log.L().Error("Error when stopping probe server.", zap.Error(err))
-		}
-		livenessCancel()
 	}()
 
 	if cfg.System.MptrieLogPath != "" {
@@ -175,7 +171,10 @@ func main() {
 	}
 
 	itx.StartServer(ctx, svr, probeSvr, cfg)
-	close(stopped)
+	if err := probeSvr.Stop(livenessCtx); err != nil {
+		log.L().Error("Error when stopping probe server.", zap.Error(err))
+	}
+	livenessCancel()
 	<-livenessCtx.Done()
 }
 

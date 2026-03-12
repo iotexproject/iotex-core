@@ -77,6 +77,7 @@ var (
 			HeartbeatInterval:     10 * time.Second,
 			HTTPStatsPort:         8080,
 			HTTPAdminPort:         0,
+			StopAtHeight:          0,
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/log",
 		},
@@ -108,6 +109,7 @@ type (
 		// Active is the status of the node. True means active and false means stand-by
 		Active            bool          `yaml:"active"`
 		HeartbeatInterval time.Duration `yaml:"heartbeatInterval"`
+		StopAtHeight      uint64        `yaml:"stopAtHeight"`
 		// HTTPProfilingPort is the port number to access golang performance profiling data of a blockchain node. It is
 		// 0 by default, meaning performance profiling has been disabled
 		HTTPAdminPort         int           `yaml:"httpAdminPort"`
