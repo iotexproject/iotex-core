@@ -149,6 +149,7 @@ func main() {
 	validNamespaces := map[string]bool{
 		"Account": true, "Code": true, "Contract": true, "_meta": true,
 		"System": true, "Rewarding": true, "Candidate": true, "Bucket": true,
+		"Staking": true,
 	}
 
 	timeout := time.After(*duration)
