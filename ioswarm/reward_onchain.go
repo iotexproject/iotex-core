@@ -129,8 +129,8 @@ func (s *OnChainSettler) Settle(ctx context.Context, agents []string, weights []
 		return fmt.Errorf("suggest gas price: %w", err)
 	}
 
-	// Gas limit: base 60k + 30k per agent
-	gasLimit := uint64(60000 + 30000*len(agents))
+	// Gas limit: base 200k + 80k per agent (previous 60k+30k caused OOG reverts)
+	gasLimit := uint64(200000 + 80000*len(agents))
 	if gasLimit > 8000000 {
 		gasLimit = 8000000
 	}
