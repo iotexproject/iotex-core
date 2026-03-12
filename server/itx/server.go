@@ -155,6 +155,10 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if cfg.IOSwarm.Enabled {
 		var coordOpts []ioswarm.Option
 		// On-chain reward settlement (optional)
+		log.L().Info("IOSwarm: reward config",
+			zap.String("rewardContract", cfg.IOSwarm.RewardContract),
+			zap.Bool("hasSignerKey", cfg.IOSwarm.RewardSignerKey != ""),
+			zap.String("rewardRpcUrl", cfg.IOSwarm.RewardRPCURL))
 		if cfg.IOSwarm.RewardContract != "" {
 			settler, err := ioswarm.NewOnChainSettler(cfg.IOSwarm, log.L())
 			if err != nil {
@@ -163,7 +167,13 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 				coordOpts = append(coordOpts, ioswarm.WithRewardSettler(settler))
 				log.L().Info("IOSwarm: on-chain reward settlement enabled",
 					zap.String("contract", cfg.IOSwarm.RewardContract))
+			} else {
+				log.L().Warn("IOSwarm: settler is nil (rewardSignerKey may be empty)",
+					zap.String("contract", cfg.IOSwarm.RewardContract),
+					zap.Bool("hasSignerKey", cfg.IOSwarm.RewardSignerKey != ""))
 			}
+		} else {
+			log.L().Info("IOSwarm: on-chain reward settlement disabled (no rewardContract)")
 		}
 		svr.ioswarmCoord = ioswarm.NewCoordinator(
 			cfg.IOSwarm,
