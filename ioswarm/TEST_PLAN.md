@@ -349,6 +349,7 @@
 | 7.7 | PASS | Code review: length mismatch caught pre-tx, nonce only incremented after successful send. | 2026-03-12 |
 | 11.9 | BLOCKED | Mainnet trie.db uses old MPT format (single 20-byte hash bucket), not StateDB namespace format. | 2026-03-12 |
 | 11.10 | PASS | Snapshot round-trip via DiffStore: l4sim exportSnapshot → SnapshotReader reimport, counts+digest match. | 2026-03-12 |
+| 12.1b | PASS | l4sim stress: 10 agents, 9/9 checks pass. Disconnect/reconnect, slow consumer, quit isolation all verified. | 2026-03-12 |
 | 7.9 | PASS | Code review: 30s settlement timeout, 90s receipt timeout, both with proper context cleanup. | 2026-03-12 |
 
 ---
@@ -769,6 +770,14 @@ format with flat namespace buckets (Account/Code/Contract).
 - [x] Race: `PendingActionMap` reads priority queue while `Reset` writes (Less vs Swap concurrency)
 - [x] Zero races in IOSwarm code (coordinator, reward, diffstore, broadcaster, auth)
 - [x] IOSwarm's agentWork map, epochHistory, pendingPayouts all race-free
+
+### 12.1b L4 Multi-Agent Stress Simulation (`l4sim`) ✅
+- [x] 10 agents: full online, snapshot join, late join (40%/60%/80%), disconnect/reconnect (10s/20s/multi), quit, slow consumer
+- [x] 9/9 checks PASS at 1m/100ms blocks (600 blocks, 10 agents concurrent)
+- [x] 9/9 checks PASS with `-race` at 30s/200ms blocks — zero data races in IOSwarm
+- [x] Checks: DiffStore completeness, snapshot round-trip, no-gap streaming, reconnect catch-up, tip tracking, slow consumer survival, quit isolation, broadcaster cleanup, no panic
+- [x] Agent-08 (quit) disconnected at 40% progress, all other agents unaffected
+- [x] Agent-09 (slow, 50ms/diff) processed all diffs without crash
 
 ### 12.2 DiffStore Consistency After Unclean Shutdown
 - [ ] Start coordinator, accumulate 50 diffs, kill -9 (simulate crash)
