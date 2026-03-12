@@ -272,15 +272,7 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 						return err
 					}
 					if l.ExistInBloomFilterv2(br.BloomFilter) {
-						searchStart := br.Start()
-						if start > searchStart {
-							searchStart = start
-						}
-						searchEnd := br.End()
-						if end < searchEnd {
-							searchEnd = end
-						}
-						blkNums[job.idx] = l.SelectBlocksFromRangeBloomFilter(br.BloomFilter, searchStart, searchEnd)
+						blkNums[job.idx] = l.SelectBlocksFromRangeBloomFilter(br.BloomFilter, max(start, br.Start()), min(end, br.End()))
 					}
 					bufPool.Put(br)
 				}

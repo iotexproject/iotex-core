@@ -903,12 +903,8 @@ func (core *coreService) RawBlocks(startHeight uint64, count uint64, withReceipt
 	if startHeight > tipHeight {
 		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
 	}
-	endHeight := startHeight + count - 1
-	if endHeight > tipHeight {
-		endHeight = tipHeight
-	}
 	var res []*iotexapi.BlockInfo
-	for height := startHeight; height <= endHeight; height++ {
+	for height := startHeight; height <= min(startHeight+count-1, tipHeight); height++ {
 		blk, err := core.dao.GetBlockByHeight(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
