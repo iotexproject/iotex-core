@@ -598,6 +598,9 @@ func filterCandidates(
 	unqualifiedList *vote.ProbationList,
 	epochStartHeight uint64,
 ) (state.CandidateList, error) {
+	if unqualifiedList == nil || unqualifiedList.ProbationInfo == nil {
+		return candidates, nil
+	}
 	candidatesMap := make(map[string]*state.Candidate)
 	updatedVotingPower := make(map[string]*big.Int)
 	intensityRate := float64(uint32(100)-unqualifiedList.IntensityRate) / float64(100)
