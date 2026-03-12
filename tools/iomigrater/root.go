@@ -46,6 +46,7 @@ func Execute() {
 
 func init() {
 	RootCmd.AddCommand(cmd.CheckHeight)
+	RootCmd.AddCommand(cmd.CheckShards)
 	RootCmd.AddCommand(cmd.MigrateDb)
 
 	RootCmd.HelpFunc()
