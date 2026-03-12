@@ -29,6 +29,7 @@ type Coordinator struct {
 	scheduler  *Scheduler
 	shadow     *ShadowComparator
 	reward     *RewardDistributor
+	settler    RewardSettler // on-chain settlement (nil = disabled)
 	logger     *zap.Logger
 	grpcServer *grpc.Server
 	httpServer *http.Server
@@ -76,6 +77,7 @@ func NewCoordinator(cfg Config, actPool ActPoolReader, stateReader StateReader, 
 		scheduler:       NewScheduler(registry, logger),
 		shadow:          NewShadowComparator(logger),
 		reward:          NewRewardDistributor(cfg.Reward, cfg.DelegateAddress, logger),
+		settler:         o.settler,
 		diffBroadcaster: NewStateDiffBroadcaster(cfg.DiffBufferSize, logger),
 		logger:          logger,
 	}
@@ -105,6 +107,7 @@ type Option func(*options)
 type options struct {
 	logger  *zap.Logger
 	dataDir string // data directory for persistent stores
+	settler RewardSettler
 }
 
 func defaultOptions() options {
@@ -123,6 +126,12 @@ func WithLogger(l *zap.Logger) Option {
 // WithDataDir sets the directory for persistent stores (e.g. statediffs.db).
 func WithDataDir(dir string) Option {
 	return func(o *options) { o.dataDir = dir }
+}
+
+// WithRewardSettler sets the on-chain reward settler.
+// When set, distributeEpochReward will call depositAndSettle on the contract.
+func WithRewardSettler(s RewardSettler) Option {
+	return func(o *options) { o.settler = s }
 }
 
 // Start launches the coordinator's gRPC server and main polling loop.
@@ -561,6 +570,40 @@ func (c *Coordinator) distributeEpochReward() {
 		zap.Uint64("epoch", summary.Epoch),
 		zap.Int("agents", summary.AgentCount),
 		zap.Uint64("total_tasks", summary.TotalTasks))
+
+	// On-chain settlement: call depositAndSettle on the reward pool contract
+	if c.settler != nil && len(summary.Payouts) > 0 {
+		agents := make([]string, 0, len(summary.Payouts))
+		weights := make([]*big.Int, 0, len(summary.Payouts))
+		for _, p := range summary.Payouts {
+			if p.WalletAddress == "" {
+				continue
+			}
+			agents = append(agents, p.WalletAddress)
+			effectiveWeight := int64(p.TasksDone) * 1000
+			if p.BonusApplied {
+				effectiveWeight = int64(float64(p.TasksDone) * c.cfg.Reward.BonusMultiplier * 1000)
+			}
+			weights = append(weights, big.NewInt(effectiveWeight))
+		}
+
+		if len(agents) > 0 {
+			agentPool := new(big.Int).Set(summary.AgentPool)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			if err := c.settler.Settle(ctx, agents, weights, agentPool); err != nil {
+				c.logger.Error("on-chain settlement failed",
+					zap.Uint64("epoch", summary.Epoch),
+					zap.Error(err))
+			} else {
+				c.logger.Info("on-chain settlement submitted",
+					zap.Uint64("epoch", summary.Epoch),
+					zap.Int("agents", len(agents)),
+					zap.String("value", FormatIOTX(agentPool)))
+			}
+		}
+	}
 }
 
 // consumePayout removes and returns a pending payout for the agent, if any.

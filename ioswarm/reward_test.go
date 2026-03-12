@@ -34,14 +34,14 @@ func TestRewardBasicDistribution(t *testing.T) {
 	expectedDelegateCut := iotx(10)
 	if summary.DelegateCut.Cmp(expectedDelegateCut) != 0 {
 		t.Fatalf("expected delegate cut %s, got %s",
-			formatIOTX(expectedDelegateCut), formatIOTX(summary.DelegateCut))
+			FormatIOTX(expectedDelegateCut), FormatIOTX(summary.DelegateCut))
 	}
 
 	// Agent pool = 90 IOTX
 	expectedPool := iotx(90)
 	if summary.AgentPool.Cmp(expectedPool) != 0 {
 		t.Fatalf("expected agent pool %s, got %s",
-			formatIOTX(expectedPool), formatIOTX(summary.AgentPool))
+			FormatIOTX(expectedPool), FormatIOTX(summary.AgentPool))
 	}
 
 	// ant-2 did 200 tasks (50% of 400 total) → ~45 IOTX
@@ -125,7 +125,7 @@ func TestRewardAccuracyBonus(t *testing.T) {
 	// Perfect should get more
 	if perfectPayout.Amount.Cmp(sloppyPayout.Amount) <= 0 {
 		t.Fatalf("expected ant-perfect > ant-sloppy, got %s vs %s",
-			formatIOTX(perfectPayout.Amount), formatIOTX(sloppyPayout.Amount))
+			FormatIOTX(perfectPayout.Amount), FormatIOTX(sloppyPayout.Amount))
 	}
 
 	if perfectPayout.Share < 55 || perfectPayout.Share > 65 {
@@ -178,8 +178,8 @@ func TestReward100AgentsScenario(t *testing.T) {
 	summary := rd.Distribute(iotx(800))
 
 	t.Logf("Epoch #%d: %d agents, %d tasks", summary.Epoch, summary.AgentCount, summary.TotalTasks)
-	t.Logf("Delegate cut: %s IOTX", formatIOTX(summary.DelegateCut))
-	t.Logf("Agent pool:   %s IOTX", formatIOTX(summary.AgentPool))
+	t.Logf("Delegate cut: %s IOTX", FormatIOTX(summary.DelegateCut))
+	t.Logf("Agent pool:   %s IOTX", FormatIOTX(summary.AgentPool))
 
 	if summary.AgentCount != 100 {
 		t.Fatalf("expected 100 eligible agents, got %d", summary.AgentCount)

@@ -252,9 +252,9 @@ func (r *RewardDistributor) Distribute(totalReward *big.Int) *EpochSummary {
 
 	r.logger.Info("epoch reward distributed",
 		zap.Uint64("epoch", r.currentEpoch),
-		zap.String("total", formatIOTX(totalReward)),
-		zap.String("delegate_cut", formatIOTX(delegateCut)),
-		zap.String("agent_pool", formatIOTX(agentPool)),
+		zap.String("total", FormatIOTX(totalReward)),
+		zap.String("delegate_cut", FormatIOTX(delegateCut)),
+		zap.String("agent_pool", FormatIOTX(agentPool)),
 		zap.Int("eligible_agents", len(eligible)),
 		zap.Uint64("total_tasks", totalTasks))
 
@@ -308,7 +308,7 @@ func PrintPayoutTable(summary *EpochSummary) string {
 	var s string
 	s += fmt.Sprintf("Epoch #%d Reward Distribution\n", summary.Epoch)
 	s += fmt.Sprintf("Total: %s IOTX | Delegate: %s | Agent Pool: %s\n",
-		formatIOTX(summary.TotalReward), formatIOTX(summary.DelegateCut), formatIOTX(summary.AgentPool))
+		FormatIOTX(summary.TotalReward), FormatIOTX(summary.DelegateCut), FormatIOTX(summary.AgentPool))
 	s += fmt.Sprintf("Eligible: %d agents | Tasks: %d\n\n", summary.AgentCount, summary.TotalTasks)
 
 	s += fmt.Sprintf("%-24s %8s %8s %7s %8s %s\n",
@@ -328,7 +328,8 @@ func PrintPayoutTable(summary *EpochSummary) string {
 	return s
 }
 
-func formatIOTX(rau *big.Int) string {
+// FormatIOTX formats a rau amount as a human-readable IOTX string.
+func FormatIOTX(rau *big.Int) string {
 	f := new(big.Float).SetInt(rau)
 	f.Quo(f, new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)))
 	result, _ := f.Float64()

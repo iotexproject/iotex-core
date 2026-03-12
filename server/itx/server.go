@@ -153,10 +153,23 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 
 	// IOSwarm coordinator (optional)
 	if cfg.IOSwarm.Enabled {
+		var coordOpts []ioswarm.Option
+		// On-chain reward settlement (optional)
+		if cfg.IOSwarm.RewardContract != "" {
+			settler, err := ioswarm.NewOnChainSettler(cfg.IOSwarm, log.L())
+			if err != nil {
+				log.L().Warn("IOSwarm: failed to create on-chain settler", zap.Error(err))
+			} else if settler != nil {
+				coordOpts = append(coordOpts, ioswarm.WithRewardSettler(settler))
+				log.L().Info("IOSwarm: on-chain reward settlement enabled",
+					zap.String("contract", cfg.IOSwarm.RewardContract))
+			}
+		}
 		svr.ioswarmCoord = ioswarm.NewCoordinator(
 			cfg.IOSwarm,
 			ioswarm.NewActPoolAdapter(cs.ActionPool(), cs.Blockchain()),
 			ioswarm.NewStateReaderAdapter(cs.StateFactory(), cs.Blockchain(), cfg.Genesis),
+			coordOpts...,
 		)
 		// Subscribe to block events for shadow comparison
 		if err := cs.Blockchain().AddSubscriber(svr.ioswarmCoord); err != nil {

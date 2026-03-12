@@ -12,6 +12,13 @@ type Config struct {
 	MasterSecret    string       `yaml:"masterSecret"`    // HMAC master secret for agent auth (empty = no auth)
 	DelegateAddress string       `yaml:"delegateAddress"` // delegate's IOTX address for reward payout
 	EpochRewardIOTX float64      `yaml:"epochRewardIOTX"` // IOTX per epoch for reward distribution (default 800)
+
+	// On-chain reward pool settlement
+	RewardContract  string  `yaml:"rewardContract"`  // AgentRewardPool contract address (empty = disabled)
+	RewardSignerKey string  `yaml:"rewardSignerKey"` // hex private key for signing depositAndSettle txs
+	RewardRPCURL    string  `yaml:"rewardRpcUrl"`    // RPC endpoint (default: https://babel-api.mainnet.iotex.io)
+	RewardChainID   int64   `yaml:"rewardChainId"`   // chain ID (default: 4689 for IoTeX mainnet)
+
 	DiffBufferSize   int          `yaml:"diffBufferSize"`   // ring buffer size for state diff broadcaster (default 100)
 	DiffStoreEnabled bool         `yaml:"diffStoreEnabled"` // persist state diffs to disk (default true for L4)
 	DiffStorePath    string       `yaml:"diffStorePath"`    // path to statediffs.db (default: <datadir>/statediffs.db)
