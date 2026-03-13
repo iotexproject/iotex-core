@@ -112,10 +112,10 @@ func (w *wrappedStream) Context() context.Context {
 
 // tokenHTTPMiddleware wraps an http.Handler to require HMAC-based auth.
 // The header X-Ioswarm-Agent-Id and X-Ioswarm-Token must be present.
-// /healthz is always allowed without auth.
+// /healthz and /api/stats are always allowed without auth.
 func tokenHTTPMiddleware(masterSecret string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/healthz" {
+		if r.URL.Path == "/healthz" || r.URL.Path == "/api/stats" {
 			next.ServeHTTP(w, r)
 			return
 		}
