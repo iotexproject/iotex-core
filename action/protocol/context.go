@@ -166,6 +166,8 @@ type (
 		CandidateSlashByOwner                   bool
 		CandidateBLSPublicKeyNotCopied          bool
 		OnlyOwnerCanUpdateBLSPublicKey          bool
+		PrePectraEVM                            bool
+		NoCandidateExitQueue                    bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -178,6 +180,7 @@ type (
 		CalculateProbationList   CheckFunc
 		LoadCandidatesLegacy     CheckFunc
 		CandCenterHasAlias       CheckFunc
+		CandidateWithoutIdentity CheckFunc
 	}
 )
 
@@ -335,6 +338,8 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CandidateSlashByOwner:                   !g.IsXinguBeta(height),
 			CandidateBLSPublicKeyNotCopied:          !g.IsXinguBeta(height),
 			OnlyOwnerCanUpdateBLSPublicKey:          !g.IsToBeEnabled(height),
+			PrePectraEVM:                            !g.IsToBeEnabled(height),
+			NoCandidateExitQueue:                    !g.IsToBeEnabled(height),
 		},
 	)
 }
@@ -392,6 +397,9 @@ func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 			},
 			CandCenterHasAlias: func(height uint64) bool {
 				return !g.IsOkhotsk(height)
+			},
+			CandidateWithoutIdentity: func(height uint64) bool {
+				return !g.IsToBeEnabled(height)
 			},
 		},
 	)

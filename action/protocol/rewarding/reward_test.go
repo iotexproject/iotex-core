@@ -604,12 +604,16 @@ func TestProtocol_CalculateReward(t *testing.T) {
 		{unit.ConvertIotxToRau(12), false, dardanellesBlockReward, unit.ConvertIotxToRau(20), unit.ConvertIotxToRau(12)},
 		{unit.ConvertIotxToRau(3), true, wakeBlockReward, big.NewInt(0).Add(unit.ConvertIotxToRau(3), wakeBlockReward), unit.ConvertIotxToRau(3)},
 		{unit.ConvertIotxToRau(6), true, wakeBlockReward, big.NewInt(0).Add(unit.ConvertIotxToRau(6), wakeBlockReward), unit.ConvertIotxToRau(6)},
+		// {unit.ConvertIotxToRau(3), true, (&big.Int{}).Sub(wakeBlockReward, unit.ConvertIotxToRau(3)), wakeBlockReward, unit.ConvertIotxToRau(3)},
+		// {unit.ConvertIotxToRau(6), true, (&big.Int{}).SetInt64(0), unit.ConvertIotxToRau(6), unit.ConvertIotxToRau(6)},
 	} {
 		testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 			// update block reward
 			g := genesis.MustExtractGenesisContext(ctx)
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			blkCtx.AccumulatedTips.Set(tv.accumuTips)
+			_, err := sm.PutState(&rewardHistory{}, protocol.NamespaceOption(_v2RewardingNamespace), protocol.KeyOption([]byte("test")))
+			req.NoError(err)
 			if tv.isWakeBlock {
 				g.WakeBlockRewardStr = wakeBlockReward.String()
 				blkCtx.BlockHeight = g.WakeBlockHeight

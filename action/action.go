@@ -6,6 +6,7 @@
 package action
 
 import (
+	"bytes"
 	"context"
 	"math"
 	"math/big"
@@ -22,6 +23,7 @@ const (
 	AccessListTxType = 1
 	DynamicFeeTxType = 2
 	BlobTxType       = 3
+	SetCodeTxType    = 4
 )
 
 type (
@@ -111,10 +113,25 @@ func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSi
 	return payloadSize*payloadGas + baseIntrinsicGas, nil
 }
 
+// FloorDataGas computes the minimum gas required for a transaction based on its data tokens (EIP-7623).
+func FloorDataGas(data []byte) (uint64, error) {
+	var (
+		z      = uint64(bytes.Count(data, []byte{0}))
+		nz     = uint64(len(data)) - z
+		tokens = nz*TxTokenPerNonZeroByte + z
+	)
+	// Check for overflow
+	if (math.MaxUint64-TxGas)/TxCostFloorPerToken < tokens {
+		return 0, ErrGasUintOverflow
+	}
+	// Minimum gas required for a transaction based on its data tokens (EIP-7623).
+	return TxGas + tokens*TxCostFloorPerToken, nil
+}
+
 // IsSystemAction determine whether input action belongs to system action
 func IsSystemAction(act *SealedEnvelope) bool {
 	switch act.Action().(type) {
-	case *GrantReward, *PutPollResult:
+	case *GrantReward, *PutPollResult, *ScheduleCandidateDeactivation:
 		return true
 	default:
 		return false

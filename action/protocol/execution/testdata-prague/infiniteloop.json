@@ -1,0 +1,27 @@
+{
+    "initGenesis": {
+        "isPrague": true
+    },
+    "initBalances": [{
+        "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+        "rawBalance": "100000000000000000000000"
+    }],
+    "deployments": [{
+        "rawGasPrice": "2000000000000"
+    }],
+    "executions": [
+        {"rawGasPrice": "2000000000000", 
+            "expectedBalances": [{
+                "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+                "rawBalance": "99999608328000000000000"
+            }]
+        },
+        {"rawExpectedGasConsumed": 19000, "rawGasPrice": "2000000000000"},
+        {"rawGasPrice": "2000000000000",
+            "expectedBalances": [{
+                "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+                "rawBalance": "99989608328000000000000"
+            }]
+        }
+    ]
+}

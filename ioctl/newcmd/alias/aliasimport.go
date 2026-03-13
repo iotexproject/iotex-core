@@ -93,7 +93,7 @@ func NewAliasImport(c ioctl.Client) *cobra.Command {
 				message.ImportedNumber++
 			}
 			if err := c.WriteConfig(); err != nil {
-				return errors.Wrapf(err, failToWriteToConfigFile)
+				return errors.Wrap(err, failToWriteToConfigFile)
 			}
 
 			line := fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", message.ImportedNumber, message.TotalNumber)
