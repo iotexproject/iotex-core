@@ -5,17 +5,17 @@ Agents evolve from transaction validators to block builders, following Ethereum'
 ## Motivation
 
 Current IOSwarm: agents validate individual transactions → Coordinator assembles block.
-The L3 shadow accuracy is ~14% because agents lack sufficient state to execute EVM.
+L3 shadow accuracy has reached **100%** on mainnet via `SimulateAccessList` (EVM simulation-based storage prefetch, 230+ txs verified).
 
-Instead of patching state delivery for per-tx validation, we introduce stateful agents and progressively evolve them toward full block building:
+To achieve fully independent validation (no coordinator-provided state), we introduce stateful agents and progressively evolve them toward full block building:
 
 | Level | Capability | State Requirement |
 |-------|-----------|-------------------|
-| L1-L3 (current) | Per-tx validation, stateless | None / partial snapshots from coordinator |
-| **L4 (next)** | **Per-tx EVM execution, full state, 100% accuracy** | **Full hot state via snapshot + diffs** |
+| L1-L3 (current) | Per-tx validation, stateless (L3 = 100% via SimulateAccessList) | None / coordinator-provided state snapshots |
+| **L4 (next)** | **Per-tx EVM execution, full local state, independent validation** | **Full hot state via snapshot + diffs** |
 | **L5 (future)** | **Full block building (ePBS)** | **Full hot state + mempool access** |
 
-**L4 is the immediate target** — it solves the 14% accuracy problem with minimal architectural risk. L5 (block building) builds on the same state infrastructure.
+**L4 is the immediate target** — it gives agents fully independent state so they don't depend on coordinator-provided snapshots. L5 (block building) builds on the same state infrastructure.
 
 ## Role Mapping (L5 Target)
 
@@ -358,7 +358,7 @@ NOW                        L4                              L5
  ▼  Infrastructure          ▼  Prove accuracy               ▼  Prove block building
 ```
 
-**L4 is the milestone that unlocks value**: solving the 14% accuracy problem, proving agents can match delegate execution 100%. L5 is an evolution on top of proven L4 infrastructure.
+**L4 is the milestone that unlocks value**: agents own their state independently, no longer depending on coordinator-provided snapshots. L3 already achieves 100% accuracy via SimulateAccessList; L4 makes agents self-sufficient. L5 is an evolution on top of proven L4 infrastructure.
 
 ## Comparison with Current Architecture
 
@@ -367,7 +367,7 @@ NOW                        L4                              L5
 | Agent state | None / partial | Full hot state (~300MB-1.2GB) | Full hot state |
 | Agent work | Validate 1 tx | Validate 1 tx with full EVM | Build entire block |
 | Delegate work | Everything | Execute + verify agent results | Re-execute winner block |
-| L3 accuracy | ~14% | **100%** | 100% |
+| L3 accuracy | **100%** (SimulateAccessList) | **100%** (independent) | 100% |
 | MEV | Delegate only | Delegate only | Delegate-controlled (Phase 1) |
 | Trust model | Shadow comparison | Shadow comparison | Re-execute → Optimistic + slash |
 | Agent cost | $5/mo VPS, <64MB RAM | $5-10/mo VPS, ~1-2 GB RAM | $10-20/mo VPS |
@@ -425,7 +425,7 @@ Agent startup flow:
 
 Minimal change — swap the EVM state source.
 
-Current L3: `evm.go` reads from `MemStateDB` populated by coordinator per-task snapshots (~10 KB/tx → 14% accuracy).
+Current L3: `evm.go` reads from `MemStateDB` populated by coordinator per-task snapshots (state prefetched via `SimulateAccessList` → 100% accuracy).
 
 L4: `evm.go` reads from local Pebble state store (full chain state → 100% accuracy).
 
@@ -502,4 +502,4 @@ Each stage delivers independently: Stage 0 gives agents state access (useful bey
 - [EIP-7805: FOCIL (Fork-Choice Enforced Inclusion Lists)](https://eips.ethereum.org/EIPS/eip-7805)
 - [Ethereum PBS Roadmap](https://ethereum.org/roadmap/pbs)
 - [IoTeX State Architecture: trie.db namespaces](../state/factory/)
-- [IOSwarm Current Architecture](./doc.md)
+- [IOSwarm Coordinator README](./README.md)
