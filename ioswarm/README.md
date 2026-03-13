@@ -29,6 +29,54 @@ Delegate Machine
        $5/mo VPS       home Mac mini   $5/mo VPS
 ```
 
+## Quick Start
+
+### For Delegates: Enable IOSwarm on your node
+
+```bash
+# 1. Pull the IOSwarm-enabled iotex-core image
+docker pull raullen/iotex-core:ioswarm-v9
+
+# 2. Add ioswarm config to your config.yaml (see Delegate Deployment Guide below)
+
+# 3. Restart your delegate with ports 14689 (gRPC) and 14690 (HTTP API) exposed
+docker run -d --name iotex \
+  -p 4689:4689 -p 14014:14014 -p 14689:14689 -p 14690:14690 \
+  -v /data:/var/data \
+  -v /etc/iotex/config.yaml:/etc/iotex/config_override.yaml \
+  raullen/iotex-core:ioswarm-v9
+
+# 4. Verify coordinator is running
+curl http://localhost:14690/swarm/status
+```
+
+### For Agent Operators: Run an L4 agent
+
+```bash
+# 1. Build the agent
+git clone https://github.com/iotexproject/ioswarm-agent.git && cd ioswarm-agent
+go build -o ioswarm-agent .
+
+# 2. Download bootstrap snapshot (~209 MB, one-time)
+curl -O https://ts.iotex.me/acctcode.snap.gz
+
+# 3. Get your agent ID + API key from the delegate operator
+
+# 4. Start the agent
+./ioswarm-agent \
+  --coordinator=<delegate-ip>:14689 \
+  --agent-id=<your-id> \
+  --api-key=iosw_<your-key> \
+  --level=L4 \
+  --snapshot=./acctcode.snap.gz \
+  --datadir=./l4state \
+  --wallet=<your-iotx-address>
+```
+
+First boot loads the snapshot (~10s). After that, the agent syncs state diffs in real-time and processes transaction validation tasks. Subsequent restarts recover from local state in <200ms.
+
+See the [ioswarm-agent Operator Guide](https://github.com/iotexproject/ioswarm-agent/blob/main/README.md) for full details.
+
 ## Source Layout
 
 | File | Purpose |
@@ -359,7 +407,7 @@ L4 stateful agents are the foundation for L5 block building, following Ethereum'
 | Level | Capability | Status |
 |-------|-----------|--------|
 | L1-L3 | Per-tx validation, stateless (L3 = 100% via SimulateAccessList) | Production |
-| **L4** | Per-tx EVM execution, full local state, independent validation | **Production** (99.5% accuracy) |
+| **L4** | Per-tx EVM execution, full local state, independent validation | **Production** (100% accuracy post-restart, 99.5% over 24h soak) |
 | L5 | Full block building (ePBS) | Design phase |
 
 ### Key Advantage: deltaStateDigest
