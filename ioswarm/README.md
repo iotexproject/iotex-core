@@ -69,6 +69,16 @@ Delegate Machine
 | `l4_node_test.go` | L4 node lifecycle |
 | `l4_stress_test.go` | L4 stress/chaos testing |
 
+### CLI Tools (`cmd/`)
+
+| Tool | Usage | Purpose |
+|------|-------|---------|
+| `l4baseline` | `go run ./ioswarm/cmd/l4baseline --source trie.db --output snap.gz` | Export IOSWSNAP snapshot from trie.db for L4 agent bootstrap. Supports `--stats` (inspect only), `--namespaces` (filter), `--timeout` (safety kill). Opens BoltDB read-only with flock timeout to avoid blocking iotex-server. |
+| `keygen` | `go run ./ioswarm/cmd/keygen --secret <master> --agent-id <id>` | Generate HMAC-SHA256 API key for an agent from the delegate's master secret. |
+| `sim` | `go run ./ioswarm/cmd/sim --agents=10 --duration=30s` | L1-L3 simulation: starts a mock coordinator + N agents with synthetic IoTeX workload (transfers, contract calls, staking). |
+| `l4sim` | `go run ./ioswarm/cmd/l4sim --agents=10 --duration=60s` | L4 multi-agent stress test with state diffs, kill/restart, and accuracy checks. 9/9 checks PASS, race-clean. |
+| `l4test` | `go run ./ioswarm/cmd/l4test --coordinator=host:14689` | Live validation tool: connects to a running coordinator's `StreamStateDiffs` and verifies diff format and ordering. |
+
 ## Validation Levels
 
 | Level | What the agent does | State provided by coordinator |
