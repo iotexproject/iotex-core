@@ -13,6 +13,7 @@ import (
 // SwarmAPI serves HTTP endpoints for monitoring the IOSwarm.
 // Endpoints:
 //
+//	GET /api/stats         — public network stats (CORS-enabled, no auth)
 //	GET /swarm/status      — overall swarm status
 //	GET /swarm/agents      — list all connected agents
 //	GET /swarm/leaderboard — agents ranked by tasks processed
@@ -37,6 +38,7 @@ func NewSwarmAPI(coord *Coordinator, reward *RewardDistributor) *SwarmAPI {
 // Handler returns an http.Handler with all swarm routes registered.
 func (s *SwarmAPI) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api/stats", cors(s.handlePublicStats))
 	mux.HandleFunc("/swarm/status", s.handleStatus)
 	mux.HandleFunc("/swarm/agents", s.handleAgents)
 	mux.HandleFunc("/swarm/leaderboard", s.handleLeaderboard)
@@ -44,6 +46,60 @@ func (s *SwarmAPI) Handler() http.Handler {
 	mux.HandleFunc("/swarm/shadow", s.handleShadow)
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	return mux
+}
+
+// cors wraps a handler with permissive CORS headers for public endpoints.
+func cors(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// handlePublicStats returns a summary of the swarm for community dashboards.
+// This endpoint is unauthenticated and CORS-enabled.
+func (s *SwarmAPI) handlePublicStats(w http.ResponseWriter, r *http.Request) {
+	agents := s.coord.registry.LiveAgents(60 * time.Second)
+	shadow := s.coord.ShadowStats()
+
+	// Count agents by level
+	byLevel := make(map[string]int)
+	for _, a := range agents {
+		byLevel[levelStr(a.Capability)]++
+	}
+
+	// Aggregate epoch work
+	work := s.reward.CurrentWork()
+	var totalTasks, totalCorrect uint64
+	for _, w := range work {
+		totalTasks += w.TasksProcessed
+		totalCorrect += w.TasksCorrect
+	}
+
+	stats := map[string]interface{}{
+		"active_agents":    len(agents),
+		"agents_by_level":  byLevel,
+		"tasks_dispatched": s.coord.totalDispatched.Load(),
+		"tasks_received":   s.coord.totalReceived.Load(),
+		"shadow_accuracy":  shadowAccuracy(shadow),
+		"shadow_compared":  shadow.TotalCompared,
+		"shadow_matched":   shadow.TotalMatched,
+		"current_epoch":    s.reward.CurrentEpoch(),
+		"epoch_tasks":      totalTasks,
+		"epoch_accuracy":   epochAccuracy(totalTasks, totalCorrect),
+		"task_level":       s.coord.cfg.TaskLevel,
+		"uptime":           time.Since(s.startAt).Round(time.Second).String(),
+		"updated_at":       time.Now().Unix(),
+	}
+
+	w.Header().Set("Cache-Control", "public, max-age=30")
+	writeJSON(w, stats)
 }
 
 func (s *SwarmAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
@@ -223,4 +279,11 @@ func shadowAccuracy(s ShadowStats) float64 {
 		return 0
 	}
 	return float64(s.TotalMatched) / float64(s.TotalCompared) * 100
+}
+
+func epochAccuracy(total, correct uint64) float64 {
+	if total == 0 {
+		return 0
+	}
+	return float64(correct) / float64(total) * 100
 }

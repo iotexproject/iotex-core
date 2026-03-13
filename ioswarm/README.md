@@ -154,13 +154,14 @@ See the [ioswarm-agent README](https://github.com/iotexproject/ioswarm-agent) fo
 ### Step 7 — Monitor your swarm
 
 ```bash
-# Swarm status
+# Public stats (CORS-enabled, no auth — safe to expose to community dashboards)
+curl http://localhost:14690/api/stats
+
+# Swarm status (detailed)
 curl http://localhost:14690/swarm/status
 
 # Connected agents
-curl http://localhost:14690/swarm/agents \
-  -H "X-Ioswarm-Agent-Id: <agent-id>" \
-  -H "X-Ioswarm-Token: iosw_<key>"
+curl http://localhost:14690/swarm/agents
 
 # Shadow accuracy
 curl http://localhost:14690/swarm/shadow
@@ -168,6 +169,30 @@ curl http://localhost:14690/swarm/shadow
 # Agent leaderboard
 curl http://localhost:14690/swarm/leaderboard
 ```
+
+### Public Stats API
+
+`GET /api/stats` returns a JSON summary designed for community dashboards and landing pages. It requires no authentication and includes CORS headers (`Access-Control-Allow-Origin: *`).
+
+```json
+{
+  "active_agents": 47,
+  "agents_by_level": {"L3": 35, "L4": 12},
+  "tasks_dispatched": 128473,
+  "tasks_received": 128470,
+  "shadow_accuracy": 99.87,
+  "shadow_compared": 100000,
+  "shadow_matched": 99876,
+  "current_epoch": 24,
+  "epoch_tasks": 4562,
+  "epoch_accuracy": 99.83,
+  "task_level": "L4",
+  "uptime": "24h12m30s",
+  "updated_at": 1710340200
+}
+```
+
+Response is cached for 30 seconds (`Cache-Control: public, max-age=30`).
 
 ### What happens after you enable ioSwarm
 
@@ -342,7 +367,7 @@ svr.ioswarmCoord.SetupStateDiffCallback(cs.StateFactory())
 | `shadow.go` | Compare agent results vs actual block receipts, track accuracy |
 | `grpc_handler.go` | gRPC service: Register, GetTasks (server-stream), SubmitResults, Heartbeat, StreamStateDiffs |
 | `auth.go` | HMAC-SHA256 agent authentication |
-| `swarm_api.go` | HTTP API for monitoring (`:14690`) |
+| `swarm_api.go` | HTTP API for monitoring (`:14690`), including public `/api/stats` |
 | `reward.go` | Epoch-based reward calculation (weight = tasks x accuracy bonus) |
 | `reward_onchain.go` | On-chain `depositAndSettle()` to AgentRewardPool contract |
 | `statediff.go` | State diff capture from stateDB commits and broadcasting to L4 agents |
