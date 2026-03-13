@@ -52,8 +52,32 @@ curl http://localhost:14690/swarm/status
 
 ### For Agent Operators: Run an L4 agent
 
+**Option A: Docker (recommended — no Go toolchain needed)**
+
 ```bash
-# 1. Build the agent
+# 1. Download bootstrap snapshot (~209 MB, one-time)
+curl -O https://ts.iotex.me/acctcode.snap.gz
+
+# 2. Get your agent ID + API key from the delegate operator
+
+# 3. Start the agent
+docker run -d --name ioswarm-agent --restart=always \
+  -v $(pwd)/acctcode.snap.gz:/data/acctcode.snap.gz \
+  -v $(pwd)/l4state:/data/l4state \
+  raullen/ioswarm-agent:latest \
+  --coordinator=<delegate-ip>:14689 \
+  --agent-id=<your-id> \
+  --api-key=iosw_<your-key> \
+  --level=L4 \
+  --snapshot=/data/acctcode.snap.gz \
+  --datadir=/data/l4state \
+  --wallet=<your-iotx-address>
+```
+
+**Option B: Build from source**
+
+```bash
+# 1. Build the agent (requires Go 1.23+)
 git clone https://github.com/iotexproject/ioswarm-agent.git && cd ioswarm-agent
 go build -o ioswarm-agent .
 
@@ -433,5 +457,6 @@ For detailed L5 design, see [design-epbs-block-building.md](design-epbs-block-bu
 | Repository | Description |
 |------------|-------------|
 | [ioswarm-agent](https://github.com/iotexproject/ioswarm-agent) | Agent binary (L1-L4 validation, claim/deploy/fund tools) |
+| [`raullen/ioswarm-agent`](https://hub.docker.com/r/raullen/ioswarm-agent) | Agent Docker image (no Go toolchain needed) |
 | [ioswarm-portal](https://github.com/iotexproject/ioswarm-portal) | Dashboard and monitoring UI |
 | [IIP-58](https://github.com/iotexproject/iips/pull/64) | IOSwarm protocol specification |
