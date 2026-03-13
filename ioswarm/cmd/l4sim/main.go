@@ -795,7 +795,7 @@ func (jsonCodec) Name() string                              { return "proto" }
 
 type noopActPool struct{}
 
-func (n *noopActPool) PendingActions() []*ioswarm.PendingTx { return nil }
+func (n *noopActPool) PendingActions() []*pb.PendingAction { return nil }
 func (n *noopActPool) BlockHeight() uint64                  { return 0 }
 
 type noopStateReader struct{}

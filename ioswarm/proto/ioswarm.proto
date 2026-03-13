@@ -118,3 +118,128 @@ message PayoutInfo {
   int32  rank = 3;
   int32  total_agents = 4;
 }
+
+// ============== L5 Block Building Service ==============
+
+// L5BlockBuilding service - coordinator ↔ L5 agent communication for block building
+service L5BlockBuilding {
+  // Agent requests a block template to build
+  rpc GetBlockTemplate(GetBlockTemplateRequest) returns (BlockTemplate);
+
+  // Agent submits a built block candidate
+  rpc SubmitBlockCandidate(SubmitBlockCandidateRequest) returns (SubmitBlockCandidateResponse);
+
+  // Agent registers as an L5 block builder
+  rpc RegisterL5(RegisterL5Request) returns (RegisterL5Response);
+
+  // Agent heartbeat for L5 (includes block building stats)
+  rpc HeartbeatL5(HeartbeatL5Request) returns (HeartbeatL5Response);
+}
+
+// Block template sent to L5 agents for building
+message BlockTemplate {
+  uint64 block_height = 1;
+  bytes parent_hash = 2;
+  uint64 timestamp = 3;
+  string producer_address = 4;
+  repeated PendingAction pending_actions = 5;
+  BlockContext block_context = 6;
+}
+
+// Pending action from actpool
+message PendingAction {
+  string hash = 1;
+  string from = 2;
+  string to = 3;
+  uint64 nonce = 4;
+  uint64 gas_limit = 5;
+  string gas_price = 6;  // big.Int as string
+  bytes raw_bytes = 7;   // serialized SealedEnvelope
+}
+
+// Block context for EVM execution
+message BlockContext {
+  uint64 gas_limit = 1;
+  string base_fee = 2;  // big.Int as string
+  string coinbase = 3;  // block producer address
+}
+
+// Block candidate submitted by L5 agent
+message BlockCandidate {
+  string agent_id = 1;
+  uint64 block_height = 2;
+  bytes block_proto = 3;       // serialized iotextypes.Block
+  repeated ReceiptData receipts = 4;
+  uint64 gas_used = 5;
+  uint32 tx_count = 6;
+  uint64 timestamp = 7;
+  bytes signature = 8;         // agent's signature on block hash
+  bytes block_hash = 9;        // for verification
+}
+
+// Receipt data for transmission
+message ReceiptData {
+  uint64 status = 1;
+  uint64 gas_used = 2;
+  string contract_address = 3;
+  repeated LogEntry logs = 4;
+}
+
+// Log entry from EVM execution
+message LogEntry {
+  string address = 1;
+  repeated string topics = 2;
+  bytes data = 3;
+}
+
+// Request for block template
+message GetBlockTemplateRequest {
+  string agent_id = 1;
+  uint64 last_built_height = 2;  // last height agent built (for tracking)
+}
+
+// Request to submit block candidate
+message SubmitBlockCandidateRequest {
+  string agent_id = 1;
+  BlockCandidate candidate = 2;
+}
+
+// Response for block candidate submission
+message SubmitBlockCandidateResponse {
+  bool accepted = 1;
+  string reason = 2;
+  double reward = 3;  // IOTX reward if accepted
+}
+
+// Request to register as L5 agent
+message RegisterL5Request {
+  string agent_id = 1;
+  string wallet_address = 2;  // for reward payouts
+  string region = 3;
+  string version = 4;
+  uint32 capability_flags = 5;  // future extensibility
+}
+
+// Response for L5 registration
+message RegisterL5Response {
+  bool accepted = 1;
+  string reason = 2;
+  uint32 selection_timeout_ms = 3;  // time to wait for block selection
+}
+
+// L5 heartbeat request
+message HeartbeatL5Request {
+  string agent_id = 1;
+  uint64 blocks_built = 2;
+  uint64 blocks_accepted = 3;
+  uint64 last_built_height = 4;
+  double cpu_usage = 5;
+  double mem_usage = 6;
+}
+
+// L5 heartbeat response
+message HeartbeatL5Response {
+  bool alive = 1;
+  string directive = 2;  // "continue", "pause", "shutdown"
+  PayoutInfo payout = 3; // epoch payout if available
+}

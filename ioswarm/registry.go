@@ -152,3 +152,88 @@ func (r *Registry) EvictStale(threshold time.Duration) []string {
 	}
 	return evicted
 }
+
+// ============== L5-specific Registry Methods ==============
+
+// L5AgentInfo tracks an L5 agent's state.
+type L5AgentInfo struct {
+	ID            string
+	WalletAddress string
+	Region        string
+	Version       string
+	RegisteredAt  time.Time
+	LastHeartbeat time.Time
+	BlocksBuilt   uint64
+	BlocksAccepted uint64
+	LastBuiltHeight uint64
+	CPUUsage      float64
+	MemUsage      float64
+}
+
+// RegisterL5 registers an L5 agent with individual parameters.
+func (r *Registry) RegisterL5(agentID, walletAddr, region, version string) *L5AgentInfo {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Check if agent already exists
+	if agent, ok := r.agents[agentID]; ok {
+		agent.Region = region
+		agent.Version = version
+		agent.LastHeartbeat = time.Now()
+		return &L5AgentInfo{
+			ID:            agent.ID,
+			WalletAddress: walletAddr,
+			Region:        agent.Region,
+			Version:       agent.Version,
+			RegisteredAt:  agent.RegisteredAt,
+			LastHeartbeat: agent.LastHeartbeat,
+		}
+	}
+
+	if len(r.agents) >= r.maxAgents {
+		return nil
+	}
+
+	agent := &AgentInfo{
+		ID:           agentID,
+		Region:       region,
+		Version:      version,
+		RegisteredAt: time.Now(),
+		LastHeartbeat: time.Now(),
+		TaskChan:     make(chan *pb.TaskBatch, 16),
+	}
+	r.agents[agentID] = agent
+	return &L5AgentInfo{
+		ID:            agentID,
+		WalletAddress: walletAddr,
+		Region:        region,
+		Version:       version,
+		RegisteredAt:  agent.RegisteredAt,
+		LastHeartbeat: agent.LastHeartbeat,
+	}
+}
+
+// HeartbeatL5 updates an L5 agent's heartbeat time.
+func (r *Registry) HeartbeatL5(agentID string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	agent, ok := r.agents[agentID]
+	if !ok {
+		return false
+	}
+
+	agent.LastHeartbeat = time.Now()
+	return true
+}
+
+// UpdateMetrics updates an agent's resource metrics.
+func (r *Registry) UpdateMetrics(agentID string, cpuUsage, memUsage float64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if agent, ok := r.agents[agentID]; ok {
+		agent.CPUUsage = cpuUsage
+		agent.MemUsage = memUsage
+	}
+}

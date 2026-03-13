@@ -189,3 +189,128 @@ type SnapshotChunk struct {
 	TotalChunks uint32 `json:"total_chunks"` // 0 until last chunk
 	Height      uint64 `json:"height"`       // snapshot height
 }
+
+// ============== L5 Block Building Types ==============
+
+// BlockCandidate is a block built by an L5 agent, submitted to the coordinator.
+type BlockCandidate struct {
+	AgentID      string          `json:"agent_id"`
+	BlockHeight  uint64          `json:"block_height"`
+	BlockProto    []byte         `json:"block_proto"`    // serialized iotextypes.Block
+	Receipts      []*ReceiptData `json:"receipts"`
+	GasUsed       uint64         `json:"gas_used"`
+	TxCount       int            `json:"tx_count"`
+	Timestamp     uint64         `json:"timestamp"`
+	Signature     []byte         `json:"signature"`      // agent's signature on block hash
+	BlockHash     []byte         `json:"block_hash"`     // block hash for verification
+}
+
+// ReceiptData is a simplified receipt for transmission.
+type ReceiptData struct {
+	Status           uint64   `json:"status"`
+	GasUsed          uint64   `json:"gas_used"`
+	ContractAddress  string   `json:"contract_address"`
+	Logs             []*LogEntry `json:"logs"`
+}
+
+// SubmitBlockRequest is sent by L5 agents to submit a built block.
+type SubmitBlockRequest struct {
+	AgentID string          `json:"agent_id"`
+	Candidate *BlockCandidate `json:"candidate"`
+}
+
+// SubmitBlockResponse is the coordinator's response to block submission.
+type SubmitBlockResponse struct {
+	Accepted bool   `json:"accepted"`
+	Reason   string `json:"reason,omitempty"`
+	Reward   float64 `json:"reward,omitempty"` // IOTX reward if accepted
+}
+
+// SystemActionVerifyResponse is the verification result.
+type SystemActionVerifyResponse struct {
+	Valid         bool   `json:"valid"`
+	InvalidIndices []int `json:"invalid_indices,omitempty"`
+	Reason        string `json:"reason,omitempty"`
+}
+
+// ============== L5 gRPC Request/Response Types ==============
+
+// PendingAction represents a pending action from actpool for block template.
+type PendingAction struct {
+	Hash     string `json:"hash"`
+	From     string `json:"from"`
+	To       string `json:"to"`
+	Nonce    uint64 `json:"nonce"`
+	GasLimit uint64 `json:"gas_limit"`
+	GasPrice string `json:"gas_price"` // big.Int as string
+	RawBytes []byte `json:"raw_bytes"` // serialized SealedEnvelope
+}
+
+// BlockContext provides block-level context for EVM execution.
+type BlockContext struct {
+	GasLimit uint64 `json:"gas_limit"`
+	BaseFee  string `json:"base_fee"` // big.Int as string
+	Coinbase string `json:"coinbase"` // block producer address
+}
+
+// BlockTemplate is the response containing everything an agent needs to build a block.
+type BlockTemplate struct {
+	BlockHeight    uint64            `json:"block_height"`
+	ParentHash     []byte            `json:"parent_hash"`
+	Timestamp      uint64            `json:"timestamp"`
+	ProducerAddress string           `json:"producer_address"`
+	PendingActions []*PendingAction  `json:"pending_actions"`
+	BlockContext   *BlockContext     `json:"block_context"`
+}
+
+// GetBlockTemplateRequest is sent by L5 agents to request a block template.
+type GetBlockTemplateRequest struct {
+	AgentID         string `json:"agent_id"`
+	LastBuiltHeight uint64 `json:"last_built_height"`
+}
+
+// SubmitBlockCandidateRequest is sent by L5 agents to submit a built block.
+type SubmitBlockCandidateRequest struct {
+	AgentID   string          `json:"agent_id"`
+	Candidate *BlockCandidate `json:"candidate"`
+}
+
+// SubmitBlockCandidateResponse is the coordinator's response to block submission.
+type SubmitBlockCandidateResponse struct {
+	Accepted bool    `json:"accepted"`
+	Reason   string  `json:"reason,omitempty"`
+	Reward   float64 `json:"reward,omitempty"`
+}
+
+// RegisterL5Request is sent by L5 agents to register as block builders.
+type RegisterL5Request struct {
+	AgentID          string `json:"agent_id"`
+	WalletAddress    string `json:"wallet_address"`
+	Region           string `json:"region"`
+	Version          string `json:"version"`
+	CapabilityFlags uint32 `json:"capability_flags"`
+}
+
+// RegisterL5Response is the coordinator's response to L5 registration.
+type RegisterL5Response struct {
+	Accepted            bool   `json:"accepted"`
+	Reason              string `json:"reason,omitempty"`
+	SelectionTimeoutMs uint32 `json:"selection_timeout_ms"`
+}
+
+// HeartbeatL5Request is the periodic health check from L5 agents.
+type HeartbeatL5Request struct {
+	AgentID          string  `json:"agent_id"`
+	BlocksBuilt      uint64  `json:"blocks_built"`
+	BlocksAccepted   uint64  `json:"blocks_accepted"`
+	LastBuiltHeight  uint64  `json:"last_built_height"`
+	CPUUsage         float64 `json:"cpu_usage"`
+	MemUsage         float64 `json:"mem_usage"`
+}
+
+// HeartbeatL5Response is the coordinator's heartbeat reply to L5 agents.
+type HeartbeatL5Response struct {
+	Alive     bool       `json:"alive"`
+	Directive string     `json:"directive"` // "continue", "pause", "shutdown"
+	Payout    *PayoutInfo `json:"payout,omitempty"`
+}
