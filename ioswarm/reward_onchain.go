@@ -20,14 +20,18 @@ import (
 
 // RewardSettler sends on-chain settlement transactions to the AgentRewardPool contract.
 type RewardSettler interface {
-	// Settle calls depositAndSettle on the reward pool contract.
+	// Settle calls depositSettleAndClaim on the reward pool contract.
 	// agents: list of 0x-prefixed agent wallet addresses
 	// weights: corresponding weight for each agent (same length)
 	// value: total IOTX to deposit in wei/rau
-	Settle(ctx context.Context, agents []string, weights []*big.Int, value *big.Int) error
+	// claimees: optional list of agent addresses to auto-claim for (can be nil)
+	Settle(ctx context.Context, agents []string, weights []*big.Int, value *big.Int, claimees []string) error
 }
 
-const depositAndSettleABI = `[{"inputs":[{"internalType":"address[]","name":"_agents","type":"address[]"},{"internalType":"uint256[]","name":"_weights","type":"uint256[]"}],"name":"depositAndSettle","outputs":[],"stateMutability":"payable","type":"function"}]`
+const rewardPoolABI = `[
+	{"inputs":[{"internalType":"address[]","name":"_agents","type":"address[]"},{"internalType":"uint256[]","name":"_weights","type":"uint256[]"}],"name":"depositAndSettle","outputs":[],"stateMutability":"payable","type":"function"},
+	{"inputs":[{"internalType":"address[]","name":"_agents","type":"address[]"},{"internalType":"uint256[]","name":"_weights","type":"uint256[]"},{"internalType":"address[]","name":"_claimees","type":"address[]"}],"name":"depositSettleAndClaim","outputs":[],"stateMutability":"payable","type":"function"}
+]`
 
 // OnChainSettler implements RewardSettler using go-ethereum's ethclient.
 type OnChainSettler struct {
@@ -73,7 +77,7 @@ func NewOnChainSettler(cfg Config, logger *zap.Logger) (*OnChainSettler, error) 
 		return nil, fmt.Errorf("parse signer key: %w", err)
 	}
 
-	parsed, err := abi.JSON(strings.NewReader(depositAndSettleABI))
+	parsed, err := abi.JSON(strings.NewReader(rewardPoolABI))
 	if err != nil {
 		return nil, fmt.Errorf("parse ABI: %w", err)
 	}
@@ -88,8 +92,8 @@ func NewOnChainSettler(cfg Config, logger *zap.Logger) (*OnChainSettler, error) 
 	}, nil
 }
 
-// Settle calls depositAndSettle(address[], uint256[]) on the reward pool contract.
-func (s *OnChainSettler) Settle(ctx context.Context, agents []string, weights []*big.Int, value *big.Int) error {
+// Settle calls depositSettleAndClaim (or depositAndSettle if no claimees) on the reward pool contract.
+func (s *OnChainSettler) Settle(ctx context.Context, agents []string, weights []*big.Int, value *big.Int, claimees []string) error {
 	if len(agents) != len(weights) {
 		return fmt.Errorf("agents/weights length mismatch: %d vs %d", len(agents), len(weights))
 	}
@@ -103,8 +107,18 @@ func (s *OnChainSettler) Settle(ctx context.Context, agents []string, weights []
 		addrs[i] = common.HexToAddress(a)
 	}
 
-	// Encode calldata
-	data, err := s.abi.Pack("depositAndSettle", addrs, weights)
+	// Encode calldata — use depositSettleAndClaim if there are claimees
+	var data []byte
+	var err error
+	if len(claimees) > 0 {
+		claimAddrs := make([]common.Address, len(claimees))
+		for i, c := range claimees {
+			claimAddrs[i] = common.HexToAddress(c)
+		}
+		data, err = s.abi.Pack("depositSettleAndClaim", addrs, weights, claimAddrs)
+	} else {
+		data, err = s.abi.Pack("depositAndSettle", addrs, weights)
+	}
 	if err != nil {
 		return fmt.Errorf("pack calldata: %w", err)
 	}
@@ -129,8 +143,8 @@ func (s *OnChainSettler) Settle(ctx context.Context, agents []string, weights []
 		return fmt.Errorf("suggest gas price: %w", err)
 	}
 
-	// Gas limit: base 200k + 80k per agent (previous 60k+30k caused OOG reverts)
-	gasLimit := uint64(200000 + 80000*len(agents))
+	// Gas limit: base 200k + 80k per agent + 60k per claimee (transfer cost)
+	gasLimit := uint64(200000 + 80000*len(agents) + 60000*len(claimees))
 	if gasLimit > 8000000 {
 		gasLimit = 8000000
 	}

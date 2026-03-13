@@ -606,7 +606,7 @@ func (c *Coordinator) distributeEpochReward() {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			if err := c.settler.Settle(ctx, agents, weights, agentPool); err != nil {
+			if err := c.settler.Settle(ctx, agents, weights, agentPool, agents); err != nil {
 				c.logger.Error("on-chain settlement failed",
 					zap.Uint64("epoch", summary.Epoch),
 					zap.Error(err))
