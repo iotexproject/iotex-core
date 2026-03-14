@@ -58,6 +58,10 @@ type Coordinator struct {
 
 	// Persistent diff store (disk-backed) for catch-up
 	diffStore *DiffStore
+
+	// pendingSettlement holds a frozen epoch summary when on-chain settlement
+	// fails. It is retried on the next epoch tick before starting a new epoch.
+	pendingSettlement *EpochSummary
 }
 
 // NewCoordinator creates a new IOSwarm coordinator.
@@ -552,17 +556,27 @@ func (c *Coordinator) epochLoop(ctx context.Context) {
 }
 
 // distributeEpochReward calculates and queues payouts for all agents.
-// Settlement is attempted BEFORE advancing the epoch so that a transient
-// on-chain failure does not lose the reward state. If settlement fails,
-// the epoch is not advanced and the next tick will retry.
+//
+// The flow is:
+//  1. Distribute() atomically computes payouts AND advances the epoch under lock.
+//     This produces a single frozen snapshot — no work can sneak in between compute and advance.
+//  2. The same snapshot is used for on-chain settlement AND heartbeat notifications.
+//  3. If on-chain settlement fails, the frozen summary is saved for retry on the next tick.
 func (c *Coordinator) distributeEpochReward() {
+	// If there's a pending retry from a previous failed settlement, attempt it first.
+	if c.pendingSettlement != nil {
+		if c.settleFromSummary(c.pendingSettlement) {
+			c.pendingSettlement = nil
+		}
+		return // don't start a new epoch until the previous one is settled
+	}
+
 	work := c.reward.CurrentWork()
 	if len(work) == 0 {
 		return
 	}
 
 	// Use configured epoch reward (configurable via epochRewardIOTX in config).
-	// In future, fetch actual delegate epoch reward from chain.
 	rewardIOTX := c.cfg.EpochRewardIOTX
 	if rewardIOTX <= 0 {
 		rewardIOTX = 800
@@ -571,45 +585,8 @@ func (c *Coordinator) distributeEpochReward() {
 	epochReward := new(big.Float).Mul(big.NewFloat(rewardIOTX), new(big.Float).SetInt(one))
 	epochRewardInt, _ := epochReward.Int(nil)
 
-	// Compute payouts WITHOUT advancing epoch yet (Peek, not Distribute)
-	summary := c.reward.PeekDistribute(epochRewardInt)
-
-	// On-chain settlement: attempt BEFORE clearing epoch state
-	if c.settler != nil && len(summary.Payouts) > 0 {
-		agents := make([]string, 0, len(summary.Payouts))
-		weights := make([]*big.Int, 0, len(summary.Payouts))
-		for _, p := range summary.Payouts {
-			if p.WalletAddress == "" {
-				continue
-			}
-			agents = append(agents, p.WalletAddress)
-			effectiveWeight := int64(p.TasksDone) * 1000
-			if p.BonusApplied {
-				effectiveWeight = int64(float64(p.TasksDone) * c.cfg.Reward.BonusMultiplier * 1000)
-			}
-			weights = append(weights, big.NewInt(effectiveWeight))
-		}
-
-		if len(agents) > 0 {
-			agentPool := new(big.Int).Set(summary.AgentPool)
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-
-			if err := c.settler.Settle(ctx, agents, weights, agentPool, agents); err != nil {
-				c.logger.Error("on-chain settlement failed, epoch NOT advanced — will retry next tick",
-					zap.Uint64("epoch", summary.Epoch),
-					zap.Error(err))
-				return // do NOT advance epoch — retry on next tick
-			}
-			c.logger.Info("on-chain settlement submitted",
-				zap.Uint64("epoch", summary.Epoch),
-				zap.Int("agents", len(agents)),
-				zap.String("value", FormatIOTX(agentPool)))
-		}
-	}
-
-	// Settlement succeeded (or no settler configured) — now advance epoch
-	c.reward.Distribute(epochRewardInt)
+	// Single atomic call: compute payouts + advance epoch under one lock hold
+	summary := c.reward.Distribute(epochRewardInt)
 
 	// Queue payout notifications for each agent's next heartbeat
 	for i, p := range summary.Payouts {
@@ -625,6 +602,54 @@ func (c *Coordinator) distributeEpochReward() {
 		zap.Uint64("epoch", summary.Epoch),
 		zap.Int("agents", summary.AgentCount),
 		zap.Uint64("total_tasks", summary.TotalTasks))
+
+	// On-chain settlement using the same frozen snapshot
+	if !c.settleFromSummary(summary) {
+		c.pendingSettlement = summary // save for retry
+	}
+}
+
+// settleFromSummary attempts on-chain settlement for a frozen epoch summary.
+// Returns true if settlement succeeded or was not needed, false if it should be retried.
+func (c *Coordinator) settleFromSummary(summary *EpochSummary) bool {
+	if c.settler == nil || len(summary.Payouts) == 0 {
+		return true
+	}
+
+	agents := make([]string, 0, len(summary.Payouts))
+	weights := make([]*big.Int, 0, len(summary.Payouts))
+	for _, p := range summary.Payouts {
+		if p.WalletAddress == "" {
+			continue
+		}
+		agents = append(agents, p.WalletAddress)
+		effectiveWeight := int64(p.TasksDone) * 1000
+		if p.BonusApplied {
+			effectiveWeight = int64(float64(p.TasksDone) * c.cfg.Reward.BonusMultiplier * 1000)
+		}
+		weights = append(weights, big.NewInt(effectiveWeight))
+	}
+
+	if len(agents) == 0 {
+		return true
+	}
+
+	agentPool := new(big.Int).Set(summary.AgentPool)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := c.settler.Settle(ctx, agents, weights, agentPool, agents); err != nil {
+		c.logger.Error("on-chain settlement failed — will retry next tick",
+			zap.Uint64("epoch", summary.Epoch),
+			zap.Error(err))
+		return false
+	}
+
+	c.logger.Info("on-chain settlement submitted",
+		zap.Uint64("epoch", summary.Epoch),
+		zap.Int("agents", len(agents)),
+		zap.String("value", FormatIOTX(agentPool)))
+	return true
 }
 
 // consumePayout removes and returns a pending payout for the agent, if any.

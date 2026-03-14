@@ -165,7 +165,7 @@ func (r *RewardDistributor) SetAgentWallet(agentID, walletAddress string) {
 	work.WalletAddress = walletAddress
 }
 
-// computePayouts is the shared calculation logic for PeekDistribute and Distribute.
+// computePayouts is the internal calculation logic used by Distribute.
 // Caller must hold r.mu.
 func (r *RewardDistributor) computePayouts(totalReward *big.Int) *EpochSummary {
 	// 1. Calculate delegate cut
@@ -257,18 +257,9 @@ func (r *RewardDistributor) computePayouts(totalReward *big.Int) *EpochSummary {
 	}
 }
 
-// PeekDistribute computes payouts for the current epoch WITHOUT advancing it.
-// Use this to attempt on-chain settlement before committing the epoch transition.
-func (r *RewardDistributor) PeekDistribute(totalReward *big.Int) *EpochSummary {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.computePayouts(totalReward)
-}
-
-// Distribute calculates reward distribution for the current epoch.
-// totalReward is the total IOTX to distribute (in rau).
-// Returns the payout list and advances to the next epoch.
-// Call PeekDistribute first to attempt settlement; only call Distribute after success.
+// Distribute computes payouts, freezes the snapshot, and advances the epoch
+// atomically under a single lock hold. The returned summary is the exact
+// snapshot that should be used for on-chain settlement.
 func (r *RewardDistributor) Distribute(totalReward *big.Int) *EpochSummary {
 	r.mu.Lock()
 	defer r.mu.Unlock()
