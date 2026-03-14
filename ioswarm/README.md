@@ -37,7 +37,7 @@ Any IoTeX delegate can opt-in to ioSwarm with zero consensus changes. Your deleg
 ### Step 1 — Pull the ioSwarm-enabled image
 
 ```bash
-docker pull raullen/iotex-core:ioswarm-v11
+docker pull raullen/iotex-core:ioswarm-v12
 ```
 
 Or build from source (`ioswarm-v2.3.5` branch):
@@ -102,7 +102,7 @@ docker run -d --name iotex \
   -p 4689:4689 -p 14014:14014 -p 14689:14689 -p 14690:14690 \
   -v /data:/var/data \
   -v /etc/iotex/config.yaml:/etc/iotex/config_override.yaml \
-  raullen/iotex-core:ioswarm-v11
+  raullen/iotex-core:ioswarm-v12
 
 # Verify coordinator is running
 curl http://localhost:14690/swarm/status
