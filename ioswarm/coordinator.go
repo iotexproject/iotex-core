@@ -560,12 +560,14 @@ func (c *Coordinator) epochLoop(ctx context.Context) {
 // The flow is:
 //  1. Distribute() atomically computes payouts AND advances the epoch under lock.
 //     This produces a single frozen snapshot — no work can sneak in between compute and advance.
-//  2. The same snapshot is used for on-chain settlement AND heartbeat notifications.
-//  3. If on-chain settlement fails, the frozen summary is saved for retry on the next tick.
+//  2. The same snapshot is used for on-chain settlement.
+//  3. Heartbeat payout notifications are only queued AFTER successful on-chain settlement.
+//  4. If on-chain settlement fails, the frozen summary is saved for retry on the next tick.
 func (c *Coordinator) distributeEpochReward() {
 	// If there's a pending retry from a previous failed settlement, attempt it first.
 	if c.pendingSettlement != nil {
 		if c.settleFromSummary(c.pendingSettlement) {
+			c.notifyPayouts(c.pendingSettlement)
 			c.pendingSettlement = nil
 		}
 		return // don't start a new epoch until the previous one is settled
@@ -588,7 +590,23 @@ func (c *Coordinator) distributeEpochReward() {
 	// Single atomic call: compute payouts + advance epoch under one lock hold
 	summary := c.reward.Distribute(epochRewardInt)
 
-	// Queue payout notifications for each agent's next heartbeat
+	c.logger.Info("epoch reward distributed",
+		zap.Uint64("epoch", summary.Epoch),
+		zap.Int("agents", summary.AgentCount),
+		zap.Uint64("total_tasks", summary.TotalTasks))
+
+	// On-chain settlement using the frozen snapshot.
+	// Payout notifications are only sent after settlement succeeds.
+	if c.settleFromSummary(summary) {
+		c.notifyPayouts(summary)
+	} else {
+		c.pendingSettlement = summary // save for retry
+	}
+}
+
+// notifyPayouts queues payout notifications for each agent's next heartbeat.
+// Called only after on-chain settlement has been confirmed.
+func (c *Coordinator) notifyPayouts(summary *EpochSummary) {
 	for i, p := range summary.Payouts {
 		c.pendingPayouts.Store(p.AgentID, &pb.PayoutInfo{
 			Epoch:       summary.Epoch,
@@ -596,16 +614,6 @@ func (c *Coordinator) distributeEpochReward() {
 			Rank:        i + 1,
 			TotalAgents: summary.AgentCount,
 		})
-	}
-
-	c.logger.Info("epoch reward distributed",
-		zap.Uint64("epoch", summary.Epoch),
-		zap.Int("agents", summary.AgentCount),
-		zap.Uint64("total_tasks", summary.TotalTasks))
-
-	// On-chain settlement using the same frozen snapshot
-	if !c.settleFromSummary(summary) {
-		c.pendingSettlement = summary // save for retry
 	}
 }
 
