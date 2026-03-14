@@ -233,6 +233,13 @@ func (h *grpcHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 }
 
 func (h *grpcHandler) GetTasks(req *pb.GetTasksRequest, stream IOSwarm_GetTasksServer) error {
+	// If HMAC auth is enabled, enforce that agent_id matches the verified identity
+	if verifiedID := AgentIDFromContext(stream.Context()); verifiedID != "" {
+		if req.AgentID != verifiedID {
+			return status.Errorf(codes.PermissionDenied, "agent_id %q does not match authenticated identity", req.AgentID)
+		}
+	}
+
 	agent, ok := h.coord.registry.GetAgent(req.AgentID)
 	if !ok {
 		return fmt.Errorf("agent %s not registered", req.AgentID)
@@ -387,6 +394,13 @@ func stateDiffToResponse(diff *StateDiff) *pb.StateDiffResponse {
 }
 
 func (h *grpcHandler) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error) {
+	// If HMAC auth is enabled, enforce that agent_id matches the verified identity
+	if verifiedID := AgentIDFromContext(ctx); verifiedID != "" {
+		if req.AgentID != verifiedID {
+			return nil, status.Errorf(codes.PermissionDenied, "agent_id %q does not match authenticated identity", req.AgentID)
+		}
+	}
+
 	alive := h.coord.registry.Heartbeat(req)
 	if !alive {
 		return &pb.HeartbeatResponse{

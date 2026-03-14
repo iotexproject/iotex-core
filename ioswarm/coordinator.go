@@ -385,13 +385,22 @@ func (c *Coordinator) handleResults(result *pb.BatchResult) {
 		c.recentResults.Store(r.TaskID, r)
 	}
 
-	// Feed reward system: count tasks and valid results
+	// Feed reward system: count tasks processed and latency.
+	// When shadow mode is on, accuracy comes from OnBlockExecuted (ground truth),
+	// not from the agent's self-reported Valid flag.
 	var totalLatencyUs uint64
 	correct := uint64(0)
-	for _, r := range result.Results {
-		totalLatencyUs += r.LatencyUs
-		if r.Valid {
-			correct++
+	if !c.cfg.ShadowMode {
+		// Shadow mode off: trust agent's self-reported Valid (legacy behavior)
+		for _, r := range result.Results {
+			totalLatencyUs += r.LatencyUs
+			if r.Valid {
+				correct++
+			}
+		}
+	} else {
+		for _, r := range result.Results {
+			totalLatencyUs += r.LatencyUs
 		}
 	}
 	c.reward.RecordWork(result.AgentID, uint64(len(result.Results)), correct, totalLatencyUs)
@@ -417,11 +426,15 @@ func (c *Coordinator) ShadowStats() ShadowStats {
 func (c *Coordinator) OnBlockExecuted(blockHeight uint64, actualResults map[uint32]bool) {
 	// 1. Compare agent results against actual execution
 	if c.cfg.ShadowMode && len(actualResults) > 0 {
-		mismatches := c.shadow.CompareWithActual(actualResults, blockHeight)
+		mismatches, perAgent := c.shadow.CompareWithActual(actualResults, blockHeight)
 		if len(mismatches) > 0 {
 			c.logger.Warn("shadow mismatches detected",
 				zap.Int("count", len(mismatches)),
 				zap.Uint64("block", blockHeight))
+		}
+		// Feed ground-truth accuracy to reward system
+		for agentID, acc := range perAgent {
+			c.reward.RecordShadowAccuracy(agentID, acc.Matched)
 		}
 	}
 

@@ -139,6 +139,19 @@ func (r *RewardDistributor) RecordWork(agentID string, tasksProcessed, tasksCorr
 	work.TotalLatencyUs += totalLatencyUs
 }
 
+// RecordShadowAccuracy adds verified correct tasks from shadow comparison.
+// Called from OnBlockExecuted after ground-truth comparison.
+func (r *RewardDistributor) RecordShadowAccuracy(agentID string, matched uint64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	work, ok := r.agentWork[agentID]
+	if !ok {
+		return // agent not tracked (shouldn't happen)
+	}
+	work.TasksCorrect += matched
+}
+
 // SetAgentWallet sets the payout address for an agent.
 func (r *RewardDistributor) SetAgentWallet(agentID, walletAddress string) {
 	r.mu.Lock()

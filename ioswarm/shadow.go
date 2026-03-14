@@ -63,14 +63,21 @@ func (s *ShadowComparator) RecordAgentResults(agentID string, batch *pb.BatchRes
 	}
 }
 
+// AgentAccuracy holds per-agent shadow match counts for a comparison batch.
+type AgentAccuracy struct {
+	Compared uint64
+	Matched  uint64
+}
+
 // CompareWithActual compares stored agent results against actual execution.
 // actualResults maps task_id → whether the tx was actually valid.
-func (s *ShadowComparator) CompareWithActual(actualResults map[uint32]bool, blockHeight uint64) []ShadowResult {
+// Returns mismatches and per-agent accuracy counts.
+func (s *ShadowComparator) CompareWithActual(actualResults map[uint32]bool, blockHeight uint64) ([]ShadowResult, map[string]*AgentAccuracy) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	var mismatches []ShadowResult
-	var matched []ShadowResult
+	perAgent := make(map[string]*AgentAccuracy)
 
 	for i := range s.results {
 		r := &s.results[i]
@@ -83,10 +90,18 @@ func (s *ShadowComparator) CompareWithActual(actualResults map[uint32]bool, bloc
 		r.BlockHeight = blockHeight
 		r.Match = r.AgentResult.Valid == actual
 
+		// Track per-agent accuracy
+		aa, ok := perAgent[r.AgentID]
+		if !ok {
+			aa = &AgentAccuracy{}
+			perAgent[r.AgentID] = aa
+		}
+		aa.Compared++
+
 		s.stats.TotalCompared++
 		if r.Match {
 			s.stats.TotalMatched++
-			matched = append(matched, *r)
+			aa.Matched++
 		} else {
 			s.stats.TotalMismatched++
 			if r.AgentResult.Valid && !actual {
@@ -119,7 +134,7 @@ func (s *ShadowComparator) CompareWithActual(actualResults map[uint32]bool, bloc
 	// Clear processed results
 	s.results = s.results[:0]
 
-	return mismatches
+	return mismatches, perAgent
 }
 
 // Stats returns current shadow comparison statistics.

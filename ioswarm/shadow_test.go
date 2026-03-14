@@ -23,7 +23,7 @@ func TestShadowAllMatch(t *testing.T) {
 
 	// Actual: both valid
 	actual := map[uint32]bool{1: true, 2: true}
-	mismatches := shadow.CompareWithActual(actual, 100)
+	mismatches, perAgent := shadow.CompareWithActual(actual, 100)
 
 	if len(mismatches) != 0 {
 		t.Fatalf("expected 0 mismatches, got %d", len(mismatches))
@@ -32,6 +32,11 @@ func TestShadowAllMatch(t *testing.T) {
 	stats := shadow.Stats()
 	if stats.TotalCompared != 2 || stats.TotalMatched != 2 {
 		t.Fatalf("expected 2/2 matched, got %d/%d", stats.TotalMatched, stats.TotalCompared)
+	}
+
+	// Verify per-agent accuracy
+	if aa, ok := perAgent["ant-1"]; !ok || aa.Compared != 2 || aa.Matched != 2 {
+		t.Fatalf("expected ant-1 accuracy 2/2, got %+v", perAgent["ant-1"])
 	}
 }
 
@@ -49,7 +54,7 @@ func TestShadowMismatch(t *testing.T) {
 
 	// Actual: task 1 invalid (false positive), task 2 valid (false negative)
 	actual := map[uint32]bool{1: false, 2: true}
-	mismatches := shadow.CompareWithActual(actual, 200)
+	mismatches, perAgent := shadow.CompareWithActual(actual, 200)
 
 	if len(mismatches) != 2 {
 		t.Fatalf("expected 2 mismatches, got %d", len(mismatches))
@@ -62,6 +67,11 @@ func TestShadowMismatch(t *testing.T) {
 	if stats.FalseNegatives != 1 {
 		t.Fatalf("expected 1 false negative, got %d", stats.FalseNegatives)
 	}
+
+	// Verify per-agent accuracy: 0 matched out of 2
+	if aa, ok := perAgent["ant-1"]; !ok || aa.Compared != 2 || aa.Matched != 0 {
+		t.Fatalf("expected ant-1 accuracy 0/2, got %+v", perAgent["ant-1"])
+	}
 }
 
 func TestShadowReset(t *testing.T) {
@@ -71,7 +81,7 @@ func TestShadowReset(t *testing.T) {
 	shadow.RecordAgentResults("ant-1", &pb.BatchResult{
 		Results: []*pb.TaskResult{{TaskID: 1, Valid: true}},
 	})
-	shadow.CompareWithActual(map[uint32]bool{1: true}, 1)
+	shadow.CompareWithActual(map[uint32]bool{1: true}, 1) //nolint:dogsled
 
 	shadow.ResetStats()
 	stats := shadow.Stats()
