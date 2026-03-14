@@ -91,21 +91,38 @@ ioswarm:
 | `epochBlocks` | Yes | Blocks per reward epoch. `1` = every block (10s), `3` = every 30s |
 | `shadowMode` | Recommended | When true, compares agent results against on-chain receipts for accuracy tracking |
 
-### Step 3 — Open port 14689 and restart
+### Step 3 — TLS + networking
+
+**Important**: Do NOT expose port 14689 directly to the public internet. HMAC tokens are sent in gRPC metadata and must be protected by TLS.
+
+**Recommended architecture** (TLS termination via reverse proxy):
+
+```
+Agent (--tls) → Load Balancer (:443 TCP) → nginx (TLS terminate) → gRPC (:14689 localhost)
+```
 
 ```bash
-# Open gRPC port for agent connections
-ufw allow 14689/tcp
-
-# Restart delegate with ioSwarm ports exposed
+# Bind gRPC and HTTP to localhost only — not accessible from outside
 docker run -d --name iotex \
-  -p 4689:4689 -p 14014:14014 -p 14689:14689 -p 14690:14690 \
+  -p 4689:4689 -p 14014:14014 \
+  -p 127.0.0.1:14689:14689 -p 127.0.0.1:14690:14690 \
   -v /data:/var/data \
   -v /etc/iotex/config.yaml:/etc/iotex/config_override.yaml \
   raullen/iotex-core:ioswarm-v12
 
+# Use nginx or a cloud load balancer to terminate TLS on :443
+# and proxy to localhost:14689 (gRPC) / localhost:14690 (HTTP)
+
 # Verify coordinator is running
 curl http://localhost:14690/swarm/status
+```
+
+For local development / testing without TLS, you can bind directly:
+```bash
+docker run -d --name iotex \
+  -p 4689:4689 -p 14014:14014 -p 14689:14689 -p 14690:14690 \
+  ...
+# Agents connect with: --coordinator=host:14689 --tls=false
 ```
 
 ### Step 4 — Deploy AgentRewardPool contract (optional)

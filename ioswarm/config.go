@@ -6,7 +6,7 @@ type Config struct {
 	GRPCPort        int          `yaml:"grpcPort"`        // default 14689
 	SwarmAPIPort    int          `yaml:"swarmApiPort"`     // default 14690 (0 to disable)
 	MaxAgents       int          `yaml:"maxAgents"`        // default 100
-	TaskLevel       string       `yaml:"taskLevel"`       // "L1", "L2", "L3"
+	TaskLevel       string       `yaml:"taskLevel"`       // "L1", "L2", "L3", "L4"
 	ShadowMode      bool         `yaml:"shadowMode"`      // default true
 	PollIntervalMS  int          `yaml:"pollIntervalMs"`  // default 1000
 	MasterSecret    string       `yaml:"masterSecret"`    // HMAC master secret for agent auth (empty = no auth)
