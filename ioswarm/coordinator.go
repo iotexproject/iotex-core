@@ -552,8 +552,9 @@ func (c *Coordinator) epochLoop(ctx context.Context) {
 }
 
 // distributeEpochReward calculates and queues payouts for all agents.
-// The actual IOTX transfer is delegated to an external mechanism (on-chain tx or contract).
-// Here we compute the split and notify agents via heartbeat.
+// Settlement is attempted BEFORE advancing the epoch so that a transient
+// on-chain failure does not lose the reward state. If settlement fails,
+// the epoch is not advanced and the next tick will retry.
 func (c *Coordinator) distributeEpochReward() {
 	work := c.reward.CurrentWork()
 	if len(work) == 0 {
@@ -570,7 +571,45 @@ func (c *Coordinator) distributeEpochReward() {
 	epochReward := new(big.Float).Mul(big.NewFloat(rewardIOTX), new(big.Float).SetInt(one))
 	epochRewardInt, _ := epochReward.Int(nil)
 
-	summary := c.reward.Distribute(epochRewardInt)
+	// Compute payouts WITHOUT advancing epoch yet (Peek, not Distribute)
+	summary := c.reward.PeekDistribute(epochRewardInt)
+
+	// On-chain settlement: attempt BEFORE clearing epoch state
+	if c.settler != nil && len(summary.Payouts) > 0 {
+		agents := make([]string, 0, len(summary.Payouts))
+		weights := make([]*big.Int, 0, len(summary.Payouts))
+		for _, p := range summary.Payouts {
+			if p.WalletAddress == "" {
+				continue
+			}
+			agents = append(agents, p.WalletAddress)
+			effectiveWeight := int64(p.TasksDone) * 1000
+			if p.BonusApplied {
+				effectiveWeight = int64(float64(p.TasksDone) * c.cfg.Reward.BonusMultiplier * 1000)
+			}
+			weights = append(weights, big.NewInt(effectiveWeight))
+		}
+
+		if len(agents) > 0 {
+			agentPool := new(big.Int).Set(summary.AgentPool)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			if err := c.settler.Settle(ctx, agents, weights, agentPool, agents); err != nil {
+				c.logger.Error("on-chain settlement failed, epoch NOT advanced — will retry next tick",
+					zap.Uint64("epoch", summary.Epoch),
+					zap.Error(err))
+				return // do NOT advance epoch — retry on next tick
+			}
+			c.logger.Info("on-chain settlement submitted",
+				zap.Uint64("epoch", summary.Epoch),
+				zap.Int("agents", len(agents)),
+				zap.String("value", FormatIOTX(agentPool)))
+		}
+	}
+
+	// Settlement succeeded (or no settler configured) — now advance epoch
+	c.reward.Distribute(epochRewardInt)
 
 	// Queue payout notifications for each agent's next heartbeat
 	for i, p := range summary.Payouts {
@@ -586,51 +625,6 @@ func (c *Coordinator) distributeEpochReward() {
 		zap.Uint64("epoch", summary.Epoch),
 		zap.Int("agents", summary.AgentCount),
 		zap.Uint64("total_tasks", summary.TotalTasks))
-
-	// On-chain settlement: call depositAndSettle on the reward pool contract
-	c.logger.Info("settlement check",
-		zap.Bool("settler_nil", c.settler == nil),
-		zap.Int("payouts", len(summary.Payouts)),
-		zap.Uint64("epoch", summary.Epoch))
-	if c.settler != nil && len(summary.Payouts) > 0 {
-		agents := make([]string, 0, len(summary.Payouts))
-		weights := make([]*big.Int, 0, len(summary.Payouts))
-		for _, p := range summary.Payouts {
-			c.logger.Info("settlement payout entry",
-				zap.String("agent", p.AgentID),
-				zap.String("wallet", p.WalletAddress),
-				zap.Uint64("tasks", p.TasksDone))
-			if p.WalletAddress == "" {
-				continue
-			}
-			agents = append(agents, p.WalletAddress)
-			effectiveWeight := int64(p.TasksDone) * 1000
-			if p.BonusApplied {
-				effectiveWeight = int64(float64(p.TasksDone) * c.cfg.Reward.BonusMultiplier * 1000)
-			}
-			weights = append(weights, big.NewInt(effectiveWeight))
-		}
-
-		c.logger.Info("settlement agents collected",
-			zap.Int("count", len(agents)),
-			zap.Strings("wallets", agents))
-		if len(agents) > 0 {
-			agentPool := new(big.Int).Set(summary.AgentPool)
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-
-			if err := c.settler.Settle(ctx, agents, weights, agentPool, agents); err != nil {
-				c.logger.Error("on-chain settlement failed",
-					zap.Uint64("epoch", summary.Epoch),
-					zap.Error(err))
-			} else {
-				c.logger.Info("on-chain settlement submitted",
-					zap.Uint64("epoch", summary.Epoch),
-					zap.Int("agents", len(agents)),
-					zap.String("value", FormatIOTX(agentPool)))
-			}
-		}
-	}
 }
 
 // consumePayout removes and returns a pending payout for the agent, if any.
@@ -756,6 +750,15 @@ func (c *Coordinator) ReceiveStateDiff(height uint64, entries []StateDiffEntry, 
 		}
 	}
 
+	// Prune old diffs if retention is configured
+	if c.diffStore != nil && c.cfg.DiffRetainHeight > 0 && height > c.cfg.DiffRetainHeight {
+		if deleted, err := c.diffStore.Prune(height - c.cfg.DiffRetainHeight); err != nil {
+			c.logger.Warn("failed to prune stale diffs", zap.Error(err))
+		} else if deleted > 0 {
+			c.logger.Debug("pruned stale diffs", zap.Int("deleted", deleted), zap.Uint64("keep_after", height-c.cfg.DiffRetainHeight))
+		}
+	}
+
 	c.diffBroadcaster.Publish(diff)
 	c.logger.Debug("state diff published",
 		zap.Uint64("height", height),
@@ -779,6 +782,8 @@ func parseTaskLevel(s string) pb.TaskLevel {
 		return pb.TaskLevel_L1_SIG_VERIFY
 	case "L3":
 		return pb.TaskLevel_L3_FULL_EXECUTE
+	case "L4":
+		return pb.TaskLevel_L4_STATE_SYNC
 	default:
 		return pb.TaskLevel_L2_STATE_VERIFY
 	}

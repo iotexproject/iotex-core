@@ -165,13 +165,9 @@ func (r *RewardDistributor) SetAgentWallet(agentID, walletAddress string) {
 	work.WalletAddress = walletAddress
 }
 
-// Distribute calculates reward distribution for the current epoch.
-// totalReward is the total IOTX to distribute (in rau).
-// Returns the payout list and advances to the next epoch.
-func (r *RewardDistributor) Distribute(totalReward *big.Int) *EpochSummary {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
+// computePayouts is the shared calculation logic for PeekDistribute and Distribute.
+// Caller must hold r.mu.
+func (r *RewardDistributor) computePayouts(totalReward *big.Int) *EpochSummary {
 	// 1. Calculate delegate cut
 	delegateCut := new(big.Int).Mul(totalReward, big.NewInt(int64(r.cfg.DelegateCutPct)))
 	delegateCut.Div(delegateCut, big.NewInt(100))
@@ -248,8 +244,7 @@ func (r *RewardDistributor) Distribute(totalReward *big.Int) *EpochSummary {
 		return payouts[i].Amount.Cmp(payouts[j].Amount) > 0
 	})
 
-	// 5. Build epoch summary
-	summary := &EpochSummary{
+	return &EpochSummary{
 		Epoch:           r.currentEpoch,
 		TotalReward:     new(big.Int).Set(totalReward),
 		DelegateCut:     delegateCut,
@@ -260,18 +255,35 @@ func (r *RewardDistributor) Distribute(totalReward *big.Int) *EpochSummary {
 		TotalTasks:      totalTasks,
 		Timestamp:       time.Now(),
 	}
+}
 
+// PeekDistribute computes payouts for the current epoch WITHOUT advancing it.
+// Use this to attempt on-chain settlement before committing the epoch transition.
+func (r *RewardDistributor) PeekDistribute(totalReward *big.Int) *EpochSummary {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.computePayouts(totalReward)
+}
+
+// Distribute calculates reward distribution for the current epoch.
+// totalReward is the total IOTX to distribute (in rau).
+// Returns the payout list and advances to the next epoch.
+// Call PeekDistribute first to attempt settlement; only call Distribute after success.
+func (r *RewardDistributor) Distribute(totalReward *big.Int) *EpochSummary {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	summary := r.computePayouts(totalReward)
 	r.epochHistory = append(r.epochHistory, *summary)
 
-	r.logger.Info("epoch reward distributed",
+	r.logger.Info("epoch advanced",
 		zap.Uint64("epoch", r.currentEpoch),
 		zap.String("total", FormatIOTX(totalReward)),
-		zap.String("delegate_cut", FormatIOTX(delegateCut)),
-		zap.String("agent_pool", FormatIOTX(agentPool)),
-		zap.Int("eligible_agents", len(eligible)),
-		zap.Uint64("total_tasks", totalTasks))
+		zap.String("agent_pool", FormatIOTX(summary.AgentPool)),
+		zap.Int("eligible_agents", summary.AgentCount),
+		zap.Uint64("total_tasks", summary.TotalTasks))
 
-	// 6. Reset for next epoch — preserve wallet addresses
+	// Reset for next epoch — preserve wallet addresses
 	r.currentEpoch++
 	r.epochStart = time.Now()
 	newWork := make(map[string]*AgentWork)
