@@ -264,7 +264,7 @@ func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*
 		if err != nil {
 			return nil, err
 		}
-		ws.store = newErigonWorkingSetStoreForSimulate(e)
+		ws.store = newErigonWorkingSetStoreForSimulate(e, ws.store)
 	}
 	ws.views = protocol.NewLazyViews(func() protocol.Views {
 		views, err := sdb.registry.StartAll(ctx, ws)
