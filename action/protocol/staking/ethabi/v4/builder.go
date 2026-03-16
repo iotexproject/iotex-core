@@ -8,6 +8,9 @@ import (
 )
 
 func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
+	if len(data) < 4 {
+		return nil, stakingComm.ErrInvalidCallData
+	}
 	switch methodSig := hex.EncodeToString(data[:4]); methodSig {
 	case hex.EncodeToString(_candidatesMethod.ID):
 		return newCandidatesStateContext(data[4:])
