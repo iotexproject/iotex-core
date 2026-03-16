@@ -1305,6 +1305,7 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 		switch innerTracer := tracer.Unwrap().(type) {
 		case *logger.StructLogger:
 			accesses := tracer.ContractStorageAccesses()
+			witnesses := tracer.ContractStorageWitnesses()
 			return &debugTraceTransactionResult{
 				Failed:                       receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
 				Revert:                       receipt.ExecutionRevertMsg(),
@@ -1313,6 +1314,7 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 				Gas:                          receipt.GasConsumed,
 				ContractStorageAccesses:      fromContractStorageAccesses(accesses),
 				ContractStorageAccessSummary: summarizeContractStorageAccesses(accesses),
+				ContractStorageWitnesses:     fromContractStorageWitnesses(witnesses),
 			}, nil
 		case tracers.Tracer:
 			return innerTracer.GetResult()
@@ -1359,6 +1361,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		switch innerTracer := tracer.Unwrap().(type) {
 		case *logger.StructLogger:
 			accesses := tracer.ContractStorageAccesses()
+			witnesses := tracer.ContractStorageWitnesses()
 			return &debugTraceTransactionResult{
 				Failed:                       receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
 				Revert:                       receipt.ExecutionRevertMsg(),
@@ -1367,6 +1370,7 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 				Gas:                          receipt.GasConsumed,
 				ContractStorageAccesses:      fromContractStorageAccesses(accesses),
 				ContractStorageAccessSummary: summarizeContractStorageAccesses(accesses),
+				ContractStorageWitnesses:     fromContractStorageWitnesses(witnesses),
 			}, nil
 		case tracers.Tracer:
 			return innerTracer.GetResult()

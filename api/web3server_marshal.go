@@ -1,8 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -90,6 +92,7 @@ type (
 		StructLogs                   []apitypes.StructLog              `json:"structLogs"`
 		ContractStorageAccesses      []contractStorageAccessJSON       `json:"contractStorageAccesses,omitempty"`
 		ContractStorageAccessSummary *contractStorageAccessSummaryJSON `json:"contractStorageAccessSummary,omitempty"`
+		ContractStorageWitnesses     []contractStorageWitnessJSON      `json:"contractStorageWitnesses,omitempty"`
 	}
 
 	blockTraceResult struct {
@@ -121,6 +124,18 @@ type (
 		ReadSlots    uint64 `json:"readSlots"`
 		WriteSlots   uint64 `json:"writeSlots"`
 		TouchedSlots uint64 `json:"touchedSlots"`
+	}
+
+	contractStorageWitnessJSON struct {
+		Address     string                            `json:"address"`
+		StorageRoot string                            `json:"storageRoot"`
+		Entries     []contractStorageWitnessEntryJSON `json:"entries,omitempty"`
+		ProofNodes  []string                          `json:"proofNodes,omitempty"`
+	}
+
+	contractStorageWitnessEntryJSON struct {
+		Key   string `json:"key"`
+		Value string `json:"value,omitempty"`
 	}
 
 	feeHistoryResult struct {
@@ -205,6 +220,51 @@ func summarizeContractStorageAccessesJSON(accesses []contractStorageAccessJSON) 
 		summary.TouchedSlots += uint64(len(touched))
 	}
 	return summary
+}
+
+func fromContractStorageWitnesses(witnesses map[common.Address]*evm.ContractStorageWitness) []contractStorageWitnessJSON {
+	if len(witnesses) == 0 {
+		return nil
+	}
+	addrs := make([]common.Address, 0, len(witnesses))
+	for addr := range witnesses {
+		addrs = append(addrs, addr)
+	}
+	sort.Slice(addrs, func(i, j int) bool {
+		return bytes.Compare(addrs[i][:], addrs[j][:]) < 0
+	})
+
+	out := make([]contractStorageWitnessJSON, 0, len(addrs))
+	for _, addr := range addrs {
+		witness := witnesses[addr]
+		if witness == nil {
+			continue
+		}
+		item := contractStorageWitnessJSON{
+			Address:     addr.Hex(),
+			StorageRoot: byteToHex(witness.StorageRoot[:]),
+		}
+		if len(witness.Entries) > 0 {
+			item.Entries = make([]contractStorageWitnessEntryJSON, 0, len(witness.Entries))
+			for _, entry := range witness.Entries {
+				entryJSON := contractStorageWitnessEntryJSON{
+					Key: byteToHex(entry.Key[:]),
+				}
+				if len(entry.Value) > 0 {
+					entryJSON.Value = byteToHex(entry.Value)
+				}
+				item.Entries = append(item.Entries, entryJSON)
+			}
+		}
+		if len(witness.ProofNodes) > 0 {
+			item.ProofNodes = make([]string, 0, len(witness.ProofNodes))
+			for _, node := range witness.ProofNodes {
+				item.ProofNodes = append(item.ProofNodes, byteToHex(node))
+			}
+		}
+		out = append(out, item)
+	}
+	return out
 }
 
 func summarizeBlockTraceStorageResults(results []*blockTraceResult) (*debugTraceBlockStorageSummaryResult, error) {

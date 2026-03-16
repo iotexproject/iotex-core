@@ -1220,6 +1220,7 @@ func TestDebugTraceTransaction(t *testing.T) {
 	receipt := &action.Receipt{Status: 1, BlockHeight: 1, ActionHash: tsfhash, GasConsumed: 100000}
 	tracer := newEVMTracer(nil, nil)
 	require.NoError(tracer.Reset())
+	root1 := hash.Hash256b([]byte("root1"))
 	tracer.CaptureContractStorageAccesses([]evm.ContractStorageAccess{
 		{
 			Address: common.HexToAddress("0x0000000000000000000000000000000000000001"),
@@ -1230,6 +1231,16 @@ func TestDebugTraceTransaction(t *testing.T) {
 			Address: common.HexToAddress("0x0000000000000000000000000000000000000002"),
 			Reads:   []common.Hash{common.HexToHash("0x02")},
 			Writes:  []common.Hash{common.HexToHash("0x02"), common.HexToHash("0x03")},
+		},
+	})
+	tracer.CaptureContractStorageWitnesses(map[common.Address]*evm.ContractStorageWitness{
+		common.HexToAddress("0x0000000000000000000000000000000000000001"): {
+			StorageRoot: root1,
+			Entries: []evm.ContractStorageWitnessEntry{
+				{Key: hash.BytesToHash256(common.HexToHash("0x01").Bytes()), Value: []byte{0x11}},
+				{Key: hash.BytesToHash256(common.HexToHash("0x02").Bytes()), Value: nil},
+			},
+			ProofNodes: [][]byte{{0xaa}, {0xbb}},
 		},
 	})
 
@@ -1267,6 +1278,15 @@ func TestDebugTraceTransaction(t *testing.T) {
 		require.Equal(uint64(2), rlt.ContractStorageAccessSummary.ReadSlots)
 		require.Equal(uint64(3), rlt.ContractStorageAccessSummary.WriteSlots)
 		require.Equal(uint64(4), rlt.ContractStorageAccessSummary.TouchedSlots)
+		require.Len(rlt.ContractStorageWitnesses, 1)
+		require.Equal("0x0000000000000000000000000000000000000001", rlt.ContractStorageWitnesses[0].Address)
+		require.Equal("0x"+hex.EncodeToString(root1[:]), rlt.ContractStorageWitnesses[0].StorageRoot)
+		require.Len(rlt.ContractStorageWitnesses[0].Entries, 2)
+		require.Equal("0x0000000000000000000000000000000000000000000000000000000000000001", rlt.ContractStorageWitnesses[0].Entries[0].Key)
+		require.Equal("0x11", rlt.ContractStorageWitnesses[0].Entries[0].Value)
+		require.Equal("0x0000000000000000000000000000000000000000000000000000000000000002", rlt.ContractStorageWitnesses[0].Entries[1].Key)
+		require.Empty(rlt.ContractStorageWitnesses[0].Entries[1].Value)
+		require.Equal([]string{"0xaa", "0xbb"}, rlt.ContractStorageWitnesses[0].ProofNodes)
 	})
 }
 
@@ -1287,10 +1307,20 @@ func TestDebugTraceCall(t *testing.T) {
 	receipt := &action.Receipt{Status: 1, BlockHeight: 1, ActionHash: tsfhash, GasConsumed: 100000}
 	tracer := newEVMTracer(nil, nil)
 	require.NoError(tracer.Reset())
+	root2 := hash.Hash256b([]byte("root2"))
 	tracer.CaptureContractStorageAccesses([]evm.ContractStorageAccess{{
 		Address: common.HexToAddress("0x0000000000000000000000000000000000000002"),
 		Reads:   []common.Hash{common.HexToHash("0x03")},
 	}})
+	tracer.CaptureContractStorageWitnesses(map[common.Address]*evm.ContractStorageWitness{
+		common.HexToAddress("0x0000000000000000000000000000000000000002"): {
+			StorageRoot: root2,
+			Entries: []evm.ContractStorageWitnessEntry{
+				{Key: hash.BytesToHash256(common.HexToHash("0x03").Bytes()), Value: nil},
+			},
+			ProofNodes: [][]byte{{0xcc}},
+		},
+	})
 
 	core.EXPECT().TraceCall(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, tracer, nil)
 
@@ -1313,6 +1343,13 @@ func TestDebugTraceCall(t *testing.T) {
 	require.Equal(uint64(1), rlt.ContractStorageAccessSummary.ReadSlots)
 	require.Equal(uint64(0), rlt.ContractStorageAccessSummary.WriteSlots)
 	require.Equal(uint64(1), rlt.ContractStorageAccessSummary.TouchedSlots)
+	require.Len(rlt.ContractStorageWitnesses, 1)
+	require.Equal("0x0000000000000000000000000000000000000002", rlt.ContractStorageWitnesses[0].Address)
+	require.Equal("0x"+hex.EncodeToString(root2[:]), rlt.ContractStorageWitnesses[0].StorageRoot)
+	require.Len(rlt.ContractStorageWitnesses[0].Entries, 1)
+	require.Equal("0x0000000000000000000000000000000000000000000000000000000000000003", rlt.ContractStorageWitnesses[0].Entries[0].Key)
+	require.Empty(rlt.ContractStorageWitnesses[0].Entries[0].Value)
+	require.Equal([]string{"0xcc"}, rlt.ContractStorageWitnesses[0].ProofNodes)
 }
 
 func TestSummarizeContractStorageAccesses(t *testing.T) {
@@ -1438,6 +1475,52 @@ func TestDebugTraceBlockStorageByHash(t *testing.T) {
 	require.Zero(rlt.Transactions[0].ReadSlots)
 	require.Zero(rlt.Transactions[0].WriteSlots)
 	require.Zero(rlt.Transactions[0].TouchedSlots)
+}
+
+func TestDebugTraceBlockByNumberIncludesWitnesses(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	txHash := hash.Hash256b([]byte("tx-trace"))
+	root := hash.Hash256b([]byte("root-trace"))
+	results := []*blockTraceResult{
+		{
+			TxHash: txHash,
+			Result: &debugTraceTransactionResult{
+				ContractStorageWitnesses: []contractStorageWitnessJSON{
+					{
+						Address:     "0x0000000000000000000000000000000000000001",
+						StorageRoot: "0x" + hex.EncodeToString(root[:]),
+						Entries: []contractStorageWitnessEntryJSON{
+							{
+								Key:   "0x0000000000000000000000000000000000000000000000000000000000000001",
+								Value: "0x01",
+							},
+						},
+						ProofNodes: []string{"0xaa"},
+					},
+				},
+			},
+		},
+	}
+	core.EXPECT().TraceBlockByNumber(context.Background(), uint64(1), gomock.Any()).Return(nil, nil, results, nil)
+
+	in := gjson.Parse(`{"params":["0x1"]}`)
+	ret, err := web3svr.traceBlockByNumber(context.Background(), &in)
+	require.NoError(err)
+
+	rlt, ok := ret.([]*blockTraceResult)
+	require.True(ok)
+	require.Len(rlt, 1)
+	txResult, ok := rlt[0].Result.(*debugTraceTransactionResult)
+	require.True(ok)
+	require.Len(txResult.ContractStorageWitnesses, 1)
+	require.Equal("0x0000000000000000000000000000000000000001", txResult.ContractStorageWitnesses[0].Address)
+	require.Equal("0x"+hex.EncodeToString(root[:]), txResult.ContractStorageWitnesses[0].StorageRoot)
+	require.Equal([]string{"0xaa"}, txResult.ContractStorageWitnesses[0].ProofNodes)
 }
 
 func TestSummarizeBlockTraceStorageResultsRejectsUnexpectedResult(t *testing.T) {

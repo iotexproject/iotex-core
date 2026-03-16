@@ -332,6 +332,14 @@ func ExecuteContract(
 			tCtx.CaptureContractStorageAccesses(collector.ContractStorageAccesses())
 		}
 	}
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageWitnesses != nil {
+		type storageWitnessCollector interface {
+			ContractStorageWitnesses() map[common.Address]*ContractStorageWitness
+		}
+		if collector, ok := stateDB.(storageWitnessCollector); ok {
+			tCtx.CaptureContractStorageWitnesses(collector.ContractStorageWitnesses())
+		}
+	}
 	stateDB.clear()
 
 	if ps.featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], _revertSelector) {

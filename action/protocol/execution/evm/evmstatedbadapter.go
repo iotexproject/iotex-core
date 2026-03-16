@@ -294,6 +294,30 @@ func (stateDB *StateDBAdapter) ContractStorageAccesses() []ContractStorageAccess
 	return stateDB.storageAccessTracer.list()
 }
 
+// ContractStorageWitnesses assembles per-contract witness payloads for the
+// currently traced storage accesses.
+func (stateDB *StateDBAdapter) ContractStorageWitnesses() map[common.Address]*ContractStorageWitness {
+	accesses := stateDB.ContractStorageAccesses()
+	if len(accesses) == 0 {
+		return nil
+	}
+	witnesses := make(map[common.Address]*ContractStorageWitness, len(accesses))
+	for _, access := range accesses {
+		contract, ok := stateDB.cachedContract[access.Address]
+		if !ok {
+			stateDB.logError(errors.Errorf("contract %s not found in cache for witness assembly", access.Address.Hex()))
+			return nil
+		}
+		witness, err := contract.BuildStorageWitness(access)
+		if err != nil {
+			stateDB.logError(err)
+			return nil
+		}
+		witnesses[access.Address] = witness
+	}
+	return witnesses
+}
+
 func (stateDB *StateDBAdapter) recordContractStorageRead(addr common.Address, key common.Hash) {
 	if stateDB.storageAccessTracer == nil {
 		return
