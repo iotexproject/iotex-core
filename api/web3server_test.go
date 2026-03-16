@@ -437,7 +437,7 @@ func TestSendRawTransaction(t *testing.T) {
 	core.EXPECT().TipHeight().Return(uint64(0))
 	core.EXPECT().EVMNetworkID().Return(uint32(1))
 	core.EXPECT().ChainID().Return(uint32(1))
-	core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{IsContract: true}, nil, nil)
+	core.EXPECT().CodeAt(gomock.Any(), gomock.Any(), gomock.Any()).Return([]byte{1}, nil)
 	core.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return("111111111111111", nil)
 
 	t.Run("nil params", func(t *testing.T) {

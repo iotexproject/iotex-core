@@ -132,6 +132,50 @@ func TestLogsInRange(t *testing.T) {
 	})
 }
 
+func TestActionAndReceiptByHashWithoutIndexer(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	dao := mock_blockdao.NewMockBlockDAO(ctrl)
+	core := &coreService{
+		bc:  bc,
+		dao: dao,
+	}
+
+	elp := (&action.EnvelopeBuilder{}).
+		SetNonce(1).
+		SetGasLimit(testutil.TestGasLimit).
+		SetGasPrice(testutil.TestGasPrice).
+		SetAction(&action.Transfer{}).
+		Build()
+	selp, err := action.Sign(elp, identityset.PrivateKey(0))
+	require.NoError(err)
+
+	actHash, err := selp.Hash()
+	require.NoError(err)
+
+	receipt := &action.Receipt{ActionHash: actHash, BlockHeight: 1}
+	blk := &block.Block{
+		Body:     block.Body{Actions: []*action.SealedEnvelope{selp}},
+		Receipts: []*action.Receipt{receipt},
+	}
+
+	bc.EXPECT().TipHeight().Return(uint64(1)).Times(2)
+	dao.EXPECT().GetBlockByHeight(uint64(1)).Return(blk, nil).Times(2)
+
+	gotSelp, gotBlk, gotIndex, err := core.ActionByActionHash(actHash)
+	require.NoError(err)
+	require.Equal(selp, gotSelp)
+	require.Equal(blk, gotBlk)
+	require.Equal(uint32(0), gotIndex)
+
+	gotReceipt, err := core.ReceiptByActionHash(actHash)
+	require.NoError(err)
+	require.Equal(receipt, gotReceipt)
+}
+
 func BenchmarkLogsInRange(b *testing.B) {
 	svr, _, _, _, cleanCallback := setupTestCoreService()
 	defer cleanCallback()

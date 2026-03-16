@@ -913,7 +913,22 @@ func (core *coreService) ElectionBuckets(epochNum uint64) ([]*iotextypes.Electio
 // ReceiptByActionHash returns receipt by action hash
 func (core *coreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
 	if core.indexer == nil {
-		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+		_, blk, _, err := core.lookupActionByHashNoIndex(h)
+		if err != nil {
+			return nil, err
+		}
+		receipt := filterReceipts(blk.Receipts, h)
+		if receipt != nil {
+			return receipt, nil
+		}
+		receipts, err := core.dao.GetReceipts(blk.Height())
+		if err != nil {
+			return nil, err
+		}
+		if receipt := filterReceipts(receipts, h); receipt != nil {
+			return receipt, nil
+		}
+		return nil, errors.Wrapf(ErrNotFound, "failed to find receipt for action %x", h)
 	}
 
 	actIndex, err := core.indexer.GetActionIndex(h[:])
@@ -1227,7 +1242,7 @@ func (core *coreService) BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256,
 // ActionByActionHash returns action by action hash
 func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error) {
 	if err := core.checkActionIndex(); err != nil {
-		return nil, nil, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+		return core.lookupActionByHashNoIndex(h)
 	}
 
 	actIndex, err := core.indexer.GetActionIndex(h[:])
@@ -1246,6 +1261,20 @@ func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvel
 		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
 	return selp, blk, index, nil
+}
+
+func (core *coreService) lookupActionByHashNoIndex(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error) {
+	for height := core.bc.TipHeight(); height >= 1; height-- {
+		blk, err := core.dao.GetBlockByHeight(height)
+		if err != nil {
+			return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
+		}
+		selp, index, err := blk.ActionByHash(h)
+		if err == nil {
+			return selp, blk, index, nil
+		}
+	}
+	return nil, nil, 0, errors.Wrapf(ErrNotFound, "failed to find action %x", h)
 }
 
 // PendingActionByActionHash returns action by action hash

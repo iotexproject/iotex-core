@@ -584,7 +584,7 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 	if err != nil {
 		return nil, err
 	}
-	elp, err := svr.ethTxToEnvelope(tx)
+	elp, err := svr.ethTxToEnvelope(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -669,7 +669,7 @@ func (svr *web3Handler) sendRawTransaction(ctx context.Context, in *gjson.Result
 			}
 		}
 	} else {
-		elp, err := svr.ethTxToEnvelope(tx)
+		elp, err := svr.ethTxToEnvelope(ctx, tx)
 		if err != nil {
 			return nil, err
 		}

@@ -26,6 +26,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
@@ -169,7 +171,7 @@ func (svr *web3Handler) parseBlockRange(fromStr string, toStr string) (from uint
 	return
 }
 
-func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope, error) {
+func (svr *web3Handler) ethTxToEnvelope(ctx context.Context, tx *types.Transaction) (action.Envelope, error) {
 	to := ""
 	if tx.To() != nil {
 		ioAddr, _ := address.FromBytes(tx.To().Bytes())
@@ -182,7 +184,7 @@ func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope,
 	if to == address.RewardingProtocol {
 		return elpBuilder.BuildRewardingAction(tx)
 	}
-	isContract, err := svr.checkContractAddr(to)
+	isContract, err := svr.checkContractAddr(ctx, to)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +194,7 @@ func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope,
 	return elpBuilder.BuildTransfer(tx)
 }
 
-func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
+func (svr *web3Handler) checkContractAddr(ctx context.Context, to string) (bool, error) {
 	if to == "" {
 		return true, nil
 	}
@@ -200,11 +202,16 @@ func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	code, err := svr.coreService.CodeAt(ctx, ioAddr, 0)
 	if err != nil {
-		return false, err
+		switch status.Code(err) {
+		case codes.NotFound:
+			return false, nil
+		default:
+			return false, err
+		}
 	}
-	return accountMeta.IsContract, nil
+	return len(code) > 0, nil
 }
 
 func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]*getLogsResult, error) {
