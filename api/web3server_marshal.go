@@ -105,6 +105,11 @@ type (
 		Transactions []blockStorageAccessSummaryJSON   `json:"transactions"`
 	}
 
+	debugTraceBlockWitnessResult struct {
+		Summary      *contractStorageWitnessSummaryJSON `json:"summary,omitempty"`
+		Transactions []blockStorageWitnessJSON          `json:"transactions"`
+	}
+
 	contractStorageAccessJSON struct {
 		Address string   `json:"address"`
 		Reads   []string `json:"reads,omitempty"`
@@ -126,6 +131,13 @@ type (
 		TouchedSlots uint64 `json:"touchedSlots"`
 	}
 
+	contractStorageWitnessSummaryJSON struct {
+		Contracts  uint64 `json:"contracts"`
+		Entries    uint64 `json:"entries"`
+		ProofNodes uint64 `json:"proofNodes"`
+		ProofBytes uint64 `json:"proofBytes"`
+	}
+
 	contractStorageWitnessJSON struct {
 		Address     string                            `json:"address"`
 		StorageRoot string                            `json:"storageRoot"`
@@ -136,6 +148,15 @@ type (
 	contractStorageWitnessEntryJSON struct {
 		Key   string `json:"key"`
 		Value string `json:"value,omitempty"`
+	}
+
+	blockStorageWitnessJSON struct {
+		TxHash     string                       `json:"txHash"`
+		Contracts  uint64                       `json:"contracts"`
+		Entries    uint64                       `json:"entries"`
+		ProofNodes uint64                       `json:"proofNodes"`
+		ProofBytes uint64                       `json:"proofBytes"`
+		Witnesses  []contractStorageWitnessJSON `json:"witnesses,omitempty"`
 	}
 
 	feeHistoryResult struct {
@@ -265,6 +286,58 @@ func fromContractStorageWitnesses(witnesses map[common.Address]*evm.ContractStor
 		out = append(out, item)
 	}
 	return out
+}
+
+func summarizeContractStorageWitnessesJSON(witnesses []contractStorageWitnessJSON) *contractStorageWitnessSummaryJSON {
+	if len(witnesses) == 0 {
+		return nil
+	}
+	summary := &contractStorageWitnessSummaryJSON{
+		Contracts: uint64(len(witnesses)),
+	}
+	for _, witness := range witnesses {
+		summary.Entries += uint64(len(witness.Entries))
+		summary.ProofNodes += uint64(len(witness.ProofNodes))
+		for _, node := range witness.ProofNodes {
+			summary.ProofBytes += uint64(len(common.FromHex(node)))
+		}
+	}
+	return summary
+}
+
+func summarizeBlockTraceWitnessResults(results []*blockTraceResult) (*debugTraceBlockWitnessResult, error) {
+	summary := &debugTraceBlockWitnessResult{
+		Transactions: make([]blockStorageWitnessJSON, 0, len(results)),
+	}
+	if len(results) == 0 {
+		return summary, nil
+	}
+	for _, result := range results {
+		traceResult, ok := result.Result.(*debugTraceTransactionResult)
+		if !ok {
+			return nil, errors.Errorf("unsupported block trace result type %T", result.Result)
+		}
+		txSummary := summarizeContractStorageWitnessesJSON(traceResult.ContractStorageWitnesses)
+		txItem := blockStorageWitnessJSON{
+			TxHash:    "0x" + hex.EncodeToString(result.TxHash[:]),
+			Witnesses: traceResult.ContractStorageWitnesses,
+		}
+		if txSummary != nil {
+			txItem.Contracts = txSummary.Contracts
+			txItem.Entries = txSummary.Entries
+			txItem.ProofNodes = txSummary.ProofNodes
+			txItem.ProofBytes = txSummary.ProofBytes
+			if summary.Summary == nil {
+				summary.Summary = &contractStorageWitnessSummaryJSON{}
+			}
+			summary.Summary.Contracts += txSummary.Contracts
+			summary.Summary.Entries += txSummary.Entries
+			summary.Summary.ProofNodes += txSummary.ProofNodes
+			summary.Summary.ProofBytes += txSummary.ProofBytes
+		}
+		summary.Transactions = append(summary.Transactions, txItem)
+	}
+	return summary, nil
 }
 
 func summarizeBlockTraceStorageResults(results []*blockTraceResult) (*debugTraceBlockStorageSummaryResult, error) {

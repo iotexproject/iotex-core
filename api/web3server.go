@@ -271,6 +271,10 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.traceBlockStorageByNumber(ctx, web3Req)
 	case "debug_traceBlockStorageByHash":
 		res, err = svr.traceBlockStorageByHash(ctx, web3Req)
+	case "debug_traceBlockWitnessByNumber":
+		res, err = svr.traceBlockWitnessByNumber(ctx, web3Req)
+	case "debug_traceBlockWitnessByHash":
+		res, err = svr.traceBlockWitnessByHash(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
@@ -1448,6 +1452,42 @@ func (svr *web3Handler) traceBlockStorageByHash(ctx context.Context, in *gjson.R
 		return nil, fmt.Errorf("unknown block trace result type: %T", results)
 	}
 	return summarizeBlockTraceStorageResults(blockResults)
+}
+
+func (svr *web3Handler) traceBlockWitnessByNumber(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	blkNum, err := parseBlockNumberOrHash(&blkParam)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse block number")
+	}
+	height, _, err := svr.blockNumberOrHashToHeight(blkNum)
+	if err != nil {
+		return nil, err
+	}
+	tracer := parseTracerConfig(&tracerParam)
+	_, _, results, err := svr.coreService.TraceBlockByNumber(ctx, height, tracer)
+	if err != nil {
+		return nil, err
+	}
+	blockResults, ok := results.([]*blockTraceResult)
+	if !ok {
+		return nil, fmt.Errorf("unknown block trace result type: %T", results)
+	}
+	return summarizeBlockTraceWitnessResults(blockResults)
+}
+
+func (svr *web3Handler) traceBlockWitnessByHash(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	tracer := parseTracerConfig(&tracerParam)
+	_, _, results, err := svr.coreService.TraceBlockByHash(ctx, blkParam.String(), tracer)
+	if err != nil {
+		return nil, err
+	}
+	blockResults, ok := results.([]*blockTraceResult)
+	if !ok {
+		return nil, fmt.Errorf("unknown block trace result type: %T", results)
+	}
+	return summarizeBlockTraceWitnessResults(blockResults)
 }
 
 func (svr *web3Handler) unimplemented() (interface{}, error) {

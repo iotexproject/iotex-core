@@ -1523,9 +1523,118 @@ func TestDebugTraceBlockByNumberIncludesWitnesses(t *testing.T) {
 	require.Equal([]string{"0xaa"}, txResult.ContractStorageWitnesses[0].ProofNodes)
 }
 
+func TestDebugTraceBlockWitnessByNumber(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	txHash1 := hash.Hash256b([]byte("txw1"))
+	txHash2 := hash.Hash256b([]byte("txw2"))
+	results := []*blockTraceResult{
+		{
+			TxHash: txHash1,
+			Result: &debugTraceTransactionResult{
+				ContractStorageWitnesses: []contractStorageWitnessJSON{
+					{
+						Address:     "0x0000000000000000000000000000000000000001",
+						StorageRoot: "0x01",
+						Entries: []contractStorageWitnessEntryJSON{
+							{Key: "0x11", Value: "0xaa"},
+							{Key: "0x12"},
+						},
+						ProofNodes: []string{"0xaabb", "0xcc"},
+					},
+				},
+			},
+		},
+		{
+			TxHash: txHash2,
+			Result: &debugTraceTransactionResult{
+				ContractStorageWitnesses: []contractStorageWitnessJSON{
+					{
+						Address:     "0x0000000000000000000000000000000000000002",
+						StorageRoot: "0x02",
+						Entries: []contractStorageWitnessEntryJSON{
+							{Key: "0x21", Value: "0xbb"},
+						},
+						ProofNodes: []string{"0xdd"},
+					},
+				},
+			},
+		},
+	}
+	core.EXPECT().TraceBlockByNumber(context.Background(), uint64(1), gomock.Any()).Return(nil, nil, results, nil)
+
+	in := gjson.Parse(`{"params":["0x1"]}`)
+	ret, err := web3svr.traceBlockWitnessByNumber(context.Background(), &in)
+	require.NoError(err)
+
+	rlt, ok := ret.(*debugTraceBlockWitnessResult)
+	require.True(ok)
+	require.NotNil(rlt.Summary)
+	require.Equal(uint64(2), rlt.Summary.Contracts)
+	require.Equal(uint64(3), rlt.Summary.Entries)
+	require.Equal(uint64(3), rlt.Summary.ProofNodes)
+	require.Equal(uint64(4), rlt.Summary.ProofBytes)
+	require.Len(rlt.Transactions, 2)
+	require.Equal("0x"+hex.EncodeToString(txHash1[:]), rlt.Transactions[0].TxHash)
+	require.Equal(uint64(1), rlt.Transactions[0].Contracts)
+	require.Equal(uint64(2), rlt.Transactions[0].Entries)
+	require.Equal(uint64(2), rlt.Transactions[0].ProofNodes)
+	require.Equal(uint64(3), rlt.Transactions[0].ProofBytes)
+	require.Len(rlt.Transactions[0].Witnesses, 1)
+	require.Equal("0x"+hex.EncodeToString(txHash2[:]), rlt.Transactions[1].TxHash)
+	require.Equal(uint64(1), rlt.Transactions[1].Contracts)
+	require.Equal(uint64(1), rlt.Transactions[1].Entries)
+	require.Equal(uint64(1), rlt.Transactions[1].ProofNodes)
+	require.Equal(uint64(1), rlt.Transactions[1].ProofBytes)
+}
+
+func TestDebugTraceBlockWitnessByHash(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	txHash := hash.Hash256b([]byte("txwh"))
+	blockHash := "0xabcdef"
+	results := []*blockTraceResult{
+		{
+			TxHash: txHash,
+			Result: &debugTraceTransactionResult{},
+		},
+	}
+	core.EXPECT().TraceBlockByHash(context.Background(), blockHash, gomock.Any()).Return(nil, nil, results, nil)
+
+	in := gjson.Parse(`{"params":["` + blockHash + `"]}`)
+	ret, err := web3svr.traceBlockWitnessByHash(context.Background(), &in)
+	require.NoError(err)
+
+	rlt, ok := ret.(*debugTraceBlockWitnessResult)
+	require.True(ok)
+	require.Nil(rlt.Summary)
+	require.Len(rlt.Transactions, 1)
+	require.Equal("0x"+hex.EncodeToString(txHash[:]), rlt.Transactions[0].TxHash)
+	require.Zero(rlt.Transactions[0].Contracts)
+	require.Zero(rlt.Transactions[0].Entries)
+	require.Zero(rlt.Transactions[0].ProofNodes)
+	require.Zero(rlt.Transactions[0].ProofBytes)
+}
+
 func TestSummarizeBlockTraceStorageResultsRejectsUnexpectedResult(t *testing.T) {
 	require := require.New(t)
 	_, err := summarizeBlockTraceStorageResults([]*blockTraceResult{{
+		Result: "unexpected",
+	}})
+	require.Error(err)
+}
+
+func TestSummarizeBlockTraceWitnessResultsRejectsUnexpectedResult(t *testing.T) {
+	require := require.New(t)
+	_, err := summarizeBlockTraceWitnessResults([]*blockTraceResult{{
 		Result: "unexpected",
 	}})
 	require.Error(err)
