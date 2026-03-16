@@ -93,8 +93,8 @@ func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 	case subEpochNumberMethod.RawName:
 		return newUint64StateContext(data[4:], method, "SubEpochNumber")
 	default:
+		return nil, errors.Errorf("unknown method %s", method.RawName)
 	}
-	return nil, nil
 }
 
 // Uint64StateContext handles methods that return a uint64 value
