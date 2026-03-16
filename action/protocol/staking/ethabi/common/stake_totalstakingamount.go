@@ -59,7 +59,7 @@ func (r *TotalStakingAmountStateContext) EncodeToEth(resp *iotexapi.ReadStateRes
 
 	data, err := r.Method.Outputs.Pack(total)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return hex.EncodeToString(data), nil
 }
