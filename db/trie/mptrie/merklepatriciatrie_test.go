@@ -12,12 +12,14 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/db/trie"
+	"github.com/iotexproject/iotex-core/v2/db/trie/triepb"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
@@ -701,6 +703,97 @@ func TestTrieGet(t *testing.T) {
 		require.NoError(err)
 		require.Equal(test.v, val)
 	}
+}
+
+func TestTrieGetProof(t *testing.T) {
+	require := require.New(t)
+
+	tr, err := New(KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(tr.Start(context.Background()))
+	defer require.NoError(tr.Stop(context.Background()))
+
+	require.NoError(tr.Upsert([]byte("iotex"), []byte("coin")))
+	require.NoError(tr.Upsert([]byte("block"), []byte("chain")))
+	require.NoError(tr.Upsert([]byte("puppy"), []byte("dog")))
+
+	rootHash, err := tr.RootHash()
+	require.NoError(err)
+
+	pt, ok := tr.(trie.ProofTrie)
+	require.True(ok)
+	proof, err := pt.GetProof([]byte("puppy"))
+	require.NoError(err)
+	require.NotEmpty(proof)
+	require.Equal(rootHash, tr.(*merklePatriciaTrie).hash(proof[0]))
+
+	var first triepb.NodePb
+	require.NoError(proto.Unmarshal(proof[0], &first))
+	require.NotNil(first.GetBranch())
+
+	var last triepb.NodePb
+	require.NoError(proto.Unmarshal(proof[len(proof)-1], &last))
+	require.NotNil(last.GetLeaf())
+	require.Equal([]byte("dog"), last.GetLeaf().Value)
+
+	value, err := pt.VerifyProof(rootHash, []byte("puppy"), proof)
+	require.NoError(err)
+	require.Equal([]byte("dog"), value)
+}
+
+func TestTrieGetProofNotExist(t *testing.T) {
+	require := require.New(t)
+
+	tr, err := New(KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(tr.Start(context.Background()))
+	defer require.NoError(tr.Stop(context.Background()))
+
+	require.NoError(tr.Upsert([]byte("block"), []byte("chain")))
+	require.NoError(tr.Upsert([]byte("puppy"), []byte("dog")))
+
+	rootHash, err := tr.RootHash()
+	require.NoError(err)
+
+	proof, err := tr.(trie.ProofTrie).GetProof([]byte("puppz"))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
+	require.NotEmpty(proof)
+	require.Equal(rootHash, tr.(*merklePatriciaTrie).hash(proof[0]))
+
+	var last triepb.NodePb
+	require.NoError(proto.Unmarshal(proof[len(proof)-1], &last))
+
+	value, err := tr.(trie.ProofTrie).VerifyProof(rootHash, []byte("puppz"), proof)
+	require.Nil(value)
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
+}
+
+func TestTrieVerifyProofRejectsTamperedNode(t *testing.T) {
+	require := require.New(t)
+
+	tr, err := New(KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(tr.Start(context.Background()))
+	defer require.NoError(tr.Stop(context.Background()))
+
+	require.NoError(tr.Upsert([]byte("block"), []byte("chain")))
+	rootHash, err := tr.RootHash()
+	require.NoError(err)
+
+	pt := tr.(trie.ProofTrie)
+	proof, err := pt.GetProof([]byte("block"))
+	require.NoError(err)
+	require.Len(proof, 2)
+
+	var leaf triepb.NodePb
+	require.NoError(proto.Unmarshal(proof[1], &leaf))
+	leaf.GetLeaf().Value = []byte("tampered")
+	proof[1], err = proto.Marshal(&leaf)
+	require.NoError(err)
+
+	value, err := pt.VerifyProof(rootHash, []byte("block"), proof)
+	require.Nil(value)
+	require.Equal(trie.ErrInvalidTrie, errors.Cause(err))
 }
 
 func TestTrieUpsert(t *testing.T) {

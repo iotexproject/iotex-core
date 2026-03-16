@@ -179,6 +179,85 @@ func (mpt *merklePatriciaTrie) Get(key []byte) ([]byte, error) {
 	return nil, trie.ErrInvalidTrie
 }
 
+func (mpt *merklePatriciaTrie) GetProof(key []byte) ([][]byte, error) {
+	mpt.mutex.RLock()
+	defer mpt.mutex.RUnlock()
+
+	kt, err := mpt.checkKeyType(key)
+	if err != nil {
+		return nil, err
+	}
+	return mpt.getProof(mpt.root, kt, 0, nil)
+}
+
+func (mpt *merklePatriciaTrie) VerifyProof(rootHash []byte, key []byte, proof [][]byte) ([]byte, error) {
+	mpt.mutex.RLock()
+	defer mpt.mutex.RUnlock()
+
+	kt, err := mpt.checkKeyType(key)
+	if err != nil {
+		return nil, err
+	}
+	if len(proof) == 0 {
+		return nil, errors.Wrap(trie.ErrInvalidTrie, "proof is empty")
+	}
+	expectedHash := rootHash
+	offset := 0
+	for i, ser := range proof {
+		if !bytes.Equal(mpt.hash(ser), expectedHash) {
+			return nil, errors.Wrapf(trie.ErrInvalidTrie, "proof node %d hash mismatch", i)
+		}
+		pb := triepb.NodePb{}
+		if err := proto.Unmarshal(ser, &pb); err != nil {
+			return nil, err
+		}
+		last := i == len(proof)-1
+		switch n := pb.Node.(type) {
+		case *triepb.NodePb_Branch:
+			if offset >= len(kt) {
+				return nil, errors.Wrapf(trie.ErrInvalidTrie, "branch node %d exceeds key length", i)
+			}
+			nextHash, ok := branchChildHash(n.Branch, kt[offset])
+			if !ok {
+				if !last {
+					return nil, errors.Wrapf(trie.ErrInvalidTrie, "branch absence at node %d has trailing proof nodes", i)
+				}
+				return nil, trie.ErrNotExist
+			}
+			expectedHash = nextHash
+			offset++
+		case *triepb.NodePb_Extend:
+			path := n.Extend.GetPath()
+			if len(path) > len(kt)-offset {
+				return nil, errors.Wrapf(trie.ErrInvalidTrie, "extension node %d path exceeds remaining key length", i)
+			}
+			matched := commonPrefixLength(path, kt[offset:])
+			if matched != uint8(len(path)) {
+				if !last {
+					return nil, errors.Wrapf(trie.ErrInvalidTrie, "extension absence at node %d has trailing proof nodes", i)
+				}
+				return nil, trie.ErrNotExist
+			}
+			expectedHash = n.Extend.GetValue()
+			offset += len(path)
+		case *triepb.NodePb_Leaf:
+			if len(n.Leaf.GetPath()) != len(kt) {
+				return nil, errors.Wrapf(trie.ErrInvalidTrie, "leaf node %d has invalid key length", i)
+			}
+			if !last {
+				return nil, errors.Wrapf(trie.ErrInvalidTrie, "leaf node %d is not terminal", i)
+			}
+			if !bytes.Equal(n.Leaf.Path[offset:], kt[offset:]) {
+				return nil, trie.ErrNotExist
+			}
+			return n.Leaf.Value, nil
+		default:
+			return nil, errors.Wrapf(trie.ErrInvalidTrie, "proof node %d has unknown type", i)
+		}
+	}
+	return nil, errors.Wrap(trie.ErrInvalidTrie, "proof ended before terminal node")
+}
+
 func (mpt *merklePatriciaTrie) Delete(key []byte) error {
 	mpt.mutex.Lock()
 	defer mpt.mutex.Unlock()
@@ -321,6 +400,68 @@ func (mpt *merklePatriciaTrie) loadNode(key []byte) (node, error) {
 	}
 
 	return nil, errors.New("invalid node type")
+}
+
+func (mpt *merklePatriciaTrie) getProof(n node, key keyType, offset uint8, proof [][]byte) ([][]byte, error) {
+	switch n := n.(type) {
+	case *hashNode:
+		loaded, err := n.LoadNode(mpt)
+		if err != nil {
+			return proof, err
+		}
+		return mpt.getProof(loaded, key, offset, proof)
+	case *branchNode:
+		ser, err := mpt.serializeProofNode(n)
+		if err != nil {
+			return proof, err
+		}
+		proof = append(proof, ser)
+		child, err := n.child(key[offset])
+		if err != nil {
+			return proof, trie.ErrNotExist
+		}
+		return mpt.getProof(child, key, offset+1, proof)
+	case *extensionNode:
+		ser, err := mpt.serializeProofNode(n)
+		if err != nil {
+			return proof, err
+		}
+		proof = append(proof, ser)
+		matched := n.commonPrefixLength(key[offset:])
+		if matched != uint8(len(n.path)) {
+			return proof, trie.ErrNotExist
+		}
+		return mpt.getProof(n.child, key, offset+matched, proof)
+	case *leafNode:
+		ser, err := mpt.serializeProofNode(n)
+		if err != nil {
+			return proof, err
+		}
+		proof = append(proof, ser)
+		if !bytes.Equal(n.key[offset:], key[offset:]) {
+			return proof, trie.ErrNotExist
+		}
+		return proof, nil
+	default:
+		return proof, errors.Wrapf(trie.ErrInvalidTrie, "unexpected node type %T", n)
+	}
+}
+
+func (mpt *merklePatriciaTrie) serializeProofNode(n serializable) ([]byte, error) {
+	pb, err := n.proto(mpt, false)
+	if err != nil {
+		return nil, err
+	}
+	return proto.Marshal(pb)
+}
+
+func branchChildHash(pb *triepb.BranchPb, index byte) ([]byte, bool) {
+	for _, child := range pb.GetBranches() {
+		if byte(child.GetIndex()) == index {
+			return child.GetPath(), true
+		}
+	}
+	return nil, false
 }
 
 func (mpt *merklePatriciaTrie) Clone(kvStore trie.KVStore) (trie.Trie, error) {
