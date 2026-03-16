@@ -38,6 +38,10 @@ func (c *contractAdapter) SetState(key hash.Hash256, value []byte) error {
 	return c.erigon.SetState(key, value)
 }
 
+func (c *contractAdapter) BuildStorageWitness(access ContractStorageAccess) (*ContractStorageWitness, error) {
+	return c.Contract.BuildStorageWitness(access)
+}
+
 func (c *contractAdapter) SetCode(hash hash.Hash256, code []byte) {
 	c.Contract.SetCode(hash, code)
 	c.erigon.SetCode(hash, code)

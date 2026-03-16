@@ -33,6 +33,7 @@ type (
 		GetCommittedState(hash.Hash256) ([]byte, error)
 		GetState(hash.Hash256) ([]byte, error)
 		SetState(hash.Hash256, []byte) error
+		BuildStorageWitness(ContractStorageAccess) (*ContractStorageWitness, error)
 		GetCode() ([]byte, error)
 		SetCode(hash.Hash256, []byte)
 		SelfState() *state.Account
@@ -50,6 +51,7 @@ type (
 		code       protocol.SerializableBytes // contract byte-code
 		root       hash.Hash256
 		committed  map[hash.Hash256][]byte
+		missing    map[hash.Hash256]struct{}
 		sm         protocol.StateManager
 		trie       trie.Trie // storage trie of the contract
 	}
@@ -71,8 +73,12 @@ func (c *contract) GetCommittedState(key hash.Hash256) ([]byte, error) {
 func (c *contract) GetState(key hash.Hash256) ([]byte, error) {
 	v, err := c.trie.Get(key[:])
 	if err != nil {
+		if errors.Cause(err) == trie.ErrNotExist {
+			c.missing[key] = struct{}{}
+		}
 		return nil, err
 	}
+	delete(c.missing, key)
 	if _, ok := c.committed[key]; !ok {
 		c.committed[key] = v
 	}
@@ -98,6 +104,51 @@ func (c *contract) SetState(key hash.Hash256, value []byte) error {
 	}
 
 	return nil
+}
+
+func (c *contract) BuildStorageWitness(access ContractStorageAccess) (*ContractStorageWitness, error) {
+	pt, ok := c.trie.(trie.ProofTrie)
+	if !ok {
+		return nil, errors.New("contract storage trie does not support proofs")
+	}
+
+	keys := touchedStorageKeys(access)
+	entries := make([]ContractStorageWitnessEntry, 0, len(keys))
+	proofNodes := make([][]byte, 0)
+	seenProofNodes := make(map[string]struct{})
+	for _, key := range keys {
+		slotKey := hash.BytesToHash256(key[:])
+		prestateValue, ok := c.committed[slotKey]
+		if !ok {
+			if _, missing := c.missing[slotKey]; !missing {
+				return nil, errors.Errorf("missing committed pre-state for storage key %x", key[:])
+			}
+		}
+		entry := ContractStorageWitnessEntry{
+			Key:   slotKey,
+			Value: cloneBytes(prestateValue),
+		}
+		entries = append(entries, entry)
+
+		proof, err := pt.GetProof(key[:])
+		if err != nil && errors.Cause(err) != trie.ErrNotExist {
+			return nil, err
+		}
+		for _, node := range proof {
+			nodeKey := string(node)
+			if _, ok := seenProofNodes[nodeKey]; ok {
+				continue
+			}
+			seenProofNodes[nodeKey] = struct{}{}
+			proofNodes = append(proofNodes, cloneBytes(node))
+		}
+	}
+
+	return &ContractStorageWitness{
+		StorageRoot: c.root,
+		Entries:     entries,
+		ProofNodes:  proofNodes,
+	}, nil
 }
 
 // GetCode gets the contract's byte-code
@@ -134,10 +185,13 @@ func (c *contract) Commit() error {
 		}
 		// record the new root hash, global account trie will Commit all pending writes to DB
 		c.Account.Root = hash.BytesToHash256(rh)
+		c.root = c.Account.Root
 		c.dirtyState = false
 		// purge the committed value cache
 		c.committed = nil
 		c.committed = make(map[hash.Hash256][]byte)
+		c.missing = nil
+		c.missing = make(map[hash.Hash256]struct{})
 	}
 	if c.dirtyCode {
 		if _, err := c.sm.PutState(c.code, protocol.NamespaceOption(CodeKVNameSpace), protocol.KeyOption(c.Account.CodeHash)); err != nil {
@@ -170,6 +224,7 @@ func (c *contract) Snapshot() Contract {
 		code:       c.code,
 		root:       c.Account.Root,
 		committed:  c.committed,
+		missing:    c.missing,
 		sm:         c.sm,
 		// note we simply save the trie (which is an interface/pointer)
 		// later Revert() call needs to reset the saved trie root
@@ -183,6 +238,7 @@ func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateMan
 		Account:   account,
 		root:      account.Root,
 		committed: make(map[hash.Hash256][]byte),
+		missing:   make(map[hash.Hash256]struct{}),
 		sm:        sm,
 		async:     enableAsync,
 	}

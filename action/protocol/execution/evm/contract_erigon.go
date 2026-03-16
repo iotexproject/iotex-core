@@ -54,6 +54,10 @@ func (c *contractErigon) SetState(key hash.Hash256, value []byte) error {
 	return nil
 }
 
+func (c *contractErigon) BuildStorageWitness(ContractStorageAccess) (*ContractStorageWitness, error) {
+	return nil, errors.New("not supported")
+}
+
 func (c *contractErigon) GetCode() ([]byte, error) {
 	return c.intra.GetCode(libcommon.Address(c.addr)), nil
 }
