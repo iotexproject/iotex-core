@@ -2178,6 +2178,9 @@ func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Contex
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
+	ctx = evm.WithTracerCtx(ctx, evm.TracerContext{
+		CaptureContractStorageAccesses: tracer.CaptureContractStorageAccesses,
+	})
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash:   bcCtx.GetBlockHash,
@@ -2294,12 +2297,15 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 			var res any
 			switch innerTracer := tracer.Unwrap().(type) {
 			case *logger.StructLogger:
+				accesses := tracer.ContractStorageAccesses()
 				res = &debugTraceTransactionResult{
-					Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
-					Revert:      receipt.ExecutionRevertMsg(),
-					ReturnValue: byteToHex(retval),
-					StructLogs:  fromLoggerStructLogs(innerTracer.StructLogs()),
-					Gas:         receipt.GasConsumed,
+					Failed:                       receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+					Revert:                       receipt.ExecutionRevertMsg(),
+					ReturnValue:                  byteToHex(retval),
+					StructLogs:                   fromLoggerStructLogs(innerTracer.StructLogs()),
+					Gas:                          receipt.GasConsumed,
+					ContractStorageAccesses:      fromContractStorageAccesses(accesses),
+					ContractStorageAccessSummary: summarizeContractStorageAccesses(accesses),
 				}
 			case tracers.Tracer:
 				res, err = innerTracer.GetResult()
@@ -2318,6 +2324,7 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 			retvals = append(retvals, retval)
 			receipts = append(receipts, receipt)
 		},
+		CaptureContractStorageAccesses: tracer.CaptureContractStorageAccesses,
 	})
 	ws, err := core.sf.WorkingSetAtTransaction(ctx, blk.Height(), blk.Actions...)
 	if err != nil {

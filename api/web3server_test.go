@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -1217,9 +1218,22 @@ func TestDebugTraceTransaction(t *testing.T) {
 	tsfhash, err := tsf.Hash()
 	require.NoError(err)
 	receipt := &action.Receipt{Status: 1, BlockHeight: 1, ActionHash: tsfhash, GasConsumed: 100000}
-	structLogger := &logger.StructLogger{}
+	tracer := newEVMTracer(nil, nil)
+	require.NoError(tracer.Reset())
+	tracer.CaptureContractStorageAccesses([]evm.ContractStorageAccess{
+		{
+			Address: common.HexToAddress("0x0000000000000000000000000000000000000001"),
+			Reads:   []common.Hash{common.HexToHash("0x01")},
+			Writes:  []common.Hash{common.HexToHash("0x02")},
+		},
+		{
+			Address: common.HexToAddress("0x0000000000000000000000000000000000000002"),
+			Reads:   []common.Hash{common.HexToHash("0x02")},
+			Writes:  []common.Hash{common.HexToHash("0x02"), common.HexToHash("0x03")},
+		},
+	})
 
-	core.EXPECT().TraceTransaction(ctx, gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, structLogger, nil)
+	core.EXPECT().TraceTransaction(ctx, gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, tracer, nil)
 
 	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
@@ -1238,6 +1252,21 @@ func TestDebugTraceTransaction(t *testing.T) {
 		require.Equal(uint64(100000), rlt.Gas)
 		require.Empty(rlt.Revert)
 		require.Equal(0, len(rlt.StructLogs))
+		require.Len(rlt.ContractStorageAccesses, 2)
+		require.Equal("0x0000000000000000000000000000000000000001", rlt.ContractStorageAccesses[0].Address)
+		require.Equal([]string{"0x0000000000000000000000000000000000000000000000000000000000000001"}, rlt.ContractStorageAccesses[0].Reads)
+		require.Equal([]string{"0x0000000000000000000000000000000000000000000000000000000000000002"}, rlt.ContractStorageAccesses[0].Writes)
+		require.Equal("0x0000000000000000000000000000000000000002", rlt.ContractStorageAccesses[1].Address)
+		require.Equal([]string{"0x0000000000000000000000000000000000000000000000000000000000000002"}, rlt.ContractStorageAccesses[1].Reads)
+		require.Equal([]string{
+			"0x0000000000000000000000000000000000000000000000000000000000000002",
+			"0x0000000000000000000000000000000000000000000000000000000000000003",
+		}, rlt.ContractStorageAccesses[1].Writes)
+		require.NotNil(rlt.ContractStorageAccessSummary)
+		require.Equal(uint64(2), rlt.ContractStorageAccessSummary.Contracts)
+		require.Equal(uint64(2), rlt.ContractStorageAccessSummary.ReadSlots)
+		require.Equal(uint64(3), rlt.ContractStorageAccessSummary.WriteSlots)
+		require.Equal(uint64(4), rlt.ContractStorageAccessSummary.TouchedSlots)
 	})
 }
 
@@ -1256,9 +1285,14 @@ func TestDebugTraceCall(t *testing.T) {
 	tsfhash, err := tsf.Hash()
 	require.NoError(err)
 	receipt := &action.Receipt{Status: 1, BlockHeight: 1, ActionHash: tsfhash, GasConsumed: 100000}
-	structLogger := &logger.StructLogger{}
+	tracer := newEVMTracer(nil, nil)
+	require.NoError(tracer.Reset())
+	tracer.CaptureContractStorageAccesses([]evm.ContractStorageAccess{{
+		Address: common.HexToAddress("0x0000000000000000000000000000000000000002"),
+		Reads:   []common.Hash{common.HexToHash("0x03")},
+	}})
 
-	core.EXPECT().TraceCall(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, structLogger, nil)
+	core.EXPECT().TraceCall(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return([]byte{0x01}, receipt, tracer, nil)
 
 	in := gjson.Parse(`{"method":"debug_traceCall","params":[{"from":null,"to":"0x6b175474e89094c44da98b954eedeac495271d0f","data":"0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE"}],"id":1,"jsonrpc":"2.0"}`)
 	ret, err := web3svr.traceCall(ctx, &in)
@@ -1270,6 +1304,148 @@ func TestDebugTraceCall(t *testing.T) {
 	require.Equal(uint64(100000), rlt.Gas)
 	require.Empty(rlt.Revert)
 	require.Equal(0, len(rlt.StructLogs))
+	require.Len(rlt.ContractStorageAccesses, 1)
+	require.Equal("0x0000000000000000000000000000000000000002", rlt.ContractStorageAccesses[0].Address)
+	require.Equal([]string{"0x0000000000000000000000000000000000000000000000000000000000000003"}, rlt.ContractStorageAccesses[0].Reads)
+	require.Empty(rlt.ContractStorageAccesses[0].Writes)
+	require.NotNil(rlt.ContractStorageAccessSummary)
+	require.Equal(uint64(1), rlt.ContractStorageAccessSummary.Contracts)
+	require.Equal(uint64(1), rlt.ContractStorageAccessSummary.ReadSlots)
+	require.Equal(uint64(0), rlt.ContractStorageAccessSummary.WriteSlots)
+	require.Equal(uint64(1), rlt.ContractStorageAccessSummary.TouchedSlots)
+}
+
+func TestSummarizeContractStorageAccesses(t *testing.T) {
+	require := require.New(t)
+	require.Nil(summarizeContractStorageAccesses(nil))
+
+	summary := summarizeContractStorageAccesses([]evm.ContractStorageAccess{
+		{
+			Address: common.HexToAddress("0x0000000000000000000000000000000000000001"),
+			Reads:   []common.Hash{common.HexToHash("0x01"), common.HexToHash("0x02")},
+			Writes:  []common.Hash{common.HexToHash("0x02"), common.HexToHash("0x03")},
+		},
+	})
+	require.NotNil(summary)
+	require.Equal(uint64(1), summary.Contracts)
+	require.Equal(uint64(2), summary.ReadSlots)
+	require.Equal(uint64(2), summary.WriteSlots)
+	require.Equal(uint64(3), summary.TouchedSlots)
+}
+
+func TestDebugTraceBlockStorageByNumber(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	txHash1 := hash.Hash256b([]byte("tx1"))
+	txHash2 := hash.Hash256b([]byte("tx2"))
+	results := []*blockTraceResult{
+		{
+			TxHash: txHash1,
+			Result: &debugTraceTransactionResult{
+				ContractStorageAccesses: []contractStorageAccessJSON{
+					{
+						Address: "0x0000000000000000000000000000000000000001",
+						Reads: []string{
+							"0x0000000000000000000000000000000000000000000000000000000000000001",
+						},
+						Writes: []string{
+							"0x0000000000000000000000000000000000000000000000000000000000000002",
+						},
+					},
+				},
+			},
+		},
+		{
+			TxHash: txHash2,
+			Result: &debugTraceTransactionResult{
+				ContractStorageAccesses: []contractStorageAccessJSON{
+					{
+						Address: "0x0000000000000000000000000000000000000001",
+						Reads: []string{
+							"0x0000000000000000000000000000000000000000000000000000000000000002",
+						},
+						Writes: []string{
+							"0x0000000000000000000000000000000000000000000000000000000000000003",
+						},
+					},
+					{
+						Address: "0x0000000000000000000000000000000000000002",
+						Reads: []string{
+							"0x0000000000000000000000000000000000000000000000000000000000000004",
+						},
+					},
+				},
+			},
+		},
+	}
+	core.EXPECT().TraceBlockByNumber(context.Background(), uint64(1), gomock.Any()).Return(nil, nil, results, nil)
+
+	in := gjson.Parse(`{"params":["0x1"]}`)
+	ret, err := web3svr.traceBlockStorageByNumber(context.Background(), &in)
+	require.NoError(err)
+
+	rlt, ok := ret.(*debugTraceBlockStorageSummaryResult)
+	require.True(ok)
+	require.NotNil(rlt.Summary)
+	require.Equal(uint64(2), rlt.Summary.Contracts)
+	require.Equal(uint64(3), rlt.Summary.ReadSlots)
+	require.Equal(uint64(2), rlt.Summary.WriteSlots)
+	require.Equal(uint64(4), rlt.Summary.TouchedSlots)
+	require.Len(rlt.Transactions, 2)
+	require.Equal("0x"+hex.EncodeToString(txHash1[:]), rlt.Transactions[0].TxHash)
+	require.Equal(uint64(1), rlt.Transactions[0].Contracts)
+	require.Equal(uint64(1), rlt.Transactions[0].ReadSlots)
+	require.Equal(uint64(1), rlt.Transactions[0].WriteSlots)
+	require.Equal(uint64(2), rlt.Transactions[0].TouchedSlots)
+	require.Equal("0x"+hex.EncodeToString(txHash2[:]), rlt.Transactions[1].TxHash)
+	require.Equal(uint64(2), rlt.Transactions[1].Contracts)
+	require.Equal(uint64(2), rlt.Transactions[1].ReadSlots)
+	require.Equal(uint64(1), rlt.Transactions[1].WriteSlots)
+	require.Equal(uint64(3), rlt.Transactions[1].TouchedSlots)
+}
+
+func TestDebugTraceBlockStorageByHash(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	txHash := hash.Hash256b([]byte("tx"))
+	blockHash := "0xabcdef"
+	results := []*blockTraceResult{
+		{
+			TxHash: txHash,
+			Result: &debugTraceTransactionResult{},
+		},
+	}
+	core.EXPECT().TraceBlockByHash(context.Background(), blockHash, gomock.Any()).Return(nil, nil, results, nil)
+
+	in := gjson.Parse(`{"params":["` + blockHash + `"]}`)
+	ret, err := web3svr.traceBlockStorageByHash(context.Background(), &in)
+	require.NoError(err)
+
+	rlt, ok := ret.(*debugTraceBlockStorageSummaryResult)
+	require.True(ok)
+	require.Nil(rlt.Summary)
+	require.Len(rlt.Transactions, 1)
+	require.Equal("0x"+hex.EncodeToString(txHash[:]), rlt.Transactions[0].TxHash)
+	require.Zero(rlt.Transactions[0].Contracts)
+	require.Zero(rlt.Transactions[0].ReadSlots)
+	require.Zero(rlt.Transactions[0].WriteSlots)
+	require.Zero(rlt.Transactions[0].TouchedSlots)
+}
+
+func TestSummarizeBlockTraceStorageResultsRejectsUnexpectedResult(t *testing.T) {
+	require := require.New(t)
+	_, err := summarizeBlockTraceStorageResults([]*blockTraceResult{{
+		Result: "unexpected",
+	}})
+	require.Error(err)
 }
 
 func TestResponseIDMatchTypeWithRequest(t *testing.T) {

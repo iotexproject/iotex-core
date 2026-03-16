@@ -700,8 +700,9 @@ func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
 
 type evmTracer struct {
 	vm.EVMLogger
-	txctx  *tracers.Context
-	config *tracers.TraceConfig
+	txctx                   *tracers.Context
+	config                  *tracers.TraceConfig
+	contractStorageAccesses []evm.ContractStorageAccess
 }
 
 func newEVMTracer(txctx *tracers.Context, config *tracers.TraceConfig) *evmTracer {
@@ -716,6 +717,7 @@ func (et *evmTracer) Reset() error {
 		tracer vm.EVMLogger
 		err    error
 	)
+	et.contractStorageAccesses = nil
 	switch {
 	case et.config == nil:
 		tracer = logger.NewStructLogger(nil)
@@ -755,4 +757,12 @@ func (et *evmTracer) Unwrap() vm.EVMLogger {
 		return wrapper.Unwrap()
 	}
 	return et.EVMLogger
+}
+
+func (et *evmTracer) CaptureContractStorageAccesses(accesses []evm.ContractStorageAccess) {
+	et.contractStorageAccesses = append([]evm.ContractStorageAccess(nil), accesses...)
+}
+
+func (et *evmTracer) ContractStorageAccesses() []evm.ContractStorageAccess {
+	return append([]evm.ContractStorageAccess(nil), et.contractStorageAccesses...)
 }
