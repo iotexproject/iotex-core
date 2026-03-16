@@ -29,6 +29,8 @@ var (
 	candidateEndorsementLegacyMethod         abi.Method
 	candidateEndorsementEndorseMethod        abi.Method
 	candidateEndorsementIntentToRevokeMethod abi.Method
+	// caniddateEndorsementIntentToRevokeMethod is kept for backward compatibility with older code using the misspelled identifier.
+	caniddateEndorsementIntentToRevokeMethod abi.Method
 	candidateEndorsementRevokeMethod         abi.Method
 	_                                        EthCompatibleAction = (*CandidateEndorsement)(nil)
 )
@@ -64,6 +66,8 @@ func init() {
 	if !ok {
 		panic("fail to load the intentToRevokeEndorsement method")
 	}
+	// Backward-compatible alias for the old misspelled identifier.
+	caniddateEndorsementIntentToRevokeMethod = candidateEndorsementIntentToRevokeMethod
 	candidateEndorsementRevokeMethod, ok = candidateEndorsementInterface.Methods["revokeEndorsement"]
 	if !ok {
 		panic("fail to load the revokeEndorsement method")
