@@ -315,6 +315,24 @@ func ExecuteContract(
 		}
 	}
 
+	if tCtx, ok := GetTracerCtx(ctx); ok {
+		if tCtx.CaptureContractStorageAccesses != nil {
+			type storageAccessCollector interface {
+				ContractStorageAccesses() []ContractStorageAccess
+			}
+			if collector, ok := stateDB.(storageAccessCollector); ok {
+				tCtx.CaptureContractStorageAccesses(collector.ContractStorageAccesses())
+			}
+		}
+		if tCtx.CaptureContractStorageWitnesses != nil {
+			type storageWitnessCollector interface {
+				ContractStorageWitnesses() map[common.Address]*ContractStorageWitness
+			}
+			if collector, ok := stateDB.(storageWitnessCollector); ok {
+				tCtx.CaptureContractStorageWitnesses(collector.ContractStorageWitnesses())
+			}
+		}
+	}
 	if err := stateDB.CommitContracts(); err != nil {
 		return nil, nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
@@ -323,22 +341,6 @@ func ExecuteContract(
 	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||
 		ps.featureCtx.AddOutOfGasToTransactionLog && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
 		receipt.AddTransactionLogs(stateDB.TransactionLogs()...)
-	}
-	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageAccesses != nil {
-		type storageAccessCollector interface {
-			ContractStorageAccesses() []ContractStorageAccess
-		}
-		if collector, ok := stateDB.(storageAccessCollector); ok {
-			tCtx.CaptureContractStorageAccesses(collector.ContractStorageAccesses())
-		}
-	}
-	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageWitnesses != nil {
-		type storageWitnessCollector interface {
-			ContractStorageWitnesses() map[common.Address]*ContractStorageWitness
-		}
-		if collector, ok := stateDB.(storageWitnessCollector); ok {
-			tCtx.CaptureContractStorageWitnesses(collector.ContractStorageWitnesses())
-		}
 	}
 	stateDB.clear()
 

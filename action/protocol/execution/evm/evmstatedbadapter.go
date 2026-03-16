@@ -305,12 +305,20 @@ func (stateDB *StateDBAdapter) ContractStorageWitnesses() map[common.Address]*Co
 	for _, access := range accesses {
 		contract, ok := stateDB.cachedContract[access.Address]
 		if !ok {
-			stateDB.logError(errors.Errorf("contract %s not found in cache for witness assembly", access.Address.Hex()))
+			stateDB.assertError(
+				errors.Errorf("contract %s not found in cache for witness assembly", access.Address.Hex()),
+				"Failed to find contract in cache for witness assembly.",
+				zap.String("address", access.Address.Hex()),
+			)
 			return nil
 		}
 		witness, err := contract.BuildStorageWitness(access)
 		if err != nil {
-			stateDB.logError(err)
+			stateDB.assertError(
+				err,
+				"Failed to build contract storage witness.",
+				zap.String("address", access.Address.Hex()),
+			)
 			return nil
 		}
 		witnesses[access.Address] = witness

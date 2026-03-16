@@ -45,6 +45,7 @@ type (
 
 	contract struct {
 		*state.Account
+		addr       hash.Hash160
 		async      bool
 		dirtyCode  bool                       // contract's code has been set
 		dirtyState bool                       // contract's account state has changed
@@ -53,7 +54,8 @@ type (
 		committed  map[hash.Hash256][]byte
 		missing    map[hash.Hash256]struct{}
 		sm         protocol.StateManager
-		trie       trie.Trie // storage trie of the contract
+		trie       trie.Trie      // storage trie of the contract
+		prestate   trie.ProofTrie // snapshot captured before the first storage mutation
 	}
 )
 
@@ -90,6 +92,9 @@ func (c *contract) SetState(key hash.Hash256, value []byte) error {
 	if _, ok := c.committed[key]; !ok {
 		_, _ = c.GetState(key)
 	}
+	if err := c.capturePrestateTrie(); err != nil {
+		return err
+	}
 	c.dirtyState = true
 	if err := c.trie.Upsert(key[:], value); err != nil {
 		return err
@@ -107,11 +112,10 @@ func (c *contract) SetState(key hash.Hash256, value []byte) error {
 }
 
 func (c *contract) BuildStorageWitness(access ContractStorageAccess) (*ContractStorageWitness, error) {
-	pt, ok := c.trie.(trie.ProofTrie)
-	if !ok {
-		return nil, errors.New("contract storage trie does not support proofs")
+	pt, err := c.proofTrieForWitness()
+	if err != nil {
+		return nil, err
 	}
-
 	keys := touchedStorageKeys(access)
 	entries := make([]ContractStorageWitnessEntry, 0, len(keys))
 	proofNodes := make([][]byte, 0)
@@ -149,6 +153,52 @@ func (c *contract) BuildStorageWitness(access ContractStorageAccess) (*ContractS
 		Entries:     entries,
 		ProofNodes:  proofNodes,
 	}, nil
+}
+
+func (c *contract) proofTrieForWitness() (trie.ProofTrie, error) {
+	if c.prestate != nil {
+		return c.prestate, nil
+	}
+	if c.dirtyState {
+		return nil, errors.New("missing pre-state trie snapshot for witness assembly")
+	}
+	pt, ok := c.trie.(trie.ProofTrie)
+	if !ok {
+		return nil, errors.New("contract storage trie does not support proofs")
+	}
+	return pt, nil
+}
+
+func (c *contract) capturePrestateTrie() error {
+	if c.prestate != nil {
+		return nil
+	}
+	snapshot, err := newStorageTrie(c.addr, trie.NewMemKVStore(), false)
+	if err != nil {
+		return err
+	}
+	iter, err := c.Iterator()
+	if err != nil {
+		return err
+	}
+	for {
+		key, value, err := iter.Next()
+		if err != nil {
+			if errors.Cause(err) == trie.ErrEndOfIterator {
+				break
+			}
+			return err
+		}
+		if err := snapshot.Upsert(key, value); err != nil {
+			return err
+		}
+	}
+	pt, ok := snapshot.(trie.ProofTrie)
+	if !ok {
+		return errors.New("contract storage trie does not support proofs")
+	}
+	c.prestate = pt
+	return nil
 }
 
 // GetCode gets the contract's byte-code
@@ -192,6 +242,7 @@ func (c *contract) Commit() error {
 		c.committed = make(map[hash.Hash256][]byte)
 		c.missing = nil
 		c.missing = make(map[hash.Hash256]struct{})
+		c.prestate = nil
 	}
 	if c.dirtyCode {
 		if _, err := c.sm.PutState(c.code, protocol.NamespaceOption(CodeKVNameSpace), protocol.KeyOption(c.Account.CodeHash)); err != nil {
@@ -218,6 +269,7 @@ func (c *contract) Snapshot() Contract {
 	}
 	return &contract{
 		Account:    c.Account.Clone(),
+		addr:       c.addr,
 		async:      c.async,
 		dirtyCode:  c.dirtyCode,
 		dirtyState: c.dirtyState,
@@ -226,6 +278,7 @@ func (c *contract) Snapshot() Contract {
 		committed:  c.committed,
 		missing:    c.missing,
 		sm:         c.sm,
+		prestate:   c.prestate,
 		// note we simply save the trie (which is an interface/pointer)
 		// later Revert() call needs to reset the saved trie root
 		trie: c.trie,
@@ -236,34 +289,44 @@ func (c *contract) Snapshot() Contract {
 func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager, enableAsync bool) (Contract, error) {
 	c := &contract{
 		Account:   account,
+		addr:      addr,
 		root:      account.Root,
 		committed: make(map[hash.Hash256][]byte),
 		missing:   make(map[hash.Hash256]struct{}),
 		sm:        sm,
 		async:     enableAsync,
 	}
+	tr, err := newStorageTrie(addr, protocol.NewKVStoreForTrieWithStateManager(ContractKVNameSpace, sm), enableAsync)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create storage trie for new contract")
+	}
+	if account.Root != hash.ZeroHash256 {
+		if err := tr.SetRootHash(account.Root[:]); err != nil {
+			return nil, err
+		}
+	}
+	c.trie = tr
+	return c, nil
+}
+
+func newStorageTrie(addr hash.Hash160, kvStore trie.KVStore, enableAsync bool) (trie.Trie, error) {
 	options := []mptrie.Option{
-		mptrie.KVStoreOption(protocol.NewKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)),
+		mptrie.KVStoreOption(kvStore),
 		mptrie.KeyLengthOption(len(hash.Hash256{})),
 		mptrie.HashFuncOption(func(data []byte) []byte {
 			h := hash.Hash256b(append(addr[:], data...))
 			return h[:]
 		}),
 	}
-	if account.Root != hash.ZeroHash256 {
-		options = append(options, mptrie.RootHashOption(account.Root[:]))
-	}
 	if enableAsync {
 		options = append(options, mptrie.AsyncOption())
 	}
-
 	tr, err := mptrie.New(options...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create storage trie for new contract")
+		return nil, err
 	}
 	if err := tr.Start(context.Background()); err != nil {
 		return nil, err
 	}
-	c.trie = tr
-	return c, nil
+	return tr, nil
 }
