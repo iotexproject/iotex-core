@@ -324,6 +324,14 @@ func ExecuteContract(
 		ps.featureCtx.AddOutOfGasToTransactionLog && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
 		receipt.AddTransactionLogs(stateDB.TransactionLogs()...)
 	}
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageAccesses != nil {
+		type storageAccessCollector interface {
+			ContractStorageAccesses() []ContractStorageAccess
+		}
+		if collector, ok := stateDB.(storageAccessCollector); ok {
+			tCtx.CaptureContractStorageAccesses(collector.ContractStorageAccesses())
+		}
+	}
 	stateDB.clear()
 
 	if ps.featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], _revertSelector) {
@@ -447,6 +455,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.FixRevertSnapshot || actionCtx.ReadOnly {
 		opts = append(opts, FixRevertSnapshotOption())
 		opts = append(opts, WithContext(ctx))
+	}
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageAccesses != nil {
+		opts = append(opts, EnableStorageAccessTracingOption())
 	}
 	return NewStateDBAdapter(
 		sm,

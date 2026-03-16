@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -27,6 +28,54 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
+
+func TestPrepareStateDBStorageTracingOptIn(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
+
+	newCtx := func() context.Context {
+		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+			Caller: identityset.Address(27),
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit,
+		})
+		ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
+		ctx = protocol.WithBlockchainCtx(protocol.WithFeatureCtx(ctx), protocol.BlockchainCtx{
+			ChainID:      1,
+			EvmNetworkID: 100,
+		})
+		return WithHelperCtx(ctx, HelperContext{
+			GetBlockHash: func(uint64) (hash.Hash256, error) {
+				return hash.ZeroHash256, nil
+			},
+			GetBlockTime: func(uint64) (time.Time, error) {
+				return time.Time{}, nil
+			},
+			DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) ([]*action.TransactionLog, error) {
+				return nil, nil
+			},
+		})
+	}
+
+	stateDB, err := prepareStateDB(newCtx(), sm)
+	require.NoError(err)
+	stateDB.SetState(common.Address{1}, common.Hash{1}, common.Hash{2})
+	require.Empty(stateDB.ContractStorageAccesses())
+
+	ctxWithTrace := WithTracerCtx(newCtx(), TracerContext{
+		CaptureContractStorageAccesses: func([]ContractStorageAccess) {},
+	})
+	stateDB, err = prepareStateDB(ctxWithTrace, sm)
+	require.NoError(err)
+	stateDB.SetState(common.Address{1}, common.Hash{1}, common.Hash{2})
+	require.NotEmpty(stateDB.ContractStorageAccesses())
+}
 
 func TestExecuteContractFailure(t *testing.T) {
 	ctrl := gomock.NewController(t)

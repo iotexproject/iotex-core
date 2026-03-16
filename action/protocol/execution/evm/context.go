@@ -21,7 +21,8 @@ type (
 	}
 	// TracerContext is the context for EVM tracer
 	TracerContext struct {
-		CaptureTx func([]byte, *action.Receipt)
+		CaptureTx                      func([]byte, *action.Receipt)
+		CaptureContractStorageAccesses func([]ContractStorageAccess)
 	}
 )
 
