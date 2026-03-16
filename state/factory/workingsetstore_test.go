@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
@@ -146,4 +147,34 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 
 func TestFactoryWorkingSetStore(t *testing.T) {
 	// TODO: add unit test for factory working set store
+}
+
+func TestFlusherOptionsSkipContractStorageFlushButKeepDigest(t *testing.T) {
+	require := require.New(t)
+
+	inMemStore := db.NewMemKVStore()
+	flusher, err := db.NewKVStoreFlusher(
+		inMemStore,
+		batch.NewCachedBatch(),
+		(&stateDB{}).flusherOptions(false, true, true)...,
+	)
+	require.NoError(err)
+
+	contractKey := []byte("contract-key")
+	accountKey := []byte("account-key")
+	contractValue := []byte("contract-value")
+	accountValue := []byte("account-value")
+	flusher.KVStoreWithBuffer().MustPut(evm.ContractKVNameSpace, contractKey, contractValue)
+	flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, accountKey, accountValue)
+
+	require.NotEmpty(flusher.SerializeQueue())
+
+	require.NoError(flusher.Flush())
+
+	_, err = inMemStore.Get(evm.ContractKVNameSpace, contractKey)
+	require.Error(err)
+
+	value, err := inMemStore.Get(AccountKVNamespace, accountKey)
+	require.NoError(err)
+	require.Equal(accountValue, value)
 }

@@ -154,6 +154,7 @@ func TestExtensionOperation(t *testing.T) {
 	require.True(ok)
 	ex1, ok = vn.(*extensionNode)
 	require.True(ok)
+	require.Equal([]byte(""), ex1.path)
 	bn1, ok = ex1.child.(*branchNode)
 	require.True(ok)
 	require.Len(bn1.children, 2) // (iotex, ioabc123)

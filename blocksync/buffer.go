@@ -7,6 +7,10 @@ package blocksync
 
 import (
 	"sync"
+
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 // blockBuffer is used to keep in-coming block in order.
@@ -49,9 +53,19 @@ func (b *blockBuffer) AddBlock(tipHeight uint64, blk *peerBlock) (bool, uint64) 
 	defer b.mu.Unlock()
 	blkHeight := blk.block.Height()
 	if blkHeight <= tipHeight {
+		log.L().Debug("block rejected: already committed",
+			zap.Uint64("blockHeight", blkHeight),
+			zap.Uint64("tipHeight", tipHeight),
+		)
 		return false, blkHeight
 	}
 	if blkHeight > tipHeight+b.bufferSize {
+		log.L().Debug("block rejected: too far ahead of tip",
+			zap.Uint64("blockHeight", blkHeight),
+			zap.Uint64("tipHeight", tipHeight),
+			zap.Uint64("bufferSize", b.bufferSize),
+			zap.Uint64("maxAcceptable", tipHeight+b.bufferSize),
+		)
 		return false, tipHeight + b.bufferSize
 	}
 	if _, ok := b.blockQueues[blkHeight]; !ok {

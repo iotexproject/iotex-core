@@ -132,6 +132,50 @@ func TestLogsInRange(t *testing.T) {
 	})
 }
 
+func TestActionAndReceiptByHashWithoutIndexer(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	dao := mock_blockdao.NewMockBlockDAO(ctrl)
+	core := &coreService{
+		bc:  bc,
+		dao: dao,
+	}
+
+	elp := (&action.EnvelopeBuilder{}).
+		SetNonce(1).
+		SetGasLimit(testutil.TestGasLimit).
+		SetGasPrice(testutil.TestGasPrice).
+		SetAction(&action.Transfer{}).
+		Build()
+	selp, err := action.Sign(elp, identityset.PrivateKey(0))
+	require.NoError(err)
+
+	actHash, err := selp.Hash()
+	require.NoError(err)
+
+	receipt := &action.Receipt{ActionHash: actHash, BlockHeight: 1}
+	blk := &block.Block{
+		Body:     block.Body{Actions: []*action.SealedEnvelope{selp}},
+		Receipts: []*action.Receipt{receipt},
+	}
+
+	bc.EXPECT().TipHeight().Return(uint64(1)).Times(2)
+	dao.EXPECT().GetBlockByHeight(uint64(1)).Return(blk, nil).Times(2)
+
+	gotSelp, gotBlk, gotIndex, err := core.ActionByActionHash(actHash)
+	require.NoError(err)
+	require.Equal(selp, gotSelp)
+	require.Equal(blk, gotBlk)
+	require.Equal(uint32(0), gotIndex)
+
+	gotReceipt, err := core.ReceiptByActionHash(actHash)
+	require.NoError(err)
+	require.Equal(receipt, gotReceipt)
+}
+
 func BenchmarkLogsInRange(b *testing.B) {
 	svr, _, _, _, cleanCallback := setupTestCoreService()
 	defer cleanCallback()
@@ -683,6 +727,47 @@ func TestTraceCall(t *testing.T) {
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
 	require.Equal(0, len(traces.(*evmTracer).Unwrap().(*logger.StructLogger).StructLogs()))
+}
+
+func TestTraceCallCapturesStorageWitnesses(t *testing.T) {
+	require := require.New(t)
+
+	svr, bc, dao, ap, cleanCallback := setupTestCoreService()
+	defer cleanCallback()
+
+	contractCode := "608060405234801561001057600080fd5b50336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550610196806100606000396000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c80632e64cec11461004657806343d726d6146100645780636057361d1461006e575b600080fd5b61004e61008a565b60405161005b9190610124565b60405180910390f35b61006c610094565b005b610088600480360381019061008391906100ec565b6100cd565b005b6000600154905090565b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16ff5b8060018190555050565b6000813590506100e681610149565b92915050565b6000602082840312156100fe57600080fd5b600061010c848285016100d7565b91505092915050565b61011e8161013f565b82525050565b60006020820190506101396000830184610115565b92915050565b6000819050919050565b6101528161013f565b811461015d57600080fd5b5056fea264697066735822122060e7a28baea4232a95074b94b50009d1d7b99302ef6556a1f3ce7f46a49f8cc064736f6c63430008000033"
+	contract, err := deployContractV2(bc, dao, ap, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
+	require.NoError(err)
+	require.NotEmpty(contract)
+
+	data, err := hex.DecodeString("6057361d0000000000000000000000000000000000000000000000000000000000000007")
+	require.NoError(err)
+
+	_, receipt, traces, err := svr.TraceCall(
+		context.Background(),
+		identityset.Address(13),
+		bc.TipHeight(),
+		contract,
+		0,
+		big.NewInt(0),
+		500000,
+		data,
+		nil,
+	)
+	require.NoError(err)
+	require.Equal(uint64(1), receipt.Status)
+
+	tracer := traces.(*evmTracer)
+	accesses := tracer.ContractStorageAccesses()
+	require.NotEmpty(accesses)
+	require.NotEmpty(accesses[0].Writes)
+
+	witnesses := tracer.ContractStorageWitnesses()
+	require.NotEmpty(witnesses)
+	for _, witness := range witnesses {
+		require.NotEmpty(witness.Entries)
+		require.NotEmpty(witness.ProofNodes)
+	}
 }
 
 func TestProofAndCompareReverseActions(t *testing.T) {

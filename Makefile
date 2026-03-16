@@ -25,6 +25,9 @@ BUILD_TARGET_MINICLUSTER=minicluster
 BUILD_TARGET_RECOVER=recover
 BUILD_TARGET_READTIP=readtip
 BUILD_TARGET_IOMIGRATER=iomigrater
+BUILD_TARGET_STATELESSDEMO=statelessdemo
+BUILD_TARGET_TRIMSTATE=trimstate
+BUILD_TARGET_EXPORTBLOCKS=exportblocks
 BUILD_TARGET_OS=$(shell go env GOOS)
 BUILD_TARGET_ARCH=$(shell go env GOARCH)
 
@@ -89,7 +92,7 @@ build: ioctl
 	$(GOBUILD) -tags $(BUILD_TAGS) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 
 .PHONY: build-all
-build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer build-readtip
+build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer build-readtip build-statelessdemo build-trimstate build-exportblocks
 
 .PHONY: build-actioninjector
 build-actioninjector: 
@@ -110,6 +113,18 @@ build-staterecoverer:
 .PHONY: build-readtip
 build-readtip:
 	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_READTIP) -v ./tools/readtip
+
+.PHONY: build-statelessdemo
+build-statelessdemo:
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_STATELESSDEMO) -v ./tools/statelessdemo
+
+.PHONY: build-trimstate
+build-trimstate:
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_TRIMSTATE) -v ./tools/trimstate
+
+.PHONY: build-exportblocks
+build-exportblocks:
+	$(GOBUILD) -tags $(BUILD_TAGS) -o ./bin/$(BUILD_TARGET_EXPORTBLOCKS) -v ./tools/exportblocks
 
 .PHONY: fmt
 fmt:

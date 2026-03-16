@@ -89,6 +89,26 @@ type (
 		MintTimeout time.Duration `yaml:"-"`
 		// StuckThreshold is the duration to detect chain stuck
 		StuckThreshold time.Duration `yaml:"stuckThreshold"`
+		// EnableExperimentalStandaloneSync enables real p2p and blocksync even
+		// when consensus scheme is standalone.
+		EnableExperimentalStandaloneSync bool `yaml:"enableExperimentalStandaloneSync"`
+		// EnableExperimentalStatelessValidation enables block validation with
+		// contract-storage witness sidecars fetched from an RPC endpoint.
+		EnableExperimentalStatelessValidation bool `yaml:"enableExperimentalStatelessValidation"`
+		// StatelessValidationRPC is the producer RPC endpoint used to fetch
+		// debug_traceBlockWitness sidecars for stateless validation.
+		StatelessValidationRPC string `yaml:"statelessValidationRPC"`
+		// EnableExperimentalCSSync enables direct client-server block sync from a
+		// full node without relying on p2p neighbor discovery.
+		EnableExperimentalCSSync bool `yaml:"enableExperimentalCSSync"`
+		// CSSyncGRPC is the full-node gRPC endpoint used to fetch raw blocks.
+		CSSyncGRPC string `yaml:"csSyncGRPC"`
+		// CSSyncWeb3 is the full-node Web3/debug RPC endpoint used to fetch
+		// contract-storage witnesses.
+		CSSyncWeb3 string `yaml:"csSyncWeb3"`
+		// WitnessDBPath is the path to the separate witness persistence DB used by
+		// experimental CS sync.
+		WitnessDBPath string `yaml:"witnessDBPath"`
 	}
 )
 
@@ -118,24 +138,31 @@ var (
 		Committee: committee.Config{
 			GravityChainAPIs: []string{},
 		},
-		EnableTrielessStateDB:         true,
-		EnableStateDBCaching:          false,
-		EnableArchiveMode:             false,
-		EnableAsyncIndexWrite:         true,
-		EnableSystemLogIndexer:        false,
-		EnableStakingProtocol:         true,
-		EnableStakingIndexer:          false,
-		AllowedBlockGasResidue:        10000,
-		MaxCacheSize:                  0,
-		PollInitialCandidatesInterval: 10 * time.Second,
-		StateDBCacheSize:              1000,
-		WorkingSetCacheSize:           20,
-		StreamingBlockBufferSize:      200,
-		PersistStakingPatchBlock:      19778037,
-		FixAliasForNonStopHeight:      19778036,
-		FactoryDBType:                 db.DBAuto,
-		MintTimeout:                   700 * time.Millisecond,
-		StuckThreshold:                10 * time.Minute,
+		EnableTrielessStateDB:                 true,
+		EnableStateDBCaching:                  false,
+		EnableArchiveMode:                     false,
+		EnableAsyncIndexWrite:                 true,
+		EnableSystemLogIndexer:                false,
+		EnableStakingProtocol:                 true,
+		EnableStakingIndexer:                  false,
+		AllowedBlockGasResidue:                10000,
+		MaxCacheSize:                          0,
+		PollInitialCandidatesInterval:         10 * time.Second,
+		StateDBCacheSize:                      1000,
+		WorkingSetCacheSize:                   20,
+		StreamingBlockBufferSize:              200,
+		PersistStakingPatchBlock:              19778037,
+		FixAliasForNonStopHeight:              19778036,
+		FactoryDBType:                         db.DBAuto,
+		MintTimeout:                           700 * time.Millisecond,
+		StuckThreshold:                        10 * time.Minute,
+		EnableExperimentalStandaloneSync:      false,
+		EnableExperimentalStatelessValidation: false,
+		StatelessValidationRPC:                "",
+		EnableExperimentalCSSync:              false,
+		CSSyncGRPC:                            "",
+		CSSyncWeb3:                            "",
+		WitnessDBPath:                         "",
 	}
 
 	// ErrConfig config error

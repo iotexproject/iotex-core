@@ -168,9 +168,18 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 		if blk == nil {
 			continue
 		}
+		log.L().Debug("committing block from buffer",
+			zap.Uint64("height", blk.block.Height()),
+			zap.String("peer", blk.pid),
+			zap.String("hash", fmt.Sprintf("%x", blk.block.HashBlock())),
+		)
 		err := bs.commitBlockHandler(blk.block)
 		switch errors.Cause(err) {
 		case nil:
+			log.L().Debug("committed block",
+				zap.Uint64("height", blk.block.Height()),
+				zap.String("peer", blk.pid),
+			)
 			if blk.block.Height() > bs.lastTip {
 				bs.lastTip = blk.block.Height()
 				bs.lastTipTime = blk.block.Timestamp()
@@ -197,18 +206,30 @@ func (bs *blockSyncer) flushInfo() (time.Time, uint64) {
 
 func (bs *blockSyncer) sync() {
 	updateTime, targetHeight := bs.flushInfo()
+	tipHeight := bs.tipHeightHandler()
 	if updateTime.Add(bs.cfg.Interval).After(time.Now()) {
+		log.L().Debug("block sync skipped: last commit was recent",
+			zap.Time("lastCommitTime", updateTime),
+			zap.Duration("interval", bs.cfg.Interval),
+			zap.Uint64("tipHeight", tipHeight),
+			zap.Uint64("targetHeight", targetHeight),
+		)
 		return
 	}
-	intervals := bs.buf.GetBlocksIntervalsToSync(bs.tipHeightHandler(), targetHeight)
+	intervals := bs.buf.GetBlocksIntervalsToSync(tipHeight, targetHeight)
 	// no sync
 	if len(intervals) == 0 {
+		log.L().Debug("block sync: no missing intervals",
+			zap.Uint64("tipHeight", tipHeight),
+			zap.Uint64("targetHeight", targetHeight),
+		)
 		return
 	}
 	// start syncing
-	bs.startingHeight = bs.tipHeightHandler()
+	bs.startingHeight = tipHeight
 	log.L().Info("block sync intervals.",
 		zap.Any("intervals", intervals),
+		zap.Uint64("tipHeight", tipHeight),
 		zap.Uint64("targetHeight", targetHeight))
 	for i, interval := range intervals {
 		bs.requestBlock(context.Background(), interval.Start, interval.End, bs.cfg.MaxRepeat-i/bs.cfg.RepeatDecayStep)
@@ -231,6 +252,12 @@ func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint6
 	if repeat > len(peers) {
 		repeat = len(peers)
 	}
+	log.L().Debug("requesting blocks from peers",
+		zap.Uint64("start", start),
+		zap.Uint64("end", end),
+		zap.Int("repeat", repeat),
+		zap.Int("totalPeers", len(peers)),
+	)
 	for i := 0; i < repeat; i++ {
 		var peer *peer.AddrInfo
 		for j := 0; j < 10; j++ {
@@ -240,8 +267,17 @@ func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint6
 			}
 		}
 		if peer == nil {
+			log.L().Debug("no suitable peer found for block range",
+				zap.Uint64("start", start),
+				zap.Uint64("end", end),
+			)
 			continue
 		}
+		log.L().Debug("sending block sync request",
+			zap.String("peer", peer.ID.String()),
+			zap.Uint64("start", start),
+			zap.Uint64("end", end),
+		)
 		if err := bs.unicastOutbound(
 			ctx,
 			*peer,
@@ -294,6 +330,12 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 	}
 
 	tip := bs.tipHeightHandler()
+	log.L().Debug("received block from peer",
+		zap.Uint64("height", blk.Height()),
+		zap.String("peer", peer),
+		zap.Uint64("tipHeight", tip),
+		zap.String("hash", fmt.Sprintf("%x", blk.HashBlock())),
+	)
 	added, targetHeight := bs.buf.AddBlock(tip, newPeerBlock(peer, blk))
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
@@ -301,6 +343,11 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		bs.targetHeight = targetHeight
 	}
 	if !added {
+		log.L().Debug("block not added to buffer",
+			zap.Uint64("height", blk.Height()),
+			zap.Uint64("tipHeight", tip),
+			zap.Uint64("targetHeight", targetHeight),
+		)
 		return nil
 	}
 	syncedHeight := tip
@@ -310,7 +357,17 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		}
 		syncedHeight++
 	}
-	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", syncedHeight))
+	if syncedHeight > tip {
+		log.L().Debug("flushed blocks from buffer",
+			zap.Uint64("from", tip+1),
+			zap.Uint64("to", syncedHeight),
+		)
+	} else {
+		log.L().Debug("block buffered, waiting for earlier blocks",
+			zap.Uint64("bufferedHeight", blk.Height()),
+			zap.Uint64("tipHeight", tip),
+		)
+	}
 	return nil
 }
 

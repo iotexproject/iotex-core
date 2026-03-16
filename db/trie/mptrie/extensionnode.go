@@ -188,6 +188,12 @@ func (e *extensionNode) updatePath(cli client, path []byte) (node, error) {
 	if err := e.delete(cli); err != nil {
 		return nil, err
 	}
+	// TODO(bug): when len(path) == 0, this creates extensionNode(path=[], child)
+	// which serialises differently from using child directly. This makes the trie
+	// root hash dependent on insertion order: two tries with identical key-value
+	// sets but different insertion orders can produce different root hashes.
+	// Cannot fix directly: historical account.Root values were computed with the
+	// buggy MPT; fixing the hash computation would break historical block verification.
 	return newExtensionNode(cli, path, e.child)
 }
 

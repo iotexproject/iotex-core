@@ -267,6 +267,18 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.traceBlockByNumber(ctx, web3Req)
 	case "debug_traceBlockByHash":
 		res, err = svr.traceBlockByHash(ctx, web3Req)
+	case "debug_traceBlockStorageByNumber":
+		res, err = svr.traceBlockStorageByNumber(ctx, web3Req)
+	case "debug_traceBlockStorageByHash":
+		res, err = svr.traceBlockStorageByHash(ctx, web3Req)
+	case "debug_traceBlockWitnessByNumber":
+		res, err = svr.traceBlockWitnessByNumber(ctx, web3Req)
+	case "debug_traceBlockWitnessByHash":
+		res, err = svr.traceBlockWitnessByHash(ctx, web3Req)
+	case "debug_getBlockWitnessByNumber":
+		res, err = svr.getBlockWitnessByNumber(web3Req)
+	case "debug_getBlockWitnessByHash":
+		res, err = svr.getBlockWitnessByHash(web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
@@ -576,7 +588,7 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 	if err != nil {
 		return nil, err
 	}
-	elp, err := svr.ethTxToEnvelope(tx)
+	elp, err := svr.ethTxToEnvelope(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -661,7 +673,7 @@ func (svr *web3Handler) sendRawTransaction(ctx context.Context, in *gjson.Result
 			}
 		}
 	} else {
-		elp, err := svr.ethTxToEnvelope(tx)
+		elp, err := svr.ethTxToEnvelope(ctx, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -1297,6 +1309,26 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 		return nil, err
 	}
 	switch tracer := tracer.(type) {
+	case *evmTracer:
+		switch innerTracer := tracer.Unwrap().(type) {
+		case *logger.StructLogger:
+			accesses := tracer.ContractStorageAccesses()
+			witnesses := tracer.ContractStorageWitnesses()
+			return &debugTraceTransactionResult{
+				Failed:                       receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+				Revert:                       receipt.ExecutionRevertMsg(),
+				ReturnValue:                  byteToHex(retval),
+				StructLogs:                   fromLoggerStructLogs(innerTracer.StructLogs()),
+				Gas:                          receipt.GasConsumed,
+				ContractStorageAccesses:      fromContractStorageAccesses(accesses),
+				ContractStorageAccessSummary: summarizeContractStorageAccesses(accesses),
+				ContractStorageWitnesses:     fromContractStorageWitnesses(witnesses),
+			}, nil
+		case tracers.Tracer:
+			return innerTracer.GetResult()
+		default:
+			return nil, fmt.Errorf("unknown tracer type: %T", innerTracer)
+		}
 	case *logger.StructLogger:
 		return &debugTraceTransactionResult{
 			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
@@ -1333,6 +1365,26 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		return nil, err
 	}
 	switch tracer := tracer.(type) {
+	case *evmTracer:
+		switch innerTracer := tracer.Unwrap().(type) {
+		case *logger.StructLogger:
+			accesses := tracer.ContractStorageAccesses()
+			witnesses := tracer.ContractStorageWitnesses()
+			return &debugTraceTransactionResult{
+				Failed:                       receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+				Revert:                       receipt.ExecutionRevertMsg(),
+				ReturnValue:                  byteToHex(retval),
+				StructLogs:                   fromLoggerStructLogs(innerTracer.StructLogs()),
+				Gas:                          receipt.GasConsumed,
+				ContractStorageAccesses:      fromContractStorageAccesses(accesses),
+				ContractStorageAccessSummary: summarizeContractStorageAccesses(accesses),
+				ContractStorageWitnesses:     fromContractStorageWitnesses(witnesses),
+			}, nil
+		case tracers.Tracer:
+			return innerTracer.GetResult()
+		default:
+			return nil, fmt.Errorf("unknown tracer type: %T", innerTracer)
+		}
 	case *logger.StructLogger:
 		return &debugTraceTransactionResult{
 			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
@@ -1368,6 +1420,100 @@ func (svr *web3Handler) traceBlockByHash(ctx context.Context, in *gjson.Result) 
 	tracer := parseTracerConfig(&tracerParam)
 	_, _, results, err := svr.coreService.TraceBlockByHash(ctx, blkParam.String(), tracer)
 	return results, err
+}
+
+func (svr *web3Handler) traceBlockStorageByNumber(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	blkNum, err := parseBlockNumberOrHash(&blkParam)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse block number")
+	}
+	height, _, err := svr.blockNumberOrHashToHeight(blkNum)
+	if err != nil {
+		return nil, err
+	}
+	tracer := parseTracerConfig(&tracerParam)
+	_, _, results, err := svr.coreService.TraceBlockByNumber(ctx, height, tracer)
+	if err != nil {
+		return nil, err
+	}
+	blockResults, ok := results.([]*blockTraceResult)
+	if !ok {
+		return nil, fmt.Errorf("unknown block trace result type: %T", results)
+	}
+	return summarizeBlockTraceStorageResults(blockResults)
+}
+
+func (svr *web3Handler) traceBlockStorageByHash(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	tracer := parseTracerConfig(&tracerParam)
+	_, _, results, err := svr.coreService.TraceBlockByHash(ctx, blkParam.String(), tracer)
+	if err != nil {
+		return nil, err
+	}
+	blockResults, ok := results.([]*blockTraceResult)
+	if !ok {
+		return nil, fmt.Errorf("unknown block trace result type: %T", results)
+	}
+	return summarizeBlockTraceStorageResults(blockResults)
+}
+
+func (svr *web3Handler) traceBlockWitnessByNumber(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	blkNum, err := parseBlockNumberOrHash(&blkParam)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse block number")
+	}
+	height, _, err := svr.blockNumberOrHashToHeight(blkNum)
+	if err != nil {
+		return nil, err
+	}
+	tracer := parseTracerConfig(&tracerParam)
+	_, _, results, err := svr.coreService.TraceBlockByNumber(ctx, height, tracer)
+	if err != nil {
+		return nil, err
+	}
+	blockResults, ok := results.([]*blockTraceResult)
+	if !ok {
+		return nil, fmt.Errorf("unknown block trace result type: %T", results)
+	}
+	return summarizeBlockTraceWitnessResults(blockResults)
+}
+
+func (svr *web3Handler) traceBlockWitnessByHash(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	tracer := parseTracerConfig(&tracerParam)
+	_, _, results, err := svr.coreService.TraceBlockByHash(ctx, blkParam.String(), tracer)
+	if err != nil {
+		return nil, err
+	}
+	blockResults, ok := results.([]*blockTraceResult)
+	if !ok {
+		return nil, fmt.Errorf("unknown block trace result type: %T", results)
+	}
+	return summarizeBlockTraceWitnessResults(blockResults)
+}
+
+func (svr *web3Handler) getBlockWitnessByNumber(in *gjson.Result) (any, error) {
+	blkParam := in.Get("params.0")
+	blkNum, err := parseBlockNumberOrHash(&blkParam)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse block number")
+	}
+	height, _, err := svr.blockNumberOrHashToHeight(blkNum)
+	if err != nil {
+		return nil, err
+	}
+	return svr.coreService.BlockWitnessByNumber(height)
+}
+
+func (svr *web3Handler) getBlockWitnessByHash(in *gjson.Result) (any, error) {
+	blkParam := in.Get("params.0")
+	blkHash, err := hash.HexStringToHash256(util.Remove0xPrefix(blkParam.String()))
+	if err != nil {
+		return nil, err
+	}
+	return svr.coreService.BlockWitnessByHash(blkHash)
 }
 
 func (svr *web3Handler) unimplemented() (interface{}, error) {

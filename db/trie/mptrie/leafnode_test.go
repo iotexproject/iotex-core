@@ -136,7 +136,7 @@ func TestLeafOperation(t *testing.T) {
 	enode, ok = node.(*extensionNode)
 	require.True(ok)
 	require.Equal([]byte("io"), enode.path)
-	require.Len(enode2.child.(*branchNode).children, 2)
+	require.Len(enode.child.(*branchNode).children, 2)
 	node1, err = node.Search(cli, keyType("block"), 0)
 	require.Equal(trie.ErrNotExist, err)
 

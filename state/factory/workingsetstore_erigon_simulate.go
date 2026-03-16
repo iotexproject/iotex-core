@@ -11,11 +11,13 @@ import (
 // It is used for simulating transactions without actually committing them to the erigon store.
 type erigonWorkingSetStoreForSimulate struct {
 	*erigonstore.ErigonWorkingSetStore
+	base workingSetStore
 }
 
-func newErigonWorkingSetStoreForSimulate(erigonStore *erigonstore.ErigonWorkingSetStore) *erigonWorkingSetStoreForSimulate {
+func newErigonWorkingSetStoreForSimulate(erigonStore *erigonstore.ErigonWorkingSetStore, base workingSetStore) *erigonWorkingSetStoreForSimulate {
 	return &erigonWorkingSetStoreForSimulate{
 		ErigonWorkingSetStore: erigonStore,
+		base:                  base,
 	}
 }
 
