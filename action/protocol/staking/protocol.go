@@ -84,6 +84,7 @@ var (
 	_nameKey     = []byte("name")
 	_operatorKey = []byte("operator")
 	_ownerKey    = []byte("owner")
+	_ownerMapKey = []byte("ownerMap")
 
 	_lastExitEpoch = []byte("last_exit_epoch")
 )
@@ -285,14 +286,14 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 	}
 
 	if p.needToReadCandsMap(ctx, height) {
-		name, operator, owners, err := readCandCenterStateFromStateDB(sr)
+		name, operator, ownerMap, owners, err := readCandCenterStateFromStateDB(sr)
 		if err != nil {
 			// stateDB does not have name/operator map yet
 			if name, operator, owners, err = p.patch.Read(height); err != nil {
 				return nil, errors.Wrap(err, "failed to read name/operator map")
 			}
 		}
-		if err = c.candCenter.base.loadNameOperatorMapOwnerList(name, operator, owners); err != nil {
+		if err = c.candCenter.base.loadNameOperatorMapOwnerList(name, operator, ownerMap, owners); err != nil {
 			return nil, errors.Wrap(err, "failed to load name/operator map to cand center")
 		}
 	}
@@ -517,7 +518,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 		base := csm.DirtyView().candCenter.base
 		owners := base.all()
-		if err := base.loadNameOperatorMapOwnerList(owners, owners, nil); err != nil {
+		if err := base.loadNameOperatorMapOwnerList(owners, owners, owners, nil); err != nil {
 			return err
 		}
 	}
@@ -1239,20 +1240,23 @@ func (p *Protocol) contractStakingVotesFromView(ctx context.Context, candidate a
 	return votes, nil
 }
 
-func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, CandidateList, CandidateList, error) {
+func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, CandidateList, CandidateList, CandidateList, error) {
 	var (
-		name, operator, owner CandidateList
+		name, operator, ownerMap, owner CandidateList
 	)
 	if _, err := sr.State(&name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	if _, err := sr.State(&operator, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	if _, err := sr.State(&owner, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey)); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return name, operator, owner, nil
+	if _, err := sr.State(&ownerMap, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerMapKey)); err != nil && !errors.Is(err, state.ErrStateNotExist) {
+		return nil, nil, nil, nil, err
+	}
+	return name, operator, ownerMap, owner, nil
 }
 
 func contractStakingIndexerAt(index ContractStakingIndexer, sr protocol.StateReader, delay bool) (ContractStakingIndexer, error) {

@@ -60,6 +60,20 @@ func (cb *candBase) candsInOperatorMap() CandidateList {
 	return list
 }
 
+func (cb *candBase) candsInOwnerMap() CandidateList {
+	cb.lock.RLock()
+	defer cb.lock.RUnlock()
+	if len(cb.ownerMap) == 0 {
+		return nil
+	}
+
+	list := make(CandidateList, 0, len(cb.ownerMap))
+	for _, d := range cb.ownerMap {
+		list = append(list, d.Clone())
+	}
+	return list
+}
+
 func (cb *candBase) ownersList() CandidateList {
 	cb.lock.RLock()
 	defer cb.lock.RUnlock()
@@ -79,7 +93,7 @@ func (cb *candBase) recordOwner(c *Candidate) {
 	cb.owners = append(cb.owners, c.Clone())
 }
 
-func (cb *candBase) loadNameOperatorMapOwnerList(name, op, owners CandidateList) error {
+func (cb *candBase) loadNameOperatorMapOwnerList(name, op, ownerMapList, ownerList CandidateList) error {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	cb.nameMap = make(map[string]*Candidate)
@@ -96,6 +110,13 @@ func (cb *candBase) loadNameOperatorMapOwnerList(name, op, owners CandidateList)
 		}
 		cb.operatorMap[d.Operator.String()] = d
 	}
-	cb.owners = owners
+	cb.ownerMap = make(map[string]*Candidate)
+	for _, d := range ownerMapList {
+		if err := d.Validate(); err != nil {
+			return err
+		}
+		cb.ownerMap[d.Owner.String()] = d
+	}
+	cb.owners = ownerList
 	return nil
 }

@@ -32,7 +32,15 @@ type (
 		operatorMap      map[string]*Candidate
 		identifierMap    map[string]*Candidate
 		selfStkBucketMap map[uint64]*Candidate
-		owners           CandidateList
+		// owners is a CandidateList used by correctAliasCands at OkhotskBlockHeight
+		// (CorrectCandsHeight) to fix candidate aliases caused by legacyCommit's bug.
+		// It is maintained by recordOwner function during legacyCommit mode and
+		// persisted separately from ownerMap. Unlike ownerMap which provides O(1)
+		// lookup by Owner address, owners preserves the original candidate data
+		// (Owner->Name/Operator/Reward mapping) before alias correction.
+		// After OkhotskBlockHeight, normal commit() is used instead of legacyCommit(),
+		// so this field becomes redundant and is only kept for backward compatibility.
+		owners CandidateList
 	}
 
 	// CandidateCenter is a struct to manage the candidates
@@ -320,9 +328,10 @@ func (m *CandidateCenter) Upsert(d *Candidate) error {
 
 // WriteToStateDB writes the candidate center to stateDB
 func (m *CandidateCenter) WriteToStateDB(sm protocol.StateManager) error {
-	// persist nameMap/operatorMap and ownerList to stateDB
+	// persist nameMap/operatorMap/ownerMap and ownerList to stateDB
 	name := m.base.candsInNameMap()
 	op := m.base.candsInOperatorMap()
+	owner := m.base.candsInOwnerMap()
 	owners := m.base.ownersList()
 	if len(name) == 0 || len(op) == 0 {
 		return nil
@@ -332,11 +341,15 @@ func (m *CandidateCenter) WriteToStateDB(sm protocol.StateManager) error {
 	}
 	slices.SortStableFunc(name, compare)
 	slices.SortStableFunc(op, compare)
+	slices.SortStableFunc(owner, compare)
 	slices.SortStableFunc(owners, compare)
 	if _, err := sm.PutState(&name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
 		return err
 	}
 	if _, err := sm.PutState(&op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+		return err
+	}
+	if _, err := sm.PutState(&owner, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerMapKey)); err != nil {
 		return err
 	}
 	_, err := sm.PutState(&owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
