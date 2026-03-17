@@ -137,13 +137,22 @@ func FromProtoBlobTxSideCar(pb *iotextypes.BlobTxSidecar) (*types.BlobTxSidecar,
 		Proofs:      make([]kzg4844.Proof, len(pb.Proofs)),
 	}
 	for i := range pb.Blobs {
-		sidecar.Blobs[i] = *(*kzg4844.Blob)(pb.Blobs[i])
+		if len(pb.Blobs[i]) != len(kzg4844.Blob{}) {
+			return nil, errors.New("invalid blob length")
+		}
+		copy(sidecar.Blobs[i][:], pb.Blobs[i])
 	}
 	for i := range pb.Commitments {
-		sidecar.Commitments[i] = *(*kzg4844.Commitment)(pb.Commitments[i])
+		if len(pb.Commitments[i]) != len(kzg4844.Commitment{}) {
+			return nil, errors.New("invalid commitment length")
+		}
+		copy(sidecar.Commitments[i][:], pb.Commitments[i])
 	}
 	for i := range pb.Proofs {
-		sidecar.Proofs[i] = *(*kzg4844.Proof)(pb.Proofs[i])
+		if len(pb.Proofs[i]) != len(kzg4844.Proof{}) {
+			return nil, errors.New("invalid proof length")
+		}
+		copy(sidecar.Proofs[i][:], pb.Proofs[i])
 	}
 	return &sidecar, nil
 }

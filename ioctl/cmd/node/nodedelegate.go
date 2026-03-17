@@ -73,7 +73,7 @@ var _nodeDelegateCmd = &cobra.Command{
 
 type delegate struct {
 	Address            string   `json:"address"`
-	Name               string   `json:"string"`
+	Name               string   `json:"name"`
 	Rank               int      `json:"rank"`
 	Alias              string   `json:"alias"`
 	Active             bool     `json:"active"`
