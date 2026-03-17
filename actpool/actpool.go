@@ -510,8 +510,12 @@ func (ap *actPool) removeInvalidActs(acts []*action.SealedEnvelope) {
 		}
 		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
 		ap.allActions.Delete(hash)
-		intrinsicGas, _ := act.IntrinsicGas()
-		atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
+		intrinsicGas, err := act.IntrinsicGas()
+		if err != nil {
+			log.L().Debug("Skipping gas update due to intrinsic gas error", zap.Error(err))
+		} else {
+			atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
+		}
 		ap.accountDesActs.delete(act)
 		if ap.store != nil {
 			if err = ap.store.Delete(hash); err != nil {
