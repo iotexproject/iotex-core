@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -194,6 +195,10 @@ type (
 		TraceBlockByNumber(ctx context.Context, height uint64, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error)
 		//  TraceBlockByHash returns the trace result of a block by its hash
 		TraceBlockByHash(ctx context.Context, blkHash string, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error)
+		// BlockWitnessByNumber returns the persisted block witness payload by height
+		BlockWitnessByNumber(height uint64) (json.RawMessage, error)
+		// BlockWitnessByHash returns the persisted block witness payload by hash
+		BlockWitnessByHash(blockHash hash.Hash256) (json.RawMessage, error)
 
 		// Historical methods
 		BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error)
@@ -2173,6 +2178,27 @@ func (core *coreService) TraceBlockByHash(ctx context.Context, blkHash string, c
 		return nil, nil, nil, err
 	}
 	return core.traceBlock(ctx, blk, config)
+}
+
+func (core *coreService) BlockWitnessByNumber(height uint64) (json.RawMessage, error) {
+	provider, ok := core.bc.(interface {
+		BlockWitnessByHeight(uint64) (hash.Hash256, json.RawMessage, error)
+	})
+	if !ok {
+		return nil, ErrNotFound
+	}
+	_, raw, err := provider.BlockWitnessByHeight(height)
+	return raw, err
+}
+
+func (core *coreService) BlockWitnessByHash(blockHash hash.Hash256) (json.RawMessage, error) {
+	provider, ok := core.bc.(interface {
+		BlockWitnessByHash(hash.Hash256) (json.RawMessage, error)
+	})
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return provider.BlockWitnessByHash(blockHash)
 }
 
 // Track tracks the api call

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
@@ -1622,6 +1623,39 @@ func TestDebugTraceBlockWitnessByHash(t *testing.T) {
 	require.Zero(rlt.Transactions[0].Entries)
 	require.Zero(rlt.Transactions[0].ProofNodes)
 	require.Zero(rlt.Transactions[0].ProofBytes)
+}
+
+func TestDebugGetBlockWitnessByNumber(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	raw := json.RawMessage(`{"summary":{"contracts":1},"transactions":[{"txHash":"0x01"}]}`)
+	core.EXPECT().BlockWitnessByNumber(uint64(1)).Return(raw, nil)
+
+	in := gjson.Parse(`{"params":["0x1"]}`)
+	ret, err := web3svr.getBlockWitnessByNumber(&in)
+	require.NoError(err)
+	require.Equal(raw, ret)
+}
+
+func TestDebugGetBlockWitnessByHash(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	raw := json.RawMessage(`{"transactions":[{"txHash":"0x02"}]}`)
+	blockHash := hash.Hash256b([]byte("persisted-witness"))
+	core.EXPECT().BlockWitnessByHash(blockHash).Return(raw, nil)
+
+	in := gjson.Parse(`{"params":["0x` + hex.EncodeToString(blockHash[:]) + `"]}`)
+	ret, err := web3svr.getBlockWitnessByHash(&in)
+	require.NoError(err)
+	require.Equal(raw, ret)
 }
 
 func TestSummarizeBlockTraceStorageResultsRejectsUnexpectedResult(t *testing.T) {

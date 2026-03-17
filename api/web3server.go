@@ -275,6 +275,10 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.traceBlockWitnessByNumber(ctx, web3Req)
 	case "debug_traceBlockWitnessByHash":
 		res, err = svr.traceBlockWitnessByHash(ctx, web3Req)
+	case "debug_getBlockWitnessByNumber":
+		res, err = svr.getBlockWitnessByNumber(web3Req)
+	case "debug_getBlockWitnessByHash":
+		res, err = svr.getBlockWitnessByHash(web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
@@ -1488,6 +1492,28 @@ func (svr *web3Handler) traceBlockWitnessByHash(ctx context.Context, in *gjson.R
 		return nil, fmt.Errorf("unknown block trace result type: %T", results)
 	}
 	return summarizeBlockTraceWitnessResults(blockResults)
+}
+
+func (svr *web3Handler) getBlockWitnessByNumber(in *gjson.Result) (any, error) {
+	blkParam := in.Get("params.0")
+	blkNum, err := parseBlockNumberOrHash(&blkParam)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse block number")
+	}
+	height, _, err := svr.blockNumberOrHashToHeight(blkNum)
+	if err != nil {
+		return nil, err
+	}
+	return svr.coreService.BlockWitnessByNumber(height)
+}
+
+func (svr *web3Handler) getBlockWitnessByHash(in *gjson.Result) (any, error) {
+	blkParam := in.Get("params.0")
+	blkHash, err := hash.HexStringToHash256(util.Remove0xPrefix(blkParam.String()))
+	if err != nil {
+		return nil, err
+	}
+	return svr.coreService.BlockWitnessByHash(blkHash)
 }
 
 func (svr *web3Handler) unimplemented() (interface{}, error) {

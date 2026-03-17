@@ -97,12 +97,14 @@ func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.Envelo
 // TraceEnd ends tracing the execution of the action in the sealed envelope
 func TraceEnd(ctx context.Context, ws protocol.StateManager, elp action.Envelope, receipt *action.Receipt) {
 	vmCtx, vmCtxExist := protocol.GetVMConfigCtx(ctx)
-	if !vmCtxExist || vmCtx.Tracer == nil || receipt == nil {
+	if receipt == nil {
 		return
 	}
 	output := receipt.Output
-	vmCtx.Tracer.CaptureEnd(output, receipt.GasConsumed, nil)
-	vmCtx.Tracer.CaptureTxEnd(elp.Gas() - receipt.GasConsumed)
+	if vmCtxExist && vmCtx.Tracer != nil {
+		vmCtx.Tracer.CaptureEnd(output, receipt.GasConsumed, nil)
+		vmCtx.Tracer.CaptureTxEnd(elp.Gas() - receipt.GasConsumed)
+	}
 	if t, ok := GetTracerCtx(ctx); ok {
 		t.CaptureTx(output, receipt)
 	}
