@@ -371,7 +371,7 @@ func ExecuteContract(
 	}
 	stateDB.clear()
 
-	if ps.featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], _revertSelector) {
+	if ps.featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && len(retval) >= 4 && bytes.Equal(retval[:4], _revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
 		receipt.SetExecutionRevertMsg(ExtractRevertMessage(retval))
 	}
