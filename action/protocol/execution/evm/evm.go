@@ -680,7 +680,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		// Apply EIP-7702 authorizations.
 		for _, auth := range evmParams.authList {
 			// Note errors are ignored, we simply skip invalid authorizations here.
-			if err := applyAuthorization(evm, stateDB, &auth); err != nil {
+			if err := applyAuthorization(evm, stateDB, &auth, evmParams.helperCtx.IsBlackListed, evmParams.blkCtx.BlockHeight); err != nil {
 				log.T(ctx).Debug("failed to apply authorization", zap.Error(err), zap.String("auth", auth.Address.String()))
 			}
 		}
@@ -926,7 +926,7 @@ func ExtractRevertMessage(ret []byte) string {
 	return revertMsg
 }
 
-func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization) (authority common.Address, err error) {
+func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64) (authority common.Address, err error) {
 	chainID := evm.ChainConfig().ChainID.Uint64()
 	// Verify chain ID is 0 or equal to current chain ID.
 	if !auth.ChainID.IsZero() && chainID != (auth.ChainID.Uint64()) {
@@ -940,6 +940,13 @@ func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthoriz
 	authority, err = auth.Authority()
 	if err != nil {
 		return authority, errors.Wrap(err, "failed to recover authority from authorization")
+	}
+	// Check if authority is blacklisted
+	if isBlackListed != nil {
+		ioAddr, err := address.FromBytes(authority.Bytes())
+		if err == nil && isBlackListed(ioAddr.String(), blockHeight) {
+			return authority, errors.Errorf("authority %s is blacklisted", authority.String())
+		}
 	}
 	// Check the authority account
 	//  1) doesn't have code or has exisiting delegation
@@ -957,8 +964,8 @@ func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthoriz
 	return authority, nil
 }
 
-func applyAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization) error {
-	authority, err := validateAuthorization(evm, sdb, auth)
+func applyAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64) error {
+	authority, err := validateAuthorization(evm, sdb, auth, isBlackListed, blockHeight)
 	if err != nil {
 		return err
 	}

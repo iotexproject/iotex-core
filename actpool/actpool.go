@@ -110,6 +110,7 @@ type actPool struct {
 	accountDesActs *destinationMap
 	allActions     *ttl.Cache
 	gasInPool      uint64
+	isBlackListed  func(addr string, height uint64) bool
 	// actionEnvelopeValidators are the validators that are used in both actpool.Add and actpool.Validate
 	// TODO: can combine with privateValidators after NOT use actpool to call generic_validator in block validate
 	actionEnvelopeValidators []action.SealedEnvelopeValidator
@@ -117,7 +118,6 @@ type actPool struct {
 	// they are not used in actpool.Validate
 	privateValidators []action.SealedEnvelopeValidator
 	timerFactory      *prometheustimer.TimerFactory
-	senderBlackList   map[string]bool
 	jobQueue          []chan workerJob
 	worker            []*queueWorker
 	subs              []Subscriber
@@ -130,21 +130,16 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 		return nil, errors.New("Try to attach a nil state reader")
 	}
 
-	senderBlackList := make(map[string]bool)
-	for _, bannedSender := range cfg.BlackList {
-		senderBlackList[bannedSender] = true
-	}
-
 	actsMap, _ := ttl.NewCache()
 	ap := &actPool{
-		cfg:             cfg,
-		g:               g,
-		sf:              sf,
-		senderBlackList: senderBlackList,
-		accountDesActs:  &destinationMap{acts: make(map[string]map[hash.Hash256]*action.SealedEnvelope)},
-		allActions:      actsMap,
-		jobQueue:        make([]chan workerJob, _numWorker),
-		worker:          make([]*queueWorker, _numWorker),
+		cfg:            cfg,
+		g:              g,
+		sf:             sf,
+		isBlackListed:  cfg.IsBlackListedFunc(),
+		accountDesActs: &destinationMap{acts: make(map[string]map[hash.Hash256]*action.SealedEnvelope)},
+		allActions:     actsMap,
+		jobQueue:       make([]chan workerJob, _numWorker),
+		worker:         make([]*queueWorker, _numWorker),
 	}
 	for _, opt := range opts {
 		if err := opt(ap); err != nil {
@@ -532,16 +527,6 @@ func (ap *actPool) context(ctx context.Context) context.Context {
 		genesis.WithGenesisContext(ctx, ap.g), protocol.BlockCtx{
 			BlockHeight: height + 1,
 		}))
-}
-
-func (ap *actPool) isBlackListed(addr string, height uint64) bool {
-	if _, ok := ap.senderBlackList[addr]; !ok {
-		return false
-	}
-	if ap.cfg.BlackListActiveHeight == 0 {
-		return true
-	}
-	return height >= ap.cfg.BlackListActiveHeight
 }
 
 func (ap *actPool) getBlockHeight(ctx context.Context) uint64 {
