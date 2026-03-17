@@ -258,6 +258,10 @@ func NewStateDBAdapter(
 		s.createdAccountSnapshot = make(map[int]createdAccount)
 	}
 	s.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
+		if svCtx, ok := GetStatelessValidationCtx(s.ctx); ok && svCtx.Enabled {
+			actionCtx := protocol.MustGetActionCtx(s.ctx)
+			return newStatelessContract(addr, account, s.sm, s.asyncContractTrie, svCtx.ContractStorageWitnessesForAction(actionCtx.ActionHash)[common.BytesToAddress(addr[:])])
+		}
 		return newContract(addr, account, s.sm, s.asyncContractTrie)
 	}
 	return s, nil

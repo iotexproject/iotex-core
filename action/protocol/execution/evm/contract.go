@@ -8,8 +8,10 @@ package evm
 import (
 	"context"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db/trie"
@@ -25,6 +27,12 @@ const (
 	ContractKVNameSpace = state.ContractKVNameSpace
 	// PreimageKVNameSpace is the bucket name for preimage data storage
 	PreimageKVNameSpace = state.PreimageKVNameSpace
+)
+
+var (
+	// ErrMissingContractStorageWitness indicates stateless validation tried to
+	// access a storage slot that was not proven in the current block witness.
+	ErrMissingContractStorageWitness = errors.New("missing contract storage witness")
 )
 
 type (
@@ -56,6 +64,11 @@ type (
 		sm         protocol.StateManager
 		trie       trie.Trie      // storage trie of the contract
 		prestate   trie.ProofTrie // snapshot captured before the first storage mutation
+	}
+
+	contractStateless struct {
+		*contract
+		allowed map[hash.Hash256]struct{}
 	}
 )
 
@@ -285,6 +298,62 @@ func (c *contract) Snapshot() Contract {
 	}
 }
 
+func (c *contractStateless) GetState(key hash.Hash256) ([]byte, error) {
+	if _, ok := c.allowed[key]; !ok {
+		if c.root == hash.ZeroHash256 {
+			return nil, trie.ErrNotExist
+		}
+		return nil, errors.Wrapf(ErrMissingContractStorageWitness, "contract %x storage key %x", c.addr[:], key[:])
+	}
+	return c.contract.GetState(key)
+}
+
+func (c *contractStateless) GetCommittedState(key hash.Hash256) ([]byte, error) {
+	if v, ok := c.committed[key]; ok {
+		return v, nil
+	}
+	if _, ok := c.missing[key]; ok {
+		return nil, trie.ErrNotExist
+	}
+	return c.GetState(key)
+}
+
+func (c *contractStateless) SetState(key hash.Hash256, value []byte) error {
+	if _, ok := c.allowed[key]; !ok {
+		if c.root != hash.ZeroHash256 {
+			return errors.Wrapf(ErrMissingContractStorageWitness, "contract %x storage key %x", c.addr[:], key[:])
+		}
+		c.allowed[key] = struct{}{}
+		c.missing[key] = struct{}{}
+	} else if _, ok := c.missing[key]; !ok && c.root == hash.ZeroHash256 {
+		return errors.Wrapf(ErrMissingContractStorageWitness, "contract %x storage key %x", c.addr[:], key[:])
+	}
+	c.dirtyState = true
+	if err := c.trie.Upsert(key[:], value); err != nil {
+		return err
+	}
+	if !c.async {
+		rh, err := c.trie.RootHash()
+		if err != nil {
+			return err
+		}
+		c.Account.Root = hash.BytesToHash256(rh)
+	}
+	return nil
+}
+
+func (c *contractStateless) Snapshot() Contract {
+	inner := c.contract.Snapshot().(*contract)
+	allowed := make(map[hash.Hash256]struct{}, len(c.allowed))
+	for key := range c.allowed {
+		allowed[key] = struct{}{}
+	}
+	return &contractStateless{
+		contract: inner,
+		allowed:  allowed,
+	}
+}
+
 // newContract returns a Contract instance
 func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager, enableAsync bool) (Contract, error) {
 	c := &contract{
@@ -307,6 +376,85 @@ func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateMan
 	}
 	c.trie = tr
 	return c, nil
+}
+
+func newStatelessContract(
+	addr hash.Hash160,
+	account *state.Account,
+	sm protocol.StateManager,
+	enableAsync bool,
+	witness *ContractStorageWitness,
+) (Contract, error) {
+	c := &contract{
+		Account:   account,
+		addr:      addr,
+		root:      account.Root,
+		committed: make(map[hash.Hash256][]byte),
+		missing:   make(map[hash.Hash256]struct{}),
+		sm:        sm,
+		async:     enableAsync,
+	}
+	memStore := trie.NewMemKVStore()
+	tr, err := newStorageTrie(addr, newMirroredTrieKVStore(memStore, protocol.NewKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)), enableAsync)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create in-memory storage trie for stateless contract")
+	}
+	allowed := make(map[hash.Hash256]struct{})
+	if witness != nil {
+		if account.Root != witness.StorageRoot {
+			log.L().Error(
+				"Stateless contract witness root mismatch.",
+				zap.String("address", common.BytesToAddress(addr[:]).Hex()),
+				log.Hex("accountRoot", account.Root[:]),
+				log.Hex("witnessRoot", witness.StorageRoot[:]),
+				zap.Int("entries", len(witness.Entries)),
+				zap.Int("proofNodes", len(witness.ProofNodes)),
+			)
+			return nil, errors.Errorf("contract %x storage root mismatch: account %x witness %x", addr[:], account.Root[:], witness.StorageRoot[:])
+		}
+		if err := VerifyContractStorageWitness(common.BytesToAddress(addr[:]), witness); err != nil {
+			log.L().Error(
+				"Stateless contract witness proof verification failed.",
+				zap.String("address", common.BytesToAddress(addr[:]).Hex()),
+				log.Hex("storageRoot", witness.StorageRoot[:]),
+				zap.Int("entries", len(witness.Entries)),
+				zap.Int("proofNodes", len(witness.ProofNodes)),
+				zap.Error(err),
+			)
+			return nil, errors.Wrap(err, "failed to verify stateless contract witness")
+		}
+		log.L().Info(
+			"Stateless contract witness proof verification succeeded.",
+			zap.String("address", common.BytesToAddress(addr[:]).Hex()),
+			log.Hex("storageRoot", witness.StorageRoot[:]),
+			zap.Int("entries", len(witness.Entries)),
+			zap.Int("proofNodes", len(witness.ProofNodes)),
+		)
+		for _, node := range witness.ProofNodes {
+			nodeKey := hash.Hash256b(append(addr[:], node...))
+			if err := memStore.Put(nodeKey[:], cloneBytes(node)); err != nil {
+				return nil, errors.Wrap(err, "failed to seed stateless proof node")
+			}
+		}
+		for _, entry := range witness.Entries {
+			allowed[entry.Key] = struct{}{}
+			if entry.Value == nil {
+				c.missing[entry.Key] = struct{}{}
+				continue
+			}
+			c.committed[entry.Key] = cloneBytes(entry.Value)
+		}
+	}
+	if account.Root != hash.ZeroHash256 {
+		if err := tr.SetRootHash(account.Root[:]); err != nil {
+			return nil, err
+		}
+	}
+	c.trie = tr
+	return &contractStateless{
+		contract: c,
+		allowed:  allowed,
+	}, nil
 }
 
 func newStorageTrie(addr hash.Hash160, kvStore trie.KVStore, enableAsync bool) (trie.Trie, error) {

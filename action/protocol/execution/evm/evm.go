@@ -462,6 +462,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.EnableCancunEVM {
 		opts = append(opts, EnableCancunEVMOption())
 	}
+	if svCtx, ok := GetStatelessValidationCtx(ctx); ok && svCtx.Enabled {
+		opts = append(opts, WithContext(ctx))
+	}
 	if featureCtx.FixRevertSnapshot || actionCtx.ReadOnly {
 		opts = append(opts, FixRevertSnapshotOption())
 		opts = append(opts, WithContext(ctx))

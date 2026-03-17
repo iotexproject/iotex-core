@@ -41,6 +41,20 @@ func NewErigonStateDBAdapter(adapter *StateDBAdapter,
 	intra *erigonstate.IntraBlockState,
 ) *ErigonStateDBAdapter {
 	adapter.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
+		if svCtx, ok := GetStatelessValidationCtx(adapter.ctx); ok && svCtx.Enabled {
+			actionCtx := protocol.MustGetActionCtx(adapter.ctx)
+			base, err := newStatelessContract(
+				addr,
+				account,
+				adapter.sm,
+				adapter.asyncContractTrie,
+				svCtx.ContractStorageWitnessesForAction(actionCtx.ActionHash)[common.BytesToAddress(addr[:])],
+			)
+			if err != nil {
+				return nil, err
+			}
+			return newContractAdapterWithBase(base, addr, account, adapter.sm, intra)
+		}
 		return newContractAdapter(addr, account, adapter.sm, intra, adapter.asyncContractTrie)
 	}
 	return &ErigonStateDBAdapter{
