@@ -41,7 +41,11 @@ func (upd *UnproductiveDelegate) AddRecentUPD(new map[string]uint64) error {
 		delegates = append(delegates, d)
 	}
 	sort.Strings(delegates)
-	upd.delegatelist = append([][]string{delegates}, upd.delegatelist[0:upd.probationPeriod-1]...)
+	endIdx := int(upd.probationPeriod) - 1
+	if endIdx > len(upd.delegatelist) {
+		endIdx = len(upd.delegatelist)
+	}
+	upd.delegatelist = append([][]string{delegates}, upd.delegatelist[0:endIdx]...)
 	if len(upd.delegatelist) > int(upd.probationPeriod) {
 		return errors.New("wrong length of UPD delegatelist")
 	}
@@ -50,7 +54,14 @@ func (upd *UnproductiveDelegate) AddRecentUPD(new map[string]uint64) error {
 
 // ReadOldestUPD returns the last upd-list
 func (upd *UnproductiveDelegate) ReadOldestUPD() []string {
-	return upd.delegatelist[upd.probationPeriod-1]
+	if len(upd.delegatelist) == 0 {
+		return nil
+	}
+	idx := int(upd.probationPeriod) - 1
+	if idx >= len(upd.delegatelist) {
+		idx = len(upd.delegatelist) - 1
+	}
+	return upd.delegatelist[idx]
 }
 
 // Serialize serializes unproductvieDelegate struct to bytes

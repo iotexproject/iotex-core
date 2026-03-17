@@ -1,6 +1,8 @@
 package erigonstore
 
 import (
+	"github.com/cockroachdb/errors"
+
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
@@ -15,6 +17,12 @@ type GenericValueObjectIterator struct {
 
 // NewGenericValueObjectIterator creates a new GenericValueObjectIterator
 func NewGenericValueObjectIterator(keys [][]byte, values []systemcontracts.GenericValue, exists []bool) (*GenericValueObjectIterator, error) {
+	if len(keys) != len(values) {
+		return nil, errors.Errorf("keys and values length mismatch: %d != %d", len(keys), len(values))
+	}
+	if len(exists) != 0 && len(exists) != len(keys) {
+		return nil, errors.Errorf("exists length mismatch: %d != %d", len(exists), len(keys))
+	}
 	return &GenericValueObjectIterator{
 		keys:   keys,
 		values: values,
