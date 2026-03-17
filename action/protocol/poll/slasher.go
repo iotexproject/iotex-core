@@ -363,7 +363,9 @@ func (sh *Slasher) GetProbationList(ctx context.Context, sr protocol.StateReader
 	if err != nil {
 		return nil, uint64(0), err
 	}
-	// make sure it's epochStartHeight
+	// NOTE: GetEpochHeight(GetEpochHeight(targetHeight)) is a historical bug that should have been
+	// GetEpochHeight(GetEpochNum(targetHeight)). It is kept as-is to ensure historical blocks can
+	// pass validation. This does not affect current blocks since the input is already epochStartHeight.
 	targetEpochStartHeight := rp.GetEpochHeight(rp.GetEpochHeight(targetHeight))
 	if readFromNext {
 		targetEpochNum := rp.GetEpochNum(targetEpochStartHeight) + 1
@@ -596,6 +598,9 @@ func filterCandidates(
 	unqualifiedList *vote.ProbationList,
 	epochStartHeight uint64,
 ) (state.CandidateList, error) {
+	if unqualifiedList == nil || unqualifiedList.ProbationInfo == nil {
+		return candidates, nil
+	}
 	candidatesMap := make(map[string]*state.Candidate)
 	updatedVotingPower := make(map[string]*big.Int)
 	intensityRate := float64(uint32(100)-unqualifiedList.IntensityRate) / float64(100)
