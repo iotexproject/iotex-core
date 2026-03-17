@@ -198,7 +198,7 @@ func (x *blockIndexer) GetActionIndex(h []byte) (*ActionIndex, error) {
 
 	v, err := x.kvStore.Get(_actionToBlockHashNS, h[_hashOffset:])
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "action hash %x not found", h)
 	}
 	a := &ActionIndex{}
 	if err := a.Deserialize(v); err != nil {
