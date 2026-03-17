@@ -1859,7 +1859,7 @@ func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, 
 	if !enough {
 		if receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) {
 			if len(receipt.ExecutionRevertMsg()) > 0 {
-				return 0, retval, status.Errorf(codes.InvalidArgument, fmt.Sprintf("execution simulation is reverted due to the reason: %s", receipt.ExecutionRevertMsg()))
+				return 0, retval, status.Errorf(codes.InvalidArgument, "execution simulation is reverted due to the reason: %s", receipt.ExecutionRevertMsg())
 			}
 			return 0, retval, status.Error(codes.InvalidArgument, "execution reverted")
 		}

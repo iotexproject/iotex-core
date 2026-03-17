@@ -9,13 +9,16 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
 const (
 	handleCandidateActivate = "candidateActivate"
 
-	candidateNoSelfStakeBucketIndex = math.MaxUint64
+	candidateNoSelfStakeBucketIndex        = math.MaxUint64
+	candidateExitRequested          uint64 = math.MaxUint64
 )
 
 func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.CandidateActivate, csm CandidateStateManager,
@@ -67,6 +70,88 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 		return log, nil, csmErrorToHandleError(cand.GetIdentifier().String(), err)
 	}
 	return log, nil, nil
+}
+
+func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.CandidateDeactivate, csm CandidateStateManager) (*receiptLog, []*action.TransactionLog, error) {
+	actCtx := protocol.MustGetActionCtx(ctx)
+	cand := csm.GetByOwner(actCtx.Caller)
+	if cand == nil {
+		return nil, nil, errCandNotExist
+	}
+	if cand.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
+		return nil, nil, &handleError{
+			err:           ErrInvalidSelfStkIndex,
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketIndex,
+		}
+	}
+	var topics action.Topics
+	var eventData []byte
+	var err error
+	switch act.Op() {
+	case action.CandidateDeactivateOpRequest:
+		owner := cand.Owner
+		if err = csm.requestDeactivation(owner); err == nil {
+			topics, eventData, err = action.PackCandidateDeactivationRequestedEvent(owner)
+		}
+	case action.CandidateDeactivateOpConfirm:
+		id := cand.GetIdentifier()
+		bucket, rErr := p.fetchBucket(csm, cand.SelfStakeBucketIdx)
+		if rErr != nil {
+			return nil, nil, rErr
+		}
+		if err := csm.deactivate(cand, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight, p.calculateVoteWeight); err == nil {
+			topics, eventData, err = action.PackCandidateDeactivatedEvent(id)
+		}
+	default:
+		return nil, nil, &handleError{
+			err:           errors.New("invalid operation"),
+			failureStatus: iotextypes.ReceiptStatus_Failure,
+		}
+	}
+	if err != nil {
+		return nil, nil, csmErrorToHandleError(actCtx.Caller.String(), err)
+	}
+	return &receiptLog{
+		addr:                  p.addr.String(),
+		postFairbankMigration: true,
+		topics:                topics,
+		data:                  eventData,
+	}, nil, nil
+}
+
+func (p *Protocol) handleScheduleCandidateDeactivation(ctx context.Context, act *action.ScheduleCandidateDeactivation, csm CandidateStateManager) (*receiptLog, []*action.TransactionLog, error) {
+	c := csm.GetByIdentifier(act.Delegate())
+	g := genesis.MustExtractGenesisContext(ctx)
+	if c == nil {
+		return nil, nil, errCandNotExist
+	}
+	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
+	if rp == nil {
+		return nil, nil, errors.New("rolldpos protocol not found")
+	}
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	currentEpochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+	if currentEpochNum == 0 {
+		return nil, nil, errors.New("invalid epoch number")
+	}
+	c.DeactivatedAt = blkCtx.BlockHeight + g.ExitAdmissionInterval*rp.NumBlocksByEpoch(currentEpochNum)
+	if err := csm.Upsert(c); err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to update candidate %s", c.GetIdentifier().String())
+	}
+	if _, err := csm.SM().PutState(&lastExitEpoch{epoch: currentEpochNum}, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_lastExitEpoch)); err != nil {
+		return nil, nil, err
+	}
+	topics, eventData, err := action.PackCandidateDeactivationScheduledEvent(c.GetIdentifier(), c.DeactivatedAt)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &receiptLog{
+		addr:                  p.addr.String(),
+		postFairbankMigration: true,
+		topics:                topics,
+		data:                  eventData,
+	}, nil, nil
 }
 
 func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateStateManager, esm *EndorsementStateManager, bucket *VoteBucket, cand *Candidate) ReceiptError {

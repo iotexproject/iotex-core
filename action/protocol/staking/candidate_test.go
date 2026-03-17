@@ -72,6 +72,32 @@ func TestSer(t *testing.T) {
 	r.Nil(m1)
 }
 
+func TestSerWithDeactivation(t *testing.T) {
+	r := require.New(t)
+
+	original := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(2),
+		Reward:             identityset.Address(3),
+		Name:               "test_candidate",
+		Votes:              big.NewInt(100),
+		SelfStake:          big.NewInt(1000),
+		SelfStakeBucketIdx: 1,
+		DeactivatedAt:      99999,
+	}
+
+	data, err := original.Serialize()
+	r.NoError(err)
+
+	deserialized := &Candidate{}
+	r.NoError(deserialized.Deserialize(data))
+
+	r.Equal(original.DeactivatedAt, deserialized.DeactivatedAt)
+	r.Equal(uint64(99999), deserialized.DeactivatedAt)
+
+	r.True(original.Equal(deserialized))
+}
+
 func TestClone(t *testing.T) {
 	r := require.New(t)
 
@@ -115,6 +141,30 @@ func TestClone(t *testing.T) {
 	r.Equal(d.Reward.String(), c.RewardAddress)
 	r.Equal(d.Votes, c.Votes)
 	r.Equal(d.Name, string(c.CanName))
+}
+
+func TestCloneWithDeactivation(t *testing.T) {
+	r := require.New(t)
+
+	original := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(2),
+		Reward:             identityset.Address(3),
+		Name:               "test_candidate",
+		Votes:              big.NewInt(100),
+		SelfStake:          big.NewInt(1000),
+		SelfStakeBucketIdx: 1,
+		DeactivatedAt:      12345,
+	}
+
+	clone := original.Clone()
+
+	r.True(original.Equal(clone))
+	r.Equal(original.DeactivatedAt, clone.DeactivatedAt)
+	r.Equal(uint64(12345), clone.DeactivatedAt)
+
+	clone.DeactivatedAt = 99999
+	r.Equal(uint64(12345), original.DeactivatedAt)
 }
 
 var (
@@ -391,4 +441,46 @@ func TestLess(t *testing.T) {
 	for _, pair := range pairs {
 		r.True(pair.Less(0, 1))
 	}
+}
+
+func TestCandidate_DeletedCannotReceiveVotes(t *testing.T) {
+	r := require.New(t)
+
+	candidate := &Candidate{
+		Owner:              identityset.Address(0),
+		Operator:           identityset.Address(0),
+		Reward:             identityset.Address(0),
+		Name:               "test_candidate",
+		Votes:              big.NewInt(100),
+		SelfStake:          big.NewInt(1000),
+		SelfStakeBucketIdx: 1,
+		DeactivatedAt:      0,
+	}
+
+	r.NoError(candidate.AddVote(big.NewInt(50)))
+	r.Equal(uint64(150), candidate.Votes.Uint64())
+
+	r.NoError(candidate.SubVote(big.NewInt(10)))
+	r.Equal(uint64(140), candidate.Votes.Uint64())
+}
+
+func TestCandidate_DeletedCannotModifySelfStake(t *testing.T) {
+	r := require.New(t)
+
+	candidate := &Candidate{
+		Owner:              identityset.Address(0),
+		Operator:           identityset.Address(0),
+		Reward:             identityset.Address(0),
+		Name:               "test_candidate",
+		Votes:              big.NewInt(100),
+		SelfStake:          big.NewInt(1000),
+		SelfStakeBucketIdx: 1,
+		DeactivatedAt:      0,
+	}
+
+	r.NoError(candidate.AddSelfStake(big.NewInt(500)))
+	r.Equal(uint64(1500), candidate.SelfStake.Uint64())
+
+	r.NoError(candidate.SubSelfStake(big.NewInt(100)))
+	r.Equal(uint64(1400), candidate.SelfStake.Uint64())
 }

@@ -38,11 +38,14 @@ func (r *PutPollResult) LoadProto(putPollResultPb *iotextypes.PutPollResult) err
 	if r == nil {
 		return ErrNilAction
 	}
-	*r = PutPollResult{}
+	temp := PutPollResult{}
+	if err := temp.candidates.LoadProto(putPollResultPb.Candidates); err != nil {
+		return err
+	}
+	temp.height = putPollResultPb.Height
 
-	r.height = putPollResultPb.Height
-
-	return r.candidates.LoadProto(putPollResultPb.Candidates)
+	*r = temp
+	return nil
 }
 
 func (act *PutPollResult) FillAction(core *iotextypes.ActionCore) {

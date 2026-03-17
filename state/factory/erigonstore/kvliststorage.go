@@ -3,14 +3,15 @@ package erigonstore
 import (
 	"bytes"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
-	"github.com/pkg/errors"
 )
 
 type kvListContainer interface {
-	Encode() ([][]byte, []systemcontracts.GenericValue, error)
-	Decode(keys [][]byte, values []systemcontracts.GenericValue) error
+	Encodes() ([][]byte, []systemcontracts.GenericValue, error)
+	Decodes(keys [][]byte, values []systemcontracts.GenericValue) error
 }
 
 type kvListStorage struct {
@@ -28,7 +29,15 @@ func (cos *kvListStorage) Store(prefix []byte, obj any) error {
 	if !ok {
 		return errors.Errorf("object of type %T does not supported", obj)
 	}
-	keys, values, err := ct.Encode()
+	cnt, err := cos.contract.Count()
+	if err != nil {
+		return err
+	}
+	retval, err := cos.contract.ListKeys(0, cnt.Uint64())
+	if err != nil {
+		return err
+	}
+	keys, values, err := ct.Encodes()
 	if err != nil {
 		return err
 	}
@@ -41,14 +50,6 @@ func (cos *kvListStorage) Store(prefix []byte, obj any) error {
 		newKeys[string(nk)] = struct{}{}
 	}
 	// remove keys not in the new list
-	cnt, err := cos.contract.Count()
-	if err != nil {
-		return err
-	}
-	retval, err := cos.contract.ListKeys(0, cnt.Uint64())
-	if err != nil {
-		return err
-	}
 	for _, k := range retval.KeyList {
 		if len(k) >= len(prefix) && bytes.Equal(k[:len(prefix)], prefix) {
 			if _, exists := newKeys[string(k)]; !exists {
@@ -85,7 +86,10 @@ func (cos *kvListStorage) Load(prefix []byte, obj any) error {
 			values = append(values, retval.Values[i])
 		}
 	}
-	return ct.Decode(keys, values)
+	if len(keys) == 0 {
+		return errors.Wrapf(state.ErrStateNotExist, "prefix: %x", prefix)
+	}
+	return ct.Decodes(keys, values)
 }
 
 func (cos *kvListStorage) Delete(prefix []byte) error {
