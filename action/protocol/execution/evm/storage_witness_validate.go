@@ -2,7 +2,6 @@ package evm
 
 import (
 	"bytes"
-	"context"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -20,19 +19,26 @@ func VerifyContractStorageWitness(addr common.Address, witness *ContractStorageW
 	if witness == nil {
 		return errors.New("contract storage witness is nil")
 	}
-	tr, err := newStorageTrie(hash.BytesToHash160(addr.Bytes()), trie.NewMemKVStore(), false)
-	if err != nil {
-		return err
+	if bytes.Equal(witness.StorageRoot[:], hash.ZeroHash256[:]) {
+		// Empty trie: every entry must be an absence proof.
+		for _, entry := range witness.Entries {
+			if entry.Value != nil {
+				return errors.Errorf("non-nil value for key %x in empty-root witness", entry.Key[:])
+			}
+		}
+		return nil
 	}
-	defer func() {
-		_ = tr.Stop(context.Background())
-	}()
-
-	if _, ok := tr.(trie.ProofTrie); !ok {
-		return errors.New("contract storage trie does not support proofs")
+	if len(witness.ProofNodes) == 0 {
+		return errors.Wrap(trie.ErrInvalidTrie, "proof is empty")
+	}
+	// Build the hash→node map once and reuse it for all entries.
+	nodes := make(map[string][]byte, len(witness.ProofNodes))
+	for _, node := range witness.ProofNodes {
+		h := hash.Hash256b(append(addr.Bytes(), node...))
+		nodes[string(h[:])] = node
 	}
 	for _, entry := range witness.Entries {
-		value, err := verifyContractStorageProof(addr, witness.StorageRoot[:], entry.Key[:], witness.ProofNodes)
+		value, err := verifyContractStorageProof(witness.StorageRoot[:], entry.Key[:], nodes)
 		if entry.Value == nil {
 			if errors.Cause(err) != trie.ErrNotExist {
 				return errors.Wrapf(err, "failed to verify absence proof for storage key %x", entry.Key[:])
@@ -49,19 +55,9 @@ func VerifyContractStorageWitness(addr common.Address, witness *ContractStorageW
 	return nil
 }
 
-func verifyContractStorageProof(addr common.Address, rootHash []byte, key []byte, proof [][]byte) ([]byte, error) {
-	if bytes.Equal(rootHash, hash.ZeroHash256[:]) {
-		return nil, trie.ErrNotExist
-	}
-	if len(proof) == 0 {
-		return nil, errors.Wrap(trie.ErrInvalidTrie, "proof is empty")
-	}
-	nodes := make(map[string][]byte, len(proof))
-	for _, node := range proof {
-		h := hash.Hash256b(append(addr.Bytes(), node...))
-		nodes[string(h[:])] = node
-	}
-
+// verifyContractStorageProof walks the pre-built nodes map from rootHash to the
+// leaf matching key and returns its value, or trie.ErrNotExist for absence proofs.
+func verifyContractStorageProof(rootHash []byte, key []byte, nodes map[string][]byte) ([]byte, error) {
 	expectedHash := append([]byte(nil), rootHash...)
 	offset := 0
 	for {
