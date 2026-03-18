@@ -78,7 +78,7 @@ func ParseValidationContext(raw json.RawMessage) (evm.StatelessValidationContext
 		actionHash := hash.BytesToHash256(txHash[:])
 		contractWitnesses := make(map[common.Address]*evm.ContractStorageWitness, len(tx.Witnesses))
 		for _, witness := range tx.Witnesses {
-			evmWitness, err := witness.toEVMWitness()
+			evmWitness, err := witness.ToEVMWitness()
 			if err != nil {
 				return evm.StatelessValidationContext{}, err
 			}

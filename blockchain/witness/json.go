@@ -104,7 +104,8 @@ func fromEVMWitnesses(witnesses map[common.Address]*evm.ContractStorageWitness) 
 	return out
 }
 
-func (w ContractWitness) toEVMWitness() (*evm.ContractStorageWitness, error) {
+// ToEVMWitness converts the JSON representation to an EVM contract storage witness.
+func (w ContractWitness) ToEVMWitness() (*evm.ContractStorageWitness, error) {
 	rootBytes := common.FromHex(w.StorageRoot)
 	if len(rootBytes) != len(common.Hash{}) {
 		return nil, errors.Errorf("invalid storage root length for %s", w.Address)
