@@ -792,16 +792,12 @@ func (c *Coordinator) ReceiveStateDiff(height uint64, entries []StateDiffEntry, 
 	}
 
 	// Prune old diffs periodically (every 1000 blocks) to bound statediffs.db size.
-	// Default retention: 10000 blocks (~27 hours) if not explicitly configured.
-	retainHeight := c.cfg.DiffRetainHeight
-	if retainHeight == 0 {
-		retainHeight = 10000 // default: keep ~27 hours of diffs
-	}
-	if c.diffStore != nil && height%1000 == 0 && height > retainHeight {
-		if deleted, err := c.diffStore.Prune(height - retainHeight); err != nil {
+	// DiffRetainHeight=0 means keep all (no pruning). Default is 10000 (~27 hours).
+	if c.diffStore != nil && c.cfg.DiffRetainHeight > 0 && height%1000 == 0 && height > c.cfg.DiffRetainHeight {
+		if deleted, err := c.diffStore.Prune(height - c.cfg.DiffRetainHeight); err != nil {
 			c.logger.Warn("failed to prune stale diffs", zap.Error(err))
 		} else if deleted > 0 {
-			c.logger.Info("pruned stale diffs", zap.Int("deleted", deleted), zap.Uint64("keep_after", height-retainHeight))
+			c.logger.Info("pruned stale diffs", zap.Int("deleted", deleted), zap.Uint64("keep_after", height-c.cfg.DiffRetainHeight))
 		}
 	}
 
