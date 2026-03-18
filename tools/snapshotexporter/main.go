@@ -12,13 +12,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/iotexproject/iotex-core/v2/db"
 )
-
-// namespaces to export from trie.db
-var exportNamespaces = []string{"Account", "Code", "Contract"}
 
 // forEacher is implemented by both BoltDB and PebbleDB
 type forEacher interface {
@@ -28,6 +26,7 @@ type forEacher interface {
 func main() {
 	source := flag.String("source", "", "path to trie.db (BoltDB)")
 	output := flag.String("output", "snapshot.bin.gz", "output snapshot file path")
+	namespaces := flag.String("namespaces", "Account,Code,Contract", "comma-separated namespaces to export")
 	flag.Parse()
 
 	if *source == "" {
@@ -35,12 +34,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := run(*source, *output); err != nil {
+	var nsList []string
+	for _, ns := range strings.Split(*namespaces, ",") {
+		ns = strings.TrimSpace(ns)
+		if ns != "" {
+			nsList = append(nsList, ns)
+		}
+	}
+
+	if err := run(*source, *output, nsList); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(source, output string) error {
+func run(source, output string, exportNamespaces []string) error {
 	start := time.Now()
 
 	// Open trie.db read-only (auto-detects BoltDB vs PebbleDB)
