@@ -292,6 +292,15 @@ func (c *Coordinator) runLoop(ctx context.Context) {
 
 // pollAndDispatch is the core logic: read actpool → prefetch state → build tasks → dispatch.
 func (c *Coordinator) pollAndDispatch() {
+	// Skip dispatching while the node is syncing blocks (catching up).
+	// During rapid block sync, prefetcher goroutines and state reads add
+	// significant memory pressure that can trigger OOM on constrained machines.
+	blockHeight := c.actPool.BlockHeight()
+	blockTs := c.lastBlockTimestamp.Load()
+	if blockTs > 0 && uint64(time.Now().Unix())-blockTs > 30 {
+		return // block timestamp is >30s behind wall clock — still syncing
+	}
+
 	// 1. Get pending txs from actpool
 	pending := c.actPool.PendingActions()
 	if len(pending) == 0 {
@@ -299,7 +308,6 @@ func (c *Coordinator) pollAndDispatch() {
 	}
 
 	// Check if block height advanced — invalidate prefetcher cache
-	blockHeight := c.actPool.BlockHeight()
 	if prev := c.lastBlockHeight.Swap(blockHeight); prev != blockHeight && prev != 0 {
 		c.prefetcher.InvalidateCache()
 	}
@@ -783,12 +791,17 @@ func (c *Coordinator) ReceiveStateDiff(height uint64, entries []StateDiffEntry, 
 		}
 	}
 
-	// Prune old diffs if retention is configured
-	if c.diffStore != nil && c.cfg.DiffRetainHeight > 0 && height > c.cfg.DiffRetainHeight {
-		if deleted, err := c.diffStore.Prune(height - c.cfg.DiffRetainHeight); err != nil {
+	// Prune old diffs periodically (every 1000 blocks) to bound statediffs.db size.
+	// Default retention: 10000 blocks (~27 hours) if not explicitly configured.
+	retainHeight := c.cfg.DiffRetainHeight
+	if retainHeight == 0 {
+		retainHeight = 10000 // default: keep ~27 hours of diffs
+	}
+	if c.diffStore != nil && height%1000 == 0 && height > retainHeight {
+		if deleted, err := c.diffStore.Prune(height - retainHeight); err != nil {
 			c.logger.Warn("failed to prune stale diffs", zap.Error(err))
 		} else if deleted > 0 {
-			c.logger.Debug("pruned stale diffs", zap.Int("deleted", deleted), zap.Uint64("keep_after", height-c.cfg.DiffRetainHeight))
+			c.logger.Info("pruned stale diffs", zap.Int("deleted", deleted), zap.Uint64("keep_after", height-retainHeight))
 		}
 	}
 
