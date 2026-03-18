@@ -178,7 +178,6 @@ func TestErigonStoreNativeState(t *testing.T) {
 
 	t.Run("state.Account", func(t *testing.T) {
 		height++
-		fmt.Printf("block: %d -----------------------\n", height)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
 		ctx = protocol.WithFeatureCtx(ctx)
 		store, err = edb.NewErigonStore(ctx, height)
@@ -198,9 +197,7 @@ func TestErigonStoreNativeState(t *testing.T) {
 		key := identityset.Address(0).Bytes()
 		gotAcct := &state.Account{}
 		r.ErrorIs(store.GetObject(ns, key, gotAcct), state.ErrStateNotExist)
-		fmt.Printf("Storing account at address: %x\n", key)
 		r.NoError(store.PutObject(ns, key, acct))
-		fmt.Printf("Stored account at address: %x\n", key)
 		r.NoError(store.GetObject(ns, key, gotAcct))
 		r.Equal(acct, gotAcct)
 		r.NoError(store.FinalizeTx(ctx))
