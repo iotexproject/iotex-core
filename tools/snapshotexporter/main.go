@@ -60,7 +60,7 @@ func run(source, output string) error {
 	if err != nil {
 		return fmt.Errorf("read currentHeight: %w", err)
 	}
-	height := binary.BigEndian.Uint64(heightBytes)
+	height := binary.LittleEndian.Uint64(heightBytes)
 	log.Printf("source height: %d", height)
 
 	// Create output file
