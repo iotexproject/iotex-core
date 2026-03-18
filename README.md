@@ -121,29 +121,35 @@ Refer to [CLI document](https://docs.iotex.io/developer/ioctl/install.html) for 
 
 ## IOSwarm: Distributed Transaction Validation
 
-> **Branch:** `ioswarm-support` | **Docker:** `raullen/iotex-core:ioswarm-v1`
+> **Branch:** `ioswarm-v2.3.5` | **Docker:** `raullen/iotex-core:ioswarm-v14`
 
-IOSwarm adds an optional coordinator to iotex-core that dispatches pending transaction validation tasks to external agents over gRPC. It runs in **shadow mode** — observational only, with zero impact on consensus or block production.
+IOSwarm adds an optional coordinator to iotex-core that dispatches pending transaction validation tasks to external agents over gRPC. It runs in **shadow mode** — observational only, with zero impact on consensus or block production. Supports L1–L4 validation levels, including full EVM re-execution (L3) and stateful local validation (L4).
 
 ### How it works
 
 ```
 Delegate Node (iotex-core + IOSwarm coordinator)
   ├── actpool → pending txs
-  ├── stateDB → account state prefetch
-  └── gRPC :14689 → dispatch tasks to agents
+  ├── stateDB → account state prefetch + SimulateAccessList (L3)
+  ├── gRPC :14689 → dispatch tasks to agents
+  ├── HTTP :14690 → monitoring API (/api/stats, /swarm/shadow)
+  └── StateDiff stream → real-time state sync for L4 agents
 
 Agent Swarm (external processes)
-  ├── Receive tasks (sig verify, state check)
-  ├── Return validation results
-  └── Earn IOTX rewards per epoch
+  ├── L1: signature verify
+  ├── L2: + nonce/balance checks
+  ├── L3: + full EVM execution (100% shadow accuracy)
+  ├── L4: + local state (BoltDB), independent validation
+  └── Earn IOTX rewards per epoch (on-chain settlement)
 ```
 
 ### Quick Deploy (existing delegate)
 
+See [ioswarm/README.md](ioswarm/README.md) for the full delegate onboarding guide.
+
 **1. Pull the image:**
 ```bash
-docker pull raullen/iotex-core:ioswarm-v1
+docker pull raullen/iotex-core:ioswarm-v14
 ```
 
 **2. Add IOSwarm config to your `config.yaml`:**
@@ -153,15 +159,19 @@ ioswarm:
   grpcPort: 14689
   swarmApiPort: 14690
   maxAgents: 100
-  taskLevel: "L2"
+  taskLevel: "L4"
   shadowMode: true
   pollIntervalMs: 1000
   masterSecret: "<your-secret>"
-  delegateAddress: "io1..."
+  epochRewardIOTX: 0.5
+  diffStoreEnabled: true
+  diffStorePath: "/var/data/statediffs.db"
+  rewardContract: "0x236CBF52125E68Db8fA88b893CcaFB2EE542F2d9"
+  rewardSignerKey: "<hex-key>"
   reward:
     delegateCutPct: 10
-    epochBlocks: 360
-    minTasksForReward: 50
+    epochBlocks: 1
+    minTasksForReward: 1
     bonusAccuracyPct: 99.5
     bonusMultiplier: 1.2
 ```
@@ -170,17 +180,19 @@ ioswarm:
 ```bash
 docker stop iotex && docker rm iotex
 docker run -d --restart on-failure --name iotex \
-  -p 4689:4689 -p 8080:8080 \
-  -p 14689:14689 -p 14690:14690 \
+  -p 4689:4689 -p 14014:14014 \
+  -p 127.0.0.1:14689:14689 -p 127.0.0.1:14690:14690 \
   -v=$IOTEX_HOME/data:/var/data:rw \
   -v=$IOTEX_HOME/log:/var/log:rw \
   -v=$IOTEX_HOME/etc/config.yaml:/etc/iotex/config_override.yaml:ro \
   -v=$IOTEX_HOME/etc/genesis.yaml:/etc/iotex/genesis.yaml:ro \
-  raullen/iotex-core:ioswarm-v1 \
+  raullen/iotex-core:ioswarm-v14 \
   iotex-server \
   -config-path=/etc/iotex/config_override.yaml \
   -genesis-path=/etc/iotex/genesis.yaml
 ```
+
+> **Note:** Bind gRPC/HTTP to localhost and use a reverse proxy (nginx) for TLS termination. See [ioswarm/README.md](ioswarm/README.md) for TLS setup.
 
 **4. Connect an agent:**
 ```bash
