@@ -150,7 +150,7 @@ func (s *StateReaderAdapter) AccountState(addr string) (snap *pb.AccountSnapshot
 	if err != nil {
 		return nil, err
 	}
-	acct, err := accountutil.AccountState(context.Background(), s.sf, ioAddr)
+	acct, err := accountutil.AccountState(s.chainCtx(), s.sf, ioAddr)
 	if err != nil {
 		return nil, err
 	}

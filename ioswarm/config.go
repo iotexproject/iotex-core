@@ -22,7 +22,7 @@ type Config struct {
 	DiffBufferSize   int          `yaml:"diffBufferSize"`   // ring buffer size for state diff broadcaster (default 100)
 	DiffStoreEnabled bool         `yaml:"diffStoreEnabled"` // persist state diffs to disk (default true for L4)
 	DiffStorePath    string       `yaml:"diffStorePath"`    // path to statediffs.db (default: <datadir>/statediffs.db)
-	DiffRetainHeight uint64       `yaml:"diffRetainHeight"` // prune diffs older than this many blocks (0 = keep all)
+	DiffRetainHeight uint64       `yaml:"diffRetainHeight"` // prune diffs older than this many blocks (default 10000 ≈ 27h; 0 = keep all)
 	Reward           RewardConfig `yaml:"reward"`
 }
 
@@ -39,6 +39,7 @@ func DefaultConfig() Config {
 		EpochRewardIOTX: 800,
 		DiffBufferSize:   100,
 		DiffStoreEnabled: true,
+		DiffRetainHeight: 10000, // ~27 hours at 10s/block; set 0 to keep all
 		Reward:           DefaultRewardConfig(),
 	}
 }
