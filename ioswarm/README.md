@@ -140,15 +140,46 @@ Set the returned contract address in `rewardContract`.
 
 ### Step 5 — Export L4 snapshot (for L4 agents)
 
-```bash
-# Build the snapshot exporter
-go build -o l4baseline ./ioswarm/cmd/l4baseline
+L4 agents need a state snapshot to bootstrap. The `snapshotexporter` tool reads trie.db via iotex-core's KVStore layer (handles both BoltDB and PebbleDB).
 
-# Export Account+Code snapshot (sufficient for L4, ~209 MB)
-./l4baseline --source /data/trie.db --output acctcode.snap.gz --namespaces Account,Code
+```bash
+# Build the snapshot exporter (requires CGO for crypto)
+docker run --rm --platform linux/amd64 \
+  -v $(pwd):/go/apps/iotex-core -w /go/apps/iotex-core \
+  golang:1.23.0-alpine sh -c \
+  'apk add --no-cache gcc musl-dev linux-headers git && \
+   CGO_ENABLED=1 go build -ldflags "-extldflags \"-static\"" \
+   -o bin/snapshotexporter ./tools/snapshotexporter/'
+
+# Export Account+Code only (~1 min, ~209 MB — sufficient for L4)
+# NOTE: trie.db must NOT be locked by a running iotex-server.
+# Stop iotex first, or copy trie.db while stopped.
+docker stop iotex
+cp /var/data/trie.db /var/data/trie.db.snap
+docker start iotex
+./bin/snapshotexporter --source /var/data/trie.db.snap --namespaces Account,Code --output acctcode.snap.gz
+
+# Export full state including Contract trie (~1 hour, ~1.4 GB)
+./bin/snapshotexporter --source /var/data/trie.db.snap --output baseline.snap.gz
 
 # Host it for agent download (CDN, object store, or file server)
 ```
+
+**Public snapshot**: https://ts.iotex.me — updated daily via cron.
+
+**Daily cron setup** (automates the above):
+```bash
+# /root/export-snapshot.sh — runs at 04:00 UTC daily
+# 1. docker stop iotex → cp trie.db → docker start iotex (~2 min downtime)
+# 2. snapshotexporter --namespaces Account,Code (~1 min)
+# 3. rsync to snapshot server
+# 4. Total: ~4 min, of which ~2 min is delegate downtime
+
+crontab -e
+# Add: 0 4 * * * /root/export-snapshot.sh
+```
+
+**Why Account+Code only?** Contract storage (MPT trie nodes, 80M+ entries) takes ~1 hour to export. L4 agents sync Contract state incrementally via `StreamStateDiffs` after loading the Account+Code snapshot. The DiffStore retains 10,000 blocks (~27 hours), so a daily snapshot keeps agents within the catch-up window.
 
 ### Step 6 — Generate agent API keys and onboard agents
 
