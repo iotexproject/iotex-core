@@ -59,6 +59,14 @@ func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.Envelo
 	if !vmCtxExist || vmCtx.Tracer == nil {
 		return nil
 	}
+	if _, ok := GetHelperCtx(ctx); !ok {
+		bcCtx := protocol.MustGetBlockchainCtx(ctx)
+		ctx = WithHelperCtx(ctx, HelperContext{
+			GetBlockHash:   bcCtx.GetBlockHash,
+			GetBlockTime:   bcCtx.GetBlockTime,
+			DepositGasFunc: nil,
+		})
+	}
 	evm, err := newEVM(ctx, ws, elp)
 	if err != nil {
 		return errors.Wrap(err, "failed to create EVM instance for tracing")

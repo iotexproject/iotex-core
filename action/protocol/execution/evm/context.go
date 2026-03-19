@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -41,6 +42,12 @@ type (
 // WithHelperCtx returns a new context with helper context
 func WithHelperCtx(ctx context.Context, hctx HelperContext) context.Context {
 	return context.WithValue(ctx, helperContextKey{}, hctx)
+}
+
+// GetHelperCtx returns the helper context from the context
+func GetHelperCtx(ctx context.Context) (HelperContext, bool) {
+	hc, ok := ctx.Value(helperContextKey{}).(HelperContext)
+	return hc, ok
 }
 
 // mustGetHelperCtx returns the helper context from the context
