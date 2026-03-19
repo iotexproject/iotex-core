@@ -254,6 +254,9 @@ func SendAction(elp action.Envelope, signer string) error {
 	if err != nil {
 		return err
 	}
+	if resp == nil {
+		return nil // user declined confirmation
+	}
 	return outputActionInfo(resp.ActionHash)
 }
 
@@ -321,6 +324,9 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 	resp, err := ExecuteAndResponse(contract, amount, bytecode)
 	if err != nil {
 		return err
+	}
+	if resp == nil {
+		return nil // user declined confirmation
 	}
 	return outputActionInfo(resp.ActionHash)
 }
@@ -448,8 +454,10 @@ const _waitTimeout = 60 * time.Second
 const _waitPollInterval = 2 * time.Second
 const _waitRPCTimeout = 10 * time.Second
 
-// waitForReceipt polls for the action receipt until confirmed or timeout (60s).
-// Each individual RPC call has its own 10s deadline to prevent a stalled endpoint from blocking forever.
+// waitForReceipt polls for the action receipt until confirmed or the overall
+// deadline (60s wall-clock) expires. Each RPC is capped to whichever is shorter:
+// _waitRPCTimeout or the time remaining on the overall deadline, so the total
+// elapsed time never exceeds _waitTimeout.
 func waitForReceipt(txhash string) (*iotextypes.Receipt, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
@@ -458,23 +466,35 @@ func waitForReceipt(txhash string) (*iotextypes.Receipt, error) {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 
+	// Single parent context with a hard deadline — every RPC derives from this,
+	// so nothing can run past the wall-clock cap.
 	baseCtx := context.Background()
 	jwtMD, err := util.JwtAuth()
 	if err == nil {
 		baseCtx = metautils.NiceMD(jwtMD).ToOutgoing(baseCtx)
 	}
+	outerCtx, outerCancel := context.WithTimeout(baseCtx, _waitTimeout)
+	defer outerCancel()
 
-	deadline := time.After(_waitTimeout)
 	ticker := time.NewTicker(_waitPollInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-deadline:
+		case <-outerCtx.Done():
 			return nil, fmt.Errorf("timeout after %s waiting for confirmation", _waitTimeout)
 		case <-ticker.C:
-			// Per-RPC deadline so a stalled endpoint cannot block past the outer timeout
-			rpcCtx, cancel := context.WithTimeout(baseCtx, _waitRPCTimeout)
+			// Cap the per-call timeout to the remaining overall deadline
+			dl, _ := outerCtx.Deadline()
+			remaining := time.Until(dl)
+			rpcTimeout := _waitRPCTimeout
+			if remaining < rpcTimeout {
+				rpcTimeout = remaining
+			}
+			if rpcTimeout <= 0 {
+				return nil, fmt.Errorf("timeout after %s waiting for confirmation", _waitTimeout)
+			}
+			rpcCtx, cancel := context.WithTimeout(outerCtx, rpcTimeout)
 			resp, err := cli.GetReceiptByAction(rpcCtx, &iotexapi.GetReceiptByActionRequest{ActionHash: txhash})
 			cancel()
 			if err != nil {
@@ -483,7 +503,11 @@ func waitForReceipt(txhash string) (*iotextypes.Receipt, error) {
 					continue // not yet confirmed, keep polling
 				}
 				if ok && sta.Code() == codes.DeadlineExceeded {
-					continue // RPC timed out, retry on next tick
+					// Check if it's the outer deadline that fired
+					if outerCtx.Err() != nil {
+						return nil, fmt.Errorf("timeout after %s waiting for confirmation", _waitTimeout)
+					}
+					continue // per-RPC timeout, retry on next tick
 				}
 				return nil, err
 			}
