@@ -45,7 +45,7 @@ type actionResult struct {
 
 type actionsMessage struct {
 	Address string          `json:"address"`
-	Count   int             `json:"count"`
+	Count   uint64          `json:"count"`
 	Actions []*actionResult `json:"actions"`
 }
 
@@ -56,7 +56,7 @@ func (m *actionsMessage) String() string {
 		for _, a := range m.Actions {
 			tb.AddRow(a.ActHash, a.BlkHeight, a.Sender, a.Nonce, a.GasLimit, a.GasPrice)
 		}
-		result := fmt.Sprintf("Total: %d\n", m.Count)
+		result := fmt.Sprintf("Count: %d\n", m.Count)
 		result += fmt.Sprint(tb)
 		return result
 	}
@@ -145,7 +145,7 @@ func accountActions(args []string) error {
 
 	message := actionsMessage{
 		Address: addr,
-		Count:   len(results),
+		Count:   response.Total,
 		Actions: results,
 	}
 	fmt.Println(message.String())

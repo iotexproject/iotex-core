@@ -219,8 +219,7 @@ func SendRaw(selp *iotextypes.Action) error {
 
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	txhash := hex.EncodeToString(shash[:])
-	outputActionInfo(txhash)
-	return nil
+	return outputActionInfo(txhash)
 }
 
 // SendRawAndRespond sends raw action to blockchain with response and error return
@@ -255,8 +254,7 @@ func SendAction(elp action.Envelope, signer string) error {
 	if err != nil {
 		return err
 	}
-	outputActionInfo(resp.ActionHash)
-	return nil
+	return outputActionInfo(resp.ActionHash)
 }
 
 // SendActionAndResponse sends signed action to blockchain with response and error return
@@ -324,8 +322,7 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 	if err != nil {
 		return err
 	}
-	outputActionInfo(resp.ActionHash)
-	return nil
+	return outputActionInfo(resp.ActionHash)
 }
 
 // ExecuteAndResponse sends signed execution transaction to blockchain and with response and error return
@@ -421,7 +418,7 @@ func isBalanceEnough(address string, act *action.SealedEnvelope) error {
 	return nil
 }
 
-func outputActionInfo(txhash string) {
+func outputActionInfo(txhash string) error {
 	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash, URL: "https://"}
 	switch config.ReadConfig.Explorer {
 	case "iotexscan":
@@ -440,14 +437,19 @@ func outputActionInfo(txhash string) {
 	if _waitFlag.Value() == true {
 		receipt, err := waitForReceipt(txhash)
 		if err != nil {
-			fmt.Printf("Failed to get receipt: %s\n", err.Error())
-			return
+			return output.NewError(output.NetworkError, fmt.Sprintf("failed to get receipt for %s", txhash), err)
 		}
 		fmt.Println(printReceiptProto(receipt))
 	}
+	return nil
 }
 
-// waitForReceipt polls for the action receipt until confirmed or timeout (60s)
+const _waitTimeout = 60 * time.Second
+const _waitPollInterval = 2 * time.Second
+const _waitRPCTimeout = 10 * time.Second
+
+// waitForReceipt polls for the action receipt until confirmed or timeout (60s).
+// Each individual RPC call has its own 10s deadline to prevent a stalled endpoint from blocking forever.
 func waitForReceipt(txhash string) (*iotextypes.Receipt, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
@@ -456,26 +458,32 @@ func waitForReceipt(txhash string) (*iotextypes.Receipt, error) {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 
-	ctx := context.Background()
+	baseCtx := context.Background()
 	jwtMD, err := util.JwtAuth()
 	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+		baseCtx = metautils.NiceMD(jwtMD).ToOutgoing(baseCtx)
 	}
 
-	timeout := time.After(60 * time.Second)
-	ticker := time.NewTicker(2 * time.Second)
+	deadline := time.After(_waitTimeout)
+	ticker := time.NewTicker(_waitPollInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-timeout:
-			return nil, fmt.Errorf("timeout waiting for action %s to be confirmed", txhash)
+		case <-deadline:
+			return nil, fmt.Errorf("timeout after %s waiting for confirmation", _waitTimeout)
 		case <-ticker.C:
-			resp, err := cli.GetReceiptByAction(ctx, &iotexapi.GetReceiptByActionRequest{ActionHash: txhash})
+			// Per-RPC deadline so a stalled endpoint cannot block past the outer timeout
+			rpcCtx, cancel := context.WithTimeout(baseCtx, _waitRPCTimeout)
+			resp, err := cli.GetReceiptByAction(rpcCtx, &iotexapi.GetReceiptByActionRequest{ActionHash: txhash})
+			cancel()
 			if err != nil {
 				sta, ok := status.FromError(err)
 				if ok && sta.Code() == codes.NotFound {
 					continue // not yet confirmed, keep polling
+				}
+				if ok && sta.Code() == codes.DeadlineExceeded {
+					continue // RPC timed out, retry on next tick
 				}
 				return nil, err
 			}

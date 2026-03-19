@@ -114,13 +114,20 @@ func StringToIOTX(amount string) (string, error) {
 	return RauToString(amountInt, IotxDecimalNum), nil
 }
 
+// stdinLineReader is a shared bufio.Reader for non-TTY stdin.
+// It must be reused across calls to avoid losing buffered data when multiple
+// passwords are read in sequence (e.g. account create reads password twice).
+var stdinLineReader *bufio.Reader
+
 // ReadSecretFromStdin used to safely get password input.
 // When stdin is not a terminal (e.g. piped input), it reads a line from stdin instead of using terminal raw mode.
 func ReadSecretFromStdin() (string, error) {
 	// Non-TTY mode: read password from stdin as a line (supports piped input)
 	if !terminal.IsTerminal(int(syscall.Stdin)) {
-		reader := bufio.NewReader(os.Stdin)
-		line, err := reader.ReadString('\n')
+		if stdinLineReader == nil {
+			stdinLineReader = bufio.NewReader(os.Stdin)
+		}
+		line, err := stdinLineReader.ReadString('\n')
 		if err != nil && len(line) == 0 {
 			return "", output.NewError(output.InputError, "failed to read password from stdin", err)
 		}
