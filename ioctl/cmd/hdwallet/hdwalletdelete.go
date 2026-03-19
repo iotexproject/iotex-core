@@ -37,6 +37,9 @@ var _hdwalletDeleteCmd = &cobra.Command{
 }
 
 func hdwalletDelete() error {
+	if err := output.RequireInteractive("hdwallet delete confirmation"); err != nil {
+		return output.NewError(output.InputError, "hdwallet delete requires interactive confirmation", nil)
+	}
 	var confirm string
 	info := fmt.Sprintf("** This is an irreversible action!\n" +
 		"Once an hdwallet is deleted, all the assets under this hdwallet may be lost!\n" +

@@ -6,6 +6,7 @@
 package util
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/tls"
 	"fmt"
@@ -113,8 +114,20 @@ func StringToIOTX(amount string) (string, error) {
 	return RauToString(amountInt, IotxDecimalNum), nil
 }
 
-// ReadSecretFromStdin used to safely get password input
+// ReadSecretFromStdin used to safely get password input.
+// When stdin is not a terminal (e.g. piped input), it reads a line from stdin instead of using terminal raw mode.
 func ReadSecretFromStdin() (string, error) {
+	// Non-TTY mode: read password from stdin as a line (supports piped input)
+	if !terminal.IsTerminal(int(syscall.Stdin)) {
+		reader := bufio.NewReader(os.Stdin)
+		line, err := reader.ReadString('\n')
+		if err != nil && len(line) == 0 {
+			return "", output.NewError(output.InputError, "failed to read password from stdin", err)
+		}
+		return strings.TrimRight(line, "\r\n"), nil
+	}
+
+	// TTY mode: use terminal raw mode for secure input
 	signalListener := make(chan os.Signal, 1)
 	signal.Notify(signalListener, os.Interrupt)
 	routineTerminate := make(chan struct{})

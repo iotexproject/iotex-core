@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -18,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
@@ -57,6 +59,7 @@ var (
 	_signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
 	_bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
 	_yesFlag      = flag.BoolVarP("assume-yes", "y", false, "answer yes for all confirmations")
+	_waitFlag     = flag.BoolVarP("wait", "w", false, "wait for the action to be confirmed on-chain and print receipt")
 )
 
 // ActionCmd represents the action command
@@ -137,6 +140,7 @@ func RegisterWriteCommand(cmd *cobra.Command) {
 	_signerFlag.RegisterCommand(cmd)
 	_nonceFlag.RegisterCommand(cmd)
 	_yesFlag.RegisterCommand(cmd)
+	_waitFlag.RegisterCommand(cmd)
 	account.RegisterPasswordFlag(cmd)
 }
 
@@ -294,6 +298,9 @@ func SendActionAndResponse(elp action.Envelope, signer string) (*iotexapi.SendAc
 	}
 
 	if _yesFlag.Value() == false {
+		if err := output.RequireInteractive("action confirmation"); err != nil {
+			return nil, output.NewError(output.InputError, "use -y flag to skip confirmation", nil)
+		}
 		var confirm string
 		info := fmt.Sprintln(actionInfo + "\nPlease confirm your action.\n")
 		message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
@@ -428,4 +435,53 @@ func outputActionInfo(txhash string) {
 		message.URL = config.ReadConfig.Explorer + txhash
 	}
 	fmt.Println(message.String())
+
+	// If --wait flag is set, poll for receipt
+	if _waitFlag.Value() == true {
+		receipt, err := waitForReceipt(txhash)
+		if err != nil {
+			fmt.Printf("Failed to get receipt: %s\n", err.Error())
+			return
+		}
+		fmt.Println(printReceiptProto(receipt))
+	}
+}
+
+// waitForReceipt polls for the action receipt until confirmed or timeout (60s)
+func waitForReceipt(txhash string) (*iotextypes.Receipt, error) {
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
+	timeout := time.After(60 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			return nil, fmt.Errorf("timeout waiting for action %s to be confirmed", txhash)
+		case <-ticker.C:
+			resp, err := cli.GetReceiptByAction(ctx, &iotexapi.GetReceiptByActionRequest{ActionHash: txhash})
+			if err != nil {
+				sta, ok := status.FromError(err)
+				if ok && sta.Code() == codes.NotFound {
+					continue // not yet confirmed, keep polling
+				}
+				return nil, err
+			}
+			if resp.ReceiptInfo != nil && resp.ReceiptInfo.Receipt != nil {
+				return resp.ReceiptInfo.Receipt, nil
+			}
+		}
+	}
 }

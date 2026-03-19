@@ -20,8 +20,8 @@ import (
 // Multi-language support
 var (
 	_balanceCmdUses = map[config.Language]string{
-		config.English: "balance [ALIAS|ADDRESS]",
-		config.Chinese: "balance [别名|地址]",
+		config.English: "balance [ALIAS|ADDRESS] [ALIAS|ADDRESS] ...",
+		config.Chinese: "balance [别名|地址] [别名|地址] ...",
 	}
 	_balanceCmdShorts = map[config.Language]string{
 		config.English: "Get balance of an account",
@@ -33,16 +33,58 @@ var (
 var accountBalanceCmd = &cobra.Command{
 	Use:   config.TranslateInLang(_balanceCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(_balanceCmdShorts, config.UILanguage),
-	Args:  cobra.RangeArgs(0, 1),
+	Args:  cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		arg := ""
-		if len(args) == 1 {
-			arg = args[0]
+		if len(args) == 0 {
+			err := balance("")
+			return output.PrintError(err)
 		}
-		err := balance(arg)
-		return output.PrintError(err)
+		// Support batch queries: ioctl account balance addr1 addr2 addr3
+		if len(args) > 1 && output.Format != "" {
+			// In JSON mode, output an array of balances
+			var results []balanceMessage
+			for _, arg := range args {
+				addr := arg
+				if addr != ioAddress.StakingBucketPoolAddr && addr != ioAddress.RewardingPoolAddr {
+					var err error
+					addr, err = util.GetAddress(arg)
+					if err != nil {
+						return output.PrintError(output.NewError(output.AddressError, "", err))
+					}
+				}
+				accountMeta, err := GetAccountMeta(addr)
+				if err != nil {
+					return output.PrintError(output.NewError(0, "", err))
+				}
+				bal, ok := new(big.Int).SetString(accountMeta.Balance, 10)
+				if !ok {
+					return output.PrintError(output.NewError(output.ConvertError, "failed to convert balance", nil))
+				}
+				results = append(results, balanceMessage{
+					Address: addr,
+					Balance: util.RauToString(bal, util.IotxDecimalNum),
+				})
+			}
+			batchMsg := batchBalanceMessage{Balances: results}
+			fmt.Println(output.FormatString(output.Result, &batchMsg))
+			return nil
+		}
+		for _, arg := range args {
+			if err := balance(arg); err != nil {
+				return output.PrintError(err)
+			}
+		}
+		return nil
 	},
+}
+
+type batchBalanceMessage struct {
+	Balances []balanceMessage `json:"balances"`
+}
+
+func (m *batchBalanceMessage) String() string {
+	return output.FormatString(output.Result, m)
 }
 
 type balanceMessage struct {

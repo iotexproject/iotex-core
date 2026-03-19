@@ -213,12 +213,29 @@ func getBucketByIndex(index uint64) (*iotextypes.VoteBucket, error) {
 	return buckets.GetBuckets()[0], nil
 }
 
+type bucketCountMessage struct {
+	Total  uint64 `json:"total"`
+	Active uint64 `json:"active"`
+}
+
+func (m *bucketCountMessage) String() string {
+	if output.Format == "" {
+		return fmt.Sprintf("%d", m.Total)
+	}
+	return output.FormatString(output.Result, m)
+}
+
 func getBucketsTotalCount() error {
 	count, err := getBucketsCount()
 	if err != nil {
 		return err
 	}
-	fmt.Println(count.GetTotal())
+	message := bucketCountMessage{Total: count.GetTotal(), Active: count.GetActive()}
+	if output.Format == "" {
+		fmt.Println(count.GetTotal())
+	} else {
+		fmt.Println(message.String())
+	}
 	return nil
 }
 
@@ -227,7 +244,12 @@ func getBucketsActiveCount() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(count.GetActive())
+	message := bucketCountMessage{Total: count.GetTotal(), Active: count.GetActive()}
+	if output.Format == "" {
+		fmt.Println(count.GetActive())
+	} else {
+		fmt.Println(message.String())
+	}
 	return nil
 }
 

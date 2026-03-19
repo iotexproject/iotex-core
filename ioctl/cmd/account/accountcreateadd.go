@@ -49,6 +49,10 @@ func accountCreateAdd(args []string) error {
 	}
 	alias := args[0]
 	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
+		if err := output.RequireInteractive("alias overwrite confirmation"); err != nil {
+			return output.NewError(output.InputError,
+				fmt.Sprintf("alias %q already used for %s, cannot confirm overwrite in non-interactive mode", alias, addr), nil)
+		}
 		var confirm string
 		info := fmt.Sprintf("** Alias \"%s\" has already used for %s\n"+
 			"Overwriting the account will keep the previous keystore file stay, "+
