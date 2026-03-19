@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -194,6 +195,10 @@ type (
 		TraceBlockByNumber(ctx context.Context, height uint64, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error)
 		//  TraceBlockByHash returns the trace result of a block by its hash
 		TraceBlockByHash(ctx context.Context, blkHash string, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error)
+		// BlockWitnessByNumber returns the persisted block witness payload by height
+		BlockWitnessByNumber(height uint64) (json.RawMessage, error)
+		// BlockWitnessByHash returns the persisted block witness payload by hash
+		BlockWitnessByHash(blockHash hash.Hash256) (json.RawMessage, error)
 
 		// Historical methods
 		BalanceAt(ctx context.Context, addr address.Address, height uint64) (string, error)
@@ -913,7 +918,22 @@ func (core *coreService) ElectionBuckets(epochNum uint64) ([]*iotextypes.Electio
 // ReceiptByActionHash returns receipt by action hash
 func (core *coreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
 	if core.indexer == nil {
-		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+		_, blk, _, err := core.lookupActionByHashNoIndex(h)
+		if err != nil {
+			return nil, err
+		}
+		receipt := filterReceipts(blk.Receipts, h)
+		if receipt != nil {
+			return receipt, nil
+		}
+		receipts, err := core.dao.GetReceipts(blk.Height())
+		if err != nil {
+			return nil, err
+		}
+		if receipt := filterReceipts(receipts, h); receipt != nil {
+			return receipt, nil
+		}
+		return nil, errors.Wrapf(ErrNotFound, "failed to find receipt for action %x", h)
 	}
 
 	actIndex, err := core.indexer.GetActionIndex(h[:])
@@ -1227,7 +1247,7 @@ func (core *coreService) BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256,
 // ActionByActionHash returns action by action hash
 func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error) {
 	if err := core.checkActionIndex(); err != nil {
-		return nil, nil, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+		return core.lookupActionByHashNoIndex(h)
 	}
 
 	actIndex, err := core.indexer.GetActionIndex(h[:])
@@ -1246,6 +1266,20 @@ func (core *coreService) ActionByActionHash(h hash.Hash256) (*action.SealedEnvel
 		return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
 	return selp, blk, index, nil
+}
+
+func (core *coreService) lookupActionByHashNoIndex(h hash.Hash256) (*action.SealedEnvelope, *block.Block, uint32, error) {
+	for height := core.bc.TipHeight(); height >= 1; height-- {
+		blk, err := core.dao.GetBlockByHeight(height)
+		if err != nil {
+			return nil, nil, 0, errors.Wrap(ErrNotFound, err.Error())
+		}
+		selp, index, err := blk.ActionByHash(h)
+		if err == nil {
+			return selp, blk, index, nil
+		}
+	}
+	return nil, nil, 0, errors.Wrapf(ErrNotFound, "failed to find action %x", h)
 }
 
 // PendingActionByActionHash returns action by action hash
@@ -2146,6 +2180,27 @@ func (core *coreService) TraceBlockByHash(ctx context.Context, blkHash string, c
 	return core.traceBlock(ctx, blk, config)
 }
 
+func (core *coreService) BlockWitnessByNumber(height uint64) (json.RawMessage, error) {
+	provider, ok := core.bc.(interface {
+		BlockWitnessByHeight(uint64) (hash.Hash256, json.RawMessage, error)
+	})
+	if !ok {
+		return nil, ErrNotFound
+	}
+	_, raw, err := provider.BlockWitnessByHeight(height)
+	return raw, err
+}
+
+func (core *coreService) BlockWitnessByHash(blockHash hash.Hash256) (json.RawMessage, error) {
+	provider, ok := core.bc.(interface {
+		BlockWitnessByHash(hash.Hash256) (json.RawMessage, error)
+	})
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return provider.BlockWitnessByHash(blockHash)
+}
+
 // Track tracks the api call
 func (core *coreService) Track(ctx context.Context, start time.Time, method string, size int64, success bool) {
 	if core.apiStats == nil {
@@ -2177,6 +2232,10 @@ func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Contex
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
 		Tracer:    tracer,
 		NoBaseFee: true,
+	})
+	ctx = evm.WithTracerCtx(ctx, evm.TracerContext{
+		CaptureContractStorageAccesses:  tracer.CaptureContractStorageAccesses,
+		CaptureContractStorageWitnesses: tracer.CaptureContractStorageWitnesses,
 	})
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
@@ -2294,12 +2353,17 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 			var res any
 			switch innerTracer := tracer.Unwrap().(type) {
 			case *logger.StructLogger:
+				accesses := tracer.ContractStorageAccesses()
+				witnesses := tracer.ContractStorageWitnesses()
 				res = &debugTraceTransactionResult{
-					Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
-					Revert:      receipt.ExecutionRevertMsg(),
-					ReturnValue: byteToHex(retval),
-					StructLogs:  fromLoggerStructLogs(innerTracer.StructLogs()),
-					Gas:         receipt.GasConsumed,
+					Failed:                       receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
+					Revert:                       receipt.ExecutionRevertMsg(),
+					ReturnValue:                  byteToHex(retval),
+					StructLogs:                   fromLoggerStructLogs(innerTracer.StructLogs()),
+					Gas:                          receipt.GasConsumed,
+					ContractStorageAccesses:      fromContractStorageAccesses(accesses),
+					ContractStorageAccessSummary: summarizeContractStorageAccesses(accesses),
+					ContractStorageWitnesses:     fromContractStorageWitnesses(witnesses),
 				}
 			case tracers.Tracer:
 				res, err = innerTracer.GetResult()
@@ -2318,6 +2382,8 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 			retvals = append(retvals, retval)
 			receipts = append(receipts, receipt)
 		},
+		CaptureContractStorageAccesses:  tracer.CaptureContractStorageAccesses,
+		CaptureContractStorageWitnesses: tracer.CaptureContractStorageWitnesses,
 	})
 	ws, err := core.sf.WorkingSetAtTransaction(ctx, blk.Height(), blk.Actions...)
 	if err != nil {

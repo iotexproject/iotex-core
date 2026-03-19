@@ -91,6 +91,20 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	var p2pAgent p2p.Agent
 	switch cfg.Consensus.Scheme {
 	case config.StandaloneScheme:
+		if cfg.Chain.EnableExperimentalStandaloneSync {
+			p2pAgent = p2p.NewAgent(
+				cfg.Network,
+				cfg.Chain.ID,
+				cfg.Genesis.Hash(),
+				dispatcher.ValidateMessage,
+				dispatcher.HandleBroadcast,
+				dispatcher.HandleTell,
+				p2p.WithUnifiedTopicHelper(func(height uint64) bool {
+					return height <= cfg.Genesis.WakeBlockHeight
+				}),
+			)
+			break
+		}
 		p2pAgent = p2p.NewDummyAgent()
 	default:
 		p2pAgent = p2p.NewAgent(

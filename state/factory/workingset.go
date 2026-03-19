@@ -372,6 +372,78 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	return ws.height, store.GetObject(cfg.Namespace, key, s)
 }
 
+// BaseState reads from the underlying base statedb store even when the working set
+// is running in Erigon dry-run mode with Erigon as the primary read source.
+func (ws *workingSet) BaseState(s interface{}, opts ...protocol.StateOption) (uint64, error) {
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return ws.height, err
+	}
+	if cfg.Keys != nil {
+		return 0, errors.Wrap(ErrNotSupported, "Read base state with keys option has not been implemented yet")
+	}
+	if cfg.ErigonStoreOnly {
+		return 0, errors.Wrap(ErrNotSupported, "BaseState does not support Erigon-only reads")
+	}
+	store := ws.store
+	if sim, ok := ws.store.(*erigonWorkingSetStoreForSimulate); ok {
+		store = sim.base
+	}
+	key, err := ws.matchStoreKey(store, cfg)
+	if err != nil {
+		return 0, err
+	}
+	return ws.height, store.GetObject(cfg.Namespace, key, s)
+}
+
+// BasePutState writes to the underlying base statedb store even when the working
+// set is running in Erigon dry-run mode with Erigon as the primary write target.
+func (ws *workingSet) BasePutState(s interface{}, opts ...protocol.StateOption) (uint64, error) {
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return ws.height, err
+	}
+	if cfg.ErigonStoreOnly {
+		return 0, errors.Wrap(ErrNotSupported, "BasePutState does not support Erigon-only writes")
+	}
+	store := ws.store
+	if sim, ok := ws.store.(*erigonWorkingSetStoreForSimulate); ok {
+		store = sim.base
+	}
+	key, err := ws.matchStoreKey(store, cfg)
+	if err != nil {
+		return 0, err
+	}
+	if err := store.PutObject(cfg.Namespace, key, s); err != nil {
+		return ws.height, err
+	}
+	return ws.height, nil
+}
+
+// BaseDelState deletes from the underlying base statedb store even when the
+// working set is running in Erigon dry-run mode with Erigon as the primary write target.
+func (ws *workingSet) BaseDelState(opts ...protocol.StateOption) (uint64, error) {
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return ws.height, err
+	}
+	if cfg.ErigonStoreOnly {
+		return 0, errors.Wrap(ErrNotSupported, "BaseDelState does not support Erigon-only deletes")
+	}
+	store := ws.store
+	if sim, ok := ws.store.(*erigonWorkingSetStoreForSimulate); ok {
+		store = sim.base
+	}
+	key, err := ws.matchStoreKey(store, cfg)
+	if err != nil {
+		return 0, err
+	}
+	if err := store.DeleteObject(cfg.Namespace, key, cfg.Object); err != nil {
+		return ws.height, err
+	}
+	return ws.height, nil
+}
+
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
 	cfg, err := processOptions(opts...)
 	if err != nil {

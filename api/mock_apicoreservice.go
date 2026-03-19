@@ -11,6 +11,7 @@ package api
 
 import (
 	context "context"
+	json "encoding/json"
 	big "math/big"
 	reflect "reflect"
 	time "time"
@@ -812,6 +813,36 @@ func (m *MockCoreService) TraceBlockByHash(ctx context.Context, blkHash string, 
 func (mr *MockCoreServiceMockRecorder) TraceBlockByHash(ctx, blkHash, config any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceBlockByHash", reflect.TypeOf((*MockCoreService)(nil).TraceBlockByHash), ctx, blkHash, config)
+}
+
+// BlockWitnessByNumber mocks base method.
+func (m *MockCoreService) BlockWitnessByNumber(height uint64) (json.RawMessage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockWitnessByNumber", height)
+	ret0, _ := ret[0].(json.RawMessage)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockWitnessByNumber indicates an expected call of BlockWitnessByNumber.
+func (mr *MockCoreServiceMockRecorder) BlockWitnessByNumber(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockWitnessByNumber", reflect.TypeOf((*MockCoreService)(nil).BlockWitnessByNumber), height)
+}
+
+// BlockWitnessByHash mocks base method.
+func (m *MockCoreService) BlockWitnessByHash(blockHash hash.Hash256) (json.RawMessage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockWitnessByHash", blockHash)
+	ret0, _ := ret[0].(json.RawMessage)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockWitnessByHash indicates an expected call of BlockWitnessByHash.
+func (mr *MockCoreServiceMockRecorder) BlockWitnessByHash(blockHash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockWitnessByHash", reflect.TypeOf((*MockCoreService)(nil).BlockWitnessByHash), blockHash)
 }
 
 // TraceBlockByNumber mocks base method.

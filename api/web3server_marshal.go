@@ -1,8 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -15,6 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 )
@@ -82,16 +85,78 @@ type (
 	}
 
 	debugTraceTransactionResult struct {
-		Failed      bool                 `json:"failed"`
-		Revert      string               `json:"revert"`
-		ReturnValue string               `json:"returnValue"`
-		Gas         uint64               `json:"gas"`
-		StructLogs  []apitypes.StructLog `json:"structLogs"`
+		Failed                       bool                              `json:"failed"`
+		Revert                       string                            `json:"revert"`
+		ReturnValue                  string                            `json:"returnValue"`
+		Gas                          uint64                            `json:"gas"`
+		StructLogs                   []apitypes.StructLog              `json:"structLogs"`
+		ContractStorageAccesses      []contractStorageAccessJSON       `json:"contractStorageAccesses,omitempty"`
+		ContractStorageAccessSummary *contractStorageAccessSummaryJSON `json:"contractStorageAccessSummary,omitempty"`
+		ContractStorageWitnesses     []contractStorageWitnessJSON      `json:"contractStorageWitnesses,omitempty"`
 	}
 
 	blockTraceResult struct {
 		TxHash hash.Hash256 `json:"txHash"`
 		Result any          `json:"result"`
+	}
+
+	debugTraceBlockStorageSummaryResult struct {
+		Summary      *contractStorageAccessSummaryJSON `json:"summary,omitempty"`
+		Transactions []blockStorageAccessSummaryJSON   `json:"transactions"`
+	}
+
+	debugTraceBlockWitnessResult struct {
+		Summary      *contractStorageWitnessSummaryJSON `json:"summary,omitempty"`
+		Transactions []blockStorageWitnessJSON          `json:"transactions"`
+	}
+
+	contractStorageAccessJSON struct {
+		Address string   `json:"address"`
+		Reads   []string `json:"reads,omitempty"`
+		Writes  []string `json:"writes,omitempty"`
+	}
+
+	blockStorageAccessSummaryJSON struct {
+		TxHash       string `json:"txHash"`
+		Contracts    uint64 `json:"contracts"`
+		ReadSlots    uint64 `json:"readSlots"`
+		WriteSlots   uint64 `json:"writeSlots"`
+		TouchedSlots uint64 `json:"touchedSlots"`
+	}
+
+	contractStorageAccessSummaryJSON struct {
+		Contracts    uint64 `json:"contracts"`
+		ReadSlots    uint64 `json:"readSlots"`
+		WriteSlots   uint64 `json:"writeSlots"`
+		TouchedSlots uint64 `json:"touchedSlots"`
+	}
+
+	contractStorageWitnessSummaryJSON struct {
+		Contracts  uint64 `json:"contracts"`
+		Entries    uint64 `json:"entries"`
+		ProofNodes uint64 `json:"proofNodes"`
+		ProofBytes uint64 `json:"proofBytes"`
+	}
+
+	contractStorageWitnessJSON struct {
+		Address     string                            `json:"address"`
+		StorageRoot string                            `json:"storageRoot"`
+		Entries     []contractStorageWitnessEntryJSON `json:"entries,omitempty"`
+		ProofNodes  []string                          `json:"proofNodes,omitempty"`
+	}
+
+	contractStorageWitnessEntryJSON struct {
+		Key   string `json:"key"`
+		Value string `json:"value,omitempty"`
+	}
+
+	blockStorageWitnessJSON struct {
+		TxHash     string                       `json:"txHash"`
+		Contracts  uint64                       `json:"contracts"`
+		Entries    uint64                       `json:"entries"`
+		ProofNodes uint64                       `json:"proofNodes"`
+		ProofBytes uint64                       `json:"proofBytes"`
+		Witnesses  []contractStorageWitnessJSON `json:"witnesses,omitempty"`
 	}
 
 	feeHistoryResult struct {
@@ -107,6 +172,236 @@ type (
 var (
 	errInvalidObject = errors.New("invalid object")
 )
+
+func fromContractStorageAccesses(accesses []evm.ContractStorageAccess) []contractStorageAccessJSON {
+	if len(accesses) == 0 {
+		return nil
+	}
+	out := make([]contractStorageAccessJSON, 0, len(accesses))
+	for _, access := range accesses {
+		item := contractStorageAccessJSON{
+			Address: access.Address.Hex(),
+		}
+		if len(access.Reads) > 0 {
+			item.Reads = make([]string, 0, len(access.Reads))
+			for _, h := range access.Reads {
+				item.Reads = append(item.Reads, h.Hex())
+			}
+		}
+		if len(access.Writes) > 0 {
+			item.Writes = make([]string, 0, len(access.Writes))
+			for _, h := range access.Writes {
+				item.Writes = append(item.Writes, h.Hex())
+			}
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func summarizeContractStorageAccesses(accesses []evm.ContractStorageAccess) *contractStorageAccessSummaryJSON {
+	if len(accesses) == 0 {
+		return nil
+	}
+	summary := &contractStorageAccessSummaryJSON{
+		Contracts: uint64(len(accesses)),
+	}
+	for _, access := range accesses {
+		summary.ReadSlots += uint64(len(access.Reads))
+		summary.WriteSlots += uint64(len(access.Writes))
+		touched := make(map[common.Hash]struct{}, len(access.Reads)+len(access.Writes))
+		for _, slot := range access.Reads {
+			touched[slot] = struct{}{}
+		}
+		for _, slot := range access.Writes {
+			touched[slot] = struct{}{}
+		}
+		summary.TouchedSlots += uint64(len(touched))
+	}
+	return summary
+}
+
+func summarizeContractStorageAccessesJSON(accesses []contractStorageAccessJSON) *contractStorageAccessSummaryJSON {
+	if len(accesses) == 0 {
+		return nil
+	}
+	summary := &contractStorageAccessSummaryJSON{
+		Contracts: uint64(len(accesses)),
+	}
+	for _, access := range accesses {
+		summary.ReadSlots += uint64(len(access.Reads))
+		summary.WriteSlots += uint64(len(access.Writes))
+		touched := make(map[string]struct{}, len(access.Reads)+len(access.Writes))
+		for _, slot := range access.Reads {
+			touched[slot] = struct{}{}
+		}
+		for _, slot := range access.Writes {
+			touched[slot] = struct{}{}
+		}
+		summary.TouchedSlots += uint64(len(touched))
+	}
+	return summary
+}
+
+func fromContractStorageWitnesses(witnesses map[common.Address]*evm.ContractStorageWitness) []contractStorageWitnessJSON {
+	if len(witnesses) == 0 {
+		return nil
+	}
+	addrs := make([]common.Address, 0, len(witnesses))
+	for addr := range witnesses {
+		addrs = append(addrs, addr)
+	}
+	sort.Slice(addrs, func(i, j int) bool {
+		return bytes.Compare(addrs[i][:], addrs[j][:]) < 0
+	})
+
+	out := make([]contractStorageWitnessJSON, 0, len(addrs))
+	for _, addr := range addrs {
+		witness := witnesses[addr]
+		if witness == nil {
+			continue
+		}
+		item := contractStorageWitnessJSON{
+			Address:     addr.Hex(),
+			StorageRoot: byteToHex(witness.StorageRoot[:]),
+		}
+		if len(witness.Entries) > 0 {
+			item.Entries = make([]contractStorageWitnessEntryJSON, 0, len(witness.Entries))
+			for _, entry := range witness.Entries {
+				entryJSON := contractStorageWitnessEntryJSON{
+					Key: byteToHex(entry.Key[:]),
+				}
+				if len(entry.Value) > 0 {
+					entryJSON.Value = byteToHex(entry.Value)
+				}
+				item.Entries = append(item.Entries, entryJSON)
+			}
+		}
+		if len(witness.ProofNodes) > 0 {
+			item.ProofNodes = make([]string, 0, len(witness.ProofNodes))
+			for _, node := range witness.ProofNodes {
+				item.ProofNodes = append(item.ProofNodes, byteToHex(node))
+			}
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func summarizeContractStorageWitnessesJSON(witnesses []contractStorageWitnessJSON) *contractStorageWitnessSummaryJSON {
+	if len(witnesses) == 0 {
+		return nil
+	}
+	summary := &contractStorageWitnessSummaryJSON{
+		Contracts: uint64(len(witnesses)),
+	}
+	for _, witness := range witnesses {
+		summary.Entries += uint64(len(witness.Entries))
+		summary.ProofNodes += uint64(len(witness.ProofNodes))
+		for _, node := range witness.ProofNodes {
+			summary.ProofBytes += uint64(len(common.FromHex(node)))
+		}
+	}
+	return summary
+}
+
+func summarizeBlockTraceWitnessResults(results []*blockTraceResult) (*debugTraceBlockWitnessResult, error) {
+	summary := &debugTraceBlockWitnessResult{
+		Transactions: make([]blockStorageWitnessJSON, 0, len(results)),
+	}
+	if len(results) == 0 {
+		return summary, nil
+	}
+	for _, result := range results {
+		traceResult, ok := result.Result.(*debugTraceTransactionResult)
+		if !ok {
+			return nil, errors.Errorf("unsupported block trace result type %T", result.Result)
+		}
+		txSummary := summarizeContractStorageWitnessesJSON(traceResult.ContractStorageWitnesses)
+		txItem := blockStorageWitnessJSON{
+			TxHash:    "0x" + hex.EncodeToString(result.TxHash[:]),
+			Witnesses: traceResult.ContractStorageWitnesses,
+		}
+		if txSummary != nil {
+			txItem.Contracts = txSummary.Contracts
+			txItem.Entries = txSummary.Entries
+			txItem.ProofNodes = txSummary.ProofNodes
+			txItem.ProofBytes = txSummary.ProofBytes
+			if summary.Summary == nil {
+				summary.Summary = &contractStorageWitnessSummaryJSON{}
+			}
+			summary.Summary.Contracts += txSummary.Contracts
+			summary.Summary.Entries += txSummary.Entries
+			summary.Summary.ProofNodes += txSummary.ProofNodes
+			summary.Summary.ProofBytes += txSummary.ProofBytes
+		}
+		summary.Transactions = append(summary.Transactions, txItem)
+	}
+	return summary, nil
+}
+
+func summarizeBlockTraceStorageResults(results []*blockTraceResult) (*debugTraceBlockStorageSummaryResult, error) {
+	summary := &debugTraceBlockStorageSummaryResult{
+		Transactions: make([]blockStorageAccessSummaryJSON, 0, len(results)),
+	}
+	if len(results) == 0 {
+		return summary, nil
+	}
+	type slotSet struct {
+		reads   map[string]struct{}
+		writes  map[string]struct{}
+		touched map[string]struct{}
+	}
+	contracts := make(map[string]*slotSet)
+	for _, result := range results {
+		traceResult, ok := result.Result.(*debugTraceTransactionResult)
+		if !ok {
+			return nil, errors.Errorf("unsupported block trace result type %T", result.Result)
+		}
+		txSummary := summarizeContractStorageAccessesJSON(traceResult.ContractStorageAccesses)
+		txItem := blockStorageAccessSummaryJSON{
+			TxHash: "0x" + hex.EncodeToString(result.TxHash[:]),
+		}
+		if txSummary != nil {
+			txItem.Contracts = txSummary.Contracts
+			txItem.ReadSlots = txSummary.ReadSlots
+			txItem.WriteSlots = txSummary.WriteSlots
+			txItem.TouchedSlots = txSummary.TouchedSlots
+			for _, access := range traceResult.ContractStorageAccesses {
+				entry, ok := contracts[access.Address]
+				if !ok {
+					entry = &slotSet{
+						reads:   make(map[string]struct{}),
+						writes:  make(map[string]struct{}),
+						touched: make(map[string]struct{}),
+					}
+					contracts[access.Address] = entry
+				}
+				for _, slot := range access.Reads {
+					entry.reads[slot] = struct{}{}
+					entry.touched[slot] = struct{}{}
+				}
+				for _, slot := range access.Writes {
+					entry.writes[slot] = struct{}{}
+					entry.touched[slot] = struct{}{}
+				}
+			}
+		}
+		summary.Transactions = append(summary.Transactions, txItem)
+	}
+	if len(contracts) == 0 {
+		return summary, nil
+	}
+	summary.Summary = &contractStorageAccessSummaryJSON{
+		Contracts: uint64(len(contracts)),
+	}
+	for _, entry := range contracts {
+		summary.Summary.ReadSlots += uint64(len(entry.reads))
+		summary.Summary.WriteSlots += uint64(len(entry.writes))
+		summary.Summary.TouchedSlots += uint64(len(entry.touched))
+	}
+	return summary, nil
+}
 
 func (obj *web3Response) MarshalJSON() ([]byte, error) {
 	if obj.err == nil {

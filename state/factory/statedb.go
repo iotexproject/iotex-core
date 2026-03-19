@@ -264,7 +264,7 @@ func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*
 		if err != nil {
 			return nil, err
 		}
-		ws.store = newErigonWorkingSetStoreForSimulate(e)
+		ws.store = newErigonWorkingSetStoreForSimulate(e, ws.store)
 	}
 	ws.views = protocol.NewLazyViews(func() protocol.Views {
 		views, err := sdb.registry.StartAll(ctx, ws)
@@ -315,10 +315,14 @@ func (sdb *stateDB) CreateWorkingSetStore(ctx context.Context, height uint64, kv
 
 func (sdb *stateDB) createWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
+	skipContractStorageFlush := false
+	if svCtx, ok := evm.GetStatelessValidationCtx(ctx); ok && svCtx.Enabled {
+		skipContractStorageFlush = true
+	}
 	flusher, err := db.NewKVStoreFlusher(
 		kvstore,
 		batch.NewCachedBatch(),
-		sdb.flusherOptions(!g.IsEaster(height), g.IsXingu(height))...,
+		sdb.flusherOptions(!g.IsEaster(height), g.IsXingu(height), skipContractStorageFlush)...,
 	)
 	if err != nil {
 		return nil, err
@@ -568,7 +572,7 @@ func (sdb *stateDB) StateReaderAt(blkHeight uint64, blkHash hash.Hash256) (proto
 // private trie constructor functions
 //======================================
 
-func (sdb *stateDB) flusherOptions(preEaster, storeContractStaking bool) []db.KVStoreFlusherOption {
+func (sdb *stateDB) flusherOptions(preEaster, storeContractStaking, skipContractStorageFlush bool) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
 			if preEaster {
@@ -597,6 +601,9 @@ func (sdb *stateDB) flusherOptions(preEaster, storeContractStaking bool) []db.KV
 			state.ContractStakingBucketNamespacePrefix,
 			state.ContractStakingBucketTypeNamespacePrefix,
 		)
+	}
+	if skipContractStorageFlush {
+		flushFilterNs = append(flushFilterNs, evm.ContractKVNameSpace)
 	}
 	opts = append(opts,
 		db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {

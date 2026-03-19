@@ -182,7 +182,12 @@ func NewConsensus(
 			return blk, nil
 		}
 		commitBlockCB := func(blk *block.Block) error {
-			err := bc.CommitBlock(blk)
+			err := bc.ValidateBlock(blk)
+			if err != nil {
+				log.Logger("consensus").Error("Failed to validate the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+				return err
+			}
+			err = bc.CommitBlock(blk)
 			if err != nil {
 				log.Logger("consensus").Error("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 			}

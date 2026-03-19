@@ -26,6 +26,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
@@ -169,7 +171,7 @@ func (svr *web3Handler) parseBlockRange(fromStr string, toStr string) (from uint
 	return
 }
 
-func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope, error) {
+func (svr *web3Handler) ethTxToEnvelope(ctx context.Context, tx *types.Transaction) (action.Envelope, error) {
 	to := ""
 	if tx.To() != nil {
 		ioAddr, _ := address.FromBytes(tx.To().Bytes())
@@ -182,7 +184,7 @@ func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope,
 	if to == address.RewardingProtocol {
 		return elpBuilder.BuildRewardingAction(tx)
 	}
-	isContract, err := svr.checkContractAddr(to)
+	isContract, err := svr.checkContractAddr(ctx, to)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +194,7 @@ func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope,
 	return elpBuilder.BuildTransfer(tx)
 }
 
-func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
+func (svr *web3Handler) checkContractAddr(ctx context.Context, to string) (bool, error) {
 	if to == "" {
 		return true, nil
 	}
@@ -200,11 +202,16 @@ func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	code, err := svr.coreService.CodeAt(ctx, ioAddr, 0)
 	if err != nil {
-		return false, err
+		switch status.Code(err) {
+		case codes.NotFound:
+			return false, nil
+		default:
+			return false, err
+		}
 	}
-	return accountMeta.IsContract, nil
+	return len(code) > 0, nil
 }
 
 func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]*getLogsResult, error) {
@@ -700,8 +707,10 @@ func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
 
 type evmTracer struct {
 	vm.EVMLogger
-	txctx  *tracers.Context
-	config *tracers.TraceConfig
+	txctx                    *tracers.Context
+	config                   *tracers.TraceConfig
+	contractStorageAccesses  []evm.ContractStorageAccess
+	contractStorageWitnesses map[common.Address]*evm.ContractStorageWitness
 }
 
 func newEVMTracer(txctx *tracers.Context, config *tracers.TraceConfig) *evmTracer {
@@ -716,6 +725,8 @@ func (et *evmTracer) Reset() error {
 		tracer vm.EVMLogger
 		err    error
 	)
+	et.contractStorageAccesses = nil
+	et.contractStorageWitnesses = nil
 	switch {
 	case et.config == nil:
 		tracer = logger.NewStructLogger(nil)
@@ -755,4 +766,63 @@ func (et *evmTracer) Unwrap() vm.EVMLogger {
 		return wrapper.Unwrap()
 	}
 	return et.EVMLogger
+}
+
+func (et *evmTracer) CaptureContractStorageAccesses(accesses []evm.ContractStorageAccess) {
+	et.contractStorageAccesses = append([]evm.ContractStorageAccess(nil), accesses...)
+}
+
+func (et *evmTracer) ContractStorageAccesses() []evm.ContractStorageAccess {
+	return append([]evm.ContractStorageAccess(nil), et.contractStorageAccesses...)
+}
+
+func (et *evmTracer) CaptureContractStorageWitnesses(witnesses map[common.Address]*evm.ContractStorageWitness) {
+	if len(witnesses) == 0 {
+		et.contractStorageWitnesses = nil
+		return
+	}
+	cloned := make(map[common.Address]*evm.ContractStorageWitness, len(witnesses))
+	for addr, witness := range witnesses {
+		if witness == nil {
+			continue
+		}
+		clone := &evm.ContractStorageWitness{
+			StorageRoot: witness.StorageRoot,
+			Entries:     append([]evm.ContractStorageWitnessEntry(nil), witness.Entries...),
+			ProofNodes:  make([][]byte, 0, len(witness.ProofNodes)),
+		}
+		for i := range clone.Entries {
+			clone.Entries[i].Value = append([]byte(nil), clone.Entries[i].Value...)
+		}
+		for _, node := range witness.ProofNodes {
+			clone.ProofNodes = append(clone.ProofNodes, append([]byte(nil), node...))
+		}
+		cloned[addr] = clone
+	}
+	et.contractStorageWitnesses = cloned
+}
+
+func (et *evmTracer) ContractStorageWitnesses() map[common.Address]*evm.ContractStorageWitness {
+	if len(et.contractStorageWitnesses) == 0 {
+		return nil
+	}
+	cloned := make(map[common.Address]*evm.ContractStorageWitness, len(et.contractStorageWitnesses))
+	for addr, witness := range et.contractStorageWitnesses {
+		if witness == nil {
+			continue
+		}
+		clone := &evm.ContractStorageWitness{
+			StorageRoot: witness.StorageRoot,
+			Entries:     append([]evm.ContractStorageWitnessEntry(nil), witness.Entries...),
+			ProofNodes:  make([][]byte, 0, len(witness.ProofNodes)),
+		}
+		for i := range clone.Entries {
+			clone.Entries[i].Value = append([]byte(nil), clone.Entries[i].Value...)
+		}
+		for _, node := range witness.ProofNodes {
+			clone.ProofNodes = append(clone.ProofNodes, append([]byte(nil), node...))
+		}
+		cloned[addr] = clone
+	}
+	return cloned
 }
