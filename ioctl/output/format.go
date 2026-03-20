@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 )
 
 // Format is the target of output-format flag
@@ -268,4 +269,24 @@ func RequireInteractive(prompt string) error {
 		return fmt.Errorf("interactive input required (%s) but running in non-interactive mode; use flags to provide input", prompt)
 	}
 	return nil
+}
+
+// Confirm displays a confirmation prompt and waits for user to type "yes".
+// In non-interactive mode it returns (false, error). If the user types anything
+// other than "yes", it returns (false, nil). Only returns (true, nil) on "yes".
+func Confirm(info string) (bool, error) {
+	if err := RequireInteractive("confirmation"); err != nil {
+		return false, err
+	}
+	message := ConfirmationMessage{Info: info, Options: []string{"yes"}}
+	fmt.Println(message.String())
+	var confirm string
+	if _, err := fmt.Scanf("%s", &confirm); err != nil {
+		return false, NewError(InputError, "failed to read confirmation", err)
+	}
+	if !strings.EqualFold(confirm, "yes") {
+		PrintResult("quit")
+		return false, nil
+	}
+	return true, nil
 }

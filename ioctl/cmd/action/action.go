@@ -69,9 +69,10 @@ var ActionCmd = &cobra.Command{
 }
 
 type sendMessage struct {
-	Info   string `json:"info"`
-	TxHash string `json:"txHash"`
-	URL    string `json:"url"`
+	Info    string               `json:"info"`
+	TxHash  string               `json:"txHash"`
+	URL     string               `json:"url"`
+	Receipt *iotextypes.Receipt  `json:"receipt,omitempty"`
 }
 
 func (m *sendMessage) String() string {
@@ -299,19 +300,11 @@ func SendActionAndResponse(elp action.Envelope, signer string) (*iotexapi.SendAc
 	}
 
 	if _yesFlag.Value() == false {
-		if err := output.RequireInteractive("action confirmation"); err != nil {
-			return nil, output.NewError(output.InputError, "use -y flag to skip confirmation", nil)
+		confirmed, err := output.Confirm(actionInfo + "\nPlease confirm your action.\n")
+		if err != nil {
+			return nil, output.NewError(output.InputError, "use -y flag to skip confirmation", err)
 		}
-		var confirm string
-		info := fmt.Sprintln(actionInfo + "\nPlease confirm your action.\n")
-		message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
-		fmt.Println(message.String())
-
-		if _, err := fmt.Scanf("%s", &confirm); err != nil {
-			return nil, output.NewError(output.InputError, "failed to input yes", err)
-		}
-		if !strings.EqualFold(confirm, "yes") {
-			output.PrintResult("quit")
+		if !confirmed {
 			return nil, nil
 		}
 	}
@@ -437,16 +430,25 @@ func outputActionInfo(txhash string) error {
 	default:
 		message.URL = config.ReadConfig.Explorer + txhash
 	}
-	fmt.Println(message.String())
 
-	// If --wait flag is set, poll for receipt
+	// If --wait flag is set, poll for receipt and include it in output
 	if _waitFlag.Value() == true {
 		receipt, err := waitForReceipt(txhash)
 		if err != nil {
 			return output.NewError(output.NetworkError, fmt.Sprintf("failed to get receipt for %s", txhash), err)
 		}
-		fmt.Println(printReceiptProto(receipt))
+		if output.Format == "" {
+			fmt.Println(message.String())
+			fmt.Println(printReceiptProto(receipt))
+		} else {
+			// In JSON mode, include receipt in the same structured message
+			message.Receipt = receipt
+			fmt.Println(message.String())
+		}
+		return nil
 	}
+
+	fmt.Println(message.String())
 	return nil
 }
 

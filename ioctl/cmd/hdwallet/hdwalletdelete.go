@@ -6,9 +6,7 @@
 package hdwallet
 
 import (
-	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -37,20 +35,13 @@ var _hdwalletDeleteCmd = &cobra.Command{
 }
 
 func hdwalletDelete() error {
-	if err := output.RequireInteractive("hdwallet delete confirmation"); err != nil {
-		return output.NewError(output.InputError, "hdwallet delete requires interactive confirmation", nil)
-	}
-	var confirm string
-	info := fmt.Sprintf("** This is an irreversible action!\n" +
+	confirmed, err := output.Confirm("** This is an irreversible action!\n" +
 		"Once an hdwallet is deleted, all the assets under this hdwallet may be lost!\n" +
 		"Type 'YES' to continue, quit for anything else.")
-	message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
-	fmt.Println(message.String())
-	if _, err := fmt.Scanf("%s", &confirm); err != nil {
-		return output.NewError(output.InputError, "failed to input yes", err)
+	if err != nil {
+		return output.NewError(output.InputError, "hdwallet delete requires interactive confirmation", err)
 	}
-	if !strings.EqualFold(confirm, "yes") {
-		output.PrintResult("quit")
+	if !confirmed {
 		return nil
 	}
 

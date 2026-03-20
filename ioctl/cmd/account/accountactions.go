@@ -81,13 +81,13 @@ func accountActions(args []string) error {
 	if len(args) >= 2 {
 		start, err = strconv.ParseUint(args[1], 10, 64)
 		if err != nil {
-			return output.NewError(output.ConvertError, "failed to convert skip", nil)
+			return output.NewError(output.ConvertError, "failed to convert skip", err)
 		}
 	}
 	if len(args) >= 3 {
 		count, err = strconv.ParseUint(args[2], 10, 64)
 		if err != nil {
-			return output.NewError(output.ConvertError, "failed to convert limit", nil)
+			return output.NewError(output.ConvertError, "failed to convert limit", err)
 		}
 	}
 

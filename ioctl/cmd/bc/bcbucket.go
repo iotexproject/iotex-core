@@ -225,17 +225,21 @@ func (m *bucketCountMessage) String() string {
 	return output.FormatString(output.Result, m)
 }
 
+func printBucketCount(plainValue uint64, count *iotextypes.BucketsCount) {
+	if output.Format == "" {
+		fmt.Println(plainValue)
+		return
+	}
+	message := bucketCountMessage{Total: count.GetTotal(), Active: count.GetActive()}
+	fmt.Println(message.String())
+}
+
 func getBucketsTotalCount() error {
 	count, err := getBucketsCount()
 	if err != nil {
 		return err
 	}
-	message := bucketCountMessage{Total: count.GetTotal(), Active: count.GetActive()}
-	if output.Format == "" {
-		fmt.Println(count.GetTotal())
-	} else {
-		fmt.Println(message.String())
-	}
+	printBucketCount(count.GetTotal(), count)
 	return nil
 }
 
@@ -244,12 +248,7 @@ func getBucketsActiveCount() error {
 	if err != nil {
 		return err
 	}
-	message := bucketCountMessage{Total: count.GetTotal(), Active: count.GetActive()}
-	if output.Format == "" {
-		fmt.Println(count.GetActive())
-	} else {
-		fmt.Println(message.String())
-	}
+	printBucketCount(count.GetActive(), count)
 	return nil
 }
 

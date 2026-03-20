@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
@@ -84,20 +83,13 @@ func accountDelete(arg string) error {
 		return output.NewError(output.CryptoError, fmt.Sprintf("crypto file of account #%s not found", addr), err)
 	}
 
-	if err := output.RequireInteractive("delete confirmation"); err != nil {
-		return output.NewError(output.InputError, "account delete requires interactive confirmation", nil)
-	}
-	var confirm string
-	info := fmt.Sprintf("** This is an irreversible action!\n" +
+	confirmed, err := output.Confirm("** This is an irreversible action!\n" +
 		"Once an account is deleted, all the assets under this account may be lost!\n" +
 		"Type 'YES' to continue, quit for anything else.")
-	message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
-	fmt.Println(message.String())
-	if _, err := fmt.Scanf("%s", &confirm); err != nil {
-		return output.NewError(output.InputError, "failed to input yes", err)
+	if err != nil {
+		return output.NewError(output.InputError, "account delete requires interactive confirmation", err)
 	}
-	if !strings.EqualFold(confirm, "yes") {
-		output.PrintResult("quit")
+	if !confirmed {
 		return nil
 	}
 
