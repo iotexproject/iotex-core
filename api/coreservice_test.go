@@ -709,11 +709,7 @@ func TestProofAndCompareReverseActions(t *testing.T) {
 		if start > size || count == 0 {
 			return nil
 		}
-		end := start + count
-		if end > size {
-			end = size
-		}
-		for i := end; i > start; i-- {
+		for i := min(start+count, size); i > start; i-- {
 			reserved = append(reserved, slice[size-i])
 		}
 		return
