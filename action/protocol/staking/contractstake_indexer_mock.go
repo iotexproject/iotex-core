@@ -288,6 +288,20 @@ func (mr *MockContractStakingIndexerMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockContractStakingIndexer)(nil).Height))
 }
 
+// IndexerAt mocks base method.
+func (m *MockContractStakingIndexer) IndexerAt(arg0 protocol.StateReader) ContractStakingIndexer {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IndexerAt", arg0)
+	ret0, _ := ret[0].(ContractStakingIndexer)
+	return ret0
+}
+
+// IndexerAt indicates an expected call of IndexerAt.
+func (mr *MockContractStakingIndexerMockRecorder) IndexerAt(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IndexerAt", reflect.TypeOf((*MockContractStakingIndexer)(nil).IndexerAt), arg0)
+}
+
 // LoadStakeView mocks base method.
 func (m *MockContractStakingIndexer) LoadStakeView(arg0 context.Context, arg1 protocol.StateReader) (ContractStakeView, error) {
 	m.ctrl.T.Helper()
@@ -530,6 +544,20 @@ func (m *MockContractStakingIndexerWithBucketType) Height() (uint64, error) {
 func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) Height() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).Height))
+}
+
+// IndexerAt mocks base method.
+func (m *MockContractStakingIndexerWithBucketType) IndexerAt(arg0 protocol.StateReader) ContractStakingIndexer {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IndexerAt", arg0)
+	ret0, _ := ret[0].(ContractStakingIndexer)
+	return ret0
+}
+
+// IndexerAt indicates an expected call of IndexerAt.
+func (mr *MockContractStakingIndexerWithBucketTypeMockRecorder) IndexerAt(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IndexerAt", reflect.TypeOf((*MockContractStakingIndexerWithBucketType)(nil).IndexerAt), arg0)
 }
 
 // LoadStakeView mocks base method.

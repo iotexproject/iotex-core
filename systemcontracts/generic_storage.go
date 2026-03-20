@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"sync"
 
 	"github.com/erigontech/erigon/core/vm"
 	"github.com/ethereum/go-ethereum"
@@ -29,9 +30,23 @@ type GenericStorageContract struct {
 	owner           common.Address
 }
 
+var (
+	genericStorageABIOnce sync.Once
+	genericStorageABI     abi.ABI
+	genericStorageABIErr  error
+)
+
+// getGenericStorageABI parses and caches the GenericStorage ABI once
+func getGenericStorageABI() (abi.ABI, error) {
+	genericStorageABIOnce.Do(func() {
+		genericStorageABI, genericStorageABIErr = abi.JSON(strings.NewReader(GenericStorageABI))
+	})
+	return genericStorageABI, genericStorageABIErr
+}
+
 // NewGenericStorageContract creates a new GenericStorage contract instance
 func NewGenericStorageContract(contractAddress common.Address, backend ContractBackend, owner common.Address) (*GenericStorageContract, error) {
-	abi, err := abi.JSON(strings.NewReader(GenericStorageABI))
+	abiObj, err := getGenericStorageABI()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse GenericStorage ABI")
 	}
@@ -39,7 +54,7 @@ func NewGenericStorageContract(contractAddress common.Address, backend ContractB
 	return &GenericStorageContract{
 		contractAddress: contractAddress,
 		backend:         backend,
-		abi:             abi,
+		abi:             abiObj,
 		owner:           owner,
 	}, nil
 }

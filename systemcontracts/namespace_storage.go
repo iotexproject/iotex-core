@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"sync"
 
 	"github.com/erigontech/erigon/core/vm"
 	"github.com/ethereum/go-ethereum"
@@ -46,9 +47,23 @@ type NamespaceStorageContract struct {
 	owner           common.Address
 }
 
+var (
+	namespaceStorageABIOnce sync.Once
+	namespaceStorageABI     abi.ABI
+	namespaceStorageABIErr  error
+)
+
+// getNamespaceStorageABI parses and caches the NamespaceStorage ABI once
+func getNamespaceStorageABI() (abi.ABI, error) {
+	namespaceStorageABIOnce.Do(func() {
+		namespaceStorageABI, namespaceStorageABIErr = abi.JSON(strings.NewReader(NamespaceStorageABI))
+	})
+	return namespaceStorageABI, namespaceStorageABIErr
+}
+
 // NewNamespaceStorageContract creates a new NamespaceStorage contract instance
 func NewNamespaceStorageContract(contractAddress common.Address, backend ContractBackend, owner common.Address) (*NamespaceStorageContract, error) {
-	abi, err := abi.JSON(strings.NewReader(NamespaceStorageABI))
+	abiObj, err := getNamespaceStorageABI()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse NamespaceStorage ABI")
 	}
@@ -56,7 +71,7 @@ func NewNamespaceStorageContract(contractAddress common.Address, backend Contrac
 	return &NamespaceStorageContract{
 		contractAddress: contractAddress,
 		backend:         backend,
-		abi:             abi,
+		abi:             abiObj,
 		owner:           owner,
 	}, nil
 }
