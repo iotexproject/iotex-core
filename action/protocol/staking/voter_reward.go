@@ -13,7 +13,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 const (
@@ -23,57 +23,55 @@ const (
 
 // ActiveBucketsByCandidate returns all non-unstaked native buckets for a candidate.
 // Used by the rewarding protocol (IIP-59) to distribute voter rewards.
-func (p *Protocol) ActiveBucketsByCandidate(sr protocol.StateReader, candidateIdentifier address.Address) ([]*VoteBucket, error) {
-	view, err := sr.ReadView(p.Name())
+func (p *Protocol) ActiveBucketsByCandidate(sm protocol.StateManager, candidateIdentifier address.Address) ([]*VoteBucket, error) {
+	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
-		return nil, nil // staking view not available
-	}
-	csr, ok := view.(CandidateStateReader)
-	if !ok {
-		return nil, nil // invalid view type
+		return nil, errors.Wrap(err, "failed to create candidate state manager")
 	}
 
-	indices, _, err := csr.NativeBucketIndicesByCandidate(candidateIdentifier)
-	if errors.Cause(err) == state.ErrStateNotExist || indices == nil {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	buckets, err := csr.NativeBucketsWithIndices(*indices)
-	if err != nil {
-		return nil, err
+	// Read bucket indices from state directly
+	var indices BucketIndices
+	if _, err := csm.SM().State(&indices,
+		protocol.NamespaceOption(_stakingNameSpace),
+		protocol.KeyOption(append([]byte{_candIndex}, candidateIdentifier.Bytes()...)),
+	); err != nil {
+		return nil, nil // no buckets for this candidate
 	}
 
-	// Filter out unstaked buckets
-	active := make([]*VoteBucket, 0, len(buckets))
-	for _, b := range buckets {
-		if !b.UnstakeStartTime.IsZero() && b.UnstakeStartTime.Unix() > 0 {
-			continue // bucket has been unstaked
+	// Read each bucket
+	active := make([]*VoteBucket, 0, len(indices))
+	for _, idx := range indices {
+		bucket, err := csm.NativeBucket(idx)
+		if err != nil {
+			continue // bucket may have been withdrawn
 		}
-		active = append(active, b)
+		if !bucket.UnstakeStartTime.IsZero() && bucket.UnstakeStartTime.Unix() > 0 {
+			continue // unstaked
+		}
+		active = append(active, bucket)
 	}
 	return active, nil
 }
 
 // CandidateByIdentifier returns a candidate by its identifier address.
 // Used by the rewarding protocol (IIP-59) to look up commission rate.
-func (p *Protocol) CandidateByIdentifier(sr protocol.StateReader, id address.Address) (*Candidate, error) {
-	view, err := sr.ReadView(p.Name())
+func (p *Protocol) CandidateByIdentifier(sm protocol.StateManager, id address.Address) (*Candidate, error) {
+	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read staking view")
-	}
-	csr, ok := view.(CandidateStateReader)
-	if !ok {
-		return nil, errors.New("invalid staking view type")
+		return nil, errors.Wrap(err, "failed to create candidate state manager")
 	}
 
-	cand, _, err := csr.CandidateByAddress(id)
-	if err != nil {
-		return nil, err
+	cand := csm.GetByIdentifier(id)
+	if cand == nil {
+		return nil, errors.Errorf("candidate %s not found", id.String())
 	}
 	return cand, nil
+}
+
+// VoteWeightCalConsts returns the vote weight calculation constants from this protocol's config.
+// Used by the rewarding protocol (IIP-59) to calculate voter shares consistently.
+func (p *Protocol) VoteWeightCalConsts() genesis.VoteWeightCalConsts {
+	return p.config.VoteWeightCalConsts
 }
 
 // handleSetCommissionRate handles the SetCommissionRate action (IIP-59)

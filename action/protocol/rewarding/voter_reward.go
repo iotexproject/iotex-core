@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 // distributeVoterReward splits a delegate's epoch reward between commission and voters.
@@ -99,12 +98,8 @@ func (p *Protocol) distributeVoterReward(
 		}}, nil
 	}
 
-	// Calculate weighted votes for each voter
-	g := genesis.Default
-	type voterWeight struct {
-		addr   address.Address
-		weight *big.Int
-	}
+	// Calculate weighted votes for each voter using staking protocol's config
+	voteWeightConsts := stakingProtocol.VoteWeightCalConsts()
 
 	// Aggregate by voter address to avoid per-bucket rounding loss
 	voterMap := make(map[string]*big.Int)
@@ -113,7 +108,7 @@ func (p *Protocol) distributeVoterReward(
 
 	for _, b := range buckets {
 		isSelfStake := b.Index == cand.SelfStakeBucketIdx
-		w := staking.CalculateVoteWeight(g.Staking.VoteWeightCalConsts, b, isSelfStake)
+		w := staking.CalculateVoteWeight(voteWeightConsts, b, isSelfStake)
 		totalWeight.Add(totalWeight, w)
 
 		ownerStr := b.Owner.String()
