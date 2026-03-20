@@ -34,16 +34,17 @@ import (
 )
 
 var (
-	flagTimeout = flag.Int("timeout", 300, "test duration in seconds")
-	flagAPS     = flag.Float64("aps", 5, "actions per second to inject")
-	flagNodes   = flag.Int("nodes", 4, "number of nodes in cluster")
+	flagTimeout   = flag.Int("timeout", 300, "test duration in seconds")
+	flagAPS       = flag.Float64("aps", 5, "actions per second to inject")
+	flagNodes     = flag.Int("nodes", 4, "number of nodes in cluster")
+	flagDelegates = flag.Int("delegates", 8, "number of delegates")
 )
 
 func main() {
 	flag.Parse()
 
 	numNodes := *flagNodes
-	numDelegates := numNodes * 2 // same ratio as minicluster: 2 delegates per node
+	numDelegates := *flagDelegates
 	timeout := time.Duration(*flagTimeout) * time.Second
 	aps := *flagAPS
 
@@ -72,14 +73,20 @@ func main() {
 		cfg.Genesis.Blockchain.TimeBasedRotation = true
 		cfg.Genesis.EnableGravityChainVoting = false
 		cfg.Genesis.PollMode = "lifeLong"
-		cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numDelegates+3]
+		// Use the first numDelegates from the genesis delegate list
+		if len(cfg.Genesis.Delegates) > numDelegates {
+			cfg.Genesis.Delegates = cfg.Genesis.Delegates[:numDelegates]
+		}
 		cfg.Genesis.VanuatuBlockHeight = 1
 		testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 
-		// Assign 2 delegates per node (same pattern as minicluster)
+		// Assign delegates to nodes (round-robin distribution)
 		var keys []string
-		keys = append(keys, delegateKeys[i].HexString())
-		keys = append(keys, delegateKeys[i+numNodes].HexString())
+		for d := 0; d < numDelegates; d++ {
+			if d%numNodes == i {
+				keys = append(keys, delegateKeys[d].HexString())
+			}
+		}
 		cfg.Chain.ProducerPrivKey = strings.Join(keys, ",")
 		cfg.Chain.ID = 1
 
