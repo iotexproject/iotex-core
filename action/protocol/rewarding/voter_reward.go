@@ -33,6 +33,12 @@ func (p *Protocol) distributeVoterReward(
 	blkHeight uint64,
 	actionHash [32]byte,
 ) ([]*action.Log, error) {
+	// IIP-59: Only distribute voter rewards after Yosemite hard fork
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if !featureCtx.EnableVoterRewardDistribution {
+		return nil, nil
+	}
+
 	// Find staking protocol to access candidate and bucket data
 	stakingProtocol := staking.FindProtocol(protocol.MustGetRegistry(ctx))
 	if stakingProtocol == nil {

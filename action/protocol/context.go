@@ -172,6 +172,7 @@ type (
 		// contracts are committed and written back
 		AlwaysWriteCachedContract               bool
 		NoCandidateExitQueue                    bool
+		EnableVoterRewardDistribution           bool // IIP-59: protocol-native voter reward distribution
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -345,6 +346,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			PrePectraEVM:                            !g.IsToBeEnabled(height),
 			AlwaysWriteCachedContract:               !g.IsToBeEnabled(height),
 			NoCandidateExitQueue:                    !g.IsToBeEnabled(height),
+			EnableVoterRewardDistribution:           g.IsYosemite(height),
 		},
 	)
 }

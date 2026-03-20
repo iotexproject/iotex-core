@@ -35,7 +35,8 @@ type (
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
 		SelfStake          *big.Int
-		CommissionRate     uint64 // IIP-59: basis points (0-10000), 0 = legacy (no auto-distribution)
+		CommissionRate          uint64 // IIP-59: basis points (0-10000), 0 = legacy (no auto-distribution)
+		CommissionRateLastEpoch uint64 // IIP-59: epoch when commission rate was last changed (cooldown enforcement)
 	}
 
 	// CandidateList is a list of candidates which is sortable
@@ -65,8 +66,9 @@ func (d *Candidate) Clone() *Candidate {
 		Votes:              new(big.Int).Set(d.Votes),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          new(big.Int).Set(d.SelfStake),
-		BLSPubKey:          blsPubKey,
-		CommissionRate:     d.CommissionRate,
+		BLSPubKey:               blsPubKey,
+		CommissionRate:          d.CommissionRate,
+		CommissionRateLastEpoch: d.CommissionRateLastEpoch,
 	}
 }
 
@@ -275,8 +277,9 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          d.SelfStake.String(),
 		Pubkey:             pubkey,
-		DeactivatedAt:      d.DeactivatedAt,
-		CommissionRate:     d.CommissionRate,
+		DeactivatedAt:           d.DeactivatedAt,
+		CommissionRate:          d.CommissionRate,
+		CommissionRateLastEpoch: d.CommissionRateLastEpoch,
 	}, nil
 }
 
@@ -328,6 +331,7 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	}
 	d.DeactivatedAt = pb.GetDeactivatedAt()
 	d.CommissionRate = pb.GetCommissionRate()
+	d.CommissionRateLastEpoch = pb.GetCommissionRateLastEpoch()
 	return nil
 }
 

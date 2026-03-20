@@ -44,6 +44,7 @@ message Candidate {
     bytes pubkey = 9; // BLS public key
     uint64 deactivatedAt = 10;
     uint64 commissionRate = 11; // IIP-59: basis points (0-10000), 0 = legacy (no auto-distribution)
+    uint64 commissionRateLastEpoch = 12; // IIP-59: epoch when commission rate was last changed
 }
 
 message Candidates {

@@ -14,6 +14,11 @@ import (
 const (
 	// SetCommissionRateBaseIntrinsicGas represents the base intrinsic gas for SetCommissionRate
 	SetCommissionRateBaseIntrinsicGas = uint64(10000)
+	// MaxCommissionRate is the maximum commission rate in basis points (100%)
+	MaxCommissionRate = uint64(10000)
+	// CommissionRateCooldownEpochs is the minimum number of epochs between commission rate changes
+	// ~7 days at 1-hour epochs
+	CommissionRateCooldownEpochs = uint64(168)
 )
 
 // SetCommissionRate is the action to set a delegate's voter reward commission rate (IIP-59)
@@ -24,8 +29,8 @@ type SetCommissionRate struct {
 
 // NewSetCommissionRate creates a SetCommissionRate instance
 func NewSetCommissionRate(rate uint64) (*SetCommissionRate, error) {
-	if rate > 10000 {
-		return nil, errors.New("commission rate exceeds 10000 bps")
+	if rate > MaxCommissionRate {
+		return nil, errors.Errorf("commission rate %d exceeds max %d bps", rate, MaxCommissionRate)
 	}
 	return &SetCommissionRate{rate: rate}, nil
 }
@@ -38,27 +43,25 @@ func (s *SetCommissionRate) IntrinsicGas() (uint64, error) {
 	return SetCommissionRateBaseIntrinsicGas, nil
 }
 
+// SanityCheck validates the SetCommissionRate action
+func (s *SetCommissionRate) SanityCheck() error {
+	if s.rate > MaxCommissionRate {
+		return errors.Errorf("commission rate %d exceeds max %d bps", s.rate, MaxCommissionRate)
+	}
+	return nil
+}
+
 // Serialize returns a raw byte stream of the SetCommissionRate
 func (s *SetCommissionRate) Serialize() []byte {
 	return byteutil.Uint64ToBytesBigEndian(s.rate)
 }
 
-// SanityCheck validates the SetCommissionRate action
-func (s *SetCommissionRate) SanityCheck() error {
-	if s.rate > 10000 {
-		return errors.New("commission rate exceeds 10000 bps")
-	}
-	return nil
-}
-
-// LoadFromBytes loads SetCommissionRate from a byte stream
-func (s *SetCommissionRate) LoadFromBytes(data []byte) error {
-	if len(data) < 8 {
-		return errors.New("invalid data length for SetCommissionRate")
-	}
-	s.rate = byteutil.BytesToUint64BigEndian(data[:8])
-	if s.rate > 10000 {
-		return errors.New("commission rate exceeds 10000 bps")
-	}
-	return nil
-}
+// TODO(IIP-59): The following methods require iotex-proto to add SetCommissionRate message
+// as field 54 in the ActionCore oneof. Once that's done:
+//   - Add FillAction() that sets core.Action = &iotextypes.ActionCore_SetCommissionRate{...}
+//   - Add Proto() / LoadProto() for serialization
+//   - Add deserialization case in envelope.go loadProtoActionPayload()
+//   - Add EthABI encoding for MetaMask/Hardhat compatibility
+//
+// Until then, the action is handled internally by the staking protocol's handler
+// dispatch but cannot be submitted via external RPC.
