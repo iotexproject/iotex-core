@@ -6,7 +6,11 @@
 package cmd
 
 import (
+	"os"
+	"syscall"
+
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/action"
@@ -48,6 +52,14 @@ var (
 		config.English: "output format",
 		config.Chinese: "指定输出格式",
 	}
+	_flagNonInteractiveUsages = map[config.Language]string{
+		config.English: "run in non-interactive mode (no prompts, fail instead of waiting for input)",
+		config.Chinese: "以非交互模式运行（无提示，遇到需要输入时直接报错）",
+	}
+	_flagQuietUsages = map[config.Language]string{
+		config.English: "suppress informational output, only show data",
+		config.Chinese: "静默模式，仅输出数据",
+	}
 )
 
 // NewIoctl returns ioctl root cmd
@@ -77,6 +89,15 @@ func NewIoctl() *cobra.Command {
 	rootCmd.AddCommand(ioid.IoIDCmd)
 	rootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
 		config.TranslateInLang(_flagOutputFormatUsages, config.UILanguage))
+	rootCmd.PersistentFlags().BoolVar(&output.NonInteractive, "non-interactive", false,
+		config.TranslateInLang(_flagNonInteractiveUsages, config.UILanguage))
+	rootCmd.PersistentFlags().BoolVarP(&output.Quiet, "quiet", "q", false,
+		config.TranslateInLang(_flagQuietUsages, config.UILanguage))
+
+	// Auto-detect non-interactive mode: if stdin is not a terminal or env var is set
+	if os.Getenv("IOCTL_NON_INTERACTIVE") == "1" || !terminal.IsTerminal(int(syscall.Stdin)) {
+		output.NonInteractive = true
+	}
 
 	return rootCmd
 }

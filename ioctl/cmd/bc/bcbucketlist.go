@@ -22,12 +22,14 @@ import (
 const (
 	_bucketlistMethodByVoter     = "voter"
 	_bucketlistMethodByCandidate = "cand"
+	_bucketlistMethodAll         = "all"
 )
 
 var (
 	_validMethods = []string{
 		_bucketlistMethodByVoter,
 		_bucketlistMethodByCandidate,
+		_bucketlistMethodAll,
 	}
 )
 
@@ -54,11 +56,19 @@ var _bcBucketListCmd = &cobra.Command{
 	Use:   config.TranslateInLang(_bcBucketListCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(_bcBucketListCmdShorts, config.UILanguage),
 	Long:  config.TranslateInLang(_bcBucketListCmdLongs, config.UILanguage),
-	Args:  cobra.MinimumNArgs(2),
+	Args:  cobra.MinimumNArgs(1),
 	Example: `ioctl bc bucketlist voter [VOTER_ADDRESS] [OFFSET] [LIMIT]
-ioctl bc bucketlist cand [CANDIDATE_NAME] [OFFSET] [LIMIT]`,
+ioctl bc bucketlist cand [CANDIDATE_NAME] [OFFSET] [LIMIT]
+ioctl bc bucketlist all [OFFSET] [LIMIT]`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		if args[0] == _bucketlistMethodAll {
+			return output.PrintError(getBucketListAll(args[1:]...))
+		}
+		if len(args) < 2 {
+			return output.PrintError(output.NewError(output.InputError,
+				fmt.Sprintf("method %q requires an address/name argument", args[0]), nil))
+		}
 		err := getBucketList(args[0], args[1], args[2:]...)
 		return output.PrintError(err)
 	},
@@ -84,22 +94,31 @@ func (m *bucketlistMessage) String() string {
 	return output.FormatString(output.Result, m)
 }
 
-// getBucketList get bucket list from chain
-func getBucketList(method, addr string, args ...string) (err error) {
-	offset, limit := uint32(0), uint32(1000)
+// parseOffsetAndLimit parses optional offset and limit from args with a default limit
+func parseOffsetAndLimit(defaultLimit uint32, args ...string) (uint32, uint32, error) {
+	offset, limit := uint32(0), defaultLimit
 	if len(args) > 0 {
 		val, err := strconv.ParseUint(args[0], 10, 32)
 		if err != nil {
-			return output.NewError(output.ValidationError, "invalid offset", err)
+			return 0, 0, output.NewError(output.ValidationError, "invalid offset", err)
 		}
 		offset = uint32(val)
 	}
 	if len(args) > 1 {
 		val, err := strconv.ParseUint(args[1], 10, 32)
 		if err != nil {
-			return output.NewError(output.ValidationError, "invalid limit", err)
+			return 0, 0, output.NewError(output.ValidationError, "invalid limit", err)
 		}
 		limit = uint32(val)
+	}
+	return offset, limit, nil
+}
+
+// getBucketList get bucket list from chain
+func getBucketList(method, addr string, args ...string) (err error) {
+	offset, limit, err := parseOffsetAndLimit(1000, args...)
+	if err != nil {
+		return err
 	}
 	switch method {
 	case _bucketlistMethodByVoter:
@@ -110,80 +129,75 @@ func getBucketList(method, addr string, args ...string) (err error) {
 	return output.NewError(output.InputError, "unknown <method>", nil)
 }
 
+// printBucketList converts a VoteBucketList to display format and prints it
+func printBucketList(bl *iotextypes.VoteBucketList) error {
+	var bucketlist []*bucket
+	for _, b := range bl.Buckets {
+		bucket, err := newBucket(b)
+		if err != nil {
+			return err
+		}
+		bucketlist = append(bucketlist, bucket)
+	}
+	message := bucketlistMessage{
+		Node:       config.ReadConfig.Endpoint,
+		Bucketlist: bucketlist,
+	}
+	fmt.Println(message.String())
+	return nil
+}
+
 // getBucketListByVoter get bucket list from chain by voter address
 func getBucketListByVoter(addr string, offset, limit uint32) error {
 	address, err := util.GetAddress(addr)
 	if err != nil {
 		return output.NewError(output.AddressError, "", err)
 	}
-	bl, err := getBucketListByVoterAddress(address, offset, limit)
+	bl, err := GetBucketList(iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER, &iotexapi.ReadStakingDataRequest{
+		Request: &iotexapi.ReadStakingDataRequest_BucketsByVoter{
+			BucketsByVoter: &iotexapi.ReadStakingDataRequest_VoteBucketsByVoter{
+				VoterAddress: address,
+				Pagination:   &iotexapi.PaginationParam{Offset: offset, Limit: limit},
+			},
+		},
+	})
 	if err != nil {
 		return err
 	}
-	var bucketlist []*bucket
-	for _, b := range bl.Buckets {
-		bucket, err := newBucket(b)
-		if err != nil {
-			return err
-		}
-		bucketlist = append(bucketlist, bucket)
-	}
-	message := bucketlistMessage{
-		Node:       config.ReadConfig.Endpoint,
-		Bucketlist: bucketlist,
-	}
-	fmt.Println(message.String())
-	return nil
-}
-
-func getBucketListByVoterAddress(addr string, offset, limit uint32) (*iotextypes.VoteBucketList, error) {
-	readStakingdataRequest := &iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_BucketsByVoter{
-			BucketsByVoter: &iotexapi.ReadStakingDataRequest_VoteBucketsByVoter{
-				VoterAddress: addr,
-				Pagination: &iotexapi.PaginationParam{
-					Offset: offset,
-					Limit:  limit,
-				},
-			},
-		},
-	}
-	return GetBucketList(iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER, readStakingdataRequest)
+	return printBucketList(bl)
 }
 
 // getBucketListByCand get bucket list from chain by candidate name
 func getBucketListByCand(candName string, offset, limit uint32) error {
-	bl, err := getBucketListByCandidateName(candName, offset, limit)
+	bl, err := GetBucketList(iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE, &iotexapi.ReadStakingDataRequest{
+		Request: &iotexapi.ReadStakingDataRequest_BucketsByCandidate{
+			BucketsByCandidate: &iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate{
+				CandName:   candName,
+				Pagination: &iotexapi.PaginationParam{Offset: offset, Limit: limit},
+			},
+		},
+	})
 	if err != nil {
 		return err
 	}
-	var bucketlist []*bucket
-	for _, b := range bl.Buckets {
-		bucket, err := newBucket(b)
-		if err != nil {
-			return err
-		}
-		bucketlist = append(bucketlist, bucket)
-	}
-	message := bucketlistMessage{
-		Node:       config.ReadConfig.Endpoint,
-		Bucketlist: bucketlist,
-	}
-	fmt.Println(message.String())
-	return nil
+	return printBucketList(bl)
 }
 
-func getBucketListByCandidateName(candName string, offset, limit uint32) (*iotextypes.VoteBucketList, error) {
-	readStakingDataRequest := &iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_BucketsByCandidate{
-			BucketsByCandidate: &iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate{
-				CandName: candName,
-				Pagination: &iotexapi.PaginationParam{
-					Offset: offset,
-					Limit:  limit,
-				},
+// getBucketListAll lists all buckets with pagination
+func getBucketListAll(args ...string) error {
+	offset, limit, err := parseOffsetAndLimit(100, args...)
+	if err != nil {
+		return err
+	}
+	bl, err := GetBucketList(iotexapi.ReadStakingDataMethod_BUCKETS, &iotexapi.ReadStakingDataRequest{
+		Request: &iotexapi.ReadStakingDataRequest_Buckets{
+			Buckets: &iotexapi.ReadStakingDataRequest_VoteBuckets{
+				Pagination: &iotexapi.PaginationParam{Offset: offset, Limit: limit},
 			},
 		},
+	})
+	if err != nil {
+		return err
 	}
-	return GetBucketList(iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE, readStakingDataRequest)
+	return printBucketList(bl)
 }
