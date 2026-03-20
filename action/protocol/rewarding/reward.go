@@ -295,6 +295,23 @@ func (p *Protocol) GrantEpochReward(
 		if amounts[i].Cmp(big.NewInt(0)) == 0 {
 			continue
 		}
+
+		// IIP-59: Try auto-distribution to voters if candidate has CommissionRate > 0
+		voterLogs, err := p.distributeVoterReward(
+			ctx, sm, candidates[i].Address, addrs[i], amounts[i],
+			blkCtx.BlockHeight, actionCtx.ActionHash,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		if voterLogs != nil {
+			// IIP-59 handled this delegate's reward distribution
+			rewardLogs = append(rewardLogs, voterLogs...)
+			actualTotalReward = big.NewInt(0).Add(actualTotalReward, amounts[i])
+			continue
+		}
+
+		// Legacy: full reward to delegate
 		if err := p.grantToAccount(ctx, sm, addrs[i], amounts[i]); err != nil {
 			return nil, nil, err
 		}

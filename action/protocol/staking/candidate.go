@@ -35,6 +35,7 @@ type (
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
 		SelfStake          *big.Int
+		CommissionRate     uint64 // IIP-59: basis points (0-10000), 0 = legacy (no auto-distribution)
 	}
 
 	// CandidateList is a list of candidates which is sortable
@@ -65,6 +66,7 @@ func (d *Candidate) Clone() *Candidate {
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          new(big.Int).Set(d.SelfStake),
 		BLSPubKey:          blsPubKey,
+		CommissionRate:     d.CommissionRate,
 	}
 }
 
@@ -274,6 +276,7 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		SelfStake:          d.SelfStake.String(),
 		Pubkey:             pubkey,
 		DeactivatedAt:      d.DeactivatedAt,
+		CommissionRate:     d.CommissionRate,
 	}, nil
 }
 
@@ -324,6 +327,7 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 		d.BLSPubKey = nil
 	}
 	d.DeactivatedAt = pb.GetDeactivatedAt()
+	d.CommissionRate = pb.GetCommissionRate()
 	return nil
 }
 
