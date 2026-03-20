@@ -6,11 +6,19 @@
 package staking
 
 import (
+	"context"
+
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/state"
+)
+
+const (
+	// HandleSetCommissionRate is the handler name
+	HandleSetCommissionRate = "setCommissionRate"
 )
 
 // ActiveBucketsByCandidate returns all non-unstaked native buckets for a candidate.
@@ -66,4 +74,28 @@ func (p *Protocol) CandidateByIdentifier(sr protocol.StateReader, id address.Add
 		return nil, err
 	}
 	return cand, nil
+}
+
+// handleSetCommissionRate handles the SetCommissionRate action (IIP-59)
+func (p *Protocol) handleSetCommissionRate(ctx context.Context, act *action.SetCommissionRate, csm CandidateStateManager,
+) (*receiptLog, error) {
+	actCtx := protocol.MustGetActionCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	log := newReceiptLog(p.addr.String(), HandleSetCommissionRate, featureCtx.NewStakingReceiptFormat)
+
+	// Only candidate owner can set commission rate
+	c := csm.GetByOwner(actCtx.Caller)
+	if c == nil {
+		return log, errCandNotExist
+	}
+
+	c.CommissionRate = act.Rate()
+
+	if err := csm.Upsert(c); err != nil {
+		return log, csmErrorToHandleError(c.GetIdentifier().String(), err)
+	}
+
+	log.AddTopics(c.GetIdentifier().Bytes())
+	log.AddAddress(actCtx.Caller)
+	return log, nil
 }

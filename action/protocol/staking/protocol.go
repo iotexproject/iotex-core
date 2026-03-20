@@ -769,6 +769,8 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		rLog, tLogs, err = p.handleCandidateEndorsement(ctx, act, csm)
 	case *action.CandidateTransferOwnership:
 		rLog, tLogs, err = p.handleCandidateTransferOwnership(ctx, act, csm)
+	case *action.SetCommissionRate:
+		rLog, err = p.handleSetCommissionRate(ctx, act, csm)
 	case *action.ScheduleCandidateDeactivation:
 		isSystemAction = true
 		rLog, tLogs, err = p.handleScheduleCandidateDeactivation(ctx, act, csm)
