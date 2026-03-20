@@ -263,7 +263,13 @@ func (cm *chainManager) Fork(hash hash.Hash256) (ForkChain, error) {
 	if blk := cm.pool.BlockByHash(hash); blk != nil {
 		head = &blk.Header
 	} else if head, err = cm.bc.BlockHeader(hash); err != nil {
-		return nil, errors.Wrapf(err, "failed to get block header %x", hash)
+		// Genesis block (height 0) may not be stored by hash in the block header index.
+		// Fall back to looking up by height 0 and verifying the hash matches.
+		if h0, err2 := cm.bc.BlockHeaderByHeight(0); err2 == nil && h0.HashBlock() == hash {
+			head = h0
+		} else {
+			return nil, errors.Wrapf(err, "failed to get block header %x", hash)
+		}
 	}
 	sr, err := cm.srf.StateReaderAt(head.Height(), hash)
 	if err != nil {

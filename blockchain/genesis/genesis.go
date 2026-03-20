@@ -80,6 +80,7 @@ func defaultConfig() Genesis {
 			WakeBlockHeight:           36893881,
 			XinguBlockHeight:          41648761,
 			XinguBetaBlockHeight:      41648761,
+			YosemiteBlockHeight:       math.MaxUint64, // IIP-59: protocol-native voter reward distribution
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
@@ -381,6 +382,10 @@ type (
 		// XinguBetaBlockHeight is the start height to
 		// 1. slash candidate by operator
 		XinguBetaBlockHeight uint64 `yaml:"xinguBetaHeight"`
+		// YosemiteBlockHeight is the start height to
+		// 1. enable protocol-native voter reward distribution (IIP-59)
+		// 2. enable SetCommissionRate action for delegates
+		YosemiteBlockHeight uint64 `yaml:"yosemiteHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -771,6 +776,11 @@ func (g *Blockchain) IsXingu(height uint64) bool {
 // IsXinguBeta checks whether height is equal to or larger than xingu beta height
 func (g *Blockchain) IsXinguBeta(height uint64) bool {
 	return g.isPost(g.XinguBetaBlockHeight, height)
+}
+
+// IsYosemite checks whether height is equal to or larger than yosemite height (IIP-59)
+func (g *Blockchain) IsYosemite(height uint64) bool {
+	return g.isPost(g.YosemiteBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

@@ -242,6 +242,8 @@ type Candidate struct {
 	IdentifierAddress  string `protobuf:"bytes,8,opt,name=identifierAddress,proto3" json:"identifierAddress,omitempty"` //if the field is empty, set it to the old owner address
 	Pubkey             []byte `protobuf:"bytes,9,opt,name=pubkey,proto3" json:"pubkey,omitempty"`                       // BLS public key
 	DeactivatedAt      uint64 `protobuf:"varint,10,opt,name=deactivatedAt,proto3" json:"deactivatedAt,omitempty"`
+	CommissionRate          uint64 `protobuf:"varint,11,opt,name=commissionRate,proto3" json:"commissionRate,omitempty"`          // IIP-59
+	CommissionRateLastEpoch uint64 `protobuf:"varint,12,opt,name=commissionRateLastEpoch,proto3" json:"commissionRateLastEpoch,omitempty"` // IIP-59 cooldown
 }
 
 func (x *Candidate) Reset() {
@@ -342,6 +344,20 @@ func (x *Candidate) GetPubkey() []byte {
 func (x *Candidate) GetDeactivatedAt() uint64 {
 	if x != nil {
 		return x.DeactivatedAt
+	}
+	return 0
+}
+
+func (x *Candidate) GetCommissionRate() uint64 {
+	if x != nil {
+		return x.CommissionRate
+	}
+	return 0
+}
+
+func (x *Candidate) GetCommissionRateLastEpoch() uint64 {
+	if x != nil {
+		return x.CommissionRateLastEpoch
 	}
 	return 0
 }
