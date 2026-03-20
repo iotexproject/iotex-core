@@ -43,6 +43,9 @@ type infoMessage struct {
 
 func (m *infoMessage) String() string {
 	if output.Format == "" {
+		if output.Quiet {
+			return output.JSONString(m.Info)
+		}
 		message := fmt.Sprintf("Blockchain Node: %s\n%s", m.Node, output.JSONString(m.Info))
 		return message
 	}
