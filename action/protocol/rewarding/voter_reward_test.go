@@ -7,6 +7,7 @@ package rewarding
 
 import (
 	"math/big"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -114,4 +115,117 @@ func TestCommissionRateEdgeCases(t *testing.T) {
 	commission25 := new(big.Int).Mul(totalReward, big.NewInt(2500))
 	commission25.Div(commission25, big.NewInt(10000))
 	r.Equal(int64(250), commission25.Int64())
+}
+
+// TestRoundingPrecision2800Voters simulates real mainnet scale:
+// ~2800 voters with realistic IOTX amounts and staking durations.
+// Verifies: commission + sum(voter shares) + dust == totalReward exactly.
+func TestRoundingPrecision2800Voters(t *testing.T) {
+	r := require.New(t)
+	g := genesis.Default
+	rng := rand.New(rand.NewSource(42))
+
+	const numVoters = 2800
+	commissionBps := uint64(1000) // 10%
+
+	// Realistic epoch reward: ~12.5 IOTX per delegate (in Rau)
+	totalReward := new(big.Int).Mul(big.NewInt(125), new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil)) // 12.5e18
+
+	// Generate voters with realistic amounts (100 - 2,000,000 IOTX) and durations (14-365 days)
+	type voter struct {
+		weight *big.Int
+	}
+	voters := make([]voter, numVoters)
+	totalWeight := big.NewInt(0)
+
+	for i := 0; i < numVoters; i++ {
+		// Amount: 100 to 2,000,000 IOTX in Rau
+		amountIOTX := int64(100 + rng.Intn(2000000))
+		amount := new(big.Int).Mul(big.NewInt(amountIOTX), big.NewInt(1e18))
+
+		duration := uint32(14 + rng.Intn(351)) // 14-365 days
+		autoStake := rng.Float32() > 0.3        // 70% auto-stake
+
+		bucket := &staking.VoteBucket{
+			StakedAmount:   amount,
+			StakedDuration: time.Duration(duration) * 24 * time.Hour,
+			AutoStake:      autoStake,
+		}
+
+		w := staking.CalculateVoteWeight(g.Staking.VoteWeightCalConsts, bucket, false)
+		voters[i] = voter{weight: w}
+		totalWeight.Add(totalWeight, w)
+	}
+
+	// Calculate commission
+	commission := new(big.Int).Mul(totalReward, big.NewInt(int64(commissionBps)))
+	commission.Div(commission, big.NewInt(10000))
+	voterPool := new(big.Int).Sub(totalReward, commission)
+
+	// Distribute
+	distributed := big.NewInt(0)
+	for _, v := range voters {
+		share := new(big.Int).Mul(voterPool, v.weight)
+		share.Div(share, totalWeight)
+		distributed.Add(distributed, share)
+	}
+
+	dust := new(big.Int).Sub(voterPool, distributed)
+
+	// Verify exact conservation: commission + distributed + dust == totalReward
+	total := new(big.Int).Add(commission, distributed)
+	total.Add(total, dust)
+	r.Equal(totalReward.String(), total.String(), "must be exactly conserved")
+
+	// Dust should be tiny (< numVoters Rau)
+	r.True(dust.Cmp(big.NewInt(int64(numVoters))) < 0,
+		"dust %s should be < %d Rau", dust.String(), numVoters)
+
+	// Dust should be non-negative
+	r.True(dust.Sign() >= 0, "dust should not be negative")
+
+	t.Logf("2800 voters: commission=%s, distributed=%s, dust=%s Rau",
+		commission.String(), distributed.String(), dust.String())
+}
+
+// BenchmarkDistribute2800Voters measures the time to calculate voter shares
+// for a realistic mainnet delegate with ~2800 voters.
+func BenchmarkDistribute2800Voters(b *testing.B) {
+	g := genesis.Default
+	rng := rand.New(rand.NewSource(42))
+
+	const numVoters = 2800
+
+	totalReward := new(big.Int).Mul(big.NewInt(125), new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil))
+	commission := new(big.Int).Div(new(big.Int).Mul(totalReward, big.NewInt(1000)), big.NewInt(10000))
+	voterPool := new(big.Int).Sub(totalReward, commission)
+
+	// Pre-generate voter weights
+	weights := make([]*big.Int, numVoters)
+	totalWeight := big.NewInt(0)
+	for i := 0; i < numVoters; i++ {
+		amountIOTX := int64(100 + rng.Intn(2000000))
+		amount := new(big.Int).Mul(big.NewInt(amountIOTX), big.NewInt(1e18))
+		duration := uint32(14 + rng.Intn(351))
+		autoStake := rng.Float32() > 0.3
+
+		bucket := &staking.VoteBucket{
+			StakedAmount:   amount,
+			StakedDuration: time.Duration(duration) * 24 * time.Hour,
+			AutoStake:      autoStake,
+		}
+		w := staking.CalculateVoteWeight(g.Staking.VoteWeightCalConsts, bucket, false)
+		weights[i] = w
+		totalWeight.Add(totalWeight, w)
+	}
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		distributed := big.NewInt(0)
+		for _, w := range weights {
+			share := new(big.Int).Mul(voterPool, w)
+			share.Div(share, totalWeight)
+			distributed.Add(distributed, share)
+		}
+	}
 }

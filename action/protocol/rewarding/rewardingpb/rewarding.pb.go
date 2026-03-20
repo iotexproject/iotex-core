@@ -36,6 +36,8 @@ const (
 	RewardLog_FOUNDATION_BONUS   RewardLog_RewardType = 2
 	RewardLog_PRIORITY_BONUS     RewardLog_RewardType = 3
 	RewardLog_UNPRODUCTIVE_SLASH RewardLog_RewardType = 4
+	RewardLog_VOTER_REWARD      RewardLog_RewardType = 5 // IIP-59
+	RewardLog_COMMISSION_REWARD RewardLog_RewardType = 6 // IIP-59
 )
 
 // Enum value maps for RewardLog_RewardType.
@@ -46,6 +48,8 @@ var (
 		2: "FOUNDATION_BONUS",
 		3: "PRIORITY_BONUS",
 		4: "UNPRODUCTIVE_SLASH",
+		5: "VOTER_REWARD",
+		6: "COMMISSION_REWARD",
 	}
 	RewardLog_RewardType_value = map[string]int32{
 		"BLOCK_REWARD":       0,
@@ -53,6 +57,8 @@ var (
 		"FOUNDATION_BONUS":   2,
 		"PRIORITY_BONUS":     3,
 		"UNPRODUCTIVE_SLASH": 4,
+		"VOTER_REWARD":       5,
+		"COMMISSION_REWARD":  6,
 	}
 )
 

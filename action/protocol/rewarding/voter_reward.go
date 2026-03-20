@@ -75,7 +75,7 @@ func (p *Protocol) distributeVoterReward(
 	voterPool := new(big.Int).Sub(totalReward, commission)
 	if voterPool.Sign() <= 0 {
 		// 100% commission, nothing for voters
-		data, _ := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, rewardAddr.String(), commission)
+		data, _ := p.encodeRewardLog(rewardingpb.RewardLog_COMMISSION_REWARD, rewardAddr.String(), commission)
 		return []*action.Log{{
 			Address:     p.addr.String(),
 			Data:        data,
@@ -95,7 +95,7 @@ func (p *Protocol) distributeVoterReward(
 		if err := p.grantToAccount(ctx, sm, rewardAddr, voterPool); err != nil {
 			return nil, err
 		}
-		data, _ := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, rewardAddr.String(), totalReward)
+		data, _ := p.encodeRewardLog(rewardingpb.RewardLog_COMMISSION_REWARD, rewardAddr.String(), totalReward)
 		return []*action.Log{{
 			Address:     p.addr.String(),
 			Data:        data,
@@ -158,7 +158,7 @@ func (p *Protocol) distributeVoterReward(
 		}
 		distributed.Add(distributed, share)
 
-		data, err := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, addrStr, share)
+		data, err := p.encodeRewardLog(rewardingpb.RewardLog_VOTER_REWARD, addrStr, share)
 		if err != nil {
 			return nil, err
 		}
@@ -179,7 +179,7 @@ func (p *Protocol) distributeVoterReward(
 	}
 
 	// Add commission log
-	data, err := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, rewardAddr.String(), new(big.Int).Add(commission, dust))
+	data, err := p.encodeRewardLog(rewardingpb.RewardLog_COMMISSION_REWARD, rewardAddr.String(), new(big.Int).Add(commission, dust))
 	if err != nil {
 		return nil, err
 	}
