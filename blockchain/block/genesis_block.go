@@ -40,9 +40,17 @@ func GenesisHash() hash.Hash256 {
 	return _genesisHash
 }
 
-// LoadGenesisHash is done once to compute and save the genesis'es hash
+// LoadGenesisHash computes and saves the genesis block's hash from the genesis config.
+// It uses sync.Once to ensure it's only set once in production (via server/main.go).
+// For testing with multiple genesis configs, use SetGenesisHash directly.
 func LoadGenesisHash(g *genesis.Genesis) {
 	_loadGenesisHash.Do(func() {
 		_genesisHash = g.Hash()
 	})
+}
+
+// SetGenesisHash forces the genesis hash to a specific value.
+// Used by tests and minicluster that create custom genesis configs after startup.
+func SetGenesisHash(g *genesis.Genesis) {
+	_genesisHash = g.Hash()
 }
