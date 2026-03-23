@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/facebookgo/clock"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -43,6 +44,10 @@ type Consensus interface {
 type IotxConsensus struct {
 	cfg    Config
 	scheme scheme.Scheme
+}
+
+type producerKeyUpdater interface {
+	UpdateProducerKeys([]crypto.PrivateKey) error
 }
 
 type optionParams struct {
@@ -262,3 +267,12 @@ func (c *IotxConsensus) Activate(active bool) {
 
 // Active returns true if the consensus component is active or false if it stands by
 func (c *IotxConsensus) Active() bool { return c.scheme.Active() }
+
+// UpdateProducerKeys refreshes the runtime producer key set when the active scheme supports it.
+func (c *IotxConsensus) UpdateProducerKeys(keys []crypto.PrivateKey) error {
+	updater, ok := c.scheme.(producerKeyUpdater)
+	if !ok {
+		return errors.Errorf("consensus scheme %T does not support producer key updates", c.scheme)
+	}
+	return updater.UpdateProducerKeys(keys)
+}
