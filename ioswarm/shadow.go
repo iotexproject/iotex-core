@@ -29,11 +29,12 @@ type ShadowComparator struct {
 
 // ShadowStats tracks shadow mode accuracy metrics.
 type ShadowStats struct {
-	TotalCompared   uint64
-	TotalMatched    uint64
-	TotalMismatched uint64
-	FalsePositives  uint64 // agent said valid, actual invalid
-	FalseNegatives  uint64 // agent said invalid, actual valid
+	TotalCompared      uint64
+	TotalMatched       uint64
+	TotalMismatched    uint64
+	FalsePositives     uint64 // agent said valid, actual invalid
+	FalseNegatives     uint64 // agent said invalid, actual valid
+	NonceRaceExcluded  uint64 // false positives excused due to nonce race
 
 	// EVM-specific shadow stats (L3)
 	EVMGasMatches      uint64
@@ -71,10 +72,24 @@ type AgentAccuracy struct {
 
 // CompareWithActual compares stored agent results against actual execution.
 // actualResults maps task_id → whether the tx was actually valid.
+// taskSenders maps task_id → sender address (for nonce race detection).
 // Returns mismatches and per-agent accuracy counts.
-func (s *ShadowComparator) CompareWithActual(actualResults map[uint32]bool, blockHeight uint64) ([]ShadowResult, map[string]*AgentAccuracy) {
+func (s *ShadowComparator) CompareWithActual(actualResults map[uint32]bool, taskSenders map[uint32]string, blockHeight uint64) ([]ShadowResult, map[string]*AgentAccuracy) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Phase 1: Build sender→valid map to detect nonce races.
+	// If sender S has task A (actual=true) and task B (actual=false), and agent
+	// said both are valid, then B is a nonce race false positive — the agent was
+	// correct at dispatch time but the nonce was consumed by A before B executed.
+	senderHasValidTx := make(map[string]bool)
+	for taskID, valid := range actualResults {
+		if valid {
+			if sender, ok := taskSenders[taskID]; ok {
+				senderHasValidTx[sender] = true
+			}
+		}
+	}
 
 	var mismatches []ShadowResult
 	perAgent := make(map[string]*AgentAccuracy)
@@ -90,6 +105,19 @@ func (s *ShadowComparator) CompareWithActual(actualResults map[uint32]bool, bloc
 		r.BlockHeight = blockHeight
 		r.Match = r.AgentResult.Valid == actual
 
+		// Nonce race detection: agent said valid, chain said invalid, but
+		// another tx from the same sender succeeded in this block.
+		// This means the agent was correct at dispatch time — the nonce was
+		// consumed by the other tx between dispatch and block commit.
+		isNonceRace := false
+		if r.AgentResult.Valid && !actual {
+			if sender, ok := taskSenders[r.TaskID]; ok {
+				if senderHasValidTx[sender] {
+					isNonceRace = true
+				}
+			}
+		}
+
 		// Track per-agent accuracy
 		aa, ok := perAgent[r.AgentID]
 		if !ok {
@@ -99,9 +127,18 @@ func (s *ShadowComparator) CompareWithActual(actualResults map[uint32]bool, bloc
 		aa.Compared++
 
 		s.stats.TotalCompared++
-		if r.Match {
+		if r.Match || isNonceRace {
 			s.stats.TotalMatched++
 			aa.Matched++
+			if isNonceRace {
+				s.stats.NonceRaceExcluded++
+				r.Match = true // reclassify as match
+				s.logger.Debug("nonce race excluded from mismatch",
+					zap.Uint32("task_id", r.TaskID),
+					zap.String("agent", r.AgentID),
+					zap.String("sender", taskSenders[r.TaskID]),
+					zap.Uint64("block", blockHeight))
+			}
 		} else {
 			s.stats.TotalMismatched++
 			if r.AgentResult.Valid && !actual {

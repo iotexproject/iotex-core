@@ -286,7 +286,7 @@ func TestIntegrationE2E(t *testing.T) {
 		actualResults[task.TaskID] = true
 	}
 
-	mismatches, _ := coord.shadow.CompareWithActual(actualResults, 1001)
+	mismatches, _ := coord.shadow.CompareWithActual(actualResults, nil, 1001)
 	if len(mismatches) != 0 {
 		t.Fatalf("expected 0 shadow mismatches, got %d", len(mismatches))
 	}

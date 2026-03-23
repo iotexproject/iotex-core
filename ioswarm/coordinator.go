@@ -52,6 +52,7 @@ type Coordinator struct {
 
 	// txHash → taskID mapping for shadow comparison with on-chain results
 	txHashToTaskID sync.Map // hex tx hash → uint32 task ID
+	taskSender     sync.Map // uint32 task ID → string sender address (for nonce race detection)
 
 	// State diff broadcaster for L4 agents
 	diffBroadcaster *StateDiffBroadcaster
@@ -355,8 +356,9 @@ func (c *Coordinator) pollAndDispatch() {
 			c.enrichL3Task(task, tx, blockHeight)
 		}
 
-		// Track txHash → taskID for shadow comparison
+		// Track txHash → taskID and taskID → sender for shadow comparison
 		c.txHashToTaskID.Store(tx.Hash, taskID)
+		c.taskSender.Store(taskID, tx.From)
 
 		tasks = append(tasks, task)
 	}
@@ -442,10 +444,10 @@ func (c *Coordinator) ShadowStats() ShadowStats {
 // actualResults maps task_id → whether the tx was actually valid.
 // In production, this is wired from iotex-core's block executor.
 // In simulation, pass generated results.
-func (c *Coordinator) OnBlockExecuted(blockHeight uint64, actualResults map[uint32]bool) {
+func (c *Coordinator) OnBlockExecuted(blockHeight uint64, actualResults map[uint32]bool, taskSenders map[uint32]string) {
 	// 1. Compare agent results against actual execution
 	if c.cfg.ShadowMode && len(actualResults) > 0 {
-		mismatches, perAgent := c.shadow.CompareWithActual(actualResults, blockHeight)
+		mismatches, perAgent := c.shadow.CompareWithActual(actualResults, taskSenders, blockHeight)
 		if len(mismatches) > 0 {
 			c.logger.Warn("shadow mismatches detected",
 				zap.Int("count", len(mismatches)),
@@ -474,6 +476,7 @@ func (c *Coordinator) ReceiveBlock(blk *block.Block) error {
 	blockHeight := blk.Height()
 	c.lastBlockTimestamp.Store(uint64(blk.Timestamp().Unix()))
 	actualResults := make(map[uint32]bool)
+	taskSenders := make(map[uint32]string)
 	matched := 0
 
 	for i, act := range blk.Actions {
@@ -497,6 +500,11 @@ func (c *Coordinator) ReceiveBlock(blk *block.Block) error {
 			valid = blk.Receipts[i].Status == 1
 		}
 		actualResults[taskID] = valid
+
+		// Look up sender for nonce race detection
+		if sender, ok := c.taskSender.LoadAndDelete(taskID); ok {
+			taskSenders[taskID] = sender.(string)
+		}
 	}
 
 	if matched > 0 || blockHeight%100 == 0 {
@@ -507,7 +515,7 @@ func (c *Coordinator) ReceiveBlock(blk *block.Block) error {
 	}
 
 	// Run shadow comparison
-	c.OnBlockExecuted(blockHeight, actualResults)
+	c.OnBlockExecuted(blockHeight, actualResults, taskSenders)
 
 	// Periodic cleanup of stale txHash entries (>10000 blocks old)
 	if blockHeight%1000 == 0 {
