@@ -11,9 +11,11 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -237,6 +239,27 @@ func (s *Server) Config() config.Config {
 	return s.cfg
 }
 
+// UpdateProducerKeys refreshes the root chain producer keys in memory and updates the cached config copy.
+func (s *Server) UpdateProducerKeys(keys []crypto.PrivateKey) ([]string, error) {
+	if err := s.rootChainService.UpdateProducerKeys(keys); err != nil {
+		return nil, err
+	}
+
+	encodedKeys := make([]string, 0, len(keys))
+	addresses := make([]string, 0, len(keys))
+	for _, key := range keys {
+		encodedKeys = append(encodedKeys, key.HexString())
+		addresses = append(addresses, key.PublicKey().Address().String())
+	}
+
+	s.mutex.Lock()
+	s.cfg.Chain.ProducerPrivKey = strings.Join(encodedKeys, ",")
+	s.mutex.Unlock()
+	log.SetDynamicFields(zap.String("ioAddr", strings.Join(addresses, ",")))
+	log.L().Info("Updated producer keys in memory.", zap.Strings("operatorAddresses", addresses))
+	return addresses, nil
+}
+
 // P2PAgent returns the P2P agent
 func (s *Server) P2PAgent() p2p.Agent {
 	return s.p2pAgent
@@ -311,6 +334,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 		mux.Handle("/pause", http.HandlerFunc(svr.pauseMgr.HandlePause))
 		mux.Handle("/unpause", http.HandlerFunc(svr.pauseMgr.HandleUnPause))
+		mux.Handle("/producer-keys", NewProducerKeysAdmin(svr))
 
 		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
 		adminserv = httputil.NewServer(port, mux)
