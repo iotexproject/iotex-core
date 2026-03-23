@@ -167,6 +167,13 @@ func (c *Coordinator) Start(ctx context.Context) error {
 		)
 		c.logger.Info("gRPC HMAC auth enabled")
 	}
+	// State diff messages can exceed gRPC's default 4MB limit for blocks with
+	// large state changes (e.g., contract deployments, batch operations).
+	// Set to 32MB to handle worst-case blocks.
+	grpcOpts = append(grpcOpts,
+		grpc.MaxRecvMsgSize(32*1024*1024),
+		grpc.MaxSendMsgSize(32*1024*1024),
+	)
 	c.grpcServer = grpc.NewServer(grpcOpts...)
 	RegisterIOSwarmServer(c.grpcServer, &grpcHandler{coord: c})
 
