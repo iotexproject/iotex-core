@@ -260,7 +260,7 @@ func (s *SwarmAPI) handleRewards(w http.ResponseWriter, r *http.Request) {
 		Rank       int     `json:"rank"`
 		Bonus      bool    `json:"bonus_applied"`
 	}
-	var entries []entry
+	entries := make([]entry, 0)
 	var totalEarned float64
 	var totalTasks uint64
 	var totalAccuracy float64
