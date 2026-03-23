@@ -517,10 +517,14 @@ func (c *Coordinator) ReceiveBlock(blk *block.Block) error {
 	// Run shadow comparison
 	c.OnBlockExecuted(blockHeight, actualResults, taskSenders)
 
-	// Periodic cleanup of stale txHash entries (>10000 blocks old)
+	// Periodic cleanup of stale txHash and taskSender entries
 	if blockHeight%1000 == 0 {
 		c.txHashToTaskID.Range(func(key, _ any) bool {
 			c.txHashToTaskID.Delete(key)
+			return true
+		})
+		c.taskSender.Range(func(key, _ any) bool {
+			c.taskSender.Delete(key)
 			return true
 		})
 	}

@@ -105,12 +105,14 @@ func (s *ShadowComparator) CompareWithActual(actualResults map[uint32]bool, task
 		r.BlockHeight = blockHeight
 		r.Match = r.AgentResult.Valid == actual
 
-		// Nonce race detection: agent said valid, chain said invalid, but
-		// another tx from the same sender succeeded in this block.
+		// Nonce race detection: agent said valid (no reject reason), chain said
+		// invalid, and another tx from the same sender succeeded in this block.
 		// This means the agent was correct at dispatch time — the nonce was
 		// consumed by the other tx between dispatch and block commit.
+		// We require empty reject_reason to distinguish from real failures
+		// (out-of-gas, revert) which would have a reject reason.
 		isNonceRace := false
-		if r.AgentResult.Valid && !actual {
+		if r.AgentResult.Valid && !actual && r.AgentResult.RejectReason == "" {
 			if sender, ok := taskSenders[r.TaskID]; ok {
 				if senderHasValidTx[sender] {
 					isNonceRace = true
