@@ -115,7 +115,7 @@ func (w *wrappedStream) Context() context.Context {
 // /healthz and /api/stats are always allowed without auth.
 func tokenHTTPMiddleware(masterSecret string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/healthz" || r.URL.Path == "/api/stats" {
+		if r.URL.Path == "/healthz" || r.URL.Path == "/api/stats" || r.URL.Path == "/api/rewards" {
 			next.ServeHTTP(w, r)
 			return
 		}

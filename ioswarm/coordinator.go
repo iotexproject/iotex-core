@@ -52,6 +52,7 @@ type Coordinator struct {
 
 	// txHash → taskID mapping for shadow comparison with on-chain results
 	txHashToTaskID sync.Map // hex tx hash → uint32 task ID
+	taskSender     sync.Map // uint32 task ID → string sender address (for nonce race detection)
 
 	// State diff broadcaster for L4 agents
 	diffBroadcaster *StateDiffBroadcaster
@@ -167,6 +168,13 @@ func (c *Coordinator) Start(ctx context.Context) error {
 		)
 		c.logger.Info("gRPC HMAC auth enabled")
 	}
+	// State diff messages can exceed gRPC's default 4MB limit for blocks with
+	// large state changes (e.g., contract deployments, batch operations).
+	// Set to 32MB to handle worst-case blocks.
+	grpcOpts = append(grpcOpts,
+		grpc.MaxRecvMsgSize(32*1024*1024),
+		grpc.MaxSendMsgSize(32*1024*1024),
+	)
 	c.grpcServer = grpc.NewServer(grpcOpts...)
 	RegisterIOSwarmServer(c.grpcServer, &grpcHandler{coord: c})
 
@@ -348,8 +356,9 @@ func (c *Coordinator) pollAndDispatch() {
 			c.enrichL3Task(task, tx, blockHeight)
 		}
 
-		// Track txHash → taskID for shadow comparison
+		// Track txHash → taskID and taskID → sender for shadow comparison
 		c.txHashToTaskID.Store(tx.Hash, taskID)
+		c.taskSender.Store(taskID, tx.From)
 
 		tasks = append(tasks, task)
 	}
@@ -435,10 +444,10 @@ func (c *Coordinator) ShadowStats() ShadowStats {
 // actualResults maps task_id → whether the tx was actually valid.
 // In production, this is wired from iotex-core's block executor.
 // In simulation, pass generated results.
-func (c *Coordinator) OnBlockExecuted(blockHeight uint64, actualResults map[uint32]bool) {
+func (c *Coordinator) OnBlockExecuted(blockHeight uint64, actualResults map[uint32]bool, taskSenders map[uint32]string) {
 	// 1. Compare agent results against actual execution
 	if c.cfg.ShadowMode && len(actualResults) > 0 {
-		mismatches, perAgent := c.shadow.CompareWithActual(actualResults, blockHeight)
+		mismatches, perAgent := c.shadow.CompareWithActual(actualResults, taskSenders, blockHeight)
 		if len(mismatches) > 0 {
 			c.logger.Warn("shadow mismatches detected",
 				zap.Int("count", len(mismatches)),
@@ -467,6 +476,7 @@ func (c *Coordinator) ReceiveBlock(blk *block.Block) error {
 	blockHeight := blk.Height()
 	c.lastBlockTimestamp.Store(uint64(blk.Timestamp().Unix()))
 	actualResults := make(map[uint32]bool)
+	taskSenders := make(map[uint32]string)
 	matched := 0
 
 	for i, act := range blk.Actions {
@@ -490,6 +500,11 @@ func (c *Coordinator) ReceiveBlock(blk *block.Block) error {
 			valid = blk.Receipts[i].Status == 1
 		}
 		actualResults[taskID] = valid
+
+		// Look up sender for nonce race detection
+		if sender, ok := c.taskSender.LoadAndDelete(taskID); ok {
+			taskSenders[taskID] = sender.(string)
+		}
 	}
 
 	if matched > 0 || blockHeight%100 == 0 {
@@ -500,12 +515,16 @@ func (c *Coordinator) ReceiveBlock(blk *block.Block) error {
 	}
 
 	// Run shadow comparison
-	c.OnBlockExecuted(blockHeight, actualResults)
+	c.OnBlockExecuted(blockHeight, actualResults, taskSenders)
 
-	// Periodic cleanup of stale txHash entries (>10000 blocks old)
+	// Periodic cleanup of stale txHash and taskSender entries
 	if blockHeight%1000 == 0 {
 		c.txHashToTaskID.Range(func(key, _ any) bool {
 			c.txHashToTaskID.Delete(key)
+			return true
+		})
+		c.taskSender.Range(func(key, _ any) bool {
+			c.taskSender.Delete(key)
 			return true
 		})
 	}

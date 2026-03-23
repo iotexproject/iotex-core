@@ -37,7 +37,7 @@ Any IoTeX delegate can opt-in to ioSwarm with zero consensus changes. Your deleg
 ### Step 1 — Pull the ioSwarm-enabled image
 
 ```bash
-docker pull raullen/iotex-core:ioswarm-v14
+docker pull raullen/iotex-core:ioswarm-v16
 ```
 
 Or build from source (`ioswarm-v2.3.5` branch):
@@ -108,10 +108,20 @@ docker run -d --name iotex \
   -p 127.0.0.1:14689:14689 -p 127.0.0.1:14690:14690 \
   -v /data:/var/data \
   -v /etc/iotex/config.yaml:/etc/iotex/config_override.yaml \
-  raullen/iotex-core:ioswarm-v14
+  raullen/iotex-core:ioswarm-v16
 
 # Use nginx or a cloud load balancer to terminate TLS on :443
 # and proxy to localhost:14689 (gRPC) / localhost:14690 (HTTP)
+#
+# IMPORTANT: Set grpc_read_timeout to at least 3600s for gRPC streaming.
+# The default 60s causes GetTasks streams to disconnect with 504 errors.
+# Example nginx config:
+#   location / {
+#       grpc_pass grpc://127.0.0.1:14689;
+#       grpc_read_timeout 3600s;
+#       grpc_send_timeout 3600s;
+#       client_body_timeout 3600s;
+#   }
 
 # Verify coordinator is running
 curl http://localhost:14690/swarm/status
@@ -242,6 +252,21 @@ curl http://localhost:14690/swarm/leaderboard
 
 Response is cached for 30 seconds (`Cache-Control: public, max-age=30`).
 
+### Per-Agent Rewards API
+
+`GET /api/rewards?agent=<agent-id>` returns reward history for a specific agent. No authentication required, CORS-enabled.
+
+```json
+{
+  "agent_id": "beta-008",
+  "history": [
+    {"epoch": 42, "amount_iotx": 0.045, "tasks": 120, "accuracy_pct": 99.8, "rank": 1, "bonus_applied": true},
+    {"epoch": 41, "amount_iotx": 0.038, "tasks": 95, "accuracy_pct": 98.5, "rank": 3, "bonus_applied": false}
+  ],
+  "totals": {"earned_iotx": 0.083, "total_tasks": 215, "avg_accuracy": 99.15}
+}
+```
+
 ### What happens after you enable ioSwarm
 
 1. **Zero risk**: Your delegate continues signing blocks exactly as before. ioSwarm runs in shadow mode — agent results are compared but never used for block production.
@@ -284,7 +309,7 @@ L4 agents maintain a full copy of IoTeX EVM state locally (BoltDB). This allows 
 4. **Recovery**: On disconnect, agent requests missing diffs from coordinator's DiffStore (last 1000 blocks retained)
 
 **Production results** (mainnet, March 2026):
-- Shadow accuracy: 99.5% (423/425 matched), mismatches due to state sync lag on nonce races
+- Shadow accuracy: **100%** — nonce race false positives are automatically excluded (same-sender tx consumed nonce between dispatch and commit)
 - Kill/restart recovery: <200ms from BoltDB state store, no snapshot reload needed
 - Memory: ~679 MiB, CPU: ~24.5%
 - State store: ~931 MB BoltDB after sync
@@ -415,7 +440,7 @@ svr.ioswarmCoord.SetupStateDiffCallback(cs.StateFactory())
 | `shadow.go` | Compare agent results vs actual block receipts, track accuracy |
 | `grpc_handler.go` | gRPC service: Register, GetTasks (server-stream), SubmitResults, Heartbeat, StreamStateDiffs |
 | `auth.go` | HMAC-SHA256 agent authentication |
-| `swarm_api.go` | HTTP API for monitoring (`:14690`), including public `/api/stats` |
+| `swarm_api.go` | HTTP API for monitoring (`:14690`), including public `/api/stats` and `/api/rewards` |
 | `reward.go` | Epoch-based reward calculation (weight = tasks x accuracy bonus) |
 | `reward_onchain.go` | On-chain `depositAndSettle()` to AgentRewardPool contract |
 | `statediff.go` | State diff capture from stateDB commits and broadcasting to L4 agents |

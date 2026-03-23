@@ -23,7 +23,7 @@ func TestShadowAllMatch(t *testing.T) {
 
 	// Actual: both valid
 	actual := map[uint32]bool{1: true, 2: true}
-	mismatches, perAgent := shadow.CompareWithActual(actual, 100)
+	mismatches, perAgent := shadow.CompareWithActual(actual, nil, 100)
 
 	if len(mismatches) != 0 {
 		t.Fatalf("expected 0 mismatches, got %d", len(mismatches))
@@ -54,7 +54,7 @@ func TestShadowMismatch(t *testing.T) {
 
 	// Actual: task 1 invalid (false positive), task 2 valid (false negative)
 	actual := map[uint32]bool{1: false, 2: true}
-	mismatches, perAgent := shadow.CompareWithActual(actual, 200)
+	mismatches, perAgent := shadow.CompareWithActual(actual, nil, 200)
 
 	if len(mismatches) != 2 {
 		t.Fatalf("expected 2 mismatches, got %d", len(mismatches))
@@ -81,7 +81,7 @@ func TestShadowReset(t *testing.T) {
 	shadow.RecordAgentResults("ant-1", &pb.BatchResult{
 		Results: []*pb.TaskResult{{TaskID: 1, Valid: true}},
 	})
-	shadow.CompareWithActual(map[uint32]bool{1: true}, 1) //nolint:dogsled
+	shadow.CompareWithActual(map[uint32]bool{1: true}, nil, 1) //nolint:dogsled
 
 	shadow.ResetStats()
 	stats := shadow.Stats()
