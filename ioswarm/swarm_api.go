@@ -39,6 +39,7 @@ func NewSwarmAPI(coord *Coordinator, reward *RewardDistributor) *SwarmAPI {
 func (s *SwarmAPI) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/stats", cors(s.handlePublicStats))
+	mux.HandleFunc("/api/rewards", cors(s.handleRewards))
 	mux.HandleFunc("/swarm/status", s.handleStatus)
 	mux.HandleFunc("/swarm/agents", s.handleAgents)
 	mux.HandleFunc("/swarm/leaderboard", s.handleLeaderboard)
@@ -241,6 +242,60 @@ func (s *SwarmAPI) handleEpoch(w http.ResponseWriter, r *http.Request) {
 func (s *SwarmAPI) handleShadow(w http.ResponseWriter, r *http.Request) {
 	stats := s.coord.ShadowStats()
 	writeJSON(w, stats)
+}
+
+func (s *SwarmAPI) handleRewards(w http.ResponseWriter, r *http.Request) {
+	agentID := r.URL.Query().Get("agent")
+	if agentID == "" {
+		http.Error(w, `{"error":"agent parameter required"}`, http.StatusBadRequest)
+		return
+	}
+
+	history := s.reward.EpochHistory()
+	type entry struct {
+		Epoch      uint64  `json:"epoch"`
+		AmountIOTX float64 `json:"amount_iotx"`
+		Tasks      uint64  `json:"tasks"`
+		Accuracy   float64 `json:"accuracy_pct"`
+		Rank       int     `json:"rank"`
+		Bonus      bool    `json:"bonus_applied"`
+	}
+	var entries []entry
+	var totalEarned float64
+	var totalTasks uint64
+	var totalAccuracy float64
+	for _, epoch := range history {
+		for rank, p := range epoch.Payouts {
+			if p.AgentID == agentID {
+				entries = append(entries, entry{
+					Epoch:      epoch.Epoch,
+					AmountIOTX: p.AmountIOTX,
+					Tasks:      p.TasksDone,
+					Accuracy:   p.Accuracy,
+					Rank:       rank + 1,
+					Bonus:      p.BonusApplied,
+				})
+				totalEarned += p.AmountIOTX
+				totalTasks += p.TasksDone
+				totalAccuracy += p.Accuracy
+			}
+		}
+	}
+
+	avgAccuracy := float64(0)
+	if len(entries) > 0 {
+		avgAccuracy = totalAccuracy / float64(len(entries))
+	}
+
+	writeJSON(w, map[string]interface{}{
+		"agent_id": agentID,
+		"history":  entries,
+		"totals": map[string]interface{}{
+			"earned_iotx":  totalEarned,
+			"total_tasks":  totalTasks,
+			"avg_accuracy": avgAccuracy,
+		},
+	})
 }
 
 func (s *SwarmAPI) handleHealthz(w http.ResponseWriter, r *http.Request) {
