@@ -46,6 +46,9 @@ type (
 		getHeight() (uint64, error)
 		putHeight(uint64) error
 	}
+	// StateDiffCallback is called after a block is committed with the captured state diff entries.
+	StateDiffCallback func(height uint64, entries []WriteQueueEntry, digest []byte)
+
 	// stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
 	stateDB struct {
 		mutex                    sync.RWMutex
@@ -60,6 +63,7 @@ type (
 		ps                       *patchStore
 		erigonDB                 *erigonstore.ErigonDB
 		dependencies             []blockdao.BlockIndexer
+		diffCallback             StateDiffCallback
 	}
 )
 
@@ -88,6 +92,27 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 		sdb.skipBlockValidationOnPut = true
 		return nil
 	}
+}
+
+// DiffCallbackStateDBOption sets a callback invoked after each block commit
+// with the block's state diff entries. Used by ioSwarm for state diff streaming.
+func DiffCallbackStateDBOption(cb StateDiffCallback) StateDBOption {
+	return func(sdb *stateDB, cfg *Config) error {
+		sdb.diffCallback = cb
+		return nil
+	}
+}
+
+// SetDiffCallback sets the state diff callback on a Factory.
+// Returns false if the factory is not a stateDB (e.g., in-memory test factory).
+func SetDiffCallback(f Factory, cb StateDiffCallback) bool {
+	if sdb, ok := f.(*stateDB); ok {
+		sdb.mutex.Lock()
+		sdb.diffCallback = cb
+		sdb.mutex.Unlock()
+		return true
+	}
+	return false
 }
 
 // DisableWorkingSetCacheOption disable workingset cache
@@ -476,14 +501,15 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 	}
 	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
 	receipts, err := ws.Receipts()
 	if err != nil {
+		sdb.mutex.Unlock()
 		return err
 	}
 	blk.Receipts = receipts
 	h, _ := ws.Height()
 	if sdb.currentChainHeight+1 != h {
+		sdb.mutex.Unlock()
 		// another working set with correct version already committed, do nothing
 		return fmt.Errorf(
 			"current state height %d + 1 doesn't match working set height %d",
@@ -491,10 +517,21 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 	if err := ws.Commit(ctx, sdb.cfg.Chain.HistoryBlockRetention); err != nil {
+		sdb.mutex.Unlock()
 		return err
 	}
+	// Capture callback and entries before releasing lock
+	cb := sdb.diffCallback
+	diffEntries := ws.stateDiffEntries
+	diffDigest := ws.stateDiffDigest
 	sdb.protocolViews = ws.views
 	sdb.currentChainHeight = h
+	sdb.mutex.Unlock()
+	// Invoke state diff callback outside the mutex to avoid holding
+	// the lock during potentially slow broadcast operations
+	if cb != nil && len(diffEntries) > 0 {
+		cb(h, diffEntries, diffDigest)
+	}
 	for _, indexer := range sdb.dependencies {
 		if err := indexer.PutBlock(ctx, blk); err != nil {
 			return errors.Wrapf(err, "failed to update indexer %T", indexer)
