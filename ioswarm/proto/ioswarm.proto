@@ -1,0 +1,120 @@
+syntax = "proto3";
+
+package ioswarm;
+
+option go_package = "github.com/iotexproject/iotex-core/v2/ioswarm/proto";
+
+// IOSwarm service — coordinator ↔ agent communication
+service IOSwarm {
+  // Agent registers with coordinator on connect
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+
+  // Server-streaming: coordinator pushes task batches to agents
+  rpc GetTasks(GetTasksRequest) returns (stream TaskBatch);
+
+  // Agent submits validation results
+  rpc SubmitResults(BatchResult) returns (SubmitResponse);
+
+  // Agent heartbeat (every 10s)
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+}
+
+// Task levels — progressive complexity
+enum TaskLevel {
+  L1_SIG_VERIFY = 0;     // Signature verification only
+  L2_STATE_VERIFY = 1;   // + nonce/balance checks
+  L3_FULL_EXECUTE = 2;   // + full EVM execution (future)
+}
+
+// Account state snapshot for stateless verification
+message AccountSnapshot {
+  string address = 1;
+  string balance = 2;     // big.Int as string
+  uint64 nonce = 3;
+  bytes  code_hash = 4;   // for contract accounts
+}
+
+// A single task: one transaction to validate
+message TaskPackage {
+  uint32          task_id = 1;
+  bytes           tx_raw = 2;        // serialized SealedEnvelope
+  TaskLevel       level = 3;
+  AccountSnapshot sender = 4;
+  AccountSnapshot receiver = 5;
+  uint64          block_height = 6;  // current chain height for context
+}
+
+// Batch of tasks sent to an agent
+message TaskBatch {
+  string              batch_id = 1;
+  repeated TaskPackage tasks = 2;
+  uint64              timestamp = 3;
+}
+
+// Result for a single task
+message TaskResult {
+  uint32 task_id = 1;
+  bool   valid = 2;
+  string reject_reason = 3;
+  uint64 gas_estimate = 4;
+  uint64 latency_us = 5;   // processing time in microseconds
+}
+
+// Batch of results
+message BatchResult {
+  string              agent_id = 1;
+  string              batch_id = 2;
+  repeated TaskResult results = 3;
+  uint64              timestamp = 4;
+}
+
+// --- Register ---
+message RegisterRequest {
+  string    agent_id = 1;
+  TaskLevel capability = 2;  // max level this agent supports
+  string    region = 3;      // e.g. "us-west", "eu-central"
+  string    version = 4;     // agent software version
+  string    wallet_address = 5;  // IOTX address for reward payouts
+}
+
+message RegisterResponse {
+  bool   accepted = 1;
+  string reason = 2;
+  uint32 heartbeat_interval_sec = 3;  // coordinator's expected interval
+}
+
+// --- GetTasks ---
+message GetTasksRequest {
+  string    agent_id = 1;
+  TaskLevel max_level = 2;
+  uint32    max_batch_size = 3;  // agent's preferred batch size
+}
+
+// --- SubmitResults ---
+message SubmitResponse {
+  bool   accepted = 1;
+  string reason = 2;
+}
+
+// --- Heartbeat ---
+message HeartbeatRequest {
+  string agent_id = 1;
+  uint32 tasks_processed = 2;  // since last heartbeat
+  uint32 tasks_pending = 3;    // in agent's local queue
+  double cpu_usage = 4;        // 0.0-1.0
+  double mem_usage = 5;        // 0.0-1.0
+}
+
+message HeartbeatResponse {
+  bool   alive = 1;
+  string directive = 2;  // "continue", "drain", "shutdown"
+  PayoutInfo payout = 3; // set when an epoch payout was distributed
+}
+
+// Per-agent payout notification
+message PayoutInfo {
+  uint64 epoch = 1;
+  double amount_iotx = 2;
+  int32  rank = 3;
+  int32  total_agents = 4;
+}

@@ -912,6 +912,56 @@ func SimulateExecution(
 	return retval, receipt, err
 }
 
+// SimulateAndCollectAccessList runs a read-only EVM simulation and returns all
+// storage slots accessed during execution. This is used by the ioswarm coordinator
+// to discover which storage slots need to be prefetched for L3/L4 agents.
+func SimulateAndCollectAccessList(
+	ctx context.Context,
+	sm protocol.StateManager,
+	caller address.Address,
+	ex action.TxDataForSimulation,
+) (map[common.Address][]common.Hash, error) {
+	if err := ex.SanityCheck(); err != nil {
+		return nil, err
+	}
+	g := genesis.MustExtractGenesisContext(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:     caller,
+			ActionHash: hash.Hash256b(byteutil.Must(proto.Marshal(ex.Proto()))),
+			ReadOnly:   true,
+		},
+	)
+	zeroAddr, err := address.FromString(address.ZeroAddress)
+	if err != nil {
+		return nil, err
+	}
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight:    bcCtx.Tip.Height + 1,
+			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
+			GasLimit:       g.BlockGasLimitByHeight(bcCtx.Tip.Height + 1),
+			Producer:       zeroAddr,
+			BaseFee:        protocol.CalcBaseFee(g.Blockchain, &bcCtx.Tip),
+			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
+		},
+	))
+	stateDB, err := prepareStateDB(ctx, sm)
+	if err != nil {
+		return nil, err
+	}
+	ps, err := newParams(ctx, ex)
+	if err != nil {
+		return nil, err
+	}
+	// Run EVM — we ignore the return value/receipt, we only care about accessed slots
+	executeInEVM(ctx, ps, stateDB)
+	return stateDB.AccessedSlots(), nil
+}
+
 // ExtractRevertMessage extracts the revert message from the return value
 func ExtractRevertMessage(ret []byte) string {
 	if len(ret) < 4 {
