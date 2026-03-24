@@ -284,6 +284,35 @@ func (b *BoltDB) GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error) {
 	return allKey, err
 }
 
+// ForEach iterates over all key-value pairs in a bucket, calling fn for each.
+// Unlike Filter, it does not accumulate results in memory — suitable for large buckets.
+// The callback receives copies of key and value that are safe to retain.
+// Return a non-nil error from fn to stop iteration early.
+func (b *BoltDB) ForEach(namespace string, fn func(k, v []byte) error) error {
+	if !b.IsReady() {
+		return ErrDBNotStarted
+	}
+
+	return b.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(namespace))
+		if bucket == nil {
+			return errors.Wrapf(ErrBucketNotExist, "bucket = %s doesn't exist", namespace)
+		}
+		c := bucket.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			// Copy key and value since bolt reuses the byte slices
+			kc := make([]byte, len(k))
+			copy(kc, k)
+			vc := make([]byte, len(v))
+			copy(vc, v)
+			if err := fn(kc, vc); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 // Delete deletes a record,if key is nil,this will delete the whole bucket
 func (b *BoltDB) Delete(namespace string, key []byte) (err error) {
 	if !b.IsReady() {
