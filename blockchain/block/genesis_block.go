@@ -7,6 +7,7 @@ package block
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -17,7 +18,7 @@ import (
 
 var (
 	_loadGenesisHash sync.Once
-	_genesisHash     hash.Hash256
+	_genesisHash     atomic.Value // stores hash.Hash256
 )
 
 // GenesisBlock returns the genesis block
@@ -37,7 +38,10 @@ func GenesisBlock() *Block {
 
 // GenesisHash returns the genesis block's hash
 func GenesisHash() hash.Hash256 {
-	return _genesisHash
+	if v := _genesisHash.Load(); v != nil {
+		return v.(hash.Hash256)
+	}
+	return hash.ZeroHash256
 }
 
 // LoadGenesisHash computes and saves the genesis block's hash from the genesis config.
@@ -45,12 +49,14 @@ func GenesisHash() hash.Hash256 {
 // For testing with multiple genesis configs, use SetGenesisHash directly.
 func LoadGenesisHash(g *genesis.Genesis) {
 	_loadGenesisHash.Do(func() {
-		_genesisHash = g.Hash()
+		_genesisHash.Store(g.Hash())
 	})
 }
 
 // SetGenesisHash forces the genesis hash to a specific value.
-// Used by tests and minicluster that create custom genesis configs after startup.
+// IMPORTANT: Must be called during single-threaded init only, before any goroutines
+// call GenesisHash(). Used by tests and minicluster that create custom genesis configs
+// after startup.
 func SetGenesisHash(g *genesis.Genesis) {
-	_genesisHash = g.Hash()
+	_genesisHash.Store(g.Hash())
 }
