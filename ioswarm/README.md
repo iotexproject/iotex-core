@@ -112,6 +112,16 @@ docker run -d --name iotex \
 
 # Use nginx or a cloud load balancer to terminate TLS on :443
 # and proxy to localhost:14689 (gRPC) / localhost:14690 (HTTP)
+#
+# IMPORTANT: Set grpc_read_timeout to at least 3600s for gRPC streaming.
+# The default 60s causes GetTasks streams to disconnect with 504 errors.
+# Example nginx config:
+#   location / {
+#       grpc_pass grpc://127.0.0.1:14689;
+#       grpc_read_timeout 3600s;
+#       grpc_send_timeout 3600s;
+#       client_body_timeout 3600s;
+#   }
 
 # Verify coordinator is running
 curl http://localhost:14690/swarm/status
