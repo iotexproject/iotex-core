@@ -90,9 +90,16 @@ func (s *Indexer) Start(ctx context.Context) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	startTime := time.Now()
 	if err := s.loadFromDB(); err != nil {
 		return err
 	}
+	bucketCount := s.cache.TotalBucketCount()
+	log.L().Info("Loaded contract staking indexer buckets from DB",
+		zap.String("contract", s.config.ContractAddress),
+		zap.Uint64("count", bucketCount),
+		zap.Duration("duration", time.Since(startTime)),
+	)
 	s.TurnOn()
 	return nil
 }

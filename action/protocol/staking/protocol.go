@@ -247,10 +247,16 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 	}
 
 	// load view from SR
+	startTime := time.Now()
 	c, _, err := CreateBaseView(protocol.MustGetFeatureCtx(ctx), sr, featureCtx.ReadStateFromDB(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
+	// log native buckets loading time
+	log.L().Info("Loaded native buckets from DB",
+		zap.Uint64("count", c.bucketPool.Count()),
+		zap.Duration("duration", time.Since(startTime)),
+	)
 
 	if p.needToReadCandsMap(ctx, height) {
 		name, operator, owners, err := readCandCenterStateFromStateDB(sr)

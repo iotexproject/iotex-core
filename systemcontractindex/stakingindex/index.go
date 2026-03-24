@@ -121,7 +121,17 @@ func (s *Indexer) Start(ctx context.Context) error {
 	if err := s.common.Start(ctx); err != nil {
 		return err
 	}
-	return s.cache.Load(s.common.KVStore(), s.ns, s.bucketNS)
+	startTime := time.Now()
+	if err := s.cache.Load(s.common.KVStore(), s.ns, s.bucketNS); err != nil {
+		return err
+	}
+	bucketCount := s.cache.TotalBucketCount()
+	log.L().Info("Loaded contract staking indexer buckets from DB",
+		zap.String("contract", s.common.ContractAddress().String()),
+		zap.Uint64("count", bucketCount),
+		zap.Duration("duration", time.Since(startTime)),
+	)
+	return nil
 }
 
 // Stop stops the indexer
