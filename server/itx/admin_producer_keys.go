@@ -76,9 +76,15 @@ func NewProducerKeysAdmin(svr *Server) http.Handler {
 				return
 			}
 
-			// Build current key map (address → key) from in-memory config.
+			// Build remove set for O(1) lookup.
+			removeSet := make(map[string]struct{}, len(req.RemoveAddresses))
+			for _, addr := range req.RemoveAddresses {
+				removeSet[strings.TrimSpace(addr)] = struct{}{}
+			}
+
+			// Retain existing keys in original order, skipping removed addresses.
 			cfg := svr.Config()
-			currentKeys := make(map[string]crypto.PrivateKey)
+			newKeys := make([]crypto.PrivateKey, 0)
 			for _, encoded := range strings.Split(cfg.Chain.ProducerPrivKey, ",") {
 				encoded = strings.TrimSpace(encoded)
 				if encoded == "" {
@@ -88,32 +94,37 @@ func NewProducerKeysAdmin(svr *Server) http.Handler {
 				if err != nil {
 					continue
 				}
-				currentKeys[key.PublicKey().Address().String()] = key
+				addr := key.PublicKey().Address().String()
+				if _, removed := removeSet[addr]; removed {
+					continue
+				}
+				newKeys = append(newKeys, key)
 			}
 
-			// Add new keys.
+			// Track addresses already in the list to avoid duplicates when adding.
+			existingAddrs := make(map[string]struct{}, len(newKeys))
+			for _, key := range newKeys {
+				existingAddrs[key.PublicKey().Address().String()] = struct{}{}
+			}
+
+			// Append new keys at the end in request order; skip duplicates.
 			for _, encoded := range req.AddKeys {
 				key, err := crypto.HexStringToPrivateKey(strings.TrimSpace(encoded))
 				if err != nil {
 					http.Error(w, "invalid private key in add_keys", http.StatusBadRequest)
 					return
 				}
-				currentKeys[key.PublicKey().Address().String()] = key
+				addr := key.PublicKey().Address().String()
+				if _, exists := existingAddrs[addr]; exists {
+					continue // already present, skip
+				}
+				newKeys = append(newKeys, key)
+				existingAddrs[addr] = struct{}{}
 			}
 
-			// Remove by address.
-			for _, addr := range req.RemoveAddresses {
-				delete(currentKeys, strings.TrimSpace(addr))
-			}
-
-			if len(currentKeys) == 0 {
+			if len(newKeys) == 0 {
 				http.Error(w, "cannot remove all producer keys", http.StatusBadRequest)
 				return
-			}
-
-			newKeys := make([]crypto.PrivateKey, 0, len(currentKeys))
-			for _, key := range currentKeys {
-				newKeys = append(newKeys, key)
 			}
 
 			addresses, err := svr.UpdateProducerKeys(newKeys)
