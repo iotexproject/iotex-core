@@ -242,6 +242,12 @@ func (r *RollDPoS) Active() bool {
 	return r.ctx.Active() || r.cfsm.CurrentState() != consensusfsm.InitState
 }
 
+// UpdateProducerKeys refreshes the in-memory producer key set without restarting the node.
+func (r *RollDPoS) UpdateProducerKeys(keys []crypto.PrivateKey) error {
+	r.ctx.UpdateProducerKeys(keys)
+	return nil
+}
+
 type (
 	// BuilderConfig returns the configuration of the builder
 	BuilderConfig struct {
