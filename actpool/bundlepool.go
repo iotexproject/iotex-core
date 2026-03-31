@@ -17,6 +17,13 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
+const (
+	// DefaultMaxBundleLookahead is the default maximum number of blocks ahead a bundle can target.
+	DefaultMaxBundleLookahead = uint64(100)
+	// DefaultMaxBundlePoolSize is the default maximum number of bundles in the pool.
+	DefaultMaxBundlePoolSize = 1000
+)
+
 var (
 	ErrNoBundlesForHeight = errors.New("no bundles for the height")
 	ErrNilBundle          = errors.New("bundle is nil")
@@ -25,8 +32,8 @@ var (
 	ErrBundleUUIDExists   = errors.New("bundle with UUID already exists")
 	ErrEmptyBundle        = errors.New("bundle is empty")
 	ErrBundleNotFound     = errors.New("bundle not found")
+	ErrBundlePoolFull     = errors.New("bundle pool is full")
 	ErrNilBlock           = errors.New("block is nil")
-	ErrInvalidCaller      = errors.New("invalid caller")
 	ErrBlockHeightTooLow  = errors.New("block height is too low")
 )
 
@@ -46,6 +53,8 @@ type (
 		mu                    sync.RWMutex
 		height                uint64
 		genesis               genesis.Genesis
+		maxLookahead          uint64 // max blocks ahead a bundle can target
+		maxSize               int    // max total bundles in the pool
 		metas                 map[hash.Hash256]*meta
 		uuids                 map[string]hash.Hash256   // UUID to bundle hash mapping
 		targetHeightToBundles map[uint64][]hash.Hash256 // Target block height to bundles mapping
@@ -60,12 +69,28 @@ func NewBundlePool(g genesis.Genesis) *BundlePool {
 		mu:                    sync.RWMutex{},
 		height:                0,
 		genesis:               g,
+		maxLookahead:          DefaultMaxBundleLookahead,
+		maxSize:               DefaultMaxBundlePoolSize,
 		metas:                 make(map[hash.Hash256]*meta),
 		uuids:                 make(map[string]hash.Hash256),
 		targetHeightToBundles: make(map[uint64][]hash.Hash256),
 		broadcast:             nil,
 		validate:              nil,
 	}
+}
+
+// SetMaxLookahead sets the maximum number of blocks ahead a bundle can target.
+func (bp *BundlePool) SetMaxLookahead(n uint64) {
+	bp.mu.Lock()
+	defer bp.mu.Unlock()
+	bp.maxLookahead = n
+}
+
+// SetMaxSize sets the maximum number of bundles allowed in the pool.
+func (bp *BundlePool) SetMaxSize(n int) {
+	bp.mu.Lock()
+	defer bp.mu.Unlock()
+	bp.maxSize = n
 }
 
 func (bp *BundlePool) SetValidator(validateFunc ValidateActionFunc) {
@@ -94,6 +119,12 @@ func (bp *BundlePool) AddBundle(ctx context.Context, sender address.Address, uui
 	defer bp.mu.Unlock()
 	if height <= bp.height {
 		return errors.Wrapf(ErrBundleTargetHeight, "bundle target block height %d is less than current height %d", height, bp.height)
+	}
+	if height > bp.height+bp.maxLookahead {
+		return errors.Wrapf(ErrBundleTargetHeight, "bundle target block height %d exceeds max lookahead of %d blocks (current height %d)", height, bp.maxLookahead, bp.height)
+	}
+	if len(bp.metas) >= bp.maxSize {
+		return errors.Wrapf(ErrBundlePoolFull, "bundle pool has reached its maximum size of %d", bp.maxSize)
 	}
 	if _, ok := bp.metas[h]; ok {
 		return errors.Wrapf(ErrBundleExists, "bundle with hash %x already exists", h)
@@ -156,7 +187,8 @@ func (bp *BundlePool) Size() int {
 }
 
 // DeleteBundle deletes a bundle from the pool by its UUID.
-func (bp *BundlePool) DeleteBundle(caller address.Address, uuid string) error {
+// The UUID itself is the ownership token — only the original submitter knows it.
+func (bp *BundlePool) DeleteBundle(uuid string) error {
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 	h, ok := bp.uuids[uuid]
@@ -164,9 +196,6 @@ func (bp *BundlePool) DeleteBundle(caller address.Address, uuid string) error {
 		return errors.Wrapf(ErrBundleNotFound, "bundle with UUID %s not found", uuid)
 	}
 	m := bp.metas[h]
-	if m.sender != caller {
-		return errors.Wrapf(ErrInvalidCaller, "caller %s is not the sender of the bundle with hash %x", caller.String(), h)
-	}
 	height := m.bundle.TargetBlockHeight()
 	// Remove from targetHeightToBundles
 	hashes := bp.targetHeightToBundles[height]

@@ -92,7 +92,7 @@ type (
 		// SendBundle is the API to send a bundle to blockchain.
 		SendBundle(ctx context.Context, in *iotextypes.Bundle, sender address.Address, id string) (string, error)
 		// DeleteBundle deletes a bundle from the bundle pool.
-		DeleteBundle(ctx context.Context, sender address.Address, uuid string) error
+		DeleteBundle(ctx context.Context, uuid string) error
 		// SendAction is the API to send an action to blockchain.
 		SendAction(ctx context.Context, in *iotextypes.Action) (string, error)
 		// ReadContract reads the state in a contract address specified by the slot
@@ -584,13 +584,13 @@ func (core *coreService) SendBundle(ctx context.Context, in *iotextypes.Bundle, 
 }
 
 // DeleteBundle deletes a bundle from the bundle pool.
-func (core *coreService) DeleteBundle(ctx context.Context, sender address.Address, id string) error {
+func (core *coreService) DeleteBundle(ctx context.Context, id string) error {
 	log.T(ctx).Debug("receive delete bundle request")
 	bp := core.ap.BundlePool()
 	if bp == nil {
 		return status.Error(codes.Unavailable, "bundle pool is not available")
 	}
-	if err := bp.DeleteBundle(sender, id); err != nil {
+	if err := bp.DeleteBundle(id); err != nil {
 		return status.Error(codes.Internal, fmt.Sprintf("failed to delete bundle: %v", err))
 	}
 	return nil
