@@ -59,9 +59,18 @@ type HeartbeatHandler struct {
 
 // NewHeartbeatHandler instantiates a HeartbeatHandler instance
 func NewHeartbeatHandler(s *Server, cfg p2p.Config) *HeartbeatHandler {
+	chainCfg := s.Config().Chain
+	addrs := chainCfg.ProducerAddress()
+	ss := make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		ss = append(ss, addr.String())
+	}
 	return &HeartbeatHandler{
 		s: s,
-		l: log.L().With(zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port))),
+		l: log.L().With(
+			zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)),
+			zap.String("ioAddr", strings.Join(ss, ",")),
+		),
 	}
 }
 
