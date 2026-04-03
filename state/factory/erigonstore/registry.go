@@ -83,7 +83,6 @@ func init() {
 	}
 	epochRewardKeySplit := genKeySplit(rewardHistoryPrefixs[1:])
 	blockRewardKeySplit := genKeySplit(rewardHistoryPrefixs[:1])
-	// pollKeySplit := genKeySplit(pollPrefix)
 
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.AccountKVNamespace, RewardingContractV1Index, WithKeySplitOption(epochRewardKeySplit), WithRewardingHistoryPrefixOption(blockRewardKeySplit, rewardHistoryPrefixs[0])))
 	assertions.MustNoError(storageRegistry.RegisterNamespace(state.RewardingNamespace, RewardingContractV2Index, WithKeySplitOption(epochRewardKeySplit), WithRewardingHistoryPrefixOption(blockRewardKeySplit, rewardHistoryPrefixs[0])))
