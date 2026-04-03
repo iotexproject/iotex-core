@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/actsync"
 	"github.com/iotexproject/iotex-core/v2/api"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/ioswarm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/blockindex"
 	"github.com/iotexproject/iotex-core/v2/blocksync"
@@ -85,6 +86,7 @@ var (
 		Genesis:    genesis.Default,
 		NodeInfo:   nodeinfo.DefaultConfig,
 		ActionSync: actsync.DefaultConfig,
+		IOSwarm:    ioswarm.DefaultConfig(),
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -137,6 +139,7 @@ type (
 		Genesis            genesis.Genesis                 `yaml:"genesis"`
 		NodeInfo           nodeinfo.Config                 `yaml:"nodeinfo"`
 		ActionSync         actsync.Config                  `yaml:"actionSync"`
+		IOSwarm            ioswarm.Config                  `yaml:"ioswarm"`
 	}
 
 	// Validate is the interface of validating the config

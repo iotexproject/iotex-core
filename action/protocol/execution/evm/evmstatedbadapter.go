@@ -680,6 +680,23 @@ func (stateDB *StateDBAdapter) SlotInAccessList(addr common.Address, slot common
 	return stateDB.accessList.Contains(addr, slot)
 }
 
+// AccessedSlots returns all storage slots accessed during EVM execution.
+// Returns a map of contract address → list of accessed slot hashes.
+func (stateDB *StateDBAdapter) AccessedSlots() map[common.Address][]common.Hash {
+	result := make(map[common.Address][]common.Hash)
+	if stateDB.accessList == nil {
+		return result
+	}
+	for addr, idx := range stateDB.accessList.addresses {
+		if idx >= 0 && idx < len(stateDB.accessList.slots) {
+			for slot := range stateDB.accessList.slots[idx] {
+				result[addr] = append(result[addr], slot)
+			}
+		}
+	}
+	return result
+}
+
 // AddAddressToAccessList adds the given address to the access list. This operation is safe to perform
 // even if the feature/fork is not active yet
 func (stateDB *StateDBAdapter) AddAddressToAccessList(addr common.Address) {
