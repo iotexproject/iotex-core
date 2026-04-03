@@ -975,7 +975,7 @@ func (ws *workingSet) validateAndRun(
 		}
 	}
 	if err := ws.txValidator.ValidateWithState(ctx, nextAction); err != nil {
-		log.L().Info("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
+		log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
 		if !errors.Is(err, action.ErrNonceTooLow) {
 			return true, true, nil, nil
 		}
