@@ -151,9 +151,6 @@ func (as *accountStorage) Store(key []byte, value any) error {
 }
 
 // getBySlot attempts to read data directly from storage slots for better performance.
-// TODO: This function needs fixes - the storage slot calculation doesn't match actual GenericStorage layout.
-// The mapping slot calculation for mapping(bytes => uint256) may need adjustment.
-// For now, use contract.Get() in Load() which is functionally correct.
 func (as *accountStorage) getBySlot(key []byte) (*systemcontracts.GenericValue, error) {
 	idx, err := as.lookupIndex(key)
 	if err != nil {
