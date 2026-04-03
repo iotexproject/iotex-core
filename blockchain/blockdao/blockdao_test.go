@@ -447,9 +447,11 @@ func Test_blockDAO_Header(t *testing.T) {
 	})
 
 	t.Run("FailedToGetHeaderFromBlockStore", func(t *testing.T) {
-		store.EXPECT().Header(gomock.Any()).Return(nil, errors.New(t.Name())).Times(1)
+		// Use a non-zero hash to avoid matching GenesisHash() which defaults to zero hash in tests
+		nonZeroHash := hash.Hash256{0x01, 0x02, 0x03}
+		store.EXPECT().Header(nonZeroHash).Return(nil, errors.New(t.Name())).Times(1)
 
-		header, err := dao.Header(hash.Hash256{})
+		header, err := dao.Header(nonZeroHash)
 
 		r.Nil(header)
 		r.ErrorContains(err, t.Name())
