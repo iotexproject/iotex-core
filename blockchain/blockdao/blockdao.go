@@ -303,6 +303,13 @@ func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 	_cacheMtc.WithLabelValues("miss_header").Inc()
 	header, err := dao.blockStore.Header(h)
 	if err != nil {
+		// Genesis block (height 0) is never stored via PutBlock, so its header
+		// is not in the hash-based index. Check if this hash matches the genesis
+		// hash (from genesis config) and return the static genesis block header.
+		if h == block.GenesisHash() {
+			header := block.GenesisBlock().Header
+			return &header, nil
+		}
 		return nil, err
 	}
 

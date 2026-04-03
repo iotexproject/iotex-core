@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/config"
@@ -140,6 +141,9 @@ func main() {
 		testutil.NormalizeGenesisHeights(&config.Genesis.Blockchain)
 		configs[i] = config
 	}
+
+	// Set genesis hash from the actual config (overrides sync.Once from default genesis)
+	block.SetGenesisHash(&configs[0].Genesis)
 
 	// Create mini-cluster
 	svrs := make([]*itx.Server, _numNodes)
