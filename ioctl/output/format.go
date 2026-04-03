@@ -121,12 +121,13 @@ type ConfirmationMessage struct {
 
 func (m *ConfirmationMessage) String() string {
 	if Format == "" {
-		line := fmt.Sprintf("%s\nOptions:", m.Info)
+		var line strings.Builder
+		line.WriteString(fmt.Sprintf("%s\nOptions:", m.Info))
 		for _, option := range m.Options {
-			line += " " + option
+			line.WriteString(" " + option)
 		}
-		line += "\nQuit for anything else."
-		return line
+		line.WriteString("\nQuit for anything else.")
+		return line.String()
 	}
 	return FormatString(Confirmation, m)
 }
