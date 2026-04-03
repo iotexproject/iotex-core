@@ -130,10 +130,7 @@ func (dm *InfoManager) MayHaveBlock(peerID string, start uint64) bool {
 		return false
 	}
 	info := value.(Info)
-	duration := time.Now().Sub(info.Timestamp)
-	if duration < 0 {
-		duration = 0
-	}
+	duration := max(time.Now().Sub(info.Timestamp), 0)
 
 	return int64(info.Height)+duration.Milliseconds()/dm.blockInterval.Milliseconds() > int64(start)
 }
