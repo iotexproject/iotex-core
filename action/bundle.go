@@ -20,7 +20,7 @@ func NewBundle() *Bundle {
 }
 
 func (b *Bundle) validateItem(item *SealedEnvelope) error {
-	if item == nil {
+	if item == nil || item.Envelope == nil {
 		return ErrNilAction
 	}
 	switch item.Action().(type) {

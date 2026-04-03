@@ -210,8 +210,8 @@ func TestBundlePool_AddAndGetBundles(t *testing.T) {
 
 	t.Run("non-empty bundle", func(t *testing.T) {
 		bundle := action.NewBundle()
-		bundle.Add(se)
-		bundle.Add(se2)
+		require.NoError(bundle.Add(se))
+		require.NoError(bundle.Add(se2))
 		bundle.SetTargetBlockHeight(102)
 		require.Equal(0, bp.Size())
 		require.NoError(bp.AddBundle(ctx, sender, "uuid-valid", bundle))
@@ -240,7 +240,7 @@ func TestBundlePool_AddAndGetBundles(t *testing.T) {
 		t.Run("pool size limit", func(t *testing.T) {
 			bp.SetMaxSize(1) // pool already has 1 bundle
 			bundle2 := action.NewBundle()
-			bundle2.Add(se)
+			require.NoError(bundle2.Add(se))
 			bundle2.SetTargetBlockHeight(103)
 			require.ErrorIs(bp.AddBundle(ctx, sender, "uuid-overflow", bundle2), ErrBundlePoolFull)
 			bp.SetMaxSize(DefaultMaxBundlePoolSize) // restore

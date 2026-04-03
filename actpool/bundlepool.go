@@ -87,7 +87,11 @@ func (bp *BundlePool) SetMaxLookahead(n uint64) {
 }
 
 // SetMaxSize sets the maximum number of bundles allowed in the pool.
+// n must be > 0; invalid values are ignored.
 func (bp *BundlePool) SetMaxSize(n int) {
+	if n <= 0 {
+		return
+	}
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 	bp.maxSize = n
@@ -120,7 +124,7 @@ func (bp *BundlePool) AddBundle(ctx context.Context, sender address.Address, uui
 	if height <= bp.height {
 		return errors.Wrapf(ErrBundleTargetHeight, "bundle target block height %d is less than current height %d", height, bp.height)
 	}
-	if height > bp.height+bp.maxLookahead {
+	if height-bp.height > bp.maxLookahead {
 		return errors.Wrapf(ErrBundleTargetHeight, "bundle target block height %d exceeds max lookahead of %d blocks (current height %d)", height, bp.maxLookahead, bp.height)
 	}
 	if len(bp.metas) >= bp.maxSize {

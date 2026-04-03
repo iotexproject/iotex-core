@@ -53,6 +53,10 @@ func TestBundle_ValidateItem(t *testing.T) {
 		b := NewBundle()
 		require.ErrorIs(t, b.Add(nil), ErrNilAction)
 	})
+	t.Run("nil Envelope rejected without panic", func(t *testing.T) {
+		b := NewBundle()
+		require.ErrorIs(t, b.Add(&SealedEnvelope{}), ErrNilAction)
+	})
 }
 
 func TestBundle_Hash(t *testing.T) {

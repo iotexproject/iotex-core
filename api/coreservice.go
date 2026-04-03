@@ -586,11 +586,17 @@ func (core *coreService) SendBundle(ctx context.Context, in *iotextypes.Bundle, 
 // DeleteBundle deletes a bundle from the bundle pool.
 func (core *coreService) DeleteBundle(ctx context.Context, id string) error {
 	log.T(ctx).Debug("receive delete bundle request")
+	if id == "" {
+		return status.Error(codes.InvalidArgument, "bundle UUID must not be empty")
+	}
 	bp := core.ap.BundlePool()
 	if bp == nil {
 		return status.Error(codes.Unavailable, "bundle pool is not available")
 	}
 	if err := bp.DeleteBundle(id); err != nil {
+		if errors.Is(err, actpool.ErrBundleNotFound) {
+			return status.Error(codes.NotFound, err.Error())
+		}
 		return status.Error(codes.Internal, fmt.Sprintf("failed to delete bundle: %v", err))
 	}
 	return nil
