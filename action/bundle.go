@@ -20,8 +20,14 @@ func NewBundle() *Bundle {
 }
 
 func (b *Bundle) validateItem(item *SealedEnvelope) error {
-	if item == nil {
+	if item == nil || item.Envelope == nil {
 		return ErrNilAction
+	}
+	switch item.Action().(type) {
+	case *Transfer, *Execution, *txContainer:
+		// Transfer, Execution, and txContainer actions are allowed in bundles
+	default:
+		return ErrInvalidAct
 	}
 	return nil
 }
