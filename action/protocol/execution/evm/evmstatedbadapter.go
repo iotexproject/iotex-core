@@ -86,6 +86,7 @@ type (
 		panicUnrecoverableError    bool
 		enableCancun               bool
 		fixRevertSnapshot          bool
+		buildWitness               bool
 	}
 )
 
@@ -199,6 +200,14 @@ func FixRevertSnapshotOption() StateDBAdapterOption {
 	}
 }
 
+// BuildWitnessOption enables contract storage witness generation.
+func BuildWitnessOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.buildWitness = true
+		return nil
+	}
+}
+
 func WithContext(ctx context.Context) StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.ctx = ctx
@@ -249,9 +258,50 @@ func NewStateDBAdapter(
 		s.createdAccountSnapshot = make(map[int]createdAccount)
 	}
 	s.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
-		return newContract(addr, account, s.sm, s.asyncContractTrie)
+		c, err := newContract(addr, account, s.sm, s.asyncContractTrie)
+		if err != nil {
+			return nil, err
+		}
+		if s.buildWitness {
+			enableWitnessOnContract(c, addr)
+		}
+		return c, nil
 	}
 	return s, nil
+}
+
+// enableWitnessOnContract wraps the contract's storage trie with a witnessTrie.
+func enableWitnessOnContract(c Contract, addr hash.Hash160) {
+	cc, ok := c.(*contract)
+	if !ok {
+		return
+	}
+	hashFunc := func(data []byte) []byte {
+		h := hash.Hash256b(append(addr[:], data...))
+		return h[:]
+	}
+	cc.trie = newWitnessTrie(cc.trie, hashFunc)
+}
+
+// StorageWitnesses collects contract storage witnesses from all cached contracts.
+func (stateDB *StateDBAdapter) StorageWitnesses() (map[common.Address]*ContractStorageWitness, error) {
+	if !stateDB.buildWitness {
+		return nil, nil
+	}
+	witnesses := make(map[common.Address]*ContractStorageWitness)
+	for addr, c := range stateDB.cachedContract {
+		w, err := c.BuildStorageWitness()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to build witness for contract %x", addr[:])
+		}
+		if w != nil {
+			witnesses[common.Address(addr)] = w
+		}
+	}
+	if len(witnesses) == 0 {
+		return nil, nil
+	}
+	return witnesses, nil
 }
 
 func (stateDB *StateDBAdapter) logError(err error) {

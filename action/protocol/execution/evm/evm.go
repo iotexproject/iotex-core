@@ -318,6 +318,19 @@ func ExecuteContract(
 	if err := stateDB.CommitContracts(); err != nil {
 		return nil, nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
+	// collect and emit contract storage witnesses before clear()
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageWitnesses != nil {
+		type witnessProvider interface {
+			StorageWitnesses() (map[common.Address]*ContractStorageWitness, error)
+		}
+		if wp, ok := stateDB.(witnessProvider); ok {
+			if witnesses, err := wp.StorageWitnesses(); err != nil {
+				return nil, nil, errors.Wrap(err, "failed to collect storage witnesses")
+			} else if witnesses != nil {
+				tCtx.CaptureContractStorageWitnesses(witnesses)
+			}
+		}
+	}
 	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog...)
 	receipt.AddTransactionLogs(burnLog)
 	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||
@@ -447,6 +460,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.FixRevertSnapshot || actionCtx.ReadOnly {
 		opts = append(opts, FixRevertSnapshotOption())
 		opts = append(opts, WithContext(ctx))
+	}
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageWitnesses != nil {
+		opts = append(opts, BuildWitnessOption())
 	}
 	return NewStateDBAdapter(
 		sm,
