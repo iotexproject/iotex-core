@@ -1011,7 +1011,7 @@ func TestProtocol_HandleCandidateEndorsement_RevokeSelfStakeAfterHardfork(t *tes
 
 	tests := []struct {
 		name                  string
-		toBeEnabledHeight     uint64 // Controls NoCandidateExitQueue flag
+		yapHeight             uint64 // Controls NoCandidateExitQueue flag
 		blockHeight           uint64
 		initialDeactivatedAt  uint64
 		expectedDeactivatedAt uint64
@@ -1021,7 +1021,7 @@ func TestProtocol_HandleCandidateEndorsement_RevokeSelfStakeAfterHardfork(t *tes
 	}{
 		{
 			name:                  "revoke self-stake after hardfork with no prior request - requests deactivation",
-			toBeEnabledHeight:     1, // NoCandidateExitQueue = false
+			yapHeight:             1, // NoCandidateExitQueue = false
 			blockHeight:           10,
 			initialDeactivatedAt:  0,
 			expectedDeactivatedAt: candidateExitRequested,
@@ -1030,7 +1030,7 @@ func TestProtocol_HandleCandidateEndorsement_RevokeSelfStakeAfterHardfork(t *tes
 		},
 		{
 			name:                  "revoke self-stake after hardfork with scheduled deactivation ready - deactivates",
-			toBeEnabledHeight:     1, // NoCandidateExitQueue = false
+			yapHeight:             1, // NoCandidateExitQueue = false
 			blockHeight:           100,
 			initialDeactivatedAt:  90, // Scheduled for height 90
 			expectedDeactivatedAt: 90,
@@ -1039,7 +1039,7 @@ func TestProtocol_HandleCandidateEndorsement_RevokeSelfStakeAfterHardfork(t *tes
 		},
 		{
 			name:                  "revoke self-stake after hardfork with exit requested - fails with not scheduled",
-			toBeEnabledHeight:     1, // NoCandidateExitQueue = false
+			yapHeight:             1, // NoCandidateExitQueue = false
 			blockHeight:           100,
 			initialDeactivatedAt:  90,  // Already scheduled for deactivation at height 90
 			expectedDeactivatedAt: 90,  // DeactivatedAt remains set after deactivate (only self-stake is cleared)
@@ -1048,7 +1048,7 @@ func TestProtocol_HandleCandidateEndorsement_RevokeSelfStakeAfterHardfork(t *tes
 		},
 		{
 			name:                  "revoke self-stake before hardfork - clears self-stake directly",
-			toBeEnabledHeight:     1<<64 - 1, // NoCandidateExitQueue = true
+			yapHeight:             1<<64 - 1, // NoCandidateExitQueue = true
 			blockHeight:           10,
 			initialDeactivatedAt:  0,
 			expectedDeactivatedAt: 0,
@@ -1116,7 +1116,7 @@ func TestProtocol_HandleCandidateEndorsement_RevokeSelfStakeAfterHardfork(t *tes
 			cfg.GreenlandBlockHeight = 1
 			cfg.TsunamiBlockHeight = 1
 			cfg.UpernavikBlockHeight = 1
-			cfg.ToBeEnabledBlockHeight = tt.toBeEnabledHeight
+			cfg.YapBlockHeight = tt.yapHeight
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(ctx)
 
@@ -1207,7 +1207,7 @@ func TestProtocol_HandleCandidateEndorsement_RevokeNonSelfStakeAfterHardfork(t *
 		cfg.GreenlandBlockHeight = 1
 		cfg.TsunamiBlockHeight = 1
 		cfg.UpernavikBlockHeight = 1
-		cfg.ToBeEnabledBlockHeight = 1 // NoCandidateExitQueue = false
+		cfg.YapBlockHeight = 1 // NoCandidateExitQueue = false
 		ctx = genesis.WithGenesisContext(ctx, cfg)
 		ctx = protocol.WithFeatureCtx(ctx)
 
@@ -1436,7 +1436,7 @@ func TestProtocol_HandleCandidateEndorsement_DeactivatedCandidateEndorsementEdge
 			cfg.GreenlandBlockHeight = 1
 			cfg.TsunamiBlockHeight = 1
 			cfg.UpernavikBlockHeight = 1
-			cfg.ToBeEnabledBlockHeight = 1 // NoCandidateExitQueue = false
+			cfg.YapBlockHeight = 1 // NoCandidateExitQueue = false
 			ctx = genesis.WithGenesisContext(ctx, cfg)
 			ctx = protocol.WithFeatureCtx(ctx)
 

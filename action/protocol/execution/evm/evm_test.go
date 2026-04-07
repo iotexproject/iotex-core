@@ -385,8 +385,11 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isVanuatu, evmChainConfig.IsCancun(big.NewInt(int64(e.height)), evm.Context.Time))
 
 		// Prague and Verkle not yet enabled
-		require.False(chainRules.IsPrague)
-		require.False(evmChainConfig.IsPrague(big.NewInt(int64(e.height)), evm.Context.Time))
+		isYap := g.IsYap(e.height)
+		require.Equal(isYap, chainRules.IsPrague)
+		require.Equal(isYap, evmChainConfig.IsPrague(big.NewInt(int64(e.height)), evm.Context.Time))
+
+		// Verkle not yet enabled
 		require.False(chainRules.IsVerkle)
 		require.False(evmChainConfig.IsVerkle(big.NewInt(int64(e.height)), evm.Context.Time))
 

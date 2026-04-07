@@ -85,7 +85,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return nil
 	}
 	// deploy the history storage contract at block
-	if blkCtx.BlockHeight == g.ToBeEnabledBlockHeight {
+	if blkCtx.BlockHeight == g.YapBlockHeight {
 		if err := p.deployHistoryBlockStorageContract(ctx, sm); err != nil {
 			return err
 		}
