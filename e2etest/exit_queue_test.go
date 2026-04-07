@@ -21,7 +21,7 @@ import (
 func initExitQueueCfg(r *require.Assertions) config.Config {
 	cfg := initCfg(r)
 	cfg.Genesis.VanuatuBlockHeight = 1
-	cfg.Genesis.ToBeEnabledBlockHeight = 2
+	cfg.Genesis.YapBlockHeight = 2
 	cfg.Genesis.ExitAdmissionInterval = 1
 	// Use small epoch size for faster epoch transitions
 	cfg.Genesis.DardanellesNumSubEpochs = 1

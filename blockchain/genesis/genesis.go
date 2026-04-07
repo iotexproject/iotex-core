@@ -80,6 +80,7 @@ func defaultConfig() Genesis {
 			WakeBlockHeight:           36893881,
 			XinguBlockHeight:          41648761,
 			XinguBetaBlockHeight:      41648761,
+			YapBlockHeight:            51648761,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
@@ -381,6 +382,8 @@ type (
 		// XinguBetaBlockHeight is the start height to
 		// 1. slash candidate by operator
 		XinguBetaBlockHeight uint64 `yaml:"xinguBetaHeight"`
+		// YapBlockHeight is the start height of Yap hardfork
+		YapBlockHeight uint64 `yaml:"yapHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -771,6 +774,11 @@ func (g *Blockchain) IsXingu(height uint64) bool {
 // IsXinguBeta checks whether height is equal to or larger than xingu beta height
 func (g *Blockchain) IsXinguBeta(height uint64) bool {
 	return g.isPost(g.XinguBetaBlockHeight, height)
+}
+
+// IsYap checks whether height is equal to or larger than yap height
+func (g *Blockchain) IsYap(height uint64) bool {
+	return g.isPost(g.YapBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
