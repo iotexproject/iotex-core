@@ -253,8 +253,13 @@ func newStatelessContract(addr hash.Hash160, account *state.Account, sm protocol
 		}
 		c.trie = tr
 	} else {
+		// No witness for this contract means the producer's EVM did not access
+		// its storage (no SLOAD/SSTORE). Create an empty trie (ZeroHash256 root)
+		// so that getContract succeeds for non-storage operations like GetCode.
+		// Using account.Root here would fail because the MemKVStore has no trie
+		// nodes to satisfy a non-zero root.
 		tr, err := newStatelessTrie(addr, &ContractStorageWitness{
-			StorageRoot: account.Root,
+			StorageRoot: hash.ZeroHash256,
 		})
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create empty stateless trie for contract %x", addr[:])
