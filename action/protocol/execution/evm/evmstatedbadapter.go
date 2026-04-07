@@ -87,6 +87,7 @@ type (
 		enableCancun               bool
 		fixRevertSnapshot          bool
 		buildWitness               bool
+		statelessWitnesses         map[common.Address]*ContractStorageWitness
 	}
 )
 
@@ -208,6 +209,16 @@ func BuildWitnessOption() StateDBAdapterOption {
 	}
 }
 
+// StatelessValidationOption enables stateless validation mode.
+// Contracts listed in witnesses will use stateless tries backed by witness
+// entries instead of DB-backed MPT tries.
+func StatelessValidationOption(witnesses map[common.Address]*ContractStorageWitness) StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.statelessWitnesses = witnesses
+		return nil
+	}
+}
+
 func WithContext(ctx context.Context) StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.ctx = ctx
@@ -258,6 +269,9 @@ func NewStateDBAdapter(
 		s.createdAccountSnapshot = make(map[int]createdAccount)
 	}
 	s.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
+		if s.statelessWitnesses != nil {
+			return newStatelessContract(addr, account, s.sm, s.statelessWitnesses)
+		}
 		c, err := newContract(addr, account, s.sm, s.asyncContractTrie)
 		if err != nil {
 			return nil, err

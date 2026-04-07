@@ -11,6 +11,7 @@ package mock_blockchain
 
 import (
 	context "context"
+	json "encoding/json"
 	reflect "reflect"
 	time "time"
 
@@ -103,6 +104,22 @@ func (m *MockBlockchain) BlockHeaderByHeight(height uint64) (*block.Header, erro
 func (mr *MockBlockchainMockRecorder) BlockHeaderByHeight(height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByHeight", reflect.TypeOf((*MockBlockchain)(nil).BlockHeaderByHeight), height)
+}
+
+// BlockWitnessByHeight mocks base method.
+func (m *MockBlockchain) BlockWitnessByHeight(arg0 uint64) (hash.Hash256, json.RawMessage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockWitnessByHeight", arg0)
+	ret0, _ := ret[0].(hash.Hash256)
+	ret1, _ := ret[1].(json.RawMessage)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// BlockWitnessByHeight indicates an expected call of BlockWitnessByHeight.
+func (mr *MockBlockchainMockRecorder) BlockWitnessByHeight(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockWitnessByHeight", reflect.TypeOf((*MockBlockchain)(nil).BlockWitnessByHeight), arg0)
 }
 
 // ChainAddress mocks base method.

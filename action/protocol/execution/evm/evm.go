@@ -464,6 +464,11 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageWitnesses != nil {
 		opts = append(opts, BuildWitnessOption())
 	}
+	if svCtx, ok := GetStatelessValidationCtx(ctx); ok && svCtx.Enabled {
+		if witnesses := svCtx.ContractStorageWitnessesForAction(actionCtx.ActionHash); witnesses != nil {
+			opts = append(opts, StatelessValidationOption(witnesses))
+		}
+	}
 	return NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,

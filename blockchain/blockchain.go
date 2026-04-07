@@ -114,6 +114,8 @@ type (
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
 		ValidateBlock(*block.Block, ...BlockValidationOption) error
+		// BlockWitnessByHeight returns the witness data for a block at the given height
+		BlockWitnessByHeight(uint64) (hash.Hash256, json.RawMessage, error)
 
 		// AddSubscriber make you listen to every single produced block
 		AddSubscriber(BlockCreationSubscriber) error

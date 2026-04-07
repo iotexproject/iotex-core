@@ -8,6 +8,7 @@ package evm
 import (
 	"context"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
@@ -219,5 +220,46 @@ func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateMan
 		return nil, err
 	}
 	c.trie = tr
+	return c, nil
+}
+
+// newStatelessContract creates a Contract backed by witness data instead of a
+// DB-backed MPT trie. For contracts that have a witness, the storage trie is
+// replaced with a statelessTrie after verifying the witness proofs. Contracts
+// without a witness get an empty stateless trie (all reads return ErrNotExist).
+func newStatelessContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager, witnesses map[common.Address]*ContractStorageWitness) (Contract, error) {
+	c := &contract{
+		Account:   account,
+		root:      account.Root,
+		committed: make(map[hash.Hash256][]byte),
+		sm:        sm,
+	}
+	evmAddr := common.BytesToAddress(addr[:])
+	if w, ok := witnesses[evmAddr]; ok {
+		// Verify the witness storage root matches the account's on-chain root.
+		if w.StorageRoot != account.Root {
+			return nil, errors.Errorf(
+				"witness storage root %x does not match account root %x for contract %x",
+				w.StorageRoot[:], account.Root[:], addr[:],
+			)
+		}
+		// Verify witness proofs before using entries for execution.
+		if err := VerifyContractStorageWitness(evmAddr, w); err != nil {
+			return nil, errors.Wrapf(err, "failed to verify witness for contract %x", addr[:])
+		}
+		tr, err := newStatelessTrie(addr, w)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create stateless trie for contract %x", addr[:])
+		}
+		c.trie = tr
+	} else {
+		tr, err := newStatelessTrie(addr, &ContractStorageWitness{
+			StorageRoot: account.Root,
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create empty stateless trie for contract %x", addr[:])
+		}
+		c.trie = tr
+	}
 	return c, nil
 }
