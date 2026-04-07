@@ -59,6 +59,12 @@ type (
 		// It returns the proven value for inclusion proofs, or ErrNotExist for valid absence proofs.
 		VerifyProof(rootHash []byte, key []byte, proof [][]byte) ([]byte, error)
 	}
+	// NodeCollector can serialize every reachable trie node into a KVStore.
+	NodeCollector interface {
+		// CollectNodes serializes all trie nodes reachable from the current root
+		// into dst, keyed by the node's hash.
+		CollectNodes(dst KVStore) error
+	}
 	// TwoLayerTrie is a trie data structure with two layers
 	TwoLayerTrie interface {
 		// Start starts the layer one trie

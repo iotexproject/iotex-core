@@ -410,3 +410,85 @@ func TestWitnessTrie_MultipleUpsertsSameKey(t *testing.T) {
 	require.Equal(1, len(w.Entries))
 	require.Equal(_v1b[:], w.Entries[0].Value)
 }
+
+// TestWitnessTrie_DBBackedTrieWithHashNodes verifies that capturePrestate works
+// correctly when the inner trie is backed by a persistent KVStore (like in
+// production). In this scenario the trie contains hashNodes that must be loaded
+// from the KVStore during GetProof. The prestate clone must have access to the
+// serialized node data (via CollectNodes) so that GetProof can traverse them.
+func TestWitnessTrie_DBBackedTrieWithHashNodes(t *testing.T) {
+	require := require.New(t)
+
+	// Phase 1: Build a trie in a shared KVStore, flush it, then re-open it.
+	// Re-opening from a root hash means all nodes start as hashNodes.
+	kvStore := trie.NewMemKVStore()
+	hashFunc := func(data []byte) []byte {
+		h := hash.Hash256b(data)
+		return h[:]
+	}
+	tr, err := mptrie.New(
+		mptrie.KVStoreOption(kvStore),
+		mptrie.KeyLengthOption(len(hash.Hash256{})),
+		mptrie.HashFuncOption(hashFunc),
+	)
+	require.NoError(err)
+	require.NoError(tr.Start(context.Background()))
+
+	// Insert several keys to build up trie structure
+	require.NoError(tr.Upsert(_k1b[:], _v1b[:]))
+	require.NoError(tr.Upsert(_k2b[:], _v2b[:]))
+	require.NoError(tr.Upsert(_k3b[:], _v3b[:]))
+	require.NoError(tr.Upsert(_k4b[:], _v4b[:]))
+
+	rootHash, err := tr.RootHash()
+	require.NoError(err)
+	require.NoError(tr.Stop(context.Background()))
+
+	// Phase 2: Re-open trie from the saved root hash — all children are hashNodes.
+	tr2, err := mptrie.New(
+		mptrie.KVStoreOption(kvStore),
+		mptrie.KeyLengthOption(len(hash.Hash256{})),
+		mptrie.HashFuncOption(hashFunc),
+		mptrie.RootHashOption(rootHash),
+	)
+	require.NoError(err)
+	require.NoError(tr2.Start(context.Background()))
+
+	// Verify basic read works
+	v, err := tr2.Get(_k1b[:])
+	require.NoError(err)
+	require.Equal(_v1b[:], v)
+
+	// Phase 3: Wrap with witnessTrie, do reads + mutation, then BuildWitness.
+	wt := newWitnessTrie(tr2, hashFunc)
+
+	// Read k1 and k3
+	v, err = wt.Get(_k1b[:])
+	require.NoError(err)
+	require.Equal(_v1b[:], v)
+	_, err = wt.Get(_k3b[:])
+	require.NoError(err)
+
+	// Mutate k2 — triggers capturePrestate (CollectNodes + Clone)
+	newV2 := hash.Hash256b([]byte("new_value_for_k2"))
+	require.NoError(wt.Upsert(_k2b[:], newV2[:]))
+
+	// Read k4 after mutation
+	v, err = wt.Get(_k4b[:])
+	require.NoError(err)
+	require.Equal(_v4b[:], v)
+
+	// BuildWitness — this calls GetProof on the prestate clone.
+	// Without CollectNodes, this would fail because the clone's MemKVStore
+	// would be empty and couldn't resolve hashNodes.
+	w, err := wt.BuildWitness()
+	require.NoError(err)
+	require.NotNil(w)
+	require.Equal(4, len(w.Entries))
+
+	// Storage root should be the ORIGINAL root (before mutation)
+	require.Equal(hash.BytesToHash256(rootHash), w.StorageRoot)
+
+	// Verify proof nodes are present
+	require.Greater(len(w.ProofNodes), 0)
+}

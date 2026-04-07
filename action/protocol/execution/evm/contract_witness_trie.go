@@ -41,11 +41,23 @@ func newWitnessTrie(inner trie.Trie, hashFunc func([]byte) []byte) *witnessTrie 
 }
 
 // capturePrestate lazily clones the inner trie before the first mutation.
+// When the inner trie is backed by a DB (production), the shallow clone must
+// have access to all trie nodes so that GetProof can traverse hashNodes.
+// We collect all reachable nodes into a MemKVStore first, then clone with it.
 func (w *witnessTrie) capturePrestate() error {
 	if w.prestate != nil {
 		return nil
 	}
-	clone, err := w.inner.Clone(trie.NewMemKVStore())
+	kvStore := trie.NewMemKVStore()
+	// Populate the MemKVStore with all trie nodes so the clone can resolve
+	// hashNodes during GetProof. Without this, a shallow clone of a DB-backed
+	// trie would fail on any hashNode it encounters.
+	if nc, ok := w.inner.(trie.NodeCollector); ok {
+		if err := nc.CollectNodes(kvStore); err != nil {
+			return errors.Wrap(err, "failed to collect prestate trie nodes")
+		}
+	}
+	clone, err := w.inner.Clone(kvStore)
 	if err != nil {
 		return errors.Wrap(err, "failed to clone prestate trie")
 	}
@@ -172,9 +184,9 @@ func (w *witnessTrie) BuildWitness() (*ContractStorageWitness, error) {
 
 // --- Delegate remaining trie.Trie methods to inner ---
 
-func (w *witnessTrie) Start(ctx context.Context) error     { return w.inner.Start(ctx) }
-func (w *witnessTrie) Stop(ctx context.Context) error      { return w.inner.Stop(ctx) }
-func (w *witnessTrie) RootHash() ([]byte, error)           { return w.inner.RootHash() }
-func (w *witnessTrie) SetRootHash(hash []byte) error       { return w.inner.SetRootHash(hash) }
-func (w *witnessTrie) IsEmpty() bool                       { return w.inner.IsEmpty() }
+func (w *witnessTrie) Start(ctx context.Context) error          { return w.inner.Start(ctx) }
+func (w *witnessTrie) Stop(ctx context.Context) error           { return w.inner.Stop(ctx) }
+func (w *witnessTrie) RootHash() ([]byte, error)                { return w.inner.RootHash() }
+func (w *witnessTrie) SetRootHash(hash []byte) error            { return w.inner.SetRootHash(hash) }
+func (w *witnessTrie) IsEmpty() bool                            { return w.inner.IsEmpty() }
 func (w *witnessTrie) Clone(kv trie.KVStore) (trie.Trie, error) { return w.inner.Clone(kv) }
