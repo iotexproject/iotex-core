@@ -410,7 +410,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	if cfg.statelessValidation != nil && cfg.statelessValidation.Enabled {
 		ctx = evm.WithStatelessValidationCtx(ctx, *cfg.statelessValidation)
 	}
-	ctx, witnessCollector := bc.withWitnessCollector(ctx, cfg.statelessValidation == nil || !cfg.statelessValidation.Enabled, true)
+	ctx, witnessCollector := bc.withWitnessCollector(ctx, cfg.statelessValidation == nil || !cfg.statelessValidation.Enabled, false)
 	if bc.blockValidator == nil {
 		return nil
 	}
