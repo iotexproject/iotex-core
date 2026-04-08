@@ -227,12 +227,13 @@ func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateMan
 // DB-backed MPT trie. For contracts that have a witness, the storage trie is
 // replaced with a statelessTrie after verifying the witness proofs. Contracts
 // without a witness get an empty stateless trie (all reads return ErrNotExist).
-func newStatelessContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager, witnesses map[common.Address]*ContractStorageWitness) (Contract, error) {
+func newStatelessContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager, witnesses map[common.Address]*ContractStorageWitness, enableAsync bool) (Contract, error) {
 	c := &contract{
 		Account:   account,
 		root:      account.Root,
 		committed: make(map[hash.Hash256][]byte),
 		sm:        sm,
+		async:     enableAsync,
 	}
 	evmAddr := common.BytesToAddress(addr[:])
 	if w, ok := witnesses[evmAddr]; ok {
@@ -247,7 +248,7 @@ func newStatelessContract(addr hash.Hash160, account *state.Account, sm protocol
 		if err := VerifyContractStorageWitness(evmAddr, w); err != nil {
 			return nil, errors.Wrapf(err, "failed to verify witness for contract %x", addr[:])
 		}
-		tr, err := newStatelessTrie(addr, w, sm)
+		tr, err := newStatelessTrie(addr, w, sm, enableAsync)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create stateless trie for contract %x", addr[:])
 		}
@@ -260,7 +261,7 @@ func newStatelessContract(addr hash.Hash160, account *state.Account, sm protocol
 		// nodes to satisfy a non-zero root.
 		tr, err := newStatelessTrie(addr, &ContractStorageWitness{
 			StorageRoot: hash.ZeroHash256,
-		}, sm)
+		}, sm, enableAsync)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create empty stateless trie for contract %x", addr[:])
 		}

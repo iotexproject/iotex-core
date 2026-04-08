@@ -270,7 +270,7 @@ func NewStateDBAdapter(
 	}
 	s.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
 		if s.statelessWitnesses != nil {
-			return newStatelessContract(addr, account, s.sm, s.statelessWitnesses)
+			return newStatelessContract(addr, account, s.sm, s.statelessWitnesses, s.asyncContractTrie)
 		}
 		c, err := newContract(addr, account, s.sm, s.asyncContractTrie)
 		if err != nil {

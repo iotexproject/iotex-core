@@ -65,7 +65,7 @@ func (s *statelessTrieKVStore) Delete(key []byte) error {
 //
 // For an empty-storage contract (StorageRoot == ZeroHash256 with no proof nodes),
 // an empty MPT is created.
-func newStatelessTrie(addr hash.Hash160, witness *ContractStorageWitness, sm protocol.StateManager) (trie.Trie, error) {
+func newStatelessTrie(addr hash.Hash160, witness *ContractStorageWitness, sm protocol.StateManager, enableAsync bool) (trie.Trie, error) {
 	hashFunc := func(data []byte) []byte {
 		h := hash.Hash256b(append(addr[:], data...))
 		return h[:]
@@ -93,6 +93,9 @@ func newStatelessTrie(addr hash.Hash160, witness *ContractStorageWitness, sm pro
 	}
 	if witness.StorageRoot != hash.ZeroHash256 {
 		options = append(options, mptrie.RootHashOption(witness.StorageRoot[:]))
+	}
+	if enableAsync {
+		options = append(options, mptrie.AsyncOption())
 	}
 
 	tr, err := mptrie.New(options...)

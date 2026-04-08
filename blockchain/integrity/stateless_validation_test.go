@@ -1145,3 +1145,148 @@ func TestStatelessValidationReceiptConsistency(t *testing.T) {
 
 	t.Log("All 8 blocks: stateless receipts match producer receipts exactly")
 }
+
+// TestStatelessValidationAsyncTrie reproduces a production bug where the delta
+// state digest diverges when AsyncContractTrie is enabled (i.e., block height
+// >= GreenlandBlockHeight). The async trie defers kvStore writes until Flush()
+// (called from RootHash() during Commit()), while the stateless trie was always
+// created WITHOUT AsyncOption — writing immediately during Upsert(). Since the
+// digest is computed from the serialized write queue in insertion order, the
+// different write ordering produces a different digest hash.
+//
+// This test sets GreenlandBlockHeight = 0 so that AsyncContractTrie is active
+// from block 1 onward, matching production behavior at heights > 6544441.
+func TestStatelessValidationAsyncTrie(t *testing.T) {
+	r := require.New(t)
+	ctx := context.Background()
+
+	// --- Setup producer with GreenlandBlockHeight = 0 (async trie active from genesis) ---
+	producerCfg := config.Default
+	producerCfg.Genesis = genesis.TestDefault()
+	producerCfg.Chain.WitnessDBPath = t.TempDir() + "/witness.db"
+	producerCfg.Genesis.InitBalanceMap[identityset.Address(0).String()] = "1000000000000000000000000000"
+	producerCfg.Genesis.InitBalanceMap[identityset.Address(1).String()] = "1000000000000000000000000000"
+	// Enable async contract trie from block 1 (the key change!)
+	producerCfg.Genesis.GreenlandBlockHeight = 0
+	genesis.SetGenesisTimestamp(producerCfg.Genesis.Timestamp)
+	block.LoadGenesisHash(&producerCfg.Genesis)
+
+	producerBC, _, producerDAO, ap := newTestBlockchain(t, producerCfg)
+	r.NoError(producerBC.Start(ctx))
+	defer func() { r.NoError(producerBC.Stop(ctx)) }()
+
+	// --- Setup validator with working set cache (production-like) ---
+	validatorCfg := config.Default
+	validatorCfg.Genesis = producerCfg.Genesis
+	validatorBC, _, _ := newValidatorBlockchainWithCache(t, validatorCfg)
+	r.NoError(validatorBC.Start(ctx))
+	defer func() { r.NoError(validatorBC.Stop(ctx)) }()
+
+	sender0Key := identityset.PrivateKey(0)
+	sender1Key := identityset.PrivateKey(1)
+	nonce0 := uint64(1)
+	nonce1 := uint64(1)
+	gasPrice := big.NewInt(1000000000000)
+
+	mintAndCompare := func(t *testing.T, height uint64) *block.Block {
+		t.Helper()
+		blk, err := producerBC.MintNewBlock(testutil.TimestampNow())
+		r.NoError(err)
+		r.Equal(height, blk.Height())
+		r.NoError(producerBC.CommitBlock(blk))
+
+		producerReceipts := make([]*action.Receipt, len(blk.Receipts))
+		copy(producerReceipts, blk.Receipts)
+		producerReceiptRoot := receiptRoot(producerReceipts)
+
+		_, raw, err := producerBC.BlockWitnessByHeight(height)
+		r.NoError(err)
+		r.NotNil(raw)
+		svCtx, err := witness.ParseValidationContext(raw)
+		r.NoError(err)
+
+		fullBlk, err := producerDAO.GetBlockByHeight(height)
+		r.NoError(err)
+
+		err = validatorBC.ValidateBlock(fullBlk, blockchain.WithStatelessValidationOption(svCtx))
+		r.NoError(err, "stateless validation failed at height %d", height)
+
+		validatorReceipts := fullBlk.Receipts
+		r.Equal(len(producerReceipts), len(validatorReceipts),
+			"receipt count mismatch at height %d", height)
+		for i, pr := range producerReceipts {
+			vr := validatorReceipts[i]
+			r.Equal(pr.Status, vr.Status, "receipt[%d] status mismatch at height %d", i, height)
+			r.Equal(pr.GasConsumed, vr.GasConsumed, "receipt[%d] gasConsumed mismatch at height %d", i, height)
+		}
+		validatorReceiptRoot := receiptRoot(validatorReceipts)
+		r.Equal(producerReceiptRoot, validatorReceiptRoot, "receipt root mismatch at height %d", height)
+
+		err = validatorBC.CommitBlock(fullBlk)
+		r.NoError(err, "commit on validator failed at height %d", height)
+		r.Equal(height, validatorBC.TipHeight())
+		return blk
+	}
+
+	// Block 1: Deploy changestate contract
+	t.Log("Block 1: Deploy changestate")
+	{
+		selp, err := action.SignedExecution(action.EmptyAddress, sender0Key, nonce0, big.NewInt(0), 1000000, gasPrice, _changestateDeployBytecode)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	blk := mintAndCompare(t, 1)
+	changestateAddr := getContractAddr(blk, 0)
+	r.NotEmpty(changestateAddr)
+
+	// Block 2: Deploy basic-token contract
+	t.Log("Block 2: Deploy basic-token")
+	{
+		selp, err := action.SignedExecution(action.EmptyAddress, sender0Key, nonce0, big.NewInt(0), 5000000, gasPrice, _basicTokenDeployBytecode)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	blk = mintAndCompare(t, 2)
+	basicTokenAddr := getContractAddr(blk, 0)
+	r.NotEmpty(basicTokenAddr)
+
+	// Block 3: Mixed contract calls + native transfer (exercises storage writes)
+	t.Log("Block 3: Token transfer + changestate revert + native transfer")
+	{
+		selp, err := action.SignedExecution(basicTokenAddr, sender0Key, nonce0, big.NewInt(0), 1000000, gasPrice, _basicTokenTransfer)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+
+		selp, err = action.SignedExecution(changestateAddr, sender0Key, nonce0, big.NewInt(0), 120000, gasPrice, _changestateCallRevert)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+
+		amount := new(big.Int).Mul(big.NewInt(10), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+		selp, err = action.SignedTransfer(identityset.Address(3).String(), sender1Key, nonce1, amount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce1++
+	}
+	mintAndCompare(t, 3)
+
+	// Block 4: More storage writes (exercises async trie flush ordering)
+	t.Log("Block 4: More token transfers + read state")
+	{
+		selp, err := action.SignedExecution(basicTokenAddr, sender0Key, nonce0, big.NewInt(0), 1000000, gasPrice, _basicTokenTransfer)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+
+		selp, err = action.SignedExecution(basicTokenAddr, sender0Key, nonce0, big.NewInt(0), 1000000, gasPrice, _basicTokenBalanceOf)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndCompare(t, 4)
+
+	t.Log("All blocks validated with async contract trie enabled")
+}
