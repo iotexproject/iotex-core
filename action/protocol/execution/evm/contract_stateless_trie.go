@@ -22,8 +22,8 @@ import (
 // Writes go to BOTH the in-memory store (so the trie can read them back
 // immediately) AND the state manager batch (for digest computation + DB flush).
 type statelessTrieKVStore struct {
-	mem trie.KVStore             // in-memory store for proof nodes + new nodes
-	sm  protocol.StateManager    // state manager for digest computation
+	mem trie.KVStore          // in-memory store for proof nodes + new nodes
+	sm  protocol.StateManager // state manager for digest computation
 }
 
 func (s *statelessTrieKVStore) Start(ctx context.Context) error { return nil }

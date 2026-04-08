@@ -226,7 +226,7 @@ func TestWitnessTrie_FirstTouchDeduplication(t *testing.T) {
 	// Read k1 again — should NOT update firstTouch (still v1b)
 	v, err := wt.Get(_k1b[:])
 	require.NoError(err)
-	require.Equal(_v2b[:], v) // reads current value from inner
+	require.Equal(_v2b[:], v)                   // reads current value from inner
 	require.Equal(_v1b[:], wt.firstTouch[_k1b]) // but firstTouch is still v1b
 
 	// Build witness — entry should have original prestate value
