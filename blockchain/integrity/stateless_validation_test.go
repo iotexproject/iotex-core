@@ -537,8 +537,8 @@ func TestStatelessValidationTransfer(t *testing.T) {
 
 	sender0Key := identityset.PrivateKey(0)
 	sender1Key := identityset.PrivateKey(1)
-	nonce0 := uint64(1) // nonce tracker for sender 0
-	nonce1 := uint64(1) // nonce tracker for sender 1
+	nonce0 := uint64(1)                   // nonce tracker for sender 0
+	nonce1 := uint64(1)                   // nonce tracker for sender 1
 	gasPrice := big.NewInt(1000000000000) // 0.000001 IOTX per gas unit
 
 	// Reusable: mint a block on producer, stateless-validate + commit on validator

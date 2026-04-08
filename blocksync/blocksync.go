@@ -190,8 +190,8 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 		case blockchain.ErrPaused:
 			log.L().Info("blockchain is paused, skip committing block", zap.Uint64("height", blk.block.Height()))
 		default:
-			bs.blockP2pPeer(blk.pid)
 			log.L().Error("failed to commit block", zap.Error(err), zap.Uint64("height", blk.block.Height()), zap.String("peer", blk.pid))
+			bs.blockP2pPeer(blk.pid)
 		}
 	}
 	return false

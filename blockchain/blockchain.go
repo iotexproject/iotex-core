@@ -676,6 +676,8 @@ func (bc *blockchain) withWitnessCollector(ctx context.Context, enabled bool, en
 		CaptureTx:                       witnessCollector.CaptureTx,
 		CaptureContractStorageAccesses:  witnessCollector.CaptureContractStorageAccesses,
 		CaptureContractStorageWitnesses: witnessCollector.CaptureContractStorageWitnesses,
+		CaptureStorageOps:               witnessCollector.CaptureStorageOps,
+		CaptureWriteEntries:             witnessCollector.CaptureWriteEntries,
 	})
 	return ctx, witnessCollector
 }
