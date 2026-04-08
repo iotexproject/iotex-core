@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -24,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/witness"
 	"github.com/iotexproject/iotex-core/v2/blockindex"
 	"github.com/iotexproject/iotex-core/v2/config"
+	"github.com/iotexproject/iotex-core/v2/crypto"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/state/factory"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -498,4 +500,648 @@ func TestStatelessValidationWithInvalidWitness(t *testing.T) {
 	svCtx, err := witness.ParseValidationContext(raw)
 	r.NoError(err)
 	r.NoError(validatorBC.ValidateBlock(fullBlk, blockchain.WithStatelessValidationOption(svCtx)))
+}
+
+// TestStatelessValidationTransfer verifies that stateless validation works for
+// blocks containing native IOTX transfer transactions, including:
+//  1. Transfer-only block with non-zero gasPrice
+//  2. Multiple transfers in one block depleting sender balance
+//  3. Transfer mixed with contract execution in the same block
+//  4. Transfer following contract execution from the same sender (balance reduced by prior gas)
+func TestStatelessValidationTransfer(t *testing.T) {
+	r := require.New(t)
+	ctx := context.Background()
+
+	// --- Setup producer ---
+	producerCfg := config.Default
+	producerCfg.Genesis = genesis.TestDefault()
+	producerCfg.Chain.WitnessDBPath = t.TempDir() + "/witness.db"
+	// Give sender 0 (producer) a specific balance: 100 IOTX
+	producerCfg.Genesis.InitBalanceMap[identityset.Address(0).String()] = "100000000000000000000"
+	// Give sender 1 some balance too: 50 IOTX
+	producerCfg.Genesis.InitBalanceMap[identityset.Address(1).String()] = "50000000000000000000"
+	genesis.SetGenesisTimestamp(producerCfg.Genesis.Timestamp)
+	block.LoadGenesisHash(&producerCfg.Genesis)
+
+	producerBC, _, producerDAO, ap := newTestBlockchain(t, producerCfg)
+	r.NoError(producerBC.Start(ctx))
+	defer func() { r.NoError(producerBC.Stop(ctx)) }()
+	r.Equal(uint64(0), producerBC.TipHeight())
+
+	// --- Setup validator ---
+	validatorCfg := config.Default
+	validatorCfg.Genesis = producerCfg.Genesis
+	validatorBC, _, validatorDAO := newValidatorBlockchain(t, validatorCfg)
+	r.NoError(validatorBC.Start(ctx))
+	defer func() { r.NoError(validatorBC.Stop(ctx)) }()
+
+	sender0Key := identityset.PrivateKey(0)
+	sender1Key := identityset.PrivateKey(1)
+	nonce0 := uint64(1) // nonce tracker for sender 0
+	nonce1 := uint64(1) // nonce tracker for sender 1
+	gasPrice := big.NewInt(1000000000000) // 0.000001 IOTX per gas unit
+
+	// Reusable: mint a block on producer, stateless-validate + commit on validator
+	mintAndValidate := func(t *testing.T, height uint64) *block.Block {
+		t.Helper()
+		t.Logf("  actpool pending: %d", ap.GetSize())
+		blk, err := producerBC.MintNewBlock(testutil.TimestampNow())
+		r.NoError(err)
+		r.Equal(height, blk.Height())
+		r.NoError(producerBC.CommitBlock(blk))
+
+		_, raw, err := producerBC.BlockWitnessByHeight(height)
+		r.NoError(err)
+		r.NotNil(raw)
+
+		svCtx, err := witness.ParseValidationContext(raw)
+		r.NoError(err)
+		r.True(svCtx.Enabled)
+
+		fullBlk, err := producerDAO.GetBlockByHeight(height)
+		r.NoError(err)
+
+		err = validatorBC.ValidateBlock(fullBlk, blockchain.WithStatelessValidationOption(svCtx))
+		r.NoError(err, "stateless validation failed at height %d", height)
+
+		err = validatorBC.CommitBlock(fullBlk)
+		r.NoError(err, "commit on validator failed at height %d", height)
+		r.Equal(height, validatorBC.TipHeight())
+
+		producerTip := producerBC.TipHash()
+		validatorTip := validatorBC.TipHash()
+		r.Equal(producerTip, validatorTip, "tip hash mismatch at height %d", height)
+		return blk
+	}
+
+	// ========================================
+	// Block 1: Simple native IOTX transfer with non-zero gasPrice
+	//          sender0 -> identityset.Address(2), 10 IOTX
+	// ========================================
+	t.Log("Block 1: Simple transfer with non-zero gasPrice")
+	{
+		transferAmount := new(big.Int).Mul(big.NewInt(10), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)) // 10 IOTX
+		selp, err := action.SignedTransfer(identityset.Address(2).String(), sender0Key, nonce0, transferAmount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndValidate(t, 1)
+
+	// ========================================
+	// Block 2: Multiple transfers in one block from the same sender
+	//          sender0 -> address(3), 5 IOTX
+	//          sender0 -> address(4), 5 IOTX
+	// ========================================
+	t.Log("Block 2: Multiple transfers from same sender in one block")
+	{
+		amount := new(big.Int).Mul(big.NewInt(5), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)) // 5 IOTX
+		selp, err := action.SignedTransfer(identityset.Address(3).String(), sender0Key, nonce0, amount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+
+		selp, err = action.SignedTransfer(identityset.Address(4).String(), sender0Key, nonce0, amount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndValidate(t, 2)
+
+	// ========================================
+	// Block 3: Transfer from a different sender (sender1)
+	//          sender1 -> address(5), 20 IOTX
+	// ========================================
+	t.Log("Block 3: Transfer from sender1")
+	{
+		amount := new(big.Int).Mul(big.NewInt(20), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+		selp, err := action.SignedTransfer(identityset.Address(5).String(), sender1Key, nonce1, amount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce1++
+	}
+	mintAndValidate(t, 3)
+
+	// ========================================
+	// Block 4: Deploy a contract (from sender0) — sets up for mixed block later
+	// ========================================
+	t.Log("Block 4: Deploy changestate contract")
+	var changestateAddr string
+	{
+		selp, err := action.SignedExecution(action.EmptyAddress, sender0Key, nonce0, big.NewInt(0), 1000000, gasPrice, _changestateDeployBytecode)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	blk4 := mintAndValidate(t, 4)
+	changestateAddr = getContractAddr(blk4, 0)
+	r.NotEmpty(changestateAddr, "contract not deployed")
+	t.Logf("  changestate deployed at: %s", changestateAddr)
+
+	// ========================================
+	// Block 5: Contract execution + native transfer in the same block
+	//          from the SAME sender (sender0)
+	//          This tests that the balance is correctly reduced by the
+	//          contract execution's gas cost before the transfer's
+	//          balance check.
+	// ========================================
+	t.Log("Block 5: Contract execution + transfer from same sender in one block")
+	{
+		// Tx 1: contract execution (gas matters)
+		selp, err := action.SignedExecution(changestateAddr, sender0Key, nonce0, big.NewInt(0), 120000, gasPrice, _changestateCallRevert)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+
+		// Tx 2: native transfer — balance was reduced by Tx1's gas
+		amount := new(big.Int).Mul(big.NewInt(1), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)) // 1 IOTX
+		selp, err = action.SignedTransfer(identityset.Address(6).String(), sender0Key, nonce0, amount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndValidate(t, 5)
+
+	// ========================================
+	// Block 6: Transfer from sender1 + contract execution from sender0 in same block
+	//          Different senders, tests cross-sender state independence
+	// ========================================
+	t.Log("Block 6: Transfer from sender1 + contract call from sender0 in same block")
+	{
+		// Tx 1: sender1 transfer
+		amount := new(big.Int).Mul(big.NewInt(5), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+		selp, err := action.SignedTransfer(identityset.Address(7).String(), sender1Key, nonce1, amount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce1++
+
+		// Tx 2: sender0 contract execution
+		selp, err = action.SignedExecution(changestateAddr, sender0Key, nonce0, big.NewInt(0), 120000, gasPrice, _changestateQueryN)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndValidate(t, 6)
+
+	// ========================================
+	// Block 7: Sender0 transfers remaining balance (nearly all) to sender1
+	//          This drains sender0 balance down, testing near-zero edge case
+	// ========================================
+	t.Log("Block 7: Large transfer draining most of sender0 balance")
+	{
+		// Transfer 50 IOTX (sender0 started with 100, spent ~21 IOTX so far + gas)
+		amount := new(big.Int).Mul(big.NewInt(50), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+		selp, err := action.SignedTransfer(identityset.Address(1).String(), sender0Key, nonce0, amount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndValidate(t, 7)
+
+	// ========================================
+	// Final verification
+	// ========================================
+	t.Log("Final: Verifying state consistency between producer and validator")
+	for h := uint64(1); h <= 7; h++ {
+		pH, err := producerDAO.HeaderByHeight(h)
+		r.NoError(err)
+		vH, err := validatorDAO.HeaderByHeight(h)
+		r.NoError(err)
+		r.Equal(pH.HashBlock(), vH.HashBlock(), "block hash mismatch at height %d", h)
+		r.Equal(pH.DeltaStateDigest(), vH.DeltaStateDigest(), "state digest mismatch at height %d", h)
+		r.Equal(pH.ReceiptRoot(), vH.ReceiptRoot(), "receipt root mismatch at height %d", h)
+	}
+	t.Log("All 7 blocks with transfers validated statelessly and committed successfully")
+}
+
+// TestStatelessValidationTransfer_WithWorkingSetCache reproduces the production
+// bug where the working set cache causes the stateless working set
+// (with skipContractStorageFlush) to be reused during CommitBlock.
+// This means contract storage changes are lost, leading to state divergence.
+func TestStatelessValidationTransfer_WithWorkingSetCache(t *testing.T) {
+	r := require.New(t)
+	ctx := context.Background()
+
+	// --- Setup producer ---
+	producerCfg := config.Default
+	producerCfg.Genesis = genesis.TestDefault()
+	producerCfg.Chain.WitnessDBPath = t.TempDir() + "/witness.db"
+	producerCfg.Genesis.InitBalanceMap[identityset.Address(0).String()] = "100000000000000000000" // 100 IOTX
+	genesis.SetGenesisTimestamp(producerCfg.Genesis.Timestamp)
+	block.LoadGenesisHash(&producerCfg.Genesis)
+
+	producerBC, _, producerDAO, ap := newTestBlockchain(t, producerCfg)
+	r.NoError(producerBC.Start(ctx))
+	defer func() { r.NoError(producerBC.Stop(ctx)) }()
+
+	// --- Setup validator WITH working set cache (like production) ---
+	validatorCfg := config.Default
+	validatorCfg.Genesis = producerCfg.Genesis
+	// NOT using DisableWorkingSetCacheOption — this is the production-like setup
+	validatorBC, _, validatorDAO := newValidatorBlockchainWithCache(t, validatorCfg)
+	r.NoError(validatorBC.Start(ctx))
+	defer func() { r.NoError(validatorBC.Stop(ctx)) }()
+
+	sender0Key := identityset.PrivateKey(0)
+	nonce0 := uint64(1)
+	gasPrice := big.NewInt(1000000000000) // non-zero gas price
+
+	mintAndValidate := func(t *testing.T, height uint64) *block.Block {
+		t.Helper()
+		blk, err := producerBC.MintNewBlock(testutil.TimestampNow())
+		r.NoError(err)
+		r.Equal(height, blk.Height())
+		r.NoError(producerBC.CommitBlock(blk))
+
+		_, raw, err := producerBC.BlockWitnessByHeight(height)
+		r.NoError(err)
+		r.NotNil(raw)
+
+		svCtx, err := witness.ParseValidationContext(raw)
+		r.NoError(err)
+
+		fullBlk, err := producerDAO.GetBlockByHeight(height)
+		r.NoError(err)
+
+		err = validatorBC.ValidateBlock(fullBlk, blockchain.WithStatelessValidationOption(svCtx))
+		r.NoError(err, "stateless validation failed at height %d", height)
+
+		err = validatorBC.CommitBlock(fullBlk)
+		r.NoError(err, "commit on validator failed at height %d", height)
+		r.Equal(height, validatorBC.TipHeight())
+		return blk
+	}
+
+	// Block 1: Deploy basic-token contract (creates contract storage)
+	t.Log("Block 1: Deploy basic-token")
+	{
+		selp, err := action.SignedExecution(action.EmptyAddress, sender0Key, nonce0, big.NewInt(0), 5000000, gasPrice, _basicTokenDeployBytecode)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	blk1 := mintAndValidate(t, 1)
+	basicTokenAddr := getContractAddr(blk1, 0)
+	r.NotEmpty(basicTokenAddr)
+	t.Logf("  basic-token deployed at: %s", basicTokenAddr)
+
+	// Block 2: Transfer tokens (writes to contract mapping storage)
+	t.Log("Block 2: Transfer tokens in contract (storage write)")
+	{
+		selp, err := action.SignedExecution(basicTokenAddr, sender0Key, nonce0, big.NewInt(0), 1000000, gasPrice, _basicTokenTransfer)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndValidate(t, 2)
+
+	// Block 3: Another contract token transfer (accumulates storage changes)
+	//          + native transfer in the same block
+	t.Log("Block 3: Contract token transfer + native transfer")
+	{
+		selp, err := action.SignedExecution(basicTokenAddr, sender0Key, nonce0, big.NewInt(0), 1000000, gasPrice, _basicTokenTransfer)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+
+		amount := new(big.Int).Mul(big.NewInt(5), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)) // 5 IOTX
+		selp, err = action.SignedTransfer(identityset.Address(2).String(), sender0Key, nonce0, amount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndValidate(t, 3)
+
+	// Block 4: Read balanceOf (reads contract storage that was written in blocks 2&3)
+	//          This is where divergence would show up if contract storage wasn't flushed
+	t.Log("Block 4: Read contract state + transfer")
+	{
+		selp, err := action.SignedExecution(basicTokenAddr, sender0Key, nonce0, big.NewInt(0), 1000000, gasPrice, _basicTokenBalanceOf)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+
+		amount := new(big.Int).Mul(big.NewInt(3), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)) // 3 IOTX
+		selp, err = action.SignedTransfer(identityset.Address(3).String(), sender0Key, nonce0, amount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndValidate(t, 4)
+
+	// Verify state consistency
+	t.Log("Final: Checking state consistency")
+	for h := uint64(1); h <= 4; h++ {
+		pH, err := producerDAO.HeaderByHeight(h)
+		r.NoError(err)
+		vH, err := validatorDAO.HeaderByHeight(h)
+		r.NoError(err)
+		r.Equal(pH.HashBlock(), vH.HashBlock(), "block hash mismatch at height %d", h)
+		r.Equal(pH.DeltaStateDigest(), vH.DeltaStateDigest(), "state digest mismatch at height %d", h)
+		r.Equal(pH.ReceiptRoot(), vH.ReceiptRoot(), "receipt root mismatch at height %d", h)
+	}
+	t.Log("All blocks validated successfully with working set cache enabled")
+}
+
+// newValidatorBlockchainWithCache creates a blockchain for stateless validation
+// WITH working set caching enabled (simulating production conditions).
+func newValidatorBlockchainWithCache(
+	t *testing.T,
+	cfg config.Config,
+) (blockchain.Blockchain, factory.Factory, blockdao.BlockDAO) {
+	r := require.New(t)
+	cfg.Chain.TrieDBPath = ""
+	cfg.Chain.WitnessDBPath = ""
+	cfg.ActPool.MinGasPriceStr = "0"
+
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	r.NoError(acc.Register(registry))
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	r.NoError(rp.Register(registry))
+
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewStateDB(factoryCfg, db.NewMemKVStore(),
+		factory.RegistryStateDBOption(registry),
+		// NO DisableWorkingSetCacheOption — working set cache is ENABLED
+		factory.SkipBlockValidationStateDBOption(),
+	)
+	r.NoError(err)
+
+	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
+	r.NoError(err)
+
+	store, err := filedao.NewFileDAOInMemForTest()
+	r.NoError(err)
+	dao := blockdao.NewBlockDAOWithIndexersAndCache(store, []blockdao.BlockIndexer{sf, indexer}, cfg.DB.MaxCacheSize)
+	r.NotNil(dao)
+
+	bc := blockchain.NewBlockchain(
+		cfg.Chain,
+		cfg.Genesis,
+		dao,
+		nil,
+		blockchain.BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
+	)
+	r.NotNil(bc)
+
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, fakeGetBlockTime)
+	r.NoError(ep.Register(registry))
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
+	r.NoError(rewardingProtocol.Register(registry))
+
+	return bc, sf, dao
+}
+
+// receiptRoot computes the Merkle root of receipt hashes (mirrors factory.calculateReceiptRoot).
+func receiptRoot(receipts []*action.Receipt) hash.Hash256 {
+	if len(receipts) == 0 {
+		return hash.ZeroHash256
+	}
+	h := make([]hash.Hash256, 0, len(receipts))
+	for _, r := range receipts {
+		h = append(h, r.Hash())
+	}
+	return crypto.NewMerkleTree(h).HashTree()
+}
+
+// TestStatelessValidationReceiptConsistency verifies that stateless EVM execution
+// produces IDENTICAL receipts (gas consumed, status, logs) to the producer.
+// This test uses a production-like setup (working set cache enabled, no skip-validation)
+// and explicitly compares per-receipt gas after stateless validation.
+//
+// Motivation: the stateless validation code currently SKIPS receipt root and delta-state
+// digest checks (see workingset.go ValidateBlock). If the stateless EVM silently diverges
+// (e.g. due to incomplete witnesses returning zero for missing trie nodes), the state
+// drift accumulates over blocks. This test catches such divergences early.
+func TestStatelessValidationReceiptConsistency(t *testing.T) {
+	r := require.New(t)
+	ctx := context.Background()
+
+	// --- Setup producer ---
+	producerCfg := config.Default
+	producerCfg.Genesis = genesis.TestDefault()
+	producerCfg.Chain.WitnessDBPath = t.TempDir() + "/witness.db"
+	producerCfg.Genesis.InitBalanceMap[identityset.Address(0).String()] = "1000000000000000000000000000" // 1B IOTX
+	producerCfg.Genesis.InitBalanceMap[identityset.Address(1).String()] = "1000000000000000000000000000"
+	genesis.SetGenesisTimestamp(producerCfg.Genesis.Timestamp)
+	block.LoadGenesisHash(&producerCfg.Genesis)
+
+	producerBC, _, producerDAO, ap := newTestBlockchain(t, producerCfg)
+	r.NoError(producerBC.Start(ctx))
+	defer func() { r.NoError(producerBC.Stop(ctx)) }()
+
+	// --- Setup validator with working set cache (production-like) ---
+	validatorCfg := config.Default
+	validatorCfg.Genesis = producerCfg.Genesis
+	validatorBC, _, _ := newValidatorBlockchainWithCache(t, validatorCfg)
+	r.NoError(validatorBC.Start(ctx))
+	defer func() { r.NoError(validatorBC.Stop(ctx)) }()
+
+	sender0Key := identityset.PrivateKey(0)
+	sender1Key := identityset.PrivateKey(1)
+	nonce0 := uint64(1)
+	nonce1 := uint64(1)
+	gasPrice := big.NewInt(1000000000000) // 0.000001 IOTX/gas
+
+	// mintAndCompareReceipts mints a block on the producer, performs stateless
+	// validation on the validator, and asserts that receipts match exactly.
+	mintAndCompareReceipts := func(t *testing.T, height uint64) *block.Block {
+		t.Helper()
+		blk, err := producerBC.MintNewBlock(testutil.TimestampNow())
+		r.NoError(err)
+		r.Equal(height, blk.Height())
+		r.NoError(producerBC.CommitBlock(blk))
+
+		// Save producer receipts BEFORE validation overwrites them
+		producerReceipts := make([]*action.Receipt, len(blk.Receipts))
+		copy(producerReceipts, blk.Receipts)
+		producerReceiptRoot := receiptRoot(producerReceipts)
+
+		_, raw, err := producerBC.BlockWitnessByHeight(height)
+		r.NoError(err)
+		r.NotNil(raw)
+		svCtx, err := witness.ParseValidationContext(raw)
+		r.NoError(err)
+
+		fullBlk, err := producerDAO.GetBlockByHeight(height)
+		r.NoError(err)
+
+		// Stateless validation — this overwrites fullBlk.Receipts
+		err = validatorBC.ValidateBlock(fullBlk, blockchain.WithStatelessValidationOption(svCtx))
+		r.NoError(err, "stateless validation failed at height %d", height)
+
+		// Compare receipts: the stateless-computed receipts vs producer's
+		validatorReceipts := fullBlk.Receipts
+		r.Equal(len(producerReceipts), len(validatorReceipts),
+			"receipt count mismatch at height %d: producer=%d, validator=%d",
+			height, len(producerReceipts), len(validatorReceipts))
+
+		for i, pr := range producerReceipts {
+			vr := validatorReceipts[i]
+			r.Equal(pr.Status, vr.Status,
+				"receipt[%d] status mismatch at height %d: producer=%d, validator=%d",
+				i, height, pr.Status, vr.Status)
+			r.Equal(pr.GasConsumed, vr.GasConsumed,
+				"receipt[%d] gasConsumed mismatch at height %d: producer=%d, validator=%d",
+				i, height, pr.GasConsumed, vr.GasConsumed)
+		}
+
+		validatorReceiptRoot := receiptRoot(validatorReceipts)
+		r.Equal(producerReceiptRoot, validatorReceiptRoot,
+			"receipt root mismatch at height %d", height)
+
+		// Commit on validator (will reuse cached WS with skipContractStorageFlush)
+		err = validatorBC.CommitBlock(fullBlk)
+		r.NoError(err, "commit on validator failed at height %d", height)
+		r.Equal(height, validatorBC.TipHeight())
+		return blk
+	}
+
+	// ========================================
+	// Block 1: Deploy changestate contract
+	// ========================================
+	t.Log("Block 1: Deploy changestate contract")
+	{
+		selp, err := action.SignedExecution(action.EmptyAddress, sender0Key, nonce0, big.NewInt(0), 1000000, gasPrice, _changestateDeployBytecode)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	blk := mintAndCompareReceipts(t, 1)
+	changestateAddr := getContractAddr(blk, 0)
+	r.NotEmpty(changestateAddr)
+
+	// ========================================
+	// Block 2: Deploy basic-token contract
+	// ========================================
+	t.Log("Block 2: Deploy basic-token contract")
+	{
+		selp, err := action.SignedExecution(action.EmptyAddress, sender0Key, nonce0, big.NewInt(0), 5000000, gasPrice, _basicTokenDeployBytecode)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	blk = mintAndCompareReceipts(t, 2)
+	basicTokenAddr := getContractAddr(blk, 0)
+	r.NotEmpty(basicTokenAddr)
+
+	// ========================================
+	// Block 3: Deploy factory contract (creates child contracts via CREATE)
+	// ========================================
+	t.Log("Block 3: Deploy factory contract")
+	{
+		selp, err := action.SignedExecution(action.EmptyAddress, sender0Key, nonce0, big.NewInt(0), 5000000, gasPrice, _factoryDeployBytecode)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	blk = mintAndCompareReceipts(t, 3)
+	factoryAddr := getContractAddr(blk, 0)
+	r.NotEmpty(factoryAddr)
+
+	// ========================================
+	// Block 4: Multiple contract interactions in one block
+	//   - Token transfer (storage write) from sender0
+	//   - Changestate call (revert) from sender0
+	//   - Native transfer from sender1
+	// ========================================
+	t.Log("Block 4: Mixed contract calls + native transfer")
+	{
+		selp, err := action.SignedExecution(basicTokenAddr, sender0Key, nonce0, big.NewInt(0), 1000000, gasPrice, _basicTokenTransfer)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+
+		selp, err = action.SignedExecution(changestateAddr, sender0Key, nonce0, big.NewInt(0), 120000, gasPrice, _changestateCallRevert)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+
+		amount := new(big.Int).Mul(big.NewInt(10), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+		selp, err = action.SignedTransfer(identityset.Address(3).String(), sender1Key, nonce1, amount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce1++
+	}
+	mintAndCompareReceipts(t, 4)
+
+	// ========================================
+	// Block 5: Factory CREATE (creates child contract + cross-contract calls)
+	// ========================================
+	t.Log("Block 5: Factory make (CREATE opcode)")
+	{
+		selp, err := action.SignedExecution(factoryAddr, sender0Key, nonce0, big.NewInt(0), 5000000, gasPrice, _factoryMake)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndCompareReceipts(t, 5)
+
+	// ========================================
+	// Block 6: Factory set (cross-contract storage write)
+	// ========================================
+	t.Log("Block 6: Factory set (cross-contract storage write)")
+	{
+		selp, err := action.SignedExecution(factoryAddr, sender0Key, nonce0, big.NewInt(0), 5000000, gasPrice, _factorySet)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndCompareReceipts(t, 6)
+
+	// ========================================
+	// Block 7: Read back state from multiple contracts + transfer
+	// This block reads contract storage that was written in blocks 4-6
+	// and validates that stateless execution sees the same storage values.
+	// ========================================
+	t.Log("Block 7: Read contract state + token transfer + native transfer")
+	{
+		selp, err := action.SignedExecution(changestateAddr, sender0Key, nonce0, big.NewInt(0), 120000, gasPrice, _changestateQueryN)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+
+		selp, err = action.SignedExecution(basicTokenAddr, sender0Key, nonce0, big.NewInt(0), 1000000, gasPrice, _basicTokenBalanceOf)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+
+		amount := new(big.Int).Mul(big.NewInt(50), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+		selp, err = action.SignedTransfer(identityset.Address(2).String(), sender0Key, nonce0, amount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndCompareReceipts(t, 7)
+
+	// ========================================
+	// Block 8: Another round of contract interactions after transfer
+	// Tests that contract storage accumulated over many blocks with
+	// skipContractStorageFlush is still correctly served by witnesses.
+	// ========================================
+	t.Log("Block 8: More contract calls + another transfer")
+	{
+		selp, err := action.SignedExecution(basicTokenAddr, sender0Key, nonce0, big.NewInt(0), 1000000, gasPrice, _basicTokenTransfer)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+
+		selp, err = action.SignedExecution(changestateAddr, sender1Key, nonce1, big.NewInt(0), 120000, gasPrice, _changestateCallRevert)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce1++
+
+		amount := new(big.Int).Mul(big.NewInt(100), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+		selp, err = action.SignedTransfer(identityset.Address(4).String(), sender0Key, nonce0, amount, nil, 21000, gasPrice)
+		r.NoError(err)
+		r.NoError(ap.Add(ctx, selp))
+		nonce0++
+	}
+	mintAndCompareReceipts(t, 8)
+
+	t.Log("All 8 blocks: stateless receipts match producer receipts exactly")
 }
