@@ -331,6 +331,17 @@ func ExecuteContract(
 			}
 		}
 	}
+	// collect storage op trace before clear()
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureStorageOps != nil {
+		type opsProvider interface {
+			StorageOps() []StorageOp
+		}
+		if op, ok := stateDB.(opsProvider); ok {
+			if ops := op.StorageOps(); len(ops) > 0 {
+				tCtx.CaptureStorageOps(ops)
+			}
+		}
+	}
 	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog...)
 	receipt.AddTransactionLogs(burnLog)
 	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||

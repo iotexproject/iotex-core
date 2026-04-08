@@ -1083,7 +1083,44 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 	if err != nil {
 		return err
 	}
+	// capture write entries for witness debug info
+	if tCtx, ok := evm.GetTracerCtx(ctx); ok && tCtx.CaptureWriteEntries != nil {
+		if s, ok := ws.store.(*stateDBWorkingSetStore); ok {
+			tCtx.CaptureWriteEntries(s.DumpEntries())
+		}
+	}
 	if !blk.VerifyDeltaStateDigest(digest) {
+		// dump current execution's write entries for debugging
+		if s, ok := ws.store.(*stateDBWorkingSetStore); ok {
+			entries := s.DumpEntries()
+			log.L().Error("Digest mismatch - current write entries", zap.Uint64("height", blk.Height()), zap.Int("numEntries", len(entries)))
+			for _, e := range entries {
+				log.L().Error("  current write entry", zap.String("entry", e))
+			}
+		}
+		// dump witness debug info for comparison
+		if svCtx, ok := evm.GetStatelessValidationCtx(ctx); ok && svCtx.Enabled {
+			if len(svCtx.DebugWriteEntries) > 0 {
+				log.L().Error("Digest mismatch - witness write entries", zap.Uint64("height", blk.Height()), zap.Int("numEntries", len(svCtx.DebugWriteEntries)))
+				for _, e := range svCtx.DebugWriteEntries {
+					log.L().Error("  witness write entry", zap.String("entry", e))
+				}
+			}
+			if len(svCtx.DebugStorageOps) > 0 {
+				log.L().Error("Digest mismatch - witness storage ops", zap.Uint64("height", blk.Height()))
+				for ah, ops := range svCtx.DebugStorageOps {
+					for _, op := range ops {
+						log.L().Error("  witness storage op",
+							zap.String("actionHash", fmt.Sprintf("%x", ah)),
+							zap.String("op", op.Op),
+							zap.String("addr", op.Addr),
+							zap.String("key", op.Key),
+							zap.String("value", op.Value),
+						)
+					}
+				}
+			}
+		}
 		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x' at height %d", blk.DeltaStateDigest(), digest, blk.Height())
 	}
 	receiptRoot := calculateReceiptRoot(ws.receipts)
@@ -1116,6 +1153,12 @@ func (ws *workingSet) CreateBuilder(
 	digest, err := ws.digest()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get digest")
+	}
+	// capture write entries for witness debug info
+	if tCtx, ok := evm.GetTracerCtx(ctx); ok && tCtx.CaptureWriteEntries != nil {
+		if s, ok := ws.store.(*stateDBWorkingSetStore); ok {
+			tCtx.CaptureWriteEntries(s.DumpEntries())
+		}
 	}
 	ra := block.NewRunnableActionsBuilder().
 		AddActions(actions...).

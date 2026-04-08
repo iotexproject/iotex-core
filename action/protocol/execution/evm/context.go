@@ -27,9 +27,11 @@ type (
 	}
 	// TracerContext is the context for EVM tracer
 	TracerContext struct {
-		CaptureTx                      func([]byte, *action.Receipt)
-		CaptureContractStorageAccesses func([]ContractStorageAccess)
+		CaptureTx                       func([]byte, *action.Receipt)
+		CaptureContractStorageAccesses  func([]ContractStorageAccess)
 		CaptureContractStorageWitnesses func(map[common.Address]*ContractStorageWitness)
+		CaptureStorageOps               func([]StorageOp)
+		CaptureWriteEntries             func([]string)
 	}
 
 	// StatelessValidationContext provides the per-block contract-storage witness
@@ -37,6 +39,9 @@ type (
 	StatelessValidationContext struct {
 		Enabled         bool
 		ActionWitnesses map[hash.Hash256]map[common.Address]*ContractStorageWitness
+		// Debug fields from witness data
+		DebugWriteEntries []string
+		DebugStorageOps   map[hash.Hash256][]StorageOpTraceJSON
 	}
 )
 

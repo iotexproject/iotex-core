@@ -19,17 +19,19 @@ type (
 	}
 
 	BlockResult struct {
-		Summary      *Summary            `json:"summary,omitempty"`
-		Transactions []TransactionResult `json:"transactions"`
+		Summary           *Summary            `json:"summary,omitempty"`
+		Transactions      []TransactionResult `json:"transactions"`
+		DebugWriteEntries []string            `json:"debugWriteEntries,omitempty"`
 	}
 
 	TransactionResult struct {
-		TxHash     string            `json:"txHash"`
-		Contracts  uint64            `json:"contracts"`
-		Entries    uint64            `json:"entries"`
-		ProofNodes uint64            `json:"proofNodes"`
-		ProofBytes uint64            `json:"proofBytes"`
-		Witnesses  []ContractWitness `json:"witnesses,omitempty"`
+		TxHash          string                   `json:"txHash"`
+		Contracts       uint64                   `json:"contracts"`
+		Entries         uint64                   `json:"entries"`
+		ProofNodes      uint64                   `json:"proofNodes"`
+		ProofBytes      uint64                   `json:"proofBytes"`
+		Witnesses       []ContractWitness        `json:"witnesses,omitempty"`
+		DebugStorageOps []evm.StorageOpTraceJSON `json:"debugStorageOps,omitempty"`
 	}
 
 	ContractWitness struct {

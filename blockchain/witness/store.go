@@ -73,6 +73,7 @@ func ParseValidationContext(raw json.RawMessage) (evm.StatelessValidationContext
 		return evm.StatelessValidationContext{}, err
 	}
 	actionWitnesses := make(map[hash.Hash256]map[common.Address]*evm.ContractStorageWitness, len(result.Transactions))
+	debugStorageOps := make(map[hash.Hash256][]evm.StorageOpTraceJSON, len(result.Transactions))
 	for _, tx := range result.Transactions {
 		txHash := common.HexToHash(tx.TxHash)
 		actionHash := hash.BytesToHash256(txHash[:])
@@ -85,9 +86,14 @@ func ParseValidationContext(raw json.RawMessage) (evm.StatelessValidationContext
 			contractWitnesses[common.HexToAddress(witness.Address)] = evmWitness
 		}
 		actionWitnesses[actionHash] = contractWitnesses
+		if len(tx.DebugStorageOps) > 0 {
+			debugStorageOps[actionHash] = tx.DebugStorageOps
+		}
 	}
 	return evm.StatelessValidationContext{
-		Enabled:         true,
-		ActionWitnesses: actionWitnesses,
+		Enabled:           true,
+		ActionWitnesses:   actionWitnesses,
+		DebugWriteEntries: result.DebugWriteEntries,
+		DebugStorageOps:   debugStorageOps,
 	}, nil
 }
