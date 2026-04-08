@@ -40,7 +40,7 @@ func buildWitness(t *testing.T, prestateKVs map[hash.Hash256][]byte, reads []has
 		require.NoError(inner.Upsert(k[:], v))
 	}
 
-	wt := newWitnessTrie(inner, _testHashFuncAddr())
+	wt := newWitnessTrie(inner, _testHashFuncAddr(), nil)
 
 	// Record reads
 	for _, k := range reads {
@@ -170,7 +170,7 @@ func TestStatelessTrie_EmptyPrestate(t *testing.T) {
 
 	// Producer: empty trie, insert k1
 	inner := newTestTrieWithAddr(t, _testAddr)
-	wt := newWitnessTrie(inner, _testHashFuncAddr())
+	wt := newWitnessTrie(inner, _testHashFuncAddr(), nil)
 	_, err := wt.Get(_k1b[:]) // record first touch (absent)
 	require.Error(err)
 	require.NoError(wt.Upsert(_k1b[:], _v1b[:]))

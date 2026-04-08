@@ -14,12 +14,56 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db/trie"
 )
 
+// saveOnDeleteKVStore wraps a trie.KVStore to intercept Delete calls, saving
+// old node values into a secondary MemKVStore before they are tombstoned in
+// the primary store. This allows a prestate trie clone to resolve deleted
+// hashNodes without needing a full CollectNodes snapshot.
+type saveOnDeleteKVStore struct {
+	inner trie.KVStore // SM-backed production store
+	saved trie.KVStore // MemKVStore holding deleted nodes
+}
+
+func newSaveOnDeleteKVStore(inner trie.KVStore) *saveOnDeleteKVStore {
+	return &saveOnDeleteKVStore{
+		inner: inner,
+		saved: trie.NewMemKVStore(),
+	}
+}
+
+func (s *saveOnDeleteKVStore) Start(ctx context.Context) error { return s.inner.Start(ctx) }
+func (s *saveOnDeleteKVStore) Stop(ctx context.Context) error  { return s.inner.Stop(ctx) }
+
+func (s *saveOnDeleteKVStore) Get(key []byte) ([]byte, error) {
+	v, err := s.inner.Get(key)
+	if err == nil {
+		return v, nil
+	}
+	// Fallback to saved (deleted) nodes.
+	return s.saved.Get(key)
+}
+
+func (s *saveOnDeleteKVStore) Put(key []byte, value []byte) error {
+	return s.inner.Put(key, value)
+}
+
+func (s *saveOnDeleteKVStore) Delete(key []byte) error {
+	// Save the old value before it is tombstoned.
+	if v, err := s.inner.Get(key); err == nil {
+		_ = s.saved.Put(key, v)
+	}
+	return s.inner.Delete(key)
+}
+
 // witnessTrie wraps a trie.Trie to track first-touch storage keys and their
 // prestate values during EVM execution. At transaction end, it builds the
 // contract storage witness by generating proofs from a prestate trie snapshot.
 type witnessTrie struct {
 	inner    trie.Trie
 	prestate trie.Trie // cloned at first mutation, used for proof generation
+
+	// kvStore is a saveOnDeleteKVStore that preserves deleted trie nodes.
+	// nil when inner trie is MemKVStore-backed (tests).
+	kvStore *saveOnDeleteKVStore
 
 	// firstTouch records the prestate value for each key at first access.
 	// nil value means the key was absent in prestate.
@@ -31,9 +75,10 @@ type witnessTrie struct {
 	hashFunc func([]byte) []byte
 }
 
-func newWitnessTrie(inner trie.Trie, hashFunc func([]byte) []byte) *witnessTrie {
+func newWitnessTrie(inner trie.Trie, hashFunc func([]byte) []byte, kvStore *saveOnDeleteKVStore) *witnessTrie {
 	return &witnessTrie{
 		inner:         inner,
+		kvStore:       kvStore,
 		firstTouch:    make(map[hash.Hash256][]byte),
 		hasFirstTouch: make(map[hash.Hash256]bool),
 		hashFunc:      hashFunc,
@@ -41,23 +86,28 @@ func newWitnessTrie(inner trie.Trie, hashFunc func([]byte) []byte) *witnessTrie 
 }
 
 // capturePrestate lazily clones the inner trie before the first mutation.
-// When the inner trie is backed by a DB (production), the shallow clone must
-// have access to all trie nodes so that GetProof can traverse hashNodes.
-// We collect all reachable nodes into a MemKVStore first, then clone with it.
+// When kvStore is set (production), the clone uses the saveOnDeleteKVStore
+// which preserves deleted nodes so that GetProof can still traverse them.
+// When kvStore is nil (tests with MemKVStore), it falls back to CollectNodes.
 func (w *witnessTrie) capturePrestate() error {
 	if w.prestate != nil {
 		return nil
 	}
-	kvStore := trie.NewMemKVStore()
-	// Populate the MemKVStore with all trie nodes so the clone can resolve
-	// hashNodes during GetProof. Without this, a shallow clone of a DB-backed
-	// trie would fail on any hashNode it encounters.
-	if nc, ok := w.inner.(trie.NodeCollector); ok {
-		if err := nc.CollectNodes(kvStore); err != nil {
-			return errors.Wrap(err, "failed to collect prestate trie nodes")
+	var cloneKV trie.KVStore
+	if w.kvStore != nil {
+		// Production path: clone with saveOnDeleteKVStore.
+		// Deleted nodes are saved on the fly, so no upfront collection needed.
+		cloneKV = w.kvStore
+	} else {
+		// Test path: inner trie is MemKVStore-backed, collect all nodes.
+		cloneKV = trie.NewMemKVStore()
+		if nc, ok := w.inner.(trie.NodeCollector); ok {
+			if err := nc.CollectNodes(cloneKV); err != nil {
+				return errors.Wrap(err, "failed to collect prestate trie nodes")
+			}
 		}
 	}
-	clone, err := w.inner.Clone(kvStore)
+	clone, err := w.inner.Clone(cloneKV)
 	if err != nil {
 		return errors.Wrap(err, "failed to clone prestate trie")
 	}

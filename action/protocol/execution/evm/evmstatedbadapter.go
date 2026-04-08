@@ -277,7 +277,9 @@ func NewStateDBAdapter(
 			return nil, err
 		}
 		if s.buildWitness {
-			enableWitnessOnContract(c, addr)
+			if err := enableWitnessOnContract(c, addr); err != nil {
+				return nil, err
+			}
 		}
 		return c, nil
 	}
@@ -285,16 +287,29 @@ func NewStateDBAdapter(
 }
 
 // enableWitnessOnContract wraps the contract's storage trie with a witnessTrie.
-func enableWitnessOnContract(c Contract, addr hash.Hash160) {
+// It clones the trie with a saveOnDeleteKVStore so that deleted trie nodes are
+// preserved for prestate proof generation, avoiding an expensive full CollectNodes.
+func enableWitnessOnContract(c Contract, addr hash.Hash160) error {
 	cc, ok := c.(*contract)
 	if !ok {
-		return
+		return nil
 	}
 	hashFunc := func(data []byte) []byte {
 		h := hash.Hash256b(append(addr[:], data...))
 		return h[:]
 	}
-	cc.trie = newWitnessTrie(cc.trie, hashFunc)
+	// Create a saveOnDeleteKVStore backed by the same StateManager so that
+	// deleted trie nodes are preserved for prestate proof generation.
+	smKV := protocol.NewKVStoreForTrieWithStateManager(ContractKVNameSpace, cc.sm)
+	kvStore := newSaveOnDeleteKVStore(smKV)
+	// Clone the trie to use saveOnDeleteKVStore as its backing store.
+	// This way all mutations go through the wrapper, intercepting deletes.
+	clonedTrie, err := cc.trie.Clone(kvStore)
+	if err != nil {
+		return errors.Wrap(err, "failed to clone trie for witness collection")
+	}
+	cc.trie = newWitnessTrie(clonedTrie, hashFunc, kvStore)
+	return nil
 }
 
 // StorageWitnesses collects contract storage witnesses from all cached contracts.

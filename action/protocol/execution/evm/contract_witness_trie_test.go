@@ -40,7 +40,7 @@ func TestWitnessTrie_FirstTouchTracking(t *testing.T) {
 	require.NoError(inner.Upsert(_k1b[:], _v1b[:]))
 	require.NoError(inner.Upsert(_k2b[:], _v2b[:]))
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// Read k1 — should record first touch with prestate value
 	v, err := wt.Get(_k1b[:])
@@ -68,7 +68,7 @@ func TestWitnessTrie_MutationCapturesPrestate(t *testing.T) {
 
 	require.NoError(inner.Upsert(_k1b[:], _v1b[:]))
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// No prestate clone yet
 	require.Nil(wt.prestate)
@@ -98,7 +98,7 @@ func TestWitnessTrie_DeleteCapturesPrestate(t *testing.T) {
 
 	require.NoError(inner.Upsert(_k1b[:], _v1b[:]))
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// Delete should trigger prestate clone and record first touch
 	require.NoError(wt.Delete(_k1b[:]))
@@ -118,7 +118,7 @@ func TestWitnessTrie_ReadOnlyNoPrestateClone(t *testing.T) {
 
 	require.NoError(inner.Upsert(_k1b[:], _v1b[:]))
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// Read-only access should NOT clone prestate
 	_, err := wt.Get(_k1b[:])
@@ -129,7 +129,7 @@ func TestWitnessTrie_ReadOnlyNoPrestateClone(t *testing.T) {
 func TestWitnessTrie_BuildWitnessEmpty(t *testing.T) {
 	require := require.New(t)
 	inner := newTestTrie(t)
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// No accesses — BuildWitness returns nil
 	w, err := wt.BuildWitness()
@@ -144,7 +144,7 @@ func TestWitnessTrie_BuildWitnessReadOnly(t *testing.T) {
 	require.NoError(inner.Upsert(_k1b[:], _v1b[:]))
 	require.NoError(inner.Upsert(_k2b[:], _v2b[:]))
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// Read two keys
 	_, err := wt.Get(_k1b[:])
@@ -180,7 +180,7 @@ func TestWitnessTrie_BuildWitnessWithMutations(t *testing.T) {
 	require.NoError(inner.Upsert(_k1b[:], _v1b[:]))
 	require.NoError(inner.Upsert(_k2b[:], _v2b[:]))
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// Read k1, then mutate k2
 	_, err := wt.Get(_k1b[:])
@@ -214,7 +214,7 @@ func TestWitnessTrie_FirstTouchDeduplication(t *testing.T) {
 
 	require.NoError(inner.Upsert(_k1b[:], _v1b[:]))
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// Read k1, get prestate v1b
 	_, err := wt.Get(_k1b[:])
@@ -240,7 +240,7 @@ func TestWitnessTrie_WriteOnlyKey(t *testing.T) {
 	require := require.New(t)
 	inner := newTestTrie(t)
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// Write to a new key (never existed in prestate)
 	require.NoError(wt.Upsert(_k1b[:], _v1b[:]))
@@ -265,7 +265,7 @@ func TestWitnessTrie_AbsentKeyProof(t *testing.T) {
 	// Populate some keys so the trie isn't empty
 	require.NoError(inner.Upsert(_k1b[:], _v1b[:]))
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// Read an absent key
 	_, err := wt.Get(_k2b[:])
@@ -290,7 +290,7 @@ func TestWitnessTrie_ProofDeduplication(t *testing.T) {
 	require.NoError(inner.Upsert(_k2b[:], _v2b[:]))
 	require.NoError(inner.Upsert(_k3b[:], _v3b[:]))
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// Access all keys
 	_, err := wt.Get(_k1b[:])
@@ -321,7 +321,7 @@ func TestWitnessTrie_DelegatesTrieMethods(t *testing.T) {
 
 	require.NoError(inner.Upsert(_k1b[:], _v1b[:]))
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// RootHash delegates
 	expected, err := inner.RootHash()
@@ -347,7 +347,7 @@ func TestWitnessTrie_RevertSafety(t *testing.T) {
 	require.NoError(inner.Upsert(_k1b[:], _v1b[:]))
 	require.NoError(inner.Upsert(_k2b[:], _v2b[:]))
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// Simulate a subcall: read k1 and mutate k2
 	_, err := wt.Get(_k1b[:])
@@ -394,7 +394,7 @@ func TestWitnessTrie_MultipleUpsertsSameKey(t *testing.T) {
 
 	require.NoError(inner.Upsert(_k1b[:], _v1b[:]))
 
-	wt := newWitnessTrie(inner, testHashFunc)
+	wt := newWitnessTrie(inner, testHashFunc, nil)
 
 	// Multiple mutations to same key
 	require.NoError(wt.Upsert(_k1b[:], _v2b[:]))
@@ -460,7 +460,7 @@ func TestWitnessTrie_DBBackedTrieWithHashNodes(t *testing.T) {
 	require.Equal(_v1b[:], v)
 
 	// Phase 3: Wrap with witnessTrie, do reads + mutation, then BuildWitness.
-	wt := newWitnessTrie(tr2, hashFunc)
+	wt := newWitnessTrie(tr2, hashFunc, nil)
 
 	// Read k1 and k3
 	v, err = wt.Get(_k1b[:])
