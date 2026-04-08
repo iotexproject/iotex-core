@@ -247,7 +247,7 @@ func newStatelessContract(addr hash.Hash160, account *state.Account, sm protocol
 		if err := VerifyContractStorageWitness(evmAddr, w); err != nil {
 			return nil, errors.Wrapf(err, "failed to verify witness for contract %x", addr[:])
 		}
-		tr, err := newStatelessTrie(addr, w)
+		tr, err := newStatelessTrie(addr, w, sm)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create stateless trie for contract %x", addr[:])
 		}
@@ -260,7 +260,7 @@ func newStatelessContract(addr hash.Hash160, account *state.Account, sm protocol
 		// nodes to satisfy a non-zero root.
 		tr, err := newStatelessTrie(addr, &ContractStorageWitness{
 			StorageRoot: hash.ZeroHash256,
-		})
+		}, sm)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create empty stateless trie for contract %x", addr[:])
 		}

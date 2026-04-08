@@ -11,18 +11,61 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/db/trie"
 	"github.com/iotexproject/iotex-core/v2/db/trie/mptrie"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
+
+// statelessTrieKVStore is a composite KV store for the stateless trie.
+// Reads come from the in-memory store (proof nodes from witness + newly written nodes).
+// Writes go to BOTH the in-memory store (so the trie can read them back
+// immediately) AND the state manager batch (for digest computation + DB flush).
+type statelessTrieKVStore struct {
+	mem trie.KVStore             // in-memory store for proof nodes + new nodes
+	sm  protocol.StateManager    // state manager for digest computation
+}
+
+func (s *statelessTrieKVStore) Start(ctx context.Context) error { return nil }
+func (s *statelessTrieKVStore) Stop(ctx context.Context) error  { return nil }
+
+func (s *statelessTrieKVStore) Get(key []byte) ([]byte, error) {
+	return s.mem.Get(key)
+}
+
+func (s *statelessTrieKVStore) Put(key []byte, value []byte) error {
+	if err := s.mem.Put(key, value); err != nil {
+		return err
+	}
+	// mirror the write to the state manager batch for digest computation
+	var sb protocol.SerializableBytes = make([]byte, len(value))
+	copy(sb, value)
+	_, err := s.sm.PutState(sb, protocol.KeyOption(key), protocol.NamespaceOption(ContractKVNameSpace))
+	return err
+}
+
+func (s *statelessTrieKVStore) Delete(key []byte) error {
+	// Remove from mem if present; ignore error if the key doesn't exist.
+	_ = s.mem.Delete(key)
+	// Always mirror the delete to the state manager batch for digest computation
+	_, err := s.sm.DelState(protocol.KeyOption(key), protocol.NamespaceOption(ContractKVNameSpace))
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return nil
+	}
+	return err
+}
 
 // newStatelessTrie constructs a real MPT backed by the witness proof nodes in a
 // MemKVStore. The returned trie supports Get/Upsert/Delete and — critically —
 // RootHash() returns the correct post-state root after mutations, which allows
 // contract.Commit() to persist the right Account.Root.
 //
+// When sm is non-nil, trie writes are also mirrored to the state manager batch
+// under ContractKVNameSpace so that the delta-state digest matches the producer's.
+//
 // For an empty-storage contract (StorageRoot == ZeroHash256 with no proof nodes),
 // an empty MPT is created.
-func newStatelessTrie(addr hash.Hash160, witness *ContractStorageWitness) (trie.Trie, error) {
+func newStatelessTrie(addr hash.Hash160, witness *ContractStorageWitness, sm protocol.StateManager) (trie.Trie, error) {
 	hashFunc := func(data []byte) []byte {
 		h := hash.Hash256b(append(addr[:], data...))
 		return h[:]
@@ -36,8 +79,15 @@ func newStatelessTrie(addr hash.Hash160, witness *ContractStorageWitness) (trie.
 		}
 	}
 
+	// Use a composite KV store that mirrors writes to the state manager batch
+	// for delta-state digest computation.
+	var trieKV trie.KVStore = kvStore
+	if sm != nil {
+		trieKV = &statelessTrieKVStore{mem: kvStore, sm: sm}
+	}
+
 	options := []mptrie.Option{
-		mptrie.KVStoreOption(kvStore),
+		mptrie.KVStoreOption(trieKV),
 		mptrie.KeyLengthOption(len(hash.Hash256{})),
 		mptrie.HashFuncOption(hashFunc),
 	}

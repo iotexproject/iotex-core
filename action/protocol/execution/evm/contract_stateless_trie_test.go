@@ -79,7 +79,7 @@ func TestStatelessTrie_ReadPrestate(t *testing.T) {
 	reads := []hash.Hash256{_k1b, _k2b, _k3b}
 	w, _ := buildWitness(t, prestate, reads, nil)
 
-	tr, err := newStatelessTrie(_testAddrHash160(), w)
+	tr, err := newStatelessTrie(_testAddrHash160(), w, nil)
 	require.NoError(err)
 
 	// Existing keys return correct values
@@ -112,7 +112,7 @@ func TestStatelessTrie_MutateAndRootHash(t *testing.T) {
 	reads := []hash.Hash256{_k1b, _k2b}
 	w, producerPostRoot := buildWitness(t, prestate, reads, mutations)
 
-	tr, err := newStatelessTrie(_testAddrHash160(), w)
+	tr, err := newStatelessTrie(_testAddrHash160(), w, nil)
 	require.NoError(err)
 
 	// Before mutation: root equals prestate root
@@ -144,7 +144,7 @@ func TestStatelessTrie_DeleteAndRootHash(t *testing.T) {
 	reads := []hash.Hash256{_k1b, _k2b}
 	w, producerPostRoot := buildWitness(t, prestate, reads, mutations)
 
-	tr, err := newStatelessTrie(_testAddrHash160(), w)
+	tr, err := newStatelessTrie(_testAddrHash160(), w, nil)
 	require.NoError(err)
 
 	require.NoError(tr.Delete(_k2b[:]))
@@ -183,7 +183,7 @@ func TestStatelessTrie_EmptyPrestate(t *testing.T) {
 	require.Equal(hash.ZeroHash256, w.StorageRoot)
 
 	// Validator: replay on stateless MPT
-	tr, err := newStatelessTrie(_testAddrHash160(), w)
+	tr, err := newStatelessTrie(_testAddrHash160(), w, nil)
 	require.NoError(err)
 
 	require.NoError(tr.Upsert(_k1b[:], _v1b[:]))
@@ -207,7 +207,7 @@ func TestStatelessTrie_InsertNewKey(t *testing.T) {
 	reads := []hash.Hash256{_k1b, _k3b}
 	w, producerPostRoot := buildWitness(t, prestate, reads, mutations)
 
-	tr, err := newStatelessTrie(_testAddrHash160(), w)
+	tr, err := newStatelessTrie(_testAddrHash160(), w, nil)
 	require.NoError(err)
 
 	require.NoError(tr.Upsert(_k3b[:], _v3b[:]))
@@ -234,7 +234,7 @@ func TestStatelessTrie_MultipleMutations(t *testing.T) {
 	reads := []hash.Hash256{_k1b, _k2b, _k3b}
 	w, producerPostRoot := buildWitness(t, prestate, reads, mutations)
 
-	tr, err := newStatelessTrie(_testAddrHash160(), w)
+	tr, err := newStatelessTrie(_testAddrHash160(), w, nil)
 	require.NoError(err)
 
 	require.NoError(tr.Upsert(_k1b[:], _v3b[:]))
@@ -253,7 +253,7 @@ func TestStatelessTrie_NoWitnessEmptyTrie(t *testing.T) {
 
 	tr, err := newStatelessTrie(_testAddrHash160(), &ContractStorageWitness{
 		StorageRoot: hash.ZeroHash256,
-	})
+	}, nil)
 	require.NoError(err)
 	require.True(tr.IsEmpty())
 
