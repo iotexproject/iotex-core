@@ -7,6 +7,7 @@ package factory
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -116,6 +117,25 @@ func (store *stateDBWorkingSetStore) Delete(ns string, key []byte) error {
 
 func (store *stateDBWorkingSetStore) Digest() hash.Hash256 {
 	return hash.Hash256b(store.flusher.SerializeQueue())
+}
+
+func (store *stateDBWorkingSetStore) DumpEntries() []string {
+	buf := store.flusher.KVStoreWithBuffer()
+	n := buf.Size()
+	entries := make([]string, 0, n)
+	for i := 0; i < n; i++ {
+		wi, err := buf.Entry(i)
+		if err != nil {
+			entries = append(entries, fmt.Sprintf("[%d] ERROR: %v", i, err))
+			continue
+		}
+		wt := "PUT"
+		if wi.WriteType() == batch.Delete {
+			wt = "DEL"
+		}
+		entries = append(entries, fmt.Sprintf("[%d] %s ns=%s key=%x vlen=%d vhash=%x", i, wt, wi.Namespace(), wi.Key(), len(wi.Value()), hash.Hash256b(wi.Value())))
+	}
+	return entries
 }
 
 func (store *stateDBWorkingSetStore) Commit(_ context.Context, _ uint64) error {

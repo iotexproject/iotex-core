@@ -1079,24 +1079,16 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 		}
 	}
 
-	// During stateless validation the contract-storage trie writes go to an
-	// in-memory KV store (not the state manager batch), so the delta-state
-	// digest will differ from the producer's. The receipt root may also differ
-	// because the stateless EVM execution may produce slightly different gas
-	// accounting when accessing witness-backed storage. Both checks are skipped
-	// — the witness proofs already guarantee correct EVM state transitions.
-	if svCtx, ok := evm.GetStatelessValidationCtx(ctx); !ok || !svCtx.Enabled {
-		digest, err := ws.digest()
-		if err != nil {
-			return err
-		}
-		if !blk.VerifyDeltaStateDigest(digest) {
-			return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x' at height %d", blk.DeltaStateDigest(), digest, blk.Height())
-		}
-		receiptRoot := calculateReceiptRoot(ws.receipts)
-		if !blk.VerifyReceiptRoot(receiptRoot) {
-			return errors.Wrapf(block.ErrReceiptRootMismatch, "receipt root in block '%x' vs receipt root in workingset '%x'", blk.ReceiptRoot(), receiptRoot)
-		}
+	digest, err := ws.digest()
+	if err != nil {
+		return err
+	}
+	if !blk.VerifyDeltaStateDigest(digest) {
+		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x' at height %d", blk.DeltaStateDigest(), digest, blk.Height())
+	}
+	receiptRoot := calculateReceiptRoot(ws.receipts)
+	if !blk.VerifyReceiptRoot(receiptRoot) {
+		return errors.Wrapf(block.ErrReceiptRootMismatch, "receipt root in block '%x' vs receipt root in workingset '%x'", blk.ReceiptRoot(), receiptRoot)
 	}
 
 	return nil
@@ -1125,7 +1117,6 @@ func (ws *workingSet) CreateBuilder(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get digest")
 	}
-
 	ra := block.NewRunnableActionsBuilder().
 		AddActions(actions...).
 		Build()
