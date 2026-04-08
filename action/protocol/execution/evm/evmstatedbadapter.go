@@ -87,7 +87,9 @@ type (
 		enableCancun               bool
 		fixRevertSnapshot          bool
 		buildWitness               bool
+		revertedContracts          contractMap // contracts removed from cache by reverts, kept for witness building
 		statelessWitnesses         map[common.Address]*ContractStorageWitness
+		storageOps                 []StorageOp
 	}
 )
 
@@ -327,10 +329,30 @@ func (stateDB *StateDBAdapter) StorageWitnesses() (map[common.Address]*ContractS
 			witnesses[common.Address(addr)] = w
 		}
 	}
+	// Include witnesses from contracts that were removed by reverts.
+	// These contracts were accessed during reverted internal calls but their
+	// proof nodes are still needed for stateless validation replay.
+	for addr, c := range stateDB.revertedContracts {
+		if _, already := witnesses[common.Address(addr)]; already {
+			continue
+		}
+		w, err := c.BuildStorageWitness()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to build witness for reverted contract %x", addr[:])
+		}
+		if w != nil {
+			witnesses[common.Address(addr)] = w
+		}
+	}
 	if len(witnesses) == 0 {
 		return nil, nil
 	}
 	return witnesses, nil
+}
+
+// StorageOps returns the recorded storage operations trace.
+func (stateDB *StateDBAdapter) StorageOps() []StorageOp {
+	return stateDB.storageOps
 }
 
 func (stateDB *StateDBAdapter) logError(err error) {
@@ -809,6 +831,21 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		}
 	}
 	// restore modified contracts
+	// When building witnesses, preserve contracts that will be removed from
+	// cachedContract by this revert. These contracts were accessed during a
+	// reverted internal call but their witness data (proof nodes) is still
+	// needed for stateless validation.
+	if stateDB.buildWitness {
+		snapshotMap := stateDB.contractSnapshot[snapshot]
+		for addr, c := range stateDB.cachedContract {
+			if _, inSnapshot := snapshotMap[addr]; !inSnapshot {
+				if stateDB.revertedContracts == nil {
+					stateDB.revertedContracts = make(contractMap)
+				}
+				stateDB.revertedContracts[addr] = c
+			}
+		}
+	}
 	stateDB.cachedContract = stateDB.contractSnapshot[snapshot]
 	for _, addr := range stateDB.cachedContractAddrs() {
 		c := stateDB.cachedContract[addr]
@@ -1106,7 +1143,14 @@ func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k commo
 		stateDB.logError(err)
 		return common.Hash{}
 	}
-	return common.BytesToHash(v)
+	result := common.BytesToHash(v)
+	stateDB.storageOps = append(stateDB.storageOps, StorageOp{
+		OpType: StorageOpGetCommittedState,
+		Addr:   evmAddr,
+		Key:    k,
+		Value:  result,
+	})
+	return result
 }
 
 // GetState gets state
@@ -1123,7 +1167,14 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 		stateDB.logError(err)
 		return common.Hash{}
 	}
-	return common.BytesToHash(v)
+	result := common.BytesToHash(v)
+	stateDB.storageOps = append(stateDB.storageOps, StorageOp{
+		OpType: StorageOpGetState,
+		Addr:   evmAddr,
+		Key:    k,
+		Value:  result,
+	})
+	return result
 }
 
 // SetState sets state
@@ -1137,6 +1188,12 @@ func (stateDB *StateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash
 	log.T(stateDB.ctx).Debug("Called SetState", log.Hex("addrHash", evmAddr[:]), log.Hex("k", k[:]))
 	err = contract.SetState(hash.BytesToHash256(k[:]), v[:])
 	stateDB.assertError(err, "Failed to set state.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+	stateDB.storageOps = append(stateDB.storageOps, StorageOp{
+		OpType: StorageOpSetState,
+		Addr:   evmAddr,
+		Key:    k,
+		Value:  v,
+	})
 }
 
 // CommitContracts commits contract code to db and update pending contract account changes to trie
@@ -1226,6 +1283,7 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.refundSnapshot = make(map[int]uint64)
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)
+	stateDB.revertedContracts = nil
 	stateDB.selfDestructed = make(deleteAccount)
 	stateDB.selfDestructedSnapshot = make(map[int]deleteAccount)
 	stateDB.preimages = make(preimageMap)
@@ -1236,6 +1294,7 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.txLogsSnapshot = make(map[int]int)
 	stateDB.logs = []*action.Log{}
 	stateDB.transactionLogs = []*action.TransactionLog{}
+	stateDB.storageOps = nil
 	if stateDB.enableCancun {
 		stateDB.transientStorage = newTransientStorage()
 		stateDB.transientStorageSnapshot = make(map[int]transientStorage)
