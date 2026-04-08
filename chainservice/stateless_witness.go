@@ -11,9 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/witness"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type (
@@ -60,14 +62,33 @@ func (c *statelessWitnessRPCClient) blockWitnessByHash(ctx context.Context, bloc
 }
 
 func (c *statelessWitnessRPCClient) blockWitnessByHashRaw(ctx context.Context, blockHash hash.Hash256) (json.RawMessage, error) {
-	var result json.RawMessage
-	if err := c.call(ctx, "debug_getBlockWitnessByHash", []any{common.BytesToHash(blockHash[:]).Hex()}, &result); err != nil {
-		if strings.Contains(err.Error(), "not exist in DB") {
-			return append(json.RawMessage(nil), _emptyBlockWitnessResult...), nil
+	const maxRetries = 10
+	params := []any{common.BytesToHash(blockHash[:]).Hex()}
+	for i := range maxRetries {
+		var result json.RawMessage
+		if err := c.call(ctx, "debug_getBlockWitnessByHash", params, &result); err != nil {
+			if strings.Contains(err.Error(), "not exist in DB") {
+				if i < maxRetries-1 {
+					log.L().Debug("witness not available yet, retrying",
+						zap.String("blockHash", params[0].(string)),
+						zap.Int("attempt", i+1),
+					)
+					select {
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					case <-time.After(500 * time.Millisecond):
+						continue
+					}
+				}
+				// exhausted retries, return empty witness as fallback
+				return append(json.RawMessage(nil), _emptyBlockWitnessResult...), nil
+			}
+			return nil, err
 		}
-		return nil, err
+		return append(json.RawMessage(nil), result...), nil
 	}
-	return append(json.RawMessage(nil), result...), nil
+	// unreachable, but satisfy compiler
+	return append(json.RawMessage(nil), _emptyBlockWitnessResult...), nil
 }
 
 func (c *statelessWitnessRPCClient) call(ctx context.Context, method string, params any, out any) error {
