@@ -99,7 +99,7 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 		if rErr != nil {
 			return nil, nil, rErr
 		}
-		if err := csm.deactivate(cand, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight, p.calculateVoteWeight); err == nil {
+		if err = csm.deactivate(cand, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight, p.calculateVoteWeight); err == nil {
 			topics, eventData, err = action.PackCandidateDeactivatedEvent(id)
 		}
 	default:
