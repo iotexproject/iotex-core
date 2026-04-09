@@ -255,10 +255,17 @@ func newStatelessContract(addr hash.Hash160, account *state.Account, sm protocol
 		c.trie = tr
 	} else {
 		// No witness for this contract means the producer's EVM did not access
-		// its storage (no SLOAD/SSTORE). Use a noStorageTrie that rejects all
-		// storage operations so that any unexpected access fails immediately
-		// rather than silently returning empty results.
-		c.trie = &noStorageTrie{root: account.Root[:]}
+		// its storage (no SLOAD/SSTORE). Use an empty-witness stateless trie:
+		// - If Root != ZeroHash, any Get will try to load the root node from
+		//   an empty KV store, triggering a panic with detailed error info.
+		// - If Root == ZeroHash, the trie is genuinely empty and Get returns
+		//   ErrNotExist (zero value), which is the correct EVM behavior.
+		emptyWitness := &ContractStorageWitness{StorageRoot: account.Root}
+		tr, err := newStatelessTrie(addr, emptyWitness, sm, enableAsync)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create empty stateless trie for contract %x", addr[:])
+		}
+		c.trie = tr
 	}
 	return c, nil
 }
