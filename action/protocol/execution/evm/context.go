@@ -39,9 +39,11 @@ type (
 	StatelessValidationContext struct {
 		Enabled         bool
 		ActionWitnesses map[hash.Hash256]map[common.Address]*ContractStorageWitness
-		// Debug fields from witness data
+		// Debug fields from witness data (full node side)
 		DebugWriteEntries []string
 		DebugStorageOps   map[hash.Hash256][]StorageOpTraceJSON
+		// Debug fields captured during stateless execution (current node side)
+		CurrentStorageOps map[hash.Hash256][]StorageOpTraceJSON
 	}
 )
 
@@ -71,13 +73,13 @@ func GetTracerCtx(ctx context.Context) (TracerContext, bool) {
 }
 
 // WithStatelessValidationCtx returns a new context with stateless validation context.
-func WithStatelessValidationCtx(ctx context.Context, svCtx StatelessValidationContext) context.Context {
+func WithStatelessValidationCtx(ctx context.Context, svCtx *StatelessValidationContext) context.Context {
 	return context.WithValue(ctx, statelessValidationContextKey{}, svCtx)
 }
 
 // GetStatelessValidationCtx returns the stateless-validation context from the context.
-func GetStatelessValidationCtx(ctx context.Context) (StatelessValidationContext, bool) {
-	svCtx, ok := ctx.Value(statelessValidationContextKey{}).(StatelessValidationContext)
+func GetStatelessValidationCtx(ctx context.Context) (*StatelessValidationContext, bool) {
+	svCtx, ok := ctx.Value(statelessValidationContextKey{}).(*StatelessValidationContext)
 	return svCtx, ok
 }
 

@@ -342,6 +342,20 @@ func ExecuteContract(
 			}
 		}
 	}
+	// capture storage ops on the stateless node side for debug comparison
+	if svCtx, ok := GetStatelessValidationCtx(ctx); ok && svCtx.Enabled {
+		type opsProvider interface {
+			StorageOps() []StorageOp
+		}
+		if op, ok := stateDB.(opsProvider); ok {
+			if ops := op.StorageOps(); len(ops) > 0 {
+				if svCtx.CurrentStorageOps == nil {
+					svCtx.CurrentStorageOps = make(map[hash.Hash256][]StorageOpTraceJSON)
+				}
+				svCtx.CurrentStorageOps[ps.actionCtx.ActionHash] = StorageOpsToJSON(ops)
+			}
+		}
+	}
 	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog...)
 	receipt.AddTransactionLogs(burnLog)
 	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||

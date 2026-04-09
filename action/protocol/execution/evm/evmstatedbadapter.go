@@ -332,15 +332,22 @@ func (stateDB *StateDBAdapter) StorageWitnesses() (map[common.Address]*ContractS
 	// Include witnesses from contracts that were removed by reverts.
 	// These contracts were accessed during reverted internal calls but their
 	// proof nodes are still needed for stateless validation replay.
+	// When a contract appears in both cachedContract and revertedContracts
+	// (loaded fresh after a revert), we must MERGE the witnesses because
+	// the reverted version may have accessed different storage keys whose
+	// proof nodes are needed during replay of the reverted sub-call.
 	for addr, c := range stateDB.revertedContracts {
-		if _, already := witnesses[common.Address(addr)]; already {
-			continue
-		}
 		w, err := c.BuildStorageWitness()
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to build witness for reverted contract %x", addr[:])
 		}
-		if w != nil {
+		if w == nil {
+			continue
+		}
+		existing, already := witnesses[common.Address(addr)]
+		if already {
+			existing.MergeFrom(w)
+		} else {
 			witnesses[common.Address(addr)] = w
 		}
 	}
@@ -737,6 +744,10 @@ func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 
 // RevertToSnapshot reverts the state factory to the state at a given snapshot
 func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
+	stateDB.storageOps = append(stateDB.storageOps, StorageOp{
+		OpType:     StorageOpRevertToSnapshot,
+		SnapshotID: snapshot,
+	})
 	ds, ok := stateDB.selfDestructedSnapshot[snapshot]
 	if !ok && stateDB.panicUnrecoverableError {
 		log.T(stateDB.ctx).Panic("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
@@ -944,6 +955,10 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		}
 		stateDB.createdAccountSnapshot[sn] = ca
 	}
+	stateDB.storageOps = append(stateDB.storageOps, StorageOp{
+		OpType:     StorageOpSnapshot,
+		SnapshotID: sn,
+	})
 	return sn
 }
 
@@ -1135,12 +1150,24 @@ func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k commo
 	if err != nil {
 		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		stateDB.logError(err)
+		stateDB.storageOps = append(stateDB.storageOps, StorageOp{
+			OpType: StorageOpGetCommittedStateFailed,
+			Addr:   evmAddr,
+			Key:    k,
+			ErrMsg: "getContract: " + err.Error(),
+		})
 		return common.Hash{}
 	}
 	v, err := contract.GetCommittedState(hash.BytesToHash256(k[:]))
 	if err != nil {
-		log.T(stateDB.ctx).Debug("Failed to get committed state.", zap.Error(err))
+		log.T(stateDB.ctx).Error("Failed to get committed state.", zap.Error(err), zap.String("address", evmAddr.Hex()), zap.String("key", k.Hex()))
 		stateDB.logError(err)
+		stateDB.storageOps = append(stateDB.storageOps, StorageOp{
+			OpType: StorageOpGetCommittedStateFailed,
+			Addr:   evmAddr,
+			Key:    k,
+			ErrMsg: err.Error(),
+		})
 		return common.Hash{}
 	}
 	result := common.BytesToHash(v)
@@ -1159,12 +1186,24 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 	if err != nil {
 		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 		stateDB.logError(err)
+		stateDB.storageOps = append(stateDB.storageOps, StorageOp{
+			OpType: StorageOpGetStateFailed,
+			Addr:   evmAddr,
+			Key:    k,
+			ErrMsg: "getContract: " + err.Error(),
+		})
 		return common.Hash{}
 	}
 	v, err := contract.GetState(hash.BytesToHash256(k[:]))
 	if err != nil {
-		log.T(stateDB.ctx).Debug("Failed to get state.", zap.Error(err))
+		log.T(stateDB.ctx).Error("Failed to get state.", zap.Error(err), zap.String("address", evmAddr.Hex()), zap.String("key", k.Hex()))
 		stateDB.logError(err)
+		stateDB.storageOps = append(stateDB.storageOps, StorageOp{
+			OpType: StorageOpGetStateFailed,
+			Addr:   evmAddr,
+			Key:    k,
+			ErrMsg: err.Error(),
+		})
 		return common.Hash{}
 	}
 	result := common.BytesToHash(v)
