@@ -293,7 +293,7 @@ func (b *EnvelopeBuilder) BuildRewardingAction(tx *types.Transaction) (Envelope,
 }
 
 func newStakingActionFromABIBinary(data []byte, value *big.Int) (actionPayload, error) {
-	if len(data) <= 4 {
+	if len(data) < 4 {
 		return nil, ErrInvalidABI
 	}
 	if act, err := NewCreateStakeFromABIBinary(data); err == nil {
@@ -324,6 +324,9 @@ func newStakingActionFromABIBinary(data []byte, value *big.Int) (actionPayload, 
 		return act, nil
 	}
 	if act, err := NewCandidateActivateFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewCandidateDeactivateFromABIBinary(data); err == nil {
 		return act, nil
 	}
 	if act, err := NewCandidateEndorsementFromABIBinary(data); err == nil {

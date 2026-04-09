@@ -28,6 +28,19 @@
         "type": "address"
       }
     ],
+    "name": "CandidateDeactivated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "candidate",
+        "type": "address"
+      }
+    ],
     "name": "CandidateDeactivationRequested",
     "type": "event"
   },
@@ -48,19 +61,6 @@
       }
     ],
     "name": "CandidateDeactivationScheduled",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "candidate",
-        "type": "address"
-      }
-    ],
-    "name": "CandidateDeactivated",
     "type": "event"
   },
   {
@@ -193,6 +193,13 @@
     "type": "event"
   },
   {
+    "inputs": [],
+    "name": "cancelCandidateDeactivation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint64",
@@ -201,20 +208,6 @@
       }
     ],
     "name": "candidateActivate",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "requestCandidateDeactivation",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "cancelCandidateDeactivation",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -516,6 +509,13 @@
       }
     ],
     "name": "migrateStake",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "requestCandidateDeactivation",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

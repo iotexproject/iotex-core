@@ -424,6 +424,12 @@ func (elp *envelope) loadProtoActionPayload(pbAct *iotextypes.ActionCore) error 
 			return err
 		}
 		elp.payload = act
+	case pbAct.GetCandidateDeactivate() != nil:
+		act := &CandidateDeactivate{}
+		if err := act.LoadProto(pbAct.GetCandidateDeactivate()); err != nil {
+			return err
+		}
+		elp.payload = act
 	case pbAct.GetCandidateEndorsement() != nil:
 		act := &CandidateEndorsement{}
 		if err := act.LoadProto(pbAct.GetCandidateEndorsement()); err != nil {
