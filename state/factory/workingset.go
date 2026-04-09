@@ -1106,18 +1106,89 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 					log.L().Error("  witness write entry", zap.String("entry", e))
 				}
 			}
-			if len(svCtx.DebugStorageOps) > 0 {
-				log.L().Error("Digest mismatch - witness storage ops", zap.Uint64("height", blk.Height()))
-				for ah, ops := range svCtx.DebugStorageOps {
-					for _, op := range ops {
-						log.L().Error("  witness storage op",
-							zap.String("actionHash", fmt.Sprintf("%x", ah)),
-							zap.String("op", op.Op),
-							zap.String("addr", op.Addr),
-							zap.String("key", op.Key),
-							zap.String("value", op.Value),
-						)
+			// print per-action comparison of full node ops vs stateless node ops
+			// filter out Snapshot/RevertToSnapshot ops since witness may not have them
+			filterOps := func(ops []evm.StorageOpTraceJSON) []evm.StorageOpTraceJSON {
+				var filtered []evm.StorageOpTraceJSON
+				for _, op := range ops {
+					if op.Op != "Snapshot" && op.Op != "RevertToSnapshot" {
+						filtered = append(filtered, op)
 					}
+				}
+				return filtered
+			}
+			allActionHashes := make(map[hash.Hash256]struct{})
+			for ah := range svCtx.DebugStorageOps {
+				allActionHashes[ah] = struct{}{}
+			}
+			for ah := range svCtx.CurrentStorageOps {
+				allActionHashes[ah] = struct{}{}
+			}
+			for ah := range allActionHashes {
+				witnessOps := filterOps(svCtx.DebugStorageOps[ah])
+				currentOps := filterOps(svCtx.CurrentStorageOps[ah])
+				// find the first divergence point
+				minLen := len(witnessOps)
+				if len(currentOps) < minLen {
+					minLen = len(currentOps)
+				}
+				divergeIdx := -1
+				for i := 0; i < minLen; i++ {
+					if witnessOps[i].Op != currentOps[i].Op ||
+						witnessOps[i].Addr != currentOps[i].Addr ||
+						witnessOps[i].Key != currentOps[i].Key ||
+						witnessOps[i].Value != currentOps[i].Value {
+						divergeIdx = i
+						break
+					}
+				}
+				if divergeIdx == -1 && len(witnessOps) != len(currentOps) {
+					divergeIdx = minLen
+				}
+				if divergeIdx == -1 {
+					continue // ops match for this action
+				}
+				log.L().Error("Digest mismatch - storage ops diverge (filtered)",
+					zap.Uint64("height", blk.Height()),
+					zap.String("actionHash", fmt.Sprintf("%x", ah)),
+					zap.Int("witnessOpsCount", len(witnessOps)),
+					zap.Int("currentOpsCount", len(currentOps)),
+					zap.Int("divergeAt", divergeIdx),
+				)
+				// print context around divergence: 3 ops before + divergence + 5 ops after
+				startIdx := divergeIdx - 3
+				if startIdx < 0 {
+					startIdx = 0
+				}
+				endIdx := divergeIdx + 6
+				if endIdx > len(witnessOps) {
+					endIdx = len(witnessOps)
+				}
+				endIdxCur := divergeIdx + 6
+				if endIdxCur > len(currentOps) {
+					endIdxCur = len(currentOps)
+				}
+				for i := startIdx; i < endIdx; i++ {
+					op := witnessOps[i]
+					log.L().Error("  witness op",
+						zap.Int("idx", i),
+						zap.String("op", op.Op),
+						zap.String("addr", op.Addr),
+						zap.String("key", op.Key),
+						zap.String("value", op.Value),
+						zap.String("errMsg", op.ErrMsg),
+					)
+				}
+				for i := startIdx; i < endIdxCur; i++ {
+					op := currentOps[i]
+					log.L().Error("  current op",
+						zap.Int("idx", i),
+						zap.String("op", op.Op),
+						zap.String("addr", op.Addr),
+						zap.String("key", op.Key),
+						zap.String("value", op.Value),
+						zap.String("errMsg", op.ErrMsg),
+					)
 				}
 			}
 		}
