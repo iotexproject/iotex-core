@@ -31,16 +31,33 @@ func _testHashFuncAddr() func([]byte) []byte {
 
 // buildWitness is a test helper that creates a witnessTrie, performs reads
 // and writes, then returns the witness and the producer's post-state root hash.
+// It uses a saveOnDeleteKVStore to mirror the production code path where
+// execution-time node loads are recorded for inclusion in the witness.
 func buildWitness(t *testing.T, prestateKVs map[hash.Hash256][]byte, reads []hash.Hash256, mutations map[hash.Hash256][]byte) (*ContractStorageWitness, []byte) {
 	t.Helper()
 	require := require.New(t)
 
-	inner := newTestTrieWithAddr(t, _testAddr)
+	// Create a MemKVStore-backed inner trie, then clone it through a
+	// saveOnDeleteKVStore to match the production enableWitnessOnContract path.
+	hashFunc := _testHashFuncAddr()
+	baseKV := trie.NewMemKVStore()
+	baseTrie, err := mptrie.New(
+		mptrie.KVStoreOption(baseKV),
+		mptrie.KeyLengthOption(len(hash.Hash256{})),
+		mptrie.HashFuncOption(hashFunc),
+	)
+	require.NoError(err)
+	require.NoError(baseTrie.Start(nil))
+
 	for k, v := range prestateKVs {
-		require.NoError(inner.Upsert(k[:], v))
+		require.NoError(baseTrie.Upsert(k[:], v))
 	}
 
-	wt := newWitnessTrie(inner, _testHashFuncAddr(), nil)
+	// Clone through saveOnDeleteKVStore, mirroring production path.
+	sodKV := newSaveOnDeleteKVStore(baseKV)
+	clonedTrie, err := baseTrie.Clone(sodKV)
+	require.NoError(err)
+	wt := newWitnessTrie(clonedTrie, hashFunc, sodKV)
 
 	// Record reads
 	for _, k := range reads {
@@ -57,7 +74,7 @@ func buildWitness(t *testing.T, prestateKVs map[hash.Hash256][]byte, reads []has
 	}
 
 	// Get producer's post-state root
-	postRoot, err := inner.RootHash()
+	postRoot, err := clonedTrie.RootHash()
 	require.NoError(err)
 
 	w, err := wt.BuildWitness()
@@ -275,4 +292,116 @@ func newTestTrieWithAddr(t *testing.T, addr common.Address) trie.Trie {
 	require.NoError(t, err)
 	require.NoError(t, tr.Start(nil))
 	return tr
+}
+
+// TestStatelessTrie_DeleteBranchCollapseWithUnreadSibling exercises the case
+// where Delete triggers a branch collapse and the sibling node was never read
+// (not in firstTouch). Without recording execution-time node loads, the
+// sibling's proof would be missing and the validator would panic.
+func TestStatelessTrie_DeleteBranchCollapseWithUnreadSibling(t *testing.T) {
+	require := require.New(t)
+
+	// Construct keys where keyA and keyB share the first nibble (creating a
+	// non-root sub-branch with exactly 2 children) and keyC has a different
+	// first nibble.
+	var keyA, keyB, keyC hash.Hash256
+	keyA[0] = 0x00 // nibbles: 0, 0, ...
+	keyA[1] = 0x11
+	keyB[0] = 0x01 // nibbles: 0, 1, ... (shares first nibble 0 with keyA)
+	keyB[1] = 0x22
+	keyC[0] = 0x10 // nibbles: 1, 0, ... (different first nibble)
+	keyC[1] = 0x33
+
+	valA := []byte("valueA")
+	valB := []byte("valueB")
+	valC := []byte("valueC")
+
+	prestate := map[hash.Hash256][]byte{
+		keyA: valA,
+		keyB: valB,
+		keyC: valC,
+	}
+	// Only read keyA (to be deleted) and keyC. Do NOT read keyB — its proof
+	// must still be available for the validator because Delete(keyA) causes
+	// the sub-branch to collapse, loading keyB's subtree as the sibling.
+	reads := []hash.Hash256{keyA, keyC}
+	mutations := map[hash.Hash256][]byte{
+		keyA: nil, // delete keyA → triggers branch collapse needing keyB
+	}
+	w, producerPostRoot := buildWitness(t, prestate, reads, mutations)
+
+	// Validate: the proof should include keyB's sibling node
+	tr, err := newStatelessTrie(_testAddrHash160(), w, nil, false)
+	require.NoError(err)
+
+	// Delete keyA on the stateless trie — this must NOT panic
+	require.NoError(tr.Delete(keyA[:]))
+
+	// Post-state root must match the producer's
+	rh, err := tr.RootHash()
+	require.NoError(err)
+	require.Equal(producerPostRoot, rh)
+
+	// keyB should still be readable after the branch collapse
+	v, err := tr.Get(keyB[:])
+	require.NoError(err)
+	require.Equal(valB, v)
+
+	// keyC should still be readable
+	v, err = tr.Get(keyC[:])
+	require.NoError(err)
+	require.Equal(valC, v)
+
+	// keyA should be gone
+	_, err = tr.Get(keyA[:])
+	require.ErrorIs(err, trie.ErrNotExist)
+}
+
+// TestStatelessTrie_DeleteBranchCollapseFollowedByGet exercises the scenario
+// from production: Delete causes branch collapse, then a subsequent Get on a
+// different key (that was read before the Delete) traverses the restructured
+// trie and needs proof nodes for the path.
+func TestStatelessTrie_DeleteBranchCollapseFollowedByGet(t *testing.T) {
+	require := require.New(t)
+
+	// Same key structure: keyA + keyB share first nibble, keyC is separate
+	var keyA, keyB, keyC hash.Hash256
+	keyA[0] = 0x00
+	keyA[1] = 0xAA
+	keyB[0] = 0x01
+	keyB[1] = 0xBB
+	keyC[0] = 0x10
+	keyC[1] = 0xCC
+
+	prestate := map[hash.Hash256][]byte{
+		keyA: []byte("A"),
+		keyB: []byte("B"),
+		keyC: []byte("C"),
+	}
+	// Read all keys, but keyB is only read (no mutation)
+	reads := []hash.Hash256{keyA, keyB, keyC}
+	mutations := map[hash.Hash256][]byte{
+		keyA: nil, // delete
+	}
+	w, producerPostRoot := buildWitness(t, prestate, reads, mutations)
+
+	tr, err := newStatelessTrie(_testAddrHash160(), w, nil, false)
+	require.NoError(err)
+
+	// Read keyB first (like the producer did)
+	v, err := tr.Get(keyB[:])
+	require.NoError(err)
+	require.Equal([]byte("B"), v)
+
+	// Delete keyA
+	require.NoError(tr.Delete(keyA[:]))
+
+	// Read keyB again after the structural change
+	v, err = tr.Get(keyB[:])
+	require.NoError(err)
+	require.Equal([]byte("B"), v)
+
+	rh, err := tr.RootHash()
+	require.NoError(err)
+	require.Equal(producerPostRoot, rh)
 }
