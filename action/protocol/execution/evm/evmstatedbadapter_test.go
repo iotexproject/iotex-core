@@ -1077,3 +1077,141 @@ func TestSelfdestruct6780(t *testing.T) {
 	r.Equal(createdAccount{
 		_c1: struct{}{}}, state.createdAccount)
 }
+
+// TestWitnessRevertOverwrite reproduces the bug from block 46815360 where
+// contract 0xA007... was accessed during a reverted sub-call (accessing both
+// key_A and key_B), then accessed again after the revert (only key_A), and
+// then reverted a second time. The second revert overwrites the first entry
+// in revertedContracts, losing the witness data for key_B.
+//
+// Based on the producer storage ops trace:
+//   - Op [53]:  GetState(0xA007, key_A=a9fa2a2f) → zero
+//   - Op [194]: GetState(0xA007, key_B=82999b2f) → non-zero value
+//   - Op [314]: RevertToSnapshot(10) — 0xA007 saved to revertedContracts
+//   - Op [322]: GetState(0xA007, key_A=a9fa2a2f) → zero (fresh contract)
+//   - Op [323]: RevertToSnapshot(5) — OVERWRITES revertedContracts entry
+//
+// The resulting witness should contain entries for BOTH key_A and key_B.
+func TestWitnessRevertOverwrite(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
+
+	contractAddr := common.HexToAddress("A00744882684C3e4747faEFD68D283eA44099D03")
+	keyA := common.HexToHash("a9fa2a2f9cdb5f9f1734026df48463380a706a54010862c80305a0d30a0ef5db")
+	keyB := common.HexToHash("82999b2f24ad2a6ce911ff4d0df0c635f1fbda5779a138efde17e050911f31d7")
+	valB := common.HexToHash("000000000000000000000000000000000000000000000000b27b3f2c8a8c1a8f")
+
+	// Phase 1: Populate the contract storage with key_B (key_A is absent).
+	// Use a plain stateDB (no witness) to set up the prestate.
+	stateDB1, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256,
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+		FixRevertSnapshotOption(),
+		RevertLogOption(),
+	)
+	require.NoError(err)
+
+	// Create a contract account so getContract works
+	stateDB1.SetCode(contractAddr, []byte{0x60, 0x00}) // minimal bytecode
+	stateDB1.SetState(contractAddr, keyB, valB)
+
+	// Commit storage and account to the state manager
+	require.NoError(stateDB1.CommitContracts())
+
+	// Phase 2: Create a stateDB with BuildWitness and replay the snapshot/revert pattern.
+	stateDB2, err := NewStateDBAdapter(sm, 2, hash.ZeroHash256,
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+		FixRevertSnapshotOption(),
+		RevertLogOption(),
+		BuildWitnessOption(),
+	)
+	require.NoError(err)
+
+	// Simulate the snapshot pattern from the log:
+	// Snapshots 0-9 are before contract 0xA007 is accessed
+	for i := 0; i < 10; i++ {
+		stateDB2.Snapshot() // snapshots 0-9
+	}
+
+	// Snapshot 10
+	sn10 := stateDB2.Snapshot()
+
+	// More snapshots before contract access
+	stateDB2.Snapshot() // 11
+	stateDB2.Snapshot() // 12
+	stateDB2.Snapshot() // 13
+
+	// Op [53]: First access to contract 0xA007 — GetState(key_A) returns zero
+	gotA := stateDB2.GetState(contractAddr, keyA)
+	require.Equal(common.Hash{}, gotA, "key_A should be zero (absent)")
+
+	// More snapshots
+	for i := 0; i < 25; i++ {
+		stateDB2.Snapshot() // 14-38
+	}
+	stateDB2.Snapshot() // 39
+
+	// Op [194]: GetState(key_B) returns non-zero value
+	gotB := stateDB2.GetState(contractAddr, keyB)
+	require.Equal(valB, gotB, "key_B should have the pre-populated value")
+
+	// Various SetState operations on the contract
+	newValB := common.HexToHash("000000000000000000000000000000000000000000000000905c55d877897655")
+	stateDB2.SetState(contractAddr, keyB, newValB)
+	newValA := common.HexToHash("000000000000000000000000000000000000000000000000221ee9541302a43a")
+	stateDB2.SetState(contractAddr, keyA, newValA)
+
+	// Op [314]: RevertToSnapshot(10) — contract 0xA007 not in snapshot 10,
+	// should be saved to revertedContracts with witness data for BOTH keys.
+	stateDB2.RevertToSnapshot(sn10)
+
+	// Take snapshot and create some activity before second access
+	sn5 := 5 // snapshot 5 was taken earlier
+
+	// Op [322]: GetState(key_A) again — creates NEW contract with fresh witness
+	gotA2 := stateDB2.GetState(contractAddr, keyA)
+	require.Equal(common.Hash{}, gotA2, "key_A should be zero after revert")
+
+	// Op [323]: RevertToSnapshot(5) — this should NOT lose the witness for key_B
+	stateDB2.RevertToSnapshot(sn5)
+
+	// Now collect witnesses and verify BOTH keys are covered
+	witnesses, err := stateDB2.StorageWitnesses()
+	require.NoError(err)
+	require.NotNil(witnesses, "witnesses should not be nil")
+
+	w, ok := witnesses[contractAddr]
+	require.True(ok, "witness for contract 0xA007 should exist")
+
+	// Verify the witness contains entries for both key_A and key_B
+	entryKeys := make(map[hash.Hash256]bool)
+	for _, entry := range w.Entries {
+		entryKeys[entry.Key] = true
+	}
+
+	keyAHash := hash.BytesToHash256(keyA[:])
+	keyBHash := hash.BytesToHash256(keyB[:])
+
+	require.True(entryKeys[keyAHash], "witness should contain entry for key_A (a9fa2a2f)")
+	require.True(entryKeys[keyBHash], "witness should contain entry for key_B (82999b2f)")
+
+	// Verify proof nodes are sufficient: create a stateless trie from the witness
+	// and verify both keys can be read.
+	if len(w.ProofNodes) > 0 {
+		addr160 := hash.BytesToHash160(contractAddr[:])
+		hashFunc := func(data []byte) []byte {
+			h := hash.Hash256b(append(addr160[:], data...))
+			return h[:]
+		}
+		err := VerifyContractStorageWitness(contractAddr, w)
+		_ = hashFunc
+		// If the proof is incomplete, this will fail
+		if err != nil {
+			t.Errorf("witness proof verification failed (proof incomplete for key_B): %v", err)
+		}
+	}
+}

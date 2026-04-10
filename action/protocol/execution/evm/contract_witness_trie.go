@@ -7,75 +7,73 @@ package evm
 
 import (
 	"context"
+	"encoding/hex"
+	"strings"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/db/trie"
 	"github.com/iotexproject/iotex-core/v2/db/trie/mptrie"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
-// saveOnDeleteKVStore wraps a trie.KVStore to intercept Delete calls, saving
-// old node values into a secondary MemKVStore before they are tombstoned in
-// the primary store. This allows a prestate trie clone to resolve deleted
-// hashNodes without needing a full CollectNodes snapshot.
-//
-// It also records every node loaded during execution (via Get) so that
-// BuildWitness can include nodes that GetProof alone would miss — notably
-// sibling nodes loaded during branch collapse in Delete operations.
-type saveOnDeleteKVStore struct {
-	inner  trie.KVStore        // SM-backed production store
-	saved  trie.KVStore        // MemKVStore holding deleted nodes
-	loaded map[string][]byte   // hash→serialized data of all nodes loaded from inner/saved
+// recordingKVStore wraps a trie.KVStore to record every successful Get call's
+// key→value pair. These recorded entries become the proof nodes for stateless
+// validation: the validator's stateless trie issues exactly the same Get calls
+// as the full node during replay, so recording all Gets captures every trie
+// node needed — including sibling nodes loaded during branch collapse in Delete.
+type recordingKVStore struct {
+	inner    trie.KVStore
+	recorded map[string][]byte // hash → serialized node data
 }
 
-func newSaveOnDeleteKVStore(inner trie.KVStore) *saveOnDeleteKVStore {
-	return &saveOnDeleteKVStore{
-		inner:  inner,
-		saved:  trie.NewMemKVStore(),
-		loaded: make(map[string][]byte),
+func newRecordingKVStore(inner trie.KVStore) *recordingKVStore {
+	return &recordingKVStore{
+		inner:    inner,
+		recorded: make(map[string][]byte),
 	}
 }
 
-func (s *saveOnDeleteKVStore) Start(ctx context.Context) error { return s.inner.Start(ctx) }
-func (s *saveOnDeleteKVStore) Stop(ctx context.Context) error  { return s.inner.Stop(ctx) }
+func (r *recordingKVStore) Start(ctx context.Context) error { return r.inner.Start(ctx) }
+func (r *recordingKVStore) Stop(ctx context.Context) error  { return r.inner.Stop(ctx) }
 
-func (s *saveOnDeleteKVStore) Get(key []byte) ([]byte, error) {
-	v, err := s.inner.Get(key)
+func (r *recordingKVStore) Get(key []byte) ([]byte, error) {
+	v, err := r.inner.Get(key)
 	if err == nil {
-		s.loaded[string(key)] = append([]byte(nil), v...)
-		return v, nil
-	}
-	// Fallback to saved (deleted) nodes.
-	v, err = s.saved.Get(key)
-	if err == nil {
-		s.loaded[string(key)] = append([]byte(nil), v...)
+		r.recorded[string(key)] = append([]byte(nil), v...)
 	}
 	return v, err
 }
 
-func (s *saveOnDeleteKVStore) Put(key []byte, value []byte) error {
-	return s.inner.Put(key, value)
+func (r *recordingKVStore) Put(key []byte, value []byte) error {
+	return r.inner.Put(key, value)
 }
 
-func (s *saveOnDeleteKVStore) Delete(key []byte) error {
-	// Save the old value before it is tombstoned.
-	if v, err := s.inner.Get(key); err == nil {
-		_ = s.saved.Put(key, v)
-	}
-	return s.inner.Delete(key)
+func (r *recordingKVStore) Delete(key []byte) error {
+	return r.inner.Delete(key)
+}
+
+// prime forces a Get on the given key so that the value is recorded.
+// Use this to capture the trie root node, which is already in memory after
+// Clone and therefore won't be loaded through Get during normal operations.
+func (r *recordingKVStore) prime(key []byte) error {
+	_, err := r.Get(key)
+	return err
 }
 
 // witnessTrie wraps a trie.Trie to track first-touch storage keys and their
 // prestate values during EVM execution. At transaction end, it builds the
-// contract storage witness by generating proofs from a prestate trie snapshot.
+// contract storage witness using recorded kvstore reads (production) or
+// GetProof fallback (tests).
 type witnessTrie struct {
-	inner    trie.Trie
-	prestate trie.Trie // cloned at first mutation, used for proof generation
+	inner        trie.Trie
+	prestateRoot []byte // root hash before first mutation; nil if no mutations
 
-	// kvStore is a saveOnDeleteKVStore that preserves deleted trie nodes.
+	// kvStore is a recordingKVStore that records all trie node reads.
 	// nil when inner trie is MemKVStore-backed (tests).
-	kvStore *saveOnDeleteKVStore
+	kvStore *recordingKVStore
 
 	// firstTouch records the prestate value for each key at first access.
 	// nil value means the key was absent in prestate.
@@ -87,7 +85,7 @@ type witnessTrie struct {
 	hashFunc func([]byte) []byte
 }
 
-func newWitnessTrie(inner trie.Trie, hashFunc func([]byte) []byte, kvStore *saveOnDeleteKVStore) *witnessTrie {
+func newWitnessTrie(inner trie.Trie, hashFunc func([]byte) []byte, kvStore *recordingKVStore) *witnessTrie {
 	return &witnessTrie{
 		inner:         inner,
 		kvStore:       kvStore,
@@ -97,33 +95,22 @@ func newWitnessTrie(inner trie.Trie, hashFunc func([]byte) []byte, kvStore *save
 	}
 }
 
-// capturePrestate lazily clones the inner trie before the first mutation.
-// When kvStore is set (production), the clone uses the saveOnDeleteKVStore
-// which preserves deleted nodes so that GetProof can still traverse them.
-// When kvStore is nil (tests with MemKVStore), it falls back to CollectNodes.
-func (w *witnessTrie) capturePrestate() error {
-	if w.prestate != nil {
+// capturePrestateRoot saves the trie root hash before the first mutation.
+func (w *witnessTrie) capturePrestateRoot() error {
+	if w.prestateRoot != nil {
 		return nil
 	}
-	var cloneKV trie.KVStore
-	if w.kvStore != nil {
-		// Production path: clone with saveOnDeleteKVStore.
-		// Deleted nodes are saved on the fly, so no upfront collection needed.
-		cloneKV = w.kvStore
-	} else {
-		// Test path: inner trie is MemKVStore-backed, collect all nodes.
-		cloneKV = trie.NewMemKVStore()
-		if nc, ok := w.inner.(trie.NodeCollector); ok {
-			if err := nc.CollectNodes(cloneKV); err != nil {
-				return errors.Wrap(err, "failed to collect prestate trie nodes")
-			}
-		}
+	// For empty tries, use ZeroHash256 to match the account representation.
+	if w.inner.IsEmpty() {
+		w.prestateRoot = hash.ZeroHash256[:]
+		return nil
 	}
-	clone, err := w.inner.Clone(cloneKV)
+	rootHash, err := w.inner.RootHash()
 	if err != nil {
-		return errors.Wrap(err, "failed to clone prestate trie")
+		return errors.Wrap(err, "failed to get prestate root hash")
 	}
-	w.prestate = clone
+	w.prestateRoot = make([]byte, len(rootHash))
+	copy(w.prestateRoot, rootHash)
 	return nil
 }
 
@@ -151,49 +138,56 @@ func (w *witnessTrie) Get(key []byte) ([]byte, error) {
 	return w.inner.Get(key)
 }
 
-// Upsert inserts/updates a value and records first-touch + prestate snapshot.
+// Upsert inserts/updates a value and records first-touch + prestate root.
 func (w *witnessTrie) Upsert(key []byte, value []byte) error {
 	k := hash.BytesToHash256(key)
 	w.recordFirstTouch(k)
-	if err := w.capturePrestate(); err != nil {
+	if err := w.capturePrestateRoot(); err != nil {
 		return err
 	}
 	return w.inner.Upsert(key, value)
 }
 
-// Delete removes a key and records first-touch + prestate snapshot.
+// Delete removes a key and records first-touch + prestate root.
 func (w *witnessTrie) Delete(key []byte) error {
 	k := hash.BytesToHash256(key)
 	w.recordFirstTouch(k)
-	if err := w.capturePrestate(); err != nil {
+	if err := w.capturePrestateRoot(); err != nil {
 		return err
 	}
 	return w.inner.Delete(key)
 }
 
 // BuildWitness generates the ContractStorageWitness from recorded first-touch
-// keys using proofs from the prestate trie. Must be called after execution completes.
+// keys using the recorded kvstore reads. Must be called after execution completes.
 func (w *witnessTrie) BuildWitness() (*ContractStorageWitness, error) {
-	if len(w.firstTouch) == 0 && len(w.hasFirstTouch) == 0 {
-		return nil, nil
-	}
-	// Determine the proof source: prestate clone if mutations happened, otherwise the current trie.
-	proofSource := w.prestate
-	if proofSource == nil {
-		// No mutations occurred — trie is still in prestate, use it directly.
-		proofSource = w.inner
+	// if len(w.firstTouch) == 0 && len(w.hasFirstTouch) == 0 {
+	// 	return nil, nil
+	// }
+
+	// Determine storage root: prestate root if mutations occurred, otherwise current root.
+	var storageRoot hash.Hash256
+	if w.prestateRoot != nil {
+		storageRoot = hash.BytesToHash256(w.prestateRoot)
+	} else {
+		if w.inner.IsEmpty() {
+			storageRoot = hash.ZeroHash256
+		} else {
+			rootHash, err := w.inner.RootHash()
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get root hash")
+			}
+			storageRoot = hash.BytesToHash256(rootHash)
+		}
 	}
 
-	// An empty trie's RootHash() returns emptyRootHash (hash of empty branch
-	// protobuf), but Account.Root uses ZeroHash256 to mean "no storage".
-	// Normalize to ZeroHash256 so the witness matches the account representation
-	// and the validator's fast path in VerifyContractStorageWitness.
-	if proofSource.IsEmpty() {
+	// An empty trie uses ZeroHash256 to match the account representation.
+	if storageRoot == hash.ZeroHash256 {
 		entries := make([]ContractStorageWitnessEntry, 0, len(w.hasFirstTouch))
 		for key := range w.hasFirstTouch {
 			entries = append(entries, ContractStorageWitnessEntry{
 				Key:   key,
-				Value: nil, // all absent in empty trie
+				Value: nil,
 			})
 		}
 		return &ContractStorageWitness{
@@ -202,82 +196,43 @@ func (w *witnessTrie) BuildWitness() (*ContractStorageWitness, error) {
 		}, nil
 	}
 
-	rootHash, err := proofSource.RootHash()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get prestate root hash")
-	}
-	storageRoot := hash.BytesToHash256(rootHash)
-
-	// Collect entries and deduplicated proof nodes.
+	// Collect entries.
 	entries := make([]ContractStorageWitnessEntry, 0, len(w.hasFirstTouch))
-	proofNodeSet := make(map[string][]byte)
-
-	// Determine which keys were deleted (present in prestate, absent in poststate).
-	deleted := make(map[hash.Hash256]bool)
-	for key := range w.hasFirstTouch {
-		if w.firstTouch[key] != nil {
-			// Key existed in prestate; check if it was deleted during execution.
-			if _, err := w.inner.Get(key[:]); err != nil {
-				deleted[key] = true
-			}
-		}
-	}
-
-	pt, isProofTrie := proofSource.(trie.ProofTrie)
-	// siblingProver collects proof + sibling serializations for deleted keys.
-	type siblingProver interface {
-		GetProofWithSiblings([]byte) ([][]byte, error)
-	}
-	sp, hasSiblingProver := proofSource.(siblingProver)
-
 	for key := range w.hasFirstTouch {
 		entries = append(entries, ContractStorageWitnessEntry{
 			Key:   key,
-			Value: w.firstTouch[key], // nil for absent keys
+			Value: w.firstTouch[key],
 		})
-		if !isProofTrie {
-			continue
-		}
-
-		// For deleted keys, use GetProofWithSiblings to include sibling nodes
-		// needed during branch collapse on the validator side.
-		if deleted[key] && hasSiblingProver {
-			proofNodes, err := sp.GetProofWithSiblings(key[:])
-			if err != nil && errors.Cause(err) != trie.ErrNotExist {
-				return nil, errors.Wrapf(err, "failed to get proof with siblings for key %x", key[:])
-			}
-			for _, node := range proofNodes {
-				h := w.hashFunc(node)
-				proofNodeSet[string(h)] = node
-			}
-			continue
-		}
-
-		proofNodes, err := pt.GetProof(key[:])
-		if err != nil && errors.Cause(err) != trie.ErrNotExist {
-			return nil, errors.Wrapf(err, "failed to get proof for key %x", key[:])
-		}
-		for _, node := range proofNodes {
-			h := w.hashFunc(node)
-			proofNodeSet[string(h)] = node
-		}
 	}
 
-	// Also include nodes loaded at runtime from the saveOnDeleteKVStore.
-	// This catches any additional nodes loaded during inner trie execution
-	// (e.g. Upsert that splits an extension node, loading a hashNode sibling).
+	// Collect proof nodes.
+	var dedupedNodes [][]byte
 	if w.kvStore != nil {
-		for h, data := range w.kvStore.loaded {
-			if _, ok := proofNodeSet[h]; !ok {
-				proofNodeSet[h] = data
+		// Production path: use all recorded kvstore reads as proof nodes.
+		dedupedNodes = make([][]byte, 0, len(w.kvStore.recorded))
+		for _, data := range w.kvStore.recorded {
+			dedupedNodes = append(dedupedNodes, data)
+		}
+	} else {
+		// Test fallback path: use GetProof from the inner trie.
+		pt, isProofTrie := w.inner.(trie.ProofTrie)
+		if isProofTrie {
+			proofNodeSet := make(map[string][]byte)
+			for key := range w.hasFirstTouch {
+				proofNodes, err := pt.GetProof(key[:])
+				if err != nil && errors.Cause(err) != trie.ErrNotExist {
+					return nil, errors.Wrapf(err, "failed to get proof for key %x", key[:])
+				}
+				for _, node := range proofNodes {
+					h := w.hashFunc(node)
+					proofNodeSet[string(h)] = node
+				}
+			}
+			dedupedNodes = make([][]byte, 0, len(proofNodeSet))
+			for _, node := range proofNodeSet {
+				dedupedNodes = append(dedupedNodes, node)
 			}
 		}
-	}
-
-	// Flatten deduplicated proof nodes.
-	dedupedNodes := make([][]byte, 0, len(proofNodeSet))
-	for _, node := range proofNodeSet {
-		dedupedNodes = append(dedupedNodes, node)
 	}
 
 	witness := &ContractStorageWitness{
@@ -285,10 +240,28 @@ func (w *witnessTrie) BuildWitness() (*ContractStorageWitness, error) {
 		Entries:     entries,
 		ProofNodes:  dedupedNodes,
 	}
-	// Self-test: replay all entries via a temporary stateless MPT to ensure
-	// the generated proof nodes are sufficient for the validator.
-	// Only run in production mode (kvStore != nil) where hash functions are
-	// guaranteed to be consistent between the trie and the witness trie.
+
+	// Log proof node hashes and recorded KV store keys for debugging
+	if w.kvStore != nil {
+		proofHashes := make([]string, 0, len(dedupedNodes))
+		for _, node := range dedupedNodes {
+			h := w.hashFunc(node)
+			proofHashes = append(proofHashes, hex.EncodeToString(h))
+		}
+		recordedKeys := make([]string, 0, len(w.kvStore.recorded))
+		for k := range w.kvStore.recorded {
+			recordedKeys = append(recordedKeys, hex.EncodeToString([]byte(k)))
+		}
+		log.L().Info("BuildWitness: proof node hashes",
+			zap.String("storageRoot", hex.EncodeToString(storageRoot[:])),
+			zap.Int("proofNodeCount", len(dedupedNodes)),
+			zap.Int("entryCount", len(entries)),
+			zap.String("proofHashes", strings.Join(proofHashes, ",")),
+			zap.String("recordedKeys", strings.Join(recordedKeys, ",")),
+		)
+	}
+
+	// Self-test: replay all entries via a temporary stateless MPT.
 	if w.kvStore != nil {
 		if err := w.selfTestWitness(witness); err != nil {
 			return nil, errors.Wrap(err, "witness self-test failed (producer bug)")
@@ -299,12 +272,10 @@ func (w *witnessTrie) BuildWitness() (*ContractStorageWitness, error) {
 
 // selfTestWitness creates a temporary stateless MPT from the witness and
 // verifies that every entry key can be read-back correctly. It also replays
-// the mutations (Upsert/Delete) that occurred during execution to catch proof
-// insufficiency for operations like Delete branch collapse that need sibling
-// nodes beyond the read path.
+// the mutations that occurred during execution to catch proof insufficiency.
 func (w *witnessTrie) selfTestWitness(witness *ContractStorageWitness) error {
 	if witness.StorageRoot == hash.ZeroHash256 {
-		return nil // empty trie, nothing to test
+		return nil
 	}
 
 	kvStore := trie.NewMemKVStore()
@@ -333,7 +304,6 @@ func (w *witnessTrie) selfTestWitness(witness *ContractStorageWitness) error {
 	for _, entry := range witness.Entries {
 		v, err := tr.Get(entry.Key[:])
 		if entry.Value == nil {
-			// key should not exist
 			if err == nil {
 				return errors.Errorf("self-test: key %x should be absent but got value %x (root %x)",
 					entry.Key[:], v, witness.StorageRoot[:])
@@ -346,32 +316,26 @@ func (w *witnessTrie) selfTestWitness(witness *ContractStorageWitness) error {
 		}
 	}
 
-	// Phase 2: replay the actual mutations to catch proof insufficiency
-	// during Upsert/Delete (e.g. sibling nodes needed for branch collapse).
-	if w.inner != nil {
-		for key := range w.hasFirstTouch {
-			// Check the current value in the inner (post-execution) trie.
-			curVal, curErr := w.inner.Get(key[:])
-			preVal := w.firstTouch[key]
-			if preVal == nil && curErr == nil {
-				// Key was absent in prestate, now present → Upsert
-				if err := tr.Upsert(key[:], curVal); err != nil {
-					return errors.Wrapf(err, "self-test: Upsert replay failed for key %x", key[:])
-				}
-			} else if preVal != nil && curErr != nil {
-				// Key was present in prestate, now absent → Delete
-				if err := tr.Delete(key[:]); err != nil {
-					return errors.Wrapf(err, "self-test: Delete replay failed for key %x", key[:])
-				}
-			} else if preVal != nil && curErr == nil {
-				// Key existed and still exists → update value
-				if err := tr.Upsert(key[:], curVal); err != nil {
-					return errors.Wrapf(err, "self-test: Upsert (update) replay failed for key %x", key[:])
-				}
-			}
-			// preVal == nil && curErr != nil: was absent, still absent → no-op
-		}
-	}
+	// Phase 2: replay the actual mutations to catch proof insufficiency.
+	// if w.inner != nil {
+	// 	for key := range w.hasFirstTouch {
+	// 		curVal, curErr := w.inner.Get(key[:])
+	// 		preVal := w.firstTouch[key]
+	// 		if preVal == nil && curErr == nil {
+	// 			if err := tr.Upsert(key[:], curVal); err != nil {
+	// 				return errors.Wrapf(err, "self-test: Upsert replay failed for key %x", key[:])
+	// 			}
+	// 		} else if preVal != nil && curErr != nil {
+	// 			if err := tr.Delete(key[:]); err != nil {
+	// 				return errors.Wrapf(err, "self-test: Delete replay failed for key %x", key[:])
+	// 			}
+	// 		} else if preVal != nil && curErr == nil {
+	// 			if err := tr.Upsert(key[:], curVal); err != nil {
+	// 				return errors.Wrapf(err, "self-test: Upsert (update) replay failed for key %x", key[:])
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 	return nil
 }

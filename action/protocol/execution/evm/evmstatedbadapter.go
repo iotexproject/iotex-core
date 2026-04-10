@@ -9,9 +9,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -87,7 +89,7 @@ type (
 		enableCancun               bool
 		fixRevertSnapshot          bool
 		buildWitness               bool
-		revertedContracts          contractMap // contracts removed from cache by reverts, kept for witness building
+		revertedContracts          map[common.Address][]Contract // contracts removed from cache by reverts, kept for witness building
 		statelessWitnesses         map[common.Address]*ContractStorageWitness
 		storageOps                 []StorageOp
 	}
@@ -289,8 +291,8 @@ func NewStateDBAdapter(
 }
 
 // enableWitnessOnContract wraps the contract's storage trie with a witnessTrie.
-// It clones the trie with a saveOnDeleteKVStore so that deleted trie nodes are
-// preserved for prestate proof generation, avoiding an expensive full CollectNodes.
+// It clones the trie with a recordingKVStore so that every trie node read during
+// execution is captured for inclusion in the witness proof.
 func enableWitnessOnContract(c Contract, addr hash.Hash160) error {
 	cc, ok := c.(*contract)
 	if !ok {
@@ -300,15 +302,25 @@ func enableWitnessOnContract(c Contract, addr hash.Hash160) error {
 		h := hash.Hash256b(append(addr[:], data...))
 		return h[:]
 	}
-	// Create a saveOnDeleteKVStore backed by the same StateManager so that
-	// deleted trie nodes are preserved for prestate proof generation.
+	// Create a recordingKVStore backed by the same StateManager so that
+	// every trie node read is recorded for the witness.
 	smKV := protocol.NewKVStoreForTrieWithStateManager(ContractKVNameSpace, cc.sm)
-	kvStore := newSaveOnDeleteKVStore(smKV)
-	// Clone the trie to use saveOnDeleteKVStore as its backing store.
-	// This way all mutations go through the wrapper, intercepting deletes.
+	kvStore := newRecordingKVStore(smKV)
+	// Clone the trie to use recordingKVStore as its backing store.
+	// This way all trie node reads go through the wrapper, recording them.
 	clonedTrie, err := cc.trie.Clone(kvStore)
 	if err != nil {
 		return errors.Wrap(err, "failed to clone trie for witness collection")
+	}
+	// Prime the root node: Clone copies the root into memory, so it won't
+	// be loaded through kvStore.Get during normal operations. Force a Get
+	// now to ensure the root is included in the recorded proof nodes.
+	rootHash, err := clonedTrie.RootHash()
+	if err != nil {
+		return errors.Wrap(err, "failed to get root hash for witness priming")
+	}
+	if len(rootHash) > 0 {
+		kvStore.prime(rootHash)
 	}
 	cc.trie = newWitnessTrie(clonedTrie, hashFunc, kvStore)
 	return nil
@@ -332,23 +344,24 @@ func (stateDB *StateDBAdapter) StorageWitnesses() (map[common.Address]*ContractS
 	// Include witnesses from contracts that were removed by reverts.
 	// These contracts were accessed during reverted internal calls but their
 	// proof nodes are still needed for stateless validation replay.
-	// When a contract appears in both cachedContract and revertedContracts
-	// (loaded fresh after a revert), we must MERGE the witnesses because
-	// the reverted version may have accessed different storage keys whose
-	// proof nodes are needed during replay of the reverted sub-call.
-	for addr, c := range stateDB.revertedContracts {
-		w, err := c.BuildStorageWitness()
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to build witness for reverted contract %x", addr[:])
-		}
-		if w == nil {
-			continue
-		}
-		existing, already := witnesses[common.Address(addr)]
-		if already {
-			existing.MergeFrom(w)
-		} else {
-			witnesses[common.Address(addr)] = w
+	// A contract may appear multiple times in revertedContracts if it was
+	// accessed, reverted, accessed again, and reverted again. Each version
+	// may have accessed different storage keys, so we merge ALL of them.
+	for addr, contracts := range stateDB.revertedContracts {
+		for _, c := range contracts {
+			w, err := c.BuildStorageWitness()
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to build witness for reverted contract %x", addr[:])
+			}
+			if w == nil {
+				continue
+			}
+			existing, already := witnesses[addr]
+			if already {
+				existing.MergeFrom(w)
+			} else {
+				witnesses[addr] = w
+			}
 		}
 	}
 	if len(witnesses) == 0 {
@@ -851,9 +864,9 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		for addr, c := range stateDB.cachedContract {
 			if _, inSnapshot := snapshotMap[addr]; !inSnapshot {
 				if stateDB.revertedContracts == nil {
-					stateDB.revertedContracts = make(contractMap)
+					stateDB.revertedContracts = make(map[common.Address][]Contract)
 				}
-				stateDB.revertedContracts[addr] = c
+				stateDB.revertedContracts[addr] = append(stateDB.revertedContracts[addr], c)
 			}
 		}
 	}
@@ -885,6 +898,148 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			}
 		}
 	}
+}
+
+// panicWithMissingProofDiagnostics logs detailed information about a missing
+// proof node before panicking. This helps diagnose whether the stateless node's
+// EVM execution diverged from the producer (accessing a key not in the witness
+// entries) or the proof generation was buggy (key is in entries but proof
+// nodes are insufficient).
+func (stateDB *StateDBAdapter) panicWithMissingProofDiagnostics(
+	evmAddr common.Address,
+	storageKey common.Hash,
+	mpErr *ErrMissingProofNode,
+) {
+	var diag strings.Builder
+	fmt.Fprintf(&diag, "STATELESS VALIDATION FAILURE: missing proof node\n")
+	fmt.Fprintf(&diag, "  contract:        %s\n", evmAddr.Hex())
+	fmt.Fprintf(&diag, "  storage key:     %s\n", storageKey.Hex())
+	fmt.Fprintf(&diag, "  missing hash:    %x\n", mpErr.MissingHash)
+	fmt.Fprintf(&diag, "  proof nodes:     %d\n", mpErr.ProofNodeCount)
+	fmt.Fprintf(&diag, "  puts:            %d\n", mpErr.PutCount)
+
+	// Check if the storage key is among the witness entries for this contract.
+	keyInEntries := false
+	if stateDB.statelessWitnesses != nil {
+		if w, ok := stateDB.statelessWitnesses[evmAddr]; ok {
+			fmt.Fprintf(&diag, "  witness root:    %x\n", w.StorageRoot[:])
+			fmt.Fprintf(&diag, "  witness entries: %d\n", len(w.Entries))
+			for i, entry := range w.Entries {
+				marker := "  "
+				if entry.Key == hash.BytesToHash256(storageKey[:]) {
+					marker = ">>"
+					keyInEntries = true
+				}
+				fmt.Fprintf(&diag, "    %s entry[%d]: key=%x value=%x\n", marker, i, entry.Key[:], entry.Value)
+			}
+		} else {
+			fmt.Fprintf(&diag, "  WARNING: no witness found for this contract in action witnesses!\n")
+		}
+	} else {
+		fmt.Fprintf(&diag, "  NOTE: statelessWitnesses is nil (not a stateless validation)\n")
+	}
+
+	if keyInEntries {
+		fmt.Fprintf(&diag, "  DIAGNOSIS: key IS in witness entries → proof generation bug (insufficient proof nodes)\n")
+	} else {
+		fmt.Fprintf(&diag, "  DIAGNOSIS: key NOT in witness entries → execution diverged from producer\n")
+	}
+
+	// Dump all storage operations that happened before this failure.
+	// This reveals the full execution trace, helping pinpoint where
+	// the stateless node's execution diverged from the producer.
+	if len(stateDB.storageOps) > 0 {
+		fmt.Fprintf(&diag, "\n  Stateless storage ops trace (%d ops):\n", len(stateDB.storageOps))
+		for i, op := range stateDB.storageOps {
+			fmt.Fprintf(&diag, "    [%d] %s\n", i, op.String())
+		}
+	}
+
+	// Dump the producer's (full node) storage ops from the witness data for
+	// side-by-side comparison. These ops were captured when the producer
+	// executed this action and are shipped inside the witness JSON.
+	var producerOps []StorageOpTraceJSON
+	if svCtx, ok := GetStatelessValidationCtx(stateDB.ctx); ok && svCtx.DebugStorageOps != nil {
+		producerOps = svCtx.DebugStorageOps[stateDB.executionHash]
+	}
+	if len(producerOps) > 0 {
+		fmt.Fprintf(&diag, "\n  Producer storage ops trace (%d ops):\n", len(producerOps))
+		for i, op := range producerOps {
+			if op.Op == "Snapshot" || op.Op == "RevertToSnapshot" {
+				fmt.Fprintf(&diag, "    [%d] %s snapshotID=%d\n", i, op.Op, op.SnapshotID)
+			} else if op.ErrMsg != "" {
+				fmt.Fprintf(&diag, "    [%d] %s addr=%s key=%s err=%s\n", i, op.Op, op.Addr, op.Key, op.ErrMsg)
+			} else {
+				fmt.Fprintf(&diag, "    [%d] %s addr=%s key=%s val=%s\n", i, op.Op, op.Addr, op.Key, op.Value)
+			}
+		}
+	} else {
+		fmt.Fprintf(&diag, "\n  Producer storage ops trace: NOT AVAILABLE (no DebugStorageOps in witness)\n")
+	}
+
+	// Compare producer vs stateless ops (filtering Snapshot/RevertToSnapshot)
+	// to find the first divergence point for quick identification.
+	if len(producerOps) > 0 && len(stateDB.storageOps) > 0 {
+		filterJSON := func(ops []StorageOpTraceJSON) []StorageOpTraceJSON {
+			var out []StorageOpTraceJSON
+			for _, op := range ops {
+				if op.Op != "Snapshot" && op.Op != "RevertToSnapshot" {
+					out = append(out, op)
+				}
+			}
+			return out
+		}
+		pFiltered := filterJSON(producerOps)
+		sFiltered := filterJSON(StorageOpsToJSON(stateDB.storageOps))
+		minLen := len(pFiltered)
+		if len(sFiltered) < minLen {
+			minLen = len(sFiltered)
+		}
+		divergeIdx := -1
+		for i := 0; i < minLen; i++ {
+			if pFiltered[i].Op != sFiltered[i].Op ||
+				pFiltered[i].Addr != sFiltered[i].Addr ||
+				pFiltered[i].Key != sFiltered[i].Key ||
+				pFiltered[i].Value != sFiltered[i].Value {
+				divergeIdx = i
+				break
+			}
+		}
+		if divergeIdx == -1 && len(pFiltered) != len(sFiltered) {
+			divergeIdx = minLen
+		}
+		if divergeIdx >= 0 {
+			fmt.Fprintf(&diag, "\n  === DIVERGENCE DETECTED at filtered op index %d (excluding Snapshot/Revert) ===\n", divergeIdx)
+			// Show context: 3 ops before and 3 after the divergence
+			start := divergeIdx - 3
+			if start < 0 {
+				start = 0
+			}
+			end := divergeIdx + 4
+			fmt.Fprintf(&diag, "  Producer ops around divergence:\n")
+			for i := start; i < end && i < len(pFiltered); i++ {
+				marker := "  "
+				if i == divergeIdx {
+					marker = ">>"
+				}
+				op := pFiltered[i]
+				fmt.Fprintf(&diag, "    %s [%d] %s addr=%s key=%s val=%s\n", marker, i, op.Op, op.Addr, op.Key, op.Value)
+			}
+			fmt.Fprintf(&diag, "  Stateless ops around divergence:\n")
+			for i := start; i < end && i < len(sFiltered); i++ {
+				marker := "  "
+				if i == divergeIdx {
+					marker = ">>"
+				}
+				op := sFiltered[i]
+				fmt.Fprintf(&diag, "    %s [%d] %s addr=%s key=%s val=%s\n", marker, i, op.Op, op.Addr, op.Key, op.Value)
+			}
+		} else {
+			fmt.Fprintf(&diag, "\n  All filtered ops MATCH between producer and stateless (count: producer=%d, stateless=%d)\n", len(pFiltered), len(sFiltered))
+		}
+	}
+
+	panic(diag.String())
 }
 
 func (stateDB *StateDBAdapter) cachedContractAddrs() []common.Address {
@@ -1160,6 +1315,10 @@ func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k commo
 	}
 	v, err := contract.GetCommittedState(hash.BytesToHash256(k[:]))
 	if err != nil {
+		var mpErr *ErrMissingProofNode
+		if stderrors.As(err, &mpErr) {
+			stateDB.panicWithMissingProofDiagnostics(evmAddr, k, mpErr)
+		}
 		log.T(stateDB.ctx).Error("Failed to get committed state.", zap.Error(err), zap.String("address", evmAddr.Hex()), zap.String("key", k.Hex()))
 		stateDB.logError(err)
 		stateDB.storageOps = append(stateDB.storageOps, StorageOp{
@@ -1196,6 +1355,13 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 	}
 	v, err := contract.GetState(hash.BytesToHash256(k[:]))
 	if err != nil {
+		// Check if this is a missing proof node error from the stateless trie.
+		// If so, log enhanced diagnostics and re-panic so the block validation
+		// fails with actionable debug information.
+		var mpErr *ErrMissingProofNode
+		if stderrors.As(err, &mpErr) {
+			stateDB.panicWithMissingProofDiagnostics(evmAddr, k, mpErr)
+		}
 		log.T(stateDB.ctx).Error("Failed to get state.", zap.Error(err), zap.String("address", evmAddr.Hex()), zap.String("key", k.Hex()))
 		stateDB.logError(err)
 		stateDB.storageOps = append(stateDB.storageOps, StorageOp{

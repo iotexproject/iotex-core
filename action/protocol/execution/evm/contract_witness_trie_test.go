@@ -70,12 +70,17 @@ func TestWitnessTrie_MutationCapturesPrestate(t *testing.T) {
 
 	wt := newWitnessTrie(inner, testHashFunc, nil)
 
-	// No prestate clone yet
-	require.Nil(wt.prestate)
+	// No prestate root yet
+	require.Nil(wt.prestateRoot)
 
-	// Upsert (mutation) should trigger prestate clone
+	// Get the expected prestate root before mutation
+	expectedRoot, err := inner.RootHash()
+	require.NoError(err)
+
+	// Upsert (mutation) should capture prestate root
 	require.NoError(wt.Upsert(_k1b[:], _v2b[:]))
-	require.NotNil(wt.prestate)
+	require.NotNil(wt.prestateRoot)
+	require.Equal(expectedRoot, wt.prestateRoot)
 
 	// First touch should record the original prestate value
 	require.True(wt.hasFirstTouch[_k1b])
@@ -85,11 +90,6 @@ func TestWitnessTrie_MutationCapturesPrestate(t *testing.T) {
 	v, err := inner.Get(_k1b[:])
 	require.NoError(err)
 	require.Equal(_v2b[:], v)
-
-	// The prestate trie should still have the original value
-	v, err = wt.prestate.Get(_k1b[:])
-	require.NoError(err)
-	require.Equal(_v1b[:], v)
 }
 
 func TestWitnessTrie_DeleteCapturesPrestate(t *testing.T) {
@@ -98,18 +98,18 @@ func TestWitnessTrie_DeleteCapturesPrestate(t *testing.T) {
 
 	require.NoError(inner.Upsert(_k1b[:], _v1b[:]))
 
+	// Get the expected prestate root before mutation
+	expectedRoot, err := inner.RootHash()
+	require.NoError(err)
+
 	wt := newWitnessTrie(inner, testHashFunc, nil)
 
-	// Delete should trigger prestate clone and record first touch
+	// Delete should capture prestate root and record first touch
 	require.NoError(wt.Delete(_k1b[:]))
-	require.NotNil(wt.prestate)
+	require.NotNil(wt.prestateRoot)
+	require.Equal(expectedRoot, wt.prestateRoot)
 	require.True(wt.hasFirstTouch[_k1b])
 	require.Equal(_v1b[:], wt.firstTouch[_k1b])
-
-	// The prestate should still have the deleted value
-	v, err := wt.prestate.Get(_k1b[:])
-	require.NoError(err)
-	require.Equal(_v1b[:], v)
 }
 
 func TestWitnessTrie_ReadOnlyNoPrestateClone(t *testing.T) {
@@ -120,10 +120,10 @@ func TestWitnessTrie_ReadOnlyNoPrestateClone(t *testing.T) {
 
 	wt := newWitnessTrie(inner, testHashFunc, nil)
 
-	// Read-only access should NOT clone prestate
+	// Read-only access should NOT capture prestate root
 	_, err := wt.Get(_k1b[:])
 	require.NoError(err)
-	require.Nil(wt.prestate)
+	require.Nil(wt.prestateRoot)
 }
 
 func TestWitnessTrie_BuildWitnessEmpty(t *testing.T) {
@@ -187,17 +187,14 @@ func TestWitnessTrie_BuildWitnessWithMutations(t *testing.T) {
 	require.NoError(err)
 	require.NoError(wt.Upsert(_k2b[:], _v3b[:]))
 
-	// Build witness — proofs should come from prestate clone
+	// Build witness — storage root should be the PREstate root (before mutation)
 	w, err := wt.BuildWitness()
 	require.NoError(err)
 	require.NotNil(w)
 	require.Equal(2, len(w.Entries))
 	require.NotEmpty(w.ProofNodes)
 
-	// Storage root should be the PREstate root (before mutation)
-	prestateRoot, err := wt.prestate.RootHash()
-	require.NoError(err)
-	require.Equal(hash.BytesToHash256(prestateRoot), w.StorageRoot)
+	require.Equal(hash.BytesToHash256(wt.prestateRoot), w.StorageRoot)
 
 	// Entries should have prestate values
 	entryMap := make(map[hash.Hash256][]byte)
@@ -367,11 +364,9 @@ func TestWitnessTrie_RevertSafety(t *testing.T) {
 	require.Equal(_v1b[:], wt.firstTouch[_k1b])
 	require.Equal(_v2b[:], wt.firstTouch[_k2b])
 
-	// Prestate clone also survives — its root represents pre-mutation state
-	require.NotNil(wt.prestate)
-	prestateRoot, err := wt.prestate.RootHash()
-	require.NoError(err)
-	require.NotEmpty(prestateRoot)
+	// Prestate root also survives — represents pre-mutation state
+	require.NotNil(wt.prestateRoot)
+	prestateRoot := wt.prestateRoot
 
 	// New accesses after "revert" are tracked correctly
 	_, err = wt.Get(_k3b[:])
@@ -411,11 +406,10 @@ func TestWitnessTrie_MultipleUpsertsSameKey(t *testing.T) {
 	require.Equal(_v1b[:], w.Entries[0].Value)
 }
 
-// TestWitnessTrie_DBBackedTrieWithHashNodes verifies that capturePrestate works
+// TestWitnessTrie_DBBackedTrieWithHashNodes verifies that witness building works
 // correctly when the inner trie is backed by a persistent KVStore (like in
 // production). In this scenario the trie contains hashNodes that must be loaded
-// from the KVStore during GetProof. The prestate clone must have access to the
-// serialized node data (via CollectNodes) so that GetProof can traverse them.
+// from the KVStore during execution.
 func TestWitnessTrie_DBBackedTrieWithHashNodes(t *testing.T) {
 	require := require.New(t)
 
@@ -469,7 +463,7 @@ func TestWitnessTrie_DBBackedTrieWithHashNodes(t *testing.T) {
 	_, err = wt.Get(_k3b[:])
 	require.NoError(err)
 
-	// Mutate k2 — triggers capturePrestate (CollectNodes + Clone)
+	// Mutate k2 — triggers capturePrestateRoot
 	newV2 := hash.Hash256b([]byte("new_value_for_k2"))
 	require.NoError(wt.Upsert(_k2b[:], newV2[:]))
 

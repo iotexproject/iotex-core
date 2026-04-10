@@ -490,6 +490,11 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 		opts = append(opts, BuildWitnessOption())
 	}
 	if svCtx, ok := GetStatelessValidationCtx(ctx); ok && svCtx.Enabled {
+		// Ensure context is available for diagnostics even if FixRevertSnapshot
+		// didn't add it (needed to access DebugStorageOps on panic).
+		if !featureCtx.FixRevertSnapshot && !actionCtx.ReadOnly {
+			opts = append(opts, WithContext(ctx))
+		}
 		if witnesses := svCtx.ContractStorageWitnessesForAction(actionCtx.ActionHash); witnesses != nil {
 			opts = append(opts, StatelessValidationOption(witnesses))
 		}
