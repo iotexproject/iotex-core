@@ -31,7 +31,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.23.0
+          go-version-file: go.mod
 
       - name: make iotex-server/ioctl
         if: startsWith(matrix.os, 'windows-latest') != true
