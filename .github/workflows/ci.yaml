@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
-  packages: write
 
 env:
   GO111MODULE: on
@@ -42,7 +40,12 @@ jobs:
           ./go.test.sh
           #make test
           go test -run=XXX -bench=. $(go list ./crypto)
-          bash <(curl -s https://codecov.io/bash)
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
       - name: Make Minicluster
         if: github.event.pull_request.merged == true

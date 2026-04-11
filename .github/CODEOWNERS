@@ -1,5 +1,28 @@
 # Lines starting with '#' are comments.
 # Each line is a file pattern followed by one or more owners.
+# The LAST matching pattern wins — put defaults first, specifics last.
 
-# These owners will be the default owners for everything in the repo.
-*       @iotexproject/protocol-team
+# Default owner for everything
+*                           @iotexproject/protocol-team
+
+# CI / release pipelines — highest blast radius
+/.github/                   @iotexproject/protocol-team @iotexproject/security
+/.github/workflows/         @iotexproject/protocol-team @iotexproject/security
+/Dockerfile                 @iotexproject/protocol-team @iotexproject/security
+/Dockerfile.*               @iotexproject/protocol-team @iotexproject/security
+/Makefile                   @iotexproject/protocol-team
+
+# Dependency manifests — supply chain
+/go.mod                     @iotexproject/protocol-team @iotexproject/security
+/go.sum                     @iotexproject/protocol-team @iotexproject/security
+
+# Consensus / crypto / state — protocol-critical
+/crypto/                    @iotexproject/protocol-team
+/consensus/                 @iotexproject/protocol-team
+/blockchain/                @iotexproject/protocol-team
+/state/                     @iotexproject/protocol-team
+/action/protocol/           @iotexproject/protocol-team
+
+# Genesis & chain params — governance-sensitive
+/blockchain/genesis/        @iotexproject/protocol-team
+/config/                    @iotexproject/protocol-team
