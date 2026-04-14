@@ -493,7 +493,6 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager, proofRecorder
 		opts = append(opts, WithContext(ctx))
 	}
 	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageWitnesses != nil {
-		opts = append(opts, BuildWitnessOption())
 		if proofRecorder != nil {
 			opts = append(opts, KVStoreWrapperOption(proofRecorder.WrapFor))
 		}

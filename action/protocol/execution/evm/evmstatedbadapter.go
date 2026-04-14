@@ -88,8 +88,6 @@ type (
 		panicUnrecoverableError    bool
 		enableCancun               bool
 		fixRevertSnapshot          bool
-		buildWitness               bool
-		revertedContracts          map[common.Address][]Contract // contracts removed from cache by reverts, kept for witness building
 		statelessWitnesses         map[common.Address]*ContractStorageWitness
 		storageOps                 []StorageOp
 		kvStoreWrapper             func(hash.Hash160) func(trie.KVStore) trie.KVStore // per-contract KVStore wrapper for proof recording
@@ -206,14 +204,6 @@ func FixRevertSnapshotOption() StateDBAdapterOption {
 	}
 }
 
-// BuildWitnessOption enables contract storage witness generation.
-func BuildWitnessOption() StateDBAdapterOption {
-	return func(adapter *StateDBAdapter) error {
-		adapter.buildWitness = true
-		return nil
-	}
-}
-
 // KVStoreWrapperOption sets a per-contract KVStore wrapper function.
 // The wrapper is applied to the contract's storage trie KVStore when a new
 // contract is created, enabling external proof node recording.
@@ -295,14 +285,6 @@ func NewStateDBAdapter(
 			if err := applyKVStoreWrapper(c, addr, s.kvStoreWrapper(addr)); err != nil {
 				return nil, err
 			}
-		} else if s.buildWitness {
-			// Legacy witness path: only used when kvStoreWrapper is not set.
-			// When kvStoreWrapper IS set (new system), enableWitnessOnContract
-			// must NOT be called because it clones the trie with its own
-			// recordingKVStore, clobbering the wrapper applied above.
-			if err := enableWitnessOnContract(c, addr); err != nil {
-				return nil, err
-			}
 		}
 		return c, nil
 	}
@@ -344,86 +326,6 @@ func (stateDB *StateDBAdapter) StorageRootOf(addr common.Address) hash.Hash256 {
 		return hash.ZeroHash256
 	}
 	return c.SelfState().Root
-}
-
-// enableWitnessOnContract wraps the contract's storage trie with a witnessTrie.
-// It clones the trie with a recordingKVStore so that every trie node read during
-// execution is captured for inclusion in the witness proof.
-func enableWitnessOnContract(c Contract, addr hash.Hash160) error {
-	cc, ok := c.(*contract)
-	if !ok {
-		return nil
-	}
-	hashFunc := func(data []byte) []byte {
-		h := hash.Hash256b(append(addr[:], data...))
-		return h[:]
-	}
-	// Create a recordingKVStore backed by the same StateManager so that
-	// every trie node read is recorded for the witness.
-	smKV := protocol.NewKVStoreForTrieWithStateManager(ContractKVNameSpace, cc.sm)
-	kvStore := newRecordingKVStore(smKV)
-	// Clone the trie to use recordingKVStore as its backing store.
-	// This way all trie node reads go through the wrapper, recording them.
-	clonedTrie, err := cc.trie.Clone(kvStore)
-	if err != nil {
-		return errors.Wrap(err, "failed to clone trie for witness collection")
-	}
-	// Prime the root node: Clone copies the root into memory, so it won't
-	// be loaded through kvStore.Get during normal operations. Force a Get
-	// now to ensure the root is included in the recorded proof nodes.
-	rootHash, err := clonedTrie.RootHash()
-	if err != nil {
-		return errors.Wrap(err, "failed to get root hash for witness priming")
-	}
-	if len(rootHash) > 0 {
-		kvStore.prime(rootHash)
-	}
-	cc.trie = newWitnessTrie(clonedTrie, hashFunc, kvStore)
-	return nil
-}
-
-// StorageWitnesses collects contract storage witnesses from all cached contracts.
-func (stateDB *StateDBAdapter) StorageWitnesses() (map[common.Address]*ContractStorageWitness, error) {
-	if !stateDB.buildWitness {
-		return nil, nil
-	}
-	witnesses := make(map[common.Address]*ContractStorageWitness)
-	for addr, c := range stateDB.cachedContract {
-		w, err := c.BuildStorageWitness()
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to build witness for contract %x", addr[:])
-		}
-		if w != nil {
-			witnesses[common.Address(addr)] = w
-		}
-	}
-	// Include witnesses from contracts that were removed by reverts.
-	// These contracts were accessed during reverted internal calls but their
-	// proof nodes are still needed for stateless validation replay.
-	// A contract may appear multiple times in revertedContracts if it was
-	// accessed, reverted, accessed again, and reverted again. Each version
-	// may have accessed different storage keys, so we merge ALL of them.
-	for addr, contracts := range stateDB.revertedContracts {
-		for _, c := range contracts {
-			w, err := c.BuildStorageWitness()
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to build witness for reverted contract %x", addr[:])
-			}
-			if w == nil {
-				continue
-			}
-			existing, already := witnesses[addr]
-			if already {
-				existing.MergeFrom(w)
-			} else {
-				witnesses[addr] = w
-			}
-		}
-	}
-	if len(witnesses) == 0 {
-		return nil, nil
-	}
-	return witnesses, nil
 }
 
 // StorageOps returns the recorded storage operations trace.
@@ -911,21 +813,6 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		}
 	}
 	// restore modified contracts
-	// When building witnesses, preserve contracts that will be removed from
-	// cachedContract by this revert. These contracts were accessed during a
-	// reverted internal call but their witness data (proof nodes) is still
-	// needed for stateless validation.
-	if stateDB.buildWitness {
-		snapshotMap := stateDB.contractSnapshot[snapshot]
-		for addr, c := range stateDB.cachedContract {
-			if _, inSnapshot := snapshotMap[addr]; !inSnapshot {
-				if stateDB.revertedContracts == nil {
-					stateDB.revertedContracts = make(map[common.Address][]Contract)
-				}
-				stateDB.revertedContracts[addr] = append(stateDB.revertedContracts[addr], c)
-			}
-		}
-	}
 	stateDB.cachedContract = stateDB.contractSnapshot[snapshot]
 	for _, addr := range stateDB.cachedContractAddrs() {
 		c := stateDB.cachedContract[addr]
@@ -1544,7 +1431,6 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.refundSnapshot = make(map[int]uint64)
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)
-	stateDB.revertedContracts = nil
 	stateDB.selfDestructed = make(deleteAccount)
 	stateDB.selfDestructedSnapshot = make(map[int]deleteAccount)
 	stateDB.preimages = make(preimageMap)

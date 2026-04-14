@@ -93,6 +93,4 @@ func (c *contractErigon) Snapshot() Contract {
 	}
 }
 
-func (c *contractErigon) BuildStorageWitness() (*ContractStorageWitness, error) {
-	return nil, nil
-}
+

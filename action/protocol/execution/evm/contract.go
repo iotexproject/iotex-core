@@ -41,7 +41,6 @@ type (
 		LoadRoot() error
 		Iterator() (trie.Iterator, error)
 		Snapshot() Contract
-		BuildStorageWitness() (*ContractStorageWitness, error)
 	}
 
 	contract struct {
@@ -59,15 +58,6 @@ type (
 
 func (c *contract) Iterator() (trie.Iterator, error) {
 	return mptrie.NewLeafIterator(c.trie)
-}
-
-// BuildStorageWitness returns the contract storage witness if witness tracking
-// is enabled (i.e. the trie is a witnessTrie). Returns nil otherwise.
-func (c *contract) BuildStorageWitness() (*ContractStorageWitness, error) {
-	if wt, ok := c.trie.(*witnessTrie); ok {
-		return wt.BuildWitness()
-	}
-	return nil, nil
 }
 
 // GetCommittedState get the committed value of a key

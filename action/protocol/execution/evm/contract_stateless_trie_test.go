@@ -29,10 +29,9 @@ func _testHashFuncAddr() func([]byte) []byte {
 	}
 }
 
-// buildWitness is a test helper that creates a witnessTrie, performs reads
-// and writes, then returns the witness and the producer's post-state root hash.
-// It uses a recordingKVStore to mirror the production code path where
-// execution-time node loads are recorded for inclusion in the witness.
+// buildWitness is a test helper that uses the new sharedRecordingKVStore system
+// to create a witness for a contract, performs reads and writes, then returns
+// the witness and the producer's post-state root hash.
 func buildWitness(t *testing.T, prestateKVs map[hash.Hash256][]byte, reads []hash.Hash256, mutations map[hash.Hash256][]byte) (*ContractStorageWitness, []byte) {
 	t.Helper()
 	require := require.New(t)
@@ -40,7 +39,7 @@ func buildWitness(t *testing.T, prestateKVs map[hash.Hash256][]byte, reads []has
 	// Create a MemKVStore-backed inner trie, then reload it from kvstore so
 	// that internal nodes become hashNodes (lazy references). This mirrors the
 	// production path where the contract's trie is loaded from persistent
-	// storage and children are only loaded on demand through the recordingKVStore.
+	// storage and children are only loaded on demand through the recording wrapper.
 	hashFunc := _testHashFuncAddr()
 	baseKV := trie.NewMemKVStore()
 	baseTrie, err := mptrie.New(
@@ -56,7 +55,6 @@ func buildWitness(t *testing.T, prestateKVs map[hash.Hash256][]byte, reads []has
 	}
 
 	// Reload the trie from kvstore so all internal nodes are hashNodes.
-	// This matches production behavior where nodes are loaded lazily.
 	rootHash, err := baseTrie.RootHash()
 	require.NoError(err)
 	reloadedTrie, err := mptrie.New(
@@ -68,29 +66,59 @@ func buildWitness(t *testing.T, prestateKVs map[hash.Hash256][]byte, reads []has
 	require.NoError(err)
 	require.NoError(reloadedTrie.Start(nil))
 
-	// Clone through recordingKVStore, mirroring production path.
-	recKV := newRecordingKVStore(baseKV)
-	clonedTrie, err := reloadedTrie.Clone(recKV)
+	// Use sharedRecordingKVStore + contractRecordingKVStore (new system).
+	recorder := newSharedRecordingKVStore()
+	addr160 := _testAddrHash160()
+	wrapFn := recorder.WrapFor(addr160)
+	wrappedKV := wrapFn(baseKV)
+
+	clonedTrie, err := reloadedTrie.Clone(wrappedKV)
 	require.NoError(err)
+
 	// Prime the root node so it's included in the recorded set.
 	clonedRoot, err := clonedTrie.RootHash()
 	require.NoError(err)
 	if len(clonedRoot) > 0 {
-		require.NoError(recKV.prime(clonedRoot))
+		wrappedKV.(*contractRecordingKVStore).prime(clonedRoot)
 	}
-	wt := newWitnessTrie(clonedTrie, hashFunc, recKV)
+
+	// Track first-touch entries manually (mirrors what witnessStateDB does).
+	touched := make(map[hash.Hash256]struct{})
+	var entries []ContractStorageWitnessEntry
+
+	recordFirstTouch := func(key hash.Hash256, val []byte) {
+		if _, seen := touched[key]; seen {
+			return
+		}
+		touched[key] = struct{}{}
+		entries = append(entries, ContractStorageWitnessEntry{Key: key, Value: append([]byte(nil), val...)})
+	}
 
 	// Record reads
 	for _, k := range reads {
-		wt.Get(k[:]) // ignore error (absent keys)
+		v, err := clonedTrie.Get(k[:])
+		if err != nil {
+			recordFirstTouch(k, nil)
+		} else {
+			recordFirstTouch(k, v)
+		}
 	}
 
 	// Apply mutations
 	for k, v := range mutations {
+		// Record first touch before mutation if not already touched via reads
+		if _, seen := touched[k]; !seen {
+			existingVal, err := clonedTrie.Get(k[:])
+			if err != nil {
+				recordFirstTouch(k, nil)
+			} else {
+				recordFirstTouch(k, existingVal)
+			}
+		}
 		if v == nil {
-			require.NoError(wt.Delete(k[:]))
+			require.NoError(clonedTrie.Delete(k[:]))
 		} else {
-			require.NoError(wt.Upsert(k[:], v))
+			require.NoError(clonedTrie.Upsert(k[:], v))
 		}
 	}
 
@@ -98,9 +126,23 @@ func buildWitness(t *testing.T, prestateKVs map[hash.Hash256][]byte, reads []has
 	postRoot, err := clonedTrie.RootHash()
 	require.NoError(err)
 
-	w, err := wt.BuildWitness()
-	require.NoError(err)
-	require.NotNil(w)
+	// Assemble witness
+	evmAddr := common.BytesToAddress(addr160[:])
+	proofNodes := recorder.ProofNodesForContract(evmAddr)
+	// When prestateKVs is nil/empty, the account has no storage root in
+	// production (Root == ZeroHash256). The mptrie still has a non-zero
+	// "empty trie" root, but production uses ZeroHash256 for this case.
+	var prestateRoot hash.Hash256
+	if len(prestateKVs) > 0 {
+		prestateRoot = hash.BytesToHash256(rootHash)
+	}
+	// else prestateRoot stays ZeroHash256
+
+	w := &ContractStorageWitness{
+		StorageRoot: prestateRoot,
+		Entries:     entries,
+		ProofNodes:  proofNodes,
+	}
 	require.NoError(VerifyContractStorageWitness(_testAddr, w))
 	return w, postRoot
 }
@@ -206,18 +248,12 @@ func TestStatelessTrie_DeleteAndRootHash(t *testing.T) {
 func TestStatelessTrie_EmptyPrestate(t *testing.T) {
 	require := require.New(t)
 
-	// Producer: empty trie, insert k1
-	inner := newTestTrieWithAddr(t, _testAddr)
-	wt := newWitnessTrie(inner, _testHashFuncAddr(), nil)
-	_, err := wt.Get(_k1b[:]) // record first touch (absent)
-	require.Error(err)
-	require.NoError(wt.Upsert(_k1b[:], _v1b[:]))
-
-	postRoot, err := inner.RootHash()
-	require.NoError(err)
-
-	w, err := wt.BuildWitness()
-	require.NoError(err)
+	// Use buildWitness with nil prestate to simulate empty-storage contract.
+	mutations := map[hash.Hash256][]byte{
+		_k1b: _v1b[:],
+	}
+	reads := []hash.Hash256{_k1b}
+	w, producerPostRoot := buildWitness(t, nil, reads, mutations)
 	require.Equal(hash.ZeroHash256, w.StorageRoot)
 
 	// Validator: replay on stateless MPT
@@ -228,7 +264,7 @@ func TestStatelessTrie_EmptyPrestate(t *testing.T) {
 
 	rh, err := tr.RootHash()
 	require.NoError(err)
-	require.Equal(postRoot, rh)
+	require.Equal(producerPostRoot, rh)
 }
 
 // TestStatelessTrie_InsertNewKey verifies that inserting a key that didn't exist
@@ -297,22 +333,6 @@ func TestStatelessTrie_NoWitnessEmptyTrie(t *testing.T) {
 
 	_, err = tr.Get(_k1b[:])
 	require.ErrorIs(err, trie.ErrNotExist)
-}
-
-// newTestTrieWithAddr creates an MPT trie with the contract-scoped hash function.
-func newTestTrieWithAddr(t *testing.T, addr common.Address) trie.Trie {
-	t.Helper()
-	tr, err := mptrie.New(
-		mptrie.KVStoreOption(trie.NewMemKVStore()),
-		mptrie.KeyLengthOption(len(hash.Hash256{})),
-		mptrie.HashFuncOption(func(data []byte) []byte {
-			h := hash.Hash256b(append(addr.Bytes(), data...))
-			return h[:]
-		}),
-	)
-	require.NoError(t, err)
-	require.NoError(t, tr.Start(nil))
-	return tr
 }
 
 // TestStatelessTrie_DeleteBranchCollapseWithUnreadSibling exercises the case
