@@ -112,7 +112,7 @@ func TraceEnd(ctx context.Context, ws protocol.StateManager, elp action.Envelope
 
 func newEVM(ctx context.Context, sm protocol.StateManager, execution action.TxData) (*vm.EVM, error) {
 	var stateDB stateDB
-	stateDB, err := prepareStateDB(ctx, sm)
+	stateDB, err := prepareStateDB(ctx, sm, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -92,6 +92,7 @@ type (
 		revertedContracts          map[common.Address][]Contract // contracts removed from cache by reverts, kept for witness building
 		statelessWitnesses         map[common.Address]*ContractStorageWitness
 		storageOps                 []StorageOp
+		kvStoreWrapper             func(hash.Hash160) func(trie.KVStore) trie.KVStore // per-contract KVStore wrapper for proof recording
 	}
 )
 
@@ -213,6 +214,16 @@ func BuildWitnessOption() StateDBAdapterOption {
 	}
 }
 
+// KVStoreWrapperOption sets a per-contract KVStore wrapper function.
+// The wrapper is applied to the contract's storage trie KVStore when a new
+// contract is created, enabling external proof node recording.
+func KVStoreWrapperOption(fn func(hash.Hash160) func(trie.KVStore) trie.KVStore) StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.kvStoreWrapper = fn
+		return nil
+	}
+}
+
 // StatelessValidationOption enables stateless validation mode.
 // Contracts listed in witnesses will use stateless tries backed by witness
 // entries instead of DB-backed MPT tries.
@@ -280,7 +291,15 @@ func NewStateDBAdapter(
 		if err != nil {
 			return nil, err
 		}
-		if s.buildWitness {
+		if s.kvStoreWrapper != nil {
+			if err := applyKVStoreWrapper(c, addr, s.kvStoreWrapper(addr)); err != nil {
+				return nil, err
+			}
+		} else if s.buildWitness {
+			// Legacy witness path: only used when kvStoreWrapper is not set.
+			// When kvStoreWrapper IS set (new system), enableWitnessOnContract
+			// must NOT be called because it clones the trie with its own
+			// recordingKVStore, clobbering the wrapper applied above.
 			if err := enableWitnessOnContract(c, addr); err != nil {
 				return nil, err
 			}
@@ -288,6 +307,43 @@ func NewStateDBAdapter(
 		return c, nil
 	}
 	return s, nil
+}
+
+// applyKVStoreWrapper clones the contract's storage trie with a wrapped KVStore.
+// The wrapper is provided by the sharedRecordingKVStore and records all trie node
+// reads for proof node extraction.
+func applyKVStoreWrapper(c Contract, addr hash.Hash160, wrapper func(trie.KVStore) trie.KVStore) error {
+	cc, ok := c.(*contract)
+	if !ok {
+		return nil
+	}
+	smKV := protocol.NewKVStoreForTrieWithStateManager(ContractKVNameSpace, cc.sm)
+	wrappedKV := wrapper(smKV)
+	clonedTrie, err := cc.trie.Clone(wrappedKV)
+	if err != nil {
+		return errors.Wrap(err, "failed to clone trie with kvstore wrapper")
+	}
+	// Prime the root node so it's recorded in the wrapper
+	rootHash, err := clonedTrie.RootHash()
+	if err != nil {
+		return errors.Wrap(err, "failed to get root hash for kvstore wrapper priming")
+	}
+	if rkv, ok := wrappedKV.(*contractRecordingKVStore); ok && len(rootHash) > 0 {
+		rkv.prime(rootHash)
+	}
+	cc.trie = clonedTrie
+	return nil
+}
+
+// StorageRootOf returns the current storage root hash for the given contract address.
+// If the contract is not yet in cache, it loads it. Returns ZeroHash256 if the
+// account doesn't exist or has no storage root.
+func (stateDB *StateDBAdapter) StorageRootOf(addr common.Address) hash.Hash256 {
+	c, err := stateDB.getContract(addr)
+	if err != nil {
+		return hash.ZeroHash256
+	}
+	return c.SelfState().Root
 }
 
 // enableWitnessOnContract wraps the contract's storage trie with a witnessTrie.

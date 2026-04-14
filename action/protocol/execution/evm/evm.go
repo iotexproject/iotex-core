@@ -249,11 +249,17 @@ func ExecuteContract(
 ) ([]byte, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
+	// Create shared proof node recorder if witness collection is enabled
+	var proofRecorder *sharedRecordingKVStore
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageWitnesses != nil {
+		proofRecorder = newSharedRecordingKVStore()
+	}
 	var stateDB stateDB
-	stateDB, err := prepareStateDB(ctx, sm)
+	adapter, err := prepareStateDB(ctx, sm, proofRecorder)
 	if err != nil {
 		return nil, nil, err
 	}
+	stateDB = adapter
 	ps, err := newParams(ctx, execution)
 	if err != nil {
 		return nil, nil, err
@@ -268,6 +274,12 @@ func ExecuteContract(
 				stateDB = NewErigonStateDBAdapter(stateDB.(*StateDBAdapter), in)
 			}
 		}
+	}
+	// Wrap stateDB with witness entry capture if witness collection is enabled
+	var witnessDB *witnessStateDB
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageWitnesses != nil {
+		witnessDB = newWitnessStateDB(stateDB, adapter.StorageRootOf)
+		stateDB = witnessDB
 	}
 	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ctx, ps, stateDB)
 	if err != nil {
@@ -319,16 +331,10 @@ func ExecuteContract(
 		return nil, nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
 	// collect and emit contract storage witnesses before clear()
-	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageWitnesses != nil {
-		type witnessProvider interface {
-			StorageWitnesses() (map[common.Address]*ContractStorageWitness, error)
-		}
-		if wp, ok := stateDB.(witnessProvider); ok {
-			if witnesses, err := wp.StorageWitnesses(); err != nil {
-				return nil, nil, errors.Wrap(err, "failed to collect storage witnesses")
-			} else if witnesses != nil {
-				tCtx.CaptureContractStorageWitnesses(witnesses)
-			}
+	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageWitnesses != nil && witnessDB != nil && proofRecorder != nil {
+		witnesses := assembleWitnesses(witnessDB, proofRecorder)
+		if len(witnesses) > 0 {
+			tCtx.CaptureContractStorageWitnesses(witnesses)
 		}
 	}
 	// collect storage op trace before clear()
@@ -388,7 +394,7 @@ func ReadContractStorage(
 		},
 	))
 	var stateDB stateDB
-	stateDB, err := prepareStateDB(ctx, sm)
+	stateDB, err := prepareStateDB(ctx, sm, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +428,7 @@ func ReadContractCode(
 		},
 	))
 	var stateDB stateDB
-	stateDB, err := prepareStateDB(ctx, sm)
+	stateDB, err := prepareStateDB(ctx, sm, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +446,7 @@ func ReadContractCode(
 	return code, nil
 }
 
-func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdapter, error) {
+func prepareStateDB(ctx context.Context, sm protocol.StateManager, proofRecorder *sharedRecordingKVStore) (*StateDBAdapter, error) {
 	var (
 		actionCtx  = protocol.MustGetActionCtx(ctx)
 		blkCtx     = protocol.MustGetBlockCtx(ctx)
@@ -488,6 +494,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	}
 	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageWitnesses != nil {
 		opts = append(opts, BuildWitnessOption())
+		if proofRecorder != nil {
+			opts = append(opts, KVStoreWrapperOption(proofRecorder.WrapFor))
+		}
 	}
 	if svCtx, ok := GetStatelessValidationCtx(ctx); ok && svCtx.Enabled {
 		// Ensure context is available for diagnostics even if FixRevertSnapshot
