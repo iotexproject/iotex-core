@@ -2,6 +2,7 @@ package witness
 
 import (
 	"encoding/hex"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -12,11 +13,12 @@ import (
 )
 
 type Collector struct {
-	current           map[common.Address]*evm.ContractStorageWitness
-	currentStorageOps []evm.StorageOp
-	actionWitnesses   map[hash.Hash256]map[common.Address]*evm.ContractStorageWitness
-	actionStorageOps  map[hash.Hash256][]evm.StorageOp
-	debugWriteEntries []string
+	current              map[common.Address]*evm.ContractStorageWitness
+	currentStorageOps    []evm.StorageOp
+	actionWitnesses      map[hash.Hash256]map[common.Address]*evm.ContractStorageWitness
+	actionStorageOps     map[hash.Hash256][]evm.StorageOp
+	debugWriteEntries    []string
+	totalWitnessDuration time.Duration
 }
 
 func NewCollector() *Collector {
@@ -38,6 +40,14 @@ func (c *Collector) CaptureStorageOps(ops []evm.StorageOp) {
 
 func (c *Collector) CaptureWriteEntries(entries []string) {
 	c.debugWriteEntries = entries
+}
+
+func (c *Collector) CaptureWitnessDuration(d time.Duration) {
+	c.totalWitnessDuration += d
+}
+
+func (c *Collector) TotalWitnessDuration() time.Duration {
+	return c.totalWitnessDuration
 }
 
 func (c *Collector) CaptureTx(_ []byte, receipt *action.Receipt) {
@@ -83,6 +93,12 @@ func (c *Collector) Build(blk *block.Block) (*BlockResult, error) {
 		result.Transactions = append(result.Transactions, txResult)
 	}
 	result.DebugWriteEntries = c.debugWriteEntries
+	if c.totalWitnessDuration > 0 {
+		if result.Summary == nil {
+			result.Summary = &Summary{}
+		}
+		result.Summary.WitnessGenDuration = c.totalWitnessDuration.String()
+	}
 	return result, nil
 }
 

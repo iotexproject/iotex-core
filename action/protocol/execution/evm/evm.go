@@ -332,9 +332,14 @@ func ExecuteContract(
 	}
 	// collect and emit contract storage witnesses before clear()
 	if tCtx, ok := GetTracerCtx(ctx); ok && tCtx.CaptureContractStorageWitnesses != nil && witnessDB != nil && proofRecorder != nil {
+		witnessStart := time.Now()
 		witnesses := assembleWitnesses(witnessDB, proofRecorder)
+		witnessDuration := time.Since(witnessStart)
 		if len(witnesses) > 0 {
 			tCtx.CaptureContractStorageWitnesses(witnesses)
+		}
+		if tCtx.CaptureWitnessDuration != nil {
+			tCtx.CaptureWitnessDuration(witnessDuration)
 		}
 	}
 	// collect storage op trace before clear()

@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -32,6 +33,7 @@ type (
 		CaptureContractStorageWitnesses func(map[common.Address]*ContractStorageWitness)
 		CaptureStorageOps               func([]StorageOp)
 		CaptureWriteEntries             func([]string)
+		CaptureWitnessDuration          func(time.Duration)
 	}
 
 	// StatelessValidationContext provides the per-block contract-storage witness

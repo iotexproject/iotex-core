@@ -422,6 +422,11 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 		if err != nil {
 			return errors.Wrap(err, "failed to build block witness payload")
 		}
+		log.L().Info("block witness generation",
+			zap.Uint64("height", blk.Height()),
+			zap.Duration("witnessGenDuration", witnessCollector.TotalWitnessDuration()),
+			zap.Int("txCount", len(blk.Actions)),
+		)
 		if err := bc.witnessStore.PutBlock(blk.HashBlock(), blk.Height(), result); err != nil {
 			return errors.Wrap(err, "failed to persist block witness payload")
 		}
@@ -535,6 +540,11 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time, opts ...MintOption) (*bl
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to build minted block witness payload")
 		}
+		log.L().Info("minted block witness generation",
+			zap.Uint64("height", blk.Height()),
+			zap.Duration("witnessGenDuration", witnessCollector.TotalWitnessDuration()),
+			zap.Int("txCount", len(blk.Actions)),
+		)
 		bc.cachePendingWitness(blk.HashBlock(), result)
 	}
 	_blockMtc.WithLabelValues("MintGas").Set(float64(blk.GasUsed()))
@@ -678,6 +688,7 @@ func (bc *blockchain) withWitnessCollector(ctx context.Context, enabled bool, en
 		CaptureContractStorageWitnesses: witnessCollector.CaptureContractStorageWitnesses,
 		CaptureStorageOps:               witnessCollector.CaptureStorageOps,
 		CaptureWriteEntries:             witnessCollector.CaptureWriteEntries,
+		CaptureWitnessDuration:          witnessCollector.CaptureWitnessDuration,
 	})
 	return ctx, witnessCollector
 }

@@ -1,0 +1,58 @@
+// Copyright (c) 2026 IoTeX
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=. witness.proto
+
+syntax = "proto3";
+
+package witnesspb;
+
+option go_package = "github.com/iotexproject/iotex-core/v2/blockchain/witness/witnesspb";
+
+message Summary {
+    uint64 contracts = 1;
+    uint64 entries = 2;
+    uint64 proof_nodes = 3;
+    uint64 proof_bytes = 4;
+    string witness_gen_duration = 5;
+}
+
+message BlockResult {
+    Summary summary = 1;
+    repeated TransactionResult transactions = 2;
+    repeated string debug_write_entries = 3;
+}
+
+message TransactionResult {
+    bytes tx_hash = 1;
+    uint64 contracts = 2;
+    uint64 entries = 3;
+    uint64 proof_nodes = 4;
+    uint64 proof_bytes = 5;
+    repeated ContractWitness witnesses = 6;
+    repeated StorageOpTrace debug_storage_ops = 7;
+}
+
+message ContractWitness {
+    bytes address = 1;
+    bytes storage_root = 2;
+    repeated ContractWitnessKV entries = 3;
+    repeated bytes proof_nodes = 4;
+}
+
+message ContractWitnessKV {
+    bytes key = 1;
+    bytes value = 2;
+}
+
+message StorageOpTrace {
+    string op = 1;
+    string addr = 2;
+    string key = 3;
+    string value = 4;
+    int32 snapshot_id = 5;
+    string err_msg = 6;
+}

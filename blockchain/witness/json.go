@@ -12,10 +12,11 @@ import (
 
 type (
 	Summary struct {
-		Contracts  uint64 `json:"contracts"`
-		Entries    uint64 `json:"entries"`
-		ProofNodes uint64 `json:"proofNodes"`
-		ProofBytes uint64 `json:"proofBytes"`
+		Contracts          uint64 `json:"contracts"`
+		Entries            uint64 `json:"entries"`
+		ProofNodes         uint64 `json:"proofNodes"`
+		ProofBytes         uint64 `json:"proofBytes"`
+		WitnessGenDuration string `json:"witnessGenDuration,omitempty"`
 	}
 
 	BlockResult struct {

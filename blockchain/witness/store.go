@@ -32,18 +32,25 @@ func (s *Store) Start(ctx context.Context) error { return s.db.Start(ctx) }
 func (s *Store) Stop(ctx context.Context) error { return s.db.Stop(ctx) }
 
 func (s *Store) PutRaw(blockHash hash.Hash256, height uint64, raw json.RawMessage) error {
-	if err := s.db.Put(byHashNamespace, blockHash[:], raw); err != nil {
+	stored, err := marshalStoredBlockResultFromJSON(raw)
+	if err != nil {
+		return err
+	}
+	if err := s.db.Put(byHashNamespace, blockHash[:], stored); err != nil {
 		return err
 	}
 	return s.db.Put(hashByHeightNamespace, byteutil.Uint64ToBytesBigEndian(height), blockHash[:])
 }
 
 func (s *Store) PutBlock(blockHash hash.Hash256, height uint64, result *BlockResult) error {
-	raw, err := json.Marshal(result)
+	raw, err := marshalStoredBlockResult(result)
 	if err != nil {
 		return err
 	}
-	return s.PutRaw(blockHash, height, raw)
+	if err := s.db.Put(byHashNamespace, blockHash[:], raw); err != nil {
+		return err
+	}
+	return s.db.Put(hashByHeightNamespace, byteutil.Uint64ToBytesBigEndian(height), blockHash[:])
 }
 
 func (s *Store) GetRawByHash(blockHash hash.Hash256) (json.RawMessage, error) {
@@ -51,7 +58,7 @@ func (s *Store) GetRawByHash(blockHash hash.Hash256) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append(json.RawMessage(nil), raw...), nil
+	return storedBlockResultToJSON(raw)
 }
 
 func (s *Store) GetRawByHeight(height uint64) (hash.Hash256, json.RawMessage, error) {
@@ -68,8 +75,8 @@ func (s *Store) GetRawByHeight(height uint64) (hash.Hash256, json.RawMessage, er
 }
 
 func ParseValidationContext(raw json.RawMessage) (evm.StatelessValidationContext, error) {
-	var result BlockResult
-	if err := json.Unmarshal(raw, &result); err != nil {
+	result, err := parseStoredBlockResult(raw)
+	if err != nil {
 		return evm.StatelessValidationContext{}, err
 	}
 	actionWitnesses := make(map[hash.Hash256]map[common.Address]*evm.ContractStorageWitness, len(result.Transactions))

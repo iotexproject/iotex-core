@@ -94,6 +94,67 @@ Start (or resume) a standalone server to operate on a blockchain by
 make run
 ```
 
+### Run a witness node and a stateless validator
+
+To expose block witness data from one node and let another node validate blocks with that witness data over the existing sync path (scheme A), only the non-default config overrides below are required.
+
+**Witness node**
+
+Persist witness data locally and expose the existing Web3/JSON-RPC endpoint that serves `debug_getBlockWitnessByHash` and `debug_getBlockWitnessByNumber`.
+
+```yaml
+chain:
+  witnessDBPath: /var/data_witness/witness.db
+```
+
+**Stateless validator**
+
+Keep normal block sync, but fetch witness sidecars from the witness node's Web3 endpoint during validation.
+
+```yaml
+chain:
+  enableExperimentalStatelessValidation: true
+  statelessValidationRPC: http://<witness-node-host>:15014
+```
+
+**Initialize a stateless snapshot from witness-node data**
+
+If you want the stateless validator to start from a snapshot generated from the witness node's local data, use the helper script:
+
+```bash
+make build-exportblocks build-trimstate
+./scripts/gen-stateless-data.sh
+```
+
+By default, the script reads source data from `/var/data_witness` and writes the stateless snapshot to `/var/data_stateless`. You can override either path with CLI flags or environment variables:
+
+```bash
+./scripts/gen-stateless-data.sh --src-dir /data/witness --dst-dir /data/stateless
+SRC_DIR=/data/witness DST_DIR=/data/stateless ./scripts/gen-stateless-data.sh
+```
+
+After that, point the stateless validator at the generated files:
+
+```yaml
+chain:
+  chainDBPath: /var/data_stateless/chain.db
+  trieDBPath: /var/data_stateless/trie.db
+  trieDBPatchFile: /var/data_stateless/trie.db.patch
+  blobStoreDBPath: /var/data_stateless/blob.db
+  contractStakingIndexDBPath: /var/data_stateless/contractstaking.index.db
+  gravityChainDB:
+    dbPath: /var/data_stateless/poll.db
+  enableExperimentalStatelessValidation: true
+  statelessValidationRPC: http://<witness-node-host>:15014
+```
+
+Notes:
+
+- `statelessValidationRPC` must point to the witness node's `api.web3port` endpoint.
+- The stateless validator does **not** need `witnessDBPath` for scheme A.
+- Do **not** enable `enableExperimentalCSSync` for the witness node when you want it to generate and store witness data locally.
+- `scripts/gen-stateless-data.sh` defaults to `/var/data_witness -> /var/data_stateless`, but both paths are configurable.
+
 Restart the server from a clean state by
 
 ```
