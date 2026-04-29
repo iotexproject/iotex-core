@@ -348,6 +348,13 @@ func (ws *workingSet) Commit(ctx context.Context, retention uint64) error {
 		// TODO (zhi): wrap the error and eventually panic it in caller side
 		return err
 	}
+	// Commit views unconditionally so snapshot state (wrapper chain + snapshots slice)
+	// is always reset after each block. Without this, viewData.Snapshot() entries and
+	// candidateVotesWraper layers accumulate across blocks whenever staking is inactive,
+	// causing O(blocks×evm_subcalls) cost in IsDirty() and unbounded memory growth.
+	if err := ws.views.Commit(ctx, ws); err != nil {
+		return err
+	}
 	return nil
 }
 
