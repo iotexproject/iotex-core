@@ -542,7 +542,7 @@ func (p *Protocol) slashDelegate(
 	var candidateAddr address.Address
 	var err error
 	switch {
-	case protocol.MustGetFeatureCtx(ctx).CandidateSlashByOwner || !protocol.MustGetFeatureWithHeightCtx(ctx).CandidateWithoutIdentity(blockHeight):
+	case !protocol.MustGetFeatureWithHeightCtx(ctx).CandidateWithoutIdentity(blockHeight):
 		if candidate.Identity != "" {
 			candidateAddr, err = address.FromString(candidate.Identity)
 			if err != nil {
@@ -554,6 +554,15 @@ func (p *Protocol) slashDelegate(
 			break
 		}
 		fallthrough
+	case protocol.MustGetFeatureCtx(ctx).CandidateSlashByOwner:
+		candidateAddr, err = address.FromString(candidate.Address)
+		if err != nil {
+			return nil, err
+		}
+		if err := stakingProtocol.SlashCandidateByID(ctx, sm, candidateAddr, amount); err != nil {
+			return nil, errors.Wrapf(err, "failed to slash candidate %s", candidate.Address)
+		}
+		break
 	default:
 		candidateAddr, err = address.FromString(candidate.Address)
 		if err != nil {
