@@ -405,10 +405,10 @@ func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 				return !g.IsOkhotsk(height)
 			},
 			CandidateWithoutIdentity: func(height uint64) bool {
-				return !g.IsYap(height)
+				return !g.IsYapBeta(height)
 			},
 			CandidateWithoutIdentityStorage: func(height uint64) bool {
-				return !g.IsToBeEnabled(height)
+				return !g.IsYap(height)
 			},
 		},
 	)
