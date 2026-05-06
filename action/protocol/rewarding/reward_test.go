@@ -135,6 +135,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		require.NoError(t, sp.Register(registry))
 		patches := gomonkey.NewPatches()
 		patches = patches.ApplyMethodReturn(sp, "SlashCandidateByOperator", nil)
+		patches = patches.ApplyMethodReturn(sp, "SlashCandidateByID", nil)
 		defer patches.Reset()
 		ctx = protocol.WithFeatureCtx(ctx)
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
