@@ -976,7 +976,7 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 			cand = append(cand, list[i])
 		}
 	}
-	return cand.toStateCandidateList(protocol.MustGetFeatureWithHeightCtx(ctx).CandidateWithoutIdentity(height))
+	return cand.toStateCandidateList(protocol.MustGetFeatureWithHeightCtx(ctx).CandidateWithoutIdentityStorage(height))
 }
 
 // ReadState read the state on blockchain via protocol
