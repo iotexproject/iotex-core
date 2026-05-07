@@ -121,6 +121,12 @@ func (p *Protocol) systemCallContext(ctx context.Context, sm protocol.StateManag
 		GetBlockTime:  bcCtx.GetBlockTime,
 		IsBlackListed: p.isBlackListed,
 	})
+	// Strip the EVM tracer so system-level EVM calls (e.g. setPreviousBlockHash)
+	// don't pollute the tracing callstack used for user transaction traces.
+	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok && vmCfg.Tracer != nil {
+		vmCfg.Tracer = nil
+		ctx = protocol.WithVMConfigCtx(ctx, vmCfg)
+	}
 	return ctx, nil
 }
 
