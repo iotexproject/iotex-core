@@ -80,8 +80,8 @@ func defaultConfig() Genesis {
 			WakeBlockHeight:           36893881,
 			XinguBlockHeight:          41648761,
 			XinguBetaBlockHeight:      41648761,
-			YapBlockHeight:            51648761,
-			YapBetaBlockHeight:        51648761,
+			YapBlockHeight:            48985561,
+			YapBetaBlockHeight:        48985561,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
