@@ -46,6 +46,10 @@ func init() {
 	if !ok {
 		panic("fail to load the cancelCandidateDeactivation method")
 	}
+	confirmCandidateDeactivationMethod, ok = methods["confirmCandidateDeactivation"]
+	if !ok {
+		panic("fail to load the confirmCandidateDeactivation method")
+	}
 }
 
 // NewCandidateDeactivate returns a CandidateDeactivate action
@@ -109,7 +113,7 @@ func NewCandidateDeactivateFromABIBinary(data []byte) (*CandidateDeactivate, err
 	var cd CandidateDeactivate
 	// sanity check
 	switch {
-	case len(data) <= 4:
+	case len(data) < 4:
 		return nil, errDecodeFailure
 	case bytes.Equal(requestCandidateDeactivationMethod.ID, data[:4]):
 		cd.op = CandidateDeactivateOpRequest
