@@ -46,6 +46,10 @@ func init() {
 	if !ok {
 		panic("fail to load the cancelCandidateDeactivation method")
 	}
+	confirmCandidateDeactivationMethod, ok = methods["confirmCandidateDeactivation"]
+	if !ok {
+		panic("fail to load the confirmCandidateDeactivation method")
+	}
 }
 
 // NewCandidateDeactivate returns a CandidateDeactivate action

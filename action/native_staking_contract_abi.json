@@ -419,6 +419,13 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "confirmCandidateDeactivation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "string",
