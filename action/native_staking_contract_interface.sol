@@ -71,6 +71,8 @@ interface INativeStakingContract {
 
     function cancelCandidateDeactivation() external;
 
+    function confirmCandidateDeactivation() external;
+
     // Candidate Endorsement methods
     function candidateEndorsement(uint64 bucketIndex, bool endorse) external;
 
