@@ -49,7 +49,7 @@ func (s *candidateVotesManager) Load(ctx context.Context, sr protocol.StateReade
 		protocol.KeyOption(s.key()),
 		protocol.NamespaceOption(voteViewNS),
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, state.ErrStateNotExist) {
 		return nil, errors.Wrap(err, "failed to get candidate votes state")
 	}
 	return newCandidateVotesWithBuffer(cur), nil
