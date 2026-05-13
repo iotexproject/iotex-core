@@ -296,17 +296,17 @@ func (mr *MockCoreServiceMockRecorder) CodeAt(ctx, addr, height any) *gomock.Cal
 }
 
 // DeleteBundle mocks base method.
-func (m *MockCoreService) DeleteBundle(ctx context.Context, sender address.Address, uuid string) error {
+func (m *MockCoreService) DeleteBundle(ctx context.Context, uuid string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteBundle", ctx, sender, uuid)
+	ret := m.ctrl.Call(m, "DeleteBundle", ctx, uuid)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteBundle indicates an expected call of DeleteBundle.
-func (mr *MockCoreServiceMockRecorder) DeleteBundle(ctx, sender, uuid any) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) DeleteBundle(ctx, uuid any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBundle", reflect.TypeOf((*MockCoreService)(nil).DeleteBundle), ctx, sender, uuid)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBundle", reflect.TypeOf((*MockCoreService)(nil).DeleteBundle), ctx, uuid)
 }
 
 // EVMNetworkID mocks base method.
