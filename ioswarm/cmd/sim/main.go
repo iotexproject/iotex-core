@@ -7,7 +7,8 @@
 //   - Accounts: 1000 unique addresses
 //
 // Usage:
-//   go run ./cmd/sim --agents=10 --duration=30s --tps=50
+//
+//	go run ./cmd/sim --agents=10 --duration=30s --tps=50
 package main
 
 import (
@@ -39,20 +40,20 @@ var secp256k1N, _ = new(big.Int).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAE
 // --- Simulation config ---
 
 type simConfig struct {
-	numAgents    int
-	duration     time.Duration
-	tps          int // target transactions per second
-	blockTime    time.Duration
-	numAccounts  int
-	regions      []string
+	numAgents   int
+	duration    time.Duration
+	tps         int // target transactions per second
+	blockTime   time.Duration
+	numAccounts int
+	regions     []string
 }
 
 // --- Simulated actpool ---
 
 type simActPool struct {
-	mu      sync.Mutex
-	txs     []*ioswarm.PendingTx
-	height  atomic.Uint64
+	mu       sync.Mutex
+	txs      []*ioswarm.PendingTx
+	height   atomic.Uint64
 	accounts []string
 }
 

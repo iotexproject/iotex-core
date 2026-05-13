@@ -19,12 +19,12 @@ var (
 // SnapshotWriter writes state entries in the IOSwarm snapshot binary format.
 // Output is gzip-compressed.
 type SnapshotWriter struct {
-	gw         *gzip.Writer
-	hasher     hash.Hash
-	w          io.Writer // tee of gw and hasher
-	count      uint64
-	height     uint64
-	finalized  bool
+	gw        *gzip.Writer
+	hasher    hash.Hash
+	w         io.Writer // tee of gw and hasher
+	count     uint64
+	height    uint64
+	finalized bool
 }
 
 // NewSnapshotWriter creates a new snapshot writer that writes to w.

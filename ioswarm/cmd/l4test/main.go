@@ -121,7 +121,7 @@ func main() {
 
 	stream, err := conn.NewStream(ctx, &grpc.StreamDesc{
 		StreamName:    "StreamStateDiffs",
-		ServerStreams:  true,
+		ServerStreams: true,
 	}, "/ioswarm.IOSwarm/StreamStateDiffs")
 	if err != nil {
 		log.Fatalf("new stream: %v", err)
@@ -237,24 +237,53 @@ done:
 
 	// 11.2: Content validation
 	fmt.Printf("  11.2 Invalid namespaces:  %d", invalidNS)
-	if invalidNS == 0 { fmt.Println(" ✅") } else { fmt.Println(" ❌"); pass = false }
+	if invalidNS == 0 {
+		fmt.Println(" ✅")
+	} else {
+		fmt.Println(" ❌")
+		pass = false
+	}
 
 	fmt.Printf("  11.2 Invalid writeTypes:  %d", invalidWT)
-	if invalidWT == 0 { fmt.Println(" ✅") } else { fmt.Println(" ❌"); pass = false }
+	if invalidWT == 0 {
+		fmt.Println(" ✅")
+	} else {
+		fmt.Println(" ❌")
+		pass = false
+	}
 
 	fmt.Printf("  11.2 Empty diffs:         %d", emptyDiffs)
-	if emptyDiffs == 0 { fmt.Println(" ✅") } else { fmt.Printf(" (may be OK for empty blocks)\n") }
+	if emptyDiffs == 0 {
+		fmt.Println(" ✅")
+	} else {
+		fmt.Printf(" (may be OK for empty blocks)\n")
+	}
 
 	fmt.Printf("  11.2 Height gaps:         %d", gaps)
-	if gaps == 0 { fmt.Println(" ✅") } else { fmt.Println(" ❌"); pass = false }
+	if gaps == 0 {
+		fmt.Println(" ✅")
+	} else {
+		fmt.Println(" ❌")
+		pass = false
+	}
 
 	// 11.3: Live streaming
 	fmt.Printf("  11.3 Live diffs received: %d", liveCount)
-	if liveCount > 0 { fmt.Println(" ✅") } else { fmt.Println(" ⚠️  (need longer duration?)"); pass = false }
+	if liveCount > 0 {
+		fmt.Println(" ✅")
+	} else {
+		fmt.Println(" ⚠️  (need longer duration?)")
+		pass = false
+	}
 
 	// 11.4: Catch-up
 	fmt.Printf("  11.4 Catch-up complete:   %v", catchupDone)
-	if catchupDone { fmt.Println(" ✅") } else { fmt.Println(" ❌"); pass = false }
+	if catchupDone {
+		fmt.Println(" ✅")
+	} else {
+		fmt.Println(" ❌")
+		pass = false
+	}
 
 	fmt.Println("  ─────────────────────────────────────────────────────")
 	if pass {
@@ -293,7 +322,7 @@ func probeTip(ctx context.Context, conn *grpc.ClientConn, agentID, secret string
 	defer cancel()
 
 	stream, err := conn.NewStream(probeCtx, &grpc.StreamDesc{
-		StreamName:   "StreamStateDiffs",
+		StreamName:    "StreamStateDiffs",
 		ServerStreams: true,
 	}, "/ioswarm.IOSwarm/StreamStateDiffs")
 	if err != nil {
@@ -316,6 +345,8 @@ func probeTip(ctx context.Context, conn *grpc.ClientConn, agentID, secret string
 }
 
 func min(a, b int) int {
-	if a < b { return a }
+	if a < b {
+		return a
+	}
 	return b
 }

@@ -13,10 +13,10 @@ import (
 // RewardDistributor tracks agent work and calculates reward distribution.
 //
 // Flow:
-//   1. Coordinator calls RecordWork() on every SubmitResults
-//   2. At epoch end (every N blocks), delegate calls Distribute()
-//   3. Distribute() returns a payout list: agent_address → IOTX amount
-//   4. Delegate signs a batch transfer tx (or calls a RewardPool contract)
+//  1. Coordinator calls RecordWork() on every SubmitResults
+//  2. At epoch end (every N blocks), delegate calls Distribute()
+//  3. Distribute() returns a payout list: agent_address → IOTX amount
+//  4. Delegate signs a batch transfer tx (or calls a RewardPool contract)
 //
 // The delegate keeps a configurable cut (e.g. 10%) for operating costs,
 // and distributes the rest proportionally by tasks validated.
@@ -27,10 +27,10 @@ type RewardDistributor struct {
 	delegateAddress string
 
 	// Work tracking per epoch
-	currentEpoch  uint64
-	epochStart    time.Time
-	agentWork     map[string]*AgentWork // agent_id → work stats
-	epochHistory  []EpochSummary
+	currentEpoch uint64
+	epochStart   time.Time
+	agentWork    map[string]*AgentWork // agent_id → work stats
+	epochHistory []EpochSummary
 }
 
 // RewardConfig controls reward distribution parameters.

@@ -21,9 +21,9 @@ import (
 //	GET /swarm/shadow      — shadow mode comparison stats
 //	GET /healthz           — health check
 type SwarmAPI struct {
-	coord    *Coordinator
-	reward   *RewardDistributor
-	startAt  time.Time
+	coord   *Coordinator
+	reward  *RewardDistributor
+	startAt time.Time
 }
 
 // NewSwarmAPI creates a new swarm API.

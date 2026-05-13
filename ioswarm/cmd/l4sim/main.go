@@ -73,16 +73,16 @@ func agentSpecs() []agentSpec {
 
 // agentResult collects per-agent metrics.
 type agentResult struct {
-	name           string
-	totalReceived  int
-	catchUpCount   int
-	liveCount      int
-	minHeight      uint64
-	maxHeight      uint64
-	gapCount       int
-	connections    int
-	disconnected   bool
-	err            error
+	name          string
+	totalReceived int
+	catchUpCount  int
+	liveCount     int
+	minHeight     uint64
+	maxHeight     uint64
+	gapCount      int
+	connections   int
+	disconnected  bool
+	err           error
 }
 
 func main() {
@@ -489,7 +489,7 @@ func runConnection(
 
 	clientStream, err := conn.NewStream(ctx, &grpc.StreamDesc{
 		StreamName:    "StreamStateDiffs",
-		ServerStreams:  true,
+		ServerStreams: true,
 	}, "/ioswarm.IOSwarm/StreamStateDiffs")
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("new stream: %w", err)
@@ -787,9 +787,9 @@ func stateDiffToResponse(diff *ioswarm.StateDiff) *pb.StateDiffResponse {
 
 type jsonCodec struct{}
 
-func (jsonCodec) Marshal(v interface{}) ([]byte, error)     { return json.Marshal(v) }
+func (jsonCodec) Marshal(v interface{}) ([]byte, error)      { return json.Marshal(v) }
 func (jsonCodec) Unmarshal(data []byte, v interface{}) error { return json.Unmarshal(data, v) }
-func (jsonCodec) Name() string                              { return "proto" }
+func (jsonCodec) Name() string                               { return "proto" }
 
 // --- Noop dependencies ---
 

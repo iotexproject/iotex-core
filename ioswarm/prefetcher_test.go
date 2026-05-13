@@ -28,7 +28,7 @@ func (m *mockStateReader) AccountState(address string) (*pb.AccountSnapshot, err
 	}, nil
 }
 
-func (m *mockStateReader) GetCode(address string) ([]byte, error)           { return nil, nil }
+func (m *mockStateReader) GetCode(address string) ([]byte, error)            { return nil, nil }
 func (m *mockStateReader) GetStorageAt(address, slot string) (string, error) { return "", nil }
 func (m *mockStateReader) SimulateAccessList(from, to string, data []byte, value string, gasLimit uint64) (map[string][]string, error) {
 	return nil, nil
@@ -145,7 +145,7 @@ func (c *countingStateReader) AccountState(address string) (*pb.AccountSnapshot,
 	return c.inner.AccountState(address)
 }
 
-func (c *countingStateReader) GetCode(address string) ([]byte, error)           { return nil, nil }
+func (c *countingStateReader) GetCode(address string) ([]byte, error)            { return nil, nil }
 func (c *countingStateReader) GetStorageAt(address, slot string) (string, error) { return "", nil }
 func (c *countingStateReader) SimulateAccessList(from, to string, data []byte, value string, gasLimit uint64) (map[string][]string, error) {
 	return nil, nil

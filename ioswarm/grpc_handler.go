@@ -59,13 +59,13 @@ var _IOSwarm_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:   "GetTasks",
-			Handler:      _IOSwarm_GetTasks_Handler,
+			StreamName:    "GetTasks",
+			Handler:       _IOSwarm_GetTasks_Handler,
 			ServerStreams: true,
 		},
 		{
-			StreamName:   "StreamStateDiffs",
-			Handler:      _IOSwarm_StreamStateDiffs_Handler,
+			StreamName:    "StreamStateDiffs",
+			Handler:       _IOSwarm_StreamStateDiffs_Handler,
 			ServerStreams: true,
 		},
 	},

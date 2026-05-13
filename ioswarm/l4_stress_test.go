@@ -15,8 +15,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/ioswarm"
-	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
+	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	"github.com/iotexproject/iotex-core/v2/server/itx"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil"
@@ -39,7 +39,7 @@ func TestL4StressTest(t *testing.T) {
 
 	const (
 		numAgents      = 5
-		txBatchSize    = 3  // txs to inject per round
+		txBatchSize    = 3   // txs to inject per round
 		txRoundDelayMs = 800 // delay between tx injection rounds
 	)
 
@@ -202,6 +202,7 @@ func TestL4StressTest(t *testing.T) {
 			conn, err := grpc.NewClient(
 				fmt.Sprintf("127.0.0.1:%d", ioswarmPort),
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
+				grpc.WithDefaultCallOptions(grpc.ForceCodec(pb.JSONCodec{})),
 			)
 			if err != nil {
 				t.Logf("agent %s connect failed: %v", agent.agentID, err)

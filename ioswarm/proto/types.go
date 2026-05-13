@@ -25,8 +25,8 @@ type AccountSnapshot struct {
 type BlockCtx struct {
 	Timestamp uint64 `json:"timestamp"`
 	GasLimit  uint64 `json:"gas_limit"`
-	BaseFee   string `json:"base_fee"`  // big.Int as string
-	Coinbase  string `json:"coinbase"`  // block producer address
+	BaseFee   string `json:"base_fee"` // big.Int as string
+	Coinbase  string `json:"coinbase"` // block producer address
 	Number    uint64 `json:"number"`
 }
 
@@ -64,10 +64,10 @@ type TaskPackage struct {
 	BlockHeight uint64           `json:"block_height"`
 
 	// L3 EVM execution fields
-	BlockContext *BlockCtx            `json:"block_context,omitempty"`
-	ContractCode map[string][]byte    `json:"contract_code,omitempty"`   // address → bytecode
+	BlockContext *BlockCtx                    `json:"block_context,omitempty"`
+	ContractCode map[string][]byte            `json:"contract_code,omitempty"` // address → bytecode
 	StorageSlots map[string]map[string]string `json:"storage_slots,omitempty"` // address → slot → value (hex)
-	EvmTx        *EvmTx               `json:"evm_tx,omitempty"`
+	EvmTx        *EvmTx                       `json:"evm_tx,omitempty"`
 }
 
 // TaskBatch is a batch of tasks sent to an agent.

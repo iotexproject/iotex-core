@@ -106,6 +106,7 @@ type (
 		CommitContracts() error
 		Logs() []*action.Log
 		TransactionLogs() []*action.TransactionLog
+		AccessedSlots() map[common.Address][]common.Hash
 		clear()
 		Error() error
 	}

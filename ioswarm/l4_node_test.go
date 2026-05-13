@@ -71,6 +71,7 @@ func TestL4RealNodeStateDiffs(t *testing.T) {
 	conn, err := grpc.NewClient(
 		fmt.Sprintf("127.0.0.1:%d", ioswarmPort),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.ForceCodec(pb.JSONCodec{})),
 	)
 	require.NoError(err, "agent connect failed")
 	defer conn.Close()

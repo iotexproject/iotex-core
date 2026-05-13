@@ -7,23 +7,28 @@ import (
 	_ "google.golang.org/grpc/encoding/proto" // ensure default proto codec is loaded
 )
 
-// jsonCodec provides JSON marshaling for ioswarm internal use.
+// CodecName is the content-subtype registered for the ioswarm JSON codec.
+// Clients must use grpc.ForceCodec(JSONCodec{}) (or set content-subtype to this name)
+// to interoperate with ioswarm services that exchange the plain Go structs in this package.
+const CodecName = "ioswarm-json"
+
+// JSONCodec provides JSON marshaling for ioswarm internal use.
 // Use a distinct name "ioswarm-json" to avoid overriding the default "proto" codec.
 // In production, replace with proper protobuf types.
-type jsonCodec struct{}
+type JSONCodec struct{}
 
 func init() {
-	encoding.RegisterCodec(jsonCodec{})
+	encoding.RegisterCodec(JSONCodec{})
 }
 
-func (jsonCodec) Marshal(v interface{}) ([]byte, error) {
+func (JSONCodec) Marshal(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-func (jsonCodec) Unmarshal(data []byte, v interface{}) error {
+func (JSONCodec) Unmarshal(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
 }
 
-func (jsonCodec) Name() string {
-	return "ioswarm-json" // Use distinct name to avoid conflict with standard proto codec
+func (JSONCodec) Name() string {
+	return CodecName
 }

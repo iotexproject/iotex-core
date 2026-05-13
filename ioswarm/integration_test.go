@@ -58,7 +58,7 @@ func (m *mockState) AccountState(address string) (*pb.AccountSnapshot, error) {
 	return &pb.AccountSnapshot{Address: address, Balance: "0", Nonce: 0}, nil
 }
 
-func (m *mockState) GetCode(address string) ([]byte, error)           { return nil, nil }
+func (m *mockState) GetCode(address string) ([]byte, error)            { return nil, nil }
 func (m *mockState) GetStorageAt(address, slot string) (string, error) { return "", nil }
 func (m *mockState) SimulateAccessList(from, to string, data []byte, value string, gasLimit uint64) (map[string][]string, error) {
 	return nil, nil
@@ -146,6 +146,7 @@ func TestIntegrationE2E(t *testing.T) {
 	conn, err := grpc.NewClient(
 		fmt.Sprintf("127.0.0.1:%d", port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.ForceCodec(pb.JSONCodec{})),
 	)
 	if err != nil {
 		t.Fatalf("agent connect failed: %v", err)

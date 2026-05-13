@@ -47,7 +47,7 @@ func TestShadowMismatch(t *testing.T) {
 	shadow.RecordAgentResults("ant-1", &pb.BatchResult{
 		AgentID: "ant-1",
 		Results: []*pb.TaskResult{
-			{TaskID: 1, Valid: true},  // agent: valid
+			{TaskID: 1, Valid: true},                             // agent: valid
 			{TaskID: 2, Valid: false, RejectReason: "bad nonce"}, // agent: invalid
 		},
 	})

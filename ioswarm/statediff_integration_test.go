@@ -77,6 +77,7 @@ func TestStateDiffStreamE2E(t *testing.T) {
 	conn, err := grpc.NewClient(
 		fmt.Sprintf("127.0.0.1:%d", port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.ForceCodec(pb.JSONCodec{})),
 	)
 	if err != nil {
 		t.Fatalf("connect failed: %v", err)
@@ -220,6 +221,7 @@ func TestStateDiffCatchUpOnly(t *testing.T) {
 	conn, err := grpc.NewClient(
 		fmt.Sprintf("127.0.0.1:%d", port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.ForceCodec(pb.JSONCodec{})),
 	)
 	if err != nil {
 		t.Fatal(err)

@@ -242,7 +242,7 @@ func (store *stateDBWorkingSetStore) CaptureWriteQueue() []WriteQueueEntry {
 
 // WriteQueueEntry is a captured state mutation from the write queue.
 type WriteQueueEntry struct {
-	WriteType uint8  // 0=Put, 1=Delete
+	WriteType uint8 // 0=Put, 1=Delete
 	Namespace string
 	Key       []byte
 	Value     []byte

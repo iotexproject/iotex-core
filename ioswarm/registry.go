@@ -20,7 +20,7 @@ type AgentInfo struct {
 	CPUUsage       float64
 	MemUsage       float64
 	TaskChan       chan *pb.TaskBatch // channel to push tasks to this agent's stream
-	closeOnce      sync.Once         // prevent double-close panic
+	closeOnce      sync.Once          // prevent double-close panic
 }
 
 // CloseTaskChan safely closes the TaskChan exactly once.

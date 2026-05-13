@@ -95,8 +95,8 @@ func TestRewardAccuracyBonus(t *testing.T) {
 	rd := NewRewardDistributor(cfg, "", logger)
 
 	// Both do 100 tasks, but ant-perfect has 100% accuracy
-	rd.RecordWork("ant-perfect", 100, 100, 1000)  // 100% accuracy → bonus
-	rd.RecordWork("ant-sloppy", 100, 90, 1000)    // 90% accuracy → no bonus
+	rd.RecordWork("ant-perfect", 100, 100, 1000) // 100% accuracy → bonus
+	rd.RecordWork("ant-sloppy", 100, 90, 1000)   // 90% accuracy → no bonus
 
 	summary := rd.Distribute(iotx(100))
 

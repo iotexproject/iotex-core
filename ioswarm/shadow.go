@@ -9,12 +9,12 @@ import (
 
 // ShadowResult holds the comparison between agent and actual results.
 type ShadowResult struct {
-	TaskID       uint32
-	AgentResult  *pb.TaskResult
-	ActualValid  bool
-	Match        bool
-	AgentID      string
-	BlockHeight  uint64
+	TaskID      uint32
+	AgentResult *pb.TaskResult
+	ActualValid bool
+	Match       bool
+	AgentID     string
+	BlockHeight uint64
 }
 
 // ShadowComparator compares agent validation results against iotex-core's

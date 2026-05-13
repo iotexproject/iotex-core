@@ -9,7 +9,7 @@ import (
 
 // StateDiffEntry represents a single state mutation (Put or Delete).
 type StateDiffEntry struct {
-	Type      uint8  // 0=Put, 1=Delete
+	Type      uint8 // 0=Put, 1=Delete
 	Namespace string
 	Key       []byte
 	Value     []byte
