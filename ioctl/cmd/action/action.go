@@ -69,10 +69,10 @@ var ActionCmd = &cobra.Command{
 }
 
 type sendMessage struct {
-	Info    string               `json:"info"`
-	TxHash  string               `json:"txHash"`
-	URL     string               `json:"url"`
-	Receipt *iotextypes.Receipt  `json:"receipt,omitempty"`
+	Info    string              `json:"info"`
+	TxHash  string              `json:"txHash"`
+	URL     string              `json:"url"`
+	Receipt *iotextypes.Receipt `json:"receipt,omitempty"`
 }
 
 func (m *sendMessage) String() string {

@@ -2938,7 +2938,9 @@ func TestProtocol_FetchBucketAndValidate(t *testing.T) {
 	})
 	t.Run("validate owner and selfstake", func(t *testing.T) {
 		csm, err := NewCandidateStateManager(sm)
-		require.NoError(err)
+		if err != nil {
+			t.Fatal(err)
+		}
 		patches := gomonkey.NewPatches()
 		patches.ApplyPrivateMethod(csm, "NativeBucket", func(index uint64) (*VoteBucket, error) {
 			return &VoteBucket{
@@ -2951,7 +2953,9 @@ func TestProtocol_FetchBucketAndValidate(t *testing.T) {
 		defer patches.Reset()
 
 		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, false)
-		require.NoError(err)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 	})
 }
 
