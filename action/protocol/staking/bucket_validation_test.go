@@ -45,7 +45,7 @@ func TestValidateBucket(t *testing.T) {
 		_, err := csm.putBucketAndIndex(bkt)
 		r.NoError(err)
 		r.Nil(validateBucketMinAmount(bkt, big.NewInt(1000)))
-		r.ErrorContains(validateBucketMinAmount(bkt, big.NewInt(100000)), "bucket amount is unsufficient")
+		r.ErrorContains(validateBucketMinAmount(bkt, big.NewInt(100000)), "bucket amount is insufficient")
 	})
 	t.Run("validate bucket staked", func(t *testing.T) {
 		csm, _ := initState()

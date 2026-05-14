@@ -62,6 +62,19 @@ func TestSer(t *testing.T) {
 	r.NoError(l1.Deserialize(ser))
 	r.Equal(l, l1)
 
+	sl, err := l.toStateCandidateList(true)
+	r.NoError(err)
+	r.Equal(l.Len(), len(sl))
+	for _, sc := range sl {
+		r.Equal("", sc.Identity)
+	}
+	sl, err = l.toStateCandidateList(false)
+	r.NoError(err)
+	r.Equal(l.Len(), len(sl))
+	for _, sc := range sl {
+		r.NotEqual("", sc.Identity)
+	}
+
 	// empty CandidateList can successfully Serialize/Deserialize
 	var m CandidateList
 	ser, err = m.Serialize()

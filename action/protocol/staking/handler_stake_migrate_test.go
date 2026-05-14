@@ -159,6 +159,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 			return nil, nil
 		},
 		func(uint64) (time.Time, error) { return time.Now(), nil },
+		nil,
 	)
 	reg := protocol.NewRegistry()
 	r.NoError(excPrtl.Register(reg))

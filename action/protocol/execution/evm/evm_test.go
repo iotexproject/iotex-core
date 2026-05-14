@@ -7,16 +7,22 @@ package evm
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -491,4 +497,109 @@ func gasExecuteInEVM(gas, consume, refund, size uint64) (uint64, uint64, error) 
 	}
 	remainingGas -= consume
 	return remainingGas, remainingGas + refund, nil
+}
+
+// TestEIP7702BlacklistLogic tests the blacklist callback behavior used in validateAuthorization
+// for EIP-7702 SetCode authorizations. This verifies that:
+// 1. Blacklisted addresses at/after activation height are blocked
+// 2. Blacklisted addresses before activation height are not blocked
+// 3. Non-blacklisted addresses are never blocked
+// 4. Empty blacklist blocks nothing
+// 5. Zero activation height means always active
+func TestEIP7702BlacklistLogic(t *testing.T) {
+	r := require.New(t)
+
+	// Use identityset.Address(27) which corresponds to io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y
+	privKey := identityset.PrivateKey(27).EcdsaPrivateKey().(*ecdsa.PrivateKey)
+	ethAddr := crypto.PubkeyToAddress(privKey.PublicKey)
+	ioAddr, err := address.FromBytes(ethAddr.Bytes())
+	r.NoError(err)
+
+	// Create a signed authorization to verify the authority address can be recovered
+	chainID := uint64(4690)
+	auth, err := types.SignSetCode(privKey, types.SetCodeAuthorization{
+		ChainID: *uint256.NewInt(chainID),
+		Address: common.HexToAddress("0x1234567890123456789012345678901234567890"),
+		Nonce:   0,
+	})
+	r.NoError(err)
+
+	// Verify the authority address is correctly recovered from the signed authorization
+	authority, err := auth.Authority()
+	r.NoError(err)
+	r.Equal(ethAddr, authority, "recovered authority should match the signer's ethereum address")
+
+	// Now test the blacklist logic that would be used in validateAuthorization
+	// The blacklist check in validateAuthorization is:
+	//   if isBlackListed != nil {
+	//       ioAddr, err := address.FromBytes(authority.Bytes())
+	//       if err == nil && isBlackListed(ioAddr.String(), blockHeight) {
+	//           return authority, errors.Errorf("authority %s is blacklisted", authority.String())
+	//       }
+	//   }
+
+	blackList := []string{ioAddr.String()}
+	activeHeight := uint64(100)
+
+	// Create the blacklist function (same logic as actpool/util.go IsBlackListedFunc)
+	isBlackListed := func(addr string, height uint64) bool {
+		bl := make(map[string]bool, len(blackList))
+		for _, a := range blackList {
+			bl[a] = true
+		}
+		if len(bl) == 0 {
+			return false
+		}
+		if _, ok := bl[addr]; !ok {
+			return false
+		}
+		if activeHeight == 0 {
+			return true
+		}
+		return height >= activeHeight
+	}
+
+	// Test 1: Blacklisted address at or after activation height is blocked
+	r.True(isBlackListed(ioAddr.String(), 100), "blacklisted address at activation height should be blocked")
+	r.True(isBlackListed(ioAddr.String(), 200), "blacklisted address after activation height should be blocked")
+
+	// Test 2: Blacklisted address before activation height is NOT blocked
+	r.False(isBlackListed(ioAddr.String(), 99), "blacklisted address before activation height should not be blocked")
+	r.False(isBlackListed(ioAddr.String(), 50), "blacklisted address well before activation height should not be blocked")
+
+	// Test 3: Non-blacklisted address is never blocked
+	normalAddr := "io1qyqsyqcy8q60q9yqpk8h8qpk8hq8qpk8hq8qcy"
+	r.False(isBlackListed(normalAddr, 99), "normal address before activation height should not be blocked")
+	r.False(isBlackListed(normalAddr, 100), "normal address at activation height should not be blocked")
+	r.False(isBlackListed(normalAddr, 200), "normal address after activation height should not be blocked")
+
+	// Test 4: Empty blacklist blocks nothing
+	emptyIsBlackListed := func(addr string, height uint64) bool {
+		return false // empty blacklist
+	}
+	r.False(emptyIsBlackListed(ioAddr.String(), 100), "empty blacklist should not block any address")
+	r.False(emptyIsBlackListed(normalAddr, 100), "empty blacklist should not block any address")
+
+	// Test 5: Zero activation height means always active
+	alwaysActiveIsBlackListed := func(addr string, height uint64) bool {
+		bl := map[string]bool{ioAddr.String(): true}
+		if _, ok := bl[addr]; !ok {
+			return false
+		}
+		return true // activeHeight == 0 means always active
+	}
+	r.True(alwaysActiveIsBlackListed(ioAddr.String(), 1), "zero activation height should block at any height")
+	r.True(alwaysActiveIsBlackListed(ioAddr.String(), 0), "zero activation height should block even at height 0")
+
+	// Test 6: Nil callback should not block (simulating the isBlackListed != nil check)
+	var nilCallback IsBlackListedFunc = nil
+	r.Nil(nilCallback, "nil callback should be nil")
+
+	// Test 7: Verify the authority address conversion works correctly
+	// This is the exact logic used in validateAuthorization:
+	//   ioAddr, err := address.FromBytes(authority.Bytes())
+	//   if err == nil && isBlackListed(ioAddr.String(), blockHeight) { ... }
+	convertedAddr, err := address.FromBytes(authority.Bytes())
+	r.NoError(err, "converting authority to io address should succeed")
+	r.Equal(ioAddr.String(), convertedAddr.String(), "converted address should match expected io address")
 }

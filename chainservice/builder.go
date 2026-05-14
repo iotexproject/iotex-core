@@ -730,7 +730,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(nil, rewarding.DepositGas, nil).Register(builder.cs.registry)
+	return execution.NewProtocol(nil, rewarding.DepositGas, nil, builder.cfg.ActPool.IsBlackListedFunc()).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {

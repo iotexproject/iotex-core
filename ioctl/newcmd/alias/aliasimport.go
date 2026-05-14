@@ -88,7 +88,7 @@ func NewAliasImport(c ioctl.Client) *cobra.Command {
 					message.Unimported = append(message.Unimported, importedAlias)
 					continue
 				}
-				c.SetAlias(args[0], importedAlias.Address)
+				c.SetAlias(importedAlias.Name, importedAlias.Address)
 				message.Imported = append(message.Imported, importedAlias)
 				message.ImportedNumber++
 			}

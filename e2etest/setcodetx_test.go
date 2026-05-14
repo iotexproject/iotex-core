@@ -40,6 +40,11 @@ func TestSetCodeTx_E2E(t *testing.T) {
 	cfg.Genesis.XinguBetaBlockHeight = 1
 	cfg.Genesis.ToBeEnabledBlockHeight = 5 // enable setcode tx
 	cfg.Genesis.InitBalanceMap[sender] = unit.ConvertIotxToRau(1000000).String()
+	// Configure blacklist for testing EIP-7702 blacklist enforcement
+	blacklistedAccount := 28
+	cfg.Genesis.InitBalanceMap[identityset.Address(blacklistedAccount).String()] = unit.ConvertIotxToRau(1000000).String()
+	cfg.ActPool.BlackList = []string{identityset.Address(blacklistedAccount).String()}
+	cfg.ActPool.BlackListActiveHeight = cfg.Genesis.ToBeEnabledBlockHeight + 1
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
 	chainID := cfg.Chain.ID
@@ -280,6 +285,31 @@ func TestSetCodeTx_E2E(t *testing.T) {
 				gasUsedSetCode := blk.Receipts[1].GasConsumed
 				t.Logf("dynamic fee tx gas used: %d, setcodetx gas used: %d", gasUsedDynamic, gasUsedSetCode)
 				r.Less(gasUsedSetCode, gasUsedDynamic*11/10, "setcodetx gas used should be less than 10% more than dynamic fee tx")
+			},
+		},
+	})
+
+	// Test blacklist: blacklisted account's authorization should be skipped (not applied)
+	auth, err = types.SignSetCode(identityset.PrivateKey(blacklistedAccount).EcdsaPrivateKey().(*ecdsa.PrivateKey), types.SetCodeAuthorization{
+		ChainID: *uint256.NewInt(uint64(evmNetworkID)),
+		Address: contractV3AddressEth,
+		Nonce:   test.nonceMgr.pop(identityset.Address(blacklistedAccount).String()),
+	})
+	r.NoError(err)
+	test.run([]*testcase{
+		{
+			name: "blacklisted account setcode skipped",
+			act: &actionWithTime{
+				mustNoErr(newSetCodeTxWeb3(test.nonceMgr.pop(sender), senderSK, identityset.Address(blacklistedAccount).String(), big.NewInt(0), nil, []types.SetCodeAuthorization{auth})),
+				time.Now(),
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				r.NoError(err)
+				// Transaction succeeds but authorization is skipped for blacklisted account
+				// Verify code is NOT set on the blacklisted account
+				code, err := test.ethcli.CodeAt(context.Background(), common.BytesToAddress(identityset.Address(blacklistedAccount).Bytes()), nil)
+				r.NoError(err)
+				r.Equal(0, len(code), "code should not be set on blacklisted account")
 			},
 		},
 	})

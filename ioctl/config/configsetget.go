@@ -114,6 +114,18 @@ var _configResetCmd = &cobra.Command{
 	},
 }
 
+// _configDumpCmd represents the config dump command
+var _configDumpCmd = &cobra.Command{
+	Use:   "dump",
+	Short: "Dump all current config values (alias for 'config get all')",
+	Args:  cobra.ExactArgs(0),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		err := Get("all")
+		return output.PrintError(err)
+	},
+}
+
 type endpointMessage struct {
 	Endpoint      string `json:"endpoint"`
 	SecureConnect bool   `json:"secureConnect"`
@@ -277,6 +289,9 @@ func set(args []string) error {
 		case isValidExplorer(lowArg):
 			ReadConfig.Explorer = lowArg
 		case args[1] == "custom":
+			if err := output.RequireInteractive("custom explorer link"); err != nil {
+				return output.NewError(output.InputError, "custom explorer requires interactive input; set explorer URL directly instead", nil)
+			}
 			output.PrintQuery(`Please enter a custom link below:("Example: iotexscan.io/action/")`)
 			var link string
 			if _, err := fmt.Scanln(&link); err != nil {

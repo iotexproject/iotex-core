@@ -73,7 +73,7 @@ type (
 	workingSet struct {
 		workingSetStoreFactory WorkingSetStoreFactory
 		height                 uint64
-		views                  *protocol.Views
+		views                  protocol.Views
 		viewsSnapshots         map[int]int
 		store                  workingSetStore
 		finalized              bool
@@ -82,7 +82,7 @@ type (
 	}
 )
 
-func newWorkingSet(height uint64, views *protocol.Views, store workingSetStore, storeFactory WorkingSetStoreFactory) *workingSet {
+func newWorkingSet(height uint64, views protocol.Views, store workingSetStore, storeFactory WorkingSetStoreFactory) *workingSet {
 	ws := &workingSet{
 		height:                 height,
 		views:                  views,
@@ -975,7 +975,7 @@ func (ws *workingSet) validateAndRun(
 		}
 	}
 	if err := ws.txValidator.ValidateWithState(ctx, nextAction); err != nil {
-		log.L().Info("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
+		log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
 		if !errors.Is(err, action.ErrNonceTooLow) {
 			return true, true, nil, nil
 		}

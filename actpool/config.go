@@ -92,6 +92,11 @@ func (ap Config) MinGasPrice() *big.Int {
 	return mgp
 }
 
+// IsBlackListedFunc returns a function that checks if an address is blacklisted at a given height
+func (ap Config) IsBlackListedFunc() func(addr string, height uint64) bool {
+	return IsBlackListedFunc(ap.BlackList, ap.BlackListActiveHeight)
+}
+
 // StoreConfig is the configuration for the blob store
 type StoreConfig struct {
 	Datadir string `yaml:"datadir"` // Data directory containing the currently executable blobs
