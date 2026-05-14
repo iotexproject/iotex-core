@@ -25,7 +25,7 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 ) (*receiptLog, []*action.TransactionLog, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), handleCandidateActivate, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), handleCandidateActivate, featureCtx.NewStakingReceiptFormat)
 
 	bucket, rErr := p.fetchBucket(csm, act.BucketID())
 	if rErr != nil {
@@ -111,11 +111,7 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 	if err != nil {
 		return nil, nil, csmErrorToHandleError(actCtx.Caller.String(), err)
 	}
-	// Use AddEvent (not the raw topics/data fields) so receiptLog.Build emits a
-	// log carrying both Topics and Data. The postFairbank single-log path drops
-	// r.data, so a struct literal with topics+data here would silently lose any
-	// non-indexed event args.
-	rLog := &receiptLog{addr: p.addr.String(), postFairbankMigration: true}
+	rLog := newReceiptLog(p.addr.String())
 	rLog.AddEvent(topics, eventData)
 	return rLog, nil, nil
 }
@@ -147,10 +143,7 @@ func (p *Protocol) handleScheduleCandidateDeactivation(ctx context.Context, act 
 		return nil, nil, err
 	}
 
-	// Use AddEvent so blockNumber (declared non-indexed in the ABI) lands in
-	// the emitted log's Data; raw struct literal with topics+data would be
-	// silently dropped on the postFairbank single-log path in Build.
-	rLog := &receiptLog{addr: p.addr.String(), postFairbankMigration: true}
+	rLog := newReceiptLog(p.addr.String())
 	rLog.AddEvent(topics, eventData)
 	return rLog, nil, nil
 }
