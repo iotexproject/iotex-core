@@ -111,12 +111,13 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 	if err != nil {
 		return nil, nil, csmErrorToHandleError(actCtx.Caller.String(), err)
 	}
-	return &receiptLog{
-		addr:                  p.addr.String(),
-		postFairbankMigration: true,
-		topics:                topics,
-		data:                  eventData,
-	}, nil, nil
+	// Use AddEvent (not the raw topics/data fields) so receiptLog.Build emits a
+	// log carrying both Topics and Data. The postFairbank single-log path drops
+	// r.data, so a struct literal with topics+data here would silently lose any
+	// non-indexed event args.
+	rLog := &receiptLog{addr: p.addr.String(), postFairbankMigration: true}
+	rLog.AddEvent(topics, eventData)
+	return rLog, nil, nil
 }
 
 func (p *Protocol) handleScheduleCandidateDeactivation(ctx context.Context, act *action.ScheduleCandidateDeactivation, csm CandidateStateManager) (*receiptLog, []*action.TransactionLog, error) {
@@ -146,12 +147,12 @@ func (p *Protocol) handleScheduleCandidateDeactivation(ctx context.Context, act 
 		return nil, nil, err
 	}
 
-	return &receiptLog{
-		addr:                  p.addr.String(),
-		postFairbankMigration: true,
-		topics:                topics,
-		data:                  eventData,
-	}, nil, nil
+	// Use AddEvent so blockNumber (declared non-indexed in the ABI) lands in
+	// the emitted log's Data; raw struct literal with topics+data would be
+	// silently dropped on the postFairbank single-log path in Build.
+	rLog := &receiptLog{addr: p.addr.String(), postFairbankMigration: true}
+	rLog.AddEvent(topics, eventData)
+	return rLog, nil, nil
 }
 
 func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateStateManager, esm *EndorsementStateManager, bucket *VoteBucket, cand *Candidate) ReceiptError {
