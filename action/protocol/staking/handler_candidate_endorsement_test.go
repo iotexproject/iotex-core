@@ -1033,7 +1033,7 @@ func TestProtocol_HandleCandidateEndorsement_RevokeSelfStakeAfterHardfork(t *tes
 			yapHeight:             1, // NoCandidateExitQueue = false
 			blockHeight:           100,
 			initialDeactivatedAt:  90, // Scheduled for height 90
-			expectedDeactivatedAt: 90,
+			expectedDeactivatedAt: 0,  // Cleared on successful deactivate (see f03a4ac16)
 			expectedSelfStakeStr:  "0",
 			expectedErr:           nil,
 		},
@@ -1042,7 +1042,7 @@ func TestProtocol_HandleCandidateEndorsement_RevokeSelfStakeAfterHardfork(t *tes
 			yapHeight:             1, // NoCandidateExitQueue = false
 			blockHeight:           100,
 			initialDeactivatedAt:  90,  // Already scheduled for deactivation at height 90
-			expectedDeactivatedAt: 90,  // DeactivatedAt remains set after deactivate (only self-stake is cleared)
+			expectedDeactivatedAt: 0,   // Cleared after deactivate so the next stake/activate cycle starts clean
 			expectedSelfStakeStr:  "0", // SelfStake is cleared
 			expectedErr:           nil, // Deactivate succeeds
 		},
@@ -1341,7 +1341,7 @@ func TestProtocol_HandleCandidateEndorsement_DeactivatedCandidateEndorsementEdge
 			isSelfStakeBucket:     true,
 			operation:             action.CandidateEndorsementOpRevoke,
 			expectedStatus:        iotextypes.ReceiptStatus_Success,
-			expectedDeactivatedAt: 90, // Should remain unchanged (deactivation was already scheduled)
+			expectedDeactivatedAt: 0, // Cleared on successful deactivate (see f03a4ac16)
 			verifyEndorsement: func(r *require.Assertions, esm *EndorsementStateManager, bucketIdx uint64, blockHeight uint64) {
 				// Endorsement should be deleted after successful revoke
 				_, err := esm.Get(bucketIdx)
