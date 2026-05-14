@@ -181,7 +181,7 @@ func main() {
 
 func initLogger(cfg config.Config) error {
 	addrs := cfg.Chain.ProducerAddress()
-	ss := []string{}
+	ss := make([]string, 0, len(addrs))
 	for _, addr := range addrs {
 		ss = append(ss, addr.String())
 	}

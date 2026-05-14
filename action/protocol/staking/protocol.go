@@ -349,7 +349,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			continue
 		}
 		wg.Add(1)
-		go func(indexer ContractStakingIndexer, setter func(ContractStakeView)) {
+		func(indexer ContractStakingIndexer, setter func(ContractStakeView)) {
 			defer wg.Done()
 			// First, checking the indexer
 			if err := checkIndex(indexer); err != nil {
@@ -439,28 +439,43 @@ func (p *Protocol) CreateGenesisStates(
 	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
 }
 
-func (p *Protocol) SlashCandidate(
+func (p *Protocol) SlashCandidateByOperator(
 	ctx context.Context,
 	sm protocol.StateManager,
 	operator address.Address,
 	amount *big.Int,
 ) error {
-	if amount == nil || amount.Sign() <= 0 {
-		return errors.New("nil or non-positive amount")
-	}
 	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return errors.Wrap(err, "failed to create candidate state manager")
 	}
-	fCtx := protocol.MustGetFeatureCtx(ctx)
-	var candidate *Candidate
-	if fCtx.CandidateSlashByOwner {
-		candidate = csm.GetByIdentifier(operator)
-	} else {
-		candidate = csm.GetByOperator(operator)
+	return p.slashCandidate(ctx, csm, csm.GetByOperator(operator), amount)
+}
+
+func (p *Protocol) SlashCandidateByID(
+	ctx context.Context,
+	sm protocol.StateManager,
+	id address.Address,
+	amount *big.Int,
+) error {
+	csm, err := NewCandidateStateManager(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create candidate state manager")
+	}
+	return p.slashCandidate(ctx, csm, csm.GetByIdentifier(id), amount)
+}
+
+func (p *Protocol) slashCandidate(
+	ctx context.Context,
+	csm CandidateStateManager,
+	candidate *Candidate,
+	amount *big.Int,
+) error {
+	if amount == nil || amount.Sign() <= 0 {
+		return errors.New("nil or non-positive amount")
 	}
 	if candidate == nil {
-		return errors.Wrapf(ErrCandidateNotExist, "candidate operator %s does not exist", operator.String())
+		return ErrCandidateNotExist
 	}
 	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
 		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
@@ -534,22 +549,28 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 	}
-	// create pre-states for contract staking
-	v, err := sm.ReadView(_protocolID)
-	if err != nil {
-		return err
-	}
-	vd := v.(*viewData)
 	if blkCtx.BlockHeight == g.XinguBlockHeight {
 		handler, err := newNFTBucketEventHandler(sm, p.calculateContractBucketVoteWeight)
 		if err != nil {
 			return err
 		}
+		// create pre-states for contract staking
+		v, err := sm.ReadView(_protocolID)
+		if err != nil {
+			return err
+		}
+		vd := v.(*viewData)
 		if err := vd.contractsStake.Migrate(ctx, handler); err != nil {
 			return errors.Wrap(err, "failed to flush buckets for contract staking")
 		}
 	}
 	if featureCtx.StoreVoteOfNFTBucketIntoView {
+		// create pre-states for contract staking
+		v, err := sm.ReadView(_protocolID)
+		if err != nil {
+			return err
+		}
+		vd := v.(*viewData)
 		if err := vd.contractsStake.CreatePreStates(ctx); err != nil {
 			return err
 		}
@@ -955,7 +976,7 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 			cand = append(cand, list[i])
 		}
 	}
-	return cand.toStateCandidateList(protocol.MustGetFeatureWithHeightCtx(ctx).CandidateWithoutIdentity(height))
+	return cand.toStateCandidateList(protocol.MustGetFeatureWithHeightCtx(ctx).CandidateWithoutIdentityStorage(height))
 }
 
 // ReadState read the state on blockchain via protocol
@@ -975,13 +996,25 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	// stakeSR is the stake state reader including native and contract staking
 	indexers := []ContractStakingIndexer{}
 	if p.contractStakingIndexer != nil {
-		indexers = append(indexers, NewDelayTolerantIndexerWithBucketType(p.contractStakingIndexer, time.Second))
+		index, err := contractStakingIndexerAt(p.contractStakingIndexer, sr, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		indexers = append(indexers, NewDelayTolerantIndexerWithBucketType(index.(ContractStakingIndexerWithBucketType), time.Second))
 	}
 	if p.contractStakingIndexerV2 != nil {
-		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV2, time.Second))
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV2, sr, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		indexers = append(indexers, NewDelayTolerantIndexer(index, time.Second))
 	}
 	if p.contractStakingIndexerV3 != nil {
-		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV3, time.Second))
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV3, sr, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		indexers = append(indexers, NewDelayTolerantIndexer(index, time.Second))
 	}
 	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
 	if err != nil {
@@ -1239,4 +1272,27 @@ func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, Can
 		return nil, nil, nil, err
 	}
 	return name, operator, owner, nil
+}
+
+func contractStakingIndexerAt(index ContractStakingIndexer, sr protocol.StateReader, delay bool) (ContractStakingIndexer, error) {
+	if index == nil {
+		return nil, nil
+	}
+	srHeight, err := sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	if delay {
+		srHeight--
+	}
+	indexHeight, err := index.Height()
+	if err != nil {
+		return nil, err
+	}
+	if index.StartHeight() > srHeight || indexHeight == srHeight {
+		return index, nil
+	} else if indexHeight < srHeight {
+		return nil, errors.Errorf("indexer height %d is too old for state reader height %d", indexHeight, srHeight)
+	}
+	return index.IndexerAt(sr), nil
 }
