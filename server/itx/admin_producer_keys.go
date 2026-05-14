@@ -2,13 +2,15 @@ package itx
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type producerKeysApplyRequest struct {
@@ -24,6 +26,11 @@ type producerKeysResponse struct {
 	OperatorAddresses []string `json:"operator_addresses"`
 }
 
+// producerKeysMaxBodyBytes bounds the request body size for producer-key
+// admin writes. Private keys are 64 hex chars (~66B with quotes), so 1 MiB
+// comfortably covers thousands of keys while preventing memory exhaustion.
+const producerKeysMaxBodyBytes = 1 << 20
+
 // NewProducerKeysAdmin returns an admin handler for hot-updating producer keys.
 func NewProducerKeysAdmin(svr *Server) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -34,8 +41,8 @@ func NewProducerKeysAdmin(svr *Server) http.Handler {
 
 		switch r.Method {
 		case http.MethodGet:
-			cfg := svr.Config()
-			addrs := cfg.Chain.ProducerAddress()
+			chainCfg := svr.Config().Chain
+			addrs := chainCfg.ProducerAddress()
 			addresses := make([]string, 0, len(addrs))
 			for _, addr := range addrs {
 				addresses = append(addresses, addr.String())
@@ -45,8 +52,8 @@ func NewProducerKeysAdmin(svr *Server) http.Handler {
 			})
 		case http.MethodPut:
 			var req producerKeysApplyRequest
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, "invalid json body", http.StatusBadRequest)
+			if err := decodeProducerKeyRequest(w, r, &req); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 
@@ -71,8 +78,8 @@ func NewProducerKeysAdmin(svr *Server) http.Handler {
 			})
 		case http.MethodPatch:
 			var req producerKeysPatchRequest
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, "invalid json body", http.StatusBadRequest)
+			if err := decodeProducerKeyRequest(w, r, &req); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 
@@ -83,9 +90,9 @@ func NewProducerKeysAdmin(svr *Server) http.Handler {
 			}
 
 			// Retain existing keys in original order, skipping removed addresses.
-			cfg := svr.Config()
+			chainCfg := svr.Config().Chain
 			newKeys := make([]crypto.PrivateKey, 0)
-			for _, encoded := range strings.Split(cfg.Chain.ProducerPrivKey, ",") {
+			for _, encoded := range strings.Split(chainCfg.ProducerPrivKey, ",") {
 				encoded = strings.TrimSpace(encoded)
 				if encoded == "" {
 					continue
@@ -143,10 +150,15 @@ func NewProducerKeysAdmin(svr *Server) http.Handler {
 	})
 }
 
+// authorizeProducerKeyAdmin requires IOTEX_ADMIN_TOKEN to be set and matched
+// via either an "Authorization: Bearer <token>" or "X-Admin-Token: <token>"
+// header. The endpoint accepts raw producer private keys, so an unset token
+// fails closed to prevent unauthenticated key rotation if the admin port is
+// reachable.
 func authorizeProducerKeyAdmin(r *http.Request) bool {
 	token := strings.TrimSpace(os.Getenv("IOTEX_ADMIN_TOKEN"))
 	if token == "" {
-		return true
+		return false
 	}
 
 	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
@@ -155,6 +167,19 @@ func authorizeProducerKeyAdmin(r *http.Request) bool {
 	}
 
 	return strings.TrimSpace(r.Header.Get("X-Admin-Token")) == token
+}
+
+// decodeProducerKeyRequest caps the request body and rejects unknown fields,
+// guarding the admin endpoint against arbitrarily large bodies and silent
+// typos in client payloads.
+func decodeProducerKeyRequest(w http.ResponseWriter, r *http.Request, v interface{}) error {
+	r.Body = http.MaxBytesReader(w, r.Body, producerKeysMaxBodyBytes)
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(v); err != nil {
+		return errors.New("invalid json body")
+	}
+	return nil
 }
 
 func writeProducerKeyResponse(w http.ResponseWriter, status int, payload producerKeysResponse) {

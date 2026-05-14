@@ -254,26 +254,34 @@ func (dm *InfoManager) UpdateProducerKeys(privKeys []crypto.PrivateKey) {
 }
 
 func (dm *InfoManager) genNodeInfoMsg(addrs []string) ([]*iotextypes.NodeInfo, error) {
+	// Snapshot the keys and version under the lock, then release before
+	// signing — Sign() can be slow and would otherwise block UpdateProducerKeys.
 	dm.mutex.RLock()
-	defer dm.mutex.RUnlock()
-	infos := make([]*iotextypes.NodeInfo, 0, len(addrs))
-	tip := dm.chain.TipHeight()
-	ts := timestamppb.Now()
-
+	version := dm.version
+	keys := make(map[string]crypto.PrivateKey, len(addrs))
 	for _, addr := range addrs {
 		privKey, ok := dm.privKeys[addr]
 		if !ok {
+			dm.mutex.RUnlock()
 			return nil, errors.Errorf("private key not found for address %s", addr)
 		}
+		keys[addr] = privKey
+	}
+	dm.mutex.RUnlock()
+
+	tip := dm.chain.TipHeight()
+	ts := timestamppb.Now()
+	infos := make([]*iotextypes.NodeInfo, 0, len(addrs))
+	for _, addr := range addrs {
 		core := &iotextypes.NodeInfoCore{
-			Version:   dm.version,
+			Version:   version,
 			Height:    tip,
 			Timestamp: ts,
 			Address:   addr,
 		}
 		// add sig for msg
 		h := hashNodeInfo(core)
-		sig, err := privKey.Sign(h[:])
+		sig, err := keys[addr].Sign(h[:])
 		if err != nil {
 			return nil, errors.Wrap(err, "sign node info message failed")
 		}
