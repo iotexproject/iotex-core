@@ -180,5 +180,11 @@ func main() {
 }
 
 func initLogger(cfg config.Config) error {
+	addrs := cfg.Chain.ProducerAddress()
+	ss := make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		ss = append(ss, addr.String())
+	}
+	log.SetDynamicFields(zap.String("ioAddr", strings.Join(ss, ",")))
 	return log.InitLoggers(cfg.Log, cfg.SubLogs, zap.AddCaller())
 }
