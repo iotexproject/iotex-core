@@ -1,0 +1,24 @@
+# Block heights sampled from testnet analyser DB (block range 28M)
+# Distributed across 5 quintiles by exec_tx count:
+#   bucket 1: 5-38   exec txs
+#   bucket 2: 38-142 exec txs
+#   bucket 3: 143-400 exec txs
+#   bucket 4: 401-1392 exec txs
+#   bucket 5: 1394-1803 exec txs
+#
+# 3 samples per bucket = 15 total blocks
+28459053
+28635028
+28465723
+28336500
+28583643
+28680520
+28655747
+28676813
+28680695
+28583650
+28644782
+28457052
+28680523
+28473479
+28480828

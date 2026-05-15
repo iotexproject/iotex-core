@@ -49,6 +49,16 @@ type (
 		// Clone clones a trie with a new kvstore
 		Clone(KVStore) (Trie, error)
 	}
+	// ProofTrie extends Trie with proof export support.
+	ProofTrie interface {
+		Trie
+		// GetProof returns the serialized proof nodes along the lookup path.
+		// For missing keys it returns the partial absence proof with ErrNotExist.
+		GetProof([]byte) ([][]byte, error)
+		// VerifyProof verifies a serialized proof against the given root and key.
+		// It returns the proven value for inclusion proofs, or ErrNotExist for valid absence proofs.
+		VerifyProof(rootHash []byte, key []byte, proof [][]byte) ([]byte, error)
+	}
 	// TwoLayerTrie is a trie data structure with two layers
 	TwoLayerTrie interface {
 		// Start starts the layer one trie

@@ -7,12 +7,15 @@ package blockchain
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -22,10 +25,13 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/blockchain/witness"
+	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/prometheustimer"
@@ -139,6 +145,10 @@ type (
 		// used by account-based model
 		bbf   BlockMinter
 		pause bool
+
+		witnessStore     *witness.Store
+		witnessMu        sync.Mutex
+		pendingWitnesses map[hash.Hash256]*witness.BlockResult
 	}
 )
 
@@ -186,6 +196,7 @@ func ClockOption(clk clock.Clock) Option {
 type (
 	BlockValidationCfg struct {
 		skipSidecarValidation bool
+		statelessValidation   *evm.StatelessValidationContext
 	}
 
 	BlockValidationOption func(*BlockValidationCfg)
@@ -197,16 +208,23 @@ func SkipSidecarValidationOption() BlockValidationOption {
 	}
 }
 
+func WithStatelessValidationOption(svCtx evm.StatelessValidationContext) BlockValidationOption {
+	return func(opts *BlockValidationCfg) {
+		opts.statelessValidation = &svCtx
+	}
+}
+
 // NewBlockchain creates a new blockchain and DB instance
 func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf BlockMinter, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
-		config:        cfg,
-		genesis:       g,
-		dao:           dao,
-		bbf:           bbf,
-		clk:           clock.New(),
-		pubSubManager: NewPubSub(cfg.StreamingBlockBufferSize),
+		config:           cfg,
+		genesis:          g,
+		dao:              dao,
+		bbf:              bbf,
+		clk:              clock.New(),
+		pubSubManager:    NewPubSub(cfg.StreamingBlockBufferSize),
+		pendingWitnesses: make(map[hash.Hash256]*witness.BlockResult),
 	}
 	for _, opt := range opts {
 		if err := opt(chain); err != nil {
@@ -227,6 +245,10 @@ func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf Blo
 		log.L().Panic("blockdao is nil")
 	}
 	chain.lifecycle.Add(chain.dao)
+	if cfg.WitnessDBPath != "" && !cfg.EnableExperimentalCSSync {
+		chain.witnessStore = witness.NewStore(cfg.WitnessDBPath)
+		chain.lifecycle.Add(chain.witnessStore)
+	}
 	chain.lifecycle.Add(chain.pubSubManager)
 
 	return chain
@@ -383,10 +405,40 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 		},
 	)
 	ctx = protocol.WithFeatureCtx(ctx)
+	if cfg.statelessValidation != nil && cfg.statelessValidation.Enabled {
+		ctx = evm.WithStatelessValidationCtx(ctx, *cfg.statelessValidation)
+	}
+	ctx, witnessCollector := bc.withWitnessCollector(ctx, cfg.statelessValidation == nil || !cfg.statelessValidation.Enabled, true)
 	if bc.blockValidator == nil {
 		return nil
 	}
-	return bc.blockValidator.Validate(ctx, blk)
+	if err := bc.blockValidator.Validate(ctx, blk); err != nil {
+		return err
+	}
+	if witnessCollector != nil {
+		result, err := witnessCollector.Build(blk)
+		if err != nil {
+			return errors.Wrap(err, "failed to build block witness payload")
+		}
+		if err := bc.witnessStore.PutBlock(blk.HashBlock(), blk.Height(), result); err != nil {
+			return errors.Wrap(err, "failed to persist block witness payload")
+		}
+	}
+	return nil
+}
+
+func (bc *blockchain) BlockWitnessByHash(blockHash hash.Hash256) (json.RawMessage, error) {
+	if bc.witnessStore == nil {
+		return nil, db.ErrNotExist
+	}
+	return bc.witnessStore.GetRawByHash(blockHash)
+}
+
+func (bc *blockchain) BlockWitnessByHeight(height uint64) (hash.Hash256, json.RawMessage, error) {
+	if bc.witnessStore == nil {
+		return hash.ZeroHash256, nil, db.ErrNotExist
+	}
+	return bc.witnessStore.GetRawByHeight(height)
 }
 
 func (bc *blockchain) Context(ctx context.Context) (context.Context, error) {
@@ -470,10 +522,18 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time, opts ...MintOption) (*bl
 	log.L().Info("Minting a new block.", zap.Uint64("height", newblockHeight), zap.String("minter", minterAddress.String()))
 	ctx = bc.contextWithBlock(ctx, minterAddress, newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
+	ctx, witnessCollector := bc.withWitnessCollector(ctx, true, false)
 	// run execution and update state trie root hash
 	blk, err := bc.bbf.Mint(ctx, producerPrivateKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
+	}
+	if witnessCollector != nil {
+		result, err := witnessCollector.Build(blk)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to build minted block witness payload")
+		}
+		bc.cachePendingWitness(blk.HashBlock(), result)
 	}
 	_blockMtc.WithLabelValues("MintGas").Set(float64(blk.GasUsed()))
 	_blockMtc.WithLabelValues("MintActions").Set(float64(len(blk.Actions)))
@@ -565,6 +625,9 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	default:
 		return err
 	}
+	if err := bc.persistPendingWitness(blk); err != nil {
+		return err
+	}
 	blkHash := blk.HashBlock()
 	if blk.Height()%100 == 0 {
 		blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
@@ -587,6 +650,51 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 		return
 	}
 	bc.pubSubManager.SendBlockToSubscribers(blk)
+}
+
+func (bc *blockchain) withWitnessCollector(ctx context.Context, enabled bool, enableVMTracer bool) (context.Context, *witness.Collector) {
+	if !enabled || bc.witnessStore == nil {
+		return ctx, nil
+	}
+	witnessCollector := witness.NewCollector()
+	if enableVMTracer {
+		ctx = protocol.WithVMConfigCtx(ctx, vm.Config{Tracer: logger.NewStructLogger(nil)})
+	}
+	ctx = evm.WithTracerCtx(ctx, evm.TracerContext{
+		CaptureTx:                       witnessCollector.CaptureTx,
+		CaptureContractStorageAccesses:  witnessCollector.CaptureContractStorageAccesses,
+		CaptureContractStorageWitnesses: witnessCollector.CaptureContractStorageWitnesses,
+	})
+	return ctx, witnessCollector
+}
+
+func (bc *blockchain) cachePendingWitness(blockHash hash.Hash256, result *witness.BlockResult) {
+	if bc.witnessStore == nil || result == nil {
+		return
+	}
+	bc.witnessMu.Lock()
+	defer bc.witnessMu.Unlock()
+	bc.pendingWitnesses[blockHash] = result
+}
+
+func (bc *blockchain) persistPendingWitness(blk *block.Block) error {
+	if bc.witnessStore == nil {
+		return nil
+	}
+	blkHash := blk.HashBlock()
+	bc.witnessMu.Lock()
+	result, ok := bc.pendingWitnesses[blkHash]
+	if ok {
+		delete(bc.pendingWitnesses, blkHash)
+	}
+	bc.witnessMu.Unlock()
+	if !ok {
+		return nil
+	}
+	if err := bc.witnessStore.PutBlock(blkHash, blk.Height(), result); err != nil {
+		return errors.Wrap(err, "failed to persist minted block witness payload")
+	}
+	return nil
 }
 
 func (bc *blockchain) getBlockTime(height uint64) (time.Time, error) {

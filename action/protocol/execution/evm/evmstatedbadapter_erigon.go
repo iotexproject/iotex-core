@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 
@@ -39,6 +41,20 @@ func NewErigonStateDBAdapter(adapter *StateDBAdapter,
 	intra *erigonstate.IntraBlockState,
 ) *ErigonStateDBAdapter {
 	adapter.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
+		if svCtx, ok := GetStatelessValidationCtx(adapter.ctx); ok && svCtx.Enabled {
+			actionCtx := protocol.MustGetActionCtx(adapter.ctx)
+			base, err := newStatelessContract(
+				addr,
+				account,
+				adapter.sm,
+				adapter.asyncContractTrie,
+				svCtx.ContractStorageWitnessesForAction(actionCtx.ActionHash)[common.BytesToAddress(addr[:])],
+			)
+			if err != nil {
+				return nil, err
+			}
+			return newContractAdapterWithBase(base, addr, account, adapter.sm, intra)
+		}
 		return newContractAdapter(addr, account, adapter.sm, intra, adapter.asyncContractTrie)
 	}
 	return &ErigonStateDBAdapter{
@@ -53,11 +69,49 @@ func NewErigonStateDBAdapterDryrun(adapter *StateDBAdapter,
 ) *ErigonStateDBAdapterDryrun {
 	a := NewErigonStateDBAdapter(adapter, intra)
 	adapter.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
-		return newContractErigon(addr, account, intra, adapter.sm)
+		return newContractDryrunHybrid(addr, account, adapter.sm, intra, adapter.asyncContractTrie)
 	}
 	return &ErigonStateDBAdapterDryrun{
 		ErigonStateDBAdapter: a,
 	}
+}
+
+// ContractStorageAccesses returns traced storage accesses from the underlying state DB adapter.
+func (s *ErigonStateDBAdapter) ContractStorageAccesses() []ContractStorageAccess {
+	return s.StateDBAdapter.ContractStorageAccesses()
+}
+
+// ContractStorageWitnesses returns assembled storage witnesses from the underlying state DB adapter.
+func (s *ErigonStateDBAdapter) ContractStorageWitnesses() map[common.Address]*ContractStorageWitness {
+	accesses := s.StateDBAdapter.ContractStorageAccesses()
+	if len(accesses) == 0 {
+		return nil
+	}
+	witnesses := make(map[common.Address]*ContractStorageWitness, len(accesses))
+	for _, access := range accesses {
+		contract, ok := s.StateDBAdapter.cachedContract[access.Address]
+		if !ok {
+			s.StateDBAdapter.assertError(
+				errors.Errorf("contract %s not found in cache for witness assembly", access.Address.Hex()),
+				"Failed to find contract in cache for Erigon witness assembly.",
+				zap.String("address", access.Address.Hex()),
+				zap.Error(errors.Errorf("contract %s not found in cache for witness assembly", access.Address.Hex())),
+			)
+			return nil
+		}
+		witness, err := contract.BuildStorageWitness(access)
+		if err != nil {
+			s.StateDBAdapter.assertError(
+				err,
+				"Failed to build Erigon contract storage witness: "+err.Error(),
+				zap.String("address", access.Address.Hex()),
+				zap.Error(err),
+			)
+			return nil
+		}
+		witnesses[access.Address] = witness
+	}
+	return witnesses
 }
 
 // SubBalance subtracts the balance of the given address by the given value

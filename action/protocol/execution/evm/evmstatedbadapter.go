@@ -86,6 +86,7 @@ type (
 		panicUnrecoverableError    bool
 		enableCancun               bool
 		fixRevertSnapshot          bool
+		storageAccessTracer        *storageAccessTracer
 	}
 )
 
@@ -199,6 +200,14 @@ func FixRevertSnapshotOption() StateDBAdapterOption {
 	}
 }
 
+// EnableStorageAccessTracingOption enables collection of contract storage read/write access.
+func EnableStorageAccessTracingOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.storageAccessTracer = newStorageAccessTracer()
+		return nil
+	}
+}
+
 func WithContext(ctx context.Context) StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.ctx = ctx
@@ -249,6 +258,10 @@ func NewStateDBAdapter(
 		s.createdAccountSnapshot = make(map[int]createdAccount)
 	}
 	s.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
+		if svCtx, ok := GetStatelessValidationCtx(s.ctx); ok && svCtx.Enabled {
+			actionCtx := protocol.MustGetActionCtx(s.ctx)
+			return newStatelessContract(addr, account, s.sm, s.asyncContractTrie, svCtx.ContractStorageWitnessesForAction(actionCtx.ActionHash)[common.BytesToAddress(addr[:])])
+		}
 		return newContract(addr, account, s.sm, s.asyncContractTrie)
 	}
 	return s, nil
@@ -275,6 +288,60 @@ func (stateDB *StateDBAdapter) assertError(err error, msg string, fields ...zap.
 // Error returns the first stored error during evm contract execution
 func (stateDB *StateDBAdapter) Error() error {
 	return stateDB.err
+}
+
+// ContractStorageAccesses returns the traced contract storage accesses in stable order.
+func (stateDB *StateDBAdapter) ContractStorageAccesses() []ContractStorageAccess {
+	if stateDB.storageAccessTracer == nil {
+		return nil
+	}
+	return stateDB.storageAccessTracer.list()
+}
+
+// ContractStorageWitnesses assembles per-contract witness payloads for the
+// currently traced storage accesses.
+func (stateDB *StateDBAdapter) ContractStorageWitnesses() map[common.Address]*ContractStorageWitness {
+	accesses := stateDB.ContractStorageAccesses()
+	if len(accesses) == 0 {
+		return nil
+	}
+	witnesses := make(map[common.Address]*ContractStorageWitness, len(accesses))
+	for _, access := range accesses {
+		contract, ok := stateDB.cachedContract[access.Address]
+		if !ok {
+			stateDB.assertError(
+				errors.Errorf("contract %s not found in cache for witness assembly", access.Address.Hex()),
+				"Failed to find contract in cache for witness assembly.",
+				zap.String("address", access.Address.Hex()),
+			)
+			return nil
+		}
+		witness, err := contract.BuildStorageWitness(access)
+		if err != nil {
+			stateDB.assertError(
+				err,
+				"Failed to build contract storage witness.",
+				zap.String("address", access.Address.Hex()),
+			)
+			return nil
+		}
+		witnesses[access.Address] = witness
+	}
+	return witnesses
+}
+
+func (stateDB *StateDBAdapter) recordContractStorageRead(addr common.Address, key common.Hash) {
+	if stateDB.storageAccessTracer == nil {
+		return
+	}
+	stateDB.storageAccessTracer.recordRead(addr, key)
+}
+
+func (stateDB *StateDBAdapter) recordContractStorageWrite(addr common.Address, key common.Hash) {
+	if stateDB.storageAccessTracer == nil {
+		return
+	}
+	stateDB.storageAccessTracer.recordWrite(addr, key)
 }
 
 func (stateDB *StateDBAdapter) accountCreationOpts() []state.AccountCreationOption {
@@ -1021,6 +1088,7 @@ func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k commo
 		stateDB.logError(err)
 		return common.Hash{}
 	}
+	stateDB.recordContractStorageRead(evmAddr, k)
 	v, err := contract.GetCommittedState(hash.BytesToHash256(k[:]))
 	if err != nil {
 		log.T(stateDB.ctx).Debug("Failed to get committed state.", zap.Error(err))
@@ -1038,6 +1106,7 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 		stateDB.logError(err)
 		return common.Hash{}
 	}
+	stateDB.recordContractStorageRead(evmAddr, k)
 	v, err := contract.GetState(hash.BytesToHash256(k[:]))
 	if err != nil {
 		log.T(stateDB.ctx).Debug("Failed to get state.", zap.Error(err))
@@ -1056,6 +1125,7 @@ func (stateDB *StateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash
 		return
 	}
 	log.T(stateDB.ctx).Debug("Called SetState", log.Hex("addrHash", evmAddr[:]), log.Hex("k", k[:]))
+	stateDB.recordContractStorageWrite(evmAddr, k)
 	err = contract.SetState(hash.BytesToHash256(k[:]), v[:])
 	stateDB.assertError(err, "Failed to set state.", zap.Error(err), zap.String("address", evmAddr.Hex()))
 }
@@ -1157,6 +1227,9 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.txLogsSnapshot = make(map[int]int)
 	stateDB.logs = []*action.Log{}
 	stateDB.transactionLogs = []*action.TransactionLog{}
+	if stateDB.storageAccessTracer != nil {
+		stateDB.storageAccessTracer = newStorageAccessTracer()
+	}
 	if stateDB.enableCancun {
 		stateDB.transientStorage = newTransientStorage()
 		stateDB.transientStorageSnapshot = make(map[int]transientStorage)

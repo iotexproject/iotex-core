@@ -562,8 +562,10 @@ func (builder *Builder) buildBlockSyncer() error {
 		return nil
 	}
 	if builder.cfg.Consensus.Scheme == config.StandaloneScheme {
-		builder.cs.blocksync = blocksync.NewDummyBlockSyncer()
-		return nil
+		if !builder.cfg.Chain.EnableExperimentalStandaloneSync {
+			builder.cs.blocksync = blocksync.NewDummyBlockSyncer()
+			return nil
+		}
 	}
 
 	p2pAgent := builder.cs.p2pAgent
@@ -571,6 +573,86 @@ func (builder *Builder) buildBlockSyncer() error {
 	consens := builder.cs.consensus
 	dao := builder.cs.blockdao
 	cfg := builder.cfg
+	var witnessClient *statelessWitnessRPCClient
+	if cfg.Chain.EnableExperimentalStatelessValidation {
+		if cfg.Chain.StatelessValidationRPC == "" {
+			return errors.New("statelessValidationRPC is required when experimental stateless validation is enabled")
+		}
+		witnessClient = newStatelessWitnessRPCClient(cfg.Chain.StatelessValidationRPC)
+	}
+	commitBlock := func(blk *block.Block, svCtx evm.StatelessValidationContext) error {
+		if err := consens.ValidateBlockFooter(blk); err != nil {
+			log.L().Debug("Failed to validate block footer.", zap.Error(err), zap.Uint64("height", blk.Height()))
+			return err
+		}
+		retries := 1
+		if !builder.cfg.Genesis.IsHawaii(blk.Height()) {
+			retries = 4
+		}
+		var err error
+		baseOpts := []blockchain.BlockValidationOption{}
+		if now := time.Now(); now.After(blk.Timestamp()) &&
+			blk.Height()+cfg.Genesis.MinBlocksForBlobRetention <= estimateTipHeight(&cfg, blk, now.Sub(blk.Timestamp())) {
+			baseOpts = append(baseOpts, blockchain.SkipSidecarValidationOption())
+		}
+		for i := 0; i < retries; i++ {
+			opts := append([]blockchain.BlockValidationOption{}, baseOpts...)
+			if svCtx.Enabled {
+				opts = append(opts, blockchain.WithStatelessValidationOption(svCtx))
+			}
+			if err = chain.ValidateBlock(blk, opts...); err == nil {
+				if err = chain.CommitBlock(blk); err == nil {
+					break
+				}
+			}
+			switch errors.Cause(err) {
+			case blockchain.ErrInvalidTipHeight:
+				log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+				return nil
+			case block.ErrDeltaStateMismatch:
+				log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
+			case blockdao.ErrRemoteHeightTooLow:
+				if retries == 1 {
+					retries = 4
+				}
+				log.L().Debug("Remote height too low.", zap.Uint64("height", blk.Height()))
+				time.Sleep(100 * time.Millisecond)
+			default:
+				log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+				return err
+			}
+		}
+		if err != nil {
+			log.L().Debug("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+			return err
+		}
+		log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))
+		consens.Calibrate(blk.Height())
+		return nil
+	}
+	if cfg.Chain.EnableExperimentalCSSync {
+		if cfg.Chain.CSSyncGRPC == "" {
+			return errors.New("csSyncGRPC is required when experimental CS sync is enabled")
+		}
+		if cfg.Chain.CSSyncWeb3 == "" {
+			return errors.New("csSyncWeb3 is required when experimental CS sync is enabled")
+		}
+		css, err := newCSSyncer(
+			builder.cfg.BlockSync,
+			cfg.Chain.CSSyncGRPC,
+			cfg.Chain.CSSyncWeb3,
+			cfg.Chain.WitnessDBPath,
+			chain.TipHeight,
+			commitBlock,
+			builder.cfg.Chain.EVMNetworkID,
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to create CS syncer")
+		}
+		builder.cs.blocksync = css
+		builder.cs.lifecycle.Add(css)
+		return nil
+	}
 
 	blocksync, err := blocksync.NewBlockSyncer(
 		builder.cfg.BlockSync,
@@ -596,50 +678,15 @@ func (builder *Builder) buildBlockSyncer() error {
 			return blk.WithBlobSidecars(sidecars, hashes, deser)
 		},
 		func(blk *block.Block) error {
-			if err := consens.ValidateBlockFooter(blk); err != nil {
-				log.L().Debug("Failed to validate block footer.", zap.Error(err), zap.Uint64("height", blk.Height()))
-				return err
-			}
-			retries := 1
-			if !builder.cfg.Genesis.IsHawaii(blk.Height()) {
-				retries = 4
-			}
-			var err error
-			opts := []blockchain.BlockValidationOption{}
-			if now := time.Now(); now.After(blk.Timestamp()) &&
-				blk.Height()+cfg.Genesis.MinBlocksForBlobRetention <= estimateTipHeight(&cfg, blk, now.Sub(blk.Timestamp())) {
-				opts = append(opts, blockchain.SkipSidecarValidationOption())
-			}
-			for i := 0; i < retries; i++ {
-				if err = chain.ValidateBlock(blk, opts...); err == nil {
-					if err = chain.CommitBlock(blk); err == nil {
-						break
-					}
-				}
-				switch errors.Cause(err) {
-				case blockchain.ErrInvalidTipHeight:
-					log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-					return nil
-				case block.ErrDeltaStateMismatch:
-					log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
-				case blockdao.ErrRemoteHeightTooLow:
-					if retries == 1 {
-						retries = 4
-					}
-					log.L().Debug("Remote height too low.", zap.Uint64("height", blk.Height()))
-					time.Sleep(100 * time.Millisecond)
-				default:
-					log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+			svCtx := evm.StatelessValidationContext{}
+			if witnessClient != nil {
+				var err error
+				svCtx, err = witnessClient.blockWitnessByHash(context.Background(), blk.HashBlock())
+				if err != nil {
 					return err
 				}
 			}
-			if err != nil {
-				log.L().Debug("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-				return err
-			}
-			log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))
-			consens.Calibrate(blk.Height())
-			return nil
+			return commitBlock(blk, svCtx)
 		},
 		p2pAgent.ConnectedPeers,
 		p2pAgent.UnicastOutbound,

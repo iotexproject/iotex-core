@@ -860,6 +860,65 @@ func TestGetCommittedState(t *testing.T) {
 	})
 }
 
+func TestContractStorageAccesses(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
+	stateDB, err := NewStateDBAdapter(
+		sm,
+		1,
+		hash.ZeroHash256,
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+		EnableStorageAccessTracingOption(),
+	)
+	require.NoError(err)
+
+	stateDB.SetState(_c1, _k1, _v1)
+	stateDB.SetState(_c2, _k2, _v2)
+	require.Equal(_v1, stateDB.GetState(_c1, _k1))
+	require.Equal(common.BytesToHash(_v1[:]), stateDB.GetCommittedState(_c1, common.BytesToHash(_k1[:])))
+	require.Equal(common.Hash{}, stateDB.GetState(_c1, _k2))
+	stateDB.SetState(_c1, _k1, _v2)
+	stateDB.SetState(_c1, _k1, _v1)
+
+	accesses := stateDB.ContractStorageAccesses()
+	require.Len(accesses, 2)
+
+	require.Equal(_c1, accesses[0].Address)
+	require.Equal([]common.Hash{common.BytesToHash(_k2[:]), common.BytesToHash(_k1[:])}, accesses[0].Reads)
+	require.Equal([]common.Hash{common.BytesToHash(_k1[:])}, accesses[0].Writes)
+
+	require.Equal(_c2, accesses[1].Address)
+	require.Empty(accesses[1].Reads)
+	require.Equal([]common.Hash{common.BytesToHash(_k2[:])}, accesses[1].Writes)
+}
+
+func TestContractStorageAccessesClear(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
+	stateDB, err := NewStateDBAdapter(
+		sm,
+		1,
+		hash.ZeroHash256,
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+		EnableStorageAccessTracingOption(),
+	)
+	require.NoError(err)
+
+	stateDB.SetState(_c1, _k1, _v1)
+	require.NotEmpty(stateDB.ContractStorageAccesses())
+
+	stateDB.clear()
+	require.Empty(stateDB.ContractStorageAccesses())
+}
+
 func TestGetBalanceOnError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 

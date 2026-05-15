@@ -15,20 +15,24 @@ type contractAdapter struct {
 	erigon Contract
 }
 
-func newContractAdapter(addr hash.Hash160, account *state.Account, sm protocol.StateManager, intra *erigonstate.IntraBlockState, enableAsync bool) (Contract, error) {
-	v1, err := newContract(addr, account, sm, enableAsync)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create contract")
-	}
+func newContractAdapterWithBase(base Contract, addr hash.Hash160, account *state.Account, sm protocol.StateManager, intra *erigonstate.IntraBlockState) (Contract, error) {
 	v2, err := newContractErigon(addr, account.Clone(), intra, sm)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create contractV2")
 	}
 	c := &contractAdapter{
-		Contract: v1,
+		Contract: base,
 		erigon:   v2,
 	}
 	return c, nil
+}
+
+func newContractAdapter(addr hash.Hash160, account *state.Account, sm protocol.StateManager, intra *erigonstate.IntraBlockState, enableAsync bool) (Contract, error) {
+	base, err := newContract(addr, account, sm, enableAsync)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create contract")
+	}
+	return newContractAdapterWithBase(base, addr, account, sm, intra)
 }
 
 func (c *contractAdapter) SetState(key hash.Hash256, value []byte) error {
@@ -36,6 +40,10 @@ func (c *contractAdapter) SetState(key hash.Hash256, value []byte) error {
 		return err
 	}
 	return c.erigon.SetState(key, value)
+}
+
+func (c *contractAdapter) BuildStorageWitness(access ContractStorageAccess) (*ContractStorageWitness, error) {
+	return c.Contract.BuildStorageWitness(access)
 }
 
 func (c *contractAdapter) SetCode(hash hash.Hash256, code []byte) {
