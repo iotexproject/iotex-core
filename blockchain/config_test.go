@@ -6,6 +6,7 @@
 package blockchain
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -32,4 +33,80 @@ func TestWhitelist(t *testing.T) {
 	cfg.SignatureScheme = append(cfg.SignatureScheme, SigP256sm2)
 	r.Equal(sk, cfg.ProducerPrivateKeys()[0])
 	r.Equal(sk.PublicKey().Address().String(), cfg.ProducerAddress()[0].String())
+}
+
+func TestProducerPrivateKeys_RangeParsing(t *testing.T) {
+	r := require.New(t)
+	cfg := DefaultConfig
+	genKeys := func(size int) string {
+		var privKeyStrs []string
+		for i := 0; i < size; i++ {
+			sk, err := crypto.GenerateKey()
+			r.NoError(err)
+			privKeyStrs = append(privKeyStrs, sk.HexString())
+		}
+		return strings.Join(privKeyStrs, ",")
+	}
+
+	getKeys := func(privKey, privKeyRange string) (keys []crypto.PrivateKey, panicked bool) {
+		cfg.ProducerPrivKey = privKey
+		cfg.ProducerPrivKeyRange = privKeyRange
+		defer func() {
+			if r := recover(); r != nil {
+				panicked = true
+			}
+		}()
+		keys = cfg.ProducerPrivateKeys()
+		return
+	}
+
+	privKeys := genKeys(5)
+	keys, panicked := getKeys(privKeys, "")
+	r.False(panicked)
+	r.Len(keys, 5)
+
+	keys, panicked = getKeys(privKeys, "[:]")
+	r.False(panicked)
+	r.Len(keys, 5)
+
+	keys, panicked = getKeys(privKeys, "[0:0]")
+	r.False(panicked)
+	r.Len(keys, 0)
+
+	keys, panicked = getKeys(privKeys, "[0:1]")
+	r.False(panicked)
+	r.Len(keys, 1)
+
+	keys, panicked = getKeys(privKeys, "[1:3]")
+	r.False(panicked)
+	r.Len(keys, 2)
+
+	keys, panicked = getKeys(privKeys, "[3:5]")
+	r.False(panicked)
+	r.Len(keys, 2)
+
+	keys, panicked = getKeys(privKeys, "[5:]")
+	r.False(panicked)
+	r.Len(keys, 0)
+
+	keys, panicked = getKeys(privKeys, "[:5]")
+	r.False(panicked)
+	r.Len(keys, 5)
+
+	keys, panicked = getKeys(privKeys, "[2:]")
+	r.False(panicked)
+	r.Len(keys, 3)
+
+	_, panicked = getKeys(privKeys, "[invalid]")
+	r.True(panicked)
+
+	_, panicked = getKeys(privKeys, "[-1:1]")
+	r.True(panicked)
+
+	_, panicked = getKeys(privKeys, "[2:1]")
+	r.True(panicked)
+	_, panicked = getKeys(privKeys, "[1:6]")
+	r.True(panicked)
+	_, panicked = getKeys(privKeys, "[1:5:7]")
+	r.True(panicked)
 }

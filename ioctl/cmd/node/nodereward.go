@@ -123,7 +123,7 @@ func rewardPool() error {
 	}
 	availableRewardRau, ok := new(big.Int).SetString(string(response.Data), 10)
 	if !ok {
-		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
+		return output.NewError(output.ConvertError, "failed to convert string into big int", nil)
 	}
 	// TotalBalance == Total rewards in the pool
 	request = &iotexapi.ReadStateRequest{
@@ -140,7 +140,7 @@ func rewardPool() error {
 	}
 	totalRewardRau, ok := new(big.Int).SetString(string(response.Data), 10)
 	if !ok {
-		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
+		return output.NewError(output.ConvertError, "failed to convert string into big int", nil)
 	}
 	// TotalUnclaimedBalance == Rewards in the pool that has been issued and unclaimed
 	totalUnclaimedRewardRau := big.NewInt(0)
@@ -189,7 +189,7 @@ func reward(arg string) error {
 	}
 	rewardRau, ok := new(big.Int).SetString(string(response.Data), 10)
 	if !ok {
-		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
+		return output.NewError(output.ConvertError, "failed to convert string into big int", nil)
 	}
 	message := rewardMessage{Address: address, Reward: util.RauToString(rewardRau, util.IotxDecimalNum)}
 	fmt.Println(message.String())

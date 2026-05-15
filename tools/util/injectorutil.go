@@ -556,8 +556,8 @@ func createBlobInjection(chainID uint32, nonce uint64, gasLimit uint64, tip, fee
 	commits := make([]kzg4844.Commitment, len(blobs))
 	proofs := make([]kzg4844.Proof, len(blobs))
 	for i, blob := range blobs {
-		commit := assertions.MustNoErrorV(kzg4844.BlobToCommitment(blob))
-		proof := assertions.MustNoErrorV(kzg4844.ComputeBlobProof(blob, commit))
+		commit := assertions.MustNoErrorV(kzg4844.BlobToCommitment(&blob))
+		proof := assertions.MustNoErrorV(kzg4844.ComputeBlobProof(&blob, commit))
 		commits[i] = commit
 		proofs[i] = proof
 	}

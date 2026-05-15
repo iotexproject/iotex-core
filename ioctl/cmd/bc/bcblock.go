@@ -119,6 +119,9 @@ type blocksInfo struct {
 
 func (m *blockMessage) String() string {
 	if output.Format == "" {
+		if output.Quiet {
+			return fmt.Sprintf("%s\n%s", output.JSONString(m.Block), output.JSONString(m.ActionInfo))
+		}
 		message := fmt.Sprintf("Blockchain Node: %s\n%s\n%s", m.Node, output.JSONString(m.Block), output.JSONString(m.ActionInfo))
 		return message
 	}

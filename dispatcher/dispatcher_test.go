@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -181,11 +181,20 @@ func dispatcherIsClean(dsp *IotxDispatcher) bool {
 
 type dummySubscriber struct{}
 
-func (ds *dummySubscriber) ReportFullness(context.Context, iotexrpc.MessageType, float32) {}
+func (ds *dummySubscriber) Filter(iotexrpc.MessageType, proto.Message, int) bool {
+	return true
+}
+
+func (ds *dummySubscriber) ReportFullness(context.Context, iotexrpc.MessageType, proto.Message, float32) {
+}
 
 func (ds *dummySubscriber) HandleBlock(context.Context, string, *iotextypes.Block) error { return nil }
 
 func (ds *dummySubscriber) HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error {
+	return nil
+}
+
+func (ds *dummySubscriber) HandleBundle(context.Context, *iotextypes.Bundle) error {
 	return nil
 }
 
@@ -220,7 +229,12 @@ type counterSubscriber struct {
 	actionHash  atomic.Int32
 }
 
-func (cs *counterSubscriber) ReportFullness(context.Context, iotexrpc.MessageType, float32) {}
+func (cs *counterSubscriber) Filter(iotexrpc.MessageType, proto.Message, int) bool {
+	return true
+}
+
+func (cs *counterSubscriber) ReportFullness(context.Context, iotexrpc.MessageType, proto.Message, float32) {
+}
 
 func (cs *counterSubscriber) HandleBlock(context.Context, string, *iotextypes.Block) error {
 	cs.block.Inc()
@@ -229,6 +243,13 @@ func (cs *counterSubscriber) HandleBlock(context.Context, string, *iotextypes.Bl
 
 func (cs *counterSubscriber) HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error {
 	cs.blockSync.Inc()
+	return nil
+}
+
+func (cs *counterSubscriber) HandleBundle(_ context.Context, bundle *iotextypes.Bundle) error {
+	for range bundle.Actions {
+		cs.action.Inc()
+	}
 	return nil
 }
 

@@ -105,7 +105,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	}
 
 	worker.ap.allActions.Set(actHash, act)
-	worker.ap.onAdded(act)
+	worker.ap.onAdded(ctx, act)
 	isBlobTx := len(act.BlobHashes()) > 0 // only store blob tx
 	if worker.ap.store != nil && isBlobTx {
 		if err := worker.ap.store.Put(act); err != nil {

@@ -78,6 +78,8 @@ type (
 		ExcessBlobGas uint64
 		// SkipSidecarValidation dictates to validate sidecar (for blob tx) or not
 		SkipSidecarValidation bool
+		// Simulate is used for read-only APIs
+		Simulate bool
 	}
 
 	// ActionCtx provides action auxiliary information.
@@ -157,18 +159,33 @@ type (
 		TimestampedStakingContract              bool
 		PreStateSystemAction                    bool
 		CreatePostActionStates                  bool
+		NotSlashUnproductiveDelegates           bool
+		CandidateBLSPublicKey                   bool
+		NotUseMinSelfStakeToBeActive            bool
+		StoreVoteOfNFTBucketIntoView            bool
+		CandidateSlashByOwner                   bool
+		CandidateBLSPublicKeyNotCopied          bool
+		OnlyOwnerCanUpdateBLSPublicKey          bool
+		PrePectraEVM                            bool
+		// AlwaysWriteCachedContract if true, CommitContracts writes back all cached
+		// contracts regardless of whether they were modified; if false, only dirty
+		// contracts are committed and written back
+		AlwaysWriteCachedContract bool
+		NoCandidateExitQueue      bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
 	FeatureWithHeightCtx struct {
-		GetUnproductiveDelegates CheckFunc
-		ReadStateFromDB          CheckFunc
-		UseV2Staking             CheckFunc
-		EnableNativeStaking      CheckFunc
-		StakingCorrectGas        CheckFunc
-		CalculateProbationList   CheckFunc
-		LoadCandidatesLegacy     CheckFunc
-		CandCenterHasAlias       CheckFunc
+		GetUnproductiveDelegates        CheckFunc
+		ReadStateFromDB                 CheckFunc
+		UseV2Staking                    CheckFunc
+		EnableNativeStaking             CheckFunc
+		StakingCorrectGas               CheckFunc
+		CalculateProbationList          CheckFunc
+		LoadCandidatesLegacy            CheckFunc
+		CandCenterHasAlias              CheckFunc
+		CandidateWithoutIdentity        CheckFunc
+		CandidateWithoutIdentityStorage CheckFunc
 	}
 )
 
@@ -319,6 +336,16 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			TimestampedStakingContract:              g.IsWake(height),
 			PreStateSystemAction:                    !g.IsWake(height),
 			CreatePostActionStates:                  g.IsWake(height),
+			NotSlashUnproductiveDelegates:           !g.IsXingu(height),
+			CandidateBLSPublicKey:                   g.IsXingu(height),
+			NotUseMinSelfStakeToBeActive:            !g.IsXingu(height),
+			StoreVoteOfNFTBucketIntoView:            !g.IsXingu(height),
+			CandidateSlashByOwner:                   !g.IsXinguBeta(height),
+			CandidateBLSPublicKeyNotCopied:          !g.IsXinguBeta(height),
+			OnlyOwnerCanUpdateBLSPublicKey:          !g.IsToBeEnabled(height),
+			PrePectraEVM:                            !g.IsToBeEnabled(height),
+			AlwaysWriteCachedContract:               !g.IsToBeEnabled(height),
+			NoCandidateExitQueue:                    !g.IsToBeEnabled(height),
 		},
 	)
 }
@@ -341,7 +368,7 @@ func GetFeatureCtx(ctx context.Context) (FeatureCtx, bool) {
 func MustGetFeatureCtx(ctx context.Context) FeatureCtx {
 	fc, ok := ctx.Value(featureContextKey{}).(FeatureCtx)
 	if !ok {
-		log.S().Panic("Miss feature context")
+		log.L().Panic("Miss feature context")
 	}
 	return fc
 }
@@ -376,6 +403,12 @@ func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 			},
 			CandCenterHasAlias: func(height uint64) bool {
 				return !g.IsOkhotsk(height)
+			},
+			CandidateWithoutIdentity: func(height uint64) bool {
+				return !g.IsToBeEnabled(height)
+			},
+			CandidateWithoutIdentityStorage: func(height uint64) bool {
+				return !g.IsToBeEnabled(height)
 			},
 		},
 	)

@@ -9,10 +9,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 )
 
 // Format is the target of output-format flag
 var Format string
+
+// NonInteractive when set, interactive prompts return error instead of waiting for input.
+// Automatically set when stdin is not a terminal, or via --non-interactive flag / IOCTL_NON_INTERACTIVE=1 env.
+var NonInteractive bool
+
+// Quiet when set, suppresses informational lines (e.g. "Blockchain Node: ...") and only outputs data.
+var Quiet bool
 
 // ErrorCode is the code of error
 type ErrorCode int
@@ -72,11 +80,27 @@ const (
 	Warn
 )
 
+var _messageTypeNames = map[MessageType]string{
+	Result:       "result",
+	Confirmation: "confirmation",
+	Query:        "query",
+	Error:        "error",
+	Warn:         "warn",
+}
+
+// MarshalJSON marshals MessageType as a human-readable string
+func (t MessageType) MarshalJSON() ([]byte, error) {
+	if name, ok := _messageTypeNames[t]; ok {
+		return json.Marshal(name)
+	}
+	return json.Marshal("unknown")
+}
+
 // Output is used for format output
 type Output struct {
 	MessageType            MessageType            `json:"messageType"`
 	Message                Message                `json:"message"`
-	MessageWithTranslation MessageWithTranslation `json:"messageWithTranslation"`
+	MessageWithTranslation MessageWithTranslation `json:"messageWithTranslation,omitempty"`
 }
 
 // Message is the message part of output
@@ -229,4 +253,40 @@ func PrintResult(result string) {
 func PrintQuery(query string) {
 	message := StringMessage(query)
 	fmt.Println(message.Query())
+}
+
+// PrintInfo prints an informational line (e.g. "Blockchain Node: ...") that is suppressed in quiet mode.
+func PrintInfo(info string) {
+	if !Quiet {
+		fmt.Println(info)
+	}
+}
+
+// RequireInteractive returns an error if non-interactive mode is set.
+// Use this to guard interactive prompts (fmt.Scanf, etc.).
+func RequireInteractive(prompt string) error {
+	if NonInteractive {
+		return fmt.Errorf("interactive input required (%s) but running in non-interactive mode; use flags to provide input", prompt)
+	}
+	return nil
+}
+
+// Confirm displays a confirmation prompt and waits for user to type "yes".
+// In non-interactive mode it returns (false, error). If the user types anything
+// other than "yes", it returns (false, nil). Only returns (true, nil) on "yes".
+func Confirm(info string) (bool, error) {
+	if err := RequireInteractive("confirmation"); err != nil {
+		return false, err
+	}
+	message := ConfirmationMessage{Info: info, Options: []string{"yes"}}
+	fmt.Println(message.String())
+	var confirm string
+	if _, err := fmt.Scanf("%s", &confirm); err != nil {
+		return false, NewError(InputError, "failed to read confirmation", err)
+	}
+	if !strings.EqualFold(confirm, "yes") {
+		PrintResult("quit")
+		return false, nil
+	}
+	return true, nil
 }

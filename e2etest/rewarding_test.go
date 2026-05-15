@@ -69,6 +69,8 @@ func TestBlockReward(t *testing.T) {
 	cfg.Genesis = genesis.TestDefault()
 	initDBPaths(r, &cfg)
 	defer func() { clearDBPaths(&cfg) }()
+	cfg.API.GRPCPort = 0
+	cfg.API.HTTPPort = 0
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.NumDelegates = 1
 	cfg.Genesis.NumSubEpochs = 10
@@ -97,8 +99,8 @@ func TestBlockReward(t *testing.T) {
 	cfg.Genesis.DardanellesBlockHeight = 1 // enable block reward
 	cfg.Genesis.GreenlandBlockHeight = 6
 	cfg.Genesis.KamchatkaBlockHeight = 7
-	cfg.Genesis.VanuatuBlockHeight = 8      // enable dynamic fee
-	cfg.Genesis.ToBeEnabledBlockHeight = 10 // enable wake block reward
+	cfg.Genesis.VanuatuBlockHeight = 8 // enable dynamic fee
+	cfg.Genesis.WakeBlockHeight = 10   // enable wake block reward
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	block.LoadGenesisHash(&cfg.Genesis)
 
@@ -204,7 +206,7 @@ func TestBlockReward(t *testing.T) {
 			// fixed block reward
 			assert.Equal(t, cfg.Genesis.DardanellesBlockReward().String(), rewards[rewardingpb.RewardLog_BLOCK_REWARD].String())
 			assert.Equal(t, big.NewInt(0).String(), rewards[rewardingpb.RewardLog_PRIORITY_BONUS].String())
-		case blockHeight < cfg.Genesis.ToBeEnabledBlockHeight:
+		case blockHeight < cfg.Genesis.WakeBlockHeight:
 			// fixed block reward + priority bonus
 			require.True(t, rewards[rewardingpb.RewardLog_PRIORITY_BONUS].Sign() > 0, "blockHeight %d", blockHeight)
 			assert.Equal(t, cfg.Genesis.DardanellesBlockReward().String(), rewards[rewardingpb.RewardLog_BLOCK_REWARD].String())

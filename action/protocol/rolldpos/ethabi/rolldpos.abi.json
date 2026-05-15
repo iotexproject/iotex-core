@@ -1,0 +1,158 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "epochNumber",
+        "type": "uint256"
+      }
+    ],
+    "name": "EpochHeight",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "epochHeight",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "epochNumber",
+        "type": "uint256"
+      }
+    ],
+    "name": "EpochLastHeight",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "epochLastHeight",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "blockHeight",
+        "type": "uint256"
+      }
+    ],
+    "name": "EpochNumber",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "epochNumber",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "NumCandidateDelegates",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "numCandidateDelegates",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "NumDelegates",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "numDelegates",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "blockHeight",
+        "type": "uint256"
+      }
+    ],
+    "name": "NumSubEpochs",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "numSubEpochs",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "blockHeight",
+        "type": "uint256"
+      }
+    ],
+    "name": "SubEpochNumber",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "subEpochNumber",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "height",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

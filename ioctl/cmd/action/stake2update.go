@@ -6,7 +6,11 @@
 package action
 
 import (
+	"encoding/hex"
+
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/go-pkgs/crypto"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
@@ -17,9 +21,9 @@ import (
 // Multi-language support
 var (
 	_stake2UpdateCmdUses = map[config.Language]string{
-		config.English: "update NAME (ALIAS|OPERATOR_ADDRESS) (ALIAS|REWARD_ADDRESS)" +
+		config.English: "update NAME (ALIAS|OPERATOR_ADDRESS) (ALIAS|REWARD_ADDRESS) BLS_PUBKEY" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "update 名字 (别名|操作者地址) (别名|奖励地址)" +
+		config.Chinese: "update 名字 (别名|操作者地址) (别名|奖励地址) BLS公钥" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 	_stake2UpdateCmdShorts = map[config.Language]string{
@@ -31,7 +35,7 @@ var (
 var _stake2UpdateCmd = &cobra.Command{
 	Use:   config.TranslateInLang(_stake2UpdateCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(_stake2UpdateCmdShorts, config.UILanguage),
-	Args:  cobra.ExactArgs(3),
+	Args:  cobra.ExactArgs(4),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := stake2Update(args)
@@ -58,6 +62,16 @@ func stake2Update(args []string) error {
 		return output.NewError(output.AddressError, "failed to get reward address", err)
 	}
 
+	// Validate and parse BLS public key
+	blsPubKeyStr := args[3]
+	blsPubKeyBytes, err := hex.DecodeString(blsPubKeyStr)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to decode BLS public key", err)
+	}
+	if _, err = crypto.BLS12381PublicKeyFromBytes(blsPubKeyBytes); err != nil {
+		return output.NewError(output.ValidationError, "invalid BLS public key", err)
+	}
+
 	sender, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
@@ -77,7 +91,7 @@ func stake2Update(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2u, err := action.NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr)
+	s2u, err := action.NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr, blsPubKeyBytes)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateUpdate instance", err)
 	}

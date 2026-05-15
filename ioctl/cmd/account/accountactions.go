@@ -6,36 +6,20 @@
 package account
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"net/http"
 	"strconv"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
+
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/output"
 	"github.com/iotexproject/iotex-core/v2/ioctl/util"
-)
-
-type (
-	allActionsByAddressResult struct {
-		ActHash    string
-		BlkHeight  string
-		Sender     string
-		Recipient  string
-		ActType    string
-		Amount     string
-		TimeStamp  string
-		RecordType string
-	}
-
-	allActionsByAddressResponse struct {
-		Count   string
-		Results []*allActionsByAddressResult
-	}
 )
 
 // Multi-language support
@@ -45,16 +29,45 @@ var (
 		config.Chinese: "显示账户的操作列表",
 	}
 	_actionsCmdUses = map[config.Language]string{
-		config.English: "actions (ALIAS|ADDRESS)  [SKIP]",
-		config.Chinese: "actions (别名|地址)  [SKIP]",
+		config.English: "actions (ALIAS|ADDRESS) [SKIP] [LIMIT]",
+		config.Chinese: "actions (别名|地址) [SKIP] [LIMIT]",
 	}
 )
+
+type actionResult struct {
+	ActHash   string `json:"actHash"`
+	BlkHeight uint64 `json:"blkHeight"`
+	Sender    string `json:"sender"`
+	GasLimit  uint64 `json:"gasLimit"`
+	GasPrice  string `json:"gasPrice"`
+	Nonce     uint64 `json:"nonce"`
+}
+
+type actionsMessage struct {
+	Address string          `json:"address"`
+	Count   uint64          `json:"count"`
+	Actions []*actionResult `json:"actions"`
+}
+
+func (m *actionsMessage) String() string {
+	if output.Format == "" {
+		showFields := []interface{}{"ActHash", "BlkHeight", "Sender", "Nonce", "GasLimit", "GasPrice"}
+		tb := table.New(showFields...)
+		for _, a := range m.Actions {
+			tb.AddRow(a.ActHash, a.BlkHeight, a.Sender, a.Nonce, a.GasLimit, a.GasPrice)
+		}
+		result := fmt.Sprintf("Count: %d\n", m.Count)
+		result += fmt.Sprint(tb)
+		return result
+	}
+	return output.FormatString(output.Result, m)
+}
 
 // _accountActionsCmd represents the account sign command
 var _accountActionsCmd = &cobra.Command{
 	Use:   config.TranslateInLang(_actionsCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(_actionsCmdShorts, config.UILanguage),
-	Args:  cobra.RangeArgs(1, 2),
+	Args:  cobra.RangeArgs(1, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := accountActions(args)
@@ -63,12 +76,18 @@ var _accountActionsCmd = &cobra.Command{
 }
 
 func accountActions(args []string) error {
-	var skip uint64 = 0
+	var start, count uint64 = 0, 20
 	var err error
-	if len(args) == 2 {
-		skip, err = strconv.ParseUint(args[1], 10, 64)
+	if len(args) >= 2 {
+		start, err = strconv.ParseUint(args[1], 10, 64)
 		if err != nil {
-			return output.NewError(output.ConvertError, "failed to convert skip ", nil)
+			return output.NewError(output.ConvertError, "failed to convert skip", err)
+		}
+	}
+	if len(args) >= 3 {
+		count, err = strconv.ParseUint(args[2], 10, 64)
+		if err != nil {
+			return output.NewError(output.ConvertError, "failed to convert limit", err)
 		}
 	}
 
@@ -76,51 +95,59 @@ func accountActions(args []string) error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get address", err)
 	}
-	reqData := map[string]string{
-		"address": addr,
-		"offset":  fmt.Sprint(skip),
-	}
-	jsonData, err := json.Marshal(reqData)
+
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return output.NewError(output.ConvertError, "failed to pack in json", nil)
+		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
-	resp, err := http.Post(config.ReadConfig.AnalyserEndpoint+"/api.ActionsService.GetActionsByAddress", "application/json",
-		bytes.NewBuffer(jsonData))
-	if err != nil {
-		return output.NewError(output.NetworkError, "failed to send request", nil)
+	defer conn.Close()
+
+	cli := iotexapi.NewAPIServiceClient(conn)
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
-	var respData allActionsByAddressResponse
-	err = json.NewDecoder(resp.Body).Decode(&respData)
+	request := &iotexapi.GetActionsRequest{
+		Lookup: &iotexapi.GetActionsRequest_ByAddr{
+			ByAddr: &iotexapi.GetActionsByAddressRequest{
+				Address: addr,
+				Start:   start,
+				Count:   count,
+			},
+		},
+	}
+	response, err := cli.GetActions(ctx, request)
 	if err != nil {
-		return output.NewError(output.SerializationError, "failed to deserialize the response", nil)
+		sta, ok := status.FromError(err)
+		if ok {
+			return output.NewError(output.APIError, sta.Message(), nil)
+		}
+		return output.NewError(output.NetworkError, "failed to invoke GetActions api", err)
 	}
-	actions := respData.Results
 
-	fmt.Println("Total:", len(actions))
-	showFields := []interface{}{
-		"ActHash",
-		"TimeStamp",
-		"BlkHeight",
-		"ActCategory",
-		"ActType",
-		"Sender",
-		"Recipient",
-		"Amount",
+	actions := response.ActionInfo
+	var results []*actionResult
+	for _, a := range actions {
+		result := &actionResult{
+			ActHash:   a.ActHash,
+			BlkHeight: a.BlkHeight,
+			Sender:    a.Sender,
+		}
+		if a.Action != nil && a.Action.Core != nil {
+			result.GasLimit = a.Action.Core.GasLimit
+			result.GasPrice = a.Action.Core.GasPrice
+			result.Nonce = a.Action.Core.Nonce
+		}
+		results = append(results, result)
 	}
-	tb := table.New(showFields...)
-	for _, actionInfo := range actions {
-		tb.AddRow(
-			actionInfo.ActHash,
-			actionInfo.TimeStamp,
-			actionInfo.BlkHeight,
-			actionInfo.RecordType,
-			actionInfo.ActType,
-			actionInfo.Sender,
-			actionInfo.Recipient,
-			actionInfo.Amount+" IOTX",
-		)
+
+	message := actionsMessage{
+		Address: addr,
+		Count:   response.Total,
+		Actions: results,
 	}
-	tb.Print()
+	fmt.Println(message.String())
 	return nil
 }

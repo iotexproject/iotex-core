@@ -7,8 +7,8 @@ package mock_privatekey
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	api "github.com/hashicorp/vault/api"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockprivKeyLoader is a mock of privKeyLoader interface.

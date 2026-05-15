@@ -11,12 +11,12 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/mohae/deepcopy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -29,7 +29,7 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	v, _, err := CreateBaseView(sm, false)
+	v, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, false)
 	require.NoError(err)
 	sm.WriteView(_protocolID, v)
 	csm, err := NewCandidateStateManager(sm)
@@ -40,12 +40,13 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 		DepositGas:    depositGas,
 		BlockInterval: getBlockInterval,
 	}, &BuilderConfig{
-		Staking:                  g.Staking,
-		PersistStakingPatchBlock: math.MaxUint64,
+		Staking:                       g.Staking,
+		PersistStakingPatchBlock:      math.MaxUint64,
+		SkipContractStakingViewHeight: math.MaxUint64,
 		Revise: ReviseConfig{
 			VoteWeight: g.Staking.VoteWeightCalConsts,
 		},
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 	require.NoError(err)
 	initCandidateCfgs := []struct {
 		Owner      address.Address
@@ -78,9 +79,10 @@ func TestProtocol_HandleCandidateTransferOwnership(t *testing.T) {
 	cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 	ctx := genesis.WithGenesisContext(context.Background(), cfg)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	vv, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := vv.(*ViewData)
+	cc, ok := vv.(*viewData)
 	require.True(ok)
 	require.NoError(sm.WriteView(_protocolID, cc))
 

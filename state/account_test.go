@@ -11,9 +11,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestNonce(t *testing.T) {

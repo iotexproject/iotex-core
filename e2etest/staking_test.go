@@ -157,6 +157,7 @@ func TestStakingContract(t *testing.T) {
 				BlockHeight: genesis.TestDefault().OkhotskBlockHeight,
 			}))
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
 		_, err = ns.Votes(ctx, bcCtx.Tip.Timestamp, false)
 		require.Equal(poll.ErrNoData, err)
 		tally, err := ns.Votes(ctx, bcCtx.Tip.Timestamp, true)
@@ -196,6 +197,8 @@ func TestStakingContract(t *testing.T) {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
+	cfg.API.GRPCPort = 0
+	cfg.API.HTTPPort = 0
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"

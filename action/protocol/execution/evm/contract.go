@@ -20,11 +20,11 @@ import (
 
 const (
 	// CodeKVNameSpace is the bucket name for code
-	CodeKVNameSpace = "Code"
+	CodeKVNameSpace = state.CodeKVNameSpace
 	// ContractKVNameSpace is the bucket name for contract data storage
-	ContractKVNameSpace = "Contract"
+	ContractKVNameSpace = state.ContractKVNameSpace
 	// PreimageKVNameSpace is the bucket name for preimage data storage
-	PreimageKVNameSpace = "Preimage"
+	PreimageKVNameSpace = state.PreimageKVNameSpace
 )
 
 type (
@@ -37,6 +37,7 @@ type (
 		SetCode(hash.Hash256, []byte)
 		SelfState() *state.Account
 		Commit() error
+		Dirty() bool
 		LoadRoot() error
 		Iterator() (trie.Iterator, error)
 		Snapshot() Contract
@@ -123,6 +124,11 @@ func (c *contract) SetCode(hash hash.Hash256, code []byte) {
 // account returns this contract's account
 func (c *contract) SelfState() *state.Account {
 	return c.Account
+}
+
+// Dirty returns whether the contract has been modified
+func (c *contract) Dirty() bool {
+	return c.dirtyCode || c.dirtyState
 }
 
 // Commit writes the changes into underlying trie

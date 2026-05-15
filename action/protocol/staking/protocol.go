@@ -8,7 +8,10 @@ package staking
 import (
 	"context"
 	"encoding/hex"
+	"math"
 	"math/big"
+	"sort"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -24,6 +27,9 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -34,13 +40,16 @@ const (
 	_protocolID = "staking"
 
 	// _stakingNameSpace is the bucket name for staking state
-	_stakingNameSpace = "Staking"
+	_stakingNameSpace = state.StakingNamespace
 
 	// _candidateNameSpace is the bucket name for candidate state
-	_candidateNameSpace = "Candidate"
+	_candidateNameSpace = state.CandidateNamespace
 
 	// CandsMapNS is the bucket name to store candidate map
-	CandsMapNS = "CandsMap"
+	CandsMapNS = state.CandsMapNamespace
+
+	// MaxDurationNumber is the maximum duration number
+	MaxDurationNumber = math.MaxUint64
 )
 
 const (
@@ -56,15 +65,27 @@ const (
 
 // Errors
 var (
-	ErrWithdrawnBucket     = errors.New("the bucket is already withdrawn")
-	ErrEndorsementNotExist = errors.New("the endorsement does not exist")
-	TotalBucketKey         = append([]byte{_const}, []byte("totalBucket")...)
+	ErrWithdrawnBucket      = errors.New("the bucket is already withdrawn")
+	ErrEndorsementNotExist  = errors.New("the endorsement does not exist")
+	ErrNoSelfStakeBucket    = errors.New("no self-stake bucket")
+	ErrCandidateNotExist    = errors.New("the candidate does not exist")
+	ErrCandidateDeleted     = errors.New("candidate has been deleted")
+	ErrExitNotRequested     = errors.New("exit not requested")
+	ErrExitNotScheduled     = errors.New("exit not scheduled")
+	ErrExitNotReady         = errors.New("exit not ready")
+	ErrExitAlreadyRequested = errors.New("already request exit")
+)
+
+var (
+	TotalBucketKey = append([]byte{_const}, []byte("totalBucket")...)
 )
 
 var (
 	_nameKey     = []byte("name")
 	_operatorKey = []byte("operator")
 	_ownerKey    = []byte("owner")
+
+	_lastExitEpoch = []byte("last_exit_epoch")
 )
 
 type (
@@ -72,6 +93,14 @@ type (
 	ReceiptError interface {
 		Error() string
 		ReceiptStatus() uint64
+	}
+
+	lastExitEpoch struct {
+		epoch uint64
+	}
+
+	ContractStakeViewBuilder interface {
+		Build(ctx context.Context, target uint64) (ContractStakeView, error)
 	}
 
 	// Protocol defines the protocol of handling staking
@@ -85,6 +114,8 @@ type (
 		voteReviser              *VoteReviser
 		patch                    *PatchStore
 		helperCtx                HelperCtx
+		blockStore               BlockStore
+		blocksToDurationFn       func(startHeight, endHeight, currentHeight uint64) time.Duration
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -96,9 +127,11 @@ type (
 		BootstrapCandidates               []genesis.BootstrapCandidate
 		PersistStakingPatchBlock          uint64
 		FixAliasForNonStopHeight          uint64
+		SkipContractStakingViewHeight     uint64
 		EndorsementWithdrawWaitingBlocks  uint64
 		MigrateContractAddress            string
 		TimestampedMigrateContractAddress string
+		MinSelfStakeToBeActive            *big.Int
 	}
 	// HelperCtx is the helper context for staking protocol
 	HelperCtx struct {
@@ -109,12 +142,36 @@ type (
 	Option func(*Protocol)
 )
 
+// Serialize serializes last exit epoch into bytes
+func (le *lastExitEpoch) Serialize() ([]byte, error) {
+	return proto.Marshal(&stakingpb.ExitQueue{
+		Epoch: le.epoch,
+	})
+}
+
+// Deserialize deserializes bytes into last exit epoch
+func (le *lastExitEpoch) Deserialize(data []byte) error {
+	var pb stakingpb.ExitQueue
+	if err := proto.Unmarshal(data, &pb); err != nil {
+		return err
+	}
+	le.epoch = pb.Epoch
+	return nil
+}
+
 // WithContractStakingIndexerV3 sets the contract staking indexer v3
 func WithContractStakingIndexerV3(indexer ContractStakingIndexer) Option {
 	return func(p *Protocol) {
 		p.contractStakingIndexerV3 = indexer
-		p.config.TimestampedMigrateContractAddress = indexer.ContractAddress()
+		p.config.TimestampedMigrateContractAddress = indexer.ContractAddress().String()
 		return
+	}
+}
+
+// WithBlockStore sets the block store
+func WithBlockStore(bs BlockStore) Option {
+	return func(p *Protocol) {
+		p.blockStore = bs
 	}
 }
 
@@ -138,6 +195,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 func NewProtocol(
 	helperCtx HelperCtx,
 	cfg *BuilderConfig,
+	blocksToDurationFn func(startHeight, endHeight, currentHeight uint64) time.Duration,
 	candBucketsIndexer *CandidatesBucketsIndexer,
 	contractStakingIndexer ContractStakingIndexerWithBucketType,
 	contractStakingIndexerV2 ContractStakingIndexer,
@@ -154,6 +212,11 @@ func NewProtocol(
 		return nil, action.ErrInvalidAmount
 	}
 
+	minSelfStakeToBeActive, ok := new(big.Int).SetString(cfg.Staking.MinSelfStakeToBeActive, 10)
+	if !ok {
+		return nil, errors.Wrapf(action.ErrInvalidAmount, "invalid min self stake to be active: %s", cfg.Staking.MinSelfStakeToBeActive)
+	}
+
 	regFee, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.Fee, 10)
 	if !ok {
 		return nil, action.ErrInvalidAmount
@@ -168,7 +231,7 @@ func NewProtocol(
 	voteReviser := NewVoteReviser(cfg.Revise)
 	migrateContractAddress := ""
 	if contractStakingIndexerV2 != nil {
-		migrateContractAddress = contractStakingIndexerV2.ContractAddress()
+		migrateContractAddress = contractStakingIndexerV2.ContractAddress().String()
 	}
 	p := &Protocol{
 		addr: addr,
@@ -180,12 +243,15 @@ func NewProtocol(
 			},
 			WithdrawWaitingPeriod:            cfg.Staking.WithdrawWaitingPeriod,
 			MinStakeAmount:                   minStakeAmount,
+			MinSelfStakeToBeActive:           minSelfStakeToBeActive,
 			BootstrapCandidates:              cfg.Staking.BootstrapCandidates,
 			PersistStakingPatchBlock:         cfg.PersistStakingPatchBlock,
 			FixAliasForNonStopHeight:         cfg.FixAliasForNonStopHeight,
+			SkipContractStakingViewHeight:    cfg.SkipContractStakingViewHeight,
 			EndorsementWithdrawWaitingBlocks: cfg.Staking.EndorsementWithdrawWaitingBlocks,
 			MigrateContractAddress:           migrateContractAddress,
 		},
+		blocksToDurationFn:       blocksToDurationFn,
 		candBucketsIndexer:       candBucketsIndexer,
 		voteReviser:              voteReviser,
 		patch:                    NewPatchStore(cfg.StakingPatchDir),
@@ -213,7 +279,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 	}
 
 	// load view from SR
-	c, _, err := CreateBaseView(sr, featureCtx.ReadStateFromDB(height))
+	c, _, err := CreateBaseView(protocol.MustGetFeatureCtx(ctx), sr, featureCtx.ReadStateFromDB(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -230,28 +296,83 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			return nil, errors.Wrap(err, "failed to load name/operator map to cand center")
 		}
 	}
-
 	c.contractsStake = &contractStakeView{}
-	if p.contractStakingIndexer != nil {
-		view, err := p.contractStakingIndexer.StartView(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to start contract staking indexer")
+	checkIndex := func(indexer ContractStakingIndexer) error {
+		checker := blockdao.GetChecker(ctx)
+		if checker == nil {
+			return nil
 		}
-		c.contractsStake.v1 = view
+		if err := indexer.Start(ctx); err != nil {
+			return errors.Wrap(err, "failed to start contract staking indexer")
+		}
+		if indexer.StartHeight() > height {
+			return nil
+		}
+		indexerHeight, err := indexer.Height()
+		if err != nil {
+			return errors.Wrap(err, "failed to get contract staking indexer height")
+		}
+		if indexerHeight > height {
+			return errors.Errorf("contract staking indexer height %d > current height %d", indexerHeight, height)
+		}
+		if height == 0 {
+			return nil
+		}
+		checkerHeight, err := checker.Height()
+		if err != nil {
+			return errors.Wrap(err, "failed to get checker height")
+		}
+		if checkerHeight < height {
+			return errors.Errorf("checker height %d < target height %d", checkerHeight, height)
+		}
+		return checker.CheckIndexer(ctx, indexer, height, func(h uint64) {
+			if h%5000 == 0 || h == height {
+				log.L().Info("Checking contract staking indexer", zap.Uint64("height", h), zap.String("contract", indexer.ContractAddress().String()))
+			}
+		})
 	}
-	if p.contractStakingIndexerV2 != nil {
-		view, err := p.contractStakingIndexerV2.StartView(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to start contract staking indexer v2")
-		}
-		c.contractsStake.v2 = view
+	// List of all indexers to process
+	indexers := []struct {
+		indexer ContractStakingIndexer
+		setter  func(ContractStakeView)
+	}{
+		{p.contractStakingIndexer, func(v ContractStakeView) { c.contractsStake.v1 = v }},
+		{p.contractStakingIndexerV2, func(v ContractStakeView) { c.contractsStake.v2 = v }},
+		{p.contractStakingIndexerV3, func(v ContractStakeView) { c.contractsStake.v3 = v }},
 	}
-	if p.contractStakingIndexerV3 != nil {
-		view, err := p.contractStakingIndexerV3.StartView(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to start contract staking indexer v3")
+	// Process all indexers in parallel
+	wg := sync.WaitGroup{}
+	errChan := make(chan error, len(indexers))
+	skipView := p.skipContractStakingView(height)
+	for _, idx := range indexers {
+		if idx.indexer == nil {
+			continue
 		}
-		c.contractsStake.v3 = view
+		wg.Add(1)
+		func(indexer ContractStakingIndexer, setter func(ContractStakeView)) {
+			defer wg.Done()
+			// First, checking the indexer
+			if err := checkIndex(indexer); err != nil {
+				errChan <- errors.Wrapf(err, "failed to check contract staking indexer %s", indexer.ContractAddress())
+				return
+			}
+			// If not skipping view creation, build the view
+			if !skipView {
+				view, err := NewContractStakeViewBuilder(indexer, p.blockStore).Build(ctx, sr, height)
+				if err != nil {
+					errChan <- errors.Wrapf(err, "failed to create stake view for contract %s", indexer.ContractAddress())
+					return
+				}
+				setter(view)
+			}
+		}(idx.indexer, idx.setter)
+	}
+	wg.Wait()
+	close(errChan)
+	for err := range errChan {
+		if err != nil {
+			return nil, err
+		}
 	}
 	return c, nil
 }
@@ -269,7 +390,7 @@ func (p *Protocol) CreateGenesisStates(
 	if err != nil {
 		return err
 	}
-
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 	for _, bc := range p.config.BootstrapCandidates {
 		owner, err := address.FromString(bc.OwnerAddress)
 		if err != nil {
@@ -290,7 +411,7 @@ func (p *Protocol) CreateGenesisStates(
 		if !ok {
 			return action.ErrInvalidAmount
 		}
-		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
+		bucket := NewVoteBucket(owner, owner, selfStake, 7, blkCtx.BlockTimeStamp, true)
 		bucketIdx, err := csm.putBucketAndIndex(bucket)
 		if err != nil {
 			return err
@@ -316,6 +437,75 @@ func (p *Protocol) CreateGenesisStates(
 
 	// commit updated view
 	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
+}
+
+func (p *Protocol) SlashCandidateByOperator(
+	ctx context.Context,
+	sm protocol.StateManager,
+	operator address.Address,
+	amount *big.Int,
+) error {
+	csm, err := NewCandidateStateManager(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create candidate state manager")
+	}
+	return p.slashCandidate(ctx, csm, csm.GetByOperator(operator), amount)
+}
+
+func (p *Protocol) SlashCandidateByID(
+	ctx context.Context,
+	sm protocol.StateManager,
+	id address.Address,
+	amount *big.Int,
+) error {
+	csm, err := NewCandidateStateManager(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create candidate state manager")
+	}
+	return p.slashCandidate(ctx, csm, csm.GetByIdentifier(id), amount)
+}
+
+func (p *Protocol) slashCandidate(
+	ctx context.Context,
+	csm CandidateStateManager,
+	candidate *Candidate,
+	amount *big.Int,
+) error {
+	if amount == nil || amount.Sign() <= 0 {
+		return errors.New("nil or non-positive amount")
+	}
+	if candidate == nil {
+		return ErrCandidateNotExist
+	}
+	if candidate.SelfStakeBucketIdx == candidateNoSelfStakeBucketIndex {
+		return errors.Wrap(ErrNoSelfStakeBucket, "failed to slash candidate")
+	}
+	bucket, err := p.fetchBucket(csm, candidate.SelfStakeBucketIdx)
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch bucket")
+	}
+	prevWeightedVotes := p.calculateVoteWeight(bucket, true)
+	if bucket.StakedAmount.Cmp(amount) < 0 {
+		return errors.Errorf("amount %s is greater than staked amount %s", amount.String(), bucket.StakedAmount.String())
+	}
+	bucket.StakedAmount.Sub(bucket.StakedAmount, amount)
+	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
+		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)
+	}
+	if err := candidate.SubVote(prevWeightedVotes); err != nil {
+		return errors.Wrapf(err, "failed to sub candidate votes")
+	}
+	weightedVotes := p.calculateVoteWeight(bucket, true)
+	if err := candidate.AddVote(weightedVotes); err != nil {
+		return errors.Wrapf(err, "failed to add candidate votes")
+	}
+	if err := candidate.SubSelfStake(amount); err != nil {
+		return errors.Wrap(err, "failed to update self stake")
+	}
+	if err := csm.Upsert(candidate); err != nil {
+		return errors.Wrap(err, "failed to upsert candidate")
+	}
+	return csm.CreditBucketPool(amount, false)
 }
 
 // CreatePreStates updates state manager
@@ -359,13 +549,53 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 	}
-	// create pre-states for contract staking
-	v, err := sm.ReadView(_protocolID)
-	if err != nil {
-		return err
+	if blkCtx.BlockHeight == g.XinguBlockHeight {
+		handler, err := newNFTBucketEventHandler(sm, p.calculateContractBucketVoteWeight)
+		if err != nil {
+			return err
+		}
+		// create pre-states for contract staking
+		v, err := sm.ReadView(_protocolID)
+		if err != nil {
+			return err
+		}
+		vd := v.(*viewData)
+		if err := vd.contractsStake.Migrate(ctx, handler); err != nil {
+			return errors.Wrap(err, "failed to flush buckets for contract staking")
+		}
 	}
-	if err = v.(*ViewData).contractsStake.CreatePreStates(ctx); err != nil {
-		return err
+	if featureCtx.StoreVoteOfNFTBucketIntoView {
+		// create pre-states for contract staking
+		v, err := sm.ReadView(_protocolID)
+		if err != nil {
+			return err
+		}
+		vd := v.(*viewData)
+		if err := vd.contractsStake.CreatePreStates(ctx); err != nil {
+			return err
+		}
+		if blkCtx.BlockHeight == g.WakeBlockHeight {
+			vd.contractsStake.Revise(ctx)
+		}
+	}
+	// remove BLS public key of all candidates at XinguBeta
+	if blkCtx.BlockHeight == g.XinguBetaBlockHeight {
+		csm, err := NewCandidateStateManager(sm)
+		if err != nil {
+			return err
+		}
+		csr, err := ConstructBaseView(sm)
+		if err != nil {
+			return err
+		}
+		cands := csr.AllCandidates()
+		sort.Sort(cands)
+		for _, c := range cands {
+			c.BLSPubKey = nil
+			if err := csm.Upsert(c); err != nil {
+				return errors.Wrapf(err, "failed to update candidate %s", c.GetIdentifier().String())
+			}
+		}
 	}
 
 	if p.candBucketsIndexer == nil {
@@ -386,12 +616,55 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	return p.handleStakingIndexer(ctx, rp.GetEpochHeight(currentEpochNum-1), sm)
 }
 
+func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.NoCandidateExitQueue {
+		return nil, nil
+	}
+	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
+	if rp == nil {
+		return nil, nil
+	}
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	currentEpochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+	if currentEpochNum == 0 {
+		return nil, nil
+	}
+	epochStartHeight := rp.GetEpochHeight(currentEpochNum)
+	if epochStartHeight == blkCtx.BlockHeight {
+		var last lastExitEpoch
+		_, err := sr.State(&last, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_lastExitEpoch))
+		if err != nil && !errors.Is(err, state.ErrStateNotExist) {
+			return nil, err
+		}
+		g := genesis.MustExtractGenesisContext(ctx)
+		if last.epoch+g.ExitAdmissionInterval > currentEpochNum {
+			return nil, nil
+		}
+		csr, err := ConstructBaseView(sr)
+		if err != nil {
+			return nil, err
+		}
+		cands := csr.AllCandidates()
+		sort.Sort(cands)
+		for _, c := range cands {
+			if c.DeactivatedAt == candidateExitRequested {
+				exitAction := action.NewScheduleCandidateDeactivation(c.GetIdentifier())
+				builder := action.EnvelopeBuilder{}
+
+				return []action.Envelope{builder.SetNonce(uint64(0)).SetAction(exitAction).Build()}, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
 func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight uint64, sm protocol.StateManager) error {
 	csr, err := ConstructBaseView(sm)
 	if err != nil {
 		return err
 	}
-	allBuckets, _, err := csr.getAllBuckets()
+	allBuckets, _, err := csr.NativeBuckets()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
@@ -403,18 +676,18 @@ func (p *Protocol) handleStakingIndexer(ctx context.Context, epochStartHeight ui
 	if err != nil {
 		return err
 	}
-	all, _, err := csr.getAllCandidates()
-	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
+	cc, _, err := csr.CreateCandidateCenter(protocol.MustGetFeatureCtx(ctx))
+	if err != nil {
 		return err
 	}
-	candidateList, err := toIoTeXTypesCandidateListV2(csr, all, protocol.MustGetFeatureCtx(ctx))
+	candidateList, err := toIoTeXTypesCandidateListV2(csr, cc.All(), protocol.MustGetFeatureCtx(ctx))
 	if err != nil {
 		return err
 	}
 	return p.candBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
 }
 
-// PreCommit preforms pre-commit
+// PreCommit performs pre-commit
 func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) error {
 	height, err := sm.Height()
 	if err != nil {
@@ -427,25 +700,14 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if err != nil {
 		return err
 	}
-	vd := view.(*ViewData)
+	vd := view.(*viewData)
 	if !vd.IsDirty() {
 		return nil
 	}
-	vd = vd.Clone().(*ViewData)
 	if err := vd.Commit(ctx, sm); err != nil {
 		return err
 	}
-	// persist nameMap/operatorMap and ownerList to stateDB
-	name := vd.candCenter.base.candsInNameMap()
-	op := vd.candCenter.base.candsInOperatorMap()
-	owners := vd.candCenter.base.ownersList()
-	if len(name) == 0 || len(op) == 0 {
-		return ErrNilParameters
-	}
-	if err := writeCandCenterStateToStateDB(sm, name, op, owners); err != nil {
-		return errors.Wrap(err, "failed to write name/operator map to stateDB")
-	}
-	return nil
+	return vd.candCenter.WriteToStateDB(sm)
 }
 
 // Commit commits the last change
@@ -454,7 +716,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	if err != nil {
 		return err
 	}
-	if !view.(*ViewData).IsDirty() {
+	if !view.(*viewData).IsDirty() {
 		return nil
 	}
 
@@ -468,7 +730,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 }
 
 // Handle handles a staking message
-func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (receipt *action.Receipt, err error) {
 	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return nil, err
@@ -478,7 +740,7 @@ func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.
 		return nil, err
 	}
 	snapshot := view.Snapshot()
-	receipt, err := p.handle(ctx, elp, csm)
+	receipt, err = p.handle(ctx, elp, csm)
 	if err != nil {
 		if err := view.Revert(snapshot); err != nil {
 			return nil, errors.Wrap(err, "failed to revert view")
@@ -499,6 +761,7 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		actionCtx         = protocol.MustGetActionCtx(ctx)
 		gasConsumed       = actionCtx.IntrinsicGas
 		gasToBeDeducted   = gasConsumed
+		isSystemAction    bool
 	)
 	switch act := elp.Action().(type) {
 	case *action.CreateStake:
@@ -519,12 +782,17 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		rLog, tLogs, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
+	case *action.CandidateDeactivate:
+		rLog, tLogs, err = p.handleCandidateDeactivate(ctx, act, csm)
 	case *action.CandidateActivate:
 		rLog, tLogs, err = p.handleCandidateActivate(ctx, act, csm)
 	case *action.CandidateEndorsement:
 		rLog, tLogs, err = p.handleCandidateEndorsement(ctx, act, csm)
 	case *action.CandidateTransferOwnership:
 		rLog, tLogs, err = p.handleCandidateTransferOwnership(ctx, act, csm)
+	case *action.ScheduleCandidateDeactivation:
+		isSystemAction = true
+		rLog, tLogs, err = p.handleScheduleCandidateDeactivation(ctx, act, csm)
 	case *action.MigrateStake:
 		logs, tLogs, gasConsumed, gasToBeDeducted, err = p.handleStakeMigrate(ctx, elp, csm)
 		if err == nil {
@@ -535,29 +803,76 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 	}
 	if rLog != nil {
 		if l := rLog.Build(ctx, err); l != nil {
-			logs = append(logs, l)
+			logs = append(logs, l...)
 		}
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm.SM(), elp, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
+		return p.settleAction(ctx, csm.SM(), elp, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption, isSystemAction)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
 			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
-		return p.settleAction(ctx, csm.SM(), elp, receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption)
+		return p.settleAction(ctx, csm.SM(), elp, receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption, isSystemAction)
 	}
 	return nil, err
 }
 
 // HandleReceipt handles a receipt
 func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm protocol.StateManager, receipt *action.Receipt) error {
-	v, err := sm.ReadView(_protocolID)
+	featureCtx, ok := protocol.GetFeatureCtx(ctx)
+	if !ok {
+		return errors.New("failed to get feature context from action context")
+	}
+	var (
+		handler *nftEventHandler
+		err     error
+	)
+	ccvw := p.calculateContractBucketVoteWeight
+	if featureCtx.StoreVoteOfNFTBucketIntoView {
+		v, err := sm.ReadView(_protocolID)
+		if err != nil {
+			return err
+		}
+		if err := v.(*viewData).contractsStake.Handle(ctx, receipt); err != nil {
+			return err
+		}
+		handler = newNFTBucketEventHandlerErigonOnly(sm, ccvw)
+	} else {
+		handler, err = newNFTBucketEventHandler(sm, ccvw)
+	}
 	if err != nil {
 		return err
 	}
-	return v.(*ViewData).contractsStake.Handle(ctx, receipt)
+	if p.contractStakingIndexer != nil {
+		processor := p.contractStakingIndexer.CreateEventProcessor(ctx, handler)
+		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
+			if !errors.Is(err, state.ErrErigonStoreNotSupported) {
+				return errors.Wrap(err, "failed to process receipt for contract staking indexer")
+			}
+			log.L().Debug("skip processing receipt for contract staking indexer due to erigon store not supported")
+		}
+	}
+	if p.contractStakingIndexerV2 != nil {
+		processor := p.contractStakingIndexerV2.CreateEventProcessor(ctx, handler)
+		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
+			if !errors.Is(err, state.ErrErigonStoreNotSupported) {
+				return errors.Wrap(err, "failed to process receipt for contract staking indexer v2")
+			}
+			log.L().Debug("skip processing receipt for contract staking indexer v2 due to erigon store not supported")
+		}
+	}
+	if p.contractStakingIndexerV3 != nil {
+		processor := p.contractStakingIndexerV3.CreateEventProcessor(ctx, handler)
+		if err := processor.ProcessReceipts(ctx, receipt); err != nil {
+			if !errors.Is(err, state.ErrErigonStoreNotSupported) {
+				return errors.Wrap(err, "failed to process receipt for contract staking indexer v3")
+			}
+			log.L().Debug("skip processing receipt for contract staking indexer v3 due to erigon store not supported")
+		}
+	}
+	return nil
 }
 
 // Validate validates a staking message
@@ -592,20 +907,34 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		return p.validateCandidateTransferOwnershipAction(ctx, act)
 	case *action.MigrateStake:
 		return p.validateMigrateStake(ctx, act)
+	case *action.CandidateDeactivate:
+		return p.validateCandidateDeactivate(ctx, act)
 	}
 	return nil
 }
 
 func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidiateStateCommon, cand *Candidate) (bool, error) {
-	if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
-		return false, nil
-	}
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.NotUseMinSelfStakeToBeActive {
+		if cand.SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
+			return false, nil
+		}
+	} else {
+		if cand.SelfStake.Cmp(p.config.MinSelfStakeToBeActive) < 0 {
+			return false, nil
+		}
+	}
+	if !featureCtx.NoCandidateExitQueue {
+		// A candidate scheduled to exit
+		if cand.DeactivatedAt != 0 && cand.DeactivatedAt != candidateExitRequested {
+			return false, nil
+		}
+	}
 	if featureCtx.DisableDelegateEndorsement {
 		// before endorsement feature, candidates with enough amount must be active
 		return true, nil
 	}
-	bucket, err := csr.getBucket(cand.SelfStakeBucketIdx)
+	bucket, err := csr.NativeBucket(cand.SelfStakeBucketIdx)
 	switch {
 	case errors.Cause(err) == state.ErrStateNotExist:
 		// endorse bucket has been withdrawn
@@ -623,30 +952,22 @@ func (p *Protocol) isActiveCandidate(ctx context.Context, csr CandidiateStateCom
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
-	srHeight, err := sr.Height()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get StateReader height")
-	}
 	c, err := ConstructBaseView(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}
 	list := c.AllCandidates()
 	cand := make(CandidateList, 0, len(list))
+	fCtx := protocol.MustGetFeatureCtx(ctx)
 	for i := range list {
-		var csVotes *big.Int
-		if protocol.MustGetFeatureCtx(ctx).CreatePostActionStates {
+		if fCtx.StoreVoteOfNFTBucketIntoView {
+			var csVotes *big.Int
 			csVotes, err = p.contractStakingVotesFromView(ctx, list[i].GetIdentifier(), c.BaseView())
-		} else {
-			// specifying the height param instead of query latest from indexer directly, aims to cause error when indexer falls behind.
-			// the reason of using srHeight-1 is contract indexer is not updated before the block is committed.
-			csVotes, err = p.contractStakingVotesFromIndexer(ctx, list[i].GetIdentifier(), srHeight-1)
 			if err != nil {
 				return nil, err
 			}
+			list[i].Votes.Add(list[i].Votes, csVotes)
 		}
-
-		list[i].Votes.Add(list[i].Votes, csVotes)
 		active, err := p.isActiveCandidate(ctx, c, list[i])
 		if err != nil {
 			return nil, err
@@ -655,7 +976,7 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 			cand = append(cand, list[i])
 		}
 	}
-	return cand.toStateCandidateList()
+	return cand.toStateCandidateList(protocol.MustGetFeatureWithHeightCtx(ctx).CandidateWithoutIdentityStorage(height))
 }
 
 // ReadState read the state on blockchain via protocol
@@ -675,13 +996,25 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	// stakeSR is the stake state reader including native and contract staking
 	indexers := []ContractStakingIndexer{}
 	if p.contractStakingIndexer != nil {
-		indexers = append(indexers, NewDelayTolerantIndexerWithBucketType(p.contractStakingIndexer, time.Second))
+		index, err := contractStakingIndexerAt(p.contractStakingIndexer, sr, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		indexers = append(indexers, NewDelayTolerantIndexerWithBucketType(index.(ContractStakingIndexerWithBucketType), time.Second))
 	}
 	if p.contractStakingIndexerV2 != nil {
-		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV2, time.Second))
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV2, sr, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		indexers = append(indexers, NewDelayTolerantIndexer(index, time.Second))
 	}
 	if p.contractStakingIndexerV3 != nil {
-		indexers = append(indexers, NewDelayTolerantIndexer(p.contractStakingIndexerV3, time.Second))
+		index, err := contractStakingIndexerAt(p.contractStakingIndexerV3, sr, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		indexers = append(indexers, NewDelayTolerantIndexer(index, time.Second))
 	}
 	stakeSR, err := newCompositeStakingStateReader(p.candBucketsIndexer, sr, p.calculateVoteWeight, indexers...)
 	if err != nil {
@@ -771,8 +1104,54 @@ func (p *Protocol) Name() string {
 	return _protocolID
 }
 
+func (p *Protocol) convertToVoteBucket(bkt *contractstaking.Bucket, height uint64) *VoteBucket {
+	vb := VoteBucket{
+		Index:           0,
+		StakedAmount:    bkt.StakedAmount,
+		AutoStake:       bkt.UnlockedAt == MaxDurationNumber,
+		Candidate:       bkt.Candidate,
+		Owner:           bkt.Owner,
+		ContractAddress: address.ZeroAddress,
+		Timestamped:     bkt.IsTimestampBased,
+	}
+	if bkt.IsTimestampBased {
+		vb.StakedDuration = time.Duration(bkt.StakedDuration) * time.Second
+		vb.StakeStartTime = time.Unix(int64(bkt.CreatedAt), 0)
+		vb.CreateTime = time.Unix(int64(bkt.CreatedAt), 0)
+		if bkt.UnlockedAt != MaxDurationNumber {
+			vb.StakeStartTime = time.Unix(int64(bkt.UnlockedAt), 0)
+		}
+		if bkt.UnstakedAt == MaxDurationNumber {
+			vb.UnstakeStartTime = time.Unix(0, 0)
+		} else {
+			vb.UnstakeStartTime = time.Unix(int64(bkt.UnstakedAt), 0)
+		}
+	} else {
+		vb.StakedDuration = p.blocksToDurationFn(bkt.CreatedAt, bkt.CreatedAt+bkt.StakedDuration, height)
+		vb.StakedDurationBlockNumber = bkt.StakedDuration
+		vb.CreateBlockHeight = bkt.CreatedAt
+		vb.StakeStartBlockHeight = bkt.CreatedAt
+		vb.UnstakeStartBlockHeight = bkt.UnstakedAt
+		if bkt.UnlockedAt != MaxDurationNumber {
+			vb.StakeStartBlockHeight = bkt.UnlockedAt
+		}
+	}
+	if bkt.Muted {
+		vb.Candidate, _ = address.FromString(address.ZeroAddress)
+	}
+	return &vb
+}
+
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
 	return CalculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
+}
+
+func (p *Protocol) calculateContractBucketVoteWeight(bucket *contractstaking.Bucket, height uint64) *big.Int {
+	vb := p.convertToVoteBucket(bucket, height)
+	if bucket.Muted || vb.isUnstaked() {
+		return big.NewInt(0)
+	}
+	return p.calculateVoteWeight(vb, false)
 }
 
 type nonceUpdateType bool
@@ -793,33 +1172,38 @@ func (p *Protocol) settleAction(
 	gasConsumed uint64,
 	gasToBeDeducted uint64,
 	updateNonce nonceUpdateType,
+	isSystemAction bool,
 ) (*action.Receipt, error) {
 	var (
 		actionCtx = protocol.MustGetActionCtx(ctx)
 		blkCtx    = protocol.MustGetBlockCtx(ctx)
 	)
-	priorityFee, baseFee, err := protocol.SplitGas(ctx, act, gasToBeDeducted)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to split gas")
-	}
-	depositLog, err := p.helperCtx.DepositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(priorityFee))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deposit gas")
-	}
-	if updateNonce {
-		accountCreationOpts := []state.AccountCreationOption{}
-		if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
-			accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
-		}
-		acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
+	var depositLog []*action.TransactionLog
+	if !isSystemAction {
+		priorityFee, baseFee, err := protocol.SplitGas(ctx, act, gasToBeDeducted)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to split gas")
 		}
-		if err := acc.SetPendingNonce(actionCtx.Nonce + 1); err != nil {
-			return nil, errors.Wrap(err, "failed to set nonce")
+		var err2 error
+		depositLog, err2 = p.helperCtx.DepositGas(ctx, sm, baseFee, protocol.PriorityFeeOption(priorityFee))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "failed to deposit gas")
 		}
-		if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
-			return nil, errors.Wrap(err, "failed to update nonce")
+		if updateNonce {
+			accountCreationOpts := []state.AccountCreationOption{}
+			if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+				accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
+			}
+			acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
+			if err != nil {
+				return nil, err
+			}
+			if err := acc.SetPendingNonce(actionCtx.Nonce + 1); err != nil {
+				return nil, errors.Wrap(err, "failed to set nonce")
+			}
+			if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
+				return nil, errors.Wrap(err, "failed to update nonce")
+			}
 		}
 	}
 	r := action.Receipt{
@@ -834,6 +1218,10 @@ func (p *Protocol) settleAction(
 	return &r, nil
 }
 
+func (p *Protocol) skipContractStakingView(height uint64) bool {
+	return height >= p.config.SkipContractStakingViewHeight
+}
+
 func (p *Protocol) needToReadCandsMap(ctx context.Context, height uint64) bool {
 	fCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	return height > p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
@@ -844,68 +1232,30 @@ func (p *Protocol) needToWriteCandsMap(ctx context.Context, height uint64) bool 
 	return height >= p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
 }
 
-func (p *Protocol) contractStakingVotesFromIndexer(ctx context.Context, candidate address.Address, height uint64) (*big.Int, error) {
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	votes := big.NewInt(0)
-	indexers := []ContractStakingIndexer{}
-	if p.contractStakingIndexer != nil && featureCtx.AddContractStakingVotes {
-		indexers = append(indexers, p.contractStakingIndexer)
-	}
-	if p.contractStakingIndexerV2 != nil && !featureCtx.LimitedStakingContract {
-		indexers = append(indexers, p.contractStakingIndexerV2)
-	}
-	if p.contractStakingIndexerV3 != nil && featureCtx.TimestampedStakingContract {
-		indexers = append(indexers, p.contractStakingIndexerV3)
-	}
-
-	for _, indexer := range indexers {
-		btks, err := indexer.BucketsByCandidate(candidate, height)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get BucketsByCandidate from contractStakingIndexer")
-		}
-		for _, b := range btks {
-			votes.Add(votes, p.contractBucketVotes(featureCtx, b))
-		}
-	}
-	return votes, nil
-}
-
-func (p *Protocol) contractStakingVotesFromView(ctx context.Context, candidate address.Address, view *ViewData) (*big.Int, error) {
+func (p *Protocol) contractStakingVotesFromView(ctx context.Context, candidate address.Address, view *viewData) (*big.Int, error) {
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	votes := big.NewInt(0)
 	views := []ContractStakeView{}
-	if p.contractStakingIndexer != nil && featureCtx.AddContractStakingVotes {
+	if view.contractsStake == nil {
+		return votes, nil
+	}
+	if view.contractsStake.v1 != nil && featureCtx.AddContractStakingVotes {
 		views = append(views, view.contractsStake.v1)
 	}
-	if p.contractStakingIndexerV2 != nil && !featureCtx.LimitedStakingContract {
+	if view.contractsStake.v2 != nil && !featureCtx.LimitedStakingContract {
 		views = append(views, view.contractsStake.v2)
 	}
-	if p.contractStakingIndexerV3 != nil && featureCtx.TimestampedStakingContract {
+	if view.contractsStake.v3 != nil && featureCtx.TimestampedStakingContract {
 		views = append(views, view.contractsStake.v3)
 	}
 	for _, cv := range views {
-		btks, err := cv.BucketsByCandidate(candidate)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get BucketsByCandidate from contractStakingIndexer")
+		v := cv.CandidateStakeVotes(ctx, candidate)
+		if v == nil {
+			continue
 		}
-		for _, b := range btks {
-			votes.Add(votes, p.contractBucketVotes(featureCtx, b))
-		}
+		votes.Add(votes, v)
 	}
 	return votes, nil
-}
-
-func (p *Protocol) contractBucketVotes(fCtx protocol.FeatureCtx, bkt *VoteBucket) *big.Int {
-	votes := big.NewInt(0)
-	if bkt.isUnstaked() {
-		return votes
-	}
-	if fCtx.FixContractStakingWeightedVotes {
-		votes.Add(votes, p.calculateVoteWeight(bkt, false))
-	} else {
-		votes.Add(votes, bkt.StakedAmount)
-	}
-	return votes
 }
 
 func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, CandidateList, CandidateList, error) {
@@ -924,46 +1274,25 @@ func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, Can
 	return name, operator, owner, nil
 }
 
-func writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners CandidateList) error {
-	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
-		return err
+func contractStakingIndexerAt(index ContractStakingIndexer, sr protocol.StateReader, delay bool) (ContractStakingIndexer, error) {
+	if index == nil {
+		return nil, nil
 	}
-	if _, err := sm.PutState(op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
-		return err
-	}
-	_, err := sm.PutState(owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
-	return err
-}
-
-// isSelfStakeBucket returns true if the bucket is self-stake bucket and not expired
-func isSelfStakeBucket(featureCtx protocol.FeatureCtx, csc CandidiateStateCommon, bucket *VoteBucket) (bool, error) {
-	// bucket index should be settled in one of candidates
-	selfStake := csc.ContainsSelfStakingBucket(bucket.Index)
-	if featureCtx.DisableDelegateEndorsement || !selfStake {
-		return selfStake, nil
-	}
-
-	// bucket should not be unstaked if it is self-owned
-	if isSelfOwnedBucket(csc, bucket) {
-		return !bucket.isUnstaked(), nil
-	}
-	// otherwise bucket should be an endorse bucket which is not expired
-	esm := NewEndorsementStateReader(csc.SR())
-	height, err := esm.Height()
+	srHeight, err := sr.Height()
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	status, err := esm.Status(featureCtx, bucket.Index, height)
+	if delay {
+		srHeight--
+	}
+	indexHeight, err := index.Height()
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return status != EndorseExpired, nil
-}
-
-func isSelfOwnedBucket(csc CandidiateStateCommon, bucket *VoteBucket) bool {
-	cand := csc.GetByIdentifier(bucket.Candidate)
-	if cand == nil {
-		return false
+	if index.StartHeight() > srHeight || indexHeight == srHeight {
+		return index, nil
+	} else if indexHeight < srHeight {
+		return nil, errors.Errorf("indexer height %d is too old for state reader height %d", indexHeight, srHeight)
 	}
-	return address.Equal(bucket.Owner, cand.Owner)
+	return index.IndexerAt(sr), nil
 }

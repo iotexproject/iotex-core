@@ -7,7 +7,6 @@ package action
 
 import (
 	"bytes"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"google.golang.org/protobuf/proto"
@@ -22,32 +21,6 @@ const (
 	MoveStakePayloadGas = uint64(100)
 	// MoveStakeBaseIntrinsicGas represents the base intrinsic gas for stake move
 	MoveStakeBaseIntrinsicGas = uint64(10000)
-
-	_changeCandidateInterfaceABI = `[
-		{
-			"inputs": [
-				{
-					"internalType": "string",
-					"name": "candName",
-					"type": "string"
-				},
-				{
-					"internalType": "uint64",
-					"name": "bucketIndex",
-					"type": "uint64"
-				},
-				{
-					"internalType": "uint8[]",
-					"name": "data",
-					"type": "uint8[]"
-				}
-			],
-			"name": "changeCandidate",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
 )
 
 var (
@@ -65,13 +38,8 @@ type ChangeCandidate struct {
 }
 
 func init() {
-	var err error
-	changeCandidateInterface, err := abi.JSON(strings.NewReader(_changeCandidateInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
 	var ok bool
-	_changeCandidateMethod, ok = changeCandidateInterface.Methods["changeCandidate"]
+	_changeCandidateMethod, ok = NativeStakingContractABI().Methods["changeCandidate"]
 	if !ok {
 		panic("fail to load the method")
 	}

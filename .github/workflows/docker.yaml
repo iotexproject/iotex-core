@@ -1,0 +1,111 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*.*.*"           # v1.2.3
+      - "v*.*.*-*"         # v1.2.3-rc1, v1.2.3-alpha.1, v1.2.3-beta
+      - "v*.*.*-*.*"       # v1.2.3-alpha.1, v1.2.3-rc.2
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref (branch, tag, or commit SHA) to build'
+        required: false
+        default: 'master'
+        type: string
+      push_image:
+        description: 'Push image to registry'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.event.inputs.push_image == 'true')
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # set latest tag for master branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            # set version tag for tags
+            type=ref,event=tag
+            # set branch name for branch pushes
+            type=ref,event=branch
+            # set pr-<number> for pull requests
+            type=ref,event=pr
+            # set sha-<short_sha> for any push
+            type=sha,prefix=sha-
+            # set manual-<short_sha> for manual workflow dispatch
+            type=sha,prefix=manual-,enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Get package info
+        id: package_info
+        run: |
+          echo "PACKAGE_VERSION=$(git describe --tags --always)" >> $GITHUB_OUTPUT
+          echo "PACKAGE_COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          GIT_STATUS=$(git status --porcelain)
+          if [ -n "$GIT_STATUS" ]; then
+            echo "GIT_STATUS=dirty" >> $GITHUB_OUTPUT
+          else
+            echo "GIT_STATUS=clean" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.event.inputs.push_image == 'true') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PACKAGE_VERSION=${{ steps.package_info.outputs.PACKAGE_VERSION }}
+            PACKAGE_COMMIT_ID=${{ steps.package_info.outputs.PACKAGE_COMMIT_ID }}
+            GIT_STATUS=${{ steps.package_info.outputs.GIT_STATUS }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate artifact attestation
+        if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.event.inputs.push_image == 'true')
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true

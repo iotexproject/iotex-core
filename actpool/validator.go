@@ -38,7 +38,7 @@ func (v *blobValidator) Validate(ctx context.Context, act *action.SealedEnvelope
 	return nil
 }
 
-func (v *blobValidator) OnAdded(act *action.SealedEnvelope) {
+func (v *blobValidator) OnAdded(ctx context.Context, act *action.SealedEnvelope) {
 	if len(act.BlobHashes()) == 0 {
 		return
 	}

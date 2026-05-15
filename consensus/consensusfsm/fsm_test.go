@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/golang/mock/gomock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/testutil"

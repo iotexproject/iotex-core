@@ -61,7 +61,11 @@ func (ar *ActionRadio) Stop() error {
 }
 
 // OnAdded broadcasts the action to the network
-func (ar *ActionRadio) OnAdded(selp *action.SealedEnvelope) {
+func (ar *ActionRadio) OnAdded(ctx context.Context, selp *action.SealedEnvelope) {
+	if _, fromAPI := GetAPIContext(ctx); !fromAPI {
+		// only broadcast actions from API context
+		return
+	}
 	var (
 		hasSidecar = selp.BlobTxSidecar() != nil
 		hash, _    = selp.Hash()

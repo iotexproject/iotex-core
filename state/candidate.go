@@ -6,6 +6,7 @@
 package state
 
 import (
+	"bytes"
 	"math/big"
 	"strings"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 
 	"github.com/iotexproject/iotex-address/address"
 )
@@ -31,10 +34,12 @@ var (
 type (
 	// Candidate indicates the structure of a candidate
 	Candidate struct {
-		Address       string
+		Identity      string // Candidate Identity
+		Address       string // Operator address
 		Votes         *big.Int
 		RewardAddress string
 		CanName       []byte // used as identifier to merge with native staking result, not part of protobuf
+		BLSPubKey     []byte // BLS public key, used for verification
 	}
 
 	// CandidateList indicates the list of Candidates which is sortable
@@ -52,9 +57,11 @@ func (c *Candidate) Equal(d *Candidate) bool {
 	if c == nil || d == nil {
 		return false
 	}
-	return strings.Compare(c.Address, d.Address) == 0 &&
+	return strings.Compare(c.Identity, d.Identity) == 0 &&
+		strings.Compare(c.Address, d.Address) == 0 &&
 		c.RewardAddress == d.RewardAddress &&
-		c.Votes.Cmp(d.Votes) == 0
+		c.Votes.Cmp(d.Votes) == 0 &&
+		bytes.Equal(c.BLSPubKey, d.BLSPubKey)
 }
 
 // Clone makes a copy of the candidate
@@ -64,11 +71,18 @@ func (c *Candidate) Clone() *Candidate {
 	}
 	name := make([]byte, len(c.CanName))
 	copy(name, c.CanName)
+	var pubkey []byte
+	if len(c.BLSPubKey) > 0 {
+		pubkey = make([]byte, len(c.BLSPubKey))
+		copy(pubkey, c.BLSPubKey)
+	}
 	return &Candidate{
+		Identity:      c.Identity,
 		Address:       c.Address,
 		Votes:         new(big.Int).Set(c.Votes),
 		RewardAddress: c.RewardAddress,
 		CanName:       name,
+		BLSPubKey:     pubkey,
 	}
 }
 
@@ -141,15 +155,128 @@ func (l *CandidateList) LoadProto(candList *iotextypes.CandidateList) error {
 	return nil
 }
 
+// Encode encodes a CandidateList into a GenericValue
+func (l *CandidateList) Encode() (systemcontracts.GenericValue, error) {
+	data, err := l.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize candidate list")
+	}
+	return systemcontracts.GenericValue{
+		PrimaryData: data,
+	}, nil
+}
+
+// Decode decodes a GenericValue into CandidateList
+func (l *CandidateList) Decode(gv systemcontracts.GenericValue) error {
+	return l.Deserialize(gv.PrimaryData)
+}
+
+// Encodes encodes a CandidateList into a GenericValue
+func (l *CandidateList) Encodes() ([][]byte, []systemcontracts.GenericValue, error) {
+	var (
+		suffix [][]byte
+		values []systemcontracts.GenericValue
+	)
+	for idx, cand := range *l {
+		pbCand := candidateToPb(cand)
+		dataVotes, err := proto.Marshal(&iotextypes.Candidate{
+			Votes: pbCand.Votes,
+		})
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to serialize candidate votes")
+		}
+		pbCand.Address = "" // address is stored in the suffix
+		pbCand.Votes = nil  // votes is stored in the secondary data
+		data, err := proto.Marshal(pbCand)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to serialize candidate")
+		}
+		addr, err := address.FromString(cand.Address)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to get the hash of the address %s", cand.Address)
+		}
+		// Use linked list format: AuxiliaryData stores the next node's address
+		// For the last element, AuxiliaryData is nil
+		var nextAddr []byte
+		if idx < len(*l)-1 {
+			nextAddrObj, err := address.FromString((*l)[idx+1].Address)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "failed to get the address of the next candidate %s", (*l)[idx+1].Address)
+			}
+			nextAddr = nextAddrObj.Bytes()
+		}
+		suffix = append(suffix, addr.Bytes())
+		values = append(values, systemcontracts.GenericValue{
+			PrimaryData:   data,
+			SecondaryData: dataVotes,
+			AuxiliaryData: nextAddr})
+	}
+	return suffix, values, nil
+}
+
+// Decodes decodes a GenericValue into CandidateList
+func (l *CandidateList) Decodes(suffixs [][]byte, values []systemcontracts.GenericValue) error {
+	if len(suffixs) != len(values) {
+		return errors.New("suffix and values length mismatch")
+	}
+	if len(suffixs) == 0 {
+		*l = CandidateList{}
+		return nil
+	}
+
+	decoder := func(k []byte, v systemcontracts.GenericValue) (*Candidate, string, string, error) {
+		pb := &iotextypes.Candidate{}
+		if err := proto.Unmarshal(v.PrimaryData, pb); err != nil {
+			return nil, "", "", errors.Wrap(err, "failed to unmarshal candidate")
+		}
+		addr, err := address.FromBytes(k)
+		if err != nil {
+			return nil, "", "", errors.Wrapf(err, "failed to get the string of the address from bytes %x", k)
+		}
+		pb.Address = addr.String()
+		// Load votes from SecondaryData
+		pbVotes := &iotextypes.Candidate{}
+		if err := proto.Unmarshal(v.SecondaryData, pbVotes); err != nil {
+			return nil, "", "", errors.Wrap(err, "failed to unmarshal candidate votes")
+		}
+		pb.Votes = pbVotes.Votes
+		// Convert pb to candidate
+		cand, err := pbToCandidate(pb)
+		if err != nil {
+			return nil, "", "", errors.Wrap(err, "failed to convert protobuf's candidate message to candidate")
+		}
+		var next string
+		if len(v.AuxiliaryData) > 0 {
+			nextAddr, err := address.FromBytes(v.AuxiliaryData)
+			if err != nil {
+				return nil, "", "", errors.Wrapf(err, "failed to get the string of the next address from bytes %x", v.AuxiliaryData)
+			}
+			next = nextAddr.String()
+		}
+		return cand, addr.String(), next, nil
+	}
+	candidates, err := DecodeOrderedKvList(suffixs, values, decoder)
+	if err != nil {
+		return err
+	}
+
+	*l = candidates
+	return nil
+}
+
 // candidateToPb converts a candidate to protobuf's candidate message
 func candidateToPb(cand *Candidate) *iotextypes.Candidate {
 	candidatePb := &iotextypes.Candidate{
+		Identity:      cand.Identity,
 		Address:       cand.Address,
 		Votes:         cand.Votes.Bytes(),
 		RewardAddress: cand.RewardAddress,
 	}
 	if cand.Votes != nil && len(cand.Votes.Bytes()) > 0 {
 		candidatePb.Votes = cand.Votes.Bytes()
+	}
+	if len(cand.BLSPubKey) > 0 {
+		candidatePb.BlsPubKey = cand.BLSPubKey
 	}
 	return candidatePb
 }
@@ -160,9 +287,11 @@ func pbToCandidate(candPb *iotextypes.Candidate) (*Candidate, error) {
 		return nil, errors.Wrap(ErrCandidatePb, "protobuf's candidate message cannot be nil")
 	}
 	candidate := &Candidate{
+		Identity:      candPb.Identity,
 		Address:       candPb.Address,
 		Votes:         big.NewInt(0).SetBytes(candPb.Votes),
 		RewardAddress: candPb.RewardAddress,
+		BLSPubKey:     candPb.BlsPubKey,
 	}
 	return candidate, nil
 }

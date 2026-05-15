@@ -8,7 +8,6 @@ package action
 import (
 	"bytes"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
@@ -24,32 +23,6 @@ const (
 	DepositToStakePayloadGas = uint64(100)
 	// DepositToStakeBaseIntrinsicGas represents the base intrinsic gas for DepositToStake
 	DepositToStakeBaseIntrinsicGas = uint64(10000)
-
-	_depositToStakeInterfaceABI = `[
-		{
-			"inputs": [
-				{
-					"internalType": "uint64",
-					"name": "bucketIndex",
-					"type": "uint64"
-				},
-				{
-					"internalType": "uint256",
-					"name": "amount",
-					"type": "uint256"
-				},
-				{
-					"internalType": "uint8[]",
-					"name": "data",
-					"type": "uint8[]"
-				}
-			],
-			"name": "depositToStake",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
 )
 
 var (
@@ -68,12 +41,8 @@ type DepositToStake struct {
 }
 
 func init() {
-	depositToStakeInterface, err := abi.JSON(strings.NewReader(_depositToStakeInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
 	var ok bool
-	_depositToStakeMethod, ok = depositToStakeInterface.Methods["depositToStake"]
+	_depositToStakeMethod, ok = NativeStakingContractABI().Methods["depositToStake"]
 	if !ok {
 		panic("fail to load the method")
 	}

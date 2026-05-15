@@ -12,6 +12,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // ProbationList defines a map where key is candidate's name and value is the counter which counts the unproductivity during probation epoch.
@@ -73,4 +75,18 @@ func (pl *ProbationList) LoadProto(probationListpb *iotextypes.ProbationCandidat
 	pl.IntensityRate = probationListpb.IntensityRate
 
 	return nil
+}
+
+// New creates a new instance of ProbationList
+func (pl *ProbationList) Encode() (systemcontracts.GenericValue, error) {
+	data, err := pl.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes a GenericValue into ProbationList
+func (pl *ProbationList) Decode(data systemcontracts.GenericValue) error {
+	return pl.Deserialize(data.PrimaryData)
 }

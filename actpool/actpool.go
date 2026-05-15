@@ -78,6 +78,8 @@ type ActPool interface {
 	DeleteAction(address.Address)
 	// ReceiveBlock will be called when a new block is committed
 	ReceiveBlock(*block.Block) error
+	// BundlePool returns a BundlePool instance
+	BundlePool() *BundlePool
 
 	AddActionEnvelopeValidators(...action.SealedEnvelopeValidator)
 	AddSubscriber(sub Subscriber)
@@ -85,7 +87,7 @@ type ActPool interface {
 
 // Subscriber is the interface for actpool subscriber
 type Subscriber interface {
-	OnAdded(*action.SealedEnvelope)
+	OnAdded(context.Context, *action.SealedEnvelope)
 	OnRemoved(*action.SealedEnvelope)
 }
 
@@ -104,9 +106,11 @@ type actPool struct {
 	cfg            Config
 	g              genesis.Genesis
 	sf             protocol.StateReader
+	bundlePool     *BundlePool
 	accountDesActs *destinationMap
 	allActions     *ttl.Cache
 	gasInPool      uint64
+	isBlackListed  func(addr string, height uint64) bool
 	// actionEnvelopeValidators are the validators that are used in both actpool.Add and actpool.Validate
 	// TODO: can combine with privateValidators after NOT use actpool to call generic_validator in block validate
 	actionEnvelopeValidators []action.SealedEnvelopeValidator
@@ -114,7 +118,6 @@ type actPool struct {
 	// they are not used in actpool.Validate
 	privateValidators []action.SealedEnvelopeValidator
 	timerFactory      *prometheustimer.TimerFactory
-	senderBlackList   map[string]bool
 	jobQueue          []chan workerJob
 	worker            []*queueWorker
 	subs              []Subscriber
@@ -127,21 +130,16 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 		return nil, errors.New("Try to attach a nil state reader")
 	}
 
-	senderBlackList := make(map[string]bool)
-	for _, bannedSender := range cfg.BlackList {
-		senderBlackList[bannedSender] = true
-	}
-
 	actsMap, _ := ttl.NewCache()
 	ap := &actPool{
-		cfg:             cfg,
-		g:               g,
-		sf:              sf,
-		senderBlackList: senderBlackList,
-		accountDesActs:  &destinationMap{acts: make(map[string]map[hash.Hash256]*action.SealedEnvelope)},
-		allActions:      actsMap,
-		jobQueue:        make([]chan workerJob, _numWorker),
-		worker:          make([]*queueWorker, _numWorker),
+		cfg:            cfg,
+		g:              g,
+		sf:             sf,
+		isBlackListed:  cfg.IsBlackListedFunc(),
+		accountDesActs: &destinationMap{acts: make(map[string]map[hash.Hash256]*action.SealedEnvelope)},
+		allActions:     actsMap,
+		jobQueue:       make([]chan workerJob, _numWorker),
+		worker:         make([]*queueWorker, _numWorker),
 	}
 	for _, opt := range opts {
 		if err := opt(ap); err != nil {
@@ -152,6 +150,9 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 	blobValidator := newBlobValidator(cfg.MaxNumBlobsPerAcct)
 	ap.privateValidators = append(ap.privateValidators, blobValidator)
 	ap.AddSubscriber(blobValidator)
+	if ap.bundlePool != nil {
+		ap.bundlePool.SetValidator(ap.Validate)
+	}
 
 	timerFactory, err := prometheustimer.New(
 		"iotex_action_pool_perf",
@@ -243,8 +244,15 @@ func (ap *actPool) reset() {
 	wg.Wait()
 }
 
-func (ap *actPool) ReceiveBlock(*block.Block) error {
+func (ap *actPool) BundlePool() *BundlePool {
+	return ap.bundlePool
+}
+
+func (ap *actPool) ReceiveBlock(blk *block.Block) error {
 	ap.reset()
+	if ap.bundlePool != nil {
+		return ap.bundlePool.ReceiveBlock(blk)
+	}
 	return nil
 }
 
@@ -355,7 +363,7 @@ func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.Seale
 		return action.ErrUnderpriced
 	}
 
-	if _, ok := ap.senderBlackList[selp.SenderAddress().String()]; ok {
+	if ap.isBlackListed(selp.SenderAddress().String(), ap.getBlockHeight(ctx)) {
 		_actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
@@ -466,7 +474,7 @@ func (ap *actPool) validate(ctx context.Context, selp *action.SealedEnvelope) er
 	if caller == nil {
 		return errors.New("failed to get address")
 	}
-	if _, ok := ap.senderBlackList[caller.String()]; ok {
+	if ap.isBlackListed(caller.String(), ap.getBlockHeight(ctx)) {
 		_actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
@@ -497,8 +505,12 @@ func (ap *actPool) removeInvalidActs(acts []*action.SealedEnvelope) {
 		}
 		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
 		ap.allActions.Delete(hash)
-		intrinsicGas, _ := act.IntrinsicGas()
-		atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
+		intrinsicGas, err := act.IntrinsicGas()
+		if err != nil {
+			log.L().Debug("Skipping gas update due to intrinsic gas error", zap.Error(err))
+		} else {
+			atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
+		}
 		ap.accountDesActs.delete(act)
 		if ap.store != nil {
 			if err = ap.store.Delete(hash); err != nil {
@@ -515,6 +527,14 @@ func (ap *actPool) context(ctx context.Context) context.Context {
 		genesis.WithGenesisContext(ctx, ap.g), protocol.BlockCtx{
 			BlockHeight: height + 1,
 		}))
+}
+
+func (ap *actPool) getBlockHeight(ctx context.Context) uint64 {
+	if blkCtx, ok := protocol.GetBlockCtx(ctx); ok {
+		return blkCtx.BlockHeight
+	}
+	height, _ := ap.sf.Height()
+	return height + 1
 }
 
 func (ap *actPool) enqueue(ctx context.Context, act *action.SealedEnvelope, replace bool) error {
@@ -547,9 +567,9 @@ func (ap *actPool) AddSubscriber(sub Subscriber) {
 	ap.subs = append(ap.subs, sub)
 }
 
-func (ap *actPool) onAdded(act *action.SealedEnvelope) {
+func (ap *actPool) onAdded(ctx context.Context, act *action.SealedEnvelope) {
 	for _, sub := range ap.subs {
-		sub.OnAdded(act)
+		sub.OnAdded(ctx, act)
 	}
 }
 

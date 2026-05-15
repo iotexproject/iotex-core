@@ -89,7 +89,7 @@ func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
 	if featureCtx.UpdateBlockMeta {
 		if err := sh.updateCurrentBlockMeta(ctx, sm); err != nil {
-			return errors.Wrap(err, "faild to update current epoch meta")
+			return errors.Wrap(err, "failed to update current epoch meta")
 		}
 	}
 	if blkCtx.BlockHeight == epochLastHeight && featureWithHeightCtx.CalculateProbationList(nextEpochStartHeight) {
@@ -274,7 +274,7 @@ func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, r
 		return nil, uint64(0), errors.Wrapf(err, "failed to get probation list at height %d", targetEpochStartHeight)
 	}
 	// recalculate the voting power for probationlist delegates
-	filteredCandidate, err := filterCandidates(candidates, unqualifiedList, targetEpochStartHeight)
+	filteredCandidate, err := filterCandidates(candidates, unqualifiedList, targetEpochStartHeight, featureWithHeightCtx.CandidateWithoutIdentity(targetEpochStartHeight))
 	if err != nil {
 		return nil, uint64(0), err
 	}
@@ -334,7 +334,7 @@ func (sh *Slasher) GetCandidatesFromIndexer(ctx context.Context, epochStartHeigh
 		return nil, err
 	}
 	// recalculate the voting power for probationlist delegates
-	return filterCandidates(candidates, probationList, epochStartHeight)
+	return filterCandidates(candidates, probationList, epochStartHeight, featureWithHeightCtx.CandidateWithoutIdentity(epochStartHeight))
 }
 
 // GetBPFromIndexer returns BP list from indexer
@@ -363,7 +363,9 @@ func (sh *Slasher) GetProbationList(ctx context.Context, sr protocol.StateReader
 	if err != nil {
 		return nil, uint64(0), err
 	}
-	// make sure it's epochStartHeight
+	// NOTE: GetEpochHeight(GetEpochHeight(targetHeight)) is a historical bug that should have been
+	// GetEpochHeight(GetEpochNum(targetHeight)). It is kept as-is to ensure historical blocks can
+	// pass validation. This does not affect current blocks since the input is already epochStartHeight.
 	targetEpochStartHeight := rp.GetEpochHeight(rp.GetEpochHeight(targetHeight))
 	if readFromNext {
 		targetEpochNum := rp.GetEpochNum(targetEpochStartHeight) + 1
@@ -429,7 +431,7 @@ func (sh *Slasher) CalculateProbationList(
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
 		}
-		for _, addr := range uq {
+		for addr, _ := range uq {
 			if _, ok := unqualifiedDelegates[addr]; !ok {
 				unqualifiedDelegates[addr] = 1
 			} else {
@@ -471,7 +473,7 @@ func (sh *Slasher) CalculateProbationList(
 	if err := upd.AddRecentUPD(addList); err != nil {
 		return nil, errors.Wrap(err, "failed to add recent upd")
 	}
-	for _, addr := range addList {
+	for addr := range addList {
 		if _, ok := probationMap[addr]; ok {
 			probationMap[addr]++
 			continue
@@ -488,7 +490,7 @@ func (sh *Slasher) CalculateProbationList(
 	return nextProbationlist, setUnproductiveDelegates(sm, upd)
 }
 
-func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protocol.StateReader) ([]string, error) {
+func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protocol.StateReader) (map[string]uint64, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
@@ -520,20 +522,32 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 	} else {
 		produce[blkCtx.Producer.String()] = 1
 	}
-
+	producerToOwner := make(map[string]string)
 	for _, abp := range delegates {
 		if _, ok := produce[abp.Address]; !ok {
 			produce[abp.Address] = 0
 		}
+		producerToOwner[abp.Address] = abp.Identity
 	}
-	unqualified := make([]string, 0)
+	unqualified := make(map[string]uint64, 0)
 	expectedNumBlks := numBlks / uint64(len(produce))
 	for addr, actualNumBlks := range produce {
 		if actualNumBlks*100/expectedNumBlks < sh.prodThreshold {
-			unqualified = append(unqualified, addr)
+			unqualified[addr] = expectedNumBlks - actualNumBlks
 		}
 	}
-	return unqualified, nil
+	if protocol.MustGetFeatureWithHeightCtx(ctx).CandidateWithoutIdentity(blkCtx.BlockHeight) {
+		return unqualified, nil
+	}
+	retval := make(map[string]uint64, len(unqualified))
+	for addr, count := range unqualified {
+		if owner, ok := producerToOwner[addr]; ok {
+			retval[owner] = count
+		} else {
+			retval[addr] = count
+		}
+	}
+	return retval, nil
 }
 
 func (sh *Slasher) updateCurrentBlockMeta(ctx context.Context, sm protocol.StateManager) error {
@@ -595,13 +609,21 @@ func filterCandidates(
 	candidates state.CandidateList,
 	unqualifiedList *vote.ProbationList,
 	epochStartHeight uint64,
+	usingOperatorAddr bool,
 ) (state.CandidateList, error) {
+	if unqualifiedList == nil || unqualifiedList.ProbationInfo == nil {
+		return candidates, nil
+	}
 	candidatesMap := make(map[string]*state.Candidate)
 	updatedVotingPower := make(map[string]*big.Int)
 	intensityRate := float64(uint32(100)-unqualifiedList.IntensityRate) / float64(100)
 	for _, cand := range candidates {
 		filterCand := cand.Clone()
-		if _, ok := unqualifiedList.ProbationInfo[cand.Address]; ok {
+		id := cand.Address
+		if !usingOperatorAddr {
+			id = cand.Identity
+		}
+		if _, ok := unqualifiedList.ProbationInfo[id]; ok {
 			// if it is an unqualified delegate, multiply the voting power with probation intensity rate
 			votingPower := new(big.Float).SetInt(filterCand.Votes)
 			filterCand.Votes, _ = votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)

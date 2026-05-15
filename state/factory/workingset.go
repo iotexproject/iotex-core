@@ -7,8 +7,10 @@ package factory
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
 	"math/big"
-	"sort"
+	"slices"
 	"time"
 
 	erigonstate "github.com/erigontech/erigon/core/state"
@@ -25,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/actpool/actioniterator"
@@ -33,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/state/factory/erigonstore"
 )
 
 var (
@@ -69,7 +73,8 @@ type (
 	workingSet struct {
 		workingSetStoreFactory WorkingSetStoreFactory
 		height                 uint64
-		views                  *protocol.Views
+		views                  protocol.Views
+		viewsSnapshots         map[int]int
 		store                  workingSetStore
 		finalized              bool
 		txValidator            *protocol.GenericValidator
@@ -77,10 +82,11 @@ type (
 	}
 )
 
-func newWorkingSet(height uint64, views *protocol.Views, store workingSetStore, storeFactory WorkingSetStoreFactory) *workingSet {
+func newWorkingSet(height uint64, views protocol.Views, store workingSetStore, storeFactory WorkingSetStoreFactory) *workingSet {
 	ws := &workingSet{
 		height:                 height,
 		views:                  views,
+		viewsSnapshots:         make(map[int]int),
 		store:                  store,
 		workingSetStoreFactory: storeFactory,
 	}
@@ -148,6 +154,7 @@ func withActionCtx(ctx context.Context, selp *action.SealedEnvelope) (context.Co
 func (ws *workingSet) runAction(
 	ctx context.Context,
 	selp *action.SealedEnvelope,
+	revertAllSnapshots bool,
 ) (*action.Receipt, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	if protocol.MustGetBlockCtx(ctx).GasLimit < actCtx.IntrinsicGas {
@@ -178,11 +185,18 @@ func (ws *workingSet) runAction(
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
 	defer ws.finalizeTx(ctx)
+	if revertAllSnapshots {
+		defer ws.store.ResetSnapshots()
+	}
 	if err := ws.freshAccountConversion(ctx, &actCtx); err != nil {
 		return nil, err
 	}
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	var receipt *action.Receipt
+	traceErr := evm.TraceStart(ctx, ws, selp.Envelope)
+	if traceErr != nil {
+		log.L().Error("failed to start tracing EVM execution", zap.Error(traceErr))
+	}
 	for _, actionHandler := range reg.All() {
 		receipt, err = actionHandler.Handle(ctx, selp.Envelope, ws)
 		if err != nil {
@@ -198,6 +212,9 @@ func (ws *workingSet) runAction(
 	}
 	if receipt == nil {
 		return nil, errors.New("receipt is empty")
+	}
+	if traceErr == nil {
+		evm.TraceEnd(ctx, receipt)
 	}
 	if fCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
 		if err = ws.handleBlob(ctx, selp, receipt); err != nil {
@@ -276,19 +293,25 @@ func (ws *workingSet) finalizeTx(ctx context.Context) {
 	if err := ws.store.FinalizeTx(ctx); err != nil {
 		log.L().Panic("failed to finalize tx", zap.Error(err))
 	}
-	ws.ResetSnapshots()
 }
 
 func (ws *workingSet) Snapshot() int {
-	return ws.store.Snapshot()
+	id := ws.store.Snapshot()
+	vid := ws.views.Snapshot()
+	ws.viewsSnapshots[id] = vid
+
+	return id
 }
 
 func (ws *workingSet) Revert(snapshot int) error {
+	vid, ok := ws.viewsSnapshots[snapshot]
+	if !ok {
+		return errors.Errorf("snapshot %d not found", snapshot)
+	}
+	if err := ws.views.Revert(vid); err != nil {
+		return errors.Wrapf(err, "failed to revert views to snapshot %d", vid)
+	}
 	return ws.store.RevertSnapshot(snapshot)
-}
-
-func (ws *workingSet) ResetSnapshots() {
-	ws.store.ResetSnapshots()
 }
 
 // freshAccountConversion happens between UseZeroNonceForFreshAccount height
@@ -311,11 +334,11 @@ func (ws *workingSet) freshAccountConversion(ctx context.Context, actCtx *protoc
 }
 
 // Commit persists all changes in RunActions() into the DB
-func (ws *workingSet) Commit(ctx context.Context) error {
+func (ws *workingSet) Commit(ctx context.Context, retention uint64) error {
 	if err := protocolPreCommit(ctx, ws); err != nil {
 		return err
 	}
-	if err := ws.store.Commit(ctx); err != nil {
+	if err := ws.store.Commit(ctx, retention); err != nil {
 		return err
 	}
 	if err := protocolCommit(ctx, ws); err != nil {
@@ -335,11 +358,15 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	if cfg.Keys != nil {
 		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
-	value, err := ws.store.Get(cfg.Namespace, cfg.Key)
+	store, err := ws.matchStore(cfg)
 	if err != nil {
-		return ws.height, err
+		return 0, err
 	}
-	return ws.height, state.Deserialize(s, value)
+	key, err := ws.matchStoreKey(store, cfg)
+	if err != nil {
+		return 0, err
+	}
+	return ws.height, store.GetObject(cfg.Namespace, key, s)
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
@@ -350,14 +377,15 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	keys, values, err := ws.store.States(cfg.Namespace, cfg.Keys)
+	store, err := ws.matchStore(cfg)
 	if err != nil {
 		return 0, nil, err
 	}
-	iter, err := state.NewIterator(keys, values)
+	iter, err := store.States(cfg.Namespace, cfg.Object, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
 	}
+
 	return ws.height, iter, nil
 }
 
@@ -368,11 +396,20 @@ func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uin
 	if err != nil {
 		return ws.height, err
 	}
-	ss, err := state.Serialize(s)
+	store, err := ws.matchStore(cfg)
 	if err != nil {
-		return ws.height, errors.Wrapf(err, "failed to convert account %v to bytes", s)
+		return ws.height, err
 	}
-	return ws.height, ws.store.Put(cfg.Namespace, cfg.Key, ss)
+	for _, store := range ws.matchStoreWrites(store) {
+		key, err := ws.matchStoreKey(store, cfg)
+		if err != nil {
+			return ws.height, err
+		}
+		if err := store.PutObject(cfg.Namespace, key, s); err != nil {
+			return ws.height, err
+		}
+	}
+	return ws.height, nil
 }
 
 // DelState deletes a state from DB
@@ -382,7 +419,20 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.store.Delete(cfg.Namespace, cfg.Key)
+	store, err := ws.matchStore(cfg)
+	if err != nil {
+		return ws.height, err
+	}
+	for _, store := range ws.matchStoreWrites(store) {
+		key, err := ws.matchStoreKey(store, cfg)
+		if err != nil {
+			return ws.height, err
+		}
+		if err := store.DeleteObject(cfg.Namespace, key, cfg.Object); err != nil {
+			return ws.height, err
+		}
+	}
+	return ws.height, nil
 }
 
 // ReadView reads the view
@@ -398,6 +448,9 @@ func (ws *workingSet) WriteView(name string, v protocol.View) error {
 
 // CreateGenesisStates initialize the genesis states
 func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
+	if err := ws.store.CreateGenesisStates(ctx); err != nil {
+		return err
+	}
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
 			if gsc, ok := p.(protocol.GenesisStateCreator); ok {
@@ -455,7 +508,7 @@ func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap 
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
-		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
+		slices.Sort(receivedNonces)
 		if useZeroNonce {
 			pendingNonce = confirmedState.PendingNonceConsideringFreshAccount()
 		} else {
@@ -489,7 +542,11 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		return err
 	}
 	userActions, systemActions := ws.splitActions(actions)
-	if protocol.MustGetFeatureCtx(ctx).PreStateSystemAction {
+	// due to archive states only support for account and contract, this may cause
+	// validation failure for PutPollResult system action
+	// TODO: remove this when archive states support state for all protocols
+	ignoreSystemValidation := protocol.MustGetBlockCtx(ctx).Simulate
+	if protocol.MustGetFeatureCtx(ctx).PreStateSystemAction && !ignoreSystemValidation {
 		if err := ws.validatePostSystemActions(ctx, systemActions); err != nil {
 			return err
 		}
@@ -523,7 +580,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 				}
 			}
 		}
-		receipt, err := ws.runAction(actionCtx, act)
+		receipt, err := ws.runAction(actionCtx, act, true)
 		if err != nil {
 			return errors.Wrap(err, "error when run action")
 		}
@@ -537,7 +594,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		}
 	}
 	// Handle post system actions
-	if !protocol.MustGetFeatureCtx(ctx).PreStateSystemAction {
+	if !protocol.MustGetFeatureCtx(ctx).PreStateSystemAction && !ignoreSystemValidation {
 		if err := ws.validatePostSystemActions(ctxWithBlockContext, systemActions); err != nil {
 			return err
 		}
@@ -547,7 +604,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		if err != nil {
 			return err
 		}
-		receipt, err := ws.runAction(actionCtx, act)
+		receipt, err := ws.runAction(actionCtx, act, true)
 		if err != nil {
 			return errors.Wrap(err, "error when run action")
 		}
@@ -608,7 +665,7 @@ func (ws *workingSet) runActionsLegacy(
 		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(protocol.WithBlockCtx(ctxWithActionContext, blkCtx), elp)
+		receipt, err := ws.runAction(protocol.WithBlockCtx(ctxWithActionContext, blkCtx), elp, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
@@ -661,6 +718,17 @@ func (ws *workingSet) validatePostSystemActions(ctx context.Context, systemActio
 		return err
 	}
 	if len(postSystemActions) != len(systemActions) {
+		log.L().Error("the number of system actions is incorrect",
+			zap.Int("expected", len(postSystemActions)),
+			zap.Int("got", len(systemActions)),
+			zap.Uint64("height", protocol.MustGetBlockCtx(ctx).BlockHeight),
+		)
+		for i, act := range postSystemActions {
+			log.L().Error("expected system action",
+				zap.Int("index", i),
+				zap.String("action", fmt.Sprintf("%+T", act.Action())),
+			)
+		}
 		return errors.Wrapf(errInvalidSystemActionLayout, "the number of system actions is incorrect, expected %d, got %d", len(postSystemActions), len(systemActions))
 	}
 	reg := protocol.MustGetRegistry(ctx)
@@ -732,13 +800,85 @@ func (ws *workingSet) pickAndRunActions(
 		blkCtx              = protocol.MustGetBlockCtx(ctx)
 		fCtx                = protocol.MustGetFeatureCtx(ctx)
 		blobCnt             = uint64(0)
-		blobLimit           = params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob
+		blobLimit           = action.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob
 		deadline            *time.Time
 		fullGas             = blkCtx.GasLimit
 	)
 	if ap != nil {
 		if dl, ok := ctx.Deadline(); ok {
 			deadline = &dl
+		}
+		bp := ap.BundlePool()
+		if bp != nil {
+			bids, _, bundles, err := bp.BundlesAtHeight(ws.height)
+			switch errors.Cause(err) {
+			case nil:
+				for i, bundle := range bundles {
+					bh := bundle.Hash()
+					log.L().Info("processing bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.String("hash", hex.EncodeToString(bh[:])), zap.Int("size", bundle.Len()), zap.Uint64("gas", bundle.Gas()))
+					bBlkCtx := blkCtx
+					bGasLimit := bBlkCtx.GasLimit
+					if deadline != nil && time.Now().After(*deadline) {
+						duration := time.Since(bBlkCtx.BlockTimeStamp)
+						log.L().Warn("Stop processing actions due to deadline, please consider increasing hardware", zap.Time("deadline", *deadline), zap.Duration("duration", duration), zap.Int("actions", len(executedActions)), zap.Uint64("gas", fullGas-bGasLimit))
+						_mintAbility.WithLabelValues("saturation").Set(1)
+						break
+					}
+					if bundle.Gas() > bGasLimit {
+						log.L().Info("Skip bundle exceeds gas limit", zap.String("hash", hex.EncodeToString(bh[:])), zap.Uint64("height", ws.height), zap.Uint64("gas", bundle.Gas()), zap.Uint64("blkGasLimit", bGasLimit))
+						continue
+					}
+					bBlobCnt := blobCnt
+					bReceipts := make([]*action.Receipt, 0, bundle.Len())
+					si := ws.store.Snapshot()
+					if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
+						_, _, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, selp, bGasLimit, bBlobCnt, uint64(blobLimit), false)
+						if err != nil {
+							return errors.Wrapf(err, "failed to run action in bundle %s at height %d", bids[i], ws.height)
+						}
+						if receipt == nil {
+							h, err := selp.Hash()
+							if err != nil {
+								log.L().Error("failed to get hash for action in bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.Error(err))
+							}
+							return errors.Errorf("receipt is nil for transaction %x", h)
+						}
+						bGasLimit -= receipt.GasConsumed
+						if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
+							(&bBlkCtx.AccumulatedTips).Add(&bBlkCtx.AccumulatedTips, receipt.PriorityFee())
+						}
+						ctxWithBlockContext = protocol.WithBlockCtx(ctx, bBlkCtx)
+						bReceipts = append(bReceipts, receipt)
+						bBlobCnt += uint64(len(selp.BlobHashes()))
+
+						return nil
+					}); err != nil {
+						log.L().Warn("failed to process bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.Error(err))
+						if err := ws.store.RevertSnapshot(si); err != nil {
+							return nil, errors.Wrapf(err, "failed to revert snapshot %d for bundle %s at height %d", si, bids[i], ws.height)
+						}
+						continue
+					}
+					for _, receipt := range bReceipts {
+						blkCtx.GasLimit -= receipt.GasConsumed
+						if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
+							(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
+						}
+						receipts = append(receipts, receipt)
+					}
+					ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
+					bundle.ForEach(func(selp *action.SealedEnvelope) error {
+						executedActions = append(executedActions, selp)
+						blobCnt += uint64(len(selp.BlobHashes()))
+						return nil
+					})
+					log.L().Info("processed bundle", zap.String("hash", hex.EncodeToString(bh[:])), zap.Uint64("height", ws.height))
+				}
+			case actpool.ErrNoBundlesForHeight:
+				log.L().Debug("no bundles for height", zap.Uint64("height", ws.height))
+			default:
+				return nil, errors.Wrapf(err, "failed to get bundles at height %d", ws.height)
+			}
 		}
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
 		for {
@@ -753,70 +893,18 @@ func (ws *workingSet) pickAndRunActions(
 				_mintAbility.WithLabelValues("saturation").Set(0)
 				break
 			}
-			if nextAction.Gas() > blkCtx.GasLimit {
+			popAccount, deleteAction, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, nextAction, blkCtx.GasLimit, blobCnt, uint64(blobLimit), true)
+			if popAccount {
 				actionIterator.PopAccount()
-				continue
 			}
-			if blobCnt+uint64(len(nextAction.BlobHashes())) > uint64(blobLimit) {
-				actionIterator.PopAccount()
-				continue
+			if deleteAction {
+				ap.DeleteAction(nextAction.SenderAddress())
 			}
-			if container, ok := nextAction.Envelope.(action.TxContainer); ok {
-				if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
-					log.L().Debug("failed to unfold tx container", zap.Uint64("height", ws.height), zap.Error(err))
-					ap.DeleteAction(nextAction.SenderAddress())
-					actionIterator.PopAccount()
-					continue
-				}
-			}
-			if err := ws.txValidator.ValidateWithState(ctxWithBlockContext, nextAction); err != nil {
-				log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
-				if !errors.Is(err, action.ErrNonceTooLow) {
-					ap.DeleteAction(nextAction.SenderAddress())
-					actionIterator.PopAccount()
-				}
-				continue
-			}
-			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)
-			if err == nil {
-				for _, p := range reg.All() {
-					if validator, ok := p.(protocol.ActionValidator); ok {
-						if err = validator.Validate(actionCtx, nextAction.Envelope, ws); err != nil {
-							break
-						}
-					}
-				}
-			}
-			caller := nextAction.SenderAddress()
 			if err != nil {
-				if caller == nil {
-					return nil, errors.New("failed to get address")
-				}
-				log.L().Debug("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
-				ap.DeleteAction(caller)
-				actionIterator.PopAccount()
-				continue
+				return nil, err
 			}
-			receipt, err := ws.runAction(actionCtx, nextAction)
-			switch errors.Cause(err) {
-			case nil:
-				// do nothing
-			case action.ErrGasLimit:
-				actionIterator.PopAccount()
+			if receipt == nil {
 				continue
-			case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
-				log.L().Debug("runAction() failed", zap.Uint64("height", ws.height), zap.Error(err))
-				ap.DeleteAction(caller)
-				actionIterator.PopAccount()
-				continue
-			default:
-				ap.DeleteAction(caller)
-				actionIterator.PopAccount()
-				nextActionHash, hashErr := nextAction.Hash()
-				if hashErr != nil {
-					return nil, errors.Wrapf(hashErr, "Failed to get hash for %x", nextActionHash)
-				}
-				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 			}
 			blkCtx.GasLimit -= receipt.GasConsumed
 			if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
@@ -848,7 +936,7 @@ func (ws *workingSet) pickAndRunActions(
 		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(actionCtx, selp)
+		receipt, err := ws.runAction(actionCtx, selp, true)
 		if err != nil {
 			return nil, err
 		}
@@ -861,6 +949,74 @@ func (ws *workingSet) pickAndRunActions(
 	ws.receipts = receipts
 
 	return executedActions, ws.finalize(ctx)
+}
+
+func (ws *workingSet) validateAndRun(
+	ctx context.Context,
+	reg *protocol.Registry,
+	nextAction *action.SealedEnvelope,
+	gasLimit uint64,
+	blobCnt uint64,
+	blobLimit uint64,
+	revertAllSnapshots bool,
+) (bool, bool, *action.Receipt, error) {
+	if nextAction.Gas() > gasLimit {
+		log.L().Info("action gas exceeds limit", zap.Uint64("height", ws.height), zap.Uint64("gasLimit", gasLimit), zap.Uint64("actionGas", nextAction.Gas()))
+		return true, false, nil, nil
+	}
+	if blobCnt+uint64(len(nextAction.BlobHashes())) > uint64(blobLimit) {
+		log.L().Info("blob count exceeds limit", zap.Uint64("height", ws.height), zap.Uint64("blobCnt", blobCnt), zap.Uint64("blobLimit", blobLimit))
+		return true, false, nil, nil
+	}
+	if container, ok := nextAction.Envelope.(action.TxContainer); ok {
+		if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
+			log.L().Info("failed to unfold tx container", zap.Uint64("height", ws.height), zap.Error(err))
+			return true, true, nil, nil
+		}
+	}
+	if err := ws.txValidator.ValidateWithState(ctx, nextAction); err != nil {
+		log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
+		if !errors.Is(err, action.ErrNonceTooLow) {
+			return true, true, nil, nil
+		}
+		return false, false, nil, nil
+	}
+	actionCtx, err := withActionCtx(ctx, nextAction)
+	if err == nil {
+		for _, p := range reg.All() {
+			if validator, ok := p.(protocol.ActionValidator); ok {
+				if err = validator.Validate(actionCtx, nextAction.Envelope, ws); err != nil {
+					break
+				}
+			}
+		}
+	}
+	caller := nextAction.SenderAddress()
+	if err != nil {
+		if caller == nil {
+			return false, false, nil, errors.New("failed to get address")
+		}
+		log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
+		return true, true, nil, nil
+	}
+	receipt, err := ws.runAction(actionCtx, nextAction, revertAllSnapshots)
+	switch errors.Cause(err) {
+	case nil:
+		// do nothing
+	case action.ErrGasLimit:
+		log.L().Info("runAction() failed due to gas limit", zap.Uint64("height", ws.height), zap.Error(err))
+		return true, false, nil, nil
+	case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
+		log.L().Info("runAction() failed", zap.Uint64("height", ws.height), zap.Error(err))
+		return true, true, nil, nil
+	default:
+		nextActionHash, hashErr := nextAction.Hash()
+		if hashErr != nil {
+			return true, true, nil, errors.Wrapf(hashErr, "Failed to get hash for %x", nextActionHash)
+		}
+		return true, true, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
+	}
+	return false, false, receipt, nil
 }
 
 func (ws *workingSet) generateSignedSystemActions(ctx context.Context, sign func(elp action.Envelope) (*action.SealedEnvelope, error)) ([]*action.SealedEnvelope, error) {
@@ -913,7 +1069,7 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 	}
 	if fCtx.EnableBlobTransaction {
 		blobCnt := uint64(0)
-		blobLimit := uint64(params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob)
+		blobLimit := uint64(action.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob)
 		for _, selp := range blk.Actions {
 			blobCnt += uint64(len(selp.BlobHashes()))
 			if blobCnt > blobLimit {
@@ -929,13 +1085,19 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
 	}
+	fwCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	if !fwCtx.CandCenterHasAlias(blk.Height()) {
+		if err := ws.views.Commit(ctx, ws); err != nil {
+			return err
+		}
+	}
 
 	digest, err := ws.digest()
 	if err != nil {
 		return err
 	}
 	if !blk.VerifyDeltaStateDigest(digest) {
-		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x'", blk.DeltaStateDigest(), digest)
+		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x' at height %d", blk.DeltaStateDigest(), digest, blk.Height())
 	}
 	receiptRoot := calculateReceiptRoot(ws.receipts)
 	if !blk.VerifyReceiptRoot(receiptRoot) {
@@ -953,6 +1115,9 @@ func (ws *workingSet) CreateBuilder(
 ) (*block.Builder, error) {
 	actions, err := ws.pickAndRunActions(ctx, ap, sign, allowedBlockGasResidue)
 	if err != nil {
+		return nil, err
+	}
+	if err := ws.views.Commit(ctx, ws); err != nil {
 		return nil, err
 	}
 
@@ -992,14 +1157,15 @@ func (ws *workingSet) NewWorkingSet(ctx context.Context) (*workingSet, error) {
 	if !ws.finalized {
 		return nil, errors.New("workingset has not been finalized yet")
 	}
-	store, err := ws.workingSetStoreFactory.CreateWorkingSetStore(ctx, ws.height+1, ws.store)
+	kvStore := ws.store.KVStore()
+	if kvStore == nil {
+		return nil, errors.Errorf("KVStore() not supported in %T", ws.store)
+	}
+	store, err := ws.workingSetStoreFactory.CreateWorkingSetStore(ctx, ws.height+1, kvStore)
 	if err != nil {
 		return nil, err
 	}
-	views := ws.views.Clone()
-	if err := views.Commit(ctx, ws); err != nil {
-		return nil, err
-	}
+	views := ws.views.Fork()
 	return newWorkingSet(ws.height+1, views, store, ws.workingSetStoreFactory), nil
 }
 
@@ -1010,13 +1176,46 @@ func (ws *workingSet) Close() {
 func (ws *workingSet) Erigon() (*erigonstate.IntraBlockState, bool) {
 	switch st := ws.store.(type) {
 	case *workingSetStoreWithSecondary:
-		if wss, ok := st.writerSecondary.(*erigonWorkingSetStore); ok {
-			return wss.intraBlockState, false
+		if wss, ok := st.writerSecondary.(*erigonstore.ErigonWorkingSetStore); ok {
+			return wss.IntraBlockState(), false
 		}
 		return nil, false
 	case *erigonWorkingSetStoreForSimulate:
-		return st.erigonStore.intraBlockState, true
+		return st.IntraBlockState(), true
 	default:
 		return nil, false
+	}
+}
+
+func (ws *workingSet) matchStore(cfg *protocol.StateConfig) (workingSetStore, error) {
+	store := ws.store
+	if cfg.ErigonStoreOnly {
+		erigonStore, err := store.ErigonStore()
+		if err != nil {
+			return nil, err
+		}
+		store = erigonStore.(workingSetStore)
+	}
+	return store, nil
+}
+
+func (ws *workingSet) matchStoreWrites(store workingSetStore) []workingSetStore {
+	if ss, ok := store.(*workingSetStoreWithSecondary); ok {
+		return []workingSetStore{ss.writer, ss.writerSecondary}
+	}
+	return []workingSetStore{store}
+}
+
+func (ws *workingSet) matchStoreKey(store workingSetStore, cfg *protocol.StateConfig) ([]byte, error) {
+	if len(cfg.ErigonStoreKey) == 0 {
+		return cfg.Key, nil
+	}
+	switch store.(type) {
+	case *erigonWorkingSetStoreForSimulate, *erigonstore.ErigonWorkingSetStore:
+		return cfg.ErigonStoreKey, nil
+	case *stateDBWorkingSetStore, *workingSetStoreWithSecondary:
+		return cfg.Key, nil
+	default:
+		return nil, errors.Errorf("unsupported store type %T", store)
 	}
 }

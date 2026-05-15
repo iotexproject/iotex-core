@@ -241,7 +241,8 @@ func (c *compositeStakingStateReader) readStateCandidates(ctx context.Context, r
 			return nil, 0, err
 		}
 	}
-	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	if !fCtx.AddContractStakingVotes || !fCtx.StoreVoteOfNFTBucketIntoView {
 		return candidates, height, nil
 	}
 	if !c.isContractStakingEnabled() {
@@ -265,7 +266,8 @@ func (c *compositeStakingStateReader) readStateCandidateByName(ctx context.Conte
 	if !c.isContractStakingEnabled() {
 		return candidate, height, nil
 	}
-	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	if !fCtx.AddContractStakingVotes || !fCtx.StoreVoteOfNFTBucketIntoView {
 		return candidate, height, nil
 	}
 	for _, indexer := range c.contractIndexers {
@@ -284,7 +286,8 @@ func (c *compositeStakingStateReader) readStateCandidateByAddress(ctx context.Co
 	if !c.isContractStakingEnabled() {
 		return candidate, height, nil
 	}
-	if !protocol.MustGetFeatureCtx(ctx).AddContractStakingVotes {
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	if !fCtx.AddContractStakingVotes || !fCtx.StoreVoteOfNFTBucketIntoView {
 		return candidate, height, nil
 	}
 	for _, indexer := range c.contractIndexers {
@@ -330,7 +333,7 @@ func (c *compositeStakingStateReader) readStateContractStakingBucketTypes(ctx co
 	height := c.nativeSR.Height()
 	var targetIndexer ContractStakingIndexerWithBucketType
 	for _, indexer := range c.contractIndexers {
-		if indexer.ContractAddress() == req.GetContractAddress() {
+		if indexer.ContractAddress().String() == req.GetContractAddress() {
 			if bt, ok := indexer.(ContractStakingIndexerWithBucketType); ok {
 				targetIndexer = bt
 			}

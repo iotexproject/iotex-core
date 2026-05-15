@@ -20,7 +20,7 @@ type Config struct {
 	Compressor string `yaml:"compressor"`
 	// CompressLegacy enables gzip compression on block data, used by legacy DB file before v1.1.2
 	CompressLegacy bool `yaml:"compressLegacy"`
-	// SplitDBSize is the config for DB's split file size
+	// SplitDBSizeMB is the config for DB's split file size
 	SplitDBSizeMB uint64 `yaml:"splitDBSizeMB"`
 	// SplitDBHeight is the config for DB's split start height
 	SplitDBHeight uint64 `yaml:"splitDBHeight"`
@@ -30,12 +30,15 @@ type Config struct {
 	ReadOnly bool `yaml:"readOnly"`
 	// DBType is the type of database
 	DBType string `yaml:"dbType"`
+	// MemCacheSize is the size of the in-memory cache
+	MemCacheSize uint64 `yaml:"memCacheSize"`
 }
 
 // Database types
 const (
 	DBBolt   string = "boltdb"
 	DBPebble        = "pebbledb"
+	DBAuto          = "auto"
 )
 
 // SplitDBSize returns the configured SplitDBSizeMB
@@ -54,5 +57,6 @@ var DefaultConfig = Config{
 	SplitDBSizeMB:         0,
 	SplitDBHeight:         900000,
 	HistoryStateRetention: 2000,
-	DBType:                DBBolt,
+	DBType:                DBAuto,
+	MemCacheSize:          1024 * 1024 * 128,
 }

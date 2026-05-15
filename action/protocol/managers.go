@@ -54,12 +54,40 @@ func CreateStateConfig(opts ...StateOption) (*StateConfig, error) {
 	return &cfg, nil
 }
 
+// ObjectOption sets the object for call
+func ObjectOption(obj any) StateOption {
+	return func(cfg *StateConfig) error {
+		cfg.Object = obj
+		return nil
+	}
+}
+
+// ErigonStoreOnlyOption sets the option to only read/write from/to erigon store
+func ErigonStoreOnlyOption() StateOption {
+	return func(cfg *StateConfig) error {
+		cfg.ErigonStoreOnly = true
+		return nil
+	}
+}
+
+// ErigonStoreKeyOption sets the erigon store key for call
+func ErigonStoreKeyOption(key []byte) StateOption {
+	return func(cfg *StateConfig) error {
+		cfg.ErigonStoreKey = make([]byte, len(key))
+		copy(cfg.ErigonStoreKey, key)
+		return nil
+	}
+}
+
 type (
 	// StateConfig is the config for accessing stateDB
 	StateConfig struct {
-		Namespace string // namespace used by state's storage
-		Key       []byte
-		Keys      [][]byte
+		Namespace       string // namespace used by state's storage
+		Key             []byte
+		Keys            [][]byte
+		Object          any    // object used by state's storage
+		ErigonStoreOnly bool   // whether only read/write from/to erigon store
+		ErigonStoreKey  []byte // erigon store key used by state's storage. If nil, use Key field
 	}
 
 	// StateOption sets parameter for access state
@@ -83,6 +111,11 @@ type (
 		PutState(interface{}, ...StateOption) (uint64, error)
 		DelState(...StateOption) (uint64, error)
 		WriteView(string, View) error
+	}
+
+	StateManagerWithCloser interface {
+		StateManager
+		Close()
 	}
 )
 

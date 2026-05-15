@@ -40,3 +40,4 @@ coverage.txt
 *.log
 .editorconfig
 
+.aicontext

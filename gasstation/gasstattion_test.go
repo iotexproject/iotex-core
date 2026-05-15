@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -99,7 +99,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas, func(u uint64) (time.Time, error) { return time.Time{}, nil })
+	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas, func(u uint64) (time.Time, error) { return time.Time{}, nil }, nil)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(t, rewardingProtocol.Register(registry))
@@ -170,7 +170,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas, func(u uint64) (time.Time, error) { return time.Time{}, nil })
+	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas, func(u uint64) (time.Time, error) { return time.Time{}, nil }, nil)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(t, rewardingProtocol.Register(registry))

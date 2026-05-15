@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -20,7 +20,7 @@ func TestValidateBucket(t *testing.T) {
 	initState := func() (CandidateStateManager, *EndorsementStateManager) {
 		ctrl := gomock.NewController(t)
 		sm := testdb.NewMockStateManager(ctrl)
-		v, _, err := CreateBaseView(sm, false)
+		v, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, false)
 		r.NoError(err)
 		sm.WriteView(_protocolID, v)
 		csm, err := NewCandidateStateManager(sm)
@@ -45,7 +45,7 @@ func TestValidateBucket(t *testing.T) {
 		_, err := csm.putBucketAndIndex(bkt)
 		r.NoError(err)
 		r.Nil(validateBucketMinAmount(bkt, big.NewInt(1000)))
-		r.ErrorContains(validateBucketMinAmount(bkt, big.NewInt(100000)), "bucket amount is unsufficient")
+		r.ErrorContains(validateBucketMinAmount(bkt, big.NewInt(100000)), "bucket amount is insufficient")
 	})
 	t.Run("validate bucket staked", func(t *testing.T) {
 		csm, _ := initState()

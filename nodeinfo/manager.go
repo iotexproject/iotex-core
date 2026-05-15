@@ -7,7 +7,6 @@ package nodeinfo
 
 import (
 	"context"
-	"slices"
 	"sync/atomic"
 	"time"
 
@@ -52,14 +51,14 @@ type (
 	// InfoManager manage delegate node info
 	InfoManager struct {
 		lifecycle.Lifecycle
-		version              string
-		broadcastList        atomic.Value // []string, whitelist to force enable broadcast
-		nodeMap              *lru.Cache
-		transmitter          transmitter
-		chain                chain
-		privKeys             map[string]crypto.PrivateKey
-		addrs                []string
-		getBroadcastListFunc getBroadcastListFunc
+		version       string
+		broadcastList atomic.Value // []string, whitelist to force enable broadcast
+		nodeMap       *lru.Cache
+		blockInterval time.Duration
+		transmitter   transmitter
+		chain         chain
+		privKeys      map[string]crypto.PrivateKey
+		addrs         []string
 	}
 
 	getBroadcastListFunc func() []string
@@ -78,7 +77,7 @@ func init() {
 }
 
 // NewInfoManager new info manager
-func NewInfoManager(cfg *Config, t transmitter, ch chain, broadcastListFunc getBroadcastListFunc, privKeys ...crypto.PrivateKey) *InfoManager {
+func NewInfoManager(cfg *Config, t transmitter, ch chain, blockInterval time.Duration, privKeys ...crypto.PrivateKey) *InfoManager {
 	addrs := make([]string, 0, len(privKeys))
 	keyMaps := make(map[string]crypto.PrivateKey)
 	for _, privKey := range privKeys {
@@ -87,21 +86,20 @@ func NewInfoManager(cfg *Config, t transmitter, ch chain, broadcastListFunc getB
 		keyMaps[addr] = privKey
 	}
 	dm := &InfoManager{
-		nodeMap:              lru.New(cfg.NodeMapSize),
-		transmitter:          t,
-		chain:                ch,
-		addrs:                addrs,
-		privKeys:             keyMaps,
-		version:              version.PackageVersion,
-		getBroadcastListFunc: broadcastListFunc,
+		nodeMap:       lru.New(cfg.NodeMapSize),
+		transmitter:   t,
+		chain:         ch,
+		addrs:         addrs,
+		privKeys:      keyMaps,
+		version:       version.PackageVersion,
+		blockInterval: blockInterval,
 	}
-	dm.broadcastList.Store([]string{})
+	if cfg.DisableBroadcastNodeInfo {
+		return dm
+	}
 	// init recurring tasks
 	broadcastTask := routine.NewRecurringTask(func() {
 		addrs := dm.addrs
-		if !cfg.EnableBroadcastNodeInfo {
-			addrs = dm.inBroadcastList()
-		}
 		// broadcastlist or nodes who are turned on will broadcast
 		if len(addrs) > 0 {
 			if err := dm.BroadcastNodeInfo(context.Background(), addrs); err != nil {
@@ -111,22 +109,33 @@ func NewInfoManager(cfg *Config, t transmitter, ch chain, broadcastListFunc getB
 			log.L().Debug("nodeinfo manager general node disabled node info broadcast")
 		}
 	}, cfg.BroadcastNodeInfoInterval)
-	updateBroadcastListTask := routine.NewRecurringTask(func() {
-		dm.updateBroadcastList()
-	}, cfg.BroadcastListTTL)
-	dm.AddModels(updateBroadcastListTask, broadcastTask)
+	dm.AddModels(broadcastTask)
 	return dm
 }
 
 // Start start delegate broadcast task
 func (dm *InfoManager) Start(ctx context.Context) error {
-	dm.updateBroadcastList()
 	return dm.OnStart(ctx)
 }
 
 // Stop stop delegate broadcast task
 func (dm *InfoManager) Stop(ctx context.Context) error {
 	return dm.OnStop(ctx)
+}
+
+// MayHaveBlock check whether the peer may have the block starting from 'start'
+func (dm *InfoManager) MayHaveBlock(peerID string, start uint64) bool {
+	value, ok := dm.nodeMap.Get(peerID)
+	if !ok {
+		return false
+	}
+	info := value.(Info)
+	duration := time.Now().Sub(info.Timestamp)
+	if duration < 0 {
+		duration = 0
+	}
+
+	return int64(info.Height)+duration.Milliseconds()/dm.blockInterval.Milliseconds() > int64(start)
 }
 
 // HandleNodeInfo handle node info message
@@ -156,11 +165,11 @@ func (dm *InfoManager) HandleNodeInfo(ctx context.Context, peerID string, msg *i
 
 // updateNode update node info
 func (dm *InfoManager) updateNode(node *Info) {
-	addr := node.Address
+	id := node.PeerID
 	// update dm.nodeMap
-	dm.nodeMap.Add(addr, *node)
+	dm.nodeMap.Add(id, *node)
 	// update metric
-	_nodeInfoHeightGauge.WithLabelValues(addr, node.Version).Set(float64(node.Height))
+	_nodeInfoHeightGauge.WithLabelValues(node.Address, node.Version).Set(float64(node.Height))
 }
 
 // GetNodeInfo get node info by address
@@ -249,25 +258,6 @@ func (dm *InfoManager) genNodeInfoMsg(addrs []string) ([]*iotextypes.NodeInfo, e
 		})
 	}
 	return infos, nil
-}
-
-func (dm *InfoManager) inBroadcastList() []string {
-	list := dm.broadcastList.Load().([]string)
-	inList := make([]string, 0, len(dm.addrs))
-	for _, a := range dm.addrs {
-		if slices.Contains(list, a) {
-			inList = append(inList, a)
-		}
-	}
-	return inList
-}
-
-func (dm *InfoManager) updateBroadcastList() {
-	if dm.getBroadcastListFunc != nil {
-		list := dm.getBroadcastListFunc()
-		dm.broadcastList.Store(list)
-		log.L().Debug("nodeinfo manaager updateBroadcastList", zap.Strings("list", list))
-	}
 }
 
 func hashNodeInfo(msg *iotextypes.NodeInfoCore) hash.Hash256 {

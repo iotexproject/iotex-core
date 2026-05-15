@@ -10,12 +10,15 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -31,7 +34,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockindex"
-	"github.com/iotexproject/iotex-core/v2/blockindex/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blocksync"
 	"github.com/iotexproject/iotex-core/v2/consensus"
 	"github.com/iotexproject/iotex-core/v2/nodeinfo"
@@ -73,7 +75,7 @@ type ChainService struct {
 	bfIndexer                blockindex.BloomFilterIndexer
 	candidateIndexer         *poll.CandidateIndexer
 	candBucketsIndexer       *staking.CandidatesBucketsIndexer
-	contractStakingIndexer   *contractstaking.Indexer
+	contractStakingIndexer   staking.ContractStakingIndexerWithBucketType
 	contractStakingIndexerV2 stakingindex.StakingIndexer
 	contractStakingIndexerV3 stakingindex.StakingIndexer
 	registry                 *protocol.Registry
@@ -83,6 +85,7 @@ type ChainService struct {
 	minter                   *factory.Minter
 
 	lastReceivedBlockHeight uint64
+	paused                  atomic.Bool
 }
 
 // Start starts the server
@@ -101,6 +104,9 @@ func (cs *ChainService) Start(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				if cs.paused.Load() {
+					continue
+				}
 				currentHeight := cs.chain.TipHeight()
 				lrbh := atomic.LoadUint64(&cs.lastReceivedBlockHeight)
 				if currentHeight == lastHeight && lastReceivedBlockHeight != lrbh {
@@ -119,9 +125,65 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	return cs.lifecycle.OnStopSequentially(ctx)
 }
 
+func (cs *ChainService) Pause(pause bool) {
+	cs.paused.Store(pause)
+}
+
+func (cs *ChainService) Filter(messageType iotexrpc.MessageType, msg proto.Message, cap int) bool {
+	// Filter out messages that are not relevant to the chain service
+	if messageType != iotexrpc.MessageType_BLOCK {
+		return true
+	}
+	blk, ok := msg.(*iotextypes.Block)
+	if !ok || blk == nil {
+		return false
+	}
+	if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
+		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
+	}
+	tip, err := cs.blockdao.Height()
+	if err != nil {
+		log.L().Error("failed to get tip height from blockdao", zap.Error(err))
+		return true
+	}
+	return blk.Header.Core.Height < tip+uint64(cap)
+}
+
 // ReportFullness switch on or off block sync
-func (cs *ChainService) ReportFullness(_ context.Context, messageType iotexrpc.MessageType, fullness float32) {
+func (cs *ChainService) ReportFullness(_ context.Context, messageType iotexrpc.MessageType, msg proto.Message, fullness float32) {
 	_blockchainFullnessMtc.WithLabelValues(iotexrpc.MessageType_name[int32(messageType)]).Set(float64(fullness))
+	switch messageType {
+	case iotexrpc.MessageType_BLOCK:
+		blk, ok := msg.(*iotextypes.Block)
+		if !ok || blk == nil {
+			return
+		}
+		if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
+			atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
+		}
+	}
+}
+
+// HandleBundle handles incoming bundle request.
+func (cs *ChainService) HandleBundle(ctx context.Context, bundlePb *iotextypes.Bundle) error {
+	if bundlePb == nil {
+		return errors.New("nil bundle")
+	}
+	bp := cs.actpool.BundlePool()
+	if bp == nil {
+		return errors.New("bundle pool is not initialized")
+	}
+	bundle := action.NewBundle()
+	if err := bundle.LoadProto(bundlePb, (&action.Deserializer{}).SetEvmNetworkID(cs.chain.EvmNetworkID())); err != nil {
+		log.L().Debug("failed to deserialize bundle", zap.Error(err))
+		return errors.Wrap(err, "failed to deserialize bundle")
+	}
+	zeroAddr, err := address.FromString(address.ZeroAddress)
+	if err != nil {
+		return err
+	}
+
+	return bp.AddBundle(ctx, zeroAddr, uuid.New().String(), bundle)
 }
 
 // HandleAction handles incoming action request.
@@ -177,9 +239,6 @@ func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *i
 	ctx, err = cs.chain.Context(ctx)
 	if err != nil {
 		return err
-	}
-	if atomic.LoadUint64(&cs.lastReceivedBlockHeight) < blk.Height() {
-		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Height())
 	}
 	return cs.blocksync.ProcessBlock(ctx, peer, blk)
 }

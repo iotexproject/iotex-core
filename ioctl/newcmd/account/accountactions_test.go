@@ -15,9 +15,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"

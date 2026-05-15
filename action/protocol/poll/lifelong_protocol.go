@@ -96,7 +96,7 @@ func (p *lifeLongDelegatesProtocol) NextCandidates(ctx context.Context, sr proto
 func (p *lifeLongDelegatesProtocol) CalculateUnproductiveDelegates(
 	ctx context.Context,
 	sr protocol.StateReader,
-) ([]string, error) {
+) (map[string]uint64, error) {
 	return nil, nil
 }
 
@@ -170,11 +170,8 @@ func (p *lifeLongDelegatesProtocol) readActiveBlockProducers(ctx context.Context
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
 	}
 	crypto.SortCandidates(blockProducerList, targetEpochStartHeight, crypto.CryptoSeed)
-	length := int(rp.NumDelegates())
-	if len(blockProducerList) < length {
-		// TODO: if the number of delegates is smaller than expected, should it return error or not?
-		length = len(blockProducerList)
-	}
+	// TODO: if the number of delegates is smaller than expected, should it return error or not?
+	length := min(len(blockProducerList), int(rp.NumDelegates()))
 
 	var activeBlockProducers state.CandidateList
 	for i := 0; i < length; i++ {

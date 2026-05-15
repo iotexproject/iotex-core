@@ -11,13 +11,14 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
@@ -440,8 +441,8 @@ func TestGrpcServer_GetReceiptByAction(t *testing.T) {
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
-	t.Run("failed to get reciept by action hash", func(t *testing.T) {
-		expectedErr := errors.New("failed to get reciept by action hash")
+	t.Run("failed to get receipt by action hash", func(t *testing.T) {
+		expectedErr := errors.New("failed to get receipt by action hash")
 		core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, expectedErr)
 
 		_, err := grpcSvr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{})
@@ -1024,8 +1025,14 @@ func TestGrpcServer_TraceTransactionStructLogs(t *testing.T) {
 	defer ctrl.Finish()
 	core := NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
+	structLogger := &logger.StructLogger{}
+	tracer := &tracers.Tracer{
+		Hooks:     structLogger.Hooks(),
+		GetResult: structLogger.GetResult,
+		Stop:      structLogger.Stop,
+	}
 
-	core.EXPECT().TraceTransaction(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, logger.NewStructLogger(nil), nil)
+	core.EXPECT().TraceTransaction(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, tracer, nil)
 	resp, err := grpcSvr.TraceTransactionStructLogs(context.Background(), &iotexapi.TraceTransactionStructLogsRequest{
 		ActionHash: "_actionHash",
 	})

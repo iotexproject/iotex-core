@@ -208,6 +208,7 @@ func init() {
 	ConfigCmd.AddCommand(_configGetCmd)
 	ConfigCmd.AddCommand(_configSetCmd)
 	ConfigCmd.AddCommand(_configResetCmd)
+	ConfigCmd.AddCommand(_configDumpCmd)
 }
 
 // LoadConfig loads config file in yaml format

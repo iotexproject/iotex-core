@@ -83,7 +83,7 @@ type (
 		// TODO: remove height, and read it from state reader
 		CalculateCandidatesByHeight(context.Context, protocol.StateReader, uint64) (state.CandidateList, error)
 		// CalculateUnproductiveDelegates calculates unproductive delegate on current epoch
-		CalculateUnproductiveDelegates(context.Context, protocol.StateReader) ([]string, error)
+		CalculateUnproductiveDelegates(context.Context, protocol.StateReader) (map[string]uint64, error)
 	}
 )
 
@@ -129,7 +129,7 @@ func NewProtocol(
 	candidateIndexer *CandidateIndexer,
 	readContract ReadContract,
 	getCandidates GetCandidates,
-	getprobationList GetProbationList,
+	getProbationList GetProbationList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
 	stakingProto *staking.Protocol,
@@ -155,7 +155,7 @@ func NewProtocol(
 		slasher, err = NewSlasher(
 			productivity,
 			getCandidates,
-			getprobationList,
+			getProbationList,
 			getUnproductiveDelegate,
 			candidateIndexer,
 			genesisConfig.NumCandidateDelegates,

@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -75,6 +75,7 @@ func TestClient(t *testing.T) {
 	blh := block.Header{}
 	require.NoError(blh.LoadFromBlockHeaderProto(bh))
 	bc.EXPECT().BlockHeaderByHeight(gomock.Any()).Return(&blh, nil).AnyTimes()
+	ap.EXPECT().BundlePool().Return(nil).AnyTimes()
 	ap.EXPECT().GetPendingNonce(gomock.Any()).Return(uint64(1), nil).AnyTimes()
 	ap.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	ap.EXPECT().AddSubscriber(gomock.Any()).AnyTimes()

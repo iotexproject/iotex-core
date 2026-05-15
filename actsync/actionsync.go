@@ -191,10 +191,7 @@ func (as *ActionSync) selectPeers() ([]peer.AddrInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	repeat := batchPeerSize
-	if repeat > len(neighbors) {
-		repeat = len(neighbors)
-	}
+	repeat := min(batchPeerSize, len(neighbors))
 	if repeat == 0 {
 		return nil, errors.New("no peers")
 	}

@@ -23,7 +23,7 @@ import (
 )
 
 // CandidatesPrefix is the prefix of the key of candidateList
-const CandidatesPrefix = "Candidates."
+const CandidatesPrefix = state.PollCandidatesPrefix
 
 // CurCandidateKey is the key of current candidate list
 const CurCandidateKey = "CurrentCandidateList."
@@ -47,8 +47,8 @@ func CandidatesFromDB(sr protocol.StateReader, height uint64, loadCandidatesLega
 	var err error
 	if loadCandidatesLegacy {
 		// Load Candidates on the given height from underlying db [deprecated]
-		candidatesKey := ConstructLegacyKey(height)
-		stateHeight, err = sr.State(&candidates, protocol.LegacyKeyOption(candidatesKey))
+		candidatesKey, org := ConstructLegacyKeyWithOrg(height)
+		stateHeight, err = sr.State(&candidates, protocol.LegacyKeyOption(candidatesKey), protocol.ErigonStoreKeyOption(org))
 	} else {
 		candidatesKey := ConstructKey(CurCandidateKey)
 		if epochStartPoint {
@@ -135,10 +135,16 @@ func UnproductiveDelegateFromDB(sr protocol.StateReader) (*vote.UnproductiveDele
 
 // ConstructLegacyKey constructs a key for candidates storage (deprecated version)
 func ConstructLegacyKey(height uint64) hash.Hash160 {
+	k, _ := ConstructLegacyKeyWithOrg(height)
+	return k
+}
+
+// ConstructLegacyKeyWithOrg constructs a key for candidates storage (deprecated version) and returns the original key
+func ConstructLegacyKeyWithOrg(height uint64) (hash.Hash160, []byte) {
 	heightInBytes := byteutil.Uint64ToBytes(height)
 	k := []byte(CandidatesPrefix)
 	k = append(k, heightInBytes...)
-	return hash.Hash160b(k)
+	return hash.Hash160b(k), k
 }
 
 // ConstructKey constructs a const key
@@ -163,9 +169,9 @@ func LoadAndAddCandidates(sm protocol.StateManager, blkHeight uint64, addr strin
 func GetMostRecentCandidateMap(sm protocol.StateManager, blkHeight uint64) (map[hash.Hash160]*state.Candidate, error) {
 	var sc state.CandidateList
 	for h := int(blkHeight); h >= 0; h-- {
-		candidatesKey := ConstructLegacyKey(uint64(h))
+		candidatesKey, org := ConstructLegacyKeyWithOrg(uint64(h))
 		var err error
-		if _, err = sm.State(&sc, protocol.LegacyKeyOption(candidatesKey)); err == nil {
+		if _, err = sm.State(&sc, protocol.LegacyKeyOption(candidatesKey), protocol.ErigonStoreKeyOption(org)); err == nil {
 			return state.CandidatesToMap(sc)
 		}
 		if errors.Cause(err) != state.ErrStateNotExist {
@@ -201,7 +207,7 @@ func storeCandidates(candidateMap map[hash.Hash160]*state.Candidate, sm protocol
 		return errors.Wrap(err, "failed to convert candidate map to candidate list")
 	}
 	sort.Sort(candidateList)
-	candidatesKey := ConstructLegacyKey(blkHeight)
-	_, err = sm.PutState(&candidateList, protocol.LegacyKeyOption(candidatesKey))
+	candidatesKey, org := ConstructLegacyKeyWithOrg(blkHeight)
+	_, err = sm.PutState(&candidateList, protocol.LegacyKeyOption(candidatesKey), protocol.ErigonStoreKeyOption(org))
 	return err
 }

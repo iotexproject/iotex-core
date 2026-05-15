@@ -73,7 +73,7 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, elp action.Envelope, 
 		revertSM()
 		return nil, nil, gasConsumed, gasToBeDeducted, err
 	}
-	actLogs = append(actLogs, actLog.Build(ctx, nil))
+	actLogs = append(actLogs, actLog.Build(ctx, nil)...)
 	transferLogs = append(transferLogs, tLog)
 	// call staking contract to stake
 	excReceipt, err := p.createNFTBucket(ctx, exec, csm.SM())
@@ -125,7 +125,7 @@ func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account
 	}
 
 	// update bucket pool
-	if err := csm.CreditBucketPool(bucket.StakedAmount); err != nil {
+	if err := csm.CreditBucketPool(bucket.StakedAmount, true); err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error())
 	}
 	// update candidate vote

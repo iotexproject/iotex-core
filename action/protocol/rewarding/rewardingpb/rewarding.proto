@@ -25,6 +25,7 @@ message Fund {
 }
 
 message RewardHistory {
+    uint64 height = 1;
 }
 
 message Account {
@@ -41,6 +42,7 @@ message RewardLog {
         EPOCH_REWARD = 1;
         FOUNDATION_BONUS= 2;
         PRIORITY_BONUS = 3;
+        UNPRODUCTIVE_SLASH = 4;
     }
     RewardType type = 1;
     string addr = 2;

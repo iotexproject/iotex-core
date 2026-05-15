@@ -36,7 +36,7 @@ func (esm *EndorsementStateManager) Put(bucketIndex uint64, endorse *Endorsement
 
 // Delete deletes the endorsement of a bucket
 func (esm *EndorsementStateManager) Delete(bucketIndex uint64) error {
-	_, err := esm.DelState(protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(endorsementKey(bucketIndex)))
+	_, err := esm.DelState(protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(endorsementKey(bucketIndex)), protocol.ObjectOption(&Endorsement{}))
 	return err
 }
 

@@ -2,7 +2,6 @@ package action
 
 import (
 	"bytes"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"google.golang.org/protobuf/proto"
@@ -17,22 +16,6 @@ const (
 	MigrateStakePayloadGas = uint64(100)
 	// MigrateStakeBaseIntrinsicGas represents the base intrinsic gas for MigrateStake
 	MigrateStakeBaseIntrinsicGas = uint64(10000)
-
-	migrateStakeInterfaceABI = `[
-		{
-			"inputs": [
-				{
-					"internalType": "uint64",
-					"name": "bucketIndex",
-					"type": "uint64"
-				}
-			],
-			"name": "migrateStake",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
 )
 
 var (
@@ -48,12 +31,8 @@ type MigrateStake struct {
 }
 
 func init() {
-	migrateInterface, err := abi.JSON(strings.NewReader(migrateStakeInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
 	var ok bool
-	migrateStakeMethod, ok = migrateInterface.Methods["migrateStake"]
+	migrateStakeMethod, ok = NativeStakingContractABI().Methods["migrateStake"]
 	if !ok {
 		panic("fail to load the migrateStake method")
 	}

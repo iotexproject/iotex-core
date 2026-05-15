@@ -160,6 +160,12 @@ func (b *EnvelopeBuilder) SetBlobTxData(
 	return b
 }
 
+// SetAuthList sets the set code authorization list.
+func (b *EnvelopeBuilder) SetAuthList(auths []types.SetCodeAuthorization) *EnvelopeBuilder {
+	b.ab.authList = auths
+	return b
+}
+
 // Build builds a new action.
 func (b *EnvelopeBuilder) Build() Envelope {
 	return b.build()
@@ -216,6 +222,7 @@ func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) error {
 			sidecar:    tx.BlobTxSidecar(),
 		}
 	}
+	b.ab.authList = tx.SetCodeAuthorizations()
 	return nil
 }
 
@@ -229,6 +236,8 @@ func convertEthTxType(typ uint8) (int, error) {
 		return DynamicFeeTxType, nil
 	case types.BlobTxType:
 		return BlobTxType, nil
+	case types.SetCodeTxType:
+		return SetCodeTxType, nil
 	default:
 		return 0, errors.Wrapf(ErrInvalidAct, "unsupported eth tx type %d", typ)
 	}
@@ -259,7 +268,7 @@ func (b *EnvelopeBuilder) BuildStakingAction(tx *types.Transaction) (Envelope, e
 	if err := b.setEnvelopeCommonFields(tx); err != nil {
 		return nil, err
 	}
-	act, err := newStakingActionFromABIBinary(tx.Data())
+	act, err := newStakingActionFromABIBinary(tx.Data(), tx.Value())
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +292,7 @@ func (b *EnvelopeBuilder) BuildRewardingAction(tx *types.Transaction) (Envelope,
 	return b.build(), nil
 }
 
-func newStakingActionFromABIBinary(data []byte) (actionPayload, error) {
+func newStakingActionFromABIBinary(data []byte, value *big.Int) (actionPayload, error) {
 	if len(data) <= 4 {
 		return nil, ErrInvalidABI
 	}
@@ -308,7 +317,7 @@ func newStakingActionFromABIBinary(data []byte) (actionPayload, error) {
 	if act, err := NewTransferStakeFromABIBinary(data); err == nil {
 		return act, nil
 	}
-	if act, err := NewCandidateRegisterFromABIBinary(data); err == nil {
+	if act, err := NewCandidateRegisterFromABIBinary(data, value); err == nil {
 		return act, nil
 	}
 	if act, err := NewCandidateUpdateFromABIBinary(data); err == nil {

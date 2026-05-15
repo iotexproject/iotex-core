@@ -91,7 +91,7 @@ func (ns *nativeStakingV2) CalculateCandidatesByHeight(ctx context.Context, sr p
 func (ns *nativeStakingV2) CalculateUnproductiveDelegates(
 	ctx context.Context,
 	sr protocol.StateReader,
-) ([]string, error) {
+) (map[string]uint64, error) {
 	return ns.slasher.calculateUnproductiveDelegates(ctx, sr)
 }
 
