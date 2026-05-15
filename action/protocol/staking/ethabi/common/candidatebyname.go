@@ -79,7 +79,7 @@ func (r *CandidateByNameStateContext) EncodeToEth(resp *iotexapi.ReadStateRespon
 
 	data, err := r.Method.Outputs.Pack(cand)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return hex.EncodeToString(data), nil
 }

@@ -68,7 +68,7 @@ func TestBroadcastNodeInfo(t *testing.T) {
 	cfgSender, teardown, err := newConfigForNodeInfoTest("trie.test", "db.test", "indexdb.test", "contractidxdb.test")
 	require.NoError(err)
 	defer teardown()
-	cfgSender.NodeInfo.EnableBroadcastNodeInfo = true
+	cfgSender.NodeInfo.DisableBroadcastNodeInfo = false
 	cfgSender.NodeInfo.BroadcastNodeInfoInterval = time.Second
 	cfgSender.Network.ReconnectInterval = 2 * time.Second
 	srvSender, err := itx.NewServer(cfgSender)
@@ -96,11 +96,14 @@ func TestBroadcastNodeInfo(t *testing.T) {
 		require.NoError(srvReciever.Stop(ctxReciever))
 	}()
 
-	// check if there is sender's info in reciever delegatemanager
+	// check if there is sender's info in receiver delegatemanager
 	addrSender := cfgSender.Chain.ProducerAddress()[0].String()
+	peer, err := srvSender.P2PAgent().Info()
+	require.NoError(err)
+	// TODO: replace with automatic broadcast check after enabling broadcast
 	require.NoError(srvSender.ChainService(cfgSender.Chain.ID).NodeInfoManager().BroadcastNodeInfo(context.Background(), []string{addrSender}))
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
-		_, ok := srvReciever.ChainService(cfgReciever.Chain.ID).NodeInfoManager().GetNodeInfo(addrSender)
+		_, ok := srvReciever.ChainService(cfgReciever.Chain.ID).NodeInfoManager().GetNodeInfo(peer.ID.String())
 		return ok, nil
 	}))
 }
@@ -143,9 +146,8 @@ func TestUnicastNodeInfo(t *testing.T) {
 	dmSender := srvSender.ChainService(cfgSender.Chain.ID).NodeInfoManager()
 	err = dmSender.RequestSingleNodeInfoAsync(context.Background(), peerReciever)
 	require.NoError(err)
-	addrReciever := cfgReceiver.Chain.ProducerAddress()[0].String()
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
-		_, ok := dmSender.GetNodeInfo(addrReciever)
+		_, ok := dmSender.GetNodeInfo(peerReciever.ID.String())
 		return ok, nil
 	}))
 }

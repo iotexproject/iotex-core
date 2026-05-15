@@ -35,7 +35,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/blockindex"
 	"github.com/iotexproject/iotex-core/v2/blockindex/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blocksync"
@@ -252,6 +251,10 @@ func (builder *Builder) buildActionPool() error {
 					return se, nil
 				}))
 		}
+		if builder.cfg.ActPool.EnableBundlePool {
+			bp := actpool.NewBundlePool(builder.cfg.Genesis)
+			options = append(options, actpool.WithBundlePool(bp))
+		}
 		ac, err := actpool.NewActPool(builder.cfg.Genesis, builder.cs.factory, builder.cfg.ActPool, options...)
 		if err != nil {
 			return errors.Wrap(err, "failed to create actpool")
@@ -271,26 +274,7 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		return nil
 	}
 
-	var indexers []blockdao.BlockIndexer
-	// indexers in synchronizedIndexers will need to run PutBlock() one by one
-	// factory is dependent on sgdIndexer and contractStakingIndexer, so it should be put in the first place
-	synchronizedIndexers := []blockdao.BlockIndexer{builder.cs.factory}
-	// TODO: the three contract staking indexers should be removed from blockdao indexers
-	// and commit them in statedb instead. Otherwise, their processing will be executed twice for each block.
-	if builder.cs.contractStakingIndexer != nil {
-		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexer)
-	}
-	if builder.cs.contractStakingIndexerV2 != nil {
-		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV2)
-	}
-	if builder.cs.contractStakingIndexerV3 != nil {
-		synchronizedIndexers = append(synchronizedIndexers, builder.cs.contractStakingIndexerV3)
-	}
-	if len(synchronizedIndexers) > 1 {
-		indexers = append(indexers, blockindex.NewSyncIndexers(synchronizedIndexers...))
-	} else {
-		indexers = append(indexers, builder.cs.factory)
-	}
+	indexers := []blockdao.BlockIndexer{builder.cs.factory}
 	if !builder.cfg.Chain.EnableAsyncIndexWrite && builder.cs.indexer != nil {
 		indexers = append(indexers, builder.cs.indexer)
 	}
@@ -312,13 +296,23 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to parse chain db path %s", path)
 		}
+		serializer := block.NewDeserializer(builder.cfg.Chain.EVMNetworkID)
 		switch uri.Scheme {
 		case "grpc":
-			store = blockdao.NewGrpcBlockDAO(uri.Host, uri.Query().Get("insecure") == "true", block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+			cacheSize := uint64(256)
+			if cfg.Chain.HistoryBlockRetention > 0 {
+				cacheSize = cfg.Chain.HistoryBlockRetention
+			}
+			store = blockdao.NewGrpcBlockDAO(
+				uri.Host,
+				uri.Query().Get("insecure") == "true",
+				serializer,
+				cacheSize,
+			)
 		case "file", "":
 			dbConfig := cfg.DB
 			dbConfig.DbPath = uri.Path
-			store, err = filedao.NewFileDAO(dbConfig, block.NewDeserializer(builder.cfg.Chain.EVMNetworkID))
+			store, err = filedao.NewFileDAO(dbConfig, serializer)
 		default:
 			return errors.Errorf("unsupported blockdao scheme %s", uri.Scheme)
 		}
@@ -332,6 +326,11 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 			)
 			opts = append(opts, blockdao.WithBlobStore(blobStore))
 		}
+		if path := cfg.Chain.PatchReceiptIndexPath; len(path) > 0 {
+			dbConfig.DbPath = path
+			dbConfig.ReadOnly = true
+			opts = append(opts, blockdao.WithReceiptIndexer(blockdao.NewReceiptIndexer(db.NewBoltDB(dbConfig), cfg.Chain.PatchReceiptIndexEndHeight)))
+		}
 	}
 	if err != nil {
 		return err
@@ -340,6 +339,13 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		store, indexers, cfg.DB.MaxCacheSize, opts...)
 
 	return nil
+}
+
+func (builder *Builder) blocksToDurationFn(start uint64, end uint64, viewAt uint64) time.Duration {
+	if viewAt < builder.cfg.Genesis.WakeBlockHeight {
+		return time.Duration(end-start) * builder.cfg.DardanellesUpgrade.BlockInterval
+	}
+	return time.Duration(end-start) * builder.cfg.WakeUpgrade.BlockInterval
 }
 
 func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
@@ -352,55 +358,68 @@ func (builder *Builder) buildContractStakingIndexer(forTest bool) error {
 		builder.cs.contractStakingIndexerV3 = nil
 		return nil
 	}
-	cfg := builder.cfg
 	dbConfig := builder.cfg.DB
 	dbConfig.DbPath = builder.cfg.Chain.ContractStakingIndexDBPath
 	kvstore := db.NewBoltDB(dbConfig)
-	blockDurationFn := func(start uint64, end uint64, viewAt uint64) time.Duration {
-		if viewAt < cfg.Genesis.WakeBlockHeight {
-			return time.Duration(end-start) * cfg.DardanellesUpgrade.BlockInterval
-		}
-		return time.Duration(end-start) * cfg.WakeUpgrade.BlockInterval
+	voteCalcConsts := builder.cfg.Genesis.VoteWeightCalConsts
+	calculateVotesWeight := func(v *staking.VoteBucket) *big.Int {
+		return staking.CalculateVoteWeight(voteCalcConsts, v, false)
 	}
 	// build contract staking indexer
 	if builder.cs.contractStakingIndexer == nil && len(builder.cfg.Genesis.SystemStakingContractAddress) > 0 {
-		voteCalcConsts := builder.cfg.Genesis.VoteWeightCalConsts
 		indexer, err := contractstaking.NewContractStakingIndexer(
 			kvstore,
 			contractstaking.Config{
 				ContractAddress:      builder.cfg.Genesis.SystemStakingContractAddress,
 				ContractDeployHeight: builder.cfg.Genesis.SystemStakingContractHeight,
-				CalculateVoteWeight: func(v *staking.VoteBucket) *big.Int {
-					return staking.CalculateVoteWeight(voteCalcConsts, v, false)
-				},
-				BlocksToDuration: blockDurationFn,
+				CalculateVoteWeight:  calculateVotesWeight,
+				BlocksToDuration:     builder.blocksToDurationFn,
 			})
 		if err != nil {
 			return err
 		}
 		builder.cs.contractStakingIndexer = indexer
+		builder.cs.factory.AddDependency(indexer)
 	}
 	// build contract staking indexer v2
 	if builder.cs.contractStakingIndexerV2 == nil && len(builder.cfg.Genesis.SystemStakingContractV2Address) > 0 {
-		indexer := stakingindex.NewIndexer(
+		contractAddr, err := address.FromString(builder.cfg.Genesis.SystemStakingContractV2Address)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse contract address %s", builder.cfg.Genesis.SystemStakingContractV2Address)
+		}
+		indexer, err := stakingindex.NewIndexer(
 			kvstore,
-			builder.cfg.Genesis.SystemStakingContractV2Address,
+			contractAddr,
 			builder.cfg.Genesis.SystemStakingContractV2Height,
-			blockDurationFn,
+			builder.blocksToDurationFn,
 			stakingindex.WithMuteHeight(builder.cfg.Genesis.WakeBlockHeight),
+			stakingindex.WithCalculateUnmutedVoteWeightFn(calculateVotesWeight),
 		)
+		if err != nil {
+			return err
+		}
 		builder.cs.contractStakingIndexerV2 = indexer
+		builder.cs.factory.AddDependency(indexer)
 	}
 	// build contract staking indexer v3
 	if builder.cs.contractStakingIndexerV3 == nil && len(builder.cfg.Genesis.SystemStakingContractV3Address) > 0 {
-		indexer := stakingindex.NewIndexer(
+		contractAddr, err := address.FromString(builder.cfg.Genesis.SystemStakingContractV3Address)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse contract address %s", builder.cfg.Genesis.SystemStakingContractV3Address)
+		}
+		indexer, err := stakingindex.NewIndexer(
 			kvstore,
-			builder.cfg.Genesis.SystemStakingContractV3Address,
+			contractAddr,
 			builder.cfg.Genesis.SystemStakingContractV3Height,
-			blockDurationFn,
+			builder.blocksToDurationFn,
 			stakingindex.EnableTimestamped(),
+			stakingindex.WithCalculateUnmutedVoteWeightFn(calculateVotesWeight),
 		)
+		if err != nil {
+			return err
+		}
 		builder.cs.contractStakingIndexerV3 = indexer
+		builder.cs.factory.AddDependency(indexer)
 	}
 	return nil
 }
@@ -536,29 +555,11 @@ func (builder *Builder) buildNodeInfoManager() error {
 	if stk == nil {
 		return errors.New("cannot find staking protocol")
 	}
-	chain := builder.cs.chain
 	var dm *nodeinfo.InfoManager
 	if builder.cfg.System.Active {
-		dm = nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, func() []string {
-			ctx := protocol.WithFeatureCtx(
-				protocol.WithBlockCtx(
-					genesis.WithGenesisContext(context.Background(), chain.Genesis()),
-					protocol.BlockCtx{BlockHeight: chain.TipHeight()},
-				),
-			)
-			candidates, err := stk.ActiveCandidates(ctx, cs.factory, 0)
-			if err != nil {
-				log.L().Error("failed to get active candidates", zap.Error(errors.WithStack(err)))
-				return nil
-			}
-			whiteList := make([]string, len(candidates))
-			for i := range whiteList {
-				whiteList[i] = candidates[i].Address
-			}
-			return whiteList
-		}, builder.cfg.Chain.ProducerPrivateKeys()...)
+		dm = nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.WakeUpgrade.BlockInterval, builder.cfg.Chain.ProducerPrivateKeys()...)
 	} else {
-		dm = nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, nil)
+		dm = nodeinfo.NewInfoManager(&builder.cfg.NodeInfo, cs.p2pAgent, cs.chain, builder.cfg.WakeUpgrade.BlockInterval)
 	}
 	builder.cs.nodeInfoManager = dm
 	builder.cs.lifecycle.Add(dm)
@@ -652,6 +653,7 @@ func (builder *Builder) buildBlockSyncer() error {
 		p2pAgent.ConnectedPeers,
 		p2pAgent.UnicastOutbound,
 		p2pAgent.BlockPeer,
+		builder.cs.nodeInfoManager,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create block syncer")
@@ -685,16 +687,18 @@ func (builder *Builder) registerStakingProtocol() error {
 	if builder.cs.contractStakingIndexerV3 != nil {
 		opts = append(opts, staking.WithContractStakingIndexerV3(builder.cs.contractStakingIndexerV3))
 	}
+	opts = append(opts, staking.WithBlockStore(builder.cs.blockdao))
 	stakingProtocol, err := staking.NewProtocol(
 		staking.HelperCtx{
 			DepositGas:    rewarding.DepositGas,
 			BlockInterval: consensusCfg.BlockInterval,
 		},
 		&staking.BuilderConfig{
-			Staking:                  builder.cfg.Genesis.Staking,
-			PersistStakingPatchBlock: builder.cfg.Chain.PersistStakingPatchBlock,
-			FixAliasForNonStopHeight: builder.cfg.Chain.FixAliasForNonStopHeight,
-			StakingPatchDir:          builder.cfg.Chain.StakingPatchDir,
+			Staking:                       builder.cfg.Genesis.Staking,
+			PersistStakingPatchBlock:      builder.cfg.Chain.PersistStakingPatchBlock,
+			FixAliasForNonStopHeight:      builder.cfg.Chain.FixAliasForNonStopHeight,
+			SkipContractStakingViewHeight: builder.cfg.Genesis.XinguBlockHeight,
+			StakingPatchDir:               builder.cfg.Chain.StakingPatchDir,
 			Revise: staking.ReviseConfig{
 				VoteWeight:                  builder.cfg.Genesis.VoteWeightCalConsts,
 				ReviseHeights:               []uint64{builder.cfg.Genesis.GreenlandBlockHeight, builder.cfg.Genesis.HawaiiBlockHeight},
@@ -703,6 +707,7 @@ func (builder *Builder) registerStakingProtocol() error {
 				CorrectCandSelfStakeHeight:  builder.cfg.Genesis.VanuatuBlockHeight,
 			},
 		},
+		builder.blocksToDurationFn,
 		builder.cs.candBucketsIndexer,
 		builder.cs.contractStakingIndexer,
 		builder.cs.contractStakingIndexerV2,
@@ -725,7 +730,7 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(nil, rewarding.DepositGas, nil).Register(builder.cs.registry)
+	return execution.NewProtocol(nil, rewarding.DepositGas, nil, builder.cfg.ActPool.IsBlackListedFunc()).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {

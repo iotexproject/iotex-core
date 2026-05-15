@@ -7,6 +7,7 @@ package contractstaking
 
 import (
 	"math/big"
+	"sort"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -96,4 +97,27 @@ func unpackEventParam(abiEvent *abi.Event, log *action.Log) (eventParam, error) 
 		return nil, errors.Wrap(err, "unpack event indexed fields failed")
 	}
 	return event, nil
+}
+
+func sortByIds(ids []uint64, bts []*BucketType, bis []*bucketInfo) ([]uint64, []*BucketType, []*bucketInfo) {
+	if len(ids) == 0 {
+		return ids, bts, bis
+	}
+	if len(bts) != len(ids) || len(bis) != len(ids) {
+		panic("length of ids, bts and bis should be the same")
+	}
+	sorted := make([]int, len(ids))
+	for i := range sorted {
+		sorted[i] = i
+	}
+	sort.Slice(sorted, func(i, j int) bool { return ids[sorted[i]] < ids[sorted[j]] })
+	sortedIds := make([]uint64, len(ids))
+	sortedBts := make([]*BucketType, len(bts))
+	sortedBis := make([]*bucketInfo, len(bis))
+	for i, idx := range sorted {
+		sortedIds[i] = ids[idx]
+		sortedBts[i] = bts[idx]
+		sortedBis[i] = bis[idx]
+	}
+	return sortedIds, sortedBts, sortedBis
 }

@@ -1,6 +1,10 @@
 package db
 
-import "github.com/pkg/errors"
+import (
+	"os"
+
+	"github.com/pkg/errors"
+)
 
 var (
 	// ErrEmptyDBPath is the error when db path is empty
@@ -18,6 +22,19 @@ func CreateKVStore(cfg Config, dbPath string) (KVStore, error) {
 		return NewPebbleDB(cfg), nil
 	case DBBolt:
 		return NewBoltDB(cfg), nil
+	case DBAuto:
+		info, err := os.Stat(dbPath)
+		if os.IsNotExist(err) {
+			// path does not exist, create pebble db directory
+			return NewPebbleDB(cfg), nil
+		} else if err != nil {
+			return nil, errors.Wrapf(err, "failed to stat db path %s", dbPath)
+		}
+		// use bolt db if dbPath is a file, pebble db if dbPath is a directory
+		if !info.IsDir() {
+			return NewBoltDB(cfg), nil
+		}
+		return NewPebbleDB(cfg), nil
 	default:
 		return nil, errors.Errorf("unsupported db type %s", cfg.DBType)
 	}

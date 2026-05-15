@@ -6,6 +6,7 @@
 package staking
 
 import (
+	"bytes"
 	"math/big"
 	"sort"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
@@ -27,7 +29,8 @@ type (
 		Operator           address.Address
 		Reward             address.Address
 		Identifier         address.Address
-		Pubkey             []byte // BLS public key
+		BLSPubKey          []byte // BLS public key
+		DeactivatedAt      uint64
 		Name               string
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
@@ -46,15 +49,22 @@ type (
 
 // Clone returns a copy
 func (d *Candidate) Clone() *Candidate {
+	var blsPubKey []byte
+	if len(d.BLSPubKey) > 0 {
+		blsPubKey = make([]byte, len(d.BLSPubKey))
+		copy(blsPubKey, d.BLSPubKey)
+	}
 	return &Candidate{
 		Owner:              d.Owner,
 		Operator:           d.Operator,
 		Reward:             d.Reward,
 		Identifier:         d.Identifier,
 		Name:               d.Name,
+		DeactivatedAt:      d.DeactivatedAt,
 		Votes:              new(big.Int).Set(d.Votes),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          new(big.Int).Set(d.SelfStake),
+		BLSPubKey:          blsPubKey,
 	}
 }
 
@@ -67,7 +77,9 @@ func (d *Candidate) Equal(c *Candidate) bool {
 		address.Equal(d.Reward, c.Reward) &&
 		address.Equal(d.Identifier, c.Identifier) &&
 		d.Votes.Cmp(c.Votes) == 0 &&
-		d.SelfStake.Cmp(c.SelfStake) == 0
+		d.SelfStake.Cmp(c.SelfStake) == 0 &&
+		d.DeactivatedAt == c.DeactivatedAt &&
+		bytes.Equal(d.BLSPubKey, c.BLSPubKey)
 }
 
 // Validate does the sanity check
@@ -137,7 +149,6 @@ func (d *Candidate) SubVote(amount *big.Int) error {
 	if amount.Sign() < 0 {
 		return action.ErrInvalidAmount
 	}
-
 	if d.Votes.Cmp(amount) == -1 {
 		return action.ErrInvalidAmount
 	}
@@ -159,8 +170,7 @@ func (d *Candidate) SubSelfStake(amount *big.Int) error {
 	if amount.Sign() < 0 {
 		return action.ErrInvalidAmount
 	}
-
-	if d.Votes.Cmp(amount) == -1 {
+	if d.SelfStake.Cmp(amount) == -1 {
 		return action.ErrInvalidAmount
 	}
 	d.SelfStake.Sub(d.SelfStake, amount)
@@ -194,6 +204,50 @@ func (d *Candidate) GetIdentifier() address.Address {
 	return d.Identifier
 }
 
+// Encode encodes candidate into generic value
+func (d *Candidate) Encode() (systemcontracts.GenericValue, error) {
+	var (
+		primaryData   []byte
+		secondaryData []byte
+		err           error
+		value         systemcontracts.GenericValue
+	)
+	if d.Votes.Sign() > 0 {
+		secondaryData, err = proto.Marshal(&stakingpb.Candidate{Votes: d.Votes.String()})
+		if err != nil {
+			return value, errors.Wrap(err, "failed to marshal candidate votes")
+		}
+	}
+	clone := d.Clone()
+	clone.Votes = big.NewInt(0)
+	primaryData, err = clone.Serialize()
+	if err != nil {
+		return value, errors.Wrap(err, "failed to serialize candidate")
+	}
+	value.PrimaryData = primaryData
+	value.SecondaryData = secondaryData
+	return value, nil
+}
+
+// Decode decodes candidate from generic value
+func (d *Candidate) Decode(gv systemcontracts.GenericValue) error {
+	if err := d.Deserialize(gv.PrimaryData); err != nil {
+		return errors.Wrap(err, "failed to deserialize candidate")
+	}
+	if len(gv.SecondaryData) > 0 {
+		votes := &stakingpb.Candidate{}
+		if err := proto.Unmarshal(gv.SecondaryData, votes); err != nil {
+			return errors.Wrap(err, "failed to unmarshal candidate votes")
+		}
+		vote, ok := new(big.Int).SetString(votes.Votes, 10)
+		if !ok {
+			return errors.Wrapf(action.ErrInvalidAmount, "failed to parse candidate votes: %s", votes.Votes)
+		}
+		d.Votes = vote
+	}
+	return nil
+}
+
 func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 	if d.Owner == nil || d.Operator == nil || d.Reward == nil ||
 		len(d.Name) == 0 || d.Votes == nil || d.SelfStake == nil {
@@ -204,9 +258,9 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		voter = d.Identifier.String()
 	}
 	var pubkey []byte
-	if len(d.Pubkey) > 0 {
-		pubkey = make([]byte, len(d.Pubkey))
-		copy(pubkey, d.Pubkey)
+	if len(d.BLSPubKey) > 0 {
+		pubkey = make([]byte, len(d.BLSPubKey))
+		copy(pubkey, d.BLSPubKey)
 	}
 
 	return &stakingpb.Candidate{
@@ -219,6 +273,7 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          d.SelfStake.String(),
 		Pubkey:             pubkey,
+		DeactivatedAt:      d.DeactivatedAt,
 	}, nil
 }
 
@@ -263,15 +318,18 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 		return action.ErrInvalidAmount
 	}
 	if len(pb.GetPubkey()) > 0 {
-		d.Pubkey = make([]byte, len(pb.GetPubkey()))
-		copy(d.Pubkey, pb.GetPubkey())
+		d.BLSPubKey = make([]byte, len(pb.GetPubkey()))
+		copy(d.BLSPubKey, pb.GetPubkey())
 	} else {
-		d.Pubkey = nil
+		d.BLSPubKey = nil
 	}
+	d.DeactivatedAt = pb.GetDeactivatedAt()
 	return nil
 }
 
 func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
+	blsPubKey := make([]byte, len(d.BLSPubKey))
+	copy(blsPubKey, d.BLSPubKey)
 	return &iotextypes.CandidateV2{
 		OwnerAddress:       d.Owner.String(),
 		OperatorAddress:    d.Operator.String(),
@@ -281,17 +339,23 @@ func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStakingTokens:  d.SelfStake.String(),
 		Id:                 d.GetIdentifier().String(),
+		BlsPubKey:          blsPubKey,
+		DeactivatedAt:      d.DeactivatedAt,
 	}
 }
 
-func (d *Candidate) toStateCandidate() *state.Candidate {
-	return &state.Candidate{
+func (d *Candidate) toStateCandidate(ignoreIdentity bool) *state.Candidate {
+	c := &state.Candidate{
 		Address:       d.Operator.String(), // state need candidate operator not owner address
 		Votes:         new(big.Int).Set(d.Votes),
 		RewardAddress: d.Reward.String(),
 		CanName:       []byte(d.Name),
-		Pubkey:        d.Pubkey,
+		BLSPubKey:     d.BLSPubKey,
 	}
+	if !ignoreIdentity {
+		c.Identity = d.GetIdentifier().String()
+	}
+	return c
 }
 
 func (l CandidateList) Len() int      { return len(l) }
@@ -360,10 +424,65 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {
+// Encode encodes candidate list into generic value
+func (l *CandidateList) Encodes() ([][]byte, []systemcontracts.GenericValue, error) {
+	var (
+		keys   [][]byte
+		values []systemcontracts.GenericValue
+	)
+	for idx, c := range *l {
+		key := []byte(c.GetIdentifier().Bytes())
+		gv, err := c.Encode()
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to encode candidate")
+		}
+		var nextAddr []byte
+		if idx < len(*l)-1 {
+			nextAddr = (*l)[idx+1].GetIdentifier().Bytes()
+		}
+		gv.AuxiliaryData = nextAddr
+		keys = append(keys, key)
+		values = append(values, gv)
+	}
+	return keys, values, nil
+}
+
+// Decode decodes candidate list from generic value
+func (l *CandidateList) Decodes(keys [][]byte, gvs []systemcontracts.GenericValue) error {
+	if len(keys) != len(gvs) {
+		return errors.New("mismatched keys and generic values length")
+	}
+	if len(keys) == 0 {
+		*l = CandidateList{}
+		return nil
+	}
+
+	candidates, err := state.DecodeOrderedKvList(keys, gvs, func(k []byte, v systemcontracts.GenericValue) (*Candidate, string, string, error) {
+		c := &Candidate{}
+		if err := c.Decode(v); err != nil {
+			return nil, "", "", errors.Wrap(err, "failed to decode candidate")
+		}
+		var next string
+		if len(v.AuxiliaryData) > 0 {
+			nextAddr, err := address.FromBytes(v.AuxiliaryData)
+			if err != nil {
+				return nil, "", "", errors.Wrap(err, "failed to get next candidate address")
+			}
+			next = nextAddr.String()
+		}
+		return c, c.GetIdentifier().String(), next, nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to decode candidate list")
+	}
+	*l = candidates
+	return nil
+}
+
+func (l CandidateList) toStateCandidateList(ignoreIdentity bool) (state.CandidateList, error) {
 	list := make(state.CandidateList, 0, len(l))
 	for _, c := range l {
-		list = append(list, c.toStateCandidate())
+		list = append(list, c.toStateCandidate(ignoreIdentity))
 	}
 	sort.Sort(list)
 	return list, nil

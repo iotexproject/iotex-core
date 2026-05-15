@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers"
-	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -29,7 +28,9 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
+	pollingabi "github.com/iotexproject/iotex-core/v2/action/protocol/poll/ethabi"
 	rewardingabi "github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/ethabi"
+	rolldposabi "github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos/ethabi"
 	stakingabi "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -217,6 +218,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.getBlockByNumber(web3Req)
 	case "eth_estimateGas":
 		res, err = svr.estimateGas(ctx, web3Req)
+	case "eth_sendBundle":
+		res, err = svr.sendBundle(ctx, web3Req)
 	case "eth_sendRawTransaction":
 		res, err = svr.sendRawTransaction(ctx, web3Req)
 	case "eth_getTransactionByHash":
@@ -229,6 +232,8 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.getBlockTransactionCountByNumber(web3Req)
 	case "eth_getTransactionReceipt":
 		res, err = svr.getTransactionReceipt(web3Req)
+	case "eth_getBlockReceipts":
+		res, err = svr.getBlockReceipts(web3Req)
 	case "eth_getStorageAt":
 		res, err = svr.getStorageAt(web3Req)
 	case "eth_getFilterLogs":
@@ -255,15 +260,21 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.unsubscribe(web3Req)
 	case "eth_getBlobSidecars":
 		res, err = svr.getBlobSidecars(web3Req)
-	//TODO: enable debug api after archive mode is supported
-	// case "debug_traceTransaction":
-	// 	res, err = svr.traceTransaction(ctx, web3Req)
-	// case "debug_traceCall":
-	// 	res, err = svr.traceCall(ctx, web3Req)
+	case "debug_traceTransaction":
+		res, err = svr.traceTransaction(ctx, web3Req)
+	case "debug_traceCall":
+		res, err = svr.traceCall(ctx, web3Req)
+	case "debug_traceBlockByNumber":
+		res, err = svr.traceBlockByNumber(ctx, web3Req)
+	case "debug_traceBlockByHash":
+		res, err = svr.traceBlockByHash(ctx, web3Req)
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber",
 		"eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex",
 		"eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
 		res, err = svr.unimplemented()
+	case "eth_deleteBundle":
+		// TODO: implement delete bundle
+		fallthrough
 	default:
 		res, err = nil, errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 	}
@@ -415,11 +426,11 @@ func (svr *web3Handler) getBalance(in *gjson.Result) (interface{}, error) {
 		return nil, err
 	}
 	bnParam := in.Get("params.1")
-	bn, err := parseBlockNumber(&bnParam)
+	bn, err := parseBlockNumberOrHash(&bnParam)
 	if err != nil {
 		return nil, err
 	}
-	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
 	if err != nil {
 		return nil, err
 	}
@@ -466,6 +477,14 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		to   = callMsg.To
 		data = callMsg.Data
 	)
+	height, archive, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
+	if err != nil {
+		return nil, err
+	}
+	heightStr := ""
+	if height > 0 {
+		heightStr = strconv.FormatUint(height, 10)
+	}
 	if to == _metamaskBalanceContractAddr {
 		return nil, nil
 	}
@@ -474,7 +493,7 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		if err != nil {
 			return nil, err
 		}
-		states, err := svr.coreService.ReadState("staking", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		states, err := svr.coreService.ReadState("staking", heightStr, sctx.Parameters().MethodName, sctx.Parameters().Arguments)
 		if err != nil {
 			return nil, err
 		}
@@ -489,7 +508,37 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		if err != nil {
 			return nil, err
 		}
-		states, err := svr.coreService.ReadState("rewarding", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		states, err := svr.coreService.ReadState("rewarding", heightStr, sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := sctx.EncodeToEth(states)
+		if err != nil {
+			return nil, err
+		}
+		return "0x" + ret, nil
+	}
+	if to == address.PollProtocol {
+		sctx, err := pollingabi.BuildReadStateRequest(data)
+		if err != nil {
+			return nil, err
+		}
+		states, err := svr.coreService.ReadState("poll", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := sctx.EncodeToEth(states)
+		if err != nil {
+			return nil, err
+		}
+		return "0x" + ret, nil
+	}
+	if to == address.RollDPoSProtocol {
+		sctx, err := rolldposabi.BuildReadStateRequest(data)
+		if err != nil {
+			return nil, err
+		}
+		states, err := svr.coreService.ReadState("rolldpos", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
 		if err != nil {
 			return nil, err
 		}
@@ -505,10 +554,6 @@ func (svr *web3Handler) call(ctx context.Context, in *gjson.Result) (interface{}
 		ret     string
 		receipt *iotextypes.Receipt
 	)
-	height, archive, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
-	if err != nil {
-		return nil, err
-	}
 	if !archive {
 		ret, receipt, err = svr.coreService.ReadContract(context.Background(), callMsg.From, elp)
 	} else {
@@ -567,23 +612,91 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 	return uint64ToHex(estimatedGas), nil
 }
 
-func (svr *web3Handler) sendRawTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {
-	dataStr := in.Get("params.0")
-	if !dataStr.Exists() {
-		return nil, errInvalidFormat
-	}
-	// parse raw data string from json request
+type sendBundleReqest struct {
+	txs    []string
+	height uint64
+	id     string
+}
+
+func parseBundleRequest(in *gjson.Result) (*sendBundleReqest, error) {
 	var (
-		cs        = svr.coreService
-		rawString = dataStr.String()
-		tx        *types.Transaction
-		encoding  iotextypes.Encoding
-		sig       []byte
-		pubkey    crypto.PublicKey
-		err       error
-		req       *iotextypes.Action
+		height uint64
+		txs    []string
+		err    error
+		id     string
 	)
-	tx, err = action.DecodeEtherTx(rawString)
+	txsRaw, blockNumRaw := in.Get("params.0.txs"), in.Get("params.0.blockNumber")
+
+	// Check if both required parameters exist
+	if !txsRaw.Exists() || !blockNumRaw.Exists() {
+		return nil, errors.Wrapf(errInvalidFormat, "missing required parameters: txs=%s, blockNumber=%s",
+			txsRaw.String(), blockNumRaw.String())
+	}
+
+	// Parse block number
+	if height, err = hexStringToNumber(blockNumRaw.String()); err != nil {
+		return nil, errors.Wrap(err, "failed to parse block number")
+	}
+
+	// Parse transactions array
+	if !txsRaw.IsArray() {
+		return nil, errors.Wrapf(errInvalidFormat, "txs parameter must be an array")
+	}
+
+	txs = make([]string, 0, len(txsRaw.Array()))
+	for i, txRaw := range txsRaw.Array() {
+		if !txRaw.Exists() || txRaw.String() == "" {
+			return nil, errors.Wrapf(errInvalidFormat, "empty transaction at index %d", i)
+		}
+		txs = append(txs, txRaw.String())
+	}
+
+	if uid := in.Get("params.0.replacementUuid"); uid.Exists() && uid.String() != "" {
+		id = uid.String()
+	}
+	return &sendBundleReqest{
+		txs:    txs,
+		height: height,
+		id:     id,
+	}, nil
+}
+
+func (svr *web3Handler) sendBundle(ctx context.Context, in *gjson.Result) (interface{}, error) {
+	req, err := parseBundleRequest(in)
+	if err != nil {
+		return nil, err
+	}
+	bundle := iotextypes.Bundle{
+		TargetBlockNumber: req.height,
+	}
+	for _, txRaw := range req.txs {
+		act, err := svr.decodeEthTx(txRaw)
+		if err != nil {
+			return nil, err
+		}
+		bundle.Actions = append(bundle.Actions, act)
+	}
+	addr, _ := address.FromString(address.ZeroAddress)
+	h, err := svr.coreService.SendBundle(ctx, &bundle, addr, req.id)
+	if err != nil {
+		return nil, err
+	}
+	return &sendBundleResult{
+		BundleHash: h,
+	}, nil
+}
+
+func (svr *web3Handler) decodeEthTx(hexedRaw string) (*iotextypes.Action, error) {
+	var (
+		cs       = svr.coreService
+		tx       *types.Transaction
+		encoding iotextypes.Encoding
+		sig      []byte
+		pubkey   crypto.PublicKey
+		err      error
+		req      *iotextypes.Action
+	)
+	tx, err = action.DecodeEtherTx(hexedRaw)
 	if err != nil {
 		return nil, err
 	}
@@ -608,7 +721,7 @@ func (svr *web3Handler) sendRawTransaction(ctx context.Context, in *gjson.Result
 			}
 		} else {
 			// tx is not staking or rewarding
-			actCore, err := action.EthRawToContainer(svr.coreService.ChainID(), rawString)
+			actCore, err := action.EthRawToContainer(svr.coreService.ChainID(), hexedRaw)
 			if err != nil {
 				return nil, err
 			}
@@ -631,6 +744,21 @@ func (svr *web3Handler) sendRawTransaction(ctx context.Context, in *gjson.Result
 			Encoding:     encoding,
 		}
 	}
+	return req, nil
+}
+
+func (svr *web3Handler) sendRawTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {
+	dataStr := in.Get("params.0")
+	if !dataStr.Exists() {
+		return nil, errInvalidFormat
+	}
+	var (
+		cs = svr.coreService
+	)
+	req, err := svr.decodeEthTx(dataStr.String())
+	if err != nil {
+		return nil, err
+	}
 	actionHash, err := cs.SendAction(ctx, req)
 	if err != nil {
 		return nil, err
@@ -648,11 +776,11 @@ func (svr *web3Handler) getCode(in *gjson.Result) (interface{}, error) {
 		return nil, err
 	}
 	bnParam := in.Get("params.1")
-	bn, err := parseBlockNumber(&bnParam)
+	bn, err := parseBlockNumberOrHash(&bnParam)
 	if err != nil {
 		return nil, err
 	}
-	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
 	if err != nil {
 		return nil, err
 	}
@@ -865,6 +993,80 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 
 }
 
+func (svr *web3Handler) getBlockReceipts(in *gjson.Result) (interface{}, error) {
+	// parse block parameter from request
+	blkParam := in.Get("params.0")
+	if !blkParam.Exists() {
+		return nil, errInvalidFormat
+	}
+	bn, err := parseBlockNumberOrHash(&blkParam)
+	if err != nil {
+		return nil, err
+	}
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
+	if err != nil {
+		return nil, err
+	}
+
+	blk, err := svr.coreService.BlockByHeight(height)
+	if err != nil {
+		if errors.Cause(err) == ErrNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// Build receipt array for all transactions in the block
+	receipts := make([]*getReceiptResult, 0, len(blk.Block.Actions))
+	blockHash := blk.Block.HashBlock()
+
+	// Get logs bloom filter
+	var logsBloomStr string
+	if logsBloom := blk.Block.LogsBloomfilter(); logsBloom != nil {
+		logsBloomStr = hex.EncodeToString(logsBloom.Bytes())
+	}
+
+	// Process each transaction in the block
+	for i, selp := range blk.Block.Actions {
+		receipt := blk.Receipts[i]
+
+		// Convert action to ethereum transaction to get type
+		tx, err := selp.ToEthTx()
+		if err != nil {
+			if errors.Is(err, errUnsupportedAction) || errors.Is(err, action.ErrInvalidAct) {
+				txHash, _ := selp.Hash()
+				log.Logger("api").Debug("getBlockReceipts: unsupported action type",
+					zap.String("action", fmt.Sprintf("%T", selp.Action())),
+					log.Hex("actionHash", txHash[:]),
+					zap.Int("index", i))
+				continue // Skip unsupported actions
+			}
+			return nil, err
+		}
+
+		// Get recipient and contract address
+		to, contractAddr, err := getRecipientAndContractAddrFromAction(selp, receipt)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create receipt result
+		receiptResult := &getReceiptResult{
+			blockHash:       blockHash,
+			from:            selp.SenderAddress(),
+			to:              to,
+			contractAddress: contractAddr,
+			logsBloom:       logsBloomStr,
+			receipt:         receipt,
+			txType:          uint(tx.Type()),
+		}
+
+		receipts = append(receipts, receiptResult)
+	}
+
+	return receipts, nil
+}
+
 func (svr *web3Handler) getBlockTransactionCountByNumber(in *gjson.Result) (interface{}, error) {
 	blkNum := in.Get("params.0")
 	if !blkNum.Exists() {
@@ -937,11 +1139,11 @@ func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {
 		return nil, errInvalidFormat
 	}
 	bnParam := in.Get("params.2")
-	bn, err := parseBlockNumber(&bnParam)
+	bn, err := parseBlockNumberOrHash(&bnParam)
 	if err != nil {
 		return nil, err
 	}
-	height, _, err := svr.blockNumberOrHashToHeight(rpc.BlockNumberOrHashWithNumber(bn))
+	height, _, err := svr.blockNumberOrHashToHeight(bn)
 	if err != nil {
 		return nil, err
 	}
@@ -1176,48 +1378,12 @@ func (svr *web3Handler) traceTransaction(ctx context.Context, in *gjson.Result) 
 	if !actHash.Exists() {
 		return nil, errInvalidFormat
 	}
-	var (
-		enableMemory, disableStack, disableStorage, enableReturnData bool
-	)
-	if options.Exists() {
-		enableMemory = options.Get("enableMemory").Bool()
-		disableStack = options.Get("disableStack").Bool()
-		disableStorage = options.Get("disableStorage").Bool()
-		enableReturnData = options.Get("enableReturnData").Bool()
-	}
-	cfg := &tracers.TraceConfig{
-		Config: &logger.Config{
-			EnableMemory:     enableMemory,
-			DisableStack:     disableStack,
-			DisableStorage:   disableStorage,
-			EnableReturnData: enableReturnData,
-		},
-	}
-	if tracer := options.Get("tracer"); tracer.Exists() {
-		cfg.Tracer = new(string)
-		*cfg.Tracer = tracer.String()
-		if tracerConfig := options.Get("tracerConfig"); tracerConfig.Exists() {
-			cfg.TracerConfig = json.RawMessage(tracerConfig.Raw)
-		}
-	}
-	retval, receipt, tracer, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
+	cfg := parseTracerConfig(&options)
+	_, _, tracer, err := svr.coreService.TraceTransaction(ctx, actHash.String(), cfg)
 	if err != nil {
 		return nil, err
 	}
-	switch tracer := tracer.(type) {
-	case *logger.StructLogger:
-		return &debugTraceTransactionResult{
-			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
-			Revert:      receipt.ExecutionRevertMsg(),
-			ReturnValue: byteToHex(retval),
-			StructLogs:  fromLoggerStructLogs(tracer.StructLogs()),
-			Gas:         receipt.GasConsumed,
-		}, nil
-	case tracers.Tracer:
-		return tracer.GetResult()
-	default:
-		return nil, fmt.Errorf("unknown tracer type: %T", tracer)
-	}
+	return tracer.(*tracers.Tracer).GetResult()
 }
 
 func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interface{}, error) {
@@ -1225,70 +1391,44 @@ func (svr *web3Handler) traceCall(ctx context.Context, in *gjson.Result) (interf
 		err     error
 		callMsg *callMsg
 	)
-	// TODO: refactor blkNumOrHashObj to avoid code duplication
-	blkNumOrHashObj, options := in.Get("params.1"), in.Get("params.2")
+	options := in.Get("params.2")
 	callMsg, err = parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
-
-	var blkNumOrHash any
-	if blkNumOrHashObj.Exists() {
-		blkNumOrHash = blkNumOrHashObj.Get("blockHash").String()
-		if blkNumOrHash == "" {
-			blkNumOrHash = blkNumOrHashObj.Get("blockNumber").Uint()
-		}
-	}
-
-	var (
-		enableMemory, disableStack, disableStorage, enableReturnData bool
-		tracerJs, tracerTimeout                                      *string
-	)
-	if options.Exists() {
-		enableMemory = options.Get("enableMemory").Bool()
-		disableStack = options.Get("disableStack").Bool()
-		disableStorage = options.Get("disableStorage").Bool()
-		enableReturnData = options.Get("enableReturnData").Bool()
-		trace := options.Get("tracer")
-		if trace.Exists() {
-			tracerJs = new(string)
-			*tracerJs = trace.String()
-		}
-		traceTimeout := options.Get("timeout")
-		if traceTimeout.Exists() {
-			tracerTimeout = new(string)
-			*tracerTimeout = traceTimeout.String()
-		}
-	}
-	cfg := &tracers.TraceConfig{
-		Tracer:  tracerJs,
-		Timeout: tracerTimeout,
-		Config: &logger.Config{
-			EnableMemory:     enableMemory,
-			DisableStack:     disableStack,
-			DisableStorage:   disableStorage,
-			EnableReturnData: enableReturnData,
-		},
-	}
-
-	retval, receipt, tracer, err := svr.coreService.TraceCall(ctx, callMsg.From, blkNumOrHash, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, cfg)
+	tracerCfg := parseTracerConfig(&options)
+	height, _, err := svr.blockNumberOrHashToHeight(callMsg.BlockNumberOrHash)
 	if err != nil {
 		return nil, err
 	}
-	switch tracer := tracer.(type) {
-	case *logger.StructLogger:
-		return &debugTraceTransactionResult{
-			Failed:      receipt.Status != uint64(iotextypes.ReceiptStatus_Success),
-			Revert:      receipt.ExecutionRevertMsg(),
-			ReturnValue: byteToHex(retval),
-			StructLogs:  fromLoggerStructLogs(tracer.StructLogs()),
-			Gas:         receipt.GasConsumed,
-		}, nil
-	case tracers.Tracer:
-		return tracer.GetResult()
-	default:
-		return nil, fmt.Errorf("unknown tracer type: %T", tracer)
+
+	_, _, tracer, err := svr.coreService.TraceCall(ctx, callMsg.From, height, callMsg.To, 0, callMsg.Value, callMsg.Gas, callMsg.Data, tracerCfg)
+	if err != nil {
+		return nil, err
 	}
+	return tracer.(*tracers.Tracer).GetResult()
+}
+
+func (svr *web3Handler) traceBlockByNumber(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	blkNum, err := parseBlockNumberOrHash(&blkParam)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse block number")
+	}
+	height, _, err := svr.blockNumberOrHashToHeight(blkNum)
+	if err != nil {
+		return nil, err
+	}
+	tracer := parseTracerConfig(&tracerParam)
+	_, _, results, err := svr.coreService.TraceBlockByNumber(ctx, height, tracer)
+	return results, err
+}
+
+func (svr *web3Handler) traceBlockByHash(ctx context.Context, in *gjson.Result) (any, error) {
+	blkParam, tracerParam := in.Get("params.0"), in.Get("params.1")
+	tracer := parseTracerConfig(&tracerParam)
+	_, _, results, err := svr.coreService.TraceBlockByHash(ctx, blkParam.String(), tracer)
+	return results, err
 }
 
 func (svr *web3Handler) unimplemented() (interface{}, error) {

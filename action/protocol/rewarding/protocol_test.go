@@ -50,9 +50,14 @@ func TestValidateExtension(t *testing.T) {
 	g.FoundationBonusP2EndEpoch = last
 }
 
-func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.StateManager, *Protocol), withExempt bool) {
+func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.StateManager, *Protocol), unproductives map[string]uint64, withExempt bool, slashHeight uint64) {
 	ctrl := gomock.NewController(t)
-
+	if unproductives == nil {
+		unproductives = map[string]uint64{
+			identityset.Address(29).String(): 1,
+			identityset.Address(31).String(): 2,
+		}
+	}
 	registry := protocol.NewRegistry()
 	sm := testdb.NewMockStateManager(ctrl)
 
@@ -68,6 +73,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	g.Rewarding.NumDelegatesForFoundationBonus = 5
 	g.Rewarding.FoundationBonusLastEpoch = 365
 	g.Rewarding.ProductivityThreshold = 50
+	g.XinguBlockHeight = slashHeight
 	// Initialize the protocol
 	if withExempt {
 		g.Rewarding.ExemptAddrStrsFromEpochReward = []string{
@@ -141,6 +147,10 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			RewardAddress: identityset.Address(31).String(),
 		},
 	}
+	view := protocol.NewMockView(ctrl)
+	view.EXPECT().Snapshot().AnyTimes()
+	view.EXPECT().Revert(gomock.Any()).AnyTimes()
+	require.NoError(t, sm.WriteView("staking", view))
 	pp := mock_poll.NewMockProtocol(ctrl)
 	pp.EXPECT().Candidates(gomock.Any(), gomock.Any()).Return(candidates, nil).AnyTimes()
 	pp.EXPECT().Delegates(gomock.Any(), gomock.Any()).Return(abps, nil).AnyTimes()
@@ -148,10 +158,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		return reg.Register("poll", pp)
 	}).AnyTimes()
 	pp.EXPECT().CalculateUnproductiveDelegates(gomock.Any(), gomock.Any()).Return(
-		map[string]uint64{
-			identityset.Address(29).String(): 1,
-			identityset.Address(31).String(): 2,
-		}, nil,
+		unproductives, nil,
 	).AnyTimes()
 	require.NoError(t, rp.Register(registry))
 	require.NoError(t, pp.Register(registry))
@@ -303,6 +310,14 @@ func TestProtocol_Handle(t *testing.T) {
 		}).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
+	sm.EXPECT().DelState(gomock.Any()).DoAndReturn(func(opts ...protocol.StateOption) (uint64, error) {
+		cfg, err := protocol.CreateStateConfig(opts...)
+		if err != nil {
+			return 0, err
+		}
+		cb.Delete("state", cfg.Key, "failed to delete state")
+		return 0, nil
+	}).AnyTimes()
 
 	g.Rewarding.InitBalanceStr = "1000000"
 	g.Rewarding.BlockRewardStr = "10"
@@ -649,6 +664,9 @@ func TestMigrateValue(t *testing.T) {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			blkCtx.BlockHeight = v.height
 			fCtx = protocol.WithFeatureCtx(protocol.WithBlockCtx(fCtx, blkCtx))
+			// init storage bucket
+			_, err = sm.PutState(&rewardHistory{}, protocol.NamespaceOption(_v2RewardingNamespace), protocol.KeyOption([]byte("test")))
+			r.NoError(err)
 			r.NoError(p.CreatePreStates(fCtx, sm))
 
 			// verify v1 is deleted
@@ -685,5 +703,5 @@ func TestMigrateValue(t *testing.T) {
 				r.NoError(p.migrateValueGreenland(ctx, sm))
 			}
 		}
-	}, true)
+	}, nil, true, 0)
 }

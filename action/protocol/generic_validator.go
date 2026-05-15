@@ -91,6 +91,17 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 				return errors.Wrapf(action.ErrUnderpriced, "tip cap is too low: %s, min tip cap: %s", selp.GasTipCap().String(), MinTipCap.String())
 			}
 		}
+		if selp.TxType() == action.SetCodeTxType {
+			if featureCtx.PrePectraEVM {
+				return errors.Wrapf(action.ErrInvalidAct, "SetCodeTxType is not allowed before Pectra EVM upgrade")
+			}
+			if selp.To() == nil {
+				return errors.Wrapf(action.ErrSetCodeTxCreate, "sender %v", caller.String())
+			}
+			if len(selp.SetCodeAuthorizations()) == 0 {
+				return errors.Wrapf(action.ErrEmptyAuthList, "sender %v", caller.String())
+			}
+		}
 		if featureCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
 			// validate sidecar
 			if !MustGetBlockCtx(ctx).SkipSidecarValidation || selp.BlobTxSidecar() != nil {

@@ -96,9 +96,9 @@ func validate(ctx context.Context, sr protocol.StateReader, p Protocol, act acti
 	}
 	for i, d := range ds {
 		if !proposedDelegates[i].Equal(d) {
-			msg := fmt.Sprintf(", %v vs %v (expected)",
-				proposedDelegates,
-				ds)
+			msg := fmt.Sprintf(", %+v vs %+v (expected)",
+				proposedDelegates[i],
+				d)
 			return errors.Wrap(ErrDelegatesNotAsExpected, msg)
 		}
 	}
@@ -213,7 +213,8 @@ func setCandidates(
 		}
 	}
 	if loadCandidatesLegacy {
-		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(height)))
+		key, org := candidatesutil.ConstructLegacyKeyWithOrg(height)
+		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(key), protocol.ErigonStoreKeyOption(org))
 		return err
 	}
 	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
@@ -271,7 +272,7 @@ func shiftCandidates(sm protocol.StateManager) (uint64, error) {
 	if stateHeight != putStateHeight {
 		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
 	}
-	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace), protocol.ObjectOption(&state.CandidateList{})); err != nil {
 		return 0, errors.Wrap(
 			err,
 			"failed to delete next candidatelist after shifting",
@@ -306,7 +307,7 @@ func shiftProbationList(sm protocol.StateManager) (uint64, error) {
 	if stateHeight != putStateHeight {
 		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
 	}
-	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace), protocol.ObjectOption(&vote.ProbationList{})); err != nil {
 		return 0, errors.Wrap(
 			err,
 			"failed to delete next probationlist after shifting",
@@ -341,6 +342,7 @@ func allBlockMetasFromDB(sr protocol.StateReader, blocksInEpoch uint64) ([]*Bloc
 		protocol.KeysOption(func() ([][]byte, error) {
 			return keys, nil
 		}),
+		protocol.ObjectOption(&BlockMeta{}),
 	)
 	if err != nil {
 		return nil, err

@@ -93,6 +93,8 @@ func (tx *DynamicFeeTx) BlobHashes() []common.Hash { return nil }
 
 func (tx *DynamicFeeTx) BlobTxSidecar() *types.BlobTxSidecar { return nil }
 
+func (tx *DynamicFeeTx) SetCodeAuthorizations() []types.SetCodeAuthorization { return nil }
+
 func (tx *DynamicFeeTx) SanityCheck() error {
 	if tx.gasTipCap == nil || tx.gasFeeCap == nil {
 		return ErrMissRequiredField

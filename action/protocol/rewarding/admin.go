@@ -13,9 +13,11 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // admin stores the admin data of the rewarding protocol
@@ -71,6 +73,20 @@ func (a *admin) Deserialize(data []byte) error {
 	return nil
 }
 
+func (a *admin) Encode() (systemcontracts.GenericValue, error) {
+	data, err := a.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{
+		AuxiliaryData: data,
+	}, nil
+}
+
+func (a *admin) Decode(v systemcontracts.GenericValue) error {
+	return a.Deserialize(v.AuxiliaryData)
+}
+
 func (a *admin) grantFoundationBonus(epoch uint64) bool {
 	return epoch <= a.foundationBonusLastEpoch
 }
@@ -104,6 +120,20 @@ func (e *exempt) Deserialize(data []byte) error {
 		e.addrs = append(e.addrs, addr)
 	}
 	return nil
+}
+
+func (e *exempt) Encode() (systemcontracts.GenericValue, error) {
+	data, err := e.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{
+		AuxiliaryData: data,
+	}, nil
+}
+
+func (e *exempt) Decode(v systemcontracts.GenericValue) error {
+	return e.Deserialize(v.AuxiliaryData)
 }
 
 // CreateGenesisStates initializes the rewarding protocol by setting the original admin, block and epoch reward

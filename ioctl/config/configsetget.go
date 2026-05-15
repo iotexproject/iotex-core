@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -109,6 +110,18 @@ var _configResetCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := reset()
+		return output.PrintError(err)
+	},
+}
+
+// _configDumpCmd represents the config dump command
+var _configDumpCmd = &cobra.Command{
+	Use:   "dump",
+	Short: "Dump all current config values (alias for 'config get all')",
+	Args:  cobra.ExactArgs(0),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		err := Get("all")
 		return output.PrintError(err)
 	},
 }
@@ -226,12 +239,7 @@ func isValidEndpoint(endpoint string) bool {
 
 // isValidExplorer checks if the explorer is a valid option
 func isValidExplorer(arg string) bool {
-	for _, exp := range _validExpl {
-		if arg == exp {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(_validExpl, arg)
 }
 
 // isSupportedLanguage checks if the language is a supported option and returns index when supported
@@ -281,6 +289,9 @@ func set(args []string) error {
 		case isValidExplorer(lowArg):
 			ReadConfig.Explorer = lowArg
 		case args[1] == "custom":
+			if err := output.RequireInteractive("custom explorer link"); err != nil {
+				return output.NewError(output.InputError, "custom explorer requires interactive input; set explorer URL directly instead", nil)
+			}
 			output.PrintQuery(`Please enter a custom link below:("Example: iotexscan.io/action/")`)
 			var link string
 			if _, err := fmt.Scanln(&link); err != nil {

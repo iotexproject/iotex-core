@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/nodeinfo"
 	"github.com/iotexproject/iotex-core/v2/pkg/fastrand"
 	"github.com/iotexproject/iotex-core/v2/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -69,6 +70,7 @@ type (
 		p2pNeighbor          Neighbors
 		unicastOutbound      UniCastOutbound
 		blockP2pPeer         BlockPeer
+		nodeInfoManager      *nodeinfo.InfoManager
 
 		syncTask      *routine.RecurringTask
 		syncStageTask *routine.RecurringTask
@@ -76,11 +78,11 @@ type (
 		syncStageHeight   uint64
 		syncBlockIncrease uint64
 
-		startingHeight    uint64 // block number this node started to synchronise from
-		lastTip           uint64
-		lastTipUpdateTime time.Time
-		targetHeight      uint64 // block number of the highest block header this node has received from peers
-		mu                sync.RWMutex
+		startingHeight uint64 // block number this node started to synchronise from
+		lastTip        uint64
+		lastTipTime    time.Time
+		targetHeight   uint64 // block number of the highest block header this node has received from peers
+		mu             sync.RWMutex
 	}
 
 	peerBlock struct {
@@ -138,10 +140,11 @@ func NewBlockSyncer(
 	p2pNeighbor Neighbors,
 	uniCastHandler UniCastOutbound,
 	blockP2pPeer BlockPeer,
+	nodeInfoManager *nodeinfo.InfoManager,
 ) (BlockSync, error) {
 	bs := &blockSyncer{
 		cfg:                  cfg,
-		lastTipUpdateTime:    time.Now(),
+		lastTipTime:          time.Time{},
 		buf:                  newBlockBuffer(cfg.BufferSize, cfg.IntervalSize),
 		tipHeightHandler:     tipHeightHandler,
 		blockByHeightHandler: blockByHeightHandler,
@@ -150,6 +153,7 @@ func NewBlockSyncer(
 		unicastOutbound:      uniCastHandler,
 		blockP2pPeer:         blockP2pPeer,
 		targetHeight:         0,
+		nodeInfoManager:      nodeInfoManager,
 	}
 	if bs.cfg.Interval != 0 {
 		bs.syncTask = routine.NewRecurringTask(bs.sync, bs.cfg.Interval)
@@ -167,6 +171,10 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 		err := bs.commitBlockHandler(blk.block)
 		switch errors.Cause(err) {
 		case nil:
+			if blk.block.Height() > bs.lastTip {
+				bs.lastTip = blk.block.Height()
+				bs.lastTipTime = blk.block.Timestamp()
+			}
 			return true
 		case blockdao.ErrRemoteHeightTooLow:
 			log.L().Info("remote height too low", zap.Uint64("height", blk.block.Height()))
@@ -184,7 +192,7 @@ func (bs *blockSyncer) flushInfo() (time.Time, uint64) {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
 
-	return bs.lastTipUpdateTime, bs.targetHeight
+	return bs.lastTipTime, bs.targetHeight
 }
 
 func (bs *blockSyncer) sync() {
@@ -224,10 +232,19 @@ func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint6
 		repeat = len(peers)
 	}
 	for i := 0; i < repeat; i++ {
-		peer := peers[fastrand.Uint32n(uint32(len(peers)))]
+		var peer *peer.AddrInfo
+		for j := 0; j < 10; j++ {
+			peer = &peers[fastrand.Uint32n(uint32(len(peers)))]
+			if bs.nodeInfoManager.MayHaveBlock(peer.ID.String(), start) {
+				break
+			}
+		}
+		if peer == nil {
+			continue
+		}
 		if err := bs.unicastOutbound(
 			ctx,
-			peer,
+			*peer,
 			&iotexrpc.BlockSync{Start: start, End: end},
 		); err != nil {
 			log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.String()), zap.Uint64("start", start), zap.Uint64("end", end))
@@ -294,10 +311,6 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		syncedHeight++
 	}
 	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", syncedHeight))
-	if syncedHeight > bs.lastTip {
-		bs.lastTip = syncedHeight
-		bs.lastTipUpdateTime = time.Now()
-	}
 	return nil
 }
 

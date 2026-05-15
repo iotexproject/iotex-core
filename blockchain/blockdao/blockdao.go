@@ -63,17 +63,18 @@ type (
 	}
 
 	blockDAO struct {
-		blockStore   BlockStore
-		blobStore    BlobStore
-		indexers     []BlockIndexer
-		timerFactory *prometheustimer.TimerFactory
-		lifecycle    lifecycle.Lifecycle
-		headerCache  cache.LRUCache
-		footerCache  cache.LRUCache
-		receiptCache cache.LRUCache
-		blockCache   cache.LRUCache
-		txLogCache   cache.LRUCache
-		tipHeight    uint64
+		blockStore     BlockStore
+		blobStore      BlobStore
+		receiptIndexer *ReceiptIndexer
+		indexers       []BlockIndexer
+		timerFactory   *prometheustimer.TimerFactory
+		lifecycle      lifecycle.Lifecycle
+		headerCache    cache.LRUCache
+		footerCache    cache.LRUCache
+		receiptCache   cache.LRUCache
+		blockCache     cache.LRUCache
+		txLogCache     cache.LRUCache
+		tipHeight      uint64
 	}
 )
 
@@ -82,6 +83,13 @@ type Option func(*blockDAO)
 func WithBlobStore(bs BlobStore) Option {
 	return func(dao *blockDAO) {
 		dao.blobStore = bs
+	}
+}
+
+// WithReceiptIndexer adds receipt indexer to block DAO
+func WithReceiptIndexer(ri *ReceiptIndexer) Option {
+	return func(dao *blockDAO) {
+		dao.receiptIndexer = ri
 	}
 }
 
@@ -100,9 +108,11 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexe
 		opt(blockDAO)
 	}
 
-	blockDAO.lifecycle.Add(blkStore)
 	if blockDAO.blobStore != nil {
 		blockDAO.lifecycle.Add(blockDAO.blobStore)
+	}
+	if blockDAO.receiptIndexer != nil {
+		blockDAO.lifecycle.Add(blockDAO.receiptIndexer)
 	}
 	for _, indexer := range indexers {
 		blockDAO.lifecycle.Add(indexer)
@@ -129,21 +139,29 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexe
 
 // Start starts block DAO and initiates the top height if it doesn't exist
 func (dao *blockDAO) Start(ctx context.Context) error {
-	err := dao.lifecycle.OnStart(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to start child services")
+	log.L().Debug("Starting block DAO...")
+	if dao.blockStore != nil {
+		if err := dao.blockStore.Start(ctx); err != nil {
+			return errors.Wrap(err, "failed to start block store")
+		}
 	}
-
 	tipHeight, err := dao.blockStore.Height()
 	if err != nil {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
-	return dao.checkIndexers(ctx)
+
+	checker := NewBlockIndexerChecker(dao)
+	if err := dao.lifecycle.OnStartSequentially(
+		WithChecker(ctx, checker),
+	); err != nil {
+		return err
+	}
+
+	return dao.checkIndexers(ctx, checker)
 }
 
-func (dao *blockDAO) checkIndexers(ctx context.Context) error {
-	checker := NewBlockIndexerChecker(dao)
+func (dao *blockDAO) checkIndexers(ctx context.Context, checker BlockIndexerChecker) error {
 	for i, indexer := range dao.indexers {
 		if err := checker.CheckIndexer(ctx, indexer, 0, func(height uint64) {
 			if height%5000 == 0 {
@@ -165,7 +183,13 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 }
 
 func (dao *blockDAO) Stop(ctx context.Context) error {
-	return dao.lifecycle.OnStop(ctx)
+	if err := dao.lifecycle.OnStopSequentially(ctx); err != nil {
+		return err
+	}
+	if dao.blockStore != nil {
+		return dao.blockStore.Stop(ctx)
+	}
+	return nil
 }
 
 func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
@@ -279,6 +303,13 @@ func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 	_cacheMtc.WithLabelValues("miss_header").Inc()
 	header, err := dao.blockStore.Header(h)
 	if err != nil {
+		// Genesis block (height 0) is never stored via PutBlock, so its header
+		// is not in the hash-based index. Check if this hash matches the genesis
+		// hash (from genesis config) and return the static genesis block header.
+		if h == block.GenesisHash() {
+			header := block.GenesisBlock().Header
+			return &header, nil
+		}
 		return nil, err
 	}
 
@@ -294,9 +325,23 @@ func (dao *blockDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
 	_cacheMtc.WithLabelValues("miss_receipts").Inc()
 	timer := dao.timerFactory.NewTimer("get_receipt")
 	defer timer.End()
-	receipts, err := dao.blockStore.GetReceipts(height)
-	if err != nil {
-		return nil, err
+	var receipts []*action.Receipt
+	var err error
+	if dao.receiptIndexer != nil {
+		receipts, err = dao.receiptIndexer.Receipts(height)
+		switch errors.Cause(err) {
+		case nil:
+		case ErrIndexOutOfRange, db.ErrNotExist, db.ErrBucketNotExist:
+			receipts = nil
+		default:
+			return nil, err
+		}
+	}
+	if receipts == nil {
+		receipts, err = dao.blockStore.GetReceipts(height)
+		if err != nil {
+			return nil, err
+		}
 	}
 	tlogs, err := dao.blockStore.TransactionLogs(height)
 	if err != nil {

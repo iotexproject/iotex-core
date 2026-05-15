@@ -2,6 +2,7 @@ package logfilter
 
 import (
 	"bytes"
+	"slices"
 
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -57,11 +58,8 @@ func (l *LogFilter) MatchLogs(receipts []*action.Receipt) []*action.Log {
 func (l *LogFilter) match(log *iotextypes.Log) bool {
 	addrMatch := len(l.pbFilter.Address) == 0
 	if !addrMatch {
-		for _, e := range l.pbFilter.Address {
-			if e == log.ContractAddress {
-				addrMatch = true
-				break
-			}
+		if slices.Contains(l.pbFilter.Address, log.ContractAddress) {
+			addrMatch = true
 		}
 	}
 	if !addrMatch {
@@ -105,10 +103,8 @@ func (l *LogFilter) ExistInBloomFilter(bf bloom.BloomFilter) bool {
 			continue
 		}
 
-		for _, v := range e.Topic {
-			if bf.Exist(v) {
-				return true
-			}
+		if slices.ContainsFunc(e.Topic, bf.Exist) {
+			return true
 		}
 	}
 	// {} or nil matches any address or topic list

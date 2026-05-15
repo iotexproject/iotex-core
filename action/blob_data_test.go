@@ -132,14 +132,14 @@ func TestBlobTxData(t *testing.T) {
 }
 
 var (
-	testBlob       = kzg4844.Blob{1, 2, 3, 4}
+	testBlob       = &kzg4844.Blob{1, 2, 3, 4}
 	testBlobCommit = MustNoErrorV(kzg4844.BlobToCommitment(testBlob))
 	testBlobProof  = MustNoErrorV(kzg4844.ComputeBlobProof(testBlob, testBlobCommit))
 )
 
 func createTestBlobTxData() *BlobTxData {
 	sidecar := &types.BlobTxSidecar{
-		Blobs:       []kzg4844.Blob{testBlob},
+		Blobs:       []kzg4844.Blob{*testBlob},
 		Commitments: []kzg4844.Commitment{testBlobCommit},
 		Proofs:      []kzg4844.Proof{testBlobProof},
 	}

@@ -472,7 +472,7 @@ func (m *ConsensusFSM) onReceiveBlock(evt fsm.Event) (fsm.State, error) {
 		return sAcceptBlockProposal, nil
 	}
 	if err := m.processBlock(cEvt.Data()); err != nil {
-		m.ctx.Logger().Debug("Failed to generate proposal endorsement", zap.Error(err))
+		m.ctx.Logger().Warn("Failed to generate proposal endorsement", zap.Error(err))
 		return sAcceptBlockProposal, nil
 	}
 	return sAcceptProposalEndorsement, nil

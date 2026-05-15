@@ -7,6 +7,7 @@ package dispatcher
 
 import (
 	"context"
+	"maps"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ type (
 		ActionChanSize             uint          `yaml:"actionChanSize"`
 		BlockChanSize              uint          `yaml:"blockChanSize"`
 		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
+		BlockSyncLimit             uint          `yaml:"blockSyncLimit"`
 		ConsensusChanSize          uint          `yaml:"consensusChanSize"`
 		MiscChanSize               uint          `yaml:"miscChanSize"`
 		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
@@ -45,6 +47,7 @@ var (
 		ActionChanSize:    5000,
 		BlockChanSize:     1000,
 		BlockSyncChanSize: 400,
+		BlockSyncLimit:    2,
 		ConsensusChanSize: 1000,
 		MiscChanSize:      1000,
 		AccountRateLimit:  100,
@@ -130,6 +133,7 @@ func NewDispatcher(cfg Config, verificationFunc VerificationFunc) (Dispatcher, e
 		actionChanSize: cfg.ActionChanSize,
 		blockChanSize:  cfg.BlockChanSize,
 		blockSyncSize:  cfg.BlockSyncChanSize,
+		blockSyncLimit: cfg.BlockSyncLimit,
 		consensusSize:  cfg.ConsensusChanSize,
 		miscSize:       cfg.MiscChanSize,
 	}, func(msg *message) {
@@ -186,9 +190,7 @@ func (d *IotxDispatcher) EventAudit() map[iotexrpc.MessageType]int {
 	d.eventAuditLock.RLock()
 	defer d.eventAuditLock.RUnlock()
 	snapshot := make(map[iotexrpc.MessageType]int)
-	for k, v := range d.eventAudit {
-		snapshot[k] = v
-	}
+	maps.Copy(snapshot, d.eventAudit)
 	return snapshot
 }
 
@@ -237,17 +239,10 @@ func (d *IotxDispatcher) queueMessage(msg *message) {
 		log.L().Warn("chainID has not been registered in dispatcher.", zap.Uint32("chainID", msg.chainID))
 		return
 	}
-	queue := d.queueMgr.Queue(msg)
-	if !subscriber.Filter(msg.msgType, msg.msg, cap(queue)) {
-		log.L().Debug("Message filtered by subscriber.", zap.Uint32("chainID", msg.chainID), zap.String("msgType", msg.msgType.String()))
+	if !d.queueMgr.Queue(msg, subscriber) {
 		return
 	}
-	select {
-	case queue <- msg:
-	default:
-		log.L().Warn("Queue is full.", zap.Any("msgType", msg.msgType))
-	}
-	d.updateMetrics(msg, queue)
+	d.updateEventAudit(msg.msgType)
 }
 
 // HandleBroadcast handles incoming broadcast message
@@ -314,14 +309,6 @@ func (d *IotxDispatcher) updateEventAudit(t iotexrpc.MessageType) {
 	d.eventAudit[t]++
 }
 
-func (d *IotxDispatcher) updateMetrics(msg *message, queue chan *message) {
-	d.updateEventAudit(msg.msgType)
-	subscriber := d.subscriber(msg.chainID)
-	if subscriber != nil {
-		subscriber.ReportFullness(msg.ctx, msg.msgType, msg.msg, float32(len(queue))/float32(cap(queue)))
-	}
-}
-
 func (d *IotxDispatcher) filter(msg *message) bool {
 	if msg.msgType != iotexrpc.MessageType_BLOCK_REQUEST {
 		return true
@@ -349,6 +336,11 @@ func (d *IotxDispatcher) dispatchMsg(message *message) {
 	case *iotextypes.ConsensusMessage:
 		if err := subscriber.HandleConsensusMsg(msg); err != nil {
 			log.L().Warn("Failed to handle consensus message.", zap.Error(err))
+		}
+	case *iotextypes.Bundle:
+		if err := subscriber.HandleBundle(message.ctx, msg); err != nil {
+			requestMtc.WithLabelValues("AddBundle", "false").Inc()
+			log.L().Warn("Failed to handle bundle message.", zap.Error(err))
 		}
 	case *iotextypes.Action:
 		if err := subscriber.HandleAction(message.ctx, msg); err != nil {

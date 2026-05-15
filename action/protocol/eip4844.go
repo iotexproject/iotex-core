@@ -5,6 +5,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/params"
+
+	"github.com/iotexproject/iotex-core/v2/action"
 )
 
 type (
@@ -17,7 +19,7 @@ type (
 
 var (
 	minBlobGasPrice            = big.NewInt(params.BlobTxMinBlobGasprice)
-	blobGaspriceUpdateFraction = big.NewInt(params.BlobTxBlobGaspriceUpdateFraction)
+	blobGaspriceUpdateFraction = big.NewInt(action.BlobTxBlobGaspriceUpdateFraction)
 )
 
 // VerifyEIP4844Header verifies the presence of the excessBlobGas field and that
@@ -25,8 +27,8 @@ var (
 // accordingly.
 func VerifyEIP4844Header(parent *TipInfo, header blockHeader) error {
 	// Verify that the blob gas used remains within reasonable limits.
-	if header.BlobGasUsed() > params.MaxBlobGasPerBlock {
-		return fmt.Errorf("blob gas used %d exceeds maximum allowance %d", header.BlobGasUsed(), params.MaxBlobGasPerBlock)
+	if header.BlobGasUsed() > action.MaxBlobGasPerBlock {
+		return fmt.Errorf("blob gas used %d exceeds maximum allowance %d", header.BlobGasUsed(), action.MaxBlobGasPerBlock)
 	}
 	if header.BlobGasUsed()%params.BlobTxBlobGasPerBlob != 0 {
 		return fmt.Errorf("blob gas used %d not a multiple of blob gas per blob %d", header.BlobGasUsed(), params.BlobTxBlobGasPerBlob)
@@ -48,10 +50,10 @@ func VerifyEIP4844Header(parent *TipInfo, header blockHeader) error {
 // blobs on top of the excess blob gas.
 func CalcExcessBlobGas(parentExcessBlobGas uint64, parentBlobGasUsed uint64) uint64 {
 	excessBlobGas := parentExcessBlobGas + parentBlobGasUsed
-	if excessBlobGas < params.BlobTxTargetBlobGasPerBlock {
+	if excessBlobGas < action.BlobTxTargetBlobGasPerBlock {
 		return 0
 	}
-	return excessBlobGas - params.BlobTxTargetBlobGasPerBlock
+	return excessBlobGas - action.BlobTxTargetBlobGasPerBlock
 }
 
 // CalcBlobFee calculates the blobfee from the header's excess blob gas field.

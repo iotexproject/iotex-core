@@ -21,6 +21,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
@@ -28,14 +29,14 @@ import (
 const (
 	// TODO: it works only for one instance per protocol definition now
 	_protocolID           = "rewarding"
-	_v2RewardingNamespace = "Rewarding"
+	_v2RewardingNamespace = state.RewardingNamespace
 )
 
 var (
 	_adminKey                    = []byte("adm")
 	_fundKey                     = []byte("fnd")
-	_blockRewardHistoryKeyPrefix = []byte("brh")
-	_epochRewardHistoryKeyPrefix = []byte("erh")
+	_blockRewardHistoryKeyPrefix = state.BlockRewardHistoryKeyPrefix
+	_epochRewardHistoryKeyPrefix = state.EpochRewardHistoryKeyPrefix
 	_accountKeyPrefix            = []byte("acc")
 	_exemptKey                   = []byte("xpt")
 	errInvalidEpoch              = errors.New("invalid start/end epoch number")
@@ -61,7 +62,7 @@ func NewProtocol(cfg genesis.Rewarding) *Protocol {
 		log.L().Panic("failed to validate foundation bonus extension", zap.Error(err))
 	}
 	return &Protocol{
-		keyPrefix: h[:],
+		keyPrefix: state.RewardingKeyPrefix[:],
 		addr:      addr,
 		cfg:       cfg,
 	}
@@ -102,6 +103,13 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
 	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	// set current block reward not granted for erigon db
+	var indexBytes [8]byte
+	enc.MachineEndian.PutUint64(indexBytes[:], blkCtx.BlockHeight)
+	err := p.deleteState(ctx, sm, append(_blockRewardHistoryKeyPrefix, indexBytes[:]...), &rewardHistory{}, protocol.ErigonStoreOnlyOption())
+	if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {
+		return errors.Wrap(err, "failed to delete block reward history for erigon store")
+	}
 	switch blkCtx.BlockHeight {
 	case g.AleutianBlockHeight:
 		return p.SetReward(ctx, sm, g.AleutianEpochReward(), false)
@@ -138,7 +146,7 @@ func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value inte
 	if err := p.putStateV2(sm, key, value); err != nil {
 		return err
 	}
-	return p.deleteStateV1(sm, key)
+	return p.deleteStateV1(sm, key, value)
 }
 
 func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.StateManager) error {
@@ -207,7 +215,7 @@ func (p *Protocol) Handle(
 	ctx context.Context,
 	elp action.Envelope,
 	sm protocol.StateManager,
-) (*action.Receipt, error) {
+) (receipt *action.Receipt, err error) {
 	// TODO: simplify the boilerplate
 	var (
 		si  = sm.Snapshot()
@@ -331,8 +339,9 @@ func (p *Protocol) stateCheckLegacy(ctx context.Context, sm protocol.StateReader
 }
 
 func (p *Protocol) stateV1(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
-	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	return sm.State(value, protocol.LegacyKeyOption(keyHash))
+	orgKey := append(p.keyPrefix, key...)
+	keyHash := hash.Hash160b(orgKey)
+	return sm.State(value, protocol.LegacyKeyOption(keyHash), protocol.ErigonStoreKeyOption(orgKey))
 }
 
 func (p *Protocol) stateV2(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
@@ -347,9 +356,11 @@ func (p *Protocol) putState(ctx context.Context, sm protocol.StateManager, key [
 	return p.putStateV1(sm, key, value)
 }
 
-func (p *Protocol) putStateV1(sm protocol.StateManager, key []byte, value interface{}) error {
-	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash))
+func (p *Protocol) putStateV1(sm protocol.StateManager, key []byte, value interface{}, opts ...protocol.StateOption) error {
+	orgKey := append(p.keyPrefix, key...)
+	keyHash := hash.Hash160b(orgKey)
+	opts = append(opts, protocol.LegacyKeyOption(keyHash), protocol.ErigonStoreKeyOption(orgKey))
+	_, err := sm.PutState(value, opts...)
 	return err
 }
 
@@ -359,16 +370,18 @@ func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interf
 	return err
 }
 
-func (p *Protocol) deleteState(ctx context.Context, sm protocol.StateManager, key []byte) error {
+func (p *Protocol) deleteState(ctx context.Context, sm protocol.StateManager, key []byte, obj any, opts ...protocol.StateOption) error {
 	if useV2Storage(ctx) {
-		return p.deleteStateV2(sm, key)
+		return p.deleteStateV2(sm, key, obj, opts...)
 	}
-	return p.deleteStateV1(sm, key)
+	return p.deleteStateV1(sm, key, obj, opts...)
 }
 
-func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte) error {
-	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash))
+func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte, obj any, opts ...protocol.StateOption) error {
+	orgKey := append(p.keyPrefix, key...)
+	keyHash := hash.Hash160b(orgKey)
+	opt := append(opts, protocol.LegacyKeyOption(keyHash), protocol.ObjectOption(obj), protocol.ErigonStoreKeyOption(orgKey))
+	_, err := sm.DelState(opt...)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		// don't care if not exist
 		return nil
@@ -376,9 +389,10 @@ func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte) error {
 	return err
 }
 
-func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
+func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte, value any, opts ...protocol.StateOption) error {
 	k := append(p.keyPrefix, key...)
-	_, err := sm.DelState(protocol.KeyOption(k), protocol.NamespaceOption(_v2RewardingNamespace))
+	opt := append(opts, protocol.KeyOption(k), protocol.ObjectOption(value), protocol.NamespaceOption(_v2RewardingNamespace))
+	_, err := sm.DelState(opt...)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		// don't care if not exist
 		return nil
