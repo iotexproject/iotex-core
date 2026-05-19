@@ -35,8 +35,9 @@ Block lifecycle: **Propose → Validate → Commit → Finalize**.
 
 ### `Finalize()` is one-shot
 
-- `block.Finalize()` adds endorsements and the commit timestamp. Calling
-  twice **panics**. See `block.go:78–86`.
+- `block.Finalize()` adds endorsements and the commit timestamp. The
+  second call **returns an error** (`"the block has been finalized"`);
+  do not ignore it and re-finalize over a copy. See `block.go:78–86`.
 
 ### `CommitBlock()` is idempotent
 
@@ -51,12 +52,13 @@ Block lifecycle: **Propose → Validate → Commit → Finalize**.
   indexer gives you no receipts. Code that needs receipts must check the
   indexer exists.
 
-### Subscribers are fire-and-forget
+### Subscribers can backpressure block commit
 
-- `SendBlockToSubscribers()` does a **non-blocking send** to each
-  subscriber's buffered channel. If the buffer is full, the block is
-  silently dropped. Do not assume a subscriber will see every block. See
-  `pubsubmanager.go:94–98`.
+- `SendBlockToSubscribers()` does a **blocking send** into each
+  subscriber's buffered channel (`pubsubmanager.go:94–100`). A slow
+  subscriber whose buffer fills will stall the caller — which today is
+  the commit path. Do not add subscribers that block on slow I/O or
+  network calls without a bounded internal timeout.
 
 ### Genesis is loaded once via `sync.Once`
 

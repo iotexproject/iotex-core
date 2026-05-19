@@ -118,5 +118,5 @@ Confirm with a maintainer in the issue or PR before:
 | Account / state factory / MPT | `state/CLAUDE.md` |
 | RollDPoS / endorsements | `consensus/CLAUDE.md` |
 | Dev setup, local tests | [CONTRIBUTING.md](./CONTRIBUTING.md) |
-| Past architectural decisions | `docs/adr/` |
-| Domain terms | `docs/glossary.md` |
+| Past architectural decisions | `docs/adr/` *(planned; tracked in #4832)* |
+| Domain terms | `docs/glossary.md` *(planned; tracked in #4832)* |

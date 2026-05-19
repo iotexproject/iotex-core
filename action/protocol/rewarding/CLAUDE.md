@@ -33,8 +33,10 @@ reward), **Kamchatka** (foundation-bonus period). Always go through
 
 ### Idempotency guards via sentinel history keys
 
-- `assertNoRewardYet(blockOrEpoch, height)` checks for the history sentinel
-  before granting. Granting twice panics: `"reward history already exists"`.
+- `assertNoRewardYet(prefix, index)` checks for the history sentinel
+  before granting. A second grant for the same height/epoch **returns an
+  error** (`"reward history already exists on index N"`); do not silence
+  or retry it.
 - The history record is intentionally empty — the **key's existence** is the
   signal. Do not "fix" this by adding a payload.
 - See `reward.go:702–714`.

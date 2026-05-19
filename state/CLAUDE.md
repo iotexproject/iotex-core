@@ -22,17 +22,23 @@ transactional view that all action handlers mutate through.
 
 ### `finalized` is a one-way gate
 
-- After `Finalize(ctx)`, all `PutState`/`DelState` calls return an error
-  (workingset.go:99,105,117). The set becomes read-only forever.
-- Do not work around this with reflection or by re-creating a working
-  set at the same height — Commit() expects the original.
+- After `Finalize(ctx)`, action execution is closed: `runAction` returns
+  `"cannot run action on a finalized working set"` (`workingset.go:117`)
+  and `Finalize` itself errors on a second call (`workingset.go:281`).
+  The raw `PutState`/`DelState` APIs do **not** independently check the
+  flag — enforcement is at the action-execution entry point, not the
+  store API. Do not bypass it by calling `PutState` directly post-finalize.
+- Do not work around this by re-creating a working set at the same
+  height — `Commit()` expects the original.
 
 ### Snapshot/Revert must coordinate store and views
 
 - `Snapshot()` returns an opaque int ID. The ID maps both a store
   snapshot and a views snapshot (`viewsSnapshots`, workingset.go:89).
-- `RevertSnapshot(id)` rolls back **both**. Reverting only one half
-  leaves state inconsistent. Reverting to an invalid ID panics.
+- `Revert(id)` rolls back **both**. An unknown ID returns an error
+  (`workingset.go:306–315`); a known ID whose store/views halves
+  disagree can still leave state inconsistent. Only revert IDs you got
+  from `Snapshot()`, and revert at the boundary you took them at.
 
 ### Dual-storage writes — primary + Erigon — both must succeed
 

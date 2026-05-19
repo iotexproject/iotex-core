@@ -21,14 +21,18 @@ delegate-based rotation. Subpackages:
 
 ### Proposer selection is deterministic — do not introduce randomness
 
-- `Proposer(height, blockInterval, roundStartTime)` is a deterministic
-  hash-and-modulo over the epoch's delegate list (`roundcalculator.go:106`).
+- `calculateProposer` (`roundcalculator.go:274–292`) picks
+  `proposers[idx % numProposers]` where `idx = height` (or `height + round`
+  when `timeBasedRotation` is enabled). It is a plain modulo over the
+  epoch's delegate list — no hashing is involved.
 - Adding any nondeterministic input (RNG, wall clock not derived from
   round start, network state) forks the chain. Do not "improve" this.
 
 ### TTL sum invariant: `AcceptBlockTTL + AcceptProposalEndorsementTTL + AcceptLockEndorsementTTL + CommitTTL ≤ BlockInterval`
 
-- Validated at context creation (`consensusfsm/consensus_ttl.go:141–149`).
+- Validated when the RollDPoS context is constructed
+  (`scheme/rolldpos/rolldposctx.go:141`); per-height TTL getters live in
+  `consensusfsm/consensus_ttl.go`.
 - Changing one TTL almost always requires rebalancing the others. The
   Dardanelles and Wake upgrades adjusted all four simultaneously.
 
