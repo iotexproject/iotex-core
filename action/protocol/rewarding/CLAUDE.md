@@ -26,13 +26,10 @@ Entry points: `protocol.go`, `fund.go`, `reward.go`, `admin.go`,
 
 ### Reward amounts change only at hardfork heights
 
-- `CreatePreStates()` swaps reward amounts at named heights:
-  - **Aleutian** — epoch reward
-  - **Dardanelles**, **Wake** — block reward
-  - **Kamchatka** — foundation-bonus period extension
-- Never mutate reward amounts outside this path; always go through
-  `SetReward(ctx, sm, amount, blockOrEpoch)` with `assertAmount() > 0`.
-- See `protocol.go:103–172`.
+`CreatePreStates()` (`protocol.go:103–172`) swaps reward amounts at named
+heights: **Aleutian** (epoch reward), **Dardanelles** and **Wake** (block
+reward), **Kamchatka** (foundation-bonus period). Always go through
+`SetReward()`; do not mutate amounts elsewhere.
 
 ### Idempotency guards via sentinel history keys
 
@@ -59,13 +56,6 @@ Entry points: `protocol.go`, `fund.go`, `reward.go`, `admin.go`,
 - Do not write new keys to the v1 path. Do not retroactively touch the
   migration code.
 
-### Reward amounts are decimal strings in proto
-
-- All `big.Int` reward amounts serialize as base-10 strings (e.g.
-  `"123456789012345678901234567890"`).
-- Always parse with `new(big.Int).SetString(s, 10)` and check the `ok` flag.
-  Malformed amounts panic genesis init.
-
 ### Cross-protocol coupling: staking is required for slashing
 
 - Unproductive-delegate slashing (`slashUqd`) calls into the staking
@@ -88,12 +78,7 @@ Entry points: `protocol.go`, `fund.go`, `reward.go`, `admin.go`,
 
 ---
 
-## Where to look
+## Where to look (non-obvious mappings only)
 
-| Topic | File |
-|---|---|
-| Protocol registration, Start, fork gating | `protocol.go` |
-| Admin config (reward amounts, bonus period) | `admin.go` |
-| Fund struct, deposit/claim accounting | `fund.go` |
-| Block/epoch grant logic, slashing | `reward.go` |
-| Proto schema (decimal-string amounts) | `rewardingpb/rewarding.proto` |
+- Block/epoch grant logic + unproductive-delegate slashing: `reward.go`.
+- Fork-gated reward swap: `protocol.go:103–172`.

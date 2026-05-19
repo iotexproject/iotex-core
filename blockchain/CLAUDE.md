@@ -24,11 +24,14 @@ Block lifecycle: **Propose → Validate → Commit → Finalize**.
 ### Block fields are immutable after construction
 
 - `Header.prevBlockHash`, `txRoot`, `receiptRoot`, `deltaStateDigest`,
-  `baseFee`, `blobGasUsed`, `excessBlobGas` are computed once and never
-  mutated. Mutating after build invalidates the signature.
+  `baseFee`, `blobGasUsed`, `excessBlobGas`, and `logsBloom` are computed
+  once and never mutated. Mutating after build invalidates the signature.
 - The signature is over **`HashHeaderCore()`** (block/header.go:207–226),
   which excludes the producer pubkey and signature itself — preventing
   circular dependency. Do not change what's included in the core.
+- The bloom filter (2048-bit, 3 hash functions) is part of the signed
+  header. Adding new bloom-indexed event types means changing block
+  production, not patching after the fact.
 
 ### `Finalize()` is one-shot
 
@@ -47,12 +50,6 @@ Block lifecycle: **Propose → Validate → Commit → Finalize**.
   (`_receiptsNS`, `_systemLogNS`). Reading a block back without the
   indexer gives you no receipts. Code that needs receipts must check the
   indexer exists.
-
-### Logs bloom is part of the signed header
-
-- The bloom filter is fixed at block creation (2048-bit, 3 hash functions).
-  It cannot be retroactively updated. Adding new event types that need
-  bloom filtering means changing block production, not post-hoc patching.
 
 ### Subscribers are fire-and-forget
 
@@ -89,16 +86,10 @@ Block lifecycle: **Propose → Validate → Commit → Finalize**.
 
 ---
 
-## Where to look
+## Where to look (non-obvious mappings only)
 
-| Topic | File |
-|---|---|
-| Blockchain orchestration, lifecycle | `blockchain.go` |
-| Block / Header / Body / Footer types | `block/block.go`, `block/header.go` |
-| Header signing scope | `block/header.go:207–226` |
-| Block builder (test + prod) | `block/builder.go`, `block/testing.go` |
-| Block validator chain | `block/validator.go` |
-| Persistence | `blockdao/blockdao.go`, `filedao/filedao.go` |
-| Receipt indexer | `blockdao/receiptindexer.go` |
-| Subscriptions | `pubsubmanager.go`, `blockcreationsubscriber.go` |
-| Genesis + hardfork heights | `genesis/genesis.go` |
+- Header signing scope (what `HashHeaderCore` excludes): `block/header.go:207–226`.
+- Persistence is split across two subpackages: `blockdao/` (abstraction +
+  indexers) and `filedao/` (concrete file format, v1/v2).
+- Use `block/testing.go` builder only in tests; production goes through
+  `block/builder.go`.

@@ -73,9 +73,11 @@ Long-standing project practice. Follow unless you have a concrete reason not to.
   and `height = fork`.
 - **State versioning across forks.** Prefer a new type or namespace (e.g.
   `FooV2`, `FooV3`) over mutating an existing on-chain struct.
-- **Linter strictness** (`.golangci.yml`): cyclomatic complexity ≤ 15, function
-  length ≤ 150 lines / 50 statements, line length ≤ 140, goimports with local
-  prefix `github.com/iotexproject/iotex-core`. Run `make fmt` before committing.
+- **Protobuf `big.Int` encoding.** `big.Int` fields in `.proto` schemas are
+  encoded as base-10 decimal strings. Parse with `new(big.Int).SetString(s, 10)`
+  and check the `ok` return; ignoring it silently produces a nil value.
+- **Linter and formatting.** Respect `.golangci.yml`. Run `make fmt` before
+  committing.
 
 ---
 
@@ -101,9 +103,7 @@ Long-standing project practice. Follow unless you have a concrete reason not to.
 Confirm with a maintainer in the issue or PR before:
 
 - choosing a hardfork height,
-- changing any proto schema or on-chain struct layout,
 - modifying anything under `consensus/`,
-- removing or renaming a field in `blockchain/genesis/genesis.go`,
 - altering action serialization or receipt-log emission paths.
 
 ---

@@ -9,10 +9,6 @@ Protocol state storage: accounts, candidate records, and per-protocol state.
 The `factory/` subpackage owns the **WorkingSet** — a per-block,
 transactional view that all action handlers mutate through.
 
-Major files: `state/account.go`, `state/candidate.go`, `state/tables.go`
-(namespace list), `factory/factory.go`, `factory/workingset.go`,
-`factory/workingsetstore*.go`.
-
 ---
 
 ## Module red lines
@@ -63,12 +59,6 @@ Major files: `state/account.go`, `state/candidate.go`, `state/tables.go`
   type on first action. Hand-rolling nonce logic in new code is almost
   always wrong; use the helpers.
 
-### Balance is a base-10 string in proto
-
-- `accountpb.Account.Balance` is a decimal string, not bytes. `SetString(s, 10)`
-  with the `ok` check at the deserialize boundary. Malformed strings
-  produce a nil balance silently if `ok` is ignored.
-
 ---
 
 ## Sentinels and gotchas
@@ -82,13 +72,10 @@ Major files: `state/account.go`, `state/candidate.go`, `state/tables.go`
 
 ---
 
-## Where to look
+## Where to look (non-obvious mappings only)
 
-| Topic | File |
-|---|---|
-| StateManager / StateReader interfaces | `action/protocol/managers.go` |
-| Account struct, nonce types, balance ops | `state/account.go` |
-| Namespace constants | `state/tables.go` |
-| WorkingSet lifecycle | `factory/workingset.go` |
-| Factory + historical state | `factory/factory.go` |
-| Dual-storage (MPT + Erigon) | `factory/workingsetstore_with_secondary.go`, `factory/erigonstore/` |
+- `StateManager` / `StateReader` interfaces are **not** in this package —
+  they live in `action/protocol/managers.go`.
+- Namespace constants: `state/tables.go` (the file name doesn't say so).
+- Dual-storage path: `factory/workingsetstore_with_secondary.go`,
+  `factory/erigonstore/`.

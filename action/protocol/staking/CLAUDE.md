@@ -13,9 +13,6 @@ mutates state under three namespaces:
 - `state.CandsMapNamespace` — legacy name/operator/owner mapping (kept for
   backward compatibility; do not remove)
 
-Entry points: `protocol.go` (registration, Start, Handle), `handlers.go` and
-`handler_*.go` (one file per action type), `vote_bucket.go`, `candidate.go`.
-
 ---
 
 ## Module red lines
@@ -100,27 +97,8 @@ views — unpack via the `candidateDeactivation(address)` view (added in
 
 ---
 
-## Common pitfalls (quick checklist)
+## Where to look (non-obvious mappings only)
 
-- [ ] You used `AddEvent` post-Fairbank, not `r.topics = …; r.data = …`
-- [ ] You checked the relevant `featureCtx.*` flag at every branch
-- [ ] `DeactivatedAt` and `ExpireHeight` MaxUint64 sentinels are decoded
-- [ ] If touching withdrawal logic, self-stake invariant still holds
-- [ ] If adding a state type, the 1-byte key tag doesn't collide
-- [ ] Hardfork tests cover `height = fork - 1` **and** `height = fork`
-
----
-
-## Where to look
-
-| Topic | File |
-|---|---|
-| Protocol registration, Start, Handle | `protocol.go` |
-| Action handlers (one per action type) | `handler_*.go`, `handlers.go` |
-| Bucket struct, codec, lifecycle | `vote_bucket.go` |
-| Candidate struct, codec, sentinels | `candidate.go` |
-| Endorsement struct, status enum | `endorsement.go` |
-| Receipt log builder | `receipt_log.go` |
-| Bucket / candidate validation | `bucket_validation.go` |
-| Contract staking indexers | `contractstake_indexer*.go`, `contractstaking/` |
-| Proto schemas | `stakingpb/staking.proto` |
+- One file per action type: `handler_*.go` (plus `handlers.go` for shared logic).
+- Contract staking V1/V2/V3 indexers: `contractstake_indexer*.go`,
+  `contractstaking/`.

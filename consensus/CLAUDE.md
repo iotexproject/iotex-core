@@ -1,8 +1,7 @@
 # CLAUDE.md — consensus
 
 Module-specific guidance for `consensus/` (RollDPoS). Read
-[/AGENTS.md](../AGENTS.md) first for repo-wide rules. Changes here usually
-warrant a maintainer review before significant work — coordinate early.
+[/AGENTS.md](../AGENTS.md) first for repo-wide rules.
 
 ## What this package does
 
@@ -48,18 +47,11 @@ delegate-based rotation. Subpackages:
   run before `ProduceReceiveBlockEvent` etc. are emitted
   (`rolldpos.go:98–157`). Reordering this is a security break.
 
-### Round endorsement cleanup is intentional, not a leak
+### Do not retain endorsements past round start
 
-- Endorsements older than the current round start are discarded by
-  `endorsementmanager.go:82–98`. COMMIT endorsements persist longer
-  (used in Proof-of-Lock on the next block). Do not "fix" this cleanup
-  to retain old data.
-
-### Hardforks gate timing by height, not by clock
-
-- Dardanelles and Wake changed block interval and TTLs. Gating is by
-  block height, evaluated at context creation. Do not introduce
-  time-based feature flags — they break replay.
+- `endorsementmanager.go:82–98` discards endorsements older than the
+  current round; COMMIT endorsements alone persist into the next round
+  for Proof-of-Lock. The cleanup is intentional.
 
 ### Endorsement persistence is optional
 
@@ -84,14 +76,8 @@ delegate-based rotation. Subpackages:
 
 ---
 
-## Where to look
+## Where to look (non-obvious mappings only)
 
-| Topic | File |
-|---|---|
-| Scheme factory, lifecycle | `consensus.go` |
-| FSM states and transitions | `consensusfsm/fsm.go` |
-| TTL config, hardfork-gated timing | `consensusfsm/consensus_ttl.go` |
-| RollDPoS main loop, message routing | `scheme/rolldpos/rolldpos.go` |
-| Round / proposer calculation | `scheme/rolldpos/roundcalculator.go` |
-| Endorsement manager (in-memory + BoltDB) | `scheme/rolldpos/endorsementmanager.go` |
-| Consensus vote / endorsement types | `scheme/rolldpos/consensusvote.go` |
+- Hardfork-gated TTL / block-interval config: `consensusfsm/consensus_ttl.go`.
+- Consensus vote types (distinct from staking-protocol endorsements):
+  `scheme/rolldpos/consensusvote.go`.
