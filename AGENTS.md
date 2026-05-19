@@ -67,6 +67,11 @@ incidents. Do not cross without a maintainer's explicit sign-off in the PR.
 
 Long-standing project practice. Follow unless you have a concrete reason not to.
 
+- **Writing CLAUDE.md / AGENTS.md.** Never cite specific line numbers
+  (e.g. `foo.go:123`). Code shifts and line refs rot; refer to files by
+  name and to code by function, type, or constant name. If a fact truly
+  needs line-level precision, put it as a comment at the source instead
+  — edits there will surface the comment for update.
 - **Hardfork naming.** New hardforks are named after places (Hawaii, Iceland,
   Tsunami, Yap, ...). See `blockchain/genesis/genesis.go` for the running list.
 - **Hardfork tests.** When a fork gates a behavior, test both `height = fork - 1`

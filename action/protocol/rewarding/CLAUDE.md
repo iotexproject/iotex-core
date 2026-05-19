@@ -26,7 +26,7 @@ Entry points: `protocol.go`, `fund.go`, `reward.go`, `admin.go`,
 
 ### Reward amounts change only at hardfork heights
 
-`CreatePreStates()` (`protocol.go:103–172`) swaps reward amounts at named
+`CreatePreStates()` (`protocol.go`) swaps reward amounts at named
 heights: **Aleutian** (epoch reward), **Dardanelles** and **Wake** (block
 reward), **Kamchatka** (foundation-bonus period). Always go through
 `SetReward()`; do not mutate amounts elsewhere.
@@ -39,7 +39,7 @@ reward), **Kamchatka** (foundation-bonus period). Always go through
   or retry it.
 - The history record is intentionally empty — the **key's existence** is the
   signal. Do not "fix" this by adding a payload.
-- See `reward.go:702–714`.
+- See `reward.go`.
 
 ### Fund accounting — `unclaimedBalance ≤ totalBalance`, always
 
@@ -69,7 +69,7 @@ reward), **Kamchatka** (foundation-bonus period). Always go through
 ## Sentinels and gotchas
 
 - **Votes == 0 means "no reward."** Candidates with zero votes are excluded
-  from both foundation bonus and epoch reward (`reward.go:321, 695`). This
+  from both foundation bonus and epoch reward (`reward.go`). This
   is not a flag, just a consequence of the weighted split — don't add a
   separate "exempt" check thinking it's missing.
 - **No minimum claim amount.** A 1-rau claim is valid and executes
@@ -83,4 +83,4 @@ reward), **Kamchatka** (foundation-bonus period). Always go through
 ## Where to look (non-obvious mappings only)
 
 - Block/epoch grant logic + unproductive-delegate slashing: `reward.go`.
-- Fork-gated reward swap: `protocol.go:103–172`.
+- Fork-gated reward swap: `protocol.go`.

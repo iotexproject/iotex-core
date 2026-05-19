@@ -26,7 +26,7 @@ Block lifecycle: **Propose → Validate → Commit → Finalize**.
 - `Header.prevBlockHash`, `txRoot`, `receiptRoot`, `deltaStateDigest`,
   `baseFee`, `blobGasUsed`, `excessBlobGas`, and `logsBloom` are computed
   once and never mutated. Mutating after build invalidates the signature.
-- The signature is over **`HashHeaderCore()`** (block/header.go:207–226),
+- The signature is over **`HashHeaderCore()`** (block/header.go),
   which excludes the producer pubkey and signature itself — preventing
   circular dependency. Do not change what's included in the core.
 - The bloom filter (2048-bit, 3 hash functions) is part of the signed
@@ -37,13 +37,13 @@ Block lifecycle: **Propose → Validate → Commit → Finalize**.
 
 - `block.Finalize()` adds endorsements and the commit timestamp. The
   second call **returns an error** (`"the block has been finalized"`);
-  do not ignore it and re-finalize over a copy. See `block.go:78–86`.
+  do not ignore it and re-finalize over a copy. See `block.go`.
 
 ### `CommitBlock()` is idempotent
 
 - If a block at the same height/hash already exists, `dao.PutBlock()`
   returns nil and the commit proceeds without re-emitting subscriber
-  events. See `blockchain.go:545–582`.
+  events. See `blockchain.go`.
 
 ### Receipts are not in the block file
 
@@ -55,14 +55,14 @@ Block lifecycle: **Propose → Validate → Commit → Finalize**.
 ### Subscribers can backpressure block commit
 
 - `SendBlockToSubscribers()` does a **blocking send** into each
-  subscriber's buffered channel (`pubsubmanager.go:94–100`). A slow
+  subscriber's buffered channel (`pubsubmanager.go`). A slow
   subscriber whose buffer fills will stall the caller — which today is
   the commit path. Do not add subscribers that block on slow I/O or
   network calls without a bounded internal timeout.
 
 ### Genesis is loaded once via `sync.Once`
 
-- `blockchain/genesis/genesis.go:36` — process-wide singleton. Runtime
+- `blockchain/genesis/genesis.go` — process-wide singleton. Runtime
   mutation of `Genesis` after `Default()` returns is a no-op for already-
   initialized callers. Pass genesis via `WithGenesisContext()`; do not
   reach for the package-level default in code paths that need overrides.
@@ -90,7 +90,7 @@ Block lifecycle: **Propose → Validate → Commit → Finalize**.
 
 ## Where to look (non-obvious mappings only)
 
-- Header signing scope (what `HashHeaderCore` excludes): `block/header.go:207–226`.
+- Header signing scope (what `HashHeaderCore` excludes): `block/header.go`.
 - Persistence is split across two subpackages: `blockdao/` (abstraction +
   indexers) and `filedao/` (concrete file format, v1/v2).
 - Use `block/testing.go` builder only in tests; production goes through

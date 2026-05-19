@@ -26,7 +26,7 @@ mutates state under three namespaces:
   event data was lost); fixed in `f03a4ac16` / `673d4400e`.
 - Non-indexed event arguments **must** land in `Data`, indexed in `Topics`.
   If your event declares `blockNumber` non-indexed, it goes through `AddEvent`.
-- See `receipt_log.go:18–104`.
+- See `receipt_log.go`.
 
 ### Topic hashing — Fairbank switch
 
@@ -35,7 +35,7 @@ mutates state under three namespaces:
   `postFairbankMigration bool` from `featureCtx.NewStakingReceiptFormat`.
 - Never hardcode the hash function in new code. Always pass the flag and let
   the constructor pick.
-- See `receipt_log.go:31–51`.
+- See `receipt_log.go`.
 
 ### Candidate `DeactivatedAt` is a sentinel-laden height
 
@@ -72,7 +72,7 @@ views — unpack via the `candidateDeactivation(address)` view (added in
 - Do not assume only one is active. Do not rename
   `MigrateContractAddress` or `TimestampedMigrateContractAddress` in
   genesis without updating the corresponding indexer wiring.
-- See `protocol.go:111–169`, `protocol.go:848–867`.
+- See `protocol.go`.
 
 ### Bucket state transitions are not idempotent — guard them
 
@@ -87,7 +87,7 @@ views — unpack via the `candidateDeactivation(address)` view (added in
 
 - `_const = 0`, `_bucket = 1`, `_voterIndex = 2`, `_candIndex = 3`,
   `_endorsement = 4`. Adding a new state type means adding a tag in
-  `protocol.go:43–64` — review for collisions.
+  `protocol.go` — review for collisions.
 
 ### Stake migration must snapshot + revert on contract failure
 

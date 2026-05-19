@@ -18,13 +18,13 @@ transactional view that all action handlers mutate through.
 - No internal locks beyond the underlying store. Concurrent reads/writes
   from action handlers will corrupt state silently.
 - One working set per block. Height is fixed at construction (`Height()`,
-  workingset.go:112).
+  workingset.go).
 
 ### `finalized` is a one-way gate
 
 - After `Finalize(ctx)`, action execution is closed: `runAction` returns
-  `"cannot run action on a finalized working set"` (`workingset.go:117`)
-  and `Finalize` itself errors on a second call (`workingset.go:281`).
+  `"cannot run action on a finalized working set"` (`workingset.go`)
+  and `Finalize` itself errors on a second call (`workingset.go`).
   The raw `PutState`/`DelState` APIs do **not** independently check the
   flag — enforcement is at the action-execution entry point, not the
   store API. Do not bypass it by calling `PutState` directly post-finalize.
@@ -34,9 +34,9 @@ transactional view that all action handlers mutate through.
 ### Snapshot/Revert must coordinate store and views
 
 - `Snapshot()` returns an opaque int ID. The ID maps both a store
-  snapshot and a views snapshot (`viewsSnapshots`, workingset.go:89).
+  snapshot and a views snapshot (`viewsSnapshots`, workingset.go).
 - `Revert(id)` rolls back **both**. An unknown ID returns an error
-  (`workingset.go:306–315`); a known ID whose store/views halves
+  (`workingset.go`); a known ID whose store/views halves
   disagree can still leave state inconsistent. Only revert IDs you got
   from `Snapshot()`, and revert at the boundary you took them at.
 
@@ -61,7 +61,7 @@ transactional view that all action handlers mutate through.
 
 - Type 0 (legacy): `PendingNonce() = nonce + 1`. Starts at 0.
 - Type 1 (post-conversion): `PendingNonce() = nonce`. Starts at 1.
-- `ConvertFreshAccountToZeroNonceType` (account.go:181–189) flips the
+- `ConvertFreshAccountToZeroNonceType` (account.go) flips the
   type on first action. Hand-rolling nonce logic in new code is almost
   always wrong; use the helpers.
 

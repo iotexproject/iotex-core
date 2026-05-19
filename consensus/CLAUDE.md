@@ -21,7 +21,7 @@ delegate-based rotation. Subpackages:
 
 ### Proposer selection is deterministic — do not introduce randomness
 
-- `calculateProposer` (`roundcalculator.go:274–292`) picks
+- `calculateProposer` (`roundcalculator.go`) picks
   `proposers[idx % numProposers]` where `idx = height` (or `height + round`
   when `timeBasedRotation` is enabled). It is a plain modulo over the
   epoch's delegate list — no hashing is involved.
@@ -31,7 +31,7 @@ delegate-based rotation. Subpackages:
 ### TTL sum invariant: `AcceptBlockTTL + AcceptProposalEndorsementTTL + AcceptLockEndorsementTTL + CommitTTL ≤ BlockInterval`
 
 - Validated when the RollDPoS context is constructed
-  (`scheme/rolldpos/rolldposctx.go:141`); per-height TTL getters live in
+  (`scheme/rolldpos/rolldposctx.go`); per-height TTL getters live in
   `consensusfsm/consensus_ttl.go`.
 - Changing one TTL almost always requires rebalancing the others. The
   Dardanelles and Wake upgrades adjusted all four simultaneously.
@@ -39,7 +39,7 @@ delegate-based rotation. Subpackages:
 ### Consensus endorsement ≠ staking endorsement
 
 - Three consensus endorsement topics: `PROPOSAL`, `LOCK`, `COMMIT`
-  (`consensusvote.go:16–26`). These are crypto signatures over
+  (`consensusvote.go`). These are crypto signatures over
   `(blockHash, topic)` by a delegate.
 - The staking-protocol "endorsement" (delegated voting) is a different
   concept entirely. Do not share types, validators, or storage between
@@ -49,11 +49,11 @@ delegate-based rotation. Subpackages:
 
 - Signature verification and proposer/endorser-is-a-valid-delegate checks
   run before `ProduceReceiveBlockEvent` etc. are emitted
-  (`rolldpos.go:98–157`). Reordering this is a security break.
+  (`rolldpos.go`). Reordering this is a security break.
 
 ### Do not retain endorsements past round start
 
-- `endorsementmanager.go:82–98` discards endorsements older than the
+- `endorsementmanager.go` discards endorsements older than the
   current round; COMMIT endorsements alone persist into the next round
   for Proof-of-Lock. The cleanup is intentional.
 
