@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -91,6 +92,7 @@ func init() {
 	ActionCmd.AddCommand(_actionClaimCmd)
 	ActionCmd.AddCommand(_actionDepositCmd)
 	ActionCmd.AddCommand(_actionSendRawCmd)
+	ActionCmd.AddCommand(_actionSignAuthCmd)
 	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagActionEndPointUsages,
 			config.UILanguage))
@@ -324,7 +326,10 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 	return outputActionInfo(resp.ActionHash)
 }
 
-// ExecuteAndResponse sends signed execution transaction to blockchain and with response and error return
+// ExecuteAndResponse sends signed execution transaction to blockchain and with response and error return.
+// When --auth is supplied (registered on `contract invoke` only — never on `contract deploy`), the
+// action is rebuilt as an EIP-7702 SetCodeTx and dispatched via the TX_CONTAINER path; in that case
+// the helper handles its own output and returns (nil, nil) so the caller does not double-print.
 func ExecuteAndResponse(contract string, amount *big.Int, bytecode []byte) (*iotexapi.SendActionResponse, error) {
 	if len(contract) == 0 && len(bytecode) == 0 {
 		return nil, output.NewError(output.InputError, "failed to deploy contract with empty bytecode", nil)
@@ -337,6 +342,35 @@ func ExecuteAndResponse(contract string, amount *big.Int, bytecode []byte) (*iot
 	if err != nil {
 		return nil, output.NewError(output.AddressError, "failed to get signer address", err)
 	}
+
+	auths, err := ParsedAuthList()
+	if err != nil {
+		return nil, err
+	}
+	if len(auths) > 0 {
+		// Defensive: --auth flag is only registered on contract invoke commands, so
+		// reaching this branch with an empty contract address implies caller wired it
+		// up incorrectly. SetCodeTx is a CALL by spec and chain enforces non-nil `to`.
+		if contract == "" {
+			return nil, output.NewError(output.InputError,
+				"--auth cannot be used with contract deploy; SetCodeTx requires a target address", nil)
+		}
+		gasLimit := _gasLimitFlag.Value().(uint64)
+		if gasLimit == 0 {
+			gasLimit = _defaultGasLimit
+		}
+		contractIoAddr, err := address.FromString(contract)
+		if err != nil {
+			return nil, output.NewError(output.AddressError, "failed to parse contract address", err)
+		}
+		toETH := common.BytesToAddress(contractIoAddr.Bytes())
+		if err := SignAndSendEthTx(signer,
+			SetCodeTxBuilder(toETH, amount, gasPriceRau, gasLimit, bytecode, auths)); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
+
 	nonce, err := nonce(signer)
 	if err != nil {
 		return nil, output.NewError(0, "failed to get nonce", err)
