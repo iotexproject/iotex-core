@@ -53,8 +53,8 @@ func init() {
 }
 
 // NewCandidateDeactivate returns a CandidateDeactivate action
-func NewCandidateDeactivate() *CandidateDeactivate {
-	return &CandidateDeactivate{}
+func NewCandidateDeactivate(op CandidateDeactivateOp) *CandidateDeactivate {
+	return &CandidateDeactivate{op: op}
 }
 
 // IntrinsicGas returns the intrinsic gas of a CandidateDeactivate
