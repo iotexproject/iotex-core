@@ -21,7 +21,7 @@ import (
 func initExitQueueCfg(r *require.Assertions) config.Config {
 	cfg := initCfg(r)
 	cfg.Genesis.VanuatuBlockHeight = 1
-	cfg.Genesis.ToBeEnabledBlockHeight = 2
+	cfg.Genesis.YapBlockHeight = 2
 	cfg.Genesis.ExitAdmissionInterval = 1
 	// Use small epoch size for faster epoch transitions
 	cfg.Genesis.DardanellesNumSubEpochs = 1
@@ -136,6 +136,138 @@ func TestExitQueue(t *testing.T) {
 						r.NoError(err)
 						r.Equal("0", cand.SelfStakingTokens)
 						r.Equal(uint64(math.MaxUint64), cand.SelfStakeBucketIdx)
+					}},
+				},
+			},
+		})
+	})
+
+	// v2.4.0 added three receipt-log events on the candidate exit-queue flow:
+	//   * CandidateDeactivationRequested(address indexed candidate)
+	//   * CandidateDeactivationScheduled(address indexed candidate, uint64 blockNumber)
+	//   * CandidateDeactivated(address indexed candidate)
+	// Frontends (iotex-hub, explorers) subscribe to these events to drive UI
+	// state, so missing or malformed payloads are a contract-level regression.
+	// This sub-test pins down each event's topics AND data — note the Scheduled
+	// event carries blockNumber as a non-indexed argument, so it must appear in
+	// the log's Data field, not just in topics.
+	t.Run("event logs emitted: requested -> scheduled -> deactivated", func(t *testing.T) {
+		cfg := initExitQueueCfg(r)
+		test := newE2ETest(t, cfg)
+		defer test.teardown()
+		registerEpochProtocols(r, test)
+
+		ownerID := 1
+		chainID := test.cfg.Chain.ID
+		candAddr := identityset.Address(ownerID)
+
+		// Expected (topics, data) for each event — built via the same Pack
+		// helpers the handler uses, so any drift in event signatures is caught
+		// without hard-coding hashes here.
+		reqTopics, reqData, err := action.PackCandidateDeactivationRequestedEvent(candAddr)
+		r.NoError(err)
+		r.Empty(reqData, "Requested event has no non-indexed args; data should be empty")
+		schedTopics, schedData, err := action.PackCandidateDeactivationScheduledEvent(candAddr, uint64(49))
+		r.NoError(err)
+		r.NotEmpty(schedData, "Scheduled event encodes blockNumber as non-indexed arg; data must not be empty")
+		deactTopics, deactData, err := action.PackCandidateDeactivatedEvent(candAddr)
+		r.NoError(err)
+		r.Empty(deactData, "Deactivated event has no non-indexed args; data should be empty")
+
+		test.run([]*testcase{
+			{
+				name:   "register candidate with self-stake",
+				act:    &actionWithTime{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(ownerID).String()), "cand1", identityset.Address(ownerID).String(), identityset.Address(ownerID).String(), identityset.Address(ownerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(ownerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{successExpect},
+			},
+			{
+				name: "request exit emits CandidateDeactivationRequested",
+				act:  &actionWithTime{mustNoErr(action.SignedCandidateDeactivate(test.nonceMgr.pop(identityset.Address(ownerID).String()), action.CandidateDeactivateOpRequest, gasLimit, gasPrice, identityset.PrivateKey(ownerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect,
+					&functionExpect{fn: func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+						r := require.New(test.t)
+						logs := receipt.Logs()
+						r.Len(logs, 1, "Request op should emit exactly one log")
+						lg := logs[0]
+						r.Equal(2, len(lg.Topics), "Requested event: topic[0]=sig, topic[1]=candidate")
+						r.Equal(reqTopics[0], lg.Topics[0], "topic[0] must equal CandidateDeactivationRequested signature hash")
+						r.Equal(reqTopics[1], lg.Topics[1], "topic[1] must equal indexed candidate address")
+						r.Empty(lg.Data, "Requested event carries no non-indexed args")
+					}},
+				},
+			},
+			{
+				// Advance past the epoch boundary so the system action
+				// ScheduleCandidateDeactivation runs at block 25 and emits the
+				// CandidateDeactivationScheduled event. The user transfer below
+				// is just a vehicle to commit block 25; the receipt we care
+				// about is the system action's, which we pull from BlockDAO.
+				name: "epoch boundary emits CandidateDeactivationScheduled with blockNumber in Data",
+				preFunc: func(e *e2etest) {
+					bc := e.cs.Blockchain()
+					ap := e.cs.ActionPool()
+					for bc.TipHeight() < 24 {
+						_, err := createAndCommitBlock(bc, ap, time.Now())
+						require.NoError(e.t, err)
+					}
+				},
+				act: &actionWithTime{mustNoErr(action.SignedTransfer(identityset.Address(ownerID).String(), identityset.PrivateKey(ownerID), test.nonceMgr.pop(identityset.Address(ownerID).String()), big.NewInt(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect,
+					&functionExpect{fn: func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+						r := require.New(test.t)
+						// The system action runs in the same block (25) as the
+						// user transfer. Scan all receipts in that block for the
+						// Scheduled event.
+						receipts, err := test.cs.BlockDAO().GetReceipts(25)
+						r.NoError(err)
+						var sched *action.Log
+						for _, rcpt := range receipts {
+							for _, lg := range rcpt.Logs() {
+								if len(lg.Topics) > 0 && lg.Topics[0] == schedTopics[0] {
+									sched = lg
+									break
+								}
+							}
+							if sched != nil {
+								break
+							}
+						}
+						r.NotNil(sched, "CandidateDeactivationScheduled event must be emitted by system action at block 25")
+						r.Equal(2, len(sched.Topics), "Scheduled event: topic[0]=sig, topic[1]=candidate")
+						r.Equal(schedTopics[1], sched.Topics[1], "topic[1] must equal indexed candidate address")
+						// blockNumber is declared non-indexed in the ABI, so it
+						// MUST be serialized into Data. A log with empty Data
+						// here is a regression: frontends would see the event
+						// fire but be unable to read the scheduled exit height.
+						r.Equal(schedData, sched.Data, "Scheduled event's blockNumber (non-indexed) must be in Data")
+					}},
+				},
+			},
+			{
+				// Advance past DeactivatedAt (49) and run Confirm.
+				name: "confirm exit emits CandidateDeactivated",
+				preFunc: func(e *e2etest) {
+					bc := e.cs.Blockchain()
+					ap := e.cs.ActionPool()
+					for bc.TipHeight() < 48 {
+						_, err := createAndCommitBlock(bc, ap, time.Now())
+						require.NoError(e.t, err)
+					}
+				},
+				act: &actionWithTime{mustNoErr(action.SignedCandidateDeactivate(test.nonceMgr.pop(identityset.Address(ownerID).String()), action.CandidateDeactivateOpConfirm, gasLimit, gasPrice, identityset.PrivateKey(ownerID), action.WithChainID(chainID))), time.Now()},
+				expect: []actionExpect{
+					successExpect,
+					&functionExpect{fn: func(test *e2etest, act *action.SealedEnvelope, receipt *action.Receipt, err error) {
+						r := require.New(test.t)
+						logs := receipt.Logs()
+						r.Len(logs, 1, "Confirm op should emit exactly one log")
+						lg := logs[0]
+						r.Equal(2, len(lg.Topics), "Deactivated event: topic[0]=sig, topic[1]=candidate")
+						r.Equal(deactTopics[0], lg.Topics[0], "topic[0] must equal CandidateDeactivated signature hash")
+						r.Equal(deactTopics[1], lg.Topics[1], "topic[1] must equal indexed candidate address")
+						r.Empty(lg.Data, "Deactivated event carries no non-indexed args")
 					}},
 				},
 			},

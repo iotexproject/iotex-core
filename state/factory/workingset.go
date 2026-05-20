@@ -193,9 +193,16 @@ func (ws *workingSet) runAction(
 	}
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	var receipt *action.Receipt
-	traceErr := evm.TraceStart(ctx, ws, selp.Envelope)
-	if traceErr != nil {
-		log.L().Error("failed to start tracing EVM execution", zap.Error(traceErr))
+	// System actions (e.g. GrantReward) are implementation details and must not
+	// appear in block-level traces (debug_traceBlock*). Skip TraceStart/TraceEnd
+	// for them so CaptureTx is never called on their behalf.
+	isSystemAct := action.IsSystemAction(selp)
+	var traceErr error
+	if !isSystemAct {
+		traceErr = evm.TraceStart(ctx, ws, selp.Envelope)
+		if traceErr != nil {
+			log.L().Error("failed to start tracing EVM execution", zap.Error(traceErr))
+		}
 	}
 	for _, actionHandler := range reg.All() {
 		receipt, err = actionHandler.Handle(ctx, selp.Envelope, ws)
@@ -213,7 +220,7 @@ func (ws *workingSet) runAction(
 	if receipt == nil {
 		return nil, errors.New("receipt is empty")
 	}
-	if traceErr == nil {
+	if !isSystemAct && traceErr == nil {
 		evm.TraceEnd(ctx, receipt)
 	}
 	if fCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
