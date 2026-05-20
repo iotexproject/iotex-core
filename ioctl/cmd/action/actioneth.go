@@ -118,7 +118,7 @@ func SetCodeTxBuilder(to common.Address, value, gasPrice *big.Int, gasLimit uint
 		if overflow {
 			return nil, fmt.Errorf("gas-price overflows uint256")
 		}
-		return types.MustSignNewTx(key, types.LatestSignerForChainID(evmChainID), &types.SetCodeTx{
+		return types.SignNewTx(key, types.LatestSignerForChainID(evmChainID), &types.SetCodeTx{
 			ChainID:   chainID256,
 			Nonce:     nonce,
 			GasTipCap: gasPrice256,
@@ -128,7 +128,7 @@ func SetCodeTxBuilder(to common.Address, value, gasPrice *big.Int, gasLimit uint
 			Value:     value256,
 			Data:      data,
 			AuthList:  auths,
-		}), nil
+		})
 	}
 }
 
@@ -199,6 +199,10 @@ func SignAndSendEthTx(signer string, build EthTxBuilder) error {
 	selp, err := (&action.Deserializer{}).SetEvmNetworkID(uint32(evmChainID)).ActionToSealedEnvelope(req)
 	if err != nil {
 		return output.NewError(output.SerializationError, "failed to seal envelope", err)
+	}
+	// Fail fast on insufficient balance, matching the legacy SendActionAndResponse path.
+	if err := isBalanceEnough(signerAddr, selp); err != nil {
+		return output.NewError(0, "failed to pass balance check", err)
 	}
 
 	if _yesFlag.Value() == false {
