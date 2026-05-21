@@ -26,12 +26,12 @@ import (
 // Multi-language support
 var (
 	_signAuthCmdShorts = map[config.Language]string{
-		config.English: "Sign an EIP-7702 SetCode authorization (offline, no broadcast)",
-		config.Chinese: "签名一个 EIP-7702 SetCode 授权 (离线, 不广播)",
+		config.English: "Sign an EIP-7702 SetCode authorization with the signer's key (offline, no broadcast)",
+		config.Chinese: "用签署人的密钥签名一个 EIP-7702 SetCode 授权 (离线, 不广播)",
 	}
 	_signAuthCmdUses = map[config.Language]string{
-		config.English: "sign-auth DELEGATE_ADDR_HEX -n NONCE -s AUTHORITY [-P PASSWORD] [--evm-chain-id N]",
-		config.Chinese: "sign-auth 委托目标地址 -n NONCE -s 授权人 [-P 密码] [--evm-chain-id N]",
+		config.English: "sign-auth DELEGATE_ADDR_HEX -n NONCE [-s SIGNER] [-P PASSWORD] [--evm-chain-id N]",
+		config.Chinese: "sign-auth 委托目标地址 -n NONCE [-s 签署人] [-P 密码] [--evm-chain-id N]",
 	}
 	_signAuthNonceUsages = map[config.Language]string{
 		config.English: "authority's expected nonce (REQUIRED, no default)",
