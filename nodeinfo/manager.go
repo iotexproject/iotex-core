@@ -101,7 +101,12 @@ func NewInfoManager(cfg *Config, t transmitter, ch chain, blockInterval time.Dur
 	}
 	// init recurring tasks
 	broadcastTask := routine.NewRecurringTask(func() {
-		privKeys := dm.snapshotPrivKeys()
+		dm.mutex.RLock()
+		privKeys := make([]crypto.PrivateKey, 0, len(dm.addrs))
+		for _, addr := range dm.addrs {
+			privKeys = append(privKeys, dm.privKeys[addr])
+		}
+		dm.mutex.RUnlock()
 		// broadcastlist or nodes who are turned on will broadcast
 		if len(privKeys) > 0 {
 			if err := dm.BroadcastNodeInfo(context.Background(), privKeys); err != nil {
@@ -220,7 +225,13 @@ func (dm *InfoManager) RequestSingleNodeInfoAsync(ctx context.Context, peer peer
 // HandleNodeInfoRequest tell node info to peer
 func (dm *InfoManager) HandleNodeInfoRequest(ctx context.Context, peer peer.AddrInfo) error {
 	log.L().Debug("nodeinfo manager tell node info", zap.Any("peer", peer.ID.String()))
-	infos, err := dm.genNodeInfoMsg(dm.snapshotPrivKeys())
+	dm.mutex.RLock()
+	privKeys := make([]crypto.PrivateKey, 0, len(dm.addrs))
+	for _, addr := range dm.addrs {
+		privKeys = append(privKeys, dm.privKeys[addr])
+	}
+	dm.mutex.RUnlock()
+	infos, err := dm.genNodeInfoMsg(privKeys)
 	if err != nil {
 		return err
 	}
@@ -246,19 +257,6 @@ func (dm *InfoManager) UpdateProducerKeys(privKeys []crypto.PrivateKey) {
 	dm.addrs = addrs
 	dm.privKeys = keyMaps
 	dm.mutex.Unlock()
-}
-
-// snapshotPrivKeys returns a stable copy of the configured producer keys in
-// their current order. Callers sign with the returned slice so that signing
-// happens without holding dm.mutex.
-func (dm *InfoManager) snapshotPrivKeys() []crypto.PrivateKey {
-	dm.mutex.RLock()
-	defer dm.mutex.RUnlock()
-	keys := make([]crypto.PrivateKey, 0, len(dm.addrs))
-	for _, addr := range dm.addrs {
-		keys = append(keys, dm.privKeys[addr])
-	}
-	return keys
 }
 
 func (dm *InfoManager) genNodeInfoMsg(privKeys []crypto.PrivateKey) ([]*iotextypes.NodeInfo, error) {
