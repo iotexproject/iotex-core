@@ -80,6 +80,37 @@ func TestBlockPreparer_PrepareOrWait_Timeout(t *testing.T) {
 	require.Nil(t, blk)
 }
 
+func TestBlockPreparer_PrepareOrWait_RecoversPanic(t *testing.T) {
+	preparer := newBlockPreparer()
+	prevHash := hash.Hash256b([]byte("panic-prev"))
+	timestamp := time.Now()
+
+	// Simulates the sync-vs-mint race: a concurrent block-sync commit deleted
+	// a trie node out from under this mint, causing the EVM SetState path to
+	// panic. The mint goroutine must recover so the process stays alive.
+	mintFn := func() (*block.Block, error) {
+		panic("simulated unrecoverable trie node missing")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	blk, err := preparer.PrepareOrWait(ctx, prevHash[:], timestamp, mintFn)
+	require.Nil(t, blk)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mint panicked")
+
+	// the preparer must still be usable after a recovered panic — a subsequent
+	// mint for a different parent/timestamp succeeds normally.
+	okHash := hash.Hash256b([]byte("ok-prev"))
+	expected := &block.Block{}
+	blk2, err := preparer.PrepareOrWait(ctx, okHash[:], timestamp, func() (*block.Block, error) {
+		return expected, nil
+	})
+	require.NoError(t, err)
+	require.Same(t, expected, blk2)
+}
+
 func TestBlockPreparer_ReceiveBlock(t *testing.T) {
 	preparer := newBlockPreparer()
 	prevHash := hash.Hash256b([]byte("previousHash"))
