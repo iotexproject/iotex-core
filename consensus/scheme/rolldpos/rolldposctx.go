@@ -97,12 +97,22 @@ type (
 		eManagerDB        db.KVStore
 		toleratedOvertime time.Duration
 
-		encodedAddrs []string
-		priKeys      []crypto.PrivateKey
+		producerKeys []producerKey
 		round        *roundCtx
 		clock        clock.Clock
 		active       bool
 		mutex        sync.RWMutex
+	}
+
+	// producerKey binds an ECDSA producer key with its derived iotex address
+	// and, when configured, the matching BLS12-381 key used for COMMIT-stage
+	// signature aggregation. Keeping the three together in a single record is
+	// the single source of truth for the 1:1 alignment required by the
+	// consensus signing paths.
+	producerKey struct {
+		address string
+		ecdsa   crypto.PrivateKey
+		bls     *crypto.BLS12381PrivateKey
 	}
 )
 
@@ -120,6 +130,7 @@ func NewRollDPoSCtx(
 	delegatesByEpochFunc NodesSelectionByEpochFunc,
 	proposersByEpochFunc NodesSelectionByEpochFunc,
 	priKeys []crypto.PrivateKey,
+	blsPriKeys []*crypto.BLS12381PrivateKey,
 	clock clock.Clock,
 	beringHeight uint64,
 ) (RDPoSCtx, error) {
@@ -137,6 +148,12 @@ func NewRollDPoSCtx(
 	}
 	if proposersByEpochFunc == nil {
 		return nil, errors.New("proposers by epoch function cannot be nil")
+	}
+	if len(blsPriKeys) != 0 && len(blsPriKeys) != len(priKeys) {
+		return nil, errors.Errorf(
+			"bls private keys count %d does not match producer private keys count %d",
+			len(blsPriKeys), len(priKeys),
+		)
 	}
 	if cfg.AcceptBlockTTL(0)+cfg.AcceptProposalEndorsementTTL(0)+cfg.AcceptLockEndorsementTTL(0)+cfg.CommitTTL(0) > cfg.BlockInterval(0) {
 		return nil, errors.Errorf(
@@ -160,15 +177,20 @@ func NewRollDPoSCtx(
 		timeBasedRotation:    timeBasedRotation,
 		beringHeight:         beringHeight,
 	}
-	encodedAddrs := make([]string, 0, len(priKeys))
-	for _, pk := range priKeys {
-		encodedAddrs = append(encodedAddrs, pk.PublicKey().Address().String())
+	producerKeys := make([]producerKey, len(priKeys))
+	for i, pk := range priKeys {
+		producerKeys[i] = producerKey{
+			address: pk.PublicKey().Address().String(),
+			ecdsa:   pk,
+		}
+		if i < len(blsPriKeys) {
+			producerKeys[i].bls = blsPriKeys[i]
+		}
 	}
 	return &rollDPoSCtx{
 		ConsensusConfig:   cfg,
 		active:            active,
-		encodedAddrs:      encodedAddrs,
-		priKeys:           priKeys,
+		producerKeys:      producerKeys,
 		chain:             chain,
 		blockDeserializer: blockDeserializer,
 		broadcastHandler:  broadcastHandler,
@@ -385,11 +407,11 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 	proposer := ctx.round.Proposer()
 	// TODO: this is to pass unit tests, remove it after the unit tests are fixed
 	if proposer == "" {
-		privateKey = ctx.priKeys[0]
+		privateKey = ctx.producerKeys[0].ecdsa
 	} else {
-		for i, addr := range ctx.encodedAddrs {
-			if addr == proposer {
-				privateKey = ctx.priKeys[i]
+		for _, pk := range ctx.producerKeys {
+			if pk.address == proposer {
+				privateKey = pk.ecdsa
 				break
 			}
 		}
@@ -420,11 +442,11 @@ func (ctx *rollDPoSCtx) prepareNextProposal(prevHeight uint64, prevHash hash.Has
 	roundCalc := ctx.roundCalc.Fork(fork)
 	// check if the current node is the next proposer
 	nextProposer := roundCalc.Proposer(height, interval, startTime)
-	idx := slices.Index(ctx.encodedAddrs, nextProposer)
+	idx := slices.IndexFunc(ctx.producerKeys, func(pk producerKey) bool { return pk.address == nextProposer })
 	if idx < 0 {
 		return nil
 	}
-	privateKey := ctx.priKeys[idx]
+	privateKey := ctx.producerKeys[idx].ecdsa
 	ctx.logger().Debug("prepare next proposal", log.Hex("prevHash", prevHash[:]), zap.Uint64("height", ctx.round.height+1), zap.Time("timestamp", startTime), zap.String("nextproposer", nextProposer))
 	go func() {
 		blk, err := fork.MintNewBlock(startTime, privateKey, prevHash)
@@ -457,7 +479,11 @@ func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
 func (ctx *rollDPoSCtx) PreCommitEndorsement() interface{} {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
-	endorsements := ctx.round.ReadyToCommit(ctx.encodedAddrs)
+	addrs := make([]string, len(ctx.producerKeys))
+	for i, pk := range ctx.producerKeys {
+		addrs[i] = pk.address
+	}
+	endorsements := ctx.round.ReadyToCommit(addrs)
 	if len(endorsements) == 0 {
 		// DON'T CHANGE, this is on purpose, because endorsement as nil won't result in a nil "interface {}"
 		return nil
@@ -733,7 +759,7 @@ func (ctx *rollDPoSCtx) hasDelegate() bool {
 		ctx.logger().Info("current node is in standby mode")
 		return false
 	}
-	return slices.ContainsFunc(ctx.encodedAddrs, ctx.round.IsDelegate)
+	return slices.ContainsFunc(ctx.producerKeys, func(pk producerKey) bool { return ctx.round.IsDelegate(pk.address) })
 }
 
 func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal, privateKey crypto.PrivateKey) (*EndorsedConsensusMessage, error) {
@@ -842,12 +868,12 @@ func (ctx *rollDPoSCtx) newEndorsement(
 		blkHash,
 		topic,
 	)
-	privKeys := make([]crypto.PrivateKey, 0, len(ctx.priKeys))
-	for i, addr := range ctx.encodedAddrs {
-		if !ctx.round.IsDelegate(addr) {
+	privKeys := make([]crypto.PrivateKey, 0, len(ctx.producerKeys))
+	for _, pk := range ctx.producerKeys {
+		if !ctx.round.IsDelegate(pk.address) {
 			continue
 		}
-		privKeys = append(privKeys, ctx.priKeys[i])
+		privKeys = append(privKeys, pk.ecdsa)
 	}
 	ens, err := endorsement.Endorse(vote, timestamp, privKeys...)
 	if err != nil {
