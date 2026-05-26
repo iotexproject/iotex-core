@@ -366,6 +366,13 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing consensus context")
 	}
+	// Premint forks a previous workingset to mint a block ahead of the committed chain tip.
+	// That path needs ws.store.KVStore(), which is nil when a secondary erigon store is wired
+	// (api nodes set HistoryIndexPath). Disable premint there so mint falls back to building
+	// a workingset from scratch.
+	if len(b.cfg.Chain.HistoryIndexPath) > 0 {
+		ctx.DisablePremint(true)
+	}
 	cfsm, err := consensusfsm.NewConsensusFSM(ctx, b.clock)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing the consensus FSM")

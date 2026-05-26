@@ -84,6 +84,10 @@ type (
 		Clock() clock.Clock
 		CheckBlockProposer(uint64, *blockProposal, *endorsement.Endorsement) error
 		CheckVoteEndorser(uint64, *ConsensusVote, *endorsement.Endorsement) error
+		// DisablePremint turns off the prepareNextProposal pre-mint goroutine.
+		// API nodes (with a secondary erigon store) must call this with true: their workingset
+		// store has no KVStore() for forking, so premint always fails at workingset.NewWorkingSet.
+		DisablePremint(bool)
 	}
 
 	rollDPoSCtx struct {
@@ -97,12 +101,13 @@ type (
 		eManagerDB        db.KVStore
 		toleratedOvertime time.Duration
 
-		encodedAddrs []string
-		priKeys      []crypto.PrivateKey
-		round        *roundCtx
-		clock        clock.Clock
-		active       bool
-		mutex        sync.RWMutex
+		encodedAddrs   []string
+		priKeys        []crypto.PrivateKey
+		round          *roundCtx
+		clock          clock.Clock
+		active         bool
+		disablePremint bool
+		mutex          sync.RWMutex
 	}
 )
 
@@ -219,6 +224,12 @@ func (ctx *rollDPoSCtx) RoundCalculator() *roundCalculator {
 
 func (ctx *rollDPoSCtx) Clock() clock.Clock {
 	return ctx.clock
+}
+
+func (ctx *rollDPoSCtx) DisablePremint(v bool) {
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
+	ctx.disablePremint = v
 }
 
 // CheckVoteEndorser checks if the endorsement's endorser is a valid delegate at the given height
@@ -407,6 +418,9 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 }
 
 func (ctx *rollDPoSCtx) prepareNextProposal(prevHeight uint64, prevHash hash.Hash256) error {
+	if ctx.disablePremint {
+		return nil
+	}
 	var (
 		height    = prevHeight + 1
 		interval  = ctx.BlockInterval(height)
