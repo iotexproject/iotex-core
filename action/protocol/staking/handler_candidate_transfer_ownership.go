@@ -23,7 +23,7 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 	actCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 
-	log := newReceiptLog(p.addr.String(), handleCandidateTransferOwnership, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), handleCandidateTransferOwnership, featureCtx.NewStakingReceiptFormat)
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
 		return log, nil, fetchErr

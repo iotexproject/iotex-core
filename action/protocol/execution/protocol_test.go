@@ -494,7 +494,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.Blockchain.VanuatuBlockHeight = 1
 	}
 	if sct.InitGenesis.IsPrague {
-		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 1
+		cfg.Genesis.Blockchain.YapBlockHeight = 1
 		testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	}
 	for _, expectedBalance := range sct.InitBalances {

@@ -28,7 +28,27 @@ type receiptLog struct {
 	events                []contractEvent
 }
 
-func newReceiptLog(addr, topic string, postFairbankMigration bool) *receiptLog {
+// newReceiptLog builds a receiptLog for the events-based emission path.
+// Callers should populate it via AddEvent; each AddEvent call produces one
+// independent action.Log carrying its own Topics and Data. This is the path
+// new handlers (and all post-Fairbank ABI events) should use.
+//
+// Do NOT mix this with AddTopics / AddAddress / SetData — those mutate the
+// legacy single-log fields (r.topics / r.data) which are only consulted when
+// r.events is empty. If r.events is non-empty, Build returns the per-event
+// logs and the legacy fields are silently discarded.
+func newReceiptLog(addr string) *receiptLog {
+	return &receiptLog{addr: addr}
+}
+
+// newReceiptLogLegacy builds a receiptLog that emits a single log derived from
+// r.topics + r.data. This is the pre-events shape kept for handlers that
+// haven't migrated to AddEvent (CreateStake, Unstake, WithdrawStake, etc.).
+//
+// New code should prefer newReceiptLog + AddEvent. Reach for this only when
+// adding a topic/data tweak to an existing legacy handler — and even then,
+// consider migrating the whole handler to AddEvent instead.
+func newReceiptLogLegacy(addr, topic string, postFairbankMigration bool) *receiptLog {
 	r := receiptLog{
 		addr:                  addr,
 		postFairbankMigration: postFairbankMigration,

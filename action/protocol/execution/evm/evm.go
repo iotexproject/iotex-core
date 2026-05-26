@@ -574,7 +574,7 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 		chainConfig.CancunTime = &cancunTimestamp
 	}
 	// enable Prague
-	pragueTime, err := getBlockTime(g.ToBeEnabledBlockHeight)
+	pragueTime, err := getBlockTime(g.YapBlockHeight)
 	if err != nil {
 		return nil, err
 	} else if pragueTime != nil {
