@@ -255,7 +255,6 @@ func (s *Server) UpdateProducerKeys(keys []crypto.PrivateKey) ([]string, error) 
 	s.mutex.Lock()
 	s.cfg.Chain.ProducerPrivKey = strings.Join(encodedKeys, ",")
 	s.mutex.Unlock()
-	log.SetDynamicFields(zap.String("ioAddr", strings.Join(addresses, ",")))
 	log.L().Info("Updated producer keys in memory.", zap.Strings("operatorAddresses", addresses))
 	return addresses, nil
 }

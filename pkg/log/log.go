@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"sync"
-	"sync/atomic"
 
 	"go.elastic.co/ecszap"
 	"go.uber.org/zap"
@@ -34,7 +33,6 @@ var (
 	_logServeMux      = http.NewServeMux()
 	_subLoggers       map[string]*zap.Logger
 	_globalLoggerName = "global"
-	_dynamicFields    atomic.Value // []zap.Field
 )
 
 func init() {
@@ -66,43 +64,6 @@ func Logger(name string) *zap.Logger {
 		return L()
 	}
 	return logger
-}
-
-// SetDynamicFields updates fields injected into every log entry at write time.
-func SetDynamicFields(fields ...zap.Field) {
-	cloned := append([]zap.Field(nil), fields...)
-	_dynamicFields.Store(cloned)
-}
-
-func currentDynamicFields() []zap.Field {
-	fields, _ := _dynamicFields.Load().([]zap.Field)
-	return fields
-}
-
-type dynamicFieldsCore struct {
-	zapcore.Core
-}
-
-func (c dynamicFieldsCore) With(fields []zapcore.Field) zapcore.Core {
-	return dynamicFieldsCore{Core: c.Core.With(fields)}
-}
-
-func (c dynamicFieldsCore) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	if !c.Enabled(ent.Level) {
-		return ce
-	}
-	return ce.AddCore(ent, c)
-}
-
-func (c dynamicFieldsCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
-	dynamic := currentDynamicFields()
-	if len(dynamic) == 0 {
-		return c.Core.Write(ent, fields)
-	}
-	combined := make([]zapcore.Field, 0, len(fields)+len(dynamic))
-	combined = append(combined, fields...)
-	combined = append(combined, dynamic...)
-	return c.Core.Write(ent, combined)
 }
 
 // InitLoggers initializes the global logger and other sub loggers.
@@ -155,8 +116,7 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 			return errors.Errorf("unknown encoding: %s", cfg.Zap.Encoding)
 		}
 
-		core := dynamicFieldsCore{Core: zapcore.NewTee(cores...)}
-		logger := zap.New(core, opts...)
+		logger := zap.New(zapcore.NewTee(cores...), opts...)
 
 		_logMu.Lock()
 		if name == _globalLoggerName {

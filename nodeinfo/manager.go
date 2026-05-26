@@ -101,12 +101,10 @@ func NewInfoManager(cfg *Config, t transmitter, ch chain, blockInterval time.Dur
 	}
 	// init recurring tasks
 	broadcastTask := routine.NewRecurringTask(func() {
-		dm.mutex.RLock()
-		addrs := append([]string(nil), dm.addrs...)
-		dm.mutex.RUnlock()
+		privKeys := dm.snapshotPrivKeys()
 		// broadcastlist or nodes who are turned on will broadcast
-		if len(addrs) > 0 {
-			if err := dm.BroadcastNodeInfo(context.Background(), addrs); err != nil {
+		if len(privKeys) > 0 {
+			if err := dm.BroadcastNodeInfo(context.Background(), privKeys); err != nil {
 				log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
 			}
 		} else {
@@ -186,9 +184,9 @@ func (dm *InfoManager) GetNodeInfo(addr string) (Info, bool) {
 }
 
 // BroadcastNodeInfo broadcast request node info message
-func (dm *InfoManager) BroadcastNodeInfo(ctx context.Context, addrs []string) error {
+func (dm *InfoManager) BroadcastNodeInfo(ctx context.Context, privKeys []crypto.PrivateKey) error {
 	log.L().Debug("nodeinfo manager broadcast node info")
-	infos, err := dm.genNodeInfoMsg(addrs)
+	infos, err := dm.genNodeInfoMsg(privKeys)
 	if err != nil {
 		return err
 	}
@@ -222,10 +220,7 @@ func (dm *InfoManager) RequestSingleNodeInfoAsync(ctx context.Context, peer peer
 // HandleNodeInfoRequest tell node info to peer
 func (dm *InfoManager) HandleNodeInfoRequest(ctx context.Context, peer peer.AddrInfo) error {
 	log.L().Debug("nodeinfo manager tell node info", zap.Any("peer", peer.ID.String()))
-	dm.mutex.RLock()
-	addrs := append([]string(nil), dm.addrs...)
-	dm.mutex.RUnlock()
-	infos, err := dm.genNodeInfoMsg(addrs)
+	infos, err := dm.genNodeInfoMsg(dm.snapshotPrivKeys())
 	if err != nil {
 		return err
 	}
@@ -253,35 +248,33 @@ func (dm *InfoManager) UpdateProducerKeys(privKeys []crypto.PrivateKey) {
 	dm.mutex.Unlock()
 }
 
-func (dm *InfoManager) genNodeInfoMsg(addrs []string) ([]*iotextypes.NodeInfo, error) {
-	// Snapshot the keys and version under the lock, then release before
-	// signing — Sign() can be slow and would otherwise block UpdateProducerKeys.
+// snapshotPrivKeys returns a stable copy of the configured producer keys in
+// their current order. Callers sign with the returned slice so that signing
+// happens without holding dm.mutex.
+func (dm *InfoManager) snapshotPrivKeys() []crypto.PrivateKey {
 	dm.mutex.RLock()
-	version := dm.version
-	keys := make(map[string]crypto.PrivateKey, len(addrs))
-	for _, addr := range addrs {
-		privKey, ok := dm.privKeys[addr]
-		if !ok {
-			dm.mutex.RUnlock()
-			return nil, errors.Errorf("private key not found for address %s", addr)
-		}
-		keys[addr] = privKey
+	defer dm.mutex.RUnlock()
+	keys := make([]crypto.PrivateKey, 0, len(dm.addrs))
+	for _, addr := range dm.addrs {
+		keys = append(keys, dm.privKeys[addr])
 	}
-	dm.mutex.RUnlock()
+	return keys
+}
 
+func (dm *InfoManager) genNodeInfoMsg(privKeys []crypto.PrivateKey) ([]*iotextypes.NodeInfo, error) {
 	tip := dm.chain.TipHeight()
 	ts := timestamppb.Now()
-	infos := make([]*iotextypes.NodeInfo, 0, len(addrs))
-	for _, addr := range addrs {
+	infos := make([]*iotextypes.NodeInfo, 0, len(privKeys))
+	for _, privKey := range privKeys {
 		core := &iotextypes.NodeInfoCore{
-			Version:   version,
+			Version:   dm.version,
 			Height:    tip,
 			Timestamp: ts,
-			Address:   addr,
+			Address:   privKey.PublicKey().Address().String(),
 		}
 		// add sig for msg
 		h := hashNodeInfo(core)
-		sig, err := keys[addr].Sign(h[:])
+		sig, err := privKey.Sign(h[:])
 		if err != nil {
 			return nil, errors.Wrap(err, "sign node info message failed")
 		}
