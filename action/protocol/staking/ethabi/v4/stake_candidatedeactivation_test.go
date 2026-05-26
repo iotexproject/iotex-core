@@ -56,10 +56,10 @@ func TestBuildReadStateRequestCandidateDeactivation(t *testing.T) {
 func TestCandidateDeactivationToEth(t *testing.T) {
 	r := require.New(t)
 	cases := []struct {
-		name             string
-		deactivatedAt    uint64
-		wantRequested    bool
-		wantScheduledAt  uint64
+		name            string
+		deactivatedAt   uint64
+		wantRequested   bool
+		wantScheduledAt uint64
 	}{
 		{"no exit in flight", 0, false, 0},
 		{"requested, not yet scheduled", uint64(math.MaxUint64), true, 0},
