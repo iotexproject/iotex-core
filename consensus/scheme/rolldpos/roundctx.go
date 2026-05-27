@@ -47,7 +47,7 @@ type roundCtx struct {
 	nextRoundStartTime time.Time
 
 	blockInLock []byte
-	proofOfLock []*endorsement.Endorsement
+	proofOfLock *ProofOfLock
 	status      status
 	eManager    *endorsementManager
 }
@@ -160,7 +160,7 @@ func (ctx *roundCtx) HashOfBlockInLock() []byte {
 	return ctx.blockInLock
 }
 
-func (ctx *roundCtx) ProofOfLock() []*endorsement.Endorsement {
+func (ctx *roundCtx) ProofOfLock() *ProofOfLock {
 	return ctx.proofOfLock
 }
 
@@ -242,7 +242,7 @@ func (ctx *roundCtx) AddVoteEndorsement(
 		ctx.status = _locked
 	}
 	ctx.blockInLock = blockHash
-	ctx.proofOfLock = endorsements
+	ctx.proofOfLock = NewProofOfLock(endorsements)
 
 	return nil
 }

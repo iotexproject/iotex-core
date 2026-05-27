@@ -222,7 +222,7 @@ func TestCheckBlockProposer(t *testing.T) {
 	prevHash := b.TipHash()
 	block := getBlockforctx(t, 0, false, prevHash)
 	en := endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(10).PublicKey(), nil)
-	bp := newBlockProposal(&block, []*endorsement.Endorsement{en})
+	bp := newBlockProposal(&block, NewProofOfLock([]*endorsement.Endorsement{en}))
 
 	// case 1:panic caused by blockproposal is nil
 	require.Panics(func() {
@@ -247,14 +247,14 @@ func TestCheckBlockProposer(t *testing.T) {
 	// case 6:invalid block signature
 	block = getBlockforctx(t, 1, false, prevHash)
 	en = endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(1).PublicKey(), nil)
-	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
+	bp = newBlockProposal(&block, NewProofOfLock([]*endorsement.Endorsement{en}))
 	require.Error(rctx.CheckBlockProposer(51, bp, en))
 
 	// case 7:invalid endorsement for the vote when call AddVoteEndorsement
 	block = getBlockforctx(t, 1, true, prevHash)
 	en = endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(1).PublicKey(), nil)
 	en2 := endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(7).PublicKey(), nil)
-	bp = newBlockProposal(&block, []*endorsement.Endorsement{en2, en})
+	bp = newBlockProposal(&block, NewProofOfLock([]*endorsement.Endorsement{en2, en}))
 	require.Error(rctx.CheckBlockProposer(51, bp, en2))
 
 	// case 8:Insufficient endorsements
@@ -264,12 +264,12 @@ func TestCheckBlockProposer(t *testing.T) {
 	ens, err := endorsement.Endorse(vote, time.Unix(1562382592, 0), identityset.PrivateKey(7))
 	require.Equal(1, len(ens))
 	require.NoError(err)
-	bp = newBlockProposal(&block, ens)
+	bp = newBlockProposal(&block, NewProofOfLock(ens))
 	require.Error(rctx.CheckBlockProposer(51, bp, ens[0]))
 
 	// case 9:normal
 	block = getBlockforctx(t, 1, true, prevHash)
-	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
+	bp = newBlockProposal(&block, NewProofOfLock([]*endorsement.Endorsement{en}))
 	require.NoError(rctx.CheckBlockProposer(51, bp, en))
 }
 

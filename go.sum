@@ -299,8 +299,8 @@ github.com/envestcc/erigon/erigon-lib v0.0.0-20251229032433-18f245cc374a h1:BE2G
 github.com/envestcc/erigon/erigon-lib v0.0.0-20251229032433-18f245cc374a/go.mod h1:7LneN7BMglt3mEe6/ypXrq64LiXgvGcDvbJgEzZnEpI=
 github.com/envestcc/go-verkle v0.0.0-20251216081422-a9d13963495d h1:vPl7sjgea9uQFeGdUr1uhrtT2kDbtRozOC9QnhnrX5E=
 github.com/envestcc/go-verkle v0.0.0-20251216081422-a9d13963495d/go.mod h1:CFlPtIrMHxhNuguRY0fdyKPr6hvbFDfUd1q8YcOcoYE=
-github.com/envestcc/iotex-proto v0.0.0-20260526105443-52e72a6dedb2 h1:eSdN1g/YxV+Axy0EbT5Fjrejg1K5VHfVk6hnpbTLV9Q=
-github.com/envestcc/iotex-proto v0.0.0-20260526105443-52e72a6dedb2/go.mod h1:OOXZIG6Q9tInog8Y5zzEJQsDv9IaG/xxpDtl4KzdWZs=
+github.com/envestcc/iotex-proto v0.0.0-20260527034502-03a99cc66ae9 h1:6dwnoZ0Dxz6ASeRWO5hGZHxoYh367vS0kPqrLJ5Y8QU=
+github.com/envestcc/iotex-proto v0.0.0-20260527034502-03a99cc66ae9/go.mod h1:OOXZIG6Q9tInog8Y5zzEJQsDv9IaG/xxpDtl4KzdWZs=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=

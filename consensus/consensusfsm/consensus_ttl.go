@@ -80,6 +80,9 @@ type (
 		CommitTTL(uint64) time.Duration
 		BlockInterval(uint64) time.Duration
 		Delay(uint64) time.Duration
+		// BLSAggregationEnabled reports whether COMMIT-stage BLS signature
+		// aggregation (IIP-52) is active at the given block height.
+		BLSAggregationEnabled(uint64) bool
 	}
 
 	// config implements ConsensusConfig
@@ -92,6 +95,7 @@ type (
 		dardanellesHeight uint64
 		wake              WakeUpgrade
 		wakeHeight        uint64
+		blsAggHeight      uint64
 	}
 )
 
@@ -105,6 +109,7 @@ func NewConsensusConfig(timing ConsensusTiming, dardanelles DardanellesUpgrade, 
 		delay:             delay,
 		wake:              wake,
 		wakeHeight:        g.WakeBlockHeight,
+		blsAggHeight:      g.ToBeEnabledBlockHeight,
 	}
 }
 
@@ -114,6 +119,10 @@ func (c *consensusCfg) isDardanelles(height uint64) bool {
 
 func (c *consensusCfg) isWake(height uint64) bool {
 	return height >= c.wakeHeight
+}
+
+func (c *consensusCfg) BLSAggregationEnabled(height uint64) bool {
+	return height >= c.blsAggHeight
 }
 
 func (c *consensusCfg) EventChanSize() uint {
