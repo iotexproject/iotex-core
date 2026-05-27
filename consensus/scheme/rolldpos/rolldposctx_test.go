@@ -41,12 +41,12 @@ func TestRollDPoSCtx(t *testing.T) {
 	b, sf, _, _, _ := makeChain(t)
 
 	t.Run("case 1:panic because of chain is nil", func(t *testing.T) {
-		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, nil, block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, dummyCandidatesByHeightFunc, nil, nil, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, nil, block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, dummyCandidatesByHeightFunc, nil, nil, nil, 0)
 		require.Error(err)
 	})
 
 	t.Run("case 2:panic because of rp is nil", func(t *testing.T) {
-		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b, sf, &dummyBlockBuildFactory{}), block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, dummyCandidatesByHeightFunc, nil, nil, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b, sf, &dummyBlockBuildFactory{}), block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, dummyCandidatesByHeightFunc, nil, nil, nil, 0)
 		require.Error(err)
 	})
 
@@ -56,7 +56,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		g.NumSubEpochs,
 	)
 	t.Run("case 3:panic because of clock is nil", func(t *testing.T) {
-		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b, sf, &dummyBlockBuildFactory{}), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, dummyCandidatesByHeightFunc, nil, nil, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b, sf, &dummyBlockBuildFactory{}), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, dummyCandidatesByHeightFunc, nil, nil, nil, 0)
 		require.Error(err)
 	})
 
@@ -66,19 +66,19 @@ func TestRollDPoSCtx(t *testing.T) {
 	cfg.FSM.AcceptLockEndorsementTTL = time.Second
 	cfg.FSM.CommitTTL = time.Second
 	t.Run("case 4:panic because of fsm time bigger than block interval", func(t *testing.T) {
-		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b, sf, &dummyBlockBuildFactory{}), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, dummyCandidatesByHeightFunc, nil, c, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b, sf, &dummyBlockBuildFactory{}), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, dummyCandidatesByHeightFunc, nil, nil, c, 0)
 		require.Error(err)
 	})
 
 	g.Blockchain.BlockInterval = time.Second * 20
 	t.Run("case 5:panic because of nil CandidatesByHeight function", func(t *testing.T) {
-		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b, sf, &dummyBlockBuildFactory{}), block.NewDeserializer(0), rp, nil, nil, nil, nil, c, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b, sf, &dummyBlockBuildFactory{}), block.NewDeserializer(0), rp, nil, nil, nil, nil, nil, c, 0)
 		require.Error(err)
 	})
 
 	t.Run("case 6:normal", func(t *testing.T) {
 		bh := g.BeringBlockHeight
-		rctx, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b, sf, &dummyBlockBuildFactory{}), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, dummyCandidatesByHeightFunc, nil, c, bh)
+		rctx, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay), dbConfig, true, time.Second, true, NewChainManager(b, sf, &dummyBlockBuildFactory{}), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, dummyCandidatesByHeightFunc, nil, nil, c, bh)
 		require.NoError(err)
 		require.Equal(bh, rctx.RoundCalculator().beringHeight)
 		require.NotNil(rctx)
@@ -138,6 +138,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 		nil,
 		delegatesByEpochFunc,
 		delegatesByEpochFunc,
+		nil,
 		nil,
 		c,
 		g.BeringBlockHeight,
@@ -212,6 +213,7 @@ func TestCheckBlockProposer(t *testing.T) {
 		delegatesByEpochFunc,
 		delegatesByEpochFunc,
 		nil,
+		nil,
 		c,
 		g.BeringBlockHeight,
 	)
@@ -220,7 +222,7 @@ func TestCheckBlockProposer(t *testing.T) {
 	prevHash := b.TipHash()
 	block := getBlockforctx(t, 0, false, prevHash)
 	en := endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(10).PublicKey(), nil)
-	bp := newBlockProposal(&block, []*endorsement.Endorsement{en})
+	bp := newBlockProposal(&block, NewProofOfLock([]*endorsement.Endorsement{en}))
 
 	// case 1:panic caused by blockproposal is nil
 	require.Panics(func() {
@@ -245,14 +247,14 @@ func TestCheckBlockProposer(t *testing.T) {
 	// case 6:invalid block signature
 	block = getBlockforctx(t, 1, false, prevHash)
 	en = endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(1).PublicKey(), nil)
-	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
+	bp = newBlockProposal(&block, NewProofOfLock([]*endorsement.Endorsement{en}))
 	require.Error(rctx.CheckBlockProposer(51, bp, en))
 
 	// case 7:invalid endorsement for the vote when call AddVoteEndorsement
 	block = getBlockforctx(t, 1, true, prevHash)
 	en = endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(1).PublicKey(), nil)
 	en2 := endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(7).PublicKey(), nil)
-	bp = newBlockProposal(&block, []*endorsement.Endorsement{en2, en})
+	bp = newBlockProposal(&block, NewProofOfLock([]*endorsement.Endorsement{en2, en}))
 	require.Error(rctx.CheckBlockProposer(51, bp, en2))
 
 	// case 8:Insufficient endorsements
@@ -262,12 +264,12 @@ func TestCheckBlockProposer(t *testing.T) {
 	ens, err := endorsement.Endorse(vote, time.Unix(1562382592, 0), identityset.PrivateKey(7))
 	require.Equal(1, len(ens))
 	require.NoError(err)
-	bp = newBlockProposal(&block, ens)
+	bp = newBlockProposal(&block, NewProofOfLock(ens))
 	require.Error(rctx.CheckBlockProposer(51, bp, ens[0]))
 
 	// case 9:normal
 	block = getBlockforctx(t, 1, true, prevHash)
-	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
+	bp = newBlockProposal(&block, NewProofOfLock([]*endorsement.Endorsement{en}))
 	require.NoError(rctx.CheckBlockProposer(51, bp, en))
 }
 
@@ -325,6 +327,7 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 		delegatesByEpoch,
 		delegatesByEpoch,
 		[]crypto.PrivateKey{identityset.PrivateKey(10)},
+		nil,
 		c,
 		g.BeringBlockHeight,
 	)

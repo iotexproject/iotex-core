@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/v2/endorsement"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
@@ -65,7 +64,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 	}
 	var status status
 	var blockInLock []byte
-	var proofOfLock []*endorsement.Endorsement
+	var proofOfLock *ProofOfLock
 	if height == round.Height() {
 		err = round.eManager.Cleanup(roundStartTime)
 		if err != nil {

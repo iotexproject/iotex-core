@@ -261,6 +261,7 @@ type (
 		// TODO: we should use keystore in the future
 		encodedAddr       string
 		priKey            []crypto.PrivateKey
+		blsPriKey         []*crypto.BLS12381PrivateKey
 		chain             ChainManager
 		blockDeserializer *block.Deserializer
 		broadcastHandler  scheme.Broadcast
@@ -286,6 +287,13 @@ func (b *Builder) SetConfig(cfg BuilderConfig) *Builder {
 // SetPriKey sets the private key
 func (b *Builder) SetPriKey(priKeys ...crypto.PrivateKey) *Builder {
 	b.priKey = priKeys
+	return b
+}
+
+// SetBLSPriKey sets the BLS12-381 producer private keys, aligned 1:1 with
+// the ECDSA keys set via SetPriKey.
+func (b *Builder) SetBLSPriKey(blsPriKeys ...*crypto.BLS12381PrivateKey) *Builder {
+	b.blsPriKey = blsPriKeys
 	return b
 }
 
@@ -360,6 +368,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.delegatesByEpochFunc,
 		b.proposersByEpochFunc,
 		b.priKey,
+		b.blsPriKey,
 		b.clock,
 		b.cfg.Genesis.BeringBlockHeight,
 	)

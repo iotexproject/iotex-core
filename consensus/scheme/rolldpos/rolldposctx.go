@@ -14,6 +14,7 @@ import (
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -97,12 +98,22 @@ type (
 		eManagerDB        db.KVStore
 		toleratedOvertime time.Duration
 
-		encodedAddrs []string
-		priKeys      []crypto.PrivateKey
+		producerKeys []producerKey
 		round        *roundCtx
 		clock        clock.Clock
 		active       bool
 		mutex        sync.RWMutex
+	}
+
+	// producerKey binds an ECDSA producer key with its derived iotex address
+	// and, when configured, the matching BLS12-381 key used for COMMIT-stage
+	// signature aggregation. Keeping the three together in a single record is
+	// the single source of truth for the 1:1 alignment required by the
+	// consensus signing paths.
+	producerKey struct {
+		address string
+		ecdsa   crypto.PrivateKey
+		bls     *crypto.BLS12381PrivateKey
 	}
 )
 
@@ -120,6 +131,7 @@ func NewRollDPoSCtx(
 	delegatesByEpochFunc NodesSelectionByEpochFunc,
 	proposersByEpochFunc NodesSelectionByEpochFunc,
 	priKeys []crypto.PrivateKey,
+	blsPriKeys []*crypto.BLS12381PrivateKey,
 	clock clock.Clock,
 	beringHeight uint64,
 ) (RDPoSCtx, error) {
@@ -137,6 +149,12 @@ func NewRollDPoSCtx(
 	}
 	if proposersByEpochFunc == nil {
 		return nil, errors.New("proposers by epoch function cannot be nil")
+	}
+	if len(blsPriKeys) != 0 && len(blsPriKeys) != len(priKeys) {
+		return nil, errors.Errorf(
+			"bls private keys count %d does not match producer private keys count %d",
+			len(blsPriKeys), len(priKeys),
+		)
 	}
 	if cfg.AcceptBlockTTL(0)+cfg.AcceptProposalEndorsementTTL(0)+cfg.AcceptLockEndorsementTTL(0)+cfg.CommitTTL(0) > cfg.BlockInterval(0) {
 		return nil, errors.Errorf(
@@ -160,15 +178,20 @@ func NewRollDPoSCtx(
 		timeBasedRotation:    timeBasedRotation,
 		beringHeight:         beringHeight,
 	}
-	encodedAddrs := make([]string, 0, len(priKeys))
-	for _, pk := range priKeys {
-		encodedAddrs = append(encodedAddrs, pk.PublicKey().Address().String())
+	producerKeys := make([]producerKey, len(priKeys))
+	for i, pk := range priKeys {
+		producerKeys[i] = producerKey{
+			address: pk.PublicKey().Address().String(),
+			ecdsa:   pk,
+		}
+		if i < len(blsPriKeys) {
+			producerKeys[i].bls = blsPriKeys[i]
+		}
 	}
 	return &rollDPoSCtx{
 		ConsensusConfig:   cfg,
 		active:            active,
-		encodedAddrs:      encodedAddrs,
-		priKeys:           priKeys,
+		producerKeys:      producerKeys,
 		chain:             chain,
 		blockDeserializer: blockDeserializer,
 		broadcastHandler:  broadcastHandler,
@@ -293,7 +316,7 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 			return err
 		}
 		blkHash := proposal.block.HashBlock()
-		for _, e := range proposal.proofOfLock {
+		for _, e := range proposal.proofOfLock.Endorsements() {
 			if err := round.AddVoteEndorsement(
 				NewConsensusVote(blkHash[:], PROPOSAL),
 				e,
@@ -307,6 +330,11 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 				return err
 			}
 		}
+		// TODO(IIP-52): replay BLS proof-of-lock endorsements once
+		// roundCtx.AddBLSVoteEndorsement + the endorsement manager's BLS
+		// collection land. Currently post-fork relock messages are decoded
+		// but the BLS endorsements are not yet counted toward majority.
+		_ = proposal.proofOfLock.BLSEndorsements()
 		if !round.EndorsedByMajority(blkHash[:], []ConsensusVoteTopic{PROPOSAL, COMMIT}) {
 			return errors.Wrap(ErrInsufficientEndorsements, "failed to verify proof of lock")
 		}
@@ -381,29 +409,29 @@ func (ctx *rollDPoSCtx) HasDelegate() bool {
 func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
-	var privateKey crypto.PrivateKey = nil
+	var key *producerKey
 	proposer := ctx.round.Proposer()
 	// TODO: this is to pass unit tests, remove it after the unit tests are fixed
 	if proposer == "" {
-		privateKey = ctx.priKeys[0]
+		key = &ctx.producerKeys[0]
 	} else {
-		for i, addr := range ctx.encodedAddrs {
-			if addr == proposer {
-				privateKey = ctx.priKeys[i]
+		for i := range ctx.producerKeys {
+			if ctx.producerKeys[i].address == proposer {
+				key = &ctx.producerKeys[i]
 				break
 			}
 		}
 	}
-	if privateKey == nil {
+	if key == nil {
 		return nil, nil
 	}
 	if ctx.round.IsLocked() {
 		return ctx.endorseBlockProposal(newBlockProposal(
 			ctx.round.Block(ctx.round.HashOfBlockInLock()),
 			ctx.round.ProofOfLock(),
-		), privateKey)
+		), key)
 	}
-	return ctx.mintNewBlock(privateKey)
+	return ctx.mintNewBlock(key)
 }
 
 func (ctx *rollDPoSCtx) prepareNextProposal(prevHeight uint64, prevHash hash.Hash256) error {
@@ -420,11 +448,11 @@ func (ctx *rollDPoSCtx) prepareNextProposal(prevHeight uint64, prevHash hash.Has
 	roundCalc := ctx.roundCalc.Fork(fork)
 	// check if the current node is the next proposer
 	nextProposer := roundCalc.Proposer(height, interval, startTime)
-	idx := slices.Index(ctx.encodedAddrs, nextProposer)
+	idx := slices.IndexFunc(ctx.producerKeys, func(pk producerKey) bool { return pk.address == nextProposer })
 	if idx < 0 {
 		return nil
 	}
-	privateKey := ctx.priKeys[idx]
+	privateKey := ctx.producerKeys[idx].ecdsa
 	ctx.logger().Debug("prepare next proposal", log.Hex("prevHash", prevHash[:]), zap.Uint64("height", ctx.round.height+1), zap.Time("timestamp", startTime), zap.String("nextproposer", nextProposer))
 	go func() {
 		blk, err := fork.MintNewBlock(startTime, privateKey, prevHash)
@@ -457,7 +485,11 @@ func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
 func (ctx *rollDPoSCtx) PreCommitEndorsement() interface{} {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
-	endorsements := ctx.round.ReadyToCommit(ctx.encodedAddrs)
+	addrs := make([]string, len(ctx.producerKeys))
+	for i, pk := range ctx.producerKeys {
+		addrs[i] = pk.address
+	}
+	endorsements := ctx.round.ReadyToCommit(addrs)
 	if len(endorsements) == 0 {
 		// DON'T CHANGE, this is on purpose, because endorsement as nil won't result in a nil "interface {}"
 		return nil
@@ -707,12 +739,15 @@ func (ctx *rollDPoSCtx) Active() bool {
 // private functions
 ///////////////////////////////////////////
 
-func (ctx *rollDPoSCtx) mintNewBlock(privateKey crypto.PrivateKey) (*EndorsedConsensusMessage, error) {
+func (ctx *rollDPoSCtx) mintNewBlock(key *producerKey) (*EndorsedConsensusMessage, error) {
 	var err error
 	blk := ctx.round.CachedMintedBlock()
 	if blk == nil {
 		// in case that there is no cached block in eManagerDB, it mints a new block.
-		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime(), privateKey, ctx.round.PrevHash())
+		// Block header signing stays on the ECDSA producer key regardless of
+		// the BLS-aggregation feature flag; the BLS key is only used for the
+		// consensus endorsement wrapping this proposal.
+		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime(), key.ecdsa, ctx.round.PrevHash())
 		if err != nil {
 			return nil, err
 		}
@@ -721,11 +756,11 @@ func (ctx *rollDPoSCtx) mintNewBlock(privateKey crypto.PrivateKey) (*EndorsedCon
 		}
 	}
 
-	var proofOfUnlock []*endorsement.Endorsement
+	var proofOfUnlock *ProofOfLock
 	if ctx.round.IsUnlocked() {
 		proofOfUnlock = ctx.round.ProofOfLock()
 	}
-	return ctx.endorseBlockProposal(newBlockProposal(blk, proofOfUnlock), privateKey)
+	return ctx.endorseBlockProposal(newBlockProposal(blk, proofOfUnlock), key)
 }
 
 func (ctx *rollDPoSCtx) hasDelegate() bool {
@@ -733,11 +768,29 @@ func (ctx *rollDPoSCtx) hasDelegate() bool {
 		ctx.logger().Info("current node is in standby mode")
 		return false
 	}
-	return slices.ContainsFunc(ctx.encodedAddrs, ctx.round.IsDelegate)
+	return slices.ContainsFunc(ctx.producerKeys, func(pk producerKey) bool { return ctx.round.IsDelegate(pk.address) })
 }
 
-func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal, privateKey crypto.PrivateKey) (*EndorsedConsensusMessage, error) {
-	ens, err := endorsement.Endorse(proposal, ctx.round.StartTime(), privateKey)
+func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal, key *producerKey) (*EndorsedConsensusMessage, error) {
+	height := ctx.round.Height()
+	if ctx.BLSAggregationEnabled(height) {
+		if key.bls == nil {
+			return nil, errors.Errorf(
+				"delegate %s has no BLS private key configured for block-proposal signing",
+				key.address,
+			)
+		}
+		addr, err := address.FromString(key.address)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid delegate address %s", key.address)
+		}
+		en, err := endorsement.EndorseBLS(proposal, ctx.round.StartTime(), addr, key.bls)
+		if err != nil {
+			return nil, err
+		}
+		return NewBLSEndorsedConsensusMessage(height, proposal, en), nil
+	}
+	ens, err := endorsement.Endorse(proposal, ctx.round.StartTime(), key.ecdsa)
 	if err != nil {
 		return nil, err
 	}
@@ -745,7 +798,7 @@ func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal, privateKey
 		return nil, errors.New("invalid number of endorsements")
 	}
 
-	return NewEndorsedConsensusMessage(ctx.round.Height(), proposal, ens[0]), nil
+	return NewEndorsedConsensusMessage(height, proposal, ens[0]), nil
 }
 
 func (ctx *rollDPoSCtx) logger() *zap.Logger {
@@ -842,12 +895,16 @@ func (ctx *rollDPoSCtx) newEndorsement(
 		blkHash,
 		topic,
 	)
-	privKeys := make([]crypto.PrivateKey, 0, len(ctx.priKeys))
-	for i, addr := range ctx.encodedAddrs {
-		if !ctx.round.IsDelegate(addr) {
+	height := ctx.round.Height()
+	if ctx.BLSAggregationEnabled(height) {
+		return ctx.newBLSEndorsements(vote, timestamp)
+	}
+	privKeys := make([]crypto.PrivateKey, 0, len(ctx.producerKeys))
+	for _, pk := range ctx.producerKeys {
+		if !ctx.round.IsDelegate(pk.address) {
 			continue
 		}
-		privKeys = append(privKeys, ctx.priKeys[i])
+		privKeys = append(privKeys, pk.ecdsa)
 	}
 	ens, err := endorsement.Endorse(vote, timestamp, privKeys...)
 	if err != nil {
@@ -855,8 +912,41 @@ func (ctx *rollDPoSCtx) newEndorsement(
 	}
 	msgs := make([]*EndorsedConsensusMessage, 0, len(ens))
 	for _, en := range ens {
-		msgs = append(msgs, NewEndorsedConsensusMessage(ctx.round.Height(), vote, en))
+		msgs = append(msgs, NewEndorsedConsensusMessage(height, vote, en))
 	}
 
+	return msgs, nil
+}
+
+// newBLSEndorsements signs the consensus vote with each producer's BLS key
+// (skipping delegates without a configured BLS key) and wraps the results in
+// BLSEndorsement-flavored EndorsedConsensusMessage instances. Used for all
+// consensus vote topics once BLS aggregation is activated.
+func (ctx *rollDPoSCtx) newBLSEndorsements(
+	vote *ConsensusVote,
+	timestamp time.Time,
+) ([]*EndorsedConsensusMessage, error) {
+	height := ctx.round.Height()
+	msgs := make([]*EndorsedConsensusMessage, 0, len(ctx.producerKeys))
+	for _, pk := range ctx.producerKeys {
+		if !ctx.round.IsDelegate(pk.address) {
+			continue
+		}
+		if pk.bls == nil {
+			return nil, errors.Errorf(
+				"delegate %s has no BLS private key configured for COMMIT signing",
+				pk.address,
+			)
+		}
+		addr, err := address.FromString(pk.address)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid delegate address %s", pk.address)
+		}
+		en, err := endorsement.EndorseBLS(vote, timestamp, addr, pk.bls)
+		if err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, NewBLSEndorsedConsensusMessage(height, vote, en))
+	}
 	return msgs, nil
 }

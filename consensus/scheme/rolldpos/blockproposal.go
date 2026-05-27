@@ -16,10 +16,10 @@ import (
 
 type blockProposal struct {
 	block       *block.Block
-	proofOfLock []*endorsement.Endorsement
+	proofOfLock *ProofOfLock
 }
 
-func newBlockProposal(blk *block.Block, pol []*endorsement.Endorsement) *blockProposal {
+func newBlockProposal(blk *block.Block, pol *ProofOfLock) *blockProposal {
 	return &blockProposal{
 		block:       blk,
 		proofOfLock: pol,
@@ -32,14 +32,14 @@ func (bp *blockProposal) Height() uint64 {
 
 func (bp *blockProposal) Proto() (*iotextypes.BlockProposal, error) {
 	bPb := bp.block.ConvertToBlockPb()
-	endorsements := []*iotextypes.Endorsement{}
-	for _, en := range bp.proofOfLock {
-		endorsements = append(endorsements, en.Proto())
+	out := &iotextypes.BlockProposal{Block: bPb}
+	for _, en := range bp.proofOfLock.Endorsements() {
+		out.Endorsements = append(out.Endorsements, en.Proto())
 	}
-	return &iotextypes.BlockProposal{
-		Block:        bPb,
-		Endorsements: endorsements,
-	}, nil
+	for _, en := range bp.proofOfLock.BLSEndorsements() {
+		out.BlsEndorsements = append(out.BlsEndorsements, en.Proto())
+	}
+	return out, nil
 }
 
 func (bp *blockProposal) Hash() ([]byte, error) {
@@ -62,13 +62,26 @@ func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal, deserializer *
 		return err
 	}
 	bp.block = blk
-	bp.proofOfLock = []*endorsement.Endorsement{}
+	if len(msg.BlsEndorsements) > 0 {
+		bls := make([]*endorsement.BLSEndorsement, 0, len(msg.BlsEndorsements))
+		for _, ePb := range msg.BlsEndorsements {
+			en := &endorsement.BLSEndorsement{}
+			if err := en.LoadProto(ePb); err != nil {
+				return err
+			}
+			bls = append(bls, en)
+		}
+		bp.proofOfLock = NewBLSProofOfLock(bls)
+		return nil
+	}
+	ens := make([]*endorsement.Endorsement, 0, len(msg.Endorsements))
 	for _, ePb := range msg.Endorsements {
 		en := &endorsement.Endorsement{}
 		if err := en.LoadProto(ePb); err != nil {
 			return err
 		}
-		bp.proofOfLock = append(bp.proofOfLock, en)
+		ens = append(ens, en)
 	}
+	bp.proofOfLock = NewProofOfLock(ens)
 	return nil
 }

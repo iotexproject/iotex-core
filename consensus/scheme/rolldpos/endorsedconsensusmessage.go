@@ -13,14 +13,19 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
-// EndorsedConsensusMessage is an endorsement on document
+// EndorsedConsensusMessage is an endorsement on a consensus document. Exactly
+// one of endorsement or blsEndorsement is set for any given message: COMMIT
+// votes after BLS aggregation is activated carry blsEndorsement; PROPOSAL,
+// LOCK, and pre-fork COMMIT votes carry endorsement.
 type EndorsedConsensusMessage struct {
-	height      uint64
-	message     endorsement.Document
-	endorsement *endorsement.Endorsement
+	height         uint64
+	message        endorsement.Document
+	endorsement    *endorsement.Endorsement
+	blsEndorsement *endorsement.BLSEndorsement
 }
 
-// NewEndorsedConsensusMessage creates an EndorsedConsensusMessage for an consensus vote
+// NewEndorsedConsensusMessage creates an EndorsedConsensusMessage carrying an
+// ECDSA endorsement.
 func NewEndorsedConsensusMessage(
 	height uint64,
 	message endorsement.Document,
@@ -33,26 +38,63 @@ func NewEndorsedConsensusMessage(
 	}
 }
 
-// Document returns the endorsed consensus message
+// NewBLSEndorsedConsensusMessage creates an EndorsedConsensusMessage carrying
+// a BLS endorsement. Used for COMMIT-stage votes once BLS aggregation is
+// activated (IIP-52).
+func NewBLSEndorsedConsensusMessage(
+	height uint64,
+	message endorsement.Document,
+	blsEndorsement *endorsement.BLSEndorsement,
+) *EndorsedConsensusMessage {
+	return &EndorsedConsensusMessage{
+		height:         height,
+		message:        message,
+		blsEndorsement: blsEndorsement,
+	}
+}
+
+// Document returns the endorsed consensus message.
 func (ecm *EndorsedConsensusMessage) Document() endorsement.Document {
 	return ecm.message
 }
 
-// Endorsement returns the endorsement
+// Endorsement returns the ECDSA endorsement, or nil if this message carries a
+// BLS endorsement instead.
 func (ecm *EndorsedConsensusMessage) Endorsement() *endorsement.Endorsement {
 	return ecm.endorsement
 }
 
-// Height returns the height of this message
+// BLSEndorsement returns the BLS endorsement, or nil if this message carries
+// an ECDSA endorsement instead.
+func (ecm *EndorsedConsensusMessage) BLSEndorsement() *endorsement.BLSEndorsement {
+	return ecm.blsEndorsement
+}
+
+// IsBLS reports whether this message carries a BLS endorsement.
+func (ecm *EndorsedConsensusMessage) IsBLS() bool {
+	return ecm.blsEndorsement != nil
+}
+
+// Height returns the height of this message.
 func (ecm *EndorsedConsensusMessage) Height() uint64 {
 	return ecm.height
 }
 
-// Proto converts an endorsement to endorse proto
+// Proto converts the endorsed consensus message to its protobuf form.
 func (ecm *EndorsedConsensusMessage) Proto() (*iotextypes.ConsensusMessage, error) {
+	if ecm.endorsement != nil && ecm.blsEndorsement != nil {
+		return nil, errors.New("endorsed consensus message has both endorsement and bls_endorsement set")
+	}
 	cmsg := &iotextypes.ConsensusMessage{
-		Height:      ecm.height,
-		Endorsement: ecm.endorsement.Proto(),
+		Height: ecm.height,
+	}
+	switch {
+	case ecm.endorsement != nil:
+		cmsg.Endorsement = ecm.endorsement.Proto()
+	case ecm.blsEndorsement != nil:
+		cmsg.BlsEndorsement = ecm.blsEndorsement.Proto()
+	default:
+		return nil, errors.New("endorsed consensus message has no endorsement")
 	}
 	switch message := ecm.message.(type) {
 	case *ConsensusVote:
@@ -74,8 +116,11 @@ func (ecm *EndorsedConsensusMessage) Proto() (*iotextypes.ConsensusMessage, erro
 	return cmsg, nil
 }
 
-// LoadProto creates an endorsement message from protobuf message
+// LoadProto creates an endorsement message from protobuf message.
 func (ecm *EndorsedConsensusMessage) LoadProto(msg *iotextypes.ConsensusMessage, deserializer *block.Deserializer) error {
+	if msg.GetEndorsement() != nil && msg.GetBlsEndorsement() != nil {
+		return errors.New("consensus message has both endorsement and bls_endorsement set")
+	}
 	switch {
 	case msg.GetVote() != nil:
 		vote := &ConsensusVote{}
@@ -93,7 +138,16 @@ func (ecm *EndorsedConsensusMessage) LoadProto(msg *iotextypes.ConsensusMessage,
 		return errors.New("unknown message")
 	}
 	ecm.height = msg.Height
-	ecm.endorsement = &endorsement.Endorsement{}
-
-	return ecm.endorsement.LoadProto(msg.GetEndorsement())
+	switch {
+	case msg.GetEndorsement() != nil:
+		ecm.endorsement = &endorsement.Endorsement{}
+		ecm.blsEndorsement = nil
+		return ecm.endorsement.LoadProto(msg.GetEndorsement())
+	case msg.GetBlsEndorsement() != nil:
+		ecm.blsEndorsement = &endorsement.BLSEndorsement{}
+		ecm.endorsement = nil
+		return ecm.blsEndorsement.LoadProto(msg.GetBlsEndorsement())
+	default:
+		return errors.New("consensus message has no endorsement")
+	}
 }

@@ -111,6 +111,20 @@ func (mr *MockContextMockRecorder) Active() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Active", reflect.TypeOf((*MockContext)(nil).Active))
 }
 
+// BLSAggregationEnabled mocks base method.
+func (m *MockContext) BLSAggregationEnabled(arg0 uint64) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BLSAggregationEnabled", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// BLSAggregationEnabled indicates an expected call of BLSAggregationEnabled.
+func (mr *MockContextMockRecorder) BLSAggregationEnabled(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BLSAggregationEnabled", reflect.TypeOf((*MockContext)(nil).BLSAggregationEnabled), arg0)
+}
+
 // BlockInterval mocks base method.
 func (m *MockContext) BlockInterval(arg0 uint64) time.Duration {
 	m.ctrl.T.Helper()
