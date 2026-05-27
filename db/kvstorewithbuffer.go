@@ -17,6 +17,7 @@ type (
 		MustPut(string, []byte, []byte)
 		MustDelete(string, []byte)
 		Size() int
+		Entry(int) (*batch.WriteInfo, error)
 	}
 
 	// KVStoreWithBuffer defines a KVStore with a buffer, which enables snapshot, revert,
@@ -162,6 +163,10 @@ func (kvb *kvStoreWithBuffer) SerializeQueue(
 
 func (kvb *kvStoreWithBuffer) Size() int {
 	return kvb.buffer.Size()
+}
+
+func (kvb *kvStoreWithBuffer) Entry(i int) (*batch.WriteInfo, error) {
+	return kvb.buffer.Entry(i)
 }
 
 func (kvb *kvStoreWithBuffer) Get(ns string, key []byte) ([]byte, error) {
