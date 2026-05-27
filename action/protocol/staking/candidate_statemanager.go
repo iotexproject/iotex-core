@@ -234,6 +234,11 @@ func (csm *candSM) deactivate(cand *Candidate, bucket *VoteBucket, height uint64
 	}
 	cand.SelfStake = big.NewInt(0)
 	cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
+	// Clear the exit-queue marker so a subsequent re-stake / activate flow
+	// starts from a clean "no exit in flight" state. Without this the
+	// candidateDeactivation view keeps reporting the previous schedule, and
+	// frontends (iotex-hub) jump straight to "Confirm Exit" again.
+	cand.DeactivatedAt = 0
 	if err := csm.candCenter.Upsert(cand); err != nil {
 		return err
 	}

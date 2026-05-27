@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/dispatcher"
+	"github.com/iotexproject/iotex-core/v2/ioswarm"
 	"github.com/iotexproject/iotex-core/v2/nodeinfo"
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -85,6 +86,7 @@ var (
 		Genesis:    genesis.Default,
 		NodeInfo:   nodeinfo.DefaultConfig,
 		ActionSync: actsync.DefaultConfig,
+		IOSwarm:    ioswarm.DefaultConfig(),
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -137,6 +139,7 @@ type (
 		Genesis            genesis.Genesis                 `yaml:"genesis"`
 		NodeInfo           nodeinfo.Config                 `yaml:"nodeinfo"`
 		ActionSync         actsync.Config                  `yaml:"actionSync"`
+		IOSwarm            ioswarm.Config                  `yaml:"ioswarm"`
 	}
 
 	// Validate is the interface of validating the config
@@ -346,6 +349,10 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "Wake is heigher than Xingu")
 	case hu.XinguBlockHeight > hu.XinguBetaBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Xingu is heigher than XinguBeta")
+	case hu.XinguBetaBlockHeight > hu.YapBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "XinguBeta is heigher than Yap")
+	case hu.YapBlockHeight > hu.YapBetaBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Yap is heigher than YapBeta")
 	}
 	return nil
 }
