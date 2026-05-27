@@ -354,4 +354,4 @@ replace github.com/ethereum/go-ethereum/crypto/secp256k1 => github.com/erigontec
 // Fix for go-libutp compatibility with GCC 15+
 replace github.com/anacrolix/go-libutp => github.com/anacrolix/go-libutp v0.0.0-20251121015447-f294e5ed5b4d
 
-replace github.com/iotexproject/iotex-proto => github.com/envestcc/iotex-proto v0.0.0-20260526105443-52e72a6dedb2
+replace github.com/iotexproject/iotex-proto => github.com/envestcc/iotex-proto v0.0.0-20260528041059-e4439efbb207
