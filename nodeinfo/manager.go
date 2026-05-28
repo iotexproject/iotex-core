@@ -7,6 +7,7 @@ package nodeinfo
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -59,6 +60,7 @@ type (
 		chain         chain
 		privKeys      map[string]crypto.PrivateKey
 		addrs         []string
+		mutex         sync.RWMutex
 	}
 
 	getBroadcastListFunc func() []string
@@ -99,10 +101,15 @@ func NewInfoManager(cfg *Config, t transmitter, ch chain, blockInterval time.Dur
 	}
 	// init recurring tasks
 	broadcastTask := routine.NewRecurringTask(func() {
-		addrs := dm.addrs
+		dm.mutex.RLock()
+		privKeys := make([]crypto.PrivateKey, 0, len(dm.addrs))
+		for _, addr := range dm.addrs {
+			privKeys = append(privKeys, dm.privKeys[addr])
+		}
+		dm.mutex.RUnlock()
 		// broadcastlist or nodes who are turned on will broadcast
-		if len(addrs) > 0 {
-			if err := dm.BroadcastNodeInfo(context.Background(), addrs); err != nil {
+		if len(privKeys) > 0 {
+			if err := dm.BroadcastNodeInfo(context.Background(), privKeys); err != nil {
 				log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
 			}
 		} else {
@@ -179,9 +186,9 @@ func (dm *InfoManager) GetNodeInfo(addr string) (Info, bool) {
 }
 
 // BroadcastNodeInfo broadcast request node info message
-func (dm *InfoManager) BroadcastNodeInfo(ctx context.Context, addrs []string) error {
+func (dm *InfoManager) BroadcastNodeInfo(ctx context.Context, privKeys []crypto.PrivateKey) error {
 	log.L().Debug("nodeinfo manager broadcast node info")
-	infos, err := dm.genNodeInfoMsg(addrs)
+	infos, err := dm.genNodeInfoMsg(privKeys)
 	if err != nil {
 		return err
 	}
@@ -215,7 +222,13 @@ func (dm *InfoManager) RequestSingleNodeInfoAsync(ctx context.Context, peer peer
 // HandleNodeInfoRequest tell node info to peer
 func (dm *InfoManager) HandleNodeInfoRequest(ctx context.Context, peer peer.AddrInfo) error {
 	log.L().Debug("nodeinfo manager tell node info", zap.Any("peer", peer.ID.String()))
-	infos, err := dm.genNodeInfoMsg(dm.addrs)
+	dm.mutex.RLock()
+	privKeys := make([]crypto.PrivateKey, 0, len(dm.addrs))
+	for _, addr := range dm.addrs {
+		privKeys = append(privKeys, dm.privKeys[addr])
+	}
+	dm.mutex.RUnlock()
+	infos, err := dm.genNodeInfoMsg(privKeys)
 	if err != nil {
 		return err
 	}
@@ -227,21 +240,32 @@ func (dm *InfoManager) HandleNodeInfoRequest(ctx context.Context, peer peer.Addr
 	return nil
 }
 
-func (dm *InfoManager) genNodeInfoMsg(addrs []string) ([]*iotextypes.NodeInfo, error) {
-	infos := make([]*iotextypes.NodeInfo, 0, len(addrs))
+// UpdateProducerKeys refreshes the producer key cache used for node-info broadcasts.
+func (dm *InfoManager) UpdateProducerKeys(privKeys []crypto.PrivateKey) {
+	addrs := make([]string, 0, len(privKeys))
+	keyMaps := make(map[string]crypto.PrivateKey, len(privKeys))
+	for _, privKey := range privKeys {
+		addr := privKey.PublicKey().Address().String()
+		addrs = append(addrs, addr)
+		keyMaps[addr] = privKey
+	}
+
+	dm.mutex.Lock()
+	dm.addrs = addrs
+	dm.privKeys = keyMaps
+	dm.mutex.Unlock()
+}
+
+func (dm *InfoManager) genNodeInfoMsg(privKeys []crypto.PrivateKey) ([]*iotextypes.NodeInfo, error) {
 	tip := dm.chain.TipHeight()
 	ts := timestamppb.Now()
-
-	for _, addr := range addrs {
-		privKey, ok := dm.privKeys[addr]
-		if !ok {
-			return nil, errors.Errorf("private key not found for address %s", addr)
-		}
+	infos := make([]*iotextypes.NodeInfo, 0, len(privKeys))
+	for _, privKey := range privKeys {
 		core := &iotextypes.NodeInfoCore{
 			Version:   dm.version,
 			Height:    tip,
 			Timestamp: ts,
-			Address:   addr,
+			Address:   privKey.PublicKey().Address().String(),
 		}
 		// add sig for msg
 		h := hashNodeInfo(core)
