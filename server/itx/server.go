@@ -11,9 +11,11 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -25,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/chainservice"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/dispatcher"
+	"github.com/iotexproject/iotex-core/v2/ioswarm"
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/pkg/ha"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -44,6 +47,7 @@ type Server struct {
 	dispatcher           dispatcher.Dispatcher
 	nodeStats            *nodestats.NodeStats
 	pauseMgr             *PauseMgr
+	ioswarmCoord         *ioswarm.Coordinator
 	initializedSubChains map[uint32]bool
 	mutex                sync.RWMutex
 	subModuleCancel      context.CancelFunc
@@ -149,6 +153,45 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	}
 	// Setup sub-chain starter
 	// TODO: sub-chain infra should use main-chain API instead of protocol directly
+
+	// IOSwarm coordinator (optional)
+	if cfg.IOSwarm.Enabled {
+		var coordOpts []ioswarm.Option
+		// On-chain reward settlement (optional)
+		log.L().Info("IOSwarm: reward config",
+			zap.String("rewardContract", cfg.IOSwarm.RewardContract),
+			zap.Bool("hasSignerKey", cfg.IOSwarm.RewardSignerKey != ""),
+			zap.String("rewardRpcUrl", cfg.IOSwarm.RewardRPCURL))
+		if cfg.IOSwarm.RewardContract != "" {
+			settler, err := ioswarm.NewOnChainSettler(cfg.IOSwarm, log.L())
+			if err != nil {
+				log.L().Warn("IOSwarm: failed to create on-chain settler", zap.Error(err))
+			} else if settler != nil {
+				coordOpts = append(coordOpts, ioswarm.WithRewardSettler(settler))
+				log.L().Info("IOSwarm: on-chain reward settlement enabled",
+					zap.String("contract", cfg.IOSwarm.RewardContract))
+			} else {
+				log.L().Warn("IOSwarm: settler is nil (rewardSignerKey may be empty)",
+					zap.String("contract", cfg.IOSwarm.RewardContract),
+					zap.Bool("hasSignerKey", cfg.IOSwarm.RewardSignerKey != ""))
+			}
+		} else {
+			log.L().Info("IOSwarm: on-chain reward settlement disabled (no rewardContract)")
+		}
+		svr.ioswarmCoord = ioswarm.NewCoordinator(
+			cfg.IOSwarm,
+			ioswarm.NewActPoolAdapter(cs.ActionPool(), cs.Blockchain()),
+			ioswarm.NewStateReaderAdapter(cs.StateFactory(), cs.Blockchain(), cfg.Genesis),
+			coordOpts...,
+		)
+		// Subscribe to block events for shadow comparison
+		if err := cs.Blockchain().AddSubscriber(svr.ioswarmCoord); err != nil {
+			log.L().Warn("IOSwarm: failed to subscribe to blocks (shadow comparison disabled)", zap.Error(err))
+		}
+		// Wire state diff callback for L4 agent support
+		ioswarm.SetupStateDiffCallback(cs.StateFactory(), svr.ioswarmCoord)
+	}
+
 	return &svr, nil
 }
 
@@ -175,12 +218,22 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.nodeStats.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting node stats")
 	}
+	if s.ioswarmCoord != nil {
+		if err := s.ioswarmCoord.Start(cctx); err != nil {
+			// IOSwarm failure is non-fatal: log warning but don't block consensus
+			log.L().Warn("IOSwarm coordinator failed to start (node continues without it)", zap.Error(err))
+			s.ioswarmCoord = nil
+		}
+	}
 	return nil
 }
 
 // Stop stops the server
 func (s *Server) Stop(ctx context.Context) error {
 	defer s.subModuleCancel()
+	if s.ioswarmCoord != nil {
+		s.ioswarmCoord.Stop()
+	}
 	if err := s.nodeStats.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping node stats")
 	}
@@ -235,6 +288,26 @@ func (s *Server) Config() config.Config {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.cfg
+}
+
+// UpdateProducerKeys refreshes the root chain producer keys in memory and updates the cached config copy.
+func (s *Server) UpdateProducerKeys(keys []crypto.PrivateKey) ([]string, error) {
+	if err := s.rootChainService.UpdateProducerKeys(keys); err != nil {
+		return nil, err
+	}
+
+	encodedKeys := make([]string, 0, len(keys))
+	addresses := make([]string, 0, len(keys))
+	for _, key := range keys {
+		encodedKeys = append(encodedKeys, key.HexString())
+		addresses = append(addresses, key.PublicKey().Address().String())
+	}
+
+	s.mutex.Lock()
+	s.cfg.Chain.ProducerPrivKey = strings.Join(encodedKeys, ",")
+	s.mutex.Unlock()
+	log.L().Info("Updated producer keys in memory.", zap.Strings("operatorAddresses", addresses))
+	return addresses, nil
 }
 
 // P2PAgent returns the P2P agent
@@ -311,6 +384,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 		mux.Handle("/pause", http.HandlerFunc(svr.pauseMgr.HandlePause))
 		mux.Handle("/unpause", http.HandlerFunc(svr.pauseMgr.HandleUnPause))
+		mux.Handle("/producer-keys", NewProducerKeysAdmin(svr))
 
 		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
 		adminserv = httputil.NewServer(port, mux)

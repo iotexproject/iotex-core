@@ -242,6 +242,12 @@ func (r *RollDPoS) Active() bool {
 	return r.ctx.Active() || r.cfsm.CurrentState() != consensusfsm.InitState
 }
 
+// UpdateProducerKeys refreshes the in-memory producer key set without restarting the node.
+func (r *RollDPoS) UpdateProducerKeys(keys []crypto.PrivateKey) error {
+	r.ctx.UpdateProducerKeys(keys)
+	return nil
+}
+
 type (
 	// BuilderConfig returns the configuration of the builder
 	BuilderConfig struct {
@@ -347,6 +353,14 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.clock = clock.New()
 	}
 	b.cfg.DB.DbPath = b.cfg.Consensus.ConsensusDBPath
+	var opts []Option
+	// Premint forks a previous workingset to mint a block ahead of the committed chain tip.
+	// That path needs ws.store.KVStore(), which is nil when a secondary erigon store is wired
+	// (api nodes set HistoryIndexPath). Disable premint there so mint falls back to building
+	// a workingset from scratch.
+	if len(b.cfg.Chain.HistoryIndexPath) > 0 {
+		opts = append(opts, WithPremintDisabled())
+	}
 	ctx, err := NewRollDPoSCtx(
 		consensusfsm.NewConsensusConfig(b.cfg.Consensus.FSM, b.cfg.DardanellesUpgrade, b.cfg.WakeUpgrade, b.cfg.Genesis, b.cfg.Consensus.Delay),
 		b.cfg.DB,
@@ -362,6 +376,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.priKey,
 		b.clock,
 		b.cfg.Genesis.BeringBlockHeight,
+		opts...,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing consensus context")
