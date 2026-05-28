@@ -75,6 +75,12 @@ type (
 	// NodesSelectionByEpochFunc defines a function to select nodes
 	NodesSelectionByEpochFunc func(uint64, []byte) ([]string, error)
 
+	// BLSPubKeysByEpochFunc resolves the registered BLS12-381 public key for
+	// every delegate of the given epoch. The returned map is keyed by the
+	// delegate's operator iotex address; the value is the candidate's raw
+	// 48-byte BLS pubkey (or empty if the candidate hasn't registered one yet).
+	BLSPubKeysByEpochFunc func(uint64, []byte) (map[string][]byte, error)
+
 	// RDPoSCtx is the context of RollDPoS
 	RDPoSCtx interface {
 		consensusfsm.Context
@@ -84,6 +90,12 @@ type (
 		Clock() clock.Clock
 		CheckBlockProposer(uint64, *blockProposal, *endorsement.Endorsement) error
 		CheckVoteEndorser(uint64, *ConsensusVote, *endorsement.Endorsement) error
+		// VerifyEndorsement verifies an endorsement's signature against the
+		// given document, dispatching on signature length: secp256k1 (65 B)
+		// pre-fork or BLS12-381 (96 B) post-fork. Post-fork BLS verify
+		// resolves the verifying public key from the current round's
+		// candidate-state-derived index by endorser iotex address.
+		VerifyEndorsement(uint64, endorsement.Document, *endorsement.Endorsement) error
 	}
 
 	rollDPoSCtx struct {
@@ -129,6 +141,7 @@ func NewRollDPoSCtx(
 	broadcastHandler scheme.Broadcast,
 	delegatesByEpochFunc NodesSelectionByEpochFunc,
 	proposersByEpochFunc NodesSelectionByEpochFunc,
+	blsPubKeysByEpochFunc BLSPubKeysByEpochFunc,
 	priKeys []crypto.PrivateKey,
 	blsPriKeys []*crypto.BLS12381PrivateKey,
 	clock clock.Clock,
@@ -170,12 +183,13 @@ func NewRollDPoSCtx(
 		eManagerDB = db.NewBoltDB(consensusDBConfig)
 	}
 	roundCalc := &roundCalculator{
-		delegatesByEpochFunc: delegatesByEpochFunc,
-		proposersByEpochFunc: proposersByEpochFunc,
-		chain:                chain,
-		rp:                   rp,
-		timeBasedRotation:    timeBasedRotation,
-		beringHeight:         beringHeight,
+		delegatesByEpochFunc:  delegatesByEpochFunc,
+		proposersByEpochFunc:  proposersByEpochFunc,
+		blsPubKeysByEpochFunc: blsPubKeysByEpochFunc,
+		chain:                 chain,
+		rp:                    rp,
+		timeBasedRotation:     timeBasedRotation,
+		beringHeight:          beringHeight,
 	}
 	producerKeys := make([]producerKey, len(priKeys))
 	for i, pk := range priKeys {
@@ -241,6 +255,55 @@ func (ctx *rollDPoSCtx) RoundCalculator() *roundCalculator {
 
 func (ctx *rollDPoSCtx) Clock() clock.Clock {
 	return ctx.clock
+}
+
+// VerifyEndorsement implements RDPoSCtx by branching the signature
+// verification on signature length (secp256k1 65 B pre-fork, BLS 96 B
+// post-fork). Length is matched against the BLSAggregationEnabled feature
+// gate at the message height — a pre-fork message carrying a 96 B signature
+// or a post-fork message carrying a 65 B signature is rejected. For BLS,
+// the verifying pubkey is resolved from the current round's BLS pubkey
+// index by the endorser's iotex address.
+func (ctx *rollDPoSCtx) VerifyEndorsement(
+	height uint64,
+	doc endorsement.Document,
+	en *endorsement.Endorsement,
+) error {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+	if en == nil {
+		return errors.New("nil endorsement")
+	}
+	sigLen := len(en.Signature())
+	useBLS := ctx.BLSAggregationEnabled(height)
+	switch sigLen {
+	case crypto.Secp256k1SigSizeWithRecID:
+		if useBLS {
+			return errors.Errorf("post-fork message has %d-byte secp256k1 signature, expected BLS", sigLen)
+		}
+		if !endorsement.VerifyEndorsement(doc, en) {
+			return errors.New("invalid secp256k1 endorsement signature")
+		}
+		return nil
+	case crypto.BLSAggregateSignatureLength:
+		if !useBLS {
+			return errors.Errorf("pre-fork message has %d-byte BLS signature, expected secp256k1", sigLen)
+		}
+		endorserAddr := en.Endorser().Address()
+		if endorserAddr == nil {
+			return errors.New("failed to resolve endorser address for BLS endorsement")
+		}
+		pk := ctx.round.BLSPubKey(endorserAddr.String())
+		if pk == nil {
+			return errors.Errorf("delegate %s has no registered BLS pubkey at height %d", endorserAddr, height)
+		}
+		if !endorsement.VerifyBLSEndorsement(doc, en, pk) {
+			return errors.New("invalid BLS endorsement signature")
+		}
+		return nil
+	default:
+		return errors.Errorf("unsupported endorsement signature length %d", sigLen)
+	}
 }
 
 // CheckVoteEndorser checks if the endorsement's endorser is a valid delegate at the given height

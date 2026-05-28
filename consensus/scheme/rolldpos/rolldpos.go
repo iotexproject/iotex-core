@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/v2/consensus/scheme"
 	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/endorsement"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state/factory"
 )
@@ -125,8 +124,8 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 	if err := endorsedMessage.LoadProto(msg, r.ctx.BlockDeserializer()); err != nil {
 		return errors.Wrapf(err, "failed to decode endorsed consensus message")
 	}
-	if !endorsement.VerifyEndorsedDocument(endorsedMessage) {
-		return errors.New("failed to verify signature in endorsement")
+	if err := r.ctx.VerifyEndorsement(endorsedMessage.Height(), endorsedMessage.Document(), endorsedMessage.Endorsement()); err != nil {
+		return errors.Wrap(err, "failed to verify signature in endorsement")
 	}
 	en := endorsedMessage.Endorsement()
 	switch consensusMessage := endorsedMessage.Document().(type) {
@@ -267,9 +266,10 @@ type (
 		broadcastHandler  scheme.Broadcast
 		clock             clock.Clock
 		// TODO: explorer dependency deleted at #1085, need to add api params
-		rp                   *rolldpos.Protocol
-		delegatesByEpochFunc NodesSelectionByEpochFunc
-		proposersByEpochFunc NodesSelectionByEpochFunc
+		rp                    *rolldpos.Protocol
+		delegatesByEpochFunc  NodesSelectionByEpochFunc
+		proposersByEpochFunc  NodesSelectionByEpochFunc
+		blsPubKeysByEpochFunc BLSPubKeysByEpochFunc
 	}
 )
 
@@ -337,6 +337,16 @@ func (b *Builder) SetProposersByEpochFunc(
 	return b
 }
 
+// SetBLSPubKeysByEpochFunc sets the lookup that returns each delegate's
+// registered BLS12-381 public key for a given epoch. Used by the round
+// context to verify BLS-signed endorsements once aggregation is activated.
+func (b *Builder) SetBLSPubKeysByEpochFunc(
+	blsPubKeysByEpochFunc BLSPubKeysByEpochFunc,
+) *Builder {
+	b.blsPubKeysByEpochFunc = blsPubKeysByEpochFunc
+	return b
+}
+
 // RegisterProtocol sets the rolldpos protocol
 func (b *Builder) RegisterProtocol(rp *rolldpos.Protocol) *Builder {
 	b.rp = rp
@@ -367,6 +377,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.broadcastHandler,
 		b.delegatesByEpochFunc,
 		b.proposersByEpochFunc,
+		b.blsPubKeysByEpochFunc,
 		b.priKey,
 		b.blsPriKey,
 		b.clock,

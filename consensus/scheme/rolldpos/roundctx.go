@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -50,6 +51,12 @@ type roundCtx struct {
 	proofOfLock []*endorsement.Endorsement
 	status      status
 	eManager    *endorsementManager
+
+	// blsPubKeys maps the epoch delegate's operator iotex address to their
+	// registered BLS12-381 public key. Populated at round construction (via
+	// the BLSPubKeysByEpochFunc callback) so verify paths can resolve the
+	// pubkey by address without hitting state per message.
+	blsPubKeys map[string]*crypto.BLS12381PublicKey
 }
 
 func (ctx *roundCtx) Log(l *zap.Logger) *zap.Logger {
@@ -112,6 +119,43 @@ func (ctx *roundCtx) Proposers() []string {
 
 func (ctx *roundCtx) IsDelegate(addr string) bool {
 	return slices.Contains(ctx.delegates, addr)
+}
+
+// BLSPubKey returns the BLS12-381 public key registered for the given
+// delegate operator address at this round's epoch, or nil if the delegate
+// has no registered BLS key or BLS aggregation isn't wired in this config.
+func (ctx *roundCtx) BLSPubKey(addr string) *crypto.BLS12381PublicKey {
+	if ctx.blsPubKeys == nil {
+		return nil
+	}
+	return ctx.blsPubKeys[addr]
+}
+
+// verifyEndorsement checks the signature on en, dispatching on signature
+// length: secp256k1 (65 B) uses the existing endorsement.VerifyEndorsement
+// path; BLS (96 B) resolves the verifying pubkey from this round's BLS
+// pubkey index by the endorser's iotex address. Returns nil on success.
+func (ctx *roundCtx) verifyEndorsement(doc endorsement.Document, en *endorsement.Endorsement) error {
+	switch len(en.Signature()) {
+	case crypto.BLSAggregateSignatureLength:
+		addr := en.Endorser().Address()
+		if addr == nil {
+			return errors.New("failed to resolve endorser address for BLS endorsement")
+		}
+		pk := ctx.BLSPubKey(addr.String())
+		if pk == nil {
+			return errors.Errorf("delegate %s has no registered BLS pubkey in this round", addr)
+		}
+		if !endorsement.VerifyBLSEndorsement(doc, en, pk) {
+			return errors.New("invalid BLS endorsement signature")
+		}
+		return nil
+	default:
+		if !endorsement.VerifyEndorsement(doc, en) {
+			return errors.New("invalid secp256k1 endorsement signature")
+		}
+		return nil
+	}
 }
 
 func (ctx *roundCtx) Block(blkHash []byte) *block.Block {
@@ -208,8 +252,8 @@ func (ctx *roundCtx) AddVoteEndorsement(
 	vote *ConsensusVote,
 	en *endorsement.Endorsement,
 ) error {
-	if !endorsement.VerifyEndorsement(vote, en) {
-		return errors.New("invalid endorsement for the vote")
+	if err := ctx.verifyEndorsement(vote, en); err != nil {
+		return err
 	}
 	if addr := en.Endorser().Address(); addr == nil || !ctx.IsDelegate(addr.String()) {
 		return errors.New("invalid endorser")

@@ -152,6 +152,46 @@ func NewConsensus(
 			return addrs, nil
 		}
 		proposersByEpochFunc := delegatesByEpochFunc
+		blsPubKeysByEpochFunc := func(epochNum uint64, prevHash []byte) (map[string][]byte, error) {
+			fork, err := chainMgr.Fork(hash.Hash256(prevHash))
+			if err != nil {
+				return nil, err
+			}
+			forkSF, err := fork.StateReader()
+			if err != nil {
+				return nil, err
+			}
+			re := protocol.NewRegistry()
+			if err := ops.rp.Register(re); err != nil {
+				return nil, err
+			}
+			ctx := genesis.WithGenesisContext(
+				protocol.WithRegistry(context.Background(), re),
+				cfg.Genesis,
+			)
+			ctx = protocol.WithFeatureWithHeightCtx(ctx)
+			tipHeight := fork.TipHeight()
+			tipEpochNum := ops.rp.GetEpochNum(tipHeight)
+			var candidatesList state.CandidateList
+			switch epochNum {
+			case tipEpochNum:
+				candidatesList, err = ops.pp.Delegates(ctx, forkSF)
+			case tipEpochNum + 1:
+				candidatesList, err = ops.pp.NextDelegates(ctx, forkSF)
+			default:
+				err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
+			}
+			if err != nil {
+				return nil, err
+			}
+			out := make(map[string][]byte, len(candidatesList))
+			for _, candidate := range candidatesList {
+				if len(candidate.BLSPubKey) > 0 {
+					out[candidate.Address] = candidate.BLSPubKey
+				}
+			}
+			return out, nil
+		}
 		bd := rolldpos.NewRollDPoSBuilder().
 			SetPriKey(cfg.Chain.ProducerPrivateKeys()...).
 			SetBLSPriKey(cfg.Chain.BLSProducerPrivateKeys()...).
@@ -162,6 +202,7 @@ func NewConsensus(
 			SetBroadcast(ops.broadcastHandler).
 			SetDelegatesByEpochFunc(delegatesByEpochFunc).
 			SetProposersByEpochFunc(proposersByEpochFunc).
+			SetBLSPubKeysByEpochFunc(blsPubKeysByEpochFunc).
 			RegisterProtocol(ops.rp)
 		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 		cs.scheme, err = bd.Build()

@@ -270,6 +270,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 		rp,
 		delegatesByEpoch,
 		delegatesByEpoch,
+		nil,
 		0,
 	}
 }
