@@ -87,6 +87,9 @@ type (
 		UpdateProducerKeys([]crypto.PrivateKey)
 	}
 
+	// Option configures a rollDPoSCtx at construction time.
+	Option func(*rollDPoSCtx)
+
 	rollDPoSCtx struct {
 		consensusfsm.ConsensusConfig
 
@@ -98,14 +101,24 @@ type (
 		eManagerDB        db.KVStore
 		toleratedOvertime time.Duration
 
-		encodedAddrs []string
-		priKeys      []crypto.PrivateKey
-		round        *roundCtx
-		clock        clock.Clock
-		active       bool
-		mutex        sync.RWMutex
+		encodedAddrs   []string
+		priKeys        []crypto.PrivateKey
+		round          *roundCtx
+		clock          clock.Clock
+		active         bool
+		disablePremint bool
+		mutex          sync.RWMutex
 	}
 )
+
+// WithPremintDisabled turns off the prepareNextProposal pre-mint goroutine.
+// API nodes (with a secondary erigon store) must pass this: their workingset
+// store has no KVStore() for forking, so premint always fails at workingset.NewWorkingSet.
+func WithPremintDisabled() Option {
+	return func(ctx *rollDPoSCtx) {
+		ctx.disablePremint = true
+	}
+}
 
 // NewRollDPoSCtx returns a context of RollDPoSCtx
 func NewRollDPoSCtx(
@@ -123,6 +136,7 @@ func NewRollDPoSCtx(
 	priKeys []crypto.PrivateKey,
 	clock clock.Clock,
 	beringHeight uint64,
+	opts ...Option,
 ) (RDPoSCtx, error) {
 	if chain == nil {
 		return nil, errors.New("chain cannot be nil")
@@ -165,7 +179,7 @@ func NewRollDPoSCtx(
 	for _, pk := range priKeys {
 		encodedAddrs = append(encodedAddrs, pk.PublicKey().Address().String())
 	}
-	return &rollDPoSCtx{
+	ctx := &rollDPoSCtx{
 		ConsensusConfig:   cfg,
 		active:            active,
 		encodedAddrs:      encodedAddrs,
@@ -177,7 +191,11 @@ func NewRollDPoSCtx(
 		roundCalc:         roundCalc,
 		eManagerDB:        eManagerDB,
 		toleratedOvertime: toleratedOvertime,
-	}, nil
+	}
+	for _, opt := range opts {
+		opt(ctx)
+	}
+	return ctx, nil
 }
 
 func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
@@ -411,6 +429,9 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 }
 
 func (ctx *rollDPoSCtx) prepareNextProposal(prevHeight uint64, prevHash hash.Hash256) error {
+	if ctx.disablePremint {
+		return nil
+	}
 	var (
 		height    = prevHeight + 1
 		interval  = ctx.BlockInterval(height)
