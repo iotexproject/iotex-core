@@ -84,6 +84,7 @@ type (
 		Clock() clock.Clock
 		CheckBlockProposer(uint64, *blockProposal, *endorsement.Endorsement) error
 		CheckVoteEndorser(uint64, *ConsensusVote, *endorsement.Endorsement) error
+		UpdateProducerKeys([]crypto.PrivateKey)
 	}
 
 	rollDPoSCtx struct {
@@ -381,6 +382,9 @@ func (ctx *rollDPoSCtx) HasDelegate() bool {
 func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
+	if len(ctx.priKeys) == 0 {
+		return nil, nil
+	}
 	var privateKey crypto.PrivateKey = nil
 	proposer := ctx.round.Proposer()
 	// TODO: this is to pass unit tests, remove it after the unit tests are fixed
@@ -701,6 +705,18 @@ func (ctx *rollDPoSCtx) Active() bool {
 	defer ctx.mutex.RUnlock()
 
 	return ctx.active
+}
+
+func (ctx *rollDPoSCtx) UpdateProducerKeys(priKeys []crypto.PrivateKey) {
+	encodedAddrs := make([]string, 0, len(priKeys))
+	for _, pk := range priKeys {
+		encodedAddrs = append(encodedAddrs, pk.PublicKey().Address().String())
+	}
+
+	ctx.mutex.Lock()
+	ctx.priKeys = append([]crypto.PrivateKey(nil), priKeys...)
+	ctx.encodedAddrs = encodedAddrs
+	ctx.mutex.Unlock()
 }
 
 ///////////////////////////////////////////
