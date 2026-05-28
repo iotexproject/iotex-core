@@ -172,6 +172,7 @@ type (
 		// contracts are committed and written back
 		AlwaysWriteCachedContract bool
 		NoCandidateExitQueue      bool
+		EnableBLSAggregation      bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -346,6 +347,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			PrePectraEVM:                            !g.IsYap(height),
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
+			EnableBLSAggregation:                    g.IsToBeEnabled(height),
 		},
 	)
 }

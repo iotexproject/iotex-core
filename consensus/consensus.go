@@ -159,6 +159,7 @@ func NewConsensus(
 		proposersByEpochFunc := delegatesByEpochFunc
 		bd := rolldpos.NewRollDPoSBuilder().
 			SetPriKey(cfg.Chain.ProducerPrivateKeys()...).
+			SetBLSPriKey(cfg.Chain.BLSProducerPrivateKeys()...).
 			SetConfig(cfg).
 			SetChainManager(chainMgr).
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).

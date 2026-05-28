@@ -7,6 +7,7 @@ package blockchain
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 	"os"
 	"slices"
 	"strconv"
@@ -50,6 +51,11 @@ type (
 		ProducerPrivKey            string           `yaml:"producerPrivKey"`
 		ProducerPrivKeySchema      string           `yaml:"producerPrivKeySchema"`
 		ProducerPrivKeyRange       string           `yaml:"producerPrivKeyRange"`
+		// BLSProducerPrivKey is a comma-separated list of hex-encoded BLS12-381
+		// private keys, aligned 1:1 with ProducerPrivKey after applying
+		// ProducerPrivKeyRange. When empty, BLS keys are derived from the
+		// corresponding ECDSA producer keys via crypto.GenerateBLS12381PrivateKey.
+		BLSProducerPrivKey string `yaml:"blsProducerPrivKey"`
 		SignatureScheme            []string         `yaml:"signatureScheme"`
 		EmptyGenesis               bool             `yaml:"emptyGenesis"`
 		GravityChainDB             db.Config        `yaml:"gravityChainDB"`
@@ -206,6 +212,46 @@ func (cfg *Config) ProducerPrivateKeys() []crypto.PrivateKey {
 	}
 
 	return privateKeys[start:end]
+}
+
+// BLSProducerPrivateKeys returns the BLS12-381 producer private keys, aligned
+// 1:1 with ProducerPrivateKeys(). When BLSProducerPrivKey is configured, its
+// entries are parsed and the range/length must match ProducerPrivateKeys();
+// otherwise each BLS key is derived from the corresponding ECDSA key bytes via
+// crypto.GenerateBLS12381PrivateKey.
+func (cfg *Config) BLSProducerPrivateKeys() []*crypto.BLS12381PrivateKey {
+	ecdsa := cfg.ProducerPrivateKeys()
+	blsKeys := make([]*crypto.BLS12381PrivateKey, 0, len(ecdsa))
+	if cfg.BLSProducerPrivKey == "" {
+		for _, sk := range ecdsa {
+			blsSk, err := crypto.GenerateBLS12381PrivateKey(sk.Bytes())
+			if err != nil {
+				log.L().Panic("failed to derive BLS private key from ECDSA producer key", zap.Error(err))
+			}
+			blsKeys = append(blsKeys, blsSk)
+		}
+		return blsKeys
+	}
+	parts := strings.Split(cfg.BLSProducerPrivKey, ",")
+	if len(parts) != len(ecdsa) {
+		log.L().Panic(
+			"BLSProducerPrivKey count does not match ProducerPrivateKeys",
+			zap.Int("bls", len(parts)),
+			zap.Int("ecdsa", len(ecdsa)),
+		)
+	}
+	for i, hexKey := range parts {
+		raw, err := hex.DecodeString(strings.TrimPrefix(strings.TrimSpace(hexKey), "0x"))
+		if err != nil {
+			log.L().Panic("failed to decode BLS producer private key", zap.Int("index", i), zap.Error(err))
+		}
+		blsSk, err := crypto.BLS12381PrivateKeyFromBytes(raw)
+		if err != nil {
+			log.L().Panic("invalid BLS producer private key", zap.Int("index", i), zap.Error(err))
+		}
+		blsKeys = append(blsKeys, blsSk)
+	}
+	return blsKeys
 }
 
 // SetProducerPrivKey set producer privKey by PrivKeyConfigFile info
