@@ -34,9 +34,8 @@ type roundCalculator struct {
 func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInterval time.Duration, now time.Time, toleratedOvertime time.Duration) (*roundCtx, error) {
 	epochNum := round.EpochNum()
 	epochStartHeight := round.EpochStartHeight()
-	delegates := round.Delegates()
+	delegates := round.delegates
 	proposers := round.Proposers()
-	blsPubKeys := round.blsPubKeys
 	switch {
 	case height < round.Height():
 		return nil, errors.New("cannot update to a lower height")
@@ -50,13 +49,10 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 			epochNum = c.rp.GetEpochNum(height)
 			epochStartHeight = c.rp.GetEpochHeight(epochNum)
 			var err error
-			if delegates, err = c.Delegates(height); err != nil {
+			if delegates, err = c.delegatesAt(height); err != nil {
 				return nil, err
 			}
 			if proposers, err = c.Proposers(height); err != nil {
-				return nil, err
-			}
-			if blsPubKeys, err = c.blsPubKeysFor(height); err != nil {
 				return nil, err
 			}
 		}
@@ -105,7 +101,6 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		status:             status,
 		blockInLock:        blockInLock,
 		proofOfLock:        proofOfLock,
-		blsPubKeys:         blsPubKeys,
 	}, nil
 }
 
@@ -230,15 +225,15 @@ func (c *roundCalculator) newRound(
 ) (round *roundCtx, err error) {
 	epochNum := uint64(0)
 	epochStartHeight := uint64(0)
-	var delegates, proposers []string
+	var delegates []delegate
+	var proposers []string
 	var roundNum uint32
 	var proposer string
 	var roundStartTime time.Time
-	var blsPubKeys map[string]*crypto.BLS12381PublicKey
 	if height != 0 {
 		epochNum = c.rp.GetEpochNum(height)
 		epochStartHeight = c.rp.GetEpochHeight(epochNum)
-		if delegates, err = c.Delegates(height); err != nil {
+		if delegates, err = c.delegatesAt(height); err != nil {
 			return
 		}
 		if proposers, err = c.Proposers(height); err != nil {
@@ -248,9 +243,6 @@ func (c *roundCalculator) newRound(
 			return
 		}
 		if proposer, err = c.calculateProposer(height, roundNum, proposers); err != nil {
-			return
-		}
-		if blsPubKeys, err = c.blsPubKeysFor(height); err != nil {
 			return
 		}
 	}
@@ -276,7 +268,6 @@ func (c *roundCalculator) newRound(
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(blockInterval),
 		status:             _open,
-		blsPubKeys:         blsPubKeys,
 	}
 	eManager.SetIsMarjorityFunc(round.EndorsedByMajority)
 
@@ -315,28 +306,33 @@ func (c *roundCalculator) Fork(fork ForkChain) *roundCalculator {
 	}
 }
 
-// blsPubKeysFor resolves the BLS pubkey map for the given height's epoch
-// using the configured callback. Returns nil if no callback was wired (BLS
-// aggregation is off in this configuration) so callers can branch.
-func (c *roundCalculator) blsPubKeysFor(height uint64) (map[string]*crypto.BLS12381PublicKey, error) {
-	if c.blsPubKeysByEpochFunc == nil {
-		return nil, nil
-	}
-	epochNum := c.rp.GetEpochNum(height)
-	raw, err := c.blsPubKeysByEpochFunc(epochNum, nil)
+// delegatesAt returns the delegate set for the given height, pairing each
+// operator iotex address with its registered BLS12-381 public key (nil if
+// the delegate has no BLS key registered, or if the BLS pubkey lookup
+// callback isn't wired in this configuration).
+func (c *roundCalculator) delegatesAt(height uint64) ([]delegate, error) {
+	addrs, err := c.Delegates(height)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to resolve BLS pubkeys for epoch %d", epochNum)
+		return nil, err
 	}
-	out := make(map[string]*crypto.BLS12381PublicKey, len(raw))
-	for addr, pkBytes := range raw {
-		if len(pkBytes) == 0 {
-			continue
-		}
-		pk, err := crypto.BLS12381PublicKeyFromBytes(pkBytes)
+	var pubKeys map[string][]byte
+	if c.blsPubKeysByEpochFunc != nil {
+		epochNum := c.rp.GetEpochNum(height)
+		pubKeys, err = c.blsPubKeysByEpochFunc(epochNum, nil)
 		if err != nil {
-			return nil, errors.Wrapf(err, "invalid BLS pubkey for delegate %s", addr)
+			return nil, errors.Wrapf(err, "failed to resolve BLS pubkeys for epoch %d", epochNum)
 		}
-		out[addr] = pk
+	}
+	out := make([]delegate, len(addrs))
+	for i, addr := range addrs {
+		out[i] = delegate{address: addr}
+		if pkBytes := pubKeys[addr]; len(pkBytes) > 0 {
+			pk, err := crypto.BLS12381PublicKeyFromBytes(pkBytes)
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid BLS pubkey for delegate %s", addr)
+			}
+			out[i].blsPubKey = pk
+		}
 	}
 	return out, nil
 }

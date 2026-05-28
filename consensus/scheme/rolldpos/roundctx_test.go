@@ -32,11 +32,11 @@ func TestRoundCtx(t *testing.T) {
 		epochNum:             uint64(1),
 		epochStartHeight:     uint64(1),
 		nextEpochStartHeight: uint64(33),
-		delegates: []string{
-			"delegate1", "delegate2", "delegate3", "delegate4",
-			"delegate5", "delegate6", "delegate7", "delegate8",
-			"delegate9", "delegate0", "delegateA", "delegateB",
-			"delegateC", "delegateD", "delegateE", "delegateF",
+		delegates: []delegate{
+			{address: "delegate1"}, {address: "delegate2"}, {address: "delegate3"}, {address: "delegate4"},
+			{address: "delegate5"}, {address: "delegate6"}, {address: "delegate7"}, {address: "delegate8"},
+			{address: "delegate9"}, {address: "delegate0"}, {address: "delegateA"}, {address: "delegateB"},
+			{address: "delegateC"}, {address: "delegateD"}, {address: "delegateE"}, {address: "delegateF"},
 		},
 	}
 

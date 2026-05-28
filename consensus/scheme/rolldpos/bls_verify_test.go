@@ -37,14 +37,10 @@ func blsTestKeys(t *testing.T, seed byte) (crypto.PrivateKey, *crypto.BLS12381Pr
 // verify dispatch — just enough state for AddVoteEndorsement / verifyEndorsement
 // to find the delegate set and the BLS pubkey index.
 func roundCtxWithBLS(delegateAddr string, blsPubKey *crypto.BLS12381PublicKey) *roundCtx {
-	r := &roundCtx{
-		delegates:      []string{delegateAddr},
+	return &roundCtx{
+		delegates:      []delegate{{address: delegateAddr, blsPubKey: blsPubKey}},
 		numOfDelegates: 1,
 	}
-	if blsPubKey != nil {
-		r.blsPubKeys = map[string]*crypto.BLS12381PublicKey{delegateAddr: blsPubKey}
-	}
-	return r
 }
 
 func TestRoundCtx_VerifyEndorsement_ECDSA(t *testing.T) {
@@ -150,7 +146,7 @@ func TestRollDPoSCtx_VerifyEndorsement_PreForkRejectsBLS(t *testing.T) {
 	en, err := endorsement.EndorseBLS(vote, time.Unix(1700000000, 0), ecdsa.PublicKey(), bls)
 	require.NoError(err)
 
-	err = ctx.VerifyEndorsement(1, vote, en)
+	err = ctx.VerifyEndorsement(NewEndorsedConsensusMessage(1, vote, en))
 	require.Error(err)
 	require.Contains(err.Error(), "expected secp256k1")
 }
@@ -167,7 +163,7 @@ func TestRollDPoSCtx_VerifyEndorsement_PostForkRejectsECDSA(t *testing.T) {
 	ens, err := endorsement.Endorse(vote, time.Unix(1700000000, 0), ecdsa)
 	require.NoError(err)
 
-	err = ctx.VerifyEndorsement(100, vote, ens[0])
+	err = ctx.VerifyEndorsement(NewEndorsedConsensusMessage(100, vote, ens[0]))
 	require.Error(err)
 	require.Contains(err.Error(), "expected BLS")
 }
@@ -184,7 +180,7 @@ func TestRollDPoSCtx_VerifyEndorsement_PostForkAcceptsBLS(t *testing.T) {
 	en, err := endorsement.EndorseBLS(vote, time.Unix(1700000000, 0), ecdsa.PublicKey(), bls)
 	require.NoError(err)
 
-	require.NoError(ctx.VerifyEndorsement(100, vote, en))
+	require.NoError(ctx.VerifyEndorsement(NewEndorsedConsensusMessage(100, vote, en)))
 }
 
 func TestRollDPoSCtx_VerifyEndorsement_PreForkAcceptsECDSA(t *testing.T) {
@@ -199,7 +195,7 @@ func TestRollDPoSCtx_VerifyEndorsement_PreForkAcceptsECDSA(t *testing.T) {
 	ens, err := endorsement.Endorse(vote, time.Unix(1700000000, 0), ecdsa)
 	require.NoError(err)
 
-	require.NoError(ctx.VerifyEndorsement(1, vote, ens[0]))
+	require.NoError(ctx.VerifyEndorsement(NewEndorsedConsensusMessage(1, vote, ens[0])))
 }
 
 func TestRollDPoSCtx_NewEndorsement_PostForkProducesBLS(t *testing.T) {

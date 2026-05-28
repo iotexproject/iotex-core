@@ -90,12 +90,12 @@ type (
 		Clock() clock.Clock
 		CheckBlockProposer(uint64, *blockProposal, *endorsement.Endorsement) error
 		CheckVoteEndorser(uint64, *ConsensusVote, *endorsement.Endorsement) error
-		// VerifyEndorsement verifies an endorsement's signature against the
-		// given document, dispatching on signature length: secp256k1 (65 B)
-		// pre-fork or BLS12-381 (96 B) post-fork. Post-fork BLS verify
-		// resolves the verifying public key from the current round's
-		// candidate-state-derived index by endorser iotex address.
-		VerifyEndorsement(uint64, endorsement.Document, *endorsement.Endorsement) error
+		// VerifyEndorsement verifies the endorsement on the given consensus
+		// message, dispatching on signature length: secp256k1 (65 B) pre-fork
+		// or BLS12-381 (96 B) post-fork. Post-fork BLS verify resolves the
+		// verifying public key from the current round's candidate-state-
+		// derived index by endorser iotex address.
+		VerifyEndorsement(*EndorsedConsensusMessage) error
 	}
 
 	rollDPoSCtx struct {
@@ -264,18 +264,27 @@ func (ctx *rollDPoSCtx) Clock() clock.Clock {
 // or a post-fork message carrying a 65 B signature is rejected. For BLS,
 // the verifying pubkey is resolved from the current round's BLS pubkey
 // index by the endorser's iotex address.
-func (ctx *rollDPoSCtx) VerifyEndorsement(
-	height uint64,
-	doc endorsement.Document,
-	en *endorsement.Endorsement,
-) error {
-	ctx.mutex.RLock()
-	defer ctx.mutex.RUnlock()
+//
+// The RLock is released once the round snapshot and feature flag are read;
+// the (potentially slow) signature verification runs without holding it.
+// Reading roundCtx fields after the unlock is safe because a *roundCtx is
+// only ever replaced, never mutated in place.
+func (ctx *rollDPoSCtx) VerifyEndorsement(msg *EndorsedConsensusMessage) error {
+	if msg == nil {
+		return errors.New("nil consensus message")
+	}
+	en := msg.Endorsement()
 	if en == nil {
 		return errors.New("nil endorsement")
 	}
-	sigLen := len(en.Signature())
+	height := msg.Height()
+	ctx.mutex.RLock()
+	round := ctx.round
 	useBLS := ctx.BLSAggregationEnabled(height)
+	ctx.mutex.RUnlock()
+
+	doc := msg.Document()
+	sigLen := len(en.Signature())
 	switch sigLen {
 	case crypto.Secp256k1SigSizeWithRecID:
 		if useBLS {
@@ -293,7 +302,7 @@ func (ctx *rollDPoSCtx) VerifyEndorsement(
 		if endorserAddr == nil {
 			return errors.New("failed to resolve endorser address for BLS endorsement")
 		}
-		pk := ctx.round.BLSPubKey(endorserAddr.String())
+		pk := round.BLSPubKey(endorserAddr.String())
 		if pk == nil {
 			return errors.Errorf("delegate %s has no registered BLS pubkey at height %d", endorserAddr, height)
 		}

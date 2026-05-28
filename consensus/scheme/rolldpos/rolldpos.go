@@ -124,7 +124,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 	if err := endorsedMessage.LoadProto(msg, r.ctx.BlockDeserializer()); err != nil {
 		return errors.Wrapf(err, "failed to decode endorsed consensus message")
 	}
-	if err := r.ctx.VerifyEndorsement(endorsedMessage.Height(), endorsedMessage.Document(), endorsedMessage.Endorsement()); err != nil {
+	if err := r.ctx.VerifyEndorsement(endorsedMessage); err != nil {
 		return errors.Wrap(err, "failed to verify signature in endorsement")
 	}
 	en := endorsedMessage.Endorsement()

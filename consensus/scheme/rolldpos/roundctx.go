@@ -31,13 +31,23 @@ const (
 	_unlocked
 )
 
+// delegate is one entry of a round's delegate set. It carries the operator
+// iotex address used for proposer/endorser identity, plus the delegate's
+// registered BLS12-381 public key (nil when the delegate has none, e.g.
+// pre-fork). Populated at round construction so verify paths can resolve
+// the pubkey by address without hitting state per message.
+type delegate struct {
+	address   string
+	blsPubKey *crypto.BLS12381PublicKey
+}
+
 // roundCtx keeps the context data for the current round and block.
 type roundCtx struct {
 	epochNum             uint64
 	epochStartHeight     uint64
 	nextEpochStartHeight uint64
 	numOfDelegates       uint64
-	delegates            []string
+	delegates            []delegate
 	proposers            []string
 
 	height             uint64
@@ -51,12 +61,6 @@ type roundCtx struct {
 	proofOfLock []*endorsement.Endorsement
 	status      status
 	eManager    *endorsementManager
-
-	// blsPubKeys maps the epoch delegate's operator iotex address to their
-	// registered BLS12-381 public key. Populated at round construction (via
-	// the BLSPubKeysByEpochFunc callback) so verify paths can resolve the
-	// pubkey by address without hitting state per message.
-	blsPubKeys map[string]*crypto.BLS12381PublicKey
 }
 
 func (ctx *roundCtx) Log(l *zap.Logger) *zap.Logger {
@@ -70,7 +74,7 @@ func (ctx *roundCtx) Log(l *zap.Logger) *zap.Logger {
 }
 
 func (ctx *roundCtx) LogWithStats(l *zap.Logger) *zap.Logger {
-	return ctx.eManager.Log(ctx.Log(l), ctx.delegates)
+	return ctx.eManager.Log(ctx.Log(l), ctx.Delegates())
 }
 
 func (ctx *roundCtx) EpochNum() uint64 {
@@ -110,7 +114,11 @@ func (ctx *roundCtx) Proposer() string {
 }
 
 func (ctx *roundCtx) Delegates() []string {
-	return ctx.delegates
+	addrs := make([]string, len(ctx.delegates))
+	for i, d := range ctx.delegates {
+		addrs[i] = d.address
+	}
+	return addrs
 }
 
 func (ctx *roundCtx) Proposers() []string {
@@ -118,17 +126,19 @@ func (ctx *roundCtx) Proposers() []string {
 }
 
 func (ctx *roundCtx) IsDelegate(addr string) bool {
-	return slices.Contains(ctx.delegates, addr)
+	return slices.ContainsFunc(ctx.delegates, func(d delegate) bool { return d.address == addr })
 }
 
 // BLSPubKey returns the BLS12-381 public key registered for the given
 // delegate operator address at this round's epoch, or nil if the delegate
-// has no registered BLS key or BLS aggregation isn't wired in this config.
+// is not in the round's set or has no registered BLS key.
 func (ctx *roundCtx) BLSPubKey(addr string) *crypto.BLS12381PublicKey {
-	if ctx.blsPubKeys == nil {
-		return nil
+	for _, d := range ctx.delegates {
+		if d.address == addr {
+			return d.blsPubKey
+		}
 	}
-	return ctx.blsPubKeys[addr]
+	return nil
 }
 
 // verifyEndorsement checks the signature on en, dispatching on signature
