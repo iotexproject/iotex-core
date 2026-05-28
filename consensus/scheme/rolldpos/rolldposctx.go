@@ -84,11 +84,10 @@ type (
 		Clock() clock.Clock
 		CheckBlockProposer(uint64, *blockProposal, *endorsement.Endorsement) error
 		CheckVoteEndorser(uint64, *ConsensusVote, *endorsement.Endorsement) error
-		// DisablePremint turns off the prepareNextProposal pre-mint goroutine.
-		// API nodes (with a secondary erigon store) must call this with true: their workingset
-		// store has no KVStore() for forking, so premint always fails at workingset.NewWorkingSet.
-		DisablePremint(bool)
 	}
+
+	// Option configures a rollDPoSCtx at construction time.
+	Option func(*rollDPoSCtx)
 
 	rollDPoSCtx struct {
 		consensusfsm.ConsensusConfig
@@ -111,6 +110,15 @@ type (
 	}
 )
 
+// WithPremintDisabled turns off the prepareNextProposal pre-mint goroutine.
+// API nodes (with a secondary erigon store) must pass this: their workingset
+// store has no KVStore() for forking, so premint always fails at workingset.NewWorkingSet.
+func WithPremintDisabled() Option {
+	return func(ctx *rollDPoSCtx) {
+		ctx.disablePremint = true
+	}
+}
+
 // NewRollDPoSCtx returns a context of RollDPoSCtx
 func NewRollDPoSCtx(
 	cfg consensusfsm.ConsensusConfig,
@@ -127,6 +135,7 @@ func NewRollDPoSCtx(
 	priKeys []crypto.PrivateKey,
 	clock clock.Clock,
 	beringHeight uint64,
+	opts ...Option,
 ) (RDPoSCtx, error) {
 	if chain == nil {
 		return nil, errors.New("chain cannot be nil")
@@ -169,7 +178,7 @@ func NewRollDPoSCtx(
 	for _, pk := range priKeys {
 		encodedAddrs = append(encodedAddrs, pk.PublicKey().Address().String())
 	}
-	return &rollDPoSCtx{
+	ctx := &rollDPoSCtx{
 		ConsensusConfig:   cfg,
 		active:            active,
 		encodedAddrs:      encodedAddrs,
@@ -181,7 +190,11 @@ func NewRollDPoSCtx(
 		roundCalc:         roundCalc,
 		eManagerDB:        eManagerDB,
 		toleratedOvertime: toleratedOvertime,
-	}, nil
+	}
+	for _, opt := range opts {
+		opt(ctx)
+	}
+	return ctx, nil
 }
 
 func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
@@ -224,12 +237,6 @@ func (ctx *rollDPoSCtx) RoundCalculator() *roundCalculator {
 
 func (ctx *rollDPoSCtx) Clock() clock.Clock {
 	return ctx.clock
-}
-
-func (ctx *rollDPoSCtx) DisablePremint(v bool) {
-	ctx.mutex.Lock()
-	defer ctx.mutex.Unlock()
-	ctx.disablePremint = v
 }
 
 // CheckVoteEndorser checks if the endorsement's endorser is a valid delegate at the given height

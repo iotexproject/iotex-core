@@ -86,7 +86,6 @@ func TestRollDPoSCtx(t *testing.T) {
 }
 
 func TestDisablePremint(t *testing.T) {
-	require := require.New(t)
 	g := genesis.TestDefault()
 	g.Blockchain.BlockInterval = time.Second * 20
 	cfg := DefaultConfig
@@ -94,47 +93,54 @@ func TestDisablePremint(t *testing.T) {
 	cfg.FSM.AcceptProposalEndorsementTTL = time.Second
 	cfg.FSM.AcceptLockEndorsementTTL = time.Second
 	cfg.FSM.CommitTTL = time.Second
-	b, sf, _, rp, _ := makeChain(t)
-	rctx, err := NewRollDPoSCtx(
-		consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay),
-		db.DefaultConfig,
-		true,
-		time.Second,
-		true,
-		NewChainManager(b, sf, &dummyBlockBuildFactory{}),
-		block.NewDeserializer(0),
-		rp,
-		nil,
-		dummyCandidatesByHeightFunc,
-		dummyCandidatesByHeightFunc,
-		nil,
-		clock.New(),
-		g.BeringBlockHeight,
-	)
-	require.NoError(err)
-	require.NoError(rctx.Start(context.Background()))
-	inner := rctx.(*rollDPoSCtx)
+
+	build := func(t *testing.T, opts ...Option) (*rollDPoSCtx, uint64) {
+		t.Helper()
+		require := require.New(t)
+		b, sf, _, rp, _ := makeChain(t)
+		rctx, err := NewRollDPoSCtx(
+			consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay),
+			db.DefaultConfig,
+			true,
+			time.Second,
+			true,
+			NewChainManager(b, sf, &dummyBlockBuildFactory{}),
+			block.NewDeserializer(0),
+			rp,
+			nil,
+			dummyCandidatesByHeightFunc,
+			dummyCandidatesByHeightFunc,
+			nil,
+			clock.New(),
+			g.BeringBlockHeight,
+			opts...,
+		)
+		require.NoError(err)
+		require.NoError(rctx.Start(context.Background()))
+		return rctx.(*rollDPoSCtx), b.TipHeight()
+	}
+
 	// Production callers reach prepareNextProposal via NewProposalEndorsement, which holds
-	// ctx.mutex.RLock(). The direct calls below bypass that; safe here because all toggles
-	// and reads are sequential in a single goroutine.
+	// ctx.mutex.RLock(). The direct calls below bypass that; safe here because each subtest
+	// constructs its own context and runs sequentially in a single goroutine.
 
-	// default: premint is enabled
-	require.False(inner.disablePremint)
-	// prepareNextProposal hits chain.Fork with a zero hash and returns the wrapped error
-	err = inner.prepareNextProposal(b.TipHeight(), hash.ZeroHash256)
-	require.Error(err)
-	require.Contains(err.Error(), "failed to check fork")
+	t.Run("default-premint-enabled", func(t *testing.T) {
+		require := require.New(t)
+		inner, tip := build(t)
+		require.False(inner.disablePremint)
+		// prepareNextProposal hits chain.Fork with a zero hash and returns the wrapped error
+		err := inner.prepareNextProposal(tip, hash.ZeroHash256)
+		require.Error(err)
+		require.Contains(err.Error(), "failed to check fork")
+	})
 
-	// toggle on: prepareNextProposal short-circuits to nil without consulting the chain
-	rctx.DisablePremint(true)
-	require.True(inner.disablePremint)
-	require.NoError(inner.prepareNextProposal(b.TipHeight(), hash.ZeroHash256))
-
-	// toggle back off: original behavior restored
-	rctx.DisablePremint(false)
-	require.False(inner.disablePremint)
-	err = inner.prepareNextProposal(b.TipHeight(), hash.ZeroHash256)
-	require.Error(err)
+	t.Run("with-premint-disabled", func(t *testing.T) {
+		require := require.New(t)
+		inner, tip := build(t, WithPremintDisabled())
+		require.True(inner.disablePremint)
+		// short-circuits to nil without consulting the chain
+		require.NoError(inner.prepareNextProposal(tip, hash.ZeroHash256))
+	})
 }
 
 func TestCheckVoteEndorser(t *testing.T) {
