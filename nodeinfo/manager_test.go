@@ -152,7 +152,6 @@ func TestDelegateManager_BroadcastNodeInfo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	privKey, err := crypto.GenerateKey()
-	nodeAddr := privKey.PublicKey().Address().String()
 	require.NoError(err)
 
 	t.Run("update_self", func(t *testing.T) {
@@ -165,7 +164,7 @@ func TestDelegateManager_BroadcastNodeInfo(t *testing.T) {
 		hMock.EXPECT().TipHeight().Return(height).Times(1)
 		tMock.EXPECT().Info().Return(peer.AddrInfo{ID: peerID}, nil).Times(1)
 		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-		err = dm.BroadcastNodeInfo(context.Background(), []string{nodeAddr})
+		err = dm.BroadcastNodeInfo(context.Background(), []crypto.PrivateKey{privKey})
 		require.NoError(err)
 		addr := privKey.PublicKey().Address().String()
 		nodeGot, ok := dm.nodeMap.Get(peerID.String())
