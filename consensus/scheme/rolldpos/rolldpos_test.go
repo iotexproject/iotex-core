@@ -153,6 +153,55 @@ func TestNewRollDPoS(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, r)
 	})
+
+	t.Run("api-node-disables-premint", func(t *testing.T) {
+		sk := identityset.PrivateKey(0)
+		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().AddSubscriber(gomock.Any()).Times(2)
+		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+		chain.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
+		apiCfg := builderCfg
+		// Only len(HistoryIndexPath) > 0 matters for the Build-time check; no file is opened.
+		apiCfg.Chain.HistoryIndexPath = "any-non-empty"
+		r, err := NewRollDPoSBuilder().
+			SetConfig(apiCfg).
+			SetPriKey(sk).
+			SetChainManager(NewChainManager(chain, mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
+			SetBroadcast(func(_ proto.Message) error {
+				return nil
+			}).
+			SetDelegatesByEpochFunc(delegatesByEpoch).
+			SetProposersByEpochFunc(delegatesByEpoch).
+			RegisterProtocol(rp).
+			Build()
+		assert.NoError(t, err)
+		assert.NotNil(t, r)
+		assert.True(t, r.ctx.(*rollDPoSCtx).disablePremint)
+	})
+
+	t.Run("non-api-node-keeps-premint", func(t *testing.T) {
+		sk := identityset.PrivateKey(0)
+		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().AddSubscriber(gomock.Any()).Times(2)
+		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+		chain.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
+		nonAPICfg := builderCfg
+		nonAPICfg.Chain.HistoryIndexPath = ""
+		r, err := NewRollDPoSBuilder().
+			SetConfig(nonAPICfg).
+			SetPriKey(sk).
+			SetChainManager(NewChainManager(chain, mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
+			SetBroadcast(func(_ proto.Message) error {
+				return nil
+			}).
+			SetDelegatesByEpochFunc(delegatesByEpoch).
+			SetProposersByEpochFunc(delegatesByEpoch).
+			RegisterProtocol(rp).
+			Build()
+		assert.NoError(t, err)
+		assert.NotNil(t, r)
+		assert.False(t, r.ctx.(*rollDPoSCtx).disablePremint)
+	})
 }
 
 func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndorse bool, height int) *block.Block {
