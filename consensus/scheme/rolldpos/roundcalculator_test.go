@@ -227,7 +227,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
 	bc, sf, _, rp, pp := makeChain(t)
-	delegatesByEpoch := func(epochNum uint64, _ []byte) ([]string, error) {
+	delegatesByEpoch := func(epochNum uint64, _ []byte) ([]*Delegate, error) {
 		re := protocol.NewRegistry()
 		if err := rp.Register(re); err != nil {
 			return nil, err
@@ -262,7 +262,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 		for _, cand := range candidatesList {
 			addrs = append(addrs, cand.Address)
 		}
-		return addrs, nil
+		return toDelegates(addrs), nil
 	}
 	return &roundCalculator{
 		NewChainManager(bc, sf, &dummyBlockBuildFactory{}),
@@ -270,7 +270,6 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 		rp,
 		delegatesByEpoch,
 		delegatesByEpoch,
-		nil,
 		0,
 	}
 }

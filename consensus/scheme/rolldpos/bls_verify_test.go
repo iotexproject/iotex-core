@@ -19,6 +19,16 @@ import (
 	"github.com/iotexproject/iotex-core/v2/endorsement"
 )
 
+// toDelegates wraps a list of operator addresses as Delegates with no BLS
+// pubkey — convenient for tests that exercise pre-fork / address-only paths.
+func toDelegates(addrs []string) []*Delegate {
+	ds := make([]*Delegate, len(addrs))
+	for i, a := range addrs {
+		ds[i] = &Delegate{Address: a}
+	}
+	return ds
+}
+
 // blsTestKeys derives a deterministic (ECDSA, BLS) key pair from a seed byte.
 func blsTestKeys(t *testing.T, seed byte) (crypto.PrivateKey, *crypto.BLS12381PrivateKey) {
 	t.Helper()
@@ -38,7 +48,7 @@ func blsTestKeys(t *testing.T, seed byte) (crypto.PrivateKey, *crypto.BLS12381Pr
 // to find the delegate set and the BLS pubkey index.
 func roundCtxWithBLS(delegateAddr string, blsPubKey *crypto.BLS12381PublicKey) *roundCtx {
 	return &roundCtx{
-		delegates:      []delegate{{address: delegateAddr, blsPubKey: blsPubKey}},
+		delegates:      []*Delegate{{Address: delegateAddr, BLSPubKey: blsPubKey}},
 		numOfDelegates: 1,
 	}
 }

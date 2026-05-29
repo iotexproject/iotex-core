@@ -266,10 +266,9 @@ type (
 		broadcastHandler  scheme.Broadcast
 		clock             clock.Clock
 		// TODO: explorer dependency deleted at #1085, need to add api params
-		rp                    *rolldpos.Protocol
-		delegatesByEpochFunc  NodesSelectionByEpochFunc
-		proposersByEpochFunc  NodesSelectionByEpochFunc
-		blsPubKeysByEpochFunc BLSPubKeysByEpochFunc
+		rp                   *rolldpos.Protocol
+		delegatesByEpochFunc NodesSelectionByEpochFunc
+		proposersByEpochFunc NodesSelectionByEpochFunc
 	}
 )
 
@@ -337,16 +336,6 @@ func (b *Builder) SetProposersByEpochFunc(
 	return b
 }
 
-// SetBLSPubKeysByEpochFunc sets the lookup that returns each delegate's
-// registered BLS12-381 public key for a given epoch. Used by the round
-// context to verify BLS-signed endorsements once aggregation is activated.
-func (b *Builder) SetBLSPubKeysByEpochFunc(
-	blsPubKeysByEpochFunc BLSPubKeysByEpochFunc,
-) *Builder {
-	b.blsPubKeysByEpochFunc = blsPubKeysByEpochFunc
-	return b
-}
-
 // RegisterProtocol sets the rolldpos protocol
 func (b *Builder) RegisterProtocol(rp *rolldpos.Protocol) *Builder {
 	b.rp = rp
@@ -377,7 +366,6 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.broadcastHandler,
 		b.delegatesByEpochFunc,
 		b.proposersByEpochFunc,
-		b.blsPubKeysByEpochFunc,
 		b.priKey,
 		b.blsPriKey,
 		b.clock,

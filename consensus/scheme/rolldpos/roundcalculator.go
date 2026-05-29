@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/endorsement"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -21,13 +20,12 @@ import (
 var errInvalidCurrentTime = errors.New("invalid current time")
 
 type roundCalculator struct {
-	chain                 ForkChain
-	timeBasedRotation     bool
-	rp                    *rolldpos.Protocol
-	delegatesByEpochFunc  NodesSelectionByEpochFunc
-	proposersByEpochFunc  NodesSelectionByEpochFunc
-	blsPubKeysByEpochFunc BLSPubKeysByEpochFunc
-	beringHeight          uint64
+	chain                ForkChain
+	timeBasedRotation    bool
+	rp                   *rolldpos.Protocol
+	delegatesByEpochFunc NodesSelectionByEpochFunc
+	proposersByEpochFunc NodesSelectionByEpochFunc
+	beringHeight         uint64
 }
 
 // UpdateRound updates previous roundCtx
@@ -49,7 +47,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 			epochNum = c.rp.GetEpochNum(height)
 			epochStartHeight = c.rp.GetEpochHeight(epochNum)
 			var err error
-			if delegates, err = c.delegatesAt(height); err != nil {
+			if delegates, err = c.Delegates(height); err != nil {
 				return nil, err
 			}
 			if proposers, err = c.Proposers(height); err != nil {
@@ -121,7 +119,7 @@ func (c *roundCalculator) IsDelegate(addr string, height uint64) bool {
 		log.L().Warn("Failed to get delegates", zap.Error(err))
 		return false
 	}
-	return slices.Contains(delegates, addr)
+	return slices.ContainsFunc(delegates, func(d *Delegate) bool { return d.Address == addr })
 }
 
 // RoundInfo returns information of round by the given height and current time
@@ -181,18 +179,28 @@ func (c *roundCalculator) roundInfo(
 	return roundNum, roundStartTime, nil
 }
 
-// Delegates returns list of delegates at given height
-func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
+// Delegates returns the delegate set at the given height, each paired with
+// its registered BLS public key.
+func (c *roundCalculator) Delegates(height uint64) ([]*Delegate, error) {
 	epochNum := c.rp.GetEpochNum(height)
 	prevHash := c.chain.TipHash()
 	return c.delegatesByEpochFunc(epochNum, prevHash[:])
 }
 
-// Proposers returns list of candidate proposers at given height
+// Proposers returns the operator addresses of candidate proposers at the
+// given height.
 func (c *roundCalculator) Proposers(height uint64) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
 	prevHash := c.chain.TipHash()
-	return c.proposersByEpochFunc(epochNum, prevHash[:])
+	proposers, err := c.proposersByEpochFunc(epochNum, prevHash[:])
+	if err != nil {
+		return nil, err
+	}
+	addrs := make([]string, len(proposers))
+	for i, p := range proposers {
+		addrs[i] = p.Address
+	}
+	return addrs, nil
 }
 
 // NewRoundWithToleration starts new round with tolerated over time
@@ -225,7 +233,7 @@ func (c *roundCalculator) newRound(
 ) (round *roundCtx, err error) {
 	epochNum := uint64(0)
 	epochStartHeight := uint64(0)
-	var delegates []delegate
+	var delegates []*Delegate
 	var proposers []string
 	var roundNum uint32
 	var proposer string
@@ -233,7 +241,7 @@ func (c *roundCalculator) newRound(
 	if height != 0 {
 		epochNum = c.rp.GetEpochNum(height)
 		epochStartHeight = c.rp.GetEpochHeight(epochNum)
-		if delegates, err = c.delegatesAt(height); err != nil {
+		if delegates, err = c.Delegates(height); err != nil {
 			return
 		}
 		if proposers, err = c.Proposers(height); err != nil {
@@ -296,43 +304,11 @@ func (c *roundCalculator) calculateProposer(
 
 func (c *roundCalculator) Fork(fork ForkChain) *roundCalculator {
 	return &roundCalculator{
-		chain:                 fork,
-		timeBasedRotation:     c.timeBasedRotation,
-		rp:                    c.rp,
-		delegatesByEpochFunc:  c.delegatesByEpochFunc,
-		proposersByEpochFunc:  c.proposersByEpochFunc,
-		blsPubKeysByEpochFunc: c.blsPubKeysByEpochFunc,
-		beringHeight:          c.beringHeight,
+		chain:                fork,
+		timeBasedRotation:    c.timeBasedRotation,
+		rp:                   c.rp,
+		delegatesByEpochFunc: c.delegatesByEpochFunc,
+		proposersByEpochFunc: c.proposersByEpochFunc,
+		beringHeight:         c.beringHeight,
 	}
-}
-
-// delegatesAt returns the delegate set for the given height, pairing each
-// operator iotex address with its registered BLS12-381 public key (nil if
-// the delegate has no BLS key registered, or if the BLS pubkey lookup
-// callback isn't wired in this configuration).
-func (c *roundCalculator) delegatesAt(height uint64) ([]delegate, error) {
-	addrs, err := c.Delegates(height)
-	if err != nil {
-		return nil, err
-	}
-	var pubKeys map[string][]byte
-	if c.blsPubKeysByEpochFunc != nil {
-		epochNum := c.rp.GetEpochNum(height)
-		pubKeys, err = c.blsPubKeysByEpochFunc(epochNum, nil)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to resolve BLS pubkeys for epoch %d", epochNum)
-		}
-	}
-	out := make([]delegate, len(addrs))
-	for i, addr := range addrs {
-		out[i] = delegate{address: addr}
-		if pkBytes := pubKeys[addr]; len(pkBytes) > 0 {
-			pk, err := crypto.BLS12381PublicKeyFromBytes(pkBytes)
-			if err != nil {
-				return nil, errors.Wrapf(err, "invalid BLS pubkey for delegate %s", addr)
-			}
-			out[i].blsPubKey = pk
-		}
-	}
-	return out, nil
 }

@@ -31,14 +31,14 @@ const (
 	_unlocked
 )
 
-// delegate is one entry of a round's delegate set. It carries the operator
+// Delegate is one entry of a round's delegate set. It carries the operator
 // iotex address used for proposer/endorser identity, plus the delegate's
 // registered BLS12-381 public key (nil when the delegate has none, e.g.
-// pre-fork). Populated at round construction so verify paths can resolve
-// the pubkey by address without hitting state per message.
-type delegate struct {
-	address   string
-	blsPubKey *crypto.BLS12381PublicKey
+// pre-fork). Resolved by the NodesSelectionByEpochFunc callback so verify
+// paths can look up the pubkey by address without hitting state per message.
+type Delegate struct {
+	Address   string
+	BLSPubKey *crypto.BLS12381PublicKey
 }
 
 // roundCtx keeps the context data for the current round and block.
@@ -47,7 +47,7 @@ type roundCtx struct {
 	epochStartHeight     uint64
 	nextEpochStartHeight uint64
 	numOfDelegates       uint64
-	delegates            []delegate
+	delegates            []*Delegate
 	proposers            []string
 
 	height             uint64
@@ -116,7 +116,7 @@ func (ctx *roundCtx) Proposer() string {
 func (ctx *roundCtx) Delegates() []string {
 	addrs := make([]string, len(ctx.delegates))
 	for i, d := range ctx.delegates {
-		addrs[i] = d.address
+		addrs[i] = d.Address
 	}
 	return addrs
 }
@@ -126,7 +126,7 @@ func (ctx *roundCtx) Proposers() []string {
 }
 
 func (ctx *roundCtx) IsDelegate(addr string) bool {
-	return slices.ContainsFunc(ctx.delegates, func(d delegate) bool { return d.address == addr })
+	return slices.ContainsFunc(ctx.delegates, func(d *Delegate) bool { return d.Address == addr })
 }
 
 // BLSPubKey returns the BLS12-381 public key registered for the given
@@ -134,8 +134,8 @@ func (ctx *roundCtx) IsDelegate(addr string) bool {
 // is not in the round's set or has no registered BLS key.
 func (ctx *roundCtx) BLSPubKey(addr string) *crypto.BLS12381PublicKey {
 	for _, d := range ctx.delegates {
-		if d.address == addr {
-			return d.blsPubKey
+		if d.Address == addr {
+			return d.BLSPubKey
 		}
 	}
 	return nil

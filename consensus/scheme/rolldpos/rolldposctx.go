@@ -72,14 +72,10 @@ func init() {
 }
 
 type (
-	// NodesSelectionByEpochFunc defines a function to select nodes
-	NodesSelectionByEpochFunc func(uint64, []byte) ([]string, error)
-
-	// BLSPubKeysByEpochFunc resolves the registered BLS12-381 public key for
-	// every delegate of the given epoch. The returned map is keyed by the
-	// delegate's operator iotex address; the value is the candidate's raw
-	// 48-byte BLS pubkey (or empty if the candidate hasn't registered one yet).
-	BLSPubKeysByEpochFunc func(uint64, []byte) (map[string][]byte, error)
+	// NodesSelectionByEpochFunc defines a function to select nodes for an
+	// epoch. Each returned Delegate pairs the operator iotex address with
+	// the delegate's registered BLS12-381 public key (nil if none).
+	NodesSelectionByEpochFunc func(uint64, []byte) ([]*Delegate, error)
 
 	// RDPoSCtx is the context of RollDPoS
 	RDPoSCtx interface {
@@ -141,7 +137,6 @@ func NewRollDPoSCtx(
 	broadcastHandler scheme.Broadcast,
 	delegatesByEpochFunc NodesSelectionByEpochFunc,
 	proposersByEpochFunc NodesSelectionByEpochFunc,
-	blsPubKeysByEpochFunc BLSPubKeysByEpochFunc,
 	priKeys []crypto.PrivateKey,
 	blsPriKeys []*crypto.BLS12381PrivateKey,
 	clock clock.Clock,
@@ -183,13 +178,12 @@ func NewRollDPoSCtx(
 		eManagerDB = db.NewBoltDB(consensusDBConfig)
 	}
 	roundCalc := &roundCalculator{
-		delegatesByEpochFunc:  delegatesByEpochFunc,
-		proposersByEpochFunc:  proposersByEpochFunc,
-		blsPubKeysByEpochFunc: blsPubKeysByEpochFunc,
-		chain:                 chain,
-		rp:                    rp,
-		timeBasedRotation:     timeBasedRotation,
-		beringHeight:          beringHeight,
+		delegatesByEpochFunc: delegatesByEpochFunc,
+		proposersByEpochFunc: proposersByEpochFunc,
+		chain:                chain,
+		rp:                   rp,
+		timeBasedRotation:    timeBasedRotation,
+		beringHeight:         beringHeight,
 	}
 	producerKeys := make([]producerKey, len(priKeys))
 	for i, pk := range priKeys {

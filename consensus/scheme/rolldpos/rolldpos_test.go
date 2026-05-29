@@ -72,7 +72,7 @@ func TestNewRollDPoS(t *testing.T) {
 		g.NumDelegates,
 		g.NumSubEpochs,
 	)
-	delegatesByEpoch := func(uint64, []byte) ([]string, error) { return nil, nil }
+	delegatesByEpoch := func(uint64, []byte) ([]*Delegate, error) { return nil, nil }
 	t.Run("normal", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		chain := mock_blockchain.NewMockBlockchain(ctrl)
@@ -241,13 +241,13 @@ func TestValidateBlockFooter(t *testing.T) {
 		g.NumDelegates,
 		g.NumSubEpochs,
 	)
-	delegatesByEpoch := func(uint64, []byte) ([]string, error) {
-		return []string{
+	delegatesByEpoch := func(uint64, []byte) ([]*Delegate, error) {
+		return toDelegates([]string{
 			candidates[0],
 			candidates[1],
 			candidates[2],
 			candidates[3],
-		}, nil
+		}), nil
 	}
 	r, err := NewRollDPoSBuilder().
 		SetConfig(builderCfg).
@@ -336,13 +336,13 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		g.NumDelegates,
 		g.NumSubEpochs,
 	)
-	delegatesByEpoch := func(uint64, []byte) ([]string, error) {
-		return []string{
+	delegatesByEpoch := func(uint64, []byte) ([]*Delegate, error) {
+		return toDelegates([]string{
 			candidates[0],
 			candidates[1],
 			candidates[2],
 			candidates[3],
-		}, nil
+		}), nil
 	}
 	r, err := NewRollDPoSBuilder().
 		SetConfig(builderCfg).
@@ -455,12 +455,12 @@ func TestRollDPoSConsensus(t *testing.T) {
 			chainAddrs[i] = addressMap[rawAddress]
 		}
 
-		delegatesByEpochFunc := func(_ uint64, _ []byte) ([]string, error) {
+		delegatesByEpochFunc := func(_ uint64, _ []byte) ([]*Delegate, error) {
 			candidates := make([]string, 0, numNodes)
 			for _, addr := range chainAddrs {
 				candidates = append(candidates, addr.encodedAddr)
 			}
-			return candidates, nil
+			return toDelegates(candidates), nil
 		}
 
 		chains := make([]blockchain.Blockchain, 0, numNodes)
