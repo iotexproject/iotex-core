@@ -74,7 +74,7 @@ func (ctx *roundCtx) Log(l *zap.Logger) *zap.Logger {
 }
 
 func (ctx *roundCtx) LogWithStats(l *zap.Logger) *zap.Logger {
-	return ctx.eManager.Log(ctx.Log(l), ctx.Delegates())
+	return ctx.eManager.Log(ctx.Log(l), ctx.delegates)
 }
 
 func (ctx *roundCtx) EpochNum() uint64 {
@@ -113,12 +113,8 @@ func (ctx *roundCtx) Proposer() string {
 	return ctx.proposer
 }
 
-func (ctx *roundCtx) Delegates() []string {
-	addrs := make([]string, len(ctx.delegates))
-	for i, d := range ctx.delegates {
-		addrs[i] = d.Address
-	}
-	return addrs
+func (ctx *roundCtx) Delegates() []*Delegate {
+	return ctx.delegates
 }
 
 func (ctx *roundCtx) Proposers() []string {

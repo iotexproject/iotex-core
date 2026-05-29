@@ -208,10 +208,15 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		return metrics, errors.Wrap(err, "error when calculating round")
 	}
 
+	delegates := round.Delegates()
+	delegateAddrs := make([]string, len(delegates))
+	for i, d := range delegates {
+		delegateAddrs[i] = d.Address
+	}
 	return scheme.ConsensusMetrics{
 		LatestEpoch:         round.EpochNum(),
 		LatestHeight:        height,
-		LatestDelegates:     round.Delegates(),
+		LatestDelegates:     delegateAddrs,
 		LatestBlockProducer: round.proposer,
 	}, nil
 }

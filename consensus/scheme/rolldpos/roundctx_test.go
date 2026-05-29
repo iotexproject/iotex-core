@@ -51,7 +51,7 @@ func TestRoundCtx(t *testing.T) {
 	require.Equal("delegateC", round.Proposer())
 	require.False(round.IsDelegate("non-delegate"))
 	for _, d := range round.Delegates() {
-		require.True(round.IsDelegate(d))
+		require.True(round.IsDelegate(d.Address))
 	}
 	t.Run("is-stale", func(t *testing.T) {
 		blkHash := []byte("Some block hash")

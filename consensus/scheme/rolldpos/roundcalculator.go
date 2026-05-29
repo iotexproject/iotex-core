@@ -32,7 +32,7 @@ type roundCalculator struct {
 func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInterval time.Duration, now time.Time, toleratedOvertime time.Duration) (*roundCtx, error) {
 	epochNum := round.EpochNum()
 	epochStartHeight := round.EpochStartHeight()
-	delegates := round.delegates
+	delegates := round.Delegates()
 	proposers := round.Proposers()
 	switch {
 	case height < round.Height():

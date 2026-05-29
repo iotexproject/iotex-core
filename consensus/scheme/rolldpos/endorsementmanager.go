@@ -408,7 +408,7 @@ func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 
 func (m *endorsementManager) Log(
 	logger *zap.Logger,
-	delegates []string,
+	delegates []*Delegate,
 ) *zap.Logger {
 	for encoded, c := range m.collections {
 		proposalEndorsements := c.Endorsements(
