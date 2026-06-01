@@ -8,6 +8,7 @@ package rewarding
 import (
 	"context"
 	"math/big"
+	"strconv"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -121,6 +122,11 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return p.setFoundationBonusExtension(ctx, sm)
 	case g.WakeBlockHeight:
 		return p.SetReward(ctx, sm, g.WakeBlockReward(), true)
+	case g.ToBeEnabledBlockHeight:
+		// IIP-62 activation: seed the InflationState used by per-block productive
+		// inflation. Reuses ToBeEnabledBlockHeight as the gate until the hardfork
+		// is named.
+		return p.initInflationState(ctx, sm)
 	}
 	return nil
 }
@@ -243,15 +249,16 @@ func (p *Protocol) Handle(
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:
-			rewardLog, err := p.GrantBlockReward(ctx, sm)
+			rewardLog, mintTLogs, err := p.GrantBlockReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
 				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
-			if rewardLog == nil {
-				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, nil)
+			var logs []*action.Log
+			if rewardLog != nil {
+				logs = []*action.Log{rewardLog}
 			}
-			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog})
+			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, logs, mintTLogs...)
 		case action.EpochReward:
 			transactionLogs, rewardLogs, err := p.GrantEpochReward(ctx, sm)
 			if err != nil {
@@ -297,6 +304,24 @@ func (p *Protocol) ReadState(
 			return nil, uint64(0), err
 		}
 		return []byte(balance.String()), height, nil
+	case "OutstandingSupply":
+		v, height, err := p.OutstandingSupply(ctx, sr)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return []byte(v.String()), height, nil
+	case "PostActivationMinted":
+		v, height, err := p.PostActivationMinted(ctx, sr)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return []byte(v.String()), height, nil
+	case "CurrentInflationBps":
+		bps, height, err := p.CurrentInflationBps(ctx, sr)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return []byte(strconv.FormatUint(bps, 10)), height, nil
 	default:
 		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}

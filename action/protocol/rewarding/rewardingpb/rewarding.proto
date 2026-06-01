@@ -52,3 +52,34 @@ message RewardLog {
 message RewardLogs {
     repeated RewardLog logs = 1;
 }
+
+// InflationState is the IIP-62 productive-inflation consensus state, persisted in
+// state.RewardingNamespace under key "inf". All big-int fields are decimal-string
+// serialized to stay consistent with Fund / Account / Admin.
+message InflationState {
+    // OutstandingSupply is the running mint base for the disinflation curve.
+    // Seeded at activation from genesis.OutstandingSupplyAtActivation; grows by
+    // mTotal each block; may decrement via decrementOutstandingSupply (e.g. a
+    // future burn IIP wiring a base-fee burn site into the counter).
+    string outstandingSupply = 1;
+    // OutstandingSupplyAtYearStart is the §1.2 snapshot used for the entire year.
+    string outstandingSupplyAtYearStart = 2;
+    // PostActivationMinted is the cumulative mint since activation (analytics).
+    string postActivationMinted = 3;
+    // CurrentInflationBps is the effective annual rate, refreshed at year boundaries.
+    uint64 currentInflationBps = 4;
+    // CurrentYearIndex is the 1-indexed year matching YearIndex(). Stored so a
+    // reorg crossing a year boundary can detect the crossing and re-derive.
+    uint64 currentYearIndex = 5;
+    // DustStaker / DustMachina are the per-share Rau·bps dust accumulators used
+    // by SplitMint so per-block truncation does not silently bias the split.
+    string dustStaker = 6;
+    string dustMachina = 7;
+    // YearMintRemainder is the per-year leftover (annualMint mod blocksPerYear)
+    // flushed on the year's final block per §4.1.
+    string yearMintRemainder = 8;
+    // EpochRemainderAccumulator carries (mStaker − effective_block_reward) across
+    // the blocks of an epoch; consumed and reset at the epoch's last block by
+    // GrantEpochReward (replaces the old constant Admin.epochReward).
+    string epochRemainderAccumulator = 9;
+}
