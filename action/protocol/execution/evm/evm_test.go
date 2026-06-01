@@ -6,8 +6,11 @@
 package evm
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"math/big"
 	"testing"
@@ -605,4 +608,82 @@ func TestEIP7702BlacklistLogic(t *testing.T) {
 	convertedAddr, err := address.FromBytes(authority.Bytes())
 	r.NoError(err, "converting authority to io address should succeed")
 	r.Equal(ioAddr.String(), convertedAddr.String(), "converted address should match expected io address")
+}
+
+func TestExtractRevertMessage(t *testing.T) {
+	r := require.New(t)
+
+	// Build a well-formed Error(string) payload for the given message.
+	wellFormed := func(msg string) []byte {
+		out := append([]byte{}, _revertSelector...)
+		offset := make([]byte, 32)
+		offset[31] = 0x20
+		out = append(out, offset...)
+		length := make([]byte, 32)
+		binary.BigEndian.PutUint64(length[24:32], uint64(len(msg)))
+		out = append(out, length...)
+		data := []byte(msg)
+		if pad := len(data) % 32; pad != 0 {
+			data = append(data, make([]byte, 32-pad)...)
+		}
+		return append(out, data...)
+	}
+
+	for _, tc := range []struct {
+		name string
+		in   []byte
+		want string
+	}{
+		{"nil", nil, ""},
+		{"shorter than selector", []byte{0x01, 0x02}, "0102"},
+		{"non-revert prefix", []byte{0x01, 0x02, 0x03, 0x04, 0x05}, "0102030405"},
+		{
+			"selector only, truncated length offset",
+			append(append([]byte{}, _revertSelector...), bytes.Repeat([]byte{0xff}, 50)...),
+			hex.EncodeToString(append(append([]byte{}, _revertSelector...), bytes.Repeat([]byte{0xff}, 50)...)),
+		},
+		{
+			"msgLength exceeds remaining payload",
+			func() []byte {
+				out := append([]byte{}, _revertSelector...)
+				out = append(out, bytes.Repeat([]byte{0x00}, 32)...) // offset
+				length := make([]byte, 32)
+				binary.BigEndian.PutUint64(length[24:32], 1<<20) // claim 1MB message
+				out = append(out, length...)
+				out = append(out, []byte("short")...) // but only provide 5 bytes
+				return out
+			}(),
+			"", // computed below
+		},
+		{
+			"valid length but invalid UTF-8",
+			func() []byte {
+				out := append([]byte{}, _revertSelector...)
+				offset := make([]byte, 32)
+				offset[31] = 0x20
+				out = append(out, offset...)
+				length := make([]byte, 32)
+				length[31] = 0x02
+				out = append(out, length...)
+				out = append(out, 0xff, 0xfe, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+				return out
+			}(),
+			"", // computed below
+		},
+		{"well-formed hello", wellFormed("hello"), "hello"},
+		{"well-formed empty", wellFormed(""), ""},
+		{"well-formed with emoji", wellFormed("nope 🚫"), "nope 🚫"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// For the two "fallback to hex" cases we computed at runtime,
+			// expected output is hex of the full input.
+			want := tc.want
+			if tc.name == "msgLength exceeds remaining payload" || tc.name == "valid length but invalid UTF-8" {
+				want = hex.EncodeToString(tc.in)
+			}
+			r.NotPanics(func() {
+				r.Equal(want, ExtractRevertMessage(tc.in))
+			})
+		})
+	}
 }

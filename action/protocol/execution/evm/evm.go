@@ -12,6 +12,7 @@ import (
 	"math"
 	"math/big"
 	"time"
+	"unicode/utf8"
 
 	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/ethereum/go-ethereum/common"
@@ -972,9 +973,18 @@ func ExtractRevertMessage(ret []byte) string {
 		return hex.EncodeToString(ret)
 	}
 	data := ret[4:]
+	if len(data) < 64 {
+		return hex.EncodeToString(ret)
+	}
 	msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
-	revertMsg := string(data[64 : 64+msgLength])
-	return revertMsg
+	if msgLength > uint64(len(data)-64) {
+		return hex.EncodeToString(ret)
+	}
+	msg := data[64 : 64+msgLength]
+	if !utf8.Valid(msg) {
+		return hex.EncodeToString(ret)
+	}
+	return string(msg)
 }
 
 func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64) (authority common.Address, err error) {
