@@ -386,7 +386,11 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		mux.Handle("/unpause", http.HandlerFunc(svr.pauseMgr.HandleUnPause))
 		mux.Handle("/producer-keys", NewProducerKeysAdmin(svr))
 
-		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
+		// Bind the admin mux (which exposes /pause, /unpause, /producer-keys and
+		// pprof) to the loopback interface only. Exposing these on an external
+		// address lets any peer that can reach the admin port halt block
+		// production with an unauthenticated POST to /pause.
+		port := fmt.Sprintf("127.0.0.1:%d", cfg.System.HTTPAdminPort)
 		adminserv = httputil.NewServer(port, mux)
 		defer func() {
 			if err := adminserv.Shutdown(ctx); err != nil {
