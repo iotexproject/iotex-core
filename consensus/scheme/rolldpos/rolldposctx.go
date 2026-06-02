@@ -672,13 +672,22 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	if ctx.round.Height()%100 == 0 {
 		ctx.logger().Info("consensus reached", zap.Uint64("blockHeight", ctx.round.Height()))
 	}
-	if err := pendingBlock.Finalize(
-		ctx.round.Endorsements(blkHash, []ConsensusVoteTopic{COMMIT}),
-		ctx.round.StartTime().Add(
-			ctx.AcceptBlockTTL(ctx.round.height)+ctx.AcceptProposalEndorsementTTL(ctx.round.height)+ctx.AcceptLockEndorsementTTL(ctx.round.height),
-		),
-	); err != nil {
-		return false, errors.Wrap(err, "failed to add endorsements to block")
+	commitEndorsements := ctx.round.Endorsements(blkHash, []ConsensusVoteTopic{COMMIT})
+	commitTime := ctx.round.StartTime().Add(
+		ctx.AcceptBlockTTL(ctx.round.height) + ctx.AcceptProposalEndorsementTTL(ctx.round.height) + ctx.AcceptLockEndorsementTTL(ctx.round.height),
+	)
+	if ctx.BLSAggregationEnabled(ctx.round.height) {
+		aggSig, bitmap, err := aggregateCommitEndorsements(commitEndorsements, ctx.round.delegates)
+		if err != nil {
+			return false, errors.Wrap(err, "failed to aggregate COMMIT signatures")
+		}
+		if err := pendingBlock.FinalizeWithAggregate(aggSig, bitmap, commitTime); err != nil {
+			return false, errors.Wrap(err, "failed to finalize block with aggregate signature")
+		}
+	} else {
+		if err := pendingBlock.Finalize(commitEndorsements, commitTime); err != nil {
+			return false, errors.Wrap(err, "failed to add endorsements to block")
+		}
 	}
 
 	// Commit and broadcast the pending block

@@ -36,6 +36,14 @@ type (
 	}
 )
 
+// SigningHash returns the hash that endorsers sign for the given document
+// at the given timestamp. Use this when verifying a signature whose
+// timestamp comes from outside an Endorsement struct (e.g., reconstructing
+// the COMMIT-vote hash from a BLS-aggregated block footer).
+func SigningHash(doc Document, ts time.Time) ([]byte, error) {
+	return hashDocWithTime(doc, ts)
+}
+
 func hashDocWithTime(doc Document, ts time.Time) ([]byte, error) {
 	h, err := doc.Hash()
 	if err != nil {

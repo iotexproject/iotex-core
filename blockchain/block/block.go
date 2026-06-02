@@ -74,15 +74,47 @@ func (b *Block) RunnableActions() RunnableActions {
 	return RunnableActions{actions: b.Actions, txHash: b.txRoot}
 }
 
-// Finalize creates a footer for the block
+// Finalize creates a footer for the block using the per-delegate endorsements
+// path. Used pre-fork (and as the legacy entry point); post-fork blocks are
+// finalized via FinalizeWithAggregate instead.
 func (b *Block) Finalize(endorsements []*endorsement.Endorsement, ts time.Time) error {
-	if len(b.endorsements) != 0 {
+	if b.isFinalized() {
 		return errors.New("the block has been finalized")
 	}
 	b.endorsements = endorsements
 	b.commitTime = ts
 
 	return nil
+}
+
+// FinalizeWithAggregate creates a footer for the block using the BLS12-381
+// aggregate signature path (IIP-52). The aggregate signature is a single
+// 96-byte BLS sig over the per-block COMMIT vote; signerBitmap identifies
+// which epoch delegates contributed (bit i = delegate i in the epoch's
+// delegate list, LSB-first within each byte).
+//
+// Same one-shot contract as Finalize: a block can only be finalized once.
+func (b *Block) FinalizeWithAggregate(aggregatedSignature, signerBitmap []byte, ts time.Time) error {
+	if b.isFinalized() {
+		return errors.New("the block has been finalized")
+	}
+	if len(aggregatedSignature) == 0 {
+		return errors.New("aggregated signature is empty")
+	}
+	if len(signerBitmap) == 0 {
+		return errors.New("signer bitmap is empty")
+	}
+	b.aggregatedSignature = append([]byte(nil), aggregatedSignature...)
+	b.signerBitmap = append([]byte(nil), signerBitmap...)
+	b.commitTime = ts
+	return nil
+}
+
+// isFinalized reports whether Finalize/FinalizeWithAggregate has already been
+// called for this block. Either path sets commitTime as part of its work, so
+// a non-zero commitTime is a sufficient witness.
+func (b *Block) isFinalized() bool {
+	return len(b.endorsements) != 0 || len(b.aggregatedSignature) != 0 || !b.commitTime.IsZero()
 }
 
 // TransactionLog returns transaction logs in the block

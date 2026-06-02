@@ -15,10 +15,16 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
-// Footer defines a set of proof of this block
+// Footer defines a set of proof of this block. Pre-fork the proof is the
+// per-delegate COMMIT endorsements (endorsements). Once BLS signature
+// aggregation is activated (IIP-52) the proof is the per-block aggregated
+// signature plus a bitmap identifying which epoch delegates contributed; the
+// endorsements slice stays empty.
 type Footer struct {
-	endorsements []*endorsement.Endorsement
-	commitTime   time.Time
+	endorsements        []*endorsement.Endorsement
+	commitTime          time.Time
+	aggregatedSignature []byte
+	signerBitmap        []byte
 }
 
 // Proto converts BlockFooter
@@ -29,6 +35,12 @@ func (f *Footer) Proto() *iotextypes.BlockFooter {
 	pb.Endorsements = []*iotextypes.Endorsement{}
 	for _, en := range f.endorsements {
 		pb.Endorsements = append(pb.Endorsements, en.Proto())
+	}
+	if len(f.aggregatedSignature) > 0 {
+		pb.AggregatedSignature = append([]byte(nil), f.aggregatedSignature...)
+	}
+	if len(f.signerBitmap) > 0 {
+		pb.SignerBitmap = append([]byte(nil), f.signerBitmap...)
 	}
 	return &pb
 }
@@ -43,6 +55,12 @@ func (f *Footer) ConvertFromBlockFooterPb(pb *iotextypes.BlockFooter) error {
 	}
 	commitTime := pb.GetTimestamp().AsTime()
 	f.commitTime = commitTime
+	if aggSig := pb.GetAggregatedSignature(); len(aggSig) > 0 {
+		f.aggregatedSignature = append([]byte(nil), aggSig...)
+	}
+	if bitmap := pb.GetSignerBitmap(); len(bitmap) > 0 {
+		f.signerBitmap = append([]byte(nil), bitmap...)
+	}
 	pbEndorsements := pb.GetEndorsements()
 	if pbEndorsements == nil {
 		return nil
@@ -67,6 +85,27 @@ func (f *Footer) CommitTime() time.Time {
 // Endorsements returns the number of commit endorsements froms delegates
 func (f *Footer) Endorsements() []*endorsement.Endorsement {
 	return f.endorsements
+}
+
+// AggregatedSignature returns the BLS12-381 aggregate signature over the
+// per-block COMMIT vote (96 bytes, G2 compressed) when BLS signature
+// aggregation is activated; empty for pre-fork blocks.
+func (f *Footer) AggregatedSignature() []byte {
+	return append([]byte(nil), f.aggregatedSignature...)
+}
+
+// SignerBitmap returns the bitmap identifying which epoch delegates
+// contributed to AggregatedSignature. Bit i (LSB-first within each byte)
+// corresponds to delegate i in the epoch's delegate list. Empty for
+// pre-fork blocks.
+func (f *Footer) SignerBitmap() []byte {
+	return append([]byte(nil), f.signerBitmap...)
+}
+
+// IsAggregated reports whether this footer carries a BLS aggregate signature
+// rather than the per-delegate endorsements list.
+func (f *Footer) IsAggregated() bool {
+	return len(f.aggregatedSignature) > 0
 }
 
 // Serialize returns the serialized byte stream of the block footer

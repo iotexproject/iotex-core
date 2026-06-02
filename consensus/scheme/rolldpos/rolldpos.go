@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/v2/consensus/scheme"
 	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/endorsement"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state/factory"
 )
@@ -184,6 +185,9 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 		return err
 	}
 	blkHash := blk.HashBlock()
+	if blk.Footer.IsAggregated() {
+		return validateAggregatedFooter(round, blk, blkHash[:])
+	}
 	for _, en := range blk.Endorsements() {
 		if err := round.AddVoteEndorsement(
 			NewConsensusVote(blkHash[:], COMMIT),
@@ -196,6 +200,42 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 		return ErrInsufficientEndorsements
 	}
 
+	return nil
+}
+
+// validateAggregatedFooter verifies a BLS-aggregated block footer (IIP-52).
+// The signer_bitmap is decoded against the round's delegate list to recover
+// each contributing delegate's BLS public key. The aggregated signature is
+// then verified against the COMMIT-vote hash that every signer signed —
+// reconstructed via hashDocWithTime over (blockHash, COMMIT, blk.CommitTime).
+// Quorum is checked separately to mirror the per-endorsement majority rule.
+func validateAggregatedFooter(round *roundCtx, blk *block.Block, blkHash []byte) error {
+	signers, err := bitmapSigners(blk.Footer.SignerBitmap(), round.delegates)
+	if err != nil {
+		return errors.Wrap(err, "invalid signer bitmap")
+	}
+	if !round.isMajorityCount(len(signers)) {
+		return ErrInsufficientEndorsements
+	}
+	pubKeys := make([]*crypto.BLS12381PublicKey, 0, len(signers))
+	for _, d := range signers {
+		if d.BLSPubKey == nil {
+			return errors.Errorf("delegate %s has no registered BLS pubkey", d.Address)
+		}
+		pubKeys = append(pubKeys, d.BLSPubKey)
+	}
+	aggSig, err := crypto.BLSAggregateSignatureFromBytes(blk.Footer.AggregatedSignature())
+	if err != nil {
+		return errors.Wrap(err, "invalid aggregated signature")
+	}
+	vote := NewConsensusVote(blkHash, COMMIT)
+	msg, err := endorsement.SigningHash(vote, blk.CommitTime())
+	if err != nil {
+		return errors.Wrap(err, "failed to hash COMMIT vote")
+	}
+	if !aggSig.Verify(pubKeys, msg) {
+		return errors.New("aggregated COMMIT signature verification failed")
+	}
 	return nil
 }
 

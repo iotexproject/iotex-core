@@ -320,7 +320,15 @@ func (ctx *roundCtx) endorsedByMajority(blockHash []byte, topics []ConsensusVote
 }
 
 func (ctx *roundCtx) isMajority(endorsements []*endorsement.Endorsement) bool {
-	return 3*len(endorsements) > 2*int(ctx.numOfDelegates)
+	return ctx.isMajorityCount(len(endorsements))
+}
+
+// isMajorityCount reports whether a vote count satisfies this round's 2/3
+// quorum threshold (3 * count > 2 * numOfDelegates). Single source of truth
+// for both the per-endorsement (pre-fork) and bitmap-count (post-fork)
+// paths, so changes to the quorum rule stay in one place.
+func (ctx *roundCtx) isMajorityCount(count int) bool {
+	return 3*count > 2*int(ctx.numOfDelegates)
 }
 
 func (ctx *roundCtx) block(blkHash []byte) *block.Block {

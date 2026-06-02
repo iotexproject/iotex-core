@@ -19,7 +19,7 @@ import (
 
 func TestConvertToBlockFooterPb(t *testing.T) {
 	require := require.New(t)
-	footer := &Footer{nil, time.Now()}
+	footer := &Footer{endorsements: nil, commitTime: time.Now()}
 	blockFooter := footer.Proto()
 	require.NotNil(blockFooter)
 	require.Equal(0, len(blockFooter.Endorsements))
@@ -43,7 +43,7 @@ func TestConvertFromBlockFooterPb(t *testing.T) {
 
 func TestSerDesFooter(t *testing.T) {
 	require := require.New(t)
-	footer := &Footer{nil, time.Now()}
+	footer := &Footer{endorsements: nil, commitTime: time.Now()}
 	ser, err := footer.Serialize()
 	require.NoError(err)
 	require.NoError(footer.Deserialize(ser))
@@ -57,10 +57,35 @@ func TestSerDesFooter(t *testing.T) {
 	require.Equal(1, len(footer.endorsements))
 }
 
+func TestFooter_AggregateSerDes(t *testing.T) {
+	require := require.New(t)
+	aggSig := make([]byte, 96)
+	for i := range aggSig {
+		aggSig[i] = byte(i)
+	}
+	bitmap := []byte{0xa5, 0x03}
+	footer := &Footer{
+		commitTime:          time.Unix(1700000000, 0).UTC(),
+		aggregatedSignature: aggSig,
+		signerBitmap:        bitmap,
+	}
+	require.True(footer.IsAggregated())
+
+	ser, err := footer.Serialize()
+	require.NoError(err)
+
+	restored := &Footer{}
+	require.NoError(restored.Deserialize(ser))
+	require.True(restored.IsAggregated())
+	require.Equal(aggSig, restored.AggregatedSignature())
+	require.Equal(bitmap, restored.SignerBitmap())
+	require.Equal(0, len(restored.Endorsements()))
+}
+
 func makeFooter() (f *Footer) {
 	endors := make([]*endorsement.Endorsement, 0)
 	endor := endorsement.NewEndorsement(time.Now(), identityset.PrivateKey(27).PublicKey(), nil)
 	endors = append(endors, endor)
-	f = &Footer{endors, time.Now()}
+	f = &Footer{endorsements: endors, commitTime: time.Now()}
 	return
 }

@@ -972,9 +972,17 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 		if err != nil {
 			return nil, err
 		}
-		if active {
-			cand = append(cand, list[i])
+		if !active {
+			continue
 		}
+		// Post-fork (IIP-52): drop candidates without a registered BLS public
+		// key so the per-block aggregate signature has a well-defined signer
+		// set. Pre-fork the BLSPubKey field is empty for every candidate and
+		// this filter is a no-op.
+		if fCtx.EnableBLSAggregation && len(list[i].BLSPubKey) == 0 {
+			continue
+		}
+		cand = append(cand, list[i])
 	}
 	return cand.toStateCandidateList(protocol.MustGetFeatureWithHeightCtx(ctx).CandidateWithoutIdentityStorage(height))
 }
