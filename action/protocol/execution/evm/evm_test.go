@@ -10,7 +10,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"math/big"
 	"testing"
@@ -630,17 +629,18 @@ func TestExtractRevertMessage(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		name string
-		in   []byte
-		want string
+		name    string
+		in      []byte
+		want    string
+		wantErr bool
 	}{
-		{"nil", nil, ""},
-		{"shorter than selector", []byte{0x01, 0x02}, "0102"},
-		{"non-revert prefix", []byte{0x01, 0x02, 0x03, 0x04, 0x05}, "0102030405"},
+		{"nil", nil, "", true},
+		{"shorter than selector", []byte{0x01, 0x02}, "", true},
+		{"non-revert prefix", []byte{0x01, 0x02, 0x03, 0x04, 0x05}, "", true},
 		{
 			"selector only, truncated length offset",
 			append(append([]byte{}, _revertSelector...), bytes.Repeat([]byte{0xff}, 50)...),
-			hex.EncodeToString(append(append([]byte{}, _revertSelector...), bytes.Repeat([]byte{0xff}, 50)...)),
+			"", true,
 		},
 		{
 			"msgLength exceeds remaining payload",
@@ -653,10 +653,15 @@ func TestExtractRevertMessage(t *testing.T) {
 				out = append(out, []byte("short")...) // but only provide 5 bytes
 				return out
 			}(),
-			"", // computed below
+			"", true,
 		},
+		{"well-formed hello", wellFormed("hello"), "hello", false},
+		{"well-formed empty", wellFormed(""), "", false},
+		{"well-formed with emoji", wellFormed("nope 🚫"), "nope 🚫", false},
 		{
-			"valid length but invalid UTF-8",
+			// Regression guard: utf8.Valid check was intentionally removed so
+			// honest-but-non-UTF-8 reverts remain consensus-compatible.
+			"well-formed but non-UTF-8 string",
 			func() []byte {
 				out := append([]byte{}, _revertSelector...)
 				offset := make([]byte, 32)
@@ -665,24 +670,28 @@ func TestExtractRevertMessage(t *testing.T) {
 				length := make([]byte, 32)
 				length[31] = 0x02
 				out = append(out, length...)
-				out = append(out, 0xff, 0xfe, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+				out = append(out, 0xff, 0xfe)
+				out = append(out, make([]byte, 30)...)
 				return out
 			}(),
-			"", // computed below
+			"\xff\xfe", false,
 		},
-		{"well-formed hello", wellFormed("hello"), "hello"},
-		{"well-formed empty", wellFormed(""), ""},
-		{"well-formed with emoji", wellFormed("nope 🚫"), "nope 🚫"},
+		{
+			// Boundary: msgLength exactly equals len(data)-64.
+			"msgLength exactly fills payload",
+			wellFormed("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), // 32 bytes, no padding required
+			"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", false,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			// For the two "fallback to hex" cases we computed at runtime,
-			// expected output is hex of the full input.
-			want := tc.want
-			if tc.name == "msgLength exceeds remaining payload" || tc.name == "valid length but invalid UTF-8" {
-				want = hex.EncodeToString(tc.in)
-			}
 			r.NotPanics(func() {
-				r.Equal(want, ExtractRevertMessage(tc.in))
+				got, err := ExtractRevertMessage(tc.in)
+				if tc.wantErr {
+					r.Error(err)
+				} else {
+					r.NoError(err)
+				}
+				r.Equal(tc.want, got)
 			})
 		})
 	}

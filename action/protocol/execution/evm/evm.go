@@ -8,11 +8,9 @@ package evm
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"math"
 	"math/big"
 	"time"
-	"unicode/utf8"
 
 	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/ethereum/go-ethereum/common"
@@ -375,7 +373,11 @@ func ExecuteContract(
 
 	if ps.featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && len(retval) >= 4 && bytes.Equal(retval[:4], _revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
-		receipt.SetExecutionRevertMsg(ExtractRevertMessage(retval))
+		msg, err := ExtractRevertMessage(retval)
+		if err != nil {
+			return nil, nil, err
+		}
+		receipt.SetExecutionRevertMsg(msg)
 	}
 	return retval, receipt, nil
 }
@@ -964,27 +966,21 @@ func SimulateAndCollectAccessList(
 	return stateDB.AccessedSlots(), nil
 }
 
-// ExtractRevertMessage extracts the revert message from the return value
-func ExtractRevertMessage(ret []byte) string {
-	if len(ret) < 4 {
-		return hex.EncodeToString(ret)
-	}
-	if !bytes.Equal(ret[:4], _revertSelector) {
-		return hex.EncodeToString(ret)
+// ExtractRevertMessage extracts the revert message from the return value.
+// Returns an error if the payload is not a well-formed Error(string) revert.
+func ExtractRevertMessage(ret []byte) (string, error) {
+	if len(ret) < 4 || !bytes.Equal(ret[:4], _revertSelector) {
+		return "", errors.New("malformed revert payload: missing Error(string) selector")
 	}
 	data := ret[4:]
 	if len(data) < 64 {
-		return hex.EncodeToString(ret)
+		return "", errors.New("malformed revert payload: data shorter than offset+length header")
 	}
 	msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
 	if msgLength > uint64(len(data)-64) {
-		return hex.EncodeToString(ret)
+		return "", errors.New("malformed revert payload: declared length exceeds available data")
 	}
-	msg := data[64 : 64+msgLength]
-	if !utf8.Valid(msg) {
-		return hex.EncodeToString(ret)
-	}
-	return string(msg)
+	return string(data[64 : 64+msgLength]), nil
 }
 
 func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64) (authority common.Address, err error) {
