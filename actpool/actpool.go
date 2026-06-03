@@ -8,6 +8,7 @@ package actpool
 import (
 	"context"
 	"encoding/hex"
+	"math/big"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -561,6 +562,65 @@ func (ap *actPool) allocatedWorker(senderAddr address.Address) int {
 	senderBytes := senderAddr.Bytes()
 	var lastByte uint8 = senderBytes[len(senderBytes)-1]
 	return int(lastByte) % _numWorker
+}
+
+// popLowestPriorityAcrossWorkers pops the globally-lowest-priority head action
+// across every worker shard. Evicting only from the sender's shard lets an
+// attacker who fills one shard force honest users in the other ~94% of shards
+// to evict each other; choosing the eviction victim from the union of all
+// shards restores the single-pool fairness implied by MaxNumActsPerPool.
+//
+// We acquire every worker's mu in increasing index order. No other code path
+// holds more than one worker mu at a time, so this cannot deadlock with a
+// concurrent Handle / Reset / PendingActions.
+func (ap *actPool) popLowestPriorityAcrossWorkers() *action.SealedEnvelope {
+	for i := range ap.worker {
+		ap.worker[i].mu.Lock()
+	}
+	defer func() {
+		for i := range ap.worker {
+			ap.worker[i].mu.Unlock()
+		}
+	}()
+	var (
+		bestIdx     = -1
+		bestHasNext bool
+		bestSettled bool
+		bestGP      *big.Int
+	)
+	for i, w := range ap.worker {
+		if len(w.accountActs.accounts) == 0 {
+			continue
+		}
+		settled, gp := w.accountActs.priorityQueue[0].actQueue.NextAction()
+		hasNext := gp != nil
+		if bestIdx < 0 || headLess(hasNext, settled, gp, bestHasNext, bestSettled, bestGP) {
+			bestIdx, bestHasNext, bestSettled, bestGP = i, hasNext, settled, gp
+		}
+	}
+	if bestIdx < 0 {
+		return nil
+	}
+	return ap.worker[bestIdx].accountActs.PopPeek()
+}
+
+// headLess mirrors accountPriorityQueue.Less so that the eviction victim
+// picked across all shards matches what a single unified per-account heap
+// would have evicted.
+func headLess(aHasNext, aSettled bool, aGP *big.Int, bHasNext, bSettled bool, bGP *big.Int) bool {
+	if !bHasNext {
+		return true
+	}
+	if !aHasNext {
+		return false
+	}
+	if !aSettled && bSettled {
+		return true
+	}
+	if !bSettled && aSettled {
+		return false
+	}
+	return aGP.Cmp(bGP) < 0
 }
 
 func (ap *actPool) AddSubscriber(sub Subscriber) {
