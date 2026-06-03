@@ -6,7 +6,6 @@
 package action
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -320,7 +319,7 @@ func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 			elp.common = &tx
 		}
 	default:
-		panic(fmt.Sprintf("unsupported action type = %d", pbAct.TxType))
+		return errors.Wrapf(ErrInvalidAct, "unsupported tx type = %d", pbAct.TxType)
 	}
 	return err
 }
