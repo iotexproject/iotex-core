@@ -148,6 +148,11 @@ func (dm *InfoManager) MayHaveBlock(peerID string, start uint64) bool {
 // HandleNodeInfo handle node info message
 func (dm *InfoManager) HandleNodeInfo(ctx context.Context, peerID string, msg *iotextypes.NodeInfo) {
 	log.L().Debug("nodeinfo manager handle node info")
+	// reject malformed messages from peers before dereferencing inner fields
+	if msg == nil || msg.Info == nil {
+		log.L().Warn("nodeinfo manager received malformed node info", zap.String("peerID", peerID))
+		return
+	}
 	// recover pubkey
 	hash := hashNodeInfo(msg.Info)
 	pubKey, err := crypto.RecoverPubkey(hash[:], msg.Signature)
