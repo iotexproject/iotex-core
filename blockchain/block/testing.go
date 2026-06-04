@@ -86,7 +86,7 @@ func (b *TestingBuilder) SignAndBuild(signerPrvKey crypto.PrivateKey) (Block, er
 		log.L().Debug("error in getting hash", zap.Error(err))
 		return Block{}, errors.New("failed to get hash")
 	}
-	b.blk.Header.pubkey = signerPrvKey.PublicKey()
+	b.blk.Header.producerPubkey = signerPrvKey.PublicKey().Bytes()
 	h := b.blk.Header.HashHeaderCore()
 	sig, err := signerPrvKey.Sign(h[:])
 	if err != nil {
@@ -113,7 +113,7 @@ func NewBlockDeprecated(
 			height:        height,
 			timestamp:     timestamp,
 			prevBlockHash: prevBlockHash,
-			pubkey:        producer,
+			producerPubkey: producer.Bytes(),
 			txRoot:        hash.ZeroHash256,
 			receiptRoot:   hash.ZeroHash256,
 		},

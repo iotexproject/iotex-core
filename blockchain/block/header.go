@@ -6,6 +6,7 @@
 package block
 
 import (
+	"encoding/hex"
 	"math/big"
 	"time"
 
@@ -24,6 +25,12 @@ import (
 
 // Header defines the struct of block header
 // make sure the variable type and order of this struct is same as "BlockHeaderPb" in blockchain.pb.go
+//
+// producerPubkey holds the raw bytes of the block producer's public key.
+// Pre-fork it is a secp256k1 pubkey (33 or 65 bytes); once BLS aggregation is
+// activated (IIP-52 follow-up) blocks may carry a BLS12-381 pubkey (48
+// bytes). The signature scheme is implied by len(blockSig): 65B secp256k1 vs
+// 96B BLS12-381. See VerifySignature and ProducerAddress for the dispatch.
 type Header struct {
 	version          uint32            // version
 	height           uint64            // block height
@@ -34,8 +41,8 @@ type Header struct {
 	deltaStateDigest hash.Hash256      // digest of state change by this block
 	receiptRoot      hash.Hash256      // root of receipt trie
 	logsBloom        bloom.BloomFilter // bloom filter for all contract events in this block
-	blockSig         []byte            // block signature
-	pubkey           crypto.PublicKey  // block producer's public key
+	blockSig         []byte            // block signature (secp256k1: 65B; BLS12-381: 96B)
+	producerPubkey   []byte            // block producer's public key (raw bytes)
 	baseFee          *big.Int          // added by EIP-1559 and is ignored in legacy headers
 
 	// added by EIP-4844 and is ignored in legacy headers.
@@ -71,8 +78,32 @@ func (h *Header) TxRoot() hash.Hash256 { return h.txRoot }
 // DeltaStateDigest returns the delta sate digest after applying this block.
 func (h *Header) DeltaStateDigest() hash.Hash256 { return h.deltaStateDigest }
 
-// PublicKey returns the public key of this header.
-func (h *Header) PublicKey() crypto.PublicKey { return h.pubkey }
+// PublicKey returns the producer's secp256k1 public key, or nil for headers
+// whose producerPubkey is not a secp256k1 key (e.g. post-fork BLS-signed
+// headers). Use ProducerPubKey for the raw bytes regardless of scheme.
+func (h *Header) PublicKey() crypto.PublicKey {
+	if len(h.producerPubkey) == 0 {
+		return nil
+	}
+	pk, err := crypto.BytesToPublicKey(h.producerPubkey)
+	if err != nil {
+		return nil
+	}
+	return pk
+}
+
+// ProducerPubKey returns the raw bytes of the producer's public key,
+// regardless of signature scheme. For pre-fork headers this is a secp256k1
+// pubkey (33 or 65 bytes); for post-fork BLS-signed headers this is a 48-byte
+// BLS12-381 pubkey. Returns a defensive copy.
+func (h *Header) ProducerPubKey() []byte {
+	if len(h.producerPubkey) == 0 {
+		return nil
+	}
+	out := make([]byte, len(h.producerPubkey))
+	copy(out, h.producerPubkey)
+	return out
+}
 
 // ReceiptRoot returns the receipt root after apply this block
 func (h *Header) ReceiptRoot() hash.Hash256 { return h.receiptRoot }
@@ -108,7 +139,7 @@ func (h *Header) Proto() *iotextypes.BlockHeader {
 	}
 
 	if h.height > 0 {
-		header.ProducerPubkey = h.pubkey.Bytes()
+		header.ProducerPubkey = append([]byte(nil), h.producerPubkey...)
 		header.Signature = h.blockSig
 	}
 	return &header
@@ -146,11 +177,9 @@ func (h *Header) LoadFromBlockHeaderProto(pb *iotextypes.BlockHeader) error {
 	sig := pb.GetSignature()
 	h.blockSig = make([]byte, len(sig))
 	copy(h.blockSig, sig)
-	pubKey, err := crypto.BytesToPublicKey(pb.GetProducerPubkey())
-	if err != nil {
-		return err
-	}
-	h.pubkey = pubKey
+	pubKey := pb.GetProducerPubkey()
+	h.producerPubkey = make([]byte, len(pubKey))
+	copy(h.producerPubkey, pubKey)
 	return nil
 }
 
@@ -215,14 +244,28 @@ func (h *Header) HashHeaderCore() hash.Hash256 {
 	return hash.Hash256b(h.SerializeCore())
 }
 
-// VerifySignature verifies the signature saved in block header
+// VerifySignature verifies the signature saved in block header. The
+// signature scheme is selected by len(blockSig): secp256k1 (65 bytes) is the
+// pre-fork path; BLS12-381 (96 bytes, G2 compressed) is the post-fork path.
 func (h *Header) VerifySignature() bool {
-	hash := h.HashHeaderCore()
-
-	if h.pubkey == nil {
+	if len(h.producerPubkey) == 0 {
 		return false
 	}
-	return h.pubkey.Verify(hash[:], h.blockSig)
+	digest := h.HashHeaderCore()
+	switch len(h.blockSig) {
+	case crypto.BLSAggregateSignatureLength:
+		blsPK, err := crypto.BLS12381PublicKeyFromBytes(h.producerPubkey)
+		if err != nil {
+			return false
+		}
+		return blsPK.Verify(digest[:], h.blockSig)
+	default:
+		pk, err := crypto.BytesToPublicKey(h.producerPubkey)
+		if err != nil {
+			return false
+		}
+		return pk.Verify(digest[:], h.blockSig)
+	}
 }
 
 // VerifyDeltaStateDigest verifies the delta state digest in header
@@ -240,10 +283,34 @@ func (h *Header) VerifyTransactionRoot(root hash.Hash256) bool {
 	return h.txRoot == root
 }
 
-// ProducerAddress returns the address of producer
+// ProducerAddress returns a string identifier for the block producer.
+//
+// Dispatch is on len(blockSig):
+//   - secp256k1 (65B): the secp256k1-derived iotex address ("io1..."),
+//     matching pre-fork semantics.
+//   - BLS12-381 (96B): the hex encoding of the 48-byte BLS public key.
+//     BLS public keys have no account semantics in iotex (no balance, no tx
+//     sender role) and are intentionally not derived into an iotex address;
+//     the hex form is the canonical post-fork operator identifier.
+//
+// The return type stays string so existing callers that use the value as a
+// map key or for `==` comparison continue to work; only the string format
+// flips across the fork boundary.
 func (h *Header) ProducerAddress() string {
-	addr := h.pubkey.Address()
-	return addr.String()
+	switch len(h.blockSig) {
+	case crypto.BLSAggregateSignatureLength:
+		return hex.EncodeToString(h.producerPubkey)
+	default:
+		pk, err := crypto.BytesToPublicKey(h.producerPubkey)
+		if err != nil || pk == nil {
+			return ""
+		}
+		addr := pk.Address()
+		if addr == nil {
+			return ""
+		}
+		return addr.String()
+	}
 }
 
 // HeaderLogger returns a new logger with block header fields' value.
