@@ -471,8 +471,9 @@ type InflationState struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// OutstandingSupply is the running mint base for the disinflation curve.
 	// Seeded at activation from genesis.OutstandingSupplyAtActivation; grows by
-	// mTotal each block; may decrement via decrementOutstandingSupply (e.g. a
-	// future burn IIP wiring a base-fee burn site into the counter).
+	// mTotal each block. IIP-62 only adds to this counter; IoTeX's EIP-1559
+	// base fee is deposited to the rewarding pool, not burned, so there is no
+	// burn-side debit in this proposal.
 	OutstandingSupply string `protobuf:"bytes,1,opt,name=outstandingSupply,proto3" json:"outstandingSupply,omitempty"`
 	// OutstandingSupplyAtYearStart is the §1.2 snapshot used for the entire year.
 	OutstandingSupplyAtYearStart string `protobuf:"bytes,2,opt,name=outstandingSupplyAtYearStart,proto3" json:"outstandingSupplyAtYearStart,omitempty"`

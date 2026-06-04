@@ -109,7 +109,8 @@ func BlobGasFeeOption(blobGasFee *big.Int) DepositOption {
 }
 
 type (
-	// DepositGas deposits gas to rewarding pool and burns baseFee
+	// DepositGas deposits gas (base fee + priority fee) into the rewarding pool.
+	// IoTeX does not burn base fee; it is credited to the pool like priority fee.
 	DepositGas func(context.Context, StateManager, *big.Int, ...DepositOption) ([]*action.TransactionLog, error)
 
 	View interface {
@@ -225,9 +226,8 @@ func SplitGas(ctx context.Context, tx action.TxDynamicGas, usedGas uint64) (*big
 	if err != nil {
 		return nil, nil, err
 	}
-	// after enabling EIP-1559, fee is split into 2 parts
-	// priority fee goes to the rewarding pool (or block producer) as before
-	// base fee will be burnt
+	// after enabling EIP-1559, fee is split into 2 parts; both go to the
+	// rewarding pool (IoTeX does not burn base fee).
 	base := new(big.Int).Set(baseFee)
 	return priority.Mul(priority, gas), base.Mul(base, gas), nil
 }

@@ -264,20 +264,6 @@ func TestInflationState_RoundTrip(t *testing.T) {
 	require.Equal(t, 0, s.epochRemainderAccumulator.Cmp(out.epochRemainderAccumulator))
 }
 
-func TestInflationState_DecrementOutstandingSupply(t *testing.T) {
-	s := newInflationState()
-	s.outstandingSupply.SetUint64(1000)
-	s.decrementOutstandingSupply(big.NewInt(250))
-	require.Equal(t, uint64(750), s.outstandingSupply.Uint64())
-	// nil and non-positive are no-ops
-	s.decrementOutstandingSupply(nil)
-	require.Equal(t, uint64(750), s.outstandingSupply.Uint64())
-	s.decrementOutstandingSupply(big.NewInt(-100))
-	require.Equal(t, uint64(750), s.outstandingSupply.Uint64())
-	s.decrementOutstandingSupply(big.NewInt(0))
-	require.Equal(t, uint64(750), s.outstandingSupply.Uint64())
-}
-
 func TestValidateInflationConfig(t *testing.T) {
 	valid := &genesis.Rewarding{
 		InflationRateY1Bps:            500,
@@ -493,6 +479,102 @@ func TestGrantEpochReward_UsesAccumulator(t *testing.T) {
 		req.Equalf(0, inf2.epochRemainderAccumulator.Sign(),
 			"accumulator must be zero after grant; got %s", inf2.epochRemainderAccumulator)
 	}, nil, false, 0)
+}
+
+// IIP-62 §4.1 invariant: the rewarding Fund must never underflow across the
+// per-block mint + block-reward debit cycle. This test walks many post-activation
+// blocks and, after each GrantBlockReward, asserts:
+//   - totalBalance >= unclaimedBalance (Claim has not run, so this must always hold)
+//   - unclaimedBalance >= 0 (the floor-regime clamp prevents the debit from exceeding
+//     the mint credit; without the clamp this would underflow once mStaker < blockReward)
+//   - postActivationMinted == sum of per-block mTotal credited (no double-count, no drop)
+//
+// Two regimes are covered as sub-tests:
+//
+//	high-mint: supply=100 IOTX × Y1=100%/year → mStaker ≫ a.blockReward (10 rau);
+//	           the producer grant is bounded by blockReward and the rest accrues to fund.
+//	floor:     supply=1000 rau × Y1=100%/year → mStaker (≈8 rau) < blockReward (10 rau);
+//	           the step-F clamp kicks in and the producer is paid mStaker (not blockReward),
+//	           so unclaimedBalance stays at zero block-over-block instead of underflowing.
+func TestMintAndAllocate_FundInvariant(t *testing.T) {
+	machinaAddr := identityset.Address(33).String()
+	const blocksPerYear = 100
+	const numBlocks = 25
+
+	cases := []struct {
+		name     string
+		supply   string // OutstandingSupplyAtActivation, in rau
+		regimeIs string // "high" or "floor" — annotates failure messages
+	}{
+		{"high_mint_regime", "100000000000000000000", "high"}, // 100 IOTX
+		{"floor_regime", "1000", "floor"},                    // 1000 rau → mStaker < blockReward(10)
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+				req := require.New(t)
+				g := genesis.MustExtractGenesisContext(ctx)
+				g.Rewarding.InflationRateY1Bps = 10000
+				g.Rewarding.InflationDecayNumerator = 8000
+				g.Rewarding.InflationDecayDenominator = 10000
+				g.Rewarding.InflationFloorBps = 50
+				g.Rewarding.BlocksPerYear = blocksPerYear
+				g.Rewarding.StakerShareBps = 8000
+				g.Rewarding.MachinaShareBps = 2000
+				g.Rewarding.MachinaDaoAddress = machinaAddr
+				g.Rewarding.OutstandingSupplyAtActivation = tc.supply
+
+				blkCtx := protocol.MustGetBlockCtx(ctx)
+				activation := blkCtx.BlockHeight
+				g.ToBeEnabledBlockHeight = activation
+				ctx = genesis.WithGenesisContext(ctx, g)
+				ctx = protocol.WithFeatureCtx(ctx)
+
+				req.NoError(p.CreatePreStates(ctx, sm))
+
+				expectedMinted := new(big.Int)
+				for i := 1; i <= numBlocks; i++ {
+					blkCtx.BlockHeight = activation + uint64(i)
+					ctx = protocol.WithBlockCtx(ctx, blkCtx)
+					ctx = genesis.WithGenesisContext(ctx, g)
+					ctx = protocol.WithFeatureCtx(ctx)
+
+					// Snapshot inflation state pre-grant so we can compute the expected
+					// per-block mint credit independently of the protocol's accounting.
+					infPre := newInflationState()
+					_, err := p.state(ctx, sm, _inflKey, infPre)
+					req.NoError(err)
+					perBlock, _ := PerBlockMint(infPre.outstandingSupplyAtYearStart, infPre.currentInflationBps, blocksPerYear)
+					mTotal := new(big.Int).Set(perBlock)
+					if IsYearFinalBlock(activation, blocksPerYear, blkCtx.BlockHeight) {
+						mTotal.Add(mTotal, infPre.yearMintRemainder)
+					}
+					expectedMinted.Add(expectedMinted, mTotal)
+
+					_, _, err = p.GrantBlockReward(ctx, sm)
+					req.NoErrorf(err, "%s: GrantBlockReward failed at block %d", tc.regimeIs, blkCtx.BlockHeight)
+
+					// Core invariant: total >= unclaimed >= 0 after every block.
+					total, _, err := p.TotalBalance(ctx, sm)
+					req.NoError(err)
+					unclaimed, _, err := p.AvailableBalance(ctx, sm)
+					req.NoError(err)
+					req.Truef(total.Sign() >= 0, "%s: totalBalance went negative at block %d: %s", tc.regimeIs, blkCtx.BlockHeight, total)
+					req.Truef(unclaimed.Sign() >= 0, "%s: unclaimedBalance underflowed at block %d: %s", tc.regimeIs, blkCtx.BlockHeight, unclaimed)
+					req.Truef(total.Cmp(unclaimed) >= 0, "%s: totalBalance < unclaimedBalance at block %d (t=%s u=%s)", tc.regimeIs, blkCtx.BlockHeight, total, unclaimed)
+
+					// postActivationMinted must equal our independently summed mTotal.
+					infPost := newInflationState()
+					_, err = p.state(ctx, sm, _inflKey, infPost)
+					req.NoError(err)
+					req.Equalf(0, infPost.postActivationMinted.Cmp(expectedMinted),
+						"%s: postActivationMinted drift at block %d (got %s want %s)",
+						tc.regimeIs, blkCtx.BlockHeight, infPost.postActivationMinted, expectedMinted)
+				}
+			}, nil, false, 0)
+		})
+	}
 }
 
 func mustAddr(s string) address.Address {

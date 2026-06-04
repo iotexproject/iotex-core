@@ -152,6 +152,12 @@ func (p *Protocol) initInflationState(ctx context.Context, sm protocol.StateMana
 	s.outstandingSupplyAtYearStart.Set(supply)
 	s.currentInflationBps = cfg.InflationRateY1Bps
 	s.currentYearIndex = 1
+	// Pre-stage Y1's year-end remainder here — mintAndAllocate's boundary branch
+	// only fires when year != currentYearIndex (Y2+), so without this seed the Y1
+	// final-block flush would add zero and Y1 mint would fall short by up to
+	// blocksPerYear-1 Rau.
+	_, rem := PerBlockMint(s.outstandingSupplyAtYearStart, s.currentInflationBps, cfg.BlocksPerYear)
+	s.yearMintRemainder.Set(rem)
 
 	return p.putState(ctx, sm, _inflKey, s)
 }
@@ -300,8 +306,15 @@ func (p *Protocol) mintAndAllocate(ctx context.Context, sm protocol.StateManager
 	// Credit Machina share to the externally-managed recipient account. LoadOrCreate
 	// only allocates a state record on first credit; the multisig owning this
 	// address is created and governed out of band.
+	//
+	// This is a pure balance credit — no EVM call is made into the recipient. If the
+	// Machina DAO is implemented as a smart contract, its `receive()`/`fallback()`
+	// will NOT be invoked; the contract must therefore be designed to tolerate
+	// passive balance accrual (a multisig / Gnosis-Safe-style account does this
+	// natively; a custom DAO contract that relies on receive() to update internal
+	// accounting would not see this credit).
 	if mMachina.Sign() > 0 {
-		machinaAddr := cfg.MachinaDaoAddr()
+		machinaAddr := p.machinaAddr
 		accountCreationOpts := []state.AccountCreationOption{}
 		if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
 			accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
@@ -382,17 +395,6 @@ func (p *Protocol) CurrentInflationBps(ctx context.Context, sm protocol.StateRea
 		return 0, height, err
 	}
 	return s.currentInflationBps, height, nil
-}
-
-// decrementOutstandingSupply subtracts amount from outstandingSupply. Reserved for a
-// future burn-side IIP (e.g. wiring EIP-1559 base-fee burns into the counter) — not
-// used by IIP-62 itself. Kept as a helper so external callers don't reach into the
-// struct.
-func (s *inflationState) decrementOutstandingSupply(amount *big.Int) {
-	if amount == nil || amount.Sign() <= 0 {
-		return
-	}
-	s.outstandingSupply.Sub(s.outstandingSupply, amount)
 }
 
 func bigToStr(v *big.Int) string {

@@ -59,8 +59,9 @@ message RewardLogs {
 message InflationState {
     // OutstandingSupply is the running mint base for the disinflation curve.
     // Seeded at activation from genesis.OutstandingSupplyAtActivation; grows by
-    // mTotal each block; may decrement via decrementOutstandingSupply (e.g. a
-    // future burn IIP wiring a base-fee burn site into the counter).
+    // mTotal each block. IIP-62 only adds to this counter; IoTeX's EIP-1559
+    // base fee is deposited to the rewarding pool, not burned, so there is no
+    // burn-side debit in this proposal.
     string outstandingSupply = 1;
     // OutstandingSupplyAtYearStart is the §1.2 snapshot used for the entire year.
     string outstandingSupplyAtYearStart = 2;

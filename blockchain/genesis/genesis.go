@@ -532,6 +532,12 @@ type (
 		// MachinaDaoAddress is the externally-managed recipient (multisig or otherwise)
 		// of the Machina DAO share. This codebase only credits balance to it; the
 		// address itself is created and governed out of band.
+		//
+		// Credit semantics: balance-only. mintAndAllocate calls AddBalance on the
+		// account; it does NOT invoke any contract code at this address. If the
+		// recipient is a smart contract, its receive()/fallback() will NOT run.
+		// Any DAO contract placed here must tolerate passive balance accrual (a
+		// multisig / Gnosis-Safe-style account does this natively).
 		MachinaDaoAddress string `yaml:"machinaDaoAddress"`
 		// OutstandingSupplyAtActivation is the snapshot of the on-chain non-zero-address
 		// balance sum at the parent of ProductiveInflationBlockHeight, in Rau as a decimal
@@ -984,16 +990,6 @@ func (r *Rewarding) WakeBlockReward() *big.Int {
 		log.S().Panicf("Error when casting block reward string %s into big int", r.WakeBlockRewardStr)
 	}
 	return val
-}
-
-// MachinaDaoAddr returns the IIP-62 Machina DAO recipient address.
-// Panics if the configured value is malformed; genesis validation should reject it earlier.
-func (r *Rewarding) MachinaDaoAddr() address.Address {
-	addr, err := address.FromString(r.MachinaDaoAddress)
-	if err != nil {
-		log.L().Panic("Error when decoding the Machina DAO address from string.", zap.Error(err))
-	}
-	return addr
 }
 
 // OutstandingSupplyAtActivationBig returns the IIP-62 OutstandingSupplyAtActivation

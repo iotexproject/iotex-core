@@ -50,6 +50,11 @@ type Protocol struct {
 	keyPrefix []byte
 	addr      address.Address
 	cfg       genesis.Rewarding
+	// machinaAddr is the IIP-62 Machina DAO recipient pre-parsed once at construction
+	// so the per-block mintAndAllocate hot path does not reparse the bech32 string.
+	// nil when MachinaDaoAddress is empty in genesis (pre-activation networks); the
+	// activation-time validateInflationConfig check rejects an empty address.
+	machinaAddr address.Address
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
@@ -62,11 +67,19 @@ func NewProtocol(cfg genesis.Rewarding) *Protocol {
 	if err = validateFoundationBonusExtension(cfg); err != nil {
 		log.L().Panic("failed to validate foundation bonus extension", zap.Error(err))
 	}
-	return &Protocol{
+	p := &Protocol{
 		keyPrefix: state.RewardingKeyPrefix[:],
 		addr:      addr,
 		cfg:       cfg,
 	}
+	if cfg.MachinaDaoAddress != "" {
+		machinaAddr, err := address.FromString(cfg.MachinaDaoAddress)
+		if err != nil {
+			log.L().Panic("Error parsing MachinaDaoAddress", zap.Error(err))
+		}
+		p.machinaAddr = machinaAddr
+	}
+	return p
 }
 
 // ProtocolAddr returns the address generated from protocol id
