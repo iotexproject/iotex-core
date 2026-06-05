@@ -17,7 +17,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
+	gocrypto "github.com/iotexproject/go-pkgs/crypto"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -1332,4 +1334,54 @@ func TestIsBlackListedFunc(t *testing.T) {
 		require.False(isBlackListed("io1other", 100))
 		require.False(isBlackListed("io1other", 1000))
 	})
+}
+
+// TestActPool_RejectSystemSender verifies the actpool rejects externally
+// submitted SealedEnvelopes whose sender equals protocol.SystemSenderAddress
+// — even when the action body itself is NOT one of the system action types
+// caught by action.IsSystemAction. The mempool filter on sender address is
+// the defense against arbitrary actions signed with the public system signer
+// key (see BLS Producer Identity IIP, Section S).
+func TestActPool_RejectSystemSender(t *testing.T) {
+	require := require.New(t)
+
+	// Re-derive the system signer private key from the documented seed.
+	// Duplicates the derivation in action/protocol/system_signer.go on
+	// purpose: if the seed in either place changes, this test breaks loudly
+	// rather than silently letting hostile actions through.
+	seed := ethcrypto.Keccak256([]byte("iotex.system.signer.v1"))
+	sysKey, err := gocrypto.BytesToPrivateKey(seed)
+	require.NoError(err)
+	require.Equal(protocol.SystemSenderAddress.String(),
+		sysKey.PublicKey().Address().String(),
+		"test-derived system signer must match the protocol's SystemSenderAddress")
+
+	ctrl := gomock.NewController(t)
+	sf := mock_chainmanager.NewMockStateReader(ctrl)
+	sf.EXPECT().Height().Return(uint64(0), nil).AnyTimes()
+	apConfig := DefaultConfig
+	ap, err := NewActPool(genesis.TestDefault(), sf, apConfig)
+	require.NoError(err)
+
+	// A vanilla Transfer signed with the public system key. action.IsSystemAction
+	// returns false for Transfer, so the sender-based filter is the only thing
+	// standing between this envelope and the pool.
+	tsf, err := action.SignedTransfer(
+		identityset.Address(1).String(),
+		sysKey,
+		1, big.NewInt(1), nil, uint64(20000), big.NewInt(0),
+	)
+	require.NoError(err)
+	require.False(action.IsSystemAction(tsf),
+		"sanity: Transfer is not caught by IsSystemAction")
+	require.Equal(protocol.SystemSenderAddress.String(), tsf.SenderAddress().String())
+
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(
+		genesis.WithGenesisContext(ctx, genesis.TestDefault()),
+		protocol.BlockCtx{BlockHeight: 1},
+	))
+
+	require.ErrorIs(ap.Add(ctx, tsf), action.ErrInvalidAct,
+		"actpool must reject any externally submitted envelope from SystemSenderAddress")
 }

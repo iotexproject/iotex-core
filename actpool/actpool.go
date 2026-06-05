@@ -296,6 +296,17 @@ func (ap *actPool) add(ctx context.Context, act *action.SealedEnvelope) error {
 	if action.IsSystemAction(act) {
 		return action.ErrInvalidAct
 	}
+	// The protocol-fixed system signer key (BLS Producer Identity IIP) is
+	// public, so anyone holding it can produce a syntactically valid
+	// SealedEnvelope with SystemSenderAddress as the sender — including for
+	// non-system-action types that the IsSystemAction check above would not
+	// catch. Such actions are only legitimate when produced internally by the
+	// state factory at block construction; any externally received envelope
+	// from this address is by definition invalid.
+	if act.SenderAddress() != nil && act.SenderAddress().String() == protocol.SystemSenderAddress.String() {
+		_actpoolMtc.WithLabelValues("systemSender").Inc()
+		return action.ErrInvalidAct
+	}
 
 	if err := checkSelpData(act); err != nil {
 		return err
