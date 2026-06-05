@@ -77,8 +77,18 @@ func validate(ctx context.Context, sr protocol.StateReader, p Protocol, act acti
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	if blkCtx.Producer.String() != actionCtx.Caller.String() {
-		return errors.New("Only producer could create this protocol")
+	// Post-fork (BLS Producer Identity IIP), PutPollResult is sealed by the
+	// protocol-fixed system signer, so the caller is SystemSenderAddress
+	// regardless of which delegate produced the block. Pre-fork the caller
+	// is the block producer.
+	if protocol.MustGetFeatureCtx(ctx).EnableBLSAggregation {
+		if actionCtx.Caller.String() != protocol.SystemSenderAddress.String() {
+			return errors.New("only the system signer could create this protocol")
+		}
+	} else {
+		if blkCtx.Producer.String() != actionCtx.Caller.String() {
+			return errors.New("Only producer could create this protocol")
+		}
 	}
 	proposedDelegates := ppr.Candidates()
 	if err := validateDelegates(proposedDelegates); err != nil {

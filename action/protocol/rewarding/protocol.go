@@ -196,8 +196,18 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 	switch act := elp.Action().(type) {
 	case *action.GrantReward:
 		actionCtx := protocol.MustGetActionCtx(ctx)
-		if !address.Equal(protocol.MustGetBlockCtx(ctx).Producer, actionCtx.Caller) {
-			return errors.New("Only producer could create reward")
+		// Post-fork (BLS Producer Identity IIP), GrantReward is sealed by the
+		// protocol-fixed system signer, so the caller is SystemSenderAddress
+		// regardless of which delegate produced the block. Pre-fork the
+		// caller is the block producer.
+		if protocol.MustGetFeatureCtx(ctx).EnableBLSAggregation {
+			if !address.Equal(protocol.SystemSenderAddress, actionCtx.Caller) {
+				return errors.New("only the system signer could create reward")
+			}
+		} else {
+			if !address.Equal(protocol.MustGetBlockCtx(ctx).Producer, actionCtx.Caller) {
+				return errors.New("Only producer could create reward")
+			}
 		}
 		if actionCtx.GasPrice != nil && actionCtx.GasPrice.Cmp(big.NewInt(0)) != 0 || actionCtx.IntrinsicGas != 0 {
 			return errors.New("invalid gas price or intrinsic gas for reward action")

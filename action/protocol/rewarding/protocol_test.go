@@ -236,9 +236,13 @@ func TestProtocol_Validate(t *testing.T) {
 			BlockHeight: g.NumDelegates * g.NumSubEpochs,
 		},
 	)
+	// Pin ToBeEnabledBlockHeight above the test height so that the
+	// pre-fork (Producer == Caller) branch in Validate is exercised. A
+	// zero-valued Blockchain leaves ToBeEnabledBlockHeight at 0, which
+	// would activate every IsToBeEnabled-gated feature.
 	ctx = genesis.WithGenesisContext(
 		ctx,
-		genesis.Genesis{},
+		genesis.Genesis{Blockchain: genesis.Blockchain{ToBeEnabledBlockHeight: ^uint64(0)}},
 	)
 	ctx = protocol.WithActionCtx(
 		protocol.WithFeatureCtx(ctx),
@@ -274,6 +278,41 @@ func TestProtocol_Validate(t *testing.T) {
 		},
 	)
 	require.Error(t, p.Validate(ctx, act, nil))
+}
+
+// TestProtocol_Validate_PostFork covers the BLS Producer Identity branch:
+// once EnableBLSAggregation is active, GrantReward must be signed by the
+// protocol-fixed system signer, so the only legitimate Caller is
+// SystemSenderAddress regardless of which delegate produced the block.
+func TestProtocol_Validate_PostFork(t *testing.T) {
+	g := genesis.TestDefault()
+	g.NewfoundlandBlockHeight = 0
+	p := NewProtocol(g.Rewarding)
+	act := createGrantRewardAction(0, uint64(0))
+
+	// ToBeEnabledBlockHeight = 0 so EnableBLSAggregation is on for any
+	// block height — this exercises the post-fork branch.
+	ctx := protocol.WithBlockCtx(
+		context.Background(),
+		protocol.BlockCtx{
+			Producer:    identityset.Address(0),
+			BlockHeight: g.NumDelegates * g.NumSubEpochs,
+		},
+	)
+	ctx = genesis.WithGenesisContext(ctx, genesis.Genesis{})
+	ctx = protocol.WithFeatureCtx(ctx)
+
+	// Caller == producer (pre-fork happy path) is now REJECTED post-fork.
+	rejectCtx := protocol.WithActionCtx(ctx, protocol.ActionCtx{
+		Caller: identityset.Address(0), GasPrice: big.NewInt(0),
+	})
+	require.Error(t, p.Validate(rejectCtx, act, nil))
+
+	// Caller == SystemSenderAddress is ACCEPTED post-fork.
+	acceptCtx := protocol.WithActionCtx(ctx, protocol.ActionCtx{
+		Caller: protocol.SystemSenderAddress, GasPrice: big.NewInt(0),
+	})
+	require.NoError(t, p.Validate(acceptCtx, act, nil))
 }
 
 func TestProtocol_Handle(t *testing.T) {
