@@ -577,6 +577,134 @@ func TestMintAndAllocate_FundInvariant(t *testing.T) {
 	}
 }
 
+// IIP-62 reorg-safety: a validator that re-executes a year-boundary block (e.g.
+// after an orphan) must produce byte-identical InflationState. The crossing
+// branch in mintAndAllocate fires when YearIndex(height) != currentYearIndex —
+// persisting currentYearIndex is what makes the branch re-fire deterministically
+// on re-execution.
+//
+// Strategy: drive state to "last block of Y1," capture the (inflation, fund,
+// machinaBalance) tuple, then run mintAndAllocate at the Y2-first block twice
+// with a full state restore between runs. Assert the two post-states are equal.
+func TestMintAndAllocate_ReorgSafe_YearBoundary(t *testing.T) {
+	machinaAddr := identityset.Address(33).String()
+	const (
+		blocksPerYear = 100
+		// Pick a supply chunky enough that the Y2 boundary actually moves the snapshot
+		// and the per-block mint is non-trivial (so equality is a meaningful assertion).
+		supplyRau = "100000000000000000000" // 100 IOTX
+	)
+
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		req := require.New(t)
+		g := genesis.MustExtractGenesisContext(ctx)
+		g.Rewarding.InflationRateY1Bps = 10000
+		g.Rewarding.InflationDecayNumerator = 8000
+		g.Rewarding.InflationDecayDenominator = 10000
+		g.Rewarding.InflationFloorBps = 50
+		g.Rewarding.BlocksPerYear = blocksPerYear
+		g.Rewarding.StakerShareBps = 8000
+		g.Rewarding.MachinaShareBps = 2000
+		g.Rewarding.MachinaDaoAddress = machinaAddr
+		g.Rewarding.OutstandingSupplyAtActivation = supplyRau
+
+		blkCtx := protocol.MustGetBlockCtx(ctx)
+		activation := blkCtx.BlockHeight
+		g.ToBeEnabledBlockHeight = activation
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithFeatureCtx(ctx)
+		req.NoError(p.CreatePreStates(ctx, sm))
+
+		// Walk Y1 to its final block via mintAndAllocate. Activation height itself is
+		// Y1's first block, so Y1's last block is activation + blocksPerYear - 1; the
+		// loop covers activation+1 .. activation+blocksPerYear-1. Skip the producer-
+		// grant debit since we only need to compare the inflation/fund/machina shape
+		// that drives the boundary branch.
+		for i := uint64(1); i < blocksPerYear; i++ {
+			blkCtx.BlockHeight = activation + i
+			ctx = protocol.WithBlockCtx(ctx, blkCtx)
+			ctx = genesis.WithGenesisContext(ctx, g)
+			ctx = protocol.WithFeatureCtx(ctx)
+			_, _, err := p.mintAndAllocate(ctx, sm)
+			req.NoErrorf(err, "Y1 walk at block %d", blkCtx.BlockHeight)
+		}
+
+		// Sanity: end of Y1 — currentYearIndex must still be 1 (boundary not yet crossed).
+		preInf := newInflationState()
+		_, err := p.state(ctx, sm, _inflKey, preInf)
+		req.NoError(err)
+		req.Equalf(uint64(1), preInf.currentYearIndex, "expected end-of-Y1 currentYearIndex=1, got %d", preInf.currentYearIndex)
+
+		// Snapshot full pre-boundary state.
+		preInfBytes, err := preInf.Serialize()
+		req.NoError(err)
+		preFund := fund{}
+		_, err = p.state(ctx, sm, _fundKey, &preFund)
+		req.NoError(err)
+		preFundTotal := new(big.Int).Set(preFund.totalBalance)
+		preFundUnclaimed := new(big.Int).Set(preFund.unclaimedBalance)
+		preMachina, err := accountutil.LoadAccount(sm, mustAddr(machinaAddr))
+		req.NoError(err)
+		preMachinaBal := new(big.Int).Set(preMachina.Balance)
+
+		// Step to Y2-first block.
+		boundary := activation + blocksPerYear
+		blkCtx.BlockHeight = boundary
+		ctx = protocol.WithBlockCtx(ctx, blkCtx)
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithFeatureCtx(ctx)
+
+		// Run A: original execution of the boundary block.
+		_, _, err = p.mintAndAllocate(ctx, sm)
+		req.NoError(err)
+		postA := newInflationState()
+		_, err = p.state(ctx, sm, _inflKey, postA)
+		req.NoError(err)
+		req.Equalf(uint64(2), postA.currentYearIndex, "boundary branch did not fire; currentYearIndex=%d", postA.currentYearIndex)
+		postAInfBytes, err := postA.Serialize()
+		req.NoError(err)
+		postAFund := fund{}
+		_, err = p.state(ctx, sm, _fundKey, &postAFund)
+		req.NoError(err)
+		postAMachina, err := accountutil.LoadAccount(sm, mustAddr(machinaAddr))
+		req.NoError(err)
+
+		// Restore pre-boundary state — simulate the orphan being rolled back.
+		restored := newInflationState()
+		req.NoError(restored.Deserialize(preInfBytes))
+		req.NoError(p.putState(ctx, sm, _inflKey, restored))
+		preFund.totalBalance = preFundTotal
+		preFund.unclaimedBalance = preFundUnclaimed
+		req.NoError(p.putState(ctx, sm, _fundKey, &preFund))
+		preMachina.Balance = preMachinaBal
+		req.NoError(accountutil.StoreAccount(sm, mustAddr(machinaAddr), preMachina))
+
+		// Run B: re-execution of the same boundary block on restored state.
+		_, _, err = p.mintAndAllocate(ctx, sm)
+		req.NoError(err)
+		postB := newInflationState()
+		_, err = p.state(ctx, sm, _inflKey, postB)
+		req.NoError(err)
+		postBInfBytes, err := postB.Serialize()
+		req.NoError(err)
+		postBFund := fund{}
+		_, err = p.state(ctx, sm, _fundKey, &postBFund)
+		req.NoError(err)
+		postBMachina, err := accountutil.LoadAccount(sm, mustAddr(machinaAddr))
+		req.NoError(err)
+
+		// Byte-identical inflation state across reorg.
+		req.Equal(postAInfBytes, postBInfBytes, "InflationState diverged across reorg of year-boundary block")
+		// Spot-check the derived balances too.
+		req.Equalf(0, postAFund.totalBalance.Cmp(postBFund.totalBalance),
+			"fund.totalBalance diverged: A=%s B=%s", postAFund.totalBalance, postBFund.totalBalance)
+		req.Equalf(0, postAFund.unclaimedBalance.Cmp(postBFund.unclaimedBalance),
+			"fund.unclaimedBalance diverged: A=%s B=%s", postAFund.unclaimedBalance, postBFund.unclaimedBalance)
+		req.Equalf(0, postAMachina.Balance.Cmp(postBMachina.Balance),
+			"machina balance diverged: A=%s B=%s", postAMachina.Balance, postBMachina.Balance)
+	}, nil, false, 0)
+}
+
 func mustAddr(s string) address.Address {
 	a, err := address.FromString(s)
 	if err != nil {
