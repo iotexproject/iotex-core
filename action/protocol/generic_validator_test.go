@@ -162,3 +162,61 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.Contains(err.Error(), action.ErrInvalidSender.Error())
 	})
 }
+
+// TestValidateWithState_RejectSystemSender locks in the BLS Producer Identity
+// invariant on the block-validation path: actpool blocks externally submitted
+// envelopes from SystemSenderAddress, and ValidateWithState closes the gap of
+// a malicious validator embedding such an action directly in its block.
+//
+// The check is feature-gated by UseSystemSigner. Pre-fork (gate off), a
+// Transfer signed by the system key is allowed through; post-fork it is
+// rejected with action.ErrInvalidAct. Legitimate system actions
+// (GrantReward / PutPollResult / ScheduleCandidateDeactivation) signed by
+// the same key bypass the check via IsSystemAction.
+func TestValidateWithState_RejectSystemSender(t *testing.T) {
+	require := require.New(t)
+
+	v := NewGenericValidator(nil, func(_ context.Context, _ StateReader, _ address.Address) (*state.Account, error) {
+		return state.NewAccount()
+	})
+
+	tsf := action.NewTransfer(big.NewInt(1), identityset.Address(1).String(), nil)
+	envBuilder := (&action.EnvelopeBuilder{}).SetGasPrice(big.NewInt(0)).SetGasLimit(20000).SetNonce(0).SetAction(tsf)
+	userTsf, err := action.Sign(envBuilder.Build(), systemSignerPrivKey)
+	require.NoError(err)
+	require.False(action.IsSystemAction(userTsf), "sanity: Transfer is not a system action")
+	require.Equal(SystemSenderAddress.String(), userTsf.SenderAddress().String())
+
+	baseCtx := WithBlockchainCtx(context.Background(), BlockchainCtx{})
+	baseCtx = WithBlockCtx(baseCtx, BlockCtx{BlockHeight: 1})
+
+	t.Run("pre-fork allows (gate off)", func(t *testing.T) {
+		ctx := genesis.WithGenesisContext(baseCtx,
+			genesis.Genesis{Blockchain: genesis.Blockchain{ToBeEnabledBlockHeight: ^uint64(0)}})
+		ctx = WithFeatureCtx(ctx)
+		// May fail downstream on nonce / balance, but not on the sender check.
+		err := v.ValidateWithState(ctx, userTsf)
+		if err != nil {
+			require.NotContains(err.Error(), "SystemSenderAddress")
+		}
+	})
+
+	t.Run("post-fork rejects user action from system sender", func(t *testing.T) {
+		ctx := genesis.WithGenesisContext(baseCtx, genesis.Genesis{})
+		ctx = WithFeatureCtx(ctx)
+		err := v.ValidateWithState(ctx, userTsf)
+		require.ErrorIs(err, action.ErrInvalidAct)
+		require.Contains(err.Error(), "SystemSenderAddress")
+	})
+
+	t.Run("post-fork allows legitimate system actions from same key", func(t *testing.T) {
+		gr := action.GrantReward{}
+		grElp := (&action.EnvelopeBuilder{}).SetGasPrice(big.NewInt(0)).SetGasLimit(20000).SetNonce(0).SetAction(&gr).Build()
+		grSelp, err := action.Sign(grElp, systemSignerPrivKey)
+		require.NoError(err)
+		require.True(action.IsSystemAction(grSelp), "sanity: GrantReward is a system action")
+		ctx := genesis.WithGenesisContext(baseCtx, genesis.Genesis{})
+		ctx = WithFeatureCtx(ctx)
+		require.NoError(v.ValidateWithState(ctx, grSelp))
+	})
+}

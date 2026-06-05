@@ -125,6 +125,15 @@ func (v *GenericValidator) ValidateWithState(ctx context.Context, selp *action.S
 	if caller == nil {
 		return errors.New("failed to get address")
 	}
+	// BLS Producer Identity IIP: SystemSenderAddress is reserved for
+	// protocol-issued system actions. Reject any user action arriving with
+	// this sender — actpool stops external mempool submissions, but a
+	// malicious validator could embed such an action directly in its
+	// proposed block. This closes that gap on the block-validation path.
+	if featureCtx.UseSystemSigner && caller.String() == SystemSenderAddress.String() {
+		return errors.Wrapf(action.ErrInvalidAct,
+			"user action from SystemSenderAddress is not allowed")
+	}
 	if featureCtx.FixGasAndNonceUpdate || selp.Nonce() != 0 {
 		confirmedState, err := v.accountState(ctx, v.sr, caller)
 		if err != nil {
