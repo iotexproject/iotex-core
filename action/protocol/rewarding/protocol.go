@@ -200,7 +200,7 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		// protocol-fixed system signer, so the caller is SystemSenderAddress
 		// regardless of which delegate produced the block. Pre-fork the
 		// caller is the block producer.
-		if protocol.MustGetFeatureCtx(ctx).EnableBLSAggregation {
+		if protocol.MustGetFeatureCtx(ctx).UseSystemSigner {
 			if !address.Equal(protocol.SystemSenderAddress, actionCtx.Caller) {
 				return errors.New("only the system signer could create reward")
 			}

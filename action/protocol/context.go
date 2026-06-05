@@ -173,6 +173,15 @@ type (
 		AlwaysWriteCachedContract bool
 		NoCandidateExitQueue      bool
 		EnableBLSAggregation      bool
+		// UseSystemSigner gates the BLS Producer Identity change where
+		// system actions (GrantReward, PutPollResult,
+		// ScheduleCandidateDeactivation) are sealed by the protocol-fixed
+		// system signer key rather than by the block producer's ECDSA key.
+		// Shares the IsToBeEnabled height with EnableBLSAggregation today
+		// but is a semantically distinct switch — keep them separate so
+		// call sites read self-descriptively and so the two can diverge if
+		// ever required by a hotfix or fork-height adjustment.
+		UseSystemSigner bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -348,6 +357,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
 			EnableBLSAggregation:                    g.IsToBeEnabled(height),
+			UseSystemSigner:                         g.IsToBeEnabled(height),
 		},
 	)
 }

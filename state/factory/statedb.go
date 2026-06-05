@@ -393,11 +393,11 @@ func (sdb *stateDB) Mint(
 	if err != nil {
 		return nil, err
 	}
-	// Post-fork (BLS Producer Identity IIP, shared gate with IIP-52), system
-	// actions are sealed by the protocol-fixed system signer key rather than
-	// by the block producer's ECDSA key. The block header signing path
-	// continues to use pk until the header migrates to BLS (PR-Y2).
-	useSystemSigner := protocol.MustGetFeatureCtx(ctx).EnableBLSAggregation
+	// Post-fork (BLS Producer Identity IIP), system actions are sealed by
+	// the protocol-fixed system signer key rather than by the block
+	// producer's ECDSA key. The block header signing path continues to use
+	// pk until the header migrates to BLS (PR-Y2).
+	useSystemSigner := protocol.MustGetFeatureCtx(ctx).UseSystemSigner
 	sign := func(elp action.Envelope) (*action.SealedEnvelope, error) {
 		if useSystemSigner {
 			return protocol.SignAsSystem(elp)

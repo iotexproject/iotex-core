@@ -81,7 +81,7 @@ func validate(ctx context.Context, sr protocol.StateReader, p Protocol, act acti
 	// protocol-fixed system signer, so the caller is SystemSenderAddress
 	// regardless of which delegate produced the block. Pre-fork the caller
 	// is the block producer.
-	if protocol.MustGetFeatureCtx(ctx).EnableBLSAggregation {
+	if protocol.MustGetFeatureCtx(ctx).UseSystemSigner {
 		if actionCtx.Caller.String() != protocol.SystemSenderAddress.String() {
 			return errors.New("only the system signer could create this protocol")
 		}
