@@ -926,10 +926,12 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		copy(topic[:], evmTopic.Bytes())
 		topics = append(topics, topic)
 	}
-	if len(topics) > 0 && topics[0] == _inContractTransfer {
-		if len(topics) != 3 {
-			log.T(stateDB.ctx).Panic("Invalid in contract transfer topics")
-		}
+	// A genuine in-contract transfer is emitted by the protocol with exactly
+	// three topics (type, from, to). Log topics are EVM-controlled, so only
+	// treat the log as an in-contract transfer when the shape matches exactly;
+	// any other shape (including a forged sentinel topic on a 1- or 2-topic
+	// log) falls through to the normal log append below.
+	if len(topics) == 3 && topics[0] == _inContractTransfer {
 		if amount, zero := new(big.Int).SetBytes(evmLog.Data), big.NewInt(0); amount.Cmp(zero) == 1 {
 			from, _ := address.FromBytes(topics[1][12:])
 			to, _ := address.FromBytes(topics[2][12:])
