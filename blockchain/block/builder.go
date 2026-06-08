@@ -110,7 +110,7 @@ func (b *Builder) SetExcessBlobGas(g uint64) *Builder {
 
 // SignAndBuild signs and then builds a block.
 func (b *Builder) SignAndBuild(signerPrvKey crypto.PrivateKey) (Block, error) {
-	b.blk.Header.producerPubkey = signerPrvKey.PublicKey().Bytes()
+	b.blk.Header.pubkey = signerPrvKey.PublicKey()
 	h := b.blk.Header.HashHeaderCore()
 	sig, err := signerPrvKey.Sign(h[:])
 	if err != nil {

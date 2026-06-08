@@ -76,7 +76,7 @@ func getHeader(hasBlob bool) *Header {
 		deltaStateDigest: hash.Hash256b([]byte("")),
 		receiptRoot:      hash.Hash256b([]byte("")),
 		blockSig:         nil,
-		producerPubkey:   identityset.PrivateKey(27).PublicKey().Bytes(),
+		pubkey:           identityset.PrivateKey(27).PublicKey(),
 	}
 	if hasBlob {
 		h.gasUsed = 189000

@@ -58,7 +58,7 @@ func TestHeader_PreForkSecp256k1(t *testing.T) {
 	require := require.New(t)
 	priv := identityset.PrivateKey(7)
 	h := buildHeaderCore(t)
-	h.producerPubkey = priv.PublicKey().Bytes()
+	h.pubkey = priv.PublicKey()
 
 	digest := h.HashHeaderCore()
 	sig, err := priv.Sign(digest[:])
@@ -72,15 +72,15 @@ func TestHeader_PreForkSecp256k1(t *testing.T) {
 		"pre-fork ProducerAddress is the io1... iotex address")
 	require.Equal(priv.PublicKey().Bytes(), h.ProducerPubKey(),
 		"ProducerPubKey returns the raw secp256k1 pubkey bytes")
-	require.NotNil(h.PublicKey(), "PublicKey() decodes secp256k1 pubkey")
+	require.NotNil(h.PublicKey(), "PublicKey() returns the secp256k1 typed key")
 }
 
 func TestHeader_PostForkBLS(t *testing.T) {
 	require := require.New(t)
 	_, bls := blsHeaderKeys(t, 0x11)
 	h := buildHeaderCore(t)
-	h.producerPubkey = bls.PublicKey().Bytes()
-	require.Equal(crypto.BLSPubkeyLength, len(h.producerPubkey),
+	h.pubkey = bls.PublicKey()
+	require.Equal(crypto.BLSPubkeyLength, len(h.pubkey.Bytes()),
 		"BLS pubkey should be 48 bytes")
 
 	digest := h.HashHeaderCore()
@@ -102,20 +102,20 @@ func TestHeader_PostForkBLS(t *testing.T) {
 func TestHeader_VerifySignature_WrongScheme(t *testing.T) {
 	require := require.New(t)
 
-	// ECDSA pubkey paired with a BLS-length signature: dispatch hits the BLS
-	// branch, BLS12381PublicKeyFromBytes rejects the 33/65B input.
+	// secp256k1-typed pubkey with a BLS-length signature: the typed key's
+	// own Verify rejects the 96B input (secp256k1 expects 65B).
 	ecdsa, _ := blsHeaderKeys(t, 0x21)
 	h := buildHeaderCore(t)
-	h.producerPubkey = ecdsa.PublicKey().Bytes()
-	h.blockSig = make([]byte, crypto.BLSAggregateSignatureLength) // length-correct, content invalid
+	h.pubkey = ecdsa.PublicKey()
+	h.blockSig = make([]byte, crypto.BLSAggregateSignatureLength)
 	require.False(h.VerifySignature(),
 		"BLS-length sig with secp256k1 pubkey must not verify")
 
-	// BLS pubkey paired with an ECDSA-length signature: dispatch hits the
-	// secp256k1 branch, BytesToPublicKey rejects the 48B input.
+	// BLS-typed pubkey with an ECDSA-length signature: BLS Verify rejects
+	// the 65B input as a malformed G2 compressed signature.
 	_, bls := blsHeaderKeys(t, 0x22)
 	h = buildHeaderCore(t)
-	h.producerPubkey = bls.PublicKey().Bytes()
+	h.pubkey = bls.PublicKey()
 	h.blockSig = make([]byte, crypto.Secp256k1SigSizeWithRecID)
 	require.False(h.VerifySignature(),
 		"secp256k1-length sig with BLS pubkey must not verify")
@@ -124,14 +124,14 @@ func TestHeader_VerifySignature_WrongScheme(t *testing.T) {
 func TestHeader_VerifySignature_EmptyPubkey(t *testing.T) {
 	h := buildHeaderCore(t)
 	h.blockSig = make([]byte, crypto.Secp256k1SigSizeWithRecID)
-	require.False(t, h.VerifySignature(), "empty producerPubkey rejects verification")
+	require.False(t, h.VerifySignature(), "nil pubkey rejects verification")
 }
 
 func TestHeader_PostForkBLS_ProtoRoundTrip(t *testing.T) {
 	require := require.New(t)
 	_, bls := blsHeaderKeys(t, 0x33)
 	h := buildHeaderCore(t)
-	h.producerPubkey = bls.PublicKey().Bytes()
+	h.pubkey = bls.PublicKey()
 	digest := h.HashHeaderCore()
 	sig, err := bls.Sign(digest[:])
 	require.NoError(err)
@@ -142,9 +142,28 @@ func TestHeader_PostForkBLS_ProtoRoundTrip(t *testing.T) {
 
 	var restored Header
 	require.NoError(restored.Deserialize(ser))
-	require.Equal(h.producerPubkey, restored.producerPubkey)
+	// Length-dispatch at decode time must reconstruct a BLS-typed key, not
+	// just preserve the bytes.
+	_, ok := restored.pubkey.(*crypto.BLS12381PublicKey)
+	require.True(ok, "decoded pubkey should be typed as BLS12381PublicKey")
+	require.Equal(h.pubkey.Bytes(), restored.pubkey.Bytes())
 	require.Equal(h.blockSig, restored.blockSig)
 	require.True(restored.VerifySignature(),
 		"BLS header survives proto round-trip and re-verifies")
 	require.Equal(h.ProducerAddress(), restored.ProducerAddress())
+}
+
+func TestHeader_LoadFromProto_InvalidPubkey(t *testing.T) {
+	// Decode-time length dispatch should reject pubkey bytes that can't be
+	// parsed as either secp256k1 or BLS12-381 — surfaces the error rather
+	// than silently storing garbage bytes.
+	require := require.New(t)
+	h := buildHeaderCore(t)
+	h.pubkey = identityset.PrivateKey(7).PublicKey()
+	h.blockSig = make([]byte, crypto.Secp256k1SigSizeWithRecID)
+	pb := h.Proto()
+	pb.ProducerPubkey = []byte{0x00, 0x01, 0x02} // neither 33/65 nor 48 bytes
+	var restored Header
+	err := restored.LoadFromBlockHeaderProto(pb)
+	require.Error(err, "garbage pubkey bytes must be rejected at decode time")
 }
