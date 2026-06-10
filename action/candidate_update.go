@@ -41,6 +41,11 @@ type CandidateUpdate struct {
 	operatorAddress address.Address
 	rewardAddress   address.Address
 	blsPubKey       []byte
+	// blsPop is the proof-of-possession for blsPubKey. Required at
+	// handler time once EnforceBLSPoP is active: any update that
+	// introduces or rotates the BLS key must carry a fresh PoP to
+	// prevent rogue-key attacks.
+	blsPop []byte
 }
 
 // CandidateUpdateOption defines the method to customize CandidateUpdate
@@ -99,7 +104,9 @@ func NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr string) (*Candidate
 }
 
 // NewCandidateUpdateWithBLS creates a CandidateUpdate instance with BLS public key
-func NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr string, pubkey []byte) (*CandidateUpdate, error) {
+// and proof-of-possession. blsPop may be empty for pre-fork callers; the
+// handler enforces non-empty PoP once EnforceBLSPoP is active.
+func NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr string, pubkey []byte, pop []byte) (*CandidateUpdate, error) {
 	cu, err := NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr)
 	if err != nil {
 		return nil, err
@@ -110,6 +117,10 @@ func NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr string, pubk
 	}
 	cu.blsPubKey = make([]byte, len(pubkey))
 	copy(cu.blsPubKey, pubkey)
+	if len(pop) > 0 {
+		cu.blsPop = make([]byte, len(pop))
+		copy(cu.blsPop, pop)
+	}
 	return cu, nil
 }
 
@@ -125,6 +136,13 @@ func (cu *CandidateUpdate) RewardAddress() address.Address { return cu.rewardAdd
 // BLSPubKey returns candidate public key to update
 func (cu *CandidateUpdate) BLSPubKey() []byte {
 	return cu.blsPubKey
+}
+
+// BLSPop returns the proof-of-possession for the BLS pubkey carried
+// by this update. Empty for updates that do not rotate the BLS key
+// and for pre-fork updates; required once EnforceBLSPoP is active.
+func (cu *CandidateUpdate) BLSPop() []byte {
+	return cu.blsPop
 }
 
 // WithBLS returns true if the candidate update action is with BLS public key
@@ -159,6 +177,10 @@ func (cu *CandidateUpdate) Proto() *iotextypes.CandidateBasicInfo {
 		act.BlsPubKey = make([]byte, len(cu.blsPubKey))
 		copy(act.BlsPubKey, cu.blsPubKey)
 	}
+	if len(cu.blsPop) > 0 {
+		act.BlsPop = make([]byte, len(cu.blsPop))
+		copy(act.BlsPop, cu.blsPop)
+	}
 	return act
 }
 
@@ -188,6 +210,10 @@ func (cu *CandidateUpdate) LoadProto(pbAct *iotextypes.CandidateBasicInfo) error
 	if len(pbAct.GetBlsPubKey()) > 0 {
 		cu.blsPubKey = make([]byte, len(pbAct.GetBlsPubKey()))
 		copy(cu.blsPubKey, pbAct.GetBlsPubKey())
+		if pop := pbAct.GetBlsPop(); len(pop) > 0 {
+			cu.blsPop = make([]byte, len(pop))
+			copy(cu.blsPop, pop)
+		}
 	}
 	return nil
 }

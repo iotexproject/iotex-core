@@ -173,6 +173,17 @@ type (
 		AlwaysWriteCachedContract bool
 		NoCandidateExitQueue      bool
 		EnableBLSAggregation      bool
+		// EnforceBLSPoP gates the BLS proof-of-possession requirement at
+		// candidate register / update. Without PoP, IIP-52's
+		// FastAggregateVerify path is vulnerable to a rogue-key
+		// aggregate-forgery attack (a registered candidate can publish
+		// pk_rogue = g^x − Σ(other pubkeys) and forge a 2/3+ quorum
+		// certificate with a single signature). Shares the IsToBeEnabled
+		// height with EnableBLSAggregation today but is a semantically
+		// distinct switch — keep them separate so call sites read
+		// self-descriptively and so the two can diverge if a hotfix or
+		// fork-height adjustment is ever needed.
+		EnforceBLSPoP bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -348,6 +359,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
 			EnableBLSAggregation:                    g.IsToBeEnabled(height),
+			EnforceBLSPoP:                           g.IsToBeEnabled(height),
 		},
 	)
 }

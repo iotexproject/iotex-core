@@ -140,7 +140,7 @@ func TestCandidateRegister(t *testing.T) {
 	blsPubKey := blsPrivKey.PublicKey().Bytes()
 	for _, test := range candidateRegisterTestParams {
 		test.blsPubKey = blsPubKey
-		cr, err := NewCandidateRegisterWithBLS(test.Name, test.OperatorAddrStr, test.RewardAddrStr, test.OwnerAddrStr, test.AmountStr, test.Duration, test.AutoStake, test.blsPubKey, test.Payload)
+		cr, err := NewCandidateRegisterWithBLS(test.Name, test.OperatorAddrStr, test.RewardAddrStr, test.OwnerAddrStr, test.AmountStr, test.Duration, test.AutoStake, test.blsPubKey, nil, test.Payload)
 		require.Equal(test.Expected, errors.Cause(err))
 		if err != nil {
 			continue
@@ -190,7 +190,7 @@ func TestCandidateRegisterABIEncodeAndDecode(t *testing.T) {
 	t.Run("with public key", func(t *testing.T) {
 		pk, err := crypto.GenerateBLS12381PrivateKey(identityset.PrivateKey(0).Bytes())
 		require.NoError(err)
-		stake, err := NewCandidateRegisterWithBLS(test.Name, test.OperatorAddrStr, test.RewardAddrStr, test.OwnerAddrStr, test.AmountStr, test.Duration, test.AutoStake, pk.PublicKey().Bytes(), test.Payload)
+		stake, err := NewCandidateRegisterWithBLS(test.Name, test.OperatorAddrStr, test.RewardAddrStr, test.OwnerAddrStr, test.AmountStr, test.Duration, test.AutoStake, pk.PublicKey().Bytes(), nil, test.Payload)
 		require.NoError(err)
 		encode(stake)
 	})

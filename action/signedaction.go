@@ -99,12 +99,15 @@ func SignedCandidateRegister(
 }
 
 // SignedCandidateRegisterWithBLS returns a signed candidate register with BLS public key
+// and proof-of-possession. blsPop may be empty for pre-fork callers and tests; the
+// handler enforces non-empty PoP once EnforceBLSPoP is active.
 func SignedCandidateRegisterWithBLS(
 	nonce uint64,
 	name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr string,
 	duration uint32,
 	autoStake bool,
 	blsPubKey []byte,
+	blsPop []byte,
 	payload []byte,
 	gasLimit uint64,
 	gasPrice *big.Int,
@@ -112,7 +115,7 @@ func SignedCandidateRegisterWithBLS(
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
 	cr, err := NewCandidateRegisterWithBLS(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr,
-		duration, autoStake, blsPubKey, payload)
+		duration, autoStake, blsPubKey, blsPop, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -162,16 +165,19 @@ func SignedCandidateUpdate(
 }
 
 // SignedCandidateUpdateWithBLS returns a signed candidate update with BLS public key
+// and the corresponding proof-of-possession. blsPop may be empty for pre-fork
+// callers; the handler enforces non-empty PoP once EnforceBLSPoP is active.
 func SignedCandidateUpdateWithBLS(
 	nonce uint64,
 	name, operatorAddrStr, rewardAddrStr string,
 	blsPubKey []byte,
+	blsPop []byte,
 	gasLimit uint64,
 	gasPrice *big.Int,
 	registererPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	cu, err := NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr, blsPubKey)
+	cu, err := NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr, blsPubKey, blsPop)
 	if err != nil {
 		return nil, err
 	}

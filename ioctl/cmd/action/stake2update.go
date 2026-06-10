@@ -91,7 +91,10 @@ func stake2Update(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2u, err := action.NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr, blsPubKeyBytes)
+	// TODO: derive blsPop from a user-supplied BLS private key. Pre-fork
+	// the PoP is optional; post-fork (EnforceBLSPoP active) the handler
+	// rejects an update that rotates the BLS key without a PoP.
+	s2u, err := action.NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr, blsPubKeyBytes, nil)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateUpdate instance", err)
 	}
