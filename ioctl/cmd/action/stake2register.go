@@ -115,7 +115,11 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	cr, err := action.NewCandidateRegisterWithBLS(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, _stake2AutoStake, blsPubKeyBytes, payload)
+	// TODO: derive blsPop from a user-supplied BLS private key and pass
+	// it here once the ioctl flow supports it. Pre-fork the PoP is
+	// optional; post-fork (EnforceBLSPoP active) the handler will reject
+	// the registration if blsPop is empty.
+	cr, err := action.NewCandidateRegisterWithBLS(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, _stake2AutoStake, blsPubKeyBytes, nil, payload)
 
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateRegister instance", err)

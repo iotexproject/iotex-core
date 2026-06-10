@@ -67,6 +67,11 @@ type CandidateRegister struct {
 	autoStake       bool
 	payload         []byte
 	blsPubKey       []byte
+	// blsPop is the proof-of-possession signature over
+	// BLSPopSigningRoot(blsPubKey, ownerAddress). Required at handler
+	// time once EnforceBLSPoP is active; carried alongside blsPubKey so
+	// it always travels with the registration.
+	blsPop []byte
 }
 
 func init() {
@@ -149,11 +154,15 @@ func NewCandidateRegister(
 }
 
 // NewCandidateRegisterWithBLS creates a CandidateRegister instance with BLS public key
+// and the corresponding proof-of-possession. blsPop must be a 96-byte BLS
+// signature over BLSPopSigningRoot(blsPubKey, ownerAddress); the handler
+// enforces this once EnforceBLSPoP is active.
 func NewCandidateRegisterWithBLS(
 	name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr string,
 	duration uint32,
 	autoStake bool,
 	blsPubKey []byte,
+	blsPop []byte,
 	payload []byte,
 ) (*CandidateRegister, error) {
 	cr, err := NewCandidateRegister(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr, duration, autoStake, payload)
@@ -168,6 +177,10 @@ func NewCandidateRegisterWithBLS(
 	cr.amount = nil
 	cr.blsPubKey = make([]byte, len(blsPubKey))
 	copy(cr.blsPubKey, blsPubKey)
+	if len(blsPop) > 0 {
+		cr.blsPop = make([]byte, len(blsPop))
+		copy(cr.blsPop, blsPop)
+	}
 	return cr, nil
 }
 
@@ -215,6 +228,13 @@ func (cr *CandidateRegister) BLSPubKey() []byte {
 	return cr.blsPubKey
 }
 
+// BLSPop returns the BLS proof-of-possession that accompanies the
+// blsPubKey. Empty for legacy registrations and for pre-fork
+// CandidateRegister actions; required once EnforceBLSPoP is active.
+func (cr *CandidateRegister) BLSPop() []byte {
+	return cr.blsPop
+}
+
 // Serialize returns a raw byte stream of the CandidateRegister struct
 func (cr *CandidateRegister) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(cr.Proto()))
@@ -249,6 +269,10 @@ func (cr *CandidateRegister) Proto() *iotextypes.CandidateRegister {
 	case cr.WithBLS():
 		act.Candidate.BlsPubKey = make([]byte, len(cr.blsPubKey))
 		copy(act.Candidate.BlsPubKey, cr.blsPubKey)
+		if len(cr.blsPop) > 0 {
+			act.Candidate.BlsPop = make([]byte, len(cr.blsPop))
+			copy(act.Candidate.BlsPop, cr.blsPop)
+		}
 		if cr.value != nil {
 			act.StakedAmount = cr.value.String()
 		}
@@ -288,6 +312,10 @@ func (cr *CandidateRegister) LoadProto(pbAct *iotextypes.CandidateRegister) erro
 	if withBLS {
 		cr.blsPubKey = make([]byte, len(pbAct.Candidate.GetBlsPubKey()))
 		copy(cr.blsPubKey, pbAct.Candidate.GetBlsPubKey())
+		if pop := pbAct.Candidate.GetBlsPop(); len(pop) > 0 {
+			cr.blsPop = make([]byte, len(pop))
+			copy(cr.blsPop, pop)
+		}
 	}
 	if len(pbAct.GetStakedAmount()) > 0 {
 		amount, ok := new(big.Int).SetString(pbAct.GetStakedAmount(), 10)

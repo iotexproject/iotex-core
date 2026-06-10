@@ -29,7 +29,7 @@ func TestCandidateUpdate(t *testing.T) {
 	require := require.New(t)
 	blsPrivKey, err := crypto.GenerateBLS12381PrivateKey(identityset.PrivateKey(0).Bytes())
 	require.NoError(err)
-	cu, err := NewCandidateUpdateWithBLS(_cuName, _cuOperatorAddrStr, _cuRewardAddrStr, blsPrivKey.PublicKey().Bytes())
+	cu, err := NewCandidateUpdateWithBLS(_cuName, _cuOperatorAddrStr, _cuRewardAddrStr, blsPrivKey.PublicKey().Bytes(), nil)
 	require.NoError(err)
 	elp := (&EnvelopeBuilder{}).SetNonce(_cuNonce).SetGasLimit(_cuGasLimit).
 		SetGasPrice(_cuGasPrice).SetAction(cu).Build()
