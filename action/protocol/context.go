@@ -172,6 +172,17 @@ type (
 		// contracts are committed and written back
 		AlwaysWriteCachedContract bool
 		NoCandidateExitQueue      bool
+		// EnforceBLSPoP gates the BLS proof-of-possession requirement at
+		// candidate register / update. The staking handler validates
+		// blsPubKey only with BLS12381PublicKeyFromBytes (format +
+		// subgroup); without a possession proof, IIP-52's planned
+		// FastAggregateVerify path is vulnerable to a rogue-key
+		// aggregate-forgery attack (a registered candidate could publish
+		// pk_rogue = g^x − Σ(other pubkeys) and, once aggregation goes
+		// live, forge a 2/3+ quorum certificate with a single signature).
+		// Activating EnforceBLSPoP BEFORE the BLS aggregation fork closes
+		// the window for collecting un-attested pubkeys.
+		EnforceBLSPoP bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -346,6 +357,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			PrePectraEVM:                            !g.IsYap(height),
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
+			EnforceBLSPoP:                           g.IsToBeEnabled(height),
 		},
 	)
 }

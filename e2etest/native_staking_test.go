@@ -1631,7 +1631,7 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 			name:    "register with bls key",
 			preActs: genTransferActionsWithPrice(int(cfg.Genesis.XinguBlockHeight), gasPrice1559),
 			acts: []*actionWithTime{
-				{mustNoErr(action.SignedCandidateRegisterWithBLS(test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), "cand2", identityset.Address(candOperatorID2).String(), identityset.Address(2).String(), identityset.Address(candOwnerID2).String(), registerAmount.String(), 1, true, blsPubKey, []byte{1, 2, 3}, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID2), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedCandidateRegisterWithBLS(test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), "cand2", identityset.Address(candOperatorID2).String(), identityset.Address(2).String(), identityset.Address(candOwnerID2).String(), registerAmount.String(), 1, true, blsPubKey, nil, []byte{1, 2, 3}, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID2), action.WithChainID(chainID))), time.Now()},
 			},
 			blockExpect: func(test *e2etest, blk *block.Block, err error) {
 				require.NoError(err)
@@ -1657,7 +1657,7 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 			name:    "update bls key by operator",
 			preActs: genTransferActionsWithPrice(jumps, gasPrice1559),
 			acts: []*actionWithTime{
-				{mustNoErr(action.SignedCandidateUpdateWithBLS(test.nonceMgr.pop(identityset.Address(candOperatorID).String()), "cand1", identityset.Address(candOperatorID).String(), "", blsPrivKey2.PublicKey().Bytes(), gasLimit, gasPrice, identityset.PrivateKey(candOperatorID), action.WithChainID(chainID))), time.Now()},
+				{mustNoErr(action.SignedCandidateUpdateWithBLS(test.nonceMgr.pop(identityset.Address(candOperatorID).String()), "cand1", identityset.Address(candOperatorID).String(), "", blsPrivKey2.PublicKey().Bytes(), nil, gasLimit, gasPrice, identityset.PrivateKey(candOperatorID), action.WithChainID(chainID))), time.Now()},
 			},
 			blockExpect: func(test *e2etest, blk *block.Block, err error) {
 				require.NoError(err)

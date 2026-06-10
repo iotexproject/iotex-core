@@ -688,6 +688,7 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
 		blsPubKey,
+		nil,
 	)
 	require.NoError(err)
 	data9, err := act9.EthData()

@@ -782,6 +782,14 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		c.Identifier = candID
 	}
 	if act.WithBLS() {
+		if featureCtx.EnforceBLSPoP {
+			if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), owner); err != nil {
+				return log, nil, &handleError{
+					err:           errors.Wrap(err, "BLS proof-of-possession invalid"),
+					failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+				}
+			}
+		}
 		c.BLSPubKey = act.BLSPubKey()
 		topics, eventData, err := action.PackCandidateRegisteredEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
 		if err != nil {
@@ -885,6 +893,14 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	}
 
 	if act.WithBLS() {
+		if featureCtx.EnforceBLSPoP {
+			if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), c.Owner); err != nil {
+				return log, &handleError{
+					err:           errors.Wrap(err, "BLS proof-of-possession invalid"),
+					failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+				}
+			}
+		}
 		c.BLSPubKey = act.BLSPubKey()
 		topics, eventData, err := action.PackCandidateUpdatedEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
 		if err != nil {
@@ -930,6 +946,14 @@ func (p *Protocol) handleCandidateUpdateByOperator(ctx context.Context, act *act
 		return log, &handleError{
 			err:           errors.New("candidate reward address cannot be updated by operator"),
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		}
+	}
+	if protocol.MustGetFeatureCtx(ctx).EnforceBLSPoP {
+		if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), c.Owner); err != nil {
+			return log, &handleError{
+				err:           errors.Wrap(err, "BLS proof-of-possession invalid"),
+				failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+			}
 		}
 	}
 	// update BLS public key
