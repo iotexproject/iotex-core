@@ -70,6 +70,14 @@ type (
 		GasLimit uint64
 		// Producer is the address of whom composes the block containing this action
 		Producer address.Address
+		// ProducerPubKey is the raw bytes of the block producer's public key
+		// (secp256k1 33/65B pre-fork, BLS12-381 48B once BLS-signed headers
+		// activate as part of the BLS Producer Identity follow-up to IIP-52).
+		// Post-fork callers that need to match against state.Candidate.BLSPubKey
+		// use this rather than Producer.String(), since iotex-address derivation
+		// is undefined for a BLS pubkey. May be empty for genesis / synthetic
+		// BlockCtx values that have no underlying Header.
+		ProducerPubKey []byte
 		// AccumTips is the accumulated tips of the block
 		AccumulatedTips big.Int
 		// BaseFee is the base fee of the block

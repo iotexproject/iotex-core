@@ -377,6 +377,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 			BlockTimeStamp:        blk.Timestamp(),
 			GasLimit:              bc.genesis.BlockGasLimitByHeight(blk.Height()),
 			Producer:              producerAddr,
+			ProducerPubKey:        blk.Header.ProducerPubKey(),
 			BaseFee:               blk.BaseFee(),
 			ExcessBlobGas:         blk.ExcessBlobGas(),
 			SkipSidecarValidation: cfg.skipSidecarValidation,
@@ -405,13 +406,14 @@ func (bc *blockchain) ContextAtHeight(ctx context.Context, height uint64) (conte
 	return bc.context(ctx, height)
 }
 
-func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time, baseFee *big.Int, blobgas uint64) context.Context {
+func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, producerPubKey []byte, height uint64, timestamp time.Time, baseFee *big.Int, blobgas uint64) context.Context {
 	return protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
 			BlockHeight:    height,
 			BlockTimeStamp: timestamp,
 			Producer:       producer,
+			ProducerPubKey: producerPubKey,
 			GasLimit:       bc.genesis.BlockGasLimitByHeight(height),
 			BaseFee:        baseFee,
 			ExcessBlobGas:  blobgas,
@@ -468,7 +470,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time, opts ...MintOption) (*bl
 	}
 	minterAddress := producerPrivateKey.PublicKey().Address()
 	log.L().Info("Minting a new block.", zap.Uint64("height", newblockHeight), zap.String("minter", minterAddress.String()))
-	ctx = bc.contextWithBlock(ctx, minterAddress, newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
+	ctx = bc.contextWithBlock(ctx, minterAddress, producerPrivateKey.PublicKey().Bytes(), newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
 	blk, err := bc.bbf.Mint(ctx, producerPrivateKey)
@@ -551,7 +553,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	ctx = bc.contextWithBlock(ctx, blk.PublicKey().Address(), blk.Height(), blk.Timestamp(), blk.BaseFee(), blk.ExcessBlobGas())
+	ctx = bc.contextWithBlock(ctx, blk.PublicKey().Address(), blk.Header.ProducerPubKey(), blk.Height(), blk.Timestamp(), blk.BaseFee(), blk.ExcessBlobGas())
 	ctx = protocol.WithFeatureCtx(ctx)
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")

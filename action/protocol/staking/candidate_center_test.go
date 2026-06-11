@@ -645,3 +645,37 @@ func TestCandidateUpsert(t *testing.T) {
 		r.Equal(cand, m.GetByIdentifier(cand.GetIdentifier()))
 	})
 }
+
+// TestCandidateCenter_GetByBLSPubKey covers the lookup used by Y4b
+// consumers (reward attribution, EVM fee recipient) to resolve a
+// candidate from a BLS-signed header's ProducerPubKey.
+func TestCandidateCenter_GetByBLSPubKey(t *testing.T) {
+	r := require.New(t)
+	c, err := NewCandidateCenter(nil)
+	r.NoError(err)
+
+	pkA := []byte("dummy-bls-pubkey-A-48-bytes-pad-________________")[:48]
+	pkB := []byte("dummy-bls-pubkey-B-48-bytes-pad-________________")[:48]
+
+	candA := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(7),
+		Reward:             identityset.Address(1),
+		Name:               "cand-a",
+		Votes:              big.NewInt(0),
+		SelfStake:          big.NewInt(0),
+		SelfStakeBucketIdx: 0,
+		BLSPubKey:          pkA,
+	}
+	r.NoError(c.Upsert(candA))
+	r.NoError(c.commit())
+
+	r.Nil(c.GetByBLSPubKey(nil), "nil pubkey returns nil")
+	r.Nil(c.GetByBLSPubKey([]byte{}), "empty pubkey returns nil")
+	r.Nil(c.GetByBLSPubKey(pkB), "unregistered pubkey returns nil")
+
+	got := c.GetByBLSPubKey(pkA)
+	r.NotNil(got, "registered pubkey returns the candidate")
+	r.Equal(candA.Name, got.Name)
+	r.Equal(candA.Owner.String(), got.Owner.String())
+}

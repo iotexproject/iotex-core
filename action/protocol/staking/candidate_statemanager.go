@@ -54,6 +54,13 @@ type (
 		GetByOwner(address.Address) *Candidate
 		GetByIdentifier(address.Address) *Candidate
 		GetByOperator(address.Address) *Candidate
+		// GetByBLSPubKey returns the candidate whose registered BLS pubkey
+		// matches the given bytes, or nil if no such candidate exists.
+		// Used by Y4b consumers (reward attribution, EVM fee recipient,
+		// productivity tracking) to resolve a candidate from a BLS-signed
+		// block's Header.ProducerPubKey without going through the iotex
+		// address derivation, which is undefined for BLS keys.
+		GetByBLSPubKey([]byte) *Candidate
 		Upsert(*Candidate) error
 		CreditBucketPool(*big.Int, bool) error
 		DebitBucketPool(*big.Int, bool) error
@@ -137,6 +144,10 @@ func (csm *candSM) ContainsOwner(addr address.Address) bool {
 
 func (csm *candSM) ContainsOperator(addr address.Address) bool {
 	return csm.candCenter.ContainsOperator(addr)
+}
+
+func (csm *candSM) GetByBLSPubKey(blsPubKey []byte) *Candidate {
+	return csm.candCenter.GetByBLSPubKey(blsPubKey)
 }
 
 func (csm *candSM) ContainsSelfStakingBucket(index uint64) bool {
