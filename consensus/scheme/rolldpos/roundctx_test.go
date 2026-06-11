@@ -6,9 +6,11 @@
 package rolldpos
 
 import (
+	"crypto/sha256"
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -92,4 +94,46 @@ func TestRoundCtx(t *testing.T) {
 		require.True(round.IsFuture(blockHeight+2, 2))
 	})
 	// TODO: add more unit tests
+}
+
+func TestRoundCtx_IsProducer(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	mkBLS := func(seed string) *crypto.BLS12381PublicKey {
+		h := sha256.Sum256([]byte(seed))
+		sk, err := crypto.GenerateBLS12381PrivateKey(h[:])
+		require.NoError(err)
+		return sk.PublicKey()
+	}
+
+	pk1 := mkBLS("d1")
+	pk2 := mkBLS("d2")
+	otherPK := mkBLS("not-in-set")
+
+	round := &roundCtx{
+		delegates: []*Delegate{
+			{Address: "d1", BLSPubKey: pk1},
+			{Address: "d2", BLSPubKey: pk2},
+			{Address: "d3-no-bls", BLSPubKey: nil}, // pre-fork or unregistered
+		},
+	}
+
+	require.True(round.IsProducer(pk1.Bytes()),
+		"a registered delegate's BLS pubkey matches")
+	require.True(round.IsProducer(pk2.Bytes()),
+		"another registered delegate's BLS pubkey matches")
+	require.False(round.IsProducer(otherPK.Bytes()),
+		"an unregistered BLS pubkey does not match")
+	require.False(round.IsProducer(nil),
+		"a nil pubkey never matches — header must carry one")
+	require.False(round.IsProducer([]byte{}),
+		"an empty pubkey never matches")
+
+	// Truncating one byte off a valid pubkey must not match. Guards
+	// against silent prefix/suffix-matching bugs in a hypothetical
+	// future implementation.
+	truncated := pk1.Bytes()[:crypto.BLSPubkeyLength-1]
+	require.False(round.IsProducer(truncated),
+		"a truncated pubkey does not match")
 }

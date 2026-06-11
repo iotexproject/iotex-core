@@ -6,6 +6,7 @@
 package rolldpos
 
 import (
+	"bytes"
 	"slices"
 	"time"
 
@@ -123,6 +124,30 @@ func (ctx *roundCtx) Proposers() []string {
 
 func (ctx *roundCtx) IsDelegate(addr string) bool {
 	return slices.ContainsFunc(ctx.delegates, func(d *Delegate) bool { return d.Address == addr })
+}
+
+// IsProducer reports whether the given BLS public key bytes match a
+// delegate in the round. Used on the verify path once block headers
+// carry BLS pubkeys (BLS Producer Identity follow-up to IIP-52):
+// ValidateBlockFooter cannot string-compare against IsDelegate because
+// Header.ProducerAddress for a BLS-signed block returns hex(pubkey),
+// not the iotex address. Match on the raw 48-byte BLS pubkey instead,
+// which is the canonical identifier post-fork.
+//
+// Returns false for an empty pubkey and for delegates without a
+// registered BLS pubkey (BLSPubKey == nil), so a header that omitted
+// its pubkey or carries one that no current delegate has registered is
+// rejected.
+func (ctx *roundCtx) IsProducer(blsPubKey []byte) bool {
+	if len(blsPubKey) == 0 {
+		return false
+	}
+	return slices.ContainsFunc(ctx.delegates, func(d *Delegate) bool {
+		if d.BLSPubKey == nil {
+			return false
+		}
+		return bytes.Equal(d.BLSPubKey.Bytes(), blsPubKey)
+	})
 }
 
 // BLSPubKey returns the BLS12-381 public key registered for the given
