@@ -30,14 +30,14 @@ const blsPopDomain = "IOTEX_BLS_POP_v1"
 // must be computed over for the given candidate.
 //
 // Binding three values into the signed message — the domain tag, the BLS
-// public key itself, and the candidate owner address — closes the rogue
-// key attack and two related replays:
+// public key itself, and the candidate's identity address — closes the
+// rogue key attack and two related replays:
 //
 //   - blsPubKey: forces the signer to know the private key for THIS
 //     specific BLS pubkey. A rogue pubkey constructed as
 //     g^x − Σ(other pubkeys) cannot produce a valid PoP because the
 //     attacker does not know its discrete log.
-//   - ownerAddress: prevents two distinct candidates from sharing a
+//   - candidateID: prevents two distinct candidates from sharing a
 //     single BLS keypair (and thus a single PoP) without each owner
 //     independently re-attesting; also prevents a PoP submitted for
 //     candidate A from being replayed for candidate B by a man-in-the-
@@ -45,31 +45,47 @@ const blsPopDomain = "IOTEX_BLS_POP_v1"
 //   - blsPopDomain: keeps PoP signatures disjoint from consensus
 //     signatures, future PoP schemes, and any other BLS-signed iotex
 //     message that may exist or be added later.
-func BLSPopSigningRoot(blsPubKey []byte, ownerAddress address.Address) []byte {
+//
+// candidateID is the candidate's stable identity:
+//   - At register: the owner address declared in the action. For
+//     non-collision registrations this becomes c.Identifier verbatim
+//     (see generateCandidateID — it returns owner directly when free),
+//     so a PoP signed at register time matches the identifier the
+//     candidate will carry post-fork.
+//   - At update: c.GetIdentifier(), which returns the immutable
+//     Identifier for post-Xingu candidates and falls back to c.Owner
+//     for pre-Xingu records. This means a candidate that has been
+//     transferred to a new owner still uses its original identity for
+//     PoP, so the binding is stable across ownership transfers.
+func BLSPopSigningRoot(blsPubKey []byte, candidateID address.Address) []byte {
 	h := sha256.New()
 	h.Write([]byte(blsPopDomain))
 	h.Write(blsPubKey)
-	if ownerAddress != nil {
-		h.Write(ownerAddress.Bytes())
+	if candidateID != nil {
+		h.Write(candidateID.Bytes())
 	}
 	return h.Sum(nil)
 }
 
 // SignBLSPop produces a proof-of-possession for the given BLS private
-// key, binding it to the candidate owner address. Used by tooling
+// key, binding it to the candidate's identity. Used by tooling
 // (ioctl, SDK) to generate the bls_pop field on CandidateRegister /
 // CandidateUpdate transactions.
-func SignBLSPop(sk *crypto.BLS12381PrivateKey, ownerAddress address.Address) ([]byte, error) {
+//
+// At registration time pass the proposed owner address (which becomes
+// the candidate identifier); at update time pass the candidate's
+// existing identifier (c.GetIdentifier()).
+func SignBLSPop(sk *crypto.BLS12381PrivateKey, candidateID address.Address) ([]byte, error) {
 	if sk == nil {
 		return nil, errors.New("nil BLS private key")
 	}
 	pk := sk.PublicKey().Bytes()
-	return sk.Sign(BLSPopSigningRoot(pk, ownerAddress))
+	return sk.Sign(BLSPopSigningRoot(pk, candidateID))
 }
 
 // VerifyBLSPop verifies the proof-of-possession against the provided
-// pubkey and owner. Returns nil on success.
-func VerifyBLSPop(blsPubKey, blsPop []byte, ownerAddress address.Address) error {
+// pubkey and candidate identity. Returns nil on success.
+func VerifyBLSPop(blsPubKey, blsPop []byte, candidateID address.Address) error {
 	if len(blsPubKey) != crypto.BLSPubkeyLength {
 		return errors.Errorf("invalid BLS pubkey length: got %d, want %d", len(blsPubKey), crypto.BLSPubkeyLength)
 	}
@@ -80,7 +96,7 @@ func VerifyBLSPop(blsPubKey, blsPop []byte, ownerAddress address.Address) error 
 	if err != nil {
 		return errors.Wrap(err, "invalid BLS pubkey")
 	}
-	if !pk.Verify(BLSPopSigningRoot(blsPubKey, ownerAddress), blsPop) {
+	if !pk.Verify(BLSPopSigningRoot(blsPubKey, candidateID), blsPop) {
 		return errors.New("BLS proof-of-possession verification failed")
 	}
 	return nil

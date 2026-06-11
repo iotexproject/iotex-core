@@ -912,7 +912,12 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 
 	if act.WithBLS() {
 		if featureCtx.EnforceBLSPoP {
-			if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), c.Owner); err != nil {
+			// PoP binds to the candidate's stable identity, not the
+			// current owner — for post-Xingu candidates this stays
+			// constant across CandidateTransferOwnership; for pre-Xingu
+			// GetIdentifier falls back to c.Owner so behavior is
+			// unchanged from owner-binding.
+			if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), c.GetIdentifier()); err != nil {
 				return log, &handleError{
 					err:           errors.Wrap(err, "BLS proof-of-possession invalid"),
 					failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
@@ -973,7 +978,9 @@ func (p *Protocol) handleCandidateUpdateByOperator(ctx context.Context, act *act
 		}
 	}
 	if protocol.MustGetFeatureCtx(ctx).EnforceBLSPoP {
-		if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), c.Owner); err != nil {
+		// PoP binds to the candidate's stable identity (see the
+		// owner-path handler above for rationale).
+		if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), c.GetIdentifier()); err != nil {
 			return log, &handleError{
 				err:           errors.Wrap(err, "BLS proof-of-possession invalid"),
 				failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,

@@ -56,21 +56,53 @@ func TestBLSPop_RejectInvalidLength(t *testing.T) {
 		"short PoP rejected")
 }
 
-func TestBLSPop_RejectWrongOwner(t *testing.T) {
-	// A PoP issued for one candidate owner must not verify under another
-	// owner — closes the replay window where an attacker repackages a
-	// CandidateRegister tx with a different owner address.
+func TestBLSPop_RejectWrongCandidateID(t *testing.T) {
+	// A PoP issued for one candidate must not verify under a different
+	// candidate ID — closes the replay window where an attacker
+	// repackages a CandidateRegister tx with a different identity.
 	require := require.New(t)
 	sk := blsKeyForTest(t, "delegate")
-	ownerA := addrForTest(t, "owner-A")
-	ownerB := addrForTest(t, "owner-B")
+	candA := addrForTest(t, "candidate-A")
+	candB := addrForTest(t, "candidate-B")
 
-	pop, err := SignBLSPop(sk, ownerA)
+	pop, err := SignBLSPop(sk, candA)
 	require.NoError(err)
-	require.NoError(VerifyBLSPop(sk.PublicKey().Bytes(), pop, ownerA),
-		"sanity: PoP verifies for the owner it was signed for")
-	require.Error(VerifyBLSPop(sk.PublicKey().Bytes(), pop, ownerB),
-		"PoP must NOT verify under a different owner")
+	require.NoError(VerifyBLSPop(sk.PublicKey().Bytes(), pop, candA),
+		"sanity: PoP verifies for the candidate it was signed for")
+	require.Error(VerifyBLSPop(sk.PublicKey().Bytes(), pop, candB),
+		"PoP must NOT verify under a different candidate ID")
+}
+
+// TestBLSPop_StableAcrossOwnershipTransfer locks in the property that
+// motivated switching update-path PoP binding from c.Owner to
+// c.GetIdentifier(): a PoP signed at registration (bound to the
+// original owner = future identifier in the non-collision case) MUST
+// still verify when the same identifier is the binding at update time
+// — even if the candidate's current owner has changed via
+// CandidateTransferOwnership.
+//
+// The test models this by signing once with candidateID = original
+// owner, then verifying with the same identifier even though the
+// "current owner" in the surrounding state (not modeled here, but
+// implicit) would be different.
+func TestBLSPop_StableAcrossOwnershipTransfer(t *testing.T) {
+	require := require.New(t)
+	sk := blsKeyForTest(t, "delegate")
+	originalOwner := addrForTest(t, "original-owner")
+
+	// Sign once at registration time, binding to the original owner.
+	// For post-Xingu non-collision candidates this becomes c.Identifier
+	// verbatim (generateCandidateID returns owner when free).
+	pop, err := SignBLSPop(sk, originalOwner)
+	require.NoError(err)
+
+	// Later, the candidate is transferred (originalOwner → newOwner) and
+	// the same delegate submits a BLS-related update. The handler now
+	// passes c.GetIdentifier() — which is still originalOwner — to
+	// VerifyBLSPop. The same PoP must still validate.
+	require.NoError(VerifyBLSPop(sk.PublicKey().Bytes(), pop, originalOwner),
+		"PoP signed under the original owner / identifier must validate "+
+			"unchanged when the candidate's owner has been transferred")
 }
 
 func TestBLSPop_RejectWrongPubkey(t *testing.T) {
