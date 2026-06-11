@@ -740,6 +740,24 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
 		}
 	}
+	// cannot collide with an existing BLS pubkey. Two delegates sharing
+	// a BLS pubkey break IIP-52's quorum-counting model: the signer
+	// bitmap would count both delegates, but FastAggregateVerify sums
+	// the pubkey set as a set (one contribution per distinct pubkey),
+	// producing an off-by-one mismatch that lets the second delegate's
+	// stake-weight "vote for free".
+	if act.WithBLS() && featureCtx.EnforceBLSPoP {
+		var except address.Address
+		if ownerExist {
+			except = c.GetIdentifier()
+		}
+		if csm.ContainsBLSPubKey(act.BLSPubKey(), except) {
+			return log, nil, &handleError{
+				err:           errors.New("BLS pubkey already registered by another candidate"),
+				failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+			}
+		}
+	}
 
 	var (
 		bucketIdx     uint64
@@ -900,6 +918,12 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 					failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
 				}
 			}
+			if csm.ContainsBLSPubKey(act.BLSPubKey(), c.GetIdentifier()) {
+				return log, &handleError{
+					err:           errors.New("BLS pubkey already registered by another candidate"),
+					failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+				}
+			}
 		}
 		c.BLSPubKey = act.BLSPubKey()
 		topics, eventData, err := action.PackCandidateUpdatedEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
@@ -953,6 +977,12 @@ func (p *Protocol) handleCandidateUpdateByOperator(ctx context.Context, act *act
 			return log, &handleError{
 				err:           errors.Wrap(err, "BLS proof-of-possession invalid"),
 				failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+			}
+		}
+		if csm.ContainsBLSPubKey(act.BLSPubKey(), c.GetIdentifier()) {
+			return log, &handleError{
+				err:           errors.New("BLS pubkey already registered by another candidate"),
+				failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
 			}
 		}
 	}

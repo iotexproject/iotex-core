@@ -645,3 +645,49 @@ func TestCandidateUpsert(t *testing.T) {
 		r.Equal(cand, m.GetByIdentifier(cand.GetIdentifier()))
 	})
 }
+
+// TestCandidateCenter_ContainsBLSPubKey covers the uniqueness check used
+// by handleCandidateRegister and handleCandidateUpdate to enforce one
+// BLS pubkey per delegate — a precondition for IIP-52's quorum-counting
+// model (FastAggregateVerify dedups pubkeys but the signer bitmap does
+// not).
+func TestCandidateCenter_ContainsBLSPubKey(t *testing.T) {
+	r := require.New(t)
+	c, err := NewCandidateCenter(nil)
+	r.NoError(err)
+
+	pkA := []byte("dummy-bls-pubkey-A-48-bytes-pad-________________")[:48]
+	pkB := []byte("dummy-bls-pubkey-B-48-bytes-pad-________________")[:48]
+
+	candA := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(7),
+		Reward:             identityset.Address(1),
+		Name:               "cand-a",
+		Votes:              big.NewInt(0),
+		SelfStake:          big.NewInt(0),
+		SelfStakeBucketIdx: 0,
+		BLSPubKey:          pkA,
+	}
+	r.NoError(c.Upsert(candA))
+	r.NoError(c.commit())
+
+	// Empty / nil pubkey never collides.
+	r.False(c.ContainsBLSPubKey(nil, nil), "nil pubkey is not in use")
+	r.False(c.ContainsBLSPubKey([]byte{}, nil), "empty pubkey is not in use")
+
+	// Unrelated pubkey does not collide.
+	r.False(c.ContainsBLSPubKey(pkB, nil), "unrelated pubkey is not in use")
+
+	// pkA is in use by candA.
+	r.True(c.ContainsBLSPubKey(pkA, nil),
+		"pkA is registered; ContainsBLSPubKey(except=nil) must report true")
+
+	// candA may re-register / update with the same pkA (no collision against itself).
+	r.False(c.ContainsBLSPubKey(pkA, candA.GetIdentifier()),
+		"a candidate must be allowed to keep its own BLS pubkey on update")
+
+	// A different candidate must NOT be allowed to take pkA.
+	r.True(c.ContainsBLSPubKey(pkA, identityset.Address(2)),
+		"another candidate trying to take pkA must collide")
+}
