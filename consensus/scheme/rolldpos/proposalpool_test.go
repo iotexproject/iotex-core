@@ -122,7 +122,7 @@ func makeBlock2(r *require.Assertions, height uint64, prevHash hash.Hash256) *bl
 		SetPrevBlockHash(prevHash).
 		SetHeight(height).
 		SetTimestamp(time.Now())
-	blk, err := bd.SignAndBuild(identityset.PrivateKey(1))
+	blk, err := bd.SignAndBuild(block.NewECDSAHeaderSigner(identityset.PrivateKey(1)))
 	r.NoError(err)
 	return &blk
 }

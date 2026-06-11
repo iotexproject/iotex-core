@@ -199,7 +199,7 @@ func makeBlock(tb testing.TB, n int) *Block {
 		SetReceiptRoot(hash.Hash256b([]byte("hello, world!"))).
 		SetDeltaStateDigest(hash.Hash256b([]byte("world, hello!"))).
 		SetPrevBlockHash(hash.Hash256b([]byte("hello, block!"))).
-		SignAndBuild(identityset.PrivateKey(0))
+		SignAndBuild(NewECDSAHeaderSigner(identityset.PrivateKey(0)))
 	require.NoError(tb, err)
 	return &blk
 }

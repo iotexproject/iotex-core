@@ -2133,7 +2133,7 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 					).
 						SetHeight(height).
 						SetTimestamp(time.Time{}).
-						SignAndBuild(pk)
+						SignAndBuild(block.NewECDSAHeaderSigner(pk))
 					if err != nil {
 						return &block.Header{}, err
 					}

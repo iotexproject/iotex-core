@@ -172,7 +172,7 @@ func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndo
 		SetReceiptRoot(hash.Hash256b([]byte("hello, world!"))).
 		SetDeltaStateDigest(hash.Hash256b([]byte("world, hello!"))).
 		SetPrevBlockHash(hash.Hash256b([]byte("hello, block!"))).
-		SignAndBuild(identityset.PrivateKey(accountIndex))
+		SignAndBuild(block.NewECDSAHeaderSigner(identityset.PrivateKey(accountIndex)))
 	require.NoError(t, err)
 	footerForBlk := &block.Footer{}
 	typesFooter := iotextypes.BlockFooter{}

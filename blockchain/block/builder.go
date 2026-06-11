@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/bloom"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
@@ -108,13 +107,19 @@ func (b *Builder) SetExcessBlobGas(g uint64) *Builder {
 	return b
 }
 
-// SignAndBuild signs and then builds a block.
-func (b *Builder) SignAndBuild(signerPrvKey crypto.PrivateKey) (Block, error) {
-	b.blk.Header.pubkey = signerPrvKey.PublicKey()
+// SignAndBuild signs and then builds a block. The signer carries both
+// the public key (stored on the header for later VerifySignature) and
+// the signing primitive itself; callers pick ECDSA or BLS by passing
+// the matching adapter (NewECDSAHeaderSigner / NewBLSHeaderSigner).
+func (b *Builder) SignAndBuild(signer HeaderSigner) (Block, error) {
+	if signer == nil {
+		return Block{}, errors.New("nil header signer")
+	}
+	b.blk.Header.pubkey = signer.PubKey()
 	h := b.blk.Header.HashHeaderCore()
-	sig, err := signerPrvKey.Sign(h[:])
+	sig, err := signer.Sign(h[:])
 	if err != nil {
-		return Block{}, errors.New("failed to sign block")
+		return Block{}, errors.Wrap(err, "failed to sign block")
 	}
 	b.blk.Header.blockSig = sig
 	return b.blk, nil

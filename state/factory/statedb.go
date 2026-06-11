@@ -401,7 +401,7 @@ func (sdb *stateDB) Mint(
 		return nil, err
 	}
 
-	blk, err := blkBuilder.SignAndBuild(pk)
+	blk, err := blkBuilder.SignAndBuild(block.NewECDSAHeaderSigner(pk))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", expectedBlockHeight)
 	}

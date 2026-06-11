@@ -22,7 +22,7 @@ func TestBuilder(t *testing.T) {
 		SetHeight(1).
 		SetTimestamp(testutil.TimestampNow()).
 		SetPrevBlockHash(hash.ZeroHash256).
-		SignAndBuild(identityset.PrivateKey(29))
+		SignAndBuild(NewECDSAHeaderSigner(identityset.PrivateKey(29)))
 	require.NoError(t, err)
 
 	require.True(t, nblk.VerifySignature())

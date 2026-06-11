@@ -103,7 +103,7 @@ func TestBlockObjectMarshal(t *testing.T) {
 		SetPrevBlockHash(hash.BytesToHash256(previousBlockHash)).
 		SetBaseFee(big.NewInt(10)).
 		SetBlobGasUsed(20).SetExcessBlobGas(100).
-		SignAndBuild(identityset.PrivateKey(28))
+		SignAndBuild(block.NewECDSAHeaderSigner(identityset.PrivateKey(28)))
 	require.NoError(err)
 	txHash, err := sevlp.Hash()
 	require.NoError(err)

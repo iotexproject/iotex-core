@@ -325,7 +325,7 @@ func makeBlock(t *testing.T, prevHash hash.Hash256, receiptRoot hash.Hash256, di
 		SetDeltaStateDigest(digest).
 		SetPrevBlockHash(prevHash).
 		SetBaseFee(big.NewInt(unit.Qev)).
-		SignAndBuild(identityset.PrivateKey(0))
+		SignAndBuild(block.NewECDSAHeaderSigner(identityset.PrivateKey(0)))
 	require.NoError(t, err)
 	return &blk
 }

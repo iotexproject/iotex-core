@@ -1171,7 +1171,7 @@ func TestIndexer_PutBlock(t *testing.T) {
 			// Create a mock block
 			builder := block.NewBuilder(block.NewRunnableActionsBuilder().Build())
 			builder.SetHeight(c.blockHeight)
-			blk, err := builder.SignAndBuild(identityset.PrivateKey(1))
+			blk, err := builder.SignAndBuild(block.NewECDSAHeaderSigner(identityset.PrivateKey(1)))
 			r.NoError(err)
 			// Put the block
 			err = indexer.PutBlock(context.Background(), &blk)
