@@ -87,4 +87,26 @@ func TestCandidateUpdate(t *testing.T) {
 		_, err = cu.EthData()
 		require.Equal(ErrAddress, err)
 	})
+	t.Run("ABI encode with PoP", func(t *testing.T) {
+		// V2 selector path: round-trip blsPop through the
+		// candidateUpdateWithBLSAndPoP ABI entry. Guards against
+		// re-occurrence of the web3-path bug where the PoP field was
+		// silently dropped because the ABI method had no slot for it.
+		pop := make([]byte, crypto.BLSAggregateSignatureLength)
+		for i := range pop {
+			pop[i] = byte(i + 1)
+		}
+		cuWithPoP, err := NewCandidateUpdateWithBLS(_cuName, _cuOperatorAddrStr, _cuRewardAddrStr, blsPrivKey.PublicKey().Bytes(), pop)
+		require.NoError(err)
+		data, err := cuWithPoP.EthData()
+		require.NoError(err)
+		decoded, err := NewCandidateUpdateFromABIBinary(data)
+		require.NoError(err)
+		require.Equal(_cuName, decoded.Name())
+		require.Equal(_cuOperatorAddrStr, decoded.OperatorAddress().String())
+		require.Equal(_cuRewardAddrStr, decoded.RewardAddress().String())
+		require.Equal(blsPrivKey.PublicKey().Bytes(), decoded.BLSPubKey())
+		require.Equal(pop, decoded.BLSPop(),
+			"PoP must round-trip through the V2 ABI codec")
+	})
 }
