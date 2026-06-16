@@ -167,6 +167,8 @@ func TestCandidateRegisterABIEncodeAndDecode(t *testing.T) {
 		require.Equal(test.AutoStake, stake.AutoStake())
 		if stake.WithBLS() {
 			require.Equal(input.BLSPubKey(), stake.BLSPubKey())
+			require.Equal(input.BLSPop(), stake.BLSPop(),
+				"PoP must round-trip through the ABI encode/decode path")
 		} else {
 			require.Equal(test.AmountStr, stake.Amount().String())
 		}
@@ -192,6 +194,22 @@ func TestCandidateRegisterABIEncodeAndDecode(t *testing.T) {
 		require.NoError(err)
 		stake, err := NewCandidateRegisterWithBLS(test.Name, test.OperatorAddrStr, test.RewardAddrStr, test.OwnerAddrStr, test.AmountStr, test.Duration, test.AutoStake, pk.PublicKey().Bytes(), nil, test.Payload)
 		require.NoError(err)
+		encode(stake)
+	})
+	t.Run("with public key and PoP", func(t *testing.T) {
+		// V2 selector path: ensure the candidateRegisterWithBLSAndPoP ABI
+		// entry actually round-trips the blsPop field through Pack /
+		// Unpack. Catches the bug envestcc flagged where the web3 path
+		// silently dropped PoP.
+		pk, err := crypto.GenerateBLS12381PrivateKey(identityset.PrivateKey(0).Bytes())
+		require.NoError(err)
+		pop := make([]byte, crypto.BLSAggregateSignatureLength)
+		for i := range pop {
+			pop[i] = byte(i + 1) // any non-empty bytes; we're only testing the codec here
+		}
+		stake, err := NewCandidateRegisterWithBLS(test.Name, test.OperatorAddrStr, test.RewardAddrStr, test.OwnerAddrStr, test.AmountStr, test.Duration, test.AutoStake, pk.PublicKey().Bytes(), pop, test.Payload)
+		require.NoError(err)
+		require.Equal(pop, stake.BLSPop())
 		encode(stake)
 	})
 

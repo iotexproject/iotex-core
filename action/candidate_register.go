@@ -32,6 +32,15 @@ var (
 	// _candidateRegisterInterface is the interface of the abi encoding of stake action
 	_candidateRegisterMethod             abi.Method
 	_candidateRegisterWithBLSMethod      abi.Method
+	// _candidateRegisterWithBLSAndPoPMethod is the V2 ABI entry that adds the
+	// BLS proof-of-possession parameter alongside the existing WithBLS fields.
+	// Required post-fork (EnforceBLSPoP gate) because the handler rejects
+	// registrations whose blsPop is missing. The pre-fork WithBLS method is
+	// retained so existing tooling that has not yet adopted PoP continues to
+	// compile registrations — those txs will still be rejected at the handler
+	// post-fork, but coexistence avoids breaking the function-selector ID of
+	// the legacy method for any client tracking it.
+	_candidateRegisterWithBLSAndPoPMethod abi.Method
 	_candidateRegisteredEvent            abi.Event
 	_stakedEvent                         abi.Event
 	_candidateActivatedEvent             abi.Event
@@ -84,6 +93,10 @@ func init() {
 	_candidateRegisterWithBLSMethod, ok = abi.Methods["candidateRegisterWithBLS"]
 	if !ok {
 		panic("fail to load the method")
+	}
+	_candidateRegisterWithBLSAndPoPMethod, ok = abi.Methods["candidateRegisterWithBLSAndPoP"]
+	if !ok {
+		panic("fail to load the candidateRegisterWithBLSAndPoP method")
 	}
 	_candidateRegisteredEvent, ok = abi.Events["CandidateRegistered"]
 	if !ok {
@@ -375,7 +388,27 @@ func (cr *CandidateRegister) EthData() ([]byte, error) {
 		return nil, ErrAddress
 	}
 	switch {
+	case cr.WithBLS() && len(cr.blsPop) > 0:
+		// Post-fork path: blsPop is required, encode with the V2 method so
+		// the function-selector ID committed in the calldata signals
+		// "PoP-carrying registration" to all decoders.
+		data, err := _candidateRegisterWithBLSAndPoPMethod.Inputs.Pack(
+			cr.name,
+			common.BytesToAddress(cr.operatorAddress.Bytes()),
+			common.BytesToAddress(cr.rewardAddress.Bytes()),
+			common.BytesToAddress(cr.ownerAddress.Bytes()),
+			cr.duration,
+			cr.autoStake,
+			cr.blsPubKey,
+			cr.blsPop,
+			cr.payload)
+		if err != nil {
+			return nil, err
+		}
+		return append(_candidateRegisterWithBLSAndPoPMethod.ID, data...), nil
 	case cr.WithBLS():
+		// Legacy WithBLS without PoP. Pre-fork still works; post-fork the
+		// handler rejects this for lacking proof-of-possession.
 		data, err := _candidateRegisterWithBLSMethod.Inputs.Pack(
 			cr.name,
 			common.BytesToAddress(cr.operatorAddress.Bytes()),
@@ -519,12 +552,17 @@ func NewCandidateRegisterFromABIBinary(data []byte, value *big.Int) (*CandidateR
 	if len(data) <= 4 {
 		return nil, errDecodeFailure
 	}
+	withPoP := false
 	switch {
 	case bytes.Equal(_candidateRegisterMethod.ID, data[:4]):
 		method = _candidateRegisterMethod
 	case bytes.Equal(_candidateRegisterWithBLSMethod.ID, data[:4]):
 		method = _candidateRegisterWithBLSMethod
 		withBLS = true
+	case bytes.Equal(_candidateRegisterWithBLSAndPoPMethod.ID, data[:4]):
+		method = _candidateRegisterWithBLSAndPoPMethod
+		withBLS = true
+		withPoP = true
 	default:
 		return nil, errDecodeFailure
 	}
@@ -567,6 +605,16 @@ func NewCandidateRegisterFromABIBinary(data []byte, value *big.Int) (*CandidateR
 		_, err := crypto.BLS12381PublicKeyFromBytes(cr.blsPubKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse BLS public key")
+		}
+		if withPoP {
+			pop, ok := paramsMap["blsPop"].([]byte)
+			if !ok {
+				return nil, errors.Wrapf(errDecodeFailure, "invalid blsPop %+v", paramsMap["blsPop"])
+			}
+			if len(pop) == 0 {
+				return nil, errors.Wrap(errDecodeFailure, "blsPop is empty")
+			}
+			cr.blsPop = pop
 		}
 	} else {
 		if cr.amount, ok = paramsMap["amount"].(*big.Int); !ok {
