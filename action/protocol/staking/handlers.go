@@ -747,14 +747,15 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	// producing an off-by-one mismatch that lets the second delegate's
 	// stake-weight "vote for free".
 	if act.WithBLS() && featureCtx.EnforceBLSPoP {
-		var except address.Address
-		if ownerExist {
-			except = c.GetIdentifier()
-		}
-		if csm.ContainsBLSPubKey(act.BLSPubKey(), except) {
-			return log, nil, &handleError{
-				err:           errors.New("BLS pubkey already registered by another candidate"),
-				failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+		if holder := csm.GetByBLSPubKey(act.BLSPubKey()); holder != nil {
+			// Re-registration from the same owner (no self-stake yet)
+			// is allowed to carry forward its existing pubkey; any
+			// other holder is a collision.
+			if !ownerExist || holder.GetIdentifier().String() != c.GetIdentifier().String() {
+				return log, nil, &handleError{
+					err:           errors.New("BLS pubkey already registered by another candidate"),
+					failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+				}
 			}
 		}
 	}
@@ -923,7 +924,8 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 					failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
 				}
 			}
-			if csm.ContainsBLSPubKey(act.BLSPubKey(), c.GetIdentifier()) {
+			if holder := csm.GetByBLSPubKey(act.BLSPubKey()); holder != nil &&
+				holder.GetIdentifier().String() != c.GetIdentifier().String() {
 				return log, &handleError{
 					err:           errors.New("BLS pubkey already registered by another candidate"),
 					failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
@@ -986,7 +988,8 @@ func (p *Protocol) handleCandidateUpdateByOperator(ctx context.Context, act *act
 				failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
 			}
 		}
-		if csm.ContainsBLSPubKey(act.BLSPubKey(), c.GetIdentifier()) {
+		if holder := csm.GetByBLSPubKey(act.BLSPubKey()); holder != nil &&
+			holder.GetIdentifier().String() != c.GetIdentifier().String() {
 			return log, &handleError{
 				err:           errors.New("BLS pubkey already registered by another candidate"),
 				failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,

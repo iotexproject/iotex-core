@@ -58,12 +58,18 @@ const blsPopDomain = "IOTEX_BLS_POP_v1"
 //     transferred to a new owner still uses its original identity for
 //     PoP, so the binding is stable across ownership transfers.
 func BLSPopSigningRoot(blsPubKey []byte, candidateID address.Address) []byte {
+	// Refuse to produce an "unbound" root. Allowing nil candidateID to
+	// silently fall through to a domain+pubkey-only digest would
+	// degrade the scheme to the weakest of its three bindings —
+	// exactly what an attacker reaching for a cross-candidate replay
+	// would hope for. Force callers to commit to a candidate identity.
+	if candidateID == nil {
+		return nil
+	}
 	h := sha256.New()
 	h.Write([]byte(blsPopDomain))
 	h.Write(blsPubKey)
-	if candidateID != nil {
-		h.Write(candidateID.Bytes())
-	}
+	h.Write(candidateID.Bytes())
 	return h.Sum(nil)
 }
 
@@ -79,6 +85,9 @@ func SignBLSPop(sk *crypto.BLS12381PrivateKey, candidateID address.Address) ([]b
 	if sk == nil {
 		return nil, errors.New("nil BLS private key")
 	}
+	if candidateID == nil {
+		return nil, errors.New("nil candidate ID; PoP must bind to a candidate identity")
+	}
 	pk := sk.PublicKey().Bytes()
 	return sk.Sign(BLSPopSigningRoot(pk, candidateID))
 }
@@ -91,6 +100,9 @@ func VerifyBLSPop(blsPubKey, blsPop []byte, candidateID address.Address) error {
 	}
 	if len(blsPop) != crypto.BLSAggregateSignatureLength {
 		return errors.Errorf("invalid BLS PoP length: got %d, want %d", len(blsPop), crypto.BLSAggregateSignatureLength)
+	}
+	if candidateID == nil {
+		return errors.New("nil candidate ID; PoP must bind to a candidate identity")
 	}
 	pk, err := crypto.BLS12381PublicKeyFromBytes(blsPubKey)
 	if err != nil {

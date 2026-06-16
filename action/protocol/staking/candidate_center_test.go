@@ -646,12 +646,13 @@ func TestCandidateUpsert(t *testing.T) {
 	})
 }
 
-// TestCandidateCenter_ContainsBLSPubKey covers the uniqueness check used
+// TestCandidateCenter_GetByBLSPubKey covers the uniqueness lookup used
 // by handleCandidateRegister and handleCandidateUpdate to enforce one
-// BLS pubkey per delegate — a precondition for IIP-52's quorum-counting
-// model (FastAggregateVerify dedups pubkeys but the signer bitmap does
-// not).
-func TestCandidateCenter_ContainsBLSPubKey(t *testing.T) {
+// BLS pubkey per delegate — a precondition for IIP-52's
+// quorum-counting model (FastAggregateVerify dedups pubkeys but the
+// signer bitmap does not). Callers exclude "self" by comparing the
+// returned candidate's identifier to their own.
+func TestCandidateCenter_GetByBLSPubKey(t *testing.T) {
 	r := require.New(t)
 	c, err := NewCandidateCenter(nil)
 	r.NoError(err)
@@ -672,22 +673,17 @@ func TestCandidateCenter_ContainsBLSPubKey(t *testing.T) {
 	r.NoError(c.Upsert(candA))
 	r.NoError(c.commit())
 
-	// Empty / nil pubkey never collides.
-	r.False(c.ContainsBLSPubKey(nil, nil), "nil pubkey is not in use")
-	r.False(c.ContainsBLSPubKey([]byte{}, nil), "empty pubkey is not in use")
+	// Empty / nil / unregistered pubkey returns nil.
+	r.Nil(c.GetByBLSPubKey(nil), "nil pubkey returns nil")
+	r.Nil(c.GetByBLSPubKey([]byte{}), "empty pubkey returns nil")
+	r.Nil(c.GetByBLSPubKey(pkB), "unregistered pubkey returns nil")
 
-	// Unrelated pubkey does not collide.
-	r.False(c.ContainsBLSPubKey(pkB, nil), "unrelated pubkey is not in use")
-
-	// pkA is in use by candA.
-	r.True(c.ContainsBLSPubKey(pkA, nil),
-		"pkA is registered; ContainsBLSPubKey(except=nil) must report true")
-
-	// candA may re-register / update with the same pkA (no collision against itself).
-	r.False(c.ContainsBLSPubKey(pkA, candA.GetIdentifier()),
-		"a candidate must be allowed to keep its own BLS pubkey on update")
-
-	// A different candidate must NOT be allowed to take pkA.
-	r.True(c.ContainsBLSPubKey(pkA, identityset.Address(2)),
-		"another candidate trying to take pkA must collide")
+	// pkA returns the holder. Callers compare identifiers to decide
+	// whether a registration / update should reject — same-identifier
+	// is allowed (self), different-identifier is the rogue case.
+	holder := c.GetByBLSPubKey(pkA)
+	r.NotNil(holder)
+	r.Equal(candA.Name, holder.Name)
+	r.Equal(candA.GetIdentifier().String(), holder.GetIdentifier().String(),
+		"holder's identifier matches the registrant")
 }

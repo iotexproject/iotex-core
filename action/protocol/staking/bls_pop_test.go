@@ -203,3 +203,29 @@ func TestBLSPop_RogueKeyAttackBlocked(t *testing.T) {
 	require.NoError(VerifyBLSPop(legitSK.PublicKey().Bytes(), legitPop, rogueOwner),
 		"control: a delegate that knows their own secret can register normally")
 }
+
+// TestBLSPop_RejectNilCandidateID locks in the contract that the three
+// PoP entry points refuse to operate without a candidate-identity
+// binding. Allowing nil candidateID to silently fall through would
+// degrade the scheme to a domain+pubkey-only digest — exactly the
+// shape an attacker reaching for a cross-candidate replay would hope
+// for. Force callers to commit to an identity.
+func TestBLSPop_RejectNilCandidateID(t *testing.T) {
+	require := require.New(t)
+	sk := blsKeyForTest(t, "any-delegate")
+	pk := sk.PublicKey().Bytes()
+
+	// BLSPopSigningRoot returns nil.
+	require.Nil(BLSPopSigningRoot(pk, nil),
+		"signing root with nil candidateID must be nil — refuse to produce an unbound digest")
+
+	// SignBLSPop returns an error.
+	_, err := SignBLSPop(sk, nil)
+	require.Error(err)
+	require.Contains(err.Error(), "nil candidate ID")
+
+	// VerifyBLSPop returns an error even before any cryptographic work.
+	require.Error(
+		VerifyBLSPop(pk, make([]byte, crypto.BLSAggregateSignatureLength), nil),
+		"verifier must reject nil candidateID without dispatching the BLS pairing")
+}

@@ -198,31 +198,25 @@ func (m *CandidateCenter) ContainsOwner(owner address.Address) bool {
 	return false
 }
 
-// ContainsBLSPubKey reports whether any candidate other than the one
-// identified by `except` holds the given BLS pubkey. A linear scan is
-// used (candidate-center registration is rare and the active set is
-// bounded), trading O(N) lookup for not having to maintain a new index
-// map across the change/base commit flow.
-func (m *CandidateCenter) ContainsBLSPubKey(blsPubKey []byte, except address.Address) bool {
+// GetByBLSPubKey returns the candidate that has registered the given
+// BLS pubkey, or nil if none does. Linear scan over candidates —
+// registration is rare and the candidate set is bounded, trading O(N)
+// lookup for not having to maintain another index map across the
+// change/base commit flow. Callers that want "any candidate other
+// than me" do the identifier comparison on the returned value.
+func (m *CandidateCenter) GetByBLSPubKey(blsPubKey []byte) *Candidate {
 	if len(blsPubKey) == 0 {
-		return false
-	}
-	exceptID := ""
-	if except != nil {
-		exceptID = except.String()
+		return nil
 	}
 	for _, d := range m.All() {
 		if len(d.BLSPubKey) == 0 {
 			continue
 		}
-		if d.GetIdentifier().String() == exceptID {
-			continue
-		}
 		if bytes.Equal(d.BLSPubKey, blsPubKey) {
-			return true
+			return d
 		}
 	}
-	return false
+	return nil
 }
 
 // ContainsOperator returns true if the map contains the candidate by operator
