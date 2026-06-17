@@ -141,8 +141,10 @@ func TestBLSPop_RejectWrongPubkey(t *testing.T) {
 // know any sk_i.
 //
 // The PoP mitigation: registration requires a BLS signature over
-// BLSPopSigningRoot(pk_rogue, owner). Producing this signature
-// requires pk_rogue's secret key. The attacker cannot produce one.
+// BLSPopSigningRoot(candidateID) that verifies under pk_rogue.
+// Producing this signature requires pk_rogue's secret key — the
+// pairing-based Verify(pk_rogue, msg, sig) only accepts a signature
+// produced with sk_rogue. The attacker has no such key.
 //
 // The cleanest test of this property is the abstract one: any pubkey
 // for which the actor does not know the secret cannot be the subject
@@ -179,10 +181,12 @@ func TestBLSPop_RogueKeyAttackBlocked(t *testing.T) {
 	rogueOwner := addrForTest(t, "rogue-owner")
 
 	// 4. Attacker attempts to register pkRogue. The only PoP they can
-	//    produce is one signed with attackerSK — but
-	//    BLSPopSigningRoot(pkRogue, ...) was supposed to be signed under
-	//    pkRogue's secret key, not attackerSK's. Verification must reject.
-	attackerForgedPop, err := attackerSK.Sign(BLSPopSigningRoot(pkRogue, rogueOwner))
+	//    produce is one signed with attackerSK over the canonical
+	//    signing root for the rogue candidate. VerifyBLSPop checks the
+	//    signature under pkRogue (the pubkey the attacker is trying to
+	//    register), and the pairing check requires the signer to be
+	//    pkRogue's secret holder — which the attacker is not.
+	attackerForgedPop, err := attackerSK.Sign(BLSPopSigningRoot(rogueOwner))
 	require.NoError(err)
 	require.Error(VerifyBLSPop(pkRogue, attackerForgedPop, rogueOwner),
 		"PoP signed under attackerSK must NOT validate as possession of pkRogue. "+
@@ -207,16 +211,16 @@ func TestBLSPop_RogueKeyAttackBlocked(t *testing.T) {
 // TestBLSPop_RejectNilCandidateID locks in the contract that the three
 // PoP entry points refuse to operate without a candidate-identity
 // binding. Allowing nil candidateID to silently fall through would
-// degrade the scheme to a domain+pubkey-only digest — exactly the
-// shape an attacker reaching for a cross-candidate replay would hope
-// for. Force callers to commit to an identity.
+// collapse the scheme to a single domain-only digest that every
+// signer would attest over — re-opening the same-message aggregation
+// attack the candidateID binding exists to block.
 func TestBLSPop_RejectNilCandidateID(t *testing.T) {
 	require := require.New(t)
 	sk := blsKeyForTest(t, "any-delegate")
 	pk := sk.PublicKey().Bytes()
 
 	// BLSPopSigningRoot returns nil.
-	require.Nil(BLSPopSigningRoot(pk, nil),
+	require.Nil(BLSPopSigningRoot(nil),
 		"signing root with nil candidateID must be nil — refuse to produce an unbound digest")
 
 	// SignBLSPop returns an error.
