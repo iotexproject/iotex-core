@@ -298,19 +298,28 @@ func (p *Protocol) GrantEpochReward(
 		epochRewardSplitUqdMap = uqdMap
 	}
 	// IIP-62 step G: post-activation, the epoch grant is funded by the per-block
-	// inflation surplus banked into EpochRemainderAccumulator (mStaker minus the
-	// clamped block reward, summed per block by mintAndAllocate), not by the legacy
-	// admin.epochReward constant. The accumulator is reset to zero after the grant
-	// loop below.
+	// inflation surplus (mStaker minus the clamped block reward), not by the legacy
+	// admin.epochReward constant. The surplus is no longer accumulated in state — it is
+	// derived in closed form over the epoch's block range via EpochInflationSurplus,
+	// using a.blockReward (the same clamp threshold calculateTotalRewardAndTip applies).
 	g := genesis.MustExtractGenesisContext(ctx)
-	inf := newInflationState()
+	cfg := g.Rewarding
 	postActivation := g.IsToBeEnabled(blkCtx.BlockHeight)
 	epochAmount := a.epochReward
 	if postActivation {
-		if _, err := p.state(ctx, sm, _inflKey, inf); err != nil {
-			return nil, nil, errors.Wrap(err, "epoch grant: inflation state not seeded")
-		}
-		epochAmount = new(big.Int).Set(inf.epochRemainderAccumulator)
+		epochAmount = EpochInflationSurplus(
+			cfg.OutstandingSupplyAtActivationBig(),
+			g.ToBeEnabledBlockHeight,
+			cfg.BlocksPerYear,
+			epochStartHeight,
+			blkCtx.BlockHeight,
+			cfg.InflationRateY1Bps,
+			cfg.InflationDecayNumerator,
+			cfg.InflationDecayDenominator,
+			cfg.InflationFloorBps,
+			cfg.StakerShareBps,
+			a.blockReward,
+		)
 	}
 	addrs, amounts, err := p.splitEpochReward(candidates, epochAmount, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap)
 	if err != nil {
@@ -384,18 +393,10 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.updateAvailableBalance(ctx, sm, actualTotalReward); err != nil {
 		return nil, nil, err
 	}
-	// IIP-62 step G: drain the per-block inflation surplus that funded this epoch
-	// grant. Reset unconditionally — even if splitEpochReward returned no addrs (all
-	// candidates exempt / zero votes), the next epoch must start with a fresh
-	// accumulator so we don't double-count last epoch's mint. Reset BEFORE the
-	// history sentinel so any retry at the same height re-loads a zero accumulator
-	// rather than re-paying the same surplus.
-	if postActivation {
-		inf.epochRemainderAccumulator.SetUint64(0)
-		if err := p.putState(ctx, sm, _inflKey, inf); err != nil {
-			return nil, nil, errors.Wrap(err, "epoch grant: reset accumulator")
-		}
-	}
+	// IIP-62 step G: the epoch surplus is derived (EpochInflationSurplus over this epoch's
+	// block range), not drained from stored state, so there is no accumulator to reset
+	// here. The epoch-reward history sentinel (below) is what makes a retry at the same
+	// height idempotent.
 	if err := p.updateRewardHistory(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, nil, err
 	}
@@ -560,8 +561,8 @@ func (p *Protocol) calculateTotalRewardAndTip(ctx context.Context, sm protocol.S
 	// IIP-62 step F: post-activation, clamp the constant block reward down to the
 	// per-block staker-share mint when the latter is smaller (e.g. at the Y12+ floor
 	// where annual mint dips below WakeBlockReward × blocksPerYear). The excess
-	// (mStakerBlock − effective_block_reward) is banked into EpochRemainderAccumulator
-	// by mintAndAllocate and surfaced via step G as the epoch grant. Pre-activation
+	// (mStakerBlock − effective_block_reward) is the per-block inflation surplus that
+	// EpochInflationSurplus re-derives over the epoch and step G grants. Pre-activation
 	// mStakerBlock is zero, so this branch is a no-op.
 	if mStakerBlock != nil && mStakerBlock.Sign() > 0 && mStakerBlock.Cmp(blockReward) < 0 {
 		blockReward.Set(mStakerBlock)

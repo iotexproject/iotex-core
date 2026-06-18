@@ -467,36 +467,25 @@ func (x *RewardLogs) GetLogs() []*RewardLog {
 // InflationState is the IIP-62 productive-inflation consensus state, persisted in
 // state.RewardingNamespace under key "inf". All big-int fields are decimal-string
 // serialized to stay consistent with Fund / Account / Admin.
+// InflationState holds only the IIP-62 fields that change at year boundaries. All other
+// per-block values — the running supply (field 1, outstandingSupply), cumulative mint
+// (field 3, postActivationMinted), per-year remainder (field 8, yearMintRemainder), epoch
+// surplus (field 9, epochRemainderAccumulator), and the dust accumulators (fields 6,7) —
+// were deterministic and are now derived on read (CumulativeMinted / EpochInflationSurplus
+// / PerBlockMint in the rewarding package), so this record is written once per year
+// instead of every block. IIP-62 is mint-only (the EIP-1559 base fee is deposited to the
+// rewarding pool, not burned), so there is no burn-side debit.
 type InflationState struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// OutstandingSupply is the running mint base for the disinflation curve.
-	// Seeded at activation from genesis.OutstandingSupplyAtActivation; grows by
-	// mTotal each block. IIP-62 only adds to this counter; IoTeX's EIP-1559
-	// base fee is deposited to the rewarding pool, not burned, so there is no
-	// burn-side debit in this proposal.
-	OutstandingSupply string `protobuf:"bytes,1,opt,name=outstandingSupply,proto3" json:"outstandingSupply,omitempty"`
 	// OutstandingSupplyAtYearStart is the §1.2 snapshot used for the entire year.
 	OutstandingSupplyAtYearStart string `protobuf:"bytes,2,opt,name=outstandingSupplyAtYearStart,proto3" json:"outstandingSupplyAtYearStart,omitempty"`
-	// PostActivationMinted is the cumulative mint since activation (analytics).
-	PostActivationMinted string `protobuf:"bytes,3,opt,name=postActivationMinted,proto3" json:"postActivationMinted,omitempty"`
 	// CurrentInflationBps is the effective annual rate, refreshed at year boundaries.
 	CurrentInflationBps uint64 `protobuf:"varint,4,opt,name=currentInflationBps,proto3" json:"currentInflationBps,omitempty"`
 	// CurrentYearIndex is the 1-indexed year matching YearIndex(). Stored so a
 	// reorg crossing a year boundary can detect the crossing and re-derive.
 	CurrentYearIndex uint64 `protobuf:"varint,5,opt,name=currentYearIndex,proto3" json:"currentYearIndex,omitempty"`
-	// DustStaker / DustMachina are the per-share Rau·bps dust accumulators used
-	// by SplitMint so per-block truncation does not silently bias the split.
-	DustStaker  string `protobuf:"bytes,6,opt,name=dustStaker,proto3" json:"dustStaker,omitempty"`
-	DustMachina string `protobuf:"bytes,7,opt,name=dustMachina,proto3" json:"dustMachina,omitempty"`
-	// YearMintRemainder is the per-year leftover (annualMint mod blocksPerYear)
-	// flushed on the year's final block per §4.1.
-	YearMintRemainder string `protobuf:"bytes,8,opt,name=yearMintRemainder,proto3" json:"yearMintRemainder,omitempty"`
-	// EpochRemainderAccumulator carries (mStaker − effective_block_reward) across
-	// the blocks of an epoch; consumed and reset at the epoch's last block by
-	// GrantEpochReward (replaces the old constant Admin.epochReward).
-	EpochRemainderAccumulator string `protobuf:"bytes,9,opt,name=epochRemainderAccumulator,proto3" json:"epochRemainderAccumulator,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *InflationState) Reset() {
@@ -529,23 +518,9 @@ func (*InflationState) Descriptor() ([]byte, []int) {
 	return file_rewarding_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *InflationState) GetOutstandingSupply() string {
-	if x != nil {
-		return x.OutstandingSupply
-	}
-	return ""
-}
-
 func (x *InflationState) GetOutstandingSupplyAtYearStart() string {
 	if x != nil {
 		return x.OutstandingSupplyAtYearStart
-	}
-	return ""
-}
-
-func (x *InflationState) GetPostActivationMinted() string {
-	if x != nil {
-		return x.PostActivationMinted
 	}
 	return ""
 }
@@ -562,34 +537,6 @@ func (x *InflationState) GetCurrentYearIndex() uint64 {
 		return x.CurrentYearIndex
 	}
 	return 0
-}
-
-func (x *InflationState) GetDustStaker() string {
-	if x != nil {
-		return x.DustStaker
-	}
-	return ""
-}
-
-func (x *InflationState) GetDustMachina() string {
-	if x != nil {
-		return x.DustMachina
-	}
-	return ""
-}
-
-func (x *InflationState) GetYearMintRemainder() string {
-	if x != nil {
-		return x.YearMintRemainder
-	}
-	return ""
-}
-
-func (x *InflationState) GetEpochRemainderAccumulator() string {
-	if x != nil {
-		return x.EpochRemainderAccumulator
-	}
-	return ""
 }
 
 var File_rewarding_proto protoreflect.FileDescriptor
@@ -627,19 +574,12 @@ const file_rewarding_proto_rawDesc = "" +
 	"\x12UNPRODUCTIVE_SLASH\x10\x04\"8\n" +
 	"\n" +
 	"RewardLogs\x12*\n" +
-	"\x04logs\x18\x01 \x03(\v2\x16.rewardingpb.RewardLogR\x04logs\"\xc2\x03\n" +
-	"\x0eInflationState\x12,\n" +
-	"\x11outstandingSupply\x18\x01 \x01(\tR\x11outstandingSupply\x12B\n" +
-	"\x1coutstandingSupplyAtYearStart\x18\x02 \x01(\tR\x1coutstandingSupplyAtYearStart\x122\n" +
-	"\x14postActivationMinted\x18\x03 \x01(\tR\x14postActivationMinted\x120\n" +
+	"\x04logs\x18\x01 \x03(\v2\x16.rewardingpb.RewardLogR\x04logs\"\xd6\x01\n" +
+	"\x0eInflationState\x12B\n" +
+	"\x1coutstandingSupplyAtYearStart\x18\x02 \x01(\tR\x1coutstandingSupplyAtYearStart\x120\n" +
 	"\x13currentInflationBps\x18\x04 \x01(\x04R\x13currentInflationBps\x12*\n" +
-	"\x10currentYearIndex\x18\x05 \x01(\x04R\x10currentYearIndex\x12\x1e\n" +
-	"\n" +
-	"dustStaker\x18\x06 \x01(\tR\n" +
-	"dustStaker\x12 \n" +
-	"\vdustMachina\x18\a \x01(\tR\vdustMachina\x12,\n" +
-	"\x11yearMintRemainder\x18\b \x01(\tR\x11yearMintRemainder\x12<\n" +
-	"\x19epochRemainderAccumulator\x18\t \x01(\tR\x19epochRemainderAccumulatorBJZHgithub.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpbb\x06proto3"
+	"\x10currentYearIndex\x18\x05 \x01(\x04R\x10currentYearIndexJ\x04\b\x01\x10\x02J\x04\b\x03\x10\x04J\x04\b\x06\x10\aJ\x04\b\a\x10\bJ\x04\b\b\x10\tJ\x04\b\t\x10\n" +
+	"BJZHgithub.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpbb\x06proto3"
 
 var (
 	file_rewarding_proto_rawDescOnce sync.Once

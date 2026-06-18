@@ -36,7 +36,8 @@ func IsYearBoundary(activation, blocksPerYear, height uint64) bool {
 }
 
 // IsYearFinalBlock reports whether height is the last block of the current Year.
-// Used to flush yearMintRemainder per IIP-62 §4.1.
+// On this block the per-year remainder (annualMint mod blocksPerYear) is added to the
+// mint so the realized annual mint exactly matches the §1.3 table (IIP-62 §4.1).
 func IsYearFinalBlock(activation, blocksPerYear, height uint64) bool {
 	if height < activation || blocksPerYear == 0 {
 		return false
@@ -99,33 +100,146 @@ func PerBlockMint(supplyAtYearStart *big.Int, inflationBps, blocksPerYear uint64
 }
 
 // SplitMint distributes mTotal between the staker pool and the Machina DAO using
-// basis-point shares, carrying sub-bpsDenom dust between blocks so that over time
-// the realized split is exact. dustStakerIn / dustMachinaIn are the per-share dust
-// accumulators from the previous block (in "Rau·bps" units); the returned dust
-// values must be persisted for the next call.
+// basis-point shares. It is a pure, stateless function: the staker share is the
+// truncated mTotal·stakerBps/bpsDenom and the Machina share is the complement,
+// mMachina = mTotal − mStaker. This conserves mTotal exactly every block
+// (mStaker + mMachina == mTotal).
+//
+// No sub-bpsDenom dust is carried across blocks. The per-block truncation biases
+// at most (bpsDenom−1)/bpsDenom < 1 Rau toward Machina; with constant per-block
+// mint that totals well under a micro-IOTX over the chain's lifetime, so exact
+// per-share carry is not worth the persisted-state and reorg surface it costs.
 //
 // stakerBps + machinaBps must equal bpsDenom; the caller is expected to enforce this
-// at genesis-validation time so the assertion does not run hot per block.
+// at genesis-validation time so the assertion does not run hot per block. machinaBps
+// is therefore implied by stakerBps and is not read here.
 func SplitMint(
 	mTotal *big.Int,
 	stakerBps, machinaBps uint64,
-	dustStakerIn, dustMachinaIn *big.Int,
-) (mStaker, mMachina, dustStakerOut, dustMachinaOut *big.Int) {
+) (mStaker, mMachina *big.Int) {
 	bpsDenomBig := big.NewInt(bpsDenom)
 
 	stakerNum := new(big.Int).Mul(mTotal, new(big.Int).SetUint64(stakerBps))
-	if dustStakerIn != nil {
-		stakerNum.Add(stakerNum, dustStakerIn)
-	}
 	mStaker = new(big.Int).Quo(stakerNum, bpsDenomBig)
-	dustStakerOut = new(big.Int).Mod(stakerNum, bpsDenomBig)
+	mMachina = new(big.Int).Sub(mTotal, mStaker)
 
-	machinaNum := new(big.Int).Mul(mTotal, new(big.Int).SetUint64(machinaBps))
-	if dustMachinaIn != nil {
-		machinaNum.Add(machinaNum, dustMachinaIn)
+	return mStaker, mMachina
+}
+
+// stakerShare returns floor(mTotal · stakerBps / bpsDenom), the staker-pool mint for a
+// block whose total mint is mTotal. Mirrors SplitMint's staker leg; factored out so the
+// derived cumulative / epoch-surplus helpers compute the same value without allocating
+// the Machina complement.
+func stakerShare(mTotal *big.Int, stakerBps uint64) *big.Int {
+	n := new(big.Int).Mul(mTotal, new(big.Int).SetUint64(stakerBps))
+	return n.Quo(n, big.NewInt(bpsDenom))
+}
+
+// ComputeYearStartSupply replays the IIP-62 disinflation recurrence from genesis to
+// return OutstandingSupplyAtYearStart for the given (1-indexed) year:
+//
+//	S(1) = activationSupply
+//	S(k+1) = S(k) + AnnualMint(S(k), ComputeInflationBps(k, …))
+//
+// This is exact because the per-year remainder flush makes the realized mint of every
+// completed year equal AnnualMint(...) exactly. It is self-contained from genesis params
+// (no stored state), O(year), and called at most once per year boundary / twice per
+// epoch — never per block. Returns activationSupply for year ≤ 1.
+func ComputeYearStartSupply(
+	activationSupply *big.Int,
+	year, y1Bps, num, denom, floorBps, blocksPerYear uint64,
+) *big.Int {
+	s := new(big.Int).Set(activationSupply)
+	for k := uint64(1); k < year; k++ {
+		bps := ComputeInflationBps(k, y1Bps, num, denom, floorBps)
+		s.Add(s, AnnualMint(s, bps))
 	}
-	mMachina = new(big.Int).Quo(machinaNum, bpsDenomBig)
-	dustMachinaOut = new(big.Int).Mod(machinaNum, bpsDenomBig)
+	return s
+}
 
-	return mStaker, mMachina, dustStakerOut, dustMachinaOut
+// CumulativeMinted returns the total productive inflation minted from activation through
+// height (inclusive), i.e. the value the old per-block PostActivationMinted counter held.
+// yearStart / bps are OutstandingSupplyAtYearStart and CurrentInflationBps as of height's
+// year (the persisted snapshot, valid at the read height). It splits into:
+//
+//	completed years : yearStart − activationSupply  (= Σ AnnualMint of years < current)
+//	current year    : blocksMinted·perBlock (+ remainder on the year's final block)
+//
+// Returns 0 for heights before activation. OutstandingSupply = activationSupply + this.
+func CumulativeMinted(
+	activationSupply, yearStart *big.Int,
+	bps, activation, blocksPerYear, height uint64,
+) *big.Int {
+	year := YearIndex(activation, blocksPerYear, height)
+	if year == 0 {
+		return new(big.Int)
+	}
+	completed := new(big.Int).Sub(yearStart, activationSupply)
+	perBlock, rem := PerBlockMint(yearStart, bps, blocksPerYear)
+	yearFirst := activation + (year-1)*blocksPerYear
+	blocksMinted := new(big.Int).SetUint64(height - yearFirst + 1)
+	partial := new(big.Int).Mul(perBlock, blocksMinted)
+	if IsYearFinalBlock(activation, blocksPerYear, height) {
+		partial.Add(partial, rem)
+	}
+	return completed.Add(completed, partial)
+}
+
+// EpochInflationSurplus returns Σ over blocks b in [epochStart, epochEnd] of
+// max(0, mStaker(b) − blockReward) — the per-block staker-share excess over the (clamped)
+// block reward that the old EpochRemainderAccumulator banked and GrantEpochReward paid as
+// the epoch reward. It is computed in closed form per year-segment: an epoch lies in a
+// single year (1 segment) unless it straddles a year boundary (2 segments, only possible
+// if activation is not epoch-aligned). Within a segment mStaker is constant except on the
+// year's final block, which carries the remainder-boosted mint. Pre-activation blocks
+// (year 0) contribute nothing. blockReward is the unclamped admin block reward — the same
+// threshold calculateTotalRewardAndTip uses for the step-F clamp.
+func EpochInflationSurplus(
+	activationSupply *big.Int,
+	activation, blocksPerYear, epochStart, epochEnd uint64,
+	y1Bps, num, denom, floorBps, stakerBps uint64,
+	blockReward *big.Int,
+) *big.Int {
+	sum := new(big.Int)
+	if blocksPerYear == 0 {
+		return sum
+	}
+	yHi := YearIndex(activation, blocksPerYear, epochEnd)
+	for year := uint64(1); year <= yHi; year++ {
+		yearFirst := activation + (year-1)*blocksPerYear
+		yearFinal := activation + year*blocksPerYear - 1
+		lo := epochStart
+		if yearFirst > lo {
+			lo = yearFirst
+		}
+		hi := epochEnd
+		if yearFinal < hi {
+			hi = yearFinal
+		}
+		if lo > hi {
+			continue
+		}
+		bps := ComputeInflationBps(year, y1Bps, num, denom, floorBps)
+		ys := ComputeYearStartSupply(activationSupply, year, y1Bps, num, denom, floorBps, blocksPerYear)
+		perBlock, rem := PerBlockMint(ys, bps, blocksPerYear)
+		excess := blockExcess(perBlock, stakerBps, blockReward)
+		n := new(big.Int).SetUint64(hi - lo + 1)
+		sum.Add(sum, n.Mul(n, excess))
+		// The year's final block (if inside this segment) mints perBlock+rem, not perBlock.
+		if rem.Sign() > 0 && lo <= yearFinal && yearFinal <= hi {
+			boosted := new(big.Int).Add(perBlock, rem)
+			sum.Add(sum, blockExcess(boosted, stakerBps, blockReward))
+			sum.Sub(sum, excess) // swap out the one normal block we over-counted
+		}
+	}
+	return sum
+}
+
+// blockExcess returns max(0, stakerShare(mTotal) − blockReward).
+func blockExcess(mTotal *big.Int, stakerBps uint64, blockReward *big.Int) *big.Int {
+	mStaker := stakerShare(mTotal, stakerBps)
+	if mStaker.Cmp(blockReward) <= 0 {
+		return new(big.Int)
+	}
+	return mStaker.Sub(mStaker, blockReward)
 }

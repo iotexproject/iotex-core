@@ -185,67 +185,253 @@ func TestPerBlockMint_RemainderClosesYear(t *testing.T) {
 		"year-end remainder %s must be < blocksPerYear %d", rem.String(), bpy)
 }
 
-// SplitMint: dust accumulation closes a 10000-block window exactly.
-func TestSplitMint_DustClosesWindow(t *testing.T) {
+// SplitMint: staker is the truncated bps share, Machina is the complement, and the
+// per-block truncation bias toward Machina stays strictly below 1 Rau.
+func TestSplitMint_StakerTruncatedMachinaComplement(t *testing.T) {
 	const (
 		stakerBps  uint64 = 8000
 		machinaBps uint64 = 2000
 		nBlocks           = 10000
 	)
-	// Pick an mTotal that is intentionally indivisible by bpsDenom so dust must accumulate.
+	// Pick an mTotal that is intentionally indivisible by bpsDenom so truncation bites.
 	mTotal := big.NewInt(123_456_789)
 
-	dStaker, dMachina := new(big.Int), new(big.Int)
 	totalStaker, totalMachina := new(big.Int), new(big.Int)
 	for i := 0; i < nBlocks; i++ {
-		var s, m *big.Int
-		s, m, dStaker, dMachina = SplitMint(mTotal, stakerBps, machinaBps, dStaker, dMachina)
+		s, m := SplitMint(mTotal, stakerBps, machinaBps)
+		// Staker is floor(mTotal*stakerBps/bpsDenom) every block (no carry).
+		wantS := new(big.Int).Quo(new(big.Int).Mul(mTotal, big.NewInt(int64(stakerBps))), big.NewInt(bpsDenom))
+		require.Equal(t, 0, s.Cmp(wantS), "staker per-block mismatch: got %s want %s", s, wantS)
+		// Machina is exactly the complement, so the split conserves mTotal.
+		require.Equal(t, 0, new(big.Int).Add(s, m).Cmp(mTotal), "conservation broken: %s+%s != %s", s, m, mTotal)
 		totalStaker.Add(totalStaker, s)
 		totalMachina.Add(totalMachina, m)
 	}
-	// Over an integer-multiple-of-bpsDenom block window the staker share equals
-	// exactly nBlocks * mTotal * stakerBps / bpsDenom with zero dust remaining.
-	wantStaker := new(big.Int).Mul(mTotal, big.NewInt(int64(nBlocks)*int64(stakerBps)/bpsDenom))
-	wantMachina := new(big.Int).Mul(mTotal, big.NewInt(int64(nBlocks)*int64(machinaBps)/bpsDenom))
-	require.Equal(t, 0, totalStaker.Cmp(wantStaker), "staker total mismatch: got %s want %s", totalStaker, wantStaker)
-	require.Equal(t, 0, totalMachina.Cmp(wantMachina), "machina total mismatch: got %s want %s", totalMachina, wantMachina)
-	require.Equal(t, 0, dStaker.Sign(), "staker dust should drain to 0 at window close, got %s", dStaker)
-	require.Equal(t, 0, dMachina.Sign(), "machina dust should drain to 0 at window close, got %s", dMachina)
+	// Bias: staker is shorted vs the exact fair share by < 1 Rau/block, so over
+	// nBlocks the shortfall (which all accrues to Machina) is strictly < nBlocks Rau.
+	fairStaker := new(big.Int).Quo(
+		new(big.Int).Mul(mTotal, big.NewInt(int64(nBlocks)*int64(stakerBps))),
+		big.NewInt(bpsDenom),
+	)
+	shortfall := new(big.Int).Sub(fairStaker, totalStaker)
+	require.Equal(t, -1, shortfall.Cmp(big.NewInt(nBlocks)), "staker shortfall %s must be < %d Rau", shortfall, nBlocks)
+	require.True(t, shortfall.Sign() >= 0, "staker should never be over-paid, got shortfall %s", shortfall)
 }
 
-// Conservation: mStaker + mMachina + (dust_delta / bpsDenom) equals mTotal each block.
-// In Rau·bps space: stakerNum + machinaNum = mTotal * bpsDenom (since shares sum to bpsDenom).
+// Conservation: with the Machina share derived as mTotal − mStaker, the split is
+// exact every block — mStaker + mMachina == mTotal — for arbitrary inputs.
 func TestSplitMint_PerBlockConservation(t *testing.T) {
-	mTotal := big.NewInt(1_000_000_007) // a prime, to force nontrivial dust
-	dStakerIn := big.NewInt(1234)
-	dMachinaIn := big.NewInt(4321)
-	mStaker, mMachina, dStakerOut, dMachinaOut := SplitMint(
-		mTotal, 8000, 2000, dStakerIn, dMachinaIn,
+	mTotal := big.NewInt(1_000_000_007) // a prime, to force a nonzero truncation
+	mStaker, mMachina := SplitMint(mTotal, 8000, 2000)
+
+	require.Equal(t, 0, new(big.Int).Add(mStaker, mMachina).Cmp(mTotal),
+		"per-block conservation: mStaker=%s mMachina=%s mTotal=%s", mStaker, mMachina, mTotal)
+
+	// Staker is exactly the truncated bps share.
+	wantStaker := new(big.Int).Quo(new(big.Int).Mul(mTotal, big.NewInt(8000)), big.NewInt(bpsDenom))
+	require.Equal(t, 0, mStaker.Cmp(wantStaker), "staker share mismatch: got %s want %s", mStaker, wantStaker)
+}
+
+// CumulativeMinted must match a brute-force per-block sum of mTotal across years,
+// including the year-end remainder flush on each year's final block. Cross-checks the
+// closed-form derivation that replaces the old stored postActivationMinted counter.
+func TestCumulativeMinted_MatchesBruteForce(t *testing.T) {
+	const (
+		activation    = uint64(360)
+		blocksPerYear = uint64(50)
+		y1Bps         = uint64(10000) // 100%/yr so per-block mint is chunky
+		num           = uint64(8000)
+		denom         = uint64(10000)
+		floorBps      = uint64(50)
 	)
-	// (mStaker * bpsDenom + dStakerOut) + (mMachina * bpsDenom + dMachinaOut)
-	//   = mTotal * 10000 + dStakerIn + dMachinaIn
-	lhs := new(big.Int).Add(
-		new(big.Int).Add(new(big.Int).Mul(mStaker, big.NewInt(bpsDenom)), dStakerOut),
-		new(big.Int).Add(new(big.Int).Mul(mMachina, big.NewInt(bpsDenom)), dMachinaOut),
+	activationSupply, _ := new(big.Int).SetString("100000000000000000000", 10) // 100 IOTX
+
+	// Brute-force running sum of mTotal, recomputing the year-start snapshot via the
+	// same recurrence mintAndAllocate uses at each boundary.
+	want := new(big.Int)
+	curYear := uint64(0)
+	var yearStart *big.Int
+	var bps uint64
+	// Walk 3 years + a few blocks so multiple boundaries + final-block flushes are hit.
+	for h := activation; h <= activation+3*blocksPerYear+7; h++ {
+		year := YearIndex(activation, blocksPerYear, h)
+		if year != curYear {
+			yearStart = ComputeYearStartSupply(activationSupply, year, y1Bps, num, denom, floorBps, blocksPerYear)
+			bps = ComputeInflationBps(year, y1Bps, num, denom, floorBps)
+			curYear = year
+		}
+		perBlock, rem := PerBlockMint(yearStart, bps, blocksPerYear)
+		mTotal := new(big.Int).Set(perBlock)
+		if IsYearFinalBlock(activation, blocksPerYear, h) {
+			mTotal.Add(mTotal, rem)
+		}
+		want.Add(want, mTotal)
+
+		got := CumulativeMinted(activationSupply, yearStart, bps, activation, blocksPerYear, h)
+		require.Equalf(t, 0, got.Cmp(want), "CumulativeMinted(%d) = %s, brute-force = %s", h, got, want)
+	}
+	// Before activation it is zero.
+	require.Equal(t, 0, CumulativeMinted(activationSupply, activationSupply, y1Bps, activation, blocksPerYear, activation-1).Sign())
+}
+
+// EpochInflationSurplus must equal a brute-force per-block Σ max(0, mStaker − blockReward),
+// across single-year, year-final-block, and year-straddling epoch ranges, and must ignore
+// pre-activation blocks. Cross-checks the closed-form that replaces the old stored
+// epochRemainderAccumulator.
+func TestEpochInflationSurplus_MatchesBruteForce(t *testing.T) {
+	const (
+		activation    = uint64(360)
+		blocksPerYear = uint64(50)
+		y1Bps         = uint64(10000)
+		num           = uint64(8000)
+		denom         = uint64(10000)
+		floorBps      = uint64(50)
+		stakerBps     = uint64(8000)
 	)
-	rhs := new(big.Int).Add(
-		new(big.Int).Mul(mTotal, big.NewInt(bpsDenom)),
-		new(big.Int).Add(dStakerIn, dMachinaIn),
-	)
-	require.Equal(t, 0, lhs.Cmp(rhs), "per-block conservation: lhs=%s rhs=%s", lhs, rhs)
+	activationSupply, _ := new(big.Int).SetString("100000000000000000000", 10)
+	blockReward := big.NewInt(1_000_000_000) // small vs per-block mint so excess is usually >0
+
+	bruteForce := func(epochStart, epochEnd uint64) *big.Int {
+		sum := new(big.Int)
+		for h := epochStart; h <= epochEnd; h++ {
+			year := YearIndex(activation, blocksPerYear, h)
+			if year == 0 {
+				continue
+			}
+			ys := ComputeYearStartSupply(activationSupply, year, y1Bps, num, denom, floorBps, blocksPerYear)
+			bps := ComputeInflationBps(year, y1Bps, num, denom, floorBps)
+			perBlock, rem := PerBlockMint(ys, bps, blocksPerYear)
+			mTotal := new(big.Int).Set(perBlock)
+			if IsYearFinalBlock(activation, blocksPerYear, h) {
+				mTotal.Add(mTotal, rem)
+			}
+			mStaker := new(big.Int).Quo(new(big.Int).Mul(mTotal, big.NewInt(int64(stakerBps))), big.NewInt(bpsDenom))
+			if mStaker.Cmp(blockReward) > 0 {
+				sum.Add(sum, new(big.Int).Sub(mStaker, blockReward))
+			}
+		}
+		return sum
+	}
+
+	cases := []struct {
+		name               string
+		epochStart, epochE uint64
+	}{
+		{"pre-activation only", activation - 20, activation - 1},
+		{"straddles activation", activation - 5, activation + 4},
+		{"single mid-year window", activation + 10, activation + 19},
+		{"includes year-final block", activation + blocksPerYear - 3, activation + blocksPerYear + 2},
+		{"straddles year boundary deep", activation + 2*blocksPerYear - 4, activation + 2*blocksPerYear + 5},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := EpochInflationSurplus(
+				activationSupply, activation, blocksPerYear, tc.epochStart, tc.epochE,
+				y1Bps, num, denom, floorBps, stakerBps, blockReward,
+			)
+			require.Equal(t, 0, got.Cmp(bruteForce(tc.epochStart, tc.epochE)),
+				"surplus mismatch: got %s want %s", got, bruteForce(tc.epochStart, tc.epochE))
+		})
+	}
+}
+
+// fixedHeightSR reports a chosen height from State() while delegating the actual read
+// to the wrapped StateManager. testProtocol's mock StateManager always reports height 0,
+// which would defeat the height-dependent derivation in the OutstandingSupply /
+// PostActivationMinted getters; production StateReaders return the query height (verified:
+// workingSet.State returns ws.height).
+type fixedHeightSR struct {
+	protocol.StateManager
+	height uint64
+}
+
+func (s fixedHeightSR) State(v interface{}, opts ...protocol.StateOption) (uint64, error) {
+	_, err := s.StateManager.State(v, opts...)
+	return s.height, err
+}
+
+// End-to-end coverage of the derived OutstandingSupply / PostActivationMinted getters:
+// they must reconstruct supply from the boundary-only snapshot plus the query height
+// returned by p.state, for partial-year, activation-block, pre-activation, and post-year-
+// boundary reads.
+func TestOutstandingSupplyGetters_Derived(t *testing.T) {
+	machinaAddr := identityset.Address(33).String()
+	const blocksPerYear = uint64(100)
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		req := require.New(t)
+		g := genesis.MustExtractGenesisContext(ctx)
+		blkCtx := protocol.MustGetBlockCtx(ctx)
+		g.Rewarding.InflationRateY1Bps = 500
+		g.Rewarding.InflationDecayNumerator = 8000
+		g.Rewarding.InflationDecayDenominator = 10000
+		g.Rewarding.InflationFloorBps = 50
+		g.Rewarding.BlocksPerYear = blocksPerYear
+		g.Rewarding.StakerShareBps = 8000
+		g.Rewarding.MachinaShareBps = 2000
+		g.Rewarding.MachinaDaoAddress = machinaAddr
+		g.Rewarding.OutstandingSupplyAtActivation = "100000000000000000000" // 100 IOTX
+		activation := blkCtx.BlockHeight
+		g.ToBeEnabledBlockHeight = activation
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithFeatureCtx(ctx)
+		req.NoError(p.CreatePreStates(ctx, sm))
+
+		supply := g.Rewarding.OutstandingSupplyAtActivationBig()
+		denomB := big.NewInt(10000)
+		bpyB := new(big.Int).SetUint64(blocksPerYear)
+		// Year 1 per-block mint, computed with plain arithmetic (independent of the
+		// production helpers): annual = supply·500/10000, perBlock = annual/blocksPerYear.
+		annual1 := new(big.Int).Quo(new(big.Int).Mul(supply, big.NewInt(500)), denomB)
+		perBlock1 := new(big.Int).Quo(annual1, bpyB)
+		// Year 2: ComputeInflationBps(2)=400 (see TestComputeInflationBps_SpecValues).
+		yearStart2 := new(big.Int).Add(supply, annual1)
+		annual2 := new(big.Int).Quo(new(big.Int).Mul(yearStart2, big.NewInt(400)), denomB)
+		perBlock2 := new(big.Int).Quo(annual2, bpyB)
+
+		// assertAt queries the getters at height h (via the fixed-height wrapper) and
+		// checks both against wantMinted (= PostActivationMinted; OutstandingSupply is
+		// supply + that). Also confirms the getter echoes the query height.
+		assertAt := func(h uint64, wantMinted *big.Int) {
+			sr := fixedHeightSR{StateManager: sm, height: h}
+			os, hgt, err := p.OutstandingSupply(ctx, sr)
+			req.NoError(err)
+			req.Equalf(h, hgt, "OutstandingSupply height echo at %d", h)
+			req.Equalf(0, os.Cmp(new(big.Int).Add(supply, wantMinted)),
+				"OutstandingSupply at %d: got %s want %s", h, os, new(big.Int).Add(supply, wantMinted))
+			pam, _, err := p.PostActivationMinted(ctx, sr)
+			req.NoError(err)
+			req.Equalf(0, pam.Cmp(wantMinted), "PostActivationMinted at %d: got %s want %s", h, pam, wantMinted)
+		}
+
+		mulN := func(a *big.Int, n int64) *big.Int { return new(big.Int).Mul(a, big.NewInt(n)) }
+
+		// At/before activation: nothing minted yet (state exists, but height precedes Y1).
+		assertAt(activation-1, new(big.Int))
+		// Activation block itself mints exactly one perBlock.
+		assertAt(activation, perBlock1)
+		// Mid-year-1 partial: blocks [activation, activation+50] = 51 blocks.
+		assertAt(activation+50, mulN(perBlock1, 51))
+
+		// Cross into year 2: run mintAndAllocate at the boundary block so the stored
+		// snapshot advances to the Y2 base (ComputeYearStartSupply(2)).
+		blkCtx.BlockHeight = activation + blocksPerYear
+		ctx = protocol.WithBlockCtx(ctx, blkCtx)
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithFeatureCtx(ctx)
+		_, _, err := p.mintAndAllocate(ctx, sm)
+		req.NoError(err)
+
+		// Year-2 read: completed year 1 (annual1) + 11 blocks of year 2.
+		wantY2 := new(big.Int).Add(annual1, mulN(perBlock2, 11))
+		assertAt(activation+blocksPerYear+10, wantY2)
+	}, nil, false, 0)
 }
 
 func TestInflationState_RoundTrip(t *testing.T) {
 	s := newInflationState()
-	s.outstandingSupply.SetString("9440000000000000000000000000", 10)
 	s.outstandingSupplyAtYearStart.SetString("9440000000000000000000000000", 10)
-	s.postActivationMinted.SetString("123456789012345", 10)
 	s.currentInflationBps = 500
 	s.currentYearIndex = 1
-	s.dustStaker.SetUint64(7777)
-	s.dustMachina.SetUint64(3333)
-	s.yearMintRemainder.SetUint64(99)
-	s.epochRemainderAccumulator.SetString("999999999999", 10)
 
 	data, err := s.Serialize()
 	require.NoError(t, err)
@@ -253,15 +439,9 @@ func TestInflationState_RoundTrip(t *testing.T) {
 	out := newInflationState()
 	require.NoError(t, out.Deserialize(data))
 
-	require.Equal(t, 0, s.outstandingSupply.Cmp(out.outstandingSupply))
 	require.Equal(t, 0, s.outstandingSupplyAtYearStart.Cmp(out.outstandingSupplyAtYearStart))
-	require.Equal(t, 0, s.postActivationMinted.Cmp(out.postActivationMinted))
 	require.Equal(t, s.currentInflationBps, out.currentInflationBps)
 	require.Equal(t, s.currentYearIndex, out.currentYearIndex)
-	require.Equal(t, 0, s.dustStaker.Cmp(out.dustStaker))
-	require.Equal(t, 0, s.dustMachina.Cmp(out.dustMachina))
-	require.Equal(t, 0, s.yearMintRemainder.Cmp(out.yearMintRemainder))
-	require.Equal(t, 0, s.epochRemainderAccumulator.Cmp(out.epochRemainderAccumulator))
 }
 
 func TestValidateInflationConfig(t *testing.T) {
@@ -395,17 +575,27 @@ func TestMintAndAllocate_EmitsTransactionLogs(t *testing.T) {
 	}, nil, false, 0)
 }
 
-// IIP-62 step G: post-activation, GrantEpochReward funds the split from
-// EpochRemainderAccumulator (banked per-block by mintAndAllocate) instead of
-// admin.epochReward. The accumulator must be drained back to zero after the
-// grant so the next epoch starts fresh.
-func TestGrantEpochReward_UsesAccumulator(t *testing.T) {
+// IIP-62 step G: post-activation, GrantEpochReward funds the split from the derived
+// per-block inflation surplus (EpochInflationSurplus over the epoch's block range)
+// instead of admin.epochReward. No stored accumulator is read or reset.
+func TestGrantEpochReward_UsesDerivedSurplus(t *testing.T) {
 	machinaAddr := identityset.Address(33).String()
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		req := require.New(t)
 
 		// Activate IIP-62 at the harness's current height (also the last block of
-		// epoch 1, so assertLastBlockInEpoch passes inside GrantEpochReward).
+		// epoch 1, so assertLastBlockInEpoch passes inside GrantEpochReward). Only the
+		// activation block itself is post-activation in this epoch, so the derived
+		// surplus is exactly one block's excess.
+		//
+		// Params chosen so the single-block surplus is small and fundable from the
+		// harness's tiny accounts:
+		//   annual   = supply·bps/denom = 4_000_000·500/10000 = 200_000
+		//   perBlock = annual/blocksPerYear = 200_000/1000     = 200
+		//   mStaker  = perBlock·stakerBps/denom = 200·8000/10000 = 160
+		//   excess   = mStaker − a.blockReward (=10)            = 150  → epoch surplus
+		// Address(27)'s slice (votes 4M of top-4 total 10M) routes to Address(0):
+		//   150·4M/10M = 60  (the legacy admin.epochReward=100 path would give 40).
 		g := genesis.MustExtractGenesisContext(ctx)
 		blkCtx := protocol.MustGetBlockCtx(ctx)
 		g.Rewarding.InflationRateY1Bps = 500
@@ -416,7 +606,7 @@ func TestGrantEpochReward_UsesAccumulator(t *testing.T) {
 		g.Rewarding.StakerShareBps = 8000
 		g.Rewarding.MachinaShareBps = 2000
 		g.Rewarding.MachinaDaoAddress = machinaAddr
-		g.Rewarding.OutstandingSupplyAtActivation = "100000000000000000000"
+		g.Rewarding.OutstandingSupplyAtActivation = "4000000"
 		g.ToBeEnabledBlockHeight = blkCtx.BlockHeight
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithFeatureCtx(ctx)
@@ -424,20 +614,9 @@ func TestGrantEpochReward_UsesAccumulator(t *testing.T) {
 		// Seed InflationState via the activation pre-state hook.
 		req.NoError(p.CreatePreStates(ctx, sm))
 
-		// Override the accumulator with a distinctive value. testProtocol seeds
-		// a.epochReward = 100, so accumulator = 300 makes Address(27)'s slice
-		// (votes 4M of 10M total) settle at 300·4M/10M = 120 instead of the
-		// legacy 100·4M/10M = 40 — disambiguating the two funding paths.
-		const accumulator = int64(300)
-		inf := newInflationState()
-		_, err := p.state(ctx, sm, _inflKey, inf)
-		req.NoError(err)
-		inf.epochRemainderAccumulator.SetInt64(accumulator)
-		req.NoError(p.putState(ctx, sm, _inflKey, inf))
-
 		// Fund the rewarding pool so the grant + foundation bonus succeed. Caller
 		// (Address(28)) is seeded with 1000 by the harness.
-		_, err = p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		req.NoError(err)
 
 		// Staking mock (mirrors TestProtocol_GrantEpochReward).
@@ -454,8 +633,7 @@ func TestGrantEpochReward_UsesAccumulator(t *testing.T) {
 		req.NoError(err)
 
 		// Address(27)'s votes (4M of 10M total) → reward routed to Address(0).
-		// Accumulator-funded slice = 300·4M/10M = 120. Legacy a.epochReward=100
-		// slice would be 40. Pinning to 120 proves the new path fired.
+		// Derived-surplus slice = 150·4M/10M = 60; legacy a.epochReward=100 slice = 40.
 		var address0Reward *big.Int
 		for _, l := range rewardLogs {
 			var rl rewardingpb.RewardLog
@@ -468,16 +646,9 @@ func TestGrantEpochReward_UsesAccumulator(t *testing.T) {
 			}
 		}
 		req.NotNilf(address0Reward, "no EPOCH_REWARD log for Address(0); got %d logs", len(rewardLogs))
-		req.Equalf(0, address0Reward.Cmp(big.NewInt(120)),
-			"Address(0) reward = %s; expected 120 (accumulator path) — 40 means legacy path fired",
+		req.Equalf(0, address0Reward.Cmp(big.NewInt(60)),
+			"Address(0) reward = %s; expected 60 (derived-surplus path) — 40 means legacy path fired",
 			address0Reward)
-
-		// Accumulator must be drained back to zero.
-		inf2 := newInflationState()
-		_, err = p.state(ctx, sm, _inflKey, inf2)
-		req.NoError(err)
-		req.Equalf(0, inf2.epochRemainderAccumulator.Sign(),
-			"accumulator must be zero after grant; got %s", inf2.epochRemainderAccumulator)
 	}, nil, false, 0)
 }
 
@@ -487,7 +658,8 @@ func TestGrantEpochReward_UsesAccumulator(t *testing.T) {
 //   - totalBalance >= unclaimedBalance (Claim has not run, so this must always hold)
 //   - unclaimedBalance >= 0 (the floor-regime clamp prevents the debit from exceeding
 //     the mint credit; without the clamp this would underflow once mStaker < blockReward)
-//   - postActivationMinted == sum of per-block mTotal credited (no double-count, no drop)
+//   - derived PostActivationMinted == sum of per-block mTotal credited (no double-count,
+//     no drop) — exercises the CumulativeMinted derivation against an independent sum
 //
 // Two regimes are covered as sub-tests:
 //
@@ -507,7 +679,7 @@ func TestMintAndAllocate_FundInvariant(t *testing.T) {
 		regimeIs string // "high" or "floor" — annotates failure messages
 	}{
 		{"high_mint_regime", "100000000000000000000", "high"}, // 100 IOTX
-		{"floor_regime", "1000", "floor"},                    // 1000 rau → mStaker < blockReward(10)
+		{"floor_regime", "1000", "floor"},                     // 1000 rau → mStaker < blockReward(10)
 	}
 
 	for _, tc := range cases {
@@ -534,8 +706,11 @@ func TestMintAndAllocate_FundInvariant(t *testing.T) {
 				req.NoError(p.CreatePreStates(ctx, sm))
 
 				expectedMinted := new(big.Int)
-				for i := 1; i <= numBlocks; i++ {
-					blkCtx.BlockHeight = activation + uint64(i)
+				// Mint from the activation block itself (production grants there), so the
+				// derived CumulativeMinted — which counts every block from activation —
+				// matches our independent running sum.
+				for i := uint64(0); i < numBlocks; i++ {
+					blkCtx.BlockHeight = activation + i
 					ctx = protocol.WithBlockCtx(ctx, blkCtx)
 					ctx = genesis.WithGenesisContext(ctx, g)
 					ctx = protocol.WithFeatureCtx(ctx)
@@ -545,10 +720,10 @@ func TestMintAndAllocate_FundInvariant(t *testing.T) {
 					infPre := newInflationState()
 					_, err := p.state(ctx, sm, _inflKey, infPre)
 					req.NoError(err)
-					perBlock, _ := PerBlockMint(infPre.outstandingSupplyAtYearStart, infPre.currentInflationBps, blocksPerYear)
+					perBlock, rem := PerBlockMint(infPre.outstandingSupplyAtYearStart, infPre.currentInflationBps, blocksPerYear)
 					mTotal := new(big.Int).Set(perBlock)
 					if IsYearFinalBlock(activation, blocksPerYear, blkCtx.BlockHeight) {
-						mTotal.Add(mTotal, infPre.yearMintRemainder)
+						mTotal.Add(mTotal, rem)
 					}
 					expectedMinted.Add(expectedMinted, mTotal)
 
@@ -564,13 +739,23 @@ func TestMintAndAllocate_FundInvariant(t *testing.T) {
 					req.Truef(unclaimed.Sign() >= 0, "%s: unclaimedBalance underflowed at block %d: %s", tc.regimeIs, blkCtx.BlockHeight, unclaimed)
 					req.Truef(total.Cmp(unclaimed) >= 0, "%s: totalBalance < unclaimedBalance at block %d (t=%s u=%s)", tc.regimeIs, blkCtx.BlockHeight, total, unclaimed)
 
-					// postActivationMinted must equal our independently summed mTotal.
+					// Derived cumulative mint must equal our independently summed mTotal.
+					// (The mock StateManager reports height 0, so exercise the pure
+					// CumulativeMinted derivation directly with the real block height; the
+					// PostActivationMinted getter wires this same helper to the working-set
+					// height in production.)
 					infPost := newInflationState()
 					_, err = p.state(ctx, sm, _inflKey, infPost)
 					req.NoError(err)
-					req.Equalf(0, infPost.postActivationMinted.Cmp(expectedMinted),
-						"%s: postActivationMinted drift at block %d (got %s want %s)",
-						tc.regimeIs, blkCtx.BlockHeight, infPost.postActivationMinted, expectedMinted)
+					minted := CumulativeMinted(
+						g.Rewarding.OutstandingSupplyAtActivationBig(),
+						infPost.outstandingSupplyAtYearStart,
+						infPost.currentInflationBps,
+						activation, blocksPerYear, blkCtx.BlockHeight,
+					)
+					req.Equalf(0, minted.Cmp(expectedMinted),
+						"%s: CumulativeMinted drift at block %d (got %s want %s)",
+						tc.regimeIs, blkCtx.BlockHeight, minted, expectedMinted)
 				}
 			}, nil, false, 0)
 		})

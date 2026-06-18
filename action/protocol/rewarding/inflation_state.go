@@ -30,27 +30,20 @@ var _inflKey = []byte("inf")
 
 // inflationState is the in-memory mirror of rewardingpb.InflationState. Mirrors
 // the fund / admin / rewardAccount serialization pattern in this package.
+// inflationState holds only the IIP-62 fields that change at year boundaries.
+// PostActivationMinted, EpochRemainderAccumulator, and YearMintRemainder used to live
+// here but were all deterministic per-block values; they are now derived on demand
+// (CumulativeMinted / EpochInflationSurplus / PerBlockMint) so this record is written
+// once per year instead of every block.
 type inflationState struct {
-	outstandingSupply            *big.Int
 	outstandingSupplyAtYearStart *big.Int
-	postActivationMinted         *big.Int
 	currentInflationBps          uint64
 	currentYearIndex             uint64
-	dustStaker                   *big.Int
-	dustMachina                  *big.Int
-	yearMintRemainder            *big.Int
-	epochRemainderAccumulator    *big.Int
 }
 
 func newInflationState() *inflationState {
 	return &inflationState{
-		outstandingSupply:            new(big.Int),
 		outstandingSupplyAtYearStart: new(big.Int),
-		postActivationMinted:         new(big.Int),
-		dustStaker:                   new(big.Int),
-		dustMachina:                  new(big.Int),
-		yearMintRemainder:            new(big.Int),
-		epochRemainderAccumulator:    new(big.Int),
 	}
 }
 
@@ -89,39 +82,15 @@ func (s *inflationState) Decode(v systemcontracts.GenericValue) error {
 
 func (s *inflationState) toProto() *rewardingpb.InflationState {
 	return &rewardingpb.InflationState{
-		OutstandingSupply:            bigToStr(s.outstandingSupply),
 		OutstandingSupplyAtYearStart: bigToStr(s.outstandingSupplyAtYearStart),
-		PostActivationMinted:         bigToStr(s.postActivationMinted),
 		CurrentInflationBps:          s.currentInflationBps,
 		CurrentYearIndex:             s.currentYearIndex,
-		DustStaker:                   bigToStr(s.dustStaker),
-		DustMachina:                  bigToStr(s.dustMachina),
-		YearMintRemainder:            bigToStr(s.yearMintRemainder),
-		EpochRemainderAccumulator:    bigToStr(s.epochRemainderAccumulator),
 	}
 }
 
 func (s *inflationState) fromProto(gen *rewardingpb.InflationState) error {
 	var err error
-	if s.outstandingSupply, err = strToBig(gen.OutstandingSupply, "outstandingSupply"); err != nil {
-		return err
-	}
 	if s.outstandingSupplyAtYearStart, err = strToBig(gen.OutstandingSupplyAtYearStart, "outstandingSupplyAtYearStart"); err != nil {
-		return err
-	}
-	if s.postActivationMinted, err = strToBig(gen.PostActivationMinted, "postActivationMinted"); err != nil {
-		return err
-	}
-	if s.dustStaker, err = strToBig(gen.DustStaker, "dustStaker"); err != nil {
-		return err
-	}
-	if s.dustMachina, err = strToBig(gen.DustMachina, "dustMachina"); err != nil {
-		return err
-	}
-	if s.yearMintRemainder, err = strToBig(gen.YearMintRemainder, "yearMintRemainder"); err != nil {
-		return err
-	}
-	if s.epochRemainderAccumulator, err = strToBig(gen.EpochRemainderAccumulator, "epochRemainderAccumulator"); err != nil {
 		return err
 	}
 	s.currentInflationBps = gen.CurrentInflationBps
@@ -148,16 +117,13 @@ func (p *Protocol) initInflationState(ctx context.Context, sm protocol.StateMana
 	}
 
 	s := newInflationState()
-	s.outstandingSupply.Set(supply)
+	// Only the year-start snapshot, the curve rate, and the year index are persisted —
+	// all change only at year boundaries. The live supply, cumulative mint, per-year
+	// remainder, and epoch surplus are all derived on demand (see inflation.go) rather
+	// than stored, so this record is written once per year instead of every block.
 	s.outstandingSupplyAtYearStart.Set(supply)
 	s.currentInflationBps = cfg.InflationRateY1Bps
 	s.currentYearIndex = 1
-	// Pre-stage Y1's year-end remainder here — mintAndAllocate's boundary branch
-	// only fires when year != currentYearIndex (Y2+), so without this seed the Y1
-	// final-block flush would add zero and Y1 mint would fall short by up to
-	// blocksPerYear-1 Rau.
-	_, rem := PerBlockMint(s.outstandingSupplyAtYearStart, s.currentInflationBps, cfg.BlocksPerYear)
-	s.yearMintRemainder.Set(rem)
 
 	return p.putState(ctx, sm, _inflKey, s)
 }
@@ -205,19 +171,21 @@ func validateInflationConfig(cfg *genesis.Rewarding) error {
 //
 // Pipeline at activation and beyond:
 //  1. Load InflationState (must have been seeded by initInflationState).
-//  2. If we crossed into a new Year: snapshot OutstandingSupplyAtYearStart from the
-//     current OutstandingSupply, recompute CurrentInflationBps from the curve, and
-//     reset YearMintRemainder to (annualMint mod blocksPerYear) for the new Year.
+//  2. If we crossed into a new Year: recompute OutstandingSupplyAtYearStart via the
+//     genesis recurrence (ComputeYearStartSupply), refresh CurrentInflationBps from the
+//     curve, advance CurrentYearIndex, and persist — this is the ONLY block on which
+//     InflationState changes, so it is the only block that writes _inflKey.
 //  3. Compute the constant per-block mint for the current Year. On the Year's final
-//     block, add YearMintRemainder so the realized annual mint exactly equals the
-//     §1.3 table.
-//  4. Split via SplitMint, carrying sub-bpsDenom dust between blocks.
+//     block, add the recomputed year-end remainder so the realized annual mint exactly
+//     equals the §1.3 table (the remainder is derived, not stored).
+//  4. Split via SplitMint (staker = mTotal·bps/denom truncated; Machina = mTotal − staker).
 //  5. Credit the staker share to the Fund (mirrors Deposit() arithmetic but without
 //     a caller-subtraction — this is protocol mint, not user deposit).
 //  6. Credit the Machina share to the externally-managed MachinaDaoAddress account.
-//  7. Bump OutstandingSupply / PostActivationMinted; bank the staker-vs-block-reward
-//     excess into EpochRemainderAccumulator (consumed by step G in GrantEpochReward).
-//  8. Persist.
+//
+// PostActivationMinted and the epoch surplus are no longer accumulated here — they are
+// derived on read (CumulativeMinted / EpochInflationSurplus), so non-boundary blocks
+// leave InflationState untouched and skip the per-block write entirely.
 //
 // Returns mStaker (this block's staker-share mint) and the per-block transaction
 // logs attributing the staker / Machina credits. The staker log uses Sender="" to
@@ -245,10 +213,24 @@ func (p *Protocol) mintAndAllocate(ctx context.Context, sm protocol.StateManager
 	if year == 0 {
 		return new(big.Int), nil, nil
 	}
-	// Year boundary crossing: refresh snapshot and curve rate. This branch also fires
-	// after a reorg that crosses the boundary because CurrentYearIndex is persisted.
-	if year != s.currentYearIndex {
-		s.outstandingSupplyAtYearStart.Set(s.outstandingSupply)
+	// Year boundary crossing: refresh snapshot and curve rate, and persist. This is the
+	// only path that mutates InflationState; non-boundary blocks leave it unchanged and
+	// skip the write. The branch also fires after a reorg that crosses the boundary
+	// because CurrentYearIndex is persisted, so re-execution is deterministic.
+	boundary := year != s.currentYearIndex
+	if boundary {
+		// Recompute the year-start supply via the genesis recurrence. Equivalent to
+		// "previous snapshot + that year's AnnualMint" (exact, thanks to the final-block
+		// remainder flush), but robust without depending on the prior-year stored rate.
+		s.outstandingSupplyAtYearStart = ComputeYearStartSupply(
+			cfg.OutstandingSupplyAtActivationBig(),
+			year,
+			cfg.InflationRateY1Bps,
+			cfg.InflationDecayNumerator,
+			cfg.InflationDecayDenominator,
+			cfg.InflationFloorBps,
+			cfg.BlocksPerYear,
+		)
 		s.currentInflationBps = ComputeInflationBps(
 			year,
 			cfg.InflationRateY1Bps,
@@ -257,29 +239,23 @@ func (p *Protocol) mintAndAllocate(ctx context.Context, sm protocol.StateManager
 			cfg.InflationFloorBps,
 		)
 		s.currentYearIndex = year
-		// Pre-stage the year-end remainder so the year's final block can flush it.
-		_, rem := PerBlockMint(s.outstandingSupplyAtYearStart, s.currentInflationBps, cfg.BlocksPerYear)
-		s.yearMintRemainder.Set(rem)
 	}
 
-	perBlock, _ := PerBlockMint(s.outstandingSupplyAtYearStart, s.currentInflationBps, cfg.BlocksPerYear)
+	perBlock, rem := PerBlockMint(s.outstandingSupplyAtYearStart, s.currentInflationBps, cfg.BlocksPerYear)
 	mTotal := new(big.Int).Set(perBlock)
-	// Flush yearMintRemainder on the Year's final block so realized annual mint is exact.
+	// Add the year-end remainder on the Year's final block so the realized annual mint is
+	// exact. The remainder is recomputed here, not stored/flushed.
 	if IsYearFinalBlock(activation, cfg.BlocksPerYear, blkCtx.BlockHeight) {
-		mTotal.Add(mTotal, s.yearMintRemainder)
-		s.yearMintRemainder.SetUint64(0)
+		mTotal.Add(mTotal, rem)
 	}
 	if mTotal.Sign() == 0 {
 		return new(big.Int), nil, nil
 	}
 
-	mStaker, mMachina, dStaker, dMachina := SplitMint(
+	mStaker, mMachina := SplitMint(
 		mTotal,
 		cfg.StakerShareBps, cfg.MachinaShareBps,
-		s.dustStaker, s.dustMachina,
 	)
-	s.dustStaker.Set(dStaker)
-	s.dustMachina.Set(dMachina)
 
 	var tLogs []*action.TransactionLog
 
@@ -337,52 +313,63 @@ func (p *Protocol) mintAndAllocate(ctx context.Context, sm protocol.StateManager
 		})
 	}
 
-	s.outstandingSupply.Add(s.outstandingSupply, mTotal)
-	s.postActivationMinted.Add(s.postActivationMinted, mTotal)
-	// Bank the staker-share-minus-block-reward excess into the epoch accumulator.
-	// effective_block_reward = min(a.blockReward, mStaker); excess = mStaker − that.
-	// Must read a.blockReward (admin state) — the SAME source calculateTotalRewardAndTip
-	// uses for the actual grant — so the epoch accumulator stays exactly consistent
-	// with what GrantBlockReward pays out. Post-Wake, a.blockReward == WakeBlockReward.
-	a := admin{}
-	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
-		return nil, nil, errors.Wrap(err, "failed to load rewarding admin for block-reward clamp")
-	}
-	effectiveBlock := new(big.Int).Set(a.blockReward)
-	if mStaker.Cmp(effectiveBlock) < 0 {
-		effectiveBlock.Set(mStaker)
-	}
-	excess := new(big.Int).Sub(mStaker, effectiveBlock)
-	if excess.Sign() > 0 {
-		s.epochRemainderAccumulator.Add(s.epochRemainderAccumulator, excess)
-	}
-
-	if err := p.putState(ctx, sm, _inflKey, s); err != nil {
-		return nil, nil, errors.Wrap(err, "failed to persist inflation state")
+	// PostActivationMinted is no longer accumulated, and the staker-vs-block-reward
+	// excess is no longer banked: both are derived on read (CumulativeMinted /
+	// EpochInflationSurplus). Persist only when the year boundary actually changed the
+	// state, so non-boundary blocks add no _inflKey write to the (archive) history.
+	if boundary {
+		if err := p.putState(ctx, sm, _inflKey, s); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to persist inflation state")
+		}
 	}
 	return mStaker, tLogs, nil
 }
 
-// OutstandingSupply returns the current outstanding native-token supply tracked
-// by the IIP-62 inflation state. Returns state.ErrStateNotExist before activation.
-func (p *Protocol) OutstandingSupply(ctx context.Context, sm protocol.StateReader) (*big.Int, uint64, error) {
+// cumulativeMintedAt loads the (boundary-only) InflationState and derives the cumulative
+// productive mint from activation through the read height. The height returned by p.state
+// is the state reader's height — the query height for both latest and historical (archive)
+// reads — so the partial-current-year term is reconstructed correctly. Returns the state
+// error (e.g. state.ErrStateNotExist before activation) on failure.
+func (p *Protocol) cumulativeMintedAt(ctx context.Context, sm protocol.StateReader) (*big.Int, *genesis.Rewarding, uint64, error) {
 	s := newInflationState()
 	height, err := p.state(ctx, sm, _inflKey, s)
 	if err != nil {
-		return nil, height, err
+		return nil, nil, height, err
 	}
-	return s.outstandingSupply, height, nil
+	g := genesis.MustExtractGenesisContext(ctx)
+	cfg := g.Rewarding
+	minted := CumulativeMinted(
+		cfg.OutstandingSupplyAtActivationBig(),
+		s.outstandingSupplyAtYearStart,
+		s.currentInflationBps,
+		g.ToBeEnabledBlockHeight,
+		cfg.BlocksPerYear,
+		height,
+	)
+	return minted, &cfg, height, nil
 }
 
-// PostActivationMinted returns the cumulative amount minted by productive
-// inflation since activation. Returns state.ErrStateNotExist before activation.
-func (p *Protocol) PostActivationMinted(ctx context.Context, sm protocol.StateReader) (*big.Int, uint64, error) {
-	s := newInflationState()
-	height, err := p.state(ctx, sm, _inflKey, s)
+// OutstandingSupply returns the current outstanding native-token supply tracked by the
+// IIP-62 inflation state. It is not stored: by construction it equals
+// OutstandingSupplyAtActivation + the cumulative mint through the read height, derived via
+// CumulativeMinted. Returns state.ErrStateNotExist before activation.
+func (p *Protocol) OutstandingSupply(ctx context.Context, sm protocol.StateReader) (*big.Int, uint64, error) {
+	minted, cfg, height, err := p.cumulativeMintedAt(ctx, sm)
 	if err != nil {
 		return nil, height, err
 	}
-	return s.postActivationMinted, height, nil
+	return minted.Add(minted, cfg.OutstandingSupplyAtActivationBig()), height, nil
+}
+
+// PostActivationMinted returns the cumulative amount minted by productive inflation since
+// activation, derived (not stored) via CumulativeMinted. Returns state.ErrStateNotExist
+// before activation.
+func (p *Protocol) PostActivationMinted(ctx context.Context, sm protocol.StateReader) (*big.Int, uint64, error) {
+	minted, _, height, err := p.cumulativeMintedAt(ctx, sm)
+	if err != nil {
+		return nil, height, err
+	}
+	return minted, height, nil
 }
 
 // CurrentInflationBps returns the inflation rate (in basis points of outstanding
