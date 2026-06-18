@@ -1671,6 +1671,181 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 	})
 }
 
+// TestCandidateBLSPoP exercises the post-fork BLS proof-of-possession
+// gate end-to-end through the e2etest harness. Five subcases:
+//
+//   1. Register without PoP pre-fork — handler accepts (backward compat).
+//   2. Register with valid PoP post-fork — handler accepts, candidate
+//      state carries the BLS pubkey.
+//   3. Register without PoP post-fork — handler returns
+//      ErrUnauthorizedOperator and no candidate is created.
+//   4. Update with valid PoP post-fork — BLS pubkey rotates in state.
+//   5. Update without PoP post-fork — handler rejects, BLS pubkey
+//      remains unchanged.
+//
+// The gate is wired via genesis.ToBeEnabledBlockHeight = XinguBlockHeight,
+// so XinguBlockHeight is both the activation point for BLS-bearing
+// registration and the activation point for EnforceBLSPoP. Pre-fork
+// blocks have neither feature active; post-fork blocks have both.
+func TestCandidateBLSPoP(t *testing.T) {
+	require := require.New(t)
+	cfg := initCfg(require)
+	cfg.Genesis.WakeBlockHeight = 1
+	cfg.Genesis.XinguBlockHeight = 10
+	cfg.Genesis.XinguBetaBlockHeight = 11
+	cfg.Genesis.YapBlockHeight = 20
+	// Wire EnforceBLSPoP to activate alongside the BLS register path
+	// itself. Without this, the post-fork PoP gate is never reached
+	// during the test.
+	cfg.Genesis.ToBeEnabledBlockHeight = uint64(cfg.Genesis.XinguBlockHeight)
+	cfg.Genesis.SystemStakingContractAddress = ""
+	cfg.Genesis.SystemStakingContractV2Address = ""
+	cfg.Genesis.SystemStakingContractV3Address = ""
+	cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
+	cfg.Plugins[config.GatewayPlugin] = nil
+	cfg.API.GRPCPort = 14014 + rand.Intn(3000)
+	cfg.API.HTTPPort = cfg.API.GRPCPort + 1000
+	cfg.API.WebSocketPort = cfg.API.HTTPPort + 1000
+	test := newE2ETest(t, cfg)
+
+	var (
+		chainID        = test.cfg.Chain.ID
+		registerAmount = unit.ConvertIotxToRau(1200000)
+		// Distinct owners so each subcase registers a fresh candidate
+		// (the register handler rejects re-registration on the same
+		// owner that already has self-stake).
+		preForkOwnerID    = 3
+		preForkOpID       = 1
+		postForkOwnerID   = 4
+		postForkOpID      = 2
+		rejectOwnerID = 5
+	)
+
+	postForkBLSSk, err := crypto.GenerateBLS12381PrivateKey(identityset.PrivateKey(9).Bytes())
+	require.NoError(err)
+	rejectBLSSk, err := crypto.GenerateBLS12381PrivateKey(identityset.PrivateKey(10).Bytes())
+	require.NoError(err)
+
+	genTransferActionsWithPrice := func(n int, price *big.Int) []*actionWithTime {
+		acts := make([]*actionWithTime, n)
+		for i := 0; i < n; i++ {
+			acts[i] = &actionWithTime{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(2), test.nonceMgr.pop(identityset.Address(2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, price, action.WithChainID(chainID))), time.Now()}
+		}
+		return acts
+	}
+
+	// --- Pre-fork: register without PoP succeeds ---
+	test.run([]*testcase{
+		{
+			name: "pre-fork register without PoP succeeds (backward compat)",
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(preForkOwnerID).String()), "preforkcand", identityset.Address(preForkOpID).String(), identityset.Address(1).String(), identityset.Address(preForkOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice1559, identityset.PrivateKey(preForkOwnerID), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(iotextypes.ReceiptStatus_Success, blk.Receipts[0].Status,
+					"pre-fork register without BLS / PoP must succeed")
+			},
+		},
+	})
+
+	// Advance past the XinguBlockHeight + ToBeEnabledBlockHeight gate.
+	height, err := test.cs.BlockDAO().Height()
+	require.NoError(err)
+	advance := int(cfg.Genesis.XinguBlockHeight) - int(height)
+	if advance < 1 {
+		advance = 1
+	}
+
+	// --- Post-fork: register with valid PoP succeeds; BLS pubkey
+	//                 lands in candidate state ---
+	postForkOwnerAddr, err := address.FromString(identityset.Address(postForkOwnerID).String())
+	require.NoError(err)
+	postForkPoP, err := staking.SignBLSPop(postForkBLSSk, postForkOwnerAddr)
+	require.NoError(err)
+	test.run([]*testcase{
+		{
+			name:    "post-fork register with valid PoP succeeds",
+			preActs: genTransferActionsWithPrice(advance, gasPrice1559),
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedCandidateRegisterWithBLS(test.nonceMgr.pop(identityset.Address(postForkOwnerID).String()), "postforkok", identityset.Address(postForkOpID).String(), identityset.Address(2).String(), identityset.Address(postForkOwnerID).String(), registerAmount.String(), 1, true, postForkBLSSk.PublicKey().Bytes(), postForkPoP, nil, gasLimit, gasPrice1559, identityset.PrivateKey(postForkOwnerID), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(iotextypes.ReceiptStatus_Success, blk.Receipts[0].Status,
+					"valid PoP must be accepted post-fork")
+				cand, err := test.getCandidateByName("postforkok")
+				require.NoError(err)
+				require.Equal(postForkBLSSk.PublicKey().Bytes(), cand.BlsPubKey,
+					"BLS pubkey must be persisted on the candidate")
+			},
+		},
+	})
+
+	// --- Post-fork: register WITHOUT PoP is rejected ---
+	test.run([]*testcase{
+		{
+			name: "post-fork register without PoP is rejected",
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedCandidateRegisterWithBLS(test.nonceMgr.pop(identityset.Address(rejectOwnerID).String()), "noptest", identityset.Address(rejectOwnerID).String(), identityset.Address(2).String(), identityset.Address(rejectOwnerID).String(), registerAmount.String(), 1, true, rejectBLSSk.PublicKey().Bytes(), nil, nil, gasLimit, gasPrice1559, identityset.PrivateKey(rejectOwnerID), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, blk.Receipts[0].Status,
+					"missing PoP under EnforceBLSPoP must fail with ErrUnauthorizedOperator")
+			},
+		},
+	})
+
+	// --- Post-fork: update with valid PoP rotates BLS pubkey ---
+	newBLSSk, err := crypto.GenerateBLS12381PrivateKey(identityset.PrivateKey(11).Bytes())
+	require.NoError(err)
+	// The candidate for update is `postforkok`, owned by postForkOwnerID.
+	// PoP must bind to the candidate's identifier; for non-collision
+	// registrations the identifier is the owner address itself.
+	rotPoP, err := staking.SignBLSPop(newBLSSk, postForkOwnerAddr)
+	require.NoError(err)
+	test.run([]*testcase{
+		{
+			name: "post-fork update rotates BLS pubkey with valid PoP",
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedCandidateUpdateWithBLS(test.nonceMgr.pop(identityset.Address(postForkOwnerID).String()), "postforkok", identityset.Address(postForkOpID).String(), identityset.Address(2).String(), newBLSSk.PublicKey().Bytes(), rotPoP, gasLimit, gasPrice1559, identityset.PrivateKey(postForkOwnerID), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(iotextypes.ReceiptStatus_Success, blk.Receipts[0].Status,
+					"update with valid PoP must succeed")
+				cand, err := test.getCandidateByName("postforkok")
+				require.NoError(err)
+				require.Equal(newBLSSk.PublicKey().Bytes(), cand.BlsPubKey,
+					"BLS pubkey must be rotated in state")
+			},
+		},
+	})
+
+	// --- Post-fork: update WITHOUT PoP is rejected; BLS pubkey unchanged ---
+	stalerBLSSk, err := crypto.GenerateBLS12381PrivateKey(identityset.PrivateKey(12).Bytes())
+	require.NoError(err)
+	test.run([]*testcase{
+		{
+			name: "post-fork update without PoP is rejected",
+			acts: []*actionWithTime{
+				{mustNoErr(action.SignedCandidateUpdateWithBLS(test.nonceMgr.pop(identityset.Address(postForkOwnerID).String()), "postforkok", identityset.Address(postForkOpID).String(), identityset.Address(2).String(), stalerBLSSk.PublicKey().Bytes(), nil, gasLimit, gasPrice1559, identityset.PrivateKey(postForkOwnerID), action.WithChainID(chainID))), time.Now()},
+			},
+			blockExpect: func(test *e2etest, blk *block.Block, err error) {
+				require.NoError(err)
+				require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, blk.Receipts[0].Status,
+					"missing PoP on rotation under EnforceBLSPoP must fail")
+				cand, err := test.getCandidateByName("postforkok")
+				require.NoError(err)
+				require.Equal(newBLSSk.PublicKey().Bytes(), cand.BlsPubKey,
+					"BLS pubkey must remain at the previous rotated value, not the rejected one")
+			},
+		},
+	})
+
+}
+
 func parseNativeStakedBucketIndex(receipt *action.Receipt) []uint64 {
 	var bucketIndexes []uint64
 	for _, log := range receipt.Logs() {
