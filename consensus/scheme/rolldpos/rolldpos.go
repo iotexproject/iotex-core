@@ -175,7 +175,22 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	if !round.IsDelegate(blk.ProducerAddress()) {
+	// Post-fork (BLS-signed header) IsDelegate cannot match — IsDelegate
+	// compares against the delegate's iotex address while
+	// Header.ProducerAddress for a BLS-signed block returns hex(pubkey).
+	// Length-based dispatch is sufficient (and avoids dragging FeatureCtx
+	// into ValidateBlockFooter — block validity is the same regardless of
+	// the consensus context's view of feature flags): a 48-byte
+	// ProducerPubKey is, by definition, a BLS pubkey.
+	pubKey := blk.Header.ProducerPubKey()
+	if len(pubKey) == crypto.BLSPubkeyLength {
+		if !round.IsProducer(pubKey) {
+			return errors.Errorf(
+				"block proposer (BLS pubkey 0x%x) is not a valid delegate",
+				pubKey,
+			)
+		}
+	} else if !round.IsDelegate(blk.ProducerAddress()) {
 		return errors.Errorf(
 			"block proposer %s is not a valid delegate",
 			blk.ProducerAddress(),
