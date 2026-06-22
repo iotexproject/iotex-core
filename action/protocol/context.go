@@ -78,6 +78,15 @@ type (
 		// is undefined for a BLS pubkey. May be empty for genesis / synthetic
 		// BlockCtx values that have no underlying Header.
 		ProducerPubKey []byte
+		// FeeRecipient is the address that receives block-level fees /
+		// rewards (EVM Coinbase, RewardingFund attribution). Pre-fork
+		// this equals Producer by coincidence (a delegate's secp256k1
+		// producer identity also receives fees). Post-fork the two are
+		// decoupled (Eth2 fee_recipient pattern): Producer carries the
+		// candidate's iotex identity for slasher / display, while
+		// FeeRecipient is the looked-up Candidate.Reward address. May
+		// be nil for genesis / synthetic BlockCtx values.
+		FeeRecipient address.Address
 		// AccumTips is the accumulated tips of the block
 		AccumulatedTips big.Int
 		// BaseFee is the base fee of the block
@@ -181,6 +190,18 @@ type (
 		AlwaysWriteCachedContract bool
 		NoCandidateExitQueue      bool
 		EnableBLSAggregation      bool
+		// UseBLSProducerIdentity gates the Y4b consumer migration:
+		// post-fork the EVM Coinbase reads BlockCtx.FeeRecipient
+		// (looked-up Candidate.Reward), rewarding/reward.go matches
+		// candidates by BLSPubKey instead of Producer.String(),
+		// ValidateBlockFooter uses roundCtx.IsProducer instead of
+		// IsDelegate, and slasher productivity tracking keys on
+		// hex(ProducerPubKey). Shares the IsToBeEnabled height with
+		// EnableBLSAggregation today but stays a semantically distinct
+		// switch so call sites read self-descriptively and the two
+		// can diverge if a hotfix or fork-height adjustment requires
+		// it.
+		UseBLSProducerIdentity bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -356,6 +377,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
 			EnableBLSAggregation:                    g.IsToBeEnabled(height),
+			UseBLSProducerIdentity:                  g.IsToBeEnabled(height),
 		},
 	)
 }
