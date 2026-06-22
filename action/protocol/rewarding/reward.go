@@ -143,16 +143,27 @@ func (p *Protocol) GrantBlockReward(
 
 	producerAddrStr := blkCtx.Producer.String()
 	rewardAddrStr := ""
-	pp := poll.FindProtocol(protocol.MustGetRegistry(ctx))
-	if pp != nil {
-		candidates, err := pp.Candidates(ctx, sm)
-		if err != nil {
-			return nil, err
-		}
-		for _, candidate := range candidates {
-			if candidate.Address == producerAddrStr {
-				rewardAddrStr = candidate.RewardAddress
-				break
+	// Post-fork (UseBLSProducerIdentity): the candidate's Reward address has
+	// already been resolved at BlockCtx assembly via the BLSProducerResolver
+	// and lives on blkCtx.FeeRecipient. Skip the poll-active-set scan — both
+	// sources read the same candidate-center state, but the FeeRecipient path
+	// is direct and stays correct even if the delegate is dropped from the
+	// active set between assembly and reward attribution. Pre-fork retains
+	// the legacy Operator-address scan unchanged.
+	if fCtx.UseBLSProducerIdentity && blkCtx.FeeRecipient != nil {
+		rewardAddrStr = blkCtx.FeeRecipient.String()
+	} else {
+		pp := poll.FindProtocol(protocol.MustGetRegistry(ctx))
+		if pp != nil {
+			candidates, err := pp.Candidates(ctx, sm)
+			if err != nil {
+				return nil, err
+			}
+			for _, candidate := range candidates {
+				if candidate.Address == producerAddrStr {
+					rewardAddrStr = candidate.RewardAddress
+					break
+				}
 			}
 		}
 	}
