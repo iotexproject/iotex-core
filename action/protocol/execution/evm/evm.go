@@ -164,11 +164,21 @@ func newParams(
 		}
 	}
 
+	// Coinbase follows Eth2 fee_recipient semantics: pre-fork, Producer and
+	// FeeRecipient coincide (delegate's secp256k1 identity also receives
+	// fees); post-fork they split — the candidate's Reward address is what
+	// the EVM should credit. UseBLSProducerIdentity gates the switch; an
+	// unset FeeRecipient (legacy callers, synthetic BlockCtx) falls back to
+	// Producer so existing test fixtures keep working.
+	coinbaseSrc := blkCtx.Producer
+	if featureCtx.UseBLSProducerIdentity && blkCtx.FeeRecipient != nil {
+		coinbaseSrc = blkCtx.FeeRecipient
+	}
 	context := vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
 		GetHash:     getHashFn,
-		Coinbase:    common.BytesToAddress(blkCtx.Producer.Bytes()),
+		Coinbase:    common.BytesToAddress(coinbaseSrc.Bytes()),
 		GasLimit:    gasLimit,
 		BlockNumber: new(big.Int).SetUint64(blkCtx.BlockHeight),
 		Time:        new(big.Int).SetInt64(blkCtx.BlockTimeStamp.Unix()).Uint64(),

@@ -464,7 +464,15 @@ func newContractBackend(ctx context.Context, intraBlockState *erigonstate.IntraB
 		log.S().Panic("failed to extract genesis context from block context")
 	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	return NewContractBackend(intraBlockState, sr, blkCtx.BlockHeight, blkCtx.BlockTimeStamp, blkCtx.Producer, &g, bcCtx.EvmNetworkID, protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	// Coinbase follows the same Eth2 fee_recipient rule as the main EVM path:
+	// post-fork the candidate's Reward (FeeRecipient) is what the EVM should
+	// credit, not the producer's iotex-shaped identity.
+	coinbaseSrc := blkCtx.Producer
+	if featureCtx.UseBLSProducerIdentity && blkCtx.FeeRecipient != nil {
+		coinbaseSrc = blkCtx.FeeRecipient
+	}
+	return NewContractBackend(intraBlockState, sr, blkCtx.BlockHeight, blkCtx.BlockTimeStamp, coinbaseSrc, &g, bcCtx.EvmNetworkID, featureCtx.UseZeroNonceForFreshAccount)
 }
 
 // KVStore returns nil as ErigonWorkingSetStore does not implement KVStore
