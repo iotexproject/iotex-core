@@ -16,6 +16,7 @@ import (
 
 	crypto "github.com/iotexproject/go-pkgs/crypto"
 	hash "github.com/iotexproject/go-pkgs/hash"
+	address "github.com/iotexproject/iotex-address/address"
 	blockchain "github.com/iotexproject/iotex-core/v2/blockchain"
 	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
 	genesis "github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -251,6 +252,22 @@ func (mr *MockBlockchainMockRecorder) RemoveSubscriber(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSubscriber", reflect.TypeOf((*MockBlockchain)(nil).RemoveSubscriber), arg0)
 }
 
+// ResolveBlockProducer mocks base method.
+func (m *MockBlockchain) ResolveBlockProducer(ctx context.Context, blk *block.Block) (address.Address, address.Address, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveBlockProducer", ctx, blk)
+	ret0, _ := ret[0].(address.Address)
+	ret1, _ := ret[1].(address.Address)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ResolveBlockProducer indicates an expected call of ResolveBlockProducer.
+func (mr *MockBlockchainMockRecorder) ResolveBlockProducer(ctx, blk any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveBlockProducer", reflect.TypeOf((*MockBlockchain)(nil).ResolveBlockProducer), ctx, blk)
+}
+
 // Start mocks base method.
 func (m *MockBlockchain) Start(arg0 context.Context) error {
 	m.ctrl.T.Helper()
@@ -363,4 +380,44 @@ func (m *MockBlockMinter) Mint(arg0 context.Context, arg1 crypto.PrivateKey) (*b
 func (mr *MockBlockMinterMockRecorder) Mint(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mint", reflect.TypeOf((*MockBlockMinter)(nil).Mint), arg0, arg1)
+}
+
+// MockBLSProducerResolver is a mock of BLSProducerResolver interface.
+type MockBLSProducerResolver struct {
+	ctrl     *gomock.Controller
+	recorder *MockBLSProducerResolverMockRecorder
+	isgomock struct{}
+}
+
+// MockBLSProducerResolverMockRecorder is the mock recorder for MockBLSProducerResolver.
+type MockBLSProducerResolverMockRecorder struct {
+	mock *MockBLSProducerResolver
+}
+
+// NewMockBLSProducerResolver creates a new mock instance.
+func NewMockBLSProducerResolver(ctrl *gomock.Controller) *MockBLSProducerResolver {
+	mock := &MockBLSProducerResolver{ctrl: ctrl}
+	mock.recorder = &MockBLSProducerResolverMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockBLSProducerResolver) EXPECT() *MockBLSProducerResolverMockRecorder {
+	return m.recorder
+}
+
+// ResolveBLSProducer mocks base method.
+func (m *MockBLSProducerResolver) ResolveBLSProducer(ctx context.Context, blsPubKey []byte) (address.Address, address.Address, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveBLSProducer", ctx, blsPubKey)
+	ret0, _ := ret[0].(address.Address)
+	ret1, _ := ret[1].(address.Address)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ResolveBLSProducer indicates an expected call of ResolveBLSProducer.
+func (mr *MockBLSProducerResolverMockRecorder) ResolveBLSProducer(ctx, blsPubKey any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveBLSProducer", reflect.TypeOf((*MockBLSProducerResolver)(nil).ResolveBLSProducer), ctx, blsPubKey)
 }

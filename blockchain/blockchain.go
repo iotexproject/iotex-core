@@ -99,6 +99,14 @@ type (
 		Context(context.Context) (context.Context, error)
 		// ContextAtHeight returns context at given height
 		ContextAtHeight(context.Context, uint64) (context.Context, error)
+		// ResolveBlockProducer returns the (producer, feeRecipient) iotex
+		// addresses for a block. Pre-fork the two coincide and equal
+		// blk.PublicKey().Address(); post-fork they are looked up from
+		// candidate state via the injected BLSProducerResolver. Callers
+		// that assemble their own BlockCtx (read-only simulate / trace
+		// paths in the API layer) use this so they do not have to
+		// re-implement the fork branching or open-code blk.PublicKey().
+		ResolveBlockProducer(ctx context.Context, blk *block.Block) (producer, feeRecipient address.Address, err error)
 
 		// For block operations
 		// MintNewBlock creates a new block with given actions
@@ -396,7 +404,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 	if err != nil {
 		return err
 	}
-	producerAddr, feeRecipient, err := bc.resolveBlockProducer(ctx, blk)
+	producerAddr, feeRecipient, err := bc.ResolveBlockProducer(ctx, blk)
 	if err != nil {
 		return err
 	}
@@ -464,18 +472,18 @@ func (bc *blockchain) contextWithBlockAndRecipient(ctx context.Context, producer
 		})
 }
 
-// resolveBlockProducer returns (producer, feeRecipient, producerPubKey)
-// for a header-bearing block. Pre-fork the two iotex addresses are
-// equal (== blk.PublicKey().Address()); post-fork they are looked up
-// from candidate state via the injected BLSProducerResolver — the
-// BLS pubkey on the header alone cannot derive an iotex address.
+// ResolveBlockProducer returns (producer, feeRecipient) for a
+// header-bearing block. Pre-fork the two iotex addresses are equal
+// (== blk.PublicKey().Address()); post-fork they are looked up from
+// candidate state via the injected BLSProducerResolver — the BLS
+// pubkey on the header alone cannot derive an iotex address.
 //
 // Returns an error rather than panicking if a post-fork block carries
 // a BLS pubkey the resolver cannot match to a candidate, or if no
 // resolver was wired up at all. blockchain callers should treat that
 // as a block-validation failure (invalid producer identity) instead
 // of installing a half-populated BlockCtx.
-func (bc *blockchain) resolveBlockProducer(ctx context.Context, blk *block.Block) (producer, feeRecipient address.Address, err error) {
+func (bc *blockchain) ResolveBlockProducer(ctx context.Context, blk *block.Block) (producer, feeRecipient address.Address, err error) {
 	pubKey := blk.Header.ProducerPubKey()
 	if g := genesis.MustExtractGenesisContext(ctx); g.IsToBeEnabled(blk.Height()) && len(pubKey) == crypto.BLSPubkeyLength {
 		if bc.blsResolver == nil {
@@ -636,7 +644,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	producerAddr, feeRecipient, err := bc.resolveBlockProducer(ctx, blk)
+	producerAddr, feeRecipient, err := bc.ResolveBlockProducer(ctx, blk)
 	if err != nil {
 		return err
 	}

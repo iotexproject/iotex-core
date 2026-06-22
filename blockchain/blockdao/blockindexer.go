@@ -116,6 +116,15 @@ func (bic *blockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 				return err
 			}
 		}
+		// TODO(Y8 — startup catch-up indexer): post-fork BLS-signed blocks
+		// return nil from blk.PublicKey(); this path would reject every
+		// post-fork block during indexer-checker catch-up at node startup.
+		// Wire a BLSProducerResolver here (mirroring blockchain.go's
+		// ValidateBlock + commitBlock path) before BLS Producer Identity
+		// activates, otherwise a freshly-started node cannot resync past
+		// the fork height. Today the indexer-checker is a startup-only
+		// recovery path so this isn't a fast-path regression, but it IS
+		// a node-bootstrap blocker once fork activates.
 		pk := blk.PublicKey()
 		if pk == nil {
 			return errors.New("failed to get pubkey")

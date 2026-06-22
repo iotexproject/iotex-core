@@ -454,10 +454,6 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	timer := sdb.timerFactory.NewTimer("Commit")
 	sdb.mutex.Unlock()
 	defer timer.End()
-	producer := blk.PublicKey().Address()
-	if producer == nil {
-		return errors.New("failed to get address")
-	}
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	ws, isExist, err := sdb.getFromWorkingSets(ctx, blk.HashBlock())
 	if err != nil {

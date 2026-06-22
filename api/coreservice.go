@@ -2114,11 +2114,16 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 		return nil, nil, nil, err
 	}
 	g := core.bc.Genesis()
+	producerAddr, feeRecipient, err := core.bc.ResolveBlockProducer(ctx, blk)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "failed to resolve block producer for simulate")
+	}
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight:    blk.Height(),
 		BlockTimeStamp: blk.Timestamp(),
 		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
-		Producer:       blk.PublicKey().Address(),
+		Producer:       producerAddr,
+		FeeRecipient:   feeRecipient,
 		Simulate:       true,
 	})
 	ctx = protocol.WithRegistry(ctx, core.registry)
@@ -2339,11 +2344,16 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 		return nil, nil, nil, err
 	}
 	g := core.bc.Genesis()
+	producerAddr, feeRecipient, err := core.bc.ResolveBlockProducer(ctx, blk)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "failed to resolve block producer for simulate")
+	}
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight:    blk.Height(),
 		BlockTimeStamp: blk.Timestamp(),
 		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
-		Producer:       blk.PublicKey().Address(),
+		Producer:       producerAddr,
+		FeeRecipient:   feeRecipient,
 		Simulate:       true,
 	})
 	ctx = protocol.WithRegistry(ctx, core.registry)
