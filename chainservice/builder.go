@@ -541,6 +541,7 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 	} else {
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(builder.cs.factory))
 	}
+	chainOpts = append(chainOpts, blockchain.BLSProducerResolverOption(&stakingBLSProducerResolver{sr: builder.cs.factory}))
 	var mintOpts []factory.MintOption
 	if builder.cfg.Consensus.Scheme == config.RollDPoSScheme {
 		mintOpts = append(mintOpts, factory.WithTimeoutOption(builder.cfg.Chain.MintTimeout))
