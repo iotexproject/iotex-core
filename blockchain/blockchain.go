@@ -124,6 +124,21 @@ type (
 		Mint(context.Context, crypto.PrivateKey) (*block.Block, error)
 	}
 
+	// BLSProducerResolver maps a BLS producer pubkey carried on a
+	// post-fork block header to the candidate's iotex addresses. It is
+	// injected at construction time so the blockchain package can stay
+	// free of any staking-protocol import.
+	//
+	// operator is what BlockCtx.Producer holds post-fork (consumers
+	// that still need a stable iotex-shaped identity — slasher
+	// productivity, poll/util.go, log lines — read this). reward is
+	// what BlockCtx.FeeRecipient holds (EVM Coinbase, rewarding
+	// attribution). Implementations must return a non-nil error if
+	// the BLS pubkey has not been registered by any candidate.
+	BLSProducerResolver interface {
+		ResolveBLSProducer(ctx context.Context, blsPubKey []byte) (operator, reward address.Address, err error)
+	}
+
 	// blockchain implements the Blockchain interface
 	blockchain struct {
 		mu             sync.RWMutex // mutex to protect utk, tipHeight and tipHash
@@ -135,6 +150,12 @@ type (
 		clk            clock.Clock
 		pubSubManager  PubSubManager
 		timerFactory   *prometheustimer.TimerFactory
+		// blsResolver is consulted to populate BlockCtx.Producer +
+		// FeeRecipient for post-fork BLS-signed headers. May be nil
+		// in tests that never feed a BLS-signed block in; in that
+		// case the post-fork path is unreachable and the pre-fork
+		// path (blk.PublicKey().Address()) handles every header.
+		blsResolver BLSProducerResolver
 
 		// used by account-based model
 		bbf   BlockMinter
@@ -166,6 +187,18 @@ func Productivity(bc Blockchain, startHeight uint64, endHeight uint64) (map[stri
 
 // Option sets blockchain construction parameter
 type Option func(*blockchain) error
+
+// BLSProducerResolverOption supplies the resolver that maps a BLS
+// producer pubkey on a post-fork header to (operator, reward) iotex
+// addresses for BlockCtx assembly. Required once the
+// UseBLSProducerIdentity hardfork activates; before that the
+// pre-fork branch ignores it.
+func BLSProducerResolverOption(r BLSProducerResolver) Option {
+	return func(bc *blockchain) error {
+		bc.blsResolver = r
+		return nil
+	}
+}
 
 // BlockValidatorOption sets block validator
 func BlockValidatorOption(blockValidator block.Validator) Option {
@@ -359,11 +392,11 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 		return err
 	}
 
-	producerAddr := blk.PublicKey().Address()
-	if producerAddr == nil {
-		return errors.New("failed to get address")
-	}
 	ctx, err := bc.context(context.Background(), tipHeight)
+	if err != nil {
+		return err
+	}
+	producerAddr, feeRecipient, err := bc.resolveBlockProducer(ctx, blk)
 	if err != nil {
 		return err
 	}
@@ -377,6 +410,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, opts ...BlockValidationOpt
 			BlockTimeStamp:        blk.Timestamp(),
 			GasLimit:              bc.genesis.BlockGasLimitByHeight(blk.Height()),
 			Producer:              producerAddr,
+			FeeRecipient:          feeRecipient,
 			ProducerPubKey:        blk.Header.ProducerPubKey(),
 			BaseFee:               blk.BaseFee(),
 			ExcessBlobGas:         blk.ExcessBlobGas(),
@@ -407,17 +441,57 @@ func (bc *blockchain) ContextAtHeight(ctx context.Context, height uint64) (conte
 }
 
 func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, producerPubKey []byte, height uint64, timestamp time.Time, baseFee *big.Int, blobgas uint64) context.Context {
+	return bc.contextWithBlockAndRecipient(ctx, producer, producer, producerPubKey, height, timestamp, baseFee, blobgas)
+}
+
+// contextWithBlockAndRecipient is the full-arity variant that lets
+// the caller distinguish Producer (iotex-shaped identity used by
+// slasher / display) from FeeRecipient (EVM Coinbase / reward
+// attribution). Pre-fork they are the same; post-fork they split
+// per the Eth2 fee_recipient model.
+func (bc *blockchain) contextWithBlockAndRecipient(ctx context.Context, producer, feeRecipient address.Address, producerPubKey []byte, height uint64, timestamp time.Time, baseFee *big.Int, blobgas uint64) context.Context {
 	return protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
 			BlockHeight:    height,
 			BlockTimeStamp: timestamp,
 			Producer:       producer,
+			FeeRecipient:   feeRecipient,
 			ProducerPubKey: producerPubKey,
 			GasLimit:       bc.genesis.BlockGasLimitByHeight(height),
 			BaseFee:        baseFee,
 			ExcessBlobGas:  blobgas,
 		})
+}
+
+// resolveBlockProducer returns (producer, feeRecipient, producerPubKey)
+// for a header-bearing block. Pre-fork the two iotex addresses are
+// equal (== blk.PublicKey().Address()); post-fork they are looked up
+// from candidate state via the injected BLSProducerResolver — the
+// BLS pubkey on the header alone cannot derive an iotex address.
+//
+// Returns an error rather than panicking if a post-fork block carries
+// a BLS pubkey the resolver cannot match to a candidate, or if no
+// resolver was wired up at all. blockchain callers should treat that
+// as a block-validation failure (invalid producer identity) instead
+// of installing a half-populated BlockCtx.
+func (bc *blockchain) resolveBlockProducer(ctx context.Context, blk *block.Block) (producer, feeRecipient address.Address, err error) {
+	pubKey := blk.Header.ProducerPubKey()
+	if g := genesis.MustExtractGenesisContext(ctx); g.IsToBeEnabled(blk.Height()) && len(pubKey) == crypto.BLSPubkeyLength {
+		if bc.blsResolver == nil {
+			return nil, nil, errors.New("BLS producer resolver not configured but block uses BLS-signed header")
+		}
+		op, rew, err := bc.blsResolver.ResolveBLSProducer(ctx, pubKey)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to resolve BLS producer identity")
+		}
+		return op, rew, nil
+	}
+	addr := blk.PublicKey().Address()
+	if addr == nil {
+		return nil, nil, errors.New("failed to derive producer address from header public key")
+	}
+	return addr, addr, nil
 }
 
 func (bc *blockchain) context(ctx context.Context, height uint64) (context.Context, error) {
@@ -470,6 +544,15 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time, opts ...MintOption) (*bl
 	}
 	minterAddress := producerPrivateKey.PublicKey().Address()
 	log.L().Info("Minting a new block.", zap.Uint64("height", newblockHeight), zap.String("minter", minterAddress.String()))
+	// TODO(Y5/Y6 — node identity wiring): once the node's own BLS
+	// pubkey is sourced from config, populate BlockCtx.ProducerPubKey
+	// with that BLS pubkey post-fork (rather than the secp256k1 bytes
+	// below) and resolve FeeRecipient from the candidate's Reward
+	// address. Today the mint path is consistent with the pre-fork
+	// behaviour: this is correct pre-fork; post-fork it produces a
+	// BlockCtx that disagrees with the validator's view, so any node
+	// that mints under UseBLSProducerIdentity will compute a divergent
+	// state root. Mint-time wiring is intentionally deferred to Y5/Y6.
 	ctx = bc.contextWithBlock(ctx, minterAddress, producerPrivateKey.PublicKey().Bytes(), newblockHeight, timestamp, protocol.CalcBaseFee(genesis.MustExtractGenesisContext(ctx).Blockchain, &tip), protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed))
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
@@ -553,7 +636,11 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	ctx = bc.contextWithBlock(ctx, blk.PublicKey().Address(), blk.Header.ProducerPubKey(), blk.Height(), blk.Timestamp(), blk.BaseFee(), blk.ExcessBlobGas())
+	producerAddr, feeRecipient, err := bc.resolveBlockProducer(ctx, blk)
+	if err != nil {
+		return err
+	}
+	ctx = bc.contextWithBlockAndRecipient(ctx, producerAddr, feeRecipient, blk.Header.ProducerPubKey(), blk.Height(), blk.Timestamp(), blk.BaseFee(), blk.ExcessBlobGas())
 	ctx = protocol.WithFeatureCtx(ctx)
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
