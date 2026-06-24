@@ -51,6 +51,13 @@ type (
 		bucketPool     *BucketPool
 		snapshots      []Snapshot
 		contractsStake *contractStakeView
+		// voterWeights is the per-(candidate, voter) weighted-votes aggregate
+		// used by IIP-59 voter reward distribution. nil while
+		// NoVoterRewardDistribution is true (pre-fork); populated by
+		// CreateBaseView once on the first block after the feature activates,
+		// then maintained incrementally by every staking handler that changes
+		// a bucket's contribution to a candidate.
+		voterWeights *VoterWeightView
 	}
 	Snapshot struct {
 		size           int
@@ -58,6 +65,12 @@ type (
 		amount         *big.Int
 		count          uint64
 		contractsStake *contractStakeView
+		// voterWeights captures the full view state at the snapshot moment so
+		// Revert restores it byte-for-byte. The clone is deep — Apply is the
+		// single mutation path and mutates in place, so a shallow snapshot
+		// would not survive any subsequent change. nil when the IIP-59
+		// feature flag is off.
+		voterWeights *VoterWeightView
 	}
 	contractStakeView struct {
 		v1 ContractStakeView
@@ -78,9 +91,11 @@ func (v *viewData) Fork() protocol.View {
 			amount:         new(big.Int).Set(v.snapshots[i].amount),
 			count:          v.snapshots[i].count,
 			contractsStake: v.snapshots[i].contractsStake,
+			voterWeights:   v.snapshots[i].voterWeights.Clone(),
 		}
 	}
 	fork.contractsStake = v.contractsStake.Fork()
+	fork.voterWeights = v.voterWeights.Clone()
 	return fork
 }
 
@@ -94,13 +109,43 @@ func (v *viewData) Commit(ctx context.Context, sm protocol.StateManager) error {
 	if err := v.contractsStake.Commit(ctx, sm); err != nil {
 		return err
 	}
+	if err := v.commitVoterWeights(sm); err != nil {
+		return err
+	}
 	v.snapshots = []Snapshot{}
 
 	return nil
 }
 
 func (v *viewData) IsDirty() bool {
-	return v.candCenter.IsDirty() || v.bucketPool.IsDirty() || v.contractsStake.IsDirty()
+	return v.candCenter.IsDirty() ||
+		v.bucketPool.IsDirty() ||
+		v.contractsStake.IsDirty() ||
+		v.voterWeights.IsDirty()
+}
+
+// commitVoterWeights persists the IIP-59 view's deterministic state digest
+// (one Hash256 under the _voterWeights namespace tag) when the view is
+// dirty. Other nodes' digests at the same block height must match
+// byte-for-byte; a mismatch surfaces as a divergent block hash because
+// state-trie writes feed into deltaStateDigest.
+//
+// nil voterWeights (feature flag off) is a no-op so pre-flag chains
+// remain byte-identical to today's behavior.
+func (v *viewData) commitVoterWeights(sm protocol.StateManager) error {
+	if v.voterWeights == nil || !v.voterWeights.IsDirty() {
+		return nil
+	}
+	h := v.voterWeights.Hash()
+	if _, err := sm.PutState(
+		&voterWeightDigest{Hash: h},
+		protocol.NamespaceOption(_stakingNameSpace),
+		protocol.KeyOption(_voterWeightsKey),
+	); err != nil {
+		return errors.Wrap(err, "failed to persist voter weights digest")
+	}
+	v.voterWeights.MarkClean()
+	return nil
 }
 
 func (v *viewData) Snapshot() int {
@@ -112,6 +157,7 @@ func (v *viewData) Snapshot() int {
 		amount:         new(big.Int).Set(v.bucketPool.total.amount),
 		count:          v.bucketPool.total.count,
 		contractsStake: v.contractsStake,
+		voterWeights:   v.voterWeights.Clone(),
 	})
 	v.contractsStake = wrapped
 	return snapshot
@@ -131,6 +177,7 @@ func (v *viewData) Revert(snapshot int) error {
 	v.bucketPool.total.amount.Set(s.amount)
 	v.bucketPool.total.count = s.count
 	v.contractsStake = s.contractsStake
+	v.voterWeights = s.voterWeights
 	v.snapshots = v.snapshots[:snapshot]
 	return nil
 }

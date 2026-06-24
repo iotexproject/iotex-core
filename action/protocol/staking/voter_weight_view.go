@@ -7,13 +7,115 @@ package staking
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"math/big"
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
+
+// _voterWeightsKey is the single state-trie key under StakingNamespace where
+// IIP-59's view digest lives. The 1-byte namespace tag _voterWeights = 5 is
+// reserved in protocol.go.
+var _voterWeightsKey = []byte{_voterWeights}
+
+// voterWeightDigest is the serialized form of VoterWeightView.Hash() —
+// one 32-byte value per chain, rewritten only when the view is dirty at
+// block commit time. Deserialize requires the buffer to be exactly 32
+// bytes so a corrupted record fails loudly rather than silently
+// producing a zero hash.
+type voterWeightDigest struct {
+	Hash hash.Hash256
+}
+
+// Serialize implements state.Serializer.
+func (d *voterWeightDigest) Serialize() ([]byte, error) {
+	out := make([]byte, len(hash.Hash256{}))
+	copy(out, d.Hash[:])
+	return out, nil
+}
+
+// Deserialize implements state.Deserializer.
+func (d *voterWeightDigest) Deserialize(buf []byte) error {
+	if len(buf) != len(hash.Hash256{}) {
+		return errors.Errorf("voter weight digest must be %d bytes, got %d", len(hash.Hash256{}), len(buf))
+	}
+	copy(d.Hash[:], buf)
+	return nil
+}
+
+// ensureVoterWeightView populates viewData.voterWeights when it has not yet
+// been built (first block after the feature flag activates, or restart
+// before the incremental hooks have run). On the first non-empty build it
+// verifies the rebuilt hash against the digest persisted under
+// _voterWeightsKey; a mismatch surfaces as a loud error so a desync
+// between bucket state and view state cannot silently pass into block
+// production.
+//
+// Subsequent calls within the same flag-on chain are no-ops: voterWeights
+// is non-nil and gets maintained incrementally by the handler hooks.
+func (p *Protocol) ensureVoterWeightView(ctx context.Context, sm protocol.StateManager) error {
+	csr, err := ConstructBaseView(sm)
+	if err != nil {
+		return err
+	}
+	vd := csr.BaseView()
+	if vd.voterWeights != nil {
+		return nil
+	}
+
+	allBuckets, _, err := newCandidateStateReader(sm).NativeBuckets()
+	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return errors.Wrap(err, "failed to read native buckets")
+	}
+	candCenter := vd.candCenter
+	view := buildVoterWeightView(allBuckets, func(b *VoteBucket) *Candidate {
+		return candCenter.GetByIdentifier(b.Candidate)
+	}, p.config.VoteWeightCalConsts)
+
+	// Verify against the persisted digest, if any. If no digest record
+	// exists yet (first-ever activation), the rebuilt view is the
+	// authoritative starting point and we write its hash on the next
+	// dirty commit.
+	persisted, err := readVoterWeightDigest(sm)
+	switch errors.Cause(err) {
+	case nil:
+		if persisted != view.Hash() {
+			return errors.Errorf(
+				"voter weight view digest mismatch: rebuilt %x vs persisted %x — staking view is divergent",
+				view.Hash(), persisted,
+			)
+		}
+	case state.ErrStateNotExist:
+		// First activation: mark the view dirty so the next Commit
+		// persists the initial digest.
+		view.dirty = true
+	default:
+		return errors.Wrap(err, "failed to read persisted voter weight digest")
+	}
+
+	vd.voterWeights = view
+	return nil
+}
+
+// readVoterWeightDigest returns the persisted view digest, if present.
+func readVoterWeightDigest(sm protocol.StateReader) (hash.Hash256, error) {
+	d := &voterWeightDigest{}
+	if _, err := sm.State(d,
+		protocol.NamespaceOption(_stakingNameSpace),
+		protocol.KeyOption(_voterWeightsKey),
+	); err != nil {
+		return hash.ZeroHash256, err
+	}
+	return d.Hash, nil
+}
 
 // VoterWeightView tracks per-candidate per-voter weighted votes for IIP-59
 // protocol-native voter reward distribution.
@@ -30,6 +132,7 @@ import (
 // (see #4811 review #2 for the bug class).
 type VoterWeightView struct {
 	byCandidate map[hash.Hash160]*candidateVoterEntry
+	dirty       bool
 }
 
 // candidateVoterEntry holds the per-(candidate, voter) weighted votes for
@@ -72,6 +175,7 @@ func (v *VoterWeightView) Apply(candID hash.Hash160, voter address.Address, delt
 	if delta == nil || delta.Sign() == 0 {
 		return
 	}
+	v.dirty = true
 	entry, ok := v.byCandidate[candID]
 	if !ok {
 		// Negative delta against an empty candidate is a programming error
@@ -174,6 +278,7 @@ func (v *VoterWeightView) Clone() *VoterWeightView {
 		return nil
 	}
 	out := NewVoterWeightView()
+	out.dirty = v.dirty
 	for candID, entry := range v.byCandidate {
 		clone := &candidateVoterEntry{
 			sorted: make([]voterWeight, len(entry.sorted)),
@@ -197,6 +302,67 @@ func (v *VoterWeightView) Clone() *VoterWeightView {
 // hash checks to distinguish "view was never built" from "view is zero hash".
 func (v *VoterWeightView) IsEmpty() bool {
 	return v == nil || len(v.byCandidate) == 0
+}
+
+// buildVoterWeightView constructs a fresh VoterWeightView from a snapshot of
+// active native + contract-staking buckets at the given height. Used by
+// staking.Protocol.CreatePreStates on the block that first activates the
+// IIP-59 feature flag (one-shot full scan; thereafter the view is
+// maintained incrementally by the handler hooks) and at restart to
+// reconstruct the view and verify it against the persisted digest.
+//
+// candidateLookup translates a bucket's candidate operator/identifier to
+// the candidate's stable identifier address used as the view's primary
+// key. selfStakeBucketIdx allows the canonical IIP-59 self-stake bonus to
+// apply only to native self-stake buckets (the PoC #4811 review #5 bug
+// was to apply it to any bucket with the same index, including contract
+// buckets which always have Index = 0). The caller is responsible for
+// passing nil contractIndexers when none are configured.
+func buildVoterWeightView(
+	allBuckets []*VoteBucket,
+	candidateForBucket func(*VoteBucket) *Candidate,
+	consts genesis.VoteWeightCalConsts,
+) *VoterWeightView {
+	v := NewVoterWeightView()
+	for _, b := range allBuckets {
+		if b == nil || b.isUnstaked() {
+			continue
+		}
+		cand := candidateForBucket(b)
+		if cand == nil {
+			// Bucket points to a candidate we don't know about — skip.
+			// Apply has the same defensive behavior, so this is consistent.
+			continue
+		}
+		// Self-stake bonus applies only to native self-stake buckets — a
+		// contract bucket with the same Index (commonly 0) must not get
+		// the bonus. PoC #4811 review finding #5 was exactly this bug.
+		isSelfStake := b.ContractAddress == "" && b.Index == cand.SelfStakeBucketIdx
+		w := CalculateVoteWeight(consts, b, isSelfStake)
+		if w.Sign() == 0 {
+			continue
+		}
+		v.Apply(hash.BytesToHash160(cand.GetIdentifier().Bytes()), b.Owner, w)
+	}
+	// Initial build is by definition consistent with the on-disk state at
+	// this height, so commit can be a no-op until the next mutation.
+	v.MarkClean()
+	return v
+}
+
+// IsDirty reports whether the view has been mutated since the last
+// MarkClean. viewData.IsDirty consults this so that block commits know
+// whether the persisted hash needs to be rewritten.
+func (v *VoterWeightView) IsDirty() bool {
+	return v != nil && v.dirty
+}
+
+// MarkClean clears the dirty flag. Called from viewData.Commit after the
+// new hash has been persisted.
+func (v *VoterWeightView) MarkClean() {
+	if v != nil {
+		v.dirty = false
+	}
 }
 
 // insertSorted inserts (voter, weight) into the entry at the position

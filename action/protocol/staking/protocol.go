@@ -584,6 +584,17 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			vd.contractsStake.Revise(ctx)
 		}
 	}
+	// IIP-59: once voter reward distribution activates, do a one-shot scan
+	// of all active buckets to populate the VoterWeightView. Subsequent
+	// blocks rely on the incremental Apply hooks in the per-action
+	// handlers. The build is idempotent — subsequent calls see a non-nil
+	// voterWeights and short-circuit.
+	if !featureCtx.NoVoterRewardDistribution {
+		if err := p.ensureVoterWeightView(ctx, sm); err != nil {
+			return errors.Wrap(err, "failed to populate voter weight view")
+		}
+	}
+
 	// remove BLS public key of all candidates at XinguBeta
 	if blkCtx.BlockHeight == g.XinguBetaBlockHeight {
 		csm, err := NewCandidateStateManager(sm)
