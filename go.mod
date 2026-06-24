@@ -353,3 +353,8 @@ replace github.com/ethereum/go-ethereum/crypto/secp256k1 => github.com/erigontec
 
 // Fix for go-libutp compatibility with GCC 15+
 replace github.com/anacrolix/go-libutp => github.com/anacrolix/go-libutp v0.0.0-20251121015447-f294e5ed5b4d
+
+// IIP-59 prerequisite — points to local iotex-proto branch with
+// SetCommissionRate action + Candidate.commissionRate fields. Replace with a
+// tagged version once iotex-proto PR merges.
+replace github.com/iotexproject/iotex-proto => ../iotex-proto

@@ -172,6 +172,20 @@ type (
 		// contracts are committed and written back
 		AlwaysWriteCachedContract bool
 		NoCandidateExitQueue      bool
+		// NoVoterRewardDistribution gates IIP-59: protocol-native voter reward
+		// distribution. When false (the post-fork / activated state, which is also
+		// the bool zero value), GrantEpochReward auto-splits each delegate's
+		// epoch reward between the delegate's commission and a proportional
+		// distribution to voters, and SetCommissionRate actions are accepted.
+		// When true (the pre-fork legacy state), the protocol keeps today's
+		// behavior of granting the full epoch reward to the delegate.
+		//
+		// Naming convention: feature flags should be named such that the bool
+		// zero value (false) corresponds to the post-fork activated behavior.
+		// This matches NoCandidateExitQueue / NotSlashUnproductiveDelegates and
+		// makes a missing / partially-initialized FeatureCtx default to the
+		// long-term mainnet behavior rather than the temporary pre-fork state.
+		NoVoterRewardDistribution bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -346,6 +360,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			PrePectraEVM:                            !g.IsYap(height),
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
+			NoVoterRewardDistribution:               !g.IsToBeEnabled(height),
 		},
 	)
 }
