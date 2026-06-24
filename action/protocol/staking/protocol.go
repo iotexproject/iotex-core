@@ -61,6 +61,12 @@ const (
 	_voterIndex
 	_candIndex
 	_endorsement
+	// _voterWeights is IIP-59's per-block view-state hash. The hash is one
+	// 32-byte digest of the global VoterWeightView (all candidates × all
+	// voters × current weighted votes), so that a restarted node can verify
+	// the rebuilt-from-buckets view matches the hash committed at the last
+	// block. See voter_weight_view.go.
+	_voterWeights
 )
 
 // Errors
