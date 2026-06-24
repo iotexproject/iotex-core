@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -947,19 +948,19 @@ func TestSortMap(t *testing.T) {
 		caches := []string{}
 		for i := 0; i < size; i++ {
 			stateDB.RevertToSnapshot(sn)
-			s := ""
+			var s strings.Builder
 			if stateDB.disableSortCachedContracts {
 				for _, c := range stateDB.cachedContract {
-					s += string(c.SelfState().Root[:])
+					s.WriteString(string(c.SelfState().Root[:]))
 				}
 			} else {
 				for _, addr := range stateDB.cachedContractAddrs() {
 					c := stateDB.cachedContract[addr]
-					s += string(c.SelfState().Root[:])
+					s.WriteString(string(c.SelfState().Root[:]))
 				}
 			}
 
-			caches = append(caches, s)
+			caches = append(caches, s.String())
 		}
 		return uniqueSlice(caches)
 	}

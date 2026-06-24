@@ -12,6 +12,7 @@ import (
 	"log"
 	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -167,20 +168,21 @@ func printActionProto(act *iotextypes.Action) (string, error) {
 	}
 	//ioctl action should display IOTX unit instead Raul
 	core := act.Core
-	result := fmt.Sprintf("\nversion: %d  ", core.GetVersion()) +
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("\nversion: %d  ", core.GetVersion()) +
 		fmt.Sprintf("txType: %d  ", core.GetTxType()) +
 		fmt.Sprintf("nonce: %d  ", core.GetNonce()) +
 		fmt.Sprintf("gasLimit: %d  ", core.GasLimit) +
 		fmt.Sprintf("chainID: %d  ", core.GetChainID()) +
 		fmt.Sprintf("encoding: %d\n", act.GetEncoding()) +
 		fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-			Match(senderAddress.String(), "address"))
+			Match(senderAddress.String(), "address")))
 	if len(core.GasPrice) > 0 {
 		gasPriceUnitIOTX, err := util.StringToIOTX(core.GasPrice)
 		if err != nil {
 			return "", output.NewError(output.ConfigError, "failed to convert string to IOTX", err)
 		}
-		result += fmt.Sprintf("gasPrice: %s IOTX \n", gasPriceUnitIOTX)
+		result.WriteString(fmt.Sprintf("gasPrice: %s IOTX \n", gasPriceUnitIOTX))
 	}
 	if len(core.GetGasFeeCap()) > 0 {
 		feeCapIOTX, err := util.StringToIOTX(core.GetGasFeeCap())
@@ -191,28 +193,28 @@ func printActionProto(act *iotextypes.Action) (string, error) {
 		if err != nil {
 			return "", output.NewError(output.ConfigError, "failed to convert string to IOTX", err)
 		}
-		result += fmt.Sprintf("gasFeeCap: %s IOTX ", feeCapIOTX) +
-			fmt.Sprintf("gasTipCap: %s IOTX \n", tipCapIOTX)
+		result.WriteString(fmt.Sprintf("gasFeeCap: %s IOTX ", feeCapIOTX) +
+			fmt.Sprintf("gasTipCap: %s IOTX \n", tipCapIOTX))
 	}
 	if len(core.GetAccessList()) > 0 {
-		result += "accessList: <\n"
+		result.WriteString("accessList: <\n")
 		for _, access := range core.GetAccessList() {
-			result += fmt.Sprintf("  address: %s %s\n", access.Address,
-				Match(access.Address, "address"))
-			result += "  storageKeys: <\n"
+			result.WriteString(fmt.Sprintf("  address: %s %s\n", access.Address,
+				Match(access.Address, "address")))
+			result.WriteString("  storageKeys: <\n")
 			for _, key := range access.StorageKeys {
-				result += fmt.Sprintf("    %s\n", key)
+				result.WriteString(fmt.Sprintf("    %s\n", key))
 			}
-			result += "  >\n"
+			result.WriteString("  >\n")
 		}
-		result += ">\n"
+		result.WriteString(">\n")
 	}
 	if core.BlobTxData != nil {
-		result += fmt.Sprintf("blob hashes: <\n")
+		result.WriteString(fmt.Sprintf("blob hashes: <\n"))
 		for _, hash := range core.BlobTxData.BlobHashes {
-			result += fmt.Sprintf("  %x\n", hash)
+			result.WriteString(fmt.Sprintf("  %x\n", hash))
 		}
-		result += ">\n"
+		result.WriteString(">\n")
 	}
 
 	switch {
@@ -222,50 +224,50 @@ func printActionProto(act *iotextypes.Action) (string, error) {
 		if err != nil {
 			return "", output.NewError(output.ConvertError, "failed to convert string into IOTX amount", err)
 		}
-		result += "transfer: <\n" +
+		result.WriteString("transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
 				Match(transfer.Recipient, "address")) +
-			fmt.Sprintf("  amount: %s IOTX\n", amount)
+			fmt.Sprintf("  amount: %s IOTX\n", amount))
 		if len(transfer.Payload) != 0 {
-			result += fmt.Sprintf("  payload: %s\n", transfer.Payload)
+			result.WriteString(fmt.Sprintf("  payload: %s\n", transfer.Payload))
 		}
-		result += ">\n"
+		result.WriteString(">\n")
 	case core.GetExecution() != nil:
 		execution := core.GetExecution()
-		result += "execution: <\n" +
+		result.WriteString("execution: <\n" +
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
-				Match(execution.Contract, "address"))
+				Match(execution.Contract, "address")))
 		if execution.Amount != "0" {
 			amount, err := util.StringToIOTX(execution.Amount)
 			if err != nil {
 				return "", output.NewError(output.ConvertError, "failed to convert string into IOTX amount", err)
 			}
-			result += fmt.Sprintf("  amount: %s IOTX\n", amount)
+			result.WriteString(fmt.Sprintf("  amount: %s IOTX\n", amount))
 		}
-		result += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
+		result.WriteString(fmt.Sprintf("  data: %x\n", execution.Data) + ">\n")
 	case core.GetPutPollResult() != nil:
 		putPollResult := core.GetPutPollResult()
-		result += "putPollResult: <\n" +
+		result.WriteString("putPollResult: <\n" +
 			fmt.Sprintf("  height: %d\n", putPollResult.Height) +
-			"  candidates: <\n"
+			"  candidates: <\n")
 		for _, candidate := range putPollResult.Candidates.Candidates {
-			result += "    candidate: <\n" +
-				fmt.Sprintf("      address: %s\n", candidate.Address)
+			result.WriteString("    candidate: <\n" +
+				fmt.Sprintf("      address: %s\n", candidate.Address))
 			votes := big.NewInt(0).SetBytes(candidate.Votes)
-			result += fmt.Sprintf("      votes: %s\n", votes.String()) +
+			result.WriteString(fmt.Sprintf("      votes: %s\n", votes.String()) +
 				fmt.Sprintf("      rewardAdress: %s\n", candidate.RewardAddress) +
-				"    >\n"
+				"    >\n")
 		}
-		result += "  >\n" +
-			">\n"
+		result.WriteString("  >\n" +
+			">\n")
 	default:
 		bs, _ := protoV1.Marshal(core)
-		result += string(bs)
+		result.WriteString(string(bs))
 	}
-	result += fmt.Sprintf("senderPubKey: %x\n", act.SenderPubKey) +
-		fmt.Sprintf("signature: %x\n", act.Signature)
+	result.WriteString(fmt.Sprintf("senderPubKey: %x\n", act.SenderPubKey) +
+		fmt.Sprintf("signature: %x\n", act.Signature))
 
-	return result, nil
+	return result.String(), nil
 }
 
 func printReceiptProto(receipt *iotextypes.Receipt) string {
@@ -310,23 +312,24 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 }
 
 func printLogs(logs []*iotextypes.Log) string {
-	result := "logs:<\n"
+	var result strings.Builder
+	result.WriteString("logs:<\n")
 	for _, l := range logs {
-		result += "  <\n" +
+		result.WriteString("  <\n" +
 			fmt.Sprintf("    contractAddress: %s\n", l.ContractAddress) +
-			"    topics:<\n"
+			"    topics:<\n")
 		for _, topic := range l.Topics {
-			result += fmt.Sprintf("      %s\n", hex.EncodeToString(topic))
+			result.WriteString(fmt.Sprintf("      %s\n", hex.EncodeToString(topic)))
 		}
-		result += "    >\n"
+		result.WriteString("    >\n")
 		if len(l.Data) > 0 {
-			result += fmt.Sprintf("    data: %s\n", hex.EncodeToString(l.Data))
+			result.WriteString(fmt.Sprintf("    data: %s\n", hex.EncodeToString(l.Data)))
 		}
-		result += "  >\n"
+		result.WriteString("  >\n")
 
 	}
-	result += ">\n"
-	return result
+	result.WriteString(">\n")
+	return result.String()
 }
 
 // Match returns human readable expression
