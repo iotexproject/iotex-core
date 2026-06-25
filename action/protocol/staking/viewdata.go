@@ -53,11 +53,13 @@ type (
 		contractsStake *contractStakeView
 		// voterWeights is the per-(candidate, voter) weighted-votes aggregate
 		// used by IIP-59 voter reward distribution. nil while
-		// NoVoterRewardDistribution is true (pre-fork); populated by
-		// CreateBaseView once on the first block after the feature activates,
-		// then maintained incrementally by every staking handler that changes
-		// a bucket's contribution to a candidate.
-		voterWeights *VoterWeightView
+		// NoVoterRewardDistribution is true (pre-fork); populated once by
+		// CreateBaseView when the feature activates, then maintained
+		// incrementally by every staking handler that changes a bucket's
+		// contribution to a candidate. The interface allows Wrap (used by
+		// Snapshot below) and Fork to install cheap overlays rather than
+		// deep-clone the full map on every save point.
+		voterWeights VoterWeightView
 	}
 	Snapshot struct {
 		size           int
@@ -65,12 +67,12 @@ type (
 		amount         *big.Int
 		count          uint64
 		contractsStake *contractStakeView
-		// voterWeights captures the full view state at the snapshot moment so
-		// Revert restores it byte-for-byte. The clone is deep — Apply is the
-		// single mutation path and mutates in place, so a shallow snapshot
-		// would not survive any subsequent change. nil when the IIP-59
-		// feature flag is off.
-		voterWeights *VoterWeightView
+		// voterWeights stores the pre-overlay view at the snapshot moment.
+		// Snapshot() calls voterWeights.Wrap() and installs the wrapper as
+		// the live view; this field keeps the original so Revert() can
+		// discard the wrapper by restoring the pointer. Nil when the
+		// IIP-59 feature flag is off.
+		voterWeights VoterWeightView
 	}
 	contractStakeView struct {
 		v1 ContractStakeView
@@ -91,11 +93,16 @@ func (v *viewData) Fork() protocol.View {
 			amount:         new(big.Int).Set(v.snapshots[i].amount),
 			count:          v.snapshots[i].count,
 			contractsStake: v.snapshots[i].contractsStake,
-			voterWeights:   v.snapshots[i].voterWeights.Clone(),
+			voterWeights:   v.snapshots[i].voterWeights,
 		}
 	}
 	fork.contractsStake = v.contractsStake.Fork()
-	fork.voterWeights = v.voterWeights.Clone()
+	if v.voterWeights != nil {
+		// Cheap overlay — the underlying map is shared until the fork
+		// actually commits (see voterWeightFork.Commit), so a fork that
+		// never mutates the view costs only the wrapper allocation.
+		fork.voterWeights = v.voterWeights.Fork()
+	}
 	return fork
 }
 
@@ -109,8 +116,23 @@ func (v *viewData) Commit(ctx context.Context, sm protocol.StateManager) error {
 	if err := v.contractsStake.Commit(ctx, sm); err != nil {
 		return err
 	}
-	if err := v.commitVoterWeights(sm); err != nil {
-		return err
+	if v.voterWeights != nil {
+		// Flatten any active overlay every block. Persistence of the
+		// digest is gated on the IIP-59 feature flag — pre-fork chains
+		// pass a nil StateManager into VoterWeightView.Commit so any
+		// dirty bit is cleared without touching the state trie, keeping
+		// byte-identity with today's behavior. Once the feature
+		// activates, the real sm flows through and the digest is written
+		// whenever the view is dirty.
+		var persistSM protocol.StateManager
+		if !protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+			persistSM = sm
+		}
+		updated, err := v.voterWeights.Commit(persistSM)
+		if err != nil {
+			return err
+		}
+		v.voterWeights = updated
 	}
 	v.snapshots = []Snapshot{}
 
@@ -118,48 +140,31 @@ func (v *viewData) Commit(ctx context.Context, sm protocol.StateManager) error {
 }
 
 func (v *viewData) IsDirty() bool {
-	return v.candCenter.IsDirty() ||
-		v.bucketPool.IsDirty() ||
-		v.contractsStake.IsDirty() ||
-		v.voterWeights.IsDirty()
-}
-
-// commitVoterWeights persists the IIP-59 view's deterministic state digest
-// (one Hash256 under the _voterWeights namespace tag) when the view is
-// dirty. Other nodes' digests at the same block height must match
-// byte-for-byte; a mismatch surfaces as a divergent block hash because
-// state-trie writes feed into deltaStateDigest.
-//
-// nil voterWeights (feature flag off) is a no-op so pre-flag chains
-// remain byte-identical to today's behavior.
-func (v *viewData) commitVoterWeights(sm protocol.StateManager) error {
-	if v.voterWeights == nil || !v.voterWeights.IsDirty() {
-		return nil
+	if v.candCenter.IsDirty() || v.bucketPool.IsDirty() || v.contractsStake.IsDirty() {
+		return true
 	}
-	h := v.voterWeights.Hash()
-	if _, err := sm.PutState(
-		&voterWeightDigest{Hash: h},
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(_voterWeightsKey),
-	); err != nil {
-		return errors.Wrap(err, "failed to persist voter weights digest")
-	}
-	v.voterWeights.MarkClean()
-	return nil
+	return v.voterWeights != nil && v.voterWeights.IsDirty()
 }
 
 func (v *viewData) Snapshot() int {
 	snapshot := len(v.snapshots)
 	wrapped := v.contractsStake.Wrap()
-	v.snapshots = append(v.snapshots, Snapshot{
+	snap := Snapshot{
 		size:           v.candCenter.size,
 		changes:        len(v.candCenter.change.candidates),
 		amount:         new(big.Int).Set(v.bucketPool.total.amount),
 		count:          v.bucketPool.total.count,
 		contractsStake: v.contractsStake,
-		voterWeights:   v.voterWeights.Clone(),
-	})
+		voterWeights:   v.voterWeights,
+	}
+	v.snapshots = append(v.snapshots, snap)
 	v.contractsStake = wrapped
+	if v.voterWeights != nil {
+		// Install a Wrap overlay so any Apply between this Snapshot and
+		// the next save point accumulates in the overlay's local delta
+		// layer; Revert simply restores the saved pre-overlay pointer.
+		v.voterWeights = v.voterWeights.Wrap()
+	}
 	return snapshot
 }
 

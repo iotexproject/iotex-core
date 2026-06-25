@@ -7,6 +7,7 @@ package staking
 
 import (
 	"bytes"
+	"encoding/binary"
 	"math/big"
 	"math/rand"
 	"sort"
@@ -67,7 +68,7 @@ func TestVoterWeightView_ApplyDecrease(t *testing.T) {
 	r.Empty(v.VoterWeightsByCandidate(cand))
 
 	// And the candidate itself drops out of the view.
-	r.True(v.IsEmpty())
+	r.Equal(hash.ZeroHash256, v.Hash())
 }
 
 func TestVoterWeightView_ApplyDecreaseBelowZeroDoesNotGoNegative(t *testing.T) {
@@ -90,7 +91,7 @@ func TestVoterWeightView_ApplyNoOpOnUnknown(t *testing.T) {
 
 	// Negative against missing candidate: no-op, no panic.
 	v.Apply(cand, voter, big.NewInt(-100))
-	r.True(v.IsEmpty())
+	r.Equal(hash.ZeroHash256, v.Hash())
 
 	// Add the candidate, then negative against unknown voter: no-op.
 	v.Apply(cand, identityset.Address(3), big.NewInt(100))
@@ -170,22 +171,64 @@ func findWeight(out []voterWeight, voter address.Address) *big.Int {
 	return nil
 }
 
-func TestVoterWeightView_Clone(t *testing.T) {
+// TestVoterWeightView_ForkIsolation verifies the Fork (commit-in-clone)
+// path leaves the parent view untouched even after the fork commits, while
+// changes via the fork itself land in the fork's own materialized state.
+func TestVoterWeightView_ForkIsolation(t *testing.T) {
 	r := require.New(t)
 	v := NewVoterWeightView()
 	cand := candID(1)
 	v.Apply(cand, identityset.Address(2), big.NewInt(100))
 	v.Apply(cand, identityset.Address(3), big.NewInt(200))
+	parentHash := v.Hash()
 
-	clone := v.Clone()
-	r.Equal(v.Hash(), clone.Hash())
+	fork := v.Fork()
+	r.Equal(parentHash, fork.Hash(), "fresh fork must mirror the parent")
 
-	// Mutating clone must not affect original.
-	clone.Apply(cand, identityset.Address(2), big.NewInt(50))
-	r.NotEqual(v.Hash(), clone.Hash())
-	r.Equal(int64(100), findWeight(v.VoterWeightsByCandidate(cand), identityset.Address(2)).Int64())
-	r.Equal(int64(150), findWeight(clone.VoterWeightsByCandidate(cand), identityset.Address(2)).Int64())
-	r.Equal(int64(200), findWeight(v.VoterWeightsByCandidate(cand), identityset.Address(3)).Int64(), "untouched voter must be unchanged")
+	// Apply via the fork; before commit, parent and fork share the base
+	// but the change layer is fork-local.
+	fork.Apply(cand, identityset.Address(2), big.NewInt(50))
+	r.Equal(parentHash, v.Hash(), "parent must be unchanged before fork commits")
+	r.NotEqual(parentHash, fork.Hash(), "fork hash must reflect overlay")
+
+	// Commit the fork — base is cloned first, so parent stays intact.
+	committed, err := fork.Commit(nil)
+	r.NoError(err)
+	r.Equal(parentHash, v.Hash(), "parent unchanged after fork.Commit")
+	r.Equal(
+		int64(100),
+		findWeight(v.VoterWeightsByCandidate(cand), identityset.Address(2)).Int64(),
+		"parent's voter weight is the pre-fork value",
+	)
+	r.Equal(
+		int64(150),
+		findWeight(committed.VoterWeightsByCandidate(cand), identityset.Address(2)).Int64(),
+		"committed fork has the fork-local delta applied",
+	)
+	r.Equal(
+		int64(200),
+		findWeight(committed.VoterWeightsByCandidate(cand), identityset.Address(3)).Int64(),
+		"untouched voter preserved through fork+commit",
+	)
+}
+
+// TestVoterWeightView_WrapMergesIntoParent verifies the Wrap (snapshot) path:
+// changes accumulated through a wrap commit back into the shared parent base.
+func TestVoterWeightView_WrapMergesIntoParent(t *testing.T) {
+	r := require.New(t)
+	v := NewVoterWeightView()
+	cand := candID(1)
+	v.Apply(cand, identityset.Address(2), big.NewInt(100))
+
+	w := v.Wrap()
+	w.Apply(cand, identityset.Address(2), big.NewInt(25))
+	r.Equal(int64(100), findWeight(v.VoterWeightsByCandidate(cand), identityset.Address(2)).Int64(), "parent unchanged before wrap commit")
+
+	committed, err := w.Commit(nil)
+	r.NoError(err)
+	r.Equal(int64(125), findWeight(committed.VoterWeightsByCandidate(cand), identityset.Address(2)).Int64())
+	// After Wrap.Commit, the parent base receives the deltas (no clone).
+	r.Equal(int64(125), findWeight(v.VoterWeightsByCandidate(cand), identityset.Address(2)).Int64())
 }
 
 func TestVoterWeightView_HashDeterministic(t *testing.T) {
@@ -231,7 +274,7 @@ func TestVoterWeightView_HashEmpty(t *testing.T) {
 	r := require.New(t)
 	v := NewVoterWeightView()
 	r.Equal(hash.ZeroHash256, v.Hash())
-	r.True(v.IsEmpty())
+	r.Equal(hash.ZeroHash256, v.Hash())
 }
 
 // TestVoterWeightView_IncrementalMatchesBatch is the foundational
@@ -360,6 +403,51 @@ func TestVoterWeightView_IncrementalMatchesRebuild(t *testing.T) {
 	}
 
 	r.Equal(v.Hash(), rebuild.Hash())
+}
+
+// benchAddress synthesizes a stable, unique address from an integer. Used by
+// the Hash() benchmark which needs more identities than the fixed-size
+// identityset can provide (mainnet has ~100k staking buckets).
+func benchAddress(i int) address.Address {
+	var buf [8]byte
+	binary.BigEndian.PutUint64(buf[:], uint64(i))
+	h := hash.Hash160b(buf[:])
+	a, _ := address.FromBytes(h[:])
+	return a
+}
+
+// BenchmarkVoterWeightView_Hash measures Hash() at realistic mainnet scale:
+// approximately 100 candidates and 100,000 voters distributed across them.
+// distributeVoterReward calls Hash via the viewData commit path once per
+// block at most, so this is the cost we pay per-block under load.
+func BenchmarkVoterWeightView_Hash(b *testing.B) {
+	const (
+		nCandidates = 100
+		nVoters     = 100_000
+	)
+	v := NewVoterWeightView()
+	rng := rand.New(rand.NewSource(0xC0FFEE))
+	// Distribute voters across candidates so each candidate has ~1000 voters
+	// but the spread is realistic (some popular delegates have far more).
+	for vi := 0; vi < nVoters; vi++ {
+		// Skew distribution toward earlier candidates.
+		cand := int(rng.NormFloat64()*nCandidates/4) + nCandidates/2
+		if cand < 0 {
+			cand = 0
+		}
+		if cand >= nCandidates {
+			cand = nCandidates - 1
+		}
+		v.Apply(
+			hash.BytesToHash160(benchAddress(cand).Bytes()),
+			benchAddress(nCandidates+vi),
+			big.NewInt(int64(1+rng.Intn(1<<30))),
+		)
+	}
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		_ = v.Hash()
+	}
 }
 
 func BenchmarkVoterWeightView_Apply(b *testing.B) {

@@ -26,7 +26,10 @@ func TestVoteReviser(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManagerWithoutHeightFunc(ctrl)
-	sm.EXPECT().Height().Return(uint64(0), nil).Times(4)
+	// IIP-59 (PR 2) makes Protocol.Start unconditionally rebuild the voter
+	// weight view, which adds one sr.Height() call to the prior expectation
+	// count of 4.
+	sm.EXPECT().Height().Return(uint64(0), nil).Times(5)
 	csm := newCandidateStateManager(sm)
 	csr := newCandidateStateReader(sm)
 	_, err := sm.PutState(

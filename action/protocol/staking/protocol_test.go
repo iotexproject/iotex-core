@@ -322,10 +322,16 @@ func TestCreatePreStatesMigration(t *testing.T) {
 	g := genesis.TestDefault()
 	mockView := NewMockContractStakeView(ctrl)
 	mockContractStaking := NewMockContractStakingIndexer(ctrl)
-	mockContractStaking.EXPECT().ContractAddress().Return(identityset.Address(1)).Times(1)
+	// IIP-59 (PR 2) makes Protocol.Start unconditionally rebuild the voter
+	// weight view, which enumerates each indexer's StartHeight() and (when
+	// the indexer has started) its Buckets() to seed the view. Use
+	// AnyTimes() for these calls so future changes to the load path don't
+	// force this mock-count test to track another expectation each time.
+	mockContractStaking.EXPECT().ContractAddress().Return(identityset.Address(1)).AnyTimes()
 	mockContractStaking.EXPECT().LoadStakeView(gomock.Any(), gomock.Any()).Return(mockView, nil).Times(1)
-	mockContractStaking.EXPECT().StartHeight().Return(uint64(0)).Times(1)
+	mockContractStaking.EXPECT().StartHeight().Return(uint64(0)).AnyTimes()
 	mockContractStaking.EXPECT().Height().Return(uint64(0), nil).Times(1)
+	mockContractStaking.EXPECT().Buckets(gomock.Any()).Return(nil, nil).AnyTimes()
 	p, err := NewProtocol(HelperCtx{
 		DepositGas:    nil,
 		BlockInterval: getBlockInterval,

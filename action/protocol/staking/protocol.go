@@ -380,7 +380,92 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			return nil, err
 		}
 	}
+
+	// IIP-59: build the voter weight view at protocol startup
+	// unconditionally — pre-fork chains pay the same one-shot scan cost
+	// but keep the view ready for the moment the feature activates, so a
+	// fresh node restarting around the activation height never sees a
+	// transient nil view. The persisted digest, if any, is verified
+	// against the rebuilt view; a mismatch is fatal so a desync between
+	// bucket state and view state cannot silently pass into block
+	// production. Per-block maintenance still happens via the incremental
+	// Apply hooks (PR 2.5).
+	if err := p.loadVoterWeightView(ctx, c, sr); err != nil {
+		return nil, errors.Wrap(err, "failed to load voter weight view")
+	}
 	return c, nil
+}
+
+// loadVoterWeightView populates view.voterWeights via a full bucket scan and
+// verifies the rebuilt hash against the digest persisted at _voterWeightsKey.
+// Called once per node startup (from Start) — does not run on every block.
+//
+// Both native and contract staking (V1/V2/V3) buckets are enumerated so the
+// initial view matches what GrantEpochReward will see at distribution time.
+func (p *Protocol) loadVoterWeightView(ctx context.Context, c *viewData, sr protocol.StateReader) error {
+	height, err := sr.Height()
+	if err != nil {
+		return err
+	}
+
+	csr := newCandidateStateReader(sr)
+	allBuckets, _, err := csr.NativeBuckets()
+	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return errors.Wrap(err, "failed to read native buckets")
+	}
+
+	// Append contract staking buckets from every configured indexer.
+	// Each indexer is independent and may not yet have reached its start
+	// height — skip those rather than fail (consistent with the existing
+	// optional-indexer pattern in Start).
+	for _, indexer := range []ContractStakingIndexer{
+		p.contractStakingIndexer,
+		p.contractStakingIndexerV2,
+		p.contractStakingIndexerV3,
+	} {
+		if indexer == nil || indexer.StartHeight() > height {
+			continue
+		}
+		contractBuckets, err := indexer.Buckets(height)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read contract staking buckets at %s", indexer.ContractAddress())
+		}
+		allBuckets = append(allBuckets, contractBuckets...)
+	}
+
+	candCenter := c.candCenter
+	view := buildVoterWeightView(allBuckets, func(b *VoteBucket) *Candidate {
+		return candCenter.GetByIdentifier(b.Candidate)
+	}, p.config.VoteWeightCalConsts)
+
+	persisted, err := readVoterWeightDigest(sr)
+	switch errors.Cause(err) {
+	case nil:
+		if persisted != view.Hash() {
+			return errors.Errorf(
+				"voter weight view digest mismatch: rebuilt %x vs persisted %x — staking view diverged from bucket state",
+				view.Hash(), persisted,
+			)
+		}
+	case state.ErrStateNotExist:
+		// No persisted digest yet. Mark dirty only after the feature has
+		// activated so the next block commit writes the initial digest;
+		// pre-fork chains stay dirty=false to preserve byte-identity with
+		// today's behavior (no extra state-trie writes). The matching
+		// persistence gate sits in viewData.Commit, which only passes a
+		// non-nil StateManager into voterWeights.Commit when the flag is
+		// off (see viewdata.go).
+		if !protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+			if base, ok := view.(*voterWeightBase); ok {
+				base.dirty = true
+			}
+		}
+	default:
+		return errors.Wrap(err, "failed to read persisted voter weight digest")
+	}
+
+	c.voterWeights = view
+	return nil
 }
 
 // CreateGenesisStates is used to setup BootstrapCandidates from genesis config.
@@ -584,17 +669,6 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			vd.contractsStake.Revise(ctx)
 		}
 	}
-	// IIP-59: once voter reward distribution activates, do a one-shot scan
-	// of all active buckets to populate the VoterWeightView. Subsequent
-	// blocks rely on the incremental Apply hooks in the per-action
-	// handlers. The build is idempotent — subsequent calls see a non-nil
-	// voterWeights and short-circuit.
-	if !featureCtx.NoVoterRewardDistribution {
-		if err := p.ensureVoterWeightView(ctx, sm); err != nil {
-			return errors.Wrap(err, "failed to populate voter weight view")
-		}
-	}
-
 	// remove BLS public key of all candidates at XinguBeta
 	if blkCtx.BlockHeight == g.XinguBetaBlockHeight {
 		csm, err := NewCandidateStateManager(sm)
