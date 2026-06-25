@@ -105,6 +105,26 @@ func (p *Protocol) ensureVoterWeightView(ctx context.Context, sm protocol.StateM
 	return nil
 }
 
+// applyVoterWeightDelta is the single entry point every staking handler
+// uses to keep the IIP-59 VoterWeightView in sync with on-chain bucket
+// changes. It is a no-op when the feature flag has not activated yet (view
+// remains nil) and when delta is zero, so callers can wire it next to any
+// existing candidate.AddVote / candidate.SubVote site without first
+// checking the flag.
+//
+// candIdentifier must be the candidate's identifier address (not operator)
+// — same key the view uses internally. voter is the bucket owner.
+func applyVoterWeightDelta(csm CandidateStateManager, candIdentifier address.Address, voter address.Address, delta *big.Int) {
+	if delta == nil || delta.Sign() == 0 {
+		return
+	}
+	view := csm.DirtyView()
+	if view == nil || view.voterWeights == nil {
+		return
+	}
+	view.voterWeights.Apply(hash.BytesToHash160(candIdentifier.Bytes()), voter, delta)
+}
+
 // readVoterWeightDigest returns the persisted view digest, if present.
 func readVoterWeightDigest(sm protocol.StateReader) (hash.Hash256, error) {
 	d := &voterWeightDigest{}
