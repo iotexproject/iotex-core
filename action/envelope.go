@@ -454,6 +454,12 @@ func (elp *envelope) loadProtoActionPayload(pbAct *iotextypes.ActionCore) error 
 			return err
 		}
 		elp.payload = act
+	case pbAct.GetSetCommissionRate() != nil:
+		act := &SetCommissionRate{}
+		if err := act.LoadProto(pbAct.GetSetCommissionRate()); err != nil {
+			return err
+		}
+		elp.payload = act
 	default:
 		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}
