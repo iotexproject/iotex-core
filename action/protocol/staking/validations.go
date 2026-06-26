@@ -150,3 +150,15 @@ func (p *Protocol) validateCandidateDeactivate(ctx context.Context, act *action.
 	}
 	return nil
 }
+
+// validateSetCommissionRate is the pre-mint validation hook for IIP-59's
+// SetCommissionRate action. Feature-flag rejection happens here so a
+// pre-fork node drops the tx at validation time without spending block
+// space, and rate-range rejection happens here so invalid actions never
+// reach the handler.
+func (p *Protocol) validateSetCommissionRate(ctx context.Context, act *action.SetCommissionRate) error {
+	if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+		return errors.Wrap(action.ErrInvalidAct, "set commission rate is disabled")
+	}
+	return act.SanityCheck()
+}
