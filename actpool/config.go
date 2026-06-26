@@ -1,6 +1,7 @@
 package actpool
 
 import (
+	"math"
 	"math/big"
 	"time"
 
@@ -51,6 +52,22 @@ var (
 			"io1zh88jlem8vvzp9z6t73rs4qd72jnzpm8pv8ndu",
 		},
 		BlackListActiveHeight: 45404174,
+		BlackListRemoval: []string{
+			"io10epxv6w4he9pgx0qtagm7lc78aw9jsm7s8t0tw",
+			"io10jr2hh4xcm3s3yhq98zudxh08e9uume6e0ekee",
+			"io126e8lcld9ucl6nxm55s6hxmq9velxw9u9t8ps5",
+			"io13pgqh3dhd63sen5clvt2cvqflshf0swxzq4utt",
+			"io19rw6y85rh4d78az0s7w5dknp6j06cst5wtwnt3",
+			"io1aj8u2a0tr2mjumcxy4zrnecszr8mh6wkrmjrxq",
+			"io1fp748ue6tsssn3z9q5cxcpyewjvcptkrtryju3",
+			"io1fqv56nlmr2fnuex66j09k0qn5962yeezkp688n",
+			"io1frcfdlrtrk0kk354sl703e2v7qwd3rclajhg5r",
+			"io1fseuvqpg8gchcnc4sz3e2z73h8q837ult8yjv6",
+			"io1fsrrc02mldtwhjjncngvf58yxw2emmgsz9gk0p",
+			"io1ft54ueh2qn0nfep6xf92nm60n5sqlj0d9uzksg",
+			"io1ftl20mky24k43yp06zcjx653ktas9xmvzvtasz",
+		},
+		BlackListRemovalHeight: math.MaxUint64,
 		Store: &StoreConfig{
 			Datadir: "/var/data/actpool.cache",
 		},
@@ -75,6 +92,10 @@ type Config struct {
 	BlackList []string `yaml:"blackList"`
 	// BlackListActiveHeight is the height from which the blacklist is enforced (0 means always enforced)
 	BlackListActiveHeight uint64 `yaml:"blackListActiveHeight"`
+	// BlackListRemoval lists the account addresses that are removed from the blacklist at BlackListRemovalHeight
+	BlackListRemoval []string `yaml:"blackListRemoval"`
+	// BlackListRemovalHeight is the height from which BlackListRemoval entries are no longer treated as blacklisted
+	BlackListRemovalHeight uint64 `yaml:"blackListRemovalHeight"`
 	// Store defines the config for persistent cache
 	Store *StoreConfig `yaml:"store"`
 	// MaxNumBlobsPerAcct defines the maximum number of blob txs an account can have
@@ -94,7 +115,7 @@ func (ap Config) MinGasPrice() *big.Int {
 
 // IsBlackListedFunc returns a function that checks if an address is blacklisted at a given height
 func (ap Config) IsBlackListedFunc() func(addr string, height uint64) bool {
-	return IsBlackListedFunc(ap.BlackList, ap.BlackListActiveHeight)
+	return IsBlackListedFunc(ap.BlackList, ap.BlackListActiveHeight, ap.BlackListRemoval, ap.BlackListRemovalHeight)
 }
 
 // StoreConfig is the configuration for the blob store
