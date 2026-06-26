@@ -124,8 +124,12 @@ func (v *viewData) Commit(ctx context.Context, sm protocol.StateManager) error {
 		// byte-identity with today's behavior. Once the feature
 		// activates, the real sm flows through and the digest is written
 		// whenever the view is dirty.
+		//
+		// Some unit tests commit with context.Background() (no FeatureCtx
+		// plumbed) — treat the missing context as the pre-fork case so
+		// those tests don't panic.
 		var persistSM protocol.StateManager
-		if !protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+		if fCtx, ok := protocol.GetFeatureCtx(ctx); ok && !fCtx.NoVoterRewardDistribution {
 			persistSM = sm
 		}
 		updated, err := v.voterWeights.Commit(persistSM)

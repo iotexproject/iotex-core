@@ -91,6 +91,9 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
 	}
+	// IIP-59: keep the per-(candidate, voter) view in sync with the change
+	// just applied to the candidate's aggregate vote total.
+	applyVoterWeightDelta(csm, candidate.GetIdentifier(), bucket.Owner, weightedVote)
 	if err := csm.Upsert(candidate); err != nil {
 		return log, nil, csmErrorToHandleError(candidate.GetIdentifier().String(), err)
 	}
@@ -213,6 +216,8 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
+	// IIP-59: keep the per-(candidate, voter) view in sync.
+	applyVoterWeightDelta(csm, candidate.GetIdentifier(), bucket.Owner, new(big.Int).Neg(weightedVote))
 	// clear candidate's self stake if the bucket is self staking
 	if selfStake {
 		candidate.SelfStake = big.NewInt(0)
@@ -375,6 +380,8 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
+	// IIP-59: move the voter's weight from old to new candidate in the view.
+	applyVoterWeightDelta(csm, prevCandidate.GetIdentifier(), bucket.Owner, new(big.Int).Neg(weightedVotes))
 	// if the bucket equals to the previous candidate's self-stake bucket, it must be expired endorse bucket
 	// so we need to clear the self-stake of the previous candidate
 	if !featureCtx.DisableDelegateEndorsement && prevCandidate.SelfStakeBucketIdx == bucket.Index {
@@ -392,6 +399,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
 	}
+	applyVoterWeightDelta(csm, candidate.GetIdentifier(), bucket.Owner, weightedVotes)
 	if err := csm.Upsert(candidate); err != nil {
 		return log, csmErrorToHandleError(candidate.GetIdentifier().String(), err)
 	}
@@ -438,6 +446,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 
 	// update bucket index
+	oldOwner := bucket.Owner
 	if err := csm.delVoterBucketIndex(bucket.Owner, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to delete voter bucket index for voter %s", bucket.Owner.String())
 	}
@@ -450,6 +459,19 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
+
+	// IIP-59: transfer keeps the bucket's candidate and weight, but the
+	// voter (bucket.Owner) changes. Move the weight from oldOwner to
+	// newOwner in the per-(candidate, voter) view. The candidate's total
+	// weighted votes are unchanged, so no AddVote/SubVote was needed
+	// above; we have to mirror that in the view explicitly.
+	//
+	// Self-stake buckets cannot be transferred (rejected by
+	// fetchBucketAndValidate above), so `false` here is always correct
+	// for the weight calculation.
+	weight := p.calculateVoteWeight(bucket, false)
+	applyVoterWeightDelta(csm, bucket.Candidate, oldOwner, new(big.Int).Neg(weight))
+	applyVoterWeightDelta(csm, bucket.Candidate, newOwner, weight)
 
 	log.AddAddress(actionCtx.Caller)
 	return log, nil
@@ -549,6 +571,8 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
 	}
+	// IIP-59: net delta applied to (candidate, voter) in the view.
+	applyVoterWeightDelta(csm, candidate.GetIdentifier(), bucket.Owner, new(big.Int).Sub(weightedVotes, prevWeightedVotes))
 	if selfStake {
 		if err := candidate.AddSelfStake(act.Amount()); err != nil {
 			return log, nil, &handleError{
@@ -668,6 +692,8 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
 	}
+	// IIP-59: net delta applied to (candidate, voter) in the view.
+	applyVoterWeightDelta(csm, candidate.GetIdentifier(), bucket.Owner, new(big.Int).Sub(weightedVotes, prevWeightedVotes))
 	if err := csm.Upsert(candidate); err != nil {
 		return log, csmErrorToHandleError(candidate.GetIdentifier().String(), err)
 	}

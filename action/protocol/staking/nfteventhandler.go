@@ -106,9 +106,12 @@ func (handler *nftEventHandler) DeductBucket(contractAddr address.Address, id ui
 	if candidate == nil {
 		return bucket, nil
 	}
-	if err := candidate.SubVote(handler.calculateVoteWeight(bucket, height)); err != nil {
+	weight := handler.calculateVoteWeight(bucket, height)
+	if err := candidate.SubVote(weight); err != nil {
 		return nil, errors.Wrap(err, "failed to subtract vote")
 	}
+	// IIP-59: contract bucket weight removed from (candidate, owner).
+	applyVoterWeightDelta(handler.csm, candidate.GetIdentifier(), bucket.Owner, new(big.Int).Neg(weight))
 	if err := handler.csm.Upsert(candidate); err != nil {
 		return nil, errors.Wrap(err, "failed to upsert candidate")
 	}
@@ -130,9 +133,12 @@ func (handler *nftEventHandler) PutBucket(contractAddr address.Address, id uint6
 	if candidate == nil {
 		return nil
 	}
-	if err := candidate.AddVote(handler.calculateVoteWeight(bkt, height)); err != nil {
+	weight := handler.calculateVoteWeight(bkt, height)
+	if err := candidate.AddVote(weight); err != nil {
 		return errors.Wrap(err, "failed to add vote")
 	}
+	// IIP-59: contract bucket weight added to (candidate, owner).
+	applyVoterWeightDelta(handler.csm, candidate.GetIdentifier(), bkt.Owner, weight)
 	return handler.csm.Upsert(candidate)
 }
 
@@ -155,8 +161,11 @@ func (handler *nftEventHandler) DeleteBucket(contractAddr address.Address, id ui
 	if candidate == nil {
 		return nil
 	}
-	if err := candidate.SubVote(handler.calculateVoteWeight(bucket, height)); err != nil {
+	weight := handler.calculateVoteWeight(bucket, height)
+	if err := candidate.SubVote(weight); err != nil {
 		return errors.Wrap(err, "failed to subtract vote")
 	}
+	// IIP-59: contract bucket weight removed from (candidate, owner).
+	applyVoterWeightDelta(handler.csm, candidate.GetIdentifier(), bucket.Owner, new(big.Int).Neg(weight))
 	return handler.csm.Upsert(candidate)
 }

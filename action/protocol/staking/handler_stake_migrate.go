@@ -136,6 +136,11 @@ func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
+	// IIP-59: native bucket is being burned in favor of a contract bucket
+	// minted by the EVM call below. Drop the native weight from the view
+	// here; the matching +W on the contract side flows through the
+	// nfteventhandler hooks.
+	applyVoterWeightDelta(csm, cand.GetIdentifier(), bucket.Owner, new(big.Int).Neg(weightedVote))
 	// clear candidate's self stake if the
 	if cand.SelfStakeBucketIdx == bucket.Index {
 		cand.SelfStake = big.NewInt(0)

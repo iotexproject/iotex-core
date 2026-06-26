@@ -124,6 +124,10 @@ func (csm *candSM) DirtyView() *viewData {
 		candCenter:     csm.candCenter,
 		bucketPool:     csm.bucketPool,
 		contractsStake: vd.contractsStake,
+		// IIP-59: the voter weight view lives on the base view; share the
+		// same pointer so the handler hooks (applyVoterWeightDelta) mutate
+		// the live view rather than a stripped copy.
+		voterWeights: vd.voterWeights,
 	}
 }
 
@@ -226,12 +230,16 @@ func (csm *candSM) deactivate(cand *Candidate, bucket *VoteBucket, height uint64
 	case cand.DeactivatedAt > height:
 		return ErrExitNotReady
 	}
-	if err := cand.SubVote(calcVote(bucket, true)); err != nil {
+	prevWeight := calcVote(bucket, true)
+	newWeight := calcVote(bucket, false)
+	if err := cand.SubVote(prevWeight); err != nil {
 		return err
 	}
-	if err := cand.AddVote(calcVote(bucket, false)); err != nil {
+	if err := cand.AddVote(newWeight); err != nil {
 		return err
 	}
+	// IIP-59: deactivation drops the self-stake bonus on this bucket.
+	applyVoterWeightDelta(csm, cand.GetIdentifier(), bucket.Owner, new(big.Int).Sub(newWeight, prevWeight))
 	cand.SelfStake = big.NewInt(0)
 	cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 	// Clear the exit-queue marker so a subsequent re-stake / activate flow
