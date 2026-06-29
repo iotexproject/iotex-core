@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -207,6 +208,20 @@ func setCandidates(
 			zap.String("score", candidate.Votes.String()),
 		)
 	}
+	// IIP-59: snapshot the latest user-set commissionRate from the staking
+	// candidate state onto each entry in this next-epoch candidate list.
+	// The frozen value travels with the snapshot through shiftCandidates
+	// (at the epoch boundary) and is what GrantEpochReward reads when it
+	// computes the voter / commission split.
+	//
+	// This is what gives voters their ~1.5-epoch reaction window: a
+	// SetCommissionRate action only affects rewards in the epoch *after*
+	// the next PutPollResult fires (mid-epoch), not the in-flight epoch.
+	if !protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+		if err := snapshotCommissionRates(sm, candidates); err != nil {
+			return err
+		}
+	}
 	if indexer != nil {
 		if err := indexer.PutCandidateList(height, &candidates); err != nil {
 			return errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
@@ -220,6 +235,45 @@ func setCandidates(
 	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
 	_, err := sm.PutState(&candidates, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err
+}
+
+// snapshotCommissionRates copies the latest CommissionRate from each
+// staking candidate onto the next-epoch poll snapshot, in place.
+//
+// Skips any entry whose Identity is empty or doesn't decode to a valid
+// address (mirrors the optional-field semantics already present in
+// poll's setCandidates for legacy candidates without an explicit
+// identity).
+//
+// Tolerates a missing staking view (returns nil instead of erroring)
+// because (a) test fixtures sometimes drive setCandidates without
+// registering the staking protocol — pre-IIP-59 code paths didn't need
+// it; and (b) in production a missing staking view is a deployment
+// misconfiguration that would surface much louder elsewhere (Validate,
+// Handle, etc.). Either way, no snapshot is the right pre-flag default.
+func snapshotCommissionRates(sm protocol.StateManager, candidates state.CandidateList) error {
+	csm, err := staking.NewCandidateStateManager(sm)
+	if err != nil {
+		// Staking view not registered — leave commissionRate at the
+		// default zero. Pre-flag callers and isolated test fixtures hit
+		// this; post-flag production has staking registered always.
+		return nil
+	}
+	for _, c := range candidates {
+		if c.Identity == "" {
+			continue
+		}
+		identityAddr, err := address.FromString(c.Identity)
+		if err != nil {
+			continue
+		}
+		stakingCand := csm.GetByIdentifier(identityAddr)
+		if stakingCand == nil {
+			continue
+		}
+		c.CommissionRate = stakingCand.CommissionRate
+	}
+	return nil
 }
 
 // setNextEpochProbationList sets the probation list with next key

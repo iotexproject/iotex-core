@@ -282,7 +282,7 @@ func (p *Protocol) GrantEpochReward(
 	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
 		epochRewardSplitUqdMap = uqdMap
 	}
-	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap)
+	addrs, amounts, filteredCandidates, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -293,6 +293,24 @@ func (p *Protocol) GrantEpochReward(
 		}
 		// If 0 epoch reward due to low productivity, do nothing
 		if amounts[i].Cmp(big.NewInt(0)) == 0 {
+			continue
+		}
+		// IIP-59: when the feature is active and this candidate has opted
+		// in (CommissionRate > 0 in the per-epoch poll snapshot), split
+		// the reward between the delegate's commission and a proportional
+		// voter distribution. distributeVoterReward returns (nil, nil)
+		// when the feature is off OR the rate is 0, in which case we fall
+		// through to the legacy single-grant path below.
+		voterLogs, err := p.distributeVoterReward(
+			ctx, sm, filteredCandidates[i], addrs[i], amounts[i],
+			blkCtx.BlockHeight, actionCtx.ActionHash,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		if voterLogs != nil {
+			rewardLogs = append(rewardLogs, voterLogs...)
+			actualTotalReward = big.NewInt(0).Add(actualTotalReward, amounts[i])
 			continue
 		}
 		if err := p.grantToAccount(ctx, sm, addrs[i], amounts[i]); err != nil {
@@ -649,7 +667,7 @@ func (p *Protocol) splitEpochReward(
 	numDelegatesForEpochReward uint64,
 	exemptAddrs map[string]interface{},
 	uqd map[string]uint64,
-) ([]address.Address, []*big.Int, error) {
+) ([]address.Address, []*big.Int, []*state.Candidate, error) {
 	filteredCandidates := make([]*state.Candidate, 0)
 	for _, candidate := range candidates {
 		if _, ok := exemptAddrs[candidate.Address]; ok {
@@ -659,7 +677,7 @@ func (p *Protocol) splitEpochReward(
 	}
 	candidates = filteredCandidates
 	if len(candidates) == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	// We at most allow numDelegatesForEpochReward delegates to get the epoch reward
 	if uint64(len(candidates)) > numDelegatesForEpochReward {
@@ -673,7 +691,7 @@ func (p *Protocol) splitEpochReward(
 		if candidate.RewardAddress != "" {
 			rewardAddr, err = address.FromString(candidate.RewardAddress)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 		} else {
 			log.S().Warnf("Candidate %s doesn't have a reward address", candidate.Address)
@@ -696,7 +714,14 @@ func (p *Protocol) splitEpochReward(
 		amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
 		amounts = append(amounts, amountPerAddr)
 	}
-	return rewardAddrs, amounts, nil
+	// IIP-59: the caller needs the per-candidate *state.Candidate alongside
+	// the parallel addrs/amounts slices so distributeVoterReward can read
+	// each candidate's frozen CommissionRate (and Identity for the
+	// voter-weight view lookup). PoC #4811 review finding #1 was that the
+	// PoC passed candidate.Address (operator) where the staking view
+	// expected Identity — handing through the whole pointer here avoids
+	// that whole class of mistake.
+	return rewardAddrs, amounts, candidates, nil
 }
 
 func (p *Protocol) assertNoRewardYet(ctx context.Context, sm protocol.StateManager, prefix []byte, index uint64) error {
