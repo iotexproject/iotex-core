@@ -52,3 +52,25 @@ message RewardLog {
 message RewardLogs {
     repeated RewardLog logs = 1;
 }
+
+// InflationState is the IIP-62 productive-inflation consensus state, persisted in
+// state.RewardingNamespace under key "inf". All big-int fields are decimal-string
+// serialized to stay consistent with Fund / Account / Admin.
+// InflationState holds only the IIP-62 fields that change at year boundaries. All other
+// per-block values — the running supply (field 1, outstandingSupply), cumulative mint
+// (field 3, postActivationMinted), per-year remainder (field 8, yearMintRemainder), epoch
+// surplus (field 9, epochRemainderAccumulator), and the dust accumulators (fields 6,7) —
+// were deterministic and are now derived on read (CumulativeMinted / EpochInflationSurplus
+// / PerBlockMint in the rewarding package), so this record is written once per year
+// instead of every block. IIP-62 is mint-only (the EIP-1559 base fee is deposited to the
+// rewarding pool, not burned), so there is no burn-side debit.
+message InflationState {
+    reserved 1, 3, 6, 7, 8, 9;
+    // OutstandingSupplyAtYearStart is the §1.2 snapshot used for the entire year.
+    string outstandingSupplyAtYearStart = 2;
+    // CurrentInflationBps is the effective annual rate, refreshed at year boundaries.
+    uint64 currentInflationBps = 4;
+    // CurrentYearIndex is the 1-indexed year matching YearIndex(). Stored so a
+    // reorg crossing a year boundary can detect the crossing and re-derive.
+    uint64 currentYearIndex = 5;
+}

@@ -163,6 +163,16 @@ func defaultConfig() Genesis {
 			FoundationBonusP2EndEpoch:      18458,
 			ProductivityThreshold:          85,
 			WakeBlockRewardStr:             "4000000000000000000",
+			// IIP-62 productive inflation defaults (5-20-Half curve, fixed 80/20 split).
+			// MachinaDaoAddress and OutstandingSupplyAtActivation must be set per-network
+			// in the YAML override; the protocol panics on activation if they are empty.
+			InflationRateY1Bps:        500,
+			InflationDecayNumerator:   8000,
+			InflationDecayDenominator: 10000,
+			InflationFloorBps:         50,
+			BlocksPerYear:             12614400,
+			StakerShareBps:            8000,
+			MachinaShareBps:           2000,
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
@@ -390,8 +400,11 @@ type (
 		YapBlockHeight uint64 `yaml:"yapHeight"`
 		// YapBetaBlockHeight is the start height to enable slashing candidate by identity
 		YapBetaBlockHeight uint64 `yaml:"yapBetaHeight"`
-		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
-		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
+		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features.
+		// IIP-62 productive inflation (per-block protocol mint on the 5-20-Half disinflation
+		// curve, 80/20 split between stakers and Machina DAO) currently uses this gate; when the
+		// hardfork is named, point IIP-62 at the named height instead.
+		// Upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
 	}
 	// Account contains the configs for account protocol
@@ -493,6 +506,44 @@ type (
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
 		// WakeBlockReward is the block reward amount starts from wake height in decimal string format
 		WakeBlockRewardStr string `yaml:"wakeBlockRewardStr"`
+
+		// --- IIP-62 productive inflation parameters (activated at ProductiveInflationBlockHeight) ---
+
+		// InflationRateY1Bps is the Year-1 inflation rate in basis points (1 bps = 0.01%).
+		// Spec default: 500 (5.00%).
+		InflationRateY1Bps uint64 `yaml:"inflationRateY1Bps"`
+		// InflationDecayNumerator and InflationDecayDenominator together form the rational
+		// per-year decay factor applied to the inflation rate (Y_n rate = Y1 * (num/denom)^(n-1)).
+		// Spec default: 8000 / 10000 (i.e. -20%/yr compounded).
+		InflationDecayNumerator   uint64 `yaml:"inflationDecayNumerator"`
+		InflationDecayDenominator uint64 `yaml:"inflationDecayDenominator"`
+		// InflationFloorBps is the permanent lower bound on the per-year inflation rate.
+		// Spec default: 50 (0.50%).
+		InflationFloorBps uint64 `yaml:"inflationFloorBps"`
+		// BlocksPerYear is the consensus constant used to convert annual inflation into
+		// per-block mint. Spec default: 12_614_400 (2.5s blocks × 365 days).
+		BlocksPerYear uint64 `yaml:"blocksPerYear"`
+		// StakerShareBps is the per-block share of the inflation mint routed to the staker
+		// reward pool. Spec default: 8000 (80%). Must sum to 10000 with MachinaShareBps.
+		StakerShareBps uint64 `yaml:"stakerShareBps"`
+		// MachinaShareBps is the per-block share of the inflation mint routed to the
+		// Machina DAO recipient address. Spec default: 2000 (20%).
+		MachinaShareBps uint64 `yaml:"machinaShareBps"`
+		// MachinaDaoAddress is the externally-managed recipient (multisig or otherwise)
+		// of the Machina DAO share. This codebase only credits balance to it; the
+		// address itself is created and governed out of band.
+		//
+		// Credit semantics: balance-only. mintAndAllocate calls AddBalance on the
+		// account; it does NOT invoke any contract code at this address. If the
+		// recipient is a smart contract, its receive()/fallback() will NOT run.
+		// Any DAO contract placed here must tolerate passive balance accrual (a
+		// multisig / Gnosis-Safe-style account does this natively).
+		MachinaDaoAddress string `yaml:"machinaDaoAddress"`
+		// OutstandingSupplyAtActivation is the snapshot of the on-chain non-zero-address
+		// balance sum at the parent of ProductiveInflationBlockHeight, in Rau as a decimal
+		// string. Produced by the snapshotexporter tool. This seeds the OutstandingSupply
+		// counter used as the inflation-curve mint base.
+		OutstandingSupplyAtActivation string `yaml:"outstandingSupplyAtActivation"`
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {
@@ -792,7 +843,9 @@ func (g *Blockchain) IsYapBeta(height uint64) bool {
 	return g.isPost(g.YapBetaBlockHeight, height)
 }
 
-// IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
+// IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height.
+// IIP-62 productive inflation currently gates on this height; rename to a dedicated
+// IsProductiveInflation when the hardfork is named.
 func (g *Blockchain) IsToBeEnabled(height uint64) bool {
 	return g.isPost(g.ToBeEnabledBlockHeight, height)
 }
@@ -935,6 +988,16 @@ func (r *Rewarding) WakeBlockReward() *big.Int {
 	val, ok := new(big.Int).SetString(r.WakeBlockRewardStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting block reward string %s into big int", r.WakeBlockRewardStr)
+	}
+	return val
+}
+
+// OutstandingSupplyAtActivationBig returns the IIP-62 OutstandingSupplyAtActivation
+// value parsed as a big integer (in Rau).
+func (r *Rewarding) OutstandingSupplyAtActivationBig() *big.Int {
+	val, ok := new(big.Int).SetString(r.OutstandingSupplyAtActivation, 10)
+	if !ok {
+		log.S().Panicf("Error when casting outstanding supply at activation string %s into big int", r.OutstandingSupplyAtActivation)
 	}
 	return val
 }
