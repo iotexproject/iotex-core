@@ -1077,3 +1077,57 @@ func TestSelfdestruct6780(t *testing.T) {
 	r.Equal(createdAccount{
 		_c1: struct{}{}}, state.createdAccount)
 }
+
+// TestAddLogInContractTransferTopicShape verifies that AddLog only treats a log
+// as an in-contract transfer when it carries exactly three topics, and that any
+// other topic shape bearing the in-contract-transfer sentinel is recorded as an
+// ordinary log rather than triggering a panic. Log topics are EVM-controlled, so
+// a malformed shape must never be fatal.
+func TestAddLogInContractTransferTopicShape(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
+
+	newAdapter := func() *StateDBAdapter {
+		stateDB, err := NewStateDBAdapter(
+			sm,
+			1,
+			hash.ZeroHash256,
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+		)
+		require.NoError(err)
+		return stateDB
+	}
+	sentinel := common.BytesToHash(_inContractTransfer[:])
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+
+	t.Run("malformed sentinel topic is recorded as a normal log", func(t *testing.T) {
+		stateDB := newAdapter()
+		require.NotPanics(func() {
+			stateDB.AddLog(&types.Log{
+				Address: addr,
+				Topics:  []common.Hash{sentinel}, // 1 topic: not a valid in-contract transfer
+				Data:    []byte{0x01},
+			})
+		})
+		require.Len(stateDB.logs, 1)
+		require.Empty(stateDB.transactionLogs)
+	})
+
+	t.Run("well-formed in-contract transfer is still recorded", func(t *testing.T) {
+		stateDB := newAdapter()
+		from := common.BytesToHash(identityset.Address(1).Bytes())
+		to := common.BytesToHash(identityset.Address(2).Bytes())
+		stateDB.AddLog(&types.Log{
+			Address: addr,
+			Topics:  []common.Hash{sentinel, from, to},
+			Data:    big.NewInt(100).Bytes(),
+		})
+		require.Empty(stateDB.logs)
+		require.Len(stateDB.transactionLogs, 1)
+		require.Equal(identityset.Address(1).String(), stateDB.transactionLogs[0].Sender)
+		require.Equal(identityset.Address(2).String(), stateDB.transactionLogs[0].Recipient)
+	})
+}
