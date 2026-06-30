@@ -198,6 +198,27 @@ func (m *CandidateCenter) ContainsOwner(owner address.Address) bool {
 	return false
 }
 
+// GetByBLSPubKey returns the candidate that has registered the given
+// BLS pubkey, or nil if none does. Linear scan over candidates —
+// registration is rare and the candidate set is bounded, trading O(N)
+// lookup for not having to maintain another index map across the
+// change/base commit flow. Callers that want "any candidate other
+// than me" do the identifier comparison on the returned value.
+func (m *CandidateCenter) GetByBLSPubKey(blsPubKey []byte) *Candidate {
+	if len(blsPubKey) == 0 {
+		return nil
+	}
+	for _, d := range m.All() {
+		if len(d.BLSPubKey) == 0 {
+			continue
+		}
+		if bytes.Equal(d.BLSPubKey, blsPubKey) {
+			return d
+		}
+	}
+	return nil
+}
+
 // ContainsOperator returns true if the map contains the candidate by operator
 func (m *CandidateCenter) ContainsOperator(operator address.Address) bool {
 	if operator == nil {

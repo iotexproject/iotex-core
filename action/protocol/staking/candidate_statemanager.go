@@ -54,6 +54,13 @@ type (
 		GetByOwner(address.Address) *Candidate
 		GetByIdentifier(address.Address) *Candidate
 		GetByOperator(address.Address) *Candidate
+		// GetByBLSPubKey returns the candidate that has registered the
+		// given BLS pubkey, or nil if no such candidate exists. Used to
+		// enforce one BLS pubkey per delegate — a hard requirement for
+		// IIP-52's FastAggregateVerify quorum-counting model. Callers
+		// that want "is this pubkey held by someone OTHER than X" do
+		// the identifier comparison themselves on the returned candidate.
+		GetByBLSPubKey(blsPubKey []byte) *Candidate
 		Upsert(*Candidate) error
 		CreditBucketPool(*big.Int, bool) error
 		DebitBucketPool(*big.Int, bool) error
@@ -137,6 +144,10 @@ func (csm *candSM) ContainsOwner(addr address.Address) bool {
 
 func (csm *candSM) ContainsOperator(addr address.Address) bool {
 	return csm.candCenter.ContainsOperator(addr)
+}
+
+func (csm *candSM) GetByBLSPubKey(blsPubKey []byte) *Candidate {
+	return csm.candCenter.GetByBLSPubKey(blsPubKey)
 }
 
 func (csm *candSM) ContainsSelfStakingBucket(index uint64) bool {

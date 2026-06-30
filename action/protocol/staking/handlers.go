@@ -740,6 +740,25 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
 		}
 	}
+	// cannot collide with an existing BLS pubkey. Two delegates sharing
+	// a BLS pubkey break IIP-52's quorum-counting model: the signer
+	// bitmap would count both delegates, but FastAggregateVerify sums
+	// the pubkey set as a set (one contribution per distinct pubkey),
+	// producing an off-by-one mismatch that lets the second delegate's
+	// stake-weight "vote for free".
+	if act.WithBLS() && featureCtx.EnforceBLSPoP {
+		if holder := csm.GetByBLSPubKey(act.BLSPubKey()); holder != nil {
+			// Re-registration from the same owner (no self-stake yet)
+			// is allowed to carry forward its existing pubkey; any
+			// other holder is a collision.
+			if !ownerExist || holder.GetIdentifier().String() != c.GetIdentifier().String() {
+				return log, nil, &handleError{
+					err:           errors.New("BLS pubkey already registered by another candidate"),
+					failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+				}
+			}
+		}
+	}
 
 	var (
 		bucketIdx     uint64
@@ -782,6 +801,14 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		c.Identifier = candID
 	}
 	if act.WithBLS() {
+		if featureCtx.EnforceBLSPoP {
+			if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), owner); err != nil {
+				return log, nil, &handleError{
+					err:           errors.Wrap(err, "BLS proof-of-possession invalid"),
+					failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+				}
+			}
+		}
 		c.BLSPubKey = act.BLSPubKey()
 		topics, eventData, err := action.PackCandidateRegisteredEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
 		if err != nil {
@@ -885,6 +912,26 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	}
 
 	if act.WithBLS() {
+		if featureCtx.EnforceBLSPoP {
+			// PoP binds to the candidate's stable identity, not the
+			// current owner — for post-Xingu candidates this stays
+			// constant across CandidateTransferOwnership; for pre-Xingu
+			// GetIdentifier falls back to c.Owner so behavior is
+			// unchanged from owner-binding.
+			if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), c.GetIdentifier()); err != nil {
+				return log, &handleError{
+					err:           errors.Wrap(err, "BLS proof-of-possession invalid"),
+					failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+				}
+			}
+			if holder := csm.GetByBLSPubKey(act.BLSPubKey()); holder != nil &&
+				holder.GetIdentifier().String() != c.GetIdentifier().String() {
+				return log, &handleError{
+					err:           errors.New("BLS pubkey already registered by another candidate"),
+					failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+				}
+			}
+		}
 		c.BLSPubKey = act.BLSPubKey()
 		topics, eventData, err := action.PackCandidateUpdatedEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
 		if err != nil {
@@ -930,6 +977,23 @@ func (p *Protocol) handleCandidateUpdateByOperator(ctx context.Context, act *act
 		return log, &handleError{
 			err:           errors.New("candidate reward address cannot be updated by operator"),
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		}
+	}
+	if protocol.MustGetFeatureCtx(ctx).EnforceBLSPoP {
+		// PoP binds to the candidate's stable identity (see the
+		// owner-path handler above for rationale).
+		if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), c.GetIdentifier()); err != nil {
+			return log, &handleError{
+				err:           errors.Wrap(err, "BLS proof-of-possession invalid"),
+				failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+			}
+		}
+		if holder := csm.GetByBLSPubKey(act.BLSPubKey()); holder != nil &&
+			holder.GetIdentifier().String() != c.GetIdentifier().String() {
+			return log, &handleError{
+				err:           errors.New("BLS pubkey already registered by another candidate"),
+				failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+			}
 		}
 	}
 	// update BLS public key

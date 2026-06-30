@@ -645,3 +645,45 @@ func TestCandidateUpsert(t *testing.T) {
 		r.Equal(cand, m.GetByIdentifier(cand.GetIdentifier()))
 	})
 }
+
+// TestCandidateCenter_GetByBLSPubKey covers the uniqueness lookup used
+// by handleCandidateRegister and handleCandidateUpdate to enforce one
+// BLS pubkey per delegate — a precondition for IIP-52's
+// quorum-counting model (FastAggregateVerify dedups pubkeys but the
+// signer bitmap does not). Callers exclude "self" by comparing the
+// returned candidate's identifier to their own.
+func TestCandidateCenter_GetByBLSPubKey(t *testing.T) {
+	r := require.New(t)
+	c, err := NewCandidateCenter(nil)
+	r.NoError(err)
+
+	pkA := []byte("dummy-bls-pubkey-A-48-bytes-pad-________________")[:48]
+	pkB := []byte("dummy-bls-pubkey-B-48-bytes-pad-________________")[:48]
+
+	candA := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(7),
+		Reward:             identityset.Address(1),
+		Name:               "cand-a",
+		Votes:              big.NewInt(0),
+		SelfStake:          big.NewInt(0),
+		SelfStakeBucketIdx: 0,
+		BLSPubKey:          pkA,
+	}
+	r.NoError(c.Upsert(candA))
+	r.NoError(c.commit())
+
+	// Empty / nil / unregistered pubkey returns nil.
+	r.Nil(c.GetByBLSPubKey(nil), "nil pubkey returns nil")
+	r.Nil(c.GetByBLSPubKey([]byte{}), "empty pubkey returns nil")
+	r.Nil(c.GetByBLSPubKey(pkB), "unregistered pubkey returns nil")
+
+	// pkA returns the holder. Callers compare identifiers to decide
+	// whether a registration / update should reject — same-identifier
+	// is allowed (self), different-identifier is the rogue case.
+	holder := c.GetByBLSPubKey(pkA)
+	r.NotNil(holder)
+	r.Equal(candA.Name, holder.Name)
+	r.Equal(candA.GetIdentifier().String(), holder.GetIdentifier().String(),
+		"holder's identifier matches the registrant")
+}

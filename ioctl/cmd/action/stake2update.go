@@ -6,13 +6,10 @@
 package action
 
 import (
-	"encoding/hex"
-
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/go-pkgs/crypto"
-
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/output"
 	"github.com/iotexproject/iotex-core/v2/ioctl/util"
@@ -21,21 +18,32 @@ import (
 // Multi-language support
 var (
 	_stake2UpdateCmdUses = map[config.Language]string{
-		config.English: "update NAME (ALIAS|OPERATOR_ADDRESS) (ALIAS|REWARD_ADDRESS) BLS_PUBKEY" +
+		config.English: "update NAME (ALIAS|OPERATOR_ADDRESS) (ALIAS|REWARD_ADDRESS) [BLS-FLAGS]" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "update 名字 (别名|操作者地址) (别名|奖励地址) BLS公钥" +
+		config.Chinese: "update 名字 (别名|操作者地址) (别名|奖励地址) [BLS标志]" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 	_stake2UpdateCmdShorts = map[config.Language]string{
-		config.English: "Update candidate on IoTeX blockchain",
-		config.Chinese: "在IoTeX区块链上更新候选人",
+		config.English: "Update candidate (BLS rotation requires --candidate-id; without BLS flags BLS is untouched)",
+		config.Chinese: "更新候选人（BLS 旋转需 --candidate-id；不指定 BLS 标志时不动 BLS）",
 	}
+
+	_updateBLSFlags blsPoPFlags
 )
 
+// _stake2UpdateCmd updates a candidate. Positional args (BREAKING CHANGE —
+// was 4 with BLS_PUBKEY at args[3]):
+//
+//	NAME OPERATOR REWARD
+//
+// BLS rotation is now opt-in via flags. Run without any BLS flag to
+// touch only name / operator / reward. See blspop_helper.go for the
+// three-option matrix governing BLS rotation, plus --bls-from-signer
+// for the explicit "rotate to the signer-derived BLS key" opt-in.
 var _stake2UpdateCmd = &cobra.Command{
 	Use:   config.TranslateInLang(_stake2UpdateCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(_stake2UpdateCmdShorts, config.UILanguage),
-	Args:  cobra.ExactArgs(4),
+	Args:  cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := stake2Update(args)
@@ -45,6 +53,22 @@ var _stake2UpdateCmd = &cobra.Command{
 
 func init() {
 	RegisterWriteCommand(_stake2UpdateCmd)
+
+	f := _stake2UpdateCmd.Flags()
+	f.StringVar(&_updateBLSFlags.pubKeyHex, "bls-pubkey", "",
+		"BLS public key (hex). Use with --bls-pop for Option 3 (explicit PoP).")
+	f.StringVar(&_updateBLSFlags.popHex, "bls-pop", "",
+		"BLS proof-of-possession (96 B hex). Pairs with --bls-pubkey for Option 3.")
+	f.StringVar(&_updateBLSFlags.privKeyHex, "bls-priv-key", "",
+		"BLS private key (32 B hex) — Option 2. Tool derives the pubkey + signs the PoP.")
+	f.StringVar(&_updateBLSFlags.keystorePath, "bls-keystore", "",
+		"BLS keystore path — placeholder; not yet implemented.")
+	f.BoolVar(&_updateBLSFlags.fromSigner, "bls-from-signer", false,
+		"Opt-in: rotate to the BLS key derived from the signer's ECDSA private key (Option 1 for update). Requires --candidate-id.")
+	f.BoolVar(&_updateBLSFlags.autoConfirm, "yes", false,
+		"Skip the --bls-from-signer confirmation prompt. Use for CI / scripted flows.")
+	f.StringVar(&_updateBLSFlags.candidateIDStr, "candidate-id", "",
+		"Candidate identifier address (c.GetIdentifier()) — required when rotating BLS. Future versions will resolve this via RPC from the signer.")
 }
 
 func stake2Update(args []string) error {
@@ -62,19 +86,17 @@ func stake2Update(args []string) error {
 		return output.NewError(output.AddressError, "failed to get reward address", err)
 	}
 
-	// Validate and parse BLS public key
-	blsPubKeyStr := args[3]
-	blsPubKeyBytes, err := hex.DecodeString(blsPubKeyStr)
-	if err != nil {
-		return output.NewError(output.ConvertError, "failed to decode BLS public key", err)
-	}
-	if _, err = crypto.BLS12381PublicKeyFromBytes(blsPubKeyBytes); err != nil {
-		return output.NewError(output.ValidationError, "invalid BLS public key", err)
-	}
-
 	sender, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
+	}
+
+	// Resolve BLS pubkey + PoP. Returns (nil, nil, nil) for Option 0
+	// (no BLS flags) — the resulting action leaves c.BLSPubKey
+	// unchanged on the handler side.
+	blsPubKey, blsPop, err := resolveBLSForUpdate(&_updateBLSFlags, sender, account.PasswordByFlag())
+	if err != nil {
+		return err
 	}
 
 	gasLimit := _gasLimitFlag.Value().(uint64)
@@ -91,7 +113,12 @@ func stake2Update(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2u, err := action.NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr, blsPubKeyBytes)
+	var s2u *action.CandidateUpdate
+	if len(blsPubKey) > 0 {
+		s2u, err = action.NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr, blsPubKey, blsPop)
+	} else {
+		s2u, err = action.NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr)
+	}
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateUpdate instance", err)
 	}
