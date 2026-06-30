@@ -559,38 +559,6 @@ func buildVoterWeightView(
 	return v
 }
 
-// VoterWeightsByCandidate is the public IIP-59 entry point used by the
-// rewarding protocol to read the per-voter contributions for a candidate
-// at distribution time. Returns the slice sorted by voter address
-// (deterministic across nodes) so distributeVoterReward can iterate it
-// directly without ever touching a Go map.
-//
-// Returns nil if voter reward distribution is not active on this chain
-// (the view has not been loaded). Returns an empty (non-nil) slice if the
-// view is present but the candidate has no voters.
-func (p *Protocol) VoterWeightsByCandidate(sm protocol.StateReader, candIdentifier address.Address) ([]VoterWeight, error) {
-	csr, err := ConstructBaseView(sm)
-	if err != nil {
-		return nil, err
-	}
-	vd := csr.BaseView()
-	if vd.voterWeights == nil {
-		return nil, nil
-	}
-	internal := vd.voterWeights.VoterWeightsByCandidate(hash.BytesToHash160(candIdentifier.Bytes()))
-	if internal == nil {
-		// non-nil empty slice — the candidate exists in our view's
-		// universe but currently has no voters. Distinguish from
-		// "view never loaded" (nil above).
-		return []VoterWeight{}, nil
-	}
-	out := make([]VoterWeight, len(internal))
-	for i, vw := range internal {
-		out[i] = VoterWeight{Voter: vw.voter, Weight: new(big.Int).Set(vw.weight)}
-	}
-	return out, nil
-}
-
 // applyVoterWeightDelta is the single entry point every staking handler uses
 // to keep the IIP-59 VoterWeightView in sync with on-chain bucket changes.
 // No-op when the feature flag has not activated yet (view is nil) and when

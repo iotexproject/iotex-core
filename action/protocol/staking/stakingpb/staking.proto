@@ -86,3 +86,22 @@ message SystemStakingBucket {
 message ExitQueue {
     uint64 epoch = 1;
 }
+
+// IIP-59: per-candidate frozen voter weights, written once per epoch by
+// PutPollResult and read by GrantEpochReward at distribution time. Stored
+// at one state key per candidate (key = _voterWeightSnap || candID) so
+// distribution can read the full voter list with a single state lookup.
+// Entries are sorted by voter address — the serialization is deterministic
+// so SnapshotVoterWeights can do an unchanged-blob-skip via raw bytes
+// equality.
+message VoterWeightSnapshot {
+    repeated VoterWeightEntry entries = 1;
+}
+
+message VoterWeightEntry {
+    // 20-byte voter address bytes.
+    bytes voter = 1;
+    // Weighted votes as bytes (big-endian magnitude of a big.Int — same
+    // encoding as iotextypes.Candidate.votes).
+    bytes weight = 2;
+}

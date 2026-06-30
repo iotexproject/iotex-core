@@ -221,6 +221,17 @@ func setCandidates(
 		if err := snapshotCommissionRates(sm, candidates); err != nil {
 			return err
 		}
+		// IIP-59: freeze per-candidate voter weights into per-candidate
+		// state blobs. distributeVoterReward (at the epoch's last block)
+		// reads from these snapshots, so any stake activity between this
+		// mid-epoch PutPollResult and the epoch boundary does NOT shift
+		// the distribution — matching the commission-rate snapshot
+		// semantics one line above.
+		if stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx)); stakingProto != nil {
+			if err := stakingProto.SnapshotVoterWeights(sm); err != nil {
+				return errors.Wrap(err, "failed to snapshot voter weights")
+			}
+		}
 	}
 	if indexer != nil {
 		if err := indexer.PutCandidateList(height, &candidates); err != nil {

@@ -67,6 +67,17 @@ const (
 	// the rebuilt-from-buckets view matches the hash committed at the last
 	// block. See voter_weight_view.go.
 	_voterWeights
+	// _voterWeightSnap is IIP-59's per-candidate per-epoch frozen voter
+	// weights, written at PutPollResult time. Key format:
+	//   _voterWeightSnap || candID (20 bytes)
+	// Value: protobuf VoterWeightSnapshot blob containing
+	// (voter, weight) pairs sorted by voter address. GrantEpochReward
+	// reads from this frozen snapshot, not from the live VoterWeightView,
+	// so a voter staking / unstaking between PutPollResult and epoch end
+	// doesn't retroactively change this epoch's payout — they get the
+	// same ~1.5 epoch reaction window CommissionRate already enjoys.
+	// See voter_weight_snapshot.go.
+	_voterWeightSnap
 )
 
 // Errors

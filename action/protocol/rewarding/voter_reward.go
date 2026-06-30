@@ -47,14 +47,17 @@ import (
 //     delegate.
 //
 // Determinism notes:
-//   - The voter slice comes from staking.Protocol.VoterWeightsByCandidate,
-//     which the IIP-59 view keeps sorted by voter address. We iterate the
-//     slice directly — no map iteration anywhere on this path. This is the
-//     direct fix for PoC #4811 review finding #2 (map-iteration receipt
-//     drift).
-//   - All staking-side reads go through the protocol view (no state-trie
-//     scans here) and the view is mutation-isolated per workingset, so
-//     parallel block validators agree on the input set.
+//   - The voter slice comes from
+//     staking.Protocol.SnapshotVoterWeightsByCandidate, which reads the
+//     per-epoch frozen blob written by setCandidates at the prior
+//     PutPollResult. Entries are sorted by voter address at write time.
+//     We iterate the slice directly — no map iteration anywhere on this
+//     path. This is the direct fix for PoC #4811 review finding #2
+//     (map-iteration receipt drift).
+//   - Reading from the snapshot (not the live view) pairs the voter set
+//     with the same epoch-boundary CommissionRate frozen on cand. Live
+//     stake activity between PutPollResult and the epoch's last block
+//     does NOT shift the distribution.
 //   - Rounding dust from the integer division is granted to the delegate's
 //     reward account so the sum of all credits is exactly totalReward.
 func (p *Protocol) distributeVoterReward(
@@ -93,9 +96,15 @@ func (p *Protocol) distributeVoterReward(
 	if stakingProto == nil {
 		return nil, errors.New("staking protocol not registered; cannot distribute voter rewards")
 	}
-	voters, err := stakingProto.VoterWeightsByCandidate(sm, candIdentifier)
+	// Read from the per-epoch frozen snapshot, NOT the live view. The
+	// snapshot was written by poll's setCandidates at the previous epoch's
+	// mid-epoch PutPollResult — pairing the voter list with the
+	// CommissionRate frozen on the same snapshot. Reading live would
+	// introduce a stake/commission-rate asymmetry (rate frozen, weights
+	// live) that could open arbitrage against late-epoch stake changes.
+	voters, err := stakingProto.SnapshotVoterWeightsByCandidate(sm, candIdentifier)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read voter weights for %s", candIdentifier.String())
+		return nil, errors.Wrapf(err, "failed to read voter weight snapshot for %s", candIdentifier.String())
 	}
 
 	// 100% commission OR no voters: everything (including any voterPool)
