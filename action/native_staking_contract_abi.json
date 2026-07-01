@@ -39,6 +39,25 @@
         "internalType": "address",
         "name": "candidate",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "newRate",
+        "type": "uint64"
+      }
+    ],
+    "name": "CommissionRateSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "candidate",
+        "type": "address"
       }
     ],
     "name": "CandidateDeactivationRequested",
@@ -208,6 +227,19 @@
       }
     ],
     "name": "candidateActivate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "rate",
+        "type": "uint64"
+      }
+    ],
+    "name": "setCommissionRate",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

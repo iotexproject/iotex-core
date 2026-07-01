@@ -40,6 +40,12 @@ type (
 		RewardAddress string
 		CanName       []byte // used as identifier to merge with native staking result, not part of protobuf
 		BLSPubKey     []byte // BLS public key, used for verification
+		// CommissionRate is IIP-59's voter reward commission rate (basis points,
+		// 0-10000), snapshotted per epoch by PutPollResult from the latest staking
+		// candidate state. GrantEpochReward reads this frozen value to split the
+		// epoch reward between delegate commission and voter distribution.
+		// 0 means legacy behavior (full reward to the delegate; no auto-split).
+		CommissionRate uint64
 	}
 
 	// CandidateList indicates the list of Candidates which is sortable
@@ -61,7 +67,8 @@ func (c *Candidate) Equal(d *Candidate) bool {
 		strings.Compare(c.Address, d.Address) == 0 &&
 		c.RewardAddress == d.RewardAddress &&
 		c.Votes.Cmp(d.Votes) == 0 &&
-		bytes.Equal(c.BLSPubKey, d.BLSPubKey)
+		bytes.Equal(c.BLSPubKey, d.BLSPubKey) &&
+		c.CommissionRate == d.CommissionRate
 }
 
 // Clone makes a copy of the candidate
@@ -77,12 +84,13 @@ func (c *Candidate) Clone() *Candidate {
 		copy(pubkey, c.BLSPubKey)
 	}
 	return &Candidate{
-		Identity:      c.Identity,
-		Address:       c.Address,
-		Votes:         new(big.Int).Set(c.Votes),
-		RewardAddress: c.RewardAddress,
-		CanName:       name,
-		BLSPubKey:     pubkey,
+		Identity:       c.Identity,
+		Address:        c.Address,
+		Votes:          new(big.Int).Set(c.Votes),
+		RewardAddress:  c.RewardAddress,
+		CanName:        name,
+		BLSPubKey:      pubkey,
+		CommissionRate: c.CommissionRate,
 	}
 }
 
@@ -267,10 +275,11 @@ func (l *CandidateList) Decodes(suffixs [][]byte, values []systemcontracts.Gener
 // candidateToPb converts a candidate to protobuf's candidate message
 func candidateToPb(cand *Candidate) *iotextypes.Candidate {
 	candidatePb := &iotextypes.Candidate{
-		Identity:      cand.Identity,
-		Address:       cand.Address,
-		Votes:         cand.Votes.Bytes(),
-		RewardAddress: cand.RewardAddress,
+		Identity:       cand.Identity,
+		Address:        cand.Address,
+		Votes:          cand.Votes.Bytes(),
+		RewardAddress:  cand.RewardAddress,
+		CommissionRate: cand.CommissionRate,
 	}
 	if cand.Votes != nil && len(cand.Votes.Bytes()) > 0 {
 		candidatePb.Votes = cand.Votes.Bytes()
@@ -287,11 +296,12 @@ func pbToCandidate(candPb *iotextypes.Candidate) (*Candidate, error) {
 		return nil, errors.Wrap(ErrCandidatePb, "protobuf's candidate message cannot be nil")
 	}
 	candidate := &Candidate{
-		Identity:      candPb.Identity,
-		Address:       candPb.Address,
-		Votes:         big.NewInt(0).SetBytes(candPb.Votes),
-		RewardAddress: candPb.RewardAddress,
-		BLSPubKey:     candPb.BlsPubKey,
+		Identity:       candPb.Identity,
+		Address:        candPb.Address,
+		Votes:          big.NewInt(0).SetBytes(candPb.Votes),
+		RewardAddress:  candPb.RewardAddress,
+		BLSPubKey:      candPb.BlsPubKey,
+		CommissionRate: candPb.CommissionRate,
 	}
 	return candidate, nil
 }

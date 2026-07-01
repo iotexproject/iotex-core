@@ -180,6 +180,48 @@ func TestCloneWithDeactivation(t *testing.T) {
 	r.Equal(uint64(12345), original.DeactivatedAt)
 }
 
+// TestCandidateCommissionRate verifies IIP-59's CommissionRate field
+// survives Equal, Clone, and proto roundtrip — the missing-Equal-update
+// was a bug in the original PoC.
+func TestCandidateCommissionRate(t *testing.T) {
+	r := require.New(t)
+
+	original := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(2),
+		Reward:             identityset.Address(3),
+		Name:               "test_candidate",
+		Votes:              big.NewInt(100),
+		SelfStake:          big.NewInt(1000),
+		SelfStakeBucketIdx: 1,
+		CommissionRate:     1500, // 15%
+	}
+
+	clone := original.Clone()
+	r.True(original.Equal(clone))
+	r.Equal(uint64(1500), clone.CommissionRate)
+
+	// Differing CommissionRate must compare not-equal (PoC missed this).
+	clone.CommissionRate = 1000
+	r.False(original.Equal(clone))
+	clone.CommissionRate = 1500
+	r.True(original.Equal(clone))
+
+	// Mutation isolation: changing clone does not affect original.
+	clone.CommissionRate = 2000
+	r.Equal(uint64(1500), original.CommissionRate)
+
+	// Proto roundtrip.
+	pb, err := original.toProto()
+	r.NoError(err)
+	r.Equal(uint64(1500), pb.GetCommissionRate())
+
+	restored := &Candidate{}
+	r.NoError(restored.fromProto(pb))
+	r.Equal(uint64(1500), restored.CommissionRate)
+	r.True(original.Equal(restored))
+}
+
 var (
 	testCandidates = []struct {
 		d     *Candidate
