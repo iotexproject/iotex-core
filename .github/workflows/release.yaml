@@ -5,6 +5,9 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Release
@@ -23,12 +26,12 @@ jobs:
             server_artifact_name: iotex-core-darwin-amd64
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.22.12
+          go-version-file: go.mod
 
       - name: make iotex-server/ioctl
         if: startsWith(matrix.os, 'windows-latest') != true
