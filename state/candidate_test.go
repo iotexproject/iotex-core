@@ -64,6 +64,37 @@ func TestCandidateClone(t *testing.T) {
 	r.True(cand1.Equal(cand1.Clone()))
 }
 
+// TestCandidateCommissionRate verifies IIP-59's CommissionRate field is
+// carried through Equal/Clone and proto roundtrip.
+func TestCandidateCommissionRate(t *testing.T) {
+	r := require.New(t)
+	cand := &Candidate{
+		Identity:       identityset.Address(29).String(),
+		Address:        identityset.Address(30).String(),
+		Votes:          big.NewInt(100),
+		RewardAddress:  identityset.Address(31).String(),
+		CommissionRate: 1500, // 15%
+	}
+
+	// Equal: differing CommissionRate must compare not-equal.
+	other := cand.Clone()
+	other.CommissionRate = 1000
+	r.False(cand.Equal(other), "Equal must reflect CommissionRate")
+
+	// Clone: must carry the field across.
+	clone := cand.Clone()
+	r.True(cand.Equal(clone))
+	r.Equal(uint64(1500), clone.CommissionRate)
+
+	// Proto roundtrip: serialize and deserialize must preserve the field.
+	buf, err := cand.Serialize()
+	r.NoError(err)
+	roundtrip := &Candidate{}
+	r.NoError(roundtrip.Deserialize(buf))
+	r.Equal(uint64(1500), roundtrip.CommissionRate)
+	r.True(cand.Equal(roundtrip))
+}
+
 func TestCandidateListSerializeAndDeserialize(t *testing.T) {
 	r := require.New(t)
 	list1 := CandidateList{

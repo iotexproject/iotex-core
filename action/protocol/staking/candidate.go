@@ -35,6 +35,10 @@ type (
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
 		SelfStake          *big.Int
+		// CommissionRate is IIP-59's voter reward commission rate in basis points
+		// (0-10000). 0 means legacy behavior (the full epoch reward goes to the
+		// delegate's reward account; no auto-distribution to voters).
+		CommissionRate uint64
 	}
 
 	// CandidateList is a list of candidates which is sortable
@@ -65,6 +69,7 @@ func (d *Candidate) Clone() *Candidate {
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 		SelfStake:          new(big.Int).Set(d.SelfStake),
 		BLSPubKey:          blsPubKey,
+		CommissionRate:     d.CommissionRate,
 	}
 }
 
@@ -79,7 +84,8 @@ func (d *Candidate) Equal(c *Candidate) bool {
 		d.Votes.Cmp(c.Votes) == 0 &&
 		d.SelfStake.Cmp(c.SelfStake) == 0 &&
 		d.DeactivatedAt == c.DeactivatedAt &&
-		bytes.Equal(d.BLSPubKey, c.BLSPubKey)
+		bytes.Equal(d.BLSPubKey, c.BLSPubKey) &&
+		d.CommissionRate == c.CommissionRate
 }
 
 // Validate does the sanity check
@@ -274,6 +280,7 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		SelfStake:          d.SelfStake.String(),
 		Pubkey:             pubkey,
 		DeactivatedAt:      d.DeactivatedAt,
+		CommissionRate:     d.CommissionRate,
 	}, nil
 }
 
@@ -324,6 +331,7 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 		d.BLSPubKey = nil
 	}
 	d.DeactivatedAt = pb.GetDeactivatedAt()
+	d.CommissionRate = pb.GetCommissionRate()
 	return nil
 }
 
@@ -341,6 +349,7 @@ func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 		Id:                 d.GetIdentifier().String(),
 		BlsPubKey:          blsPubKey,
 		DeactivatedAt:      d.DeactivatedAt,
+		CommissionRate:     d.CommissionRate,
 	}
 }
 

@@ -129,6 +129,7 @@ func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account
 		return nil, nil, errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error())
 	}
 	// update candidate vote
+	wasSelfStake := cand.SelfStakeBucketIdx == bucket.Index
 	weightedVote := p.calculateVoteWeight(bucket, false)
 	if err := cand.SubVote(weightedVote); err != nil {
 		return nil, nil, &handleError{
@@ -137,12 +138,15 @@ func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account
 		}
 	}
 	// clear candidate's self stake if the
-	if cand.SelfStakeBucketIdx == bucket.Index {
+	if wasSelfStake {
 		cand.SelfStake = big.NewInt(0)
 		cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 	}
 	if err := csm.Upsert(cand); err != nil {
 		return nil, nil, csmErrorToHandleError(cand.GetIdentifier().String(), err)
+	}
+	if !wasSelfStake {
+		csm.ApplyVoterWeightDelta(cand.GetIdentifier(), bucket.Owner, new(big.Int).Neg(weightedVote))
 	}
 	// update withdrawer balance
 	if err := withdrawer.AddBalance(bucket.StakedAmount); err != nil {
