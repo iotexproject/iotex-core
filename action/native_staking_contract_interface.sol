@@ -41,6 +41,13 @@ interface INativeStakingContract {
         address rewardAddress,
         bytes blsPubKey
     );
+    // IIP-59: emitted when a delegate updates its voter reward commission
+    // rate via setCommissionRate. The new rate takes effect at the next
+    // epoch boundary (poll PutPollResult snapshot).
+    event CommissionRateSet(
+        address indexed candidate,
+        uint64 newRate
+    );
 
     function candidateRegister(
         string memory name,
@@ -81,6 +88,11 @@ interface INativeStakingContract {
     function intentToRevokeEndorsement(uint64 bucketIndex) external;
 
     function revokeEndorsement(uint64 bucketIndex) external;
+
+    // IIP-59: set the voter reward commission rate (basis points, 0-10000).
+    // Only the candidate owner can call. Takes effect at the next epoch
+    // boundary via the existing poll snapshot machinery.
+    function setCommissionRate(uint64 rate) external;
 
     // Candidate Transfer Ownership
     function candidateTransferOwnership(

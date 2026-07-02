@@ -798,6 +798,8 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		if err == nil {
 			nonceUpdateOption = noUpdateNonce
 		}
+	case *action.SetCommissionRate:
+		rLog, err = p.handleSetCommissionRate(ctx, act, csm)
 	default:
 		return nil, nil
 	}
@@ -909,6 +911,8 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		return p.validateMigrateStake(ctx, act)
 	case *action.CandidateDeactivate:
 		return p.validateCandidateDeactivate(ctx, act)
+	case *action.SetCommissionRate:
+		return p.validateSetCommissionRate(ctx, act)
 	}
 	return nil
 }
