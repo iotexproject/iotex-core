@@ -86,3 +86,20 @@ message SystemStakingBucket {
 message ExitQueue {
     uint64 epoch = 1;
 }
+
+// IIP-59: per-candidate frozen voter weight blob, written at PutPollResult
+// and read by rewarding at GrantEpochReward. Entries are sorted by voter
+// address (big-endian bytes) so the marshalled bytes are deterministic
+// given the same logical state — enabling byte-equality skip in the writer.
+message VoterWeightSnapshot {
+    repeated VoterWeightEntry entries = 1;
+}
+
+// IIP-59: a single voter's frozen weight for one candidate. Weight is the
+// big.Int output of CalculateVoteWeight aggregated across all of the voter's
+// buckets (native + contract staking) tied to this candidate, minus any
+// self-stake bucket which is excluded from the voter reward split.
+message VoterWeightEntry {
+    bytes voter = 1;
+    bytes weight = 2;
+}

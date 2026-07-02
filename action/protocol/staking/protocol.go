@@ -61,6 +61,9 @@ const (
 	_voterIndex
 	_candIndex
 	_endorsement
+	// _voterWeightSnap holds IIP-59 per-candidate frozen voter weight blobs,
+	// written at PutPollResult and read by rewarding at GrantEpochReward.
+	_voterWeightSnap
 )
 
 // Errors
@@ -374,7 +377,47 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			return nil, err
 		}
 	}
+
+	// IIP-59: build the initial voter weight base once, from state.db native
+	// buckets + contract staking indexers verified above. Skip the scan when
+	// the fork isn't active — the view stays nil and Apply calls are no-ops.
+	if fCtx := protocol.MustGetFeatureCtx(ctx); !fCtx.NoVoterRewardDistribution {
+		csr := newCandidateStateReader(sr)
+		vw, err := buildVoterWeightBaseFromState(
+			csr,
+			c.candCenter.All(),
+			p.activeContractStakingIndexers(height),
+			height,
+			p.config.VoteWeightCalConsts,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to build voter weight base view")
+		}
+		c.voterWeights = vw
+	}
 	return c, nil
+}
+
+// activeContractStakingIndexers returns the registered indexers whose
+// StartHeight has already been reached at the given height. Nil entries are
+// omitted. Used at protocol Start for the initial voter-weight base scan.
+func (p *Protocol) activeContractStakingIndexers(height uint64) []ContractStakingIndexer {
+	var out []ContractStakingIndexer
+	candidates := []ContractStakingIndexer{
+		p.contractStakingIndexer,
+		p.contractStakingIndexerV2,
+		p.contractStakingIndexerV3,
+	}
+	for _, idx := range candidates {
+		if idx == nil {
+			continue
+		}
+		if idx.StartHeight() > height {
+			continue
+		}
+		out = append(out, idx)
+	}
+	return out
 }
 
 // CreateGenesisStates is used to setup BootstrapCandidates from genesis config.
@@ -837,7 +880,12 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		if err != nil {
 			return err
 		}
-		if err := v.(*viewData).contractsStake.Handle(ctx, receipt); err != nil {
+		vd := v.(*viewData)
+		handleCtx := ctx
+		if vd.voterWeights != nil {
+			handleCtx = WithVoterDeltaSink(ctx, vd.voterWeights)
+		}
+		if err := vd.contractsStake.Handle(handleCtx, receipt); err != nil {
 			return err
 		}
 		handler = newNFTBucketEventHandlerErigonOnly(sm, ccvw)

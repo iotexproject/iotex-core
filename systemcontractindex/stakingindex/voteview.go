@@ -164,7 +164,7 @@ func (s *voteView) CreatePreStates(ctx context.Context) error {
 func (s *voteView) Handle(ctx context.Context, receipt *action.Receipt) error {
 	handler, err := newVoteViewEventHandler(s.store, s.cur, func(b *contractstaking.Bucket) *big.Int {
 		return s.calculateVoteWeightFn(b, s.height)
-	})
+	}, staking.VoterDeltaSinkFrom(ctx))
 	if err != nil {
 		return errors.Wrap(err, "failed to create event handler")
 	}

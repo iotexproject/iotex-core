@@ -84,6 +84,7 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 				if err := csm.deactivate(cand, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight, p.calculateVoteWeight); err != nil {
 					return log, nil, csmErrorToHandleError(cand.GetIdentifier().String(), err)
 				}
+				csm.ApplyVoterWeightDelta(cand.GetIdentifier(), bucket.Owner, p.calculateVoteWeight(bucket, false))
 			} else {
 				// TODO: Check that the bucket is ready for dequeue
 				if err := p.clearCandidateSelfStake(bucket, cand); err != nil {
@@ -92,6 +93,7 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 				if err := csm.Upsert(cand); err != nil {
 					return log, nil, csmErrorToHandleError(actCtx.Caller.String(), err)
 				}
+				csm.ApplyVoterWeightDelta(cand.GetIdentifier(), bucket.Owner, p.calculateVoteWeight(bucket, false))
 			}
 		}
 		if err := esm.Delete(bucket.Index); err != nil {
