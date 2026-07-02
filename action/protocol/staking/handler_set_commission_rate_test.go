@@ -26,7 +26,9 @@ import (
 // setCommissionTestCtx builds a context plumbed with all the protocol
 // contexts handleSetCommissionRate / validateSetCommissionRate read from.
 // `enabled` controls whether the IIP-59 feature flag is active at the
-// fixed block height the tests use (1).
+// tests' fixed block height (10). When true, ToBeEnabledBlockHeight is
+// set to 1 so IsToBeEnabled(10) is true; when false, the default keeps
+// the flag off at height 10.
 func setCommissionTestCtx(t *testing.T, enabled bool, caller, _ address.Address) context.Context {
 	t.Helper()
 	cfg := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
