@@ -773,6 +773,116 @@ func (x *ExitQueue) GetEpoch() uint64 {
 	return 0
 }
 
+// IIP-59: per-candidate frozen voter weight blob, written at PutPollResult
+// and read by rewarding at GrantEpochReward. Entries are sorted by voter
+// address (big-endian bytes) so the marshalled bytes are deterministic
+// given the same logical state — enabling byte-equality skip in the writer.
+type VoterWeightSnapshot struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Entries []*VoterWeightEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+}
+
+func (x *VoterWeightSnapshot) Reset() {
+	*x = VoterWeightSnapshot{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_staking_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *VoterWeightSnapshot) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VoterWeightSnapshot) ProtoMessage() {}
+
+func (x *VoterWeightSnapshot) ProtoReflect() protoreflect.Message {
+	mi := &file_staking_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VoterWeightSnapshot.ProtoReflect.Descriptor instead.
+func (*VoterWeightSnapshot) Descriptor() ([]byte, []int) {
+	return file_staking_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *VoterWeightSnapshot) GetEntries() []*VoterWeightEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+// IIP-59: a single voter's frozen weight for one candidate. Weight is the
+// big.Int output of CalculateVoteWeight aggregated across all of the voter's
+// buckets (native + contract staking) tied to this candidate, minus any
+// self-stake bucket which is excluded from the voter reward split.
+type VoterWeightEntry struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Voter  []byte `protobuf:"bytes,1,opt,name=voter,proto3" json:"voter,omitempty"`
+	Weight []byte `protobuf:"bytes,2,opt,name=weight,proto3" json:"weight,omitempty"`
+}
+
+func (x *VoterWeightEntry) Reset() {
+	*x = VoterWeightEntry{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_staking_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *VoterWeightEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VoterWeightEntry) ProtoMessage() {}
+
+func (x *VoterWeightEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_staking_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VoterWeightEntry.ProtoReflect.Descriptor instead.
+func (*VoterWeightEntry) Descriptor() ([]byte, []int) {
+	return file_staking_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *VoterWeightEntry) GetVoter() []byte {
+	if x != nil {
+		return x.Voter
+	}
+	return nil
+}
+
+func (x *VoterWeightEntry) GetWeight() []byte {
+	if x != nil {
+		return x.Weight
+	}
+	return nil
+}
+
 var File_staking_proto protoreflect.FileDescriptor
 
 var file_staking_proto_rawDesc = []byte{
@@ -889,7 +999,16 @@ var file_staking_proto_rawDesc = []byte{
 	0x73, 0x74, 0x61, 0x6d, 0x70, 0x65, 0x64, 0x18, 0x09, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0b, 0x74,
 	0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x65, 0x64, 0x22, 0x21, 0x0a, 0x09, 0x45, 0x78,
 	0x69, 0x74, 0x51, 0x75, 0x65, 0x75, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x65, 0x70, 0x6f, 0x63, 0x68,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x42, 0x46, 0x5a,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x22, 0x4c, 0x0a,
+	0x13, 0x56, 0x6f, 0x74, 0x65, 0x72, 0x57, 0x65, 0x69, 0x67, 0x68, 0x74, 0x53, 0x6e, 0x61, 0x70,
+	0x73, 0x68, 0x6f, 0x74, 0x12, 0x35, 0x0a, 0x07, 0x65, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x18,
+	0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x73, 0x74, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x70,
+	0x62, 0x2e, 0x56, 0x6f, 0x74, 0x65, 0x72, 0x57, 0x65, 0x69, 0x67, 0x68, 0x74, 0x45, 0x6e, 0x74,
+	0x72, 0x79, 0x52, 0x07, 0x65, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x22, 0x40, 0x0a, 0x10, 0x56,
+	0x6f, 0x74, 0x65, 0x72, 0x57, 0x65, 0x69, 0x67, 0x68, 0x74, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12,
+	0x14, 0x0a, 0x05, 0x76, 0x6f, 0x74, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05,
+	0x76, 0x6f, 0x74, 0x65, 0x72, 0x12, 0x16, 0x0a, 0x06, 0x77, 0x65, 0x69, 0x67, 0x68, 0x74, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x06, 0x77, 0x65, 0x69, 0x67, 0x68, 0x74, 0x42, 0x46, 0x5a,
 	0x44, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x69, 0x6f, 0x74, 0x65,
 	0x78, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x2d, 0x63,
 	0x6f, 0x72, 0x65, 0x2f, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f,
@@ -909,7 +1028,7 @@ func file_staking_proto_rawDescGZIP() []byte {
 	return file_staking_proto_rawDescData
 }
 
-var file_staking_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_staking_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_staking_proto_goTypes = []interface{}{
 	(*Bucket)(nil),                // 0: stakingpb.Bucket
 	(*BucketIndices)(nil),         // 1: stakingpb.BucketIndices
@@ -921,18 +1040,21 @@ var file_staking_proto_goTypes = []interface{}{
 	(*SystemStakingContract)(nil), // 7: stakingpb.SystemStakingContract
 	(*SystemStakingBucket)(nil),   // 8: stakingpb.SystemStakingBucket
 	(*ExitQueue)(nil),             // 9: stakingpb.ExitQueue
-	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
+	(*VoterWeightSnapshot)(nil),   // 10: stakingpb.VoterWeightSnapshot
+	(*VoterWeightEntry)(nil),      // 11: stakingpb.VoterWeightEntry
+	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
 }
 var file_staking_proto_depIdxs = []int32{
-	10, // 0: stakingpb.Bucket.createTime:type_name -> google.protobuf.Timestamp
-	10, // 1: stakingpb.Bucket.stakeStartTime:type_name -> google.protobuf.Timestamp
-	10, // 2: stakingpb.Bucket.unstakeStartTime:type_name -> google.protobuf.Timestamp
+	12, // 0: stakingpb.Bucket.createTime:type_name -> google.protobuf.Timestamp
+	12, // 1: stakingpb.Bucket.stakeStartTime:type_name -> google.protobuf.Timestamp
+	12, // 2: stakingpb.Bucket.unstakeStartTime:type_name -> google.protobuf.Timestamp
 	2,  // 3: stakingpb.Candidates.candidates:type_name -> stakingpb.Candidate
-	4,  // [4:4] is the sub-list for method output_type
-	4,  // [4:4] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	11, // 4: stakingpb.VoterWeightSnapshot.entries:type_name -> stakingpb.VoterWeightEntry
+	5,  // [5:5] is the sub-list for method output_type
+	5,  // [5:5] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_staking_proto_init() }
@@ -1061,6 +1183,30 @@ func file_staking_proto_init() {
 				return nil
 			}
 		}
+		file_staking_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*VoterWeightSnapshot); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_staking_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*VoterWeightEntry); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1068,7 +1214,7 @@ func file_staking_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_staking_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

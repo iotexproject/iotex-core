@@ -3,6 +3,7 @@ package staking
 import (
 	"context"
 	"math"
+	"math/big"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -54,9 +55,15 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 		if err := cand.AddVote(p.calculateVoteWeight(prevBucket, false)); err != nil {
 			return log, nil, err
 		}
+		// IIP-59: self-stake bucket → vote bucket → enters the voter weight view.
+		csm.ApplyVoterWeightDelta(cand.GetIdentifier(), prevBucket.Owner, p.calculateVoteWeight(prevBucket, false))
 	}
 
 	// convert vote bucket to self-stake bucket
+	// IIP-59: vote bucket → self-stake bucket → exits the voter weight view.
+	// Emit the -w BEFORE mutating SelfStakeBucketIdx so isSelfStake checks
+	// downstream see the pre-transition membership.
+	csm.ApplyVoterWeightDelta(cand.GetIdentifier(), bucket.Owner, new(big.Int).Neg(p.calculateVoteWeight(bucket, false)))
 	cand.SelfStakeBucketIdx = bucket.Index
 	cand.SelfStake.SetBytes(bucket.StakedAmount.Bytes())
 	if err := cand.SubVote(p.calculateVoteWeight(bucket, false)); err != nil {
@@ -100,6 +107,10 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 			return nil, nil, rErr
 		}
 		if err = csm.deactivate(cand, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight, p.calculateVoteWeight); err == nil {
+			// IIP-59: deactivate converts the self-stake bucket back to a vote
+			// bucket (clears SelfStakeBucketIdx and rebalances Votes). Mirror
+			// that transition in the voter weight view.
+			csm.ApplyVoterWeightDelta(id, bucket.Owner, p.calculateVoteWeight(bucket, false))
 			topics, eventData, err = action.PackCandidateDeactivatedEvent(id)
 		}
 	default:

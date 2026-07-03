@@ -20,19 +20,25 @@ type (
 		view CandidateVotes
 
 		calculateUnmutedVoteWeight CalculateUnmutedVoteWeightFn
+		// voterDeltaSink is optional. When non-nil, PutBucket/DeleteBucket also
+		// emit per-voter (cand, voter, Δweight) tuples so the staking
+		// protocol's VoterWeightView stays consistent with contract staking
+		// bucket transitions. Injected by voteView.Handle from context.
+		voterDeltaSink staking.VoterDeltaSink
 	}
 )
 
 // NewVoteViewEventHandler creates a new vote view event handler wrapper
 func NewVoteViewEventHandler(store BucketStore, view CandidateVotes, fn CalculateUnmutedVoteWeightFn) (BucketStore, error) {
-	return newVoteViewEventHandler(store, view, fn)
+	return newVoteViewEventHandler(store, view, fn, nil)
 }
 
-func newVoteViewEventHandler(store BucketStore, view CandidateVotes, fn CalculateUnmutedVoteWeightFn) (*voteViewEventHandler, error) {
+func newVoteViewEventHandler(store BucketStore, view CandidateVotes, fn CalculateUnmutedVoteWeightFn, sink staking.VoterDeltaSink) (*voteViewEventHandler, error) {
 	return &voteViewEventHandler{
 		BucketStore:                store,
 		view:                       view,
 		calculateUnmutedVoteWeight: fn,
+		voterDeltaSink:             sink,
 	}, nil
 }
 
@@ -45,14 +51,25 @@ func (s *voteViewEventHandler) PutBucket(addr address.Address, id uint64, bucket
 	}
 
 	deltaVotes, deltaAmount := s.calculateBucket(bucket)
+	newVoterW := new(big.Int).Set(deltaVotes)
 	if org != nil {
 		orgVotes, orgAmount := s.calculateBucket(org)
 		if org.Candidate.String() != bucket.Candidate.String() {
 			s.view.Add(org.Candidate.String(), new(big.Int).Neg(orgAmount), new(big.Int).Neg(orgVotes))
+			s.emitVoterDelta(org.Candidate, org.Owner, new(big.Int).Neg(orgVotes))
+			s.emitVoterDelta(bucket.Candidate, bucket.Owner, newVoterW)
 		} else {
 			deltaVotes = new(big.Int).Sub(deltaVotes, orgVotes)
 			deltaAmount = new(big.Int).Sub(deltaAmount, orgAmount)
+			if org.Owner.String() != bucket.Owner.String() {
+				s.emitVoterDelta(org.Candidate, org.Owner, new(big.Int).Neg(orgVotes))
+				s.emitVoterDelta(bucket.Candidate, bucket.Owner, newVoterW)
+			} else {
+				s.emitVoterDelta(bucket.Candidate, bucket.Owner, new(big.Int).Set(deltaVotes))
+			}
 		}
+	} else {
+		s.emitVoterDelta(bucket.Candidate, bucket.Owner, newVoterW)
 	}
 	s.view.Add(bucket.Candidate.String(), deltaAmount, deltaVotes)
 
@@ -66,6 +83,7 @@ func (s *voteViewEventHandler) DeleteBucket(addr address.Address, id uint64) err
 	case nil:
 		// subtract original votes
 		deltaVotes, deltaAmount := s.calculateBucket(org)
+		s.emitVoterDelta(org.Candidate, org.Owner, new(big.Int).Neg(deltaVotes))
 		s.view.Add(org.Candidate.String(), deltaAmount.Neg(deltaAmount), deltaVotes.Neg(deltaVotes))
 	case contractstaking.ErrBucketNotExist:
 		// do nothing
@@ -73,6 +91,19 @@ func (s *voteViewEventHandler) DeleteBucket(addr address.Address, id uint64) err
 		return errors.Wrapf(err, "failed to deduct bucket")
 	}
 	return s.BucketStore.DeleteBucket(addr, id)
+}
+
+func (s *voteViewEventHandler) emitVoterDelta(cand, voter address.Address, delta *big.Int) {
+	if s.voterDeltaSink == nil {
+		return
+	}
+	if delta == nil || delta.Sign() == 0 {
+		return
+	}
+	if cand == nil || voter == nil {
+		return
+	}
+	s.voterDeltaSink.Apply(cand, voter, delta)
 }
 
 func (s *voteViewEventHandler) calculateBucket(bucket *contractstaking.Bucket) (votes *big.Int, amount *big.Int) {

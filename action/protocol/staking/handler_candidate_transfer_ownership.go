@@ -68,6 +68,9 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 		return false, nil, errors.Wrap(err, "failed to get self-stake bucket")
 	}
 	if candidate.isSelfStakeBucketSettled() {
+		// Capture the settled self-stake bucket before mutating candidate — needed
+		// for the IIP-59 view delta below when we actually convert it back.
+		prevSelfStakeBucket, _ := csm.NativeBucket(candidate.SelfStakeBucketIdx)
 		clear, subVotes, err := needClear()
 		if err != nil {
 			return log, nil, err
@@ -76,6 +79,12 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 			candidate.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 			candidate.SelfStake = big.NewInt(0)
 			candidate.Votes.Sub(candidate.Votes, subVotes)
+			// IIP-59: the settled self-stake bucket became a normal vote bucket.
+			// Emit the +w so the voter weight view sees the new membership.
+			// Skip unstaked buckets — they are excluded from the view.
+			if prevSelfStakeBucket != nil && !prevSelfStakeBucket.isUnstaked() {
+				csm.ApplyVoterWeightDelta(candidate.GetIdentifier(), prevSelfStakeBucket.Owner, p.calculateVoteWeight(prevSelfStakeBucket, false))
+			}
 		}
 	}
 	if err := csm.Upsert(candidate); err != nil {

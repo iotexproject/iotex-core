@@ -91,6 +91,8 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
 	}
+	// IIP-59: new voter bucket, credit the voter's weight to this candidate.
+	csm.ApplyVoterWeightDelta(candidate.GetIdentifier(), bucket.Owner, weightedVote)
 	if err := csm.Upsert(candidate); err != nil {
 		return log, nil, csmErrorToHandleError(candidate.GetIdentifier().String(), err)
 	}
@@ -212,6 +214,11 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 			err:           errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
+	}
+	// IIP-59: voter buckets exit the view on unstake. Self-stake buckets are
+	// never in the view — skip the delta for those.
+	if !selfStake {
+		csm.ApplyVoterWeightDelta(candidate.GetIdentifier(), bucket.Owner, new(big.Int).Neg(weightedVote))
 	}
 	// clear candidate's self stake if the bucket is self staking
 	if selfStake {
@@ -369,15 +376,22 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 
 	// update previous candidate
 	weightedVotes := p.calculateVoteWeight(bucket, false)
+	// IIP-59: capture pre-write self-stake state so we can correctly gate the
+	// voter-weight delta on prev. If this bucket was prev's self-stake bucket
+	// it was NOT in the view (self-stake exclusion), so we must skip the -w.
+	wasSelfStakeOnPrev := !featureCtx.DisableDelegateEndorsement && prevCandidate.SelfStakeBucketIdx == bucket.Index
 	if err := prevCandidate.SubVote(weightedVotes); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for previous candidate %s", prevCandidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
+	if !wasSelfStakeOnPrev {
+		csm.ApplyVoterWeightDelta(prevCandidate.GetIdentifier(), bucket.Owner, new(big.Int).Neg(weightedVotes))
+	}
 	// if the bucket equals to the previous candidate's self-stake bucket, it must be expired endorse bucket
 	// so we need to clear the self-stake of the previous candidate
-	if !featureCtx.DisableDelegateEndorsement && prevCandidate.SelfStakeBucketIdx == bucket.Index {
+	if wasSelfStakeOnPrev {
 		prevCandidate.SelfStake.SetInt64(0)
 		prevCandidate.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 	}
@@ -392,6 +406,9 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
 	}
+	// IIP-59: bucket now votes for the new candidate — always a voter contribution,
+	// never self-stake (ChangeCandidate does not create a self-stake link).
+	csm.ApplyVoterWeightDelta(candidate.GetIdentifier(), bucket.Owner, weightedVotes)
 	if err := csm.Upsert(candidate); err != nil {
 		return log, csmErrorToHandleError(candidate.GetIdentifier().String(), err)
 	}
@@ -437,6 +454,15 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 		}
 	}
 
+	// IIP-59: TransferStake reassigns the bucket's voter without touching the
+	// candidate's total. If the bucket was already unstaked it was not in the
+	// view; skip the delta in that case.
+	var voterDelta *big.Int
+	prevOwner := bucket.Owner
+	if !bucket.isUnstaked() {
+		voterDelta = p.calculateVoteWeight(bucket, false)
+	}
+
 	// update bucket index
 	if err := csm.delVoterBucketIndex(bucket.Owner, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to delete voter bucket index for voter %s", bucket.Owner.String())
@@ -449,6 +475,11 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	bucket.Owner = newOwner
 	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
+	}
+
+	if voterDelta != nil && voterDelta.Sign() > 0 {
+		csm.ApplyVoterWeightDelta(bucket.Candidate, prevOwner, new(big.Int).Neg(voterDelta))
+		csm.ApplyVoterWeightDelta(bucket.Candidate, newOwner, voterDelta)
 	}
 
 	log.AddAddress(actionCtx.Caller)
@@ -548,6 +579,11 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
+	}
+	// IIP-59: voter contribution only. Self-stake buckets never enter the view.
+	if !selfStake {
+		delta := new(big.Int).Sub(weightedVotes, prevWeightedVotes)
+		csm.ApplyVoterWeightDelta(candidate.GetIdentifier(), bucket.Owner, delta)
 	}
 	if selfStake {
 		if err := candidate.AddSelfStake(act.Amount()); err != nil {
@@ -667,6 +703,11 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
+	}
+	// IIP-59: voter contribution only. Self-stake buckets never enter the view.
+	if !selfStake {
+		delta := new(big.Int).Sub(weightedVotes, prevWeightedVotes)
+		csm.ApplyVoterWeightDelta(candidate.GetIdentifier(), bucket.Owner, delta)
 	}
 	if err := csm.Upsert(candidate); err != nil {
 		return log, csmErrorToHandleError(candidate.GetIdentifier().String(), err)

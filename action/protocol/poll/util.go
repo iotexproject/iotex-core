@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -210,6 +211,16 @@ func setCandidates(
 	if indexer != nil {
 		if err := indexer.PutCandidateList(height, &candidates); err != nil {
 			return errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
+		}
+	}
+	// IIP-59: freeze per-epoch commission rate + per-voter weights for the
+	// next epoch's active delegates. No-op when the feature is disabled.
+	// Must run before PutState below — the commission-rate copy mutates
+	// candidates in place, and the persisted state.Candidate needs the
+	// frozen value.
+	if stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx)); stakingProto != nil {
+		if err := stakingProto.SnapshotForEpochReward(ctx, sm, candidates); err != nil {
+			return errors.Wrap(err, "failed to snapshot voter reward state for next epoch")
 		}
 	}
 	if loadCandidatesLegacy {

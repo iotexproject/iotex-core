@@ -57,6 +57,11 @@ type (
 		Upsert(*Candidate) error
 		CreditBucketPool(*big.Int, bool) error
 		DebitBucketPool(*big.Int, bool) error
+		// ApplyVoterWeightDelta pushes a (cand, voter, Δweight) delta into
+		// the incremental voter-weight view. No-op when IIP-59 voter reward
+		// distribution is inactive (pre-fork or view not yet initialized).
+		// Handlers call this at each SubVote / AddVote site.
+		ApplyVoterWeightDelta(cand, voter address.Address, delta *big.Int)
 		Commit(context.Context) error
 		SM() protocol.StateManager
 		SR() protocol.StateReader
@@ -124,6 +129,7 @@ func (csm *candSM) DirtyView() *viewData {
 		candCenter:     csm.candCenter,
 		bucketPool:     csm.bucketPool,
 		contractsStake: vd.contractsStake,
+		voterWeights:   vd.voterWeights,
 	}
 }
 
@@ -174,6 +180,23 @@ func (csm *candSM) upsert(d *Candidate) error {
 
 func (csm *candSM) CreditBucketPool(amount *big.Int, deleteBucket bool) error {
 	return csm.bucketPool.CreditPool(csm.StateManager, amount, deleteBucket)
+}
+
+// ApplyVoterWeightDelta forwards to the live voterWeights view stored on the
+// protocol viewData. It reads the view fresh each call — Snapshot()/Revert()
+// swap the view instance in place, so a cached pointer would go stale after
+// a mid-action snapshot. When the view is nil (pre-fork or no IIP-59
+// initialization), the call is a no-op so handlers can invoke it
+// unconditionally without extra feature-flag gating.
+func (csm *candSM) ApplyVoterWeightDelta(cand, voter address.Address, delta *big.Int) {
+	if delta == nil || delta.Sign() == 0 {
+		return
+	}
+	view := csm.DirtyView()
+	if view == nil || view.voterWeights == nil {
+		return
+	}
+	view.voterWeights.Apply(cand, voter, delta)
 }
 
 func (csm *candSM) DebitBucketPool(amount *big.Int, newBucket bool) error {
