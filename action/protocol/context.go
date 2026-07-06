@@ -172,6 +172,11 @@ type (
 		// contracts are committed and written back
 		AlwaysWriteCachedContract bool
 		NoCandidateExitQueue      bool
+		// CorrectSelfDestructTransferLog derives SELFDESTRUCT IN_CONTRACT_TRANSFER
+		// transaction logs from the actual EVM balance movement (exact beneficiary
+		// and amount; no log when no native token moves) instead of the fragile
+		// "last AddBalance" heuristic.
+		CorrectSelfDestructTransferLog bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -346,6 +351,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			PrePectraEVM:                            !g.IsYap(height),
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
+			CorrectSelfDestructTransferLog:          g.IsZanzibar(height),
 		},
 	)
 }

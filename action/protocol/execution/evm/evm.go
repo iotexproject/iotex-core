@@ -516,6 +516,9 @@ func prepareStateDBAdapter(ctx context.Context, sm protocol.StateManager) (*Stat
 	if featureCtx.SuicideTxLogMismatchPanic {
 		opts = append(opts, SuicideTxLogMismatchPanicOption())
 	}
+	if featureCtx.CorrectSelfDestructTransferLog {
+		opts = append(opts, CorrectSelfDestructTransferLogOption())
+	}
 	if featureCtx.PanicUnrecoverableError {
 		opts = append(opts, PanicUnrecoverableErrorOption())
 	}
