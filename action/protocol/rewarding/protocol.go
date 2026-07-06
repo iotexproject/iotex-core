@@ -39,7 +39,14 @@ var (
 	_epochRewardHistoryKeyPrefix = state.EpochRewardHistoryKeyPrefix
 	_accountKeyPrefix            = []byte("acc")
 	_exemptKey                   = []byte("xpt")
-	errInvalidEpoch              = errors.New("invalid start/end epoch number")
+	// IIP-59: per-delegate accumulator for block-reward credits during an
+	// epoch; drained by GrantEpochReward. Full key is "pbr" || candIdentity.Bytes().
+	_pendingBlockRewardKeyPrefix = []byte("pbr")
+	// IIP-59: sorted index of delegate identities that currently hold a
+	// pending block-reward entry; enables deterministic drain order without
+	// a prefix scan on the underlying KV store.
+	_pendingBlockRewardIndexKey = []byte("pbi")
+	errInvalidEpoch             = errors.New("invalid start/end epoch number")
 )
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the

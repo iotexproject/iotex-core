@@ -58,3 +58,21 @@ message RewardLog {
 message RewardLogs {
     repeated RewardLog logs = 1;
 }
+
+// IIP-59: per-delegate accumulator that holds block-reward credits during an
+// epoch. Drained at epoch close by GrantEpochReward, which calls
+// distributeVoterReward on the accumulated amount. rewardAddr and
+// commissionRate are frozen at credit time so an orphan drain (delegate
+// churned out of top-N) still has enough to split.
+message PendingBlockReward {
+    string amount = 1;
+    bytes rewardAddr = 2;
+    uint64 commissionRate = 3;
+}
+
+// IIP-59: sorted, deduped index of delegate identities that currently hold a
+// PendingBlockReward entry. Iterated in-order at epoch close for deterministic
+// drain sequence. Identities are stored as raw address bytes.
+message PendingBlockRewardIndex {
+    repeated bytes identities = 1;
+}

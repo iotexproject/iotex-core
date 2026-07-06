@@ -143,6 +143,7 @@ func (p *Protocol) GrantBlockReward(
 
 	producerAddrStr := blkCtx.Producer.String()
 	rewardAddrStr := ""
+	var producerCand *state.Candidate
 	pp := poll.FindProtocol(protocol.MustGetRegistry(ctx))
 	if pp != nil {
 		candidates, err := pp.Candidates(ctx, sm)
@@ -152,6 +153,7 @@ func (p *Protocol) GrantBlockReward(
 		for _, candidate := range candidates {
 			if candidate.Address == producerAddrStr {
 				rewardAddrStr = candidate.RewardAddress
+				producerCand = candidate
 				break
 			}
 		}
@@ -172,8 +174,23 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.updateAvailableBalance(ctx, sm, totalReward); err != nil {
 		return nil, err
 	}
-	if err := p.grantToAccount(ctx, sm, rewardAddr, totalReward); err != nil {
-		return nil, err
+	// IIP-59: when the producer is a delegate that opted in (post-flag,
+	// non-zero commission), route the block-reward portion into the
+	// per-delegate pending pool and credit only the priority tip to the
+	// producer directly. Otherwise fall back to today's single grant.
+	if p.blockRewardEligibleForVoterSplit(fCtx, producerCand) {
+		if !isZero(effectiveTip) {
+			if err := p.grantToAccount(ctx, sm, rewardAddr, effectiveTip); err != nil {
+				return nil, err
+			}
+		}
+		if err := p.creditPendingBlockReward(ctx, sm, producerCand, blockReward); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := p.grantToAccount(ctx, sm, rewardAddr, totalReward); err != nil {
+			return nil, err
+		}
 	}
 	if err := p.updateRewardHistory(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
@@ -278,6 +295,16 @@ func (p *Protocol) GrantEpochReward(
 		rewardLogs = append(rewardLogs, slashLogs...)
 		actualTotalReward = big.NewInt(0).Sub(actualTotalReward, slashAmount)
 	}
+	// IIP-59: drain the per-delegate pending block-reward pool. The fund was
+	// already debited at each block-credit time via updateAvailableBalance, so
+	// this phase moves money from pool entries to per-address unclaimed
+	// balances only — actualTotalReward is intentionally NOT bumped by the
+	// drained amounts.
+	poolLogs, err := p.drainPendingBlockRewards(ctx, sm, candidates, blkCtx.BlockHeight, actionCtx.ActionHash)
+	if err != nil {
+		return nil, nil, err
+	}
+	rewardLogs = append(rewardLogs, poolLogs...)
 	epochRewardSplitUqdMap := make(map[string]uint64)
 	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
 		epochRewardSplitUqdMap = uqdMap

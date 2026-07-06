@@ -494,6 +494,124 @@ func (x *RewardLogs) GetLogs() []*RewardLog {
 	return nil
 }
 
+// IIP-59: per-delegate accumulator that holds block-reward credits during an
+// epoch. Drained at epoch close by GrantEpochReward, which calls
+// distributeVoterReward on the accumulated amount. rewardAddr and
+// commissionRate are frozen at credit time so an orphan drain (delegate
+// churned out of top-N) still has enough to split.
+type PendingBlockReward struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Amount         string `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
+	RewardAddr     []byte `protobuf:"bytes,2,opt,name=rewardAddr,proto3" json:"rewardAddr,omitempty"`
+	CommissionRate uint64 `protobuf:"varint,3,opt,name=commissionRate,proto3" json:"commissionRate,omitempty"`
+}
+
+func (x *PendingBlockReward) Reset() {
+	*x = PendingBlockReward{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_action_protocol_rewarding_rewardingpb_rewarding_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PendingBlockReward) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PendingBlockReward) ProtoMessage() {}
+
+func (x *PendingBlockReward) ProtoReflect() protoreflect.Message {
+	mi := &file_action_protocol_rewarding_rewardingpb_rewarding_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PendingBlockReward.ProtoReflect.Descriptor instead.
+func (*PendingBlockReward) Descriptor() ([]byte, []int) {
+	return file_action_protocol_rewarding_rewardingpb_rewarding_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *PendingBlockReward) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *PendingBlockReward) GetRewardAddr() []byte {
+	if x != nil {
+		return x.RewardAddr
+	}
+	return nil
+}
+
+func (x *PendingBlockReward) GetCommissionRate() uint64 {
+	if x != nil {
+		return x.CommissionRate
+	}
+	return 0
+}
+
+// IIP-59: sorted, deduped index of delegate identities that currently hold a
+// PendingBlockReward entry. Iterated in-order at epoch close for deterministic
+// drain sequence. Identities are stored as raw address bytes.
+type PendingBlockRewardIndex struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Identities [][]byte `protobuf:"bytes,1,rep,name=identities,proto3" json:"identities,omitempty"`
+}
+
+func (x *PendingBlockRewardIndex) Reset() {
+	*x = PendingBlockRewardIndex{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_action_protocol_rewarding_rewardingpb_rewarding_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PendingBlockRewardIndex) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PendingBlockRewardIndex) ProtoMessage() {}
+
+func (x *PendingBlockRewardIndex) ProtoReflect() protoreflect.Message {
+	mi := &file_action_protocol_rewarding_rewardingpb_rewarding_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PendingBlockRewardIndex.ProtoReflect.Descriptor instead.
+func (*PendingBlockRewardIndex) Descriptor() ([]byte, []int) {
+	return file_action_protocol_rewarding_rewardingpb_rewarding_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *PendingBlockRewardIndex) GetIdentities() [][]byte {
+	if x != nil {
+		return x.Identities
+	}
+	return nil
+}
+
 var File_action_protocol_rewarding_rewardingpb_rewarding_proto protoreflect.FileDescriptor
 
 var file_action_protocol_rewarding_rewardingpb_rewarding_proto_rawDesc = []byte{
@@ -557,12 +675,23 @@ var file_action_protocol_rewarding_rewardingpb_rewarding_proto_rawDesc = []byte{
 	0x0a, 0x52, 0x65, 0x77, 0x61, 0x72, 0x64, 0x4c, 0x6f, 0x67, 0x73, 0x12, 0x2a, 0x0a, 0x04, 0x6c,
 	0x6f, 0x67, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x72, 0x65, 0x77, 0x61,
 	0x72, 0x64, 0x69, 0x6e, 0x67, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x77, 0x61, 0x72, 0x64, 0x4c, 0x6f,
-	0x67, 0x52, 0x04, 0x6c, 0x6f, 0x67, 0x73, 0x42, 0x4a, 0x5a, 0x48, 0x67, 0x69, 0x74, 0x68, 0x75,
-	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x70, 0x72, 0x6f, 0x6a, 0x65,
-	0x63, 0x74, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x2d, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x61, 0x63,
-	0x74, 0x69, 0x6f, 0x6e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x2f, 0x72, 0x65,
-	0x77, 0x61, 0x72, 0x64, 0x69, 0x6e, 0x67, 0x2f, 0x72, 0x65, 0x77, 0x61, 0x72, 0x64, 0x69, 0x6e,
-	0x67, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x67, 0x52, 0x04, 0x6c, 0x6f, 0x67, 0x73, 0x22, 0x74, 0x0a, 0x12, 0x50, 0x65, 0x6e, 0x64, 0x69,
+	0x6e, 0x67, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x52, 0x65, 0x77, 0x61, 0x72, 0x64, 0x12, 0x16, 0x0a,
+	0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x61,
+	0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x1e, 0x0a, 0x0a, 0x72, 0x65, 0x77, 0x61, 0x72, 0x64, 0x41,
+	0x64, 0x64, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x0a, 0x72, 0x65, 0x77, 0x61, 0x72,
+	0x64, 0x41, 0x64, 0x64, 0x72, 0x12, 0x26, 0x0a, 0x0e, 0x63, 0x6f, 0x6d, 0x6d, 0x69, 0x73, 0x73,
+	0x69, 0x6f, 0x6e, 0x52, 0x61, 0x74, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0e, 0x63,
+	0x6f, 0x6d, 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x61, 0x74, 0x65, 0x22, 0x39, 0x0a,
+	0x17, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x52, 0x65, 0x77,
+	0x61, 0x72, 0x64, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x1e, 0x0a, 0x0a, 0x69, 0x64, 0x65, 0x6e,
+	0x74, 0x69, 0x74, 0x69, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0c, 0x52, 0x0a, 0x69, 0x64,
+	0x65, 0x6e, 0x74, 0x69, 0x74, 0x69, 0x65, 0x73, 0x42, 0x4a, 0x5a, 0x48, 0x67, 0x69, 0x74, 0x68,
+	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x70, 0x72, 0x6f, 0x6a,
+	0x65, 0x63, 0x74, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x2d, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x61,
+	0x63, 0x74, 0x69, 0x6f, 0x6e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x2f, 0x72,
+	0x65, 0x77, 0x61, 0x72, 0x64, 0x69, 0x6e, 0x67, 0x2f, 0x72, 0x65, 0x77, 0x61, 0x72, 0x64, 0x69,
+	0x6e, 0x67, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -578,16 +707,18 @@ func file_action_protocol_rewarding_rewardingpb_rewarding_proto_rawDescGZIP() []
 }
 
 var file_action_protocol_rewarding_rewardingpb_rewarding_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_action_protocol_rewarding_rewardingpb_rewarding_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_action_protocol_rewarding_rewardingpb_rewarding_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_action_protocol_rewarding_rewardingpb_rewarding_proto_goTypes = []interface{}{
-	(RewardLog_RewardType)(0), // 0: rewardingpb.RewardLog.RewardType
-	(*Admin)(nil),             // 1: rewardingpb.Admin
-	(*Fund)(nil),              // 2: rewardingpb.Fund
-	(*RewardHistory)(nil),     // 3: rewardingpb.RewardHistory
-	(*Account)(nil),           // 4: rewardingpb.Account
-	(*Exempt)(nil),            // 5: rewardingpb.Exempt
-	(*RewardLog)(nil),         // 6: rewardingpb.RewardLog
-	(*RewardLogs)(nil),        // 7: rewardingpb.RewardLogs
+	(RewardLog_RewardType)(0),       // 0: rewardingpb.RewardLog.RewardType
+	(*Admin)(nil),                   // 1: rewardingpb.Admin
+	(*Fund)(nil),                    // 2: rewardingpb.Fund
+	(*RewardHistory)(nil),           // 3: rewardingpb.RewardHistory
+	(*Account)(nil),                 // 4: rewardingpb.Account
+	(*Exempt)(nil),                  // 5: rewardingpb.Exempt
+	(*RewardLog)(nil),               // 6: rewardingpb.RewardLog
+	(*RewardLogs)(nil),              // 7: rewardingpb.RewardLogs
+	(*PendingBlockReward)(nil),      // 8: rewardingpb.PendingBlockReward
+	(*PendingBlockRewardIndex)(nil), // 9: rewardingpb.PendingBlockRewardIndex
 }
 var file_action_protocol_rewarding_rewardingpb_rewarding_proto_depIdxs = []int32{
 	0, // 0: rewardingpb.RewardLog.type:type_name -> rewardingpb.RewardLog.RewardType
@@ -689,6 +820,30 @@ func file_action_protocol_rewarding_rewardingpb_rewarding_proto_init() {
 				return nil
 			}
 		}
+		file_action_protocol_rewarding_rewardingpb_rewarding_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PendingBlockReward); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_action_protocol_rewarding_rewardingpb_rewarding_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PendingBlockRewardIndex); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -696,7 +851,7 @@ func file_action_protocol_rewarding_rewardingpb_rewarding_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_action_protocol_rewarding_rewardingpb_rewarding_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   7,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
