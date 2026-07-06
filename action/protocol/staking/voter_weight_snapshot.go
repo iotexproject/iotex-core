@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"math/big"
+	"sort"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -250,6 +251,36 @@ func (p *Protocol) SnapshotForEpochReward(
 		}
 	}
 	return nil
+}
+
+// WriteVoterWeightSnapshotForTest seeds a per-candidate voter weight blob
+// directly under _voterWeightSnap. It exists so packages downstream of
+// staking (rewarding in particular) can build reward-split fixtures without
+// having to spin up a full viewData / bucket universe. Do not call from
+// production code — the real writer is SnapshotForEpochReward, driven by
+// poll.setCandidates at PutPollResult time.
+//
+// Sorts the input by voter address before writing so callers don't have to
+// think about the encoder's ordering invariant.
+func WriteVoterWeightSnapshotForTest(sm protocol.StateManager, candID address.Address, voters []address.Address, weights []*big.Int) error {
+	if len(voters) != len(weights) {
+		return errors.Errorf("voter/weight length mismatch: %d vs %d", len(voters), len(weights))
+	}
+	entries := make([]snapshotEntry, 0, len(voters))
+	for i, v := range voters {
+		if v == nil {
+			return errors.Errorf("nil voter at index %d", i)
+		}
+		w := weights[i]
+		if w == nil {
+			w = big.NewInt(0)
+		}
+		entries = append(entries, snapshotEntry{voter: v, weight: new(big.Int).Set(w)})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return bytes.Compare(entries[i].voter.Bytes(), entries[j].voter.Bytes()) < 0
+	})
+	return writeVoterWeightSnapshot(sm, candID, entries)
 }
 
 // writeVoterWeightSnapshot performs the incremental write for one candidate:

@@ -43,6 +43,12 @@ message RewardLog {
         FOUNDATION_BONUS= 2;
         PRIORITY_BONUS = 3;
         UNPRODUCTIVE_SLASH = 4;
+        // IIP-59: per-voter share of a delegate's epoch reward after commission.
+        VOTER_REWARD = 5;
+        // IIP-59: delegate's commission (rate * epochReward) plus any dust left
+        // over from integer-division of the voter split. Emitted once per
+        // delegate that participated in the IIP-59 auto-split path.
+        DELEGATE_COMMISSION = 6;
     }
     RewardType type = 1;
     string addr = 2;
