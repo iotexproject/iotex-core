@@ -38,8 +38,8 @@ var (
 		config.Chinese: "已签名的授权, 0x-hex RLP 格式 (即 'ioctl action sign-auth' 的输出); 可重复; 一旦传入则该操作改用 EIP-7702 SetCodeTx",
 	}
 	_evmChainIDUsages = map[config.Language]string{
-		config.English: "override EVM chain id when --auth is used (default: derive from iotex chain id, 1→4689 / 2→4690 / 3→4691)",
-		config.Chinese: "使用 --auth 时指定 EVM chain id (默认根据 iotex chain id 推导: 1→4689 / 2→4690 / 3→4691)",
+		config.English: "override EVM chain id when --auth is used (default: query the node's Web3 eth_chainId, falling back to the iotex chain id mapping 1→4689 / 2→4690 / 3→4691)",
+		config.Chinese: "使用 --auth 时指定 EVM chain id (默认查询节点的 Web3 eth_chainId, 无法获取时回退到 iotex chain id 映射: 1→4689 / 2→4690 / 3→4691)",
 	}
 
 	_evmChainIDFlag = flag.NewUint64VarP("evm-chain-id", "", 0, config.TranslateInLang(_evmChainIDUsages, config.UILanguage))
@@ -77,28 +77,6 @@ func ParsedAuthList() ([]types.SetCodeAuthorization, error) {
 		out = append(out, auth)
 	}
 	return out, nil
-}
-
-// resolveEVMChainID returns the EVM chain id to use for signing.
-// If --evm-chain-id was set, that wins. Otherwise we derive from the iotex
-// chain id using the canonical iotex-bootstrap mapping (1→4689 / 2→4690 / 3→4691).
-// Returns an error for any other iotex chain id without an explicit override —
-// silently guessing would produce signatures that don't verify on chain.
-func resolveEVMChainID(iotexChainID uint32) (uint64, error) {
-	if v := _evmChainIDFlag.Value().(uint64); v != 0 {
-		return v, nil
-	}
-	switch iotexChainID {
-	case 1:
-		return 4689, nil
-	case 2:
-		return 4690, nil
-	case 3:
-		return 4691, nil
-	default:
-		return 0, output.NewError(output.InputError,
-			fmt.Sprintf("unknown iotex chain id %d, set --evm-chain-id explicitly", iotexChainID), nil)
-	}
 }
 
 // EthTxBuilder constructs and signs a go-ethereum *types.Transaction.
@@ -154,7 +132,7 @@ func SignAndSendEthTx(signer string, build EthTxBuilder) error {
 	}
 	iotexChainID := chainMeta.GetChainID()
 
-	evmChainID, err := resolveEVMChainID(iotexChainID)
+	evmChainID, err := resolveEVMChainID(iotexChainID, nodeEVMChainID)
 	if err != nil {
 		return err
 	}
