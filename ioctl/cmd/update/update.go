@@ -7,6 +7,7 @@ package update
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 
 	"github.com/spf13/cobra"
@@ -66,6 +67,10 @@ func update() error {
 
 	}
 	cmd := exec.Command("bash", "-c", cmdString)
+	// surface the installer's stdout/stderr so failures are diagnosable instead
+	// of being swallowed behind a generic "failed to update ioctl" message.
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	output.PrintResult(fmt.Sprintf("Downloading the latest %s version ...\n", _versionType))
 	err := cmd.Run()
 	if err != nil {
