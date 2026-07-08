@@ -4,12 +4,14 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	stakingComm "github.com/iotexproject/iotex-core/v2/action/protocol/staking/ethabi/common"
 )
 
@@ -54,89 +56,77 @@ func mustMarshal(t *testing.T, m proto.Message) []byte {
 	return b
 }
 
-func TestCompositeBucketsEncodeToEth(t *testing.T) {
-	r := require.New(t)
+// TestCompositeBucketViewsEncodeToEth exercises the EncodeToEth path and decode
+// error paths for every v2 composite vote-bucket view. All four views share the
+// composite VoteBucket output layout, so they must encode the same list to the
+// same bytes.
+func TestCompositeBucketViewsEncodeToEth(t *testing.T) {
+	cases := []struct {
+		name   string
+		method *abi.Method
+		// input is the full eth_call data (selector + args) taken from the
+		// corresponding TestBuildReadStateRequest* fixture.
+		input  string
+		newCtx func([]byte) (protocol.StateContext, error)
+	}{
+		{
+			name:   "compositeBuckets",
+			method: &_compositeBucketsMethod,
+			input:  "40f086d600000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000005",
+			newCtx: func(d []byte) (protocol.StateContext, error) { return newCompositeBucketsStateContext(d) },
+		},
+		{
+			name:   "compositeBucketsByCandidate",
+			method: &_compositeBucketsByCandidateMethod,
+			input:  "33df73c7000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000568656c6c6f000000000000000000000000000000000000000000000000000000",
+			newCtx: func(d []byte) (protocol.StateContext, error) { return newCompositeBucketsByCandidateStateContext(d) },
+		},
+		{
+			name:   "compositeBucketsByIndexes",
+			method: &_compositeBucketsByIndexesMethod,
+			input:  "347cdbd50000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+			newCtx: func(d []byte) (protocol.StateContext, error) { return newCompositeBucketsByIndexesStateContext(d) },
+		},
+		{
+			name:   "compositeBucketsByVoter",
+			method: &_compositeBucketsByVoterMethod,
+			input:  "80965570000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+			newCtx: func(d []byte) (protocol.StateContext, error) { return newCompositeBucketsByVoterStateContext(d) },
+		},
+	}
 
-	r.Equal("40f086d6", hex.EncodeToString(_compositeBucketsMethod.ID))
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			r := require.New(t)
 
-	input, _ := hex.DecodeString("40f086d600000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000005")
-	ctx, err := newCompositeBucketsStateContext(input[4:])
-	r.NoError(err)
+			// method signature guard: the selector must match the call data
+			r.Equal(hex.EncodeToString(c.method.ID), c.input[:8])
 
-	out, err := ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: mustMarshal(t, compositeVoteBucketList())})
-	r.NoError(err)
-	r.Equal(_compositeVoteBucketListEth, out)
+			data, err := hex.DecodeString(c.input)
+			r.NoError(err)
+			ctx, err := c.newCtx(data[4:])
+			r.NoError(err)
 
-	_, err = ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: []byte{0xff}})
-	r.Error(err)
+			// well-formed payload round-trips to the expected eth encoding
+			out, err := ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: mustMarshal(t, compositeVoteBucketList())})
+			r.NoError(err)
+			r.Equal(_compositeVoteBucketListEth, out)
 
-	bad := compositeVoteBucketList()
-	bad.Buckets[0].StakedAmount = "xx"
-	_, err = ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: mustMarshal(t, bad)})
-	r.ErrorIs(err, stakingComm.ErrConvertBigNumber)
+			// malformed proto payload -> unmarshal error
+			_, err = ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: []byte{0xff}})
+			r.Error(err)
 
-	_, err = newCompositeBucketsStateContext([]byte{0x01})
-	r.Error(err)
-}
+			// non-numeric staked amount -> convert big number error
+			bad := compositeVoteBucketList()
+			bad.Buckets[0].StakedAmount = "not-a-number"
+			_, err = ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: mustMarshal(t, bad)})
+			r.ErrorIs(err, stakingComm.ErrConvertBigNumber)
 
-func TestCompositeBucketsByCandidateEncodeToEth(t *testing.T) {
-	r := require.New(t)
-
-	r.Equal("33df73c7", hex.EncodeToString(_compositeBucketsByCandidateMethod.ID))
-
-	input, _ := hex.DecodeString("33df73c7000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000568656c6c6f000000000000000000000000000000000000000000000000000000")
-	ctx, err := newCompositeBucketsByCandidateStateContext(input[4:])
-	r.NoError(err)
-
-	out, err := ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: mustMarshal(t, compositeVoteBucketList())})
-	r.NoError(err)
-	r.Equal(_compositeVoteBucketListEth, out)
-
-	_, err = ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: []byte{0xff}})
-	r.Error(err)
-
-	_, err = newCompositeBucketsByCandidateStateContext([]byte{0xde, 0xad})
-	r.Error(err)
-}
-
-func TestCompositeBucketsByIndexesEncodeToEth(t *testing.T) {
-	r := require.New(t)
-
-	r.Equal("347cdbd5", hex.EncodeToString(_compositeBucketsByIndexesMethod.ID))
-
-	input, _ := hex.DecodeString("347cdbd50000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002")
-	ctx, err := newCompositeBucketsByIndexesStateContext(input[4:])
-	r.NoError(err)
-
-	out, err := ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: mustMarshal(t, compositeVoteBucketList())})
-	r.NoError(err)
-	r.Equal(_compositeVoteBucketListEth, out)
-
-	_, err = ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: []byte{0xff}})
-	r.Error(err)
-
-	_, err = newCompositeBucketsByIndexesStateContext([]byte{0x01})
-	r.Error(err)
-}
-
-func TestCompositeBucketsByVoterEncodeToEth(t *testing.T) {
-	r := require.New(t)
-
-	r.Equal("80965570", hex.EncodeToString(_compositeBucketsByVoterMethod.ID))
-
-	input, _ := hex.DecodeString("80965570000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002")
-	ctx, err := newCompositeBucketsByVoterStateContext(input[4:])
-	r.NoError(err)
-
-	out, err := ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: mustMarshal(t, compositeVoteBucketList())})
-	r.NoError(err)
-	r.Equal(_compositeVoteBucketListEth, out)
-
-	_, err = ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: []byte{0xff}})
-	r.Error(err)
-
-	_, err = newCompositeBucketsByVoterStateContext([]byte{0x01, 0x02})
-	r.Error(err)
+			// malformed call data -> decode error
+			_, err = c.newCtx([]byte{0xde, 0xad})
+			r.Error(err)
+		})
+	}
 }
 
 func TestCompositeTotalStakingAmountEncodeToEth(t *testing.T) {
@@ -167,7 +157,8 @@ func TestContractBucketTypesEncodeToEth(t *testing.T) {
 
 	r.Equal("017619d4", hex.EncodeToString(_contractBucketTypesMethod.ID))
 
-	input, _ := hex.DecodeString("017619d40000000000000000000000000000000000000000000000000000000000000064")
+	input, err := hex.DecodeString("017619d40000000000000000000000000000000000000000000000000000000000000064")
+	r.NoError(err)
 	ctx, err := newContractBucketTypesStateContext(input[4:])
 	r.NoError(err)
 
