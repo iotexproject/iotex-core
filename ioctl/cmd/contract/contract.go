@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/compiler"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/flag"
@@ -22,6 +23,19 @@ import (
 )
 
 const _solCompiler = "solc"
+
+// aliasInitAmount lets the historical `--init-amount` flag also be given as
+// `--amount`, matching the "amount" wording used by `transfer` and other
+// value-bearing commands. The old `--init-amount` spelling keeps working, so
+// this is fully backward compatible.
+func aliasInitAmount(cmd *cobra.Command) {
+	cmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+		if name == "amount" {
+			name = "init-amount"
+		}
+		return pflag.NormalizedName(name)
+	})
+}
 
 // Flags
 var (
@@ -44,8 +58,8 @@ var (
 		config.Chinese: "一次不安全的连接",
 	}
 	_flagInitialAmountUsage = map[config.Language]string{
-		config.English: "transfer an initial amount to the new deployed contract",
-		config.Chinese: "为部署的新合约转入一笔初始资金",
+		config.English: "transfer an initial amount to the newly deployed contract (alias: --amount)",
+		config.Chinese: "为部署的新合约转入一笔初始资金 (别名: --amount)",
 	}
 )
 
