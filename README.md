@@ -117,7 +117,7 @@ Users could interact with iotex blockchain by
 ioctl [command]
 ```
 
-Refer to [CLI document](https://docs.iotex.io/developer/ioctl/install.html) for more details.
+Refer to the [ioctl CLI documentation](https://docs.iotex.io/blockchain/build/web3-development/ioctl-cli) for more details.
 
 ## IOSwarm: Distributed Transaction Validation
 

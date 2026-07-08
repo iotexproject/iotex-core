@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -23,8 +24,8 @@ import (
 // Multi-language support
 var (
 	_deploySolCmdUses = map[config.Language]string{
-		config.English: "sol [FILE_NAME:]CONTRACT_NAME [CODE_FILES...] [--with-arguments INIT_INPUT] [--init-amount IOTX数量]",
-		config.Chinese: "sol [文件名:]合约名 [代码文件...] [--with-arguments 初始化输入] [--init-amount IOTX数量]",
+		config.English: "sol [FILE_NAME:]CONTRACT_NAME [CODE_FILES_OR_DIRS...] [--with-arguments INIT_INPUT] [--amount IOTX]",
+		config.Chinese: "sol [文件名:]合约名 [代码文件或目录...] [--with-arguments 初始化输入] [--amount IOTX数量]",
 	}
 	_deploySolCmdShorts = map[config.Language]string{
 		config.English: "deploy smart contract with sol files on IoTeX blockchain",
@@ -46,27 +47,24 @@ var _contractDeploySolCmd = &cobra.Command{
 
 func init() {
 	_initialAmountFlag.RegisterCommand(_contractDeploySolCmd)
+	aliasInitAmount(_contractDeploySolCmd)
 }
 
 func contractDeploySol(args []string) error {
 	contractName := args[0]
 
-	files := args[1:]
+	// Sources may be an explicit list of .sol files and/or directories. When no
+	// source is given, default to scanning the current directory (legacy behavior).
+	sources := args[1:]
+	if len(sources) == 0 {
+		sources = []string{"."}
+	}
+	files, err := expandSolSources(sources)
+	if err != nil {
+		return err
+	}
 	if len(files) == 0 {
-		dirInfo, err := os.ReadDir("./")
-		if err != nil {
-			return output.NewError(output.ReadFileError, "failed to get current directory", err)
-		}
-
-		for _, fileInfo := range dirInfo {
-			if !fileInfo.IsDir() && strings.HasSuffix(fileInfo.Name(), ".sol") {
-				files = append(files, fileInfo.Name())
-			}
-		}
-
-		if len(files) == 0 {
-			return output.NewError(output.InputError, "failed to get source file(s)", nil)
-		}
+		return output.NewError(output.InputError, "failed to get source file(s)", nil)
 	}
 
 	contracts, err := Compile(files...)
@@ -120,4 +118,34 @@ func contractDeploySol(args []string) error {
 	}
 
 	return action.Execute("", amount, bytecode)
+}
+
+// expandSolSources expands any directory entries in sources into the .sol files
+// they contain (non-recursively), leaving explicit file paths untouched. This
+// lets `contract sol` accept a directory in addition to an explicit file list,
+// while remaining backward compatible with the previous file-list-only usage.
+func expandSolSources(sources []string) ([]string, error) {
+	var files []string
+	for _, src := range sources {
+		info, err := os.Stat(src)
+		if err != nil {
+			return nil, output.NewError(output.ReadFileError,
+				fmt.Sprintf("failed to access source %q", src), err)
+		}
+		if !info.IsDir() {
+			files = append(files, src)
+			continue
+		}
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return nil, output.NewError(output.ReadFileError,
+				fmt.Sprintf("failed to read directory %q", src), err)
+		}
+		for _, e := range entries {
+			if !e.IsDir() && strings.HasSuffix(e.Name(), ".sol") {
+				files = append(files, filepath.Join(src, e.Name()))
+			}
+		}
+	}
+	return files, nil
 }
