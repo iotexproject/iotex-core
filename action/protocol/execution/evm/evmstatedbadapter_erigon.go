@@ -48,13 +48,20 @@ func NewErigonStateDBAdapter(adapter *StateDBAdapter,
 	}
 }
 
-// NewErigonStateDBAdapterDryrun creates a new ErigonStateDBAdapterDryrun
+// NewErigonStateDBAdapterDryrun creates a new ErigonStateDBAdapterDryrun.
+//
+// Contracts here are contractErigonDryrun rather than contractErigon: they
+// deliberately mirror the mainline MPT contract-cache pollution bug in
+// GetCommittedState so that eth_estimateGas returns a gas value large
+// enough to cover the overcharge that the still-buggy block-producing MPT
+// path incurs. Once the mainline correctness fix is deployed behind a fork
+// gate, switch this back to newContractErigon (or gate on the fork).
 func NewErigonStateDBAdapterDryrun(adapter *StateDBAdapter,
 	intra *erigonstate.IntraBlockState,
 ) *ErigonStateDBAdapterDryrun {
 	a := NewErigonStateDBAdapter(adapter, intra)
 	adapter.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
-		return newContractErigon(addr, account, intra, adapter.sm)
+		return newContractErigonDryrun(addr, account, intra, adapter.sm)
 	}
 	return &ErigonStateDBAdapterDryrun{
 		ErigonStateDBAdapter: a,
