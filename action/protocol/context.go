@@ -177,6 +177,15 @@ type (
 		// and amount; no log when no native token moves) instead of the fragile
 		// "last AddBalance" heuristic.
 		CorrectSelfDestructTransferLog bool
+		// DropMalformedInContractTransferLog makes StateDBAdapter.AddLog drop a
+		// contract-emitted reserved-topic (all-zero topic0) in-contract-transfer log
+		// for ANY topic count instead of panicking on a topic count != 3. The pre-fork
+		// panic is a contract-triggerable, block-apply-fatal DoS; dropping is a pure
+		// liveness hardening and never changes receipt.Logs (these logs were never
+		// appended to stateDB.logs), so it must still be gated at a coordinated fork
+		// height: an upgraded producer that committed such a block would otherwise
+		// mint a block un-upgraded nodes can NEVER process (permanent poison block).
+		DropMalformedInContractTransferLog bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -352,6 +361,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
 			CorrectSelfDestructTransferLog:          g.IsZanzibar(height),
+			DropMalformedInContractTransferLog:      g.IsZanzibar(height),
 		},
 	)
 }

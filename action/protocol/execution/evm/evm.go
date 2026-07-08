@@ -526,6 +526,9 @@ func prepareStateDBAdapter(ctx context.Context, sm protocol.StateManager) (*Stat
 	if featureCtx.CorrectSelfDestructTransferLog {
 		opts = append(opts, CorrectSelfDestructTransferLogOption())
 	}
+	if featureCtx.DropMalformedInContractTransferLog {
+		opts = append(opts, DropMalformedInContractTransferLogOption())
+	}
 	if featureCtx.PanicUnrecoverableError {
 		opts = append(opts, PanicUnrecoverableErrorOption())
 	}

@@ -94,6 +94,10 @@ type (
 		// correctSelfDestructTransferLog derives SELFDESTRUCT transfer logs from the
 		// actual EVM balance movement instead of the legacy lastAddBalance heuristic
 		correctSelfDestructTransferLog bool
+		// dropMalformedInContractTransferLog makes AddLog drop a contract-emitted
+		// reserved-topic in-contract-transfer log for any topic count instead of
+		// panicking on a topic count != 3 (post-Zanzibar liveness/DoS hardening).
+		dropMalformedInContractTransferLog bool
 		// selfDestructBeneficiary / selfDestructTransfer capture the beneficiary and
 		// amount of the native transfer the EVM performs during a SELFDESTRUCT, taken
 		// from the AddBalance call tagged with tracing.BalanceIncreaseSelfdestruct and
@@ -194,6 +198,14 @@ func SuicideTxLogMismatchPanicOption() StateDBAdapterOption {
 func CorrectSelfDestructTransferLogOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.correctSelfDestructTransferLog = true
+		return nil
+	}
+}
+
+// DropMalformedInContractTransferLogOption sets dropMalformedInContractTransferLog as true
+func DropMalformedInContractTransferLogOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.dropMalformedInContractTransferLog = true
 		return nil
 	}
 }
@@ -974,9 +986,21 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		// log. It is dropped here, exactly as before it was never appended to
 		// stateDB.logs, so receipt.Logs (and thus the receipt root) is unchanged.
 		//
-		// NOTE: the historical len(topics) != 3 panic is preserved to keep behavior
-		// identical for malformed inputs; hardening that DoS is a separate change.
-		if len(topics) != 3 {
+		// The topics/data are fully attacker-controlled: any contract can execute a
+		// LOGn opcode with topic0 == this reserved all-zero hash and any topic count.
+		// A topic count != 3 historically hit the panic below, which is reachable from
+		// the block-apply/validation path (which has no EVM recover) and thus lets a
+		// Byzantine proposer halt every validating node (chain-halt DoS). Post-Zanzibar
+		// we drop such logs for ANY topic count and never panic.
+		//
+		// This is gated at a fork height even though it never changes receipt.Logs
+		// (these logs are dropped either way, so the receipt root is byte-identical on
+		// both sides): the pre-fork behavior is a CRASH, not a different state. If the
+		// drop were ungated, an upgraded proposer could commit a block carrying such a
+		// log that un-upgraded nodes can NEVER process, permanently poisoning the chain.
+		// The fork coordinates the crash->drop switch across the network.
+		if !stateDB.dropMalformedInContractTransferLog && len(topics) != 3 {
+			// pre-Zanzibar: preserve the historical panic byte-for-byte for replay
 			log.T(stateDB.ctx).Panic("Invalid in contract transfer topics")
 		}
 		return

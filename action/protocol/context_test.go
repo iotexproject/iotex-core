@@ -202,3 +202,20 @@ func TestCorrectSelfDestructTransferLogFeature(t *testing.T) {
 	require.True(featureAt(forkHeight).CorrectSelfDestructTransferLog)
 	require.True(featureAt(forkHeight + 1).CorrectSelfDestructTransferLog)
 }
+
+func TestDropMalformedInContractTransferLogFeature(t *testing.T) {
+	require := require.New(t)
+	g := genesis.TestDefault()
+	const forkHeight = uint64(1000000)
+	g.ZanzibarBlockHeight = forkHeight
+	featureAt := func(height uint64) FeatureCtx {
+		ctx := genesis.WithGenesisContext(context.Background(), g)
+		ctx = WithBlockCtx(ctx, BlockCtx{BlockHeight: height})
+		return MustGetFeatureCtx(WithFeatureCtx(ctx))
+	}
+	// pre-fork (fork-1): AddLog still panics on a malformed reserved-topic log
+	require.False(featureAt(forkHeight - 1).DropMalformedInContractTransferLog)
+	// at/after fork: AddLog drops the malformed log instead of panicking
+	require.True(featureAt(forkHeight).DropMalformedInContractTransferLog)
+	require.True(featureAt(forkHeight + 1).DropMalformedInContractTransferLog)
+}

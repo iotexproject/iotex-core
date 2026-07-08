@@ -83,10 +83,20 @@ func TestAction_Negative(t *testing.T) {
 }
 
 func prepareBlockchain(ctx context.Context, _executor string, r *require.Assertions) (blockchain.Blockchain, factory.Factory, actpool.ActPool) {
+	return prepareBlockchainWithGenesis(ctx, _executor, r, nil)
+}
+
+// prepareBlockchainWithGenesis is prepareBlockchain with an optional hook to mutate
+// the genesis (e.g. to activate a fork at a low height) before any component is
+// constructed from it.
+func prepareBlockchainWithGenesis(ctx context.Context, _executor string, r *require.Assertions, mutateGenesis func(*genesis.Genesis)) (blockchain.Blockchain, factory.Factory, actpool.ActPool) {
 	cfg := config.Default
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.InitBalanceMap[_executor] = "1000000000000000000000000000"
+	if mutateGenesis != nil {
+		mutateGenesis(&cfg.Genesis)
+	}
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	r.NoError(acc.Register(registry))

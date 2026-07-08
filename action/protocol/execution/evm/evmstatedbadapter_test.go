@@ -177,6 +177,89 @@ func TestInContractTransferLogNoForgery(t *testing.T) {
 	require.Equal(amount, stateDB.GetBalance(to).ToBig())
 }
 
+// TestAddLogMalformedInContractTransfer exercises AddLog on BOTH sides of the
+// Zanzibar fork for a contract-emitted reserved-topic (topic0 == all-zero) log
+// whose topic count is not exactly 3.
+//
+//   - pre-fork (dropMalformedInContractTransferLog == false, i.e. height < Zanzibar):
+//     the historical behavior is preserved byte-for-byte — AddLog PANICS with
+//     "Invalid in contract transfer topics" for a topic count != 3, and drops (no
+//     panic) for exactly 3 topics. This determinism is required for replaying every
+//     historical block.
+//   - post-fork (dropMalformedInContractTransferLog == true, i.e. height >= Zanzibar):
+//     AddLog DROPS the log for ANY topic count and never panics, converting a
+//     block-apply-fatal DoS into a graceful drop. receipt.Logs is unchanged either
+//     way (these logs are never appended to stateDB.logs), so the receipt root is
+//     identical across the fork.
+func TestAddLogMalformedInContractTransfer(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	newStateDB := func(dropMalformed bool) *StateDBAdapter {
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		opts := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+		}
+		if dropMalformed {
+			opts = append(opts, DropMalformedInContractTransferLogOption())
+		}
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+		require.NoError(err)
+		return stateDB
+	}
+
+	contract := common.HexToAddress("1904246161bcd0d5f006a2575561fb4c11d7bef6")
+	addr := common.HexToAddress("986895eb8a117af83258e28df92d8fcb5acb209c")
+	reserved := common.BytesToHash(_inContractTransfer[:])
+
+	malformed := []struct {
+		name   string
+		topics []common.Hash
+	}{
+		{"one-topic", []common.Hash{reserved}},
+		{"two-topics", []common.Hash{reserved, common.BytesToHash(addr[:])}},
+		{"four-topics", []common.Hash{
+			reserved,
+			common.BytesToHash(addr[:]),
+			common.BytesToHash(addr[:]),
+			common.BytesToHash(addr[:]),
+		}},
+	}
+	mkLog := func(topics []common.Hash) *types.Log {
+		return &types.Log{Address: contract, Topics: topics, Data: big.NewInt(100).Bytes()}
+	}
+
+	// pre-fork: a malformed reserved-topic log still panics (old, deterministic path)
+	for _, tc := range malformed {
+		t.Run("prefork/"+tc.name, func(t *testing.T) {
+			stateDB := newStateDB(false)
+			require.Panics(func() { stateDB.AddLog(mkLog(tc.topics)) })
+		})
+	}
+	// pre-fork: exactly 3 topics is dropped (not a valid transfer either), no panic
+	t.Run("prefork/three-topics-dropped", func(t *testing.T) {
+		stateDB := newStateDB(false)
+		require.NotPanics(func() {
+			stateDB.AddLog(mkLog([]common.Hash{reserved, common.BytesToHash(addr[:]), common.BytesToHash(addr[:])}))
+		})
+		require.Empty(stateDB.logs)
+		require.Empty(stateDB.transactionLogs)
+	})
+
+	// post-fork: every malformed reserved-topic log is dropped gracefully, no panic,
+	// nothing enters receipt.Logs and no forged transaction log is recorded.
+	for _, tc := range malformed {
+		t.Run("postfork/"+tc.name, func(t *testing.T) {
+			stateDB := newStateDB(true)
+			require.NotPanics(func() { stateDB.AddLog(mkLog(tc.topics)) })
+			require.Empty(stateDB.logs)            // dropped, never enters receipt.Logs
+			require.Empty(stateDB.transactionLogs) // no forged transaction log
+		})
+	}
+}
+
 // TestSelfDestructTransferLog covers the SELFDESTRUCT transaction-log emission
 // under both the legacy "last AddBalance" heuristic (pre-fork) and the corrected
 // derivation from the actual EVM balance movement (post-fork).
