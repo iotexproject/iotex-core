@@ -2229,30 +2229,33 @@ func (core *coreService) Track(ctx context.Context, start time.Time, method stri
 }
 
 func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig, simulateFn func(ctx context.Context) ([]byte, *action.Receipt, error)) ([]byte, *action.Receipt, any, error) {
-	ctx, tracer, err := core.traceContext(ctx, txctx, config)
+	ctx, tracer, cleanup, err := core.traceContext(ctx, txctx, config)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	// cleanup disarms the tracer timeout watchdog; it must run after the trace
+	// has executed so the deadline is enforced during simulateFn.
+	defer cleanup()
 	retval, receipt, err := simulateFn(ctx)
 	return retval, receipt, tracer, err
 }
 
-func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (context.Context, *tracers.Tracer, error) {
+func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (context.Context, *tracers.Tracer, context.CancelFunc, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash:   bcCtx.GetBlockHash,
 		GetBlockTime:   bcCtx.GetBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
 	})
-	tracer, err := parseTracer(ctx, txctx, config)
+	tracer, cleanup, err := parseTracer(ctx, txctx, config)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
 		Tracer:    tracer.Hooks,
 		NoBaseFee: true,
 	})
-	return ctx, tracer, nil
+	return ctx, tracer, cleanup, nil
 }
 
 func (core *coreService) simulateExecution(
@@ -2358,7 +2361,6 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 	retvals := make([][]byte, 0)
 	receipts := make([]*action.Receipt, 0)
 	results := make([]*blockTraceResult, 0)
-
 	// Every transaction in the block must be traced with a fresh tracer, exactly
 	// like geth's traceBlock (which calls DefaultDirectory.New per tx). Sharing a
 	// single tracer across the whole block leaks state between transactions:
@@ -2372,14 +2374,26 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 	// between transactions. CaptureTx (invoked once per traced user tx, after its
 	// hooks have fired) collects the current tracer's result and then rearms a new
 	// tracer for the next tx.
+	//
+	// Each per-tx tracer arms its own timeout watchdog (see parseTracer), so the
+	// trace timeout is enforced per transaction, like geth. Rearming disarms the
+	// previous transaction's watchdog; the deferred cleanup disarms the last one
+	// after the block trace has executed (WorkingSetAtTransaction below).
 	sharedHooks := new(tracing.Hooks)
-	var curTracer *tracers.Tracer
+	var (
+		curTracer  *tracers.Tracer
+		curCleanup context.CancelFunc
+	)
 	newTracer := func() error {
-		t, err := parseTracer(ctx, new(tracers.Context), config)
+		if curCleanup != nil {
+			curCleanup()
+		}
+		t, cleanup, err := parseTracer(ctx, new(tracers.Context), config)
 		if err != nil {
 			return err
 		}
 		curTracer = t
+		curCleanup = cleanup
 		if t.Hooks != nil {
 			*sharedHooks = *t.Hooks
 		} else {
@@ -2390,14 +2404,24 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 	if err := newTracer(); err != nil {
 		return nil, nil, nil, err
 	}
+	defer func() { curCleanup() }()
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
 		Tracer:    sharedHooks,
 		NoBaseFee: true,
 	})
+	// traceErr captures a tracer failure (e.g. the timeout watchdog stopping the
+	// tracer, which makes GetResult return "execution timeout"). CaptureTx runs
+	// synchronously in the execution goroutine, so no extra synchronization is
+	// needed. We surface it as the RPC error instead of silently returning
+	// partial/empty results.
+	var traceErr error
 	ctx = evm.WithTracerCtx(ctx, evm.TracerContext{
 		CaptureTx: func(retval []byte, receipt *action.Receipt) {
 			res, err := curTracer.GetResult()
 			if err != nil {
+				if traceErr == nil {
+					traceErr = err
+				}
 				log.L().Error("failed to get tracer result", zap.Error(err))
 			} else {
 				results = append(results, &blockTraceResult{
@@ -2418,6 +2442,9 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 		return nil, nil, nil, err
 	}
 	defer ws.Close()
+	if traceErr != nil {
+		return nil, nil, nil, traceErr
+	}
 
 	return retvals, receipts, results, nil
 }
