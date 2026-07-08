@@ -92,7 +92,7 @@ type (
 		// SendBundle is the API to send a bundle to blockchain.
 		SendBundle(ctx context.Context, in *iotextypes.Bundle, sender address.Address, id string) (string, error)
 		// DeleteBundle deletes a bundle from the bundle pool.
-		DeleteBundle(ctx context.Context, sender address.Address, uuid string) error
+		DeleteBundle(ctx context.Context, uuid string) error
 		// SendAction is the API to send an action to blockchain.
 		SendAction(ctx context.Context, in *iotextypes.Action) (string, error)
 		// ReadContract reads the state in a contract address specified by the slot
@@ -584,13 +584,19 @@ func (core *coreService) SendBundle(ctx context.Context, in *iotextypes.Bundle, 
 }
 
 // DeleteBundle deletes a bundle from the bundle pool.
-func (core *coreService) DeleteBundle(ctx context.Context, sender address.Address, id string) error {
+func (core *coreService) DeleteBundle(ctx context.Context, id string) error {
 	log.T(ctx).Debug("receive delete bundle request")
+	if id == "" {
+		return status.Error(codes.InvalidArgument, "bundle UUID must not be empty")
+	}
 	bp := core.ap.BundlePool()
 	if bp == nil {
 		return status.Error(codes.Unavailable, "bundle pool is not available")
 	}
-	if err := bp.DeleteBundle(sender, id); err != nil {
+	if err := bp.DeleteBundle(id); err != nil {
+		if errors.Is(err, actpool.ErrBundleNotFound) {
+			return status.Error(codes.NotFound, err.Error())
+		}
 		return status.Error(codes.Internal, fmt.Sprintf("failed to delete bundle: %v", err))
 	}
 	return nil
@@ -903,12 +909,8 @@ func (core *coreService) RawBlocks(startHeight uint64, count uint64, withReceipt
 	if startHeight > tipHeight {
 		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
 	}
-	endHeight := startHeight + count - 1
-	if endHeight > tipHeight {
-		endHeight = tipHeight
-	}
 	var res []*iotexapi.BlockInfo
-	for height := startHeight; height <= endHeight; height++ {
+	for height := startHeight; height <= min(startHeight+count-1, tipHeight); height++ {
 		blk, err := core.dao.GetBlockByHeight(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())

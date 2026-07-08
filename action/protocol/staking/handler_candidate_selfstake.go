@@ -25,7 +25,7 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 ) (*receiptLog, []*action.TransactionLog, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), handleCandidateActivate, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), handleCandidateActivate, featureCtx.NewStakingReceiptFormat)
 
 	bucket, rErr := p.fetchBucket(csm, act.BucketID())
 	if rErr != nil {
@@ -99,7 +99,7 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 		if rErr != nil {
 			return nil, nil, rErr
 		}
-		if err := csm.deactivate(cand, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight, p.calculateVoteWeight); err == nil {
+		if err = csm.deactivate(cand, bucket, protocol.MustGetBlockCtx(ctx).BlockHeight, p.calculateVoteWeight); err == nil {
 			topics, eventData, err = action.PackCandidateDeactivatedEvent(id)
 		}
 	default:
@@ -111,12 +111,9 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 	if err != nil {
 		return nil, nil, csmErrorToHandleError(actCtx.Caller.String(), err)
 	}
-	return &receiptLog{
-		addr:                  p.addr.String(),
-		postFairbankMigration: true,
-		topics:                topics,
-		data:                  eventData,
-	}, nil, nil
+	rLog := newReceiptLog(p.addr.String())
+	rLog.AddEvent(topics, eventData)
+	return rLog, nil, nil
 }
 
 func (p *Protocol) handleScheduleCandidateDeactivation(ctx context.Context, act *action.ScheduleCandidateDeactivation, csm CandidateStateManager) (*receiptLog, []*action.TransactionLog, error) {
@@ -146,12 +143,9 @@ func (p *Protocol) handleScheduleCandidateDeactivation(ctx context.Context, act 
 		return nil, nil, err
 	}
 
-	return &receiptLog{
-		addr:                  p.addr.String(),
-		postFairbankMigration: true,
-		topics:                topics,
-		data:                  eventData,
-	}, nil, nil
+	rLog := newReceiptLog(p.addr.String())
+	rLog.AddEvent(topics, eventData)
+	return rLog, nil, nil
 }
 
 func (p *Protocol) validateBucketSelfStake(ctx context.Context, csm CandidateStateManager, esm *EndorsementStateManager, bucket *VoteBucket, cand *Candidate) ReceiptError {

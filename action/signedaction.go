@@ -522,8 +522,7 @@ func SignedCandidateDeactivate(
 	senderPriKey crypto.PrivateKey,
 	options ...SignedActionOption,
 ) (*SealedEnvelope, error) {
-	cd := NewCandidateDeactivate()
-	cd.op = op
+	cd := NewCandidateDeactivate(op)
 	bd := &EnvelopeBuilder{}
 	bd = bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).

@@ -709,11 +709,7 @@ func TestProofAndCompareReverseActions(t *testing.T) {
 		if start > size || count == 0 {
 			return nil
 		}
-		end := start + count
-		if end > size {
-			end = size
-		}
-		for i := end; i > start; i-- {
+		for i := min(start+count, size); i > start; i-- {
 			reserved = append(reserved, slice[size-i])
 		}
 		return
@@ -857,7 +853,6 @@ func TestReverseActionsInBlock(t *testing.T) {
 }
 
 func TestActions(t *testing.T) {
-	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -868,81 +863,35 @@ func TestActions(t *testing.T) {
 	}
 
 	t.Run("FailedToCheckActionIndex", func(t *testing.T) {
-		p := NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyPrivateMethod(
-			cs,
-			"checkActionIndex",
-			func() error {
-				return errors.New(t.Name())
-			},
-		)
+		require := require.New(t)
+		orig := cs.indexer
+		cs.indexer = nil
+		defer func() { cs.indexer = orig }()
 		_, err := cs.Actions(0, 0)
-		require.EqualError(err, t.Name())
+		require.EqualError(err, "no action index")
 	})
 
 	t.Run("CountIsZero", func(t *testing.T) {
-		p := NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyPrivateMethod(
-			cs,
-			"checkActionIndex",
-			func() error {
-				return nil
-			},
-		)
-
+		require := require.New(t)
 		_, err := cs.Actions(0, 0)
 		require.ErrorContains(err, "count must be greater than zero")
 	})
 
 	t.Run("CountIsGreaterThanRange", func(t *testing.T) {
-		p := NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyPrivateMethod(
-			cs,
-			"checkActionIndex",
-			func() error {
-				return nil
-			},
-		)
-
+		require := require.New(t)
 		_, err := cs.Actions(0, 2001)
 		require.ErrorContains(err, "range exceeds the limit")
 	})
 
 	t.Run("FailedToGetTotalActions", func(t *testing.T) {
-		p := NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyPrivateMethod(
-			cs,
-			"checkActionIndex",
-			func() error {
-				return nil
-			},
-		)
-
+		require := require.New(t)
 		indexer.EXPECT().GetTotalActions().Return(uint64(0), errors.New(t.Name())).Times(1)
 		_, err := cs.Actions(0, 1)
 		require.ErrorContains(err, t.Name())
 	})
 
 	t.Run("StartGreaterThanTotalActions", func(t *testing.T) {
-		p := NewPatches()
-		defer p.Reset()
-
-		p = p.ApplyPrivateMethod(
-			cs,
-			"checkActionIndex",
-			func() error {
-				return nil
-			},
-		)
-
+		require := require.New(t)
 		// greater than totalActions
 		indexer.EXPECT().GetTotalActions().Return(uint64(0), nil).Times(1)
 		_, err := cs.Actions(1, 1)
@@ -955,16 +904,9 @@ func TestActions(t *testing.T) {
 	})
 
 	t.Run("GetActionsFromIndexer", func(t *testing.T) {
+		require := require.New(t)
 		p := NewPatches()
 		defer p.Reset()
-
-		p = p.ApplyPrivateMethod(
-			cs,
-			"checkActionIndex",
-			func() error {
-				return nil
-			},
-		)
 
 		indexer.EXPECT().GetTotalActions().Return(uint64(1), nil).Times(1)
 		p = p.ApplyPrivateMethod(

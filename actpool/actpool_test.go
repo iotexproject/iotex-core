@@ -11,6 +11,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -1331,5 +1332,37 @@ func TestIsBlackListedFunc(t *testing.T) {
 		// Non-blacklisted address - never enforced
 		require.False(isBlackListed("io1other", 100))
 		require.False(isBlackListed("io1other", 1000))
+	})
+
+	t.Run("removal drops listed addresses from removalHeight onwards", func(t *testing.T) {
+		cfg := Config{
+			BlackList:              []string{"io1abc", "io1xyz"},
+			BlackListActiveHeight:  100,
+			BlackListRemoval:       []string{"io1abc"},
+			BlackListRemovalHeight: 200,
+		}
+		isBlackListed := cfg.IsBlackListedFunc()
+		// Removal entry: enforced in [activeHeight, removalHeight), dropped at removalHeight
+		require.False(isBlackListed("io1abc", 99))
+		require.True(isBlackListed("io1abc", 100))
+		require.True(isBlackListed("io1abc", 199))
+		require.False(isBlackListed("io1abc", 200))
+		require.False(isBlackListed("io1abc", 1000))
+		// Non-removal entry: enforced from activeHeight onwards regardless of removalHeight
+		require.True(isBlackListed("io1xyz", 100))
+		require.True(isBlackListed("io1xyz", 200))
+		require.True(isBlackListed("io1xyz", 1000))
+	})
+
+	t.Run("removalHeight=MaxUint64 keeps everyone blacklisted", func(t *testing.T) {
+		cfg := Config{
+			BlackList:              []string{"io1abc"},
+			BlackListActiveHeight:  100,
+			BlackListRemoval:       []string{"io1abc"},
+			BlackListRemovalHeight: math.MaxUint64,
+		}
+		isBlackListed := cfg.IsBlackListedFunc()
+		require.True(isBlackListed("io1abc", 100))
+		require.True(isBlackListed("io1abc", math.MaxUint64-1))
 	})
 }

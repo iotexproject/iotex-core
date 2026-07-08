@@ -691,6 +691,18 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
+			// requestCandidateDeactivation() takes no parameters — calldata is exactly 4 bytes.
+			// This is the case that was missing from newStakingActionFromABIBinary, causing
+			// CandidateDeactivate to silently fail via eth_sendRawTransaction.
+			name:     "CandidateDeactivateRequest",
+			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
+			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
+			txamount: big.NewInt(0),
+			txdata:   requestCandidateDeactivationMethod.ID,
+			action:   &CandidateDeactivate{op: CandidateDeactivateOpRequest},
+			builder:  elpbuilder.BuildStakingAction,
+		},
+		{
 			name:     "StakeCandidateEndorsement",
 			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
 			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),

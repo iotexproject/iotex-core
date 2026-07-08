@@ -20,8 +20,8 @@ import (
 // Multi-language support
 var (
 	_versionCmdShorts = map[config.Language]string{
-		config.English: "Print the version of ioctl and node",
-		config.Chinese: "打印ioctl和节点的版本",
+		config.English: "Print the version and build info of ioctl",
+		config.Chinese: "打印ioctl的版本与构建信息",
 	}
 	_flagEndpointUsage = map[config.Language]string{
 		config.English: "set endpoint for once",

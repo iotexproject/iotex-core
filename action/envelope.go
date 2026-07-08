@@ -6,7 +6,6 @@
 package action
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -320,7 +319,7 @@ func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 			elp.common = &tx
 		}
 	default:
-		panic(fmt.Sprintf("unsupported action type = %d", pbAct.TxType))
+		return errors.Wrapf(ErrInvalidAct, "unsupported tx type = %d", pbAct.TxType)
 	}
 	return err
 }
@@ -421,6 +420,18 @@ func (elp *envelope) loadProtoActionPayload(pbAct *iotextypes.ActionCore) error 
 	case pbAct.GetCandidateActivate() != nil:
 		act := &CandidateActivate{}
 		if err := act.LoadProto(pbAct.GetCandidateActivate()); err != nil {
+			return err
+		}
+		elp.payload = act
+	case pbAct.GetCandidateDeactivate() != nil:
+		act := &CandidateDeactivate{}
+		if err := act.LoadProto(pbAct.GetCandidateDeactivate()); err != nil {
+			return err
+		}
+		elp.payload = act
+	case pbAct.GetScheduleCandidateDeactivation() != nil:
+		act := &ScheduleCandidateDeactivation{}
+		if err := act.LoadProto(pbAct.GetScheduleCandidateDeactivation()); err != nil {
 			return err
 		}
 		elp.payload = act

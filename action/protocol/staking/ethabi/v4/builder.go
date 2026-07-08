@@ -20,6 +20,8 @@ func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 		return newCandidateByAddressStateContext(data[4:])
 	case hex.EncodeToString(_candidateByIDMethod.ID):
 		return newCandidateByIDStateContext(data[4:])
+	case hex.EncodeToString(_candidateDeactivationMethod.ID):
+		return newCandidateDeactivationStateContext(data[4:])
 	default:
 		return nil, stakingComm.ErrInvalidCallSig
 	}

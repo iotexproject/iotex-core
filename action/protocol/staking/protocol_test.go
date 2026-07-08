@@ -672,22 +672,32 @@ func TestSlashCandidate(t *testing.T) {
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 
 	t.Run("nil amount", func(t *testing.T) {
-		err := p.SlashCandidate(ctx, sm, owner, nil)
+		err := p.SlashCandidateByID(ctx, sm, owner, nil)
 		require.ErrorContains(err, "nil or non-positive amount")
 	})
 
 	t.Run("zero amount", func(t *testing.T) {
-		err := p.SlashCandidate(ctx, sm, owner, big.NewInt(0))
+		err := p.SlashCandidateByID(ctx, sm, owner, big.NewInt(0))
+		require.ErrorContains(err, "nil or non-positive amount")
+	})
+
+	t.Run("negative amount", func(t *testing.T) {
+		err := p.SlashCandidateByID(ctx, sm, owner, big.NewInt(-1))
 		require.ErrorContains(err, "nil or non-positive amount")
 	})
 
 	t.Run("candidate not exist", func(t *testing.T) {
-		err := p.SlashCandidate(ctx, sm, identityset.Address(9), big.NewInt(1))
+		err := p.SlashCandidateByID(ctx, sm, identityset.Address(9), big.NewInt(1))
+		require.ErrorContains(err, "does not exist")
+	})
+
+	t.Run("operator not exist", func(t *testing.T) {
+		err := p.SlashCandidateByOperator(ctx, sm, identityset.Address(9), big.NewInt(1))
 		require.ErrorContains(err, "does not exist")
 	})
 
 	t.Run("bucket not exist", func(t *testing.T) {
-		err := p.SlashCandidate(ctx, sm, owner, big.NewInt(1))
+		err := p.SlashCandidateByID(ctx, sm, owner, big.NewInt(1))
 		require.ErrorContains(err, "failed to fetch bucket")
 	})
 
@@ -699,14 +709,14 @@ func TestSlashCandidate(t *testing.T) {
 	require.Equal(1, len(cl))
 
 	t.Run("amount greater than staked", func(t *testing.T) {
-		err := p.SlashCandidate(ctx, sm, owner, big.NewInt(2000))
+		err := p.SlashCandidateByID(ctx, sm, owner, big.NewInt(2000))
 		require.ErrorContains(err, "is greater than staked amount")
 	})
 
 	t.Run("success", func(t *testing.T) {
 		amount := big.NewInt(400)
 		remaining := bucket.StakedAmount.Sub(bucket.StakedAmount, amount)
-		require.NoError(p.SlashCandidate(ctx, sm, owner, amount))
+		require.NoError(p.SlashCandidateByID(ctx, sm, owner, amount))
 		cl, err = p.ActiveCandidates(ctx, sm, 0)
 		require.NoError(err)
 		require.Equal(0, len(cl))
@@ -725,7 +735,7 @@ func TestSlashCandidate(t *testing.T) {
 		require.Equal(remaining.String(), bucket.StakedAmount.String())
 		cand := csm.GetByIdentifier(owner)
 		require.Equal(remaining.String(), cand.SelfStake.String())
-		require.NoError(p.SlashCandidate(ctx, sm, cand.Operator, big.NewInt(11)))
+		require.NoError(p.SlashCandidateByOperator(ctx, sm, cand.Operator, big.NewInt(11)))
 		cl, err = p.ActiveCandidates(
 			ctx,
 			sm,
@@ -742,5 +752,18 @@ func TestSlashCandidate(t *testing.T) {
 		)
 		require.NoError(err)
 		require.Equal(1, len(cl))
+		require.Equal(cl[0].Identity, "")
+		cl, err = p.ActiveCandidates(ctx, sm, genesis.Default.ToBeEnabledBlockHeight)
+		require.NoError(err)
+		require.Equal(1, len(cl))
+		require.Equal(cl[0].Identity, owner.String())
+	})
+
+	t.Run("no self-stake bucket", func(t *testing.T) {
+		cand := csm.GetByIdentifier(owner)
+		cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
+		require.NoError(csm.Upsert(cand))
+		err := p.SlashCandidateByID(ctx, sm, owner, big.NewInt(1))
+		require.ErrorIs(err, ErrNoSelfStakeBucket)
 	})
 }

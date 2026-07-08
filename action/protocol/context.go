@@ -176,15 +176,16 @@ type (
 
 	// FeatureWithHeightCtx provides feature check functions.
 	FeatureWithHeightCtx struct {
-		GetUnproductiveDelegates CheckFunc
-		ReadStateFromDB          CheckFunc
-		UseV2Staking             CheckFunc
-		EnableNativeStaking      CheckFunc
-		StakingCorrectGas        CheckFunc
-		CalculateProbationList   CheckFunc
-		LoadCandidatesLegacy     CheckFunc
-		CandCenterHasAlias       CheckFunc
-		CandidateWithoutIdentity CheckFunc
+		GetUnproductiveDelegates        CheckFunc
+		ReadStateFromDB                 CheckFunc
+		UseV2Staking                    CheckFunc
+		EnableNativeStaking             CheckFunc
+		StakingCorrectGas               CheckFunc
+		CalculateProbationList          CheckFunc
+		LoadCandidatesLegacy            CheckFunc
+		CandCenterHasAlias              CheckFunc
+		CandidateWithoutIdentity        CheckFunc
+		CandidateWithoutIdentityStorage CheckFunc
 	}
 )
 
@@ -341,10 +342,10 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			StoreVoteOfNFTBucketIntoView:            !g.IsXingu(height),
 			CandidateSlashByOwner:                   !g.IsXinguBeta(height),
 			CandidateBLSPublicKeyNotCopied:          !g.IsXinguBeta(height),
-			OnlyOwnerCanUpdateBLSPublicKey:          !g.IsToBeEnabled(height),
-			PrePectraEVM:                            !g.IsToBeEnabled(height),
-			AlwaysWriteCachedContract:               !g.IsToBeEnabled(height),
-			NoCandidateExitQueue:                    !g.IsToBeEnabled(height),
+			OnlyOwnerCanUpdateBLSPublicKey:          !g.IsYap(height),
+			PrePectraEVM:                            !g.IsYap(height),
+			AlwaysWriteCachedContract:               !g.IsYap(height),
+			NoCandidateExitQueue:                    !g.IsYap(height),
 		},
 	)
 }
@@ -404,7 +405,10 @@ func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 				return !g.IsOkhotsk(height)
 			},
 			CandidateWithoutIdentity: func(height uint64) bool {
-				return !g.IsToBeEnabled(height)
+				return !g.IsYapBeta(height)
+			},
+			CandidateWithoutIdentityStorage: func(height uint64) bool {
+				return !g.IsYap(height)
 			},
 		},
 	)

@@ -3,6 +3,7 @@ package actsync
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -33,6 +34,7 @@ type (
 	ActionSync struct {
 		lifecycle.Readiness
 		actions  sync.Map
+		pending  atomic.Int64 // number of live entries in `actions`; bounded by cfg.Size
 		syncChan chan hash.Hash256
 		wg       sync.WaitGroup
 		helper   *Helper
@@ -104,15 +106,24 @@ func (as *ActionSync) RequestAction(_ context.Context, hash hash.Hash256) {
 	if !as.IsReady() {
 		return
 	}
+	// Bound the pending request set: a peer can flood us with forged ACTION_HASH
+	// messages that never resolve, so cap the live map by cfg.Size. Reserve the
+	// slot atomically before touching the map to prevent OOM and unbounded
+	// per-hash unicast amplification by triggerSync.
+	if as.pending.Add(1) > int64(as.cfg.Size) {
+		as.pending.Add(-1)
+		counterMtc.WithLabelValues("capacityExceeded").Inc()
+		log.L().Debug("action sync request capacity exceeded", log.Hex("hash", hash[:]))
+		return
+	}
 	// check if the action is already requested
-	_, ok := as.actions.LoadOrStore(hash, &actionMsg{})
-	if ok {
+	if _, ok := as.actions.LoadOrStore(hash, &actionMsg{}); ok {
+		as.pending.Add(-1)
 		log.L().Debug("Action already requested", log.Hex("hash", hash[:]))
 		return
 	}
 	log.L().Debug("Requesting action", log.Hex("hash", hash[:]))
 	as.trigger(hash)
-	return
 }
 
 // ReceiveAction receives an action
@@ -121,7 +132,9 @@ func (as *ActionSync) ReceiveAction(_ context.Context, hash hash.Hash256) {
 		return
 	}
 	log.L().Debug("received action", log.Hex("hash", hash[:]))
-	as.actions.Delete(hash)
+	if _, loaded := as.actions.LoadAndDelete(hash); loaded {
+		as.pending.Add(-1)
+	}
 }
 
 func (as *ActionSync) sync() {
