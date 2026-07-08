@@ -8,7 +8,6 @@ package evm
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"math"
 	"math/big"
 	"time"
@@ -106,6 +105,7 @@ type (
 		CommitContracts() error
 		Logs() []*action.Log
 		TransactionLogs() []*action.TransactionLog
+		AccessedSlots() map[common.Address][]common.Hash
 		clear()
 		Error() error
 	}
@@ -373,7 +373,11 @@ func ExecuteContract(
 
 	if ps.featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && len(retval) >= 4 && bytes.Equal(retval[:4], _revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
-		receipt.SetExecutionRevertMsg(ExtractRevertMessage(retval))
+		msg, err := ExtractRevertMessage(retval)
+		if err != nil {
+			return nil, nil, err
+		}
+		receipt.SetExecutionRevertMsg(msg)
 	}
 	return retval, receipt, nil
 }
@@ -573,7 +577,7 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 		chainConfig.CancunTime = &cancunTimestamp
 	}
 	// enable Prague
-	pragueTime, err := getBlockTime(g.ToBeEnabledBlockHeight)
+	pragueTime, err := getBlockTime(g.YapBlockHeight)
 	if err != nil {
 		return nil, err
 	} else if pragueTime != nil {
@@ -912,18 +916,71 @@ func SimulateExecution(
 	return retval, receipt, err
 }
 
-// ExtractRevertMessage extracts the revert message from the return value
-func ExtractRevertMessage(ret []byte) string {
-	if len(ret) < 4 {
-		return hex.EncodeToString(ret)
+// SimulateAndCollectAccessList runs a read-only EVM simulation and returns all
+// storage slots accessed during execution. This is used by the ioswarm coordinator
+// to discover which storage slots need to be prefetched for L3/L4 agents.
+func SimulateAndCollectAccessList(
+	ctx context.Context,
+	sm protocol.StateManager,
+	caller address.Address,
+	ex action.TxDataForSimulation,
+) (map[common.Address][]common.Hash, error) {
+	if err := ex.SanityCheck(); err != nil {
+		return nil, err
 	}
-	if !bytes.Equal(ret[:4], _revertSelector) {
-		return hex.EncodeToString(ret)
+	g := genesis.MustExtractGenesisContext(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:     caller,
+			ActionHash: hash.Hash256b(byteutil.Must(proto.Marshal(ex.Proto()))),
+			ReadOnly:   true,
+		},
+	)
+	zeroAddr, err := address.FromString(address.ZeroAddress)
+	if err != nil {
+		return nil, err
+	}
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight:    bcCtx.Tip.Height + 1,
+			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
+			GasLimit:       g.BlockGasLimitByHeight(bcCtx.Tip.Height + 1),
+			Producer:       zeroAddr,
+			BaseFee:        protocol.CalcBaseFee(g.Blockchain, &bcCtx.Tip),
+			ExcessBlobGas:  protocol.CalcExcessBlobGas(bcCtx.Tip.ExcessBlobGas, bcCtx.Tip.BlobGasUsed),
+		},
+	))
+	stateDB, err := prepareStateDB(ctx, sm)
+	if err != nil {
+		return nil, err
+	}
+	ps, err := newParams(ctx, ex)
+	if err != nil {
+		return nil, err
+	}
+	// Run EVM — we ignore the return value/receipt, we only care about accessed slots
+	executeInEVM(ctx, ps, stateDB)
+	return stateDB.AccessedSlots(), nil
+}
+
+// ExtractRevertMessage extracts the revert message from the return value.
+// Returns an error if the payload is not a well-formed Error(string) revert.
+func ExtractRevertMessage(ret []byte) (string, error) {
+	if len(ret) < 4 || !bytes.Equal(ret[:4], _revertSelector) {
+		return "", errors.New("malformed revert payload: missing Error(string) selector")
 	}
 	data := ret[4:]
+	if len(data) < 64 {
+		return "", errors.New("malformed revert payload: data shorter than offset+length header")
+	}
 	msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
-	revertMsg := string(data[64 : 64+msgLength])
-	return revertMsg
+	if msgLength > uint64(len(data)-64) {
+		return "", errors.New("malformed revert payload: declared length exceeds available data")
+	}
+	return string(data[64 : 64+msgLength]), nil
 }
 
 func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64) (authority common.Address, err error) {

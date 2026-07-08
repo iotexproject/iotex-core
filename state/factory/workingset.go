@@ -79,6 +79,8 @@ type (
 		finalized              bool
 		txValidator            *protocol.GenericValidator
 		receipts               []*action.Receipt
+		stateDiffEntries       []WriteQueueEntry // captured write queue for state diff broadcasting
+		stateDiffDigest        []byte            // cached digest bytes for state diff callback
 	}
 )
 
@@ -193,9 +195,16 @@ func (ws *workingSet) runAction(
 	}
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	var receipt *action.Receipt
-	traceErr := evm.TraceStart(ctx, ws, selp.Envelope)
-	if traceErr != nil {
-		log.L().Error("failed to start tracing EVM execution", zap.Error(traceErr))
+	// System actions (e.g. GrantReward) are implementation details and must not
+	// appear in block-level traces (debug_traceBlock*). Skip TraceStart/TraceEnd
+	// for them so CaptureTx is never called on their behalf.
+	isSystemAct := action.IsSystemAction(selp)
+	var traceErr error
+	if !isSystemAct {
+		traceErr = evm.TraceStart(ctx, ws, selp.Envelope)
+		if traceErr != nil {
+			log.L().Error("failed to start tracing EVM execution", zap.Error(traceErr))
+		}
 	}
 	for _, actionHandler := range reg.All() {
 		receipt, err = actionHandler.Handle(ctx, selp.Envelope, ws)
@@ -213,7 +222,7 @@ func (ws *workingSet) runAction(
 	if receipt == nil {
 		return nil, errors.New("receipt is empty")
 	}
-	if traceErr == nil {
+	if !isSystemAct && traceErr == nil {
 		evm.TraceEnd(ctx, receipt)
 	}
 	if fCtx.EnableBlobTransaction && len(selp.BlobHashes()) > 0 {
@@ -284,8 +293,29 @@ func (ws *workingSet) finalize(ctx context.Context) error {
 	if err := ws.store.Finalize(ctx); err != nil {
 		return err
 	}
+	// Capture write queue entries and digest for state diff broadcasting.
+	// Must happen after Finalize (which writes height) but before Commit (which flushes).
+	if sdbStore := ws.getStateDBStore(); sdbStore != nil {
+		ws.stateDiffEntries = sdbStore.CaptureWriteQueue()
+		d := sdbStore.Digest()
+		ws.stateDiffDigest = d[:]
+	}
 	ws.finalized = true
 
+	return nil
+}
+
+// getStateDBStore extracts the underlying *stateDBWorkingSetStore,
+// handling both direct and wrapped (workingSetStoreWithSecondary) cases.
+func (ws *workingSet) getStateDBStore() *stateDBWorkingSetStore {
+	if s, ok := ws.store.(*stateDBWorkingSetStore); ok {
+		return s
+	}
+	if s, ok := ws.store.(*workingSetStoreWithSecondary); ok {
+		if inner, ok := s.writer.(*stateDBWorkingSetStore); ok {
+			return inner
+		}
+	}
 	return nil
 }
 

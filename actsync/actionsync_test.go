@@ -126,6 +126,102 @@ func TestActionSync(t *testing.T) {
 			r.False(ok, "action should be removed after received")
 		}
 	})
+	t.Run("capacityBound", func(t *testing.T) {
+		// Forged-hash flood: every request is for a unique hash that never
+		// resolves via ReceiveAction. The live map must not grow past cfg.Size.
+		const cap = 8
+		bs := NewActionSync(Config{
+			Size:     cap,
+			Interval: time.Hour, // disable trigger churn for the duration of this test
+		}, &Helper{
+			P2PNeighbor: func() ([]peer.AddrInfo, error) {
+				return neighbors, nil
+			},
+			UnicastOutbound: func(_ context.Context, _ peer.AddrInfo, _ proto.Message) error {
+				return nil
+			},
+		})
+		r.NoError(bs.Start(context.Background()))
+		defer func() { r.NoError(bs.Stop(context.Background())) }()
+		for i := 0; i < cap*4; i++ {
+			bs.RequestAction(context.Background(), hash.Hash256b([]byte{0xff, byte(i), byte(i >> 8)}))
+		}
+		r.Equal(int64(cap), bs.pending.Load(), "pending count must not exceed configured cap")
+		stored := 0
+		bs.actions.Range(func(_, _ any) bool { stored++; return true })
+		r.Equal(cap, stored, "live entries must match the cap")
+		// ReceiveAction on a hash we already stored must drop the counter so a new request can land.
+		var sample hash.Hash256
+		bs.actions.Range(func(k, _ any) bool { sample = k.(hash.Hash256); return false })
+		bs.ReceiveAction(context.Background(), sample)
+		r.Equal(int64(cap-1), bs.pending.Load(), "ReceiveAction must release the slot")
+		bs.RequestAction(context.Background(), hash.Hash256b([]byte("fresh")))
+		r.Equal(int64(cap), bs.pending.Load(), "freed slot can be reused")
+	})
+	t.Run("duplicateRequestDoesNotDoubleCount", func(t *testing.T) {
+		// LoadOrStore must observe an existing entry and refund the slot, otherwise a
+		// peer that repeats the same forged hash would still grow the counter and
+		// eventually wedge the pool at the cap with one real hash.
+		bs := NewActionSync(Config{
+			Size:     4,
+			Interval: time.Hour,
+		}, &Helper{
+			P2PNeighbor: func() ([]peer.AddrInfo, error) {
+				return neighbors, nil
+			},
+			UnicastOutbound: func(_ context.Context, _ peer.AddrInfo, _ proto.Message) error {
+				return nil
+			},
+		})
+		r.NoError(bs.Start(context.Background()))
+		defer func() { r.NoError(bs.Stop(context.Background())) }()
+		dup := hash.Hash256b([]byte("dup"))
+		for i := 0; i < 50; i++ {
+			bs.RequestAction(context.Background(), dup)
+		}
+		r.Equal(int64(1), bs.pending.Load(), "repeated requests for the same hash must collapse to one slot")
+		// ReceiveAction on an unknown hash must not decrement.
+		bs.ReceiveAction(context.Background(), hash.Hash256b([]byte("missing")))
+		r.Equal(int64(1), bs.pending.Load(), "ReceiveAction for an unknown hash must be a no-op for the counter")
+		bs.ReceiveAction(context.Background(), dup)
+		r.Equal(int64(0), bs.pending.Load())
+	})
+	t.Run("concurrentFloodRespectsCap", func(t *testing.T) {
+		// Under contention the atomic reserve+undo must hold the cap exactly;
+		// otherwise a peer can race the check and force the map past the limit.
+		const cap = 16
+		bs := NewActionSync(Config{
+			Size:     cap,
+			Interval: time.Hour,
+		}, &Helper{
+			P2PNeighbor: func() ([]peer.AddrInfo, error) {
+				return neighbors, nil
+			},
+			UnicastOutbound: func(_ context.Context, _ peer.AddrInfo, _ proto.Message) error {
+				return nil
+			},
+		})
+		r.NoError(bs.Start(context.Background()))
+		defer func() { r.NoError(bs.Stop(context.Background())) }()
+		const goroutines = 32
+		const perG = 200
+		wg := sync.WaitGroup{}
+		for g := 0; g < goroutines; g++ {
+			wg.Add(1)
+			go func(g int) {
+				defer wg.Done()
+				for k := 0; k < perG; k++ {
+					bs.RequestAction(context.Background(), hash.Hash256b([]byte{byte(g), byte(k), byte(k >> 8)}))
+				}
+			}(g)
+		}
+		wg.Wait()
+		r.LessOrEqual(bs.pending.Load(), int64(cap), "pending must never exceed configured cap, even under contention")
+		stored := 0
+		bs.actions.Range(func(_, _ any) bool { stored++; return true })
+		r.LessOrEqual(stored, cap, "live entries must never exceed the cap")
+		r.EqualValues(stored, bs.pending.Load(), "counter and map size must agree")
+	})
 	t.Run("requestWhenStopping", func(t *testing.T) {
 		count := atomic.Int32{}
 		as := NewActionSync(Config{

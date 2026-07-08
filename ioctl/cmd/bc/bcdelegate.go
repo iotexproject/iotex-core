@@ -8,6 +8,7 @@ package bc
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"slices"
 	"strings"
@@ -24,6 +25,10 @@ import (
 	"github.com/iotexproject/iotex-core/v2/ioctl/output"
 	"github.com/iotexproject/iotex-core/v2/ioctl/util"
 )
+
+// candidateExitRequestedSentinel mirrors the chain-side sentinel that encodes
+// "Request received, schedule pending" in CandidateV2.DeactivatedAt.
+const candidateExitRequestedSentinel = uint64(math.MaxUint64)
 
 // Multi-language support
 var (
@@ -70,6 +75,14 @@ func (m *delegateMessage) delegateString() string {
 	lines = append(lines, fmt.Sprintf("	totalWeightedVotes: %s", util.RauToString(vote, util.IotxDecimalNum)))
 	lines = append(lines, fmt.Sprintf("	selfStakeBucketIdx: %d", d.SelfStakeBucketIdx))
 	lines = append(lines, fmt.Sprintf("	selfStakingTokens: %s IOTX", util.RauToString(token, util.IotxDecimalNum)))
+	switch d.DeactivatedAt {
+	case 0:
+		// active candidate; no exit in flight — omit the line entirely
+	case candidateExitRequestedSentinel:
+		lines = append(lines, "	deactivation: requested (schedule pending)")
+	default:
+		lines = append(lines, fmt.Sprintf("	deactivation: scheduled at block %d", d.DeactivatedAt))
+	}
 	lines = append(lines, "}")
 	return strings.Join(lines, "\n")
 }

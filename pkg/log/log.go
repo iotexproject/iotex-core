@@ -116,8 +116,7 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 			return errors.Errorf("unknown encoding: %s", cfg.Zap.Encoding)
 		}
 
-		core := zapcore.NewTee(cores...)
-		logger := zap.New(core, opts...)
+		logger := zap.New(zapcore.NewTee(cores...), opts...)
 
 		_logMu.Lock()
 		if name == _globalLoggerName {

@@ -123,6 +123,19 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 		require.Equal(msg.Info.Height, uint64(m.Gauge.GetValue()))
 	})
 
+	t.Run("nil_msg_and_nil_info", func(t *testing.T) {
+		hMock := mock_nodeinfo.NewMockchain(ctrl)
+		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, 2500*time.Millisecond, privKey)
+		// Both nil msg and msg with nil Info must not panic on field deref / hash.
+		require.NotPanics(func() { dm.HandleNodeInfo(context.Background(), "abc", nil) })
+		require.NotPanics(func() {
+			dm.HandleNodeInfo(context.Background(), "abc", &iotextypes.NodeInfo{Signature: []byte("sig")})
+		})
+		_, ok := dm.nodeMap.Get("abc")
+		require.False(ok)
+	})
+
 	t.Run("verify_fail", func(t *testing.T) {
 		hMock := mock_nodeinfo.NewMockchain(ctrl)
 		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
@@ -152,7 +165,6 @@ func TestDelegateManager_BroadcastNodeInfo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	privKey, err := crypto.GenerateKey()
-	nodeAddr := privKey.PublicKey().Address().String()
 	require.NoError(err)
 
 	t.Run("update_self", func(t *testing.T) {
@@ -165,7 +177,7 @@ func TestDelegateManager_BroadcastNodeInfo(t *testing.T) {
 		hMock.EXPECT().TipHeight().Return(height).Times(1)
 		tMock.EXPECT().Info().Return(peer.AddrInfo{ID: peerID}, nil).Times(1)
 		tMock.EXPECT().BroadcastOutbound(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-		err = dm.BroadcastNodeInfo(context.Background(), []string{nodeAddr})
+		err = dm.BroadcastNodeInfo(context.Background(), []crypto.PrivateKey{privKey})
 		require.NoError(err)
 		addr := privKey.PublicKey().Address().String()
 		nodeGot, ok := dm.nodeMap.Get(peerID.String())

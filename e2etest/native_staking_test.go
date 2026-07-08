@@ -1582,7 +1582,7 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 	cfg.Genesis.WakeBlockHeight = 1
 	cfg.Genesis.XinguBlockHeight = 10 // enable CandidateBLSPublicKey feature
 	cfg.Genesis.XinguBetaBlockHeight = 11
-	cfg.Genesis.ToBeEnabledBlockHeight = 20 // enable candidate BLS key update by operator feature
+	cfg.Genesis.YapBlockHeight = 20 // enable candidate BLS key update by operator feature
 	cfg.Genesis.SystemStakingContractAddress = ""
 	cfg.Genesis.SystemStakingContractV2Address = ""
 	cfg.Genesis.SystemStakingContractV3Address = ""
@@ -1646,7 +1646,7 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 	})
 	height, err := test.cs.BlockDAO().Height()
 	require.NoError(err)
-	jumps := int(cfg.Genesis.ToBeEnabledBlockHeight - height)
+	jumps := int(cfg.Genesis.YapBlockHeight - height)
 	if jumps <= 0 {
 		jumps = 1
 	}

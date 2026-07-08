@@ -54,13 +54,17 @@ func TraceStart(ctx context.Context, ws protocol.StateManager, elp action.TxData
 	default:
 		return errors.New("only eth compatible action is supported for tracing")
 	}
-	vmCtx.Tracer.OnTxStart(evm.GetVMContext(), ethTx, from)
+	if vmCtx.Tracer.OnTxStart != nil {
+		vmCtx.Tracer.OnTxStart(evm.GetVMContext(), ethTx, from)
+	}
 	if _, isExecution := elp.Action().(*action.Execution); isExecution {
 		// CaptureStart will be called in evm
 		return nil
 	}
 
-	vmCtx.Tracer.OnEnter(0, byte(vm.CALL), from, *to, input, elp.Gas(), value)
+	if vmCtx.Tracer.OnEnter != nil {
+		vmCtx.Tracer.OnEnter(0, byte(vm.CALL), from, *to, input, elp.Gas(), value)
+	}
 	return nil
 }
 
@@ -71,9 +75,13 @@ func TraceEnd(ctx context.Context, receipt *action.Receipt) {
 		return
 	}
 	output := receipt.Output
-	vmCtx.Tracer.OnExit(0, output, receipt.GasConsumed, nil, receipt.Status != uint64(iotextypes.ReceiptStatus_Success))
+	if vmCtx.Tracer.OnExit != nil {
+		vmCtx.Tracer.OnExit(0, output, receipt.GasConsumed, nil, receipt.Status != uint64(iotextypes.ReceiptStatus_Success))
+	}
 	ethReceipt := ToEthReceipt(receipt)
-	vmCtx.Tracer.OnTxEnd(ethReceipt, nil)
+	if vmCtx.Tracer.OnTxEnd != nil {
+		vmCtx.Tracer.OnTxEnd(ethReceipt, nil)
+	}
 	if t, ok := GetTracerCtx(ctx); ok {
 		t.CaptureTx(output, receipt)
 	}

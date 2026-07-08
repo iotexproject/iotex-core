@@ -79,7 +79,10 @@ func (backend *contractBackend) Deploy(callMsg *ethereum.CallMsg) (address.Addre
 	ret, addr, leftGas, err := evm.Create(vm.AccountRef(callMsg.From), callMsg.Data, callMsg.Gas, uint256.MustFromBig(callMsg.Value), true)
 	if err != nil {
 		if errors.Is(err, vm.ErrExecutionReverted) {
-			revertMsg := iotexevm.ExtractRevertMessage(ret)
+			revertMsg, msgErr := iotexevm.ExtractRevertMessage(ret)
+			if msgErr != nil {
+				revertMsg = hex.EncodeToString(ret)
+			}
 			log.L().Error("EVM deployment reverted",
 				zap.String("from", callMsg.From.String()),
 				zap.String("data", hex.EncodeToString(callMsg.Data)),
@@ -222,7 +225,10 @@ func (backend *contractBackend) call(callMsg *ethereum.CallMsg, intra evmtypes.I
 	if err != nil {
 		// Check if it's a revert error and extract the revert message
 		if errors.Is(err, vm.ErrExecutionReverted) {
-			revertMsg := iotexevm.ExtractRevertMessage(ret)
+			revertMsg, msgErr := iotexevm.ExtractRevertMessage(ret)
+			if msgErr != nil {
+				revertMsg = hex.EncodeToString(ret)
+			}
 			log.L().Error("EVM call reverted",
 				zap.String("from", callMsg.From.String()),
 				zap.String("to", callMsg.To.String()),

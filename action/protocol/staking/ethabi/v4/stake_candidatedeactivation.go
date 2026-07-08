@@ -10,11 +10,11 @@
 //
 // The ABI convention going forward is:
 //
-//   • The big bundled struct getters (candidateByAddress / candidateBy*)
+//   - The big bundled struct getters (candidateByAddress / candidateBy*)
 //     are FROZEN at V4 — new fields will not be appended. New consumers
 //     pair the V4 result with a focused getter via multicall.
 //
-//   • New per-feature state is exposed through its own getter that returns
+//   - New per-feature state is exposed through its own getter that returns
 //     only the fields it owns. The selector lives forever; the bundled
 //     struct ABI doesn't churn.
 //

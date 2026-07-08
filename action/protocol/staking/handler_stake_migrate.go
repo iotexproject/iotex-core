@@ -154,7 +154,7 @@ func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account
 		return nil, nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 	// create receipt log
-	actLog := newReceiptLog(p.addr.String(), HandleWithdrawStake, protocol.MustGetFeatureCtx(ctx).NewStakingReceiptFormat)
+	actLog := newReceiptLogLegacy(p.addr.String(), HandleWithdrawStake, protocol.MustGetFeatureCtx(ctx).NewStakingReceiptFormat)
 	actLog.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 	actLog.AddAddress(actionCtx.Caller)
 	actLog.SetData(bucket.StakedAmount.Bytes())

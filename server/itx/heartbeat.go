@@ -77,8 +77,11 @@ func NewHeartbeatHandler(s *Server, cfg p2p.Config) *HeartbeatHandler {
 // Log executes the logging logic
 func (h *HeartbeatHandler) Log() {
 	// operator address
-	cfg := h.s.Config().Chain
-	for _, addr := range cfg.ProducerAddress() {
+	chainCfg := h.s.Config().Chain
+	producerAddrs := chainCfg.ProducerAddress()
+	operatorAddresses := make([]string, 0, len(producerAddrs))
+	for _, addr := range producerAddrs {
+		operatorAddresses = append(operatorAddresses, addr.String())
 		_heartbeatMtc.WithLabelValues("operatorAddress", addr.String()).Set(1)
 	}
 
@@ -110,6 +113,7 @@ func (h *HeartbeatHandler) Log() {
 
 	numPeers := len(peers)
 	h.l.Debug("Node status.",
+		zap.Strings("operatorAddresses", operatorAddresses),
 		zap.Int("numConnectedPeers", numPeers),
 		zap.String("pendingDispatcherEvents", "{"+strings.Join(events, ", ")+"}"),
 		zap.String("pendingDispatcherEventsAudit", string(dpEvtsAudit)))

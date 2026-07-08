@@ -97,11 +97,10 @@ func TestBroadcastNodeInfo(t *testing.T) {
 	}()
 
 	// check if there is sender's info in receiver delegatemanager
-	addrSender := cfgSender.Chain.ProducerAddress()[0].String()
 	peer, err := srvSender.P2PAgent().Info()
 	require.NoError(err)
 	// TODO: replace with automatic broadcast check after enabling broadcast
-	require.NoError(srvSender.ChainService(cfgSender.Chain.ID).NodeInfoManager().BroadcastNodeInfo(context.Background(), []string{addrSender}))
+	require.NoError(srvSender.ChainService(cfgSender.Chain.ID).NodeInfoManager().BroadcastNodeInfo(context.Background(), cfgSender.Chain.ProducerPrivateKeys()))
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
 		_, ok := srvReciever.ChainService(cfgReciever.Chain.ID).NodeInfoManager().GetNodeInfo(peer.ID.String())
 		return ok, nil

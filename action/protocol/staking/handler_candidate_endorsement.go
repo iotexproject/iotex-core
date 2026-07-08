@@ -22,9 +22,9 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	var log *receiptLog
 	if featureCtx.EnforceLegacyEndorsement {
-		log = newReceiptLog(p.addr.String(), handleCandidateEndorsement, featureCtx.NewStakingReceiptFormat)
+		log = newReceiptLogLegacy(p.addr.String(), handleCandidateEndorsement, featureCtx.NewStakingReceiptFormat)
 	} else {
-		log = newReceiptLog(p.addr.String(), handleCandidateEndorsementWithOp, featureCtx.NewStakingReceiptFormat)
+		log = newReceiptLogLegacy(p.addr.String(), handleCandidateEndorsementWithOp, featureCtx.NewStakingReceiptFormat)
 	}
 
 	bucket, rErr := p.fetchBucket(csm, act.BucketIndex())
