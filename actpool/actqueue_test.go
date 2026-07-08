@@ -230,6 +230,126 @@ func TestActQueueCleanTimeout(t *testing.T) {
 	require.Equal(1, len(ret))
 }
 
+func TestActQueueReset(t *testing.T) {
+	r := require.New(t)
+	q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
+	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	r.NoError(err)
+	tsf2, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	r.NoError(err)
+	r.NoError(q.Put(tsf1))
+	r.NoError(q.Put(tsf2))
+	r.Equal(2, q.Len())
+	r.False(q.Empty())
+
+	q.Reset()
+	r.Equal(0, q.Len())
+	r.True(q.Empty())
+	r.Equal(uint64(0), q.pendingNonce)
+	r.Equal(uint64(0), q.accountNonce)
+	r.Equal(0, q.ascQueue.Len())
+	r.Equal(0, q.descQueue.Len())
+	r.Equal(big.NewInt(0), q.accountBalance)
+	r.Empty(q.AllActs())
+}
+
+func TestActQueueNextAction(t *testing.T) {
+	r := require.New(t)
+	t.Run("empty queue", func(t *testing.T) {
+		q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
+		pending, gasFeeCap := q.NextAction()
+		r.False(pending)
+		r.Nil(gasFeeCap)
+	})
+	t.Run("action continuous with pending nonce is committable", func(t *testing.T) {
+		q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
+		// gas fee cap is the last arg
+		tsf, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(7))
+		r.NoError(err)
+		r.NoError(q.Put(tsf))
+		// pending nonce advanced past account nonce -> committable
+		pending, gasFeeCap := q.NextAction()
+		r.True(pending)
+		r.Equal(big.NewInt(7), gasFeeCap)
+	})
+	t.Run("gapped action is not committable but still reports its fee cap", func(t *testing.T) {
+		q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
+		// nonce 3 leaves a gap above pending nonce 1
+		tsf, err := action.SignedTransfer(_addr2, _priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(9))
+		r.NoError(err)
+		r.NoError(q.Put(tsf))
+		pending, gasFeeCap := q.NextAction()
+		r.False(pending)
+		r.Equal(big.NewInt(9), gasFeeCap)
+	})
+}
+
+func TestActQueuePopActionWithLargestNonce(t *testing.T) {
+	r := require.New(t)
+	t.Run("empty queue returns nil", func(t *testing.T) {
+		q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
+		r.Nil(q.PopActionWithLargestNonce())
+	})
+	t.Run("pops the largest nonce and rewinds pending nonce", func(t *testing.T) {
+		q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
+		tsf1, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
+		r.NoError(err)
+		tsf2, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(1), nil, uint64(0), big.NewInt(0))
+		r.NoError(err)
+		tsf3, err := action.SignedTransfer(_addr2, _priKey1, 3, big.NewInt(1), nil, uint64(0), big.NewInt(0))
+		r.NoError(err)
+		r.NoError(q.Put(tsf1))
+		r.NoError(q.Put(tsf2))
+		r.NoError(q.Put(tsf3))
+		// three continuous actions => pending nonce is 4
+		r.Equal(uint64(4), q.pendingNonce)
+
+		r.Equal(tsf3, q.PopActionWithLargestNonce())
+		r.Equal(2, q.Len())
+		// pending nonce rewound to reflect that nonce 3 is gone
+		r.Equal(uint64(3), q.pendingNonce)
+		// remaining actions are the two lowest nonces, still ascending
+		r.Equal([]*action.SealedEnvelope{tsf1, tsf2}, q.AllActs())
+
+		r.Equal(tsf2, q.PopActionWithLargestNonce())
+		r.Equal(tsf1, q.PopActionWithLargestNonce())
+		r.Nil(q.PopActionWithLargestNonce())
+		r.True(q.Empty())
+	})
+}
+
+// TestActQueueCrossIndexIntegrity proves that the twin asc/desc heaps keep their
+// cross indexes (ascIdx/descIdx) consistent across mixed mutations: UpdateAccountState
+// removes the two lowest nonces (popping the asc heap and removing them from the desc
+// heap by descIdx), and PopActionWithLargestNonce then removes the highest nonces
+// (popping the desc heap and removing them from the asc heap by ascIdx). If either
+// stored index drifted, the wrong element would be removed and the ordering below
+// would break.
+func TestActQueueCrossIndexIntegrity(t *testing.T) {
+	r := require.New(t)
+	q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
+	tsfs := make([]*action.SealedEnvelope, 0, 5)
+	for n := uint64(1); n <= 5; n++ {
+		tsf, err := action.SignedTransfer(_addr2, _priKey1, n, big.NewInt(1), nil, uint64(0), big.NewInt(0))
+		r.NoError(err)
+		r.NoError(q.Put(tsf))
+		tsfs = append(tsfs, tsf) // tsfs[i] has nonce i+1
+	}
+	r.Equal(uint64(6), q.pendingNonce)
+
+	// confirm nonces < 3 (removes nonce 1 and 2 from both heaps)
+	removed := q.UpdateAccountState(3, big.NewInt(maxBalance))
+	r.ElementsMatch([]*action.SealedEnvelope{tsfs[0], tsfs[1]}, removed)
+	r.Equal(3, q.Len())
+
+	// pop remaining in descending nonce order; cross-indexes must stay valid
+	r.Equal(tsfs[4], q.PopActionWithLargestNonce()) // nonce 5
+	r.Equal(tsfs[3], q.PopActionWithLargestNonce()) // nonce 4
+	r.Equal(tsfs[2], q.PopActionWithLargestNonce()) // nonce 3
+	r.Nil(q.PopActionWithLargestNonce())
+	r.True(q.Empty())
+}
+
 // BenchmarkHeapInitAndRemove compare the heap re-establish performance between
 // using the heap.Init and the heap.Remove after remove some elements.
 // The bench result show that the performance of heap.Init is better than heap.Remove
