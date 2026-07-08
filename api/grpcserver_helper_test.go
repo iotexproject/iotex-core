@@ -105,4 +105,26 @@ func TestActionsInBlock(t *testing.T) {
 		r.NoError(err)
 		r.Len(res, 5)
 	})
+
+	t.Run("fewer receipts than actions does not panic", func(t *testing.T) {
+		// 5 actions but only the first 2 have receipts; the actions lacking a
+		// receipt must be skipped instead of triggering an index-out-of-range.
+		shortReceipts := receipts[:2]
+		r.NotPanics(func() {
+			res, err := actionsInBlock(blk, shortReceipts, 0, math.MaxUint64)
+			r.NoError(err)
+			// only the actions with a corresponding receipt are returned
+			r.Len(res, 2)
+			r.Equal(uint32(0), res[0].Index)
+			r.Equal(uint32(1), res[1].Index)
+		})
+	})
+
+	t.Run("no receipts at all yields empty result without panic", func(t *testing.T) {
+		r.NotPanics(func() {
+			res, err := actionsInBlock(blk, nil, 0, math.MaxUint64)
+			r.NoError(err)
+			r.Empty(res)
+		})
+	})
 }
