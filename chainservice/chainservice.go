@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,6 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -32,7 +35,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockindex"
-	"github.com/iotexproject/iotex-core/v2/blockindex/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blocksync"
 	"github.com/iotexproject/iotex-core/v2/consensus"
 	"github.com/iotexproject/iotex-core/v2/nodeinfo"
@@ -74,7 +76,7 @@ type ChainService struct {
 	bfIndexer                blockindex.BloomFilterIndexer
 	candidateIndexer         *poll.CandidateIndexer
 	candBucketsIndexer       *staking.CandidatesBucketsIndexer
-	contractStakingIndexer   *contractstaking.Indexer
+	contractStakingIndexer   staking.ContractStakingIndexerWithBucketType
 	contractStakingIndexerV2 stakingindex.StakingIndexer
 	contractStakingIndexerV3 stakingindex.StakingIndexer
 	registry                 *protocol.Registry
@@ -134,7 +136,7 @@ func (cs *ChainService) Filter(messageType iotexrpc.MessageType, msg proto.Messa
 		return true
 	}
 	blk, ok := msg.(*iotextypes.Block)
-	if !ok || blk == nil {
+	if !ok || blk == nil || blk.Header == nil || blk.Header.Core == nil {
 		return false
 	}
 	if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
@@ -154,13 +156,35 @@ func (cs *ChainService) ReportFullness(_ context.Context, messageType iotexrpc.M
 	switch messageType {
 	case iotexrpc.MessageType_BLOCK:
 		blk, ok := msg.(*iotextypes.Block)
-		if !ok || blk == nil {
+		if !ok || blk == nil || blk.Header == nil || blk.Header.Core == nil {
 			return
 		}
 		if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
 			atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
 		}
 	}
+}
+
+// HandleBundle handles incoming bundle request.
+func (cs *ChainService) HandleBundle(ctx context.Context, bundlePb *iotextypes.Bundle) error {
+	if bundlePb == nil {
+		return errors.New("nil bundle")
+	}
+	bp := cs.actpool.BundlePool()
+	if bp == nil {
+		return errors.New("bundle pool is not initialized")
+	}
+	bundle := action.NewBundle()
+	if err := bundle.LoadProto(bundlePb, (&action.Deserializer{}).SetEvmNetworkID(cs.chain.EvmNetworkID())); err != nil {
+		log.L().Debug("failed to deserialize bundle", zap.Error(err))
+		return errors.Wrap(err, "failed to deserialize bundle")
+	}
+	zeroAddr, err := address.FromString(address.ZeroAddress)
+	if err != nil {
+		return err
+	}
+
+	return bp.AddBundle(ctx, zeroAddr, uuid.New().String(), bundle)
 }
 
 // HandleAction handles incoming action request.
@@ -267,6 +291,21 @@ func (cs *ChainService) ActionPool() actpool.ActPool {
 // Consensus returns the consensus instance
 func (cs *ChainService) Consensus() consensus.Consensus {
 	return cs.consensus
+}
+
+// UpdateProducerKeys refreshes consensus and node-info producer keys without restarting the process.
+func (cs *ChainService) UpdateProducerKeys(keys []crypto.PrivateKey) error {
+	updater, ok := cs.consensus.(interface {
+		UpdateProducerKeys([]crypto.PrivateKey) error
+	})
+	if !ok {
+		return errors.Errorf("consensus %T does not support producer key updates", cs.consensus)
+	}
+	if err := updater.UpdateProducerKeys(keys); err != nil {
+		return err
+	}
+	cs.nodeInfoManager.UpdateProducerKeys(keys)
+	return nil
 }
 
 // BlockSync returns the block syncer

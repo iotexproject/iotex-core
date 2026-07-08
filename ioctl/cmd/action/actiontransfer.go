@@ -8,6 +8,8 @@ package action
 import (
 	"encoding/hex"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -44,6 +46,7 @@ var _actionTransferCmd = &cobra.Command{
 
 func init() {
 	RegisterWriteCommand(_actionTransferCmd)
+	RegisterAuthFlags(_actionTransferCmd)
 }
 
 func transfer(args []string) error {
@@ -52,12 +55,21 @@ func transfer(args []string) error {
 		return output.NewError(output.AddressError, "failed to get recipient address", err)
 	}
 
-	accountMeta, err := account.GetAccountMeta(recipient)
+	auths, err := ParsedAuthList()
 	if err != nil {
-		return output.NewError(0, "failed to get account meta", err)
+		return err
 	}
-	if accountMeta.IsContract {
-		return output.NewError(output.RuntimeError, "use 'ioctl contract' command instead", err)
+	// Legacy transfer rejects sending to a contract — the EIP-7702 path is the
+	// expected route for hitting a contract from a "transfer"-style call (since
+	// SetCodeTx is always a CALL, never a CREATE).
+	if len(auths) == 0 {
+		accountMeta, err := account.GetAccountMeta(recipient)
+		if err != nil {
+			return output.NewError(0, "failed to get account meta", err)
+		}
+		if accountMeta.IsContract {
+			return output.NewError(output.RuntimeError, "use 'ioctl contract' command instead", err)
+		}
 	}
 
 	amount, err := util.StringToRau(args[1], util.IotxDecimalNum)
@@ -84,6 +96,17 @@ func transfer(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get gas price", err)
 	}
+
+	if len(auths) > 0 {
+		recipientIoAddr, err := address.FromString(recipient)
+		if err != nil {
+			return output.NewError(output.AddressError, "failed to parse recipient", err)
+		}
+		toETH := common.BytesToAddress(recipientIoAddr.Bytes())
+		return SignAndSendEthTx(sender,
+			SetCodeTxBuilder(toETH, amount, gasPriceRau, gasLimit, payload, auths))
+	}
+
 	nonce, err := nonce(sender)
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)

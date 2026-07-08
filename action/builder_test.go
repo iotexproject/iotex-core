@@ -161,13 +161,13 @@ func TestEthTxUtils(t *testing.T) {
 	act := NewClaimFromRewardingFund(big.NewInt(1), addr, []byte("any"))
 	elp := (&EnvelopeBuilder{}).SetNonce(100).SetGasLimit(21000).
 		SetGasPrice(big.NewInt(101)).SetAction(act).Build()
-	tx, err := elp.ToEthTx(chainID, iotextypes.Encoding_ETHEREUM_EIP155)
+	tx, err := elp.ToEthTx()
 	r.NoError(err)
 
 	var (
 		signer1, _ = NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, chainID)
 		sig1, _    = sk1.Sign(tx.Hash().Bytes())
-		signer2    = types.NewCancunSigner(big.NewInt(int64(chainID)))
+		signer2    = types.NewPragueSigner(big.NewInt(int64(chainID)))
 		sig2, _    = ethercrypto.Sign(tx.Hash().Bytes(), sk2)
 	)
 	r.Equal(signer1, signer2)

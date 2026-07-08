@@ -103,12 +103,12 @@ func protocolPreCommit(ctx context.Context, sr protocol.StateManager) error {
 	return nil
 }
 
-func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
+func protocolCommit(ctx context.Context, sm protocol.StateManager) error {
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
 			post, ok := p.(protocol.Committer)
 			if ok {
-				if err := post.Commit(ctx, sr); err != nil {
+				if err := post.Commit(ctx, sm); err != nil {
 					return err
 				}
 			}

@@ -11,6 +11,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
@@ -49,13 +52,78 @@ func newContractStakingDirty(clean stakingCache) *contractStakingDirty {
 	}
 }
 
+func (dirty *contractStakingDirty) PutBucketType(contractAddr address.Address, bt *BucketType) error {
+	dirty.putBucketType(bt)
+	return nil
+}
+
+func (dirty *contractStakingDirty) DeductBucket(contractAddr address.Address, id uint64) (*contractstaking.Bucket, error) {
+	bi, ok := dirty.cache.BucketInfo(id)
+	if !ok {
+		return nil, errors.Wrapf(contractstaking.ErrBucketNotExist, "bucket info %d not found", id)
+	}
+	bt, ok := dirty.cache.BucketType(bi.TypeIndex)
+	if !ok {
+		return nil, errors.New("bucket type not found")
+	}
+	return &contractstaking.Bucket{
+		StakedAmount:   bt.Amount,
+		StakedDuration: bt.Duration,
+		CreatedAt:      bi.CreatedAt,
+		UnlockedAt:     bi.UnlockedAt,
+		UnstakedAt:     bi.UnstakedAt,
+		Candidate:      bi.Delegate,
+		Owner:          bi.Owner,
+	}, nil
+}
+
+func (dirty *contractStakingDirty) DeleteBucket(contractAddr address.Address, id uint64) error {
+	dirty.deleteBucketInfo(id)
+	return nil
+}
+
+func (dirty *contractStakingDirty) PutBucket(contractAddr address.Address, id uint64, bkt *contractstaking.Bucket) error {
+	bi, err := dirty.convertToBucketInfo(bkt)
+	if err != nil {
+		return err
+	}
+	dirty.addBucketInfo(id, bi)
+	return nil
+}
+
+func (dirty *contractStakingDirty) convertToBucketInfo(bucket *contractstaking.Bucket) (*bucketInfo, error) {
+	if bucket == nil {
+		return nil, nil
+	}
+	tid, old := dirty.matchBucketType(bucket.StakedAmount, bucket.StakedDuration)
+	if old == nil {
+		return nil, errBucketTypeNotExist
+	}
+	return &bucketInfo{
+		TypeIndex:  tid,
+		CreatedAt:  bucket.CreatedAt,
+		UnlockedAt: bucket.UnlockedAt,
+		UnstakedAt: bucket.UnstakedAt,
+		Delegate:   bucket.Candidate,
+		Owner:      bucket.Owner,
+	}, nil
+}
+
 func (dirty *contractStakingDirty) addBucketInfo(id uint64, bi *bucketInfo) {
-	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
+	data, err := bi.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket info"))
+	}
+	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket info")
 	dirty.cache.PutBucketInfo(id, bi)
 }
 
 func (dirty *contractStakingDirty) updateBucketInfo(id uint64, bi *bucketInfo) {
-	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), bi.Serialize(), "failed to put bucket info")
+	data, err := bi.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket info"))
+	}
+	dirty.batch.Put(_StakingBucketInfoNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket info")
 	dirty.cache.PutBucketInfo(id, bi)
 }
 
@@ -65,8 +133,8 @@ func (dirty *contractStakingDirty) deleteBucketInfo(id uint64) {
 }
 
 func (dirty *contractStakingDirty) putBucketType(bt *BucketType) {
-	id, _, ok := dirty.matchBucketType(bt.Amount, bt.Duration)
-	if !ok {
+	id, old := dirty.matchBucketType(bt.Amount, bt.Duration)
+	if old == nil {
 		id = dirty.getBucketTypeCount()
 		dirty.addBucketType(id, bt)
 	}
@@ -81,7 +149,7 @@ func (dirty *contractStakingDirty) getBucketInfo(id uint64) (*bucketInfo, bool) 
 	return dirty.cache.BucketInfo(id)
 }
 
-func (dirty *contractStakingDirty) finalize() (batch.KVStoreBatch, stakingCache) {
+func (dirty *contractStakingDirty) Finalize() (batch.KVStoreBatch, stakingCache) {
 	b := dirty.finalizeBatch()
 
 	return b, dirty.cache
@@ -96,11 +164,15 @@ func (dirty *contractStakingDirty) finalizeBatch() batch.KVStoreBatch {
 }
 
 func (dirty *contractStakingDirty) addBucketType(id uint64, bt *BucketType) {
-	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.Serialize(), "failed to put bucket type")
+	data, err := bt.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket type"))
+	}
+	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket type")
 	dirty.cache.PutBucketType(id, bt)
 }
 
-func (dirty *contractStakingDirty) matchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType, bool) {
+func (dirty *contractStakingDirty) matchBucketType(amount *big.Int, duration uint64) (uint64, *BucketType) {
 	return dirty.cache.MatchBucketType(amount, duration)
 }
 
@@ -109,6 +181,10 @@ func (dirty *contractStakingDirty) getBucketTypeCount() uint64 {
 }
 
 func (dirty *contractStakingDirty) updateBucketType(id uint64, bt *BucketType) {
-	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), bt.Serialize(), "failed to put bucket type")
+	data, err := bt.Serialize()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to serialize bucket type"))
+	}
+	dirty.batch.Put(_StakingBucketTypeNS, byteutil.Uint64ToBytesBigEndian(id), data, "failed to put bucket type")
 	dirty.cache.PutBucketType(id, bt)
 }

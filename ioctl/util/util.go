@@ -6,6 +6,7 @@
 package util
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/tls"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -112,8 +114,27 @@ func StringToIOTX(amount string) (string, error) {
 	return RauToString(amountInt, IotxDecimalNum), nil
 }
 
-// ReadSecretFromStdin used to safely get password input
+// stdinLineReader is a shared bufio.Reader for non-TTY stdin.
+// It must be reused across calls to avoid losing buffered data when multiple
+// passwords are read in sequence (e.g. account create reads password twice).
+var stdinLineReader *bufio.Reader
+
+// ReadSecretFromStdin used to safely get password input.
+// When stdin is not a terminal (e.g. piped input), it reads a line from stdin instead of using terminal raw mode.
 func ReadSecretFromStdin() (string, error) {
+	// Non-TTY mode: read password from stdin as a line (supports piped input)
+	if !terminal.IsTerminal(int(syscall.Stdin)) {
+		if stdinLineReader == nil {
+			stdinLineReader = bufio.NewReader(os.Stdin)
+		}
+		line, err := stdinLineReader.ReadString('\n')
+		if err != nil && len(line) == 0 {
+			return "", output.NewError(output.InputError, "failed to read password from stdin", err)
+		}
+		return strings.TrimRight(line, "\r\n"), nil
+	}
+
+	// TTY mode: use terminal raw mode for secure input
 	signalListener := make(chan os.Signal, 1)
 	signal.Notify(signalListener, os.Interrupt)
 	routineTerminate := make(chan struct{})
@@ -189,10 +210,8 @@ func JwtAuth() (jwt metadata.MD, err error) {
 // CheckArgs used for check ioctl cmd arg(s)'s num
 func CheckArgs(validNum ...int) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
-		for _, n := range validNum {
-			if len(args) == n {
-				return nil
-			}
+		if slices.Contains(validNum, len(args)) {
+			return nil
 		}
 		nums := strings.Replace(strings.Trim(fmt.Sprint(validNum), "[]"), " ", " or ", -1)
 		return fmt.Errorf("accepts "+nums+" arg(s), received %d", len(args))

@@ -6,6 +6,7 @@
 package action
 
 import (
+	"bytes"
 	"context"
 	"math"
 	"math/big"
@@ -22,10 +23,11 @@ const (
 	AccessListTxType = 1
 	DynamicFeeTxType = 2
 	BlobTxType       = 3
+	SetCodeTxType    = 4
 )
 
 type (
-	// Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
+	// Action is the action that can be executed in protocols. The method is added to avoid mistakenly using empty interface as action.
 	Action interface {
 		SanityCheck() error
 	}
@@ -89,7 +91,7 @@ func FakeSeal(act Envelope, pubk crypto.PublicKey) *SealedEnvelope {
 	return sealed
 }
 
-// AssembleSealedEnvelope assembles a SealedEnvelope use Envelope, Sender Address and Signature.
+// AssembleSealedEnvelope assembles a SealedEnvelope using Envelope, Sender Address and Signature.
 // This method should be only used in tests.
 func AssembleSealedEnvelope(act Envelope, pk crypto.PublicKey, sig []byte) *SealedEnvelope {
 	sealed := &SealedEnvelope{
@@ -111,10 +113,25 @@ func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSi
 	return payloadSize*payloadGas + baseIntrinsicGas, nil
 }
 
+// FloorDataGas computes the minimum gas required for a transaction based on its data tokens (EIP-7623).
+func FloorDataGas(data []byte) (uint64, error) {
+	var (
+		z      = uint64(bytes.Count(data, []byte{0}))
+		nz     = uint64(len(data)) - z
+		tokens = nz*TxTokenPerNonZeroByte + z
+	)
+	// Check for overflow
+	if (math.MaxUint64-TxGas)/TxCostFloorPerToken < tokens {
+		return 0, ErrGasUintOverflow
+	}
+	// Minimum gas required for a transaction based on its data tokens (EIP-7623).
+	return TxGas + tokens*TxCostFloorPerToken, nil
+}
+
 // IsSystemAction determine whether input action belongs to system action
 func IsSystemAction(act *SealedEnvelope) bool {
 	switch act.Action().(type) {
-	case *GrantReward, *PutPollResult:
+	case *GrantReward, *PutPollResult, *ScheduleCandidateDeactivation:
 		return true
 	default:
 		return false

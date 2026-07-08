@@ -93,8 +93,14 @@ func register(args []string) error {
 		return output.NewError(output.UpdateError, "failed to register project", err)
 	}
 
-	projectId := new(big.Int).SetBytes(receipt.ReceiptInfo.Receipt.Logs[0].Topics[3])
-	fmt.Printf("Registerd ioID project id is %s\n", projectId.String())
+	logs := receipt.ReceiptInfo.Receipt.Logs
+	if len(logs) == 0 || len(logs[0].Topics) < 4 {
+		return output.NewError(output.APIError,
+			fmt.Sprintf("project registration tx %s was mined but no project-id log was found; "+
+				"the registration may have reverted, please check the receipt on the explorer", tx), nil)
+	}
+	projectId := new(big.Int).SetBytes(logs[0].Topics[3])
+	fmt.Printf("Registered ioID project id is %s\n", projectId.String())
 
 	return nil
 }

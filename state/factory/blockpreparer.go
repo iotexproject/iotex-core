@@ -2,16 +2,28 @@ package factory
 
 import (
 	"context"
+	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
+
+var _mintPanicMtc = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "iotex_mint_panics_total",
+	Help: "Number of mint goroutine panics recovered (the draft block was discarded; process kept alive).",
+})
+
+func init() {
+	prometheus.MustRegister(_mintPanicMtc)
+}
 
 type (
 	blockPreparer struct {
@@ -66,7 +78,29 @@ func (d *blockPreparer) prepare(prevHash []byte, timestamp time.Time, mintFn fun
 	d.tasks[hash.BytesToHash256(prevHash)][timestamp.UnixNano()] = task
 
 	go func() {
-		blk, err := mintFn()
+		var (
+			blk *block.Block
+			err error
+		)
+		// Recover from mint panics so a doomed draft (e.g. a missing trie node
+		// from a concurrent block-sync commit) does not crash the process. The
+		// recover is scoped to this goroutine: panics in the block-apply path
+		// (PutBlock) run on a different goroutine and remain fatal, preserving
+		// the corruption safety net there.
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					_mintPanicMtc.Inc()
+					log.L().Error("mint panicked; draft discarded, process kept alive",
+						zap.Any("panic", r),
+						log.Hex("prevHash", prevHash),
+						zap.Time("timestamp", timestamp),
+						zap.String("stack", string(debug.Stack())))
+					err = fmt.Errorf("mint panicked: %v", r)
+				}
+			}()
+			blk, err = mintFn()
+		}()
 		d.mu.Lock()
 		if _, ok := d.results[hash.BytesToHash256(prevHash)]; !ok {
 			d.results[hash.BytesToHash256(prevHash)] = make(map[int64]*mintResult)

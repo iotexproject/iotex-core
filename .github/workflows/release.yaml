@@ -28,10 +28,35 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.22.12
+          go-version: 1.24.6
 
-      - name: make iotex-server/ioctl
-        if: startsWith(matrix.os, 'windows-latest') != true
+      # Linux artifacts are built inside a Debian bullseye container (glibc 2.31)
+      # so the CGO-linked binaries only require GLIBC <= 2.31 and therefore run on
+      # Ubuntu 20.04 (focal, glibc 2.31) and every newer distro. Building on the
+      # ubuntu-latest runner directly links against its glibc (2.35+/2.39), which
+      # produces binaries that fail on Ubuntu 20.04 with "GLIBC_2.32/2.34 not
+      # found" (issue #4066). ioctl and server both pull in CGO dependencies
+      # (erigon-lib/mdbx-go, supranational/blst), so CGO cannot simply be
+      # disabled; lowering the build-time glibc is the correct fix.
+      - name: make iotex-server/ioctl (Linux, glibc 2.31 for Ubuntu 20.04+)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          # Create bin/ on the host first so it is owned by the runner user; the
+          # container writes the (root-owned) binaries into it, and the later GPG
+          # signing steps can still create the *.asc files inside this directory.
+          mkdir -p bin
+          docker run --rm \
+            --platform linux/amd64 \
+            -v "${{ github.workspace }}":/src -w /src \
+            -e CGO_CFLAGS=-D_LARGEFILE64_SOURCE \
+            -e PACKAGE_VERSION=${{ github.ref_name }} \
+            -e PACKAGE_COMMIT_ID=${{ github.sha }} \
+            -e GIT_STATUS=clean \
+            golang:1.24.6-bullseye \
+            bash -c "git config --global --add safe.directory /src && make build"
+
+      - name: make iotex-server/ioctl (macOS)
+        if: startsWith(matrix.os, 'macos')
         run: |
           make build
 

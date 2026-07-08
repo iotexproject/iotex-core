@@ -6,7 +6,6 @@
 package action
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,7 +25,6 @@ type (
 		IntrinsicGas() (uint64, error)
 		Size() uint32
 		Action() Action
-		ToEthTx(uint32, iotextypes.Encoding) (*types.Transaction, error)
 		Proto() *iotextypes.ActionCore
 		ProtoForHash() *iotextypes.ActionCore
 		LoadProto(*iotextypes.ActionCore) error
@@ -44,6 +42,7 @@ type (
 		Value() *big.Int
 		To() *common.Address
 		Data() []byte
+		ToEthTx() (*types.Transaction, error)
 	}
 
 	TxCommon interface {
@@ -53,6 +52,7 @@ type (
 		TxDynamicGas
 		AccessList() types.AccessList
 		TxBlob
+		SetCodeAuthorizations() []types.SetCodeAuthorization
 	}
 
 	TxCommonInternal interface {
@@ -146,6 +146,10 @@ func (elp *envelope) BlobTxSidecar() *types.BlobTxSidecar {
 	return elp.common.BlobTxSidecar()
 }
 
+func (elp *envelope) SetCodeAuthorizations() []types.SetCodeAuthorization {
+	return elp.common.SetCodeAuthorizations()
+}
+
 func (elp *envelope) Value() *big.Int {
 	if exec, ok := elp.Action().(*Execution); ok {
 		return exec.Value()
@@ -214,6 +218,9 @@ func (elp *envelope) IntrinsicGas() (uint64, error) {
 		gas += uint64(len(acl)) * TxAccessListAddressGas
 		gas += uint64(acl.StorageKeys()) * TxAccessListStorageKeyGas
 	}
+	if auths := elp.SetCodeAuthorizations(); len(auths) > 0 {
+		gas += uint64(len(auths)) * CallNewAccountGas
+	}
 	return gas, nil
 }
 
@@ -234,7 +241,7 @@ func (elp *envelope) Size() uint32 {
 func (elp *envelope) Action() Action { return elp.payload }
 
 // ToEthTx converts to Ethereum tx
-func (elp *envelope) ToEthTx(evmNetworkID uint32, encoding iotextypes.Encoding) (*types.Transaction, error) {
+func (elp *envelope) ToEthTx() (*types.Transaction, error) {
 	tx, ok := elp.Action().(EthCompatibleAction)
 	if !ok {
 		// action type not supported
@@ -306,8 +313,13 @@ func (elp *envelope) loadProtoTxCommon(pbAct *iotextypes.ActionCore) error {
 		if err = tx.fromProto(pbAct); err == nil {
 			elp.common = &tx
 		}
+	case SetCodeTxType:
+		tx := SetCodeTx{}
+		if err = tx.fromProto(pbAct); err == nil {
+			elp.common = &tx
+		}
 	default:
-		panic(fmt.Sprintf("unsupported action type = %d", pbAct.TxType))
+		return errors.Wrapf(ErrInvalidAct, "unsupported tx type = %d", pbAct.TxType)
 	}
 	return err
 }
@@ -408,6 +420,18 @@ func (elp *envelope) loadProtoActionPayload(pbAct *iotextypes.ActionCore) error 
 	case pbAct.GetCandidateActivate() != nil:
 		act := &CandidateActivate{}
 		if err := act.LoadProto(pbAct.GetCandidateActivate()); err != nil {
+			return err
+		}
+		elp.payload = act
+	case pbAct.GetCandidateDeactivate() != nil:
+		act := &CandidateDeactivate{}
+		if err := act.LoadProto(pbAct.GetCandidateDeactivate()); err != nil {
+			return err
+		}
+		elp.payload = act
+	case pbAct.GetScheduleCandidateDeactivation() != nil:
+		act := &ScheduleCandidateDeactivation{}
+		if err := act.LoadProto(pbAct.GetScheduleCandidateDeactivation()); err != nil {
 			return err
 		}
 		elp.payload = act

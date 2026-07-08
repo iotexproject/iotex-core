@@ -23,7 +23,7 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 	actCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 
-	log := newReceiptLog(p.addr.String(), handleCandidateTransferOwnership, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), handleCandidateTransferOwnership, featureCtx.NewStakingReceiptFormat)
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
 		return log, nil, fetchErr
@@ -39,7 +39,7 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 	candidate.Owner = act.NewOwner()
 	// clear selfstake
 	needClear := func() (bool, *big.Int, error) {
-		bucket, err := csm.getBucket(candidate.SelfStakeBucketIdx)
+		bucket, err := csm.NativeBucket(candidate.SelfStakeBucketIdx)
 		if err == nil {
 			// keep the self-stake bucket if it's endorse bucket
 			esm := NewEndorsementStateReader(csm.SR())

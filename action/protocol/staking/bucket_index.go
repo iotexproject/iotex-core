@@ -12,6 +12,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
@@ -49,6 +50,20 @@ func (bis *BucketIndices) Deserialize(data []byte) error {
 // Serialize serializes bucket indices into bytes
 func (bis *BucketIndices) Serialize() ([]byte, error) {
 	return proto.Marshal(bis.Proto())
+}
+
+// Encode encodes bucket indices into generic value
+func (bis *BucketIndices) Encode() (systemcontracts.GenericValue, error) {
+	data, err := bis.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize bucket indices")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes bucket indices from generic value
+func (bis *BucketIndices) Decode(gv systemcontracts.GenericValue) error {
+	return bis.Deserialize(gv.PrimaryData)
 }
 
 func (bis *BucketIndices) addBucketIndex(index uint64) {

@@ -9,16 +9,14 @@ import "time"
 
 // Config node config
 type Config struct {
-	EnableBroadcastNodeInfo   bool          `yaml:"enableBroadcastNodeInfo"`
+	DisableBroadcastNodeInfo  bool          `yaml:"enableBroadcastNodeInfo"`
 	BroadcastNodeInfoInterval time.Duration `yaml:"broadcastNodeInfoInterval"`
-	BroadcastListTTL          time.Duration `yaml:"broadcastListTTL"`
 	NodeMapSize               int           `yaml:"nodeMapSize"`
 }
 
 // DefaultConfig is the default config
 var DefaultConfig = Config{
-	EnableBroadcastNodeInfo:   false,
-	BroadcastNodeInfoInterval: 5 * time.Minute,
-	BroadcastListTTL:          30 * time.Minute,
+	DisableBroadcastNodeInfo:  false,
+	BroadcastNodeInfoInterval: 1 * time.Minute,
 	NodeMapSize:               1000,
 }

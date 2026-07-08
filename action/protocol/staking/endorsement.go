@@ -7,6 +7,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // EndorsementStatus
@@ -82,6 +83,20 @@ func (e *Endorsement) Deserialize(buf []byte) error {
 		return errors.Wrap(err, "failed to unmarshal endorsement")
 	}
 	return e.fromProto(pb)
+}
+
+// Encode encodes endorsement into generic value
+func (e *Endorsement) Encode() (systemcontracts.GenericValue, error) {
+	data, err := e.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize endorsement")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes endorsement from generic value
+func (e *Endorsement) Decode(gv systemcontracts.GenericValue) error {
+	return e.Deserialize(gv.PrimaryData)
 }
 
 func (e *Endorsement) toProto() (*stakingpb.Endorsement, error) {

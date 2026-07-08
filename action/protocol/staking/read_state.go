@@ -69,7 +69,7 @@ func toIoTeXTypesCandidateV2(csr CandidateStateReader, cand *Candidate, featureC
 		if !c.isSelfStakeBucketSettled() {
 			return false, nil
 		}
-		vb, err := csr.getBucket(c.SelfStakeBucketIdx)
+		vb, err := csr.NativeBucket(c.SelfStakeBucketIdx)
 		if err != nil {
 			if errors.Is(err, state.ErrStateNotExist) {
 				return true, nil

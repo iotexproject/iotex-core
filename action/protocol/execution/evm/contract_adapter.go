@@ -20,7 +20,7 @@ func newContractAdapter(addr hash.Hash160, account *state.Account, sm protocol.S
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create contract")
 	}
-	v2, err := newContractErigon(addr, account, intra)
+	v2, err := newContractErigon(addr, account.Clone(), intra, sm)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create contractV2")
 	}

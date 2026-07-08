@@ -44,6 +44,10 @@ var (
 	ErrGasTipOverFeeCap   = errors.New("tip cap is greater than fee cap")
 	ErrMissRequiredField  = errors.New("missing required field")
 	ErrValueVeryHigh      = errors.New("value is very high")
+	ErrGasUintOverflow    = errors.New("gas uint64 overflow")
+	// ErrFloorDataGas is returned if the transaction is specified to use less gas
+	// than required for the data floor cost.
+	ErrFloorDataGas = errors.New("insufficient gas for floor data gas cost")
 )
 
 // LoadErrorDescription loads corresponding description related to the error

@@ -64,7 +64,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleCreateStake, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), HandleCreateStake, featureCtx.NewStakingReceiptFormat)
 
 	staker, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
@@ -134,7 +134,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleUnstake, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), HandleUnstake, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -193,6 +193,12 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
 		}
 	}
+	if selfStake && !featureCtx.NoCandidateExitQueue {
+		return log, &handleError{
+			err:           ErrExitNotReady,
+			failureStatus: iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity,
+		}
+	}
 	if !featureCtx.UnstakedButNotClearSelfStakeAmount {
 		// update bucket
 		bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
@@ -227,7 +233,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleWithdrawStake, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), HandleWithdrawStake, featureCtx.NewStakingReceiptFormat)
 
 	withdrawer, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -269,7 +275,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	// update bucket pool
-	if err := csm.CreditBucketPool(bucket.StakedAmount); err != nil {
+	if err := csm.CreditBucketPool(bucket.StakedAmount, true); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
 			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
@@ -305,7 +311,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), HandleChangeCandidate, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -399,7 +405,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleTransferStake, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), HandleTransferStake, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -486,7 +492,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 ) (*receiptLog, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleDepositToStake, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), HandleDepositToStake, featureCtx.NewStakingReceiptFormat)
 
 	depositor, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
@@ -591,7 +597,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleRestake, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), HandleRestake, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -675,7 +681,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleCandidateRegister, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), HandleCandidateRegister, featureCtx.NewStakingReceiptFormat)
 
 	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
 
@@ -776,8 +782,8 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		c.Identifier = candID
 	}
 	if act.WithBLS() {
-		c.Pubkey = act.PubKey()
-		topics, eventData, err := action.PackCandidateRegisteredEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.PubKey())
+		c.BLSPubKey = act.BLSPubKey()
+		topics, eventData, err := action.PackCandidateRegisteredEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
 		if err != nil {
 			return log, nil, errors.Wrap(err, "failed to pack candidate register with BLS event")
 		}
@@ -846,7 +852,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 ) (*receiptLog, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleCandidateUpdate, featureCtx.NewStakingReceiptFormat)
+	log := newReceiptLogLegacy(p.addr.String(), HandleCandidateUpdate, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -856,7 +862,14 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	// only owner can update candidate
 	c := csm.GetByOwner(actCtx.Caller)
 	if c == nil {
-		return log, errCandNotExist
+		if featureCtx.OnlyOwnerCanUpdateBLSPublicKey {
+			return log, errCandNotExist
+		}
+		c = csm.GetByOperator(actCtx.Caller)
+		if c == nil {
+			return log, errCandNotExist
+		}
+		return p.handleCandidateUpdateByOperator(ctx, act, csm, c, log)
 	}
 
 	if len(act.Name()) != 0 {
@@ -872,8 +885,8 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	}
 
 	if act.WithBLS() {
-		c.Pubkey = act.PubKey()
-		topics, eventData, err := action.PackCandidateUpdatedEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.PubKey())
+		c.BLSPubKey = act.BLSPubKey()
+		topics, eventData, err := action.PackCandidateUpdatedEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
 		if err != nil {
 			return log, errors.Wrap(err, "failed to pack candidate register with BLS event")
 		}
@@ -893,8 +906,48 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	return log, nil
 }
 
-func (p *Protocol) fetchBucket(csm BucketGetByIndex, index uint64) (*VoteBucket, ReceiptError) {
-	bucket, err := csm.getBucket(index)
+func (p *Protocol) handleCandidateUpdateByOperator(ctx context.Context, act *action.CandidateUpdate, csm CandidateStateManager, c *Candidate, log *receiptLog) (*receiptLog, error) {
+	// operator can only update BLS public key
+	if !act.WithBLS() {
+		return log, &handleError{
+			err:           errors.New("BLS public key must be provided when updating by operator"),
+			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		}
+	}
+	if len(act.Name()) > 0 && act.Name() != c.Name {
+		return log, &handleError{
+			err:           errors.New("candidate name cannot be updated by operator"),
+			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		}
+	}
+	if act.OperatorAddress() != nil && !address.Equal(act.OperatorAddress(), c.Operator) {
+		return log, &handleError{
+			err:           errors.New("candidate operator cannot be updated by operator"),
+			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		}
+	}
+	if act.RewardAddress() != nil && !address.Equal(act.RewardAddress(), c.Reward) {
+		return log, &handleError{
+			err:           errors.New("candidate reward address cannot be updated by operator"),
+			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		}
+	}
+	// update BLS public key
+	c.BLSPubKey = act.BLSPubKey()
+	topics, eventData, err := action.PackCandidateUpdatedEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
+	if err != nil {
+		return log, errors.Wrap(err, "failed to pack candidate register with BLS event")
+	}
+	log.AddEvent(topics, eventData)
+	log.AddTopics(c.GetIdentifier().Bytes())
+	if err := csm.Upsert(c); err != nil {
+		return log, csmErrorToHandleError(c.GetIdentifier().String(), err)
+	}
+	return log, nil
+}
+
+func (p *Protocol) fetchBucket(csm NativeBucketGetByIndex, index uint64) (*VoteBucket, ReceiptError) {
+	bucket, err := csm.NativeBucket(index)
 	if err != nil {
 		fetchErr := &handleError{
 			err:           errors.Wrapf(err, "failed to fetch bucket by index %d", index),
@@ -1016,6 +1069,9 @@ func csmErrorToHandleError(caller string, err error) error {
 		return hErr
 	case ErrInvalidReward:
 		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateNotExist
+		return hErr
+	case ErrExitNotReady, ErrExitNotScheduled, ErrExitNotRequested, ErrExitAlreadyRequested:
+		hErr.failureStatus = iotextypes.ReceiptStatus_Failure
 		return hErr
 	default:
 		return err

@@ -43,6 +43,9 @@ type infoMessage struct {
 
 func (m *infoMessage) String() string {
 	if output.Format == "" {
+		if output.Quiet {
+			return output.JSONString(m.Info)
+		}
 		message := fmt.Sprintf("Blockchain Node: %s\n%s", m.Node, output.JSONString(m.Info))
 		return message
 	}
@@ -53,7 +56,9 @@ func (m *infoMessage) String() string {
 func bcInfo() error {
 	chainMeta, err := GetChainMeta()
 	if err != nil {
-		return output.NewError(0, "failed to get chain meta", err)
+		return output.NewError(0, "failed to get chain meta; if you are querying a local node, "+
+			"it may still be syncing or its indexer may not be up to date yet — wait until the node "+
+			"has caught up, or set --endpoint to a fully synced node", err)
 	}
 	message := infoMessage{Node: config.ReadConfig.Endpoint, Info: chainMeta}
 	fmt.Println(message.String())

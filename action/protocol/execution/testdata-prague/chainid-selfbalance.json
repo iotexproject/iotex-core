@@ -1,0 +1,20 @@
+{
+    "initGenesis": {
+        "isPrague": true
+    },
+    "deployments": [{
+        "rawGasPrice": "2000000000000"
+    }],
+    "executions": [
+        {"rawExpectedGasConsumed": 11000},
+        {
+            "rawExpectedGasConsumed": 32752, 
+            "rawGasPrice": "2000000000000", 
+            "expectedBalances": [{
+                "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+                "rawBalance": "999999999776898000000000000"
+            }]
+        },
+        {"rawExpectedGasConsumed": 11000}
+    ]
+}

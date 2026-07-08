@@ -126,7 +126,7 @@ func TestReceiptLog(t *testing.T) {
 	}
 
 	for _, v := range logTests {
-		log := newReceiptLog(v.addr, v.name, false)
+		log := newReceiptLogLegacy(v.addr, v.name, false)
 		log.AddTopics(v.topics...)
 		log.AddAddress(v.cand)
 		log.AddAddress(v.voter)
@@ -134,7 +134,7 @@ func TestReceiptLog(t *testing.T) {
 		r.Len(log.Build(ctx, action.ErrInvalidAmount), 0)
 		r.Equal(createLog(ctx, v.name, v.cand, v.voter, v.data), log.Build(ctx, nil)[0])
 
-		log = newReceiptLog(v.addr, v.name, true)
+		log = newReceiptLogLegacy(v.addr, v.name, true)
 		log.AddTopics(v.topics...)
 		log.AddAddress(v.cand)
 		log.AddAddress(v.voter)

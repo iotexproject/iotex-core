@@ -14,6 +14,7 @@ import (
 type Subscriber interface {
 	Filter(iotexrpc.MessageType, proto.Message, int) bool
 	ReportFullness(context.Context, iotexrpc.MessageType, proto.Message, float32)
+	HandleBundle(context.Context, *iotextypes.Bundle) error
 	HandleAction(context.Context, *iotextypes.Action) error
 	HandleBlock(context.Context, string, *iotextypes.Block) error
 	HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error

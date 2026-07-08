@@ -11,13 +11,16 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
@@ -57,6 +60,7 @@ var (
 	_signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
 	_bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
 	_yesFlag      = flag.BoolVarP("assume-yes", "y", false, "answer yes for all confirmations")
+	_waitFlag     = flag.BoolVarP("wait", "w", false, "wait for the action to be confirmed on-chain and print receipt")
 )
 
 // ActionCmd represents the action command
@@ -66,9 +70,10 @@ var ActionCmd = &cobra.Command{
 }
 
 type sendMessage struct {
-	Info   string `json:"info"`
-	TxHash string `json:"txHash"`
-	URL    string `json:"url"`
+	Info    string              `json:"info"`
+	TxHash  string              `json:"txHash"`
+	URL     string              `json:"url"`
+	Receipt *iotextypes.Receipt `json:"receipt,omitempty"`
 }
 
 func (m *sendMessage) String() string {
@@ -87,6 +92,7 @@ func init() {
 	ActionCmd.AddCommand(_actionClaimCmd)
 	ActionCmd.AddCommand(_actionDepositCmd)
 	ActionCmd.AddCommand(_actionSendRawCmd)
+	ActionCmd.AddCommand(_actionSignAuthCmd)
 	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagActionEndPointUsages,
 			config.UILanguage))
@@ -137,6 +143,7 @@ func RegisterWriteCommand(cmd *cobra.Command) {
 	_signerFlag.RegisterCommand(cmd)
 	_nonceFlag.RegisterCommand(cmd)
 	_yesFlag.RegisterCommand(cmd)
+	_waitFlag.RegisterCommand(cmd)
 	account.RegisterPasswordFlag(cmd)
 }
 
@@ -215,8 +222,7 @@ func SendRaw(selp *iotextypes.Action) error {
 
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	txhash := hex.EncodeToString(shash[:])
-	outputActionInfo(txhash)
-	return nil
+	return outputActionInfo(txhash)
 }
 
 // SendRawAndRespond sends raw action to blockchain with response and error return
@@ -251,8 +257,10 @@ func SendAction(elp action.Envelope, signer string) error {
 	if err != nil {
 		return err
 	}
-	outputActionInfo(resp.ActionHash)
-	return nil
+	if resp == nil {
+		return nil // user declined confirmation
+	}
+	return outputActionInfo(resp.ActionHash)
 }
 
 // SendActionAndResponse sends signed action to blockchain with response and error return
@@ -294,16 +302,11 @@ func SendActionAndResponse(elp action.Envelope, signer string) (*iotexapi.SendAc
 	}
 
 	if _yesFlag.Value() == false {
-		var confirm string
-		info := fmt.Sprintln(actionInfo + "\nPlease confirm your action.\n")
-		message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
-		fmt.Println(message.String())
-
-		if _, err := fmt.Scanf("%s", &confirm); err != nil {
-			return nil, output.NewError(output.InputError, "failed to input yes", err)
+		confirmed, err := output.Confirm(actionInfo + "\nPlease confirm your action.\n")
+		if err != nil {
+			return nil, output.NewError(output.InputError, "use -y flag to skip confirmation", err)
 		}
-		if !strings.EqualFold(confirm, "yes") {
-			output.PrintResult("quit")
+		if !confirmed {
 			return nil, nil
 		}
 	}
@@ -317,11 +320,16 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 	if err != nil {
 		return err
 	}
-	outputActionInfo(resp.ActionHash)
-	return nil
+	if resp == nil {
+		return nil // user declined confirmation
+	}
+	return outputActionInfo(resp.ActionHash)
 }
 
-// ExecuteAndResponse sends signed execution transaction to blockchain and with response and error return
+// ExecuteAndResponse sends signed execution transaction to blockchain and with response and error return.
+// When --auth is supplied (registered on `contract invoke` only — never on `contract deploy`), the
+// action is rebuilt as an EIP-7702 SetCodeTx and dispatched via the TX_CONTAINER path; in that case
+// the helper handles its own output and returns (nil, nil) so the caller does not double-print.
 func ExecuteAndResponse(contract string, amount *big.Int, bytecode []byte) (*iotexapi.SendActionResponse, error) {
 	if len(contract) == 0 && len(bytecode) == 0 {
 		return nil, output.NewError(output.InputError, "failed to deploy contract with empty bytecode", nil)
@@ -334,6 +342,35 @@ func ExecuteAndResponse(contract string, amount *big.Int, bytecode []byte) (*iot
 	if err != nil {
 		return nil, output.NewError(output.AddressError, "failed to get signer address", err)
 	}
+
+	auths, err := ParsedAuthList()
+	if err != nil {
+		return nil, err
+	}
+	if len(auths) > 0 {
+		// Defensive: --auth flag is only registered on contract invoke commands, so
+		// reaching this branch with an empty contract address implies caller wired it
+		// up incorrectly. SetCodeTx is a CALL by spec and chain enforces non-nil `to`.
+		if contract == "" {
+			return nil, output.NewError(output.InputError,
+				"--auth cannot be used with contract deploy; SetCodeTx requires a target address", nil)
+		}
+		gasLimit := _gasLimitFlag.Value().(uint64)
+		if gasLimit == 0 {
+			gasLimit = _defaultGasLimit
+		}
+		contractIoAddr, err := address.FromString(contract)
+		if err != nil {
+			return nil, output.NewError(output.AddressError, "failed to parse contract address", err)
+		}
+		toETH := common.BytesToAddress(contractIoAddr.Bytes())
+		if err := SignAndSendEthTx(signer,
+			SetCodeTxBuilder(toETH, amount, gasPriceRau, gasLimit, bytecode, auths)); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
+
 	nonce, err := nonce(signer)
 	if err != nil {
 		return nil, output.NewError(0, "failed to get nonce", err)
@@ -414,7 +451,7 @@ func isBalanceEnough(address string, act *action.SealedEnvelope) error {
 	return nil
 }
 
-func outputActionInfo(txhash string) {
+func outputActionInfo(txhash string) error {
 	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash, URL: "https://"}
 	switch config.ReadConfig.Explorer {
 	case "iotexscan":
@@ -427,5 +464,92 @@ func outputActionInfo(txhash string) {
 	default:
 		message.URL = config.ReadConfig.Explorer + txhash
 	}
+
+	// If --wait flag is set, poll for receipt and include it in output
+	if _waitFlag.Value() == true {
+		receipt, err := waitForReceipt(txhash)
+		if err != nil {
+			return output.NewError(output.NetworkError, fmt.Sprintf("failed to get receipt for %s", txhash), err)
+		}
+		if output.Format == "" {
+			fmt.Println(message.String())
+			fmt.Println(printReceiptProto(receipt))
+		} else {
+			// In JSON mode, include receipt in the same structured message
+			message.Receipt = receipt
+			fmt.Println(message.String())
+		}
+		return nil
+	}
+
 	fmt.Println(message.String())
+	return nil
+}
+
+const _waitTimeout = 60 * time.Second
+const _waitPollInterval = 2 * time.Second
+const _waitRPCTimeout = 10 * time.Second
+
+// waitForReceipt polls for the action receipt until confirmed or the overall
+// deadline (60s wall-clock) expires. Each RPC is capped to whichever is shorter:
+// _waitRPCTimeout or the time remaining on the overall deadline, so the total
+// elapsed time never exceeds _waitTimeout.
+func waitForReceipt(txhash string) (*iotextypes.Receipt, error) {
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+
+	// Single parent context with a hard deadline — every RPC derives from this,
+	// so nothing can run past the wall-clock cap.
+	baseCtx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		baseCtx = metautils.NiceMD(jwtMD).ToOutgoing(baseCtx)
+	}
+	outerCtx, outerCancel := context.WithTimeout(baseCtx, _waitTimeout)
+	defer outerCancel()
+
+	ticker := time.NewTicker(_waitPollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-outerCtx.Done():
+			return nil, fmt.Errorf("timeout after %s waiting for confirmation", _waitTimeout)
+		case <-ticker.C:
+			// Cap the per-call timeout to the remaining overall deadline
+			dl, _ := outerCtx.Deadline()
+			remaining := time.Until(dl)
+			rpcTimeout := _waitRPCTimeout
+			if remaining < rpcTimeout {
+				rpcTimeout = remaining
+			}
+			if rpcTimeout <= 0 {
+				return nil, fmt.Errorf("timeout after %s waiting for confirmation", _waitTimeout)
+			}
+			rpcCtx, cancel := context.WithTimeout(outerCtx, rpcTimeout)
+			resp, err := cli.GetReceiptByAction(rpcCtx, &iotexapi.GetReceiptByActionRequest{ActionHash: txhash})
+			cancel()
+			if err != nil {
+				sta, ok := status.FromError(err)
+				if ok && sta.Code() == codes.NotFound {
+					continue // not yet confirmed, keep polling
+				}
+				if ok && sta.Code() == codes.DeadlineExceeded {
+					// Check if it's the outer deadline that fired
+					if outerCtx.Err() != nil {
+						return nil, fmt.Errorf("timeout after %s waiting for confirmation", _waitTimeout)
+					}
+					continue // per-RPC timeout, retry on next tick
+				}
+				return nil, err
+			}
+			if resp.ReceiptInfo != nil && resp.ReceiptInfo.Receipt != nil {
+				return resp.ReceiptInfo.Receipt, nil
+			}
+		}
+	}
 }

@@ -20,3 +20,13 @@ message Bucket {
     bool muted = 8;
     bool timestamped = 9;
 }
+
+message Candidate {
+    string address = 1;
+    string votes = 2;
+    string amount = 3;
+}
+
+message CandidateList {
+    repeated Candidate candidates = 1;
+}

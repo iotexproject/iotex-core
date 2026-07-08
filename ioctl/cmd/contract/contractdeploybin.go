@@ -19,8 +19,8 @@ import (
 // Multi-language support
 var (
 	_deployBinCmdUses = map[config.Language]string{
-		config.English: "bin BIN_PATH [ABI_PATH INIT_INPUT] [--init-amount AMOUNT_IOTX]",
-		config.Chinese: "bin BIN文件路径 [ABI文件路径 初始化输入] [--init-amount IOTX数量]",
+		config.English: "bin BIN_PATH [ABI_PATH INIT_INPUT] [--amount IOTX]",
+		config.Chinese: "bin BIN文件路径 [ABI文件路径 初始化输入] [--amount IOTX数量]",
 	}
 	_deployBinCmdShorts = map[config.Language]string{
 		config.English: "deploy smart contract with bin on IoTeX blockchain",
@@ -42,6 +42,7 @@ var _contractDeployBinCmd = &cobra.Command{
 
 func init() {
 	_initialAmountFlag.RegisterCommand(_contractDeployBinCmd)
+	aliasInitAmount(_contractDeployBinCmd)
 }
 
 func contractDeployBin(args []string) error {

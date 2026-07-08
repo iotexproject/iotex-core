@@ -382,6 +382,18 @@ func TestValidateForkHeights(t *testing.T) {
 			"Vanuatu", ErrInvalidCfg, "Vanuatu is heigher than Wake",
 		},
 		{
+			"Wake", ErrInvalidCfg, "Wake is heigher than Xingu",
+		},
+		{
+			"Xingu", ErrInvalidCfg, "Xingu is heigher than XinguBeta",
+		},
+		{
+			"XinguBeta", ErrInvalidCfg, "XinguBeta is heigher than Yap",
+		},
+		{
+			"Yap", ErrInvalidCfg, "Yap is heigher than YapBeta",
+		},
+		{
 			"", nil, "",
 		},
 	}
@@ -447,6 +459,14 @@ func newTestCfg(fork string) Config {
 		cfg.Genesis.UpernavikBlockHeight = cfg.Genesis.VanuatuBlockHeight + 1
 	case "Vanuatu":
 		cfg.Genesis.VanuatuBlockHeight = cfg.Genesis.WakeBlockHeight + 1
+	case "Wake":
+		cfg.Genesis.WakeBlockHeight = cfg.Genesis.XinguBlockHeight + 1
+	case "Xingu":
+		cfg.Genesis.XinguBlockHeight = cfg.Genesis.XinguBetaBlockHeight + 1
+	case "XinguBeta":
+		cfg.Genesis.XinguBetaBlockHeight = cfg.Genesis.YapBlockHeight + 1
+	case "Yap":
+		cfg.Genesis.YapBlockHeight = cfg.Genesis.YapBetaBlockHeight + 1
 	}
 	return cfg
 }

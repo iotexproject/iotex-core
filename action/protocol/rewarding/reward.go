@@ -10,6 +10,7 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -26,7 +27,10 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
+
+type RewardHistory = rewardHistory
 
 // rewardHistory is the dummy struct to record a reward. Only key matters.
 type rewardHistory struct{}
@@ -39,6 +43,31 @@ func (b rewardHistory) Serialize() ([]byte, error) {
 
 // Deserialize deserializes bytes into reward history state
 func (b *rewardHistory) Deserialize(data []byte) error { return nil }
+
+func (b *rewardHistory) Encode(suffix []byte) (systemcontracts.GenericValue, error) {
+	height := enc.MachineEndian.Uint64(suffix)
+	data, err := proto.Marshal(&rewardingpb.RewardHistory{
+		Height: height,
+	})
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{
+		PrimaryData: data,
+	}, nil
+}
+
+func (b *rewardHistory) Decode(suffix []byte, v systemcontracts.GenericValue) error {
+	rh := &rewardingpb.RewardHistory{}
+	if err := proto.Unmarshal(v.PrimaryData, rh); err != nil {
+		return err
+	}
+	height := enc.MachineEndian.Uint64(suffix)
+	if rh.Height != height {
+		return errors.Wrapf(state.ErrStateNotExist, "expected height %d, got %d", height, rh.Height)
+	}
+	return nil
+}
 
 // rewardAccount stores the unclaimed balance of an account
 type rewardAccount struct {
@@ -67,6 +96,20 @@ func (a *rewardAccount) Deserialize(data []byte) error {
 	return nil
 }
 
+func (a *rewardAccount) Encode() (systemcontracts.GenericValue, error) {
+	data, err := a.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{
+		AuxiliaryData: data,
+	}, nil
+}
+
+func (a *rewardAccount) Decode(v systemcontracts.GenericValue) error {
+	return a.Deserialize(v.AuxiliaryData)
+}
+
 // GrantBlockReward grants the block reward (token) to the block producer
 func (p *Protocol) GrantBlockReward(
 	ctx context.Context,
@@ -74,6 +117,26 @@ func (p *Protocol) GrantBlockReward(
 ) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+
+	if fCtx.UseV2Storage {
+		// mark v1 reward history as not granted during the transition period
+		var indexBytes [8]byte
+		enc.MachineEndian.PutUint64(indexBytes[:], blkCtx.BlockHeight)
+		key := append(_blockRewardHistoryKeyPrefix, indexBytes[:]...)
+		err := p.deleteStateV1(sm, key, &rewardHistory{}, protocol.ErigonStoreOnlyOption())
+		if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {
+			return nil, err
+		}
+		// revert the changese for erigon storage optimazation
+		defer func() {
+			err = p.putStateV1(sm, key, &rewardHistory{}, protocol.ErigonStoreOnlyOption())
+			if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {
+				log.L().Panic("failed to put block reward history in Erigon store", zap.Error(err))
+			}
+		}()
+	}
+
 	if err := p.assertNoRewardYet(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
@@ -157,6 +220,7 @@ func (p *Protocol) GrantEpochReward(
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	pp := poll.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
@@ -184,7 +248,7 @@ func (p *Protocol) GrantEpochReward(
 	var err error
 	uqdMap := make(map[string]uint64)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
-	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
+	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) || !featureCtx.NotSlashUnproductiveDelegates {
 		// Get unqualified delegate list
 		uqdMap, err = pp.CalculateUnproductiveDelegates(ctx, sm)
 		if err != nil {
@@ -198,7 +262,7 @@ func (p *Protocol) GrantEpochReward(
 	actualTotalReward := big.NewInt(0)
 	transactionLogs := make([]*action.TransactionLog, 0)
 	rewardLogs := make([]*action.Log, 0)
-	if !protocol.MustGetFeatureCtx(ctx).NotSlashUnproductiveDelegates {
+	if !featureCtx.NotSlashUnproductiveDelegates {
 		slashAmount, slashLogs, err := p.slashUqd(ctx, sm, blkCtx.BlockHeight, actionCtx.ActionHash, candidates, a.blockReward, uqdMap)
 		if err != nil {
 			return nil, nil, err
@@ -214,7 +278,11 @@ func (p *Protocol) GrantEpochReward(
 		rewardLogs = append(rewardLogs, slashLogs...)
 		actualTotalReward = big.NewInt(0).Sub(actualTotalReward, slashAmount)
 	}
-	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqdMap)
+	epochRewardSplitUqdMap := make(map[string]uint64)
+	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
+		epochRewardSplitUqdMap = uqdMap
+	}
+	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -389,7 +457,7 @@ func (p *Protocol) grantToAccount(ctx context.Context, sm protocol.StateManager,
 		// entry exist
 		// check if from legacy, and we have started using v2, delete v1
 		if fromLegacy && useV2Storage(ctx) {
-			if err := p.deleteStateV1(sm, accKey); err != nil {
+			if err := p.deleteStateV1(sm, accKey, &rewardAccount{}); err != nil {
 				return err
 			}
 		}
@@ -416,7 +484,7 @@ func (p *Protocol) claimFromAccount(ctx context.Context, sm protocol.StateManage
 		return err
 	}
 	if fromLegacy && useV2Storage(ctx) {
-		if err := p.deleteStateV1(sm, accKey); err != nil {
+		if err := p.deleteStateV1(sm, accKey, &rewardAccount{}); err != nil {
 			return err
 		}
 	}
@@ -471,12 +539,38 @@ func (p *Protocol) slashDelegate(
 	candidate *state.Candidate,
 	amount *big.Int,
 ) (*action.Log, error) {
-	candidateAddr, err := address.FromString(candidate.Address)
-	if err != nil {
-		return nil, err
-	}
-	if err := stakingProtocol.SlashCandidate(ctx, sm, candidateAddr, amount); err != nil {
-		return nil, errors.Wrapf(err, "failed to slash candidate %s", candidate.Address)
+	var candidateAddr address.Address
+	var err error
+	switch {
+	case !protocol.MustGetFeatureWithHeightCtx(ctx).CandidateWithoutIdentity(blockHeight):
+		if candidate.Identity != "" {
+			candidateAddr, err = address.FromString(candidate.Identity)
+			if err != nil {
+				return nil, err
+			}
+			if err := stakingProtocol.SlashCandidateByID(ctx, sm, candidateAddr, amount); err != nil {
+				return nil, errors.Wrapf(err, "failed to slash candidate %s", candidate.Identity)
+			}
+			break
+		}
+		fallthrough
+	case protocol.MustGetFeatureCtx(ctx).CandidateSlashByOwner:
+		candidateAddr, err = address.FromString(candidate.Address)
+		if err != nil {
+			return nil, err
+		}
+		if err := stakingProtocol.SlashCandidateByID(ctx, sm, candidateAddr, amount); err != nil {
+			return nil, errors.Wrapf(err, "failed to slash candidate %s", candidate.Address)
+		}
+		break
+	default:
+		candidateAddr, err = address.FromString(candidate.Address)
+		if err != nil {
+			return nil, err
+		}
+		if err := stakingProtocol.SlashCandidateByOperator(ctx, sm, candidateAddr, amount); err != nil {
+			return nil, errors.Wrapf(err, "failed to slash candidate %s", candidate.Address)
+		}
 	}
 	data, err := p.encodeRewardLog(rewardingpb.RewardLog_UNPRODUCTIVE_SLASH, candidateAddr.String(), amount)
 	if err != nil {
@@ -512,22 +606,38 @@ func (p *Protocol) slashUqd(
 	}
 	slashLogs := make([]*action.Log, 0)
 	snapshot := view.Snapshot()
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	usingOperator := protocol.MustGetFeatureWithHeightCtx(ctx).CandidateWithoutIdentity(blockHeight)
 	for _, candidate := range candidates {
-		if missed, ok := uqdMap[candidate.Address]; ok {
+		id := candidate.Identity
+		if usingOperator {
+			id = candidate.Address
+		}
+		if missed, ok := uqdMap[id]; ok {
 			if missed == 0 {
 				// hard probation, no slash
 				continue
 			}
 			amount := big.NewInt(0).Mul(slashRate, big.NewInt(0).SetUint64(missed))
 			actLog, err := p.slashDelegate(ctx, sm, stakingProtocol, blockHeight, actionHash, candidate, amount)
-			if err != nil {
+			switch errors.Cause(err) {
+			case nil:
+				slashLogs = append(slashLogs, actLog)
+				totalSlashAmount.Add(totalSlashAmount, amount)
+			case staking.ErrNoSelfStakeBucket:
+				log.S().Errorf("Candidate %s doesn't have self-stake bucket, no slash", id)
+			case staking.ErrCandidateNotExist:
+				if !fCtx.CandidateSlashByOwner {
+					log.S().Errorf("Candidate %s doesn't exist, ignore slash", id)
+					continue
+				}
+				fallthrough
+			default:
 				if err := view.Revert(snapshot); err != nil {
 					return nil, nil, errors.Wrap(err, "failed to revert view")
 				}
 				return nil, nil, err
 			}
-			slashLogs = append(slashLogs, actLog)
-			totalSlashAmount.Add(totalSlashAmount, amount)
 		}
 	}
 	return totalSlashAmount, slashLogs, nil

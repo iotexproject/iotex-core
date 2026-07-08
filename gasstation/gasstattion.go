@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -181,7 +180,7 @@ func (gs *GasStation) FeeHistory(ctx context.Context, blocks, lastBlock uint64, 
 			baseFees[i] = blk.BaseFee()
 			gasUsedRatios[i] = float64(blk.GasUsed()) / float64(g.BlockGasLimitByHeight(blk.Height()))
 			blobBaseFees[i] = protocol.CalcBlobFee(blk.ExcessBlobGas())
-			blobGasUsedRatios[i] = float64(blk.BlobGasUsed()) / float64(params.MaxBlobGasPerBlock)
+			blobGasUsedRatios[i] = float64(blk.BlobGasUsed()) / float64(action.MaxBlobGasPerBlock)
 			gs.feeCache.Add(height, &blockFee{
 				baseFee:      baseFees[i],
 				gasUsedRatio: gasUsedRatios[i],

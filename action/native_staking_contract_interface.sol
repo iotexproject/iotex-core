@@ -9,7 +9,7 @@ interface INativeStakingContract {
         address operatorAddress,
         string name,
         address rewardAddress,
-        bytes blsPublicKey
+        bytes blsPubKey
     );
     event Staked(
         address indexed voter,
@@ -23,13 +23,23 @@ interface INativeStakingContract {
         address indexed candidate,
         uint64 bucketIndex
     );
+    event CandidateDeactivationRequested(
+        address indexed candidate
+    );
+    event CandidateDeactivationScheduled(
+        address indexed candidate,
+        uint64 blockNumber
+    );
+    event CandidateDeactivated(
+        address indexed candidate
+    );
     event CandidateUpdated(
         address indexed candidate,
         address indexed ownerAddress,
         address operatorAddress,
         string name,
         address rewardAddress,
-        bytes blsPublicKey
+        bytes blsPubKey
     );
 
     function candidateRegister(
@@ -50,11 +60,18 @@ interface INativeStakingContract {
         address ownerAddress,
         uint32 duration,
         bool autoStake,
-        bytes memory blsPublicKey,
+        bytes memory blsPubKey,
         uint8[] memory data
     ) external payable;
 
     function candidateActivate(uint64 bucketIndex) external;
+
+    // Candidate Deactivate methods
+    function requestCandidateDeactivation() external;
+
+    function cancelCandidateDeactivation() external;
+
+    function confirmCandidateDeactivation() external;
 
     // Candidate Endorsement methods
     function candidateEndorsement(uint64 bucketIndex, bool endorse) external;
@@ -82,7 +99,7 @@ interface INativeStakingContract {
         string memory name,
         address operatorAddress,
         address rewardAddress,
-        bytes memory blsPublicKey
+        bytes memory blsPubKey
     ) external;
 
     // Stake Management

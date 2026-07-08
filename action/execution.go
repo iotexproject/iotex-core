@@ -24,6 +24,8 @@ const (
 	ExecutionBaseIntrinsicGas uint64 = 10000 // base intrinsic gas for execution
 	TxAccessListAddressGas    uint64 = 2400  // Per address specified in EIP 2930 access list
 	TxAccessListStorageKeyGas uint64 = 1900  // Per storage key specified in EIP 2930 access list
+	TxAuthTupleGas            uint64 = 12500 // Per auth tuple code specified in EIP-7702
+	CallNewAccountGas         uint64 = 25000 // Paid for CALL when the destination address didn't exist prior.
 )
 
 var (

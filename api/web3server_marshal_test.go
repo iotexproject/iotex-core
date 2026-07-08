@@ -509,8 +509,8 @@ func TestTransactionObjectMarshal(t *testing.T) {
 		toStr := to.String()
 		var (
 			testBlob       = kzg4844.Blob{1, 2, 3, 4}
-			testBlobCommit = assertions.MustNoErrorV(kzg4844.BlobToCommitment(testBlob))
-			testBlobProof  = assertions.MustNoErrorV(kzg4844.ComputeBlobProof(testBlob, testBlobCommit))
+			testBlobCommit = assertions.MustNoErrorV(kzg4844.BlobToCommitment(&testBlob))
+			testBlobProof  = assertions.MustNoErrorV(kzg4844.ComputeBlobProof(&testBlob, testBlobCommit))
 		)
 		sidecar := &types.BlobTxSidecar{
 			Blobs:       []kzg4844.Blob{testBlob},

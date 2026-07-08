@@ -31,5 +31,6 @@ func init() {
 	_contractInvokeCmd.AddCommand(_contractInvokeBytecodeCmd)
 	action.RegisterWriteCommand(_contractInvokeFunctionCmd)
 	action.RegisterWriteCommand(_contractInvokeBytecodeCmd)
-
+	action.RegisterAuthFlags(_contractInvokeFunctionCmd)
+	action.RegisterAuthFlags(_contractInvokeBytecodeCmd)
 }

@@ -143,3 +143,10 @@ func (p *Protocol) validateMigrateStake(ctx context.Context, act *action.Migrate
 	}
 	return nil
 }
+
+func (p *Protocol) validateCandidateDeactivate(ctx context.Context, act *action.CandidateDeactivate) error {
+	if protocol.MustGetFeatureCtx(ctx).NoCandidateExitQueue {
+		return errors.Wrap(action.ErrInvalidAct, "candidate deactivation is disabled")
+	}
+	return nil
+}

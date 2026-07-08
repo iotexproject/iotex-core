@@ -137,13 +137,22 @@ func FromProtoBlobTxSideCar(pb *iotextypes.BlobTxSidecar) (*types.BlobTxSidecar,
 		Proofs:      make([]kzg4844.Proof, len(pb.Proofs)),
 	}
 	for i := range pb.Blobs {
-		sidecar.Blobs[i] = *(*kzg4844.Blob)(pb.Blobs[i])
+		if len(pb.Blobs[i]) != len(kzg4844.Blob{}) {
+			return nil, errors.New("invalid blob length")
+		}
+		copy(sidecar.Blobs[i][:], pb.Blobs[i])
 	}
 	for i := range pb.Commitments {
-		sidecar.Commitments[i] = *(*kzg4844.Commitment)(pb.Commitments[i])
+		if len(pb.Commitments[i]) != len(kzg4844.Commitment{}) {
+			return nil, errors.New("invalid commitment length")
+		}
+		copy(sidecar.Commitments[i][:], pb.Commitments[i])
 	}
 	for i := range pb.Proofs {
-		sidecar.Proofs[i] = *(*kzg4844.Proof)(pb.Proofs[i])
+		if len(pb.Proofs[i]) != len(kzg4844.Proof{}) {
+			return nil, errors.New("invalid proof length")
+		}
+		copy(sidecar.Proofs[i][:], pb.Proofs[i])
 	}
 	return &sidecar, nil
 }
@@ -155,8 +164,8 @@ func (tx *BlobTxData) SanityCheck() error {
 	if len(tx.blobHashes) == 0 {
 		return errors.New("blobless blob transaction")
 	}
-	if permitted := params.MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; len(tx.blobHashes) > permitted {
-		return errors.Errorf("too many blobs in transaction: have %d, permitted %d", len(tx.blobHashes), params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
+	if permitted := MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; len(tx.blobHashes) > permitted {
+		return errors.Errorf("too many blobs in transaction: have %d, permitted %d", len(tx.blobHashes), MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
 	}
 	return nil
 }
@@ -192,7 +201,7 @@ func verifySidecar(sidecar *types.BlobTxSidecar, hashes []common.Hash) error {
 	// Blob commitments match with the hashes in the transaction, verify the
 	// blobs themselves via KZG
 	for i := range sidecar.Blobs {
-		if err := kzg4844.VerifyBlobProof(sidecar.Blobs[i], sidecar.Commitments[i], sidecar.Proofs[i]); err != nil {
+		if err := kzg4844.VerifyBlobProof(&sidecar.Blobs[i], sidecar.Commitments[i], sidecar.Proofs[i]); err != nil {
 			return errors.Errorf("invalid blob %d: %v", i, err)
 		}
 	}

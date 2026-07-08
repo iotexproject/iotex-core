@@ -28,6 +28,8 @@ const (
 var (
 	candidateEndorsementLegacyMethod         abi.Method
 	candidateEndorsementEndorseMethod        abi.Method
+	candidateEndorsementIntentToRevokeMethod abi.Method
+	// caniddateEndorsementIntentToRevokeMethod is kept for backward compatibility with older code using the misspelled identifier.
 	caniddateEndorsementIntentToRevokeMethod abi.Method
 	candidateEndorsementRevokeMethod         abi.Method
 	_                                        EthCompatibleAction = (*CandidateEndorsement)(nil)
@@ -60,10 +62,12 @@ func init() {
 	if !ok {
 		panic("fail to load the endorseCandidate method")
 	}
-	caniddateEndorsementIntentToRevokeMethod, ok = candidateEndorsementInterface.Methods["intentToRevokeEndorsement"]
+	candidateEndorsementIntentToRevokeMethod, ok = candidateEndorsementInterface.Methods["intentToRevokeEndorsement"]
 	if !ok {
 		panic("fail to load the intentToRevokeEndorsement method")
 	}
+	// Backward-compatible alias for the old misspelled identifier.
+	caniddateEndorsementIntentToRevokeMethod = candidateEndorsementIntentToRevokeMethod
 	candidateEndorsementRevokeMethod, ok = candidateEndorsementInterface.Methods["revokeEndorsement"]
 	if !ok {
 		panic("fail to load the revokeEndorsement method")
@@ -156,7 +160,7 @@ func (act *CandidateEndorsement) EthData() ([]byte, error) {
 	case CandidateEndorsementOpEndorse:
 		method = candidateEndorsementEndorseMethod
 	case CandidateEndorsementOpIntentToRevoke:
-		method = caniddateEndorsementIntentToRevokeMethod
+		method = candidateEndorsementIntentToRevokeMethod
 	case CandidateEndorsementOpRevoke:
 		method = candidateEndorsementRevokeMethod
 	default:
@@ -186,8 +190,8 @@ func NewCandidateEndorsementFromABIBinary(data []byte) (*CandidateEndorsement, e
 	case bytes.Equal(candidateEndorsementEndorseMethod.ID, data[:4]):
 		method = candidateEndorsementEndorseMethod
 		cr.op = CandidateEndorsementOpEndorse
-	case bytes.Equal(caniddateEndorsementIntentToRevokeMethod.ID, data[:4]):
-		method = caniddateEndorsementIntentToRevokeMethod
+	case bytes.Equal(candidateEndorsementIntentToRevokeMethod.ID, data[:4]):
+		method = candidateEndorsementIntentToRevokeMethod
 		cr.op = CandidateEndorsementOpIntentToRevoke
 	case bytes.Equal(candidateEndorsementRevokeMethod.ID, data[:4]):
 		method = candidateEndorsementRevokeMethod

@@ -32,6 +32,10 @@ func NormalizeGenesisHeights(g *genesis.Blockchain) {
 		&g.UpernavikBlockHeight,
 		&g.VanuatuBlockHeight,
 		&g.WakeBlockHeight,
+		&g.XinguBlockHeight,
+		&g.XinguBetaBlockHeight,
+		&g.YapBlockHeight,
+		&g.YapBetaBlockHeight,
 		&g.ToBeEnabledBlockHeight,
 	}
 	for i := len(heights) - 2; i >= 0; i-- {

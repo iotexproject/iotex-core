@@ -20,10 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
-)
-
-const (
-	maxBlockNumber = math.MaxUint64
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 type (
@@ -75,6 +72,20 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 	}
 
 	return vb.fromProto(pb)
+}
+
+// Encode encodes VoteBucket into generic value
+func (vb *VoteBucket) Encode() (systemcontracts.GenericValue, error) {
+	data, err := vb.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize bucket")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes VoteBucket from generic value
+func (vb *VoteBucket) Decode(gv systemcontracts.GenericValue) error {
+	return vb.Deserialize(gv.PrimaryData)
 }
 
 func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
@@ -190,7 +201,7 @@ func (vb *VoteBucket) isUnstaked() bool {
 	if vb.isNative() || vb.Timestamped {
 		return vb.UnstakeStartTime.After(vb.StakeStartTime)
 	}
-	return vb.UnstakeStartBlockHeight < maxBlockNumber
+	return vb.UnstakeStartBlockHeight < MaxDurationNumber
 }
 
 func (vb *VoteBucket) isNative() bool {
@@ -211,6 +222,20 @@ func (tc *totalBucketCount) Serialize() ([]byte, error) {
 
 func (tc *totalBucketCount) Count() uint64 {
 	return tc.count
+}
+
+// Encode encodes totalBucketCount into generic value
+func (tc *totalBucketCount) Encode() (systemcontracts.GenericValue, error) {
+	data, err := tc.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize total bucket count")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes totalBucketCount from generic value
+func (tc *totalBucketCount) Decode(gv systemcontracts.GenericValue) error {
+	return tc.Deserialize(gv.PrimaryData)
 }
 
 func bucketKey(index uint64) []byte {

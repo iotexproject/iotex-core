@@ -78,6 +78,10 @@ func defaultConfig() Genesis {
 			UpernavikBlockHeight:      31174201,
 			VanuatuBlockHeight:        33730921,
 			WakeBlockHeight:           36893881,
+			XinguBlockHeight:          41648761,
+			XinguBetaBlockHeight:      41648761,
+			YapBlockHeight:            48985561,
+			YapBetaBlockHeight:        48985561,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
@@ -175,6 +179,8 @@ func defaultConfig() Genesis {
 			BootstrapCandidates:              []BootstrapCandidate{},
 			EndorsementWithdrawWaitingBlocks: 24 * 60 * 60 / 5,
 			MinSelfStakeToBeActive:           unit.ConvertIotxToRau(1000000).String(),
+			ExitAdmissionInterval:            24,
+			ExitUnboundingDuration:           2,
 		},
 	}
 }
@@ -369,6 +375,21 @@ type (
 		// WakeBlockHeight is the start height to
 		// 1. enable 3s block interval
 		WakeBlockHeight uint64 `yaml:"wakeHeight"`
+		// XinguBlockHeight is the start height to
+		// 1. enable IIP-50 slash delegates
+		// 2. enable candidate BLS pubkey registration and update
+		// 3. enable contract staking buckets storage in trie
+		XinguBlockHeight uint64 `yaml:"xinguHeight"`
+		// XinguBetaBlockHeight is the start height to
+		// 1. slash candidate by operator
+		XinguBetaBlockHeight uint64 `yaml:"xinguBetaHeight"`
+		// YapBlockHeight is the start height of Yap hardfork
+		// 1. enable evm Prague upgrade
+		// 2. enable state candidate with identity
+		// 3. enable candidate exit queue
+		YapBlockHeight uint64 `yaml:"yapHeight"`
+		// YapBetaBlockHeight is the start height to enable slashing candidate by identity
+		YapBetaBlockHeight uint64 `yaml:"yapBetaHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -482,6 +503,8 @@ type (
 		BootstrapCandidates              []BootstrapCandidate `yaml:"bootstrapCandidates"`
 		EndorsementWithdrawWaitingBlocks uint64               `yaml:"endorsementWithdrawWaitingBlocks"`
 		MinSelfStakeToBeActive           string               `yaml:"minSelfStakeToBeActive"`
+		ExitAdmissionInterval            uint64               `yaml:"exitAdmissionInterval"`
+		ExitUnboundingDuration           uint64               `yaml:"exitUnbondingDuration"`
 	}
 
 	// VoteWeightCalConsts contains the configs for calculating vote weight
@@ -747,6 +770,26 @@ func (g *Blockchain) IsVanuatu(height uint64) bool {
 // IsWake checks whether height is equal to or larger than wake height
 func (g *Blockchain) IsWake(height uint64) bool {
 	return g.isPost(g.WakeBlockHeight, height)
+}
+
+// IsXingu checks whether height is equal to or larger than xingu height
+func (g *Blockchain) IsXingu(height uint64) bool {
+	return g.isPost(g.XinguBlockHeight, height)
+}
+
+// IsXinguBeta checks whether height is equal to or larger than xingu beta height
+func (g *Blockchain) IsXinguBeta(height uint64) bool {
+	return g.isPost(g.XinguBetaBlockHeight, height)
+}
+
+// IsYap checks whether height is equal to or larger than yap height
+func (g *Blockchain) IsYap(height uint64) bool {
+	return g.isPost(g.YapBlockHeight, height)
+}
+
+// IsYapBeta checks whether height is equal to or larger than yap beta height
+func (g *Blockchain) IsYapBeta(height uint64) bool {
+	return g.isPost(g.YapBetaBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

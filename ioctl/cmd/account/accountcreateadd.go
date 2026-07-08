@@ -8,7 +8,6 @@ package account
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -16,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/output"
 	"github.com/iotexproject/iotex-core/v2/ioctl/validator"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/addrutil"
 )
 
 // Multi-language support
@@ -49,17 +49,13 @@ func accountCreateAdd(args []string) error {
 	}
 	alias := args[0]
 	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
-		var confirm string
-		info := fmt.Sprintf("** Alias \"%s\" has already used for %s\n"+
+		confirmed, err := output.Confirm(fmt.Sprintf("** Alias \"%s\" has already used for %s\n"+
 			"Overwriting the account will keep the previous keystore file stay, "+
-			"but bind the alias to the new one.\nWould you like to continue?\n", alias, addr)
-		message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
-		fmt.Println(message.String())
-		if _, err := fmt.Scanf("%s", &confirm); err != nil {
-			return output.NewError(output.InputError, "failed to input yes", err)
+			"but bind the alias to the new one.\nWould you like to continue?\n", alias, addr))
+		if err != nil {
+			return output.NewError(output.InputError, "cannot confirm in non-interactive mode", err)
 		}
-		if !strings.EqualFold(confirm, "yes") {
-			output.PrintResult("quit")
+		if !confirmed {
 			return nil
 		}
 	}
@@ -86,7 +82,13 @@ func accountCreateAdd(args []string) error {
 		return output.NewError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}
+	ethAddr, err := addrutil.IoAddrToEvmAddr(addr)
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to convert to ETH address", err)
+	}
 	output.PrintResult(fmt.Sprintf("New account \"%s\" is created.\n"+
-		"Please Keep your password, or you will lose your private key.", alias))
+		"IO address:  %s\n"+
+		"ETH address: %s\n"+
+		"Please Keep your password, or you will lose your private key.", alias, addr, ethAddr.String()))
 	return nil
 }

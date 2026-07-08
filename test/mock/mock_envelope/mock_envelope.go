@@ -353,6 +353,20 @@ func (mr *MockEnvelopeMockRecorder) SetChainID(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetChainID", reflect.TypeOf((*MockEnvelope)(nil).SetChainID), arg0)
 }
 
+// SetCodeAuthorizations mocks base method.
+func (m *MockEnvelope) SetCodeAuthorizations() []types.SetCodeAuthorization {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetCodeAuthorizations")
+	ret0, _ := ret[0].([]types.SetCodeAuthorization)
+	return ret0
+}
+
+// SetCodeAuthorizations indicates an expected call of SetCodeAuthorizations.
+func (mr *MockEnvelopeMockRecorder) SetCodeAuthorizations() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCodeAuthorizations", reflect.TypeOf((*MockEnvelope)(nil).SetCodeAuthorizations))
+}
+
 // SetGas mocks base method.
 func (m *MockEnvelope) SetGas(arg0 uint64) {
 	m.ctrl.T.Helper()
@@ -406,18 +420,18 @@ func (mr *MockEnvelopeMockRecorder) To() *gomock.Call {
 }
 
 // ToEthTx mocks base method.
-func (m *MockEnvelope) ToEthTx(arg0 uint32, arg1 iotextypes.Encoding) (*types.Transaction, error) {
+func (m *MockEnvelope) ToEthTx() (*types.Transaction, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ToEthTx", arg0, arg1)
+	ret := m.ctrl.Call(m, "ToEthTx")
 	ret0, _ := ret[0].(*types.Transaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ToEthTx indicates an expected call of ToEthTx.
-func (mr *MockEnvelopeMockRecorder) ToEthTx(arg0, arg1 any) *gomock.Call {
+func (mr *MockEnvelopeMockRecorder) ToEthTx() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToEthTx", reflect.TypeOf((*MockEnvelope)(nil).ToEthTx), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToEthTx", reflect.TypeOf((*MockEnvelope)(nil).ToEthTx))
 }
 
 // TxType mocks base method.
@@ -654,6 +668,20 @@ func (mr *MockTxDataMockRecorder) Nonce() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockTxData)(nil).Nonce))
 }
 
+// SetCodeAuthorizations mocks base method.
+func (m *MockTxData) SetCodeAuthorizations() []types.SetCodeAuthorization {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetCodeAuthorizations")
+	ret0, _ := ret[0].([]types.SetCodeAuthorization)
+	return ret0
+}
+
+// SetCodeAuthorizations indicates an expected call of SetCodeAuthorizations.
+func (mr *MockTxDataMockRecorder) SetCodeAuthorizations() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCodeAuthorizations", reflect.TypeOf((*MockTxData)(nil).SetCodeAuthorizations))
+}
+
 // To mocks base method.
 func (m *MockTxData) To() *common.Address {
 	m.ctrl.T.Helper()
@@ -666,6 +694,21 @@ func (m *MockTxData) To() *common.Address {
 func (mr *MockTxDataMockRecorder) To() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "To", reflect.TypeOf((*MockTxData)(nil).To))
+}
+
+// ToEthTx mocks base method.
+func (m *MockTxData) ToEthTx() (*types.Transaction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ToEthTx")
+	ret0, _ := ret[0].(*types.Transaction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ToEthTx indicates an expected call of ToEthTx.
+func (mr *MockTxDataMockRecorder) ToEthTx() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToEthTx", reflect.TypeOf((*MockTxData)(nil).ToEthTx))
 }
 
 // Value mocks base method.
@@ -858,6 +901,20 @@ func (m *MockTxCommon) Nonce() uint64 {
 func (mr *MockTxCommonMockRecorder) Nonce() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockTxCommon)(nil).Nonce))
+}
+
+// SetCodeAuthorizations mocks base method.
+func (m *MockTxCommon) SetCodeAuthorizations() []types.SetCodeAuthorization {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetCodeAuthorizations")
+	ret0, _ := ret[0].([]types.SetCodeAuthorization)
+	return ret0
+}
+
+// SetCodeAuthorizations indicates an expected call of SetCodeAuthorizations.
+func (mr *MockTxCommonMockRecorder) SetCodeAuthorizations() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCodeAuthorizations", reflect.TypeOf((*MockTxCommon)(nil).SetCodeAuthorizations))
 }
 
 // MockTxCommonInternal is a mock of TxCommonInternal interface.
@@ -1064,6 +1121,20 @@ func (m *MockTxCommonInternal) SanityCheck() error {
 func (mr *MockTxCommonInternalMockRecorder) SanityCheck() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SanityCheck", reflect.TypeOf((*MockTxCommonInternal)(nil).SanityCheck))
+}
+
+// SetCodeAuthorizations mocks base method.
+func (m *MockTxCommonInternal) SetCodeAuthorizations() []types.SetCodeAuthorization {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetCodeAuthorizations")
+	ret0, _ := ret[0].([]types.SetCodeAuthorization)
+	return ret0
+}
+
+// SetCodeAuthorizations indicates an expected call of SetCodeAuthorizations.
+func (mr *MockTxCommonInternalMockRecorder) SetCodeAuthorizations() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCodeAuthorizations", reflect.TypeOf((*MockTxCommonInternal)(nil).SetCodeAuthorizations))
 }
 
 // TxType mocks base method.

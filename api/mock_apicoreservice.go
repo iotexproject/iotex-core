@@ -156,7 +156,7 @@ func (m *MockCoreService) BalanceAt(ctx context.Context, addr address.Address, h
 }
 
 // BalanceAt indicates an expected call of BalanceAt.
-func (mr *MockCoreServiceMockRecorder) BalanceAt(ctx, addr, height interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) BalanceAt(ctx, addr, height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BalanceAt", reflect.TypeOf((*MockCoreService)(nil).BalanceAt), ctx, addr, height)
 }
@@ -290,9 +290,23 @@ func (m *MockCoreService) CodeAt(ctx context.Context, addr address.Address, heig
 }
 
 // CodeAt indicates an expected call of CodeAt.
-func (mr *MockCoreServiceMockRecorder) CodeAt(ctx, addr, height interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) CodeAt(ctx, addr, height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CodeAt", reflect.TypeOf((*MockCoreService)(nil).CodeAt), ctx, addr, height)
+}
+
+// DeleteBundle mocks base method.
+func (m *MockCoreService) DeleteBundle(ctx context.Context, uuid string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteBundle", ctx, uuid)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteBundle indicates an expected call of DeleteBundle.
+func (mr *MockCoreServiceMockRecorder) DeleteBundle(ctx, uuid any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBundle", reflect.TypeOf((*MockCoreService)(nil).DeleteBundle), ctx, uuid)
 }
 
 // EVMNetworkID mocks base method.
@@ -365,7 +379,7 @@ func (mr *MockCoreServiceMockRecorder) EstimateExecutionGasConsumption(ctx, sc, 
 // EstimateExecutionGasConsumptionAt mocks base method.
 func (m *MockCoreService) EstimateExecutionGasConsumptionAt(ctx context.Context, sc action.Envelope, callerAddr address.Address, height uint64, opts ...protocol.SimulateOption) (uint64, []byte, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx, sc, callerAddr, height}
+	varargs := []any{ctx, sc, callerAddr, height}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
@@ -377,9 +391,9 @@ func (m *MockCoreService) EstimateExecutionGasConsumptionAt(ctx context.Context,
 }
 
 // EstimateExecutionGasConsumptionAt indicates an expected call of EstimateExecutionGasConsumptionAt.
-func (mr *MockCoreServiceMockRecorder) EstimateExecutionGasConsumptionAt(ctx, sc, callerAddr, height interface{}, opts ...interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) EstimateExecutionGasConsumptionAt(ctx, sc, callerAddr, height any, opts ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx, sc, callerAddr, height}, opts...)
+	varargs := append([]any{ctx, sc, callerAddr, height}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateExecutionGasConsumptionAt", reflect.TypeOf((*MockCoreService)(nil).EstimateExecutionGasConsumptionAt), varargs...)
 }
 
@@ -440,7 +454,7 @@ func (m *MockCoreService) EstimateMigrateStakeGasConsumptionAt(arg0 context.Cont
 }
 
 // EstimateMigrateStakeGasConsumptionAt indicates an expected call of EstimateMigrateStakeGasConsumptionAt.
-func (mr *MockCoreServiceMockRecorder) EstimateMigrateStakeGasConsumptionAt(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) EstimateMigrateStakeGasConsumptionAt(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateMigrateStakeGasConsumptionAt", reflect.TypeOf((*MockCoreService)(nil).EstimateMigrateStakeGasConsumptionAt), arg0, arg1, arg2, arg3)
 }
@@ -550,7 +564,7 @@ func (m *MockCoreService) PendingNonceAt(ctx context.Context, addr address.Addre
 }
 
 // PendingNonceAt indicates an expected call of PendingNonceAt.
-func (mr *MockCoreServiceMockRecorder) PendingNonceAt(ctx, addr, height interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) PendingNonceAt(ctx, addr, height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingNonceAt", reflect.TypeOf((*MockCoreService)(nil).PendingNonceAt), ctx, addr, height)
 }
@@ -611,7 +625,7 @@ func (m *MockCoreService) ReadContractStorageAt(ctx context.Context, addr addres
 }
 
 // ReadContractStorageAt indicates an expected call of ReadContractStorageAt.
-func (mr *MockCoreServiceMockRecorder) ReadContractStorageAt(ctx, addr, key, height interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) ReadContractStorageAt(ctx, addr, key, height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadContractStorageAt", reflect.TypeOf((*MockCoreService)(nil).ReadContractStorageAt), ctx, addr, key, height)
 }
@@ -673,6 +687,21 @@ func (m *MockCoreService) SendAction(ctx context.Context, in *iotextypes.Action)
 func (mr *MockCoreServiceMockRecorder) SendAction(ctx, in any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendAction", reflect.TypeOf((*MockCoreService)(nil).SendAction), ctx, in)
+}
+
+// SendBundle mocks base method.
+func (m *MockCoreService) SendBundle(ctx context.Context, in *iotextypes.Bundle, sender address.Address, id string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendBundle", ctx, in, sender, id)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SendBundle indicates an expected call of SendBundle.
+func (mr *MockCoreServiceMockRecorder) SendBundle(ctx, in, sender, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendBundle", reflect.TypeOf((*MockCoreService)(nil).SendBundle), ctx, in, sender, id)
 }
 
 // ServerMeta mocks base method.
@@ -797,10 +826,44 @@ func (mr *MockCoreServiceMockRecorder) TipHeight() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*MockCoreService)(nil).TipHeight))
 }
 
-// TraceCall mocks base method.
-func (m *MockCoreService) TraceCall(ctx context.Context, callerAddr address.Address, blkNumOrHash any, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, data []byte, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
+// TraceBlockByHash mocks base method.
+func (m *MockCoreService) TraceBlockByHash(ctx context.Context, blkHash string, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TraceCall", ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, data, config)
+	ret := m.ctrl.Call(m, "TraceBlockByHash", ctx, blkHash, config)
+	ret0, _ := ret[0].([][]byte)
+	ret1, _ := ret[1].([]*action.Receipt)
+	ret2, _ := ret[2].(any)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// TraceBlockByHash indicates an expected call of TraceBlockByHash.
+func (mr *MockCoreServiceMockRecorder) TraceBlockByHash(ctx, blkHash, config any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceBlockByHash", reflect.TypeOf((*MockCoreService)(nil).TraceBlockByHash), ctx, blkHash, config)
+}
+
+// TraceBlockByNumber mocks base method.
+func (m *MockCoreService) TraceBlockByNumber(ctx context.Context, height uint64, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TraceBlockByNumber", ctx, height, config)
+	ret0, _ := ret[0].([][]byte)
+	ret1, _ := ret[1].([]*action.Receipt)
+	ret2, _ := ret[2].(any)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// TraceBlockByNumber indicates an expected call of TraceBlockByNumber.
+func (mr *MockCoreServiceMockRecorder) TraceBlockByNumber(ctx, height, config any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceBlockByNumber", reflect.TypeOf((*MockCoreService)(nil).TraceBlockByNumber), ctx, height, config)
+}
+
+// TraceCall mocks base method.
+func (m *MockCoreService) TraceCall(ctx context.Context, callerAddr address.Address, height uint64, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, data []byte, config *tracers.TraceConfig) ([]byte, *action.Receipt, any, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TraceCall", ctx, callerAddr, height, contractAddress, nonce, amount, gasLimit, data, config)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(*action.Receipt)
 	ret2, _ := ret[2].(any)
@@ -809,9 +872,9 @@ func (m *MockCoreService) TraceCall(ctx context.Context, callerAddr address.Addr
 }
 
 // TraceCall indicates an expected call of TraceCall.
-func (mr *MockCoreServiceMockRecorder) TraceCall(ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, data, config any) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) TraceCall(ctx, callerAddr, height, contractAddress, nonce, amount, gasLimit, data, config any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceCall", reflect.TypeOf((*MockCoreService)(nil).TraceCall), ctx, callerAddr, blkNumOrHash, contractAddress, nonce, amount, gasLimit, data, config)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TraceCall", reflect.TypeOf((*MockCoreService)(nil).TraceCall), ctx, callerAddr, height, contractAddress, nonce, amount, gasLimit, data, config)
 }
 
 // TraceTransaction mocks base method.

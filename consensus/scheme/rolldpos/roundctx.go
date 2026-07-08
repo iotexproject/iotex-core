@@ -6,6 +6,7 @@
 package rolldpos
 
 import (
+	"slices"
 	"time"
 
 	"github.com/pkg/errors"
@@ -110,13 +111,7 @@ func (ctx *roundCtx) Proposers() []string {
 }
 
 func (ctx *roundCtx) IsDelegate(addr string) bool {
-	for _, d := range ctx.delegates {
-		if addr == d {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(ctx.delegates, addr)
 }
 
 func (ctx *roundCtx) Block(blkHash []byte) *block.Block {

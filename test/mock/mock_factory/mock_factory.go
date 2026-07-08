@@ -19,6 +19,7 @@ import (
 	protocol "github.com/iotexproject/iotex-core/v2/action/protocol"
 	actpool "github.com/iotexproject/iotex-core/v2/actpool"
 	block "github.com/iotexproject/iotex-core/v2/blockchain/block"
+	blockdao "github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	state "github.com/iotexproject/iotex-core/v2/state"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -45,6 +46,18 @@ func NewMockFactory(ctrl *gomock.Controller) *MockFactory {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockFactory) EXPECT() *MockFactoryMockRecorder {
 	return m.recorder
+}
+
+// AddDependency mocks base method.
+func (m *MockFactory) AddDependency(arg0 blockdao.BlockIndexer) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddDependency", arg0)
+}
+
+// AddDependency indicates an expected call of AddDependency.
+func (mr *MockFactoryMockRecorder) AddDependency(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddDependency", reflect.TypeOf((*MockFactory)(nil).AddDependency), arg0)
 }
 
 // Height mocks base method.
@@ -233,21 +246,36 @@ func (mr *MockFactoryMockRecorder) WorkingSet(arg0 any) *gomock.Call {
 }
 
 // WorkingSetAtHeight mocks base method.
-func (m *MockFactory) WorkingSetAtHeight(arg0 context.Context, arg1 uint64, arg2 ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
+func (m *MockFactory) WorkingSetAtHeight(arg0 context.Context, arg1 uint64) (protocol.StateManagerWithCloser, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "WorkingSetAtHeight", varargs...)
+	ret := m.ctrl.Call(m, "WorkingSetAtHeight", arg0, arg1)
 	ret0, _ := ret[0].(protocol.StateManagerWithCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WorkingSetAtHeight indicates an expected call of WorkingSetAtHeight.
-func (mr *MockFactoryMockRecorder) WorkingSetAtHeight(arg0, arg1 any, arg2 ...any) *gomock.Call {
+func (mr *MockFactoryMockRecorder) WorkingSetAtHeight(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorkingSetAtHeight", reflect.TypeOf((*MockFactory)(nil).WorkingSetAtHeight), arg0, arg1)
+}
+
+// WorkingSetAtTransaction mocks base method.
+func (m *MockFactory) WorkingSetAtTransaction(arg0 context.Context, arg1 uint64, arg2 ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WorkingSetAtTransaction", varargs...)
+	ret0, _ := ret[0].(protocol.StateManagerWithCloser)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WorkingSetAtTransaction indicates an expected call of WorkingSetAtTransaction.
+func (mr *MockFactoryMockRecorder) WorkingSetAtTransaction(arg0, arg1 any, arg2 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorkingSetAtHeight", reflect.TypeOf((*MockFactory)(nil).WorkingSetAtHeight), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorkingSetAtTransaction", reflect.TypeOf((*MockFactory)(nil).WorkingSetAtTransaction), varargs...)
 }

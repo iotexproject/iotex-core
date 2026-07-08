@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -352,12 +353,7 @@ func isValidEndpoint(endpoint string) bool {
 
 // isValidExplorer checks if the explorer is a valid option
 func isValidExplorer(arg string) bool {
-	for _, exp := range _validExpl {
-		if arg == exp {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(_validExpl, arg)
 }
 
 // writeConfig writes to config file

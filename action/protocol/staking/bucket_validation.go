@@ -24,7 +24,7 @@ func validateBucketOwner(bucket *VoteBucket, owner address.Address) ReceiptError
 func validateBucketMinAmount(bucket *VoteBucket, minAmount *big.Int) ReceiptError {
 	if bucket.StakedAmount.Cmp(minAmount) < 0 {
 		return &handleError{
-			err:           errors.New("bucket amount is unsufficient"),
+			err:           errors.New("bucket amount is insufficient"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
 	}

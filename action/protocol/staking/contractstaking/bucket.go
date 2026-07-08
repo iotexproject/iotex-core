@@ -1,0 +1,137 @@
+package contractstaking
+
+import (
+	"math/big"
+
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
+)
+
+type (
+	// Bucket is the structure that holds information about a staking bucket.
+	Bucket struct {
+		// Candidate is the address of the candidate that this bucket is staking for.
+		Candidate address.Address
+		// Owner is the address of the owner of this bucket.
+		Owner address.Address
+		// StakedAmount is the amount of tokens staked in this bucket.
+		StakedAmount *big.Int
+
+		// StakedDuration is the duration for which the tokens have been staked.
+		StakedDuration uint64 // in seconds if timestamped, in block number if not
+		// CreatedAt is the time when the bucket was created.
+		CreatedAt uint64 // in unix timestamp if timestamped, in block height if not
+		// UnlockedAt is the time when the bucket was unlocked.
+		UnlockedAt uint64 // in unix timestamp if timestamped, in block height if not
+		// UnstakedAt is the time when the bucket was unstaked.
+		UnstakedAt uint64 // in unix timestamp if timestamped, in block height if not
+
+		// IsTimestampBased indicates whether the bucket is timestamp-based
+		IsTimestampBased bool
+		// Muted indicates whether the bucket is vote weight muted
+		Muted bool
+	}
+)
+
+// ErrBucketNotExist is the error when bucket does not exist
+var ErrBucketNotExist = errors.New("bucket does not exist")
+
+func (b *Bucket) toProto() *stakingpb.SystemStakingBucket {
+	if b == nil {
+		return nil
+	}
+	return &stakingpb.SystemStakingBucket{
+		Owner:       b.Owner.String(),
+		Candidate:   b.Candidate.String(),
+		Amount:      b.StakedAmount.String(),
+		Duration:    b.StakedDuration,
+		CreatedAt:   b.CreatedAt,
+		UnlockedAt:  b.UnlockedAt,
+		UnstakedAt:  b.UnstakedAt,
+		Muted:       b.Muted,
+		Timestamped: b.IsTimestampBased,
+	}
+}
+
+// LoadBucketFromProto converts a protobuf representation of a staking bucket to a Bucket struct.
+func LoadBucketFromProto(pb *stakingpb.SystemStakingBucket) (*Bucket, error) {
+	if pb == nil {
+		return nil, nil
+	}
+	b := &Bucket{}
+	owner, err := address.FromString(pb.Owner)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert owner bytes to address")
+	}
+	b.Owner = owner
+	cand, err := address.FromString(pb.Candidate)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert candidate bytes to address")
+	}
+	amount, ok := new(big.Int).SetString(pb.Amount, 10)
+	if !ok {
+		return nil, errors.Errorf("invalid staked amount %s", pb.Amount)
+	}
+	b.Candidate = cand
+	b.StakedAmount = amount
+	b.StakedDuration = pb.Duration
+	b.CreatedAt = pb.CreatedAt
+	b.UnlockedAt = pb.UnlockedAt
+	b.UnstakedAt = pb.UnstakedAt
+	b.Muted = pb.Muted
+	b.IsTimestampBased = pb.Timestamped
+
+	return b, nil
+}
+
+// Serialize serializes the bucket to a byte slice.
+func (b *Bucket) Serialize() ([]byte, error) {
+	return proto.Marshal(b.toProto())
+}
+
+// Deserialize deserializes the bucket from a byte slice.
+func (b *Bucket) Deserialize(data []byte) error {
+	m := stakingpb.SystemStakingBucket{}
+	if err := proto.Unmarshal(data, &m); err != nil {
+		return errors.Wrap(err, "failed to unmarshal bucket data")
+	}
+	bucket, err := LoadBucketFromProto(&m)
+	if err != nil {
+		return errors.Wrap(err, "failed to load bucket from proto")
+	}
+	*b = *bucket
+	return nil
+}
+
+// Clone creates a deep copy of the Bucket.
+func (b *Bucket) Clone() *Bucket {
+	return &Bucket{
+		Candidate:        b.Candidate,
+		Owner:            b.Owner,
+		StakedAmount:     new(big.Int).Set(b.StakedAmount),
+		StakedDuration:   b.StakedDuration,
+		CreatedAt:        b.CreatedAt,
+		UnlockedAt:       b.UnlockedAt,
+		UnstakedAt:       b.UnstakedAt,
+		IsTimestampBased: b.IsTimestampBased,
+		Muted:            b.Muted,
+	}
+}
+
+// Encode encodes the bucket into a GenericValue
+func (b *Bucket) Encode() (systemcontracts.GenericValue, error) {
+	data, err := b.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, errors.Wrap(err, "failed to serialize bucket")
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode decodes the bucket from a GenericValue
+func (b *Bucket) Decode(gv systemcontracts.GenericValue) error {
+	return b.Deserialize(gv.PrimaryData)
+}

@@ -42,12 +42,11 @@ func NewVoteReviser(cfg ReviseConfig) *VoteReviser {
 // Revise recalculate candidate votes on preset revising height.
 func (vr *VoteReviser) Revise(ctx protocol.FeatureCtx, csm CandidateStateManager, height uint64) error {
 	if !vr.isCacheExist(height) {
-		cands, _, err := newCandidateStateReader(csm.SM()).getAllCandidates()
-		switch {
-		case errors.Cause(err) == state.ErrStateNotExist:
-		case err != nil:
+		cc, _, err := newCandidateStateReader(csm.SM()).CreateCandidateCenter(ctx)
+		if err != nil {
 			return err
 		}
+		cands := cc.All()
 		if vr.shouldCorrectCandSelfStake(height) {
 			cands, err = vr.correctCandSelfStake(ctx, csm, height, cands)
 			if err != nil {
@@ -130,7 +129,7 @@ func (vr *VoteReviser) correctCandSelfStake(ctx protocol.FeatureCtx, csm Candida
 			cand.SelfStake = big.NewInt(0)
 			continue
 		}
-		sb, err := csm.getBucket(cand.SelfStakeBucketIdx)
+		sb, err := csm.NativeBucket(cand.SelfStakeBucketIdx)
 		switch errors.Cause(err) {
 		case state.ErrStateNotExist:
 			// bucket has been withdrawn
@@ -194,7 +193,7 @@ func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager, cands Cand
 		candm[cand.GetIdentifier().String()].Votes = new(big.Int)
 		candm[cand.GetIdentifier().String()].SelfStake = new(big.Int)
 	}
-	buckets, _, err := csr.getAllBuckets()
+	buckets, _, err := csr.NativeBuckets()
 	switch {
 	case errors.Cause(err) == state.ErrStateNotExist:
 	case err != nil:

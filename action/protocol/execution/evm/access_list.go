@@ -6,6 +6,8 @@
 package evm
 
 import (
+	"maps"
+
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -46,9 +48,7 @@ func newAccessList() *accessList {
 // Copy creates an independent copy of an accessList.
 func (al *accessList) Copy() *accessList {
 	cp := newAccessList()
-	for k, v := range al.addresses {
-		cp.addresses[k] = v
-	}
+	maps.Copy(cp.addresses, al.addresses)
 	cp.slots = make([]map[common.Hash]struct{}, len(al.slots))
 	for i, slotMap := range al.slots {
 		newSlotmap := make(map[common.Hash]struct{}, len(slotMap))

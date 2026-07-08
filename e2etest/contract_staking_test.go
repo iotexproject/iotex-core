@@ -1992,7 +1992,7 @@ func prepareContractStakingBlockchain(ctx context.Context, cfg config.Config, r 
 	// r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	execution := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, fakeGetBlockTime)
+	execution := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas, fakeGetBlockTime, nil)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 

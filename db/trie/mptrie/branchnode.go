@@ -6,6 +6,8 @@
 package mptrie
 
 import (
+	"maps"
+
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -248,9 +250,7 @@ func (b *branchNode) updateChild(cli client, key byte, child node) (node, error)
 	var indices *SortedList
 	// update branchnode with new child
 	children := make(map[byte]node, len(b.children))
-	for k, v := range b.children {
-		children[k] = v
-	}
+	maps.Copy(children, b.children)
 	if child == nil {
 		delete(children, key)
 		if b.indices.sorted {
@@ -277,9 +277,7 @@ func (b *branchNode) updateChild(cli client, key byte, child node) (node, error)
 
 func (b *branchNode) Clone() (branch, error) {
 	children := make(map[byte]node, len(b.children))
-	for key, child := range b.children {
-		children[key] = child
-	}
+	maps.Copy(children, b.children)
 	hashVal := make([]byte, len(b.hashVal))
 	copy(hashVal, b.hashVal)
 	ser := make([]byte, len(b.ser))

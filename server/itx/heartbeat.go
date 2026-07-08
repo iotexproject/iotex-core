@@ -59,17 +59,29 @@ type HeartbeatHandler struct {
 
 // NewHeartbeatHandler instantiates a HeartbeatHandler instance
 func NewHeartbeatHandler(s *Server, cfg p2p.Config) *HeartbeatHandler {
+	chainCfg := s.Config().Chain
+	addrs := chainCfg.ProducerAddress()
+	ss := make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		ss = append(ss, addr.String())
+	}
 	return &HeartbeatHandler{
 		s: s,
-		l: log.L().With(zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port))),
+		l: log.L().With(
+			zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)),
+			zap.String("ioAddr", strings.Join(ss, ",")),
+		),
 	}
 }
 
 // Log executes the logging logic
 func (h *HeartbeatHandler) Log() {
 	// operator address
-	cfg := h.s.Config().Chain
-	for _, addr := range cfg.ProducerAddress() {
+	chainCfg := h.s.Config().Chain
+	producerAddrs := chainCfg.ProducerAddress()
+	operatorAddresses := make([]string, 0, len(producerAddrs))
+	for _, addr := range producerAddrs {
+		operatorAddresses = append(operatorAddresses, addr.String())
 		_heartbeatMtc.WithLabelValues("operatorAddress", addr.String()).Set(1)
 	}
 
@@ -101,6 +113,7 @@ func (h *HeartbeatHandler) Log() {
 
 	numPeers := len(peers)
 	h.l.Debug("Node status.",
+		zap.Strings("operatorAddresses", operatorAddresses),
 		zap.Int("numConnectedPeers", numPeers),
 		zap.String("pendingDispatcherEvents", "{"+strings.Join(events, ", ")+"}"),
 		zap.String("pendingDispatcherEventsAudit", string(dpEvtsAudit)))

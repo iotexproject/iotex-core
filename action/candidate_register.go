@@ -30,11 +30,14 @@ const (
 
 var (
 	// _candidateRegisterInterface is the interface of the abi encoding of stake action
-	_candidateRegisterMethod        abi.Method
-	_candidateRegisterWithBLSMethod abi.Method
-	_candidateRegisteredEvent       abi.Event
-	_stakedEvent                    abi.Event
-	_candidateActivatedEvent        abi.Event
+	_candidateRegisterMethod             abi.Method
+	_candidateRegisterWithBLSMethod      abi.Method
+	_candidateRegisteredEvent            abi.Event
+	_stakedEvent                         abi.Event
+	_candidateActivatedEvent             abi.Event
+	_candidateDeactivationRequestedEvent abi.Event
+	_candidateDeactivationScheduledEvent abi.Event
+	_candidateDeactivatedEvent           abi.Event
 
 	// ErrInvalidAmount represents that amount is 0 or negative
 	ErrInvalidAmount = errors.New("invalid amount")
@@ -63,28 +66,41 @@ type CandidateRegister struct {
 	duration        uint32
 	autoStake       bool
 	payload         []byte
-	pubKey          []byte // BLS public key
+	blsPubKey       []byte
 }
 
 func init() {
 	var ok bool
-	_candidateRegisterMethod, ok = NativeStakingContractABI().Methods["candidateRegister"]
+	abi := NativeStakingContractABI()
+	_candidateRegisterMethod, ok = abi.Methods["candidateRegister"]
 	if !ok {
 		panic("fail to load the method")
 	}
-	_candidateRegisterWithBLSMethod, ok = NativeStakingContractABI().Methods["candidateRegisterWithBLS"]
+	_candidateRegisterWithBLSMethod, ok = abi.Methods["candidateRegisterWithBLS"]
 	if !ok {
 		panic("fail to load the method")
 	}
-	_candidateRegisteredEvent, ok = NativeStakingContractABI().Events["CandidateRegistered"]
+	_candidateRegisteredEvent, ok = abi.Events["CandidateRegistered"]
 	if !ok {
 		panic("fail to load the event")
 	}
-	_stakedEvent, ok = NativeStakingContractABI().Events["Staked"]
+	_stakedEvent, ok = abi.Events["Staked"]
 	if !ok {
 		panic("fail to load the event")
 	}
-	_candidateActivatedEvent, ok = NativeStakingContractABI().Events["CandidateActivated"]
+	_candidateActivatedEvent, ok = abi.Events["CandidateActivated"]
+	if !ok {
+		panic("fail to load the event")
+	}
+	_candidateDeactivationRequestedEvent, ok = abi.Events["CandidateDeactivationRequested"]
+	if !ok {
+		panic("fail to load the event")
+	}
+	_candidateDeactivationScheduledEvent, ok = abi.Events["CandidateDeactivationScheduled"]
+	if !ok {
+		panic("fail to load the event")
+	}
+	_candidateDeactivatedEvent, ok = abi.Events["CandidateDeactivated"]
 	if !ok {
 		panic("fail to load the event")
 	}
@@ -132,6 +148,29 @@ func NewCandidateRegister(
 	return cr, nil
 }
 
+// NewCandidateRegisterWithBLS creates a CandidateRegister instance with BLS public key
+func NewCandidateRegisterWithBLS(
+	name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr string,
+	duration uint32,
+	autoStake bool,
+	blsPubKey []byte,
+	payload []byte,
+) (*CandidateRegister, error) {
+	cr, err := NewCandidateRegister(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr, duration, autoStake, payload)
+	if err != nil {
+		return nil, err
+	}
+	_, err = crypto.BLS12381PublicKeyFromBytes(blsPubKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse BLS public key")
+	}
+	cr.value = cr.amount
+	cr.amount = nil
+	cr.blsPubKey = make([]byte, len(blsPubKey))
+	copy(cr.blsPubKey, blsPubKey)
+	return cr, nil
+}
+
 // LegacyAmount returns the legacy amount
 func (cr *CandidateRegister) LegacyAmount() *big.Int {
 	return cr.amount
@@ -168,12 +207,12 @@ func (cr *CandidateRegister) OwnerAddress() address.Address { return cr.ownerAdd
 
 // WithBLS returns true if the candidate register action is with BLS public key
 func (cr *CandidateRegister) WithBLS() bool {
-	return len(cr.pubKey) > 0
+	return len(cr.blsPubKey) > 0
 }
 
-// PubKey returns the BLS public key if the candidate register action is with BLS public key
-func (cr *CandidateRegister) PubKey() []byte {
-	return cr.pubKey
+// BLSPubKey returns the BLS public key if the candidate register action is with BLS public key
+func (cr *CandidateRegister) BLSPubKey() []byte {
+	return cr.blsPubKey
 }
 
 // Serialize returns a raw byte stream of the CandidateRegister struct
@@ -208,8 +247,8 @@ func (cr *CandidateRegister) Proto() *iotextypes.CandidateRegister {
 
 	switch {
 	case cr.WithBLS():
-		act.Candidate.PubKey = make([]byte, len(cr.pubKey))
-		copy(act.Candidate.PubKey, cr.pubKey)
+		act.Candidate.BlsPubKey = make([]byte, len(cr.blsPubKey))
+		copy(act.Candidate.BlsPubKey, cr.blsPubKey)
 		if cr.value != nil {
 			act.StakedAmount = cr.value.String()
 		}
@@ -245,10 +284,10 @@ func (cr *CandidateRegister) LoadProto(pbAct *iotextypes.CandidateRegister) erro
 	cr.duration = pbAct.GetStakedDuration()
 	cr.autoStake = pbAct.GetAutoStake()
 
-	withBLS := len(pbAct.Candidate.GetPubKey()) > 0
+	withBLS := len(pbAct.Candidate.GetBlsPubKey()) > 0
 	if withBLS {
-		cr.pubKey = make([]byte, len(pbAct.Candidate.GetPubKey()))
-		copy(cr.pubKey, pbAct.Candidate.GetPubKey())
+		cr.blsPubKey = make([]byte, len(pbAct.Candidate.GetBlsPubKey()))
+		copy(cr.blsPubKey, pbAct.Candidate.GetBlsPubKey())
 	}
 	if len(pbAct.GetStakedAmount()) > 0 {
 		amount, ok := new(big.Int).SetString(pbAct.GetStakedAmount(), 10)
@@ -314,15 +353,14 @@ func (cr *CandidateRegister) EthData() ([]byte, error) {
 			common.BytesToAddress(cr.operatorAddress.Bytes()),
 			common.BytesToAddress(cr.rewardAddress.Bytes()),
 			common.BytesToAddress(cr.ownerAddress.Bytes()),
-			cr.amount,
 			cr.duration,
 			cr.autoStake,
-			cr.pubKey,
+			cr.blsPubKey,
 			cr.payload)
 		if err != nil {
 			return nil, err
 		}
-		return append(_candidateRegisterMethod.ID, data...), nil
+		return append(_candidateRegisterWithBLSMethod.ID, data...), nil
 	default:
 		data, err := _candidateRegisterMethod.Inputs.Pack(
 			cr.name,
@@ -347,21 +385,21 @@ func PackCandidateRegisteredEvent(
 	ownerAddress address.Address,
 	name string,
 	rewardAddress address.Address,
-	blsPublicKey []byte,
+	blsPubKey []byte,
 ) (Topics, []byte, error) {
 	data, err := _candidateRegisteredEvent.Inputs.NonIndexed().Pack(
-		operatorAddress.Bytes(),
+		common.BytesToAddress(operatorAddress.Bytes()),
 		name,
-		rewardAddress.Bytes(),
-		blsPublicKey,
+		common.BytesToAddress(rewardAddress.Bytes()),
+		blsPubKey,
 	)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to pack CandidateRegisterWithBLS event")
 	}
 	topics := make(Topics, 3)
 	topics[0] = hash.Hash256(_candidateRegisteredEvent.ID)
-	topics[1] = hash.Hash256(candidate.Bytes())
-	topics[2] = hash.Hash256(ownerAddress.Bytes())
+	topics[1] = hash.BytesToHash256(candidate.Bytes())
+	topics[2] = hash.BytesToHash256(ownerAddress.Bytes())
 	return topics, data, nil
 }
 
@@ -383,8 +421,8 @@ func PackStakedEvent(
 	}
 	topics := make(Topics, 3)
 	topics[0] = hash.Hash256(_stakedEvent.ID)
-	topics[1] = hash.Hash256(voter.Bytes())
-	topics[2] = hash.Hash256(candidate.Bytes())
+	topics[1] = hash.BytesToHash256(voter.Bytes())
+	topics[2] = hash.BytesToHash256(candidate.Bytes())
 	return topics, data, nil
 }
 
@@ -399,7 +437,43 @@ func PackCandidateActivatedEvent(
 	}
 	topics := make(Topics, 2)
 	topics[0] = hash.Hash256(_candidateActivatedEvent.ID)
-	topics[1] = hash.Hash256(candidate.Bytes())
+	topics[1] = hash.BytesToHash256(candidate.Bytes())
+	return topics, data, nil
+}
+
+// PackCandidateDeactivationRequestedEvent packs the CandidateDeactivationRequested event
+func PackCandidateDeactivationRequestedEvent(candidate address.Address) (Topics, []byte, error) {
+	data, err := _candidateDeactivationRequestedEvent.Inputs.NonIndexed().Pack()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to pack CandidateDeactivationRequested event")
+	}
+	topics := make(Topics, 2)
+	topics[0] = hash.Hash256(_candidateDeactivationRequestedEvent.ID)
+	topics[1] = hash.BytesToHash256(candidate.Bytes())
+	return topics, data, nil
+}
+
+// PackCandidateDeactivationScheduledEvent packs the CandidateDeactivationScheduled event
+func PackCandidateDeactivationScheduledEvent(candidate address.Address, blkHeight uint64) (Topics, []byte, error) {
+	data, err := _candidateDeactivationScheduledEvent.Inputs.NonIndexed().Pack(blkHeight)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to pack ScheduleCandidateDeactivation event")
+	}
+	topics := make(Topics, 2)
+	topics[0] = hash.Hash256(_candidateDeactivationScheduledEvent.ID)
+	topics[1] = hash.BytesToHash256(candidate.Bytes())
+	return topics, data, nil
+}
+
+// PackCandidateDeactivatedEvent packs the CandidateDeactivated event
+func PackCandidateDeactivatedEvent(candidate address.Address) (Topics, []byte, error) {
+	data, err := _candidateDeactivatedEvent.Inputs.NonIndexed().Pack()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to pack CandidateDeactivated event")
+	}
+	topics := make(Topics, 2)
+	topics[0] = hash.Hash256(_candidateDeactivatedEvent.ID)
+	topics[1] = hash.BytesToHash256(candidate.Bytes())
 	return topics, data, nil
 }
 
@@ -454,15 +528,15 @@ func NewCandidateRegisterFromABIBinary(data []byte, value *big.Int) (*CandidateR
 	// specific fields parsing for methods
 	if withBLS {
 		if value != nil {
-			cr.value.Set(value)
+			cr.value = new(big.Int).Set(value)
 		}
-		if cr.pubKey, ok = paramsMap["pubKey"].([]byte); !ok {
-			return nil, errors.Wrapf(errDecodeFailure, "invalid pubKey %+v", paramsMap["pubKey"])
+		if cr.blsPubKey, ok = paramsMap["blsPubKey"].([]byte); !ok {
+			return nil, errors.Wrapf(errDecodeFailure, "invalid pubKey %+v", paramsMap["blsPubKey"])
 		}
-		if len(cr.pubKey) == 0 {
+		if len(cr.blsPubKey) == 0 {
 			return nil, errors.Wrap(errDecodeFailure, "pubKey is empty")
 		}
-		_, err := crypto.BLS12381PublicKeyFromBytes(cr.pubKey)
+		_, err := crypto.BLS12381PublicKeyFromBytes(cr.blsPubKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse BLS public key")
 		}

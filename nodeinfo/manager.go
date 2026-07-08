@@ -7,7 +7,7 @@ package nodeinfo
 
 import (
 	"context"
-	"slices"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -52,14 +52,15 @@ type (
 	// InfoManager manage delegate node info
 	InfoManager struct {
 		lifecycle.Lifecycle
-		version              string
-		broadcastList        atomic.Value // []string, whitelist to force enable broadcast
-		nodeMap              *lru.Cache
-		transmitter          transmitter
-		chain                chain
-		privKeys             map[string]crypto.PrivateKey
-		addrs                []string
-		getBroadcastListFunc getBroadcastListFunc
+		version       string
+		broadcastList atomic.Value // []string, whitelist to force enable broadcast
+		nodeMap       *lru.Cache
+		blockInterval time.Duration
+		transmitter   transmitter
+		chain         chain
+		privKeys      map[string]crypto.PrivateKey
+		addrs         []string
+		mutex         sync.RWMutex
 	}
 
 	getBroadcastListFunc func() []string
@@ -78,7 +79,7 @@ func init() {
 }
 
 // NewInfoManager new info manager
-func NewInfoManager(cfg *Config, t transmitter, ch chain, broadcastListFunc getBroadcastListFunc, privKeys ...crypto.PrivateKey) *InfoManager {
+func NewInfoManager(cfg *Config, t transmitter, ch chain, blockInterval time.Duration, privKeys ...crypto.PrivateKey) *InfoManager {
 	addrs := make([]string, 0, len(privKeys))
 	keyMaps := make(map[string]crypto.PrivateKey)
 	for _, privKey := range privKeys {
@@ -87,40 +88,40 @@ func NewInfoManager(cfg *Config, t transmitter, ch chain, broadcastListFunc getB
 		keyMaps[addr] = privKey
 	}
 	dm := &InfoManager{
-		nodeMap:              lru.New(cfg.NodeMapSize),
-		transmitter:          t,
-		chain:                ch,
-		addrs:                addrs,
-		privKeys:             keyMaps,
-		version:              version.PackageVersion,
-		getBroadcastListFunc: broadcastListFunc,
+		nodeMap:       lru.New(cfg.NodeMapSize),
+		transmitter:   t,
+		chain:         ch,
+		addrs:         addrs,
+		privKeys:      keyMaps,
+		version:       version.PackageVersion,
+		blockInterval: blockInterval,
 	}
-	dm.broadcastList.Store([]string{})
+	if cfg.DisableBroadcastNodeInfo {
+		return dm
+	}
 	// init recurring tasks
 	broadcastTask := routine.NewRecurringTask(func() {
-		addrs := dm.addrs
-		if !cfg.EnableBroadcastNodeInfo {
-			addrs = dm.inBroadcastList()
+		dm.mutex.RLock()
+		privKeys := make([]crypto.PrivateKey, 0, len(dm.addrs))
+		for _, addr := range dm.addrs {
+			privKeys = append(privKeys, dm.privKeys[addr])
 		}
+		dm.mutex.RUnlock()
 		// broadcastlist or nodes who are turned on will broadcast
-		if len(addrs) > 0 {
-			if err := dm.BroadcastNodeInfo(context.Background(), addrs); err != nil {
+		if len(privKeys) > 0 {
+			if err := dm.BroadcastNodeInfo(context.Background(), privKeys); err != nil {
 				log.L().Error("nodeinfo manager broadcast node info failed", zap.Error(err))
 			}
 		} else {
 			log.L().Debug("nodeinfo manager general node disabled node info broadcast")
 		}
 	}, cfg.BroadcastNodeInfoInterval)
-	updateBroadcastListTask := routine.NewRecurringTask(func() {
-		dm.updateBroadcastList()
-	}, cfg.BroadcastListTTL)
-	dm.AddModels(updateBroadcastListTask, broadcastTask)
+	dm.AddModels(broadcastTask)
 	return dm
 }
 
 // Start start delegate broadcast task
 func (dm *InfoManager) Start(ctx context.Context) error {
-	dm.updateBroadcastList()
 	return dm.OnStart(ctx)
 }
 
@@ -129,9 +130,26 @@ func (dm *InfoManager) Stop(ctx context.Context) error {
 	return dm.OnStop(ctx)
 }
 
+// MayHaveBlock check whether the peer may have the block starting from 'start'
+func (dm *InfoManager) MayHaveBlock(peerID string, start uint64) bool {
+	value, ok := dm.nodeMap.Get(peerID)
+	if !ok {
+		return false
+	}
+	info := value.(Info)
+	duration := max(time.Now().Sub(info.Timestamp), 0)
+
+	return int64(info.Height)+duration.Milliseconds()/dm.blockInterval.Milliseconds() > int64(start)
+}
+
 // HandleNodeInfo handle node info message
 func (dm *InfoManager) HandleNodeInfo(ctx context.Context, peerID string, msg *iotextypes.NodeInfo) {
 	log.L().Debug("nodeinfo manager handle node info")
+	// reject malformed messages from peers before dereferencing inner fields
+	if msg == nil || msg.Info == nil {
+		log.L().Warn("nodeinfo manager received malformed node info", zap.String("peerID", peerID))
+		return
+	}
 	// recover pubkey
 	hash := hashNodeInfo(msg.Info)
 	pubKey, err := crypto.RecoverPubkey(hash[:], msg.Signature)
@@ -156,11 +174,11 @@ func (dm *InfoManager) HandleNodeInfo(ctx context.Context, peerID string, msg *i
 
 // updateNode update node info
 func (dm *InfoManager) updateNode(node *Info) {
-	addr := node.Address
+	id := node.PeerID
 	// update dm.nodeMap
-	dm.nodeMap.Add(addr, *node)
+	dm.nodeMap.Add(id, *node)
 	// update metric
-	_nodeInfoHeightGauge.WithLabelValues(addr, node.Version).Set(float64(node.Height))
+	_nodeInfoHeightGauge.WithLabelValues(node.Address, node.Version).Set(float64(node.Height))
 }
 
 // GetNodeInfo get node info by address
@@ -173,9 +191,9 @@ func (dm *InfoManager) GetNodeInfo(addr string) (Info, bool) {
 }
 
 // BroadcastNodeInfo broadcast request node info message
-func (dm *InfoManager) BroadcastNodeInfo(ctx context.Context, addrs []string) error {
+func (dm *InfoManager) BroadcastNodeInfo(ctx context.Context, privKeys []crypto.PrivateKey) error {
 	log.L().Debug("nodeinfo manager broadcast node info")
-	infos, err := dm.genNodeInfoMsg(addrs)
+	infos, err := dm.genNodeInfoMsg(privKeys)
 	if err != nil {
 		return err
 	}
@@ -209,7 +227,13 @@ func (dm *InfoManager) RequestSingleNodeInfoAsync(ctx context.Context, peer peer
 // HandleNodeInfoRequest tell node info to peer
 func (dm *InfoManager) HandleNodeInfoRequest(ctx context.Context, peer peer.AddrInfo) error {
 	log.L().Debug("nodeinfo manager tell node info", zap.Any("peer", peer.ID.String()))
-	infos, err := dm.genNodeInfoMsg(dm.addrs)
+	dm.mutex.RLock()
+	privKeys := make([]crypto.PrivateKey, 0, len(dm.addrs))
+	for _, addr := range dm.addrs {
+		privKeys = append(privKeys, dm.privKeys[addr])
+	}
+	dm.mutex.RUnlock()
+	infos, err := dm.genNodeInfoMsg(privKeys)
 	if err != nil {
 		return err
 	}
@@ -221,21 +245,32 @@ func (dm *InfoManager) HandleNodeInfoRequest(ctx context.Context, peer peer.Addr
 	return nil
 }
 
-func (dm *InfoManager) genNodeInfoMsg(addrs []string) ([]*iotextypes.NodeInfo, error) {
-	infos := make([]*iotextypes.NodeInfo, 0, len(addrs))
+// UpdateProducerKeys refreshes the producer key cache used for node-info broadcasts.
+func (dm *InfoManager) UpdateProducerKeys(privKeys []crypto.PrivateKey) {
+	addrs := make([]string, 0, len(privKeys))
+	keyMaps := make(map[string]crypto.PrivateKey, len(privKeys))
+	for _, privKey := range privKeys {
+		addr := privKey.PublicKey().Address().String()
+		addrs = append(addrs, addr)
+		keyMaps[addr] = privKey
+	}
+
+	dm.mutex.Lock()
+	dm.addrs = addrs
+	dm.privKeys = keyMaps
+	dm.mutex.Unlock()
+}
+
+func (dm *InfoManager) genNodeInfoMsg(privKeys []crypto.PrivateKey) ([]*iotextypes.NodeInfo, error) {
 	tip := dm.chain.TipHeight()
 	ts := timestamppb.Now()
-
-	for _, addr := range addrs {
-		privKey, ok := dm.privKeys[addr]
-		if !ok {
-			return nil, errors.Errorf("private key not found for address %s", addr)
-		}
+	infos := make([]*iotextypes.NodeInfo, 0, len(privKeys))
+	for _, privKey := range privKeys {
 		core := &iotextypes.NodeInfoCore{
 			Version:   dm.version,
 			Height:    tip,
 			Timestamp: ts,
-			Address:   addr,
+			Address:   privKey.PublicKey().Address().String(),
 		}
 		// add sig for msg
 		h := hashNodeInfo(core)
@@ -249,25 +284,6 @@ func (dm *InfoManager) genNodeInfoMsg(addrs []string) ([]*iotextypes.NodeInfo, e
 		})
 	}
 	return infos, nil
-}
-
-func (dm *InfoManager) inBroadcastList() []string {
-	list := dm.broadcastList.Load().([]string)
-	inList := make([]string, 0, len(dm.addrs))
-	for _, a := range dm.addrs {
-		if slices.Contains(list, a) {
-			inList = append(inList, a)
-		}
-	}
-	return inList
-}
-
-func (dm *InfoManager) updateBroadcastList() {
-	if dm.getBroadcastListFunc != nil {
-		list := dm.getBroadcastListFunc()
-		dm.broadcastList.Store(list)
-		log.L().Debug("nodeinfo manaager updateBroadcastList", zap.Strings("list", list))
-	}
 }
 
 func hashNodeInfo(msg *iotextypes.NodeInfoCore) hash.Hash256 {

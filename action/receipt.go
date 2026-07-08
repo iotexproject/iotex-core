@@ -37,6 +37,9 @@ type (
 		logs               []*Log
 		transactionLogs    []*TransactionLog
 		executionRevertMsg string
+		// Output is used to store the Output of contract execution IN MEMORY only, not serialized to DB
+		// it is used for the caller to get the Output of a contract call
+		Output []byte
 	}
 
 	// Log stores an evm contract event
@@ -214,6 +217,64 @@ func (receipt *Receipt) TransferLogs(accountContractAddr string, logIndex uint32
 		logIndex++
 	}
 	return logs, nil
+}
+
+func (receipt *Receipt) CloneFixed() *Receipt {
+	var cls []*Log
+	if receipt.logs != nil {
+		cls = make([]*Log, len(receipt.logs))
+		for i, l := range receipt.logs {
+			data := make([]byte, len(l.Data))
+			copy(data, l.Data)
+			topics := make([]hash.Hash256, len(l.Topics))
+			for j, topic := range l.Topics {
+				copy(topics[j][:], topic[:])
+			}
+			cls[i] = &Log{
+				Address:     l.Address,
+				Topics:      topics,
+				Data:        data,
+				BlockHeight: l.BlockHeight,
+				ActionHash:  l.ActionHash,
+				Index:       l.Index,
+				TxIndex:     l.TxIndex,
+			}
+		}
+	}
+	var ctls []*TransactionLog
+	if receipt.transactionLogs != nil {
+		ctls = make([]*TransactionLog, len(receipt.transactionLogs))
+		for i, tl := range receipt.transactionLogs {
+			ctls[i] = &TransactionLog{
+				Type:      tl.Type,
+				Amount:    new(big.Int).Set(tl.Amount),
+				Sender:    tl.Sender,
+				Recipient: tl.Recipient,
+			}
+		}
+	}
+	var blobGasPrice *big.Int
+	if receipt.BlobGasPrice != nil {
+		blobGasPrice = new(big.Int).Set(receipt.BlobGasPrice)
+	}
+	var effectiveGasPrice *big.Int
+	if receipt.EffectiveGasPrice != nil {
+		effectiveGasPrice = new(big.Int).Set(receipt.EffectiveGasPrice)
+	}
+	return &Receipt{
+		Status:             receipt.Status,
+		BlockHeight:        receipt.BlockHeight,
+		ActionHash:         receipt.ActionHash,
+		GasConsumed:        receipt.GasConsumed,
+		BlobGasUsed:        receipt.BlobGasUsed,
+		BlobGasPrice:       blobGasPrice,
+		ContractAddress:    receipt.ContractAddress,
+		TxIndex:            receipt.TxIndex,
+		EffectiveGasPrice:  effectiveGasPrice,
+		logs:               cls,
+		transactionLogs:    ctls,
+		executionRevertMsg: receipt.executionRevertMsg,
+	}
 }
 
 // ConvertToLogPb converts a Log to protobuf's Log

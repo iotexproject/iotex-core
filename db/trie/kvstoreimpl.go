@@ -136,7 +136,7 @@ func (s *kvStoreImpl) Get(key []byte) ([]byte, error) {
 	_trieKeystoreMtc.WithLabelValues("get").Inc()
 	value, err := s.dao.Get(s.bucket, key)
 	if errors.Cause(err) == db.ErrNotExist {
-		return nil, errors.Wrapf(ErrNotExist, err.Error())
+		return nil, errors.Wrap(ErrNotExist, err.Error())
 	}
 
 	return value, err

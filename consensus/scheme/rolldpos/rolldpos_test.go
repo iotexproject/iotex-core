@@ -76,6 +76,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().AddSubscriber(gomock.Any()).Times(2)
 		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 		chain.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 		r, err := NewRollDPoSBuilder().
@@ -95,6 +96,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("mock-clock", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().AddSubscriber(gomock.Any()).Times(2)
 		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 		chain.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 		r, err := NewRollDPoSBuilder().
@@ -118,6 +120,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("root chain API", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().AddSubscriber(gomock.Any()).Times(2)
 		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 		chain.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 		r, err := NewRollDPoSBuilder().
@@ -149,6 +152,55 @@ func TestNewRollDPoS(t *testing.T) {
 			Build()
 		assert.Error(t, err)
 		assert.Nil(t, r)
+	})
+
+	t.Run("api-node-disables-premint", func(t *testing.T) {
+		sk := identityset.PrivateKey(0)
+		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().AddSubscriber(gomock.Any()).Times(2)
+		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+		chain.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
+		apiCfg := builderCfg
+		// Only len(HistoryIndexPath) > 0 matters for the Build-time check; no file is opened.
+		apiCfg.Chain.HistoryIndexPath = "any-non-empty"
+		r, err := NewRollDPoSBuilder().
+			SetConfig(apiCfg).
+			SetPriKey(sk).
+			SetChainManager(NewChainManager(chain, mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
+			SetBroadcast(func(_ proto.Message) error {
+				return nil
+			}).
+			SetDelegatesByEpochFunc(delegatesByEpoch).
+			SetProposersByEpochFunc(delegatesByEpoch).
+			RegisterProtocol(rp).
+			Build()
+		assert.NoError(t, err)
+		assert.NotNil(t, r)
+		assert.True(t, r.ctx.(*rollDPoSCtx).disablePremint)
+	})
+
+	t.Run("non-api-node-keeps-premint", func(t *testing.T) {
+		sk := identityset.PrivateKey(0)
+		chain := mock_blockchain.NewMockBlockchain(ctrl)
+		chain.EXPECT().AddSubscriber(gomock.Any()).Times(2)
+		chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+		chain.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
+		nonAPICfg := builderCfg
+		nonAPICfg.Chain.HistoryIndexPath = ""
+		r, err := NewRollDPoSBuilder().
+			SetConfig(nonAPICfg).
+			SetPriKey(sk).
+			SetChainManager(NewChainManager(chain, mock_factory.NewMockFactory(ctrl), &dummyBlockBuildFactory{})).
+			SetBroadcast(func(_ proto.Message) error {
+				return nil
+			}).
+			SetDelegatesByEpochFunc(delegatesByEpoch).
+			SetProposersByEpochFunc(delegatesByEpoch).
+			RegisterProtocol(rp).
+			Build()
+		assert.NoError(t, err)
+		assert.NotNil(t, r)
+		assert.False(t, r.ctx.(*rollDPoSCtx).disablePremint)
 	})
 }
 
@@ -207,6 +259,7 @@ func TestValidateBlockFooter(t *testing.T) {
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	bc.EXPECT().AddSubscriber(gomock.Any()).Times(2)
 	bc.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).AnyTimes()
 	bc.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 	bc.EXPECT().TipHeight().Return(blockHeight).AnyTimes()

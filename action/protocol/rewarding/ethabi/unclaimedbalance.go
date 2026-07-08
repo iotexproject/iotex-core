@@ -81,7 +81,7 @@ func (r *UnclaimedBalanceStateContext) EncodeToEth(resp *iotexapi.ReadStateRespo
 
 	data, err := _unclaimedBalanceMethod.Outputs.Pack(total)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return hex.EncodeToString(data), nil

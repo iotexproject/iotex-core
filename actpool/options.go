@@ -35,6 +35,17 @@ func WithTimeOut(ttl time.Duration) interface{ ActQueueOption } {
 
 func (o *ttlOption) SetActQueueOption(aq *actQueue) { aq.ttl = o.ttl }
 
+// WithBundlePool is the option to set bundle pool.
+func WithBundlePool(bp *BundlePool) func(*actPool) error {
+	return func(ap *actPool) error {
+		if bp == nil {
+			return errors.New("bundle pool cannot be nil")
+		}
+		ap.bundlePool = bp
+		return nil
+	}
+}
+
 // WithStore is the option to set store encode and decode functions.
 func WithStore(cfg StoreConfig, encode encodeAction, decode decodeAction) func(*actPool) error {
 	return func(a *actPool) error {
