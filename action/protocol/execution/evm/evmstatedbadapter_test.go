@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -174,6 +175,136 @@ func TestInContractTransferLogNoForgery(t *testing.T) {
 	require.Equal(amount, tl.Amount)
 	require.Equal(big.NewInt(900), stateDB.GetBalance(from).ToBig())
 	require.Equal(amount, stateDB.GetBalance(to).ToBig())
+}
+
+// TestSelfDestructTransferLog covers the SELFDESTRUCT transaction-log emission
+// under both the legacy "last AddBalance" heuristic (pre-fork) and the corrected
+// derivation from the actual EVM balance movement (post-fork).
+//
+// It faithfully mirrors go-ethereum's opSelfdestruct / opSelfdestruct6780 call
+// sequence into the StateDBAdapter:
+//
+//	opSelfdestruct:     AddBalance(beneficiary, bal, BalanceIncreaseSelfdestruct); SelfDestruct(contract)
+//	opSelfdestruct6780: SubBalance(contract, bal, BalanceDecreaseSelfdestruct);
+//	                    AddBalance(beneficiary, bal, BalanceIncreaseSelfdestruct); SelfDestruct6780(contract)
+func TestSelfDestructTransferLog(t *testing.T) {
+	contract := common.HexToAddress("3fab184622dc19b6109349b94811493bf2a45362")
+	beneficiary := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	contractStr := MustNoErrorV(address.FromBytes(contract[:])).String()
+	beneficiaryStr := MustNoErrorV(address.FromBytes(beneficiary[:])).String()
+
+	newDB := func(require *require.Assertions, sm *mock_chainmanager.MockStateManager, correct bool) *StateDBAdapter {
+		opts := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+			SuicideTxLogMismatchPanicOption(),
+			EnableCancunEVMOption(),
+			RevertLogOption(),
+		}
+		if correct {
+			opts = append(opts, CorrectSelfDestructTransferLogOption())
+		}
+		return MustNoErrorV(NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...))
+	}
+
+	u256 := func(i *big.Int) *uint256.Int { return uint256.MustFromBig(i) }
+
+	// legacySelfDestruct6780 mirrors opSelfdestruct6780
+	do6780 := func(stateDB *StateDBAdapter, c, ben common.Address, bal *big.Int) {
+		stateDB.CreateAccount(c) // mark created-in-tx so 6780 actually deletes
+		stateDB.AddBalance(c, u256(bal), tracing.BalanceChangeUnspecified)
+		stateDB.SubBalance(c, u256(bal), tracing.BalanceDecreaseSelfdestruct)
+		stateDB.AddBalance(ben, u256(bal), tracing.BalanceIncreaseSelfdestruct)
+		stateDB.SelfDestruct6780(c)
+	}
+	// doLegacy mirrors opSelfdestruct
+	doLegacy := func(stateDB *StateDBAdapter, c, ben common.Address, bal *big.Int) {
+		stateDB.AddBalance(c, u256(bal), tracing.BalanceChangeUnspecified)
+		stateDB.AddBalance(ben, u256(stateDB.GetBalance(c).ToBig()), tracing.BalanceIncreaseSelfdestruct)
+		stateDB.SelfDestruct(c)
+	}
+
+	t.Run("pre-fork heuristic emits a bogus self->self log (6780 self-beneficiary)", func(t *testing.T) {
+		require := require.New(t)
+		ctrl := gomock.NewController(t)
+		sm := MustNoErrorV(initMockStateManager(ctrl))
+		stateDB := newDB(require, sm, false)
+		do6780(stateDB, contract, contract, big.NewInt(12345))
+		// BUG: current heuristic records the last AddBalance (to the contract itself)
+		// as an IN_CONTRACT_TRANSFER even though no native token moved between accounts.
+		txLogs := stateDB.TransactionLogs()
+		require.Len(txLogs, 1)
+		require.Equal(contractStr, txLogs[0].Sender)
+		require.Equal(contractStr, txLogs[0].Recipient) // phantom: sender == recipient
+		require.Equal("12345", txLogs[0].Amount.String())
+	})
+
+	t.Run("post-fork emits no log for 6780 self-beneficiary", func(t *testing.T) {
+		require := require.New(t)
+		ctrl := gomock.NewController(t)
+		sm := MustNoErrorV(initMockStateManager(ctrl))
+		stateDB := newDB(require, sm, true)
+		do6780(stateDB, contract, contract, big.NewInt(12345))
+		require.Empty(stateDB.TransactionLogs())
+	})
+
+	t.Run("post-fork emits correct log for 6780 external beneficiary", func(t *testing.T) {
+		require := require.New(t)
+		ctrl := gomock.NewController(t)
+		sm := MustNoErrorV(initMockStateManager(ctrl))
+		stateDB := newDB(require, sm, true)
+		do6780(stateDB, contract, beneficiary, big.NewInt(999))
+		txLogs := stateDB.TransactionLogs()
+		require.Len(txLogs, 1)
+		require.Equal(contractStr, txLogs[0].Sender)
+		require.Equal(beneficiaryStr, txLogs[0].Recipient)
+		require.Equal("999", txLogs[0].Amount.String())
+	})
+
+	t.Run("post-fork emits no log for zero-value selfdestruct", func(t *testing.T) {
+		require := require.New(t)
+		ctrl := gomock.NewController(t)
+		sm := MustNoErrorV(initMockStateManager(ctrl))
+		stateDB := newDB(require, sm, true)
+		do6780(stateDB, contract, beneficiary, big.NewInt(0))
+		require.Empty(stateDB.TransactionLogs())
+	})
+
+	t.Run("post-fork legacy selfdestruct to external beneficiary", func(t *testing.T) {
+		require := require.New(t)
+		ctrl := gomock.NewController(t)
+		sm := MustNoErrorV(initMockStateManager(ctrl))
+		stateDB := newDB(require, sm, true)
+		doLegacy(stateDB, contract, beneficiary, big.NewInt(777))
+		txLogs := stateDB.TransactionLogs()
+		require.Len(txLogs, 1)
+		require.Equal(contractStr, txLogs[0].Sender)
+		require.Equal(beneficiaryStr, txLogs[0].Recipient)
+		require.Equal("777", txLogs[0].Amount.String())
+	})
+
+	t.Run("post-fork zero-value credit invalidates a prior capture (no phantom)", func(t *testing.T) {
+		require := require.New(t)
+		ctrl := gomock.NewController(t)
+		sm := MustNoErrorV(initMockStateManager(ctrl))
+		stateDB := newDB(require, sm, true)
+		// a real selfdestruct credit to an external beneficiary is captured...
+		stateDB.AddBalance(beneficiary, u256(big.NewInt(5)), tracing.BalanceIncreaseSelfdestruct)
+		// ...but a following zero-value selfdestruct credit must invalidate it, so the
+		// next SelfDestruct emits nothing (guards against stale-capture phantom logs).
+		stateDB.AddBalance(beneficiary, u256(big.NewInt(0)), tracing.BalanceIncreaseSelfdestruct)
+		stateDB.SelfDestruct(contract)
+		require.Empty(stateDB.TransactionLogs())
+	})
+
+	t.Run("post-fork legacy self-beneficiary emits no log (no panic)", func(t *testing.T) {
+		require := require.New(t)
+		ctrl := gomock.NewController(t)
+		sm := MustNoErrorV(initMockStateManager(ctrl))
+		stateDB := newDB(require, sm, true)
+		doLegacy(stateDB, contract, contract, big.NewInt(555))
+		require.Empty(stateDB.TransactionLogs())
+	})
 }
 
 func TestRefundAPIs(t *testing.T) {

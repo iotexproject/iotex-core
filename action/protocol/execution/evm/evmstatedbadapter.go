@@ -91,6 +91,18 @@ type (
 		panicUnrecoverableError    bool
 		enableCancun               bool
 		fixRevertSnapshot          bool
+		// correctSelfDestructTransferLog derives SELFDESTRUCT transfer logs from the
+		// actual EVM balance movement instead of the legacy lastAddBalance heuristic
+		correctSelfDestructTransferLog bool
+		// selfDestructBeneficiary / selfDestructTransfer capture the beneficiary and
+		// amount of the native transfer the EVM performs during a SELFDESTRUCT, taken
+		// from the AddBalance call tagged with tracing.BalanceIncreaseSelfdestruct and
+		// consumed by the immediately-following SelfDestruct/SelfDestruct6780 call.
+		// selfDestructTransferSet distinguishes a genuine zero-value transfer from a
+		// stale/absent capture.
+		selfDestructBeneficiary common.Address
+		selfDestructTransfer    *big.Int
+		selfDestructTransferSet bool
 		// ignoreBalanceChangeTouchAccount indicates whether to ignore balance change touch account
 		ignoreBalanceChangeTouchAccount bool
 		// skipWriteCleanContract indicates whether to skip writing back read-only
@@ -174,6 +186,14 @@ func ManualCorrectGasRefundOption() StateDBAdapterOption {
 func SuicideTxLogMismatchPanicOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.suicideTxLogMismatchPanic = true
+		return nil
+	}
+}
+
+// CorrectSelfDestructTransferLogOption sets correctSelfDestructTransferLog as true
+func CorrectSelfDestructTransferLogOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.correctSelfDestructTransferLog = true
 		return nil
 	}
 }
@@ -380,6 +400,14 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, a256 *uint256.
 		return *common.U2560
 	}
 	amount := a256.ToBig()
+	if reason == tracing.BalanceIncreaseSelfdestruct {
+		// Invalidate any previously-captured SELFDESTRUCT transfer up front so that
+		// a failed credit, a zero-value credit (which returns early below), or a
+		// stale capture from an earlier SELFDESTRUCT cannot be reused to emit a
+		// phantom log. The capture is (re)established only after the credit is
+		// successfully persisted (see the success branch below).
+		stateDB.selfDestructTransferSet = false
+	}
 	stateDB.lastAddBalanceAmount.SetUint64(0)
 	if amount.Cmp(big.NewInt(int64(0))) == 0 {
 		org, err := accountutil.Recorded(stateDB.sm, evmAddr)
@@ -422,6 +450,20 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, a256 *uint256.
 		// keep a record of latest add balance
 		stateDB.lastAddBalanceAddr = addr.String()
 		stateDB.lastAddBalanceAmount.SetBytes(amount.Bytes())
+		if reason == tracing.BalanceIncreaseSelfdestruct {
+			// Capture the exact beneficiary and amount of the native transfer the
+			// EVM performs during a SELFDESTRUCT. go-ethereum's opSelfdestruct[6780]
+			// calls AddBalance(beneficiary, contractBalance, BalanceIncreaseSelfdestruct)
+			// immediately before StateDB.SelfDestruct[6780]; the following SelfDestruct
+			// consumes this to emit an accurate IN_CONTRACT_TRANSFER log (post-fork).
+			// Only set here, on a successfully-persisted non-zero credit.
+			stateDB.selfDestructBeneficiary = evmAddr
+			if stateDB.selfDestructTransfer == nil {
+				stateDB.selfDestructTransfer = new(big.Int)
+			}
+			stateDB.selfDestructTransfer.Set(amount)
+			stateDB.selfDestructTransferSet = true
+		}
 	}
 	return *uint256.MustFromBig(state.Balance)
 }
@@ -560,8 +602,7 @@ func (stateDB *StateDBAdapter) SelfDestruct(evmAddr common.Address) uint256.Int 
 	}
 	// before calling SelfDestruct, EVM will transfer the contract's balance to beneficiary
 	// need to create a transaction log on successful SelfDestruct
-	from, _ := address.FromBytes(evmAddr[:])
-	stateDB.generateSelfDestructTransferLog(from.String(), stateDB.lastAddBalanceAmount.Cmp(actBalance) == 0)
+	stateDB.generateSelfDestructTransferLog(evmAddr, stateDB.lastAddBalanceAmount.Cmp(actBalance) == 0)
 	// mark it as deleted
 	stateDB.selfDestructed[evmAddr] = struct{}{}
 	return prevBalance
@@ -589,8 +630,7 @@ func (stateDB *StateDBAdapter) SelfDestruct6780(evmAddr common.Address) (uint256
 	}
 	// opSelfdestruct6780 has already subtracted the contract's balance
 	// so create a transaction log
-	from, _ := address.FromBytes(evmAddr[:])
-	stateDB.generateSelfDestructTransferLog(from.String(), true)
+	stateDB.generateSelfDestructTransferLog(evmAddr, true)
 	// per EIP-6780, delete the account only if it is created in the same transaction
 	if _, ok := stateDB.createdAccount[evmAddr]; ok {
 		stateDB.selfDestructed[evmAddr] = struct{}{}
@@ -1031,16 +1071,23 @@ func (stateDB *StateDBAdapter) accountState(evmAddr common.Address) (*state.Acco
 	return accountutil.LoadAccountByHash160(stateDB.sm, hash.BytesToHash160(evmAddr[:]), stateDB.accountCreationOpts()...)
 }
 
-func (stateDB *StateDBAdapter) generateSelfDestructTransferLog(sender string, amountMatch bool) {
+func (stateDB *StateDBAdapter) generateSelfDestructTransferLog(contract common.Address, legacyAmountMatch bool) {
+	if stateDB.correctSelfDestructTransferLog {
+		stateDB.generateSelfDestructTransferLogV2(contract)
+		return
+	}
+	// Legacy heuristic (pre-Zanzibar): derive the beneficiary/amount from the last
+	// AddBalance seen before SELFDESTRUCT. Kept byte-identical for historical replay.
 	// To ensure data consistency, generate this log after the hard-fork
 	// a separate patch file will be created later to provide missing logs before the hard-fork
 	// TODO: remove this gating once the hard-fork has passed
+	sender, _ := address.FromBytes(contract[:])
 	if stateDB.suicideTxLogMismatchPanic {
-		if amountMatch {
+		if legacyAmountMatch {
 			if stateDB.lastAddBalanceAmount.Cmp(big.NewInt(0)) > 0 {
 				stateDB.addTransactionLogs(&action.TransactionLog{
 					Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
-					Sender:    sender,
+					Sender:    sender.String(),
 					Recipient: stateDB.lastAddBalanceAddr,
 					Amount:    stateDB.lastAddBalanceAmount,
 				})
@@ -1050,6 +1097,37 @@ func (stateDB *StateDBAdapter) generateSelfDestructTransferLog(sender string, am
 				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
 		}
 	}
+}
+
+// generateSelfDestructTransferLogV2 emits an IN_CONTRACT_TRANSFER log derived from
+// the actual native transfer the EVM performed during SELFDESTRUCT, captured from
+// the AddBalance call tagged tracing.BalanceIncreaseSelfdestruct. A log is emitted
+// if and only if a real transfer of native token between two distinct accounts
+// occurred: it is skipped for zero-value selfdestructs and for the self-beneficiary
+// case (EVM adds then removes the same amount on the same account, so nothing moves
+// between accounts and no funds are transferred out). The capture is consumed so a
+// later SelfDestruct with no preceding transfer cannot reuse stale data.
+func (stateDB *StateDBAdapter) generateSelfDestructTransferLogV2(contract common.Address) {
+	beneficiary := stateDB.selfDestructBeneficiary
+	amount := stateDB.selfDestructTransfer
+	captured := stateDB.selfDestructTransferSet
+	stateDB.selfDestructTransferSet = false
+	if !captured || amount == nil || amount.Sign() <= 0 {
+		// zero-value selfdestruct (or no transfer captured): no native token moved
+		return
+	}
+	if beneficiary == contract {
+		// self-beneficiary: net-zero, no token leaves the account
+		return
+	}
+	from, _ := address.FromBytes(contract[:])
+	to, _ := address.FromBytes(beneficiary[:])
+	stateDB.addTransactionLogs(&action.TransactionLog{
+		Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
+		Sender:    from.String(),
+		Recipient: to.String(),
+		Amount:    new(big.Int).Set(amount),
+	})
 }
 
 func (stateDB *StateDBAdapter) addTransactionLogs(tlog *action.TransactionLog) {
@@ -1314,6 +1392,7 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.txLogsSnapshot = make(map[int]int)
 	stateDB.logs = []*action.Log{}
 	stateDB.transactionLogs = []*action.TransactionLog{}
+	stateDB.selfDestructTransferSet = false
 	if stateDB.enableCancun {
 		stateDB.transientStorage = newTransientStorage()
 		stateDB.transientStorageSnapshot = make(map[int]transientStorage)

@@ -82,7 +82,11 @@ func defaultConfig() Genesis {
 			XinguBetaBlockHeight:      41648761,
 			YapBlockHeight:            48985561,
 			YapBetaBlockHeight:        48985561,
-			ToBeEnabledBlockHeight:    math.MaxUint64,
+			// TODO(maintainer): set fork height. PLACEHOLDER sentinel (never
+			// activated) — the real mainnet/testnet Zanzibar height needs
+			// maintainer sign-off before this fork can ship.
+			ZanzibarBlockHeight:    math.MaxUint64,
+			ToBeEnabledBlockHeight: math.MaxUint64,
 		},
 		Account: Account{
 			InitBalanceMap:          map[string]string{},
@@ -390,6 +394,12 @@ type (
 		YapBlockHeight uint64 `yaml:"yapHeight"`
 		// YapBetaBlockHeight is the start height to enable slashing candidate by identity
 		YapBetaBlockHeight uint64 `yaml:"yapBetaHeight"`
+		// ZanzibarBlockHeight is the start height to
+		// 1. derive SELFDESTRUCT IN_CONTRACT_TRANSFER transaction logs from the
+		//    actual EVM balance movement instead of the fragile "last AddBalance"
+		//    heuristic (fixes phantom/incorrect selfdestruct transfer logs).
+		// TODO(maintainer): set fork height before release.
+		ZanzibarBlockHeight uint64 `yaml:"zanzibarHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -790,6 +800,11 @@ func (g *Blockchain) IsYap(height uint64) bool {
 // IsYapBeta checks whether height is equal to or larger than yap beta height
 func (g *Blockchain) IsYapBeta(height uint64) bool {
 	return g.isPost(g.YapBetaBlockHeight, height)
+}
+
+// IsZanzibar checks whether height is equal to or larger than zanzibar height
+func (g *Blockchain) IsZanzibar(height uint64) bool {
+	return g.isPost(g.ZanzibarBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

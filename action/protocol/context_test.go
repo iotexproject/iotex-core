@@ -15,6 +15,8 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 func TestRegistryCtx(t *testing.T) {
@@ -182,4 +184,21 @@ func TestGetVMConfigCtx(t *testing.T) {
 	ret, ok := GetVMConfigCtx(ctx)
 	require.True(ok)
 	require.True(ret.NoBaseFee)
+}
+
+func TestCorrectSelfDestructTransferLogFeature(t *testing.T) {
+	require := require.New(t)
+	g := genesis.TestDefault()
+	const forkHeight = uint64(1000000)
+	g.ZanzibarBlockHeight = forkHeight
+	featureAt := func(height uint64) FeatureCtx {
+		ctx := genesis.WithGenesisContext(context.Background(), g)
+		ctx = WithBlockCtx(ctx, BlockCtx{BlockHeight: height})
+		return MustGetFeatureCtx(WithFeatureCtx(ctx))
+	}
+	// pre-fork (fork-1): heuristic behavior retained
+	require.False(featureAt(forkHeight - 1).CorrectSelfDestructTransferLog)
+	// at/after fork: corrected derivation enabled
+	require.True(featureAt(forkHeight).CorrectSelfDestructTransferLog)
+	require.True(featureAt(forkHeight + 1).CorrectSelfDestructTransferLog)
 }
