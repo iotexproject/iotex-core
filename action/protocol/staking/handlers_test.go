@@ -2884,78 +2884,68 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 }
 
 func TestProtocol_FetchBucketAndValidate(t *testing.T) {
-	require := require.New(t)
+	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm, p, _, _ := initAll(t, ctrl)
+	csm, err := NewCandidateStateManager(sm)
+	r.NoError(err)
+
+	// The patched targets — the process-global `(*candSM).NativeBucket` machine
+	// code and the `isSelfStakeBucket` function — are shared mutable state. Patch
+	// each of them exactly once here and vary behavior per subtest through these
+	// closure variables, instead of repeatedly patching/resetting the same global
+	// function code across subtests. Repeated re-patching of the same target was
+	// unreliable (issue #4813: the second and later re-patches intermittently did
+	// not take effect, so the real NativeBucket ran and returned ErrStateNotExist),
+	// which made this test order-dependent and flaky in the full staking suite.
+	var (
+		bucket         *VoteBucket
+		bucketErr      error
+		isSelfStake    bool
+		isSelfStakeErr error
+	)
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyPrivateMethod(csm, "NativeBucket", func(index uint64) (*VoteBucket, error) {
+		return bucket, bucketErr
+	})
+	patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidiateStateCommon, b *VoteBucket) (bool, error) {
+		return isSelfStake, isSelfStakeErr
+	})
 
 	t.Run("bucket not exist", func(t *testing.T) {
-		csm, err := NewCandidateStateManager(sm)
-		require.NoError(err)
-		patches := gomonkey.ApplyPrivateMethod(csm, "NativeBucket", func(index uint64) (*VoteBucket, error) {
-			return nil, state.ErrStateNotExist
-		})
-		defer patches.Reset()
-		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, true)
-		require.ErrorContains(err, "failed to fetch bucket")
+		req := require.New(t)
+		bucket, bucketErr = nil, state.ErrStateNotExist
+		_, err := p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, true)
+		req.ErrorContains(err, "failed to fetch bucket")
 	})
 	t.Run("validate owner", func(t *testing.T) {
-		csm, err := NewCandidateStateManager(sm)
-		require.NoError(err)
-		patches := gomonkey.ApplyPrivateMethod(csm, "NativeBucket", func(index uint64) (*VoteBucket, error) {
-			return &VoteBucket{
-				Owner: identityset.Address(1),
-			}, nil
-		})
-		defer patches.Reset()
-		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(2), 1, true, true)
-		require.ErrorContains(err, "bucket owner does not match")
+		req := require.New(t)
+		bucket, bucketErr = &VoteBucket{Owner: identityset.Address(1)}, nil
+		_, err := p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(2), 1, true, true)
+		req.ErrorContains(err, "bucket owner does not match")
 		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, true)
-		require.NoError(err)
+		req.NoError(err)
 	})
 	t.Run("validate selfstake", func(t *testing.T) {
-		csm, err := NewCandidateStateManager(sm)
-		require.NoError(err)
-		patches := gomonkey.NewPatches()
-		defer patches.Reset()
-		patches.ApplyPrivateMethod(csm, "NativeBucket", func(index uint64) (*VoteBucket, error) {
-			return &VoteBucket{
-				Owner: identityset.Address(1),
-			}, nil
-		})
-		isSelfStake := true
-		isSelfStakeErr := error(nil)
-		patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidiateStateCommon, bucket *VoteBucket) (bool, error) {
-			return isSelfStake, isSelfStakeErr
-		})
-		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
-		require.ErrorContains(err, "self staking bucket cannot be processed")
+		req := require.New(t)
+		bucket, bucketErr = &VoteBucket{Owner: identityset.Address(1)}, nil
+		isSelfStake, isSelfStakeErr = true, nil
+		_, err := p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
+		req.ErrorContains(err, "self staking bucket cannot be processed")
 		isSelfStake = false
 		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
-		require.NoError(err)
+		req.NoError(err)
 		isSelfStakeErr = errors.New("unknown error")
 		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, false, false)
-		require.ErrorContains(err, "unknown error")
+		req.ErrorContains(err, "unknown error")
 	})
 	t.Run("validate owner and selfstake", func(t *testing.T) {
-		csm, err := NewCandidateStateManager(sm)
-		if err != nil {
-			t.Fatal(err)
-		}
-		patches := gomonkey.NewPatches()
-		patches.ApplyPrivateMethod(csm, "NativeBucket", func(index uint64) (*VoteBucket, error) {
-			return &VoteBucket{
-				Owner: identityset.Address(1),
-			}, nil
-		})
-		patches.ApplyFunc(isSelfStakeBucket, func(featureCtx protocol.FeatureCtx, csm CandidiateStateCommon, bucket *VoteBucket) (bool, error) {
-			return false, nil
-		})
-		defer patches.Reset()
-
-		_, err = p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, false)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		req := require.New(t)
+		bucket, bucketErr = &VoteBucket{Owner: identityset.Address(1)}, nil
+		isSelfStake, isSelfStakeErr = false, nil
+		_, err := p.fetchBucketAndValidate(protocol.FeatureCtx{}, csm, identityset.Address(1), 1, true, false)
+		req.NoError(err)
 	})
 }
 
