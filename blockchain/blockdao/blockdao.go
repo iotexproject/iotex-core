@@ -66,6 +66,7 @@ type (
 		blockStore     BlockStore
 		blobStore      BlobStore
 		receiptIndexer *ReceiptIndexer
+		txLogIndexer   *TransactionLogIndexer
 		indexers       []BlockIndexer
 		timerFactory   *prometheustimer.TimerFactory
 		lifecycle      lifecycle.Lifecycle
@@ -93,6 +94,13 @@ func WithReceiptIndexer(ri *ReceiptIndexer) Option {
 	}
 }
 
+// WithTransactionLogIndexer adds transaction log indexer to block DAO
+func WithTransactionLogIndexer(ti *TransactionLogIndexer) Option {
+	return func(dao *blockDAO) {
+		dao.txLogIndexer = ti
+	}
+}
+
 // NewBlockDAOWithIndexersAndCache returns a BlockDAO with indexers which will consume blocks appended, and
 // caches which will speed up reading
 func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexer, cacheSize int, opts ...Option) BlockDAO {
@@ -113,6 +121,9 @@ func NewBlockDAOWithIndexersAndCache(blkStore BlockStore, indexers []BlockIndexe
 	}
 	if blockDAO.receiptIndexer != nil {
 		blockDAO.lifecycle.Add(blockDAO.receiptIndexer)
+	}
+	if blockDAO.txLogIndexer != nil {
+		blockDAO.lifecycle.Add(blockDAO.txLogIndexer)
 	}
 	for _, indexer := range indexers {
 		blockDAO.lifecycle.Add(indexer)
@@ -343,7 +354,9 @@ func (dao *blockDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
 			return nil, err
 		}
 	}
-	tlogs, err := dao.blockStore.TransactionLogs(height)
+	// use dao.TransactionLogs (not blockStore) so the transaction-log patch, if any,
+	// is reflected in the logs attached to receipts served here.
+	tlogs, err := dao.TransactionLogs(height)
 	if err != nil {
 		return nil, err
 	}
@@ -379,9 +392,23 @@ func (dao *blockDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 	_cacheMtc.WithLabelValues("miss_txlog").Inc()
 	timer := dao.timerFactory.NewTimer("get_transactionlog")
 	defer timer.End()
-	txLogs, err := dao.blockStore.TransactionLogs(height)
-	if err != nil {
-		return nil, err
+	var txLogs *iotextypes.TransactionLogs
+	var err error
+	if dao.txLogIndexer != nil {
+		txLogs, err = dao.txLogIndexer.TransactionLogs(height)
+		switch errors.Cause(err) {
+		case nil:
+		case db.ErrNotExist, db.ErrBucketNotExist:
+			txLogs = nil
+		default:
+			return nil, err
+		}
+	}
+	if txLogs == nil {
+		txLogs, err = dao.blockStore.TransactionLogs(height)
+		if err != nil {
+			return nil, err
+		}
 	}
 	lruCachePut(dao.txLogCache, height, txLogs)
 	return txLogs, nil

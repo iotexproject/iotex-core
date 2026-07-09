@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
@@ -2348,26 +2349,68 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 	})
 	ctx = protocol.WithRegistry(ctx, core.registry)
 	ctx = protocol.WithFeatureCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash:   bcCtx.GetBlockHash,
+		GetBlockTime:   bcCtx.GetBlockTime,
+		DepositGasFunc: rewarding.DepositGas,
+	})
 	retvals := make([][]byte, 0)
 	receipts := make([]*action.Receipt, 0)
 	results := make([]*blockTraceResult, 0)
-	ctx, tracer, err := core.traceContext(ctx, new(tracers.Context), config)
-	if err != nil {
+
+	// Every transaction in the block must be traced with a fresh tracer, exactly
+	// like geth's traceBlock (which calls DefaultDirectory.New per tx). Sharing a
+	// single tracer across the whole block leaks state between transactions:
+	// prestateTracer accumulates touched accounts and callTracer never resets its
+	// callstack, dropping later txs with "incorrect number of top-level calls".
+	//
+	// The block is processed in a single pass over a working set that must carry
+	// state forward from one tx to the next, so we cannot simply re-invoke the
+	// tracing entrypoint per tx. Instead we wire a stable *tracing.Hooks into the
+	// EVM (via VMConfigCtx) and swap in a freshly instantiated tracer's hooks
+	// between transactions. CaptureTx (invoked once per traced user tx, after its
+	// hooks have fired) collects the current tracer's result and then rearms a new
+	// tracer for the next tx.
+	sharedHooks := new(tracing.Hooks)
+	var curTracer *tracers.Tracer
+	newTracer := func() error {
+		t, err := parseTracer(ctx, new(tracers.Context), config)
+		if err != nil {
+			return err
+		}
+		curTracer = t
+		if t.Hooks != nil {
+			*sharedHooks = *t.Hooks
+		} else {
+			*sharedHooks = tracing.Hooks{}
+		}
+		return nil
+	}
+	if err := newTracer(); err != nil {
 		return nil, nil, nil, err
 	}
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Tracer:    sharedHooks,
+		NoBaseFee: true,
+	})
 	ctx = evm.WithTracerCtx(ctx, evm.TracerContext{
 		CaptureTx: func(retval []byte, receipt *action.Receipt) {
-			res, err := tracer.GetResult()
+			res, err := curTracer.GetResult()
 			if err != nil {
 				log.L().Error("failed to get tracer result", zap.Error(err))
-				return
+			} else {
+				results = append(results, &blockTraceResult{
+					TxHash: receipt.ActionHash,
+					Result: res,
+				})
+				retvals = append(retvals, retval)
+				receipts = append(receipts, receipt)
 			}
-			results = append(results, &blockTraceResult{
-				TxHash: receipt.ActionHash,
-				Result: res,
-			})
-			retvals = append(retvals, retval)
-			receipts = append(receipts, receipt)
+			// rearm a fresh tracer for the next transaction in the block
+			if err := newTracer(); err != nil {
+				log.L().Error("failed to create tracer for next transaction", zap.Error(err))
+			}
 		},
 	})
 	ws, err := core.sf.WorkingSetAtTransaction(ctx, blk.Height(), blk.Actions...)

@@ -123,6 +123,19 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 		require.Equal(msg.Info.Height, uint64(m.Gauge.GetValue()))
 	})
 
+	t.Run("nil_msg_and_nil_info", func(t *testing.T) {
+		hMock := mock_nodeinfo.NewMockchain(ctrl)
+		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, 2500*time.Millisecond, privKey)
+		// Both nil msg and msg with nil Info must not panic on field deref / hash.
+		require.NotPanics(func() { dm.HandleNodeInfo(context.Background(), "abc", nil) })
+		require.NotPanics(func() {
+			dm.HandleNodeInfo(context.Background(), "abc", &iotextypes.NodeInfo{Signature: []byte("sig")})
+		})
+		_, ok := dm.nodeMap.Get("abc")
+		require.False(ok)
+	})
+
 	t.Run("verify_fail", func(t *testing.T) {
 		hMock := mock_nodeinfo.NewMockchain(ctrl)
 		tMock := mock_nodeinfo.NewMocktransmitter(ctrl)

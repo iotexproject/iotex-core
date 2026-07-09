@@ -140,6 +140,14 @@ func createEnvelope(chainID uint32) (Envelope, *Transfer) {
 	return evlp, tsf
 }
 
+func TestEnvelope_LoadProto_UnsupportedTxType(t *testing.T) {
+	req := require.New(t)
+	evlp := &envelope{}
+	err := evlp.LoadProto(&iotextypes.ActionCore{TxType: 5})
+	req.Error(err)
+	req.ErrorIs(err, ErrInvalidAct)
+}
+
 func TestEnvelope_Hash(t *testing.T) {
 	r := require.New(t)
 	blob := createTestBlobTxData()

@@ -6,8 +6,10 @@
 package evm
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"encoding/binary"
 	"errors"
 	"math/big"
 	"testing"
@@ -605,4 +607,92 @@ func TestEIP7702BlacklistLogic(t *testing.T) {
 	convertedAddr, err := address.FromBytes(authority.Bytes())
 	r.NoError(err, "converting authority to io address should succeed")
 	r.Equal(ioAddr.String(), convertedAddr.String(), "converted address should match expected io address")
+}
+
+func TestExtractRevertMessage(t *testing.T) {
+	r := require.New(t)
+
+	// Build a well-formed Error(string) payload for the given message.
+	wellFormed := func(msg string) []byte {
+		out := append([]byte{}, _revertSelector...)
+		offset := make([]byte, 32)
+		offset[31] = 0x20
+		out = append(out, offset...)
+		length := make([]byte, 32)
+		binary.BigEndian.PutUint64(length[24:32], uint64(len(msg)))
+		out = append(out, length...)
+		data := []byte(msg)
+		if pad := len(data) % 32; pad != 0 {
+			data = append(data, make([]byte, 32-pad)...)
+		}
+		return append(out, data...)
+	}
+
+	for _, tc := range []struct {
+		name    string
+		in      []byte
+		want    string
+		wantErr bool
+	}{
+		{"nil", nil, "", true},
+		{"shorter than selector", []byte{0x01, 0x02}, "", true},
+		{"non-revert prefix", []byte{0x01, 0x02, 0x03, 0x04, 0x05}, "", true},
+		{
+			"selector only, truncated length offset",
+			append(append([]byte{}, _revertSelector...), bytes.Repeat([]byte{0xff}, 50)...),
+			"", true,
+		},
+		{
+			"msgLength exceeds remaining payload",
+			func() []byte {
+				out := append([]byte{}, _revertSelector...)
+				out = append(out, bytes.Repeat([]byte{0x00}, 32)...) // offset
+				length := make([]byte, 32)
+				binary.BigEndian.PutUint64(length[24:32], 1<<20) // claim 1MB message
+				out = append(out, length...)
+				out = append(out, []byte("short")...) // but only provide 5 bytes
+				return out
+			}(),
+			"", true,
+		},
+		{"well-formed hello", wellFormed("hello"), "hello", false},
+		{"well-formed empty", wellFormed(""), "", false},
+		{"well-formed with emoji", wellFormed("nope 🚫"), "nope 🚫", false},
+		{
+			// Regression guard: utf8.Valid check was intentionally removed so
+			// honest-but-non-UTF-8 reverts remain consensus-compatible.
+			"well-formed but non-UTF-8 string",
+			func() []byte {
+				out := append([]byte{}, _revertSelector...)
+				offset := make([]byte, 32)
+				offset[31] = 0x20
+				out = append(out, offset...)
+				length := make([]byte, 32)
+				length[31] = 0x02
+				out = append(out, length...)
+				out = append(out, 0xff, 0xfe)
+				out = append(out, make([]byte, 30)...)
+				return out
+			}(),
+			"\xff\xfe", false,
+		},
+		{
+			// Boundary: msgLength exactly equals len(data)-64.
+			"msgLength exactly fills payload",
+			wellFormed("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), // 32 bytes, no padding required
+			"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r.NotPanics(func() {
+				got, err := ExtractRevertMessage(tc.in)
+				if tc.wantErr {
+					r.Error(err)
+				} else {
+					r.NoError(err)
+				}
+				r.Equal(tc.want, got)
+			})
+		})
+	}
 }

@@ -8,7 +8,6 @@ package evm
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"math"
 	"math/big"
 	"time"
@@ -64,19 +63,26 @@ func CanTransfer(db vm.StateDB, fromHash common.Address, balance *uint256.Int) b
 	return db.GetBalance(fromHash).Cmp(balance) >= 0
 }
 
+// inContractTransferRecorder records a native token transfer that happens inside
+// contract execution. It is intentionally NOT part of vm.StateDB: only the node,
+// via MakeTransfer, can reach it. A contract therefore cannot forge an
+// IN_CONTRACT_TRANSFER transaction log by emitting a crafted LOG opcode.
+type inContractTransferRecorder interface {
+	AddInContractTransferLog(from, to common.Address, amount *big.Int)
+}
+
 // MakeTransfer transfers account
 func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *uint256.Int) {
 	db.SubBalance(fromHash, amount, tracing.BalanceChangeUnspecified)
 	db.AddBalance(toHash, amount, tracing.BalanceChangeUnspecified)
 
-	db.AddLog(&types.Log{
-		Topics: []common.Hash{
-			common.BytesToHash(_inContractTransfer[:]),
-			common.BytesToHash(fromHash[:]),
-			common.BytesToHash(toHash[:]),
-		},
-		Data: amount.Bytes(),
-	})
+	// Record the in-contract transfer directly on the state DB rather than routing
+	// it through AddLog with a reserved topic. This keeps the node's transfer-log
+	// channel physically separate from contract-emitted EVM logs, so contracts can
+	// no longer forge IN_CONTRACT_TRANSFER transaction logs.
+	if r, ok := db.(inContractTransferRecorder); ok {
+		r.AddInContractTransferLog(fromHash, toHash, amount.ToBig())
+	}
 }
 
 type (
@@ -374,7 +380,11 @@ func ExecuteContract(
 
 	if ps.featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && len(retval) >= 4 && bytes.Equal(retval[:4], _revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
-		receipt.SetExecutionRevertMsg(ExtractRevertMessage(retval))
+		msg, err := ExtractRevertMessage(retval)
+		if err != nil {
+			return nil, nil, err
+		}
+		receipt.SetExecutionRevertMsg(msg)
 	}
 	return retval, receipt, nil
 }
@@ -963,18 +973,21 @@ func SimulateAndCollectAccessList(
 	return stateDB.AccessedSlots(), nil
 }
 
-// ExtractRevertMessage extracts the revert message from the return value
-func ExtractRevertMessage(ret []byte) string {
-	if len(ret) < 4 {
-		return hex.EncodeToString(ret)
-	}
-	if !bytes.Equal(ret[:4], _revertSelector) {
-		return hex.EncodeToString(ret)
+// ExtractRevertMessage extracts the revert message from the return value.
+// Returns an error if the payload is not a well-formed Error(string) revert.
+func ExtractRevertMessage(ret []byte) (string, error) {
+	if len(ret) < 4 || !bytes.Equal(ret[:4], _revertSelector) {
+		return "", errors.New("malformed revert payload: missing Error(string) selector")
 	}
 	data := ret[4:]
+	if len(data) < 64 {
+		return "", errors.New("malformed revert payload: data shorter than offset+length header")
+	}
 	msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
-	revertMsg := string(data[64 : 64+msgLength])
-	return revertMsg
+	if msgLength > uint64(len(data)-64) {
+		return "", errors.New("malformed revert payload: declared length exceeds available data")
+	}
+	return string(data[64 : 64+msgLength]), nil
 }
 
 func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64) (authority common.Address, err error) {

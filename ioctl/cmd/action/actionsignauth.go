@@ -92,7 +92,7 @@ func signAuth(args []string) error {
 		if err != nil {
 			return output.NewError(0, "failed to get chain meta (pass --evm-chain-id to skip)", err)
 		}
-		evmChainID, err = resolveEVMChainID(chainMeta.GetChainID())
+		evmChainID, err = resolveEVMChainID(chainMeta.GetChainID(), nodeEVMChainID)
 		if err != nil {
 			return err
 		}
