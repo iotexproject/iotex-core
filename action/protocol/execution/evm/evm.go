@@ -63,19 +63,26 @@ func CanTransfer(db vm.StateDB, fromHash common.Address, balance *uint256.Int) b
 	return db.GetBalance(fromHash).Cmp(balance) >= 0
 }
 
+// inContractTransferRecorder records a native token transfer that happens inside
+// contract execution. It is intentionally NOT part of vm.StateDB: only the node,
+// via MakeTransfer, can reach it. A contract therefore cannot forge an
+// IN_CONTRACT_TRANSFER transaction log by emitting a crafted LOG opcode.
+type inContractTransferRecorder interface {
+	AddInContractTransferLog(from, to common.Address, amount *big.Int)
+}
+
 // MakeTransfer transfers account
 func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *uint256.Int) {
 	db.SubBalance(fromHash, amount, tracing.BalanceChangeUnspecified)
 	db.AddBalance(toHash, amount, tracing.BalanceChangeUnspecified)
 
-	db.AddLog(&types.Log{
-		Topics: []common.Hash{
-			common.BytesToHash(_inContractTransfer[:]),
-			common.BytesToHash(fromHash[:]),
-			common.BytesToHash(toHash[:]),
-		},
-		Data: amount.Bytes(),
-	})
+	// Record the in-contract transfer directly on the state DB rather than routing
+	// it through AddLog with a reserved topic. This keeps the node's transfer-log
+	// channel physically separate from contract-emitted EVM logs, so contracts can
+	// no longer forge IN_CONTRACT_TRANSFER transaction logs.
+	if r, ok := db.(inContractTransferRecorder); ok {
+		r.AddInContractTransferLog(fromHash, toHash, amount.ToBig())
+	}
 }
 
 type (

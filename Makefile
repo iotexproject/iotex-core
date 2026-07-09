@@ -133,6 +133,27 @@ test: fmt
 	@echo "Running e2e tests without race detector..."
 	@$(GOTEST) -gcflags="all=-N -l" -short ${E2E_TEST_PKGS}
 
+# fuzz-short runs each registered fuzz target for FUZZTIME (default 30s),
+# suitable for PR CI. Override with `make fuzz-short FUZZTIME=5m` for
+# longer runs locally or in nightly CI.
+FUZZTIME ?= 30s
+FUZZ_TARGETS := \
+	./crypto:FuzzMerkleHashTree \
+	./crypto:FuzzSort \
+	./crypto:FuzzSortCandidates \
+	./action:FuzzReceiptDeserialize \
+	./action:FuzzLogDeserialize \
+	./state:FuzzAccountDeserialize \
+	./state:FuzzCandidateListDeserialize
+
+.PHONY: fuzz-short
+fuzz-short:
+	@for t in $(FUZZ_TARGETS); do \
+		pkg=$${t%%:*}; name=$${t##*:}; \
+		echo "==> fuzz $$pkg $$name ($(FUZZTIME))"; \
+		go test -run='^$$' -fuzz="^$$name$$" -fuzztime=$(FUZZTIME) $$pkg || exit 1; \
+	done
+
 .PHONY: test-unit
 test-unit: fmt
 	@$(GOTEST) -gcflags="all=-N -l" -short -race ${TEST_PKGS_NO_E2E}
