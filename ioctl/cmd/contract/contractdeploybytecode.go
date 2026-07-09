@@ -17,8 +17,8 @@ import (
 // Multi-language support
 var (
 	_deployBytecodeCmdUses = map[config.Language]string{
-		config.English: "bytecode BYTECODE [ABI_PATH INIT_INPUT] [--init-amount AMOUNT_IOTX]",
-		config.Chinese: "bytecode BYTECODE [ABI文件路径 初始化输入] [--init-amount IOTX数量]",
+		config.English: "bytecode BYTECODE [ABI_PATH INIT_INPUT] [--amount IOTX]",
+		config.Chinese: "bytecode BYTECODE [ABI文件路径 初始化输入] [--amount IOTX数量]",
 	}
 	_deployBytecodeCmdShorts = map[config.Language]string{
 		config.English: "deploy smart contract with bytecode on IoTeX blockchain",
@@ -40,6 +40,7 @@ var _contractDeployBytecodeCmd = &cobra.Command{
 
 func init() {
 	_initialAmountFlag.RegisterCommand(_contractDeployBytecodeCmd)
+	aliasInitAmount(_contractDeployBytecodeCmd)
 }
 
 func contractDeployBytecode(args []string) error {
