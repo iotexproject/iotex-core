@@ -927,18 +927,17 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		topics = append(topics, topic)
 	}
 	if len(topics) > 0 && topics[0] == _inContractTransfer {
+		// The reserved in-contract-transfer topic is emitted only by the node's own
+		// MakeTransfer, which now records the transaction log directly via
+		// AddInContractTransferLog. Any EVM log reaching AddLog with this topic is
+		// therefore contract-emitted (i.e. forged) and must NOT become a transaction
+		// log. It is dropped here, exactly as before it was never appended to
+		// stateDB.logs, so receipt.Logs (and thus the receipt root) is unchanged.
+		//
+		// NOTE: the historical len(topics) != 3 panic is preserved to keep behavior
+		// identical for malformed inputs; hardening that DoS is a separate change.
 		if len(topics) != 3 {
 			log.T(stateDB.ctx).Panic("Invalid in contract transfer topics")
-		}
-		if amount, zero := new(big.Int).SetBytes(evmLog.Data), big.NewInt(0); amount.Cmp(zero) == 1 {
-			from, _ := address.FromBytes(topics[1][12:])
-			to, _ := address.FromBytes(topics[2][12:])
-			stateDB.addTransactionLogs(&action.TransactionLog{
-				Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
-				Sender:    from.String(),
-				Recipient: to.String(),
-				Amount:    amount,
-			})
 		}
 		return
 	}
@@ -950,6 +949,28 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		BlockHeight:        stateDB.blockHeight,
 		ActionHash:         stateDB.executionHash,
 		NotFixTopicCopyBug: stateDB.notFixTopicCopyBug,
+	})
+}
+
+// AddInContractTransferLog records a native token transfer that occurs inside
+// contract execution. It is invoked only by MakeTransfer (the EVM's Transfer
+// callback), so from/to/amount always correspond to a real SubBalance/AddBalance
+// pair — a contract cannot reach this path and therefore cannot forge an
+// IN_CONTRACT_TRANSFER transaction log. The log is appended to transactionLogs,
+// which is snapshotted and reverted together with the balance changes.
+func (stateDB *StateDBAdapter) AddInContractTransferLog(from, to common.Address, amount *big.Int) {
+	if amount == nil || amount.Sign() <= 0 {
+		return
+	}
+	// common.Address is always 20 bytes, so FromBytes never errors here; this
+	// mirrors the previous derivation from the log topics.
+	fromAddr, _ := address.FromBytes(from.Bytes())
+	toAddr, _ := address.FromBytes(to.Bytes())
+	stateDB.addTransactionLogs(&action.TransactionLog{
+		Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
+		Sender:    fromAddr.String(),
+		Recipient: toAddr.String(),
+		Amount:    new(big.Int).Set(amount),
 	})
 }
 
