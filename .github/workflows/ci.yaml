@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
-  packages: write
 
 env:
   GO111MODULE: on
@@ -42,7 +40,21 @@ jobs:
           ./go.test.sh
           #make test
           go test -run=XXX -bench=. $(go list ./crypto)
-          bash <(curl -s https://codecov.io/bash)
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+      # Fuzz harness for crypto/action/state codec & primitives. Runs each
+      # target for 30s. Marked continue-on-error while existing panic sites
+      # found by the harness are triaged in follow-ups; promote to required
+      # after they are fixed.
+      - name: Run Fuzz (short)
+        continue-on-error: true
+        shell: bash
+        run: make fuzz-short
 
       - name: Make Minicluster
         if: github.event.pull_request.merged == true

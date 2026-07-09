@@ -93,6 +93,14 @@ func (svr *web3Handler) getBlockWithTransactions(blk *block.Block, receipts []*a
 	transactions := make([]interface{}, 0)
 	for i, selp := range blk.Actions {
 		if isDetailed {
+			if i >= len(receipts) {
+				// defensive guard: skip a detailed transaction that has no
+				// corresponding receipt rather than indexing out of bounds.
+				// Aligned inputs (len(receipts) == len(actions)) are unaffected.
+				h, _ := selp.Hash()
+				log.Logger("api").Debug("Skipping transaction due to missing receipt", zap.String("actHash", hex.EncodeToString(h[:])))
+				continue
+			}
 			tx, err := svr.assembleConfirmedTransaction(blk.HashBlock(), selp, receipts[i])
 			if err != nil {
 				if errors.Cause(err) != errUnsupportedAction {

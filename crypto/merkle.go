@@ -46,6 +46,13 @@ func NewMerkleTree(leaves []hash.Hash256) *Merkle {
 
 // HashTree calculates the root hash of a merkle tree
 func (mk *Merkle) HashTree() hash.Hash256 {
+	// For a single-leaf tree the root is the leaf itself. This short-circuit
+	// also handles the edge case where the leaf hash is ZeroHash256, which
+	// would otherwise be misread as "root not yet computed" by the sentinel
+	// below and fall through into the multi-leaf path with length == 0.
+	if mk.size <= 1 {
+		return mk.leaf[0]
+	}
 	if mk.root != hash.ZeroHash256 {
 		return mk.root
 	}

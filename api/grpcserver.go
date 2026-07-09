@@ -269,6 +269,13 @@ func actionsInBlock(blk *block.Block, receipts []*action.Receipt, start, count u
 		}
 	}
 	for i := start; i < lastAction; i++ {
+		if i >= uint64(len(receipts)) {
+			// defensive guard: an action without a corresponding receipt is
+			// skipped rather than indexing out of bounds. Aligned inputs
+			// (len(receipts) == len(actions)) are unaffected.
+			log.Logger("api").Debug("Skipping action due to missing receipt", zap.Uint64("index", i))
+			continue
+		}
 		selp, receipt := blk.Actions[i], receipts[i]
 		actHash, err := selp.Hash()
 		if err != nil {
