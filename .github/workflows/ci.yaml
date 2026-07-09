@@ -42,7 +42,7 @@ jobs:
           go test -run=XXX -bench=. $(go list ./crypto)
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
