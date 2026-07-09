@@ -117,6 +117,48 @@ func TestAccountPool_PopPeek(t *testing.T) {
 	})
 }
 
+func TestAccountPool_PutActionError(t *testing.T) {
+	// gas price 0 keeps action cost equal to the transfer amount, isolating the
+	// balance check from intrinsic-gas cost.
+	t.Run("new account rejected when cost exceeds balance", func(t *testing.T) {
+		r := require.New(t)
+		ap := newAccountPool()
+		// balance of 1 cannot cover a transfer of 100
+		tsf, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+		r.NoError(err)
+		err = ap.PutAction(_addr1, nil, 0, big.NewInt(1), _expireTime, tsf)
+		r.ErrorIs(err, action.ErrInsufficientFunds)
+		// failed insert must not create an account entry
+		r.Nil(ap.Account(_addr1))
+		r.Nil(ap.PopPeek())
+	})
+	t.Run("existing account keeps prior action when new one is rejected", func(t *testing.T) {
+		r := require.New(t)
+		ap := newAccountPool()
+		tsf1, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
+		r.NoError(err)
+		r.NoError(ap.PutAction(_addr1, nil, 1, big.NewInt(1000), _expireTime, tsf1))
+		// second action at the pending nonce whose cost blows the balance is rejected
+		tsf2, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100000), nil, uint64(0), big.NewInt(0))
+		r.NoError(err)
+		err = ap.PutAction(_addr1, nil, 1, big.NewInt(1000), _expireTime, tsf2)
+		r.ErrorIs(err, action.ErrInsufficientFunds)
+		// the account still holds exactly the first action
+		r.Equal(1, ap.Account(_addr1).Len())
+		r.Equal(tsf1, ap.PopPeek())
+	})
+}
+
+func TestAccountPool_AccountAndDeleteMissing(t *testing.T) {
+	r := require.New(t)
+	ap := newAccountPool()
+	// Account for an unknown address returns nil
+	r.Nil(ap.Account("nonExistentAddress"))
+	// DeleteIfEmpty on an unknown address is a no-op and must not panic
+	ap.DeleteIfEmpty("nonExistentAddress")
+	r.Nil(ap.Account("nonExistentAddress"))
+}
+
 func TestAccountPool_PopAccount(t *testing.T) {
 	r := require.New(t)
 	ap := newAccountPool()
