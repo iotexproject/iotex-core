@@ -16,6 +16,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -112,6 +113,67 @@ func TestAddBalance(t *testing.T) {
 	require.Equal(amount, uint256.NewInt(80000))
 	stateDB.AddBalance(addr, common.U2560, 0)
 	require.Zero(len(stateDB.lastAddBalanceAmount.Bytes()))
+}
+
+// TestInContractTransferLogNoForgery verifies that a contract can no longer forge
+// an IN_CONTRACT_TRANSFER transaction log by emitting a crafted LOG opcode, while a
+// genuine node-side transfer (MakeTransfer) still records the log and moves balance.
+// This is the regression guard for the in-contract-transfer forgery vulnerability
+// (e.g. mainnet tx 0xadd4b0f5…4eec06).
+func TestInContractTransferLogNoForgery(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
+	stateDB, err := NewStateDBAdapter(
+		sm,
+		1,
+		hash.ZeroHash256,
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+	)
+	require.NoError(err)
+
+	from := common.HexToAddress("ce17cfc932c978a374a9373d89edd18ce9b520e2")
+	to := common.HexToAddress("986895eb8a117af83258e28df92d8fcb5acb209c")
+	contract := common.HexToAddress("1904246161bcd0d5f006a2575561fb4c11d7bef6")
+	amount := big.NewInt(100)
+
+	// --- Forgery attempt: a contract emits LOG3 carrying the reserved
+	// in-contract-transfer topic (topic0 == all-zero hash), just like the on-chain
+	// attack. It must NOT create a transaction log, must NOT land in receipt.Logs
+	// (so the receipt root is unchanged), and must NOT move any balance.
+	stateDB.AddLog(&types.Log{
+		Address: contract, // non-zero: emitted by a contract, not the node
+		Topics: []common.Hash{
+			common.BytesToHash(_inContractTransfer[:]),
+			common.BytesToHash(from[:]),
+			common.BytesToHash(to[:]),
+		},
+		Data: amount.Bytes(),
+	})
+	require.Empty(stateDB.transactionLogs) // forged transfer log rejected
+	require.Empty(stateDB.logs)            // dropped, never enters receipt.Logs
+	require.True(stateDB.GetBalance(to).IsZero())
+	require.True(stateDB.GetBalance(from).IsZero())
+
+	// --- Legitimate path: the node's MakeTransfer records the transfer directly and
+	// actually moves balance.
+	stateDB.AddBalance(from, uint256.MustFromBig(big.NewInt(1000)), 0)
+	MakeTransfer(stateDB, from, to, uint256.MustFromBig(amount))
+
+	require.Empty(stateDB.logs) // a native transfer is not an EVM log
+	require.Len(stateDB.transactionLogs, 1)
+	tl := stateDB.transactionLogs[0]
+	require.Equal(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, tl.Type)
+	fromIo, _ := address.FromBytes(from.Bytes())
+	toIo, _ := address.FromBytes(to.Bytes())
+	require.Equal(fromIo.String(), tl.Sender)
+	require.Equal(toIo.String(), tl.Recipient)
+	require.Equal(amount, tl.Amount)
+	require.Equal(big.NewInt(900), stateDB.GetBalance(from).ToBig())
+	require.Equal(amount, stateDB.GetBalance(to).ToBig())
 }
 
 func TestRefundAPIs(t *testing.T) {
