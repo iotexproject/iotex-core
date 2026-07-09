@@ -121,22 +121,28 @@ func (worker *queueWorker) Handle(job workerJob) error {
 
 	atomic.AddUint64(&worker.ap.gasInPool, intrinsicGas)
 
-	worker.mu.Lock()
-	defer worker.mu.Unlock()
 	if replace {
-		// TODO: early return if sender is the account to pop and nonce is larger than largest in the queue
-		actToReplace := worker.accountActs.PopPeek()
+		// Pick the eviction victim across *all* shards, not just this sender's
+		// shard. Per-shard PopPeek lets an attacker who saturates one shard
+		// force honest senders in every other shard to evict each other.
+		// popLowestPriorityAcrossWorkers locks all workers in index order, so
+		// we must release no other worker mu before calling it. Handle's other
+		// state mutations happen via putAction / accountActs which take the
+		// lock internally, so it's safe to call here without holding mu.
+		actToReplace := worker.ap.popLowestPriorityAcrossWorkers()
 		if actToReplace == nil {
 			log.L().Warn("UNEXPECTED ERROR: action pool is full, but no action to drop")
-			return nil
-		}
-		worker.ap.removeInvalidActs([]*action.SealedEnvelope{actToReplace})
-		if actToReplace.SenderAddress().String() == sender && actToReplace.Nonce() == nonce {
-			err = action.ErrTxPoolOverflow
-			_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
+		} else {
+			worker.ap.removeInvalidActs([]*action.SealedEnvelope{actToReplace})
+			if actToReplace.SenderAddress().String() == sender && actToReplace.Nonce() == nonce {
+				err = action.ErrTxPoolOverflow
+				_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
+			}
 		}
 	}
 
+	worker.mu.Lock()
+	defer worker.mu.Unlock()
 	worker.removeEmptyAccounts()
 
 	return err
