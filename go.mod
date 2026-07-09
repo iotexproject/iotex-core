@@ -17,7 +17,7 @@ require (
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-resty/resty/v2 v2.15.3
-	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb
+	github.com/golang/snappy v1.0.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -46,6 +46,7 @@ require (
 	github.com/schollz/progressbar/v2 v2.15.0
 	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/spf13/cobra v1.8.1
+	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.11.0
 	github.com/tyler-smith/go-bip39 v1.1.0
@@ -305,7 +306,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
