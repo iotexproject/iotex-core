@@ -42,6 +42,7 @@ type (
 		BlobStoreRetentionDays     uint32           `yaml:"blobStoreRetentionDays"`
 		PatchReceiptIndexPath      string           `yaml:"patchReceiptIndexPath"`
 		PatchReceiptIndexEndHeight uint64           `yaml:"patchReceiptIndexEndHeight"`
+		PatchTransactionLogPath    string           `yaml:"patchTransactionLogPath"`
 		HistoryIndexPath           string           `yaml:"historyIndexPath"`
 		HistoryBlockRetention      uint64           `yaml:"historyBlockRetention"`
 		ID                         uint32           `yaml:"id"`
