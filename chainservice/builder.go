@@ -331,6 +331,12 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 			dbConfig.ReadOnly = true
 			opts = append(opts, blockdao.WithReceiptIndexer(blockdao.NewReceiptIndexer(db.NewBoltDB(dbConfig), cfg.Chain.PatchReceiptIndexEndHeight)))
 		}
+		if path := cfg.Chain.PatchTransactionLogPath; len(path) > 0 {
+			dbConfig.DbPath = path
+			dbConfig.ReadOnly = true
+			opts = append(opts, blockdao.WithTransactionLogIndexer(
+				blockdao.NewTransactionLogIndexer(db.NewBoltDB(dbConfig), blockdao.WithPreloadHeights())))
+		}
 	}
 	if err != nil {
 		return err
@@ -886,10 +892,20 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.buildActionSyncer(); err != nil {
 		return nil, err
 	}
+	builder.buildDBFileSizeCollector()
 	cs := builder.cs
 	builder.cs = nil
 
 	return cs, nil
+}
+
+// buildDBFileSizeCollector registers a background task that periodically exports the on-disk
+// size of each configured DB file as a Prometheus gauge. It is observability-only and has no
+// consensus/state impact. Skipped when no DB files are configured (e.g. some test builds).
+func (builder *Builder) buildDBFileSizeCollector() {
+	if collector := newDBFileSizeCollector(builder.cfg); collector != nil {
+		builder.cs.lifecycle.Add(collector)
+	}
 }
 
 // estimateTipHeight estimates the height of the block at the given time
