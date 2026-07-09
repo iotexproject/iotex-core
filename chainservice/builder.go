@@ -331,6 +331,12 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 			dbConfig.ReadOnly = true
 			opts = append(opts, blockdao.WithReceiptIndexer(blockdao.NewReceiptIndexer(db.NewBoltDB(dbConfig), cfg.Chain.PatchReceiptIndexEndHeight)))
 		}
+		if path := cfg.Chain.PatchTransactionLogPath; len(path) > 0 {
+			dbConfig.DbPath = path
+			dbConfig.ReadOnly = true
+			opts = append(opts, blockdao.WithTransactionLogIndexer(
+				blockdao.NewTransactionLogIndexer(db.NewBoltDB(dbConfig), blockdao.WithPreloadHeights())))
+		}
 	}
 	if err != nil {
 		return err
