@@ -1042,7 +1042,11 @@ func (stateDB *StateDBAdapter) generateSelfDestructTransferLog(sender string, am
 					Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
 					Sender:    sender,
 					Recipient: stateDB.lastAddBalanceAddr,
-					Amount:    stateDB.lastAddBalanceAmount,
+					// Copy the amount: lastAddBalanceAmount is a mutable *big.Int that is
+					// modified in place by every subsequent AddBalance (e.g. the gas-deposit
+					// refund done right after the EVM returns). Aliasing it here retroactively
+					// corrupts this already-recorded log with a later value.
+					Amount: new(big.Int).Set(stateDB.lastAddBalanceAmount),
 				})
 			}
 		} else {
