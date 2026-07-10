@@ -35,6 +35,11 @@ func TestSelfDestructTransactionLogAmount(t *testing.T) {
 	deployerSK := identityset.PrivateKey(10)
 
 	cfg := initCfg(r)
+	// initCfg uses config.Default's fixed API ports; randomize so this test does
+	// not collide with the fixed :14014 gRPC port of a sibling e2e test.
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = 0
 	cfg.Genesis.SumatraBlockHeight = 1
 	cfg.Genesis.UpernavikBlockHeight = 1
 	cfg.Genesis.VanuatuBlockHeight = 1 // activates Cancun / EIP-6780
