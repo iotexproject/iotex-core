@@ -10,6 +10,9 @@ coverage:
         enabled: yes
         target: auto
 ignore:
+  - "**/*.pb.go"
+  - "**/*_mock.go"
+  - "**/mock_*.go"
   - "action/protocol/rewarding/rewardingpb"
   - "action/protocol/account/accountpb"
   - "action/protocol/poll/*.abi.go"
