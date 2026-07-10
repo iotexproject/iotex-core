@@ -61,6 +61,11 @@ const (
 	_voterIndex
 	_candIndex
 	_endorsement
+	// _candidatePollSnapshot is the tag for a CandidatePollSnapshot blob keyed
+	// by a candidate's identity address (see poll_snapshot.go). Written at
+	// PutPollResult, read once per epoch by the rewarding protocol under
+	// IIP-59. Full key: {_candidatePollSnapshot} || candID.Bytes().
+	_candidatePollSnapshot
 )
 
 // Errors

@@ -172,6 +172,13 @@ type (
 		// contracts are committed and written back
 		AlwaysWriteCachedContract bool
 		NoCandidateExitQueue      bool
+		// NoVoterRewardDistribution gates IIP-59's protocol-native voter reward
+		// distribution. Pre-fork (true) the poll layer does NOT freeze the
+		// per-candidate CandidatePollSnapshot and rewarding stays on the legacy
+		// Hermes path. Post-fork (false) the snapshot is written at every
+		// PutPollResult and rewarding consumes it. Bound to
+		// !g.IsToBeEnabled(height): default zero-value = active after fork.
+		NoVoterRewardDistribution bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -346,6 +353,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			PrePectraEVM:                            !g.IsYap(height),
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
+			NoVoterRewardDistribution:               !g.IsToBeEnabled(height),
 		},
 	)
 }

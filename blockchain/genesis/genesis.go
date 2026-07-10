@@ -453,6 +453,12 @@ type (
 		SystemStakingContractV3Address string `yaml:"systemStakingContractV3Address"`
 		// SystemStakingContractV3Height is the height of system staking contract
 		SystemStakingContractV3Height uint64 `yaml:"systemStakingContractV3Height"`
+		// DelegateProfileContractAddress is the bech32 address of the on-chain
+		// DelegateProfile contract from which IIP-59 reads per-delegate voter-take
+		// portions at PutPollResult. Empty ⇒ IIP-59 commission-rate freeze is
+		// inactive and the rewarding protocol falls back to the legacy Hermes
+		// distribution path. Populated per-network in the mainnet/testnet YAML.
+		DelegateProfileContractAddress string `yaml:"delegateProfileContractAddress"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {
