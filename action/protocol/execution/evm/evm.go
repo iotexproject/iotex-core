@@ -634,6 +634,12 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 	)
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, evmParams.evmConfig)
 	evm.SetTxContext(evmParams.txCtx)
+	// during a traced simulation, register this EVM so the trace-timeout
+	// watchdog can abort opcode execution (see TraceCanceller); never set on
+	// the consensus path
+	if tc := GetTraceCanceller(ctx); tc != nil {
+		tc.register(evm.Cancel)
+	}
 	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
 	}

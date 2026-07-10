@@ -785,10 +785,17 @@ func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.Tr
 	// return the "execution timeout" error, which the caller surfaces as the RPC
 	// error.
 	deadlineCtx, cancel := context.WithTimeout(context.Background(), timeout)
+	evmCanceller := evm.GetTraceCanceller(ctx)
 	go func() {
 		<-deadlineCtx.Done()
 		if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
 			tracer.Stop(errors.New("execution timeout"))
+			// stopping the tracer only stops result collection; also abort
+			// the EVM(s) so the execution doesn't keep burning CPU until gas
+			// exhaustion (geth pairs tracer.Stop with EVM.Cancel the same way)
+			if evmCanceller != nil {
+				evmCanceller.Cancel()
+			}
 		}
 	}()
 	return tracer, cancel, nil
