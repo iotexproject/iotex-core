@@ -87,3 +87,35 @@ message SystemStakingBucket {
 message ExitQueue {
     uint64 epoch = 1;
 }
+
+// IIP-59: per-voter aggregated weight entry inside a CandidatePollSnapshot.
+// `voter` is the 20-byte address bytes; `weight` is the big-endian encoding
+// of a big.Int. Entries within a snapshot are sorted ascending by `voter`.
+message VoterWeightEntry {
+    bytes voter = 1;
+    bytes weight = 2;
+}
+
+// IIP-59: per-candidate poll snapshot frozen at PutPollResult. The rewarding
+// protocol reads this at each epoch close; nothing else mutates it during the
+// epoch, so mid-epoch changes to the DelegateProfile contract or to the
+// candidate's opt-in flag do not retroactively re-split the current epoch's
+// rewards.
+message CandidatePollSnapshot {
+    // Commission split frozen from the DelegateProfile contract at snapshot
+    // time. Basis points in [0, 10000]. Both zero when `registered` is false.
+    uint64 blockCommissionBasisPoints = 1;
+    uint64 epochCommissionBasisPoints = 2;
+    // Whether the DelegateProfile contract returned both portion fields as
+    // non-empty bytes at snapshot time. False ⇒ the commission rates above
+    // are meaningless; rewarding MUST fall back to the legacy path.
+    bool registered = 3;
+    // `staking.Candidate.VoterRewardOnchainOptIn` at snapshot time. The
+    // delayed-1-epoch semantics live here.
+    bool voterRewardOnchainOptIn = 4;
+    // Per-voter aggregated weight entries, sorted ascending by `voter` bytes.
+    // Empty in the initial PR that introduces this message; the voter-weight
+    // source is a separate follow-up. An empty list means the downstream
+    // reward split degenerates to full-amount-to-delegate.
+    repeated VoterWeightEntry entries = 5;
+}

@@ -20,9 +20,13 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -212,6 +216,9 @@ func setCandidates(
 			return errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
 		}
 	}
+	if err := freezeIIP59PollSnapshot(ctx, sm, candidates); err != nil {
+		return errors.Wrap(err, "failed to freeze IIP-59 poll snapshot")
+	}
 	if loadCandidatesLegacy {
 		key, org := candidatesutil.ConstructLegacyKeyWithOrg(height)
 		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(key), protocol.ErigonStoreKeyOption(org))
@@ -220,6 +227,56 @@ func setCandidates(
 	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
 	_, err := sm.PutState(&candidates, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err
+}
+
+// freezeIIP59PollSnapshot writes the per-candidate poll snapshot introduced
+// by IIP-59, capturing commission rates from the DelegateProfile contract
+// and the delegate's opt-in flag from the live staking.Candidate.
+//
+// Pre-fork (NoVoterRewardDistribution=true): no-op.
+// Post-fork, no contract configured: bridge nil, snapshot carries opt-in
+// only; rewarding falls back to legacy path via Registered=false.
+// Post-fork with contract configured: bridge called; snapshot carries frozen
+// rates + registration bit + opt-in flag.
+func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, candidates state.CandidateList) error {
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	if fCtx.NoVoterRewardDistribution {
+		return nil
+	}
+	g := genesis.MustExtractGenesisContext(ctx)
+	contract := g.DelegateProfileContractAddress
+	var (
+		bridge *delegateprofile.Bridge
+		reader delegateprofile.ContractReader
+	)
+	if contract != "" {
+		b, err := delegateprofile.New(contract)
+		if err != nil {
+			return errors.Wrap(err, "invalid DelegateProfile contract address")
+		}
+		bridge = b
+		reader = delegateProfileContractReader(sm)
+	}
+	return staking.FreezePollSnapshot(ctx, sm, candidates, bridge, reader)
+}
+
+// delegateProfileContractReader mirrors consortium.go's
+// getContractReaderForGenesisStates: build an unsigned Execution against the
+// target contract, wrap it in an envelope, and call evm.SimulateExecution
+// with the zero-address caller. The pattern is deterministic (fixed caller,
+// no gas billing to a real account) and reuses the existing view-call plumb.
+func delegateProfileContractReader(sm protocol.StateManager) delegateprofile.ContractReader {
+	return delegateprofile.ContractReaderFunc(func(ctx context.Context, contract string, callData []byte) ([]byte, error) {
+		gasLimit := uint64(10000000)
+		ex := action.NewExecution(contract, big.NewInt(0), callData)
+		caller, err := address.FromString(address.ZeroAddress)
+		if err != nil {
+			return nil, err
+		}
+		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(gasLimit).SetAction(ex).Build()
+		ret, _, err := evm.SimulateExecution(ctx, sm, caller, elp)
+		return ret, err
+	})
 }
 
 // setNextEpochProbationList sets the probation list with next key
