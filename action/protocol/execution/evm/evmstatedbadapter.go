@@ -299,6 +299,21 @@ func (stateDB *StateDBAdapter) assertError(err error, msg string, fields ...zap.
 	return true
 }
 
+// assertMessage mirrors assertError for invariant violations that are not tied to an
+// error value. On the block-processing/consensus path (panicUnrecoverableError == true)
+// it panics, halting the node on a truly unrecoverable state error (poison-block
+// protection). On the simulation/trace/API path (panicUnrecoverableError == false) it
+// degrades to an Error log and records the error, so the caller returns a soft error
+// instead of crashing the process. This keeps these direct panics consistent with
+// assertError, which already never panics when panicUnrecoverableError is false.
+func (stateDB *StateDBAdapter) assertMessage(msg string, fields ...zap.Field) {
+	if stateDB.panicUnrecoverableError {
+		log.T(stateDB.ctx).Panic(msg, fields...)
+	}
+	log.T(stateDB.ctx).Error(msg, fields...)
+	stateDB.logError(errors.New(msg))
+}
+
 // Error returns the first stored error during evm contract execution
 func (stateDB *StateDBAdapter) Error() error {
 	return stateDB.err
@@ -472,7 +487,8 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	}
 	if stateDB.useConfirmedNonce {
 		if pendingNonce == 0 {
-			log.T(stateDB.ctx).Panic("invalid pending nonce")
+			stateDB.assertMessage("invalid pending nonce")
+			return pendingNonce
 		}
 		pendingNonce--
 	}
@@ -495,7 +511,8 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64, _ 
 	}
 	if !stateDB.useConfirmedNonce {
 		if nonce == 0 {
-			log.T(stateDB.ctx).Panic("invalid nonce zero")
+			stateDB.assertMessage("invalid nonce zero")
+			return
 		}
 		nonce--
 	}
@@ -504,8 +521,9 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64, _ 
 		zap.Uint64("nonce", nonce))
 	if !s.IsNewbieAccount() || s.AccountType() != 0 || nonce != 0 || stateDB.zeroNonceForFreshAccount {
 		if err := s.SetPendingNonce(nonce + 1); err != nil {
-			log.T(stateDB.ctx).Panic("Failed to set nonce.", zap.Error(err), zap.String("addr", addr.Hex()), zap.Uint64("pendingNonce", s.PendingNonce()), zap.Uint64("nonce", nonce), zap.String("execution", hex.EncodeToString(stateDB.executionHash[:])))
-			stateDB.logError(err)
+			if stateDB.assertError(err, "Failed to set nonce.", zap.Error(err), zap.String("addr", addr.Hex()), zap.Uint64("pendingNonce", s.PendingNonce()), zap.Uint64("nonce", nonce), zap.String("execution", hex.EncodeToString(stateDB.executionHash[:]))) {
+				return
+			}
 		}
 	}
 	err = accountutil.StoreAccount(stateDB.sm, addr, s)

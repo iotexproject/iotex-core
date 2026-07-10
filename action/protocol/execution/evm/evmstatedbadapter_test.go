@@ -381,6 +381,65 @@ func TestNonce(t *testing.T) {
 	})
 }
 
+// TestSetNoncePanicGating verifies that the nonce-related invariant panics reachable from
+// the simulation/trace/API path (panicUnrecoverableError == false) degrade to a recorded
+// soft error instead of crashing the process, while the block-processing/consensus path
+// (panicUnrecoverableError == true) still panics unchanged. These are the replay-data
+// driven panics behind issue #4745.
+func TestSetNoncePanicGating(t *testing.T) {
+	require := require.New(t)
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+
+	// newStateDB builds a fresh adapter; panicUnrecoverable toggles the consensus flag,
+	// extra lets a case add case-specific options.
+	newStateDB := func(t *testing.T, panicUnrecoverable bool, extra ...StateDBAdapterOption) *StateDBAdapter {
+		ctrl := gomock.NewController(t)
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		opts := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+		}
+		opts = append(opts, extra...)
+		if panicUnrecoverable {
+			opts = append(opts, PanicUnrecoverableErrorOption())
+		}
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+		require.NoError(err)
+		return stateDB
+	}
+
+	cases := []struct {
+		name string
+		// trigger drives the adapter into the invariant-violation branch.
+		trigger func(stateDB *StateDBAdapter)
+	}{
+		{
+			// SetNonce -> SetPendingNonce returns an error (the exact stack in #4745).
+			// A fresh type-0 account expects pending nonce 2; supplying 3 forces the error.
+			name:    "SetNonce/SetPendingNonce-error",
+			trigger: func(stateDB *StateDBAdapter) { stateDB.SetNonce(addr, 3, 0) },
+		},
+		{
+			// SetNonce with pending-nonce mode and nonce == 0 ("invalid nonce zero").
+			name:    "SetNonce/invalid-nonce-zero",
+			trigger: func(stateDB *StateDBAdapter) { stateDB.SetNonce(addr, 0, 0) },
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name+"/simulation-does-not-panic", func(t *testing.T) {
+			stateDB := newStateDB(t, false)
+			require.NotPanics(func() { c.trigger(stateDB) })
+			require.Error(stateDB.Error())
+		})
+		t.Run(c.name+"/consensus-still-panics", func(t *testing.T) {
+			stateDB := newStateDB(t, true)
+			require.Panics(func() { c.trigger(stateDB) })
+		})
+	}
+}
+
 var tests = []stateDBTest{
 	{
 		[]bal{
