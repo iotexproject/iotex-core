@@ -180,6 +180,13 @@ type (
 		// for such slots, causing EIP-2200 SSTORE dynamic gas to misclassify
 		// dirty in-place writes as SSTORE_RESET (100 → 2900 gas overcharge per hit).
 		CorrectPrestateForAbsentKeys bool
+		// NoVoterRewardDistribution gates IIP-59's protocol-native voter reward
+		// distribution. Pre-fork (true) the poll layer does NOT freeze the
+		// per-candidate CandidatePollSnapshot and rewarding stays on the legacy
+		// Hermes path. Post-fork (false) the snapshot is written at every
+		// PutPollResult and rewarding consumes it. Bound to
+		// !g.IsToBeEnabled(height): default zero-value = active after fork.
+		NoVoterRewardDistribution bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -356,6 +363,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			NoCandidateExitQueue:                    !g.IsYap(height),
 			FixInContractTransferLogTopic:           g.IsToBeEnabled(height),
 			CorrectPrestateForAbsentKeys:            g.IsToBeEnabled(height),
+			NoVoterRewardDistribution:               !g.IsToBeEnabled(height),
 		},
 	)
 }
