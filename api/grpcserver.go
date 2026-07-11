@@ -138,8 +138,8 @@ func NewGRPCServer(core CoreService, bds *blockDAOService, grpcPort int, limit i
 }
 
 // Start starts the GRPC server
-func (grpc *GRPCServer) Start(_ context.Context) error {
-	lis, err := net.Listen("tcp", grpc.port)
+func (svr *GRPCServer) Start(_ context.Context) error {
+	lis, err := net.Listen("tcp", svr.port)
 	if err != nil {
 		log.L().Error("grpc server failed to listen.", zap.Error(err))
 		return errors.Wrap(err, "grpc server failed to listen")
@@ -147,7 +147,10 @@ func (grpc *GRPCServer) Start(_ context.Context) error {
 	log.L().Info("grpc server is listening.", zap.String("addr", lis.Addr().String()))
 	go func() {
 		defer recovery.Recover()
-		if err := grpc.svr.Serve(lis); err != nil {
+		// Serve returns grpc.ErrServerStopped when Stop() has already been
+		// called (e.g. a fast start/stop sequence); that is a clean shutdown,
+		// not a fatal error — log.Fatal here would exit the whole process.
+		if err := svr.svr.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			log.L().Fatal("grpc failed to serve.", zap.Error(err))
 		}
 	}()
@@ -155,8 +158,8 @@ func (grpc *GRPCServer) Start(_ context.Context) error {
 }
 
 // Stop stops the GRPC server
-func (grpc *GRPCServer) Stop(_ context.Context) error {
-	grpc.svr.Stop()
+func (svr *GRPCServer) Stop(_ context.Context) error {
+	svr.svr.Stop()
 	return nil
 }
 
