@@ -735,16 +735,17 @@ func (p *agent) reconnect() {
 		log.L().Info("network lost, try re-connecting.")
 		p.host.ClearBlocklist()
 		if err := p.connectBootNode(context.Background()); err != nil {
-			log.L().Error("fail to connect bootnode", zap.Error(err))
+			// transient network hiccup, will retry on the next reconnect tick
+			log.L().Warn("fail to connect bootnode, will retry.", zap.Error(err))
 			return
 		}
 		if err := p.host.AdvertiseAsync(); err != nil {
-			log.L().Error("fail to advertise", zap.Error(err))
+			log.L().Warn("fail to advertise, will retry.", zap.Error(err))
 			return
 		}
 	}
 	if err := p.host.FindPeersAsync(); err != nil {
-		log.L().Error("fail to find peer", zap.Error(err))
+		log.L().Warn("fail to find peer, will retry.", zap.Error(err))
 	}
 }
 
@@ -765,7 +766,8 @@ func exponentialRetry(f func() error, retryInterval time.Duration, numRetries in
 		if err = f(); err == nil {
 			return
 		}
-		log.L().Error("Error happens, will retry.", zap.Error(err))
+		// expected during cold start (e.g. bootnode not yet reachable), will retry
+		log.L().Warn("Error happens, will retry.", zap.Error(err))
 		time.Sleep(retryInterval)
 		retryInterval *= 2
 	}
