@@ -91,6 +91,7 @@ type (
 		panicUnrecoverableError    bool
 		enableCancun               bool
 		fixRevertSnapshot          bool
+		fixInContractTransferTopic bool
 		// ignoreBalanceChangeTouchAccount indicates whether to ignore balance change touch account
 		ignoreBalanceChangeTouchAccount bool
 		// skipWriteCleanContract indicates whether to skip writing back read-only
@@ -174,6 +175,15 @@ func ManualCorrectGasRefundOption() StateDBAdapterOption {
 func SuicideTxLogMismatchPanicOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.suicideTxLogMismatchPanic = true
+		return nil
+	}
+}
+
+// FixInContractTransferTopicOption drops reserved-topic logs with an unexpected
+// topic count uniformly instead of special-casing them.
+func FixInContractTransferTopicOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.fixInContractTransferTopic = true
 		return nil
 	}
 }
@@ -941,9 +951,10 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		// log. It is dropped here, exactly as before it was never appended to
 		// stateDB.logs, so receipt.Logs (and thus the receipt root) is unchanged.
 		//
-		// NOTE: the historical len(topics) != 3 panic is preserved to keep behavior
-		// identical for malformed inputs; hardening that DoS is a separate change.
-		if len(topics) != 3 {
+		// A malformed one (topic count != 3) used to be special-cased; it is now
+		// dropped uniformly with the rest. The legacy special case is kept verbatim
+		// before the upgrade so block replay stays byte-identical, and removed after.
+		if !stateDB.fixInContractTransferTopic && len(topics) != 3 {
 			log.T(stateDB.ctx).Panic("Invalid in contract transfer topics", zap.String("address", addr.String()), stateDB.actionHashField())
 		}
 		return

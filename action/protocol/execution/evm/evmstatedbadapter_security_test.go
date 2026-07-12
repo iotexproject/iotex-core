@@ -138,6 +138,30 @@ func TestAddLogReservedTopicInvariants(t *testing.T) {
 	})
 }
 
+// TestAddLogReservedTopicMalformedDroppedAfterUpgrade pins the post-upgrade
+// counterpart of the "wrong topic count panics" invariant above: once
+// FixInContractTransferTopicOption is active, a reserved-topic log with an
+// unexpected topic count is dropped uniformly (no panic, no event log, no
+// tx-log, no balance change), exactly like a well-formed contract-emitted one.
+func TestAddLogReservedTopicMalformedDroppedAfterUpgrade(t *testing.T) {
+	require := require.New(t)
+	from, to := _c1, _c2
+	for _, topics := range [][]common.Hash{
+		{reservedTopic()},                  // 1 topic
+		{reservedTopic(), addrTopic(from)}, // 2 topics
+		{reservedTopic(), addrTopic(from), addrTopic(to), addrTopic(from)}, // 4 topics
+	} {
+		stateDB := newAdapter(t, FixInContractTransferTopicOption())
+		stateDB.AddBalance(from, uint256.NewInt(1000), tracing.BalanceChangeUnspecified)
+		log := &types.Log{Address: _c3, Topics: topics, Data: big.NewInt(1).Bytes()}
+		require.NotPanics(func() { stateDB.AddLog(log) })
+		require.Zero(len(stateDB.Logs()))                             // not an event log
+		require.Zero(len(stateDB.TransactionLogs()))                  // not a tx-log
+		require.Equal(uint256.NewInt(1000), stateDB.GetBalance(from)) // no balance moved
+		require.True(stateDB.GetBalance(to).IsZero())
+	}
+}
+
 // TestTransferVsForgedLog is the adversarial contrast codex asked for: a forged
 // reserved-topic EVM log and a genuine MakeTransfer of the SAME from/to/amount
 // must diverge. The forged log moves no balance; the real transfer both moves

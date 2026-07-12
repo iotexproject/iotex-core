@@ -170,8 +170,9 @@ type (
 		// AlwaysWriteCachedContract if true, CommitContracts writes back all cached
 		// contracts regardless of whether they were modified; if false, only dirty
 		// contracts are committed and written back
-		AlwaysWriteCachedContract bool
-		NoCandidateExitQueue      bool
+		AlwaysWriteCachedContract     bool
+		NoCandidateExitQueue          bool
+		FixInContractTransferLogTopic bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -346,6 +347,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			PrePectraEVM:                            !g.IsYap(height),
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
+			FixInContractTransferLogTopic:           g.IsToBeEnabled(height),
 		},
 	)
 }
