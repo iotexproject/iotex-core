@@ -22,7 +22,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 // Field names used by the existing DelegateProfile contract. These are the
@@ -121,17 +123,25 @@ func New(contract string) (*Bridge, error) {
 func (b *Bridge) Contract() string { return b.contract }
 
 // Snapshot reads commission portions for each delegate and returns a map
-// keyed by delegate identity string (bech32).
+// keyed by delegate identity string (bech32). The map always contains one
+// entry per input delegate.
 //
 // Iteration order over `delegates` is preserved: the bridge performs 2N
 // sequential read calls in delegate-order. This keeps per-epoch behaviour
 // deterministic and mirrors the caller's PutPollResult ordering.
 //
-// Any per-delegate read error (RPC failure, ABI mismatch, out-of-range value)
-// is returned wrapped with the offending delegate address — the caller MUST
-// abort PutPollResult on error rather than continue with a partial map.
-// Silent partial results would leak a delegate onto the wrong reward path
-// for a full epoch.
+// A per-delegate read error (RPC failure, ABI mismatch, out-of-range value)
+// degrades that delegate to `Registered=false` with zero rates — downstream
+// rewarding then routes it via the legacy Hermes path. The error is logged
+// but not returned. Rationale: PutPollResult runs at every epoch boundary
+// on every validator, and returning an error would deterministically halt
+// the chain if a single delegate's on-chain profile becomes malformed.
+// Deterministic reward-path fallback is preferable to deterministic block
+// production failure — same on-chain state ⇒ same fallback ⇒ no fork.
+//
+// Only catastrophic caller-side inputs (nil reader, nil delegate address)
+// return an error; those indicate a wiring bug, not a data issue, and must
+// surface loudly.
 func (b *Bridge) Snapshot(
 	ctx context.Context,
 	reader ContractReader,
@@ -147,7 +157,14 @@ func (b *Bridge) Snapshot(
 		}
 		rates, err := b.readOne(ctx, reader, d)
 		if err != nil {
-			return nil, errors.Wrapf(err, "delegateprofile: read failed for delegate %s", d.String())
+			log.L().Warn(
+				"delegateprofile: read failed, degrading delegate to legacy reward path",
+				zap.String("delegate", d.String()),
+				zap.String("contract", b.contract),
+				zap.Error(err),
+			)
+			out[d.String()] = &CommissionRates{Registered: false}
+			continue
 		}
 		out[d.String()] = rates
 	}

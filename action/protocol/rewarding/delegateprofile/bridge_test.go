@@ -195,44 +195,53 @@ func TestSnapshot_ExplicitZeroVoterTakeIs100PercentCommission(t *testing.T) {
 	r.Equal(uint64(10000), rates.EpochCommissionBasisPoints)
 }
 
-func TestSnapshot_OutOfRangeRejected(t *testing.T) {
+func TestSnapshot_OutOfRangeDegradesToUnregistered(t *testing.T) {
+	// A malformed on-chain value must NOT halt the block. The bridge degrades
+	// the affected delegate to Registered=false; rewarding routes it via the
+	// legacy path. Same on-chain state ⇒ same fallback on every validator ⇒
+	// no fork.
 	r := require.New(t)
 	b, err := New(mainnetContract)
 	r.NoError(err)
 
 	delegate := identityset.Address(5)
 	store := newFakeStore()
-	// 10001 basis points is invalid — bridge must refuse rather than silently
-	// underflow the (10000 - x) commission math.
 	store.set(delegate, fieldBlockRewardPortion, 10001)
 	store.set(delegate, fieldEpochRewardPortion, 5000)
 
-	_, err = b.Snapshot(context.Background(), store.reader(t), []address.Address{delegate})
-	r.Error(err)
-	r.ErrorIs(err, ErrRateOutOfRange)
-	r.Contains(err.Error(), delegate.String())
+	got, err := b.Snapshot(context.Background(), store.reader(t), []address.Address{delegate})
+	r.NoError(err)
+	r.Len(got, 1)
+	rates := got[delegate.String()]
+	r.NotNil(rates)
+	r.False(rates.Registered)
+	r.Zero(rates.BlockCommissionBasisPoints)
+	r.Zero(rates.EpochCommissionBasisPoints)
 }
 
-func TestSnapshot_LargeBigIntRejected(t *testing.T) {
+func TestSnapshot_LargeBigIntDegradesToUnregistered(t *testing.T) {
 	r := require.New(t)
 	b, err := New(mainnetContract)
 	r.NoError(err)
 
 	delegate := identityset.Address(6)
 	store := newFakeStore()
-	// 33-byte value — larger than uint64 can hold. Prevents silent
-	// truncation via SetBytes → Uint64.
 	huge := make([]byte, 33)
 	huge[0] = 0x01
 	store.setRaw(delegate, fieldBlockRewardPortion, huge)
 	store.set(delegate, fieldEpochRewardPortion, 5000)
 
-	_, err = b.Snapshot(context.Background(), store.reader(t), []address.Address{delegate})
-	r.Error(err)
-	r.ErrorIs(err, ErrRateOutOfRange)
+	got, err := b.Snapshot(context.Background(), store.reader(t), []address.Address{delegate})
+	r.NoError(err)
+	rates := got[delegate.String()]
+	r.NotNil(rates)
+	r.False(rates.Registered)
 }
 
-func TestSnapshot_ReaderErrorPropagates(t *testing.T) {
+func TestSnapshot_ReaderErrorDegradesToUnregistered(t *testing.T) {
+	// Per-delegate reader failure (RPC hiccup, EVM revert, ABI mismatch) must
+	// degrade to Registered=false, not abort PutPollResult. Otherwise a single
+	// bad delegate deterministically halts the chain at every epoch boundary.
 	r := require.New(t)
 	b, err := New(mainnetContract)
 	r.NoError(err)
@@ -242,10 +251,42 @@ func TestSnapshot_ReaderErrorPropagates(t *testing.T) {
 		return nil, errors.New("rpc down")
 	})
 
-	_, err = b.Snapshot(context.Background(), failReader, []address.Address{delegate})
-	r.Error(err)
-	r.Contains(err.Error(), "rpc down")
-	r.Contains(err.Error(), delegate.String(), "error must name the offending delegate")
+	got, err := b.Snapshot(context.Background(), failReader, []address.Address{delegate})
+	r.NoError(err)
+	rates := got[delegate.String()]
+	r.NotNil(rates)
+	r.False(rates.Registered)
+}
+
+func TestSnapshot_PerDelegateErrorIsolated(t *testing.T) {
+	// A failing delegate must not poison the successful ones sharing the same
+	// batch. Freezing the whole poll list on one bad profile is the failure
+	// mode this test defends against.
+	r := require.New(t)
+	b, err := New(mainnetContract)
+	r.NoError(err)
+
+	good := identityset.Address(8)
+	bad := identityset.Address(9)
+	store := newFakeStore()
+	store.set(good, fieldBlockRewardPortion, 9000) // → 1000 bp commission
+	store.set(good, fieldEpochRewardPortion, 8000) // → 2000 bp commission
+	store.set(bad, fieldBlockRewardPortion, 12345) // out of range
+	store.set(bad, fieldEpochRewardPortion, 5000)
+
+	got, err := b.Snapshot(context.Background(), store.reader(t), []address.Address{good, bad})
+	r.NoError(err)
+	r.Len(got, 2)
+
+	gr := got[good.String()]
+	r.NotNil(gr)
+	r.True(gr.Registered)
+	r.Equal(uint64(1000), gr.BlockCommissionBasisPoints)
+	r.Equal(uint64(2000), gr.EpochCommissionBasisPoints)
+
+	br := got[bad.String()]
+	r.NotNil(br)
+	r.False(br.Registered)
 }
 
 func TestSnapshot_NilReaderRejected(t *testing.T) {
