@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
@@ -49,10 +50,40 @@ type Protocol struct {
 	keyPrefix []byte
 	addr      address.Address
 	cfg       genesis.Rewarding
+	// autoDepositBridge is the IIP-59 AutoDeposit contract adapter used by
+	// distributeVoterReward for per-voter compound routing. Nil means the
+	// network has no AutoDeposit contract configured: every opted-in
+	// voter's share is credited to unclaimedBalance and no compound
+	// deposit is attempted.
+	autoDepositBridge *autodeposit.Bridge
+	// autoDepositReader lets tests inject a fake ContractReader without
+	// pulling the EVM simulator into scope. Nil in production; production
+	// paths call autoDepositContractReader(sm) via resolveAutoDepositReader.
+	autoDepositReader func(protocol.StateManager) autodeposit.ContractReader
+}
+
+// Option customises a rewarding Protocol at construction. Options are
+// applied in order after the default fields are set.
+type Option func(*Protocol)
+
+// WithAutoDepositBridge wires the IIP-59 AutoDeposit contract bridge into
+// the rewarding protocol. Pass nil (or omit the option) when the network
+// has no AutoDeposit contract; distributeVoterReward will then credit
+// every voter share instead of routing to compound.
+func WithAutoDepositBridge(bridge *autodeposit.Bridge) Option {
+	return func(p *Protocol) { p.autoDepositBridge = bridge }
+}
+
+// WithAutoDepositReader injects a factory for the ContractReader used
+// against the AutoDeposit contract. Intended for tests that supply a
+// fake in place of evm.SimulateExecution; production leaves this
+// unset so the built-in reader (autoDepositContractReader) is used.
+func WithAutoDepositReader(factory func(protocol.StateManager) autodeposit.ContractReader) Option {
+	return func(p *Protocol) { p.autoDepositReader = factory }
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol(cfg genesis.Rewarding) *Protocol {
+func NewProtocol(cfg genesis.Rewarding, opts ...Option) *Protocol {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -61,11 +92,15 @@ func NewProtocol(cfg genesis.Rewarding) *Protocol {
 	if err = validateFoundationBonusExtension(cfg); err != nil {
 		log.L().Panic("failed to validate foundation bonus extension", zap.Error(err))
 	}
-	return &Protocol{
+	p := &Protocol{
 		keyPrefix: state.RewardingKeyPrefix[:],
 		addr:      addr,
 		cfg:       cfg,
 	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
 }
 
 // ProtocolAddr returns the address generated from protocol id

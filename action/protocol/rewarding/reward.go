@@ -282,7 +282,7 @@ func (p *Protocol) GrantEpochReward(
 	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
 		epochRewardSplitUqdMap = uqdMap
 	}
-	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap)
+	rewardedCandidates, addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -293,6 +293,22 @@ func (p *Protocol) GrantEpochReward(
 		}
 		// If 0 epoch reward due to low productivity, do nothing
 		if amounts[i].Cmp(big.NewInt(0)) == 0 {
+			continue
+		}
+		// IIP-59: opt-in delegates take the batched on-chain distribution
+		// path. distributeVoterReward returns handled=false to fall through
+		// to the legacy grantToAccount path when the fork is off, the
+		// delegate opted out, or no poll snapshot exists.
+		iip59Logs, handled, err := p.distributeVoterReward(
+			ctx, sm, rewardedCandidates[i], addrs[i], amounts[i],
+			blkCtx.BlockHeight, actionCtx.ActionHash,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		if handled {
+			rewardLogs = append(rewardLogs, iip59Logs...)
+			actualTotalReward = big.NewInt(0).Add(actualTotalReward, amounts[i])
 			continue
 		}
 		if err := p.grantToAccount(ctx, sm, addrs[i], amounts[i]); err != nil {
@@ -649,7 +665,7 @@ func (p *Protocol) splitEpochReward(
 	numDelegatesForEpochReward uint64,
 	exemptAddrs map[string]interface{},
 	uqd map[string]uint64,
-) ([]address.Address, []*big.Int, error) {
+) ([]*state.Candidate, []address.Address, []*big.Int, error) {
 	filteredCandidates := make([]*state.Candidate, 0)
 	for _, candidate := range candidates {
 		if _, ok := exemptAddrs[candidate.Address]; ok {
@@ -659,7 +675,7 @@ func (p *Protocol) splitEpochReward(
 	}
 	candidates = filteredCandidates
 	if len(candidates) == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	// We at most allow numDelegatesForEpochReward delegates to get the epoch reward
 	if uint64(len(candidates)) > numDelegatesForEpochReward {
@@ -673,7 +689,7 @@ func (p *Protocol) splitEpochReward(
 		if candidate.RewardAddress != "" {
 			rewardAddr, err = address.FromString(candidate.RewardAddress)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 		} else {
 			log.S().Warnf("Candidate %s doesn't have a reward address", candidate.Address)
@@ -696,7 +712,7 @@ func (p *Protocol) splitEpochReward(
 		amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
 		amounts = append(amounts, amountPerAddr)
 	}
-	return rewardAddrs, amounts, nil
+	return candidates, rewardAddrs, amounts, nil
 }
 
 func (p *Protocol) assertNoRewardYet(ctx context.Context, sm protocol.StateManager, prefix []byte, index uint64) error {

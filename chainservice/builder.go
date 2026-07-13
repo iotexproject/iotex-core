@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote/candidatesutil"
@@ -728,7 +729,15 @@ func (builder *Builder) registerStakingProtocol() error {
 
 func (builder *Builder) registerRewardingProtocol() error {
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
-	return rewarding.NewProtocol(builder.cfg.Genesis.Rewarding).Register(builder.cs.registry)
+	opts := []rewarding.Option{}
+	if contract := builder.cfg.Genesis.Blockchain.AutoDepositContractAddress; contract != "" {
+		bridge, err := autodeposit.New(contract)
+		if err != nil {
+			return errors.Wrap(err, "failed to construct autodeposit bridge")
+		}
+		opts = append(opts, rewarding.WithAutoDepositBridge(bridge))
+	}
+	return rewarding.NewProtocol(builder.cfg.Genesis.Rewarding, opts...).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerAccountProtocol() error {

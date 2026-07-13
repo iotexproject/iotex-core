@@ -1,0 +1,312 @@
+// Copyright (c) 2026 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
+package rewarding
+
+import (
+	"context"
+	"math/big"
+
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/distributedlog"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state"
+)
+
+const _basisPointsDenom uint64 = 10_000
+
+// distributeVoterReward is IIP-59 §3.2's per-delegate voter split. It reads
+// the frozen poll snapshot (voter list + commission rate + opt-in flag),
+// allocates the epoch share across voters in canonical order, routes each
+// share to compound or credit via the AutoDeposit bridge, credits the
+// delegate's commission to its reward address, and returns exactly one
+// batched DelegateDistributed log per invocation.
+//
+// Return contract:
+//   - (logs,  true,  nil): IIP-59 path ran. Caller MUST NOT run the legacy
+//     grantToAccount(rewardAddr, share) for this delegate — the split
+//     already handled the full amount.
+//   - (nil,   false, nil): fallback to legacy. The fork is off, the delegate
+//     opted out, the snapshot's DelegateProfile registration is missing, or
+//     no snapshot exists at all. Caller runs the legacy path unchanged.
+//   - (nil,   false, err): hard failure (state read error, cross-protocol
+//     wiring bug, encoder error). Aborts the epoch grant.
+//
+// The malformed-on-chain-data fallbacks (bridge RPC error, bucket read
+// error, ineligible bucket) all downgrade the affected voter to credit
+// rather than halting the block, per feedback-consensus-fallback-vs-halt.
+// Wiring errors (nil staking protocol, log-encoder failure) still hard-fail.
+func (p *Protocol) distributeVoterReward(
+	ctx context.Context,
+	sm protocol.StateManager,
+	cand *state.Candidate,
+	rewardAddr address.Address,
+	totalReward *big.Int,
+	blkHeight uint64,
+	actionHash hash.Hash256,
+) ([]*action.Log, bool, error) {
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.NoVoterRewardDistribution {
+		return nil, false, nil
+	}
+	if cand == nil {
+		return nil, false, errors.New("rewarding: nil candidate for voter reward distribution")
+	}
+	if totalReward == nil || totalReward.Sign() < 0 {
+		return nil, false, errors.New("rewarding: invalid total reward for voter distribution")
+	}
+	if rewardAddr == nil {
+		// Delegate has no reward address configured; nothing to distribute.
+		return nil, false, nil
+	}
+
+	candID, err := address.FromString(cand.Address)
+	if err != nil {
+		return nil, false, errors.Wrapf(err, "rewarding: invalid candidate address %q", cand.Address)
+	}
+
+	snap, err := staking.PollSnapshotFor(sm, candID)
+	if err != nil {
+		if errors.Is(err, state.ErrStateNotExist) {
+			// Pre-fork block, or delegate registered after the last freeze.
+			// Rewarding falls back to legacy per PollSnapshotFor's contract.
+			return nil, false, nil
+		}
+		return nil, false, errors.Wrapf(err, "rewarding: read poll snapshot for %s", candID.String())
+	}
+	if !snap.VoterRewardOnchainOptIn {
+		return nil, false, nil
+	}
+	if !snap.Registered {
+		// Opt-in without a DelegateProfile registration is a configuration
+		// error, but not one that should halt the chain. The snapshot's
+		// Registered=false contract requires the caller to fall back to
+		// legacy Hermes distribution.
+		return nil, false, nil
+	}
+
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochNum := rp.GetEpochNum(blkHeight)
+
+	// Total-weight sum is used both to prorate voter shares and to detect the
+	// "no voter weight known" degenerate case where the full pool becomes
+	// commission (IIP-59 §3.2 fallback).
+	totalWeight := new(big.Int)
+	for _, e := range snap.Entries {
+		if e.Weight != nil {
+			totalWeight.Add(totalWeight, e.Weight)
+		}
+	}
+
+	// Commission split. When the pool is empty or has no weighted voters, the
+	// entire amount becomes commission — we still emit a log with empty
+	// voter arrays for observability.
+	commission, voterPool := splitCommission(totalReward, snap.EpochCommissionBasisPoints)
+	if len(snap.Entries) == 0 || totalWeight.Sign() == 0 {
+		commission = new(big.Int).Set(totalReward)
+		voterPool = new(big.Int)
+	}
+
+	// Per-voter allocation in canonical (snapshot-order) sequence. The last
+	// voter absorbs the modular-division dust so sum(shares) == voterPool.
+	shares := make([]*big.Int, len(snap.Entries))
+	if voterPool.Sign() > 0 && totalWeight.Sign() > 0 {
+		distributed := new(big.Int)
+		for i, e := range snap.Entries {
+			if e.Weight == nil || e.Weight.Sign() == 0 {
+				shares[i] = new(big.Int)
+				continue
+			}
+			share := new(big.Int).Mul(voterPool, e.Weight)
+			share.Div(share, totalWeight)
+			shares[i] = share
+			distributed.Add(distributed, share)
+		}
+		if dust := new(big.Int).Sub(voterPool, distributed); dust.Sign() > 0 {
+			// Attach the dust to the last voter with non-zero weight so the
+			// allocation stays deterministic and totals exactly.
+			for i := len(snap.Entries) - 1; i >= 0; i-- {
+				if snap.Entries[i].Weight != nil && snap.Entries[i].Weight.Sign() > 0 {
+					shares[i] = new(big.Int).Add(shares[i], dust)
+					break
+				}
+			}
+		}
+	} else {
+		for i := range shares {
+			shares[i] = new(big.Int)
+		}
+	}
+
+	// Per-voter routing. bridge is nil when the network has no AutoDeposit
+	// contract configured — every voter routes to credit in that case, which
+	// matches the "compound routing inactive" branch of the feature matrix.
+	stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx))
+	if stakingProto == nil {
+		return nil, false, errors.New("rewarding: staking protocol not registered")
+	}
+
+	var reader autodeposit.ContractReader
+	if p.autoDepositBridge != nil {
+		reader = p.resolveAutoDepositReader(sm)
+	}
+
+	// A read-only view for bucket eligibility. Kept outside the per-voter
+	// loop so the base-view construction cost is paid once.
+	csr, err := staking.ConstructBaseView(sm)
+	if err != nil {
+		return nil, false, errors.Wrap(err, "rewarding: construct base view for compound routing")
+	}
+
+	voters := make([]address.Address, len(snap.Entries))
+	weights := make([]*big.Int, len(snap.Entries))
+	amounts := make([]*big.Int, len(snap.Entries))
+	routings := make([]autodeposit.Route, len(snap.Entries))
+	for i, e := range snap.Entries {
+		voters[i] = e.Voter
+		if e.Weight != nil {
+			weights[i] = new(big.Int).Set(e.Weight)
+		} else {
+			weights[i] = new(big.Int)
+		}
+		amounts[i] = shares[i]
+		routings[i] = autodeposit.RouteCredit
+	}
+
+	for i, e := range snap.Entries {
+		share := shares[i]
+		if share.Sign() == 0 {
+			continue
+		}
+		if e.Voter == nil {
+			// Malformed snapshot entry — should not happen, but degrade to
+			// credit for the nil case is impossible (no address to credit).
+			// Refuse rather than silently drop the share.
+			return nil, false, errors.Errorf("rewarding: nil voter address at snapshot index %d", i)
+		}
+		route := autodeposit.RouteCredit
+		if p.autoDepositBridge != nil {
+			bucketID, present, lookupErr := p.autoDepositBridge.LookupBucket(ctx, reader, e.Voter)
+			if lookupErr != nil {
+				log.L().Warn("autodeposit bucket lookup failed; routing voter share to credit",
+					zap.String("delegate", candID.String()),
+					zap.String("voter", e.Voter.String()),
+					zap.Error(lookupErr))
+			} else if present {
+				bucket, bErr := csr.NativeBucket(bucketID)
+				if bErr != nil {
+					log.L().Warn("bucket read for compound routing failed; routing voter share to credit",
+						zap.String("delegate", candID.String()),
+						zap.String("voter", e.Voter.String()),
+						zap.Uint64("bucket", bucketID),
+						zap.Error(bErr))
+				} else if autodeposit.IsBucketEligibleForCompound(bucket, e.Voter) {
+					if err := stakingProto.AddDepositForCompound(ctx, sm, e.Voter, bucketID, share); err != nil {
+						return nil, false, errors.Wrapf(err,
+							"rewarding: compound deposit failed for voter %s bucket %d",
+							e.Voter.String(), bucketID)
+					}
+					route = autodeposit.RouteCompound
+				}
+			}
+		}
+		if route == autodeposit.RouteCredit {
+			if err := p.grantToAccount(ctx, sm, e.Voter, share); err != nil {
+				return nil, false, errors.Wrapf(err,
+					"rewarding: credit voter %s failed", e.Voter.String())
+			}
+		}
+		routings[i] = route
+	}
+
+	if commission.Sign() > 0 {
+		if err := p.grantToAccount(ctx, sm, rewardAddr, commission); err != nil {
+			return nil, false, errors.Wrapf(err,
+				"rewarding: credit commission to %s failed", rewardAddr.String())
+		}
+	}
+
+	topics, data, err := distributedlog.Pack(distributedlog.EventArgs{
+		Epoch:           epochNum,
+		Delegate:        candID,
+		RewardAddr:      rewardAddr,
+		TotalCommission: commission,
+		TotalVoterPool:  voterPool,
+		SnapshotHash:    distributedlog.SnapshotHash(voters, weights),
+		Voters:          voters,
+		Amounts:         amounts,
+		Routings:        routings,
+	})
+	if err != nil {
+		return nil, false, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
+	}
+	return []*action.Log{{
+		Address:     p.addr.String(),
+		Topics:      topics,
+		Data:        data,
+		BlockHeight: blkHeight,
+		ActionHash:  actionHash,
+	}}, true, nil
+}
+
+// splitCommission returns (commission, voterPool) for a totalReward given
+// a basis-points rate. Integer division truncates in favour of the voter
+// pool: commission = totalReward * bps / 10_000. Rates above 100% are
+// clamped to 100% so a malformed on-chain rate cannot over-pay commission.
+func splitCommission(totalReward *big.Int, bps uint64) (*big.Int, *big.Int) {
+	if totalReward == nil || totalReward.Sign() == 0 {
+		return new(big.Int), new(big.Int)
+	}
+	if bps == 0 {
+		return new(big.Int), new(big.Int).Set(totalReward)
+	}
+	if bps >= _basisPointsDenom {
+		return new(big.Int).Set(totalReward), new(big.Int)
+	}
+	commission := new(big.Int).Mul(totalReward, new(big.Int).SetUint64(bps))
+	commission.Div(commission, new(big.Int).SetUint64(_basisPointsDenom))
+	voterPool := new(big.Int).Sub(totalReward, commission)
+	return commission, voterPool
+}
+
+// resolveAutoDepositReader returns the ContractReader used for a single
+// distribution call. Tests may inject a factory via WithAutoDepositReader;
+// production falls through to autoDepositContractReader which wraps
+// evm.SimulateExecution.
+func (p *Protocol) resolveAutoDepositReader(sm protocol.StateManager) autodeposit.ContractReader {
+	if p.autoDepositReader != nil {
+		return p.autoDepositReader(sm)
+	}
+	return autoDepositContractReader(sm)
+}
+
+// autoDepositContractReader mirrors the equivalent helper in poll/util.go
+// (delegateProfileContractReader): build an unsigned Execution against the
+// target contract with the zero-address caller and dispatch through
+// evm.SimulateExecution. The pattern is deterministic (fixed caller, no
+// gas billing) and reuses the existing view-call plumbing.
+func autoDepositContractReader(sm protocol.StateManager) autodeposit.ContractReader {
+	return autodeposit.ContractReaderFunc(func(ctx context.Context, contract string, callData []byte) ([]byte, error) {
+		gasLimit := uint64(10_000_000)
+		ex := action.NewExecution(contract, big.NewInt(0), callData)
+		caller, err := address.FromString(address.ZeroAddress)
+		if err != nil {
+			return nil, err
+		}
+		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(gasLimit).SetAction(ex).Build()
+		ret, _, err := evm.SimulateExecution(ctx, sm, caller, elp)
+		return ret, err
+	})
+}
