@@ -393,6 +393,12 @@ type (
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
+		// AutoDepositContractAddress is the IoTeX bech32 address of the
+		// AutoDeposit contract from which IIP-59 reads per-voter compound
+		// preferences at epoch reward distribution time. Empty means
+		// compound routing is inactive and every voter share is credited
+		// to the voter's unclaimed balance for pull-claim.
+		AutoDepositContractAddress string `yaml:"autoDepositContractAddress"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
