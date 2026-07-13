@@ -152,9 +152,15 @@ func fromBlob(b *candidatePollSnapshotBlob) (*CandidatePollSnapshot, error) {
 // captured from the live staking.Candidate. Downstream rewarding will then
 // take the legacy Hermes path because Registered=false.
 //
-// Any per-delegate error (bridge failure, invalid identity) aborts the whole
-// snapshot write. A partial map here would leak delegates onto the wrong
-// reward path for an entire epoch, so we prefer failing the block.
+// A per-delegate bridge read failure (malformed profile, RPC/EVM error) is
+// absorbed by the bridge itself: the affected delegate lands with
+// Registered=false and rewarding routes it via the legacy path. This
+// prevents one bad on-chain profile from deterministically halting the
+// chain at every epoch boundary — same state ⇒ same fallback on every
+// validator ⇒ no fork.
+//
+// Only wiring-level errors (invalid candidate address, nil-bridge-with-nil-
+// reader, PutState failure) still abort the whole write.
 func FreezePollSnapshot(
 	ctx context.Context,
 	sm protocol.StateManager,
