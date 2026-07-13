@@ -466,6 +466,31 @@ func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, 
 }
 
 func (sdb *stateDB) WorkingSetAtHeight(ctx context.Context, height uint64) (protocol.StateManagerWithCloser, error) {
+	// A non-archive node (no erigonDB) keeps no historical state: daoRetrofitter
+	// .atHeight ignores the height and always returns the latest KV store. A read
+	// at a past height would therefore silently return latest-tip state instead of
+	// the true historical value (e.g. eth_getBalance at an old block returning the
+	// current balance). Reject it so callers get a clear error and know to use an
+	// archive node, rather than a wrong-but-plausible answer. height >= tip (latest,
+	// or the next-block working set) is served normally.
+	// The "latest" sentinel (block number 0) is normalized to the tip by callers
+	// (e.g. BalanceAt/PendingNonceAt map 0 -> TipHeight before calling), so any
+	// height that reaches here is an explicit block height. On a non-archive node
+	// every height strictly below the tip — including an explicit genesis (0) —
+	// cannot be served from historical state and would otherwise fall through to
+	// latest; reject it so callers get a clear error instead of a wrong value.
+	if sdb.erigonDB == nil {
+		sdb.mutex.RLock()
+		tip := sdb.currentChainHeight
+		sdb.mutex.RUnlock()
+		if height < tip {
+			return nil, errors.Wrapf(
+				ErrNotSupported,
+				"historical state at height %d is not available on a non-archive node (current tip %d); use an archive node",
+				height, tip,
+			)
+		}
+	}
 	ws, err := sdb.newReadOnlyWorkingSet(ctx, height)
 	if err != nil {
 		return nil, err

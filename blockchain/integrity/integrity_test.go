@@ -2417,9 +2417,10 @@ func TestHistoryForAccount(t *testing.T) {
 	require.Equal(big.NewInt(90), AccountA.Balance)
 	require.Equal(big.NewInt(110), AccountB.Balance)
 
-	// check history account's balance
+	// a non-archive statedb keeps no historical state: a read below the tip is
+	// rejected rather than silently served from latest state (issue #4916).
 	_, err = sf.WorkingSetAtHeight(ctx, 0)
-	require.NoError(err)
+	require.ErrorIs(err, factory.ErrNotSupported)
 }
 
 func TestHistoryForContract(t *testing.T) {
@@ -2449,9 +2450,10 @@ func TestHistoryForContract(t *testing.T) {
 	require.True(ok)
 	require.Equal(expect, balance)
 
-	// check the original balance again
+	// a non-archive statedb keeps no historical state: a read below the tip is
+	// rejected rather than silently served from latest state (issue #4916).
 	_, err = sf.WorkingSetAtHeight(ctx, bc.TipHeight()-1)
-	require.NoError(err)
+	require.ErrorIs(err, factory.ErrNotSupported)
 }
 
 func deployXrc20(bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool, t *testing.T) string {

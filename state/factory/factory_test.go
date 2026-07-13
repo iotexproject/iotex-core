@@ -618,9 +618,10 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 
 	// check archive data
 	if statetx {
-		// statetx not support archive mode yet
+		// statetx (non-archive) keeps no historical state: a read below the tip
+		// is rejected rather than silently served from latest state (issue #4916).
 		_, err = sf.WorkingSetAtHeight(ctx, 0)
-		require.NoError(t, err)
+		require.ErrorIs(t, err, ErrNotSupported)
 	} else {
 		_, err = sf.WorkingSetAtHeight(ctx, 10)
 		if !archive {
