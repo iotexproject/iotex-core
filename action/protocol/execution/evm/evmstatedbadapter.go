@@ -943,24 +943,19 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		copy(topic[:], evmTopic.Bytes())
 		topics = append(topics, topic)
 	}
-	if len(topics) > 0 && topics[0] == _inContractTransfer {
-		// The reserved in-contract-transfer topic is emitted only by the node's own
-		// MakeTransfer, which now records the transaction log directly via
-		// AddInContractTransferLog. A well-formed 3-topic log reaching AddLog with
-		// this topic therefore collides with that reserved log's shape (i.e.
-		// forged) and must NOT become a transaction log: it is dropped here,
-		// exactly as before it was never appended to stateDB.logs, so
-		// receipt.Logs (and thus the receipt root) is unchanged.
-		if len(topics) == 3 {
-			return
-		}
-		// A malformed one (topic count != 3) doesn't actually collide with the
-		// reserved log's shape. Before the upgrade it is kept panicking verbatim
-		// so block replay stays byte-identical; after the upgrade it is just a
-		// regular log like any other and falls through to be recorded below.
-		if !stateDB.fixInContractTransferTopic {
+	if len(topics) > 0 && topics[0] == _inContractTransfer && !stateDB.fixInContractTransferTopic {
+		// Before the upgrade: the reserved in-contract-transfer topic is emitted
+		// only by the node's own MakeTransfer, which records the transaction log
+		// directly via AddInContractTransferLog. Any EVM log reaching AddLog with
+		// this topic is therefore contract-emitted (i.e. forged) and must NOT
+		// become a transaction log. It is dropped here, exactly as before it was
+		// never appended to stateDB.logs, so receipt.Logs (and thus the receipt
+		// root) is unchanged. Kept verbatim (including the malformed-topic-count
+		// panic) so block replay stays byte-identical pre-upgrade.
+		if len(topics) != 3 {
 			log.T(stateDB.ctx).Panic("Invalid in contract transfer topics", zap.String("address", addr.String()), stateDB.actionHashField())
 		}
+		return
 	}
 
 	stateDB.logs = append(stateDB.logs, &action.Log{
