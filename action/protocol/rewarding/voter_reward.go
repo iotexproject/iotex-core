@@ -27,14 +27,21 @@ import (
 
 const _basisPointsDenom uint64 = 10_000
 
-// distributeVoterReward is IIP-59 §3.2's per-delegate voter split. It reads
-// the frozen poll snapshot (voter list + commission rate + opt-in flag),
-// allocates the epoch share across voters in canonical order, routes each
-// share to compound or credit via the AutoDeposit bridge, credits the
-// delegate's commission to its reward address, and returns exactly one
-// batched DelegateDistributed log per invocation.
+// distributeVoterReward is IIP-59 §3.2's per-delegate voter split for the
+// epoch-reward stream. It reads the frozen poll snapshot (voter list +
+// commission rate + opt-in flag), allocates the epoch share across voters
+// in canonical order, routes each share to compound or credit via the
+// AutoDeposit bridge, credits the delegate's commission to its reward
+// address, and returns exactly one batched DelegateDistributed log per
+// invocation.
 //
-// Return contract:
+// PR 4' folds in the block-reward stream via distributeCombinedReward,
+// which is the entry point GrantEpochReward now uses. This function is
+// kept as the pure epoch-only entry so callers that never accumulate a
+// block-reward pool (e.g. tests) continue to work unchanged.
+//
+// Return contract (identical between distributeVoterReward and
+// distributeCombinedReward):
 //   - (logs,  true,  nil): IIP-59 path ran. Caller MUST NOT run the legacy
 //     grantToAccount(rewardAddr, share) for this delegate — the split
 //     already handled the full amount.
@@ -57,6 +64,28 @@ func (p *Protocol) distributeVoterReward(
 	blkHeight uint64,
 	actionHash hash.Hash256,
 ) ([]*action.Log, bool, error) {
+	return p.distributeCombinedReward(ctx, sm, cand, rewardAddr, nil, totalReward, blkHeight, actionHash)
+}
+
+// distributeCombinedReward is IIP-59 §3.2 with both reward streams folded
+// into one voter split. blockReward is the amount drained from the
+// delegate's pending block-reward pool (may be nil / zero); epochReward is
+// this epoch's share for the delegate (may be nil / zero). Commissions are
+// computed independently against the block and epoch basis-points rates on
+// the frozen snapshot, then the voter pools are summed and split once. A
+// single DelegateDistributed log covers both streams.
+//
+// See distributeVoterReward for the (logs, handled, err) contract.
+func (p *Protocol) distributeCombinedReward(
+	ctx context.Context,
+	sm protocol.StateManager,
+	cand *state.Candidate,
+	rewardAddr address.Address,
+	blockReward *big.Int,
+	epochReward *big.Int,
+	blkHeight uint64,
+	actionHash hash.Hash256,
+) ([]*action.Log, bool, error) {
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	if featureCtx.NoVoterRewardDistribution {
 		return nil, false, nil
@@ -64,11 +93,18 @@ func (p *Protocol) distributeVoterReward(
 	if cand == nil {
 		return nil, false, errors.New("rewarding: nil candidate for voter reward distribution")
 	}
-	if totalReward == nil || totalReward.Sign() < 0 {
-		return nil, false, errors.New("rewarding: invalid total reward for voter distribution")
+	if err := assertNonNegativeReward(blockReward); err != nil {
+		return nil, false, err
+	}
+	if err := assertNonNegativeReward(epochReward); err != nil {
+		return nil, false, err
 	}
 	if rewardAddr == nil {
 		// Delegate has no reward address configured; nothing to distribute.
+		return nil, false, nil
+	}
+	if isNilOrZero(blockReward) && isNilOrZero(epochReward) {
+		// Nothing to distribute for this delegate.
 		return nil, false, nil
 	}
 
@@ -100,9 +136,9 @@ func (p *Protocol) distributeVoterReward(
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkHeight)
 
-	// Total-weight sum is used both to prorate voter shares and to detect the
-	// "no voter weight known" degenerate case where the full pool becomes
-	// commission (IIP-59 §3.2 fallback).
+	// Total-weight sum is used both to prorate voter shares and to detect
+	// the "no voter weight known" degenerate case where the full pool
+	// becomes commission (IIP-59 §3.2 fallback).
 	totalWeight := new(big.Int)
 	for _, e := range snap.Entries {
 		if e.Weight != nil {
@@ -110,17 +146,96 @@ func (p *Protocol) distributeVoterReward(
 		}
 	}
 
-	// Commission split. When the pool is empty or has no weighted voters, the
-	// entire amount becomes commission — we still emit a log with empty
-	// voter arrays for observability.
-	commission, voterPool := splitCommission(totalReward, snap.EpochCommissionBasisPoints)
+	// Independent commission split per stream: block reward uses the
+	// snapshot's BlockCommissionBasisPoints; epoch reward uses
+	// EpochCommissionBasisPoints. The voter pools are summed and split
+	// against the frozen weights below.
+	blockCommission, blockVoterPool := splitCommission(blockReward, snap.BlockCommissionBasisPoints)
+	epochCommission, epochVoterPool := splitCommission(epochReward, snap.EpochCommissionBasisPoints)
+	totalCommission := new(big.Int).Add(blockCommission, epochCommission)
+	voterPool := new(big.Int).Add(blockVoterPool, epochVoterPool)
+	totalStreams := new(big.Int).Add(safeBig(blockReward), safeBig(epochReward))
 	if len(snap.Entries) == 0 || totalWeight.Sign() == 0 {
-		commission = new(big.Int).Set(totalReward)
+		// Empty voter list or zero total weight: full pool becomes
+		// commission. Still emit a log with empty voter arrays so
+		// observers see the delegate's payout.
+		totalCommission = totalStreams
 		voterPool = new(big.Int)
 	}
 
-	// Per-voter allocation in canonical (snapshot-order) sequence. The last
-	// voter absorbs the modular-division dust so sum(shares) == voterPool.
+	// Per-voter allocation + routing. Extracted so the log-emission and
+	// commission-grant steps stay in this outer function while the loop
+	// logic is testable in isolation.
+	stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx))
+	if stakingProto == nil {
+		return nil, false, errors.New("rewarding: staking protocol not registered")
+	}
+	var reader autodeposit.ContractReader
+	if p.autoDepositBridge != nil {
+		reader = p.resolveAutoDepositReader(sm)
+	}
+	csr, err := staking.ConstructBaseView(sm)
+	if err != nil {
+		return nil, false, errors.Wrap(err, "rewarding: construct base view for compound routing")
+	}
+
+	voters, weights, amounts, routings, err := p.allocateAndRouteVoters(
+		ctx, sm, snap, totalWeight, voterPool, stakingProto, reader, csr, candID,
+	)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if totalCommission.Sign() > 0 {
+		if err := p.grantToAccount(ctx, sm, rewardAddr, totalCommission); err != nil {
+			return nil, false, errors.Wrapf(err,
+				"rewarding: credit commission to %s failed", rewardAddr.String())
+		}
+	}
+
+	topics, data, err := distributedlog.Pack(distributedlog.EventArgs{
+		Epoch:           epochNum,
+		Delegate:        candID,
+		RewardAddr:      rewardAddr,
+		TotalCommission: totalCommission,
+		TotalVoterPool:  voterPool,
+		SnapshotHash:    distributedlog.SnapshotHash(voters, weights),
+		Voters:          voters,
+		Amounts:         amounts,
+		Routings:        routings,
+	})
+	if err != nil {
+		return nil, false, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
+	}
+	return []*action.Log{{
+		Address:     p.addr.String(),
+		Topics:      topics,
+		Data:        data,
+		BlockHeight: blkHeight,
+		ActionHash:  actionHash,
+	}}, true, nil
+}
+
+// allocateAndRouteVoters splits voterPool across snap.Entries by frozen
+// weight and applies the compound/credit routing for each share. Returns
+// the parallel slices the caller folds into the DelegateDistributed log.
+//
+// Determinism: iteration follows the snapshot's canonical order; the last
+// weighted voter absorbs the modular-division dust so sum(amounts) equals
+// voterPool exactly. All fallback branches (nil bridge, bridge RPC error,
+// bucket ineligible) degrade the affected voter to credit rather than
+// halting the block.
+func (p *Protocol) allocateAndRouteVoters(
+	ctx context.Context,
+	sm protocol.StateManager,
+	snap *staking.CandidatePollSnapshot,
+	totalWeight *big.Int,
+	voterPool *big.Int,
+	stakingProto *staking.Protocol,
+	reader autodeposit.ContractReader,
+	csr staking.CandidateStateReader,
+	candID address.Address,
+) ([]address.Address, []*big.Int, []*big.Int, []autodeposit.Route, error) {
 	shares := make([]*big.Int, len(snap.Entries))
 	if voterPool.Sign() > 0 && totalWeight.Sign() > 0 {
 		distributed := new(big.Int)
@@ -135,8 +250,6 @@ func (p *Protocol) distributeVoterReward(
 			distributed.Add(distributed, share)
 		}
 		if dust := new(big.Int).Sub(voterPool, distributed); dust.Sign() > 0 {
-			// Attach the dust to the last voter with non-zero weight so the
-			// allocation stays deterministic and totals exactly.
 			for i := len(snap.Entries) - 1; i >= 0; i-- {
 				if snap.Entries[i].Weight != nil && snap.Entries[i].Weight.Sign() > 0 {
 					shares[i] = new(big.Int).Add(shares[i], dust)
@@ -148,26 +261,6 @@ func (p *Protocol) distributeVoterReward(
 		for i := range shares {
 			shares[i] = new(big.Int)
 		}
-	}
-
-	// Per-voter routing. bridge is nil when the network has no AutoDeposit
-	// contract configured — every voter routes to credit in that case, which
-	// matches the "compound routing inactive" branch of the feature matrix.
-	stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx))
-	if stakingProto == nil {
-		return nil, false, errors.New("rewarding: staking protocol not registered")
-	}
-
-	var reader autodeposit.ContractReader
-	if p.autoDepositBridge != nil {
-		reader = p.resolveAutoDepositReader(sm)
-	}
-
-	// A read-only view for bucket eligibility. Kept outside the per-voter
-	// loop so the base-view construction cost is paid once.
-	csr, err := staking.ConstructBaseView(sm)
-	if err != nil {
-		return nil, false, errors.Wrap(err, "rewarding: construct base view for compound routing")
 	}
 
 	voters := make([]address.Address, len(snap.Entries))
@@ -191,10 +284,10 @@ func (p *Protocol) distributeVoterReward(
 			continue
 		}
 		if e.Voter == nil {
-			// Malformed snapshot entry — should not happen, but degrade to
-			// credit for the nil case is impossible (no address to credit).
-			// Refuse rather than silently drop the share.
-			return nil, false, errors.Errorf("rewarding: nil voter address at snapshot index %d", i)
+			// Malformed snapshot entry — should not happen. There is no
+			// address to credit, so refuse rather than silently drop
+			// the share.
+			return nil, nil, nil, nil, errors.Errorf("rewarding: nil voter address at snapshot index %d", i)
 		}
 		route := autodeposit.RouteCredit
 		if p.autoDepositBridge != nil {
@@ -214,7 +307,7 @@ func (p *Protocol) distributeVoterReward(
 						zap.Error(bErr))
 				} else if autodeposit.IsBucketEligibleForCompound(bucket, e.Voter) {
 					if err := stakingProto.AddDepositForCompound(ctx, sm, e.Voter, bucketID, share); err != nil {
-						return nil, false, errors.Wrapf(err,
+						return nil, nil, nil, nil, errors.Wrapf(err,
 							"rewarding: compound deposit failed for voter %s bucket %d",
 							e.Voter.String(), bucketID)
 					}
@@ -224,41 +317,13 @@ func (p *Protocol) distributeVoterReward(
 		}
 		if route == autodeposit.RouteCredit {
 			if err := p.grantToAccount(ctx, sm, e.Voter, share); err != nil {
-				return nil, false, errors.Wrapf(err,
+				return nil, nil, nil, nil, errors.Wrapf(err,
 					"rewarding: credit voter %s failed", e.Voter.String())
 			}
 		}
 		routings[i] = route
 	}
-
-	if commission.Sign() > 0 {
-		if err := p.grantToAccount(ctx, sm, rewardAddr, commission); err != nil {
-			return nil, false, errors.Wrapf(err,
-				"rewarding: credit commission to %s failed", rewardAddr.String())
-		}
-	}
-
-	topics, data, err := distributedlog.Pack(distributedlog.EventArgs{
-		Epoch:           epochNum,
-		Delegate:        candID,
-		RewardAddr:      rewardAddr,
-		TotalCommission: commission,
-		TotalVoterPool:  voterPool,
-		SnapshotHash:    distributedlog.SnapshotHash(voters, weights),
-		Voters:          voters,
-		Amounts:         amounts,
-		Routings:        routings,
-	})
-	if err != nil {
-		return nil, false, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
-	}
-	return []*action.Log{{
-		Address:     p.addr.String(),
-		Topics:      topics,
-		Data:        data,
-		BlockHeight: blkHeight,
-		ActionHash:  actionHash,
-	}}, true, nil
+	return voters, weights, amounts, routings, nil
 }
 
 // splitCommission returns (commission, voterPool) for a totalReward given
@@ -279,6 +344,34 @@ func splitCommission(totalReward *big.Int, bps uint64) (*big.Int, *big.Int) {
 	commission.Div(commission, new(big.Int).SetUint64(_basisPointsDenom))
 	voterPool := new(big.Int).Sub(totalReward, commission)
 	return commission, voterPool
+}
+
+// assertNonNegativeReward rejects a nil (only meaningful when it is the
+// sole reward stream, checked separately) or negative reward amount.
+// distributeCombinedReward allows a nil block or epoch reward so callers
+// can opt out of one stream; nil is treated as zero.
+func assertNonNegativeReward(v *big.Int) error {
+	if v == nil {
+		return nil
+	}
+	if v.Sign() < 0 {
+		return errors.New("rewarding: invalid total reward for voter distribution")
+	}
+	return nil
+}
+
+// safeBig returns v when non-nil, otherwise a fresh zero big.Int. Keeps
+// nil-tolerance out of the arithmetic sites in the main body.
+func safeBig(v *big.Int) *big.Int {
+	if v == nil {
+		return new(big.Int)
+	}
+	return v
+}
+
+// isNilOrZero returns true when v is nil or zero.
+func isNilOrZero(v *big.Int) bool {
+	return v == nil || v.Sign() == 0
 }
 
 // resolveAutoDepositReader returns the ContractReader used for a single

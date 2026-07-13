@@ -40,7 +40,11 @@ var (
 	_epochRewardHistoryKeyPrefix = state.EpochRewardHistoryKeyPrefix
 	_accountKeyPrefix            = []byte("acc")
 	_exemptKey                   = []byte("xpt")
-	errInvalidEpoch              = errors.New("invalid start/end epoch number")
+	// _pendingBlockRewardPoolKeyPrefix keys the per-delegate IIP-59 block
+	// reward pool. Full key layout is prefix || candidate identifier bytes,
+	// with entries deleted at drain (see pending_block_reward.go).
+	_pendingBlockRewardPoolKeyPrefix = []byte("pbrp")
+	errInvalidEpoch                  = errors.New("invalid start/end epoch number")
 )
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the

@@ -52,3 +52,12 @@ message RewardLog {
 message RewardLogs {
     repeated RewardLog logs = 1;
 }
+
+// PendingBlockRewardPool holds a delegate's accumulated block-reward
+// balance for IIP-59 §3.2. Written at block time when an opted-in
+// producer earns a block reward; drained at epoch close through the
+// batched voter split. One entry per delegate under the pending
+// pool key prefix.
+message PendingBlockRewardPool {
+    bytes amount = 1;
+}

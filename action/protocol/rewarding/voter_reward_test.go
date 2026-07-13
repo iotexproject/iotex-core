@@ -184,7 +184,16 @@ func newVoterRewardCtx(
 	ctx = protocol.WithRegistry(ctx, registry)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 100})
 	ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: identityset.Address(0)})
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	ctx = protocol.WithFeatureCtx(ctx)
+
+	// Seed the staking base view onto the mock state manager so the orphan
+	// drain path (which resolves candidates via staking.ConstructBaseView)
+	// can find the view. Without this, ReadView("staking") returns "name
+	// is not found" and the drain aborts before the fallback refund runs.
+	view, err := stakingProtocol.Start(ctx, sm)
+	r.NoError(err)
+	r.NoError(sm.WriteView("staking", view))
 
 	return ctx, sm, p, cand, rewardAddr
 }

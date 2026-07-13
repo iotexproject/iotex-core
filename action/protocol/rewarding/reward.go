@@ -172,34 +172,96 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.updateAvailableBalance(ctx, sm, totalReward); err != nil {
 		return nil, err
 	}
-	if err := p.grantToAccount(ctx, sm, rewardAddr, totalReward); err != nil {
-		return nil, err
+
+	// IIP-59 §3.2 opt-in check: when the fork is on and the producer's
+	// frozen poll snapshot has VoterRewardOnchainOptIn=true and a valid
+	// DelegateProfile registration, route the base block reward into the
+	// per-delegate pending pool. The pool is drained at epoch close by
+	// GrantEpochReward, which emits a single batched DelegateDistributed
+	// log covering both streams. Priority tip is fee income and stays
+	// with the producer directly.
+	optInPool := false
+	var producerCandAddr address.Address
+	if !fCtx.NoVoterRewardDistribution {
+		producerCandAddr, err = address.FromString(producerAddrStr)
+		if err != nil {
+			return nil, err
+		}
+		snap, snapErr := staking.PollSnapshotFor(sm, producerCandAddr)
+		switch {
+		case snapErr == nil:
+			optInPool = snap.VoterRewardOnchainOptIn && snap.Registered
+		case errors.Is(snapErr, state.ErrStateNotExist):
+			// Pre-fork block or delegate registered after the last freeze;
+			// legacy grantToAccount path.
+		default:
+			return nil, errors.Wrapf(snapErr, "rewarding: read poll snapshot for %s", producerAddrStr)
+		}
+	}
+
+	if optInPool {
+		if err := p.creditPendingBlockRewardPool(ctx, sm, producerCandAddr.Bytes(), blockReward); err != nil {
+			return nil, err
+		}
+		if effectiveTip.Sign() > 0 {
+			if err := p.grantToAccount(ctx, sm, rewardAddr, effectiveTip); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		if err := p.grantToAccount(ctx, sm, rewardAddr, totalReward); err != nil {
+			return nil, err
+		}
 	}
 	if err := p.updateRewardHistory(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
-	var (
-		featureCtx = protocol.MustGetFeatureCtx(ctx)
-		rewardLogs = []*rewardingpb.RewardLog{
-			{
-				Type:   rewardingpb.RewardLog_BLOCK_REWARD,
-				Addr:   rewardAddrStr,
-				Amount: blockReward.String(),
-			},
+
+	// Legacy pre-dynamic-fee format: a bare RewardLog. Suppress entirely
+	// on the opt-in pool path — the batched log is emitted at epoch close.
+	if !fCtx.EnableDynamicFeeTx {
+		if optInPool {
+			return nil, nil
 		}
-		msg proto.Message = rewardLogs[0]
-	)
-	if featureCtx.EnableDynamicFeeTx {
-		if !isZero(effectiveTip) {
-			rewardLogs = append(rewardLogs, &rewardingpb.RewardLog{
-				Type:   rewardingpb.RewardLog_PRIORITY_BONUS,
-				Addr:   rewardAddrStr,
-				Amount: effectiveTip.String(),
-			})
+		data, err := proto.Marshal(&rewardingpb.RewardLog{
+			Type:   rewardingpb.RewardLog_BLOCK_REWARD,
+			Addr:   rewardAddrStr,
+			Amount: blockReward.String(),
+		})
+		if err != nil {
+			return nil, err
 		}
-		msg = &rewardingpb.RewardLogs{Logs: rewardLogs}
+		return &action.Log{
+			Address:     p.addr.String(),
+			Topics:      nil,
+			Data:        data,
+			BlockHeight: blkCtx.BlockHeight,
+			ActionHash:  actionCtx.ActionHash,
+		}, nil
 	}
-	data, err := proto.Marshal(msg)
+
+	// Post-dynamic-fee format: RewardLogs wrapper. On the opt-in pool
+	// path the BLOCK_REWARD entry is omitted; the PRIORITY_BONUS entry
+	// still applies because the tip is not folded into the voter split.
+	var rewardLogs []*rewardingpb.RewardLog
+	if !optInPool {
+		rewardLogs = append(rewardLogs, &rewardingpb.RewardLog{
+			Type:   rewardingpb.RewardLog_BLOCK_REWARD,
+			Addr:   rewardAddrStr,
+			Amount: blockReward.String(),
+		})
+	}
+	if !isZero(effectiveTip) {
+		rewardLogs = append(rewardLogs, &rewardingpb.RewardLog{
+			Type:   rewardingpb.RewardLog_PRIORITY_BONUS,
+			Addr:   rewardAddrStr,
+			Amount: effectiveTip.String(),
+		})
+	}
+	if len(rewardLogs) == 0 {
+		return nil, nil
+	}
+	data, err := proto.Marshal(&rewardingpb.RewardLogs{Logs: rewardLogs})
 	if err != nil {
 		return nil, err
 	}
@@ -286,21 +348,47 @@ func (p *Protocol) GrantEpochReward(
 	if err != nil {
 		return nil, nil, err
 	}
+	// visited tracks pool IDs that were drained (or explicitly skipped) via
+	// the per-candidate loop, so the post-loop orphan sweep only touches
+	// entries that were never seen.
+	visitedPoolIDs := make(map[string]bool)
 	for i := range addrs {
-		// If reward address doesn't exist, do nothing
-		if addrs[i] == nil {
+		cand := rewardedCandidates[i]
+		if cand == nil {
 			continue
 		}
-		// If 0 epoch reward due to low productivity, do nothing
-		if amounts[i].Cmp(big.NewInt(0)) == 0 {
+		candBytes, err := candidateIdentifierBytes(cand.Address)
+		if err != nil {
+			return nil, nil, err
+		}
+		visitedPoolIDs[string(candBytes)] = true
+		poolAmt, err := p.readPendingBlockRewardPool(ctx, sm, candBytes)
+		if err != nil {
+			return nil, nil, err
+		}
+		epochAmt := amounts[i]
+		if epochAmt == nil {
+			epochAmt = big.NewInt(0)
+		}
+		// If reward address doesn't exist, do nothing here — the pool
+		// entry, if any, will be handled by the orphan-drain sweep after
+		// the loop.
+		if addrs[i] == nil {
+			// Remove from visited so the orphan sweep picks it up.
+			delete(visitedPoolIDs, string(candBytes))
+			continue
+		}
+		// No streams to distribute for this candidate.
+		if poolAmt.Sign() == 0 && epochAmt.Sign() == 0 {
 			continue
 		}
 		// IIP-59: opt-in delegates take the batched on-chain distribution
-		// path. distributeVoterReward returns handled=false to fall through
-		// to the legacy grantToAccount path when the fork is off, the
-		// delegate opted out, or no poll snapshot exists.
-		iip59Logs, handled, err := p.distributeVoterReward(
-			ctx, sm, rewardedCandidates[i], addrs[i], amounts[i],
+		// path with both streams folded. distributeCombinedReward returns
+		// handled=false to fall through to the legacy grantToAccount path
+		// when the fork is off, the delegate opted out, or no poll
+		// snapshot exists.
+		iip59Logs, handled, err := p.distributeCombinedReward(
+			ctx, sm, cand, addrs[i], poolAmt, epochAmt,
 			blkCtx.BlockHeight, actionCtx.ActionHash,
 		)
 		if err != nil {
@@ -308,13 +396,44 @@ func (p *Protocol) GrantEpochReward(
 		}
 		if handled {
 			rewardLogs = append(rewardLogs, iip59Logs...)
-			actualTotalReward = big.NewInt(0).Add(actualTotalReward, amounts[i])
+			actualTotalReward = big.NewInt(0).Add(actualTotalReward, epochAmt)
+			if poolAmt.Sign() > 0 {
+				if err := p.deletePendingBlockRewardPool(ctx, sm, candBytes); err != nil {
+					return nil, nil, err
+				}
+			}
 			continue
 		}
-		if err := p.grantToAccount(ctx, sm, addrs[i], amounts[i]); err != nil {
+		// Legacy path. If poolAmt > 0 the delegate opted out (or lost
+		// DelegateProfile registration) mid-epoch; refund the pool balance
+		// to the reward address via the same legacy grant so no funds
+		// are stranded, then drop the pool entry.
+		if poolAmt.Sign() > 0 {
+			if err := p.grantToAccount(ctx, sm, addrs[i], poolAmt); err != nil {
+				return nil, nil, err
+			}
+			if err := p.deletePendingBlockRewardPool(ctx, sm, candBytes); err != nil {
+				return nil, nil, err
+			}
+			data, err := p.encodeRewardLog(rewardingpb.RewardLog_BLOCK_REWARD, addrs[i].String(), poolAmt)
+			if err != nil {
+				return nil, nil, err
+			}
+			rewardLogs = append(rewardLogs, &action.Log{
+				Address:     p.addr.String(),
+				Topics:      nil,
+				Data:        data,
+				BlockHeight: blkCtx.BlockHeight,
+				ActionHash:  actionCtx.ActionHash,
+			})
+		}
+		if epochAmt.Sign() == 0 {
+			continue
+		}
+		if err := p.grantToAccount(ctx, sm, addrs[i], epochAmt); err != nil {
 			return nil, nil, err
 		}
-		data, err := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, addrs[i].String(), amounts[i])
+		data, err := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, addrs[i].String(), epochAmt)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -325,8 +444,19 @@ func (p *Protocol) GrantEpochReward(
 			BlockHeight: blkCtx.BlockHeight,
 			ActionHash:  actionCtx.ActionHash,
 		})
-		actualTotalReward = big.NewInt(0).Add(actualTotalReward, amounts[i])
+		actualTotalReward = big.NewInt(0).Add(actualTotalReward, epochAmt)
 	}
+	// Orphan-drain sweep: any pool entries not visited above belong to
+	// delegates that dropped out of the current epoch's reward split
+	// entirely. Route to their live reward address if the candidate is
+	// still registered, otherwise refund to unclaimedBalance.
+	orphanLogs, err := p.drainPendingBlockRewardOrphans(
+		ctx, sm, visitedPoolIDs, blkCtx.BlockHeight, actionCtx.ActionHash,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	rewardLogs = append(rewardLogs, orphanLogs...)
 
 	// Reward additional bootstrap bonus
 	if a.grantFoundationBonus(epochNum) || (epochNum >= p.cfg.FoundationBonusP2StartEpoch && epochNum <= p.cfg.FoundationBonusP2EndEpoch) {
