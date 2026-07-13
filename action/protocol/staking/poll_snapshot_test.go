@@ -323,21 +323,25 @@ func TestFreezePollSnapshot_PartialProfile(t *testing.T) {
 	r.True(snap.VoterRewardOnchainOptIn)
 }
 
-func TestFreezePollSnapshot_BridgeErrorPropagates(t *testing.T) {
-	// A bridge failure at PutPollResult must abort the block: a partial map
-	// would misroute rewards for a whole epoch.
+func TestFreezePollSnapshot_BridgeErrorDegradesToLegacy(t *testing.T) {
+	// A per-delegate bridge failure must NOT abort the block. Any single
+	// delegate's read error deterministically halts the chain at every epoch
+	// boundary — worse than the reward-misroute it would prevent. The
+	// snapshot is still written with Registered=false, opt-in captured from
+	// live Candidate; rewarding falls back to legacy for that delegate.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	csm := newCandidateStateManager(sm)
 
 	cand := &Candidate{
-		Owner:     identityset.Address(1),
-		Operator:  identityset.Address(2),
-		Reward:    identityset.Address(3),
-		Name:      "delegate",
-		Votes:     big.NewInt(1),
-		SelfStake: big.NewInt(1),
+		Owner:                   identityset.Address(1),
+		Operator:                identityset.Address(2),
+		Reward:                  identityset.Address(3),
+		Name:                    "delegate",
+		Votes:                   big.NewInt(1),
+		SelfStake:               big.NewInt(1),
+		VoterRewardOnchainOptIn: true,
 	}
 	r.NoError(csm.putCandidate(cand))
 
@@ -350,13 +354,14 @@ func TestFreezePollSnapshot_BridgeErrorPropagates(t *testing.T) {
 	candidates := state.CandidateList{
 		&state.Candidate{Address: cand.Owner.String(), Votes: big.NewInt(1), RewardAddress: cand.Reward.String()},
 	}
-	err = FreezePollSnapshot(context.Background(), sm, candidates, bridge, failing)
-	r.Error(err)
-	r.Contains(err.Error(), "rpc down")
+	r.NoError(FreezePollSnapshot(context.Background(), sm, candidates, bridge, failing))
 
-	// No snapshot was written for the failed delegate.
-	_, err = PollSnapshotFor(sm, cand.Owner)
-	r.ErrorIs(errors.Cause(err), state.ErrStateNotExist)
+	snap, err := PollSnapshotFor(sm, cand.Owner)
+	r.NoError(err)
+	r.False(snap.Registered)
+	r.Zero(snap.BlockCommissionBasisPoints)
+	r.Zero(snap.EpochCommissionBasisPoints)
+	r.True(snap.VoterRewardOnchainOptIn, "opt-in flag still captured from live Candidate")
 }
 
 func TestFreezePollSnapshot_InvalidCandidateAddress(t *testing.T) {
