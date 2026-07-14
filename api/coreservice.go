@@ -2263,6 +2263,9 @@ func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Contex
 		GetBlockTime:   bcCtx.GetBlockTime,
 		DepositGasFunc: rewarding.DepositGas,
 	})
+	// executeInEVM registers each EVM it creates with this canceller, letting
+	// parseTracer's timeout watchdog abort opcode execution
+	ctx = evm.WithTraceCanceller(ctx, evm.NewTraceCanceller())
 	tracer, cleanup, err := parseTracer(ctx, txctx, config)
 	if err != nil {
 		return nil, nil, nil, err
@@ -2395,6 +2398,10 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 	// trace timeout is enforced per transaction, like geth. Rearming disarms the
 	// previous transaction's watchdog; the deferred cleanup disarms the last one
 	// after the block trace has executed (WorkingSetAtTransaction below).
+	// executeInEVM registers each EVM it creates with this canceller; a fired
+	// per-tx watchdog aborts the in-flight EVM (and any created afterwards),
+	// and traceErr below fails the whole request
+	ctx = evm.WithTraceCanceller(ctx, evm.NewTraceCanceller())
 	sharedHooks := new(tracing.Hooks)
 	var (
 		curTracer  *tracers.Tracer
