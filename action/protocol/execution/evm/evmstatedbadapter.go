@@ -91,6 +91,7 @@ type (
 		panicUnrecoverableError    bool
 		enableCancun               bool
 		fixRevertSnapshot          bool
+		fixInContractTransferTopic bool
 		// ignoreBalanceChangeTouchAccount indicates whether to ignore balance change touch account
 		ignoreBalanceChangeTouchAccount bool
 		// skipWriteCleanContract indicates whether to skip writing back read-only
@@ -174,6 +175,15 @@ func ManualCorrectGasRefundOption() StateDBAdapterOption {
 func SuicideTxLogMismatchPanicOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.suicideTxLogMismatchPanic = true
+		return nil
+	}
+}
+
+// FixInContractTransferTopicOption drops reserved-topic logs with an unexpected
+// topic count uniformly instead of special-casing them.
+func FixInContractTransferTopicOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.fixInContractTransferTopic = true
 		return nil
 	}
 }
@@ -933,16 +943,15 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		copy(topic[:], evmTopic.Bytes())
 		topics = append(topics, topic)
 	}
-	if len(topics) > 0 && topics[0] == _inContractTransfer {
-		// The reserved in-contract-transfer topic is emitted only by the node's own
-		// MakeTransfer, which now records the transaction log directly via
-		// AddInContractTransferLog. Any EVM log reaching AddLog with this topic is
-		// therefore contract-emitted (i.e. forged) and must NOT become a transaction
-		// log. It is dropped here, exactly as before it was never appended to
-		// stateDB.logs, so receipt.Logs (and thus the receipt root) is unchanged.
-		//
-		// NOTE: the historical len(topics) != 3 panic is preserved to keep behavior
-		// identical for malformed inputs; hardening that DoS is a separate change.
+	if len(topics) > 0 && topics[0] == _inContractTransfer && !stateDB.fixInContractTransferTopic {
+		// Before the upgrade: the reserved in-contract-transfer topic is emitted
+		// only by the node's own MakeTransfer, which records the transaction log
+		// directly via AddInContractTransferLog. Any EVM log reaching AddLog with
+		// this topic is therefore contract-emitted (i.e. forged) and must NOT
+		// become a transaction log. It is dropped here, exactly as before it was
+		// never appended to stateDB.logs, so receipt.Logs (and thus the receipt
+		// root) is unchanged. Kept verbatim (including the malformed-topic-count
+		// panic) so block replay stays byte-identical pre-upgrade.
 		if len(topics) != 3 {
 			log.T(stateDB.ctx).Panic("Invalid in contract transfer topics", zap.String("address", addr.String()), stateDB.actionHashField())
 		}

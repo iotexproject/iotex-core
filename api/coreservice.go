@@ -422,6 +422,12 @@ func (core *coreService) CodeAt(ctx context.Context, addr address.Address, heigh
 		return nil, nil
 	}
 	ctx, ws, err := core.workingSetAt(ctx, height)
+	if err != nil {
+		// workingSetAt returns a nil ws on error (e.g. a historical read on a
+		// non-archive node now returns ErrNotSupported); guard the deferred
+		// Close against a nil-pointer panic.
+		return nil, err
+	}
 	defer ws.Close()
 	state, err := accountutil.AccountState(ctx, ws, addr)
 	if err != nil {
@@ -2045,6 +2051,12 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 
 func (core *coreService) ReadContractStorageAt(ctx context.Context, addr address.Address, key []byte, height uint64) ([]byte, error) {
 	ctx, ws, err := core.workingSetAt(ctx, height)
+	if err != nil {
+		// workingSetAt returns a nil ws on error (e.g. a historical read on a
+		// non-archive node now returns ErrNotSupported); guard the deferred
+		// Close against a nil-pointer panic.
+		return nil, err
+	}
 	defer ws.Close()
 	state, err := accountutil.AccountState(ctx, ws, addr)
 	if err != nil {
