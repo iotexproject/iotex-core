@@ -18,12 +18,14 @@ import (
 
 	ethCrypto "github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/actpool"
@@ -45,6 +47,10 @@ var (
 	_totalActionPair  = 2000
 	_contractByteCode = "60806040526101f4600055603260015534801561001b57600080fd5b506102558061002b6000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806358931c461461003b5780637f353d5514610045575b600080fd5b61004361004f565b005b61004d610097565b005b60006001905060005b6000548110156100935760028261006f9190610114565b915060028261007e91906100e3565b9150808061008b90610178565b915050610058565b5050565b60005b6001548110156100e057600281908060018154018082558091505060019003906000526020600020016000909190919091505580806100d890610178565b91505061009a565b50565b60006100ee8261016e565b91506100f98361016e565b925082610109576101086101f0565b5b828204905092915050565b600061011f8261016e565b915061012a8361016e565b9250817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0483118215151615610163576101626101c1565b5b828202905092915050565b6000819050919050565b60006101838261016e565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8214156101b6576101b56101c1565b5b600182019050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fdfea2646970667358221220cb9cada3f1d447c978af17aa3529d6fe4f25f9c5a174085443e371b6940ae99b64736f6c63430008070033"
 	_contractAddr     string
+	// _executionGasLimit is the gas limit for contract invocations in
+	// injectExecution, estimated by simulating the execution (see
+	// estimateExecutionGas in newChainInDB) instead of being hard-coded.
+	_executionGasLimit uint64
 
 	_randAccountSize  = 50
 	_randAccountsAddr = make([]address.Address, 0)
@@ -171,11 +177,10 @@ func injectMultipleAccountsTransfer(nonceMap map[string]uint64, ap actpool.ActPo
 	return nil
 }
 
-// Todo: get precise gaslimit by estimateGas
 func injectExecution(nonceMap map[string]uint64, ap actpool.ActPool) error {
 	for i := 0; i < _totalActionPair; i++ {
 		nonceMap[userA.String()]++
-		ex1, err := action.SignedExecution(_contractAddr, priKeyA, nonceMap[userA.String()], big.NewInt(0), 2e6, big.NewInt(testutil.TestGasPriceInt64), opAppend)
+		ex1, err := action.SignedExecution(_contractAddr, priKeyA, nonceMap[userA.String()], big.NewInt(0), _executionGasLimit, big.NewInt(testutil.TestGasPriceInt64), opAppend)
 		if err != nil {
 			return err
 		}
@@ -184,7 +189,7 @@ func injectExecution(nonceMap map[string]uint64, ap actpool.ActPool) error {
 			return err
 		}
 		nonceMap[userB.String()]++
-		ex2, err := action.SignedExecution(_contractAddr, priKeyB, nonceMap[userB.String()], big.NewInt(0), 2e6, big.NewInt(testutil.TestGasPriceInt64), opAppend)
+		ex2, err := action.SignedExecution(_contractAddr, priKeyB, nonceMap[userB.String()], big.NewInt(0), _executionGasLimit, big.NewInt(testutil.TestGasPriceInt64), opAppend)
 		if err != nil {
 			return err
 		}
@@ -324,8 +329,12 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	deployGasLimit, err := estimateExecutionGas(bc, sf, dao, identityset.Address(27), action.EmptyAddress, data)
+	if err != nil {
+		return nil, nil, err
+	}
 	genesisNonce++
-	ex1, err := action.SignedExecution(action.EmptyAddress, genesisPriKey, genesisNonce, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	ex1, err := action.SignedExecution(action.EmptyAddress, genesisPriKey, genesisNonce, big.NewInt(0), deployGasLimit, big.NewInt(testutil.TestGasPriceInt64), data)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -357,5 +366,66 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	}
 	_contractAddr = receipt.ContractAddress
 
+	// estimate gas for the contract invocation injected by injectExecution
+	_executionGasLimit, err = estimateExecutionGas(bc, sf, dao, userA, _contractAddr, opAppend)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	return bc, ap, nil
+}
+
+// estimateExecutionGas estimates the gas consumed by an execution via
+// read-only simulation, instead of relying on a hard-coded gas limit. It is
+// a simplified version of the API's estimateGas: simulate with the block gas
+// limit first, then confirm the consumed gas is indeed sufficient (erroring
+// out instead of binary-searching upward, which the fixed workloads in this
+// benchmark do not need).
+func estimateExecutionGas(
+	bc blockchain.Blockchain,
+	sf factory.Factory,
+	dao blockdao.BlockDAO,
+	caller address.Address,
+	contract string,
+	data []byte,
+) (uint64, error) {
+	ctx, err := bc.Context(context.Background())
+	if err != nil {
+		return 0, err
+	}
+	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+		GetBlockHash:   dao.GetBlockHash,
+		GetBlockTime:   fakeGetBlockTime,
+		DepositGasFunc: rewarding.DepositGas,
+	})
+	simulate := func(gasLimit uint64) (*action.Receipt, error) {
+		ws, err := sf.WorkingSet(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer ws.Close()
+		elp := (&action.EnvelopeBuilder{}).
+			SetAction(action.NewExecution(contract, big.NewInt(0), data)).
+			SetGasLimit(gasLimit).
+			Build()
+		_, receipt, err := evm.SimulateExecution(ctx, ws, caller, elp)
+		return receipt, err
+	}
+	g := bc.Genesis()
+	receipt, err := simulate(g.BlockGasLimitByHeight(bc.TipHeight() + 1))
+	if err != nil {
+		return 0, err
+	}
+	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+		return 0, errors.Errorf("failed to estimate gas: simulation ended with status %d", receipt.Status)
+	}
+	estimatedGas := receipt.GasConsumed
+	receipt, err = simulate(estimatedGas)
+	if err != nil {
+		return 0, err
+	}
+	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+		return 0, errors.Errorf("estimated gas %d is insufficient: simulation ended with status %d", estimatedGas, receipt.Status)
+	}
+	return estimatedGas, nil
 }

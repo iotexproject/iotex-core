@@ -236,7 +236,11 @@ func newParams(
 func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 	executorNonce := stateDB.GetNonce(ps.txCtx.Origin)
 	if executorNonce > ps.nonce {
-		log.S().Errorf("Nonce on %v: %d vs %d", ps.txCtx.Origin, executorNonce, ps.nonce)
+		log.L().Error("Inconsistent nonce.",
+			zap.String("origin", ps.txCtx.Origin.Hex()),
+			zap.Uint64("executorNonce", executorNonce),
+			zap.Uint64("nonce", ps.nonce),
+			log.Hex("actionHash", ps.actionCtx.ActionHash[:]))
 		// TODO ignore inconsistent nonce problem until the actions are executed sequentially
 		// return ErrInconsistentNonce
 	}
@@ -523,6 +527,9 @@ func prepareStateDBAdapter(ctx context.Context, sm protocol.StateManager) (*Stat
 	if featureCtx.SuicideTxLogMismatchPanic {
 		opts = append(opts, SuicideTxLogMismatchPanicOption())
 	}
+	if featureCtx.FixInContractTransferLogTopic {
+		opts = append(opts, FixInContractTransferTopicOption())
+	}
 	if featureCtx.PanicUnrecoverableError {
 		opts = append(opts, PanicUnrecoverableErrorOption())
 	}
@@ -620,7 +627,8 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		chainConfig  = evmParams.chainConfig
 	)
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
-		log.T(ctx).Warn("unexpected error: not enough security deposit", zap.Error(err))
+		log.T(ctx).Warn("unexpected error: not enough security deposit", zap.Error(err),
+			log.Hex("actionHash", evmParams.actionCtx.ActionHash[:]))
 		return nil, 0, 0, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
 	}
 	var (
@@ -629,6 +637,12 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 	)
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, evmParams.evmConfig)
 	evm.SetTxContext(evmParams.txCtx)
+	// during a traced simulation, register this EVM so the trace-timeout
+	// watchdog can abort opcode execution (see TraceCanceller); never set on
+	// the consensus path
+	if tc := GetTraceCanceller(ctx); tc != nil {
+		tc.register(evm.Cancel)
+	}
 	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
 	}
@@ -709,7 +723,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, amount)
 	}
 	if evmErr != nil {
-		log.T(ctx).Debug("evm error", zap.Error(evmErr))
+		log.T(ctx).Debug("evm error", zap.Error(evmErr), log.Hex("actionHash", evmParams.actionCtx.ActionHash[:]))
 		// The only possible consensus-error would be if there wasn't
 		// sufficient balance to make the transfer happen.
 		// Should be a hard fork (Bering)
@@ -718,7 +732,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		}
 	}
 	if stateDB.Error() != nil {
-		log.T(ctx).Debug("statedb error", zap.Error(stateDB.Error()))
+		log.T(ctx).Debug("statedb error", zap.Error(stateDB.Error()), log.Hex("actionHash", evmParams.actionCtx.ActionHash[:]))
 	}
 	if !rules.IsLondon {
 		// Before EIP-3529: refunds were capped to gasUsed / 2
@@ -770,6 +784,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 			}
 			log.T(ctx).Warn("evm internal error", zap.Error(evmErr),
 				zap.String("address", addr),
+				log.Hex("actionHash", evmParams.actionCtx.ActionHash[:]),
 				log.Hex("calldata", evmParams.data))
 		}
 	}

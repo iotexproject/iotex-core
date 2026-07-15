@@ -272,7 +272,6 @@ func getTransactionCount(t *testing.T, handler *hTTPHandler) {
 		params   string
 		expected int
 	}{
-		{`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"]`, 2},
 		{`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "pending"]`, 2},
 	} {
 		result := serveTestHTTP(require, handler, "eth_getTransactionCount", test.params)
@@ -280,6 +279,22 @@ func getTransactionCount(t *testing.T, handler *hTTPHandler) {
 		require.True(ok)
 		require.Equal(uint64ToHex(uint64(test.expected)), actual)
 	}
+
+	// an explicit historical height ("0x1") on a non-archive node is rejected
+	// rather than silently served from latest state (issue #4916).
+	req, _ := http.NewRequest(http.MethodPost, "http://url.com",
+		strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_getTransactionCount","params":["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"],"id":1}]`))
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, req)
+	var vals []struct {
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	require.NoError(json.NewDecoder(resp.Body).Decode(&vals))
+	require.NotEmpty(vals)
+	require.NotNil(vals[0].Error)
+	require.Contains(vals[0].Error.Message, "not available on a non-archive node")
 }
 
 func ethCall(t *testing.T, handler *hTTPHandler) {

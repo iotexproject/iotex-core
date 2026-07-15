@@ -727,11 +727,19 @@ func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
 	return cfg
 }
 
-func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (*tracers.Tracer, error) {
-	var (
-		tracer *tracers.Tracer
-		err    error
-	)
+// parseTracer builds the tracer described by config and arms a timeout watchdog
+// that stops the tracer once the deadline expires. The watchdog covers every
+// tracer type (default struct logger, configured struct logger and named
+// JS/native tracers), since all of them perform per-opcode work that must be
+// bounded.
+//
+// The returned cleanup func MUST be called by the caller *after* the trace has
+// finished executing: it disarms the watchdog goroutine (so it does not leak and
+// does not fire on a fast trace). Because the watchdog must outlive parseTracer's
+// own return, cleanup cannot be deferred here — ownership is handed to the caller
+// that actually runs the EVM.
+func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (*tracers.Tracer, context.CancelFunc, error) {
+	var tracer *tracers.Tracer
 	switch {
 	case config == nil:
 		loger := logger.NewStructLogger(nil)
@@ -741,29 +749,14 @@ func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.Tr
 			Stop:      loger.Stop,
 		}
 	case config.Tracer != nil:
-		// Define a meaningful timeout of a single transaction trace
-		timeout := defaultTraceTimeout
-		if config.Timeout != nil {
-			if timeout, err = time.ParseDuration(*config.Timeout); err != nil {
-				return nil, err
-			}
-		}
 		cc, err := evm.NewChainConfig(ctx)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		t, err := tracers.DefaultDirectory.New(*config.Tracer, txctx, config.TracerConfig, cc)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		deadlineCtx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		go func() {
-			<-deadlineCtx.Done()
-			if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
-				t.Stop(errors.New("execution timeout"))
-			}
-		}()
 		tracer = t
 	default:
 		loger := logger.NewStructLogger(config.Config)
@@ -773,5 +766,37 @@ func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.Tr
 			Stop:      loger.Stop,
 		}
 	}
-	return tracer, nil
+
+	// Define a meaningful timeout for a single transaction trace. This applies
+	// to all tracer types.
+	timeout := defaultTraceTimeout
+	if config != nil && config.Timeout != nil {
+		var err error
+		if timeout, err = time.ParseDuration(*config.Timeout); err != nil {
+			return nil, nil, err
+		}
+	}
+	// Arm a watchdog that stops the tracer if the trace runs past the deadline.
+	// cleanup (context cancel) is returned to the caller and is invoked once
+	// execution completes: on a fast trace this cancels the context so the
+	// goroutine wakes with context.Canceled and exits without stopping the
+	// tracer; on a slow trace the deadline fires first, the goroutine stops the
+	// tracer, then cleanup is a no-op. Stopping the tracer makes GetResult
+	// return the "execution timeout" error, which the caller surfaces as the RPC
+	// error.
+	deadlineCtx, cancel := context.WithTimeout(context.Background(), timeout)
+	evmCanceller := evm.GetTraceCanceller(ctx)
+	go func() {
+		<-deadlineCtx.Done()
+		if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
+			tracer.Stop(errors.New("execution timeout"))
+			// stopping the tracer only stops result collection; also abort
+			// the EVM(s) so the execution doesn't keep burning CPU until gas
+			// exhaustion (geth pairs tracer.Stop with EVM.Cancel the same way)
+			if evmCanceller != nil {
+				evmCanceller.Cancel()
+			}
+		}
+	}()
+	return tracer, cancel, nil
 }

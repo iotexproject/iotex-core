@@ -138,6 +138,38 @@ func TestAddLogReservedTopicInvariants(t *testing.T) {
 	})
 }
 
+// TestAddLogReservedTopicBecomesRegularLogAfterUpgrade pins the post-upgrade
+// counterpart of the reserved-topic invariants above: once
+// FixInContractTransferTopicOption is active, AddLog no longer special-cases
+// the reserved topic at all — regardless of topic count (including the
+// well-formed 3-topic shape that collides with AddInContractTransferLog's own
+// record), the log is recorded as an ordinary event log instead of being
+// dropped or panicking. It is still never a tx-log and never moves a balance.
+func TestAddLogReservedTopicBecomesRegularLogAfterUpgrade(t *testing.T) {
+	require := require.New(t)
+	from, to := _c1, _c2
+	for _, topics := range [][]common.Hash{
+		{reservedTopic()},                                                  // 1 topic
+		{reservedTopic(), addrTopic(from)},                                 // 2 topics
+		{reservedTopic(), addrTopic(from), addrTopic(to)},                  // 3 topics (well-formed shape)
+		{reservedTopic(), addrTopic(from), addrTopic(to), addrTopic(from)}, // 4 topics
+	} {
+		stateDB := newAdapter(t, FixInContractTransferTopicOption())
+		stateDB.AddBalance(from, uint256.NewInt(1000), tracing.BalanceChangeUnspecified)
+		log := &types.Log{Address: _c3, Topics: topics, Data: big.NewInt(1).Bytes()}
+		require.NotPanics(func() { stateDB.AddLog(log) })
+		require.Len(stateDB.Logs(), 1) // recorded as a regular event log
+		gotTopics := stateDB.Logs()[0].Topics
+		require.Len(gotTopics, len(topics))
+		for i, tp := range topics {
+			require.Equal(tp.Bytes(), gotTopics[i][:]) // untouched, not reinterpreted
+		}
+		require.Zero(len(stateDB.TransactionLogs()))                  // never a tx-log
+		require.Equal(uint256.NewInt(1000), stateDB.GetBalance(from)) // no balance moved
+		require.True(stateDB.GetBalance(to).IsZero())
+	}
+}
+
 // TestTransferVsForgedLog is the adversarial contrast codex asked for: a forged
 // reserved-topic EVM log and a genuine MakeTransfer of the SAME from/to/amount
 // must diverge. The forged log moves no balance; the real transfer both moves

@@ -91,6 +91,7 @@ type (
 		panicUnrecoverableError    bool
 		enableCancun               bool
 		fixRevertSnapshot          bool
+		fixInContractTransferTopic bool
 		// ignoreBalanceChangeTouchAccount indicates whether to ignore balance change touch account
 		ignoreBalanceChangeTouchAccount bool
 		// skipWriteCleanContract indicates whether to skip writing back read-only
@@ -174,6 +175,15 @@ func ManualCorrectGasRefundOption() StateDBAdapterOption {
 func SuicideTxLogMismatchPanicOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.suicideTxLogMismatchPanic = true
+		return nil
+	}
+}
+
+// FixInContractTransferTopicOption drops reserved-topic logs with an unexpected
+// topic count uniformly instead of special-casing them.
+func FixInContractTransferTopicOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.fixInContractTransferTopic = true
 		return nil
 	}
 }
@@ -287,10 +297,17 @@ func (stateDB *StateDBAdapter) logError(err error) {
 	}
 }
 
+// actionHashField returns the hash of the action being executed as a log
+// field, to correlate EVM troubleshooting logs with the transaction
+func (stateDB *StateDBAdapter) actionHashField() zap.Field {
+	return log.Hex("actionHash", stateDB.executionHash[:])
+}
+
 func (stateDB *StateDBAdapter) assertError(err error, msg string, fields ...zap.Field) bool {
 	if err == nil {
 		return false
 	}
+	fields = append(fields, stateDB.actionHashField())
 	if stateDB.panicUnrecoverableError {
 		log.T(stateDB.ctx).Panic(msg, fields...)
 	}
@@ -374,7 +391,7 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, a256 *uint256.
 func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, a256 *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int {
 	if stateDB.ignoreBalanceChangeTouchAccount && reason == tracing.BalanceChangeTouchAccount {
 		if a256.Sign() != 0 {
-			log.T(stateDB.ctx).Panic("Invalid non-zero amount for touch account.", zap.String("address", evmAddr.Hex()), zap.String("amount", a256.String()))
+			log.T(stateDB.ctx).Panic("Invalid non-zero amount for touch account.", zap.String("address", evmAddr.Hex()), zap.String("amount", a256.String()), stateDB.actionHashField())
 		}
 		log.T(stateDB.ctx).Debug("Ignore AddBalance for touch account.", zap.String("address", evmAddr.Hex()))
 		return *common.U2560
@@ -458,9 +475,9 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	state, err := stateDB.accountState(evmAddr)
 	if err != nil {
 		if stateDB.panicUnrecoverableError {
-			log.T(stateDB.ctx).Panic("Failed to get nonce.", zap.Error(err))
+			log.T(stateDB.ctx).Panic("Failed to get nonce.", zap.Error(err), zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
 		} else {
-			log.T(stateDB.ctx).Error("Failed to get nonce.", zap.Error(err))
+			log.T(stateDB.ctx).Error("Failed to get nonce.", zap.Error(err), zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
 			stateDB.logError(err)
 		}
 	} else {
@@ -472,7 +489,7 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	}
 	if stateDB.useConfirmedNonce {
 		if pendingNonce == 0 {
-			log.T(stateDB.ctx).Panic("invalid pending nonce")
+			log.T(stateDB.ctx).Panic("invalid pending nonce", zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
 		}
 		pendingNonce--
 	}
@@ -495,7 +512,7 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64, _ 
 	}
 	if !stateDB.useConfirmedNonce {
 		if nonce == 0 {
-			log.T(stateDB.ctx).Panic("invalid nonce zero")
+			log.T(stateDB.ctx).Panic("invalid nonce zero", zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
 		}
 		nonce--
 	}
@@ -504,7 +521,7 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64, _ 
 		zap.Uint64("nonce", nonce))
 	if !s.IsNewbieAccount() || s.AccountType() != 0 || nonce != 0 || stateDB.zeroNonceForFreshAccount {
 		if err := s.SetPendingNonce(nonce + 1); err != nil {
-			log.T(stateDB.ctx).Panic("Failed to set nonce.", zap.Error(err), zap.String("addr", addr.Hex()), zap.Uint64("pendingNonce", s.PendingNonce()), zap.Uint64("nonce", nonce), zap.String("execution", hex.EncodeToString(stateDB.executionHash[:])))
+			log.T(stateDB.ctx).Panic("Failed to set nonce.", zap.Error(err), zap.String("addr", addr.Hex()), zap.Uint64("pendingNonce", s.PendingNonce()), zap.Uint64("nonce", nonce), stateDB.actionHashField())
 			stateDB.logError(err)
 		}
 	}
@@ -517,7 +534,7 @@ func (stateDB *StateDBAdapter) SubRefund(gas uint64) {
 	log.T(stateDB.ctx).Debug("Called SubRefund.", zap.Uint64("gas", gas))
 	// stateDB.journal.append(refundChange{prev: self.refund})
 	if gas > stateDB.refund {
-		log.T(stateDB.ctx).Panic("Refund counter not enough!")
+		log.T(stateDB.ctx).Panic("Refund counter not enough!", zap.Uint64("gas", gas), zap.Uint64("refund", stateDB.refund), stateDB.actionHashField())
 	}
 	stateDB.refund -= gas
 }
@@ -726,7 +743,7 @@ func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	ds, ok := stateDB.selfDestructedSnapshot[snapshot]
 	if !ok && stateDB.panicUnrecoverableError {
-		log.T(stateDB.ctx).Panic("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
+		log.T(stateDB.ctx).Panic("Failed to revert to snapshot.", zap.Int("snapshot", snapshot), stateDB.actionHashField())
 	}
 	err := stateDB.sm.Revert(snapshot)
 	if stateDB.assertError(err, "state manager's Revert() failed.", zap.Error(err), zap.Int("snapshot", snapshot)) {
@@ -734,7 +751,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	}
 	if !ok {
 		// this should not happen, b/c we save the SelfDestruct accounts on a successful return of Snapshot(), but check anyway
-		log.T(stateDB.ctx).Error("Failed to revert to snapshot.", zap.Int("snapshot", snapshot))
+		log.T(stateDB.ctx).Error("Failed to revert to snapshot.", zap.Int("snapshot", snapshot), stateDB.actionHashField())
 		return
 	}
 	deleteSnapshot := snapshot
@@ -822,7 +839,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	for _, addr := range stateDB.cachedContractAddrs() {
 		c := stateDB.cachedContract[addr]
 		if err := c.LoadRoot(); err != nil {
-			log.T(stateDB.ctx).Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
+			log.T(stateDB.ctx).Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]), stateDB.actionHashField())
 			return
 		}
 	}
@@ -872,9 +889,9 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	if _, ok := stateDB.selfDestructedSnapshot[sn]; ok {
 		err := errors.New("unexpected error: duplicate snapshot version")
 		if stateDB.fixSnapshotOrder {
-			log.T(stateDB.ctx).Panic("Failed to snapshot.", zap.Error(err))
+			log.T(stateDB.ctx).Panic("Failed to snapshot.", zap.Error(err), stateDB.actionHashField())
 		} else {
-			log.T(stateDB.ctx).Error("Failed to snapshot.", zap.Error(err))
+			log.T(stateDB.ctx).Error("Failed to snapshot.", zap.Error(err), stateDB.actionHashField())
 		}
 		// stateDB.err = err
 		return sn
@@ -926,18 +943,17 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		copy(topic[:], evmTopic.Bytes())
 		topics = append(topics, topic)
 	}
-	if len(topics) > 0 && topics[0] == _inContractTransfer {
-		// The reserved in-contract-transfer topic is emitted only by the node's own
-		// MakeTransfer, which now records the transaction log directly via
-		// AddInContractTransferLog. Any EVM log reaching AddLog with this topic is
-		// therefore contract-emitted (i.e. forged) and must NOT become a transaction
-		// log. It is dropped here, exactly as before it was never appended to
-		// stateDB.logs, so receipt.Logs (and thus the receipt root) is unchanged.
-		//
-		// NOTE: the historical len(topics) != 3 panic is preserved to keep behavior
-		// identical for malformed inputs; hardening that DoS is a separate change.
+	if len(topics) > 0 && topics[0] == _inContractTransfer && !stateDB.fixInContractTransferTopic {
+		// Before the upgrade: the reserved in-contract-transfer topic is emitted
+		// only by the node's own MakeTransfer, which records the transaction log
+		// directly via AddInContractTransferLog. Any EVM log reaching AddLog with
+		// this topic is therefore contract-emitted (i.e. forged) and must NOT
+		// become a transaction log. It is dropped here, exactly as before it was
+		// never appended to stateDB.logs, so receipt.Logs (and thus the receipt
+		// root) is unchanged. Kept verbatim (including the malformed-topic-count
+		// panic) so block replay stays byte-identical pre-upgrade.
 		if len(topics) != 3 {
-			log.T(stateDB.ctx).Panic("Invalid in contract transfer topics")
+			log.T(stateDB.ctx).Panic("Invalid in contract transfer topics", zap.String("address", addr.String()), stateDB.actionHashField())
 		}
 		return
 	}
@@ -1047,7 +1063,8 @@ func (stateDB *StateDBAdapter) generateSelfDestructTransferLog(sender string, am
 			}
 		} else {
 			log.T(stateDB.ctx).Panic("SelfDestruct contract's balance does not match",
-				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()))
+				zap.String("beneficiary", stateDB.lastAddBalanceAmount.String()),
+				stateDB.actionHashField())
 		}
 	}
 }
@@ -1080,7 +1097,14 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 	if contract, ok := stateDB.cachedContract[evmAddr]; ok {
 		code, err := contract.GetCode()
 		if err != nil {
-			log.T(stateDB.ctx).Error("Failed to get code hash.", zap.Error(err))
+			// an account without code (e.g. touched by EXTCODESIZE/EXTCODEHASH or
+			// called before deployment) has no entry in the code namespace, which
+			// surfaces as ErrStateNotExist -- this is expected, not a failure
+			if errors.Is(err, state.ErrStateNotExist) {
+				log.T(stateDB.ctx).Debug("Account has no code.", zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
+			} else {
+				log.T(stateDB.ctx).Error("Failed to get code.", zap.Error(err), zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
+			}
 			return nil
 		}
 		return code
@@ -1091,8 +1115,9 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 	}
 	var code protocol.SerializableBytes
 	if _, err = stateDB.sm.State(&code, protocol.NamespaceOption(CodeKVNameSpace), protocol.KeyOption(account.CodeHash[:])); err != nil {
-		// TODO: Suppress the as it's too much now
-		//log.L().Error("Failed to get code from trie.", zap.Error(err))
+		if !errors.Is(err, state.ErrStateNotExist) {
+			log.T(stateDB.ctx).Error("Failed to get code from trie.", zap.Error(err), zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
+		}
 		return nil
 	}
 	return code[:]
@@ -1109,13 +1134,13 @@ func (stateDB *StateDBAdapter) GetCodeSize(evmAddr common.Address) int {
 func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) []byte {
 	contract, err := stateDB.getContract(evmAddr)
 	if err != nil {
-		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
 		stateDB.logError(err)
 		return nil
 	}
 	prev, err := contract.GetCode()
 	if err != nil && !errors.Is(err, state.ErrStateNotExist) {
-		log.T(stateDB.ctx).Error("Failed to get code.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.T(stateDB.ctx).Error("Failed to get code.", zap.Error(err), zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
 		stateDB.logError(err)
 	}
 	contract.SetCode(hash.Hash256b(code), code)
@@ -1126,7 +1151,7 @@ func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) []by
 func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k common.Hash) common.Hash {
 	contract, err := stateDB.getContract(evmAddr)
 	if err != nil {
-		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
 		stateDB.logError(err)
 		return common.Hash{}
 	}
@@ -1143,7 +1168,7 @@ func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k commo
 func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) common.Hash {
 	contract, err := stateDB.getContract(evmAddr)
 	if err != nil {
-		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
 		stateDB.logError(err)
 		return common.Hash{}
 	}
@@ -1160,7 +1185,7 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 func (stateDB *StateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash) common.Hash {
 	contract, err := stateDB.getContract(evmAddr)
 	if err != nil {
-		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
 		stateDB.logError(err)
 		return common.Hash{}
 	}
@@ -1189,7 +1214,7 @@ func (stateDB *StateDBAdapter) GetStorageRoot(evmAddr common.Address) common.Has
 	case state.ErrStateNotExist:
 		return common.Hash{}
 	default:
-		log.T(stateDB.ctx).Error("Failed to get account.", zap.Error(err), zap.String("address", evmAddr.Hex()))
+		log.T(stateDB.ctx).Error("Failed to get account.", zap.Error(err), zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
 		stateDB.logError(err)
 		return common.Hash{}
 	}

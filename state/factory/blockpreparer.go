@@ -21,8 +21,14 @@ var _mintPanicMtc = prometheus.NewCounter(prometheus.CounterOpts{
 	Help: "Number of mint goroutine panics recovered (the draft block was discarded; process kept alive).",
 })
 
+var _validateBlockPanicMtc = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "iotex_validate_block_panics_total",
+	Help: "Number of panics recovered while validating a proposed block (the block was rejected; process kept alive).",
+})
+
 func init() {
 	prometheus.MustRegister(_mintPanicMtc)
+	prometheus.MustRegister(_validateBlockPanicMtc)
 }
 
 type (

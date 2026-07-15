@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"runtime/debug"
 	"slices"
 	"time"
 
@@ -1073,7 +1074,24 @@ func updateReceiptIndex(receipts []*action.Receipt) {
 	}
 }
 
-func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
+func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) (err error) {
+	// A proposed block is untrusted input. Recover any panic raised while
+	// processing its actions and reject the block instead of letting the panic
+	// kill the process — a single malformed action must not take a validating
+	// node down. The working set is discarded by the caller on error, so no
+	// partial state leaks, and no committed state changes (such a block could
+	// never validate successfully either way), so this needs no fork gate. The
+	// commit/PutBlock path (trusted data) intentionally stays fatal elsewhere.
+	defer func() {
+		if r := recover(); r != nil {
+			_validateBlockPanicMtc.Inc()
+			err = errors.Errorf("recovered from panic while validating block at height %d: %v", blk.Height(), r)
+			log.L().Error("recovered from panic while validating block; block rejected, process kept alive",
+				zap.Uint64("height", blk.Height()),
+				zap.Any("panic", r),
+				zap.String("stack", string(debug.Stack())))
+		}
+	}()
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	if fCtx.SkipSystemActionNonce {
 		if err := ws.validateNonceSkipSystemAction(ctx, blk); err != nil {
