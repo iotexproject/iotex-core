@@ -61,3 +61,51 @@ message RewardLogs {
 message PendingBlockRewardPool {
     bytes amount = 1;
 }
+
+// EpochDrainDelegateWork is one frozen per-delegate work item captured
+// at Phase A. Continuation chunks in later blocks (potentially in the
+// next epoch) read this frozen record instead of re-reading state that
+// has drifted (poll candidate list, pending pool balances).
+message EpochDrainDelegateWork {
+    string candidate_address  = 1; // io_ string; drives candID + stub cand
+    bytes  reward_address     = 2; // address bytes; empty when has_reward_address=false
+    bool   has_reward_address = 3; // distinguishes nil vs empty
+    bytes  epoch_amount       = 4; // big-endian big.Int
+    bytes  pool_amount_frozen = 5; // big-endian big.Int; zero if no Phase A pool entry
+}
+
+// EpochDrainFoundationBonusWork is one frozen foundation-bonus grant
+// captured at Phase A. The reward_address_str is preserved separately
+// for the log payload's string field.
+message EpochDrainFoundationBonusWork {
+    string reward_address_str = 1;
+    bytes  reward_address     = 2;
+    bytes  amount             = 3;
+}
+
+// EpochDrainOrphanWork is one frozen orphan pool entry (a pool balance
+// held by a delegate not in the current epoch's reward split) captured
+// at Phase A. target_address is empty when no live reward routing was
+// resolvable at Phase A, in which case the pool balance is refunded to
+// unclaimedBalance.
+message EpochDrainOrphanWork {
+    bytes  candidate_identifier = 1;
+    bytes  pool_amount_frozen   = 2;
+    bytes  target_address       = 3;
+    string target_address_str   = 4;
+}
+
+// EpochDrainCursor checkpoints the position of a multi-block IIP-59
+// epoch reward drain and carries the frozen work lists needed for
+// deterministic replay across chunks. Written at Phase A (LBOE), updated
+// after each chunk, deleted after Coda. Cursor presence in the
+// RewardingNamespace signals a drain is in progress and the
+// system-action layer must emit a continuation EpochReward grant on
+// the next block.
+message EpochDrainCursor {
+    uint64 target_epoch                                    = 1;
+    uint32 delegate_index                                  = 2;
+    repeated EpochDrainDelegateWork delegates              = 3;
+    repeated EpochDrainFoundationBonusWork foundation_bonus = 4;
+    repeated EpochDrainOrphanWork orphans                  = 5;
+}

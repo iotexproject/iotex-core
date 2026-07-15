@@ -213,14 +213,27 @@ func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.
 }
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
-func (p *Protocol) CreatePostSystemActions(ctx context.Context, _ protocol.StateReader) ([]action.Envelope, error) {
+func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	grants := []action.Envelope{createGrantRewardAction(action.BlockReward, blkCtx.BlockHeight)}
 	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
-	if rp != nil && blkCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(blkCtx.BlockHeight)) {
+	isEpochLast := rp != nil && blkCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(blkCtx.BlockHeight))
+	if isEpochLast {
+		grants = append(grants, createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight))
+		return grants, nil
+	}
+	// Continuation dispatch: when an EpochDrainCursor is present, this is a
+	// non-epoch-boundary block that owes the network another chunk of the
+	// prior epoch's drain. Emit the same EpochReward system action so the
+	// existing GrantReward path picks up the cursor and executes Phase B (or
+	// Phase B + Coda on the final chunk).
+	cursor, err := p.readEpochDrainCursor(ctx, sr)
+	if err != nil {
+		return nil, err
+	}
+	if cursor != nil {
 		grants = append(grants, createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight))
 	}
-
 	return grants, nil
 }
 

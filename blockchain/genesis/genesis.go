@@ -505,6 +505,11 @@ type (
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
 		// WakeBlockRewardStr is the block reward amount, in decimal string format, effective from the Wake height
 		WakeBlockRewardStr string `yaml:"wakeBlockRewardStr"`
+		// EpochDrainChunkSize is the max number of delegates to process per
+		// block during an IIP-59 voter reward distribution. Zero preserves
+		// the pre-IIP-59 single-block drain behavior. Only consulted after
+		// the ToBeEnabled fork gate opens (see NoVoterRewardDistribution).
+		EpochDrainChunkSize uint64 `yaml:"epochDrainChunkSize"`
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {

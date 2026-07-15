@@ -274,234 +274,118 @@ func (p *Protocol) GrantBlockReward(
 	}, nil
 }
 
-// GrantEpochReward grants the epoch reward (token) to all beneficiaries of a epoch
+// GrantEpochReward grants the epoch reward (token) to all beneficiaries of a
+// epoch. Post-IIP-59 the drain may span multiple consecutive blocks: Phase A
+// (prelude) freezes the work list into a cursor, Phase B (per-chunk) grants
+// the next chunkSize delegates, Phase C (coda) runs orphan sweep + foundation
+// bonus and writes the epoch-reward sentinel. A single-block drain (cursor
+// never persisted) is preserved when cfg.EpochDrainChunkSize==0 or when the
+// fork gate is closed.
 func (p *Protocol) GrantEpochReward(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) ([]*action.TransactionLog, []*action.Log, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	pp := poll.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
-	if err := p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
-		return nil, nil, err
-	}
-	if err := p.assertLastBlockInEpoch(blkCtx.BlockHeight, epochNum, rp); err != nil {
-		return nil, nil, err
-	}
-	a := admin{}
-	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
-		return nil, nil, err
-	}
+	currentEpoch := rp.GetEpochNum(blkCtx.BlockHeight)
 
-	// Get the delegate list who exempts epoch reward
-	e := exempt{}
-	if _, err := p.state(ctx, sm, _exemptKey, &e); err != nil {
-		return nil, nil, err
-	}
-	exemptAddrs := make(map[string]interface{})
-	for _, addr := range e.addrs {
-		exemptAddrs[addr.String()] = nil
-	}
-
-	var err error
-	uqdMap := make(map[string]uint64)
-	epochStartHeight := rp.GetEpochHeight(epochNum)
-	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) || !featureCtx.NotSlashUnproductiveDelegates {
-		// Get unqualified delegate list
-		uqdMap, err = pp.CalculateUnproductiveDelegates(ctx, sm)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	candidates, err := poll.MustGetProtocol(protocol.MustGetRegistry(ctx)).Candidates(ctx, sm)
+	cursor, err := p.readEpochDrainCursor(ctx, sm)
 	if err != nil {
 		return nil, nil, err
 	}
-	actualTotalReward := big.NewInt(0)
-	transactionLogs := make([]*action.TransactionLog, 0)
-	rewardLogs := make([]*action.Log, 0)
-	if !featureCtx.NotSlashUnproductiveDelegates {
-		slashAmount, slashLogs, err := p.slashUqd(ctx, sm, blkCtx.BlockHeight, actionCtx.ActionHash, candidates, a.blockReward, uqdMap)
-		if err != nil {
-			return nil, nil, err
-		}
-		if slashAmount.Cmp(big.NewInt(0)) > 0 {
-			transactionLogs = append(transactionLogs, &action.TransactionLog{
-				Type:      iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND,
-				Amount:    slashAmount,
-				Sender:    address.StakingBucketPoolAddr,
-				Recipient: address.RewardingPoolAddr,
-			})
-		}
-		rewardLogs = append(rewardLogs, slashLogs...)
-		actualTotalReward = big.NewInt(0).Sub(actualTotalReward, slashAmount)
-	}
-	epochRewardSplitUqdMap := make(map[string]uint64)
-	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
-		epochRewardSplitUqdMap = uqdMap
-	}
-	rewardedCandidates, addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap)
-	if err != nil {
-		return nil, nil, err
-	}
-	// visited tracks pool IDs that were drained (or explicitly skipped) via
-	// the per-candidate loop, so the post-loop orphan sweep only touches
-	// entries that were never seen.
-	visitedPoolIDs := make(map[string]bool)
-	for i := range addrs {
-		cand := rewardedCandidates[i]
-		if cand == nil {
-			continue
-		}
-		candBytes, err := candidateIdentifierBytes(cand.Address)
-		if err != nil {
-			return nil, nil, err
-		}
-		visitedPoolIDs[string(candBytes)] = true
-		poolAmt, err := p.readPendingBlockRewardPool(ctx, sm, candBytes)
-		if err != nil {
-			return nil, nil, err
-		}
-		epochAmt := amounts[i]
-		if epochAmt == nil {
-			epochAmt = big.NewInt(0)
-		}
-		// If reward address doesn't exist, do nothing here — the pool
-		// entry, if any, will be handled by the orphan-drain sweep after
-		// the loop.
-		if addrs[i] == nil {
-			// Remove from visited so the orphan sweep picks it up.
-			delete(visitedPoolIDs, string(candBytes))
-			continue
-		}
-		// No streams to distribute for this candidate.
-		if poolAmt.Sign() == 0 && epochAmt.Sign() == 0 {
-			continue
-		}
-		// IIP-59: opt-in delegates take the batched on-chain distribution
-		// path with both streams folded. distributeCombinedReward returns
-		// handled=false to fall through to the legacy grantToAccount path
-		// when the fork is off, the delegate opted out, or no poll
-		// snapshot exists.
-		iip59Logs, handled, err := p.distributeCombinedReward(
-			ctx, sm, cand, addrs[i], poolAmt, epochAmt,
-			blkCtx.BlockHeight, actionCtx.ActionHash,
+	cursorPersisted := cursor != nil
+
+	// Overrun guard: fire only when this block would start a NEW epoch's
+	// Phase A (last block of an epoch that differs from the cursor's
+	// target). A cursor whose target is behind `currentEpoch` on a
+	// non-boundary block is a legitimate cross-epoch continuation and
+	// must be allowed to keep advancing.
+	if cursor != nil && cursor.TargetEpoch != currentEpoch &&
+		blkCtx.BlockHeight == rp.GetEpochLastBlockHeight(currentEpoch) {
+		return nil, nil, errors.Errorf(
+			"rewarding: prior epoch %d drain incomplete when %d began",
+			cursor.TargetEpoch, currentEpoch,
 		)
-		if err != nil {
-			return nil, nil, err
-		}
-		if handled {
-			rewardLogs = append(rewardLogs, iip59Logs...)
-			actualTotalReward = big.NewInt(0).Add(actualTotalReward, epochAmt)
-			if poolAmt.Sign() > 0 {
-				if err := p.deletePendingBlockRewardPool(ctx, sm, candBytes); err != nil {
-					return nil, nil, err
-				}
-			}
-			continue
-		}
-		// Legacy path. If poolAmt > 0 the delegate opted out (or lost
-		// DelegateProfile registration) mid-epoch; refund the pool balance
-		// to the reward address via the same legacy grant so no funds
-		// are stranded, then drop the pool entry.
-		if poolAmt.Sign() > 0 {
-			if err := p.grantToAccount(ctx, sm, addrs[i], poolAmt); err != nil {
-				return nil, nil, err
-			}
-			if err := p.deletePendingBlockRewardPool(ctx, sm, candBytes); err != nil {
-				return nil, nil, err
-			}
-			data, err := p.encodeRewardLog(rewardingpb.RewardLog_BLOCK_REWARD, addrs[i].String(), poolAmt)
-			if err != nil {
-				return nil, nil, err
-			}
-			rewardLogs = append(rewardLogs, &action.Log{
-				Address:     p.addr.String(),
-				Topics:      nil,
-				Data:        data,
-				BlockHeight: blkCtx.BlockHeight,
-				ActionHash:  actionCtx.ActionHash,
-			})
-		}
-		if epochAmt.Sign() == 0 {
-			continue
-		}
-		if err := p.grantToAccount(ctx, sm, addrs[i], epochAmt); err != nil {
-			return nil, nil, err
-		}
-		data, err := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, addrs[i].String(), epochAmt)
-		if err != nil {
-			return nil, nil, err
-		}
-		rewardLogs = append(rewardLogs, &action.Log{
-			Address:     p.addr.String(),
-			Topics:      nil,
-			Data:        data,
-			BlockHeight: blkCtx.BlockHeight,
-			ActionHash:  actionCtx.ActionHash,
-		})
-		actualTotalReward = big.NewInt(0).Add(actualTotalReward, epochAmt)
 	}
-	// Orphan-drain sweep: any pool entries not visited above belong to
-	// delegates that dropped out of the current epoch's reward split
-	// entirely. Route to their live reward address if the candidate is
-	// still registered, otherwise refund to unclaimedBalance.
-	orphanLogs, err := p.drainPendingBlockRewardOrphans(
-		ctx, sm, visitedPoolIDs, blkCtx.BlockHeight, actionCtx.ActionHash,
+
+	// The effective epoch for this call: the cursor's target when we're
+	// continuing, otherwise the current block's epoch (Phase A).
+	epochNum := currentEpoch
+	if cursor != nil {
+		epochNum = cursor.TargetEpoch
+	}
+
+	var (
+		transactionLogs []*action.TransactionLog
+		rewardLogs      []*action.Log
+		delta           = new(big.Int)
 	)
+	if cursor == nil {
+		// Phase A — first block of the drain. The last-block-in-epoch guard
+		// is only enforced on the Phase A block; continuation blocks are
+		// scheduled by CreatePostSystemActions off cursor presence and are
+		// by construction non-boundary.
+		if err := p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
+			return nil, nil, err
+		}
+		if err := p.assertLastBlockInEpoch(blkCtx.BlockHeight, epochNum, rp); err != nil {
+			return nil, nil, err
+		}
+		preludeTxLogs, preludeLogs, freshCursor, preludeDelta, err := p.freezeEpochDrainWork(ctx, sm, epochNum)
+		if err != nil {
+			return nil, nil, err
+		}
+		transactionLogs = append(transactionLogs, preludeTxLogs...)
+		rewardLogs = append(rewardLogs, preludeLogs...)
+		delta.Add(delta, preludeDelta)
+		cursor = freshCursor
+	}
+
+	// Phase B — grant the next chunk of frozen delegates. chunkSize==0 (fork
+	// off OR genesis default) collapses to "consume everything remaining".
+	chunkLogs, chunkDelta, done, err := p.runEpochDrainChunk(ctx, sm, cursor, p.epochDrainChunkSize(ctx))
 	if err != nil {
 		return nil, nil, err
 	}
-	rewardLogs = append(rewardLogs, orphanLogs...)
+	rewardLogs = append(rewardLogs, chunkLogs...)
+	delta.Add(delta, chunkDelta)
 
-	// Reward additional bootstrap bonus
-	if a.grantFoundationBonus(epochNum) || (epochNum >= p.cfg.FoundationBonusP2StartEpoch && epochNum <= p.cfg.FoundationBonusP2EndEpoch) {
-		for i, count := 0, uint64(0); i < len(candidates) && count < a.numDelegatesForFoundationBonus; i++ {
-			if _, ok := exemptAddrs[candidates[i].Address]; ok {
-				continue
-			}
-			if candidates[i].Votes.Cmp(big.NewInt(0)) == 0 {
-				// hard probation
-				continue
-			}
-			count++
-			// If reward address doesn't exist, do nothing
-			if candidates[i].RewardAddress == "" {
-				log.S().Warnf("Candidate %s doesn't have a reward address", candidates[i].Address)
-				continue
-			}
-			rewardAddr, err := address.FromString(candidates[i].RewardAddress)
-			if err != nil {
-				return nil, nil, err
-			}
-			if err := p.grantToAccount(ctx, sm, rewardAddr, a.foundationBonus); err != nil {
-				return nil, nil, err
-			}
-			data, err := p.encodeRewardLog(rewardingpb.RewardLog_FOUNDATION_BONUS, candidates[i].RewardAddress, a.foundationBonus)
-			if err != nil {
-				return nil, nil, err
-			}
-			rewardLogs = append(rewardLogs, &action.Log{
-				Address:     p.addr.String(),
-				Topics:      nil,
-				Data:        data,
-				BlockHeight: blkCtx.BlockHeight,
-				ActionHash:  actionCtx.ActionHash,
-			})
-			actualTotalReward = big.NewInt(0).Add(actualTotalReward, a.foundationBonus)
+	if !done {
+		// More delegates to process on a later block. Persist cursor and
+		// apply the delta we accumulated so unclaimedBalance stays consistent
+		// with the grants that already landed. Sentinel is intentionally not
+		// written yet — its absence is the "in progress" signal.
+		if err := p.writeEpochDrainCursor(ctx, sm, cursor); err != nil {
+			return nil, nil, err
 		}
+		cursorPersisted = true
+		if err := p.updateAvailableBalance(ctx, sm, delta); err != nil {
+			return nil, nil, err
+		}
+		return transactionLogs, rewardLogs, nil
 	}
 
-	// Update actual reward
-	if err := p.updateAvailableBalance(ctx, sm, actualTotalReward); err != nil {
+	// Phase C — orphan sweep then foundation bonus, both from frozen lists.
+	codaLogs, codaDelta, err := p.runEpochDrainCoda(ctx, sm, cursor)
+	if err != nil {
+		return nil, nil, err
+	}
+	rewardLogs = append(rewardLogs, codaLogs...)
+	delta.Add(delta, codaDelta)
+
+	if err := p.updateAvailableBalance(ctx, sm, delta); err != nil {
 		return nil, nil, err
 	}
 	if err := p.updateRewardHistory(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, nil, err
+	}
+	// Only clear the cursor slot if we actually persisted one — a
+	// same-block drain never wrote to disk, and mock-driven tests trip on
+	// the unexpected DelState.
+	if cursorPersisted {
+		if err := p.deleteEpochDrainCursor(ctx, sm); err != nil {
+			return nil, nil, err
+		}
 	}
 	return transactionLogs, rewardLogs, nil
 }

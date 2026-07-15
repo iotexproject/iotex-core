@@ -83,6 +83,11 @@ var (
 	BlockRewardHistoryKeyPrefix = []byte("brh")
 	// EpochRewardHistoryKeyPrefix is the key prefix for epoch reward history
 	EpochRewardHistoryKeyPrefix = []byte("erh")
+	// EpochDrainCursorKey is the singleton key for the IIP-59 multi-block
+	// epoch reward drain cursor (RewardingNamespace). The payload carries
+	// target_epoch so the current-epoch handler can detect a stale cursor
+	// left by a prior epoch. Absence of the key = no drain in progress.
+	EpochDrainCursorKey = []byte("edc")
 )
 
 const PollCandidatesPrefix = "Candidates."
