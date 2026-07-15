@@ -175,9 +175,16 @@ func (p *Protocol) distributeVoterOnly(
 	if stakingProto == nil {
 		return nil, false, nil, 0, 0, errors.New("rewarding: staking protocol not registered")
 	}
-	var reader autodeposit.ContractReader
+	var bucketReader autodeposit.BucketReader
 	if p.autoDepositBridge != nil {
-		reader = p.resolveAutoDepositReader(sm)
+		slotReader, srErr := evm.NewSlotReader(ctx, sm)
+		if srErr != nil {
+			return nil, false, nil, 0, 0, errors.Wrap(srErr, "rewarding: build slot reader for autodeposit")
+		}
+		bucketReader, err = p.resolveAutoDepositBucketReader(slotReader)
+		if err != nil {
+			return nil, false, nil, 0, 0, errors.Wrap(err, "rewarding: resolve autodeposit bucket reader")
+		}
 	}
 	csr, err := staking.ConstructBaseView(sm)
 	if err != nil {
@@ -187,7 +194,7 @@ func (p *Protocol) distributeVoterOnly(
 	voters, amounts, routings, paid, err := p.allocateAndRouteVoters(
 		ctx, sm, snap, totalWeight, safeBig(voterAmount),
 		startVoter, endVoter,
-		stakingProto, reader, csr, candID,
+		stakingProto, bucketReader, csr, candID,
 	)
 	if err != nil {
 		return nil, false, nil, 0, 0, err
@@ -266,7 +273,7 @@ func (p *Protocol) allocateAndRouteVoters(
 	startVoter uint32,
 	endVoter uint32,
 	stakingProto *staking.Protocol,
-	reader autodeposit.ContractReader,
+	bucketReader autodeposit.BucketReader,
 	csr staking.CandidateStateReader,
 	candID address.Address,
 ) ([]address.Address, []*big.Int, []autodeposit.Route, *big.Int, error) {
@@ -333,8 +340,8 @@ func (p *Protocol) allocateAndRouteVoters(
 			return nil, nil, nil, nil, errors.Errorf("rewarding: nil voter address at snapshot index %d", i)
 		}
 		route := autodeposit.RouteCredit
-		if p.autoDepositBridge != nil {
-			bucketID, present, lookupErr := p.autoDepositBridge.LookupBucket(ctx, reader, e.Voter)
+		if bucketReader != nil {
+			bucketID, present, lookupErr := bucketReader.LookupBucket(e.Voter)
 			if lookupErr != nil {
 				log.L().Warn("autodeposit bucket lookup failed; routing voter share to credit",
 					zap.String("delegate", candID.String()),
@@ -416,32 +423,14 @@ func isNilOrZero(v *big.Int) bool {
 	return v == nil || v.Sign() == 0
 }
 
-// resolveAutoDepositReader returns the ContractReader used for a single
-// distribution call. Tests may inject a factory via WithAutoDepositReader;
-// production falls through to autoDepositContractReader which wraps
-// evm.SimulateExecution.
-func (p *Protocol) resolveAutoDepositReader(sm protocol.StateManager) autodeposit.ContractReader {
-	if p.autoDepositReader != nil {
-		return p.autoDepositReader(sm)
+// resolveAutoDepositBucketReader returns the per-drain BucketReader used
+// against the AutoDeposit contract. Tests may inject a factory via
+// WithAutoDepositBucketReader; production falls through to
+// Bridge.NewSlotBucketReader which reads (registrants, buckets) directly
+// from contract storage (see autodeposit/slot_reader.go).
+func (p *Protocol) resolveAutoDepositBucketReader(slotReader autodeposit.SlotReader) (autodeposit.BucketReader, error) {
+	if p.autoDepositBucketReaderFactory != nil {
+		return p.autoDepositBucketReaderFactory(slotReader), nil
 	}
-	return autoDepositContractReader(sm)
-}
-
-// autoDepositContractReader mirrors the equivalent helper in poll/util.go
-// (delegateProfileContractReader): build an unsigned Execution against the
-// target contract with the zero-address caller and dispatch through
-// evm.SimulateExecution. The pattern is deterministic (fixed caller, no
-// gas billing) and reuses the existing view-call plumbing.
-func autoDepositContractReader(sm protocol.StateManager) autodeposit.ContractReader {
-	return autodeposit.ContractReaderFunc(func(ctx context.Context, contract string, callData []byte) ([]byte, error) {
-		gasLimit := uint64(10_000_000)
-		ex := action.NewExecution(contract, big.NewInt(0), callData)
-		caller, err := address.FromString(address.ZeroAddress)
-		if err != nil {
-			return nil, err
-		}
-		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(gasLimit).SetAction(ex).Build()
-		ret, _, err := evm.SimulateExecution(ctx, sm, caller, elp)
-		return ret, err
-	})
+	return p.autoDepositBridge.NewSlotBucketReader(slotReader)
 }

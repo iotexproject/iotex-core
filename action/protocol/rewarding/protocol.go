@@ -60,10 +60,12 @@ type Protocol struct {
 	// voter's share is credited to unclaimedBalance and no compound
 	// deposit is attempted.
 	autoDepositBridge *autodeposit.Bridge
-	// autoDepositReader lets tests inject a fake ContractReader without
-	// pulling the EVM simulator into scope. Nil in production; production
-	// paths call autoDepositContractReader(sm) via resolveAutoDepositReader.
-	autoDepositReader func(protocol.StateManager) autodeposit.ContractReader
+	// autoDepositBucketReaderFactory lets tests inject a fake BucketReader
+	// without pulling the EVM state adapter into scope. Nil in production;
+	// production paths construct SlotBucketReader via
+	// resolveAutoDepositBucketReader — one adapter setup per drain,
+	// direct-slot reads per voter (see docs/iip-59-perf-report.md).
+	autoDepositBucketReaderFactory func(autodeposit.SlotReader) autodeposit.BucketReader
 }
 
 // Option customises a rewarding Protocol at construction. Options are
@@ -78,12 +80,12 @@ func WithAutoDepositBridge(bridge *autodeposit.Bridge) Option {
 	return func(p *Protocol) { p.autoDepositBridge = bridge }
 }
 
-// WithAutoDepositReader injects a factory for the ContractReader used
-// against the AutoDeposit contract. Intended for tests that supply a
-// fake in place of evm.SimulateExecution; production leaves this
-// unset so the built-in reader (autoDepositContractReader) is used.
-func WithAutoDepositReader(factory func(protocol.StateManager) autodeposit.ContractReader) Option {
-	return func(p *Protocol) { p.autoDepositReader = factory }
+// WithAutoDepositBucketReader injects a factory for the BucketReader used
+// against the AutoDeposit contract. Intended for tests that supply a fake
+// in place of the direct-slot reader; production leaves this unset so
+// Bridge.NewSlotBucketReader is used.
+func WithAutoDepositBucketReader(factory func(autodeposit.SlotReader) autodeposit.BucketReader) Option {
+	return func(p *Protocol) { p.autoDepositBucketReaderFactory = factory }
 }
 
 // NewProtocol instantiates a rewarding protocol instance.

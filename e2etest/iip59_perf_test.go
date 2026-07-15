@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/mohae/deepcopy"
 	"github.com/stretchr/testify/require"
 
@@ -285,7 +286,7 @@ func installIIP59PerfHooks(t *testing.T, tier perfTier, g genesis.Genesis) {
 
 	adReader := newMockAutoDepositReader(t)
 	chainservice.TestOnlyRewardingOptions = []rewarding.Option{
-		rewarding.WithAutoDepositReader(func(_ protocol.StateManager) autodeposit.ContractReader {
+		rewarding.WithAutoDepositBucketReader(func(autodeposit.SlotReader) autodeposit.BucketReader {
 			return adReader
 		}),
 	}
@@ -345,20 +346,20 @@ func newMockDelegateProfileReader(t *testing.T) delegateprofile.ContractReader {
 	})
 }
 
-// newMockAutoDepositReader returns a ContractReader that reports every
-// voter as "unregistered" (bucket = 0). The drain then routes each
-// voter share via RouteCredit, exercising the per-voter unclaimed
-// balance credit path without depending on planted bucket IDs.
-func newMockAutoDepositReader(t *testing.T) autodeposit.ContractReader {
-	parsed, err := abi.JSON(strings.NewReader(autoDepositMinimalABI))
-	require.NoError(t, err)
-	method, ok := parsed.Methods["bucket"]
-	require.True(t, ok, "bucket must be present in mock ABI")
-	packed, err := method.Outputs.Pack(big.NewInt(0))
-	require.NoError(t, err)
-	return autodeposit.ContractReaderFunc(func(_ context.Context, _ string, _ []byte) ([]byte, error) {
-		return packed, nil
-	})
+// mockAutoDepositBucketReader reports every voter as "unregistered", so
+// the drain routes each voter share via RouteCredit — exercising the
+// per-voter unclaimed balance credit path without depending on planted
+// bucket IDs.
+type mockAutoDepositBucketReader struct{}
+
+func (mockAutoDepositBucketReader) LookupBucket(_ address.Address) (uint64, bool, error) {
+	return 0, false, nil
+}
+
+// newMockAutoDepositReader returns a BucketReader that reports every
+// voter as unregistered.
+func newMockAutoDepositReader(_ *testing.T) autodeposit.BucketReader {
+	return mockAutoDepositBucketReader{}
 }
 
 // delegateProfileMinimalABI mirrors delegateprofile/abi.go's abiJSON.
