@@ -208,10 +208,19 @@ func TestDistributeVoterReward_BridgeNilRoutesToCredit(t *testing.T) {
 	g := genesis.TestDefault()
 	p := NewProtocol(g.Rewarding)
 	r.Nil(p.autoDepositBridge)
-	r.Nil(p.autoDepositReader)
+	r.Nil(p.autoDepositBucketReaderFactory)
 }
 
-// TestProtocolOptions verifies WithAutoDepositBridge/WithAutoDepositReader
+// fakeBucketReader satisfies autodeposit.BucketReader with a canned response
+// for use in the option-wiring test below.
+type fakeBucketReader struct{ callCount int }
+
+func (f *fakeBucketReader) LookupBucket(address.Address) (uint64, bool, error) {
+	f.callCount++
+	return 0, false, errors.New("unused")
+}
+
+// TestProtocolOptions verifies WithAutoDepositBridge / WithAutoDepositBucketReader
 // install onto the Protocol so downstream distributeVoterReward can consume
 // them.
 func TestProtocolOptions(t *testing.T) {
@@ -221,19 +230,20 @@ func TestProtocolOptions(t *testing.T) {
 	bridge, err := autodeposit.New(identityset.Address(0).String())
 	r.NoError(err)
 
-	called := false
-	reader := func(protocol.StateManager) autodeposit.ContractReader {
-		called = true
-		return autodeposit.ContractReaderFunc(func(_ context.Context, _ string, _ []byte) ([]byte, error) {
-			return nil, errors.New("unused")
-		})
+	fake := &fakeBucketReader{}
+	factoryCalled := false
+	factory := func(autodeposit.SlotReader) autodeposit.BucketReader {
+		factoryCalled = true
+		return fake
 	}
 
-	p := NewProtocol(g.Rewarding, WithAutoDepositBridge(bridge), WithAutoDepositReader(reader))
+	p := NewProtocol(g.Rewarding, WithAutoDepositBridge(bridge), WithAutoDepositBucketReader(factory))
 	r.NotNil(p.autoDepositBridge)
-	r.NotNil(p.autoDepositReader)
+	r.NotNil(p.autoDepositBucketReaderFactory)
 
-	// Exercise the seam so the coverage on resolveAutoDepositReader is real.
-	_ = p.resolveAutoDepositReader(nil)
-	r.True(called)
+	// Exercise the seam so the coverage on resolveAutoDepositBucketReader is real.
+	got, err := p.resolveAutoDepositBucketReader(nil)
+	r.NoError(err)
+	r.Same(fake, got)
+	r.True(factoryCalled)
 }

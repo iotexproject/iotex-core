@@ -6,30 +6,21 @@
 // Package autodeposit bridges the on-chain AutoDeposit contract into the
 // IIP-59 protocol-native voter reward drain path.
 //
-// distributeToVoters (added in PR 3', still unwritten) calls the bridge
-// once per voter share at epoch close and routes the share based on the
-// returned bucket ID + eligibility check. The bridge is deliberately
-// stateless and takes a ContractReader adapter so unit tests can stand in
-// a fake without pulling the EVM simulator into scope.
+// The bridge is a thin holder of the network-pinned contract address plus
+// a factory (NewSlotBucketReader) that produces the per-drain BucketReader.
+// Read semantics live in slot_reader.go — the production path bypasses the
+// EVM's bucket(address) view and reads (registrants[voter], buckets[voter])
+// directly from the contract's storage trie for the ~26× per-call speedup
+// documented in docs/iip-59-perf-report.md.
 //
 // Unlike the DelegateProfile bridge (PR 4.5), AutoDeposit is read live at
 // drain time, not frozen at PutPollResult — see IIP-59 §3.6.
 package autodeposit
 
 import (
-	"context"
-	"math/big"
-	"strings"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 )
-
-// fieldBucketFn is the ABI method name of the AutoDeposit view getter that
-// returns a voter's registered compound-target bucket ID.
-const fieldBucketFn = "bucket"
 
 // Route classifies where a voter's per-epoch share is delivered. The wire
 // value matches IIP-59 §3.5's DelegateDistributed.routings[] encoding, so
@@ -52,32 +43,14 @@ type Decision struct {
 	BucketID uint64 // valid iff Route == RouteCompound
 }
 
-// ContractReader is the read-only view-call primitive the bridge depends on.
-// Production wires an adapter around evm.SimulateExecution; tests supply an
-// in-memory fake. Kept package-local (rather than depending on the
-// delegateprofile package's identical type) so this bridge can ship
-// independently of PR 4.5.
-type ContractReader interface {
-	Read(ctx context.Context, contract string, callData []byte) ([]byte, error)
-}
-
-// ContractReaderFunc lets a plain function satisfy ContractReader.
-type ContractReaderFunc func(ctx context.Context, contract string, callData []byte) ([]byte, error)
-
-// Read implements ContractReader.
-func (f ContractReaderFunc) Read(ctx context.Context, contract string, callData []byte) ([]byte, error) {
-	return f(ctx, contract, callData)
-}
-
 // ErrEmptyContractAddress is returned when the bridge is constructed
 // without a target contract.
 var ErrEmptyContractAddress = errors.New("autodeposit: empty contract address")
 
-// Bridge is the reusable read-only wrapper around a specific AutoDeposit
-// contract deployment. Construct once at protocol init with the network's
-// pinned contract address; call LookupBucket per voter at drain time.
+// Bridge holds the network-pinned AutoDeposit contract address and is the
+// factory for per-drain BucketReaders. Construct once at protocol init;
+// call NewSlotBucketReader once per epoch drain to get a reusable reader.
 type Bridge struct {
-	abi      abi.ABI
 	contract string
 }
 
@@ -91,78 +64,8 @@ func New(contract string) (*Bridge, error) {
 	if _, err := address.FromString(contract); err != nil {
 		return nil, errors.Wrap(err, "autodeposit: invalid contract address")
 	}
-	parsed, err := abi.JSON(strings.NewReader(abiJSON))
-	if err != nil {
-		return nil, errors.Wrap(err, "autodeposit: failed to parse ABI")
-	}
-	return &Bridge{abi: parsed, contract: contract}, nil
+	return &Bridge{contract: contract}, nil
 }
 
 // Contract returns the target contract address, mostly for logging.
 func (b *Bridge) Contract() string { return b.contract }
-
-// LookupBucket reads AutoDeposit.bucket(voter) and normalises the result
-// to (uint64, present, error):
-//
-//   - (bucketID, true, nil): voter is registered with a strictly positive
-//     bucket ID that fits in uint64.
-//   - (0, false, nil):        voter is unregistered — the contract returned
-//     zero, a negative int256, or a value larger than
-//     2^63-1. All three are treated identically so PR 3'
-//     routes them to RouteCredit without further branching.
-//   - (0, false, err):        wiring failure (nil reader, nil voter, ABI
-//     mismatch, or reader RPC error). Callers MUST log
-//     and route to RouteCredit; see IIP-59 §3.6:
-//     "a failed contract call falls through to
-//     unclaimedBalance".
-//
-// The malformed-value silent fallback follows the consensus-path rule:
-// one voter's malformed on-chain registration must not halt the block.
-// Wiring bugs (nil reader / nil voter) stay hard errors — those indicate
-// a caller-side mistake, not on-chain data.
-func (b *Bridge) LookupBucket(
-	ctx context.Context,
-	reader ContractReader,
-	voter address.Address,
-) (uint64, bool, error) {
-	if reader == nil {
-		return 0, false, errors.New("autodeposit: nil ContractReader")
-	}
-	if voter == nil {
-		return 0, false, errors.New("autodeposit: nil voter address")
-	}
-
-	voterEth := common.BytesToAddress(voter.Bytes())
-	callData, err := b.abi.Pack(fieldBucketFn, voterEth)
-	if err != nil {
-		return 0, false, errors.Wrap(err, "autodeposit: pack bucket(address)")
-	}
-	raw, err := reader.Read(ctx, b.contract, callData)
-	if err != nil {
-		return 0, false, errors.Wrapf(err, "autodeposit: read bucket(%s)", voter.String())
-	}
-	out, err := b.abi.Unpack(fieldBucketFn, raw)
-	if err != nil {
-		return 0, false, errors.Wrap(err, "autodeposit: unpack bucket(address)")
-	}
-	if len(out) != 1 {
-		return 0, false, errors.Errorf("autodeposit: bucket(address) expected 1 return value, got %d", len(out))
-	}
-	bigVal, ok := out[0].(*big.Int)
-	if !ok {
-		return 0, false, errors.Errorf("autodeposit: bucket(address) expected *big.Int, got %T", out[0])
-	}
-	// Non-positive means unregistered per IIP-59 §3.6 precondition 1.
-	// Solidity's default-zero for unset mappings and negative sentinels
-	// both land here.
-	if bigVal.Sign() <= 0 {
-		return 0, false, nil
-	}
-	// Values that don't fit uint64 are malformed on-chain data. Silent
-	// fallback to unregistered so PR 3' still makes progress on other
-	// voters — see feedback-consensus-fallback-vs-halt.
-	if !bigVal.IsUint64() {
-		return 0, false, nil
-	}
-	return bigVal.Uint64(), true, nil
-}
