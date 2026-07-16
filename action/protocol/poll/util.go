@@ -216,7 +216,7 @@ func setCandidates(
 			return errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
 		}
 	}
-	if err := freezeIIP59PollSnapshot(ctx, sm, candidates); err != nil {
+	if err := freezeIIP59PollSnapshot(ctx, sm, candidates, epochNum); err != nil {
 		return errors.Wrap(err, "failed to freeze IIP-59 poll snapshot")
 	}
 	if loadCandidatesLegacy {
@@ -240,16 +240,23 @@ var TestOnlyDelegateProfileReaderFactory func(protocol.StateManager) delegatepro
 // and the delegate's opt-in flag from the live staking.Candidate.
 //
 // Pre-fork (NoVoterRewardDistribution=true): no-op.
-// Post-fork, no contract configured: bridge nil, snapshot carries opt-in
-// only; rewarding falls back to legacy path via Registered=false.
-// Post-fork with contract configured: bridge called; snapshot carries frozen
-// rates + registration bit + opt-in flag.
-func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, candidates state.CandidateList) error {
+// Non-era-boundary epoch (post-fork): no-op. Reward distribution now runs
+// on a per-era cadence (IIP-59 §8), so freezing the snapshot at every
+// PutPollResult would waste state writes and prevent within-era stake
+// activity from participating in the era's reward math.
+// Post-fork, era boundary, no contract configured: bridge nil, snapshot
+// carries opt-in only; rewarding falls back to legacy path via Registered=false.
+// Post-fork, era boundary, contract configured: bridge called; snapshot
+// carries frozen rates + registration bit + opt-in flag.
+func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, candidates state.CandidateList, epochNum uint64) error {
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	if fCtx.NoVoterRewardDistribution {
 		return nil
 	}
 	g := genesis.MustExtractGenesisContext(ctx)
+	if !protocol.IsEraBoundary(epochNum, g.EpochsPerRewardEra) {
+		return nil
+	}
 	contract := g.DelegateProfileContractAddress
 	var (
 		bridge *delegateprofile.Bridge
