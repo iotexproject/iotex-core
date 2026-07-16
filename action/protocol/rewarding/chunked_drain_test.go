@@ -83,36 +83,38 @@ func TestBuildEpochDrainCursor_FreezesPoolBalances(t *testing.T) {
 		"cursor value must decouple from post-freeze pool credits")
 }
 
-// TestGrantEpochReward_RejectsStaleCursor confirms the corruption guard.
-// A cursor pinned to a FUTURE epoch is corrupt state — Phase A can only
-// pin to the current epoch. GrantEpochReward must reject this loud
-// instead of silently proceeding. (A cursor pinned to a PRIOR epoch,
-// by contrast, is a legitimate multi-block drain still in progress.)
-func TestGrantEpochReward_RejectsStaleCursor(t *testing.T) {
+// TestGrantEpochReward_RejectsAnyLiveCursor confirms Phase A's tightened
+// corruption guard. After C2.1 split the continuation path into
+// GrantVoterRewardChunk, GrantEpochReward runs Phase A only — and Phase A
+// can never coexist with a live cursor. Any cursor at Phase A entry is
+// unambiguous corrupt state (mid-drain continuation was supposed to run
+// GrantVoterRewardChunk, not GrantEpochReward), so the guard must fire
+// regardless of which era the cursor pins.
+func TestGrantEpochReward_RejectsAnyLiveCursor(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
-		// Flip the fork gate on so cursorEnabled=true and the stale-cursor
-		// check runs. Height is already the last block of epoch 1, which is
-		// past ToBeEnabledBlockHeight=1.
+		// Flip the fork gate on so cursorEnabled=true and the corruption
+		// check runs. Height is already the last block of epoch 1, which
+		// is past ToBeEnabledBlockHeight=1.
 		g := genesis.MustExtractGenesisContext(ctx)
 		g.ToBeEnabledBlockHeight = 1
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithFeatureCtx(ctx)
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
 
-		// Inject a cursor pointing at era 9999 — nowhere near the current
-		// epoch — so TargetEra != epochNum forces the guard to fire.
-		stale := &epochDrainCursor{
-			TargetEra:     9_999,
+		// Inject a cursor pinned to the CURRENT epoch — this used to be
+		// silently accepted (mid-drain continuation), but under the C2.1
+		// split it's now unambiguous corruption: continuation blocks must
+		// run GrantVoterRewardChunk, not GrantEpochReward.
+		live := &epochDrainCursor{
+			TargetEra:     1,
 			DelegateIndex: 0,
 			Delegates: []epochDrainDelegateWork{
 				{CandidateIdentifier: identityset.Address(27).Bytes(), PoolAmountFrozen: big.NewInt(1)},
 			},
 		}
-		r.NoError(p.writeEpochDrainCursor(ctx, sm, stale))
+		r.NoError(p.writeEpochDrainCursor(ctx, sm, live))
 
-		// Provide enough deposit that any accidental partial run would be
-		// visible; the assert is on the specific error string, though.
 		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
 
@@ -126,7 +128,7 @@ func TestGrantEpochReward_RejectsStaleCursor(t *testing.T) {
 
 		_, _, err = p.GrantEpochReward(ctx, sm)
 		r.Error(err)
-		r.Contains(err.Error(), "future epoch")
+		r.Contains(err.Error(), "cursor unexpectedly live at Phase A entry")
 	}, nil, false, 0)
 }
 

@@ -274,72 +274,173 @@ func (p *Protocol) GrantBlockReward(
 	}, nil
 }
 
-// GrantEpochReward grants the epoch reward (token) to all beneficiaries of
-// an epoch. Under IIP-59 the per-delegate loop may span multiple blocks via
-// an epochDrainCursor when p.cfg.CompoundBatchSize bounds the per-block
-// work. The first block of the drain freezes the delegate work list;
-// continuation blocks resume from cursor.DelegateIndex; the final block
-// runs the coda (orphan drain, foundation bonus, sentinel, cursor delete).
-// Chunking is a no-op — semantically single-block — when the fork gate is
-// off or CompoundBatchSize == 0.
+// GrantEpochReward grants the epoch reward for the epoch ending on the
+// current block. This is the Phase A entry: it runs slash-unproductive,
+// freezes the per-delegate work list into an epochDrainCursor, and
+// distributes the first chunk. If the drain fits in one block (fork off
+// or delegate count <= CompoundBatchSize) the same call also runs the
+// coda (orphan drain, foundation bonus, sentinel, cursor delete).
+// Otherwise CreatePostSystemActions will emit VoterRewardChunk grants on
+// subsequent blocks, each routed through GrantVoterRewardChunk, until
+// the drain completes.
+//
+// This handler is only ever dispatched on the epoch-last block. A live
+// cursor at entry means corrupt state (a previous drain's coda failed
+// to delete it) and returns an error rather than silently continuing.
 func (p *Protocol) GrantEpochReward(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) ([]*action.TransactionLog, []*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+
+	// Pre-A checks: must be epoch-last, must not have already granted.
+	if err := p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
+		return nil, nil, err
+	}
+	if err := p.assertLastBlockInEpoch(blkCtx.BlockHeight, epochNum, rp); err != nil {
+		return nil, nil, err
+	}
+
+	// Cursor at entry to Phase A is unambiguous corrupt state — Phase A
+	// only ever runs when no drain is in flight. Fail loud.
+	if !featureCtx.NoVoterRewardDistribution {
+		existing, err := p.readEpochDrainCursor(ctx, sm)
+		if err != nil {
+			return nil, nil, err
+		}
+		if existing != nil {
+			return nil, nil, errors.Errorf(
+				"rewarding: cursor unexpectedly live at Phase A entry (era %d, index %d)",
+				existing.TargetEra, existing.DelegateIndex)
+		}
+	}
+
+	a, exemptAddrs, uqdMap, candidates, rewardedCandidates, addrs, amounts, err :=
+		p.loadEpochDistributionInputs(ctx, sm, epochNum)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	transactionLogs := make([]*action.TransactionLog, 0)
+	rewardLogs := make([]*action.Log, 0)
+	// actualTotalReward accumulates this block's net debit against
+	// fund.unclaimedBalance. Slashing sends value back to the pool
+	// (negative), grants pay it out (positive). A chunked drain's sum
+	// across blocks equals the single-block total.
+	actualTotalReward := big.NewInt(0)
+
+	// Phase A: run slashing once and freeze the delegate work list
+	// (pool balances captured now stay stable across chunks even if
+	// GrantBlockReward keeps crediting the pool behind us).
+	if !featureCtx.NotSlashUnproductiveDelegates {
+		slashAmount, slashLogs, err := p.slashUqd(
+			ctx, sm, blkCtx.BlockHeight, actionCtx.ActionHash,
+			candidates, a.blockReward, uqdMap,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		if slashAmount.Sign() > 0 {
+			transactionLogs = append(transactionLogs, &action.TransactionLog{
+				Type:      iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND,
+				Amount:    slashAmount,
+				Sender:    address.StakingBucketPoolAddr,
+				Recipient: address.RewardingPoolAddr,
+			})
+		}
+		rewardLogs = append(rewardLogs, slashLogs...)
+		actualTotalReward = new(big.Int).Sub(actualTotalReward, slashAmount)
+	}
+	cursor, err := p.buildEpochDrainCursor(ctx, sm, epochNum, rewardedCandidates)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return p.runVoterDistributionChunk(
+		ctx, sm, cursor, a, exemptAddrs, candidates,
+		rewardedCandidates, addrs, amounts, epochNum,
+		transactionLogs, rewardLogs, actualTotalReward,
+	)
+}
+
+// GrantVoterRewardChunk advances one chunk of an in-progress IIP-59
+// era-boundary drain. Emitted by CreatePostSystemActions on every
+// non-epoch-boundary block while a cursor is live; the final chunk
+// runs the coda (orphan drain, foundation bonus, sentinel, cursor
+// delete) inline.
+//
+// Epoch-scoped inputs (admin, exempt, candidates, splitEpochReward) are
+// derived from cursor.TargetEra — the epoch that triggered the drain —
+// NOT the current block's epoch, so cross-era continuation runs use the
+// same partitioning Phase A froze into the cursor.
+func (p *Protocol) GrantVoterRewardChunk(
+	ctx context.Context,
+	sm protocol.StateManager,
+) ([]*action.TransactionLog, []*action.Log, error) {
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.NoVoterRewardDistribution {
+		// Defense in depth: CreatePostSystemActions never emits this
+		// action pre-fork, and Validate rejects manually crafted ones.
+		return nil, nil, errors.New("rewarding: voter reward chunk action requires IIP-59 fork")
+	}
+
+	cursor, err := p.readEpochDrainCursor(ctx, sm)
+	if err != nil {
+		return nil, nil, err
+	}
+	if cursor == nil {
+		// Dispatcher invariant: cursor must be live when this handler
+		// runs. Reaching here means CreatePostSystemActions or a state
+		// migration got out of sync.
+		return nil, nil, errors.New("rewarding: voter reward chunk dispatched without a live cursor")
+	}
+
+	a, exemptAddrs, _, candidates, rewardedCandidates, addrs, amounts, err :=
+		p.loadEpochDistributionInputs(ctx, sm, cursor.TargetEra)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return p.runVoterDistributionChunk(
+		ctx, sm, cursor, a, exemptAddrs, candidates,
+		rewardedCandidates, addrs, amounts, cursor.TargetEra,
+		make([]*action.TransactionLog, 0),
+		make([]*action.Log, 0),
+		big.NewInt(0),
+	)
+}
+
+// loadEpochDistributionInputs re-derives the deterministic epoch-scoped
+// state that both Phase A and continuation chunks need: admin config,
+// exempt set, uqdMap, poll candidates, and the splitEpochReward
+// partition (rewardedCandidates, addrs, amounts). epochNum is the
+// original epoch the drain targets, so continuation blocks pass
+// cursor.TargetEra rather than the block's own epoch.
+func (p *Protocol) loadEpochDistributionInputs(
+	ctx context.Context,
+	sm protocol.StateManager,
+	epochNum uint64,
+) (
+	*admin, map[string]interface{}, map[string]uint64,
+	[]*state.Candidate, []*state.Candidate,
+	[]address.Address, []*big.Int, error,
+) {
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	pp := poll.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 
-	// Cursor operations are gated by the IIP-59 fork. Pre-fork blocks
-	// never read/write/delete the cursor — the chunked-drain machinery is
-	// invisible and the legacy single-block loop runs untouched.
-	cursorEnabled := !featureCtx.NoVoterRewardDistribution
-	var (
-		cursor *epochDrainCursor
-		err    error
-	)
-	if cursorEnabled {
-		cursor, err = p.readEpochDrainCursor(ctx, sm)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	if cursor != nil {
-		// Continuation. A cursor pinned to a FUTURE epoch is corrupt
-		// state (Phase A can only pin to the current epoch). Fail loud.
-		// A cursor pinned to a prior epoch is a legitimate multi-block
-		// drain still in progress — carry it through Phase B/C using
-		// cursor.TargetEra for the sentinel write below.
-		if cursor.TargetEra > epochNum {
-			return nil, nil, errors.Errorf(
-				"rewarding: cursor pinned to future epoch %d while %d in progress",
-				cursor.TargetEra, epochNum)
-		}
-	} else {
-		// Fresh start: cursor absent means Phase A. Require epoch-last
-		// block and no prior grant.
-		if err := p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
-			return nil, nil, err
-		}
-		if err := p.assertLastBlockInEpoch(blkCtx.BlockHeight, epochNum, rp); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	// Deterministic epoch-scoped state — stable across chunks within an
-	// epoch. Reloaded per block because the cursor deliberately does not
-	// carry admin/exempt/candidate blobs.
-	a := admin{}
-	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
-		return nil, nil, err
+	a := &admin{}
+	if _, err := p.state(ctx, sm, _adminKey, a); err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	e := exempt{}
 	if _, err := p.state(ctx, sm, _exemptKey, &e); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	exemptAddrs := make(map[string]interface{})
 	for _, addr := range e.addrs {
@@ -349,14 +450,15 @@ func (p *Protocol) GrantEpochReward(
 	uqdMap := make(map[string]uint64)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) || !featureCtx.NotSlashUnproductiveDelegates {
+		var err error
 		uqdMap, err = pp.CalculateUnproductiveDelegates(ctx, sm)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, nil, nil, nil, nil, err
 		}
 	}
-	candidates, err := poll.MustGetProtocol(protocol.MustGetRegistry(ctx)).Candidates(ctx, sm)
+	candidates, err := pp.Candidates(ctx, sm)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	epochRewardSplitUqdMap := make(map[string]uint64)
 	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
@@ -366,46 +468,39 @@ func (p *Protocol) GrantEpochReward(
 		candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
+	return a, exemptAddrs, uqdMap, candidates, rewardedCandidates, addrs, amounts, nil
+}
 
-	transactionLogs := make([]*action.TransactionLog, 0)
-	rewardLogs := make([]*action.Log, 0)
-	// actualTotalReward accumulates this block's net debit against
-	// fund.unclaimedBalance. Slashing sends value back to the pool
-	// (negative), grants pay it out (positive). Applied once at the end
-	// of this block's work — a chunked drain's sum across blocks equals
-	// the single-block total.
-	actualTotalReward := big.NewInt(0)
-
-	if cursor == nil {
-		// Phase A: run slashing once and freeze the delegate work list
-		// (pool balances captured now stay stable across chunks even if
-		// GrantBlockReward keeps crediting the pool behind us).
-		if !featureCtx.NotSlashUnproductiveDelegates {
-			slashAmount, slashLogs, err := p.slashUqd(
-				ctx, sm, blkCtx.BlockHeight, actionCtx.ActionHash,
-				candidates, a.blockReward, uqdMap,
-			)
-			if err != nil {
-				return nil, nil, err
-			}
-			if slashAmount.Sign() > 0 {
-				transactionLogs = append(transactionLogs, &action.TransactionLog{
-					Type:      iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND,
-					Amount:    slashAmount,
-					Sender:    address.StakingBucketPoolAddr,
-					Recipient: address.RewardingPoolAddr,
-				})
-			}
-			rewardLogs = append(rewardLogs, slashLogs...)
-			actualTotalReward = new(big.Int).Sub(actualTotalReward, slashAmount)
-		}
-		cursor, err = p.buildEpochDrainCursor(ctx, sm, epochNum, rewardedCandidates)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
+// runVoterDistributionChunk processes the next [cursor.DelegateIndex,
+// +chunkSize) slice of the frozen work list. If the slice reaches the
+// end of the list it also runs the coda (orphan drain, foundation
+// bonus, sentinel, cursor delete). Mid-drain runs persist the advanced
+// cursor and apply this block's balance delta.
+//
+// Callers pass any pre-accumulated logs and balance delta from Phase A
+// (slashUqd's outputs); a continuation caller passes empty
+// accumulators.
+func (p *Protocol) runVoterDistributionChunk(
+	ctx context.Context,
+	sm protocol.StateManager,
+	cursor *epochDrainCursor,
+	a *admin,
+	exemptAddrs map[string]interface{},
+	candidates []*state.Candidate,
+	rewardedCandidates []*state.Candidate,
+	addrs []address.Address,
+	amounts []*big.Int,
+	epochNum uint64,
+	transactionLogs []*action.TransactionLog,
+	rewardLogs []*action.Log,
+	actualTotalReward *big.Int,
+) ([]*action.TransactionLog, []*action.Log, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	cursorEnabled := !featureCtx.NoVoterRewardDistribution
 
 	// Phase B: process the next [startIdx, endIdx) slice of the frozen
 	// work list. chunkSize == 0 (fork off or governance opt-out) reduces
@@ -508,7 +603,7 @@ func (p *Protocol) GrantEpochReward(
 	if endIdx < uint32(len(cursor.Delegates)) {
 		// Drain still in progress. Persist the cursor, apply this
 		// block's balance delta, and let CreatePostSystemActions emit
-		// the continuation grant on the next block.
+		// the continuation VoterRewardChunk grant on the next block.
 		cursor.DelegateIndex = endIdx
 		if err := p.writeEpochDrainCursor(ctx, sm, cursor); err != nil {
 			return nil, nil, err
@@ -584,16 +679,10 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.updateAvailableBalance(ctx, sm, actualTotalReward); err != nil {
 		return nil, nil, err
 	}
-	// Sentinel is for the epoch that triggered the drain (cursor.TargetEra),
-	// not the block's current epoch — otherwise multi-block drains would
-	// write the sentinel for the wrong epoch and block that epoch's own
-	// future Phase A. cursor.TargetEra == epochNum in single-block drains,
-	// so this collapses to the legacy behaviour.
-	sentinelEpoch := epochNum
-	if cursor != nil {
-		sentinelEpoch = cursor.TargetEra
-	}
-	if err := p.updateRewardHistory(ctx, sm, _epochRewardHistoryKeyPrefix, sentinelEpoch); err != nil {
+	// Sentinel is always for the epoch that triggered the drain
+	// (cursor.TargetEra). Single-block drains have TargetEra == the
+	// current epoch, so this collapses to the legacy behaviour.
+	if err := p.updateRewardHistory(ctx, sm, _epochRewardHistoryKeyPrefix, cursor.TargetEra); err != nil {
 		return nil, nil, err
 	}
 	if cursorEnabled {

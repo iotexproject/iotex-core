@@ -220,19 +220,19 @@ func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.Stat
 		grants = append(grants, createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight))
 		return grants, nil
 	}
-	// IIP-59 continuation dispatch: an in-progress chunked epoch drain
-	// (cursor present in the RewardingNamespace) needs an EpochReward
-	// grant emitted on every non-epoch-boundary block until the drain
-	// completes and GrantEpochReward's coda deletes the cursor. Cursor
-	// is only ever written on the fork-on path, so pre-fork blocks skip
-	// the read entirely (state is empty).
+	// IIP-59 continuation dispatch: an in-progress chunked drain (cursor
+	// present in the RewardingNamespace) emits a dedicated
+	// VoterRewardChunk grant on every non-epoch-boundary block until
+	// GrantVoterRewardChunk's coda deletes the cursor. Cursor is only
+	// ever written on the fork-on path, so pre-fork blocks skip the
+	// read entirely (state is empty).
 	if !protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
 		cursor, err := p.readEpochDrainCursor(ctx, sr)
 		if err != nil {
 			return nil, err
 		}
 		if cursor != nil {
-			grants = append(grants, createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight))
+			grants = append(grants, createGrantRewardAction(action.VoterRewardChunk, blkCtx.BlockHeight))
 		}
 	}
 	return grants, nil
@@ -256,6 +256,11 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		}
 		if actionCtx.GasPrice != nil && actionCtx.GasPrice.Cmp(big.NewInt(0)) != 0 || actionCtx.IntrinsicGas != 0 {
 			return errors.New("invalid gas price or intrinsic gas for reward action")
+		}
+		// VoterRewardChunk is an IIP-59 action; pre-fork blocks must
+		// never accept one even if a producer crafts it manually.
+		if act.RewardType() == action.VoterRewardChunk && protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+			return errors.New("voter reward chunk action not enabled yet")
 		}
 	case *action.ClaimFromRewardingFund:
 		if !protocol.MustGetFeatureCtx(ctx).AddClaimRewardAddress && act.Address() != nil {
@@ -309,6 +314,13 @@ func (p *Protocol) Handle(
 			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog})
 		case action.EpochReward:
 			transactionLogs, rewardLogs, err := p.GrantEpochReward(ctx, sm)
+			if err != nil {
+				log.L().Debug("Error when handling rewarding action", zap.Error(err))
+				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+			}
+			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs, transactionLogs...)
+		case action.VoterRewardChunk:
+			transactionLogs, rewardLogs, err := p.GrantVoterRewardChunk(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
 				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
