@@ -83,12 +83,11 @@ func TestBuildEpochDrainCursor_FreezesPoolBalances(t *testing.T) {
 		"cursor value must decouple from post-freeze pool credits")
 }
 
-// TestGrantEpochReward_RejectsStaleCursor confirms the overrun guard.
-// A cursor persisted in the RewardingNamespace pointing at a prior
-// era, when GrantEpochReward runs for a later epoch, is a consensus-
-// level operator misconfiguration (chunk size too small for the
-// delegate count over the epoch window). The refactor promises a
-// hard error, not silent recovery.
+// TestGrantEpochReward_RejectsStaleCursor confirms the corruption guard.
+// A cursor pinned to a FUTURE epoch is corrupt state — Phase A can only
+// pin to the current epoch. GrantEpochReward must reject this loud
+// instead of silently proceeding. (A cursor pinned to a PRIOR epoch,
+// by contrast, is a legitimate multi-block drain still in progress.)
 func TestGrantEpochReward_RejectsStaleCursor(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
@@ -127,8 +126,7 @@ func TestGrantEpochReward_RejectsStaleCursor(t *testing.T) {
 
 		_, _, err = p.GrantEpochReward(ctx, sm)
 		r.Error(err)
-		r.Contains(err.Error(), "prior epoch")
-		r.Contains(err.Error(), "drain incomplete")
+		r.Contains(err.Error(), "future epoch")
 	}, nil, false, 0)
 }
 

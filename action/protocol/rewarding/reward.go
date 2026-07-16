@@ -309,13 +309,14 @@ func (p *Protocol) GrantEpochReward(
 		}
 	}
 	if cursor != nil {
-		// Continuation. A cursor pinned to a prior epoch means Phase A
-		// ran but drain never completed within the epoch window — this
-		// is a consensus-level operator misconfiguration (chunk size
-		// too small for the delegate count). Fail loud.
-		if cursor.TargetEra != epochNum {
+		// Continuation. A cursor pinned to a FUTURE epoch is corrupt
+		// state (Phase A can only pin to the current epoch). Fail loud.
+		// A cursor pinned to a prior epoch is a legitimate multi-block
+		// drain still in progress — carry it through Phase B/C using
+		// cursor.TargetEra for the sentinel write below.
+		if cursor.TargetEra > epochNum {
 			return nil, nil, errors.Errorf(
-				"rewarding: prior epoch %d drain incomplete when %d began",
+				"rewarding: cursor pinned to future epoch %d while %d in progress",
 				cursor.TargetEra, epochNum)
 		}
 	} else {
@@ -583,7 +584,16 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.updateAvailableBalance(ctx, sm, actualTotalReward); err != nil {
 		return nil, nil, err
 	}
-	if err := p.updateRewardHistory(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
+	// Sentinel is for the epoch that triggered the drain (cursor.TargetEra),
+	// not the block's current epoch — otherwise multi-block drains would
+	// write the sentinel for the wrong epoch and block that epoch's own
+	// future Phase A. cursor.TargetEra == epochNum in single-block drains,
+	// so this collapses to the legacy behaviour.
+	sentinelEpoch := epochNum
+	if cursor != nil {
+		sentinelEpoch = cursor.TargetEra
+	}
+	if err := p.updateRewardHistory(ctx, sm, _epochRewardHistoryKeyPrefix, sentinelEpoch); err != nil {
 		return nil, nil, err
 	}
 	if cursorEnabled {
