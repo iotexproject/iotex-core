@@ -536,6 +536,136 @@ func (x *PendingBlockRewardPool) GetAmount() []byte {
 	return nil
 }
 
+// EpochDrainDelegateWork is one frozen per-delegate work item captured
+// at the era boundary: the delegate identifier plus the pool balance to
+// drain. Chunks in later blocks read this frozen record so the credit
+// path is stable even if PendingBlockRewardPool for the same delegate
+// keeps accruing new epoch rewards behind the drain.
+type EpochDrainDelegateWork struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	CandidateIdentifier []byte `protobuf:"bytes,1,opt,name=candidate_identifier,json=candidateIdentifier,proto3" json:"candidate_identifier,omitempty"`
+	PoolAmountFrozen    []byte `protobuf:"bytes,2,opt,name=pool_amount_frozen,json=poolAmountFrozen,proto3" json:"pool_amount_frozen,omitempty"`
+}
+
+func (x *EpochDrainDelegateWork) Reset() {
+	*x = EpochDrainDelegateWork{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rewarding_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *EpochDrainDelegateWork) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EpochDrainDelegateWork) ProtoMessage() {}
+
+func (x *EpochDrainDelegateWork) ProtoReflect() protoreflect.Message {
+	mi := &file_rewarding_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EpochDrainDelegateWork.ProtoReflect.Descriptor instead.
+func (*EpochDrainDelegateWork) Descriptor() ([]byte, []int) {
+	return file_rewarding_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *EpochDrainDelegateWork) GetCandidateIdentifier() []byte {
+	if x != nil {
+		return x.CandidateIdentifier
+	}
+	return nil
+}
+
+func (x *EpochDrainDelegateWork) GetPoolAmountFrozen() []byte {
+	if x != nil {
+		return x.PoolAmountFrozen
+	}
+	return nil
+}
+
+// EpochDrainCursor checkpoints a multi-block IIP-59 era-boundary drain
+// of PendingBlockRewardPool balances into voter accounts. TargetEra is
+// the era ID being drained; DelegateIndex is the resume position in
+// the frozen Delegates slice. Cursor presence in the
+// RewardingNamespace signals a drain is in progress and the
+// system-action layer must emit a continuation grant on the next
+// block. Absence = no drain in progress.
+type EpochDrainCursor struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	TargetEra     uint64                    `protobuf:"varint,1,opt,name=target_era,json=targetEra,proto3" json:"target_era,omitempty"`
+	DelegateIndex uint32                    `protobuf:"varint,2,opt,name=delegate_index,json=delegateIndex,proto3" json:"delegate_index,omitempty"`
+	Delegates     []*EpochDrainDelegateWork `protobuf:"bytes,3,rep,name=delegates,proto3" json:"delegates,omitempty"`
+}
+
+func (x *EpochDrainCursor) Reset() {
+	*x = EpochDrainCursor{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rewarding_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *EpochDrainCursor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EpochDrainCursor) ProtoMessage() {}
+
+func (x *EpochDrainCursor) ProtoReflect() protoreflect.Message {
+	mi := &file_rewarding_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EpochDrainCursor.ProtoReflect.Descriptor instead.
+func (*EpochDrainCursor) Descriptor() ([]byte, []int) {
+	return file_rewarding_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *EpochDrainCursor) GetTargetEra() uint64 {
+	if x != nil {
+		return x.TargetEra
+	}
+	return 0
+}
+
+func (x *EpochDrainCursor) GetDelegateIndex() uint32 {
+	if x != nil {
+		return x.DelegateIndex
+	}
+	return 0
+}
+
+func (x *EpochDrainCursor) GetDelegates() []*EpochDrainDelegateWork {
+	if x != nil {
+		return x.Delegates
+	}
+	return nil
+}
+
 var File_rewarding_proto protoreflect.FileDescriptor
 
 var file_rewarding_proto_rawDesc = []byte{
@@ -597,12 +727,30 @@ var file_rewarding_proto_rawDesc = []byte{
 	0x04, 0x6c, 0x6f, 0x67, 0x73, 0x22, 0x30, 0x0a, 0x16, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67,
 	0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x52, 0x65, 0x77, 0x61, 0x72, 0x64, 0x50, 0x6f, 0x6f, 0x6c, 0x12,
 	0x16, 0x0a, 0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52,
-	0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x42, 0x4a, 0x5a, 0x48, 0x67, 0x69, 0x74, 0x68, 0x75,
-	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x70, 0x72, 0x6f, 0x6a, 0x65,
-	0x63, 0x74, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x2d, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x61, 0x63,
-	0x74, 0x69, 0x6f, 0x6e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x2f, 0x72, 0x65,
-	0x77, 0x61, 0x72, 0x64, 0x69, 0x6e, 0x67, 0x2f, 0x72, 0x65, 0x77, 0x61, 0x72, 0x64, 0x69, 0x6e,
-	0x67, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0x79, 0x0a, 0x16, 0x45, 0x70, 0x6f, 0x63, 0x68,
+	0x44, 0x72, 0x61, 0x69, 0x6e, 0x44, 0x65, 0x6c, 0x65, 0x67, 0x61, 0x74, 0x65, 0x57, 0x6f, 0x72,
+	0x6b, 0x12, 0x31, 0x0a, 0x14, 0x63, 0x61, 0x6e, 0x64, 0x69, 0x64, 0x61, 0x74, 0x65, 0x5f, 0x69,
+	0x64, 0x65, 0x6e, 0x74, 0x69, 0x66, 0x69, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52,
+	0x13, 0x63, 0x61, 0x6e, 0x64, 0x69, 0x64, 0x61, 0x74, 0x65, 0x49, 0x64, 0x65, 0x6e, 0x74, 0x69,
+	0x66, 0x69, 0x65, 0x72, 0x12, 0x2c, 0x0a, 0x12, 0x70, 0x6f, 0x6f, 0x6c, 0x5f, 0x61, 0x6d, 0x6f,
+	0x75, 0x6e, 0x74, 0x5f, 0x66, 0x72, 0x6f, 0x7a, 0x65, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c,
+	0x52, 0x10, 0x70, 0x6f, 0x6f, 0x6c, 0x41, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x46, 0x72, 0x6f, 0x7a,
+	0x65, 0x6e, 0x22, 0x9b, 0x01, 0x0a, 0x10, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x44, 0x72, 0x61, 0x69,
+	0x6e, 0x43, 0x75, 0x72, 0x73, 0x6f, 0x72, 0x12, 0x1d, 0x0a, 0x0a, 0x74, 0x61, 0x72, 0x67, 0x65,
+	0x74, 0x5f, 0x65, 0x72, 0x61, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x74, 0x61, 0x72,
+	0x67, 0x65, 0x74, 0x45, 0x72, 0x61, 0x12, 0x25, 0x0a, 0x0e, 0x64, 0x65, 0x6c, 0x65, 0x67, 0x61,
+	0x74, 0x65, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x0d,
+	0x64, 0x65, 0x6c, 0x65, 0x67, 0x61, 0x74, 0x65, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x41, 0x0a,
+	0x09, 0x64, 0x65, 0x6c, 0x65, 0x67, 0x61, 0x74, 0x65, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b,
+	0x32, 0x23, 0x2e, 0x72, 0x65, 0x77, 0x61, 0x72, 0x64, 0x69, 0x6e, 0x67, 0x70, 0x62, 0x2e, 0x45,
+	0x70, 0x6f, 0x63, 0x68, 0x44, 0x72, 0x61, 0x69, 0x6e, 0x44, 0x65, 0x6c, 0x65, 0x67, 0x61, 0x74,
+	0x65, 0x57, 0x6f, 0x72, 0x6b, 0x52, 0x09, 0x64, 0x65, 0x6c, 0x65, 0x67, 0x61, 0x74, 0x65, 0x73,
+	0x42, 0x4a, 0x5a, 0x48, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x69,
+	0x6f, 0x74, 0x65, 0x78, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x2f, 0x69, 0x6f, 0x74, 0x65,
+	0x78, 0x2d, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x2f, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x2f, 0x72, 0x65, 0x77, 0x61, 0x72, 0x64, 0x69, 0x6e, 0x67,
+	0x2f, 0x72, 0x65, 0x77, 0x61, 0x72, 0x64, 0x69, 0x6e, 0x67, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -618,7 +766,7 @@ func file_rewarding_proto_rawDescGZIP() []byte {
 }
 
 var file_rewarding_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_rewarding_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_rewarding_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_rewarding_proto_goTypes = []interface{}{
 	(RewardLog_RewardType)(0),      // 0: rewardingpb.RewardLog.RewardType
 	(*Admin)(nil),                  // 1: rewardingpb.Admin
@@ -629,15 +777,18 @@ var file_rewarding_proto_goTypes = []interface{}{
 	(*RewardLog)(nil),              // 6: rewardingpb.RewardLog
 	(*RewardLogs)(nil),             // 7: rewardingpb.RewardLogs
 	(*PendingBlockRewardPool)(nil), // 8: rewardingpb.PendingBlockRewardPool
+	(*EpochDrainDelegateWork)(nil), // 9: rewardingpb.EpochDrainDelegateWork
+	(*EpochDrainCursor)(nil),       // 10: rewardingpb.EpochDrainCursor
 }
 var file_rewarding_proto_depIdxs = []int32{
 	0, // 0: rewardingpb.RewardLog.type:type_name -> rewardingpb.RewardLog.RewardType
 	6, // 1: rewardingpb.RewardLogs.logs:type_name -> rewardingpb.RewardLog
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	9, // 2: rewardingpb.EpochDrainCursor.delegates:type_name -> rewardingpb.EpochDrainDelegateWork
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_rewarding_proto_init() }
@@ -742,6 +893,30 @@ func file_rewarding_proto_init() {
 				return nil
 			}
 		}
+		file_rewarding_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*EpochDrainDelegateWork); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_rewarding_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*EpochDrainCursor); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -749,7 +924,7 @@ func file_rewarding_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_rewarding_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
