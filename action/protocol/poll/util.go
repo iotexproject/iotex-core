@@ -229,6 +229,12 @@ func setCandidates(
 	return err
 }
 
+// TestOnlyDelegateProfileReaderFactory, when non-nil, overrides the
+// evm-backed DelegateProfile contract reader constructed in
+// freezeIIP59PollSnapshot. Production must never set this — e2e tests use
+// it to plant canned commission rates without deploying real bytecode.
+var TestOnlyDelegateProfileReaderFactory func(protocol.StateManager) delegateprofile.ContractReader
+
 // freezeIIP59PollSnapshot writes the per-candidate poll snapshot introduced
 // by IIP-59, capturing commission rates from the DelegateProfile contract
 // and the delegate's opt-in flag from the live staking.Candidate.
@@ -255,7 +261,11 @@ func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, cand
 			return errors.Wrap(err, "invalid DelegateProfile contract address")
 		}
 		bridge = b
-		reader = delegateProfileContractReader(sm)
+		if TestOnlyDelegateProfileReaderFactory != nil {
+			reader = TestOnlyDelegateProfileReaderFactory(sm)
+		} else {
+			reader = delegateProfileContractReader(sm)
+		}
 	}
 	return staking.FreezePollSnapshot(ctx, sm, candidates, bridge, reader)
 }

@@ -727,6 +727,13 @@ func (builder *Builder) registerStakingProtocol() error {
 	return stakingProtocol.Register(builder.cs.registry)
 }
 
+// TestOnlyRewardingOptions, when non-nil, is appended to the option list
+// passed to rewarding.NewProtocol during chainservice registration. It is
+// the injection seam used by e2e tests that need to swap the AutoDeposit
+// bridge or ContractReader for a mock in place of the EVM-backed default.
+// Production must never set this — the empty slice is what ships.
+var TestOnlyRewardingOptions []rewarding.Option
+
 func (builder *Builder) registerRewardingProtocol() error {
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
 	opts := []rewarding.Option{}
@@ -737,6 +744,7 @@ func (builder *Builder) registerRewardingProtocol() error {
 		}
 		opts = append(opts, rewarding.WithAutoDepositBridge(bridge))
 	}
+	opts = append(opts, TestOnlyRewardingOptions...)
 	return rewarding.NewProtocol(builder.cfg.Genesis.Rewarding, opts...).Register(builder.cs.registry)
 }
 
