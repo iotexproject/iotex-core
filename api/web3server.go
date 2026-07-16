@@ -90,9 +90,11 @@ var (
 	errHTTPNotSupported  = errors.New("http not supported")
 	errPanic             = errors.New("panic")
 
-	_pendingBlockNumber  = "pending"
-	_latestBlockNumber   = "latest"
-	_earliestBlockNumber = "earliest"
+	_pendingBlockNumber   = "pending"
+	_latestBlockNumber    = "latest"
+	_earliestBlockNumber  = "earliest"
+	_safeBlockNumber      = "safe"
+	_finalizedBlockNumber = "finalized"
 )
 
 func init() {
@@ -349,7 +351,10 @@ func (svr *web3Handler) feeHistory(ctx context.Context, in *gjson.Result) (inter
 	if !blkCnt.Exists() || !newestBlk.Exists() {
 		return nil, errInvalidFormat
 	}
-	blocks, err := strconv.ParseUint(blkCnt.String(), 10, 64)
+	// blockCount is a hex quantity per the eth_feeHistory spec (e.g. "0x5"); parse
+	// it as hex. hexStringToNumber tolerates values without the 0x prefix, so bare
+	// decimal-looking inputs (0x0-0x9) remain backward compatible.
+	blocks, err := hexStringToNumber(blkCnt.String())
 	if err != nil {
 		return nil, err
 	}

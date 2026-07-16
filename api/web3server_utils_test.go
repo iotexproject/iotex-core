@@ -176,4 +176,16 @@ func TestParseBlockNumber(t *testing.T) {
 		num, _ := web3svr.parseBlockNumber("")
 		require.Equal(num, uint64(0x1))
 	})
+
+	t.Run("safe block number", func(t *testing.T) {
+		core.EXPECT().TipHeight().Return(uint64(0x1))
+		num, _ := web3svr.parseBlockNumber("safe")
+		require.Equal(num, uint64(0x1))
+	})
+
+	t.Run("finalized block number", func(t *testing.T) {
+		core.EXPECT().TipHeight().Return(uint64(0x1))
+		num, _ := web3svr.parseBlockNumber("finalized")
+		require.Equal(num, uint64(0x1))
+	})
 }

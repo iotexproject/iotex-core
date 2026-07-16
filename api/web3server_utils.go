@@ -162,7 +162,9 @@ func (svr *web3Handler) parseBlockNumber(str string) (uint64, error) {
 	switch str {
 	case _earliestBlockNumber:
 		return 1, nil
-	case "", _pendingBlockNumber, _latestBlockNumber:
+	case "", _pendingBlockNumber, _latestBlockNumber, _safeBlockNumber, _finalizedBlockNumber:
+		// Roll-DPoS gives deterministic instant finality, so the committed tip is
+		// already irreversible: safe and finalized both resolve to the latest block.
 		return svr.coreService.TipHeight(), nil
 	default:
 		return hexStringToNumber(str)
