@@ -61,3 +61,26 @@ message RewardLogs {
 message PendingBlockRewardPool {
     bytes amount = 1;
 }
+
+// EpochDrainDelegateWork is one frozen per-delegate work item captured
+// at the era boundary: the delegate identifier plus the pool balance to
+// drain. Chunks in later blocks read this frozen record so the credit
+// path is stable even if PendingBlockRewardPool for the same delegate
+// keeps accruing new epoch rewards behind the drain.
+message EpochDrainDelegateWork {
+    bytes candidate_identifier = 1;
+    bytes pool_amount_frozen   = 2;
+}
+
+// EpochDrainCursor checkpoints a multi-block IIP-59 era-boundary drain
+// of PendingBlockRewardPool balances into voter accounts. TargetEra is
+// the era ID being drained; DelegateIndex is the resume position in
+// the frozen Delegates slice. Cursor presence in the
+// RewardingNamespace signals a drain is in progress and the
+// system-action layer must emit a continuation grant on the next
+// block. Absence = no drain in progress.
+message EpochDrainCursor {
+    uint64 target_era     = 1;
+    uint32 delegate_index = 2;
+    repeated EpochDrainDelegateWork delegates = 3;
+}
