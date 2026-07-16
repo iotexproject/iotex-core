@@ -458,3 +458,14 @@ func GetVMConfigCtx(ctx context.Context) (vm.Config, bool) {
 	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
 	return cfg, ok
 }
+
+// IsEraBoundary reports whether the given epoch number falls on an IIP-59 voter reward era boundary.
+// An era boundary is any epoch where epochNum%epochsPerEra == 0. Epoch 0 is never a boundary because
+// the genesis pre-epoch has no rewards to distribute; the first live boundary is at epoch epochsPerEra.
+// epochsPerEra == 0 disables era boundaries entirely (used by tests that opt out of the era cadence).
+func IsEraBoundary(epochNum, epochsPerEra uint64) bool {
+	if epochsPerEra == 0 || epochNum == 0 {
+		return false
+	}
+	return epochNum%epochsPerEra == 0
+}

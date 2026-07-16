@@ -163,6 +163,9 @@ func defaultConfig() Genesis {
 			FoundationBonusP2EndEpoch:      18458,
 			ProductivityThreshold:          85,
 			WakeBlockRewardStr:             "4000000000000000000",
+			EpochsPerRewardEra:             24,
+			VoterBudgetPerBlock:            2000,
+			CompoundBatchSize:              500,
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
@@ -505,6 +508,16 @@ type (
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
 		// WakeBlockRewardStr is the block reward amount, in decimal string format, effective from the Wake height
 		WakeBlockRewardStr string `yaml:"wakeBlockRewardStr"`
+		// EpochsPerRewardEra is the number of epochs per IIP-59 voter reward era. Era boundaries are epochs where
+		// epochNum%EpochsPerRewardEra==0. Only consulted when the IIP-59 voter reward distribution feature is active.
+		EpochsPerRewardEra uint64 `yaml:"epochsPerRewardEra"`
+		// VoterBudgetPerBlock is the maximum number of voters credited per block during the era-boundary chunked
+		// credit path (IIP-59 Phase 2). 0 falls back to a single-block drain, preserving pre-IIP-59 behavior for
+		// tests that never touch the field.
+		VoterBudgetPerBlock uint64 `yaml:"voterBudgetPerBlock"`
+		// CompoundBatchSize is the maximum number of voters processed per block by the Phase 3 background compound
+		// sweep. 0 disables the sweep (voters compound lazily at Claim time only).
+		CompoundBatchSize uint64 `yaml:"compoundBatchSize"`
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {
