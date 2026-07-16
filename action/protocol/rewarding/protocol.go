@@ -211,14 +211,30 @@ func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.
 }
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
-func (p *Protocol) CreatePostSystemActions(ctx context.Context, _ protocol.StateReader) ([]action.Envelope, error) {
+func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	grants := []action.Envelope{createGrantRewardAction(action.BlockReward, blkCtx.BlockHeight)}
 	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
-	if rp != nil && blkCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(blkCtx.BlockHeight)) {
+	epochLast := rp != nil && blkCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(blkCtx.BlockHeight))
+	if epochLast {
 		grants = append(grants, createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight))
+		return grants, nil
 	}
-
+	// IIP-59 continuation dispatch: an in-progress chunked epoch drain
+	// (cursor present in the RewardingNamespace) needs an EpochReward
+	// grant emitted on every non-epoch-boundary block until the drain
+	// completes and GrantEpochReward's coda deletes the cursor. Cursor
+	// is only ever written on the fork-on path, so pre-fork blocks skip
+	// the read entirely (state is empty).
+	if !protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+		cursor, err := p.readEpochDrainCursor(ctx, sr)
+		if err != nil {
+			return nil, err
+		}
+		if cursor != nil {
+			grants = append(grants, createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight))
+		}
+	}
 	return grants, nil
 }
 
