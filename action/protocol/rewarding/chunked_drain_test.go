@@ -187,3 +187,47 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 		r.Equal(int64(42), got.Delegates[0].PoolAmountFrozen.Int64())
 	}, nil, false, 0)
 }
+
+// TestGrantEpochReward_PostForkOnlyPhaseA locks the C2.1 semantic split:
+// post-fork, GrantEpochReward runs slashing + freeze only. It must
+// persist the cursor for GrantVoterRewardChunk to consume on subsequent
+// blocks and must NOT write the sentinel or delete the cursor — those
+// are Phase C responsibilities that now live entirely inside
+// GrantVoterRewardChunk.
+func TestGrantEpochReward_PostForkOnlyPhaseA(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		// Flip the fork gate on so the post-fork branch runs.
+		g := genesis.MustExtractGenesisContext(ctx)
+		g.ToBeEnabledBlockHeight = 1
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithFeatureCtx(ctx)
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
+
+		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		sp := &staking.Protocol{}
+		r.NoError(sp.Register(protocol.MustGetRegistry(ctx)))
+		patches.ApplyMethodReturn(sp, "SlashCandidateByOperator", nil)
+		patches.ApplyMethodReturn(sp, "SlashCandidateByID", nil)
+
+		_, _, err = p.GrantEpochReward(ctx, sm)
+		r.NoError(err)
+
+		// Cursor must exist — this is the handoff to GrantVoterRewardChunk.
+		got, err := p.readEpochDrainCursor(ctx, sm)
+		r.NoError(err)
+		r.NotNil(got, "post-fork Phase A must persist the cursor")
+		r.Equal(uint64(1), got.TargetEra)
+		r.Equal(uint32(0), got.DelegateIndex,
+			"Phase A must not advance the cursor (distribution deferred)")
+
+		// Sentinel must NOT be written yet — that's Phase C, which runs
+		// on the last GrantVoterRewardChunk, not here.
+		r.NoError(p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, 1),
+			"post-fork Phase A must not write the epoch reward sentinel")
+	}, nil, false, 0)
+}

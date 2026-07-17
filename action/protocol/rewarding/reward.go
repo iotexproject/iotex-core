@@ -274,15 +274,19 @@ func (p *Protocol) GrantBlockReward(
 	}, nil
 }
 
-// GrantEpochReward grants the epoch reward for the epoch ending on the
-// current block. This is the Phase A entry: it runs slash-unproductive,
-// freezes the per-delegate work list into an epochDrainCursor, and
-// distributes the first chunk. If the drain fits in one block (fork off
-// or delegate count <= CompoundBatchSize) the same call also runs the
-// coda (orphan drain, foundation bonus, sentinel, cursor delete).
-// Otherwise CreatePostSystemActions will emit VoterRewardChunk grants on
-// subsequent blocks, each routed through GrantVoterRewardChunk, until
-// the drain completes.
+// GrantEpochReward runs the IIP-59 era-boundary work — Phase A only.
+// It slashes unproductive delegates, freezes the delegate work list
+// into an epochDrainCursor, and (post-fork) persists the cursor. Voter
+// reward distribution (Phase B chunks + Phase C coda: orphan drain,
+// foundation bonus, sentinel, cursor delete) is deferred entirely to
+// GrantVoterRewardChunk on subsequent non-boundary blocks. This
+// handler's receipt therefore carries only Phase A logs (slashing);
+// distribution logs land on the continuation-block receipts.
+//
+// Pre-fork (NoVoterRewardDistribution=true) is the legacy single-block
+// path: slashing + distribution + orphan drain + foundation bonus +
+// sentinel all land in this same receipt. runVoterDistributionChunk
+// with chunkSize=0 collapses to that shape.
 //
 // This handler is only ever dispatched on the epoch-last block. A live
 // cursor at entry means corrupt state (a previous drain's coda failed
@@ -360,6 +364,22 @@ func (p *Protocol) GrantEpochReward(
 		return nil, nil, err
 	}
 
+	if !featureCtx.NoVoterRewardDistribution {
+		// Post-fork: persist the cursor and apply this block's slashing
+		// delta. Distribution + coda are deferred to GrantVoterRewardChunk
+		// on the next non-boundary block. This receipt carries only
+		// Phase A output.
+		if err := p.writeEpochDrainCursor(ctx, sm, cursor); err != nil {
+			return nil, nil, err
+		}
+		if err := p.updateAvailableBalance(ctx, sm, actualTotalReward); err != nil {
+			return nil, nil, err
+		}
+		return transactionLogs, rewardLogs, nil
+	}
+
+	// Pre-fork legacy: single-block loop + inline coda. chunkSize=0
+	// short-circuits runVoterDistributionChunk into the whole-list path.
 	return p.runVoterDistributionChunk(
 		ctx, sm, cursor, a, exemptAddrs, candidates,
 		rewardedCandidates, addrs, amounts, epochNum,
