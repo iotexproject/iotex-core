@@ -259,6 +259,11 @@ func installIIP59PerfHooks(t *testing.T, tier perfTier, g genesis.Genesis) {
 		VoterStake:              unit.ConvertIotxToRau(1_000),
 		VoterStakedDurationDays: 30,
 		VoteWeightCalConsts:     g.Staking.VoteWeightCalConsts,
+		// Match the mock DelegateProfile reader below: raw payload = 1000 bp
+		// (voter portion) → commission = 10000 - 1000 = 9000 bp for both
+		// block-side and epoch-side streams.
+		BlockCommissionBasisPoints: 9000,
+		EpochCommissionBasisPoints: 9000,
 	}
 	staking.TestOnlyGenesisStateSeeder = func(ctx context.Context, csm staking.CandidateStateManager) error {
 		_, err := staking.TestOnlySeedPerfBenchState(ctx, csm, spec)

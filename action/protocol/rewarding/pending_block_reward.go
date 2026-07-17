@@ -167,6 +167,40 @@ func (p *Protocol) deletePendingBlockRewardPool(
 	return p.removePendingBlockRewardPoolIndex(ctx, sm, candID)
 }
 
+// decrementPendingBlockRewardPool subtracts amount from the delegate's
+// pool balance. If the resulting balance is zero, the entry (and its
+// enumeration index membership) is deleted; otherwise the reduced
+// balance is persisted. Used by Phase B chunk drain so any voter-side
+// balance that accrued after the era-boundary freeze is preserved for
+// the next era's cursor. Amount larger than the current balance is
+// clamped to the balance (guards against arithmetic slippage).
+func (p *Protocol) decrementPendingBlockRewardPool(
+	ctx context.Context,
+	sm protocol.StateManager,
+	candID []byte,
+	amount *big.Int,
+) error {
+	if amount == nil || amount.Sign() <= 0 {
+		return nil
+	}
+	entry := pendingBlockRewardPool{}
+	key := pendingBlockRewardPoolKey(candID)
+	if _, err := p.state(ctx, sm, key, &entry); err != nil {
+		if errors.Is(err, state.ErrStateNotExist) {
+			return nil
+		}
+		return err
+	}
+	if entry.amount == nil {
+		entry.amount = new(big.Int)
+	}
+	if entry.amount.Cmp(amount) <= 0 {
+		return p.deletePendingBlockRewardPool(ctx, sm, candID)
+	}
+	entry.amount = new(big.Int).Sub(entry.amount, amount)
+	return p.putState(ctx, sm, key, &entry)
+}
+
 // readPendingBlockRewardPoolIndex returns the deterministic list of
 // candidate identifier byte-slices that currently hold a pool balance.
 // Returns an empty slice for a missing index (no entries exist yet).

@@ -33,10 +33,18 @@ func enableIIP59(t *testing.T, ctx context.Context) context.Context {
 	return ctx
 }
 
-// seedChunkCursor loads the same epoch-scoped inputs GrantVoterRewardChunk
-// will re-derive, builds a cursor whose length matches the epoch's
-// rewardedCandidates slice, sets DelegateIndex to startIdx, and persists
-// it. Returns the cursor for the test to assert against.
+// seedChunkCursor loads the same epoch-scoped rewarded-candidate list
+// GrantVoterRewardChunk will re-derive and builds a cursor with one
+// entry per candidate (frozen voter amount = 1 rau to exercise the
+// drain loop without seeding real snapshots). Sets DelegateIndex to
+// startIdx and persists it. Returns the cursor for the test to assert
+// against.
+//
+// Post-C3, real cursor entries are compacted (opted-in delegates
+// only) and their frozen amount is the sum of pool accrual + epoch
+// voter share. These tests care about chunking flow control, not
+// distribution correctness, so the entry list is synthesised
+// directly rather than driven through a snapshot fixture.
 func seedChunkCursor(
 	t *testing.T,
 	ctx context.Context,
@@ -49,9 +57,23 @@ func seedChunkCursor(
 	r := require.New(t)
 	_, _, _, _, rewardedCandidates, _, _, err := p.loadEpochDistributionInputs(ctx, sm, epochNum)
 	r.NoError(err)
-	cursor, err := p.buildEpochDrainCursor(ctx, sm, epochNum, rewardedCandidates)
-	r.NoError(err)
-	cursor.DelegateIndex = startIdx
+	entries := make([]epochDrainDelegateWork, 0, len(rewardedCandidates))
+	for _, cand := range rewardedCandidates {
+		if cand == nil {
+			continue
+		}
+		candID, cErr := candidateIdentifierBytes(cand.Address)
+		r.NoError(cErr)
+		entries = append(entries, epochDrainDelegateWork{
+			CandidateIdentifier: candID,
+			VoterAmountFrozen:   big.NewInt(1),
+		})
+	}
+	cursor := &epochDrainCursor{
+		TargetEra:     epochNum,
+		DelegateIndex: startIdx,
+		Delegates:     entries,
+	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, cursor))
 	return cursor
 }
@@ -99,9 +121,11 @@ func TestGrantVoterRewardChunk_HappyPath(t *testing.T) {
 }
 
 // TestGrantVoterRewardChunk_LastChunkRunsCoda verifies the terminal
-// chunk runs Phase C: sentinel written for cursor.TargetEra and cursor
-// deleted. Seeded state: cursor with DelegateIndex advanced so this run
-// consumes only the tail slice.
+// chunk runs the post-C3 coda: orphan sweep + cursor delete. The
+// epoch sentinel is Phase A's responsibility (written by
+// GrantEpochReward) and is NOT touched by the chunk anymore. Seeded
+// state: cursor with DelegateIndex advanced so this run consumes only
+// the tail slice.
 func TestGrantVoterRewardChunk_LastChunkRunsCoda(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
@@ -128,12 +152,6 @@ func TestGrantVoterRewardChunk_LastChunkRunsCoda(t *testing.T) {
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
 		r.Nil(got, "terminal chunk must delete the cursor")
-
-		// Sentinel for the ORIGINAL epoch (cursor.TargetEra=1) must be
-		// present. A second grant attempt against epoch 1 must now fail
-		// with the idempotency guard.
-		r.Error(p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, 1),
-			"terminal chunk must write epoch reward sentinel")
 	}, nil, false, 0)
 }
 
@@ -174,12 +192,10 @@ func TestGrantVoterRewardChunk_CrossEraContinuation(t *testing.T) {
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
 
-		// Sentinel is keyed by cursor.TargetEra (=1), NOT by the current
-		// block's epoch. A cross-era bug would either misplace the
-		// sentinel or corrupt state; verify epoch 1's sentinel landed.
-		err = p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, 1)
-		r.Error(err, "sentinel must land under cursor.TargetEra (epoch 1)")
-
+		// Post-C3 the chunk's coda no longer writes a sentinel — that
+		// moved back to GrantEpochReward. The invariant this test
+		// still guards is that a cross-era continuation completes
+		// without corrupting cursor state.
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
 		r.Nil(got, "terminal chunk must delete the cursor")
@@ -247,7 +263,7 @@ func TestGrantVoterRewardChunk_PreForkRejects(t *testing.T) {
 			TargetEra:     1,
 			DelegateIndex: 0,
 			Delegates: []epochDrainDelegateWork{
-				{CandidateIdentifier: identityset.Address(27).Bytes(), PoolAmountFrozen: big.NewInt(1)},
+				{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(1)},
 			},
 		}
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, injected))
