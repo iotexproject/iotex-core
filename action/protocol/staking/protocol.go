@@ -382,12 +382,20 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 	return c, nil
 }
 
+// TestOnlyGenesisStateSeeder, when non-nil, is invoked from
+// CreateGenesisStates AFTER the BootstrapCandidates loop and BEFORE the
+// final Commit. It lets e2e tests plant additional candidates + voter
+// buckets directly in the same genesis transaction, avoiding the
+// action-pool bottleneck at mainnet-scale voter counts. Production must
+// never set this.
+var TestOnlyGenesisStateSeeder func(ctx context.Context, csm CandidateStateManager) error
+
 // CreateGenesisStates is used to setup BootstrapCandidates from genesis config.
 func (p *Protocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) error {
-	if len(p.config.BootstrapCandidates) == 0 {
+	if len(p.config.BootstrapCandidates) == 0 && TestOnlyGenesisStateSeeder == nil {
 		return nil
 	}
 	// TODO: set init values based on ctx
@@ -437,6 +445,12 @@ func (p *Protocol) CreateGenesisStates(
 		}
 		if err := csm.DebitBucketPool(selfStake, true); err != nil {
 			return err
+		}
+	}
+
+	if TestOnlyGenesisStateSeeder != nil {
+		if err := TestOnlyGenesisStateSeeder(ctx, csm); err != nil {
+			return errors.Wrap(err, "test-only genesis seeder failed")
 		}
 	}
 
