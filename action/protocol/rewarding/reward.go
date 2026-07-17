@@ -367,7 +367,12 @@ func (p *Protocol) GrantEpochReward(
 		)
 	}
 
-	// Post-fork Phase A: freeze the delegate work list into a cursor.
+	// Post-fork Phase A: freeze the delegate work list into a cursor,
+	// then per-delegate: (a) IIP-59 path — grant commission to the reward
+	// address, leaving voter pool distribution to Phase B; (b) fallback
+	// path (opted out / not registered / no snapshot / nil reward addr) —
+	// pay the full amount here via legacy grantToAccount and drain the
+	// pool entry so Phase B has nothing to do for this delegate.
 	// GrantBlockReward may keep crediting the pool after this point, but
 	// the frozen snapshot pins the distribution basis so chunks stay
 	// consistent across blocks.
@@ -375,6 +380,14 @@ func (p *Protocol) GrantEpochReward(
 	if err != nil {
 		return nil, nil, err
 	}
+	phaseALogs, phaseADebit, err := p.runPhaseADelegateGrants(
+		ctx, sm, cursor, rewardedCandidates, addrs, amounts,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	rewardLogs = append(rewardLogs, phaseALogs...)
+	actualTotalReward = new(big.Int).Add(actualTotalReward, phaseADebit)
 	if err := p.writeEpochDrainCursor(ctx, sm, cursor); err != nil {
 		return nil, nil, err
 	}
@@ -382,6 +395,118 @@ func (p *Protocol) GrantEpochReward(
 		return nil, nil, err
 	}
 	return transactionLogs, rewardLogs, nil
+}
+
+// runPhaseADelegateGrants performs the per-delegate Phase A grants inside
+// the post-fork branch of GrantEpochReward. For each rewarded candidate
+// with a live reward address it either (a) IIP-59 path — grants
+// totalCommission to the reward address, leaving voter pool distribution
+// to Phase B (VoterRewardChunk), or (b) fallback path — pays the full
+// pool + epoch amount to the reward address via legacy grantToAccount and
+// drains the pool entry. Returns the emitted reward logs and the
+// unclaimed-balance debit accumulated across delegates (block-pool
+// amounts already came out of unclaimed at GrantBlockReward time, so the
+// debit only accumulates the epoch-stream portion of each grant).
+func (p *Protocol) runPhaseADelegateGrants(
+	ctx context.Context,
+	sm protocol.StateManager,
+	cursor *epochDrainCursor,
+	rewardedCandidates []*state.Candidate,
+	addrs []address.Address,
+	amounts []*big.Int,
+) ([]*action.Log, *big.Int, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+
+	rewardLogs := make([]*action.Log, 0)
+	debit := new(big.Int)
+
+	for i, cand := range rewardedCandidates {
+		if cand == nil {
+			continue
+		}
+		poolAmt := cursor.Delegates[i].PoolAmountFrozen
+		if poolAmt == nil {
+			poolAmt = new(big.Int)
+		}
+		epochAmt := amounts[i]
+		if epochAmt == nil {
+			epochAmt = new(big.Int)
+		}
+		if addrs[i] == nil {
+			// No reward address: leave the pool entry alone. Phase C's
+			// orphan-drain sweep will route it to the delegate's live
+			// reward address or refund unclaimedBalance.
+			continue
+		}
+		if poolAmt.Sign() == 0 && epochAmt.Sign() == 0 {
+			continue
+		}
+
+		alloc, err := p.prepareDelegateAllocation(ctx, sm, cand, addrs[i], poolAmt, epochAmt)
+		if err != nil {
+			return nil, nil, err
+		}
+		if alloc == nil {
+			// Fallback (opt-out / no snapshot / unregistered): full
+			// legacy pay + drain pool. Mirrors the pre-C2.1 Phase B
+			// legacy branch, moved forward so VoterRewardChunk stays
+			// voter-only.
+			candBytes := cursor.Delegates[i].CandidateIdentifier
+			if poolAmt.Sign() > 0 {
+				if err := p.grantToAccount(ctx, sm, addrs[i], poolAmt); err != nil {
+					return nil, nil, err
+				}
+				if err := p.deletePendingBlockRewardPool(ctx, sm, candBytes); err != nil {
+					return nil, nil, err
+				}
+				data, err := p.encodeRewardLog(rewardingpb.RewardLog_BLOCK_REWARD, addrs[i].String(), poolAmt)
+				if err != nil {
+					return nil, nil, err
+				}
+				rewardLogs = append(rewardLogs, &action.Log{
+					Address:     p.addr.String(),
+					Topics:      nil,
+					Data:        data,
+					BlockHeight: blkCtx.BlockHeight,
+					ActionHash:  actionCtx.ActionHash,
+				})
+			}
+			if epochAmt.Sign() > 0 {
+				if err := p.grantToAccount(ctx, sm, addrs[i], epochAmt); err != nil {
+					return nil, nil, err
+				}
+				data, err := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, addrs[i].String(), epochAmt)
+				if err != nil {
+					return nil, nil, err
+				}
+				rewardLogs = append(rewardLogs, &action.Log{
+					Address:     p.addr.String(),
+					Topics:      nil,
+					Data:        data,
+					BlockHeight: blkCtx.BlockHeight,
+					ActionHash:  actionCtx.ActionHash,
+				})
+				debit = new(big.Int).Add(debit, epochAmt)
+			}
+			continue
+		}
+
+		// IIP-59 path: grant commission only. Voter pool distribution
+		// (and the DelegateDistributed log) run in Phase B on the
+		// continuation VoterRewardChunk block(s). The empty-voter
+		// fallback surfaces here as totalCommission == poolAmt+epochAmt
+		// with voterPool == 0, so Phase A grants everything and Phase B
+		// still emits an attestation log with zero voter shares.
+		if alloc.totalCommission.Sign() > 0 {
+			if err := p.grantToAccount(ctx, sm, addrs[i], alloc.totalCommission); err != nil {
+				return nil, nil, errors.Wrapf(err,
+					"rewarding: credit commission to %s failed", addrs[i].String())
+			}
+			debit = new(big.Int).Add(debit, alloc.epochCommission)
+		}
+	}
+	return rewardLogs, debit, nil
 }
 
 // grantLegacyEpochReward runs the pre-IIP-59 single-block epoch grant:
@@ -644,69 +769,34 @@ func (p *Protocol) runVoterDistributionChunk(
 		if poolAmt.Sign() == 0 && epochAmt.Sign() == 0 {
 			continue
 		}
-		// IIP-59: opt-in delegates take the batched on-chain distribution
-		// path with both streams folded. distributeCombinedReward returns
-		// handled=false to fall through to the legacy grantToAccount path
-		// when the fork is off, the delegate opted out, or no poll
-		// snapshot exists.
-		iip59Logs, handled, err := p.distributeCombinedReward(
-			ctx, sm, cand, addrs[i], poolAmt, epochAmt,
+		// Phase B (voter-only). Commission was already granted in Phase A
+		// (GrantEpochReward). Fallback delegates (opt-out, no snapshot,
+		// unregistered, etc.) had their full amount paid in Phase A too
+		// — for those, prepareDelegateAllocation returns nil and this
+		// chunk simply skips.
+		alloc, err := p.prepareDelegateAllocation(ctx, sm, cand, addrs[i], poolAmt, epochAmt)
+		if err != nil {
+			return nil, nil, err
+		}
+		if alloc == nil {
+			continue
+		}
+		iip59Logs, err := p.distributeVoterFromAllocation(
+			ctx, sm, cand, addrs[i], alloc,
 			blkCtx.BlockHeight, actionCtx.ActionHash,
 		)
 		if err != nil {
 			return nil, nil, err
 		}
-		if handled {
-			rewardLogs = append(rewardLogs, iip59Logs...)
-			actualTotalReward = new(big.Int).Add(actualTotalReward, epochAmt)
-			if poolAmt.Sign() > 0 {
-				if err := p.deletePendingBlockRewardPool(ctx, sm, candBytes); err != nil {
-					return nil, nil, err
-				}
-			}
-			continue
-		}
-		// Legacy path. If poolAmt > 0 the delegate opted out (or lost
-		// DelegateProfile registration) mid-epoch; refund the pool balance
-		// to the reward address via the same legacy grant so no funds
-		// are stranded, then drop the pool entry.
+		rewardLogs = append(rewardLogs, iip59Logs...)
+		// Phase B unclaimed-balance debit = epoch voter pool. Phase A
+		// already debited epochCommission for this delegate.
+		actualTotalReward = new(big.Int).Add(actualTotalReward, alloc.epochVoterPool)
 		if poolAmt.Sign() > 0 {
-			if err := p.grantToAccount(ctx, sm, addrs[i], poolAmt); err != nil {
-				return nil, nil, err
-			}
 			if err := p.deletePendingBlockRewardPool(ctx, sm, candBytes); err != nil {
 				return nil, nil, err
 			}
-			data, err := p.encodeRewardLog(rewardingpb.RewardLog_BLOCK_REWARD, addrs[i].String(), poolAmt)
-			if err != nil {
-				return nil, nil, err
-			}
-			rewardLogs = append(rewardLogs, &action.Log{
-				Address:     p.addr.String(),
-				Topics:      nil,
-				Data:        data,
-				BlockHeight: blkCtx.BlockHeight,
-				ActionHash:  actionCtx.ActionHash,
-			})
 		}
-		if epochAmt.Sign() == 0 {
-			continue
-		}
-		if err := p.grantToAccount(ctx, sm, addrs[i], epochAmt); err != nil {
-			return nil, nil, err
-		}
-		data, err := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, addrs[i].String(), epochAmt)
-		if err != nil {
-			return nil, nil, err
-		}
-		rewardLogs = append(rewardLogs, &action.Log{
-			Address:     p.addr.String(),
-			Topics:      nil,
-			Data:        data,
-			BlockHeight: blkCtx.BlockHeight,
-			ActionHash:  actionCtx.ActionHash,
-		})
-		actualTotalReward = new(big.Int).Add(actualTotalReward, epochAmt)
 	}
 
 	if endIdx < uint32(len(cursor.Delegates)) {
