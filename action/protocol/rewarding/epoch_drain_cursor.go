@@ -131,3 +131,18 @@ func (p *Protocol) deleteEpochDrainCursor(
 ) error {
 	return p.deleteState(ctx, sm, state.EpochDrainCursorKey, &epochDrainCursor{})
 }
+
+// TestOnlyEpochDrainSnapshot returns the live cursor's delegateIndex,
+// total delegate count, and target era, or zero values with present=false
+// when no drain is in progress. Used by the e2e perf bench to watch the
+// drain advance chunk by chunk. Production callers must not depend on this.
+func (p *Protocol) TestOnlyEpochDrainSnapshot(
+	ctx context.Context,
+	sm protocol.StateReader,
+) (delegateIndex uint32, totalDelegates uint32, targetEra uint64, present bool, err error) {
+	c, err := p.readEpochDrainCursor(ctx, sm)
+	if err != nil || c == nil {
+		return 0, 0, 0, false, err
+	}
+	return c.DelegateIndex, uint32(len(c.Delegates)), c.TargetEra, true, nil
+}
