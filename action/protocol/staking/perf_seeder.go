@@ -6,10 +6,12 @@
 package staking
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
 	"math/big"
+	"sort"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -41,6 +43,15 @@ type TestOnlyPerfBenchSpec struct {
 	// VoteWeightCalConsts controls per-bucket vote weight — pass the
 	// active genesis's copy so weight math matches production.
 	VoteWeightCalConsts genesis.VoteWeightCalConsts
+	// BlockCommissionBasisPoints is the frozen block-side commission rate
+	// planted into each candidate's CandidatePollSnapshot. Downstream
+	// GrantBlockReward reads this to split the base reward at block time.
+	// Left at zero, the harness would route the full block reward straight
+	// into the voter pool; that's rarely what a bench wants.
+	BlockCommissionBasisPoints uint64
+	// EpochCommissionBasisPoints is the frozen epoch-side commission rate
+	// planted into each candidate's CandidatePollSnapshot.
+	EpochCommissionBasisPoints uint64
 }
 
 // TestOnlySeedPerfBenchState plants NumDelegates opted-in candidates with
@@ -78,6 +89,7 @@ func TestOnlySeedPerfBenchState(
 	ts := blkCtx.BlockTimeStamp
 
 	delegates := make([]address.Address, spec.NumDelegates)
+	perDelegateVoters := make([][]VoterWeight, spec.NumDelegates)
 	for i := 0; i < spec.NumDelegates; i++ {
 		delAddr := perfBenchAddress(uint64(i) + 1)
 		selfBkt := NewVoteBucket(delAddr, delAddr, new(big.Int).Set(spec.DelegateSelfStake), 91, ts, true)
@@ -106,7 +118,8 @@ func TestOnlySeedPerfBenchState(
 
 	for j := 0; j < spec.NumVoters; j++ {
 		voter := perfBenchAddress(uint64(j) + perfBenchVoterSeedBase)
-		delAddr := delegates[j%spec.NumDelegates]
+		delIdx := j % spec.NumDelegates
+		delAddr := delegates[delIdx]
 		bkt := NewVoteBucket(delAddr, voter, new(big.Int).Set(spec.VoterStake), spec.VoterStakedDurationDays, ts, true)
 		if _, err := csm.putBucketAndIndex(bkt); err != nil {
 			return nil, errors.Wrapf(err, "put voter bucket %d", j)
@@ -122,6 +135,37 @@ func TestOnlySeedPerfBenchState(
 		}
 		if err := csm.DebitBucketPool(spec.VoterStake, false); err != nil {
 			return nil, errors.Wrapf(err, "debit bucket pool for voter %d", j)
+		}
+		perDelegateVoters[delIdx] = append(perDelegateVoters[delIdx], VoterWeight{
+			Voter:  voter,
+			Weight: new(big.Int).Set(w),
+		})
+	}
+
+	// Plant a frozen CandidatePollSnapshot per delegate. Production writes
+	// this from PutPollResult via freezeIIP59PollSnapshot; the perf harness
+	// runs on the LifeLong poll protocol, which never emits PutPollResult,
+	// so the freeze would otherwise never happen and downstream rewarding
+	// would land in the Registered=false fallback on every delegate.
+	sm := csm.SM()
+	for i, delAddr := range delegates {
+		entries := perDelegateVoters[i]
+		sort.Slice(entries, func(a, b int) bool {
+			return bytes.Compare(entries[a].Voter.Bytes(), entries[b].Voter.Bytes()) < 0
+		})
+		snap := &CandidatePollSnapshot{
+			BlockCommissionBasisPoints: spec.BlockCommissionBasisPoints,
+			EpochCommissionBasisPoints: spec.EpochCommissionBasisPoints,
+			Registered:                 true,
+			VoterRewardOnchainOptIn:    true,
+			Entries:                    entries,
+		}
+		if _, err := sm.PutState(
+			snap.toBlob(),
+			protocol.NamespaceOption(_stakingNameSpace),
+			protocol.KeyOption(candidatePollSnapshotKey(delAddr)),
+		); err != nil {
+			return nil, errors.Wrapf(err, "plant poll snapshot for delegate %d", i)
 		}
 	}
 	return delegates, nil

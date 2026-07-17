@@ -18,13 +18,15 @@ import (
 )
 
 // epochDrainDelegateWork is one frozen per-delegate work item captured
-// at an era boundary: the delegate identifier plus the pool balance to
+// at an era boundary: the delegate identifier plus the voter share to
 // drain. Continuation chunks read this rather than the live
 // PendingBlockRewardPool entry, which may keep accruing behind the
-// drain if a new epoch closes mid-drain.
+// drain if a new epoch closes mid-drain. The frozen amount is the
+// voter portion only — delegate commission is granted immediately at
+// block time (block-side) or at Phase A (epoch-side).
 type epochDrainDelegateWork struct {
 	CandidateIdentifier []byte
-	PoolAmountFrozen    *big.Int
+	VoterAmountFrozen   *big.Int
 }
 
 // epochDrainCursor checkpoints an in-progress IIP-59 era-boundary drain
@@ -51,7 +53,7 @@ func (c epochDrainCursor) Serialize() ([]byte, error) {
 		for i, d := range c.Delegates {
 			m.Delegates[i] = &rewardingpb.EpochDrainDelegateWork{
 				CandidateIdentifier: d.CandidateIdentifier,
-				PoolAmountFrozen:    epochDrainBigIntBytes(d.PoolAmountFrozen),
+				VoterAmountFrozen:   epochDrainBigIntBytes(d.VoterAmountFrozen),
 			}
 		}
 	}
@@ -72,7 +74,7 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 		for i, d := range ds {
 			c.Delegates[i] = epochDrainDelegateWork{
 				CandidateIdentifier: d.GetCandidateIdentifier(),
-				PoolAmountFrozen:    epochDrainBytesBigInt(d.GetPoolAmountFrozen()),
+				VoterAmountFrozen:    epochDrainBytesBigInt(d.GetVoterAmountFrozen()),
 			}
 		}
 	}

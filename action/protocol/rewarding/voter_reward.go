@@ -27,146 +27,77 @@ import (
 
 const _basisPointsDenom uint64 = 10_000
 
-// delegateAllocation is the pure split of a delegate's block+epoch reward
-// streams into commission and voter pool. Produced once at Phase A by
-// prepareDelegateAllocation and re-derived at Phase B (deterministic from
-// the same frozen snapshot + amounts). Non-nil means the delegate is on
-// the IIP-59 path: Phase A grants totalCommission, Phase B distributes
-// voterPool across snap.Entries.
-type delegateAllocation struct {
-	snap            *staking.CandidatePollSnapshot
-	totalWeight     *big.Int
-	blockCommission *big.Int
-	epochCommission *big.Int
-	totalCommission *big.Int
-	voterPool       *big.Int
-	// epochVoterPool is the portion of totalCommission-carve-out that
-	// came from the epoch stream. Phase B needs it separately so the
-	// unclaimed-balance debit stays split between the two phases —
-	// Phase A debits epochCommission, Phase B debits epochVoterPool,
-	// sum = epochReward.
-	epochVoterPool *big.Int
-}
-
-// prepareDelegateAllocation is the pure IIP-59 §3.2 split shared by Phase
-// A (commission grant in GrantEpochReward) and Phase B (voter payouts +
-// log in GrantVoterRewardChunk). It reads the frozen poll snapshot,
-// runs the fork and opt-in / registration checks, and returns:
+// splitDelegateEpochReward computes the epoch-reward commission / voter
+// split for a delegate. It returns (amount, 0) — commission takes the
+// full amount, voter share is zero — on any of:
 //
-//   - (nil,   nil): fallback path. The fork is off, no snapshot exists,
-//     the delegate opted out, the snapshot's DelegateProfile registration
-//     is missing, the reward address is nil, or both amounts are zero.
-//     Phase A pays the full amount to the reward address via legacy
-//     grantToAccount; Phase B skips.
-//   - (alloc, nil): IIP-59 path. Commission and voter pool computed.
-//     Empty-voter fallback (snap present but voter list empty or total
-//     weight zero) yields voterPool = 0 with totalCommission = full
-//     amount, so Phase A grants everything as commission and Phase B
-//     still emits the batched log with zero voter shares.
-//   - (nil,   err): hard failure (state read error, invalid address).
-//     Aborts the epoch grant.
-func (p *Protocol) prepareDelegateAllocation(
+//   - fork off (NoVoterRewardDistribution)
+//   - nil candidate or zero amount
+//   - no frozen poll snapshot for the candidate
+//   - snapshot opted out or not registered
+//   - empty voter list or total voter weight = 0
+//
+// Otherwise it returns splitCommission(amount, snap.EpochCommissionBasisPoints).
+// The caller uses the voter portion as the epoch contribution to the
+// per-delegate voter drain and the commission portion as the immediate
+// per-delegate payout at Phase A.
+func (p *Protocol) splitDelegateEpochReward(
 	ctx context.Context,
 	sm protocol.StateReader,
 	cand *state.Candidate,
-	rewardAddr address.Address,
-	blockReward *big.Int,
-	epochReward *big.Int,
-) (*delegateAllocation, error) {
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	if featureCtx.NoVoterRewardDistribution {
-		return nil, nil
+	amount *big.Int,
+) (*big.Int, *big.Int, error) {
+	if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+		return safeBig(amount), new(big.Int), nil
 	}
-	if cand == nil {
-		return nil, errors.New("rewarding: nil candidate for voter reward distribution")
+	if cand == nil || isNilOrZero(amount) {
+		return safeBig(amount), new(big.Int), nil
 	}
-	if err := assertNonNegativeReward(blockReward); err != nil {
-		return nil, err
-	}
-	if err := assertNonNegativeReward(epochReward); err != nil {
-		return nil, err
-	}
-	if rewardAddr == nil {
-		return nil, nil
-	}
-	if isNilOrZero(blockReward) && isNilOrZero(epochReward) {
-		return nil, nil
+	if err := assertNonNegativeReward(amount); err != nil {
+		return nil, nil, err
 	}
 	candID, err := address.FromString(cand.Address)
 	if err != nil {
-		return nil, errors.Wrapf(err, "rewarding: invalid candidate address %q", cand.Address)
+		return nil, nil, errors.Wrapf(err, "rewarding: invalid candidate address %q", cand.Address)
 	}
 	snap, err := staking.PollSnapshotFor(sm, candID)
 	if err != nil {
 		if errors.Is(err, state.ErrStateNotExist) {
-			return nil, nil
+			return safeBig(amount), new(big.Int), nil
 		}
-		return nil, errors.Wrapf(err, "rewarding: read poll snapshot for %s", candID.String())
+		return nil, nil, errors.Wrapf(err, "rewarding: read poll snapshot for %s", candID.String())
 	}
 	if !snap.VoterRewardOnchainOptIn || !snap.Registered {
-		return nil, nil
+		return safeBig(amount), new(big.Int), nil
 	}
-
 	totalWeight := new(big.Int)
 	for _, e := range snap.Entries {
 		if e.Weight != nil {
 			totalWeight.Add(totalWeight, e.Weight)
 		}
 	}
-
-	blockCommission, blockVoterPool := splitCommission(blockReward, snap.BlockCommissionBasisPoints)
-	epochCommission, epochVoterPool := splitCommission(epochReward, snap.EpochCommissionBasisPoints)
-	totalCommission := new(big.Int).Add(blockCommission, epochCommission)
-	voterPool := new(big.Int).Add(blockVoterPool, epochVoterPool)
 	if len(snap.Entries) == 0 || totalWeight.Sign() == 0 {
-		// Empty-voter fallback: full pool becomes commission. Preserve
-		// per-stream epoch attribution so the Phase A / Phase B
-		// unclaimed-balance debits still net to epochReward.
-		totalCommission = new(big.Int).Add(safeBig(blockReward), safeBig(epochReward))
-		epochCommission = safeBig(epochReward)
-		blockCommission = safeBig(blockReward)
-		voterPool = new(big.Int)
-		epochVoterPool = new(big.Int)
+		return safeBig(amount), new(big.Int), nil
 	}
-	return &delegateAllocation{
-		snap:            snap,
-		totalWeight:     totalWeight,
-		blockCommission: blockCommission,
-		epochCommission: epochCommission,
-		totalCommission: totalCommission,
-		voterPool:       voterPool,
-		epochVoterPool:  epochVoterPool,
-	}, nil
+	commission, voterShare := splitCommission(amount, snap.EpochCommissionBasisPoints)
+	return commission, voterShare, nil
 }
 
-// distributeVoterReward is retained as the epoch-only Phase B entry so
-// legacy tests that never accumulate a block-reward pool exercise the
-// same allocation → route → emit path used at production drain time.
-// Returns (nil, false, nil) whenever prepareDelegateAllocation reports a
-// fallback, matching the contract callers rely on to pay via the legacy
-// grantToAccount path.
-func (p *Protocol) distributeVoterReward(
-	ctx context.Context,
-	sm protocol.StateManager,
-	cand *state.Candidate,
-	rewardAddr address.Address,
-	totalReward *big.Int,
-	blkHeight uint64,
-	actionHash hash.Hash256,
-) ([]*action.Log, bool, error) {
-	return p.distributeVoterOnly(ctx, sm, cand, rewardAddr, nil, totalReward, blkHeight, actionHash)
-}
-
-// distributeVoterOnly is IIP-59 §3.2's Phase B: allocate voterPool across
+// distributeVoterOnly is IIP-59 §3.2's Phase B: allocate voterAmount across
 // snap.Entries, route each share to compound or credit via the AutoDeposit
-// bridge, and emit a single batched DelegateDistributed log carrying
-// totalCommission as attestation. It does NOT grant commission — Phase A
-// (GrantEpochReward) is the sole granter of totalCommission to rewardAddr.
+// bridge, and emit a single batched DelegateDistributed log with
+// epochCommission attesting to the Phase A per-delegate commission.
 //
-// Return contract mirrors the prior distributeCombinedReward:
-//   - (logs,  true,  nil): IIP-59 path ran. Voter shares granted, log emitted.
-//   - (nil,   false, nil): fallback — Phase A already paid this delegate.
-//   - (nil,   false, err): hard failure.
+// Post-C3, block-side commission is observable via the per-block
+// BLOCK_REWARD logs and is intentionally omitted from TotalCommission;
+// consumers who want an era total sum both streams themselves.
+//
+// Return contract:
+//   - (logs, true, nil): voter shares granted, log emitted.
+//   - (nil, false, nil): snapshot missing or delegate opted out /
+//     unregistered between Phase A and this chunk. The coda's orphan
+//     sweep drains the residual pool entry.
+//   - (nil, false, err): hard failure.
 //
 // Malformed on-chain data (bridge RPC error, bucket read error, ineligible
 // bucket) still degrades individual voters to credit rather than halting
@@ -177,48 +108,41 @@ func (p *Protocol) distributeVoterOnly(
 	sm protocol.StateManager,
 	cand *state.Candidate,
 	rewardAddr address.Address,
-	blockReward *big.Int,
-	epochReward *big.Int,
+	voterAmount *big.Int,
+	epochCommission *big.Int,
 	blkHeight uint64,
 	actionHash hash.Hash256,
 ) ([]*action.Log, bool, error) {
-	alloc, err := p.prepareDelegateAllocation(ctx, sm, cand, rewardAddr, blockReward, epochReward)
-	if err != nil {
-		return nil, false, err
-	}
-	if alloc == nil {
+	if cand == nil || rewardAddr == nil {
 		return nil, false, nil
 	}
-	logs, err := p.distributeVoterFromAllocation(ctx, sm, cand, rewardAddr, alloc, blkHeight, actionHash)
-	if err != nil {
+	if err := assertNonNegativeReward(voterAmount); err != nil {
 		return nil, false, err
 	}
-	return logs, true, nil
-}
-
-// distributeVoterFromAllocation is the state-mutating tail of the Phase B
-// path: given the deterministic allocation prepared once by
-// prepareDelegateAllocation, run the per-voter route + credit loop and
-// emit the batched DelegateDistributed log. Kept separate so callers that
-// already hold the allocation (runVoterDistributionChunk consuming it for
-// unclaimed-balance accounting) do not re-derive it.
-func (p *Protocol) distributeVoterFromAllocation(
-	ctx context.Context,
-	sm protocol.StateManager,
-	cand *state.Candidate,
-	rewardAddr address.Address,
-	alloc *delegateAllocation,
-	blkHeight uint64,
-	actionHash hash.Hash256,
-) ([]*action.Log, error) {
 	candID, err := address.FromString(cand.Address)
 	if err != nil {
-		return nil, errors.Wrapf(err, "rewarding: invalid candidate address %q", cand.Address)
+		return nil, false, errors.Wrapf(err, "rewarding: invalid candidate address %q", cand.Address)
+	}
+	snap, err := staking.PollSnapshotFor(sm, candID)
+	if err != nil {
+		if errors.Is(err, state.ErrStateNotExist) {
+			return nil, false, nil
+		}
+		return nil, false, errors.Wrapf(err, "rewarding: read poll snapshot for %s", candID.String())
+	}
+	if !snap.VoterRewardOnchainOptIn || !snap.Registered {
+		return nil, false, nil
+	}
+	totalWeight := new(big.Int)
+	for _, e := range snap.Entries {
+		if e.Weight != nil {
+			totalWeight.Add(totalWeight, e.Weight)
+		}
 	}
 
 	stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx))
 	if stakingProto == nil {
-		return nil, errors.New("rewarding: staking protocol not registered")
+		return nil, false, errors.New("rewarding: staking protocol not registered")
 	}
 	var reader autodeposit.ContractReader
 	if p.autoDepositBridge != nil {
@@ -226,14 +150,14 @@ func (p *Protocol) distributeVoterFromAllocation(
 	}
 	csr, err := staking.ConstructBaseView(sm)
 	if err != nil {
-		return nil, errors.Wrap(err, "rewarding: construct base view for compound routing")
+		return nil, false, errors.Wrap(err, "rewarding: construct base view for compound routing")
 	}
 
 	voters, weights, amounts, routings, err := p.allocateAndRouteVoters(
-		ctx, sm, alloc.snap, alloc.totalWeight, alloc.voterPool, stakingProto, reader, csr, candID,
+		ctx, sm, snap, totalWeight, safeBig(voterAmount), stakingProto, reader, csr, candID,
 	)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
@@ -242,15 +166,15 @@ func (p *Protocol) distributeVoterFromAllocation(
 		Epoch:           epochNum,
 		Delegate:        candID,
 		RewardAddr:      rewardAddr,
-		TotalCommission: alloc.totalCommission,
-		TotalVoterPool:  alloc.voterPool,
+		TotalCommission: safeBig(epochCommission),
+		TotalVoterPool:  safeBig(voterAmount),
 		SnapshotHash:    distributedlog.SnapshotHash(voters, weights),
 		Voters:          voters,
 		Amounts:         amounts,
 		Routings:        routings,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
+		return nil, false, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
 	}
 	return []*action.Log{{
 		Address:     p.addr.String(),
@@ -258,7 +182,7 @@ func (p *Protocol) distributeVoterFromAllocation(
 		Data:        data,
 		BlockHeight: blkHeight,
 		ActionHash:  actionHash,
-	}}, nil
+	}}, true, nil
 }
 
 // allocateAndRouteVoters splits voterPool across snap.Entries by frozen

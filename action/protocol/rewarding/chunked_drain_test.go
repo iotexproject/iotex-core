@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
@@ -43,44 +42,38 @@ func TestEpochDrainChunkSize(t *testing.T) {
 		"post-fork with batch=0: chunkSize must be 0 (legacy single-block)")
 }
 
-// TestBuildEpochDrainCursor_FreezesPoolBalances verifies Phase A's
-// core invariant: the pool balance captured at cursor build time
-// stays fixed even if the live pool entry is subsequently mutated.
-// Chunk-B consumers read PoolAmountFrozen from the cursor, so
-// continued GrantBlockReward credits must not inflate the drain
-// payout for a delegate that has already been counted.
-func TestBuildEpochDrainCursor_FreezesPoolBalances(t *testing.T) {
-	r := require.New(t)
-	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+// TestGrantEpochReward_SkipsCursorWhenNoVoterShare confirms the C3
+// invariant that cursor entries only materialize for delegates whose
+// per-delegate epoch split (or block-time pool accrual) yielded a voter
+// portion. With no frozen snapshots seeded, every delegate falls to the
+// fallback branch of splitDelegateEpochReward and the whole grant runs
+// as a pre-fork-style single-block coda — sentinel written, cursor
+// absent — even though the fork gate is on.
+func TestGrantEpochReward_SkipsCursorWhenNoVoterShare(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		ctx = enableIIP59(t, ctx)
 
-	candA := &state.Candidate{Address: identityset.Address(1).String(), RewardAddress: identityset.Address(2).String(), Votes: big.NewInt(1)}
-	candB := &state.Candidate{Address: identityset.Address(3).String(), RewardAddress: identityset.Address(4).String(), Votes: big.NewInt(1)}
-	candC := &state.Candidate{Address: identityset.Address(5).String(), RewardAddress: identityset.Address(6).String(), Votes: big.NewInt(1)}
+		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
 
-	candBytesA, err := candidateIdentifierBytes(candA.Address)
-	r.NoError(err)
-	candBytesB, err := candidateIdentifierBytes(candB.Address)
-	r.NoError(err)
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		sp := &staking.Protocol{}
+		r.NoError(sp.Register(protocol.MustGetRegistry(ctx)))
+		patches.ApplyMethodReturn(sp, "SlashCandidateByOperator", nil)
+		patches.ApplyMethodReturn(sp, "SlashCandidateByID", nil)
 
-	// Seed known pool balances for A and B; leave C empty.
-	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candBytesA, big.NewInt(1_000)))
-	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candBytesB, big.NewInt(2_500)))
+		_, _, err = p.GrantEpochReward(ctx, sm)
+		r.NoError(err)
 
-	cursor, err := p.buildEpochDrainCursor(ctx, sm, 42, []*state.Candidate{candA, candB, candC})
-	r.NoError(err)
-	r.NotNil(cursor)
-	r.Equal(uint64(42), cursor.TargetEra)
-	r.Equal(uint32(0), cursor.DelegateIndex)
-	r.Len(cursor.Delegates, 3)
-	r.Equal(int64(1_000), cursor.Delegates[0].PoolAmountFrozen.Int64())
-	r.Equal(int64(2_500), cursor.Delegates[1].PoolAmountFrozen.Int64())
-	r.Equal(int64(0), cursor.Delegates[2].PoolAmountFrozen.Int64(),
-		"empty pool entry must freeze as zero (not nil)")
+		got, err := p.readEpochDrainCursor(ctx, sm)
+		r.NoError(err)
+		r.Nil(got, "no delegate has voter share → cursor must not be persisted")
 
-	// Mutate the live pool AFTER the freeze — cursor values must not budge.
-	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candBytesA, big.NewInt(9_999)))
-	r.Equal(int64(1_000), cursor.Delegates[0].PoolAmountFrozen.Int64(),
-		"cursor value must decouple from post-freeze pool credits")
+		r.Error(p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, 1),
+			"sentinel must be written by GrantEpochReward even when the cursor is empty")
+	}, nil, false, 0)
 }
 
 // TestGrantEpochReward_RejectsAnyLiveCursor confirms Phase A's tightened
@@ -110,7 +103,7 @@ func TestGrantEpochReward_RejectsAnyLiveCursor(t *testing.T) {
 			TargetEra:     1,
 			DelegateIndex: 0,
 			Delegates: []epochDrainDelegateWork{
-				{CandidateIdentifier: identityset.Address(27).Bytes(), PoolAmountFrozen: big.NewInt(1)},
+				{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(1)},
 			},
 		}
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, live))
@@ -154,7 +147,7 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 			TargetEra:     1,
 			DelegateIndex: 0,
 			Delegates: []epochDrainDelegateWork{
-				{CandidateIdentifier: identityset.Address(27).Bytes(), PoolAmountFrozen: big.NewInt(42)},
+				{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(42)},
 			},
 		}
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, injected))
@@ -184,28 +177,32 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 		r.Equal(injected.DelegateIndex, got.DelegateIndex)
 		r.Len(got.Delegates, 1)
 		r.Equal(injected.Delegates[0].CandidateIdentifier, got.Delegates[0].CandidateIdentifier)
-		r.Equal(int64(42), got.Delegates[0].PoolAmountFrozen.Int64())
+		r.Equal(int64(42), got.Delegates[0].VoterAmountFrozen.Int64())
 	}, nil, false, 0)
 }
 
-// TestGrantEpochReward_PostForkOnlyPhaseA locks the C2.1 semantic split:
-// post-fork, GrantEpochReward runs slashing + freeze only. It must
-// persist the cursor for GrantVoterRewardChunk to consume on subsequent
-// blocks and must NOT write the sentinel or delete the cursor — those
-// are Phase C responsibilities that now live entirely inside
-// GrantVoterRewardChunk.
-func TestGrantEpochReward_PostForkOnlyPhaseA(t *testing.T) {
+// TestGrantEpochReward_PoolAccrualBuildsCursor confirms that block-time
+// voter accruals — pool balance credited by GrantBlockReward for
+// opted-in delegates — get folded into the epoch-boundary cursor even
+// when the per-delegate epoch split has no fresh voter share (fallback
+// branch of splitDelegateEpochReward). This is what preserves late-
+// arriving voter accruals across the era boundary: the cursor freezes
+// pool + epochShare, and Phase B's decrement removes exactly that
+// frozen amount from the pool.
+func TestGrantEpochReward_PoolAccrualBuildsCursor(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
-		// Flip the fork gate on so the post-fork branch runs.
-		g := genesis.MustExtractGenesisContext(ctx)
-		g.ToBeEnabledBlockHeight = 1
-		ctx = genesis.WithGenesisContext(ctx, g)
-		ctx = protocol.WithFeatureCtx(ctx)
-		ctx = protocol.WithFeatureWithHeightCtx(ctx)
+		ctx = enableIIP59(t, ctx)
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
+
+		// Seed a pool balance for candidate 27 (the first candidate the
+		// default poll list uses). No frozen snapshot exists, so the
+		// epoch-side split returns (amount, 0) — the cursor entry comes
+		// purely from the pool accrual.
+		candID := identityset.Address(27).Bytes()
+		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(1_234)))
 
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
@@ -217,17 +214,24 @@ func TestGrantEpochReward_PostForkOnlyPhaseA(t *testing.T) {
 		_, _, err = p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
 
-		// Cursor must exist — this is the handoff to GrantVoterRewardChunk.
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.NotNil(got, "post-fork Phase A must persist the cursor")
+		r.NotNil(got, "pool accrual must build a cursor entry")
 		r.Equal(uint64(1), got.TargetEra)
-		r.Equal(uint32(0), got.DelegateIndex,
-			"Phase A must not advance the cursor (distribution deferred)")
+		r.Equal(uint32(0), got.DelegateIndex)
 
-		// Sentinel must NOT be written yet — that's Phase C, which runs
-		// on the last GrantVoterRewardChunk, not here.
-		r.NoError(p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, 1),
-			"post-fork Phase A must not write the epoch reward sentinel")
+		var found bool
+		for _, work := range got.Delegates {
+			if string(work.CandidateIdentifier) == string(candID) {
+				found = true
+				r.Equal(int64(1_234), work.VoterAmountFrozen.Int64(),
+					"cursor must freeze the pool accrual as-is when epoch split yields no voter share")
+			}
+		}
+		r.True(found, "candidate 27 must appear in the cursor")
+
+		// Sentinel is written by GrantEpochReward regardless of cursor state.
+		r.Error(p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, 1),
+			"sentinel must be written in the same call that builds the cursor")
 	}, nil, false, 0)
 }
