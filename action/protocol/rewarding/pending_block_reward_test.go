@@ -289,6 +289,95 @@ func TestDrainOrphans_SkipsVisited(t *testing.T) {
 		"unclaimedBalance must not move for visited entries")
 }
 
+// TestPendingBlockRewardPool_DecrementPartial — subtracting less than the
+// current balance leaves the entry with a positive residual and preserves
+// the delegate's index membership so a future decrement can still find it.
+func TestPendingBlockRewardPool_DecrementPartial(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	candID := identityset.Address(6).Bytes()
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(500)))
+
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, big.NewInt(200)))
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+	r.NoError(err)
+	r.Equal(int64(300), amt.Int64(), "residual balance must equal credit minus decrement")
+
+	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	r.NoError(err)
+	r.Len(ids, 1)
+	r.Equal(candID, ids[0], "index entry must survive a partial decrement")
+}
+
+// TestPendingBlockRewardPool_DecrementExactDeletes — decrementing by the
+// exact remaining balance zeroes the entry, which the helper must treat as
+// full drain: delete the entry and remove the delegate from the index.
+func TestPendingBlockRewardPool_DecrementExactDeletes(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	candID := identityset.Address(8).Bytes()
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(500)))
+
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, big.NewInt(500)))
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+	r.NoError(err)
+	r.Equal(0, amt.Sign())
+
+	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	r.NoError(err)
+	r.Empty(ids, "index membership must clear when the entry is exact-drained")
+}
+
+// TestPendingBlockRewardPool_DecrementClampsToBalance — a decrement larger
+// than the current balance clamps to the balance (no negative amount ever
+// persists) and treats the outcome as a full drain: entry + index membership
+// gone. This is the guard against arithmetic slippage between the frozen
+// cursor amount and the pool's live balance.
+func TestPendingBlockRewardPool_DecrementClampsToBalance(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	candID := identityset.Address(10).Bytes()
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(100)))
+
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, big.NewInt(9_999)))
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+	r.NoError(err)
+	r.Equal(0, amt.Sign(), "over-decrement must clamp to zero, never persist negative")
+
+	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	r.NoError(err)
+	r.Empty(ids)
+}
+
+// TestPendingBlockRewardPool_DecrementMissingIsNoop — decrementing against
+// an unpopulated key returns cleanly. Nil / non-positive amounts short-
+// circuit before touching state. This mirrors what happens when a chunk
+// runs against a delegate whose block-side pool was never credited.
+func TestPendingBlockRewardPool_DecrementMissingIsNoop(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	candID := identityset.Address(13).Bytes()
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, big.NewInt(100)))
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, nil))
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, big.NewInt(0)))
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, big.NewInt(-5)))
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+	r.NoError(err)
+	r.Equal(0, amt.Sign())
+
+	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	r.NoError(err)
+	r.Empty(ids)
+}
+
 // compareBytes is bytes.Compare wrapped for readability at call sites.
 func compareBytes(a, b []byte) int {
 	for i := 0; i < len(a) && i < len(b); i++ {

@@ -26,11 +26,11 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 		Delegates: []epochDrainDelegateWork{
 			{
 				CandidateIdentifier: identityset.Address(1).Bytes(),
-				PoolAmountFrozen:    big.NewInt(1_000),
+				VoterAmountFrozen:    big.NewInt(1_000),
 			},
 			{
 				CandidateIdentifier: identityset.Address(2).Bytes(),
-				PoolAmountFrozen:    big.NewInt(2_500_000),
+				VoterAmountFrozen:    big.NewInt(2_500_000),
 			},
 		},
 	}
@@ -46,9 +46,9 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 	r.Len(out.Delegates, 2)
 	for i := range in.Delegates {
 		r.Equal(in.Delegates[i].CandidateIdentifier, out.Delegates[i].CandidateIdentifier)
-		r.Zero(in.Delegates[i].PoolAmountFrozen.Cmp(out.Delegates[i].PoolAmountFrozen),
+		r.Zero(in.Delegates[i].VoterAmountFrozen.Cmp(out.Delegates[i].VoterAmountFrozen),
 			"delegate %d pool amount mismatch: in=%s out=%s",
-			i, in.Delegates[i].PoolAmountFrozen, out.Delegates[i].PoolAmountFrozen)
+			i, in.Delegates[i].VoterAmountFrozen, out.Delegates[i].VoterAmountFrozen)
 	}
 }
 
@@ -81,7 +81,7 @@ func TestEpochDrainCursor_ZeroPoolAmount(t *testing.T) {
 		Delegates: []epochDrainDelegateWork{
 			{
 				CandidateIdentifier: identityset.Address(5).Bytes(),
-				PoolAmountFrozen:    new(big.Int),
+				VoterAmountFrozen:    new(big.Int),
 			},
 		},
 	}
@@ -91,8 +91,8 @@ func TestEpochDrainCursor_ZeroPoolAmount(t *testing.T) {
 	var out epochDrainCursor
 	r.NoError(out.Deserialize(raw))
 	r.Len(out.Delegates, 1)
-	r.NotNil(out.Delegates[0].PoolAmountFrozen)
-	r.Equal(0, out.Delegates[0].PoolAmountFrozen.Sign())
+	r.NotNil(out.Delegates[0].VoterAmountFrozen)
+	r.Equal(0, out.Delegates[0].VoterAmountFrozen.Sign())
 }
 
 // TestEpochDrainCursor_ReadMissingReturnsNil — an unpopulated cursor
@@ -120,7 +120,7 @@ func TestEpochDrainCursor_WriteReadDelete(t *testing.T) {
 		Delegates: []epochDrainDelegateWork{
 			{
 				CandidateIdentifier: identityset.Address(1).Bytes(),
-				PoolAmountFrozen:    big.NewInt(10_000),
+				VoterAmountFrozen:    big.NewInt(10_000),
 			},
 		},
 	}
@@ -133,7 +133,7 @@ func TestEpochDrainCursor_WriteReadDelete(t *testing.T) {
 	r.Equal(in.DelegateIndex, got.DelegateIndex)
 	r.Len(got.Delegates, 1)
 	r.Equal(in.Delegates[0].CandidateIdentifier, got.Delegates[0].CandidateIdentifier)
-	r.Zero(in.Delegates[0].PoolAmountFrozen.Cmp(got.Delegates[0].PoolAmountFrozen))
+	r.Zero(in.Delegates[0].VoterAmountFrozen.Cmp(got.Delegates[0].VoterAmountFrozen))
 
 	r.NoError(p.deleteEpochDrainCursor(ctx, sm))
 	got, err = p.readEpochDrainCursor(ctx, sm)
@@ -155,8 +155,8 @@ func TestEpochDrainCursor_WriteOverwrites(t *testing.T) {
 		TargetEra:     10,
 		DelegateIndex: 0,
 		Delegates: []epochDrainDelegateWork{
-			{CandidateIdentifier: identityset.Address(1).Bytes(), PoolAmountFrozen: big.NewInt(1)},
-			{CandidateIdentifier: identityset.Address(2).Bytes(), PoolAmountFrozen: big.NewInt(2)},
+			{CandidateIdentifier: identityset.Address(1).Bytes(), VoterAmountFrozen: big.NewInt(1)},
+			{CandidateIdentifier: identityset.Address(2).Bytes(), VoterAmountFrozen: big.NewInt(2)},
 		},
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, first))
@@ -165,7 +165,7 @@ func TestEpochDrainCursor_WriteOverwrites(t *testing.T) {
 		TargetEra:     10,
 		DelegateIndex: 1,
 		Delegates: []epochDrainDelegateWork{
-			{CandidateIdentifier: identityset.Address(3).Bytes(), PoolAmountFrozen: big.NewInt(9)},
+			{CandidateIdentifier: identityset.Address(3).Bytes(), VoterAmountFrozen: big.NewInt(9)},
 		},
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, second))

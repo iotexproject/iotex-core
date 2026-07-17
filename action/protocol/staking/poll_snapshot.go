@@ -218,6 +218,30 @@ func FreezePollSnapshot(
 	return nil
 }
 
+// TestOnlyPutPollSnapshotFor seeds a CandidatePollSnapshot directly under
+// the same key layout FreezePollSnapshot uses. Intended solely for
+// rewarding-package unit tests that exercise post-fork branches without
+// standing up the full poll layer + DelegateProfile bridge. Production
+// code MUST use FreezePollSnapshot at PutPollResult.
+func TestOnlyPutPollSnapshotFor(
+	sm protocol.StateManager,
+	candID address.Address,
+	snap *CandidatePollSnapshot,
+) error {
+	if candID == nil {
+		return errors.New("staking: nil candidate identity")
+	}
+	if snap == nil {
+		return errors.New("staking: nil snapshot")
+	}
+	_, err := sm.PutState(
+		snap.toBlob(),
+		protocol.NamespaceOption(_stakingNameSpace),
+		protocol.KeyOption(candidatePollSnapshotKey(candID)),
+	)
+	return err
+}
+
 // PollSnapshotFor returns the frozen snapshot written at the most recent
 // PutPollResult for the given candidate identity. Returns
 // (nil, state.ErrStateNotExist) when no snapshot has been written (pre-fork

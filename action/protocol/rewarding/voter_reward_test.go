@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -58,78 +57,129 @@ func TestSplitCommission(t *testing.T) {
 	}
 }
 
-// TestDistributeVoterReward_FeatureOff verifies the fork gate short-circuits
-// the entire path before touching state, so the caller runs the legacy
-// grantToAccount unchanged for the whole rewarding window.
-func TestDistributeVoterReward_FeatureOff(t *testing.T) {
-	r := require.New(t)
-	ctx, sm, p, cand, rewardAddr := newVoterRewardCtx(t, false /* enable IIP-59 */)
-	// Force NoVoterRewardDistribution=true by using a genesis where the
-	// ToBeEnabled height is beyond the current block height.
-	logs, handled, err := p.distributeVoterReward(
-		ctx, sm, cand, rewardAddr, big.NewInt(1_000), 100, hash.ZeroHash256,
-	)
-	r.NoError(err)
-	r.False(handled)
-	r.Nil(logs)
+// TestSplitDelegateEpochReward covers the fallback branches that route the
+// full amount to commission (voter share = 0), and the happy-path split.
+// Fallback cases must return (amount, 0) so GrantEpochReward's caller runs
+// the legacy per-delegate grant unchanged.
+func TestSplitDelegateEpochReward(t *testing.T) {
+	amount := big.NewInt(1_000)
+
+	t.Run("fork off", func(t *testing.T) {
+		r := require.New(t)
+		ctx, sm, p, cand, _ := newVoterRewardCtx(t, false /* iip59On */)
+		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
+		r.NoError(err)
+		r.Equal(0, c.Cmp(amount))
+		r.Equal(0, v.Sign())
+	})
+
+	t.Run("nil candidate", func(t *testing.T) {
+		r := require.New(t)
+		ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+		c, v, err := p.splitDelegateEpochReward(ctx, sm, nil, amount)
+		r.NoError(err)
+		r.Equal(0, c.Cmp(amount))
+		r.Equal(0, v.Sign())
+	})
+
+	t.Run("zero amount", func(t *testing.T) {
+		r := require.New(t)
+		ctx, sm, p, cand, _ := newVoterRewardCtx(t, true)
+		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, big.NewInt(0))
+		r.NoError(err)
+		r.Equal(0, c.Sign())
+		r.Equal(0, v.Sign())
+	})
+
+	t.Run("negative amount rejected", func(t *testing.T) {
+		r := require.New(t)
+		ctx, sm, p, cand, _ := newVoterRewardCtx(t, true)
+		_, _, err := p.splitDelegateEpochReward(ctx, sm, cand, big.NewInt(-1))
+		r.Error(err)
+	})
+
+	t.Run("no snapshot fallback", func(t *testing.T) {
+		r := require.New(t)
+		ctx, sm, p, cand, _ := newVoterRewardCtx(t, true)
+		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
+		r.NoError(err)
+		r.Equal(0, c.Cmp(amount))
+		r.Equal(0, v.Sign())
+	})
+
+	t.Run("opted out fallback", func(t *testing.T) {
+		r := require.New(t)
+		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
+		writeSnapshot(t, sm, candAddr, false /* optIn */, true /* registered */, 2000, []voterEntry{{identityset.Address(3), big.NewInt(100)}})
+		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
+		r.NoError(err)
+		r.Equal(0, c.Cmp(amount))
+		r.Equal(0, v.Sign())
+	})
+
+	t.Run("unregistered fallback", func(t *testing.T) {
+		r := require.New(t)
+		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
+		writeSnapshot(t, sm, candAddr, true, false, 2000, []voterEntry{{identityset.Address(3), big.NewInt(100)}})
+		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
+		r.NoError(err)
+		r.Equal(0, c.Cmp(amount))
+		r.Equal(0, v.Sign())
+	})
+
+	t.Run("empty voters fallback", func(t *testing.T) {
+		r := require.New(t)
+		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
+		writeSnapshot(t, sm, candAddr, true, true, 2000, nil)
+		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
+		r.NoError(err)
+		r.Equal(0, c.Cmp(amount))
+		r.Equal(0, v.Sign())
+	})
+
+	t.Run("happy path 20 percent commission", func(t *testing.T) {
+		r := require.New(t)
+		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
+		writeSnapshot(t, sm, candAddr, true, true, 2000, []voterEntry{{identityset.Address(3), big.NewInt(100)}})
+		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
+		r.NoError(err)
+		r.Equal(0, c.Cmp(big.NewInt(200)))
+		r.Equal(0, v.Cmp(big.NewInt(800)))
+	})
 }
 
-// TestDistributeVoterReward_NilInputs guards the wiring-error branches.
-// A nil candidate or invalid totalReward is a wiring bug, not chain data,
-// so it must abort rather than silently degrade.
-func TestDistributeVoterReward_NilInputs(t *testing.T) {
-	r := require.New(t)
-	ctx, sm, p, _, rewardAddr := newVoterRewardCtx(t, true)
-
-	// nil candidate
-	logs, handled, err := p.distributeVoterReward(ctx, sm, nil, rewardAddr, big.NewInt(100), 100, hash.ZeroHash256)
-	r.Error(err)
-	r.False(handled)
-	r.Nil(logs)
-
-	// negative totalReward
-	logs, handled, err = p.distributeVoterReward(
-		ctx, sm, &state.Candidate{Address: identityset.Address(0).String()},
-		rewardAddr, big.NewInt(-1), 100, hash.ZeroHash256,
-	)
-	r.Error(err)
-	r.False(handled)
-	r.Nil(logs)
-
-	// nil rewardAddr — degrades to (nil, false, nil): the delegate has no
-	// reward address, so there is nothing to distribute.
-	logs, handled, err = p.distributeVoterReward(
-		ctx, sm, &state.Candidate{Address: identityset.Address(0).String()},
-		nil, big.NewInt(100), 100, hash.ZeroHash256,
-	)
-	r.NoError(err)
-	r.False(handled)
-	r.Nil(logs)
+type voterEntry struct {
+	addr   address.Address
+	weight *big.Int
 }
 
-// TestDistributeVoterReward_NoSnapshotFallsBackToLegacy covers the
-// "candidate registered but no poll snapshot yet" case (first epoch after
-// registration). It must return (nil, false, nil) so the caller runs the
-// legacy grantToAccount path.
-func TestDistributeVoterReward_NoSnapshotFallsBackToLegacy(t *testing.T) {
-	r := require.New(t)
-	ctx, sm, p, cand, rewardAddr := newVoterRewardCtx(t, true)
-
-	logs, handled, err := p.distributeVoterReward(
-		ctx, sm, cand, rewardAddr, big.NewInt(1_000), 100, hash.ZeroHash256,
-	)
-	r.NoError(err)
-	r.False(handled)
-	r.Nil(logs)
+func writeSnapshot(
+	t *testing.T,
+	sm protocol.StateManager,
+	candAddr address.Address,
+	optIn bool,
+	registered bool,
+	epochBps uint64,
+	voters []voterEntry,
+) {
+	t.Helper()
+	entries := make([]staking.VoterWeight, len(voters))
+	for i, v := range voters {
+		entries[i] = staking.VoterWeight{Voter: v.addr, Weight: v.weight}
+	}
+	snap := &staking.CandidatePollSnapshot{
+		VoterRewardOnchainOptIn:    optIn,
+		Registered:                 registered,
+		BlockCommissionBasisPoints: epochBps,
+		EpochCommissionBasisPoints: epochBps,
+		Entries:                    entries,
+	}
+	require.NoError(t, staking.TestOnlyPutPollSnapshotFor(sm, candAddr, snap))
 }
 
-// newVoterRewardCtx wires the minimum context distributeVoterReward reads:
-// a StateManager, registered rolldpos+staking protocols, genesis context, a
-// block context (for height), and a feature context toggled by iip59On.
-//
-// staking is registered via a stub Protocol so FindProtocol succeeds; the
-// tests here only exercise pre-snapshot branches, so no bucket / view /
-// AddDepositForCompound path is invoked.
+// newVoterRewardCtx wires the minimum context splitDelegateEpochReward reads:
+// a StateManager, registered rolldpos+staking protocols, and feature ctx
+// toggled by iip59On.
 func newVoterRewardCtx(
 	t *testing.T,
 	iip59On bool,
@@ -140,10 +190,6 @@ func newVoterRewardCtx(
 	sm := testdb.NewMockStateManager(ctrl)
 
 	g := genesis.TestDefault()
-	// Force the fork gate on/off by pinning ToBeEnabledBlockHeight relative
-	// to the block height we bind below (100). NoVoterRewardDistribution is
-	// !g.IsToBeEnabled(height), so ToBeEnabledBlockHeight <= height ⇒ IIP-59
-	// on.
 	if iip59On {
 		g.ToBeEnabledBlockHeight = 1
 	} else {
@@ -154,9 +200,6 @@ func newVoterRewardCtx(
 	rp := rolldpos.NewProtocol(g.NumCandidateDelegates, g.NumDelegates, g.NumSubEpochs)
 	r.NoError(rp.Register(registry))
 
-	// Register a real staking protocol so FindProtocol returns non-nil.
-	// distributeVoterReward's staking calls are only reached on the
-	// registered+opted-in path, which these tests do not exercise.
 	stakingCfg := &staking.BuilderConfig{
 		Staking: g.Staking,
 		Revise: staking.ReviseConfig{
@@ -172,13 +215,12 @@ func newVoterRewardCtx(
 	p := NewProtocol(g.Rewarding)
 	r.NoError(p.Register(registry))
 
+	candAddr := identityset.Address(1)
 	cand := &state.Candidate{
-		Address:       identityset.Address(1).String(),
+		Address:       candAddr.String(),
 		RewardAddress: identityset.Address(2).String(),
 		Votes:         big.NewInt(1_000_000),
 	}
-	rewardAddr, err := address.FromString(cand.RewardAddress)
-	r.NoError(err)
 
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithRegistry(ctx, registry)
@@ -187,37 +229,19 @@ func newVoterRewardCtx(
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	ctx = protocol.WithFeatureCtx(ctx)
 
-	// Seed the staking base view onto the mock state manager so the orphan
-	// drain path (which resolves candidates via staking.ConstructBaseView)
-	// can find the view. Without this, ReadView("staking") returns "name
-	// is not found" and the drain aborts before the fallback refund runs.
 	view, err := stakingProtocol.Start(ctx, sm)
 	r.NoError(err)
 	r.NoError(sm.WriteView("staking", view))
 
-	return ctx, sm, p, cand, rewardAddr
-}
-
-// TestDistributeVoterReward_BridgeNilRoutesToCredit is a sanity check on the
-// AutoDeposit wiring branch: if no autoDepositBridge is configured (as when
-// AutoDepositContractAddress is empty in genesis), the reader is never
-// constructed. This test exercises the branch by verifying the nil-bridge
-// field remains nil on the default Protocol.
-func TestDistributeVoterReward_BridgeNilRoutesToCredit(t *testing.T) {
-	r := require.New(t)
-	g := genesis.TestDefault()
-	p := NewProtocol(g.Rewarding)
-	r.Nil(p.autoDepositBridge)
-	r.Nil(p.autoDepositReader)
+	return ctx, sm, p, cand, candAddr
 }
 
 // TestProtocolOptions verifies WithAutoDepositBridge/WithAutoDepositReader
-// install onto the Protocol so downstream distributeVoterReward can consume
+// install onto the Protocol so downstream distributeVoterOnly can consume
 // them.
 func TestProtocolOptions(t *testing.T) {
 	r := require.New(t)
 	g := genesis.TestDefault()
-	// Use a valid IoTeX bech32 address for bridge construction.
 	bridge, err := autodeposit.New(identityset.Address(0).String())
 	r.NoError(err)
 
@@ -233,7 +257,6 @@ func TestProtocolOptions(t *testing.T) {
 	r.NotNil(p.autoDepositBridge)
 	r.NotNil(p.autoDepositReader)
 
-	// Exercise the seam so the coverage on resolveAutoDepositReader is real.
 	_ = p.resolveAutoDepositReader(nil)
 	r.True(called)
 }
