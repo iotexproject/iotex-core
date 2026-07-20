@@ -112,6 +112,8 @@ func (p *Protocol) AddDepositForCompound(
 	if err := candidate.AddVote(newWeighted); err != nil {
 		return errors.Wrapf(err, "staking: add vote for candidate %s", bucket.Candidate.String())
 	}
+	// IIP-59: net delta applied to (candidate, voter) in the view.
+	applyVoterWeightDelta(csm, candidate.GetIdentifier(), bucket.Owner, new(big.Int).Sub(newWeighted, prevWeighted))
 	if selfStake {
 		if err := candidate.AddSelfStake(amount); err != nil {
 			return errors.Wrapf(err, "staking: add self-stake for candidate %s", bucket.Candidate.String())

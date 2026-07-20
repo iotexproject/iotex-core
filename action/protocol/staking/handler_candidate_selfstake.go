@@ -3,6 +3,7 @@ package staking
 import (
 	"context"
 	"math"
+	"math/big"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -48,23 +49,31 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 		if err != nil {
 			return log, nil, err
 		}
-		if err := cand.SubVote(p.calculateVoteWeight(prevBucket, true)); err != nil {
+		prevWith := p.calculateVoteWeight(prevBucket, true)
+		prevWithout := p.calculateVoteWeight(prevBucket, false)
+		if err := cand.SubVote(prevWith); err != nil {
 			return log, nil, err
 		}
-		if err := cand.AddVote(p.calculateVoteWeight(prevBucket, false)); err != nil {
+		if err := cand.AddVote(prevWithout); err != nil {
 			return log, nil, err
 		}
+		// IIP-59: previous self-stake bucket drops the self-stake bonus.
+		applyVoterWeightDelta(csm, cand.GetIdentifier(), prevBucket.Owner, new(big.Int).Sub(prevWithout, prevWith))
 	}
 
 	// convert vote bucket to self-stake bucket
 	cand.SelfStakeBucketIdx = bucket.Index
 	cand.SelfStake.SetBytes(bucket.StakedAmount.Bytes())
-	if err := cand.SubVote(p.calculateVoteWeight(bucket, false)); err != nil {
+	newWithout := p.calculateVoteWeight(bucket, false)
+	newWith := p.calculateVoteWeight(bucket, true)
+	if err := cand.SubVote(newWithout); err != nil {
 		return log, nil, err
 	}
-	if err := cand.AddVote(p.calculateVoteWeight(bucket, true)); err != nil {
+	if err := cand.AddVote(newWith); err != nil {
 		return log, nil, err
 	}
+	// IIP-59: new self-stake bucket gains the self-stake bonus.
+	applyVoterWeightDelta(csm, cand.GetIdentifier(), bucket.Owner, new(big.Int).Sub(newWith, newWithout))
 
 	if err := csm.Upsert(cand); err != nil {
 		return log, nil, csmErrorToHandleError(cand.GetIdentifier().String(), err)

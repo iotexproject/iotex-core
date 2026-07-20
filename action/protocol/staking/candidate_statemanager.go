@@ -231,12 +231,17 @@ func (csm *candSM) deactivate(cand *Candidate, bucket *VoteBucket, height uint64
 	case cand.DeactivatedAt > height:
 		return ErrExitNotReady
 	}
-	if err := cand.SubVote(calcVote(bucket, true)); err != nil {
+	prevWeight := calcVote(bucket, true)
+	newWeight := calcVote(bucket, false)
+	if err := cand.SubVote(prevWeight); err != nil {
 		return err
 	}
-	if err := cand.AddVote(calcVote(bucket, false)); err != nil {
+	if err := cand.AddVote(newWeight); err != nil {
 		return err
 	}
+	// IIP-59: same bucket loses the self-stake bonus — record the net
+	// (negative) delta on (cand, bucket.Owner) in the view.
+	applyVoterWeightDelta(csm, cand.GetIdentifier(), bucket.Owner, new(big.Int).Sub(newWeight, prevWeight))
 	cand.SelfStake = big.NewInt(0)
 	cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 	// Clear the exit-queue marker so a subsequent re-stake / activate flow

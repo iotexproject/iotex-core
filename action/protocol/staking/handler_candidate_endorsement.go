@@ -2,6 +2,7 @@ package staking
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -86,7 +87,7 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 				}
 			} else {
 				// TODO: Check that the bucket is ready for dequeue
-				if err := p.clearCandidateSelfStake(bucket, cand); err != nil {
+				if err := p.clearCandidateSelfStake(csm, bucket, cand); err != nil {
 					return log, nil, errors.Wrap(err, "failed to clear candidate self-stake")
 				}
 				if err := csm.Upsert(cand); err != nil {
@@ -157,16 +158,21 @@ func (p *Protocol) validateRevokeEndorsement(ctx context.Context, esm *Endorseme
 	return nil
 }
 
-func (p *Protocol) clearCandidateSelfStake(bucket *VoteBucket, cand *Candidate) error {
+func (p *Protocol) clearCandidateSelfStake(csm CandidateStateManager, bucket *VoteBucket, cand *Candidate) error {
 	if cand.SelfStakeBucketIdx != bucket.Index {
 		return errors.New("self-stake bucket index mismatch")
 	}
-	if err := cand.SubVote(p.calculateVoteWeight(bucket, true)); err != nil {
+	prevWeight := p.calculateVoteWeight(bucket, true)
+	newWeight := p.calculateVoteWeight(bucket, false)
+	if err := cand.SubVote(prevWeight); err != nil {
 		return errors.Wrapf(err, "failed to subtract vote weight for bucket index %d", bucket.Index)
 	}
-	if err := cand.AddVote(p.calculateVoteWeight(bucket, false)); err != nil {
+	if err := cand.AddVote(newWeight); err != nil {
 		return errors.Wrapf(err, "failed to add vote weight for bucket index %d", bucket.Index)
 	}
+	// IIP-59: same bucket loses the self-stake bonus — record the net
+	// (negative) delta on (cand, bucket.Owner) in the view.
+	applyVoterWeightDelta(csm, cand.GetIdentifier(), bucket.Owner, new(big.Int).Sub(newWeight, prevWeight))
 	cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 	cand.SelfStake.SetInt64(0)
 	return nil
