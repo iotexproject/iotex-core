@@ -36,16 +36,21 @@ import (
 )
 
 // perfTier parameterizes the IIP-59 e2e drain bench. Each tier picks
-// scale (delegates × voters), era cadence (epochs per era), and chunk
-// size (voters per continuation block). CompoundBatchSize is picked
-// deliberately low so the drain spans multiple blocks — otherwise the
-// bench collapses to a single-block run and stops measuring what we
-// care about (chunking behaviour).
+// scale (delegates × voters), era cadence (epochs per era), and the two
+// per-block caps: compoundBatchSize (delegates paid per block) and
+// voterBudgetPerBlock (voters paid per block, mid-delegate resumable).
+// Both caps are picked deliberately low so the drain spans multiple
+// blocks — otherwise the bench collapses to a single-block run and
+// stops measuring what we care about (chunking behaviour).
+//
+// voterBudgetPerBlock=0 keeps the pre-5.5b behaviour (delegate-count
+// cap only, entire voter list paid inside one block for each delegate).
 type perfTier struct {
-	numDelegates      int
-	numVoters         int
-	epochsPerEra      uint64
-	compoundBatchSize uint64
+	numDelegates        int
+	numVoters           int
+	epochsPerEra        uint64
+	compoundBatchSize   uint64
+	voterBudgetPerBlock uint64
 }
 
 var iip59PerfTiers = map[string]perfTier{
@@ -213,6 +218,7 @@ func newIIP59PerfCfg(r *require.Assertions, tier perfTier) config.Config {
 
 	cfg.Genesis.Rewarding.EpochsPerRewardEra = tier.epochsPerEra
 	cfg.Genesis.Rewarding.CompoundBatchSize = tier.compoundBatchSize
+	cfg.Genesis.Rewarding.VoterBudgetPerBlock = tier.voterBudgetPerBlock
 
 	// Populate genesis Delegates with the perf-bench addresses so the
 	// LifeLong poll protocol returns exactly the delegates the seeder

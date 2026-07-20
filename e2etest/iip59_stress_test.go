@@ -37,6 +37,24 @@ var iip59StressTiers = map[string]perfTier{
 	"medium": {numDelegates: 20, numVoters: 2_000, epochsPerEra: 2, compoundBatchSize: 5},
 }
 
+// iip59SingleDelegateLargeVoterTier drives the PR 5.5b voter-cap check:
+// one delegate with a long voter list, paid in windows of
+// voterBudgetPerBlock. compoundBatchSize is deliberately larger than
+// numDelegates so the delegate-count cap is never the terminating
+// budget — the mid-delegate voter-cap is.
+//
+// 1 delegate × 500 voters with voterBudgetPerBlock=50 → 10 continuation
+// chunks all pointing at DelegateIndex=0, VoterIndex advancing
+// 50, 100, ..., 450 across chunks 1-9 and returning to 0 when the
+// delegate finishes.
+var iip59SingleDelegateLargeVoterTier = perfTier{
+	numDelegates:        1,
+	numVoters:           500,
+	epochsPerEra:        2,
+	compoundBatchSize:   4,
+	voterBudgetPerBlock: 50,
+}
+
 const iip59StressTierEnv = "IIP59_STRESS_TIER"
 
 // TestIIP59ChunkedDrainStress_SmallTier mints blocks until one full drain
@@ -92,7 +110,7 @@ func TestIIP59ChunkedDrainStress_SmallTier(t *testing.T) {
 		height := bc.TipHeight()
 		assertStressInvariant(t, test.cs, cfg.Genesis, rewardProto, addrs, height)
 
-		_, _, _, present, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, height)
+		_, _, _, _, present, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, height)
 		r.NoErrorf(err, "drainSnapshot at height %d", height)
 
 		if drainStartHeight == 0 {
@@ -118,7 +136,7 @@ func TestIIP59ChunkedDrainStress_SmallTier(t *testing.T) {
 	// Final gate: cursor absent at tip height. drainSnapshot already
 	// returned !present above; this is a defence-in-depth check.
 	tipHeight := bc.TipHeight()
-	_, _, _, stillDraining, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, tipHeight)
+	_, _, _, _, stillDraining, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, tipHeight)
 	r.NoError(err)
 	r.Falsef(stillDraining, "drain still in progress at tip height %d", tipHeight)
 }
@@ -174,7 +192,7 @@ func TestIIP59ChunkedDrainStress_MultiEra(t *testing.T) {
 		height := bc.TipHeight()
 		assertStressInvariant(t, test.cs, cfg.Genesis, rewardProto, addrs, height)
 
-		_, _, era, present, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, height)
+		_, _, _, era, present, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, height)
 		r.NoErrorf(err, "drainSnapshot at height %d", height)
 
 		switch {
@@ -196,6 +214,131 @@ func TestIIP59ChunkedDrainStress_MultiEra(t *testing.T) {
 		"expected %d drain lifecycles across %d eras; observed %d",
 		targetEras, targetEras, drainsCompleted)
 	r.Falsef(inDrain, "final tip must not have a live cursor")
+}
+
+// TestIIP59ChunkedDrainStress_SingleDelegateLargeVoter drives the PR 5.5b
+// per-block voter cap. Fixture is one delegate × 500 voters with
+// voterBudgetPerBlock=50, so the drain must span multiple mid-delegate
+// resume chunks that all point at DelegateIndex=0.
+//
+// Asserts across chunks:
+//   - VoterIndex progresses through the sequence 0, 50, 100, ..., 450
+//     across the drain (each value may persist across multiple blocks
+//     while the harness is between VoterRewardChunk emissions);
+//   - DelegateIndex stays 0 throughout (only one delegate in the cursor);
+//   - fund invariant holds at every block boundary;
+//   - the drain terminates cleanly (cursor absent) once all 500 voters
+//     have been paid.
+//
+// This is the correctness sibling to the delegate-cap tests above: it
+// exercises the *inner* loop (per-voter windowing) rather than the outer
+// (per-delegate cap).
+func TestIIP59ChunkedDrainStress_SingleDelegateLargeVoter(t *testing.T) {
+	r := require.New(t)
+
+	tier := iip59SingleDelegateLargeVoterTier
+	cfg := newIIP59PerfCfg(r, tier)
+	defer clearDBPaths(&cfg)
+
+	installIIP59PerfHooks(t, tier, cfg.Genesis)
+
+	test := newE2ETest(t, cfg)
+	defer test.teardown()
+	registerEpochProtocols(r, test)
+
+	bc := test.cs.Blockchain()
+	ap := test.cs.ActionPool()
+	rp := rolldpos.FindProtocol(test.cs.Registry())
+	r.NotNil(rp, "rolldpos protocol must be registered")
+	rewardProto := rewarding.FindProtocol(test.cs.Registry())
+	r.NotNil(rewardProto, "rewarding protocol must be registered")
+
+	addrs := seededStressAddrs(tier)
+
+	blkTime := time.Unix(cfg.Genesis.Timestamp, 0)
+	step := 1 * time.Second
+
+	// With 500 voters and voterBudget=50, expect exactly 10 mid-delegate
+	// chunks after the Phase-A freeze (VoterIndex: 50, 100, ..., 500),
+	// plus the Phase-A freeze block itself (VoterIndex=0). VoterIndex
+	// value 500 is never observed because reaching it clears the cursor.
+	expectedChunks := (tier.numVoters + int(tier.voterBudgetPerBlock) - 1) / int(tier.voterBudgetPerBlock)
+	r.Equalf(10, expectedChunks, "unexpected fixture: %d/%d != 10 chunks",
+		tier.numVoters, tier.voterBudgetPerBlock)
+
+	var (
+		drainStartHeight  uint64
+		uniqueVoterIdxs   []uint32
+		maxBlocks         = drainMintCeiling(tier, 1)
+		presentSeen       int
+		absentAfterActive bool
+	)
+
+	for minted := 0; minted < maxBlocks; minted++ {
+		blkTime = blkTime.Add(step)
+		_, err := mintOne(bc, ap, blkTime)
+		r.NoErrorf(err, "mint at height %d", bc.TipHeight())
+
+		height := bc.TipHeight()
+		assertStressInvariant(t, test.cs, cfg.Genesis, rewardProto, addrs, height)
+
+		delegateIdx, voterIdx, _, _, present, err := drainSnapshot(
+			test.cs, cfg.Genesis, rewardProto, height,
+		)
+		r.NoErrorf(err, "drainSnapshot at height %d", height)
+
+		if drainStartHeight == 0 {
+			if !present {
+				continue
+			}
+			drainStartHeight = height
+			t.Logf("drain begins at height=%d epoch=%d DI=%d VI=%d",
+				height, rp.GetEpochNum(height), delegateIdx, voterIdx)
+		}
+
+		if present {
+			presentSeen++
+			// DelegateIndex must stay 0 the entire drain: fixture has one
+			// delegate, so the cursor can never advance past index 0.
+			r.Equalf(uint32(0), delegateIdx,
+				"height %d: DelegateIndex must stay 0 (single-delegate fixture); got %d",
+				height, delegateIdx)
+			// Track the unique progression of VoterIndex values.
+			if len(uniqueVoterIdxs) == 0 || uniqueVoterIdxs[len(uniqueVoterIdxs)-1] != voterIdx {
+				uniqueVoterIdxs = append(uniqueVoterIdxs, voterIdx)
+			}
+			t.Logf("h=%d present=true DI=%d VI=%d", height, delegateIdx, voterIdx)
+			continue
+		}
+		// present=false after drain was active: drain done.
+		absentAfterActive = true
+		t.Logf("drain ends at height=%d observations=%d", height, presentSeen)
+		break
+	}
+	r.NotZerof(drainStartHeight, "drain never began within %d blocks", maxBlocks)
+	r.Truef(absentAfterActive, "drain never terminated within %d blocks", maxBlocks)
+
+	// The unique VoterIndex progression should be exactly:
+	//   0 (Phase A freeze),
+	//   50, 100, 150, ..., 450 (chunks 1..9).
+	// Chunk 10 pays voters 450..499, clears the cursor on the same
+	// block, so VoterIndex=500 is never observed by drainSnapshot.
+	wantUnique := make([]uint32, 0, expectedChunks)
+	wantUnique = append(wantUnique, 0) // Phase A
+	for chunk := 1; chunk < expectedChunks; chunk++ {
+		wantUnique = append(wantUnique, uint32(chunk)*uint32(tier.voterBudgetPerBlock))
+	}
+	r.Equalf(wantUnique, uniqueVoterIdxs,
+		"unique VoterIndex progression mismatch:\n  got  %v\n  want %v",
+		uniqueVoterIdxs, wantUnique)
+
+	// Final gate: cursor absent at tip height.
+	tipHeight := bc.TipHeight()
+	_, _, _, _, stillDraining, err := drainSnapshot(
+		test.cs, cfg.Genesis, rewardProto, tipHeight,
+	)
+	r.NoError(err)
+	r.Falsef(stillDraining, "drain still in progress at tip height %d", tipHeight)
 }
 
 // selectStressTier picks the tier for the SmallTier test — default small,
