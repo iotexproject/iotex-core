@@ -9,13 +9,16 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -43,10 +46,12 @@ type CandidatePollSnapshot struct {
 	// which is what makes the opt-in transition delayed one epoch.
 	VoterRewardOnchainOptIn bool
 	// Entries is the per-voter aggregated weight list, sorted ascending by
-	// Voter bytes. Empty in the initial IIP-59 skeleton PR; a follow-up
-	// fills in the actual voter-weight source. Downstream rewarding treats
-	// an empty list as "no voters known — pay full amount to the delegate
-	// as commission" via its existing degenerate branch.
+	// Voter bytes (invariant maintained by VoterWeightView). Downstream
+	// rewarding treats an empty list as "no voters known — pay full amount
+	// to the delegate as commission" via its existing degenerate branch;
+	// FreezePollSnapshot populates it from the live VoterWeightView, so
+	// this only ever ends up empty when the view is nil (pre-fork setups)
+	// or the candidate genuinely has zero non-self-stake buckets.
 	Entries []VoterWeight
 }
 
@@ -194,6 +199,17 @@ func FreezePollSnapshot(
 		}
 	}
 
+	// The VoterWeightView is the source of truth for per-(candidate, voter)
+	// aggregated weights, kept live by applyVoterWeightDelta hooks on every
+	// bucket mutation. When it is missing (pre-fork setups that skip
+	// Protocol.Start, or tests that write the view directly without an
+	// install step) the freezer degrades gracefully: Entries is left nil on
+	// every snapshot and rewarding routes through its "no voters known"
+	// legacy branch — same behavior as before this PR. When present, we
+	// copy VoterWeightsByCandidate output directly; the view already sorts
+	// entries by voter bytes, so no re-sort here.
+	vw := voterWeightsFromSM(sm)
+
 	for _, id := range ids {
 		optIn, err := readLiveOptIn(sm, id)
 		if err != nil {
@@ -207,6 +223,18 @@ func FreezePollSnapshot(
 			snap.EpochCommissionBasisPoints = r.EpochCommissionBasisPoints
 			snap.Registered = true
 		}
+		if vw != nil {
+			weights := vw.VoterWeightsByCandidate(hash.BytesToHash160(id.Bytes()))
+			if len(weights) > 0 {
+				snap.Entries = make([]VoterWeight, 0, len(weights))
+				for _, w := range weights {
+					snap.Entries = append(snap.Entries, VoterWeight{
+						Voter:  w.voter,
+						Weight: new(big.Int).Set(w.weight),
+					})
+				}
+			}
+		}
 		if _, err := sm.PutState(
 			snap.toBlob(),
 			protocol.NamespaceOption(_stakingNameSpace),
@@ -216,6 +244,25 @@ func FreezePollSnapshot(
 		}
 	}
 	return nil
+}
+
+// voterWeightsFromSM returns the live VoterWeightView from the staking view,
+// or nil when the view isn't installed. Read-only — callers must not Apply
+// through it. Wiring-level failures (view type mismatch) are logged and
+// treated as "view unavailable" so the freezer stays on the safe degraded
+// path rather than failing the block.
+func voterWeightsFromSM(sm protocol.StateManager) VoterWeightView {
+	v, err := sm.ReadView(_protocolID)
+	if err != nil {
+		return nil
+	}
+	vd, ok := v.(*viewData)
+	if !ok || vd == nil {
+		log.L().Warn("staking: view has unexpected type; poll snapshot Entries will be empty",
+			zap.String("protocol", _protocolID))
+		return nil
+	}
+	return vd.voterWeights
 }
 
 // TestOnlyPutPollSnapshotFor seeds a CandidatePollSnapshot directly under
