@@ -42,6 +42,29 @@ func TestEpochDrainChunkSize(t *testing.T) {
 		"post-fork with batch=0: chunkSize must be 0 (legacy single-block)")
 }
 
+// TestVoterBudgetPerBlock mirrors TestEpochDrainChunkSize for the
+// voter-count cap. Pre-fork, VoterBudgetPerBlock is force-zeroed so
+// distributeVoterOnly never runs a window; the payout stays unbounded
+// (matches genesis-parity). Post-fork the configured value is passed
+// through.
+func TestVoterBudgetPerBlock(t *testing.T) {
+	r := require.New(t)
+
+	forkOff, _, pForkOff, _, _ := newVoterRewardCtx(t, false)
+	pForkOff.cfg.VoterBudgetPerBlock = 2000
+	r.Equal(uint32(0), pForkOff.voterBudgetPerBlock(forkOff),
+		"pre-fork: voter budget must be 0 regardless of VoterBudgetPerBlock")
+
+	forkOn, _, pForkOn, _, _ := newVoterRewardCtx(t, true)
+	pForkOn.cfg.VoterBudgetPerBlock = 2000
+	r.Equal(uint32(2000), pForkOn.voterBudgetPerBlock(forkOn),
+		"post-fork with budget=2000: voter budget must be 2000")
+
+	pForkOn.cfg.VoterBudgetPerBlock = 0
+	r.Equal(uint32(0), pForkOn.voterBudgetPerBlock(forkOn),
+		"post-fork with budget=0: voter budget must be 0 (unbounded voters per delegate)")
+}
+
 // TestGrantEpochReward_SkipsCursorWhenNoVoterShare confirms the C3
 // invariant that cursor entries only materialize for delegates whose
 // per-delegate epoch split (or block-time pool accrual) yielded a voter

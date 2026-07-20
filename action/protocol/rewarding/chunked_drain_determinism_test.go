@@ -239,6 +239,13 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		r.NoError(err)
 		r.True(midDrain.CursorPresent, "mid-drain snapshot must observe a live cursor")
 		r.Equal(uint32(2), midDrain.CursorIndex, "mid-drain cursor must be at index 2 after two chunkSize=1 chunks")
+		// With no poll snapshots seeded, distributeVoterOnly returns early
+		// on every delegate → payout window is never entered → VoterIndex
+		// must stay 0 across all delegates. This is the delegate-cap-only
+		// mode's cursor-shape invariant; the voter-cap mode is exercised
+		// by TestDistributeVoterOnly_WindowedDeterminism.
+		r.Equal(uint32(0), midDrain.CursorVoterIndex,
+			"delegate-cap-only mid-drain must keep VoterIndex at 0 (no mid-delegate stops possible)")
 
 		// Continue to completion.
 		for {
@@ -315,6 +322,8 @@ func TestChunkedDrain_MidEraOptOut(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(mid, "cursor must survive mid-drain")
 		r.Equal(uint32(1), mid.DelegateIndex, "cursor must be past the first entry")
+		r.Equal(uint32(0), mid.VoterIndex,
+			"delegate-cap-only mid-drain must land on a delegate boundary — VoterIndex=0")
 		for i := 1; i < len(mid.Delegates); i++ {
 			r.Equal(
 				frozen.Delegates[i].VoterAmountFrozen.Int64(),

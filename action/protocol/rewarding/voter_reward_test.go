@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -234,6 +235,134 @@ func newVoterRewardCtx(
 	r.NoError(sm.WriteView("staking", view))
 
 	return ctx, sm, p, cand, candAddr
+}
+
+// TestDistributeVoterOnly_WindowedDeterminism is IIP-59 PR 5.5b's core
+// determinism claim: splitting one delegate's voter payout across
+// multiple blocks via VoterBudgetPerBlock produces byte-identical
+// per-voter payouts vs a single unbounded call.
+//
+// Setup: 20 voters with weights 1..20 (total 210), voterAmount=100_000
+// → varying per-voter shares plus dust on the last-weighted voter.
+// Reference: one distributeVoterOnly call with voterBudget=0 (unbounded).
+// Chunked: three distributeVoterOnly calls with voterBudget=7 →
+// windows (7, 7, 6). Both fixtures use identical snapshots.
+//
+// Invariants:
+//   - Each chunked call reports consumed matching its window size.
+//   - totalVoters=20 across all calls.
+//   - Sum of chunked `paid` values equals reference `paid` (which equals
+//     voterAmount exactly — allocation is dust-conserving).
+//   - Per-voter unclaimed balance after the chunked run matches the
+//     reference run's balance byte-for-byte (allocation is deterministic
+//     across windows: dust lands in the same voter regardless of which
+//     chunk contains them).
+func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
+	const numVoters = 20
+	voterAmount := big.NewInt(100_000)
+	epochCommission := big.NewInt(5_000)
+	epochBps := uint64(500) // 5% — irrelevant for distributeVoterOnly but keeps the snapshot valid
+
+	voters := make([]voterEntry, numVoters)
+	for i := 0; i < numVoters; i++ {
+		voters[i] = voterEntry{
+			addr:   identityset.Address(3 + i),
+			weight: big.NewInt(int64(i + 1)),
+		}
+	}
+
+	// dumpBalances reads each voter's unclaimed balance so the caller can
+	// compare per-voter payouts across two independent fixtures.
+	dumpBalances := func(t *testing.T, ctx context.Context, sm protocol.StateReader, p *Protocol) []*big.Int {
+		t.Helper()
+		r := require.New(t)
+		out := make([]*big.Int, numVoters)
+		for i, v := range voters {
+			bal, _, err := p.UnclaimedBalance(ctx, sm, v.addr)
+			r.NoError(err, "read voter %d balance", i)
+			out[i] = bal
+		}
+		return out
+	}
+
+	// Reference fixture: single unbounded call.
+	var refPaid *big.Int
+	var refBalances []*big.Int
+	func() {
+		r := require.New(t)
+		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true /* iip59On */)
+		writeSnapshot(t, sm, candAddr, true /* optIn */, true /* registered */, epochBps, voters)
+		rewardAddr, err := address.FromString(cand.RewardAddress)
+		r.NoError(err)
+
+		logs, routed, paid, consumed, total, err := p.distributeVoterOnly(
+			ctx, sm, cand, rewardAddr,
+			voterAmount, epochCommission,
+			0 /* startVoter */, 0, /* voterBudget=unbounded */
+			100 /* blkHeight */, hash.ZeroHash256,
+		)
+		r.NoError(err)
+		r.True(routed, "reference: distributeVoterOnly must route the frozen amount")
+		r.Len(logs, 1, "reference: exactly one DelegateDistributed log")
+		r.Equal(uint32(numVoters), consumed,
+			"reference: unbounded call must consume all voters")
+		r.Equal(uint32(numVoters), total,
+			"reference: totalVoters must equal the snapshot entry count")
+		r.NotNil(paid)
+		r.Equal(0, paid.Cmp(voterAmount),
+			"reference: unbounded payout must exactly equal voterAmount (dust included)")
+
+		refPaid = paid
+		refBalances = dumpBalances(t, ctx, sm, p)
+	}()
+
+	// Chunked fixture: three calls with voterBudget=7 → windows (7,7,6).
+	chunkedPaid := new(big.Int)
+	var chunkedBalances []*big.Int
+	func() {
+		r := require.New(t)
+		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true /* iip59On */)
+		writeSnapshot(t, sm, candAddr, true /* optIn */, true /* registered */, epochBps, voters)
+		rewardAddr, err := address.FromString(cand.RewardAddress)
+		r.NoError(err)
+
+		windows := []struct {
+			start, budget, want uint32
+		}{
+			{0, 7, 7},
+			{7, 7, 7},
+			{14, 7, 6},
+		}
+		for chunkIdx, w := range windows {
+			logs, routed, paid, consumed, total, err := p.distributeVoterOnly(
+				ctx, sm, cand, rewardAddr,
+				voterAmount, epochCommission,
+				w.start, w.budget,
+				100 /* blkHeight */, hash.ZeroHash256,
+			)
+			r.NoError(err, "chunk %d", chunkIdx)
+			r.True(routed, "chunk %d: distributeVoterOnly must route", chunkIdx)
+			r.Len(logs, 1, "chunk %d: one log per chunk", chunkIdx)
+			r.Equal(w.want, consumed,
+				"chunk %d: consumed must match window size", chunkIdx)
+			r.Equal(uint32(numVoters), total,
+				"chunk %d: totalVoters unchanged across windowed calls", chunkIdx)
+			r.NotNil(paid)
+			chunkedPaid.Add(chunkedPaid, paid)
+		}
+		chunkedBalances = dumpBalances(t, ctx, sm, p)
+	}()
+
+	r := require.New(t)
+	r.Equal(0, refPaid.Cmp(chunkedPaid),
+		"sum of chunked paid amounts must equal the reference single-call paid amount (ref=%s chunked=%s)",
+		refPaid.String(), chunkedPaid.String())
+	r.Equal(len(refBalances), len(chunkedBalances))
+	for i := range refBalances {
+		r.Equal(0, refBalances[i].Cmp(chunkedBalances[i]),
+			"voter %d unclaimed balance mismatch (ref=%s chunked=%s) — allocation is not deterministic across windows",
+			i, refBalances[i].String(), chunkedBalances[i].String())
+	}
 }
 
 // TestProtocolOptions verifies WithAutoDepositBridge/WithAutoDepositReader
