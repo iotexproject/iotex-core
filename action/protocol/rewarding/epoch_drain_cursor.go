@@ -32,13 +32,17 @@ type epochDrainDelegateWork struct {
 // epochDrainCursor checkpoints an in-progress IIP-59 era-boundary drain
 // of PendingBlockRewardPool balances into voter accounts. TargetEra is
 // the era ID being drained; DelegateIndex is the resume position in
-// the frozen Delegates slice; Delegates is the frozen work list.
-// Cursor presence in the RewardingNamespace signals a drain is live
-// and the system-action layer must emit a continuation grant on the
-// next block. Absence = no drain in progress.
+// the frozen Delegates slice; VoterIndex is the resume position inside
+// the delegate at DelegateIndex when a per-block voter cap stops
+// payout mid-delegate — 0 whenever the entry at DelegateIndex is
+// fresh. Delegates is the frozen work list. Cursor presence in the
+// RewardingNamespace signals a drain is live and the system-action
+// layer must emit a continuation grant on the next block. Absence =
+// no drain in progress.
 type epochDrainCursor struct {
 	TargetEra     uint64
 	DelegateIndex uint32
+	VoterIndex    uint32
 	Delegates     []epochDrainDelegateWork
 }
 
@@ -47,6 +51,7 @@ func (c epochDrainCursor) Serialize() ([]byte, error) {
 	m := &rewardingpb.EpochDrainCursor{
 		TargetEra:     c.TargetEra,
 		DelegateIndex: c.DelegateIndex,
+		VoterIndex:    c.VoterIndex,
 	}
 	if len(c.Delegates) > 0 {
 		m.Delegates = make([]*rewardingpb.EpochDrainDelegateWork, len(c.Delegates))
@@ -68,6 +73,7 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 	}
 	c.TargetEra = m.GetTargetEra()
 	c.DelegateIndex = m.GetDelegateIndex()
+	c.VoterIndex = m.GetVoterIndex()
 	c.Delegates = nil
 	if ds := m.GetDelegates(); len(ds) > 0 {
 		c.Delegates = make([]epochDrainDelegateWork, len(ds))

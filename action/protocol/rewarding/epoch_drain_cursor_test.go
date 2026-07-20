@@ -23,6 +23,7 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 	in := epochDrainCursor{
 		TargetEra:     42,
 		DelegateIndex: 7,
+		VoterIndex:    123,
 		Delegates: []epochDrainDelegateWork{
 			{
 				CandidateIdentifier: identityset.Address(1).Bytes(),
@@ -43,6 +44,7 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 	r.NoError(out.Deserialize(raw))
 	r.Equal(in.TargetEra, out.TargetEra)
 	r.Equal(in.DelegateIndex, out.DelegateIndex)
+	r.Equal(in.VoterIndex, out.VoterIndex)
 	r.Len(out.Delegates, 2)
 	for i := range in.Delegates {
 		r.Equal(in.Delegates[i].CandidateIdentifier, out.Delegates[i].CandidateIdentifier)
@@ -164,6 +166,7 @@ func TestEpochDrainCursor_WriteOverwrites(t *testing.T) {
 	second := &epochDrainCursor{
 		TargetEra:     10,
 		DelegateIndex: 1,
+		VoterIndex:    88,
 		Delegates: []epochDrainDelegateWork{
 			{CandidateIdentifier: identityset.Address(3).Bytes(), VoterAmountFrozen: big.NewInt(9)},
 		},
@@ -174,6 +177,22 @@ func TestEpochDrainCursor_WriteOverwrites(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(got)
 	r.Equal(uint32(1), got.DelegateIndex)
+	r.Equal(uint32(88), got.VoterIndex, "second write must replace VoterIndex, not merge")
 	r.Len(got.Delegates, 1, "second write must replace, not append")
 	r.Equal(identityset.Address(3).Bytes(), got.Delegates[0].CandidateIdentifier)
+
+	// Overwrite with a fresh delegate (VoterIndex must reset to 0).
+	third := &epochDrainCursor{
+		TargetEra:     10,
+		DelegateIndex: 2,
+		VoterIndex:    0,
+		Delegates: []epochDrainDelegateWork{
+			{CandidateIdentifier: identityset.Address(4).Bytes(), VoterAmountFrozen: big.NewInt(7)},
+		},
+	}
+	r.NoError(p.writeEpochDrainCursor(ctx, sm, third))
+	got, err = p.readEpochDrainCursor(ctx, sm)
+	r.NoError(err)
+	r.NotNil(got)
+	r.Equal(uint32(0), got.VoterIndex, "zero VoterIndex must round-trip as 0, not carry the prior value")
 }

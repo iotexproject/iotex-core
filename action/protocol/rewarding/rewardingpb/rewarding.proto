@@ -75,12 +75,16 @@ message EpochDrainDelegateWork {
 // EpochDrainCursor checkpoints a multi-block IIP-59 era-boundary drain
 // of PendingBlockRewardPool balances into voter accounts. TargetEra is
 // the era ID being drained; DelegateIndex is the resume position in
-// the frozen Delegates slice. Cursor presence in the
-// RewardingNamespace signals a drain is in progress and the
-// system-action layer must emit a continuation grant on the next
-// block. Absence = no drain in progress.
+// the frozen Delegates slice; VoterIndex is the resume position in
+// the current delegate's snap.Entries when a per-block voter cap
+// stops payout mid-delegate. VoterIndex is 0 whenever a delegate
+// entry is fresh; it's non-zero only for the entry pointed to by
+// DelegateIndex. Cursor presence in the RewardingNamespace signals a
+// drain is in progress and the system-action layer must emit a
+// continuation grant on the next block. Absence = no drain in progress.
 message EpochDrainCursor {
     uint64 target_era     = 1;
     uint32 delegate_index = 2;
     repeated EpochDrainDelegateWork delegates = 3;
+    uint32 voter_index    = 4;
 }
