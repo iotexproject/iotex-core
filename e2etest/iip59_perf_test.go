@@ -135,7 +135,7 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 		minted++
 
 		height := bc.TipHeight()
-		delegateIndex, totalDelegates, tEra, present, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, height)
+		delegateIndex, voterIndex, totalDelegates, tEra, present, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, height)
 		r.NoErrorf(err, "drainSnapshot at height %d", height)
 
 		if drainStartHeight == 0 && present {
@@ -145,8 +145,8 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 		}
 		if drainStartHeight != 0 {
 			chunkTimes = append(chunkTimes, wall)
-			t.Logf("h=%d epoch=%d present=%v idx=%d/%d era=%d wall=%v",
-				height, rp.GetEpochNum(height), present, delegateIndex, totalDelegates, tEra, wall)
+			t.Logf("h=%d epoch=%d present=%v idx=%d/%d voterIdx=%d era=%d wall=%v",
+				height, rp.GetEpochNum(height), present, delegateIndex, totalDelegates, voterIndex, tEra, wall)
 			if !present {
 				break
 			}
@@ -160,7 +160,7 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	// Confirm the drain completed cleanly: the era boundary the cursor
 	// was targeting has flipped back to "no drain in progress."
 	tipHeight := bc.TipHeight()
-	_, _, _, stillDraining, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, tipHeight)
+	_, _, _, _, stillDraining, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, tipHeight)
 	r.NoError(err)
 	r.Falsef(stillDraining, "drain still in progress at tip height %d", tipHeight)
 
@@ -303,13 +303,16 @@ func mintOne(bc blockchain.Blockchain, ap actpool.ActPool, blkTime time.Time) (t
 }
 
 // drainSnapshot queries the rewarding protocol for chunked-drain state
-// mid-flight. Returns (delegateIndex, totalDelegates, targetEra, present, error).
+// mid-flight. Returns (delegateIndex, voterIndex, totalDelegates,
+// targetEra, present, error). voterIndex is the mid-delegate resume
+// position when the per-block voter cap stops payout inside a delegate;
+// 0 otherwise.
 func drainSnapshot(
 	cs *chainservice.ChainService,
 	g genesis.Genesis,
 	p *rewarding.Protocol,
 	height uint64,
-) (uint32, uint32, uint64, bool, error) {
+) (uint32, uint32, uint32, uint64, bool, error) {
 	ctx := protocol.WithRegistry(context.Background(), cs.Registry())
 	ctx = genesis.WithGenesisContext(ctx, g)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})

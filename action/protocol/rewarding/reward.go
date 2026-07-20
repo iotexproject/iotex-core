@@ -735,6 +735,20 @@ func (p *Protocol) epochDrainChunkSize(ctx context.Context) uint32 {
 	return uint32(p.cfg.CompoundBatchSize)
 }
 
+// voterBudgetPerBlock returns the maximum number of voters to pay out per
+// block during the IIP-59 era-boundary drain. Zero means unbounded — a
+// single delegate's full voter list executes in one block regardless of
+// size. This is the behavior before the fork gate opens and whenever
+// VoterBudgetPerBlock is left at 0. When non-zero, one delegate's voter
+// list may span multiple continuation blocks; the cursor's VoterIndex
+// records the resume position mid-delegate.
+func (p *Protocol) voterBudgetPerBlock(ctx context.Context) uint32 {
+	if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+		return 0
+	}
+	return uint32(p.cfg.VoterBudgetPerBlock)
+}
+
 func (p *Protocol) encodeRewardLog(
 	rewardType rewardingpb.RewardLog_RewardType,
 	addr string,
