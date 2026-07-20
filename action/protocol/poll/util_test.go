@@ -72,6 +72,9 @@ func TestFreezeIIP59PollSnapshot_EraBoundaryProceeds(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).MinTimes(1)
+	// 5.5a's FreezePollSnapshot reads the VoterWeightView from the staking
+	// view; return "not installed" so the freezer degrades to Entries=nil.
+	sm.EXPECT().ReadView(gomock.Any()).Return(nil, state.ErrStateNotExist).AnyTimes()
 
 	ctx := freezeSnapshotEraGateCtx(t, 24, 1)
 	r.NoError(freezeIIP59PollSnapshot(ctx, sm, fakeCandidatesForGate(), 24))
