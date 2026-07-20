@@ -38,6 +38,7 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 	}
 	candidate.Owner = act.NewOwner()
 	// clear selfstake
+	var clearedBucket *VoteBucket
 	needClear := func() (bool, *big.Int, error) {
 		bucket, err := csm.NativeBucket(candidate.SelfStakeBucketIdx)
 		if err == nil {
@@ -61,6 +62,7 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 				votes := p.calculateVoteWeight(bucket, false)
 				subVotes.Sub(selfStakeVotes, votes)
 			}
+			clearedBucket = bucket
 			return true, subVotes, nil
 		} else if errors.Is(err, state.ErrStateNotExist) {
 			return true, big.NewInt(0), nil
@@ -76,6 +78,13 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 			candidate.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 			candidate.SelfStake = big.NewInt(0)
 			candidate.Votes.Sub(candidate.Votes, subVotes)
+			// IIP-59: the self-stake bucket loses its self-stake bonus and
+			// becomes a regular vote bucket. Mirror the (candidate, voter)
+			// weight change in the view. subVotes is (with-bonus − without-bonus),
+			// so the view delta is −subVotes.
+			if clearedBucket != nil && subVotes.Sign() > 0 {
+				applyVoterWeightDelta(csm, candidate.GetIdentifier(), clearedBucket.Owner, new(big.Int).Neg(subVotes))
+			}
 		}
 	}
 	if err := csm.Upsert(candidate); err != nil {
