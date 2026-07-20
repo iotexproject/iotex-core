@@ -10,11 +10,14 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
@@ -270,5 +273,116 @@ func TestGrantVoterRewardChunk_PreForkRejects(t *testing.T) {
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 		r.Error(err)
 		r.Contains(err.Error(), "voter reward chunk action requires IIP-59 fork")
+	}, nil, false, 0)
+}
+
+// TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra guards the C3
+// design's cross-era accrual claim: a block-side voter credit that lands
+// in a delegate's pending pool after Phase A has frozen the era-N cursor
+// but before that delegate's era-N chunk runs is NOT drained by the
+// era-N chunk (which drains only the frozen amount), stays in the pool
+// through the era-N coda, and is folded into the era-N+1 cursor by the
+// next Phase A.
+//
+// Fixture: seed 250 rau in candidate 27's pool → Phase A at epoch 1's
+// last block freezes 250 in the cursor entry. Before the first Phase B
+// chunk runs, seed another 100 rau in the same pool entry (mimicking a
+// block-time voter credit from GrantBlockReward for a block produced by
+// candidate 27 during era N+1). Drive Phase B to completion. Assert:
+//
+//   - candidate 27's pool balance = 100 (residual, not 0 and not -100)
+//   - cursor is absent (era-N drain completed)
+//   - a fresh Phase A at epoch 2's last block folds the 100 residual
+//     into a new era-N+1 cursor entry with VoterAmountFrozen=100
+func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		ctx = enableIIP59(t, ctx)
+		p.cfg.CompoundBatchSize = 1
+
+		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+
+		// Seed only candidate 27's pool. Phase A will freeze exactly one
+		// cursor entry — makes the "same delegate accrues more mid-drain"
+		// invariant unambiguous to assert.
+		candID := identityset.Address(27).Bytes()
+		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(250)))
+
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		sp := &staking.Protocol{}
+		r.NoError(sp.Register(protocol.MustGetRegistry(ctx)))
+		patches.ApplyMethodReturn(sp, "SlashCandidateByOperator", nil)
+		patches.ApplyMethodReturn(sp, "SlashCandidateByID", nil)
+
+		// Era-N Phase A: freeze the cursor at 250 for candidate 27.
+		_, _, err = p.GrantEpochReward(ctx, sm)
+		r.NoError(err)
+		frozen, err := p.readEpochDrainCursor(ctx, sm)
+		r.NoError(err)
+		r.NotNil(frozen)
+		r.Equal(uint64(1), frozen.TargetEra)
+		var frozenAmt int64
+		for _, w := range frozen.Delegates {
+			if string(w.CandidateIdentifier) == string(candID) {
+				frozenAmt = w.VoterAmountFrozen.Int64()
+			}
+		}
+		r.Equal(int64(250), frozenAmt, "Phase A must freeze 250 for candidate 27")
+
+		// Mid-drain late accrual: another 100 lands in candidate 27's pool
+		// while the era-N cursor is still live.
+		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(100)))
+
+		// Drive Phase B to completion. distributeVoterOnly returns early
+		// (no snapshot seeded), so the observable Phase B effect for this
+		// delegate is decrementPendingBlockRewardPool(frozen=250) exactly.
+		for {
+			got, cErr := p.readEpochDrainCursor(ctx, sm)
+			r.NoError(cErr)
+			if got == nil {
+				break
+			}
+			_, _, cErr = p.GrantVoterRewardChunk(ctx, sm)
+			r.NoError(cErr)
+		}
+
+		// Assert 27's pool has the 100 late credit surviving, and that the
+		// era-N cursor is gone.
+		residual, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+		r.NoError(err)
+		r.Equal(int64(100), residual.Int64(),
+			"late accrual must survive era-N drain — era-N chunk drains only the frozen 250")
+
+		// Advance the block context to epoch 2's last block and re-derive
+		// feature ctxs, then run era-N+1 Phase A. It must build a fresh
+		// cursor entry for candidate 27 with the residual folded in.
+		rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+		g := genesis.MustExtractGenesisContext(ctx)
+		epochLast := rp.GetEpochLastBlockHeight(2)
+		blk := protocol.MustGetBlockCtx(ctx)
+		blk.BlockHeight = epochLast
+		blk.Producer = identityset.Address(27)
+		ctx = protocol.WithBlockCtx(ctx, blk)
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithFeatureCtx(ctx)
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
+
+		_, _, err = p.GrantEpochReward(ctx, sm)
+		r.NoError(err)
+
+		nextCursor, err := p.readEpochDrainCursor(ctx, sm)
+		r.NoError(err)
+		r.NotNil(nextCursor, "era-N+1 Phase A must produce a cursor from the surviving pool residual")
+		r.Equal(uint64(2), nextCursor.TargetEra)
+		var carriedAmt int64
+		for _, w := range nextCursor.Delegates {
+			if string(w.CandidateIdentifier) == string(candID) {
+				carriedAmt = w.VoterAmountFrozen.Int64()
+			}
+		}
+		r.Equal(int64(100), carriedAmt,
+			"era-N+1 cursor must freeze the 100 rau that survived era-N drain")
 	}, nil, false, 0)
 }
