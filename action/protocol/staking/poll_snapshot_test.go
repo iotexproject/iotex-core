@@ -214,7 +214,9 @@ func TestFreezePollSnapshot_NilBridge(t *testing.T) {
 	r.Zero(snap.BlockCommissionBasisPoints)
 	r.Zero(snap.EpochCommissionBasisPoints)
 	r.True(snap.VoterRewardOnchainOptIn)
-	r.Empty(snap.Entries)
+	// Entries population is verified by TestFreezePollSnapshot_Entries_* —
+	// this test intentionally runs without a view installed to exercise the
+	// no-view degrade path.
 
 	snap, err = PollSnapshotFor(sm, optOutCand.Owner)
 	r.NoError(err)
@@ -260,7 +262,7 @@ func TestFreezePollSnapshot_HappyPath(t *testing.T) {
 	r.Equal(uint64(1000), snap.BlockCommissionBasisPoints)
 	r.Equal(uint64(2000), snap.EpochCommissionBasisPoints)
 	r.True(snap.VoterRewardOnchainOptIn)
-	r.Empty(snap.Entries)
+	// Entries population is verified by TestFreezePollSnapshot_Entries_*.
 }
 
 func TestFreezePollSnapshot_PartialProfile(t *testing.T) {
