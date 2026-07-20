@@ -51,6 +51,7 @@ type (
 		bucketPool     *BucketPool
 		snapshots      []Snapshot
 		contractsStake *contractStakeView
+		voterWeights   VoterWeightView
 	}
 	Snapshot struct {
 		size           int
@@ -58,6 +59,7 @@ type (
 		amount         *big.Int
 		count          uint64
 		contractsStake *contractStakeView
+		voterWeights   VoterWeightView
 	}
 	contractStakeView struct {
 		v1 ContractStakeView
@@ -78,9 +80,13 @@ func (v *viewData) Fork() protocol.View {
 			amount:         new(big.Int).Set(v.snapshots[i].amount),
 			count:          v.snapshots[i].count,
 			contractsStake: v.snapshots[i].contractsStake,
+			voterWeights:   v.snapshots[i].voterWeights,
 		}
 	}
 	fork.contractsStake = v.contractsStake.Fork()
+	if v.voterWeights != nil {
+		fork.voterWeights = v.voterWeights.Fork()
+	}
 	return fork
 }
 
@@ -94,26 +100,44 @@ func (v *viewData) Commit(ctx context.Context, sm protocol.StateManager) error {
 	if err := v.contractsStake.Commit(ctx, sm); err != nil {
 		return err
 	}
+	if v.voterWeights != nil {
+		newVW, err := v.voterWeights.Commit(sm)
+		if err != nil {
+			return err
+		}
+		v.voterWeights = newVW
+	}
 	v.snapshots = []Snapshot{}
 
 	return nil
 }
 
 func (v *viewData) IsDirty() bool {
-	return v.candCenter.IsDirty() || v.bucketPool.IsDirty() || v.contractsStake.IsDirty()
+	if v.candCenter.IsDirty() || v.bucketPool.IsDirty() || v.contractsStake.IsDirty() {
+		return true
+	}
+	return v.voterWeights != nil && v.voterWeights.IsDirty()
 }
 
 func (v *viewData) Snapshot() int {
 	snapshot := len(v.snapshots)
 	wrapped := v.contractsStake.Wrap()
+	var vwPre VoterWeightView
+	if v.voterWeights != nil {
+		vwPre = v.voterWeights
+	}
 	v.snapshots = append(v.snapshots, Snapshot{
 		size:           v.candCenter.size,
 		changes:        len(v.candCenter.change.candidates),
 		amount:         new(big.Int).Set(v.bucketPool.total.amount),
 		count:          v.bucketPool.total.count,
 		contractsStake: v.contractsStake,
+		voterWeights:   vwPre,
 	})
 	v.contractsStake = wrapped
+	if v.voterWeights != nil {
+		v.voterWeights = v.voterWeights.Wrap()
+	}
 	return snapshot
 }
 
@@ -131,6 +155,7 @@ func (v *viewData) Revert(snapshot int) error {
 	v.bucketPool.total.amount.Set(s.amount)
 	v.bucketPool.total.count = s.count
 	v.contractsStake = s.contractsStake
+	v.voterWeights = s.voterWeights
 	v.snapshots = v.snapshots[:snapshot]
 	return nil
 }
