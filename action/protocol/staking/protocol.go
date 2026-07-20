@@ -66,6 +66,12 @@ const (
 	// PutPollResult, read once per epoch by the rewarding protocol under
 	// IIP-59. Full key: {_candidatePollSnapshot} || candID.Bytes().
 	_candidatePollSnapshot
+	// _voterWeights is the tag for a single-value voterWeightDigest under
+	// StakingNamespace (see voter_weight_view.go). Holds the deterministic
+	// 32-byte hash of the in-memory VoterWeightView. Written on every block
+	// where the view is dirty; read only at boot to detect divergence
+	// between the rebuild-from-buckets view and the last-persisted digest.
+	_voterWeights
 )
 
 // Errors

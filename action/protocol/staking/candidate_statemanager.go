@@ -120,10 +120,15 @@ func (csm *candSM) DirtyView() *viewData {
 	if !ok {
 		log.S().Panicf("unexpected view type %T", v)
 	}
+	// voterWeights is carried by pointer so applyVoterWeightDelta mutates
+	// the same object other handlers in this workflow see. Stripping it to
+	// nil here would silently drop the IIP-59 hooks — that bug was flagged
+	// in the abandoned pr2.5 review.
 	return &viewData{
 		candCenter:     csm.candCenter,
 		bucketPool:     csm.bucketPool,
 		contractsStake: vd.contractsStake,
+		voterWeights:   vd.voterWeights,
 	}
 }
 
