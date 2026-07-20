@@ -609,9 +609,20 @@ func (p *Protocol) loadEpochDistributionInputs(
 	return a, exemptAddrs, uqdMap, candidates, rewardedCandidates, addrs, amounts, nil
 }
 
-// runVoterDistributionChunk processes the next [cursor.DelegateIndex,
-// +chunkSize) slice of the frozen work list. Post-C3 the coda shrinks
-// to orphan sweep + cursor delete: foundation bonus and epoch sentinel
+// runVoterDistributionChunk processes the frozen work list starting at
+// cursor.DelegateIndex, bounded by two independent per-block caps:
+//
+//   - delegateBudget (CompoundBatchSize) — max delegates per block.
+//     Zero = disabled (unbounded delegates).
+//   - voterBudget (VoterBudgetPerBlock) — max voters paid per block,
+//     across all delegates touched this call. Zero = disabled (unbounded
+//     voters per delegate).
+//
+// Either exhaustion terminates the chunk. When voterBudget stops payout
+// mid-delegate, the cursor's VoterIndex records the resume position and
+// DelegateIndex stays put; the next block picks up at
+// [VoterIndex, VoterIndex+remainingBudget). Post-C3 the coda shrinks to
+// orphan sweep + cursor delete: foundation bonus and epoch sentinel
 // already ran in GrantEpochReward.
 //
 // Post-fork only — GrantVoterRewardChunk is the sole caller. Cursor
@@ -640,16 +651,26 @@ func (p *Protocol) runVoterDistributionChunk(
 		}
 	}
 
-	chunkSize := p.epochDrainChunkSize(ctx)
+	delegateBudget := p.epochDrainChunkSize(ctx)
+	voterBudget := p.voterBudgetPerBlock(ctx)
+	total := uint32(len(cursor.Delegates))
 	startIdx := cursor.DelegateIndex
-	endIdx := uint32(len(cursor.Delegates))
-	if chunkSize > 0 && startIdx+chunkSize < endIdx {
-		endIdx = startIdx + chunkSize
+
+	remainingDelegates := total - startIdx
+	if delegateBudget > 0 && delegateBudget < remainingDelegates {
+		remainingDelegates = delegateBudget
 	}
-	for i := startIdx; i < endIdx; i++ {
+	remainingVoters := voterBudget
+
+	i := startIdx
+	delegatesConsumed := uint32(0)
+	stoppedMidDelegate := false
+	for ; i < total && delegatesConsumed < remainingDelegates; i++ {
 		work := cursor.Delegates[i]
 		voterAmt := safeBig(work.VoterAmountFrozen)
 		if voterAmt.Sign() == 0 {
+			cursor.VoterIndex = 0
+			delegatesConsumed++
 			continue
 		}
 		candAddr, err := address.FromBytes(work.CandidateIdentifier)
@@ -661,34 +682,89 @@ func (p *Protocol) runVoterDistributionChunk(
 			// Delegate fell off the reward split between Phase A and now.
 			// Leave the pool balance alone — the coda's orphan sweep
 			// routes it to the delegate's live reward address or refunds.
+			cursor.VoterIndex = 0
+			delegatesConsumed++
 			continue
 		}
 		cand := rewardedCandidates[idx]
 		rewardAddr := addrs[idx]
 		if cand == nil || rewardAddr == nil {
+			cursor.VoterIndex = 0
+			delegatesConsumed++
 			continue
 		}
 		epochCommission, _, err := p.splitDelegateEpochReward(ctx, sm, cand, amounts[idx])
 		if err != nil {
 			return nil, nil, err
 		}
-		iip59Logs, _, err := p.distributeVoterOnly(
+		startVoter := cursor.VoterIndex
+		// Only the current-delegate window is capped by remainingVoters;
+		// distributeVoterOnly interprets voterBudget=0 as unbounded.
+		chunkVoterBudget := voterBudget
+		if voterBudget > 0 {
+			chunkVoterBudget = remainingVoters
+		}
+		iip59Logs, routed, paid, consumed, totalVoters, err := p.distributeVoterOnly(
 			ctx, sm, cand, rewardAddr, voterAmt, epochCommission,
+			startVoter, chunkVoterBudget,
 			blkCtx.BlockHeight, actionCtx.ActionHash,
 		)
 		if err != nil {
 			return nil, nil, err
 		}
-		rewardLogs = append(rewardLogs, iip59Logs...)
-		if err := p.decrementPendingBlockRewardPool(ctx, sm, work.CandidateIdentifier, voterAmt); err != nil {
-			return nil, nil, err
+		if !routed {
+			// Snapshot vanished or delegate opted out between Phase A
+			// and now. Release the frozen voterAmt from the pool so it
+			// returns to the general unclaimedBalance rather than
+			// lingering as a false accrual — the coda's orphan sweep
+			// skips visited (cursor) delegates, so we must do this here.
+			// Post-freeze accrual (if any) stays for the next era.
+			if err := p.decrementPendingBlockRewardPool(ctx, sm, work.CandidateIdentifier, voterAmt); err != nil {
+				return nil, nil, err
+			}
+			cursor.VoterIndex = 0
+			delegatesConsumed++
+			continue
 		}
+		rewardLogs = append(rewardLogs, iip59Logs...)
+		if paid != nil && paid.Sign() > 0 {
+			if err := p.decrementPendingBlockRewardPool(ctx, sm, work.CandidateIdentifier, paid); err != nil {
+				return nil, nil, err
+			}
+		}
+		if voterBudget > 0 {
+			remainingVoters -= consumed
+		}
+		if startVoter+consumed >= totalVoters {
+			// Delegate finished this block. Advance.
+			cursor.VoterIndex = 0
+			delegatesConsumed++
+			if voterBudget > 0 && remainingVoters == 0 && i+1 < total {
+				// Voter budget exhausted at the delegate boundary. Next
+				// block resumes at the next delegate.
+				cursor.DelegateIndex = i + 1
+				stoppedMidDelegate = true
+				break
+			}
+			continue
+		}
+		// Mid-delegate stop — the voter budget cut off inside this
+		// delegate. Freeze DelegateIndex, record resume position.
+		cursor.VoterIndex = startVoter + consumed
+		cursor.DelegateIndex = i
+		stoppedMidDelegate = true
+		break
+	}
+	// If the outer loop broke naturally because delegatesConsumed hit
+	// remainingDelegates without triggering the mid-delegate break, we
+	// still need to update DelegateIndex.
+	if !stoppedMidDelegate {
+		cursor.DelegateIndex = i
 	}
 
-	if endIdx < uint32(len(cursor.Delegates)) {
+	if cursor.DelegateIndex < total {
 		// Drain still in progress. Persist the cursor and let
 		// CreatePostSystemActions emit the continuation on the next block.
-		cursor.DelegateIndex = endIdx
 		if err := p.writeEpochDrainCursor(ctx, sm, cursor); err != nil {
 			return nil, nil, err
 		}

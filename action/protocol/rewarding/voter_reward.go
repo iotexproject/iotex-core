@@ -83,26 +83,44 @@ func (p *Protocol) splitDelegateEpochReward(
 	return commission, voterShare, nil
 }
 
-// distributeVoterOnly is IIP-59 §3.2's Phase B: allocate voterAmount across
-// snap.Entries, route each share to compound or credit via the AutoDeposit
-// bridge, and emit a single batched DelegateDistributed log with
-// epochCommission attesting to the Phase A per-delegate commission.
+// distributeVoterOnly is IIP-59 §3.2's Phase B: allocate the delegate's
+// frozen voter share (voterAmount) across the FULL snap.Entries list,
+// then pay only voters in the [startVoter, startVoter+voterBudget)
+// window; route each paid share to compound or credit via the AutoDeposit
+// bridge, and emit a batched DelegateDistributed log with epochCommission
+// attesting to the Phase A per-delegate commission.
+//
+// voterBudget == 0 means "no per-block voter cap for this call" — pay
+// through the end of the list.
+//
+// Allocation is deterministic across chunks: the same snap.Entries +
+// weights + voterAmount always produce the same share array. Splitting a
+// delegate across K blocks produces byte-identical per-voter amounts to
+// the un-split single-block run; the last-with-weight voter absorbs the
+// dust once, whichever chunk reaches them.
 //
 // Post-C3, block-side commission is observable via the per-block
 // BLOCK_REWARD logs and is intentionally omitted from TotalCommission;
 // consumers who want an era total sum both streams themselves.
 //
 // Return contract:
-//   - (logs, true, nil): voter shares granted, log emitted.
-//   - (nil, false, nil): snapshot missing or delegate opted out /
-//     unregistered between Phase A and this chunk. The coda's orphan
-//     sweep drains the residual pool entry.
-//   - (nil, false, err): hard failure.
+//   - (logs, routed=true, paidThisChunk, consumedVoters, totalVoters, nil):
+//     window paid, log emitted with the window's voters/amounts.
+//   - (nil, routed=false, nil, 0, 0, nil): snapshot missing or delegate
+//     opted out / unregistered between Phase A and this chunk. Caller
+//     advances past this delegate; the coda's orphan sweep drains the
+//     residual pool entry.
+//   - (nil, false, nil, 0, 0, err): hard failure.
 //
 // Malformed on-chain data (bridge RPC error, bucket read error, ineligible
 // bucket) still degrades individual voters to credit rather than halting
 // the block; wiring errors (nil staking protocol, log-encoder failure)
 // hard-fail.
+//
+// Post-5.5b the log's `TotalVoterPool` reflects the sum of `Amounts[]`
+// paid in *this* chunk, not the delegate's era-wide frozen amount. Off-
+// chain consumers must aggregate partial logs by (SnapshotHash, delegate,
+// epoch) to recover era-wide totals.
 func (p *Protocol) distributeVoterOnly(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -110,28 +128,41 @@ func (p *Protocol) distributeVoterOnly(
 	rewardAddr address.Address,
 	voterAmount *big.Int,
 	epochCommission *big.Int,
+	startVoter uint32,
+	voterBudget uint32,
 	blkHeight uint64,
 	actionHash hash.Hash256,
-) ([]*action.Log, bool, error) {
+) ([]*action.Log, bool, *big.Int, uint32, uint32, error) {
 	if cand == nil || rewardAddr == nil {
-		return nil, false, nil
+		return nil, false, nil, 0, 0, nil
 	}
 	if err := assertNonNegativeReward(voterAmount); err != nil {
-		return nil, false, err
+		return nil, false, nil, 0, 0, err
 	}
 	candID, err := address.FromString(cand.Address)
 	if err != nil {
-		return nil, false, errors.Wrapf(err, "rewarding: invalid candidate address %q", cand.Address)
+		return nil, false, nil, 0, 0, errors.Wrapf(err, "rewarding: invalid candidate address %q", cand.Address)
 	}
 	snap, err := staking.PollSnapshotFor(sm, candID)
 	if err != nil {
 		if errors.Is(err, state.ErrStateNotExist) {
-			return nil, false, nil
+			return nil, false, nil, 0, 0, nil
 		}
-		return nil, false, errors.Wrapf(err, "rewarding: read poll snapshot for %s", candID.String())
+		return nil, false, nil, 0, 0, errors.Wrapf(err, "rewarding: read poll snapshot for %s", candID.String())
 	}
 	if !snap.VoterRewardOnchainOptIn || !snap.Registered {
-		return nil, false, nil
+		return nil, false, nil, 0, 0, nil
+	}
+	totalVoters := uint32(len(snap.Entries))
+	// endVoter is clamped to the list; a startVoter past the end is a
+	// no-op window (0 voters paid), which is a legal "delegate is done"
+	// state — the caller advances past this delegate.
+	if startVoter > totalVoters {
+		startVoter = totalVoters
+	}
+	endVoter := totalVoters
+	if voterBudget > 0 && startVoter+voterBudget < endVoter {
+		endVoter = startVoter + voterBudget
 	}
 	totalWeight := new(big.Int)
 	for _, e := range snap.Entries {
@@ -142,7 +173,7 @@ func (p *Protocol) distributeVoterOnly(
 
 	stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx))
 	if stakingProto == nil {
-		return nil, false, errors.New("rewarding: staking protocol not registered")
+		return nil, false, nil, 0, 0, errors.New("rewarding: staking protocol not registered")
 	}
 	var reader autodeposit.ContractReader
 	if p.autoDepositBridge != nil {
@@ -150,31 +181,36 @@ func (p *Protocol) distributeVoterOnly(
 	}
 	csr, err := staking.ConstructBaseView(sm)
 	if err != nil {
-		return nil, false, errors.Wrap(err, "rewarding: construct base view for compound routing")
+		return nil, false, nil, 0, 0, errors.Wrap(err, "rewarding: construct base view for compound routing")
 	}
 
-	voters, weights, amounts, routings, err := p.allocateAndRouteVoters(
-		ctx, sm, snap, totalWeight, safeBig(voterAmount), stakingProto, reader, csr, candID,
+	voters, amounts, routings, paid, err := p.allocateAndRouteVoters(
+		ctx, sm, snap, totalWeight, safeBig(voterAmount),
+		startVoter, endVoter,
+		stakingProto, reader, csr, candID,
 	)
 	if err != nil {
-		return nil, false, err
+		return nil, false, nil, 0, 0, err
 	}
 
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkHeight)
+	// SnapshotHash covers the full frozen weight list, so it's stable
+	// across chunks — off-chain consumers assemble partial logs by
+	// (SnapshotHash, delegate, epoch).
 	topics, data, err := distributedlog.Pack(distributedlog.EventArgs{
 		Epoch:           epochNum,
 		Delegate:        candID,
 		RewardAddr:      rewardAddr,
 		TotalCommission: safeBig(epochCommission),
-		TotalVoterPool:  safeBig(voterAmount),
-		SnapshotHash:    distributedlog.SnapshotHash(voters, weights),
+		TotalVoterPool:  safeBig(paid),
+		SnapshotHash:    snapshotHashFull(snap),
 		Voters:          voters,
 		Amounts:         amounts,
 		Routings:        routings,
 	})
 	if err != nil {
-		return nil, false, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
+		return nil, false, nil, 0, 0, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
 	}
 	return []*action.Log{{
 		Address:     p.addr.String(),
@@ -182,29 +218,58 @@ func (p *Protocol) distributeVoterOnly(
 		Data:        data,
 		BlockHeight: blkHeight,
 		ActionHash:  actionHash,
-	}}, true, nil
+	}}, true, paid, endVoter - startVoter, totalVoters, nil
+}
+
+// snapshotHashFull computes the deterministic SnapshotHash over the full
+// frozen (voter, weight) list. Unlike a per-chunk hash, this value is
+// stable across chunks and lets off-chain consumers assemble partial
+// DelegateDistributed logs by (SnapshotHash, delegate, epoch).
+func snapshotHashFull(snap *staking.CandidatePollSnapshot) hash.Hash256 {
+	if snap == nil {
+		return hash.ZeroHash256
+	}
+	voters := make([]address.Address, len(snap.Entries))
+	weights := make([]*big.Int, len(snap.Entries))
+	for i, e := range snap.Entries {
+		voters[i] = e.Voter
+		if e.Weight != nil {
+			weights[i] = new(big.Int).Set(e.Weight)
+		} else {
+			weights[i] = new(big.Int)
+		}
+	}
+	return distributedlog.SnapshotHash(voters, weights)
 }
 
 // allocateAndRouteVoters splits voterPool across snap.Entries by frozen
-// weight and applies the compound/credit routing for each share. Returns
-// the parallel slices the caller folds into the DelegateDistributed log.
+// weight and applies the compound/credit routing for the voters in the
+// [startVoter, endVoter) window. Returns the parallel slices the caller
+// folds into the DelegateDistributed log — restricted to the window —
+// plus the sum of amounts actually paid this chunk.
 //
-// Determinism: iteration follows the snapshot's canonical order; the last
-// weighted voter absorbs the modular-division dust so sum(amounts) equals
-// voterPool exactly. All fallback branches (nil bridge, bridge RPC error,
-// bucket ineligible) degrade the affected voter to credit rather than
-// halting the block.
+// Allocation enumerates the full snap.Entries every call so per-voter
+// shares are deterministic across chunks: splitting one delegate across
+// K blocks produces byte-identical amounts to a single-block run. The
+// last weighted voter absorbs the modular-division dust so sum(shares)
+// over the full list equals voterPool exactly; the dust lands in
+// whichever chunk contains the last-weighted voter.
+//
+// All fallback branches (nil bridge, bridge RPC error, bucket ineligible)
+// degrade the affected voter to credit rather than halting the block.
 func (p *Protocol) allocateAndRouteVoters(
 	ctx context.Context,
 	sm protocol.StateManager,
 	snap *staking.CandidatePollSnapshot,
 	totalWeight *big.Int,
 	voterPool *big.Int,
+	startVoter uint32,
+	endVoter uint32,
 	stakingProto *staking.Protocol,
 	reader autodeposit.ContractReader,
 	csr staking.CandidateStateReader,
 	candID address.Address,
-) ([]address.Address, []*big.Int, []*big.Int, []autodeposit.Route, error) {
+) ([]address.Address, []*big.Int, []autodeposit.Route, *big.Int, error) {
 	shares := make([]*big.Int, len(snap.Entries))
 	if voterPool.Sign() > 0 && totalWeight.Sign() > 0 {
 		distributed := new(big.Int)
@@ -232,22 +297,31 @@ func (p *Protocol) allocateAndRouteVoters(
 		}
 	}
 
-	voters := make([]address.Address, len(snap.Entries))
-	weights := make([]*big.Int, len(snap.Entries))
-	amounts := make([]*big.Int, len(snap.Entries))
-	routings := make([]autodeposit.Route, len(snap.Entries))
-	for i, e := range snap.Entries {
-		voters[i] = e.Voter
-		if e.Weight != nil {
-			weights[i] = new(big.Int).Set(e.Weight)
-		} else {
-			weights[i] = new(big.Int)
-		}
-		amounts[i] = shares[i]
-		routings[i] = autodeposit.RouteCredit
+	// Clamp the payout window to the frozen list.
+	total := uint32(len(snap.Entries))
+	if startVoter > total {
+		startVoter = total
 	}
+	if endVoter > total {
+		endVoter = total
+	}
+	if endVoter < startVoter {
+		endVoter = startVoter
+	}
+	winLen := int(endVoter - startVoter)
 
-	for i, e := range snap.Entries {
+	voters := make([]address.Address, winLen)
+	amounts := make([]*big.Int, winLen)
+	routings := make([]autodeposit.Route, winLen)
+	paid := new(big.Int)
+
+	for j := 0; j < winLen; j++ {
+		i := int(startVoter) + j
+		e := snap.Entries[i]
+		voters[j] = e.Voter
+		amounts[j] = shares[i]
+		routings[j] = autodeposit.RouteCredit
+
 		share := shares[i]
 		if share.Sign() == 0 {
 			continue
@@ -290,9 +364,10 @@ func (p *Protocol) allocateAndRouteVoters(
 					"rewarding: credit voter %s failed", e.Voter.String())
 			}
 		}
-		routings[i] = route
+		routings[j] = route
+		paid.Add(paid, share)
 	}
-	return voters, weights, amounts, routings, nil
+	return voters, amounts, routings, paid, nil
 }
 
 // splitCommission returns (commission, voterPool) for a totalReward given
