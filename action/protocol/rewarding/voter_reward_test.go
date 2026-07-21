@@ -295,7 +295,7 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 		rewardAddr, err := address.FromString(cand.RewardAddress)
 		r.NoError(err)
 
-		logs, routed, paid, consumed, total, err := p.distributeVoterOnly(
+		logs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
 			ctx, sm, cand, rewardAddr,
 			voterAmount, epochCommission,
 			0 /* startVoter */, 0, /* voterBudget=unbounded */
@@ -309,6 +309,7 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 		r.Equal(uint32(numVoters), total,
 			"reference: totalVoters must equal the snapshot entry count")
 		r.NotNil(paid)
+		r.Zero(compounded.Sign())
 		r.Equal(0, paid.Cmp(voterAmount),
 			"reference: unbounded payout must exactly equal voterAmount (dust included)")
 
@@ -334,7 +335,7 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 			{14, 7, 6},
 		}
 		for chunkIdx, w := range windows {
-			logs, routed, paid, consumed, total, err := p.distributeVoterOnly(
+			logs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
 				ctx, sm, cand, rewardAddr,
 				voterAmount, epochCommission,
 				w.start, w.budget,
@@ -348,6 +349,7 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 			r.Equal(uint32(numVoters), total,
 				"chunk %d: totalVoters unchanged across windowed calls", chunkIdx)
 			r.NotNil(paid)
+			r.Zero(compounded.Sign())
 			chunkedPaid.Add(chunkedPaid, paid)
 		}
 		chunkedBalances = dumpBalances(t, ctx, sm, p)

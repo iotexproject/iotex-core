@@ -725,7 +725,7 @@ func (p *Protocol) runVoterDistributionChunk(
 		if voterBudget > 0 {
 			chunkVoterBudget = remainingVoters
 		}
-		iip59Logs, routed, paid, consumed, totalVoters, err := p.distributeVoterOnly(
+		iip59Logs, routed, paid, compounded, consumed, totalVoters, err := p.distributeVoterOnly(
 			ctx, sm, cand, rewardAddr, voterAmt, epochCommission,
 			startVoter, chunkVoterBudget,
 			blkCtx.BlockHeight, actionCtx.ActionHash,
@@ -752,6 +752,13 @@ func (p *Protocol) runVoterDistributionChunk(
 			if err := p.decrementPendingBlockRewardPool(ctx, sm, work.CandidateIdentifier, paid); err != nil {
 				return nil, nil, err
 			}
+		}
+		if compounded != nil && compounded.Sign() > 0 {
+			compoundLog, err := p.settleCompoundOutflow(ctx, sm, compounded)
+			if err != nil {
+				return nil, nil, err
+			}
+			transactionLogs = append(transactionLogs, compoundLog)
 		}
 		if voterBudget > 0 {
 			remainingVoters -= consumed
@@ -818,6 +825,25 @@ func (p *Protocol) runVoterDistributionChunk(
 		return nil, nil, err
 	}
 	return transactionLogs, rewardLogs, nil
+}
+
+func (p *Protocol) settleCompoundOutflow(
+	ctx context.Context,
+	sm protocol.StateManager,
+	amount *big.Int,
+) (*action.TransactionLog, error) {
+	if amount == nil || amount.Sign() <= 0 {
+		return nil, errors.New("rewarding: compound outflow must be positive")
+	}
+	if err := p.updateTotalBalance(ctx, sm, amount); err != nil {
+		return nil, errors.Wrap(err, "rewarding: debit compound outflow")
+	}
+	return &action.TransactionLog{
+		Type:      iotextypes.TransactionLogType_DEPOSIT_TO_BUCKET,
+		Sender:    address.RewardingPoolAddr,
+		Recipient: address.StakingBucketPoolAddr,
+		Amount:    new(big.Int).Set(amount),
+	}, nil
 }
 
 // epochDrainChunkSize returns the maximum number of delegates to process

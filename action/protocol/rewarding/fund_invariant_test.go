@@ -13,6 +13,8 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
@@ -36,6 +38,25 @@ func TestFundInvariant_HoldsAfterDeposit(t *testing.T) {
 		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
 		r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, allProtocolAddrs(t)))
+	}, noUnproductives, false, 0)
+}
+
+func TestSettleCompoundOutflowDebitsFundAndEmitsTransfer(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+
+		log, err := p.settleCompoundOutflow(ctx, sm, big.NewInt(123))
+		r.NoError(err)
+		r.Equal(iotextypes.TransactionLogType_DEPOSIT_TO_BUCKET, log.Type)
+		r.Equal(address.RewardingPoolAddr, log.Sender)
+		r.Equal(address.StakingBucketPoolAddr, log.Recipient)
+		r.Equal("123", log.Amount.String())
+
+		total, _, err := p.TotalBalance(ctx, sm)
+		r.NoError(err)
+		r.Equal("877", total.String())
 	}, noUnproductives, false, 0)
 }
 
