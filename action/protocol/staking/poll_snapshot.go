@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // CandidatePollSnapshot is the frozen per-candidate view that IIP-59's
@@ -84,6 +85,20 @@ func (b *candidatePollSnapshotBlob) Deserialize(buf []byte) error {
 	}
 	b.pb = pb
 	return nil
+}
+
+// Encode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
+func (b *candidatePollSnapshotBlob) Encode() (systemcontracts.GenericValue, error) {
+	data, err := b.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
+func (b *candidatePollSnapshotBlob) Decode(v systemcontracts.GenericValue) error {
+	return b.Deserialize(v.PrimaryData)
 }
 
 // candidatePollSnapshotKey returns the state-trie key for a candidate's

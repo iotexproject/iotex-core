@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // epochDrainDelegateWork is one frozen per-delegate work item captured
@@ -85,6 +86,20 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 		}
 	}
 	return nil
+}
+
+// Encode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
+func (c *epochDrainCursor) Encode() (systemcontracts.GenericValue, error) {
+	data, err := c.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
+func (c *epochDrainCursor) Decode(v systemcontracts.GenericValue) error {
+	return c.Deserialize(v.PrimaryData)
 }
 
 // epochDrainBigIntBytes returns big-endian bytes, or nil for nil.

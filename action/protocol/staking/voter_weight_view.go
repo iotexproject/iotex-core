@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // _voterWeightsKey is the single state-trie key under StakingNamespace where
@@ -46,6 +47,20 @@ func (d *voterWeightDigest) Deserialize(buf []byte) error {
 	}
 	copy(d.Hash[:], buf)
 	return nil
+}
+
+// Encode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
+func (d *voterWeightDigest) Encode() (systemcontracts.GenericValue, error) {
+	data, err := d.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
+func (d *voterWeightDigest) Decode(v systemcontracts.GenericValue) error {
+	return d.Deserialize(v.PrimaryData)
 }
 
 // readVoterWeightDigest returns the persisted view digest, if present.

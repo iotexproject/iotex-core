@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
 // _pendingBlockRewardPoolIndexKey stores the sorted list of candidate
@@ -64,6 +65,20 @@ func (b *pendingBlockRewardPool) Deserialize(data []byte) error {
 	return nil
 }
 
+// Encode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
+func (b *pendingBlockRewardPool) Encode() (systemcontracts.GenericValue, error) {
+	data, err := b.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
+func (b *pendingBlockRewardPool) Decode(v systemcontracts.GenericValue) error {
+	return b.Deserialize(v.PrimaryData)
+}
+
 // pendingBlockRewardPoolIndex is the sorted list of candidate identifier
 // byte-slices with a non-zero pool balance. Sorted at every write so
 // enumeration order is deterministic across replay.
@@ -88,6 +103,20 @@ func (i *pendingBlockRewardPoolIndex) Deserialize(data []byte) error {
 	}
 	i.ids = m.Addrs
 	return nil
+}
+
+// Encode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
+func (i *pendingBlockRewardPoolIndex) Encode() (systemcontracts.GenericValue, error) {
+	data, err := i.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+// Decode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
+func (i *pendingBlockRewardPoolIndex) Decode(v systemcontracts.GenericValue) error {
+	return i.Deserialize(v.PrimaryData)
 }
 
 // pendingBlockRewardPoolKey returns the per-delegate key layout used by
