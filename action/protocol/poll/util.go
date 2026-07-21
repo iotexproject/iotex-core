@@ -291,6 +291,16 @@ func delegateProfileContractReader(sm protocol.StateManager) delegateprofile.Con
 			return nil, err
 		}
 		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(gasLimit).SetAction(ex).Build()
+		bcCtx := protocol.MustGetBlockchainCtx(ctx)
+		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+			GetBlockHash: bcCtx.GetBlockHash,
+			GetBlockTime: bcCtx.GetBlockTime,
+			DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) (
+				[]*action.TransactionLog, error,
+			) {
+				return nil, nil
+			},
+		})
 		ret, _, err := evm.SimulateExecution(ctx, sm, caller, elp)
 		return ret, err
 	})

@@ -9,7 +9,9 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -19,6 +21,34 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 )
+
+type emptyStateManager struct{}
+
+func (emptyStateManager) Height() (uint64, error) { return 0, nil }
+
+func (emptyStateManager) State(interface{}, ...protocol.StateOption) (uint64, error) {
+	return 0, state.ErrStateNotExist
+}
+
+func (emptyStateManager) States(...protocol.StateOption) (uint64, state.Iterator, error) {
+	return 0, nil, state.ErrStateNotExist
+}
+
+func (emptyStateManager) ReadView(string) (protocol.View, error) {
+	return nil, state.ErrStateNotExist
+}
+
+func (emptyStateManager) Snapshot() int { return 0 }
+
+func (emptyStateManager) Revert(int) error { return nil }
+
+func (emptyStateManager) PutState(interface{}, ...protocol.StateOption) (uint64, error) {
+	return 0, nil
+}
+
+func (emptyStateManager) DelState(...protocol.StateOption) (uint64, error) { return 0, nil }
+
+func (emptyStateManager) WriteView(string, protocol.View) error { return nil }
 
 // freezeSnapshotEraGateCtx builds the minimum ctx freezeIIP59PollSnapshot
 // needs: post-fork FeatureCtx (so the fork gate lets us through) plus a
@@ -114,4 +144,26 @@ func TestFreezeIIP59PollSnapshot_PreForkGateStillWins(t *testing.T) {
 	ctx = protocol.WithFeatureCtx(ctx)
 
 	r.NoError(freezeIIP59PollSnapshot(ctx, sm, fakeCandidatesForGate(), 24))
+}
+
+func TestDelegateProfileContractReaderInstallsEVMHelperContext(t *testing.T) {
+	g := genesis.TestDefault()
+	ctx := genesis.WithGenesisContext(context.Background(), g)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		ChainID:      1,
+		EvmNetworkID: 1,
+		Tip: protocol.TipInfo{
+			Height:    1,
+			Timestamp: time.Unix(g.Timestamp, 0),
+		},
+		GetBlockHash: func(uint64) (hash.Hash256, error) { return hash.ZeroHash256, nil },
+		GetBlockTime: func(uint64) (time.Time, error) { return time.Unix(g.Timestamp, 0), nil },
+	})
+	reader := delegateProfileContractReader(emptyStateManager{})
+
+	require.NotPanics(t, func() {
+		result, err := reader.Read(ctx, identityset.Address(1).String(), []byte{0, 0, 0, 0})
+		require.NoError(t, err)
+		require.Empty(t, result)
+	})
 }
