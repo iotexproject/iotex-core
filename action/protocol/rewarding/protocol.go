@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -20,7 +21,10 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -366,6 +370,100 @@ func (p *Protocol) ReadState(
 			return nil, uint64(0), err
 		}
 		return []byte(balance.String()), height, nil
+	case "PendingBlockRewardPool":
+		if len(args) != 1 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		candID, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		balance, err := p.readPendingBlockRewardPool(ctx, sr, candID.Bytes())
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		height, err := sr.Height()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return []byte(balance.String()), height, nil
+	case "PendingBlockRewardPoolIndex":
+		if len(args) != 0 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		ids, err := p.readPendingBlockRewardPoolIndex(ctx, sr)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		data, err := proto.Marshal(&rewardingpb.Exempt{Addrs: ids})
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		height, err := sr.Height()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return data, height, nil
+	case "EpochDrainCursor":
+		if len(args) != 0 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		cursor, err := p.readEpochDrainCursor(ctx, sr)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		var data []byte
+		if cursor == nil {
+			data, err = proto.Marshal(&rewardingpb.EpochDrainCursor{})
+		} else {
+			data, err = cursor.Serialize()
+		}
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		height, err := sr.Height()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return data, height, nil
+	case "VoterRewardSnapshot":
+		if len(args) != 1 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		candID, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		snapshot, err := staking.PollSnapshotFor(sr, candID)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		pbSnapshot := &stakingpb.CandidatePollSnapshot{
+			BlockCommissionBasisPoints: snapshot.BlockCommissionBasisPoints,
+			EpochCommissionBasisPoints: snapshot.EpochCommissionBasisPoints,
+			Registered:                 snapshot.Registered,
+			VoterRewardOnchainOptIn:    snapshot.VoterRewardOnchainOptIn,
+			Entries:                    make([]*stakingpb.VoterWeightEntry, 0, len(snapshot.Entries)),
+		}
+		for _, entry := range snapshot.Entries {
+			weight := []byte(nil)
+			if entry.Weight != nil {
+				weight = entry.Weight.Bytes()
+			}
+			pbSnapshot.Entries = append(pbSnapshot.Entries, &stakingpb.VoterWeightEntry{
+				Voter:  entry.Voter.Bytes(),
+				Weight: weight,
+			})
+		}
+		data, err := proto.Marshal(pbSnapshot)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		height, err := sr.Height()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return data, height, nil
 	default:
 		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}
