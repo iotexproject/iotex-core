@@ -28,10 +28,14 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 			{
 				CandidateIdentifier: identityset.Address(1).Bytes(),
 				VoterAmountFrozen:   big.NewInt(1_000),
+				RewardAddress:       identityset.Address(11).Bytes(),
+				EpochCommission:     big.NewInt(300),
 			},
 			{
 				CandidateIdentifier: identityset.Address(2).Bytes(),
 				VoterAmountFrozen:   big.NewInt(2_500_000),
+				RewardAddress:       identityset.Address(12).Bytes(),
+				EpochCommission:     big.NewInt(750_000),
 			},
 		},
 	}
@@ -48,9 +52,13 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 	r.Len(out.Delegates, 2)
 	for i := range in.Delegates {
 		r.Equal(in.Delegates[i].CandidateIdentifier, out.Delegates[i].CandidateIdentifier)
+		r.Equal(in.Delegates[i].RewardAddress, out.Delegates[i].RewardAddress)
 		r.Zero(in.Delegates[i].VoterAmountFrozen.Cmp(out.Delegates[i].VoterAmountFrozen),
 			"delegate %d pool amount mismatch: in=%s out=%s",
 			i, in.Delegates[i].VoterAmountFrozen, out.Delegates[i].VoterAmountFrozen)
+		r.Zero(in.Delegates[i].EpochCommission.Cmp(out.Delegates[i].EpochCommission),
+			"delegate %d epoch commission mismatch: in=%s out=%s",
+			i, in.Delegates[i].EpochCommission, out.Delegates[i].EpochCommission)
 	}
 }
 

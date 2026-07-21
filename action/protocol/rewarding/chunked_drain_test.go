@@ -159,15 +159,17 @@ func TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor(t *testing.T) {
 		cursor, err = p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
 		r.NotNil(cursor, "era boundary must materialize a drain cursor")
-		var frozen *big.Int
+		var frozen *epochDrainDelegateWork
 		for _, work := range cursor.Delegates {
 			if string(work.CandidateIdentifier) == string(candID) {
-				frozen = work.VoterAmountFrozen
+				frozen = &work
 				break
 			}
 		}
 		r.NotNil(frozen, "candidate 27 must be included in the era cursor")
-		r.Equal(int64(60), frozen.Int64())
+		r.Equal(int64(60), frozen.VoterAmountFrozen.Int64())
+		r.Equal(identityset.Address(0).Bytes(), frozen.RewardAddress)
+		r.Equal(int64(10), frozen.EpochCommission.Int64())
 		r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, allProtocolAddrs(t)))
 	}, noUnproductives, false, 0)
 }

@@ -80,13 +80,15 @@ message PendingBlockRewardPool {
 }
 
 // EpochDrainDelegateWork is one frozen per-delegate work item captured
-// at the era boundary: the delegate identifier plus the voter share to
-// drain. Chunks in later blocks read this frozen record so the credit
-// path is stable even if PendingBlockRewardPool for the same delegate
-// keeps accruing new voter-side balance behind the drain.
+// at the era boundary: delegate identifier, voter share, reward address,
+// and epoch commission. Chunks in later blocks read this frozen record so
+// they never recompute the target-era split from a partially produced live
+// epoch, while PendingBlockRewardPool may keep accruing behind the drain.
 message EpochDrainDelegateWork {
     bytes candidate_identifier = 1;
     bytes voter_amount_frozen  = 2;
+    bytes reward_address       = 3;
+    bytes epoch_commission     = 4;
 }
 
 // EpochDrainCursor checkpoints a multi-block IIP-59 era-boundary drain

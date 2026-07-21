@@ -462,6 +462,8 @@ func (p *Protocol) GrantEpochReward(
 			cursorEntries = append(cursorEntries, epochDrainDelegateWork{
 				CandidateIdentifier: candID,
 				VoterAmountFrozen:   totalVoter,
+				RewardAddress:       addrs[i].Bytes(),
+				EpochCommission:     commission,
 			})
 		}
 	}
@@ -530,10 +532,9 @@ func (p *Protocol) GrantEpochReward(
 // runs the coda (orphan drain, foundation bonus, sentinel, cursor
 // delete) inline.
 //
-// Epoch-scoped inputs (admin, exempt, candidates, splitEpochReward) are
-// derived from cursor.TargetEra — the epoch that triggered the drain —
-// NOT the current block's epoch, so cross-era continuation runs use the
-// same partitioning Phase A froze into the cursor.
+// Epoch-scoped routing inputs are frozen in the cursor by Phase A. A
+// continuation must not re-run candidate selection or slashing against
+// its current epoch, which may only contain a few blocks.
 func (p *Protocol) GrantVoterRewardChunk(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -565,27 +566,18 @@ func (p *Protocol) GrantVoterRewardChunk(
 		return nil, nil, err
 	}
 
-	_, _, _, _, rewardedCandidates, addrs, amounts, err :=
-		p.loadEpochDistributionInputs(ctx, sm, cursor.TargetEra)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	return p.runVoterDistributionChunk(
 		ctx, sm, cursor,
-		rewardedCandidates, addrs, amounts,
+		nil, nil, nil,
 		make([]*action.TransactionLog, 0),
 		[]*action.Log{progressLog},
 		big.NewInt(0),
 	)
 }
 
-// loadEpochDistributionInputs re-derives the deterministic epoch-scoped
-// state that both Phase A and continuation chunks need: admin config,
-// exempt set, uqdMap, poll candidates, and the splitEpochReward
-// partition (rewardedCandidates, addrs, amounts). epochNum is the
-// original epoch the drain targets, so continuation blocks pass
-// cursor.TargetEra rather than the block's own epoch.
+// loadEpochDistributionInputs derives the deterministic epoch-scoped state
+// Phase A needs: admin config, exempt set, uqdMap, poll candidates, and the
+// splitEpochReward partition (rewardedCandidates, addrs, amounts).
 func (p *Protocol) loadEpochDistributionInputs(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -707,25 +699,24 @@ func (p *Protocol) runVoterDistributionChunk(
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "rewarding: decode cursor candidate identifier")
 		}
-		idx, ok := candByAddr[candAddr.String()]
-		if !ok {
-			// Delegate fell off the reward split between Phase A and now.
-			// Leave the pool balance alone — the coda's orphan sweep
-			// routes it to the delegate's live reward address or refunds.
-			cursor.VoterIndex = 0
-			delegatesConsumed++
-			continue
-		}
-		cand := rewardedCandidates[idx]
-		rewardAddr := addrs[idx]
-		if cand == nil || rewardAddr == nil {
-			cursor.VoterIndex = 0
-			delegatesConsumed++
-			continue
-		}
-		epochCommission, _, err := p.splitDelegateEpochReward(ctx, sm, cand, amounts[idx])
+		cand := &state.Candidate{Address: candAddr.String()}
+		rewardAddr, err := address.FromBytes(work.RewardAddress)
+		epochCommission := safeBig(work.EpochCommission)
 		if err != nil {
-			return nil, nil, err
+			// Backward-compatible fallback for cursors written before the
+			// frozen routing fields were added.
+			idx, ok := candByAddr[candAddr.String()]
+			if !ok || idx >= len(addrs) || idx >= len(amounts) || rewardedCandidates[idx] == nil || addrs[idx] == nil {
+				cursor.VoterIndex = 0
+				delegatesConsumed++
+				continue
+			}
+			cand = rewardedCandidates[idx]
+			rewardAddr = addrs[idx]
+			epochCommission, _, err = p.splitDelegateEpochReward(ctx, sm, cand, amounts[idx])
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 		startVoter := cursor.VoterIndex
 		// Only the current-delegate window is capped by remainingVoters;
