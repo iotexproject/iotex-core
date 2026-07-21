@@ -436,20 +436,12 @@ func (p *Protocol) GrantEpochReward(
 			})
 			debit = new(big.Int).Add(debit, commission)
 		}
-		// Cursor only materializes on era-boundary epochs (IIP-59 §10.2)
-		// when the frozen snapshot yields voter share, or when the pool
-		// already carries block-side voter accrual for this delegate.
-		// On non-era epochs the voter share stays inside splitDelegateEpochReward
-		// (returned as 0 to Phase A) and the pool balance accrues untouched
-		// until the next era boundary drains it.
-		if !isEraBoundary {
+		// Voter share accrues into the pending pool at every epoch. Only
+		// cursor materialization is restricted to era-boundary epochs.
+		if !isEraBoundary && voterShare.Sign() == 0 {
 			continue
 		}
 		candID, err := candidateIdentifierBytes(cand.Address)
-		if err != nil {
-			return nil, nil, err
-		}
-		poolAccrued, err := p.readPendingBlockRewardPool(ctx, sm, candID)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -459,7 +451,13 @@ func (p *Protocol) GrantEpochReward(
 			}
 			debit = new(big.Int).Add(debit, voterShare)
 		}
-		totalVoter := new(big.Int).Add(poolAccrued, voterShare)
+		if !isEraBoundary {
+			continue
+		}
+		totalVoter, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+		if err != nil {
+			return nil, nil, err
+		}
 		if totalVoter.Sign() > 0 {
 			cursorEntries = append(cursorEntries, epochDrainDelegateWork{
 				CandidateIdentifier: candID,

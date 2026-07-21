@@ -17,7 +17,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
@@ -98,6 +100,76 @@ func TestGrantEpochReward_SkipsCursorWhenNoVoterShare(t *testing.T) {
 		r.Error(p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, 1),
 			"sentinel must be written by GrantEpochReward even when the cursor is empty")
 	}, nil, false, 0)
+}
+
+// TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor verifies the
+// distinction between per-epoch accounting and per-era distribution. An
+// opted-in delegate's voter share must enter the pending pool every epoch,
+// while cursor materialization remains restricted to era boundaries.
+func TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		ctx = enableIIP59(t, ctx)
+		g := genesis.MustExtractGenesisContext(ctx)
+		g.Rewarding.EpochsPerRewardEra = 2
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithFeatureCtx(ctx)
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
+
+		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+
+		candAddr := identityset.Address(27)
+		candID := candAddr.Bytes()
+		writeSnapshot(t, sm, candAddr, true, true, 2500, []voterEntry{
+			{addr: identityset.Address(1), weight: big.NewInt(1)},
+		})
+
+		patches := registerStubStakingProtocol(t, ctx)
+		defer patches.Reset()
+
+		// Candidate 27 receives 40% of the 100 rau epoch reward. With a
+		// 25% commission, 10 goes to the delegate and 30 to the voter pool.
+		_, _, err = p.GrantEpochReward(ctx, sm)
+		r.NoError(err)
+
+		pool, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+		r.NoError(err)
+		r.Equal(int64(30), pool.Int64(), "non-era epoch voter share must accrue in the pool")
+		cursor, err := p.readEpochDrainCursor(ctx, sm)
+		r.NoError(err)
+		r.Nil(cursor, "non-era epoch must not materialize a drain cursor")
+		r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, allProtocolAddrs(t)))
+
+		// Epoch 2 is the era boundary. Its 30 rau voter share joins the
+		// prior epoch's 30 rau, and the cursor freezes the accumulated 60.
+		rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+		blk := protocol.MustGetBlockCtx(ctx)
+		blk.BlockHeight = rp.GetEpochLastBlockHeight(2)
+		ctx = protocol.WithBlockCtx(ctx, blk)
+		ctx = protocol.WithFeatureCtx(ctx)
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
+
+		_, _, err = p.GrantEpochReward(ctx, sm)
+		r.NoError(err)
+
+		pool, err = p.readPendingBlockRewardPool(ctx, sm, candID)
+		r.NoError(err)
+		r.Equal(int64(60), pool.Int64())
+		cursor, err = p.readEpochDrainCursor(ctx, sm)
+		r.NoError(err)
+		r.NotNil(cursor, "era boundary must materialize a drain cursor")
+		var frozen *big.Int
+		for _, work := range cursor.Delegates {
+			if string(work.CandidateIdentifier) == string(candID) {
+				frozen = work.VoterAmountFrozen
+				break
+			}
+		}
+		r.NotNil(frozen, "candidate 27 must be included in the era cursor")
+		r.Equal(int64(60), frozen.Int64())
+		r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, allProtocolAddrs(t)))
+	}, noUnproductives, false, 0)
 }
 
 // TestGrantEpochReward_LiveCursorAtPhaseA_DegradesGracefully confirms the
