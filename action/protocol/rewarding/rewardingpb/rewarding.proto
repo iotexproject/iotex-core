@@ -52,6 +52,14 @@ message RewardLog {
         // as a decimal string; both fields reuse the existing wire slots
         // to avoid a payload-shape change on the RewardLog message.
         EPOCH_DRAIN_OVERRUN = 5;
+        // IIP-59 §10.3: informational log emitted at each
+        // GrantVoterRewardChunk before the drain runs, so off-chain
+        // observers can track cursor pile-up across a multi-block drain
+        // without inspecting state directly. addr encodes
+        // "<target_era>:<delegate_index>:<voter_index>:<delegates_remaining>";
+        // amount is the fixed literal "0" (no monetary value — this is a
+        // cursor snapshot, not a payout).
+        CURSOR_PROGRESS = 6;
     }
     RewardType type = 1;
     string addr = 2;

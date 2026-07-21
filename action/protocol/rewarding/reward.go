@@ -546,6 +546,15 @@ func (p *Protocol) GrantVoterRewardChunk(
 		return nil, nil, errors.New("rewarding: voter reward chunk dispatched without a live cursor")
 	}
 
+	// IIP-59 §10.3: emit a CURSOR_PROGRESS snapshot of the pre-drain
+	// cursor. Off-chain monitors read this stream to detect pile-up
+	// without inspecting protocol state. Purely informational — never
+	// affects payout.
+	progressLog, err := p.encodeCursorProgressLog(ctx, cursor)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	_, _, _, _, rewardedCandidates, addrs, amounts, err :=
 		p.loadEpochDistributionInputs(ctx, sm, cursor.TargetEra)
 	if err != nil {
@@ -556,7 +565,7 @@ func (p *Protocol) GrantVoterRewardChunk(
 		ctx, sm, cursor,
 		rewardedCandidates, addrs, amounts,
 		make([]*action.TransactionLog, 0),
-		make([]*action.Log, 0),
+		[]*action.Log{progressLog},
 		big.NewInt(0),
 	)
 }
@@ -927,6 +936,38 @@ func (p *Protocol) encodeOverrunLog(
 		Type:   rewardingpb.RewardLog_EPOCH_DRAIN_OVERRUN,
 		Addr:   fmt.Sprintf("%d:%d", targetEra, delegatesRemaining),
 		Amount: residue.String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &action.Log{
+		Address:     p.addr.String(),
+		Topics:      nil,
+		Data:        data,
+		BlockHeight: blkCtx.BlockHeight,
+		ActionHash:  actionCtx.ActionHash,
+	}, nil
+}
+
+// encodeCursorProgressLog builds an action.Log carrying the CURSOR_PROGRESS
+// snapshot for the given cursor (pre-drain state). It is a purely
+// informational log — off-chain monitors read this stream to detect
+// cursor pile-up without inspecting protocol state. See IIP-59 §10.3.
+func (p *Protocol) encodeCursorProgressLog(
+	ctx context.Context,
+	cursor *epochDrainCursor,
+) (*action.Log, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	remaining := uint32(0)
+	if int(cursor.DelegateIndex) < len(cursor.Delegates) {
+		remaining = uint32(len(cursor.Delegates)) - cursor.DelegateIndex
+	}
+	data, err := proto.Marshal(&rewardingpb.RewardLog{
+		Type: rewardingpb.RewardLog_CURSOR_PROGRESS,
+		Addr: fmt.Sprintf("%d:%d:%d:%d",
+			cursor.TargetEra, cursor.DelegateIndex, cursor.VoterIndex, remaining),
+		Amount: "0",
 	})
 	if err != nil {
 		return nil, err
