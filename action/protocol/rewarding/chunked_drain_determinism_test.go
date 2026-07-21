@@ -15,9 +15,14 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
@@ -335,6 +340,201 @@ func TestChunkedDrain_MidEraOptOut(t *testing.T) {
 				mid.Delegates[i].CandidateIdentifier,
 				"cursor entry %d must retain its candidate identifier mid-drain", i,
 			)
+		}
+	}, nil, false, 0)
+}
+
+// findRewardLogsOfType decodes the RewardLog payload from each entry
+// in logs and returns those whose Type matches. Used by the overrun /
+// progress tests to isolate the log type they care about without
+// asserting anything about the surrounding EPOCH_REWARD entries.
+func findRewardLogsOfType(
+	t *testing.T,
+	logs []*action.Log,
+	want rewardingpb.RewardLog_RewardType,
+) []*rewardingpb.RewardLog {
+	t.Helper()
+	r := require.New(t)
+	out := make([]*rewardingpb.RewardLog, 0)
+	for _, entry := range logs {
+		rl := &rewardingpb.RewardLog{}
+		r.NoError(proto.Unmarshal(entry.Data, rl))
+		if rl.Type == want {
+			out = append(out, rl)
+		}
+	}
+	return out
+}
+
+// TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra exercises the full
+// IIP-59 §10.2 residue handoff: a live cursor from era-N survives into
+// era-N+1's Phase A entry, GrantEpochReward degrades gracefully, and
+// the surviving pool balances are re-frozen into a fresh era-N+1 cursor
+// with VoterAmountFrozen == (prior residue + new epoch voter share).
+//
+// Fixture:
+//   - Seed candidate 27's pool with 250 rau.
+//   - Write a stale era-N cursor pinning candidate 27 with DelegateIndex=0,
+//     asserting the delegate has not yet been drained. The pool balance
+//     is what handlePhaseAEntryOverrun sums as residue, so the cursor's
+//     VoterAmountFrozen field is intentionally set to a bogus value (999)
+//     to prove the residue path reads live pool state, not the frozen
+//     amount.
+//   - Advance BlockCtx to epoch 2's last block.
+//
+// Assertions (in order):
+//  1. GrantEpochReward returns no error.
+//  2. The stale era-N cursor is deleted before Phase A materialises the
+//     new one — since Phase A writes to the same slot, we assert by
+//     observing the post-call cursor's TargetEra == 2 (era N+1), not 1.
+//  3. The new era-N+1 cursor freezes 250 for candidate 27 (the residual
+//     pool balance, since no fresh voter share arrives in this fixture).
+//  4. Exactly one EPOCH_DRAIN_OVERRUN log is emitted, with:
+//     Addr = "1:1"  (target_era=1, delegates_remaining=1)
+//     Amount = "250" (residue as decimal string).
+func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		ctx = enableIIP59(t, ctx)
+
+		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+
+		// Seed candidate 27's pool with 250 rau so the residue sum has a
+		// non-zero live balance to pick up.
+		candID := identityset.Address(27).Bytes()
+		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(250)))
+
+		// Inject a stale era-1 cursor pointing at candidate 27. The
+		// VoterAmountFrozen deliberately does NOT match the live pool
+		// balance — the residue path must read pool state, not the frozen
+		// field.
+		stale := &epochDrainCursor{
+			TargetEra:     1,
+			DelegateIndex: 0,
+			Delegates: []epochDrainDelegateWork{
+				{CandidateIdentifier: candID, VoterAmountFrozen: big.NewInt(999)},
+			},
+		}
+		r.NoError(p.writeEpochDrainCursor(ctx, sm, stale))
+
+		// Advance to epoch 2's last block so GrantEpochReward runs Phase A
+		// for era-N+1.
+		rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+		g := genesis.MustExtractGenesisContext(ctx)
+		epochLast := rp.GetEpochLastBlockHeight(2)
+		blk := protocol.MustGetBlockCtx(ctx)
+		blk.BlockHeight = epochLast
+		blk.Producer = identityset.Address(27)
+		ctx = protocol.WithBlockCtx(ctx, blk)
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithFeatureCtx(ctx)
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
+
+		patches := registerStubStakingProtocol(t, ctx)
+		defer patches.Reset()
+
+		_, rewardLogs, err := p.GrantEpochReward(ctx, sm)
+		r.NoError(err, "graceful degrade must not error at Phase A entry")
+
+		// New cursor must have TargetEra=2 (the fresh era) — proves the
+		// stale era-1 cursor was deleted before Phase A wrote its own.
+		next, err := p.readEpochDrainCursor(ctx, sm)
+		r.NoError(err)
+		r.NotNil(next, "era-N+1 Phase A must produce a cursor from the surviving pool residual")
+		r.Equal(uint64(2), next.TargetEra, "stale cursor deletion must precede fresh materialisation")
+
+		// The candidate 27 entry in the new cursor must carry the 250 rau
+		// residue (no fresh voter share in this fixture, so residue only).
+		var carried int64
+		for _, w := range next.Delegates {
+			if string(w.CandidateIdentifier) == string(candID) {
+				carried = w.VoterAmountFrozen.Int64()
+			}
+		}
+		r.Equal(int64(250), carried, "era-N+1 cursor must freeze the 250 rau surviving residue")
+
+		// Exactly one EPOCH_DRAIN_OVERRUN log, addr = "<staleEra>:<delegatesRemaining>",
+		// amount = residue decimal.
+		overruns := findRewardLogsOfType(t, rewardLogs, rewardingpb.RewardLog_EPOCH_DRAIN_OVERRUN)
+		r.Len(overruns, 1, "exactly one EPOCH_DRAIN_OVERRUN log must be emitted")
+		r.Equal("1:1", overruns[0].Addr, "addr encodes stale target_era:delegates_remaining")
+		r.Equal("250", overruns[0].Amount, "amount encodes the summed live pool residue")
+
+		// The overrun log must be the first log in the rewardLogs slice —
+		// external verifiers see the handoff before any per-delegate
+		// EPOCH_REWARD entries.
+		r.NotEmpty(rewardLogs)
+		firstLog := &rewardingpb.RewardLog{}
+		r.NoError(proto.Unmarshal(rewardLogs[0].Data, firstLog))
+		r.Equal(rewardingpb.RewardLog_EPOCH_DRAIN_OVERRUN, firstLog.Type,
+			"overrun log must land first in rewardLogs for observability")
+	}, nil, false, 0)
+}
+
+// TestPhaseA_OverrunHandoff_ZeroResidue covers the boundary case where a
+// stale cursor exists but every referenced delegate's pool balance has
+// already been drained to zero. The overrun log must still be emitted
+// (with amount "0") because its purpose is observability of the handoff
+// itself, not conditional on residue magnitude. The stale cursor must
+// still be deleted so Phase A can start clean.
+//
+// This differs from the "no cursor" happy path — a cursor exists, so the
+// degrade branch is taken; but the residue path returns zero because no
+// pool entry survives among the still-undrained delegates.
+func TestPhaseA_OverrunHandoff_ZeroResidue(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		ctx = enableIIP59(t, ctx)
+
+		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+
+		// Stale cursor pointing at candidate 27 but WITH NO pool balance
+		// seeded — the residue sum walks the delegate list, reads zero
+		// from each pool key, and returns 0.
+		candID := identityset.Address(27).Bytes()
+		stale := &epochDrainCursor{
+			TargetEra:     1,
+			DelegateIndex: 0,
+			Delegates: []epochDrainDelegateWork{
+				{CandidateIdentifier: candID, VoterAmountFrozen: big.NewInt(999)},
+			},
+		}
+		r.NoError(p.writeEpochDrainCursor(ctx, sm, stale))
+
+		// Advance to epoch 2's last block.
+		rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+		g := genesis.MustExtractGenesisContext(ctx)
+		epochLast := rp.GetEpochLastBlockHeight(2)
+		blk := protocol.MustGetBlockCtx(ctx)
+		blk.BlockHeight = epochLast
+		blk.Producer = identityset.Address(27)
+		ctx = protocol.WithBlockCtx(ctx, blk)
+		ctx = genesis.WithGenesisContext(ctx, g)
+		ctx = protocol.WithFeatureCtx(ctx)
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
+
+		patches := registerStubStakingProtocol(t, ctx)
+		defer patches.Reset()
+
+		_, rewardLogs, err := p.GrantEpochReward(ctx, sm)
+		r.NoError(err)
+
+		// Overrun log must still be emitted, amount = "0".
+		overruns := findRewardLogsOfType(t, rewardLogs, rewardingpb.RewardLog_EPOCH_DRAIN_OVERRUN)
+		r.Len(overruns, 1,
+			"observability log must fire even when the residue is zero — its purpose is the handoff itself")
+		r.Equal("1:1", overruns[0].Addr)
+		r.Equal("0", overruns[0].Amount, "zero-residue handoff still logs amount=0")
+
+		// Stale cursor must be gone. Either no cursor (no pool accrual for
+		// any rewarded delegate → Phase A skips materialisation) OR a fresh
+		// era-N+1 cursor. Either way, TargetEra must not be 1.
+		next, err := p.readEpochDrainCursor(ctx, sm)
+		r.NoError(err)
+		if next != nil {
+			r.NotEqual(uint64(1), next.TargetEra, "stale era-1 cursor must not survive")
 		}
 	}, nil, false, 0)
 }

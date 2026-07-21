@@ -7,15 +7,18 @@ package rewarding
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -317,8 +320,18 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		patches.ApplyMethodReturn(sp, "SlashCandidateByID", nil)
 
 		// Era-N Phase A: freeze the cursor at 250 for candidate 27.
-		_, _, err = p.GrantEpochReward(ctx, sm)
+		_, eraNLogs, err := p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
+		// This is a clean era boundary — no prior cursor was live, so the
+		// §10.2 overrun handoff must NOT fire. The observability contract
+		// is: EPOCH_DRAIN_OVERRUN appears iff a stale cursor was found and
+		// deleted at Phase A entry.
+		for _, entry := range eraNLogs {
+			rl := &rewardingpb.RewardLog{}
+			r.NoError(proto.Unmarshal(entry.Data, rl))
+			r.NotEqual(rewardingpb.RewardLog_EPOCH_DRAIN_OVERRUN, rl.Type,
+				"no overrun log allowed at a clean Phase A entry")
+		}
 		frozen, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
 		r.NotNil(frozen)
@@ -369,8 +382,16 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		ctx = protocol.WithFeatureCtx(ctx)
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
 
-		_, _, err = p.GrantEpochReward(ctx, sm)
+		_, eraNext1Logs, err := p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
+		// Era-N drained cleanly to completion before this era-N+1 Phase A,
+		// so the overrun handoff still must not fire.
+		for _, entry := range eraNext1Logs {
+			rl := &rewardingpb.RewardLog{}
+			r.NoError(proto.Unmarshal(entry.Data, rl))
+			r.NotEqual(rewardingpb.RewardLog_EPOCH_DRAIN_OVERRUN, rl.Type,
+				"clean era transition after in-time drain must not emit overrun")
+		}
 
 		nextCursor, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
@@ -384,5 +405,58 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		}
 		r.Equal(int64(100), carriedAmt,
 			"era-N+1 cursor must freeze the 100 rau that survived era-N drain")
+	}, nil, false, 0)
+}
+
+// TestGrantVoterRewardChunk_EmitsCursorProgress confirms the IIP-59
+// §10.3 observability contract: every GrantVoterRewardChunk call emits
+// a CURSOR_PROGRESS log carrying a pre-drain snapshot of the live
+// cursor. The log must be the FIRST entry in rewardLogs (off-chain
+// verifiers pattern-match on the leading log to key their per-block
+// cursor-pile-up detector). The addr field encodes the tuple
+// "<target_era>:<delegate_index>:<voter_index>:<delegates_remaining>"
+// and the amount field is the sentinel "0" (this log carries no
+// monetary value).
+//
+// Fixture: build a cursor with three synthetic entries (chunkSize=1
+// means only the first is drained per call), advance the cursor's
+// DelegateIndex to 1 so we can assert the exact snapshot fields the
+// log encodes, and run one chunk.
+func TestGrantVoterRewardChunk_EmitsCursorProgress(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		ctx = enableIIP59(t, ctx)
+		p.cfg.CompoundBatchSize = 1
+
+		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+
+		// Seed a cursor already advanced to DelegateIndex=1 so the log
+		// encoding has non-zero delegate_index and remaining fields to
+		// assert against.
+		cursor := seedChunkCursor(t, ctx, sm, p, 1, 1)
+		total := uint32(len(cursor.Delegates))
+		r.GreaterOrEqual(int(total), 2, "test precondition: need at least 2 entries so remaining>0")
+		expectedRemaining := total - cursor.DelegateIndex
+
+		_, rewardLogs, err := p.GrantVoterRewardChunk(ctx, sm)
+		r.NoError(err)
+		r.NotEmpty(rewardLogs, "chunk must emit at least the progress log")
+
+		// The progress log is seeded into rewardLogs before the drain
+		// loop runs (see reward.go GrantVoterRewardChunk), so it must be
+		// the first entry regardless of what the drain produces after.
+		progress := &rewardingpb.RewardLog{}
+		r.NoError(proto.Unmarshal(rewardLogs[0].Data, progress))
+		r.Equal(rewardingpb.RewardLog_CURSOR_PROGRESS, progress.Type,
+			"first log per chunk must be the CURSOR_PROGRESS snapshot")
+
+		// Snapshot encoding matches the PRE-drain cursor: target_era=1,
+		// delegate_index=1 (unchanged by seedChunkCursor's post-write
+		// mutation because we set startIdx=1), voter_index=0 (no
+		// mid-delegate stop injected), delegates_remaining = total-1.
+		want := fmt.Sprintf("%d:%d:%d:%d", uint64(1), uint32(1), uint32(0), expectedRemaining)
+		r.Equal(want, progress.Addr, "addr encodes pre-drain cursor tuple")
+		r.Equal("0", progress.Amount, "CURSOR_PROGRESS amount is the fixed sentinel '0'")
 	}, nil, false, 0)
 }
