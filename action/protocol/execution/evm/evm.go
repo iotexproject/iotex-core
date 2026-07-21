@@ -445,9 +445,8 @@ type SlotReader struct {
 }
 
 // NewSlotReader constructs a reusable read-only slot reader for the current
-// working set. Setup mirrors ReadContractStorage (same context enrichment,
-// same Erigon-dryrun handling) so the two paths return byte-identical
-// values for the same (contract, key) inputs.
+// working set. It uses the matching Erigon adapter for both block validation
+// and simulation so every node reads the same in-block contract state.
 func NewSlotReader(ctx context.Context, sm protocol.StateManager) (*SlotReader, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(protocol.WithActionCtx(ctx,
@@ -458,20 +457,9 @@ func NewSlotReader(ctx context.Context, sm protocol.StateManager) (*SlotReader, 
 			BlockHeight: bcCtx.Tip.Height + 1,
 		},
 	))
-	var db stateDB
-	db, err := prepareStateDBAdapter(ctx, sm)
+	db, err := prepareStateDB(ctx, sm)
 	if err != nil {
 		return nil, err
-	}
-	if erigonsm, ok := sm.(interface {
-		Erigon() (*erigonstate.IntraBlockState, bool)
-	}); ok {
-		if in, dryrun := erigonsm.Erigon(); in != nil {
-			if !dryrun {
-				log.S().Panic("should not happen, use dryrun instead")
-			}
-			db = NewErigonStateDBAdapterDryrun(db.(*StateDBAdapter), in)
-		}
 	}
 	return &SlotReader{db: db}, nil
 }
