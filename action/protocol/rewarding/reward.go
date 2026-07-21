@@ -7,6 +7,7 @@ package rewarding
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -337,15 +338,22 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.assertLastBlockInEpoch(blkCtx.BlockHeight, epochNum, rp); err != nil {
 		return nil, nil, err
 	}
+	// overrunLog carries the EPOCH_DRAIN_OVERRUN observability entry emitted
+	// when a previous era's cursor was still live at this Phase A boundary
+	// (see IIP-59 §10.2). It is prepended to rewardLogs once that slice is
+	// allocated below so external verifiers see the handoff before any
+	// per-delegate EPOCH_REWARD entries.
+	var overrunLog *action.Log
 	if !featureCtx.NoVoterRewardDistribution {
 		existing, err := p.readEpochDrainCursor(ctx, sm)
 		if err != nil {
 			return nil, nil, err
 		}
 		if existing != nil {
-			return nil, nil, errors.Errorf(
-				"rewarding: cursor unexpectedly live at Phase A entry (era %d, index %d)",
-				existing.TargetEra, existing.DelegateIndex)
+			overrunLog, err = p.handlePhaseAEntryOverrun(ctx, sm, existing)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 	}
 
@@ -357,6 +365,9 @@ func (p *Protocol) GrantEpochReward(
 
 	transactionLogs := make([]*action.TransactionLog, 0)
 	rewardLogs := make([]*action.Log, 0)
+	if overrunLog != nil {
+		rewardLogs = append(rewardLogs, overrunLog)
+	}
 	// debit accumulates this block's net delta against fund.unclaimedBalance:
 	// slashing returns value (negative), grants + pool credits pay out
 	// (positive). Block-time voter credits were already debited at
@@ -836,6 +847,97 @@ func (p *Protocol) encodeRewardLog(
 		Amount: amount.String(),
 	}
 	return proto.Marshal(&rewardLog)
+}
+
+// handlePhaseAEntryOverrun implements the IIP-59 §10.2 graceful degrade for
+// the case where a previous era's cursor is still live at Phase A entry.
+// It sums the residue (pool balance that would have drained had the era
+// completed) across the still-undrained delegates, deletes the stale
+// cursor, and returns an EPOCH_DRAIN_OVERRUN log describing the handoff.
+// The pool entries themselves are left in place — Phase A's own cursor
+// materialisation, later in this same call, picks them up as freshly
+// frozen work for the new era.
+func (p *Protocol) handlePhaseAEntryOverrun(
+	ctx context.Context,
+	sm protocol.StateManager,
+	cursor *epochDrainCursor,
+) (*action.Log, error) {
+	residue, err := p.computePhaseAOverrunResidue(ctx, sm, cursor)
+	if err != nil {
+		return nil, err
+	}
+	remaining := uint32(0)
+	if int(cursor.DelegateIndex) < len(cursor.Delegates) {
+		remaining = uint32(len(cursor.Delegates)) - cursor.DelegateIndex
+	}
+	logEntry, err := p.encodeOverrunLog(ctx, cursor.TargetEra, remaining, residue)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.deleteEpochDrainCursor(ctx, sm); err != nil {
+		return nil, err
+	}
+	log.L().Warn("IIP-59: prior era drain overran into Phase A; residue rolls into next era",
+		zap.Uint64("staleTargetEra", cursor.TargetEra),
+		zap.Uint32("staleDelegateIndex", cursor.DelegateIndex),
+		zap.Uint32("delegatesRemaining", remaining),
+		zap.String("residue", residue.String()),
+	)
+	return logEntry, nil
+}
+
+// computePhaseAOverrunResidue sums the pool balance across the delegates
+// the stale cursor did not finish draining — i.e. from DelegateIndex to
+// the end of the frozen work list. VoterAmountFrozen from the cursor is
+// intentionally NOT used here: the true leftover is the live pool
+// balance, which may have accrued additional block-time credit between
+// the era-boundary freeze and this Phase A entry.
+func (p *Protocol) computePhaseAOverrunResidue(
+	ctx context.Context,
+	sm protocol.StateReader,
+	cursor *epochDrainCursor,
+) (*big.Int, error) {
+	residue := new(big.Int)
+	for i := int(cursor.DelegateIndex); i < len(cursor.Delegates); i++ {
+		bal, err := p.readPendingBlockRewardPool(ctx, sm, cursor.Delegates[i].CandidateIdentifier)
+		if err != nil {
+			return nil, err
+		}
+		residue.Add(residue, bal)
+	}
+	return residue, nil
+}
+
+// encodeOverrunLog builds an action.Log carrying the EPOCH_DRAIN_OVERRUN
+// receipt payload. addr encodes "<target_era>:<delegates_remaining>",
+// amount encodes the residue as a decimal string — reusing the existing
+// RewardLog wire slots per the enum comment in rewarding.proto.
+func (p *Protocol) encodeOverrunLog(
+	ctx context.Context,
+	targetEra uint64,
+	delegatesRemaining uint32,
+	residue *big.Int,
+) (*action.Log, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if residue == nil {
+		residue = new(big.Int)
+	}
+	data, err := proto.Marshal(&rewardingpb.RewardLog{
+		Type:   rewardingpb.RewardLog_EPOCH_DRAIN_OVERRUN,
+		Addr:   fmt.Sprintf("%d:%d", targetEra, delegatesRemaining),
+		Amount: residue.String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &action.Log{
+		Address:     p.addr.String(),
+		Topics:      nil,
+		Data:        data,
+		BlockHeight: blkCtx.BlockHeight,
+		ActionHash:  actionCtx.ActionHash,
+	}, nil
 }
 
 // Claim claims the token from the rewarding fund

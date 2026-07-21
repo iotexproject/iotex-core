@@ -13,8 +13,10 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -99,29 +101,23 @@ func TestGrantEpochReward_SkipsCursorWhenNoVoterShare(t *testing.T) {
 	}, nil, false, 0)
 }
 
-// TestGrantEpochReward_RejectsAnyLiveCursor confirms Phase A's tightened
-// corruption guard. After C2.1 split the continuation path into
-// GrantVoterRewardChunk, GrantEpochReward runs Phase A only — and Phase A
-// can never coexist with a live cursor. Any cursor at Phase A entry is
-// unambiguous corrupt state (mid-drain continuation was supposed to run
-// GrantVoterRewardChunk, not GrantEpochReward), so the guard must fire
-// regardless of which era the cursor pins.
-func TestGrantEpochReward_RejectsAnyLiveCursor(t *testing.T) {
+// TestGrantEpochReward_LiveCursorAtPhaseA_DegradesGracefully confirms the
+// IIP-59 §10.2 degrade path: when a previous era's cursor survives into
+// the next era's Phase A entry, GrantEpochReward does NOT halt block
+// production. Instead it emits an EPOCH_DRAIN_OVERRUN receipt log
+// describing the residue, deletes the stale cursor, and continues the
+// Phase A grant. The stale pool balances themselves stay in place —
+// Phase A's own materialisation later in the same call picks them up
+// as work items for the fresh era.
+func TestGrantEpochReward_LiveCursorAtPhaseA_DegradesGracefully(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
-		// Flip the fork gate on so cursorEnabled=true and the corruption
-		// check runs. Height is already the last block of epoch 1, which
-		// is past ToBeEnabledBlockHeight=1.
 		g := genesis.MustExtractGenesisContext(ctx)
 		g.ToBeEnabledBlockHeight = 1
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithFeatureCtx(ctx)
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
 
-		// Inject a cursor pinned to the CURRENT epoch — this used to be
-		// silently accepted (mid-drain continuation), but under the C2.1
-		// split it's now unambiguous corruption: continuation blocks must
-		// run GrantVoterRewardChunk, not GrantEpochReward.
 		live := &epochDrainCursor{
 			TargetEra:     1,
 			DelegateIndex: 0,
@@ -142,9 +138,21 @@ func TestGrantEpochReward_RejectsAnyLiveCursor(t *testing.T) {
 		patches.ApplyMethodReturn(sp, "SlashCandidateByOperator", nil)
 		patches.ApplyMethodReturn(sp, "SlashCandidateByID", nil)
 
-		_, _, err = p.GrantEpochReward(ctx, sm)
-		r.Error(err)
-		r.Contains(err.Error(), "cursor unexpectedly live at Phase A entry")
+		_, rewardLogs, err := p.GrantEpochReward(ctx, sm)
+		r.NoError(err)
+		// Stale cursor must be gone.
+		after, err := p.readEpochDrainCursor(ctx, sm)
+		r.NoError(err)
+		r.Nil(after)
+		// First log must be the EPOCH_DRAIN_OVERRUN handoff naming the
+		// stale era + remaining-delegates count. Actual residue value is
+		// tested end-to-end in the PR6 test suite; here we assert only
+		// the log type + addr encoding shape.
+		r.NotEmpty(rewardLogs)
+		overrun := &rewardingpb.RewardLog{}
+		r.NoError(proto.Unmarshal(rewardLogs[0].Data, overrun))
+		r.Equal(rewardingpb.RewardLog_EPOCH_DRAIN_OVERRUN, overrun.Type)
+		r.Equal("1:1", overrun.Addr) // "<target_era>:<delegates_remaining>"
 	}, nil, false, 0)
 }
 

@@ -43,6 +43,15 @@ message RewardLog {
         FOUNDATION_BONUS= 2;
         PRIORITY_BONUS = 3;
         UNPRODUCTIVE_SLASH = 4;
+        // IIP-59 §10.2: emitted at Phase A entry when a live cursor is
+        // detected from a previous era that failed to drain in time. The
+        // stale cursor is deleted and its residue is rolled into the
+        // fresh era's cursor materialization. addr encodes
+        // "<target_era>:<delegates_remaining>" and amount encodes the
+        // residue (leftover pool balance across the remaining delegates)
+        // as a decimal string; both fields reuse the existing wire slots
+        // to avoid a payload-shape change on the RewardLog message.
+        EPOCH_DRAIN_OVERRUN = 5;
     }
     RewardType type = 1;
     string addr = 2;
