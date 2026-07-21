@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
@@ -112,11 +111,11 @@ func TestGrantEpochReward_SkipsCursorWhenNoVoterShare(t *testing.T) {
 func TestGrantEpochReward_LiveCursorAtPhaseA_DegradesGracefully(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
-		g := genesis.MustExtractGenesisContext(ctx)
-		g.ToBeEnabledBlockHeight = 1
-		ctx = genesis.WithGenesisContext(ctx, g)
-		ctx = protocol.WithFeatureCtx(ctx)
-		ctx = protocol.WithFeatureWithHeightCtx(ctx)
+		// enableIIP59 sets ToBeEnabledBlockHeight=1 AND forces
+		// EpochsPerRewardEra=1 so the block-height fixture (epoch 1's
+		// last block) counts as an era boundary; the overrun handler
+		// only fires on era boundaries.
+		ctx = enableIIP59(t, ctx)
 
 		live := &epochDrainCursor{
 			TargetEra:     1,

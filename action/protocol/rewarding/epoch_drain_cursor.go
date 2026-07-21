@@ -81,7 +81,7 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 		for i, d := range ds {
 			c.Delegates[i] = epochDrainDelegateWork{
 				CandidateIdentifier: d.GetCandidateIdentifier(),
-				VoterAmountFrozen:    epochDrainBytesBigInt(d.GetVoterAmountFrozen()),
+				VoterAmountFrozen:   epochDrainBytesBigInt(d.GetVoterAmountFrozen()),
 			}
 		}
 	}

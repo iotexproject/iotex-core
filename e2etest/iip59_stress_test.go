@@ -47,10 +47,18 @@ var iip59StressTiers = map[string]perfTier{
 // chunks all pointing at DelegateIndex=0, VoterIndex advancing
 // 50, 100, ..., 450 across chunks 1-9 and returning to 0 when the
 // delegate finishes.
+//
+// epochsPerEra=11 sizes the era wide enough (numDelegates=1,
+// NumSubEpochs=2 → blocks_per_era = 22, chunks_per_era = 11) that all
+// 10 chunks complete inside a single era. Since the IIP-59 §10.2
+// overrun handler resets any cursor still live at the next era
+// boundary, a fixture that leaks the drain across two eras would
+// bounce VoterIndex back to 0 and never satisfy the strict
+// [0, 50, ..., 450] progression this test asserts.
 var iip59SingleDelegateLargeVoterTier = perfTier{
 	numDelegates:        1,
 	numVoters:           500,
-	epochsPerEra:        2,
+	epochsPerEra:        11,
 	compoundBatchSize:   4,
 	voterBudgetPerBlock: 50,
 }

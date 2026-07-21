@@ -83,14 +83,14 @@ func readVoterWeightDigest(sm protocol.StateReader) (hash.Hash256, error) {
 // without paying for a full data clone on every snapshot:
 //
 //   - Wrap()        returns a thin overlay sharing the same base — used by
-//                   viewData.Snapshot. Cheap: no data copy.
+//     viewData.Snapshot. Cheap: no data copy.
 //   - Fork()        returns an overlay with commit-in-clone semantics — used
-//                   by viewData.Fork. The base is shared until the fork
-//                   commits; only then is the base cloned, so parents that
-//                   never see a fork commit pay nothing.
+//     by viewData.Fork. The base is shared until the fork
+//     commits; only then is the base cloned, so parents that
+//     never see a fork commit pay nothing.
 //   - Commit(sm)    flattens this layer's accumulated deltas into the
-//                   underlying base, persists the new digest if dirty, and
-//                   returns the new (collapsed) view.
+//     underlying base, persists the new digest if dirty, and
+//     returns the new (collapsed) view.
 //   - IsDirty()     true if any change has accumulated since the last Commit.
 //
 // Determinism: per-candidate voter slices are kept sorted by voter address so

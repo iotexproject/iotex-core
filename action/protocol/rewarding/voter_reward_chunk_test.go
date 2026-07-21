@@ -29,10 +29,16 @@ import (
 // current block height and re-derives the feature contexts. Callers use
 // this to turn on the fork gate for a testProtocol-scaffolded ctx that
 // starts with the fork off.
+//
+// EpochsPerRewardEra is forced to 1 so every epoch counts as an era
+// boundary; unit tests here exercise the Phase A cursor lifecycle at
+// a single epoch's last block, and the default (24) would gate that
+// off. Tests that need multi-era cadence override this after calling.
 func enableIIP59(t *testing.T, ctx context.Context) context.Context {
 	t.Helper()
 	g := genesis.MustExtractGenesisContext(ctx)
 	g.ToBeEnabledBlockHeight = 1
+	g.Rewarding.EpochsPerRewardEra = 1
 	ctx = genesis.WithGenesisContext(ctx, g)
 	ctx = protocol.WithFeatureCtx(ctx)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)

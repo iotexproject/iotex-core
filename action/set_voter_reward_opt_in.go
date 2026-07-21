@@ -20,9 +20,9 @@ const (
 )
 
 var (
-	setVoterRewardOptInMethod    abi.Method
-	_voterRewardOptInSetEvent    abi.Event
-	_                            EthCompatibleAction = (*SetVoterRewardOptIn)(nil)
+	setVoterRewardOptInMethod abi.Method
+	_voterRewardOptInSetEvent abi.Event
+	_                         EthCompatibleAction = (*SetVoterRewardOptIn)(nil)
 )
 
 // SetVoterRewardOptIn toggles IIP-59 §2.2 opt-in flag on the target

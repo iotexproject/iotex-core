@@ -27,11 +27,11 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 		Delegates: []epochDrainDelegateWork{
 			{
 				CandidateIdentifier: identityset.Address(1).Bytes(),
-				VoterAmountFrozen:    big.NewInt(1_000),
+				VoterAmountFrozen:   big.NewInt(1_000),
 			},
 			{
 				CandidateIdentifier: identityset.Address(2).Bytes(),
-				VoterAmountFrozen:    big.NewInt(2_500_000),
+				VoterAmountFrozen:   big.NewInt(2_500_000),
 			},
 		},
 	}
@@ -83,7 +83,7 @@ func TestEpochDrainCursor_ZeroPoolAmount(t *testing.T) {
 		Delegates: []epochDrainDelegateWork{
 			{
 				CandidateIdentifier: identityset.Address(5).Bytes(),
-				VoterAmountFrozen:    new(big.Int),
+				VoterAmountFrozen:   new(big.Int),
 			},
 		},
 	}
@@ -122,7 +122,7 @@ func TestEpochDrainCursor_WriteReadDelete(t *testing.T) {
 		Delegates: []epochDrainDelegateWork{
 			{
 				CandidateIdentifier: identityset.Address(1).Bytes(),
-				VoterAmountFrozen:    big.NewInt(10_000),
+				VoterAmountFrozen:   big.NewInt(10_000),
 			},
 		},
 	}

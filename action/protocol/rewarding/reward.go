@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -305,13 +306,13 @@ func (p *Protocol) GrantBlockReward(
 //  3. Slashing (its own feature flag; independent of IIP-59).
 //  4. Per-delegate epoch split loop — for each rewarded candidate:
 //     - splitDelegateEpochReward returns (commission, voterShare) — the
-//       IIP-59 path when the frozen snapshot is opted in / registered
-//       with non-empty voters; (amount, 0) otherwise (fork off, opt out,
-//       no snapshot, unregistered, empty voter list).
+//     IIP-59 path when the frozen snapshot is opted in / registered
+//     with non-empty voters; (amount, 0) otherwise (fork off, opt out,
+//     no snapshot, unregistered, empty voter list).
 //     - grant commission to the reward address (EPOCH_REWARD log).
 //     - if voterShare > 0, credit into the delegate's pending pool.
 //     - if pool + voterShare > 0, append a cursor entry for Phase B to
-//       drain. Zero-voter delegates never enter the cursor.
+//     drain. Zero-voter delegates never enter the cursor.
 //  5. Foundation bonus.
 //  6. Persist cursor iff any entries (post-fork only).
 //  7. Sentinel.
@@ -330,6 +331,14 @@ func (p *Protocol) GrantEpochReward(
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+	g := genesis.MustExtractGenesisContext(ctx)
+	// isEraBoundary gates the IIP-59 voter cursor lifecycle: cursor
+	// materialization, overrun handoff, and cursor write only fire on
+	// era-boundary epochs (see IIP-59 §10.2). Commission payment,
+	// slashing, and foundation bonus run every epoch regardless.
+	// Matches the freezeIIP59PollSnapshot gate in poll/util.go.
+	isEraBoundary := !featureCtx.NoVoterRewardDistribution &&
+		protocol.IsEraBoundary(epochNum, g.EpochsPerRewardEra)
 
 	// Pre-A checks.
 	if err := p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
@@ -344,7 +353,7 @@ func (p *Protocol) GrantEpochReward(
 	// allocated below so external verifiers see the handoff before any
 	// per-delegate EPOCH_REWARD entries.
 	var overrunLog *action.Log
-	if !featureCtx.NoVoterRewardDistribution {
+	if isEraBoundary {
 		existing, err := p.readEpochDrainCursor(ctx, sm)
 		if err != nil {
 			return nil, nil, err
@@ -427,10 +436,13 @@ func (p *Protocol) GrantEpochReward(
 			})
 			debit = new(big.Int).Add(debit, commission)
 		}
-		// Cursor only materializes on the post-fork IIP-59 path when the
-		// frozen snapshot yields voter share, or when the pool already
-		// carries block-side voter accrual for this delegate.
-		if featureCtx.NoVoterRewardDistribution {
+		// Cursor only materializes on era-boundary epochs (IIP-59 §10.2)
+		// when the frozen snapshot yields voter share, or when the pool
+		// already carries block-side voter accrual for this delegate.
+		// On non-era epochs the voter share stays inside splitDelegateEpochReward
+		// (returned as 0 to Phase A) and the pool balance accrues untouched
+		// until the next era boundary drains it.
+		if !isEraBoundary {
 			continue
 		}
 		candID, err := candidateIdentifierBytes(cand.Address)
