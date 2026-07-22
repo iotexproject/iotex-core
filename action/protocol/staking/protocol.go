@@ -490,6 +490,9 @@ func (p *Protocol) CreateGenesisStates(
 		if err := csm.Upsert(c); err != nil {
 			return err
 		}
+		// Bootstrap self-stake buckets bypass handleCreateStake but participate
+		// in the same voter reward weight table.
+		applyVoterWeightDelta(csm, c.GetIdentifier(), bucket.Owner, c.Votes)
 		if err := csm.DebitBucketPool(selfStake, true); err != nil {
 			return err
 		}

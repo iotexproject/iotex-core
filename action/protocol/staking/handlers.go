@@ -827,6 +827,11 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	if err := csm.Upsert(c); err != nil {
 		return log, nil, csmErrorToHandleError(owner.String(), err)
 	}
+	if withSelfStake {
+		// Candidate registration creates a bucket directly rather than through
+		// handleCreateStake, so seed its voter weight here as well.
+		applyVoterWeightDelta(csm, c.GetIdentifier(), owner, votes)
+	}
 	height, _ := csm.SM().Height()
 	if p.needToWriteCandsMap(ctx, height) {
 		csm.DirtyView().candCenter.base.recordOwner(c)

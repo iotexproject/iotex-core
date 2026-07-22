@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -478,6 +479,18 @@ func Test_CreateGenesisStates(t *testing.T) {
 		err = p.CreateGenesisStates(ctx, sm)
 		if err != nil {
 			require.Contains(err.Error(), test.errStr)
+		} else {
+			view, readErr := sm.ReadView(_protocolID)
+			require.NoError(readErr)
+			for _, bootstrap := range test.BootstrapCandidate {
+				owner, parseErr := address.FromString(bootstrap.OwnerAddress)
+				require.NoError(parseErr)
+				weights := view.(*viewData).voterWeights.VoterWeightsByCandidate(
+					hash.BytesToHash160(owner.Bytes()),
+				)
+				require.Len(weights, 1)
+				require.True(address.Equal(owner, weights[0].voter))
+			}
 		}
 	}
 }

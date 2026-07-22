@@ -21,6 +21,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -668,6 +669,18 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			require.Equal(test.operatorAddrStr, candidate.Operator.String())
 			require.Equal(test.rewardAddrStr, candidate.Reward.String())
 			require.Equal(test.amountStr, candidate.SelfStake.String())
+			view, err := sm.ReadView(_protocolID)
+			require.NoError(err)
+			weights := view.(*viewData).voterWeights.VoterWeightsByCandidate(
+				hash.BytesToHash160(candidate.GetIdentifier().Bytes()),
+			)
+			if test.amountStr == "0" {
+				require.Empty(weights)
+			} else {
+				require.Len(weights, 1)
+				require.True(address.Equal(candidate.Owner, weights[0].voter))
+				require.Equal(test.votesStr, weights[0].weight.String())
+			}
 
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, test.caller)
