@@ -657,6 +657,7 @@ func TestSlashCandidate(t *testing.T) {
 	}
 	cc, err := NewCandidateCenter(CandidateList{cand})
 	require.NoError(err)
+	voterWeights := NewVoterWeightView()
 	require.NoError(sm.WriteView(_protocolID, &viewData{
 		candCenter: cc,
 		bucketPool: &BucketPool{
@@ -665,6 +666,7 @@ func TestSlashCandidate(t *testing.T) {
 				amount: big.NewInt(0),
 			},
 		},
+		voterWeights: voterWeights,
 	}))
 	csm, err := NewCandidateStateManager(sm)
 	require.NoError(err)
@@ -717,6 +719,7 @@ func TestSlashCandidate(t *testing.T) {
 
 	_, err = csm.putBucket(bucket)
 	require.NoError(err)
+	applyVoterWeightDelta(csm, cand.GetIdentifier(), bucket.Owner, p.calculateVoteWeight(bucket, true))
 	require.NoError(csm.DebitBucketPool(bucket.StakedAmount, true))
 	cl, err := p.ActiveCandidates(ctx, sm, 0)
 	require.NoError(err)
@@ -747,9 +750,17 @@ func TestSlashCandidate(t *testing.T) {
 		bucket, err := csm.NativeBucket(bucketIdx)
 		require.NoError(err)
 		require.Equal(remaining.String(), bucket.StakedAmount.String())
+		weights := voterWeights.VoterWeightsByCandidate(hash.BytesToHash160(cand.GetIdentifier().Bytes()))
+		require.Len(weights, 1)
+		require.Equal(p.calculateVoteWeight(bucket, true).String(), weights[0].weight.String())
 		cand := csm.GetByIdentifier(owner)
 		require.Equal(remaining.String(), cand.SelfStake.String())
 		require.NoError(p.SlashCandidateByOperator(ctx, sm, cand.Operator, big.NewInt(11)))
+		bucket, err = csm.NativeBucket(bucketIdx)
+		require.NoError(err)
+		weights = voterWeights.VoterWeightsByCandidate(hash.BytesToHash160(cand.GetIdentifier().Bytes()))
+		require.Len(weights, 1)
+		require.Equal(p.calculateVoteWeight(bucket, true).String(), weights[0].weight.String())
 		cl, err = p.ActiveCandidates(
 			ctx,
 			sm,

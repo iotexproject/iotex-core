@@ -568,6 +568,12 @@ func (p *Protocol) slashCandidate(
 	if err := candidate.AddVote(weightedVotes); err != nil {
 		return errors.Wrapf(err, "failed to add candidate votes")
 	}
+	applyVoterWeightDelta(
+		csm,
+		candidate.GetIdentifier(),
+		bucket.Owner,
+		new(big.Int).Sub(weightedVotes, prevWeightedVotes),
+	)
 	if err := candidate.SubSelfStake(amount); err != nil {
 		return errors.Wrap(err, "failed to update self stake")
 	}
