@@ -12,12 +12,18 @@ import (
 	"math/rand"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 )
 
 func candID(idx int) hash.Hash160 {
@@ -403,6 +409,94 @@ func TestVoterWeightView_IncrementalMatchesRebuild(t *testing.T) {
 	}
 
 	r.Equal(v.Hash(), rebuild.Hash())
+}
+
+func TestRestoreVoterWeightView_RestartPreservesExistingVoters(t *testing.T) {
+	r := require.New(t)
+	cand := &Candidate{
+		Owner:              identityset.Address(1),
+		Identifier:         identityset.Address(2),
+		SelfStakeBucketIdx: 0,
+	}
+	consts := genesis.TestDefault().Staking.VoteWeightCalConsts
+	buckets := make([]*VoteBucket, 0, 120)
+	for i := 0; i < 120; i++ {
+		bucket := NewVoteBucket(
+			cand.GetIdentifier(),
+			benchAddress(1_000+i),
+			big.NewInt(int64(100+i)),
+			1,
+			time.Unix(1, 0),
+			false,
+		)
+		bucket.Index = uint64(i + 1)
+		buckets = append(buckets, bucket)
+	}
+	expected := buildVoterWeightView(buckets, func(*VoteBucket) *Candidate { return cand }, consts)
+	expectedDigest := expected.Hash()
+	sr := mockVoterWeightDigestReader(t, &expectedDigest, nil)
+
+	restored, err := restoreVoterWeightView(
+		sr,
+		buckets,
+		func(bucket *VoteBucket) *Candidate {
+			if address.Equal(bucket.Candidate, cand.GetIdentifier()) {
+				return cand
+			}
+			return nil
+		},
+		consts,
+	)
+	r.NoError(err)
+	r.Equal(expected.Hash(), restored.Hash())
+	r.Len(restored.VoterWeightsByCandidate(hash.BytesToHash160(cand.GetIdentifier().Bytes())), len(buckets))
+	r.False(restored.IsDirty(), "a restored view must match the committed state")
+}
+
+func TestRestoreVoterWeightView_MissingDigestAllowsInitialBuild(t *testing.T) {
+	cand := &Candidate{Owner: identityset.Address(1)}
+	bucket := NewVoteBucket(cand.GetIdentifier(), identityset.Address(2), big.NewInt(100), 1, time.Unix(1, 0), false)
+	sr := mockVoterWeightDigestReader(t, nil, state.ErrStateNotExist)
+
+	restored, err := restoreVoterWeightView(
+		sr,
+		[]*VoteBucket{bucket},
+		func(*VoteBucket) *Candidate { return cand },
+		genesis.TestDefault().Staking.VoteWeightCalConsts,
+	)
+	require.NoError(t, err)
+	require.Len(t, restored.VoterWeightsByCandidate(hash.BytesToHash160(cand.GetIdentifier().Bytes())), 1)
+}
+
+func TestRestoreVoterWeightView_DigestMismatchFailsStartup(t *testing.T) {
+	cand := &Candidate{Owner: identityset.Address(1)}
+	bucket := NewVoteBucket(cand.GetIdentifier(), identityset.Address(2), big.NewInt(100), 1, time.Unix(1, 0), false)
+	wrong := hash.Hash256b([]byte("wrong voter weights"))
+	sr := mockVoterWeightDigestReader(t, &wrong, nil)
+
+	_, err := restoreVoterWeightView(
+		sr,
+		[]*VoteBucket{bucket},
+		func(*VoteBucket) *Candidate { return cand },
+		genesis.TestDefault().Staking.VoteWeightCalConsts,
+	)
+	require.ErrorContains(t, err, "voter weight digest mismatch")
+}
+
+func mockVoterWeightDigestReader(t *testing.T, digest *hash.Hash256, readErr error) protocol.StateReader {
+	t.Helper()
+	sr := mock_chainmanager.NewMockStateReader(gomock.NewController(t))
+	sr.EXPECT().State(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(dst interface{}, _ ...protocol.StateOption) (uint64, error) {
+			if readErr != nil {
+				return 0, readErr
+			}
+			d := dst.(*voterWeightDigest)
+			d.Hash = *digest
+			return 1, nil
+		},
+	)
+	return sr
 }
 
 // benchAddress synthesizes a stable, unique address from an integer. Used by

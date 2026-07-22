@@ -324,6 +324,7 @@ func TestCreatePreStatesMigration(t *testing.T) {
 	mockContractStaking := NewMockContractStakingIndexer(ctrl)
 	mockContractStaking.EXPECT().ContractAddress().Return(identityset.Address(1)).Times(1)
 	mockContractStaking.EXPECT().LoadStakeView(gomock.Any(), gomock.Any()).Return(mockView, nil).Times(1)
+	mockContractStaking.EXPECT().Buckets(gomock.Any()).Return(nil, nil).Times(1)
 	mockContractStaking.EXPECT().StartHeight().Return(uint64(0)).Times(1)
 	mockContractStaking.EXPECT().Height().Return(uint64(0), nil).Times(1)
 	p, err := NewProtocol(HelperCtx{

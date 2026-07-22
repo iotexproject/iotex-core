@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -73,6 +74,36 @@ func readVoterWeightDigest(sm protocol.StateReader) (hash.Hash256, error) {
 		return hash.ZeroHash256, err
 	}
 	return d.Hash, nil
+}
+
+// restoreVoterWeightView reconstructs the full in-memory view from persisted
+// bucket state and verifies it against the digest written at the last commit.
+// A missing digest is valid for chains that have not committed an IIP-59 voter
+// weight mutation yet; once present, a mismatch means startup state is not
+// safe to use for reward distribution.
+func restoreVoterWeightView(
+	sr protocol.StateReader,
+	allBuckets []*VoteBucket,
+	candidateForBucket func(*VoteBucket) *Candidate,
+	consts genesis.VoteWeightCalConsts,
+) (VoterWeightView, error) {
+	v := buildVoterWeightView(allBuckets, candidateForBucket, consts)
+	persisted, err := readVoterWeightDigest(sr)
+	if err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			return v, nil
+		}
+		return nil, errors.Wrap(err, "failed to read voter weight digest")
+	}
+	actual := v.Hash()
+	if persisted != actual {
+		return nil, errors.Errorf(
+			"voter weight digest mismatch: persisted=%x rebuilt=%x",
+			persisted[:],
+			actual[:],
+		)
+	}
+	return v, nil
 }
 
 // VoterWeightView tracks per-candidate per-voter weighted votes for IIP-59

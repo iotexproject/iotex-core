@@ -308,65 +308,72 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 	}
 	c.contractsStake = &contractStakeView{}
-	checkIndex := func(indexer ContractStakingIndexer) error {
+	checkIndex := func(indexer ContractStakingIndexer) (bool, error) {
 		checker := blockdao.GetChecker(ctx)
 		if checker == nil {
-			return nil
+			return true, nil
 		}
 		if err := indexer.Start(ctx); err != nil {
-			return errors.Wrap(err, "failed to start contract staking indexer")
+			return false, errors.Wrap(err, "failed to start contract staking indexer")
 		}
 		if indexer.StartHeight() > height {
-			return nil
+			return false, nil
 		}
 		indexerHeight, err := indexer.Height()
 		if err != nil {
-			return errors.Wrap(err, "failed to get contract staking indexer height")
+			return false, errors.Wrap(err, "failed to get contract staking indexer height")
 		}
 		if indexerHeight > height {
-			return errors.Errorf("contract staking indexer height %d > current height %d", indexerHeight, height)
+			return false, errors.Errorf("contract staking indexer height %d > current height %d", indexerHeight, height)
 		}
 		if height == 0 {
-			return nil
+			return true, nil
 		}
 		checkerHeight, err := checker.Height()
 		if err != nil {
-			return errors.Wrap(err, "failed to get checker height")
+			return false, errors.Wrap(err, "failed to get checker height")
 		}
 		if checkerHeight < height {
-			return errors.Errorf("checker height %d < target height %d", checkerHeight, height)
+			return false, errors.Errorf("checker height %d < target height %d", checkerHeight, height)
 		}
-		return checker.CheckIndexer(ctx, indexer, height, func(h uint64) {
+		if err := checker.CheckIndexer(ctx, indexer, height, func(h uint64) {
 			if h%5000 == 0 || h == height {
 				log.L().Info("Checking contract staking indexer", zap.Uint64("height", h), zap.String("contract", indexer.ContractAddress().String()))
 			}
-		})
+		}); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 	// List of all indexers to process
 	indexers := []struct {
 		indexer ContractStakingIndexer
 		setter  func(ContractStakeView)
+		active  bool
 	}{
-		{p.contractStakingIndexer, func(v ContractStakeView) { c.contractsStake.v1 = v }},
-		{p.contractStakingIndexerV2, func(v ContractStakeView) { c.contractsStake.v2 = v }},
-		{p.contractStakingIndexerV3, func(v ContractStakeView) { c.contractsStake.v3 = v }},
+		{indexer: p.contractStakingIndexer, setter: func(v ContractStakeView) { c.contractsStake.v1 = v }},
+		{indexer: p.contractStakingIndexerV2, setter: func(v ContractStakeView) { c.contractsStake.v2 = v }},
+		{indexer: p.contractStakingIndexerV3, setter: func(v ContractStakeView) { c.contractsStake.v3 = v }},
 	}
 	// Process all indexers in parallel
 	wg := sync.WaitGroup{}
 	errChan := make(chan error, len(indexers))
 	skipView := p.skipContractStakingView(height)
-	for _, idx := range indexers {
+	for i := range indexers {
+		idx := &indexers[i]
 		if idx.indexer == nil {
 			continue
 		}
 		wg.Add(1)
-		func(indexer ContractStakingIndexer, setter func(ContractStakeView)) {
+		func(indexer ContractStakingIndexer, setter func(ContractStakeView), active *bool) {
 			defer wg.Done()
 			// First, checking the indexer
-			if err := checkIndex(indexer); err != nil {
+			available, err := checkIndex(indexer)
+			if err != nil {
 				errChan <- errors.Wrapf(err, "failed to check contract staking indexer %s", indexer.ContractAddress())
 				return
 			}
+			*active = available
 			// If not skipping view creation, build the view
 			if !skipView {
 				view, err := NewContractStakeViewBuilder(indexer, p.blockStore).Build(ctx, sr, height)
@@ -376,7 +383,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 				}
 				setter(view)
 			}
-		}(idx.indexer, idx.setter)
+		}(idx.indexer, idx.setter, &idx.active)
 	}
 	wg.Wait()
 	close(errChan)
@@ -384,6 +391,40 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// VoterWeightView is intentionally an in-memory index. Reconstruct it on
+	// every startup from the persisted bucket sources after all contract
+	// indexers have reached this state-reader height, then verify the result
+	// against the digest committed with the state. This preserves voters that
+	// were created before a node restart.
+	csr := newCandidateStateReader(sr)
+	allBuckets, _, err := csr.NativeBuckets()
+	if errors.Cause(err) == state.ErrStateNotExist {
+		allBuckets = nil
+	} else if err != nil {
+		return nil, errors.Wrap(err, "failed to load native buckets for voter weight view")
+	}
+	for _, idx := range indexers {
+		if idx.indexer == nil || !idx.active {
+			continue
+		}
+		buckets, err := idx.indexer.Buckets(height)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to load contract buckets for voter weight view from %s", idx.indexer.ContractAddress())
+		}
+		allBuckets = append(allBuckets, buckets...)
+	}
+	c.voterWeights, err = restoreVoterWeightView(
+		sr,
+		allBuckets,
+		func(bucket *VoteBucket) *Candidate {
+			return c.candCenter.GetByIdentifier(bucket.Candidate)
+		},
+		p.config.VoteWeightCalConsts,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to restore voter weight view")
 	}
 	return c, nil
 }
