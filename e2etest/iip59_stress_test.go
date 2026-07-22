@@ -26,22 +26,20 @@ import (
 // Correctness-focused sibling to iip59PerfTiers — asserts fund conservation
 // invariants at every block boundary rather than measuring latency.
 //
-// Compound batch size is picked so the drain always spans multiple blocks,
+// Voter budget is picked so the drain always spans multiple blocks,
 // otherwise the chunk-continuation code path is never exercised.
 var iip59StressTiers = map[string]perfTier{
-	// 5 delegates / batch 2 → ceil(5/2) = 3 continuation chunks per drain,
+	// 200 voters / budget 80 → 3 continuation chunks per drain,
 	// plus the Phase-A cursor-freeze block. Runs in ~2s.
-	"small": {numDelegates: 5, numVoters: 200, epochsPerEra: 2, compoundBatchSize: 2},
-	// 20 delegates / batch 5 → 4 continuation chunks. Env-gated
+	"small": {numDelegates: 5, numVoters: 200, epochsPerEra: 2, voterBudgetPerBlock: 80},
+	// 2,000 voters / budget 500 → 4 continuation chunks. Env-gated
 	// (~30s wall-clock).
-	"medium": {numDelegates: 20, numVoters: 2_000, epochsPerEra: 2, compoundBatchSize: 5},
+	"medium": {numDelegates: 20, numVoters: 2_000, epochsPerEra: 2, voterBudgetPerBlock: 500},
 }
 
 // iip59SingleDelegateLargeVoterTier drives the PR 5.5b voter-cap check:
 // one delegate with a long voter list, paid in windows of
-// voterBudgetPerBlock. compoundBatchSize is deliberately larger than
-// numDelegates so the delegate-count cap is never the terminating
-// budget — the mid-delegate voter-cap is.
+// voterBudgetPerBlock.
 //
 // 1 delegate × 500 voters with voterBudgetPerBlock=50 → 10 continuation
 // chunks all pointing at DelegateIndex=0, VoterIndex advancing
@@ -59,7 +57,6 @@ var iip59SingleDelegateLargeVoterTier = perfTier{
 	numDelegates:        1,
 	numVoters:           500,
 	epochsPerEra:        11,
-	compoundBatchSize:   4,
 	voterBudgetPerBlock: 50,
 }
 
@@ -138,8 +135,8 @@ func TestIIP59ChunkedDrainStress_SmallTier(t *testing.T) {
 	}
 	r.NotZerof(drainStartHeight, "drain never began within %d blocks", maxBlocks)
 	r.GreaterOrEqualf(drainBlocks, 2,
-		"drain must span ≥ 2 blocks to exercise chunking (batch=%d, delegates=%d)",
-		tier.compoundBatchSize, tier.numDelegates)
+		"drain must span ≥ 2 blocks to exercise chunking (voterBudget=%d, voters=%d)",
+		tier.voterBudgetPerBlock, tier.numVoters)
 
 	// Final gate: cursor absent at tip height. drainSnapshot already
 	// returned !present above; this is a defence-in-depth check.
@@ -238,9 +235,8 @@ func TestIIP59ChunkedDrainStress_MultiEra(t *testing.T) {
 //   - the drain terminates cleanly (cursor absent) once all 500 voters
 //     have been paid.
 //
-// This is the correctness sibling to the delegate-cap tests above: it
-// exercises the *inner* loop (per-voter windowing) rather than the outer
-// (per-delegate cap).
+// This is the correctness sibling to the multi-delegate tests above: it
+// exercises continuation within one delegate's voter list.
 func TestIIP59ChunkedDrainStress_SingleDelegateLargeVoter(t *testing.T) {
 	r := require.New(t)
 
@@ -409,11 +405,11 @@ func assertStressInvariant(
 // drainMintCeiling bounds the mint loop so a broken test cannot spin
 // forever. Sized for eras × (era_length + drain_span) with a safety
 // multiplier. era_length ≈ numDelegates × numSubEpochs × epochsPerEra;
-// drain_span ≈ ceil(numDelegates / compoundBatchSize) + 1 Phase-A block.
+// drain_span ≈ ceil(numVoters / voterBudgetPerBlock) + 1 Phase-A block.
 func drainMintCeiling(tier perfTier, eras int) int {
 	const numSubEpochs = 2 // matches newIIP59PerfCfg
 	eraLen := tier.numDelegates * numSubEpochs * int(tier.epochsPerEra)
-	drainSpan := (tier.numDelegates + int(tier.compoundBatchSize) - 1) / int(tier.compoundBatchSize)
+	drainSpan := (tier.numVoters + int(tier.voterBudgetPerBlock) - 1) / int(tier.voterBudgetPerBlock)
 	blocks := (eraLen + drainSpan + 4) * eras
 	if blocks < 100 {
 		blocks = 100

@@ -306,18 +306,29 @@ func (p *Protocol) removePendingBlockRewardPoolIndex(
 	return p.writePendingBlockRewardPoolIndex(ctx, sm, ids)
 }
 
-// candidateIdentifierBytes resolves the byte form of a candidate identifier
-// suitable for pool-key storage. Uses the same address-as-identifier
-// convention distributeVoterReward reads via staking.PollSnapshotFor.
-func candidateIdentifierBytes(candAddress string) ([]byte, error) {
-	if candAddress == "" {
-		return nil, errors.New("rewarding: empty candidate address for pool key")
+// candidateIdentifierBytes resolves the stable candidate identity used by
+// candidate-scoped IIP-59 state.
+func candidateIdentifierBytes(candidateIdentity string) ([]byte, error) {
+	if candidateIdentity == "" {
+		return nil, errors.New("rewarding: empty candidate identity for pool key")
 	}
-	addr, err := address.FromString(candAddress)
+	addr, err := address.FromString(candidateIdentity)
 	if err != nil {
-		return nil, errors.Wrapf(err, "rewarding: invalid candidate address %q", candAddress)
+		return nil, errors.Wrapf(err, "rewarding: invalid candidate identity %q", candidateIdentity)
 	}
 	return addr.Bytes(), nil
+}
+
+// candidateIdentifier returns the stable candidate identity. Legacy poll
+// records did not populate Identity, where Address was also the identifier.
+func candidateIdentifier(candidate *state.Candidate) string {
+	if candidate == nil {
+		return ""
+	}
+	if candidate.Identity != "" {
+		return candidate.Identity
+	}
+	return candidate.Address
 }
 
 // refundPendingBlockRewardPool returns amount to the rewarding fund's
@@ -348,7 +359,7 @@ func (p *Protocol) refundPendingBlockRewardPool(
 // accumulated block reward inside the epoch.
 //
 // Resolution order per orphan:
-//  1. Look up the live staking.Candidate by owner address. If present and
+//  1. Look up the live staking.Candidate by identifier. If present and
 //     .Reward is set, credit the pool balance to that reward address and
 //     emit a BLOCK_REWARD log naming it.
 //  2. Otherwise (candidate fully gone, or no reward address), refund the
@@ -399,7 +410,7 @@ func (p *Protocol) drainPendingBlockRewardOrphans(
 					return nil, errors.Wrap(err, "rewarding: construct base view for orphan drain")
 				}
 			}
-			if cand := csr.GetCandidateByOwner(candAddr); cand != nil && cand.Reward != nil {
+			if cand := csr.GetByIdentifier(candAddr); cand != nil && cand.Reward != nil {
 				target = cand.Reward
 				targetStr = cand.Reward.String()
 			}

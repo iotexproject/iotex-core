@@ -28,10 +28,11 @@ import (
 // block time (block-side) or at Phase A (epoch-side), then retained here
 // for continuation log consistency.
 type epochDrainDelegateWork struct {
-	CandidateIdentifier []byte
-	VoterAmountFrozen   *big.Int
-	RewardAddress       []byte
-	EpochCommission     *big.Int
+	CandidateIdentifier    []byte
+	VoterAmountFrozen      *big.Int
+	VoterAmountDistributed *big.Int
+	RewardAddress          []byte
+	EpochCommission        *big.Int
 }
 
 // epochDrainCursor checkpoints an in-progress IIP-59 era-boundary drain
@@ -62,10 +63,11 @@ func (c epochDrainCursor) Serialize() ([]byte, error) {
 		m.Delegates = make([]*rewardingpb.EpochDrainDelegateWork, len(c.Delegates))
 		for i, d := range c.Delegates {
 			m.Delegates[i] = &rewardingpb.EpochDrainDelegateWork{
-				CandidateIdentifier: d.CandidateIdentifier,
-				VoterAmountFrozen:   epochDrainBigIntBytes(d.VoterAmountFrozen),
-				RewardAddress:       d.RewardAddress,
-				EpochCommission:     epochDrainBigIntBytes(d.EpochCommission),
+				CandidateIdentifier:    d.CandidateIdentifier,
+				VoterAmountFrozen:      epochDrainBigIntBytes(d.VoterAmountFrozen),
+				VoterAmountDistributed: epochDrainBigIntBytes(d.VoterAmountDistributed),
+				RewardAddress:          d.RewardAddress,
+				EpochCommission:        epochDrainBigIntBytes(d.EpochCommission),
 			}
 		}
 	}
@@ -86,10 +88,11 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 		c.Delegates = make([]epochDrainDelegateWork, len(ds))
 		for i, d := range ds {
 			c.Delegates[i] = epochDrainDelegateWork{
-				CandidateIdentifier: d.GetCandidateIdentifier(),
-				VoterAmountFrozen:   epochDrainBytesBigInt(d.GetVoterAmountFrozen()),
-				RewardAddress:       d.GetRewardAddress(),
-				EpochCommission:     epochDrainBytesBigInt(d.GetEpochCommission()),
+				CandidateIdentifier:    d.GetCandidateIdentifier(),
+				VoterAmountFrozen:      epochDrainBytesBigInt(d.GetVoterAmountFrozen()),
+				VoterAmountDistributed: epochDrainBytesBigInt(d.GetVoterAmountDistributed()),
+				RewardAddress:          d.GetRewardAddress(),
+				EpochCommission:        epochDrainBytesBigInt(d.GetEpochCommission()),
 			}
 		}
 	}

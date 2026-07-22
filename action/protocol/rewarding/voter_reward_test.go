@@ -149,6 +149,25 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 	})
 }
 
+func TestDistributeVoterOnlyRejectsInvalidDistributedAmount(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
+	writeSnapshot(t, sm, candAddr, true, true, 2000, []voterEntry{
+		{identityset.Address(3), big.NewInt(100)},
+	})
+	rewardAddr, err := address.FromString(cand.RewardAddress)
+	r.NoError(err)
+
+	for _, distributed := range []*big.Int{big.NewInt(-1), big.NewInt(101)} {
+		_, _, _, _, _, _, err := p.distributeVoterOnly(
+			ctx, sm, cand, rewardAddr,
+			big.NewInt(100), big.NewInt(10), distributed,
+			0, 1, 100, hash.ZeroHash256,
+		)
+		r.Error(err)
+	}
+}
+
 type voterEntry struct {
 	addr   address.Address
 	weight *big.Int
@@ -218,7 +237,8 @@ func newVoterRewardCtx(
 
 	candAddr := identityset.Address(1)
 	cand := &state.Candidate{
-		Address:       candAddr.String(),
+		Identity:      candAddr.String(),
+		Address:       identityset.Address(9).String(),
 		RewardAddress: identityset.Address(2).String(),
 		Votes:         big.NewInt(1_000_000),
 	}
@@ -298,6 +318,7 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 		logs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
 			ctx, sm, cand, rewardAddr,
 			voterAmount, epochCommission,
+			nil,                   /* distributedBefore */
 			0 /* startVoter */, 0, /* voterBudget=unbounded */
 			100 /* blkHeight */, hash.ZeroHash256,
 		)
@@ -338,6 +359,7 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 			logs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
 				ctx, sm, cand, rewardAddr,
 				voterAmount, epochCommission,
+				new(big.Int).Set(chunkedPaid),
 				w.start, w.budget,
 				100 /* blkHeight */, hash.ZeroHash256,
 			)

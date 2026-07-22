@@ -89,6 +89,10 @@ message EpochDrainDelegateWork {
     bytes voter_amount_frozen  = 2;
     bytes reward_address       = 3;
     bytes epoch_commission     = 4;
+    // Amount already distributed from voter_amount_frozen. This lets a
+    // continuation give the final weighted voter the exact remainder without
+    // rescanning every preceding voter on each block.
+    bytes voter_amount_distributed = 5;
 }
 
 // EpochDrainCursor checkpoints a multi-block IIP-59 era-boundary drain

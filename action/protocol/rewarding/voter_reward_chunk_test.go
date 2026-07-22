@@ -74,7 +74,7 @@ func seedChunkCursor(
 		if cand == nil {
 			continue
 		}
-		candID, cErr := candidateIdentifierBytes(cand.Address)
+		candID, cErr := candidateIdentifierBytes(cand.Identity)
 		r.NoError(cErr)
 		entries = append(entries, epochDrainDelegateWork{
 			CandidateIdentifier: candID,
@@ -90,12 +90,10 @@ func seedChunkCursor(
 	return cursor
 }
 
-// TestGrantVoterRewardChunk_HappyPath verifies a mid-drain chunk:
-// - chunkSize < remaining delegates,
-// - DelegateIndex advances by chunkSize,
-// - cursor persists (Phase C coda skipped),
-// - no sentinel is written yet.
-func TestGrantVoterRewardChunk_HappyPath(t *testing.T) {
+// TestGrantVoterRewardChunk_UnroutableDelegatesFinish verifies delegates whose
+// snapshots are unavailable do not consume voter budget or leave a cursor
+// stuck behind a separate delegate-count cap.
+func TestGrantVoterRewardChunk_UnroutableDelegatesFinish(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
@@ -105,10 +103,6 @@ func TestGrantVoterRewardChunk_HappyPath(t *testing.T) {
 		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
 
-		// Force chunking: CompoundBatchSize=2 with 4 rewarded delegates
-		// (default NumDelegatesForEpochReward=4) yields two chunks.
-		p.cfg.CompoundBatchSize = 2
-
 		cursor := seedChunkCursor(t, ctx, sm, p, 1, 0)
 		require.Greater(t, len(cursor.Delegates), 2,
 			"test precondition: need >2 delegates to exercise mid-drain chunk")
@@ -117,14 +111,12 @@ func TestGrantVoterRewardChunk_HappyPath(t *testing.T) {
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
 
-		// Cursor must still be present with index advanced by exactly one
-		// chunk. Sentinel must NOT be set — this isn't the last chunk.
+		// Missing snapshots route no voters, so all entries are resolved in
+		// one call and the cursor is deleted by the coda.
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.NotNil(got, "mid-drain cursor must survive")
-		r.Equal(uint64(1), got.TargetEra)
-		r.Equal(uint32(2), got.DelegateIndex, "DelegateIndex advances by chunkSize=2")
-		r.Equal(int(total), len(got.Delegates), "cursor length unchanged mid-drain")
+		r.Nil(got)
+		r.Greater(int(total), 0)
 
 		// assertNoRewardYet returns nil when sentinel does NOT exist.
 		r.NoError(p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, 1),
@@ -146,11 +138,8 @@ func TestGrantVoterRewardChunk_LastChunkRunsCoda(t *testing.T) {
 		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
 
-		p.cfg.CompoundBatchSize = 2
-
-		// Seed with DelegateIndex pointing at the last chunk. For 4
-		// delegates + chunkSize=2, startIdx=2 makes this the terminal
-		// chunk that runs the coda.
+		// Seed with DelegateIndex pointing at the last two entries so this
+		// call runs the terminal coda.
 		cursor := seedChunkCursor(t, ctx, sm, p, 1, 0)
 		total := uint32(len(cursor.Delegates))
 		r.GreaterOrEqual(int(total), 2)
@@ -180,8 +169,6 @@ func TestGrantVoterRewardChunk_CrossEraContinuation(t *testing.T) {
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
-
-		p.cfg.CompoundBatchSize = 2
 
 		// Cursor pins the era that started the drain (era 1); this
 		// continuation block is well into a later era.
@@ -307,8 +294,6 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
-		p.cfg.CompoundBatchSize = 1
-
 		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
 
@@ -424,16 +409,13 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 // and the amount field is the sentinel "0" (this log carries no
 // monetary value).
 //
-// Fixture: build a cursor with three synthetic entries (chunkSize=1
-// means only the first is drained per call), advance the cursor's
+// Fixture: build a cursor with synthetic entries, advance the cursor's
 // DelegateIndex to 1 so we can assert the exact snapshot fields the
 // log encodes, and run one chunk.
 func TestGrantVoterRewardChunk_EmitsCursorProgress(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
-		p.cfg.CompoundBatchSize = 1
-
 		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
 

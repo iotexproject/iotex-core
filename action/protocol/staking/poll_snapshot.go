@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/distributedlog"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -54,6 +55,12 @@ type CandidatePollSnapshot struct {
 	// this only ever ends up empty when the view is nil (pre-fork setups)
 	// or the candidate genuinely has zero non-self-stake buckets.
 	Entries []VoterWeight
+	// Cached metadata keeps each continuation block proportional to its voter
+	// window. HasWeightedEntries distinguishes a valid index 0 from no weights.
+	TotalWeight        *big.Int
+	SnapshotHash       hash.Hash256
+	LastWeightedIndex  uint32
+	HasWeightedEntries bool
 }
 
 // VoterWeight is one entry in CandidatePollSnapshot.Entries.
@@ -113,11 +120,16 @@ func candidatePollSnapshotKey(candID address.Address) []byte {
 
 // toBlob converts a CandidatePollSnapshot into the wire form for PutState.
 func (s *CandidatePollSnapshot) toBlob() *candidatePollSnapshotBlob {
+	populateSnapshotMetadata(s)
 	pb := &stakingpb.CandidatePollSnapshot{
 		BlockCommissionBasisPoints: s.BlockCommissionBasisPoints,
 		EpochCommissionBasisPoints: s.EpochCommissionBasisPoints,
 		Registered:                 s.Registered,
 		VoterRewardOnchainOptIn:    s.VoterRewardOnchainOptIn,
+		TotalWeight:                s.TotalWeight.Bytes(),
+		SnapshotHash:               s.SnapshotHash[:],
+		LastWeightedIndex:          s.LastWeightedIndex,
+		HasWeightedEntries:         s.HasWeightedEntries,
 	}
 	if len(s.Entries) > 0 {
 		pb.Entries = make([]*stakingpb.VoterWeightEntry, 0, len(s.Entries))
@@ -145,6 +157,10 @@ func fromBlob(b *candidatePollSnapshotBlob) (*CandidatePollSnapshot, error) {
 		EpochCommissionBasisPoints: b.pb.GetEpochCommissionBasisPoints(),
 		Registered:                 b.pb.GetRegistered(),
 		VoterRewardOnchainOptIn:    b.pb.GetVoterRewardOnchainOptIn(),
+		TotalWeight:                new(big.Int).SetBytes(b.pb.GetTotalWeight()),
+		SnapshotHash:               hash.BytesToHash256(b.pb.GetSnapshotHash()),
+		LastWeightedIndex:          b.pb.GetLastWeightedIndex(),
+		HasWeightedEntries:         b.pb.GetHasWeightedEntries(),
 	}
 	if entries := b.pb.GetEntries(); len(entries) > 0 {
 		out.Entries = make([]VoterWeight, 0, len(entries))
@@ -159,7 +175,36 @@ func fromBlob(b *candidatePollSnapshotBlob) (*CandidatePollSnapshot, error) {
 			})
 		}
 	}
+	if len(b.pb.GetSnapshotHash()) != len(hash.Hash256{}) {
+		populateSnapshotMetadata(out)
+	}
 	return out, nil
+}
+
+func populateSnapshotMetadata(s *CandidatePollSnapshot) {
+	if s == nil {
+		return
+	}
+	voters := make([]address.Address, len(s.Entries))
+	weights := make([]*big.Int, len(s.Entries))
+	totalWeight := new(big.Int)
+	s.HasWeightedEntries = false
+	s.LastWeightedIndex = 0
+	for i, entry := range s.Entries {
+		voters[i] = entry.Voter
+		weight := new(big.Int)
+		if entry.Weight != nil {
+			weight.Set(entry.Weight)
+		}
+		weights[i] = weight
+		totalWeight.Add(totalWeight, weight)
+		if weight.Sign() > 0 {
+			s.HasWeightedEntries = true
+			s.LastWeightedIndex = uint32(i)
+		}
+	}
+	s.TotalWeight = totalWeight
+	s.SnapshotHash = distributedlog.SnapshotHash(voters, weights)
 }
 
 // FreezePollSnapshot writes a CandidatePollSnapshot for each candidate at
@@ -188,16 +233,23 @@ func FreezePollSnapshot(
 	bridge *delegateprofile.Bridge,
 	reader delegateprofile.ContractReader,
 ) error {
-	// Parse candidate addresses once; both the bridge call and the snapshot
+	// Parse candidate identities once; both the bridge call and the snapshot
 	// write use them.
 	ids := make([]address.Address, 0, len(candidates))
 	for _, c := range candidates {
 		if c == nil {
 			return errors.New("staking: nil candidate in poll list")
 		}
-		id, err := address.FromString(c.Address)
+		identity := c.Identity
+		if identity == "" {
+			// Legacy poll lists before identity storage used Address as the
+			// candidate identifier. IIP-59-era native staking lists always
+			// populate Identity.
+			identity = c.Address
+		}
+		id, err := address.FromString(identity)
 		if err != nil {
-			return errors.Wrapf(err, "staking: invalid candidate address %q", c.Address)
+			return errors.Wrapf(err, "staking: invalid candidate identity %q", identity)
 		}
 		ids = append(ids, id)
 	}

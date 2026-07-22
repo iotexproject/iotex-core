@@ -22,27 +22,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Route classifies where a voter's per-epoch share is delivered. The wire
-// value matches IIP-59 §3.5's DelegateDistributed.routings[] encoding, so
-// PR 4.7's log emitter and this bridge share a single source of truth.
-type Route uint8
-
-const (
-	// RouteCredit credits the share to the voter's unclaimed balance for
-	// pull-claim via the existing ClaimFromRewardingFund action.
-	RouteCredit Route = 0
-	// RouteCompound calls into the native staking AddDeposit path against
-	// the voter's registered bucket.
-	RouteCompound Route = 1
-)
-
-// Decision is the per-voter routing verdict produced from LookupBucket plus
-// the caller-side eligibility check.
-type Decision struct {
-	Route    Route
-	BucketID uint64 // valid iff Route == RouteCompound
-}
-
 // ErrEmptyContractAddress is returned when the bridge is constructed
 // without a target contract.
 var ErrEmptyContractAddress = errors.New("autodeposit: empty contract address")

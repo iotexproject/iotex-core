@@ -24,7 +24,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
 )
 
 // Errors returned by Pack. All three indicate a wiring bug in the caller
@@ -32,11 +31,11 @@ import (
 // there is no per-item fallback available at the log-encode layer.
 var (
 	// ErrParallelArrayLengthMismatch is returned when the voters, amounts,
-	// and routings slices in EventArgs do not have identical lengths.
+	// and compound bucket ID slices in EventArgs do not have identical lengths.
 	// PR 3' constructs these three in lock-step, so a mismatch is a
 	// serialisation bug.
 	ErrParallelArrayLengthMismatch = errors.New(
-		"distributedlog: voters, amounts, and routings must have equal length")
+		"distributedlog: voters, amounts, and compound bucket IDs must have equal length")
 
 	// ErrNilAddress is returned when Delegate, RewardAddr, or any
 	// Voters[i] is nil. Passing nil is a caller-side mistake and would
@@ -79,15 +78,15 @@ func loadABI() (abi.ABI, error) {
 // the same way as the on-chain event definition. Callers build one per
 // delegate (top-N loop and orphan-drain loop use the same shape).
 type EventArgs struct {
-	Epoch           uint64              // indexed → Topics[1]
-	Delegate        address.Address     // indexed → Topics[2]
-	RewardAddr      address.Address     // where commission was credited
-	TotalCommission *big.Int            // aggregate delegate commission
-	TotalVoterPool  *big.Int            // pool split across voters
-	SnapshotHash    hash.Hash256        // frozen voter list digest (see SnapshotHash)
-	Voters          []address.Address   // canonical sorted order per §3.4
-	Amounts         []*big.Int          // parallel to Voters
-	Routings        []autodeposit.Route // parallel to Voters; wire enum from PR 4.6
+	Epoch             uint64            // indexed → Topics[1]
+	Delegate          address.Address   // indexed → Topics[2]
+	RewardAddr        address.Address   // where commission was credited
+	TotalCommission   *big.Int          // aggregate delegate commission
+	TotalVoterPool    *big.Int          // pool split across voters
+	SnapshotHash      hash.Hash256      // frozen voter list digest (see SnapshotHash)
+	Voters            []address.Address // canonical sorted order per §3.4
+	Amounts           []*big.Int        // parallel to Voters
+	CompoundBucketIDs []uint64          // parallel to Voters; 0 means credit
 }
 
 // Pack encodes args as an EVM-shaped receipt log. The returned Topics
@@ -103,7 +102,7 @@ type EventArgs struct {
 //
 // Data layout: ABI-standard tuple of the remaining (non-indexed) inputs
 // in declaration order — rewardAddr, totalCommission, totalVoterPool,
-// snapshotHash, voters[], amounts[], routings[].
+// snapshotHash, voters[], amounts[], compoundBucketIds[].
 func Pack(args EventArgs) (action.Topics, []byte, error) {
 	if args.Delegate == nil {
 		return nil, nil, errors.Wrap(ErrNilAddress, "delegate")
@@ -117,10 +116,10 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 	if args.TotalVoterPool == nil {
 		return nil, nil, errors.Wrap(ErrNilBigInt, "totalVoterPool")
 	}
-	if len(args.Voters) != len(args.Amounts) || len(args.Voters) != len(args.Routings) {
+	if len(args.Voters) != len(args.Amounts) || len(args.Voters) != len(args.CompoundBucketIDs) {
 		return nil, nil, errors.Wrapf(ErrParallelArrayLengthMismatch,
-			"voters=%d amounts=%d routings=%d",
-			len(args.Voters), len(args.Amounts), len(args.Routings))
+			"voters=%d amounts=%d compoundBucketIds=%d",
+			len(args.Voters), len(args.Amounts), len(args.CompoundBucketIDs))
 	}
 
 	voterAddrs := make([]common.Address, len(args.Voters))
@@ -137,11 +136,6 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 		}
 		amounts[i] = a
 	}
-	routings := make([]uint8, len(args.Routings))
-	for i, r := range args.Routings {
-		routings[i] = uint8(r)
-	}
-
 	parsed, err := loadABI()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "distributedlog: parse ABI")
@@ -157,7 +151,7 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 		[32]byte(args.SnapshotHash),
 		voterAddrs,
 		amounts,
-		routings,
+		args.CompoundBucketIDs,
 	)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "distributedlog: pack DelegateDistributed data")

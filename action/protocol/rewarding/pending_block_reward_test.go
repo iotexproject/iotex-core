@@ -14,6 +14,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
+	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
@@ -173,6 +174,14 @@ func TestCandidateIdentifierBytes(t *testing.T) {
 
 	_, err = candidateIdentifierBytes("not-a-valid-address")
 	r.Error(err)
+}
+
+func TestCandidateIdentifier(t *testing.T) {
+	identity := identityset.Address(1).String()
+	operator := identityset.Address(2).String()
+	require.Equal(t, identity, candidateIdentifier(&state.Candidate{Identity: identity, Address: operator}))
+	require.Equal(t, operator, candidateIdentifier(&state.Candidate{Address: operator}))
+	require.Empty(t, candidateIdentifier(nil))
 }
 
 // TestRefundPendingBlockRewardPool — the orphan-fallback path increments

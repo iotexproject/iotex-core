@@ -18,12 +18,11 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 // happyArgs returns a plausible three-voter EventArgs with mixed
-// routings. Each test mutates one field to isolate the property under
+// destinations. Each test mutates one field to isolate the property under
 // test.
 func happyArgs() EventArgs {
 	delegate := identityset.Address(1)
@@ -46,11 +45,7 @@ func happyArgs() EventArgs {
 			big.NewInt(3_000_000),
 			big.NewInt(3_000_000),
 		},
-		Routings: []autodeposit.Route{
-			autodeposit.RouteCredit,
-			autodeposit.RouteCompound,
-			autodeposit.RouteCompound,
-		},
+		CompoundBucketIDs: []uint64{0, 42, 99},
 	}
 }
 
@@ -94,7 +89,7 @@ func TestPack_ZeroVoters(t *testing.T) {
 	args := happyArgs()
 	args.Voters = nil
 	args.Amounts = nil
-	args.Routings = nil
+	args.CompoundBucketIDs = nil
 
 	topics, data, err := Pack(args)
 	r.NoError(err)
@@ -106,7 +101,7 @@ func TestPack_ZeroVoters(t *testing.T) {
 	r.NoError(err)
 	r.Len(unpacked[4].([]common.Address), 0, "voters must decode as empty array")
 	r.Len(unpacked[5].([]*big.Int), 0, "amounts must decode as empty array")
-	r.Len(unpacked[6].([]uint8), 0, "routings must decode as empty array")
+	r.Len(unpacked[6].([]uint64), 0, "compound bucket IDs must decode as empty array")
 }
 
 func TestPack_ParallelLengthMismatch_Amounts(t *testing.T) {
@@ -118,10 +113,10 @@ func TestPack_ParallelLengthMismatch_Amounts(t *testing.T) {
 	r.ErrorIs(err, ErrParallelArrayLengthMismatch)
 }
 
-func TestPack_ParallelLengthMismatch_Routings(t *testing.T) {
+func TestPack_ParallelLengthMismatch_CompoundBucketIDs(t *testing.T) {
 	r := require.New(t)
 	args := happyArgs()
-	args.Routings = args.Routings[:1] // two short
+	args.CompoundBucketIDs = args.CompoundBucketIDs[:1] // two short
 
 	_, _, err := Pack(args)
 	r.ErrorIs(err, ErrParallelArrayLengthMismatch)
@@ -197,7 +192,7 @@ func TestPack_SelectorPinned(t *testing.T) {
 	r.NoError(err)
 
 	expected := crypto.Keccak256Hash([]byte(
-		"DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],uint256[],uint8[])",
+		"DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],uint256[],uint64[])",
 	))
 	r.Equal(hash.Hash256(expected), topics[0])
 }
@@ -243,10 +238,10 @@ func TestPack_RoundTrip(t *testing.T) {
 	for i, a := range args.Amounts {
 		r.Equal(0, a.Cmp(amountsOut[i]))
 	}
-	routingsOut := unpacked[6].([]uint8)
-	r.Len(routingsOut, len(args.Routings))
-	for i, rt := range args.Routings {
-		r.Equal(uint8(rt), routingsOut[i])
+	bucketIDsOut := unpacked[6].([]uint64)
+	r.Len(bucketIDsOut, len(args.CompoundBucketIDs))
+	for i, bucketID := range args.CompoundBucketIDs {
+		r.Equal(bucketID, bucketIDsOut[i])
 	}
 }
 

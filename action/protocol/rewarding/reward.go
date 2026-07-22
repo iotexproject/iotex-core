@@ -145,6 +145,7 @@ func (p *Protocol) GrantBlockReward(
 
 	producerAddrStr := blkCtx.Producer.String()
 	rewardAddrStr := ""
+	var producerCandidate *state.Candidate
 	pp := poll.FindProtocol(protocol.MustGetRegistry(ctx))
 	if pp != nil {
 		candidates, err := pp.Candidates(ctx, sm)
@@ -154,6 +155,7 @@ func (p *Protocol) GrantBlockReward(
 		for _, candidate := range candidates {
 			if candidate.Address == producerAddrStr {
 				rewardAddrStr = candidate.RewardAddress
+				producerCandidate = candidate
 				break
 			}
 		}
@@ -187,9 +189,13 @@ func (p *Protocol) GrantBlockReward(
 	var producerCandAddr address.Address
 	var blockCommissionBPs uint64
 	if !fCtx.NoVoterRewardDistribution {
-		producerCandAddr, err = address.FromString(producerAddrStr)
+		if producerCandidate == nil {
+			return nil, errors.Errorf("rewarding: producer candidate %s not found", producerAddrStr)
+		}
+		producerIdentity := candidateIdentifier(producerCandidate)
+		producerCandAddr, err = address.FromString(producerIdentity)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "rewarding: invalid producer candidate identity %q", producerIdentity)
 		}
 		snap, snapErr := staking.PollSnapshotFor(sm, producerCandAddr)
 		switch {
@@ -301,7 +307,7 @@ func (p *Protocol) GrantBlockReward(
 // GrantEpochReward runs the epoch-last-block work as a single body for
 // both pre- and post-fork chains:
 //
-//  1. Pre-A checks: epoch-last, no prior sentinel, no live cursor (post-fork).
+//  1. Pre-A checks: epoch-last and no prior sentinel; hand off any overrun cursor.
 //  2. Load inputs: admin config, exempt set, uqd map, candidates, split partition.
 //  3. Slashing (its own feature flag; independent of IIP-59).
 //  4. Per-delegate epoch split loop — for each rewarded candidate:
@@ -311,8 +317,8 @@ func (p *Protocol) GrantBlockReward(
 //     no snapshot, unregistered, empty voter list).
 //     - grant commission to the reward address (EPOCH_REWARD log).
 //     - if voterShare > 0, credit into the delegate's pending pool.
-//     - if pool + voterShare > 0, append a cursor entry for Phase B to
-//     drain. Zero-voter delegates never enter the cursor.
+//     - at an era boundary, append a cursor entry when the resulting pool
+//     is non-zero. Zero-voter delegates never enter the cursor.
 //  5. Foundation bonus.
 //  6. Persist cursor iff any entries (post-fork only).
 //  7. Sentinel.
@@ -441,7 +447,7 @@ func (p *Protocol) GrantEpochReward(
 		if !isEraBoundary && voterShare.Sign() == 0 {
 			continue
 		}
-		candID, err := candidateIdentifierBytes(cand.Address)
+		candID, err := candidateIdentifierBytes(candidateIdentifier(cand))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -529,8 +535,8 @@ func (p *Protocol) GrantEpochReward(
 // GrantVoterRewardChunk advances one chunk of an in-progress IIP-59
 // era-boundary drain. Emitted by CreatePostSystemActions on every
 // non-epoch-boundary block while a cursor is live; the final chunk
-// runs the coda (orphan drain, foundation bonus, sentinel, cursor
-// delete) inline.
+// runs the coda (orphan drain and cursor delete) inline. Foundation bonus
+// and the epoch sentinel are committed by GrantEpochReward in Phase A.
 //
 // Epoch-scoped routing inputs are frozen in the cursor by Phase A. A
 // continuation must not re-run candidate selection or slashing against
@@ -632,15 +638,12 @@ func (p *Protocol) loadEpochDistributionInputs(
 }
 
 // runVoterDistributionChunk processes the frozen work list starting at
-// cursor.DelegateIndex, bounded by two independent per-block caps:
+// cursor.DelegateIndex, bounded by VoterBudgetPerBlock — max voters paid per block,
 //
-//   - delegateBudget (CompoundBatchSize) — max delegates per block.
-//     Zero = disabled (unbounded delegates).
-//   - voterBudget (VoterBudgetPerBlock) — max voters paid per block,
-//     across all delegates touched this call. Zero = disabled (unbounded
-//     voters per delegate).
+//	across all delegates touched this call. Zero = disabled (unbounded
+//	voters per delegate).
 //
-// Either exhaustion terminates the chunk. When voterBudget stops payout
+// When voterBudget stops payout
 // mid-delegate, the cursor's VoterIndex records the resume position and
 // DelegateIndex stays put; the next block picks up at
 // [VoterIndex, VoterIndex+remainingBudget). Post-C3 the coda shrinks to
@@ -649,7 +652,7 @@ func (p *Protocol) loadEpochDistributionInputs(
 //
 // Post-fork only — GrantVoterRewardChunk is the sole caller. Cursor
 // entries are joined against the epoch-scoped rewardedCandidates /
-// addrs / amounts via a candidate-address lookup: cursor.Delegates is a
+// addrs / amounts via a candidate-identity lookup: cursor.Delegates is a
 // compacted (opted-in only) subset of the rewarded candidate list, so
 // indices are not parallel.
 func (p *Protocol) runVoterDistributionChunk(
@@ -666,49 +669,41 @@ func (p *Protocol) runVoterDistributionChunk(
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	candByAddr := make(map[string]int, len(rewardedCandidates))
+	candByID := make(map[string]int, len(rewardedCandidates))
 	for i, c := range rewardedCandidates {
 		if c != nil {
-			candByAddr[c.Address] = i
+			candByID[candidateIdentifier(c)] = i
 		}
 	}
 
-	delegateBudget := p.epochDrainChunkSize(ctx)
 	voterBudget := p.voterBudgetPerBlock(ctx)
 	total := uint32(len(cursor.Delegates))
 	startIdx := cursor.DelegateIndex
 
-	remainingDelegates := total - startIdx
-	if delegateBudget > 0 && delegateBudget < remainingDelegates {
-		remainingDelegates = delegateBudget
-	}
 	remainingVoters := voterBudget
 
 	i := startIdx
-	delegatesConsumed := uint32(0)
 	stoppedMidDelegate := false
-	for ; i < total && delegatesConsumed < remainingDelegates; i++ {
+	for ; i < total; i++ {
 		work := cursor.Delegates[i]
 		voterAmt := safeBig(work.VoterAmountFrozen)
 		if voterAmt.Sign() == 0 {
 			cursor.VoterIndex = 0
-			delegatesConsumed++
 			continue
 		}
 		candAddr, err := address.FromBytes(work.CandidateIdentifier)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "rewarding: decode cursor candidate identifier")
 		}
-		cand := &state.Candidate{Address: candAddr.String()}
+		cand := &state.Candidate{Identity: candAddr.String()}
 		rewardAddr, err := address.FromBytes(work.RewardAddress)
 		epochCommission := safeBig(work.EpochCommission)
 		if err != nil {
 			// Backward-compatible fallback for cursors written before the
 			// frozen routing fields were added.
-			idx, ok := candByAddr[candAddr.String()]
+			idx, ok := candByID[candAddr.String()]
 			if !ok || idx >= len(addrs) || idx >= len(amounts) || rewardedCandidates[idx] == nil || addrs[idx] == nil {
 				cursor.VoterIndex = 0
-				delegatesConsumed++
 				continue
 			}
 			cand = rewardedCandidates[idx]
@@ -726,7 +721,7 @@ func (p *Protocol) runVoterDistributionChunk(
 			chunkVoterBudget = remainingVoters
 		}
 		iip59Logs, routed, paid, compounded, consumed, totalVoters, err := p.distributeVoterOnly(
-			ctx, sm, cand, rewardAddr, voterAmt, epochCommission,
+			ctx, sm, cand, rewardAddr, voterAmt, epochCommission, work.VoterAmountDistributed,
 			startVoter, chunkVoterBudget,
 			blkCtx.BlockHeight, actionCtx.ActionHash,
 		)
@@ -744,7 +739,6 @@ func (p *Protocol) runVoterDistributionChunk(
 				return nil, nil, err
 			}
 			cursor.VoterIndex = 0
-			delegatesConsumed++
 			continue
 		}
 		rewardLogs = append(rewardLogs, iip59Logs...)
@@ -752,6 +746,9 @@ func (p *Protocol) runVoterDistributionChunk(
 			if err := p.decrementPendingBlockRewardPool(ctx, sm, work.CandidateIdentifier, paid); err != nil {
 				return nil, nil, err
 			}
+			cursor.Delegates[i].VoterAmountDistributed = new(big.Int).Add(
+				safeBig(work.VoterAmountDistributed), paid,
+			)
 		}
 		if compounded != nil && compounded.Sign() > 0 {
 			compoundLog, err := p.settleCompoundOutflow(ctx, sm, compounded)
@@ -766,7 +763,9 @@ func (p *Protocol) runVoterDistributionChunk(
 		if startVoter+consumed >= totalVoters {
 			// Delegate finished this block. Advance.
 			cursor.VoterIndex = 0
-			delegatesConsumed++
+			if safeBig(cursor.Delegates[i].VoterAmountDistributed).Cmp(voterAmt) != 0 {
+				return nil, nil, errors.Errorf("rewarding: distributed voter amount mismatch for %s", candAddr.String())
+			}
 			if voterBudget > 0 && remainingVoters == 0 && i+1 < total {
 				// Voter budget exhausted at the delegate boundary. Next
 				// block resumes at the next delegate.
@@ -783,9 +782,8 @@ func (p *Protocol) runVoterDistributionChunk(
 		stoppedMidDelegate = true
 		break
 	}
-	// If the outer loop broke naturally because delegatesConsumed hit
-	// remainingDelegates without triggering the mid-delegate break, we
-	// still need to update DelegateIndex.
+	// If the loop completed without a mid-delegate stop, persist the next
+	// delegate index (or total when the drain finished).
 	if !stoppedMidDelegate {
 		cursor.DelegateIndex = i
 	}
@@ -844,18 +842,6 @@ func (p *Protocol) settleCompoundOutflow(
 		Recipient: address.StakingBucketPoolAddr,
 		Amount:    new(big.Int).Set(amount),
 	}, nil
-}
-
-// epochDrainChunkSize returns the maximum number of delegates to process
-// per block during the IIP-59 era-boundary drain. Zero means unbounded —
-// the loop runs to completion in a single block and no cursor is written.
-// This is the behavior before the fork gate opens and whenever
-// CompoundBatchSize is left at 0 (single-block genesis parity).
-func (p *Protocol) epochDrainChunkSize(ctx context.Context) uint32 {
-	if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
-		return 0
-	}
-	return uint32(p.cfg.CompoundBatchSize)
 }
 
 // voterBudgetPerBlock returns the maximum number of voters to pay out per

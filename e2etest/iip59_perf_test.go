@@ -37,27 +37,21 @@ import (
 )
 
 // perfTier parameterizes the IIP-59 e2e drain bench. Each tier picks
-// scale (delegates × voters), era cadence (epochs per era), and the two
-// per-block caps: compoundBatchSize (delegates paid per block) and
-// voterBudgetPerBlock (voters paid per block, mid-delegate resumable).
-// Both caps are picked deliberately low so the drain spans multiple
+// scale (delegates × voters), era cadence (epochs per era), and the
+// per-block voter budget. The budget is picked deliberately low so the drain spans multiple
 // blocks — otherwise the bench collapses to a single-block run and
 // stops measuring what we care about (chunking behaviour).
-//
-// voterBudgetPerBlock=0 keeps the pre-5.5b behaviour (delegate-count
-// cap only, entire voter list paid inside one block for each delegate).
 type perfTier struct {
 	numDelegates        int
 	numVoters           int
 	epochsPerEra        uint64
-	compoundBatchSize   uint64
 	voterBudgetPerBlock uint64
 }
 
 var iip59PerfTiers = map[string]perfTier{
-	"small":   {numDelegates: 3, numVoters: 100, epochsPerEra: 2, compoundBatchSize: 2},
-	"medium":  {numDelegates: 10, numVoters: 1_000, epochsPerEra: 4, compoundBatchSize: 4},
-	"mainnet": {numDelegates: 24, numVoters: 27_020, epochsPerEra: 24, compoundBatchSize: 4},
+	"small":   {numDelegates: 3, numVoters: 100, epochsPerEra: 2, voterBudgetPerBlock: 50},
+	"medium":  {numDelegates: 10, numVoters: 1_000, epochsPerEra: 4, voterBudgetPerBlock: 250},
+	"mainnet": {numDelegates: 24, numVoters: 27_020, epochsPerEra: 24, voterBudgetPerBlock: 4_504},
 }
 
 const iip59PerfTierEnv = "IIP59_PERF_TIER"
@@ -127,7 +121,7 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	// era. Give each tier a comfortable ceiling.
 	maxBlocks := 500
 	if tier.numVoters > 500 {
-		maxBlocks = 20 * tier.numVoters / int(tier.compoundBatchSize)
+		maxBlocks = 20 * tier.numVoters / int(tier.voterBudgetPerBlock)
 		if maxBlocks < 1000 {
 			maxBlocks = 1000
 		}
@@ -160,8 +154,8 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	}
 	r.NotZerof(drainStartHeight, "drain never began after %d blocks", minted)
 	r.Truef(len(chunkTimes) >= 2,
-		"drain must span ≥ 2 blocks to exercise chunking; got %d (tier=%s, batch=%d, voters=%d)",
-		len(chunkTimes), tierName, tier.compoundBatchSize, tier.numVoters)
+		"drain must span ≥ 2 blocks to exercise chunking; got %d (tier=%s, voterBudget=%d, voters=%d)",
+		len(chunkTimes), tierName, tier.voterBudgetPerBlock, tier.numVoters)
 
 	// Confirm the drain completed cleanly: the era boundary the cursor
 	// was targeting has flipped back to "no drain in progress."
@@ -181,8 +175,8 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	p95 := sorted[(len(sorted)*95+99)/100-1]
 	maxD := sorted[len(sorted)-1]
 
-	t.Logf("iip59 perf: tier=%s delegates=%d voters=%d era_epochs=%d batch=%d drain_blocks=%d p50=%v p95=%v max=%v total=%v",
-		tierName, tier.numDelegates, tier.numVoters, tier.epochsPerEra, tier.compoundBatchSize,
+	t.Logf("iip59 perf: tier=%s delegates=%d voters=%d era_epochs=%d voter_budget=%d drain_blocks=%d p50=%v p95=%v max=%v total=%v",
+		tierName, tier.numDelegates, tier.numVoters, tier.epochsPerEra, tier.voterBudgetPerBlock,
 		len(chunkTimes), p50, p95, maxD, total)
 }
 
@@ -218,7 +212,6 @@ func newIIP59PerfCfg(r *require.Assertions, tier perfTier) config.Config {
 	cfg.Genesis.WakeNumSubEpochs = 2
 
 	cfg.Genesis.Rewarding.EpochsPerRewardEra = tier.epochsPerEra
-	cfg.Genesis.Rewarding.CompoundBatchSize = tier.compoundBatchSize
 	cfg.Genesis.Rewarding.VoterBudgetPerBlock = tier.voterBudgetPerBlock
 
 	// Populate genesis Delegates with the perf-bench addresses so the
@@ -347,7 +340,7 @@ func newMockDelegateProfileReader(t *testing.T) delegateprofile.ContractReader {
 }
 
 // mockAutoDepositBucketReader reports every voter as "unregistered", so
-// the drain routes each voter share via RouteCredit — exercising the
+// the drain routes each voter share to unclaimed balance — exercising the
 // per-voter unclaimed balance credit path without depending on planted
 // bucket IDs.
 type mockAutoDepositBucketReader struct{}

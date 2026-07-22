@@ -165,7 +165,6 @@ func defaultConfig() Genesis {
 			WakeBlockRewardStr:             "4000000000000000000",
 			EpochsPerRewardEra:             24,
 			VoterBudgetPerBlock:            2000,
-			CompoundBatchSize:              500,
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
@@ -515,9 +514,6 @@ type (
 		// credit path (IIP-59 Phase 2). 0 falls back to a single-block drain, preserving pre-IIP-59 behavior for
 		// tests that never touch the field.
 		VoterBudgetPerBlock uint64 `yaml:"voterBudgetPerBlock"`
-		// CompoundBatchSize is the maximum number of voters processed per block by the Phase 3 background compound
-		// sweep. 0 disables the sweep (voters compound lazily at Claim time only).
-		CompoundBatchSize uint64 `yaml:"compoundBatchSize"`
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {

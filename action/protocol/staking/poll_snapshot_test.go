@@ -265,6 +265,48 @@ func TestFreezePollSnapshot_HappyPath(t *testing.T) {
 	// Entries population is verified by TestFreezePollSnapshot_Entries_*.
 }
 
+func TestFreezePollSnapshot_UsesCandidateIdentity(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm := testdb.NewMockStateManager(ctrl)
+	csm := newCandidateStateManager(sm)
+
+	identity := identityset.Address(9)
+	operator := identityset.Address(2)
+	cand := &Candidate{
+		Owner:                   identityset.Address(1),
+		Identifier:              identity,
+		Operator:                operator,
+		Reward:                  identityset.Address(3),
+		Name:                    "stable-identity",
+		Votes:                   big.NewInt(1),
+		SelfStake:               big.NewInt(1),
+		VoterRewardOnchainOptIn: true,
+	}
+	r.NoError(csm.putCandidate(cand))
+
+	fake := newFakeProfileStore()
+	fake.setPortion(identity, "blockRewardPortion", 9000)
+	fake.setPortion(identity, "epochRewardPortion", 8000)
+	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
+	r.NoError(err)
+
+	candidates := state.CandidateList{&state.Candidate{
+		Identity:      identity.String(),
+		Address:       operator.String(),
+		Votes:         big.NewInt(1),
+		RewardAddress: cand.Reward.String(),
+	}}
+	r.NoError(FreezePollSnapshot(context.Background(), sm, candidates, bridge, fake.reader(t)))
+
+	snapshot, err := PollSnapshotFor(sm, identity)
+	r.NoError(err)
+	r.True(snapshot.Registered)
+	r.True(snapshot.VoterRewardOnchainOptIn)
+	_, err = PollSnapshotFor(sm, operator)
+	r.ErrorIs(err, state.ErrStateNotExist)
+}
+
 func TestFreezePollSnapshot_PartialProfile(t *testing.T) {
 	// One delegate registered on-chain, another absent from DelegateProfile.
 	// The unregistered one still gets a snapshot row (Registered=false),

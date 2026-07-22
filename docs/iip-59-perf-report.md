@@ -14,7 +14,7 @@ PR 6 (mainnet fork activation).
    `## AutoDeposit.bucket per-call cost` below.
 2. **PR C2 — era-based chunked drain** spreads voter-reward distribution
    across N continuation blocks inside the era window, driven by a
-   persisted cursor. Detail in `## Chunked drain (era-based v2)
+   persisted cursor and a voter-count budget. Detail in `## Chunked drain (era-based v2)
    end-to-end` below.
 
 These are complementary, not redundant: (1) shrinks per-voter cost,
@@ -26,7 +26,7 @@ Two contracts on the hot path:
 | Contract | Reader | Call site | Calls per epoch |
 |---|---|---|---|
 | `DelegateProfile` (`0xfa7f50866ac45d84adf54bc767c885f92750e258`) | `getProfileByField(address, string)` | `PutPollResult` → `SnapshotCommissionRates` | 24 delegates × ~2 fields ≈ **48** |
-| `AutoDeposit` (`0x79f1670BE20daecEfB134E33D97f9E77340fd2C0`) | `bucket(address)` | `distributeCombinedReward` (voter drain) | up to **107,200** (100k native + 7k V1 CSC + 200 V2/V3) |
+| `AutoDeposit` (`0x79f1670BE20daecEfB134E33D97f9E77340fd2C0`) | `bucket(address)` | `distributeVoterOnly` (voter drain) | up to **107,200** (100k native + 7k V1 CSC + 200 V2/V3) |
 
 The 2.5s block budget is the fixed constant these numbers get graded against.
 
@@ -132,23 +132,28 @@ deferred.
 ## Chunked drain (era-based v2) end-to-end
 
 Bench: `e2etest/iip59_perf_test.go::TestIIP59EpochGrantPerf` (build tag
-`e2e`). Drives a real chainservice through Phase A / Phase B chunk
-iterations / Phase C sentinel; measures wall-clock per continuation
+`e2e`). Drives a real chainservice through Phase A and Phase B chunk
+iterations through final cursor deletion; measures wall-clock per continuation
 block via the `blk.Actions()` cursor progression. Contract dispatch is
 stubbed by test-only injection seams (`autoDepositRewardsReader`,
 poll snapshot hook, staking hook) so the numbers isolate the **drain
 machinery cost** — the cursor read/write, admin/exempt/candidate
-re-load, `distributeCombinedReward` orchestration — not the AutoDeposit
+re-load, `distributeVoterOnly` orchestration — not the AutoDeposit
 reader itself (measured separately above; combines additively).
 
 Three tiers, all with `epochsPerEra` set so exactly one era boundary
 fires inside the harness's block-mint budget:
 
-| tier    | delegates | voters | era_epochs | batch | drain_blocks | p50    | p95    | max    | total   |
-|---------|-----------|--------|------------|-------|--------------|--------|--------|--------|---------|
-| small   | 3         | 100    | 2          | 2     | 2            | 34.0ms | 34.0ms | 34.0ms | 64.9ms  |
-| medium  | 10        | 1,000  | 4          | 4     | 3            | 34.8ms | 37.5ms | 37.5ms | 98.1ms  |
-| mainnet | 24        | 27,020 | 24         | 4     | 6            | 26.9ms | 28.0ms | 28.0ms | 155.6ms |
+The timings below were measured before the delegate cap was removed. They
+remain useful as historical context, but are not measurements of the current
+voter-only budget implementation. Rerun all tiers before using them for a
+release decision.
+
+| tier    | delegates | voters | era_epochs | historical delegate batch | historical drain_blocks | historical p50 | historical p95 | historical max | historical total |
+|---------|-----------|--------|------------|---------------------------|-------------------------|----------------|----------------|----------------|------------------|
+| small   | 3         | 100    | 2          | 2                         | 2                       | 34.0ms         | 34.0ms         | 34.0ms         | 64.9ms           |
+| medium  | 10        | 1,000  | 4          | 4                         | 3                       | 34.8ms         | 37.5ms         | 37.5ms         | 98.1ms           |
+| mainnet | 24        | 27,020 | 24         | 4                         | 6                       | 26.9ms         | 28.0ms         | 28.0ms         | 155.6ms          |
 
 Invocation (mainnet tier shown; small is the default):
 
@@ -157,21 +162,23 @@ IIP59_PERF_TIER=mainnet go test -tags e2e -v -timeout 900s \
   -run TestIIP59EpochGrantPerf ./e2etest/
 ```
 
-### Reading the numbers vs the 2.5s block budget
+### Reading the historical numbers vs the 2.5s block budget
 
-- **Per-block:** mainnet p95 is 28ms — **1.1% of the 2.5s block budget**.
+- **Per-block:** the old delegate-capped implementation's mainnet p95 was
+  28ms — **1.1% of the 2.5s block budget**.
   Even summed with the AdapterReuse extrapolation (270ms at 107k voters,
   spread across ~6 chunks ≈ 45ms/chunk), a mainnet continuation block
-  runs at ~73ms total against 2500ms — **~2.9% budget, ~97% headroom**.
+  was projected at ~73ms total against 2500ms. This projection must be
+  revalidated against the voter-only implementation.
 - **Per-era:** the drain must complete before the *next* era boundary
   fires `PutPollResult`. On mainnet an era spans 24 epochs × 360 blocks
   ≈ 8,640 blocks between boundaries; the drain uses **6 non-boundary
   blocks** at the head of the era. Effectively unbounded budget for the
   drain relative to the era window.
-- **Chunk sizing:** `CompoundBatchSize = 4` was chosen so 24 delegates
-  fit in 6 chunks (24 / 4 = 6). Scaling either way is linear; raising
-  batch to 8 would halve `drain_blocks` at the cost of doubling
-  per-block work — irrelevant at current headroom.
+- **Chunk sizing:** `VoterBudgetPerBlock = 4,504` makes 27,020 voters fit
+  in 6 chunks. Candidate snapshot metadata caches total weight, snapshot
+  hash, and the last weighted voter, so continuation work is proportional
+  to the current voter window rather than the delegate's full voter list.
 
 ### What the bench does and doesn't cover
 
@@ -184,34 +191,37 @@ bench **does** validate:
 - The one-continuation-per-block emission rule in
   `CreatePostSystemActions`.
 - Cross-block resume of the freeze snapshot
-  (`epochDrainDelegateWork.PoolAmountFrozen`).
+  (`epochDrainDelegateWork.VoterAmountFrozen`).
 - The absence of duplicated foundation-bonus or sentinel writes
   across chunks (checked via `assertNoRewardYet` + cursor delete
   ordering).
 
 Real-world drift from these numbers will come almost entirely from
-the AdapterReuse column above — the drain machinery cost is bounded
-by delegate count, not voter count.
+the AdapterReuse column above. Per-block drain work is bounded directly
+by `VoterBudgetPerBlock`.
 
 ---
 
 ## Verdict
 
-**Both levers landed and the mainnet-scale drain fits with wide margin.**
+The voter-only budget implementation passes the small-tier perf harness and
+the small, multi-era, and single-delegate stress suites. A mainnet-tier rerun
+is still required before making a block-budget claim for the current code.
 
 - **Baseline as originally wired breached** (7.1s / 285% of a 2.5s block
   at 107k voters, if executed as a single-block system action).
 - **Direct-slot AutoDeposit reader** (PR C0/C1) cuts per-voter cost 26×
   → 270ms / 11% of block at 107k voters.
-- **Era-based chunked drain** (PR C2) further caps per-block work at
-  ~28ms of drain machinery (mainnet tier bench) by spreading distribution
-  across 6 continuation blocks inside the era.
-- **Combined mainnet estimate:** ~73ms per continuation block (2.9%
-  budget) × 6 blocks = ~440ms of total drain wall-clock, against a
+- **Era-based chunked drain** (PR C2) caps per-block work with an explicit
+  voter budget by spreading distribution across continuation blocks.
+- **Historical combined mainnet estimate:** ~73ms per continuation block
+  (2.9% budget) × 6 blocks = ~440ms of total drain wall-clock, against a
   ~21,600s (8,640-block) era window. Real headroom is measured in
-  orders of magnitude.
+  orders of magnitude, but the voter-only implementation still needs a
+  mainnet-tier measurement.
 
-No further mitigation needed for PR 6 (mainnet fork activation).
+No additional mechanism is proposed; rerun the mainnet tier before fork
+activation.
 
 ### Recommended mitigation — landed
 
@@ -258,20 +268,19 @@ Spreading distribution across continuation blocks landed as PR C2
 the adapter-reuse path failed safety review; in practice it was
 promoted to a first-class defense-in-depth mechanism because:
 
-- It bounds per-block latency by delegate count (fixed at 24 mainnet)
-  rather than voter count (~27k and growing). Any future voter growth
-  no longer affects per-block budget headroom.
+- It bounds per-block latency by an explicit voter-count budget. Any future
+  voter growth increases the number of continuation blocks without increasing
+  the configured per-block state-transition workload.
 - It cleanly separates the era-boundary "who gets what" freeze
   (Phase A) from the compute-heavy distribution (Phase B), which makes
   each phase idempotent-per-block and reviewable in isolation.
 - It's fork-gated (`NoVoterRewardDistribution`) so legacy chains are
   untouched.
 
-Semantics: rewards for a given era land across the first ~6 non-boundary
-blocks of the next era rather than in the single era-boundary block. The
-foundation bonus and sentinel write happen in Phase C (final chunk), so
-downstream reward claims see a single moment of "era N is fully paid"
-just as before.
+Semantics: rewards for a given era land across the first continuation blocks
+of the next era rather than in the single era-boundary block. Foundation bonus
+and epoch sentinel processing happen in Phase A; the final chunk performs the
+orphan sweep and deletes the cursor.
 
 ### Historical alternatives (superseded)
 

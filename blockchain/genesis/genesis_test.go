@@ -137,5 +137,4 @@ func TestIIP59EraDefaults(t *testing.T) {
 	r.NoError(err)
 	r.Equal(uint64(24), cfg.Rewarding.EpochsPerRewardEra)
 	r.Equal(uint64(2000), cfg.Rewarding.VoterBudgetPerBlock)
-	r.Equal(uint64(500), cfg.Rewarding.CompoundBatchSize)
 }

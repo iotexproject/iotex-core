@@ -56,9 +56,10 @@ func (p *Protocol) splitDelegateEpochReward(
 	if err := assertNonNegativeReward(amount); err != nil {
 		return nil, nil, err
 	}
-	candID, err := address.FromString(cand.Address)
+	candidateID := candidateIdentifier(cand)
+	candID, err := address.FromString(candidateID)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "rewarding: invalid candidate address %q", cand.Address)
+		return nil, nil, errors.Wrapf(err, "rewarding: invalid candidate identity %q", candidateID)
 	}
 	snap, err := staking.PollSnapshotFor(sm, candID)
 	if err != nil {
@@ -70,12 +71,7 @@ func (p *Protocol) splitDelegateEpochReward(
 	if !snap.VoterRewardOnchainOptIn || !snap.Registered {
 		return safeBig(amount), new(big.Int), nil
 	}
-	totalWeight := new(big.Int)
-	for _, e := range snap.Entries {
-		if e.Weight != nil {
-			totalWeight.Add(totalWeight, e.Weight)
-		}
-	}
+	totalWeight := safeBig(snap.TotalWeight)
 	if len(snap.Entries) == 0 || totalWeight.Sign() == 0 {
 		return safeBig(amount), new(big.Int), nil
 	}
@@ -128,6 +124,7 @@ func (p *Protocol) distributeVoterOnly(
 	rewardAddr address.Address,
 	voterAmount *big.Int,
 	epochCommission *big.Int,
+	distributedBefore *big.Int,
 	startVoter uint32,
 	voterBudget uint32,
 	blkHeight uint64,
@@ -139,9 +136,17 @@ func (p *Protocol) distributeVoterOnly(
 	if err := assertNonNegativeReward(voterAmount); err != nil {
 		return nil, false, nil, nil, 0, 0, err
 	}
-	candID, err := address.FromString(cand.Address)
+	distributed := safeBig(distributedBefore)
+	if err := assertNonNegativeReward(distributed); err != nil {
+		return nil, false, nil, nil, 0, 0, errors.Wrap(err, "rewarding: invalid distributed voter amount")
+	}
+	if distributed.Cmp(safeBig(voterAmount)) > 0 {
+		return nil, false, nil, nil, 0, 0, errors.New("rewarding: distributed voter amount exceeds frozen pool")
+	}
+	candidateID := candidateIdentifier(cand)
+	candID, err := address.FromString(candidateID)
 	if err != nil {
-		return nil, false, nil, nil, 0, 0, errors.Wrapf(err, "rewarding: invalid candidate address %q", cand.Address)
+		return nil, false, nil, nil, 0, 0, errors.Wrapf(err, "rewarding: invalid candidate identity %q", candidateID)
 	}
 	snap, err := staking.PollSnapshotFor(sm, candID)
 	if err != nil {
@@ -164,12 +169,7 @@ func (p *Protocol) distributeVoterOnly(
 	if voterBudget > 0 && startVoter+voterBudget < endVoter {
 		endVoter = startVoter + voterBudget
 	}
-	totalWeight := new(big.Int)
-	for _, e := range snap.Entries {
-		if e.Weight != nil {
-			totalWeight.Add(totalWeight, e.Weight)
-		}
-	}
+	totalWeight := safeBig(snap.TotalWeight)
 
 	stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx))
 	if stakingProto == nil {
@@ -191,8 +191,8 @@ func (p *Protocol) distributeVoterOnly(
 		return nil, false, nil, nil, 0, 0, errors.Wrap(err, "rewarding: construct base view for compound routing")
 	}
 
-	voters, amounts, routings, paid, compounded, err := p.allocateAndRouteVoters(
-		ctx, sm, snap, totalWeight, safeBig(voterAmount),
+	voters, amounts, compoundBucketIDs, paid, compounded, err := p.allocateAndRouteVoters(
+		ctx, sm, snap, totalWeight, safeBig(voterAmount), distributed,
 		startVoter, endVoter,
 		stakingProto, bucketReader, csr, candID,
 	)
@@ -206,15 +206,15 @@ func (p *Protocol) distributeVoterOnly(
 	// across chunks — off-chain consumers assemble partial logs by
 	// (SnapshotHash, delegate, epoch).
 	topics, data, err := distributedlog.Pack(distributedlog.EventArgs{
-		Epoch:           epochNum,
-		Delegate:        candID,
-		RewardAddr:      rewardAddr,
-		TotalCommission: safeBig(epochCommission),
-		TotalVoterPool:  safeBig(paid),
-		SnapshotHash:    snapshotHashFull(snap),
-		Voters:          voters,
-		Amounts:         amounts,
-		Routings:        routings,
+		Epoch:             epochNum,
+		Delegate:          candID,
+		RewardAddr:        rewardAddr,
+		TotalCommission:   safeBig(epochCommission),
+		TotalVoterPool:    safeBig(paid),
+		SnapshotHash:      snapshotHashFull(snap),
+		Voters:            voters,
+		Amounts:           amounts,
+		CompoundBucketIDs: compoundBucketIDs,
 	})
 	if err != nil {
 		return nil, false, nil, nil, 0, 0, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
@@ -235,6 +235,9 @@ func (p *Protocol) distributeVoterOnly(
 func snapshotHashFull(snap *staking.CandidatePollSnapshot) hash.Hash256 {
 	if snap == nil {
 		return hash.ZeroHash256
+	}
+	if snap.SnapshotHash != hash.ZeroHash256 {
+		return snap.SnapshotHash
 	}
 	voters := make([]address.Address, len(snap.Entries))
 	weights := make([]*big.Int, len(snap.Entries))
@@ -270,40 +273,14 @@ func (p *Protocol) allocateAndRouteVoters(
 	snap *staking.CandidatePollSnapshot,
 	totalWeight *big.Int,
 	voterPool *big.Int,
+	distributedBefore *big.Int,
 	startVoter uint32,
 	endVoter uint32,
 	stakingProto *staking.Protocol,
 	bucketReader autodeposit.BucketReader,
 	csr staking.CandidateStateReader,
 	candID address.Address,
-) ([]address.Address, []*big.Int, []autodeposit.Route, *big.Int, *big.Int, error) {
-	shares := make([]*big.Int, len(snap.Entries))
-	if voterPool.Sign() > 0 && totalWeight.Sign() > 0 {
-		distributed := new(big.Int)
-		for i, e := range snap.Entries {
-			if e.Weight == nil || e.Weight.Sign() == 0 {
-				shares[i] = new(big.Int)
-				continue
-			}
-			share := new(big.Int).Mul(voterPool, e.Weight)
-			share.Div(share, totalWeight)
-			shares[i] = share
-			distributed.Add(distributed, share)
-		}
-		if dust := new(big.Int).Sub(voterPool, distributed); dust.Sign() > 0 {
-			for i := len(snap.Entries) - 1; i >= 0; i-- {
-				if snap.Entries[i].Weight != nil && snap.Entries[i].Weight.Sign() > 0 {
-					shares[i] = new(big.Int).Add(shares[i], dust)
-					break
-				}
-			}
-		}
-	} else {
-		for i := range shares {
-			shares[i] = new(big.Int)
-		}
-	}
-
+) ([]address.Address, []*big.Int, []uint64, *big.Int, *big.Int, error) {
 	// Clamp the payout window to the frozen list.
 	total := uint32(len(snap.Entries))
 	if startVoter > total {
@@ -319,18 +296,29 @@ func (p *Protocol) allocateAndRouteVoters(
 
 	voters := make([]address.Address, winLen)
 	amounts := make([]*big.Int, winLen)
-	routings := make([]autodeposit.Route, winLen)
+	compoundBucketIDs := make([]uint64, winLen)
 	paid := new(big.Int)
 	compounded := new(big.Int)
+	distributed := new(big.Int).Set(distributedBefore)
 
 	for j := 0; j < winLen; j++ {
 		i := int(startVoter) + j
 		e := snap.Entries[i]
 		voters[j] = e.Voter
-		amounts[j] = shares[i]
-		routings[j] = autodeposit.RouteCredit
-
-		share := shares[i]
+		share := new(big.Int)
+		if voterPool.Sign() > 0 && totalWeight.Sign() > 0 && e.Weight != nil && e.Weight.Sign() > 0 {
+			if snap.HasWeightedEntries && uint32(i) == snap.LastWeightedIndex {
+				share.Sub(voterPool, distributed)
+				if share.Sign() < 0 {
+					return nil, nil, nil, nil, nil, errors.New("rewarding: distributed voter amount exceeds frozen pool")
+				}
+			} else {
+				share.Mul(voterPool, e.Weight)
+				share.Div(share, totalWeight)
+			}
+		}
+		amounts[j] = share
+		distributed.Add(distributed, share)
 		if share.Sign() == 0 {
 			continue
 		}
@@ -340,7 +328,7 @@ func (p *Protocol) allocateAndRouteVoters(
 			// the share.
 			return nil, nil, nil, nil, nil, errors.Errorf("rewarding: nil voter address at snapshot index %d", i)
 		}
-		route := autodeposit.RouteCredit
+		compoundBucketID := uint64(0)
 		if bucketReader != nil {
 			bucketID, present, lookupErr := bucketReader.LookupBucket(e.Voter)
 			if lookupErr != nil {
@@ -362,21 +350,21 @@ func (p *Protocol) allocateAndRouteVoters(
 							"rewarding: compound deposit failed for voter %s bucket %d",
 							e.Voter.String(), bucketID)
 					}
-					route = autodeposit.RouteCompound
+					compoundBucketID = bucketID
 					compounded.Add(compounded, share)
 				}
 			}
 		}
-		if route == autodeposit.RouteCredit {
+		if compoundBucketID == 0 {
 			if err := p.grantToAccount(ctx, sm, e.Voter, share); err != nil {
 				return nil, nil, nil, nil, nil, errors.Wrapf(err,
 					"rewarding: credit voter %s failed", e.Voter.String())
 			}
 		}
-		routings[j] = route
+		compoundBucketIDs[j] = compoundBucketID
 		paid.Add(paid, share)
 	}
-	return voters, amounts, routings, paid, compounded, nil
+	return voters, amounts, compoundBucketIDs, paid, compounded, nil
 }
 
 // splitCommission returns (commission, voterPool) for a totalReward given

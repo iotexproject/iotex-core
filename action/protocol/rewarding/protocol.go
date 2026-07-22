@@ -8,6 +8,7 @@ package rewarding
 import (
 	"context"
 	"math/big"
+	"strconv"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -444,6 +445,10 @@ func (p *Protocol) ReadState(
 			Registered:                 snapshot.Registered,
 			VoterRewardOnchainOptIn:    snapshot.VoterRewardOnchainOptIn,
 			Entries:                    make([]*stakingpb.VoterWeightEntry, 0, len(snapshot.Entries)),
+			TotalWeight:                safeBig(snapshot.TotalWeight).Bytes(),
+			SnapshotHash:               snapshot.SnapshotHash[:],
+			LastWeightedIndex:          snapshot.LastWeightedIndex,
+			HasWeightedEntries:         snapshot.HasWeightedEntries,
 		}
 		for _, entry := range snapshot.Entries {
 			weight := []byte(nil)
@@ -464,6 +469,27 @@ func (p *Protocol) ReadState(
 			return nil, uint64(0), err
 		}
 		return data, height, nil
+	case "VoterRewardOptIn":
+		if len(args) != 1 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		candID, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		csr, err := staking.ConstructBaseView(sr)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		cand := csr.GetByIdentifier(candID)
+		if cand == nil {
+			return nil, uint64(0), errors.Errorf("candidate %s not found", candID.String())
+		}
+		height, err := sr.Height()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return []byte(strconv.FormatBool(cand.VoterRewardOnchainOptIn)), height, nil
 	default:
 		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}

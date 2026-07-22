@@ -122,6 +122,43 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 	}
 }
 
+func TestGrantBlockReward_UsesCandidateIdentityForPendingPool(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		ctx = enableIIP59(t, ctx)
+
+		pp := poll.FindProtocol(protocol.MustGetRegistry(ctx))
+		candidates, err := pp.Candidates(ctx, sm)
+		r.NoError(err)
+		r.NotEmpty(candidates)
+		operator, err := address.FromString(candidates[0].Address)
+		r.NoError(err)
+		stableID := identityset.Address(10)
+		candidates[0].Identity = stableID.String()
+
+		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, stableID, &staking.CandidatePollSnapshot{
+			BlockCommissionBasisPoints: 2000,
+			EpochCommissionBasisPoints: 2000,
+			Registered:                 true,
+			VoterRewardOnchainOptIn:    true,
+			Entries: []staking.VoterWeight{{
+				Voter: identityset.Address(11), Weight: big.NewInt(1),
+			}},
+		}))
+		_, err = p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+
+		_, err = p.GrantBlockReward(ctx, sm)
+		r.NoError(err)
+		identityPool, err := p.readPendingBlockRewardPool(ctx, sm, stableID.Bytes())
+		r.NoError(err)
+		r.Positive(identityPool.Sign())
+		operatorPool, err := p.readPendingBlockRewardPool(ctx, sm, operator.Bytes())
+		r.NoError(err)
+		r.Zero(operatorPool.Sign())
+	}, nil, false, 0)
+}
+
 func TestProtocol_GrantEpochReward(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		blkCtx, ok := protocol.GetBlockCtx(ctx)

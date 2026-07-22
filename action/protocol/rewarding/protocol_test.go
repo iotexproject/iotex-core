@@ -147,6 +147,12 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			RewardAddress: identityset.Address(31).String(),
 		},
 	}
+	for _, candidate := range candidates {
+		candidate.Identity = candidate.Address
+	}
+	for _, candidate := range abps {
+		candidate.Identity = candidate.Address
+	}
 	view := protocol.NewMockView(ctrl)
 	view.EXPECT().Snapshot().AnyTimes()
 	view.EXPECT().Revert(gomock.Any()).AnyTimes()

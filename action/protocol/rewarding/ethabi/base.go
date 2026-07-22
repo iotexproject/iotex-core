@@ -27,6 +27,16 @@ func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 		return newAvailableBalanceStateContext()
 	case hex.EncodeToString(_unclaimedBalanceMethod.ID):
 		return newUnclaimedBalanceStateContext(data[4:])
+	case hex.EncodeToString(_pendingBlockRewardPoolMethod.ID):
+		return newPendingBlockRewardPoolStateContext(data[4:])
+	case hex.EncodeToString(_pendingBlockRewardPoolIndexMethod.ID):
+		return newPendingBlockRewardPoolIndexStateContext()
+	case hex.EncodeToString(_epochDrainCursorMethod.ID):
+		return newEpochDrainCursorStateContext()
+	case hex.EncodeToString(_voterRewardSnapshotMethod.ID):
+		return newVoterRewardSnapshotStateContext(data[4:])
+	case hex.EncodeToString(_voterRewardOptInMethod.ID):
+		return newVoterRewardOptInStateContext(data[4:])
 	default:
 		return nil, errInvalidCallSig
 	}

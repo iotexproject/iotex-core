@@ -118,4 +118,10 @@ message CandidatePollSnapshot {
     // source is a separate follow-up. An empty list means the downstream
     // reward split degenerates to full-amount-to-delegate.
     repeated VoterWeightEntry entries = 5;
+    // Cached deterministic metadata used to keep continuation work bounded by
+    // the configured voter window instead of rescanning all entries.
+    bytes totalWeight = 6;
+    bytes snapshotHash = 7;
+    uint32 lastWeightedIndex = 8;
+    bool hasWeightedEntries = 9;
 }

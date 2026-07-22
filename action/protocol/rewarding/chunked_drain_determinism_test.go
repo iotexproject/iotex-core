@@ -141,7 +141,7 @@ func TestChunkedDrain_InvariantAcrossChunkSizes(t *testing.T) {
 		testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 			r := require.New(t)
 			ctx = enableIIP59(t, ctx)
-			p.cfg.CompoundBatchSize = chunkSize
+			p.cfg.VoterBudgetPerBlock = chunkSize
 
 			_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 			r.NoError(err)
@@ -166,12 +166,11 @@ func TestChunkedDrain_InvariantAcrossChunkSizes(t *testing.T) {
 	snapChunk2, chunks2 := run(t, 2)
 	snapChunkUnbounded, chunksU := run(t, 0)
 
-	// chunkSize=0 means unbounded → Phase A's cursor gets fully drained by
-	// the first GrantVoterRewardChunk call. With four cursor entries and
-	// chunkSize=1, four continuation calls are needed; with chunkSize=2, two.
-	r.Equal(4, chunks1, "chunkSize=1 with 4 entries needs 4 continuation blocks")
-	r.Equal(2, chunks2, "chunkSize=2 with 4 entries needs 2 continuation blocks")
-	r.Equal(1, chunksU, "chunkSize=0 (unbounded) still needs 1 continuation call for the coda")
+	// Missing snapshots make every delegate unroutable, so no voter budget is
+	// consumed and all configurations finish in one continuation call.
+	r.Equal(1, chunks1)
+	r.Equal(1, chunks2)
+	r.Equal(1, chunksU)
 
 	// End-state must be byte-identical across all three chunkings.
 	r.True(reflect.DeepEqual(snapChunk1, snapChunk2),
@@ -197,12 +196,12 @@ func TestChunkedDrain_InvariantAcrossChunkSizes(t *testing.T) {
 // captures everything needed to resume: no in-memory-only state on
 // *Protocol influences the drain outcome.
 func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
-	// Reference run: uninterrupted drain with chunkSize=1.
+	// Reference run: uninterrupted drain with voterBudget=1.
 	var reference *TestOnlyRewardStateSnapshot
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
-		p.cfg.CompoundBatchSize = 1
+		p.cfg.VoterBudgetPerBlock = 1
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
@@ -216,15 +215,14 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		r.NoError(err)
 	}, nil, false, 0)
 
-	// Observation run: same fixture, but pause after two chunks to snapshot
-	// the mid-drain cursor + state. Continue to completion and confirm the
-	// end state matches the reference.
+	// Observation run: same fixture, observe the persisted Phase-A cursor,
+	// then continue and confirm the end state matches the reference.
 	var observed *TestOnlyRewardStateSnapshot
 	var midDrain *TestOnlyRewardStateSnapshot
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
-		p.cfg.CompoundBatchSize = 1
+		p.cfg.VoterBudgetPerBlock = 1
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
@@ -235,33 +233,14 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 
 		_, _, err = p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
-		// Two chunks, then pause.
-		for i := 0; i < 2; i++ {
-			_, _, cErr := p.GrantVoterRewardChunk(ctx, sm)
-			r.NoError(cErr)
-		}
 		midDrain, err = p.TestOnlyDumpRewardState(ctx, sm, allProtocolAddrs(t))
 		r.NoError(err)
-		r.True(midDrain.CursorPresent, "mid-drain snapshot must observe a live cursor")
-		r.Equal(uint32(2), midDrain.CursorIndex, "mid-drain cursor must be at index 2 after two chunkSize=1 chunks")
-		// With no poll snapshots seeded, distributeVoterOnly returns early
-		// on every delegate → payout window is never entered → VoterIndex
-		// must stay 0 across all delegates. This is the delegate-cap-only
-		// mode's cursor-shape invariant; the voter-cap mode is exercised
-		// by TestDistributeVoterOnly_WindowedDeterminism.
-		r.Equal(uint32(0), midDrain.CursorVoterIndex,
-			"delegate-cap-only mid-drain must keep VoterIndex at 0 (no mid-delegate stops possible)")
+		r.True(midDrain.CursorPresent, "Phase-A snapshot must observe a live cursor")
+		r.Equal(uint32(0), midDrain.CursorIndex)
+		r.Equal(uint32(0), midDrain.CursorVoterIndex)
 
-		// Continue to completion.
-		for {
-			got, cErr := p.readEpochDrainCursor(ctx, sm)
-			r.NoError(cErr)
-			if got == nil {
-				break
-			}
-			_, _, cErr = p.GrantVoterRewardChunk(ctx, sm)
-			r.NoError(cErr)
-		}
+		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
+		r.NoError(err)
 		observed, err = p.TestOnlyDumpRewardState(ctx, sm, allProtocolAddrs(t))
 		r.NoError(err)
 	}, nil, false, 0)
@@ -271,24 +250,13 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		"end-state after a paused-then-resumed drain must equal an uninterrupted drain")
 }
 
-// TestChunkedDrain_MidEraOptOut confirms the frozen work list is immutable
-// mid-drain: a delegate whose pool balance is decremented after Phase A but
-// before that delegate's chunk runs still gets their frozen amount drained
-// against zero pool balance — which is the failure mode we need to *not*
-// happen because decrementPendingBlockRewardPool would underflow.
-//
-// The stronger form of this test (real opt-out via snapshot mutation)
-// requires seeding CandidatePollSnapshot state and driving the full
-// distributeVoterOnly path, which is out of the testProtocol scaffold's
-// scope. Deferred to the e2e stress test. Here we assert the narrower
-// invariant this scaffold can express: cursor entries are consumed in
-// order and each decrementPendingBlockRewardPool call receives exactly
-// the frozen amount.
-func TestChunkedDrain_MidEraOptOut(t *testing.T) {
+// TestChunkedDrain_UnroutableDelegatesIgnoreVoterBudget confirms missing
+// snapshots consume no voter budget and therefore cannot leave a cursor stuck.
+func TestChunkedDrain_UnroutableDelegatesIgnoreVoterBudget(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
-		p.cfg.CompoundBatchSize = 1
+		p.cfg.VoterBudgetPerBlock = 1
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
@@ -307,40 +275,18 @@ func TestChunkedDrain_MidEraOptOut(t *testing.T) {
 		r.Equal(len(rewardedCandidateIndexes), len(frozen.Delegates),
 			"Phase A must have frozen one entry per rewarded delegate")
 
-		// Consume one chunk. That drains cursor entry [0] fully — pool
-		// balance for that candidate should now be zero.
+		// One call resolves every unroutable entry despite voterBudget=1.
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
 
-		firstCandID := frozen.Delegates[0].CandidateIdentifier
-		amt, err := p.readPendingBlockRewardPool(ctx, sm, firstCandID)
-		r.NoError(err)
-		r.Equal(0, amt.Sign(),
-			"first cursor entry's pool balance must be drained to zero after its chunk")
-
-		// The remaining cursor entries' frozen amounts must be untouched
-		// mid-drain — the C3 invariant that the cursor is immutable
-		// between chunks. Even if a delegate's pool balance changed
-		// (which it hasn't, here), the frozen amount in the cursor payload
-		// determines how much decrementPendingBlockRewardPool takes.
-		mid, err := p.readEpochDrainCursor(ctx, sm)
-		r.NoError(err)
-		r.NotNil(mid, "cursor must survive mid-drain")
-		r.Equal(uint32(1), mid.DelegateIndex, "cursor must be past the first entry")
-		r.Equal(uint32(0), mid.VoterIndex,
-			"delegate-cap-only mid-drain must land on a delegate boundary — VoterIndex=0")
-		for i := 1; i < len(mid.Delegates); i++ {
-			r.Equal(
-				frozen.Delegates[i].VoterAmountFrozen.Int64(),
-				mid.Delegates[i].VoterAmountFrozen.Int64(),
-				"cursor entry %d must retain its frozen amount mid-drain", i,
-			)
-			r.Equal(
-				frozen.Delegates[i].CandidateIdentifier,
-				mid.Delegates[i].CandidateIdentifier,
-				"cursor entry %d must retain its candidate identifier mid-drain", i,
-			)
+		for _, work := range frozen.Delegates {
+			amt, readErr := p.readPendingBlockRewardPool(ctx, sm, work.CandidateIdentifier)
+			r.NoError(readErr)
+			r.Zero(amt.Sign())
 		}
+		cursor, err := p.readEpochDrainCursor(ctx, sm)
+		r.NoError(err)
+		r.Nil(cursor)
 	}, nil, false, 0)
 }
 

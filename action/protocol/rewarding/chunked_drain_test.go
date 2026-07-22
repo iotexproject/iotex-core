@@ -23,29 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
-// TestEpochDrainChunkSize confirms the fork gate short-circuits the
-// chunk size to 0. Pre-fork, no matter how large CompoundBatchSize is
-// set, the epoch drain must run as a single-block loop and never touch
-// the cursor.
-func TestEpochDrainChunkSize(t *testing.T) {
-	r := require.New(t)
-
-	forkOff, _, pForkOff, _, _ := newVoterRewardCtx(t, false)
-	pForkOff.cfg.CompoundBatchSize = 500
-	r.Equal(uint32(0), pForkOff.epochDrainChunkSize(forkOff),
-		"pre-fork: chunkSize must be 0 regardless of CompoundBatchSize")
-
-	forkOn, _, pForkOn, _, _ := newVoterRewardCtx(t, true)
-	pForkOn.cfg.CompoundBatchSize = 500
-	r.Equal(uint32(500), pForkOn.epochDrainChunkSize(forkOn),
-		"post-fork with batch=500: chunkSize must be 500")
-
-	pForkOn.cfg.CompoundBatchSize = 0
-	r.Equal(uint32(0), pForkOn.epochDrainChunkSize(forkOn),
-		"post-fork with batch=0: chunkSize must be 0 (legacy single-block)")
-}
-
-// TestVoterBudgetPerBlock mirrors TestEpochDrainChunkSize for the
+// TestVoterBudgetPerBlock confirms the fork gate short-circuits the
 // voter-count cap. Pre-fork, VoterBudgetPerBlock is force-zeroed so
 // distributeVoterOnly never runs a window; the payout stays unbounded
 // (matches genesis-parity). Post-fork the configured value is passed
