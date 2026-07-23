@@ -117,3 +117,11 @@ message EpochDrainCursor {
     repeated EpochDrainDelegateWork delegates = 3;
     uint32 voter_index    = 4;
 }
+
+// VoterRewardAddress is the effective post-IIP-59 delegate payout address.
+// explicitly_set distinguishes an address configured after activation from
+// the default that follows the candidate's current owner.
+message VoterRewardAddress {
+    bytes address = 1;
+    bool explicitly_set = 2;
+}

@@ -403,12 +403,12 @@ func (p *Protocol) drainPendingBlockRewardOrphans(
 		var targetStr string
 		candAddr, addrErr := address.FromBytes(candID)
 		if addrErr == nil {
-			owner, ownerErr := staking.CandidateOwner(sm, candAddr)
-			if ownerErr == nil {
-				target = owner
-				targetStr = owner.String()
-			} else if !errors.Is(ownerErr, state.ErrStateNotExist) {
-				return nil, errors.Wrap(ownerErr, "rewarding: read owner for orphan drain")
+			rewardAddr, _, rewardErr := staking.CandidateRewardAddress(sm, candAddr)
+			if rewardErr == nil {
+				target = rewardAddr
+				targetStr = rewardAddr.String()
+			} else if !errors.Is(rewardErr, state.ErrStateNotExist) {
+				return nil, errors.Wrap(rewardErr, "rewarding: read reward address for orphan drain")
 			}
 		} else {
 			log.L().Warn("rewarding: orphan pool ID does not decode to an address; refunding",

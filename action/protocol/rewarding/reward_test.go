@@ -122,50 +122,68 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 	}
 }
 
-func TestGrantBlockReward_UsesCandidateIdentityForPendingPool(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
-		r := require.New(t)
-		ctx = enableIIP59(t, ctx)
+func TestGrantBlockReward_UsesEffectiveCandidateRewardAddress(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		explicitSet bool
+	}{
+		{name: "migrated candidate defaults to owner"},
+		{name: "post-fork update uses configured reward address", explicitSet: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+				r := require.New(t)
+				ctx = enableIIP59(t, ctx)
 
-		pp := poll.FindProtocol(protocol.MustGetRegistry(ctx))
-		candidates, err := pp.Candidates(ctx, sm)
-		r.NoError(err)
-		r.NotEmpty(candidates)
-		operator, err := address.FromString(candidates[0].Address)
-		r.NoError(err)
-		legacyReward, err := address.FromString(candidates[0].RewardAddress)
-		r.NoError(err)
-		stableID := identityset.Address(10)
-		owner := identityset.Address(12)
-		candidates[0].Identity = stableID.String()
-		r.NoError(staking.TestOnlyPutCandidateOwner(sm, stableID, owner, legacyReward))
+				pp := poll.FindProtocol(protocol.MustGetRegistry(ctx))
+				candidates, err := pp.Candidates(ctx, sm)
+				r.NoError(err)
+				r.NotEmpty(candidates)
+				operator, err := address.FromString(candidates[0].Address)
+				r.NoError(err)
+				configuredReward, err := address.FromString(candidates[0].RewardAddress)
+				r.NoError(err)
+				stableID := identityset.Address(10)
+				owner := identityset.Address(12)
+				candidates[0].Identity = stableID.String()
+				r.NoError(staking.TestOnlyPutCandidateRewardAddress(
+					sm, stableID, owner, configuredReward, test.explicitSet,
+				))
 
-		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, stableID, &staking.CandidatePollSnapshot{
-			BlockCommissionBasisPoints: 2000,
-			EpochCommissionBasisPoints: 2000,
-			Registered:                 true,
-			Entries: []staking.VoterWeight{{
-				Voter: identityset.Address(11), Weight: big.NewInt(1),
-			}},
-		}))
-		_, err = p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
-		r.NoError(err)
+				r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, stableID, &staking.CandidatePollSnapshot{
+					BlockCommissionBasisPoints: 2000,
+					EpochCommissionBasisPoints: 2000,
+					Registered:                 true,
+					Entries: []staking.VoterWeight{{
+						Voter: identityset.Address(11), Weight: big.NewInt(1),
+					}},
+				}))
+				_, err = p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+				r.NoError(err)
 
-		_, err = p.GrantBlockReward(ctx, sm)
-		r.NoError(err)
-		identityPool, err := p.readPendingBlockRewardPool(ctx, sm, stableID.Bytes())
-		r.NoError(err)
-		r.Positive(identityPool.Sign())
-		operatorPool, err := p.readPendingBlockRewardPool(ctx, sm, operator.Bytes())
-		r.NoError(err)
-		r.Zero(operatorPool.Sign())
-		ownerReward, _, err := p.UnclaimedBalance(ctx, sm, owner)
-		r.NoError(err)
-		r.Positive(ownerReward.Sign(), "post-fork commission must use candidate owner")
-		legacyRewardBalance, _, err := p.UnclaimedBalance(ctx, sm, legacyReward)
-		r.NoError(err)
-		r.Zero(legacyRewardBalance.Sign(), "legacy RewardAddress must be ignored post-fork")
-	}, nil, false, 0)
+				_, err = p.GrantBlockReward(ctx, sm)
+				r.NoError(err)
+				identityPool, err := p.readPendingBlockRewardPool(ctx, sm, stableID.Bytes())
+				r.NoError(err)
+				r.Positive(identityPool.Sign())
+				operatorPool, err := p.readPendingBlockRewardPool(ctx, sm, operator.Bytes())
+				r.NoError(err)
+				r.Zero(operatorPool.Sign())
+
+				expected := owner
+				unexpected := configuredReward
+				if test.explicitSet {
+					expected, unexpected = configuredReward, owner
+				}
+				expectedBalance, _, err := p.UnclaimedBalance(ctx, sm, expected)
+				r.NoError(err)
+				r.Positive(expectedBalance.Sign())
+				unexpectedBalance, _, err := p.UnclaimedBalance(ctx, sm, unexpected)
+				r.NoError(err)
+				r.Zero(unexpectedBalance.Sign())
+			}, nil, false, 0)
+		})
+	}
 }
 
 func TestProtocol_GrantEpochReward(t *testing.T) {

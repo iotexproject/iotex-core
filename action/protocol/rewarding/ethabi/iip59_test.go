@@ -26,6 +26,7 @@ func TestIIP59AddressMethodDispatch(t *testing.T) {
 	}{
 		{"pendingBlockRewardPool", &_pendingBlockRewardPoolMethod, "PendingBlockRewardPool"},
 		{"voterRewardSnapshot", &_voterRewardSnapshotMethod, "VoterRewardSnapshot"},
+		{"voterRewardAddress", &_voterRewardAddressMethod, "VoterRewardAddress"},
 	}
 	for _, test := range methods {
 		calldata, err := test.method.Inputs.Pack(candidate)
@@ -35,6 +36,25 @@ func TestIIP59AddressMethodDispatch(t *testing.T) {
 		r.Equal(test.stateName, string(ctx.Parameters().MethodName))
 		r.Equal(identityset.Address(7).String(), string(ctx.Parameters().Arguments[0]))
 	}
+}
+
+func TestIIP59RewardAddressEncoding(t *testing.T) {
+	r := require.New(t)
+	ctx, err := newVoterRewardAddressStateContext(
+		mustPackInput(t, _voterRewardAddressMethod, common.BytesToAddress(identityset.Address(1).Bytes())),
+	)
+	r.NoError(err)
+	configured := common.BytesToAddress(identityset.Address(2).Bytes())
+	data, err := proto.Marshal(&rewardingpb.VoterRewardAddress{
+		Address: configured.Bytes(), ExplicitlySet: true,
+	})
+	r.NoError(err)
+	encoded, err := ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: data})
+	r.NoError(err)
+	values, err := _voterRewardAddressMethod.Outputs.Unpack(mustDecodeHex(t, encoded))
+	r.NoError(err)
+	r.Equal(configured, values[0])
+	r.Equal(true, values[1])
 }
 
 func mustPackInput(t *testing.T, method abi.Method, args ...interface{}) []byte {

@@ -793,13 +793,14 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), candID.Bytes())
 
 	c = &Candidate{
-		Owner:              owner,
-		Operator:           act.OperatorAddress(),
-		Reward:             act.RewardAddress(),
-		Name:               act.Name(),
-		Votes:              votes,
-		SelfStakeBucketIdx: bucketIdx,
-		SelfStake:          act.Amount(),
+		Owner:                owner,
+		Operator:             act.OperatorAddress(),
+		Reward:               act.RewardAddress(),
+		Name:                 act.Name(),
+		Votes:                votes,
+		SelfStakeBucketIdx:   bucketIdx,
+		SelfStake:            act.Amount(),
+		RewardAddressUpdated: !featureCtx.NoVoterRewardDistribution,
 	}
 	if !featureCtx.CandidateIdentifiedByOwner {
 		c.Identifier = candID
@@ -910,6 +911,9 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 
 	if act.RewardAddress() != nil {
 		c.Reward = act.RewardAddress()
+		if !featureCtx.NoVoterRewardDistribution {
+			c.RewardAddressUpdated = true
+		}
 	}
 
 	if act.WithBLS() {

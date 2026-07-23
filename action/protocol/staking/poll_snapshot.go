@@ -357,36 +357,41 @@ func PollSnapshotFor(sr protocol.StateReader, candID address.Address) (*Candidat
 	return fromBlob(blob)
 }
 
-// CandidateOwner returns the current owner of the persistent staking candidate.
-// IIP-59 uses this as the new default delegate reward address after activation;
-// the legacy candidate Reward address is intentionally ignored.
-func CandidateOwner(sr protocol.StateReader, candID address.Address) (address.Address, error) {
+// CandidateRewardAddress returns the effective IIP-59 reward address and
+// whether it was explicitly configured after activation. Migrated candidates
+// default to their current owner; a post-fork register or reward-address update
+// opts into the persisted Reward value.
+func CandidateRewardAddress(sr protocol.StateReader, candID address.Address) (address.Address, bool, error) {
 	var c Candidate
 	if _, err := sr.State(
 		&c,
 		protocol.NamespaceOption(_candidateNameSpace),
 		protocol.KeyOption(candID.Bytes()),
 	); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return c.Owner, nil
+	if c.RewardAddressUpdated {
+		return c.Reward, true, nil
+	}
+	return c.Owner, false, nil
 }
 
-// TestOnlyPutCandidateOwner seeds the persistent candidate state used by
-// CandidateOwner without requiring a full staking protocol fixture.
-func TestOnlyPutCandidateOwner(
+// TestOnlyPutCandidateRewardAddress seeds persistent candidate state used by
+// CandidateRewardAddress without requiring a full staking protocol fixture.
+func TestOnlyPutCandidateRewardAddress(
 	sm protocol.StateManager,
 	candID address.Address,
 	owner address.Address,
-	legacyReward ...address.Address,
+	reward address.Address,
+	updated bool,
 ) error {
-	reward := owner
-	if len(legacyReward) > 0 && legacyReward[0] != nil {
-		reward = legacyReward[0]
+	if reward == nil {
+		reward = owner
 	}
 	candidate := &Candidate{
 		Owner: owner, Operator: owner, Reward: reward, Identifier: candID,
 		Name: "iip59-owner", Votes: new(big.Int), SelfStake: new(big.Int),
+		RewardAddressUpdated: updated,
 	}
 	if address.Equal(candID, owner) {
 		candidate.Identifier = nil

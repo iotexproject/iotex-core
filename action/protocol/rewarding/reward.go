@@ -173,9 +173,9 @@ func (p *Protocol) GrantBlockReward(
 		if err != nil {
 			return nil, errors.Wrapf(err, "rewarding: invalid producer candidate identity %q", producerIdentity)
 		}
-		rewardAddr, err := staking.CandidateOwner(sm, producerCandAddr)
+		rewardAddr, _, err := staking.CandidateRewardAddress(sm, producerCandAddr)
 		if err != nil {
-			return nil, errors.Wrapf(err, "rewarding: read owner for producer %s", producerIdentity)
+			return nil, errors.Wrapf(err, "rewarding: read reward address for producer %s", producerIdentity)
 		}
 		rewardAddrStr = rewardAddr.String()
 	}
@@ -429,9 +429,9 @@ func (p *Protocol) GrantEpochReward(
 			if err != nil {
 				return nil, nil, err
 			}
-			rewardAddr, err = staking.CandidateOwner(sm, candAddr)
+			rewardAddr, _, err = staking.CandidateRewardAddress(sm, candAddr)
 			if err != nil {
-				return nil, nil, errors.Wrapf(err, "rewarding: read owner for candidate %s", candAddr.String())
+				return nil, nil, errors.Wrapf(err, "rewarding: read reward address for candidate %s", candAddr.String())
 			}
 		}
 		if rewardAddr == nil {
@@ -534,7 +534,7 @@ func (p *Protocol) GrantEpochReward(
 				if idErr != nil {
 					return nil, nil, idErr
 				}
-				rewardAddr, err = staking.CandidateOwner(sm, candAddr)
+				rewardAddr, _, err = staking.CandidateRewardAddress(sm, candAddr)
 			}
 			if err != nil {
 				return nil, nil, err

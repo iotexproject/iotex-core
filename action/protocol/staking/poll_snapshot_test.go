@@ -126,7 +126,7 @@ func TestCandidatePollSnapshotKey_Layout(t *testing.T) {
 	r.Equal(candID.Bytes(), key[1:])
 }
 
-func TestCandidateOwner(t *testing.T) {
+func TestCandidateRewardAddress(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -137,10 +137,26 @@ func TestCandidateOwner(t *testing.T) {
 		Name: "delegate", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
 	}
 	r.NoError(csm.putCandidate(cand))
-	got, err := CandidateOwner(sm, cand.GetIdentifier())
+	got, explicitlySet, err := CandidateRewardAddress(sm, cand.GetIdentifier())
 	r.NoError(err)
 	r.True(address.Equal(cand.Owner, got))
-	_, err = CandidateOwner(sm, identityset.Address(9))
+	r.False(explicitlySet)
+
+	cand.Owner = identityset.Address(7)
+	r.NoError(csm.putCandidate(cand))
+	got, explicitlySet, err = CandidateRewardAddress(sm, cand.GetIdentifier())
+	r.NoError(err)
+	r.True(address.Equal(cand.Owner, got), "default reward address must follow owner transfers")
+	r.False(explicitlySet)
+
+	cand.RewardAddressUpdated = true
+	r.NoError(csm.putCandidate(cand))
+	got, explicitlySet, err = CandidateRewardAddress(sm, cand.GetIdentifier())
+	r.NoError(err)
+	r.True(address.Equal(cand.Reward, got))
+	r.True(explicitlySet)
+
+	_, _, err = CandidateRewardAddress(sm, identityset.Address(9))
 	r.ErrorIs(err, state.ErrStateNotExist)
 }
 

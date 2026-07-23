@@ -20,7 +20,8 @@ const _iip59InterfaceABI = `[
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"pendingBlockRewardPool","outputs":[{"name":"amount","type":"uint256"}],"stateMutability":"view","type":"function"},
 	{"inputs":[],"name":"pendingBlockRewardPoolIndex","outputs":[{"name":"candidateIds","type":"address[]"}],"stateMutability":"view","type":"function"},
 	{"inputs":[],"name":"epochDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"delegateIndex","type":"uint32"},{"name":"voterIndex","type":"uint32"},{"name":"candidateIds","type":"address[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"rewardAddresses","type":"address[]"},{"name":"epochCommissions","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"snapshotHash","type":"bytes32"},{"name":"voters","type":"address[]"},{"name":"weights","type":"uint256[]"}],"stateMutability":"view","type":"function"}
+	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"snapshotHash","type":"bytes32"},{"name":"voters","type":"address[]"},{"name":"weights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
+	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardAddress","outputs":[{"name":"rewardAddress","type":"address"},{"name":"explicitlySet","type":"bool"}],"stateMutability":"view","type":"function"}
 ]`
 
 var (
@@ -28,6 +29,7 @@ var (
 	_pendingBlockRewardPoolIndexMethod abi.Method
 	_epochDrainCursorMethod            abi.Method
 	_voterRewardSnapshotMethod         abi.Method
+	_voterRewardAddressMethod          abi.Method
 )
 
 func init() {
@@ -35,6 +37,7 @@ func init() {
 	_pendingBlockRewardPoolIndexMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "pendingBlockRewardPoolIndex")
 	_epochDrainCursorMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "epochDrainCursor")
 	_voterRewardSnapshotMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardSnapshot")
+	_voterRewardAddressMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardAddress")
 }
 
 type iip59AddressStateContext struct {
@@ -72,6 +75,10 @@ func newVoterRewardSnapshotStateContext(data []byte) (*iip59AddressStateContext,
 	return newIIP59AddressStateContext(data, _voterRewardSnapshotMethod, "VoterRewardSnapshot")
 }
 
+func newVoterRewardAddressStateContext(data []byte) (*iip59AddressStateContext, error) {
+	return newIIP59AddressStateContext(data, _voterRewardAddressMethod, "VoterRewardAddress")
+}
+
 func (r *iip59AddressStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
 	var (
 		data []byte
@@ -98,6 +105,13 @@ func (r *iip59AddressStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse)
 				snapshot.GetRegistered(),
 				new(big.Int).SetBytes(snapshot.GetTotalWeight()), common.BytesToHash(snapshot.GetSnapshotHash()),
 				voters, weights,
+			)
+		}
+	case _voterRewardAddressMethod.Name:
+		state := &rewardingpb.VoterRewardAddress{}
+		if err = proto.Unmarshal(resp.Data, state); err == nil {
+			data, err = r.method.Outputs.Pack(
+				common.BytesToAddress(state.GetAddress()), state.GetExplicitlySet(),
 			)
 		}
 	default:

@@ -467,6 +467,29 @@ func (p *Protocol) ReadState(
 			return nil, uint64(0), err
 		}
 		return data, height, nil
+	case "VoterRewardAddress":
+		if len(args) != 1 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		candID, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		rewardAddr, explicitlySet, err := staking.CandidateRewardAddress(sr, candID)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		data, err := proto.Marshal(&rewardingpb.VoterRewardAddress{
+			Address: rewardAddr.Bytes(), ExplicitlySet: explicitlySet,
+		})
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		height, err := sr.Height()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return data, height, nil
 	default:
 		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}

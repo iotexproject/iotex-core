@@ -28,6 +28,7 @@ func TestReadStateIIP59(t *testing.T) {
 	r.NoError(csm.Upsert(&staking.Candidate{
 		Owner: candID, Operator: identityset.Address(5), Reward: identityset.Address(6),
 		Name: "iip59-read-state", Votes: big.NewInt(1), SelfStake: big.NewInt(0),
+		RewardAddressUpdated: true,
 	}))
 	r.NoError(csm.Commit(ctx))
 
@@ -79,6 +80,12 @@ func TestReadStateIIP59(t *testing.T) {
 	r.Equal(voter.Bytes(), snapshot.GetEntries()[0].GetVoter())
 	r.Equal(big.NewInt(99).Bytes(), snapshot.GetEntries()[0].GetWeight())
 
+	rewardAddressData, _, err := p.ReadState(ctx, sm, []byte("VoterRewardAddress"), []byte(candID.String()))
+	r.NoError(err)
+	rewardAddress := &rewardingpb.VoterRewardAddress{}
+	r.NoError(proto.Unmarshal(rewardAddressData, rewardAddress))
+	r.Equal(identityset.Address(6).Bytes(), rewardAddress.GetAddress())
+	r.True(rewardAddress.GetExplicitlySet())
 }
 
 func TestReadStateIIP59MissingAndArguments(t *testing.T) {
@@ -104,5 +111,7 @@ func TestReadStateIIP59MissingAndArguments(t *testing.T) {
 	_, _, err = p.ReadState(ctx, sm, []byte("EpochDrainCursor"), []byte("unexpected"))
 	r.Error(err)
 	_, _, err = p.ReadState(ctx, sm, []byte("VoterRewardSnapshot"))
+	r.Error(err)
+	_, _, err = p.ReadState(ctx, sm, []byte("VoterRewardAddress"))
 	r.Error(err)
 }
