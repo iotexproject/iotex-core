@@ -46,14 +46,11 @@ func TestVoterBudgetPerBlock(t *testing.T) {
 		"post-fork with budget=0: voter budget must be 0 (unbounded voters per delegate)")
 }
 
-// TestGrantEpochReward_SkipsCursorWhenNoVoterShare confirms the C3
-// invariant that cursor entries only materialize for delegates whose
-// per-delegate epoch split (or block-time pool accrual) yielded a voter
-// portion. With no frozen snapshots seeded, every delegate falls to the
-// fallback branch of splitDelegateEpochReward and the whole grant runs
-// as a pre-fork-style single-block coda — sentinel written, cursor
-// absent — even though the fork gate is on.
-func TestGrantEpochReward_SkipsCursorWhenNoVoterShare(t *testing.T) {
+// TestGrantEpochReward_DefersWhenSnapshotMissing confirms that post-fork
+// delegates default to a voter share even before the first usable snapshot.
+// Phase A records cursor work with zero allocation metadata; Phase B will
+// leave the pool pending for a later era rather than paying the delegate.
+func TestGrantEpochReward_DefersWhenSnapshotMissing(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
@@ -73,7 +70,12 @@ func TestGrantEpochReward_SkipsCursorWhenNoVoterShare(t *testing.T) {
 
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.Nil(got, "no delegate has voter share → cursor must not be persisted")
+		r.NotNil(got)
+		r.NotEmpty(got.Delegates)
+		for _, work := range got.Delegates {
+			r.Zero(safeBig(work.TotalWeight).Sign())
+			r.False(work.HasWeightedEntries)
+		}
 
 		r.Error(p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, 1),
 			"sentinel must be written by GrantEpochReward even when the cursor is empty")
@@ -82,7 +84,7 @@ func TestGrantEpochReward_SkipsCursorWhenNoVoterShare(t *testing.T) {
 
 // TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor verifies the
 // distinction between per-epoch accounting and per-era distribution. An
-// opted-in delegate's voter share must enter the pending pool every epoch,
+// delegate's voter share must enter the pending pool every epoch,
 // while cursor materialization remains restricted to era boundaries.
 func TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
@@ -99,7 +101,7 @@ func TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor(t *testing.T) {
 
 		candAddr := identityset.Address(27)
 		candID := candAddr.Bytes()
-		writeSnapshot(t, sm, candAddr, true, true, 2500, []voterEntry{
+		writeSnapshot(t, sm, candAddr, true, 2500, []voterEntry{
 			{addr: identityset.Address(1), weight: big.NewInt(1)},
 		})
 
@@ -146,7 +148,7 @@ func TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor(t *testing.T) {
 		}
 		r.NotNil(frozen, "candidate 27 must be included in the era cursor")
 		r.Equal(int64(60), frozen.VoterAmountFrozen.Int64())
-		r.Equal(identityset.Address(0).Bytes(), frozen.RewardAddress)
+		r.Equal(identityset.Address(27).Bytes(), frozen.RewardAddress)
 		r.Equal(int64(10), frozen.EpochCommission.Int64())
 		r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, allProtocolAddrs(t)))
 	}, noUnproductives, false, 0)
@@ -191,10 +193,13 @@ func TestGrantEpochReward_LiveCursorAtPhaseA_DegradesGracefully(t *testing.T) {
 
 		_, rewardLogs, err := p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
-		// Stale cursor must be gone.
+		// The stale cursor is replaced by fresh deferred work because this
+		// fixture intentionally has no voter snapshots.
 		after, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.Nil(after)
+		r.NotNil(after)
+		r.Equal(uint64(1), after.TargetEra)
+		r.NotEmpty(after.Delegates)
 		// First log must be the EPOCH_DRAIN_OVERRUN handoff naming the
 		// stale era + remaining-delegates count. Actual residue value is
 		// tested end-to-end in the PR6 test suite; here we assert only
@@ -264,8 +269,8 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 }
 
 // TestGrantEpochReward_PoolAccrualBuildsCursor confirms that block-time
-// voter accruals — pool balance credited by GrantBlockReward for
-// opted-in delegates — get folded into the epoch-boundary cursor even
+// voter accruals — pool balance credited by GrantBlockReward — get folded
+// into the epoch-boundary cursor even
 // when the per-delegate epoch split has no fresh voter share (fallback
 // branch of splitDelegateEpochReward). This is what preserves late-
 // arriving voter accruals across the era boundary: the cursor freezes
@@ -285,6 +290,14 @@ func TestGrantEpochReward_PoolAccrualBuildsCursor(t *testing.T) {
 		// purely from the pool accrual.
 		candID := identityset.Address(27).Bytes()
 		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(1_234)))
+		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(27), &staking.CandidatePollSnapshot{
+			BlockCommissionBasisPoints: _basisPointsDenom,
+			EpochCommissionBasisPoints: _basisPointsDenom,
+			Registered:                 true,
+			Entries: []staking.VoterWeight{{
+				Voter: identityset.Address(27), Weight: big.NewInt(1),
+			}},
+		}))
 
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()

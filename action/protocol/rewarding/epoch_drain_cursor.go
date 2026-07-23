@@ -33,6 +33,10 @@ type epochDrainDelegateWork struct {
 	VoterAmountDistributed *big.Int
 	RewardAddress          []byte
 	EpochCommission        *big.Int
+	TotalWeight            *big.Int
+	SnapshotHash           []byte
+	LastWeightedIndex      uint32
+	HasWeightedEntries     bool
 }
 
 // epochDrainCursor checkpoints an in-progress IIP-59 era-boundary drain
@@ -68,6 +72,10 @@ func (c epochDrainCursor) Serialize() ([]byte, error) {
 				VoterAmountDistributed: epochDrainBigIntBytes(d.VoterAmountDistributed),
 				RewardAddress:          d.RewardAddress,
 				EpochCommission:        epochDrainBigIntBytes(d.EpochCommission),
+				TotalWeight:            epochDrainBigIntBytes(d.TotalWeight),
+				SnapshotHash:           d.SnapshotHash,
+				LastWeightedIndex:      d.LastWeightedIndex,
+				HasWeightedEntries:     d.HasWeightedEntries,
 			}
 		}
 	}
@@ -93,6 +101,10 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 				VoterAmountDistributed: epochDrainBytesBigInt(d.GetVoterAmountDistributed()),
 				RewardAddress:          d.GetRewardAddress(),
 				EpochCommission:        epochDrainBytesBigInt(d.GetEpochCommission()),
+				TotalWeight:            epochDrainBytesBigInt(d.GetTotalWeight()),
+				SnapshotHash:           d.GetSnapshotHash(),
+				LastWeightedIndex:      d.GetLastWeightedIndex(),
+				HasWeightedEntries:     d.GetHasWeightedEntries(),
 			}
 		}
 	}

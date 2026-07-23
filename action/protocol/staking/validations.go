@@ -150,14 +150,3 @@ func (p *Protocol) validateCandidateDeactivate(ctx context.Context, act *action.
 	}
 	return nil
 }
-
-// validateSetVoterRewardOptIn gates the IIP-59 §2.2 opt-in mutation on the
-// same feature flag as the rest of the voter reward distribution surface:
-// the action is only accepted when NoVoterRewardDistribution is off (i.e.
-// once the fork enabling on-chain voter reward distribution has activated).
-func (p *Protocol) validateSetVoterRewardOptIn(ctx context.Context, act *action.SetVoterRewardOptIn) error {
-	if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
-		return errors.Wrap(action.ErrInvalidAct, "SetVoterRewardOptIn is disabled")
-	}
-	return act.SanityCheck()
-}

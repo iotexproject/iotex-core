@@ -33,6 +33,8 @@ message BucketIndices {
 }
 
 message Candidate {
+    reserved 11;
+    reserved "voterRewardOnchainOptIn";
     string ownerAddress = 1;
     string operatorAddress = 2;
     string rewardAddress = 3;
@@ -43,10 +45,6 @@ message Candidate {
     string identifierAddress = 8; //if the field is empty, set it to the old owner address
     bytes pubkey = 9; // BLS public key
     uint64 deactivatedAt = 10;
-    // IIP-59: delegate has opted into protocol-native voter reward distribution.
-    // Mutated by SetVoterRewardOptIn action; effect delayed 1 epoch via the
-    // PutPollResult snapshot (rewarding reads the frozen value, not this live one).
-    bool voterRewardOnchainOptIn = 11;
 }
 
 message Candidates {
@@ -98,25 +96,23 @@ message VoterWeightEntry {
 
 // IIP-59: per-candidate poll snapshot frozen at PutPollResult. The rewarding
 // protocol reads this at each epoch close; nothing else mutates it during the
-// epoch, so mid-epoch changes to the DelegateProfile contract or to the
-// candidate's opt-in flag do not retroactively re-split the current epoch's
+// reward era, so mid-era DelegateProfile changes do not retroactively re-split
 // rewards.
 message CandidatePollSnapshot {
+    reserved 4;
+    reserved "voterRewardOnchainOptIn";
     // Commission split frozen from the DelegateProfile contract at snapshot
     // time. Basis points in [0, 10000]. Both zero when `registered` is false.
     uint64 blockCommissionBasisPoints = 1;
     uint64 epochCommissionBasisPoints = 2;
     // Whether the DelegateProfile contract returned both portion fields as
-    // non-empty bytes at snapshot time. False ⇒ the commission rates above
-    // are meaningless; rewarding MUST fall back to the legacy path.
+    // non-empty bytes at snapshot time. False means both commission rates
+    // default to zero and the full reward goes to voters.
     bool registered = 3;
-    // `staking.Candidate.VoterRewardOnchainOptIn` at snapshot time. The
-    // delayed-1-epoch semantics live here.
-    bool voterRewardOnchainOptIn = 4;
     // Per-voter aggregated weight entries, sorted ascending by `voter` bytes.
     // Empty in the initial PR that introduces this message; the voter-weight
-    // source is a separate follow-up. An empty list means the downstream
-    // reward split degenerates to full-amount-to-delegate.
+    // source is a separate follow-up. Empty entries defer distribution until
+    // a later era snapshot has eligible voter weights.
     repeated VoterWeightEntry entries = 5;
     // Cached deterministic metadata used to keep continuation work bounded by
     // the configured voter window instead of rescanning all entries.

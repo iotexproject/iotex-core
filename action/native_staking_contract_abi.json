@@ -626,42 +626,5 @@
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes",
-        "name": "candidateIdentifier",
-        "type": "bytes"
-      },
-      {
-        "internalType": "bool",
-        "name": "optIn",
-        "type": "bool"
-      }
-    ],
-    "name": "setVoterRewardOptIn",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "candidateIdentifier",
-        "type": "bytes32"
-      },
-      {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "optIn",
-        "type": "bool"
-      }
-    ],
-    "name": "VoterRewardOptInSet",
-    "type": "event"
   }
 ]

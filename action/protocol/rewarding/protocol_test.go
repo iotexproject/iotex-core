@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
@@ -182,6 +183,11 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
+	for _, candidate := range candidates {
+		id, err := address.FromString(candidate.Identity)
+		require.NoError(t, err)
+		require.NoError(t, staking.TestOnlyPutCandidateOwner(sm, id, id))
+	}
 
 	ctx = protocol.WithBlockCtx(
 		ctx, protocol.BlockCtx{

@@ -27,10 +27,8 @@ import (
 // CandidatePollSnapshot is the frozen per-candidate view that IIP-59's
 // rewarding path consumes at each epoch close. It is written once per epoch
 // by FreezePollSnapshot (called from the poll layer's PutPollResult) and
-// never mutated during the epoch — the epoch-boundary freeze is the whole
-// point, so any mid-epoch change to the DelegateProfile contract or to the
-// candidate's opt-in flag does not retroactively re-split rewards that
-// have already begun accruing.
+// never mutated during the reward era. Mid-era DelegateProfile changes do not
+// retroactively re-split rewards that have already begun accruing.
 type CandidatePollSnapshot struct {
 	// BlockCommissionBasisPoints is the delegate's take of block rewards, in
 	// basis points [0, 10000]. Zero when Registered is false.
@@ -39,14 +37,9 @@ type CandidatePollSnapshot struct {
 	// basis points [0, 10000]. Zero when Registered is false.
 	EpochCommissionBasisPoints uint64
 	// Registered is true when the DelegateProfile contract returned both
-	// portion fields as non-empty bytes at snapshot time. False ⇒ the two
-	// commission rates above are meaningless and the caller MUST fall back
-	// to the legacy Hermes distribution path.
+	// portion fields as non-empty bytes at snapshot time. False means both
+	// commission rates default to zero and the full reward goes to voters.
 	Registered bool
-	// VoterRewardOnchainOptIn is the value of staking.Candidate's opt-in
-	// flag at snapshot time. Rewarding reads THIS, not the live Candidate,
-	// which is what makes the opt-in transition delayed one epoch.
-	VoterRewardOnchainOptIn bool
 	// Entries is the per-voter aggregated weight list, sorted ascending by
 	// Voter bytes (invariant maintained by VoterWeightView). Downstream
 	// rewarding treats an empty list as "no voters known — pay full amount
@@ -125,7 +118,6 @@ func (s *CandidatePollSnapshot) toBlob() *candidatePollSnapshotBlob {
 		BlockCommissionBasisPoints: s.BlockCommissionBasisPoints,
 		EpochCommissionBasisPoints: s.EpochCommissionBasisPoints,
 		Registered:                 s.Registered,
-		VoterRewardOnchainOptIn:    s.VoterRewardOnchainOptIn,
 		TotalWeight:                s.TotalWeight.Bytes(),
 		SnapshotHash:               s.SnapshotHash[:],
 		LastWeightedIndex:          s.LastWeightedIndex,
@@ -156,7 +148,6 @@ func fromBlob(b *candidatePollSnapshotBlob) (*CandidatePollSnapshot, error) {
 		BlockCommissionBasisPoints: b.pb.GetBlockCommissionBasisPoints(),
 		EpochCommissionBasisPoints: b.pb.GetEpochCommissionBasisPoints(),
 		Registered:                 b.pb.GetRegistered(),
-		VoterRewardOnchainOptIn:    b.pb.GetVoterRewardOnchainOptIn(),
 		TotalWeight:                new(big.Int).SetBytes(b.pb.GetTotalWeight()),
 		SnapshotHash:               hash.BytesToHash256(b.pb.GetSnapshotHash()),
 		LastWeightedIndex:          b.pb.GetLastWeightedIndex(),
@@ -212,14 +203,12 @@ func populateSnapshotMetadata(s *CandidatePollSnapshot) {
 // pure reader via PollSnapshotFor.
 //
 // When bridge is nil (DelegateProfile contract not configured for this
-// network), the commission-rate freeze is skipped: every snapshot carries
-// Registered=false and both rate fields zero, but the opt-in flag is still
-// captured from the live staking.Candidate. Downstream rewarding will then
-// take the legacy Hermes path because Registered=false.
+// network), every snapshot carries Registered=false and both rate fields zero,
+// which is the post-fork default of sending the full reward to voters.
 //
 // A per-delegate bridge read failure (malformed profile, RPC/EVM error) is
 // absorbed by the bridge itself: the affected delegate lands with
-// Registered=false and rewarding routes it via the legacy path. This
+// Registered=false and rewarding uses the all-to-voters default. This
 // prevents one bad on-chain profile from deterministically halting the
 // chain at every epoch boundary — same state ⇒ same fallback on every
 // validator ⇒ no fork.
@@ -271,20 +260,14 @@ func FreezePollSnapshot(
 	// bucket mutation. When it is missing (pre-fork setups that skip
 	// Protocol.Start, or tests that write the view directly without an
 	// install step) the freezer degrades gracefully: Entries is left nil on
-	// every snapshot and rewarding routes through its "no voters known"
-	// legacy branch — same behavior as before this PR. When present, we
+	// every snapshot and rewarding keeps the voter pool pending until a later
+	// era has an eligible snapshot. When present, we
 	// copy VoterWeightsByCandidate output directly; the view already sorts
 	// entries by voter bytes, so no re-sort here.
 	vw := voterWeightsFromSM(sm)
 
 	for _, id := range ids {
-		optIn, err := readLiveOptIn(sm, id)
-		if err != nil {
-			return errors.Wrapf(err, "staking: read opt-in for candidate %s", id.String())
-		}
-		snap := &CandidatePollSnapshot{
-			VoterRewardOnchainOptIn: optIn,
-		}
+		snap := &CandidatePollSnapshot{}
 		if r, ok := rates[id.String()]; ok && r != nil && r.Registered {
 			snap.BlockCommissionBasisPoints = r.BlockCommissionBasisPoints
 			snap.EpochCommissionBasisPoints = r.EpochCommissionBasisPoints
@@ -358,9 +341,7 @@ func TestOnlyPutPollSnapshotFor(
 
 // PollSnapshotFor returns the frozen snapshot written at the most recent
 // PutPollResult for the given candidate identity. Returns
-// (nil, state.ErrStateNotExist) when no snapshot has been written (pre-fork
-// / config-off epochs), in which case the caller MUST fall back to the
-// legacy path.
+// (nil, state.ErrStateNotExist) when no snapshot has been written.
 func PollSnapshotFor(sr protocol.StateReader, candID address.Address) (*CandidatePollSnapshot, error) {
 	if candID == nil {
 		return nil, errors.New("staking: nil candidate identity")
@@ -376,22 +357,44 @@ func PollSnapshotFor(sr protocol.StateReader, candID address.Address) (*Candidat
 	return fromBlob(blob)
 }
 
-// readLiveOptIn reads the persistent staking.Candidate at candID and returns
-// its VoterRewardOnchainOptIn flag. Returns (false, nil) if the Candidate is
-// absent — that would indicate an upstream data mismatch (poll list names a
-// candidate that has no staking record), but we degrade to opt-out rather
-// than fail the block so the whole chain doesn't wedge on one bad entry.
-func readLiveOptIn(sr protocol.StateReader, candID address.Address) (bool, error) {
+// CandidateOwner returns the current owner of the persistent staking candidate.
+// IIP-59 uses this as the new default delegate reward address after activation;
+// the legacy candidate Reward address is intentionally ignored.
+func CandidateOwner(sr protocol.StateReader, candID address.Address) (address.Address, error) {
 	var c Candidate
 	if _, err := sr.State(
 		&c,
 		protocol.NamespaceOption(_candidateNameSpace),
 		protocol.KeyOption(candID.Bytes()),
 	); err != nil {
-		if errors.Is(err, state.ErrStateNotExist) {
-			return false, nil
-		}
-		return false, err
+		return nil, err
 	}
-	return c.VoterRewardOnchainOptIn, nil
+	return c.Owner, nil
+}
+
+// TestOnlyPutCandidateOwner seeds the persistent candidate state used by
+// CandidateOwner without requiring a full staking protocol fixture.
+func TestOnlyPutCandidateOwner(
+	sm protocol.StateManager,
+	candID address.Address,
+	owner address.Address,
+	legacyReward ...address.Address,
+) error {
+	reward := owner
+	if len(legacyReward) > 0 && legacyReward[0] != nil {
+		reward = legacyReward[0]
+	}
+	candidate := &Candidate{
+		Owner: owner, Operator: owner, Reward: reward, Identifier: candID,
+		Name: "iip59-owner", Votes: new(big.Int), SelfStake: new(big.Int),
+	}
+	if address.Equal(candID, owner) {
+		candidate.Identifier = nil
+	}
+	_, err := sm.PutState(
+		candidate,
+		protocol.NamespaceOption(_candidateNameSpace),
+		protocol.KeyOption(candID.Bytes()),
+	)
+	return err
 }

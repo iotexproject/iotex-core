@@ -8,7 +8,6 @@ package rewarding
 import (
 	"context"
 	"math/big"
-	"strconv"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -61,8 +60,8 @@ type Protocol struct {
 	cfg       genesis.Rewarding
 	// autoDepositBridge is the IIP-59 AutoDeposit contract adapter used by
 	// distributeVoterReward for per-voter compound routing. Nil means the
-	// network has no AutoDeposit contract configured: every opted-in
-	// voter's share is credited to unclaimedBalance and no compound
+	// network has no AutoDeposit contract configured: every voter share is
+	// credited directly to the primary account and no compound
 	// deposit is attempted.
 	autoDepositBridge *autodeposit.Bridge
 	// autoDepositBucketReaderFactory lets tests inject a fake BucketReader
@@ -443,7 +442,6 @@ func (p *Protocol) ReadState(
 			BlockCommissionBasisPoints: snapshot.BlockCommissionBasisPoints,
 			EpochCommissionBasisPoints: snapshot.EpochCommissionBasisPoints,
 			Registered:                 snapshot.Registered,
-			VoterRewardOnchainOptIn:    snapshot.VoterRewardOnchainOptIn,
 			Entries:                    make([]*stakingpb.VoterWeightEntry, 0, len(snapshot.Entries)),
 			TotalWeight:                safeBig(snapshot.TotalWeight).Bytes(),
 			SnapshotHash:               snapshot.SnapshotHash[:],
@@ -469,27 +467,6 @@ func (p *Protocol) ReadState(
 			return nil, uint64(0), err
 		}
 		return data, height, nil
-	case "VoterRewardOptIn":
-		if len(args) != 1 {
-			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
-		}
-		candID, err := address.FromString(string(args[0]))
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		csr, err := staking.ConstructBaseView(sr)
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		cand := csr.GetByIdentifier(candID)
-		if cand == nil {
-			return nil, uint64(0), errors.Errorf("candidate %s not found", candID.String())
-		}
-		height, err := sr.Height()
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		return []byte(strconv.FormatBool(cand.VoterRewardOnchainOptIn)), height, nil
 	default:
 		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}

@@ -25,7 +25,7 @@ import (
 // production must never construct one.
 type TestOnlyPerfBenchSpec struct {
 	// NumDelegates is the count of delegates to plant. Each gets an
-	// opted-in Candidate + self-stake bucket.
+	// Candidate + self-stake bucket.
 	NumDelegates int
 	// NumVoters is the count of distinct voter buckets to plant. Voters
 	// are distributed round-robin across the delegates.
@@ -54,7 +54,7 @@ type TestOnlyPerfBenchSpec struct {
 	EpochCommissionBasisPoints uint64
 }
 
-// TestOnlySeedPerfBenchState plants NumDelegates opted-in candidates with
+// TestOnlySeedPerfBenchState plants NumDelegates candidates with
 // self-stake buckets, then plants NumVoters voter buckets distributed
 // round-robin. Returns the addresses of the planted delegates so the caller
 // can look them up during the drain.
@@ -98,14 +98,13 @@ func TestOnlySeedPerfBenchState(
 			return nil, errors.Wrapf(err, "put self-stake bucket for delegate %d", i)
 		}
 		cand := &Candidate{
-			Owner:                   delAddr,
-			Operator:                delAddr,
-			Reward:                  delAddr,
-			Name:                    fmt.Sprintf("bdel%03d", i),
-			Votes:                   CalculateVoteWeight(spec.VoteWeightCalConsts, selfBkt, true),
-			SelfStakeBucketIdx:      selfIdx,
-			SelfStake:               new(big.Int).Set(spec.DelegateSelfStake),
-			VoterRewardOnchainOptIn: true,
+			Owner:              delAddr,
+			Operator:           delAddr,
+			Reward:             delAddr,
+			Name:               fmt.Sprintf("bdel%03d", i),
+			Votes:              CalculateVoteWeight(spec.VoteWeightCalConsts, selfBkt, true),
+			SelfStakeBucketIdx: selfIdx,
+			SelfStake:          new(big.Int).Set(spec.DelegateSelfStake),
 		}
 		if err := csm.Upsert(cand); err != nil {
 			return nil, errors.Wrapf(err, "upsert delegate candidate %d", i)
@@ -157,7 +156,6 @@ func TestOnlySeedPerfBenchState(
 			BlockCommissionBasisPoints: spec.BlockCommissionBasisPoints,
 			EpochCommissionBasisPoints: spec.EpochCommissionBasisPoints,
 			Registered:                 true,
-			VoterRewardOnchainOptIn:    true,
 			Entries:                    entries,
 		}
 		if _, err := sm.PutState(

@@ -67,6 +67,14 @@ func seedPoolAccrualsForRewardedDelegates(
 		r.NoError(p.creditPendingBlockRewardPool(
 			ctx, sm, identityset.Address(idx).Bytes(), big.NewInt(perDelegate),
 		))
+		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(idx), &staking.CandidatePollSnapshot{
+			BlockCommissionBasisPoints: _basisPointsDenom,
+			EpochCommissionBasisPoints: _basisPointsDenom,
+			Registered:                 true,
+			Entries: []staking.VoterWeight{{
+				Voter: identityset.Address(idx), Weight: big.NewInt(1),
+			}},
+		}))
 	}
 }
 
@@ -129,11 +137,8 @@ func runDrainToCompletion(
 // continuation blocks), chunkSize=0 (unbounded, Phase A drains inline) —
 // must produce reflect.DeepEqual snapshots.
 //
-// distributeVoterOnly short-circuits on the snapshot-missing branch because
-// the fixture does not seed poll snapshots; this leaves the cursor
-// walk + decrementPendingBlockRewardPool as the observable Phase B work.
-// That is exactly the loop chunk-size affects, so this test still exercises
-// the invariant it asserts.
+// Each delegate has one voter and 100% commission for the fresh epoch reward,
+// so only the explicitly seeded pending pool is drained.
 func TestChunkedDrain_InvariantAcrossChunkSizes(t *testing.T) {
 	run := func(t *testing.T, chunkSize uint64) (*TestOnlyRewardStateSnapshot, int) {
 		var snap *TestOnlyRewardStateSnapshot
@@ -166,10 +171,8 @@ func TestChunkedDrain_InvariantAcrossChunkSizes(t *testing.T) {
 	snapChunk2, chunks2 := run(t, 2)
 	snapChunkUnbounded, chunksU := run(t, 0)
 
-	// Missing snapshots make every delegate unroutable, so no voter budget is
-	// consumed and all configurations finish in one continuation call.
-	r.Equal(1, chunks1)
-	r.Equal(1, chunks2)
+	r.Equal(4, chunks1)
+	r.Equal(2, chunks2)
 	r.Equal(1, chunksU)
 
 	// End-state must be byte-identical across all three chunkings.
@@ -241,6 +244,15 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
+		for {
+			cursor, readErr := p.readEpochDrainCursor(ctx, sm)
+			r.NoError(readErr)
+			if cursor == nil {
+				break
+			}
+			_, _, err = p.GrantVoterRewardChunk(ctx, sm)
+			r.NoError(err)
+		}
 		observed, err = p.TestOnlyDumpRewardState(ctx, sm, allProtocolAddrs(t))
 		r.NoError(err)
 	}, nil, false, 0)
@@ -250,9 +262,9 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		"end-state after a paused-then-resumed drain must equal an uninterrupted drain")
 }
 
-// TestChunkedDrain_UnroutableDelegatesIgnoreVoterBudget confirms missing
-// snapshots consume no voter budget and therefore cannot leave a cursor stuck.
-func TestChunkedDrain_UnroutableDelegatesIgnoreVoterBudget(t *testing.T) {
+// TestChunkedDrain_VoterBudgetStopsAtDelegateBoundary confirms one-voter
+// delegates consume the global voter budget and resume at the next delegate.
+func TestChunkedDrain_VoterBudgetStopsAtDelegateBoundary(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
@@ -275,18 +287,23 @@ func TestChunkedDrain_UnroutableDelegatesIgnoreVoterBudget(t *testing.T) {
 		r.Equal(len(rewardedCandidateIndexes), len(frozen.Delegates),
 			"Phase A must have frozen one entry per rewarded delegate")
 
-		// One call resolves every unroutable entry despite voterBudget=1.
+		// One call resolves exactly one delegate because voterBudget=1.
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
 
-		for _, work := range frozen.Delegates {
+		for i, work := range frozen.Delegates {
 			amt, readErr := p.readPendingBlockRewardPool(ctx, sm, work.CandidateIdentifier)
 			r.NoError(readErr)
-			r.Zero(amt.Sign())
+			if i == 0 {
+				r.Zero(amt.Sign())
+			} else {
+				r.Positive(amt.Sign())
+			}
 		}
 		cursor, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.Nil(cursor)
+		r.NotNil(cursor)
+		r.Equal(uint32(1), cursor.DelegateIndex)
 	}, nil, false, 0)
 }
 
@@ -350,6 +367,14 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 		// non-zero live balance to pick up.
 		candID := identityset.Address(27).Bytes()
 		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(250)))
+		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(27), &staking.CandidatePollSnapshot{
+			BlockCommissionBasisPoints: _basisPointsDenom,
+			EpochCommissionBasisPoints: _basisPointsDenom,
+			Registered:                 true,
+			Entries: []staking.VoterWeight{{
+				Voter: identityset.Address(27), Weight: big.NewInt(1),
+			}},
+		}))
 
 		// Inject a stale era-1 cursor pointing at candidate 27. The
 		// VoterAmountFrozen deliberately does NOT match the live pool

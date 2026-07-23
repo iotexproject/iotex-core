@@ -359,10 +359,10 @@ func (p *Protocol) refundPendingBlockRewardPool(
 // accumulated block reward inside the epoch.
 //
 // Resolution order per orphan:
-//  1. Look up the live staking.Candidate by identifier. If present and
-//     .Reward is set, credit the pool balance to that reward address and
-//     emit a BLOCK_REWARD log naming it.
-//  2. Otherwise (candidate fully gone, or no reward address), refund the
+//  1. Look up the live staking.Candidate by identifier. If present, credit
+//     the pool balance to its owner (the post-fork default reward address)
+//     and emit a BLOCK_REWARD log naming it.
+//  2. Otherwise (candidate fully gone), refund the
 //     balance to fund.unclaimedBalance and emit a BLOCK_REWARD log with
 //     an empty addr for observability. Never burn — that would violate
 //     the unclaimedBalance ≤ totalBalance invariant.
@@ -383,7 +383,6 @@ func (p *Protocol) drainPendingBlockRewardOrphans(
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	var csr staking.CandidateStateReader
 	logs := make([]*action.Log, 0)
 	for _, candID := range ids {
 		if visited[string(candID)] {
@@ -404,15 +403,12 @@ func (p *Protocol) drainPendingBlockRewardOrphans(
 		var targetStr string
 		candAddr, addrErr := address.FromBytes(candID)
 		if addrErr == nil {
-			if csr == nil {
-				csr, err = staking.ConstructBaseView(sm)
-				if err != nil {
-					return nil, errors.Wrap(err, "rewarding: construct base view for orphan drain")
-				}
-			}
-			if cand := csr.GetByIdentifier(candAddr); cand != nil && cand.Reward != nil {
-				target = cand.Reward
-				targetStr = cand.Reward.String()
+			owner, ownerErr := staking.CandidateOwner(sm, candAddr)
+			if ownerErr == nil {
+				target = owner
+				targetStr = owner.String()
+			} else if !errors.Is(ownerErr, state.ErrStateNotExist) {
+				return nil, errors.Wrap(ownerErr, "rewarding: read owner for orphan drain")
 			}
 		} else {
 			log.L().Warn("rewarding: orphan pool ID does not decode to an address; refunding",

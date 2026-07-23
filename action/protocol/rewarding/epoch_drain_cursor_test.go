@@ -30,12 +30,20 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 				VoterAmountFrozen:   big.NewInt(1_000),
 				RewardAddress:       identityset.Address(11).Bytes(),
 				EpochCommission:     big.NewInt(300),
+				TotalWeight:         big.NewInt(400),
+				SnapshotHash:        []byte{1, 2, 3},
+				LastWeightedIndex:   2,
+				HasWeightedEntries:  true,
 			},
 			{
 				CandidateIdentifier: identityset.Address(2).Bytes(),
 				VoterAmountFrozen:   big.NewInt(2_500_000),
 				RewardAddress:       identityset.Address(12).Bytes(),
 				EpochCommission:     big.NewInt(750_000),
+				TotalWeight:         big.NewInt(1_000_000),
+				SnapshotHash:        []byte{4, 5, 6},
+				LastWeightedIndex:   9,
+				HasWeightedEntries:  true,
 			},
 		},
 	}
@@ -59,6 +67,10 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 		r.Zero(in.Delegates[i].EpochCommission.Cmp(out.Delegates[i].EpochCommission),
 			"delegate %d epoch commission mismatch: in=%s out=%s",
 			i, in.Delegates[i].EpochCommission, out.Delegates[i].EpochCommission)
+		r.Zero(in.Delegates[i].TotalWeight.Cmp(out.Delegates[i].TotalWeight))
+		r.Equal(in.Delegates[i].SnapshotHash, out.Delegates[i].SnapshotHash)
+		r.Equal(in.Delegates[i].LastWeightedIndex, out.Delegates[i].LastWeightedIndex)
+		r.Equal(in.Delegates[i].HasWeightedEntries, out.Delegates[i].HasWeightedEntries)
 	}
 }
 

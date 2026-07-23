@@ -19,9 +19,8 @@ import (
 const _iip59InterfaceABI = `[
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"pendingBlockRewardPool","outputs":[{"name":"amount","type":"uint256"}],"stateMutability":"view","type":"function"},
 	{"inputs":[],"name":"pendingBlockRewardPoolIndex","outputs":[{"name":"candidateIds","type":"address[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[],"name":"epochDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"delegateIndex","type":"uint32"},{"name":"voterIndex","type":"uint32"},{"name":"candidateIds","type":"address[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"rewardAddresses","type":"address[]"},{"name":"epochCommissions","type":"uint256[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"voterRewardOnchainOptIn","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"snapshotHash","type":"bytes32"},{"name":"voters","type":"address[]"},{"name":"weights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardOptIn","outputs":[{"name":"optedIn","type":"bool"}],"stateMutability":"view","type":"function"}
+	{"inputs":[],"name":"epochDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"delegateIndex","type":"uint32"},{"name":"voterIndex","type":"uint32"},{"name":"candidateIds","type":"address[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"rewardAddresses","type":"address[]"},{"name":"epochCommissions","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
+	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"snapshotHash","type":"bytes32"},{"name":"voters","type":"address[]"},{"name":"weights","type":"uint256[]"}],"stateMutability":"view","type":"function"}
 ]`
 
 var (
@@ -29,7 +28,6 @@ var (
 	_pendingBlockRewardPoolIndexMethod abi.Method
 	_epochDrainCursorMethod            abi.Method
 	_voterRewardSnapshotMethod         abi.Method
-	_voterRewardOptInMethod            abi.Method
 )
 
 func init() {
@@ -37,7 +35,6 @@ func init() {
 	_pendingBlockRewardPoolIndexMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "pendingBlockRewardPoolIndex")
 	_epochDrainCursorMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "epochDrainCursor")
 	_voterRewardSnapshotMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardSnapshot")
-	_voterRewardOptInMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardOptIn")
 }
 
 type iip59AddressStateContext struct {
@@ -75,10 +72,6 @@ func newVoterRewardSnapshotStateContext(data []byte) (*iip59AddressStateContext,
 	return newIIP59AddressStateContext(data, _voterRewardSnapshotMethod, "VoterRewardSnapshot")
 }
 
-func newVoterRewardOptInStateContext(data []byte) (*iip59AddressStateContext, error) {
-	return newIIP59AddressStateContext(data, _voterRewardOptInMethod, "VoterRewardOptIn")
-}
-
 func (r *iip59AddressStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
 	var (
 		data []byte
@@ -102,19 +95,11 @@ func (r *iip59AddressStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse)
 			}
 			data, err = r.method.Outputs.Pack(
 				snapshot.GetBlockCommissionBasisPoints(), snapshot.GetEpochCommissionBasisPoints(),
-				snapshot.GetRegistered(), snapshot.GetVoterRewardOnchainOptIn(),
+				snapshot.GetRegistered(),
 				new(big.Int).SetBytes(snapshot.GetTotalWeight()), common.BytesToHash(snapshot.GetSnapshotHash()),
 				voters, weights,
 			)
 		}
-	case _voterRewardOptInMethod.Name:
-		var optedIn bool
-		if string(resp.Data) == "true" {
-			optedIn = true
-		} else if string(resp.Data) != "false" {
-			return "", errDecodeFailure
-		}
-		data, err = r.method.Outputs.Pack(optedIn)
 	default:
 		return "", errInvalidCallSig
 	}
@@ -171,16 +156,18 @@ func (r *EpochDrainCursorStateContext) EncodeToEth(resp *iotexapi.ReadStateRespo
 	distributedAmounts := make([]*big.Int, len(delegates))
 	rewardAddresses := make([]common.Address, len(delegates))
 	epochCommissions := make([]*big.Int, len(delegates))
+	totalWeights := make([]*big.Int, len(delegates))
 	for i, delegate := range delegates {
 		ids[i] = common.BytesToAddress(delegate.GetCandidateIdentifier())
 		voterAmounts[i] = new(big.Int).SetBytes(delegate.GetVoterAmountFrozen())
 		distributedAmounts[i] = new(big.Int).SetBytes(delegate.GetVoterAmountDistributed())
 		rewardAddresses[i] = common.BytesToAddress(delegate.GetRewardAddress())
 		epochCommissions[i] = new(big.Int).SetBytes(delegate.GetEpochCommission())
+		totalWeights[i] = new(big.Int).SetBytes(delegate.GetTotalWeight())
 	}
 	data, err := _epochDrainCursorMethod.Outputs.Pack(
 		cursor.GetTargetEra(), cursor.GetDelegateIndex(), cursor.GetVoterIndex(),
-		ids, voterAmounts, distributedAmounts, rewardAddresses, epochCommissions,
+		ids, voterAmounts, distributedAmounts, rewardAddresses, epochCommissions, totalWeights,
 	)
 	if err != nil {
 		return "", err

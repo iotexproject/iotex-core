@@ -50,7 +50,6 @@ func TestCandidatePollSnapshot_SerializeRoundtrip(t *testing.T) {
 		BlockCommissionBasisPoints: 1234,
 		EpochCommissionBasisPoints: 5678,
 		Registered:                 true,
-		VoterRewardOnchainOptIn:    true,
 		Entries: []VoterWeight{
 			{Voter: identityset.Address(1), Weight: big.NewInt(1_000_000)},
 			{Voter: identityset.Address(2), Weight: big.NewInt(2_500_000)},
@@ -68,7 +67,6 @@ func TestCandidatePollSnapshot_SerializeRoundtrip(t *testing.T) {
 	r.Equal(orig.BlockCommissionBasisPoints, out.BlockCommissionBasisPoints)
 	r.Equal(orig.EpochCommissionBasisPoints, out.EpochCommissionBasisPoints)
 	r.Equal(orig.Registered, out.Registered)
-	r.Equal(orig.VoterRewardOnchainOptIn, out.VoterRewardOnchainOptIn)
 	r.Len(out.Entries, 2)
 	r.Equal(orig.Entries[0].Voter.String(), out.Entries[0].Voter.String())
 	r.Zero(orig.Entries[0].Weight.Cmp(out.Entries[0].Weight))
@@ -96,13 +94,12 @@ func TestCandidatePollSnapshot_SerializeEmptyEntries(t *testing.T) {
 	r.NoError(err)
 	r.Len(out.Entries, 0)
 	r.True(out.Registered)
-	r.False(out.VoterRewardOnchainOptIn)
 }
 
 func TestCandidatePollSnapshot_ZeroValueSerializes(t *testing.T) {
 	// A zero-value CandidatePollSnapshot must round-trip cleanly — this is
 	// what a delegate looks like when the DelegateProfile bridge is
-	// disabled AND the delegate hasn't opted in.
+	// disabled.
 	r := require.New(t)
 	orig := &CandidatePollSnapshot{}
 	blob := orig.toBlob()
@@ -114,7 +111,6 @@ func TestCandidatePollSnapshot_ZeroValueSerializes(t *testing.T) {
 	r.Zero(pb.GetBlockCommissionBasisPoints())
 	r.Zero(pb.GetEpochCommissionBasisPoints())
 	r.False(pb.GetRegistered())
-	r.False(pb.GetVoterRewardOnchainOptIn())
 	r.Empty(pb.GetEntries())
 }
 
@@ -130,98 +126,69 @@ func TestCandidatePollSnapshotKey_Layout(t *testing.T) {
 	r.Equal(candID.Bytes(), key[1:])
 }
 
-func TestReadLiveOptIn(t *testing.T) {
+func TestCandidateOwner(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	csm := newCandidateStateManager(sm)
 
-	optInCand := &Candidate{
-		Owner:                   identityset.Address(1),
-		Operator:                identityset.Address(2),
-		Reward:                  identityset.Address(3),
-		Name:                    "optIn",
-		Votes:                   big.NewInt(1),
-		SelfStake:               big.NewInt(1),
-		VoterRewardOnchainOptIn: true,
+	cand := &Candidate{
+		Owner: identityset.Address(1), Operator: identityset.Address(2), Reward: identityset.Address(3),
+		Name: "delegate", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
 	}
-	optOutCand := &Candidate{
-		Owner:                   identityset.Address(4),
-		Operator:                identityset.Address(5),
-		Reward:                  identityset.Address(6),
-		Name:                    "optOut",
-		Votes:                   big.NewInt(1),
-		SelfStake:               big.NewInt(1),
-		VoterRewardOnchainOptIn: false,
-	}
-	r.NoError(csm.putCandidate(optInCand))
-	r.NoError(csm.putCandidate(optOutCand))
-
-	got, err := readLiveOptIn(sm, optInCand.GetIdentifier())
+	r.NoError(csm.putCandidate(cand))
+	got, err := CandidateOwner(sm, cand.GetIdentifier())
 	r.NoError(err)
-	r.True(got)
-
-	got, err = readLiveOptIn(sm, optOutCand.GetIdentifier())
-	r.NoError(err)
-	r.False(got)
-
-	// Missing candidate degrades to (false, nil) rather than erroring, so a
-	// stale poll entry doesn't wedge the block.
-	got, err = readLiveOptIn(sm, identityset.Address(9))
-	r.NoError(err)
-	r.False(got)
+	r.True(address.Equal(cand.Owner, got))
+	_, err = CandidateOwner(sm, identityset.Address(9))
+	r.ErrorIs(err, state.ErrStateNotExist)
 }
 
 func TestFreezePollSnapshot_NilBridge(t *testing.T) {
 	// Bridge nil path: the snapshot writer still runs (post-fork, no
-	// contract configured), captures opt-in only, and records
-	// Registered=false so rewarding falls back to legacy.
+	// contract configured), records Registered=false and zero commission.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	csm := newCandidateStateManager(sm)
 
-	optInCand := &Candidate{
-		Owner:                   identityset.Address(1),
-		Operator:                identityset.Address(2),
-		Reward:                  identityset.Address(3),
-		Name:                    "opt-in-delegate",
-		Votes:                   big.NewInt(1),
-		SelfStake:               big.NewInt(1),
-		VoterRewardOnchainOptIn: true,
+	firstCand := &Candidate{
+		Owner:     identityset.Address(1),
+		Operator:  identityset.Address(2),
+		Reward:    identityset.Address(3),
+		Name:      "first-delegate",
+		Votes:     big.NewInt(1),
+		SelfStake: big.NewInt(1),
 	}
-	optOutCand := &Candidate{
-		Owner:                   identityset.Address(4),
-		Operator:                identityset.Address(5),
-		Reward:                  identityset.Address(6),
-		Name:                    "opt-out-delegate",
-		Votes:                   big.NewInt(1),
-		SelfStake:               big.NewInt(1),
-		VoterRewardOnchainOptIn: false,
+	secondCand := &Candidate{
+		Owner:     identityset.Address(4),
+		Operator:  identityset.Address(5),
+		Reward:    identityset.Address(6),
+		Name:      "second-delegate",
+		Votes:     big.NewInt(1),
+		SelfStake: big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(optInCand))
-	r.NoError(csm.putCandidate(optOutCand))
+	r.NoError(csm.putCandidate(firstCand))
+	r.NoError(csm.putCandidate(secondCand))
 
 	candidates := state.CandidateList{
-		&state.Candidate{Address: optInCand.Owner.String(), Votes: big.NewInt(1), RewardAddress: optInCand.Reward.String()},
-		&state.Candidate{Address: optOutCand.Owner.String(), Votes: big.NewInt(1), RewardAddress: optOutCand.Reward.String()},
+		&state.Candidate{Address: firstCand.Owner.String(), Votes: big.NewInt(1), RewardAddress: firstCand.Reward.String()},
+		&state.Candidate{Address: secondCand.Owner.String(), Votes: big.NewInt(1), RewardAddress: secondCand.Reward.String()},
 	}
 	r.NoError(FreezePollSnapshot(context.Background(), sm, candidates, nil, nil))
 
-	snap, err := PollSnapshotFor(sm, optInCand.Owner)
+	snap, err := PollSnapshotFor(sm, firstCand.Owner)
 	r.NoError(err)
 	r.False(snap.Registered)
 	r.Zero(snap.BlockCommissionBasisPoints)
 	r.Zero(snap.EpochCommissionBasisPoints)
-	r.True(snap.VoterRewardOnchainOptIn)
 	// Entries population is verified by TestFreezePollSnapshot_Entries_* —
 	// this test intentionally runs without a view installed to exercise the
 	// no-view degrade path.
 
-	snap, err = PollSnapshotFor(sm, optOutCand.Owner)
+	snap, err = PollSnapshotFor(sm, secondCand.Owner)
 	r.NoError(err)
 	r.False(snap.Registered)
-	r.False(snap.VoterRewardOnchainOptIn)
 }
 
 func TestFreezePollSnapshot_HappyPath(t *testing.T) {
@@ -234,13 +201,12 @@ func TestFreezePollSnapshot_HappyPath(t *testing.T) {
 	csm := newCandidateStateManager(sm)
 
 	cand := &Candidate{
-		Owner:                   identityset.Address(1),
-		Operator:                identityset.Address(2),
-		Reward:                  identityset.Address(3),
-		Name:                    "registered-delegate",
-		Votes:                   big.NewInt(1),
-		SelfStake:               big.NewInt(1),
-		VoterRewardOnchainOptIn: true,
+		Owner:     identityset.Address(1),
+		Operator:  identityset.Address(2),
+		Reward:    identityset.Address(3),
+		Name:      "registered-delegate",
+		Votes:     big.NewInt(1),
+		SelfStake: big.NewInt(1),
 	}
 	r.NoError(csm.putCandidate(cand))
 
@@ -261,7 +227,6 @@ func TestFreezePollSnapshot_HappyPath(t *testing.T) {
 	r.True(snap.Registered)
 	r.Equal(uint64(1000), snap.BlockCommissionBasisPoints)
 	r.Equal(uint64(2000), snap.EpochCommissionBasisPoints)
-	r.True(snap.VoterRewardOnchainOptIn)
 	// Entries population is verified by TestFreezePollSnapshot_Entries_*.
 }
 
@@ -274,14 +239,13 @@ func TestFreezePollSnapshot_UsesCandidateIdentity(t *testing.T) {
 	identity := identityset.Address(9)
 	operator := identityset.Address(2)
 	cand := &Candidate{
-		Owner:                   identityset.Address(1),
-		Identifier:              identity,
-		Operator:                operator,
-		Reward:                  identityset.Address(3),
-		Name:                    "stable-identity",
-		Votes:                   big.NewInt(1),
-		SelfStake:               big.NewInt(1),
-		VoterRewardOnchainOptIn: true,
+		Owner:      identityset.Address(1),
+		Identifier: identity,
+		Operator:   operator,
+		Reward:     identityset.Address(3),
+		Name:       "stable-identity",
+		Votes:      big.NewInt(1),
+		SelfStake:  big.NewInt(1),
 	}
 	r.NoError(csm.putCandidate(cand))
 
@@ -302,7 +266,6 @@ func TestFreezePollSnapshot_UsesCandidateIdentity(t *testing.T) {
 	snapshot, err := PollSnapshotFor(sm, identity)
 	r.NoError(err)
 	r.True(snapshot.Registered)
-	r.True(snapshot.VoterRewardOnchainOptIn)
 	_, err = PollSnapshotFor(sm, operator)
 	r.ErrorIs(err, state.ErrStateNotExist)
 }
@@ -310,30 +273,27 @@ func TestFreezePollSnapshot_UsesCandidateIdentity(t *testing.T) {
 func TestFreezePollSnapshot_PartialProfile(t *testing.T) {
 	// One delegate registered on-chain, another absent from DelegateProfile.
 	// The unregistered one still gets a snapshot row (Registered=false),
-	// but opt-in flag is captured. This preserves the "either fully
-	// opted-in or fully legacy" invariant.
+	// and therefore uses the all-to-voters default.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	csm := newCandidateStateManager(sm)
 
 	registered := &Candidate{
-		Owner:                   identityset.Address(1),
-		Operator:                identityset.Address(2),
-		Reward:                  identityset.Address(3),
-		Name:                    "registered",
-		Votes:                   big.NewInt(1),
-		SelfStake:               big.NewInt(1),
-		VoterRewardOnchainOptIn: false, // opt-in flip lags by 1 epoch
+		Owner:     identityset.Address(1),
+		Operator:  identityset.Address(2),
+		Reward:    identityset.Address(3),
+		Name:      "registered",
+		Votes:     big.NewInt(1),
+		SelfStake: big.NewInt(1),
 	}
 	unregistered := &Candidate{
-		Owner:                   identityset.Address(4),
-		Operator:                identityset.Address(5),
-		Reward:                  identityset.Address(6),
-		Name:                    "unregistered",
-		Votes:                   big.NewInt(1),
-		SelfStake:               big.NewInt(1),
-		VoterRewardOnchainOptIn: true,
+		Owner:     identityset.Address(4),
+		Operator:  identityset.Address(5),
+		Reward:    identityset.Address(6),
+		Name:      "unregistered",
+		Votes:     big.NewInt(1),
+		SelfStake: big.NewInt(1),
 	}
 	r.NoError(csm.putCandidate(registered))
 	r.NoError(csm.putCandidate(unregistered))
@@ -357,35 +317,31 @@ func TestFreezePollSnapshot_PartialProfile(t *testing.T) {
 	r.True(snap.Registered)
 	r.Equal(uint64(9500), snap.BlockCommissionBasisPoints)
 	r.Equal(uint64(9250), snap.EpochCommissionBasisPoints)
-	r.False(snap.VoterRewardOnchainOptIn)
 
 	snap, err = PollSnapshotFor(sm, unregistered.Owner)
 	r.NoError(err)
 	r.False(snap.Registered)
 	r.Zero(snap.BlockCommissionBasisPoints)
 	r.Zero(snap.EpochCommissionBasisPoints)
-	r.True(snap.VoterRewardOnchainOptIn)
 }
 
 func TestFreezePollSnapshot_BridgeErrorDegradesToLegacy(t *testing.T) {
 	// A per-delegate bridge failure must NOT abort the block. Any single
 	// delegate's read error deterministically halts the chain at every epoch
 	// boundary — worse than the reward-misroute it would prevent. The
-	// snapshot is still written with Registered=false, opt-in captured from
-	// live Candidate; rewarding falls back to legacy for that delegate.
+	// snapshot is still written with Registered=false and zero commission.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	csm := newCandidateStateManager(sm)
 
 	cand := &Candidate{
-		Owner:                   identityset.Address(1),
-		Operator:                identityset.Address(2),
-		Reward:                  identityset.Address(3),
-		Name:                    "delegate",
-		Votes:                   big.NewInt(1),
-		SelfStake:               big.NewInt(1),
-		VoterRewardOnchainOptIn: true,
+		Owner:     identityset.Address(1),
+		Operator:  identityset.Address(2),
+		Reward:    identityset.Address(3),
+		Name:      "delegate",
+		Votes:     big.NewInt(1),
+		SelfStake: big.NewInt(1),
 	}
 	r.NoError(csm.putCandidate(cand))
 
@@ -405,7 +361,6 @@ func TestFreezePollSnapshot_BridgeErrorDegradesToLegacy(t *testing.T) {
 	r.False(snap.Registered)
 	r.Zero(snap.BlockCommissionBasisPoints)
 	r.Zero(snap.EpochCommissionBasisPoints)
-	r.True(snap.VoterRewardOnchainOptIn, "opt-in flag still captured from live Candidate")
 }
 
 func TestFreezePollSnapshot_InvalidCandidateAddress(t *testing.T) {
@@ -480,13 +435,12 @@ func TestFreezePollSnapshot_IterationOrderIsCallerOrder(t *testing.T) {
 	var cands []*Candidate
 	for i := 1; i <= 3; i++ {
 		c := &Candidate{
-			Owner:                   identityset.Address(i),
-			Operator:                identityset.Address(i + 10),
-			Reward:                  identityset.Address(i + 20),
-			Name:                    "d",
-			Votes:                   big.NewInt(1),
-			SelfStake:               big.NewInt(1),
-			VoterRewardOnchainOptIn: i%2 == 0,
+			Owner:     identityset.Address(i),
+			Operator:  identityset.Address(i + 10),
+			Reward:    identityset.Address(i + 20),
+			Name:      "d",
+			Votes:     big.NewInt(1),
+			SelfStake: big.NewInt(1),
 		}
 		r.NoError(csm.putCandidate(c))
 		cands = append(cands, c)
@@ -510,7 +464,6 @@ func TestFreezePollSnapshot_IterationOrderIsCallerOrder(t *testing.T) {
 		r.True(snap.Registered)
 		r.Equal(uint64(6000), snap.BlockCommissionBasisPoints)
 		r.Equal(uint64(5000), snap.EpochCommissionBasisPoints)
-		r.Equal(c.VoterRewardOnchainOptIn, snap.VoterRewardOnchainOptIn)
 	}
 }
 

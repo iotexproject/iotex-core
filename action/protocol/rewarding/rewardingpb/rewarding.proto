@@ -71,8 +71,8 @@ message RewardLogs {
 }
 
 // PendingBlockRewardPool holds a delegate's accumulated block-reward
-// balance for IIP-59 §3.2. Written at block time when an opted-in
-// producer earns a block reward; drained at epoch close through the
+// balance for IIP-59 §3.2. Written at block time when a producer earns the
+// voter portion of a block reward; drained at epoch close through the
 // batched voter split. One entry per delegate under the pending
 // pool key prefix.
 message PendingBlockRewardPool {
@@ -93,6 +93,12 @@ message EpochDrainDelegateWork {
     // continuation give the final weighted voter the exact remainder without
     // rescanning every preceding voter on each block.
     bytes voter_amount_distributed = 5;
+    // Total voter weight is frozen once when Phase A creates the cursor.
+    // Continuation chunks use this value directly instead of recomputing it.
+    bytes total_weight = 6;
+    bytes snapshot_hash = 7;
+    uint32 last_weighted_index = 8;
+    bool has_weighted_entries = 9;
 }
 
 // EpochDrainCursor checkpoints a multi-block IIP-59 era-boundary drain

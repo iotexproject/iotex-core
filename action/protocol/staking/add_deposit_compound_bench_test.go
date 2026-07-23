@@ -27,7 +27,7 @@ import (
 )
 
 // BenchmarkAddDepositForCompound measures per-voter cost of the write path
-// invoked once per opted-in voter during the epoch drain. Together with the
+// invoked once per compounding voter during the epoch drain. Together with the
 // slot-lookup path (SlotBucketReader.LookupBucket ≈ 2.5μs/voter, benched in
 // protocol_iip59_bench_test.go), this determines the total drain cost at
 // mainnet scale (~27k distinct voters — see docs/iip-59-perf-report.md).

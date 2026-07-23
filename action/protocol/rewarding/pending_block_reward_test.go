@@ -14,6 +14,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
@@ -264,6 +265,30 @@ func TestDrainOrphans_RefundsWhenCandidateGone(t *testing.T) {
 	r.NoError(err)
 	r.Equal(int64(10_000), f.totalBalance.Int64())
 	r.Equal(int64(2_250), f.unclaimedBalance.Int64())
+}
+
+func TestDrainOrphans_UsesOwnerInsteadOfLegacyRewardAddress(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+	candID := identityset.Address(20)
+	owner := identityset.Address(21)
+	legacyReward := identityset.Address(22)
+
+	r.NoError(p.putState(ctx, sm, _fundKey, &fund{
+		totalBalance: big.NewInt(1_000), unclaimedBalance: big.NewInt(750),
+	}))
+	r.NoError(staking.TestOnlyPutCandidateOwner(sm, candID, owner, legacyReward))
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID.Bytes(), big.NewInt(250)))
+
+	logs, err := p.drainPendingBlockRewardOrphans(ctx, sm, nil, 100, hash.ZeroHash256)
+	r.NoError(err)
+	r.Len(logs, 1)
+	ownerBalance, _, err := p.UnclaimedBalance(ctx, sm, owner)
+	r.NoError(err)
+	r.Zero(ownerBalance.Cmp(big.NewInt(250)))
+	legacyBalance, _, err := p.UnclaimedBalance(ctx, sm, legacyReward)
+	r.NoError(err)
+	r.Zero(legacyBalance.Sign())
 }
 
 // TestDrainOrphans_SkipsVisited — pool entries whose ID string is in the

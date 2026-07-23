@@ -72,10 +72,8 @@ func (f ContractReaderFunc) Read(ctx context.Context, contract string, callData 
 // CommissionRates carries the per-delegate result of a single bridge lookup.
 //
 // Registered flags whether the DelegateProfile contract has both portion
-// fields set for this delegate. If false, both rates are zero and the caller
-// MUST fall back to the legacy reward path (full amount to RewardAddress)
-// rather than treating the delegate as "100% commission" — that misreading
-// would strand every voter of an unregistered delegate.
+// fields set for this delegate. If false, both commission rates default to
+// zero, so the post-fork rewarding path sends the full amount to voters.
 type CommissionRates struct {
 	// BlockCommissionBasisPoints is the delegate's take of the block-reward
 	// stream, in basis points [0, 10000]. Derived as 10000 - voterTake_bp,
@@ -89,8 +87,7 @@ type CommissionRates struct {
 
 	// Registered is true iff both portion fields returned non-empty bytes.
 	// A partial profile (one field set, the other empty) is treated as
-	// Registered=false to keep the "either fully opted-in or fully legacy"
-	// invariant the IIP relies on for the Hermes-vs-native split.
+	// Registered=false and therefore uses the all-to-voters default.
 	Registered bool
 }
 
@@ -132,7 +129,7 @@ func (b *Bridge) Contract() string { return b.contract }
 //
 // A per-delegate read error (RPC failure, ABI mismatch, out-of-range value)
 // degrades that delegate to `Registered=false` with zero rates — downstream
-// rewarding then routes it via the legacy Hermes path. The error is logged
+// rewarding then uses the all-to-voters default. The error is logged
 // but not returned. Rationale: PutPollResult runs at every epoch boundary
 // on every validator, and returning an error would deterministically halt
 // the chain if a single delegate's on-chain profile becomes malformed.
@@ -158,7 +155,7 @@ func (b *Bridge) Snapshot(
 		rates, err := b.readOne(ctx, reader, d)
 		if err != nil {
 			log.L().Warn(
-				"delegateprofile: read failed, degrading delegate to legacy reward path",
+				"delegateprofile: read failed, using default voter reward split",
 				zap.String("delegate", d.String()),
 				zap.String("contract", b.contract),
 				zap.Error(err),

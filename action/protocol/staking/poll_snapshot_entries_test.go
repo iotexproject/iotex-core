@@ -38,13 +38,12 @@ func TestFreezePollSnapshot_Entries_NativeVoters(t *testing.T) {
 	csm := newCandidateStateManager(sm)
 
 	cand := &Candidate{
-		Owner:                   identityset.Address(1),
-		Operator:                identityset.Address(1),
-		Reward:                  identityset.Address(1),
-		Name:                    "delegate-a",
-		Votes:                   big.NewInt(1),
-		SelfStake:               big.NewInt(1),
-		VoterRewardOnchainOptIn: true,
+		Owner:     identityset.Address(1),
+		Operator:  identityset.Address(1),
+		Reward:    identityset.Address(1),
+		Name:      "delegate-a",
+		Votes:     big.NewInt(1),
+		SelfStake: big.NewInt(1),
 	}
 	r.NoError(csm.putCandidate(cand))
 
@@ -165,7 +164,7 @@ func TestFreezePollSnapshot_Entries_CandidateWithNoVoters(t *testing.T) {
 func TestFreezePollSnapshot_Entries_ViewMissingDegrades(t *testing.T) {
 	// No viewData installed at all: voterWeightsFromSM returns nil, the
 	// freezer degrades gracefully to empty Entries, and the block still
-	// gets snapshots (Registered=false, opt-in captured). Regression
+	// gets snapshots with Registered=false. Regression
 	// guard for tests that pre-date Protocol.Start.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -175,7 +174,6 @@ func TestFreezePollSnapshot_Entries_ViewMissingDegrades(t *testing.T) {
 	cand := &Candidate{
 		Owner: identityset.Address(1), Operator: identityset.Address(1), Reward: identityset.Address(1),
 		Name: "pre-fork", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
-		VoterRewardOnchainOptIn: true,
 	}
 	r.NoError(csm.putCandidate(cand))
 
@@ -187,7 +185,6 @@ func TestFreezePollSnapshot_Entries_ViewMissingDegrades(t *testing.T) {
 	snap, err := PollSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
 	r.Empty(snap.Entries)
-	r.True(snap.VoterRewardOnchainOptIn, "opt-in still captured even without view")
 }
 
 func TestFreezePollSnapshot_Entries_DeterministicOrder(t *testing.T) {

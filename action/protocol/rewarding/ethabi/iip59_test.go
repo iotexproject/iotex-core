@@ -26,7 +26,6 @@ func TestIIP59AddressMethodDispatch(t *testing.T) {
 	}{
 		{"pendingBlockRewardPool", &_pendingBlockRewardPoolMethod, "PendingBlockRewardPool"},
 		{"voterRewardSnapshot", &_voterRewardSnapshotMethod, "VoterRewardSnapshot"},
-		{"voterRewardOptIn", &_voterRewardOptInMethod, "VoterRewardOptIn"},
 	}
 	for _, test := range methods {
 		calldata, err := test.method.Inputs.Pack(candidate)
@@ -89,6 +88,7 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 			VoterAmountDistributed: big.NewInt(400).Bytes(),
 			RewardAddress:          identityset.Address(4).Bytes(),
 			EpochCommission:        big.NewInt(200).Bytes(),
+			TotalWeight:            big.NewInt(300).Bytes(),
 		}},
 	})
 	r.NoError(err)
@@ -103,13 +103,13 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	r.Equal(uint32(25), values[2])
 	r.Zero(values[4].([]*big.Int)[0].Cmp(big.NewInt(1000)))
 	r.Zero(values[5].([]*big.Int)[0].Cmp(big.NewInt(400)))
+	r.Zero(values[8].([]*big.Int)[0].Cmp(big.NewInt(300)))
 
 	snapshotHash := common.HexToHash("0x1234")
 	snapshotData, err := proto.Marshal(&stakingpb.CandidatePollSnapshot{
 		BlockCommissionBasisPoints: 1000,
 		EpochCommissionBasisPoints: 2000,
 		Registered:                 true,
-		VoterRewardOnchainOptIn:    true,
 		TotalWeight:                big.NewInt(300).Bytes(),
 		SnapshotHash:               snapshotHash.Bytes(),
 		Entries: []*stakingpb.VoterWeightEntry{
@@ -129,22 +129,8 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	r.Equal(uint64(1000), values[0])
 	r.Equal(uint64(2000), values[1])
 	r.Equal(true, values[2])
-	r.Equal(true, values[3])
-	r.Zero(values[4].(*big.Int).Cmp(big.NewInt(300)))
-	r.Equal([32]byte(snapshotHash), values[5])
-	r.Len(values[6].([]common.Address), 2)
-	r.Len(values[7].([]*big.Int), 2)
-}
-
-func TestIIP59OptInEncoding(t *testing.T) {
-	r := require.New(t)
-	ctx, err := newVoterRewardOptInStateContext(
-		mustPackInput(t, _voterRewardOptInMethod, common.BytesToAddress(identityset.Address(1).Bytes())),
-	)
-	r.NoError(err)
-	encoded, err := ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: []byte("true")})
-	r.NoError(err)
-	values, err := _voterRewardOptInMethod.Outputs.Unpack(mustDecodeHex(t, encoded))
-	r.NoError(err)
-	r.Equal(true, values[0])
+	r.Zero(values[3].(*big.Int).Cmp(big.NewInt(300)))
+	r.Equal([32]byte(snapshotHash), values[4])
+	r.Len(values[5].([]common.Address), 2)
+	r.Len(values[6].([]*big.Int), 2)
 }

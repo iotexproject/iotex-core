@@ -236,8 +236,7 @@ func setCandidates(
 var TestOnlyDelegateProfileReaderFactory func(protocol.StateManager) delegateprofile.ContractReader
 
 // freezeIIP59PollSnapshot writes the per-candidate poll snapshot introduced
-// by IIP-59, capturing commission rates from the DelegateProfile contract
-// and the delegate's opt-in flag from the live staking.Candidate.
+// by IIP-59, capturing commission rates from the DelegateProfile contract.
 //
 // Pre-fork (NoVoterRewardDistribution=true): no-op.
 // Non-era-boundary epoch (post-fork): no-op. Reward distribution now runs
@@ -245,9 +244,9 @@ var TestOnlyDelegateProfileReaderFactory func(protocol.StateManager) delegatepro
 // PutPollResult would waste state writes and prevent within-era stake
 // activity from participating in the era's reward math.
 // Post-fork, era boundary, no contract configured: bridge nil, snapshot
-// carries opt-in only; rewarding falls back to legacy path via Registered=false.
+// carries zero commission rates, so all rewards go to voters.
 // Post-fork, era boundary, contract configured: bridge called; snapshot
-// carries frozen rates + registration bit + opt-in flag.
+// carries frozen rates + registration bit.
 func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, candidates state.CandidateList, epochNum uint64) error {
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	if fCtx.NoVoterRewardDistribution {

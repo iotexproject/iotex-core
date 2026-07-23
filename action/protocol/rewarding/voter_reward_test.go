@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
@@ -104,44 +105,34 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 		ctx, sm, p, cand, _ := newVoterRewardCtx(t, true)
 		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
 		r.NoError(err)
-		r.Equal(0, c.Cmp(amount))
-		r.Equal(0, v.Sign())
+		r.Zero(c.Sign())
+		r.Zero(v.Cmp(amount))
 	})
 
-	t.Run("opted out fallback", func(t *testing.T) {
+	t.Run("unregistered defaults to all voters", func(t *testing.T) {
 		r := require.New(t)
 		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
-		writeSnapshot(t, sm, candAddr, false /* optIn */, true /* registered */, 2000, []voterEntry{{identityset.Address(3), big.NewInt(100)}})
+		writeSnapshot(t, sm, candAddr, false, 0, []voterEntry{{identityset.Address(3), big.NewInt(100)}})
 		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
 		r.NoError(err)
-		r.Equal(0, c.Cmp(amount))
-		r.Equal(0, v.Sign())
-	})
-
-	t.Run("unregistered fallback", func(t *testing.T) {
-		r := require.New(t)
-		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
-		writeSnapshot(t, sm, candAddr, true, false, 2000, []voterEntry{{identityset.Address(3), big.NewInt(100)}})
-		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
-		r.NoError(err)
-		r.Equal(0, c.Cmp(amount))
-		r.Equal(0, v.Sign())
+		r.Zero(c.Sign())
+		r.Zero(v.Cmp(amount))
 	})
 
 	t.Run("empty voters fallback", func(t *testing.T) {
 		r := require.New(t)
 		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
-		writeSnapshot(t, sm, candAddr, true, true, 2000, nil)
+		writeSnapshot(t, sm, candAddr, true, 2000, nil)
 		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
 		r.NoError(err)
-		r.Equal(0, c.Cmp(amount))
-		r.Equal(0, v.Sign())
+		r.Zero(c.Cmp(big.NewInt(200)))
+		r.Zero(v.Cmp(big.NewInt(800)))
 	})
 
 	t.Run("happy path 20 percent commission", func(t *testing.T) {
 		r := require.New(t)
 		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
-		writeSnapshot(t, sm, candAddr, true, true, 2000, []voterEntry{{identityset.Address(3), big.NewInt(100)}})
+		writeSnapshot(t, sm, candAddr, true, 2000, []voterEntry{{identityset.Address(3), big.NewInt(100)}})
 		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
 		r.NoError(err)
 		r.Equal(0, c.Cmp(big.NewInt(200)))
@@ -152,16 +143,18 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 func TestDistributeVoterOnlyRejectsInvalidDistributedAmount(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
-	writeSnapshot(t, sm, candAddr, true, true, 2000, []voterEntry{
+	writeSnapshot(t, sm, candAddr, true, 2000, []voterEntry{
 		{identityset.Address(3), big.NewInt(100)},
 	})
 	rewardAddr, err := address.FromString(cand.RewardAddress)
 	r.NoError(err)
+	totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := distributionMetadata(t, sm, candAddr)
 
 	for _, distributed := range []*big.Int{big.NewInt(-1), big.NewInt(101)} {
-		_, _, _, _, _, _, err := p.distributeVoterOnly(
+		_, _, _, _, _, _, _, err := p.distributeVoterOnly(
 			ctx, sm, cand, rewardAddr,
-			big.NewInt(100), big.NewInt(10), distributed,
+			big.NewInt(100), totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries,
+			big.NewInt(10), distributed,
 			0, 1, 100, hash.ZeroHash256,
 		)
 		r.Error(err)
@@ -177,7 +170,6 @@ func writeSnapshot(
 	t *testing.T,
 	sm protocol.StateManager,
 	candAddr address.Address,
-	optIn bool,
 	registered bool,
 	epochBps uint64,
 	voters []voterEntry,
@@ -188,13 +180,23 @@ func writeSnapshot(
 		entries[i] = staking.VoterWeight{Voter: v.addr, Weight: v.weight}
 	}
 	snap := &staking.CandidatePollSnapshot{
-		VoterRewardOnchainOptIn:    optIn,
 		Registered:                 registered,
 		BlockCommissionBasisPoints: epochBps,
 		EpochCommissionBasisPoints: epochBps,
 		Entries:                    entries,
 	}
 	require.NoError(t, staking.TestOnlyPutPollSnapshotFor(sm, candAddr, snap))
+}
+
+func distributionMetadata(
+	t *testing.T,
+	sm protocol.StateReader,
+	candAddr address.Address,
+) (*big.Int, hash.Hash256, uint32, bool) {
+	t.Helper()
+	snapshot, err := staking.PollSnapshotFor(sm, candAddr)
+	require.NoError(t, err)
+	return snapshot.TotalWeight, snapshot.SnapshotHash, snapshot.LastWeightedIndex, snapshot.HasWeightedEntries
 }
 
 // newVoterRewardCtx wires the minimum context splitDelegateEpochReward reads:
@@ -291,16 +293,16 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 		}
 	}
 
-	// dumpBalances reads each voter's unclaimed balance so the caller can
+	// dumpBalances reads each voter's primary account balance so the caller can
 	// compare per-voter payouts across two independent fixtures.
 	dumpBalances := func(t *testing.T, ctx context.Context, sm protocol.StateReader, p *Protocol) []*big.Int {
 		t.Helper()
 		r := require.New(t)
 		out := make([]*big.Int, numVoters)
 		for i, v := range voters {
-			bal, _, err := p.UnclaimedBalance(ctx, sm, v.addr)
+			account, err := accountutil.LoadAccount(sm, v.addr)
 			r.NoError(err, "read voter %d balance", i)
-			out[i] = bal
+			out[i] = account.Balance
 		}
 		return out
 	}
@@ -311,13 +313,15 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 	func() {
 		r := require.New(t)
 		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true /* iip59On */)
-		writeSnapshot(t, sm, candAddr, true /* optIn */, true /* registered */, epochBps, voters)
+		writeSnapshot(t, sm, candAddr, true /* registered */, epochBps, voters)
 		rewardAddr, err := address.FromString(cand.RewardAddress)
 		r.NoError(err)
 
-		logs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
+		totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := distributionMetadata(t, sm, candAddr)
+		logs, txLogs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
 			ctx, sm, cand, rewardAddr,
-			voterAmount, epochCommission,
+			voterAmount, totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries,
+			epochCommission,
 			nil,                   /* distributedBefore */
 			0 /* startVoter */, 0, /* voterBudget=unbounded */
 			100 /* blkHeight */, hash.ZeroHash256,
@@ -325,6 +329,7 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 		r.NoError(err)
 		r.True(routed, "reference: distributeVoterOnly must route the frozen amount")
 		r.Len(logs, 1, "reference: exactly one DelegateDistributed log")
+		r.Len(txLogs, numVoters, "reference: one direct payout log per voter")
 		r.Equal(uint32(numVoters), consumed,
 			"reference: unbounded call must consume all voters")
 		r.Equal(uint32(numVoters), total,
@@ -344,7 +349,7 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 	func() {
 		r := require.New(t)
 		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true /* iip59On */)
-		writeSnapshot(t, sm, candAddr, true /* optIn */, true /* registered */, epochBps, voters)
+		writeSnapshot(t, sm, candAddr, true /* registered */, epochBps, voters)
 		rewardAddr, err := address.FromString(cand.RewardAddress)
 		r.NoError(err)
 
@@ -355,10 +360,12 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 			{7, 7, 7},
 			{14, 7, 6},
 		}
+		totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := distributionMetadata(t, sm, candAddr)
 		for chunkIdx, w := range windows {
-			logs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
+			logs, txLogs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
 				ctx, sm, cand, rewardAddr,
-				voterAmount, epochCommission,
+				voterAmount, totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries,
+				epochCommission,
 				new(big.Int).Set(chunkedPaid),
 				w.start, w.budget,
 				100 /* blkHeight */, hash.ZeroHash256,
@@ -366,6 +373,7 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 			r.NoError(err, "chunk %d", chunkIdx)
 			r.True(routed, "chunk %d: distributeVoterOnly must route", chunkIdx)
 			r.Len(logs, 1, "chunk %d: one log per chunk", chunkIdx)
+			r.Len(txLogs, int(w.want), "chunk %d: one direct payout log per voter", chunkIdx)
 			r.Equal(w.want, consumed,
 				"chunk %d: consumed must match window size", chunkIdx)
 			r.Equal(uint32(numVoters), total,
@@ -384,7 +392,7 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 	r.Equal(len(refBalances), len(chunkedBalances))
 	for i := range refBalances {
 		r.Equal(0, refBalances[i].Cmp(chunkedBalances[i]),
-			"voter %d unclaimed balance mismatch (ref=%s chunked=%s) — allocation is not deterministic across windows",
+			"voter %d primary balance mismatch (ref=%s chunked=%s) — allocation is not deterministic across windows",
 			i, refBalances[i].String(), chunkedBalances[i].String())
 	}
 }

@@ -12,12 +12,14 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
@@ -45,6 +47,57 @@ func enableIIP59(t *testing.T, ctx context.Context) context.Context {
 	return ctx
 }
 
+func TestGrantVoterRewardChunk_DirectPayoutNeedsNoClaim(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
+	voter := identityset.Address(8)
+
+	r.NoError(p.putState(ctx, sm, _fundKey, &fund{
+		totalBalance: big.NewInt(500), unclaimedBalance: big.NewInt(500),
+	}))
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candAddr.Bytes(), big.NewInt(100)))
+	r.NoError(p.updateAvailableBalance(ctx, sm, big.NewInt(100)))
+	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
+		Entries: []staking.VoterWeight{{Voter: voter, Weight: big.NewInt(1)}},
+	}))
+	totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := distributionMetadata(t, sm, candAddr)
+	rewardAddr, err := address.FromString(cand.RewardAddress)
+	r.NoError(err)
+	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
+		TargetEra: 1,
+		Delegates: []epochDrainDelegateWork{{
+			CandidateIdentifier: candAddr.Bytes(),
+			VoterAmountFrozen:   big.NewInt(100),
+			RewardAddress:       rewardAddr.Bytes(),
+			TotalWeight:         totalWeight,
+			SnapshotHash:        snapshotHash[:],
+			LastWeightedIndex:   lastWeightedIndex,
+			HasWeightedEntries:  hasWeightedEntries,
+		}},
+	}))
+
+	txLogs, _, err := p.GrantVoterRewardChunk(ctx, sm)
+	r.NoError(err)
+	r.Len(txLogs, 1)
+	r.Equal(iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND, txLogs[0].Type)
+	r.Equal(address.RewardingPoolAddr, txLogs[0].Sender)
+	r.Equal(voter.String(), txLogs[0].Recipient)
+	r.Zero(txLogs[0].Amount.Cmp(big.NewInt(100)))
+
+	account, err := accountutil.LoadAccount(sm, voter)
+	r.NoError(err)
+	r.Zero(account.Balance.Cmp(big.NewInt(100)))
+	unclaimed, _, err := p.UnclaimedBalance(ctx, sm, voter)
+	r.NoError(err)
+	r.Zero(unclaimed.Sign())
+	total, _, err := p.TotalBalance(ctx, sm)
+	r.NoError(err)
+	r.Zero(total.Cmp(big.NewInt(400)))
+	available, _, err := p.AvailableBalance(ctx, sm)
+	r.NoError(err)
+	r.Zero(available.Cmp(big.NewInt(400)))
+}
+
 // seedChunkCursor loads the same epoch-scoped rewarded-candidate list
 // GrantVoterRewardChunk will re-derive and builds a cursor with one
 // entry per candidate (frozen voter amount = 1 rau to exercise the
@@ -52,8 +105,8 @@ func enableIIP59(t *testing.T, ctx context.Context) context.Context {
 // startIdx and persists it. Returns the cursor for the test to assert
 // against.
 //
-// Post-C3, real cursor entries are compacted (opted-in delegates
-// only) and their frozen amount is the sum of pool accrual + epoch
+// Post-C3, real cursor entries are compacted to delegates with a non-zero
+// pool, and their frozen amount is the sum of pool accrual + epoch
 // voter share. These tests care about chunking flow control, not
 // distribution correctness, so the entry list is synthesised
 // directly rather than driven through a snapshot fixture.
@@ -107,6 +160,8 @@ func TestGrantVoterRewardChunk_UnroutableDelegatesFinish(t *testing.T) {
 		require.Greater(t, len(cursor.Delegates), 2,
 			"test precondition: need >2 delegates to exercise mid-drain chunk")
 		total := uint32(len(cursor.Delegates))
+		deferredID := cursor.Delegates[0].CandidateIdentifier
+		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, deferredID, big.NewInt(77)))
 
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
@@ -117,6 +172,9 @@ func TestGrantVoterRewardChunk_UnroutableDelegatesFinish(t *testing.T) {
 		r.NoError(err)
 		r.Nil(got)
 		r.Greater(int(total), 0)
+		deferred, err := p.readPendingBlockRewardPool(ctx, sm, deferredID)
+		r.NoError(err)
+		r.Zero(deferred.Cmp(big.NewInt(77)), "missing snapshot must remain pending for a later era")
 
 		// assertNoRewardYet returns nil when sentinel does NOT exist.
 		r.NoError(p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, 1),
@@ -302,6 +360,24 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		// invariant unambiguous to assert.
 		candID := identityset.Address(27).Bytes()
 		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(250)))
+		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(27), &staking.CandidatePollSnapshot{
+			BlockCommissionBasisPoints: _basisPointsDenom,
+			EpochCommissionBasisPoints: _basisPointsDenom,
+			Registered:                 true,
+			Entries: []staking.VoterWeight{{
+				Voter: identityset.Address(27), Weight: big.NewInt(1),
+			}},
+		}))
+		for _, idx := range []int{28, 29, 30} {
+			r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(idx), &staking.CandidatePollSnapshot{
+				BlockCommissionBasisPoints: _basisPointsDenom,
+				EpochCommissionBasisPoints: _basisPointsDenom,
+				Registered:                 true,
+				Entries: []staking.VoterWeight{{
+					Voter: identityset.Address(idx), Weight: big.NewInt(1),
+				}},
+			}))
+		}
 
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
@@ -339,9 +415,8 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		// while the era-N cursor is still live.
 		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(100)))
 
-		// Drive Phase B to completion. distributeVoterOnly returns early
-		// (no snapshot seeded), so the observable Phase B effect for this
-		// delegate is decrementPendingBlockRewardPool(frozen=250) exactly.
+		// Drive Phase B to completion. The frozen 250 is paid while the later
+		// 100 remains in the pending pool for the next era.
 		for {
 			got, cErr := p.readEpochDrainCursor(ctx, sm)
 			r.NoError(cErr)

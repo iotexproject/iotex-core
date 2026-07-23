@@ -145,16 +145,14 @@ func TestSnapshot_UnregisteredDelegate(t *testing.T) {
 	r.Len(out, 1)
 	rates := out[delegate.String()]
 	r.NotNil(rates)
-	r.False(rates.Registered, "unregistered delegate must fall back to legacy path")
+	r.False(rates.Registered, "unregistered delegate must use the all-to-voters default")
 	r.Zero(rates.BlockCommissionBasisPoints)
 	r.Zero(rates.EpochCommissionBasisPoints)
 }
 
 func TestSnapshot_PartialProfileIsUnregistered(t *testing.T) {
 	// A partial profile (one field set, other missing) is deliberately treated
-	// as unregistered — the IIP relies on the "either fully opted-in or fully
-	// legacy" invariant so that a delegate cannot end up with only one reward
-	// stream migrated mid-fork.
+	// as unregistered, so both reward streams use the all-to-voters default.
 	r := require.New(t)
 	b, err := New(mainnetContract)
 	r.NoError(err)
@@ -198,7 +196,7 @@ func TestSnapshot_ExplicitZeroVoterTakeIs100PercentCommission(t *testing.T) {
 func TestSnapshot_OutOfRangeDegradesToUnregistered(t *testing.T) {
 	// A malformed on-chain value must NOT halt the block. The bridge degrades
 	// the affected delegate to Registered=false; rewarding routes it via the
-	// legacy path. Same on-chain state ⇒ same fallback on every validator ⇒
+	// default split. Same on-chain state ⇒ same fallback on every validator ⇒
 	// no fork.
 	r := require.New(t)
 	b, err := New(mainnetContract)

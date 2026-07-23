@@ -111,46 +111,6 @@ func TestSerWithDeactivation(t *testing.T) {
 	r.True(original.Equal(deserialized))
 }
 
-func TestSerWithVoterRewardOnchainOptIn(t *testing.T) {
-	r := require.New(t)
-
-	base := &Candidate{
-		Owner:              identityset.Address(1),
-		Operator:           identityset.Address(2),
-		Reward:             identityset.Address(3),
-		Name:               "test_candidate",
-		Votes:              big.NewInt(100),
-		SelfStake:          big.NewInt(1000),
-		SelfStakeBucketIdx: 1,
-	}
-
-	// default false → round-trips as false; opted-in candidate compares unequal.
-	optedOut := base.Clone()
-	data, err := optedOut.Serialize()
-	r.NoError(err)
-	rt := &Candidate{}
-	r.NoError(rt.Deserialize(data))
-	r.False(rt.VoterRewardOnchainOptIn)
-	r.True(optedOut.Equal(rt))
-
-	optedIn := base.Clone()
-	optedIn.VoterRewardOnchainOptIn = true
-	data, err = optedIn.Serialize()
-	r.NoError(err)
-	rt = &Candidate{}
-	r.NoError(rt.Deserialize(data))
-	r.True(rt.VoterRewardOnchainOptIn)
-	r.True(optedIn.Equal(rt))
-
-	// Equal is sensitive to the flag.
-	r.False(optedOut.Equal(optedIn))
-	// Clone preserves the flag but decouples the copy.
-	cloneIn := optedIn.Clone()
-	r.True(cloneIn.VoterRewardOnchainOptIn)
-	cloneIn.VoterRewardOnchainOptIn = false
-	r.True(optedIn.VoterRewardOnchainOptIn)
-}
-
 func TestClone(t *testing.T) {
 	r := require.New(t)
 

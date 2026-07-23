@@ -133,14 +133,17 @@ func TestGrantBlockReward_UsesCandidateIdentityForPendingPool(t *testing.T) {
 		r.NotEmpty(candidates)
 		operator, err := address.FromString(candidates[0].Address)
 		r.NoError(err)
+		legacyReward, err := address.FromString(candidates[0].RewardAddress)
+		r.NoError(err)
 		stableID := identityset.Address(10)
+		owner := identityset.Address(12)
 		candidates[0].Identity = stableID.String()
+		r.NoError(staking.TestOnlyPutCandidateOwner(sm, stableID, owner, legacyReward))
 
 		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, stableID, &staking.CandidatePollSnapshot{
 			BlockCommissionBasisPoints: 2000,
 			EpochCommissionBasisPoints: 2000,
 			Registered:                 true,
-			VoterRewardOnchainOptIn:    true,
 			Entries: []staking.VoterWeight{{
 				Voter: identityset.Address(11), Weight: big.NewInt(1),
 			}},
@@ -156,6 +159,12 @@ func TestGrantBlockReward_UsesCandidateIdentityForPendingPool(t *testing.T) {
 		operatorPool, err := p.readPendingBlockRewardPool(ctx, sm, operator.Bytes())
 		r.NoError(err)
 		r.Zero(operatorPool.Sign())
+		ownerReward, _, err := p.UnclaimedBalance(ctx, sm, owner)
+		r.NoError(err)
+		r.Positive(ownerReward.Sign(), "post-fork commission must use candidate owner")
+		legacyRewardBalance, _, err := p.UnclaimedBalance(ctx, sm, legacyReward)
+		r.NoError(err)
+		r.Zero(legacyRewardBalance.Sign(), "legacy RewardAddress must be ignored post-fork")
 	}, nil, false, 0)
 }
 

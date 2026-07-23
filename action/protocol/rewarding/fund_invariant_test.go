@@ -41,13 +41,13 @@ func TestFundInvariant_HoldsAfterDeposit(t *testing.T) {
 	}, noUnproductives, false, 0)
 }
 
-func TestSettleCompoundOutflowDebitsFundAndEmitsTransfer(t *testing.T) {
+func TestSettleCompoundOutflowEmitsTransfer(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
 
-		log, err := p.settleCompoundOutflow(ctx, sm, big.NewInt(123))
+		log, err := p.settleCompoundOutflow(big.NewInt(123))
 		r.NoError(err)
 		r.Equal(iotextypes.TransactionLogType_DEPOSIT_TO_BUCKET, log.Type)
 		r.Equal(address.RewardingPoolAddr, log.Sender)
@@ -56,7 +56,7 @@ func TestSettleCompoundOutflowDebitsFundAndEmitsTransfer(t *testing.T) {
 
 		total, _, err := p.TotalBalance(ctx, sm)
 		r.NoError(err)
-		r.Equal("877", total.String())
+		r.Equal("1000", total.String())
 	}, noUnproductives, false, 0)
 }
 
@@ -87,13 +87,11 @@ func TestFundInvariant_HoldsAfterGrantEpochReward_PreFork(t *testing.T) {
 	}, noUnproductives, false, 0)
 }
 
-// TestFundInvariant_HoldsAfterGrantEpochReward_PostForkNoCursor walks the
+// TestFundInvariant_HoldsAfterGrantEpochReward_PostForkDeferredCursor walks the
 // post-fork Phase A path in the absence of any block-side voter accrual:
-// no poll snapshot is present, so splitDelegateEpochReward falls to
-// (amount, 0), no pool credit fires, cursor stays empty. Behaviour is
-// identical to the pre-fork path for accounting purposes; the invariant
-// must hold.
-func TestFundInvariant_HoldsAfterGrantEpochReward_PostForkNoCursor(t *testing.T) {
+// no poll snapshot is present, so the full epoch share enters pending pools
+// and a deferred cursor is created. The invariant must still hold.
+func TestFundInvariant_HoldsAfterGrantEpochReward_PostForkDeferredCursor(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
@@ -109,7 +107,7 @@ func TestFundInvariant_HoldsAfterGrantEpochReward_PostForkNoCursor(t *testing.T)
 
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.Nil(got, "no voter share → cursor must not be persisted")
+		r.NotNil(got, "post-fork voter shares must remain pending without a snapshot")
 
 		r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, allProtocolAddrs(t)))
 	}, noUnproductives, false, 0)

@@ -779,18 +779,6 @@ func TestEthTxDecodeVerifyV2(t *testing.T) {
 			builder: elpbuilder.BuildStakingAction,
 		},
 		{
-			name:     "SetVoterRewardOptIn",
-			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
-			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),
-			txamount: big.NewInt(0),
-			txdata: append(
-				setVoterRewardOptInMethod.ID,
-				MustNoErrorV(setVoterRewardOptInMethod.Inputs.Pack(addrto.Bytes(), true))...,
-			),
-			action:  NewSetVoterRewardOptIn(addrto.Bytes(), true),
-			builder: elpbuilder.BuildStakingAction,
-		},
-		{
 			name:     "CandidateEndorsementEndorse",
 			encoding: iotextypes.Encoding_ETHEREUM_EIP155,
 			txto:     MustNoErrorV(address.FromBytes(address.StakingProtocolAddrHash[:])).String(),

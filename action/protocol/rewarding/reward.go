@@ -160,6 +160,25 @@ func (p *Protocol) GrantBlockReward(
 			}
 		}
 	}
+	var (
+		producerCandAddr address.Address
+		err              error
+	)
+	if !fCtx.NoVoterRewardDistribution {
+		if producerCandidate == nil {
+			return nil, errors.Errorf("rewarding: producer candidate %s not found", producerAddrStr)
+		}
+		producerIdentity := candidateIdentifier(producerCandidate)
+		producerCandAddr, err = address.FromString(producerIdentity)
+		if err != nil {
+			return nil, errors.Wrapf(err, "rewarding: invalid producer candidate identity %q", producerIdentity)
+		}
+		rewardAddr, err := staking.CandidateOwner(sm, producerCandAddr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "rewarding: read owner for producer %s", producerIdentity)
+		}
+		rewardAddrStr = rewardAddr.String()
+	}
 	// If reward address doesn't exist, do nothing
 	if rewardAddrStr == "" {
 		log.S().Debugf("Producer %s doesn't have a reward address", producerAddrStr)
@@ -177,48 +196,37 @@ func (p *Protocol) GrantBlockReward(
 		return nil, err
 	}
 
-	// IIP-59 §3.2 opt-in check: when the fork is on and the producer's
-	// frozen poll snapshot has VoterRewardOnchainOptIn=true and a valid
-	// DelegateProfile registration, split the base block reward now
+	// After IIP-59 activates, every producer uses the on-chain voter reward
+	// path. A registered DelegateProfile supplies the commission rate; an
+	// unregistered profile defaults to zero commission (all reward to voters).
+	// Split the base block reward now
 	// using the snapshot's BlockCommissionBasisPoints — commission to
 	// the reward address immediately, voter portion into the per-delegate
 	// pending pool. The pool is drained at era boundary by the
 	// VoterRewardChunk system action. Priority tip is fee income and
 	// stays with the producer directly.
-	optInPool := false
-	var producerCandAddr address.Address
+	onchainPool := !fCtx.NoVoterRewardDistribution
 	var blockCommissionBPs uint64
-	if !fCtx.NoVoterRewardDistribution {
-		if producerCandidate == nil {
-			return nil, errors.Errorf("rewarding: producer candidate %s not found", producerAddrStr)
-		}
-		producerIdentity := candidateIdentifier(producerCandidate)
-		producerCandAddr, err = address.FromString(producerIdentity)
-		if err != nil {
-			return nil, errors.Wrapf(err, "rewarding: invalid producer candidate identity %q", producerIdentity)
-		}
+	if onchainPool {
 		snap, snapErr := staking.PollSnapshotFor(sm, producerCandAddr)
 		switch {
 		case snapErr == nil:
-			optInPool = snap.VoterRewardOnchainOptIn && snap.Registered
-			if optInPool {
-				blockCommissionBPs = snap.BlockCommissionBasisPoints
-			}
+			blockCommissionBPs = snap.BlockCommissionBasisPoints
 		case errors.Is(snapErr, state.ErrStateNotExist):
-			// Pre-fork block or delegate registered after the last freeze;
-			// legacy grantToAccount path.
+			// Activation can precede the first era snapshot. The default rate is
+			// zero, so rewards accrue for voters until a snapshot is available.
 		default:
 			return nil, errors.Wrapf(snapErr, "rewarding: read poll snapshot for %s", producerAddrStr)
 		}
 	}
 
 	// blockCommission is the amount named in the emitted BLOCK_REWARD log
-	// for both legacy and opt-in paths. Legacy path: full blockReward.
-	// Opt-in path: split by snapshot BPs — commission paid to rewardAddr
+	// for both legacy and post-fork paths. Legacy path: full blockReward.
+	// Post-fork path: split by snapshot BPs — commission paid to rewardAddr
 	// immediately; voter share credited to the pending pool. Empty-voter
 	// or BPs=10000 fallback collapses naturally (voter share = 0).
 	blockCommission := blockReward
-	if optInPool {
+	if onchainPool {
 		commission, voterShare := splitCommission(blockReward, blockCommissionBPs)
 		blockCommission = commission
 		if commission.Sign() > 0 {
@@ -245,12 +253,12 @@ func (p *Protocol) GrantBlockReward(
 		return nil, err
 	}
 
-	// Legacy pre-dynamic-fee format: a bare RewardLog. On the opt-in path
+	// Legacy pre-dynamic-fee format: a bare RewardLog. On the post-fork path
 	// the amount is the commission (voter share is attested by the
 	// batched DelegateDistributed log at era close). When the commission
 	// is zero (BPs=0 with non-empty voter list), emit nothing.
 	if !fCtx.EnableDynamicFeeTx {
-		if optInPool && blockCommission.Sign() == 0 {
+		if onchainPool && blockCommission.Sign() == 0 {
 			return nil, nil
 		}
 		data, err := proto.Marshal(&rewardingpb.RewardLog{
@@ -271,7 +279,7 @@ func (p *Protocol) GrantBlockReward(
 	}
 
 	// Post-dynamic-fee format: RewardLogs wrapper. BLOCK_REWARD entry
-	// names rewardAddr with the immediate payout (commission on opt-in,
+	// names rewardAddr with the immediate payout (commission post-fork,
 	// full reward otherwise). Suppress the entry when the amount is zero.
 	var rewardLogs []*rewardingpb.RewardLog
 	if blockCommission.Sign() > 0 {
@@ -312,9 +320,8 @@ func (p *Protocol) GrantBlockReward(
 //  3. Slashing (its own feature flag; independent of IIP-59).
 //  4. Per-delegate epoch split loop — for each rewarded candidate:
 //     - splitDelegateEpochReward returns (commission, voterShare) — the
-//     IIP-59 path when the frozen snapshot is opted in / registered
-//     with non-empty voters; (amount, 0) otherwise (fork off, opt out,
-//     no snapshot, unregistered, empty voter list).
+//     post-fork path using the frozen profile rate, or zero commission when
+//     the profile/snapshot is absent; pre-fork returns (amount, 0).
 //     - grant commission to the reward address (EPOCH_REWARD log).
 //     - if voterShare > 0, credit into the delegate's pending pool.
 //     - at an era boundary, append a cursor entry when the resulting pool
@@ -413,7 +420,21 @@ func (p *Protocol) GrantEpochReward(
 	// Per-delegate epoch split.
 	var cursorEntries []epochDrainDelegateWork
 	for i, cand := range rewardedCandidates {
-		if cand == nil || addrs[i] == nil {
+		if cand == nil {
+			continue
+		}
+		rewardAddr := addrs[i]
+		if !featureCtx.NoVoterRewardDistribution {
+			candAddr, err := address.FromString(candidateIdentifier(cand))
+			if err != nil {
+				return nil, nil, err
+			}
+			rewardAddr, err = staking.CandidateOwner(sm, candAddr)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "rewarding: read owner for candidate %s", candAddr.String())
+			}
+		}
+		if rewardAddr == nil {
 			continue
 		}
 		epochAmt := amounts[i]
@@ -425,11 +446,11 @@ func (p *Protocol) GrantEpochReward(
 			return nil, nil, err
 		}
 		if commission.Sign() > 0 {
-			if err := p.grantToAccount(ctx, sm, addrs[i], commission); err != nil {
+			if err := p.grantToAccount(ctx, sm, rewardAddr, commission); err != nil {
 				return nil, nil, errors.Wrapf(err,
-					"rewarding: credit commission to %s failed", addrs[i].String())
+					"rewarding: credit commission to %s failed", rewardAddr.String())
 			}
-			data, err := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, addrs[i].String(), commission)
+			data, err := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, rewardAddr.String(), commission)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -465,11 +486,26 @@ func (p *Protocol) GrantEpochReward(
 			return nil, nil, err
 		}
 		if totalVoter.Sign() > 0 {
+			candAddr, err := address.FromBytes(candID)
+			if err != nil {
+				return nil, nil, err
+			}
+			snapshot, err := staking.PollSnapshotFor(sm, candAddr)
+			if err != nil {
+				if !errors.Is(err, state.ErrStateNotExist) {
+					return nil, nil, err
+				}
+			}
+			totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := voterDistributionMetadata(snapshot)
 			cursorEntries = append(cursorEntries, epochDrainDelegateWork{
 				CandidateIdentifier: candID,
 				VoterAmountFrozen:   totalVoter,
-				RewardAddress:       addrs[i].Bytes(),
+				RewardAddress:       rewardAddr.Bytes(),
 				EpochCommission:     commission,
+				TotalWeight:         totalWeight,
+				SnapshotHash:        snapshotHash[:],
+				LastWeightedIndex:   lastWeightedIndex,
+				HasWeightedEntries:  hasWeightedEntries,
 			})
 		}
 	}
@@ -485,18 +521,28 @@ func (p *Protocol) GrantEpochReward(
 				continue
 			}
 			count++
-			if candidates[i].RewardAddress == "" {
-				log.S().Warnf("Candidate %s doesn't have a reward address", candidates[i].Address)
-				continue
+			var rewardAddr address.Address
+			var err error
+			if featureCtx.NoVoterRewardDistribution {
+				if candidates[i].RewardAddress == "" {
+					log.S().Warnf("Candidate %s doesn't have a reward address", candidates[i].Address)
+					continue
+				}
+				rewardAddr, err = address.FromString(candidates[i].RewardAddress)
+			} else {
+				candAddr, idErr := address.FromString(candidateIdentifier(candidates[i]))
+				if idErr != nil {
+					return nil, nil, idErr
+				}
+				rewardAddr, err = staking.CandidateOwner(sm, candAddr)
 			}
-			rewardAddr, err := address.FromString(candidates[i].RewardAddress)
 			if err != nil {
 				return nil, nil, err
 			}
 			if err := p.grantToAccount(ctx, sm, rewardAddr, a.foundationBonus); err != nil {
 				return nil, nil, err
 			}
-			data, err := p.encodeRewardLog(rewardingpb.RewardLog_FOUNDATION_BONUS, candidates[i].RewardAddress, a.foundationBonus)
+			data, err := p.encodeRewardLog(rewardingpb.RewardLog_FOUNDATION_BONUS, rewardAddr.String(), a.foundationBonus)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -630,6 +676,7 @@ func (p *Protocol) loadEpochDistributionInputs(
 	}
 	rewardedCandidates, addrs, amounts, err := p.splitEpochReward(
 		candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap,
+		featureCtx.NoVoterRewardDistribution,
 	)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, err
@@ -653,7 +700,7 @@ func (p *Protocol) loadEpochDistributionInputs(
 // Post-fork only — GrantVoterRewardChunk is the sole caller. Cursor
 // entries are joined against the epoch-scoped rewardedCandidates /
 // addrs / amounts via a candidate-identity lookup: cursor.Delegates is a
-// compacted (opted-in only) subset of the rewarded candidate list, so
+// compacted (non-zero pending pool) subset of the rewarded candidate list, so
 // indices are not parallel.
 func (p *Protocol) runVoterDistributionChunk(
 	ctx context.Context,
@@ -713,6 +760,12 @@ func (p *Protocol) runVoterDistributionChunk(
 				return nil, nil, err
 			}
 		}
+		// A missing or empty era snapshot has no deterministic recipient set.
+		// Keep the pending pool intact so a later era can freeze and distribute it.
+		if safeBig(work.TotalWeight).Sign() == 0 || !work.HasWeightedEntries {
+			cursor.VoterIndex = 0
+			continue
+		}
 		startVoter := cursor.VoterIndex
 		// Only the current-delegate window is capped by remainingVoters;
 		// distributeVoterOnly interprets voterBudget=0 as unbounded.
@@ -720,8 +773,11 @@ func (p *Protocol) runVoterDistributionChunk(
 		if voterBudget > 0 {
 			chunkVoterBudget = remainingVoters
 		}
-		iip59Logs, routed, paid, compounded, consumed, totalVoters, err := p.distributeVoterOnly(
-			ctx, sm, cand, rewardAddr, voterAmt, epochCommission, work.VoterAmountDistributed,
+		snapshotHash := hash.BytesToHash256(work.SnapshotHash)
+		iip59Logs, directLogs, routed, paid, compounded, consumed, totalVoters, err := p.distributeVoterOnly(
+			ctx, sm, cand, rewardAddr, voterAmt, work.TotalWeight, snapshotHash,
+			work.LastWeightedIndex, work.HasWeightedEntries,
+			epochCommission, work.VoterAmountDistributed,
 			startVoter, chunkVoterBudget,
 			blkCtx.BlockHeight, actionCtx.ActionHash,
 		)
@@ -729,29 +785,26 @@ func (p *Protocol) runVoterDistributionChunk(
 			return nil, nil, err
 		}
 		if !routed {
-			// Snapshot vanished or delegate opted out between Phase A
-			// and now. Release the frozen voterAmt from the pool so it
-			// returns to the general unclaimedBalance rather than
-			// lingering as a false accrual — the coda's orphan sweep
-			// skips visited (cursor) delegates, so we must do this here.
-			// Post-freeze accrual (if any) stays for the next era.
-			if err := p.decrementPendingBlockRewardPool(ctx, sm, work.CandidateIdentifier, voterAmt); err != nil {
-				return nil, nil, err
-			}
+			// The snapshot vanished or changed after Phase A. Keep the pool
+			// intact so it can be retried from a fresh snapshot next era.
 			cursor.VoterIndex = 0
 			continue
 		}
 		rewardLogs = append(rewardLogs, iip59Logs...)
+		transactionLogs = append(transactionLogs, directLogs...)
 		if paid != nil && paid.Sign() > 0 {
 			if err := p.decrementPendingBlockRewardPool(ctx, sm, work.CandidateIdentifier, paid); err != nil {
 				return nil, nil, err
+			}
+			if err := p.updateTotalBalance(ctx, sm, paid); err != nil {
+				return nil, nil, errors.Wrap(err, "rewarding: debit voter reward outflow")
 			}
 			cursor.Delegates[i].VoterAmountDistributed = new(big.Int).Add(
 				safeBig(work.VoterAmountDistributed), paid,
 			)
 		}
 		if compounded != nil && compounded.Sign() > 0 {
-			compoundLog, err := p.settleCompoundOutflow(ctx, sm, compounded)
+			compoundLog, err := p.settleCompoundOutflow(compounded)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -802,8 +855,8 @@ func (p *Protocol) runVoterDistributionChunk(
 
 	// Coda: orphan drain + cursor delete. Sentinel and foundation bonus
 	// ran in Phase A. Delegates that were in the cursor got drained above;
-	// any residual pool entries belong to delegates that opted out
-	// mid-epoch or fell off the poll list — orphan sweep resolves them.
+	// Any residual pool entries belong to delegates that fell off the poll
+	// list. Missing/empty snapshots have cursor entries and remain pending.
 	visitedPoolIDs := make(map[string]bool, len(cursor.Delegates))
 	for _, d := range cursor.Delegates {
 		visitedPoolIDs[string(d.CandidateIdentifier)] = true
@@ -826,15 +879,10 @@ func (p *Protocol) runVoterDistributionChunk(
 }
 
 func (p *Protocol) settleCompoundOutflow(
-	ctx context.Context,
-	sm protocol.StateManager,
 	amount *big.Int,
 ) (*action.TransactionLog, error) {
 	if amount == nil || amount.Sign() <= 0 {
 		return nil, errors.New("rewarding: compound outflow must be positive")
-	}
-	if err := p.updateTotalBalance(ctx, sm, amount); err != nil {
-		return nil, errors.Wrap(err, "rewarding: debit compound outflow")
 	}
 	return &action.TransactionLog{
 		Type:      iotextypes.TransactionLogType_DEPOSIT_TO_BUCKET,
@@ -1270,6 +1318,7 @@ func (p *Protocol) splitEpochReward(
 	numDelegatesForEpochReward uint64,
 	exemptAddrs map[string]interface{},
 	uqd map[string]uint64,
+	useLegacyRewardAddress bool,
 ) ([]*state.Candidate, []address.Address, []*big.Int, error) {
 	filteredCandidates := make([]*state.Candidate, 0)
 	for _, candidate := range candidates {
@@ -1291,12 +1340,12 @@ func (p *Protocol) splitEpochReward(
 	for _, candidate := range candidates {
 		var rewardAddr address.Address
 		var err error
-		if candidate.RewardAddress != "" {
+		if useLegacyRewardAddress && candidate.RewardAddress != "" {
 			rewardAddr, err = address.FromString(candidate.RewardAddress)
 			if err != nil {
 				return nil, nil, nil, err
 			}
-		} else {
+		} else if useLegacyRewardAddress {
 			log.S().Warnf("Candidate %s doesn't have a reward address", candidate.Address)
 		}
 		rewardAddrs = append(rewardAddrs, rewardAddr)

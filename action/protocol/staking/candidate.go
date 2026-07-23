@@ -35,12 +35,6 @@ type (
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
 		SelfStake          *big.Int
-		// VoterRewardOnchainOptIn — IIP-59 opt-in flag. When true, epoch-close
-		// rewarding auto-splits the reward with voters instead of paying the
-		// full amount to RewardAddress. Mutated by SetVoterRewardOptIn; the
-		// value observed by rewarding is the one frozen into the poll snapshot
-		// at PutPollResult, so flips take effect one epoch later.
-		VoterRewardOnchainOptIn bool
 	}
 
 	// CandidateList is a list of candidates which is sortable
@@ -61,17 +55,16 @@ func (d *Candidate) Clone() *Candidate {
 		copy(blsPubKey, d.BLSPubKey)
 	}
 	return &Candidate{
-		Owner:                   d.Owner,
-		Operator:                d.Operator,
-		Reward:                  d.Reward,
-		Identifier:              d.Identifier,
-		Name:                    d.Name,
-		DeactivatedAt:           d.DeactivatedAt,
-		Votes:                   new(big.Int).Set(d.Votes),
-		SelfStakeBucketIdx:      d.SelfStakeBucketIdx,
-		SelfStake:               new(big.Int).Set(d.SelfStake),
-		BLSPubKey:               blsPubKey,
-		VoterRewardOnchainOptIn: d.VoterRewardOnchainOptIn,
+		Owner:              d.Owner,
+		Operator:           d.Operator,
+		Reward:             d.Reward,
+		Identifier:         d.Identifier,
+		Name:               d.Name,
+		DeactivatedAt:      d.DeactivatedAt,
+		Votes:              new(big.Int).Set(d.Votes),
+		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
+		SelfStake:          new(big.Int).Set(d.SelfStake),
+		BLSPubKey:          blsPubKey,
 	}
 }
 
@@ -86,8 +79,7 @@ func (d *Candidate) Equal(c *Candidate) bool {
 		d.Votes.Cmp(c.Votes) == 0 &&
 		d.SelfStake.Cmp(c.SelfStake) == 0 &&
 		d.DeactivatedAt == c.DeactivatedAt &&
-		bytes.Equal(d.BLSPubKey, c.BLSPubKey) &&
-		d.VoterRewardOnchainOptIn == c.VoterRewardOnchainOptIn
+		bytes.Equal(d.BLSPubKey, c.BLSPubKey)
 }
 
 // Validate does the sanity check
@@ -272,17 +264,16 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 	}
 
 	return &stakingpb.Candidate{
-		OwnerAddress:            d.Owner.String(),
-		OperatorAddress:         d.Operator.String(),
-		RewardAddress:           d.Reward.String(),
-		IdentifierAddress:       voter,
-		Name:                    d.Name,
-		Votes:                   d.Votes.String(),
-		SelfStakeBucketIdx:      d.SelfStakeBucketIdx,
-		SelfStake:               d.SelfStake.String(),
-		Pubkey:                  pubkey,
-		DeactivatedAt:           d.DeactivatedAt,
-		VoterRewardOnchainOptIn: d.VoterRewardOnchainOptIn,
+		OwnerAddress:       d.Owner.String(),
+		OperatorAddress:    d.Operator.String(),
+		RewardAddress:      d.Reward.String(),
+		IdentifierAddress:  voter,
+		Name:               d.Name,
+		Votes:              d.Votes.String(),
+		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
+		SelfStake:          d.SelfStake.String(),
+		Pubkey:             pubkey,
+		DeactivatedAt:      d.DeactivatedAt,
 	}, nil
 }
 
@@ -333,7 +324,6 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 		d.BLSPubKey = nil
 	}
 	d.DeactivatedAt = pb.GetDeactivatedAt()
-	d.VoterRewardOnchainOptIn = pb.GetVoterRewardOnchainOptIn()
 	return nil
 }
 

@@ -35,8 +35,6 @@ func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 		return newEpochDrainCursorStateContext()
 	case hex.EncodeToString(_voterRewardSnapshotMethod.ID):
 		return newVoterRewardSnapshotStateContext(data[4:])
-	case hex.EncodeToString(_voterRewardOptInMethod.ID):
-		return newVoterRewardOptInStateContext(data[4:])
 	default:
 		return nil, errInvalidCallSig
 	}
