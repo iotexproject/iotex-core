@@ -29,12 +29,15 @@ func TestReadStateIIP59(t *testing.T) {
 
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID.Bytes(), big.NewInt(351)))
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra:     42,
-		DelegateIndex: 1,
-		VoterIndex:    7,
+		TargetEra:          42,
+		DelegateIndex:      1,
+		VoterIndex:         7,
+		SettlementSeed:     []byte{1, 2, 3},
+		DelegateStartIndex: 5,
 		Delegates: []epochDrainDelegateWork{{
 			CandidateIdentifier: candID.Bytes(),
 			VoterAmountFrozen:   big.NewInt(300),
+			VoterStartIndex:     11,
 		}},
 	}))
 	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candID, &staking.CandidatePollSnapshot{
@@ -62,8 +65,11 @@ func TestReadStateIIP59(t *testing.T) {
 	r.Equal(uint64(42), cursor.GetTargetEra())
 	r.Equal(uint32(1), cursor.GetDelegateIndex())
 	r.Equal(uint32(7), cursor.GetVoterIndex())
+	r.Equal([]byte{1, 2, 3}, cursor.GetSettlementSeed())
+	r.Equal(uint32(5), cursor.GetDelegateStartIndex())
 	r.Len(cursor.GetDelegates(), 1)
 	r.Equal(big.NewInt(300).Bytes(), cursor.GetDelegates()[0].GetVoterAmountFrozen())
+	r.Equal(uint32(11), cursor.GetDelegates()[0].GetVoterStartIndex())
 
 	snapshotData, _, err := p.ReadState(ctx, sm, []byte("VoterRewardSnapshot"), []byte(candID.String()))
 	r.NoError(err)

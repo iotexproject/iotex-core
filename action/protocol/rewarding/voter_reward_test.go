@@ -153,7 +153,7 @@ func TestDistributeVoterOnlyRejectsInvalidDistributedAmount(t *testing.T) {
 	for _, distributed := range []*big.Int{big.NewInt(-1), big.NewInt(101)} {
 		_, _, _, _, _, _, _, err := p.distributeVoterOnly(
 			ctx, sm, cand, rewardAddr,
-			big.NewInt(100), totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries,
+			big.NewInt(100), totalWeight, snapshotHash, 0, lastWeightedIndex, hasWeightedEntries,
 			big.NewInt(10), distributed,
 			0, 1, 100, hash.ZeroHash256,
 		)
@@ -286,6 +286,7 @@ func newVoterRewardCtx(
 //     chunk contains them).
 func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 	const numVoters = 20
+	const voterStartIndex = uint32(13)
 	voterAmount := big.NewInt(100_000)
 	epochCommission := big.NewInt(5_000)
 	epochBps := uint64(500) // 5% — irrelevant for distributeVoterOnly but keeps the snapshot valid
@@ -322,10 +323,12 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 		rewardAddr, err := address.FromString(cand.RewardAddress)
 		r.NoError(err)
 
-		totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := distributionMetadata(t, sm, candAddr)
+		snapshot, err := staking.PollSnapshotFor(sm, candAddr)
+		r.NoError(err)
+		totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := voterDistributionMetadata(snapshot, voterStartIndex)
 		logs, txLogs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
 			ctx, sm, cand, rewardAddr,
-			voterAmount, totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries,
+			voterAmount, totalWeight, snapshotHash, voterStartIndex, lastWeightedIndex, hasWeightedEntries,
 			epochCommission,
 			nil,                   /* distributedBefore */
 			0 /* startVoter */, 0, /* voterBudget=unbounded */
@@ -335,6 +338,8 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 		r.True(routed, "reference: distributeVoterOnly must route the frozen amount")
 		r.Len(logs, 1, "reference: exactly one DelegateDistributed log")
 		r.Len(txLogs, numVoters, "reference: one direct payout log per voter")
+		r.Equal(voters[voterStartIndex].addr.String(), txLogs[0].Recipient,
+			"reference: payout must start at the circular offset")
 		r.Equal(uint32(numVoters), consumed,
 			"reference: unbounded call must consume all voters")
 		r.Equal(uint32(numVoters), total,
@@ -365,11 +370,13 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 			{7, 7, 7},
 			{14, 7, 6},
 		}
-		totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := distributionMetadata(t, sm, candAddr)
+		snapshot, err := staking.PollSnapshotFor(sm, candAddr)
+		r.NoError(err)
+		totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := voterDistributionMetadata(snapshot, voterStartIndex)
 		for chunkIdx, w := range windows {
 			logs, txLogs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
 				ctx, sm, cand, rewardAddr,
-				voterAmount, totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries,
+				voterAmount, totalWeight, snapshotHash, voterStartIndex, lastWeightedIndex, hasWeightedEntries,
 				epochCommission,
 				new(big.Int).Set(chunkedPaid),
 				w.start, w.budget,
@@ -394,6 +401,19 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 	r.Equal(0, refPaid.Cmp(chunkedPaid),
 		"sum of chunked paid amounts must equal the reference single-call paid amount (ref=%s chunked=%s)",
 		refPaid.String(), chunkedPaid.String())
+	dustRecipient := (int(voterStartIndex) + numVoters - 1) % numVoters
+	expectedDustPayout := new(big.Int).Set(voterAmount)
+	expectedTotalWeight := big.NewInt(int64(numVoters * (numVoters + 1) / 2))
+	for i, voter := range voters {
+		if i == dustRecipient {
+			continue
+		}
+		share := new(big.Int).Mul(voterAmount, voter.weight)
+		share.Div(share, expectedTotalWeight)
+		expectedDustPayout.Sub(expectedDustPayout, share)
+	}
+	r.Zero(refBalances[dustRecipient].Cmp(expectedDustPayout),
+		"the final positive-weight voter in circular order must receive the division remainder")
 	r.Equal(len(refBalances), len(chunkedBalances))
 	for i := range refBalances {
 		r.Equal(0, refBalances[i].Cmp(chunkedBalances[i]),

@@ -7,8 +7,10 @@ package rewarding
 
 import (
 	"context"
+	"encoding/binary"
 	"math/big"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -17,6 +19,8 @@ import (
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
+
+const _settlementSeedDomain = "iip59.settlement-start.v1"
 
 // epochDrainDelegateWork is one frozen per-delegate work item captured
 // at an era boundary: the delegate identifier, voter share, reward
@@ -37,6 +41,7 @@ type epochDrainDelegateWork struct {
 	SnapshotHash           []byte
 	LastWeightedIndex      uint32
 	HasWeightedEntries     bool
+	VoterStartIndex        uint32
 }
 
 // epochDrainCursor checkpoints an in-progress IIP-59 era-boundary drain
@@ -50,18 +55,22 @@ type epochDrainDelegateWork struct {
 // layer must emit a continuation grant on the next block. Absence =
 // no drain in progress.
 type epochDrainCursor struct {
-	TargetEra     uint64
-	DelegateIndex uint32
-	VoterIndex    uint32
-	Delegates     []epochDrainDelegateWork
+	TargetEra          uint64
+	DelegateIndex      uint32
+	VoterIndex         uint32
+	SettlementSeed     []byte
+	DelegateStartIndex uint32
+	Delegates          []epochDrainDelegateWork
 }
 
 // Serialize marshals the cursor to its proto wire form.
 func (c epochDrainCursor) Serialize() ([]byte, error) {
 	m := &rewardingpb.EpochDrainCursor{
-		TargetEra:     c.TargetEra,
-		DelegateIndex: c.DelegateIndex,
-		VoterIndex:    c.VoterIndex,
+		TargetEra:          c.TargetEra,
+		DelegateIndex:      c.DelegateIndex,
+		VoterIndex:         c.VoterIndex,
+		SettlementSeed:     c.SettlementSeed,
+		DelegateStartIndex: c.DelegateStartIndex,
 	}
 	if len(c.Delegates) > 0 {
 		m.Delegates = make([]*rewardingpb.EpochDrainDelegateWork, len(c.Delegates))
@@ -76,6 +85,7 @@ func (c epochDrainCursor) Serialize() ([]byte, error) {
 				SnapshotHash:           d.SnapshotHash,
 				LastWeightedIndex:      d.LastWeightedIndex,
 				HasWeightedEntries:     d.HasWeightedEntries,
+				VoterStartIndex:        d.VoterStartIndex,
 			}
 		}
 	}
@@ -91,6 +101,8 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 	c.TargetEra = m.GetTargetEra()
 	c.DelegateIndex = m.GetDelegateIndex()
 	c.VoterIndex = m.GetVoterIndex()
+	c.SettlementSeed = append(c.SettlementSeed[:0], m.GetSettlementSeed()...)
+	c.DelegateStartIndex = m.GetDelegateStartIndex()
 	c.Delegates = nil
 	if ds := m.GetDelegates(); len(ds) > 0 {
 		c.Delegates = make([]epochDrainDelegateWork, len(ds))
@@ -105,10 +117,49 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 				SnapshotHash:           d.GetSnapshotHash(),
 				LastWeightedIndex:      d.GetLastWeightedIndex(),
 				HasWeightedEntries:     d.GetHasWeightedEntries(),
+				VoterStartIndex:        d.GetVoterStartIndex(),
 			}
 		}
 	}
 	return nil
+}
+
+// settlementSeed freezes one consensus-visible number for every list offset
+// in an era settlement. The parent hash is identical for all validators that
+// execute the boundary block; targetEra and the domain prevent cross-use.
+func settlementSeed(ctx context.Context, targetEra uint64) hash.Hash256 {
+	parent := protocol.MustGetBlockchainCtx(ctx).Tip.Hash
+	payload := make([]byte, len(_settlementSeedDomain)+len(parent)+8)
+	copy(payload, _settlementSeedDomain)
+	offset := len(_settlementSeedDomain)
+	copy(payload[offset:], parent[:])
+	binary.BigEndian.PutUint64(payload[offset+len(parent):], targetEra)
+	return hash.Hash256b(payload)
+}
+
+// settlementListOffset treats seed as an unsigned big-endian integer and
+// maps it into [0, length). Empty lists have no valid offset and return zero.
+func settlementListOffset(seed []byte, length int) uint32 {
+	if length <= 0 {
+		return 0
+	}
+	n := new(big.Int).SetBytes(seed)
+	n.Mod(n, new(big.Int).SetUint64(uint64(length)))
+	return uint32(n.Uint64())
+}
+
+func rotateDelegateWork(delegates []epochDrainDelegateWork, start uint32) []epochDrainDelegateWork {
+	if len(delegates) == 0 {
+		return delegates
+	}
+	start %= uint32(len(delegates))
+	if start == 0 {
+		return delegates
+	}
+	rotated := make([]epochDrainDelegateWork, 0, len(delegates))
+	rotated = append(rotated, delegates[start:]...)
+	rotated = append(rotated, delegates[:start]...)
+	return rotated
 }
 
 // Encode implements systemcontracts.GenericValueContainer for Erigon dual-storage.

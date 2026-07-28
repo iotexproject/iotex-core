@@ -127,6 +127,54 @@ func runDrainToCompletion(
 	return chunks
 }
 
+func TestGrantEpochReward_SettlementStartUsesOneSeed(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		ctx = enableIIP59(t, ctx)
+
+		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 100)
+
+		voterCounts := []int{2, 3, 4, 5}
+		for i, candidateIndex := range rewardedCandidateIndexes {
+			entries := make([]staking.VoterWeight, voterCounts[i])
+			for j := range entries {
+				entries[j] = staking.VoterWeight{
+					Voter:  identityset.Address(3 + i*5 + j),
+					Weight: big.NewInt(int64(j + 1)),
+				}
+			}
+			r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(candidateIndex), &staking.CandidatePollSnapshot{
+				OnchainRewardEnabled:       true,
+				BlockCommissionBasisPoints: _basisPointsDenom,
+				EpochCommissionBasisPoints: _basisPointsDenom,
+				Registered:                 true,
+				Entries:                    entries,
+			}))
+		}
+
+		patches := registerStubStakingProtocol(t, ctx)
+		defer patches.Reset()
+		_, _, err = p.GrantEpochReward(ctx, sm)
+		r.NoError(err)
+
+		cursor, err := p.readEpochDrainCursor(ctx, sm)
+		r.NoError(err)
+		r.NotNil(cursor)
+		expectedSeed := settlementSeed(ctx, cursor.TargetEra)
+		r.Equal(expectedSeed[:], cursor.SettlementSeed)
+		expectedDelegateStart := settlementListOffset(expectedSeed[:], len(rewardedCandidateIndexes))
+		r.Equal(expectedDelegateStart, cursor.DelegateStartIndex)
+
+		for logicalIndex, work := range cursor.Delegates {
+			canonicalIndex := (int(expectedDelegateStart) + logicalIndex) % len(rewardedCandidateIndexes)
+			r.Equal(identityset.Address(rewardedCandidateIndexes[canonicalIndex]).Bytes(), work.CandidateIdentifier)
+			r.Equal(settlementListOffset(expectedSeed[:], voterCounts[canonicalIndex]), work.VoterStartIndex)
+		}
+	}, nil, false, 0)
+}
+
 // TestChunkedDrain_InvariantAcrossChunkSizes is the central determinism
 // claim of the chunking machinery: the final rewarding state after Phase A
 // + Phase B is byte-identical regardless of how the drain is chunked. If

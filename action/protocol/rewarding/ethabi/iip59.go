@@ -19,7 +19,7 @@ import (
 const _iip59InterfaceABI = `[
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"pendingBlockRewardPool","outputs":[{"name":"amount","type":"uint256"}],"stateMutability":"view","type":"function"},
 	{"inputs":[],"name":"pendingBlockRewardPoolIndex","outputs":[{"name":"candidateIds","type":"address[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[],"name":"epochDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"delegateIndex","type":"uint32"},{"name":"voterIndex","type":"uint32"},{"name":"candidateIds","type":"address[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"rewardAddresses","type":"address[]"},{"name":"epochCommissions","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
+	{"inputs":[],"name":"epochDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"delegateIndex","type":"uint32"},{"name":"voterIndex","type":"uint32"},{"name":"settlementSeed","type":"bytes32"},{"name":"delegateStartIndex","type":"uint32"},{"name":"candidateIds","type":"address[]"},{"name":"voterStartIndices","type":"uint32[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"rewardAddresses","type":"address[]"},{"name":"epochCommissions","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"onchainRewardEnabled","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"snapshotHash","type":"bytes32"},{"name":"voters","type":"address[]"},{"name":"weights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardAddress","outputs":[{"name":"rewardAddress","type":"address"},{"name":"explicitlySet","type":"bool"}],"stateMutability":"view","type":"function"}
 ]`
@@ -166,6 +166,7 @@ func (r *EpochDrainCursorStateContext) EncodeToEth(resp *iotexapi.ReadStateRespo
 	}
 	delegates := cursor.GetDelegates()
 	ids := make([]common.Address, len(delegates))
+	voterStartIndices := make([]uint32, len(delegates))
 	voterAmounts := make([]*big.Int, len(delegates))
 	distributedAmounts := make([]*big.Int, len(delegates))
 	rewardAddresses := make([]common.Address, len(delegates))
@@ -173,6 +174,7 @@ func (r *EpochDrainCursorStateContext) EncodeToEth(resp *iotexapi.ReadStateRespo
 	totalWeights := make([]*big.Int, len(delegates))
 	for i, delegate := range delegates {
 		ids[i] = common.BytesToAddress(delegate.GetCandidateIdentifier())
+		voterStartIndices[i] = delegate.GetVoterStartIndex()
 		voterAmounts[i] = new(big.Int).SetBytes(delegate.GetVoterAmountFrozen())
 		distributedAmounts[i] = new(big.Int).SetBytes(delegate.GetVoterAmountDistributed())
 		rewardAddresses[i] = common.BytesToAddress(delegate.GetRewardAddress())
@@ -181,7 +183,8 @@ func (r *EpochDrainCursorStateContext) EncodeToEth(resp *iotexapi.ReadStateRespo
 	}
 	data, err := _epochDrainCursorMethod.Outputs.Pack(
 		cursor.GetTargetEra(), cursor.GetDelegateIndex(), cursor.GetVoterIndex(),
-		ids, voterAmounts, distributedAmounts, rewardAddresses, epochCommissions, totalWeights,
+		common.BytesToHash(cursor.GetSettlementSeed()), cursor.GetDelegateStartIndex(),
+		ids, voterStartIndices, voterAmounts, distributedAmounts, rewardAddresses, epochCommissions, totalWeights,
 	)
 	if err != nil {
 		return "", err

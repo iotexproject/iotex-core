@@ -165,6 +165,7 @@ func (p *Protocol) distributeVoterOnly(
 	voterAmount *big.Int,
 	totalWeightFrozen *big.Int,
 	snapshotHash hash.Hash256,
+	voterStartIndex uint32,
 	lastWeightedIndex uint32,
 	hasWeightedEntries bool,
 	epochCommission *big.Int,
@@ -240,7 +241,7 @@ func (p *Protocol) distributeVoterOnly(
 
 	voters, amounts, compoundBucketIDs, paid, compounded, err := p.allocateAndRouteVoters(
 		ctx, sm, snap, totalWeight, safeBig(voterAmount), distributed,
-		startVoter, endVoter,
+		startVoter, endVoter, voterStartIndex,
 		stakingProto, bucketReader, csr, candID, lastWeightedIndex, hasWeightedEntries,
 	)
 	if err != nil {
@@ -314,19 +315,26 @@ func snapshotHashFull(snap *staking.CandidatePollSnapshot) hash.Hash256 {
 // voterDistributionMetadata computes the allocation metadata once when Phase A
 // initializes the cursor. Continuation chunks consume the stored values and do
 // not rescan all preceding voter weights.
-func voterDistributionMetadata(snap *staking.CandidatePollSnapshot) (*big.Int, hash.Hash256, uint32, bool) {
+func voterDistributionMetadata(
+	snap *staking.CandidatePollSnapshot,
+	voterStartIndex uint32,
+) (*big.Int, hash.Hash256, uint32, bool) {
 	totalWeight := new(big.Int)
 	var lastWeightedIndex uint32
 	var hasWeightedEntries bool
-	if snap == nil {
+	if snap == nil || len(snap.Entries) == 0 {
 		return totalWeight, hash.ZeroHash256, lastWeightedIndex, hasWeightedEntries
 	}
-	for i, entry := range snap.Entries {
+	totalVoters := uint32(len(snap.Entries))
+	voterStartIndex %= totalVoters
+	for logicalIndex := uint32(0); logicalIndex < totalVoters; logicalIndex++ {
+		physicalIndex := (voterStartIndex + logicalIndex) % totalVoters
+		entry := snap.Entries[physicalIndex]
 		if entry.Weight == nil || entry.Weight.Sign() <= 0 {
 			continue
 		}
 		totalWeight.Add(totalWeight, entry.Weight)
-		lastWeightedIndex = uint32(i)
+		lastWeightedIndex = logicalIndex
 		hasWeightedEntries = true
 	}
 	return totalWeight, snapshotHashFull(snap), lastWeightedIndex, hasWeightedEntries
@@ -356,6 +364,7 @@ func (p *Protocol) allocateAndRouteVoters(
 	distributedBefore *big.Int,
 	startVoter uint32,
 	endVoter uint32,
+	voterStartIndex uint32,
 	stakingProto *staking.Protocol,
 	bucketReader autodeposit.BucketReader,
 	csr staking.CandidateStateReader,
@@ -379,6 +388,9 @@ func (p *Protocol) allocateAndRouteVoters(
 	if endVoter < startVoter {
 		endVoter = startVoter
 	}
+	if total > 0 {
+		voterStartIndex %= total
+	}
 	winLen := int(endVoter - startVoter)
 
 	voters := make([]address.Address, winLen)
@@ -393,12 +405,13 @@ func (p *Protocol) allocateAndRouteVoters(
 	nativeBucketReads := 0
 
 	for j := 0; j < winLen; j++ {
-		i := int(startVoter) + j
-		e := snap.Entries[i]
+		logicalIndex := startVoter + uint32(j)
+		physicalIndex := (voterStartIndex + logicalIndex) % total
+		e := snap.Entries[physicalIndex]
 		voters[j] = e.Voter
 		share := new(big.Int)
 		if voterPool.Sign() > 0 && totalWeight.Sign() > 0 && e.Weight != nil && e.Weight.Sign() > 0 {
-			if hasWeightedEntries && uint32(i) == lastWeightedIndex {
+			if hasWeightedEntries && logicalIndex == lastWeightedIndex {
 				share.Sub(voterPool, distributed)
 				if share.Sign() < 0 {
 					return nil, nil, nil, nil, nil, errors.New("rewarding: distributed voter amount exceeds frozen pool")
@@ -417,7 +430,10 @@ func (p *Protocol) allocateAndRouteVoters(
 			// Malformed snapshot entry — should not happen. There is no
 			// address to credit, so refuse rather than silently drop
 			// the share.
-			return nil, nil, nil, nil, nil, errors.Errorf("rewarding: nil voter address at snapshot index %d", i)
+			return nil, nil, nil, nil, nil, errors.Errorf(
+				"rewarding: nil voter address at logical index %d (snapshot index %d)",
+				logicalIndex, physicalIndex,
+			)
 		}
 		compoundBucketID := uint64(0)
 		if bucketReader != nil {

@@ -97,8 +97,13 @@ message EpochDrainDelegateWork {
     // Continuation chunks use this value directly instead of recomputing it.
     bytes total_weight = 6;
     bytes snapshot_hash = 7;
+    // Index of the final positive-weight voter in the circular traversal.
     uint32 last_weighted_index = 8;
     bool has_weighted_entries = 9;
+    // Index of the first voter in the circular traversal. The canonical
+    // snapshot remains address-sorted; chunks map logical indexes through
+    // this offset.
+    uint32 voter_start_index = 10;
 }
 
 // EpochDrainCursor checkpoints a multi-block IIP-59 era-boundary drain
@@ -116,6 +121,12 @@ message EpochDrainCursor {
     uint32 delegate_index = 2;
     repeated EpochDrainDelegateWork delegates = 3;
     uint32 voter_index    = 4;
+    // Domain-separated hash of the parent block hash and target era. The
+    // same value determines every circular list offset in this settlement.
+    bytes settlement_seed = 5;
+    // Original canonical delegate-list index selected by settlement_seed.
+    // Delegates is persisted in the resulting circular traversal order.
+    uint32 delegate_start_index = 6;
 }
 
 // VoterRewardAddress is the effective post-IIP-59 delegate payout address.

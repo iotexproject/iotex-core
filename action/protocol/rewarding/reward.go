@@ -346,6 +346,10 @@ func (p *Protocol) GrantEpochReward(
 	// Matches the freezeIIP59PollSnapshot gate in poll/util.go.
 	isEraBoundary := !featureCtx.NoVoterRewardDistribution &&
 		protocol.IsEraBoundary(epochNum, g.EpochsPerRewardEra)
+	var eraSettlementSeed hash.Hash256
+	if isEraBoundary {
+		eraSettlementSeed = settlementSeed(ctx, epochNum)
+	}
 	if !featureCtx.NoVoterRewardDistribution {
 		stop := startIIP59Duration("epoch_reward_total")
 		defer stop()
@@ -517,7 +521,13 @@ func (p *Protocol) GrantEpochReward(
 					return nil, nil, err
 				}
 			}
-			totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := voterDistributionMetadata(snapshot)
+			voterStartIndex := uint32(0)
+			if snapshot != nil {
+				voterStartIndex = settlementListOffset(eraSettlementSeed[:], len(snapshot.Entries))
+			}
+			totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := voterDistributionMetadata(
+				snapshot, voterStartIndex,
+			)
 			if snapshot != nil {
 				addIIP59Items("cursor_voter", len(snapshot.Entries))
 			}
@@ -530,6 +540,7 @@ func (p *Protocol) GrantEpochReward(
 				SnapshotHash:        snapshotHash[:],
 				LastWeightedIndex:   lastWeightedIndex,
 				HasWeightedEntries:  hasWeightedEntries,
+				VoterStartIndex:     voterStartIndex,
 			})
 		}
 	}
@@ -600,9 +611,12 @@ func (p *Protocol) GrantEpochReward(
 	// Persist cursor iff any voter drain is queued.
 	if len(cursorEntries) > 0 {
 		stop := startIIP59Duration("cursor_write_phase_a")
+		delegateStartIndex := settlementListOffset(eraSettlementSeed[:], len(cursorEntries))
 		cursor := &epochDrainCursor{
-			TargetEra: epochNum,
-			Delegates: cursorEntries,
+			TargetEra:          epochNum,
+			SettlementSeed:     append([]byte(nil), eraSettlementSeed[:]...),
+			DelegateStartIndex: delegateStartIndex,
+			Delegates:          rotateDelegateWork(cursorEntries, delegateStartIndex),
 		}
 		if err := p.writeEpochDrainCursor(ctx, sm, cursor); err != nil {
 			return nil, nil, err
@@ -825,7 +839,7 @@ func (p *Protocol) runVoterDistributionChunk(
 		snapshotHash := hash.BytesToHash256(work.SnapshotHash)
 		iip59Logs, directLogs, routed, paid, compounded, consumed, totalVoters, err := p.distributeVoterOnly(
 			ctx, sm, cand, rewardAddr, voterAmt, work.TotalWeight, snapshotHash,
-			work.LastWeightedIndex, work.HasWeightedEntries,
+			work.VoterStartIndex, work.LastWeightedIndex, work.HasWeightedEntries,
 			epochCommission, work.VoterAmountDistributed,
 			startVoter, chunkVoterBudget,
 			blkCtx.BlockHeight, actionCtx.ActionHash,

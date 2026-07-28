@@ -99,9 +99,11 @@ func TestIIP59PendingPoolAndIndexEncoding(t *testing.T) {
 func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	r := require.New(t)
 	cursorData, err := proto.Marshal(&rewardingpb.EpochDrainCursor{
-		TargetEra:     4,
-		DelegateIndex: 1,
-		VoterIndex:    25,
+		TargetEra:          4,
+		DelegateIndex:      1,
+		VoterIndex:         25,
+		SettlementSeed:     common.HexToHash("0x9876").Bytes(),
+		DelegateStartIndex: 2,
 		Delegates: []*rewardingpb.EpochDrainDelegateWork{{
 			CandidateIdentifier:    identityset.Address(3).Bytes(),
 			VoterAmountFrozen:      big.NewInt(1000).Bytes(),
@@ -109,6 +111,7 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 			RewardAddress:          identityset.Address(4).Bytes(),
 			EpochCommission:        big.NewInt(200).Bytes(),
 			TotalWeight:            big.NewInt(300).Bytes(),
+			VoterStartIndex:        17,
 		}},
 	})
 	r.NoError(err)
@@ -121,9 +124,15 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	r.Equal(uint64(4), values[0])
 	r.Equal(uint32(1), values[1])
 	r.Equal(uint32(25), values[2])
-	r.Zero(values[4].([]*big.Int)[0].Cmp(big.NewInt(1000)))
-	r.Zero(values[5].([]*big.Int)[0].Cmp(big.NewInt(400)))
-	r.Zero(values[8].([]*big.Int)[0].Cmp(big.NewInt(300)))
+	r.Equal([32]byte(common.HexToHash("0x9876")), values[3])
+	r.Equal(uint32(2), values[4])
+	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(3).Bytes())}, values[5])
+	r.Equal([]uint32{17}, values[6])
+	r.Zero(values[7].([]*big.Int)[0].Cmp(big.NewInt(1000)))
+	r.Zero(values[8].([]*big.Int)[0].Cmp(big.NewInt(400)))
+	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(4).Bytes())}, values[9])
+	r.Zero(values[10].([]*big.Int)[0].Cmp(big.NewInt(200)))
+	r.Zero(values[11].([]*big.Int)[0].Cmp(big.NewInt(300)))
 
 	snapshotHash := common.HexToHash("0x1234")
 	snapshotData, err := proto.Marshal(&stakingpb.CandidatePollSnapshot{

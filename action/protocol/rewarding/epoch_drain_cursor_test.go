@@ -6,11 +6,16 @@
 package rewarding
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
@@ -21,9 +26,11 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 	r := require.New(t)
 
 	in := epochDrainCursor{
-		TargetEra:     42,
-		DelegateIndex: 7,
-		VoterIndex:    123,
+		TargetEra:          42,
+		DelegateIndex:      7,
+		VoterIndex:         123,
+		SettlementSeed:     []byte{7, 8, 9},
+		DelegateStartIndex: 1,
 		Delegates: []epochDrainDelegateWork{
 			{
 				CandidateIdentifier: identityset.Address(1).Bytes(),
@@ -34,6 +41,7 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 				SnapshotHash:        []byte{1, 2, 3},
 				LastWeightedIndex:   2,
 				HasWeightedEntries:  true,
+				VoterStartIndex:     17,
 			},
 			{
 				CandidateIdentifier: identityset.Address(2).Bytes(),
@@ -44,6 +52,7 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 				SnapshotHash:        []byte{4, 5, 6},
 				LastWeightedIndex:   9,
 				HasWeightedEntries:  true,
+				VoterStartIndex:     31,
 			},
 		},
 	}
@@ -57,6 +66,8 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 	r.Equal(in.TargetEra, out.TargetEra)
 	r.Equal(in.DelegateIndex, out.DelegateIndex)
 	r.Equal(in.VoterIndex, out.VoterIndex)
+	r.Equal(in.SettlementSeed, out.SettlementSeed)
+	r.Equal(in.DelegateStartIndex, out.DelegateStartIndex)
 	r.Len(out.Delegates, 2)
 	for i := range in.Delegates {
 		r.Equal(in.Delegates[i].CandidateIdentifier, out.Delegates[i].CandidateIdentifier)
@@ -71,7 +82,60 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 		r.Equal(in.Delegates[i].SnapshotHash, out.Delegates[i].SnapshotHash)
 		r.Equal(in.Delegates[i].LastWeightedIndex, out.Delegates[i].LastWeightedIndex)
 		r.Equal(in.Delegates[i].HasWeightedEntries, out.Delegates[i].HasWeightedEntries)
+		r.Equal(in.Delegates[i].VoterStartIndex, out.Delegates[i].VoterStartIndex)
 	}
+}
+
+func TestSettlementSeedAndOffsets(t *testing.T) {
+	r := require.New(t)
+	parent := hash.Hash256b([]byte("parent-a"))
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Tip: protocol.TipInfo{Hash: parent},
+	})
+
+	seed := settlementSeed(ctx, 42)
+	r.Equal(seed, settlementSeed(ctx, 42))
+	r.NotEqual(seed, settlementSeed(ctx, 43))
+
+	otherCtx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Tip: protocol.TipInfo{Hash: hash.Hash256b([]byte("parent-b"))},
+	})
+	r.NotEqual(seed, settlementSeed(otherCtx, 42))
+	r.Zero(settlementListOffset(seed[:], 0))
+	r.Less(settlementListOffset(seed[:], 7), uint32(7))
+	r.Equal(settlementListOffset(seed[:], 7), settlementListOffset(seed[:], 7))
+}
+
+func TestRotateDelegateWork(t *testing.T) {
+	delegates := make([]epochDrainDelegateWork, 4)
+	for i := range delegates {
+		delegates[i].CandidateIdentifier = []byte{byte(i)}
+	}
+
+	r := require.New(t)
+	r.Equal([]byte{2}, rotateDelegateWork(delegates, 2)[0].CandidateIdentifier)
+	r.Equal([]byte{3}, rotateDelegateWork(delegates, 6)[1].CandidateIdentifier)
+	r.Equal([]byte{0}, rotateDelegateWork(delegates, 0)[0].CandidateIdentifier)
+	r.Empty(rotateDelegateWork(nil, 10))
+	// Rotation must not mutate the canonical input list.
+	r.Equal([]byte{0}, delegates[0].CandidateIdentifier)
+}
+
+func TestEpochDrainCursor_OldWireDefaultsToCanonicalOrder(t *testing.T) {
+	r := require.New(t)
+	raw, err := proto.Marshal(&rewardingpb.EpochDrainCursor{
+		TargetEra: 9,
+		Delegates: []*rewardingpb.EpochDrainDelegateWork{{
+			CandidateIdentifier: identityset.Address(1).Bytes(),
+		}},
+	})
+	r.NoError(err)
+
+	var cursor epochDrainCursor
+	r.NoError(cursor.Deserialize(raw))
+	r.Empty(cursor.SettlementSeed)
+	r.Zero(cursor.DelegateStartIndex)
+	r.Zero(cursor.Delegates[0].VoterStartIndex)
 }
 
 // TestEpochDrainCursor_EmptyDelegates — a cursor with no delegate work
