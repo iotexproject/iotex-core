@@ -116,7 +116,7 @@ func (a *rewardAccount) Decode(v systemcontracts.GenericValue) error {
 func (p *Protocol) GrantBlockReward(
 	ctx context.Context,
 	sm protocol.StateManager,
-) (*action.Log, error) {
+) (*action.Log, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	fCtx := protocol.MustGetFeatureCtx(ctx)
@@ -128,7 +128,7 @@ func (p *Protocol) GrantBlockReward(
 		key := append(_blockRewardHistoryKeyPrefix, indexBytes[:]...)
 		err := p.deleteStateV1(sm, key, &rewardHistory{}, protocol.ErigonStoreOnlyOption())
 		if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {
-			return nil, err
+			return nil, nil, err
 		}
 		// revert the changese for erigon storage optimazation
 		defer func() {
@@ -140,7 +140,7 @@ func (p *Protocol) GrantBlockReward(
 	}
 
 	if err := p.assertNoRewardYet(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	producerAddrStr := blkCtx.Producer.String()
@@ -150,7 +150,7 @@ func (p *Protocol) GrantBlockReward(
 	if pp != nil {
 		candidates, err := pp.Candidates(ctx, sm)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, candidate := range candidates {
 			if candidate.Address == producerAddrStr {
@@ -160,64 +160,53 @@ func (p *Protocol) GrantBlockReward(
 			}
 		}
 	}
-	var (
-		producerCandAddr address.Address
-		err              error
-	)
+	var producerCandAddr address.Address
+	onchainPool := false
 	if !fCtx.NoVoterRewardDistribution {
 		if producerCandidate == nil {
-			return nil, errors.Errorf("rewarding: producer candidate %s not found", producerAddrStr)
+			return nil, nil, errors.Errorf("rewarding: producer candidate %s not found", producerAddrStr)
 		}
 		producerIdentity := candidateIdentifier(producerCandidate)
+		var err error
 		producerCandAddr, err = address.FromString(producerIdentity)
 		if err != nil {
-			return nil, errors.Wrapf(err, "rewarding: invalid producer candidate identity %q", producerIdentity)
+			return nil, nil, errors.Wrapf(err, "rewarding: invalid producer candidate identity %q", producerIdentity)
 		}
-		rewardAddr, _, err := staking.CandidateRewardAddress(sm, producerCandAddr)
+		routing, err := resolveDelegateRewardRouting(ctx, sm, producerCandAddr)
 		if err != nil {
-			return nil, errors.Wrapf(err, "rewarding: read reward address for producer %s", producerIdentity)
+			return nil, nil, errors.Wrapf(err, "rewarding: resolve reward routing for producer %s", producerIdentity)
 		}
-		rewardAddrStr = rewardAddr.String()
+		onchainPool = routing.onchainRewardEnabled
+		if onchainPool {
+			rewardAddrStr = routing.owner.String()
+		} else {
+			rewardAddrStr = routing.legacyRewardAddress.String()
+		}
 	}
 	// If reward address doesn't exist, do nothing
 	if rewardAddrStr == "" {
 		log.S().Debugf("Producer %s doesn't have a reward address", producerAddrStr)
-		return nil, nil
+		return nil, nil, nil
 	}
 	rewardAddr, err := address.FromString(rewardAddrStr)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	totalReward, blockReward, effectiveTip, err := p.calculateTotalRewardAndTip(ctx, sm)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := p.updateAvailableBalance(ctx, sm, totalReward); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	// After IIP-59 activates, every producer uses the on-chain voter reward
-	// path. A registered DelegateProfile supplies the commission rate; an
-	// unregistered profile defaults to zero commission (all reward to voters).
-	// Split the base block reward now
-	// using the snapshot's BlockCommissionBasisPoints — commission to
-	// the reward address immediately, voter portion into the per-delegate
-	// pending pool. The pool is drained at era boundary by the
-	// VoterRewardChunk system action. Priority tip is fee income and
-	// stays with the producer directly.
-	onchainPool := !fCtx.NoVoterRewardDistribution
-	var blockCommissionBPs uint64
+	blockCommissionBPs := uint64(_basisPointsDenom)
 	if onchainPool {
-		snap, snapErr := staking.PollSnapshotFor(sm, producerCandAddr)
-		switch {
-		case snapErr == nil:
-			blockCommissionBPs = snap.BlockCommissionBasisPoints
-		case errors.Is(snapErr, state.ErrStateNotExist):
-			// Activation can precede the first era snapshot. The default rate is
-			// zero, so rewards accrue for voters until a snapshot is available.
-		default:
-			return nil, errors.Wrapf(snapErr, "rewarding: read poll snapshot for %s", producerAddrStr)
+		routing, err := resolveDelegateRewardRouting(ctx, sm, producerCandAddr)
+		if err != nil {
+			return nil, nil, err
 		}
+		blockCommissionBPs = routing.blockCommissionBPs
 	}
 
 	// blockCommission is the amount named in the emitted BLOCK_REWARD log
@@ -226,31 +215,36 @@ func (p *Protocol) GrantBlockReward(
 	// immediately; voter share credited to the pending pool. Empty-voter
 	// or BPs=10000 fallback collapses naturally (voter share = 0).
 	blockCommission := blockReward
+	transactionLogs := make([]*action.TransactionLog, 0, 2)
 	if onchainPool {
 		commission, voterShare := splitCommission(blockReward, blockCommissionBPs)
 		blockCommission = commission
 		if commission.Sign() > 0 {
-			if err := p.grantToAccount(ctx, sm, rewardAddr, commission); err != nil {
-				return nil, err
+			tLog, err := p.creditRewardDirect(ctx, sm, rewardAddr, commission)
+			if err != nil {
+				return nil, nil, err
 			}
+			transactionLogs = append(transactionLogs, tLog)
 		}
 		if voterShare.Sign() > 0 {
 			if err := p.creditPendingBlockRewardPool(ctx, sm, producerCandAddr.Bytes(), voterShare); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		if effectiveTip.Sign() > 0 {
-			if err := p.grantToAccount(ctx, sm, rewardAddr, effectiveTip); err != nil {
-				return nil, err
+			tLog, err := p.creditRewardDirect(ctx, sm, rewardAddr, effectiveTip)
+			if err != nil {
+				return nil, nil, err
 			}
+			transactionLogs = append(transactionLogs, tLog)
 		}
 	} else {
 		if err := p.grantToAccount(ctx, sm, rewardAddr, totalReward); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	if err := p.updateRewardHistory(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Legacy pre-dynamic-fee format: a bare RewardLog. On the post-fork path
@@ -259,7 +253,7 @@ func (p *Protocol) GrantBlockReward(
 	// is zero (BPs=0 with non-empty voter list), emit nothing.
 	if !fCtx.EnableDynamicFeeTx {
 		if onchainPool && blockCommission.Sign() == 0 {
-			return nil, nil
+			return nil, transactionLogs, nil
 		}
 		data, err := proto.Marshal(&rewardingpb.RewardLog{
 			Type:   rewardingpb.RewardLog_BLOCK_REWARD,
@@ -267,7 +261,7 @@ func (p *Protocol) GrantBlockReward(
 			Amount: blockCommission.String(),
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		return &action.Log{
 			Address:     p.addr.String(),
@@ -275,7 +269,7 @@ func (p *Protocol) GrantBlockReward(
 			Data:        data,
 			BlockHeight: blkCtx.BlockHeight,
 			ActionHash:  actionCtx.ActionHash,
-		}, nil
+		}, transactionLogs, nil
 	}
 
 	// Post-dynamic-fee format: RewardLogs wrapper. BLOCK_REWARD entry
@@ -297,11 +291,11 @@ func (p *Protocol) GrantBlockReward(
 		})
 	}
 	if len(rewardLogs) == 0 {
-		return nil, nil
+		return nil, transactionLogs, nil
 	}
 	data, err := proto.Marshal(&rewardingpb.RewardLogs{Logs: rewardLogs})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return &action.Log{
 		Address:     p.addr.String(),
@@ -309,7 +303,7 @@ func (p *Protocol) GrantBlockReward(
 		Data:        data,
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
-	}, nil
+	}, transactionLogs, nil
 }
 
 // GrantEpochReward runs the epoch-last-block work as a single body for
@@ -320,9 +314,9 @@ func (p *Protocol) GrantBlockReward(
 //  3. Slashing (its own feature flag; independent of IIP-59).
 //  4. Per-delegate epoch split loop — for each rewarded candidate:
 //     - splitDelegateEpochReward returns (commission, voterShare) — the
-//     post-fork path using the frozen profile rate, or zero commission when
-//     the profile/snapshot is absent; pre-fork returns (amount, 0).
-//     - grant commission to the reward address (EPOCH_REWARD log).
+//     post-fork path using the frozen profile rate, or full owner commission
+//     when the profile/snapshot is absent; pre-fork returns (amount, 0).
+//     - pay on-chain commission directly to owner, or accrue a legacy claim.
 //     - if voterShare > 0, credit into the delegate's pending pool.
 //     - at an era boundary, append a cursor entry when the resulting pool
 //     is non-zero. Zero-voter delegates never enter the cursor.
@@ -352,6 +346,14 @@ func (p *Protocol) GrantEpochReward(
 	// Matches the freezeIIP59PollSnapshot gate in poll/util.go.
 	isEraBoundary := !featureCtx.NoVoterRewardDistribution &&
 		protocol.IsEraBoundary(epochNum, g.EpochsPerRewardEra)
+	if !featureCtx.NoVoterRewardDistribution {
+		stop := startIIP59Duration("epoch_reward_total")
+		defer stop()
+	}
+	if isEraBoundary {
+		stop := startIIP59Duration("cursor_init")
+		defer stop()
+	}
 
 	// Pre-A checks.
 	if err := p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
@@ -424,14 +426,21 @@ func (p *Protocol) GrantEpochReward(
 			continue
 		}
 		rewardAddr := addrs[i]
+		onchainReward := false
 		if !featureCtx.NoVoterRewardDistribution {
 			candAddr, err := address.FromString(candidateIdentifier(cand))
 			if err != nil {
 				return nil, nil, err
 			}
-			rewardAddr, _, err = staking.CandidateRewardAddress(sm, candAddr)
+			routing, err := resolveDelegateRewardRouting(ctx, sm, candAddr)
 			if err != nil {
-				return nil, nil, errors.Wrapf(err, "rewarding: read reward address for candidate %s", candAddr.String())
+				return nil, nil, errors.Wrapf(err, "rewarding: resolve reward routing for candidate %s", candAddr.String())
+			}
+			onchainReward = routing.onchainRewardEnabled
+			if onchainReward {
+				rewardAddr = routing.owner
+			} else {
+				rewardAddr = routing.legacyRewardAddress
 			}
 		}
 		if rewardAddr == nil {
@@ -446,9 +455,16 @@ func (p *Protocol) GrantEpochReward(
 			return nil, nil, err
 		}
 		if commission.Sign() > 0 {
-			if err := p.grantToAccount(ctx, sm, rewardAddr, commission); err != nil {
+			if onchainReward {
+				tLog, err := p.creditRewardDirect(ctx, sm, rewardAddr, commission)
+				if err != nil {
+					return nil, nil, errors.Wrapf(err,
+						"rewarding: credit commission to owner %s failed", rewardAddr.String())
+				}
+				transactionLogs = append(transactionLogs, tLog)
+			} else if err := p.grantToAccount(ctx, sm, rewardAddr, commission); err != nil {
 				return nil, nil, errors.Wrapf(err,
-					"rewarding: credit commission to %s failed", rewardAddr.String())
+					"rewarding: credit legacy commission to %s failed", rewardAddr.String())
 			}
 			data, err := p.encodeRewardLog(rewardingpb.RewardLog_EPOCH_REWARD, rewardAddr.String(), commission)
 			if err != nil {
@@ -462,6 +478,9 @@ func (p *Protocol) GrantEpochReward(
 				ActionHash:  actionCtx.ActionHash,
 			})
 			debit = new(big.Int).Add(debit, commission)
+		}
+		if !onchainReward {
+			continue
 		}
 		// Voter share accrues into the pending pool at every epoch. Only
 		// cursor materialization is restricted to era-boundary epochs.
@@ -490,13 +509,18 @@ func (p *Protocol) GrantEpochReward(
 			if err != nil {
 				return nil, nil, err
 			}
+			stop := startIIP59Duration("cursor_snapshot")
 			snapshot, err := staking.PollSnapshotFor(sm, candAddr)
+			stop()
 			if err != nil {
 				if !errors.Is(err, state.ErrStateNotExist) {
 					return nil, nil, err
 				}
 			}
 			totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := voterDistributionMetadata(snapshot)
+			if snapshot != nil {
+				addIIP59Items("cursor_voter", len(snapshot.Entries))
+			}
 			cursorEntries = append(cursorEntries, epochDrainDelegateWork{
 				CandidateIdentifier: candID,
 				VoterAmountFrozen:   totalVoter,
@@ -522,6 +546,7 @@ func (p *Protocol) GrantEpochReward(
 			}
 			count++
 			var rewardAddr address.Address
+			onchainReward := false
 			var err error
 			if featureCtx.NoVoterRewardDistribution {
 				if candidates[i].RewardAddress == "" {
@@ -534,12 +559,27 @@ func (p *Protocol) GrantEpochReward(
 				if idErr != nil {
 					return nil, nil, idErr
 				}
-				rewardAddr, _, err = staking.CandidateRewardAddress(sm, candAddr)
+				routing, routingErr := resolveDelegateRewardRouting(ctx, sm, candAddr)
+				if routingErr != nil {
+					return nil, nil, routingErr
+				}
+				onchainReward = routing.onchainRewardEnabled
+				if onchainReward {
+					rewardAddr = routing.owner
+				} else {
+					rewardAddr = routing.legacyRewardAddress
+				}
 			}
 			if err != nil {
 				return nil, nil, err
 			}
-			if err := p.grantToAccount(ctx, sm, rewardAddr, a.foundationBonus); err != nil {
+			if onchainReward {
+				tLog, err := p.creditRewardDirect(ctx, sm, rewardAddr, a.foundationBonus)
+				if err != nil {
+					return nil, nil, err
+				}
+				transactionLogs = append(transactionLogs, tLog)
+			} else if err := p.grantToAccount(ctx, sm, rewardAddr, a.foundationBonus); err != nil {
 				return nil, nil, err
 			}
 			data, err := p.encodeRewardLog(rewardingpb.RewardLog_FOUNDATION_BONUS, rewardAddr.String(), a.foundationBonus)
@@ -559,6 +599,7 @@ func (p *Protocol) GrantEpochReward(
 
 	// Persist cursor iff any voter drain is queued.
 	if len(cursorEntries) > 0 {
+		stop := startIIP59Duration("cursor_write_phase_a")
 		cursor := &epochDrainCursor{
 			TargetEra: epochNum,
 			Delegates: cursorEntries,
@@ -566,6 +607,8 @@ func (p *Protocol) GrantEpochReward(
 		if err := p.writeEpochDrainCursor(ctx, sm, cursor); err != nil {
 			return nil, nil, err
 		}
+		stop()
+		addIIP59Items("cursor_delegate", len(cursorEntries))
 	}
 
 	// Sentinel.
@@ -591,6 +634,9 @@ func (p *Protocol) GrantVoterRewardChunk(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) ([]*action.TransactionLog, []*action.Log, error) {
+	stop := startIIP59Duration("voter_reward_chunk_total")
+	defer stop()
+
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	if featureCtx.NoVoterRewardDistribution {
 		// Defense in depth: CreatePostSystemActions never emits this
@@ -713,6 +759,9 @@ func (p *Protocol) runVoterDistributionChunk(
 	rewardLogs []*action.Log,
 	debit *big.Int,
 ) ([]*action.TransactionLog, []*action.Log, error) {
+	stop := startIIP59Duration("chunk_distribution")
+	defer stop()
+
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
@@ -844,9 +893,11 @@ func (p *Protocol) runVoterDistributionChunk(
 	if cursor.DelegateIndex < total {
 		// Drain still in progress. Persist the cursor and let
 		// CreatePostSystemActions emit the continuation on the next block.
+		stop := startIIP59Duration("cursor_write_chunk")
 		if err := p.writeEpochDrainCursor(ctx, sm, cursor); err != nil {
 			return nil, nil, err
 		}
+		stop()
 		if err := p.updateAvailableBalance(ctx, sm, debit); err != nil {
 			return nil, nil, err
 		}
@@ -861,20 +912,23 @@ func (p *Protocol) runVoterDistributionChunk(
 	for _, d := range cursor.Delegates {
 		visitedPoolIDs[string(d.CandidateIdentifier)] = true
 	}
-	orphanLogs, err := p.drainPendingBlockRewardOrphans(
+	orphanTransactionLogs, orphanLogs, err := p.drainPendingBlockRewardOrphans(
 		ctx, sm, visitedPoolIDs, blkCtx.BlockHeight, actionCtx.ActionHash,
 	)
 	if err != nil {
 		return nil, nil, err
 	}
+	transactionLogs = append(transactionLogs, orphanTransactionLogs...)
 	rewardLogs = append(rewardLogs, orphanLogs...)
 
 	if err := p.updateAvailableBalance(ctx, sm, debit); err != nil {
 		return nil, nil, err
 	}
+	stop = startIIP59Duration("cursor_delete")
 	if err := p.deleteEpochDrainCursor(ctx, sm); err != nil {
 		return nil, nil, err
 	}
+	stop()
 	return transactionLogs, rewardLogs, nil
 }
 
@@ -1109,6 +1163,26 @@ func (p *Protocol) updateAvailableBalance(ctx context.Context, sm protocol.State
 	}
 	f.unclaimedBalance = availableBalance
 	return p.putState(ctx, sm, _fundKey, &f)
+}
+
+func (p *Protocol) creditRewardDirect(
+	ctx context.Context,
+	sm protocol.StateManager,
+	recipient address.Address,
+	amount *big.Int,
+) (*action.TransactionLog, error) {
+	if err := creditPrimaryAccount(ctx, sm, recipient, amount); err != nil {
+		return nil, err
+	}
+	if err := p.updateTotalBalance(ctx, sm, amount); err != nil {
+		return nil, err
+	}
+	return &action.TransactionLog{
+		Type:      iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND,
+		Sender:    address.RewardingPoolAddr,
+		Recipient: recipient.String(),
+		Amount:    new(big.Int).Set(amount),
+	}, nil
 }
 
 func (p *Protocol) grantToAccount(ctx context.Context, sm protocol.StateManager, addr address.Address, amount *big.Int) error {

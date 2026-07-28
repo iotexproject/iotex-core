@@ -338,6 +338,9 @@ func newStakingActionFromABIBinary(data []byte, value *big.Int) (actionPayload, 
 	if act, err := NewMigrateStakeFromABIBinary(data); err == nil {
 		return act, nil
 	}
+	if act, err := NewSetVoterRewardOptInFromABIBinary(data); err == nil {
+		return act, nil
+	}
 	return nil, ErrInvalidABI
 }
 

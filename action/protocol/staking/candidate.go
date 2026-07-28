@@ -36,8 +36,11 @@ type (
 		SelfStakeBucketIdx uint64
 		SelfStake          *big.Int
 		// RewardAddressUpdated marks Reward as explicitly configured after
-		// IIP-59 activation. Otherwise the effective reward address is Owner.
+		// IIP-59 activation.
 		RewardAddressUpdated bool
+		// VoterRewardOnchainOptIn is set by the candidate owner to explicitly
+		// enable protocol-native reward distribution. The transition is one-way.
+		VoterRewardOnchainOptIn bool
 	}
 
 	// CandidateList is a list of candidates which is sortable
@@ -58,17 +61,18 @@ func (d *Candidate) Clone() *Candidate {
 		copy(blsPubKey, d.BLSPubKey)
 	}
 	return &Candidate{
-		Owner:                d.Owner,
-		Operator:             d.Operator,
-		Reward:               d.Reward,
-		Identifier:           d.Identifier,
-		Name:                 d.Name,
-		DeactivatedAt:        d.DeactivatedAt,
-		Votes:                new(big.Int).Set(d.Votes),
-		SelfStakeBucketIdx:   d.SelfStakeBucketIdx,
-		SelfStake:            new(big.Int).Set(d.SelfStake),
-		BLSPubKey:            blsPubKey,
-		RewardAddressUpdated: d.RewardAddressUpdated,
+		Owner:                   d.Owner,
+		Operator:                d.Operator,
+		Reward:                  d.Reward,
+		Identifier:              d.Identifier,
+		Name:                    d.Name,
+		DeactivatedAt:           d.DeactivatedAt,
+		Votes:                   new(big.Int).Set(d.Votes),
+		SelfStakeBucketIdx:      d.SelfStakeBucketIdx,
+		SelfStake:               new(big.Int).Set(d.SelfStake),
+		BLSPubKey:               blsPubKey,
+		RewardAddressUpdated:    d.RewardAddressUpdated,
+		VoterRewardOnchainOptIn: d.VoterRewardOnchainOptIn,
 	}
 }
 
@@ -84,7 +88,8 @@ func (d *Candidate) Equal(c *Candidate) bool {
 		d.SelfStake.Cmp(c.SelfStake) == 0 &&
 		d.DeactivatedAt == c.DeactivatedAt &&
 		bytes.Equal(d.BLSPubKey, c.BLSPubKey) &&
-		d.RewardAddressUpdated == c.RewardAddressUpdated
+		d.RewardAddressUpdated == c.RewardAddressUpdated &&
+		d.VoterRewardOnchainOptIn == c.VoterRewardOnchainOptIn
 }
 
 // Validate does the sanity check
@@ -269,17 +274,18 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 	}
 
 	return &stakingpb.Candidate{
-		OwnerAddress:         d.Owner.String(),
-		OperatorAddress:      d.Operator.String(),
-		RewardAddress:        d.Reward.String(),
-		IdentifierAddress:    voter,
-		Name:                 d.Name,
-		Votes:                d.Votes.String(),
-		SelfStakeBucketIdx:   d.SelfStakeBucketIdx,
-		SelfStake:            d.SelfStake.String(),
-		Pubkey:               pubkey,
-		DeactivatedAt:        d.DeactivatedAt,
-		RewardAddressUpdated: d.RewardAddressUpdated,
+		OwnerAddress:            d.Owner.String(),
+		OperatorAddress:         d.Operator.String(),
+		RewardAddress:           d.Reward.String(),
+		IdentifierAddress:       voter,
+		Name:                    d.Name,
+		Votes:                   d.Votes.String(),
+		SelfStakeBucketIdx:      d.SelfStakeBucketIdx,
+		SelfStake:               d.SelfStake.String(),
+		Pubkey:                  pubkey,
+		DeactivatedAt:           d.DeactivatedAt,
+		RewardAddressUpdated:    d.RewardAddressUpdated,
+		VoterRewardOnchainOptIn: d.VoterRewardOnchainOptIn,
 	}, nil
 }
 
@@ -331,6 +337,7 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	}
 	d.DeactivatedAt = pb.GetDeactivatedAt()
 	d.RewardAddressUpdated = pb.GetRewardAddressUpdated()
+	d.VoterRewardOnchainOptIn = pb.GetVoterRewardOnchainOptIn()
 	return nil
 }
 

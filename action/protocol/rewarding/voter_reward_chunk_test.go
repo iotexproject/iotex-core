@@ -41,6 +41,12 @@ func enableIIP59(t *testing.T, ctx context.Context) context.Context {
 	g := genesis.MustExtractGenesisContext(ctx)
 	g.ToBeEnabledBlockHeight = 1
 	g.Rewarding.EpochsPerRewardEra = 1
+	g.Rewarding.HermesRewardVaultAddresses = make([]string, 0, 35)
+	for i := 0; i < 35; i++ {
+		g.Rewarding.HermesRewardVaultAddresses = append(
+			g.Rewarding.HermesRewardVaultAddresses, identityset.Address(i).String(),
+		)
+	}
 	ctx = genesis.WithGenesisContext(ctx, g)
 	ctx = protocol.WithFeatureCtx(ctx)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
@@ -58,7 +64,8 @@ func TestGrantVoterRewardChunk_DirectPayoutNeedsNoClaim(t *testing.T) {
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candAddr.Bytes(), big.NewInt(100)))
 	r.NoError(p.updateAvailableBalance(ctx, sm, big.NewInt(100)))
 	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
-		Entries: []staking.VoterWeight{{Voter: voter, Weight: big.NewInt(1)}},
+		OnchainRewardEnabled: true,
+		Entries:              []staking.VoterWeight{{Voter: voter, Weight: big.NewInt(1)}},
 	}))
 	totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := distributionMetadata(t, sm, candAddr)
 	rewardAddr, err := address.FromString(cand.RewardAddress)
@@ -361,6 +368,7 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		candID := identityset.Address(27).Bytes()
 		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(250)))
 		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(27), &staking.CandidatePollSnapshot{
+			OnchainRewardEnabled:       true,
 			BlockCommissionBasisPoints: _basisPointsDenom,
 			EpochCommissionBasisPoints: _basisPointsDenom,
 			Registered:                 true,
@@ -370,6 +378,7 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		}))
 		for _, idx := range []int{28, 29, 30} {
 			r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(idx), &staking.CandidatePollSnapshot{
+				OnchainRewardEnabled:       true,
 				BlockCommissionBasisPoints: _basisPointsDenom,
 				EpochCommissionBasisPoints: _basisPointsDenom,
 				Registered:                 true,

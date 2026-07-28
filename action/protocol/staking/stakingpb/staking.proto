@@ -33,8 +33,6 @@ message BucketIndices {
 }
 
 message Candidate {
-    reserved 11;
-    reserved "voterRewardOnchainOptIn";
     string ownerAddress = 1;
     string operatorAddress = 2;
     string rewardAddress = 3;
@@ -45,9 +43,12 @@ message Candidate {
     string identifierAddress = 8; //if the field is empty, set it to the old owner address
     bytes pubkey = 9; // BLS public key
     uint64 deactivatedAt = 10;
+    // True after the candidate owner explicitly enables protocol-native voter
+    // reward distribution. This transition is one-way.
+    bool voterRewardOnchainOptIn = 11;
     // True when rewardAddress was explicitly set by a candidate action after
-    // IIP-59 activation. False preserves migration semantics: ownerAddress is
-    // the effective reward address and the legacy rewardAddress is ignored.
+    // IIP-59 activation. Automatic Hermes-vault migration only applies while
+    // this remains false.
     bool rewardAddressUpdated = 12;
 }
 
@@ -103,16 +104,17 @@ message VoterWeightEntry {
 // reward era, so mid-era DelegateProfile changes do not retroactively re-split
 // rewards.
 message CandidatePollSnapshot {
-    reserved 4;
-    reserved "voterRewardOnchainOptIn";
     // Commission split frozen from the DelegateProfile contract at snapshot
-    // time. Basis points in [0, 10000]. Both zero when `registered` is false.
+    // time. Basis points in [0, 10000]. Both default to 10000 when
+    // `registered` is false and on-chain reward distribution is enabled.
     uint64 blockCommissionBasisPoints = 1;
     uint64 epochCommissionBasisPoints = 2;
     // Whether the DelegateProfile contract returned both portion fields as
-    // non-empty bytes at snapshot time. False means both commission rates
-    // default to zero and the full reward goes to voters.
+    // non-empty bytes at snapshot time.
     bool registered = 3;
+    // Whether this reward era uses protocol-native distribution. The value is
+    // frozen so mid-era candidate updates cannot change reward routing.
+    bool onchainRewardEnabled = 4;
     // Per-voter aggregated weight entries, sorted ascending by `voter` bytes.
     // Empty in the initial PR that introduces this message; the voter-weight
     // source is a separate follow-up. Empty entries defer distribution until

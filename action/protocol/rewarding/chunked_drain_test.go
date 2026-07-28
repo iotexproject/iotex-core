@@ -46,11 +46,9 @@ func TestVoterBudgetPerBlock(t *testing.T) {
 		"post-fork with budget=0: voter budget must be 0 (unbounded voters per delegate)")
 }
 
-// TestGrantEpochReward_DefersWhenSnapshotMissing confirms that post-fork
-// delegates default to a voter share even before the first usable snapshot.
-// Phase A records cursor work with zero allocation metadata; Phase B will
-// leave the pool pending for a later era rather than paying the delegate.
-func TestGrantEpochReward_DefersWhenSnapshotMissing(t *testing.T) {
+// TestGrantEpochReward_DefaultsToOwnerWhenSnapshotMissing confirms that a
+// migrated delegate without profile data receives the full reward directly.
+func TestGrantEpochReward_DefaultsToOwnerWhenSnapshotMissing(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
@@ -65,17 +63,20 @@ func TestGrantEpochReward_DefersWhenSnapshotMissing(t *testing.T) {
 		patches.ApplyMethodReturn(sp, "SlashCandidateByOperator", nil)
 		patches.ApplyMethodReturn(sp, "SlashCandidateByID", nil)
 
-		_, _, err = p.GrantEpochReward(ctx, sm)
+		transactionLogs, _, err := p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
+		r.NotEmpty(transactionLogs)
+		directPayouts := 0
+		for _, transactionLog := range transactionLogs {
+			if transactionLog.Type == iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND {
+				directPayouts++
+			}
+		}
+		r.Positive(directPayouts)
 
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.NotNil(got)
-		r.NotEmpty(got.Delegates)
-		for _, work := range got.Delegates {
-			r.Zero(safeBig(work.TotalWeight).Sign())
-			r.False(work.HasWeightedEntries)
-		}
+		r.Nil(got)
 
 		r.Error(p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, 1),
 			"sentinel must be written by GrantEpochReward even when the cursor is empty")
@@ -193,13 +194,11 @@ func TestGrantEpochReward_LiveCursorAtPhaseA_DegradesGracefully(t *testing.T) {
 
 		_, rewardLogs, err := p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
-		// The stale cursor is replaced by fresh deferred work because this
-		// fixture intentionally has no voter snapshots.
+		// The stale cursor is deleted. With no profile snapshot, the new epoch
+		// defaults to full owner payout and creates no replacement cursor.
 		after, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.NotNil(after)
-		r.Equal(uint64(1), after.TargetEra)
-		r.NotEmpty(after.Delegates)
+		r.Nil(after)
 		// First log must be the EPOCH_DRAIN_OVERRUN handoff naming the
 		// stale era + remaining-delegates count. Actual residue value is
 		// tested end-to-end in the PR6 test suite; here we assert only
@@ -291,6 +290,7 @@ func TestGrantEpochReward_PoolAccrualBuildsCursor(t *testing.T) {
 		candID := identityset.Address(27).Bytes()
 		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(1_234)))
 		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(27), &staking.CandidatePollSnapshot{
+			OnchainRewardEnabled:       true,
 			BlockCommissionBasisPoints: _basisPointsDenom,
 			EpochCommissionBasisPoints: _basisPointsDenom,
 			Registered:                 true,

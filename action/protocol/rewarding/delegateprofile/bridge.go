@@ -87,7 +87,7 @@ type CommissionRates struct {
 
 	// Registered is true iff both portion fields returned non-empty bytes.
 	// A partial profile (one field set, the other empty) is treated as
-	// Registered=false and therefore uses the all-to-voters default.
+	// Registered=false and therefore uses the all-to-owner default.
 	Registered bool
 }
 
@@ -129,7 +129,7 @@ func (b *Bridge) Contract() string { return b.contract }
 //
 // A per-delegate read error (RPC failure, ABI mismatch, out-of-range value)
 // degrades that delegate to `Registered=false` with zero rates — downstream
-// rewarding then uses the all-to-voters default. The error is logged
+// rewarding then uses the all-to-owner default. The error is logged
 // but not returned. Rationale: PutPollResult runs at every epoch boundary
 // on every validator, and returning an error would deterministically halt
 // the chain if a single delegate's on-chain profile becomes malformed.

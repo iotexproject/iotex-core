@@ -153,6 +153,7 @@ func TestOnlySeedPerfBenchState(
 			return bytes.Compare(entries[a].Voter.Bytes(), entries[b].Voter.Bytes()) < 0
 		})
 		snap := &CandidatePollSnapshot{
+			OnchainRewardEnabled:       true,
 			BlockCommissionBasisPoints: spec.BlockCommissionBasisPoints,
 			EpochCommissionBasisPoints: spec.EpochCommissionBasisPoints,
 			Registered:                 true,

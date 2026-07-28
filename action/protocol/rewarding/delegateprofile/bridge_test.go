@@ -145,14 +145,14 @@ func TestSnapshot_UnregisteredDelegate(t *testing.T) {
 	r.Len(out, 1)
 	rates := out[delegate.String()]
 	r.NotNil(rates)
-	r.False(rates.Registered, "unregistered delegate must use the all-to-voters default")
+	r.False(rates.Registered, "unregistered delegate must use the all-to-owner default")
 	r.Zero(rates.BlockCommissionBasisPoints)
 	r.Zero(rates.EpochCommissionBasisPoints)
 }
 
 func TestSnapshot_PartialProfileIsUnregistered(t *testing.T) {
 	// A partial profile (one field set, other missing) is deliberately treated
-	// as unregistered, so both reward streams use the all-to-voters default.
+	// as unregistered, so both reward streams use the all-to-owner default.
 	r := require.New(t)
 	b, err := New(mainnetContract)
 	r.NoError(err)

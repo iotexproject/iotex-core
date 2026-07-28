@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -23,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
@@ -136,21 +138,21 @@ func TestCandidateRewardAddress(t *testing.T) {
 		Owner: identityset.Address(1), Operator: identityset.Address(2), Reward: identityset.Address(3),
 		Name: "delegate", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(cand))
+	r.NoError(putOnchainCandidate(csm, cand))
 	got, explicitlySet, err := CandidateRewardAddress(sm, cand.GetIdentifier())
 	r.NoError(err)
 	r.True(address.Equal(cand.Owner, got))
 	r.False(explicitlySet)
 
 	cand.Owner = identityset.Address(7)
-	r.NoError(csm.putCandidate(cand))
+	r.NoError(putOnchainCandidate(csm, cand))
 	got, explicitlySet, err = CandidateRewardAddress(sm, cand.GetIdentifier())
 	r.NoError(err)
 	r.True(address.Equal(cand.Owner, got), "default reward address must follow owner transfers")
 	r.False(explicitlySet)
 
 	cand.RewardAddressUpdated = true
-	r.NoError(csm.putCandidate(cand))
+	r.NoError(putOnchainCandidate(csm, cand))
 	got, explicitlySet, err = CandidateRewardAddress(sm, cand.GetIdentifier())
 	r.NoError(err)
 	r.True(address.Equal(cand.Reward, got))
@@ -160,9 +162,84 @@ func TestCandidateRewardAddress(t *testing.T) {
 	r.ErrorIs(err, state.ErrStateNotExist)
 }
 
+func TestCandidateRewardRoutingModes(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm := testdb.NewMockStateManager(ctrl)
+	csm := newCandidateStateManager(sm)
+	vault, err := address.FromString("io19604a05s2p3mecam2zz7d27hcr6ndyw80wvkmh")
+	r.NoError(err)
+	other := identityset.Address(3)
+	candidate := &Candidate{
+		Owner: identityset.Address(1), Operator: identityset.Address(2), Reward: vault,
+		Name: "delegate", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
+	}
+	r.NoError(csm.putCandidate(candidate))
+
+	routing, err := ReadCandidateRewardRouting(sm, candidate.GetIdentifier(), []string{vault.String()})
+	r.NoError(err)
+	r.True(routing.OnchainRewardEnabled)
+	r.True(address.Equal(candidate.Owner, routing.Owner))
+	r.True(address.Equal(vault, routing.LegacyRewardAddress))
+
+	candidate.Reward = other
+	r.NoError(csm.putCandidate(candidate))
+	routing, err = ReadCandidateRewardRouting(sm, candidate.GetIdentifier(), []string{vault.String()})
+	r.NoError(err)
+	r.False(routing.OnchainRewardEnabled)
+
+	candidate.Reward = vault
+	candidate.RewardAddressUpdated = true
+	r.NoError(csm.putCandidate(candidate))
+	routing, err = ReadCandidateRewardRouting(sm, candidate.GetIdentifier(), []string{vault.String()})
+	r.NoError(err)
+	r.False(routing.OnchainRewardEnabled, "post-fork address updates must not trigger automatic migration")
+
+	candidate.VoterRewardOnchainOptIn = true
+	r.NoError(csm.putCandidate(candidate))
+	routing, err = ReadCandidateRewardRouting(sm, candidate.GetIdentifier(), []string{vault.String()})
+	r.NoError(err)
+	r.True(routing.OnchainRewardEnabled)
+	r.True(routing.ExplicitlyEnabled)
+}
+
+func TestFreezePollSnapshot_LegacyCandidateSkipsProfileAndVoters(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm := testdb.NewMockStateManager(ctrl)
+	csm := newCandidateStateManager(sm)
+	candidate := &Candidate{
+		Owner: identityset.Address(1), Operator: identityset.Address(2), Reward: identityset.Address(3),
+		Name: "legacy", Votes: big.NewInt(1), SelfStake: big.NewInt(1), RewardAddressUpdated: true,
+	}
+	r.NoError(csm.putCandidate(candidate))
+
+	view := NewVoterWeightView()
+	view.Apply(hash.BytesToHash160(candidate.GetIdentifier().Bytes()), identityset.Address(8), big.NewInt(100))
+	r.NoError(sm.WriteView(_protocolID, &viewData{voterWeights: view}))
+	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
+	r.NoError(err)
+	reader := delegateprofile.ContractReaderFunc(func(context.Context, string, []byte) ([]byte, error) {
+		t.Fatal("legacy candidate must not trigger a profile read")
+		return nil, nil
+	})
+	candidates := state.CandidateList{&state.Candidate{
+		Address: candidate.Operator.String(), Identity: candidate.GetIdentifier().String(),
+		RewardAddress: candidate.Reward.String(), Votes: big.NewInt(1),
+	}}
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+	r.NoError(FreezePollSnapshot(ctx, sm, candidates, bridge, reader))
+
+	snapshot, err := PollSnapshotFor(sm, candidate.GetIdentifier())
+	r.NoError(err)
+	r.False(snapshot.OnchainRewardEnabled)
+	r.False(snapshot.Registered)
+	r.Empty(snapshot.Entries)
+}
+
 func TestFreezePollSnapshot_NilBridge(t *testing.T) {
 	// Bridge nil path: the snapshot writer still runs (post-fork, no
-	// contract configured), records Registered=false and zero commission.
+	// contract configured), records Registered=false and full owner commission.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -184,8 +261,8 @@ func TestFreezePollSnapshot_NilBridge(t *testing.T) {
 		Votes:     big.NewInt(1),
 		SelfStake: big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(firstCand))
-	r.NoError(csm.putCandidate(secondCand))
+	r.NoError(putOnchainCandidate(csm, firstCand))
+	r.NoError(putOnchainCandidate(csm, secondCand))
 
 	candidates := state.CandidateList{
 		&state.Candidate{Address: firstCand.Owner.String(), Votes: big.NewInt(1), RewardAddress: firstCand.Reward.String()},
@@ -196,8 +273,9 @@ func TestFreezePollSnapshot_NilBridge(t *testing.T) {
 	snap, err := PollSnapshotFor(sm, firstCand.Owner)
 	r.NoError(err)
 	r.False(snap.Registered)
-	r.Zero(snap.BlockCommissionBasisPoints)
-	r.Zero(snap.EpochCommissionBasisPoints)
+	r.Equal(uint64(10000), snap.BlockCommissionBasisPoints)
+	r.Equal(uint64(10000), snap.EpochCommissionBasisPoints)
+	r.True(snap.OnchainRewardEnabled)
 	// Entries population is verified by TestFreezePollSnapshot_Entries_* —
 	// this test intentionally runs without a view installed to exercise the
 	// no-view degrade path.
@@ -224,7 +302,7 @@ func TestFreezePollSnapshot_HappyPath(t *testing.T) {
 		Votes:     big.NewInt(1),
 		SelfStake: big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(cand))
+	r.NoError(putOnchainCandidate(csm, cand))
 
 	fake := newFakeProfileStore()
 	fake.setPortion(cand.Owner, "blockRewardPortion", 9000)
@@ -263,7 +341,7 @@ func TestFreezePollSnapshot_UsesCandidateIdentity(t *testing.T) {
 		Votes:      big.NewInt(1),
 		SelfStake:  big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(cand))
+	r.NoError(putOnchainCandidate(csm, cand))
 
 	fake := newFakeProfileStore()
 	fake.setPortion(identity, "blockRewardPortion", 9000)
@@ -289,7 +367,7 @@ func TestFreezePollSnapshot_UsesCandidateIdentity(t *testing.T) {
 func TestFreezePollSnapshot_PartialProfile(t *testing.T) {
 	// One delegate registered on-chain, another absent from DelegateProfile.
 	// The unregistered one still gets a snapshot row (Registered=false),
-	// and therefore uses the all-to-voters default.
+	// and therefore uses the all-to-owner default.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -311,8 +389,8 @@ func TestFreezePollSnapshot_PartialProfile(t *testing.T) {
 		Votes:     big.NewInt(1),
 		SelfStake: big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(registered))
-	r.NoError(csm.putCandidate(unregistered))
+	r.NoError(putOnchainCandidate(csm, registered))
+	r.NoError(putOnchainCandidate(csm, unregistered))
 
 	fake := newFakeProfileStore()
 	// Only `registered` has portion fields set.
@@ -337,15 +415,15 @@ func TestFreezePollSnapshot_PartialProfile(t *testing.T) {
 	snap, err = PollSnapshotFor(sm, unregistered.Owner)
 	r.NoError(err)
 	r.False(snap.Registered)
-	r.Zero(snap.BlockCommissionBasisPoints)
-	r.Zero(snap.EpochCommissionBasisPoints)
+	r.Equal(uint64(10000), snap.BlockCommissionBasisPoints)
+	r.Equal(uint64(10000), snap.EpochCommissionBasisPoints)
 }
 
 func TestFreezePollSnapshot_BridgeErrorDegradesToLegacy(t *testing.T) {
 	// A per-delegate bridge failure must NOT abort the block. Any single
 	// delegate's read error deterministically halts the chain at every epoch
 	// boundary — worse than the reward-misroute it would prevent. The
-	// snapshot is still written with Registered=false and zero commission.
+	// snapshot is still written with Registered=false and full owner commission.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -359,7 +437,7 @@ func TestFreezePollSnapshot_BridgeErrorDegradesToLegacy(t *testing.T) {
 		Votes:     big.NewInt(1),
 		SelfStake: big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(cand))
+	r.NoError(putOnchainCandidate(csm, cand))
 
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
@@ -375,8 +453,8 @@ func TestFreezePollSnapshot_BridgeErrorDegradesToLegacy(t *testing.T) {
 	snap, err := PollSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
 	r.False(snap.Registered)
-	r.Zero(snap.BlockCommissionBasisPoints)
-	r.Zero(snap.EpochCommissionBasisPoints)
+	r.Equal(uint64(10000), snap.BlockCommissionBasisPoints)
+	r.Equal(uint64(10000), snap.EpochCommissionBasisPoints)
 }
 
 func TestFreezePollSnapshot_InvalidCandidateAddress(t *testing.T) {
@@ -458,7 +536,7 @@ func TestFreezePollSnapshot_IterationOrderIsCallerOrder(t *testing.T) {
 			Votes:     big.NewInt(1),
 			SelfStake: big.NewInt(1),
 		}
-		r.NoError(csm.putCandidate(c))
+		r.NoError(putOnchainCandidate(csm, c))
 		cands = append(cands, c)
 	}
 	fake := newFakeProfileStore()
@@ -491,6 +569,11 @@ func TestFreezePollSnapshot_IterationOrderIsCallerOrder(t *testing.T) {
 
 type fakeProfileStore struct {
 	values map[string][]byte
+}
+
+func putOnchainCandidate(csm CandidateStateManager, candidate *Candidate) error {
+	candidate.VoterRewardOnchainOptIn = true
+	return csm.putCandidate(candidate)
 }
 
 func newFakeProfileStore() *fakeProfileStore {

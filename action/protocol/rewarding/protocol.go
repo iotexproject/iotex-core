@@ -309,15 +309,15 @@ func (p *Protocol) Handle(
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:
-			rewardLog, err := p.GrantBlockReward(ctx, sm)
+			rewardLog, transactionLogs, err := p.GrantBlockReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
 				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
 			if rewardLog == nil {
-				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, nil)
+				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, nil, transactionLogs...)
 			}
-			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog})
+			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog}, transactionLogs...)
 		case action.EpochReward:
 			transactionLogs, rewardLogs, err := p.GrantEpochReward(ctx, sm)
 			if err != nil {
@@ -442,6 +442,7 @@ func (p *Protocol) ReadState(
 			BlockCommissionBasisPoints: snapshot.BlockCommissionBasisPoints,
 			EpochCommissionBasisPoints: snapshot.EpochCommissionBasisPoints,
 			Registered:                 snapshot.Registered,
+			OnchainRewardEnabled:       snapshot.OnchainRewardEnabled,
 			Entries:                    make([]*stakingpb.VoterWeightEntry, 0, len(snapshot.Entries)),
 			TotalWeight:                safeBig(snapshot.TotalWeight).Bytes(),
 			SnapshotHash:               snapshot.SnapshotHash[:],
@@ -475,12 +476,16 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		rewardAddr, explicitlySet, err := staking.CandidateRewardAddress(sr, candID)
+		routing, err := resolveDelegateRewardRouting(ctx, sr, candID)
 		if err != nil {
 			return nil, uint64(0), err
 		}
+		rewardAddr := routing.legacyRewardAddress
+		if routing.onchainRewardEnabled {
+			rewardAddr = routing.owner
+		}
 		data, err := proto.Marshal(&rewardingpb.VoterRewardAddress{
-			Address: rewardAddr.Bytes(), ExplicitlySet: explicitlySet,
+			Address: rewardAddr.Bytes(), ExplicitlySet: routing.rewardAddressUpdated,
 		})
 		if err != nil {
 			return nil, uint64(0), err

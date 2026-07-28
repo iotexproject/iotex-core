@@ -90,15 +90,16 @@ func TestSerWithDeactivation(t *testing.T) {
 	r := require.New(t)
 
 	original := &Candidate{
-		Owner:                identityset.Address(1),
-		Operator:             identityset.Address(2),
-		Reward:               identityset.Address(3),
-		Name:                 "test_candidate",
-		Votes:                big.NewInt(100),
-		SelfStake:            big.NewInt(1000),
-		SelfStakeBucketIdx:   1,
-		DeactivatedAt:        99999,
-		RewardAddressUpdated: true,
+		Owner:                   identityset.Address(1),
+		Operator:                identityset.Address(2),
+		Reward:                  identityset.Address(3),
+		Name:                    "test_candidate",
+		Votes:                   big.NewInt(100),
+		SelfStake:               big.NewInt(1000),
+		SelfStakeBucketIdx:      1,
+		DeactivatedAt:           99999,
+		RewardAddressUpdated:    true,
+		VoterRewardOnchainOptIn: true,
 	}
 
 	data, err := original.Serialize()
@@ -110,11 +111,12 @@ func TestSerWithDeactivation(t *testing.T) {
 	r.Equal(original.DeactivatedAt, deserialized.DeactivatedAt)
 	r.Equal(uint64(99999), deserialized.DeactivatedAt)
 	r.True(deserialized.RewardAddressUpdated)
+	r.True(deserialized.VoterRewardOnchainOptIn)
 
 	r.True(original.Equal(deserialized))
 }
 
-func TestCandidateLegacyOptInDoesNotSetRewardAddressUpdated(t *testing.T) {
+func TestCandidateLegacyOptInFieldDoesNotSetRewardAddressUpdated(t *testing.T) {
 	r := require.New(t)
 	candidate := &Candidate{
 		Owner:     identityset.Address(1),
@@ -132,6 +134,7 @@ func TestCandidateLegacyOptInDoesNotSetRewardAddressUpdated(t *testing.T) {
 	deserialized := &Candidate{}
 	r.NoError(deserialized.Deserialize(data))
 	r.False(deserialized.RewardAddressUpdated)
+	r.True(deserialized.VoterRewardOnchainOptIn)
 }
 
 func TestClone(t *testing.T) {

@@ -67,7 +67,9 @@ func seedPoolAccrualsForRewardedDelegates(
 		r.NoError(p.creditPendingBlockRewardPool(
 			ctx, sm, identityset.Address(idx).Bytes(), big.NewInt(perDelegate),
 		))
+		r.NoError(p.updateAvailableBalance(ctx, sm, big.NewInt(perDelegate)))
 		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(idx), &staking.CandidatePollSnapshot{
+			OnchainRewardEnabled:       true,
 			BlockCommissionBasisPoints: _basisPointsDenom,
 			EpochCommissionBasisPoints: _basisPointsDenom,
 			Registered:                 true,
@@ -151,7 +153,7 @@ func TestChunkedDrain_InvariantAcrossChunkSizes(t *testing.T) {
 			_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 			r.NoError(err)
 
-			seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 250)
+			seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 200)
 
 			patches := registerStubStakingProtocol(t, ctx)
 			defer patches.Reset()
@@ -208,7 +210,7 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
-		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 250)
+		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 200)
 
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
@@ -229,7 +231,7 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
-		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 250)
+		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 200)
 
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
@@ -272,7 +274,7 @@ func TestChunkedDrain_VoterBudgetStopsAtDelegateBoundary(t *testing.T) {
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
-		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 250)
+		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 200)
 
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
@@ -367,7 +369,9 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 		// non-zero live balance to pick up.
 		candID := identityset.Address(27).Bytes()
 		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(250)))
+		r.NoError(p.updateAvailableBalance(ctx, sm, big.NewInt(250)))
 		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(27), &staking.CandidatePollSnapshot{
+			OnchainRewardEnabled:       true,
 			BlockCommissionBasisPoints: _basisPointsDenom,
 			EpochCommissionBasisPoints: _basisPointsDenom,
 			Registered:                 true,

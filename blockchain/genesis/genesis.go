@@ -165,6 +165,10 @@ func defaultConfig() Genesis {
 			WakeBlockRewardStr:             "4000000000000000000",
 			EpochsPerRewardEra:             24,
 			VoterBudgetPerBlock:            2000,
+			HermesRewardVaultAddresses: []string{
+				"io19604a05s2p3mecam2zz7d27hcr6ndyw80wvkmh",
+				"io12mgttmfa2ffn9uqvn0yn37f4nz43d248l2ga85",
+			},
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
@@ -514,6 +518,9 @@ type (
 		// credit path (IIP-59 Phase 2). 0 falls back to a single-block drain, preserving pre-IIP-59 behavior for
 		// tests that never touch the field.
 		VoterBudgetPerBlock uint64 `yaml:"voterBudgetPerBlock"`
+		// HermesRewardVaultAddresses lists legacy reward addresses whose delegates are
+		// automatically migrated to protocol-native reward distribution at IIP-59 activation.
+		HermesRewardVaultAddresses []string `yaml:"hermesRewardVaultAddresses"`
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {

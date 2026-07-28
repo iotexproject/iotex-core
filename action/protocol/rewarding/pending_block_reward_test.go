@@ -221,8 +221,9 @@ func TestDrainOrphans_NoEntriesIsNoop(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 
-	logs, err := p.drainPendingBlockRewardOrphans(ctx, sm, nil, 100, hash.ZeroHash256)
+	txLogs, logs, err := p.drainPendingBlockRewardOrphans(ctx, sm, nil, 100, hash.ZeroHash256)
 	r.NoError(err)
+	r.Nil(txLogs)
 	r.Nil(logs)
 }
 
@@ -247,7 +248,7 @@ func TestDrainOrphans_RefundsWhenCandidateGone(t *testing.T) {
 	ghost := identityset.Address(20).Bytes()
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, ghost, big.NewInt(250)))
 
-	logs, err := p.drainPendingBlockRewardOrphans(ctx, sm, nil, 100, hash.ZeroHash256)
+	_, logs, err := p.drainPendingBlockRewardOrphans(ctx, sm, nil, 100, hash.ZeroHash256)
 	r.NoError(err)
 	r.Len(logs, 1)
 
@@ -280,12 +281,13 @@ func TestDrainOrphans_UsesOwnerInsteadOfLegacyRewardAddress(t *testing.T) {
 	r.NoError(staking.TestOnlyPutCandidateRewardAddress(sm, candID, owner, legacyReward, false))
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID.Bytes(), big.NewInt(250)))
 
-	logs, err := p.drainPendingBlockRewardOrphans(ctx, sm, nil, 100, hash.ZeroHash256)
+	txLogs, logs, err := p.drainPendingBlockRewardOrphans(ctx, sm, nil, 100, hash.ZeroHash256)
 	r.NoError(err)
 	r.Len(logs, 1)
+	r.Len(txLogs, 1)
 	ownerBalance, _, err := p.UnclaimedBalance(ctx, sm, owner)
 	r.NoError(err)
-	r.Zero(ownerBalance.Cmp(big.NewInt(250)))
+	r.Zero(ownerBalance.Sign())
 	legacyBalance, _, err := p.UnclaimedBalance(ctx, sm, legacyReward)
 	r.NoError(err)
 	r.Zero(legacyBalance.Sign())
@@ -306,7 +308,7 @@ func TestDrainOrphans_SkipsVisited(t *testing.T) {
 	visited := identityset.Address(21).Bytes()
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, visited, big.NewInt(999)))
 
-	logs, err := p.drainPendingBlockRewardOrphans(
+	_, logs, err := p.drainPendingBlockRewardOrphans(
 		ctx, sm, map[string]bool{string(visited): true}, 100, hash.ZeroHash256,
 	)
 	r.NoError(err)

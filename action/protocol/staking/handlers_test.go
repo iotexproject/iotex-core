@@ -696,6 +696,30 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 }
 
 func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
+	t.Run("Hermes migration survives reward address update", func(t *testing.T) {
+		r := require.New(t)
+		ctrl := gomock.NewController(t)
+		sm, p, candidate, _ := initAll(t, ctrl)
+		r.NoError(setupAccount(sm, candidate.Owner, 1_000))
+		act, err := action.NewCandidateUpdate("", "", identityset.Address(29).String())
+		r.NoError(err)
+		g := genesis.TestDefault()
+		g.ToBeEnabledBlockHeight = 1
+		g.Rewarding.HermesRewardVaultAddresses = []string{candidate.Reward.String()}
+		ctx := genesis.WithGenesisContext(context.Background(), g)
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1})
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: candidate.Owner, GasPrice: big.NewInt(0)})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		csm, err := NewCandidateStateManager(sm)
+		r.NoError(err)
+
+		_, err = p.handleCandidateUpdate(ctx, act, csm)
+		r.NoError(err)
+		updated := csm.GetByOwner(candidate.Owner)
+		r.True(updated.RewardAddressUpdated)
+		r.True(updated.VoterRewardOnchainOptIn)
+	})
+
 	t.Run("post-fork registration marks reward address", func(t *testing.T) {
 		r := require.New(t)
 		ctrl := gomock.NewController(t)

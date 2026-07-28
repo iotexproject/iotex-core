@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
@@ -375,14 +376,15 @@ func (p *Protocol) drainPendingBlockRewardOrphans(
 	visited map[string]bool,
 	blkHeight uint64,
 	actionHash hash.Hash256,
-) ([]*action.Log, error) {
+) ([]*action.TransactionLog, []*action.Log, error) {
 	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(ids) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
+	transactionLogs := make([]*action.TransactionLog, 0)
 	logs := make([]*action.Log, 0)
 	for _, candID := range ids {
 		if visited[string(candID)] {
@@ -390,11 +392,11 @@ func (p *Protocol) drainPendingBlockRewardOrphans(
 		}
 		poolAmt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if poolAmt.Sign() == 0 {
 			if err := p.deletePendingBlockRewardPool(ctx, sm, candID); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			continue
 		}
@@ -403,12 +405,13 @@ func (p *Protocol) drainPendingBlockRewardOrphans(
 		var targetStr string
 		candAddr, addrErr := address.FromBytes(candID)
 		if addrErr == nil {
-			rewardAddr, _, rewardErr := staking.CandidateRewardAddress(sm, candAddr)
+			routing, rewardErr := staking.ReadCandidateRewardRouting(sm, candAddr,
+				genesis.MustExtractGenesisContext(ctx).HermesRewardVaultAddresses)
 			if rewardErr == nil {
-				target = rewardAddr
-				targetStr = rewardAddr.String()
+				target = routing.Owner
+				targetStr = routing.Owner.String()
 			} else if !errors.Is(rewardErr, state.ErrStateNotExist) {
-				return nil, errors.Wrap(rewardErr, "rewarding: read reward address for orphan drain")
+				return nil, nil, errors.Wrap(rewardErr, "rewarding: read candidate owner for orphan drain")
 			}
 		} else {
 			log.L().Warn("rewarding: orphan pool ID does not decode to an address; refunding",
@@ -417,17 +420,19 @@ func (p *Protocol) drainPendingBlockRewardOrphans(
 		}
 
 		if target != nil {
-			if err := p.grantToAccount(ctx, sm, target, poolAmt); err != nil {
-				return nil, err
+			tLog, err := p.creditRewardDirect(ctx, sm, target, poolAmt)
+			if err != nil {
+				return nil, nil, err
 			}
+			transactionLogs = append(transactionLogs, tLog)
 		} else {
 			if err := p.refundPendingBlockRewardPool(ctx, sm, poolAmt); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		data, err := p.encodeRewardLog(rewardingpb.RewardLog_BLOCK_REWARD, targetStr, poolAmt)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		logs = append(logs, &action.Log{
 			Address:     p.addr.String(),
@@ -437,8 +442,8 @@ func (p *Protocol) drainPendingBlockRewardOrphans(
 			ActionHash:  actionHash,
 		})
 		if err := p.deletePendingBlockRewardPool(ctx, sm, candID); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return logs, nil
+	return transactionLogs, logs, nil
 }

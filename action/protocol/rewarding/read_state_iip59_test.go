@@ -23,14 +23,9 @@ func TestReadStateIIP59(t *testing.T) {
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 	candID := identityset.Address(4)
 	voter := identityset.Address(8)
-	csm, err := staking.NewCandidateStateManager(sm)
-	r.NoError(err)
-	r.NoError(csm.Upsert(&staking.Candidate{
-		Owner: candID, Operator: identityset.Address(5), Reward: identityset.Address(6),
-		Name: "iip59-read-state", Votes: big.NewInt(1), SelfStake: big.NewInt(0),
-		RewardAddressUpdated: true,
-	}))
-	r.NoError(csm.Commit(ctx))
+	r.NoError(staking.TestOnlyPutCandidateRewardAddress(
+		sm, candID, candID, identityset.Address(6), true,
+	))
 
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID.Bytes(), big.NewInt(351)))
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
@@ -43,6 +38,7 @@ func TestReadStateIIP59(t *testing.T) {
 		}},
 	}))
 	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candID, &staking.CandidatePollSnapshot{
+		OnchainRewardEnabled:       true,
 		BlockCommissionBasisPoints: 2000,
 		EpochCommissionBasisPoints: 3000,
 		Registered:                 true,
@@ -76,6 +72,7 @@ func TestReadStateIIP59(t *testing.T) {
 	r.Equal(uint64(2000), snapshot.GetBlockCommissionBasisPoints())
 	r.Equal(uint64(3000), snapshot.GetEpochCommissionBasisPoints())
 	r.True(snapshot.GetRegistered())
+	r.True(snapshot.GetOnchainRewardEnabled())
 	r.Len(snapshot.GetEntries(), 1)
 	r.Equal(voter.Bytes(), snapshot.GetEntries()[0].GetVoter())
 	r.Equal(big.NewInt(99).Bytes(), snapshot.GetEntries()[0].GetWeight())
@@ -84,7 +81,7 @@ func TestReadStateIIP59(t *testing.T) {
 	r.NoError(err)
 	rewardAddress := &rewardingpb.VoterRewardAddress{}
 	r.NoError(proto.Unmarshal(rewardAddressData, rewardAddress))
-	r.Equal(identityset.Address(6).Bytes(), rewardAddress.GetAddress())
+	r.Equal(candID.Bytes(), rewardAddress.GetAddress())
 	r.True(rewardAddress.GetExplicitlySet())
 }
 

@@ -20,7 +20,7 @@ const _iip59InterfaceABI = `[
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"pendingBlockRewardPool","outputs":[{"name":"amount","type":"uint256"}],"stateMutability":"view","type":"function"},
 	{"inputs":[],"name":"pendingBlockRewardPoolIndex","outputs":[{"name":"candidateIds","type":"address[]"}],"stateMutability":"view","type":"function"},
 	{"inputs":[],"name":"epochDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"delegateIndex","type":"uint32"},{"name":"voterIndex","type":"uint32"},{"name":"candidateIds","type":"address[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"rewardAddresses","type":"address[]"},{"name":"epochCommissions","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"snapshotHash","type":"bytes32"},{"name":"voters","type":"address[]"},{"name":"weights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
+	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"onchainRewardEnabled","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"snapshotHash","type":"bytes32"},{"name":"voters","type":"address[]"},{"name":"weights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardAddress","outputs":[{"name":"rewardAddress","type":"address"},{"name":"explicitlySet","type":"bool"}],"stateMutability":"view","type":"function"}
 ]`
 
@@ -102,7 +102,7 @@ func (r *iip59AddressStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse)
 			}
 			data, err = r.method.Outputs.Pack(
 				snapshot.GetBlockCommissionBasisPoints(), snapshot.GetEpochCommissionBasisPoints(),
-				snapshot.GetRegistered(),
+				snapshot.GetRegistered(), snapshot.GetOnchainRewardEnabled(),
 				new(big.Int).SetBytes(snapshot.GetTotalWeight()), common.BytesToHash(snapshot.GetSnapshotHash()),
 				voters, weights,
 			)

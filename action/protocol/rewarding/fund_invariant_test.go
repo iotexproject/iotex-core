@@ -107,7 +107,7 @@ func TestFundInvariant_HoldsAfterGrantEpochReward_PostForkDeferredCursor(t *test
 
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.NotNil(got, "post-fork voter shares must remain pending without a snapshot")
+		r.Nil(got, "missing profile data defaults to direct owner payout")
 
 		r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, allProtocolAddrs(t)))
 	}, noUnproductives, false, 0)

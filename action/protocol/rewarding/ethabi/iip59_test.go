@@ -130,6 +130,7 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 		BlockCommissionBasisPoints: 1000,
 		EpochCommissionBasisPoints: 2000,
 		Registered:                 true,
+		OnchainRewardEnabled:       true,
 		TotalWeight:                big.NewInt(300).Bytes(),
 		SnapshotHash:               snapshotHash.Bytes(),
 		Entries: []*stakingpb.VoterWeightEntry{
@@ -149,8 +150,9 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	r.Equal(uint64(1000), values[0])
 	r.Equal(uint64(2000), values[1])
 	r.Equal(true, values[2])
-	r.Zero(values[3].(*big.Int).Cmp(big.NewInt(300)))
-	r.Equal([32]byte(snapshotHash), values[4])
-	r.Len(values[5].([]common.Address), 2)
-	r.Len(values[6].([]*big.Int), 2)
+	r.Equal(true, values[3])
+	r.Zero(values[4].(*big.Int).Cmp(big.NewInt(300)))
+	r.Equal([32]byte(snapshotHash), values[5])
+	r.Len(values[6].([]common.Address), 2)
+	r.Len(values[7].([]*big.Int), 2)
 }

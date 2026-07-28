@@ -23,16 +23,61 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/distributedlog"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 const _basisPointsDenom uint64 = 10_000
 
+type delegateRewardRouting struct {
+	owner                address.Address
+	legacyRewardAddress  address.Address
+	onchainRewardEnabled bool
+	rewardAddressUpdated bool
+	blockCommissionBPs   uint64
+	epochCommissionBPs   uint64
+	snapshot             *staking.CandidatePollSnapshot
+}
+
+func resolveDelegateRewardRouting(
+	ctx context.Context,
+	sr protocol.StateReader,
+	candID address.Address,
+) (*delegateRewardRouting, error) {
+	g := genesis.MustExtractGenesisContext(ctx)
+	live, err := staking.ReadCandidateRewardRouting(sr, candID, g.HermesRewardVaultAddresses)
+	if err != nil {
+		return nil, err
+	}
+	routing := &delegateRewardRouting{
+		owner:                live.Owner,
+		legacyRewardAddress:  live.LegacyRewardAddress,
+		onchainRewardEnabled: live.OnchainRewardEnabled,
+		rewardAddressUpdated: live.RewardAddressUpdated,
+		blockCommissionBPs:   _basisPointsDenom,
+		epochCommissionBPs:   _basisPointsDenom,
+	}
+	snap, err := staking.PollSnapshotFor(sr, candID)
+	switch {
+	case err == nil:
+		routing.snapshot = snap
+		routing.onchainRewardEnabled = snap.OnchainRewardEnabled
+		if snap.OnchainRewardEnabled {
+			routing.blockCommissionBPs = snap.BlockCommissionBasisPoints
+			routing.epochCommissionBPs = snap.EpochCommissionBasisPoints
+		}
+	case errors.Is(err, state.ErrStateNotExist):
+	default:
+		return nil, err
+	}
+	return routing, nil
+}
+
 // splitDelegateEpochReward computes the epoch-reward commission / voter
 // split for a delegate. Before the fork it returns (amount, 0). After the
-// fork, a missing profile or snapshot uses zero commission and routes the
-// full amount into the pending voter pool.
+// fork, only an enabled delegate is split. Missing profile data defaults to
+// 100% delegate commission; disabled delegates stay on the legacy claim path.
 //
 //   - fork off (NoVoterRewardDistribution)
 //   - nil candidate or zero amount
@@ -63,14 +108,14 @@ func (p *Protocol) splitDelegateEpochReward(
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "rewarding: invalid candidate identity %q", candidateID)
 	}
-	snap, err := staking.PollSnapshotFor(sm, candID)
+	routing, err := resolveDelegateRewardRouting(ctx, sm, candID)
 	if err != nil {
-		if errors.Is(err, state.ErrStateNotExist) {
-			return new(big.Int), safeBig(amount), nil
-		}
-		return nil, nil, errors.Wrapf(err, "rewarding: read poll snapshot for %s", candID.String())
+		return nil, nil, errors.Wrapf(err, "rewarding: resolve reward routing for %s", candID.String())
 	}
-	commission, voterShare := splitCommission(amount, snap.EpochCommissionBasisPoints)
+	if !routing.onchainRewardEnabled {
+		return safeBig(amount), new(big.Int), nil
+	}
+	commission, voterShare := splitCommission(amount, routing.epochCommissionBPs)
 	return commission, voterShare, nil
 }
 
@@ -318,6 +363,11 @@ func (p *Protocol) allocateAndRouteVoters(
 	lastWeightedIndex uint32,
 	hasWeightedEntries bool,
 ) ([]address.Address, []*big.Int, []uint64, *big.Int, *big.Int, error) {
+	stop := startIIP59Duration("allocate_and_route")
+	routeDurations := iip59RouteDurations{}
+	defer routeDurations.observe()
+	defer stop()
+
 	// Clamp the payout window to the frozen list.
 	total := uint32(len(snap.Entries))
 	if startVoter > total {
@@ -337,6 +387,10 @@ func (p *Protocol) allocateAndRouteVoters(
 	paid := new(big.Int)
 	compounded := new(big.Int)
 	distributed := new(big.Int).Set(distributedBefore)
+	directVoters := 0
+	compoundVoters := 0
+	autoDepositLookups := 0
+	nativeBucketReads := 0
 
 	for j := 0; j < winLen; j++ {
 		i := int(startVoter) + j
@@ -367,14 +421,20 @@ func (p *Protocol) allocateAndRouteVoters(
 		}
 		compoundBucketID := uint64(0)
 		if bucketReader != nil {
+			stop := startIIP59Accumulation(&routeDurations.autoDepositLookup)
 			bucketID, present, lookupErr := bucketReader.LookupBucket(e.Voter)
+			stop()
+			autoDepositLookups++
 			if lookupErr != nil {
 				log.L().Warn("autodeposit bucket lookup failed; routing voter share to credit",
 					zap.String("delegate", candID.String()),
 					zap.String("voter", e.Voter.String()),
 					zap.Error(lookupErr))
 			} else if present {
+				stop := startIIP59Accumulation(&routeDurations.nativeBucketRead)
 				bucket, bErr := csr.NativeBucket(bucketID)
+				stop()
+				nativeBucketReads++
 				if bErr != nil {
 					log.L().Warn("bucket read for compound routing failed; routing voter share to credit",
 						zap.String("delegate", candID.String()),
@@ -382,25 +442,36 @@ func (p *Protocol) allocateAndRouteVoters(
 						zap.Uint64("bucket", bucketID),
 						zap.Error(bErr))
 				} else if autodeposit.IsBucketEligibleForCompound(bucket, e.Voter) {
+					stop := startIIP59Accumulation(&routeDurations.compoundDeposit)
 					if err := stakingProto.AddDepositForCompound(ctx, sm, e.Voter, bucketID, share); err != nil {
 						return nil, nil, nil, nil, nil, errors.Wrapf(err,
 							"rewarding: compound deposit failed for voter %s bucket %d",
 							e.Voter.String(), bucketID)
 					}
+					stop()
 					compoundBucketID = bucketID
 					compounded.Add(compounded, share)
+					compoundVoters++
 				}
 			}
 		}
 		if compoundBucketID == 0 {
+			stop := startIIP59Accumulation(&routeDurations.directCredit)
 			if err := creditPrimaryAccount(ctx, sm, e.Voter, share); err != nil {
 				return nil, nil, nil, nil, nil, errors.Wrapf(err,
 					"rewarding: credit voter %s failed", e.Voter.String())
 			}
+			stop()
+			directVoters++
 		}
 		compoundBucketIDs[j] = compoundBucketID
 		paid.Add(paid, share)
 	}
+	addIIP59Items("chunk_voter", winLen)
+	addIIP59Items("direct_voter", directVoters)
+	addIIP59Items("compound_voter", compoundVoters)
+	addIIP59Items("auto_deposit_lookup", autoDepositLookups)
+	addIIP59Items("native_bucket_read", nativeBucketReads)
 	return voters, amounts, compoundBucketIDs, paid, compounded, nil
 }
 

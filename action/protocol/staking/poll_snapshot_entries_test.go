@@ -45,7 +45,7 @@ func TestFreezePollSnapshot_Entries_NativeVoters(t *testing.T) {
 		Votes:     big.NewInt(1),
 		SelfStake: big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(cand))
+	r.NoError(putOnchainCandidate(csm, cand))
 
 	view := NewVoterWeightView()
 	candHash := hash.BytesToHash160(cand.GetIdentifier().Bytes())
@@ -102,8 +102,8 @@ func TestFreezePollSnapshot_Entries_MultipleCandidatesIsolated(t *testing.T) {
 		Owner: identityset.Address(2), Operator: identityset.Address(2), Reward: identityset.Address(2),
 		Name: "B", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(candA))
-	r.NoError(csm.putCandidate(candB))
+	r.NoError(putOnchainCandidate(csm, candA))
+	r.NoError(putOnchainCandidate(csm, candB))
 
 	view := NewVoterWeightView()
 	view.Apply(hash.BytesToHash160(candA.GetIdentifier().Bytes()), identityset.Address(10), big.NewInt(100))
@@ -147,7 +147,7 @@ func TestFreezePollSnapshot_Entries_CandidateWithNoVoters(t *testing.T) {
 		Owner: identityset.Address(1), Operator: identityset.Address(1), Reward: identityset.Address(1),
 		Name: "empty", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(cand))
+	r.NoError(putOnchainCandidate(csm, cand))
 
 	r.NoError(sm.WriteView(_protocolID, &viewData{voterWeights: NewVoterWeightView()}))
 
@@ -175,7 +175,7 @@ func TestFreezePollSnapshot_Entries_ViewMissingDegrades(t *testing.T) {
 		Owner: identityset.Address(1), Operator: identityset.Address(1), Reward: identityset.Address(1),
 		Name: "pre-fork", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(cand))
+	r.NoError(putOnchainCandidate(csm, cand))
 
 	list := state.CandidateList{
 		&state.Candidate{Address: cand.Owner.String(), Votes: big.NewInt(1), RewardAddress: cand.Reward.String()},
@@ -201,7 +201,7 @@ func TestFreezePollSnapshot_Entries_DeterministicOrder(t *testing.T) {
 		Owner: identityset.Address(1), Operator: identityset.Address(1), Reward: identityset.Address(1),
 		Name: "det", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(cand))
+	r.NoError(putOnchainCandidate(csm, cand))
 
 	view := NewVoterWeightView()
 	candHash := hash.BytesToHash160(cand.GetIdentifier().Bytes())
@@ -248,7 +248,7 @@ func TestFreezePollSnapshot_Entries_WeightCloneIsolation(t *testing.T) {
 		Owner: identityset.Address(1), Operator: identityset.Address(1), Reward: identityset.Address(1),
 		Name: "clone", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
 	}
-	r.NoError(csm.putCandidate(cand))
+	r.NoError(putOnchainCandidate(csm, cand))
 
 	view := NewVoterWeightView()
 	candHash := hash.BytesToHash160(cand.GetIdentifier().Bytes())

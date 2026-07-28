@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/distributedlog"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
@@ -31,15 +32,17 @@ import (
 // retroactively re-split rewards that have already begun accruing.
 type CandidatePollSnapshot struct {
 	// BlockCommissionBasisPoints is the delegate's take of block rewards, in
-	// basis points [0, 10000]. Zero when Registered is false.
+	// basis points [0, 10000]. Defaults to 10000 when Registered is false.
 	BlockCommissionBasisPoints uint64
 	// EpochCommissionBasisPoints is the delegate's take of epoch rewards, in
-	// basis points [0, 10000]. Zero when Registered is false.
+	// basis points [0, 10000]. Defaults to 10000 when Registered is false.
 	EpochCommissionBasisPoints uint64
 	// Registered is true when the DelegateProfile contract returned both
-	// portion fields as non-empty bytes at snapshot time. False means both
-	// commission rates default to zero and the full reward goes to voters.
+	// portion fields as non-empty bytes at snapshot time.
 	Registered bool
+	// OnchainRewardEnabled freezes whether this candidate uses protocol-native
+	// reward distribution during the current reward era.
+	OnchainRewardEnabled bool
 	// Entries is the per-voter aggregated weight list, sorted ascending by
 	// Voter bytes (invariant maintained by VoterWeightView). Downstream
 	// rewarding treats an empty list as "no voters known — pay full amount
@@ -118,6 +121,7 @@ func (s *CandidatePollSnapshot) toBlob() *candidatePollSnapshotBlob {
 		BlockCommissionBasisPoints: s.BlockCommissionBasisPoints,
 		EpochCommissionBasisPoints: s.EpochCommissionBasisPoints,
 		Registered:                 s.Registered,
+		OnchainRewardEnabled:       s.OnchainRewardEnabled,
 		TotalWeight:                s.TotalWeight.Bytes(),
 		SnapshotHash:               s.SnapshotHash[:],
 		LastWeightedIndex:          s.LastWeightedIndex,
@@ -148,6 +152,7 @@ func fromBlob(b *candidatePollSnapshotBlob) (*CandidatePollSnapshot, error) {
 		BlockCommissionBasisPoints: b.pb.GetBlockCommissionBasisPoints(),
 		EpochCommissionBasisPoints: b.pb.GetEpochCommissionBasisPoints(),
 		Registered:                 b.pb.GetRegistered(),
+		OnchainRewardEnabled:       b.pb.GetOnchainRewardEnabled(),
 		TotalWeight:                new(big.Int).SetBytes(b.pb.GetTotalWeight()),
 		SnapshotHash:               hash.BytesToHash256(b.pb.GetSnapshotHash()),
 		LastWeightedIndex:          b.pb.GetLastWeightedIndex(),
@@ -202,13 +207,13 @@ func populateSnapshotMetadata(s *CandidatePollSnapshot) {
 // PutPollResult. This is the *only* writer of the snapshot; rewarding is a
 // pure reader via PollSnapshotFor.
 //
-// When bridge is nil (DelegateProfile contract not configured for this
-// network), every snapshot carries Registered=false and both rate fields zero,
-// which is the post-fork default of sending the full reward to voters.
+// Only candidates already using a configured Hermes vault at activation, or
+// candidates that explicitly opt in later, enable protocol-native reward
+// distribution. Disabled candidates skip both profile and voter reads.
 //
 // A per-delegate bridge read failure (malformed profile, RPC/EVM error) is
 // absorbed by the bridge itself: the affected delegate lands with
-// Registered=false and rewarding uses the all-to-voters default. This
+// Registered=false and rewarding uses the all-to-owner default. This
 // prevents one bad on-chain profile from deterministically halting the
 // chain at every epoch boundary — same state ⇒ same fallback on every
 // validator ⇒ no fork.
@@ -243,13 +248,30 @@ func FreezePollSnapshot(
 		ids = append(ids, id)
 	}
 
+	g, _ := genesis.ExtractGenesisContext(ctx)
+	enabled := make(map[string]bool, len(ids))
+	enabledIDs := make([]address.Address, 0, len(ids))
+	for _, id := range ids {
+		routing, err := ReadCandidateRewardRouting(sm, id, g.HermesRewardVaultAddresses)
+		if err != nil {
+			if errors.Is(err, state.ErrStateNotExist) {
+				continue
+			}
+			return errors.Wrapf(err, "staking: read reward routing for candidate %s", id.String())
+		}
+		if routing.OnchainRewardEnabled {
+			enabled[id.String()] = true
+			enabledIDs = append(enabledIDs, id)
+		}
+	}
+
 	var rates map[string]*delegateprofile.CommissionRates
 	if bridge != nil {
 		if reader == nil {
 			return errors.New("staking: nil ContractReader with non-nil DelegateProfile bridge")
 		}
 		var err error
-		rates, err = bridge.Snapshot(ctx, reader, ids)
+		rates, err = bridge.Snapshot(ctx, reader, enabledIDs)
 		if err != nil {
 			return errors.Wrap(err, "staking: DelegateProfile snapshot failed")
 		}
@@ -267,7 +289,19 @@ func FreezePollSnapshot(
 	vw := voterWeightsFromSM(sm)
 
 	for _, id := range ids {
-		snap := &CandidatePollSnapshot{}
+		snap := &CandidatePollSnapshot{OnchainRewardEnabled: enabled[id.String()]}
+		if !snap.OnchainRewardEnabled {
+			if _, err := sm.PutState(
+				snap.toBlob(),
+				protocol.NamespaceOption(_stakingNameSpace),
+				protocol.KeyOption(candidatePollSnapshotKey(id)),
+			); err != nil {
+				return errors.Wrapf(err, "staking: write poll snapshot for candidate %s", id.String())
+			}
+			continue
+		}
+		snap.BlockCommissionBasisPoints = 10000
+		snap.EpochCommissionBasisPoints = 10000
 		if r, ok := rates[id.String()]; ok && r != nil && r.Registered {
 			snap.BlockCommissionBasisPoints = r.BlockCommissionBasisPoints
 			snap.EpochCommissionBasisPoints = r.EpochCommissionBasisPoints
@@ -357,23 +391,66 @@ func PollSnapshotFor(sr protocol.StateReader, candID address.Address) (*Candidat
 	return fromBlob(blob)
 }
 
-// CandidateRewardAddress returns the effective IIP-59 reward address and
-// whether it was explicitly configured after activation. Migrated candidates
-// default to their current owner; a post-fork register or reward-address update
-// opts into the persisted Reward value.
-func CandidateRewardAddress(sr protocol.StateReader, candID address.Address) (address.Address, bool, error) {
+// CandidateRewardRouting is the deterministic IIP-59 routing view for a candidate.
+type CandidateRewardRouting struct {
+	Owner                address.Address
+	LegacyRewardAddress  address.Address
+	OnchainRewardEnabled bool
+	ExplicitlyEnabled    bool
+	RewardAddressUpdated bool
+}
+
+func ReadCandidateRewardRouting(
+	sr protocol.StateReader,
+	candID address.Address,
+	hermesVaults []string,
+) (*CandidateRewardRouting, error) {
 	var c Candidate
 	if _, err := sr.State(
 		&c,
 		protocol.NamespaceOption(_candidateNameSpace),
 		protocol.KeyOption(candID.Bytes()),
 	); err != nil {
+		return nil, err
+	}
+	return &CandidateRewardRouting{
+		Owner:                c.Owner,
+		LegacyRewardAddress:  c.Reward,
+		OnchainRewardEnabled: candidateOnchainRewardEnabled(&c, hermesVaults),
+		ExplicitlyEnabled:    c.VoterRewardOnchainOptIn,
+		RewardAddressUpdated: c.RewardAddressUpdated,
+	}, nil
+}
+
+func candidateOnchainRewardEnabled(c *Candidate, hermesVaults []string) bool {
+	if c == nil {
+		return false
+	}
+	if c.VoterRewardOnchainOptIn {
+		return true
+	}
+	if c.RewardAddressUpdated || c.Reward == nil {
+		return false
+	}
+	for _, vault := range hermesVaults {
+		if c.Reward.String() == vault {
+			return true
+		}
+	}
+	return false
+}
+
+// CandidateRewardAddress is retained for ReadState compatibility. It returns
+// the persisted legacy reward address and whether it was updated post-fork.
+func CandidateRewardAddress(sr protocol.StateReader, candID address.Address) (address.Address, bool, error) {
+	routing, err := ReadCandidateRewardRouting(sr, candID, nil)
+	if err != nil {
 		return nil, false, err
 	}
-	if c.RewardAddressUpdated {
-		return c.Reward, true, nil
+	if routing.RewardAddressUpdated {
+		return routing.LegacyRewardAddress, true, nil
 	}
-	return c.Owner, false, nil
+	return routing.Owner, false, nil
 }
 
 // TestOnlyPutCandidateRewardAddress seeds persistent candidate state used by

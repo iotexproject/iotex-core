@@ -105,18 +105,18 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 		ctx, sm, p, cand, _ := newVoterRewardCtx(t, true)
 		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
 		r.NoError(err)
-		r.Zero(c.Sign())
-		r.Zero(v.Cmp(amount))
+		r.Zero(c.Cmp(amount))
+		r.Zero(v.Sign())
 	})
 
-	t.Run("unregistered defaults to all voters", func(t *testing.T) {
+	t.Run("unregistered defaults to all owner", func(t *testing.T) {
 		r := require.New(t)
 		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
-		writeSnapshot(t, sm, candAddr, false, 0, []voterEntry{{identityset.Address(3), big.NewInt(100)}})
+		writeSnapshot(t, sm, candAddr, false, _basisPointsDenom, []voterEntry{{identityset.Address(3), big.NewInt(100)}})
 		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
 		r.NoError(err)
-		r.Zero(c.Sign())
-		r.Zero(v.Cmp(amount))
+		r.Zero(c.Cmp(amount))
+		r.Zero(v.Sign())
 	})
 
 	t.Run("empty voters fallback", func(t *testing.T) {
@@ -180,6 +180,7 @@ func writeSnapshot(
 		entries[i] = staking.VoterWeight{Voter: v.addr, Weight: v.weight}
 	}
 	snap := &staking.CandidatePollSnapshot{
+		OnchainRewardEnabled:       true,
 		Registered:                 registered,
 		BlockCommissionBasisPoints: epochBps,
 		EpochCommissionBasisPoints: epochBps,
@@ -214,6 +215,7 @@ func newVoterRewardCtx(
 	g := genesis.TestDefault()
 	if iip59On {
 		g.ToBeEnabledBlockHeight = 1
+		g.Rewarding.HermesRewardVaultAddresses = []string{identityset.Address(2).String()}
 	} else {
 		g.ToBeEnabledBlockHeight = 1_000_000_000
 	}
@@ -244,6 +246,9 @@ func newVoterRewardCtx(
 		RewardAddress: identityset.Address(2).String(),
 		Votes:         big.NewInt(1_000_000),
 	}
+	r.NoError(staking.TestOnlyPutCandidateRewardAddress(
+		sm, candAddr, candAddr, identityset.Address(2), false,
+	))
 
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithRegistry(ctx, registry)

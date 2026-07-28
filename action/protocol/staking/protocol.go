@@ -873,6 +873,8 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		if err == nil {
 			nonceUpdateOption = noUpdateNonce
 		}
+	case *action.SetVoterRewardOptIn:
+		rLog, tLogs, err = p.handleSetVoterRewardOptIn(ctx, act, csm)
 	default:
 		return nil, nil
 	}
@@ -984,6 +986,8 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		return p.validateMigrateStake(ctx, act)
 	case *action.CandidateDeactivate:
 		return p.validateCandidateDeactivate(ctx, act)
+	case *action.SetVoterRewardOptIn:
+		return p.validateSetVoterRewardOptIn(ctx, act)
 	}
 	return nil
 }
