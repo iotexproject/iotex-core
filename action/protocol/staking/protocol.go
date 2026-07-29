@@ -625,7 +625,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 	if blkCtx.BlockHeight == g.XinguBlockHeight {
-		handler, err := newNFTBucketEventHandler(sm, p.calculateContractBucketVoteWeight)
+		handler, err := newNFTBucketEventHandlerForMigration(sm, p.calculateContractBucketVoteWeight)
 		if err != nil {
 			return err
 		}
@@ -650,7 +650,13 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 		if blkCtx.BlockHeight == g.WakeBlockHeight {
-			vd.contractsStake.Revise(ctx)
+			observer, err := newContractBucketVoterWeightObserver(
+				sm, p.calculateContractBucketVoteWeight, blkCtx.BlockHeight,
+			)
+			if err != nil {
+				return err
+			}
+			vd.contractsStake.ReviseWithBucketObserver(ctx, observer)
 		}
 	}
 	// remove BLS public key of all candidates at XinguBeta
@@ -912,7 +918,13 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		if err != nil {
 			return err
 		}
-		if err := v.(*viewData).contractsStake.Handle(ctx, receipt); err != nil {
+		observer, observerErr := newContractBucketVoterWeightObserver(
+			sm, ccvw, protocol.MustGetBlockCtx(ctx).BlockHeight,
+		)
+		if observerErr != nil {
+			return observerErr
+		}
+		if err := v.(*viewData).contractsStake.HandleWithBucketObserver(ctx, receipt, observer); err != nil {
 			return err
 		}
 		handler = newNFTBucketEventHandlerErigonOnly(sm, ccvw)

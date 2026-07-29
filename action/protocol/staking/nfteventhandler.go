@@ -18,6 +18,7 @@ type (
 		calculateVoteWeight CalculateVoteWeightFunc
 		cssm                *contractstaking.ContractStakingStateManager
 		csm                 CandidateStateManager
+		skipVoterWeights    bool
 		bucketTypes         map[address.Address]map[uint64]*contractstaking.BucketType
 		bucketTypesLookup   map[address.Address]map[int64]map[uint64]uint64 // contract -> amount -> duration -> id
 	}
@@ -35,6 +36,15 @@ func newNFTBucketEventHandler(sm protocol.StateManager, calculateVoteWeight Calc
 		bucketTypes:         make(map[address.Address]map[uint64]*contractstaking.BucketType),
 		bucketTypesLookup:   make(map[address.Address]map[int64]map[uint64]uint64),
 	}, nil
+}
+
+func newNFTBucketEventHandlerForMigration(sm protocol.StateManager, calculateVoteWeight CalculateVoteWeightFunc) (*nftEventHandler, error) {
+	handler, err := newNFTBucketEventHandler(sm, calculateVoteWeight)
+	if err != nil {
+		return nil, err
+	}
+	handler.skipVoterWeights = true
+	return handler, nil
 }
 
 func newNFTBucketEventHandlerErigonOnly(sm protocol.StateManager, calculateVoteWeight CalculateVoteWeightFunc) *nftEventHandler {
@@ -111,7 +121,9 @@ func (handler *nftEventHandler) DeductBucket(contractAddr address.Address, id ui
 		return nil, errors.Wrap(err, "failed to subtract vote")
 	}
 	// IIP-59: contract bucket weight removed from (candidate, owner).
-	applyVoterWeightDelta(handler.csm, candidate.GetIdentifier(), bucket.Owner, new(big.Int).Neg(weight))
+	if !handler.skipVoterWeights {
+		applyVoterWeightDelta(handler.csm, candidate.GetIdentifier(), bucket.Owner, new(big.Int).Neg(weight))
+	}
 	if err := handler.csm.Upsert(candidate); err != nil {
 		return nil, errors.Wrap(err, "failed to upsert candidate")
 	}
@@ -138,7 +150,9 @@ func (handler *nftEventHandler) PutBucket(contractAddr address.Address, id uint6
 		return errors.Wrap(err, "failed to add vote")
 	}
 	// IIP-59: contract bucket weight added to (candidate, owner).
-	applyVoterWeightDelta(handler.csm, candidate.GetIdentifier(), bkt.Owner, weight)
+	if !handler.skipVoterWeights {
+		applyVoterWeightDelta(handler.csm, candidate.GetIdentifier(), bkt.Owner, weight)
+	}
 	return handler.csm.Upsert(candidate)
 }
 
@@ -166,6 +180,8 @@ func (handler *nftEventHandler) DeleteBucket(contractAddr address.Address, id ui
 		return errors.Wrap(err, "failed to subtract vote")
 	}
 	// IIP-59: contract bucket weight removed from (candidate, owner).
-	applyVoterWeightDelta(handler.csm, candidate.GetIdentifier(), bucket.Owner, new(big.Int).Neg(weight))
+	if !handler.skipVoterWeights {
+		applyVoterWeightDelta(handler.csm, candidate.GetIdentifier(), bucket.Owner, new(big.Int).Neg(weight))
+	}
 	return handler.csm.Upsert(candidate)
 }

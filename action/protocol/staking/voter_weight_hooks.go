@@ -10,7 +10,70 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 )
+
+type contractBucketVoterWeightObserver struct {
+	csm                 CandidateStateManager
+	calculateVoteWeight CalculateVoteWeightFunc
+	height              uint64
+}
+
+func newContractBucketVoterWeightObserver(
+	sm protocol.StateManager,
+	calculateVoteWeight CalculateVoteWeightFunc,
+	height uint64,
+) (*contractBucketVoterWeightObserver, error) {
+	csm, err := NewCandidateStateManager(sm)
+	if err != nil {
+		return nil, err
+	}
+	return &contractBucketVoterWeightObserver{
+		csm: csm, calculateVoteWeight: calculateVoteWeight, height: height,
+	}, nil
+}
+
+func (o *contractBucketVoterWeightObserver) PutContractBucket(previous, current *contractstaking.Bucket) {
+	o.apply(previous, true)
+	o.apply(current, false)
+}
+
+func (o *contractBucketVoterWeightObserver) DeleteContractBucket(previous *contractstaking.Bucket) {
+	o.apply(previous, true)
+}
+
+func (o *contractBucketVoterWeightObserver) ReviseContractBucket(bucket *contractstaking.Bucket) {
+	if o == nil || bucket == nil || o.csm == nil || o.calculateVoteWeight == nil || o.height == 0 {
+		return
+	}
+	previous := o.calculateVoteWeight(bucket, o.height-1)
+	current := o.calculateVoteWeight(bucket, o.height)
+	o.applyWeight(bucket, new(big.Int).Sub(current, previous))
+}
+
+func (o *contractBucketVoterWeightObserver) apply(bucket *contractstaking.Bucket, subtract bool) {
+	if o == nil || bucket == nil || o.csm == nil || o.calculateVoteWeight == nil {
+		return
+	}
+	weight := o.calculateVoteWeight(bucket, o.height)
+	if subtract {
+		weight.Neg(weight)
+	}
+	o.applyWeight(bucket, weight)
+}
+
+func (o *contractBucketVoterWeightObserver) applyWeight(bucket *contractstaking.Bucket, weight *big.Int) {
+	if weight == nil || weight.Sign() == 0 {
+		return
+	}
+	candidate := o.csm.GetByIdentifier(bucket.Candidate)
+	if candidate == nil {
+		return
+	}
+	applyVoterWeightDelta(o.csm, candidate.GetIdentifier(), bucket.Owner, weight)
+}
 
 // applyVoterWeightDelta is the single entry point every staking handler uses
 // to keep the IIP-59 VoterWeightView in sync with on-chain bucket changes.

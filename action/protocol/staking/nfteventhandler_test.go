@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -37,7 +38,8 @@ func testCreateViewData(t *testing.T) *viewData {
 	candCenter, err := NewCandidateCenter(testCandidates)
 	require.NoError(t, err)
 	return &viewData{
-		candCenter: candCenter,
+		candCenter:   candCenter,
+		voterWeights: NewVoterWeightView(),
 		bucketPool: &BucketPool{
 			total: &totalAmount{
 				amount: big.NewInt(100),
@@ -45,6 +47,64 @@ func testCreateViewData(t *testing.T) *viewData {
 			},
 		},
 	}
+}
+
+func TestContractBucketVoterWeightObserver(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm := testdb.NewMockStateManager(ctrl)
+	require.NoError(t, sm.WriteView(_protocolID, testCreateViewData(t)))
+	csm, err := NewCandidateStateManager(sm)
+	require.NoError(t, err)
+	observer := &contractBucketVoterWeightObserver{
+		csm: csm,
+		calculateVoteWeight: func(bucket *contractstaking.Bucket, height uint64) *big.Int {
+			require.Equal(t, uint64(100), height)
+			return new(big.Int).Set(bucket.StakedAmount)
+		},
+		height: 100,
+	}
+
+	first := &contractstaking.Bucket{
+		Candidate: identityset.Address(1), Owner: identityset.Address(5), StakedAmount: big.NewInt(100),
+	}
+	second := &contractstaking.Bucket{
+		Candidate: identityset.Address(2), Owner: identityset.Address(6), StakedAmount: big.NewInt(200),
+	}
+	observer.PutContractBucket(nil, first)
+	cand1 := csm.GetByIdentifier(identityset.Address(1))
+	cand2 := csm.GetByIdentifier(identityset.Address(2))
+	require.Len(t, csm.DirtyView().voterWeights.VoterWeightsByCandidate(
+		hash.BytesToHash160(cand1.GetIdentifier().Bytes()),
+	), 1)
+	require.Zero(t, cand1.Votes.Cmp(big.NewInt(1000)), "observer must not change aggregate candidate votes")
+
+	observer.PutContractBucket(first, second)
+	require.Empty(t, csm.DirtyView().voterWeights.VoterWeightsByCandidate(
+		hash.BytesToHash160(cand1.GetIdentifier().Bytes()),
+	))
+	weights := csm.DirtyView().voterWeights.VoterWeightsByCandidate(
+		hash.BytesToHash160(cand2.GetIdentifier().Bytes()),
+	)
+	require.Len(t, weights, 1)
+	require.Equal(t, identityset.Address(6).String(), weights[0].voter.String())
+	require.Zero(t, weights[0].weight.Cmp(big.NewInt(200)))
+	require.Zero(t, cand2.Votes.Cmp(big.NewInt(1000)), "observer must not change aggregate candidate votes")
+
+	observer.DeleteContractBucket(second)
+	require.Empty(t, csm.DirtyView().voterWeights.VoterWeightsByCandidate(
+		hash.BytesToHash160(cand2.GetIdentifier().Bytes()),
+	))
+
+	observer.calculateVoteWeight = func(bucket *contractstaking.Bucket, height uint64) *big.Int {
+		return new(big.Int).Mul(bucket.StakedAmount, new(big.Int).SetUint64(height))
+	}
+	observer.ReviseContractBucket(first)
+	weights = csm.DirtyView().voterWeights.VoterWeightsByCandidate(
+		hash.BytesToHash160(cand1.GetIdentifier().Bytes()),
+	)
+	require.Len(t, weights, 1)
+	require.Zero(t, weights[0].weight.Cmp(big.NewInt(100)))
 }
 
 // TestNewNFTBucketEventHandler tests the creation of a new NFT bucket event handler
@@ -60,6 +120,29 @@ func TestNewNFTBucketEventHandler(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, handler)
+}
+
+func TestNFTBucketEventHandlerMigrationSkipsVoterWeights(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sm := testdb.NewMockStateManager(ctrl)
+	sm.EXPECT().Height().Return(uint64(100), nil).AnyTimes()
+	view := testCreateViewData(t)
+	require.NoError(t, sm.WriteView(_protocolID, view))
+	handler, err := newNFTBucketEventHandlerForMigration(sm, func(*contractstaking.Bucket, uint64) *big.Int {
+		return big.NewInt(100)
+	})
+	require.NoError(t, err)
+
+	bucket := &contractstaking.Bucket{
+		Candidate: identityset.Address(1),
+		Owner:     identityset.Address(5),
+	}
+	require.NoError(t, handler.PutBucket(identityset.Address(9), 1, bucket))
+	require.Empty(t, view.voterWeights.VoterWeightsByCandidate(
+		hash.BytesToHash160(identityset.Address(1).Bytes()),
+	))
 }
 
 func TestPutBucketType(t *testing.T) {

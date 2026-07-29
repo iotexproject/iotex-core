@@ -45,6 +45,13 @@ type (
 		CandidateStakeVotes(ctx context.Context, id address.Address) *big.Int
 		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error
 	}
+	// ContractBucketObserver receives the before/after bucket values already
+	// resolved by the contract stake view's in-memory store.
+	ContractBucketObserver interface {
+		PutContractBucket(previous, current *contractstaking.Bucket)
+		DeleteContractBucket(previous *contractstaking.Bucket)
+		ReviseContractBucket(bucket *contractstaking.Bucket)
+	}
 	// viewData is the data that need to be stored in protocol's view
 	viewData struct {
 		candCenter     *CandidateCenter
@@ -161,14 +168,27 @@ func (v *viewData) Revert(snapshot int) error {
 }
 
 func (csv *contractStakeView) Revise(ctx context.Context) {
+	csv.ReviseWithBucketObserver(ctx, nil)
+}
+
+func (csv *contractStakeView) ReviseWithBucketObserver(ctx context.Context, observer ContractBucketObserver) {
+	revise := func(view ContractStakeView) {
+		if observed, ok := view.(interface {
+			ReviseWithBucketObserver(context.Context, ContractBucketObserver)
+		}); ok {
+			observed.ReviseWithBucketObserver(ctx, observer)
+			return
+		}
+		view.Revise(ctx)
+	}
 	if csv.v1 != nil {
-		csv.v1.Revise(ctx)
+		revise(csv.v1)
 	}
 	if csv.v2 != nil {
-		csv.v2.Revise(ctx)
+		revise(csv.v2)
 	}
 	if csv.v3 != nil {
-		csv.v3.Revise(ctx)
+		revise(csv.v3)
 	}
 }
 
@@ -287,18 +307,34 @@ func (csv *contractStakeView) Commit(ctx context.Context, sm protocol.StateManag
 }
 
 func (csv *contractStakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
+	return csv.HandleWithBucketObserver(ctx, receipt, nil)
+}
+
+func (csv *contractStakeView) HandleWithBucketObserver(
+	ctx context.Context,
+	receipt *action.Receipt,
+	observer ContractBucketObserver,
+) error {
+	handle := func(view ContractStakeView) error {
+		if observed, ok := view.(interface {
+			HandleWithBucketObserver(context.Context, *action.Receipt, ContractBucketObserver) error
+		}); ok {
+			return observed.HandleWithBucketObserver(ctx, receipt, observer)
+		}
+		return view.Handle(ctx, receipt)
+	}
 	if csv.v1 != nil {
-		if err := csv.v1.Handle(ctx, receipt); err != nil {
+		if err := handle(csv.v1); err != nil {
 			return err
 		}
 	}
 	if csv.v2 != nil {
-		if err := csv.v2.Handle(ctx, receipt); err != nil {
+		if err := handle(csv.v2); err != nil {
 			return err
 		}
 	}
 	if csv.v3 != nil {
-		if err := csv.v3.Handle(ctx, receipt); err != nil {
+		if err := handle(csv.v3); err != nil {
 			return err
 		}
 	}
