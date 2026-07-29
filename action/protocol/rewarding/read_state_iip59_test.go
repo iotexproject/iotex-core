@@ -32,10 +32,14 @@ func TestReadStateIIP59(t *testing.T) {
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID.Bytes(), big.NewInt(351)))
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
 		TargetEra:          42,
+		StartEpoch:         19,
+		EndEpoch:           42,
 		DelegateIndex:      1,
 		VoterIndex:         7,
 		SettlementSeed:     []byte{1, 2, 3},
 		DelegateStartIndex: 5,
+		Completed:          true,
+		CompletedHeight:    12345,
 		Delegates: []epochDrainDelegateWork{{
 			CandidateIdentifier: candID.Bytes(),
 			VoterAmountFrozen:   big.NewInt(300),
@@ -65,6 +69,10 @@ func TestReadStateIIP59(t *testing.T) {
 	cursor := &rewardingpb.EpochDrainCursor{}
 	r.NoError(proto.Unmarshal(cursorData, cursor))
 	r.Equal(uint64(42), cursor.GetTargetEra())
+	r.Equal(uint64(19), cursor.GetStartEpoch())
+	r.Equal(uint64(42), cursor.GetEndEpoch())
+	r.True(cursor.GetCompleted())
+	r.Equal(uint64(12345), cursor.GetCompletedHeight())
 	r.Equal(uint32(1), cursor.GetDelegateIndex())
 	r.Equal(uint32(7), cursor.GetVoterIndex())
 	r.Equal([]byte{1, 2, 3}, cursor.GetSettlementSeed())
@@ -197,6 +205,20 @@ func TestReadStateVoterRewardStatus(t *testing.T) {
 	r.Equal(rewardingpb.VoterRewardStatus_CANDIDATE_NOT_INCLUDED, status.GetStatus())
 	status = readStatus(candID.String(), identityset.Address(11).String())
 	r.Equal(rewardingpb.VoterRewardStatus_VOTER_NOT_INCLUDED, status.GetStatus())
+
+	work.VoterAmountDistributed = big.NewInt(101)
+	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
+		TargetEra: 42, StartEpoch: 19, EndEpoch: 42,
+		DelegateIndex: 1, Completed: true, CompletedHeight: 12345,
+		Delegates: []epochDrainDelegateWork{work},
+	}))
+	status = readStatus(candID.String(), voters[0].Voter.String())
+	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED, status.GetStatus())
+	r.Equal(uint64(19), status.GetEraStartEpoch())
+	r.Equal(uint64(42), status.GetEraEndEpoch())
+	r.True(status.GetSettlementCompleted())
+	r.Equal(uint64(12345), status.GetCompletedHeight())
+	r.Equal(big.NewInt(18), new(big.Int).SetBytes(status.GetRewardAmount()))
 
 	work.SnapshotHash = []byte{1}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{

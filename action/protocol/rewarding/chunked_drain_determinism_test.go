@@ -96,10 +96,10 @@ func registerStubStakingProtocol(t *testing.T, ctx context.Context) *gomonkey.Pa
 }
 
 // runDrainToCompletion runs Phase A once and then drives GrantVoterRewardChunk
-// in a tight loop until the cursor is absent. Returns the number of Phase B
+// in a tight loop until the cursor is completed. Returns the number of Phase B
 // chunk calls that were needed. Callers assert this against the chunk size
-// they configured; a chunkSize=0 run should complete Phase B in zero
-// continuation calls (Phase A drains in one shot).
+// they configured; a chunkSize=0 run completes Phase B in one unbounded
+// continuation call.
 func runDrainToCompletion(
 	t *testing.T,
 	ctx context.Context,
@@ -114,7 +114,7 @@ func runDrainToCompletion(
 	for {
 		got, gErr := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(gErr)
-		if got == nil {
+		if got == nil || got.Completed {
 			break
 		}
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
@@ -231,8 +231,8 @@ func TestChunkedDrain_InvariantAcrossChunkSizes(t *testing.T) {
 	r.True(reflect.DeepEqual(snapChunk1, snapChunkUnbounded),
 		"end-state must be byte-identical between chunkSize=1 and chunkSize=0")
 
-	// Cursor must be absent at end of every run — the invariant that lets
-	// consumers rely on cursor absence as a "drain complete" signal.
+	// TestOnlyDumpRewardState treats a completed cursor as inactive so the
+	// distribution state comparison remains independent of chunk count.
 	r.False(snapChunk1.CursorPresent, "cursor must be absent at end of chunkSize=1 drain")
 	r.False(snapChunk2.CursorPresent, "cursor must be absent at end of chunkSize=2 drain")
 	r.False(snapChunkUnbounded.CursorPresent, "cursor must be absent at end of chunkSize=0 drain")
@@ -297,7 +297,7 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		for {
 			cursor, readErr := p.readEpochDrainCursor(ctx, sm)
 			r.NoError(readErr)
-			if cursor == nil {
+			if cursor == nil || cursor.Completed {
 				break
 			}
 			_, _, err = p.GrantVoterRewardChunk(ctx, sm)
@@ -434,6 +434,8 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 		// field.
 		stale := &epochDrainCursor{
 			TargetEra:     1,
+			StartEpoch:    1,
+			EndEpoch:      1,
 			DelegateIndex: 0,
 			Delegates: []epochDrainDelegateWork{
 				{CandidateIdentifier: candID, VoterAmountFrozen: big.NewInt(999)},
@@ -466,6 +468,8 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(next, "era-N+1 Phase A must produce a cursor from the surviving pool residual")
 		r.Equal(uint64(2), next.TargetEra, "stale cursor deletion must precede fresh materialisation")
+		r.Equal(uint64(1), next.StartEpoch, "overrun residue must carry the oldest covered epoch forward")
+		r.Equal(uint64(2), next.EndEpoch)
 
 		// The candidate 27 entry in the new cursor must carry the 250 rau
 		// residue (no fresh voter share in this fixture, so residue only).

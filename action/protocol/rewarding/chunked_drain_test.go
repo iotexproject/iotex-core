@@ -254,8 +254,8 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 
 		// The cursor must still be present, unmodified. If the fork-off
 		// path had read it, we'd have taken the continuation branch and
-		// either skipped Phase A's assertNoRewardYet (invalid) or written
-		// the sentinel + deleted the cursor (equally invalid).
+		// either skipped Phase A's assertNoRewardYet (invalid) or finalized
+		// the cursor (equally invalid).
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
 		r.NotNil(got, "cursor must survive a legacy epoch grant")

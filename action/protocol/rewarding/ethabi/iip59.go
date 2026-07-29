@@ -19,10 +19,10 @@ import (
 const _iip59InterfaceABI = `[
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"pendingBlockRewardPool","outputs":[{"name":"amount","type":"uint256"}],"stateMutability":"view","type":"function"},
 	{"inputs":[],"name":"pendingBlockRewardPoolIndex","outputs":[{"name":"candidateIds","type":"address[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[],"name":"epochDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"delegateIndex","type":"uint32"},{"name":"voterIndex","type":"uint32"},{"name":"settlementSeed","type":"bytes32"},{"name":"delegateStartIndex","type":"uint32"},{"name":"candidateIds","type":"address[]"},{"name":"voterStartIndices","type":"uint32[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"rewardAddresses","type":"address[]"},{"name":"epochCommissions","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
+	{"inputs":[],"name":"epochDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"startEpoch","type":"uint64"},{"name":"endEpoch","type":"uint64"},{"name":"completed","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"delegateIndex","type":"uint32"},{"name":"voterIndex","type":"uint32"},{"name":"settlementSeed","type":"bytes32"},{"name":"delegateStartIndex","type":"uint32"},{"name":"candidateIds","type":"address[]"},{"name":"voterStartIndices","type":"uint32[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"rewardAddresses","type":"address[]"},{"name":"epochCommissions","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"onchainRewardEnabled","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"snapshotHash","type":"bytes32"},{"name":"voters","type":"address[]"},{"name":"weights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardAddress","outputs":[{"name":"rewardAddress","type":"address"},{"name":"explicitlySet","type":"bool"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"name":"candidateId","type":"address"},{"name":"voter","type":"address"}],"name":"voterRewardStatus","outputs":[{"name":"targetEra","type":"uint64"},{"name":"status","type":"uint8"},{"name":"logicalVoterIndex","type":"uint32"},{"name":"voterStartIndex","type":"uint32"},{"name":"rewardAmount","type":"uint256"}],"stateMutability":"view","type":"function"}
+	{"inputs":[{"name":"candidateId","type":"address"},{"name":"voter","type":"address"}],"name":"voterRewardStatus","outputs":[{"name":"targetEra","type":"uint64"},{"name":"eraStartEpoch","type":"uint64"},{"name":"eraEndEpoch","type":"uint64"},{"name":"settlementCompleted","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"status","type":"uint8"},{"name":"logicalVoterIndex","type":"uint32"},{"name":"voterStartIndex","type":"uint32"},{"name":"rewardAmount","type":"uint256"}],"stateMutability":"view","type":"function"}
 ]`
 
 var (
@@ -80,7 +80,8 @@ func (r *VoterRewardStatusStateContext) EncodeToEth(resp *iotexapi.ReadStateResp
 		return "", err
 	}
 	data, err := _voterRewardStatusMethod.Outputs.Pack(
-		status.GetTargetEra(), uint8(status.GetStatus()), status.GetLogicalVoterIndex(),
+		status.GetTargetEra(), status.GetEraStartEpoch(), status.GetEraEndEpoch(),
+		status.GetSettlementCompleted(), status.GetCompletedHeight(), uint8(status.GetStatus()), status.GetLogicalVoterIndex(),
 		status.GetVoterStartIndex(), new(big.Int).SetBytes(status.GetRewardAmount()),
 	)
 	if err != nil {
@@ -231,7 +232,8 @@ func (r *EpochDrainCursorStateContext) EncodeToEth(resp *iotexapi.ReadStateRespo
 		totalWeights[i] = new(big.Int).SetBytes(delegate.GetTotalWeight())
 	}
 	data, err := _epochDrainCursorMethod.Outputs.Pack(
-		cursor.GetTargetEra(), cursor.GetDelegateIndex(), cursor.GetVoterIndex(),
+		cursor.GetTargetEra(), cursor.GetStartEpoch(), cursor.GetEndEpoch(), cursor.GetCompleted(), cursor.GetCompletedHeight(),
+		cursor.GetDelegateIndex(), cursor.GetVoterIndex(),
 		common.BytesToHash(cursor.GetSettlementSeed()), cursor.GetDelegateStartIndex(),
 		ids, voterStartIndices, voterAmounts, distributedAmounts, rewardAddresses, epochCommissions, totalWeights,
 	)

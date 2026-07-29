@@ -113,9 +113,9 @@ message EpochDrainDelegateWork {
 // the current delegate's snap.Entries when a per-block voter cap
 // stops payout mid-delegate. VoterIndex is 0 whenever a delegate
 // entry is fresh; it's non-zero only for the entry pointed to by
-// DelegateIndex. Cursor presence in the RewardingNamespace signals a
-// drain is in progress and the system-action layer must emit a
-// continuation grant on the next block. Absence = no drain in progress.
+// DelegateIndex. An incomplete cursor signals that the system-action layer
+// must emit a continuation grant. A completed cursor is retained for voter
+// queries until the next era boundary replaces it.
 message EpochDrainCursor {
     uint64 target_era     = 1;
     uint32 delegate_index = 2;
@@ -127,6 +127,10 @@ message EpochDrainCursor {
     // Original canonical delegate-list index selected by settlement_seed.
     // Delegates is persisted in the resulting circular traversal order.
     uint32 delegate_start_index = 6;
+    bool completed = 7;
+    uint64 completed_height = 8;
+    uint64 start_epoch = 9;
+    uint64 end_epoch = 10;
 }
 
 // VoterRewardAddress is the effective post-IIP-59 delegate payout address.
@@ -138,8 +142,7 @@ message VoterRewardAddress {
 }
 
 // VoterRewardStatus reports one voter's position and exact reward amount in
-// the currently active IIP-59 settlement. It is intentionally not historical:
-// after the settlement cursor is deleted, status becomes NO_ACTIVE_SETTLEMENT.
+// the active or most recently completed IIP-59 settlement.
 message VoterRewardStatus {
     enum Status {
         NO_ACTIVE_SETTLEMENT = 0;
@@ -155,4 +158,8 @@ message VoterRewardStatus {
     uint32 logical_voter_index = 3;
     uint32 voter_start_index = 4;
     bytes reward_amount = 5;
+    uint64 era_start_epoch = 6;
+    uint64 era_end_epoch = 7;
+    bool settlement_completed = 8;
+    uint64 completed_height = 9;
 }

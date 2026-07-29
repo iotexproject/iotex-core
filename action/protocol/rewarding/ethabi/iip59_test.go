@@ -51,22 +51,30 @@ func TestIIP59VoterRewardStatusDispatchAndEncoding(t *testing.T) {
 	r.Equal(identityset.Address(8).String(), string(ctx.Parameters().Arguments[1]))
 
 	data, err := proto.Marshal(&rewardingpb.VoterRewardStatus{
-		TargetEra:         19,
-		Status:            rewardingpb.VoterRewardStatus_WAITING,
-		LogicalVoterIndex: 23,
-		VoterStartIndex:   11,
-		RewardAmount:      big.NewInt(123456789).Bytes(),
+		TargetEra:           24,
+		EraStartEpoch:       1,
+		EraEndEpoch:         24,
+		SettlementCompleted: true,
+		CompletedHeight:     8640,
+		Status:              rewardingpb.VoterRewardStatus_WAITING,
+		LogicalVoterIndex:   23,
+		VoterStartIndex:     11,
+		RewardAmount:        big.NewInt(123456789).Bytes(),
 	})
 	r.NoError(err)
 	encoded, err := ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: data})
 	r.NoError(err)
 	values, err := _voterRewardStatusMethod.Outputs.Unpack(mustDecodeHex(t, encoded))
 	r.NoError(err)
-	r.Equal(uint64(19), values[0])
-	r.Equal(uint8(rewardingpb.VoterRewardStatus_WAITING), values[1])
-	r.Equal(uint32(23), values[2])
-	r.Equal(uint32(11), values[3])
-	r.Zero(values[4].(*big.Int).Cmp(big.NewInt(123456789)))
+	r.Equal(uint64(24), values[0])
+	r.Equal(uint64(1), values[1])
+	r.Equal(uint64(24), values[2])
+	r.Equal(true, values[3])
+	r.Equal(uint64(8640), values[4])
+	r.Equal(uint8(rewardingpb.VoterRewardStatus_WAITING), values[5])
+	r.Equal(uint32(23), values[6])
+	r.Equal(uint32(11), values[7])
+	r.Zero(values[8].(*big.Int).Cmp(big.NewInt(123456789)))
 }
 
 func TestIIP59RewardAddressEncoding(t *testing.T) {
@@ -131,6 +139,10 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	r := require.New(t)
 	cursorData, err := proto.Marshal(&rewardingpb.EpochDrainCursor{
 		TargetEra:          4,
+		StartEpoch:         1,
+		EndEpoch:           4,
+		Completed:          true,
+		CompletedHeight:    99,
 		DelegateIndex:      1,
 		VoterIndex:         25,
 		SettlementSeed:     common.HexToHash("0x9876").Bytes(),
@@ -153,17 +165,21 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	values, err := _epochDrainCursorMethod.Outputs.Unpack(mustDecodeHex(t, encoded))
 	r.NoError(err)
 	r.Equal(uint64(4), values[0])
-	r.Equal(uint32(1), values[1])
-	r.Equal(uint32(25), values[2])
-	r.Equal([32]byte(common.HexToHash("0x9876")), values[3])
-	r.Equal(uint32(2), values[4])
-	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(3).Bytes())}, values[5])
-	r.Equal([]uint32{17}, values[6])
-	r.Zero(values[7].([]*big.Int)[0].Cmp(big.NewInt(1000)))
-	r.Zero(values[8].([]*big.Int)[0].Cmp(big.NewInt(400)))
-	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(4).Bytes())}, values[9])
-	r.Zero(values[10].([]*big.Int)[0].Cmp(big.NewInt(200)))
-	r.Zero(values[11].([]*big.Int)[0].Cmp(big.NewInt(300)))
+	r.Equal(uint64(1), values[1])
+	r.Equal(uint64(4), values[2])
+	r.Equal(true, values[3])
+	r.Equal(uint64(99), values[4])
+	r.Equal(uint32(1), values[5])
+	r.Equal(uint32(25), values[6])
+	r.Equal([32]byte(common.HexToHash("0x9876")), values[7])
+	r.Equal(uint32(2), values[8])
+	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(3).Bytes())}, values[9])
+	r.Equal([]uint32{17}, values[10])
+	r.Zero(values[11].([]*big.Int)[0].Cmp(big.NewInt(1000)))
+	r.Zero(values[12].([]*big.Int)[0].Cmp(big.NewInt(400)))
+	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(4).Bytes())}, values[13])
+	r.Zero(values[14].([]*big.Int)[0].Cmp(big.NewInt(200)))
+	r.Zero(values[15].([]*big.Int)[0].Cmp(big.NewInt(300)))
 
 	snapshotHash := common.HexToHash("0x1234")
 	snapshotData, err := proto.Marshal(&stakingpb.CandidatePollSnapshot{

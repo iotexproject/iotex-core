@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -38,6 +39,10 @@ func (p *Protocol) voterRewardStatus(
 		return status, nil
 	}
 	status.TargetEra = cursor.TargetEra
+	g := genesis.MustExtractGenesisContext(ctx)
+	status.EraStartEpoch, status.EraEndEpoch = cursor.epochRange(g.EpochsPerRewardEra)
+	status.SettlementCompleted = cursor.Completed
+	status.CompletedHeight = cursor.CompletedHeight
 
 	delegateIndex := -1
 	for i := range cursor.Delegates {
@@ -90,6 +95,8 @@ func (p *Protocol) voterRewardStatus(
 	status.RewardAmount = voterRewardAmount(snapshot, work, logicalIndex).Bytes()
 
 	switch {
+	case cursor.Completed:
+		status.Status = rewardingpb.VoterRewardStatus_PROCESSED
 	case uint32(delegateIndex) < cursor.DelegateIndex:
 		status.Status = rewardingpb.VoterRewardStatus_PROCESSED
 	case uint32(delegateIndex) > cursor.DelegateIndex:

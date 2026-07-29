@@ -44,22 +44,25 @@ type epochDrainDelegateWork struct {
 	VoterStartIndex        uint32
 }
 
-// epochDrainCursor checkpoints an in-progress IIP-59 era-boundary drain
-// of PendingBlockRewardPool balances into voter accounts. TargetEra is
-// the era ID being drained; DelegateIndex is the resume position in
+// epochDrainCursor checkpoints an IIP-59 era-boundary drain of
+// PendingBlockRewardPool balances into voter accounts. TargetEra is the
+// boundary epoch being drained; DelegateIndex is the resume position in
 // the frozen Delegates slice; VoterIndex is the resume position inside
 // the delegate at DelegateIndex when a per-block voter cap stops
 // payout mid-delegate — 0 whenever the entry at DelegateIndex is
-// fresh. Delegates is the frozen work list. Cursor presence in the
-// RewardingNamespace signals a drain is live and the system-action
-// layer must emit a continuation grant on the next block. Absence =
-// no drain in progress.
+// fresh. Delegates is the frozen work list. Completed cursors remain available
+// for voter queries until the next era boundary; only incomplete cursors emit
+// continuation actions.
 type epochDrainCursor struct {
 	TargetEra          uint64
+	StartEpoch         uint64
+	EndEpoch           uint64
 	DelegateIndex      uint32
 	VoterIndex         uint32
 	SettlementSeed     []byte
 	DelegateStartIndex uint32
+	Completed          bool
+	CompletedHeight    uint64
 	Delegates          []epochDrainDelegateWork
 }
 
@@ -71,6 +74,10 @@ func (c epochDrainCursor) Serialize() ([]byte, error) {
 		VoterIndex:         c.VoterIndex,
 		SettlementSeed:     c.SettlementSeed,
 		DelegateStartIndex: c.DelegateStartIndex,
+		Completed:          c.Completed,
+		CompletedHeight:    c.CompletedHeight,
+		StartEpoch:         c.StartEpoch,
+		EndEpoch:           c.EndEpoch,
 	}
 	if len(c.Delegates) > 0 {
 		m.Delegates = make([]*rewardingpb.EpochDrainDelegateWork, len(c.Delegates))
@@ -103,6 +110,10 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 	c.VoterIndex = m.GetVoterIndex()
 	c.SettlementSeed = append(c.SettlementSeed[:0], m.GetSettlementSeed()...)
 	c.DelegateStartIndex = m.GetDelegateStartIndex()
+	c.Completed = m.GetCompleted()
+	c.CompletedHeight = m.GetCompletedHeight()
+	c.StartEpoch = m.GetStartEpoch()
+	c.EndEpoch = m.GetEndEpoch()
 	c.Delegates = nil
 	if ds := m.GetDelegates(); len(ds) > 0 {
 		c.Delegates = make([]epochDrainDelegateWork, len(ds))
@@ -122,6 +133,31 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 		}
 	}
 	return nil
+}
+
+func rewardEraStartEpoch(endEpoch, epochsPerEra uint64) uint64 {
+	if endEpoch == 0 {
+		return 0
+	}
+	if epochsPerEra == 0 || endEpoch < epochsPerEra {
+		return 1
+	}
+	return endEpoch - epochsPerEra + 1
+}
+
+func (c *epochDrainCursor) epochRange(epochsPerEra uint64) (uint64, uint64) {
+	if c == nil {
+		return 0, 0
+	}
+	endEpoch := c.EndEpoch
+	if endEpoch == 0 {
+		endEpoch = c.TargetEra
+	}
+	startEpoch := c.StartEpoch
+	if startEpoch == 0 {
+		startEpoch = rewardEraStartEpoch(endEpoch, epochsPerEra)
+	}
+	return startEpoch, endEpoch
 }
 
 // settlementSeed freezes one consensus-visible number for every list offset
@@ -195,8 +231,8 @@ func epochDrainBytesBigInt(b []byte) *big.Int {
 	return out
 }
 
-// readEpochDrainCursor returns the live cursor, or (nil, nil) when no
-// drain is in progress.
+// readEpochDrainCursor returns the active or most recently completed cursor,
+// or (nil, nil) before the first settlement.
 func (p *Protocol) readEpochDrainCursor(
 	ctx context.Context,
 	sm protocol.StateReader,
@@ -239,7 +275,7 @@ func (p *Protocol) TestOnlyEpochDrainSnapshot(
 	sm protocol.StateReader,
 ) (delegateIndex uint32, voterIndex uint32, totalDelegates uint32, targetEra uint64, present bool, err error) {
 	c, err := p.readEpochDrainCursor(ctx, sm)
-	if err != nil || c == nil {
+	if err != nil || c == nil || c.Completed {
 		return 0, 0, 0, 0, false, err
 	}
 	return c.DelegateIndex, c.VoterIndex, uint32(len(c.Delegates)), c.TargetEra, true, nil

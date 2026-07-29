@@ -372,15 +372,26 @@ func (p *Protocol) GrantEpochReward(
 	// allocated below so external verifiers see the handoff before any
 	// per-delegate EPOCH_REWARD entries.
 	var overrunLog *action.Log
+	settlementStartEpoch := rewardEraStartEpoch(epochNum, g.EpochsPerRewardEra)
 	if isEraBoundary {
 		existing, err := p.readEpochDrainCursor(ctx, sm)
 		if err != nil {
 			return nil, nil, err
 		}
 		if existing != nil {
-			overrunLog, err = p.handlePhaseAEntryOverrun(ctx, sm, existing)
-			if err != nil {
-				return nil, nil, err
+			if existing.Completed {
+				if err := p.deleteEpochDrainCursor(ctx, sm); err != nil {
+					return nil, nil, err
+				}
+			} else {
+				previousStart, _ := existing.epochRange(g.EpochsPerRewardEra)
+				if previousStart > 0 && previousStart < settlementStartEpoch {
+					settlementStartEpoch = previousStart
+				}
+				overrunLog, err = p.handlePhaseAEntryOverrun(ctx, sm, existing)
+				if err != nil {
+					return nil, nil, err
+				}
 			}
 		}
 	}
@@ -614,6 +625,8 @@ func (p *Protocol) GrantEpochReward(
 		delegateStartIndex := settlementListOffset(eraSettlementSeed[:], len(cursorEntries))
 		cursor := &epochDrainCursor{
 			TargetEra:          epochNum,
+			StartEpoch:         settlementStartEpoch,
+			EndEpoch:           epochNum,
 			SettlementSeed:     append([]byte(nil), eraSettlementSeed[:]...),
 			DelegateStartIndex: delegateStartIndex,
 			Delegates:          rotateDelegateWork(cursorEntries, delegateStartIndex),
@@ -637,8 +650,8 @@ func (p *Protocol) GrantEpochReward(
 
 // GrantVoterRewardChunk advances one chunk of an in-progress IIP-59
 // era-boundary drain. Emitted by CreatePostSystemActions on every
-// non-epoch-boundary block while a cursor is live; the final chunk
-// runs the coda (orphan drain and cursor delete) inline. Foundation bonus
+// non-epoch-boundary block while a cursor is incomplete; the final chunk
+// runs the coda (orphan drain and cursor completion) inline. Foundation bonus
 // and the epoch sentinel are committed by GrantEpochReward in Phase A.
 //
 // Epoch-scoped routing inputs are frozen in the cursor by Phase A. A
@@ -667,6 +680,9 @@ func (p *Protocol) GrantVoterRewardChunk(
 		// runs. Reaching here means CreatePostSystemActions or a state
 		// migration got out of sync.
 		return nil, nil, errors.New("rewarding: voter reward chunk dispatched without a live cursor")
+	}
+	if cursor.Completed {
+		return nil, nil, errors.New("rewarding: voter reward chunk dispatched for a completed cursor")
 	}
 
 	// IIP-59 §10.3: emit a CURSOR_PROGRESS snapshot of the pre-drain
@@ -754,7 +770,7 @@ func (p *Protocol) loadEpochDistributionInputs(
 // mid-delegate, the cursor's VoterIndex records the resume position and
 // DelegateIndex stays put; the next block picks up at
 // [VoterIndex, VoterIndex+remainingBudget). Post-C3 the coda shrinks to
-// orphan sweep + cursor delete: foundation bonus and epoch sentinel
+// orphan sweep + cursor completion: foundation bonus and epoch sentinel
 // already ran in GrantEpochReward.
 //
 // Post-fork only — GrantVoterRewardChunk is the sole caller. Cursor
@@ -918,7 +934,7 @@ func (p *Protocol) runVoterDistributionChunk(
 		return transactionLogs, rewardLogs, nil
 	}
 
-	// Coda: orphan drain + cursor delete. Sentinel and foundation bonus
+	// Coda: orphan drain + retain a completed cursor. Sentinel and foundation bonus
 	// ran in Phase A. Delegates that were in the cursor got drained above;
 	// Any residual pool entries belong to delegates that fell off the poll
 	// list. Missing/empty snapshots have cursor entries and remain pending.
@@ -938,8 +954,12 @@ func (p *Protocol) runVoterDistributionChunk(
 	if err := p.updateAvailableBalance(ctx, sm, debit); err != nil {
 		return nil, nil, err
 	}
-	stop = startIIP59Duration("cursor_delete")
-	if err := p.deleteEpochDrainCursor(ctx, sm); err != nil {
+	cursor.Completed = true
+	cursor.CompletedHeight = blkCtx.BlockHeight
+	cursor.DelegateIndex = total
+	cursor.VoterIndex = 0
+	stop = startIIP59Duration("cursor_write_complete")
+	if err := p.writeEpochDrainCursor(ctx, sm, cursor); err != nil {
 		return nil, nil, err
 	}
 	stop()

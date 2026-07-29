@@ -27,10 +27,14 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 
 	in := epochDrainCursor{
 		TargetEra:          42,
+		StartEpoch:         19,
+		EndEpoch:           42,
 		DelegateIndex:      7,
 		VoterIndex:         123,
 		SettlementSeed:     []byte{7, 8, 9},
 		DelegateStartIndex: 1,
+		Completed:          true,
+		CompletedHeight:    12345,
 		Delegates: []epochDrainDelegateWork{
 			{
 				CandidateIdentifier: identityset.Address(1).Bytes(),
@@ -64,10 +68,14 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 	var out epochDrainCursor
 	r.NoError(out.Deserialize(raw))
 	r.Equal(in.TargetEra, out.TargetEra)
+	r.Equal(in.StartEpoch, out.StartEpoch)
+	r.Equal(in.EndEpoch, out.EndEpoch)
 	r.Equal(in.DelegateIndex, out.DelegateIndex)
 	r.Equal(in.VoterIndex, out.VoterIndex)
 	r.Equal(in.SettlementSeed, out.SettlementSeed)
 	r.Equal(in.DelegateStartIndex, out.DelegateStartIndex)
+	r.Equal(in.Completed, out.Completed)
+	r.Equal(in.CompletedHeight, out.CompletedHeight)
 	r.Len(out.Delegates, 2)
 	for i := range in.Delegates {
 		r.Equal(in.Delegates[i].CandidateIdentifier, out.Delegates[i].CandidateIdentifier)
@@ -84,6 +92,23 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 		r.Equal(in.Delegates[i].HasWeightedEntries, out.Delegates[i].HasWeightedEntries)
 		r.Equal(in.Delegates[i].VoterStartIndex, out.Delegates[i].VoterStartIndex)
 	}
+}
+
+func TestRewardEraEpochRange(t *testing.T) {
+	r := require.New(t)
+	r.Equal(uint64(0), rewardEraStartEpoch(0, 24))
+	r.Equal(uint64(1), rewardEraStartEpoch(12, 24))
+	r.Equal(uint64(1), rewardEraStartEpoch(24, 24))
+	r.Equal(uint64(25), rewardEraStartEpoch(48, 24))
+
+	legacy := &epochDrainCursor{TargetEra: 48}
+	start, end := legacy.epochRange(24)
+	r.Equal(uint64(25), start)
+	r.Equal(uint64(48), end)
+	carried := &epochDrainCursor{TargetEra: 48, StartEpoch: 1, EndEpoch: 48}
+	start, end = carried.epochRange(24)
+	r.Equal(uint64(1), start)
+	r.Equal(uint64(48), end)
 }
 
 func TestSettlementSeedAndOffsets(t *testing.T) {

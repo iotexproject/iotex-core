@@ -174,10 +174,12 @@ func TestGrantVoterRewardChunk_UnroutableDelegatesFinish(t *testing.T) {
 		r.NoError(err)
 
 		// Missing snapshots route no voters, so all entries are resolved in
-		// one call and the cursor is deleted by the coda.
+		// one call and the cursor is marked complete by the coda.
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.Nil(got)
+		r.NotNil(got)
+		r.True(got.Completed)
+		r.Equal(total, got.DelegateIndex)
 		r.Greater(int(total), 0)
 		deferred, err := p.readPendingBlockRewardPool(ctx, sm, deferredID)
 		r.NoError(err)
@@ -190,7 +192,7 @@ func TestGrantVoterRewardChunk_UnroutableDelegatesFinish(t *testing.T) {
 }
 
 // TestGrantVoterRewardChunk_LastChunkRunsCoda verifies the terminal
-// chunk runs the post-C3 coda: orphan sweep + cursor delete. The
+// chunk runs the post-C3 coda: orphan sweep + cursor completion. The
 // epoch sentinel is Phase A's responsibility (written by
 // GrantEpochReward) and is NOT touched by the chunk anymore. Seeded
 // state: cursor with DelegateIndex advanced so this run consumes only
@@ -214,10 +216,13 @@ func TestGrantVoterRewardChunk_LastChunkRunsCoda(t *testing.T) {
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
 
-		// Cursor must be deleted after the coda.
+		// Cursor remains queryable after the coda and is marked complete.
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.Nil(got, "terminal chunk must delete the cursor")
+		r.NotNil(got)
+		r.True(got.Completed)
+		r.Equal(total, got.DelegateIndex)
+		r.Equal(protocol.MustGetBlockCtx(ctx).BlockHeight, got.CompletedHeight)
 	}, nil, false, 0)
 }
 
@@ -262,7 +267,10 @@ func TestGrantVoterRewardChunk_CrossEraContinuation(t *testing.T) {
 		// without corrupting cursor state.
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.Nil(got, "terminal chunk must delete the cursor")
+		r.NotNil(got)
+		r.True(got.Completed)
+		r.Equal(total, got.DelegateIndex)
+		r.Equal(later, got.CompletedHeight)
 	}, nil, false, 0)
 }
 
@@ -284,6 +292,30 @@ func TestGrantVoterRewardChunk_MissingCursorErrors(t *testing.T) {
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 		r.Error(err)
 		r.Contains(err.Error(), "voter reward chunk dispatched without a live cursor")
+	}, nil, false, 0)
+}
+
+func TestCompletedCursorDoesNotDispatchChunk(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		ctx = enableIIP59(t, ctx)
+		rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+		blk := protocol.MustGetBlockCtx(ctx)
+		blk.BlockHeight = rp.GetEpochHeight(1)
+		ctx = protocol.WithBlockCtx(ctx, blk)
+		ctx = protocol.WithFeatureCtx(ctx)
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
+
+		r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
+			TargetEra: 1, StartEpoch: 1, EndEpoch: 1, Completed: true, CompletedHeight: blk.BlockHeight,
+		}))
+		grants, err := p.CreatePostSystemActions(ctx, sm)
+		r.NoError(err)
+		r.Len(grants, 1)
+		r.Equal(action.BlockReward, grants[0].Action().(*action.GrantReward).RewardType())
+
+		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
+		r.ErrorContains(err, "completed cursor")
 	}, nil, false, 0)
 }
 
@@ -352,7 +384,7 @@ func TestGrantVoterRewardChunk_PreForkRejects(t *testing.T) {
 // candidate 27 during era N+1). Drive Phase B to completion. Assert:
 //
 //   - candidate 27's pool balance = 100 (residual, not 0 and not -100)
-//   - cursor is absent (era-N drain completed)
+//   - cursor is marked complete (era-N drain completed)
 //   - a fresh Phase A at epoch 2's last block folds the 100 residual
 //     into a new era-N+1 cursor entry with VoterAmountFrozen=100
 func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
@@ -429,15 +461,15 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		for {
 			got, cErr := p.readEpochDrainCursor(ctx, sm)
 			r.NoError(cErr)
-			if got == nil {
+			if got == nil || got.Completed {
 				break
 			}
 			_, _, cErr = p.GrantVoterRewardChunk(ctx, sm)
 			r.NoError(cErr)
 		}
 
-		// Assert 27's pool has the 100 late credit surviving, and that the
-		// era-N cursor is gone.
+		// Assert 27's pool has the 100 late credit surviving. The completed
+		// era-N cursor remains queryable until the next boundary.
 		residual, err := p.readPendingBlockRewardPool(ctx, sm, candID)
 		r.NoError(err)
 		r.Equal(int64(100), residual.Int64(),
@@ -472,6 +504,8 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(nextCursor, "era-N+1 Phase A must produce a cursor from the surviving pool residual")
 		r.Equal(uint64(2), nextCursor.TargetEra)
+		r.Equal(uint64(2), nextCursor.StartEpoch, "a completed cursor must not extend the next era range")
+		r.Equal(uint64(2), nextCursor.EndEpoch)
 		var carriedAmt int64
 		for _, w := range nextCursor.Delegates {
 			if string(w.CandidateIdentifier) == string(candID) {

@@ -226,10 +226,9 @@ func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.Stat
 		grants = append(grants, createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight))
 		return grants, nil
 	}
-	// IIP-59 continuation dispatch: an in-progress chunked drain (cursor
-	// present in the RewardingNamespace) emits a dedicated
+	// IIP-59 continuation dispatch: an incomplete chunked drain emits a dedicated
 	// VoterRewardChunk grant on every non-epoch-boundary block until
-	// GrantVoterRewardChunk's coda deletes the cursor. Cursor is only
+	// GrantVoterRewardChunk's coda marks the cursor complete. Cursor is only
 	// ever written on the fork-on path, so pre-fork blocks skip the
 	// read entirely (state is empty).
 	if !protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
@@ -237,7 +236,7 @@ func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.Stat
 		if err != nil {
 			return nil, err
 		}
-		if cursor != nil {
+		if cursor != nil && !cursor.Completed {
 			grants = append(grants, createGrantRewardAction(action.VoterRewardChunk, blkCtx.BlockHeight))
 		}
 	}
