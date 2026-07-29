@@ -21,7 +21,8 @@ const _iip59InterfaceABI = `[
 	{"inputs":[],"name":"pendingBlockRewardPoolIndex","outputs":[{"name":"candidateIds","type":"address[]"}],"stateMutability":"view","type":"function"},
 	{"inputs":[],"name":"epochDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"delegateIndex","type":"uint32"},{"name":"voterIndex","type":"uint32"},{"name":"settlementSeed","type":"bytes32"},{"name":"delegateStartIndex","type":"uint32"},{"name":"candidateIds","type":"address[]"},{"name":"voterStartIndices","type":"uint32[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"rewardAddresses","type":"address[]"},{"name":"epochCommissions","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"onchainRewardEnabled","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"snapshotHash","type":"bytes32"},{"name":"voters","type":"address[]"},{"name":"weights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardAddress","outputs":[{"name":"rewardAddress","type":"address"},{"name":"explicitlySet","type":"bool"}],"stateMutability":"view","type":"function"}
+	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardAddress","outputs":[{"name":"rewardAddress","type":"address"},{"name":"explicitlySet","type":"bool"}],"stateMutability":"view","type":"function"},
+	{"inputs":[{"name":"candidateId","type":"address"},{"name":"voter","type":"address"}],"name":"voterRewardStatus","outputs":[{"name":"targetEra","type":"uint64"},{"name":"status","type":"uint8"},{"name":"logicalVoterIndex","type":"uint32"},{"name":"voterStartIndex","type":"uint32"},{"name":"rewardAmount","type":"uint256"}],"stateMutability":"view","type":"function"}
 ]`
 
 var (
@@ -30,6 +31,7 @@ var (
 	_epochDrainCursorMethod            abi.Method
 	_voterRewardSnapshotMethod         abi.Method
 	_voterRewardAddressMethod          abi.Method
+	_voterRewardStatusMethod           abi.Method
 )
 
 func init() {
@@ -38,6 +40,53 @@ func init() {
 	_epochDrainCursorMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "epochDrainCursor")
 	_voterRewardSnapshotMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardSnapshot")
 	_voterRewardAddressMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardAddress")
+	_voterRewardStatusMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardStatus")
+}
+
+type VoterRewardStatusStateContext struct {
+	*protocolctx.BaseStateContext
+}
+
+func newVoterRewardStatusStateContext(data []byte) (*VoterRewardStatusStateContext, error) {
+	params := make(map[string]interface{})
+	if err := _voterRewardStatusMethod.Inputs.UnpackIntoMap(params, data); err != nil {
+		return nil, err
+	}
+	candidate, ok := params["candidateId"].(common.Address)
+	if !ok {
+		return nil, errDecodeFailure
+	}
+	voter, ok := params["voter"].(common.Address)
+	if !ok {
+		return nil, errDecodeFailure
+	}
+	candidateID, err := address.FromBytes(candidate.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	voterAddress, err := address.FromBytes(voter.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return &VoterRewardStatusStateContext{&protocolctx.BaseStateContext{Parameter: &protocolctx.Parameters{
+		MethodName: []byte("VoterRewardStatus"),
+		Arguments:  [][]byte{[]byte(candidateID.String()), []byte(voterAddress.String())},
+	}}}, nil
+}
+
+func (r *VoterRewardStatusStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
+	status := &rewardingpb.VoterRewardStatus{}
+	if err := proto.Unmarshal(resp.Data, status); err != nil {
+		return "", err
+	}
+	data, err := _voterRewardStatusMethod.Outputs.Pack(
+		status.GetTargetEra(), uint8(status.GetStatus()), status.GetLogicalVoterIndex(),
+		status.GetVoterStartIndex(), new(big.Int).SetBytes(status.GetRewardAmount()),
+	)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(data), nil
 }
 
 type iip59AddressStateContext struct {

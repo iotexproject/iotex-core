@@ -136,3 +136,23 @@ message VoterRewardAddress {
     bytes address = 1;
     bool explicitly_set = 2;
 }
+
+// VoterRewardStatus reports one voter's position and exact reward amount in
+// the currently active IIP-59 settlement. It is intentionally not historical:
+// after the settlement cursor is deleted, status becomes NO_ACTIVE_SETTLEMENT.
+message VoterRewardStatus {
+    enum Status {
+        NO_ACTIVE_SETTLEMENT = 0;
+        CANDIDATE_NOT_INCLUDED = 1;
+        VOTER_NOT_INCLUDED = 2;
+        WAITING = 3;
+        PROCESSED = 4;
+        SNAPSHOT_UNAVAILABLE = 5;
+    }
+
+    uint64 target_era = 1;
+    Status status = 2;
+    uint32 logical_voter_index = 3;
+    uint32 voter_start_index = 4;
+    bytes reward_amount = 5;
+}

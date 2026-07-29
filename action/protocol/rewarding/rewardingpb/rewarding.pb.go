@@ -104,6 +104,64 @@ func (RewardLog_RewardType) EnumDescriptor() ([]byte, []int) {
 	return file_rewarding_proto_rawDescGZIP(), []int{5, 0}
 }
 
+type VoterRewardStatus_Status int32
+
+const (
+	VoterRewardStatus_NO_ACTIVE_SETTLEMENT   VoterRewardStatus_Status = 0
+	VoterRewardStatus_CANDIDATE_NOT_INCLUDED VoterRewardStatus_Status = 1
+	VoterRewardStatus_VOTER_NOT_INCLUDED     VoterRewardStatus_Status = 2
+	VoterRewardStatus_WAITING                VoterRewardStatus_Status = 3
+	VoterRewardStatus_PROCESSED              VoterRewardStatus_Status = 4
+	VoterRewardStatus_SNAPSHOT_UNAVAILABLE   VoterRewardStatus_Status = 5
+)
+
+// Enum value maps for VoterRewardStatus_Status.
+var (
+	VoterRewardStatus_Status_name = map[int32]string{
+		0: "NO_ACTIVE_SETTLEMENT",
+		1: "CANDIDATE_NOT_INCLUDED",
+		2: "VOTER_NOT_INCLUDED",
+		3: "WAITING",
+		4: "PROCESSED",
+		5: "SNAPSHOT_UNAVAILABLE",
+	}
+	VoterRewardStatus_Status_value = map[string]int32{
+		"NO_ACTIVE_SETTLEMENT":   0,
+		"CANDIDATE_NOT_INCLUDED": 1,
+		"VOTER_NOT_INCLUDED":     2,
+		"WAITING":                3,
+		"PROCESSED":              4,
+		"SNAPSHOT_UNAVAILABLE":   5,
+	}
+)
+
+func (x VoterRewardStatus_Status) Enum() *VoterRewardStatus_Status {
+	p := new(VoterRewardStatus_Status)
+	*p = x
+	return p
+}
+
+func (x VoterRewardStatus_Status) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (VoterRewardStatus_Status) Descriptor() protoreflect.EnumDescriptor {
+	return file_rewarding_proto_enumTypes[1].Descriptor()
+}
+
+func (VoterRewardStatus_Status) Type() protoreflect.EnumType {
+	return &file_rewarding_proto_enumTypes[1]
+}
+
+func (x VoterRewardStatus_Status) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use VoterRewardStatus_Status.Descriptor instead.
+func (VoterRewardStatus_Status) EnumDescriptor() ([]byte, []int) {
+	return file_rewarding_proto_rawDescGZIP(), []int{11, 0}
+}
+
 type Admin struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -849,6 +907,88 @@ func (x *VoterRewardAddress) GetExplicitlySet() bool {
 	return false
 }
 
+// VoterRewardStatus reports one voter's position and exact reward amount in
+// the currently active IIP-59 settlement. It is intentionally not historical:
+// after the settlement cursor is deleted, status becomes NO_ACTIVE_SETTLEMENT.
+type VoterRewardStatus struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	TargetEra         uint64                   `protobuf:"varint,1,opt,name=target_era,json=targetEra,proto3" json:"target_era,omitempty"`
+	Status            VoterRewardStatus_Status `protobuf:"varint,2,opt,name=status,proto3,enum=rewardingpb.VoterRewardStatus_Status" json:"status,omitempty"`
+	LogicalVoterIndex uint32                   `protobuf:"varint,3,opt,name=logical_voter_index,json=logicalVoterIndex,proto3" json:"logical_voter_index,omitempty"`
+	VoterStartIndex   uint32                   `protobuf:"varint,4,opt,name=voter_start_index,json=voterStartIndex,proto3" json:"voter_start_index,omitempty"`
+	RewardAmount      []byte                   `protobuf:"bytes,5,opt,name=reward_amount,json=rewardAmount,proto3" json:"reward_amount,omitempty"`
+}
+
+func (x *VoterRewardStatus) Reset() {
+	*x = VoterRewardStatus{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rewarding_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *VoterRewardStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VoterRewardStatus) ProtoMessage() {}
+
+func (x *VoterRewardStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_rewarding_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VoterRewardStatus.ProtoReflect.Descriptor instead.
+func (*VoterRewardStatus) Descriptor() ([]byte, []int) {
+	return file_rewarding_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *VoterRewardStatus) GetTargetEra() uint64 {
+	if x != nil {
+		return x.TargetEra
+	}
+	return 0
+}
+
+func (x *VoterRewardStatus) GetStatus() VoterRewardStatus_Status {
+	if x != nil {
+		return x.Status
+	}
+	return VoterRewardStatus_NO_ACTIVE_SETTLEMENT
+}
+
+func (x *VoterRewardStatus) GetLogicalVoterIndex() uint32 {
+	if x != nil {
+		return x.LogicalVoterIndex
+	}
+	return 0
+}
+
+func (x *VoterRewardStatus) GetVoterStartIndex() uint32 {
+	if x != nil {
+		return x.VoterStartIndex
+	}
+	return 0
+}
+
+func (x *VoterRewardStatus) GetRewardAmount() []byte {
+	if x != nil {
+		return x.RewardAmount
+	}
+	return nil
+}
+
 var File_rewarding_proto protoreflect.FileDescriptor
 
 var file_rewarding_proto_rawDesc = []byte{
@@ -966,12 +1106,36 @@ var file_rewarding_proto_rawDesc = []byte{
 	0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73,
 	0x12, 0x25, 0x0a, 0x0e, 0x65, 0x78, 0x70, 0x6c, 0x69, 0x63, 0x69, 0x74, 0x6c, 0x79, 0x5f, 0x73,
 	0x65, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0d, 0x65, 0x78, 0x70, 0x6c, 0x69, 0x63,
-	0x69, 0x74, 0x6c, 0x79, 0x53, 0x65, 0x74, 0x42, 0x4a, 0x5a, 0x48, 0x67, 0x69, 0x74, 0x68, 0x75,
-	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x70, 0x72, 0x6f, 0x6a, 0x65,
-	0x63, 0x74, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x2d, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x61, 0x63,
-	0x74, 0x69, 0x6f, 0x6e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x2f, 0x72, 0x65,
-	0x77, 0x61, 0x72, 0x64, 0x69, 0x6e, 0x67, 0x2f, 0x72, 0x65, 0x77, 0x61, 0x72, 0x64, 0x69, 0x6e,
-	0x67, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x69, 0x74, 0x6c, 0x79, 0x53, 0x65, 0x74, 0x22, 0x81, 0x03, 0x0a, 0x11, 0x56, 0x6f, 0x74, 0x65,
+	0x72, 0x52, 0x65, 0x77, 0x61, 0x72, 0x64, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x1d, 0x0a,
+	0x0a, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x5f, 0x65, 0x72, 0x61, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x04, 0x52, 0x09, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x45, 0x72, 0x61, 0x12, 0x3d, 0x0a, 0x06,
+	0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x25, 0x2e, 0x72,
+	0x65, 0x77, 0x61, 0x72, 0x64, 0x69, 0x6e, 0x67, 0x70, 0x62, 0x2e, 0x56, 0x6f, 0x74, 0x65, 0x72,
+	0x52, 0x65, 0x77, 0x61, 0x72, 0x64, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x2e, 0x53, 0x74, 0x61,
+	0x74, 0x75, 0x73, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x2e, 0x0a, 0x13, 0x6c,
+	0x6f, 0x67, 0x69, 0x63, 0x61, 0x6c, 0x5f, 0x76, 0x6f, 0x74, 0x65, 0x72, 0x5f, 0x69, 0x6e, 0x64,
+	0x65, 0x78, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x11, 0x6c, 0x6f, 0x67, 0x69, 0x63, 0x61,
+	0x6c, 0x56, 0x6f, 0x74, 0x65, 0x72, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x2a, 0x0a, 0x11, 0x76,
+	0x6f, 0x74, 0x65, 0x72, 0x5f, 0x73, 0x74, 0x61, 0x72, 0x74, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78,
+	0x18, 0x04, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x0f, 0x76, 0x6f, 0x74, 0x65, 0x72, 0x53, 0x74, 0x61,
+	0x72, 0x74, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x23, 0x0a, 0x0d, 0x72, 0x65, 0x77, 0x61, 0x72,
+	0x64, 0x5f, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x0c,
+	0x72, 0x65, 0x77, 0x61, 0x72, 0x64, 0x41, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0x8c, 0x01, 0x0a,
+	0x06, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x18, 0x0a, 0x14, 0x4e, 0x4f, 0x5f, 0x41, 0x43,
+	0x54, 0x49, 0x56, 0x45, 0x5f, 0x53, 0x45, 0x54, 0x54, 0x4c, 0x45, 0x4d, 0x45, 0x4e, 0x54, 0x10,
+	0x00, 0x12, 0x1a, 0x0a, 0x16, 0x43, 0x41, 0x4e, 0x44, 0x49, 0x44, 0x41, 0x54, 0x45, 0x5f, 0x4e,
+	0x4f, 0x54, 0x5f, 0x49, 0x4e, 0x43, 0x4c, 0x55, 0x44, 0x45, 0x44, 0x10, 0x01, 0x12, 0x16, 0x0a,
+	0x12, 0x56, 0x4f, 0x54, 0x45, 0x52, 0x5f, 0x4e, 0x4f, 0x54, 0x5f, 0x49, 0x4e, 0x43, 0x4c, 0x55,
+	0x44, 0x45, 0x44, 0x10, 0x02, 0x12, 0x0b, 0x0a, 0x07, 0x57, 0x41, 0x49, 0x54, 0x49, 0x4e, 0x47,
+	0x10, 0x03, 0x12, 0x0d, 0x0a, 0x09, 0x50, 0x52, 0x4f, 0x43, 0x45, 0x53, 0x53, 0x45, 0x44, 0x10,
+	0x04, 0x12, 0x18, 0x0a, 0x14, 0x53, 0x4e, 0x41, 0x50, 0x53, 0x48, 0x4f, 0x54, 0x5f, 0x55, 0x4e,
+	0x41, 0x56, 0x41, 0x49, 0x4c, 0x41, 0x42, 0x4c, 0x45, 0x10, 0x05, 0x42, 0x4a, 0x5a, 0x48, 0x67,
+	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x70,
+	0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x2f, 0x69, 0x6f, 0x74, 0x65, 0x78, 0x2d, 0x63, 0x6f, 0x72,
+	0x65, 0x2f, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x63, 0x6f,
+	0x6c, 0x2f, 0x72, 0x65, 0x77, 0x61, 0x72, 0x64, 0x69, 0x6e, 0x67, 0x2f, 0x72, 0x65, 0x77, 0x61,
+	0x72, 0x64, 0x69, 0x6e, 0x67, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -986,31 +1150,34 @@ func file_rewarding_proto_rawDescGZIP() []byte {
 	return file_rewarding_proto_rawDescData
 }
 
-var file_rewarding_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_rewarding_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_rewarding_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_rewarding_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_rewarding_proto_goTypes = []any{
 	(RewardLog_RewardType)(0),      // 0: rewardingpb.RewardLog.RewardType
-	(*Admin)(nil),                  // 1: rewardingpb.Admin
-	(*Fund)(nil),                   // 2: rewardingpb.Fund
-	(*RewardHistory)(nil),          // 3: rewardingpb.RewardHistory
-	(*Account)(nil),                // 4: rewardingpb.Account
-	(*Exempt)(nil),                 // 5: rewardingpb.Exempt
-	(*RewardLog)(nil),              // 6: rewardingpb.RewardLog
-	(*RewardLogs)(nil),             // 7: rewardingpb.RewardLogs
-	(*PendingBlockRewardPool)(nil), // 8: rewardingpb.PendingBlockRewardPool
-	(*EpochDrainDelegateWork)(nil), // 9: rewardingpb.EpochDrainDelegateWork
-	(*EpochDrainCursor)(nil),       // 10: rewardingpb.EpochDrainCursor
-	(*VoterRewardAddress)(nil),     // 11: rewardingpb.VoterRewardAddress
+	(VoterRewardStatus_Status)(0),  // 1: rewardingpb.VoterRewardStatus.Status
+	(*Admin)(nil),                  // 2: rewardingpb.Admin
+	(*Fund)(nil),                   // 3: rewardingpb.Fund
+	(*RewardHistory)(nil),          // 4: rewardingpb.RewardHistory
+	(*Account)(nil),                // 5: rewardingpb.Account
+	(*Exempt)(nil),                 // 6: rewardingpb.Exempt
+	(*RewardLog)(nil),              // 7: rewardingpb.RewardLog
+	(*RewardLogs)(nil),             // 8: rewardingpb.RewardLogs
+	(*PendingBlockRewardPool)(nil), // 9: rewardingpb.PendingBlockRewardPool
+	(*EpochDrainDelegateWork)(nil), // 10: rewardingpb.EpochDrainDelegateWork
+	(*EpochDrainCursor)(nil),       // 11: rewardingpb.EpochDrainCursor
+	(*VoterRewardAddress)(nil),     // 12: rewardingpb.VoterRewardAddress
+	(*VoterRewardStatus)(nil),      // 13: rewardingpb.VoterRewardStatus
 }
 var file_rewarding_proto_depIdxs = []int32{
-	0, // 0: rewardingpb.RewardLog.type:type_name -> rewardingpb.RewardLog.RewardType
-	6, // 1: rewardingpb.RewardLogs.logs:type_name -> rewardingpb.RewardLog
-	9, // 2: rewardingpb.EpochDrainCursor.delegates:type_name -> rewardingpb.EpochDrainDelegateWork
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	0,  // 0: rewardingpb.RewardLog.type:type_name -> rewardingpb.RewardLog.RewardType
+	7,  // 1: rewardingpb.RewardLogs.logs:type_name -> rewardingpb.RewardLog
+	10, // 2: rewardingpb.EpochDrainCursor.delegates:type_name -> rewardingpb.EpochDrainDelegateWork
+	1,  // 3: rewardingpb.VoterRewardStatus.status:type_name -> rewardingpb.VoterRewardStatus.Status
+	4,  // [4:4] is the sub-list for method output_type
+	4,  // [4:4] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_rewarding_proto_init() }
@@ -1151,14 +1318,26 @@ func file_rewarding_proto_init() {
 				return nil
 			}
 		}
+		file_rewarding_proto_msgTypes[11].Exporter = func(v any, i int) any {
+			switch v := v.(*VoterRewardStatus); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_rewarding_proto_rawDesc,
-			NumEnums:      1,
-			NumMessages:   11,
+			NumEnums:      2,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

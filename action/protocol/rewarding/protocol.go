@@ -495,6 +495,31 @@ func (p *Protocol) ReadState(
 			return nil, uint64(0), err
 		}
 		return data, height, nil
+	case "VoterRewardStatus":
+		if len(args) != 2 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		candID, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		voter, err := address.FromString(string(args[1]))
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		status, err := p.voterRewardStatus(ctx, sr, candID, voter)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		data, err := proto.Marshal(status)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		height, err := sr.Height()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return data, height, nil
 	default:
 		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}

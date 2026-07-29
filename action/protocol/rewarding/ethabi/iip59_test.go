@@ -38,6 +38,37 @@ func TestIIP59AddressMethodDispatch(t *testing.T) {
 	}
 }
 
+func TestIIP59VoterRewardStatusDispatchAndEncoding(t *testing.T) {
+	r := require.New(t)
+	candidate := common.BytesToAddress(identityset.Address(7).Bytes())
+	voter := common.BytesToAddress(identityset.Address(8).Bytes())
+	calldata, err := _voterRewardStatusMethod.Inputs.Pack(candidate, voter)
+	r.NoError(err)
+	ctx, err := BuildReadStateRequest(append(_voterRewardStatusMethod.ID, calldata...))
+	r.NoError(err)
+	r.Equal("VoterRewardStatus", string(ctx.Parameters().MethodName))
+	r.Equal(identityset.Address(7).String(), string(ctx.Parameters().Arguments[0]))
+	r.Equal(identityset.Address(8).String(), string(ctx.Parameters().Arguments[1]))
+
+	data, err := proto.Marshal(&rewardingpb.VoterRewardStatus{
+		TargetEra:         19,
+		Status:            rewardingpb.VoterRewardStatus_WAITING,
+		LogicalVoterIndex: 23,
+		VoterStartIndex:   11,
+		RewardAmount:      big.NewInt(123456789).Bytes(),
+	})
+	r.NoError(err)
+	encoded, err := ctx.EncodeToEth(&iotexapi.ReadStateResponse{Data: data})
+	r.NoError(err)
+	values, err := _voterRewardStatusMethod.Outputs.Unpack(mustDecodeHex(t, encoded))
+	r.NoError(err)
+	r.Equal(uint64(19), values[0])
+	r.Equal(uint8(rewardingpb.VoterRewardStatus_WAITING), values[1])
+	r.Equal(uint32(23), values[2])
+	r.Equal(uint32(11), values[3])
+	r.Zero(values[4].(*big.Int).Cmp(big.NewInt(123456789)))
+}
+
 func TestIIP59RewardAddressEncoding(t *testing.T) {
 	r := require.New(t)
 	ctx, err := newVoterRewardAddressStateContext(
