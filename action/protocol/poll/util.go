@@ -282,14 +282,22 @@ func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, cand
 // with the zero-address caller. The pattern is deterministic (fixed caller,
 // no gas billing to a real account) and reuses the existing view-call plumb.
 func delegateProfileContractReader(sm protocol.StateManager) delegateprofile.ContractReader {
-	return delegateprofile.ContractReaderFunc(func(ctx context.Context, contract string, callData []byte) ([]byte, error) {
+	return delegateprofile.ContractReaderFunc(func(ctx context.Context, contract string, callData []byte) (ret []byte, err error) {
 		gasLimit := uint64(10000000)
 		ex := action.NewExecution(contract, big.NewInt(0), callData)
 		caller, err := address.FromString(address.ZeroAddress)
 		if err != nil {
 			return nil, err
 		}
-		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(gasLimit).SetAction(ex).Build()
+		callerState, err := accountutil.AccountState(ctx, sm, caller)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load DelegateProfile simulation caller")
+		}
+		elp := (&action.EnvelopeBuilder{}).
+			SetNonce(callerState.PendingNonceConsideringFreshAccount()).
+			SetGasLimit(gasLimit).
+			SetAction(ex).
+			Build()
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
 		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 			GetBlockHash: bcCtx.GetBlockHash,
@@ -300,7 +308,17 @@ func delegateProfileContractReader(sm protocol.StateManager) delegateprofile.Con
 				return nil, nil
 			},
 		})
-		ret, _, err := evm.SimulateExecution(ctx, sm, caller, elp)
+		snapshot := sm.Snapshot()
+		defer func() {
+			if revertErr := sm.Revert(snapshot); revertErr != nil {
+				if err != nil {
+					err = errors.Wrapf(revertErr, "failed to revert DelegateProfile simulation after execution failed: %v", err)
+				} else {
+					err = errors.Wrap(revertErr, "failed to revert DelegateProfile simulation")
+				}
+			}
+		}()
+		ret, _, err = evm.SimulateExecution(ctx, sm, caller, elp)
 		return ret, err
 	})
 }

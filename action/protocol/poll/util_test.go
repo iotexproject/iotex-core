@@ -7,6 +7,7 @@ package poll
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -14,6 +15,9 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -50,6 +54,34 @@ func (emptyStateManager) DelState(...protocol.StateOption) (uint64, error) { ret
 
 func (emptyStateManager) WriteView(string, protocol.View) error { return nil }
 
+type snapshotTrackingStateManager struct {
+	emptyStateManager
+	snapshotID  int
+	snapshots   int
+	reverts     []int
+	revertError error
+	account     *state.Account
+}
+
+func (sm *snapshotTrackingStateManager) State(value interface{}, opts ...protocol.StateOption) (uint64, error) {
+	if account, ok := value.(*state.Account); ok && sm.account != nil {
+		*account = *sm.account
+		return 0, nil
+	}
+	return sm.emptyStateManager.State(value, opts...)
+}
+
+func (sm *snapshotTrackingStateManager) Snapshot() int {
+	snapshot := sm.snapshotID + sm.snapshots
+	sm.snapshots++
+	return snapshot
+}
+
+func (sm *snapshotTrackingStateManager) Revert(snapshot int) error {
+	sm.reverts = append(sm.reverts, snapshot)
+	return sm.revertError
+}
+
 // freezeSnapshotEraGateCtx builds the minimum ctx freezeIIP59PollSnapshot
 // needs: post-fork FeatureCtx (so the fork gate lets us through) plus a
 // genesis with the given EpochsPerRewardEra. DelegateProfileContractAddress
@@ -76,6 +108,21 @@ func fakeCandidatesForGate() state.CandidateList {
 			RewardAddress: identityset.Address(1).String(),
 		},
 	}
+}
+
+func delegateProfileReaderCtx() context.Context {
+	g := genesis.TestDefault()
+	ctx := genesis.WithGenesisContext(context.Background(), g)
+	return protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		ChainID:      1,
+		EvmNetworkID: 1,
+		Tip: protocol.TipInfo{
+			Height:    1,
+			Timestamp: time.Unix(g.Timestamp, 0),
+		},
+		GetBlockHash: func(uint64) (hash.Hash256, error) { return hash.ZeroHash256, nil },
+		GetBlockTime: func(uint64) (time.Time, error) { return time.Unix(g.Timestamp, 0), nil },
+	})
 }
 
 func TestFreezeIIP59PollSnapshot_NonEraBoundarySkipsWrite(t *testing.T) {
@@ -147,23 +194,52 @@ func TestFreezeIIP59PollSnapshot_PreForkGateStillWins(t *testing.T) {
 }
 
 func TestDelegateProfileContractReaderInstallsEVMHelperContext(t *testing.T) {
-	g := genesis.TestDefault()
-	ctx := genesis.WithGenesisContext(context.Background(), g)
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		ChainID:      1,
-		EvmNetworkID: 1,
-		Tip: protocol.TipInfo{
-			Height:    1,
-			Timestamp: time.Unix(g.Timestamp, 0),
-		},
-		GetBlockHash: func(uint64) (hash.Hash256, error) { return hash.ZeroHash256, nil },
-		GetBlockTime: func(uint64) (time.Time, error) { return time.Unix(g.Timestamp, 0), nil },
-	})
-	reader := delegateProfileContractReader(emptyStateManager{})
+	ctx := delegateProfileReaderCtx()
+	sm := &snapshotTrackingStateManager{snapshotID: 42}
+	reader := delegateProfileContractReader(sm)
 
 	require.NotPanics(t, func() {
 		result, err := reader.Read(ctx, identityset.Address(1).String(), []byte{0, 0, 0, 0})
 		require.NoError(t, err)
 		require.Empty(t, result)
 	})
+	require.GreaterOrEqual(t, sm.snapshots, 1)
+	require.Equal(t, []int{42}, sm.reverts)
+}
+
+func TestDelegateProfileContractReaderReturnsRevertError(t *testing.T) {
+	revertErr := errors.New("revert failed")
+	ctx := delegateProfileReaderCtx()
+	sm := &snapshotTrackingStateManager{
+		snapshotID:  7,
+		revertError: revertErr,
+	}
+	reader := delegateProfileContractReader(sm)
+
+	_, err := reader.Read(ctx, identityset.Address(1).String(), []byte{0, 0, 0, 0})
+	require.ErrorContains(t, err, "failed to revert DelegateProfile simulation")
+	require.ErrorIs(t, err, revertErr)
+	require.GreaterOrEqual(t, sm.snapshots, 1)
+	require.Equal(t, []int{7}, sm.reverts)
+}
+
+func TestDelegateProfileContractReaderUsesCurrentCallerNonce(t *testing.T) {
+	ctx := delegateProfileReaderCtx()
+	account, err := state.NewAccount()
+	require.NoError(t, err)
+	for nonce := uint64(1); nonce <= 5; nonce++ {
+		require.NoError(t, account.SetPendingNonce(nonce))
+	}
+	sm := &snapshotTrackingStateManager{snapshotID: 11, account: account}
+	reader := delegateProfileContractReader(sm)
+
+	core, logs := observer.New(zapcore.ErrorLevel)
+	previousLogger := zap.L()
+	zap.ReplaceGlobals(zap.New(core))
+	defer zap.ReplaceGlobals(previousLogger)
+
+	_, err = reader.Read(ctx, identityset.Address(1).String(), []byte{0, 0, 0, 0})
+	require.NoError(t, err)
+	require.Equal(t, 0, logs.FilterMessage("Inconsistent nonce.").Len())
+	require.Equal(t, []int{11}, sm.reverts)
 }
