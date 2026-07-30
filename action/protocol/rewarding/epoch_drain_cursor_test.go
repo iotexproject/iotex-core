@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
@@ -304,4 +305,70 @@ func TestEpochDrainCursor_WriteOverwrites(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(got)
 	r.Equal(uint32(0), got.VoterIndex, "zero VoterIndex must round-trip as 0, not carry the prior value")
+}
+
+func TestEpochDrainCursor_ProgressWritePreservesPlan(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+	settlementSeed := hash.Hash256b([]byte("settlement-seed"))
+	snapshot1 := hash.Hash256b([]byte("snapshot-1"))
+	snapshot2 := hash.Hash256b([]byte("snapshot-2"))
+
+	cursor := &epochDrainCursor{
+		TargetEra:      24,
+		StartEpoch:     1,
+		EndEpoch:       24,
+		SettlementSeed: settlementSeed[:],
+		Delegates: []epochDrainDelegateWork{
+			{
+				CandidateIdentifier: identityset.Address(1).Bytes(),
+				VoterAmountFrozen:   big.NewInt(100),
+				RewardAddress:       identityset.Address(11).Bytes(),
+				TotalWeight:         big.NewInt(10),
+				SnapshotHash:        snapshot1[:],
+			},
+			{
+				CandidateIdentifier: identityset.Address(2).Bytes(),
+				VoterAmountFrozen:   big.NewInt(200),
+				RewardAddress:       identityset.Address(12).Bytes(),
+				TotalWeight:         big.NewInt(20),
+				SnapshotHash:        snapshot2[:],
+			},
+		},
+	}
+	r.NoError(p.writeEpochDrainCursor(ctx, sm, cursor))
+
+	planBefore := &epochDrainPlan{}
+	_, err := p.state(ctx, sm, state.EpochDrainPlanKey, planBefore)
+	r.NoError(err)
+	planBytesBefore, err := planBefore.Serialize()
+	r.NoError(err)
+
+	cursor.DelegateIndex = 1
+	cursor.VoterIndex = 7
+	cursor.Delegates[1].VoterAmountDistributed = big.NewInt(75)
+	markDelegateSkipped(cursor, 0)
+	r.NoError(p.writeEpochDrainProgress(ctx, sm, cursor))
+
+	planAfter := &epochDrainPlan{}
+	_, err = p.state(ctx, sm, state.EpochDrainPlanKey, planAfter)
+	r.NoError(err)
+	planBytesAfter, err := planAfter.Serialize()
+	r.NoError(err)
+	r.Equal(planBytesBefore, planBytesAfter)
+
+	progress := &epochDrainProgress{}
+	_, err = p.state(ctx, sm, state.EpochDrainCursorKey, progress)
+	r.NoError(err)
+	progressBytes, err := progress.Serialize()
+	r.NoError(err)
+	r.Less(len(progressBytes), len(planBytesBefore))
+
+	got, err := p.readEpochDrainCursor(ctx, sm)
+	r.NoError(err)
+	r.Equal(uint32(1), got.DelegateIndex)
+	r.Equal(uint32(7), got.VoterIndex)
+	r.True(delegateSkipped(got, 0))
+	r.Zero(got.Delegates[0].VoterAmountDistributed.Sign())
+	r.Zero(big.NewInt(75).Cmp(got.Delegates[1].VoterAmountDistributed))
 }

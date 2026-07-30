@@ -60,9 +60,9 @@ func TestReadStateIIP59(t *testing.T) {
 
 	indexData, _, err := p.ReadState(ctx, sm, []byte("PendingBlockRewardPoolIndex"))
 	r.NoError(err)
-	index := &rewardingpb.Exempt{}
+	index := &rewardingpb.PendingBlockRewardPoolIndex{}
 	r.NoError(proto.Unmarshal(indexData, index))
-	r.Equal([][]byte{candID.Bytes()}, index.GetAddrs())
+	r.Equal([][]byte{candID.Bytes()}, index.GetCandidateIdentifiers())
 
 	cursorData, _, err := p.ReadState(ctx, sm, []byte("EpochDrainCursor"))
 	r.NoError(err)

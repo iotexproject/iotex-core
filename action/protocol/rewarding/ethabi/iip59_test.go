@@ -144,7 +144,7 @@ func TestIIP59PendingPoolAndIndexEncoding(t *testing.T) {
 	r.Zero(values[0].(*big.Int).Cmp(big.NewInt(12345)))
 
 	ids := [][]byte{identityset.Address(1).Bytes(), identityset.Address(2).Bytes()}
-	data, err := proto.Marshal(&rewardingpb.Exempt{Addrs: ids})
+	data, err := proto.Marshal(&rewardingpb.PendingBlockRewardPoolIndex{CandidateIdentifiers: ids})
 	r.NoError(err)
 	indexCtx, err := newPendingBlockRewardPoolIndexStateContext()
 	r.NoError(err)

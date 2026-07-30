@@ -829,6 +829,7 @@ func (p *Protocol) runVoterDistributionChunk(
 			// frozen routing fields were added.
 			idx, ok := candByID[candAddr.String()]
 			if !ok || idx >= len(addrs) || idx >= len(amounts) || rewardedCandidates[idx] == nil || addrs[idx] == nil {
+				markDelegateSkipped(cursor, i)
 				cursor.VoterIndex = 0
 				continue
 			}
@@ -842,6 +843,7 @@ func (p *Protocol) runVoterDistributionChunk(
 		// A missing or empty era snapshot has no deterministic recipient set.
 		// Keep the pending pool intact so a later era can freeze and distribute it.
 		if safeBig(work.TotalWeight).Sign() == 0 || !work.HasWeightedEntries {
+			markDelegateSkipped(cursor, i)
 			cursor.VoterIndex = 0
 			continue
 		}
@@ -866,6 +868,7 @@ func (p *Protocol) runVoterDistributionChunk(
 		if !routed {
 			// The snapshot vanished or changed after Phase A. Keep the pool
 			// intact so it can be retried from a fresh snapshot next era.
+			markDelegateSkipped(cursor, i)
 			cursor.VoterIndex = 0
 			continue
 		}
@@ -924,7 +927,7 @@ func (p *Protocol) runVoterDistributionChunk(
 		// Drain still in progress. Persist the cursor and let
 		// CreatePostSystemActions emit the continuation on the next block.
 		stop := startIIP59Duration("cursor_write_chunk")
-		if err := p.writeEpochDrainCursor(ctx, sm, cursor); err != nil {
+		if err := p.writeEpochDrainProgress(ctx, sm, cursor); err != nil {
 			return nil, nil, err
 		}
 		stop()
@@ -959,7 +962,7 @@ func (p *Protocol) runVoterDistributionChunk(
 	cursor.DelegateIndex = total
 	cursor.VoterIndex = 0
 	stop = startIIP59Duration("cursor_write_complete")
-	if err := p.writeEpochDrainCursor(ctx, sm, cursor); err != nil {
+	if err := p.writeEpochDrainProgress(ctx, sm, cursor); err != nil {
 		return nil, nil, err
 	}
 	stop()

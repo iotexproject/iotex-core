@@ -172,3 +172,34 @@ message VoterRewardDestination {
     bool explicitly_set = 2;
     uint64 updated_height = 3;
 }
+
+// PendingBlockRewardPoolIndex lists candidate identifiers with a non-zero
+// pending voter-reward balance. The list is stored in deterministic order.
+message PendingBlockRewardPoolIndex {
+    repeated bytes candidate_identifiers = 1;
+}
+
+// EpochDrainPlan is the immutable portion of one era settlement. It is
+// written once at the era boundary and retained until the next settlement.
+message EpochDrainPlan {
+    uint64 target_era = 1;
+    repeated EpochDrainDelegateWork delegates = 2;
+    bytes settlement_seed = 3;
+    uint32 delegate_start_index = 4;
+    uint64 start_epoch = 5;
+    uint64 end_epoch = 6;
+}
+
+// EpochDrainProgress is the small, frequently updated settlement checkpoint.
+// voter_amount_distributed applies only to delegate_index. The bitmap marks
+// delegates that were passed without payout because their frozen snapshot
+// could not be used.
+message EpochDrainProgress {
+    uint64 target_era = 1;
+    uint32 delegate_index = 2;
+    uint32 voter_index = 3;
+    bytes voter_amount_distributed = 4;
+    bool completed = 5;
+    uint64 completed_height = 6;
+    bytes skipped_delegate_bitmap = 7;
+}

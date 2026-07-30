@@ -33,7 +33,7 @@ import (
 // makes end-of-epoch enumeration deterministic without a namespace scan;
 // the individual balances live at
 // _pendingBlockRewardPoolKeyPrefix || candidateIdentifier.
-var _pendingBlockRewardPoolIndexKey = []byte("pbrpx")
+var _pendingBlockRewardPoolIndexKey = []byte("pbrpi")
 
 // pendingBlockRewardPool is a single delegate's accumulated block reward
 // balance under IIP-59 §3.2. Created lazily on first credit, deleted on
@@ -90,19 +90,17 @@ type pendingBlockRewardPoolIndex struct {
 // Serialize marshals the index. The proto wire format preserves the
 // caller-supplied byte-slice ordering, which is already sorted.
 func (i pendingBlockRewardPoolIndex) Serialize() ([]byte, error) {
-	m := &rewardingpb.Exempt{Addrs: i.ids}
+	m := &rewardingpb.PendingBlockRewardPoolIndex{CandidateIdentifiers: i.ids}
 	return proto.Marshal(m)
 }
 
-// Deserialize decodes the index list. Reuses the rewardingpb.Exempt shape
-// (repeated bytes addrs) to avoid a second proto message for a plain
-// list-of-bytes payload.
+// Deserialize decodes the deterministic candidate-identifier list.
 func (i *pendingBlockRewardPoolIndex) Deserialize(data []byte) error {
-	m := &rewardingpb.Exempt{}
+	m := &rewardingpb.PendingBlockRewardPoolIndex{}
 	if err := proto.Unmarshal(data, m); err != nil {
 		return err
 	}
-	i.ids = m.Addrs
+	i.ids = m.CandidateIdentifiers
 	return nil
 }
 

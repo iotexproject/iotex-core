@@ -6,6 +6,7 @@
 package rewarding
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
 
@@ -18,6 +19,13 @@ import (
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
+
+func TestPendingBlockRewardPoolKeysDoNotOverlap(t *testing.T) {
+	candidateKey := pendingBlockRewardPoolKey(identityset.Address(1).Bytes())
+	require.True(t, bytes.HasPrefix(candidateKey, _pendingBlockRewardPoolKeyPrefix))
+	require.False(t, bytes.HasPrefix(_pendingBlockRewardPoolIndexKey, _pendingBlockRewardPoolKeyPrefix))
+	require.False(t, bytes.HasPrefix(candidateKey, _pendingBlockRewardPoolIndexKey))
+}
 
 // TestPendingBlockRewardPool_ReadMissingIsZero — reads against an
 // unpopulated pool key return zero without an error so callers can treat

@@ -45,9 +45,9 @@ var (
 	_accountKeyPrefix            = []byte("acc")
 	_exemptKey                   = []byte("xpt")
 	// _pendingBlockRewardPoolKeyPrefix keys the per-delegate IIP-59 block
-	// reward pool. Full key layout is prefix || candidate identifier bytes,
+	// reward pool. Full key layout is "pbrp/" || candidate identifier bytes,
 	// with entries deleted at drain (see pending_block_reward.go).
-	_pendingBlockRewardPoolKeyPrefix = []byte("pbrp")
+	_pendingBlockRewardPoolKeyPrefix = []byte("pbrp/")
 	errInvalidEpoch                  = errors.New("invalid start/end epoch number")
 )
 
@@ -419,7 +419,7 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		data, err := proto.Marshal(&rewardingpb.Exempt{Addrs: ids})
+		data, err := proto.Marshal(&rewardingpb.PendingBlockRewardPoolIndex{CandidateIdentifiers: ids})
 		if err != nil {
 			return nil, uint64(0), err
 		}

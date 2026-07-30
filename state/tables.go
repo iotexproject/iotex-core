@@ -83,10 +83,11 @@ var (
 	BlockRewardHistoryKeyPrefix = []byte("brh")
 	// EpochRewardHistoryKeyPrefix is the key prefix for epoch reward history
 	EpochRewardHistoryKeyPrefix = []byte("erh")
-	// EpochDrainCursorKey is the singleton key for the IIP-59 multi-block
-	// era-boundary drain cursor (RewardingNamespace). The payload carries
-	// target_era so a chunk running mid-drain can detect a stale cursor
-	// left by a prior era. Absence of the key = no drain in progress.
+	// EpochDrainPlanKey stores the immutable work list for the active or most
+	// recently completed IIP-59 settlement (RewardingNamespace).
+	EpochDrainPlanKey = []byte("edp")
+	// EpochDrainCursorKey stores only the frequently updated progress for the
+	// plan. Both keys are created and deleted together.
 	EpochDrainCursorKey = []byte("edc")
 )
 

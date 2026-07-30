@@ -64,6 +64,31 @@ type epochDrainCursor struct {
 	Completed          bool
 	CompletedHeight    uint64
 	Delegates          []epochDrainDelegateWork
+	SkippedDelegates   []byte
+}
+
+// epochDrainPlan is immutable for the lifetime of a settlement. Keeping it
+// separate prevents every continuation block from re-versioning the complete
+// delegate work list in archive storage.
+type epochDrainPlan struct {
+	TargetEra          uint64
+	StartEpoch         uint64
+	EndEpoch           uint64
+	SettlementSeed     []byte
+	DelegateStartIndex uint32
+	Delegates          []epochDrainDelegateWork
+}
+
+// epochDrainProgress is the compact checkpoint rewritten by continuation
+// blocks. VoterAmountDistributed belongs to DelegateIndex only.
+type epochDrainProgress struct {
+	TargetEra              uint64
+	DelegateIndex          uint32
+	VoterIndex             uint32
+	VoterAmountDistributed *big.Int
+	Completed              bool
+	CompletedHeight        uint64
+	SkippedDelegateBitmap  []byte
 }
 
 // Serialize marshals the cursor to its proto wire form.
@@ -82,18 +107,7 @@ func (c epochDrainCursor) Serialize() ([]byte, error) {
 	if len(c.Delegates) > 0 {
 		m.Delegates = make([]*rewardingpb.EpochDrainDelegateWork, len(c.Delegates))
 		for i, d := range c.Delegates {
-			m.Delegates[i] = &rewardingpb.EpochDrainDelegateWork{
-				CandidateIdentifier:    d.CandidateIdentifier,
-				VoterAmountFrozen:      epochDrainBigIntBytes(d.VoterAmountFrozen),
-				VoterAmountDistributed: epochDrainBigIntBytes(d.VoterAmountDistributed),
-				RewardAddress:          d.RewardAddress,
-				EpochCommission:        epochDrainBigIntBytes(d.EpochCommission),
-				TotalWeight:            epochDrainBigIntBytes(d.TotalWeight),
-				SnapshotHash:           d.SnapshotHash,
-				LastWeightedIndex:      d.LastWeightedIndex,
-				HasWeightedEntries:     d.HasWeightedEntries,
-				VoterStartIndex:        d.VoterStartIndex,
-			}
+			m.Delegates[i] = epochDrainDelegateWorkToProto(d, true)
 		}
 	}
 	return proto.Marshal(m)
@@ -118,21 +132,206 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 	if ds := m.GetDelegates(); len(ds) > 0 {
 		c.Delegates = make([]epochDrainDelegateWork, len(ds))
 		for i, d := range ds {
-			c.Delegates[i] = epochDrainDelegateWork{
-				CandidateIdentifier:    d.GetCandidateIdentifier(),
-				VoterAmountFrozen:      epochDrainBytesBigInt(d.GetVoterAmountFrozen()),
-				VoterAmountDistributed: epochDrainBytesBigInt(d.GetVoterAmountDistributed()),
-				RewardAddress:          d.GetRewardAddress(),
-				EpochCommission:        epochDrainBytesBigInt(d.GetEpochCommission()),
-				TotalWeight:            epochDrainBytesBigInt(d.GetTotalWeight()),
-				SnapshotHash:           d.GetSnapshotHash(),
-				LastWeightedIndex:      d.GetLastWeightedIndex(),
-				HasWeightedEntries:     d.GetHasWeightedEntries(),
-				VoterStartIndex:        d.GetVoterStartIndex(),
-			}
+			c.Delegates[i] = epochDrainDelegateWorkFromProto(d)
 		}
 	}
 	return nil
+}
+
+func epochDrainDelegateWorkToProto(d epochDrainDelegateWork, includeProgress bool) *rewardingpb.EpochDrainDelegateWork {
+	m := &rewardingpb.EpochDrainDelegateWork{
+		CandidateIdentifier: d.CandidateIdentifier,
+		VoterAmountFrozen:   epochDrainBigIntBytes(d.VoterAmountFrozen),
+		RewardAddress:       d.RewardAddress,
+		EpochCommission:     epochDrainBigIntBytes(d.EpochCommission),
+		TotalWeight:         epochDrainBigIntBytes(d.TotalWeight),
+		SnapshotHash:        d.SnapshotHash,
+		LastWeightedIndex:   d.LastWeightedIndex,
+		HasWeightedEntries:  d.HasWeightedEntries,
+		VoterStartIndex:     d.VoterStartIndex,
+	}
+	if includeProgress {
+		m.VoterAmountDistributed = epochDrainBigIntBytes(d.VoterAmountDistributed)
+	}
+	return m
+}
+
+func epochDrainDelegateWorkFromProto(d *rewardingpb.EpochDrainDelegateWork) epochDrainDelegateWork {
+	return epochDrainDelegateWork{
+		CandidateIdentifier:    d.GetCandidateIdentifier(),
+		VoterAmountFrozen:      epochDrainBytesBigInt(d.GetVoterAmountFrozen()),
+		VoterAmountDistributed: epochDrainBytesBigInt(d.GetVoterAmountDistributed()),
+		RewardAddress:          d.GetRewardAddress(),
+		EpochCommission:        epochDrainBytesBigInt(d.GetEpochCommission()),
+		TotalWeight:            epochDrainBytesBigInt(d.GetTotalWeight()),
+		SnapshotHash:           d.GetSnapshotHash(),
+		LastWeightedIndex:      d.GetLastWeightedIndex(),
+		HasWeightedEntries:     d.GetHasWeightedEntries(),
+		VoterStartIndex:        d.GetVoterStartIndex(),
+	}
+}
+
+func (p epochDrainPlan) Serialize() ([]byte, error) {
+	m := &rewardingpb.EpochDrainPlan{
+		TargetEra:          p.TargetEra,
+		SettlementSeed:     p.SettlementSeed,
+		DelegateStartIndex: p.DelegateStartIndex,
+		StartEpoch:         p.StartEpoch,
+		EndEpoch:           p.EndEpoch,
+	}
+	if len(p.Delegates) > 0 {
+		m.Delegates = make([]*rewardingpb.EpochDrainDelegateWork, len(p.Delegates))
+		for i, d := range p.Delegates {
+			m.Delegates[i] = epochDrainDelegateWorkToProto(d, false)
+		}
+	}
+	return proto.Marshal(m)
+}
+
+func (p *epochDrainPlan) Deserialize(data []byte) error {
+	m := &rewardingpb.EpochDrainPlan{}
+	if err := proto.Unmarshal(data, m); err != nil {
+		return err
+	}
+	p.TargetEra = m.GetTargetEra()
+	p.SettlementSeed = append(p.SettlementSeed[:0], m.GetSettlementSeed()...)
+	p.DelegateStartIndex = m.GetDelegateStartIndex()
+	p.StartEpoch = m.GetStartEpoch()
+	p.EndEpoch = m.GetEndEpoch()
+	p.Delegates = nil
+	if ds := m.GetDelegates(); len(ds) > 0 {
+		p.Delegates = make([]epochDrainDelegateWork, len(ds))
+		for i, d := range ds {
+			p.Delegates[i] = epochDrainDelegateWorkFromProto(d)
+		}
+	}
+	return nil
+}
+
+func (p *epochDrainPlan) Encode() (systemcontracts.GenericValue, error) {
+	data, err := p.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+func (p *epochDrainPlan) Decode(v systemcontracts.GenericValue) error {
+	return p.Deserialize(v.PrimaryData)
+}
+
+func (p epochDrainProgress) Serialize() ([]byte, error) {
+	return proto.Marshal(&rewardingpb.EpochDrainProgress{
+		TargetEra:              p.TargetEra,
+		DelegateIndex:          p.DelegateIndex,
+		VoterIndex:             p.VoterIndex,
+		VoterAmountDistributed: epochDrainBigIntBytes(p.VoterAmountDistributed),
+		Completed:              p.Completed,
+		CompletedHeight:        p.CompletedHeight,
+		SkippedDelegateBitmap:  p.SkippedDelegateBitmap,
+	})
+}
+
+func (p *epochDrainProgress) Deserialize(data []byte) error {
+	m := &rewardingpb.EpochDrainProgress{}
+	if err := proto.Unmarshal(data, m); err != nil {
+		return err
+	}
+	p.TargetEra = m.GetTargetEra()
+	p.DelegateIndex = m.GetDelegateIndex()
+	p.VoterIndex = m.GetVoterIndex()
+	p.VoterAmountDistributed = epochDrainBytesBigInt(m.GetVoterAmountDistributed())
+	p.Completed = m.GetCompleted()
+	p.CompletedHeight = m.GetCompletedHeight()
+	p.SkippedDelegateBitmap = append(p.SkippedDelegateBitmap[:0], m.GetSkippedDelegateBitmap()...)
+	return nil
+}
+
+func (p *epochDrainProgress) Encode() (systemcontracts.GenericValue, error) {
+	data, err := p.Serialize()
+	if err != nil {
+		return systemcontracts.GenericValue{}, err
+	}
+	return systemcontracts.GenericValue{PrimaryData: data}, nil
+}
+
+func (p *epochDrainProgress) Decode(v systemcontracts.GenericValue) error {
+	return p.Deserialize(v.PrimaryData)
+}
+
+func epochDrainPlanFromCursor(c *epochDrainCursor) *epochDrainPlan {
+	return &epochDrainPlan{
+		TargetEra:          c.TargetEra,
+		StartEpoch:         c.StartEpoch,
+		EndEpoch:           c.EndEpoch,
+		SettlementSeed:     c.SettlementSeed,
+		DelegateStartIndex: c.DelegateStartIndex,
+		Delegates:          c.Delegates,
+	}
+}
+
+func epochDrainProgressFromCursor(c *epochDrainCursor) *epochDrainProgress {
+	distributed := new(big.Int)
+	if int(c.DelegateIndex) < len(c.Delegates) {
+		distributed.Set(safeBig(c.Delegates[c.DelegateIndex].VoterAmountDistributed))
+	}
+	return &epochDrainProgress{
+		TargetEra:              c.TargetEra,
+		DelegateIndex:          c.DelegateIndex,
+		VoterIndex:             c.VoterIndex,
+		VoterAmountDistributed: distributed,
+		Completed:              c.Completed,
+		CompletedHeight:        c.CompletedHeight,
+		SkippedDelegateBitmap:  c.SkippedDelegates,
+	}
+}
+
+func epochDrainCursorFromState(plan *epochDrainPlan, progress *epochDrainProgress) (*epochDrainCursor, error) {
+	if plan.TargetEra != progress.TargetEra {
+		return nil, errors.Errorf(
+			"rewarding: epoch drain plan era %d does not match progress era %d",
+			plan.TargetEra, progress.TargetEra,
+		)
+	}
+	c := &epochDrainCursor{
+		TargetEra:          plan.TargetEra,
+		StartEpoch:         plan.StartEpoch,
+		EndEpoch:           plan.EndEpoch,
+		DelegateIndex:      progress.DelegateIndex,
+		VoterIndex:         progress.VoterIndex,
+		SettlementSeed:     plan.SettlementSeed,
+		DelegateStartIndex: plan.DelegateStartIndex,
+		Completed:          progress.Completed,
+		CompletedHeight:    progress.CompletedHeight,
+		Delegates:          plan.Delegates,
+		SkippedDelegates:   progress.SkippedDelegateBitmap,
+	}
+	for i := range c.Delegates {
+		distributed := new(big.Int)
+		switch {
+		case delegateSkipped(c, uint32(i)):
+		case c.Completed || uint32(i) < c.DelegateIndex:
+			distributed.Set(safeBig(c.Delegates[i].VoterAmountFrozen))
+		case uint32(i) == c.DelegateIndex:
+			distributed.Set(safeBig(progress.VoterAmountDistributed))
+		}
+		c.Delegates[i].VoterAmountDistributed = distributed
+	}
+	return c, nil
+}
+
+func markDelegateSkipped(c *epochDrainCursor, index uint32) {
+	byteIndex := int(index / 8)
+	if len(c.SkippedDelegates) <= byteIndex {
+		c.SkippedDelegates = append(c.SkippedDelegates, make([]byte, byteIndex+1-len(c.SkippedDelegates))...)
+	}
+	c.SkippedDelegates[byteIndex] |= byte(1 << (index % 8))
+}
+
+func delegateSkipped(c *epochDrainCursor, index uint32) bool {
+	byteIndex := int(index / 8)
+	return c != nil && byteIndex < len(c.SkippedDelegates) &&
+		c.SkippedDelegates[byteIndex]&(byte(1<<(index%8))) != 0
 }
 
 func rewardEraStartEpoch(endEpoch, epochsPerEra uint64) uint64 {
@@ -231,38 +430,66 @@ func epochDrainBytesBigInt(b []byte) *big.Int {
 	return out
 }
 
-// readEpochDrainCursor returns the active or most recently completed cursor,
-// or (nil, nil) before the first settlement.
+// readEpochDrainCursor composes the immutable plan and mutable progress into
+// the public cursor shape used by execution and ReadState.
 func (p *Protocol) readEpochDrainCursor(
 	ctx context.Context,
 	sm protocol.StateReader,
 ) (*epochDrainCursor, error) {
-	c := &epochDrainCursor{}
-	if _, err := p.state(ctx, sm, state.EpochDrainCursorKey, c); err != nil {
+	plan := &epochDrainPlan{}
+	if _, err := p.state(ctx, sm, state.EpochDrainPlanKey, plan); err != nil {
 		if errors.Is(err, state.ErrStateNotExist) {
+			progress := &epochDrainProgress{}
+			if _, progressErr := p.state(ctx, sm, state.EpochDrainCursorKey, progress); progressErr == nil {
+				return nil, errors.New("rewarding: epoch drain progress exists without a plan")
+			} else if !errors.Is(progressErr, state.ErrStateNotExist) {
+				return nil, progressErr
+			}
 			return nil, nil
 		}
 		return nil, err
 	}
-	return c, nil
+	progress := &epochDrainProgress{}
+	if _, err := p.state(ctx, sm, state.EpochDrainCursorKey, progress); err != nil {
+		if errors.Is(err, state.ErrStateNotExist) {
+			return nil, errors.New("rewarding: epoch drain plan exists without progress")
+		}
+		return nil, err
+	}
+	return epochDrainCursorFromState(plan, progress)
 }
 
-// writeEpochDrainCursor persists a cursor. Overwrites any prior value.
+// writeEpochDrainCursor creates or replaces both parts of a settlement. It is
+// used at Phase A; continuation blocks must call writeEpochDrainProgress.
 func (p *Protocol) writeEpochDrainCursor(
 	ctx context.Context,
 	sm protocol.StateManager,
 	c *epochDrainCursor,
 ) error {
-	return p.putState(ctx, sm, state.EpochDrainCursorKey, c)
+	if err := p.putState(ctx, sm, state.EpochDrainPlanKey, epochDrainPlanFromCursor(c)); err != nil {
+		return err
+	}
+	return p.writeEpochDrainProgress(ctx, sm, c)
 }
 
-// deleteEpochDrainCursor removes the cursor entry. Idempotent — the
-// underlying deleteState swallows ErrStateNotExist.
+func (p *Protocol) writeEpochDrainProgress(
+	ctx context.Context,
+	sm protocol.StateManager,
+	c *epochDrainCursor,
+) error {
+	return p.putState(ctx, sm, state.EpochDrainCursorKey, epochDrainProgressFromCursor(c))
+}
+
+// deleteEpochDrainCursor removes both state entries. It is idempotent because
+// deleteState swallows ErrStateNotExist.
 func (p *Protocol) deleteEpochDrainCursor(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) error {
-	return p.deleteState(ctx, sm, state.EpochDrainCursorKey, &epochDrainCursor{})
+	if err := p.deleteState(ctx, sm, state.EpochDrainCursorKey, &epochDrainProgress{}); err != nil {
+		return err
+	}
+	return p.deleteState(ctx, sm, state.EpochDrainPlanKey, &epochDrainPlan{})
 }
 
 // TestOnlyEpochDrainSnapshot returns the live cursor's delegateIndex,

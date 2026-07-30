@@ -203,12 +203,12 @@ func newPendingBlockRewardPoolIndexStateContext() (*PendingBlockRewardPoolIndexS
 }
 
 func (r *PendingBlockRewardPoolIndexStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
-	index := &rewardingpb.Exempt{}
+	index := &rewardingpb.PendingBlockRewardPoolIndex{}
 	if err := proto.Unmarshal(resp.Data, index); err != nil {
 		return "", err
 	}
-	ids := make([]common.Address, len(index.GetAddrs()))
-	for i, id := range index.GetAddrs() {
+	ids := make([]common.Address, len(index.GetCandidateIdentifiers()))
+	for i, id := range index.GetCandidateIdentifiers() {
 		ids[i] = common.BytesToAddress(id)
 	}
 	data, err := _pendingBlockRewardPoolIndexMethod.Outputs.Pack(ids)
