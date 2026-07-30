@@ -40,6 +40,11 @@ func happyArgs() EventArgs {
 		TotalVoterPool:  big.NewInt(9_000_000),
 		SnapshotHash:    hash.Hash256b([]byte("snapshot@epoch4200")),
 		Voters:          voters,
+		Recipients: []address.Address{
+			identityset.Address(6),
+			voters[1],
+			voters[2],
+		},
 		Amounts: []*big.Int{
 			big.NewInt(3_000_000),
 			big.NewInt(3_000_000),
@@ -74,7 +79,7 @@ func TestPack_HappyPath(t *testing.T) {
 	r.NoError(err)
 	unpacked, err := parsed.Events[eventName].Inputs.NonIndexed().Unpack(data)
 	r.NoError(err)
-	r.Len(unpacked, 7)
+	r.Len(unpacked, 8)
 	r.Equal(common.BytesToAddress(args.RewardAddr.Bytes()), unpacked[0])
 	r.Equal(0, args.TotalCommission.Cmp(unpacked[1].(*big.Int)))
 	r.Equal(0, args.TotalVoterPool.Cmp(unpacked[2].(*big.Int)))
@@ -88,6 +93,7 @@ func TestPack_ZeroVoters(t *testing.T) {
 	r := require.New(t)
 	args := happyArgs()
 	args.Voters = nil
+	args.Recipients = nil
 	args.Amounts = nil
 	args.CompoundBucketIDs = nil
 
@@ -100,8 +106,18 @@ func TestPack_ZeroVoters(t *testing.T) {
 	unpacked, err := parsed.Events[eventName].Inputs.NonIndexed().Unpack(data)
 	r.NoError(err)
 	r.Len(unpacked[4].([]common.Address), 0, "voters must decode as empty array")
-	r.Len(unpacked[5].([]*big.Int), 0, "amounts must decode as empty array")
-	r.Len(unpacked[6].([]uint64), 0, "compound bucket IDs must decode as empty array")
+	r.Len(unpacked[5].([]common.Address), 0, "recipients must decode as empty array")
+	r.Len(unpacked[6].([]*big.Int), 0, "amounts must decode as empty array")
+	r.Len(unpacked[7].([]uint64), 0, "compound bucket IDs must decode as empty array")
+}
+
+func TestPack_ParallelLengthMismatch_Recipients(t *testing.T) {
+	r := require.New(t)
+	args := happyArgs()
+	args.Recipients = args.Recipients[:2]
+
+	_, _, err := Pack(args)
+	r.ErrorIs(err, ErrParallelArrayLengthMismatch)
 }
 
 func TestPack_ParallelLengthMismatch_Amounts(t *testing.T) {
@@ -181,6 +197,16 @@ func TestPack_NilPerVoterAddress(t *testing.T) {
 	r.Contains(err.Error(), "voters[0]", "error must name offending index")
 }
 
+func TestPack_NilRecipientAddress(t *testing.T) {
+	r := require.New(t)
+	args := happyArgs()
+	args.Recipients[0] = nil
+
+	_, _, err := Pack(args)
+	r.ErrorIs(err, ErrNilAddress)
+	r.Contains(err.Error(), "recipients[0]", "error must name offending index")
+}
+
 func TestPack_SelectorPinned(t *testing.T) {
 	// Pin the exact 32-byte selector. If this test breaks, either the
 	// event signature drifted (spec change → requires a new selector and
@@ -192,7 +218,7 @@ func TestPack_SelectorPinned(t *testing.T) {
 	r.NoError(err)
 
 	expected := crypto.Keccak256Hash([]byte(
-		"DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],uint256[],uint64[])",
+		"DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[])",
 	))
 	r.Equal(hash.Hash256(expected), topics[0])
 }
@@ -233,12 +259,17 @@ func TestPack_RoundTrip(t *testing.T) {
 	for i, v := range args.Voters {
 		r.Equal(common.BytesToAddress(v.Bytes()), votersOut[i])
 	}
-	amountsOut := unpacked[5].([]*big.Int)
+	recipientsOut := unpacked[5].([]common.Address)
+	r.Len(recipientsOut, len(args.Recipients))
+	for i, recipient := range args.Recipients {
+		r.Equal(common.BytesToAddress(recipient.Bytes()), recipientsOut[i])
+	}
+	amountsOut := unpacked[6].([]*big.Int)
 	r.Len(amountsOut, len(args.Amounts))
 	for i, a := range args.Amounts {
 		r.Equal(0, a.Cmp(amountsOut[i]))
 	}
-	bucketIDsOut := unpacked[6].([]uint64)
+	bucketIDsOut := unpacked[7].([]uint64)
 	r.Len(bucketIDsOut, len(args.CompoundBucketIDs))
 	for i, bucketID := range args.CompoundBucketIDs {
 		r.Equal(bucketID, bucketIDsOut[i])

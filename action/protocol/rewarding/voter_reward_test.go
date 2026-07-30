@@ -8,8 +8,11 @@ package rewarding
 import (
 	"context"
 	"math/big"
+	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -160,6 +163,63 @@ func TestDistributeVoterOnlyRejectsInvalidDistributedAmount(t *testing.T) {
 		r.Error(err)
 	}
 }
+
+func TestDistributeVoterOnlyCustomRewardDestination(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
+	voter := identityset.Address(3)
+	recipient := identityset.Address(4)
+	writeSnapshot(t, sm, candAddr, true, 0, []voterEntry{{voter, big.NewInt(1)}})
+	r.NoError(p.putState(ctx, sm, voterRewardDestinationKey(voter), &voterRewardDestination{
+		recipient: recipient, updatedHeight: 100,
+	}))
+
+	rewardAddr, err := address.FromString(cand.RewardAddress)
+	r.NoError(err)
+	totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := distributionMetadata(t, sm, candAddr)
+	logs, txLogs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
+		ctx, sm, cand, rewardAddr,
+		big.NewInt(777), totalWeight, snapshotHash, 0, lastWeightedIndex, hasWeightedEntries,
+		big.NewInt(0), nil, 0, 0, 100, hash.ZeroHash256,
+	)
+	r.NoError(err)
+	r.True(routed)
+	r.Zero(paid.Cmp(big.NewInt(777)))
+	r.Zero(compounded.Sign())
+	r.Equal(uint32(1), consumed)
+	r.Equal(uint32(1), total)
+	r.Len(txLogs, 1)
+	r.Equal(recipient.String(), txLogs[0].Recipient)
+	r.Zero(txLogs[0].Amount.Cmp(big.NewInt(777)))
+
+	voterAccount, err := accountutil.LoadAccount(sm, voter)
+	r.NoError(err)
+	r.Zero(voterAccount.Balance.Sign())
+	recipientAccount, err := accountutil.LoadAccount(sm, recipient)
+	r.NoError(err)
+	r.Zero(recipientAccount.Balance.Cmp(big.NewInt(777)))
+
+	r.Len(logs, 1)
+	parsed, err := abi.JSON(strings.NewReader(delegateDistributedDestinationTestABI))
+	r.NoError(err)
+	values, err := parsed.Events["DelegateDistributed"].Inputs.NonIndexed().Unpack(logs[0].Data)
+	r.NoError(err)
+	r.Equal([]common.Address{common.BytesToAddress(voter.Bytes())}, values[4])
+	r.Equal([]common.Address{common.BytesToAddress(recipient.Bytes())}, values[5])
+}
+
+const delegateDistributedDestinationTestABI = `[{"anonymous":false,"inputs":[
+	{"indexed":true,"name":"epoch","type":"uint64"},
+	{"indexed":true,"name":"delegate","type":"address"},
+	{"indexed":false,"name":"rewardAddr","type":"address"},
+	{"indexed":false,"name":"totalCommission","type":"uint256"},
+	{"indexed":false,"name":"totalVoterPool","type":"uint256"},
+	{"indexed":false,"name":"snapshotHash","type":"bytes32"},
+	{"indexed":false,"name":"voters","type":"address[]"},
+	{"indexed":false,"name":"recipients","type":"address[]"},
+	{"indexed":false,"name":"amounts","type":"uint256[]"},
+	{"indexed":false,"name":"compoundBucketIds","type":"uint64[]"}],
+	"name":"DelegateDistributed","type":"event"}]`
 
 type voterEntry struct {
 	addr   address.Address

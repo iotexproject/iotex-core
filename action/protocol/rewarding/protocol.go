@@ -271,6 +271,11 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		if !protocol.MustGetFeatureCtx(ctx).AddClaimRewardAddress && act.Address() != nil {
 			return errors.New("claim reward address not enabled yet")
 		}
+	case *action.SetVoterRewardDestination:
+		if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+			return errors.New("voter reward destination is not enabled yet")
+		}
+		return act.SanityCheck()
 	}
 	return nil
 }
@@ -305,6 +310,26 @@ func (p *Protocol) Handle(
 			return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 		}
 		return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
+	case *action.SetVoterRewardDestination:
+		actCtx := protocol.MustGetActionCtx(ctx)
+		oldRecipient, newRecipient, err := p.setVoterRewardDestination(ctx, sm, actCtx.Caller, act.Recipient())
+		if err != nil {
+			log.L().Debug("Error when setting voter reward destination", zap.Error(err))
+			return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+		}
+		topics, data, err := action.PackVoterRewardDestinationSetEvent(actCtx.Caller, oldRecipient, newRecipient)
+		if err != nil {
+			log.L().Debug("Error when encoding voter reward destination event", zap.Error(err))
+			return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+		}
+		blkCtx := protocol.MustGetBlockCtx(ctx)
+		return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{{
+			Address:     p.addr.String(),
+			Topics:      topics,
+			Data:        data,
+			BlockHeight: blkCtx.BlockHeight,
+			ActionHash:  actCtx.ActionHash,
+		}})
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:
@@ -485,6 +510,29 @@ func (p *Protocol) ReadState(
 		}
 		data, err := proto.Marshal(&rewardingpb.VoterRewardAddress{
 			Address: rewardAddr.Bytes(), ExplicitlySet: routing.rewardAddressUpdated,
+		})
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		height, err := sr.Height()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return data, height, nil
+	case "VoterRewardDestination":
+		if len(args) != 1 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		voter, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		recipient, explicitlySet, updatedHeight, err := p.resolveVoterRewardDestination(ctx, sr, voter)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		data, err := proto.Marshal(&rewardingpb.VoterRewardDestination{
+			Recipient: recipient.Bytes(), ExplicitlySet: explicitlySet, UpdatedHeight: updatedHeight,
 		})
 		if err != nil {
 			return nil, uint64(0), err

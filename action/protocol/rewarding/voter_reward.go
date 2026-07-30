@@ -239,7 +239,7 @@ func (p *Protocol) distributeVoterOnly(
 		}
 	}
 
-	voters, amounts, compoundBucketIDs, paid, compounded, err := p.allocateAndRouteVoters(
+	voters, recipients, amounts, compoundBucketIDs, paid, compounded, err := p.allocateAndRouteVoters(
 		ctx, sm, snap, totalWeight, safeBig(voterAmount), distributed,
 		startVoter, endVoter, voterStartIndex,
 		stakingProto, bucketReader, csr, candID, lastWeightedIndex, hasWeightedEntries,
@@ -255,7 +255,7 @@ func (p *Protocol) distributeVoterOnly(
 		transactionLogs = append(transactionLogs, &action.TransactionLog{
 			Type:      iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND,
 			Sender:    address.RewardingPoolAddr,
-			Recipient: voter.String(),
+			Recipient: recipients[i].String(),
 			Amount:    new(big.Int).Set(amounts[i]),
 		})
 	}
@@ -273,6 +273,7 @@ func (p *Protocol) distributeVoterOnly(
 		TotalVoterPool:    safeBig(paid),
 		SnapshotHash:      snapshotHash,
 		Voters:            voters,
+		Recipients:        recipients,
 		Amounts:           amounts,
 		CompoundBucketIDs: compoundBucketIDs,
 	})
@@ -371,7 +372,7 @@ func (p *Protocol) allocateAndRouteVoters(
 	candID address.Address,
 	lastWeightedIndex uint32,
 	hasWeightedEntries bool,
-) ([]address.Address, []*big.Int, []uint64, *big.Int, *big.Int, error) {
+) ([]address.Address, []address.Address, []*big.Int, []uint64, *big.Int, *big.Int, error) {
 	stop := startIIP59Duration("allocate_and_route")
 	routeDurations := iip59RouteDurations{}
 	defer routeDurations.observe()
@@ -394,6 +395,7 @@ func (p *Protocol) allocateAndRouteVoters(
 	winLen := int(endVoter - startVoter)
 
 	voters := make([]address.Address, winLen)
+	recipients := make([]address.Address, winLen)
 	amounts := make([]*big.Int, winLen)
 	compoundBucketIDs := make([]uint64, winLen)
 	paid := new(big.Int)
@@ -403,18 +405,20 @@ func (p *Protocol) allocateAndRouteVoters(
 	compoundVoters := 0
 	autoDepositLookups := 0
 	nativeBucketReads := 0
+	destinationLookups := 0
 
 	for j := 0; j < winLen; j++ {
 		logicalIndex := startVoter + uint32(j)
 		physicalIndex := (voterStartIndex + logicalIndex) % total
 		e := snap.Entries[physicalIndex]
 		voters[j] = e.Voter
+		recipients[j] = e.Voter
 		share := new(big.Int)
 		if voterPool.Sign() > 0 && totalWeight.Sign() > 0 && e.Weight != nil && e.Weight.Sign() > 0 {
 			if hasWeightedEntries && logicalIndex == lastWeightedIndex {
 				share.Sub(voterPool, distributed)
 				if share.Sign() < 0 {
-					return nil, nil, nil, nil, nil, errors.New("rewarding: distributed voter amount exceeds frozen pool")
+					return nil, nil, nil, nil, nil, nil, errors.New("rewarding: distributed voter amount exceeds frozen pool")
 				}
 			} else {
 				share.Mul(voterPool, e.Weight)
@@ -430,7 +434,7 @@ func (p *Protocol) allocateAndRouteVoters(
 			// Malformed snapshot entry — should not happen. There is no
 			// address to credit, so refuse rather than silently drop
 			// the share.
-			return nil, nil, nil, nil, nil, errors.Errorf(
+			return nil, nil, nil, nil, nil, nil, errors.Errorf(
 				"rewarding: nil voter address at logical index %d (snapshot index %d)",
 				logicalIndex, physicalIndex,
 			)
@@ -460,7 +464,7 @@ func (p *Protocol) allocateAndRouteVoters(
 				} else if autodeposit.IsBucketEligibleForCompound(bucket, e.Voter) {
 					stop := startIIP59Accumulation(&routeDurations.compoundDeposit)
 					if err := stakingProto.AddDepositForCompound(ctx, sm, e.Voter, bucketID, share); err != nil {
-						return nil, nil, nil, nil, nil, errors.Wrapf(err,
+						return nil, nil, nil, nil, nil, nil, errors.Wrapf(err,
 							"rewarding: compound deposit failed for voter %s bucket %d",
 							e.Voter.String(), bucketID)
 					}
@@ -472,12 +476,21 @@ func (p *Protocol) allocateAndRouteVoters(
 			}
 		}
 		if compoundBucketID == 0 {
-			stop := startIIP59Accumulation(&routeDurations.directCredit)
-			if err := creditPrimaryAccount(ctx, sm, e.Voter, share); err != nil {
-				return nil, nil, nil, nil, nil, errors.Wrapf(err,
-					"rewarding: credit voter %s failed", e.Voter.String())
+			stopDestinationLookup := startIIP59Accumulation(&routeDurations.destinationLookup)
+			recipient, _, _, err := p.resolveVoterRewardDestination(ctx, sm, e.Voter)
+			stopDestinationLookup()
+			destinationLookups++
+			if err != nil {
+				return nil, nil, nil, nil, nil, nil, errors.Wrapf(err,
+					"rewarding: resolve reward destination for voter %s", e.Voter.String())
 			}
-			stop()
+			recipients[j] = recipient
+			stopDirectCredit := startIIP59Accumulation(&routeDurations.directCredit)
+			if err := creditPrimaryAccount(ctx, sm, recipient, share); err != nil {
+				return nil, nil, nil, nil, nil, nil, errors.Wrapf(err,
+					"rewarding: credit voter %s recipient %s failed", e.Voter.String(), recipient.String())
+			}
+			stopDirectCredit()
 			directVoters++
 		}
 		compoundBucketIDs[j] = compoundBucketID
@@ -488,7 +501,8 @@ func (p *Protocol) allocateAndRouteVoters(
 	addIIP59Items("compound_voter", compoundVoters)
 	addIIP59Items("auto_deposit_lookup", autoDepositLookups)
 	addIIP59Items("native_bucket_read", nativeBucketReads)
-	return voters, amounts, compoundBucketIDs, paid, compounded, nil
+	addIIP59Items("reward_destination_lookup", destinationLookups)
+	return voters, recipients, amounts, compoundBucketIDs, paid, compounded, nil
 }
 
 // splitCommission returns (commission, voterPool) for a totalReward given

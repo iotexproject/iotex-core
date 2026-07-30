@@ -30,12 +30,12 @@ import (
 // (PR 3'), not on-chain data, so they hard-fail rather than degrade —
 // there is no per-item fallback available at the log-encode layer.
 var (
-	// ErrParallelArrayLengthMismatch is returned when the voters, amounts,
-	// and compound bucket ID slices in EventArgs do not have identical lengths.
-	// PR 3' constructs these three in lock-step, so a mismatch is a
+	// ErrParallelArrayLengthMismatch is returned when the voters, recipients,
+	// amounts, and compound bucket ID slices in EventArgs do not have identical lengths.
+	// The rewarding protocol constructs these arrays in lock-step, so a mismatch is a
 	// serialisation bug.
 	ErrParallelArrayLengthMismatch = errors.New(
-		"distributedlog: voters, amounts, and compound bucket IDs must have equal length")
+		"distributedlog: voters, recipients, amounts, and compound bucket IDs must have equal length")
 
 	// ErrNilAddress is returned when Delegate, RewardAddr, or any
 	// Voters[i] is nil. Passing nil is a caller-side mistake and would
@@ -85,6 +85,7 @@ type EventArgs struct {
 	TotalVoterPool    *big.Int          // pool split across voters
 	SnapshotHash      hash.Hash256      // frozen voter list digest (see SnapshotHash)
 	Voters            []address.Address // canonical sorted order per §3.4
+	Recipients        []address.Address // actual direct recipient; voter for compound payout
 	Amounts           []*big.Int        // parallel to Voters
 	CompoundBucketIDs []uint64          // parallel to Voters; 0 means credit
 }
@@ -102,7 +103,7 @@ type EventArgs struct {
 //
 // Data layout: ABI-standard tuple of the remaining (non-indexed) inputs
 // in declaration order — rewardAddr, totalCommission, totalVoterPool,
-// snapshotHash, voters[], amounts[], compoundBucketIds[].
+// snapshotHash, voters[], recipients[], amounts[], compoundBucketIds[].
 func Pack(args EventArgs) (action.Topics, []byte, error) {
 	if args.Delegate == nil {
 		return nil, nil, errors.Wrap(ErrNilAddress, "delegate")
@@ -116,10 +117,11 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 	if args.TotalVoterPool == nil {
 		return nil, nil, errors.Wrap(ErrNilBigInt, "totalVoterPool")
 	}
-	if len(args.Voters) != len(args.Amounts) || len(args.Voters) != len(args.CompoundBucketIDs) {
+	if len(args.Voters) != len(args.Recipients) || len(args.Voters) != len(args.Amounts) ||
+		len(args.Voters) != len(args.CompoundBucketIDs) {
 		return nil, nil, errors.Wrapf(ErrParallelArrayLengthMismatch,
-			"voters=%d amounts=%d compoundBucketIds=%d",
-			len(args.Voters), len(args.Amounts), len(args.CompoundBucketIDs))
+			"voters=%d recipients=%d amounts=%d compoundBucketIds=%d",
+			len(args.Voters), len(args.Recipients), len(args.Amounts), len(args.CompoundBucketIDs))
 	}
 
 	voterAddrs := make([]common.Address, len(args.Voters))
@@ -128,6 +130,13 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 			return nil, nil, errors.Wrapf(ErrNilAddress, "voters[%d]", i)
 		}
 		voterAddrs[i] = common.BytesToAddress(v.Bytes())
+	}
+	recipientAddrs := make([]common.Address, len(args.Recipients))
+	for i, recipient := range args.Recipients {
+		if recipient == nil {
+			return nil, nil, errors.Wrapf(ErrNilAddress, "recipients[%d]", i)
+		}
+		recipientAddrs[i] = common.BytesToAddress(recipient.Bytes())
 	}
 	amounts := make([]*big.Int, len(args.Amounts))
 	for i, a := range args.Amounts {
@@ -150,6 +159,7 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 		args.TotalVoterPool,
 		[32]byte(args.SnapshotHash),
 		voterAddrs,
+		recipientAddrs,
 		amounts,
 		args.CompoundBucketIDs,
 	)

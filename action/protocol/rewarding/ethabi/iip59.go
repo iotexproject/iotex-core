@@ -22,6 +22,7 @@ const _iip59InterfaceABI = `[
 	{"inputs":[],"name":"epochDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"startEpoch","type":"uint64"},{"name":"endEpoch","type":"uint64"},{"name":"completed","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"delegateIndex","type":"uint32"},{"name":"voterIndex","type":"uint32"},{"name":"settlementSeed","type":"bytes32"},{"name":"delegateStartIndex","type":"uint32"},{"name":"candidateIds","type":"address[]"},{"name":"voterStartIndices","type":"uint32[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"rewardAddresses","type":"address[]"},{"name":"epochCommissions","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"onchainRewardEnabled","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"snapshotHash","type":"bytes32"},{"name":"voters","type":"address[]"},{"name":"weights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardAddress","outputs":[{"name":"rewardAddress","type":"address"},{"name":"explicitlySet","type":"bool"}],"stateMutability":"view","type":"function"},
+	{"inputs":[{"name":"voter","type":"address"}],"name":"voterRewardDestination","outputs":[{"name":"recipient","type":"address"},{"name":"explicitlySet","type":"bool"},{"name":"updatedHeight","type":"uint64"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"candidateId","type":"address"},{"name":"voter","type":"address"}],"name":"voterRewardStatus","outputs":[{"name":"targetEra","type":"uint64"},{"name":"eraStartEpoch","type":"uint64"},{"name":"eraEndEpoch","type":"uint64"},{"name":"settlementCompleted","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"status","type":"uint8"},{"name":"logicalVoterIndex","type":"uint32"},{"name":"voterStartIndex","type":"uint32"},{"name":"rewardAmount","type":"uint256"}],"stateMutability":"view","type":"function"}
 ]`
 
@@ -31,6 +32,7 @@ var (
 	_epochDrainCursorMethod            abi.Method
 	_voterRewardSnapshotMethod         abi.Method
 	_voterRewardAddressMethod          abi.Method
+	_voterRewardDestinationMethod      abi.Method
 	_voterRewardStatusMethod           abi.Method
 )
 
@@ -40,6 +42,7 @@ func init() {
 	_epochDrainCursorMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "epochDrainCursor")
 	_voterRewardSnapshotMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardSnapshot")
 	_voterRewardAddressMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardAddress")
+	_voterRewardDestinationMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardDestination")
 	_voterRewardStatusMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardStatus")
 }
 
@@ -95,38 +98,47 @@ type iip59AddressStateContext struct {
 	method abi.Method
 }
 
-func newIIP59AddressStateContext(data []byte, method abi.Method, methodName string) (*iip59AddressStateContext, error) {
+func newIIP59AddressStateContext(
+	data []byte,
+	method abi.Method,
+	methodName string,
+	argumentName string,
+) (*iip59AddressStateContext, error) {
 	params := make(map[string]interface{})
 	if err := method.Inputs.UnpackIntoMap(params, data); err != nil {
 		return nil, err
 	}
-	candidate, ok := params["candidateId"].(common.Address)
+	argument, ok := params[argumentName].(common.Address)
 	if !ok {
 		return nil, errDecodeFailure
 	}
-	candidateID, err := address.FromBytes(candidate.Bytes())
+	ioAddress, err := address.FromBytes(argument.Bytes())
 	if err != nil {
 		return nil, err
 	}
 	return &iip59AddressStateContext{
 		BaseStateContext: &protocolctx.BaseStateContext{Parameter: &protocolctx.Parameters{
 			MethodName: []byte(methodName),
-			Arguments:  [][]byte{[]byte(candidateID.String())},
+			Arguments:  [][]byte{[]byte(ioAddress.String())},
 		}},
 		method: method,
 	}, nil
 }
 
 func newPendingBlockRewardPoolStateContext(data []byte) (*iip59AddressStateContext, error) {
-	return newIIP59AddressStateContext(data, _pendingBlockRewardPoolMethod, "PendingBlockRewardPool")
+	return newIIP59AddressStateContext(data, _pendingBlockRewardPoolMethod, "PendingBlockRewardPool", "candidateId")
 }
 
 func newVoterRewardSnapshotStateContext(data []byte) (*iip59AddressStateContext, error) {
-	return newIIP59AddressStateContext(data, _voterRewardSnapshotMethod, "VoterRewardSnapshot")
+	return newIIP59AddressStateContext(data, _voterRewardSnapshotMethod, "VoterRewardSnapshot", "candidateId")
 }
 
 func newVoterRewardAddressStateContext(data []byte) (*iip59AddressStateContext, error) {
-	return newIIP59AddressStateContext(data, _voterRewardAddressMethod, "VoterRewardAddress")
+	return newIIP59AddressStateContext(data, _voterRewardAddressMethod, "VoterRewardAddress", "candidateId")
+}
+
+func newVoterRewardDestinationStateContext(data []byte) (*iip59AddressStateContext, error) {
+	return newIIP59AddressStateContext(data, _voterRewardDestinationMethod, "VoterRewardDestination", "voter")
 }
 
 func (r *iip59AddressStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
@@ -162,6 +174,13 @@ func (r *iip59AddressStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse)
 		if err = proto.Unmarshal(resp.Data, state); err == nil {
 			data, err = r.method.Outputs.Pack(
 				common.BytesToAddress(state.GetAddress()), state.GetExplicitlySet(),
+			)
+		}
+	case _voterRewardDestinationMethod.Name:
+		state := &rewardingpb.VoterRewardDestination{}
+		if err = proto.Unmarshal(resp.Data, state); err == nil {
+			data, err = r.method.Outputs.Pack(
+				common.BytesToAddress(state.GetRecipient()), state.GetExplicitlySet(), state.GetUpdatedHeight(),
 			)
 		}
 	default:

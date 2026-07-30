@@ -163,3 +163,12 @@ message VoterRewardStatus {
     bool settlement_completed = 8;
     uint64 completed_height = 9;
 }
+
+// VoterRewardDestination is the effective account for direct IIP-59 voter
+// payouts. State stores only explicit overrides; ReadState materializes the
+// voter itself as recipient when explicitly_set is false.
+message VoterRewardDestination {
+    bytes recipient = 1;
+    bool explicitly_set = 2;
+    uint64 updated_height = 3;
+}

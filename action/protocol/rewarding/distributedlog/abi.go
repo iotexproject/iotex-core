@@ -19,6 +19,7 @@ const abiJSON = `[
 			{"indexed": false, "name": "totalVoterPool",  "type": "uint256"},
 			{"indexed": false, "name": "snapshotHash",    "type": "bytes32"},
 			{"indexed": false, "name": "voters",          "type": "address[]"},
+			{"indexed": false, "name": "recipients",      "type": "address[]"},
 			{"indexed": false, "name": "amounts",         "type": "uint256[]"},
 			{"indexed": false, "name": "compoundBucketIds", "type": "uint64[]"}
 		],
@@ -32,4 +33,4 @@ const eventName = "DelegateDistributed"
 
 // eventSignature is the canonical Solidity signature. keccak256 of this
 // string is Topics[0]. Kept as a const for the golden-selector test.
-const eventSignature = "DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],uint256[],uint64[])"
+const eventSignature = "DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[])"

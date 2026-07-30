@@ -50,6 +50,7 @@ type iip59RouteDurations struct {
 	autoDepositLookup float64
 	nativeBucketRead  float64
 	compoundDeposit   float64
+	destinationLookup float64
 	directCredit      float64
 }
 
@@ -57,6 +58,7 @@ func (d *iip59RouteDurations) observe() {
 	observeIIP59AccumulatedDuration("auto_deposit_lookup", d.autoDepositLookup)
 	observeIIP59AccumulatedDuration("native_bucket_read", d.nativeBucketRead)
 	observeIIP59AccumulatedDuration("compound_deposit", d.compoundDeposit)
+	observeIIP59AccumulatedDuration("reward_destination_lookup", d.destinationLookup)
 	observeIIP59AccumulatedDuration("direct_credit", d.directCredit)
 }
 

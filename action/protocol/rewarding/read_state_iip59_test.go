@@ -99,6 +99,18 @@ func TestReadStateIIP59(t *testing.T) {
 	r.NoError(proto.Unmarshal(rewardAddressData, rewardAddress))
 	r.Equal(candID.Bytes(), rewardAddress.GetAddress())
 	r.True(rewardAddress.GetExplicitlySet())
+
+	recipient := identityset.Address(12)
+	r.NoError(p.putState(ctx, sm, voterRewardDestinationKey(voter), &voterRewardDestination{
+		recipient: recipient, updatedHeight: 99,
+	}))
+	destinationData, _, err := p.ReadState(ctx, sm, []byte("VoterRewardDestination"), []byte(voter.String()))
+	r.NoError(err)
+	destination := &rewardingpb.VoterRewardDestination{}
+	r.NoError(proto.Unmarshal(destinationData, destination))
+	r.Equal(recipient.Bytes(), destination.GetRecipient())
+	r.True(destination.GetExplicitlySet())
+	r.Equal(uint64(99), destination.GetUpdatedHeight())
 }
 
 func TestReadStateIIP59MissingAndArguments(t *testing.T) {
@@ -127,8 +139,19 @@ func TestReadStateIIP59MissingAndArguments(t *testing.T) {
 	r.Error(err)
 	_, _, err = p.ReadState(ctx, sm, []byte("VoterRewardAddress"))
 	r.Error(err)
+	_, _, err = p.ReadState(ctx, sm, []byte("VoterRewardDestination"))
+	r.Error(err)
 	_, _, err = p.ReadState(ctx, sm, []byte("VoterRewardStatus"), []byte(candID.String()))
 	r.Error(err)
+
+	voter := identityset.Address(8)
+	destinationData, _, err := p.ReadState(ctx, sm, []byte("VoterRewardDestination"), []byte(voter.String()))
+	r.NoError(err)
+	destination := &rewardingpb.VoterRewardDestination{}
+	r.NoError(proto.Unmarshal(destinationData, destination))
+	r.Equal(voter.Bytes(), destination.GetRecipient())
+	r.False(destination.GetExplicitlySet())
+	r.Zero(destination.GetUpdatedHeight())
 }
 
 func TestReadStateVoterRewardStatus(t *testing.T) {
