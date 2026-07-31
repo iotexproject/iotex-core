@@ -484,6 +484,7 @@ func TestOnlyPutCandidateRewardAddress(
 	candidate := &Candidate{
 		Owner: owner, Operator: owner, Reward: reward, Identifier: candID,
 		Name: "iip59-owner", Votes: new(big.Int), SelfStake: new(big.Int),
+		SelfStakeBucketIdx:   candidateNoSelfStakeBucketIndex,
 		RewardAddressUpdated: updated,
 	}
 	if address.Equal(candID, owner) {

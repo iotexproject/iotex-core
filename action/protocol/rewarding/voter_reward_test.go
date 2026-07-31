@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -206,6 +207,107 @@ func TestDistributeVoterOnlyCustomRewardDestination(t *testing.T) {
 	r.NoError(err)
 	r.Equal([]common.Address{common.BytesToAddress(voter.Bytes())}, values[4])
 	r.Equal([]common.Address{common.BytesToAddress(recipient.Bytes())}, values[5])
+}
+
+func TestDistributeVoterOnlyCompoundOverridesCustomRewardDestination(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    100,
+		BlockTimeStamp: time.Unix(100, 0).UTC(),
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Tip: protocol.TipInfo{Height: 99},
+	})
+	g := genesis.TestDefault()
+
+	csm, err := staking.NewCandidateStateManager(sm)
+	r.NoError(err)
+	delegates, err := staking.TestOnlySeedPerfBenchState(ctx, csm, staking.TestOnlyPerfBenchSpec{
+		NumDelegates:            1,
+		NumVoters:               1,
+		DelegateSelfStake:       big.NewInt(1_000_000),
+		VoterStake:              big.NewInt(1_000),
+		VoterStakedDurationDays: 30,
+		VoteWeightCalConsts:     g.Staking.VoteWeightCalConsts,
+	})
+	r.NoError(err)
+	r.NoError(csm.Commit(ctx))
+	r.Len(delegates, 1)
+	candAddr := delegates[0]
+	voter := staking.TestOnlyPerfBenchVoterAddress(0)
+	destination := identityset.Address(8)
+
+	csr, err := staking.ConstructBaseView(sm)
+	r.NoError(err)
+	buckets, _, err := csr.NativeBuckets()
+	r.NoError(err)
+	var compoundBucket *staking.VoteBucket
+	for _, bucket := range buckets {
+		if address.Equal(bucket.Owner, voter) {
+			compoundBucket = bucket
+			break
+		}
+	}
+	r.NotNil(compoundBucket)
+	r.True(compoundBucket.IsNative())
+	r.True(compoundBucket.AutoStake)
+	r.False(compoundBucket.IsUnstaked())
+	r.True(address.Equal(compoundBucket.Owner, voter))
+	r.True(autodeposit.IsBucketEligibleForCompound(compoundBucket, voter))
+	initialBucketAmount := new(big.Int).Set(compoundBucket.StakedAmount)
+
+	bridge, err := autodeposit.New(identityset.Address(0).String())
+	r.NoError(err)
+	p.autoDepositBridge = bridge
+	bucketReader := &registeredBucketReader{voter: voter, bucketID: compoundBucket.Index}
+	p.autoDepositBucketReaderFactory = func(autodeposit.SlotReader) autodeposit.BucketReader {
+		return bucketReader
+	}
+	r.NoError(p.putState(ctx, sm, voterRewardDestinationKey(voter), &voterRewardDestination{
+		recipient: destination, updatedHeight: 100,
+	}))
+
+	snapshot, err := staking.PollSnapshotFor(sm, candAddr)
+	r.NoError(err)
+	totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := voterDistributionMetadata(snapshot, 0)
+	cand := &state.Candidate{
+		Identity:      candAddr.String(),
+		Address:       candAddr.String(),
+		RewardAddress: candAddr.String(),
+	}
+	logs, txLogs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
+		ctx, sm, cand, candAddr,
+		big.NewInt(777), totalWeight, snapshotHash, 0, lastWeightedIndex, hasWeightedEntries,
+		big.NewInt(0), nil, 0, 0, 100, hash.ZeroHash256,
+	)
+	r.NoError(err)
+	r.True(routed)
+	r.Equal(1, bucketReader.callCount)
+	r.Zero(paid.Cmp(big.NewInt(777)))
+	r.Zero(compounded.Cmp(big.NewInt(777)))
+	r.Equal(uint32(1), consumed)
+	r.Equal(uint32(1), total)
+	r.Empty(txLogs, "compound payout must not emit a direct account transfer")
+
+	updatedCSR, err := staking.ConstructBaseView(sm)
+	r.NoError(err)
+	updatedBucket, err := updatedCSR.NativeBucket(compoundBucket.Index)
+	r.NoError(err)
+	r.Zero(updatedBucket.StakedAmount.Cmp(new(big.Int).Add(initialBucketAmount, big.NewInt(777))))
+
+	destinationAccount, err := accountutil.LoadAccount(sm, destination)
+	r.NoError(err)
+	r.Zero(destinationAccount.Balance.Sign(), "compound must take priority over the custom destination")
+
+	r.Len(logs, 1)
+	parsed, err := abi.JSON(strings.NewReader(delegateDistributedDestinationTestABI))
+	r.NoError(err)
+	values, err := parsed.Events["DelegateDistributed"].Inputs.NonIndexed().Unpack(logs[0].Data)
+	r.NoError(err)
+	r.Equal([]common.Address{common.BytesToAddress(voter.Bytes())}, values[4])
+	r.Equal([]common.Address{common.BytesToAddress(voter.Bytes())}, values[5])
+	r.Equal([]uint64{compoundBucket.Index}, values[7])
 }
 
 const delegateDistributedDestinationTestABI = `[{"anonymous":false,"inputs":[
@@ -489,6 +591,20 @@ type fakeBucketReader struct{ callCount int }
 func (f *fakeBucketReader) LookupBucket(address.Address) (uint64, bool, error) {
 	f.callCount++
 	return 0, false, errors.New("unused")
+}
+
+type registeredBucketReader struct {
+	voter     address.Address
+	bucketID  uint64
+	callCount int
+}
+
+func (r *registeredBucketReader) LookupBucket(voter address.Address) (uint64, bool, error) {
+	r.callCount++
+	if address.Equal(voter, r.voter) {
+		return r.bucketID, true, nil
+	}
+	return 0, false, nil
 }
 
 // TestProtocolOptions verifies WithAutoDepositBridge / WithAutoDepositBucketReader

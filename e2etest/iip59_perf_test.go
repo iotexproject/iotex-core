@@ -115,17 +115,19 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 		drainStartEpoch  uint64
 		chunkTimes       []time.Duration
 	)
-	// Guard: bound total block count so a broken test can't spin
-	// forever. small tier era = 3 delegates × 2 sub-epochs × 2 epochs
-	// = 12 blocks per era; mainnet is 24 × 15 × 24 = 8640 blocks per
-	// era. Give each tier a comfortable ceiling.
-	maxBlocks := 500
-	if tier.numVoters > 500 {
-		maxBlocks = 20 * tier.numVoters / int(tier.voterBudgetPerBlock)
-		if maxBlocks < 1000 {
-			maxBlocks = 1000
-		}
-	}
+	// Guard: derive the ceiling from the active Roll-DPoS epoch calculator.
+	// This avoids duplicating NumSubEpochs assumptions here: for example, the
+	// mainnet tier uses 24 delegates × 2 sub-epochs × 24 epochs = 1152 blocks
+	// before its first drain can begin. Leave one extra epoch after the
+	// estimated chunks so epoch-boundary blocks skipped by the drain cannot
+	// make a healthy run hit the guard.
+	blocksPerEpoch := rp.GetEpochHeight(2) - rp.GetEpochHeight(1)
+	eraEndHeight := rp.GetEpochHeight(tier.epochsPerEra+1) - 1
+	drainEntries := uint64(tier.numVoters + tier.numDelegates)
+	estimatedDrainBlocks := (drainEntries + tier.voterBudgetPerBlock - 1) / tier.voterBudgetPerBlock
+	maxBlocks := int(eraEndHeight + estimatedDrainBlocks + blocksPerEpoch)
+	t.Logf("perf guard: era_end=%d blocks_per_epoch=%d estimated_drain_blocks=%d max_blocks=%d",
+		eraEndHeight, blocksPerEpoch, estimatedDrainBlocks, maxBlocks)
 
 	minted := 0
 	for minted < maxBlocks {
