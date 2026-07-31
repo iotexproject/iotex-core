@@ -288,6 +288,22 @@ func FreezePollSnapshot(
 	// entries by voter bytes, so no re-sort here.
 	vw := voterWeightsFromSM(sm)
 
+	// IIP-59 activation flush still running: the persisted weights cover only
+	// part of the voter set, so no snapshot taken now would be payable. Take the
+	// same degraded path an unavailable view already takes — leave Entries nil
+	// and let the pool roll into the next era — rather than freezing a partial
+	// set or halting the boundary.
+	//
+	// Deliberately handler-side only. validatePostSystemActions runs before
+	// CreatePreStates, so a validator checking this would see the cursor as of
+	// the previous block and disagree with its own handler on the block the
+	// flush completes.
+	if seeded, err := voterWeightSeedingComplete(sm); err != nil {
+		return errors.Wrap(err, "staking: read voter weight seed cursor")
+	} else if !seeded {
+		vw = nil
+	}
+
 	for _, id := range ids {
 		snap := &CandidatePollSnapshot{OnchainRewardEnabled: enabled[id.String()]}
 		if !snap.OnchainRewardEnabled {

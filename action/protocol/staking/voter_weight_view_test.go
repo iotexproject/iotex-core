@@ -7,6 +7,7 @@ package staking
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"math/big"
 	"math/rand"
@@ -198,7 +199,7 @@ func TestVoterWeightView_ForkIsolation(t *testing.T) {
 	r.NotEqual(parentHash, fork.Hash(), "fork hash must reflect overlay")
 
 	// Commit the fork — base is cloned first, so parent stays intact.
-	committed, err := fork.Commit(nil)
+	committed, err := fork.Commit(context.Background(), nil)
 	r.NoError(err)
 	r.Equal(parentHash, v.Hash(), "parent unchanged after fork.Commit")
 	r.Equal(
@@ -230,7 +231,7 @@ func TestVoterWeightView_WrapMergesIntoParent(t *testing.T) {
 	w.Apply(cand, identityset.Address(2), big.NewInt(25))
 	r.Equal(int64(100), findWeight(v.VoterWeightsByCandidate(cand), identityset.Address(2)).Int64(), "parent unchanged before wrap commit")
 
-	committed, err := w.Commit(nil)
+	committed, err := w.Commit(context.Background(), nil)
 	r.NoError(err)
 	r.Equal(int64(125), findWeight(committed.VoterWeightsByCandidate(cand), identityset.Address(2)).Int64())
 	// After Wrap.Commit, the parent base receives the deltas (no clone).
@@ -411,7 +412,10 @@ func TestVoterWeightView_IncrementalMatchesRebuild(t *testing.T) {
 	r.Equal(v.Hash(), rebuild.Hash())
 }
 
-func TestRestoreVoterWeightView_RestartPreservesExistingVoters(t *testing.T) {
+// TestLoadVoterWeightView_RestartPreservesExistingVoters is the restart
+// property IIP-59 depends on, now expressed against committed state rather than
+// a recomputation: what Commit wrote is what a fresh process reads back.
+func TestLoadVoterWeightView_RestartPreservesExistingVoters(t *testing.T) {
 	r := require.New(t)
 	cand := &Candidate{
 		Owner:              identityset.Address(1),
@@ -432,70 +436,162 @@ func TestRestoreVoterWeightView_RestartPreservesExistingVoters(t *testing.T) {
 		bucket.Index = uint64(i + 1)
 		buckets = append(buckets, bucket)
 	}
-	expected := buildVoterWeightView(buckets, func(*VoteBucket) *Candidate { return cand }, consts)
-	expectedDigest := expected.Hash()
-	sr := mockVoterWeightDigestReader(t, &expectedDigest, nil)
 
-	restored, err := restoreVoterWeightView(
-		sr,
-		buckets,
-		func(bucket *VoteBucket) *Candidate {
-			if address.Equal(bucket.Candidate, cand.GetIdentifier()) {
-				return cand
-			}
-			return nil
-		},
-		consts,
+	// Build the view the way the chain first populates it, then commit it.
+	built := buildVoterWeightView(buckets, func(*VoteBucket) *Candidate { return cand }, consts)
+	base := built.(*voterWeightBase)
+	for candID, entry := range base.byCandidate {
+		for _, vw := range entry.sorted {
+			base.touch(candID, hash.BytesToHash160(vw.voter.Bytes()))
+		}
+	}
+	store := newFakeVoterWeightStore()
+	r.NoError(base.persist(store))
+	r.Len(store.entries, len(buckets))
+	store.markSeedComplete()
+
+	// A restart reads them back — no buckets involved.
+	loaded, err := loadVoterWeightView(store.reader(t), nil, nil, consts)
+	r.NoError(err)
+	r.Equal(built.Hash(), loaded.Hash())
+	r.Len(loaded.VoterWeightsByCandidate(hash.BytesToHash160(cand.GetIdentifier().Bytes())), len(buckets))
+	r.False(loaded.IsDirty(), "a loaded view already matches committed state")
+}
+
+// TestLoadVoterWeightView_EmptyStateSeedsFromBuckets covers the pre-activation
+// case: nothing has been written yet, so the view comes from buckets exactly as
+// it did before the weights became first-class state.
+func TestLoadVoterWeightView_EmptyStateSeedsFromBuckets(t *testing.T) {
+	r := require.New(t)
+	cand := &Candidate{Owner: identityset.Address(1)}
+	bucket := NewVoteBucket(cand.GetIdentifier(), identityset.Address(2), big.NewInt(100), 1, time.Unix(1, 0), false)
+
+	store := newFakeVoterWeightStore()
+	loaded, err := loadVoterWeightView(
+		store.reader(t),
+		[]*VoteBucket{bucket},
+		func(*VoteBucket) *Candidate { return cand },
+		genesis.TestDefault().Staking.VoteWeightCalConsts,
 	)
 	r.NoError(err)
-	r.Equal(expected.Hash(), restored.Hash())
-	r.Len(restored.VoterWeightsByCandidate(hash.BytesToHash160(cand.GetIdentifier().Bytes())), len(buckets))
-	r.False(restored.IsDirty(), "a restored view must match the committed state")
+	r.Len(loaded.VoterWeightsByCandidate(hash.BytesToHash160(cand.GetIdentifier().Bytes())), 1)
 }
 
-func TestRestoreVoterWeightView_MissingDigestAllowsInitialBuild(t *testing.T) {
-	cand := &Candidate{Owner: identityset.Address(1)}
-	bucket := NewVoteBucket(cand.GetIdentifier(), identityset.Address(2), big.NewInt(100), 1, time.Unix(1, 0), false)
-	sr := mockVoterWeightDigestReader(t, nil, state.ErrStateNotExist)
+// TestLoadVoterWeightView_IgnoresForeignKeys guards the namespace scan: buckets,
+// candidate indices and endorsements share the staking namespace, so entries
+// must be selected by key shape and never by whether their bytes happen to
+// deserialize as a weight.
+func TestLoadVoterWeightView_IgnoresForeignKeys(t *testing.T) {
+	r := require.New(t)
+	store := newFakeVoterWeightStore()
+	store.put(voterWeightKey(candID(1), hash.BytesToHash160(identityset.Address(2).Bytes())), big.NewInt(42).Bytes())
+	// A bucket record and a legacy 1-byte key must both be skipped.
+	store.put(bucketKey(7), []byte{0x0a, 0x14, 0xff, 0xff})
+	store.put([]byte{_voterWeights}, make([]byte, 32))
+	store.markSeedComplete()
 
-	restored, err := restoreVoterWeightView(
-		sr,
-		[]*VoteBucket{bucket},
-		func(*VoteBucket) *Candidate { return cand },
-		genesis.TestDefault().Staking.VoteWeightCalConsts,
-	)
-	require.NoError(t, err)
-	require.Len(t, restored.VoterWeightsByCandidate(hash.BytesToHash160(cand.GetIdentifier().Bytes())), 1)
+	loaded, err := loadVoterWeightView(store.reader(t), nil, nil, genesis.TestDefault().Staking.VoteWeightCalConsts)
+	r.NoError(err)
+	weights := loaded.VoterWeightsByCandidate(candID(1))
+	r.Len(weights, 1)
+	r.Equal(int64(42), weights[0].weight.Int64())
 }
 
-func TestRestoreVoterWeightView_DigestMismatchFailsStartup(t *testing.T) {
-	cand := &Candidate{Owner: identityset.Address(1)}
-	bucket := NewVoteBucket(cand.GetIdentifier(), identityset.Address(2), big.NewInt(100), 1, time.Unix(1, 0), false)
-	wrong := hash.Hash256b([]byte("wrong voter weights"))
-	sr := mockVoterWeightDigestReader(t, &wrong, nil)
-
-	_, err := restoreVoterWeightView(
-		sr,
-		[]*VoteBucket{bucket},
-		func(*VoteBucket) *Candidate { return cand },
-		genesis.TestDefault().Staking.VoteWeightCalConsts,
-	)
-	require.ErrorContains(t, err, "voter weight digest mismatch")
+// testStateConfig resolves the key a set of StateOptions addresses.
+func testStateConfig(opts ...protocol.StateOption) ([]byte, error) {
+	cfg := protocol.StateConfig{}
+	for _, opt := range opts {
+		if err := opt(&cfg); err != nil {
+			return nil, err
+		}
+	}
+	return cfg.Key, nil
 }
 
-func mockVoterWeightDigestReader(t *testing.T, digest *hash.Hash256, readErr error) protocol.StateReader {
+// fakeVoterWeightStore is a minimal key/value stand-in for the staking
+// namespace, enough to round-trip persist() into readVoterWeightEntries().
+type fakeVoterWeightStore struct {
+	entries map[string][]byte
+}
+
+func newFakeVoterWeightStore() *fakeVoterWeightStore {
+	return &fakeVoterWeightStore{entries: make(map[string][]byte)}
+}
+
+func (s *fakeVoterWeightStore) put(key, value []byte) {
+	s.entries[string(key)] = value
+}
+
+// markSeedComplete records a finished activation flush, which is what makes the
+// persisted entries authoritative for loadVoterWeightView.
+func (s *fakeVoterWeightStore) markSeedComplete() {
+	data, err := (&voterWeightSeedCursor{Started: true, Done: true, DoneHeight: 1}).Serialize()
+	if err != nil {
+		panic(err)
+	}
+	s.entries[string(_voterWeightSeedKey)] = data
+}
+
+// PutState / DelState implement just enough of protocol.StateManager for
+// voterWeightBase.persist.
+func (s *fakeVoterWeightStore) PutState(v interface{}, opts ...protocol.StateOption) (uint64, error) {
+	cfg, err := testStateConfig(opts...)
+	if err != nil {
+		return 0, err
+	}
+	data, err := v.(*voterWeightEntry).Serialize()
+	if err != nil {
+		return 0, err
+	}
+	s.entries[string(cfg)] = data
+	return 1, nil
+}
+
+func (s *fakeVoterWeightStore) DelState(opts ...protocol.StateOption) (uint64, error) {
+	cfg, err := testStateConfig(opts...)
+	if err != nil {
+		return 0, err
+	}
+	if _, ok := s.entries[string(cfg)]; !ok {
+		return 0, state.ErrStateNotExist
+	}
+	delete(s.entries, string(cfg))
+	return 1, nil
+}
+
+// reader exposes the store through the States() scan loadVoterWeightView uses.
+func (s *fakeVoterWeightStore) reader(t *testing.T) protocol.StateReader {
 	t.Helper()
+	keys := make([][]byte, 0, len(s.entries))
+	for k := range s.entries {
+		keys = append(keys, []byte(k))
+	}
+	sort.Slice(keys, func(i, j int) bool { return bytes.Compare(keys[i], keys[j]) < 0 })
+	values := make([][]byte, 0, len(keys))
+	for _, k := range keys {
+		values = append(values, s.entries[string(k)])
+	}
+
 	sr := mock_chainmanager.NewMockStateReader(gomock.NewController(t))
-	sr.EXPECT().State(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(dst interface{}, _ ...protocol.StateOption) (uint64, error) {
-			if readErr != nil {
-				return 0, readErr
-			}
-			d := dst.(*voterWeightDigest)
-			d.Hash = *digest
-			return 1, nil
+	sr.EXPECT().States(gomock.Any()).DoAndReturn(
+		func(_ ...protocol.StateOption) (uint64, state.Iterator, error) {
+			iter, err := state.NewIterator(keys, values)
+			return 1, iter, err
 		},
-	)
+	).AnyTimes()
+	sr.EXPECT().State(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(dst interface{}, opts ...protocol.StateOption) (uint64, error) {
+			key, err := testStateConfig(opts...)
+			if err != nil {
+				return 0, err
+			}
+			value, ok := s.entries[string(key)]
+			if !ok {
+				return 0, state.ErrStateNotExist
+			}
+			return 1, state.Deserialize(dst, value)
+		},
+	).AnyTimes()
 	return sr
 }
 

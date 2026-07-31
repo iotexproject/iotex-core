@@ -105,15 +105,13 @@ func (p *Protocol) AddDepositForCompound(
 		return errors.Wrapf(err, "staking: update compound bucket %d", bucketID)
 	}
 
-	if err := candidate.SubVote(prevWeighted); err != nil {
+	if err := subCandidateVotes(csm, candidate, bucket.Owner, prevWeighted); err != nil {
 		return errors.Wrapf(err, "staking: subtract vote for candidate %s", bucket.Candidate.String())
 	}
 	newWeighted := p.calculateVoteWeight(bucket, selfStake)
-	if err := candidate.AddVote(newWeighted); err != nil {
+	if err := addCandidateVotes(csm, candidate, bucket.Owner, newWeighted); err != nil {
 		return errors.Wrapf(err, "staking: add vote for candidate %s", bucket.Candidate.String())
 	}
-	// IIP-59: net delta applied to (candidate, voter) in the view.
-	applyVoterWeightDelta(csm, candidate.GetIdentifier(), bucket.Owner, new(big.Int).Sub(newWeighted, prevWeighted))
 	if selfStake {
 		if err := candidate.AddSelfStake(amount); err != nil {
 			return errors.Wrapf(err, "staking: add self-stake for candidate %s", bucket.Candidate.String())

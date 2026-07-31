@@ -108,7 +108,7 @@ func (v *viewData) Commit(ctx context.Context, sm protocol.StateManager) error {
 		return err
 	}
 	if v.voterWeights != nil {
-		newVW, err := v.voterWeights.Commit(sm)
+		newVW, err := v.voterWeights.Commit(ctx, sm)
 		if err != nil {
 			return err
 		}

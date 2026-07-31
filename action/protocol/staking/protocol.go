@@ -66,12 +66,18 @@ const (
 	// PutPollResult, read once per epoch by the rewarding protocol under
 	// IIP-59. Full key: {_candidatePollSnapshot} || candID.Bytes().
 	_candidatePollSnapshot
-	// _voterWeights is the tag for a single-value voterWeightDigest under
-	// StakingNamespace (see voter_weight_view.go). Holds the deterministic
-	// 32-byte hash of the in-memory VoterWeightView. Written on every block
-	// where the view is dirty; read only at boot to detect divergence
-	// between the rebuild-from-buckets view and the last-persisted digest.
+	// _voterWeights is the tag for the per-(candidate, voter) weight entries
+	// under StakingNamespace (see voter_weight_view.go). Full key:
+	// {_voterWeights} || candID(20) || voterAddress(20). Each block writes only
+	// the pairs it changed, and startup loads them back — these entries are the
+	// single derivation of the weights IIP-59 pays out against, so there is
+	// nothing a restart can find to disagree with.
 	_voterWeights
+	// _voterWeightSeed is the tag for the single-value voterWeightSeedCursor
+	// (see voter_weight_seed.go), which tracks the one-time flush of the voter
+	// weight table into state after IIP-59 activates. Full key:
+	// {_voterWeightSeed}.
+	_voterWeightSeed
 )
 
 // Errors
@@ -393,11 +399,15 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 	}
 
-	// VoterWeightView is intentionally an in-memory index. Reconstruct it on
-	// every startup from the persisted bucket sources after all contract
-	// indexers have reached this state-reader height, then verify the result
-	// against the digest committed with the state. This preserves voters that
-	// were created before a node restart.
+	// VoterWeightView is an in-memory cache of committed state, loaded here at
+	// startup. Once IIP-59 has activated the per-(candidate, voter) entries in
+	// state are the only derivation of these weights, so a restart reads them
+	// back rather than recomputing and comparing — there is nothing for a node
+	// to disagree with the network about, and so no way for a restart to fail.
+	//
+	// Buckets are still collected: before activation nothing has been written
+	// yet and the view is seeded from them, and they are what a non-consensus
+	// audit re-derives the weights from.
 	csr := newCandidateStateReader(sr)
 	allBuckets, _, err := csr.NativeBuckets()
 	if errors.Cause(err) == state.ErrStateNotExist {
@@ -415,7 +425,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 		allBuckets = append(allBuckets, buckets...)
 	}
-	c.voterWeights, err = restoreVoterWeightView(
+	c.voterWeights, err = loadVoterWeightView(
 		sr,
 		allBuckets,
 		func(bucket *VoteBucket) *Candidate {
@@ -424,7 +434,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		p.config.VoteWeightCalConsts,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to restore voter weight view")
+		return nil, errors.Wrap(err, "failed to load voter weight view")
 	}
 	return c, nil
 }
@@ -561,19 +571,13 @@ func (p *Protocol) slashCandidate(
 	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
 		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)
 	}
-	if err := candidate.SubVote(prevWeightedVotes); err != nil {
+	if err := subCandidateVotes(csm, candidate, bucket.Owner, prevWeightedVotes); err != nil {
 		return errors.Wrapf(err, "failed to sub candidate votes")
 	}
 	weightedVotes := p.calculateVoteWeight(bucket, true)
-	if err := candidate.AddVote(weightedVotes); err != nil {
+	if err := addCandidateVotes(csm, candidate, bucket.Owner, weightedVotes); err != nil {
 		return errors.Wrapf(err, "failed to add candidate votes")
 	}
-	applyVoterWeightDelta(
-		csm,
-		candidate.GetIdentifier(),
-		bucket.Owner,
-		new(big.Int).Sub(weightedVotes, prevWeightedVotes),
-	)
 	if err := candidate.SubSelfStake(amount); err != nil {
 		return errors.Wrap(err, "failed to update self stake")
 	}
@@ -677,6 +681,19 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 				return errors.Wrapf(err, "failed to update candidate %s", c.GetIdentifier().String())
 			}
 		}
+	}
+
+	// IIP-59: once the fork activates, flush the voter weight table into state a
+	// batch at a time. Inert before activation, and a single state read per
+	// block once the flush has completed.
+	//
+	// This runs here, in CreatePreStates, rather than in a system action: it has
+	// to happen on every block regardless of what the block contains, and it
+	// must not be able to fail a block. seedVoterWeights degrades to "no
+	// progress this block" rather than returning an error for anything short of
+	// a state write failure.
+	if _, err := seedVoterWeights(ctx, sm, g.Rewarding.VoterWeightSeedBatchSize); err != nil {
+		return errors.Wrap(err, "failed to seed voter weights")
 	}
 
 	if p.candBucketsIndexer == nil {

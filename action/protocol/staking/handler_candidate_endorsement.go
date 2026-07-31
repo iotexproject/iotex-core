@@ -2,7 +2,6 @@ package staking
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -164,15 +163,14 @@ func (p *Protocol) clearCandidateSelfStake(csm CandidateStateManager, bucket *Vo
 	}
 	prevWeight := p.calculateVoteWeight(bucket, true)
 	newWeight := p.calculateVoteWeight(bucket, false)
-	if err := cand.SubVote(prevWeight); err != nil {
+	// IIP-59: same bucket loses the self-stake bonus, so the view sees -prev
+	// then +new on (cand, bucket.Owner).
+	if err := subCandidateVotes(csm, cand, bucket.Owner, prevWeight); err != nil {
 		return errors.Wrapf(err, "failed to subtract vote weight for bucket index %d", bucket.Index)
 	}
-	if err := cand.AddVote(newWeight); err != nil {
+	if err := addCandidateVotes(csm, cand, bucket.Owner, newWeight); err != nil {
 		return errors.Wrapf(err, "failed to add vote weight for bucket index %d", bucket.Index)
 	}
-	// IIP-59: same bucket loses the self-stake bonus — record the net
-	// (negative) delta on (cand, bucket.Owner) in the view.
-	applyVoterWeightDelta(csm, cand.GetIdentifier(), bucket.Owner, new(big.Int).Sub(newWeight, prevWeight))
 	cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 	cand.SelfStake.SetInt64(0)
 	return nil

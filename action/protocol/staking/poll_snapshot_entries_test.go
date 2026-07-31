@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
@@ -66,6 +67,7 @@ func TestFreezePollSnapshot_Entries_NativeVoters(t *testing.T) {
 			RewardAddress: cand.Reward.String(),
 		},
 	}
+	markVoterWeightSeedComplete(t, sm)
 	r.NoError(FreezePollSnapshot(context.Background(), sm, list, nil, nil))
 
 	snap, err := PollSnapshotFor(sm, cand.Owner)
@@ -115,6 +117,7 @@ func TestFreezePollSnapshot_Entries_MultipleCandidatesIsolated(t *testing.T) {
 		&state.Candidate{Address: candA.Owner.String(), Votes: big.NewInt(1), RewardAddress: candA.Reward.String()},
 		&state.Candidate{Address: candB.Owner.String(), Votes: big.NewInt(1), RewardAddress: candB.Reward.String()},
 	}
+	markVoterWeightSeedComplete(t, sm)
 	r.NoError(FreezePollSnapshot(context.Background(), sm, list, nil, nil))
 
 	snapA, err := PollSnapshotFor(sm, candA.Owner)
@@ -154,6 +157,7 @@ func TestFreezePollSnapshot_Entries_CandidateWithNoVoters(t *testing.T) {
 	list := state.CandidateList{
 		&state.Candidate{Address: cand.Owner.String(), Votes: big.NewInt(1), RewardAddress: cand.Reward.String()},
 	}
+	markVoterWeightSeedComplete(t, sm)
 	r.NoError(FreezePollSnapshot(context.Background(), sm, list, nil, nil))
 
 	snap, err := PollSnapshotFor(sm, cand.Owner)
@@ -180,6 +184,7 @@ func TestFreezePollSnapshot_Entries_ViewMissingDegrades(t *testing.T) {
 	list := state.CandidateList{
 		&state.Candidate{Address: cand.Owner.String(), Votes: big.NewInt(1), RewardAddress: cand.Reward.String()},
 	}
+	markVoterWeightSeedComplete(t, sm)
 	r.NoError(FreezePollSnapshot(context.Background(), sm, list, nil, nil))
 
 	snap, err := PollSnapshotFor(sm, cand.Owner)
@@ -215,6 +220,7 @@ func TestFreezePollSnapshot_Entries_DeterministicOrder(t *testing.T) {
 	list := state.CandidateList{
 		&state.Candidate{Address: cand.Owner.String(), Votes: big.NewInt(1), RewardAddress: cand.Reward.String()},
 	}
+	markVoterWeightSeedComplete(t, sm)
 	r.NoError(FreezePollSnapshot(context.Background(), sm, list, nil, nil))
 
 	first, err := PollSnapshotFor(sm, cand.Owner)
@@ -223,6 +229,7 @@ func TestFreezePollSnapshot_Entries_DeterministicOrder(t *testing.T) {
 
 	// Re-freeze; a re-run against the same view must produce identical
 	// order + weights.
+	markVoterWeightSeedComplete(t, sm)
 	r.NoError(FreezePollSnapshot(context.Background(), sm, list, nil, nil))
 	second, err := PollSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
@@ -259,6 +266,7 @@ func TestFreezePollSnapshot_Entries_WeightCloneIsolation(t *testing.T) {
 	list := state.CandidateList{
 		&state.Candidate{Address: cand.Owner.String(), Votes: big.NewInt(1), RewardAddress: cand.Reward.String()},
 	}
+	markVoterWeightSeedComplete(t, sm)
 	r.NoError(FreezePollSnapshot(context.Background(), sm, list, nil, nil))
 
 	// Mutate the live view AFTER the freeze.
@@ -282,4 +290,18 @@ func assertEntriesSortedByVoterBytes(t *testing.T, entries []VoterWeight) {
 				i, entries[i-1].Voter.String(), entries[i].Voter.String())
 		}
 	}
+}
+
+// markVoterWeightSeedComplete records a finished IIP-59 activation flush.
+// FreezePollSnapshot deliberately leaves Entries nil while the flush is still
+// running — the persisted weights cover only part of the voter set then — so any
+// test that expects populated entries has to state that seeding is done.
+func markVoterWeightSeedComplete(t *testing.T, sm protocol.StateManager) {
+	t.Helper()
+	_, err := sm.PutState(
+		&voterWeightSeedCursor{Started: true, Done: true, DoneHeight: 1},
+		protocol.NamespaceOption(_stakingNameSpace),
+		protocol.KeyOption(_voterWeightSeedKey),
+	)
+	require.NoError(t, err)
 }

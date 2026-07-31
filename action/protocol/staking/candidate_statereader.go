@@ -164,9 +164,9 @@ func CreateBaseView(ctx protocol.FeatureCtx, sr protocol.StateReader, enableSMSt
 	}
 
 	// IIP-59: an empty VoterWeightView is installed here so handlers can call
-	// applyVoterWeightDelta without a nil check. The real bucket-derived
-	// baseline is filled in by Protocol.Start after contract-staking indexers
-	// are wired, and re-verified against the persisted digest at that point.
+	// applyVoterWeightDelta without a nil check. The real contents are filled
+	// in by Protocol.Start once contract-staking indexers are wired — loaded
+	// from the persisted entries, or seeded from buckets before activation.
 	return &viewData{
 		candCenter:   center,
 		bucketPool:   pool,

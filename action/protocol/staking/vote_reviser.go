@@ -185,6 +185,19 @@ func (vr *VoteReviser) shouldCorrectCandSelfStake(height uint64) bool {
 	return vr.cfg.CorrectCandSelfStakeHeight == height
 }
 
+// calculateVoteWeight rebuilds each candidate's vote total from scratch rather
+// than adjusting it, so it calls Candidate.AddVote directly instead of going
+// through addCandidateVotes — the deltas it would have to feed the IIP-59 view
+// are not available here, and the view is not rebuilt alongside it.
+//
+// That is safe only because every revise height (ReviseHeights,
+// CorrectCandsHeight, SelfStakeBucketReviseHeight, CorrectCandSelfStakeHeight)
+// is already in the past, well before IIP-59 activates. Scheduling a new revise
+// height at or after activation would silently leave VoterWeightView holding
+// the pre-revise weights, and an era freeze would pay out against them. If a
+// new revise height is ever needed, the view has to be rebuilt in the same
+// block — see TestCandidateVoteMutationsUseChokePoint, which pins this
+// exemption.
 func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager, cands CandidateList) (CandidateList, error) {
 	csr := newCandidateStateReader(csm.SM())
 	candm := make(map[string]*Candidate)
