@@ -276,6 +276,11 @@ func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, cand
 	return staking.FreezePollSnapshot(ctx, sm, candidates, bridge, reader)
 }
 
+// _delegateProfileViewCallGasLimit bounds the simulated DelegateProfile view
+// call. Nothing is billed — the ceiling only exists so a malformed contract
+// cannot spin the interpreter during block production.
+const _delegateProfileViewCallGasLimit uint64 = 10_000_000
+
 // delegateProfileContractReader mirrors consortium.go's
 // getContractReaderForGenesisStates: build an unsigned Execution against the
 // target contract, wrap it in an envelope, and call evm.SimulateExecution
@@ -283,7 +288,7 @@ func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, cand
 // no gas billing to a real account) and reuses the existing view-call plumb.
 func delegateProfileContractReader(sm protocol.StateManager) delegateprofile.ContractReader {
 	return delegateprofile.ContractReaderFunc(func(ctx context.Context, contract string, callData []byte) (ret []byte, err error) {
-		gasLimit := uint64(10000000)
+		gasLimit := _delegateProfileViewCallGasLimit
 		ex := action.NewExecution(contract, big.NewInt(0), callData)
 		caller, err := address.FromString(address.ZeroAddress)
 		if err != nil {

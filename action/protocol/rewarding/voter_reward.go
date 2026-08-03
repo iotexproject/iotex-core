@@ -119,174 +119,232 @@ func (p *Protocol) splitDelegateEpochReward(
 	return commission, voterShare, nil
 }
 
-// distributeVoterOnly is IIP-59 §3.2's Phase B: allocate the delegate's
-// frozen voter share (voterAmount) across the FULL snap.Entries list,
-// then pay only voters in the [startVoter, startVoter+voterBudget)
-// window; route each paid share to compound or credit via the AutoDeposit
-// bridge, and emit a batched DelegateDistributed log with epochCommission
-// attesting to the Phase A per-delegate commission.
+// voterChunkRequest is everything one Phase B call needs about a single
+// delegate. The fields split into three groups: who is being paid (cand,
+// rewardAddr), what was frozen for them at Phase A (voterAmount through
+// hasWeightedEntries — these must not be recomputed from live state, or a
+// snapshot change mid-drain would silently repay voters at new weights), and
+// where this particular block's window sits in the drain (distributedBefore,
+// startVoter, voterBudget).
+type voterChunkRequest struct {
+	cand       *state.Candidate
+	rewardAddr address.Address
+
+	// Frozen at Phase A; identical for every chunk of this delegate's era.
+	voterAmount        *big.Int
+	totalWeightFrozen  *big.Int
+	snapshotHash       hash.Hash256
+	voterStartIndex    uint32
+	lastWeightedIndex  uint32
+	hasWeightedEntries bool
+	epochCommission    *big.Int
+
+	// Per-chunk position.
+	distributedBefore *big.Int
+	startVoter        uint32
+	voterBudget       uint32
+
+	blkHeight  uint64
+	actionHash hash.Hash256
+}
+
+// voterChunkResult is what one Phase B call produced. The zero value is the
+// "not routed" answer: no logs, nothing paid, and a caller that should advance
+// past this delegate rather than treat it as an error.
+type voterChunkResult struct {
+	logs            []*action.Log
+	transactionLogs []*action.TransactionLog
+	routed          bool
+	paid            *big.Int
+	compounded      *big.Int
+	consumedVoters  uint32
+	totalVoters     uint32
+}
+
+// voterRouting holds the collaborators the payout loop needs to decide
+// compound-vs-credit for each voter. Resolved once per chunk because every one
+// of them is a state read that would otherwise repeat per voter.
+type voterRouting struct {
+	stakingProto *staking.Protocol
+	bucketReader autodeposit.BucketReader
+	csr          staking.CandidateStateReader
+	candID       address.Address
+}
+
+// voterWindowPayout is the parallel-slice form the DelegateDistributed log
+// wants: index j of each slice describes the same voter, the j-th in the
+// window. paid and compounded are the sums over the window only.
+type voterWindowPayout struct {
+	voters            []address.Address
+	recipients        []address.Address
+	amounts           []*big.Int
+	compoundBucketIDs []uint64
+	paid              *big.Int
+	compounded        *big.Int
+}
+
+// distributeVoterOnly is IIP-59 §3.2's Phase B: allocate the delegate's frozen
+// voter share across the whole snapshot, then pay only the
+// [startVoter, startVoter+voterBudget) window. voterBudget == 0 means no cap.
 //
-// voterBudget == 0 means "no per-block voter cap for this call" — pay
-// through the end of the list.
+// Allocating over the whole snapshot and paying a window is what makes the
+// chunking invisible: every voter's amount is the same no matter where the
+// block boundaries fall (TestVoterAllocationIsChunkInvariant).
 //
-// Allocation is deterministic across chunks: the same snap.Entries +
-// weights + voterAmount always produce the same share array. Splitting a
-// delegate across K blocks produces byte-identical per-voter amounts to
-// the un-split single-block run; the last-with-weight voter absorbs the
-// dust once, whichever chunk reaches them.
+// A zero result with a nil error means the snapshot went missing between
+// Phase A and this chunk; the caller advances past the delegate and the orphan
+// sweep drains the residual pool. Malformed on-chain data (bridge RPC failure,
+// unreadable or ineligible bucket) degrades that one voter to a direct payout
+// rather than halting the block. Only wiring errors — nil staking protocol,
+// log-encoder failure — hard-fail.
 //
-// Post-C3, block-side commission is observable via the per-block
-// BLOCK_REWARD logs and is intentionally omitted from TotalCommission;
-// consumers who want an era total sum both streams themselves.
-//
-// Return contract:
-//   - (logs, txLogs, routed=true, paidThisChunk, compoundedThisChunk, consumedVoters, totalVoters, nil):
-//     window paid, log emitted with the window's voters/amounts.
-//   - (nil, nil, routed=false, nil, nil, 0, 0, nil): snapshot missing between
-//     Phase A and this chunk. Caller
-//     advances past this delegate; the coda's orphan sweep drains the
-//     residual pool entry.
-//   - (nil, nil, false, nil, nil, 0, 0, err): hard failure.
-//
-// Malformed on-chain data (bridge RPC error, bucket read error, ineligible
-// bucket) still degrades individual voters to direct payout rather than halting
-// the block; wiring errors (nil staking protocol, log-encoder failure)
-// hard-fail.
-//
-// Post-5.5b the log's `TotalVoterPool` reflects the sum of `Amounts[]`
-// paid in *this* chunk, not the delegate's era-wide frozen amount. Off-
-// chain consumers must aggregate partial logs by (SnapshotHash, delegate,
-// epoch) to recover era-wide totals.
+// The emitted log's TotalVoterPool covers this chunk only, and TotalCommission
+// omits block-side commission (visible in the per-block BLOCK_REWARD logs), so
+// off-chain consumers must aggregate by (SnapshotHash, delegate, epoch) to
+// recover era-wide totals.
 func (p *Protocol) distributeVoterOnly(
 	ctx context.Context,
 	sm protocol.StateManager,
-	cand *state.Candidate,
-	rewardAddr address.Address,
-	voterAmount *big.Int,
-	totalWeightFrozen *big.Int,
-	snapshotHash hash.Hash256,
-	voterStartIndex uint32,
-	lastWeightedIndex uint32,
-	hasWeightedEntries bool,
-	epochCommission *big.Int,
-	distributedBefore *big.Int,
-	startVoter uint32,
-	voterBudget uint32,
-	blkHeight uint64,
-	actionHash hash.Hash256,
-) ([]*action.Log, []*action.TransactionLog, bool, *big.Int, *big.Int, uint32, uint32, error) {
-	if cand == nil || rewardAddr == nil {
-		return nil, nil, false, nil, nil, 0, 0, nil
+	req voterChunkRequest,
+) (voterChunkResult, error) {
+	var none voterChunkResult
+	if req.cand == nil || req.rewardAddr == nil {
+		return none, nil
 	}
-	if err := assertNonNegativeReward(voterAmount); err != nil {
-		return nil, nil, false, nil, nil, 0, 0, err
+	if err := assertNonNegativeReward(req.voterAmount); err != nil {
+		return none, err
 	}
-	distributed := safeBig(distributedBefore)
+	distributed := safeBig(req.distributedBefore)
 	if err := assertNonNegativeReward(distributed); err != nil {
-		return nil, nil, false, nil, nil, 0, 0, errors.Wrap(err, "rewarding: invalid distributed voter amount")
+		return none, errors.Wrap(err, "rewarding: invalid distributed voter amount")
 	}
-	if distributed.Cmp(safeBig(voterAmount)) > 0 {
-		return nil, nil, false, nil, nil, 0, 0, errors.New("rewarding: distributed voter amount exceeds frozen pool")
+	if distributed.Cmp(safeBig(req.voterAmount)) > 0 {
+		return none, errors.New("rewarding: distributed voter amount exceeds frozen pool")
 	}
-	candidateID := candidateIdentifier(cand)
+	candidateID := candidateIdentifier(req.cand)
 	candID, err := address.FromString(candidateID)
 	if err != nil {
-		return nil, nil, false, nil, nil, 0, 0, errors.Wrapf(err, "rewarding: invalid candidate identity %q", candidateID)
+		return none, errors.Wrapf(err, "rewarding: invalid candidate identity %q", candidateID)
 	}
 	snap, err := staking.PollSnapshotFor(sm, candID)
 	if err != nil {
 		if errors.Is(err, state.ErrStateNotExist) {
-			return nil, nil, false, nil, nil, 0, 0, nil
+			return none, nil
 		}
-		return nil, nil, false, nil, nil, 0, 0, errors.Wrapf(err, "rewarding: read poll snapshot for %s", candID.String())
+		return none, errors.Wrapf(err, "rewarding: read poll snapshot for %s", candID.String())
 	}
-	if snapshotHash != hash.ZeroHash256 && snapshotHashFull(snap) != snapshotHash {
-		return nil, nil, false, nil, nil, 0, 0, nil
+	if req.snapshotHash != hash.ZeroHash256 && snapshotHashFull(snap) != req.snapshotHash {
+		return none, nil
 	}
 	totalVoters := uint32(len(snap.Entries))
 	// endVoter is clamped to the list; a startVoter past the end is a
 	// no-op window (0 voters paid), which is a legal "delegate is done"
 	// state — the caller advances past this delegate.
+	startVoter := req.startVoter
 	if startVoter > totalVoters {
 		startVoter = totalVoters
 	}
 	endVoter := totalVoters
-	if voterBudget > 0 && startVoter+voterBudget < endVoter {
-		endVoter = startVoter + voterBudget
-	}
-	totalWeight := safeBig(totalWeightFrozen)
-
-	stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx))
-	if stakingProto == nil {
-		return nil, nil, false, nil, nil, 0, 0, errors.New("rewarding: staking protocol not registered")
-	}
-	var bucketReader autodeposit.BucketReader
-	if p.autoDepositBridge != nil {
-		slotReader, srErr := evm.NewSlotReader(ctx, sm)
-		if srErr != nil {
-			return nil, nil, false, nil, nil, 0, 0, errors.Wrap(srErr, "rewarding: build slot reader for autodeposit")
-		}
-		bucketReader, err = p.resolveAutoDepositBucketReader(slotReader)
-		if err != nil {
-			return nil, nil, false, nil, nil, 0, 0, errors.Wrap(err, "rewarding: resolve autodeposit bucket reader")
-		}
-	}
-	var csr staking.CandidateStateReader
-	if bucketReader != nil {
-		csr, err = staking.ConstructBaseView(sm)
-		if err != nil {
-			return nil, nil, false, nil, nil, 0, 0, errors.Wrap(err, "rewarding: construct base view for compound routing")
-		}
+	if req.voterBudget > 0 && startVoter+req.voterBudget < endVoter {
+		endVoter = startVoter + req.voterBudget
 	}
 
-	voters, recipients, amounts, compoundBucketIDs, paid, compounded, err := p.allocateAndRouteVoters(
-		ctx, sm, snap, totalWeight, safeBig(voterAmount), distributed,
-		startVoter, endVoter, voterStartIndex,
-		stakingProto, bucketReader, csr, candID, lastWeightedIndex, hasWeightedEntries,
-	)
+	routing, err := p.resolveVoterRouting(ctx, sm, candID)
 	if err != nil {
-		return nil, nil, false, nil, nil, 0, 0, err
+		return none, err
 	}
-	transactionLogs := make([]*action.TransactionLog, 0, len(voters))
-	for i, voter := range voters {
-		if voter == nil || amounts[i] == nil || amounts[i].Sign() == 0 || compoundBucketIDs[i] != 0 {
+
+	alloc := newVoterAllocator(
+		snap, safeBig(req.voterAmount), req.totalWeightFrozen,
+		req.voterStartIndex, req.lastWeightedIndex, req.hasWeightedEntries,
+	)
+	payout, err := p.allocateAndRouteVoters(ctx, sm, alloc, routing, distributed, startVoter, endVoter)
+	if err != nil {
+		return none, err
+	}
+	transactionLogs := make([]*action.TransactionLog, 0, len(payout.voters))
+	for i, voter := range payout.voters {
+		if voter == nil || payout.amounts[i] == nil || payout.amounts[i].Sign() == 0 || payout.compoundBucketIDs[i] != 0 {
 			continue
 		}
 		transactionLogs = append(transactionLogs, &action.TransactionLog{
 			Type:      iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND,
 			Sender:    address.RewardingPoolAddr,
-			Recipient: recipients[i].String(),
-			Amount:    new(big.Int).Set(amounts[i]),
+			Recipient: payout.recipients[i].String(),
+			Amount:    new(big.Int).Set(payout.amounts[i]),
 		})
 	}
 
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochNum := rp.GetEpochNum(blkHeight)
+	epochNum := rp.GetEpochNum(req.blkHeight)
 	// SnapshotHash covers the full frozen weight list, so it's stable
 	// across chunks — off-chain consumers assemble partial logs by
 	// (SnapshotHash, delegate, epoch).
 	topics, data, err := distributedlog.Pack(distributedlog.EventArgs{
 		Epoch:             epochNum,
 		Delegate:          candID,
-		RewardAddr:        rewardAddr,
-		TotalCommission:   safeBig(epochCommission),
-		TotalVoterPool:    safeBig(paid),
-		SnapshotHash:      snapshotHash,
-		Voters:            voters,
-		Recipients:        recipients,
-		Amounts:           amounts,
-		CompoundBucketIDs: compoundBucketIDs,
+		RewardAddr:        req.rewardAddr,
+		TotalCommission:   safeBig(req.epochCommission),
+		TotalVoterPool:    safeBig(payout.paid),
+		SnapshotHash:      req.snapshotHash,
+		Voters:            payout.voters,
+		Recipients:        payout.recipients,
+		Amounts:           payout.amounts,
+		CompoundBucketIDs: payout.compoundBucketIDs,
 	})
 	if err != nil {
-		return nil, nil, false, nil, nil, 0, 0, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
+		return none, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
 	}
-	return []*action.Log{{
-		Address:     p.addr.String(),
-		Topics:      topics,
-		Data:        data,
-		BlockHeight: blkHeight,
-		ActionHash:  actionHash,
-	}}, transactionLogs, true, paid, compounded, endVoter - startVoter, totalVoters, nil
+	return voterChunkResult{
+		logs: []*action.Log{{
+			Address:     p.addr.String(),
+			Topics:      topics,
+			Data:        data,
+			BlockHeight: req.blkHeight,
+			ActionHash:  req.actionHash,
+		}},
+		transactionLogs: transactionLogs,
+		routed:          true,
+		paid:            payout.paid,
+		compounded:      payout.compounded,
+		consumedVoters:  endVoter - startVoter,
+		totalVoters:     totalVoters,
+	}, nil
+}
+
+// resolveVoterRouting gathers the per-chunk collaborators for compound routing.
+// A nil autoDepositBridge (the common case on a node that has not configured
+// one) leaves bucketReader and csr nil, which the payout loop reads as
+// "everyone gets credited directly".
+func (p *Protocol) resolveVoterRouting(
+	ctx context.Context,
+	sm protocol.StateManager,
+	candID address.Address,
+) (voterRouting, error) {
+	var none voterRouting
+	stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx))
+	if stakingProto == nil {
+		return none, errors.New("rewarding: staking protocol not registered")
+	}
+	routing := voterRouting{stakingProto: stakingProto, candID: candID}
+	if p.autoDepositBridge == nil {
+		return routing, nil
+	}
+	slotReader, err := evm.NewSlotReader(ctx, sm)
+	if err != nil {
+		return none, errors.Wrap(err, "rewarding: build slot reader for autodeposit")
+	}
+	routing.bucketReader, err = p.resolveAutoDepositBucketReader(slotReader)
+	if err != nil {
+		return none, errors.Wrap(err, "rewarding: resolve autodeposit bucket reader")
+	}
+	if routing.bucketReader != nil {
+		routing.csr, err = staking.ConstructBaseView(sm)
+		if err != nil {
+			return none, errors.Wrap(err, "rewarding: construct base view for compound routing")
+		}
+	}
+	return routing, nil
 }
 
 // snapshotHashFull computes the deterministic SnapshotHash over the full
@@ -329,8 +387,7 @@ func voterDistributionMetadata(
 	totalVoters := uint32(len(snap.Entries))
 	voterStartIndex %= totalVoters
 	for logicalIndex := uint32(0); logicalIndex < totalVoters; logicalIndex++ {
-		physicalIndex := (voterStartIndex + logicalIndex) % totalVoters
-		entry := snap.Entries[physicalIndex]
+		entry := snap.Entries[rotatedIndex(voterStartIndex, logicalIndex, totalVoters)]
 		if entry.Weight == nil || entry.Weight.Sign() <= 0 {
 			continue
 		}
@@ -341,45 +398,33 @@ func voterDistributionMetadata(
 	return totalWeight, snapshotHashFull(snap), lastWeightedIndex, hasWeightedEntries
 }
 
-// allocateAndRouteVoters splits voterPool across snap.Entries by frozen
-// weight and applies the compound/credit routing for the voters in the
-// [startVoter, endVoter) window. Returns the parallel slices the caller
-// folds into the DelegateDistributed log — restricted to the window —
-// plus the sum of amounts actually paid this chunk.
-//
-// Allocation enumerates the full snap.Entries every call so per-voter
-// shares are deterministic across chunks: splitting one delegate across
-// K blocks produces byte-identical amounts to a single-block run. The
-// last weighted voter absorbs the modular-division dust so sum(shares)
-// over the full list equals voterPool exactly; the dust lands in
-// whichever chunk contains the last-weighted voter.
+// allocateAndRouteVoters pays the [startVoter, endVoter) window of the payout
+// order and applies compound-vs-credit routing to each share. The amounts come
+// from alloc, which owns the share rule for the delegate's whole frozen list;
+// distributedBefore is the running total from earlier chunks, which is what
+// makes the amounts identical no matter where the window boundaries fall
+// (TestVoterAllocationIsChunkInvariant).
 //
 // All fallback branches (nil bridge, bridge RPC error, bucket ineligible)
 // degrade the affected voter to credit rather than halting the block.
 func (p *Protocol) allocateAndRouteVoters(
 	ctx context.Context,
 	sm protocol.StateManager,
-	snap *staking.CandidatePollSnapshot,
-	totalWeight *big.Int,
-	voterPool *big.Int,
+	alloc *voterAllocator,
+	routing voterRouting,
 	distributedBefore *big.Int,
 	startVoter uint32,
 	endVoter uint32,
-	voterStartIndex uint32,
-	stakingProto *staking.Protocol,
-	bucketReader autodeposit.BucketReader,
-	csr staking.CandidateStateReader,
-	candID address.Address,
-	lastWeightedIndex uint32,
-	hasWeightedEntries bool,
-) ([]address.Address, []address.Address, []*big.Int, []uint64, *big.Int, *big.Int, error) {
+) (voterWindowPayout, error) {
 	stop := startIIP59Duration("allocate_and_route")
 	routeDurations := iip59RouteDurations{}
 	defer routeDurations.observe()
 	defer stop()
 
+	var none voterWindowPayout
+
 	// Clamp the payout window to the frozen list.
-	total := uint32(len(snap.Entries))
+	total := alloc.count()
 	if startVoter > total {
 		startVoter = total
 	}
@@ -388,9 +433,6 @@ func (p *Protocol) allocateAndRouteVoters(
 	}
 	if endVoter < startVoter {
 		endVoter = startVoter
-	}
-	if total > 0 {
-		voterStartIndex %= total
 	}
 	winLen := int(endVoter - startVoter)
 
@@ -409,21 +451,12 @@ func (p *Protocol) allocateAndRouteVoters(
 
 	for j := 0; j < winLen; j++ {
 		logicalIndex := startVoter + uint32(j)
-		physicalIndex := (voterStartIndex + logicalIndex) % total
-		e := snap.Entries[physicalIndex]
+		e := alloc.entryAt(logicalIndex)
 		voters[j] = e.Voter
 		recipients[j] = e.Voter
-		share := new(big.Int)
-		if voterPool.Sign() > 0 && totalWeight.Sign() > 0 && e.Weight != nil && e.Weight.Sign() > 0 {
-			if hasWeightedEntries && logicalIndex == lastWeightedIndex {
-				share.Sub(voterPool, distributed)
-				if share.Sign() < 0 {
-					return nil, nil, nil, nil, nil, nil, errors.New("rewarding: distributed voter amount exceeds frozen pool")
-				}
-			} else {
-				share.Mul(voterPool, e.Weight)
-				share.Div(share, totalWeight)
-			}
+		share, err := alloc.shareAt(logicalIndex, distributed)
+		if err != nil {
+			return none, err
 		}
 		amounts[j] = share
 		distributed.Add(distributed, share)
@@ -434,37 +467,37 @@ func (p *Protocol) allocateAndRouteVoters(
 			// Malformed snapshot entry — should not happen. There is no
 			// address to credit, so refuse rather than silently drop
 			// the share.
-			return nil, nil, nil, nil, nil, nil, errors.Errorf(
+			return none, errors.Errorf(
 				"rewarding: nil voter address at logical index %d (snapshot index %d)",
-				logicalIndex, physicalIndex,
+				logicalIndex, alloc.physicalIndex(logicalIndex),
 			)
 		}
 		compoundBucketID := uint64(0)
-		if bucketReader != nil {
+		if routing.bucketReader != nil {
 			stop := startIIP59Accumulation(&routeDurations.autoDepositLookup)
-			bucketID, present, lookupErr := bucketReader.LookupBucket(e.Voter)
+			bucketID, present, lookupErr := routing.bucketReader.LookupBucket(e.Voter)
 			stop()
 			autoDepositLookups++
 			if lookupErr != nil {
 				log.L().Warn("autodeposit bucket lookup failed; routing voter share to credit",
-					zap.String("delegate", candID.String()),
+					zap.String("delegate", routing.candID.String()),
 					zap.String("voter", e.Voter.String()),
 					zap.Error(lookupErr))
 			} else if present {
 				stop := startIIP59Accumulation(&routeDurations.nativeBucketRead)
-				bucket, bErr := csr.NativeBucket(bucketID)
+				bucket, bErr := routing.csr.NativeBucket(bucketID)
 				stop()
 				nativeBucketReads++
 				if bErr != nil {
 					log.L().Warn("bucket read for compound routing failed; routing voter share to credit",
-						zap.String("delegate", candID.String()),
+						zap.String("delegate", routing.candID.String()),
 						zap.String("voter", e.Voter.String()),
 						zap.Uint64("bucket", bucketID),
 						zap.Error(bErr))
 				} else if autodeposit.IsBucketEligibleForCompound(bucket, e.Voter) {
 					stop := startIIP59Accumulation(&routeDurations.compoundDeposit)
-					if err := stakingProto.AddDepositForCompound(ctx, sm, e.Voter, bucketID, share); err != nil {
-						return nil, nil, nil, nil, nil, nil, errors.Wrapf(err,
+					if err := routing.stakingProto.AddDepositForCompound(ctx, sm, e.Voter, bucketID, share); err != nil {
+						return none, errors.Wrapf(err,
 							"rewarding: compound deposit failed for voter %s bucket %d",
 							e.Voter.String(), bucketID)
 					}
@@ -481,13 +514,13 @@ func (p *Protocol) allocateAndRouteVoters(
 			stopDestinationLookup()
 			destinationLookups++
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, errors.Wrapf(err,
+				return none, errors.Wrapf(err,
 					"rewarding: resolve reward destination for voter %s", e.Voter.String())
 			}
 			recipients[j] = recipient
 			stopDirectCredit := startIIP59Accumulation(&routeDurations.directCredit)
 			if err := creditPrimaryAccount(ctx, sm, recipient, share); err != nil {
-				return nil, nil, nil, nil, nil, nil, errors.Wrapf(err,
+				return none, errors.Wrapf(err,
 					"rewarding: credit voter %s recipient %s failed", e.Voter.String(), recipient.String())
 			}
 			stopDirectCredit()
@@ -502,7 +535,14 @@ func (p *Protocol) allocateAndRouteVoters(
 	addIIP59Items("auto_deposit_lookup", autoDepositLookups)
 	addIIP59Items("native_bucket_read", nativeBucketReads)
 	addIIP59Items("reward_destination_lookup", destinationLookups)
-	return voters, recipients, amounts, compoundBucketIDs, paid, compounded, nil
+	return voterWindowPayout{
+		voters:            voters,
+		recipients:        recipients,
+		amounts:           amounts,
+		compoundBucketIDs: compoundBucketIDs,
+		paid:              paid,
+		compounded:        compounded,
+	}, nil
 }
 
 // splitCommission returns (commission, voterPool) for a totalReward given

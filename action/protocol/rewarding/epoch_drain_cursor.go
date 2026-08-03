@@ -22,15 +22,14 @@ import (
 
 const _settlementSeedDomain = "iip59.settlement-start.v1"
 
-// epochDrainDelegateWork is one frozen per-delegate work item captured
-// at an era boundary: the delegate identifier, voter share, reward
-// address, and epoch commission. Continuation chunks read this rather
-// than re-deriving the target-era distribution from live state or the live
-// PendingBlockRewardPool entry, which may keep accruing behind the
-// drain if a new epoch closes mid-drain. The frozen amount is the
-// voter portion only — delegate commission is granted immediately at
-// block time (block-side) or at Phase A (epoch-side), then retained here
-// for continuation log consistency.
+// epochDrainDelegateWork is one per-delegate work item frozen at an era
+// boundary. Continuation chunks read it rather than re-deriving from live
+// state, which would drift: the PendingBlockRewardPool entry keeps accruing
+// behind the drain when a new epoch closes mid-drain.
+//
+// VoterAmountFrozen is the voter portion only. Commission is already paid — at
+// block time block-side, at Phase A epoch-side — and is retained here so the
+// continuation logs can attest to it.
 type epochDrainDelegateWork struct {
 	CandidateIdentifier    []byte
 	VoterAmountFrozen      *big.Int
@@ -54,17 +53,17 @@ type epochDrainDelegateWork struct {
 // for voter queries until the next era boundary; only incomplete cursors emit
 // continuation actions.
 type epochDrainCursor struct {
-	TargetEra          uint64
-	StartEpoch         uint64
-	EndEpoch           uint64
-	DelegateIndex      uint32
-	VoterIndex         uint32
-	SettlementSeed     []byte
-	DelegateStartIndex uint32
-	Completed          bool
-	CompletedHeight    uint64
-	Delegates          []epochDrainDelegateWork
-	SkippedDelegates   []byte
+	TargetEra             uint64
+	StartEpoch            uint64
+	EndEpoch              uint64
+	DelegateIndex         uint32
+	VoterIndex            uint32
+	SettlementSeed        []byte
+	DelegateStartIndex    uint32
+	Completed             bool
+	CompletedHeight       uint64
+	Delegates             []epochDrainDelegateWork
+	SkippedDelegateBitmap []byte
 }
 
 // epochDrainPlan is immutable for the lifetime of a settlement. Keeping it
@@ -282,7 +281,7 @@ func epochDrainProgressFromCursor(c *epochDrainCursor) *epochDrainProgress {
 		VoterAmountDistributed: distributed,
 		Completed:              c.Completed,
 		CompletedHeight:        c.CompletedHeight,
-		SkippedDelegateBitmap:  c.SkippedDelegates,
+		SkippedDelegateBitmap:  c.SkippedDelegateBitmap,
 	}
 }
 
@@ -294,22 +293,24 @@ func epochDrainCursorFromState(plan *epochDrainPlan, progress *epochDrainProgres
 		)
 	}
 	c := &epochDrainCursor{
-		TargetEra:          plan.TargetEra,
-		StartEpoch:         plan.StartEpoch,
-		EndEpoch:           plan.EndEpoch,
-		DelegateIndex:      progress.DelegateIndex,
-		VoterIndex:         progress.VoterIndex,
-		SettlementSeed:     plan.SettlementSeed,
-		DelegateStartIndex: plan.DelegateStartIndex,
-		Completed:          progress.Completed,
-		CompletedHeight:    progress.CompletedHeight,
-		Delegates:          plan.Delegates,
-		SkippedDelegates:   progress.SkippedDelegateBitmap,
+		TargetEra:             plan.TargetEra,
+		StartEpoch:            plan.StartEpoch,
+		EndEpoch:              plan.EndEpoch,
+		DelegateIndex:         progress.DelegateIndex,
+		VoterIndex:            progress.VoterIndex,
+		SettlementSeed:        plan.SettlementSeed,
+		DelegateStartIndex:    plan.DelegateStartIndex,
+		Completed:             progress.Completed,
+		CompletedHeight:       progress.CompletedHeight,
+		Delegates:             plan.Delegates,
+		SkippedDelegateBitmap: progress.SkippedDelegateBitmap,
 	}
 	for i := range c.Delegates {
 		distributed := new(big.Int)
 		switch {
 		case delegateSkipped(c, uint32(i)):
+			// Skipped delegates were never paid, so their running total stays
+			// at zero even once the drain as a whole completes.
 		case c.Completed || uint32(i) < c.DelegateIndex:
 			distributed.Set(safeBig(c.Delegates[i].VoterAmountFrozen))
 		case uint32(i) == c.DelegateIndex:
@@ -322,16 +323,16 @@ func epochDrainCursorFromState(plan *epochDrainPlan, progress *epochDrainProgres
 
 func markDelegateSkipped(c *epochDrainCursor, index uint32) {
 	byteIndex := int(index / 8)
-	if len(c.SkippedDelegates) <= byteIndex {
-		c.SkippedDelegates = append(c.SkippedDelegates, make([]byte, byteIndex+1-len(c.SkippedDelegates))...)
+	if len(c.SkippedDelegateBitmap) <= byteIndex {
+		c.SkippedDelegateBitmap = append(c.SkippedDelegateBitmap, make([]byte, byteIndex+1-len(c.SkippedDelegateBitmap))...)
 	}
-	c.SkippedDelegates[byteIndex] |= byte(1 << (index % 8))
+	c.SkippedDelegateBitmap[byteIndex] |= byte(1 << (index % 8))
 }
 
 func delegateSkipped(c *epochDrainCursor, index uint32) bool {
 	byteIndex := int(index / 8)
-	return c != nil && byteIndex < len(c.SkippedDelegates) &&
-		c.SkippedDelegates[byteIndex]&(byte(1<<(index%8))) != 0
+	return c != nil && byteIndex < len(c.SkippedDelegateBitmap) &&
+		c.SkippedDelegateBitmap[byteIndex]&(byte(1<<(index%8))) != 0
 }
 
 func rewardEraStartEpoch(endEpoch, epochsPerEra uint64) uint64 {

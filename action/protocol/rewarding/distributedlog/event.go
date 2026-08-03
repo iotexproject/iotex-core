@@ -124,19 +124,13 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 			len(args.Voters), len(args.Recipients), len(args.Amounts), len(args.CompoundBucketIDs))
 	}
 
-	voterAddrs := make([]common.Address, len(args.Voters))
-	for i, v := range args.Voters {
-		if v == nil {
-			return nil, nil, errors.Wrapf(ErrNilAddress, "voters[%d]", i)
-		}
-		voterAddrs[i] = common.BytesToAddress(v.Bytes())
+	voterAddrs, err := toEthAddresses(args.Voters, "voters")
+	if err != nil {
+		return nil, nil, err
 	}
-	recipientAddrs := make([]common.Address, len(args.Recipients))
-	for i, recipient := range args.Recipients {
-		if recipient == nil {
-			return nil, nil, errors.Wrapf(ErrNilAddress, "recipients[%d]", i)
-		}
-		recipientAddrs[i] = common.BytesToAddress(recipient.Bytes())
+	recipientAddrs, err := toEthAddresses(args.Recipients, "recipients")
+	if err != nil {
+		return nil, nil, err
 	}
 	amounts := make([]*big.Int, len(args.Amounts))
 	for i, a := range args.Amounts {
@@ -176,6 +170,20 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 
 // encodeUint64Topic returns the 32-byte, left-padded big-endian
 // representation of x — the ABI encoding for an indexed uint64.
+// toEthAddresses converts a parallel-array argument to the 20-byte form the
+// event ABI packs. field names the argument in the error so a nil entry is
+// traceable to the caller's array.
+func toEthAddresses(addrs []address.Address, field string) ([]common.Address, error) {
+	out := make([]common.Address, len(addrs))
+	for i, a := range addrs {
+		if a == nil {
+			return nil, errors.Wrapf(ErrNilAddress, "%s[%d]", field, i)
+		}
+		out[i] = common.BytesToAddress(a.Bytes())
+	}
+	return out, nil
+}
+
 func encodeUint64Topic(x uint64) hash.Hash256 {
 	var buf [32]byte
 	binary.BigEndian.PutUint64(buf[24:], x)
@@ -198,10 +206,8 @@ func encodeUint64Topic(x uint64) hash.Hash256 {
 // Empty list is well-defined and yields a fixed value (asserted by
 // TestSnapshotHash_EmptyList); external verifiers pin the same bytes.
 //
-// If len(voters) != len(weights), the shorter slice determines the
-// hashed prefix — this helper is a pure utility and does not validate
-// its inputs. Callers of Pack pass the two through EventArgs.Voters /
-// EventArgs.Amounts, where Pack does enforce the length invariant.
+// Unvalidated: mismatched lengths hash the shorter prefix. Pack enforces the
+// length invariant before calling here.
 func SnapshotHash(voters []address.Address, weights []*big.Int) hash.Hash256 {
 	n := len(voters)
 	if n > len(weights) {

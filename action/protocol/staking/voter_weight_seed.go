@@ -139,20 +139,14 @@ func voterWeightSeedingComplete(sr protocol.StateReader) (bool, error) {
 	return c != nil && c.Done, nil
 }
 
-// seedVoterWeights writes the next batch of voter weights into state.
+// seedVoterWeights flushes the next batch of the in-memory view into state and
+// reports whether that completed the walk. It reads no buckets: the hooks
+// maintain the view on both sides of the fork, so the table is already complete
+// at the activation height.
 //
-// It does not read buckets. At the activation height the in-memory view already
-// holds the complete table — the staking hooks have maintained it on both sides
-// of the fork and a restart rebuilds it from buckets — so seeding is a flush of
-// what is already in memory, not a recomputation of it.
-//
-// That is what makes concurrent mutation a non-issue. Commit writes each touched
-// pair's *absolute* current weight, so a pair the block mutates is written
-// correctly whether or not the cursor has reached it, and writing it again later
-// is idempotent. Pairs created during the window are written by the same path.
-// Nothing here has to reason about which side of the cursor a bucket falls on.
-//
-// Returns true when this call completed the walk.
+// Buckets mutating mid-flush need no special handling. Commit writes each
+// touched pair's *absolute* weight and is idempotent, so a pair is correct
+// whether the cursor has passed it or not.
 func seedVoterWeights(ctx context.Context, sm protocol.StateManager, batchSize uint64) (bool, error) {
 	if !voterWeightPersistenceEnabled(ctx) {
 		// Pre-activation: nothing is persisted, so there is nothing to seed and

@@ -85,14 +85,14 @@ func (p *Protocol) voterRewardStatus(
 		return status, nil
 	}
 
-	voterCount := uint32(len(snapshot.Entries))
-	start := uint32(0)
-	if voterCount > 0 {
-		start = work.VoterStartIndex % voterCount
+	alloc := voterAllocatorForWork(snapshot, work)
+	logicalIndex := alloc.logicalIndex(uint32(physicalIndex))
+	amount, err := alloc.shareOf(logicalIndex)
+	if err != nil {
+		return nil, err
 	}
-	logicalIndex := (uint32(physicalIndex) + voterCount - start) % voterCount
 	status.LogicalVoterIndex = logicalIndex
-	status.RewardAmount = voterRewardAmount(snapshot, work, logicalIndex).Bytes()
+	status.RewardAmount = amount.Bytes()
 
 	switch {
 	case cursor.Completed:
@@ -107,39 +107,4 @@ func (p *Protocol) voterRewardStatus(
 		status.Status = rewardingpb.VoterRewardStatus_WAITING
 	}
 	return status, nil
-}
-
-func voterRewardAmount(
-	snapshot *staking.CandidatePollSnapshot,
-	work *epochDrainDelegateWork,
-	logicalIndex uint32,
-) *big.Int {
-	amount := new(big.Int)
-	pool := safeBig(work.VoterAmountFrozen)
-	totalWeight := safeBig(work.TotalWeight)
-	if snapshot == nil || len(snapshot.Entries) == 0 || pool.Sign() <= 0 || totalWeight.Sign() <= 0 {
-		return amount
-	}
-	voterCount := uint32(len(snapshot.Entries))
-	start := work.VoterStartIndex % voterCount
-	physicalIndex := (start + logicalIndex) % voterCount
-	weight := snapshot.Entries[physicalIndex].Weight
-	if weight == nil || weight.Sign() <= 0 {
-		return amount
-	}
-	if !work.HasWeightedEntries || logicalIndex != work.LastWeightedIndex {
-		return amount.Mul(pool, weight).Div(amount, totalWeight)
-	}
-
-	// The final positive-weight voter receives the integer-division remainder.
-	for i := uint32(0); i < logicalIndex; i++ {
-		entryWeight := snapshot.Entries[(start+i)%voterCount].Weight
-		if entryWeight == nil || entryWeight.Sign() <= 0 {
-			continue
-		}
-		share := new(big.Int).Mul(pool, entryWeight)
-		share.Div(share, totalWeight)
-		amount.Add(amount, share)
-	}
-	return amount.Sub(pool, amount)
 }

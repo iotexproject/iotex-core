@@ -155,12 +155,19 @@ func TestDistributeVoterOnlyRejectsInvalidDistributedAmount(t *testing.T) {
 	totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := distributionMetadata(t, sm, candAddr)
 
 	for _, distributed := range []*big.Int{big.NewInt(-1), big.NewInt(101)} {
-		_, _, _, _, _, _, _, err := p.distributeVoterOnly(
-			ctx, sm, cand, rewardAddr,
-			big.NewInt(100), totalWeight, snapshotHash, 0, lastWeightedIndex, hasWeightedEntries,
-			big.NewInt(10), distributed,
-			0, 1, 100, hash.ZeroHash256,
-		)
+		_, err := p.distributeVoterOnly(ctx, sm, voterChunkRequest{
+			cand:               cand,
+			rewardAddr:         rewardAddr,
+			voterAmount:        big.NewInt(100),
+			totalWeightFrozen:  totalWeight,
+			snapshotHash:       snapshotHash,
+			lastWeightedIndex:  lastWeightedIndex,
+			hasWeightedEntries: hasWeightedEntries,
+			epochCommission:    big.NewInt(10),
+			distributedBefore:  distributed,
+			voterBudget:        1,
+			blkHeight:          100,
+		})
 		r.Error(err)
 	}
 }
@@ -178,20 +185,26 @@ func TestDistributeVoterOnlyCustomRewardDestination(t *testing.T) {
 	rewardAddr, err := address.FromString(cand.RewardAddress)
 	r.NoError(err)
 	totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := distributionMetadata(t, sm, candAddr)
-	logs, txLogs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
-		ctx, sm, cand, rewardAddr,
-		big.NewInt(777), totalWeight, snapshotHash, 0, lastWeightedIndex, hasWeightedEntries,
-		big.NewInt(0), nil, 0, 0, 100, hash.ZeroHash256,
-	)
+	res, err := p.distributeVoterOnly(ctx, sm, voterChunkRequest{
+		cand:               cand,
+		rewardAddr:         rewardAddr,
+		voterAmount:        big.NewInt(777),
+		totalWeightFrozen:  totalWeight,
+		snapshotHash:       snapshotHash,
+		lastWeightedIndex:  lastWeightedIndex,
+		hasWeightedEntries: hasWeightedEntries,
+		epochCommission:    big.NewInt(0),
+		blkHeight:          100,
+	})
 	r.NoError(err)
-	r.True(routed)
-	r.Zero(paid.Cmp(big.NewInt(777)))
-	r.Zero(compounded.Sign())
-	r.Equal(uint32(1), consumed)
-	r.Equal(uint32(1), total)
-	r.Len(txLogs, 1)
-	r.Equal(recipient.String(), txLogs[0].Recipient)
-	r.Zero(txLogs[0].Amount.Cmp(big.NewInt(777)))
+	r.True(res.routed)
+	r.Zero(res.paid.Cmp(big.NewInt(777)))
+	r.Zero(res.compounded.Sign())
+	r.Equal(uint32(1), res.consumedVoters)
+	r.Equal(uint32(1), res.totalVoters)
+	r.Len(res.transactionLogs, 1)
+	r.Equal(recipient.String(), res.transactionLogs[0].Recipient)
+	r.Zero(res.transactionLogs[0].Amount.Cmp(big.NewInt(777)))
 
 	voterAccount, err := accountutil.LoadAccount(sm, voter)
 	r.NoError(err)
@@ -200,10 +213,10 @@ func TestDistributeVoterOnlyCustomRewardDestination(t *testing.T) {
 	r.NoError(err)
 	r.Zero(recipientAccount.Balance.Cmp(big.NewInt(777)))
 
-	r.Len(logs, 1)
+	r.Len(res.logs, 1)
 	parsed, err := abi.JSON(strings.NewReader(delegateDistributedDestinationTestABI))
 	r.NoError(err)
-	values, err := parsed.Events["DelegateDistributed"].Inputs.NonIndexed().Unpack(logs[0].Data)
+	values, err := parsed.Events["DelegateDistributed"].Inputs.NonIndexed().Unpack(res.logs[0].Data)
 	r.NoError(err)
 	r.Equal([]common.Address{common.BytesToAddress(voter.Bytes())}, values[4])
 	r.Equal([]common.Address{common.BytesToAddress(recipient.Bytes())}, values[5])
@@ -276,19 +289,26 @@ func TestDistributeVoterOnlyCompoundOverridesCustomRewardDestination(t *testing.
 		Address:       candAddr.String(),
 		RewardAddress: candAddr.String(),
 	}
-	logs, txLogs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
-		ctx, sm, cand, candAddr,
-		big.NewInt(777), totalWeight, snapshotHash, 0, lastWeightedIndex, hasWeightedEntries,
-		big.NewInt(0), nil, 0, 0, 100, hash.ZeroHash256,
-	)
+	res, err := p.distributeVoterOnly(ctx, sm, voterChunkRequest{
+		cand:               cand,
+		rewardAddr:         candAddr,
+		voterAmount:        big.NewInt(777),
+		totalWeightFrozen:  totalWeight,
+		snapshotHash:       snapshotHash,
+		lastWeightedIndex:  lastWeightedIndex,
+		hasWeightedEntries: hasWeightedEntries,
+		epochCommission:    big.NewInt(0),
+		blkHeight:          100,
+		actionHash:         hash.ZeroHash256,
+	})
 	r.NoError(err)
-	r.True(routed)
+	r.True(res.routed)
 	r.Equal(1, bucketReader.callCount)
-	r.Zero(paid.Cmp(big.NewInt(777)))
-	r.Zero(compounded.Cmp(big.NewInt(777)))
-	r.Equal(uint32(1), consumed)
-	r.Equal(uint32(1), total)
-	r.Empty(txLogs, "compound payout must not emit a direct account transfer")
+	r.Zero(res.paid.Cmp(big.NewInt(777)))
+	r.Zero(res.compounded.Cmp(big.NewInt(777)))
+	r.Equal(uint32(1), res.consumedVoters)
+	r.Equal(uint32(1), res.totalVoters)
+	r.Empty(res.transactionLogs, "compound payout must not emit a direct account transfer")
 
 	updatedCSR, err := staking.ConstructBaseView(sm)
 	r.NoError(err)
@@ -300,10 +320,10 @@ func TestDistributeVoterOnlyCompoundOverridesCustomRewardDestination(t *testing.
 	r.NoError(err)
 	r.Zero(destinationAccount.Balance.Sign(), "compound must take priority over the custom destination")
 
-	r.Len(logs, 1)
+	r.Len(res.logs, 1)
 	parsed, err := abi.JSON(strings.NewReader(delegateDistributedDestinationTestABI))
 	r.NoError(err)
-	values, err := parsed.Events["DelegateDistributed"].Inputs.NonIndexed().Unpack(logs[0].Data)
+	values, err := parsed.Events["DelegateDistributed"].Inputs.NonIndexed().Unpack(res.logs[0].Data)
 	r.NoError(err)
 	r.Equal([]common.Address{common.BytesToAddress(voter.Bytes())}, values[4])
 	r.Equal([]common.Address{common.BytesToAddress(voter.Bytes())}, values[5])
@@ -488,30 +508,35 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 		snapshot, err := staking.PollSnapshotFor(sm, candAddr)
 		r.NoError(err)
 		totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := voterDistributionMetadata(snapshot, voterStartIndex)
-		logs, txLogs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
-			ctx, sm, cand, rewardAddr,
-			voterAmount, totalWeight, snapshotHash, voterStartIndex, lastWeightedIndex, hasWeightedEntries,
-			epochCommission,
-			nil,                   /* distributedBefore */
-			0 /* startVoter */, 0, /* voterBudget=unbounded */
-			100 /* blkHeight */, hash.ZeroHash256,
-		)
+		res, err := p.distributeVoterOnly(ctx, sm, voterChunkRequest{
+			cand:               cand,
+			rewardAddr:         rewardAddr,
+			voterAmount:        voterAmount,
+			totalWeightFrozen:  totalWeight,
+			snapshotHash:       snapshotHash,
+			voterStartIndex:    voterStartIndex,
+			lastWeightedIndex:  lastWeightedIndex,
+			hasWeightedEntries: hasWeightedEntries,
+			epochCommission:    epochCommission,
+			voterBudget:        0, // unbounded
+			blkHeight:          100,
+		})
 		r.NoError(err)
-		r.True(routed, "reference: distributeVoterOnly must route the frozen amount")
-		r.Len(logs, 1, "reference: exactly one DelegateDistributed log")
-		r.Len(txLogs, numVoters, "reference: one direct payout log per voter")
-		r.Equal(voters[voterStartIndex].addr.String(), txLogs[0].Recipient,
+		r.True(res.routed, "reference: distributeVoterOnly must route the frozen amount")
+		r.Len(res.logs, 1, "reference: exactly one DelegateDistributed log")
+		r.Len(res.transactionLogs, numVoters, "reference: one direct payout log per voter")
+		r.Equal(voters[voterStartIndex].addr.String(), res.transactionLogs[0].Recipient,
 			"reference: payout must start at the circular offset")
-		r.Equal(uint32(numVoters), consumed,
+		r.Equal(uint32(numVoters), res.consumedVoters,
 			"reference: unbounded call must consume all voters")
-		r.Equal(uint32(numVoters), total,
+		r.Equal(uint32(numVoters), res.totalVoters,
 			"reference: totalVoters must equal the snapshot entry count")
-		r.NotNil(paid)
-		r.Zero(compounded.Sign())
-		r.Equal(0, paid.Cmp(voterAmount),
+		r.NotNil(res.paid)
+		r.Zero(res.compounded.Sign())
+		r.Equal(0, res.paid.Cmp(voterAmount),
 			"reference: unbounded payout must exactly equal voterAmount (dust included)")
 
-		refPaid = paid
+		refPaid = res.paid
 		refBalances = dumpBalances(t, ctx, sm, p)
 	}()
 
@@ -536,25 +561,32 @@ func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
 		r.NoError(err)
 		totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := voterDistributionMetadata(snapshot, voterStartIndex)
 		for chunkIdx, w := range windows {
-			logs, txLogs, routed, paid, compounded, consumed, total, err := p.distributeVoterOnly(
-				ctx, sm, cand, rewardAddr,
-				voterAmount, totalWeight, snapshotHash, voterStartIndex, lastWeightedIndex, hasWeightedEntries,
-				epochCommission,
-				new(big.Int).Set(chunkedPaid),
-				w.start, w.budget,
-				100 /* blkHeight */, hash.ZeroHash256,
-			)
+			res, err := p.distributeVoterOnly(ctx, sm, voterChunkRequest{
+				cand:               cand,
+				rewardAddr:         rewardAddr,
+				voterAmount:        voterAmount,
+				totalWeightFrozen:  totalWeight,
+				snapshotHash:       snapshotHash,
+				voterStartIndex:    voterStartIndex,
+				lastWeightedIndex:  lastWeightedIndex,
+				hasWeightedEntries: hasWeightedEntries,
+				epochCommission:    epochCommission,
+				distributedBefore:  new(big.Int).Set(chunkedPaid),
+				startVoter:         w.start,
+				voterBudget:        w.budget,
+				blkHeight:          100,
+			})
 			r.NoError(err, "chunk %d", chunkIdx)
-			r.True(routed, "chunk %d: distributeVoterOnly must route", chunkIdx)
-			r.Len(logs, 1, "chunk %d: one log per chunk", chunkIdx)
-			r.Len(txLogs, int(w.want), "chunk %d: one direct payout log per voter", chunkIdx)
-			r.Equal(w.want, consumed,
+			r.True(res.routed, "chunk %d: distributeVoterOnly must route", chunkIdx)
+			r.Len(res.logs, 1, "chunk %d: one log per chunk", chunkIdx)
+			r.Len(res.transactionLogs, int(w.want), "chunk %d: one direct payout log per voter", chunkIdx)
+			r.Equal(w.want, res.consumedVoters,
 				"chunk %d: consumed must match window size", chunkIdx)
-			r.Equal(uint32(numVoters), total,
+			r.Equal(uint32(numVoters), res.totalVoters,
 				"chunk %d: totalVoters unchanged across windowed calls", chunkIdx)
-			r.NotNil(paid)
-			r.Zero(compounded.Sign())
-			chunkedPaid.Add(chunkedPaid, paid)
+			r.NotNil(res.paid)
+			r.Zero(res.compounded.Sign())
+			chunkedPaid.Add(chunkedPaid, res.paid)
 		}
 		chunkedBalances = dumpBalances(t, ctx, sm, p)
 	}()

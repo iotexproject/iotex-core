@@ -194,6 +194,10 @@ func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value inte
 	return p.deleteStateV1(sm, key, value)
 }
 
+// _foundationBonusExtensionEpochs is how far past the activation block the
+// Kamchatka foundation-bonus extension runs — one year of hourly epochs.
+const _foundationBonusExtensionEpochs uint64 = 8760
+
 func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.StateManager) error {
 	a := admin{}
 	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
@@ -205,7 +209,7 @@ func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.
 		return nil
 	}
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	newLastEpoch := rp.GetEpochNum(blkCtx.BlockHeight) + 8760
+	newLastEpoch := rp.GetEpochNum(blkCtx.BlockHeight) + _foundationBonusExtensionEpochs
 
 	if a.foundationBonusLastEpoch < p.cfg.FoundationBonusP2EndEpoch {
 		a.foundationBonusLastEpoch = p.cfg.FoundationBonusP2EndEpoch
@@ -419,15 +423,7 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		data, err := proto.Marshal(&rewardingpb.PendingBlockRewardPoolIndex{CandidateIdentifiers: ids})
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		height, err := sr.Height()
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		return data, height, nil
+		return marshalWithHeight(sr, &rewardingpb.PendingBlockRewardPoolIndex{CandidateIdentifiers: ids})
 	case "EpochDrainCursor":
 		if len(args) != 0 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
@@ -436,20 +432,14 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		var data []byte
 		if cursor == nil {
-			data, err = proto.Marshal(&rewardingpb.EpochDrainCursor{})
-		} else {
-			data, err = cursor.Serialize()
+			return marshalWithHeight(sr, &rewardingpb.EpochDrainCursor{})
 		}
+		data, err := cursor.Serialize()
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		height, err := sr.Height()
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		return data, height, nil
+		return bytesWithHeight(sr, data)
 	case "VoterRewardSnapshot":
 		if len(args) != 1 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
@@ -483,15 +473,7 @@ func (p *Protocol) ReadState(
 				Weight: weight,
 			})
 		}
-		data, err := proto.Marshal(pbSnapshot)
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		height, err := sr.Height()
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		return data, height, nil
+		return marshalWithHeight(sr, pbSnapshot)
 	case "VoterRewardAddress":
 		if len(args) != 1 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
@@ -508,17 +490,9 @@ func (p *Protocol) ReadState(
 		if routing.onchainRewardEnabled {
 			rewardAddr = routing.owner
 		}
-		data, err := proto.Marshal(&rewardingpb.VoterRewardAddress{
+		return marshalWithHeight(sr, &rewardingpb.VoterRewardAddress{
 			Address: rewardAddr.Bytes(), ExplicitlySet: routing.rewardAddressUpdated,
 		})
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		height, err := sr.Height()
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		return data, height, nil
 	case "VoterRewardDestination":
 		if len(args) != 1 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
@@ -531,17 +505,9 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		data, err := proto.Marshal(&rewardingpb.VoterRewardDestination{
+		return marshalWithHeight(sr, &rewardingpb.VoterRewardDestination{
 			Recipient: recipient.Bytes(), ExplicitlySet: explicitlySet, UpdatedHeight: updatedHeight,
 		})
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		height, err := sr.Height()
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		return data, height, nil
 	case "VoterRewardStatus":
 		if len(args) != 2 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
@@ -558,18 +524,29 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		data, err := proto.Marshal(status)
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		height, err := sr.Height()
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		return data, height, nil
+		return marshalWithHeight(sr, status)
 	default:
 		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}
+}
+
+// marshalWithHeight builds the (data, height, error) triple every ReadState
+// case returns, stamping the response with the height it was read at.
+func marshalWithHeight(sr protocol.StateReader, m proto.Message) ([]byte, uint64, error) {
+	data, err := proto.Marshal(m)
+	if err != nil {
+		return nil, uint64(0), err
+	}
+	return bytesWithHeight(sr, data)
+}
+
+// bytesWithHeight is marshalWithHeight for a value that serializes itself.
+func bytesWithHeight(sr protocol.StateReader, data []byte) ([]byte, uint64, error) {
+	height, err := sr.Height()
+	if err != nil {
+		return nil, uint64(0), err
+	}
+	return data, height, nil
 }
 
 // Register registers the protocol with a unique ID

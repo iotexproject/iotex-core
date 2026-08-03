@@ -100,16 +100,10 @@ func (e *voterWeightEntry) Decode(v systemcontracts.GenericValue) error {
 // voterWeightPersistenceEnabled reports whether voter weight entries may be
 // written to the state trie.
 //
-// Before IIP-59 activates they must stay out of the trie entirely. Nodes take a
-// new release over days, well ahead of the activation height, and a node that
-// wrote these keys during that window would put state into the staking
-// namespace that the previous release does not write — its state root would
-// diverge from every node still on the old binary, a split at deployment time
-// rather than at activation.
-//
-// The in-memory view is still maintained by the staking hooks on both sides of
-// the fork, so it is already accurate at the block the flag flips; only the
-// state write waits.
+// Pre-activation they must stay out of it: nodes upgrade over days, and one
+// that wrote these keys early would diverge from every node still on the old
+// binary — a split at deployment time rather than at activation. The in-memory
+// view is maintained on both sides of the fork, so only the write waits.
 func voterWeightPersistenceEnabled(ctx context.Context) bool {
 	fCtx, ok := protocol.GetFeatureCtx(ctx)
 	return ok && !fCtx.NoVoterRewardDistribution
@@ -193,24 +187,14 @@ func loadVoterWeightView(
 // VoterWeightView tracks per-candidate per-voter weighted votes for IIP-59
 // protocol-native voter reward distribution.
 //
-// Lifecycle mirrors ContractStakeView (Wrap/Fork/Commit/IsDirty) so the IIP-59
-// view plugs into the existing staking viewData snapshot/revert machinery
-// without paying for a full data clone on every snapshot:
+// Wrap/Fork/Commit/IsDirty mirror ContractStakeView so this view plugs into the
+// existing staking viewData snapshot/revert machinery. Overlays share a base
+// and accumulate deltas, so no snapshot pays for a full data clone; see the
+// individual methods for how each layer resolves at Commit.
 //
-//   - Wrap()        returns a thin overlay sharing the same base — used by
-//     viewData.Snapshot. Cheap: no data copy.
-//   - Fork()        returns an overlay with commit-in-clone semantics — used
-//     by viewData.Fork. The base is shared until the fork
-//     commits; only then is the base cloned, so parents that
-//     never see a fork commit pay nothing.
-//   - Commit(sm)    flattens this layer's accumulated deltas into the
-//     underlying base, writes the entries those deltas
-//     touched, and returns the new (collapsed) view.
-//   - IsDirty()     true if any change has accumulated since the last Commit.
-//
-// Determinism: per-candidate voter slices are kept sorted by voter address so
-// VoterWeightsByCandidate iterates them in a stable order — distributeVoterReward
-// must never iterate a Go map to compute receipt-log order or state writes.
+// Per-candidate voter slices are kept sorted by voter address, because receipt
+// log order and state write order are consensus-visible and must never come
+// from a Go map iteration.
 type VoterWeightView interface {
 	// Apply adjusts the weight that voter contributes to candidate by delta.
 	// Positive delta = new stake / restake / change-candidate-in;
@@ -558,12 +542,7 @@ func (b *voterWeightBase) persist(sm voterWeightWriter) error {
 	for ref := range b.touched {
 		refs = append(refs, ref)
 	}
-	sort.Slice(refs, func(i, j int) bool {
-		if c := bytes.Compare(refs[i].cand[:], refs[j].cand[:]); c != 0 {
-			return c < 0
-		}
-		return bytes.Compare(refs[i].voter[:], refs[j].voter[:]) < 0
-	})
+	sort.Slice(refs, func(i, j int) bool { return refLess(refs[i], refs[j]) })
 
 	for _, ref := range refs {
 		key := voterWeightKey(ref.cand, ref.voter)

@@ -165,12 +165,11 @@ func (p *Protocol) creditPendingBlockRewardPool(
 	}
 	entry := pendingBlockRewardPool{}
 	key := pendingBlockRewardPoolKey(candID)
-	if _, err := p.state(ctx, sm, key, &entry); err != nil {
-		if !errors.Is(err, state.ErrStateNotExist) {
-			return err
-		}
-		entry.amount = new(big.Int)
+	if _, err := p.state(ctx, sm, key, &entry); err != nil && !errors.Is(err, state.ErrStateNotExist) {
+		return err
 	}
+	// Nil on both paths: a first credit for this delegate, and a decoded entry
+	// whose amount field was absent.
 	if entry.amount == nil {
 		entry.amount = new(big.Int)
 	}
@@ -254,6 +253,12 @@ func (p *Protocol) readPendingBlockRewardPoolIndex(
 	return out, nil
 }
 
+// writePendingBlockRewardPoolIndex persists the index, or deletes the key when
+// the index is empty so an exhausted pool leaves no state behind.
+//
+// ids must already be sorted ascending: the orphan sweep walks this index and
+// pays from it, so its order is consensus-visible. Both callers preserve the
+// order by splicing at a binary-searched position.
 func (p *Protocol) writePendingBlockRewardPoolIndex(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -262,7 +267,6 @@ func (p *Protocol) writePendingBlockRewardPoolIndex(
 	if len(ids) == 0 {
 		return p.deleteState(ctx, sm, _pendingBlockRewardPoolIndexKey, &pendingBlockRewardPoolIndex{})
 	}
-	sort.Slice(ids, func(i, j int) bool { return bytes.Compare(ids[i], ids[j]) < 0 })
 	return p.putState(ctx, sm, _pendingBlockRewardPoolIndexKey, &pendingBlockRewardPoolIndex{ids: ids})
 }
 

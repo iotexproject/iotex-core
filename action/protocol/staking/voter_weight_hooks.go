@@ -36,35 +36,40 @@ func newContractBucketVoterWeightObserver(
 }
 
 func (o *contractBucketVoterWeightObserver) PutContractBucket(previous, current *contractstaking.Bucket) {
-	o.apply(previous, true)
-	o.apply(current, false)
+	o.observeBucket(previous, true)
+	o.observeBucket(current, false)
 }
 
 func (o *contractBucketVoterWeightObserver) DeleteContractBucket(previous *contractstaking.Bucket) {
-	o.apply(previous, true)
+	o.observeBucket(previous, true)
 }
 
 func (o *contractBucketVoterWeightObserver) ReviseContractBucket(bucket *contractstaking.Bucket) {
-	if o == nil || bucket == nil || o.csm == nil || o.calculateVoteWeight == nil || o.height == 0 {
+	// A revision re-weights an unchanged bucket, so the delta is the
+	// difference between this height's weight and the previous height's —
+	// which needs a previous height to exist.
+	if !o.ready(bucket) || o.height == 0 {
 		return
 	}
 	previous := o.calculateVoteWeight(bucket, o.height-1)
 	current := o.calculateVoteWeight(bucket, o.height)
-	o.applyWeight(bucket, new(big.Int).Sub(current, previous))
+	o.recordBucketDelta(bucket, new(big.Int).Sub(current, previous))
 }
 
-func (o *contractBucketVoterWeightObserver) apply(bucket *contractstaking.Bucket, subtract bool) {
-	if o == nil || bucket == nil || o.csm == nil || o.calculateVoteWeight == nil {
+// observeBucket records the bucket's full weight at the current height, negated
+// when the bucket is leaving (subtract).
+func (o *contractBucketVoterWeightObserver) observeBucket(bucket *contractstaking.Bucket, subtract bool) {
+	if !o.ready(bucket) {
 		return
 	}
 	weight := o.calculateVoteWeight(bucket, o.height)
 	if subtract {
 		weight.Neg(weight)
 	}
-	o.applyWeight(bucket, weight)
+	o.recordBucketDelta(bucket, weight)
 }
 
-func (o *contractBucketVoterWeightObserver) applyWeight(bucket *contractstaking.Bucket, weight *big.Int) {
+func (o *contractBucketVoterWeightObserver) recordBucketDelta(bucket *contractstaking.Bucket, weight *big.Int) {
 	if weight == nil || weight.Sign() == 0 {
 		return
 	}
@@ -73,6 +78,14 @@ func (o *contractBucketVoterWeightObserver) applyWeight(bucket *contractstaking.
 		return
 	}
 	applyVoterWeightDelta(o.csm, candidate.GetIdentifier(), bucket.Owner, weight)
+}
+
+// ready reports whether the observer is wired up enough to weigh this bucket.
+// The indexer installs observers unconditionally, so a pre-fork or test setup
+// that skipped the wiring reaches these hooks with a nil dependency and must
+// no-op rather than fail the block.
+func (o *contractBucketVoterWeightObserver) ready(bucket *contractstaking.Bucket) bool {
+	return o != nil && bucket != nil && o.csm != nil && o.calculateVoteWeight != nil
 }
 
 // addCandidateVotes credits weight to a candidate's aggregate vote total and to

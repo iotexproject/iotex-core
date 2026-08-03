@@ -123,22 +123,17 @@ func (b *Bridge) Contract() string { return b.contract }
 // keyed by delegate identity string (bech32). The map always contains one
 // entry per input delegate.
 //
-// Iteration order over `delegates` is preserved: the bridge performs 2N
-// sequential read calls in delegate-order. This keeps per-epoch behaviour
-// deterministic and mirrors the caller's PutPollResult ordering.
+// Reads run sequentially in `delegates` order, so per-epoch behaviour is
+// deterministic and matches the caller's PutPollResult ordering.
 //
-// A per-delegate read error (RPC failure, ABI mismatch, out-of-range value)
-// degrades that delegate to `Registered=false` with zero rates — downstream
-// rewarding then uses the all-to-owner default. The error is logged
-// but not returned. Rationale: PutPollResult runs at every epoch boundary
-// on every validator, and returning an error would deterministically halt
-// the chain if a single delegate's on-chain profile becomes malformed.
-// Deterministic reward-path fallback is preferable to deterministic block
-// production failure — same on-chain state ⇒ same fallback ⇒ no fork.
+// A per-delegate read error (RPC failure, ABI mismatch, out-of-range value) is
+// logged, not returned: it degrades that delegate to Registered=false with zero
+// rates, and rewarding falls back to paying everything to the owner. This runs
+// at every epoch boundary on every validator, so returning an error would let
+// one malformed on-chain profile halt the chain. Same state ⇒ same fallback ⇒
+// no fork.
 //
-// Only catastrophic caller-side inputs (nil reader, nil delegate address)
-// return an error; those indicate a wiring bug, not a data issue, and must
-// surface loudly.
+// Only wiring bugs — nil reader, nil delegate address — return an error.
 func (b *Bridge) Snapshot(
 	ctx context.Context,
 	reader ContractReader,

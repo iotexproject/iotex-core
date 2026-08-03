@@ -92,7 +92,7 @@ func TestOnlySeedPerfBenchState(
 	perDelegateVoters := make([][]VoterWeight, spec.NumDelegates)
 	for i := 0; i < spec.NumDelegates; i++ {
 		delAddr := perfBenchAddress(uint64(i) + 1)
-		selfBkt := NewVoteBucket(delAddr, delAddr, new(big.Int).Set(spec.DelegateSelfStake), 91, ts, true)
+		selfBkt := NewVoteBucket(delAddr, delAddr, new(big.Int).Set(spec.DelegateSelfStake), _perfBenchStakeDuration, ts, true)
 		selfIdx, err := csm.putBucketAndIndex(selfBkt)
 		if err != nil {
 			return nil, errors.Wrapf(err, "put self-stake bucket for delegate %d", i)
@@ -174,6 +174,11 @@ func TestOnlySeedPerfBenchState(
 // from the voter address space so collisions cannot happen at any sensible
 // tier. 1e6 is comfortably above the mainnet-tier voter count (27 020).
 const perfBenchVoterSeedBase uint64 = 1_000_000
+
+// _perfBenchStakeDuration is the stake duration in days given to every seeded
+// bucket. The value only has to clear the self-stake minimum; the benchmark
+// cares about voter counts, not about weight curves.
+const _perfBenchStakeDuration uint32 = 91
 
 // perfBenchAddress derives a deterministic 20-byte address from a seed. The
 // low 8 bytes carry the seed; the high 12 bytes are zero. Distinct seeds

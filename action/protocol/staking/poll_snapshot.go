@@ -25,6 +25,12 @@ import (
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
+// _fullCommissionBasisPoints is 100% in basis points — the commission an
+// opted-in candidate takes when DelegateProfile has no registered split for
+// it, which reproduces the pre-IIP-59 behaviour of paying the delegate the
+// whole amount.
+const _fullCommissionBasisPoints uint64 = 10_000
+
 // CandidatePollSnapshot is the frozen per-candidate view that IIP-59's
 // rewarding path consumes at each epoch close. It is written once per epoch
 // by FreezePollSnapshot (called from the poll layer's PutPollResult) and
@@ -114,9 +120,13 @@ func candidatePollSnapshotKey(candID address.Address) []byte {
 	return append(out, candID.Bytes()...)
 }
 
-// toBlob converts a CandidatePollSnapshot into the wire form for PutState.
+// toBlob recomputes the derived metadata (TotalWeight, SnapshotHash,
+// LastWeightedIndex, HasWeightedEntries) from Entries, then returns the wire
+// form for PutState. Deriving here rather than at each call site is what
+// guarantees no snapshot is persisted with metadata that disagrees with its
+// own entry list — the receiver is mutated as a result.
 func (s *CandidatePollSnapshot) toBlob() *candidatePollSnapshotBlob {
-	populateSnapshotMetadata(s)
+	s.refreshDerivedMetadata()
 	pb := &stakingpb.CandidatePollSnapshot{
 		BlockCommissionBasisPoints: s.BlockCommissionBasisPoints,
 		EpochCommissionBasisPoints: s.EpochCommissionBasisPoints,
@@ -172,12 +182,16 @@ func fromBlob(b *candidatePollSnapshotBlob) (*CandidatePollSnapshot, error) {
 		}
 	}
 	if len(b.pb.GetSnapshotHash()) != len(hash.Hash256{}) {
-		populateSnapshotMetadata(out)
+		// Written before the metadata fields existed — derive them now.
+		out.refreshDerivedMetadata()
 	}
 	return out, nil
 }
 
-func populateSnapshotMetadata(s *CandidatePollSnapshot) {
+// refreshDerivedMetadata recomputes the cached fields that are a pure function
+// of Entries, so a continuation block can size its voter window without
+// walking the whole list.
+func (s *CandidatePollSnapshot) refreshDerivedMetadata() {
 	if s == nil {
 		return
 	}
@@ -277,27 +291,19 @@ func FreezePollSnapshot(
 		}
 	}
 
-	// The VoterWeightView is the source of truth for per-(candidate, voter)
-	// aggregated weights, kept live by applyVoterWeightDelta hooks on every
-	// bucket mutation. When it is missing (pre-fork setups that skip
-	// Protocol.Start, or tests that write the view directly without an
-	// install step) the freezer degrades gracefully: Entries is left nil on
-	// every snapshot and rewarding keeps the voter pool pending until a later
-	// era has an eligible snapshot. When present, we
-	// copy VoterWeightsByCandidate output directly; the view already sorts
-	// entries by voter bytes, so no re-sort here.
+	// A nil view (pre-fork setups that skip Protocol.Start, or tests that write
+	// the view directly) leaves Entries nil on every snapshot, and rewarding
+	// keeps the voter pool pending until a later era has an eligible one.
 	vw := voterWeightsFromSM(sm)
 
-	// IIP-59 activation flush still running: the persisted weights cover only
-	// part of the voter set, so no snapshot taken now would be payable. Take the
-	// same degraded path an unavailable view already takes — leave Entries nil
-	// and let the pool roll into the next era — rather than freezing a partial
-	// set or halting the boundary.
+	// Same degraded path while the activation flush is still running: the
+	// persisted weights cover only part of the voter set, so no snapshot taken
+	// now would be payable, and rolling the pool into the next era beats
+	// freezing a partial set or halting the boundary.
 	//
-	// Deliberately handler-side only. validatePostSystemActions runs before
-	// CreatePreStates, so a validator checking this would see the cursor as of
-	// the previous block and disagree with its own handler on the block the
-	// flush completes.
+	// Handler-side only. validatePostSystemActions runs before CreatePreStates,
+	// so a validator checking this would read the cursor as of the previous
+	// block and disagree with its own handler on the block the flush completes.
 	if seeded, err := voterWeightSeedingComplete(sm); err != nil {
 		return errors.Wrap(err, "staking: read voter weight seed cursor")
 	} else if !seeded {
@@ -306,42 +312,48 @@ func FreezePollSnapshot(
 
 	for _, id := range ids {
 		snap := &CandidatePollSnapshot{OnchainRewardEnabled: enabled[id.String()]}
-		if !snap.OnchainRewardEnabled {
-			if _, err := sm.PutState(
-				snap.toBlob(),
-				protocol.NamespaceOption(_stakingNameSpace),
-				protocol.KeyOption(candidatePollSnapshotKey(id)),
-			); err != nil {
-				return errors.Wrapf(err, "staking: write poll snapshot for candidate %s", id.String())
+		// An opted-out candidate is snapshotted as an empty placeholder: the
+		// era still needs a record, but there is no commission or voter set
+		// to freeze.
+		if snap.OnchainRewardEnabled {
+			snap.BlockCommissionBasisPoints = _fullCommissionBasisPoints
+			snap.EpochCommissionBasisPoints = _fullCommissionBasisPoints
+			if r, ok := rates[id.String()]; ok && r != nil && r.Registered {
+				snap.BlockCommissionBasisPoints = r.BlockCommissionBasisPoints
+				snap.EpochCommissionBasisPoints = r.EpochCommissionBasisPoints
+				snap.Registered = true
 			}
-			continue
-		}
-		snap.BlockCommissionBasisPoints = 10000
-		snap.EpochCommissionBasisPoints = 10000
-		if r, ok := rates[id.String()]; ok && r != nil && r.Registered {
-			snap.BlockCommissionBasisPoints = r.BlockCommissionBasisPoints
-			snap.EpochCommissionBasisPoints = r.EpochCommissionBasisPoints
-			snap.Registered = true
-		}
-		if vw != nil {
-			weights := vw.VoterWeightsByCandidate(hash.BytesToHash160(id.Bytes()))
-			if len(weights) > 0 {
-				snap.Entries = make([]VoterWeight, 0, len(weights))
-				for _, w := range weights {
-					snap.Entries = append(snap.Entries, VoterWeight{
-						Voter:  w.voter,
-						Weight: new(big.Int).Set(w.weight),
-					})
+			if vw != nil {
+				weights := vw.VoterWeightsByCandidate(hash.BytesToHash160(id.Bytes()))
+				if len(weights) > 0 {
+					snap.Entries = make([]VoterWeight, 0, len(weights))
+					for _, w := range weights {
+						snap.Entries = append(snap.Entries, VoterWeight{
+							Voter:  w.voter,
+							Weight: new(big.Int).Set(w.weight),
+						})
+					}
 				}
 			}
 		}
-		if _, err := sm.PutState(
-			snap.toBlob(),
-			protocol.NamespaceOption(_stakingNameSpace),
-			protocol.KeyOption(candidatePollSnapshotKey(id)),
-		); err != nil {
-			return errors.Wrapf(err, "staking: write poll snapshot for candidate %s", id.String())
+		if err := writeCandidatePollSnapshot(sm, id, snap); err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+func writeCandidatePollSnapshot(
+	sm protocol.StateManager,
+	candID address.Address,
+	snap *CandidatePollSnapshot,
+) error {
+	if _, err := sm.PutState(
+		snap.toBlob(),
+		protocol.NamespaceOption(_stakingNameSpace),
+		protocol.KeyOption(candidatePollSnapshotKey(candID)),
+	); err != nil {
+		return errors.Wrapf(err, "staking: write poll snapshot for candidate %s", candID.String())
 	}
 	return nil
 }
