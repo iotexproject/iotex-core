@@ -462,15 +462,17 @@ func onchainPayoutAddress(
 	return routing.legacyRewardAddress, routing, nil
 }
 
-// handleCursorOverrun deals with a previous era's cursor still being live at
+// resolveStaleDrainCursor deals with a previous era's cursor still being live at
 // this Phase A boundary. A completed cursor is simply retired; an incomplete
-// one is handed off (IIP-59 §10.2) and stretches the new settlement window back
-// to where the unfinished one started, so the era range in the cursor still
-// covers every epoch whose rewards it will pay.
+// one is an overrun, handed off to handlePhaseAEntryOverrun (IIP-59 §10.2), and
+// stretches the new settlement window back to where the unfinished one started,
+// so the era range in the cursor still covers every epoch whose rewards it will
+// pay. This function decides which of the two cases applies; the §10.2 degrade
+// itself lives entirely in handlePhaseAEntryOverrun.
 //
 // Returns the EPOCH_DRAIN_OVERRUN log to emit ahead of any per-delegate entry,
 // and the settlement start epoch to record.
-func (p *Protocol) handleCursorOverrun(
+func (p *Protocol) resolveStaleDrainCursor(
 	ctx context.Context,
 	sm protocol.StateManager,
 	epochsPerEra uint64,
@@ -832,7 +834,7 @@ func (p *Protocol) GrantEpochReward(
 	settlementStartEpoch := rewardEraStartEpoch(epochNum, g.EpochsPerRewardEra)
 	if isEraBoundary {
 		var err error
-		overrunLog, settlementStartEpoch, err = p.handleCursorOverrun(
+		overrunLog, settlementStartEpoch, err = p.resolveStaleDrainCursor(
 			ctx, sm, g.EpochsPerRewardEra, settlementStartEpoch,
 		)
 		if err != nil {

@@ -8,6 +8,7 @@ package rewarding
 import (
 	"math/big"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
@@ -22,6 +23,49 @@ func rotatedIndex(start, logical, total uint32) uint32 {
 		return 0
 	}
 	return (start + logical) % total
+}
+
+// voterDistributionMetadata derives the three inputs the allocator cannot
+// compute for itself — the weight total, which payout position absorbs the
+// dust, and whether any position has weight at all. Phase A calls it once
+// against the freshly frozen snapshot and stores the results in the cursor;
+// every later chunk reads them back. Continuation chunks must NOT recompute
+// them: the snapshot keeps mutating underneath a settlement that spans blocks,
+// and a recomputed total would shift every remaining voter's share, which is
+// exactly what TestVoterAllocationIsChunkInvariant forbids. That is why this
+// is a free function producing allocator inputs rather than a method deriving
+// them lazily.
+//
+// staking.CandidatePollSnapshot.refreshDerivedMetadata computes fields by the
+// same names, but in *physical* index space over every entry; this one works in
+// *logical* (post-rotation) space and ignores non-positive weights. The two
+// TotalWeight values agree — rotation and zero-weight entries change neither
+// the sum nor HasWeightedEntries — but the two LastWeightedIndex values do not
+// once voterStartIndex is non-zero, and only the logical one names the dust
+// absorber. voterRewardStatus's staleness check compares the first two fields
+// and deliberately omits LastWeightedIndex for this reason.
+func voterDistributionMetadata(
+	snap *staking.CandidatePollSnapshot,
+	voterStartIndex uint32,
+) (*big.Int, hash.Hash256, uint32, bool) {
+	totalWeight := new(big.Int)
+	var lastWeightedIndex uint32
+	var hasWeightedEntries bool
+	if snap == nil || len(snap.Entries) == 0 {
+		return totalWeight, hash.ZeroHash256, lastWeightedIndex, hasWeightedEntries
+	}
+	totalVoters := uint32(len(snap.Entries))
+	voterStartIndex %= totalVoters
+	for logicalIndex := uint32(0); logicalIndex < totalVoters; logicalIndex++ {
+		entry := snap.Entries[rotatedIndex(voterStartIndex, logicalIndex, totalVoters)]
+		if entry.Weight == nil || entry.Weight.Sign() <= 0 {
+			continue
+		}
+		totalWeight.Add(totalWeight, entry.Weight)
+		lastWeightedIndex = logicalIndex
+		hasWeightedEntries = true
+	}
+	return totalWeight, snapshotHashFull(snap), lastWeightedIndex, hasWeightedEntries
 }
 
 // voterAllocator is the single implementation of the per-voter share rule.

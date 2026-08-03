@@ -371,33 +371,6 @@ func snapshotHashFull(snap *staking.CandidatePollSnapshot) hash.Hash256 {
 	return distributedlog.SnapshotHash(voters, weights)
 }
 
-// voterDistributionMetadata computes the allocation metadata once when Phase A
-// initializes the cursor. Continuation chunks consume the stored values and do
-// not rescan all preceding voter weights.
-func voterDistributionMetadata(
-	snap *staking.CandidatePollSnapshot,
-	voterStartIndex uint32,
-) (*big.Int, hash.Hash256, uint32, bool) {
-	totalWeight := new(big.Int)
-	var lastWeightedIndex uint32
-	var hasWeightedEntries bool
-	if snap == nil || len(snap.Entries) == 0 {
-		return totalWeight, hash.ZeroHash256, lastWeightedIndex, hasWeightedEntries
-	}
-	totalVoters := uint32(len(snap.Entries))
-	voterStartIndex %= totalVoters
-	for logicalIndex := uint32(0); logicalIndex < totalVoters; logicalIndex++ {
-		entry := snap.Entries[rotatedIndex(voterStartIndex, logicalIndex, totalVoters)]
-		if entry.Weight == nil || entry.Weight.Sign() <= 0 {
-			continue
-		}
-		totalWeight.Add(totalWeight, entry.Weight)
-		lastWeightedIndex = logicalIndex
-		hasWeightedEntries = true
-	}
-	return totalWeight, snapshotHashFull(snap), lastWeightedIndex, hasWeightedEntries
-}
-
 // allocateAndRouteVoters pays the [startVoter, endVoter) window of the payout
 // order and applies compound-vs-credit routing to each share. The amounts come
 // from alloc, which owns the share rule for the delegate's whole frozen list;

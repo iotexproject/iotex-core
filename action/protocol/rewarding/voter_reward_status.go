@@ -66,6 +66,11 @@ func (p *Protocol) voterRewardStatus(
 		}
 		return nil, err
 	}
+	// The frozen work item must still describe the snapshot on disk, or the
+	// amount reported here would not be the amount the drain pays. Only the
+	// rotation-invariant fields are comparable: work.LastWeightedIndex is a
+	// logical position and snapshot.LastWeightedIndex a physical one, so they
+	// diverge whenever VoterStartIndex is non-zero. See voterDistributionMetadata.
 	snapshotHash := snapshotHashFull(snapshot)
 	if (len(work.SnapshotHash) > 0 && !bytes.Equal(work.SnapshotHash, snapshotHash[:])) ||
 		safeBig(work.TotalWeight).Cmp(safeBig(snapshot.TotalWeight)) != 0 ||
