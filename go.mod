@@ -52,7 +52,7 @@ require (
 	github.com/tyler-smith/go-bip39 v1.1.0
 	github.com/uptrace/opentelemetry-go-extra/otelzap v0.2.2
 	go.elastic.co/ecszap v1.0.3
-	go.etcd.io/bbolt v1.5.0
+	go.etcd.io/bbolt v1.3.6
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0
 	go.opentelemetry.io/otel v1.44.0
