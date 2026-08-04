@@ -276,55 +276,76 @@ func TestPack_RoundTrip(t *testing.T) {
 	}
 }
 
-func TestSnapshotHash_Determinism(t *testing.T) {
-	// Same input twice → same hash; reversed order → different hash.
-	// Canonical ordering is load-bearing per §3.4.
-	r := require.New(t)
-	voters := []address.Address{
-		identityset.Address(3),
-		identityset.Address(4),
-		identityset.Address(5),
+// eraParams returns a plausible frozen-era parameter set. Each test mutates
+// one field to isolate the property under test.
+func eraParams() EraSnapshotParams {
+	return EraSnapshotParams{
+		Delegate:                   identityset.Address(1),
+		FreezeHeight:               4_200_000,
+		TotalWeight:                big.NewInt(9_000_000),
+		SelfStakeBucketIdx:         17,
+		BlockCommissionBasisPoints: 500,
+		EpochCommissionBasisPoints: 1_000,
+		Registered:                 true,
+		OnchainRewardEnabled:       true,
 	}
-	weights := []*big.Int{big.NewInt(100), big.NewInt(200), big.NewInt(300)}
-
-	h1 := SnapshotHash(voters, weights)
-	h2 := SnapshotHash(voters, weights)
-	r.Equal(h1, h2, "same input must hash identically")
-
-	reversedVoters := []address.Address{voters[2], voters[1], voters[0]}
-	reversedWeights := []*big.Int{weights[2], weights[1], weights[0]}
-	h3 := SnapshotHash(reversedVoters, reversedWeights)
-	r.NotEqual(h1, h3, "reversed order must hash differently")
 }
 
-func TestSnapshotHash_EmptyList(t *testing.T) {
-	// A zero-voter delegate still needs a well-defined snapshot hash.
-	// This asserts the exact bytes so external verifiers can pin them.
+func TestEraSnapshotHash_Determinism(t *testing.T) {
+	// The digest is the join key an off-chain consumer groups a settlement's
+	// per-block partial logs on, so the same frozen era must hash identically
+	// every time it is recomputed.
 	r := require.New(t)
+	p := eraParams()
+	r.Equal(EraSnapshotHash(p), EraSnapshotHash(p), "same input must hash identically")
 
-	empty := SnapshotHash(nil, nil)
-
-	// Domain separator || big-endian uint64(0) — no per-voter payload.
-	var expectedBuf []byte
-	expectedBuf = append(expectedBuf, snapshotDomainSeparator[:]...)
-	expectedBuf = append(expectedBuf, make([]byte, 8)...)
-	expected := hash.Hash256b(expectedBuf)
-	r.Equal(expected, empty)
+	// A caller-supplied *big.Int must not be aliased into the digest state.
+	q := eraParams()
+	q.TotalWeight = new(big.Int).Set(p.TotalWeight)
+	r.Equal(EraSnapshotHash(p), EraSnapshotHash(q), "equal values must hash equally")
 }
 
-func TestSnapshotHash_MismatchedLengthTruncates(t *testing.T) {
-	// SnapshotHash is a pure utility; length invariants live in Pack.
-	// If len(voters) > len(weights), the extra voters are ignored (the
-	// shorter slice bounds the loop). Guards against surprises for
-	// callers who bypass Pack.
+func TestEraSnapshotHash_EveryFieldIsCommitted(t *testing.T) {
+	// A digest that ignored a field would let two eras with different payout
+	// parameters share a join key, and a consumer would silently merge them.
 	r := require.New(t)
-	voters := []address.Address{
-		identityset.Address(3),
-		identityset.Address(4),
-	}
-	weights := []*big.Int{big.NewInt(100)} // one short
+	base := EraSnapshotHash(eraParams())
 
-	h1 := SnapshotHash(voters, weights)
-	h2 := SnapshotHash(voters[:1], weights)
-	r.Equal(h1, h2, "extra voters must be ignored, not silently zero-weighted")
+	mutations := map[string]func(*EraSnapshotParams){
+		"delegate":       func(p *EraSnapshotParams) { p.Delegate = identityset.Address(2) },
+		"freezeHeight":   func(p *EraSnapshotParams) { p.FreezeHeight++ },
+		"totalWeight":    func(p *EraSnapshotParams) { p.TotalWeight = big.NewInt(9_000_001) },
+		"selfStakeIdx":   func(p *EraSnapshotParams) { p.SelfStakeBucketIdx++ },
+		"blockCommBps":   func(p *EraSnapshotParams) { p.BlockCommissionBasisPoints++ },
+		"epochCommBps":   func(p *EraSnapshotParams) { p.EpochCommissionBasisPoints++ },
+		"registered":     func(p *EraSnapshotParams) { p.Registered = false },
+		"onchainEnabled": func(p *EraSnapshotParams) { p.OnchainRewardEnabled = false },
+	}
+	seen := map[hash.Hash256]string{base: "base"}
+	for name, mutate := range mutations {
+		p := eraParams()
+		mutate(&p)
+		h := EraSnapshotHash(p)
+		r.NotEqualf(base, h, "changing %s must change the digest", name)
+		if prev, dup := seen[h]; dup {
+			r.Failf("digest collision", "%s collides with %s", name, prev)
+		}
+		seen[h] = name
+	}
+}
+
+func TestEraSnapshotHash_ZeroValue(t *testing.T) {
+	// A delegate frozen with nothing set (opted out, or no candidate record at
+	// the boundary) still needs a well-defined digest. This asserts the exact
+	// bytes so external verifiers can pin them, and pins the nil-address and
+	// nil-*big.Int handling at the same time.
+	r := require.New(t)
+
+	got := EraSnapshotHash(EraSnapshotParams{})
+
+	// domainSep || 20 zero bytes || be64(0) || 32 zero bytes || be64(0)*3 || 0x00
+	var expected []byte
+	expected = append(expected, eraSnapshotDomainSeparator[:]...)
+	expected = append(expected, make([]byte, 20+8+32+8+8+8+1)...)
+	r.Equal(hash.Hash256b(expected), got)
 }

@@ -86,7 +86,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 
 	// update candidate
 	weightedVote := p.calculateVoteWeight(bucket, false)
-	if err := addCandidateVotes(csm, candidate, bucket.Owner, weightedVote); err != nil {
+	if err := addCandidateVotes(candidate, weightedVote); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
@@ -208,7 +208,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		}
 	}
 	weightedVote := p.calculateVoteWeight(bucket, selfStake)
-	if err := subCandidateVotes(csm, candidate, bucket.Owner, weightedVote); err != nil {
+	if err := subCandidateVotes(candidate, weightedVote); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
@@ -373,7 +373,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	// new one; the second half runs a few lines below, after the old candidate
 	// has been upserted.
 	weightedVotes := p.calculateVoteWeight(bucket, false)
-	if err := subCandidateVotes(csm, prevCandidate, bucket.Owner, weightedVotes); err != nil {
+	if err := subCandidateVotes(prevCandidate, weightedVotes); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for previous candidate %s", prevCandidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
@@ -390,7 +390,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 
 	// update current candidate
-	if err := addCandidateVotes(csm, candidate, bucket.Owner, weightedVotes); err != nil {
+	if err := addCandidateVotes(candidate, weightedVotes); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
@@ -442,7 +442,6 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 
 	// update bucket index
-	oldOwner := bucket.Owner
 	if err := csm.delVoterBucketIndex(bucket.Owner, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to delete voter bucket index for voter %s", bucket.Owner.String())
 	}
@@ -456,15 +455,12 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
-	// IIP-59: transfer keeps the bucket's candidate and weight, but the voter
-	// (bucket.Owner) changes. Move the weight from oldOwner to newOwner in the
-	// per-(candidate, voter) view. Candidate total weighted votes are unchanged,
-	// so no AddVote/SubVote was needed above; the view needs an explicit pair.
-	// Self-stake buckets cannot be transferred (rejected by
-	// fetchBucketAndValidate above), so `false` here is always correct.
-	weight := p.calculateVoteWeight(bucket, false)
-	applyVoterWeightDelta(csm, bucket.Candidate, oldOwner, new(big.Int).Neg(weight))
-	applyVoterWeightDelta(csm, bucket.Candidate, newOwner, weight)
+	// A transfer keeps the bucket's candidate, its weight and its duration; only
+	// the owner changes. The candidate's total weighted votes are therefore
+	// unchanged and no AddVote/SubVote is owed here. The retired
+	// per-(candidate, voter) view needed an explicit -old/+new pair at this
+	// point; the era drain re-derives a voter's weight from the frozen bucket
+	// owner index instead, which follows the new owner by construction.
 
 	log.AddAddress(actionCtx.Caller)
 	return log, nil
@@ -551,14 +547,14 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	}
 
 	// update candidate
-	if err := subCandidateVotes(csm, candidate, bucket.Owner, prevWeightedVotes); err != nil {
+	if err := subCandidateVotes(candidate, prevWeightedVotes); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
 	weightedVotes := p.calculateVoteWeight(bucket, selfStake)
-	if err := addCandidateVotes(csm, candidate, bucket.Owner, weightedVotes); err != nil {
+	if err := addCandidateVotes(candidate, weightedVotes); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
@@ -670,14 +666,14 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	}
 
 	// update candidate
-	if err := subCandidateVotes(csm, candidate, bucket.Owner, prevWeightedVotes); err != nil {
+	if err := subCandidateVotes(candidate, prevWeightedVotes); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
 	weightedVotes := p.calculateVoteWeight(bucket, selfStake)
-	if err := addCandidateVotes(csm, candidate, bucket.Owner, weightedVotes); err != nil {
+	if err := addCandidateVotes(candidate, weightedVotes); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
@@ -819,11 +815,6 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 	if err := csm.Upsert(c); err != nil {
 		return log, nil, csmErrorToHandleError(owner.String(), err)
-	}
-	if withSelfStake {
-		// Candidate registration creates a bucket directly rather than through
-		// handleCreateStake, so seed its voter weight here as well.
-		applyVoterWeightDelta(csm, c.GetIdentifier(), owner, votes)
 	}
 	height, _ := csm.SM().Height()
 	if p.needToWriteCandsMap(ctx, height) {

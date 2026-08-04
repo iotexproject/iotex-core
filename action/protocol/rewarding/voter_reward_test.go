@@ -8,12 +8,9 @@ package rewarding
 import (
 	"context"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -144,85 +141,87 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 	})
 }
 
-func TestDistributeVoterOnlyRejectsInvalidDistributedAmount(t *testing.T) {
-	r := require.New(t)
-	ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
-	writeSnapshot(t, sm, candAddr, true, 2000, []voterEntry{
-		{identityset.Address(3), big.NewInt(100)},
-	})
-	rewardAddr, err := address.FromString(cand.RewardAddress)
-	r.NoError(err)
-	totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := distributionMetadata(t, sm, candAddr)
+// The three tests that used to live here drove distributeVoterOnly, the
+// candidate-major payout that walked a frozen entry list. That function is
+// gone: the drain is voter-major and pays each voter once for their whole era
+// entitlement. What survives is the routing contract those tests pinned --
+// custom reward destination, and compound taking priority over it -- so they
+// are re-expressed against payVoterCombined, which is where routing now lives.
 
-	for _, distributed := range []*big.Int{big.NewInt(-1), big.NewInt(101)} {
-		_, err := p.distributeVoterOnly(ctx, sm, voterChunkRequest{
-			cand:               cand,
-			rewardAddr:         rewardAddr,
-			voterAmount:        big.NewInt(100),
-			totalWeightFrozen:  totalWeight,
-			snapshotHash:       snapshotHash,
-			lastWeightedIndex:  lastWeightedIndex,
-			hasWeightedEntries: hasWeightedEntries,
-			epochCommission:    big.NewInt(10),
-			distributedBefore:  distributed,
-			voterBudget:        1,
-			blkHeight:          100,
-		})
-		r.Error(err)
+// newRoutingShares builds a one-delegate share set for a routing test. Routing
+// is indifferent to how the number was derived; it only moves the total.
+func newRoutingShares(delegate address.Address, amount *big.Int) (voterShareSet, voterShareInputs) {
+	work := epochDrainDelegateWork{
+		CandidateIdentifier: delegate.Bytes(),
+		VoterAmountFrozen:   new(big.Int).Set(amount),
+		FreezeHeight:        iip59FixtureFreezeHeight,
+		SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
 	}
+	delegates := []epochDrainDelegateWork{work}
+	return voterShareSet{
+			shares: []voterDelegateShare{{
+				delegateIndex: 0,
+				candidate:     delegate,
+				weight:        big.NewInt(1),
+				share:         new(big.Int).Set(amount),
+			}},
+			total: new(big.Int).Set(amount),
+		}, voterShareInputs{
+			delegates:   delegates,
+			byCandidate: delegateWorkIndex(delegates),
+			payable:     []bool{true},
+			distributed: []*big.Int{new(big.Int)},
+		}
 }
 
-func TestDistributeVoterOnlyCustomRewardDestination(t *testing.T) {
+// TestPayVoterCombinedCustomRewardDestination pins that a voter who has
+// registered a reward destination is credited there rather than at their own
+// address, and that the DelegateDistributed row records both.
+func TestPayVoterCombinedCustomRewardDestination(t *testing.T) {
 	r := require.New(t)
-	ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
+	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
 	voter := identityset.Address(3)
 	recipient := identityset.Address(4)
-	writeSnapshot(t, sm, candAddr, true, 0, []voterEntry{{voter, big.NewInt(1)}})
 	r.NoError(p.putState(ctx, sm, voterRewardDestinationKey(voter), &voterRewardDestination{
 		recipient: recipient, updatedHeight: 100,
 	}))
 
-	rewardAddr, err := address.FromString(cand.RewardAddress)
+	routing, err := p.resolveVoterRouting(ctx, sm)
 	r.NoError(err)
-	totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := distributionMetadata(t, sm, candAddr)
-	res, err := p.distributeVoterOnly(ctx, sm, voterChunkRequest{
-		cand:               cand,
-		rewardAddr:         rewardAddr,
-		voterAmount:        big.NewInt(777),
-		totalWeightFrozen:  totalWeight,
-		snapshotHash:       snapshotHash,
-		lastWeightedIndex:  lastWeightedIndex,
-		hasWeightedEntries: hasWeightedEntries,
-		epochCommission:    big.NewInt(0),
-		blkHeight:          100,
-	})
+	shares, in := newRoutingShares(candAddr, big.NewInt(777))
+	payout, err := p.payVoterCombined(ctx, sm, routing, in, voter, shares, &iip59RouteDurations{})
 	r.NoError(err)
-	r.True(res.routed)
-	r.Zero(res.paid.Cmp(big.NewInt(777)))
-	r.Zero(res.compounded.Sign())
-	r.Equal(uint32(1), res.consumedVoters)
-	r.Equal(uint32(1), res.totalVoters)
-	r.Len(res.transactionLogs, 1)
-	r.Equal(recipient.String(), res.transactionLogs[0].Recipient)
-	r.Zero(res.transactionLogs[0].Amount.Cmp(big.NewInt(777)))
+	r.Equal(recipient.String(), payout.recipient.String())
+	r.Zero(payout.amount.Cmp(big.NewInt(777)))
+	r.Zero(payout.compoundBucketID)
 
 	voterAccount, err := accountutil.LoadAccount(sm, voter)
 	r.NoError(err)
-	r.Zero(voterAccount.Balance.Sign())
+	r.Zero(voterAccount.Balance.Sign(), "the voter's own balance must stay untouched")
 	recipientAccount, err := accountutil.LoadAccount(sm, recipient)
 	r.NoError(err)
 	r.Zero(recipientAccount.Balance.Cmp(big.NewInt(777)))
 
-	r.Len(res.logs, 1)
-	parsed, err := abi.JSON(strings.NewReader(delegateDistributedDestinationTestABI))
-	r.NoError(err)
-	values, err := parsed.Events["DelegateDistributed"].Inputs.NonIndexed().Unpack(res.logs[0].Data)
-	r.NoError(err)
-	r.Equal([]common.Address{common.BytesToAddress(voter.Bytes())}, values[4])
-	r.Equal([]common.Address{common.BytesToAddress(recipient.Bytes())}, values[5])
+	// A directly credited payout is an outflow from the rewarding fund and
+	// must produce a transaction log naming the destination, not the voter.
+	txLog := voterTransactionLog(payout)
+	r.NotNil(txLog)
+	r.Equal(recipient.String(), txLog.Recipient)
+	r.Zero(txLog.Amount.Cmp(big.NewInt(777)))
+
+	logs := make([]delegateChunkLog, 1)
+	recordVoterPayout(logs, payout)
+	r.Equal([]address.Address{voter}, logs[0].voters)
+	r.Equal([]address.Address{recipient}, logs[0].recipients)
+	r.Zero(logs[0].paid.Cmp(big.NewInt(777)))
 }
 
-func TestDistributeVoterOnlyCompoundOverridesCustomRewardDestination(t *testing.T) {
+// TestPayVoterCombinedCompoundOverridesCustomRewardDestination pins the
+// priority order: an eligible auto-deposit bucket absorbs the payout even when
+// the voter has also registered a custom destination. Compounding is not a
+// transfer, so it must leave the destination account at zero and emit no
+// transaction log -- the outflow is settled once per block instead.
+func TestPayVoterCombinedCompoundOverridesCustomRewardDestination(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
@@ -263,10 +262,6 @@ func TestDistributeVoterOnlyCompoundOverridesCustomRewardDestination(t *testing.
 		}
 	}
 	r.NotNil(compoundBucket)
-	r.True(compoundBucket.IsNative())
-	r.True(compoundBucket.AutoStake)
-	r.False(compoundBucket.IsUnstaked())
-	r.True(address.Equal(compoundBucket.Owner, voter))
 	r.True(autodeposit.IsBucketEligibleForCompound(compoundBucket, voter))
 	initialBucketAmount := new(big.Int).Set(compoundBucket.StakedAmount)
 
@@ -281,34 +276,14 @@ func TestDistributeVoterOnlyCompoundOverridesCustomRewardDestination(t *testing.
 		recipient: destination, updatedHeight: 100,
 	}))
 
-	snapshot, err := staking.PollSnapshotFor(sm, candAddr)
+	routing, err := p.resolveVoterRouting(ctx, sm)
 	r.NoError(err)
-	totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := voterDistributionMetadata(snapshot, 0)
-	cand := &state.Candidate{
-		Identity:      candAddr.String(),
-		Address:       candAddr.String(),
-		RewardAddress: candAddr.String(),
-	}
-	res, err := p.distributeVoterOnly(ctx, sm, voterChunkRequest{
-		cand:               cand,
-		rewardAddr:         candAddr,
-		voterAmount:        big.NewInt(777),
-		totalWeightFrozen:  totalWeight,
-		snapshotHash:       snapshotHash,
-		lastWeightedIndex:  lastWeightedIndex,
-		hasWeightedEntries: hasWeightedEntries,
-		epochCommission:    big.NewInt(0),
-		blkHeight:          100,
-		actionHash:         hash.ZeroHash256,
-	})
+	shares, in := newRoutingShares(candAddr, big.NewInt(777))
+	payout, err := p.payVoterCombined(ctx, sm, routing, in, voter, shares, &iip59RouteDurations{})
 	r.NoError(err)
-	r.True(res.routed)
 	r.Equal(1, bucketReader.callCount)
-	r.Zero(res.paid.Cmp(big.NewInt(777)))
-	r.Zero(res.compounded.Cmp(big.NewInt(777)))
-	r.Equal(uint32(1), res.consumedVoters)
-	r.Equal(uint32(1), res.totalVoters)
-	r.Empty(res.transactionLogs, "compound payout must not emit a direct account transfer")
+	r.Equal(compoundBucket.Index, payout.compoundBucketID)
+	r.Zero(payout.amount.Cmp(big.NewInt(777)))
 
 	updatedCSR, err := staking.ConstructBaseView(sm)
 	r.NoError(err)
@@ -319,15 +294,7 @@ func TestDistributeVoterOnlyCompoundOverridesCustomRewardDestination(t *testing.
 	destinationAccount, err := accountutil.LoadAccount(sm, destination)
 	r.NoError(err)
 	r.Zero(destinationAccount.Balance.Sign(), "compound must take priority over the custom destination")
-
-	r.Len(res.logs, 1)
-	parsed, err := abi.JSON(strings.NewReader(delegateDistributedDestinationTestABI))
-	r.NoError(err)
-	values, err := parsed.Events["DelegateDistributed"].Inputs.NonIndexed().Unpack(res.logs[0].Data)
-	r.NoError(err)
-	r.Equal([]common.Address{common.BytesToAddress(voter.Bytes())}, values[4])
-	r.Equal([]common.Address{common.BytesToAddress(voter.Bytes())}, values[5])
-	r.Equal([]uint64{compoundBucket.Index}, values[7])
+	r.Nil(voterTransactionLog(payout), "compound payout must not emit a direct account transfer")
 }
 
 const delegateDistributedDestinationTestABI = `[{"anonymous":false,"inputs":[
@@ -357,29 +324,59 @@ func writeSnapshot(
 	voters []voterEntry,
 ) {
 	t.Helper()
-	entries := make([]staking.VoterWeight, len(voters))
-	for i, v := range voters {
-		entries[i] = staking.VoterWeight{Voter: v.addr, Weight: v.weight}
+	// The snapshot no longer carries a per-voter list; the frozen denominator
+	// is the sum, which for these fixtures is what candidate.Votes would have
+	// been at the boundary. Callers still pass voters because the amounts are
+	// what make each fixture's expected split legible.
+	totalWeight := new(big.Int)
+	for _, v := range voters {
+		totalWeight.Add(totalWeight, v.weight)
 	}
 	snap := &staking.CandidatePollSnapshot{
 		OnchainRewardEnabled:       true,
 		Registered:                 registered,
 		BlockCommissionBasisPoints: epochBps,
 		EpochCommissionBasisPoints: epochBps,
-		Entries:                    entries,
+		TotalWeight:                totalWeight,
 	}
 	require.NoError(t, staking.TestOnlyPutPollSnapshotFor(sm, candAddr, snap))
 }
 
+// distributionMetadata reads back the two numbers Phase A freezes into a work
+// item. It returns what the frozen snapshot recorded rather than recomputing,
+// because that is what the cursor carries and what the drain divides by.
 func distributionMetadata(
 	t *testing.T,
 	sm protocol.StateReader,
 	candAddr address.Address,
-) (*big.Int, hash.Hash256, uint32, bool) {
+) (*big.Int, hash.Hash256) {
 	t.Helper()
 	snapshot, err := staking.PollSnapshotFor(sm, candAddr)
 	require.NoError(t, err)
-	return snapshot.TotalWeight, snapshot.SnapshotHash, snapshot.LastWeightedIndex, snapshot.HasWeightedEntries
+	return snapshot.TotalWeight, snapshot.SnapshotHash
+}
+
+// testBlockIntervalSwitchHeight is the height at which testBlocksToDuration
+// changes block interval. It has to sit above iip59FixtureFreezeHeight and
+// above the height an ordinary drain runs at, but below the far height the
+// evalHeight test drains at, so that two drains of the same frozen era land on
+// opposite sides of it. That gap is the only thing that lets a test distinguish
+// "evaluated at the freeze height" from "evaluated at the current block", and
+// every other test is unaffected because it never drains above this height.
+const testBlockIntervalSwitchHeight = uint64(1000)
+
+// testBlocksToDuration mirrors the shape of the production converter
+// (chainservice.Builder.blocksToDurationFn): the same block span maps to a
+// different wall-clock duration depending on the height it is viewed at,
+// because a hardfork changed the block interval. A test protocol built with a
+// nil converter would nil-panic on any non-timestamp contract bucket, and one
+// built with a height-insensitive converter would silently pass the evalHeight
+// tests no matter which height the drain used.
+func testBlocksToDuration(start, end, viewAt uint64) time.Duration {
+	if viewAt < testBlockIntervalSwitchHeight {
+		return time.Duration(end-start) * 5 * time.Second
+	}
+	return time.Duration(end-start) * time.Second
 }
 
 // newVoterRewardCtx wires the minimum context splitDelegateEpochReward reads:
@@ -413,7 +410,7 @@ func newVoterRewardCtx(
 		},
 	}
 	stakingProtocol, err := staking.NewProtocol(
-		staking.HelperCtx{}, stakingCfg, nil, nil, nil, nil,
+		staking.HelperCtx{}, stakingCfg, testBlocksToDuration, nil, nil, nil,
 	)
 	r.NoError(err)
 	r.NoError(stakingProtocol.Register(registry))
@@ -446,175 +443,11 @@ func newVoterRewardCtx(
 	return ctx, sm, p, cand, candAddr
 }
 
-// TestDistributeVoterOnly_WindowedDeterminism is IIP-59 PR 5.5b's core
-// determinism claim: splitting one delegate's voter payout across
-// multiple blocks via VoterBudgetPerBlock produces byte-identical
-// per-voter payouts vs a single unbounded call.
-//
-// Setup: 20 voters with weights 1..20 (total 210), voterAmount=100_000
-// → varying per-voter shares plus dust on the last-weighted voter.
-// Reference: one distributeVoterOnly call with voterBudget=0 (unbounded).
-// Chunked: three distributeVoterOnly calls with voterBudget=7 →
-// windows (7, 7, 6). Both fixtures use identical snapshots.
-//
-// Invariants:
-//   - Each chunked call reports consumed matching its window size.
-//   - totalVoters=20 across all calls.
-//   - Sum of chunked `paid` values equals reference `paid` (which equals
-//     voterAmount exactly — allocation is dust-conserving).
-//   - Per-voter unclaimed balance after the chunked run matches the
-//     reference run's balance byte-for-byte (allocation is deterministic
-//     across windows: dust lands in the same voter regardless of which
-//     chunk contains them).
-func TestDistributeVoterOnly_WindowedDeterminism(t *testing.T) {
-	const numVoters = 20
-	const voterStartIndex = uint32(13)
-	voterAmount := big.NewInt(100_000)
-	epochCommission := big.NewInt(5_000)
-	epochBps := uint64(500) // 5% — irrelevant for distributeVoterOnly but keeps the snapshot valid
-
-	voters := make([]voterEntry, numVoters)
-	for i := 0; i < numVoters; i++ {
-		voters[i] = voterEntry{
-			addr:   identityset.Address(3 + i),
-			weight: big.NewInt(int64(i + 1)),
-		}
-	}
-
-	// dumpBalances reads each voter's primary account balance so the caller can
-	// compare per-voter payouts across two independent fixtures.
-	dumpBalances := func(t *testing.T, ctx context.Context, sm protocol.StateReader, p *Protocol) []*big.Int {
-		t.Helper()
-		r := require.New(t)
-		out := make([]*big.Int, numVoters)
-		for i, v := range voters {
-			account, err := accountutil.LoadAccount(sm, v.addr)
-			r.NoError(err, "read voter %d balance", i)
-			out[i] = account.Balance
-		}
-		return out
-	}
-
-	// Reference fixture: single unbounded call.
-	var refPaid *big.Int
-	var refBalances []*big.Int
-	func() {
-		r := require.New(t)
-		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true /* iip59On */)
-		writeSnapshot(t, sm, candAddr, true /* registered */, epochBps, voters)
-		rewardAddr, err := address.FromString(cand.RewardAddress)
-		r.NoError(err)
-
-		snapshot, err := staking.PollSnapshotFor(sm, candAddr)
-		r.NoError(err)
-		totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := voterDistributionMetadata(snapshot, voterStartIndex)
-		res, err := p.distributeVoterOnly(ctx, sm, voterChunkRequest{
-			cand:               cand,
-			rewardAddr:         rewardAddr,
-			voterAmount:        voterAmount,
-			totalWeightFrozen:  totalWeight,
-			snapshotHash:       snapshotHash,
-			voterStartIndex:    voterStartIndex,
-			lastWeightedIndex:  lastWeightedIndex,
-			hasWeightedEntries: hasWeightedEntries,
-			epochCommission:    epochCommission,
-			voterBudget:        0, // unbounded
-			blkHeight:          100,
-		})
-		r.NoError(err)
-		r.True(res.routed, "reference: distributeVoterOnly must route the frozen amount")
-		r.Len(res.logs, 1, "reference: exactly one DelegateDistributed log")
-		r.Len(res.transactionLogs, numVoters, "reference: one direct payout log per voter")
-		r.Equal(voters[voterStartIndex].addr.String(), res.transactionLogs[0].Recipient,
-			"reference: payout must start at the circular offset")
-		r.Equal(uint32(numVoters), res.consumedVoters,
-			"reference: unbounded call must consume all voters")
-		r.Equal(uint32(numVoters), res.totalVoters,
-			"reference: totalVoters must equal the snapshot entry count")
-		r.NotNil(res.paid)
-		r.Zero(res.compounded.Sign())
-		r.Equal(0, res.paid.Cmp(voterAmount),
-			"reference: unbounded payout must exactly equal voterAmount (dust included)")
-
-		refPaid = res.paid
-		refBalances = dumpBalances(t, ctx, sm, p)
-	}()
-
-	// Chunked fixture: three calls with voterBudget=7 → windows (7,7,6).
-	chunkedPaid := new(big.Int)
-	var chunkedBalances []*big.Int
-	func() {
-		r := require.New(t)
-		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true /* iip59On */)
-		writeSnapshot(t, sm, candAddr, true /* registered */, epochBps, voters)
-		rewardAddr, err := address.FromString(cand.RewardAddress)
-		r.NoError(err)
-
-		windows := []struct {
-			start, budget, want uint32
-		}{
-			{0, 7, 7},
-			{7, 7, 7},
-			{14, 7, 6},
-		}
-		snapshot, err := staking.PollSnapshotFor(sm, candAddr)
-		r.NoError(err)
-		totalWeight, snapshotHash, lastWeightedIndex, hasWeightedEntries := voterDistributionMetadata(snapshot, voterStartIndex)
-		for chunkIdx, w := range windows {
-			res, err := p.distributeVoterOnly(ctx, sm, voterChunkRequest{
-				cand:               cand,
-				rewardAddr:         rewardAddr,
-				voterAmount:        voterAmount,
-				totalWeightFrozen:  totalWeight,
-				snapshotHash:       snapshotHash,
-				voterStartIndex:    voterStartIndex,
-				lastWeightedIndex:  lastWeightedIndex,
-				hasWeightedEntries: hasWeightedEntries,
-				epochCommission:    epochCommission,
-				distributedBefore:  new(big.Int).Set(chunkedPaid),
-				startVoter:         w.start,
-				voterBudget:        w.budget,
-				blkHeight:          100,
-			})
-			r.NoError(err, "chunk %d", chunkIdx)
-			r.True(res.routed, "chunk %d: distributeVoterOnly must route", chunkIdx)
-			r.Len(res.logs, 1, "chunk %d: one log per chunk", chunkIdx)
-			r.Len(res.transactionLogs, int(w.want), "chunk %d: one direct payout log per voter", chunkIdx)
-			r.Equal(w.want, res.consumedVoters,
-				"chunk %d: consumed must match window size", chunkIdx)
-			r.Equal(uint32(numVoters), res.totalVoters,
-				"chunk %d: totalVoters unchanged across windowed calls", chunkIdx)
-			r.NotNil(res.paid)
-			r.Zero(res.compounded.Sign())
-			chunkedPaid.Add(chunkedPaid, res.paid)
-		}
-		chunkedBalances = dumpBalances(t, ctx, sm, p)
-	}()
-
-	r := require.New(t)
-	r.Equal(0, refPaid.Cmp(chunkedPaid),
-		"sum of chunked paid amounts must equal the reference single-call paid amount (ref=%s chunked=%s)",
-		refPaid.String(), chunkedPaid.String())
-	dustRecipient := (int(voterStartIndex) + numVoters - 1) % numVoters
-	expectedDustPayout := new(big.Int).Set(voterAmount)
-	expectedTotalWeight := big.NewInt(int64(numVoters * (numVoters + 1) / 2))
-	for i, voter := range voters {
-		if i == dustRecipient {
-			continue
-		}
-		share := new(big.Int).Mul(voterAmount, voter.weight)
-		share.Div(share, expectedTotalWeight)
-		expectedDustPayout.Sub(expectedDustPayout, share)
-	}
-	r.Zero(refBalances[dustRecipient].Cmp(expectedDustPayout),
-		"the final positive-weight voter in circular order must receive the division remainder")
-	r.Equal(len(refBalances), len(chunkedBalances))
-	for i := range refBalances {
-		r.Equal(0, refBalances[i].Cmp(chunkedBalances[i]),
-			"voter %d primary balance mismatch (ref=%s chunked=%s) — allocation is not deterministic across windows",
-			i, refBalances[i].String(), chunkedBalances[i].String())
-	}
-}
+// TestDistributeVoterOnly_WindowedDeterminism used to prove that splitting one
+// delegate's entry list across blocks produced identical payouts. Chunk
+// invariance is now a property of the whole voter-major drain rather than of
+// one delegate's window, and is asserted end-to-end by
+// TestChunkedDrain_InvariantAcrossChunkSizes.
 
 // fakeBucketReader satisfies autodeposit.BucketReader with a canned response
 // for use in the option-wiring test below.

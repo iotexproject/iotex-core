@@ -23,6 +23,18 @@ import (
 var ErrCompoundBucketOwnerMismatch = errors.New(
 	"staking: compound bucket owner does not match voter")
 
+// ErrCompoundSelfStakeRoleChanged is returned when the bucket's self-stake role
+// is not the one the era froze: it became the candidate's self-stake bucket
+// after the boundary, or stopped being it. The share was allocated against the
+// frozen role, so compounding into the bucket now would grow a bucket whose
+// weight the era never blessed and would move the candidate's votes by a
+// different multiplier than the payout assumed.
+//
+// It is a routing outcome, not a failure: the caller falls back to crediting
+// the voter's reward destination, exactly as it does for an ineligible bucket.
+var ErrCompoundSelfStakeRoleChanged = errors.New(
+	"staking: compound bucket self-stake role changed since the era freeze")
+
 // AddDepositForCompound applies an IIP-59 §3.6 compound deposit into voter's
 // registered AutoDeposit bucket. It is the rewarding-side counterpart to
 // handleDepositToStake: same in-place bucket + candidate + bucket-pool
@@ -60,6 +72,7 @@ func (p *Protocol) AddDepositForCompound(
 	voter address.Address,
 	bucketID uint64,
 	amount *big.Int,
+	era FrozenSelfStake,
 ) error {
 	if voter == nil {
 		return errors.New("staking: nil voter address")
@@ -71,7 +84,7 @@ func (p *Protocol) AddDepositForCompound(
 		return errors.New("staking: non-positive compound amount")
 	}
 
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return errors.Wrap(err, "staking: build csm for compound")
 	}
@@ -94,9 +107,24 @@ func (p *Protocol) AddDepositForCompound(
 	}
 
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	// The self-stake flag below stays live on purpose. It drives the
+	// sub-then-add that keeps candidate.Votes equal to the sum of its buckets'
+	// current weights; feeding it the frozen role would subtract a weight the
+	// candidate does not actually hold and leave the running total corrupt for
+	// every later handler. Only the drain's *share* decisions use frozen state.
+	//
+	// What the frozen role is used for is the guard right after: if it and the
+	// live role disagree, this deposit does not belong in this bucket at all,
+	// and bailing out before the first mutation keeps that a routing decision
+	// rather than a half-applied one.
 	selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket)
 	if err != nil {
 		return errors.Wrap(err, "staking: self-stake check for compound")
+	}
+	if era.Known() && era.Covers(bucketID) != csm.ContainsSelfStakingBucket(bucketID) {
+		return errors.Wrapf(ErrCompoundSelfStakeRoleChanged,
+			"bucket=%d frozenSelfStake=%t liveSelfStake=%t",
+			bucketID, era.Covers(bucketID), csm.ContainsSelfStakingBucket(bucketID))
 	}
 
 	prevWeighted := p.calculateVoteWeight(bucket, selfStake)
@@ -105,11 +133,11 @@ func (p *Protocol) AddDepositForCompound(
 		return errors.Wrapf(err, "staking: update compound bucket %d", bucketID)
 	}
 
-	if err := subCandidateVotes(csm, candidate, bucket.Owner, prevWeighted); err != nil {
+	if err := subCandidateVotes(candidate, prevWeighted); err != nil {
 		return errors.Wrapf(err, "staking: subtract vote for candidate %s", bucket.Candidate.String())
 	}
 	newWeighted := p.calculateVoteWeight(bucket, selfStake)
-	if err := addCandidateVotes(csm, candidate, bucket.Owner, newWeighted); err != nil {
+	if err := addCandidateVotes(candidate, newWeighted); err != nil {
 		return errors.Wrapf(err, "staking: add vote for candidate %s", bucket.Candidate.String())
 	}
 	if selfStake {

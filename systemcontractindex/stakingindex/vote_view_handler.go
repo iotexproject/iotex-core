@@ -21,47 +21,7 @@ type (
 
 		calculateUnmutedVoteWeight CalculateUnmutedVoteWeightFn
 	}
-	observingBucketStore struct {
-		BucketStore
-		observer staking.ContractBucketObserver
-	}
 )
-
-func newObservingBucketStore(store BucketStore, observer staking.ContractBucketObserver) BucketStore {
-	return &observingBucketStore{BucketStore: store, observer: observer}
-}
-
-func (s *observingBucketStore) PutBucket(addr address.Address, id uint64, bucket *contractstaking.Bucket) error {
-	previous, err := s.BucketStore.DeductBucket(addr, id)
-	switch errors.Cause(err) {
-	case nil:
-	case contractstaking.ErrBucketNotExist:
-		previous = nil
-	default:
-		return errors.Wrap(err, "failed to read previous bucket")
-	}
-	if err := s.BucketStore.PutBucket(addr, id, bucket); err != nil {
-		return err
-	}
-	s.observer.PutContractBucket(previous, bucket)
-	return nil
-}
-
-func (s *observingBucketStore) DeleteBucket(addr address.Address, id uint64) error {
-	previous, err := s.BucketStore.DeductBucket(addr, id)
-	switch errors.Cause(err) {
-	case nil:
-	case contractstaking.ErrBucketNotExist:
-		return s.BucketStore.DeleteBucket(addr, id)
-	default:
-		return err
-	}
-	if err := s.BucketStore.DeleteBucket(addr, id); err != nil {
-		return err
-	}
-	s.observer.DeleteContractBucket(previous)
-	return nil
-}
 
 // NewVoteViewEventHandler creates a new vote view event handler wrapper
 func NewVoteViewEventHandler(store BucketStore, view CandidateVotes, fn CalculateUnmutedVoteWeightFn) (BucketStore, error) {

@@ -173,8 +173,7 @@ func TestGrantEpochReward_LiveCursorAtPhaseA_DegradesGracefully(t *testing.T) {
 		ctx = enableIIP59(t, ctx)
 
 		live := &epochDrainCursor{
-			TargetEra:     1,
-			DelegateIndex: 0,
+			TargetEra: 1,
 			Delegates: []epochDrainDelegateWork{
 				{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(1)},
 			},
@@ -207,7 +206,9 @@ func TestGrantEpochReward_LiveCursorAtPhaseA_DegradesGracefully(t *testing.T) {
 		overrun := &rewardingpb.RewardLog{}
 		r.NoError(proto.Unmarshal(rewardLogs[0].Data, overrun))
 		r.Equal(rewardingpb.RewardLog_EPOCH_DRAIN_OVERRUN, overrun.Type)
-		r.Equal("1:1", overrun.Addr) // "<target_era>:<delegates_remaining>"
+		// "<target_era>:<delegates_still_holding_a_pool>". The stale cursor's
+		// delegate has no pool balance seeded, so the count is 0.
+		r.Equal("1:0", overrun.Addr)
 	}, nil, false, 0)
 }
 
@@ -230,8 +231,7 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 		// would take the continuation branch and skip Phase A. A survivor
 		// cursor after grant proves cursorEnabled=false held.
 		injected := &epochDrainCursor{
-			TargetEra:     1,
-			DelegateIndex: 0,
+			TargetEra: 1,
 			Delegates: []epochDrainDelegateWork{
 				{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(42)},
 			},
@@ -260,7 +260,7 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(got, "cursor must survive a legacy epoch grant")
 		r.Equal(injected.TargetEra, got.TargetEra)
-		r.Equal(injected.DelegateIndex, got.DelegateIndex)
+		r.Equal(injected.ShardsDone, got.ShardsDone)
 		r.Len(got.Delegates, 1)
 		r.Equal(injected.Delegates[0].CandidateIdentifier, got.Delegates[0].CandidateIdentifier)
 		r.Equal(int64(42), got.Delegates[0].VoterAmountFrozen.Int64())
@@ -294,9 +294,7 @@ func TestGrantEpochReward_PoolAccrualBuildsCursor(t *testing.T) {
 			BlockCommissionBasisPoints: _basisPointsDenom,
 			EpochCommissionBasisPoints: _basisPointsDenom,
 			Registered:                 true,
-			Entries: []staking.VoterWeight{{
-				Voter: identityset.Address(27), Weight: big.NewInt(1),
-			}},
+			TotalWeight:                big.NewInt(1),
 		}))
 
 		patches := gomonkey.NewPatches()
@@ -313,7 +311,7 @@ func TestGrantEpochReward_PoolAccrualBuildsCursor(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(got, "pool accrual must build a cursor entry")
 		r.Equal(uint64(1), got.TargetEra)
-		r.Equal(uint32(0), got.DelegateIndex)
+		r.Equal(uint16(0), got.ShardsDone)
 
 		var found bool
 		for _, work := range got.Delegates {

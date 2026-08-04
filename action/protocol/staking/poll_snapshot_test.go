@@ -52,10 +52,11 @@ func TestCandidatePollSnapshot_SerializeRoundtrip(t *testing.T) {
 		BlockCommissionBasisPoints: 1234,
 		EpochCommissionBasisPoints: 5678,
 		Registered:                 true,
-		Entries: []VoterWeight{
-			{Voter: identityset.Address(1), Weight: big.NewInt(1_000_000)},
-			{Voter: identityset.Address(2), Weight: big.NewInt(2_500_000)},
-		},
+		OnchainRewardEnabled:       true,
+		TotalWeight:                big.NewInt(3_500_000),
+		SnapshotHash:               hash.Hash256b([]byte("era-42")),
+		FreezeHeight:               909_090,
+		SelfStakeBucketIdx:         7,
 	}
 	blob := orig.toBlob()
 	buf, err := blob.Serialize()
@@ -69,17 +70,18 @@ func TestCandidatePollSnapshot_SerializeRoundtrip(t *testing.T) {
 	r.Equal(orig.BlockCommissionBasisPoints, out.BlockCommissionBasisPoints)
 	r.Equal(orig.EpochCommissionBasisPoints, out.EpochCommissionBasisPoints)
 	r.Equal(orig.Registered, out.Registered)
-	r.Len(out.Entries, 2)
-	r.Equal(orig.Entries[0].Voter.String(), out.Entries[0].Voter.String())
-	r.Zero(orig.Entries[0].Weight.Cmp(out.Entries[0].Weight))
-	r.Equal(orig.Entries[1].Voter.String(), out.Entries[1].Voter.String())
-	r.Zero(orig.Entries[1].Weight.Cmp(out.Entries[1].Weight))
+	r.Equal(orig.OnchainRewardEnabled, out.OnchainRewardEnabled)
+	r.Zero(orig.TotalWeight.Cmp(out.TotalWeight))
+	r.Equal(orig.SnapshotHash, out.SnapshotHash)
+	r.Equal(orig.FreezeHeight, out.FreezeHeight)
+	r.Equal(orig.SelfStakeBucketIdx, out.SelfStakeBucketIdx)
 }
 
-func TestCandidatePollSnapshot_SerializeEmptyEntries(t *testing.T) {
-	// The IIP-59 skeleton PR writes empty Entries; this test pins the
-	// contract that empty on the wire round-trips to len(Entries)==0
-	// (so downstream rewarding's degenerate-branch check still triggers).
+func TestCandidatePollSnapshot_SerializeZeroTotalWeight(t *testing.T) {
+	// A snapshot with no payable voter set (opted-out delegate, or a candidate
+	// record the freezer could not read) must round-trip to a zero, non-nil
+	// TotalWeight — that is the value rewarding tests with Sign() to decide
+	// whether the delegate has anything to distribute this era.
 	r := require.New(t)
 	orig := &CandidatePollSnapshot{
 		BlockCommissionBasisPoints: 1000,
@@ -94,7 +96,8 @@ func TestCandidatePollSnapshot_SerializeEmptyEntries(t *testing.T) {
 	r.NoError(round.Deserialize(buf))
 	out, err := fromBlob(&round)
 	r.NoError(err)
-	r.Len(out.Entries, 0)
+	r.NotNil(out.TotalWeight)
+	r.Zero(out.TotalWeight.Sign())
 	r.True(out.Registered)
 }
 
@@ -113,7 +116,8 @@ func TestCandidatePollSnapshot_ZeroValueSerializes(t *testing.T) {
 	r.Zero(pb.GetBlockCommissionBasisPoints())
 	r.Zero(pb.GetEpochCommissionBasisPoints())
 	r.False(pb.GetRegistered())
-	r.Empty(pb.GetEntries())
+	r.Empty(pb.GetTotalWeight())
+	r.Zero(pb.GetFreezeHeight())
 }
 
 func TestCandidatePollSnapshotKey_Layout(t *testing.T) {
@@ -214,9 +218,7 @@ func TestFreezePollSnapshot_LegacyCandidateSkipsProfileAndVoters(t *testing.T) {
 	}
 	r.NoError(csm.putCandidate(candidate))
 
-	view := NewVoterWeightView()
-	view.Apply(hash.BytesToHash160(candidate.GetIdentifier().Bytes()), identityset.Address(8), big.NewInt(100))
-	r.NoError(sm.WriteView(_protocolID, &viewData{voterWeights: view}))
+	r.NoError(sm.WriteView(_protocolID, &viewData{}))
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 	reader := delegateprofile.ContractReaderFunc(func(context.Context, string, []byte) ([]byte, error) {
@@ -234,7 +236,7 @@ func TestFreezePollSnapshot_LegacyCandidateSkipsProfileAndVoters(t *testing.T) {
 	r.NoError(err)
 	r.False(snapshot.OnchainRewardEnabled)
 	r.False(snapshot.Registered)
-	r.Empty(snapshot.Entries)
+	r.Zero(snapshot.TotalWeight.Sign())
 }
 
 func TestFreezePollSnapshot_NilBridge(t *testing.T) {

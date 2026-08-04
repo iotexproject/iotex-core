@@ -149,9 +149,18 @@ func TestFreezeIIP59PollSnapshot_EraBoundaryProceeds(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).MinTimes(1)
-	// 5.5a's FreezePollSnapshot reads the VoterWeightView from the staking
-	// view; return "not installed" so the freezer degrades to Entries=nil.
-	sm.EXPECT().ReadView(gomock.Any()).Return(nil, state.ErrStateNotExist).AnyTimes()
+	// FreezePollSnapshot resolves TotalWeight and SelfStakeBucketIdx from the
+	// candidate center, so it constructs a base view -- which reads the height
+	// before it reads the view.
+	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+	// "Staking view not installed" is protocol.ErrNoName, the error the real
+	// views.Read returns for an unregistered name (protocol.go:197). It is the
+	// one cause FreezePollSnapshot degrades on; every other cause is returned,
+	// so mocking a different error here would assert the opposite behaviour.
+	sm.EXPECT().ReadView(gomock.Any()).Return(nil, protocol.ErrNoName).AnyTimes()
+	// beginEraCOWWindow range-scans the copy-on-write namespace; an empty one
+	// is the correct answer for a fresh era.
+	sm.EXPECT().States(gomock.Any()).Return(uint64(0), nil, state.ErrStateNotExist).AnyTimes()
 
 	ctx := freezeSnapshotEraGateCtx(t, 24, 1)
 	r.NoError(freezeIIP59PollSnapshot(ctx, sm, fakeCandidatesForGate(), 24))

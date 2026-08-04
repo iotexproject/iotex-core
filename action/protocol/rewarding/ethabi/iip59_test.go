@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol/abiutil"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -25,7 +26,7 @@ func TestIIP59AddressMethodDispatch(t *testing.T) {
 		stateName  string
 	}{
 		{"pendingBlockRewardPool", &_pendingBlockRewardPoolMethod, "PendingBlockRewardPool"},
-		{"voterRewardSnapshot", &_voterRewardSnapshotMethod, "VoterRewardSnapshot"},
+		{"voterRewardDelegateSnapshot", &_voterRewardDelegateSnapshotMethod, "VoterRewardSnapshot"},
 		{"voterRewardAddress", &_voterRewardAddressMethod, "VoterRewardAddress"},
 		{"voterRewardDestination", &_voterRewardDestinationMethod, "VoterRewardDestination"},
 	}
@@ -62,15 +63,14 @@ func TestIIP59VoterRewardDestinationEncoding(t *testing.T) {
 
 func TestIIP59VoterRewardStatusDispatchAndEncoding(t *testing.T) {
 	r := require.New(t)
-	candidate := common.BytesToAddress(identityset.Address(7).Bytes())
 	voter := common.BytesToAddress(identityset.Address(8).Bytes())
-	calldata, err := _voterRewardStatusMethod.Inputs.Pack(candidate, voter)
+	calldata, err := _voterRewardStatusMethod.Inputs.Pack(voter)
 	r.NoError(err)
 	ctx, err := BuildReadStateRequest(append(_voterRewardStatusMethod.ID, calldata...))
 	r.NoError(err)
 	r.Equal("VoterRewardStatus", string(ctx.Parameters().MethodName))
-	r.Equal(identityset.Address(7).String(), string(ctx.Parameters().Arguments[0]))
-	r.Equal(identityset.Address(8).String(), string(ctx.Parameters().Arguments[1]))
+	r.Len(ctx.Parameters().Arguments, 1)
+	r.Equal(identityset.Address(8).String(), string(ctx.Parameters().Arguments[0]))
 
 	data, err := proto.Marshal(&rewardingpb.VoterRewardStatus{
 		TargetEra:           24,
@@ -79,8 +79,6 @@ func TestIIP59VoterRewardStatusDispatchAndEncoding(t *testing.T) {
 		SettlementCompleted: true,
 		CompletedHeight:     8640,
 		Status:              rewardingpb.VoterRewardStatus_WAITING,
-		LogicalVoterIndex:   23,
-		VoterStartIndex:     11,
 		RewardAmount:        big.NewInt(123456789).Bytes(),
 	})
 	r.NoError(err)
@@ -94,9 +92,7 @@ func TestIIP59VoterRewardStatusDispatchAndEncoding(t *testing.T) {
 	r.Equal(true, values[3])
 	r.Equal(uint64(8640), values[4])
 	r.Equal(uint8(rewardingpb.VoterRewardStatus_WAITING), values[5])
-	r.Equal(uint32(23), values[6])
-	r.Equal(uint32(11), values[7])
-	r.Zero(values[8].(*big.Int).Cmp(big.NewInt(123456789)))
+	r.Zero(values[6].(*big.Int).Cmp(big.NewInt(123456789)))
 }
 
 func TestIIP59RewardAddressEncoding(t *testing.T) {
@@ -160,15 +156,15 @@ func TestIIP59PendingPoolAndIndexEncoding(t *testing.T) {
 func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	r := require.New(t)
 	cursorData, err := proto.Marshal(&rewardingpb.EpochDrainCursor{
-		TargetEra:          4,
-		StartEpoch:         1,
-		EndEpoch:           4,
-		Completed:          true,
-		CompletedHeight:    99,
-		DelegateIndex:      1,
-		VoterIndex:         25,
-		SettlementSeed:     common.HexToHash("0x9876").Bytes(),
-		DelegateStartIndex: 2,
+		TargetEra:       4,
+		StartEpoch:      1,
+		EndEpoch:        4,
+		Completed:       true,
+		CompletedHeight: 99,
+		StartShard:      7,
+		ShardsDone:      256,
+		ResumeVoter:     identityset.Address(5).Bytes(),
+		SettlementSeed:  common.HexToHash("0x9876").Bytes(),
 		Delegates: []*rewardingpb.EpochDrainDelegateWork{{
 			CandidateIdentifier:    identityset.Address(3).Bytes(),
 			VoterAmountFrozen:      big.NewInt(1000).Bytes(),
@@ -176,32 +172,30 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 			RewardAddress:          identityset.Address(4).Bytes(),
 			EpochCommission:        big.NewInt(200).Bytes(),
 			TotalWeight:            big.NewInt(300).Bytes(),
-			VoterStartIndex:        17,
 		}},
 	})
 	r.NoError(err)
-	cursorCtx, err := newEpochDrainCursorStateContext()
+	cursorCtx, err := newEraDrainCursorStateContext()
 	r.NoError(err)
 	encoded, err := cursorCtx.EncodeToEth(&iotexapi.ReadStateResponse{Data: cursorData})
 	r.NoError(err)
-	values, err := _epochDrainCursorMethod.Outputs.Unpack(mustDecodeHex(t, encoded))
+	values, err := _eraDrainCursorMethod.Outputs.Unpack(mustDecodeHex(t, encoded))
 	r.NoError(err)
 	r.Equal(uint64(4), values[0])
 	r.Equal(uint64(1), values[1])
 	r.Equal(uint64(4), values[2])
 	r.Equal(true, values[3])
 	r.Equal(uint64(99), values[4])
-	r.Equal(uint32(1), values[5])
-	r.Equal(uint32(25), values[6])
-	r.Equal([32]byte(common.HexToHash("0x9876")), values[7])
-	r.Equal(uint32(2), values[8])
+	r.Equal(uint32(7), values[5])
+	r.Equal(uint32(256), values[6])
+	r.Equal(identityset.Address(5).Bytes(), values[7])
+	r.Equal([32]byte(common.HexToHash("0x9876")), values[8])
 	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(3).Bytes())}, values[9])
-	r.Equal([]uint32{17}, values[10])
-	r.Zero(values[11].([]*big.Int)[0].Cmp(big.NewInt(1000)))
-	r.Zero(values[12].([]*big.Int)[0].Cmp(big.NewInt(400)))
-	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(4).Bytes())}, values[13])
-	r.Zero(values[14].([]*big.Int)[0].Cmp(big.NewInt(200)))
-	r.Zero(values[15].([]*big.Int)[0].Cmp(big.NewInt(300)))
+	r.Zero(values[10].([]*big.Int)[0].Cmp(big.NewInt(1000)))
+	r.Zero(values[11].([]*big.Int)[0].Cmp(big.NewInt(400)))
+	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(4).Bytes())}, values[12])
+	r.Zero(values[13].([]*big.Int)[0].Cmp(big.NewInt(200)))
+	r.Zero(values[14].([]*big.Int)[0].Cmp(big.NewInt(300)))
 
 	snapshotHash := common.HexToHash("0x1234")
 	snapshotData, err := proto.Marshal(&stakingpb.CandidatePollSnapshot{
@@ -211,19 +205,17 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 		OnchainRewardEnabled:       true,
 		TotalWeight:                big.NewInt(300).Bytes(),
 		SnapshotHash:               snapshotHash.Bytes(),
-		Entries: []*stakingpb.VoterWeightEntry{
-			{Voter: identityset.Address(5).Bytes(), Weight: big.NewInt(100).Bytes()},
-			{Voter: identityset.Address(6).Bytes(), Weight: big.NewInt(200).Bytes()},
-		},
+		FreezeHeight:               8_800,
+		SelfStakeBucketIdx:         42,
 	})
 	r.NoError(err)
-	snapshotCtx, err := newVoterRewardSnapshotStateContext(
-		mustPackInput(t, _voterRewardSnapshotMethod, common.BytesToAddress(identityset.Address(3).Bytes())),
+	snapshotCtx, err := newVoterRewardDelegateSnapshotStateContext(
+		mustPackInput(t, _voterRewardDelegateSnapshotMethod, common.BytesToAddress(identityset.Address(3).Bytes())),
 	)
 	r.NoError(err)
 	encoded, err = snapshotCtx.EncodeToEth(&iotexapi.ReadStateResponse{Data: snapshotData})
 	r.NoError(err)
-	values, err = _voterRewardSnapshotMethod.Outputs.Unpack(mustDecodeHex(t, encoded))
+	values, err = _voterRewardDelegateSnapshotMethod.Outputs.Unpack(mustDecodeHex(t, encoded))
 	r.NoError(err)
 	r.Equal(uint64(1000), values[0])
 	r.Equal(uint64(2000), values[1])
@@ -231,6 +223,55 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	r.Equal(true, values[3])
 	r.Zero(values[4].(*big.Int).Cmp(big.NewInt(300)))
 	r.Equal([32]byte(snapshotHash), values[5])
-	r.Len(values[6].([]common.Address), 2)
-	r.Len(values[7].([]*big.Int), 2)
+	// The trailing pair used to be the materialized (voters, weights) lists.
+	// Those are gone; a caller that needs the voter set queries
+	// voterRewardStatus(address) per voter instead. What replaced them here
+	// is exactly the two scalars a caller needs to recompute snapshotHash
+	// itself from the other returned fields.
+	r.Equal(uint64(8_800), values[6])
+	r.Equal(uint64(42), values[7])
+}
+
+// TestIIP59RetiredVoterRewardSnapshotSelector pins the removal of the original
+// voterRewardSnapshot(address) selector. Its return tuple ended in
+// (address[] voters, uint256[] weights); the replacement ends in
+// (uint64 freezeHeight, uint64 selfStakeBucketIdx). Re-registering the old
+// 4-byte id — under any name — would let a caller built against the old ABI
+// decode the new tuple as the old one and read a freeze height as an array
+// offset. IIP-59 is unactivated, so nothing is owed compatibility here.
+func TestIIP59RetiredVoterRewardSnapshotSelector(t *testing.T) {
+	r := require.New(t)
+	retired := abiutil.MustLoadMethod(`[
+		{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"onchainRewardEnabled","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"snapshotHash","type":"bytes32"},{"name":"voters","type":"address[]"},{"name":"weights","type":"uint256[]"}],"stateMutability":"view","type":"function"}
+	]`, "voterRewardSnapshot")
+
+	r.NotEqual(retired.ID, _voterRewardDelegateSnapshotMethod.ID,
+		"the replacement must not reuse the retired selector")
+
+	calldata, err := retired.Inputs.Pack(common.BytesToAddress(identityset.Address(7).Bytes()))
+	r.NoError(err)
+	_, err = BuildReadStateRequest(append(retired.ID, calldata...))
+	r.ErrorIs(err, errInvalidCallSig)
+}
+
+// TestIIP59RetiredEpochDrainCursorSelector pins the removal of the original
+// epochDrainCursor() selector, for the same reason as the snapshot view above
+// and with a sharper failure mode: the method takes no arguments, so the old
+// selector is reachable from calldata that is nothing but the 4-byte id. Its
+// tuple carried the candidate-major quartet (delegateIndex, voterIndex,
+// delegateStartIndex, voterStartIndices); the drain is voter-major now and the
+// replacement carries (startShard, shardsDone, resumeVoter) instead. Decoded
+// against the old ABI, a shard counter reads as a delegate index -- a small
+// plausible number, which is the worst kind of wrong.
+func TestIIP59RetiredEpochDrainCursorSelector(t *testing.T) {
+	r := require.New(t)
+	retired := abiutil.MustLoadMethod(`[
+		{"inputs":[],"name":"epochDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"startEpoch","type":"uint64"},{"name":"endEpoch","type":"uint64"},{"name":"completed","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"delegateIndex","type":"uint32"},{"name":"voterIndex","type":"uint32"},{"name":"settlementSeed","type":"bytes32"},{"name":"delegateStartIndex","type":"uint32"},{"name":"candidateIds","type":"address[]"},{"name":"voterStartIndices","type":"uint32[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"rewardAddresses","type":"address[]"},{"name":"epochCommissions","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"}],"stateMutability":"view","type":"function"}
+	]`, "epochDrainCursor")
+
+	r.NotEqual(retired.ID, _eraDrainCursorMethod.ID,
+		"the replacement must not reuse the retired selector")
+
+	_, err := BuildReadStateRequest(retired.ID)
+	r.ErrorIs(err, errInvalidCallSig)
 }

@@ -1,321 +1,215 @@
-# IIP-59 performance report — epoch-grant on-chain reads
+# IIP-59 performance report — era freeze and voter drain
 
-**Scope.** IIP-59 moves two Hermes off-chain lookups into `GrantEpochReward`.
-Both go through the in-process EVM (`evm.SimulateExecution`), not RPC. Mainnet
-runs on a **2.5s block interval** (Dardanelles), so per-call latency at mainnet
-scale drives whether the current wiring is shippable or needs mitigation before
-PR 6 (mainnet fork activation).
+**Budget.** Mainnet runs on a **2.5s block interval** (Dardanelles). Every
+number below is graded against 2,500ms.
 
-**Two levers landed** to keep the drain inside budget:
+**Host.** Apple silicon dev host, 10 cores, Go 1.25.5, darwin/arm64. Timings
+are wall-clock per minted block as reported by the harness itself. Repeated
+runs of the mainnet tier on this host spread about ±7% around the figures
+below, so treat the third significant digit as noise.
 
-1. **PR C0/C1 — direct-slot AutoDeposit reader** replaces the
-   `SimulateExecution` code path with a `NewStateDBAdapter + GetState`
-   reader; ~26× per-voter latency reduction. Detail in
-   `## AutoDeposit.bucket per-call cost` below.
-2. **PR C2 — era-based chunked drain** spreads voter-reward distribution
-   across N continuation blocks inside the era window, driven by a
-   persisted cursor and a voter-count budget. Detail in `## Chunked drain (era-based v2)
-   end-to-end` below.
+---
 
-These are complementary, not redundant: (1) shrinks per-voter cost,
-(2) caps per-block work regardless of voter count. Combined verdict at
-the bottom.
+## 0. Every previously published drain figure in this file was invalid
 
-Two contracts on the hot path:
+The previous revision of this document reported a mainnet-tier drain at
+**p50 26.9ms / p95 28.0ms** and concluded the drain cost "~1.1% of the block
+budget". Those numbers are withdrawn, not merely stale.
 
-| Contract | Reader | Call site | Calls per epoch |
+`e2etest/iip59_perf_test.go` and `e2etest/iip59_stress_test.go` ran on
+`poll.NewLifeLongDelegatesProtocol`, which never calls `FreezePollSnapshot`. No
+era was ever frozen, so every `CandidatePollSnapshot` the harness produced
+carried `FreezeHeight 0` — the value that makes a delegate **unpayable**. The
+drain dutifully created a cursor, walked its shards, paid **nobody**, and swept
+the entire pool as residual. The only assertions in place were cursor-lifecycle
+and fund-conservation ones, and fund conservation holds perfectly well when
+every voter is paid zero. The harness was measuring an empty walk.
+
+A test-only `iip59EraFreezer` protocol now drives a real freeze at every
+era-boundary epoch, and both harnesses assert per-voter payout amounts (see
+`e2etest/iip59_payout_test.go`). The figures in §1 are the first measurements of
+a settlement that actually pays.
+
+**Old and new figures are not comparable in either direction.** The new numbers
+are ~18× larger at the mainnet tier, and essentially all of that is work the old
+harness skipped: the copy-on-write freeze, the on-demand per-voter weight
+recompute at the frozen height, and the balance writes themselves.
+
+---
+
+## 1. End-to-end chunked drain
+
+Bench: `e2etest/iip59_perf_test.go::TestIIP59EpochGrantPerf`. Drives a real
+`chainservice` from the era-boundary block through every continuation chunk to
+cursor deletion. Contract dispatch (`DelegateProfile`, `AutoDeposit`) is stubbed
+by test-only injection seams, so these numbers are **drain machinery plus era
+freeze plus weight recompute**, not contract reads.
+
+```
+IIP59_PERF_TIER=small|medium|mainnet \
+  go test -run TestIIP59EpochGrantPerf -count=1 -v -timeout 120m ./e2etest/
+```
+
+| tier | delegates | voters | era epochs | voter budget | blocks in window | continuation chunks | p50 | p95 | max | total |
+|---|---|---|---|---|---|---|---|---|---|---|
+| small | 3 | 100 | 2 | 50 | 4 | 2 | 32.7ms | 34.6ms | 34.6ms | 122.8ms |
+| medium | 10 | 1,000 | 4 | 250 | 6 | 4 | 50.9ms | 56.9ms | 56.9ms | 267.2ms |
+| mainnet | 24 | 27,020 | 24 | 4,504 | 8 | 6 | 482.0ms | 509.0ms | 509.0ms | 3.006s |
+
+"Blocks in window" counts the era-boundary block (Phase A) and the first block
+after the cursor disappears, both of which the harness samples; "continuation
+chunks" is the number of blocks that actually paid voters.
+
+Per-block detail, mainnet tier — the shape is what matters:
+
+| height | role | wall |
+|---|---|---|
+| 1152 | era boundary (Phase A: freeze + cursor write) | 34.0ms |
+| 1153 | chunk 1 | 509.0ms |
+| 1154 | chunk 2 | 498.6ms |
+| 1155 | chunk 3 | 495.9ms |
+| 1156 | chunk 4 | 482.0ms |
+| 1157 | chunk 5 | 479.2ms |
+| 1158 | chunk 6 (final: residual sweep, seal, complete) | 479.9ms |
+| 1159 | first block after completion | 27.8ms |
+
+**Against the 2.5s budget:** the worst continuation block is **509.0ms, 20.4%**
+of a block. Phase A — the era boundary, which also carries `PutPollResult` — is
+34.0ms. Continuation cost is flat across chunks (509 → 480ms, mildly
+*decreasing*), which is what a correctly budgeted walk should look like: each
+chunk does `VoterBudgetPerBlock` voters' worth of work regardless of where in
+the key space it is.
+
+**Per era:** on mainnet an era is 24 epochs ≈ 8,640 blocks. The settlement
+occupies 6 of them at the head of the era. The drain has ~1,400× more block
+budget than it uses.
+
+### 1.1 What these numbers do not cover
+
+Read these as a lower bound. Four reasons, in decreasing order of size:
+
+1. **In-memory state, not a trie.** The harness runs the chainservice's default
+   factory over the test DB paths, not a mainnet-sized trie under leveldb/pebble
+   with hash verification. Real per-read cost is higher by an
+   implementation-dependent factor.
+2. **All 27,020 voters live in shard 0.** `perfBenchAddress` writes its seed into
+   the low 8 bytes of a 20-byte address and leaves the top 12 zero, so every
+   seeded delegate and voter has first byte `0x00`. The drain's 256-shard
+   partition is therefore maximally degenerate: one shard holds everything and
+   255 are empty. This is *pessimistic for the intra-shard resume path* (every
+   chunk boundary falls inside a shard, exercising `ResumeVoter`) and
+   *optimistic for the scan* (255 shards cost an empty range query each). It is
+   not representative of the mainnet key distribution, and it means the fixture
+   does not exercise cross-shard rotation at all.
+3. **Contract dispatch is stubbed.** No `AutoDeposit.bucket` read, no
+   `DelegateProfile.getProfileByField`. See §2.
+4. **The freeze is driven by a test-only protocol.** `iip59EraFreezer` opens the
+   copy-on-write window and stamps `FreezeHeight` at the first block of every
+   era-boundary epoch; production drives the same path from `PutPollResult` →
+   `FreezePollSnapshot`. The COW window and the recompute are the real ones.
+
+## 2. Contract-read cost (unreproducible from this tree)
+
+The previous revision reported an `AutoDeposit.bucket` micro-bench comparing
+`SimulateExecution` (66.5μs/voter), per-call `ReadContractStorage` (29.5μs) and
+`NewStateDBAdapter` + `GetState` with adapter reuse (2.5μs), concluding a ~26×
+saving for the direct-slot reader now in production.
+
+**Those numbers cannot be re-measured on this branch.** The bench file it names,
+`action/protocol/execution/protocol_iip59_bench_test.go`, does not exist; the
+only surviving `iip59bench`-tagged file in that package is
+`autodeposit_slot_reader_sanity_test.go`, which is a correctness test, not a
+benchmark. Running the documented invocation matches zero benchmarks:
+
+```
+$ go test -tags=iip59bench -bench='BenchmarkAutoDeposit_bucket' \
+    -benchmem -count=3 -run=^$ ./action/protocol/execution/
+PASS
+ok  github.com/iotexproject/iotex-core/v2/action/protocol/execution  1.190s
+```
+
+The architectural conclusion (use the direct-slot reader, not
+`SimulateExecution`) is already implemented and is not in question. What is gone
+is the ability to reproduce the measurement. Anyone who needs a defensible
+contract-read number before activation has to restore the bench.
+
+`DelegateProfile.getProfileByField` remains unmeasured, as before. At ~48 calls
+per epoch it is bounded well below noise even under pessimistic assumptions.
+
+## 3. Staking-side micro-benchmarks
+
+```
+go test -tags=iip59bench -run=^$ -benchmem -count=1 \
+  -bench='BenchmarkFreezeSnapshotNativeEnumeration|BenchmarkAddDepositForCompound' \
+  ./action/protocol/staking/
+```
+
+**`BenchmarkAddDepositForCompound`** — the write path taken once per compounding
+voter:
+
+| shape | ns/op | B/op | allocs/op |
 |---|---|---|---|
-| `DelegateProfile` (`0xfa7f50866ac45d84adf54bc767c885f92750e258`) | `getProfileByField(address, string)` | `PutPollResult` → `SnapshotCommissionRates` | 24 delegates × ~2 fields ≈ **48** |
-| `AutoDeposit` (`0x79f1670BE20daecEfB134E33D97f9E77340fd2C0`) | `bucket(address)` | `distributeVoterOnly` (voter drain) | up to **107,200** (100k native + 7k V1 CSC + 200 V2/V3) |
+| cand=10, voters=100 | 40,264 | 29,941 | 414 |
+| cand=100, voters=1,000 | 44,325 | 29,948 | 414 |
+| cand=100, voters=10,000 | 42,954 | 29,937 | 414 |
 
-The 2.5s block budget is the fixed constant these numbers get graded against.
+Flat in population, ~40–44μs per compounding voter over the in-memory mock state
+manager. At 27,020 voters, if every one of them compounded, this is ~1.2s of
+work — which is why it is chunked, and it is consistent with the ~500ms
+continuation blocks in §1 where routing falls to the direct-credit path.
 
----
+**`BenchmarkFreezeSnapshotNativeEnumeration`** — note this measures an *in-test
+replica* (`benchAggregateNativeVoterEntries`) of the **retired** enumerate-at-
+freeze design, not production code. The production freeze no longer enumerates
+buckets at all; it opens a copy-on-write window and writes per-delegate scalars.
+The numbers survive as an order-of-magnitude for what per-bucket weight
+computation costs, since the drain still does that work — just later and
+chunked:
 
-## AutoDeposit.bucket per-call cost
+| tier | delegates | buckets | per-freeze |
+|---|---|---|---|
+| small_5x40 | 5 | 200 | 1.91ms |
+| mainnet_uneven_52d_7508b | 52 | 6,077 | 56.7ms |
+| ceiling_1x30000 | 1 | 30,000 | 281.1ms |
 
-Bench: `action/protocol/execution/protocol_iip59_bench_test.go` (build tag
-`iip59bench`). Deploys the mainnet runtime bytecode
-(`e2etest/autodeposit_bytecode`) via a CODECOPY+RETURN preamble, seeds 30
-distinct registered voters via real `register(int256)` txs, hot-loops
-against a rotating registered voter. Three read paths compared:
+≈9.4μs per bucket at the ceiling tier, in memory.
 
-1. **SimulateExecution** — the original wiring: full EVM dispatch, build
-   ctx + working set + zero-address caller once, dispatch per call.
-2. **`evm.ReadContractStorage` per-call** — bypasses EVM, but constructs a
-   fresh `StateDBAdapter` for each of the two SLOADs (`registrants[owner]`
-   then `buckets[owner]`).
-3. **`NewStateDBAdapter` + `GetState`** — build the adapter ONCE per drain,
-   call `GetState` twice per voter directly. **This is what
-   `autoDepositContractReader` now uses in production** (PR C0/C1).
+## 4. Verdict
 
-Storage layout is validated at bench setup: voter 2's `register(2)` value
-disambiguates `buckets` (slot 1) from `registrants` (slot 2). Layout was
-verified empirically, not derived from `contract ... is Pausable, Ownable`
-naïvely — see the constants block comment for why the mapping lands at
-slot 1 not slot 2.
+- The settlement, measured for the first time on a harness that actually pays
+  voters, costs **509ms in its worst block — 20.4% of a 2.5s block** at
+  mainnet tier (24 delegates, 27,020 voters, `VoterBudgetPerBlock = 4,504`).
+- The era-boundary block itself is cheap (34ms); the cost is in the six
+  continuation chunks, and it is flat across them.
+- Total settlement wall-clock is ~3.0s spread over 6 blocks inside an ~8,640
+  block era.
+- Headroom is real but it is **4.9×, not the ~90× the withdrawn numbers
+  implied**. Lowering `VoterBudgetPerBlock` trades chunks for per-block cost
+  linearly and is the available lever: at 2,000 (the genesis default) the same
+  population would take 14 chunks at roughly 230ms each.
 
-Invocation:
+**Before activation, two things are still outstanding** and neither is closed by
+this report:
 
-```
-go test -tags=iip59bench \
-  -bench='BenchmarkAutoDeposit_bucket|BenchmarkAutoDeposit_bucket_DirectRead|BenchmarkAutoDeposit_bucket_AdapterReuse' \
-  -benchmem -count=3 -run=^$ ./action/protocol/execution/
-```
+1. A trie-backed measurement. Everything in §1 and §3 is in-memory; the
+   multiplier from real trie reads is the single largest unknown in the budget.
+2. A fixture whose addresses are distributed across the shard space, so the
+   256-shard walk is measured on something other than a degenerate partition
+   (§1.1 item 2).
 
-Results (Apple silicon dev host, three consecutive runs each):
-
-| path                                | ns/op   | ns/voter | B/op    | allocs/op |
-|-------------------------------------|---------|----------|---------|-----------|
-| SimulateExecution (baseline)        | 66,504  | 66,504   | 68,796  | 810       |
-| ReadContractStorage per-call        | 29,453  | 29,453   | 46,729  | 598       |
-| **NewStateDBAdapter + GetState reuse** | **2,518** | **2,518** | **3,171** | **58** |
-| Wrapper contract batch (30 voters) | 362,900 | ~12,100 | 260,213 | 3,412     |
-
-Stddev < 2% within each row. Adapter reuse is **~26× faster than baseline**
-and ~12× faster than per-call ReadContractStorage — the savings come almost
-entirely from amortizing the `StateDBAdapter` construction (contract cache,
-snapshot buffers, access list, transient storage). Actual trie SLOAD is
-sub-microsecond.
-
-The wrapper-contract row is a single `SimulateExecution` of
-`AutoDepositBatch.buckets(address[30])`, deployed once with the mainnet
-AutoDeposit address as ctor arg. The per-voter cost is ~5× the adapter-reuse
-path — the batch amortises EVM setup, but every bucket lookup still pays
-STATICCALL + parameter marshalling + int256 abi-encoding overhead. See
-`e2etest/autodeposit_batch.sol` for the source and
-`e2etest/autodeposit_batch_init_bytecode` for the paris-EVM init bytecode
-consumed by the bench.
-
-### Extrapolation vs the 2.5s block
-
-Per-call cost × voter count, held against a 2,500ms block budget (assuming
-the drain runs to completion inside a single block — the pre-C2 shape):
-
-| voters   | baseline SimExec | ReadContractStorage | Wrapper batch | **AdapterReuse** |
-|----------|------------------|---------------------|---------------|-------------------|
-| 1,000    | 66 ms (2.7%)     | 30 ms (1.2%)        | 12 ms (0.5%)  | **2.5 ms (0.1%)** |
-| 10,000   | 665 ms (27%)     | 295 ms (12%)        | 121 ms (4.9%) | **25 ms (1.0%)**  |
-| 50,000   | **3.33 s (133%)**| **1.47 s (59%)**    | 605 ms (24%)  | **126 ms (5.0%)** |
-| 100,000  | **6.65 s (266%)**| **2.95 s (118%)**   | 1.21 s (48%)  | **252 ms (10%)**  |
-| 107,200  | **7.13 s (285%)**| **3.16 s (126%)**   | 1.30 s (52%)  | **270 ms (11%)**  |
-
-Wrapper-batch extrapolation assumes per-voter cost holds at scale — in
-practice the batch would chunk (e.g. 1000 voters/call) to keep gas below the
-block limit, adding a small per-chunk setup surcharge that doesn't move the
-verdict.
-
-Verdict flip at 2.5s: baseline breaches decisively at mainnet scale (285%);
-even `ReadContractStorage` per-call breaches (126%). Adapter reuse fits with
-~89% headroom (270ms at 107k voters). This is the "shrink per-voter cost"
-lever; the "cap per-block work" lever is documented below.
-
----
-
-## DelegateProfile.getProfileByField per-call cost
-
-**Not measured.** Skipped for this pass — the setter surface requires
-staging a `Register` contract, per-field `Verifier` contracts, `newField`
-provisioning, and `updateProfileForDelegate` calls behind an owner-only
-gate, so the seeding scaffold is substantially larger than AutoDeposit's
-one-liner `register(int256)`.
-
-Bounding argument: at 48 calls/epoch, even the pessimistic assumption that
-`getProfileByField` costs the same 65μs as `AutoDeposit.bucket` yields
-**~3.1ms per epoch** — three orders of magnitude below the block budget and
-noise-level next to the voter drain. If AutoDeposit gets mitigated and the
-combined budget still looks tight, re-open this bench; otherwise it stays
-deferred.
-
----
-
-## Chunked drain (era-based v2) end-to-end
-
-Bench: `e2etest/iip59_perf_test.go::TestIIP59EpochGrantPerf` (build tag
-`e2e`). Drives a real chainservice through Phase A and Phase B chunk
-iterations through final cursor deletion; measures wall-clock per continuation
-block via the `blk.Actions()` cursor progression. Contract dispatch is
-stubbed by test-only injection seams (`autoDepositRewardsReader`,
-poll snapshot hook, staking hook) so the numbers isolate the **drain
-machinery cost** — the cursor read/write, admin/exempt/candidate
-re-load, `distributeVoterOnly` orchestration — not the AutoDeposit
-reader itself (measured separately above; combines additively).
-
-Three tiers, all with `epochsPerEra` set so exactly one era boundary
-fires inside the harness's block-mint budget:
-
-The timings below were measured before the delegate cap was removed. They
-remain useful as historical context, but are not measurements of the current
-voter-only budget implementation. Rerun all tiers before using them for a
-release decision.
-
-| tier    | delegates | voters | era_epochs | historical delegate batch | historical drain_blocks | historical p50 | historical p95 | historical max | historical total |
-|---------|-----------|--------|------------|---------------------------|-------------------------|----------------|----------------|----------------|------------------|
-| small   | 3         | 100    | 2          | 2                         | 2                       | 34.0ms         | 34.0ms         | 34.0ms         | 64.9ms           |
-| medium  | 10        | 1,000  | 4          | 4                         | 3                       | 34.8ms         | 37.5ms         | 37.5ms         | 98.1ms           |
-| mainnet | 24        | 27,020 | 24         | 4                         | 6                       | 26.9ms         | 28.0ms         | 28.0ms         | 155.6ms          |
-
-Invocation (mainnet tier shown; small is the default):
+## 5. Reproducing
 
 ```
-IIP59_PERF_TIER=mainnet go test -tags e2e -v -timeout 900s \
-  -run TestIIP59EpochGrantPerf ./e2etest/
+# End-to-end chunked drain (tiers: small | medium | mainnet)
+IIP59_PERF_TIER=mainnet go test -run TestIIP59EpochGrantPerf \
+  -count=1 -v -timeout 120m ./e2etest/
+
+# Staking micro-benchmarks
+go test -tags=iip59bench -run=^$ -benchmem -count=1 \
+  -bench='BenchmarkFreezeSnapshotNativeEnumeration|BenchmarkAddDepositForCompound' \
+  ./action/protocol/staking/
 ```
 
-### Reading the historical numbers vs the 2.5s block budget
-
-- **Per-block:** the old delegate-capped implementation's mainnet p95 was
-  28ms — **1.1% of the 2.5s block budget**.
-  Even summed with the AdapterReuse extrapolation (270ms at 107k voters,
-  spread across ~6 chunks ≈ 45ms/chunk), a mainnet continuation block
-  was projected at ~73ms total against 2500ms. This projection must be
-  revalidated against the voter-only implementation.
-- **Per-era:** the drain must complete before the *next* era boundary
-  fires `PutPollResult`. On mainnet an era spans 24 epochs × 360 blocks
-  ≈ 8,640 blocks between boundaries; the drain uses **6 non-boundary
-  blocks** at the head of the era. Effectively unbounded budget for the
-  drain relative to the era window.
-- **Chunk sizing:** `VoterBudgetPerBlock = 4,504` makes 27,020 voters fit
-  in 6 chunks. Candidate snapshot metadata caches total weight, snapshot
-  hash, and the last weighted voter, so continuation work is proportional
-  to the current voter window rather than the delegate's full voter list.
-
-### What the bench does and doesn't cover
-
-The harness stubs contract dispatch, so the drain-block numbers do
-**not** reflect the AutoDeposit reader path — that cost is measured
-independently in the section above and combines additively. What the
-bench **does** validate:
-
-- Chunked-drain cursor invariants (advance, resume, delete-on-final).
-- The one-continuation-per-block emission rule in
-  `CreatePostSystemActions`.
-- Cross-block resume of the freeze snapshot
-  (`epochDrainDelegateWork.VoterAmountFrozen`).
-- The absence of duplicated foundation-bonus or sentinel writes
-  across chunks (checked via `assertNoRewardYet` + cursor delete
-  ordering).
-
-Real-world drift from these numbers will come almost entirely from
-the AdapterReuse column above. Per-block drain work is bounded directly
-by `VoterBudgetPerBlock`.
-
----
-
-## Verdict
-
-The voter-only budget implementation passes the small-tier perf harness and
-the small, multi-era, and single-delegate stress suites. A mainnet-tier rerun
-is still required before making a block-budget claim for the current code.
-
-- **Baseline as originally wired breached** (7.1s / 285% of a 2.5s block
-  at 107k voters, if executed as a single-block system action).
-- **Direct-slot AutoDeposit reader** (PR C0/C1) cuts per-voter cost 26×
-  → 270ms / 11% of block at 107k voters.
-- **Era-based chunked drain** (PR C2) caps per-block work with an explicit
-  voter budget by spreading distribution across continuation blocks.
-- **Historical combined mainnet estimate:** ~73ms per continuation block
-  (2.9% budget) × 6 blocks = ~440ms of total drain wall-clock, against a
-  ~21,600s (8,640-block) era window. Real headroom is measured in
-  orders of magnitude, but the voter-only implementation still needs a
-  mainnet-tier measurement.
-
-No additional mechanism is proposed; rerun the mainnet tier before fork
-activation.
-
-### Recommended mitigation — landed
-
-Landed in PR C0/C1. `autoDepositContractReader` is now a batched
-adapter-reuse reader constructed once at drain start:
-
-```go
-// Sketch — production would live in the autodeposit package as a
-// batchReader that satisfies the same ContractReader interface, or a
-// new BatchContractReader interface if we want to keep both codepaths.
-func autoDepositBatchReader(sm protocol.StateManager, contractAddr address.Address) BatchReader {
-    return func(voters []address.Address) ([]int64, error) {
-        adapter, err := evm.NewStateDBAdapter(sm, blockHeight, hash.ZeroHash256)
-        if err != nil { return nil, err }
-        contractEvm := common.BytesToAddress(contractAddr.Bytes())
-        out := make([]int64, len(voters))
-        for i, v := range voters {
-            regKey := mappingSlotKey(v, autoDepositSlotRegistrants)
-            if adapter.GetState(contractEvm, regKey)[31] == 0 {
-                out[i] = -1
-                continue
-            }
-            buckKey := mappingSlotKey(v, autoDepositSlotBuckets)
-            out[i] = int64(new(big.Int).SetBytes(
-                adapter.GetState(contractEvm, buckKey).Bytes(),
-            ).Int64())
-        }
-        return out, nil
-    }
-}
-```
-
-**Coupling risk is bounded** because `AutoDeposit` is not upgradeable
-(`Ownable + Pausable` only, no proxy pattern) — the storage layout is
-frozen for the lifetime of the contract. The two constants
-(`autoDepositSlotBuckets = 1`, `autoDepositSlotRegistrants = 2`) can be
-hardcoded with a sanity-check unit test that reads a known-registered
-voter and asserts the value.
-
-### Second lever — landed
-
-Spreading distribution across continuation blocks landed as PR C2
-(era-based chunked drain). Original framing had this as a fallback if
-the adapter-reuse path failed safety review; in practice it was
-promoted to a first-class defense-in-depth mechanism because:
-
-- It bounds per-block latency by an explicit voter-count budget. Any future
-  voter growth increases the number of continuation blocks without increasing
-  the configured per-block state-transition workload.
-- It cleanly separates the era-boundary "who gets what" freeze
-  (Phase A) from the compute-heavy distribution (Phase B), which makes
-  each phase idempotent-per-block and reviewable in isolation.
-- It's fork-gated (`NoVoterRewardDistribution`) so legacy chains are
-  untouched.
-
-Semantics: rewards for a given era land across the first continuation blocks
-of the next era rather than in the single era-boundary block. Foundation bonus
-and epoch sentinel processing happen in Phase A; the final chunk performs the
-orphan sweep and deletes the cursor.
-
-### Historical alternatives (superseded)
-
-Preserved for context. Both were considered before mitigation 2 + PR C2
-landed and are no longer needed:
-
-- **Batch wrapper contract** (measured: **1.3s / 52% of a 2.5s block**).
-  New Hermes-owned `AutoDepositBatch` exposing `buckets(address[]) →
-  int256[]`. Would keep rewarding-side code on plain `SimulateExecution`
-  but at ~5× the per-voter cost of adapter reuse plus a governance
-  deploy + genesis update. Rejected in favour of the direct-slot reader.
-- **`ReadContractStorage` per-call** (measured: **3.2s / 126% of block**).
-  Simpler diff but breaches budget even at mainnet voter count. Never
-  viable at the 2.5s budget.
-
----
-
-## Reproducing
-
-```
-# Fixtures (one-time; overwrites hex-encoded runtime bytecode in-tree)
-./scripts/fetch-mainnet-bytecode.sh
-
-# Micro-bench — AutoDeposit.bucket per-call cost
-go test -tags=iip59bench -bench=BenchmarkAutoDeposit_bucket \
-  -benchmem -count=3 -run=^$ ./action/protocol/execution/
-
-# E2E chunked-drain bench (tiers: small | medium | mainnet)
-IIP59_PERF_TIER=mainnet go test -tags e2e -v -timeout 900s \
-  -run TestIIP59EpochGrantPerf ./e2etest/
-```
-
-Bench source:
-
-- Micro: `action/protocol/execution/protocol_iip59_bench_test.go`.
-- E2E: `e2etest/iip59_perf_test.go`.
-
-Fixtures: `e2etest/autodeposit_bytecode`, `e2etest/delegateprofile_bytecode`.
+Bench source: `e2etest/iip59_perf_test.go`,
+`action/protocol/staking/bench_freeze_snapshot_test.go`,
+`action/protocol/staking/add_deposit_compound_bench_test.go`.

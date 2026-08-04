@@ -1,596 +1,416 @@
-# IIP-59 reward distribution architecture — v2 (era-based)
+# IIP-59 reward distribution architecture — as implemented
 
-**Status:** draft.
-**Supersedes:** the distribution mechanism in PRs 3′/4′/mitigation-3.
-**Requires:** IIP-59 spec amendment (§3.5, §3.7, §4).
+**Status:** describes the code on `iip-59/consolidated-pr-5-through-5.5b`
+(PR iotexproject/iotex-core#4953). IIP-59 is **not activated**: every mechanism
+below is behind `!NoVoterRewardDistribution` and no activation height is set.
 
-## 1. Executive summary
+**Supersedes** the era-based *proposal* that previously occupied this file. That
+document predicted a `VoterRewardEraCursor`, a per-era `VoterWeightSnapshot`, and
+a Phase 3 background compound sweep. None of the three were built under those
+names; what shipped is described here. Where a difference is worth knowing it is
+called out as such rather than quietly rewritten.
 
-The current on-chain reward distribution (as landed in PR 3′/4′ and extended
-by PR #4936 for chunking) tightly couples three separate concerns:
+---
 
-1. Accruing block/epoch rewards to a per-delegate voter pool
-2. Splitting each delegate's voter pool across their voters
-3. Compounding voters' credited balance into their staking bucket
+## 1. What the problem was
 
-All three run inside a single system action at the epoch-last block, which
-concentrates ~27,020 voter operations into one block and exceeds the 2.5s
-mainnet block budget by ~40% (in-mem) to ~140% (trie-backed).
+Legacy voter reward distribution runs off-chain (Hermes). IIP-59 moves it into
+the protocol. The naive on-chain shape — split every delegate's voter pool
+across every voter inside the epoch-last block — concentrates ~27,020 per-voter
+operations into one block, measured at **~1.15s in-memory / ~3.4s trie-backed**
+against a **2.5s** Dardanelles block budget. The distribution therefore has to
+be spread across blocks, and spreading it across blocks is what creates every
+other problem this document is about: once payouts span blocks, the inputs they
+divide by keep moving underneath them.
 
-This document proposes decoupling the three concerns and moving voter-facing
-distribution from **per-epoch** to **per-day** (24 epochs). The voter weight
-snapshot used for reward splitting is also lengthened to a daily cadence.
-The result:
+Three constraints shape everything below.
 
-- **~24× reduction** in per-day compute for the distribution path
-- **Predictable, small single-block cost** (~200-600ms trie-backed peak)
-- **No voter-list freeze** — the daily snapshot is naturally stable through
-  the distribution window
-- **Log semantic freed** from the "one log per delegate per epoch" constraint
+1. **Determinism.** Every node must pay the same voter the same amount in the
+   same block. No map iteration order, no wall clock, no unbounded state scans
+   whose cost depends on data layout.
+2. **Bounded per-block work.** A configured voter budget, not a delegate count:
+   voter counts per delegate are attacker-influenced, delegate counts are not.
+3. **Degrade, never halt.** A failure in the distribution must cost a delayed
+   payout, not a stopped chain. This is a locked project decision and it is why
+   §7 looks the way it does.
 
-The architecture mirrors the era-based reward model used by Polkadot.
+## 2. Shape of the settlement
 
-## 2. Background
-
-### 2.1 Current on-chain data flow
-
-```
-per-block:
-    GrantBlockReward
-      ├── delegate.reward_address += block_reward × (1 - voter_take)
-      └── delegate.voter_pool     += block_reward × voter_take
-
-per-epoch (last block):
-    GrantEpochReward
-      ├── slashUqd(...)
-      ├── splitEpochReward → per-delegate epoch_amount
-      └── FOR EACH delegate:
-            distributeCombinedReward(delegate.voter_pool + epoch_amount)
-              └── FOR EACH voter of delegate:
-                    IF opt-in compound AND bucket valid:
-                        AddDepositForCompound(bucket, alloc)
-                    ELSE:
-                        voter.unclaimedBalance += alloc
-                    emit DelegateDistributed batched log
-```
-
-### 2.2 Measured cost (mainnet-scale, mitigation 2 already applied)
-
-- 27,020 distinct bucket owners (per gRPC enumeration, 2026-07)
-- Per-voter processing: ~2.5μs read + ~40μs compound-or-credit ≈ 42.5μs in-mem
-- Trie-backed: ~130μs per voter
-- Single-block drain: **~1.15s in-mem / ~3.4s trie** — exceeds the 2.5s
-  Dardanelles block budget
-
-### 2.3 PR #4936 mitigation and why it is insufficient
-
-PR #4936 (mitigation 3) chunks the drain at delegate boundaries with a
-persisted cursor. This spreads the total work across N blocks but:
-
-- Introduces a delegate-atomicity constraint that keeps `DelegateDistributed`
-  as one log per delegate; head-heavy delegates (~5-10k voters each) still
-  produce **~640ms-1.3s single-block trie work**
-- Requires either a "voter freeze" (~1.6MB per epoch of state churn) or a
-  hidden `chunkSize ≥ max_delegates` constraint to avoid poll-snapshot drift
-- Does not reduce total per-day compute — only smears it
-
-The architecture below removes the concentration entirely rather than
-chunking around it.
-
-## 3. Proposed architecture
-
-### 3.1 Three-phase decomposition
+A **settlement** distributes one era's accrued voter pools. It has two phases
+and they run in different blocks.
 
 ```
-Phase 1  every block             │ Phase 2   day boundary                │ Phase 3  any time
-────────────────────────────────┼──────────────────────────────────────┼───────────────────
-GrantBlockReward,               │ For each delegate d with              │ For any voter v
-GrantEpochReward:                │ voter_pool > 0:                       │ with unclaimedBalance
-  delegate.reward_address += ..  │   For each voter v in d.voters:       │ > 0 AND compound
-  delegate.voter_pool     += ..  │     v.unclaimedBalance += share       │ opt-in AND bucket valid:
-                                 │   delegate.voter_pool = 0             │   AddDepositForCompound(...)
-                                 │                                       │   v.unclaimedBalance -= amount
+era boundary block H                    continuation blocks H+1, H+2, ...
+──────────────────────────────────────  ───────────────────────────────────────
+PutPollResult                            CreatePostSystemActions emits one
+  └── FreezePollSnapshot                 VoterRewardChunk per block while an
+        ├── per-delegate scalars         incomplete cursor exists
+        └── beginEraCOWWindow(H)           └── GrantVoterRewardChunk
+GrantEpochReward                                ├── walk the voter key space
+  ├── per-delegate commission/voter split       ├── recompute weights at H
+  ├── credit voter share to pending pool        ├── pay each voter once
+  └── persistDrainCursor (plan + progress)      └── checkpoint the cursor
+                                         final chunk:
+                                           ├── residual/orphan sweep
+                                           ├── SealEraCOWWindow
+                                           └── mark cursor Completed
 ```
 
-### 3.2 Phase decoupling: what each phase depends on
+Phase A is cheap and fixed-size (per-delegate scalars). Phase B is the
+proportional-to-voters work, and it is the part that is chunked.
 
-| Phase | Reads | Writes | Time-sensitive? |
-|---|---|---|---|
-| 1 | delegate committee (from poll), current `voter_take` rate | `delegate.reward_address`, `delegate.voter_pool` | No |
-| 2 | `delegate.voter_pool` (accumulated), daily VoterWeightSnapshot | `voter.unclaimedBalance`, `delegate.voter_pool = 0` | **Yes** — must consume before next snapshot |
-| 3 | `voter.unclaimedBalance`, opt-in flag, bucket state | `voter.unclaimedBalance`, bucket state via `AddDepositForCompound` | No — deferrable arbitrarily |
+## 3. The freeze
 
-The critical observation is that **Phase 3's data has no expiration**:
-`unclaimedBalance` is monotonic between Phase 2 credits and either Phase 3
-compound or user `Claim`. Phase 3 can run at any cadence — including "never"
-— without breaking correctness.
+### 3.1 What is frozen, and as what
 
-### 3.3 Distribution cadence
+`staking.FreezePollSnapshot` writes one `CandidatePollSnapshot` per delegate at
+the boundary block H (`action/protocol/staking/poll_snapshot.go`). The snapshot
+is **scalars only**:
 
-Change from per-epoch to per-day (24 epochs):
-
-- Phase 1 continues every block (no change)
-- Phase 2 fires at day boundaries (every 24th epoch end)
-- Phase 3 runs as a background system action (or per §3.6 alternatives)
-
-Number of iotex mainnet epochs per day: **24** (each epoch ≈ 1 hour at 2.5s
-block interval, 1440 blocks/epoch). The value SHOULD be a genesis parameter
-`EpochsPerRewardEra` (default 24) to allow adjustment.
-
-### 3.4 Voter weight snapshot cadence
-
-Currently `PutPollResult` refreshes both the delegate committee and the
-voter weight view (`SnapshotForEpochReward`) at every epoch boundary. This
-document proposes decoupling them:
-
-- **Delegate committee selection**: unchanged, per-epoch
-- **VoterWeightSnapshot**: refreshed only at day boundaries (every 24 epochs)
-
-This means voters' proportional share of the day's rewards is computed
-against a single stable snapshot for the whole day. There is no
-"which epoch's snapshot governs which reward" ambiguity, and no need to
-retain multiple snapshot versions.
-
-Voter weight changes (stake, unstake, restake, endorsement events) still
-mutate the live `VoterWeightView` every block for accurate query — only the
-**snapshot** used for reward math freezes for 24 epochs.
-
-Trade-off: a voter who stakes mid-day earns rewards from that day only if
-they held stake at the previous day boundary. This is materially the same
-as Polkadot's per-era model and is acceptable given daily granularity.
-
-### 3.5 State model
-
-**Added:**
-
-- `voter_reward_era_cursor` (rewarding namespace, singleton) — Phase 2
-  progress cursor:
-  ```proto
-  message VoterRewardEraCursor {
-    uint64 era_start_epoch = 1;
-    uint32 delegate_idx    = 2;
-    uint32 voter_offset    = 3;
-  }
-  ```
-  Size: ~20-30 bytes. Written at day boundary, updated per Phase 2 chunk,
-  deleted at Phase 2 completion.
-
-- `voter_reward_era_sentinel` (rewarding namespace, per-era) — replay guard:
-  key `"vre" || era_start_epoch`, empty payload. Written at Phase 2
-  completion, permanent.
-
-- `compound_pending_index` (rewarding namespace) — Phase 3 sweep cursor
-  (see §3.6). Optional depending on Phase 3 strategy.
-
-**Modified:**
-
-- `SnapshotForEpochReward` write path: conditional on
-  `epochNum % EpochsPerRewardEra == 0`. Non-era-boundary epochs skip the
-  snapshot write.
-
-**Kept:**
-
-- `PendingBlockRewardPool` per delegate (from PR 4′) — accumulator target
-  for Phase 1
-
-**Removed (from PR #4936 disposition):**
-
-- `EpochDrainCursor`, `EpochDrainDelegateWork`,
-  `EpochDrainFoundationBonusWork`, `EpochDrainOrphanWork` protos and
-  associated code — no longer needed under era-based distribution
-
-### 3.6 Phase 3 execution strategy
-
-Four viable options, in order of increasing simplicity:
-
-**A. Continuous background system action**
-- `CreatePostSystemActions` emits `CompoundBatch` on every block
-- Handler consumes up to `CompoundBatchSize` opt-in voters with
-  `unclaimedBalance > 0` per invocation
-- State: `compound_pending_index` (sequential scan pointer) or
-  `compound_pending_set` (secondary index maintained by Phase 2)
-- Peak block cost: `CompoundBatchSize × 130μs trie` (e.g., 500 voters →
-  ~65ms trie)
-
-**B. On-Claim lazy compound**
-- No system action at all
-- User `Claim` handler detects opt-in and routes to `AddDepositForCompound`
-- Trade-off: violates "automatic compound" UX (user must send tx to trigger)
-
-**C. External-triggered `CompoundBatch` action**
-- Any account can send `CompoundBatch(voters[])` action
-- Handler validates each voter's opt-in + balance and does the work
-- Off-chain automation (hermes-patch, bots) picks up
-- On-chain code minimal; execution guaranteed by economic incentive
-  (delegate operator maintains their voters' auto-deposit UX)
-
-**D. Hybrid**
-- Continuous background scan (A) at low `CompoundBatchSize`
-- Plus (B) as a safety net for voters whose scan hasn't reached them yet
-
-**Recommendation:** ship with **D** for full parity with the current
-pre-PR-#4936 experience. If off-chain infra is unreliable or scan cost
-proves lower than expected, degrade to **A** only.
-
-### 3.7 Log semantics
-
-Per-epoch `DelegateDistributed{epoch, delegate, voters[], amounts[]}` is
-replaced:
-
-- **Phase 2**: emit `EraVoterCredited{era_start_epoch, delegate, voters[], amounts[], chunk_seq, is_final}`
-  per delegate per chunk. Off-chain aggregators sum by
-  `(era_start_epoch, delegate)`.
-- **Phase 3**: no new rewarding-side log needed — `AddDepositForCompound`
-  already emits its `AddDeposit` event on the staking side.
-
-The IIP-59 §3.7 "one log per delegate per epoch" constraint is dropped in
-favor of "logs are aggregable by `(era, delegate)`".
-
-## 4. Data flow diagram (era boundary)
-
-```
-epoch:  N-2         N-1         N       N+1  ...  N+23    N+24
-        ─┬──────────┬───────────┬─────  ...  ────┬───────┬──
-         │          │           │                │       │
-         │ Phase 1  │ Phase 1   │ Phase 1        │       │ Phase 1
-         │ (block   │  ...      │                │       │
-         │  reward  │           │                │       │
-         │  credits │           │                │       │
-         │  to      │           │                │       │
-         │  voter_  │           │                │       │
-         │  pool    │           │                │       │
-         │  each    │           │                │       │
-         │  block)  │           │                │       │
-                                                 │       │
-                              era N boundary:    │       │
-                              ┌──────────────────┘       │
-                              │  Phase 2 chunks:         │
-                              │  drain voter_pool → ...  │
-                              │  27,020 credits over     │
-                              │  ~6 blocks               │
-                              │                          │
-                              │  VoterWeightSnapshot     │
-                              │  refreshed here          │
-                                                         │
-                                                    era N+1 boundary
-                                                    (same cycle repeats)
-
-Phase 3 runs continuously in the background across all epochs, orthogonal
-to era boundaries.
-```
-
-## 5. Cost analysis
-
-### 5.1 Per-day compute
-
-| Phase | Frequency | Per-voter | Total voters | Aggregate/day (trie) |
-|---|---|---|---|---|
-| 1 (accrual) | per block | ms-level total | n/a | ~ms/block × 34,560 blocks ≈ negligible |
-| 2 (credit) | 1× per day | ~40μs | 27,020 | **~1.08s per day** |
-| 3 (compound, 60% opt-in) | continuous | ~130μs | ~16,200 | **~2.1s per day**, spread across ~34,560 blocks → **~60μs/block** |
-
-Compare to current per-epoch model: **24 × (Phase 2 + Phase 3) ≈ 76s trie
-work per day**. **~24× reduction**.
-
-### 5.2 Single-block peak cost (Phase 2)
-
-With `VoterBudgetPerBlock = 5000`:
-
-- Blocks to complete Phase 2: `⌈27,020 / 5000⌉ = 6 blocks`
-- Peak block cost: `5000 × 130μs ≈ 650ms trie`
-- Fits within 2.5s block budget with 74% headroom
-
-With `VoterBudgetPerBlock = 2000`:
-
-- Blocks to complete Phase 2: `⌈27,020 / 2000⌉ = 14 blocks`
-- Peak block cost: `2000 × 130μs ≈ 260ms trie` (10% of budget)
-
-### 5.3 State footprint
-
-| Item | Size | Lifecycle |
-|---|---|---|
-| `voter_reward_era_cursor` | ~30B | Era boundary write → 6-14 chunk rewrites → deleted at Phase 2 completion |
-| `voter_reward_era_sentinel` | 1B key, empty value | Written at Phase 2 completion, permanent |
-| `compound_pending_set` (if used, option A/D) | ~20B × up-to-27,020 = ~540KB peak | Maintained by Phase 2 add / Phase 3 delete |
-| Modified `SnapshotForEpochReward` cadence | unchanged size, 24× less write frequency | Trie state churn reduces ~24× |
-
-**No voter-list freeze required.** The daily snapshot is a live-view
-mechanism that the Phase 2 chunks read from directly. Phase 2's window
-(blocks 1 to ~14 after era boundary) is bounded by the next era boundary,
-so snapshot stability is guaranteed.
-
-## 6. Compatibility & migration
-
-### 6.1 Fork gate
-
-Reuse the existing `ToBeEnabledBlockHeight` gate (already scoped to IIP-59
-in feature context as `!NoVoterRewardDistribution`). Behavior before the
-gate: legacy hermes-patch-based off-chain distribution. Behavior after:
-this document's era-based on-chain distribution.
-
-### 6.2 First era after fork
-
-The first era begins at `firstEra = ceil(forkEpoch / EpochsPerRewardEra) * EpochsPerRewardEra`.
-Phase 1 accrues from `forkEpoch` onward; Phase 2 first runs at `firstEra`.
-
-Rewards earned between `forkEpoch` and `firstEra` are distributed at
-`firstEra` using the snapshot taken at `firstEra`.
-
-### 6.3 PR #4936 disposition
-
-**Recommendation: close without merge.** PR #4936's cursor infrastructure
-was designed for the mid-epoch drain use case which era-based distribution
-eliminates. The branch is preserved so §8.4's salvage list can extract
-reusable fragments into PR A / C / D.
-
-### 6.4 IIP-59 spec amendment
-
-Sections needing amendment (versus the current draft in `iotexproject/iips`
-PR #73):
-
-- **§3.5 Distribution cadence:** change "per epoch" to "per reward era
-  (24 epochs)"
-- **§3.6 Voter weight snapshot:** change "at each `PutPollResult`" to
-  "at each era boundary `PutPollResult`"
-- **§3.7 `DelegateDistributed` log:** rename to `EraVoterCredited` and
-  drop the per-delegate-per-epoch atomicity constraint
-- **§4 Migration:** document the first-era boundary and hermes-patch
-  wind-down
-
-### 6.5 Off-chain migration
-
-- **Hermes-patch service (#44):** must stop distributing to opted-in
-  delegates before the fork height. The service already filters by
-  `Candidate.VoterRewardOnchainOptIn` (per PR 1′). Post-fork, the service
-  should retain a compatibility mode for un-opted delegates and shut down
-  after the last delegate opts in.
-- **Verifier tool (#45):** update aggregation key from
-  `(epoch, delegate)` to `(era_start_epoch, delegate)`.
-- **Explorer / dashboard:** adapt to era-based reward events, expose
-  "next reward at" as `next_era_boundary`.
-
-## 7. Trade-offs & risks
-
-### 7.1 Voter UX
-
-- Reward accrual visibility drops from hourly to daily
-- No material APY impact (daily vs hourly compound at 5% APY differs by
-  <0.001%)
-- Voter can still see accrued-but-not-distributed rewards via
-  `pending_block_reward_pool[delegate]` if we expose a read API
-
-### 7.2 Voter fairness across day boundaries
-
-- Voter staking mid-day: earns from that day only if held stake at previous
-  era boundary — otherwise waits for next era boundary
-- Voter unstaking mid-day: still earns full share for the day (was in
-  snapshot)
-- Delegate switching mid-day: earns from *destination* delegate for the
-  full day, forgoes *source* delegate rewards
-- Precedent: identical semantics to Polkadot per-era rewards, considered
-  acceptable in that ecosystem
-
-### 7.3 Phase 3 backlog
-
-If Phase 3 is stopped (bug, upgrade, deliberate pause), unclaimedBalance
-accumulates but stays claimable. No correctness impact. Backlog processing
-resumes on Phase 3 restart. Documenting an upper bound on backlog and
-resume speed is required for operations.
-
-### 7.4 Era boundary block load
-
-The era boundary block (`epoch % 24 == 0`) still does:
-- Committee selection (`PutPollResult`, unchanged)
-- Voter weight snapshot refresh (was per-epoch, now per-day — same cost,
-  lower frequency)
-- Phase 2 first chunk
-
-Peak load: PutPollResult + snapshot (~50-100ms) + 5000 voter credits
-(~650ms) ≈ ~750ms trie. Still 30% of block budget.
-
-### 7.5 Consensus divergence risk in `PutPollResult` change
-
-Changing `SnapshotForEpochReward` cadence is a subtle protocol change. All
-validators must agree on the boundary condition. Recommended:
-
-- Boundary condition MUST be `epochNum % EpochsPerRewardEra == 0`, not
-  wall-clock or block-count based
-- `EpochsPerRewardEra` MUST be a genesis-time constant, not runtime-mutable
-- Coverage test: run poll suite with `EpochsPerRewardEra = 3` (short era)
-  and verify snapshot is written only at eras {3, 6, 9, ...}
-
-## 8. Implementation plan
-
-### 8.1 Disposition of already-landed / open IIP-59 PRs
-
-The v2 amendment preserves every mechanism piece of v1 — only the firing
-cadence and the batched-log format change. Concrete disposition:
-
-**Preserved as-is (no follow-up PR required):**
-
-| Existing PR | What it delivered | Why v2 keeps it |
-|---|---|---|
-| PR 1' | `VoterRewardOnchainOptIn` field + `SetVoterRewardOptIn` action | Opt-in gate; §3.7 unchanged |
-| PR 2 redo | `VoterWeightView` + 9 handler hooks + view lifecycle | Live view still needed every block for query; only the snapshot-*write*-trigger changes (PR B) |
-| PR 4.5 | `DelegateProfile` bridge (`SnapshotCommissionRates`) | Rate source; §3.5 unchanged |
-| PR 4.6 | `AutoDeposit` `compoundOrCredit` bridge | Routing preconditions unchanged; §3.6. Call site moves from Phase 2 to Phase 3 (PR D) |
-| PR 4a–4c | `PendingBlockRewardPool` proto + credit / drain / orphan | Phase 1 accumulator; §3.1 unchanged. Drain call site moves from epoch-close to era-close (PR C) |
-| PR #4928 (mitigation 2) | `SlotBucketReader` direct-slot AutoDeposit reader | Phase 3 still walks the same per-voter path; the 26× per-call speedup carries over verbatim |
-
-**Modified in-place by PRs below** (the code stays, its call site or
-trigger condition shifts):
-
-| Existing PR | What changes | New PR |
-|---|---|---|
-| PR 2' | `SnapshotForEpochReward` writer — add `IsEraBoundary` gate at the write site | PR B |
-| PR 3' | `distributeVoterReward` — refactor from one-shot to cursor-driven chunked; move compound call out to Phase 3 | PR C |
-| PR 4.7 | `DelegateDistributed` batched log — rename + add `chunk_seq` / `is_final` | PR C |
-| PR 4' | Block-reward pool drain — moves from epoch-close to era-close | PR C |
-
-**Reverted (closed without merge):**
-
-| PR | Reason |
+| field | why it is frozen |
 |---|---|
-| PR #4936 (mitigation 3, `EpochDrainCursor` + delegate-atomic chunking) | Superseded by voter-atomic `VoterRewardEraCursor` in §8.6. Reusable fragments extracted into PR A / C / D per §8.4 below. |
+| `BlockCommissionBasisPoints`, `EpochCommissionBasisPoints`, `Registered` | the DelegateProfile contract can change between H and the last chunk |
+| `OnchainRewardEnabled` | opt-in must not flip mid-settlement |
+| `TotalWeight` | the denominator of every share; it is `candidate.Votes` at H, and `Votes` keeps moving during the drain window |
+| `SnapshotHash` | join key stamped into every partial `DelegateDistributed` log so off-chain consumers can reassemble one settlement's per-block logs |
+| `FreezeHeight` (H) | the height every weight recompute is evaluated at |
+| `SelfStakeBucketIdx` | the only candidate field the weight recompute reads |
 
-### 8.2 New PR sequence
+There is **no materialized per-voter entry list**. An earlier design froze
+`(voter, weight)` pairs per delegate; at mainnet scale that is ~27k entries of
+state churn per era, and it needed a whole second mechanism (`VoterWeightView`
+plus an activation-height seeding cursor — see
+`docs/iip-59-voter-weight-seeding.md`, withdrawn) to produce the pairs cheaply.
+Both are gone. Per-voter weights are recomputed on demand.
 
-Targeting `iotexproject/iotex-core` upstream, in order:
+`TotalWeight == 0` is exactly "this delegate has no payable voter set this era";
+its pending pool is left intact and rolls into a later era. There is no separate
+`HasWeightedEntries` flag any more, because with the entry list gone that flag
+*is* this field being positive.
 
-**Preflight — close PR #4936 without merge.** No code churn; the branch is
-preserved for salvage (§8.4).
+### 3.2 Why `candidate.Votes` is an acceptable denominator
 
-**PR A — genesis params + context helper (~small)**
-- `blockchain/genesis/genesis.go`: add `EpochsPerRewardEra` (uint64,
-  default 24), `VoterBudgetPerBlock` (default 2000), `CompoundBatchSize`
-  (default 500) to the `Rewarding` struct. Rename existing
-  `EpochDrainChunkSize` → `VoterBudgetPerBlock` (semantic shift from
-  "delegates per block" to "voters per block"; parser stays,
-  never-observed field so no fixture rewrite needed).
-- `action/protocol/context.go`: no new fork gate — reuse
-  `!NoVoterRewardDistribution`. Add `IsEraBoundary(epochNum,
-  epochsPerEra) bool` helper.
-- Tests: genesis parse fixtures, boundary helper edge cases
-  (`epochNum=0`, `epochsPerEra=1`).
-- Verification: build/vet, all existing tests unchanged behavior.
+`candidate.Votes` is the same number the removed entry list summed to.
+`TestVoterWeightInvariant` (`action/protocol/staking/voter_weight_invariant_test.go`)
+asserts `candidate.Votes == Σ_voters weight(cand, voter)` after every staking
+handler. Freezing `Votes` is therefore freezing the sum of a list that is no
+longer stored — read from the one place that still holds it at H.
 
-**PR B — poll snapshot cadence gate (~small)**
-- `action/protocol/poll/util.go` (or wherever `setCandidates` invokes
-  `SnapshotForEpochReward` via the staking bridge): wrap the snapshot
-  write call in `if IsEraBoundary(epochNum, cfg.EpochsPerRewardEra)
-  { ... }`.
-- Tests: snapshot present only at era-boundary epochs; intra-era
-  snapshot bytes byte-identical across successive `PutPollResult`
-  calls; a stake mutation between era boundaries does NOT alter the
-  snapshot until the next boundary.
-- No changes to snapshot payload format — off-chain consumers untouched.
+"Acceptable" is not "provably equal at every historical height": see §8, and see
+the clamp in §5.3 which is what bounds the consequences when it is not.
 
-**PR C — Phase 2 chunked credit (~large; flag for high review)**
-Refactor of PR 3' + PR 4.7 + PR 4' drain-site. This is the largest and
-most intrusive PR in the plan.
-- `action/protocol/rewarding/rewardingpb/rewarding.proto`: add
-  `VoterRewardEraCursor` message per §8.5.
-- `action/protocol/rewarding/voter_reward.go`: refactor
-  `distributeVoterReward` from one-shot to cursor-driven. Phase 2
-  credits `unclaimedBalance` only (no compound call); appends voters
-  whose compound preference is active to `compound_pending_set`
-  (structure defined in PR D).
-- `action/protocol/rewarding/reward.go`:
-  - `GrantEpochReward` no longer drains voter pool per epoch. The
-    delegate-side epoch-share calculation still fires every epoch; the
-    per-delegate share is folded into the existing pending pool (§3.1)
-    alongside block-reward contributions.
-  - New handler `GrantEraVoterReward` runs Phase 2 chunks.
-  - Orphan drain (§3.3) moves from epoch-close to era-close.
-- `action/protocol/rewarding/protocol.go`: `CreatePostSystemActions`
-  emits `GrantEraVoterReward` at era boundary or while cursor is live.
-  Salvage the cursor-continuation pattern from PR #4936.
-- Log format: rename `DelegateDistributed` → `EraVoterCredited`, add
-  `chunk_seq` (uint32) + `is_final` (bool) per §8.7.
-- Tests: cross-cadence equivalence (24 legacy per-epoch grants vs. 1
-  v2 per-era grant under identical accrual), cursor lifecycle,
-  chunked-mid-block revert safety, era-boundary overrun guard
-  (§8.12 test 21), orphan drain at era-close.
-- Splittable if reviewer prefers into **C1** (proto + cursor state
-  helpers, additive), **C2** (`distributeVoterReward` refactor +
-  `GrantEraVoterReward` handler + `CreatePostSystemActions` wiring),
-  **C3** (log rename + payload change).
+### 3.3 Copy-on-write, not a copy
 
-**PR D — Phase 3 hybrid compound (~medium)**
-- New file `action/protocol/rewarding/compound_sweep.go`:
-  - `compound_pending_set` state structure per §8.5 (secondary index).
-  - `runCompoundSweep` handler consuming up to `CompoundBatchSize`
-    voters per block via `AutoDeposit` bridge (PR 4.6, unchanged).
-- `action/protocol/rewarding/protocol.go`: `CreatePostSystemActions`
-  also emits `CompoundSweep` every block when `compound_pending_set`
-  is non-empty.
-- `action/protocol/rewarding/reward.go`: augment `Claim` handler with
-  lazy compound — if opt-in preference is active, route through
-  `AddDepositForCompound` and decrement `unclaimedBalance`.
-- `action/protocol/rewarding/voter_reward.go`: Phase 2 add-to-set
-  hook per §8.11.
-- Tests: sweep drains at `CompoundBatchSize × block_rate`; lazy
-  `Claim` compound routing; Phase 3 pause → resume backlog
-  convergence (§8.12 test 20).
+The recompute in §4 has to read bucket state *as it was at H*, from a block
+several heights later. `beginEraCOWWindow` (`action/protocol/staking/era_window.go`)
+opens a window at the end of the boundary block; from then on, the first write
+to a covered key copies the pre-write value aside under
+`{EntryPrefix}||u64BE(H)||kind||addr`. Reads go through `eracow.Resolve`, which
+returns the copy if there is one, the live value otherwise, and `ErrNotFrozen`
+for a tombstone (the key did not exist at H).
 
-**PR F — off-chain migration guide (~small, docs only)**
-- Hermes-patch filter change (observe `VoterRewardOnchainOptIn` at
-  era boundaries, not epoch boundaries; safe superset if the filter
-  runs every epoch).
-- Verifier tool aggregation key `(epoch, delegate)` →
-  `(era_start_epoch, delegate)`.
-- Explorer / dashboard event-schema update to `EraVoterCredited`.
+Copy-on-write rather than a snapshot because the *typical* case is that almost
+nothing moves during a drain window: eras are long, the drain occupies its first
+few blocks, and the fraction of buckets mutated in that span is small. Cost is
+proportional to churn, not to population.
 
-### 8.3 Sequencing rationale
+Two things are frozen as plain scalars rather than copied on write, because a
+scalar is strictly stronger than a copy that might be missed:
 
-- **PR A first** — pure additive, unblocks PR B and PR C which depend
-  on the new genesis fields.
-- **PR B second** — small, unlocks the per-era snapshot semantics
-  that PR C's tests need to gate against.
-- **PR C third** — largest and most intrusive; PR A + PR B in place
-  before this to have concrete config and snapshot behavior to gate on.
-- **PR D fourth** — depends on PR C's `compound_pending_set` writer
-  being present. Ships Phase 3 alongside Phase 2 for launch parity
-  with the pre-v2 automatic-compound UX.
-- **PR F last** — docs; no code dependency.
+- native `totalBucketCount` — the next index `putBucket` will hand out. Indices
+  are strictly monotonic (`delBucket` does not decrement), so a native bucket
+  with index ≥ this number cannot have existed at H.
+- each staking contract's `NumOfBuckets` — highest id seen, burnt included.
 
-Fork-height activation (task #17) references PR A–D as a single
-bundle. PR F is post-fork operational and can ship at its own
-cadence.
+This is why `putBucket` has no copy-on-write hook while `updateBucket` and
+`delBucket` do: a post-H bucket is rejected by the high-water mark, so there is
+nothing to copy.
 
-### 8.4 Salvage from PR #4936
+The window is sealed by the final chunk (`SealEraCOWWindow`), after which the
+hooks are branch-only no-ops. Sealed-era copies are deleted a bounded number per
+block by `CollectEraCOWGarbage`, called from `CreatePreStates`
+(`_eraCOWGarbagePerBlock`) — deleting tens of thousands of copies in one block
+would blow the same budget the drain is chunked to respect.
 
-Extract into subsequent PRs when closing #4936:
+## 4. On-demand weight recompute
 
-1. `genesis.Rewarding.EpochDrainChunkSize` field + parser → rename to
-   `VoterBudgetPerBlock` in **PR A**. Existing field is unused
-   post-close, so the rename is safe.
-2. `CreatePostSystemActions` cursor-continuation pattern (emit a
-   system action while a cursor is live in state) → structural reuse
-   in **PR C** (for `GrantEraVoterReward`) and **PR D** (for
-   `CompoundSweep`).
-3. Cursor state-manager helpers (load / store / delete over a proto
-   blob keyed by a small prefix) → pattern reusable; write new
-   helpers targeting `VoterRewardEraCursor` in **PR C**.
+`staking.FrozenVoterWeight` and `staking.FrozenVoterCandidates`
+(`action/protocol/staking/era_voter_scan.go`) answer, for a voter, "which
+delegates did you have buckets with at H, and what was each bucket worth" —
+reading buckets through the era window and evaluating
+`CalculateVoteWeight(consts, bucket, isSelfStake)` at H.
 
-Non-reusable, delete when #4936 is closed: `EpochDrainCursor` proto,
-`epoch_drain.go` (freeze / chunk / coda decomposition doesn't match
-the v2 phase model), the delegate-atomic loop in `epoch_drain.go`,
-`epoch_drain_cursor.go`, and their tests.
+The evaluation height is `work.FreezeHeight`, never the height of the block the
+chunk runs in. A contract-staking bucket that is not timestamp-based has its
+remaining duration measured in blocks; evaluating the same frozen bucket at
+chunk 1 and chunk 5 of one settlement would otherwise produce two different
+weights for the same era. Copy-on-write cannot paper over this, because the
+drifting input is the evaluation height itself, not a stored value — which is
+why H travels with each work item instead of being derived.
 
-## 9. Verification
+## 5. The drain
 
-- **Cross-era equivalence:** run 24 epochs of rewards through both the
-  legacy per-epoch path (fork gate off) and the era-based path (fork gate
-  on, `EpochsPerRewardEra = 24`); assert per-voter cumulative
-  `unclaimedBalance + bucket.stakedAmount` matches within rounding
-  tolerance.
-- **Phase 2 peak block wall-clock:** E2E bench (task #68 reforged) —
-  trie-backed factory, 27,020 voters, `VoterBudgetPerBlock = 5000`,
-  measure the era-boundary block wall-clock. Target: < 800ms.
-- **Snapshot stability across an era:** run 24 epochs with mixed staking
-  actions between them; assert `SnapshotForEpochReward` returns the same
-  bytes for every intra-era read.
-- **Phase 3 backlog convergence:** simulate a 24-hour Phase 3 pause,
-  restart, verify backlog drains at `CompoundBatchSize × block_rate`.
-- **Determinism harness (task #16):** era-based path executed under
-  block-replay with intra-era reverts.
+### 5.1 Voter-major, sharded by address byte
 
-## 10. Open questions
+The drain walks the **voter key space**, not the delegate list. The space is the
+union of `{_voterIndex}||addr` (native) and `{_lsdVoterIndex}||addr`
+(contract-staking); both put a 20-byte address immediately after a 1-byte tag,
+so the **first address byte partitions it into 256 contiguous shards**
+(`staking.AddressShards`).
 
-1. Should `EpochsPerRewardEra` be a hardcoded constant or a genesis
-   parameter? (Recommendation: genesis parameter with default 24, for
-   testnet flexibility.)
-2. Do we expose a query API for `pending_block_reward_pool[delegate]` so
-   voters can see accrued-but-not-credited rewards? (Recommendation: yes,
-   as an EVM view function on a system contract.)
-3. Should Phase 3 handle contract-staking (V1/V2/V3 CSC) voters or only
-   native? (Recommendation: identical to current behavior — bucket
-   ownership check applies uniformly.)
-4. Do we need per-voter fork migration — i.e., a voter's earned rewards
-   at fork height distributed pro-rata across their pre-fork stake vs
-   post-fork era boundary? (Recommendation: no, use first-era-boundary
-   snapshot for all pre-fork accrued rewards; document as known trade-off.)
-5. How to handle the era boundary conflict with the existing
-   `EpochRewardHistoryKeyPrefix` sentinel semantics? (Sentinels become
-   per-era instead of per-epoch; migration requires no history rewrite.)
+Voter-major matters for money, not just for iteration: a voter with buckets on
+twenty delegates is paid **once**, after their per-delegate shares are summed —
+one destination lookup and one balance write instead of twenty.
+
+Resume is *shard plus last-address*, not shard alone. Shard population is
+attacker-controllable — addresses are cheap and their first byte is grindable —
+so shard-granular resume would leave per-block work unbounded. A chunk may stop
+part-way through a shard and record `ResumeVoter`.
+
+`FrozenShardVoters` merges **four** ranges per shard, not two: the two live
+indexes plus the two copy-on-write entry ranges. A voter who withdraws their
+last bucket during the drain window has their live index key deleted while the
+copy still holds what they had at H; scanning only live keys would drop a voter
+who is owed a share of an era they were part of. The reverse case — a voter who
+acquires their first bucket after H — costs nothing to admit: the tombstone is
+skipped, and the recompute would resolve them to zero anyway.
+
+Every scan is bounded to the shard's key range. None may be unbounded: the state
+layer materializes whatever range it is handed *before* any limit is applied, so
+an unbounded scan is unbounded work inside one block no matter what the caller
+intends to consume.
+
+### 5.2 Cursor state: plan, progress, and a rotated start
+
+Split across two records (`action/protocol/rewarding/epoch_drain_cursor.go`):
+
+- **`epochDrainPlan`** — immutable for the settlement: `TargetEra`, epoch range,
+  the settlement seed, and the per-delegate `epochDrainDelegateWork` list
+  (`CandidateIdentifier`, `VoterAmountFrozen`, `RewardAddress`,
+  `EpochCommission`, `TotalWeight`, `SnapshotHash`, `FreezeHeight`,
+  `SelfStakeBucketIdx`). Split out so a continuation block does not re-version
+  the whole delegate list in archive storage every time it checkpoints.
+- **`epochDrainProgress`** — mutable: `StartShard`, `ShardsDone`, `ResumeVoter`,
+  the per-delegate `Distributed` running totals, the skipped-delegate bitmap,
+  `Completed` / `CompletedHeight`.
+
+`StartShard` is `settlementStartShard(seed)` where the seed is derived from the
+parent block hash and the domain string `"iip59.settlement-start.v1"` plus the
+target era. The walk is a rotation of the 256 shards from that offset, so a
+settlement that repeatedly runs long does not always serve the same corner of
+the address space first. It is seeded from block data, not entropy: every node
+computes the same rotation.
+
+`FreezeHeight == 0` on a work item means "no frozen era" and makes the delegate
+unpayable — that combination can only be a pre-activation artifact, and the
+recompute refuses to run against it rather than defaulting to the current
+height.
+
+### 5.3 The share rule and the payout clamp
+
+`computeVoterShares` (`action/protocol/rewarding/voter_allocation.go`) is the
+single implementation, behind both the drain (which pays) and the read-only
+`voterRewardStatus` query (which reports what is owed). For each delegate the
+voter had a frozen bucket with:
+
+```
+share_i = floor(pool_i * weight_i / totalWeight_i)
+share_i = min(share_i, pool_i - distributed_i)      // the clamp
+```
+
+then the shares are summed and paid as one transfer.
+
+The clamp is not defensive boilerplate. `totalWeight` is a frozen `candidate.Votes`
+and the per-voter weights are recomputed from buckets; if the two disagree in
+the direction of the recompute being larger (§8), the unclamped sum of shares
+can exceed the frozen pool, and the drain would pay out money the delegate's
+pool does not contain. The clamp bounds Σ payouts per delegate by
+`VoterAmountFrozen` exactly, and whatever is left over is swept on the orphan
+path at completion rather than silently retained.
+
+Note that `completeEpochDrain` folds each delegate's residual into
+`Distributed`, so after completion `Distributed == VoterAmountFrozen` by
+construction. Any assertion about how much was actually *paid* has to sample
+while the cursor is still live — which is what `iip59DrainWatch` in
+`e2etest/iip59_payout_test.go` exists for.
+
+### 5.4 Routing: compound or credit
+
+`payVoterCombined` (`action/protocol/rewarding/voter_reward.go`) decides once
+per voter for the combined amount. With an eligible auto-deposit bucket the
+whole sum is compounded via `AddDepositForCompound`; otherwise it is credited to
+the voter's reward destination with `creditPrimaryAccount` — a **native account
+balance**, not a rewarding `unclaimedBalance`, so there is no claim step.
+
+Every fallback branch (no bridge, bridge error, unreadable or ineligible bucket,
+self-stake role changed since the freeze) degrades to a direct credit. The share
+is still owed; only its destination changed.
+
+## 6. Read-state surface
+
+Eth-ABI views dispatched by 4-byte selector in
+`action/protocol/rewarding/ethabi/` (`iip59.go`, `base.go`):
+
+| view | returns |
+|---|---|
+| `pendingBlockRewardPool(address)` | accrued voter pool for a delegate |
+| `pendingBlockRewardPoolIndex()` | delegates with a non-zero pool |
+| `eraDrainCursor()` | settlement plan + progress |
+| `voterRewardDelegateSnapshot(address)` | the frozen per-delegate scalars of §3.1 |
+| `voterRewardAddress(address)` | a delegate's configured reward address |
+| `voterRewardDestination(address)` | a voter's configured destination |
+| `voterRewardStatus(address)` | a voter's settlement status and amount |
+
+**`voterRewardSnapshot` was renamed to `voterRewardDelegateSnapshot` and the old
+selector is not registered.** The old name returned
+`(…, address[] voters, uint256[] weights)` off the materialized entry list. That
+list no longer exists and the tuple now ends in
+`(uint64 freezeHeight, uint64 selfStakeBucketIdx)`. Keeping the name would keep
+the 4-byte selector, and any caller that had not rebuilt would decode the new
+tuple as the old one — silently, since ABI decoding of a same-arity prefix does
+not fail. A hard selector change turns that into an `errInvalidCallSig`.
+No deprecated alias is registered: IIP-59 is unactivated, so there is no
+deployed caller to preserve compatibility with.
+`TestIIP59RetiredVoterRewardSnapshotSelector` rebuilds the old ABI and asserts
+the retired selector is rejected.
+
+**`epochDrainCursor` was renamed to `eraDrainCursor` for the same reason**, and
+the hazard there is sharper: the view takes no arguments, so its retired
+selector is reachable from calldata that is nothing but the 4-byte id. The
+candidate-major cursor exposed
+`(delegateIndex, voterIndex, delegateStartIndex, voterStartIndices)`; the
+voter-major one exposes `(startShard, shardsDone, resumeVoter)` instead.
+Decoded against the old ABI a shard counter reads as a delegate index — a
+small, plausible, wrong number, which is worse than a decode failure.
+`TestIIP59RetiredEpochDrainCursorSelector` pins the removal.
+
+Both renames stop at the eth ABI. The native `ReadState` method names
+(`EpochDrainCursor`, `VoterRewardSnapshot`) are unchanged: an unrecognised
+`ReadState` name errors out loudly instead of mis-decoding, so it carries none
+of the silent-reinterpretation risk that motivated the selector change, and the
+repo already pairs a renamed selector with an unchanged native method
+(`candidateByAddressV4` → `CANDIDATE_BY_ADDRESS`).
+
+The name is descriptive rather than `V2`. The `V`-suffix convention in
+`staking/ethabi/{v2,v3,v4}` marks versions that **coexist** in the dispatch
+table; a `V2` with no `V1` registered would suggest an older view is still
+callable. `voterRewardDelegateSnapshot` also disambiguates the per-delegate view
+from the per-voter `voterRewardStatus`.
+
+The native ReadState method name (`"VoterRewardSnapshot"`) is unchanged — it is a
+separate namespace from eth selectors, and nothing about it is ambiguous.
+
+## 7. Failure handling and observability
+
+A `VoterRewardChunk` that returns an error settles with a `Failure` receipt and
+the block still commits. This is deliberate and is not up for revision: degrade
+the item, never abort the block. The cursor is left exactly where it was, so the
+next block retries the same chunk.
+
+The cost of that choice is that a persistently failing chunk is **invisible from
+chain data alone**: the next era boundary's `writeEpochDrainCursor` replaces both
+plan and progress, so a chunk that keeps failing quietly discards an era of
+voter payouts when the boundary arrives. It used to be logged at `Debug`.
+
+`reportVoterRewardChunkFailure` (`epoch_drain_cursor.go`) now logs at **`Error`**
+with the block height, target era, epoch range, `ShardsDone`, current shard,
+`ResumeVoter` (one address, hex), delegate count, and the completed flag — a
+fixed-size record, never a voter list. It is explicitly best-effort and
+diagnostic-only: it runs before `Handle` reverts to its entry snapshot, so it
+must not write state.
+
+Two metrics, registered the same way as the rest of the package
+(`iip59_metrics.go`):
+
+- `iotex_rewarding_iip59_drain_chunk_failures_total` (counter)
+- `iotex_rewarding_iip59_drain_stalled_shards_done` (gauge) — `ShardsDone` as of
+  the most recent failure.
+
+Read together: rising counter with a flat gauge is a stuck drain; rising counter
+with a rising gauge is a drain making progress through intermittent failures.
+
+Only the `action.VoterRewardChunk` case was changed. Error handling for the other
+system actions in that switch is untouched.
+
+## 8. The self-stake predicate divergence
+
+Recorded here because it is the reason §5.3's clamp exists.
+
+**Two predicates for "is this bucket the candidate's self-stake bucket" coexist.**
+
+- Stateless: `bkt.Index == cand.SelfStakeBucketIdx` (with `ContractAddress == ""`).
+  This is what `FrozenVoterWeight` uses, and what the frozen
+  `SelfStakeBucketIdx` scalar serves.
+- Refined: `isSelfStakeBucket(...)`, which additionally consults the endorsement
+  record. This is what every `candidate.Votes` mutator uses, and what
+  `isActiveCandidate` uses.
+
+They can disagree only when an endorsement is in state `EndorseExpired` while
+`SelfStakeBucketIdx` still names the bucket.
+
+**That divergence cannot be created at any height IIP-59 runs at.**
+
+- `EnforceLegacyEndorsement = !g.IsUpernavik(height)`
+  (`action/protocol/context.go`). `LegacyStatus` is the only producer of
+  `EndorseExpired` from a live record; the new-mode `Status` returns only
+  `Endorsed` or `UnEndorsing`.
+- Upernavik (31174201) < Xingu (41648761), and IIP-59 activates no earlier than
+  the current fork frontier, so new-mode dispatch applies everywhere IIP-59 runs.
+- The other source of `EndorseExpired` — a *missing* endorsement record — is not
+  a second path. The sole `esm.Delete` site is always preceded by
+  `SelfStakeBucketIdx` being cleared (via `clearCandidateSelfStake` or
+  `csm.deactivate`), and the `requestDeactivation` branch returns early and never
+  deletes.
+
+**What remains reachable is inherited skew.** An endorsement that lapsed under
+*legacy* rules in [Tsunami 29275561, Upernavik 31174201) can leave
+`candidate.Votes` carrying a self-stake bonus the refined predicate no longer
+agrees with. A later bucket mutation then does `sub(nonBonusOld)` /
+`add(nonBonusNew)` against a `Votes` that still includes that bonus, so the
+difference `bonusOld − nonBonusOld` is stranded in `Votes` permanently.
+
+From then on the frozen `TotalWeight` is **not** the exact sum of what the
+recompute produces for the same buckets: the denominator comes from the mutators'
+predicate, the numerators from the stateless one. The sign of the gap depends on
+how the post-lapse mutation moved the bucket's stake, and when it falls the wrong
+way the unclamped shares sum to more than the frozen pool. That is the
+over-payment condition, and §5.3's clamp is what bounds it; the residual is
+swept on the orphan path.
+
+Regression coverage already exists; do not duplicate it:
+
+- `action/protocol/staking/selfstake_predicate_divergence_test.go`
+  → `TestLapsedEndorsementDivergesSelfStakePredicates`
+- `action/protocol/rewarding/voter_allocation_test.go`
+  → `TestLapsedSelfStakeBonusCannotOverpayDelegatePool`
+
+## 9. Genesis parameters
+
+| field | meaning |
+|---|---|
+| `Rewarding.EpochsPerRewardEra` | era length in epochs (mainnet target 24) |
+| `Rewarding.VoterBudgetPerBlock` | voters processed per continuation chunk; 0 means unbounded |
+| `Rewarding.VoterWeightSeedBatchSize` | **deprecated and unused** — sized the withdrawn seeding flush; parsed so existing genesis files still load |
+
+`EpochsPerRewardEra` must be a genesis constant and the boundary condition must
+be `epochNum % EpochsPerRewardEra == 0`. Anything derived from wall clock or
+node-local state is a consensus fault.
+
+## 10. Verification
+
+Correctness of the settlement is asserted end-to-end in `e2etest`:
+
+- `iip59_payout_test.go` — per-voter payout equality against a model built from
+  the fixture's stake parameters and `CalculateVoteWeight` alone (deliberately
+  *not* `computeVoterShares` or `FrozenVoterWeight`, which would make the check
+  circular); the per-delegate `Σ payouts ≤ VoterAmountFrozen` bound sampled
+  while the cursor is live; `TestIIP59DrainResumeEquivalence` (identical payouts
+  whether the era drains in one chunk or ten); and
+  `TestIIP59DrainPaysTheFrozenEraNotTheLiveOne` (a bucket created after H earns
+  nothing, a bucket deleted after H is still paid its frozen share — the
+  copy-on-write layer's raison d'être).
+- `iip59_stress_test.go`, `iip59_perf_test.go` — the same per-voter assertions on
+  the chunked-drain stress and perf harnesses, plus the fund-conservation
+  invariant at every block boundary.
+
+Measurements: `docs/iip-59-perf-report.md`.

@@ -28,6 +28,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/eracow"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -66,18 +67,65 @@ const (
 	// PutPollResult, read once per epoch by the rewarding protocol under
 	// IIP-59. Full key: {_candidatePollSnapshot} || candID.Bytes().
 	_candidatePollSnapshot
-	// _voterWeights is the tag for the per-(candidate, voter) weight entries
-	// under StakingNamespace (see voter_weight_view.go). Full key:
-	// {_voterWeights} || candID(20) || voterAddress(20). Each block writes only
-	// the pairs it changed, and startup loads them back — these entries are the
-	// single derivation of the weights IIP-59 pays out against, so there is
-	// nothing a restart can find to disagree with.
-	_voterWeights
-	// _voterWeightSeed is the tag for the single-value voterWeightSeedCursor
-	// (see voter_weight_seed.go), which tracks the one-time flush of the voter
-	// weight table into state after IIP-59 activates. Full key:
-	// {_voterWeightSeed}.
-	_voterWeightSeed
+	// RETIRED — do not reuse either slot.
+	//
+	// _voterWeightsRetired held the per-(candidate, voter) entries of the
+	// IIP-59 VoterWeightView ({tag} || candID(20) || voterAddress(20)), and
+	// _voterWeightSeedRetired the single-value cursor that tracked flushing
+	// that table into state at activation. The view was removed before IIP-59
+	// activated on any network, so no node ever wrote a key under either tag
+	// and there is nothing to migrate — but the iota positions stay occupied
+	// for the same reason retired proto field numbers stay `reserved`: a future
+	// tag that reuses one would collide with any archive node, test fixture or
+	// devnet that did run a build which wrote them.
+	//
+	// Spelled as blank identifiers so the slots cannot be referenced at all;
+	// deleting the two lines would renumber every tag below them.
+	_ // retired: _voterWeights
+	_ // retired: _voterWeightSeed
+	// _lsdVoterIndex is the tag for the owner -> contract-staking (LSD) bucket
+	// index, the LSD counterpart of _voterIndex. Full key:
+	// {_lsdVoterIndex} || ownerAddress(20); value is a
+	// contractstaking.ContractBucketRefs, i.e. (contract, bucket id) pairs,
+	// because contract-staking bucket ids are only unique per contract.
+	//
+	// Written exclusively by contractstaking.ContractStakingStateManager's
+	// UpsertBucket/DeleteBucket, and only once IIP-59 has activated. The tag
+	// value itself lives in the contractstaking package (staking imports
+	// contractstaking, not the reverse); the assertion below keeps the two
+	// definitions from drifting apart.
+	_lsdVoterIndex
+	// _eraCOWControl, _eraCOWEntry and _eraCOWJournal are the three tags of the
+	// IIP-59 era copy-on-write layer (see the eracow package). Full keys:
+	//   {_eraCOWControl}
+	//   {_eraCOWEntry}   || u64BE(freezeHeight) || kind || subkey
+	//   {_eraCOWJournal} || u64BE(freezeHeight) || u64BE(seq)
+	//
+	// The drain window recomputes voter weights from buckets several blocks
+	// after the era boundary, so bucket state mutated in between has its
+	// as-of-boundary value copied under _eraCOWEntry on first write. As with
+	// _lsdVoterIndex the tag values live in the leaf package (staking imports
+	// eracow, not the reverse) and the assertions below keep them in step.
+	_eraCOWControl
+	_eraCOWEntry
+	_eraCOWJournal
+)
+
+// The staking namespace is shared, so every tag must be unique and no two key
+// shapes may be confusable. {_lsdVoterIndex}||owner is 21 bytes, same length as
+// the _voterIndex / _candIndex / _candidatePollSnapshot keys but with a
+// distinct leading tag. These two constants overflow (and so fail to compile)
+// the moment the tag byte the contractstaking package writes stops matching the
+// one reserved here.
+const (
+	_ = byte(_lsdVoterIndex - contractstaking.LSDVoterIndexPrefix)
+	_ = byte(contractstaking.LSDVoterIndexPrefix - _lsdVoterIndex)
+	_ = byte(_eraCOWControl - eracow.ControlPrefix)
+	_ = byte(eracow.ControlPrefix - _eraCOWControl)
+	_ = byte(_eraCOWEntry - eracow.EntryPrefix)
+	_ = byte(eracow.EntryPrefix - _eraCOWEntry)
+	_ = byte(_eraCOWJournal - eracow.JournalPrefix)
+	_ = byte(eracow.JournalPrefix - _eraCOWJournal)
 )
 
 // Errors
@@ -399,43 +447,10 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 	}
 
-	// VoterWeightView is an in-memory cache of committed state, loaded here at
-	// startup. Once IIP-59 has activated the per-(candidate, voter) entries in
-	// state are the only derivation of these weights, so a restart reads them
-	// back rather than recomputing and comparing — there is nothing for a node
-	// to disagree with the network about, and so no way for a restart to fail.
-	//
-	// Buckets are still collected: before activation nothing has been written
-	// yet and the view is seeded from them, and they are what a non-consensus
-	// audit re-derives the weights from.
-	csr := newCandidateStateReader(sr)
-	allBuckets, _, err := csr.NativeBuckets()
-	if errors.Cause(err) == state.ErrStateNotExist {
-		allBuckets = nil
-	} else if err != nil {
-		return nil, errors.Wrap(err, "failed to load native buckets for voter weight view")
-	}
-	for _, idx := range indexers {
-		if idx.indexer == nil || !idx.active {
-			continue
-		}
-		buckets, err := idx.indexer.Buckets(height)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to load contract buckets for voter weight view from %s", idx.indexer.ContractAddress())
-		}
-		allBuckets = append(allBuckets, buckets...)
-	}
-	c.voterWeights, err = loadVoterWeightView(
-		sr,
-		allBuckets,
-		func(bucket *VoteBucket) *Candidate {
-			return c.candCenter.GetByIdentifier(bucket.Candidate)
-		},
-		p.config.VoteWeightCalConsts,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load voter weight view")
-	}
+	// The retired VoterWeightView used to be materialized here, which cost a
+	// full native-bucket scan plus a per-indexer contract bucket load on every
+	// node start. Nothing needs it now: the era drain recomputes a voter's
+	// weight from the frozen buckets on demand.
 	return c, nil
 }
 
@@ -456,7 +471,7 @@ func (p *Protocol) CreateGenesisStates(
 		return nil
 	}
 	// TODO: set init values based on ctx
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return err
 	}
@@ -500,9 +515,6 @@ func (p *Protocol) CreateGenesisStates(
 		if err := csm.Upsert(c); err != nil {
 			return err
 		}
-		// Bootstrap self-stake buckets bypass handleCreateStake but participate
-		// in the same voter reward weight table.
-		applyVoterWeightDelta(csm, c.GetIdentifier(), bucket.Owner, c.Votes)
 		if err := csm.DebitBucketPool(selfStake, true); err != nil {
 			return err
 		}
@@ -524,7 +536,7 @@ func (p *Protocol) SlashCandidateByOperator(
 	operator address.Address,
 	amount *big.Int,
 ) error {
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return errors.Wrap(err, "failed to create candidate state manager")
 	}
@@ -537,7 +549,7 @@ func (p *Protocol) SlashCandidateByID(
 	id address.Address,
 	amount *big.Int,
 ) error {
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return errors.Wrap(err, "failed to create candidate state manager")
 	}
@@ -571,11 +583,11 @@ func (p *Protocol) slashCandidate(
 	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
 		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)
 	}
-	if err := subCandidateVotes(csm, candidate, bucket.Owner, prevWeightedVotes); err != nil {
+	if err := subCandidateVotes(candidate, prevWeightedVotes); err != nil {
 		return errors.Wrapf(err, "failed to sub candidate votes")
 	}
 	weightedVotes := p.calculateVoteWeight(bucket, true)
-	if err := addCandidateVotes(csm, candidate, bucket.Owner, weightedVotes); err != nil {
+	if err := addCandidateVotes(candidate, weightedVotes); err != nil {
 		return errors.Wrapf(err, "failed to add candidate votes")
 	}
 	if err := candidate.SubSelfStake(amount); err != nil {
@@ -609,7 +621,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 	if blkCtx.BlockHeight == p.config.FixAliasForNonStopHeight {
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 		if err != nil {
 			return err
 		}
@@ -620,7 +632,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 		if err != nil {
 			return err
 		}
@@ -629,7 +641,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 	if blkCtx.BlockHeight == g.XinguBlockHeight {
-		handler, err := newNFTBucketEventHandlerForMigration(sm, p.calculateContractBucketVoteWeight)
+		handler, err := newNFTBucketEventHandler(ctx, sm, p.calculateContractBucketVoteWeight)
 		if err != nil {
 			return err
 		}
@@ -654,18 +666,12 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 		if blkCtx.BlockHeight == g.WakeBlockHeight {
-			observer, err := newContractBucketVoterWeightObserver(
-				sm, p.calculateContractBucketVoteWeight, blkCtx.BlockHeight,
-			)
-			if err != nil {
-				return err
-			}
-			vd.contractsStake.ReviseWithBucketObserver(ctx, observer)
+			vd.contractsStake.Revise(ctx)
 		}
 	}
 	// remove BLS public key of all candidates at XinguBeta
 	if blkCtx.BlockHeight == g.XinguBetaBlockHeight {
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 		if err != nil {
 			return err
 		}
@@ -681,19 +687,6 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 				return errors.Wrapf(err, "failed to update candidate %s", c.GetIdentifier().String())
 			}
 		}
-	}
-
-	// IIP-59: once the fork activates, flush the voter weight table into state a
-	// batch at a time. Inert before activation, and a single state read per
-	// block once the flush has completed.
-	//
-	// This runs here, in CreatePreStates, rather than in a system action: it has
-	// to happen on every block regardless of what the block contains, and it
-	// must not be able to fail a block. seedVoterWeights degrades to "no
-	// progress this block" rather than returning an error for anything short of
-	// a state write failure.
-	if _, err := seedVoterWeights(ctx, sm, g.Rewarding.VoterWeightSeedBatchSize); err != nil {
-		return errors.Wrap(err, "failed to seed voter weights")
 	}
 
 	if p.candBucketsIndexer == nil {
@@ -818,7 +811,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 		return nil
 	}
 
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return err
 	}
@@ -829,7 +822,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (receipt *action.Receipt, err error) {
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
@@ -935,18 +928,12 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		if err != nil {
 			return err
 		}
-		observer, observerErr := newContractBucketVoterWeightObserver(
-			sm, ccvw, protocol.MustGetBlockCtx(ctx).BlockHeight,
-		)
-		if observerErr != nil {
-			return observerErr
-		}
-		if err := v.(*viewData).contractsStake.HandleWithBucketObserver(ctx, receipt, observer); err != nil {
+		if err := v.(*viewData).contractsStake.Handle(ctx, receipt); err != nil {
 			return err
 		}
-		handler = newNFTBucketEventHandlerErigonOnly(sm, ccvw)
+		handler = newNFTBucketEventHandlerErigonOnly(ctx, sm, ccvw)
 	} else {
-		handler, err = newNFTBucketEventHandler(sm, ccvw)
+		handler, err = newNFTBucketEventHandler(ctx, sm, ccvw)
 	}
 	if err != nil {
 		return err

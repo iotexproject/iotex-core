@@ -165,10 +165,10 @@ func (p *Protocol) clearCandidateSelfStake(csm CandidateStateManager, bucket *Vo
 	newWeight := p.calculateVoteWeight(bucket, false)
 	// IIP-59: same bucket loses the self-stake bonus, so the view sees -prev
 	// then +new on (cand, bucket.Owner).
-	if err := subCandidateVotes(csm, cand, bucket.Owner, prevWeight); err != nil {
+	if err := subCandidateVotes(cand, prevWeight); err != nil {
 		return errors.Wrapf(err, "failed to subtract vote weight for bucket index %d", bucket.Index)
 	}
-	if err := addCandidateVotes(csm, cand, bucket.Owner, newWeight); err != nil {
+	if err := addCandidateVotes(cand, newWeight); err != nil {
 		return errors.Wrapf(err, "failed to add vote weight for bucket index %d", bucket.Index)
 	}
 	cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex

@@ -403,49 +403,85 @@ func (p *Protocol) drainPendingBlockRewardOrphans(
 			continue
 		}
 
-		var target address.Address
-		var targetStr string
-		candAddr, addrErr := address.FromBytes(candID)
-		if addrErr == nil {
-			routing, rewardErr := staking.ReadCandidateRewardRouting(sm, candAddr,
-				genesis.MustExtractGenesisContext(ctx).HermesRewardVaultAddresses)
-			if rewardErr == nil {
-				target = routing.Owner
-				targetStr = routing.Owner.String()
-			} else if !errors.Is(rewardErr, state.ErrStateNotExist) {
-				return nil, nil, errors.Wrap(rewardErr, "rewarding: read candidate owner for orphan drain")
-			}
-		} else {
-			log.L().Warn("rewarding: orphan pool ID does not decode to an address; refunding",
-				zap.Binary("candID", candID),
-				zap.Error(addrErr))
-		}
-
-		if target != nil {
-			tLog, err := p.creditRewardDirect(ctx, sm, target, poolAmt)
-			if err != nil {
-				return nil, nil, err
-			}
-			transactionLogs = append(transactionLogs, tLog)
-		} else {
-			if err := p.refundPendingBlockRewardPool(ctx, sm, poolAmt); err != nil {
-				return nil, nil, err
-			}
-		}
-		data, err := p.encodeRewardLog(rewardingpb.RewardLog_BLOCK_REWARD, targetStr, poolAmt)
+		tLog, rLog, err := p.sweepPendingPoolAmount(ctx, sm, candID, poolAmt, blkHeight, actionHash)
 		if err != nil {
 			return nil, nil, err
 		}
-		logs = append(logs, &action.Log{
-			Address:     p.addr.String(),
-			Topics:      nil,
-			Data:        data,
-			BlockHeight: blkHeight,
-			ActionHash:  actionHash,
-		})
+		if tLog != nil {
+			transactionLogs = append(transactionLogs, tLog)
+		}
+		logs = append(logs, rLog)
 		if err := p.deletePendingBlockRewardPool(ctx, sm, candID); err != nil {
 			return nil, nil, err
 		}
 	}
 	return transactionLogs, logs, nil
+}
+
+// sweepPendingPoolAmount moves one amount out of a delegate's pending pool to
+// the delegate's owner, or back to the rewarding fund's unclaimed balance when
+// no owner can be resolved, and emits the BLOCK_REWARD log that records it.
+//
+// Both sinks of unpaid pool money go through here: the orphan drain, which
+// sweeps a whole pool whose delegate fell off the list, and the drain's
+// completion residual, which sweeps the part of a frozen pool that floor
+// division and the payout clamp left behind. There is deliberately only one
+// sink -- a second one would be a second place for the fund accounting
+// invariant to be got wrong.
+//
+// The pool is decremented rather than deleted, because the pool may have kept
+// accruing behind the drain and that accrual belongs to the next era. The
+// decrement deletes the entry on its own when it empties.
+func (p *Protocol) sweepPendingPoolAmount(
+	ctx context.Context,
+	sm protocol.StateManager,
+	candID []byte,
+	amount *big.Int,
+	blkHeight uint64,
+	actionHash hash.Hash256,
+) (*action.TransactionLog, *action.Log, error) {
+	if amount == nil || amount.Sign() <= 0 {
+		return nil, nil, nil
+	}
+	var target address.Address
+	var targetStr string
+	candAddr, addrErr := address.FromBytes(candID)
+	if addrErr == nil {
+		routing, rewardErr := staking.ReadCandidateRewardRouting(sm, candAddr,
+			genesis.MustExtractGenesisContext(ctx).HermesRewardVaultAddresses)
+		if rewardErr == nil {
+			target = routing.Owner
+			targetStr = routing.Owner.String()
+		} else if !errors.Is(rewardErr, state.ErrStateNotExist) {
+			return nil, nil, errors.Wrap(rewardErr, "rewarding: read candidate owner for pool sweep")
+		}
+	} else {
+		log.L().Warn("rewarding: pool ID does not decode to an address; refunding",
+			zap.Binary("candID", candID),
+			zap.Error(addrErr))
+	}
+
+	var tLog *action.TransactionLog
+	if target != nil {
+		var err error
+		if tLog, err = p.creditRewardDirect(ctx, sm, target, amount); err != nil {
+			return nil, nil, err
+		}
+	} else if err := p.refundPendingBlockRewardPool(ctx, sm, amount); err != nil {
+		return nil, nil, err
+	}
+	data, err := p.encodeRewardLog(rewardingpb.RewardLog_BLOCK_REWARD, targetStr, amount)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := p.decrementPendingBlockRewardPool(ctx, sm, candID, amount); err != nil {
+		return nil, nil, err
+	}
+	return tLog, &action.Log{
+		Address:     p.addr.String(),
+		Topics:      nil,
+		Data:        data,
+		BlockHeight: blkHeight,
+		ActionHash:  actionHash,
+	}, nil
 }

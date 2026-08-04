@@ -155,6 +155,9 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {
 		return errors.Wrap(err, "failed to delete block reward history for erigon store")
 	}
+	if err := p.collectEraCOWGarbage(ctx, sm); err != nil {
+		return err
+	}
 	switch blkCtx.BlockHeight {
 	case g.AleutianBlockHeight:
 		return p.SetReward(ctx, sm, g.AleutianEpochReward(), false)
@@ -166,6 +169,31 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return p.setFoundationBonusExtension(ctx, sm)
 	case g.WakeBlockHeight:
 		return p.SetReward(ctx, sm, g.WakeBlockReward(), true)
+	}
+	return nil
+}
+
+// _eraCOWGarbagePerBlock is how many sealed era copy-on-write entries are
+// deleted per block. An era with heavy bucket churn can leave tens of
+// thousands behind; deleting them in one block would spend the very block
+// budget the drain itself is chunked to protect, and there is no deadline —
+// the entries are unreachable the moment the era is sealed, so the backlog
+// only has to drain before the next era accumulates a comparable one.
+const _eraCOWGarbagePerBlock = 256
+
+// collectEraCOWGarbage deletes a bounded batch of copies left by sealed IIP-59
+// era windows. It runs from CreatePreStates so it happens once per block on
+// every node in the same place, before any action executes.
+//
+// No-op pre-activation and whenever the backlog is empty; the staking side
+// checks the fork gate before touching state.
+func (p *Protocol) collectEraCOWGarbage(ctx context.Context, sm protocol.StateManager) error {
+	n, err := staking.CollectEraCOWGarbage(ctx, sm, _eraCOWGarbagePerBlock)
+	if err != nil {
+		return errors.Wrap(err, "failed to collect era copy-on-write garbage")
+	}
+	if n > 0 {
+		addIIP59Items("eracow_gc", n)
 	}
 	return nil
 }
@@ -356,7 +384,15 @@ func (p *Protocol) Handle(
 		case action.VoterRewardChunk:
 			transactionLogs, rewardLogs, err := p.GrantVoterRewardChunk(ctx, sm)
 			if err != nil {
-				log.L().Debug("Error when handling rewarding action", zap.Error(err))
+				// Deliberately louder than its siblings above. A failed block or
+				// epoch grant is self-announcing -- the receipt is the whole
+				// story and the next block starts over. A failed drain chunk is
+				// not: the cursor stays put, the chain keeps advancing, and the
+				// era's remaining voter payouts are silently dropped when the
+				// next boundary rewrites the cursor. Control flow is unchanged
+				// (the block still commits with a Failure receipt); only the
+				// reporting is.
+				p.reportVoterRewardChunkFailure(ctx, sm, err)
 				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
 			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs, transactionLogs...)
@@ -452,28 +488,20 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		pbSnapshot := &stakingpb.CandidatePollSnapshot{
+		// Scalars only. The frozen (voter, weight) list this used to enumerate
+		// no longer exists; a caller that wants a voter's position and amount
+		// asks VoterRewardStatus, which is per-voter and answers across every
+		// delegate the voter has a frozen bucket with.
+		return marshalWithHeight(sr, &stakingpb.CandidatePollSnapshot{
 			BlockCommissionBasisPoints: snapshot.BlockCommissionBasisPoints,
 			EpochCommissionBasisPoints: snapshot.EpochCommissionBasisPoints,
 			Registered:                 snapshot.Registered,
 			OnchainRewardEnabled:       snapshot.OnchainRewardEnabled,
-			Entries:                    make([]*stakingpb.VoterWeightEntry, 0, len(snapshot.Entries)),
 			TotalWeight:                safeBig(snapshot.TotalWeight).Bytes(),
 			SnapshotHash:               snapshot.SnapshotHash[:],
-			LastWeightedIndex:          snapshot.LastWeightedIndex,
-			HasWeightedEntries:         snapshot.HasWeightedEntries,
-		}
-		for _, entry := range snapshot.Entries {
-			weight := []byte(nil)
-			if entry.Weight != nil {
-				weight = entry.Weight.Bytes()
-			}
-			pbSnapshot.Entries = append(pbSnapshot.Entries, &stakingpb.VoterWeightEntry{
-				Voter:  entry.Voter.Bytes(),
-				Weight: weight,
-			})
-		}
-		return marshalWithHeight(sr, pbSnapshot)
+			FreezeHeight:               snapshot.FreezeHeight,
+			SelfStakeBucketIdx:         snapshot.SelfStakeBucketIdx,
+		})
 	case "VoterRewardAddress":
 		if len(args) != 1 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
@@ -509,18 +537,16 @@ func (p *Protocol) ReadState(
 			Recipient: recipient.Bytes(), ExplicitlySet: explicitlySet, UpdatedHeight: updatedHeight,
 		})
 	case "VoterRewardStatus":
-		if len(args) != 2 {
+		// One argument, not two: the drain pays a voter once for everything they
+		// are owed across every delegate, so the answer is per-voter.
+		if len(args) != 1 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		candID, err := address.FromString(string(args[0]))
+		voter, err := address.FromString(string(args[0]))
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		voter, err := address.FromString(string(args[1]))
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		status, err := p.voterRewardStatus(ctx, sr, candID, voter)
+		status, err := p.voterRewardStatus(ctx, sr, voter)
 		if err != nil {
 			return nil, uint64(0), err
 		}

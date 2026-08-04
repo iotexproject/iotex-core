@@ -137,23 +137,9 @@ func (s *voteView) Migrate(ctx context.Context, handler staking.EventHandler) er
 }
 
 func (s *voteView) Revise(ctx context.Context) {
-	s.ReviseWithBucketObserver(ctx, nil)
-}
-
-func (s *voteView) ReviseWithBucketObserver(ctx context.Context, observer staking.ContractBucketObserver) {
 	buckets, err := s.buckets(ctx)
 	if err != nil {
 		return
-	}
-	if observer != nil {
-		sortedIDs := make([]uint64, 0, len(buckets))
-		for id := range buckets {
-			sortedIDs = append(sortedIDs, id)
-		}
-		slices.Sort(sortedIDs)
-		for _, id := range sortedIDs {
-			observer.ReviseContractBucket(buckets[id])
-		}
 	}
 	s.cur = AggregateCandidateVotes(buckets, func(b *contractstaking.Bucket) *big.Int {
 		return s.calculateVoteWeightFn(b, s.height)
@@ -176,19 +162,7 @@ func (s *voteView) CreatePreStates(ctx context.Context) error {
 }
 
 func (s *voteView) Handle(ctx context.Context, receipt *action.Receipt) error {
-	return s.HandleWithBucketObserver(ctx, receipt, nil)
-}
-
-func (s *voteView) HandleWithBucketObserver(
-	ctx context.Context,
-	receipt *action.Receipt,
-	observer staking.ContractBucketObserver,
-) error {
-	store := s.store
-	if observer != nil {
-		store = newObservingBucketStore(store, observer)
-	}
-	handler, err := newVoteViewEventHandler(store, s.cur, func(b *contractstaking.Bucket) *big.Int {
+	handler, err := newVoteViewEventHandler(s.store, s.cur, func(b *contractstaking.Bucket) *big.Int {
 		return s.calculateVoteWeightFn(b, s.height)
 	})
 	if err != nil {

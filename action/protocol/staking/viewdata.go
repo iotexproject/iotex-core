@@ -45,20 +45,12 @@ type (
 		CandidateStakeVotes(ctx context.Context, id address.Address) *big.Int
 		AddBlockReceipts(ctx context.Context, receipts []*action.Receipt) error
 	}
-	// ContractBucketObserver receives the before/after bucket values already
-	// resolved by the contract stake view's in-memory store.
-	ContractBucketObserver interface {
-		PutContractBucket(previous, current *contractstaking.Bucket)
-		DeleteContractBucket(previous *contractstaking.Bucket)
-		ReviseContractBucket(bucket *contractstaking.Bucket)
-	}
 	// viewData is the data that need to be stored in protocol's view
 	viewData struct {
 		candCenter     *CandidateCenter
 		bucketPool     *BucketPool
 		snapshots      []Snapshot
 		contractsStake *contractStakeView
-		voterWeights   VoterWeightView
 	}
 	Snapshot struct {
 		size           int
@@ -66,7 +58,6 @@ type (
 		amount         *big.Int
 		count          uint64
 		contractsStake *contractStakeView
-		voterWeights   VoterWeightView
 	}
 	contractStakeView struct {
 		v1 ContractStakeView
@@ -87,13 +78,9 @@ func (v *viewData) Fork() protocol.View {
 			amount:         new(big.Int).Set(v.snapshots[i].amount),
 			count:          v.snapshots[i].count,
 			contractsStake: v.snapshots[i].contractsStake,
-			voterWeights:   v.snapshots[i].voterWeights,
 		}
 	}
 	fork.contractsStake = v.contractsStake.Fork()
-	if v.voterWeights != nil {
-		fork.voterWeights = v.voterWeights.Fork()
-	}
 	return fork
 }
 
@@ -107,44 +94,26 @@ func (v *viewData) Commit(ctx context.Context, sm protocol.StateManager) error {
 	if err := v.contractsStake.Commit(ctx, sm); err != nil {
 		return err
 	}
-	if v.voterWeights != nil {
-		newVW, err := v.voterWeights.Commit(ctx, sm)
-		if err != nil {
-			return err
-		}
-		v.voterWeights = newVW
-	}
 	v.snapshots = []Snapshot{}
 
 	return nil
 }
 
 func (v *viewData) IsDirty() bool {
-	if v.candCenter.IsDirty() || v.bucketPool.IsDirty() || v.contractsStake.IsDirty() {
-		return true
-	}
-	return v.voterWeights != nil && v.voterWeights.IsDirty()
+	return v.candCenter.IsDirty() || v.bucketPool.IsDirty() || v.contractsStake.IsDirty()
 }
 
 func (v *viewData) Snapshot() int {
 	snapshot := len(v.snapshots)
 	wrapped := v.contractsStake.Wrap()
-	var vwPre VoterWeightView
-	if v.voterWeights != nil {
-		vwPre = v.voterWeights
-	}
 	v.snapshots = append(v.snapshots, Snapshot{
 		size:           v.candCenter.size,
 		changes:        len(v.candCenter.change.candidates),
 		amount:         new(big.Int).Set(v.bucketPool.total.amount),
 		count:          v.bucketPool.total.count,
 		contractsStake: v.contractsStake,
-		voterWeights:   vwPre,
 	})
 	v.contractsStake = wrapped
-	if v.voterWeights != nil {
-		v.voterWeights = v.voterWeights.Wrap()
-	}
 	return snapshot
 }
 
@@ -162,33 +131,19 @@ func (v *viewData) Revert(snapshot int) error {
 	v.bucketPool.total.amount.Set(s.amount)
 	v.bucketPool.total.count = s.count
 	v.contractsStake = s.contractsStake
-	v.voterWeights = s.voterWeights
 	v.snapshots = v.snapshots[:snapshot]
 	return nil
 }
 
 func (csv *contractStakeView) Revise(ctx context.Context) {
-	csv.ReviseWithBucketObserver(ctx, nil)
-}
-
-func (csv *contractStakeView) ReviseWithBucketObserver(ctx context.Context, observer ContractBucketObserver) {
-	revise := func(view ContractStakeView) {
-		if observed, ok := view.(interface {
-			ReviseWithBucketObserver(context.Context, ContractBucketObserver)
-		}); ok {
-			observed.ReviseWithBucketObserver(ctx, observer)
-			return
-		}
-		view.Revise(ctx)
-	}
 	if csv.v1 != nil {
-		revise(csv.v1)
+		csv.v1.Revise(ctx)
 	}
 	if csv.v2 != nil {
-		revise(csv.v2)
+		csv.v2.Revise(ctx)
 	}
 	if csv.v3 != nil {
-		revise(csv.v3)
+		csv.v3.Revise(ctx)
 	}
 }
 
@@ -307,34 +262,18 @@ func (csv *contractStakeView) Commit(ctx context.Context, sm protocol.StateManag
 }
 
 func (csv *contractStakeView) Handle(ctx context.Context, receipt *action.Receipt) error {
-	return csv.HandleWithBucketObserver(ctx, receipt, nil)
-}
-
-func (csv *contractStakeView) HandleWithBucketObserver(
-	ctx context.Context,
-	receipt *action.Receipt,
-	observer ContractBucketObserver,
-) error {
-	handle := func(view ContractStakeView) error {
-		if observed, ok := view.(interface {
-			HandleWithBucketObserver(context.Context, *action.Receipt, ContractBucketObserver) error
-		}); ok {
-			return observed.HandleWithBucketObserver(ctx, receipt, observer)
-		}
-		return view.Handle(ctx, receipt)
-	}
 	if csv.v1 != nil {
-		if err := handle(csv.v1); err != nil {
+		if err := csv.v1.Handle(ctx, receipt); err != nil {
 			return err
 		}
 	}
 	if csv.v2 != nil {
-		if err := handle(csv.v2); err != nil {
+		if err := csv.v2.Handle(ctx, receipt); err != nil {
 			return err
 		}
 	}
 	if csv.v3 != nil {
-		if err := handle(csv.v3); err != nil {
+		if err := csv.v3.Handle(ctx, receipt); err != nil {
 			return err
 		}
 	}

@@ -42,8 +42,8 @@ type TestOnlyRewardStateSnapshot struct {
 	PoolEntries      []TestOnlyPoolEntry
 	CursorPresent    bool
 	CursorDelegates  uint32
-	CursorIndex      uint32
-	CursorVoterIndex uint32
+	CursorShardsDone uint32
+	CursorResumeLen  uint32
 	CursorTargetEra  uint64
 }
 
@@ -81,7 +81,7 @@ func (p *Protocol) TestOnlyDumpRewardState(
 	if err != nil {
 		return nil, err
 	}
-	idx, voterIdx, totalCands, era, present, err := p.TestOnlyEpochDrainSnapshot(ctx, sr)
+	shardsDone, resumeLen, totalCands, era, present, err := p.TestOnlyEpochDrainSnapshot(ctx, sr)
 	if err != nil {
 		return nil, err
 	}
@@ -92,10 +92,59 @@ func (p *Protocol) TestOnlyDumpRewardState(
 		PoolEntries:      entries,
 		CursorPresent:    present,
 		CursorDelegates:  totalCands,
-		CursorIndex:      idx,
-		CursorVoterIndex: voterIdx,
+		CursorShardsDone: shardsDone,
+		CursorResumeLen:  resumeLen,
 		CursorTargetEra:  era,
 	}, nil
+}
+
+// TestOnlyDrainDelegateWork is one delegate's frozen drain work item, copied
+// out of the live settlement. It exists so an e2e harness can recompute what
+// the drain should have paid without linking against the unexported cursor
+// types — and, more to the point, without calling computeVoterShares, which
+// would make the cross-check circular.
+type TestOnlyDrainDelegateWork struct {
+	CandidateID            []byte
+	VoterAmountFrozen      *big.Int
+	VoterAmountDistributed *big.Int
+	TotalWeight            *big.Int
+	FreezeHeight           uint64
+	SelfStakeBucketIdx     uint64
+	Skipped                bool
+}
+
+// TestOnlyEpochDrainPlan returns the current settlement's per-delegate work
+// items, whether it has completed, and whether any settlement state exists.
+//
+// Unlike TestOnlyEpochDrainSnapshot it keeps answering after the drain
+// finishes. The plan and progress records outlive completion — the next era
+// boundary is what replaces them — and the post-completion Distributed totals
+// are the only record of what the settlement actually moved.
+//
+// Note that completeEpochDrain folds each delegate's residual into Distributed
+// on the way out, so a completed item reports Distributed == VoterAmountFrozen.
+// A caller that wants the payout total alone has to sample before completion.
+func (p *Protocol) TestOnlyEpochDrainPlan(
+	ctx context.Context,
+	sr protocol.StateReader,
+) (works []TestOnlyDrainDelegateWork, completed bool, present bool, err error) {
+	c, err := p.readEpochDrainCursor(ctx, sr)
+	if err != nil || c == nil {
+		return nil, false, false, err
+	}
+	out := make([]TestOnlyDrainDelegateWork, len(c.Delegates))
+	for i, d := range c.Delegates {
+		out[i] = TestOnlyDrainDelegateWork{
+			CandidateID:            append([]byte(nil), d.CandidateIdentifier...),
+			VoterAmountFrozen:      new(big.Int).Set(safeBig(d.VoterAmountFrozen)),
+			VoterAmountDistributed: new(big.Int).Set(c.distributedAt(i)),
+			TotalWeight:            new(big.Int).Set(safeBig(d.TotalWeight)),
+			FreezeHeight:           d.FreezeHeight,
+			SelfStakeBucketIdx:     d.SelfStakeBucketIdx,
+			Skipped:                delegateSkipped(c, uint32(i)),
+		}
+	}
+	return out, c.Completed, true, nil
 }
 
 // TestOnlyAllPoolEntries walks the pending block-reward pool index and

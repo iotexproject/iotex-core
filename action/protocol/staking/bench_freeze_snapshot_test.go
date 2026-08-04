@@ -47,7 +47,9 @@ import (
 //   - worst single-delegate freeze < 500ms AND mainnet-tier aggregate
 //     < 1s ⇒ Design B viable, proceed.
 //   - ceiling-tier > 1.5s or mainnet aggregate > 1.5s ⇒ Design B fails,
-//     fall through to Design A (incremental VoterWeightView).
+//     fall through to Design A (an incrementally-maintained per-(candidate,
+//     voter) weight table). Design B won; Design A was built, measured
+//     against this benchmark, and removed.
 //
 // Contract-staking enumeration is NOT measured here — the three
 // indexers hold state in-memory, so per-bucket cost is far lower than
@@ -109,13 +111,25 @@ func BenchmarkFreezeSnapshotNativeEnumeration(b *testing.B) {
 //
 // Inlined into the bench file (not exported to production) because
 // Phase 0's job is to decide whether Design B is worth extracting to
-// a real helper at all. If bench green, Phase 1a lifts this into
-// poll_snapshot_entries.go and adds the contract-indexer branch.
+// a real helper at all.
+//
+// Historical note: the answer was "yes", and the materialized per-voter
+// list did ship — then got removed again when snapshots collapsed to
+// scalars (candidate.Votes is the frozen denominator; the drain
+// re-enumerates voters from the bucket indexes). The staking.VoterWeight
+// type this used to return no longer exists, so the bench carries its own
+// benchVoterWeight. The measurement is still the cost of the enumeration
+// itself, which is what the tier thresholds above are calibrated against.
+type benchVoterWeight struct {
+	Voter  address.Address
+	Weight *big.Int
+}
+
 func benchAggregateNativeVoterEntries(
 	sr protocol.StateReader,
 	consts genesis.VoteWeightCalConsts,
 	candID address.Address,
-) ([]VoterWeight, error) {
+) ([]benchVoterWeight, error) {
 	csr := newCandidateStateReader(sr)
 	// Note: for the bench, we don't have a candCenter, so we can't
 	// look up cand.SelfStakeBucketIdx. In production the aggregator
@@ -153,13 +167,13 @@ func benchAggregateNativeVoterEntries(
 			agg[key] = new(big.Int).Set(w)
 		}
 	}
-	entries := make([]VoterWeight, 0, len(agg))
+	entries := make([]benchVoterWeight, 0, len(agg))
 	for key, w := range agg {
 		addr, err := address.FromBytes(key[:])
 		if err != nil {
 			return nil, errors.Wrap(err, "rebuild addr")
 		}
-		entries = append(entries, VoterWeight{Voter: addr, Weight: w})
+		entries = append(entries, benchVoterWeight{Voter: addr, Weight: w})
 	}
 	sort.Slice(entries, func(a, b int) bool {
 		return bytes.Compare(entries[a].Voter.Bytes(), entries[b].Voter.Bytes()) < 0

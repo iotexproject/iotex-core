@@ -27,7 +27,22 @@ func NewStateReader(sr protocol.StateReader, opts ...protocol.StateOption) *Cont
 }
 
 func contractNamespaceOption(contractAddr address.Address) protocol.StateOption {
-	return protocol.NamespaceOption(fmt.Sprintf("%s%x", state.ContractStakingBucketNamespacePrefix, contractAddr.Bytes()))
+	return protocol.NamespaceOption(BucketNamespace(contractAddr))
+}
+
+// BucketNamespace is the state namespace holding one staking contract's
+// buckets. Exported so readers outside this package (the IIP-59 era
+// copy-on-write resolver, which needs the live location of a covered key) can
+// name it without duplicating the format string.
+func BucketNamespace(contractAddr address.Address) string {
+	return fmt.Sprintf("%s%x", state.ContractStakingBucketNamespacePrefix, contractAddr.Bytes())
+}
+
+// BucketKey is the state key of one contract-staking bucket inside
+// BucketNamespace. Little-endian, matching bucketIDKeyOption; the encoding is
+// fixed by existing state and must not be "corrected".
+func BucketKey(bucketID uint64) []byte {
+	return byteutil.Uint64ToBytes(bucketID)
 }
 
 func bucketTypeNamespaceOption(contractAddr address.Address) protocol.StateOption {

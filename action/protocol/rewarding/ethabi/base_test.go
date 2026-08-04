@@ -39,7 +39,7 @@ func TestBuildReadStateRequest(t *testing.T) {
 	r.NoError(err)
 	r.IsType(&PendingBlockRewardPoolIndexStateContext{}, ctx)
 
-	ctx, err = BuildReadStateRequest(_epochDrainCursorMethod.ID)
+	ctx, err = BuildReadStateRequest(_eraDrainCursorMethod.ID)
 	r.NoError(err)
-	r.IsType(&EpochDrainCursorStateContext{}, ctx)
+	r.IsType(&EraDrainCursorStateContext{}, ctx)
 }

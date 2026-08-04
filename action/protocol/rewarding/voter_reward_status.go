@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"context"
 	"math/big"
-	"sort"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -18,13 +17,22 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/v2/state"
 )
 
+// voterRewardStatus reports what one voter is owed by the active or most
+// recently completed settlement, and whether the drain has reached them yet.
+//
+// It is per-voter, not per (candidate, voter): the drain pays a voter once for
+// everything they are owed across every delegate, so a per-candidate answer
+// would no longer correspond to anything that moves on chain.
+//
+// The amount comes from computeVoterShares -- the same function, with the same
+// payout clamp, that the drain itself uses. That is deliberate: it is what
+// makes "the number this query reports is the number the drain pays" a property
+// of the code rather than of two implementations happening to agree.
 func (p *Protocol) voterRewardStatus(
 	ctx context.Context,
 	sr protocol.StateReader,
-	candidateID address.Address,
 	voter address.Address,
 ) (*rewardingpb.VoterRewardStatus, error) {
 	status := &rewardingpb.VoterRewardStatus{
@@ -44,72 +52,93 @@ func (p *Protocol) voterRewardStatus(
 	status.SettlementCompleted = cursor.Completed
 	status.CompletedHeight = cursor.CompletedHeight
 
-	delegateIndex := -1
-	for i := range cursor.Delegates {
-		if bytes.Equal(cursor.Delegates[i].CandidateIdentifier, candidateID.Bytes()) {
-			delegateIndex = i
-			break
-		}
-	}
-	if delegateIndex < 0 {
-		status.Status = rewardingpb.VoterRewardStatus_CANDIDATE_NOT_INCLUDED
-		return status, nil
-	}
-
-	work := &cursor.Delegates[delegateIndex]
-	status.VoterStartIndex = work.VoterStartIndex
-	snapshot, err := staking.PollSnapshotFor(sr, candidateID)
+	window, err := staking.EraCOWWindow(sr)
 	if err != nil {
-		if errors.Is(err, state.ErrStateNotExist) {
-			status.Status = rewardingpb.VoterRewardStatus_SNAPSHOT_UNAVAILABLE
-			return status, nil
-		}
 		return nil, err
 	}
-	// The frozen work item must still describe the snapshot on disk, or the
-	// amount reported here would not be the amount the drain pays. Only the
-	// rotation-invariant fields are comparable: work.LastWeightedIndex is a
-	// logical position and snapshot.LastWeightedIndex a physical one, so they
-	// diverge whenever VoterStartIndex is non-zero. See voterDistributionMetadata.
-	snapshotHash := snapshotHashFull(snapshot)
-	if (len(work.SnapshotHash) > 0 && !bytes.Equal(work.SnapshotHash, snapshotHash[:])) ||
-		safeBig(work.TotalWeight).Cmp(safeBig(snapshot.TotalWeight)) != 0 ||
-		work.HasWeightedEntries != snapshot.HasWeightedEntries {
+	if !window.Open() {
+		// The era's frozen bucket copies are what the amount is computed from,
+		// and they are sealed the moment the drain finishes. There is no honest
+		// number to report once they are gone, so say so rather than recompute
+		// against live state and hand back a figure nobody was ever paid.
 		status.Status = rewardingpb.VoterRewardStatus_SNAPSHOT_UNAVAILABLE
 		return status, nil
 	}
-
-	voterBytes := voter.Bytes()
-	physicalIndex := sort.Search(len(snapshot.Entries), func(i int) bool {
-		entry := snapshot.Entries[i].Voter
-		return entry == nil || bytes.Compare(entry.Bytes(), voterBytes) >= 0
-	})
-	if physicalIndex == len(snapshot.Entries) || snapshot.Entries[physicalIndex].Voter == nil ||
-		!bytes.Equal(snapshot.Entries[physicalIndex].Voter.Bytes(), voterBytes) {
-		status.Status = rewardingpb.VoterRewardStatus_VOTER_NOT_INCLUDED
-		return status, nil
+	stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx))
+	if stakingProto == nil {
+		return nil, errors.New("rewarding: staking protocol not registered")
 	}
 
-	alloc := voterAllocatorForWork(snapshot, work)
-	logicalIndex := alloc.logicalIndex(uint32(physicalIndex))
-	amount, err := alloc.shareOf(logicalIndex)
+	shares, err := computeVoterShares(sr, voterShareInputs{
+		window:      window,
+		staking:     stakingProto,
+		delegates:   cursor.Delegates,
+		byCandidate: delegateWorkIndex(cursor.Delegates),
+		payable:     drainPayableDelegates(cursor),
+		distributed: distributedVector(cursor),
+	}, voter)
 	if err != nil {
 		return nil, err
 	}
-	status.LogicalVoterIndex = logicalIndex
-	status.RewardAmount = amount.Bytes()
-
-	switch {
-	case cursor.Completed:
-		status.Status = rewardingpb.VoterRewardStatus_PROCESSED
-	case uint32(delegateIndex) < cursor.DelegateIndex:
-		status.Status = rewardingpb.VoterRewardStatus_PROCESSED
-	case uint32(delegateIndex) > cursor.DelegateIndex:
-		status.Status = rewardingpb.VoterRewardStatus_WAITING
-	case logicalIndex < cursor.VoterIndex:
-		status.Status = rewardingpb.VoterRewardStatus_PROCESSED
-	default:
-		status.Status = rewardingpb.VoterRewardStatus_WAITING
+	if len(shares.shares) == 0 {
+		status.Status = rewardingpb.VoterRewardStatus_VOTER_NOT_INCLUDED
+		return status, nil
 	}
+	status.RewardAmount = shares.total.Bytes()
+	status.Status = voterDrainPosition(cursor, voter)
 	return status, nil
+}
+
+// voterDrainPosition reports whether the shard walk has already passed a voter.
+//
+// Position is measured in the rotation, not in raw shard ids: shard
+// (StartShard + n) mod 256 is the n-th visited, so the voter's own shard maps
+// to a rotation position that compares directly against ShardsDone. Inside the
+// shard in progress, the walk pays voters in ascending address order, so
+// ResumeVoter -- the last address visited -- separates paid from pending.
+func voterDrainPosition(cursor *epochDrainCursor, voter address.Address) rewardingpb.VoterRewardStatus_Status {
+	if cursor.Completed || cursor.drainFinished() {
+		return rewardingpb.VoterRewardStatus_PROCESSED
+	}
+	pos := (uint16(staking.ShardOf(voter)) + totalShards - uint16(cursor.StartShard)) % totalShards
+	switch {
+	case pos < cursor.ShardsDone:
+		return rewardingpb.VoterRewardStatus_PROCESSED
+	case pos > cursor.ShardsDone:
+		return rewardingpb.VoterRewardStatus_WAITING
+	case len(cursor.ResumeVoter) > 0 && bytes.Compare(voter.Bytes(), cursor.ResumeVoter) <= 0:
+		return rewardingpb.VoterRewardStatus_PROCESSED
+	default:
+		return rewardingpb.VoterRewardStatus_WAITING
+	}
+}
+
+// drainPayableDelegates recomputes the drain's payability flags from the frozen
+// work items alone.
+//
+// It is the read-only half of what resolveDrainPayees decides. The one
+// condition it cannot reproduce is the legacy fallback for cursors written
+// before the reward address was frozen into the work item, which needs a state
+// read; such a cursor can only exist on a chain that was mid-settlement across
+// the upgrade, and the difference is that this query may report an amount for a
+// delegate the drain will end up skipping.
+func drainPayableDelegates(c *epochDrainCursor) []bool {
+	payable := make([]bool, len(c.Delegates))
+	for i := range c.Delegates {
+		payable[i] = drainPayablePrefilter(c, i)
+	}
+	return payable
+}
+
+// drainPayablePrefilter reports whether a delegate's frozen work item names a
+// payable voter set at all. A delegate already marked skipped stays skipped:
+// the mark is what preserves its pending pool for a later era.
+func drainPayablePrefilter(c *epochDrainCursor, i int) bool {
+	if delegateSkipped(c, uint32(i)) {
+		return false
+	}
+	work := c.Delegates[i]
+	return safeBig(work.VoterAmountFrozen).Sign() > 0 &&
+		work.hasFrozenEra() &&
+		safeBig(work.TotalWeight).Sign() > 0
 }

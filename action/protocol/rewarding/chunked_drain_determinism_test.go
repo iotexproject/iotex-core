@@ -49,41 +49,95 @@ func allProtocolAddrs(t *testing.T) []address.Address {
 	return out
 }
 
-// seedPoolAccrualsForRewardedDelegates credits equal-sized voter pool
-// balances to each of the four rewarded delegates. Those balances are what
-// Phase A folds into the epoch drain cursor — one entry per delegate,
-// frozen at the seeded amount — so chunking the drain has real cursor
-// entries to walk.
+// drainVoterIndexes lists the identityset indexes seedPoolAccrualsForRewardedDelegates
+// hands out as voters. Kept disjoint from the poll candidates (27..32) so a
+// delegate is never also a voter.
+func drainVoterIndexes(votersPerDelegate int) []int {
+	out := make([]int, 0, len(rewardedCandidateIndexes)*votersPerDelegate)
+	for i := range rewardedCandidateIndexes {
+		for j := 0; j < votersPerDelegate; j++ {
+			out = append(out, 3+i*5+j)
+		}
+	}
+	return out
+}
+
+// seedPoolAccrualsForRewardedDelegates credits equal-sized voter pool balances
+// to each of the four rewarded delegates and plants the native buckets that
+// make those delegates' voters visible to the drain.
+//
+// Planting buckets is not optional after P5. The drain walks the voter key
+// space and recomputes weights from frozen buckets; it never reads
+// CandidatePollSnapshot.Entries. A fixture that writes only snapshots presents
+// the drain with an empty key space, every shard completes in the first block,
+// and every "the drain paid X" assertion passes vacuously.
 func seedPoolAccrualsForRewardedDelegates(
 	t *testing.T,
 	ctx context.Context,
 	sm protocol.StateManager,
 	p *Protocol,
 	perDelegate int64,
-) {
+	votersPerDelegate int,
+) *iip59DrainFixture {
 	t.Helper()
 	r := require.New(t)
-	for _, idx := range rewardedCandidateIndexes {
+	const rau = int64(1_000_000_000_000_000_000)
+	seeds := make([]iip59NativeSeed, 0, len(rewardedCandidateIndexes)*votersPerDelegate)
+	for i, idx := range rewardedCandidateIndexes {
 		r.NoError(p.creditPendingBlockRewardPool(
 			ctx, sm, identityset.Address(idx).Bytes(), big.NewInt(perDelegate),
 		))
 		r.NoError(p.updateAvailableBalance(ctx, sm, big.NewInt(perDelegate)))
-		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(idx), &staking.CandidatePollSnapshot{
-			OnchainRewardEnabled:       true,
-			BlockCommissionBasisPoints: _basisPointsDenom,
-			EpochCommissionBasisPoints: _basisPointsDenom,
-			Registered:                 true,
-			Entries: []staking.VoterWeight{{
-				Voter: identityset.Address(idx), Weight: big.NewInt(1),
-			}},
-		}))
+		for j := 0; j < votersPerDelegate; j++ {
+			seeds = append(seeds, iip59NativeSeed{
+				delegate: identityset.Address(idx),
+				voter:    identityset.Address(3 + i*5 + j),
+				amount:   int64(j+1) * rau,
+			})
+		}
 	}
+	return seedIIP59DrainState(t, ctx, sm, iip59FixtureFreezeHeight, seeds, nil)
 }
 
-// registerStubStakingProtocol installs an empty staking.Protocol and
-// no-ops the SlashCandidate* entry points GrantEpochReward invokes
-// during Phase A. Mirrors the setup used in chunked_drain_test.go's
-// existing tests. Returns the *Patches so callers can Reset() it.
+// seedSameShardDrain is seedPoolAccrualsForRewardedDelegates with every voter
+// forced into one key-space shard, so a budget-limited chunk is guaranteed to
+// stop part-way through a shard rather than exactly on a shard boundary.
+func seedSameShardDrain(
+	t *testing.T,
+	ctx context.Context,
+	sm protocol.StateManager,
+	p *Protocol,
+	perDelegate int64,
+	votersPerDelegate int,
+	shard byte,
+) *iip59DrainFixture {
+	t.Helper()
+	r := require.New(t)
+	const rau = int64(1_000_000_000_000_000_000)
+	seeds := make([]iip59NativeSeed, 0, len(rewardedCandidateIndexes)*votersPerDelegate)
+	for i, idx := range rewardedCandidateIndexes {
+		r.NoError(p.creditPendingBlockRewardPool(
+			ctx, sm, identityset.Address(idx).Bytes(), big.NewInt(perDelegate),
+		))
+		r.NoError(p.updateAvailableBalance(ctx, sm, big.NewInt(perDelegate)))
+		for j := 0; j < votersPerDelegate; j++ {
+			seeds = append(seeds, iip59NativeSeed{
+				delegate: identityset.Address(idx),
+				voter:    sameShardVoter(shard, i*votersPerDelegate+j),
+				amount:   int64(j+1) * rau,
+			})
+		}
+	}
+	return seedIIP59DrainState(t, ctx, sm, iip59FixtureFreezeHeight, seeds, nil)
+}
+
+// registerStubStakingProtocol installs a staking.Protocol and no-ops the
+// SlashCandidate* entry points GrantEpochReward invokes during Phase A.
+// Returns the *Patches so callers can Reset() it.
+//
+// It must be called before any fixture that plants buckets: the fixture
+// recomputes frozen weights through staking.FindProtocol, and an unregistered
+// protocol would leave it with nothing to compute against.
 func registerStubStakingProtocol(t *testing.T, ctx context.Context) *gomonkey.Patches {
 	t.Helper()
 	r := require.New(t)
@@ -132,30 +186,13 @@ func TestGrantEpochReward_SettlementStartUsesOneSeed(t *testing.T) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
 
-		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
-		r.NoError(err)
-		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 100)
-
-		voterCounts := []int{2, 3, 4, 5}
-		for i, candidateIndex := range rewardedCandidateIndexes {
-			entries := make([]staking.VoterWeight, voterCounts[i])
-			for j := range entries {
-				entries[j] = staking.VoterWeight{
-					Voter:  identityset.Address(3 + i*5 + j),
-					Weight: big.NewInt(int64(j + 1)),
-				}
-			}
-			r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(candidateIndex), &staking.CandidatePollSnapshot{
-				OnchainRewardEnabled:       true,
-				BlockCommissionBasisPoints: _basisPointsDenom,
-				EpochCommissionBasisPoints: _basisPointsDenom,
-				Registered:                 true,
-				Entries:                    entries,
-			}))
-		}
-
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
+
+		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 100, 3)
+
 		_, _, err = p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
 
@@ -164,13 +201,21 @@ func TestGrantEpochReward_SettlementStartUsesOneSeed(t *testing.T) {
 		r.NotNil(cursor)
 		expectedSeed := settlementSeed(ctx, cursor.TargetEra)
 		r.Equal(expectedSeed[:], cursor.SettlementSeed)
-		expectedDelegateStart := settlementListOffset(expectedSeed[:], len(rewardedCandidateIndexes))
-		r.Equal(expectedDelegateStart, cursor.DelegateStartIndex)
 
-		for logicalIndex, work := range cursor.Delegates {
-			canonicalIndex := (int(expectedDelegateStart) + logicalIndex) % len(rewardedCandidateIndexes)
-			r.Equal(identityset.Address(rewardedCandidateIndexes[canonicalIndex]).Bytes(), work.CandidateIdentifier)
-			r.Equal(settlementListOffset(expectedSeed[:], voterCounts[canonicalIndex]), work.VoterStartIndex)
+		// Rotation now applies to the shard sequence, not to the delegate list:
+		// the drain is voter-major, so there is no delegate list to rotate. The
+		// one seed still decides where the walk starts.
+		r.Equal(settlementStartShard(expectedSeed[:]), cursor.StartShard)
+		r.Equal(uint16(0), cursor.ShardsDone)
+		r.Empty(cursor.ResumeVoter)
+
+		// The delegate work list is in canonical order, and every entry carries
+		// the era's freeze height -- without it the weight recompute has no
+		// height to evaluate against and the drain refuses the item.
+		r.Len(cursor.Delegates, len(rewardedCandidateIndexes))
+		for i, work := range cursor.Delegates {
+			r.Equal(identityset.Address(rewardedCandidateIndexes[i]).Bytes(), work.CandidateIdentifier)
+			r.NotZero(work.FreezeHeight)
 		}
 	}, nil, false, 0)
 }
@@ -187,54 +232,91 @@ func TestGrantEpochReward_SettlementStartUsesOneSeed(t *testing.T) {
 // continuation blocks), chunkSize=0 (unbounded, Phase A drains inline) —
 // must produce reflect.DeepEqual snapshots.
 //
-// Each delegate has one voter and 100% commission for the fresh epoch reward,
-// so only the explicitly seeded pending pool is drained.
+// Twelve voters spread over the four delegates give the shard walk something
+// to split; a budget of 1, 2, 5 or unbounded therefore stops in genuinely
+// different places, including part-way through a shard.
+//
+// This is the P5 replacement for TestVoterAllocationIsChunkInvariant, which
+// asserted the same property of the deleted per-candidate allocator. The claim
+// moved from "the allocator hands out the same amounts regardless of window"
+// to "the shard walk pays the same voter the same amount regardless of where
+// the block boundaries fall", which is the property chunk-size tuning at
+// activation actually depends on.
 func TestChunkedDrain_InvariantAcrossChunkSizes(t *testing.T) {
-	run := func(t *testing.T, chunkSize uint64) (*TestOnlyRewardStateSnapshot, int) {
+	const votersPerDelegate = 3
+	voterAddrs := make([]address.Address, 0, len(rewardedCandidateIndexes)*votersPerDelegate)
+	for _, idx := range drainVoterIndexes(votersPerDelegate) {
+		voterAddrs = append(voterAddrs, identityset.Address(idx))
+	}
+
+	run := func(t *testing.T, chunkSize uint64) (*TestOnlyRewardStateSnapshot, map[string]*big.Int, int) {
 		var snap *TestOnlyRewardStateSnapshot
+		var balances map[string]*big.Int
 		var chunks int
 		testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 			r := require.New(t)
 			ctx = enableIIP59(t, ctx)
 			p.cfg.VoterBudgetPerBlock = chunkSize
 
+			patches := registerStubStakingProtocol(t, ctx)
+			defer patches.Reset()
+
 			_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 			r.NoError(err)
 
-			seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 200)
-
-			patches := registerStubStakingProtocol(t, ctx)
-			defer patches.Reset()
+			seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 200, votersPerDelegate)
 
 			chunks = runDrainToCompletion(t, ctx, sm, p)
 
 			got, err := p.TestOnlyDumpRewardState(ctx, sm, allProtocolAddrs(t))
 			r.NoError(err)
 			snap = got
+			// Voter payouts are credited to the account balance, not to the
+			// per-address unclaimed reward balance, so the reward-state dump
+			// alone would not observe them.
+			balances = accountBalances(t, sm, voterAddrs)
 		}, nil, false, 0)
-		return snap, chunks
+		return snap, balances, chunks
 	}
 
 	r := require.New(t)
 
-	snapChunk1, chunks1 := run(t, 1)
-	snapChunk2, chunks2 := run(t, 2)
-	snapChunkUnbounded, chunksU := run(t, 0)
+	snapChunk1, balances1, chunks1 := run(t, 1)
+	snapChunk2, balances2, chunks2 := run(t, 2)
+	snapChunk5, balances5, chunks5 := run(t, 5)
+	snapChunkUnbounded, balancesU, chunksU := run(t, 0)
 
-	r.Equal(4, chunks1)
-	r.Equal(2, chunks2)
+	// The fixture must actually pay someone, or every equality below is
+	// an equality between two empty maps.
+	paid := new(big.Int)
+	for _, v := range balances1 {
+		paid.Add(paid, v)
+	}
+	r.True(paid.Sign() > 0, "fixture must distribute a non-zero amount to voters")
+
+	r.Greater(chunks1, chunksU, "a budget of 1 must take more blocks than an unbounded drain")
+	r.GreaterOrEqual(chunks1, chunks2)
+	r.GreaterOrEqual(chunks2, chunks5)
 	r.Equal(1, chunksU)
 
-	// End-state must be byte-identical across all three chunkings.
-	r.True(reflect.DeepEqual(snapChunk1, snapChunk2),
-		"end-state must be byte-identical between chunkSize=1 and chunkSize=2")
-	r.True(reflect.DeepEqual(snapChunk1, snapChunkUnbounded),
-		"end-state must be byte-identical between chunkSize=1 and chunkSize=0")
+	for _, tc := range []struct {
+		name     string
+		snap     *TestOnlyRewardStateSnapshot
+		balances map[string]*big.Int
+	}{
+		{"chunkSize=2", snapChunk2, balances2},
+		{"chunkSize=5", snapChunk5, balances5},
+		{"chunkSize=0", snapChunkUnbounded, balancesU},
+	} {
+		r.True(reflect.DeepEqual(snapChunk1, tc.snap),
+			"end-state must be byte-identical between chunkSize=1 and "+tc.name)
+		r.True(reflect.DeepEqual(balances1, tc.balances),
+			"per-voter payouts must be byte-identical between chunkSize=1 and "+tc.name)
+	}
 
 	// TestOnlyDumpRewardState treats a completed cursor as inactive so the
 	// distribution state comparison remains independent of chunk count.
 	r.False(snapChunk1.CursorPresent, "cursor must be absent at end of chunkSize=1 drain")
-	r.False(snapChunk2.CursorPresent, "cursor must be absent at end of chunkSize=2 drain")
 	r.False(snapChunkUnbounded.CursorPresent, "cursor must be absent at end of chunkSize=0 drain")
 }
 
@@ -256,12 +338,12 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		ctx = enableIIP59(t, ctx)
 		p.cfg.VoterBudgetPerBlock = 1
 
-		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
-		r.NoError(err)
-		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 200)
-
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
+
+		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 200, 3)
 
 		runDrainToCompletion(t, ctx, sm, p)
 		reference, err = p.TestOnlyDumpRewardState(ctx, sm, allProtocolAddrs(t))
@@ -277,20 +359,20 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		ctx = enableIIP59(t, ctx)
 		p.cfg.VoterBudgetPerBlock = 1
 
-		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
-		r.NoError(err)
-		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 200)
-
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
+
+		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 200, 3)
 
 		_, _, err = p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
 		midDrain, err = p.TestOnlyDumpRewardState(ctx, sm, allProtocolAddrs(t))
 		r.NoError(err)
 		r.True(midDrain.CursorPresent, "Phase-A snapshot must observe a live cursor")
-		r.Equal(uint32(0), midDrain.CursorIndex)
-		r.Equal(uint32(0), midDrain.CursorVoterIndex)
+		r.Equal(uint32(0), midDrain.CursorShardsDone)
+		r.Equal(uint32(0), midDrain.CursorResumeLen)
 
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
@@ -312,20 +394,29 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		"end-state after a paused-then-resumed drain must equal an uninterrupted drain")
 }
 
-// TestChunkedDrain_VoterBudgetStopsAtDelegateBoundary confirms one-voter
-// delegates consume the global voter budget and resume at the next delegate.
-func TestChunkedDrain_VoterBudgetStopsAtDelegateBoundary(t *testing.T) {
+// TestChunkedDrain_VoterBudgetStopsMidShardWalk confirms the per-block voter
+// budget is spent on voters and that stopping part-way through a shard leaves
+// a resumable cursor.
+//
+// This replaces TestChunkedDrain_VoterBudgetStopsAtDelegateBoundary. The
+// delegate boundary it named no longer exists: the drain is voter-major, so a
+// block ends in the middle of a shard, at a voter, and possibly with several
+// delegates each partly paid. ResumeVoter is what makes that position
+// recoverable, and it is the thing worth asserting.
+func TestChunkedDrain_VoterBudgetStopsMidShardWalk(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
 		p.cfg.VoterBudgetPerBlock = 1
 
-		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
-		r.NoError(err)
-		seedPoolAccrualsForRewardedDelegates(t, ctx, sm, p, 200)
-
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
+
+		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+		// All twelve voters share a shard, so a one-voter budget necessarily
+		// stops inside a shard rather than on a shard boundary.
+		seedSameShardDrain(t, ctx, sm, p, 200, 3, 0x7a)
 
 		_, _, err = p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
@@ -337,24 +428,38 @@ func TestChunkedDrain_VoterBudgetStopsAtDelegateBoundary(t *testing.T) {
 		r.Equal(len(rewardedCandidateIndexes), len(frozen.Delegates),
 			"Phase A must have frozen one entry per rewarded delegate")
 
-		// One call resolves exactly one delegate because voterBudget=1.
-		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
+		// One call pays exactly one voter because voterBudget=1.
+		txLogs, _, err := p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
+		r.Len(txLogs, 1, "a budget of one voter must produce exactly one transfer")
 
-		for i, work := range frozen.Delegates {
-			amt, readErr := p.readPendingBlockRewardPool(ctx, sm, work.CandidateIdentifier)
-			r.NoError(readErr)
-			if i == 0 {
-				r.Zero(amt.Sign())
-			} else {
-				r.Positive(amt.Sign())
-			}
-		}
 		cursor, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
 		r.NotNil(cursor)
-		r.Equal(uint32(1), cursor.DelegateIndex)
+		r.False(cursor.Completed, "one voter out of twelve cannot finish the drain")
+		r.NotEmpty(cursor.ResumeVoter, "stopping inside a shard must record where to resume")
+		r.Equal(txLogs[0].Recipient, mustAddressFromBytes(t, cursor.ResumeVoter).String(),
+			"the resume point is the last voter visited")
+		r.Less(cursor.ShardsDone, totalShards)
+
+		// Exactly one delegate's running total moved, and by the amount paid.
+		moved := 0
+		for i := range cursor.Delegates {
+			if cursor.distributedAt(i).Sign() > 0 {
+				moved++
+			}
+		}
+		r.Equal(1, moved, "the single paid voter had a bucket with exactly one delegate")
 	}, nil, false, 0)
+}
+
+// mustAddressFromBytes converts raw address bytes for comparison against a
+// transaction log's recipient string.
+func mustAddressFromBytes(t *testing.T, b []byte) address.Address {
+	t.Helper()
+	addr, err := address.FromBytes(b)
+	require.NoError(t, err)
+	return addr
 }
 
 // findRewardLogsOfType decodes the RewardLog payload from each entry
@@ -423,9 +528,7 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 			BlockCommissionBasisPoints: _basisPointsDenom,
 			EpochCommissionBasisPoints: _basisPointsDenom,
 			Registered:                 true,
-			Entries: []staking.VoterWeight{{
-				Voter: identityset.Address(27), Weight: big.NewInt(1),
-			}},
+			TotalWeight:                big.NewInt(1),
 		}))
 
 		// Inject a stale era-1 cursor pointing at candidate 27. The
@@ -433,10 +536,9 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 		// balance — the residue path must read pool state, not the frozen
 		// field.
 		stale := &epochDrainCursor{
-			TargetEra:     1,
-			StartEpoch:    1,
-			EndEpoch:      1,
-			DelegateIndex: 0,
+			TargetEra:  1,
+			StartEpoch: 1,
+			EndEpoch:   1,
 			Delegates: []epochDrainDelegateWork{
 				{CandidateIdentifier: candID, VoterAmountFrozen: big.NewInt(999)},
 			},
@@ -522,8 +624,7 @@ func TestPhaseA_OverrunHandoff_ZeroResidue(t *testing.T) {
 		// from each pool key, and returns 0.
 		candID := identityset.Address(27).Bytes()
 		stale := &epochDrainCursor{
-			TargetEra:     1,
-			DelegateIndex: 0,
+			TargetEra: 1,
 			Delegates: []epochDrainDelegateWork{
 				{CandidateIdentifier: candID, VoterAmountFrozen: big.NewInt(999)},
 			},
@@ -552,7 +653,12 @@ func TestPhaseA_OverrunHandoff_ZeroResidue(t *testing.T) {
 		overruns := findRewardLogsOfType(t, rewardLogs, rewardingpb.RewardLog_EPOCH_DRAIN_OVERRUN)
 		r.Len(overruns, 1,
 			"observability log must fire even when the residue is zero — its purpose is the handoff itself")
-		r.Equal("1:1", overruns[0].Addr)
+		// The count is delegates that still hold a pool balance, not cursor
+		// entries left unvisited: a voter-major drain leaves no clean
+		// done/undone prefix over the delegate list, so "how much money is
+		// still sitting in pools" is the only well-defined remainder. Every
+		// pool here is empty, hence 0.
+		r.Equal("1:0", overruns[0].Addr)
 		r.Equal("0", overruns[0].Amount, "zero-residue handoff still logs amount=0")
 
 		// Stale cursor must be gone. Either no cursor (no pool accrual for

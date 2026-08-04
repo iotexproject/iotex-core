@@ -31,10 +31,10 @@ func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 		return newPendingBlockRewardPoolStateContext(data[4:])
 	case hex.EncodeToString(_pendingBlockRewardPoolIndexMethod.ID):
 		return newPendingBlockRewardPoolIndexStateContext()
-	case hex.EncodeToString(_epochDrainCursorMethod.ID):
-		return newEpochDrainCursorStateContext()
-	case hex.EncodeToString(_voterRewardSnapshotMethod.ID):
-		return newVoterRewardSnapshotStateContext(data[4:])
+	case hex.EncodeToString(_eraDrainCursorMethod.ID):
+		return newEraDrainCursorStateContext()
+	case hex.EncodeToString(_voterRewardDelegateSnapshotMethod.ID):
+		return newVoterRewardDelegateSnapshotStateContext(data[4:])
 	case hex.EncodeToString(_voterRewardAddressMethod.ID):
 		return newVoterRewardAddressStateContext(data[4:])
 	case hex.EncodeToString(_voterRewardDestinationMethod.ID):

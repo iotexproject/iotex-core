@@ -19,6 +19,7 @@ import (
 	"github.com/mohae/deepcopy"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
@@ -55,6 +56,15 @@ var iip59PerfTiers = map[string]perfTier{
 }
 
 const iip59PerfTierEnv = "IIP59_PERF_TIER"
+
+// The stake parameters every seeded bucket gets. They are package-level rather
+// than inline in installIIP59PerfHooks because the payout assertions recompute
+// vote weights from them: if the two ever disagreed, the assertions would be
+// checking the drain against a fixture that does not exist.
+const iip59PerfVoterStakeDurationDays uint32 = 30
+
+func iip59PerfDelegateSelfStake() *big.Int { return unit.ConvertIotxToRau(1_200_000) }
+func iip59PerfVoterStake() *big.Int        { return unit.ConvertIotxToRau(1_000) }
 
 // TestIIP59EpochGrantPerf spins up a real itx.Server, plants a
 // tier-sized delegate/voter population directly in the genesis state,
@@ -93,6 +103,7 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	test := newE2ETest(t, cfg)
 	defer test.teardown()
 	registerEpochProtocols(r, test)
+	registerIIP59EraFreezer(r, test, tier)
 
 	bc := test.cs.Blockchain()
 	ap := test.cs.ActionPool()
@@ -130,6 +141,7 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 		eraEndHeight, blocksPerEpoch, estimatedDrainBlocks, maxBlocks)
 
 	minted := 0
+	watcher := newIIP59DrainWatch()
 	for minted < maxBlocks {
 		blkTime = blkTime.Add(step)
 		wall, err := mintOne(bc, ap, blkTime)
@@ -139,6 +151,15 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 		height := bc.TipHeight()
 		delegateIndex, voterIndex, totalDelegates, tEra, present, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, height)
 		r.NoErrorf(err, "drainSnapshot at height %d", height)
+		// Sampled here rather than at the end because completion folds each
+		// delegate's residual into its distributed total, after which the bound
+		// this checks is trivially tight.
+		if plan, completed, planPresent, planErr := drainPlan(test.cs, cfg.Genesis, rewardProto, height); planPresent && !completed {
+			r.NoErrorf(planErr, "drainPlan at height %d", height)
+			watcher.observe(t, height, plan)
+		} else {
+			r.NoErrorf(planErr, "drainPlan at height %d", height)
+		}
 
 		if drainStartHeight == 0 && present {
 			drainStartHeight = height
@@ -165,6 +186,21 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	_, _, _, _, stillDraining, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, tipHeight)
 	r.NoError(err)
 	r.Falsef(stillDraining, "drain still in progress at tip height %d", tipHeight)
+
+	// Latency is only worth reporting for a settlement that was correct. The
+	// bench mints a real era freeze and a real drain, so the same run can carry
+	// the per-voter payout assertions -- and until it did, nothing here would
+	// have noticed the harness paying nobody at all.
+	plan, completed, planPresent, err := drainPlan(test.cs, cfg.Genesis, rewardProto, tipHeight)
+	r.NoError(err)
+	r.True(planPresent, "the completed settlement's plan must be readable at tip")
+	r.True(completed, "the settlement must be marked completed once the cursor goes absent")
+	assertIIP59PerVoterPayouts(t, iip59DrainRun{
+		tier:     tier,
+		g:        cfg.Genesis,
+		plan:     plan,
+		balances: iip59VoterBalances(t, test.cs, cfg.Genesis, seededStressAddrs(tier)),
+	})
 
 	total := time.Duration(0)
 	for _, d := range chunkTimes {
@@ -257,9 +293,9 @@ func installIIP59PerfHooks(t *testing.T, tier perfTier, g genesis.Genesis) {
 	spec := staking.TestOnlyPerfBenchSpec{
 		NumDelegates:            tier.numDelegates,
 		NumVoters:               tier.numVoters,
-		DelegateSelfStake:       unit.ConvertIotxToRau(1_200_000),
-		VoterStake:              unit.ConvertIotxToRau(1_000),
-		VoterStakedDurationDays: 30,
+		DelegateSelfStake:       iip59PerfDelegateSelfStake(),
+		VoterStake:              iip59PerfVoterStake(),
+		VoterStakedDurationDays: iip59PerfVoterStakeDurationDays,
 		VoteWeightCalConsts:     g.Staking.VoteWeightCalConsts,
 		// Match the mock DelegateProfile reader below: raw payload = 1000 bp
 		// (voter portion) → commission = 10000 - 1000 = 9000 bp for both
@@ -288,6 +324,90 @@ func installIIP59PerfHooks(t *testing.T, tier perfTier, g genesis.Genesis) {
 	t.Cleanup(func() { chainservice.TestOnlyRewardingOptions = nil })
 }
 
+// iip59EraFreezer supplies the era-boundary freeze that these harnesses cannot
+// get from their poll protocol.
+//
+// On a real chain the freeze happens inside PutPollResult: it opens the
+// copy-on-write window that pins every staking bucket at height H and stamps H
+// into each delegate's poll snapshot. Both harnesses run on
+// poll.NewLifeLongDelegatesProtocol, which calls setCandidates once at genesis
+// and never again, so neither ever happens -- the window stays shut and every
+// snapshot carries FreezeHeight 0.
+//
+// Before the drain became voter-major that was invisible: it paid from the
+// frozen entry list in the snapshot, which the genesis seeder plants directly.
+// The shard walk instead recomputes each voter's weight from the era's frozen
+// buckets, so a closed window is now a hard error and a zero freeze height
+// makes the delegate unpayable. This protocol reinstates the missing half of
+// the boundary at the first block of every era-boundary epoch, which is where
+// PutPollResult would have run.
+type iip59EraFreezer struct {
+	numDelegates int
+	epochsPerEra uint64
+}
+
+func (f *iip59EraFreezer) Name() string { return "iip59EraFreezer" }
+
+func (f *iip59EraFreezer) Handle(
+	context.Context, action.Envelope, protocol.StateManager,
+) (*action.Receipt, error) {
+	return nil, nil
+}
+
+func (f *iip59EraFreezer) ReadState(
+	context.Context, protocol.StateReader, []byte, ...[]byte,
+) ([]byte, uint64, error) {
+	return nil, 0, protocol.ErrUnimplemented
+}
+
+func (f *iip59EraFreezer) Register(r *protocol.Registry) error {
+	return r.Register(f.Name(), f)
+}
+
+func (f *iip59EraFreezer) ForceRegister(r *protocol.Registry) error {
+	return r.ForceRegister(f.Name(), f)
+}
+
+func (f *iip59EraFreezer) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
+	if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+		return nil
+	}
+	height := protocol.MustGetBlockCtx(ctx).BlockHeight
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochNum := rp.GetEpochNum(height)
+	if height != rp.GetEpochHeight(epochNum) || !protocol.IsEraBoundary(epochNum, f.epochsPerEra) {
+		return nil
+	}
+	if err := staking.TestOnlyBeginEraCOWWindow(ctx, sm, height); err != nil {
+		return err
+	}
+	for i := 0; i < f.numDelegates; i++ {
+		id := staking.TestOnlyPerfBenchDelegateAddress(i)
+		snap, err := staking.PollSnapshotFor(sm, id)
+		if err != nil {
+			return err
+		}
+		// The window and the snapshot must agree on H: the copy-on-write layer
+		// resolves frozen values by the window's height, while the drain
+		// evaluates weights at the snapshot's.
+		snap.FreezeHeight = height
+		if err := staking.TestOnlyPutPollSnapshotFor(sm, id, snap); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// registerIIP59EraFreezer installs the freezer alongside the epoch protocols.
+// Call it in any harness that mints past an era boundary and expects the drain
+// to pay anyone.
+func registerIIP59EraFreezer(r *require.Assertions, test *e2etest, tier perfTier) {
+	r.NoError((&iip59EraFreezer{
+		numDelegates: tier.numDelegates,
+		epochsPerEra: tier.epochsPerEra,
+	}).ForceRegister(test.cs.Registry()))
+}
+
 // mintOne wraps createAndCommitBlock with a wall-clock measurement so
 // the drain-loop can pull per-block latency out of the same call the
 // harness already relies on.
@@ -305,10 +425,9 @@ func mintOne(bc blockchain.Blockchain, ap actpool.ActPool, blkTime time.Time) (t
 }
 
 // drainSnapshot queries the rewarding protocol for chunked-drain state
-// mid-flight. Returns (delegateIndex, voterIndex, totalDelegates,
-// targetEra, present, error). voterIndex is the mid-delegate resume
-// position when the per-block voter cap stops payout inside a delegate;
-// 0 otherwise.
+// mid-flight. Returns (shardsDone, resumeVoterLen, totalDelegates,
+// targetEra, present, error). resumeVoterLen is non-zero when the per-block
+// voter cap stopped payout part-way through a key-space shard.
 func drainSnapshot(
 	cs *chainservice.ChainService,
 	g genesis.Genesis,

@@ -37,22 +37,20 @@ var iip59StressTiers = map[string]perfTier{
 	"medium": {numDelegates: 20, numVoters: 2_000, epochsPerEra: 2, voterBudgetPerBlock: 500},
 }
 
-// iip59SingleDelegateLargeVoterTier drives the PR 5.5b voter-cap check:
+// iip59SingleDelegateLargeVoterTier drives the per-block voter-cap check:
 // one delegate with a long voter list, paid in windows of
 // voterBudgetPerBlock.
 //
-// 1 delegate × 500 voters with voterBudgetPerBlock=50 → 10 continuation
-// chunks all pointing at DelegateIndex=0, VoterIndex advancing
-// 50, 100, ..., 450 across chunks 1-9 and returning to 0 when the
-// delegate finishes.
+// 1 delegate × 500 voters with voterBudgetPerBlock=50 → about 10
+// continuation chunks, each resuming where the last one left the key-space
+// shard walk.
 //
 // epochsPerEra=11 sizes the era wide enough (numDelegates=1,
-// NumSubEpochs=2 → blocks_per_era = 22, chunks_per_era = 11) that all
-// 10 chunks complete inside a single era. Since the IIP-59 §10.2
-// overrun handler resets any cursor still live at the next era
-// boundary, a fixture that leaks the drain across two eras would
-// bounce VoterIndex back to 0 and never satisfy the strict
-// [0, 50, ..., 450] progression this test asserts.
+// NumSubEpochs=2 → blocks_per_era = 22, chunks_per_era = 11) that the whole
+// drain completes inside a single era. The IIP-59 §10.2 overrun handler
+// resets any cursor still live at the next era boundary, so a fixture that
+// leaked the drain across two eras would restart the walk and never show
+// monotonic progress.
 var iip59SingleDelegateLargeVoterTier = perfTier{
 	numDelegates:        1,
 	numVoters:           500,
@@ -88,6 +86,7 @@ func TestIIP59ChunkedDrainStress_SmallTier(t *testing.T) {
 	test := newE2ETest(t, cfg)
 	defer test.teardown()
 	registerEpochProtocols(r, test)
+	registerIIP59EraFreezer(r, test, tier)
 
 	bc := test.cs.Blockchain()
 	ap := test.cs.ActionPool()
@@ -107,6 +106,7 @@ func TestIIP59ChunkedDrainStress_SmallTier(t *testing.T) {
 		maxBlocks        = drainMintCeiling(tier, 1)
 	)
 
+	watcher := newIIP59DrainWatch()
 	for minted := 0; minted < maxBlocks; minted++ {
 		blkTime = blkTime.Add(step)
 		_, err := mintOne(bc, ap, blkTime)
@@ -117,6 +117,11 @@ func TestIIP59ChunkedDrainStress_SmallTier(t *testing.T) {
 
 		_, _, _, _, present, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, height)
 		r.NoErrorf(err, "drainSnapshot at height %d", height)
+		plan, completed, planPresent, err := drainPlan(test.cs, cfg.Genesis, rewardProto, height)
+		r.NoErrorf(err, "drainPlan at height %d", height)
+		if planPresent && !completed {
+			watcher.observe(t, height, plan)
+		}
 
 		if drainStartHeight == 0 {
 			if present {
@@ -144,6 +149,20 @@ func TestIIP59ChunkedDrainStress_SmallTier(t *testing.T) {
 	_, _, _, _, stillDraining, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, tipHeight)
 	r.NoError(err)
 	r.Falsef(stillDraining, "drain still in progress at tip height %d", tipHeight)
+
+	// The fund invariant above is a conservation claim: it holds just as well
+	// when every voter is paid zero and the whole pool is swept as residual.
+	// This is the claim about who got what.
+	plan, completed, planPresent, err := drainPlan(test.cs, cfg.Genesis, rewardProto, tipHeight)
+	r.NoError(err)
+	r.True(planPresent, "the completed settlement's plan must be readable at tip")
+	r.True(completed, "the settlement must be marked completed once the cursor goes absent")
+	assertIIP59PerVoterPayouts(t, iip59DrainRun{
+		tier:     tier,
+		g:        cfg.Genesis,
+		plan:     plan,
+		balances: iip59VoterBalances(t, test.cs, cfg.Genesis, addrs),
+	})
 }
 
 // TestIIP59ChunkedDrainStress_MultiEra mints blocks across three era
@@ -168,6 +187,7 @@ func TestIIP59ChunkedDrainStress_MultiEra(t *testing.T) {
 	test := newE2ETest(t, cfg)
 	defer test.teardown()
 	registerEpochProtocols(r, test)
+	registerIIP59EraFreezer(r, test, tier)
 
 	bc := test.cs.Blockchain()
 	ap := test.cs.ActionPool()
@@ -221,22 +241,22 @@ func TestIIP59ChunkedDrainStress_MultiEra(t *testing.T) {
 	r.Falsef(inDrain, "final tip must not have a live cursor")
 }
 
-// TestIIP59ChunkedDrainStress_SingleDelegateLargeVoter drives the PR 5.5b
-// per-block voter cap. Fixture is one delegate × 500 voters with
-// voterBudgetPerBlock=50, so the drain must span multiple mid-delegate
-// resume chunks that all point at DelegateIndex=0.
+// TestIIP59ChunkedDrainStress_SingleDelegateLargeVoter drives the per-block
+// voter cap. Fixture is one delegate x 500 voters with voterBudgetPerBlock=50,
+// so the drain must span multiple continuation chunks.
 //
 // Asserts across chunks:
-//   - VoterIndex progresses through the sequence 0, 50, 100, ..., 450
-//     across the drain (each value may persist across multiple blocks
-//     while the harness is between VoterRewardChunk emissions);
-//   - DelegateIndex stays 0 throughout (only one delegate in the cursor);
+//   - the drain takes more than one observed block (the cap actually bites);
+//   - ShardsDone never goes backwards and never exceeds the shard count;
+//   - the shard walk advances across blocks;
 //   - fund invariant holds at every block boundary;
-//   - the drain terminates cleanly (cursor absent) once all 500 voters
-//     have been paid.
+//   - the drain terminates cleanly (cursor absent) once every voter is paid.
 //
-// This is the correctness sibling to the multi-delegate tests above: it
-// exercises continuation within one delegate's voter list.
+// The exact resume positions are deliberately not pinned. The walk is over the
+// voter key space, so where a 50-voter budget lands inside 256 shards is a
+// function of the voters' addresses rather than of a delegate's list position;
+// asserting a precise sequence would assert something about identityset, not
+// about the drain.
 func TestIIP59ChunkedDrainStress_SingleDelegateLargeVoter(t *testing.T) {
 	r := require.New(t)
 
@@ -249,6 +269,7 @@ func TestIIP59ChunkedDrainStress_SingleDelegateLargeVoter(t *testing.T) {
 	test := newE2ETest(t, cfg)
 	defer test.teardown()
 	registerEpochProtocols(r, test)
+	registerIIP59EraFreezer(r, test, tier)
 
 	bc := test.cs.Blockchain()
 	ap := test.cs.ActionPool()
@@ -262,17 +283,10 @@ func TestIIP59ChunkedDrainStress_SingleDelegateLargeVoter(t *testing.T) {
 	blkTime := time.Unix(cfg.Genesis.Timestamp, 0)
 	step := 1 * time.Second
 
-	// With 500 voters and voterBudget=50, expect exactly 10 mid-delegate
-	// chunks after the Phase-A freeze (VoterIndex: 50, 100, ..., 500),
-	// plus the Phase-A freeze block itself (VoterIndex=0). VoterIndex
-	// value 500 is never observed because reaching it clears the cursor.
-	expectedChunks := (tier.numVoters + int(tier.voterBudgetPerBlock) - 1) / int(tier.voterBudgetPerBlock)
-	r.Equalf(10, expectedChunks, "unexpected fixture: %d/%d != 10 chunks",
-		tier.numVoters, tier.voterBudgetPerBlock)
-
 	var (
 		drainStartHeight  uint64
-		uniqueVoterIdxs   []uint32
+		lastShardsDone    uint32
+		shardsObserved    []uint32
 		maxBlocks         = drainMintCeiling(tier, 1)
 		presentSeen       int
 		absentAfterActive bool
@@ -286,7 +300,7 @@ func TestIIP59ChunkedDrainStress_SingleDelegateLargeVoter(t *testing.T) {
 		height := bc.TipHeight()
 		assertStressInvariant(t, test.cs, cfg.Genesis, rewardProto, addrs, height)
 
-		delegateIdx, voterIdx, _, _, present, err := drainSnapshot(
+		shardsDone, resumeLen, _, _, present, err := drainSnapshot(
 			test.cs, cfg.Genesis, rewardProto, height,
 		)
 		r.NoErrorf(err, "drainSnapshot at height %d", height)
@@ -296,45 +310,33 @@ func TestIIP59ChunkedDrainStress_SingleDelegateLargeVoter(t *testing.T) {
 				continue
 			}
 			drainStartHeight = height
-			t.Logf("drain begins at height=%d epoch=%d DI=%d VI=%d",
-				height, rp.GetEpochNum(height), delegateIdx, voterIdx)
+			t.Logf("drain begins at height=%d epoch=%d shardsDone=%d",
+				height, rp.GetEpochNum(height), shardsDone)
 		}
 
 		if present {
 			presentSeen++
-			// DelegateIndex must stay 0 the entire drain: fixture has one
-			// delegate, so the cursor can never advance past index 0.
-			r.Equalf(uint32(0), delegateIdx,
-				"height %d: DelegateIndex must stay 0 (single-delegate fixture); got %d",
-				height, delegateIdx)
-			// Track the unique progression of VoterIndex values.
-			if len(uniqueVoterIdxs) == 0 || uniqueVoterIdxs[len(uniqueVoterIdxs)-1] != voterIdx {
-				uniqueVoterIdxs = append(uniqueVoterIdxs, voterIdx)
+			r.LessOrEqualf(shardsDone, uint32(256),
+				"height %d: shardsDone %d exceeds the shard count", height, shardsDone)
+			r.GreaterOrEqualf(shardsDone, lastShardsDone,
+				"height %d: shardsDone went backwards (%d -> %d)", height, lastShardsDone, shardsDone)
+			lastShardsDone = shardsDone
+			if len(shardsObserved) == 0 || shardsObserved[len(shardsObserved)-1] != shardsDone {
+				shardsObserved = append(shardsObserved, shardsDone)
 			}
-			t.Logf("h=%d present=true DI=%d VI=%d", height, delegateIdx, voterIdx)
+			t.Logf("h=%d present=true shardsDone=%d resumeLen=%d", height, shardsDone, resumeLen)
 			continue
 		}
-		// present=false after drain was active: drain done.
 		absentAfterActive = true
 		t.Logf("drain ends at height=%d observations=%d", height, presentSeen)
 		break
 	}
 	r.NotZerof(drainStartHeight, "drain never began within %d blocks", maxBlocks)
 	r.Truef(absentAfterActive, "drain never terminated within %d blocks", maxBlocks)
-
-	// The unique VoterIndex progression should be exactly:
-	//   0 (Phase A freeze),
-	//   50, 100, 150, ..., 450 (chunks 1..9).
-	// Chunk 10 pays voters 450..499, clears the cursor on the same
-	// block, so VoterIndex=500 is never observed by drainSnapshot.
-	wantUnique := make([]uint32, 0, expectedChunks)
-	wantUnique = append(wantUnique, 0) // Phase A
-	for chunk := 1; chunk < expectedChunks; chunk++ {
-		wantUnique = append(wantUnique, uint32(chunk)*uint32(tier.voterBudgetPerBlock))
-	}
-	r.Equalf(wantUnique, uniqueVoterIdxs,
-		"unique VoterIndex progression mismatch:\n  got  %v\n  want %v",
-		uniqueVoterIdxs, wantUnique)
+	r.Greaterf(presentSeen, 1,
+		"the per-block voter cap never bit: drain finished in %d observed block(s)", presentSeen)
+	r.Greaterf(len(shardsObserved), 1,
+		"the shard walk never advanced across blocks: observed %v", shardsObserved)
 
 	// Final gate: cursor absent at tip height.
 	tipHeight := bc.TipHeight()
@@ -409,7 +411,11 @@ func assertStressInvariant(
 func drainMintCeiling(tier perfTier, eras int) int {
 	const numSubEpochs = 2 // matches newIIP59PerfCfg
 	eraLen := tier.numDelegates * numSubEpochs * int(tier.epochsPerEra)
-	drainSpan := (tier.numVoters + int(tier.voterBudgetPerBlock) - 1) / int(tier.voterBudgetPerBlock)
+	// A zero budget means unbounded: the whole era drains in one chunk.
+	drainSpan := 1
+	if tier.voterBudgetPerBlock > 0 {
+		drainSpan = (tier.numVoters + int(tier.voterBudgetPerBlock) - 1) / int(tier.voterBudgetPerBlock)
+	}
 	blocks := (eraLen + drainSpan + 4) * eras
 	if blocks < 100 {
 		blocks = 100

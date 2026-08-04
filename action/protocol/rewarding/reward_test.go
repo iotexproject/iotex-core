@@ -155,9 +155,7 @@ func TestGrantBlockReward_UsesEffectiveCandidateRewardAddress(t *testing.T) {
 					BlockCommissionBasisPoints: 2000,
 					EpochCommissionBasisPoints: 2000,
 					Registered:                 true,
-					Entries: []staking.VoterWeight{{
-						Voter: identityset.Address(11), Weight: big.NewInt(1),
-					}},
+					TotalWeight:                big.NewInt(1),
 				}))
 				_, err = p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 				r.NoError(err)

@@ -53,7 +53,10 @@ func BenchmarkAddDepositForCompound(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				idx := i % len(voters)
-				if err := p.AddDepositForCompound(ctx, sm, voters[idx], bucketIDs[idx], amount); err != nil {
+				// The zero FrozenSelfStake is "no era opinion on this bucket",
+				// which is the branch a compounding voter bucket takes: only a
+				// candidate's own self-stake bucket is ever covered.
+				if err := p.AddDepositForCompound(ctx, sm, voters[idx], bucketIDs[idx], amount, FrozenSelfStake{}); err != nil {
 					b.Fatalf("compound at i=%d: %v", i, err)
 				}
 			}

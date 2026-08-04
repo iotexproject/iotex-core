@@ -6,19 +6,175 @@
 package staking
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
 	"math/big"
-	"sort"
+	"time"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
+
+// TestOnlySeedNativeVoterBucket plants one native vote bucket, bumps the total
+// bucket count, and adds the index to the voter's and the candidate's bucket
+// index lists. It returns the new bucket's index.
+//
+// It exists so tests outside this package -- the rewarding protocol's drain
+// tests in particular -- can build the voter key space the IIP-59 shard walk
+// enumerates. bucketKey, AddrKeyWithPrefix and the _voterIndex / _candIndex
+// tags are package-private, and writing those keys by hand from another package
+// would encode this package's key layout in a test, which is exactly the
+// coupling that makes a layout change unreviewable.
+//
+// It deliberately does not go through candSM. NewCandidateStateManager needs a
+// live staking view, which the rewarding protocol's unit fixtures do not have,
+// and going through candSM would also fire the era copy-on-write hooks -- the
+// intended use is to plant state *before* a window is opened, so the drain sees
+// it as pre-existing rather than as a post-freeze write.
+//
+// Test-only. Production bucket creation goes through the staking handlers,
+// which also maintain the bucket pool and the candidate's vote accumulator;
+// this does neither.
+func TestOnlySeedNativeVoterBucket(
+	sm protocol.StateManager,
+	candidate, voter address.Address,
+	amount *big.Int,
+	durationDays uint32,
+	ctime time.Time,
+	autoStake bool,
+) (uint64, error) {
+	bucket := NewVoteBucket(candidate, voter, amount, durationDays, ctime, autoStake)
+	var tc totalBucketCount
+	if _, err := sm.State(
+		&tc,
+		protocol.NamespaceOption(_stakingNameSpace),
+		protocol.KeyOption(TotalBucketKey),
+	); err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return 0, err
+	}
+	index := tc.Count()
+	bucket.Index = index
+	if _, err := sm.PutState(
+		bucket,
+		protocol.NamespaceOption(_stakingNameSpace),
+		protocol.KeyOption(bucketKey(index)),
+	); err != nil {
+		return 0, err
+	}
+	tc.count = index + 1
+	if _, err := sm.PutState(
+		&tc,
+		protocol.NamespaceOption(_stakingNameSpace),
+		protocol.KeyOption(TotalBucketKey),
+	); err != nil {
+		return 0, err
+	}
+	for _, entry := range []struct {
+		addr   address.Address
+		prefix byte
+	}{{voter, _voterIndex}, {candidate, _candIndex}} {
+		key := AddrKeyWithPrefix(entry.addr, entry.prefix)
+		var bis BucketIndices
+		if _, err := sm.State(
+			&bis,
+			protocol.NamespaceOption(_stakingNameSpace),
+			protocol.KeyOption(key),
+		); err != nil && errors.Cause(err) != state.ErrStateNotExist {
+			return 0, err
+		}
+		bis.addBucketIndex(index)
+		if _, err := sm.PutState(
+			&bis,
+			protocol.NamespaceOption(_stakingNameSpace),
+			protocol.KeyOption(key),
+		); err != nil {
+			return 0, err
+		}
+	}
+	return index, nil
+}
+
+// TestOnlyPutVoterBucketThroughCOW plants one native vote bucket through a
+// candidate state manager, so the IIP-59 copy-on-write hooks fire exactly as
+// they do for a real staking action.
+//
+// This is the deliberate opposite of TestOnlySeedNativeVoterBucket above, which
+// bypasses csm so that state it plants looks pre-existing. Use this one to
+// model a bucket created *after* an era froze: the voter's index key gets a
+// tombstone, so the era's view of that voter stays empty and the drain owes
+// them nothing.
+//
+// Test-only. It maintains neither the candidate's vote accumulator nor the
+// bucket pool, so nothing may assert on either afterwards.
+func TestOnlyPutVoterBucketThroughCOW(
+	ctx context.Context,
+	sm protocol.StateManager,
+	candidate, voter address.Address,
+	amount *big.Int,
+	durationDays uint32,
+	ctime time.Time,
+	autoStake bool,
+) (uint64, error) {
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
+	if err != nil {
+		return 0, err
+	}
+	return csm.putBucketAndIndex(NewVoteBucket(candidate, voter, amount, durationDays, ctime, autoStake))
+}
+
+// TestOnlyDeleteVoterBucketsThroughCOW deletes every live native bucket a voter
+// owns, through a candidate state manager so the copy-on-write hooks fire. It
+// returns how many it deleted.
+//
+// This models the case the copy-on-write layer exists for: a voter who
+// withdraws their last bucket mid-drain. Afterwards the voter has no live
+// _voterIndex key at all, so only the era's copies can still name them — and
+// they are still owed the share the era froze.
+//
+// Test-only, with the same caveats as TestOnlyPutVoterBucketThroughCOW: the
+// candidate's Votes and the bucket pool are left untouched.
+func TestOnlyDeleteVoterBucketsThroughCOW(
+	ctx context.Context,
+	sm protocol.StateManager,
+	voter address.Address,
+) (int, error) {
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
+	if err != nil {
+		return 0, err
+	}
+	var bis BucketIndices
+	if _, err := sm.State(
+		&bis,
+		protocol.NamespaceOption(_stakingNameSpace),
+		protocol.KeyOption(AddrKeyWithPrefix(voter, _voterIndex)),
+	); err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			return 0, nil
+		}
+		return 0, err
+	}
+	// delBucketAndIndex rewrites the very list being ranged over, so take a copy
+	// of the indices first.
+	indices := append([]uint64(nil), bis...)
+	for _, index := range indices {
+		bkt, err := csm.NativeBucket(index)
+		if err != nil {
+			if errors.Cause(err) == state.ErrStateNotExist {
+				continue
+			}
+			return 0, err
+		}
+		if err := csm.delBucketAndIndex(bkt.Owner, bkt.Candidate, index); err != nil {
+			return 0, err
+		}
+	}
+	return len(indices), nil
+}
 
 // TestOnlyPerfBenchSpec configures TestOnlySeedPerfBenchState. Reachable only
 // from e2etest/iip59_perf_test.go via the TestOnlyGenesisStateSeeder hook —
@@ -89,7 +245,12 @@ func TestOnlySeedPerfBenchState(
 	ts := blkCtx.BlockTimeStamp
 
 	delegates := make([]address.Address, spec.NumDelegates)
-	perDelegateVoters := make([][]VoterWeight, spec.NumDelegates)
+	// The self-stake index is planted into each delegate's snapshot below. The
+	// drain recomputes voter weights from the era's frozen buckets and decides
+	// the self-stake bonus by comparing bucket index against this value, so a
+	// snapshot that left it at zero would hand delegate 0's bonus to whoever
+	// happens to own bucket 0.
+	selfStakeIdx := make([]uint64, spec.NumDelegates)
 	for i := 0; i < spec.NumDelegates; i++ {
 		delAddr := perfBenchAddress(uint64(i) + 1)
 		selfBkt := NewVoteBucket(delAddr, delAddr, new(big.Int).Set(spec.DelegateSelfStake), _perfBenchStakeDuration, ts, true)
@@ -113,6 +274,7 @@ func TestOnlySeedPerfBenchState(
 			return nil, errors.Wrapf(err, "debit bucket pool for delegate %d", i)
 		}
 		delegates[i] = delAddr
+		selfStakeIdx[i] = selfIdx
 	}
 
 	for j := 0; j < spec.NumVoters; j++ {
@@ -135,10 +297,6 @@ func TestOnlySeedPerfBenchState(
 		if err := csm.DebitBucketPool(spec.VoterStake, false); err != nil {
 			return nil, errors.Wrapf(err, "debit bucket pool for voter %d", j)
 		}
-		perDelegateVoters[delIdx] = append(perDelegateVoters[delIdx], VoterWeight{
-			Voter:  voter,
-			Weight: new(big.Int).Set(w),
-		})
 	}
 
 	// Plant a frozen CandidatePollSnapshot per delegate. Production writes
@@ -148,17 +306,24 @@ func TestOnlySeedPerfBenchState(
 	// would land in the Registered=false fallback on every delegate.
 	sm := csm.SM()
 	for i, delAddr := range delegates {
-		entries := perDelegateVoters[i]
-		sort.Slice(entries, func(a, b int) bool {
-			return bytes.Compare(entries[a].Voter.Bytes(), entries[b].Voter.Bytes()) < 0
-		})
+		// TotalWeight is read back from the candidate exactly as the real
+		// freezer reads it: the loop above kept cand.Votes in step with every
+		// bucket it planted, so this is the seeded voter weight plus the
+		// delegate's own self-stake weight -- and the self-stake bucket is a
+		// voter the drain will visit.
+		cand := csm.GetByOwner(delAddr)
+		if cand == nil {
+			return nil, errors.Errorf("perf-bench: delegate %s missing before snapshot", delAddr.String())
+		}
 		snap := &CandidatePollSnapshot{
 			OnchainRewardEnabled:       true,
 			BlockCommissionBasisPoints: spec.BlockCommissionBasisPoints,
 			EpochCommissionBasisPoints: spec.EpochCommissionBasisPoints,
 			Registered:                 true,
-			Entries:                    entries,
+			SelfStakeBucketIdx:         selfStakeIdx[i],
+			TotalWeight:                new(big.Int).Set(cand.Votes),
 		}
+		snap.SnapshotHash = eraSnapshotHash(delAddr, snap)
 		if _, err := sm.PutState(
 			snap.toBlob(),
 			protocol.NamespaceOption(_stakingNameSpace),
@@ -179,6 +344,12 @@ const perfBenchVoterSeedBase uint64 = 1_000_000
 // bucket. The value only has to clear the self-stake minimum; the benchmark
 // cares about voter counts, not about weight curves.
 const _perfBenchStakeDuration uint32 = 91
+
+// TestOnlyPerfBenchDelegateStakeDurationDays is the duration above, exported so
+// a harness can reproduce a seeded delegate's self-stake weight from
+// CalculateVoteWeight instead of reading it back out of the state the code
+// under test also wrote.
+const TestOnlyPerfBenchDelegateStakeDurationDays = _perfBenchStakeDuration
 
 // perfBenchAddress derives a deterministic 20-byte address from a seed. The
 // low 8 bytes carry the seed; the high 12 bytes are zero. Distinct seeds

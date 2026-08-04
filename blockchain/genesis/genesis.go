@@ -519,10 +519,10 @@ type (
 		// credit path (IIP-59 Phase 2). 0 falls back to a single-block drain, preserving pre-IIP-59 behavior for
 		// tests that never touch the field.
 		VoterBudgetPerBlock uint64 `yaml:"voterBudgetPerBlock"`
-		// VoterWeightSeedBatchSize is the number of (candidate, voter) weights written per block during the
-		// one-time flush of the voter weight table into state that follows IIP-59 activation. The whole table
-		// is too large to write in a single block, so it is spread across consecutive blocks. 0 flushes
-		// everything in one block, which is only appropriate for tests and small chains.
+		// VoterWeightSeedBatchSize is deprecated and unused. It sized the per-block batch of the one-time flush
+		// of the IIP-59 VoterWeightView into state at activation; that view was removed before IIP-59 activated
+		// on any network and nothing reads this field any more. Kept, per the repo rule on genesis fields, so a
+		// config file that still sets it continues to parse.
 		VoterWeightSeedBatchSize uint64 `yaml:"voterWeightSeedBatchSize"`
 		// HermesRewardVaultAddresses lists legacy reward addresses whose delegates are
 		// automatically migrated to protocol-native reward distribution at IIP-59 activation.
