@@ -375,7 +375,15 @@ func (store *ErigonWorkingSetStore) DeleteObject(ns string, key []byte, obj any)
 }
 
 // States gets multiple objects from the ErigonWorkingSetStore
-func (store *ErigonWorkingSetStore) States(ns string, obj any, keys [][]byte) (state.Iterator, error) {
+//
+// Ordered range scans are not supported here: erigon's object storage is addressed
+// by contract slot, not by a lexicographically ordered iotex key space, so there is
+// no way to honour [min, max) ordering. Callers get an explicit error instead of a
+// differently-ordered answer.
+func (store *ErigonWorkingSetStore) States(ns string, obj any, keys [][]byte, scan *db.RangeScan) (state.Iterator, error) {
+	if scan != nil {
+		return nil, errors.Wrap(db.ErrNotSupported, "erigon store does not support ordered range scan")
+	}
 	st := store
 	if store.closed() {
 		sr, err := store.newDryrun()

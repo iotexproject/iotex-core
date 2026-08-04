@@ -27,7 +27,10 @@ type (
 		PutObject(ns string, key []byte, object any) (err error)
 		GetObject(ns string, key []byte, object any) error
 		DeleteObject(ns string, key []byte, object any) error
-		States(ns string, object any, keys [][]byte) (state.Iterator, error)
+		// States reads a set of states. keys selects specific keys (nil means "all
+		// keys in ns"); scan, when non-nil, instead asks for an ordered, bounded
+		// range scan. The two are mutually exclusive and validated by the caller.
+		States(ns string, object any, keys [][]byte, scan *db.RangeScan) (state.Iterator, error)
 		Commit(context.Context, uint64) error
 		Digest() hash.Hash256
 		Finalize(context.Context) error
@@ -175,14 +178,14 @@ func (store *stateDBWorkingSetStore) getKV(ns string, key []byte) ([]byte, error
 	return data, nil
 }
 
-func (store *stateDBWorkingSetStore) States(ns string, obj any, keys [][]byte) (state.Iterator, error) {
+func (store *stateDBWorkingSetStore) States(ns string, obj any, keys [][]byte, scan *db.RangeScan) (state.Iterator, error) {
 	var values [][]byte
 	var err error
 	if store.readBuffer {
 		// TODO: after the 180 HF, we can revert readBuffer, and always go this case
-		keys, values, err = readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
+		keys, values, err = readStates(store.flusher.KVStoreWithBuffer(), ns, keys, scan)
 	} else {
-		keys, values, err = readStates(store.flusher.BaseKVStore(), ns, keys)
+		keys, values, err = readStates(store.flusher.BaseKVStore(), ns, keys, scan)
 	}
 	if err != nil {
 		return nil, err

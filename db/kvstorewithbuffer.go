@@ -251,6 +251,69 @@ func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey [
 	return fk, fv, nil
 }
 
+// ScanRange returns up to limit <k, v> pairs in [min, max), ascending by bytes.Compare(k),
+// merging the pending write buffer on top of the base store.
+// See KVStoreWithRangeScan for the exact semantics, which must stay identical across engines.
+func (kvb *kvStoreWithBuffer) ScanRange(ns string, min, max []byte, limit int) ([][]byte, [][]byte, error) {
+	if emptyScanRange(min, max) {
+		return nil, nil, nil
+	}
+	scanner, ok := kvb.store.(KVStoreWithRangeScan)
+	if !ok {
+		return nil, nil, errors.Wrapf(ErrNotSupported, "base store %T does not support ScanRange", kvb.store)
+	}
+	// The base scan MUST be unlimited (limit = 0) even when the caller asked for a
+	// limit. DO NOT "optimize" this by pushing limit down: the buffer can contain
+	// keys that sort before the base scan's cutoff, and each of those displaces a
+	// base key that must then be dropped. A truncated base scan would have already
+	// thrown away the keys it needs to hand back. Truncation happens exactly once,
+	// after the merge and the sort.
+	baseKeys, baseValues, err := scanner.ScanRange(ns, min, max, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	merged := make(map[string][]byte, len(baseKeys))
+	for i, k := range baseKeys {
+		merged[string(k)] = baseValues[i]
+	}
+	// replay the buffer in write order, so the last write to a key wins
+	for i := 0; i < kvb.buffer.Size(); i++ {
+		entry, err := kvb.buffer.Entry(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		if entry.Namespace() != ns {
+			continue
+		}
+		k := entry.Key()
+		if !inScanRange(k, min, max) {
+			continue
+		}
+		ks := string(k)
+		switch entry.WriteType() {
+		case batch.Put:
+			// a Put overrides the base value, or adds a key the base does not have
+			merged[ks] = copyBytes(entry.Value())
+		case batch.Delete:
+			// a Delete removes the key regardless of whether the base has it
+			delete(merged, ks)
+		}
+	}
+
+	// map iteration order is random, but the keys of a map are unique, so the
+	// subsequent sort by bytes.Compare is a total order and the output is
+	// deterministic.
+	keys := make([][]byte, 0, len(merged))
+	values := make([][]byte, 0, len(merged))
+	for ks, v := range merged {
+		keys = append(keys, []byte(ks))
+		values = append(values, v)
+	}
+	k, v := sortAndTruncateScan(keys, values, limit)
+	return k, v, nil
+}
+
 func (kvb *kvStoreWithBuffer) WriteBatch(b batch.KVStoreBatch) (err error) {
 	kvb.buffer.Append(b)
 	return nil

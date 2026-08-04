@@ -408,11 +408,18 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
+	// Keys and Range/Limit describe two different queries, so combining them has no
+	// well-defined answer -- reject rather than silently pick one
+	if err := validateStatesConfig(cfg); err != nil {
+		return 0, nil, err
+	}
 	store, err := ws.matchStore(cfg)
 	if err != nil {
 		return 0, nil, err
 	}
-	iter, err := store.States(cfg.Namespace, cfg.Object, cfg.Keys)
+	// rangeScanFromConfig returns nil unless Range/Limit was explicitly requested,
+	// which keeps every existing caller on the untouched legacy path
+	iter, err := store.States(cfg.Namespace, cfg.Object, cfg.Keys, rangeScanFromConfig(cfg))
 	if err != nil {
 		return 0, nil, err
 	}

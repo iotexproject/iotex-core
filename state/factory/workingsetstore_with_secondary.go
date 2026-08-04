@@ -25,7 +25,7 @@ var (
 type reader interface {
 	// Get(string, []byte) ([]byte, error)
 	GetObject(string, []byte, any) error
-	States(string, any, [][]byte) (state.Iterator, error)
+	States(string, any, [][]byte, *db.RangeScan) (state.Iterator, error)
 	Digest() hash.Hash256
 	// Filter(string, db.Condition, []byte, []byte) ([][]byte, [][]byte, error)
 }
@@ -152,8 +152,12 @@ func (store *workingSetStoreWithSecondary) GetObject(ns string, key []byte, obj 
 	return store.reader.GetObject(ns, key, obj)
 }
 
-func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]byte) (state.Iterator, error) {
-	return store.reader.States(ns, obj, keys)
+// States delegates to the primary reader, which is the statedb working-set store.
+// Nothing extra is needed for range scans: the secondary (erigon) store is
+// write-only in this composition -- reads never touch it -- so a range scan sees
+// exactly the same data as any other read here.
+func (store *workingSetStoreWithSecondary) States(ns string, obj any, keys [][]byte, scan *db.RangeScan) (state.Iterator, error) {
+	return store.reader.States(ns, obj, keys, scan)
 }
 
 func (store *workingSetStoreWithSecondary) KVStore() db.KVStore {
