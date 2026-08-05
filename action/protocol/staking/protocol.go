@@ -109,6 +109,16 @@ const (
 	_eraCOWControl
 	_eraCOWEntry
 	_eraCOWJournal
+	// _lsdBackfillJob is the tag for the single record describing the IIP-59
+	// owner-index activation backfill: the contract list it walks, each
+	// contract's inclusive top bucket id, and how far it has got. Full key:
+	// {_lsdBackfillJob}, one record for the lifetime of the chain.
+	//
+	// It is written once at activation and then advanced one bounded batch per
+	// block until its cursor runs off the end, after which it is never written
+	// again and its presence is what stops the backfill re-running. See
+	// owner_index_backfill_job.go.
+	_lsdBackfillJob
 )
 
 // The staking namespace is shared, so every tag must be unique and no two key
@@ -687,6 +697,16 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 				return errors.Wrapf(err, "failed to update candidate %s", c.GetIdentifier().String())
 			}
 		}
+	}
+
+	// IIP-59: build the owner -> contract-staking bucket index for buckets that
+	// predate activation, a bounded batch per block. Placed after the
+	// height-keyed migrations above so that a fork activating on the same
+	// height as one of them (Xingu flushes every contract bucket into state)
+	// sees the state they produced, and before the epoch-boundary indexer work
+	// below, which returns early on most blocks.
+	if _, err := runOwnerIndexBackfill(ctx, sm); err != nil {
+		return err
 	}
 
 	if p.candBucketsIndexer == nil {

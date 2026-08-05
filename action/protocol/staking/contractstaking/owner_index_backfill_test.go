@@ -7,6 +7,7 @@ package contractstaking
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -53,9 +54,12 @@ func backfillFixture(t *testing.T) (*ContractStakingStateManager, protocol.State
 		0: carol, 1: alice, 2: carol,
 	})
 
+	// MaxBucketID is inclusive and is the *highest id*, so the top bucket of
+	// each contract (c1{7}, c2{2}) is only reached because of that. An
+	// exclusive reading drops both.
 	contracts := []BackfillContract{
-		{Address: c1, NumOfBucket: 8},
-		{Address: c2, NumOfBucket: 3},
+		{Address: c1, MaxBucketID: 7},
+		{Address: c2, MaxBucketID: 2},
 	}
 	return cs, sm, contracts, []address.Address{alice, bob, carol}
 }
@@ -168,6 +172,106 @@ func TestBackfillOwnerIndexBoundedWork(t *testing.T) {
 	r.Equal(OwnerIndexBackfillCursor{ContractIndex: 1, NextBucketID: 0}, cursor)
 }
 
+// TestBackfillOwnerIndexBucketIDBoundary is the regression test for the
+// off-by-one that made this whole file worth re-reading.
+//
+// BackfillContract.MaxBucketID is the *highest bucket id* the contract has ever
+// minted, not a cardinality: the node maintains it as `if id > mark { mark = id
+// }`. Walking `id < mark` therefore always drops the top bucket, and for the
+// commonest shape of all -- a contract with exactly one bucket -- it drops the
+// only bucket there is, because the deployed contracts mint 1-based ids
+// (V1 `__currTokenId = unsafeInc(...)`, V2/V3 `bucketId = __currBucketId =
+// unsafeInc(...)`; e2etest/contract_staking_test.go and
+// e2etest/contract_staking_v2_test.go both assert Index==1 on a first stake
+// against a freshly deployed contract).
+func TestBackfillOwnerIndexBucketIDBoundary(t *testing.T) {
+	r := require.New(t)
+	contract := identityset.Address(20)
+	alice := identityset.Address(1)
+
+	t.Run("single bucket at the top id is visited", func(t *testing.T) {
+		// The real shape: ids are 1-based, so a contract with one bucket has
+		// MaxBucketID == 1 and its only bucket at id 1. Under an exclusive
+		// bound this backfills nothing at all.
+		sm := newTestSM(t)
+		cs := NewContractStakingStateManager(sm)
+		seedBuckets(t, cs, contract, map[uint64]address.Address{1: alice})
+
+		cursor, err := BackfillOwnerIndex(context.Background(), cs,
+			[]BackfillContract{{Address: contract, MaxBucketID: 1}}, OwnerIndexBackfillCursor{}, 1000)
+		r.NoError(err)
+		r.True(cursor.Done([]BackfillContract{{Address: contract, MaxBucketID: 1}}))
+
+		refs, ok := rawIndex(t, sm, alice)
+		r.True(ok, "the only bucket of the contract was not indexed")
+		r.Equal([]uint64{1}, refIDs(refs))
+	})
+
+	t.Run("top id is visited when the batch cut lands on it", func(t *testing.T) {
+		// The top id must survive being the first id of a fresh batch as well
+		// as being the last id of a full one.
+		sm := newTestSM(t)
+		cs := NewContractStakingStateManager(sm)
+		seedBuckets(t, cs, contract, map[uint64]address.Address{1: alice, 2: alice, 3: alice})
+		list := []BackfillContract{{Address: contract, MaxBucketID: 3}}
+
+		cursor, err := BackfillOwnerIndex(context.Background(), cs, list, OwnerIndexBackfillCursor{}, 3)
+		r.NoError(err)
+		r.False(cursor.Done(list))
+		r.Equal(OwnerIndexBackfillCursor{ContractIndex: 0, NextBucketID: 3}, cursor)
+
+		cursor, err = BackfillOwnerIndex(context.Background(), cs, list, cursor, 3)
+		r.NoError(err)
+		r.True(cursor.Done(list))
+
+		refs, ok := rawIndex(t, sm, alice)
+		r.True(ok)
+		r.Equal([]uint64{1, 2, 3}, refIDs(refs))
+	})
+
+	t.Run("id 0 is reachable when it exists", func(t *testing.T) {
+		// No deployed contract mints id 0 -- both counters pre-increment -- but
+		// the state layer accepts it and MaxBucketID==0 must not mean "do
+		// nothing", or a hypothetical 0-based contract would be silently
+		// skipped in full.
+		sm := newTestSM(t)
+		cs := NewContractStakingStateManager(sm)
+		seedBuckets(t, cs, contract, map[uint64]address.Address{0: alice})
+
+		cursor, err := BackfillOwnerIndex(context.Background(), cs,
+			[]BackfillContract{{Address: contract, MaxBucketID: 0}}, OwnerIndexBackfillCursor{}, 1000)
+		r.NoError(err)
+		r.Equal(1, cursor.ContractIndex)
+
+		refs, ok := rawIndex(t, sm, alice)
+		r.True(ok, "bucket 0 was not indexed")
+		r.Equal([]uint64{0}, refIDs(refs))
+	})
+
+	t.Run("the top of the id space terminates", func(t *testing.T) {
+		// An inclusive bound has to handle `id == MaxUint64` explicitly: the
+		// naive `cursor.NextBucketID++` wraps to 0 and re-walks the contract
+		// forever. Unreachable in production, fatal if it ever were not.
+		sm := newTestSM(t)
+		cs := NewContractStakingStateManager(sm)
+		seedBuckets(t, cs, contract, map[uint64]address.Address{math.MaxUint64: alice})
+		list := []BackfillContract{{Address: contract, MaxBucketID: math.MaxUint64}}
+
+		cursor := OwnerIndexBackfillCursor{ContractIndex: 0, NextBucketID: math.MaxUint64 - 1}
+		for i := 0; !cursor.Done(list); i++ {
+			var err error
+			cursor, err = BackfillOwnerIndex(context.Background(), cs, list, cursor, 1)
+			r.NoError(err)
+			r.Less(i, 8, "backfill did not terminate at the top of the id space")
+		}
+		r.Equal(OwnerIndexBackfillCursor{ContractIndex: 1, NextBucketID: 0}, cursor)
+
+		refs, ok := rawIndex(t, sm, alice)
+		r.True(ok)
+		r.Equal([]uint64{math.MaxUint64}, refIDs(refs))
+	})
+}
+
 // TestBackfillOwnerIndexValidation covers the argument guards.
 func TestBackfillOwnerIndexValidation(t *testing.T) {
 	r := require.New(t)
@@ -179,7 +283,7 @@ func TestBackfillOwnerIndexValidation(t *testing.T) {
 	_, err = BackfillOwnerIndex(context.Background(), cs, contracts, OwnerIndexBackfillCursor{ContractIndex: -1}, 10)
 	r.ErrorContains(err, "invalid backfill cursor")
 
-	_, err = BackfillOwnerIndex(context.Background(), cs, []BackfillContract{{Address: nil, NumOfBucket: 1}}, OwnerIndexBackfillCursor{}, 10)
+	_, err = BackfillOwnerIndex(context.Background(), cs, []BackfillContract{{Address: nil, MaxBucketID: 1}}, OwnerIndexBackfillCursor{}, 10)
 	r.ErrorContains(err, "nil contract address")
 
 	// An empty contract list is trivially done.

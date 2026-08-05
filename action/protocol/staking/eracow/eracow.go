@@ -465,11 +465,34 @@ func (w Window) NativeBucketExisted(index uint64) bool {
 // deliberate off-by-one against NativeBucketExisted.
 //
 // A contract with no frozen entry had no NumOfBuckets record at H, which means
-// no bucket of it existed at H, so everything is rejected.
+// no bucket of it existed at H, so everything is rejected. Rejecting is the
+// safe direction -- the alternative, defaulting to allow, would let buckets
+// minted after the freeze into a frozen era -- but it is not a *harmless*
+// direction: it costs that contract's stakers their whole share. Use
+// ContractKnown to tell "this contract had no buckets at H" apart from "this
+// contract's high-water mark was never recorded", and complain about the
+// second.
 func (w Window) ContractBucketExisted(contract []byte, id uint64) bool {
 	for i := range w.ContractCounts {
 		if bytes.Equal(w.ContractCounts[i].Contract, contract) {
 			return id <= w.ContractCounts[i].NumOfBuckets
+		}
+	}
+	return false
+}
+
+// ContractKnown reports whether the window froze a high-water mark for this
+// contract at all.
+//
+// False means the contract had no record in the meta namespace at H. Post
+// IIP-59 activation that cannot happen for a contract whose buckets are live:
+// ContractStakingStateManager.RaiseNumOfBuckets writes the mark on every bucket
+// upsert, and the activation backfill seeds it for buckets that predate the
+// fork. So a live contract reading false is a bug, not a state of the world.
+func (w Window) ContractKnown(contract []byte) bool {
+	for i := range w.ContractCounts {
+		if bytes.Equal(w.ContractCounts[i].Contract, contract) {
+			return true
 		}
 	}
 	return false

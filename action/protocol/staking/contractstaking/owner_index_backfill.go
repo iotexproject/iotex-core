@@ -7,24 +7,62 @@ package contractstaking
 
 import (
 	"context"
+	"math"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // BackfillContract names one staking contract to be indexed, together with the
-// exclusive upper bound on its bucket ids.
+// highest bucket id the backfill has to visit.
+//
+// # MaxBucketID is INCLUSIVE, and it is a max-seen id, not a count
+//
+// The name is deliberate. The number the node actually tracks per contract --
+// StakingContract.NumOfBuckets in state.StakingContractMetaNamespace, written
+// by ContractStakingStateManager.UpdateNumOfBuckets -- is maintained as
+//
+//	if id > totalBucketCount { totalBucketCount = id }
+//
+// (blockindex/contractstaking/cache.go). That is the largest bucket id ever
+// observed. It is *not* a cardinality, despite the field being commented as
+// "total number of buckets including burned buckets": burning never lowers it,
+// and gaps in the id space never lower it either.
+//
+// All three deployed IIP-13 contracts mint bucket ids from a pre-incremented
+// counter, so the first id they ever mint is 1, not 0:
+//
+//   - V1  `__currTokenId = unsafeInc(__currTokenId)`
+//   - V2/V3 `bucketId = __currBucketId = unsafeInc(__currBucketId)`
+//
+// verified end-to-end by e2etest/contract_staking_test.go (V1, first stake
+// asserts Index==1) and e2etest/contract_staking_v2_test.go (V2 and V3, first
+// stake asserts Index==1). With 1-based ids the max-seen id numerically
+// coincides with the ever-minted count, which is why the two readings were easy
+// to confuse -- but only for the *value*, never for the *bound*. Treating the
+// number as an exclusive bound drops the top bucket of every contract, and for
+// a contract with exactly one bucket (MaxBucketID==1, bucket id 1) it drops the
+// only bucket there is.
 //
 // The bound has to be supplied rather than discovered: enumerating a
 // per-contract namespace is a full scan, and the whole point of the backfill is
 // that no single call is allowed to do unbounded work. Callers already have the
 // number cheaply -- Indexer.TotalBucketCount(height) in memory, or
-// ContractStakingStateReader.NumOfBuckets from the meta namespace where the V1/
-// V2 indexers maintain it. Bucket ids are minted from 0 upwards and never
-// reused, so "ever minted" is a safe bound even though burnt ids are gaps.
+// ContractStakingStateReader.NumOfBuckets from the meta namespace. Ids are
+// never reused, so "highest ever minted" is a safe bound even though burnt ids
+// leave gaps; the walk simply skips ids with no bucket record.
+//
+// Zero is a legal value and means "visit only id 0". Id 0 is unreachable for
+// the deployed contracts, so a contract that has never minted must instead be
+// left out of the contract list entirely (see
+// staking.ownerIndexBackfillJob, which does exactly that).
 type BackfillContract struct {
-	Address     address.Address
-	NumOfBucket uint64
+	Address address.Address
+	// MaxBucketID is the highest bucket id to visit, inclusive. See the type
+	// doc: this is a max-seen id, not a count.
+	MaxBucketID uint64
 }
 
 // OwnerIndexBackfillCursor is the resume point of a batched backfill.
@@ -52,12 +90,10 @@ func (c OwnerIndexBackfillCursor) Done(contracts []BackfillContract) bool {
 // buckets that already exist in state, doing at most `limit` bucket reads per
 // call and returning the cursor to resume from.
 //
-// It is deliberately NOT wired into any activation path. It exists so an
-// activation path can later drain it across several blocks; doing every LSD
-// bucket in one block is not acceptable.
-//
 // Callers must gate this the same way the live maintenance is gated: it writes
-// consensus state and must not run before IIP-59 activates.
+// consensus state and must not run before IIP-59 activates. The activation
+// driver is staking.ownerIndexBackfillJob, reached from
+// staking.Protocol.CreatePreStates.
 //
 // Buckets are visited in (contract order, ascending bucket id) order and the
 // refs are inserted into a sorted list, so the resulting state does not depend
@@ -76,36 +112,57 @@ func BackfillOwnerIndex(
 		return cursor, errors.Errorf("invalid backfill cursor contract index %d", cursor.ContractIndex)
 	}
 	budget := limit
+contractLoop:
 	for cursor.ContractIndex < len(contracts) {
 		c := contracts[cursor.ContractIndex]
 		if c.Address == nil {
 			return cursor, errors.Errorf("nil contract address at index %d", cursor.ContractIndex)
 		}
-		for cursor.NextBucketID < c.NumOfBucket {
+		// Inclusive bound: MaxBucketID is a bucket that exists, not one past
+		// the end. See the BackfillContract doc.
+		for cursor.NextBucketID <= c.MaxBucketID {
 			if budget == 0 {
 				return cursor, nil
 			}
 			id := cursor.NextBucketID
-			cursor.NextBucketID++
 			budget--
-
-			bkt, err := cs.Bucket(c.Address, id)
-			if err != nil {
-				if errors.Is(err, ErrBucketNotExist) {
-					// burnt or never minted; ids are not dense
-					continue
-				}
-				return cursor, errors.Wrapf(err, "failed to read bucket %d of %s", id, c.Address.String())
+			// math.MaxUint64 is not reachable from the deployed contracts, but
+			// an inclusive bound makes "advance past the last id" unrepresentable
+			// at the top of the id space: incrementing would wrap the cursor to
+			// 0 and re-walk the contract forever. Move to the next contract
+			// instead.
+			atTop := id == math.MaxUint64
+			if !atTop {
+				cursor.NextBucketID++
 			}
-			if bkt.Owner == nil {
-				return cursor, errors.Errorf("contract-staking bucket %d of %s has no owner", id, c.Address.String())
-			}
-			if err := cs.addOwnerRef(ctx, bkt.Owner, ContractBucketRef{Contract: c.Address, BucketID: id}); err != nil {
+			if err := backfillBucket(ctx, cs, c.Address, id); err != nil {
 				return cursor, err
+			}
+			if atTop {
+				cursor.ContractIndex++
+				cursor.NextBucketID = 0
+				continue contractLoop
 			}
 		}
 		cursor.ContractIndex++
 		cursor.NextBucketID = 0
 	}
 	return cursor, nil
+}
+
+// backfillBucket adds the owner ref for one bucket, treating "no such bucket"
+// as success: ids are not dense, burnt ids leave holes, and the bound is a
+// high-water mark rather than a membership list.
+func backfillBucket(ctx context.Context, cs *ContractStakingStateManager, contract address.Address, id uint64) error {
+	bkt, err := cs.Bucket(contract, id)
+	if err != nil {
+		if errors.Is(err, ErrBucketNotExist) || errors.Cause(err) == state.ErrStateNotExist {
+			return nil
+		}
+		return errors.Wrapf(err, "failed to read bucket %d of %s", id, contract.String())
+	}
+	if bkt.Owner == nil {
+		return errors.Errorf("contract-staking bucket %d of %s has no owner", id, contract.String())
+	}
+	return cs.addOwnerRef(ctx, bkt.Owner, ContractBucketRef{Contract: contract, BucketID: id})
 }

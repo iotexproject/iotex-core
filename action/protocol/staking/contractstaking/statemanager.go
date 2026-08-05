@@ -162,6 +162,12 @@ func (cs *ContractStakingStateManager) UpsertBucket(ctx context.Context, contrac
 		if err := cs.indexUpsert(ctx, contractAddr, bid, bucket); err != nil {
 			return err
 		}
+		// IIP-59: every contract whose buckets can count towards a voter's
+		// weight must have a high-water mark to freeze, or the era window has
+		// no id bound for it and rejects all of its buckets.
+		if err := cs.RaiseNumOfBuckets(contractAddr, bid); err != nil {
+			return err
+		}
 	}
 	_, err := cs.sm.PutState(
 		bucket,
@@ -174,7 +180,57 @@ func (cs *ContractStakingStateManager) UpsertBucket(ctx context.Context, contrac
 	return err
 }
 
+// RaiseNumOfBuckets raises the contract's bucket high-water mark to cover
+// bucketID, and does nothing if it already does.
+//
+// # Why this exists
+//
+// StakingContract.NumOfBuckets is the max bucket id ever seen for a contract
+// (see BackfillContract for why that is not a count). It is the only bound the
+// IIP-59 era window has on contract bucket ids -- eracow.Window.
+// ContractBucketExisted answers "did this id exist at H" purely from it -- and
+// a contract with no record at all is rejected outright.
+//
+// Before IIP-59 exactly one code path maintained it:
+// blockindex/contractstaking/cache.go Commit, i.e. the V1 indexer only. The V2
+// and V3 indexers in systemcontractindex/stakingindex never wrote it, and
+// neither did staking.nftEventHandler, the shared trie-write path all three
+// indexers funnel their bucket writes through. So V2/V3 buckets had no frozen
+// mark and were silently dropped from every frozen weight, no matter what the
+// owner index said about them.
+//
+// Hooking the raise here rather than in each indexer covers all three at once,
+// because UpsertBucket is the single writer of contract bucket state.
+//
+// # Raise-only, and gated
+//
+// Raise-only because the mark's whole meaning is "no id above this existed
+// before now": lowering it would let a post-freeze bucket into a frozen era.
+// It is also what makes this safe to run alongside the V1 indexer's own
+// unconditional write of the same key -- V1's value is monotone too, so the two
+// agree and the extra write is a no-op.
+//
+// Gated behind the IIP-59 fork by its only caller, because writing a meta
+// record for a contract that has none today changes the state root.
+func (cs *ContractStakingStateManager) RaiseNumOfBuckets(contractAddr address.Address, bucketID uint64) error {
+	switch mark, err := cs.NumOfBuckets(contractAddr); {
+	case err == nil:
+		if mark >= bucketID {
+			return nil
+		}
+	case errors.Cause(err) == state.ErrStateNotExist:
+		// First bucket of a contract with no meta record yet.
+	default:
+		return errors.Wrapf(err, "failed to read bucket high-water mark of %s", contractAddr.String())
+	}
+	return cs.UpdateNumOfBuckets(contractAddr, bucketID)
+}
+
 // UpdateNumOfBuckets updates the number of buckets.
+//
+// This is an unconditional write, used by the V1 indexer which tracks the mark
+// itself. Prefer RaiseNumOfBuckets anywhere the value is not already known to
+// be monotone.
 func (cs *ContractStakingStateManager) UpdateNumOfBuckets(contractAddr address.Address, numOfBuckets uint64) error {
 	_, err := cs.sm.PutState(
 		&StakingContract{
@@ -194,11 +250,23 @@ func (cs *ContractStakingStateManager) UpdateNumOfBuckets(contractAddr address.A
 //
 // The values come from the contract meta namespace, which holds exactly one
 // small record per registered staking contract and nothing else, so this is a
-// bounded scan rather than a state walk. The number it reads is the
-// "total bucket count including burnt buckets" the indexers maintain: it is
-// only ever raised, never lowered, and contract bucket ids are minted from a
-// strictly monotonic counter that burning does not touch. A bucket id above
-// the frozen mark therefore cannot have existed at the freeze height.
+// bounded scan rather than a state walk. The number it reads is the max bucket
+// id ever seen for the contract: it is only ever raised, never lowered, and
+// contract bucket ids are minted from a strictly monotonic counter that burning
+// does not touch. A bucket id above the frozen mark therefore cannot have
+// existed at the freeze height. Note this is an *inclusive* bound -- the mark
+// is an id that exists, not one past the end.
+//
+// Post-IIP-59 the mark is maintained for every contract by
+// ContractStakingStateManager.RaiseNumOfBuckets, hooked into UpsertBucket. Do
+// not assume the indexers maintain it: only the V1 indexer ever did, which is
+// exactly why RaiseNumOfBuckets exists.
+//
+// A contract that is missing from the result has never had a bucket written
+// through UpsertBucket post-activation. eracow.Window.ContractBucketExisted
+// rejects every bucket of such a contract, so a contract silently going missing
+// here costs its owners their share -- staking.FrozenContractBucket logs that
+// case rather than letting it pass unnoticed.
 //
 // Sorted output matters: this ends up in a consensus record, and map iteration
 // order would make two nodes disagree byte-for-byte on identical state.

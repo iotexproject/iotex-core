@@ -11,10 +11,12 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/eracow"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -47,10 +49,18 @@ func freezeHeightOf(ctx context.Context, sr protocol.StateReader) (uint64, error
 // beginEraCOWWindow opens the copy-on-write window for the era frozen at
 // freezeHeight.
 //
-// It runs inside FreezePollSnapshot, i.e. at the end of the boundary block,
+// It runs inside FreezePollSnapshot, i.e. at the end of the freeze block H,
 // after every mutation belonging to that block has already been applied.
 // Everything written from here on is "after H" and is copied aside on first
 // touch.
+//
+// H is NOT the era boundary block. FreezePollSnapshot rides a PutPollResult
+// action, which is created around the midpoint of the epoch *preceding* the
+// target epoch, while the drain cursor for the era is created at the last block
+// of the boundary epoch -- roughly 1.5 epochs later (~2,160 blocks, ~90 minutes
+// on mainnet). That gap is deliberate and is not a divergence risk, because H
+// travels with the work as FreezeHeight and every recompute evaluates at it.
+// See docs/iip-59-distribution-architecture.md §2.1.
 //
 // Besides opening the window this freezes the two bucket high-water marks:
 //
@@ -239,6 +249,21 @@ func FrozenContractBucket(
 		return nil, errors.New("staking: no era window open")
 	}
 	if !window.ContractBucketExisted(contract.Bytes(), bucketID) {
+		// Distinguish "id is above the frozen mark" (routine: the bucket was
+		// minted after H) from "this contract has no frozen mark at all". The
+		// second drops every bucket of the contract from every frozen weight,
+		// so it must not pass as routine. It is still a *deny* — defaulting to
+		// allow here would admit post-freeze buckets into a frozen era, which
+		// is the one outcome worse than an under-payment — but it is a deny
+		// that says so.
+		if !window.ContractKnown(contract.Bytes()) {
+			log.L().Error("IIP-59: contract-staking contract has no frozen bucket high-water mark; "+
+				"all of its buckets are excluded from this era's voter weights",
+				zap.String("contract", contract.String()),
+				zap.Uint64("bucketID", bucketID),
+				zap.Uint64("freezeHeight", window.FreezeHeight),
+			)
+		}
 		return nil, errors.Wrapf(ErrBucketPostFreeze, "contract bucket %d of %s", bucketID, contract.String())
 	}
 	bkt := &contractstaking.Bucket{}
