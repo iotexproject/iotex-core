@@ -554,6 +554,22 @@ func (p *Protocol) distributeEpochCommissions(
 	out *epochGrantResult,
 ) error {
 	postFork := !protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution
+	// The era's H, read once for the whole epoch rather than per delegate.
+	//
+	// Only meaningful at an era boundary: the copy-on-write window is opened by
+	// this era's freeze and sealed the moment the drain completes, a handful of
+	// blocks after the boundary. For the other ~23 epochs of an era it reads
+	// closed (FreezeHeight 0), which is why nothing outside the boundary branch
+	// may use it as a freshness oracle.
+	var eraFreezeHeight uint64
+	if in.isEraBoundary {
+		window, err := staking.EraCOWWindow(sm)
+		if err != nil {
+			return errors.Wrap(err,
+				"rewarding: read era copy-on-write window for snapshot freshness check")
+		}
+		eraFreezeHeight = window.FreezeHeight
+	}
 	for i, cand := range in.rewardedCandidates {
 		if cand == nil {
 			continue
@@ -619,7 +635,7 @@ func (p *Protocol) distributeEpochCommissions(
 		if totalVoter.Sign() == 0 {
 			continue
 		}
-		work, err := p.freezeDelegateDrainWork(sm, candID, rewardAddr, commission, totalVoter)
+		work, err := p.freezeDelegateDrainWork(sm, candID, rewardAddr, commission, totalVoter, eraFreezeHeight)
 		if err != nil {
 			return err
 		}
@@ -636,12 +652,17 @@ func (p *Protocol) distributeEpochCommissions(
 //
 // A missing snapshot is not an error: it yields zero total weight, which the
 // drain reads as "no deterministic recipient set" and defers to a later era.
+//
+// eraFreezeHeight is this era's H, taken from the copy-on-write window. A
+// snapshot whose FreezeHeight is anything else belongs to an EARLIER era and is
+// treated as absent — see the guard below.
 func (p *Protocol) freezeDelegateDrainWork(
 	sm protocol.StateManager,
 	candID []byte,
 	rewardAddr address.Address,
 	commission *big.Int,
 	totalVoter *big.Int,
+	eraFreezeHeight uint64,
 ) (epochDrainDelegateWork, error) {
 	var none epochDrainDelegateWork
 	candAddr, err := address.FromBytes(candID)
@@ -653,6 +674,41 @@ func (p *Protocol) freezeDelegateDrainWork(
 	stop()
 	if err != nil && !errors.Is(err, state.ErrStateNotExist) {
 		return none, err
+	}
+	// STALENESS GUARD.
+	//
+	// The snapshot lives under a single per-candidate key with no era qualifier,
+	// so a candidate frozen in an earlier era and skipped at this era's freeze
+	// still reads back — carrying the PREVIOUS era's FreezeHeight H'. That
+	// height then travels into the work item and reaches
+	// staking.FrozenVoterWeight, while the buckets it weighs come from THIS
+	// era's copy-on-write window (opened at H). The numerator's bucket
+	// membership is as of H and the denominator, TotalWeight, is the
+	// candidate's Votes as of H'. Nothing fails; the drain just pays on a mixed
+	// basis, bounded only by the payout clamp.
+	//
+	// Degrading to "absent" collapses that into the path the freezer already
+	// produces for a candidate it never froze: TotalWeight 0, FreezeHeight 0,
+	// which the allocator reads as "no payable voter set this era" and skips,
+	// leaving the pending pool intact for a later era to settle.
+	//
+	// Not an error, deliberately. Which era last froze a candidate is committed
+	// chain state — every validator reads the same answer and degrades the same
+	// item in the same block — so this is the class that must never halt a
+	// block. (The converse rule, that node-local capability faults must never
+	// degrade, is why the window read above returns its error instead.)
+	//
+	// The eraFreezeHeight != 0 condition is not a fallback for a missing
+	// oracle: a closed window at an era boundary means this era never froze
+	// anything, and the drain refuses to run at all in that state
+	// (runVoterDistributionChunk rejects a closed window). Testing freshness
+	// against 0 would only mislabel every snapshot as stale.
+	if snapshot != nil && eraFreezeHeight != 0 && snapshot.FreezeHeight != eraFreezeHeight {
+		log.L().Warn("stale poll snapshot for delegate; deferring voter pool to a later era",
+			zap.String("delegate", candAddr.String()),
+			zap.Uint64("snapshotFreezeHeight", snapshot.FreezeHeight),
+			zap.Uint64("eraFreezeHeight", eraFreezeHeight))
+		snapshot = nil
 	}
 	// The era metadata comes from the snapshot rather than from this block's
 	// context: the snapshot is what the boundary froze, and a delegate whose

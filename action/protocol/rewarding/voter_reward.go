@@ -57,6 +57,21 @@ func resolveDelegateRewardRouting(
 		blockCommissionBPs:   _basisPointsDenom,
 		epochCommissionBPs:   _basisPointsDenom,
 	}
+	// No staleness check here, unlike freezeDelegateDrainWork. This runs at
+	// EVERY epoch of an era, and the only authoritative source of the era's H
+	// is the copy-on-write window — which is open for the freeze block and the
+	// few drain blocks after the boundary, and closed (FreezeHeight 0) for the
+	// rest of the era. Testing snapshot.FreezeHeight against it here would
+	// declare every perfectly fresh snapshot stale for ~23 of an era's 24
+	// epochs, and "stale" collapses to the ErrStateNotExist branch below, whose
+	// 100%-commission default pays voters nothing. The guard belongs where the
+	// window is guaranteed open, i.e. at the boundary.
+	//
+	// The exposure that leaves is bounded and strictly milder: a delegate
+	// carrying a previous era's snapshot splits this era's epoch rewards at the
+	// previous era's commission rate. Money is still conserved and still
+	// reaches the voter pool; only the rate is off. The drain-side guard then
+	// refuses to settle that pool on a mixed basis and rolls it forward.
 	snap, err := staking.PollSnapshotFor(sr, candID)
 	switch {
 	case err == nil:
@@ -67,6 +82,13 @@ func resolveDelegateRewardRouting(
 			routing.epochCommissionBPs = snap.EpochCommissionBasisPoints
 		}
 	case errors.Is(err, state.ErrStateNotExist):
+		// No snapshot at all. Commission stays at the 100% default and
+		// onchainRewardEnabled stays on the LIVE value read above, which is the
+		// pre-IIP-59 behaviour. FreezePollSnapshot is what keeps this branch
+		// unreachable for a delegate that is opted in and present at H: it
+		// freezes the poll list UNION the live opted-in set precisely so an
+		// opted-in delegate cannot arrive here. A delegate registered after H
+		// can still land here, and does so with all-to-delegate commission.
 	default:
 		return nil, err
 	}
