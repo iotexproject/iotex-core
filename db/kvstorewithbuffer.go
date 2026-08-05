@@ -251,6 +251,34 @@ func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey [
 	return fk, fv, nil
 }
 
+// scanEntryInRange reports whether a buffer entry takes part in a ScanRange over
+// ns and [min, max). It is the single definition of that predicate on purpose:
+// ScanRange's merge loop and the Delete count that sizes its base scan both call
+// it, so the bound handed to the base store can never drift from the set of
+// entries actually replayed on top of the result.
+func scanEntryInRange(entry *batch.WriteInfo, ns string, min, max []byte) bool {
+	return entry.Namespace() == ns && inScanRange(entry.Key(), min, max)
+}
+
+// countBufferedDeletes returns d, the number of buffered Delete entries a
+// ScanRange over ns and [min, max) would replay. Counted per entry, with no
+// de-duplication and no attempt to guess whether the base store actually holds
+// the key: see ScanRange for why over-counting is harmless and under-counting is
+// a correctness bug.
+func (kvb *kvStoreWithBuffer) countBufferedDeletes(ns string, min, max []byte) (int, error) {
+	d := 0
+	for i := 0; i < kvb.buffer.Size(); i++ {
+		entry, err := kvb.buffer.Entry(i)
+		if err != nil {
+			return 0, err
+		}
+		if entry.WriteType() == batch.Delete && scanEntryInRange(entry, ns, min, max) {
+			d++
+		}
+	}
+	return d, nil
+}
+
 // ScanRange returns up to limit <k, v> pairs in [min, max), ascending by bytes.Compare(k),
 // merging the pending write buffer on top of the base store.
 // See KVStoreWithRangeScan for the exact semantics, which must stay identical across engines.
@@ -268,13 +296,46 @@ func (kvb *kvStoreWithBuffer) ScanRange(ns string, min, max []byte, limit int) (
 	if emptyScanRange(min, max) {
 		return nil, nil, nil
 	}
-	// The base scan MUST be unlimited (limit = 0) even when the caller asked for a
-	// limit. DO NOT "optimize" this by pushing limit down: the buffer can contain
-	// keys that sort before the base scan's cutoff, and each of those displaces a
-	// base key that must then be dropped. A truncated base scan would have already
-	// thrown away the keys it needs to hand back. Truncation happens exactly once,
-	// after the merge and the sort.
-	baseKeys, baseValues, err := scanner.ScanRange(ns, min, max, 0)
+	// DO NOT push the caller's raw limit down to the base scan. The buffer can
+	// contain keys that sort before a truncated base scan's cutoff, and each of
+	// those displaces a base key that must then be handed back instead -- a base
+	// scan cut at exactly limit would have already thrown those keys away.
+	// Truncation of the RESULT still happens exactly once, after the merge and
+	// the sort.
+	//
+	// What is safe is a strictly larger bound. Let d be the number of Delete
+	// entries in the buffer that this scan would replay (same namespace, key in
+	// [min, max)), and scan the base with M = limit + d:
+	//
+	//  1. A base scan truncated at M returns the first M base keys of the range
+	//     in ascending order; call the last one b_M. Every base key it dropped
+	//     is > b_M, and the buffer replay is identical either way, so the
+	//     truncated and the untruncated merges are byte-identical on every key
+	//     <= b_M.
+	//  2. At least M - d merged keys are <= b_M: we started from M base keys,
+	//     only a Delete can remove one, and a Put either overrides an existing
+	//     key (count unchanged) or adds a new one (count grows).
+	//  3. With M = limit + d that leaves at least limit correct keys at or below
+	//     b_M, so the first limit results equal the unlimited computation. Keys
+	//     the buffer adds above b_M exist in the truncated merge but can never
+	//     reach the first limit slots.
+	//  4. If the base returns fewer than M keys the range was exhausted, so the
+	//     two computations are trivially identical.
+	//
+	// Over-counting d is always safe -- it only fetches a few extra base keys.
+	// Under-counting it is a correctness bug. So do NOT "optimize" the count by
+	// de-duplicating repeated Deletes of the same key, by skipping Deletes for
+	// keys the base may not hold, or by collapsing a Delete-then-Put pair: every
+	// qualifying Delete entry must be counted, once per entry.
+	baseLimit := 0
+	if limit > 0 {
+		d, err := kvb.countBufferedDeletes(ns, min, max)
+		if err != nil {
+			return nil, nil, err
+		}
+		baseLimit = limit + d
+	}
+	baseKeys, baseValues, err := scanner.ScanRange(ns, min, max, baseLimit)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -289,14 +350,10 @@ func (kvb *kvStoreWithBuffer) ScanRange(ns string, min, max []byte, limit int) (
 		if err != nil {
 			return nil, nil, err
 		}
-		if entry.Namespace() != ns {
+		if !scanEntryInRange(entry, ns, min, max) {
 			continue
 		}
-		k := entry.Key()
-		if !inScanRange(k, min, max) {
-			continue
-		}
-		ks := string(k)
+		ks := string(entry.Key())
 		switch entry.WriteType() {
 		case batch.Put:
 			// a Put overrides the base value, or adds a key the base does not have

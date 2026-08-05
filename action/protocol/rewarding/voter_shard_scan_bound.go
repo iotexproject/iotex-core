@@ -59,14 +59,21 @@ import (
 //
 // # Why the limit is pushed down at all
 //
-// db.kvStoreWithBuffer.ScanRange deliberately runs its *base* scan unlimited
-// even when a limit is set, because the write buffer can promote keys that sort
-// before a truncated base scan's cutoff (see the comment there; it is correct
-// and must not be changed). So the limit does not shrink the bottom-most kv
-// read. It does bound everything above it, which is where this cost lives:
-// iterator materialization, per-key copies, the merge, the sort, the address
-// decode, and -- dominant by a wide margin -- the one extra sr.State() per
-// copy-on-write key.
+// The limit reaches all the way down. db.kvStoreWithBuffer.ScanRange cannot
+// pass the caller's raw limit to its base scan -- the write buffer can promote
+// keys that sort before a truncated base scan's cutoff -- but it does scan the
+// base with limit plus the number of buffered deletes in range, which is the
+// smallest bound derivable from the buffer alone -- a tighter one would have to
+// know which of those deletes actually hit a base key, which costs the very
+// scan it is trying to bound (see the comment there). So a limit of N reads
+// O(N + buffered deletes) keys off the bottom-most kv store rather than the
+// whole shard, which is what takes the grinding attack in the first paragraph
+// off the table.
+//
+// Everything above that read is bounded by the same limit, and that is where
+// most of the cost was anyway: iterator materialization, per-key copies, the
+// merge, the sort, the address decode, and -- dominant by a wide margin -- the
+// one extra sr.State() per copy-on-write key.
 
 // _voterScanKeyBudgetPerVoter is how many scanned index keys a block may spend
 // per unit of its voter budget. Four, because FrozenShardVoters merges four
