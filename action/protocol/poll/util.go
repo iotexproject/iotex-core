@@ -238,11 +238,30 @@ var TestOnlyDelegateProfileReaderFactory func(protocol.StateManager) delegatepro
 // freezeIIP59PollSnapshot writes the per-candidate poll snapshot introduced
 // by IIP-59, capturing commission rates from the DelegateProfile contract.
 //
+// WHEN THIS RUNS, precisely, because "era boundary freeze" is a half-truth:
+// epochNum here is the number of the epoch this PutPollResult is FOR, derived
+// by setCandidates from the action's nextEpochHeight. The gate below is
+// therefore on the right epoch — but the action itself is created around the
+// MIDPOINT OF THE PRECEDING EPOCH (see createPostSystemActions above, which
+// returns nil until blockHeight >= epochHeight + epochLen/2). So the freeze
+// height H that FreezePollSnapshot stamps into the snapshot, and that
+// beginEraCOWWindow opens the window at, is half an epoch BEFORE the era
+// boundary epoch starts — and the drain's cursor is not created until the last
+// block of that boundary epoch, ~1.5 epochs after H (~2,160 blocks, ~90 minutes
+// on mainnet).
+//
+// That is an accepted position, not a bug, and it is not a divergence risk: H
+// travels with the snapshot as FreezeHeight and every weight recompute
+// evaluates at it, so all nodes compute identical numbers. The consequence to
+// know is that stake activity in the last half of the preceding epoch, and in
+// the whole boundary epoch, does not affect the weights that settle that era.
+// See docs/iip-59-distribution-architecture.md §2.1.
+//
 // Pre-fork (NoVoterRewardDistribution=true): no-op.
-// Non-era-boundary epoch (post-fork): no-op. Reward distribution now runs
-// on a per-era cadence (IIP-59 §8), so freezing the snapshot at every
-// PutPollResult would waste state writes and prevent within-era stake
-// activity from participating in the era's reward math.
+// Target epoch is not an era boundary (post-fork): no-op. Reward distribution
+// runs on a per-era cadence (IIP-59 §8), so freezing at every PutPollResult
+// would waste state writes and would shorten the span of stake activity that
+// participates in the era's reward math.
 // Post-fork, era boundary, no contract configured: bridge nil, snapshot
 // carries zero commission rates, so all rewards go to voters.
 // Post-fork, era boundary, contract configured: bridge called; snapshot

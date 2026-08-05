@@ -40,32 +40,78 @@ A **settlement** distributes one era's accrued voter pools. It has two phases
 and they run in different blocks.
 
 ```
-era boundary block H                    continuation blocks H+1, H+2, ...
-──────────────────────────────────────  ───────────────────────────────────────
-PutPollResult                            CreatePostSystemActions emits one
-  └── FreezePollSnapshot                 VoterRewardChunk per block while an
-        ├── per-delegate scalars         incomplete cursor exists
-        └── beginEraCOWWindow(H)           └── GrantVoterRewardChunk
-GrantEpochReward                                ├── walk the voter key space
-  ├── per-delegate commission/voter split       ├── recompute weights at H
-  ├── credit voter share to pending pool        ├── pay each voter once
-  └── persistDrainCursor (plan + progress)      └── checkpoint the cursor
-                                         final chunk:
-                                           ├── residual/orphan sweep
-                                           ├── SealEraCOWWindow
-                                           └── mark cursor Completed
+freeze block H                  boundary-epoch     continuation blocks C+1, C+2, ...
+(mid-epoch, see below)          last block C
+──────────────────────────────  ─────────────────  ─────────────────────────────────
+PutPollResult                   GrantEpochReward    CreatePostSystemActions emits one
+  └── FreezePollSnapshot          ├── per-delegate  VoterRewardChunk per block while
+        ├── per-delegate scalars  │   commission/   an incomplete cursor exists
+        └── beginEraCOWWindow(H)  │   voter split     └── GrantVoterRewardChunk
+                                  ├── credit voter        ├── walk the voter key space
+                                  │   share to pool       ├── recompute weights at H
+                                  └── persistDrainCursor  ├── pay each voter once
+                                      (plan + progress)   └── checkpoint the cursor
+                                                    final chunk:
+                                                      ├── residual/orphan sweep
+                                                      ├── SealEraCOWWindow
+                                                      └── mark cursor Completed
 ```
 
 Phase A is cheap and fixed-size (per-delegate scalars). Phase B is the
 proportional-to-voters work, and it is the part that is chunked.
+
+### 2.1 H is not the era boundary block
+
+The freeze rides on `PutPollResult`, and that action is not created at an era
+boundary — it is created around the **midpoint of the preceding epoch**
+(`createPostSystemActions` in `action/protocol/poll/util.go` returns nil until
+`blockHeight >= epochHeight + epochLen/2`). The action carries `nextEpochHeight`,
+so `setCandidates` derives the epoch number of the *target* epoch and gates the
+freeze on that epoch being an era boundary. The gate is on the right epoch; the
+execution is a half-epoch early.
+
+`GrantEpochReward`, which opens the cursor, sits at the other end: it asserts it
+is running on the **last block of the boundary epoch** (`assertLastBlockInEpoch`).
+
+So for an era boundary epoch E:
+
+| event | height |
+|---|---|
+| `FreezePollSnapshot`, `beginEraCOWWindow(H)` | ≈ midpoint of epoch E−1 |
+| `GrantEpochReward`, `persistDrainCursor` | last block of epoch E |
+| first continuation chunk | first block of epoch E+1 |
+
+On mainnet an epoch is `NumDelegates × WakeNumSubEpochs` = 24 × 60 = 1,440
+blocks, so H precedes the cursor by roughly **1.5 epochs ≈ 2,160 blocks ≈ 90
+minutes** at a 2.5s block interval. In small test fixtures the same 1.5-epoch
+gap is only a handful of blocks, which is why it is easy to miss locally: a
+4-delegate 1s-interval nightly observed `freeze_height=117` for boundary 128 and
+`freeze_height=181` for boundary 192 — 11 blocks, the same ratio.
+
+This is a deliberate accepted position, not an oversight, but it has a real
+consequence worth stating plainly: **stake activity in the last half of epoch
+E−1 and all of epoch E does not affect the weights that settle that era.**
+`TotalWeight` and every bucket high-water mark are as of H, and the COW window
+is open for that whole span, so buckets mutated in it pay the copy cost.
+
+Nothing here is a divergence risk: H travels with the snapshot as `FreezeHeight`
+and every recompute evaluates at it, so all nodes agree on the same numbers. The
+mismatch is between the code and the phrase "era boundary freeze", not between
+nodes. Wherever this document says "the boundary block H", read "the freeze
+block H, which is the `PutPollResult` block whose target epoch opens the era".
+
+Moving the freeze onto the boundary block itself would require a separate
+boundary-block hook and a re-measurement of the COW window's open/close timing;
+it was considered and deferred.
 
 ## 3. The freeze
 
 ### 3.1 What is frozen, and as what
 
 `staking.FreezePollSnapshot` writes one `CandidatePollSnapshot` per delegate at
-the boundary block H (`action/protocol/staking/poll_snapshot.go`). The snapshot
-is **scalars only**:
+the freeze block H (`action/protocol/staking/poll_snapshot.go`) — which is the
+`PutPollResult` block a half-epoch ahead of the era boundary epoch, not the
+boundary block itself; see §2.1. The snapshot is **scalars only**:
 
 | field | why it is frozen |
 |---|---|
@@ -103,7 +149,7 @@ the clamp in §5.3 which is what bounds the consequences when it is not.
 
 The recompute in §4 has to read bucket state *as it was at H*, from a block
 several heights later. `beginEraCOWWindow` (`action/protocol/staking/era_window.go`)
-opens a window at the end of the boundary block; from then on, the first write
+opens a window at the end of the freeze block H (§2.1); from then on, the first write
 to a covered key copies the pre-write value aside under
 `{EntryPrefix}||u64BE(H)||kind||addr`. Reads go through `eracow.Resolve`, which
 returns the copy if there is one, the live value otherwise, and `ErrNotFrozen`
