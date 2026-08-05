@@ -6,6 +6,7 @@
 package rewarding
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -743,6 +744,33 @@ func (p *Protocol) distributeFoundationBonus(
 // always serve the same corner of the address space first. No entries means no
 // voter drain is queued and no cursor is written — the absence of a cursor is
 // what tells later blocks there is nothing to continue.
+//
+// A zero-work era boundary still has to seal the era copy-on-write window.
+// PutPollResult opened that window roughly 1.5 epochs ago, unconditionally, and
+// the only other seal on the normal path is completeEpochDrain — which never
+// runs when no cursor was written. An era with no opted-in delegate, with every
+// delegate on 100% commission, or with an empty pool would therefore leave the
+// window open until the *next* boundary's Begin, and every bucket write in
+// between would pay the copy-on-write cost for a snapshot nobody will read.
+//
+// The same hole opens on a boundary DECLINED because the LSD owner-index
+// backfill has not finished. The freeze already ran ~1.5 epochs earlier — it
+// keys on the epoch arithmetic alone and knows nothing about the backfill — so
+// a window exists for an era that will produce no cursor and no drain. Hence
+// the caller passes isEraBoundaryEpoch here rather than the narrower
+// isEraBoundary: this parameter answers "was a window opened for this era",
+// which is a question about the freeze, not about whether the drain runs.
+//
+// The seal is placed here, and gated on the boundary epoch, because this runs
+// inside GrantEpochReward — a system action in the epoch's last block, executed
+// identically by every node. It is consensus-visible state, not a local
+// heuristic: a seal that fired on the proposer and not on a validator would
+// fork.
+//
+// It is deliberately NOT hoisted out of the len(entries)==0 branch: when a
+// cursor was written the drain still needs the window, and completeEpochDrain
+// seals it at the end. staking.SealEraCOWWindow is idempotent and a no-op when
+// no window is open, so a boundary that never opened one costs nothing.
 func (p *Protocol) persistDrainCursor(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -750,8 +778,33 @@ func (p *Protocol) persistDrainCursor(
 	settlementStartEpoch uint64,
 	settlementSeed hash.Hash256,
 	entries []epochDrainDelegateWork,
+	isEraBoundaryEpoch bool,
 ) error {
 	if len(entries) == 0 {
+		if isEraBoundaryEpoch {
+			// One state read stands between the seal and a live drain. On a
+			// taken boundary resolveStaleDrainCursor has already handed off or
+			// deleted any overrun cursor, so this reads nil and the seal fires.
+			// On a DECLINED boundary that handoff does not run, and sealing
+			// under an in-flight drain would silently reroute the rest of it
+			// onto live state — the frozen copies it is mid-way through
+			// reading would stop being maintained. Today a declined boundary
+			// can only be one of the first few post-activation, where no cursor
+			// has ever been written; the check is here so that stops being
+			// load-bearing. It is committed state, so every node reads the same
+			// answer and seals in the same block or not at all.
+			cursor, err := p.readEpochDrainCursor(ctx, sm)
+			if err != nil {
+				return errors.Wrap(err,
+					"rewarding: read drain cursor before sealing a zero-work era window")
+			}
+			if cursor == nil || cursor.Completed {
+				if err := staking.SealEraCOWWindow(ctx, sm); err != nil {
+					return errors.Wrap(err,
+						"rewarding: seal era copy-on-write window for a zero-work era")
+				}
+			}
+		}
 		return nil
 	}
 	stop := startIIP59Duration("cursor_write_phase_a")
@@ -790,7 +843,8 @@ func (p *Protocol) persistDrainCursor(
 //     - at an era boundary, append a cursor entry when the resulting pool
 //     is non-zero. Zero-voter delegates never enter the cursor.
 //  5. Foundation bonus.
-//  6. Persist cursor iff any entries (post-fork only).
+//  6. Persist cursor iff any entries (post-fork only); at an era boundary with
+//     no entries, seal the era copy-on-write window instead.
 //  7. Sentinel.
 //  8. Apply net debit.
 //
@@ -807,13 +861,45 @@ func (p *Protocol) GrantEpochReward(
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	g := genesis.MustExtractGenesisContext(ctx)
+	// isEraBoundaryEpoch is the epoch-arithmetic gate, and it is deliberately
+	// the *identical* expression to the one in freezeIIP59PollSnapshot
+	// (poll/util.go). That matters: the freeze is what opens this era's
+	// copy-on-write window, ~1.5 epochs before this block runs, so this
+	// predicate is exactly "a window was opened for this era" and is what the
+	// window's lifecycle has to be keyed on.
+	isEraBoundaryEpoch := !featureCtx.NoVoterRewardDistribution &&
+		protocol.IsEraBoundary(epochNum, g.EpochsPerRewardEra)
 	// isEraBoundary gates the IIP-59 voter cursor lifecycle: cursor
 	// materialization, overrun handoff, and cursor write only fire on
 	// era-boundary epochs (see IIP-59 §10.2). Commission payment,
 	// slashing, and foundation bonus run every epoch regardless.
-	// Matches the freezeIIP59PollSnapshot gate in poll/util.go.
-	isEraBoundary := !featureCtx.NoVoterRewardDistribution &&
-		protocol.IsEraBoundary(epochNum, g.EpochsPerRewardEra)
+	//
+	// It is strictly narrower than isEraBoundaryEpoch by the LSD owner-index
+	// activation backfill. That index is built one bounded batch per block
+	// starting at activation, so for roughly ceil(totalBuckets/batch) blocks
+	// the LSD half of the voter set is knowingly incomplete. Freezing an era
+	// against it would drop every not-yet-backfilled voter from the shard walk
+	// permanently -- the era is sealed and the payout is never revisited, so
+	// their share silently becomes residual. Declining the boundary costs
+	// nothing instead: pendingBlockRewardPool accumulates per delegate and only
+	// drains when isEraBoundary is true, so the money rolls into the next era.
+	//
+	// It cannot livelock. The backfill advances every block regardless of what
+	// this protocol does, and a read failure here returns rather than degrading
+	// -- a missing record reads as incomplete, which is the safe direction.
+	//
+	// The predicate is read only on boundary epochs. Every other block already
+	// has isEraBoundary == false, and issuing the read there would put a new
+	// state access on the pre-activation path for no effect.
+	isEraBoundary := isEraBoundaryEpoch
+	if isEraBoundaryEpoch {
+		backfillComplete, err := staking.OwnerIndexBackfillComplete(sm)
+		if err != nil {
+			return nil, nil, errors.Wrap(err,
+				"rewarding: read LSD owner-index backfill status for era boundary")
+		}
+		isEraBoundary = backfillComplete
+	}
 	var eraSettlementSeed hash.Hash256
 	if isEraBoundary {
 		eraSettlementSeed = settlementSeed(ctx, epochNum)
@@ -883,7 +969,12 @@ func (p *Protocol) GrantEpochReward(
 		return nil, nil, err
 	}
 	if err := p.persistDrainCursor(
-		ctx, sm, epochNum, settlementStartEpoch, eraSettlementSeed, out.cursorEntries,
+		// isEraBoundaryEpoch, not isEraBoundary: the window was opened by the
+		// freeze, which keys on the epoch arithmetic alone. A boundary declined
+		// for an incomplete backfill produces no cursor entries and no drain,
+		// so its window has to be sealed here or nothing seals it for a whole
+		// era. See persistDrainCursor.
+		ctx, sm, epochNum, settlementStartEpoch, eraSettlementSeed, out.cursorEntries, isEraBoundaryEpoch,
 	); err != nil {
 		return nil, nil, err
 	}
@@ -918,7 +1009,8 @@ func (p *Protocol) GrantVoterRewardChunk(
 	if featureCtx.NoVoterRewardDistribution {
 		// Defense in depth: CreatePostSystemActions never emits this
 		// action pre-fork, and Validate rejects manually crafted ones.
-		return nil, nil, errors.New("rewarding: voter reward chunk action requires IIP-59 fork")
+		return nil, nil, settleableVoterChunkError(
+			"rewarding: voter reward chunk action requires IIP-59 fork")
 	}
 
 	cursor, err := p.readEpochDrainCursor(ctx, sm)
@@ -928,11 +1020,14 @@ func (p *Protocol) GrantVoterRewardChunk(
 	if cursor == nil {
 		// Dispatcher invariant: cursor must be live when this handler
 		// runs. Reaching here means CreatePostSystemActions or a state
-		// migration got out of sync.
-		return nil, nil, errors.New("rewarding: voter reward chunk dispatched without a live cursor")
+		// migration got out of sync. Settleable: cursor presence is committed
+		// state, so every node reaches this verdict together.
+		return nil, nil, settleableVoterChunkError(
+			"rewarding: voter reward chunk dispatched without a live cursor")
 	}
 	if cursor.Completed {
-		return nil, nil, errors.New("rewarding: voter reward chunk dispatched for a completed cursor")
+		return nil, nil, settleableVoterChunkError(
+			"rewarding: voter reward chunk dispatched for a completed cursor")
 	}
 
 	// IIP-59 §10.3: emit a CURSOR_PROGRESS snapshot of the pre-drain
@@ -1099,22 +1194,49 @@ func (p *Protocol) runVoterDistributionChunk(
 
 	budget := p.voterBudgetPerBlock(ctx)
 	remaining := budget
+	// keyBudget bounds the scan half of the per-block budget. `remaining`
+	// alone bounds only the voters this block *pays*; without keyBudget a
+	// single shard stuffed by an attacker (the first address byte is
+	// grindable) would be read in full before the first voter is paid. See
+	// voter_shard_scan_bound.go for why a coverage bound, and not a result
+	// count, is what makes the truncated scan safe to resume from.
+	keyBudget := 0
+	if budget > 0 {
+		keyBudget = int(budget) * _voterScanKeyBudgetPerVoter
+	}
 	compoundedTotal := new(big.Int)
 	visited := 0
 
 	for !cursor.drainFinished() {
-		if budget > 0 && remaining == 0 {
+		if budget > 0 && (remaining == 0 || keyBudget <= 0) {
 			break
 		}
 		shard := cursor.currentShard()
-		voters, err := staking.FrozenShardVoters(sm, window, shard, cursor.ResumeVoter)
+		resumeBefore := cursor.ResumeVoter
+		reader := newBoundedShardReader(sm, voterScanLimit(remaining, keyBudget))
+		voters, err := staking.FrozenShardVoters(reader, window, shard, cursor.ResumeVoter)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "rewarding: scan voter shard %d", shard)
 		}
-		shardFinished := true
+		keyBudget -= reader.keysScanned()
+		coverage, coverageComplete, err := reader.coverage()
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "rewarding: bound voter shard %d", shard)
+		}
+		// A shard is finished only when the scans covered it end to end. A
+		// truncated scan leaves the tail unread, so the shard stays current and
+		// the resume point moves to the coverage bound instead.
+		budgetExhausted := false
 		for _, voter := range voters {
 			if budget > 0 && remaining == 0 {
-				shardFinished = false
+				budgetExhausted = true
+				break
+			}
+			if !coverageComplete && bytes.Compare(voter.Bytes(), coverage) > 0 {
+				// Beyond the coverage bound: some stream was truncated before
+				// this address, so paying it now could skip a voter that
+				// stream would have produced below it. `voters` is ascending,
+				// so everything after is beyond the bound too.
 				break
 			}
 			shares, err := computeVoterShares(sm, in, voter)
@@ -1133,7 +1255,11 @@ func (p *Protocol) runVoterDistributionChunk(
 				if tLog := voterTransactionLog(payout); tLog != nil {
 					transactionLogs = append(transactionLogs, tLog)
 				}
-				if payout.compoundBucketID != 0 {
+				// payout.compounded, not compoundBucketID != 0: native
+				// bucket 0 is a real bucket, and missing it here would
+				// under-report the block's rewarding-pool -> bucket-pool
+				// outflow while the money had already moved.
+				if payout.compounded {
 					compoundedTotal.Add(compoundedTotal, payout.amount)
 				}
 			}
@@ -1146,8 +1272,34 @@ func (p *Protocol) runVoterDistributionChunk(
 				remaining--
 			}
 		}
-		if !shardFinished {
+		if budgetExhausted {
+			// The voter budget ran out mid-shard. ResumeVoter already points at
+			// the last voter paid, and must not be advanced to the coverage
+			// bound -- the voters between the two have not been paid.
 			break
+		}
+		if !coverageComplete {
+			// The scan, not the payout loop, is what stopped short. Advance past
+			// everything proven scanned so the next round -- this block if key
+			// budget remains, otherwise the next block -- starts after it.
+			// Without this a shard denser than one round would be rescanned from
+			// the same offset forever.
+			//
+			// The coverage bound need not be a real voter address; ResumeVoter is
+			// only ever used as an exclusive lower bound within this shard.
+			//
+			// Assert that it strictly advances. A bounded scan that came back
+			// covering no more than the point it resumed from would leave the
+			// cursor exactly where it started, and the drain would rescan the
+			// same keys on every block for the rest of the era without ever
+			// finishing. That is a silent stall, so make it a loud failure.
+			if len(resumeBefore) > 0 && bytes.Compare(coverage, resumeBefore) <= 0 {
+				return nil, nil, errors.Errorf(
+					"rewarding: bounded scan of shard %d made no progress (coverage %x <= resume %x)",
+					shard, coverage, resumeBefore)
+			}
+			cursor.ResumeVoter = append([]byte(nil), coverage...)
+			continue
 		}
 		cursor.ShardsDone++
 		cursor.ResumeVoter = nil

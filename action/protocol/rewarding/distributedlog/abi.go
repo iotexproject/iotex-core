@@ -21,7 +21,8 @@ const abiJSON = `[
 			{"indexed": false, "name": "voters",          "type": "address[]"},
 			{"indexed": false, "name": "recipients",      "type": "address[]"},
 			{"indexed": false, "name": "amounts",         "type": "uint256[]"},
-			{"indexed": false, "name": "compoundBucketIds", "type": "uint64[]"}
+			{"indexed": false, "name": "compoundBucketIds", "type": "uint64[]"},
+			{"indexed": false, "name": "compounded",      "type": "bool[]"}
 		],
 		"name": "DelegateDistributed",
 		"type": "event"
@@ -33,4 +34,11 @@ const eventName = "DelegateDistributed"
 
 // eventSignature is the canonical Solidity signature. keccak256 of this
 // string is Topics[0]. Kept as a const for the golden-selector test.
-const eventSignature = "DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[])"
+//
+// The trailing `bool[] compounded` is not redundant with `uint64[]
+// compoundBucketIds`. Native bucket index 0 is a real, ordinary bucket, so
+// `compoundBucketIds[i] == 0` cannot be read as "voter i was not compounded"
+// -- it is indistinguishable from "voter i was compounded into bucket 0".
+// The parallel bool is the authoritative discriminator; consumers must read
+// compoundBucketIds[i] only when compounded[i] is true.
+const eventSignature = "DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[],bool[])"

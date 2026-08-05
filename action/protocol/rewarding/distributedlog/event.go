@@ -31,11 +31,11 @@ import (
 // there is no per-item fallback available at the log-encode layer.
 var (
 	// ErrParallelArrayLengthMismatch is returned when the voters, recipients,
-	// amounts, and compound bucket ID slices in EventArgs do not have identical lengths.
-	// The rewarding protocol constructs these arrays in lock-step, so a mismatch is a
-	// serialisation bug.
+	// amounts, compound bucket ID, and compounded slices in EventArgs do not have
+	// identical lengths. The rewarding protocol constructs these arrays in
+	// lock-step, so a mismatch is a serialisation bug.
 	ErrParallelArrayLengthMismatch = errors.New(
-		"distributedlog: voters, recipients, amounts, and compound bucket IDs must have equal length")
+		"distributedlog: voters, recipients, amounts, compound bucket IDs, and compounded flags must have equal length")
 
 	// ErrNilAddress is returned when Delegate, RewardAddr, or any
 	// Voters[i] is nil. Passing nil is a caller-side mistake and would
@@ -90,7 +90,8 @@ type EventArgs struct {
 	Voters            []address.Address // canonical sorted order per §3.4
 	Recipients        []address.Address // actual direct recipient; voter for compound payout
 	Amounts           []*big.Int        // parallel to Voters
-	CompoundBucketIDs []uint64          // parallel to Voters; 0 means credit
+	CompoundBucketIDs []uint64          // parallel to Voters; meaningful only where Compounded is true
+	Compounded        []bool            // parallel to Voters; true → paid into CompoundBucketIDs[i]
 }
 
 // Pack encodes args as an EVM-shaped receipt log. The returned Topics
@@ -106,7 +107,12 @@ type EventArgs struct {
 //
 // Data layout: ABI-standard tuple of the remaining (non-indexed) inputs
 // in declaration order — rewardAddr, totalCommission, totalVoterPool,
-// snapshotHash, voters[], recipients[], amounts[], compoundBucketIds[].
+// snapshotHash, voters[], recipients[], amounts[], compoundBucketIds[],
+// compounded[].
+//
+// compounded[i] is the only valid test for "was voter i's share compounded".
+// compoundBucketIds[i] == 0 is NOT that test: native bucket index 0 is a real
+// bucket and a voter can legitimately be compounded into it.
 func Pack(args EventArgs) (action.Topics, []byte, error) {
 	if args.Delegate == nil {
 		return nil, nil, errors.Wrap(ErrNilAddress, "delegate")
@@ -121,10 +127,11 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 		return nil, nil, errors.Wrap(ErrNilBigInt, "totalVoterPool")
 	}
 	if len(args.Voters) != len(args.Recipients) || len(args.Voters) != len(args.Amounts) ||
-		len(args.Voters) != len(args.CompoundBucketIDs) {
+		len(args.Voters) != len(args.CompoundBucketIDs) || len(args.Voters) != len(args.Compounded) {
 		return nil, nil, errors.Wrapf(ErrParallelArrayLengthMismatch,
-			"voters=%d recipients=%d amounts=%d compoundBucketIds=%d",
-			len(args.Voters), len(args.Recipients), len(args.Amounts), len(args.CompoundBucketIDs))
+			"voters=%d recipients=%d amounts=%d compoundBucketIds=%d compounded=%d",
+			len(args.Voters), len(args.Recipients), len(args.Amounts),
+			len(args.CompoundBucketIDs), len(args.Compounded))
 	}
 
 	voterAddrs, err := toEthAddresses(args.Voters, "voters")
@@ -159,6 +166,7 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 		recipientAddrs,
 		amounts,
 		args.CompoundBucketIDs,
+		args.Compounded,
 	)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "distributedlog: pack DelegateDistributed data")

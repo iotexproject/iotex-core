@@ -389,10 +389,24 @@ func (p *Protocol) Handle(
 				// story and the next block starts over. A failed drain chunk is
 				// not: the cursor stays put, the chain keeps advancing, and the
 				// era's remaining voter payouts are silently dropped when the
-				// next boundary rewrites the cursor. Control flow is unchanged
-				// (the block still commits with a Failure receipt); only the
-				// reporting is.
+				// next boundary rewrites the cursor.
 				p.reportVoterRewardChunkFailure(ctx, sm, err)
+				if !voterChunkErrorIsSettleable(err) {
+					// Not a verdict every node reaches identically -- most of
+					// what the drain can raise is a state read, a state write,
+					// or a range scan, and a working set's ability to serve an
+					// ordered range scan is a node-local capability, not chain
+					// state. Settling a Failure receipt here would let the
+					// proposer commit "no payouts, cursor unmoved" while
+					// validators that could serve the scan commit the payouts:
+					// same block, two state roots. Propagate instead and let
+					// the block fail. See voterChunkSettleableError for why the
+					// default is to halt and what may opt out.
+					return nil, err
+				}
+				// Explicitly marked as derivable from committed state (see
+				// settleableVoterChunkError): every node agrees, so a Failure
+				// receipt is a consistent outcome and the block still commits.
 				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
 			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs, transactionLogs...)

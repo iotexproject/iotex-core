@@ -41,16 +41,20 @@ func happyArgs() EventArgs {
 		SnapshotHash:    hash.Hash256b([]byte("snapshot@epoch4200")),
 		Voters:          voters,
 		Recipients: []address.Address{
-			identityset.Address(6),
+			voters[0],
 			voters[1],
-			voters[2],
+			identityset.Address(6),
 		},
 		Amounts: []*big.Int{
 			big.NewInt(3_000_000),
 			big.NewInt(3_000_000),
 			big.NewInt(3_000_000),
 		},
-		CompoundBucketIDs: []uint64{0, 42, 99},
+		// voters[0] is a real compound into native bucket 0 -- the case the
+		// zero-as-sentinel encoding could not express. Compounded[0] is what
+		// makes it distinguishable from voters[2]'s direct credit.
+		CompoundBucketIDs: []uint64{0, 42, 0},
+		Compounded:        []bool{true, true, false},
 	}
 }
 
@@ -79,7 +83,7 @@ func TestPack_HappyPath(t *testing.T) {
 	r.NoError(err)
 	unpacked, err := parsed.Events[eventName].Inputs.NonIndexed().Unpack(data)
 	r.NoError(err)
-	r.Len(unpacked, 8)
+	r.Len(unpacked, 9)
 	r.Equal(common.BytesToAddress(args.RewardAddr.Bytes()), unpacked[0])
 	r.Equal(0, args.TotalCommission.Cmp(unpacked[1].(*big.Int)))
 	r.Equal(0, args.TotalVoterPool.Cmp(unpacked[2].(*big.Int)))
@@ -96,6 +100,7 @@ func TestPack_ZeroVoters(t *testing.T) {
 	args.Recipients = nil
 	args.Amounts = nil
 	args.CompoundBucketIDs = nil
+	args.Compounded = nil
 
 	topics, data, err := Pack(args)
 	r.NoError(err)
@@ -109,6 +114,7 @@ func TestPack_ZeroVoters(t *testing.T) {
 	r.Len(unpacked[5].([]common.Address), 0, "recipients must decode as empty array")
 	r.Len(unpacked[6].([]*big.Int), 0, "amounts must decode as empty array")
 	r.Len(unpacked[7].([]uint64), 0, "compound bucket IDs must decode as empty array")
+	r.Len(unpacked[8].([]bool), 0, "compounded flags must decode as empty array")
 }
 
 func TestPack_ParallelLengthMismatch_Recipients(t *testing.T) {
@@ -133,6 +139,15 @@ func TestPack_ParallelLengthMismatch_CompoundBucketIDs(t *testing.T) {
 	r := require.New(t)
 	args := happyArgs()
 	args.CompoundBucketIDs = args.CompoundBucketIDs[:1] // two short
+
+	_, _, err := Pack(args)
+	r.ErrorIs(err, ErrParallelArrayLengthMismatch)
+}
+
+func TestPack_ParallelLengthMismatch_Compounded(t *testing.T) {
+	r := require.New(t)
+	args := happyArgs()
+	args.Compounded = args.Compounded[:2] // one short
 
 	_, _, err := Pack(args)
 	r.ErrorIs(err, ErrParallelArrayLengthMismatch)
@@ -218,9 +233,35 @@ func TestPack_SelectorPinned(t *testing.T) {
 	r.NoError(err)
 
 	expected := crypto.Keccak256Hash([]byte(
-		"DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[])",
+		"DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[],bool[])",
 	))
 	r.Equal(hash.Hash256(expected), topics[0])
+}
+
+// TestPack_BucketZeroIsDistinguishable is the R7 regression: a voter
+// compounded into native bucket 0 and a voter paid directly both carry
+// compoundBucketIds[i] == 0, so the bucket ID alone cannot tell them apart.
+// compounded[i] must.
+func TestPack_BucketZeroIsDistinguishable(t *testing.T) {
+	r := require.New(t)
+	args := happyArgs()
+	topics, data, err := Pack(args)
+	r.NoError(err)
+	r.Len(topics, 3)
+
+	parsed, err := abi.JSON(strings.NewReader(abiJSON))
+	r.NoError(err)
+	unpacked, err := parsed.Events[eventName].Inputs.NonIndexed().Unpack(data)
+	r.NoError(err)
+
+	bucketIDs := unpacked[7].([]uint64)
+	compounded := unpacked[8].([]bool)
+	r.Equal([]uint64{0, 42, 0}, bucketIDs)
+	r.Equal([]bool{true, true, false}, compounded)
+	// Voter 0 and voter 2 are indistinguishable by bucket ID...
+	r.Equal(bucketIDs[0], bucketIDs[2])
+	// ...and distinguishable only by the compounded flag.
+	r.NotEqual(compounded[0], compounded[2])
 }
 
 func TestPack_RoundTrip(t *testing.T) {
