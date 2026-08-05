@@ -92,6 +92,165 @@ func TestWorkingSetStoreScanRange(t *testing.T) {
 	})
 }
 
+// testWorkingSetStoreFactory mirrors what (*stateDB).createWorkingSetStore does on
+// a non-erigon node: put a fresh flusher on top of whatever KVStore it is handed.
+// That is the piece that makes a derived working set stack one store on another.
+type testWorkingSetStoreFactory struct{}
+
+func (testWorkingSetStoreFactory) CreateWorkingSetStore(
+	_ context.Context, _ uint64, kvStore db.KVStore,
+) (workingSetStore, error) {
+	flusher, err := db.NewKVStoreFlusher(kvStore, batch.NewCachedBatch())
+	if err != nil {
+		return nil, err
+	}
+	// readBuffer = true is what genesis.IsNewfoundland reports at every height a
+	// range scan can be requested at
+	return newStateDBWorkingSetStore(flusher, true), nil
+}
+
+func newTestWorkingSet(t *testing.T, height uint64, kvStore db.KVStore) *workingSet {
+	t.Helper()
+	f := testWorkingSetStoreFactory{}
+	store, err := f.CreateWorkingSetStore(context.Background(), height, kvStore)
+	require.NoError(t, err)
+	require.NoError(t, store.Start(context.Background()))
+	return newWorkingSet(height, protocol.NewViews(), store, f)
+}
+
+// scanWorkingSet runs one range query through the public StateReader API.
+func scanWorkingSet(t *testing.T, ws *workingSet, ns string, opts ...protocol.StateOption) ([]string, []string) {
+	t.Helper()
+	_, iter, err := ws.States(append([]protocol.StateOption{protocol.NamespaceOption(ns)}, opts...)...)
+	require.NoError(t, err)
+	keys := []string{}
+	values := []string{}
+	for i := 0; i < iter.Size(); i++ {
+		var v valueBytes
+		k, err := iter.Next(&v)
+		require.NoError(t, err)
+		keys = append(keys, string(k))
+		values = append(values, string(v))
+	}
+	return keys, values
+}
+
+// TestDerivedWorkingSetScanRange pins the proposer/validator equivalence that a
+// missing ScanRange on *stateDBWorkingSetStore breaks.
+//
+// When the state DB lags the chain tip, (*stateDB).Mint derives the next working
+// set from the cached parent working set instead of from the DAO, and the parent
+// store ends up in the child flusher's base-store slot. A validator replaying the
+// same height builds its working set on a committed DAO. Both must answer an
+// ordered range scan identically -- if the derived one errors or returns less,
+// the proposer and the validators of that block write different state.
+func TestDerivedWorkingSetScanRange(t *testing.T) {
+	r := require.New(t)
+	ctx := context.Background()
+	ns := "scanns"
+
+	// what the DAO holds before block 1
+	committed := map[string]string{"a": "h0-a", "c": "h0-c", "e": "h0-e"}
+	// what block 1 writes: one new key, one overwrite, one delete
+	blk1Puts := map[string]string{"b": "h1-b", "a": "h1-a"}
+	blk1Dels := []string{"c"}
+	// what block 2 writes, used by the two-level case
+	blk2Puts := map[string]string{"d": "h2-d", "e": "h2-e"}
+
+	seed := func(kv db.KVStore, m map[string]string) {
+		for k, v := range m {
+			r.NoError(kv.Put(ns, []byte(k), []byte(v)))
+		}
+	}
+	apply := func(ws *workingSet, puts map[string]string, dels []string) {
+		for k, v := range puts {
+			val := valueBytes(v)
+			_, err := ws.PutState(&val, protocol.NamespaceOption(ns), protocol.KeyOption([]byte(k)))
+			r.NoError(err)
+		}
+		for _, k := range dels {
+			_, err := ws.DelState(protocol.NamespaceOption(ns), protocol.KeyOption([]byte(k)))
+			r.NoError(err)
+		}
+	}
+
+	// ---- proposer side: block 1's working set is finalized but NOT committed,
+	// and block 2's working set is derived from it
+	parentBase := db.NewMemKVStore()
+	seed(parentBase, committed)
+	parent := newTestWorkingSet(t, 1, parentBase)
+	apply(parent, blk1Puts, blk1Dels)
+	// set directly rather than going through finalize(), which only adds the
+	// height key in a different namespace and needs a full block context
+	parent.finalized = true
+	child, err := parent.NewWorkingSet(ctx)
+	r.NoError(err)
+	r.Equal(uint64(2), child.height)
+
+	// ---- validator side: block 1 is committed, block 2 starts from the DAO
+	freshBase := db.NewMemKVStore()
+	seed(freshBase, committed)
+	seed(freshBase, blk1Puts)
+	for _, k := range blk1Dels {
+		r.NoError(freshBase.Delete(ns, []byte(k)))
+	}
+	fresh := newTestWorkingSet(t, 2, freshBase)
+
+	queries := []struct {
+		name string
+		opts []protocol.StateOption
+	}{
+		{"whole range", []protocol.StateOption{protocol.RangeOption([]byte("a"), []byte("z"))}},
+		{"half-open sub range", []protocol.StateOption{protocol.RangeOption([]byte("b"), []byte("e"))}},
+		{"unbounded with limit", []protocol.StateOption{protocol.LimitOption(2)}},
+		{"bounded with limit", []protocol.StateOption{
+			protocol.RangeOption([]byte("a"), []byte("z")), protocol.LimitOption(3)}},
+		{"empty range", []protocol.StateOption{protocol.RangeOption([]byte("x"), []byte("z"))}},
+	}
+	for _, q := range queries {
+		t.Run("derived/"+q.name, func(t *testing.T) {
+			wantK, wantV := scanWorkingSet(t, fresh, ns, q.opts...)
+			gotK, gotV := scanWorkingSet(t, child, ns, q.opts...)
+			require.Equal(t, wantK, gotK)
+			require.Equal(t, wantV, gotV)
+		})
+	}
+	// the expectations above are only meaningful if the query actually sees the
+	// block-1 writes
+	gotK, gotV := scanWorkingSet(t, child, ns, protocol.RangeOption([]byte("a"), []byte("z")))
+	r.Equal([]string{"a", "b", "e"}, gotK)
+	r.Equal([]string{"h1-a", "h1-b", "h0-e"}, gotV)
+
+	// ---- two-level: Mint can lag by more than one block, so a child can itself
+	// be the parent of the next working set
+	apply(child, blk2Puts, nil)
+	child.finalized = true
+	grandchild, err := child.NewWorkingSet(ctx)
+	r.NoError(err)
+	r.Equal(uint64(3), grandchild.height)
+
+	fresh3Base := db.NewMemKVStore()
+	seed(fresh3Base, committed)
+	seed(fresh3Base, blk1Puts)
+	for _, k := range blk1Dels {
+		r.NoError(fresh3Base.Delete(ns, []byte(k)))
+	}
+	seed(fresh3Base, blk2Puts)
+	fresh3 := newTestWorkingSet(t, 3, fresh3Base)
+
+	for _, q := range queries {
+		t.Run("grandchild/"+q.name, func(t *testing.T) {
+			wantK, wantV := scanWorkingSet(t, fresh3, ns, q.opts...)
+			gotK, gotV := scanWorkingSet(t, grandchild, ns, q.opts...)
+			require.Equal(t, wantK, gotK)
+			require.Equal(t, wantV, gotV)
+		})
+	}
+	gotK, gotV = scanWorkingSet(t, grandchild, ns, protocol.RangeOption([]byte("a"), []byte("z")))
+	r.Equal([]string{"a", "b", "d", "e"}, gotK)
+	r.Equal([]string{"h1-a", "h1-b", "h2-d", "h2-e"}, gotV)
+}
+
 func TestStatesConfigValidation(t *testing.T) {
 	r := require.New(t)
 

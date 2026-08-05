@@ -255,12 +255,18 @@ func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey [
 // merging the pending write buffer on top of the base store.
 // See KVStoreWithRangeScan for the exact semantics, which must stay identical across engines.
 func (kvb *kvStoreWithBuffer) ScanRange(ns string, min, max []byte, limit int) ([][]byte, [][]byte, error) {
-	if emptyScanRange(min, max) {
-		return nil, nil, nil
-	}
+	// The capability check comes BEFORE the empty-range fast path on purpose. An
+	// unscannable base is a node-local fact about the binary/config, not about
+	// chain state, so it must surface identically no matter which bounds the
+	// caller happened to pass. Answering "empty, no error" for a provably empty
+	// interval would hide a broken node until the first non-empty query, and the
+	// nodes that hide it are not the same nodes that hit it.
 	scanner, ok := kvb.store.(KVStoreWithRangeScan)
 	if !ok {
 		return nil, nil, errors.Wrapf(ErrNotSupported, "base store %T does not support ScanRange", kvb.store)
+	}
+	if emptyScanRange(min, max) {
+		return nil, nil, nil
 	}
 	// The base scan MUST be unlimited (limit = 0) even when the caller asked for a
 	// limit. DO NOT "optimize" this by pushing limit down: the buffer can contain
