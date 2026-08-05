@@ -6,8 +6,10 @@
 package staking
 
 import (
+	"bytes"
 	"context"
 	"math/big"
+	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -226,6 +228,10 @@ func eraSnapshotHash(candID address.Address, s *CandidatePollSnapshot) hash.Hash
 // candidates that explicitly opt in later, enable protocol-native reward
 // distribution. Disabled candidates skip both profile and voter reads.
 //
+// The set it writes is the passed-in poll list UNION every candidate in the
+// candidate center whose live routing is opted in. The union is load-bearing,
+// not defensive — see the comment on the widening loop below.
+//
 // A per-delegate bridge read failure (malformed profile, RPC/EVM error) is
 // absorbed by the bridge itself: the affected delegate lands with
 // Registered=false and rewarding uses the all-to-owner default. This
@@ -245,6 +251,7 @@ func FreezePollSnapshot(
 	// Parse candidate identities once; both the bridge call and the snapshot
 	// write use them.
 	ids := make([]address.Address, 0, len(candidates))
+	seen := make(map[string]bool, len(candidates))
 	for _, c := range candidates {
 		if c == nil {
 			return errors.New("staking: nil candidate in poll list")
@@ -261,43 +268,14 @@ func FreezePollSnapshot(
 			return errors.Wrapf(err, "staking: invalid candidate identity %q", identity)
 		}
 		ids = append(ids, id)
+		seen[id.String()] = true
 	}
 
 	g, _ := genesis.ExtractGenesisContext(ctx)
-	enabled := make(map[string]bool, len(ids))
-	enabledIDs := make([]address.Address, 0, len(ids))
-	for _, id := range ids {
-		routing, err := ReadCandidateRewardRouting(sm, id, g.HermesRewardVaultAddresses)
-		if err != nil {
-			if errors.Is(err, state.ErrStateNotExist) {
-				continue
-			}
-			return errors.Wrapf(err, "staking: read reward routing for candidate %s", id.String())
-		}
-		if routing.OnchainRewardEnabled {
-			enabled[id.String()] = true
-			enabledIDs = append(enabledIDs, id)
-		}
-	}
-
-	var rates map[string]*delegateprofile.CommissionRates
-	if bridge != nil {
-		if reader == nil {
-			return errors.New("staking: nil ContractReader with non-nil DelegateProfile bridge")
-		}
-		var err error
-		rates, err = bridge.Snapshot(ctx, reader, enabledIDs)
-		if err != nil {
-			return errors.Wrap(err, "staking: DelegateProfile snapshot failed")
-		}
-	}
 
 	// IIP-59: everything below this point freezes state as of H, the height of
 	// the block this boundary runs in.
-	freezeHeight, err := freezeHeightOf(ctx, sm)
-	if err != nil {
-		return err
-	}
+	//
 	// The candidate center is the source for both SelfStakeBucketIdx and
 	// TotalWeight. Exactly one failure to reach it is degraded rather than
 	// returned: protocol.ErrNoName, meaning the staking protocol installed no
@@ -329,6 +307,95 @@ func FreezePollSnapshot(
 		}
 	} else if errors.Cause(cErr) != protocol.ErrNoName {
 		return errors.Wrap(cErr, "staking: construct candidate view for poll snapshot")
+	}
+
+	// The poll list is NOT the set that gets paid.
+	//
+	// It is filtered twice before it arrives here -- ActiveCandidates drops
+	// anything failing isActiveCandidate, and filterAndSortCandidatesByVoteScore
+	// drops anything below the vote-score threshold -- and it is frozen once per
+	// reward era (EpochsPerRewardEra epochs, ~24h on mainnet). The set that
+	// actually receives epoch rewards is recomputed by the rewarding protocol at
+	// EVERY epoch inside that era. The two drift.
+	//
+	// A candidate that is opted in but absent from the frozen set has no
+	// snapshot, and every reader treats "no snapshot" as "no frozen era": the
+	// commission split falls back to 100% delegate / 0% voter and the drain has
+	// no denominator. Silently, with no error and no log, for up to a full day.
+	//
+	// So the frozen set is the poll list UNION every candidate whose live
+	// routing is opted in. Freezing a candidate that never gets paid costs one
+	// state write; not freezing one that does costs its voters their whole era.
+	//
+	// Sorted, because the candidate center enumerates from a Go map and the
+	// order reaches both PutState and the DelegateProfile bridge call.
+	//
+	// The widened identities are re-read by the opt-in loop below rather than
+	// short-circuited into it. That costs one extra state read per widened
+	// candidate, once per era, and buys the guarantee that every identity in
+	// the frozen set went through exactly the same opt-in test — which is what
+	// makes this change purely additive for candidates that were already in it.
+	if candReader != nil {
+		extras := make([]address.Address, 0)
+		for _, c := range candReader.AllCandidates() {
+			if c == nil {
+				continue
+			}
+			id := c.GetIdentifier()
+			if id == nil || seen[id.String()] {
+				continue
+			}
+			seen[id.String()] = true
+			extras = append(extras, id)
+		}
+		sort.Slice(extras, func(i, j int) bool {
+			return bytes.Compare(extras[i].Bytes(), extras[j].Bytes()) < 0
+		})
+		for _, id := range extras {
+			routing, err := ReadCandidateRewardRouting(sm, id, g.HermesRewardVaultAddresses)
+			if err != nil {
+				if errors.Is(err, state.ErrStateNotExist) {
+					continue
+				}
+				return errors.Wrapf(err, "staking: read reward routing for candidate %s", id.String())
+			}
+			if routing.OnchainRewardEnabled {
+				ids = append(ids, id)
+			}
+		}
+	}
+
+	enabled := make(map[string]bool, len(ids))
+	enabledIDs := make([]address.Address, 0, len(ids))
+	for _, id := range ids {
+		routing, err := ReadCandidateRewardRouting(sm, id, g.HermesRewardVaultAddresses)
+		if err != nil {
+			if errors.Is(err, state.ErrStateNotExist) {
+				continue
+			}
+			return errors.Wrapf(err, "staking: read reward routing for candidate %s", id.String())
+		}
+		if routing.OnchainRewardEnabled {
+			enabled[id.String()] = true
+			enabledIDs = append(enabledIDs, id)
+		}
+	}
+
+	var rates map[string]*delegateprofile.CommissionRates
+	if bridge != nil {
+		if reader == nil {
+			return errors.New("staking: nil ContractReader with non-nil DelegateProfile bridge")
+		}
+		var err error
+		rates, err = bridge.Snapshot(ctx, reader, enabledIDs)
+		if err != nil {
+			return errors.Wrap(err, "staking: DelegateProfile snapshot failed")
+		}
+	}
+
+	freezeHeight, err := freezeHeightOf(ctx, sm)
+	if err != nil {
+		return err
 	}
 	if err := beginEraCOWWindow(ctx, sm, freezeHeight); err != nil {
 		return err
