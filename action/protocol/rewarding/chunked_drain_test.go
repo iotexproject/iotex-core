@@ -46,12 +46,38 @@ func TestVoterBudgetPerBlock(t *testing.T) {
 		"post-fork with budget=0: voter budget must be 0 (unbounded voters per delegate)")
 }
 
-// TestGrantEpochReward_DefaultsToOwnerWhenSnapshotMissing confirms that a
-// migrated delegate without profile data receives the full reward directly.
-func TestGrantEpochReward_DefaultsToOwnerWhenSnapshotMissing(t *testing.T) {
+// TestGrantEpochReward_DefaultsToOwnerWhenProfileUnregistered confirms that a
+// migrated delegate that opted in but never registered a DelegateProfile
+// receives the full reward directly.
+//
+// The fixture writes the snapshot FreezePollSnapshot produces for exactly that
+// candidate (poll_snapshot.go): opted in, Registered false, and both commission
+// rates defaulted to the full 10000 bps because the profile view returned
+// nothing to override them with. That default is the design — no registered
+// rate means no voter split — so the delegate stays on IIP-59 rails and
+// creditRewardDirect pays the owner, which is what the transaction log below
+// counts.
+//
+// Writing the snapshot is load-bearing. Omitting it does not reach this design
+// at all: it reaches the no-snapshot-for-the-era branch of
+// resolveDelegateRewardRouting, which is a different rule (not on rails this
+// era, pay legacy) covered by voter_snapshot_missing_test.go. The two used to
+// coincide, so this test passed without a snapshot while asserting something
+// it did not set up.
+func TestGrantEpochReward_DefaultsToOwnerWhenProfileUnregistered(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
+
+		for i := 27; i <= 31; i++ {
+			r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(i), &staking.CandidatePollSnapshot{
+				OnchainRewardEnabled:       true,
+				Registered:                 false,
+				BlockCommissionBasisPoints: _basisPointsDenom,
+				EpochCommissionBasisPoints: _basisPointsDenom,
+				TotalWeight:                new(big.Int),
+			}))
+		}
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)

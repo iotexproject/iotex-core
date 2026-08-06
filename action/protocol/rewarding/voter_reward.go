@@ -82,13 +82,27 @@ func resolveDelegateRewardRouting(
 			routing.epochCommissionBPs = snap.EpochCommissionBasisPoints
 		}
 	case errors.Is(err, state.ErrStateNotExist):
-		// No snapshot at all. Commission stays at the 100% default and
-		// onchainRewardEnabled stays on the LIVE value read above, which is the
-		// pre-IIP-59 behaviour. FreezePollSnapshot is what keeps this branch
-		// unreachable for a delegate that is opted in and present at H: it
-		// freezes the poll list UNION the live opted-in set precisely so an
-		// opted-in delegate cannot arrive here. A delegate registered after H
-		// can still land here, and does so with all-to-delegate commission.
+		// The era's snapshot is the sole authority on opt-in status, so a
+		// delegate with no snapshot at H is not on IIP-59 rails for this era
+		// and its opt-in takes effect at the next freeze. Overriding the LIVE
+		// value read above is what makes that rule uniform.
+		//
+		// FreezePollSnapshot already freezes the poll list UNION the live
+		// opted-in set, which leaves exactly two ways to arrive here: a
+		// candidate registered after H (unfreezable by construction), and one
+		// that existed at H outside the poll list and opted in afterwards.
+		// Both are the same real-world situation as a candidate INSIDE the
+		// poll list that opts in after H — and that one gets an
+		// OnchainRewardEnabled=false placeholder snapshot, which routes it to
+		// the legacy path. Keeping the live value here made the two diverge on
+		// nothing but poll-list membership at H: the placeholder case paid
+		// legacy, this case paid on IIP-59 rails at the 100% commission
+		// default, sending the whole amount to the owner and the voters
+		// nothing. For a Hermes-vault delegate that also bypassed the vault,
+		// so off-chain Hermes never saw the money and its voters lost it
+		// permanently. Routing to legacy pays the vault instead, and off-chain
+		// Hermes distributes as it did before.
+		routing.onchainRewardEnabled = false
 	default:
 		return nil, err
 	}
