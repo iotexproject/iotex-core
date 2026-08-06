@@ -191,7 +191,13 @@ type (
 		helperCtx                HelperCtx
 		blockStore               BlockStore
 		blocksToDurationFn       func(startHeight, endHeight, currentHeight uint64) time.Duration
+		genesisStateSeeder       GenesisStateSeeder
 	}
+
+	// GenesisStateSeeder plants additional genesis state inside the same
+	// candidate-state transaction that CreateGenesisStates uses for
+	// BootstrapCandidates. See WithGenesisStateSeeder.
+	GenesisStateSeeder func(ctx context.Context, csm CandidateStateManager) error
 
 	// Configuration is the staking protocol configuration.
 	Configuration struct {
@@ -247,6 +253,19 @@ func WithContractStakingIndexerV3(indexer ContractStakingIndexer) Option {
 func WithBlockStore(bs BlockStore) Option {
 	return func(p *Protocol) {
 		p.blockStore = bs
+	}
+}
+
+// WithGenesisStateSeeder sets a seeder invoked from CreateGenesisStates AFTER
+// the BootstrapCandidates loop and BEFORE the final Commit. It lets a test
+// harness plant candidates + voter buckets directly in the same genesis
+// transaction, avoiding the action-pool bottleneck at mainnet-scale voter
+// counts. Nothing in production wires this — a node built from config alone
+// never reaches it, which is the point of it being an option rather than a
+// package-level hook.
+func WithGenesisStateSeeder(seeder GenesisStateSeeder) Option {
+	return func(p *Protocol) {
+		p.genesisStateSeeder = seeder
 	}
 }
 
@@ -464,20 +483,12 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 	return c, nil
 }
 
-// TestOnlyGenesisStateSeeder, when non-nil, is invoked from
-// CreateGenesisStates AFTER the BootstrapCandidates loop and BEFORE the
-// final Commit. It lets e2e tests plant additional candidates + voter
-// buckets directly in the same genesis transaction, avoiding the
-// action-pool bottleneck at mainnet-scale voter counts. Production must
-// never set this.
-var TestOnlyGenesisStateSeeder func(ctx context.Context, csm CandidateStateManager) error
-
 // CreateGenesisStates is used to setup BootstrapCandidates from genesis config.
 func (p *Protocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) error {
-	if len(p.config.BootstrapCandidates) == 0 && TestOnlyGenesisStateSeeder == nil {
+	if len(p.config.BootstrapCandidates) == 0 && p.genesisStateSeeder == nil {
 		return nil
 	}
 	// TODO: set init values based on ctx
@@ -530,9 +541,9 @@ func (p *Protocol) CreateGenesisStates(
 		}
 	}
 
-	if TestOnlyGenesisStateSeeder != nil {
-		if err := TestOnlyGenesisStateSeeder(ctx, csm); err != nil {
-			return errors.Wrap(err, "test-only genesis seeder failed")
+	if p.genesisStateSeeder != nil {
+		if err := p.genesisStateSeeder(ctx, csm); err != nil {
+			return errors.Wrap(err, "genesis state seeder failed")
 		}
 	}
 

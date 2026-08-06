@@ -10,21 +10,17 @@ import (
 	"math/big"
 	"os"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/mohae/deepcopy"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/actpool"
@@ -95,12 +91,9 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	cfg := newIIP59PerfCfg(r, tier)
 	defer clearDBPaths(&cfg)
 
-	// Install the three test-only injection seams. All three are
-	// package-level globals; reset them on cleanup so subsequent tests
-	// see a virgin state.
-	installIIP59PerfHooks(t, tier, cfg.Genesis)
-
-	test := newE2ETest(t, cfg)
+	// The injection seams travel with this one server rather than through
+	// package-level state, so there is nothing to reset afterwards.
+	test := newE2ETest(t, cfg, iip59PerfBuildOptions(t, tier, cfg.Genesis)...)
 	defer test.teardown()
 	registerEpochProtocols(r, test)
 	registerIIP59EraFreezer(r, test, tier)
@@ -220,8 +213,8 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 
 // newIIP59PerfCfg derives a config from initCfg(), then overrides the
 // knobs the bench needs: fork on at height 1, tier-sized delegate set,
-// era cadence, chunk size, mock contract addresses (so the DelegateProfile
-// bridge is exercised end-to-end even though the reads are hooked out).
+// era cadence, chunk size, and the AutoDeposit contract address (whose
+// reads are hooked out, so only the address has to parse).
 func newIIP59PerfCfg(r *require.Assertions, tier perfTier) config.Config {
 	cfg := config.Default
 	cfg.Genesis = genesis.TestDefault()
@@ -268,28 +261,38 @@ func newIIP59PerfCfg(r *require.Assertions, tier perfTier) config.Config {
 		cfg.Genesis.InitBalanceMap[addr] = unit.ConvertIotxToRau(2000000).String()
 	}
 
-	// Point IIP-59's on-chain contract fields at real bech32 addresses.
-	// The reader stubs installed below intercept every call, so the
-	// bytecode never actually needs to exist — the addresses only have
-	// to parse.
+	// Point AutoDeposit at a real bech32 address. The reader stub installed
+	// below intercepts every call, so the bytecode never actually needs to
+	// exist — the address only has to parse.
+	//
+	// DelegateProfileContractAddress stays empty on purpose: this harness
+	// never reaches the contract read (see installIIP59PerfHooks), and an
+	// empty address keeps the bridge nil, so if it ever did the snapshot
+	// would record zero rates instead of calling into nonexistent bytecode.
 	cfg.Genesis.Blockchain.AutoDepositContractAddress = identityset.Address(25).String()
-	cfg.Genesis.Poll.DelegateProfileContractAddress = identityset.Address(26).String()
 
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	return cfg
 }
 
-// installIIP59PerfHooks wires the three test-only injection seams:
-//   - staking.TestOnlyGenesisStateSeeder — plants the perf-bench candidates + voter buckets
-//     directly in genesis, bypassing the action pool.
-//   - poll.TestOnlyDelegateProfileReaderFactory — returns a canned
-//     commission-portion payload so PutPollResult's DelegateProfile
-//     freeze doesn't need real contract bytecode.
-//   - chainservice.TestOnlyRewardingOptions — swaps the AutoDeposit
-//     ContractReader for one that always reports "unregistered", which
-//     routes every voter share through the credit path (no compound
-//     dependency on planted bucket IDs).
-func installIIP59PerfHooks(t *testing.T, tier perfTier, g genesis.Genesis) {
+// iip59PerfBuildOptions returns the two injection seams this bench needs,
+// scoped to the one server it is passed to:
+//   - a staking genesis seeder that plants the perf-bench candidates + voter
+//     buckets directly in genesis, bypassing the action pool.
+//   - a rewarding option swapping the AutoDeposit ContractReader for one that
+//     always reports "unregistered", which routes every voter share through the
+//     credit path (no compound dependency on planted bucket IDs).
+//
+// There is deliberately no DelegateProfile seam. The commission rates below are
+// planted straight into each snapshot by the seeder, and this harness never
+// reaches freezeIIP59PollSnapshot's contract read at all: it runs on
+// poll.NewLifeLongDelegatesProtocol, whose single setCandidates call happens at
+// genesis, where the fork gate (height 0 < ToBeEnabledBlockHeight) and the era
+// gate (IsEraBoundary(1, epochsPerEra) is false for every tier) each block it
+// independently. DelegateProfileContractAddress is likewise left unset, so the
+// bridge stays nil and the path degrades to zero rates rather than an EVM call
+// against nonexistent bytecode if that ever changes.
+func iip59PerfBuildOptions(t *testing.T, tier perfTier, g genesis.Genesis) []chainservice.BuildOption {
 	spec := staking.TestOnlyPerfBenchSpec{
 		NumDelegates:            tier.numDelegates,
 		NumVoters:               tier.numVoters,
@@ -297,31 +300,23 @@ func installIIP59PerfHooks(t *testing.T, tier perfTier, g genesis.Genesis) {
 		VoterStake:              iip59PerfVoterStake(),
 		VoterStakedDurationDays: iip59PerfVoterStakeDurationDays,
 		VoteWeightCalConsts:     g.Staking.VoteWeightCalConsts,
-		// Match the mock DelegateProfile reader below: raw payload = 1000 bp
-		// (voter portion) → commission = 10000 - 1000 = 9000 bp for both
-		// block-side and epoch-side streams.
+		// 9000 bp commission (10 % voter take) on both the block-side and
+		// epoch-side streams. This is the only source of the bench's rates.
 		BlockCommissionBasisPoints: 9000,
 		EpochCommissionBasisPoints: 9000,
 	}
-	staking.TestOnlyGenesisStateSeeder = func(ctx context.Context, csm staking.CandidateStateManager) error {
-		_, err := staking.TestOnlySeedPerfBenchState(ctx, csm, spec)
-		return err
-	}
-	t.Cleanup(func() { staking.TestOnlyGenesisStateSeeder = nil })
-
-	dpReader := newMockDelegateProfileReader(t)
-	poll.TestOnlyDelegateProfileReaderFactory = func(_ protocol.StateManager) delegateprofile.ContractReader {
-		return dpReader
-	}
-	t.Cleanup(func() { poll.TestOnlyDelegateProfileReaderFactory = nil })
-
 	adReader := newMockAutoDepositReader(t)
-	chainservice.TestOnlyRewardingOptions = []rewarding.Option{
-		rewarding.WithAutoDepositBucketReader(func(autodeposit.SlotReader) autodeposit.BucketReader {
-			return adReader
-		}),
+	return []chainservice.BuildOption{
+		chainservice.WithStakingOptions(staking.WithGenesisStateSeeder(
+			func(ctx context.Context, csm staking.CandidateStateManager) error {
+				_, err := staking.TestOnlySeedPerfBenchState(ctx, csm, spec)
+				return err
+			},
+		)),
+		chainservice.WithRewardingOptions(rewarding.WithAutoDepositBucketReader(
+			func(autodeposit.SlotReader) autodeposit.BucketReader { return adReader },
+		)),
 	}
-	t.Cleanup(func() { chainservice.TestOnlyRewardingOptions = nil })
 }
 
 // iip59EraFreezer supplies the era-boundary freeze that these harnesses cannot
@@ -441,25 +436,6 @@ func drainSnapshot(
 	return p.TestOnlyEpochDrainSnapshot(ctx, cs.StateFactory())
 }
 
-// newMockDelegateProfileReader returns a ContractReader that answers
-// every getProfileByField(_, _) call with an ABI-encoded 1000 (10 %
-// voter take → 90 % commission). Constant across all delegates and
-// both portion fields — enough for the drain-chunking cost we're
-// measuring; per-delegate variance isn't the point of this bench.
-func newMockDelegateProfileReader(t *testing.T) delegateprofile.ContractReader {
-	parsed, err := abi.JSON(strings.NewReader(delegateProfileMinimalABI))
-	require.NoError(t, err)
-	// Encode raw payload as big-endian uint256 with basis points = 1000.
-	payload := new(big.Int).SetUint64(1000).Bytes()
-	method, ok := parsed.Methods["getProfileByField"]
-	require.True(t, ok, "getProfileByField must be present in mock ABI")
-	packed, err := method.Outputs.Pack(payload)
-	require.NoError(t, err)
-	return delegateprofile.ContractReaderFunc(func(_ context.Context, _ string, _ []byte) ([]byte, error) {
-		return packed, nil
-	})
-}
-
 // mockAutoDepositBucketReader reports every voter as "unregistered", so
 // the drain routes each voter share to unclaimed balance — exercising the
 // per-voter unclaimed balance credit path without depending on planted
@@ -476,29 +452,10 @@ func newMockAutoDepositReader(_ *testing.T) autodeposit.BucketReader {
 	return mockAutoDepositBucketReader{}
 }
 
-// delegateProfileMinimalABI mirrors delegateprofile/abi.go's abiJSON.
-// Duplicated (rather than exported from the bridge package) so the
-// bench doesn't force the production ABI constant into an exported
-// surface — this is a test-only artifact.
-const delegateProfileMinimalABI = `[
-	{
-		"constant": true,
-		"inputs": [
-			{ "name": "_delegate", "type": "address" },
-			{ "name": "_field", "type": "string" }
-		],
-		"name": "getProfileByField",
-		"outputs": [
-			{ "name": "", "type": "bytes" }
-		],
-		"payable": false,
-		"stateMutability": "view",
-		"type": "function"
-	}
-]`
-
-// autoDepositMinimalABI mirrors autodeposit/abi.go's abiJSON. Same
-// duplication rationale as delegateProfileMinimalABI.
+// autoDepositMinimalABI mirrors autodeposit/abi.go's abiJSON. Duplicated
+// (rather than exported from the bridge package) so the bench doesn't force
+// the production ABI constant into an exported surface — this is a test-only
+// artifact.
 const autoDepositMinimalABI = `[
 	{
 		"constant": true,

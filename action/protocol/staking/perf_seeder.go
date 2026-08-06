@@ -177,8 +177,8 @@ func TestOnlyDeleteVoterBucketsThroughCOW(
 }
 
 // TestOnlyPerfBenchSpec configures TestOnlySeedPerfBenchState. Reachable only
-// from e2etest/iip59_perf_test.go via the TestOnlyGenesisStateSeeder hook —
-// production must never construct one.
+// from e2etest's IIP-59 benches, which pass the seeder to a single server via
+// WithGenesisStateSeeder — production must never construct one.
 type TestOnlyPerfBenchSpec struct {
 	// NumDelegates is the count of delegates to plant. Each gets an
 	// Candidate + self-stake bucket.

@@ -75,14 +75,14 @@ func (m accountNonceManager) pop(addr string) uint64 {
 	return nonce
 }
 
-func newE2ETest(t *testing.T, cfg config.Config) *e2etest {
-	return newE2ETestWithCtx(context.Background(), t, cfg)
+func newE2ETest(t *testing.T, cfg config.Config, opts ...chainservice.BuildOption) *e2etest {
+	return newE2ETestWithCtx(context.Background(), t, cfg, opts...)
 }
 
-func newE2ETestWithCtx(ctx context.Context, t *testing.T, cfg config.Config) *e2etest {
+func newE2ETestWithCtx(ctx context.Context, t *testing.T, cfg config.Config, opts ...chainservice.BuildOption) *e2etest {
 	require := require.New(t)
 	// Create a new blockchain
-	svr, err := itx.NewServer(cfg)
+	svr, err := itx.NewServer(cfg, opts...)
 	require.NoError(err)
 	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
 	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))

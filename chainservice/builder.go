@@ -54,15 +54,54 @@ import (
 
 // Builder is a builder to build chainservice
 type Builder struct {
-	cfg config.Config
-	cs  *ChainService
+	cfg           config.Config
+	cs            *ChainService
+	rewardingOpts []rewarding.Option
+	stakingOpts   []staking.Option
+}
+
+// BuildOption customizes a Builder before it registers protocols. It exists so
+// callers that only have a config.Config — itx.NewServer and everything above
+// it — can still reach the protocol-level functional options, without any of
+// those options having to travel through a package-level variable.
+type BuildOption func(*Builder)
+
+// WithRewardingOptions supplies extra options to rewarding.NewProtocol.
+func WithRewardingOptions(opts ...rewarding.Option) BuildOption {
+	return func(builder *Builder) {
+		builder.rewardingOpts = append(builder.rewardingOpts, opts...)
+	}
+}
+
+// WithStakingOptions supplies extra options to staking.NewProtocol.
+func WithStakingOptions(opts ...staking.Option) BuildOption {
+	return func(builder *Builder) {
+		builder.stakingOpts = append(builder.stakingOpts, opts...)
+	}
 }
 
 // NewBuilder creates a new chainservice builder
-func NewBuilder(cfg config.Config) *Builder {
+func NewBuilder(cfg config.Config, opts ...BuildOption) *Builder {
 	builder := &Builder{cfg: cfg}
 	builder.createInstance()
+	for _, opt := range opts {
+		opt(builder)
+	}
 
+	return builder
+}
+
+// SetRewardingOptions appends options passed to rewarding.NewProtocol.
+func (builder *Builder) SetRewardingOptions(opts ...rewarding.Option) *Builder {
+	builder.createInstance()
+	builder.rewardingOpts = append(builder.rewardingOpts, opts...)
+	return builder
+}
+
+// SetStakingOptions appends options passed to staking.NewProtocol.
+func (builder *Builder) SetStakingOptions(opts ...staking.Option) *Builder {
+	builder.createInstance()
+	builder.stakingOpts = append(builder.stakingOpts, opts...)
 	return builder
 }
 
@@ -695,6 +734,7 @@ func (builder *Builder) registerStakingProtocol() error {
 		opts = append(opts, staking.WithContractStakingIndexerV3(builder.cs.contractStakingIndexerV3))
 	}
 	opts = append(opts, staking.WithBlockStore(builder.cs.blockdao))
+	opts = append(opts, builder.stakingOpts...)
 	stakingProtocol, err := staking.NewProtocol(
 		staking.HelperCtx{
 			DepositGas:    rewarding.DepositGas,
@@ -727,13 +767,6 @@ func (builder *Builder) registerStakingProtocol() error {
 	return stakingProtocol.Register(builder.cs.registry)
 }
 
-// TestOnlyRewardingOptions, when non-nil, is appended to the option list
-// passed to rewarding.NewProtocol during chainservice registration. It is
-// the injection seam used by e2e tests that need to swap the AutoDeposit
-// bridge or ContractReader for a mock in place of the EVM-backed default.
-// Production must never set this — the empty slice is what ships.
-var TestOnlyRewardingOptions []rewarding.Option
-
 func (builder *Builder) registerRewardingProtocol() error {
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
 	opts := []rewarding.Option{}
@@ -744,7 +777,7 @@ func (builder *Builder) registerRewardingProtocol() error {
 		}
 		opts = append(opts, rewarding.WithAutoDepositBridge(bridge))
 	}
-	opts = append(opts, TestOnlyRewardingOptions...)
+	opts = append(opts, builder.rewardingOpts...)
 	return rewarding.NewProtocol(builder.cfg.Genesis.Rewarding, opts...).Register(builder.cs.registry)
 }
 

@@ -295,9 +295,7 @@ func runIIP59Drain(
 
 	cfg := newIIP59PerfCfg(r, tier)
 	defer clearDBPaths(&cfg)
-	installIIP59PerfHooks(t, tier, cfg.Genesis)
-
-	test := newE2ETest(t, cfg)
+	test := newE2ETest(t, cfg, iip59PerfBuildOptions(t, tier, cfg.Genesis)...)
 	defer test.teardown()
 	registerEpochProtocols(r, test)
 	registerIIP59EraFreezer(r, test, tier)
