@@ -59,7 +59,7 @@ func rawIndex(t *testing.T, sm protocol.StateManager, owner address.Address) (Co
 	var refs ContractBucketRefs
 	_, err := sm.State(&refs,
 		protocol.NamespaceOption(state.StakingNamespace),
-		protocol.KeyOption(LSDVoterIndexKey(owner)))
+		protocol.KeyOption(lsdVoterIndexKey(owner)))
 	if err != nil {
 		require.ErrorIs(t, errors.Cause(err), state.ErrStateNotExist)
 		return nil, false
@@ -81,7 +81,7 @@ func refIDs(refs ContractBucketRefs) []uint64 {
 func TestLSDVoterIndexKeyShape(t *testing.T) {
 	r := require.New(t)
 	owner := identityset.Address(1)
-	key := LSDVoterIndexKey(owner)
+	key := lsdVoterIndexKey(owner)
 
 	r.Equal(byte(8), LSDVoterIndexPrefix)
 	r.Len(key, 21)

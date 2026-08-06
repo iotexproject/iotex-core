@@ -182,10 +182,7 @@ func (c *candSR) NativeBucket(index uint64) (*VoteBucket, error) {
 		vb  VoteBucket
 		err error
 	)
-	if _, err = c.State(
-		&vb,
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(bucketKey(index))); err != nil {
+	if _, err = c.State(&vb, nativeBucketStateOpts(index)...); err != nil {
 		return nil, err
 	}
 	var tc totalBucketCount
@@ -266,14 +263,8 @@ func (c *candSR) getExistingBucketsWithIndices(indices BucketIndices) ([]*VoteBu
 }
 
 func (c *candSR) NativeBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error) {
-	var (
-		bis BucketIndices
-		key = AddrKeyWithPrefix(addr, prefix)
-	)
-	height, err := c.State(
-		&bis,
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(key))
+	var bis BucketIndices
+	height, err := c.State(&bis, nativeBucketIndexStateOpts(addr, prefix)...)
 	if err != nil {
 		return nil, height, err
 	}

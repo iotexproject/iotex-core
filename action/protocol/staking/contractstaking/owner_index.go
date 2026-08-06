@@ -63,16 +63,31 @@ type (
 // bucket, i.e. the index key is absent. The empty list is never stored.
 var ErrOwnerIndexNotExist = errors.New("contract-staking owner index does not exist")
 
-// LSDVoterIndexKey returns the state key holding one owner's contract-staking
+// lsdVoterIndexKey returns the state key holding one owner's contract-staking
 // bucket refs.
-func LSDVoterIndexKey(owner address.Address) []byte {
+//
+// Unexported on purpose: no code outside this package may address the owner
+// index, because doing so would drop the reader's global options. Use
+// OwnerIndexStateOpts instead.
+func lsdVoterIndexKey(owner address.Address) []byte {
 	key := make([]byte, _lsdVoterIndexKeyLen)
 	key[0] = LSDVoterIndexPrefix
 	copy(key[1:], owner.Bytes())
 	return key
 }
 
-// ParseLSDVoterIndexKey reverses LSDVoterIndexKey. ok is false for any key in
+// OwnerIndexStateOpts addresses one owner's contract-staking bucket ref list.
+//
+// This is the single expression for that address in the repository; see
+// BucketStateOpts for why frozen and live reads must share one.
+func (r *ContractStakingStateReader) OwnerIndexStateOpts(owner address.Address) []protocol.StateOption {
+	return r.makeOpts(
+		protocol.NamespaceOption(state.StakingNamespace),
+		protocol.KeyOption(lsdVoterIndexKey(owner)),
+	)
+}
+
+// ParseLSDVoterIndexKey reverses lsdVoterIndexKey. ok is false for any key in
 // the staking namespace that is not an owner index entry -- buckets, native
 // bucket indices, endorsements, poll snapshots and voter weights all share the
 // namespace, so a scan must discriminate by key rather than by whether the
@@ -237,10 +252,7 @@ func (r *ContractStakingStateReader) BucketRefsByOwner(owner address.Address) (C
 	var refs ContractBucketRefs
 	height, err := r.sr.State(
 		&refs,
-		r.makeOpts(
-			protocol.NamespaceOption(state.StakingNamespace),
-			protocol.KeyOption(LSDVoterIndexKey(owner)),
-		)...,
+		r.OwnerIndexStateOpts(owner)...,
 	)
 	if err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
@@ -256,10 +268,7 @@ func (cs *ContractStakingStateManager) readOwnerIndex(owner address.Address) (Co
 	var refs ContractBucketRefs
 	if _, err := cs.sm.State(
 		&refs,
-		cs.makeOpts(
-			protocol.NamespaceOption(state.StakingNamespace),
-			protocol.KeyOption(LSDVoterIndexKey(owner)),
-		)...,
+		cs.OwnerIndexStateOpts(owner)...,
 	); err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return nil, err
 	}
@@ -270,10 +279,7 @@ func (cs *ContractStakingStateManager) readOwnerIndex(owner address.Address) (Co
 // empty. An empty BucketIndices-style value would be indistinguishable from a
 // stale entry on a later scan and would keep a trie node alive forever.
 func (cs *ContractStakingStateManager) writeOwnerIndex(owner address.Address, refs ContractBucketRefs) error {
-	opts := cs.makeOpts(
-		protocol.NamespaceOption(state.StakingNamespace),
-		protocol.KeyOption(LSDVoterIndexKey(owner)),
-	)
+	opts := cs.OwnerIndexStateOpts(owner)
 	if len(refs) == 0 {
 		_, err := cs.sm.DelState(append(opts, protocol.ObjectOption(&ContractBucketRefs{}))...)
 		if err != nil && errors.Cause(err) == state.ErrStateNotExist {

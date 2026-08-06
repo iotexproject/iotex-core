@@ -165,6 +165,25 @@ func (f FrozenSelfStake) Covers(bucketIdx uint64) bool {
 
 // ---------------------------------------------------------- frozen reads --
 
+// contractStakingAddresser returns the reader that owns the layout of
+// contract-staking keys, for the sole purpose of asking it where a covered key
+// lives.
+//
+// It is built with no options, which is a statement, not an omission: the era
+// drain reads the state trie, never the Erigon-only mirror. The mirror writer
+// (nftEventHandler's manager, built with protocol.ErigonStoreOnlyOption) is
+// excluded from the copy-on-write layer altogether —
+// ContractStakingStateManager.cowSession returns nil for it — so there are no
+// copies on that side to resolve against, and addressing the mirror here would
+// pair a trie-side copy with a mirror-side live value.
+//
+// Taking the address from this reader rather than assembling it here is the
+// point: whatever options the layout grows, both halves of a resolve get them
+// from the same place.
+func contractStakingAddresser(sr protocol.StateReader) *contractstaking.ContractStakingStateReader {
+	return contractstaking.NewStateReader(sr)
+}
+
 // ErrBucketPostFreeze is returned when a bucket cannot have existed at the
 // freeze height, judged by its index alone. It is a normal outcome: buckets are
 // created constantly and the drain must skip the ones that postdate the era it
@@ -193,8 +212,8 @@ func FrozenNativeBucket(sr protocol.StateReader, window eracow.Window, index uin
 	err := eracow.Resolve(
 		sr, window.FreezeHeight,
 		eracow.KindNativeBucket, eracow.NativeBucketSubkey(index),
-		_stakingNameSpace, bucketKey(index),
 		vb,
+		nativeBucketStateOpts(index)...,
 	)
 	switch {
 	case err == nil:
@@ -223,8 +242,8 @@ func FrozenNativeBucketIndices(sr protocol.StateReader, window eracow.Window, vo
 	err := eracow.Resolve(
 		sr, window.FreezeHeight,
 		eracow.KindNativeVoterIndex, eracow.AddrSubkey(voter.Bytes()),
-		_stakingNameSpace, AddrKeyWithPrefix(voter, _voterIndex),
 		&bis,
+		nativeBucketIndexStateOpts(voter, _voterIndex)...,
 	)
 	switch {
 	case err == nil:
@@ -270,8 +289,8 @@ func FrozenContractBucket(
 	err := eracow.Resolve(
 		sr, window.FreezeHeight,
 		eracow.KindLSDBucket, eracow.LSDBucketSubkey(contract.Bytes(), bucketID),
-		contractstaking.BucketNamespace(contract), contractstaking.BucketKey(bucketID),
 		bkt,
+		contractStakingAddresser(sr).BucketStateOpts(contract, bucketID)...,
 	)
 	switch {
 	case err == nil:
@@ -297,8 +316,8 @@ func FrozenContractBucketRefs(
 	err := eracow.Resolve(
 		sr, window.FreezeHeight,
 		eracow.KindLSDVoterIndex, eracow.AddrSubkey(owner.Bytes()),
-		state.StakingNamespace, contractstaking.LSDVoterIndexKey(owner),
 		&refs,
+		contractStakingAddresser(sr).OwnerIndexStateOpts(owner)...,
 	)
 	switch {
 	case err == nil:

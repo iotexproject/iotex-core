@@ -287,10 +287,7 @@ func (csm *candSM) updateBucket(index uint64, bucket *VoteBucket) error {
 		return err
 	}
 
-	_, err = csm.PutState(
-		bucket,
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(bucketKey(index)))
+	_, err = csm.PutState(bucket, nativeBucketStateOpts(index)...)
 	return err
 }
 
@@ -318,10 +315,7 @@ func (csm *candSM) putBucket(bucket *VoteBucket) (uint64, error) {
 	// whereas a copied counter would only be as good as the copy.
 	// Add index inside bucket
 	bucket.Index = index
-	if _, err := csm.PutState(
-		bucket,
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(bucketKey(index))); err != nil {
+	if _, err := csm.PutState(bucket, nativeBucketStateOpts(index)...); err != nil {
 		return 0, err
 	}
 	tc.count++
@@ -355,9 +349,7 @@ func (csm *candSM) delBucket(index uint64) error {
 		}
 	}
 	_, err := csm.DelState(
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(bucketKey(index)),
-		protocol.ObjectOption(&VoteBucket{}),
+		append(nativeBucketStateOpts(index), protocol.ObjectOption(&VoteBucket{}))...,
 	)
 	return err
 }
@@ -419,14 +411,11 @@ func (csm *candSM) snapshotBucketIndexForEra(addr address.Address, prefix byte, 
 
 func (csm *candSM) putBucketIndex(addr address.Address, prefix byte, index uint64) error {
 	var (
-		bis BucketIndices
-		key = AddrKeyWithPrefix(addr, prefix)
+		bis  BucketIndices
+		opts = nativeBucketIndexStateOpts(addr, prefix)
 	)
 	existed := true
-	if _, err := csm.State(
-		&bis,
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(key)); err != nil {
+	if _, err := csm.State(&bis, opts...); err != nil {
 		if errors.Cause(err) != state.ErrStateNotExist {
 			return err
 		}
@@ -436,10 +425,7 @@ func (csm *candSM) putBucketIndex(addr address.Address, prefix byte, index uint6
 		return err
 	}
 	bis.addBucketIndex(index)
-	_, err := csm.PutState(
-		&bis,
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(key))
+	_, err := csm.PutState(&bis, opts...)
 	return err
 }
 
@@ -449,13 +435,10 @@ func (csm *candSM) putVoterBucketIndex(addr address.Address, index uint64) error
 
 func (csm *candSM) delBucketIndex(addr address.Address, prefix byte, index uint64) error {
 	var (
-		bis BucketIndices
-		key = AddrKeyWithPrefix(addr, prefix)
+		bis  BucketIndices
+		opts = nativeBucketIndexStateOpts(addr, prefix)
 	)
-	if _, err := csm.State(
-		&bis,
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(key)); err != nil {
+	if _, err := csm.State(&bis, opts...); err != nil {
 		return err
 	}
 	if err := csm.snapshotBucketIndexForEra(addr, prefix, &bis, true); err != nil {
@@ -465,16 +448,9 @@ func (csm *candSM) delBucketIndex(addr address.Address, prefix byte, index uint6
 
 	var err error
 	if len(bis) == 0 {
-		_, err = csm.DelState(
-			protocol.NamespaceOption(_stakingNameSpace),
-			protocol.KeyOption(key),
-			protocol.ObjectOption(&BucketIndices{}),
-		)
+		_, err = csm.DelState(append(opts, protocol.ObjectOption(&BucketIndices{}))...)
 	} else {
-		_, err = csm.PutState(
-			&bis,
-			protocol.NamespaceOption(_stakingNameSpace),
-			protocol.KeyOption(key))
+		_, err = csm.PutState(&bis, opts...)
 	}
 	return err
 }

@@ -48,10 +48,22 @@ func val(s string) *testValue { return &testValue{v: []byte(s)} }
 
 const liveNS = "live"
 
+// liveOpts addresses the covered key's own (live) location. It stands in for
+// the real address constructors — staking.nativeBucketStateOpts,
+// ContractStakingStateReader.BucketStateOpts and friends — which is the whole
+// contract of Resolve's last parameter: the address comes from whoever owns the
+// layout, not from Resolve's caller spelling it out.
+func liveOpts(key []byte) []protocol.StateOption {
+	return []protocol.StateOption{
+		protocol.NamespaceOption(liveNS),
+		protocol.KeyOption(key),
+	}
+}
+
 // putLive writes a value at the covered key's own (live) location.
 func putLive(t *testing.T, sm protocol.StateManager, key []byte, v *testValue) {
 	t.Helper()
-	_, err := sm.PutState(v, protocol.NamespaceOption(liveNS), protocol.KeyOption(key))
+	_, err := sm.PutState(v, liveOpts(key)...)
 	require.NoError(t, err)
 }
 
@@ -134,7 +146,7 @@ func TestFirstWriteWins(t *testing.T) {
 	r.NoError(NewSession(ctx, sm).Snapshot(KindNativeBucket, sub, val("next-block")))
 
 	var got testValue
-	r.NoError(Resolve(sm, 500, KindNativeBucket, sub, liveNS, []byte("whatever"), &got))
+	r.NoError(Resolve(sm, 500, KindNativeBucket, sub, &got, liveOpts([]byte("whatever"))...))
 	r.Equal("at-H", string(got.v))
 
 	// Exactly one journal record was appended, so GC will not double-count.
@@ -158,7 +170,7 @@ func TestFrozenReadResolution(t *testing.T) {
 	r.NoError(s.Snapshot(KindNativeBucket, copied, val("as-of-H")))
 
 	var got testValue
-	r.NoError(Resolve(sm, 500, KindNativeBucket, copied, liveNS, copiedLiveKey, &got))
+	r.NoError(Resolve(sm, 500, KindNativeBucket, copied, &got, liveOpts(copiedLiveKey)...))
 	r.Equal("as-of-H", string(got.v))
 
 	// (2) Uncopied key: never mutated since H, so the live value is the H value.
@@ -166,7 +178,7 @@ func TestFrozenReadResolution(t *testing.T) {
 	untouchedLiveKey := []byte("live-2")
 	putLive(t, sm, untouchedLiveKey, val("unchanged-since-H"))
 	got = testValue{}
-	r.NoError(Resolve(sm, 500, KindNativeBucket, untouched, liveNS, untouchedLiveKey, &got))
+	r.NoError(Resolve(sm, 500, KindNativeBucket, untouched, &got, liveOpts(untouchedLiveKey)...))
 	r.Equal("unchanged-since-H", string(got.v))
 
 	// (3) Tombstone: created after H, so it did not exist at H.
@@ -175,24 +187,24 @@ func TestFrozenReadResolution(t *testing.T) {
 	r.NoError(s.Snapshot(KindNativeBucket, created, nil))
 	putLive(t, sm, createdLiveKey, val("born-after-H"))
 	got = testValue{}
-	err := Resolve(sm, 500, KindNativeBucket, created, liveNS, createdLiveKey, &got)
+	err := Resolve(sm, 500, KindNativeBucket, created, &got, liveOpts(createdLiveKey)...)
 	r.ErrorIs(err, ErrNotFrozen)
 
 	// (4) Neither a copy nor a live value.
-	err = Resolve(sm, 500, KindNativeBucket, NativeBucketSubkey(4), liveNS, []byte("nope"), &got)
+	err = Resolve(sm, 500, KindNativeBucket, NativeBucketSubkey(4), &got, liveOpts([]byte("nope"))...)
 	r.Equal(state.ErrStateNotExist, errors.Cause(err))
 
 	// (5) A resolve against the wrong era tag does not see this era's copies.
 	got = testValue{}
-	r.NoError(Resolve(sm, 501, KindNativeBucket, copied, liveNS, copiedLiveKey, &got))
+	r.NoError(Resolve(sm, 501, KindNativeBucket, copied, &got, liveOpts(copiedLiveKey)...))
 	r.Equal("mutated-after-H", string(got.v))
 
 	// (6) Kind is part of the key, so kinds cannot collide on a shared subkey.
 	got = testValue{}
-	r.NoError(Resolve(sm, 500, KindLSDVoterIndex, copied, liveNS, copiedLiveKey, &got))
+	r.NoError(Resolve(sm, 500, KindLSDVoterIndex, copied, &got, liveOpts(copiedLiveKey)...))
 	r.Equal("mutated-after-H", string(got.v))
 
-	r.Error(Resolve(sm, 0, KindNativeBucket, copied, liveNS, copiedLiveKey, &got))
+	r.Error(Resolve(sm, 0, KindNativeBucket, copied, &got, liveOpts(copiedLiveKey)...))
 }
 
 // hostileSM fails the test on any state access at all. It is how the

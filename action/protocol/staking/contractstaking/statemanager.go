@@ -136,11 +136,7 @@ func (cs *ContractStakingStateManager) DeleteBucket(ctx context.Context, contrac
 		}
 	}
 	_, err := cs.sm.DelState(
-		cs.makeOpts(
-			contractNamespaceOption(contractAddr),
-			bucketIDKeyOption(bucketID),
-			protocol.ObjectOption(&Bucket{}),
-		)...,
+		append(cs.BucketStateOpts(contractAddr, bucketID), protocol.ObjectOption(&Bucket{}))...,
 	)
 
 	return err
@@ -171,10 +167,7 @@ func (cs *ContractStakingStateManager) UpsertBucket(ctx context.Context, contrac
 	}
 	_, err := cs.sm.PutState(
 		bucket,
-		cs.makeOpts(
-			contractNamespaceOption(contractAddr),
-			bucketIDKeyOption(bid),
-		)...,
+		cs.BucketStateOpts(contractAddr, bid)...,
 	)
 
 	return err

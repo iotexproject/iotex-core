@@ -59,11 +59,7 @@ func TestOnlySeedNativeVoterBucket(
 	}
 	index := tc.Count()
 	bucket.Index = index
-	if _, err := sm.PutState(
-		bucket,
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(bucketKey(index)),
-	); err != nil {
+	if _, err := sm.PutState(bucket, nativeBucketStateOpts(index)...); err != nil {
 		return 0, err
 	}
 	tc.count = index + 1
@@ -78,21 +74,13 @@ func TestOnlySeedNativeVoterBucket(
 		addr   address.Address
 		prefix byte
 	}{{voter, _voterIndex}, {candidate, _candIndex}} {
-		key := AddrKeyWithPrefix(entry.addr, entry.prefix)
+		opts := nativeBucketIndexStateOpts(entry.addr, entry.prefix)
 		var bis BucketIndices
-		if _, err := sm.State(
-			&bis,
-			protocol.NamespaceOption(_stakingNameSpace),
-			protocol.KeyOption(key),
-		); err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		if _, err := sm.State(&bis, opts...); err != nil && errors.Cause(err) != state.ErrStateNotExist {
 			return 0, err
 		}
 		bis.addBucketIndex(index)
-		if _, err := sm.PutState(
-			&bis,
-			protocol.NamespaceOption(_stakingNameSpace),
-			protocol.KeyOption(key),
-		); err != nil {
+		if _, err := sm.PutState(&bis, opts...); err != nil {
 			return 0, err
 		}
 	}
@@ -148,11 +136,7 @@ func TestOnlyDeleteVoterBucketsThroughCOW(
 		return 0, err
 	}
 	var bis BucketIndices
-	if _, err := sm.State(
-		&bis,
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(AddrKeyWithPrefix(voter, _voterIndex)),
-	); err != nil {
+	if _, err := sm.State(&bis, nativeBucketIndexStateOpts(voter, _voterIndex)...); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
 			return 0, nil
 		}

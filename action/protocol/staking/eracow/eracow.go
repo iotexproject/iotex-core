@@ -853,8 +853,16 @@ var ErrNotFrozen = errors.New("eracow: key did not exist at the freeze height")
 // and it is why the common case (an untouched bucket) costs one extra read
 // rather than a copy.
 //
-// liveNS/liveKey name the covered key in its own namespace, which for
-// contract-staking buckets is not this package's namespace.
+// liveOpts address the covered key in its own namespace, which for
+// contract-staking buckets is not this package's namespace. It is a
+// []protocol.StateOption rather than a (namespace, key) pair on purpose: the
+// state manager that owns a key's layout may also carry construction-time
+// global options (see ContractStakingStateReader.globalOpts), and a pair cannot
+// express those. Callers must obtain it from that owner — see
+// staking.FrozenNativeBucket and friends — so the frozen read and the live
+// read/write of the same key are addressed by one expression, not two that have
+// to be kept in agreement by hand. A mismatch here does not fail loudly: the
+// resolve misses, the drain skips the bucket, and the voter is underpaid.
 //
 // Returns ErrNotFrozen when a tombstone says the key did not exist at H, and
 // state.ErrStateNotExist when there is no copy and no live value either.
@@ -863,12 +871,16 @@ func Resolve(
 	freezeHeight uint64,
 	kind Kind,
 	subkey []byte,
-	liveNS string,
-	liveKey []byte,
 	obj interface{},
+	liveOpts ...protocol.StateOption,
 ) error {
 	if freezeHeight == 0 {
 		return errors.New("eracow: resolve requires a non-zero freeze height")
+	}
+	if len(liveOpts) == 0 {
+		// A caller that forgot the live address would read the whole namespace
+		// default and either miss or, worse, hit an unrelated key. Refuse.
+		return errors.New("eracow: resolve requires the live address of the covered key")
 	}
 	var entry Entry
 	_, err := sr.State(&entry,
@@ -882,10 +894,7 @@ func Resolve(
 		}
 		return state.Deserialize(obj, entry.Data)
 	case errors.Cause(err) == state.ErrStateNotExist:
-		_, lErr := sr.State(obj,
-			protocol.NamespaceOption(liveNS),
-			protocol.KeyOption(liveKey),
-		)
+		_, lErr := sr.State(obj, liveOpts...)
 		return lErr
 	default:
 		return errors.Wrap(err, "eracow: read copied entry")
