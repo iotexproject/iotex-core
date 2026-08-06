@@ -32,10 +32,11 @@ import (
 const _fullCommissionBasisPoints uint64 = 10_000
 
 // CandidatePollSnapshot is the frozen per-candidate view that IIP-59's
-// rewarding path consumes at each epoch close. It is written once per epoch
-// by FreezePollSnapshot (called from the poll layer's PutPollResult) and
-// never mutated during the reward era. Mid-era DelegateProfile changes do not
-// retroactively re-split rewards that have already begun accruing.
+// rewarding path consumes at each epoch close. It is written once per reward
+// era by FreezePollSnapshot (called from the poll layer's PutPollResult) for
+// each opted-in candidate, and never mutated during the era. Mid-era
+// DelegateProfile changes do not retroactively re-split rewards that have
+// already begun accruing.
 //
 // Every field is a scalar, deliberately. The snapshot used to also carry the
 // delegate's full materialized (voter, weight) list, which made the era
@@ -220,17 +221,35 @@ func eraSnapshotHash(candID address.Address, s *CandidatePollSnapshot) hash.Hash
 	})
 }
 
-// FreezePollSnapshot writes a CandidatePollSnapshot for each candidate at
-// PutPollResult. This is the *only* writer of the snapshot; rewarding is a
-// pure reader via PollSnapshotFor.
+// FreezePollSnapshot writes a CandidatePollSnapshot for every candidate that is
+// on the IIP-59 rails at the era boundary, freezing state as of H, the height of
+// the block it runs in. This is the *only* writer of the snapshot; rewarding is
+// a pure reader via PollSnapshotFor.
 //
-// Only candidates already using a configured Hermes vault at activation, or
-// candidates that explicitly opt in later, enable protocol-native reward
-// distribution. Disabled candidates skip both profile and voter reads.
+// THE SET IS THE OPTED-IN CANDIDATE SET. It is enumerated from the candidate
+// center and filtered by live routing: a candidate is frozen iff it is already
+// using a configured Hermes vault, or has explicitly opted in.
 //
-// The set it writes is the passed-in poll list UNION every candidate in the
-// candidate center whose live routing is opted in. The union is load-bearing,
-// not defensive — see the comment on the widening loop below.
+// It deliberately has nothing to do with the poll list this used to be handed.
+// That list is filtered twice before a PutPollResult carries it -- ActiveCandidates
+// drops anything failing isActiveCandidate, filterAndSortCandidatesByVoteScore
+// drops anything below the vote-score threshold -- while this runs once per
+// reward era (EpochsPerRewardEra epochs, ~24h on mainnet) and the set that
+// actually receives epoch rewards is recomputed by rewarding at EVERY epoch
+// inside that era. The two drift, and a candidate that is opted in but not
+// frozen loses its voters a whole era: every reader treats "no snapshot" as
+// "not on the rails", so the commission split falls back to 100% delegate /
+// 0% voter, silently, for up to a full day. Freezing from the opt-in set
+// closes that by construction rather than by union.
+//
+// The converse costs nothing: an opted-out candidate gets no record at all.
+// That is the same thing rewarding reads for a candidate it has never seen
+// (voter_reward.go maps ErrStateNotExist to onchainRewardEnabled=false), so
+// the placeholders this used to write for opted-out poll members were
+// indistinguishable from their own absence.
+//
+// Sorted by identifier bytes, because the candidate center enumerates from a Go
+// map and the order reaches both PutState and the DelegateProfile bridge call.
 //
 // A per-delegate bridge read failure (malformed profile, RPC/EVM error) is
 // absorbed by the bridge itself: the affected delegate lands with
@@ -239,155 +258,84 @@ func eraSnapshotHash(candID address.Address, s *CandidatePollSnapshot) hash.Hash
 // chain at every epoch boundary — same state ⇒ same fallback on every
 // validator ⇒ no fork.
 //
-// Only wiring-level errors (invalid candidate address, nil-bridge-with-nil-
-// reader, PutState failure) still abort the whole write.
+// Note what is deliberately absent: any materialized per-voter weight list.
+// The retired VoterWeightView had one, and freezing it meant the boundary
+// had to degrade whenever the list was incomplete. TotalWeight now comes
+// from the candidate record's own Votes accumulator, which is complete at
+// every height, and the drain enumerates voters from the bucket indexes.
 func FreezePollSnapshot(
 	ctx context.Context,
 	sm protocol.StateManager,
-	candidates state.CandidateList,
 	bridge *delegateprofile.Bridge,
 	reader delegateprofile.ContractReader,
 ) error {
-	// Parse candidate identities once; both the bridge call and the snapshot
-	// write use them.
-	ids := make([]address.Address, 0, len(candidates))
-	seen := make(map[string]bool, len(candidates))
-	for _, c := range candidates {
-		if c == nil {
-			return errors.New("staking: nil candidate in poll list")
-		}
-		identity := c.Identity
-		if identity == "" {
-			// Legacy poll lists before identity storage used Address as the
-			// candidate identifier. IIP-59-era native staking lists always
-			// populate Identity.
-			identity = c.Address
-		}
-		id, err := address.FromString(identity)
-		if err != nil {
-			return errors.Wrapf(err, "staking: invalid candidate identity %q", identity)
-		}
-		ids = append(ids, id)
-		seen[id.String()] = true
+	if bridge != nil && reader == nil {
+		return errors.New("staking: nil ContractReader with non-nil DelegateProfile bridge")
 	}
-
 	g, _ := genesis.ExtractGenesisContext(ctx)
 
-	// IIP-59: everything below this point freezes state as of H, the height of
-	// the block this boundary runs in.
+	// The candidate center is the sole source of the frozen set, of
+	// SelfStakeBucketIdx, and of TotalWeight, so failing to reach it is
+	// returned rather than degraded -- including the protocol.ErrNoName and
+	// nil-candCenter shapes, which an earlier version of this function
+	// tolerated back when the poll list could still supply a set without it.
 	//
-	// The candidate center is the source for both SelfStakeBucketIdx and
-	// TotalWeight. Exactly one failure to reach it is degraded rather than
-	// returned: protocol.ErrNoName, meaning the staking protocol installed no
-	// view at all. That is the shape a pre-fork setup or a test that writes
-	// partial state directly presents, it is a property of the registry rather
-	// than of chain data, and it leaves the frozen index at "no self-stake
-	// bucket" and the frozen weight at zero -- which rewarding reads as "no
-	// payable voter set this era" and rolls the pending pool into a later one.
+	// This is the one place in IIP-59 where halting beats degrading. Freezing
+	// an empty era would not degrade one item: it would put every delegate on
+	// the 100%-commission fallback and pay no voter anything for the whole era,
+	// identically and irrecoverably on every validator that saw the same fault.
+	// A block that does not produce is recoverable; a frozen wrong era is not.
 	//
-	// Every other cause is returned, and the error propagates out through
-	// PutPollResult and fails the block. That is deliberate and is the one place
-	// in IIP-59 where halting beats degrading: a view that exists but cannot be
-	// read (a Height() failure, a type assertion miss) means the node disagrees
-	// with itself about state it is about to freeze for a whole era. Freezing a
-	// silently-zero TotalWeight there would not degrade one item, it would
-	// under-pay every voter of every delegate for the era, identically and
-	// irrecoverably on every validator that saw the same fault. A block that
-	// does not produce is recoverable; a frozen wrong era is not.
-	//
-	// Note what is deliberately absent: any materialized per-voter weight list.
-	// The retired VoterWeightView had one, and freezing it meant the boundary
-	// had to degrade whenever the list was incomplete. TotalWeight now comes
-	// from the candidate record's own Votes accumulator, which is complete at
-	// every height, and the drain enumerates voters from the bucket indexes.
-	var candReader CandidateStateReader
-	if csr, cErr := ConstructBaseView(sm); cErr == nil {
-		if v := csr.BaseView(); v != nil && v.candCenter != nil {
-			candReader = csr
-		}
-	} else if errors.Cause(cErr) != protocol.ErrNoName {
-		return errors.Wrap(cErr, "staking: construct candidate view for poll snapshot")
+	// Nothing is lost in production. Both shapes mean the staking protocol
+	// installed no view, which is a property of the registry rather than of
+	// chain data -- a pre-fork setup, or a test writing partial state directly.
+	// Post-fork the view is installed by the staking protocol's own Start, and
+	// the poll protocol that calls this holds a reference to that protocol.
+	csr, err := ConstructBaseView(sm)
+	if err != nil {
+		return errors.Wrap(err, "staking: construct candidate view for poll snapshot")
+	}
+	if v := csr.BaseView(); v == nil || v.candCenter == nil {
+		return errors.New("staking: no candidate center to freeze the poll snapshot from")
 	}
 
-	// The poll list is NOT the set that gets paid.
-	//
-	// It is filtered twice before it arrives here -- ActiveCandidates drops
-	// anything failing isActiveCandidate, and filterAndSortCandidatesByVoteScore
-	// drops anything below the vote-score threshold -- and it is frozen once per
-	// reward era (EpochsPerRewardEra epochs, ~24h on mainnet). The set that
-	// actually receives epoch rewards is recomputed by the rewarding protocol at
-	// EVERY epoch inside that era. The two drift.
-	//
-	// A candidate that is opted in but absent from the frozen set has no
-	// snapshot, and every reader treats "no snapshot" as "no frozen era": the
-	// commission split falls back to 100% delegate / 0% voter and the drain has
-	// no denominator. Silently, with no error and no log, for up to a full day.
-	//
-	// So the frozen set is the poll list UNION every candidate whose live
-	// routing is opted in. Freezing a candidate that never gets paid costs one
-	// state write; not freezing one that does costs its voters their whole era.
-	//
-	// Sorted, because the candidate center enumerates from a Go map and the
-	// order reaches both PutState and the DelegateProfile bridge call.
-	//
-	// The widened identities are re-read by the opt-in loop below rather than
-	// short-circuited into it. That costs one extra state read per widened
-	// candidate, once per era, and buys the guarantee that every identity in
-	// the frozen set went through exactly the same opt-in test — which is what
-	// makes this change purely additive for candidates that were already in it.
-	if candReader != nil {
-		extras := make([]address.Address, 0)
-		for _, c := range candReader.AllCandidates() {
-			if c == nil {
-				continue
-			}
-			id := c.GetIdentifier()
-			if id == nil || seen[id.String()] {
-				continue
-			}
-			seen[id.String()] = true
-			extras = append(extras, id)
+	// Opt-in is re-read from state rather than taken off the center record in
+	// hand. The two agree -- Candidate.Clone carries every field
+	// candidateOnchainRewardEnabled looks at -- but ReadCandidateRewardRouting
+	// is what every other reader of this bit uses, and one source for one
+	// question is worth a read per candidate once per era.
+	all := csr.AllCandidates()
+	frozen := make([]*Candidate, 0, len(all))
+	for _, c := range all {
+		if c == nil {
+			continue
 		}
-		sort.Slice(extras, func(i, j int) bool {
-			return bytes.Compare(extras[i].Bytes(), extras[j].Bytes()) < 0
-		})
-		for _, id := range extras {
-			routing, err := ReadCandidateRewardRouting(sm, id, g.HermesRewardVaultAddresses)
-			if err != nil {
-				if errors.Is(err, state.ErrStateNotExist) {
-					continue
-				}
-				return errors.Wrapf(err, "staking: read reward routing for candidate %s", id.String())
-			}
-			if routing.OnchainRewardEnabled {
-				ids = append(ids, id)
-			}
+		id := c.GetIdentifier()
+		if id == nil {
+			continue
 		}
-	}
-
-	enabled := make(map[string]bool, len(ids))
-	enabledIDs := make([]address.Address, 0, len(ids))
-	for _, id := range ids {
-		routing, err := ReadCandidateRewardRouting(sm, id, g.HermesRewardVaultAddresses)
-		if err != nil {
-			if errors.Is(err, state.ErrStateNotExist) {
+		routing, rErr := ReadCandidateRewardRouting(sm, id, g.HermesRewardVaultAddresses)
+		if rErr != nil {
+			if errors.Is(rErr, state.ErrStateNotExist) {
 				continue
 			}
-			return errors.Wrapf(err, "staking: read reward routing for candidate %s", id.String())
+			return errors.Wrapf(rErr, "staking: read reward routing for candidate %s", id.String())
 		}
 		if routing.OnchainRewardEnabled {
-			enabled[id.String()] = true
-			enabledIDs = append(enabledIDs, id)
+			frozen = append(frozen, c)
 		}
 	}
+	sort.Slice(frozen, func(i, j int) bool {
+		return bytes.Compare(frozen[i].GetIdentifier().Bytes(), frozen[j].GetIdentifier().Bytes()) < 0
+	})
 
 	var rates map[string]*delegateprofile.CommissionRates
 	if bridge != nil {
-		if reader == nil {
-			return errors.New("staking: nil ContractReader with non-nil DelegateProfile bridge")
+		ids := make([]address.Address, len(frozen))
+		for i, c := range frozen {
+			ids[i] = c.GetIdentifier()
 		}
-		var err error
-		rates, err = bridge.Snapshot(ctx, reader, enabledIDs)
+		rates, err = bridge.Snapshot(ctx, reader, ids)
 		if err != nil {
 			return errors.Wrap(err, "staking: DelegateProfile snapshot failed")
 		}
@@ -397,40 +345,33 @@ func FreezePollSnapshot(
 	if err != nil {
 		return err
 	}
+	// Unconditional, and not folded into the loop: the window's lifecycle is
+	// keyed on "this epoch was an era boundary", not on the boundary having
+	// found anything to freeze, and the zero-work seal in rewarding is what
+	// closes an era that froze nothing.
 	if err := beginEraCOWWindow(ctx, sm, freezeHeight); err != nil {
 		return err
 	}
 
-	for _, id := range ids {
+	for _, cand := range frozen {
+		id := cand.GetIdentifier()
 		snap := &CandidatePollSnapshot{
-			OnchainRewardEnabled: enabled[id.String()],
-			FreezeHeight:         freezeHeight,
-			SelfStakeBucketIdx:   candidateNoSelfStakeBucketIndex,
-			TotalWeight:          new(big.Int),
+			OnchainRewardEnabled:       true,
+			FreezeHeight:               freezeHeight,
+			SelfStakeBucketIdx:         cand.SelfStakeBucketIdx,
+			TotalWeight:                new(big.Int),
+			BlockCommissionBasisPoints: _fullCommissionBasisPoints,
+			EpochCommissionBasisPoints: _fullCommissionBasisPoints,
 		}
-		var cand *Candidate
-		if candReader != nil {
-			cand = candReader.GetByIdentifier(id)
+		if r, ok := rates[id.String()]; ok && r != nil && r.Registered {
+			snap.BlockCommissionBasisPoints = r.BlockCommissionBasisPoints
+			snap.EpochCommissionBasisPoints = r.EpochCommissionBasisPoints
+			snap.Registered = true
 		}
-		if cand != nil {
-			snap.SelfStakeBucketIdx = cand.SelfStakeBucketIdx
-		}
-		// An opted-out candidate is snapshotted as an empty placeholder: the
-		// era still needs a record, but there is no commission or voter pool
-		// to freeze.
-		if snap.OnchainRewardEnabled {
-			snap.BlockCommissionBasisPoints = _fullCommissionBasisPoints
-			snap.EpochCommissionBasisPoints = _fullCommissionBasisPoints
-			if r, ok := rates[id.String()]; ok && r != nil && r.Registered {
-				snap.BlockCommissionBasisPoints = r.BlockCommissionBasisPoints
-				snap.EpochCommissionBasisPoints = r.EpochCommissionBasisPoints
-				snap.Registered = true
-			}
-			// Copied, not aliased: the candidate center hands back a live
-			// record whose Votes keeps moving for the rest of the era.
-			if cand != nil && cand.Votes != nil && cand.Votes.Sign() > 0 {
-				snap.TotalWeight = new(big.Int).Set(cand.Votes)
-			}
+		// Copied, not aliased: the candidate center hands back a record whose
+		// Votes keeps moving for the rest of the era.
+		if cand.Votes != nil && cand.Votes.Sign() > 0 {
+			snap.TotalWeight = new(big.Int).Set(cand.Votes)
 		}
 		// Last, so the digest covers the finished record.
 		snap.SnapshotHash = eraSnapshotHash(id, snap)

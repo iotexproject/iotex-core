@@ -207,7 +207,12 @@ func TestCandidateRewardRoutingModes(t *testing.T) {
 	r.True(routing.ExplicitlyEnabled)
 }
 
-func TestFreezePollSnapshot_LegacyCandidateSkipsProfileAndVoters(t *testing.T) {
+// A legacy candidate -- one that pays its voters off-chain -- is enumerated by
+// the freezer along with everyone else and then dropped on the opt-in test,
+// before either the profile read or the snapshot write. Both omissions are
+// asserted: the reader fails the test if called, and the candidate ends the
+// boundary with no record at all.
+func TestFreezePollSnapshot_LegacyCandidateSkipsProfileAndSnapshot(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -217,26 +222,19 @@ func TestFreezePollSnapshot_LegacyCandidateSkipsProfileAndVoters(t *testing.T) {
 		Name: "legacy", Votes: big.NewInt(1), SelfStake: big.NewInt(1), RewardAddressUpdated: true,
 	}
 	r.NoError(csm.putCandidate(candidate))
+	installCandCenter(t, sm, candidate)
 
-	r.NoError(sm.WriteView(_protocolID, &viewData{}))
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 	reader := delegateprofile.ContractReaderFunc(func(context.Context, string, []byte) ([]byte, error) {
 		t.Fatal("legacy candidate must not trigger a profile read")
 		return nil, nil
 	})
-	candidates := state.CandidateList{&state.Candidate{
-		Address: candidate.Operator.String(), Identity: candidate.GetIdentifier().String(),
-		RewardAddress: candidate.Reward.String(), Votes: big.NewInt(1),
-	}}
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
-	r.NoError(FreezePollSnapshot(ctx, sm, candidates, bridge, reader))
+	r.NoError(FreezePollSnapshot(ctx, sm, bridge, reader))
 
-	snapshot, err := PollSnapshotFor(sm, candidate.GetIdentifier())
-	r.NoError(err)
-	r.False(snapshot.OnchainRewardEnabled)
-	r.False(snapshot.Registered)
-	r.Zero(snapshot.TotalWeight.Sign())
+	_, err = PollSnapshotFor(sm, candidate.GetIdentifier())
+	r.ErrorIs(errors.Cause(err), state.ErrStateNotExist)
 }
 
 func TestFreezePollSnapshot_NilBridge(t *testing.T) {
@@ -248,29 +246,28 @@ func TestFreezePollSnapshot_NilBridge(t *testing.T) {
 	csm := newCandidateStateManager(sm)
 
 	firstCand := &Candidate{
-		Owner:     identityset.Address(1),
-		Operator:  identityset.Address(2),
-		Reward:    identityset.Address(3),
-		Name:      "first-delegate",
-		Votes:     big.NewInt(1),
-		SelfStake: big.NewInt(1),
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(2),
+		Reward:             identityset.Address(3),
+		Name:               "first-delegate",
+		Votes:              big.NewInt(1),
+		SelfStake:          big.NewInt(1),
+		SelfStakeBucketIdx: 1,
 	}
 	secondCand := &Candidate{
-		Owner:     identityset.Address(4),
-		Operator:  identityset.Address(5),
-		Reward:    identityset.Address(6),
-		Name:      "second-delegate",
-		Votes:     big.NewInt(1),
-		SelfStake: big.NewInt(1),
+		Owner:              identityset.Address(4),
+		Operator:           identityset.Address(5),
+		Reward:             identityset.Address(6),
+		Name:               "second-delegate",
+		Votes:              big.NewInt(1),
+		SelfStake:          big.NewInt(1),
+		SelfStakeBucketIdx: 2,
 	}
 	r.NoError(putOnchainCandidate(csm, firstCand))
 	r.NoError(putOnchainCandidate(csm, secondCand))
+	installCandCenter(t, sm, firstCand, secondCand)
 
-	candidates := state.CandidateList{
-		&state.Candidate{Address: firstCand.Owner.String(), Votes: big.NewInt(1), RewardAddress: firstCand.Reward.String()},
-		&state.Candidate{Address: secondCand.Owner.String(), Votes: big.NewInt(1), RewardAddress: secondCand.Reward.String()},
-	}
-	r.NoError(FreezePollSnapshot(context.Background(), sm, candidates, nil, nil))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, nil))
 
 	snap, err := PollSnapshotFor(sm, firstCand.Owner)
 	r.NoError(err)
@@ -278,9 +275,6 @@ func TestFreezePollSnapshot_NilBridge(t *testing.T) {
 	r.Equal(uint64(10000), snap.BlockCommissionBasisPoints)
 	r.Equal(uint64(10000), snap.EpochCommissionBasisPoints)
 	r.True(snap.OnchainRewardEnabled)
-	// Entries population is verified by TestFreezePollSnapshot_Entries_* —
-	// this test intentionally runs without a view installed to exercise the
-	// no-view degrade path.
 
 	snap, err = PollSnapshotFor(sm, secondCand.Owner)
 	r.NoError(err)
@@ -305,6 +299,7 @@ func TestFreezePollSnapshot_HappyPath(t *testing.T) {
 		SelfStake: big.NewInt(1),
 	}
 	r.NoError(putOnchainCandidate(csm, cand))
+	installCandCenter(t, sm, cand)
 
 	fake := newFakeProfileStore()
 	fake.setPortion(cand.Owner, "blockRewardPortion", 9000)
@@ -313,17 +308,13 @@ func TestFreezePollSnapshot_HappyPath(t *testing.T) {
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 
-	candidates := state.CandidateList{
-		&state.Candidate{Address: cand.Owner.String(), Votes: big.NewInt(1), RewardAddress: cand.Reward.String()},
-	}
-	r.NoError(FreezePollSnapshot(context.Background(), sm, candidates, bridge, fake.reader(t)))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, bridge, fake.reader(t)))
 
 	snap, err := PollSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
 	r.True(snap.Registered)
 	r.Equal(uint64(1000), snap.BlockCommissionBasisPoints)
 	r.Equal(uint64(2000), snap.EpochCommissionBasisPoints)
-	// Entries population is verified by TestFreezePollSnapshot_Entries_*.
 }
 
 func TestFreezePollSnapshot_UsesCandidateIdentity(t *testing.T) {
@@ -344,6 +335,7 @@ func TestFreezePollSnapshot_UsesCandidateIdentity(t *testing.T) {
 		SelfStake:  big.NewInt(1),
 	}
 	r.NoError(putOnchainCandidate(csm, cand))
+	installCandCenter(t, sm, cand)
 
 	fake := newFakeProfileStore()
 	fake.setPortion(identity, "blockRewardPortion", 9000)
@@ -351,13 +343,7 @@ func TestFreezePollSnapshot_UsesCandidateIdentity(t *testing.T) {
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 
-	candidates := state.CandidateList{&state.Candidate{
-		Identity:      identity.String(),
-		Address:       operator.String(),
-		Votes:         big.NewInt(1),
-		RewardAddress: cand.Reward.String(),
-	}}
-	r.NoError(FreezePollSnapshot(context.Background(), sm, candidates, bridge, fake.reader(t)))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, bridge, fake.reader(t)))
 
 	snapshot, err := PollSnapshotFor(sm, identity)
 	r.NoError(err)
@@ -376,23 +362,26 @@ func TestFreezePollSnapshot_PartialProfile(t *testing.T) {
 	csm := newCandidateStateManager(sm)
 
 	registered := &Candidate{
-		Owner:     identityset.Address(1),
-		Operator:  identityset.Address(2),
-		Reward:    identityset.Address(3),
-		Name:      "registered",
-		Votes:     big.NewInt(1),
-		SelfStake: big.NewInt(1),
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(2),
+		Reward:             identityset.Address(3),
+		Name:               "registered",
+		Votes:              big.NewInt(1),
+		SelfStake:          big.NewInt(1),
+		SelfStakeBucketIdx: 1,
 	}
 	unregistered := &Candidate{
-		Owner:     identityset.Address(4),
-		Operator:  identityset.Address(5),
-		Reward:    identityset.Address(6),
-		Name:      "unregistered",
-		Votes:     big.NewInt(1),
-		SelfStake: big.NewInt(1),
+		Owner:              identityset.Address(4),
+		Operator:           identityset.Address(5),
+		Reward:             identityset.Address(6),
+		Name:               "unregistered",
+		Votes:              big.NewInt(1),
+		SelfStake:          big.NewInt(1),
+		SelfStakeBucketIdx: 2,
 	}
 	r.NoError(putOnchainCandidate(csm, registered))
 	r.NoError(putOnchainCandidate(csm, unregistered))
+	installCandCenter(t, sm, registered, unregistered)
 
 	fake := newFakeProfileStore()
 	// Only `registered` has portion fields set.
@@ -402,11 +391,7 @@ func TestFreezePollSnapshot_PartialProfile(t *testing.T) {
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 
-	candidates := state.CandidateList{
-		&state.Candidate{Address: registered.Owner.String(), Votes: big.NewInt(1), RewardAddress: registered.Reward.String()},
-		&state.Candidate{Address: unregistered.Owner.String(), Votes: big.NewInt(1), RewardAddress: unregistered.Reward.String()},
-	}
-	r.NoError(FreezePollSnapshot(context.Background(), sm, candidates, bridge, fake.reader(t)))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, bridge, fake.reader(t)))
 
 	snap, err := PollSnapshotFor(sm, registered.Owner)
 	r.NoError(err)
@@ -440,6 +425,7 @@ func TestFreezePollSnapshot_BridgeErrorDegradesToLegacy(t *testing.T) {
 		SelfStake: big.NewInt(1),
 	}
 	r.NoError(putOnchainCandidate(csm, cand))
+	installCandCenter(t, sm, cand)
 
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
@@ -447,10 +433,7 @@ func TestFreezePollSnapshot_BridgeErrorDegradesToLegacy(t *testing.T) {
 		return nil, errors.New("rpc down")
 	})
 
-	candidates := state.CandidateList{
-		&state.Candidate{Address: cand.Owner.String(), Votes: big.NewInt(1), RewardAddress: cand.Reward.String()},
-	}
-	r.NoError(FreezePollSnapshot(context.Background(), sm, candidates, bridge, failing))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, bridge, failing))
 
 	snap, err := PollSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
@@ -459,46 +442,41 @@ func TestFreezePollSnapshot_BridgeErrorDegradesToLegacy(t *testing.T) {
 	r.Equal(uint64(10000), snap.EpochCommissionBasisPoints)
 }
 
-func TestFreezePollSnapshot_InvalidCandidateAddress(t *testing.T) {
+// The old TestFreezePollSnapshot_InvalidCandidateAddress lived here. It
+// asserted that an unparseable identity in the poll list aborted the freeze;
+// that parse no longer exists, because identities now come from the candidate
+// center as address.Address values that were parsed when the candidate was
+// registered.
+
+func TestFreezePollSnapshot_NilBridgeSkipsReader(t *testing.T) {
+	// A reader with no bridge is not an error -- there is nothing to read
+	// against -- but it must not be invoked. The empty candidate center makes
+	// this the empty-era case too: a boundary that finds no opted-in candidate
+	// still opens the window and succeeds.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
+	installCandCenter(t, sm)
 
-	candidates := state.CandidateList{
-		&state.Candidate{Address: "not-a-bech32", Votes: big.NewInt(1)},
-	}
-	err := FreezePollSnapshot(context.Background(), sm, candidates, nil, nil)
-	r.Error(err)
-}
-
-func TestFreezePollSnapshot_NilBridgeWithReaderRejected(t *testing.T) {
-	// Guard against a caller passing an initialized reader with a nil bridge
-	// — that's a bug: the reader would never be invoked and the caller is
-	// probably confused about which arm they wanted.
-	r := require.New(t)
-	ctrl := gomock.NewController(t)
-	sm := testdb.NewMockStateManager(ctrl)
-
-	// Reader that would panic if called — proves nil-bridge path skips it.
+	// Reader that would fail the test if called — proves nil-bridge path skips it.
 	panicReader := delegateprofile.ContractReaderFunc(func(context.Context, string, []byte) ([]byte, error) {
 		t.Fatalf("reader must not be called when bridge is nil")
 		return nil, nil
 	})
-	candidates := state.CandidateList{}
-	r.NoError(FreezePollSnapshot(context.Background(), sm, candidates, nil, panicReader))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, panicReader))
 }
 
 func TestFreezePollSnapshot_NonNilBridgeRequiresReader(t *testing.T) {
+	// The wiring check runs before the freezer touches state, so this case
+	// needs no view: a bridge with no reader is a caller bug, not a state
+	// condition.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
-	candidates := state.CandidateList{
-		&state.Candidate{Address: identityset.Address(1).String(), Votes: big.NewInt(1)},
-	}
-	err = FreezePollSnapshot(context.Background(), sm, candidates, bridge, nil)
+	err = FreezePollSnapshot(context.Background(), sm, bridge, nil)
 	r.Error(err)
 	r.Contains(err.Error(), "nil ContractReader")
 }
@@ -519,10 +497,12 @@ func TestPollSnapshotFor_NilCandidateRejected(t *testing.T) {
 	r.Error(err)
 }
 
-func TestFreezePollSnapshot_IterationOrderIsCallerOrder(t *testing.T) {
-	// The bridge sees delegates in the order the poll layer supplied them.
-	// Snapshot writes happen in the same order — determinism guardrail so
-	// two replays of the same block produce the same trie state root.
+// TestFreezePollSnapshot_EveryMemberGetsItsOwnRates is the multi-delegate
+// bridge case: each member of the frozen set is looked up separately and each
+// gets its own rates back, with no bleed between them. The order the bridge
+// sees is pinned separately, by
+// TestFreezePollSnapshot_FrozenSetOrderIsDeterministic.
+func TestFreezePollSnapshot_EveryMemberGetsItsOwnRates(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -531,35 +511,36 @@ func TestFreezePollSnapshot_IterationOrderIsCallerOrder(t *testing.T) {
 	var cands []*Candidate
 	for i := 1; i <= 3; i++ {
 		c := &Candidate{
-			Owner:     identityset.Address(i),
-			Operator:  identityset.Address(i + 10),
-			Reward:    identityset.Address(i + 20),
-			Name:      "d",
-			Votes:     big.NewInt(1),
-			SelfStake: big.NewInt(1),
+			Owner:              identityset.Address(i),
+			Operator:           identityset.Address(i + 10),
+			Reward:             identityset.Address(i + 20),
+			Name:               "d" + string(rune('0'+i)),
+			Votes:              big.NewInt(1),
+			SelfStake:          big.NewInt(1),
+			SelfStakeBucketIdx: uint64(i),
 		}
 		r.NoError(putOnchainCandidate(csm, c))
 		cands = append(cands, c)
 	}
+	installCandCenter(t, sm, cands...)
+
 	fake := newFakeProfileStore()
-	for _, c := range cands {
-		fake.setPortion(c.Owner, "blockRewardPortion", 4000)
-		fake.setPortion(c.Owner, "epochRewardPortion", 5000)
+	for i, c := range cands {
+		// Distinct per delegate, so a cross-assignment shows up as a wrong
+		// number rather than as an identical one.
+		fake.setPortion(c.Owner, "blockRewardPortion", uint64(4000+i*100))
+		fake.setPortion(c.Owner, "epochRewardPortion", uint64(5000+i*100))
 	}
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 
-	list := state.CandidateList{}
-	for _, c := range cands {
-		list = append(list, &state.Candidate{Address: c.Owner.String(), Votes: big.NewInt(1), RewardAddress: c.Reward.String()})
-	}
-	r.NoError(FreezePollSnapshot(context.Background(), sm, list, bridge, fake.reader(t)))
-	for _, c := range cands {
+	r.NoError(FreezePollSnapshot(context.Background(), sm, bridge, fake.reader(t)))
+	for i, c := range cands {
 		snap, err := PollSnapshotFor(sm, c.Owner)
 		r.NoError(err)
 		r.True(snap.Registered)
-		r.Equal(uint64(6000), snap.BlockCommissionBasisPoints)
-		r.Equal(uint64(5000), snap.EpochCommissionBasisPoints)
+		r.Equal(uint64(6000-i*100), snap.BlockCommissionBasisPoints)
+		r.Equal(uint64(5000-i*100), snap.EpochCommissionBasisPoints)
 	}
 }
 

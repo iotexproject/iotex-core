@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -36,9 +37,14 @@ import (
 // (candidate.Votes == sum of per-voter weights).
 
 // installCandCenter puts the candidates into a candidate center and writes it
-// into the view, which is how FreezePollSnapshot reaches candidate.Votes.
-// Without a candCenter in the view the freezer has no candidate reader and
-// deliberately degrades to TotalWeight=0.
+// into the view. The center is the freezer's only source: it supplies the
+// frozen SET as well as each member's Votes and SelfStakeBucketIdx, so a test
+// that skips this gets an error rather than a degraded snapshot.
+//
+// Membership in the frozen set is still decided by state, not by the center --
+// see putOnchainCandidate, which is what flips the opt-in bit that
+// ReadCandidateRewardRouting reads. A candidate in the center with no opt-in
+// in state is enumerated and then dropped.
 func installCandCenter(t *testing.T, sm protocol.StateManager, cands ...*Candidate) {
 	t.Helper()
 	center, err := NewCandidateCenter(nil)
@@ -49,18 +55,6 @@ func installCandCenter(t *testing.T, sm protocol.StateManager, cands ...*Candida
 	require.NoError(t, sm.WriteView(_protocolID, &viewData{
 		candCenter: center,
 	}))
-}
-
-func pollListOf(cands ...*Candidate) state.CandidateList {
-	list := make(state.CandidateList, 0, len(cands))
-	for _, c := range cands {
-		list = append(list, &state.Candidate{
-			Address:       c.Owner.String(),
-			Votes:         big.NewInt(1),
-			RewardAddress: c.Reward.String(),
-		})
-	}
-	return list
 }
 
 func onchainCandidate(idx int, name string, votes *big.Int) *Candidate {
@@ -93,7 +87,7 @@ func TestFreezePollSnapshot_TotalWeightIsCandidateVotes(t *testing.T) {
 	r.NoError(putOnchainCandidate(csm, cand))
 	installCandCenter(t, sm, cand)
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, pollListOf(cand), nil, nil))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, nil))
 
 	snap, err := PollSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
@@ -119,7 +113,7 @@ func TestFreezePollSnapshot_TotalWeightMultipleCandidatesIsolated(t *testing.T) 
 	r.NoError(putOnchainCandidate(csm, candB))
 	installCandCenter(t, sm, candA, candB)
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, pollListOf(candA, candB), nil, nil))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, nil))
 
 	snapA, err := PollSnapshotFor(sm, candA.Owner)
 	r.NoError(err)
@@ -147,7 +141,7 @@ func TestFreezePollSnapshot_TotalWeightZeroVotes(t *testing.T) {
 	r.NoError(putOnchainCandidate(csm, cand))
 	installCandCenter(t, sm, cand)
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, pollListOf(cand), nil, nil))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, nil))
 
 	snap, err := PollSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
@@ -155,12 +149,24 @@ func TestFreezePollSnapshot_TotalWeightZeroVotes(t *testing.T) {
 	r.Zero(snap.TotalWeight.Sign())
 }
 
-// TestFreezePollSnapshot_TotalWeightViewMissingDegrades is the migrated
-// TestFreezePollSnapshot_Entries_ViewMissingDegrades: no view installed at
-// all (pre-fork fixtures, tests that predate Protocol.Start). The boundary
-// must still write a record, degraded to zero weight, on every validator
-// identically.
-func TestFreezePollSnapshot_TotalWeightViewMissingDegrades(t *testing.T) {
+// TestFreezePollSnapshot_MissingViewIsFatal is the inverted successor of
+// TestFreezePollSnapshot_Entries_ViewMissingDegrades. That test asserted the
+// boundary still wrote a record, degraded to zero weight, when no view was
+// installed. It could afford to: the poll list supplied the frozen SET, and
+// the view supplied only the numbers in it.
+//
+// The set now comes from the view too, so the same fault has a different
+// blast radius. Degrading would freeze an EMPTY era: no candidate gets a
+// snapshot, every reader sees absence, and absence means "not on the rails"
+// -- 100% commission and no voter paid, for every delegate, for the whole
+// era. That is not a degraded item, it is a silently wrong era, and it is
+// unrecoverable in a way a failed block is not.
+//
+// So the freeze fails the block instead. It is unreachable post-fork -- the
+// staking protocol's own Start installs the view, and it is the protocol the
+// poll layer holds a reference to -- which is exactly why turning it into an
+// error costs nothing and removes the only path to an empty freeze.
+func TestFreezePollSnapshot_MissingViewIsFatal(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -170,14 +176,32 @@ func TestFreezePollSnapshot_TotalWeightViewMissingDegrades(t *testing.T) {
 	r.NoError(putOnchainCandidate(csm, cand))
 	// deliberately no installCandCenter
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, pollListOf(cand), nil, nil))
+	err := FreezePollSnapshot(context.Background(), sm, nil, nil)
+	r.Error(err)
+	r.Contains(err.Error(), "candidate view")
 
-	snap, err := PollSnapshotFor(sm, cand.Owner)
-	r.NoError(err)
-	r.NotNil(snap.TotalWeight)
-	r.Zero(snap.TotalWeight.Sign())
-	r.False(snap.Registered)
-	r.Equal(uint64(candidateNoSelfStakeBucketIndex), snap.SelfStakeBucketIdx)
+	_, err = PollSnapshotFor(sm, cand.Owner)
+	r.ErrorIs(errors.Cause(err), state.ErrStateNotExist,
+		"a failed freeze must leave no half-written era behind")
+}
+
+// TestFreezePollSnapshot_EmptyCandCenterIsFatal covers the other half of the
+// same rule. A view that exists but carries no candidate center is a
+// different fault -- a partially-built view rather than no view -- and it
+// reaches the same empty-era outcome, so it takes the same exit.
+func TestFreezePollSnapshot_EmptyCandCenterIsFatal(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm := testdb.NewMockStateManager(ctrl)
+	csm := newCandidateStateManager(sm)
+
+	cand := onchainCandidate(1, "no-center", big.NewInt(555))
+	r.NoError(putOnchainCandidate(csm, cand))
+	r.NoError(sm.WriteView(_protocolID, &viewData{}))
+
+	err := FreezePollSnapshot(context.Background(), sm, nil, nil)
+	r.Error(err)
+	r.Contains(err.Error(), "no candidate center")
 }
 
 // TestFreezePollSnapshot_SnapshotHashDeterministic is the migrated
@@ -195,12 +219,12 @@ func TestFreezePollSnapshot_SnapshotHashDeterministic(t *testing.T) {
 	r.NoError(putOnchainCandidate(csm, cand))
 	installCandCenter(t, sm, cand)
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, pollListOf(cand), nil, nil))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, nil))
 	first, err := PollSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
 	r.NotEqual(hash.ZeroHash256, first.SnapshotHash)
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, pollListOf(cand), nil, nil))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, nil))
 	second, err := PollSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
 	r.Equal(first.SnapshotHash, second.SnapshotHash)
@@ -210,7 +234,7 @@ func TestFreezePollSnapshot_SnapshotHashDeterministic(t *testing.T) {
 	// as a per-delegate-per-era identifier for off-chain log assembly.
 	cand.Votes = big.NewInt(999)
 	installCandCenter(t, sm, cand)
-	r.NoError(FreezePollSnapshot(context.Background(), sm, pollListOf(cand), nil, nil))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, nil))
 	third, err := PollSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
 	r.NotEqual(first.SnapshotHash, third.SnapshotHash)
@@ -232,7 +256,7 @@ func TestFreezePollSnapshot_VotesCloneIsolation(t *testing.T) {
 	r.NoError(putOnchainCandidate(csm, cand))
 	installCandCenter(t, sm, cand)
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, pollListOf(cand), nil, nil))
+	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, nil))
 
 	// Mutate the same *big.Int the candidate record carries, in place —
 	// this is what a post-freeze stake change looks like to an aliasing bug.

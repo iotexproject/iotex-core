@@ -108,10 +108,24 @@ it was considered and deferred.
 
 ### 3.1 What is frozen, and as what
 
-`staking.FreezePollSnapshot` writes one `CandidatePollSnapshot` per delegate at
-the freeze block H (`action/protocol/staking/poll_snapshot.go`) — which is the
-`PutPollResult` block a half-epoch ahead of the era boundary epoch, not the
-boundary block itself; see §2.1. The snapshot is **scalars only**:
+`staking.FreezePollSnapshot` writes one `CandidatePollSnapshot` per **opted-in
+candidate** at the freeze block H (`action/protocol/staking/poll_snapshot.go`)
+— which is the `PutPollResult` block a half-epoch ahead of the era boundary
+epoch, not the boundary block itself; see §2.1.
+
+The frozen set is enumerated from the candidate center and filtered by the
+opt-in bit alone. It is deliberately *not* the poll list that rides the same
+block: the poll list is filtered by `isActiveCandidate` and by a vote-score
+threshold, and it is frozen once per era while the paid set is recomputed
+every epoch inside the era, so the two drift. An opted-in candidate that was
+off the list would get no snapshot, and absence reads as "not on the rails" —
+100% delegate / 0% voter for the rest of the era. An opted-**out** candidate
+gets no record at all rather than a zeroed one: `voter_reward.go` maps both a
+missing snapshot and an `OnchainRewardEnabled=false` one to the same legacy
+route, so the zeroed record was a state write per candidate per era that no
+consensus reader could tell from its own absence.
+
+The snapshot is **scalars only**:
 
 | field | why it is frozen |
 |---|---|
@@ -302,7 +316,7 @@ Eth-ABI views dispatched by 4-byte selector in
 | `pendingBlockRewardPool(address)` | accrued voter pool for a delegate |
 | `pendingBlockRewardPoolIndex()` | delegates with a non-zero pool |
 | `eraDrainCursor()` | settlement plan + progress |
-| `voterRewardDelegateSnapshot(address)` | the frozen per-delegate scalars of §3.1 |
+| `voterRewardDelegateSnapshot(address)` | the frozen per-delegate scalars of §3.1; errors with `ErrStateNotExist` for a delegate that was not opted in at H |
 | `voterRewardAddress(address)` | a delegate's configured reward address |
 | `voterRewardDestination(address)` | a voter's configured destination |
 | `voterRewardStatus(address)` | a voter's settlement status and amount |

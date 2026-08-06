@@ -8,7 +8,6 @@ package poll
 import (
 	"context"
 	"errors"
-	"math/big"
 	"testing"
 	"time"
 
@@ -100,16 +99,6 @@ func freezeSnapshotEraGateCtx(t *testing.T, epochsPerEra uint64, height uint64) 
 	return protocol.WithFeatureCtx(ctx)
 }
 
-func fakeCandidatesForGate() state.CandidateList {
-	return state.CandidateList{
-		&state.Candidate{
-			Address:       identityset.Address(1).String(),
-			Votes:         big.NewInt(30),
-			RewardAddress: identityset.Address(1).String(),
-		},
-	}
-}
-
 func delegateProfileReaderCtx() context.Context {
 	g := genesis.TestDefault()
 	ctx := genesis.WithGenesisContext(context.Background(), g)
@@ -135,7 +124,7 @@ func TestFreezeIIP59PollSnapshot_NonEraBoundarySkipsWrite(t *testing.T) {
 
 	// Non-boundary: epochsPerEra=24, epochNum=25.
 	ctx := freezeSnapshotEraGateCtx(t, 24, 1)
-	r.NoError(freezeIIP59PollSnapshot(ctx, sm, fakeCandidatesForGate(), 25))
+	r.NoError(freezeIIP59PollSnapshot(ctx, sm, 25))
 }
 
 func TestFreezeIIP59PollSnapshot_EraBoundaryProceeds(t *testing.T) {
@@ -143,27 +132,26 @@ func TestFreezeIIP59PollSnapshot_EraBoundaryProceeds(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	// Boundary epoch: the function must proceed through the gate and reach
-	// staking.FreezePollSnapshot. That path unconditionally issues at least
-	// one State/PutState call per candidate. AnyTimes() is fine — we only
-	// care that the era gate did not short-circuit.
+	// staking.FreezePollSnapshot.
+	//
+	// What proves it got there is the error. The frozen set now comes from the
+	// candidate center, so the first thing FreezePollSnapshot does is construct
+	// the base view -- reading the height, then the view -- and a view that
+	// cannot be read is fatal there rather than degraded: a boundary that
+	// cannot enumerate candidates would freeze an empty era and put every
+	// delegate on the 100%-commission fallback for a full day.
+	//
+	// protocol.ErrNoName is what the real views.Read returns for an
+	// unregistered name (protocol.go:197), i.e. "staking installed no view",
+	// which is the exact shape a mock state manager presents.
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).MinTimes(1)
-	// FreezePollSnapshot resolves TotalWeight and SelfStakeBucketIdx from the
-	// candidate center, so it constructs a base view -- which reads the height
-	// before it reads the view.
 	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
-	// "Staking view not installed" is protocol.ErrNoName, the error the real
-	// views.Read returns for an unregistered name (protocol.go:197). It is the
-	// one cause FreezePollSnapshot degrades on; every other cause is returned,
-	// so mocking a different error here would assert the opposite behaviour.
 	sm.EXPECT().ReadView(gomock.Any()).Return(nil, protocol.ErrNoName).AnyTimes()
-	// beginEraCOWWindow range-scans the copy-on-write namespace; an empty one
-	// is the correct answer for a fresh era.
-	sm.EXPECT().States(gomock.Any()).Return(uint64(0), nil, state.ErrStateNotExist).AnyTimes()
 
 	ctx := freezeSnapshotEraGateCtx(t, 24, 1)
-	r.NoError(freezeIIP59PollSnapshot(ctx, sm, fakeCandidatesForGate(), 24))
+	err := freezeIIP59PollSnapshot(ctx, sm, 24)
+	r.ErrorIs(err, protocol.ErrNoName)
+	r.Contains(err.Error(), "construct candidate view for poll snapshot")
 }
 
 func TestFreezeIIP59PollSnapshot_EpochsPerRewardEraZeroDisables(t *testing.T) {
@@ -176,9 +164,9 @@ func TestFreezeIIP59PollSnapshot_EpochsPerRewardEraZeroDisables(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 
 	ctx := freezeSnapshotEraGateCtx(t, 0, 1)
-	r.NoError(freezeIIP59PollSnapshot(ctx, sm, fakeCandidatesForGate(), 1))
-	r.NoError(freezeIIP59PollSnapshot(ctx, sm, fakeCandidatesForGate(), 24))
-	r.NoError(freezeIIP59PollSnapshot(ctx, sm, fakeCandidatesForGate(), 1_000_000))
+	r.NoError(freezeIIP59PollSnapshot(ctx, sm, 1))
+	r.NoError(freezeIIP59PollSnapshot(ctx, sm, 24))
+	r.NoError(freezeIIP59PollSnapshot(ctx, sm, 1_000_000))
 }
 
 func TestFreezeIIP59PollSnapshot_PreForkGateStillWins(t *testing.T) {
@@ -199,7 +187,7 @@ func TestFreezeIIP59PollSnapshot_PreForkGateStillWins(t *testing.T) {
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1})
 	ctx = protocol.WithFeatureCtx(ctx)
 
-	r.NoError(freezeIIP59PollSnapshot(ctx, sm, fakeCandidatesForGate(), 24))
+	r.NoError(freezeIIP59PollSnapshot(ctx, sm, 24))
 }
 
 func TestDelegateProfileContractReaderInstallsEVMHelperContext(t *testing.T) {

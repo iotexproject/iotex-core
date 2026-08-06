@@ -87,21 +87,24 @@ func resolveDelegateRewardRouting(
 		// and its opt-in takes effect at the next freeze. Overriding the LIVE
 		// value read above is what makes that rule uniform.
 		//
-		// FreezePollSnapshot already freezes the poll list UNION the live
-		// opted-in set, which leaves exactly two ways to arrive here: a
-		// candidate registered after H (unfreezable by construction), and one
-		// that existed at H outside the poll list and opted in afterwards.
-		// Both are the same real-world situation as a candidate INSIDE the
-		// poll list that opts in after H — and that one gets an
-		// OnchainRewardEnabled=false placeholder snapshot, which routes it to
-		// the legacy path. Keeping the live value here made the two diverge on
-		// nothing but poll-list membership at H: the placeholder case paid
-		// legacy, this case paid on IIP-59 rails at the 100% commission
-		// default, sending the whole amount to the owner and the voters
-		// nothing. For a Hermes-vault delegate that also bypassed the vault,
-		// so off-chain Hermes never saw the money and its voters lost it
-		// permanently. Routing to legacy pays the vault instead, and off-chain
-		// Hermes distributes as it did before.
+		// FreezePollSnapshot freezes every candidate that was opted in at H,
+		// so absence here means exactly one thing: this delegate was not
+		// opted in at H. Either it opted in during the era, or it registered
+		// after H and could not have been frozen at all.
+		//
+		// Keeping the live value here instead would pay such a delegate on
+		// IIP-59 rails at the 100% commission default — the whole amount to
+		// the owner and nothing to the voters. For a Hermes-vault delegate
+		// that also bypasses the vault, so off-chain Hermes never sees the
+		// money and its voters lose it permanently. Routing to legacy pays
+		// the vault instead, and off-chain Hermes distributes as it did
+		// before.
+		//
+		// This is also why the freezer writes nothing for an opted-out
+		// candidate rather than an OnchainRewardEnabled=false placeholder:
+		// the placeholder and the absence would land on the same line below,
+		// so it was a state write per candidate per era that no reader could
+		// tell from its own absence.
 		routing.onchainRewardEnabled = false
 	default:
 		return nil, err

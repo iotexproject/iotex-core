@@ -216,7 +216,7 @@ func setCandidates(
 			return errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
 		}
 	}
-	if err := freezeIIP59PollSnapshot(ctx, sm, candidates, epochNum); err != nil {
+	if err := freezeIIP59PollSnapshot(ctx, sm, epochNum); err != nil {
 		return errors.Wrap(err, "failed to freeze IIP-59 poll snapshot")
 	}
 	if loadCandidatesLegacy {
@@ -231,6 +231,13 @@ func setCandidates(
 
 // freezeIIP59PollSnapshot writes the per-candidate poll snapshot introduced
 // by IIP-59, capturing commission rates from the DelegateProfile contract.
+//
+// It deliberately does not hand the poll list down. What gets frozen is the
+// opted-in candidate set, which FreezePollSnapshot enumerates from the
+// candidate center; the poll list is a vote-score-ranked subset on a different
+// cadence and the two drift within an era. This function is here for its
+// TIMING, not for its argument — PutPollResult is simply the last thing that
+// runs at a known point relative to the era boundary.
 //
 // WHEN THIS RUNS, precisely, because "era boundary freeze" is a half-truth:
 // epochNum here is the number of the epoch this PutPollResult is FOR, derived
@@ -260,7 +267,7 @@ func setCandidates(
 // carries zero commission rates, so all rewards go to voters.
 // Post-fork, era boundary, contract configured: bridge called; snapshot
 // carries frozen rates + registration bit.
-func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, candidates state.CandidateList, epochNum uint64) error {
+func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, epochNum uint64) error {
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	if fCtx.NoVoterRewardDistribution {
 		return nil
@@ -282,7 +289,7 @@ func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, cand
 		bridge = b
 		reader = delegateProfileContractReader(sm)
 	}
-	return staking.FreezePollSnapshot(ctx, sm, candidates, bridge, reader)
+	return staking.FreezePollSnapshot(ctx, sm, bridge, reader)
 }
 
 // _delegateProfileViewCallGasLimit bounds the simulated DelegateProfile view
