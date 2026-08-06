@@ -128,30 +128,42 @@ func TestUpsertBucketMaintainsHighWaterMark(t *testing.T) {
 	})
 }
 
-func TestMaxBucketIDInState(t *testing.T) {
+// TestBucketsScanReturnsEveryID pins what staking.backfillOwnerIndex derives
+// the activation high-water mark from.
+//
+// It used to derive it from a dedicated MaxBucketIDInState scan; now it takes
+// the max of the ids Buckets returns, so the properties that scan was tested
+// for have to hold here instead. In particular the ids must be complete and
+// unordered-safe: bucket keys are little-endian, so raw key order is not id
+// order and "the last key wins" is wrong.
+func TestBucketsScanReturnsEveryID(t *testing.T) {
 	r := require.New(t)
 	sm := newTestSM(t)
 	cs := NewContractStakingStateManager(sm)
+	sr := NewStateReader(sm)
 	contract, empty := identityset.Address(20), identityset.Address(21)
 	alice := identityset.Address(1)
 
-	_, found, err := cs.MaxBucketIDInState(empty)
+	ids, buckets, err := sr.Buckets(empty)
 	r.NoError(err)
-	r.False(found, "a contract with no buckets must be distinguishable from one whose max id is 0")
+	r.Empty(ids, "a contract with no buckets must scan clean rather than error")
+	r.Empty(buckets)
 
-	// Ids chosen so that little-endian key order is not id order: 1 sorts after
-	// 256 by raw bytes, so "take the last key" would answer 256.
+	// 1 sorts after 256 by raw little-endian bytes, so a max taken from the
+	// last key would answer 256.
 	seedBuckets(t, cs, contract, map[uint64]address.Address{1: alice, 256: alice, 300: alice})
-	maxID, found, err := cs.MaxBucketIDInState(contract)
+	ids, buckets, err = sr.Buckets(contract)
 	r.NoError(err)
-	r.True(found)
-	r.EqualValues(300, maxID)
+	r.ElementsMatch([]uint64{1, 256, 300}, ids)
+	r.Len(buckets, len(ids))
+	for _, b := range buckets {
+		r.Equal(alice.String(), b.Owner.String())
+	}
 
-	// Id 0 alone reads as found, not as absent.
+	// Id 0 is a real id, not an absence.
 	only0 := identityset.Address(22)
 	seedBuckets(t, cs, only0, map[uint64]address.Address{0: alice})
-	maxID, found, err = cs.MaxBucketIDInState(only0)
+	ids, _, err = sr.Buckets(only0)
 	r.NoError(err)
-	r.True(found)
-	r.EqualValues(0, maxID)
+	r.Equal([]uint64{0}, ids)
 }

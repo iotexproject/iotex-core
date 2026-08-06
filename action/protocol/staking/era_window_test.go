@@ -391,6 +391,31 @@ func eraTestCOWKeyCount(t *testing.T, sr protocol.StateReader) int {
 	return count
 }
 
+// TestFrozenContractBucketUnknownContract pins the Defect C behaviour at the
+// read side: a contract with no frozen mark is denied, not allowed. Allowing
+// would admit buckets minted after the freeze into a frozen era, which is worse
+// than an under-payment; the deny is made noisy in the log instead.
+func TestFrozenContractBucketUnknownContract(t *testing.T) {
+	r := require.New(t)
+	sm := eraTestSM(t)
+	known, unknown := identityset.Address(20), identityset.Address(21)
+
+	ctx := forkGateCtx(eraTestFreezeHeight, true)
+	r.NoError(contractstaking.NewContractStakingStateManager(sm).UpdateNumOfBuckets(known, 4))
+	r.NoError(TestOnlyBeginEraCOWWindow(ctx, sm, eraTestFreezeHeight))
+	window, err := EraCOWWindow(sm)
+	r.NoError(err)
+
+	r.True(window.ContractKnown(known.Bytes()))
+	r.False(window.ContractKnown(unknown.Bytes()))
+	r.True(window.ContractBucketExisted(known.Bytes(), 4))
+	r.False(window.ContractBucketExisted(known.Bytes(), 5))
+	r.False(window.ContractBucketExisted(unknown.Bytes(), 1))
+
+	_, err = FrozenContractBucket(sm, window, unknown, 1)
+	r.ErrorIs(err, ErrBucketPostFreeze)
+}
+
 // eraTestRawValue accepts any stored value, so the counters above can walk a
 // namespace holding several unrelated types.
 type eraTestRawValue struct{ data []byte }

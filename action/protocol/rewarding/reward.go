@@ -838,17 +838,19 @@ func (p *Protocol) persistDrainCursor(
 ) error {
 	if len(entries) == 0 {
 		if isEraBoundaryEpoch {
-			// One state read stands between the seal and a live drain. On a
-			// taken boundary resolveStaleDrainCursor has already handed off or
-			// deleted any overrun cursor, so this reads nil and the seal fires.
-			// On a DECLINED boundary that handoff does not run, and sealing
-			// under an in-flight drain would silently reroute the rest of it
-			// onto live state — the frozen copies it is mid-way through
-			// reading would stop being maintained. Today a declined boundary
-			// can only be one of the first few post-activation, where no cursor
-			// has ever been written; the check is here so that stops being
-			// load-bearing. It is committed state, so every node reads the same
-			// answer and seals in the same block or not at all.
+			// One state read stands between the seal and a live drain.
+			// Sealing under an in-flight drain would silently reroute the rest
+			// of it onto live state — the frozen copies it is mid-way through
+			// reading would stop being maintained.
+			//
+			// Every boundary that reaches here has passed through
+			// resolveStaleDrainCursor, which deletes any cursor it finds, so
+			// this reads nil and the seal fires. The check is kept because the
+			// seal's safety should rest on the state it is about to invalidate
+			// rather than on that ordering holding forever, and it is cheap:
+			// one read on the boundary blocks that produced no work. It reads
+			// committed state, so every node reads the same answer and seals in
+			// the same block or not at all.
 			cursor, err := p.readEpochDrainCursor(ctx, sm)
 			if err != nil {
 				return errors.Wrap(err,
@@ -930,32 +932,13 @@ func (p *Protocol) GrantEpochReward(
 	// era-boundary epochs (see IIP-59 §10.2). Commission payment,
 	// slashing, and foundation bonus run every epoch regardless.
 	//
-	// It is strictly narrower than isEraBoundaryEpoch by the LSD owner-index
-	// activation backfill. That index is built one bounded batch per block
-	// starting at activation, so for roughly ceil(totalBuckets/batch) blocks
-	// the LSD half of the voter set is knowingly incomplete. Freezing an era
-	// against it would drop every not-yet-backfilled voter from the shard walk
-	// permanently -- the era is sealed and the payout is never revisited, so
-	// their share silently becomes residual. Declining the boundary costs
-	// nothing instead: pendingBlockRewardPool accumulates per delegate and only
-	// drains when isEraBoundary is true, so the money rolls into the next era.
-	//
-	// It cannot livelock. The backfill advances every block regardless of what
-	// this protocol does, and a read failure here returns rather than degrading
-	// -- a missing record reads as incomplete, which is the safe direction.
-	//
-	// The predicate is read only on boundary epochs. Every other block already
-	// has isEraBoundary == false, and issuing the read there would put a new
-	// state access on the pre-activation path for no effect.
+	// There is no second condition. The LSD owner index this drains is built
+	// in full in the single block at g.ToBeEnabledBlockHeight, from staking's
+	// CreatePreStates (staking.backfillOwnerIndex) -- i.e. before any action of
+	// that block runs, and so before the earliest block at which a freeze could
+	// open an era window. There is no window in which the index is partial and
+	// a boundary would have to be declined.
 	isEraBoundary := isEraBoundaryEpoch
-	if isEraBoundaryEpoch {
-		backfillComplete, err := staking.OwnerIndexBackfillComplete(sm)
-		if err != nil {
-			return nil, nil, errors.Wrap(err,
-				"rewarding: read LSD owner-index backfill status for era boundary")
-		}
-		isEraBoundary = backfillComplete
-	}
 	var eraSettlementSeed hash.Hash256
 	if isEraBoundary {
 		eraSettlementSeed = settlementSeed(ctx, epochNum)

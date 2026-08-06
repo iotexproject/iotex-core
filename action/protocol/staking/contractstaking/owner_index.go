@@ -311,6 +311,52 @@ func (cs *ContractStakingStateManager) addOwnerRef(ctx context.Context, owner ad
 	return errors.Wrapf(cs.writeOwnerIndex(owner, refs), "failed to write owner index for %s", owner.String())
 }
 
+// AddOwnerRefs records that owner owns every ref in refs.
+//
+// Semantically identical to calling addOwnerRef once per ref, including its
+// idempotence and its "a no-op write produces no era copy either" rule. The
+// difference is cost: the per-ref form is a read-modify-write of the same trie
+// key for each ref, which is what made the IIP-59 activation backfill expensive
+// for owners holding many buckets. This reads once, copies aside at most once,
+// and writes once.
+//
+// Exported because the backfill lives in the staking package (see
+// staking.backfillOwnerIndex); nothing else needs it — the live paths add one
+// ref at a time.
+func (cs *ContractStakingStateManager) AddOwnerRefs(ctx context.Context, owner address.Address, refs []ContractBucketRef) error {
+	if len(refs) == 0 {
+		return nil
+	}
+	cur, err := cs.readOwnerIndex(owner)
+	if err != nil {
+		return errors.Wrapf(err, "failed to read owner index for %s", owner.String())
+	}
+	fresh := make([]ContractBucketRef, 0, len(refs))
+	for _, ref := range refs {
+		if _, found := cur.search(ref); !found {
+			fresh = append(fresh, ref)
+		}
+	}
+	if len(fresh) == 0 {
+		return nil
+	}
+	// IIP-59: copy the list aside before it changes, exactly as addOwnerRef
+	// does. On the backfill path no era window can be open — it runs in
+	// CreatePreStates, and the window only opens from the PutPollResult action
+	// later in the same block — so this is a no-op there. It stays because the
+	// method is a general one and its correctness should not rest on where its
+	// only caller happens to sit today.
+	if err := cs.snapshotOwnerIndexForEra(ctx, owner, cur); err != nil {
+		return err
+	}
+	for _, ref := range fresh {
+		// add keeps the list sorted, so the result is independent of the order
+		// refs arrives in.
+		cur.add(ref)
+	}
+	return errors.Wrapf(cs.writeOwnerIndex(owner, cur), "failed to write owner index for %s", owner.String())
+}
+
 // delOwnerRef drops (contract, bucketID) from owner's list.
 func (cs *ContractStakingStateManager) delOwnerRef(ctx context.Context, owner address.Address, ref ContractBucketRef) error {
 	refs, err := cs.readOwnerIndex(owner)

@@ -81,6 +81,43 @@ func TestZeroWorkOutsideEraBoundaryLeavesWindowOpen(t *testing.T) {
 		"a non-boundary epoch must not seal a window an in-flight drain depends on")
 }
 
+// TestZeroWorkSealSkippedWhileADrainIsLive covers the read that stands between
+// the zero-work seal and an in-flight drain.
+//
+// Every boundary that reaches persistDrainCursor today has already passed
+// through resolveStaleDrainCursor, which deletes any cursor it finds, so no
+// live drain can be there to protect. That is a property of the call ordering,
+// not of the seal, and the seal is the thing that would do the damage: closing
+// the window a drain is reading its frozen buckets through reroutes the rest of
+// that drain onto live state, silently and mid-era. This pins the guard so a
+// future caller that reaches the seal by another route is not one refactor away
+// from that.
+func TestZeroWorkSealSkippedWhileADrainIsLive(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
+	window := openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
+	r.True(window.Open())
+
+	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
+		TargetEra:      1,
+		StartEpoch:     1,
+		EndEpoch:       1,
+		SettlementSeed: make([]byte, 32),
+		Delegates: []epochDrainDelegateWork{{
+			CandidateIdentifier: candAddr.Bytes(),
+			VoterAmountFrozen:   big.NewInt(10),
+		}},
+		Distributed: []*big.Int{big.NewInt(0)},
+	}))
+
+	r.NoError(p.persistDrainCursor(ctx, sm, 2, 2, hash.Hash256{}, nil, true))
+
+	window, err := staking.EraCOWWindow(sm)
+	r.NoError(err)
+	r.True(window.Open(),
+		"a zero-work boundary must not seal a window an incomplete drain is still reading through")
+}
+
 // TestZeroWorkSealIsIdempotent pins that the new seal is safe on the path where
 // no window was ever opened -- a boundary before activation, or one already
 // sealed by a completed drain in the same block.

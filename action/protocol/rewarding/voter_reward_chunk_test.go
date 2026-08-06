@@ -42,19 +42,6 @@ import (
 // off. Tests that need multi-era cadence override this after calling.
 func enableIIP59(t *testing.T, ctx context.Context) context.Context {
 	t.Helper()
-	// Post-activation steady state includes a finished LSD owner-index
-	// backfill; GrantEpochReward declines era boundaries until it is. See
-	// assumeOwnerIndexBackfillComplete for why the fixture cannot reach that
-	// state on its own. Tests that want the backfill still running use
-	// enableIIP59Ctx and skip this.
-	assumeOwnerIndexBackfillComplete(t)
-	return enableIIP59Ctx(t, ctx)
-}
-
-// enableIIP59Ctx is enableIIP59 without the backfill assumption: fork gate and
-// genesis only.
-func enableIIP59Ctx(t *testing.T, ctx context.Context) context.Context {
-	t.Helper()
 	g := genesis.MustExtractGenesisContext(ctx)
 	g.ToBeEnabledBlockHeight = 1
 	g.Rewarding.EpochsPerRewardEra = 1
