@@ -280,6 +280,9 @@ func TestFrozenContractBucketSeesValueAtFreezeHeight(t *testing.T) {
 // high-water mark. Contract bucket ids come from a strictly monotonic counter
 // that burning does not touch, so "id > the frozen number" is exactly "minted
 // after the boundary".
+//
+// The converse does not hold, and the mark is therefore only half the defence:
+// see TestFrozenContractBucketRejectsPostFreezeIDInAGap.
 func TestFrozenContractBucketRejectsPostFreezeID(t *testing.T) {
 	r := require.New(t)
 	ctx := forkGateCtx(eraTestFreezeHeight, true)
@@ -302,6 +305,66 @@ func TestFrozenContractBucketRejectsPostFreezeID(t *testing.T) {
 	// The boundary itself is inclusive.
 	_, err = FrozenContractBucket(sm, window, contract, 3)
 	r.NoError(err)
+}
+
+// TestFrozenContractBucketRejectsPostFreezeIDInAGap covers the case the
+// high-water mark cannot reach, and therefore the only case where the
+// Exists=false tombstone is the sole thing standing between the drain and a
+// bucket that did not exist at the freeze height.
+//
+// The mark is the highest id ever minted, not a count, and the id space below
+// it is full of holes: mainnet burns buckets. An id minted into one of those
+// holes after the boundary is <= the mark, so ContractBucketExisted admits it
+// and Resolve is reached. Resolve falls through to the live value when there is
+// no entry, so what stops it there is the tombstone that Snapshot writes when
+// it finds prior == nil -- which is why UpsertBucket snapshots on the create
+// path too, unlike its native counterpart putBucket, where indices come from a
+// monotone counter and the mark alone is sufficient.
+//
+// Deleting the tombstone write in eracow's Snapshot turns three tests red, and
+// this is the only one of them that is about a bucket *value*:
+// eracow.TestFrozenReadResolution covers Resolve directly, one layer down, and
+// TestFrozenNativeBucketRejectsPostFreezeIndex fails on its voter-index
+// assertion, not its bucket one -- the native bucket there is caught by the
+// mark either way. Nothing else in the staking package notices.
+func TestFrozenContractBucketRejectsPostFreezeIDInAGap(t *testing.T) {
+	r := require.New(t)
+	ctx := forkGateCtx(eraTestFreezeHeight, true)
+	sm := eraTestSM(t)
+	cs := contractstaking.NewContractStakingStateManager(sm)
+	contract := identityset.Address(20)
+	newcomer := identityset.Address(6)
+
+	// At the freeze height id 10 is live and id 5 is a hole -- minted and burnt
+	// at some earlier point, which leaves the mark where it is.
+	r.NoError(cs.UpsertBucket(ctx, contract, 10, eraTestContractBucket(2, 1, 100)))
+	r.NoError(cs.UpdateNumOfBuckets(contract, 10))
+	r.NoError(beginEraCOWWindow(ctx, sm, eraTestFreezeHeight))
+	window, err := EraCOWWindow(sm)
+	r.NoError(err)
+
+	// The precondition that makes this test worth having: the mark lets the gap
+	// id through, so the rejection below cannot be coming from the mark.
+	r.True(window.ContractBucketExisted(contract.Bytes(), 5),
+		"the high-water mark admits an id below it, hole or not")
+
+	// Minted into the gap after the boundary, by an owner who held nothing at
+	// the freeze height.
+	r.NoError(cs.UpsertBucket(ctx, contract, 5, eraTestContractBucket(6, 1, 999)))
+
+	_, err = FrozenContractBucket(sm, window, contract, 5)
+	r.ErrorIs(err, ErrBucketPostFreeze,
+		"a gap id minted after the boundary must not resolve to the live bucket")
+
+	refs, err := FrozenContractBucketRefs(sm, window, newcomer)
+	r.NoError(err)
+	r.Empty(refs, "an owner whose first LSD bucket is post-boundary has no frozen list")
+
+	// The bucket that really was there is unaffected: the tombstone is a
+	// per-key statement, not a per-contract one.
+	frozen, err := FrozenContractBucket(sm, window, contract, 10)
+	r.NoError(err)
+	r.Equal(big.NewInt(100), frozen.StakedAmount)
 }
 
 // TestSealEraCOWWindowStopsCopying pins the "no outstanding drain, no work"
