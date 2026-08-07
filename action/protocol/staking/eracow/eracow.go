@@ -532,10 +532,18 @@ func Begin(
 	if c.FreezeHeight != 0 {
 		// A boundary arrived while the previous era's drain was still
 		// outstanding. Seal the old window so its copies are still collected;
-		// the outgoing drain reads a window that is no longer maintained, which
-		// is a correctness problem for that drain, but silently discarding the
-		// entries would leak them forever. Callers are expected to prevent
-		// this by not starting a new era before the previous drain completes.
+		// silently discarding the entries would leak them forever.
+		//
+		// Superseding here does not refuse the freeze, and deliberately so: this
+		// runs inside PutPollResult, where returning an error fails a
+		// consensus-critical system action and halts the chain rather than
+		// degrading one settlement. The outgoing drain is left reading a window
+		// that is no longer maintained, which is a correctness problem for that
+		// drain -- and it is the drain, not this function, that acts on it.
+		// runVoterDistributionChunk compares the live window's FreezeHeight
+		// against its cursor's and settles a Failure receipt rather than paying
+		// through the wrong era; Phase A of the incoming era then rolls the
+		// residue forward via handlePhaseAEntryOverrun.
 		c.Pending = append(c.Pending, GCState{
 			FreezeHeight: c.FreezeHeight,
 			Cursor:       0,

@@ -479,6 +479,117 @@ func TestFrozenContractBucketUnknownContract(t *testing.T) {
 	r.ErrorIs(err, ErrBucketPostFreeze)
 }
 
+// TestSupersededWindowSilentlyAnswersForTheWrongEra pins the hazard that
+// rewarding's superseded-window guard exists to prevent, at the layer where the
+// hazard actually lives.
+//
+// eracow.Begin does not refuse a second era boundary arriving while the previous
+// era's drain is still outstanding. It queues the old window for collection and
+// installs the new one, so EraCOWWindow starts answering at the new freeze
+// height. Nothing here defends against being handed that window together with
+// the old era's work: these readers take a window as an argument and answer for
+// whatever height it names. That is the right contract for a primitive -- the
+// window is the caller's statement of which era it is settling -- but it means
+// the check has to be somewhere, and it cannot be here.
+//
+// What the drain would get, if it did not check, is not a stall and not an
+// error. It is a settlement for era 1 computed on era 2's state, wrong in both
+// directions the window can be wrong:
+//
+//   - a bucket that grew after H1 reads at its grown value, and
+//   - a bucket that did not exist at H1 at all becomes readable.
+//
+// Era 1's copies are still on disk throughout, so this is a matter of reading
+// the wrong tag rather than of losing data. The guard that acts on it lives in
+// runVoterDistributionChunk; see TestVoterDrainRefusesASupersededEraWindow.
+func TestSupersededWindowSilentlyAnswersForTheWrongEra(t *testing.T) {
+	r := require.New(t)
+	const (
+		h1 = eraTestFreezeHeight      // era 1 freezes here
+		h2 = eraTestFreezeHeight + 50 // era 2 freezes here, drain still running
+	)
+	// Activation stays at h1 for both contexts; only the block height advances.
+	ctxAtH1 := forkGateCtx(h1, true)
+	ctxAtH2 := protocol.WithFeatureCtx(protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), func() genesis.Genesis {
+			g := genesis.TestDefault()
+			g.ToBeEnabledBlockHeight = h1
+			return g
+		}()),
+		protocol.BlockCtx{BlockHeight: h2},
+	))
+	sm := eraTestSM(t)
+	csm := eraTestCSM(ctxAtH1, sm)
+
+	// --- era 1 --------------------------------------------------------------
+	staked, err := csm.putBucketAndIndex(eraTestBucket(t, 2, 1, 100))
+	r.NoError(err)
+	r.NoError(beginEraCOWWindow(ctxAtH1, sm, h1))
+	windowH1, err := EraCOWWindow(sm)
+	r.NoError(err)
+
+	// The drain for era 1 starts. Mid-drain the bucket grows (a compound
+	// deposit does exactly this) and a brand new bucket is staked.
+	grown := eraTestBucket(t, 2, 1, 100)
+	grown.Index = staked
+	grown.StakedAmount = big.NewInt(999)
+	r.NoError(csm.updateBucket(staked, grown))
+	postFreeze, err := csm.putBucketAndIndex(eraTestBucket(t, 3, 1, 700))
+	r.NoError(err)
+	r.NotEqual(staked, postFreeze)
+
+	// While era 1's window is the live one the drain is correct: it sees the
+	// pre-mutation value and refuses the newcomer.
+	frozen, err := FrozenNativeBucket(sm, windowH1, staked)
+	r.NoError(err)
+	r.Equal(big.NewInt(100), frozen.StakedAmount)
+	_, err = FrozenNativeBucket(sm, windowH1, postFreeze)
+	r.ErrorIs(err, ErrBucketPostFreeze)
+
+	// --- era 2 freezes before era 1's drain finished -------------------------
+	r.NoError(beginEraCOWWindow(ctxAtH2, sm, h2))
+
+	// This is the exact read runVoterDistributionChunk performs, and the exact
+	// check it makes. Both succeed, so the era-1 drain proceeds.
+	live, err := EraCOWWindow(sm)
+	r.NoError(err)
+	r.True(live.Open(), "the drain's only window gate still passes")
+	r.Equal(h2, live.FreezeHeight, "but it is no longer era 1's window")
+	r.NotEqual(windowH1.FreezeHeight, live.FreezeHeight,
+		"nothing reconciles the live window against the cursor's freeze height")
+
+	// Corruption 1: the era-1 settlement now reads the post-H1 value. The work
+	// item still says FreezeHeight == h1, so no other layer can notice.
+	frozen, err = FrozenNativeBucket(sm, live, staked)
+	r.NoError(err)
+	r.Equal(big.NewInt(999), frozen.StakedAmount,
+		"era 1 pays on the bucket's post-H1 amount")
+
+	// Corruption 2: the high-water mark moved with the window, so a bucket
+	// minted after era 1's boundary is admitted into era 1's payout.
+	frozen, err = FrozenNativeBucket(sm, live, postFreeze)
+	r.NoError(err)
+	r.Equal(big.NewInt(700), frozen.StakedAmount,
+		"a bucket that did not exist at h1 is payable in era 1")
+
+	// The voter index goes the same way: a voter who first staked after h1 is
+	// enumerated as an era-1 voter.
+	newcomer := identityset.Address(3)
+	indices, err := FrozenNativeBucketIndices(sm, windowH1, newcomer)
+	r.NoError(err)
+	r.Empty(indices, "correct answer for era 1")
+	indices, err = FrozenNativeBucketIndices(sm, live, newcomer)
+	r.NoError(err)
+	r.Equal(BucketIndices{postFreeze}, indices, "answer the drain actually gets")
+
+	// Era 1's copies were never deleted -- Begin queued them for GC rather than
+	// dropping them -- so the drain had the right data available and read the
+	// wrong tag. A guard, not a rescue, is what is missing.
+	frozen, err = FrozenNativeBucket(sm, windowH1, staked)
+	r.NoError(err)
+	r.Equal(big.NewInt(100), frozen.StakedAmount)
+}
+
 // eraTestRawValue accepts any stored value, so the counters above can walk a
 // namespace holding several unrelated types.
 type eraTestRawValue struct{ data []byte }

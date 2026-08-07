@@ -1205,6 +1205,33 @@ func (p *Protocol) runVoterDistributionChunk(
 		// the era never froze.
 		return nil, nil, errors.New("rewarding: era copy-on-write window is closed during drain")
 	}
+	// Open is not enough: it must be *this* era's window. The next era's freeze
+	// rides PutPollResult, which fires around the midpoint of the epoch before
+	// the boundary epoch -- roughly 1.5 epochs before the boundary block where
+	// Phase A would notice the overrun and hand this cursor to
+	// handlePhaseAEntryOverrun. eracow.Begin does not refuse to supersede an
+	// open window; it queues the old one for collection and installs the new
+	// one. So for that 1.5-epoch stretch EraCOWWindow answers at the new freeze
+	// height while every work item here still carries the old one, and the two
+	// travel together into staking.FrozenVoterWeight.
+	//
+	// The reads that follow would not fail, they would answer for the wrong
+	// era: a bucket that grew since the old H pays at its grown amount, and a
+	// bucket minted after the old H becomes payable at all, because the
+	// high-water marks moved with the window.
+	//
+	// Stop rather than pay. Nothing is lost by stopping: the pending pools stay
+	// where they are, and Phase A of the incoming era runs
+	// handlePhaseAEntryOverrun, which deletes this cursor and rolls every
+	// delegate's residue into the era that can freeze it properly. Settleable
+	// because both heights are committed state that every node reads
+	// identically, so a Failure receipt is a verdict the whole network reaches
+	// on the same block.
+	if frozenAt, mismatched := cursor.eraFreezeHeightMismatch(window.FreezeHeight); mismatched {
+		return nil, nil, settleableVoterChunkError(
+			"rewarding: era %d drain frozen at height %d outlived its copy-on-write window, which is now open at height %d",
+			cursor.TargetEra, frozenAt, window.FreezeHeight)
+	}
 	routing, err := p.resolveVoterRouting(ctx, sm)
 	if err != nil {
 		return nil, nil, err

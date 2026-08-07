@@ -85,6 +85,26 @@ const noSelfStakeBucketIndex = staking.NoSelfStakeBucketIndex
 // drain skips it and its pending pool rolls into a later era.
 func (d epochDrainDelegateWork) hasFrozenEra() bool { return d.FreezeHeight > 0 }
 
+// eraFreezeHeightMismatch reports the first work item whose freeze height is not
+// h, and whether one exists.
+//
+// Phase A materialises the whole work list from a single window, so in a healthy
+// cursor every non-zero FreezeHeight is the same number. The caller compares
+// that number against the window the drain is about to read through; this walks
+// the whole list rather than sampling the first entry so a cursor that somehow
+// carries two eras is caught as well as one that has outlived its window.
+//
+// Items with a zero FreezeHeight are ignored: they carry no era at all and are
+// already dropped by drainPayablePrefilter.
+func (c *epochDrainCursor) eraFreezeHeightMismatch(h uint64) (uint64, bool) {
+	for i := range c.Delegates {
+		if d := c.Delegates[i]; d.hasFrozenEra() && d.FreezeHeight != h {
+			return d.FreezeHeight, true
+		}
+	}
+	return 0, false
+}
+
 // epochDrainCursor checkpoints an IIP-59 era-boundary drain of
 // PendingBlockRewardPool balances into voter accounts.
 //

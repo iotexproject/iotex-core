@@ -444,3 +444,79 @@ func TestVoterDrainConservesEveryDelegatePool(t *testing.T) {
 		"total money out (%s) must equal total money frozen (%s)", moved, grandTotal)
 	r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, append(append([]address.Address(nil), voters...), delegates...)))
 }
+
+// TestVoterDrainRefusesASupersededEraWindow covers the one window transition the
+// drain cannot survive: the next era's freeze landing while this era still has
+// voters to pay.
+//
+// The freeze rides PutPollResult, which fires around the midpoint of the epoch
+// before the boundary epoch — roughly 1.5 epochs before the boundary block where
+// Phase A hands an overrunning cursor to handlePhaseAEntryOverrun. eracow.Begin
+// does not refuse to supersede an open window, so for that entire stretch
+// EraCOWWindow answers at the new freeze height while the cursor still carries
+// the old one. Nothing errors: the reads simply answer for the wrong era, at
+// which point the drain pays real money on buckets that grew after its own
+// boundary, and on buckets that did not exist at it. See
+// TestSupersededWindowSilentlyAnswersForTheWrongEra in the staking package for
+// that mechanism in isolation.
+//
+// So the drain must notice the swap itself. Stopping costs nothing: Phase A of
+// the incoming era rolls every delegate's residue into an era that can freeze it
+// properly.
+func TestVoterDrainRefusesASupersededEraWindow(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+	delegate := identityset.Address(4)
+	const rau = int64(1_000_000_000_000_000_000)
+
+	// One voter per block, so the drain is guaranteed to be mid-flight when the
+	// next era freezes.
+	p.cfg.VoterBudgetPerBlock = 1
+	voters := []address.Address{
+		sameShardVoter(0x11, 0), sameShardVoter(0x22, 1), sameShardVoter(0x33, 2),
+	}
+	seeds := make([]iip59NativeSeed, 0, len(voters))
+	for i, voter := range voters {
+		seeds = append(seeds, iip59NativeSeed{
+			delegate: delegate, voter: voter, amount: int64(i+1) * rau,
+		})
+	}
+	newDrainScenario(t, ctx, sm, p, []byte{0x71, 0x0d}, 1_000_000, seeds, nil)
+
+	// A chunk under the era's own window is fine.
+	_, _, err := p.GrantVoterRewardChunk(ctx, sm)
+	r.NoError(err)
+	before, err := p.readEpochDrainCursor(ctx, sm)
+	r.NoError(err)
+	r.NotNil(before)
+	r.False(before.Completed, "this fixture must leave the drain mid-flight")
+
+	// The next era boundary freezes. The drain is still owed voters.
+	r.NoError(staking.TestOnlyBeginEraCOWWindow(ctx, sm, iip59FixtureFreezeHeight+2_000))
+	window, err := staking.EraCOWWindow(sm)
+	r.NoError(err)
+	r.True(window.Open(), "the old Open() gate on its own still passes")
+	r.NotEqual(before.Delegates[0].FreezeHeight, window.FreezeHeight)
+
+	_, _, err = p.GrantVoterRewardChunk(ctx, sm)
+	r.Error(err, "the drain must not pay through a window it was not frozen against")
+	r.ErrorContains(err, "outlived its copy-on-write window")
+	// Both heights are committed state, so every node reaches this verdict on
+	// the same block: it settles as a Failure receipt instead of failing the
+	// block for the whole network.
+	r.True(voterChunkErrorIsSettleable(err),
+		"a halted block here would stop the chain for 1.5 epochs, not just the drain")
+
+	// Refusing must be inert: no partial payout, no cursor movement, so the
+	// residue Phase A rolls forward is still whole.
+	after, err := p.readEpochDrainCursor(ctx, sm)
+	r.NoError(err)
+	r.NotNil(after)
+	r.Equal(before.ShardsDone, after.ShardsDone)
+	r.Equal(before.ResumeVoter, after.ResumeVoter)
+	r.False(after.Completed)
+	for i := range after.Delegates {
+		r.Zero(before.distributedAt(i).Cmp(after.distributedAt(i)),
+			"delegate %d paid out while the window was superseded", i)
+	}
+}

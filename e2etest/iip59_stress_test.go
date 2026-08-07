@@ -45,16 +45,27 @@ var iip59StressTiers = map[string]perfTier{
 // continuation chunks, each resuming where the last one left the key-space
 // shard walk.
 //
-// epochsPerEra=11 sizes the era wide enough (numDelegates=1,
-// NumSubEpochs=2 → blocks_per_era = 22, chunks_per_era = 11) that the whole
-// drain completes inside a single era. The IIP-59 §10.2 overrun handler
-// resets any cursor still live at the next era boundary, so a fixture that
-// leaked the drain across two eras would restart the walk and never show
-// monotonic progress.
+// epochsPerEra sizes the era so the drain finishes with room to spare.
+// numDelegates=1 and NumSubEpochs=2 give 2 blocks per epoch, and a
+// continuation chunk lands on the first block of each epoch, so an era of E
+// epochs offers E-1 chunks strictly before the next era boundary. The drain
+// needs about 11: ten to pay 500 voters at 50 a block, plus one to walk the
+// tail of the shard space and mark itself complete.
+//
+// Strictly before matters. The boundary block is where the next era's freeze
+// supersedes the copy-on-write window this cursor was frozen against, and
+// runVoterDistributionChunk refuses to pay through a window it does not own —
+// the drain must be done by then, not on that block. At E=11 the eleventh
+// chunk landed exactly on the boundary, so whether the fixture passed came
+// down to which shard the settlement seed happened to start the walk at. E=16
+// leaves four chunks of slack.
+//
+// The cap still bites: 500 voters at 50 a block is ten paying chunks either
+// way.
 var iip59SingleDelegateLargeVoterTier = perfTier{
 	numDelegates:        1,
 	numVoters:           500,
-	epochsPerEra:        11,
+	epochsPerEra:        16,
 	voterBudgetPerBlock: 50,
 }
 
