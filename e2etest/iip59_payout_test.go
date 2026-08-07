@@ -41,17 +41,16 @@ import (
 // perf-bench fixture.
 //
 // The fixture is uniform by construction: every voter bucket carries the same
-// stake, duration and auto-stake flag, and voters are handed to delegates
-// round-robin. So one weight and one share per delegate describe every voter of
-// that delegate, and the delegate's own self-stake bucket -- which the drain
-// visits as a voter like any other -- is the only special case.
+// stake, duration and auto-stake flag, and all buckets owned by voter j target
+// delegate j%numDelegates. The scale tier gives some voters multiple native
+// buckets and some a contract bucket, so the oracle aggregates bucket weight
+// before applying the payout division, exactly once per voter.
 type iip59PayoutModel struct {
 	tier        perfTier
 	pool        []*big.Int // per delegate: VoterAmountFrozen read from the plan
 	totalWeight []*big.Int // per delegate: recomputed, then checked against the plan
-	voterShare  []*big.Int // per delegate: what exactly one of its voters is owed
+	voterWeight []*big.Int // per delegate: weight of one uniform voter bucket
 	selfShare   []*big.Int // per delegate: what its own self-stake bucket is owed
-	voterCount  []int      // per delegate: how many voters the seeder gave it
 }
 
 // newIIP59PayoutModel builds the expectation and, on the way, checks the two
@@ -82,9 +81,8 @@ func newIIP59PayoutModel(
 		tier:        tier,
 		pool:        make([]*big.Int, tier.numDelegates),
 		totalWeight: make([]*big.Int, tier.numDelegates),
-		voterShare:  make([]*big.Int, tier.numDelegates),
+		voterWeight: make([]*big.Int, tier.numDelegates),
 		selfShare:   make([]*big.Int, tier.numDelegates),
-		voterCount:  make([]int, tier.numDelegates),
 	}
 	for i := 0; i < tier.numDelegates; i++ {
 		del := staking.TestOnlyPerfBenchDelegateAddress(i)
@@ -104,24 +102,22 @@ func newIIP59PayoutModel(
 		// auto-staked, and only the delegate's own bucket carries the self-stake
 		// bonus.
 		voterWeight := staking.CalculateVoteWeight(consts, staking.NewVoteBucket(
-			del, staking.TestOnlyPerfBenchVoterAddress(0), iip59PerfVoterStake(),
+			del, perfVoterAddress(tier, 0), iip59PerfVoterStake(),
 			iip59PerfVoterStakeDurationDays, ctime, true,
 		), false)
-		// Round-robin: voter j belongs to delegate j % numDelegates.
-		count := tier.numVoters / tier.numDelegates
-		if i < tier.numVoters%tier.numDelegates {
-			count++
+		bucketCount := 0
+		for voter := i; voter < tier.numVoters; voter += tier.numDelegates {
+			bucketCount += tier.voterBucketCount(voter)
 		}
 
-		total := new(big.Int).Add(selfWeight, new(big.Int).Mul(voterWeight, big.NewInt(int64(count))))
+		total := new(big.Int).Add(selfWeight, new(big.Int).Mul(voterWeight, big.NewInt(int64(bucketCount))))
 		r.Equalf(0, total.Cmp(work.TotalWeight),
 			"delegate %d: recomputed total weight %s does not match the frozen denominator %s",
 			i, total.String(), work.TotalWeight.String())
 
 		m.pool[i] = new(big.Int).Set(work.VoterAmountFrozen)
 		m.totalWeight[i] = total
-		m.voterCount[i] = count
-		m.voterShare[i] = new(big.Int).Div(new(big.Int).Mul(m.pool[i], voterWeight), total)
+		m.voterWeight[i] = voterWeight
 		m.selfShare[i] = new(big.Int).Div(new(big.Int).Mul(m.pool[i], selfWeight), total)
 	}
 	return m
@@ -129,14 +125,19 @@ func newIIP59PayoutModel(
 
 // expectedVoterPayout is what seeded voter j must end the settlement with.
 func (m *iip59PayoutModel) expectedVoterPayout(j int) *big.Int {
-	return m.voterShare[j%m.tier.numDelegates]
+	delegate := j % m.tier.numDelegates
+	weight := new(big.Int).Mul(m.voterWeight[delegate], big.NewInt(int64(m.tier.voterBucketCount(j))))
+	return new(big.Int).Div(new(big.Int).Mul(m.pool[delegate], weight), m.totalWeight[delegate])
 }
 
 // expectedDelegatePayout is the sum of every share drawn from delegate i's
 // frozen pool, its own self-stake bucket included.
 func (m *iip59PayoutModel) expectedDelegatePayout(i int) *big.Int {
-	out := new(big.Int).Mul(m.voterShare[i], big.NewInt(int64(m.voterCount[i])))
-	return out.Add(out, m.selfShare[i])
+	out := new(big.Int).Set(m.selfShare[i])
+	for voter := i; voter < m.tier.numVoters; voter += m.tier.numDelegates {
+		out.Add(out, m.expectedVoterPayout(voter))
+	}
+	return out
 }
 
 // iip59WorkFor finds a delegate's work item in a settlement plan.
@@ -171,13 +172,35 @@ func assertIIP59PerVoterPayouts(t *testing.T, run iip59DrainRun) *iip59PayoutMod
 	m := newIIP59PayoutModel(t, run.tier, run.g, run.plan)
 
 	for j := 0; j < run.tier.numVoters; j++ {
-		voter := staking.TestOnlyPerfBenchVoterAddress(j)
+		voter := perfVoterAddress(run.tier, j)
 		got, ok := run.balances[voter.String()]
 		r.Truef(ok, "voter %d (%s) has no balance sample", j, voter.String())
 		want := m.expectedVoterPayout(j)
 		r.Equalf(0, want.Cmp(got),
 			"voter %d (delegate %d): want payout %s, got %s",
 			j, j%run.tier.numDelegates, want.String(), got.String())
+	}
+	for i := 0; i < run.tier.numDelegates; i++ {
+		paid := m.expectedDelegatePayout(i)
+		r.LessOrEqualf(paid.Cmp(m.pool[i]), 0,
+			"delegate %d paid out %s against a frozen pool of %s",
+			i, paid.String(), m.pool[i].String())
+	}
+	return m
+}
+
+func assertIIP59SampledVoterPayouts(t *testing.T, run iip59DrainRun, voters []int) *iip59PayoutModel {
+	t.Helper()
+	r := require.New(t)
+	m := newIIP59PayoutModel(t, run.tier, run.g, run.plan)
+	for _, j := range voters {
+		voter := perfVoterAddress(run.tier, j)
+		got, ok := run.balances[voter.String()]
+		r.Truef(ok, "sampled voter %d (%s) has no balance", j, voter.String())
+		want := m.expectedVoterPayout(j)
+		r.Equalf(0, want.Cmp(got),
+			"sampled voter %d (delegate %d, buckets %d): want payout %s, got %s",
+			j, j%run.tier.numDelegates, run.tier.voterBucketCount(j), want.String(), got.String())
 	}
 	for i := 0; i < run.tier.numDelegates; i++ {
 		paid := m.expectedDelegatePayout(i)
@@ -406,7 +429,7 @@ func TestIIP59DrainResumeEquivalence(t *testing.T) {
 	assertIIP59PerVoterPayouts(t, single)
 	assertIIP59PerVoterPayouts(t, many)
 	for j := 0; j < base.numVoters; j++ {
-		voter := staking.TestOnlyPerfBenchVoterAddress(j).String()
+		voter := perfVoterAddress(base, j).String()
 		r.Equalf(0, single.balances[voter].Cmp(many.balances[voter]),
 			"voter %d was paid %s in one chunk but %s across many",
 			j, single.balances[voter].String(), many.balances[voter].String())
@@ -510,7 +533,7 @@ func TestIIP59DrainPaysTheFrozenEraNotTheLiveOne(t *testing.T) {
 	tier := iip59StressTiers["small"]
 	// Voter 0 belongs to delegate 0 (round-robin), so both halves of the test
 	// draw on the same frozen pool and the same expected share.
-	dropVoter := staking.TestOnlyPerfBenchVoterAddress(0)
+	dropVoter := perfVoterAddress(tier, 0)
 	newVoter := identityset.Address(30)
 	mutator := &iip59PostFreezeMutator{
 		epochsPerEra: tier.epochsPerEra,

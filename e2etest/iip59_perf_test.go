@@ -9,6 +9,7 @@ import (
 	"context"
 	"math/big"
 	"os"
+	"runtime"
 	"sort"
 	"testing"
 	"time"
@@ -41,6 +42,10 @@ import (
 type perfTier struct {
 	numDelegates        int
 	numVoters           int
+	numNativeBuckets    int
+	numContractBuckets  int
+	shardVoterAddresses bool
+	sampleVoterPayouts  bool
 	epochsPerEra        uint64
 	voterBudgetPerBlock uint64
 }
@@ -49,6 +54,16 @@ var iip59PerfTiers = map[string]perfTier{
 	"small":   {numDelegates: 3, numVoters: 100, epochsPerEra: 2, voterBudgetPerBlock: 50},
 	"medium":  {numDelegates: 10, numVoters: 1_000, epochsPerEra: 4, voterBudgetPerBlock: 250},
 	"mainnet": {numDelegates: 24, numVoters: 27_020, epochsPerEra: 24, voterBudgetPerBlock: 4_504},
+	"scale": {
+		numDelegates:        24,
+		numVoters:           30_000,
+		numNativeBuckets:    50_000,
+		numContractBuckets:  10_000,
+		shardVoterAddresses: true,
+		sampleVoterPayouts:  true,
+		epochsPerEra:        2,
+		voterBudgetPerBlock: 4_504,
+	},
 }
 
 const iip59PerfTierEnv = "IIP59_PERF_TIER"
@@ -61,6 +76,112 @@ const iip59PerfVoterStakeDurationDays uint32 = 30
 
 func iip59PerfDelegateSelfStake() *big.Int { return unit.ConvertIotxToRau(1_200_000) }
 func iip59PerfVoterStake() *big.Int        { return unit.ConvertIotxToRau(1_000) }
+
+func (tier perfTier) nativeBucketCount() int {
+	if tier.numNativeBuckets == 0 {
+		return tier.numVoters
+	}
+	return tier.numNativeBuckets
+}
+
+func (tier perfTier) voterBucketCount(voter int) int {
+	count := 0
+	if voter >= 0 && voter < tier.numVoters {
+		if native := tier.nativeBucketCount(); voter < native {
+			count += (native-1-voter)/tier.numVoters + 1
+		}
+		if voter < tier.numContractBuckets {
+			count += (tier.numContractBuckets-1-voter)/tier.numVoters + 1
+		}
+	}
+	return count
+}
+
+func perfVoterAddress(tier perfTier, voter int) address.Address {
+	if tier.shardVoterAddresses {
+		return staking.TestOnlyPerfBenchShardedVoterAddress(voter)
+	}
+	return staking.TestOnlyPerfBenchVoterAddress(voter)
+}
+
+type iip59PerfMetric struct {
+	wall       time.Duration
+	totalAlloc uint64
+	mallocs    uint64
+	heapAlloc  uint64
+	peakRSS    uint64
+}
+
+func mintOneMeasured(
+	bc blockchain.Blockchain,
+	ap actpool.ActPool,
+	blkTime time.Time,
+) (iip59PerfMetric, error) {
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	wall, err := mintOne(bc, ap, blkTime)
+	runtime.ReadMemStats(&after)
+	return iip59PerfMetric{
+		wall:       wall,
+		totalAlloc: after.TotalAlloc - before.TotalAlloc,
+		mallocs:    after.Mallocs - before.Mallocs,
+		heapAlloc:  after.HeapAlloc,
+		peakRSS:    iip59PeakRSSBytes(),
+	}, err
+}
+
+func logIIP59PerfMetric(t *testing.T, phase string, height uint64, metric iip59PerfMetric) {
+	t.Helper()
+	t.Logf("iip59 phase=%s height=%d wall=%v alloc=%.2fMiB mallocs=%d heap=%.2fMiB peak_rss=%.2fMiB",
+		phase, height, metric.wall, float64(metric.totalAlloc)/(1<<20), metric.mallocs,
+		float64(metric.heapAlloc)/(1<<20), float64(metric.peakRSS)/(1<<20))
+}
+
+func sampledIIP59PerfVoters(tier perfTier) []int {
+	if tier.numVoters == 0 {
+		return nil
+	}
+	selected := make(map[int]struct{}, 520)
+	add := func(voter int) {
+		if voter >= 0 && voter < tier.numVoters {
+			selected[voter] = struct{}{}
+		}
+	}
+	add(0)
+	add(tier.numVoters - 1)
+	// First and last voter in every shard pin both shard transitions and the
+	// full key range within each shard.
+	for shard := 0; shard < 256; shard++ {
+		add(shard)
+		last := tier.numVoters - 1
+		last -= (last - shard) & 255
+		add(last)
+	}
+	// Boundaries where the fixture changes from multiple to one native bucket,
+	// and from owning to not owning a contract bucket.
+	for _, boundary := range []int{
+		tier.nativeBucketCount() % tier.numVoters,
+		tier.numContractBuckets % tier.numVoters,
+	} {
+		add(boundary - 1)
+		add(boundary)
+	}
+	out := make([]int, 0, len(selected))
+	for voter := range selected {
+		out = append(out, voter)
+	}
+	sort.Ints(out)
+	return out
+}
+
+func sampledIIP59PerfVoterAddrs(tier perfTier) []address.Address {
+	voters := sampledIIP59PerfVoters(tier)
+	out := make([]address.Address, 0, len(voters))
+	for _, voter := range voters {
+		out = append(out, perfVoterAddress(tier, voter))
+	}
+	return out
+}
 
 // TestIIP59EpochGrantPerf spins up a real itx.Server, plants a
 // tier-sized delegate/voter population directly in the genesis state,
@@ -82,10 +203,10 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	}
 	tier, ok := iip59PerfTiers[tierName]
 	if !ok {
-		t.Fatalf("unknown %s=%q; want small|medium|mainnet", iip59PerfTierEnv, tierName)
+		t.Fatalf("unknown %s=%q; want small|medium|mainnet|scale", iip59PerfTierEnv, tierName)
 	}
-	if tierName == "mainnet" && testing.Short() {
-		t.Skipf("skipping mainnet tier under -short")
+	if (tierName == "mainnet" || tierName == "scale") && testing.Short() {
+		t.Skipf("skipping %s tier under -short", tierName)
 	}
 
 	cfg := newIIP59PerfCfg(r, tier)
@@ -97,6 +218,9 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	defer test.teardown()
 	registerEpochProtocols(r, test)
 	registerIIP59EraFreezer(r, test, tier)
+	if tier.numContractBuckets > 0 {
+		registerIIP59PreActivationContractSeeder(r, test, iip59PerfSeederSpec(t, tier, cfg.Genesis), 1)
+	}
 
 	bc := test.cs.Blockchain()
 	ap := test.cs.ActionPool()
@@ -118,6 +242,9 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 		drainStartHeight uint64
 		drainStartEpoch  uint64
 		chunkTimes       []time.Duration
+		chunkMetrics     []iip59PerfMetric
+		activationMetric *iip59PerfMetric
+		freezeMetric     *iip59PerfMetric
 	)
 	// Guard: derive the ceiling from the active Roll-DPoS epoch calculator.
 	// This avoids duplicating NumSubEpochs assumptions here: for example, the
@@ -137,11 +264,25 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	watcher := newIIP59DrainWatch()
 	for minted < maxBlocks {
 		blkTime = blkTime.Add(step)
-		wall, err := mintOne(bc, ap, blkTime)
+		nextHeight := bc.TipHeight() + 1
+		nextEpoch := rp.GetEpochNum(nextHeight)
+		isFreezeBlock := nextHeight == rp.GetEpochHeight(nextEpoch) &&
+			protocol.IsEraBoundary(nextEpoch, tier.epochsPerEra)
+		metric, err := mintOneMeasured(bc, ap, blkTime)
 		r.NoErrorf(err, "mint at height %d", bc.TipHeight())
 		minted++
 
 		height := bc.TipHeight()
+		if height == cfg.Genesis.ToBeEnabledBlockHeight {
+			m := metric
+			activationMetric = &m
+			logIIP59PerfMetric(t, "activation-backfill", height, metric)
+		}
+		if isFreezeBlock && freezeMetric == nil {
+			m := metric
+			freezeMetric = &m
+			logIIP59PerfMetric(t, "era-freeze", height, metric)
+		}
 		delegateIndex, voterIndex, totalDelegates, tEra, present, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, height)
 		r.NoErrorf(err, "drainSnapshot at height %d", height)
 		// Sampled here rather than at the end because completion folds each
@@ -160,9 +301,10 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 			t.Logf("drain begins at height=%d epoch=%d targetEra=%d", height, drainStartEpoch, tEra)
 		}
 		if drainStartHeight != 0 {
-			chunkTimes = append(chunkTimes, wall)
+			chunkTimes = append(chunkTimes, metric.wall)
+			chunkMetrics = append(chunkMetrics, metric)
 			t.Logf("h=%d epoch=%d present=%v idx=%d/%d voterIdx=%d era=%d wall=%v",
-				height, rp.GetEpochNum(height), present, delegateIndex, totalDelegates, voterIndex, tEra, wall)
+				height, rp.GetEpochNum(height), present, delegateIndex, totalDelegates, voterIndex, tEra, metric.wall)
 			if !present {
 				break
 			}
@@ -179,6 +321,8 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	_, _, _, _, stillDraining, err := drainSnapshot(test.cs, cfg.Genesis, rewardProto, tipHeight)
 	r.NoError(err)
 	r.Falsef(stillDraining, "drain still in progress at tip height %d", tipHeight)
+	r.NotNil(activationMetric, "activation block was not measured")
+	r.NotNil(freezeMetric, "era freeze block was not measured")
 
 	// Latency is only worth reporting for a settlement that was correct. The
 	// bench mints a real era freeze and a real drain, so the same run can carry
@@ -188,12 +332,22 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	r.NoError(err)
 	r.True(planPresent, "the completed settlement's plan must be readable at tip")
 	r.True(completed, "the settlement must be marked completed once the cursor goes absent")
-	assertIIP59PerVoterPayouts(t, iip59DrainRun{
+	assertStressInvariant(t, test.cs, cfg.Genesis, rewardProto, seededStressAddrs(tier), tipHeight)
+	checkAddrs := seededStressAddrs(tier)
+	if tier.sampleVoterPayouts {
+		checkAddrs = sampledIIP59PerfVoterAddrs(tier)
+	}
+	run := iip59DrainRun{
 		tier:     tier,
 		g:        cfg.Genesis,
 		plan:     plan,
-		balances: iip59VoterBalances(t, test.cs, cfg.Genesis, seededStressAddrs(tier)),
-	})
+		balances: iip59VoterBalances(t, test.cs, cfg.Genesis, checkAddrs),
+	}
+	if tier.sampleVoterPayouts {
+		assertIIP59SampledVoterPayouts(t, run, sampledIIP59PerfVoters(tier))
+	} else {
+		assertIIP59PerVoterPayouts(t, run)
+	}
 
 	total := time.Duration(0)
 	for _, d := range chunkTimes {
@@ -205,10 +359,22 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	p50 := sorted[len(sorted)/2]
 	p95 := sorted[(len(sorted)*95+99)/100-1]
 	maxD := sorted[len(sorted)-1]
+	var drainAlloc, drainMallocs, maxDrainHeap, maxDrainRSS uint64
+	for _, metric := range chunkMetrics {
+		drainAlloc += metric.totalAlloc
+		drainMallocs += metric.mallocs
+		if metric.heapAlloc > maxDrainHeap {
+			maxDrainHeap = metric.heapAlloc
+		}
+		if metric.peakRSS > maxDrainRSS {
+			maxDrainRSS = metric.peakRSS
+		}
+	}
 
-	t.Logf("iip59 perf: tier=%s delegates=%d voters=%d era_epochs=%d voter_budget=%d drain_blocks=%d p50=%v p95=%v max=%v total=%v",
-		tierName, tier.numDelegates, tier.numVoters, tier.epochsPerEra, tier.voterBudgetPerBlock,
-		len(chunkTimes), p50, p95, maxD, total)
+	t.Logf("iip59 perf: tier=%s delegates=%d voters=%d native_buckets=%d contract_buckets=%d era_epochs=%d voter_budget=%d drain_blocks=%d p50=%v p95=%v max=%v total=%v drain_alloc=%.2fMiB drain_mallocs=%d max_drain_heap=%.2fMiB peak_rss=%.2fMiB",
+		tierName, tier.numDelegates, tier.numVoters, tier.nativeBucketCount(), tier.numContractBuckets,
+		tier.epochsPerEra, tier.voterBudgetPerBlock, len(chunkTimes), p50, p95, maxD, total,
+		float64(drainAlloc)/(1<<20), drainMallocs, float64(maxDrainHeap)/(1<<20), float64(maxDrainRSS)/(1<<20))
 }
 
 // newIIP59PerfCfg derives a config from initCfg(), then overrides the
@@ -233,6 +399,11 @@ func newIIP59PerfCfg(r *require.Assertions, tier perfTier) config.Config {
 	// through the new voter-reward gate. NoVoterRewardDistribution is
 	// bound to !g.IsToBeEnabled(height) — see action/protocol/context.go.
 	cfg.Genesis.ToBeEnabledBlockHeight = 1
+	if tier.numContractBuckets > 0 {
+		cfg.Genesis.XinguBlockHeight = 1
+		cfg.Genesis.XinguBetaBlockHeight = 1
+		cfg.Genesis.ToBeEnabledBlockHeight = 2
+	}
 
 	// Tier: shrink NumDelegates to match the seeded set; keep
 	// sub-epochs small so era boundaries arrive quickly.
@@ -293,18 +464,7 @@ func newIIP59PerfCfg(r *require.Assertions, tier perfTier) config.Config {
 // bridge stays nil and the path degrades to zero rates rather than an EVM call
 // against nonexistent bytecode if that ever changes.
 func iip59PerfBuildOptions(t *testing.T, tier perfTier, g genesis.Genesis) []chainservice.BuildOption {
-	spec := staking.TestOnlyPerfBenchSpec{
-		NumDelegates:            tier.numDelegates,
-		NumVoters:               tier.numVoters,
-		DelegateSelfStake:       iip59PerfDelegateSelfStake(),
-		VoterStake:              iip59PerfVoterStake(),
-		VoterStakedDurationDays: iip59PerfVoterStakeDurationDays,
-		VoteWeightCalConsts:     g.Staking.VoteWeightCalConsts,
-		// 9000 bp commission (10 % voter take) on both the block-side and
-		// epoch-side streams. This is the only source of the bench's rates.
-		BlockCommissionBasisPoints: 9000,
-		EpochCommissionBasisPoints: 9000,
-	}
+	spec := iip59PerfSeederSpec(t, tier, g)
 	adReader := newMockAutoDepositReader(t)
 	return []chainservice.BuildOption{
 		chainservice.WithStakingOptions(staking.WithGenesisStateSeeder(
@@ -317,6 +477,86 @@ func iip59PerfBuildOptions(t *testing.T, tier perfTier, g genesis.Genesis) []cha
 			func(autodeposit.SlotReader) autodeposit.BucketReader { return adReader },
 		)),
 	}
+}
+
+func iip59PerfSeederSpec(t *testing.T, tier perfTier, g genesis.Genesis) staking.TestOnlyPerfBenchSpec {
+	contractAddrs := make([]address.Address, 0, 3)
+	if tier.numContractBuckets > 0 {
+		for _, raw := range []string{
+			g.SystemStakingContractAddress,
+			g.SystemStakingContractV2Address,
+			g.SystemStakingContractV3Address,
+		} {
+			contract, err := address.FromString(raw)
+			require.NoError(t, err)
+			contractAddrs = append(contractAddrs, contract)
+		}
+	}
+	return staking.TestOnlyPerfBenchSpec{
+		NumDelegates:               tier.numDelegates,
+		NumVoters:                  tier.numVoters,
+		NumNativeBuckets:           tier.nativeBucketCount(),
+		NumContractBuckets:         tier.numContractBuckets,
+		ContractStakingAddresses:   contractAddrs,
+		ShardVoterAddresses:        tier.shardVoterAddresses,
+		DeferContractBucketSeeding: tier.numContractBuckets > 0,
+		DelegateSelfStake:          iip59PerfDelegateSelfStake(),
+		VoterStake:                 iip59PerfVoterStake(),
+		VoterStakedDurationDays:    iip59PerfVoterStakeDurationDays,
+		VoteWeightCalConsts:        g.Staking.VoteWeightCalConsts,
+		// 9000 bp commission (10 % voter take) on both the block-side and
+		// epoch-side streams. This is the only source of the bench's rates.
+		BlockCommissionBasisPoints: 9000,
+		EpochCommissionBasisPoints: 9000,
+	}
+}
+
+type iip59PreActivationContractSeeder struct {
+	height uint64
+	spec   staking.TestOnlyPerfBenchSpec
+}
+
+func (s *iip59PreActivationContractSeeder) Name() string {
+	return "iip59PreActivationContractSeeder"
+}
+
+func (s *iip59PreActivationContractSeeder) Handle(
+	context.Context, action.Envelope, protocol.StateManager,
+) (*action.Receipt, error) {
+	return nil, nil
+}
+
+func (s *iip59PreActivationContractSeeder) ReadState(
+	context.Context, protocol.StateReader, []byte, ...[]byte,
+) ([]byte, uint64, error) {
+	return nil, 0, protocol.ErrUnimplemented
+}
+
+func (s *iip59PreActivationContractSeeder) Register(r *protocol.Registry) error {
+	return r.Register(s.Name(), s)
+}
+
+func (s *iip59PreActivationContractSeeder) ForceRegister(r *protocol.Registry) error {
+	return r.ForceRegister(s.Name(), s)
+}
+
+func (s *iip59PreActivationContractSeeder) CreatePreStates(
+	ctx context.Context,
+	sm protocol.StateManager,
+) error {
+	if protocol.MustGetBlockCtx(ctx).BlockHeight != s.height {
+		return nil
+	}
+	return staking.TestOnlySeedPerfBenchContractBuckets(ctx, sm, s.spec)
+}
+
+func registerIIP59PreActivationContractSeeder(
+	r *require.Assertions,
+	test *e2etest,
+	spec staking.TestOnlyPerfBenchSpec,
+	height uint64,
+) {
+	r.NoError((&iip59PreActivationContractSeeder{height: height, spec: spec}).ForceRegister(test.cs.Registry()))
 }
 
 // iip59EraFreezer supplies the era-boundary freeze that these harnesses cannot

@@ -369,7 +369,7 @@ func seededStressAddrs(tier perfTier) []address.Address {
 		out = append(out, staking.TestOnlyPerfBenchDelegateAddress(i))
 	}
 	for j := 0; j < tier.numVoters; j++ {
-		out = append(out, staking.TestOnlyPerfBenchVoterAddress(j))
+		out = append(out, perfVoterAddress(tier, j))
 	}
 	return out
 }

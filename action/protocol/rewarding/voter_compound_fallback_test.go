@@ -112,6 +112,209 @@ func TestCompoundErrorClassification(t *testing.T) {
 	r.False(compoundErrorIsChainDetermined(nil))
 }
 
+// TestCompoundErrorClassificationMatchesStakingContract drives the exported
+// staking entry point instead of manufacturing errors in rewarding. It is the
+// cross-package contract test for the classifier above: if staking changes a
+// sentinel, receipt status, or wrapping rule, the corresponding classification
+// assertion fails here.
+func TestCompoundErrorClassificationMatchesStakingContract(t *testing.T) {
+	t.Run("caller guards halt", func(t *testing.T) {
+		f := newCompoundFixture(t)
+		sp := staking.FindProtocol(protocol.MustGetRegistry(f.ctx))
+		require.NotNil(t, sp)
+
+		for _, tc := range []struct {
+			name   string
+			voter  address.Address
+			amount *big.Int
+		}{
+			{name: "nil voter", amount: big.NewInt(1)},
+			{name: "nil amount", voter: f.voter},
+			{name: "zero amount", voter: f.voter, amount: new(big.Int)},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				err := sp.AddDepositForCompound(
+					f.ctx, f.sm, tc.voter, f.bucket.Index, tc.amount, staking.FrozenSelfStake{},
+				)
+				require.Error(t, err)
+				require.False(t, compoundErrorIsChainDetermined(err))
+			})
+		}
+	})
+
+	t.Run("missing bucket degrades with staking receipt", func(t *testing.T) {
+		f := newCompoundFixture(t)
+		sp := staking.FindProtocol(protocol.MustGetRegistry(f.ctx))
+		require.NotNil(t, sp)
+
+		err := sp.AddDepositForCompound(
+			f.ctx, f.sm, f.voter, f.bucket.Index+1_000_000, big.NewInt(1), staking.FrozenSelfStake{},
+		)
+		require.Error(t, err)
+		var receiptErr staking.ReceiptError
+		require.ErrorAs(t, err, &receiptErr)
+		require.Equal(t, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketIndex), receiptErr.ReceiptStatus())
+		require.True(t, compoundErrorIsChainDetermined(err))
+	})
+
+	t.Run("owner mismatch degrades with staking sentinel", func(t *testing.T) {
+		f := newCompoundFixture(t)
+		sp := staking.FindProtocol(protocol.MustGetRegistry(f.ctx))
+		require.NotNil(t, sp)
+
+		err := sp.AddDepositForCompound(
+			f.ctx, f.sm, identityset.Address(20), f.bucket.Index, big.NewInt(1), staking.FrozenSelfStake{},
+		)
+		require.ErrorIs(t, err, staking.ErrCompoundBucketOwnerMismatch)
+		require.True(t, compoundErrorIsChainDetermined(err))
+	})
+
+	t.Run("missing candidate degrades with staking receipt", func(t *testing.T) {
+		f := newCompoundFixture(t)
+		sp := staking.FindProtocol(protocol.MustGetRegistry(f.ctx))
+		require.NotNil(t, sp)
+		missingCandidate := identityset.Address(20)
+		bucketID, err := staking.TestOnlySeedNativeVoterBucket(
+			f.sm, missingCandidate, f.voter, big.NewInt(1_000), 30, time.Unix(100, 0).UTC(), true,
+		)
+		require.NoError(t, err)
+
+		err = sp.AddDepositForCompound(
+			f.ctx, f.sm, f.voter, bucketID, big.NewInt(1), staking.FrozenSelfStake{},
+		)
+		require.Error(t, err)
+		var receiptErr staking.ReceiptError
+		require.ErrorAs(t, err, &receiptErr)
+		require.Equal(t, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), receiptErr.ReceiptStatus())
+		require.True(t, compoundErrorIsChainDetermined(err))
+	})
+
+	t.Run("self stake role change degrades with staking sentinel", func(t *testing.T) {
+		f := newCompoundFixture(t)
+		sp := staking.FindProtocol(protocol.MustGetRegistry(f.ctx))
+		require.NotNil(t, sp)
+
+		err := sp.AddDepositForCompound(
+			f.ctx, f.sm, f.voter, f.bucket.Index, big.NewInt(1), staking.FrozenSelfStake{
+				FreezeHeight: iip59FixtureFreezeHeight,
+				BucketIdx:    f.bucket.Index,
+			},
+		)
+		require.ErrorIs(t, err, staking.ErrCompoundSelfStakeRoleChanged)
+		require.True(t, compoundErrorIsChainDetermined(err))
+	})
+
+	t.Run("candidate vote drift degrades with staking sentinel", func(t *testing.T) {
+		f := newCompoundFixture(t)
+		sp := staking.FindProtocol(protocol.MustGetRegistry(f.ctx))
+		require.NotNil(t, sp)
+		csm, err := staking.NewCandidateStateManagerWithContext(f.ctx, f.sm)
+		require.NoError(t, err)
+		candidate := csm.GetByIdentifier(f.delegate)
+		require.NotNil(t, candidate)
+		candidate.Votes = new(big.Int)
+		require.NoError(t, csm.Upsert(candidate))
+		require.NoError(t, csm.Commit(f.ctx))
+
+		err = sp.AddDepositForCompound(
+			f.ctx, f.sm, f.voter, f.bucket.Index, big.NewInt(1), staking.FrozenSelfStake{},
+		)
+		require.ErrorIs(t, err, action.ErrInvalidAmount)
+		require.True(t, compoundErrorIsChainDetermined(err))
+	})
+
+	t.Run("candidate conflict degrades with staking receipt", func(t *testing.T) {
+		f := newCompoundFixture(t)
+		sp := staking.FindProtocol(protocol.MustGetRegistry(f.ctx))
+		require.NotNil(t, sp)
+		failing := &failingCandidatePutStateManager{
+			StateManager: f.sm,
+			err:          action.ErrInvalidCanName,
+		}
+
+		err := sp.AddDepositForCompound(
+			f.ctx, failing, f.voter, f.bucket.Index, big.NewInt(1), staking.FrozenSelfStake{},
+		)
+		require.Error(t, err)
+		var receiptErr staking.ReceiptError
+		require.ErrorAs(t, err, &receiptErr)
+		require.Equal(t, uint64(iotextypes.ReceiptStatus_ErrCandidateConflict), receiptErr.ReceiptStatus())
+		require.True(t, compoundErrorIsChainDetermined(err))
+	})
+
+	t.Run("base view read failure halts", func(t *testing.T) {
+		f := newCompoundFixture(t)
+		sp := staking.FindProtocol(protocol.MustGetRegistry(f.ctx))
+		require.NotNil(t, sp)
+		failing := &failingReadViewStateManager{
+			StateManager: f.sm,
+			err:          errors.New("view read failed"),
+		}
+
+		err := sp.AddDepositForCompound(
+			f.ctx, failing, f.voter, f.bucket.Index, big.NewInt(1), staking.FrozenSelfStake{},
+		)
+		require.ErrorContains(t, err, "view read failed")
+		require.False(t, compoundErrorIsChainDetermined(err))
+	})
+
+	t.Run("bucket write failure halts", func(t *testing.T) {
+		f := newCompoundFixture(t)
+		sp := staking.FindProtocol(protocol.MustGetRegistry(f.ctx))
+		require.NotNil(t, sp)
+		failing := &failingPutStateManager{
+			StateManager: f.sm,
+			namespace:    state.StakingNamespace,
+			err:          errors.New("bucket write failed"),
+		}
+
+		err := sp.AddDepositForCompound(
+			f.ctx, failing, f.voter, f.bucket.Index, big.NewInt(1), staking.FrozenSelfStake{},
+		)
+		require.ErrorContains(t, err, "bucket write failed")
+		require.False(t, compoundErrorIsChainDetermined(err))
+	})
+
+	t.Run("candidate write failure halts", func(t *testing.T) {
+		f := newCompoundFixture(t)
+		sp := staking.FindProtocol(protocol.MustGetRegistry(f.ctx))
+		require.NotNil(t, sp)
+		failing := &failingCandidatePutStateManager{
+			StateManager: f.sm,
+			err:          errors.New("candidate write failed"),
+		}
+
+		err := sp.AddDepositForCompound(
+			f.ctx, failing, f.voter, f.bucket.Index, big.NewInt(1), staking.FrozenSelfStake{},
+		)
+		require.ErrorContains(t, err, "candidate write failed")
+		require.False(t, compoundErrorIsChainDetermined(err))
+	})
+}
+
+type failingReadViewStateManager struct {
+	protocol.StateManager
+	err error
+}
+
+func (f *failingReadViewStateManager) ReadView(string) (protocol.View, error) {
+	return nil, f.err
+}
+
+type failingCandidatePutStateManager struct {
+	protocol.StateManager
+	err error
+}
+
+func (f *failingCandidatePutStateManager) PutState(
+	s interface{}, opts ...protocol.StateOption,
+) (uint64, error) {
+	if _, ok := s.(*staking.Candidate); ok {
+		return 0, f.err
+	}
+	return f.StateManager.PutState(s, opts...)
+}
+
 // TestVoterChunkErrorSettleabilityDefaultsToHalt pins the inversion that keeps
 // the scan path non-degradable: a chunk error is settleable only when it was
 // explicitly built as such.

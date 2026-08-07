@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
@@ -170,6 +171,26 @@ type TestOnlyPerfBenchSpec struct {
 	// NumVoters is the count of distinct voter buckets to plant. Voters
 	// are distributed round-robin across the delegates.
 	NumVoters int
+	// NumNativeBuckets is the number of native voter buckets to plant across
+	// NumVoters distinct owners. Zero preserves the original one-per-voter
+	// fixture.
+	NumNativeBuckets int
+	// NumContractBuckets is the number of pre-activation contract-staking
+	// buckets to plant. They are spread across ContractStakingAddresses and
+	// deliberately written without a feature context, leaving owner indexes
+	// absent for the activation backfill to build.
+	NumContractBuckets int
+	// ContractStakingAddresses are the contracts used for contract buckets.
+	// At least one is required when NumContractBuckets is non-zero.
+	ContractStakingAddresses []address.Address
+	// ShardVoterAddresses spreads voter addresses evenly over all 256 possible
+	// first bytes, matching the voter-major drain's production key space.
+	ShardVoterAddresses bool
+	// DeferContractBucketSeeding leaves contract bucket state for a harness to
+	// plant after genesis while still including its weight in candidate totals.
+	// This is needed by the real state factory, which filters contract-staking
+	// namespaces from genesis before Xingu.
+	DeferContractBucketSeeding bool
 	// DelegateSelfStake is the self-stake amount for every planted
 	// candidate. Must be at least the network's SelfStakingThreshold or
 	// downstream vote-weight calculations behave oddly.
@@ -216,6 +237,18 @@ func TestOnlySeedPerfBenchState(
 	if spec.NumVoters < 0 {
 		return nil, errors.New("perf-bench: NumVoters must be non-negative")
 	}
+	if spec.NumNativeBuckets < 0 || spec.NumContractBuckets < 0 {
+		return nil, errors.New("perf-bench: bucket counts must be non-negative")
+	}
+	if spec.NumNativeBuckets == 0 {
+		spec.NumNativeBuckets = spec.NumVoters
+	}
+	if spec.NumVoters == 0 && (spec.NumNativeBuckets > 0 || spec.NumContractBuckets > 0) {
+		return nil, errors.New("perf-bench: positive bucket count requires NumVoters")
+	}
+	if spec.NumContractBuckets > 0 && len(spec.ContractStakingAddresses) == 0 {
+		return nil, errors.New("perf-bench: contract buckets require ContractStakingAddresses")
+	}
 	if spec.DelegateSelfStake == nil || spec.DelegateSelfStake.Sign() <= 0 {
 		return nil, errors.New("perf-bench: DelegateSelfStake must be positive")
 	}
@@ -261,25 +294,53 @@ func TestOnlySeedPerfBenchState(
 		selfStakeIdx[i] = selfIdx
 	}
 
-	for j := 0; j < spec.NumVoters; j++ {
-		voter := perfBenchAddress(uint64(j) + perfBenchVoterSeedBase)
-		delIdx := j % spec.NumDelegates
+	voterAddress := TestOnlyPerfBenchVoterAddress
+	if spec.ShardVoterAddresses {
+		voterAddress = TestOnlyPerfBenchShardedVoterAddress
+	}
+	voterWeight := CalculateVoteWeight(spec.VoteWeightCalConsts, NewVoteBucket(
+		delegates[0], voterAddress(0), new(big.Int).Set(spec.VoterStake),
+		spec.VoterStakedDurationDays, ts, true,
+	), false)
+	weightsByDelegate := make([]*big.Int, spec.NumDelegates)
+	for i := range weightsByDelegate {
+		weightsByDelegate[i] = new(big.Int)
+	}
+
+	for j := 0; j < spec.NumNativeBuckets; j++ {
+		voterIdx := j % spec.NumVoters
+		voter := voterAddress(voterIdx)
+		delIdx := voterIdx % spec.NumDelegates
 		delAddr := delegates[delIdx]
 		bkt := NewVoteBucket(delAddr, voter, new(big.Int).Set(spec.VoterStake), spec.VoterStakedDurationDays, ts, true)
 		if _, err := csm.putBucketAndIndex(bkt); err != nil {
-			return nil, errors.Wrapf(err, "put voter bucket %d", j)
+			return nil, errors.Wrapf(err, "put native voter bucket %d", j)
 		}
-		cand := csm.GetByOwner(delAddr)
-		if cand == nil {
-			return nil, errors.Errorf("perf-bench: delegate %s missing after upsert", delAddr.String())
-		}
-		w := CalculateVoteWeight(spec.VoteWeightCalConsts, bkt, false)
-		cand.Votes = new(big.Int).Add(cand.Votes, w)
-		if err := csm.Upsert(cand); err != nil {
-			return nil, errors.Wrapf(err, "reupsert delegate for voter %d", j)
-		}
+		weightsByDelegate[delIdx].Add(weightsByDelegate[delIdx], voterWeight)
 		if err := csm.DebitBucketPool(spec.VoterStake, false); err != nil {
 			return nil, errors.Wrapf(err, "debit bucket pool for voter %d", j)
+		}
+	}
+
+	for j := 0; j < spec.NumContractBuckets; j++ {
+		voterIdx := j % spec.NumVoters
+		delIdx := voterIdx % spec.NumDelegates
+		weightsByDelegate[delIdx].Add(weightsByDelegate[delIdx], voterWeight)
+	}
+	if !spec.DeferContractBucketSeeding {
+		if err := TestOnlySeedPerfBenchContractBuckets(ctx, csm.SM(), spec); err != nil {
+			return nil, err
+		}
+	}
+
+	for i, delAddr := range delegates {
+		cand := csm.GetByOwner(delAddr)
+		if cand == nil {
+			return nil, errors.Errorf("perf-bench: delegate %s missing after bucket seeding", delAddr.String())
+		}
+		cand.Votes = new(big.Int).Add(cand.Votes, weightsByDelegate[i])
+		if err := csm.Upsert(cand); err != nil {
+			return nil, errors.Wrapf(err, "reupsert delegate %d after voter seeding", i)
 		}
 	}
 
@@ -317,6 +378,54 @@ func TestOnlySeedPerfBenchState(
 		}
 	}
 	return delegates, nil
+}
+
+// TestOnlySeedPerfBenchContractBuckets plants the contract-bucket portion of a
+// perf fixture. Callers that defer it run this in a pre-activation block after
+// Xingu, so the real state factory persists the bucket namespaces while the
+// IIP-59 owner-index gate is still shut.
+func TestOnlySeedPerfBenchContractBuckets(
+	ctx context.Context,
+	sm protocol.StateManager,
+	spec TestOnlyPerfBenchSpec,
+) error {
+	if spec.NumContractBuckets == 0 {
+		return nil
+	}
+	if spec.NumDelegates <= 0 || spec.NumVoters <= 0 || len(spec.ContractStakingAddresses) == 0 ||
+		spec.VoterStake == nil || spec.VoterStake.Sign() <= 0 {
+		return errors.New("perf-bench: invalid deferred contract bucket fixture")
+	}
+	if spec.VoterStakedDurationDays == 0 {
+		spec.VoterStakedDurationDays = 30
+	}
+	voterAddress := TestOnlyPerfBenchVoterAddress
+	if spec.ShardVoterAddresses {
+		voterAddress = TestOnlyPerfBenchShardedVoterAddress
+	}
+	ts := protocol.MustGetBlockCtx(ctx).BlockTimeStamp
+	contractSM := contractstaking.NewContractStakingStateManager(sm)
+	nextContractID := make([]uint64, len(spec.ContractStakingAddresses))
+	for j := 0; j < spec.NumContractBuckets; j++ {
+		voterIdx := j % spec.NumVoters
+		contractIdx := j % len(spec.ContractStakingAddresses)
+		id := nextContractID[contractIdx]
+		nextContractID[contractIdx]++
+		bucket := &contractstaking.Bucket{
+			Candidate:        TestOnlyPerfBenchDelegateAddress(voterIdx % spec.NumDelegates),
+			Owner:            voterAddress(voterIdx),
+			StakedAmount:     new(big.Int).Set(spec.VoterStake),
+			StakedDuration:   uint64(spec.VoterStakedDurationDays) * uint64(24*time.Hour/time.Second),
+			CreatedAt:        uint64(ts.Unix()),
+			UnlockedAt:       MaxDurationNumber,
+			UnstakedAt:       MaxDurationNumber,
+			IsTimestampBased: true,
+		}
+		if err := contractSM.UpsertBucket(ctx, spec.ContractStakingAddresses[contractIdx], id, bucket); err != nil {
+			return errors.Wrapf(err, "put contract voter bucket %d", j)
+		}
+	}
+	return nil
 }
 
 // perfBenchVoterSeedBase separates the delegate address space (1..numDelegates)
@@ -362,4 +471,18 @@ func TestOnlyPerfBenchDelegateAddress(i int) address.Address {
 // asserting on planted voter state can round-trip the address.
 func TestOnlyPerfBenchVoterAddress(j int) address.Address {
 	return perfBenchAddress(uint64(j) + perfBenchVoterSeedBase)
+}
+
+// TestOnlyPerfBenchShardedVoterAddress returns a deterministic voter address
+// whose first byte is j mod 256. It lets the scale harness exercise every
+// voter-major shard instead of concentrating the entire fixture in shard 0.
+func TestOnlyPerfBenchShardedVoterAddress(j int) address.Address {
+	var b [20]byte
+	b[0] = byte(j)
+	binary.BigEndian.PutUint64(b[12:], uint64(j)+perfBenchVoterSeedBase)
+	addr, err := address.FromBytes(b[:])
+	if err != nil {
+		panic(err)
+	}
+	return addr
 }
