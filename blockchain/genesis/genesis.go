@@ -586,7 +586,36 @@ func New(genesisPath string) (Genesis, error) {
 	if len(genesis.InitBalanceMap) == 0 {
 		genesis.InitBalanceMap = defaultInitBalanceMap()
 	}
+	if err := genesis.validate(); err != nil {
+		return Genesis{}, err
+	}
 	return genesis, nil
+}
+
+// validate rejects genesis values that would leave a scheduled feature silently
+// inert rather than failing loudly. It runs on the YAML load path only: callers
+// that build a Genesis literal (tests, defaultConfig) are trusted.
+func (g *Genesis) validate() error {
+	// IIP-59 shares ToBeEnabledBlockHeight with the other WIP features, so
+	// scheduling that height schedules voter reward distribution too. Until it
+	// is scheduled, the era length is never read and any value is acceptable.
+	if g.ToBeEnabledBlockHeight == math.MaxUint64 {
+		return nil
+	}
+	// IsEraBoundary returns false for every epoch when EpochsPerRewardEra is 0,
+	// so a zero would activate IIP-59 and then never settle a single era -- the
+	// rewards accrue and no voter is ever paid, with nothing in the logs saying
+	// why. One is rejected for a subtler reason: the era window a settlement
+	// reads is superseded at the next freeze height, which lands roughly one and
+	// a half epochs before the next era boundary, so a one-epoch era leaves no
+	// room between the two. See IIP-59 section 14.
+	if g.Rewarding.EpochsPerRewardEra < 2 {
+		return errors.Errorf(
+			"genesis: epochsPerRewardEra must be at least 2 once toBeEnabledHeight is scheduled, got %d",
+			g.Rewarding.EpochsPerRewardEra,
+		)
+	}
+	return nil
 }
 
 // SetGenesisTimestamp sets the genesis timestamp
