@@ -602,6 +602,16 @@ func (g *Genesis) validate() error {
 	if g.ToBeEnabledBlockHeight == math.MaxUint64 {
 		return nil
 	}
+	// IIP-59 enumerates pending reward pools by their unhashed V2 state-key
+	// prefix. Greenland activates that layout; allowing IIP-59 earlier would
+	// make orphan-pool enumeration incomplete because legacy rewarding keys are
+	// content-addressed and cannot be prefix-scanned.
+	if g.ToBeEnabledBlockHeight < g.GreenlandBlockHeight {
+		return errors.Errorf(
+			"genesis: toBeEnabledHeight %d must not precede greenlandHeight %d",
+			g.ToBeEnabledBlockHeight, g.GreenlandBlockHeight,
+		)
+	}
 	// IsEraBoundary returns false for every epoch when EpochsPerRewardEra is 0,
 	// so a zero would activate IIP-59 and then never settle a single era -- the
 	// rewards accrue and no voter is ever paid, with nothing in the logs saying

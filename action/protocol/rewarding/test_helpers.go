@@ -147,7 +147,7 @@ func (p *Protocol) TestOnlyEpochDrainPlan(
 	return out, c.Completed, true, nil
 }
 
-// TestOnlyAllPoolEntries walks the pending block-reward pool index and
+// TestOnlyAllPoolEntries walks the pending block-reward pool key range and
 // returns each (candID, amount) pair sorted by candID bytes. Zero-amount
 // entries are elided so equality does not depend on residuals that were
 // never physically written.
@@ -155,7 +155,7 @@ func (p *Protocol) TestOnlyAllPoolEntries(
 	ctx context.Context,
 	sr protocol.StateReader,
 ) ([]TestOnlyPoolEntry, error) {
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sr)
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sr)
 	if err != nil {
 		return nil, err
 	}

@@ -398,6 +398,7 @@ func newIIP59PerfCfg(r *require.Assertions, tier perfTier) config.Config {
 	// Turn IIP-59 on from height 1 so the very first block already runs
 	// through the new voter-reward gate. NoVoterRewardDistribution is
 	// bound to !g.IsToBeEnabled(height) — see action/protocol/context.go.
+	cfg.Genesis.GreenlandBlockHeight = 1
 	cfg.Genesis.ToBeEnabledBlockHeight = 1
 	if tier.numContractBuckets > 0 {
 		cfg.Genesis.XinguBlockHeight = 1

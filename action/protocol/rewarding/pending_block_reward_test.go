@@ -13,19 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
-
-func TestPendingBlockRewardPoolKeysDoNotOverlap(t *testing.T) {
-	candidateKey := pendingBlockRewardPoolKey(identityset.Address(1).Bytes())
-	require.True(t, bytes.HasPrefix(candidateKey, _pendingBlockRewardPoolKeyPrefix))
-	require.False(t, bytes.HasPrefix(_pendingBlockRewardPoolIndexKey, _pendingBlockRewardPoolKeyPrefix))
-	require.False(t, bytes.HasPrefix(candidateKey, _pendingBlockRewardPoolIndexKey))
-}
 
 // TestPendingBlockRewardPool_ReadMissingIsZero — reads against an
 // unpopulated pool key return zero without an error so callers can treat
@@ -41,9 +33,8 @@ func TestPendingBlockRewardPool_ReadMissingIsZero(t *testing.T) {
 }
 
 // TestPendingBlockRewardPool_CreditZeroIsNoop — a nil or zero amount must
-// not create an entry, and must not add the delegate to the index. Callers
-// pass legacy zero rewards through the same helper and rely on this
-// short-circuit.
+// not create an entry. Callers pass legacy zero rewards through the same
+// helper and rely on this short-circuit.
 func TestPendingBlockRewardPool_CreditZeroIsNoop(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
@@ -56,13 +47,13 @@ func TestPendingBlockRewardPool_CreditZeroIsNoop(t *testing.T) {
 	r.NoError(err)
 	r.Equal(0, amt.Sign())
 
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
 	r.NoError(err)
 	r.Empty(ids)
 }
 
 // TestPendingBlockRewardPool_CreditAccumulates — multiple credits to the
-// same delegate accumulate arithmetically; the index gets one entry.
+// same delegate accumulate arithmetically; enumeration returns one entry.
 func TestPendingBlockRewardPool_CreditAccumulates(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
@@ -76,16 +67,15 @@ func TestPendingBlockRewardPool_CreditAccumulates(t *testing.T) {
 	r.NoError(err)
 	r.Equal(int64(351), amt.Int64())
 
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
 	r.NoError(err)
 	r.Len(ids, 1)
 	r.Equal(candID, ids[0])
 }
 
-// TestPendingBlockRewardPool_IndexSorted — inserting candidate IDs in
-// non-sorted order must yield a bytewise-sorted index for canonical
-// enumeration at epoch close.
-func TestPendingBlockRewardPool_IndexSorted(t *testing.T) {
+// TestPendingBlockRewardPool_EnumerationSortedAndIsolated verifies that the
+// V2 range scan is canonical and excludes unrelated rewarding state.
+func TestPendingBlockRewardPool_EnumerationSortedAndIsolated(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 
@@ -100,18 +90,31 @@ func TestPendingBlockRewardPool_IndexSorted(t *testing.T) {
 	for _, id := range inputs {
 		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, id, big.NewInt(10)))
 	}
+	// A neighboring rewarding key must not be included by the pbrp/ range.
+	r.NoError(p.putState(ctx, sm, []byte("pbrq/unrelated"), &pendingBlockRewardPool{amount: big.NewInt(1)}))
 
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
 	r.NoError(err)
 	r.Len(ids, 4)
 	for i := 1; i < len(ids); i++ {
-		r.LessOrEqual(compareBytes(ids[i-1], ids[i]), 0,
-			"index not sorted at position %d: %x vs %x", i, ids[i-1], ids[i])
+		r.Less(bytes.Compare(ids[i-1], ids[i]), 0,
+			"enumeration not sorted at position %d: %x vs %x", i, ids[i-1], ids[i])
 	}
 }
 
-// TestPendingBlockRewardPool_Delete — draining removes both the entry and
-// its index membership; subsequent reads see zero and empty.
+func TestPendingBlockRewardPool_EnumerationRejectsMalformedKey(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	malformedKey := append(append([]byte(nil), _pendingBlockRewardPoolKeyPrefix...), 0x01)
+	r.NoError(p.putState(ctx, sm, malformedKey, &pendingBlockRewardPool{amount: big.NewInt(1)}))
+
+	_, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
+	r.ErrorContains(err, "malformed pending block reward pool key")
+}
+
+// TestPendingBlockRewardPool_Delete — draining removes the entry; subsequent
+// reads see zero and enumeration is empty.
 func TestPendingBlockRewardPool_Delete(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
@@ -125,7 +128,7 @@ func TestPendingBlockRewardPool_Delete(t *testing.T) {
 	r.NoError(err)
 	r.Equal(0, amt.Sign())
 
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
 	r.NoError(err)
 	r.Empty(ids)
 }
@@ -144,10 +147,10 @@ func TestPendingBlockRewardPool_DeleteIdempotent(t *testing.T) {
 	r.NoError(p.deletePendingBlockRewardPool(ctx, sm, candID))
 }
 
-// TestPendingBlockRewardPool_IndexIsolatesEntries — after adding two
-// delegates and deleting one, only the survivor remains in the index and
-// its balance stays intact.
-func TestPendingBlockRewardPool_IndexIsolatesEntries(t *testing.T) {
+// TestPendingBlockRewardPool_EnumerationIsolatesEntries — after adding two
+// delegates and deleting one, only the survivor is enumerated and its balance
+// stays intact.
+func TestPendingBlockRewardPool_EnumerationIsolatesEntries(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 
@@ -162,7 +165,7 @@ func TestPendingBlockRewardPool_IndexIsolatesEntries(t *testing.T) {
 	r.NoError(err)
 	r.Equal(int64(200), amt.Int64())
 
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
 	r.NoError(err)
 	r.Len(ids, 1)
 	r.Equal(bob, ids[0])
@@ -224,7 +227,7 @@ func TestRefundPendingBlockRewardPool(t *testing.T) {
 }
 
 // TestDrainOrphans_NoEntriesIsNoop — the sweep exits cleanly with no logs
-// when the index is empty.
+// when no pool entries exist.
 func TestDrainOrphans_NoEntriesIsNoop(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
@@ -260,11 +263,11 @@ func TestDrainOrphans_RefundsWhenCandidateGone(t *testing.T) {
 	r.NoError(err)
 	r.Len(logs, 1)
 
-	// Pool entry is drained, index is empty.
+	// Pool entry is drained and no longer enumerated.
 	amt, err := p.readPendingBlockRewardPool(ctx, sm, ghost)
 	r.NoError(err)
 	r.Equal(0, amt.Sign())
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
 	r.NoError(err)
 	r.Empty(ids)
 
@@ -334,8 +337,8 @@ func TestDrainOrphans_SkipsVisited(t *testing.T) {
 }
 
 // TestPendingBlockRewardPool_DecrementPartial — subtracting less than the
-// current balance leaves the entry with a positive residual and preserves
-// the delegate's index membership so a future decrement can still find it.
+// current balance leaves the entry with a positive residual, so a future
+// enumeration can still find it.
 func TestPendingBlockRewardPool_DecrementPartial(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
@@ -349,15 +352,15 @@ func TestPendingBlockRewardPool_DecrementPartial(t *testing.T) {
 	r.NoError(err)
 	r.Equal(int64(300), amt.Int64(), "residual balance must equal credit minus decrement")
 
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
 	r.NoError(err)
 	r.Len(ids, 1)
-	r.Equal(candID, ids[0], "index entry must survive a partial decrement")
+	r.Equal(candID, ids[0], "pool entry must survive a partial decrement")
 }
 
 // TestPendingBlockRewardPool_DecrementExactDeletes — decrementing by the
 // exact remaining balance zeroes the entry, which the helper must treat as
-// full drain: delete the entry and remove the delegate from the index.
+// full drain and delete the entry.
 func TestPendingBlockRewardPool_DecrementExactDeletes(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
@@ -371,15 +374,15 @@ func TestPendingBlockRewardPool_DecrementExactDeletes(t *testing.T) {
 	r.NoError(err)
 	r.Equal(0, amt.Sign())
 
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
 	r.NoError(err)
-	r.Empty(ids, "index membership must clear when the entry is exact-drained")
+	r.Empty(ids, "entry must disappear from enumeration when exact-drained")
 }
 
 // TestPendingBlockRewardPool_DecrementClampsToBalance — a decrement larger
 // than the current balance clamps to the balance (no negative amount ever
-// persists) and treats the outcome as a full drain: entry + index membership
-// gone. This is the guard against arithmetic slippage between the frozen
+// persists) and treats the outcome as a full drain: the entry is gone. This
+// is the guard against arithmetic slippage between the frozen
 // cursor amount and the pool's live balance.
 func TestPendingBlockRewardPool_DecrementClampsToBalance(t *testing.T) {
 	r := require.New(t)
@@ -394,7 +397,7 @@ func TestPendingBlockRewardPool_DecrementClampsToBalance(t *testing.T) {
 	r.NoError(err)
 	r.Equal(0, amt.Sign(), "over-decrement must clamp to zero, never persist negative")
 
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
 	r.NoError(err)
 	r.Empty(ids)
 }
@@ -417,30 +420,7 @@ func TestPendingBlockRewardPool_DecrementMissingIsNoop(t *testing.T) {
 	r.NoError(err)
 	r.Equal(0, amt.Sign())
 
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
 	r.NoError(err)
 	r.Empty(ids)
 }
-
-// compareBytes is bytes.Compare wrapped for readability at call sites.
-func compareBytes(a, b []byte) int {
-	for i := 0; i < len(a) && i < len(b); i++ {
-		switch {
-		case a[i] < b[i]:
-			return -1
-		case a[i] > b[i]:
-			return 1
-		}
-	}
-	switch {
-	case len(a) < len(b):
-		return -1
-	case len(a) > len(b):
-		return 1
-	}
-	return 0
-}
-
-// _ suppresses unused-import warnings when tests are trimmed; the address
-// package is used indirectly via identityset.Address(N).Bytes().
-var _ = address.ZeroAddress

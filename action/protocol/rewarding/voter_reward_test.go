@@ -392,6 +392,9 @@ func newVoterRewardCtx(
 	sm := testdb.NewMockStateManager(ctrl)
 
 	g := genesis.TestDefault()
+	// IIP-59 depends on the enumerable V2 rewarding key layout introduced by
+	// Greenland. Keep this fixture on the valid side of that fork ordering.
+	g.GreenlandBlockHeight = 1
 	if iip59On {
 		g.ToBeEnabledBlockHeight = 1
 		g.Rewarding.HermesRewardVaultAddresses = []string{identityset.Address(2).String()}

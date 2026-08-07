@@ -211,8 +211,9 @@ message VoterRewardDestination {
     uint64 updated_height = 3;
 }
 
-// PendingBlockRewardPoolIndex lists candidate identifiers with a non-zero
-// pending voter-reward balance. The list is stored in deterministic order.
+// PendingBlockRewardPoolIndex lists candidate identifiers with a pending
+// voter-reward pool entry. The list is derived from the V2 rewarding key range
+// and returned in deterministic order; it is not persisted separately.
 message PendingBlockRewardPoolIndex {
     repeated bytes candidate_identifiers = 1;
 }

@@ -43,6 +43,7 @@ import (
 func enableIIP59(t *testing.T, ctx context.Context) context.Context {
 	t.Helper()
 	g := genesis.MustExtractGenesisContext(ctx)
+	g.GreenlandBlockHeight = 1
 	g.ToBeEnabledBlockHeight = 1
 	g.Rewarding.EpochsPerRewardEra = 1
 	g.Rewarding.HermesRewardVaultAddresses = make([]string, 0, 35)
