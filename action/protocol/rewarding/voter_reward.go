@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/distributedlog"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
@@ -30,30 +29,31 @@ import (
 const _basisPointsDenom uint64 = 10_000
 
 type delegateRewardRouting struct {
-	owner                address.Address
-	legacyRewardAddress  address.Address
+	candidate            *staking.Candidate
 	onchainRewardEnabled bool
-	rewardAddressUpdated bool
 	blockCommissionBPs   uint64
 	epochCommissionBPs   uint64
-	snapshot             *staking.CandidatePollSnapshot
+}
+
+// PayoutAddress returns the delegate's own-share destination for this era.
+func (r *delegateRewardRouting) PayoutAddress() address.Address {
+	if r.onchainRewardEnabled {
+		return r.candidate.Owner
+	}
+	return r.candidate.Reward
 }
 
 func resolveDelegateRewardRouting(
-	ctx context.Context,
 	sr protocol.StateReader,
 	candID address.Address,
 ) (*delegateRewardRouting, error) {
-	g := genesis.MustExtractGenesisContext(ctx)
-	live, err := staking.ReadCandidateRewardRouting(sr, candID, g.HermesRewardVaultAddresses)
+	candidate, _, err := staking.NewCandidateByAddressReader(sr).CandidateByAddress(candID)
 	if err != nil {
 		return nil, err
 	}
 	routing := &delegateRewardRouting{
-		owner:                live.Owner,
-		legacyRewardAddress:  live.LegacyRewardAddress,
-		onchainRewardEnabled: live.OnchainRewardEnabled,
-		rewardAddressUpdated: live.RewardAddressUpdated,
+		candidate:            candidate,
+		onchainRewardEnabled: candidate.VoterRewardOnchainOptIn,
 		blockCommissionBPs:   _basisPointsDenom,
 		epochCommissionBPs:   _basisPointsDenom,
 	}
@@ -75,7 +75,6 @@ func resolveDelegateRewardRouting(
 	snap, err := staking.PollSnapshotFor(sr, candID)
 	switch {
 	case err == nil:
-		routing.snapshot = snap
 		routing.onchainRewardEnabled = snap.OnchainRewardEnabled
 		if snap.OnchainRewardEnabled {
 			routing.blockCommissionBPs = snap.BlockCommissionBasisPoints
@@ -146,7 +145,7 @@ func (p *Protocol) splitDelegateEpochReward(
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "rewarding: invalid candidate identity %q", candidateID)
 	}
-	routing, err := resolveDelegateRewardRouting(ctx, sm, candID)
+	routing, err := resolveDelegateRewardRouting(sm, candID)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "rewarding: resolve reward routing for %s", candID.String())
 	}

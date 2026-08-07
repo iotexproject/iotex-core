@@ -25,7 +25,7 @@ func TestReadStateIIP59(t *testing.T) {
 	candID := identityset.Address(4)
 	voter := identityset.Address(8)
 	r.NoError(staking.TestOnlyPutCandidateRewardAddress(
-		sm, candID, candID, identityset.Address(6), true,
+		sm, candID, candID, identityset.Address(6), true, false,
 	))
 
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID.Bytes(), big.NewInt(351)))

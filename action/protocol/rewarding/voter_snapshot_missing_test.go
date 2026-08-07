@@ -35,33 +35,31 @@ import (
 //
 // newVoterRewardCtx builds exactly the delegate at issue: owner is
 // identityset.Address(1), its reward address is identityset.Address(2), and
-// that address is the configured Hermes vault, so candidateOnchainRewardEnabled
-// reads LIVE-opted-in. Writing no snapshot is the whole setup.
+// that address is the configured Hermes vault and its persisted opt-in bit is
+// set. Writing no snapshot is the whole setup.
 
 // TestResolveDelegateRewardRouting_MissingSnapshotIsOffRails is the fix.
 func TestResolveDelegateRewardRouting_MissingSnapshotIsOffRails(t *testing.T) {
 	r := require.New(t)
-	ctx, sm, _, _, candAddr := newVoterRewardCtx(t, true)
+	_, sm, _, _, candAddr := newVoterRewardCtx(t, true)
 
 	// Precondition: the delegate really is opted in as of live state, so the
 	// assertions below are about the snapshot and not about the opt-in test.
-	live, err := staking.ReadCandidateRewardRouting(
-		sm, candAddr, []string{identityset.Address(2).String()},
-	)
+	live, _, err := staking.NewCandidateByAddressReader(sm).CandidateByAddress(candAddr)
 	r.NoError(err)
-	r.True(live.OnchainRewardEnabled,
+	r.NotNil(live)
+	r.True(live.VoterRewardOnchainOptIn,
 		"harness must present a live-opted-in delegate or this test proves nothing")
 
 	_, err = staking.PollSnapshotFor(sm, candAddr)
 	r.ErrorIs(err, state.ErrStateNotExist, "no snapshot is the condition under test")
 
-	routing, err := resolveDelegateRewardRouting(ctx, sm, candAddr)
+	routing, err := resolveDelegateRewardRouting(sm, candAddr)
 	r.NoError(err)
 	r.False(routing.onchainRewardEnabled,
 		"no snapshot at H means this era is not on IIP-59 rails, whatever live state says")
 
-	addr, _, err := onchainPayoutAddress(ctx, sm, candAddr)
-	r.NoError(err)
+	addr := routing.PayoutAddress()
 	r.Equal(identityset.Address(2).String(), addr.String(),
 		"payout must go to the legacy reward address (the Hermes vault), not the owner")
 	r.NotEqual(identityset.Address(1).String(), addr.String())
@@ -75,7 +73,7 @@ func TestResolveDelegateRewardRouting_MissingAgreesWithPlaceholder(t *testing.T)
 	r := require.New(t)
 
 	resolve := func(withPlaceholder bool) (*delegateRewardRouting, address.Address) {
-		ctx, sm, _, _, candAddr := newVoterRewardCtx(t, true)
+		_, sm, _, _, candAddr := newVoterRewardCtx(t, true)
 		if withPlaceholder {
 			// Exactly what FreezePollSnapshot writes for a candidate in the
 			// poll list that was not opted in at H.
@@ -86,11 +84,9 @@ func TestResolveDelegateRewardRouting_MissingAgreesWithPlaceholder(t *testing.T)
 				TotalWeight:          new(big.Int),
 			}))
 		}
-		routing, err := resolveDelegateRewardRouting(ctx, sm, candAddr)
+		routing, err := resolveDelegateRewardRouting(sm, candAddr)
 		r.NoError(err)
-		addr, _, err := onchainPayoutAddress(ctx, sm, candAddr)
-		r.NoError(err)
-		return routing, addr
+		return routing, routing.PayoutAddress()
 	}
 
 	missing, missingAddr := resolve(false)
@@ -127,8 +123,8 @@ func TestDistributeEpochCommissions_MissingSnapshotPaysLegacy(t *testing.T) {
 	}
 	r.NoError(p.distributeEpochCommissions(ctx, sm, epochCommissionInputs{
 		rewardedCandidates: []*state.Candidate{cand},
-		// Production passes onchainPayoutAddress's answer here; the pre-fork
-		// declared address is only a fallback. Either way the routing decides.
+		// Production passes delegateRewardRouting.PayoutAddress's answer here;
+		// the pre-fork declared address is only a fallback.
 		addrs:         []address.Address{identityset.Address(2)},
 		amounts:       []*big.Int{big.NewInt(1_000)},
 		isEraBoundary: true,
@@ -163,11 +159,10 @@ func TestCreditBlockProducer_MissingSnapshotPaysLegacy(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
 
-	rewardAddr, routing, err := onchainPayoutAddress(ctx, sm, candAddr)
+	routing, err := resolveDelegateRewardRouting(sm, candAddr)
 	r.NoError(err)
 	payout := blockProducerPayout{
-		addr:        rewardAddr,
-		addrStr:     rewardAddr.String(),
+		addr:        routing.PayoutAddress(),
 		candAddr:    candAddr,
 		onchainPool: routing.onchainRewardEnabled,
 	}
@@ -217,7 +212,7 @@ func TestDistributeEpochCommissions_FreshSnapshotStaysOnRails(t *testing.T) {
 		SelfStakeBucketIdx:         7,
 	}))
 
-	routing, err := resolveDelegateRewardRouting(ctx, sm, candAddr)
+	routing, err := resolveDelegateRewardRouting(sm, candAddr)
 	r.NoError(err)
 	r.True(routing.onchainRewardEnabled)
 

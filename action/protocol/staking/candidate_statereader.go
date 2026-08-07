@@ -24,6 +24,10 @@ type (
 	NativeBucketGetByIndex interface {
 		NativeBucket(index uint64) (*VoteBucket, error)
 	}
+	// CandidateByAddressReader reads candidates directly from staking state.
+	CandidateByAddressReader interface {
+		CandidateByAddress(address.Address) (*Candidate, uint64, error)
+	}
 	// ReadState related to read bucket and candidate by request
 	ReadState interface {
 		readStateBuckets(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, uint64, error)
@@ -72,6 +76,13 @@ func newCandidateStateReader(sr protocol.StateReader) CandidateStateReader {
 	return &candSR{
 		StateReader: sr,
 	}
+}
+
+// NewCandidateByAddressReader returns the state-backed candidate lookup for sr.
+// Its narrow interface is safe for historical and archive readers, which do
+// not carry the live staking view required by the full CandidateStateReader.
+func NewCandidateByAddressReader(sr protocol.StateReader) CandidateByAddressReader {
+	return newCandidateStateReader(sr)
 }
 
 func (c *candSR) Height() uint64 {

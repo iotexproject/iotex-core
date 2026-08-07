@@ -8,6 +8,7 @@ package staking
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"math/big"
 	"sort"
 
@@ -20,8 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/distributedlog"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -227,8 +226,8 @@ func eraSnapshotHash(candID address.Address, s *CandidatePollSnapshot) hash.Hash
 // a pure reader via PollSnapshotFor.
 //
 // THE SET IS THE OPTED-IN CANDIDATE SET. It is enumerated from the candidate
-// center and filtered by live routing: a candidate is frozen iff it is already
-// using a configured Hermes vault, or has explicitly opted in.
+// center and filtered by the persisted VoterRewardOnchainOptIn bit. The
+// activation migration sets that bit for pre-IIP-59 Hermes candidates.
 //
 // It deliberately has nothing to do with the poll list this used to be handed.
 // That list is filtered twice before a PutPollResult carries it -- ActiveCandidates
@@ -272,8 +271,6 @@ func FreezePollSnapshot(
 	if bridge != nil && reader == nil {
 		return errors.New("staking: nil ContractReader with non-nil DelegateProfile bridge")
 	}
-	g, _ := genesis.ExtractGenesisContext(ctx)
-
 	// The candidate center is the sole source of the frozen set, of
 	// SelfStakeBucketIdx, and of TotalWeight, so failing to reach it is
 	// returned rather than degraded -- including the protocol.ErrNoName and
@@ -299,29 +296,10 @@ func FreezePollSnapshot(
 		return errors.New("staking: no candidate center to freeze the poll snapshot from")
 	}
 
-	// Opt-in is re-read from state rather than taken off the center record in
-	// hand. The two agree -- Candidate.Clone carries every field
-	// candidateOnchainRewardEnabled looks at -- but ReadCandidateRewardRouting
-	// is what every other reader of this bit uses, and one source for one
-	// question is worth a read per candidate once per era.
 	all := csr.AllCandidates()
 	frozen := make([]*Candidate, 0, len(all))
 	for _, c := range all {
-		if c == nil {
-			continue
-		}
-		id := c.GetIdentifier()
-		if id == nil {
-			continue
-		}
-		routing, rErr := ReadCandidateRewardRouting(sm, id, g.HermesRewardVaultAddresses)
-		if rErr != nil {
-			if errors.Is(rErr, state.ErrStateNotExist) {
-				continue
-			}
-			return errors.Wrapf(rErr, "staking: read reward routing for candidate %s", id.String())
-		}
-		if routing.OnchainRewardEnabled {
+		if c != nil && c.GetIdentifier() != nil && c.VoterRewardOnchainOptIn {
 			frozen = append(frozen, c)
 		}
 	}
@@ -446,88 +424,44 @@ func PollSnapshotFor(sr protocol.StateReader, candID address.Address) (*Candidat
 	return fromBlob(blob)
 }
 
-// CandidateRewardRouting is the deterministic IIP-59 routing view for a candidate.
-type CandidateRewardRouting struct {
-	Owner                address.Address
-	LegacyRewardAddress  address.Address
-	OnchainRewardEnabled bool
-	ExplicitlyEnabled    bool
-	RewardAddressUpdated bool
-}
-
-func ReadCandidateRewardRouting(
-	sr protocol.StateReader,
-	candID address.Address,
-	hermesVaults []string,
-) (*CandidateRewardRouting, error) {
-	var c Candidate
-	if _, err := sr.State(
-		&c,
-		protocol.NamespaceOption(_candidateNameSpace),
-		protocol.KeyOption(candID.Bytes()),
-	); err != nil {
-		return nil, err
-	}
-	return &CandidateRewardRouting{
-		Owner:                c.Owner,
-		LegacyRewardAddress:  c.Reward,
-		OnchainRewardEnabled: candidateOnchainRewardEnabled(&c, hermesVaults),
-		ExplicitlyEnabled:    c.VoterRewardOnchainOptIn,
-		RewardAddressUpdated: c.RewardAddressUpdated,
-	}, nil
-}
-
-func candidateOnchainRewardEnabled(c *Candidate, hermesVaults []string) bool {
-	if c == nil {
-		return false
-	}
-	if c.VoterRewardOnchainOptIn {
-		return true
-	}
-	if c.RewardAddressUpdated || c.Reward == nil {
-		return false
-	}
-	for _, vault := range hermesVaults {
-		if c.Reward.String() == vault {
-			return true
-		}
-	}
-	return false
-}
-
 // CandidateRewardAddress is retained for ReadState compatibility. It returns
 // the persisted legacy reward address and whether it was updated post-fork.
 func CandidateRewardAddress(sr protocol.StateReader, candID address.Address) (address.Address, bool, error) {
-	routing, err := ReadCandidateRewardRouting(sr, candID, nil)
+	candidate, _, err := NewCandidateByAddressReader(sr).CandidateByAddress(candID)
 	if err != nil {
 		return nil, false, err
 	}
-	if routing.RewardAddressUpdated {
-		return routing.LegacyRewardAddress, true, nil
+	if candidate.RewardAddressUpdated {
+		return candidate.Reward, true, nil
 	}
-	return routing.Owner, false, nil
+	return candidate.Owner, false, nil
 }
 
-// TestOnlyPutCandidateRewardAddress seeds persistent candidate state used by
-// CandidateRewardAddress without requiring a full staking protocol fixture.
+// TestOnlyPutCandidateRewardAddress seeds candidate state used by rewarding
+// tests. When a staking view exists it updates state through CandidateStateManager.
 func TestOnlyPutCandidateRewardAddress(
 	sm protocol.StateManager,
 	candID address.Address,
 	owner address.Address,
 	reward address.Address,
 	updated bool,
+	optedIn bool,
 ) error {
 	if reward == nil {
 		reward = owner
 	}
 	candidate := &Candidate{
 		Owner: owner, Operator: owner, Reward: reward, Identifier: candID,
-		Name: "iip59-owner", Votes: new(big.Int), SelfStake: new(big.Int),
-		SelfStakeBucketIdx:   candidateNoSelfStakeBucketIndex,
-		RewardAddressUpdated: updated,
+		Name: hex.EncodeToString(candID.Bytes()[:6]), Votes: new(big.Int), SelfStake: new(big.Int),
+		SelfStakeBucketIdx:      candidateNoSelfStakeBucketIndex,
+		RewardAddressUpdated:    updated,
+		VoterRewardOnchainOptIn: optedIn,
 	}
 	if address.Equal(candID, owner) {
 		candidate.Identifier = nil
+	}
+	if csm, err := NewCandidateStateManager(sm); err == nil {
+		return csm.Upsert(candidate)
 	}
 	_, err := sm.PutState(
 		candidate,

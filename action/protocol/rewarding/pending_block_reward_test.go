@@ -289,7 +289,7 @@ func TestDrainOrphans_UsesOwnerInsteadOfLegacyRewardAddress(t *testing.T) {
 	r.NoError(p.putState(ctx, sm, _fundKey, &fund{
 		totalBalance: big.NewInt(1_000), unclaimedBalance: big.NewInt(750),
 	}))
-	r.NoError(staking.TestOnlyPutCandidateRewardAddress(sm, candID, owner, legacyReward, false))
+	r.NoError(staking.TestOnlyPutCandidateRewardAddress(sm, candID, owner, legacyReward, false, false))
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID.Bytes(), big.NewInt(250)))
 
 	txLogs, logs, err := p.drainPendingBlockRewardOrphans(ctx, sm, nil, 100, hash.ZeroHash256)

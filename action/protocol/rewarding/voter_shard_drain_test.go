@@ -75,7 +75,7 @@ func newDrainScenario(
 			return
 		}
 		owners[string(delegate.Bytes())] = true
-		r.NoError(staking.TestOnlyPutCandidateRewardAddress(sm, delegate, delegate, delegate, false))
+		r.NoError(staking.TestOnlyPutCandidateRewardAddress(sm, delegate, delegate, delegate, false, false))
 	}
 	for _, s := range natives {
 		record(s.delegate)

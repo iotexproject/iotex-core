@@ -41,10 +41,9 @@ import (
 // frozen SET as well as each member's Votes and SelfStakeBucketIdx, so a test
 // that skips this gets an error rather than a degraded snapshot.
 //
-// Membership in the frozen set is still decided by state, not by the center --
-// see putOnchainCandidate, which is what flips the opt-in bit that
-// ReadCandidateRewardRouting reads. A candidate in the center with no opt-in
-// in state is enumerated and then dropped.
+// Membership in the frozen set is decided directly from each candidate's
+// persisted opt-in bit in this center. A candidate with no opt-in is enumerated
+// and then dropped.
 func installCandCenter(t *testing.T, sm protocol.StateManager, cands ...*Candidate) {
 	t.Helper()
 	center, err := NewCandidateCenter(nil)

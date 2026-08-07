@@ -199,7 +199,6 @@ func (p *Protocol) suspendV1BlockRewardHistory(
 // means the producer has no reward address and the grant is skipped entirely.
 type blockProducerPayout struct {
 	addr          address.Address
-	addrStr       string
 	candAddr      address.Address // candidate identity; post-fork only
 	onchainPool   bool
 	commissionBPs uint64
@@ -218,6 +217,7 @@ func (p *Protocol) resolveBlockProducerPayout(
 		none            blockProducerPayout
 		payout          = blockProducerPayout{commissionBPs: _basisPointsDenom}
 		producerAddrStr = protocol.MustGetBlockCtx(ctx).Producer.String()
+		legacyReward    string
 	)
 
 	var producerCandidate *state.Candidate
@@ -228,7 +228,7 @@ func (p *Protocol) resolveBlockProducerPayout(
 		}
 		for _, candidate := range candidates {
 			if candidate.Address == producerAddrStr {
-				payout.addrStr = candidate.RewardAddress
+				legacyReward = candidate.RewardAddress
 				producerCandidate = candidate
 				break
 			}
@@ -244,27 +244,29 @@ func (p *Protocol) resolveBlockProducerPayout(
 		if err != nil {
 			return none, errors.Wrapf(err, "rewarding: invalid producer candidate identity %q", producerIdentity)
 		}
-		rewardAddr, routing, err := onchainPayoutAddress(ctx, sm, candAddr)
+		routing, err := resolveDelegateRewardRouting(sm, candAddr)
 		if err != nil {
 			return none, errors.Wrapf(err, "rewarding: resolve reward routing for producer %s", producerIdentity)
 		}
 		payout.candAddr = candAddr
-		payout.addrStr = rewardAddr.String()
+		payout.addr = routing.PayoutAddress()
 		payout.onchainPool = routing.onchainRewardEnabled
 		if payout.onchainPool {
 			payout.commissionBPs = routing.blockCommissionBPs
 		}
 	}
 
-	if payout.addrStr == "" {
+	if payout.addr == nil && legacyReward == "" {
 		log.S().Debugf("Producer %s doesn't have a reward address", producerAddrStr)
 		return payout, nil
 	}
-	addr, err := address.FromString(payout.addrStr)
-	if err != nil {
-		return none, err
+	if payout.addr == nil {
+		addr, err := address.FromString(legacyReward)
+		if err != nil {
+			return none, err
+		}
+		payout.addr = addr
 	}
-	payout.addr = addr
 	return payout, nil
 }
 
@@ -340,7 +342,7 @@ func (p *Protocol) encodeBlockRewardLog(
 		}
 		data, err := proto.Marshal(&rewardingpb.RewardLog{
 			Type:   rewardingpb.RewardLog_BLOCK_REWARD,
-			Addr:   payout.addrStr,
+			Addr:   payout.addr.String(),
 			Amount: blockCommission.String(),
 		})
 		if err != nil {
@@ -354,14 +356,14 @@ func (p *Protocol) encodeBlockRewardLog(
 	if blockCommission.Sign() > 0 {
 		rewardLogs = append(rewardLogs, &rewardingpb.RewardLog{
 			Type:   rewardingpb.RewardLog_BLOCK_REWARD,
-			Addr:   payout.addrStr,
+			Addr:   payout.addr.String(),
 			Amount: blockCommission.String(),
 		})
 	}
 	if !isZero(effectiveTip) {
 		rewardLogs = append(rewardLogs, &rewardingpb.RewardLog{
 			Type:   rewardingpb.RewardLog_PRIORITY_BONUS,
-			Addr:   payout.addrStr,
+			Addr:   payout.addr.String(),
 			Amount: effectiveTip.String(),
 		})
 	}
@@ -443,25 +445,6 @@ func (p *Protocol) payDelegateShare(
 	}
 	out.pay(amount)
 	return nil
-}
-
-// onchainPayoutAddress answers "where does this delegate's own share go" on the
-// post-fork path: the owner when the delegate opted into on-chain rewards, the
-// legacy reward address otherwise. It also hands back the routing so a caller
-// that additionally needs the commission rates does not read state twice.
-func onchainPayoutAddress(
-	ctx context.Context,
-	sr protocol.StateReader,
-	candAddr address.Address,
-) (address.Address, *delegateRewardRouting, error) {
-	routing, err := resolveDelegateRewardRouting(ctx, sr, candAddr)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "rewarding: resolve reward routing for candidate %s", candAddr.String())
-	}
-	if routing.onchainRewardEnabled {
-		return routing.owner, routing, nil
-	}
-	return routing.legacyRewardAddress, routing, nil
 }
 
 // resolveStaleDrainCursor deals with a previous era's cursor still being live at
@@ -581,11 +564,11 @@ func (p *Protocol) distributeEpochCommissions(
 			if err != nil {
 				return err
 			}
-			var routing *delegateRewardRouting
-			rewardAddr, routing, err = onchainPayoutAddress(ctx, sm, candAddr)
+			routing, err := resolveDelegateRewardRouting(sm, candAddr)
 			if err != nil {
 				return err
 			}
+			rewardAddr = routing.PayoutAddress()
 			onchainReward = routing.onchainRewardEnabled
 		}
 		if rewardAddr == nil {
@@ -769,11 +752,11 @@ func (p *Protocol) distributeFoundationBonus(
 			if err != nil {
 				return err
 			}
-			var routing *delegateRewardRouting
-			rewardAddr, routing, err = onchainPayoutAddress(ctx, sm, candAddr)
+			routing, err := resolveDelegateRewardRouting(sm, candAddr)
 			if err != nil {
 				return err
 			}
+			rewardAddr = routing.PayoutAddress()
 			onchainReward = routing.onchainRewardEnabled
 		} else {
 			if candidates[i].RewardAddress == "" {

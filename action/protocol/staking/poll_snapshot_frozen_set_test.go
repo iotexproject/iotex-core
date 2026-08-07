@@ -157,8 +157,7 @@ func TestFreezePollSnapshot_OptedOutCandidateNotFrozen(t *testing.T) {
 
 	optedIn := onchainCandidate(1, "opted-in", big.NewInt(100))
 	r.NoError(putOnchainCandidate(csm, optedIn))
-	// Not opted in: no explicit opt-in bit and a reward address that is not a
-	// configured Hermes vault.
+	// Not opted in: the persisted opt-in bit is false.
 	optedOut := onchainCandidate(2, "opted-out", big.NewInt(500))
 	optedOut.VoterRewardOnchainOptIn = false
 	r.NoError(csm.putCandidate(optedOut))

@@ -136,27 +136,29 @@ func TestCandidateRewardAddress(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	csm := newCandidateStateManager(sm)
 
 	cand := &Candidate{
 		Owner: identityset.Address(1), Operator: identityset.Address(2), Reward: identityset.Address(3),
 		Name: "delegate", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
 	}
-	r.NoError(putOnchainCandidate(csm, cand))
+	installCandCenter(t, sm, cand)
+	csm, err := NewCandidateStateManager(sm)
+	r.NoError(err)
+	r.NoError(csm.Upsert(cand))
 	got, explicitlySet, err := CandidateRewardAddress(sm, cand.GetIdentifier())
 	r.NoError(err)
 	r.True(address.Equal(cand.Owner, got))
 	r.False(explicitlySet)
 
 	cand.Owner = identityset.Address(7)
-	r.NoError(putOnchainCandidate(csm, cand))
+	r.NoError(csm.Upsert(cand))
 	got, explicitlySet, err = CandidateRewardAddress(sm, cand.GetIdentifier())
 	r.NoError(err)
 	r.True(address.Equal(cand.Owner, got), "default reward address must follow owner transfers")
 	r.False(explicitlySet)
 
 	cand.RewardAddressUpdated = true
-	r.NoError(putOnchainCandidate(csm, cand))
+	r.NoError(csm.Upsert(cand))
 	got, explicitlySet, err = CandidateRewardAddress(sm, cand.GetIdentifier())
 	r.NoError(err)
 	r.True(address.Equal(cand.Reward, got))
@@ -164,47 +166,6 @@ func TestCandidateRewardAddress(t *testing.T) {
 
 	_, _, err = CandidateRewardAddress(sm, identityset.Address(9))
 	r.ErrorIs(err, state.ErrStateNotExist)
-}
-
-func TestCandidateRewardRoutingModes(t *testing.T) {
-	r := require.New(t)
-	ctrl := gomock.NewController(t)
-	sm := testdb.NewMockStateManager(ctrl)
-	csm := newCandidateStateManager(sm)
-	vault, err := address.FromString("io19604a05s2p3mecam2zz7d27hcr6ndyw80wvkmh")
-	r.NoError(err)
-	other := identityset.Address(3)
-	candidate := &Candidate{
-		Owner: identityset.Address(1), Operator: identityset.Address(2), Reward: vault,
-		Name: "delegate", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
-	}
-	r.NoError(csm.putCandidate(candidate))
-
-	routing, err := ReadCandidateRewardRouting(sm, candidate.GetIdentifier(), []string{vault.String()})
-	r.NoError(err)
-	r.True(routing.OnchainRewardEnabled)
-	r.True(address.Equal(candidate.Owner, routing.Owner))
-	r.True(address.Equal(vault, routing.LegacyRewardAddress))
-
-	candidate.Reward = other
-	r.NoError(csm.putCandidate(candidate))
-	routing, err = ReadCandidateRewardRouting(sm, candidate.GetIdentifier(), []string{vault.String()})
-	r.NoError(err)
-	r.False(routing.OnchainRewardEnabled)
-
-	candidate.Reward = vault
-	candidate.RewardAddressUpdated = true
-	r.NoError(csm.putCandidate(candidate))
-	routing, err = ReadCandidateRewardRouting(sm, candidate.GetIdentifier(), []string{vault.String()})
-	r.NoError(err)
-	r.False(routing.OnchainRewardEnabled, "post-fork address updates must not trigger automatic migration")
-
-	candidate.VoterRewardOnchainOptIn = true
-	r.NoError(csm.putCandidate(candidate))
-	routing, err = ReadCandidateRewardRouting(sm, candidate.GetIdentifier(), []string{vault.String()})
-	r.NoError(err)
-	r.True(routing.OnchainRewardEnabled)
-	r.True(routing.ExplicitlyEnabled)
 }
 
 // A legacy candidate -- one that pays its voters off-chain -- is enumerated by

@@ -682,7 +682,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 }
 
 func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
-	t.Run("Hermes migration survives reward address update", func(t *testing.T) {
+	t.Run("on-chain opt-in survives reward address update", func(t *testing.T) {
 		r := require.New(t)
 		ctrl := gomock.NewController(t)
 		sm, p, candidate, _ := initAll(t, ctrl)
@@ -691,13 +691,14 @@ func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
 		r.NoError(err)
 		g := genesis.TestDefault()
 		g.ToBeEnabledBlockHeight = 1
-		g.Rewarding.HermesRewardVaultAddresses = []string{candidate.Reward.String()}
 		ctx := genesis.WithGenesisContext(context.Background(), g)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1})
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: candidate.Owner, GasPrice: big.NewInt(0)})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		csm, err := NewCandidateStateManager(sm)
 		r.NoError(err)
+		candidate.VoterRewardOnchainOptIn = true
+		r.NoError(csm.Upsert(candidate))
 
 		_, err = p.handleCandidateUpdate(ctx, act, csm)
 		r.NoError(err)
@@ -771,6 +772,8 @@ func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
 			updated := csm.GetByOwner(candidate.Owner)
 			r.NotNil(updated)
 			r.Equal(test.explicitSet, updated.RewardAddressUpdated)
+			r.False(updated.VoterRewardOnchainOptIn,
+				"post-fork reward-address changes must not implicitly opt in")
 		})
 	}
 }

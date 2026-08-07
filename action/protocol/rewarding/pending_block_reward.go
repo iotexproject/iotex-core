@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
@@ -370,11 +369,10 @@ func (p *Protocol) sweepPendingPoolAmount(
 	var targetStr string
 	candAddr, addrErr := address.FromBytes(candID)
 	if addrErr == nil {
-		routing, rewardErr := staking.ReadCandidateRewardRouting(sm, candAddr,
-			genesis.MustExtractGenesisContext(ctx).HermesRewardVaultAddresses)
+		candidate, _, rewardErr := staking.NewCandidateByAddressReader(sm).CandidateByAddress(candAddr)
 		if rewardErr == nil {
-			target = routing.Owner
-			targetStr = routing.Owner.String()
+			target = candidate.Owner
+			targetStr = candidate.Owner.String()
 		} else if !errors.Is(rewardErr, state.ErrStateNotExist) {
 			return nil, nil, errors.Wrap(rewardErr, "rewarding: read candidate owner for pool sweep")
 		}

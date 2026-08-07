@@ -429,7 +429,7 @@ func newVoterRewardCtx(
 		Votes:         big.NewInt(1_000_000),
 	}
 	r.NoError(staking.TestOnlyPutCandidateRewardAddress(
-		sm, candAddr, candAddr, identityset.Address(2), false,
+		sm, candAddr, candAddr, identityset.Address(2), false, iip59On,
 	))
 
 	ctx := genesis.WithGenesisContext(context.Background(), g)

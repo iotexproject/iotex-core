@@ -524,16 +524,12 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		routing, err := resolveDelegateRewardRouting(ctx, sr, candID)
+		routing, err := resolveDelegateRewardRouting(sr, candID)
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		rewardAddr := routing.legacyRewardAddress
-		if routing.onchainRewardEnabled {
-			rewardAddr = routing.owner
-		}
 		return marshalWithHeight(sr, &rewardingpb.VoterRewardAddress{
-			Address: rewardAddr.Bytes(), ExplicitlySet: routing.rewardAddressUpdated,
+			Address: routing.PayoutAddress().Bytes(), ExplicitlySet: routing.candidate.RewardAddressUpdated,
 		})
 	case "VoterRewardDestination":
 		if len(args) != 1 {

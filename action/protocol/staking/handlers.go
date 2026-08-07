@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
@@ -893,10 +892,6 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	}
 
 	if act.RewardAddress() != nil {
-		if !featureCtx.NoVoterRewardDistribution && candidateOnchainRewardEnabled(c,
-			genesis.MustExtractGenesisContext(ctx).HermesRewardVaultAddresses) {
-			c.VoterRewardOnchainOptIn = true
-		}
 		c.Reward = act.RewardAddress()
 		if !featureCtx.NoVoterRewardDistribution {
 			c.RewardAddressUpdated = true

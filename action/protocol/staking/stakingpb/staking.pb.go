@@ -242,12 +242,12 @@ type Candidate struct {
 	IdentifierAddress  string `protobuf:"bytes,8,opt,name=identifierAddress,proto3" json:"identifierAddress,omitempty"` //if the field is empty, set it to the old owner address
 	Pubkey             []byte `protobuf:"bytes,9,opt,name=pubkey,proto3" json:"pubkey,omitempty"`                       // BLS public key
 	DeactivatedAt      uint64 `protobuf:"varint,10,opt,name=deactivatedAt,proto3" json:"deactivatedAt,omitempty"`
-	// True after the candidate owner explicitly enables protocol-native voter
-	// reward distribution. This transition is one-way.
+	// Enables protocol-native voter reward distribution. Existing Hermes
+	// candidates are migrated at activation; later opt-in is owner-controlled.
+	// This transition is one-way.
 	VoterRewardOnchainOptIn bool `protobuf:"varint,11,opt,name=voterRewardOnchainOptIn,proto3" json:"voterRewardOnchainOptIn,omitempty"`
 	// True when rewardAddress was explicitly set by a candidate action after
-	// IIP-59 activation. Automatic Hermes-vault migration only applies while
-	// this remains false.
+	// IIP-59 activation.
 	RewardAddressUpdated bool `protobuf:"varint,12,opt,name=rewardAddressUpdated,proto3" json:"rewardAddressUpdated,omitempty"`
 }
 

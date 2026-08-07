@@ -714,6 +714,9 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	// into state) sees the state they produced, and before the epoch-boundary
 	// indexer work below, which returns early on most blocks.
 	if blkCtx.BlockHeight == g.ToBeEnabledBlockHeight {
+		if err := migrateHermesRewardOptIn(ctx, sm, g.HermesRewardVaultAddresses); err != nil {
+			return err
+		}
 		if err := backfillOwnerIndex(ctx, sm); err != nil {
 			return err
 		}
