@@ -143,6 +143,20 @@ func (r *recordingScanStore) lastLimit(t *testing.T) int {
 	return r.limits[len(r.limits)-1]
 }
 
+// blockingScanStore exposes the exact interval between a buffered scan taking
+// its view and replaying that view over the base result.
+type blockingScanStore struct {
+	KVStoreWithRangeScan
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (s *blockingScanStore) ScanRange(ns string, min, max []byte, limit int) ([][]byte, [][]byte, error) {
+	close(s.entered)
+	<-s.release
+	return s.KVStoreWithRangeScan.ScanRange(ns, min, max, limit)
+}
+
 // bufScanOp is one pending buffer write.
 type bufScanOp struct {
 	del bool
@@ -394,6 +408,91 @@ func TestScanRangeBoundedBaseScan(t *testing.T) {
 			r.Equal(c.wantBaseLimit, base.lastLimit(t), "limit pushed into the base scan")
 		})
 	}
+}
+
+func TestScanRangeSnapshotsBufferAcrossConcurrentClear(t *testing.T) {
+	r := require.New(t)
+	base := &blockingScanStore{
+		KVStoreWithRangeScan: NewMemKVStore().(KVStoreWithRangeScan),
+		entered:              make(chan struct{}),
+		release:              make(chan struct{}),
+	}
+	buffer := batch.NewCachedBatch()
+	flusher, err := NewKVStoreFlusher(base, buffer)
+	r.NoError(err)
+	scanner := flusher.KVStoreWithBuffer().(KVStoreWithRangeScan)
+	r.NoError(flusher.KVStoreWithBuffer().Put(_bufScanNS, []byte("pending"), []byte("value")))
+
+	type result struct {
+		keys, values [][]byte
+		err          error
+	}
+	resultCh := make(chan result, 1)
+	go func() {
+		keys, values, err := scanner.ScanRange(_bufScanNS, nil, nil, 1)
+		resultCh <- result{keys: keys, values: values, err: err}
+	}()
+
+	<-base.entered
+	buffer.Clear()
+	close(base.release)
+	got := <-resultCh
+	r.NoError(got.err)
+	r.Equal([][]byte{[]byte("pending")}, got.keys)
+	r.Equal([][]byte{[]byte("value")}, got.values)
+}
+
+func TestScanRangeSnapshotsBufferAcrossConcurrentRevert(t *testing.T) {
+	r := require.New(t)
+	base := &blockingScanStore{
+		KVStoreWithRangeScan: NewMemKVStore().(KVStoreWithRangeScan),
+		entered:              make(chan struct{}),
+		release:              make(chan struct{}),
+	}
+	buffer := batch.NewCachedBatch()
+	flusher, err := NewKVStoreFlusher(base, buffer)
+	r.NoError(err)
+	kvb := flusher.KVStoreWithBuffer()
+	scanner := kvb.(KVStoreWithRangeScan)
+	r.NoError(kvb.Put(_bufScanNS, []byte("before"), []byte("old")))
+	snapshot := kvb.Snapshot()
+	r.NoError(kvb.Put(_bufScanNS, []byte("pending"), []byte("new")))
+
+	type result struct {
+		keys, values [][]byte
+		err          error
+	}
+	resultCh := make(chan result, 1)
+	go func() {
+		keys, values, err := scanner.ScanRange(_bufScanNS, nil, nil, 2)
+		resultCh <- result{keys: keys, values: values, err: err}
+	}()
+
+	<-base.entered
+	r.NoError(kvb.RevertSnapshot(snapshot))
+	close(base.release)
+	got := <-resultCh
+	r.NoError(got.err)
+	r.Equal([][]byte{[]byte("before"), []byte("pending")}, got.keys)
+	r.Equal([][]byte{[]byte("old"), []byte("new")}, got.values)
+}
+
+func TestBufferedScanEntriesFiltersNamespaceAndRange(t *testing.T) {
+	r := require.New(t)
+	_, _, scanner := newBufScanFixture(t, nil, []bufScanOp{
+		{k: "a", v: "below"},
+		{del: true, k: "c"},
+		{k: "d", v: "inside"},
+		{del: true, ns: _bufScanOther, k: "c"},
+		{k: "e", v: "at-max"},
+	})
+	kvb := scanner.(*kvStoreWithBuffer)
+	entries, deletes, err := kvb.bufferedScanEntries(_bufScanNS, []byte("b"), []byte("e"))
+	r.NoError(err)
+	r.Equal(1, deletes)
+	r.Len(entries, 2)
+	r.Equal([]byte("c"), entries[0].Key())
+	r.Equal([]byte("d"), entries[1].Key())
 }
 
 // TestScanRangeBoundedBaseScanRejectsNaiveLimit is the test that says WHY the

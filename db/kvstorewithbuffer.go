@@ -260,23 +260,38 @@ func scanEntryInRange(entry *batch.WriteInfo, ns string, min, max []byte) bool {
 	return entry.Namespace() == ns && inScanRange(entry.Key(), min, max)
 }
 
-// countBufferedDeletes returns d, the number of buffered Delete entries a
-// ScanRange over ns and [min, max) would replay. Counted per entry, with no
-// de-duplication and no attempt to guess whether the base store actually holds
-// the key: see ScanRange for why over-counting is harmless and under-counting is
-// a correctness bug.
-func (kvb *kvStoreWithBuffer) countBufferedDeletes(ns string, min, max []byte) (int, error) {
-	d := 0
-	for i := 0; i < kvb.buffer.Size(); i++ {
+// bufferedScanEntries snapshots only the entries relevant to one range scan
+// under the CachedBatch lock, and counts its Deletes in the same pass. A range
+// scan must use one immutable view for both its base-limit calculation and its
+// final replay: Flush, Clear, or RevertSnapshot may otherwise shrink the queue
+// between Size and Entry and either lose writes or return batch.ErrOutOfBound.
+// Filtering while locked also avoids allocating a queue-sized pointer slice for
+// every narrow shard scan.
+func (kvb *kvStoreWithBuffer) bufferedScanEntries(
+	ns string,
+	min, max []byte,
+) ([]*batch.WriteInfo, int, error) {
+	kvb.buffer.Lock()
+	defer kvb.buffer.Unlock()
+
+	var (
+		entries []*batch.WriteInfo
+		deletes int
+	)
+	for i, size := 0, kvb.buffer.Size(); i < size; i++ {
 		entry, err := kvb.buffer.Entry(i)
 		if err != nil {
-			return 0, err
+			return nil, 0, err
 		}
-		if entry.WriteType() == batch.Delete && scanEntryInRange(entry, ns, min, max) {
-			d++
+		if !scanEntryInRange(entry, ns, min, max) {
+			continue
+		}
+		entries = append(entries, entry)
+		if entry.WriteType() == batch.Delete {
+			deletes++
 		}
 	}
-	return d, nil
+	return entries, deletes, nil
 }
 
 // ScanRange returns up to limit <k, v> pairs in [min, max), ascending by bytes.Compare(k),
@@ -295,6 +310,10 @@ func (kvb *kvStoreWithBuffer) ScanRange(ns string, min, max []byte, limit int) (
 	}
 	if emptyScanRange(min, max) {
 		return nil, nil, nil
+	}
+	entries, deletes, err := kvb.bufferedScanEntries(ns, min, max)
+	if err != nil {
+		return nil, nil, err
 	}
 	// DO NOT push the caller's raw limit down to the base scan. The buffer can
 	// contain keys that sort before a truncated base scan's cutoff, and each of
@@ -329,11 +348,7 @@ func (kvb *kvStoreWithBuffer) ScanRange(ns string, min, max []byte, limit int) (
 	// qualifying Delete entry must be counted, once per entry.
 	baseLimit := 0
 	if limit > 0 {
-		d, err := kvb.countBufferedDeletes(ns, min, max)
-		if err != nil {
-			return nil, nil, err
-		}
-		baseLimit = limit + d
+		baseLimit = limit + deletes
 	}
 	baseKeys, baseValues, err := scanner.ScanRange(ns, min, max, baseLimit)
 	if err != nil {
@@ -345,14 +360,7 @@ func (kvb *kvStoreWithBuffer) ScanRange(ns string, min, max []byte, limit int) (
 		merged[string(k)] = baseValues[i]
 	}
 	// replay the buffer in write order, so the last write to a key wins
-	for i := 0; i < kvb.buffer.Size(); i++ {
-		entry, err := kvb.buffer.Entry(i)
-		if err != nil {
-			return nil, nil, err
-		}
-		if !scanEntryInRange(entry, ns, min, max) {
-			continue
-		}
+	for _, entry := range entries {
 		ks := string(entry.Key())
 		switch entry.WriteType() {
 		case batch.Put:
