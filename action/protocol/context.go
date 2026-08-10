@@ -191,6 +191,13 @@ type (
 		// Activating EnforceBLSPoP BEFORE the BLS aggregation fork closes
 		// the window for collecting un-attested pubkeys.
 		EnforceBLSPoP bool
+		// CorrectPrestateForAbsentKeys, when true, makes contract.GetCommittedState
+		// return the true tx-start prestate value (zero, via trie.ErrNotExist) for
+		// storage slots that were absent in the pre-tx trie. Prior to this gate the
+		// contract-level committed[] cache was populated with post-mutation values
+		// for such slots, causing EIP-2200 SSTORE dynamic gas to misclassify
+		// dirty in-place writes as SSTORE_RESET (100 → 2900 gas overcharge per hit).
+		CorrectPrestateForAbsentKeys bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -368,6 +375,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixInContractTransferLogTopic:           g.IsToBeEnabled(height),
 			NoVoterRewardDistribution:               !g.IsToBeEnabled(height),
 			EnforceBLSPoP:                           g.IsToBeEnabled(height),
+			CorrectPrestateForAbsentKeys:            g.IsToBeEnabled(height),
 		},
 	)
 }

@@ -591,6 +591,9 @@ func prepareStateDBAdapter(ctx context.Context, sm protocol.StateManager) (*Stat
 	if !featureCtx.AlwaysWriteCachedContract {
 		opts = append(opts, SkipWriteCleanContractOption())
 	}
+	if featureCtx.CorrectPrestateForAbsentKeys {
+		opts = append(opts, CorrectPrestateForAbsentKeysOption())
+	}
 	return NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
