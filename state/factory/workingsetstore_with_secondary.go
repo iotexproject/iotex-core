@@ -2,6 +2,7 @@ package factory
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -55,6 +56,12 @@ func newWorkingSetStoreWithSecondary(store workingSetStore, erigonStore workingS
 		writerSecondary: erigonStore,
 		snMap:           make(map[int]int),
 	}
+}
+
+// DumpWriteQueue delegates to the primary (statedb) store, which is the one
+// whose write queue backs the delta state digest.
+func (store *workingSetStoreWithSecondary) DumpWriteQueue(w io.Writer) error {
+	return store.writer.DumpWriteQueue(w)
 }
 
 func (store *workingSetStoreWithSecondary) Start(context.Context) error {
