@@ -43,6 +43,23 @@ message RewardLog {
         FOUNDATION_BONUS= 2;
         PRIORITY_BONUS = 3;
         UNPRODUCTIVE_SLASH = 4;
+        // IIP-59 §10.2: emitted at Phase A entry when a live cursor is
+        // detected from a previous era that failed to drain in time. The
+        // stale cursor is deleted and its residue is rolled into the
+        // fresh era's cursor materialization. addr encodes
+        // "<target_era>:<delegates_remaining>" and amount encodes the
+        // residue (leftover pool balance across the remaining delegates)
+        // as a decimal string; both fields reuse the existing wire slots
+        // to avoid a payload-shape change on the RewardLog message.
+        EPOCH_DRAIN_OVERRUN = 5;
+        // IIP-59 §10.3: informational log emitted at each
+        // GrantVoterRewardChunk before the drain runs, so off-chain
+        // observers can track cursor pile-up across a multi-block drain
+        // without inspecting state directly. addr encodes
+        // "<target_era>:<delegate_index>:<voter_index>:<delegates_remaining>";
+        // amount is the fixed literal "0" (no monetary value — this is a
+        // cursor snapshot, not a payout).
+        CURSOR_PROGRESS = 6;
     }
     RewardType type = 1;
     string addr = 2;
@@ -51,4 +68,196 @@ message RewardLog {
 
 message RewardLogs {
     repeated RewardLog logs = 1;
+}
+
+// PendingBlockRewardPool holds a delegate's accumulated block-reward
+// balance for IIP-59 §3.2. Written at block time when a producer earns the
+// voter portion of a block reward; drained at epoch close through the
+// batched voter split. One entry per delegate under the pending
+// pool key prefix.
+message PendingBlockRewardPool {
+    bytes amount = 1;
+}
+
+// EpochDrainDelegateWork is one frozen per-delegate work item captured
+// at the era boundary: delegate identifier, voter share, reward address,
+// and epoch commission. Chunks in later blocks read this frozen record so
+// they never recompute the target-era split from a partially produced live
+// epoch, while PendingBlockRewardPool may keep accruing behind the drain.
+message EpochDrainDelegateWork {
+    bytes candidate_identifier = 1;
+    bytes voter_amount_frozen  = 2;
+    bytes reward_address       = 3;
+    bytes epoch_commission     = 4;
+    // Amount already distributed from voter_amount_frozen. This lets a
+    // continuation give the final weighted voter the exact remainder without
+    // rescanning every preceding voter on each block.
+    bytes voter_amount_distributed = 5;
+    // Total voter weight is frozen once when Phase A creates the cursor.
+    // Continuation chunks use this value directly instead of recomputing it.
+    // Sourced from the era snapshot's totalWeight, i.e. the frozen value of
+    // candidate.Votes.
+    bytes total_weight = 6;
+    bytes snapshot_hash = 7;
+    // 8 was last_weighted_index and 10 was voter_start_index. Both belonged to
+    // the candidate-major drain that walked a frozen entry list: 10 rotated the
+    // starting position in that list and 8 named the position that absorbed the
+    // floor-division remainder. The drain is now voter-major and never reads an
+    // entry list, so neither has a meaning to preserve; the dust they used to
+    // chase is swept to the orphan path instead.
+    //
+    // 9 was has_weighted_entries: "the frozen entry list contained at least one
+    // positive weight". With the entry list gone, total_weight is the frozen
+    // candidate.Votes and total_weight > 0 says exactly the same thing, so the
+    // flag was a second copy of one bit that could only ever disagree by being
+    // wrong. Retired, never reused.
+    reserved 8, 9, 10;
+    // IIP-59: the era boundary height H this work item was frozen at.
+    //
+    // The drain runs several blocks after H and recomputes voter weights from
+    // buckets. Contract-staking buckets that are not timestamp-based have their
+    // remaining duration evaluated against a block height, so the recompute
+    // must be handed H rather than the height of the block the chunk happens to
+    // run in -- otherwise the same bucket is worth different amounts in chunk 1
+    // and chunk 2 of the same era. Copy-on-write cannot fix this on its own;
+    // only carrying H can.
+    uint64 freeze_height = 11;
+    // IIP-59: the delegate's self-stake bucket index at H. The weight recompute
+    // decides the self-stake bonus with `bucket.Index == SelfStakeBucketIdx`,
+    // and the compound-deposit path inside the drain would otherwise read the
+    // live candidate record, which the drain itself is mutating.
+    // math.MaxUint64 means "no self-stake bucket".
+    uint64 self_stake_bucket_idx = 12;
+}
+
+// EpochDrainCursor checkpoints a multi-block IIP-59 era-boundary drain of
+// PendingBlockRewardPool balances into voter accounts.
+//
+// The drain walks the voter key space, not the delegate list: the space is
+// split into 256 shards by the first byte of the voter address, and the shards
+// are visited in a rotation starting at start_shard. shards_done counts the
+// shards fully finished so far, so the drain is over at 256; resume_voter is
+// the last voter address visited inside the shard currently in progress, which
+// is what lets a block stop part-way through a shard whose population an
+// attacker chose. An incomplete cursor signals that the system-action layer
+// must emit a continuation grant. A completed cursor is retained for voter
+// queries until the next era boundary replaces it.
+message EpochDrainCursor {
+    uint64 target_era     = 1;
+    // 2 was delegate_index, 4 was voter_index and 6 was delegate_start_index:
+    // the resume position of the old candidate-major drain, which walked the
+    // frozen delegate list and, inside each delegate, a frozen voter list.
+    // Nothing in the shard walk corresponds to them. Retired, never reused.
+    reserved 2, 4, 6;
+    repeated EpochDrainDelegateWork delegates = 3;
+    // Domain-separated hash of the parent block hash and target era. The
+    // same value determines start_shard for this settlement.
+    bytes settlement_seed = 5;
+    bool completed = 7;
+    uint64 completed_height = 8;
+    uint64 start_epoch = 9;
+    uint64 end_epoch = 10;
+    // First shard of the visit rotation, derived from settlement_seed. Shard
+    // (start_shard + n) mod 256 is the n-th shard visited.
+    uint32 start_shard = 11;
+    // Number of shards fully drained. 256 means the drain is over, which is why
+    // this cannot be a uint8.
+    uint32 shards_done = 12;
+    // Last voter address visited in the shard now in progress; empty when that
+    // shard has not been entered yet. Resume skips every address <= this one.
+    bytes resume_voter = 13;
+}
+
+// VoterRewardAddress is the effective post-IIP-59 delegate payout address.
+// explicitly_set distinguishes an address configured after activation from
+// the default that follows the candidate's current owner.
+message VoterRewardAddress {
+    bytes address = 1;
+    bool explicitly_set = 2;
+}
+
+// VoterRewardStatus reports one voter's position and exact reward amount in
+// the active or most recently completed IIP-59 settlement.
+message VoterRewardStatus {
+    enum Status {
+        NO_ACTIVE_SETTLEMENT = 0;
+        CANDIDATE_NOT_INCLUDED = 1;
+        VOTER_NOT_INCLUDED = 2;
+        WAITING = 3;
+        PROCESSED = 4;
+        SNAPSHOT_UNAVAILABLE = 5;
+    }
+
+    uint64 target_era = 1;
+    Status status = 2;
+    // 3 was logical_voter_index and 4 was voter_start_index: positions in the
+    // frozen per-candidate entry list the query no longer consults. The query
+    // is per-voter now and reward_amount sums every delegate the voter has a
+    // frozen bucket with. Retired, never reused.
+    reserved 3, 4;
+    bytes reward_amount = 5;
+    uint64 era_start_epoch = 6;
+    uint64 era_end_epoch = 7;
+    bool settlement_completed = 8;
+    uint64 completed_height = 9;
+}
+
+// VoterRewardDestination is the effective account for direct IIP-59 voter
+// payouts. State stores only explicit overrides; ReadState materializes the
+// voter itself as recipient when explicitly_set is false.
+message VoterRewardDestination {
+    bytes recipient = 1;
+    bool explicitly_set = 2;
+    uint64 updated_height = 3;
+}
+
+// PendingBlockRewardPoolIndex lists candidate identifiers with a non-zero
+// pending voter-reward balance. The list is stored in deterministic order.
+message PendingBlockRewardPoolIndex {
+    repeated bytes candidate_identifiers = 1;
+}
+
+// EpochDrainPlan is the immutable portion of one era settlement. It is
+// written once at the era boundary and retained until the next settlement.
+message EpochDrainPlan {
+    uint64 target_era = 1;
+    repeated EpochDrainDelegateWork delegates = 2;
+    bytes settlement_seed = 3;
+    // 4 was delegate_start_index, the rotation offset into the delegate list
+    // the candidate-major drain walked. The rotation now applies to the shard
+    // sequence and lives in start_shard. Retired, never reused.
+    reserved 4;
+    uint64 start_epoch = 5;
+    uint64 end_epoch = 6;
+    // First shard of the visit rotation, derived from settlement_seed. Part of
+    // the plan rather than the progress because it never changes.
+    uint32 start_shard = 7;
+}
+
+// EpochDrainProgress is the small, frequently updated settlement checkpoint.
+// The bitmap marks delegates that were passed without payout because their
+// frozen work item named no payable recipient set.
+message EpochDrainProgress {
+    uint64 target_era = 1;
+    // 2 was delegate_index and 3 was voter_index, the candidate-major resume
+    // position; 4 was voter_amount_distributed, a single running total that
+    // only described the delegate at delegate_index. The voter-major drain
+    // touches many delegates per block, so it has to carry one running total
+    // per delegate -- voter_distributed below. Retired, never reused.
+    reserved 2, 3, 4;
+    bool completed = 5;
+    uint64 completed_height = 6;
+    bytes skipped_delegate_bitmap = 7;
+    // Number of shards fully drained; 256 means done.
+    uint32 shards_done = 8;
+    // Last voter address visited in the shard now in progress.
+    bytes resume_voter = 9;
+    // Running distributed total per delegate, positionally aligned with
+    // EpochDrainPlan.delegates. Big-endian unsigned; an entry shorter than the
+    // delegate list means the missing tail is still zero. This vector is what
+    // the payout clamp measures against, so it has to be persisted rather than
+    // reconstructed: the voter-major drain leaves every delegate partially paid
+    // for most of the settlement, and there is no index position from which the
+    // per-delegate totals could be inferred.
+    repeated bytes voter_distributed = 10;
 }

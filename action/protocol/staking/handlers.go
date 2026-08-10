@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
@@ -85,7 +86,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 
 	// update candidate
 	weightedVote := p.calculateVoteWeight(bucket, false)
-	if err := candidate.AddVote(weightedVote); err != nil {
+	if err := addCandidateVotes(candidate, weightedVote); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
@@ -207,7 +208,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		}
 	}
 	weightedVote := p.calculateVoteWeight(bucket, selfStake)
-	if err := candidate.SubVote(weightedVote); err != nil {
+	if err := subCandidateVotes(candidate, weightedVote); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
@@ -368,8 +369,11 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 
 	// update previous candidate
+	// IIP-59: this pair moves the voter's weight from the old candidate to the
+	// new one; the second half runs a few lines below, after the old candidate
+	// has been upserted.
 	weightedVotes := p.calculateVoteWeight(bucket, false)
-	if err := prevCandidate.SubVote(weightedVotes); err != nil {
+	if err := subCandidateVotes(prevCandidate, weightedVotes); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for previous candidate %s", prevCandidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
@@ -386,7 +390,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 
 	// update current candidate
-	if err := candidate.AddVote(weightedVotes); err != nil {
+	if err := addCandidateVotes(candidate, weightedVotes); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
@@ -450,6 +454,13 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
+
+	// A transfer keeps the bucket's candidate, its weight and its duration; only
+	// the owner changes. The candidate's total weighted votes are therefore
+	// unchanged and no AddVote/SubVote is owed here. The retired
+	// per-(candidate, voter) view needed an explicit -old/+new pair at this
+	// point; the era drain re-derives a voter's weight from the frozen bucket
+	// owner index instead, which follows the new owner by construction.
 
 	log.AddAddress(actionCtx.Caller)
 	return log, nil
@@ -536,14 +547,14 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	}
 
 	// update candidate
-	if err := candidate.SubVote(prevWeightedVotes); err != nil {
+	if err := subCandidateVotes(candidate, prevWeightedVotes); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
 	weightedVotes := p.calculateVoteWeight(bucket, selfStake)
-	if err := candidate.AddVote(weightedVotes); err != nil {
+	if err := addCandidateVotes(candidate, weightedVotes); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
@@ -655,14 +666,14 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	}
 
 	// update candidate
-	if err := candidate.SubVote(prevWeightedVotes); err != nil {
+	if err := subCandidateVotes(candidate, prevWeightedVotes); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
 	weightedVotes := p.calculateVoteWeight(bucket, selfStake)
-	if err := candidate.AddVote(weightedVotes); err != nil {
+	if err := addCandidateVotes(candidate, weightedVotes); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.GetIdentifier().String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
@@ -770,13 +781,14 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), candID.Bytes())
 
 	c = &Candidate{
-		Owner:              owner,
-		Operator:           act.OperatorAddress(),
-		Reward:             act.RewardAddress(),
-		Name:               act.Name(),
-		Votes:              votes,
-		SelfStakeBucketIdx: bucketIdx,
-		SelfStake:          act.Amount(),
+		Owner:                owner,
+		Operator:             act.OperatorAddress(),
+		Reward:               act.RewardAddress(),
+		Name:                 act.Name(),
+		Votes:                votes,
+		SelfStakeBucketIdx:   bucketIdx,
+		SelfStake:            act.Amount(),
+		RewardAddressUpdated: !featureCtx.NoVoterRewardDistribution,
 	}
 	if !featureCtx.CandidateIdentifiedByOwner {
 		c.Identifier = candID
@@ -881,7 +893,14 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	}
 
 	if act.RewardAddress() != nil {
+		if !featureCtx.NoVoterRewardDistribution && candidateOnchainRewardEnabled(c,
+			genesis.MustExtractGenesisContext(ctx).HermesRewardVaultAddresses) {
+			c.VoterRewardOnchainOptIn = true
+		}
 		c.Reward = act.RewardAddress()
+		if !featureCtx.NoVoterRewardDistribution {
+			c.RewardAddressUpdated = true
+		}
 	}
 
 	if act.WithBLS() {

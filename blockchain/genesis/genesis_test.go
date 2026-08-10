@@ -130,3 +130,15 @@ func TestGenesisMapEmpty(t *testing.T) {
 	// Therefore, the default map must be empty.
 	r.Empty(g.Account.InitBalanceMap, "InitBalanceMap should be empty")
 }
+
+func TestIIP59EraDefaults(t *testing.T) {
+	r := require.New(t)
+	cfg, err := New("")
+	r.NoError(err)
+	r.Equal(uint64(24), cfg.Rewarding.EpochsPerRewardEra)
+	r.Equal(uint64(2000), cfg.Rewarding.VoterBudgetPerBlock)
+	r.Equal([]string{
+		"io19604a05s2p3mecam2zz7d27hcr6ndyw80wvkmh",
+		"io12mgttmfa2ffn9uqvn0yn37f4nz43d248l2ga85",
+	}, cfg.Rewarding.HermesRewardVaultAddresses)
+}

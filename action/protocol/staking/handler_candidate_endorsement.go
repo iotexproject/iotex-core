@@ -86,7 +86,7 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 				}
 			} else {
 				// TODO: Check that the bucket is ready for dequeue
-				if err := p.clearCandidateSelfStake(bucket, cand); err != nil {
+				if err := p.clearCandidateSelfStake(csm, bucket, cand); err != nil {
 					return log, nil, errors.Wrap(err, "failed to clear candidate self-stake")
 				}
 				if err := csm.Upsert(cand); err != nil {
@@ -157,14 +157,18 @@ func (p *Protocol) validateRevokeEndorsement(ctx context.Context, esm *Endorseme
 	return nil
 }
 
-func (p *Protocol) clearCandidateSelfStake(bucket *VoteBucket, cand *Candidate) error {
+func (p *Protocol) clearCandidateSelfStake(csm CandidateStateManager, bucket *VoteBucket, cand *Candidate) error {
 	if cand.SelfStakeBucketIdx != bucket.Index {
 		return errors.New("self-stake bucket index mismatch")
 	}
-	if err := cand.SubVote(p.calculateVoteWeight(bucket, true)); err != nil {
+	prevWeight := p.calculateVoteWeight(bucket, true)
+	newWeight := p.calculateVoteWeight(bucket, false)
+	// IIP-59: same bucket loses the self-stake bonus, so the view sees -prev
+	// then +new on (cand, bucket.Owner).
+	if err := subCandidateVotes(cand, prevWeight); err != nil {
 		return errors.Wrapf(err, "failed to subtract vote weight for bucket index %d", bucket.Index)
 	}
-	if err := cand.AddVote(p.calculateVoteWeight(bucket, false)); err != nil {
+	if err := addCandidateVotes(cand, newWeight); err != nil {
 		return errors.Wrapf(err, "failed to add vote weight for bucket index %d", bucket.Index)
 	}
 	cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex

@@ -68,7 +68,7 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 		err = store.GetObject(namespace, key3, &valueInStore)
 		require.NoError(err)
 		require.True(bytes.Equal(value3, valueInStore))
-		iter, err := store.States(namespace, nil, [][]byte{key1, key2, key3})
+		iter, err := store.States(namespace, nil, [][]byte{key1, key2, key3}, nil)
 		require.NoError(err)
 		require.Equal(3, iter.Size())
 		var valuesInStore []valueBytes
@@ -91,7 +91,7 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 		require.NoError(store.DeleteObject(namespace, key1, nil))
 		err = store.GetObject(namespace, key1, &valueInStore)
 		require.Error(err)
-		iter, err = store.States(namespace, &valueInStore, [][]byte{key1, key2, key3})
+		iter, err = store.States(namespace, &valueInStore, [][]byte{key1, key2, key3}, nil)
 		require.NoError(err)
 		require.Equal(3, iter.Size())
 		valuesInStore = []valueBytes{}

@@ -56,8 +56,7 @@ func (s *voteViewEventHandler) PutBucket(addr address.Address, id uint64, bucket
 	}
 	s.view.Add(bucket.Candidate.String(), deltaAmount, deltaVotes)
 
-	s.BucketStore.PutBucket(addr, id, bucket)
-	return nil
+	return s.BucketStore.PutBucket(addr, id, bucket)
 }
 
 func (s *voteViewEventHandler) DeleteBucket(addr address.Address, id uint64) error {

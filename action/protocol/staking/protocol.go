@@ -28,6 +28,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/eracow"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -61,6 +62,70 @@ const (
 	_voterIndex
 	_candIndex
 	_endorsement
+	// _candidatePollSnapshot is the tag for a CandidatePollSnapshot blob keyed
+	// by a candidate's identity address (see poll_snapshot.go). Written at
+	// PutPollResult, read once per epoch by the rewarding protocol under
+	// IIP-59. Full key: {_candidatePollSnapshot} || candID.Bytes().
+	_candidatePollSnapshot
+	// RETIRED — do not reuse either slot.
+	//
+	// _voterWeightsRetired held the per-(candidate, voter) entries of the
+	// IIP-59 VoterWeightView ({tag} || candID(20) || voterAddress(20)), and
+	// _voterWeightSeedRetired the single-value cursor that tracked flushing
+	// that table into state at activation. The view was removed before IIP-59
+	// activated on any network, so no node ever wrote a key under either tag
+	// and there is nothing to migrate — but the iota positions stay occupied
+	// for the same reason retired proto field numbers stay `reserved`: a future
+	// tag that reuses one would collide with any archive node, test fixture or
+	// devnet that did run a build which wrote them.
+	//
+	// Spelled as blank identifiers so the slots cannot be referenced at all;
+	// deleting the two lines would renumber every tag below them.
+	_ // retired: _voterWeights
+	_ // retired: _voterWeightSeed
+	// _lsdVoterIndex is the tag for the owner -> contract-staking (LSD) bucket
+	// index, the LSD counterpart of _voterIndex. Full key:
+	// {_lsdVoterIndex} || ownerAddress(20); value is a
+	// contractstaking.ContractBucketRefs, i.e. (contract, bucket id) pairs,
+	// because contract-staking bucket ids are only unique per contract.
+	//
+	// Written exclusively by contractstaking.ContractStakingStateManager's
+	// UpsertBucket/DeleteBucket, and only once IIP-59 has activated. The tag
+	// value itself lives in the contractstaking package (staking imports
+	// contractstaking, not the reverse); the assertion below keeps the two
+	// definitions from drifting apart.
+	_lsdVoterIndex
+	// _eraCOWControl, _eraCOWEntry and _eraCOWJournal are the three tags of the
+	// IIP-59 era copy-on-write layer (see the eracow package). Full keys:
+	//   {_eraCOWControl}
+	//   {_eraCOWEntry}   || u64BE(freezeHeight) || kind || subkey
+	//   {_eraCOWJournal} || u64BE(freezeHeight) || u64BE(seq)
+	//
+	// The drain window recomputes voter weights from buckets several blocks
+	// after the era boundary, so bucket state mutated in between has its
+	// as-of-boundary value copied under _eraCOWEntry on first write. As with
+	// _lsdVoterIndex the tag values live in the leaf package (staking imports
+	// eracow, not the reverse) and the assertions below keep them in step.
+	_eraCOWControl
+	_eraCOWEntry
+	_eraCOWJournal
+)
+
+// The staking namespace is shared, so every tag must be unique and no two key
+// shapes may be confusable. {_lsdVoterIndex}||owner is 21 bytes, same length as
+// the _voterIndex / _candIndex / _candidatePollSnapshot keys but with a
+// distinct leading tag. These two constants overflow (and so fail to compile)
+// the moment the tag byte the contractstaking package writes stops matching the
+// one reserved here.
+const (
+	_ = byte(_lsdVoterIndex - contractstaking.LSDVoterIndexPrefix)
+	_ = byte(contractstaking.LSDVoterIndexPrefix - _lsdVoterIndex)
+	_ = byte(_eraCOWControl - eracow.ControlPrefix)
+	_ = byte(eracow.ControlPrefix - _eraCOWControl)
+	_ = byte(_eraCOWEntry - eracow.EntryPrefix)
+	_ = byte(eracow.EntryPrefix - _eraCOWEntry)
+	_ = byte(_eraCOWJournal - eracow.JournalPrefix)
+	_ = byte(eracow.JournalPrefix - _eraCOWJournal)
 )
 
 // Errors
@@ -116,7 +181,13 @@ type (
 		helperCtx                HelperCtx
 		blockStore               BlockStore
 		blocksToDurationFn       func(startHeight, endHeight, currentHeight uint64) time.Duration
+		genesisStateSeeder       GenesisStateSeeder
 	}
+
+	// GenesisStateSeeder plants additional genesis state inside the same
+	// candidate-state transaction that CreateGenesisStates uses for
+	// BootstrapCandidates. See WithGenesisStateSeeder.
+	GenesisStateSeeder func(ctx context.Context, csm CandidateStateManager) error
 
 	// Configuration is the staking protocol configuration.
 	Configuration struct {
@@ -172,6 +243,19 @@ func WithContractStakingIndexerV3(indexer ContractStakingIndexer) Option {
 func WithBlockStore(bs BlockStore) Option {
 	return func(p *Protocol) {
 		p.blockStore = bs
+	}
+}
+
+// WithGenesisStateSeeder sets a seeder invoked from CreateGenesisStates AFTER
+// the BootstrapCandidates loop and BEFORE the final Commit. It lets a test
+// harness plant candidates + voter buckets directly in the same genesis
+// transaction, avoiding the action-pool bottleneck at mainnet-scale voter
+// counts. Nothing in production wires this — a node built from config alone
+// never reaches it, which is the point of it being an option rather than a
+// package-level hook.
+func WithGenesisStateSeeder(seeder GenesisStateSeeder) Option {
+	return func(p *Protocol) {
+		p.genesisStateSeeder = seeder
 	}
 }
 
@@ -297,65 +381,72 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 	}
 	c.contractsStake = &contractStakeView{}
-	checkIndex := func(indexer ContractStakingIndexer) error {
+	checkIndex := func(indexer ContractStakingIndexer) (bool, error) {
 		checker := blockdao.GetChecker(ctx)
 		if checker == nil {
-			return nil
+			return true, nil
 		}
 		if err := indexer.Start(ctx); err != nil {
-			return errors.Wrap(err, "failed to start contract staking indexer")
+			return false, errors.Wrap(err, "failed to start contract staking indexer")
 		}
 		if indexer.StartHeight() > height {
-			return nil
+			return false, nil
 		}
 		indexerHeight, err := indexer.Height()
 		if err != nil {
-			return errors.Wrap(err, "failed to get contract staking indexer height")
+			return false, errors.Wrap(err, "failed to get contract staking indexer height")
 		}
 		if indexerHeight > height {
-			return errors.Errorf("contract staking indexer height %d > current height %d", indexerHeight, height)
+			return false, errors.Errorf("contract staking indexer height %d > current height %d", indexerHeight, height)
 		}
 		if height == 0 {
-			return nil
+			return true, nil
 		}
 		checkerHeight, err := checker.Height()
 		if err != nil {
-			return errors.Wrap(err, "failed to get checker height")
+			return false, errors.Wrap(err, "failed to get checker height")
 		}
 		if checkerHeight < height {
-			return errors.Errorf("checker height %d < target height %d", checkerHeight, height)
+			return false, errors.Errorf("checker height %d < target height %d", checkerHeight, height)
 		}
-		return checker.CheckIndexer(ctx, indexer, height, func(h uint64) {
+		if err := checker.CheckIndexer(ctx, indexer, height, func(h uint64) {
 			if h%5000 == 0 || h == height {
 				log.L().Info("Checking contract staking indexer", zap.Uint64("height", h), zap.String("contract", indexer.ContractAddress().String()))
 			}
-		})
+		}); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 	// List of all indexers to process
 	indexers := []struct {
 		indexer ContractStakingIndexer
 		setter  func(ContractStakeView)
+		active  bool
 	}{
-		{p.contractStakingIndexer, func(v ContractStakeView) { c.contractsStake.v1 = v }},
-		{p.contractStakingIndexerV2, func(v ContractStakeView) { c.contractsStake.v2 = v }},
-		{p.contractStakingIndexerV3, func(v ContractStakeView) { c.contractsStake.v3 = v }},
+		{indexer: p.contractStakingIndexer, setter: func(v ContractStakeView) { c.contractsStake.v1 = v }},
+		{indexer: p.contractStakingIndexerV2, setter: func(v ContractStakeView) { c.contractsStake.v2 = v }},
+		{indexer: p.contractStakingIndexerV3, setter: func(v ContractStakeView) { c.contractsStake.v3 = v }},
 	}
 	// Process all indexers in parallel
 	wg := sync.WaitGroup{}
 	errChan := make(chan error, len(indexers))
 	skipView := p.skipContractStakingView(height)
-	for _, idx := range indexers {
+	for i := range indexers {
+		idx := &indexers[i]
 		if idx.indexer == nil {
 			continue
 		}
 		wg.Add(1)
-		func(indexer ContractStakingIndexer, setter func(ContractStakeView)) {
+		func(indexer ContractStakingIndexer, setter func(ContractStakeView), active *bool) {
 			defer wg.Done()
 			// First, checking the indexer
-			if err := checkIndex(indexer); err != nil {
+			available, err := checkIndex(indexer)
+			if err != nil {
 				errChan <- errors.Wrapf(err, "failed to check contract staking indexer %s", indexer.ContractAddress())
 				return
 			}
+			*active = available
 			// If not skipping view creation, build the view
 			if !skipView {
 				view, err := NewContractStakeViewBuilder(indexer, p.blockStore).Build(ctx, sr, height)
@@ -365,7 +456,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 				}
 				setter(view)
 			}
-		}(idx.indexer, idx.setter)
+		}(idx.indexer, idx.setter, &idx.active)
 	}
 	wg.Wait()
 	close(errChan)
@@ -374,6 +465,11 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			return nil, err
 		}
 	}
+
+	// The retired VoterWeightView used to be materialized here, which cost a
+	// full native-bucket scan plus a per-indexer contract bucket load on every
+	// node start. Nothing needs it now: the era drain recomputes a voter's
+	// weight from the frozen buckets on demand.
 	return c, nil
 }
 
@@ -382,11 +478,11 @@ func (p *Protocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) error {
-	if len(p.config.BootstrapCandidates) == 0 {
+	if len(p.config.BootstrapCandidates) == 0 && p.genesisStateSeeder == nil {
 		return nil
 	}
 	// TODO: set init values based on ctx
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return err
 	}
@@ -435,6 +531,12 @@ func (p *Protocol) CreateGenesisStates(
 		}
 	}
 
+	if p.genesisStateSeeder != nil {
+		if err := p.genesisStateSeeder(ctx, csm); err != nil {
+			return errors.Wrap(err, "genesis state seeder failed")
+		}
+	}
+
 	// commit updated view
 	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
 }
@@ -445,7 +547,7 @@ func (p *Protocol) SlashCandidateByOperator(
 	operator address.Address,
 	amount *big.Int,
 ) error {
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return errors.Wrap(err, "failed to create candidate state manager")
 	}
@@ -458,7 +560,7 @@ func (p *Protocol) SlashCandidateByID(
 	id address.Address,
 	amount *big.Int,
 ) error {
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return errors.Wrap(err, "failed to create candidate state manager")
 	}
@@ -492,11 +594,11 @@ func (p *Protocol) slashCandidate(
 	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
 		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)
 	}
-	if err := candidate.SubVote(prevWeightedVotes); err != nil {
+	if err := subCandidateVotes(candidate, prevWeightedVotes); err != nil {
 		return errors.Wrapf(err, "failed to sub candidate votes")
 	}
 	weightedVotes := p.calculateVoteWeight(bucket, true)
-	if err := candidate.AddVote(weightedVotes); err != nil {
+	if err := addCandidateVotes(candidate, weightedVotes); err != nil {
 		return errors.Wrapf(err, "failed to add candidate votes")
 	}
 	if err := candidate.SubSelfStake(amount); err != nil {
@@ -530,7 +632,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 	if blkCtx.BlockHeight == p.config.FixAliasForNonStopHeight {
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 		if err != nil {
 			return err
 		}
@@ -541,7 +643,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 		if err != nil {
 			return err
 		}
@@ -550,7 +652,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 	if blkCtx.BlockHeight == g.XinguBlockHeight {
-		handler, err := newNFTBucketEventHandler(sm, p.calculateContractBucketVoteWeight)
+		handler, err := newNFTBucketEventHandler(ctx, sm, p.calculateContractBucketVoteWeight)
 		if err != nil {
 			return err
 		}
@@ -580,7 +682,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	}
 	// remove BLS public key of all candidates at XinguBeta
 	if blkCtx.BlockHeight == g.XinguBetaBlockHeight {
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 		if err != nil {
 			return err
 		}
@@ -595,6 +697,25 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			if err := csm.Upsert(c); err != nil {
 				return errors.Wrapf(err, "failed to update candidate %s", c.GetIdentifier().String())
 			}
+		}
+	}
+
+	// IIP-59: build the owner -> contract-staking bucket index for buckets that
+	// predate activation, in one shot.
+	//
+	// The height is g.ToBeEnabledBlockHeight rather than a separate constant
+	// because that is the same height FeatureCtx.NoVoterRewardDistribution
+	// flips at (action/protocol/context.go), and therefore the height
+	// contractstaking.OwnerIndexEnabled starts maintaining this index at. A
+	// backfill on any other block would leave a gap or redo live work.
+	//
+	// Placed after the height-keyed migrations above so that a fork activating
+	// on the same height as one of them (Xingu flushes every contract bucket
+	// into state) sees the state they produced, and before the epoch-boundary
+	// indexer work below, which returns early on most blocks.
+	if blkCtx.BlockHeight == g.ToBeEnabledBlockHeight {
+		if err := backfillOwnerIndex(ctx, sm); err != nil {
+			return err
 		}
 	}
 
@@ -720,7 +841,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 		return nil
 	}
 
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return err
 	}
@@ -731,7 +852,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (receipt *action.Receipt, err error) {
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
@@ -798,6 +919,8 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		if err == nil {
 			nonceUpdateOption = noUpdateNonce
 		}
+	case *action.SetVoterRewardOptIn:
+		rLog, tLogs, err = p.handleSetVoterRewardOptIn(ctx, act, csm)
 	default:
 		return nil, nil
 	}
@@ -838,9 +961,9 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		if err := v.(*viewData).contractsStake.Handle(ctx, receipt); err != nil {
 			return err
 		}
-		handler = newNFTBucketEventHandlerErigonOnly(sm, ccvw)
+		handler = newNFTBucketEventHandlerErigonOnly(ctx, sm, ccvw)
 	} else {
-		handler, err = newNFTBucketEventHandler(sm, ccvw)
+		handler, err = newNFTBucketEventHandler(ctx, sm, ccvw)
 	}
 	if err != nil {
 		return err
@@ -909,6 +1032,8 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		return p.validateMigrateStake(ctx, act)
 	case *action.CandidateDeactivate:
 		return p.validateCandidateDeactivate(ctx, act)
+	case *action.SetVoterRewardOptIn:
+		return p.validateSetVoterRewardOptIn(ctx, act)
 	}
 	return nil
 }

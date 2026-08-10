@@ -150,3 +150,13 @@ func (p *Protocol) validateCandidateDeactivate(ctx context.Context, act *action.
 	}
 	return nil
 }
+
+func (p *Protocol) validateSetVoterRewardOptIn(ctx context.Context, act *action.SetVoterRewardOptIn) error {
+	if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+		return errors.Wrap(action.ErrInvalidAct, "SetVoterRewardOptIn is disabled")
+	}
+	if !act.OptIn() {
+		return errors.Wrap(action.ErrInvalidAct, "on-chain reward distribution cannot be disabled")
+	}
+	return act.SanityCheck()
+}

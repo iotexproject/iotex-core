@@ -53,18 +53,19 @@ type Server struct {
 	subModuleCancel      context.CancelFunc
 }
 
-// NewServer creates a new server
+// NewServer creates a new server. opts are forwarded to the chainservice
+// builder; a production node passes none and is fully described by cfg.
 // TODO clean up config, make root config contains network, dispatch and chainservice
-func NewServer(cfg config.Config) (*Server, error) {
-	return newServer(cfg, false)
+func NewServer(cfg config.Config, opts ...chainservice.BuildOption) (*Server, error) {
+	return newServer(cfg, false, opts...)
 }
 
 // NewInMemTestServer creates a test server in memory
-func NewInMemTestServer(cfg config.Config) (*Server, error) { // notest
-	return newServer(cfg, true)
+func NewInMemTestServer(cfg config.Config, opts ...chainservice.BuildOption) (*Server, error) { // notest
+	return newServer(cfg, true, opts...)
 }
 
-func newServer(cfg config.Config, testing bool) (*Server, error) {
+func newServer(cfg config.Config, testing bool, opts ...chainservice.BuildOption) (*Server, error) {
 	// TODO: move to a separate package
 	actionDeserializer := (&action.Deserializer{}).SetEvmNetworkID(cfg.Chain.EVMNetworkID)
 	// create dispatcher instance
@@ -113,7 +114,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	chains := make(map[uint32]*chainservice.ChainService)
 	apiServers := make(map[uint32]*api.ServerV2)
 	var cs *chainservice.ChainService
-	builder := chainservice.NewBuilder(cfg)
+	builder := chainservice.NewBuilder(cfg, opts...)
 	builder.SetP2PAgent(p2pAgent)
 	rpcStats := nodestats.NewAPILocalStats()
 	builder.SetRPCStats(rpcStats)

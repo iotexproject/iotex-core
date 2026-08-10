@@ -34,4 +34,12 @@ func TestBuildReadStateRequest(t *testing.T) {
 	ctx, err = BuildReadStateRequest(data)
 	r.Nil(err)
 	r.IsType(&UnclaimedBalanceStateContext{}, ctx)
+
+	ctx, err = BuildReadStateRequest(_pendingBlockRewardPoolIndexMethod.ID)
+	r.NoError(err)
+	r.IsType(&PendingBlockRewardPoolIndexStateContext{}, ctx)
+
+	ctx, err = BuildReadStateRequest(_eraDrainCursorMethod.ID)
+	r.NoError(err)
+	r.IsType(&EraDrainCursorStateContext{}, ctx)
 }

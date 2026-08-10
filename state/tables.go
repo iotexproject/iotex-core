@@ -83,6 +83,12 @@ var (
 	BlockRewardHistoryKeyPrefix = []byte("brh")
 	// EpochRewardHistoryKeyPrefix is the key prefix for epoch reward history
 	EpochRewardHistoryKeyPrefix = []byte("erh")
+	// EpochDrainPlanKey stores the immutable work list for the active or most
+	// recently completed IIP-59 settlement (RewardingNamespace).
+	EpochDrainPlanKey = []byte("edp")
+	// EpochDrainCursorKey stores only the frequently updated progress for the
+	// plan. Both keys are created and deleted together.
+	EpochDrainCursorKey = []byte("edc")
 )
 
 const PollCandidatesPrefix = "Candidates."

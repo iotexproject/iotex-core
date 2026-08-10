@@ -1,6 +1,7 @@
 package staking
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -20,11 +21,16 @@ type (
 		csm                 CandidateStateManager
 		bucketTypes         map[address.Address]map[uint64]*contractstaking.BucketType
 		bucketTypesLookup   map[address.Address]map[int64]map[uint64]uint64 // contract -> amount -> duration -> id
+		// ctx carries the IIP-59 fork gate down to the contract-staking state
+		// manager. The EventHandler interface this type satisfies is
+		// ctx-less, so the block's context is captured at construction; every
+		// construction site is per-block, so it never outlives its height.
+		ctx context.Context
 	}
 )
 
-func newNFTBucketEventHandler(sm protocol.StateManager, calculateVoteWeight CalculateVoteWeightFunc) (*nftEventHandler, error) {
-	csm, err := NewCandidateStateManager(sm)
+func newNFTBucketEventHandler(ctx context.Context, sm protocol.StateManager, calculateVoteWeight CalculateVoteWeightFunc) (*nftEventHandler, error) {
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
@@ -34,16 +40,28 @@ func newNFTBucketEventHandler(sm protocol.StateManager, calculateVoteWeight Calc
 		csm:                 csm,
 		bucketTypes:         make(map[address.Address]map[uint64]*contractstaking.BucketType),
 		bucketTypesLookup:   make(map[address.Address]map[int64]map[uint64]uint64),
+		ctx:                 ctx,
 	}, nil
 }
 
-func newNFTBucketEventHandlerErigonOnly(sm protocol.StateManager, calculateVoteWeight CalculateVoteWeightFunc) *nftEventHandler {
+func newNFTBucketEventHandlerErigonOnly(ctx context.Context, sm protocol.StateManager, calculateVoteWeight CalculateVoteWeightFunc) *nftEventHandler {
 	return &nftEventHandler{
 		calculateVoteWeight: calculateVoteWeight,
 		cssm:                contractstaking.NewContractStakingStateManager(sm, protocol.ErigonStoreOnlyOption()),
 		bucketTypes:         make(map[address.Address]map[uint64]*contractstaking.BucketType),
 		bucketTypesLookup:   make(map[address.Address]map[int64]map[uint64]uint64),
+		ctx:                 ctx,
 	}
+}
+
+// stateCtx returns the context the contract-staking state manager should see.
+// A nil ctx (handlers built directly in tests) reads as pre-activation, which
+// leaves the owner index untouched.
+func (handler *nftEventHandler) stateCtx() context.Context {
+	if handler.ctx == nil {
+		return context.Background()
+	}
+	return handler.ctx
 }
 
 func (handler *nftEventHandler) matchBucketType(contractAddr address.Address, amount *big.Int, duration uint64) (uint64, error) {
@@ -106,7 +124,9 @@ func (handler *nftEventHandler) DeductBucket(contractAddr address.Address, id ui
 	if candidate == nil {
 		return bucket, nil
 	}
-	if err := candidate.SubVote(handler.calculateVoteWeight(bucket, height)); err != nil {
+	weight := handler.calculateVoteWeight(bucket, height)
+	// IIP-59: contract bucket weight removed from (candidate, owner).
+	if err := subCandidateVotes(candidate, weight); err != nil {
 		return nil, errors.Wrap(err, "failed to subtract vote")
 	}
 	if err := handler.csm.Upsert(candidate); err != nil {
@@ -116,7 +136,7 @@ func (handler *nftEventHandler) DeductBucket(contractAddr address.Address, id ui
 }
 
 func (handler *nftEventHandler) PutBucket(contractAddr address.Address, id uint64, bkt *contractstaking.Bucket) error {
-	if err := handler.cssm.UpsertBucket(contractAddr, id, bkt); err != nil {
+	if err := handler.cssm.UpsertBucket(handler.stateCtx(), contractAddr, id, bkt); err != nil {
 		return errors.Wrap(err, "failed to put bucket")
 	}
 	if handler.csm == nil {
@@ -130,7 +150,9 @@ func (handler *nftEventHandler) PutBucket(contractAddr address.Address, id uint6
 	if candidate == nil {
 		return nil
 	}
-	if err := candidate.AddVote(handler.calculateVoteWeight(bkt, height)); err != nil {
+	weight := handler.calculateVoteWeight(bkt, height)
+	// IIP-59: contract bucket weight added to (candidate, owner).
+	if err := addCandidateVotes(candidate, weight); err != nil {
 		return errors.Wrap(err, "failed to add vote")
 	}
 	return handler.csm.Upsert(candidate)
@@ -141,7 +163,7 @@ func (handler *nftEventHandler) DeleteBucket(contractAddr address.Address, id ui
 	if err != nil {
 		return errors.Wrap(err, "failed to get bucket")
 	}
-	if err := handler.cssm.DeleteBucket(contractAddr, id); err != nil {
+	if err := handler.cssm.DeleteBucket(handler.stateCtx(), contractAddr, id); err != nil {
 		return errors.Wrap(err, "failed to delete bucket")
 	}
 	if handler.csm == nil {
@@ -155,7 +177,9 @@ func (handler *nftEventHandler) DeleteBucket(contractAddr address.Address, id ui
 	if candidate == nil {
 		return nil
 	}
-	if err := candidate.SubVote(handler.calculateVoteWeight(bucket, height)); err != nil {
+	weight := handler.calculateVoteWeight(bucket, height)
+	// IIP-59: contract bucket weight removed from (candidate, owner).
+	if err := subCandidateVotes(candidate, weight); err != nil {
 		return errors.Wrap(err, "failed to subtract vote")
 	}
 	return handler.csm.Upsert(candidate)

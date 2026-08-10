@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
@@ -36,6 +37,12 @@ func TestProtocol(t *testing.T) {
 	r.Equal(byte(1), _bucket)
 	r.Equal(byte(2), _voterIndex)
 	r.Equal(byte(3), _candIndex)
+	r.Equal(byte(8), _lsdVoterIndex)
+	// The owner -> contract-staking bucket index is written from the
+	// contractstaking package, which keeps its own copy of the tag. protocol.go
+	// asserts this at compile time; assert it here too so a reader of the tag
+	// list sees the coupling.
+	r.Equal(_lsdVoterIndex, contractstaking.LSDVoterIndexPrefix)
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -324,6 +331,9 @@ func TestCreatePreStatesMigration(t *testing.T) {
 	mockContractStaking := NewMockContractStakingIndexer(ctrl)
 	mockContractStaking.EXPECT().ContractAddress().Return(identityset.Address(1)).Times(1)
 	mockContractStaking.EXPECT().LoadStakeView(gomock.Any(), gomock.Any()).Return(mockView, nil).Times(1)
+	// No Buckets() expectation: the only caller at CreatePreStates time was the
+	// voter-weight seeder, which is gone. The migration path itself never
+	// enumerates contract buckets.
 	mockContractStaking.EXPECT().StartHeight().Return(uint64(0)).Times(1)
 	mockContractStaking.EXPECT().Height().Return(uint64(0), nil).Times(1)
 	p, err := NewProtocol(HelperCtx{
@@ -477,6 +487,19 @@ func Test_CreateGenesisStates(t *testing.T) {
 		err = p.CreateGenesisStates(ctx, sm)
 		if err != nil {
 			require.Contains(err.Error(), test.errStr)
+		} else {
+			// Bootstrap candidates land in the candidate center with their
+			// self-stake weight already folded into Votes.
+			view, readErr := sm.ReadView(_protocolID)
+			require.NoError(readErr)
+			cc := view.(*viewData).candCenter
+			for _, bootstrap := range test.BootstrapCandidate {
+				owner, parseErr := address.FromString(bootstrap.OwnerAddress)
+				require.NoError(parseErr)
+				cand := cc.GetByOwner(owner)
+				require.NotNil(cand)
+				require.Positive(cand.Votes.Sign())
+			}
 		}
 	}
 }
@@ -736,6 +759,8 @@ func TestSlashCandidate(t *testing.T) {
 		cand := csm.GetByIdentifier(owner)
 		require.Equal(remaining.String(), cand.SelfStake.String())
 		require.NoError(p.SlashCandidateByOperator(ctx, sm, cand.Operator, big.NewInt(11)))
+		bucket, err = csm.NativeBucket(bucketIdx)
+		require.NoError(err)
 		cl, err = p.ActiveCandidates(
 			ctx,
 			sm,

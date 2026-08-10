@@ -204,9 +204,21 @@ func (vb *VoteBucket) isUnstaked() bool {
 	return vb.UnstakeStartBlockHeight < MaxDurationNumber
 }
 
+// IsUnstaked exposes the internal isUnstaked check to callers outside the
+// staking package. Consumers in the rewarding path (IIP-59 compound
+// routing) need to gate compound-eligibility on the bucket still being
+// active; this is that gate.
+func (vb *VoteBucket) IsUnstaked() bool { return vb.isUnstaked() }
+
 func (vb *VoteBucket) isNative() bool {
 	return vb.ContractAddress == ""
 }
+
+// IsNative reports whether the bucket is a native staking bucket (as
+// opposed to a contract-staking bucket). LSD / contract-staking buckets
+// are owned by the staking contract rather than the underlying holder,
+// which is why IIP-59 compound routing excludes them.
+func (vb *VoteBucket) IsNative() bool { return vb.isNative() }
 
 // Deserialize deserializes bytes into bucket count
 func (tc *totalBucketCount) Deserialize(data []byte) error {

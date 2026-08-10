@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -68,6 +70,21 @@ func (kvc *kvStoreWithCache) Get(namespace string, key []byte) ([]byte, error) {
 // Filter returns <k, v> pair in a bucket that meet the condition
 func (kvc *kvStoreWithCache) Filter(namespace string, cond Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
 	return kvc.store.Filter(namespace, cond, minKey, maxKey)
+}
+
+// ScanRange returns up to limit <k, v> pairs in [min, max), ascending by bytes.Compare(k).
+// See KVStoreWithRangeScan for the exact semantics, which must stay identical across engines.
+//
+// Delegating straight to the underlying store is correct here: stateCaches is a
+// read-through cache only -- Put/Delete/WriteBatch always reach the underlying
+// store first -- so the cache can never hold a <k, v> the underlying store does
+// not already have.
+func (kvc *kvStoreWithCache) ScanRange(namespace string, min, max []byte, limit int) ([][]byte, [][]byte, error) {
+	scanner, ok := kvc.store.(KVStoreWithRangeScan)
+	if !ok {
+		return nil, nil, errors.Wrapf(ErrNotSupported, "underlying store %T does not support ScanRange", kvc.store)
+	}
+	return scanner.ScanRange(namespace, min, max, limit)
 }
 
 // Delete deletes a record from statecaches if exists, and from kvstore

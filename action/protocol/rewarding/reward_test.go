@@ -60,14 +60,14 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 			req.NoError(err)
 			req.Equal(tv.blockReward, br)
 			// Grant block reward will fail because of no available balance
-			_, err = p.GrantBlockReward(ctx, sm)
+			_, _, err = p.GrantBlockReward(ctx, sm)
 			req.Error(err)
 
 			_, err = p.Deposit(ctx, sm, tv.deposit, iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 			req.NoError(err)
 
 			// Grant block reward
-			rewardLog, err := p.GrantBlockReward(ctx, sm)
+			rewardLog, _, err := p.GrantBlockReward(ctx, sm)
 			req.NoError(err)
 			req.Equal(p.addr.String(), rewardLog.Address)
 			var rl rewardingpb.RewardLog
@@ -89,7 +89,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 			req.Equal(tv.blockReward, unclaimedBalance)
 
 			// Grant the same block reward again will fail
-			_, err = p.GrantBlockReward(ctx, sm)
+			_, _, err = p.GrantBlockReward(ctx, sm)
 			req.Error(err)
 
 			// Grant with priority fee after VanuatuBlockHeight
@@ -100,7 +100,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 			req.NoError(err)
 			req.Equal(tLog[0].Type, iotextypes.TransactionLogType_PRIORITY_FEE)
 			req.Equal(&blkCtx.AccumulatedTips, tLog[0].Amount)
-			rewardLog, err = p.GrantBlockReward(ctx, sm)
+			rewardLog, _, err = p.GrantBlockReward(ctx, sm)
 			req.NoError(err)
 			rls, err := UnmarshalRewardLog(rewardLog.Data)
 			req.NoError(err)
@@ -120,6 +120,110 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 			req.Equal(tv.blockReward.Add(tv.blockReward, &blkCtx.AccumulatedTips), unclaimedBalance)
 		}, nil, false, 0)
 	}
+}
+
+func TestGrantBlockReward_UsesEffectiveCandidateRewardAddress(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		explicitSet bool
+	}{
+		{name: "migrated candidate pays owner"},
+		{name: "updated legacy reward address still pays owner", explicitSet: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+				r := require.New(t)
+				ctx = enableIIP59(t, ctx)
+
+				pp := poll.FindProtocol(protocol.MustGetRegistry(ctx))
+				candidates, err := pp.Candidates(ctx, sm)
+				r.NoError(err)
+				r.NotEmpty(candidates)
+				operator, err := address.FromString(candidates[0].Address)
+				r.NoError(err)
+				configuredReward, err := address.FromString(candidates[0].RewardAddress)
+				r.NoError(err)
+				stableID := identityset.Address(10)
+				owner := identityset.Address(12)
+				candidates[0].Identity = stableID.String()
+				r.NoError(staking.TestOnlyPutCandidateRewardAddress(
+					sm, stableID, owner, configuredReward, test.explicitSet,
+				))
+
+				r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, stableID, &staking.CandidatePollSnapshot{
+					OnchainRewardEnabled:       true,
+					BlockCommissionBasisPoints: 2000,
+					EpochCommissionBasisPoints: 2000,
+					Registered:                 true,
+					TotalWeight:                big.NewInt(1),
+				}))
+				_, err = p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+				r.NoError(err)
+
+				_, transactionLogs, err := p.GrantBlockReward(ctx, sm)
+				r.NoError(err)
+				r.Len(transactionLogs, 1)
+				r.Equal(owner.String(), transactionLogs[0].Recipient)
+				identityPool, err := p.readPendingBlockRewardPool(ctx, sm, stableID.Bytes())
+				r.NoError(err)
+				r.Positive(identityPool.Sign())
+				operatorPool, err := p.readPendingBlockRewardPool(ctx, sm, operator.Bytes())
+				r.NoError(err)
+				r.Zero(operatorPool.Sign())
+
+				ownerUnclaimed, _, err := p.UnclaimedBalance(ctx, sm, owner)
+				r.NoError(err)
+				r.Zero(ownerUnclaimed.Sign())
+				legacyUnclaimed, _, err := p.UnclaimedBalance(ctx, sm, configuredReward)
+				r.NoError(err)
+				r.Zero(legacyUnclaimed.Sign())
+				ownerAccount, err := accountutil.LoadAccount(sm, owner)
+				r.NoError(err)
+				r.Positive(ownerAccount.Balance.Sign())
+			}, nil, false, 0)
+		})
+	}
+}
+
+func TestGrantBlockReward_LegacyDelegateRemainsClaimBased(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		ctx = enableIIP59(t, ctx)
+		g := genesis.MustExtractGenesisContext(ctx)
+		g.Rewarding.HermesRewardVaultAddresses = []string{
+			"io19604a05s2p3mecam2zz7d27hcr6ndyw80wvkmh",
+			"io12mgttmfa2ffn9uqvn0yn37f4nz43d248l2ga85",
+		}
+		ctx = genesis.WithGenesisContext(ctx, g)
+
+		pp := poll.FindProtocol(protocol.MustGetRegistry(ctx))
+		candidates, err := pp.Candidates(ctx, sm)
+		r.NoError(err)
+		operator, err := address.FromString(candidates[0].Address)
+		r.NoError(err)
+		legacyReward, err := address.FromString(candidates[0].RewardAddress)
+		r.NoError(err)
+		stableID := identityset.Address(10)
+		owner := identityset.Address(12)
+		candidates[0].Identity = stableID.String()
+		r.NoError(staking.TestOnlyPutCandidateRewardAddress(sm, stableID, owner, legacyReward, false))
+		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, stableID, &staking.CandidatePollSnapshot{}))
+		_, err = p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+
+		_, transactionLogs, err := p.GrantBlockReward(ctx, sm)
+		r.NoError(err)
+		r.Empty(transactionLogs)
+		balance, _, err := p.UnclaimedBalance(ctx, sm, legacyReward)
+		r.NoError(err)
+		r.Positive(balance.Sign())
+		pool, err := p.readPendingBlockRewardPool(ctx, sm, stableID.Bytes())
+		r.NoError(err)
+		r.Zero(pool.Sign())
+		operatorPool, err := p.readPendingBlockRewardPool(ctx, sm, operator.Bytes())
+		r.NoError(err)
+		r.Zero(operatorPool.Sign())
+	}, nil, false, 0)
 }
 
 func TestProtocol_GrantEpochReward(t *testing.T) {
@@ -289,7 +393,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		require.NoError(t, err)
 
 		// Grant block reward
-		rewardLog, err := p.GrantBlockReward(ctx, sm)
+		rewardLog, _, err := p.GrantBlockReward(ctx, sm)
 		require.NoError(t, err)
 		require.Equal(t, p.addr.String(), rewardLog.Address)
 		var rl rewardingpb.RewardLog
@@ -520,7 +624,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	// Grant block reward
-	_, err = p.GrantBlockReward(ctx, sm)
+	_, _, err = p.GrantBlockReward(ctx, sm)
 	require.NoError(t, err)
 
 	availableBalance, _, err := p.AvailableBalance(ctx, sm)

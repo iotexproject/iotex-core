@@ -27,7 +27,31 @@ func NewStateReader(sr protocol.StateReader, opts ...protocol.StateOption) *Cont
 }
 
 func contractNamespaceOption(contractAddr address.Address) protocol.StateOption {
-	return protocol.NamespaceOption(fmt.Sprintf("%s%x", state.ContractStakingBucketNamespacePrefix, contractAddr.Bytes()))
+	return protocol.NamespaceOption(bucketNamespace(contractAddr))
+}
+
+// bucketNamespace is the state namespace holding one staking contract's
+// buckets.
+//
+// Unexported on purpose: no code outside this package may address a
+// contract-staking bucket, because doing so would drop the reader's global
+// options. Use BucketStateOpts instead.
+func bucketNamespace(contractAddr address.Address) string {
+	return fmt.Sprintf("%s%x", state.ContractStakingBucketNamespacePrefix, contractAddr.Bytes())
+}
+
+// BucketStateOpts addresses one contract-staking bucket.
+//
+// This is the single expression for that address in the repository. Every live
+// read and write of a bucket goes through it, and so does the IIP-59 era
+// copy-on-write resolver's live-value fallback (staking.FrozenContractBucket),
+// which would otherwise re-derive the same address by hand and drift from this
+// one — silently, since a frozen read that misses is skipped, not failed.
+func (r *ContractStakingStateReader) BucketStateOpts(contractAddr address.Address, bucketID uint64) []protocol.StateOption {
+	return r.makeOpts(
+		contractNamespaceOption(contractAddr),
+		bucketIDKeyOption(bucketID),
+	)
 }
 
 func bucketTypeNamespaceOption(contractAddr address.Address) protocol.StateOption {
@@ -38,6 +62,9 @@ func contractKeyOption(contractAddr address.Address) protocol.StateOption {
 	return protocol.KeyOption(contractAddr.Bytes())
 }
 
+// bucketIDKeyOption is the state key of one contract-staking bucket inside
+// bucketNamespace. Little-endian; the encoding is fixed by existing state and
+// must not be "corrected".
 func bucketIDKeyOption(bucketID uint64) protocol.StateOption {
 	return protocol.KeyOption(byteutil.Uint64ToBytes(bucketID))
 }
@@ -91,10 +118,7 @@ func (r *ContractStakingStateReader) Bucket(contractAddr address.Address, bucket
 	var ssb Bucket
 	if _, err := r.sr.State(
 		&ssb,
-		r.makeOpts(
-			contractNamespaceOption(contractAddr),
-			bucketIDKeyOption(bucketID),
-		)...,
+		r.BucketStateOpts(contractAddr, bucketID)...,
 	); err != nil {
 		switch errors.Cause(err) {
 		case state.ErrStateNotExist:

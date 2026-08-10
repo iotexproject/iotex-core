@@ -1,6 +1,7 @@
 package staking
 
 import (
+	"context"
 	"math"
 	"math/big"
 	"testing"
@@ -55,7 +56,7 @@ func TestNewNFTBucketEventHandler(t *testing.T) {
 	sm := testdb.NewMockStateManager(ctrl)
 	sm.EXPECT().Height().Return(uint64(100), nil).AnyTimes()
 	sm.WriteView(_protocolID, testCreateViewData(t))
-	handler, err := newNFTBucketEventHandler(sm, func(bkt *contractstaking.Bucket, height uint64) *big.Int {
+	handler, err := newNFTBucketEventHandler(context.Background(), sm, func(bkt *contractstaking.Bucket, height uint64) *big.Int {
 		return big.NewInt(100)
 	})
 	require.NoError(t, err)
@@ -69,7 +70,7 @@ func TestPutBucketType(t *testing.T) {
 	sm := testdb.NewMockStateManager(ctrl)
 	sm.EXPECT().Height().Return(uint64(100), nil).AnyTimes()
 	sm.WriteView(_protocolID, testCreateViewData(t))
-	handler, err := newNFTBucketEventHandler(sm, func(bkt *contractstaking.Bucket, height uint64) *big.Int {
+	handler, err := newNFTBucketEventHandler(context.Background(), sm, func(bkt *contractstaking.Bucket, height uint64) *big.Int {
 		return big.NewInt(100)
 	})
 	require.NoError(t, err)
@@ -99,7 +100,7 @@ func TestNFTEventHandlerBucket(t *testing.T) {
 	sm := testdb.NewMockStateManager(ctrl)
 	sm.EXPECT().Height().Return(uint64(100), nil).AnyTimes()
 	require.NoError(t, sm.WriteView(_protocolID, testCreateViewData(t)))
-	handler, err := newNFTBucketEventHandler(sm, func(bkt *contractstaking.Bucket, height uint64) *big.Int {
+	handler, err := newNFTBucketEventHandler(context.Background(), sm, func(bkt *contractstaking.Bucket, height uint64) *big.Int {
 		return big.NewInt(100)
 	})
 	require.NoError(t, err)
