@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -346,6 +347,18 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 			log.L().Panic("Failed to stop server.", zap.Error(err))
 		}
 	}()
+	if h := cfg.Chain.StopAtHeight; h > 0 {
+		// Start() only returns once the indexer catch-up has reached StopAtHeight
+		// (blockdao caps CheckIndexer at it), so getting here means we are done.
+		// Raise SIGTERM on ourselves rather than returning early: that reuses the
+		// normal signal path, so ctx is cancelled, the deferred Stop() runs, and
+		// the process exits 0 with the state DB closed cleanly — which is what
+		// makes the resulting data dir usable as a checkpoint.
+		log.L().Info("Reached stop-at-height, shutting down.", zap.Uint64("height", h))
+		if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
+			log.L().Error("Failed to signal self for stop-at-height shutdown.", zap.Error(err))
+		}
+	}
 	if _, isGateway := cfg.Plugins[config.GatewayPlugin]; isGateway && cfg.API.ReadyDuration > 0 {
 		// wait for a while to make sure the server is ready
 		// The original intention was to ensure that all transactions that were not received during the restart were included in block, thereby avoiding inconsistencies in the state of the API node.
