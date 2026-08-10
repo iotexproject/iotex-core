@@ -30,6 +30,11 @@ var (
 	// _candidateUpdateMethod is the interface of the abi encoding of stake action
 	_candidateUpdateMethod        abi.Method
 	_candidateUpdateWithBLSMethod abi.Method
+	// _candidateUpdateWithBLSAndPoPMethod is the V2 ABI entry that adds the
+	// BLS proof-of-possession parameter alongside the existing WithBLS
+	// fields. Required post-fork (EnforceBLSPoP gate) — the handler rejects
+	// updates that rotate the blsPubKey without a fresh PoP.
+	_candidateUpdateWithBLSAndPoPMethod abi.Method
 	_candidateUpdateWithBLSEvent  abi.Event
 	_                             EthCompatibleAction = (*CandidateUpdate)(nil)
 )
@@ -41,6 +46,11 @@ type CandidateUpdate struct {
 	operatorAddress address.Address
 	rewardAddress   address.Address
 	blsPubKey       []byte
+	// blsPop is the proof-of-possession for blsPubKey. Required at
+	// handler time once EnforceBLSPoP is active: any update that
+	// introduces or rotates the BLS key must carry a fresh PoP to
+	// prevent rogue-key attacks.
+	blsPop []byte
 }
 
 // CandidateUpdateOption defines the method to customize CandidateUpdate
@@ -68,6 +78,10 @@ func init() {
 	_candidateUpdateWithBLSMethod, ok = NativeStakingContractABI().Methods["candidateUpdateWithBLS"]
 	if !ok {
 		panic("fail to load the method")
+	}
+	_candidateUpdateWithBLSAndPoPMethod, ok = NativeStakingContractABI().Methods["candidateUpdateWithBLSAndPoP"]
+	if !ok {
+		panic("fail to load the candidateUpdateWithBLSAndPoP method")
 	}
 	_candidateUpdateWithBLSEvent, ok = NativeStakingContractABI().Events["CandidateUpdated"]
 	if !ok {
@@ -99,7 +113,9 @@ func NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr string) (*Candidate
 }
 
 // NewCandidateUpdateWithBLS creates a CandidateUpdate instance with BLS public key
-func NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr string, pubkey []byte) (*CandidateUpdate, error) {
+// and proof-of-possession. blsPop may be empty for pre-fork callers; the
+// handler enforces non-empty PoP once EnforceBLSPoP is active.
+func NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr string, pubkey []byte, pop []byte) (*CandidateUpdate, error) {
 	cu, err := NewCandidateUpdate(name, operatorAddrStr, rewardAddrStr)
 	if err != nil {
 		return nil, err
@@ -110,6 +126,10 @@ func NewCandidateUpdateWithBLS(name, operatorAddrStr, rewardAddrStr string, pubk
 	}
 	cu.blsPubKey = make([]byte, len(pubkey))
 	copy(cu.blsPubKey, pubkey)
+	if len(pop) > 0 {
+		cu.blsPop = make([]byte, len(pop))
+		copy(cu.blsPop, pop)
+	}
 	return cu, nil
 }
 
@@ -125,6 +145,13 @@ func (cu *CandidateUpdate) RewardAddress() address.Address { return cu.rewardAdd
 // BLSPubKey returns candidate public key to update
 func (cu *CandidateUpdate) BLSPubKey() []byte {
 	return cu.blsPubKey
+}
+
+// BLSPop returns the proof-of-possession for the BLS pubkey carried
+// by this update. Empty for updates that do not rotate the BLS key
+// and for pre-fork updates; required once EnforceBLSPoP is active.
+func (cu *CandidateUpdate) BLSPop() []byte {
+	return cu.blsPop
 }
 
 // WithBLS returns true if the candidate update action is with BLS public key
@@ -159,6 +186,10 @@ func (cu *CandidateUpdate) Proto() *iotextypes.CandidateBasicInfo {
 		act.BlsPubKey = make([]byte, len(cu.blsPubKey))
 		copy(act.BlsPubKey, cu.blsPubKey)
 	}
+	if len(cu.blsPop) > 0 {
+		act.BlsPop = make([]byte, len(cu.blsPop))
+		copy(act.BlsPop, cu.blsPop)
+	}
 	return act
 }
 
@@ -188,6 +219,10 @@ func (cu *CandidateUpdate) LoadProto(pbAct *iotextypes.CandidateBasicInfo) error
 	if len(pbAct.GetBlsPubKey()) > 0 {
 		cu.blsPubKey = make([]byte, len(pbAct.GetBlsPubKey()))
 		copy(cu.blsPubKey, pbAct.GetBlsPubKey())
+		if pop := pbAct.GetBlsPop(); len(pop) > 0 {
+			cu.blsPop = make([]byte, len(pop))
+			copy(cu.blsPop, pop)
+		}
 	}
 	return nil
 }
@@ -214,7 +249,19 @@ func (cu *CandidateUpdate) EthData() ([]byte, error) {
 		return nil, ErrAddress
 	}
 	switch {
+	case cu.WithBLS() && len(cu.blsPop) > 0:
+		// Post-fork path: rotate the BLS pubkey with a fresh PoP. V2
+		// selector signals the calldata carries proof-of-possession.
+		data, err := _candidateUpdateWithBLSAndPoPMethod.Inputs.Pack(cu.name,
+			common.BytesToAddress(cu.operatorAddress.Bytes()),
+			common.BytesToAddress(cu.rewardAddress.Bytes()), cu.blsPubKey, cu.blsPop)
+		if err != nil {
+			return nil, err
+		}
+		return append(_candidateUpdateWithBLSAndPoPMethod.ID, data...), nil
 	case cu.WithBLS():
+		// Legacy WithBLS without PoP — works pre-fork; post-fork the
+		// handler rejects this for lacking proof-of-possession.
 		data, err := _candidateUpdateWithBLSMethod.Inputs.Pack(cu.name,
 			common.BytesToAddress(cu.operatorAddress.Bytes()),
 			common.BytesToAddress(cu.rewardAddress.Bytes()), cu.blsPubKey)
@@ -247,12 +294,17 @@ func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 	if len(data) <= 4 {
 		return nil, errDecodeFailure
 	}
+	withPoP := false
 	switch {
 	case bytes.Equal(_candidateUpdateMethod.ID, data[:4]):
 		method = &_candidateUpdateMethod
 	case bytes.Equal(_candidateUpdateWithBLSMethod.ID, data[:4]):
 		method = &_candidateUpdateWithBLSMethod
 		withBLS = true
+	case bytes.Equal(_candidateUpdateWithBLSAndPoPMethod.ID, data[:4]):
+		method = &_candidateUpdateWithBLSAndPoPMethod
+		withBLS = true
+		withPoP = true
 	default:
 		return nil, errors.Wrapf(errDecodeFailure, "unknown method prefix %x", data[:4])
 	}
@@ -278,6 +330,16 @@ func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 		_, err := crypto.BLS12381PublicKeyFromBytes(cu.blsPubKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse BLS public key")
+		}
+		if withPoP {
+			pop, ok := paramsMap["blsPop"].([]byte)
+			if !ok {
+				return nil, errors.Wrapf(errDecodeFailure, "blsPop is not []byte: %v", paramsMap["blsPop"])
+			}
+			if len(pop) == 0 {
+				return nil, errors.Wrap(errDecodeFailure, "blsPop is empty")
+			}
+			cu.blsPop = pop
 		}
 	}
 	return &cu, nil

@@ -8,11 +8,11 @@ package action
 import (
 	"encoding/hex"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/go-pkgs/crypto"
-
 	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/output"
 	"github.com/iotexproject/iotex-core/v2/ioctl/util"
@@ -21,21 +21,31 @@ import (
 // Multi-language support
 var (
 	_registerCmdUses = map[config.Language]string{
-		config.English: "register NAME (ALIAS|OPERATOR_ADDRESS) (ALIAS|REWARD_ADDRESS) (ALIAS|OWNER_ADDRESS) BLS_PUBKEY AMOUNT_IOTX STAKE_DURATION [DATA] [--auto-stake] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "register 名字 (别名|操作者地址）（别名|奖励地址）（别名|所有者地址）BLS公钥 IOTX数量 质押持续时间 [数据] [--auto-stake] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.English: "register NAME (ALIAS|OPERATOR_ADDRESS) (ALIAS|REWARD_ADDRESS) (ALIAS|OWNER_ADDRESS) AMOUNT_IOTX STAKE_DURATION [DATA] [--auto-stake] [BLS-FLAGS] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "register 名字 (别名|操作者地址）（别名|奖励地址）（别名|所有者地址）IOTX数量 质押持续时间 [数据] [--auto-stake] [BLS标志] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
 	_registerCmdShorts = map[config.Language]string{
-		config.English: "Register a candidate",
-		config.Chinese: "在IoTeX区块链上注册候选人",
+		config.English: "Register a candidate (with BLS proof-of-possession)",
+		config.Chinese: "在IoTeX区块链上注册候选人（含 BLS 持有证明）",
 	}
+
+	// BLS PoP flags used by stake2 register.
+	_registerBLSFlags blsPoPFlags
 )
 
-// _stake2RegisterCmd represents the stake2 register a candidate command
+// _stake2RegisterCmd represents the stake2 register a candidate command.
+//
+// Positional args (BREAKING CHANGE — was 7/8 with BLS_PUBKEY at args[4]):
+//
+//	NAME OPERATOR REWARD OWNER AMOUNT DURATION [DATA]
+//
+// BLS_PUBKEY is now supplied through a flag along with the new PoP
+// material. See blspop_helper.go for the three-option matrix.
 var _stake2RegisterCmd = &cobra.Command{
 	Use:   config.TranslateInLang(_registerCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(_registerCmdShorts, config.UILanguage),
-	Args:  cobra.RangeArgs(7, 8),
+	Args:  cobra.RangeArgs(6, 7),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := register(args)
@@ -46,6 +56,18 @@ var _stake2RegisterCmd = &cobra.Command{
 func init() {
 	RegisterWriteCommand(_stake2RegisterCmd)
 	_stake2RegisterCmd.Flags().BoolVar(&_stake2AutoStake, "auto-stake", false, config.TranslateInLang(_stake2FlagAutoStakeUsages, config.UILanguage))
+
+	f := _stake2RegisterCmd.Flags()
+	f.StringVar(&_registerBLSFlags.pubKeyHex, "bls-pubkey", "",
+		"BLS public key (hex). Use with --bls-pop for Option 3 (explicit PoP). Pre-decoded validation runs locally.")
+	f.StringVar(&_registerBLSFlags.popHex, "bls-pop", "",
+		"BLS proof-of-possession (96 B hex). Pairs with --bls-pubkey for Option 3.")
+	f.StringVar(&_registerBLSFlags.privKeyHex, "bls-priv-key", "",
+		"BLS private key (32 B hex) — Option 2. Tool derives the pubkey + signs the PoP. WARNING: appears in shell history.")
+	f.StringVar(&_registerBLSFlags.keystorePath, "bls-keystore", "",
+		"BLS keystore path — placeholder; not yet implemented.")
+	f.BoolVar(&_registerBLSFlags.autoConfirm, "yes", false,
+		"Skip the auto-derive confirmation prompt (Option 1). Use for CI / scripted flows.")
 }
 
 func register(args []string) error {
@@ -66,31 +88,25 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get owner address", err)
 	}
-
-	// Validate and parse BLS public key
-	blsPubKeyStr := args[4]
-	blsPubKeyBytes, err := hex.DecodeString(blsPubKeyStr)
+	ownerAddr, err := address.FromString(ownerAddrStr)
 	if err != nil {
-		return output.NewError(output.ConvertError, "failed to decode BLS public key", err)
-	}
-	if _, err = crypto.BLS12381PublicKeyFromBytes(blsPubKeyBytes); err != nil {
-		return output.NewError(output.ValidationError, "invalid BLS public key", err)
+		return output.NewError(output.AddressError, "invalid owner address", err)
 	}
 
-	amountInRau, err := util.StringToRau(args[5], util.IotxDecimalNum)
+	amountInRau, err := util.StringToRau(args[4], util.IotxDecimalNum)
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid amount", err)
 	}
 
-	stakeDuration, err := parseStakeDuration(args[6])
+	stakeDuration, err := parseStakeDuration(args[5])
 	if err != nil {
 		return output.NewError(0, "", err)
 	}
 	duration := uint32(stakeDuration.Uint64())
 
 	var payload []byte
-	if len(args) == 8 {
-		payload, err = hex.DecodeString(args[7])
+	if len(args) == 7 {
+		payload, err = hex.DecodeString(args[6])
 		if err != nil {
 			return output.NewError(output.ConvertError, "failed to decode data", err)
 		}
@@ -99,6 +115,15 @@ func register(args []string) error {
 	sender, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
+	}
+
+	// Resolve the BLS pubkey + PoP via the three-option matrix.
+	// candidateID at register time is the owner address; in the
+	// non-collision case this becomes c.Identifier verbatim via
+	// generateCandidateID's owner-first fast path.
+	blsPubKey, blsPop, err := resolveBLSForRegister(&_registerBLSFlags, sender, account.PasswordByFlag(), ownerAddr)
+	if err != nil {
+		return err
 	}
 
 	gasLimit := _gasLimitFlag.Value().(uint64)
@@ -115,8 +140,9 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	cr, err := action.NewCandidateRegisterWithBLS(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, _stake2AutoStake, blsPubKeyBytes, payload)
 
+	cr, err := action.NewCandidateRegisterWithBLS(name, operatorAddrStr, rewardAddrStr, ownerAddrStr,
+		amountInRau.String(), duration, _stake2AutoStake, blsPubKey, blsPop, payload)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateRegister instance", err)
 	}
