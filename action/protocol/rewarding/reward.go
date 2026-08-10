@@ -1001,11 +1001,19 @@ func (p *Protocol) GrantEpochReward(
 		return nil, nil, err
 	}
 
-	// Sentinel.
-	if err := p.updateRewardHistory(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
+	// Order matters, and not for any reason local to this function: the two
+	// writes below go to different keys with nothing reading between them, but
+	// the delta state digest hashes the write queue *in order*. Emitting the
+	// sentinel first changes the digest of every epoch-boundary block, at every
+	// height, including ones long predating the IIP-59 fork -- so a node
+	// replaying history rejects the first epoch boundary it reaches, and a live
+	// node forks off at the next one. Keep the balance update ahead of the
+	// sentinel, matching what mainnet committed.
+	if err := p.updateAvailableBalance(ctx, sm, out.debit); err != nil {
 		return nil, nil, err
 	}
-	if err := p.updateAvailableBalance(ctx, sm, out.debit); err != nil {
+	// Sentinel.
+	if err := p.updateRewardHistory(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, nil, err
 	}
 	return out.transactionLogs, out.rewardLogs, nil
