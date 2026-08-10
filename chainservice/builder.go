@@ -341,6 +341,9 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	if err != nil {
 		return err
 	}
+	if cfg.Chain.StopAtHeight > 0 {
+		opts = append(opts, blockdao.WithStopAtHeight(cfg.Chain.StopAtHeight))
+	}
 	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(
 		store, indexers, cfg.DB.MaxCacheSize, opts...)
 
