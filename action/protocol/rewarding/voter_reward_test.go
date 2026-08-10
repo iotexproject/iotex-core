@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -154,7 +153,6 @@ func newRoutingShares(delegate address.Address, amount *big.Int) (voterShareSet,
 	work := epochDrainDelegateWork{
 		CandidateIdentifier: delegate.Bytes(),
 		VoterAmountFrozen:   new(big.Int).Set(amount),
-		FreezeHeight:        iip59FixtureFreezeHeight,
 		SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
 	}
 	delegates := []epochDrainDelegateWork{work}
@@ -167,10 +165,10 @@ func newRoutingShares(delegate address.Address, amount *big.Int) (voterShareSet,
 			}},
 			total: new(big.Int).Set(amount),
 		}, voterShareInputs{
-			delegates:   delegates,
-			byCandidate: delegateWorkIndex(delegates),
-			payable:     []bool{true},
-			distributed: []*big.Int{new(big.Int)},
+			delegates:    delegates,
+			byCandidate:  delegateWorkIndex(delegates),
+			freezeHeight: iip59FixtureFreezeHeight,
+			distributed:  []*big.Int{new(big.Int)},
 		}
 }
 
@@ -338,22 +336,23 @@ func writeSnapshot(
 		BlockCommissionBasisPoints: epochBps,
 		EpochCommissionBasisPoints: epochBps,
 		TotalWeight:                totalWeight,
+		FreezeHeight:               iip59FixtureFreezeHeight,
 	}
 	require.NoError(t, staking.TestOnlyPutPollSnapshotFor(sm, candAddr, snap))
 }
 
-// distributionMetadata reads back the two numbers Phase A freezes into a work
+// distributionMetadata reads back the denominator Phase A freezes into a work
 // item. It returns what the frozen snapshot recorded rather than recomputing,
 // because that is what the cursor carries and what the drain divides by.
 func distributionMetadata(
 	t *testing.T,
 	sm protocol.StateReader,
 	candAddr address.Address,
-) (*big.Int, hash.Hash256) {
+) *big.Int {
 	t.Helper()
 	snapshot, err := staking.PollSnapshotFor(sm, candAddr)
 	require.NoError(t, err)
-	return snapshot.TotalWeight, snapshot.SnapshotHash
+	return snapshot.TotalWeight
 }
 
 // testBlockIntervalSwitchHeight is the height at which testBlocksToDuration

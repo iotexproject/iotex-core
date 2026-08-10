@@ -114,24 +114,20 @@ message CandidatePollSnapshot {
     // Whether this reward era uses protocol-native distribution. The value is
     // frozen so mid-era candidate updates cannot change reward routing.
     bool onchainRewardEnabled = 4;
-    // 5 was `entries`, the materialized per-voter weight list; 8 was
+    // 5 was `entries`, the materialized per-voter weight list; 7 was
+    // `snapshotHash`, the digest formerly attached to distribution logs; 8 was
     // `lastWeightedIndex`, the position in that list that absorbed the
     // floor-division remainder; 9 was `hasWeightedEntries`, which distinguished
     // a valid index 0 from "no weights at all". None survive the removal of the
     // list: `totalWeight` below is now sourced from candidate.Votes, and
     // `totalWeight > 0` is exactly what `hasWeightedEntries` used to mean.
     // Retired, never reused.
-    reserved 5, 8, 9;
+    reserved 5, 7, 8, 9;
     // The denominator the drain divides each recomputed voter weight by: the
     // frozen value of the candidate's Votes accumulator at the era boundary.
     // Big-endian unsigned. Zero means the era has no payable voter set for this
     // delegate and its pending pool rolls into a later era.
     bytes totalWeight = 6;
-    // Deterministic digest of this delegate's frozen era parameters, computed
-    // at freeze time from the scalars in this message plus the candidate
-    // identifier. It is the join key off-chain consumers use to assemble the
-    // partial DelegateDistributed logs one settlement emits across many blocks.
-    bytes snapshotHash = 7;
     // IIP-59: the height this snapshot was frozen at, i.e. the era boundary H.
     // The drain runs several blocks later and must evaluate contract-staking
     // bucket durations against H, not against the block it happens to run in,

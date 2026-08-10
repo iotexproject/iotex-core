@@ -12,14 +12,12 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/distributedlog"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
@@ -68,11 +66,6 @@ type CandidatePollSnapshot struct {
 	// Zero means "this era has no payable voter set for this delegate"; the
 	// delegate's pending pool is left intact and rolls into a later era.
 	TotalWeight *big.Int
-	// SnapshotHash is the deterministic digest of this delegate's frozen era
-	// parameters. See eraSnapshotHash: it is the join key that lets off-chain
-	// consumers assemble the partial DelegateDistributed logs one settlement
-	// emits across many blocks.
-	SnapshotHash hash.Hash256
 	// FreezeHeight is the era boundary height H this snapshot was taken at.
 	//
 	// The IIP-59 drain runs several blocks after H and recomputes voter weights
@@ -144,9 +137,7 @@ func candidatePollSnapshotKey(candID address.Address) []byte {
 }
 
 // toBlob returns the wire form for PutState. Unlike the entry-list version it
-// replaces, it derives nothing: TotalWeight and SnapshotHash are both frozen by
-// FreezePollSnapshot, which is the only place that has the candidate record and
-// the era height they are computed from.
+// replaces, it derives nothing: all fields are frozen by FreezePollSnapshot.
 func (s *CandidatePollSnapshot) toBlob() *candidatePollSnapshotBlob {
 	return &candidatePollSnapshotBlob{pb: &stakingpb.CandidatePollSnapshot{
 		BlockCommissionBasisPoints: s.BlockCommissionBasisPoints,
@@ -154,7 +145,6 @@ func (s *CandidatePollSnapshot) toBlob() *candidatePollSnapshotBlob {
 		Registered:                 s.Registered,
 		OnchainRewardEnabled:       s.OnchainRewardEnabled,
 		TotalWeight:                safeBigInt(s.TotalWeight).Bytes(),
-		SnapshotHash:               s.SnapshotHash[:],
 		FreezeHeight:               s.FreezeHeight,
 		SelfStakeBucketIdx:         s.SelfStakeBucketIdx,
 	}}
@@ -171,7 +161,6 @@ func fromBlob(b *candidatePollSnapshotBlob) (*CandidatePollSnapshot, error) {
 		Registered:                 b.pb.GetRegistered(),
 		OnchainRewardEnabled:       b.pb.GetOnchainRewardEnabled(),
 		TotalWeight:                new(big.Int).SetBytes(b.pb.GetTotalWeight()),
-		SnapshotHash:               hash.BytesToHash256(b.pb.GetSnapshotHash()),
 		FreezeHeight:               b.pb.GetFreezeHeight(),
 		SelfStakeBucketIdx:         b.pb.GetSelfStakeBucketIdx(),
 	}, nil
@@ -183,41 +172,6 @@ func safeBigInt(v *big.Int) *big.Int {
 		return new(big.Int)
 	}
 	return v
-}
-
-// eraSnapshotHash is the deterministic digest stamped into every
-// DelegateDistributed log a settlement emits for this delegate.
-//
-// Its consumer is off-chain: one settlement pays a delegate's voters across
-// many blocks, so the delegate's payout is reported as a stream of partial logs
-// that a consumer has to reassemble. The reassembly key is
-// (snapshotHash, delegate, epoch). What the hash therefore has to be is a
-// stable per-delegate-per-era identifier -- constant for every chunk of one
-// settlement, different for the next era -- and, ideally, a commitment to the
-// parameters that determined the payouts being reassembled, so a consumer can
-// recompute it from a snapshot read and confirm the logs it collected describe
-// the era it thinks they do.
-//
-// It commits to exactly that: the candidate identifier plus every scalar the
-// snapshot freezes. FreezeHeight makes it era-unique even for a delegate whose
-// stake and commission did not move between two boundaries. It deliberately
-// does not commit to the voter set: the voter set is no longer frozen, it is
-// recomputed from the copy-on-write bucket window, and TotalWeight (the frozen
-// candidate.Votes) is the aggregate that actually governs every share.
-func eraSnapshotHash(candID address.Address, s *CandidatePollSnapshot) hash.Hash256 {
-	if s == nil {
-		return hash.ZeroHash256
-	}
-	return distributedlog.EraSnapshotHash(distributedlog.EraSnapshotParams{
-		Delegate:                   candID,
-		FreezeHeight:               s.FreezeHeight,
-		TotalWeight:                safeBigInt(s.TotalWeight),
-		SelfStakeBucketIdx:         s.SelfStakeBucketIdx,
-		BlockCommissionBasisPoints: s.BlockCommissionBasisPoints,
-		EpochCommissionBasisPoints: s.EpochCommissionBasisPoints,
-		Registered:                 s.Registered,
-		OnchainRewardEnabled:       s.OnchainRewardEnabled,
-	})
 }
 
 // FreezePollSnapshot writes a CandidatePollSnapshot for every candidate that is
@@ -351,8 +305,6 @@ func FreezePollSnapshot(
 		if cand.Votes != nil && cand.Votes.Sign() > 0 {
 			snap.TotalWeight = new(big.Int).Set(cand.Votes)
 		}
-		// Last, so the digest covers the finished record.
-		snap.SnapshotHash = eraSnapshotHash(id, snap)
 		if err := writeCandidatePollSnapshot(sm, id, snap); err != nil {
 			return err
 		}
@@ -380,10 +332,6 @@ func writeCandidatePollSnapshot(
 // rewarding-package unit tests that exercise post-fork branches without
 // standing up the full poll layer + DelegateProfile bridge. Production
 // code MUST use FreezePollSnapshot at PutPollResult.
-//
-// A zero SnapshotHash is filled in the same way the freezer would, so a test
-// fixture cannot accidentally assert against a digest production would never
-// have written. Set it explicitly to override.
 func TestOnlyPutPollSnapshotFor(
 	sm protocol.StateManager,
 	candID address.Address,
@@ -394,9 +342,6 @@ func TestOnlyPutPollSnapshotFor(
 	}
 	if snap == nil {
 		return errors.New("staking: nil snapshot")
-	}
-	if snap.SnapshotHash == hash.ZeroHash256 {
-		snap.SnapshotHash = eraSnapshotHash(candID, snap)
 	}
 	_, err := sm.PutState(
 		snap.toBlob(),

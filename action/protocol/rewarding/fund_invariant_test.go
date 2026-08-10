@@ -101,6 +101,7 @@ func TestFundInvariant_HoldsAfterGrantEpochReward_PostForkDeferredCursor(t *test
 
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
+		openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
 
 		_, _, err = p.GrantEpochReward(ctx, sm)
 		r.NoError(err)

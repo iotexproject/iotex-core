@@ -6,9 +6,11 @@
 package rewarding
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -168,7 +170,7 @@ func runDrainToCompletion(
 	for {
 		got, gErr := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(gErr)
-		if got == nil || got.Completed {
+		if got == nil || got.drainFinished() {
 			break
 		}
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
@@ -205,17 +207,23 @@ func TestGrantEpochReward_SettlementStartUsesOneSeed(t *testing.T) {
 		// Rotation now applies to the shard sequence, not to the delegate list:
 		// the drain is voter-major, so there is no delegate list to rotate. The
 		// one seed still decides where the walk starts.
-		r.Equal(settlementStartShard(expectedSeed[:]), cursor.StartShard)
+		r.Equal(settlementStartShard(expectedSeed[:]), settlementStartShard(cursor.SettlementSeed))
 		r.Equal(uint16(0), cursor.ShardsDone)
 		r.Empty(cursor.ResumeVoter)
 
-		// The delegate work list is in canonical order, and every entry carries
-		// the era's freeze height -- without it the weight recompute has no
-		// height to evaluate against and the drain refuses the item.
+		// The delegate work list is in canonical pending-pool key order, and the
+		// plan carries the era's single freeze height.
 		r.Len(cursor.Delegates, len(rewardedCandidateIndexes))
+		expectedIDs := make([][]byte, 0, len(rewardedCandidateIndexes))
+		for _, index := range rewardedCandidateIndexes {
+			expectedIDs = append(expectedIDs, identityset.Address(index).Bytes())
+		}
+		sort.Slice(expectedIDs, func(i, j int) bool {
+			return bytes.Compare(expectedIDs[i], expectedIDs[j]) < 0
+		})
 		for i, work := range cursor.Delegates {
-			r.Equal(identityset.Address(rewardedCandidateIndexes[i]).Bytes(), work.CandidateIdentifier)
-			r.NotZero(work.FreezeHeight)
+			r.Equal(expectedIDs[i], work.CandidateIdentifier)
+			r.NotZero(cursor.FreezeHeight)
 		}
 	}, nil, false, 0)
 }
@@ -379,7 +387,7 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		for {
 			cursor, readErr := p.readEpochDrainCursor(ctx, sm)
 			r.NoError(readErr)
-			if cursor == nil || cursor.Completed {
+			if cursor == nil || cursor.drainFinished() {
 				break
 			}
 			_, _, err = p.GrantVoterRewardChunk(ctx, sm)
@@ -436,7 +444,7 @@ func TestChunkedDrain_VoterBudgetStopsMidShardWalk(t *testing.T) {
 		cursor, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
 		r.NotNil(cursor)
-		r.False(cursor.Completed, "one voter out of twelve cannot finish the drain")
+		r.False(cursor.drainFinished(), "one voter out of twelve cannot finish the drain")
 		r.NotEmpty(cursor.ResumeVoter, "stopping inside a shard must record where to resume")
 		r.Equal(txLogs[0].Recipient, mustAddressFromBytes(t, cursor.ResumeVoter).String(),
 			"the resume point is the last voter visited")
@@ -529,6 +537,7 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 			EpochCommissionBasisPoints: _basisPointsDenom,
 			Registered:                 true,
 			TotalWeight:                big.NewInt(1),
+			FreezeHeight:               iip59FixtureFreezeHeight,
 		}))
 
 		// Inject a stale era-1 cursor pointing at candidate 27. The
@@ -536,9 +545,7 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 		// balance — the residue path must read pool state, not the frozen
 		// field.
 		stale := &epochDrainCursor{
-			TargetEra:  1,
-			StartEpoch: 1,
-			EndEpoch:   1,
+			TargetEra: 1,
 			Delegates: []epochDrainDelegateWork{
 				{CandidateIdentifier: candID, VoterAmountFrozen: big.NewInt(999)},
 			},
@@ -560,6 +567,7 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
+		openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
 
 		_, rewardLogs, err := p.GrantEpochReward(ctx, sm)
 		r.NoError(err, "graceful degrade must not error at Phase A entry")
@@ -570,8 +578,6 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(next, "era-N+1 Phase A must produce a cursor from the surviving pool residual")
 		r.Equal(uint64(2), next.TargetEra, "stale cursor deletion must precede fresh materialisation")
-		r.Equal(uint64(1), next.StartEpoch, "overrun residue must carry the oldest covered epoch forward")
-		r.Equal(uint64(2), next.EndEpoch)
 
 		// The candidate 27 entry in the new cursor must carry the 250 rau
 		// residue (no fresh voter share in this fixture, so residue only).
@@ -645,6 +651,7 @@ func TestPhaseA_OverrunHandoff_ZeroResidue(t *testing.T) {
 
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
+		openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
 
 		_, rewardLogs, err := p.GrantEpochReward(ctx, sm)
 		r.NoError(err)

@@ -31,18 +31,14 @@ func TestReadStateIIP59(t *testing.T) {
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID.Bytes(), big.NewInt(351)))
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
 		TargetEra:       42,
-		StartEpoch:      19,
-		EndEpoch:        42,
-		StartShard:      5,
-		ShardsDone:      7,
+		FreezeHeight:    iip59FixtureFreezeHeight,
+		ShardsDone:      totalShards,
 		ResumeVoter:     voter.Bytes(),
 		SettlementSeed:  []byte{1, 2, 3},
-		Completed:       true,
 		CompletedHeight: 12345,
 		Delegates: []epochDrainDelegateWork{{
 			CandidateIdentifier: candID.Bytes(),
 			VoterAmountFrozen:   big.NewInt(300),
-			FreezeHeight:        iip59FixtureFreezeHeight,
 			SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
 		}},
 	}))
@@ -71,17 +67,15 @@ func TestReadStateIIP59(t *testing.T) {
 	cursor := &rewardingpb.EpochDrainCursor{}
 	r.NoError(proto.Unmarshal(cursorData, cursor))
 	r.Equal(uint64(42), cursor.GetTargetEra())
-	r.Equal(uint64(19), cursor.GetStartEpoch())
-	r.Equal(uint64(42), cursor.GetEndEpoch())
 	r.True(cursor.GetCompleted())
 	r.Equal(uint64(12345), cursor.GetCompletedHeight())
-	r.Equal(uint32(5), cursor.GetStartShard())
-	r.Equal(uint32(7), cursor.GetShardsDone())
+	r.Equal(uint32(3), cursor.GetStartShard())
+	r.Equal(uint32(totalShards), cursor.GetShardsDone())
 	r.Equal(voter.Bytes(), cursor.GetResumeVoter())
 	r.Equal([]byte{1, 2, 3}, cursor.GetSettlementSeed())
 	r.Len(cursor.GetDelegates(), 1)
 	r.Equal(big.NewInt(300).Bytes(), cursor.GetDelegates()[0].GetVoterAmountFrozen())
-	r.Equal(iip59FixtureFreezeHeight, cursor.GetDelegates()[0].GetFreezeHeight())
+	r.Equal(iip59FixtureFreezeHeight, cursor.GetFreezeHeight())
 
 	snapshotData, _, err := p.ReadState(ctx, sm, []byte("VoterRewardSnapshot"), []byte(candID.String()))
 	r.NoError(err)
@@ -94,7 +88,6 @@ func TestReadStateIIP59(t *testing.T) {
 	r.Equal(big.NewInt(99).Bytes(), snapshot.GetTotalWeight())
 	r.Equal(iip59FixtureFreezeHeight, snapshot.GetFreezeHeight())
 	r.Equal(staking.NoSelfStakeBucketIndex, snapshot.GetSelfStakeBucketIdx())
-	r.NotEmpty(snapshot.GetSnapshotHash())
 
 	rewardAddressData, _, err := p.ReadState(ctx, sm, []byte("VoterRewardAddress"), []byte(candID.String()))
 	r.NoError(err)
@@ -191,7 +184,7 @@ func TestReadStateVoterRewardStatus(t *testing.T) {
 
 	poolA, poolB := big.NewInt(101), big.NewInt(77)
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra: 42, StartEpoch: 19, EndEpoch: 42,
+		TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight,
 		Delegates: []epochDrainDelegateWork{
 			newStatusWork(delegateA, poolA, f.totalWeightOf(delegateA)),
 			newStatusWork(delegateB, poolB, f.totalWeightOf(delegateB)),
@@ -254,27 +247,27 @@ func TestReadStateVoterRewardStatusShardPosition(t *testing.T) {
 
 	// The walk starts at the voter's own shard and has not entered it yet.
 	r.Equal(rewardingpb.VoterRewardStatus_WAITING, readStatus(&epochDrainCursor{
-		TargetEra: 42, StartShard: shard, ShardsDone: 0,
+		TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard}, ShardsDone: 0,
 		Delegates: []epochDrainDelegateWork{work},
 	}))
 	// Inside that shard, past this voter.
 	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED, readStatus(&epochDrainCursor{
-		TargetEra: 42, StartShard: shard, ShardsDone: 0, ResumeVoter: voter.Bytes(),
+		TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard}, ShardsDone: 0, ResumeVoter: voter.Bytes(),
 		Delegates: []epochDrainDelegateWork{work},
 	}))
 	// That shard is finished.
 	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED, readStatus(&epochDrainCursor{
-		TargetEra: 42, StartShard: shard, ShardsDone: 1,
+		TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard}, ShardsDone: 1,
 		Delegates: []epochDrainDelegateWork{work},
 	}))
 	// Same raw shard id, but the rotation starts one past it, so the voter's
 	// shard is now the last one visited rather than the first.
 	r.Equal(rewardingpb.VoterRewardStatus_WAITING, readStatus(&epochDrainCursor{
-		TargetEra: 42, StartShard: shard + 1, ShardsDone: 1,
+		TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard + 1}, ShardsDone: 1,
 		Delegates: []epochDrainDelegateWork{work},
 	}))
 	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED, readStatus(&epochDrainCursor{
-		TargetEra: 42, Completed: true, CompletedHeight: 900,
+		TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, ShardsDone: totalShards, CompletedHeight: 900,
 		Delegates: []epochDrainDelegateWork{work},
 	}))
 }
@@ -285,7 +278,6 @@ func newStatusWork(delegate address.Address, pool, totalWeight *big.Int) epochDr
 		CandidateIdentifier: delegate.Bytes(),
 		VoterAmountFrozen:   pool,
 		TotalWeight:         totalWeight,
-		FreezeHeight:        iip59FixtureFreezeHeight,
 		SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
 	}
 }

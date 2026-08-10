@@ -425,7 +425,6 @@ func selfStakeMismatchShares(
 	work := epochDrainDelegateWork{
 		CandidateIdentifier: delegate.Bytes(),
 		VoterAmountFrozen:   new(big.Int).Set(amount),
-		FreezeHeight:        iip59FixtureFreezeHeight,
 		SelfStakeBucketIdx:  bucketID,
 	}
 	delegates := []epochDrainDelegateWork{work}
@@ -438,10 +437,10 @@ func selfStakeMismatchShares(
 			}},
 			total: new(big.Int).Set(amount),
 		}, voterShareInputs{
-			delegates:   delegates,
-			byCandidate: delegateWorkIndex(delegates),
-			payable:     []bool{true},
-			distributed: []*big.Int{new(big.Int)},
+			delegates:    delegates,
+			byCandidate:  delegateWorkIndex(delegates),
+			freezeHeight: iip59FixtureFreezeHeight,
+			distributed:  []*big.Int{new(big.Int)},
 		}
 }
 

@@ -165,16 +165,12 @@ func TestActivationBackfillCOWDrainPayout(t *testing.T) {
 	r.NoError(p.updateAvailableBalance(activationCtx, sm, big.NewInt(pool)))
 	cursor := &epochDrainCursor{
 		TargetEra:      1,
-		StartEpoch:     1,
-		EndEpoch:       1,
+		FreezeHeight:   snapshot.FreezeHeight,
 		SettlementSeed: []byte{0x59},
-		StartShard:     settlementStartShard([]byte{0x59}),
 		Delegates: []epochDrainDelegateWork{{
 			CandidateIdentifier: delegate.Bytes(),
 			VoterAmountFrozen:   big.NewInt(pool),
-			RewardAddress:       delegate.Bytes(),
 			TotalWeight:         new(big.Int).Set(snapshot.TotalWeight),
-			FreezeHeight:        snapshot.FreezeHeight,
 			SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
 		}},
 	}

@@ -68,7 +68,7 @@ func enableIIP59(t *testing.T, ctx context.Context) context.Context {
 // present it with zero voters and every assertion below would hold vacuously.
 func TestGrantVoterRewardChunk_DirectPayoutNeedsNoClaim(t *testing.T) {
 	r := require.New(t)
-	ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
+	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
 	voter := identityset.Address(8)
 	f := seedIIP59DrainState(t, ctx, sm, iip59FixtureFreezeHeight, []iip59NativeSeed{
 		{delegate: candAddr, voter: voter, amount: 1_000_000_000_000_000_000},
@@ -79,18 +79,14 @@ func TestGrantVoterRewardChunk_DirectPayoutNeedsNoClaim(t *testing.T) {
 	}))
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candAddr.Bytes(), big.NewInt(100)))
 	r.NoError(p.updateAvailableBalance(ctx, sm, big.NewInt(100)))
-	totalWeight, snapshotHash := distributionMetadata(t, sm, candAddr)
-	rewardAddr, err := address.FromString(cand.RewardAddress)
-	r.NoError(err)
+	totalWeight := distributionMetadata(t, sm, candAddr)
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra: 1,
+		TargetEra:    1,
+		FreezeHeight: iip59FixtureFreezeHeight,
 		Delegates: []epochDrainDelegateWork{{
 			CandidateIdentifier: candAddr.Bytes(),
 			VoterAmountFrozen:   big.NewInt(100),
-			RewardAddress:       rewardAddr.Bytes(),
 			TotalWeight:         f.totalWeightOf(candAddr),
-			SnapshotHash:        snapshotHash[:],
-			FreezeHeight:        iip59FixtureFreezeHeight,
 			SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
 		}},
 	}))
@@ -156,15 +152,16 @@ func seedChunkCursor(
 		entries = append(entries, epochDrainDelegateWork{
 			CandidateIdentifier: candID,
 			VoterAmountFrozen:   big.NewInt(1),
-			FreezeHeight:        iip59FixtureFreezeHeight,
 			SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
 		})
 	}
 	openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
 	cursor := &epochDrainCursor{
-		TargetEra:  epochNum,
-		ShardsDone: shardsDone,
-		Delegates:  entries,
+		TargetEra:      epochNum,
+		FreezeHeight:   iip59FixtureFreezeHeight,
+		SettlementSeed: []byte{0x59},
+		ShardsDone:     shardsDone,
+		Delegates:      entries,
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, cursor))
 	return cursor
@@ -200,7 +197,7 @@ func TestGrantVoterRewardChunk_UnroutableDelegatesFinish(t *testing.T) {
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
 		r.NotNil(got)
-		r.True(got.Completed)
+		r.True(got.drainFinished())
 		r.Equal(totalShards, got.ShardsDone)
 		deferred, err := p.readPendingBlockRewardPool(ctx, sm, deferredID)
 		r.NoError(err)
@@ -213,7 +210,7 @@ func TestGrantVoterRewardChunk_UnroutableDelegatesFinish(t *testing.T) {
 }
 
 // TestGrantVoterRewardChunk_LastChunkRunsCoda verifies the terminal
-// chunk runs the post-C3 coda: orphan sweep + cursor completion. The
+// chunk runs the post-C3 coda: COW sealing + cursor completion. The
 // epoch sentinel is Phase A's responsibility (written by
 // GrantEpochReward) and is NOT touched by the chunk anymore. Seeded
 // state: cursor with the shard walk one shard from the end, so this run
@@ -240,7 +237,7 @@ func TestGrantVoterRewardChunk_LastChunkRunsCoda(t *testing.T) {
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
 		r.NotNil(got)
-		r.True(got.Completed)
+		r.True(got.drainFinished())
 		r.Equal(totalShards, got.ShardsDone)
 		r.Equal(protocol.MustGetBlockCtx(ctx).BlockHeight, got.CompletedHeight)
 	}, nil, false, 0)
@@ -289,7 +286,7 @@ func TestGrantVoterRewardChunk_CrossEraContinuation(t *testing.T) {
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
 		r.NotNil(got)
-		r.True(got.Completed)
+		r.True(got.drainFinished())
 		r.Equal(totalShards, got.ShardsDone)
 		r.Equal(later, got.CompletedHeight)
 	}, nil, false, 0)
@@ -328,7 +325,7 @@ func TestCompletedCursorDoesNotDispatchChunk(t *testing.T) {
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
 
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-			TargetEra: 1, StartEpoch: 1, EndEpoch: 1, Completed: true, CompletedHeight: blk.BlockHeight,
+			TargetEra: 1, ShardsDone: totalShards, CompletedHeight: blk.BlockHeight,
 		}))
 		grants, err := p.CreatePostSystemActions(ctx, sm)
 		r.NoError(err)
@@ -413,34 +410,43 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		ctx = enableIIP59(t, ctx)
 		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
-
-		// Seed only candidate 27's pool. Phase A will freeze exactly one
-		// cursor entry — makes the "same delegate accrues more mid-drain"
-		// invariant unambiguous to assert.
-		candID := identityset.Address(27).Bytes()
-		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(250)))
-		// FreezeHeight is what makes a work item payable: an item without one
-		// has no defensible evaluation height for the weight recompute, so the
-		// drain skips it and preserves its pool. These snapshots need it or the
-		// residual sweep below never runs.
-		for _, idx := range []int{27, 28, 29, 30} {
-			r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(idx), &staking.CandidatePollSnapshot{
-				OnchainRewardEnabled:       true,
-				BlockCommissionBasisPoints: _basisPointsDenom,
-				EpochCommissionBasisPoints: _basisPointsDenom,
-				Registered:                 true,
-				TotalWeight:                big.NewInt(1),
-				FreezeHeight:               iip59FixtureFreezeHeight,
-				SelfStakeBucketIdx:         staking.NoSelfStakeBucketIndex,
-			}))
-		}
-
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
 		sp := &staking.Protocol{}
 		r.NoError(sp.Register(protocol.MustGetRegistry(ctx)))
 		patches.ApplyMethodReturn(sp, "SlashCandidateByOperator", nil)
 		patches.ApplyMethodReturn(sp, "SlashCandidateByID", nil)
+
+		// Seed only candidate 27's pool. Phase A will freeze exactly one
+		// cursor entry — makes the "same delegate accrues more mid-drain"
+		// invariant unambiguous to assert.
+		candidate := identityset.Address(27)
+		candID := candidate.Bytes()
+		fixture := seedIIP59DrainState(t, ctx, sm, iip59FixtureFreezeHeight, []iip59NativeSeed{{
+			delegate: candidate,
+			voter:    identityset.Address(8),
+			amount:   1_000_000_000_000_000_000,
+		}}, nil)
+		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(250)))
+		// FreezeHeight is what makes a work item payable: an item without one
+		// has no defensible evaluation height for the weight recompute, so the
+		// drain skips it and preserves its pool. These snapshots need it for the
+		// pool to enter the current plan.
+		for _, idx := range []int{27, 28, 29, 30} {
+			totalWeight := big.NewInt(1)
+			if idx == 27 {
+				totalWeight = fixture.totalWeightOf(candidate)
+			}
+			r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(idx), &staking.CandidatePollSnapshot{
+				OnchainRewardEnabled:       true,
+				BlockCommissionBasisPoints: _basisPointsDenom,
+				EpochCommissionBasisPoints: _basisPointsDenom,
+				Registered:                 true,
+				TotalWeight:                totalWeight,
+				FreezeHeight:               iip59FixtureFreezeHeight,
+				SelfStakeBucketIdx:         staking.NoSelfStakeBucketIndex,
+			}))
+		}
 
 		// Era-N Phase A: freeze the cursor at 250 for candidate 27.
 		_, eraNLogs, err := p.GrantEpochReward(ctx, sm)
@@ -471,17 +477,12 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		// while the era-N cursor is still live.
 		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(100)))
 
-		// Phase A opens the era copy-on-write window inside FreezePollSnapshot,
-		// which this fixture bypasses by writing snapshots directly, so open it
-		// here -- the drain refuses to read live buckets.
-		openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
-
 		// Drive Phase B to completion. The frozen 250 is paid while the later
 		// 100 remains in the pending pool for the next era.
 		for {
 			got, cErr := p.readEpochDrainCursor(ctx, sm)
 			r.NoError(cErr)
-			if got == nil || got.Completed {
+			if got == nil || got.drainFinished() {
 				break
 			}
 			_, _, cErr = p.GrantVoterRewardChunk(ctx, sm)
@@ -508,6 +509,7 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithFeatureCtx(ctx)
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
+		openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
 
 		_, eraNext1Logs, err := p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
@@ -524,8 +526,6 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(nextCursor, "era-N+1 Phase A must produce a cursor from the surviving pool residual")
 		r.Equal(uint64(2), nextCursor.TargetEra)
-		r.Equal(uint64(2), nextCursor.StartEpoch, "a completed cursor must not extend the next era range")
-		r.Equal(uint64(2), nextCursor.EndEpoch)
 		var carriedAmt int64
 		for _, w := range nextCursor.Delegates {
 			if string(w.CandidateIdentifier) == string(candID) {

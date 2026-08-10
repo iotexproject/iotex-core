@@ -102,7 +102,6 @@ func TestFreezePollSnapshot_RecordIsIndependentOfSetSize(t *testing.T) {
 		FreezeHeight:               freezeHeight,
 		SelfStakeBucketIdx:         solo.SelfStakeBucketIdx,
 	}
-	expected.SnapshotHash = eraSnapshotHash(solo.GetIdentifier(), expected)
 	expectedBytes, err := expected.toBlob().Serialize()
 	r.NoError(err)
 	r.Equal(expectedBytes, soloBytes,

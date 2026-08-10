@@ -129,9 +129,9 @@ var liveAndCOWStreams = [4]string{"native", "lsd", "cowNative", "cowLSD"}
 // so a truncated stream returns fewer addresses than keys, and a naive
 // count-based resume can step over a voter that another stream would have
 // produced below the cut. Because ResumeVoter then advances past them, such a
-// voter is never revisited and never paid -- a silent, permanent underpayment
-// that no fund invariant would catch, since the money would fall through to the
-// residual sweep.
+// voter is never revisited and never paid in this era -- a silent underpayment
+// that no fund invariant would catch, since the money would remain in the
+// pending pool.
 func TestVoterDrainStuffedShardPaysEveryVoterExactlyOnce(t *testing.T) {
 	r := require.New(t)
 	const shard = byte(0x7a)
@@ -142,7 +142,7 @@ func TestVoterDrainStuffedShardPaysEveryVoterExactlyOnce(t *testing.T) {
 	for i := 0; ; i++ {
 		cursor, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		if cursor == nil || cursor.Completed {
+		if cursor == nil || cursor.drainFinished() {
 			break
 		}
 		txLogs, _, err := p.GrantVoterRewardChunk(ctx, sm)

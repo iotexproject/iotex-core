@@ -81,8 +81,8 @@ func (r *rawState) Deserialize(b []byte) error {
 // but a voter who withdraws their last bucket during the drain window has their
 // live index key deleted while the copy-on-write layer keeps the value they had
 // at the freeze height. Scanning only the live keys would silently drop such a
-// voter -- they are owed a share of an era they were part of, and the money
-// would fall through to the residual sweep. So the two copy-on-write entry
+// voter -- they are owed a share of an era they were part of, and otherwise
+// the money would remain pending without reaching them. So the copy-on-write
 // ranges are scanned as well; their keys are
 // {EntryPrefix}||u64BE(H)||kind||addr, which puts the shard byte at a fixed
 // offset and makes them shard-bounded in exactly the same way.

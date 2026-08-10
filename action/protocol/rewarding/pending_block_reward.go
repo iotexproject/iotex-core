@@ -11,17 +11,12 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
@@ -29,8 +24,9 @@ import (
 const _candidateIdentifierSize = 20
 
 // pendingBlockRewardPool is a single delegate's accumulated block reward
-// balance under IIP-59 §3.2. Created lazily on first credit, deleted on
-// drain. Value is stored as raw big-endian bytes so the entry is compact
+// balance under IIP-59 §3.2. Created lazily on first credit and decremented as
+// voters are paid; rounding residual may carry into a later era. Value is
+// stored as raw big-endian bytes so the entry is compact
 // and independent of the big.Int text-radix representation.
 type pendingBlockRewardPool struct {
 	amount *big.Int
@@ -255,154 +251,4 @@ func candidateIdentifier(candidate *state.Candidate) string {
 		return candidate.Identity
 	}
 	return candidate.Address
-}
-
-// refundPendingBlockRewardPool returns amount to the rewarding fund's
-// unclaimed balance. Used by the orphan-drain fallback when a pool entry
-// has no reachable destination (candidate fully unregistered, no reward
-// address). Never touches totalBalance — the deposit that funded this
-// amount is still on the books.
-func (p *Protocol) refundPendingBlockRewardPool(
-	ctx context.Context,
-	sm protocol.StateManager,
-	amount *big.Int,
-) error {
-	if amount == nil || amount.Sign() <= 0 {
-		return nil
-	}
-	f := fund{}
-	if _, err := p.state(ctx, sm, _fundKey, &f); err != nil {
-		return err
-	}
-	f.unclaimedBalance = new(big.Int).Add(f.unclaimedBalance, amount)
-	return p.putState(ctx, sm, _fundKey, &f)
-}
-
-// drainPendingBlockRewardOrphans handles pool entries left over after the
-// per-candidate epoch loop. Any pool ID not in visited is a delegate that
-// dropped out of the current epoch's reward split entirely (deactivated,
-// unregistered, or otherwise fell off the poll list) after having
-// accumulated block reward inside the epoch.
-//
-// Resolution order per orphan:
-//  1. Look up the live staking.Candidate by identifier. If present, credit
-//     the pool balance to its owner (the post-fork default reward address)
-//     and emit a BLOCK_REWARD log naming it.
-//  2. Otherwise (candidate fully gone), refund the
-//     balance to fund.unclaimedBalance and emit a BLOCK_REWARD log with
-//     an empty addr for observability. Never burn — that would violate
-//     the unclaimedBalance ≤ totalBalance invariant.
-//
-// Regardless of destination, the pool entry is deleted so a replay is a no-op.
-func (p *Protocol) drainPendingBlockRewardOrphans(
-	ctx context.Context,
-	sm protocol.StateManager,
-	visited map[string]bool,
-	blkHeight uint64,
-	actionHash hash.Hash256,
-) ([]*action.TransactionLog, []*action.Log, error) {
-	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(ids) == 0 {
-		return nil, nil, nil
-	}
-	transactionLogs := make([]*action.TransactionLog, 0)
-	logs := make([]*action.Log, 0)
-	for _, candID := range ids {
-		if visited[string(candID)] {
-			continue
-		}
-		poolAmt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
-		if err != nil {
-			return nil, nil, err
-		}
-		if poolAmt.Sign() == 0 {
-			if err := p.deletePendingBlockRewardPool(ctx, sm, candID); err != nil {
-				return nil, nil, err
-			}
-			continue
-		}
-
-		tLog, rLog, err := p.sweepPendingPoolAmount(ctx, sm, candID, poolAmt, blkHeight, actionHash)
-		if err != nil {
-			return nil, nil, err
-		}
-		if tLog != nil {
-			transactionLogs = append(transactionLogs, tLog)
-		}
-		logs = append(logs, rLog)
-		if err := p.deletePendingBlockRewardPool(ctx, sm, candID); err != nil {
-			return nil, nil, err
-		}
-	}
-	return transactionLogs, logs, nil
-}
-
-// sweepPendingPoolAmount moves one amount out of a delegate's pending pool to
-// the delegate's owner, or back to the rewarding fund's unclaimed balance when
-// no owner can be resolved, and emits the BLOCK_REWARD log that records it.
-//
-// Both sinks of unpaid pool money go through here: the orphan drain, which
-// sweeps a whole pool whose delegate fell off the list, and the drain's
-// completion residual, which sweeps the part of a frozen pool that floor
-// division and the payout clamp left behind. There is deliberately only one
-// sink -- a second one would be a second place for the fund accounting
-// invariant to be got wrong.
-//
-// The pool is decremented rather than deleted, because the pool may have kept
-// accruing behind the drain and that accrual belongs to the next era. The
-// decrement deletes the entry on its own when it empties.
-func (p *Protocol) sweepPendingPoolAmount(
-	ctx context.Context,
-	sm protocol.StateManager,
-	candID []byte,
-	amount *big.Int,
-	blkHeight uint64,
-	actionHash hash.Hash256,
-) (*action.TransactionLog, *action.Log, error) {
-	if amount == nil || amount.Sign() <= 0 {
-		return nil, nil, nil
-	}
-	var target address.Address
-	var targetStr string
-	candAddr, addrErr := address.FromBytes(candID)
-	if addrErr == nil {
-		candidate, _, rewardErr := staking.NewCandidateByAddressReader(sm).CandidateByAddress(candAddr)
-		if rewardErr == nil {
-			target = candidate.Owner
-			targetStr = candidate.Owner.String()
-		} else if !errors.Is(rewardErr, state.ErrStateNotExist) {
-			return nil, nil, errors.Wrap(rewardErr, "rewarding: read candidate owner for pool sweep")
-		}
-	} else {
-		log.L().Warn("rewarding: pool ID does not decode to an address; refunding",
-			zap.Binary("candID", candID),
-			zap.Error(addrErr))
-	}
-
-	var tLog *action.TransactionLog
-	if target != nil {
-		var err error
-		if tLog, err = p.creditRewardDirect(ctx, sm, target, amount); err != nil {
-			return nil, nil, err
-		}
-	} else if err := p.refundPendingBlockRewardPool(ctx, sm, amount); err != nil {
-		return nil, nil, err
-	}
-	data, err := p.encodeRewardLog(rewardingpb.RewardLog_BLOCK_REWARD, targetStr, amount)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := p.decrementPendingBlockRewardPool(ctx, sm, candID, amount); err != nil {
-		return nil, nil, err
-	}
-	return tLog, &action.Log{
-		Address:     p.addr.String(),
-		Topics:      nil,
-		Data:        data,
-		BlockHeight: blkHeight,
-		ActionHash:  actionHash,
-	}, nil
 }

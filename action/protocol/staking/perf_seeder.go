@@ -368,7 +368,6 @@ func TestOnlySeedPerfBenchState(
 			SelfStakeBucketIdx:         selfStakeIdx[i],
 			TotalWeight:                new(big.Int).Set(cand.Votes),
 		}
-		snap.SnapshotHash = eraSnapshotHash(delAddr, snap)
 		if _, err := sm.PutState(
 			snap.toBlob(),
 			protocol.NamespaceOption(_stakingNameSpace),

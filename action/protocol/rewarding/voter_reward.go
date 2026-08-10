@@ -446,15 +446,15 @@ func frozenEraForBucket(in voterShareInputs, bucket *staking.VoteBucket) staking
 		return staking.FrozenSelfStake{}
 	}
 	work := in.delegates[i]
-	return staking.FrozenSelfStake{FreezeHeight: work.FreezeHeight, BucketIdx: work.SelfStakeBucketIdx}
+	return staking.FrozenSelfStake{FreezeHeight: in.freezeHeight, BucketIdx: work.SelfStakeBucketIdx}
 }
 
 // delegateChunkLog accumulates the DelegateDistributed rows for one delegate
 // across a whole chunk. The drain is voter-major, so a delegate is touched by
 // many voters within one block; emitting a log per (voter, delegate) pair would
 // multiply the log stream by the average delegate count per voter. One log per
-// delegate per block preserves the off-chain aggregation contract, which keys
-// on (SnapshotHash, delegate, epoch).
+// delegate per block preserves the off-chain aggregation contract, keyed by
+// target era and delegate.
 type delegateChunkLog struct {
 	voters            []address.Address
 	recipients        []address.Address
@@ -507,9 +507,8 @@ func voterTransactionLog(payout voterCombinedPayout) *action.TransactionLog {
 // packDelegateChunkLog builds the DelegateDistributed event for one delegate's
 // slice of this chunk. Returns nil when the delegate paid no voter this block.
 func (p *Protocol) packDelegateChunkLog(
-	epochNum uint64,
+	targetEra uint64,
 	work epochDrainDelegateWork,
-	payee cursorDelegatePayee,
 	rows delegateChunkLog,
 	blkHeight uint64,
 	actionHash hash.Hash256,
@@ -522,12 +521,9 @@ func (p *Protocol) packDelegateChunkLog(
 		return nil, errors.Wrap(err, "rewarding: decode cursor candidate identifier")
 	}
 	topics, data, err := distributedlog.Pack(distributedlog.EventArgs{
-		Epoch:             epochNum,
+		Epoch:             targetEra,
 		Delegate:          candID,
-		RewardAddr:        payee.rewardAddr,
-		TotalCommission:   safeBig(payee.epochCommission),
-		TotalVoterPool:    safeBig(rows.paid),
-		SnapshotHash:      hash.BytesToHash256(work.SnapshotHash),
+		VoterAmount:       safeBig(rows.paid),
 		Voters:            rows.voters,
 		Recipients:        rows.recipients,
 		Amounts:           rows.amounts,

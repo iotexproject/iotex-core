@@ -268,7 +268,7 @@ func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.Stat
 		if err != nil {
 			return nil, err
 		}
-		if cursor != nil && !cursor.Completed {
+		if cursor != nil && !cursor.drainFinished() {
 			grants = append(grants, createGrantRewardAction(action.VoterRewardChunk, blkCtx.BlockHeight))
 		}
 	}
@@ -512,7 +512,6 @@ func (p *Protocol) ReadState(
 			Registered:                 snapshot.Registered,
 			OnchainRewardEnabled:       snapshot.OnchainRewardEnabled,
 			TotalWeight:                safeBig(snapshot.TotalWeight).Bytes(),
-			SnapshotHash:               snapshot.SnapshotHash[:],
 			FreezeHeight:               snapshot.FreezeHeight,
 			SelfStakeBucketIdx:         snapshot.SelfStakeBucketIdx,
 		})

@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
@@ -30,8 +29,8 @@ import (
 // freezeDelegateDrainWork treats such a snapshot as absent, which is the path
 // the freezer already produces for a candidate it never froze.
 
-// TestFreezeDelegateDrainWork_StaleSnapshotTreatedAsAbsent is the guard.
-func TestFreezeDelegateDrainWork_StaleSnapshotTreatedAsAbsent(t *testing.T) {
+// TestFreezePendingPoolDrainWork_StaleSnapshotDefersPool is the guard.
+func TestFreezePendingPoolDrainWork_StaleSnapshotDefersPool(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
 
@@ -39,8 +38,6 @@ func TestFreezeDelegateDrainWork_StaleSnapshotTreatedAsAbsent(t *testing.T) {
 	const previousEraH = uint64(10_000)
 	openEraWindowForTest(t, ctx, sm, currentEraH)
 
-	var stubHash hash.Hash256
-	copy(stubHash[:], []byte{0xab, 0xcd})
 	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
 		OnchainRewardEnabled:       true,
 		EpochCommissionBasisPoints: 3_000,
@@ -48,38 +45,30 @@ func TestFreezeDelegateDrainWork_StaleSnapshotTreatedAsAbsent(t *testing.T) {
 		TotalWeight:                big.NewInt(1_000_000),
 		FreezeHeight:               previousEraH,
 		SelfStakeBucketIdx:         7,
-		SnapshotHash:               stubHash,
 	}))
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candAddr.Bytes(), big.NewInt(5_000)))
 
-	work, err := p.freezeDelegateDrainWork(
-		sm, candAddr.Bytes(), identityset.Address(2),
-		big.NewInt(0), big.NewInt(5_000), currentEraH,
-	)
+	work, err := p.freezePendingPoolDrainWork(ctx, sm, currentEraH)
 	r.NoError(err, "a stale snapshot is chain state, so it must degrade rather than halt the block")
-	r.Zero(work.TotalWeight.Sign(),
-		"a previous era's denominator must not be used against this era's frozen buckets")
-	r.Zero(work.FreezeHeight,
-		"a previous era's evaluation height must not reach the weight recompute")
-	r.Equal(staking.NoSelfStakeBucketIndex, work.SelfStakeBucketIdx)
-	r.Equal(hash.ZeroHash256[:], work.SnapshotHash)
-	// The pool itself is untouched: it rolls into a later era rather than being
-	// paid out on a mixed basis.
-	r.Zero(big.NewInt(5_000).Cmp(work.VoterAmountFrozen))
+	r.Empty(work, "a stale denominator must not enter this era's plan")
+
+	pool, err := p.readPendingBlockRewardPool(ctx, sm, candAddr.Bytes())
+	r.NoError(err)
+	r.Zero(big.NewInt(5_000).Cmp(pool),
+		"a stale snapshot must leave the pool intact for a later era")
 }
 
-// TestFreezeDelegateDrainWork_CurrentEraSnapshotStillUsed is the regression
+// TestFreezePendingPoolDrainWork_CurrentEraSnapshotEntersPlan is the regression
 // lock on the other side. The guard must key on the era, not on the mere
 // presence of a FreezeHeight — an over-broad version would defer every
 // delegate, forever, and IIP-59 would pay no voters at all.
-func TestFreezeDelegateDrainWork_CurrentEraSnapshotStillUsed(t *testing.T) {
+func TestFreezePendingPoolDrainWork_CurrentEraSnapshotEntersPlan(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
 
 	const currentEraH = uint64(20_000)
 	openEraWindowForTest(t, ctx, sm, currentEraH)
 
-	var stubHash hash.Hash256
-	copy(stubHash[:], []byte{0xab, 0xcd})
 	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
 		OnchainRewardEnabled:       true,
 		EpochCommissionBasisPoints: 3_000,
@@ -87,36 +76,97 @@ func TestFreezeDelegateDrainWork_CurrentEraSnapshotStillUsed(t *testing.T) {
 		TotalWeight:                big.NewInt(1_000_000),
 		FreezeHeight:               currentEraH,
 		SelfStakeBucketIdx:         7,
-		SnapshotHash:               stubHash,
 	}))
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candAddr.Bytes(), big.NewInt(5_000)))
 
-	work, err := p.freezeDelegateDrainWork(
-		sm, candAddr.Bytes(), identityset.Address(2),
-		big.NewInt(0), big.NewInt(5_000), currentEraH,
-	)
+	work, err := p.freezePendingPoolDrainWork(ctx, sm, currentEraH)
 	r.NoError(err)
-	r.Zero(big.NewInt(1_000_000).Cmp(work.TotalWeight))
-	r.Equal(currentEraH, work.FreezeHeight)
-	r.Equal(uint64(7), work.SelfStakeBucketIdx)
-	r.Equal(stubHash[:], work.SnapshotHash)
+	r.Len(work, 1)
+	r.Equal(candAddr.Bytes(), work[0].CandidateIdentifier)
+	r.Zero(big.NewInt(5_000).Cmp(work[0].VoterAmountFrozen))
+	r.Zero(big.NewInt(1_000_000).Cmp(work[0].TotalWeight))
+	r.Equal(uint64(7), work[0].SelfStakeBucketIdx)
+
+	pool, err := p.readPendingBlockRewardPool(ctx, sm, candAddr.Bytes())
+	r.NoError(err)
+	r.Zero(big.NewInt(5_000).Cmp(pool), "plan construction must not consume a payable pool")
 }
 
-// TestFreezeDelegateDrainWork_MissingSnapshotStillDefers pins the pre-existing
-// "no snapshot -> zero weight -> defer" path the guard degrades into. If this
-// ever became an error, the guard would turn a chain-state condition into a
-// halted block.
-func TestFreezeDelegateDrainWork_MissingSnapshotStillDefers(t *testing.T) {
+// TestFreezePendingPoolDrainWork_ExitedCandidateStillEntersPlan proves plan
+// construction is driven by pending pools, not the current poll or candidate
+// set. A candidate may leave after the era freeze while voter money remains;
+// its fresh snapshot is sufficient to settle that frozen era.
+func TestFreezePendingPoolDrainWork_ExitedCandidateStillEntersPlan(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	const currentEraH = uint64(20_000)
+	exited := identityset.Address(20)
+	_, _, err := staking.NewCandidateByAddressReader(sm).CandidateByAddress(exited)
+	r.ErrorIs(err, state.ErrStateNotExist,
+		"fixture candidate must be absent from current candidate state")
+
+	openEraWindowForTest(t, ctx, sm, currentEraH)
+	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, exited, &staking.CandidatePollSnapshot{
+		OnchainRewardEnabled: true,
+		TotalWeight:          big.NewInt(900),
+		FreezeHeight:         currentEraH,
+		SelfStakeBucketIdx:   staking.NoSelfStakeBucketIndex,
+	}))
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, exited.Bytes(), big.NewInt(321)))
+
+	work, err := p.freezePendingPoolDrainWork(ctx, sm, currentEraH)
+	r.NoError(err)
+	r.Len(work, 1)
+	r.Equal(exited.Bytes(), work[0].CandidateIdentifier)
+	r.Zero(big.NewInt(321).Cmp(work[0].VoterAmountFrozen))
+	r.Zero(big.NewInt(900).Cmp(work[0].TotalWeight))
+
+	pool, err := p.readPendingBlockRewardPool(ctx, sm, exited.Bytes())
+	r.NoError(err)
+	r.Zero(big.NewInt(321).Cmp(pool), "plan construction must not consume the exited candidate's pool")
+}
+
+// TestFreezePendingPoolDrainWork_MissingSnapshotDefersPool pins the pre-existing
+// "no snapshot -> defer" path the guard degrades into.
+func TestFreezePendingPoolDrainWork_MissingSnapshotDefersPool(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
 	openEraWindowForTest(t, ctx, sm, 20_000)
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candAddr.Bytes(), big.NewInt(5_000)))
 
-	work, err := p.freezeDelegateDrainWork(
-		sm, candAddr.Bytes(), identityset.Address(2),
-		big.NewInt(0), big.NewInt(5_000), 20_000,
-	)
+	work, err := p.freezePendingPoolDrainWork(ctx, sm, 20_000)
 	r.NoError(err)
-	r.Zero(work.TotalWeight.Sign())
-	r.Zero(work.FreezeHeight)
+	r.Empty(work)
+
+	pool, err := p.readPendingBlockRewardPool(ctx, sm, candAddr.Bytes())
+	r.NoError(err)
+	r.Zero(big.NewInt(5_000).Cmp(pool), "a missing snapshot must leave the pool intact")
+}
+
+// TestFreezePendingPoolDrainWork_ZeroWeightSnapshotDefersPool ensures a fresh
+// snapshot with no payable voter denominator behaves like a missing snapshot.
+func TestFreezePendingPoolDrainWork_ZeroWeightSnapshotDefersPool(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
+
+	const currentEraH = uint64(20_000)
+	openEraWindowForTest(t, ctx, sm, currentEraH)
+	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
+		OnchainRewardEnabled: true,
+		TotalWeight:          new(big.Int),
+		FreezeHeight:         currentEraH,
+		SelfStakeBucketIdx:   7,
+	}))
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candAddr.Bytes(), big.NewInt(5_000)))
+
+	work, err := p.freezePendingPoolDrainWork(ctx, sm, currentEraH)
+	r.NoError(err)
+	r.Empty(work, "a zero-weight snapshot must not enter the plan")
+
+	pool, err := p.readPendingBlockRewardPool(ctx, sm, candAddr.Bytes())
+	r.NoError(err)
+	r.Zero(big.NewInt(5_000).Cmp(pool), "a zero-weight snapshot must leave the pool intact")
 }
 
 // TestDistributeEpochCommissions_StaleSnapshotDefersPool walks the real caller,
@@ -127,10 +177,10 @@ func TestDistributeEpochCommissions_StaleSnapshotDefersPool(t *testing.T) {
 	for _, tc := range []struct {
 		name            string
 		snapshotFreezeH uint64
-		wantDeferred    bool
+		wantPlanned     bool
 	}{
-		{"stale snapshot defers", 10_000, true},
-		{"current-era snapshot settles", 20_000, false},
+		{"stale snapshot defers", 10_000, false},
+		{"current-era snapshot settles", 20_000, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := require.New(t)
@@ -159,20 +209,26 @@ func TestDistributeEpochCommissions_StaleSnapshotDefersPool(t *testing.T) {
 				rewardedCandidates: []*state.Candidate{cand},
 				addrs:              []address.Address{identityset.Address(2)},
 				amounts:            []*big.Int{big.NewInt(1_000)},
-				isEraBoundary:      true,
 			}, out))
 
-			r.Len(out.cursorEntries, 1)
-			work := out.cursorEntries[0]
-			r.Zero(big.NewInt(1_000).Cmp(work.VoterAmountFrozen),
-				"the voter pool accrues either way; only its settlement basis is in question")
-			if tc.wantDeferred {
-				r.Zero(work.TotalWeight.Sign())
-				r.Zero(work.FreezeHeight)
+			poolBeforePlan, err := p.readPendingBlockRewardPool(ctx, sm, candAddr.Bytes())
+			r.NoError(err)
+			r.Zero(big.NewInt(1_000).Cmp(poolBeforePlan))
+
+			work, err := p.freezePendingPoolDrainWork(ctx, sm, currentEraH)
+			r.NoError(err)
+			if tc.wantPlanned {
+				r.Len(work, 1)
+				r.Zero(big.NewInt(1_000).Cmp(work[0].VoterAmountFrozen))
+				r.Zero(big.NewInt(1_000_000).Cmp(work[0].TotalWeight))
 			} else {
-				r.Zero(big.NewInt(1_000_000).Cmp(work.TotalWeight))
-				r.Equal(currentEraH, work.FreezeHeight)
+				r.Empty(work)
 			}
+
+			poolAfterPlan, err := p.readPendingBlockRewardPool(ctx, sm, candAddr.Bytes())
+			r.NoError(err)
+			r.Zero(poolBeforePlan.Cmp(poolAfterPlan),
+				"plan construction must leave the pending pool unchanged")
 		})
 	}
 }

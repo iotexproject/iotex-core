@@ -90,7 +90,6 @@ func newIIP59PayoutModel(
 		r.Truef(ok, "delegate %d (%s) is missing from the settlement plan", i, del.String())
 		r.NotZerof(work.FreezeHeight,
 			"delegate %d has FreezeHeight 0: the era never froze, so the drain cannot pay anyone", i)
-		r.Falsef(work.Skipped, "delegate %d was skipped by the drain", i)
 		r.Positivef(work.VoterAmountFrozen.Sign(),
 			"delegate %d froze an empty voter pool; the fixture paid it nothing to distribute", i)
 

@@ -110,7 +110,6 @@ type TestOnlyDrainDelegateWork struct {
 	TotalWeight            *big.Int
 	FreezeHeight           uint64
 	SelfStakeBucketIdx     uint64
-	Skipped                bool
 }
 
 // TestOnlyEpochDrainPlan returns the current settlement's per-delegate work
@@ -121,9 +120,8 @@ type TestOnlyDrainDelegateWork struct {
 // boundary is what replaces them — and the post-completion Distributed totals
 // are the only record of what the settlement actually moved.
 //
-// Note that completeEpochDrain folds each delegate's residual into Distributed
-// on the way out, so a completed item reports Distributed == VoterAmountFrozen.
-// A caller that wants the payout total alone has to sample before completion.
+// Distributed reports actual voter payout. Any rounding residual remains in
+// the pending pool for a later era.
 func (p *Protocol) TestOnlyEpochDrainPlan(
 	ctx context.Context,
 	sr protocol.StateReader,
@@ -139,12 +137,11 @@ func (p *Protocol) TestOnlyEpochDrainPlan(
 			VoterAmountFrozen:      new(big.Int).Set(safeBig(d.VoterAmountFrozen)),
 			VoterAmountDistributed: new(big.Int).Set(c.distributedAt(i)),
 			TotalWeight:            new(big.Int).Set(safeBig(d.TotalWeight)),
-			FreezeHeight:           d.FreezeHeight,
+			FreezeHeight:           c.FreezeHeight,
 			SelfStakeBucketIdx:     d.SelfStakeBucketIdx,
-			Skipped:                delegateSkipped(c, uint32(i)),
 		}
 	}
-	return out, c.Completed, true, nil
+	return out, c.drainFinished(), true, nil
 }
 
 // TestOnlyAllPoolEntries walks the pending block-reward pool key range and

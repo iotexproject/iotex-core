@@ -48,8 +48,9 @@ func (p *Protocol) voterRewardStatus(
 	}
 	status.TargetEra = cursor.TargetEra
 	g := genesis.MustExtractGenesisContext(ctx)
-	status.EraStartEpoch, status.EraEndEpoch = cursor.epochRange(g.EpochsPerRewardEra)
-	status.SettlementCompleted = cursor.Completed
+	status.EraStartEpoch = rewardEraStartEpoch(cursor.TargetEra, g.EpochsPerRewardEra)
+	status.EraEndEpoch = cursor.TargetEra
+	status.SettlementCompleted = cursor.drainFinished()
 	status.CompletedHeight = cursor.CompletedHeight
 
 	window, err := staking.EraCOWWindow(sr)
@@ -70,12 +71,12 @@ func (p *Protocol) voterRewardStatus(
 	}
 
 	shares, err := computeVoterShares(sr, voterShareInputs{
-		window:      window,
-		staking:     stakingProto,
-		delegates:   cursor.Delegates,
-		byCandidate: delegateWorkIndex(cursor.Delegates),
-		payable:     drainPayableDelegates(cursor),
-		distributed: distributedVector(cursor),
+		window:       window,
+		staking:      stakingProto,
+		delegates:    cursor.Delegates,
+		byCandidate:  delegateWorkIndex(cursor.Delegates),
+		freezeHeight: cursor.FreezeHeight,
+		distributed:  distributedVector(cursor),
 	}, voter)
 	if err != nil {
 		return nil, err
@@ -97,10 +98,10 @@ func (p *Protocol) voterRewardStatus(
 // shard in progress, the walk pays voters in ascending address order, so
 // ResumeVoter -- the last address visited -- separates paid from pending.
 func voterDrainPosition(cursor *epochDrainCursor, voter address.Address) rewardingpb.VoterRewardStatus_Status {
-	if cursor.Completed || cursor.drainFinished() {
+	if cursor.drainFinished() {
 		return rewardingpb.VoterRewardStatus_PROCESSED
 	}
-	pos := (uint16(staking.ShardOf(voter)) + totalShards - uint16(cursor.StartShard)) % totalShards
+	pos := (uint16(staking.ShardOf(voter)) + totalShards - uint16(settlementStartShard(cursor.SettlementSeed))) % totalShards
 	switch {
 	case pos < cursor.ShardsDone:
 		return rewardingpb.VoterRewardStatus_PROCESSED
@@ -111,34 +112,4 @@ func voterDrainPosition(cursor *epochDrainCursor, voter address.Address) rewardi
 	default:
 		return rewardingpb.VoterRewardStatus_WAITING
 	}
-}
-
-// drainPayableDelegates recomputes the drain's payability flags from the frozen
-// work items alone.
-//
-// It is the read-only half of what resolveDrainPayees decides. The one
-// condition it cannot reproduce is the legacy fallback for cursors written
-// before the reward address was frozen into the work item, which needs a state
-// read; such a cursor can only exist on a chain that was mid-settlement across
-// the upgrade, and the difference is that this query may report an amount for a
-// delegate the drain will end up skipping.
-func drainPayableDelegates(c *epochDrainCursor) []bool {
-	payable := make([]bool, len(c.Delegates))
-	for i := range c.Delegates {
-		payable[i] = drainPayablePrefilter(c, i)
-	}
-	return payable
-}
-
-// drainPayablePrefilter reports whether a delegate's frozen work item names a
-// payable voter set at all. A delegate already marked skipped stays skipped:
-// the mark is what preserves its pending pool for a later era.
-func drainPayablePrefilter(c *epochDrainCursor, i int) bool {
-	if delegateSkipped(c, uint32(i)) {
-		return false
-	}
-	work := c.Delegates[i]
-	return safeBig(work.VoterAmountFrozen).Sign() > 0 &&
-		work.hasFrozenEra() &&
-		safeBig(work.TotalWeight).Sign() > 0
 }

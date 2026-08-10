@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 )
 
-// Errors returned by Pack. All three indicate a wiring bug in the caller
+// Errors returned by Pack. Both indicate a wiring bug in the caller
 // (PR 3'), not on-chain data, so they hard-fail rather than degrade —
 // there is no per-item fallback available at the log-encode layer.
 var (
@@ -37,29 +37,15 @@ var (
 	ErrParallelArrayLengthMismatch = errors.New(
 		"distributedlog: voters, recipients, amounts, compound bucket IDs, and compounded flags must have equal length")
 
-	// ErrNilAddress is returned when Delegate, RewardAddr, or any
-	// Voters[i] is nil. Passing nil is a caller-side mistake and would
+	// ErrNilAddress is returned when Delegate, Voters[i], or Recipients[i]
+	// is nil. Passing nil is a caller-side mistake and would
 	// otherwise packet as the zero address, silently masking a lost voter.
 	ErrNilAddress = errors.New("distributedlog: nil address")
 
-	// ErrNilBigInt is returned when TotalCommission, TotalVoterPool, or
+	// ErrNilBigInt is returned when VoterAmount or
 	// any Amounts[i] is nil.
 	ErrNilBigInt = errors.New("distributedlog: nil *big.Int")
 )
-
-// eraSnapshotDomainSeparator scopes EraSnapshotHash so its output cannot
-// collide with a hash computed from the same byte layout in some other
-// context. Value: keccak256("iip59.delegatedistributed.snapshot.v2"),
-// evaluated once at init to keep the hot path allocation-free.
-//
-// v2, not v1: v1 scoped a digest over the frozen (voter, weight) list, a
-// preimage of an entirely different shape. Bumping the separator keeps the two
-// domains disjoint rather than relying on the layouts never colliding.
-var eraSnapshotDomainSeparator hash.Hash256
-
-func init() {
-	eraSnapshotDomainSeparator = hash.Hash256b([]byte("iip59.delegatedistributed.snapshot.v2"))
-}
 
 // abiOnce guards parseABI: abi.JSON is not free and the parsed ABI is
 // immutable, so we cache it for the process lifetime.
@@ -79,14 +65,11 @@ func loadABI() (abi.ABI, error) {
 // EventArgs are the fields of one DelegateDistributed log. Field order
 // matches the Solidity signature so a struct literal reads left-to-right
 // the same way as the on-chain event definition. Callers build one per
-// delegate (top-N loop and orphan-drain loop use the same shape).
+// delegate touched by a voter-major settlement chunk.
 type EventArgs struct {
 	Epoch             uint64            // indexed → Topics[1]
 	Delegate          address.Address   // indexed → Topics[2]
-	RewardAddr        address.Address   // where commission was credited
-	TotalCommission   *big.Int          // aggregate delegate commission
-	TotalVoterPool    *big.Int          // pool split across voters
-	SnapshotHash      hash.Hash256      // frozen era parameter digest (see EraSnapshotHash)
+	VoterAmount       *big.Int          // voter rewards paid in this chunk
 	Voters            []address.Address // canonical sorted order per §3.4
 	Recipients        []address.Address // actual direct recipient; voter for compound payout
 	Amounts           []*big.Int        // parallel to Voters
@@ -106,8 +89,7 @@ type EventArgs struct {
 //	[2] address delegate, left-padded to 32 bytes
 //
 // Data layout: ABI-standard tuple of the remaining (non-indexed) inputs
-// in declaration order — rewardAddr, totalCommission, totalVoterPool,
-// snapshotHash, voters[], recipients[], amounts[], compoundBucketIds[],
+// in declaration order — voterAmount, voters[], recipients[], amounts[], compoundBucketIds[],
 // compounded[].
 //
 // compounded[i] is the only valid test for "was voter i's share compounded".
@@ -117,14 +99,8 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 	if args.Delegate == nil {
 		return nil, nil, errors.Wrap(ErrNilAddress, "delegate")
 	}
-	if args.RewardAddr == nil {
-		return nil, nil, errors.Wrap(ErrNilAddress, "rewardAddr")
-	}
-	if args.TotalCommission == nil {
-		return nil, nil, errors.Wrap(ErrNilBigInt, "totalCommission")
-	}
-	if args.TotalVoterPool == nil {
-		return nil, nil, errors.Wrap(ErrNilBigInt, "totalVoterPool")
+	if args.VoterAmount == nil {
+		return nil, nil, errors.Wrap(ErrNilBigInt, "voterAmount")
 	}
 	if len(args.Voters) != len(args.Recipients) || len(args.Voters) != len(args.Amounts) ||
 		len(args.Voters) != len(args.CompoundBucketIDs) || len(args.Voters) != len(args.Compounded) {
@@ -158,10 +134,7 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 		return nil, nil, errors.Errorf("distributedlog: event %q not found in parsed ABI", eventName)
 	}
 	data, err := ev.Inputs.NonIndexed().Pack(
-		common.BytesToAddress(args.RewardAddr.Bytes()),
-		args.TotalCommission,
-		args.TotalVoterPool,
-		[32]byte(args.SnapshotHash),
+		args.VoterAmount,
 		voterAddrs,
 		recipientAddrs,
 		amounts,
@@ -199,95 +172,4 @@ func encodeUint64Topic(x uint64) hash.Hash256 {
 	var buf [32]byte
 	binary.BigEndian.PutUint64(buf[24:], x)
 	return hash.BytesToHash256(buf[:])
-}
-
-// EraSnapshotParams are the frozen per-delegate era scalars EraSnapshotHash
-// commits to. They are exactly the contents of a CandidatePollSnapshot plus
-// the candidate identifier that keys it.
-type EraSnapshotParams struct {
-	Delegate                   address.Address
-	FreezeHeight               uint64
-	TotalWeight                *big.Int
-	SelfStakeBucketIdx         uint64
-	BlockCommissionBasisPoints uint64
-	EpochCommissionBasisPoints uint64
-	Registered                 bool
-	OnchainRewardEnabled       bool
-}
-
-// EraSnapshotHash produces the bytes32 digest a DelegateDistributed log
-// carries in its snapshotHash field.
-//
-// One settlement pays a delegate's voters across many blocks and emits one
-// partial log per block, so an off-chain consumer reassembles a delegate's
-// payout by grouping logs on (snapshotHash, delegate, epoch). The digest's job
-// is therefore to be a stable per-delegate-per-era identifier that a consumer
-// can also recompute from a `voterRewardDelegateSnapshot` read to confirm the batch it
-// assembled belongs to the era it thinks it does.
-//
-// It commits to every scalar the era froze for the delegate. FreezeHeight is
-// what makes it era-unique: two consecutive boundaries at which nothing about
-// a delegate changed still produce different digests. It does not commit to a
-// voter list, because there is no longer a frozen one -- voters are enumerated
-// from the era's copy-on-write bucket window and their weights recomputed, and
-// TotalWeight (the frozen candidate.Votes) is the aggregate that governs every
-// share the logs report.
-//
-// Layout hashed:
-//
-//	keccak256(
-//	    domainSep ||
-//	    delegate.Bytes()(20B) ||
-//	    be_uint64(freezeHeight) ||
-//	    left_pad32(totalWeight) ||
-//	    be_uint64(selfStakeBucketIdx) ||
-//	    be_uint64(blockCommissionBasisPoints) ||
-//	    be_uint64(epochCommissionBasisPoints) ||
-//	    flags(1B: bit0=registered, bit1=onchainRewardEnabled)
-//	)
-//
-// A nil Delegate hashes as 20 zero bytes rather than erroring; the freezer
-// never passes one, and a digest is not a place to fail a block from.
-func EraSnapshotHash(p EraSnapshotParams) hash.Hash256 {
-	buf := make([]byte, 0, 32+20+8+32+8+8+8+1)
-	buf = append(buf, eraSnapshotDomainSeparator[:]...)
-	if p.Delegate == nil {
-		buf = append(buf, make([]byte, 20)...)
-	} else {
-		buf = append(buf, p.Delegate.Bytes()...)
-	}
-	buf = appendUint64BE(buf, p.FreezeHeight)
-	buf = append(buf, leftPad32(p.TotalWeight)...)
-	buf = appendUint64BE(buf, p.SelfStakeBucketIdx)
-	buf = appendUint64BE(buf, p.BlockCommissionBasisPoints)
-	buf = appendUint64BE(buf, p.EpochCommissionBasisPoints)
-	var flags byte
-	if p.Registered {
-		flags |= 1
-	}
-	if p.OnchainRewardEnabled {
-		flags |= 2
-	}
-	return hash.Hash256b(append(buf, flags))
-}
-
-// appendUint64BE appends x in 8-byte big-endian form.
-func appendUint64BE(buf []byte, x uint64) []byte {
-	var b [8]byte
-	binary.BigEndian.PutUint64(b[:], x)
-	return append(buf, b[:]...)
-}
-
-// leftPad32 returns the big-endian, zero-left-padded 32-byte
-// representation of x's absolute value. nil is treated as zero;
-// negative values (not expected in this domain) are encoded by
-// absolute value — the snapshot never contains negative weights.
-func leftPad32(x *big.Int) []byte {
-	var out [32]byte
-	if x == nil {
-		return out[:]
-	}
-	b := x.Bytes()
-	copy(out[32-len(b):], b)
-	return out[:]
 }

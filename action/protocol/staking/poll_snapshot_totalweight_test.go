@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -122,8 +121,6 @@ func TestFreezePollSnapshot_TotalWeightMultipleCandidatesIsolated(t *testing.T) 
 	r.NoError(err)
 	r.Equal(int64(700), snapB.TotalWeight.Int64())
 
-	r.NotEqual(snapA.SnapshotHash, snapB.SnapshotHash,
-		"two delegates in the same era must get distinct snapshot hashes")
 }
 
 // TestFreezePollSnapshot_TotalWeightZeroVotes is the migrated
@@ -201,42 +198,6 @@ func TestFreezePollSnapshot_EmptyCandCenterIsFatal(t *testing.T) {
 	err := FreezePollSnapshot(context.Background(), sm, nil, nil)
 	r.Error(err)
 	r.Contains(err.Error(), "no candidate center")
-}
-
-// TestFreezePollSnapshot_SnapshotHashDeterministic is the migrated
-// TestFreezePollSnapshot_Entries_DeterministicOrder. The old suite guarded
-// map-iteration nondeterminism in the entry list; the hash is now the only
-// derived value the boundary produces, and two freezes of identical state
-// must yield identical bytes or validators fork.
-func TestFreezePollSnapshot_SnapshotHashDeterministic(t *testing.T) {
-	r := require.New(t)
-	ctrl := gomock.NewController(t)
-	sm := testdb.NewMockStateManager(ctrl)
-	csm := newCandidateStateManager(sm)
-
-	cand := onchainCandidate(1, "det", big.NewInt(1_234_567))
-	r.NoError(putOnchainCandidate(csm, cand))
-	installCandCenter(t, sm, cand)
-
-	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, nil))
-	first, err := PollSnapshotFor(sm, cand.Owner)
-	r.NoError(err)
-	r.NotEqual(hash.ZeroHash256, first.SnapshotHash)
-
-	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, nil))
-	second, err := PollSnapshotFor(sm, cand.Owner)
-	r.NoError(err)
-	r.Equal(first.SnapshotHash, second.SnapshotHash)
-	r.Zero(first.TotalWeight.Cmp(second.TotalWeight))
-
-	// The hash must actually commit to TotalWeight, otherwise it is useless
-	// as a per-delegate-per-era identifier for off-chain log assembly.
-	cand.Votes = big.NewInt(999)
-	installCandCenter(t, sm, cand)
-	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, nil))
-	third, err := PollSnapshotFor(sm, cand.Owner)
-	r.NoError(err)
-	r.NotEqual(first.SnapshotHash, third.SnapshotHash)
 }
 
 // TestFreezePollSnapshot_VotesCloneIsolation is the migrated

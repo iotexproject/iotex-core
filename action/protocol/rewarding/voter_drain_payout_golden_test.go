@@ -49,9 +49,9 @@ func TestVoterDrainPayoutsUnchangedByScalarSnapshot(t *testing.T) {
 		identityset.Address(10), identityset.Address(11),
 	}
 	const rau = int64(1_000_000_000_000_000_000)
-	// Deliberately indivisible by the weights so the floor division and the
-	// residual sweep both participate — a refactor that changed rounding
-	// direction would show up here and nowhere else.
+	// Deliberately indivisible by the weights so floor division leaves a pending
+	// residual; a refactor that changed rounding direction would show up here
+	// and nowhere else.
 	const pool = int64(999_997)
 
 	seeds := make([]iip59NativeSeed, 0, len(delegates)*len(voters))
@@ -71,7 +71,7 @@ func TestVoterDrainPayoutsUnchangedByScalarSnapshot(t *testing.T) {
 	done, err := p.readEpochDrainCursor(ctx, sm)
 	r.NoError(err)
 	r.NotNil(done)
-	r.True(done.Completed)
+	r.True(done.drainFinished())
 
 	after := accountBalances(t, sm, delegates)
 	balances := accountBalances(t, sm, voters)
@@ -89,21 +89,21 @@ func TestVoterDrainPayoutsUnchangedByScalarSnapshot(t *testing.T) {
 	}
 	r.Equal(wantVoter, gotVoter, "per-voter payouts drifted")
 
-	// Golden per-delegate residual sweeps. The residual is what floor division
-	// left behind, so it is the most sensitive witness to a denominator change:
-	// a denominator that grew by even one unit shifts rau out of the voters and
-	// into this number.
-	wantSweep := map[string]int64{
+	// Golden per-delegate pending residuals. A denominator that grew by even one
+	// unit shifts rau out of the voters and into these balances.
+	wantResidual := map[string]int64{
 		identityset.Address(4).String(): 2,
 		identityset.Address(5).String(): 2,
 	}
-	gotSweep := make(map[string]int64, len(delegates))
+	gotResidual := make(map[string]int64, len(delegates))
 	for _, delegate := range delegates {
-		gotSweep[delegate.String()] = new(big.Int).Sub(
-			after[delegate.String()], before[delegate.String()],
-		).Int64()
+		left, readErr := p.readPendingBlockRewardPool(ctx, sm, delegate.Bytes())
+		r.NoError(readErr)
+		gotResidual[delegate.String()] = left.Int64()
+		r.Zero(after[delegate.String()].Cmp(before[delegate.String()]),
+			"delegate %s must not receive a residual sweep", delegate)
 	}
-	r.Equal(wantSweep, gotSweep, "per-delegate residual sweeps drifted")
+	r.Equal(wantResidual, gotResidual, "per-delegate pending residuals drifted")
 
 	// And the whole era still conserves: nothing was created or destroyed by
 	// changing where the denominator comes from.
@@ -117,10 +117,11 @@ func TestVoterDrainPayoutsUnchangedByScalarSnapshot(t *testing.T) {
 	for _, voter := range voters {
 		moved.Add(moved, balances[voter.String()])
 	}
-	for _, delegate := range delegates {
-		moved.Add(moved, new(big.Int).Sub(after[delegate.String()], before[delegate.String()]))
+	residual := new(big.Int)
+	for _, amount := range gotResidual {
+		residual.Add(residual, big.NewInt(amount))
 	}
-	r.Zero(moved.Cmp(grandTotal))
+	r.Zero(new(big.Int).Add(moved, residual).Cmp(grandTotal))
 
 	// Independently: recompute every share with the *pre-refactor* definition
 	// of the denominator — the sum over the per-voter frozen weights, i.e. what

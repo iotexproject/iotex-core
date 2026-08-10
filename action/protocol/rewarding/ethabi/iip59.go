@@ -19,8 +19,8 @@ import (
 const _iip59InterfaceABI = `[
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"pendingBlockRewardPool","outputs":[{"name":"amount","type":"uint256"}],"stateMutability":"view","type":"function"},
 	{"inputs":[],"name":"pendingBlockRewardPoolIndex","outputs":[{"name":"candidateIds","type":"address[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[],"name":"eraDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"startEpoch","type":"uint64"},{"name":"endEpoch","type":"uint64"},{"name":"completed","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"startShard","type":"uint32"},{"name":"shardsDone","type":"uint32"},{"name":"resumeVoter","type":"bytes"},{"name":"settlementSeed","type":"bytes32"},{"name":"candidateIds","type":"address[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"rewardAddresses","type":"address[]"},{"name":"epochCommissions","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardDelegateSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"onchainRewardEnabled","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"snapshotHash","type":"bytes32"},{"name":"freezeHeight","type":"uint64"},{"name":"selfStakeBucketIdx","type":"uint64"}],"stateMutability":"view","type":"function"},
+	{"inputs":[],"name":"eraDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"completed","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"freezeHeight","type":"uint64"},{"name":"startShard","type":"uint32"},{"name":"shardsDone","type":"uint32"},{"name":"resumeVoter","type":"bytes"},{"name":"settlementSeed","type":"bytes32"},{"name":"candidateIds","type":"address[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"},{"name":"selfStakeBucketIdxs","type":"uint64[]"}],"stateMutability":"view","type":"function"},
+	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardDelegateSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"onchainRewardEnabled","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"freezeHeight","type":"uint64"},{"name":"selfStakeBucketIdx","type":"uint64"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardAddress","outputs":[{"name":"rewardAddress","type":"address"},{"name":"explicitlySet","type":"bool"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"voter","type":"address"}],"name":"voterRewardDestination","outputs":[{"name":"recipient","type":"address"},{"name":"explicitlySet","type":"bool"},{"name":"updatedHeight","type":"uint64"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"voter","type":"address"}],"name":"voterRewardStatus","outputs":[{"name":"targetEra","type":"uint64"},{"name":"eraStartEpoch","type":"uint64"},{"name":"eraEndEpoch","type":"uint64"},{"name":"settlementCompleted","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"status","type":"uint8"},{"name":"rewardAmount","type":"uint256"}],"stateMutability":"view","type":"function"}
@@ -171,15 +171,14 @@ func (r *iip59AddressStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse)
 		// the frozen entry list they came from. Callers that wanted a specific
 		// voter's standing call voterRewardStatus(voter), which is per-voter
 		// and sums across every delegate the voter is frozen against;
-		// freezeHeight and selfStakeBucketIdx are returned in their place so a
-		// caller can recompute snapshotHash from the scalars it just read.
+		// freezeHeight and selfStakeBucketIdx are returned in their place.
 		snapshot := &stakingpb.CandidatePollSnapshot{}
 		if err = proto.Unmarshal(resp.Data, snapshot); err == nil {
 			data, err = r.method.Outputs.Pack(
 				snapshot.GetBlockCommissionBasisPoints(), snapshot.GetEpochCommissionBasisPoints(),
 				snapshot.GetRegistered(), snapshot.GetOnchainRewardEnabled(),
-				new(big.Int).SetBytes(snapshot.GetTotalWeight()), common.BytesToHash(snapshot.GetSnapshotHash()),
-				snapshot.GetFreezeHeight(), snapshot.GetSelfStakeBucketIdx(),
+				new(big.Int).SetBytes(snapshot.GetTotalWeight()), snapshot.GetFreezeHeight(),
+				snapshot.GetSelfStakeBucketIdx(),
 			)
 		}
 	case _voterRewardAddressMethod.Name:
@@ -250,22 +249,20 @@ func (r *EraDrainCursorStateContext) EncodeToEth(resp *iotexapi.ReadStateRespons
 	ids := make([]common.Address, len(delegates))
 	voterAmounts := make([]*big.Int, len(delegates))
 	distributedAmounts := make([]*big.Int, len(delegates))
-	rewardAddresses := make([]common.Address, len(delegates))
-	epochCommissions := make([]*big.Int, len(delegates))
 	totalWeights := make([]*big.Int, len(delegates))
+	selfStakeBucketIdxs := make([]uint64, len(delegates))
 	for i, delegate := range delegates {
 		ids[i] = common.BytesToAddress(delegate.GetCandidateIdentifier())
 		voterAmounts[i] = new(big.Int).SetBytes(delegate.GetVoterAmountFrozen())
 		distributedAmounts[i] = new(big.Int).SetBytes(delegate.GetVoterAmountDistributed())
-		rewardAddresses[i] = common.BytesToAddress(delegate.GetRewardAddress())
-		epochCommissions[i] = new(big.Int).SetBytes(delegate.GetEpochCommission())
 		totalWeights[i] = new(big.Int).SetBytes(delegate.GetTotalWeight())
+		selfStakeBucketIdxs[i] = delegate.GetSelfStakeBucketIdx()
 	}
 	data, err := _eraDrainCursorMethod.Outputs.Pack(
-		cursor.GetTargetEra(), cursor.GetStartEpoch(), cursor.GetEndEpoch(), cursor.GetCompleted(), cursor.GetCompletedHeight(),
+		cursor.GetTargetEra(), cursor.GetCompleted(), cursor.GetCompletedHeight(), cursor.GetFreezeHeight(),
 		cursor.GetStartShard(), cursor.GetShardsDone(), cursor.GetResumeVoter(),
 		common.BytesToHash(cursor.GetSettlementSeed()),
-		ids, voterAmounts, distributedAmounts, rewardAddresses, epochCommissions, totalWeights,
+		ids, voterAmounts, distributedAmounts, totalWeights, selfStakeBucketIdxs,
 	)
 	if err != nil {
 		return "", err

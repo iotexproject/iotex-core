@@ -76,8 +76,10 @@ func TestGrantEpochReward_DefaultsToOwnerWhenProfileUnregistered(t *testing.T) {
 				BlockCommissionBasisPoints: _basisPointsDenom,
 				EpochCommissionBasisPoints: _basisPointsDenom,
 				TotalWeight:                new(big.Int),
+				FreezeHeight:               iip59FixtureFreezeHeight,
 			}))
 		}
+		openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
@@ -122,6 +124,7 @@ func TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor(t *testing.T) {
 		ctx = genesis.WithGenesisContext(ctx, g)
 		ctx = protocol.WithFeatureCtx(ctx)
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
+		openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
@@ -175,8 +178,6 @@ func TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor(t *testing.T) {
 		}
 		r.NotNil(frozen, "candidate 27 must be included in the era cursor")
 		r.Equal(int64(60), frozen.VoterAmountFrozen.Int64())
-		r.Equal(identityset.Address(27).Bytes(), frozen.RewardAddress)
-		r.Equal(int64(10), frozen.EpochCommission.Int64())
 		r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, allProtocolAddrs(t)))
 	}, noUnproductives, false, 0)
 }
@@ -216,6 +217,7 @@ func TestGrantEpochReward_LiveCursorAtPhaseA_DegradesGracefully(t *testing.T) {
 		r.NoError(sp.Register(protocol.MustGetRegistry(ctx)))
 		patches.ApplyMethodReturn(sp, "SlashCandidateByOperator", nil)
 		patches.ApplyMethodReturn(sp, "SlashCandidateByID", nil)
+		openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
 
 		_, rewardLogs, err := p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
@@ -321,7 +323,9 @@ func TestGrantEpochReward_PoolAccrualBuildsCursor(t *testing.T) {
 			EpochCommissionBasisPoints: _basisPointsDenom,
 			Registered:                 true,
 			TotalWeight:                big.NewInt(1),
+			FreezeHeight:               iip59FixtureFreezeHeight,
 		}))
+		openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
 
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()

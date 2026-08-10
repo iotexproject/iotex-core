@@ -312,7 +312,7 @@ func drainPhaseBToCompletion(
 	for {
 		cursor, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		if cursor == nil || cursor.Completed {
+		if cursor == nil || cursor.drainFinished() {
 			return chunks
 		}
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)

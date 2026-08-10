@@ -23,7 +23,7 @@ import (
 // suite checked a per-candidate allocator that walked a frozen entry list and
 // handed the integer-division remainder to a designated last voter. Both the
 // allocator and the entry list are gone: shares are now recomputed per voter
-// from the era's frozen buckets, and the remainder goes to the orphan sink.
+// from the era's frozen buckets, and the remainder stays in the pending pool.
 //
 // What survives is the claim those tests existed to protect -- that the
 // read-only status path and the paying path cannot drift -- and it now holds by
@@ -117,12 +117,12 @@ func TestComputeVoterSharesRecordsTheClamp(t *testing.T) {
 	ensureDistributed(cursor)
 
 	in := voterShareInputs{
-		window:      window,
-		staking:     staking.FindProtocol(protocol.MustGetRegistry(ctx)),
-		delegates:   cursor.Delegates,
-		byCandidate: delegateWorkIndex(cursor.Delegates),
-		payable:     []bool{true},
-		distributed: cursor.Distributed,
+		window:       window,
+		staking:      staking.FindProtocol(protocol.MustGetRegistry(ctx)),
+		delegates:    cursor.Delegates,
+		byCandidate:  delegateWorkIndex(cursor.Delegates),
+		freezeHeight: cursor.FreezeHeight,
+		distributed:  cursor.Distributed,
 	}
 
 	// Walk the voters in the order the shard walk would, accumulating into the
@@ -180,7 +180,6 @@ func TestComputeVoterSharesRefusesWorkItemWithoutFreezeHeight(t *testing.T) {
 		staking:     staking.FindProtocol(protocol.MustGetRegistry(ctx)),
 		delegates:   []epochDrainDelegateWork{work},
 		byCandidate: delegateWorkIndex([]epochDrainDelegateWork{work}),
-		payable:     []bool{true},
 		distributed: []*big.Int{new(big.Int)},
 	}, voter)
 	r.Error(err)
@@ -199,7 +198,6 @@ func newClampFixture(
 	t.Helper()
 	r := require.New(t)
 	delegate := identityset.Address(4)
-	rewardAddr := identityset.Address(6)
 	voters := []address.Address{
 		identityset.Address(8), identityset.Address(9),
 		identityset.Address(10), identityset.Address(11),
@@ -221,13 +219,12 @@ func newClampFixture(
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, delegate.Bytes(), pool))
 	r.NoError(p.updateAvailableBalance(ctx, sm, pool))
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra: 1,
+		TargetEra:    1,
+		FreezeHeight: iip59FixtureFreezeHeight,
 		Delegates: []epochDrainDelegateWork{{
 			CandidateIdentifier: delegate.Bytes(),
 			VoterAmountFrozen:   pool,
-			RewardAddress:       rewardAddr.Bytes(),
 			TotalWeight:         understated,
-			FreezeHeight:        iip59FixtureFreezeHeight,
 			SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
 		}},
 	}))
@@ -276,7 +273,6 @@ func TestLapsedSelfStakeBonusCannotOverpayDelegatePool(t *testing.T) {
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 
 	delegate := identityset.Address(4)
-	rewardAddr := identityset.Address(6)
 	endorser := identityset.Address(7)
 	ordinary := []address.Address{identityset.Address(8), identityset.Address(9)}
 
@@ -336,13 +332,12 @@ func TestLapsedSelfStakeBonusCannotOverpayDelegatePool(t *testing.T) {
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, delegate.Bytes(), pool))
 	r.NoError(p.updateAvailableBalance(ctx, sm, pool))
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra: 1,
+		TargetEra:    1,
+		FreezeHeight: iip59FixtureFreezeHeight,
 		Delegates: []epochDrainDelegateWork{{
 			CandidateIdentifier: delegate.Bytes(),
 			VoterAmountFrozen:   pool,
-			RewardAddress:       rewardAddr.Bytes(),
 			TotalWeight:         totalWeight,
-			FreezeHeight:        iip59FixtureFreezeHeight,
 			// The index the lapsed endorsement left behind. This is the entire
 			// cause of the over-payment condition.
 			SelfStakeBucketIdx: selfStakeIdx,

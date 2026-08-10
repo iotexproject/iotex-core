@@ -14,7 +14,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -54,7 +53,6 @@ func TestCandidatePollSnapshot_SerializeRoundtrip(t *testing.T) {
 		Registered:                 true,
 		OnchainRewardEnabled:       true,
 		TotalWeight:                big.NewInt(3_500_000),
-		SnapshotHash:               hash.Hash256b([]byte("era-42")),
 		FreezeHeight:               909_090,
 		SelfStakeBucketIdx:         7,
 	}
@@ -72,7 +70,6 @@ func TestCandidatePollSnapshot_SerializeRoundtrip(t *testing.T) {
 	r.Equal(orig.Registered, out.Registered)
 	r.Equal(orig.OnchainRewardEnabled, out.OnchainRewardEnabled)
 	r.Zero(orig.TotalWeight.Cmp(out.TotalWeight))
-	r.Equal(orig.SnapshotHash, out.SnapshotHash)
 	r.Equal(orig.FreezeHeight, out.FreezeHeight)
 	r.Equal(orig.SelfStakeBucketIdx, out.SelfStakeBucketIdx)
 }

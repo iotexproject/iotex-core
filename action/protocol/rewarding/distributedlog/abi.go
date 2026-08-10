@@ -14,10 +14,7 @@ const abiJSON = `[
 		"inputs": [
 			{"indexed": true,  "name": "epoch",           "type": "uint64"},
 			{"indexed": true,  "name": "delegate",        "type": "address"},
-			{"indexed": false, "name": "rewardAddr",      "type": "address"},
-			{"indexed": false, "name": "totalCommission", "type": "uint256"},
-			{"indexed": false, "name": "totalVoterPool",  "type": "uint256"},
-			{"indexed": false, "name": "snapshotHash",    "type": "bytes32"},
+			{"indexed": false, "name": "voterAmount",     "type": "uint256"},
 			{"indexed": false, "name": "voters",          "type": "address[]"},
 			{"indexed": false, "name": "recipients",      "type": "address[]"},
 			{"indexed": false, "name": "amounts",         "type": "uint256[]"},
@@ -41,4 +38,4 @@ const eventName = "DelegateDistributed"
 // -- it is indistinguishable from "voter i was compounded into bucket 0".
 // The parallel bool is the authoritative discriminator; consumers must read
 // compoundBucketIds[i] only when compounded[i] is true.
-const eventSignature = "DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[],bool[])"
+const eventSignature = "DelegateDistributed(uint64,address,uint256,address[],address[],uint256[],uint64[],bool[])"

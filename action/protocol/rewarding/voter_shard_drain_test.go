@@ -66,24 +66,6 @@ func newDrainScenario(
 	t.Helper()
 	r := require.New(t)
 
-	// Owner routing has to exist before the era window opens: it is what the
-	// residual sweep pays, and writing a candidate record into an open window
-	// would make it a post-freeze mutation.
-	owners := make(map[string]bool)
-	record := func(delegate address.Address) {
-		if owners[string(delegate.Bytes())] {
-			return
-		}
-		owners[string(delegate.Bytes())] = true
-		r.NoError(staking.TestOnlyPutCandidateRewardAddress(sm, delegate, delegate, delegate, false, false))
-	}
-	for _, s := range natives {
-		record(s.delegate)
-	}
-	for _, s := range contracts {
-		record(s.delegate)
-	}
-
 	f := seedIIP59DrainState(t, ctx, sm, iip59FixtureFreezeHeight, natives, contracts)
 
 	r.NoError(p.putState(ctx, sm, _fundKey, &fund{
@@ -101,18 +83,14 @@ func newDrainScenario(
 		works = append(works, epochDrainDelegateWork{
 			CandidateIdentifier: delegate.Bytes(),
 			VoterAmountFrozen:   new(big.Int).Set(amount),
-			RewardAddress:       delegate.Bytes(),
 			TotalWeight:         f.totalWeightOf(delegate),
-			FreezeHeight:        iip59FixtureFreezeHeight,
 			SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
 		})
 	}
 	cursor := &epochDrainCursor{
 		TargetEra:      1,
-		StartEpoch:     1,
-		EndEpoch:       1,
+		FreezeHeight:   iip59FixtureFreezeHeight,
 		SettlementSeed: append([]byte(nil), seed...),
-		StartShard:     settlementStartShard(seed),
 		Delegates:      works,
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, cursor))
@@ -120,8 +98,7 @@ func newDrainScenario(
 }
 
 // drainCollectingVoterPayouts runs the drain to completion and returns the
-// voter transfers in the order they were made. Sweeps to delegate owners are
-// filtered out: they are not part of the voter walk and land after it.
+// voter transfers in the order they were made.
 func drainCollectingVoterPayouts(
 	t *testing.T,
 	ctx context.Context,
@@ -139,7 +116,7 @@ func drainCollectingVoterPayouts(
 	for i := 0; ; i++ {
 		cursor, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		if cursor == nil || cursor.Completed {
+		if cursor == nil || cursor.drainFinished() {
 			return out
 		}
 		txLogs, _, err := p.GrantVoterRewardChunk(ctx, sm)
@@ -362,11 +339,11 @@ func TestVoterDrainEvalHeightIsTheFreezeHeight(t *testing.T) {
 
 // TestVoterDrainConservesEveryDelegatePool is required test #6.
 //
-// Floor division and the payout clamp both leave money behind. The old rule
-// handed that remainder to a designated last voter, which the shard walk cannot
-// identify. The new rule sweeps it, so the accounting claim is: for every
-// delegate, what the voters received plus what was swept equals exactly what the
-// era froze -- no rau created, none stranded in the pool.
+// Floor division and the payout clamp both leave money behind. The residual
+// stays in the delegate's pending pool so a later era can distribute it. The
+// accounting claim is: for every delegate, what the voters received plus what
+// remains pending equals exactly what the era froze -- no rau is created or
+// lost.
 func TestVoterDrainConservesEveryDelegatePool(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
@@ -376,8 +353,7 @@ func TestVoterDrainConservesEveryDelegatePool(t *testing.T) {
 		identityset.Address(10), identityset.Address(11),
 	}
 	const rau = int64(1_000_000_000_000_000_000)
-	// A pool that does not divide evenly by the weights, so a residual exists
-	// and the sweep is exercised rather than skipped.
+	// A pool that does not divide evenly by the weights, so a residual exists.
 	const pool = int64(999_997)
 
 	seeds := make([]iip59NativeSeed, 0, len(delegates)*len(voters))
@@ -397,39 +373,36 @@ func TestVoterDrainConservesEveryDelegatePool(t *testing.T) {
 	done, err := p.readEpochDrainCursor(ctx, sm)
 	r.NoError(err)
 	r.NotNil(done)
-	r.True(done.Completed)
+	r.True(done.drainFinished())
 
 	after := accountBalances(t, sm, delegates)
 	balances := accountBalances(t, sm, voters)
 
 	grandTotal := new(big.Int)
+	residualTotal := new(big.Int)
 	for i, work := range done.Delegates {
 		delegate, err := address.FromBytes(work.CandidateIdentifier)
 		r.NoError(err)
-
-		// The running total the clamp measures against must close on the frozen
-		// amount once the residual has been absorbed.
-		r.Zero(done.distributedAt(i).Cmp(work.VoterAmountFrozen),
-			"delegate %s: distributed %s != frozen %s",
-			delegate, done.distributedAt(i), work.VoterAmountFrozen)
-
-		// Nothing may be left sitting in the pending pool.
-		left, err := p.readPendingBlockRewardPool(ctx, sm, work.CandidateIdentifier)
-		r.NoError(err)
-		r.Zero(left.Sign(), "delegate %s pool must be empty after the drain", delegate)
 
 		// Payouts owed by this delegate, recomputed independently of the drain.
 		owed := new(big.Int)
 		for _, voter := range voters {
 			owed.Add(owed, s.fixture.expectedShare(delegate, voter, s.poolOf(delegate)))
 		}
-		swept := new(big.Int).Sub(
-			after[delegate.String()], before[delegate.String()],
-		)
-		r.True(swept.Sign() > 0, "this fixture must leave a residual to sweep")
-		r.Zero(new(big.Int).Add(owed, swept).Cmp(work.VoterAmountFrozen),
-			"delegate %s: payouts %s + residual %s != frozen %s",
-			delegate, owed, swept, work.VoterAmountFrozen)
+		r.Zero(done.distributedAt(i).Cmp(owed),
+			"delegate %s: distributed %s != voter payouts %s",
+			delegate, done.distributedAt(i), owed)
+
+		left, err := p.readPendingBlockRewardPool(ctx, sm, work.CandidateIdentifier)
+		r.NoError(err)
+		wantResidual := new(big.Int).Sub(work.VoterAmountFrozen, owed)
+		r.True(wantResidual.Sign() > 0, "this fixture must leave a residual pending")
+		r.Zero(left.Cmp(wantResidual),
+			"delegate %s: pending residual %s != frozen %s - payouts %s",
+			delegate, left, work.VoterAmountFrozen, owed)
+		residualTotal.Add(residualTotal, left)
+		r.Zero(after[delegate.String()].Cmp(before[delegate.String()]),
+			"delegate %s must not receive a residual sweep", delegate)
 		grandTotal.Add(grandTotal, work.VoterAmountFrozen)
 	}
 
@@ -437,11 +410,9 @@ func TestVoterDrainConservesEveryDelegatePool(t *testing.T) {
 	for _, voter := range voters {
 		moved.Add(moved, balances[voter.String()])
 	}
-	for _, delegate := range delegates {
-		moved.Add(moved, new(big.Int).Sub(after[delegate.String()], before[delegate.String()]))
-	}
-	r.Zero(moved.Cmp(grandTotal),
-		"total money out (%s) must equal total money frozen (%s)", moved, grandTotal)
+	r.Zero(new(big.Int).Add(moved, residualTotal).Cmp(grandTotal),
+		"voter payouts (%s) plus pending residuals (%s) must equal total frozen (%s)",
+		moved, residualTotal, grandTotal)
 	r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, append(append([]address.Address(nil), voters...), delegates...)))
 }
 
@@ -489,14 +460,14 @@ func TestVoterDrainRefusesASupersededEraWindow(t *testing.T) {
 	before, err := p.readEpochDrainCursor(ctx, sm)
 	r.NoError(err)
 	r.NotNil(before)
-	r.False(before.Completed, "this fixture must leave the drain mid-flight")
+	r.False(before.drainFinished(), "this fixture must leave the drain mid-flight")
 
 	// The next era boundary freezes. The drain is still owed voters.
 	r.NoError(staking.TestOnlyBeginEraCOWWindow(ctx, sm, iip59FixtureFreezeHeight+2_000))
 	window, err := staking.EraCOWWindow(sm)
 	r.NoError(err)
 	r.True(window.Open(), "the old Open() gate on its own still passes")
-	r.NotEqual(before.Delegates[0].FreezeHeight, window.FreezeHeight)
+	r.NotEqual(before.FreezeHeight, window.FreezeHeight)
 
 	_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 	r.Error(err, "the drain must not pay through a window it was not frozen against")
@@ -514,7 +485,7 @@ func TestVoterDrainRefusesASupersededEraWindow(t *testing.T) {
 	r.NotNil(after)
 	r.Equal(before.ShardsDone, after.ShardsDone)
 	r.Equal(before.ResumeVoter, after.ResumeVoter)
-	r.False(after.Completed)
+	r.False(after.drainFinished())
 	for i := range after.Delegates {
 		r.Zero(before.distributedAt(i).Cmp(after.distributedAt(i)),
 			"delegate %d paid out while the window was superseded", i)

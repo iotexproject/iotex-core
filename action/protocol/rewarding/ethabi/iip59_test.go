@@ -157,10 +157,9 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	r := require.New(t)
 	cursorData, err := proto.Marshal(&rewardingpb.EpochDrainCursor{
 		TargetEra:       4,
-		StartEpoch:      1,
-		EndEpoch:        4,
 		Completed:       true,
 		CompletedHeight: 99,
+		FreezeHeight:    8_800,
 		StartShard:      7,
 		ShardsDone:      256,
 		ResumeVoter:     identityset.Address(5).Bytes(),
@@ -169,9 +168,8 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 			CandidateIdentifier:    identityset.Address(3).Bytes(),
 			VoterAmountFrozen:      big.NewInt(1000).Bytes(),
 			VoterAmountDistributed: big.NewInt(400).Bytes(),
-			RewardAddress:          identityset.Address(4).Bytes(),
-			EpochCommission:        big.NewInt(200).Bytes(),
 			TotalWeight:            big.NewInt(300).Bytes(),
+			SelfStakeBucketIdx:     42,
 		}},
 	})
 	r.NoError(err)
@@ -182,29 +180,25 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	values, err := _eraDrainCursorMethod.Outputs.Unpack(mustDecodeHex(t, encoded))
 	r.NoError(err)
 	r.Equal(uint64(4), values[0])
-	r.Equal(uint64(1), values[1])
-	r.Equal(uint64(4), values[2])
-	r.Equal(true, values[3])
-	r.Equal(uint64(99), values[4])
-	r.Equal(uint32(7), values[5])
-	r.Equal(uint32(256), values[6])
-	r.Equal(identityset.Address(5).Bytes(), values[7])
-	r.Equal([32]byte(common.HexToHash("0x9876")), values[8])
-	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(3).Bytes())}, values[9])
-	r.Zero(values[10].([]*big.Int)[0].Cmp(big.NewInt(1000)))
-	r.Zero(values[11].([]*big.Int)[0].Cmp(big.NewInt(400)))
-	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(4).Bytes())}, values[12])
-	r.Zero(values[13].([]*big.Int)[0].Cmp(big.NewInt(200)))
-	r.Zero(values[14].([]*big.Int)[0].Cmp(big.NewInt(300)))
+	r.Equal(true, values[1])
+	r.Equal(uint64(99), values[2])
+	r.Equal(uint64(8_800), values[3])
+	r.Equal(uint32(7), values[4])
+	r.Equal(uint32(256), values[5])
+	r.Equal(identityset.Address(5).Bytes(), values[6])
+	r.Equal([32]byte(common.HexToHash("0x9876")), values[7])
+	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(3).Bytes())}, values[8])
+	r.Zero(values[9].([]*big.Int)[0].Cmp(big.NewInt(1000)))
+	r.Zero(values[10].([]*big.Int)[0].Cmp(big.NewInt(400)))
+	r.Zero(values[11].([]*big.Int)[0].Cmp(big.NewInt(300)))
+	r.Equal([]uint64{42}, values[12].([]uint64))
 
-	snapshotHash := common.HexToHash("0x1234")
 	snapshotData, err := proto.Marshal(&stakingpb.CandidatePollSnapshot{
 		BlockCommissionBasisPoints: 1000,
 		EpochCommissionBasisPoints: 2000,
 		Registered:                 true,
 		OnchainRewardEnabled:       true,
 		TotalWeight:                big.NewInt(300).Bytes(),
-		SnapshotHash:               snapshotHash.Bytes(),
 		FreezeHeight:               8_800,
 		SelfStakeBucketIdx:         42,
 	})
@@ -222,14 +216,10 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	r.Equal(true, values[2])
 	r.Equal(true, values[3])
 	r.Zero(values[4].(*big.Int).Cmp(big.NewInt(300)))
-	r.Equal([32]byte(snapshotHash), values[5])
-	// The trailing pair used to be the materialized (voters, weights) lists.
-	// Those are gone; a caller that needs the voter set queries
-	// voterRewardStatus(address) per voter instead. What replaced them here
-	// is exactly the two scalars a caller needs to recompute snapshotHash
-	// itself from the other returned fields.
-	r.Equal(uint64(8_800), values[6])
-	r.Equal(uint64(42), values[7])
+	// The snapshot now exposes the frozen bucket height and self-stake bucket
+	// directly; voter weights are recomputed from bucket state on demand.
+	r.Equal(uint64(8_800), values[5])
+	r.Equal(uint64(42), values[6])
 }
 
 // TestIIP59RetiredVoterRewardSnapshotSelector pins the removal of the original

@@ -125,9 +125,8 @@ func TestDistributeEpochCommissions_MissingSnapshotPaysLegacy(t *testing.T) {
 		rewardedCandidates: []*state.Candidate{cand},
 		// Production passes delegateRewardRouting.PayoutAddress's answer here;
 		// the pre-fork declared address is only a fallback.
-		addrs:         []address.Address{identityset.Address(2)},
-		amounts:       []*big.Int{big.NewInt(1_000)},
-		isEraBoundary: true,
+		addrs:   []address.Address{identityset.Address(2)},
+		amounts: []*big.Int{big.NewInt(1_000)},
 	}, out))
 
 	vaultBalance, _, err := p.UnclaimedBalance(ctx, sm, identityset.Address(2))
@@ -147,7 +146,6 @@ func TestDistributeEpochCommissions_MissingSnapshotPaysLegacy(t *testing.T) {
 	pool, err := p.readPendingBlockRewardPool(ctx, sm, candAddr.Bytes())
 	r.NoError(err)
 	r.Zero(pool.Sign())
-	r.Empty(out.cursorEntries)
 }
 
 // TestCreditBlockProducer_MissingSnapshotPaysLegacy covers the other payment
@@ -225,14 +223,23 @@ func TestDistributeEpochCommissions_FreshSnapshotStaysOnRails(t *testing.T) {
 		rewardedCandidates: []*state.Candidate{cand},
 		addrs:              []address.Address{identityset.Address(2)},
 		amounts:            []*big.Int{big.NewInt(1_000)},
-		isEraBoundary:      true,
 	}, out))
 
 	pool, err := p.readPendingBlockRewardPool(ctx, sm, candAddr.Bytes())
 	r.NoError(err)
 	r.Zero(big.NewInt(1_000).Cmp(pool), "voter money must still accrue into the pending pool")
-	r.Len(out.cursorEntries, 1)
-	r.Equal(currentEraH, out.cursorEntries[0].FreezeHeight)
+
+	work, err := p.freezePendingPoolDrainWork(ctx, sm, currentEraH)
+	r.NoError(err)
+	r.Len(work, 1, "a fresh positive-weight snapshot must enter the immutable drain plan")
+	r.Equal(candAddr.Bytes(), work[0].CandidateIdentifier)
+	r.Zero(big.NewInt(1_000).Cmp(work[0].VoterAmountFrozen))
+	r.Zero(big.NewInt(1_000_000).Cmp(work[0].TotalWeight))
+	r.Equal(uint64(7), work[0].SelfStakeBucketIdx)
+
+	poolAfterPlan, err := p.readPendingBlockRewardPool(ctx, sm, candAddr.Bytes())
+	r.NoError(err)
+	r.Zero(pool.Cmp(poolAfterPlan), "building the plan must not consume the pending pool")
 
 	vaultBalance, _, err := p.UnclaimedBalance(ctx, sm, identityset.Address(2))
 	r.NoError(err)
