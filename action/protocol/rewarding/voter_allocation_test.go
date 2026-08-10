@@ -219,14 +219,16 @@ func newClampFixture(
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, delegate.Bytes(), pool))
 	r.NoError(p.updateAvailableBalance(ctx, sm, pool))
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra:    1,
-		FreezeHeight: iip59FixtureFreezeHeight,
-		Delegates: []epochDrainDelegateWork{{
-			CandidateIdentifier: delegate.Bytes(),
-			VoterAmountFrozen:   pool,
-			TotalWeight:         understated,
-			SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
-		}},
+		epochDrainPlan: epochDrainPlan{
+			TargetEra:    1,
+			FreezeHeight: iip59FixtureFreezeHeight,
+			Delegates: []epochDrainDelegateWork{{
+				CandidateIdentifier: delegate.Bytes(),
+				VoterAmountFrozen:   pool,
+				TotalWeight:         understated,
+				SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
+			}},
+		},
 	}))
 	return clampFixture{
 		fixture: f, delegate: delegate, voters: voters,
@@ -332,16 +334,18 @@ func TestLapsedSelfStakeBonusCannotOverpayDelegatePool(t *testing.T) {
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, delegate.Bytes(), pool))
 	r.NoError(p.updateAvailableBalance(ctx, sm, pool))
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra:    1,
-		FreezeHeight: iip59FixtureFreezeHeight,
-		Delegates: []epochDrainDelegateWork{{
-			CandidateIdentifier: delegate.Bytes(),
-			VoterAmountFrozen:   pool,
-			TotalWeight:         totalWeight,
-			// The index the lapsed endorsement left behind. This is the entire
-			// cause of the over-payment condition.
-			SelfStakeBucketIdx: selfStakeIdx,
-		}},
+		epochDrainPlan: epochDrainPlan{
+			TargetEra:    1,
+			FreezeHeight: iip59FixtureFreezeHeight,
+			Delegates: []epochDrainDelegateWork{{
+				CandidateIdentifier: delegate.Bytes(),
+				VoterAmountFrozen:   pool,
+				TotalWeight:         totalWeight,
+				// The index the lapsed endorsement left behind. This is the entire
+				// cause of the over-payment condition.
+				SelfStakeBucketIdx: selfStakeIdx,
+			}},
+		},
 	}))
 
 	// Precondition (a): the numerators the drain will recompute really do sum to

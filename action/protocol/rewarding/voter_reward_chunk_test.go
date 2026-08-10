@@ -81,14 +81,16 @@ func TestGrantVoterRewardChunk_DirectPayoutNeedsNoClaim(t *testing.T) {
 	r.NoError(p.updateAvailableBalance(ctx, sm, big.NewInt(100)))
 	totalWeight := distributionMetadata(t, sm, candAddr)
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra:    1,
-		FreezeHeight: iip59FixtureFreezeHeight,
-		Delegates: []epochDrainDelegateWork{{
-			CandidateIdentifier: candAddr.Bytes(),
-			VoterAmountFrozen:   big.NewInt(100),
-			TotalWeight:         f.totalWeightOf(candAddr),
-			SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
-		}},
+		epochDrainPlan: epochDrainPlan{
+			TargetEra:    1,
+			FreezeHeight: iip59FixtureFreezeHeight,
+			Delegates: []epochDrainDelegateWork{{
+				CandidateIdentifier: candAddr.Bytes(),
+				VoterAmountFrozen:   big.NewInt(100),
+				TotalWeight:         f.totalWeightOf(candAddr),
+				SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
+			}},
+		},
 	}))
 	// The snapshot's own total must agree with the recomputed one, otherwise
 	// this fixture would be silently testing the clamp instead.
@@ -157,11 +159,13 @@ func seedChunkCursor(
 	}
 	openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
 	cursor := &epochDrainCursor{
-		TargetEra:      epochNum,
-		FreezeHeight:   iip59FixtureFreezeHeight,
-		SettlementSeed: []byte{0x59},
-		ShardsDone:     shardsDone,
-		Delegates:      entries,
+		epochDrainPlan: epochDrainPlan{
+			TargetEra:      epochNum,
+			FreezeHeight:   iip59FixtureFreezeHeight,
+			SettlementSeed: []byte{0x59},
+			Delegates:      entries,
+		},
+		epochDrainProgress: epochDrainProgress{ShardsDone: shardsDone},
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, cursor))
 	return cursor
@@ -325,7 +329,10 @@ func TestCompletedCursorDoesNotDispatchChunk(t *testing.T) {
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
 
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-			TargetEra: 1, ShardsDone: totalShards, CompletedHeight: blk.BlockHeight,
+			epochDrainPlan: epochDrainPlan{TargetEra: 1},
+			epochDrainProgress: epochDrainProgress{
+				ShardsDone: totalShards, CompletedHeight: blk.BlockHeight,
+			},
 		}))
 		grants, err := p.CreatePostSystemActions(ctx, sm)
 		r.NoError(err)
@@ -374,9 +381,11 @@ func TestGrantVoterRewardChunk_PreForkRejects(t *testing.T) {
 		// injected, the pre-fork VoterRewardChunk handler still refuses
 		// rather than reading it.
 		injected := &epochDrainCursor{
-			TargetEra: 1,
-			Delegates: []epochDrainDelegateWork{
-				{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(1)},
+			epochDrainPlan: epochDrainPlan{
+				TargetEra: 1,
+				Delegates: []epochDrainDelegateWork{
+					{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(1)},
+				},
 			},
 		}
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, injected))

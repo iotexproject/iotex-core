@@ -200,9 +200,11 @@ func TestGrantEpochReward_LiveCursorAtPhaseA_DegradesGracefully(t *testing.T) {
 		ctx = enableIIP59(t, ctx)
 
 		live := &epochDrainCursor{
-			TargetEra: 1,
-			Delegates: []epochDrainDelegateWork{
-				{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(1)},
+			epochDrainPlan: epochDrainPlan{
+				TargetEra: 1,
+				Delegates: []epochDrainDelegateWork{
+					{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(1)},
+				},
 			},
 		}
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, live))
@@ -259,9 +261,11 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 		// would take the continuation branch and skip Phase A. A survivor
 		// cursor after grant proves cursorEnabled=false held.
 		injected := &epochDrainCursor{
-			TargetEra: 1,
-			Delegates: []epochDrainDelegateWork{
-				{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(42)},
+			epochDrainPlan: epochDrainPlan{
+				TargetEra: 1,
+				Delegates: []epochDrainDelegateWork{
+					{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(42)},
+				},
 			},
 		}
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, injected))

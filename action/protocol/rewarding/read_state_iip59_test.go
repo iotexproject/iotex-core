@@ -30,17 +30,21 @@ func TestReadStateIIP59(t *testing.T) {
 
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID.Bytes(), big.NewInt(351)))
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra:       42,
-		FreezeHeight:    iip59FixtureFreezeHeight,
-		ShardsDone:      totalShards,
-		ResumeVoter:     voter.Bytes(),
-		SettlementSeed:  []byte{1, 2, 3},
-		CompletedHeight: 12345,
-		Delegates: []epochDrainDelegateWork{{
-			CandidateIdentifier: candID.Bytes(),
-			VoterAmountFrozen:   big.NewInt(300),
-			SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
-		}},
+		epochDrainPlan: epochDrainPlan{
+			TargetEra:      42,
+			FreezeHeight:   iip59FixtureFreezeHeight,
+			SettlementSeed: []byte{1, 2, 3},
+			Delegates: []epochDrainDelegateWork{{
+				CandidateIdentifier: candID.Bytes(),
+				VoterAmountFrozen:   big.NewInt(300),
+				SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
+			}},
+		},
+		epochDrainProgress: epochDrainProgress{
+			ShardsDone:      totalShards,
+			ResumeVoter:     voter.Bytes(),
+			CompletedHeight: 12345,
+		},
 	}))
 	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candID, &staking.CandidatePollSnapshot{
 		OnchainRewardEnabled:       true,
@@ -184,10 +188,13 @@ func TestReadStateVoterRewardStatus(t *testing.T) {
 
 	poolA, poolB := big.NewInt(101), big.NewInt(77)
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight,
-		Delegates: []epochDrainDelegateWork{
-			newStatusWork(delegateA, poolA, f.totalWeightOf(delegateA)),
-			newStatusWork(delegateB, poolB, f.totalWeightOf(delegateB)),
+		epochDrainPlan: epochDrainPlan{
+			TargetEra:    42,
+			FreezeHeight: iip59FixtureFreezeHeight,
+			Delegates: []epochDrainDelegateWork{
+				newStatusWork(delegateA, poolA, f.totalWeightOf(delegateA)),
+				newStatusWork(delegateB, poolB, f.totalWeightOf(delegateB)),
+			},
 		},
 	}))
 
@@ -247,28 +254,43 @@ func TestReadStateVoterRewardStatusShardPosition(t *testing.T) {
 
 	// The walk starts at the voter's own shard and has not entered it yet.
 	r.Equal(rewardingpb.VoterRewardStatus_WAITING, readStatus(&epochDrainCursor{
-		TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard}, ShardsDone: 0,
-		Delegates: []epochDrainDelegateWork{work},
+		epochDrainPlan: epochDrainPlan{
+			TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard},
+			Delegates: []epochDrainDelegateWork{work},
+		},
+		epochDrainProgress: epochDrainProgress{ShardsDone: 0},
 	}))
 	// Inside that shard, past this voter.
 	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED, readStatus(&epochDrainCursor{
-		TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard}, ShardsDone: 0, ResumeVoter: voter.Bytes(),
-		Delegates: []epochDrainDelegateWork{work},
+		epochDrainPlan: epochDrainPlan{
+			TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard},
+			Delegates: []epochDrainDelegateWork{work},
+		},
+		epochDrainProgress: epochDrainProgress{ShardsDone: 0, ResumeVoter: voter.Bytes()},
 	}))
 	// That shard is finished.
 	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED, readStatus(&epochDrainCursor{
-		TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard}, ShardsDone: 1,
-		Delegates: []epochDrainDelegateWork{work},
+		epochDrainPlan: epochDrainPlan{
+			TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard},
+			Delegates: []epochDrainDelegateWork{work},
+		},
+		epochDrainProgress: epochDrainProgress{ShardsDone: 1},
 	}))
 	// Same raw shard id, but the rotation starts one past it, so the voter's
 	// shard is now the last one visited rather than the first.
 	r.Equal(rewardingpb.VoterRewardStatus_WAITING, readStatus(&epochDrainCursor{
-		TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard + 1}, ShardsDone: 1,
-		Delegates: []epochDrainDelegateWork{work},
+		epochDrainPlan: epochDrainPlan{
+			TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard + 1},
+			Delegates: []epochDrainDelegateWork{work},
+		},
+		epochDrainProgress: epochDrainProgress{ShardsDone: 1},
 	}))
 	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED, readStatus(&epochDrainCursor{
-		TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, ShardsDone: totalShards, CompletedHeight: 900,
-		Delegates: []epochDrainDelegateWork{work},
+		epochDrainPlan: epochDrainPlan{
+			TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight,
+			Delegates: []epochDrainDelegateWork{work},
+		},
+		epochDrainProgress: epochDrainProgress{ShardsDone: totalShards, CompletedHeight: 900},
 	}))
 }
 

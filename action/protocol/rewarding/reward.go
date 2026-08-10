@@ -786,11 +786,13 @@ func (p *Protocol) persistDrainCursor(
 		distributed[i] = new(big.Int)
 	}
 	if err := p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra:      epochNum,
-		FreezeHeight:   freezeHeight,
-		SettlementSeed: append([]byte(nil), settlementSeed[:]...),
-		Delegates:      entries,
-		Distributed:    distributed,
+		epochDrainPlan: epochDrainPlan{
+			TargetEra:      epochNum,
+			FreezeHeight:   freezeHeight,
+			SettlementSeed: append([]byte(nil), settlementSeed[:]...),
+			Delegates:      entries,
+		},
+		epochDrainProgress: epochDrainProgress{Distributed: distributed},
 	}); err != nil {
 		return err
 	}

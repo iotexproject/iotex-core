@@ -88,10 +88,12 @@ func newDrainScenario(
 		})
 	}
 	cursor := &epochDrainCursor{
-		TargetEra:      1,
-		FreezeHeight:   iip59FixtureFreezeHeight,
-		SettlementSeed: append([]byte(nil), seed...),
-		Delegates:      works,
+		epochDrainPlan: epochDrainPlan{
+			TargetEra:      1,
+			FreezeHeight:   iip59FixtureFreezeHeight,
+			SettlementSeed: append([]byte(nil), seed...),
+			Delegates:      works,
+		},
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, cursor))
 	return drainScenario{fixture: f, cursor: cursor, pools: pools}

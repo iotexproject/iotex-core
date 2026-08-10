@@ -65,14 +65,8 @@ const noSelfStakeBucketIndex = staking.NoSelfStakeBucketIndex
 // measures against. Completed cursors remain available for voter queries until
 // the next era boundary; only incomplete cursors emit continuation actions.
 type epochDrainCursor struct {
-	TargetEra       uint64
-	FreezeHeight    uint64
-	SettlementSeed  []byte
-	Delegates       []epochDrainDelegateWork
-	ShardsDone      uint16
-	ResumeVoter     []byte
-	Distributed     []*big.Int
-	CompletedHeight uint64
+	epochDrainPlan
+	epochDrainProgress
 }
 
 // totalShards is the number of key-space shards a drain visits. Aliased from
@@ -289,12 +283,8 @@ func (p *epochDrainProgress) Decode(v systemcontracts.GenericValue) error {
 }
 
 func epochDrainPlanFromCursor(c *epochDrainCursor) *epochDrainPlan {
-	return &epochDrainPlan{
-		TargetEra:      c.TargetEra,
-		FreezeHeight:   c.FreezeHeight,
-		SettlementSeed: c.SettlementSeed,
-		Delegates:      c.Delegates,
-	}
+	plan := c.epochDrainPlan
+	return &plan
 }
 
 func epochDrainProgressFromCursor(c *epochDrainCursor) *epochDrainProgress {
@@ -318,13 +308,8 @@ func epochDrainCursorFromState(plan *epochDrainPlan, progress *epochDrainProgres
 		)
 	}
 	c := &epochDrainCursor{
-		TargetEra:       plan.TargetEra,
-		FreezeHeight:    plan.FreezeHeight,
-		SettlementSeed:  plan.SettlementSeed,
-		Delegates:       plan.Delegates,
-		ShardsDone:      progress.ShardsDone,
-		ResumeVoter:     progress.ResumeVoter,
-		CompletedHeight: progress.CompletedHeight,
+		epochDrainPlan:     *plan,
+		epochDrainProgress: *progress,
 	}
 	// The vector is authoritative and padded, never reconstructed from a
 	// position: a voter-major drain leaves most delegates partially paid for

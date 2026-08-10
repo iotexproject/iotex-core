@@ -545,9 +545,11 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 		// balance — the residue path must read pool state, not the frozen
 		// field.
 		stale := &epochDrainCursor{
-			TargetEra: 1,
-			Delegates: []epochDrainDelegateWork{
-				{CandidateIdentifier: candID, VoterAmountFrozen: big.NewInt(999)},
+			epochDrainPlan: epochDrainPlan{
+				TargetEra: 1,
+				Delegates: []epochDrainDelegateWork{
+					{CandidateIdentifier: candID, VoterAmountFrozen: big.NewInt(999)},
+				},
 			},
 		}
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, stale))
@@ -630,9 +632,11 @@ func TestPhaseA_OverrunHandoff_ZeroResidue(t *testing.T) {
 		// from each pool key, and returns 0.
 		candID := identityset.Address(27).Bytes()
 		stale := &epochDrainCursor{
-			TargetEra: 1,
-			Delegates: []epochDrainDelegateWork{
-				{CandidateIdentifier: candID, VoterAmountFrozen: big.NewInt(999)},
+			epochDrainPlan: epochDrainPlan{
+				TargetEra: 1,
+				Delegates: []epochDrainDelegateWork{
+					{CandidateIdentifier: candID, VoterAmountFrozen: big.NewInt(999)},
+				},
 			},
 		}
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, stale))

@@ -27,27 +27,31 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 	r := require.New(t)
 
 	in := epochDrainCursor{
-		TargetEra:       42,
-		FreezeHeight:    900,
-		ShardsDone:      123,
-		ResumeVoter:     identityset.Address(9).Bytes(),
-		SettlementSeed:  []byte{7, 8, 9},
-		CompletedHeight: 12345,
-		Delegates: []epochDrainDelegateWork{
-			{
-				CandidateIdentifier: identityset.Address(1).Bytes(),
-				VoterAmountFrozen:   big.NewInt(1_000),
-				TotalWeight:         big.NewInt(400),
-				SelfStakeBucketIdx:  4,
-			},
-			{
-				CandidateIdentifier: identityset.Address(2).Bytes(),
-				VoterAmountFrozen:   big.NewInt(2_500_000),
-				TotalWeight:         big.NewInt(1_000_000),
-				SelfStakeBucketIdx:  noSelfStakeBucketIndex,
+		epochDrainPlan: epochDrainPlan{
+			TargetEra:      42,
+			FreezeHeight:   900,
+			SettlementSeed: []byte{7, 8, 9},
+			Delegates: []epochDrainDelegateWork{
+				{
+					CandidateIdentifier: identityset.Address(1).Bytes(),
+					VoterAmountFrozen:   big.NewInt(1_000),
+					TotalWeight:         big.NewInt(400),
+					SelfStakeBucketIdx:  4,
+				},
+				{
+					CandidateIdentifier: identityset.Address(2).Bytes(),
+					VoterAmountFrozen:   big.NewInt(2_500_000),
+					TotalWeight:         big.NewInt(1_000_000),
+					SelfStakeBucketIdx:  noSelfStakeBucketIndex,
+				},
 			},
 		},
-		Distributed: []*big.Int{big.NewInt(11), big.NewInt(22)},
+		epochDrainProgress: epochDrainProgress{
+			ShardsDone:      123,
+			ResumeVoter:     identityset.Address(9).Bytes(),
+			Distributed:     []*big.Int{big.NewInt(11), big.NewInt(22)},
+			CompletedHeight: 12345,
+		},
 	}
 
 	raw, err := in.Serialize()
@@ -103,7 +107,7 @@ func TestEpochDrainCursor_ShardCountsRejectOutOfRange(t *testing.T) {
 func TestEpochDrainCursor_ShardWalkOrder(t *testing.T) {
 	r := require.New(t)
 
-	c := &epochDrainCursor{SettlementSeed: []byte{250}}
+	c := &epochDrainCursor{epochDrainPlan: epochDrainPlan{SettlementSeed: []byte{250}}}
 	seen := make(map[byte]bool, totalShards)
 	for i := uint16(0); i < totalShards; i++ {
 		r.False(c.drainFinished(), "not finished after %d of %d shards", i, totalShards)
@@ -114,8 +118,11 @@ func TestEpochDrainCursor_ShardWalkOrder(t *testing.T) {
 	}
 	r.True(c.drainFinished())
 	r.Len(seen, int(totalShards))
-	r.Equal(byte(250), (&epochDrainCursor{SettlementSeed: []byte{250}}).currentShard())
-	r.Equal(byte(0), (&epochDrainCursor{SettlementSeed: []byte{250}, ShardsDone: 6}).currentShard())
+	r.Equal(byte(250), (&epochDrainCursor{epochDrainPlan: epochDrainPlan{SettlementSeed: []byte{250}}}).currentShard())
+	r.Equal(byte(0), (&epochDrainCursor{
+		epochDrainPlan:     epochDrainPlan{SettlementSeed: []byte{250}},
+		epochDrainProgress: epochDrainProgress{ShardsDone: 6},
+	}).currentShard())
 }
 
 func TestRewardEraEpochRange(t *testing.T) {
@@ -172,7 +179,7 @@ func TestSettlementStartShard(t *testing.T) {
 func TestEpochDrainCursor_EmptyDelegates(t *testing.T) {
 	r := require.New(t)
 
-	in := epochDrainCursor{TargetEra: 1}
+	in := epochDrainCursor{epochDrainPlan: epochDrainPlan{TargetEra: 1}}
 	raw, err := in.Serialize()
 	r.NoError(err)
 
@@ -191,13 +198,12 @@ func TestEpochDrainCursor_ZeroPoolAmount(t *testing.T) {
 	r := require.New(t)
 
 	in := epochDrainCursor{
-		TargetEra: 3,
-		Delegates: []epochDrainDelegateWork{
+		epochDrainPlan: epochDrainPlan{TargetEra: 3, Delegates: []epochDrainDelegateWork{
 			{
 				CandidateIdentifier: identityset.Address(5).Bytes(),
 				VoterAmountFrozen:   new(big.Int),
 			},
-		},
+		}},
 	}
 	raw, err := in.Serialize()
 	r.NoError(err)
@@ -229,14 +235,13 @@ func TestEpochDrainCursor_WriteReadDelete(t *testing.T) {
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 
 	in := &epochDrainCursor{
-		TargetEra:  99,
-		ShardsDone: 3,
-		Delegates: []epochDrainDelegateWork{
+		epochDrainPlan: epochDrainPlan{TargetEra: 99, Delegates: []epochDrainDelegateWork{
 			{
 				CandidateIdentifier: identityset.Address(1).Bytes(),
 				VoterAmountFrozen:   big.NewInt(10_000),
 			},
-		},
+		}},
+		epochDrainProgress: epochDrainProgress{ShardsDone: 3},
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, in))
 
@@ -266,20 +271,20 @@ func TestEpochDrainCursor_WriteOverwrites(t *testing.T) {
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 
 	first := &epochDrainCursor{
-		TargetEra: 10,
-		Delegates: []epochDrainDelegateWork{
+		epochDrainPlan: epochDrainPlan{TargetEra: 10, Delegates: []epochDrainDelegateWork{
 			{CandidateIdentifier: identityset.Address(1).Bytes(), VoterAmountFrozen: big.NewInt(1)},
 			{CandidateIdentifier: identityset.Address(2).Bytes(), VoterAmountFrozen: big.NewInt(2)},
-		},
+		}},
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, first))
 
 	second := &epochDrainCursor{
-		TargetEra:   10,
-		ShardsDone:  1,
-		ResumeVoter: identityset.Address(4).Bytes(),
-		Delegates: []epochDrainDelegateWork{
+		epochDrainPlan: epochDrainPlan{TargetEra: 10, Delegates: []epochDrainDelegateWork{
 			{CandidateIdentifier: identityset.Address(3).Bytes(), VoterAmountFrozen: big.NewInt(9)},
+		}},
+		epochDrainProgress: epochDrainProgress{
+			ShardsDone:  1,
+			ResumeVoter: identityset.Address(4).Bytes(),
 		},
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, second))
@@ -296,11 +301,10 @@ func TestEpochDrainCursor_WriteOverwrites(t *testing.T) {
 	// Finishing a shard clears the resume point; the cleared value must
 	// round-trip as empty rather than carrying the prior address forward.
 	third := &epochDrainCursor{
-		TargetEra:  10,
-		ShardsDone: 2,
-		Delegates: []epochDrainDelegateWork{
+		epochDrainPlan: epochDrainPlan{TargetEra: 10, Delegates: []epochDrainDelegateWork{
 			{CandidateIdentifier: identityset.Address(4).Bytes(), VoterAmountFrozen: big.NewInt(7)},
-		},
+		}},
+		epochDrainProgress: epochDrainProgress{ShardsDone: 2},
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, third))
 	got, err = p.readEpochDrainCursor(ctx, sm)
@@ -315,19 +319,21 @@ func TestEpochDrainCursor_ProgressWritePreservesPlan(t *testing.T) {
 	settlementSeed := hash.Hash256b([]byte("settlement-seed"))
 
 	cursor := &epochDrainCursor{
-		TargetEra:      24,
-		FreezeHeight:   900,
-		SettlementSeed: settlementSeed[:],
-		Delegates: []epochDrainDelegateWork{
-			{
-				CandidateIdentifier: identityset.Address(1).Bytes(),
-				VoterAmountFrozen:   big.NewInt(100),
-				TotalWeight:         big.NewInt(10),
-			},
-			{
-				CandidateIdentifier: identityset.Address(2).Bytes(),
-				VoterAmountFrozen:   big.NewInt(200),
-				TotalWeight:         big.NewInt(20),
+		epochDrainPlan: epochDrainPlan{
+			TargetEra:      24,
+			FreezeHeight:   900,
+			SettlementSeed: settlementSeed[:],
+			Delegates: []epochDrainDelegateWork{
+				{
+					CandidateIdentifier: identityset.Address(1).Bytes(),
+					VoterAmountFrozen:   big.NewInt(100),
+					TotalWeight:         big.NewInt(10),
+				},
+				{
+					CandidateIdentifier: identityset.Address(2).Bytes(),
+					VoterAmountFrozen:   big.NewInt(200),
+					TotalWeight:         big.NewInt(20),
+				},
 			},
 		},
 	}
