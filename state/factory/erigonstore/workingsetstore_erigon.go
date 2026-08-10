@@ -3,6 +3,7 @@ package erigonstore
 import (
 	"context"
 	"fmt"
+	"io"
 	"math/big"
 
 	"github.com/erigontech/erigon-lib/common/datadir"
@@ -407,6 +408,12 @@ func (store *ErigonWorkingSetStore) States(ns string, obj any, keys [][]byte) (s
 // Digest returns the digest of the ErigonWorkingSetStore
 func (store *ErigonWorkingSetStore) Digest() hash.Hash256 {
 	return hash.ZeroHash256
+}
+
+// DumpWriteQueue is not supported: this store does not keep a serialized write
+// queue (Digest above is a fixed zero hash).
+func (store *ErigonWorkingSetStore) DumpWriteQueue(io.Writer) error {
+	return errors.New("write queue dump is not supported by the erigon working set store")
 }
 
 // CreateGenesisStates creates the genesis states in the ErigonWorkingSetStore

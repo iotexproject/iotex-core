@@ -7,6 +7,8 @@ package factory
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -30,6 +32,10 @@ type (
 		States(ns string, object any, keys [][]byte) (state.Iterator, error)
 		Commit(context.Context, uint64) error
 		Digest() hash.Hash256
+		// DumpWriteQueue writes the ordered write queue that Digest() hashes over,
+		// one entry per line. Used to diff two binaries' state writes when a delta
+		// state digest mismatch occurs. Returns an error if unsupported.
+		DumpWriteQueue(io.Writer) error
 		Finalize(context.Context) error
 		FinalizeTx(context.Context) error
 		Snapshot() int
@@ -116,6 +122,28 @@ func (store *stateDBWorkingSetStore) Delete(ns string, key []byte) error {
 
 func (store *stateDBWorkingSetStore) Digest() hash.Hash256 {
 	return hash.Hash256b(store.flusher.SerializeQueue())
+}
+
+// DumpWriteQueue dumps the write queue underlying Digest(). Values are recorded
+// as a hash rather than verbatim so a dump stays small on blocks that touch a
+// lot of contract storage; the index of the first differing line between two
+// dumps is what localises a delta state digest mismatch.
+func (store *stateDBWorkingSetStore) DumpWriteQueue(w io.Writer) error {
+	store.lock.Lock()
+	defer store.lock.Unlock()
+	buf := store.flusher.KVStoreWithBuffer()
+	for i := 0; i < buf.Size(); i++ {
+		wi, err := buf.Entry(i)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read write queue entry %d", i)
+		}
+		v := wi.Value()
+		if _, err := fmt.Fprintf(w, "%d\t%d\t%s\t%x\t%x\t%d\n",
+			i, wi.WriteType(), wi.Namespace(), wi.Key(), hash.Hash256b(v), len(v)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (store *stateDBWorkingSetStore) Commit(_ context.Context, _ uint64) error {
