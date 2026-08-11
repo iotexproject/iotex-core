@@ -42,7 +42,7 @@ type TestOnlyRewardStateSnapshot struct {
 	PoolEntries      []TestOnlyPoolEntry
 	CursorPresent    bool
 	CursorDelegates  uint32
-	CursorShardsDone uint32
+	CursorScanPhase  uint32
 	CursorResumeLen  uint32
 	CursorTargetEra  uint64
 }
@@ -81,7 +81,7 @@ func (p *Protocol) TestOnlyDumpRewardState(
 	if err != nil {
 		return nil, err
 	}
-	shardsDone, resumeLen, totalCands, era, present, err := p.TestOnlyEpochDrainSnapshot(ctx, sr)
+	scanPhase, resumeLen, totalCands, era, present, err := p.TestOnlyEpochDrainSnapshot(ctx, sr)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (p *Protocol) TestOnlyDumpRewardState(
 		PoolEntries:      entries,
 		CursorPresent:    present,
 		CursorDelegates:  totalCands,
-		CursorShardsDone: shardsDone,
+		CursorScanPhase:  scanPhase,
 		CursorResumeLen:  resumeLen,
 		CursorTargetEra:  era,
 	}, nil

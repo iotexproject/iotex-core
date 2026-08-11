@@ -22,7 +22,7 @@ import (
 
 // TestEpochDrainCursor_RoundTrip — Serialize→Deserialize preserves
 // every field, including the frozen delegate work list with big.Int
-// pool balances and the shard-walk resume point.
+// pool balances and the circular address-walk resume point.
 func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 	r := require.New(t)
 
@@ -47,7 +47,7 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 			},
 		},
 		epochDrainProgress: epochDrainProgress{
-			ShardsDone:      123,
+			ScanPhase:       voterScanHead,
 			ResumeVoter:     identityset.Address(9).Bytes(),
 			Distributed:     []*big.Int{big.NewInt(11), big.NewInt(22)},
 			CompletedHeight: 12345,
@@ -62,7 +62,7 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 	r.NoError(out.Deserialize(raw))
 	r.Equal(in.TargetEra, out.TargetEra)
 	r.Equal(in.FreezeHeight, out.FreezeHeight)
-	r.Equal(in.ShardsDone, out.ShardsDone)
+	r.Equal(in.ScanPhase, out.ScanPhase)
 	r.Equal(in.ResumeVoter, out.ResumeVoter)
 	r.Equal(in.SettlementSeed, out.SettlementSeed)
 	r.Equal(in.CompletedHeight, out.CompletedHeight)
@@ -77,52 +77,65 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 		// The per-delegate running total rides the read-only view field.
 		r.Zero(in.Distributed[i].Cmp(out.Distributed[i]))
 	}
+
+	view := &rewardingpb.EpochDrainCursor{}
+	r.NoError(proto.Unmarshal(raw, view))
+	r.Equal(settlementStartVoter(in.SettlementSeed), view.GetStartVoter())
+	r.Equal(uint32(voterScanHead), view.GetScanPhase())
 }
 
-// TestEpochDrainCursor_ShardCountsRejectOutOfRange pins the decode guards.
-// ShardsDone is on the wire as a uint32 because 256 — the "drain finished"
-// value — does not fit a uint8, which makes an out-of-range value
-// representable and therefore something that has to be refused rather than
-// silently truncated into a valid-looking position.
-func TestEpochDrainCursor_ShardCountsRejectOutOfRange(t *testing.T) {
+// TestEpochDrainCursor_ScanPhaseRejectsOutOfRange pins the wire guard. The
+// phase is encoded as uint32, so values outside tail/head/done must fail rather
+// than silently becoming a valid-looking resume position.
+func TestEpochDrainCursor_ScanPhaseRejectsOutOfRange(t *testing.T) {
 	r := require.New(t)
 
-	done, err := decodeShardsDone(uint32(totalShards))
-	r.NoError(err, "the full shard count is the legal 'finished' value")
-	r.Equal(totalShards, done)
-	_, err = decodeShardsDone(uint32(totalShards) + 1)
+	for _, phase := range []voterScanPhase{voterScanTail, voterScanHead, voterScanDone} {
+		decoded, err := decodeVoterScanPhase(uint32(phase))
+		r.NoError(err)
+		r.Equal(phase, decoded)
+	}
+	_, err := decodeVoterScanPhase(uint32(voterScanDone) + 1)
 	r.Error(err)
 
 	raw, err := proto.Marshal(&rewardingpb.EpochDrainCursor{
-		TargetEra: 1, ShardsDone: uint32(totalShards) + 5,
+		TargetEra: 1, ScanPhase: uint32(voterScanDone) + 1,
 	})
 	r.NoError(err)
 	var cursor epochDrainCursor
 	r.Error(cursor.Deserialize(raw))
+
+	raw, err = proto.Marshal(&rewardingpb.EpochDrainProgress{
+		ScanPhase: uint32(voterScanDone) + 1, SchemaVersion: _epochDrainProgressVersion,
+	})
+	r.NoError(err)
+	var progress epochDrainProgress
+	r.Error(progress.Deserialize(raw))
 }
 
-// TestEpochDrainCursor_ShardWalkOrder pins the wrap-around walk: starting at
-// StartShard, ShardsDone shards later, modulo the shard count, and finished
-// once every shard has been visited exactly once.
-func TestEpochDrainCursor_ShardWalkOrder(t *testing.T) {
+func TestEpochDrainProgressRejectsRetiredShardCursor(t *testing.T) {
+	r := require.New(t)
+	// Field 8 was shards_done. Its presence is deliberately irrelevant: a
+	// missing schema version is enough to reject every retired cursor, including
+	// one whose shards_done value encoded to the protobuf zero value.
+	retired := []byte{0x40, 0x01}
+	progress := &epochDrainProgress{}
+	err := progress.Deserialize(retired)
+	r.ErrorContains(err, "unsupported epoch drain progress version 0")
+}
+
+// TestEpochDrainCursor_ScanPhaseLifecycle pins the only legal completion
+// transition: neither address range alone is complete; done is.
+func TestEpochDrainCursor_ScanPhaseLifecycle(t *testing.T) {
 	r := require.New(t)
 
-	c := &epochDrainCursor{epochDrainPlan: epochDrainPlan{SettlementSeed: []byte{250}}}
-	seen := make(map[byte]bool, totalShards)
-	for i := uint16(0); i < totalShards; i++ {
-		r.False(c.drainFinished(), "not finished after %d of %d shards", i, totalShards)
-		shard := c.currentShard()
-		r.Falsef(seen[shard], "shard %d visited twice", shard)
-		seen[shard] = true
-		c.ShardsDone++
-	}
+	c := &epochDrainCursor{}
+	r.Equal(voterScanTail, c.ScanPhase)
+	r.False(c.drainFinished())
+	c.ScanPhase = voterScanHead
+	r.False(c.drainFinished())
+	c.ScanPhase = voterScanDone
 	r.True(c.drainFinished())
-	r.Len(seen, int(totalShards))
-	r.Equal(byte(250), (&epochDrainCursor{epochDrainPlan: epochDrainPlan{SettlementSeed: []byte{250}}}).currentShard())
-	r.Equal(byte(0), (&epochDrainCursor{
-		epochDrainPlan:     epochDrainPlan{SettlementSeed: []byte{250}},
-		epochDrainProgress: epochDrainProgress{ShardsDone: 6},
-	}).currentShard())
 }
 
 func TestRewardEraEpochRange(t *testing.T) {
@@ -134,7 +147,7 @@ func TestRewardEraEpochRange(t *testing.T) {
 
 }
 
-func TestSettlementSeedAndOffsets(t *testing.T) {
+func TestSettlementSeed(t *testing.T) {
 	r := require.New(t)
 	parent := hash.Hash256b([]byte("parent-a"))
 	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
@@ -149,28 +162,29 @@ func TestSettlementSeedAndOffsets(t *testing.T) {
 		Tip: protocol.TipInfo{Hash: hash.Hash256b([]byte("parent-b"))},
 	})
 	r.NotEqual(seed, settlementSeed(otherCtx, 42))
-	r.Zero(settlementListOffset(seed[:], 0))
-	r.Less(settlementListOffset(seed[:], 7), uint32(7))
-	r.Equal(settlementListOffset(seed[:], 7), settlementListOffset(seed[:], 7))
 }
 
-// TestSettlementStartShard pins the rotation the drain starts from: derived
-// from the settlement seed alone, in range, and stable for a given seed.
-func TestSettlementStartShard(t *testing.T) {
+// TestSettlementStartVoter pins the circular walk's random boundary: the first
+// 20 seed bytes, copied into owned storage and zero-padded for short fixtures.
+func TestSettlementStartVoter(t *testing.T) {
 	r := require.New(t)
+	distinct := make(map[string]bool)
 	for i := 0; i < 64; i++ {
 		seed := hash.Hash256b([]byte{byte(i)})
-		got := settlementStartShard(seed[:])
-		r.Equal(got, settlementStartShard(seed[:]), "start shard must be a pure function of the seed")
-		r.Less(uint16(got), totalShards)
+		got := settlementStartVoter(seed[:])
+		r.Equal(seed[:20], got)
+		r.Equal(got, settlementStartVoter(seed[:]), "start voter must be a pure function of the seed")
+		distinct[string(got)] = true
 	}
-	// Every shard is reachable, so no address prefix owns the head of the walk.
-	distinct := make(map[uint8]bool)
-	for i := 0; i < 4096; i++ {
-		seed := hash.Hash256b([]byte{byte(i), byte(i >> 8)})
-		distinct[settlementStartShard(seed[:])] = true
-	}
-	r.Greater(len(distinct), 200, "seed must spread across the shard space")
+	r.Greater(len(distinct), 60, "different seeds must spread across the address space")
+
+	short := []byte{1, 2, 3}
+	want := make([]byte, 20)
+	copy(want, short)
+	got := settlementStartVoter(short)
+	r.Equal(want, got)
+	got[0] = 9
+	r.Equal(byte(1), short[0], "the derived start must not alias the seed")
 }
 
 // TestEpochDrainCursor_EmptyDelegates — a cursor with no delegate work
@@ -186,7 +200,7 @@ func TestEpochDrainCursor_EmptyDelegates(t *testing.T) {
 	var out epochDrainCursor
 	r.NoError(out.Deserialize(raw))
 	r.Equal(uint64(1), out.TargetEra)
-	r.Zero(out.ShardsDone)
+	r.Equal(voterScanTail, out.ScanPhase)
 	r.Empty(out.Delegates)
 }
 
@@ -241,7 +255,7 @@ func TestEpochDrainCursor_WriteReadDelete(t *testing.T) {
 				VoterAmountFrozen:   big.NewInt(10_000),
 			},
 		}},
-		epochDrainProgress: epochDrainProgress{ShardsDone: 3},
+		epochDrainProgress: epochDrainProgress{ScanPhase: voterScanHead},
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, in))
 
@@ -249,7 +263,7 @@ func TestEpochDrainCursor_WriteReadDelete(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(got)
 	r.Equal(in.TargetEra, got.TargetEra)
-	r.Equal(in.ShardsDone, got.ShardsDone)
+	r.Equal(in.ScanPhase, got.ScanPhase)
 	r.Len(got.Delegates, 1)
 	r.Equal(in.Delegates[0].CandidateIdentifier, got.Delegates[0].CandidateIdentifier)
 	r.Zero(in.Delegates[0].VoterAmountFrozen.Cmp(got.Delegates[0].VoterAmountFrozen))
@@ -283,7 +297,7 @@ func TestEpochDrainCursor_WriteOverwrites(t *testing.T) {
 			{CandidateIdentifier: identityset.Address(3).Bytes(), VoterAmountFrozen: big.NewInt(9)},
 		}},
 		epochDrainProgress: epochDrainProgress{
-			ShardsDone:  1,
+			ScanPhase:   voterScanHead,
 			ResumeVoter: identityset.Address(4).Bytes(),
 		},
 	}
@@ -292,19 +306,19 @@ func TestEpochDrainCursor_WriteOverwrites(t *testing.T) {
 	got, err := p.readEpochDrainCursor(ctx, sm)
 	r.NoError(err)
 	r.NotNil(got)
-	r.Equal(uint16(1), got.ShardsDone)
+	r.Equal(voterScanHead, got.ScanPhase)
 	r.Equal(identityset.Address(4).Bytes(), got.ResumeVoter,
 		"second write must replace ResumeVoter, not merge")
 	r.Len(got.Delegates, 1, "second write must replace, not append")
 	r.Equal(identityset.Address(3).Bytes(), got.Delegates[0].CandidateIdentifier)
 
-	// Finishing a shard clears the resume point; the cleared value must
+	// Starting a new range clears the resume point; the cleared value must
 	// round-trip as empty rather than carrying the prior address forward.
 	third := &epochDrainCursor{
 		epochDrainPlan: epochDrainPlan{TargetEra: 10, Delegates: []epochDrainDelegateWork{
 			{CandidateIdentifier: identityset.Address(4).Bytes(), VoterAmountFrozen: big.NewInt(7)},
 		}},
-		epochDrainProgress: epochDrainProgress{ShardsDone: 2},
+		epochDrainProgress: epochDrainProgress{ScanPhase: voterScanTail},
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, third))
 	got, err = p.readEpochDrainCursor(ctx, sm)
@@ -345,7 +359,7 @@ func TestEpochDrainCursor_ProgressWritePreservesPlan(t *testing.T) {
 	planBytesBefore, err := planBefore.Serialize()
 	r.NoError(err)
 
-	cursor.ShardsDone = 40
+	cursor.ScanPhase = voterScanHead
 	cursor.ResumeVoter = identityset.Address(7).Bytes()
 	cursor.Distributed = []*big.Int{new(big.Int), big.NewInt(75)}
 	r.NoError(p.writeEpochDrainProgress(ctx, sm, cursor))
@@ -366,9 +380,9 @@ func TestEpochDrainCursor_ProgressWritePreservesPlan(t *testing.T) {
 
 	got, err := p.readEpochDrainCursor(ctx, sm)
 	r.NoError(err)
-	r.Equal(uint16(40), got.ShardsDone)
+	r.Equal(voterScanHead, got.ScanPhase)
 	r.Equal(identityset.Address(7).Bytes(), got.ResumeVoter)
-	r.Equal(settlementStartShard(settlementSeed[:]), settlementStartShard(got.SettlementSeed))
+	r.Equal(settlementStartVoter(settlementSeed[:]), settlementStartVoter(got.SettlementSeed))
 	r.Zero(got.distributedAt(0).Sign())
 	r.Zero(big.NewInt(75).Cmp(got.distributedAt(1)))
 }

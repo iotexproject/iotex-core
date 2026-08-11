@@ -6,6 +6,7 @@
 package rewarding
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
 
@@ -41,8 +42,7 @@ func TestReadStateIIP59(t *testing.T) {
 			}},
 		},
 		epochDrainProgress: epochDrainProgress{
-			ShardsDone:      totalShards,
-			ResumeVoter:     voter.Bytes(),
+			ScanPhase:       voterScanDone,
 			CompletedHeight: 12345,
 		},
 	}))
@@ -73,10 +73,10 @@ func TestReadStateIIP59(t *testing.T) {
 	r.Equal(uint64(42), cursor.GetTargetEra())
 	r.True(cursor.GetCompleted())
 	r.Equal(uint64(12345), cursor.GetCompletedHeight())
-	r.Equal(uint32(3), cursor.GetStartShard())
-	r.Equal(uint32(totalShards), cursor.GetShardsDone())
-	r.Equal(voter.Bytes(), cursor.GetResumeVoter())
 	r.Equal([]byte{1, 2, 3}, cursor.GetSettlementSeed())
+	r.Equal(settlementStartVoter([]byte{1, 2, 3}), cursor.GetStartVoter())
+	r.Equal(uint32(voterScanDone), cursor.GetScanPhase())
+	r.Empty(cursor.GetResumeVoter())
 	r.Len(cursor.GetDelegates(), 1)
 	r.Equal(big.NewInt(300).Bytes(), cursor.GetDelegates()[0].GetVoterAmountFrozen())
 	r.Equal(iip59FixtureFreezeHeight, cursor.GetFreezeHeight())
@@ -225,11 +225,10 @@ func TestReadStateVoterRewardStatus(t *testing.T) {
 		"an address with no frozen bucket is not part of the settlement")
 }
 
-// TestReadStateVoterRewardStatusShardPosition checks PROCESSED/WAITING is read
-// off the shard rotation rather than off a delegate index that no longer
-// exists. Position is measured from StartShard, so the answer must depend on
-// the rotation and not on the raw shard id.
-func TestReadStateVoterRewardStatusShardPosition(t *testing.T) {
+// TestReadStateVoterRewardStatusCircularPosition checks PROCESSED/WAITING
+// against the seed-derived start address, the single wrap, and the exclusive
+// resume point. The exact start belongs to the tail range.
+func TestReadStateVoterRewardStatusCircularPosition(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 	delegate := identityset.Address(4)
@@ -241,9 +240,22 @@ func TestReadStateVoterRewardStatusShardPosition(t *testing.T) {
 	}, nil)
 
 	work := newStatusWork(delegate, big.NewInt(1000), f.totalWeightOf(delegate))
-	shard := staking.ShardOf(voter)
+	lowStart := make([]byte, 20)
+	highStart := bytes.Repeat([]byte{0xFF}, 20)
+	exactStart := append([]byte(nil), voter.Bytes()...)
 
-	readStatus := func(cursor *epochDrainCursor) rewardingpb.VoterRewardStatus_Status {
+	readStatus := func(start []byte, phase voterScanPhase, resume []byte) rewardingpb.VoterRewardStatus_Status {
+		cursor := &epochDrainCursor{
+			epochDrainPlan: epochDrainPlan{
+				TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight,
+				SettlementSeed: append([]byte(nil), start...),
+				Delegates:      []epochDrainDelegateWork{work},
+			},
+			epochDrainProgress: epochDrainProgress{
+				ScanPhase:   phase,
+				ResumeVoter: append([]byte(nil), resume...),
+			},
+		}
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, cursor))
 		data, _, err := p.ReadState(ctx, sm, []byte("VoterRewardStatus"), []byte(voter.String()))
 		r.NoError(err)
@@ -252,46 +264,35 @@ func TestReadStateVoterRewardStatusShardPosition(t *testing.T) {
 		return status.GetStatus()
 	}
 
-	// The walk starts at the voter's own shard and has not entered it yet.
-	r.Equal(rewardingpb.VoterRewardStatus_WAITING, readStatus(&epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{
-			TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard},
-			Delegates: []epochDrainDelegateWork{work},
-		},
-		epochDrainProgress: epochDrainProgress{ShardsDone: 0},
-	}))
-	// Inside that shard, past this voter.
-	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED, readStatus(&epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{
-			TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard},
-			Delegates: []epochDrainDelegateWork{work},
-		},
-		epochDrainProgress: epochDrainProgress{ShardsDone: 0, ResumeVoter: voter.Bytes()},
-	}))
-	// That shard is finished.
-	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED, readStatus(&epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{
-			TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard},
-			Delegates: []epochDrainDelegateWork{work},
-		},
-		epochDrainProgress: epochDrainProgress{ShardsDone: 1},
-	}))
-	// Same raw shard id, but the rotation starts one past it, so the voter's
-	// shard is now the last one visited rather than the first.
-	r.Equal(rewardingpb.VoterRewardStatus_WAITING, readStatus(&epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{
-			TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight, SettlementSeed: []byte{shard + 1},
-			Delegates: []epochDrainDelegateWork{work},
-		},
-		epochDrainProgress: epochDrainProgress{ShardsDone: 1},
-	}))
-	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED, readStatus(&epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{
-			TargetEra: 42, FreezeHeight: iip59FixtureFreezeHeight,
-			Delegates: []epochDrainDelegateWork{work},
-		},
-		epochDrainProgress: epochDrainProgress{ShardsDone: totalShards, CompletedHeight: 900},
-	}))
+	// Voter lies in the tail but the cursor has not reached it yet.
+	r.Equal(rewardingpb.VoterRewardStatus_WAITING,
+		readStatus(lowStart, voterScanTail, nil))
+	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED,
+		readStatus(lowStart, voterScanTail, voter.Bytes()))
+
+	// Voter lies in the head: it remains waiting before and after the wrap
+	// until the head resume point reaches it.
+	r.Equal(rewardingpb.VoterRewardStatus_WAITING,
+		readStatus(highStart, voterScanTail, nil))
+	r.Equal(rewardingpb.VoterRewardStatus_WAITING,
+		readStatus(highStart, voterScanHead, nil))
+	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED,
+		readStatus(highStart, voterScanHead, voter.Bytes()))
+
+	// Once the walk wraps, every address in the completed tail is processed.
+	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED,
+		readStatus(lowStart, voterScanHead, nil))
+
+	// Equality belongs to [start,max], not the wrapped [min,start) range.
+	r.Equal(rewardingpb.VoterRewardStatus_WAITING,
+		readStatus(exactStart, voterScanTail, nil))
+	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED,
+		readStatus(exactStart, voterScanTail, voter.Bytes()))
+	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED,
+		readStatus(exactStart, voterScanHead, nil))
+
+	r.Equal(rewardingpb.VoterRewardStatus_PROCESSED,
+		readStatus(highStart, voterScanDone, nil))
 }
 
 // newStatusWork builds a payable frozen work item for the status tests.

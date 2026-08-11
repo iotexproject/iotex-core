@@ -130,15 +130,15 @@ func TestGrantVoterRewardChunk_DirectPayoutNeedsNoClaim(t *testing.T) {
 // are not trying to pin. Distribution correctness lives in the shard-drain and
 // clamp tests, which plant real buckets.
 //
-// shardsDone pre-advances the shard walk so a caller can put the cursor one
-// shard away from completion and exercise the terminal coda directly.
+// scanPhase pre-advances the circular walk so a caller can put the cursor in
+// its final range and exercise the terminal coda directly.
 func seedChunkCursor(
 	t *testing.T,
 	ctx context.Context,
 	sm protocol.StateManager,
 	p *Protocol,
 	epochNum uint64,
-	shardsDone uint16,
+	scanPhase voterScanPhase,
 ) *epochDrainCursor {
 	t.Helper()
 	r := require.New(t)
@@ -165,7 +165,7 @@ func seedChunkCursor(
 			SettlementSeed: []byte{0x59},
 			Delegates:      entries,
 		},
-		epochDrainProgress: epochDrainProgress{ShardsDone: shardsDone},
+		epochDrainProgress: epochDrainProgress{ScanPhase: scanPhase},
 	}
 	r.NoError(p.writeEpochDrainCursor(ctx, sm, cursor))
 	return cursor
@@ -196,13 +196,13 @@ func TestGrantVoterRewardChunk_UnroutableDelegatesFinish(t *testing.T) {
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
 
-		// An empty voter key space costs no budget, so the whole shard
-		// rotation is walked in one call and the coda marks the cursor done.
+		// An empty voter key space costs no budget, so both address ranges are
+		// walked in one call and the coda marks the cursor done.
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
 		r.NotNil(got)
 		r.True(got.drainFinished())
-		r.Equal(totalShards, got.ShardsDone)
+		r.Equal(voterScanDone, got.ScanPhase)
 		deferred, err := p.readPendingBlockRewardPool(ctx, sm, deferredID)
 		r.NoError(err)
 		r.Zero(deferred.Cmp(big.NewInt(77)), "missing snapshot must remain pending for a later era")
@@ -217,8 +217,7 @@ func TestGrantVoterRewardChunk_UnroutableDelegatesFinish(t *testing.T) {
 // chunk runs the post-C3 coda: COW sealing + cursor completion. The
 // epoch sentinel is Phase A's responsibility (written by
 // GrantEpochReward) and is NOT touched by the chunk anymore. Seeded
-// state: cursor with the shard walk one shard from the end, so this run
-// consumes only the tail of the rotation.
+// state: cursor in the final address range, so this run reaches the coda.
 func TestGrantVoterRewardChunk_LastChunkRunsCoda(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
@@ -230,8 +229,7 @@ func TestGrantVoterRewardChunk_LastChunkRunsCoda(t *testing.T) {
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
 
-		// One shard left to walk, so this single call runs the terminal coda.
-		cursor := seedChunkCursor(t, ctx, sm, p, 1, totalShards-1)
+		cursor := seedChunkCursor(t, ctx, sm, p, 1, voterScanHead)
 		r.NotEmpty(cursor.Delegates)
 
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
@@ -242,7 +240,7 @@ func TestGrantVoterRewardChunk_LastChunkRunsCoda(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(got)
 		r.True(got.drainFinished())
-		r.Equal(totalShards, got.ShardsDone)
+		r.Equal(voterScanDone, got.ScanPhase)
 		r.Equal(protocol.MustGetBlockCtx(ctx).BlockHeight, got.CompletedHeight)
 	}, nil, false, 0)
 }
@@ -266,7 +264,7 @@ func TestGrantVoterRewardChunk_CrossEraContinuation(t *testing.T) {
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
 
-		cursor := seedChunkCursor(t, ctx, sm, p, 1, totalShards-1)
+		cursor := seedChunkCursor(t, ctx, sm, p, 1, voterScanHead)
 		r.NotEmpty(cursor.Delegates)
 
 		// Bump BlockCtx height into a much later block so a bug that
@@ -291,7 +289,7 @@ func TestGrantVoterRewardChunk_CrossEraContinuation(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(got)
 		r.True(got.drainFinished())
-		r.Equal(totalShards, got.ShardsDone)
+		r.Equal(voterScanDone, got.ScanPhase)
 		r.Equal(later, got.CompletedHeight)
 	}, nil, false, 0)
 }
@@ -331,7 +329,7 @@ func TestCompletedCursorDoesNotDispatchChunk(t *testing.T) {
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
 			epochDrainPlan: epochDrainPlan{TargetEra: 1},
 			epochDrainProgress: epochDrainProgress{
-				ShardsDone: totalShards, CompletedHeight: blk.BlockHeight,
+				ScanPhase: voterScanDone, CompletedHeight: blk.BlockHeight,
 			},
 		}))
 		grants, err := p.CreatePostSystemActions(ctx, sm)
@@ -552,12 +550,12 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 // cursor. The log must be the FIRST entry in rewardLogs (off-chain
 // verifiers pattern-match on the leading log to key their per-block
 // cursor-pile-up detector). The addr field encodes the tuple
-// "<target_era>:<shards_done>:<resume_voter_hex>:<shards_remaining>"
+// "<target_era>:<scan_phase>:<resume_voter_hex>:<ranges_remaining>"
 // and the amount field is the sentinel "0" (this log carries no
 // monetary value).
 //
-// Fixture: build a cursor with synthetic entries, pre-advance the shard walk
-// so the snapshot has non-zero shards_done and remaining fields to assert.
+// Fixture: build a cursor with synthetic entries in the head scan so the
+// snapshot has non-zero phase and remaining fields to assert.
 func TestGrantVoterRewardChunk_EmitsCursorProgress(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
@@ -568,10 +566,10 @@ func TestGrantVoterRewardChunk_EmitsCursorProgress(t *testing.T) {
 		patches := registerStubStakingProtocol(t, ctx)
 		defer patches.Reset()
 
-		const done = uint16(1)
-		cursor := seedChunkCursor(t, ctx, sm, p, 1, done)
+		const phase = voterScanHead
+		cursor := seedChunkCursor(t, ctx, sm, p, 1, phase)
 		r.NotEmpty(cursor.Delegates)
-		expectedRemaining := uint32(totalShards - done)
+		expectedRemaining := uint32(voterScanDone - phase)
 
 		_, rewardLogs, err := p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
@@ -586,9 +584,8 @@ func TestGrantVoterRewardChunk_EmitsCursorProgress(t *testing.T) {
 			"first log per chunk must be the CURSOR_PROGRESS snapshot")
 
 		// Snapshot encoding matches the PRE-drain cursor: target_era=1,
-		// shards_done=1, resume_voter empty (no mid-shard stop injected),
-		// remaining = 256-1.
-		want := fmt.Sprintf("%d:%d:%x:%d", uint64(1), done, []byte(nil), expectedRemaining)
+		// scan_phase=1, resume_voter empty, one range remaining.
+		want := fmt.Sprintf("%d:%d:%x:%d", uint64(1), phase, []byte(nil), expectedRemaining)
 		r.Equal(want, progress.Addr, "addr encodes pre-drain cursor tuple")
 		r.Equal("0", progress.Amount, "CURSOR_PROGRESS amount is the fixed sentinel '0'")
 	}, nil, false, 0)

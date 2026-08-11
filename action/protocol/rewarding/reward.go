@@ -6,7 +6,6 @@
 package rewarding
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -733,8 +732,8 @@ func (p *Protocol) distributeFoundationBonus(
 	return nil
 }
 
-// persistDrainCursor writes the era's frozen work list together with the shard
-// the voter walk starts at, so a settlement that repeatedly runs long does not
+// persistDrainCursor writes the era's frozen work list together with the seed
+// that determines where the voter walk starts, so a settlement that runs long does not
 // always serve the same corner of the address space first. No entries means no
 // voter drain is queued and no cursor is written — the absence of a cursor is
 // what tells later blocks there is nothing to continue.
@@ -1064,17 +1063,17 @@ func (p *Protocol) loadEpochDistributionInputs(
 
 // runVoterDistributionChunk advances the voter-major drain by one block.
 //
-// The drain walks the voter key space rather than the frozen delegate list. The
-// space is split into 256 shards by the first byte of the voter address; each
-// block resumes at cursor's current shard and, within it, just past
-// ResumeVoter, and pays at most VoterBudgetPerBlock voters (0 disables the
-// cap). A voter is paid once for everything they are owed across every delegate
-// they staked with, native and liquid-staking alike.
+// The drain walks the voter key space rather than the frozen delegate list. It
+// starts at a seed-derived address, scans to the end, wraps once, and scans the
+// remaining prefix. Each block resumes just past ResumeVoter and processes at
+// most 2000 voters; a lower configured limit is honored. A voter is paid once for
+// everything they are owed across every delegate they staked with, native and
+// liquid-staking alike.
 //
 // Why voter-major: the candidate-major walk paid a voter once per delegate,
 // which meant one destination lookup and one balance write per (voter,
 // delegate) pair, and it drove the walk from a frozen per-candidate entry list
-// that had to be materialized and stored at the era boundary. The shard walk
+// that had to be materialized and stored at the era boundary. The address walk
 // needs neither -- it recomputes each voter's weight on demand from the era's
 // frozen buckets.
 //
@@ -1092,7 +1091,7 @@ func (p *Protocol) runVoterDistributionChunk(
 	transactionLogs := make([]*action.TransactionLog, 0)
 	rewardLogs := make([]*action.Log, 0)
 
-	// The liquid-staking owner index is one of the two streams the shard walk
+	// The liquid-staking owner index is one of the two live streams the voter walk
 	// merges. Without it the walk still completes and still reports success --
 	// it just pays every contract staker nothing. A silent underpayment of real
 	// money is worse than a halted block, so refuse to run at all.
@@ -1146,7 +1145,6 @@ func (p *Protocol) runVoterDistributionChunk(
 		return nil, nil, err
 	}
 
-	ensureDistributed(cursor)
 	in := voterShareInputs{
 		window:       window,
 		staking:      routing.stakingProto,
@@ -1164,51 +1162,42 @@ func (p *Protocol) runVoterDistributionChunk(
 
 	budget := p.voterBudgetPerBlock(ctx)
 	remaining := budget
-	// keyBudget bounds the scan half of the per-block budget. `remaining`
-	// alone bounds only the voters this block *pays*; without keyBudget a
-	// single shard stuffed by an attacker (the first address byte is
-	// grindable) would be read in full before the first voter is paid. See
-	// voter_shard_scan_bound.go for why a coverage bound, and not a result
-	// count, is what makes the truncated scan safe to resume from.
+	// This bounds voter-index enumeration independently of the number of voters
+	// returned. Staking owns the four-stream merge and its safe resume point;
+	// rewarding only consumes the resulting voter page.
 	keyBudget := 0
 	if budget > 0 {
 		keyBudget = int(budget) * _voterScanKeyBudgetPerVoter
 	}
 	compoundedTotal := new(big.Int)
 	visited := 0
+	startVoter := settlementStartVoter(cursor.SettlementSeed)
+	minVoter := make([]byte, len(startVoter))
 
 	for !cursor.drainFinished() {
-		if budget > 0 && (remaining == 0 || keyBudget <= 0) {
+		if budget > 0 && (remaining == 0 || keyBudget < 4) {
 			break
 		}
-		shard := cursor.currentShard()
-		resumeBefore := cursor.ResumeVoter
-		reader := newBoundedShardReader(sm, voterScanLimit(remaining, keyBudget))
-		voters, err := staking.FrozenShardVoters(reader, window, shard, cursor.ResumeVoter)
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "rewarding: scan voter shard %d", shard)
+		var rangeStart, rangeEnd []byte
+		switch cursor.ScanPhase {
+		case voterScanTail:
+			rangeStart = startVoter
+		case voterScanHead:
+			rangeStart, rangeEnd = minVoter, startVoter
+		default:
+			return nil, nil, errors.Errorf("rewarding: invalid voter scan phase %d", cursor.ScanPhase)
 		}
-		keyBudget -= reader.keysScanned()
-		coverage, coverageComplete, err := reader.coverage()
+		page, err := staking.FrozenVotersPage(
+			sm, window, rangeStart, rangeEnd, cursor.ResumeVoter,
+			int(remaining), keyBudget,
+		)
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "rewarding: bound voter shard %d", shard)
+			return nil, nil, errors.Wrapf(err, "rewarding: scan voter range in phase %d", cursor.ScanPhase)
 		}
-		// A shard is finished only when the scans covered it end to end. A
-		// truncated scan leaves the tail unread, so the shard stays current and
-		// the resume point moves to the coverage bound instead.
-		budgetExhausted := false
-		for _, voter := range voters {
-			if budget > 0 && remaining == 0 {
-				budgetExhausted = true
-				break
-			}
-			if !coverageComplete && bytes.Compare(voter.Bytes(), coverage) > 0 {
-				// Beyond the coverage bound: some stream was truncated before
-				// this address, so paying it now could skip a voter that
-				// stream would have produced below it. `voters` is ascending,
-				// so everything after is beyond the bound too.
-				break
-			}
+		if budget > 0 {
+			keyBudget -= page.KeysScanned
+		}
+		for _, voter := range page.Voters {
 			shares, err := computeVoterShares(sm, in, voter)
 			if err != nil {
 				return nil, nil, err
@@ -1233,46 +1222,20 @@ func (p *Protocol) runVoterDistributionChunk(
 					compoundedTotal.Add(compoundedTotal, payout.amount)
 				}
 			}
-			// ResumeVoter is the last address visited, not the last one paid: a
-			// voter whose recomputed weight is zero still has to advance the
-			// cursor or every later block rediscovers and re-skips them.
-			cursor.ResumeVoter = append([]byte(nil), voter.Bytes()...)
 			visited++
 			if budget > 0 {
 				remaining--
 			}
 		}
-		if budgetExhausted {
-			// The voter budget ran out mid-shard. ResumeVoter already points at
-			// the last voter paid, and must not be advanced to the coverage
-			// bound -- the voters between the two have not been paid.
-			break
-		}
-		if !coverageComplete {
-			// The scan, not the payout loop, is what stopped short. Advance past
-			// everything proven scanned so the next round -- this block if key
-			// budget remains, otherwise the next block -- starts after it.
-			// Without this a shard denser than one round would be rescanned from
-			// the same offset forever.
-			//
-			// The coverage bound need not be a real voter address; ResumeVoter is
-			// only ever used as an exclusive lower bound within this shard.
-			//
-			// Assert that it strictly advances. A bounded scan that came back
-			// covering no more than the point it resumed from would leave the
-			// cursor exactly where it started, and the drain would rescan the
-			// same keys on every block for the rest of the era without ever
-			// finishing. That is a silent stall, so make it a loud failure.
-			if len(resumeBefore) > 0 && bytes.Compare(coverage, resumeBefore) <= 0 {
-				return nil, nil, errors.Errorf(
-					"rewarding: bounded scan of shard %d made no progress (coverage %x <= resume %x)",
-					shard, coverage, resumeBefore)
+		cursor.ResumeVoter = append(cursor.ResumeVoter[:0], page.Next...)
+		if !page.Done {
+			if len(page.Voters) == 0 && page.KeysScanned == 0 {
+				return nil, nil, errors.New("rewarding: bounded voter scan made no progress")
 			}
-			cursor.ResumeVoter = append([]byte(nil), coverage...)
 			continue
 		}
-		cursor.ShardsDone++
 		cursor.ResumeVoter = nil
+		cursor.ScanPhase++
 	}
 	addIIP59Items("chunk_voter", visited)
 
@@ -1311,28 +1274,6 @@ func (p *Protocol) runVoterDistributionChunk(
 		return nil, nil, err
 	}
 	return transactionLogs, rewardLogs, nil
-}
-
-// ensureDistributed pads the cursor's per-delegate running totals to the
-// delegate count so the clamp can index it without a bounds check.
-func ensureDistributed(cursor *epochDrainCursor) {
-	if len(cursor.Distributed) == len(cursor.Delegates) {
-		for i := range cursor.Distributed {
-			if cursor.Distributed[i] == nil {
-				cursor.Distributed[i] = new(big.Int)
-			}
-		}
-		return
-	}
-	padded := make([]*big.Int, len(cursor.Delegates))
-	for i := range padded {
-		if i < len(cursor.Distributed) && cursor.Distributed[i] != nil {
-			padded[i] = cursor.Distributed[i]
-			continue
-		}
-		padded[i] = new(big.Int)
-	}
-	cursor.Distributed = padded
 }
 
 // bookVoterPayout books the funds one voter's combined transfer moved: draw
@@ -1384,7 +1325,7 @@ func (p *Protocol) completeEpochDrain(
 		return err
 	}
 	cursor.CompletedHeight = blkCtx.BlockHeight
-	cursor.ShardsDone = totalShards
+	cursor.ScanPhase = voterScanDone
 	cursor.ResumeVoter = nil
 	stop := startIIP59Duration("cursor_write_complete")
 	defer stop()
@@ -1408,18 +1349,20 @@ func (p *Protocol) settleCompoundOutflow(
 	}, nil
 }
 
-// voterBudgetPerBlock returns the maximum number of voters to pay out per
-// block during the IIP-59 era-boundary drain. Zero means unbounded — a
-// whole era settles in one block regardless of how many voters exist. This is
-// the behavior before the fork gate opens and whenever VoterBudgetPerBlock is
-// left at 0. When non-zero, a single key-space shard may span multiple
-// continuation blocks; the cursor's ResumeVoter records the resume position
-// inside that shard.
+// voterBudgetPerBlock returns the maximum number of voters processed by one
+// IIP-59 drain block. Before activation zero preserves the legacy path. After
+// activation the configured value may lower the limit, but zero and values
+// above 2000 are clamped to the consensus-safe maximum.
 func (p *Protocol) voterBudgetPerBlock(ctx context.Context) uint32 {
 	if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
 		return 0
 	}
-	return uint32(p.cfg.VoterBudgetPerBlock)
+	const maxVotersPerBlock = uint64(2000)
+	configured := p.cfg.VoterBudgetPerBlock
+	if configured == 0 || configured > maxVotersPerBlock {
+		return uint32(maxVotersPerBlock)
+	}
+	return uint32(configured)
 }
 
 func (p *Protocol) encodeRewardLog(
@@ -1461,7 +1404,7 @@ func (p *Protocol) handlePhaseAEntryOverrun(
 	}
 	log.L().Warn("IIP-59: prior era drain overran into Phase A; residue rolls into next era",
 		zap.Uint64("staleTargetEra", cursor.TargetEra),
-		zap.Uint32("staleShardsDone", uint32(cursor.ShardsDone)),
+		zap.Uint8("staleScanPhase", uint8(cursor.ScanPhase)),
 		zap.Uint32("delegatesRemaining", remaining),
 		zap.String("residue", residue.String()),
 	)
@@ -1540,14 +1483,11 @@ func (p *Protocol) encodeCursorProgressLog(
 ) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	remaining := uint32(0)
-	if !cursor.drainFinished() {
-		remaining = uint32(totalShards - cursor.ShardsDone)
-	}
+	remaining := uint32(voterScanDone - cursor.ScanPhase)
 	data, err := proto.Marshal(&rewardingpb.RewardLog{
 		Type: rewardingpb.RewardLog_CURSOR_PROGRESS,
 		Addr: fmt.Sprintf("%d:%d:%x:%d",
-			cursor.TargetEra, cursor.ShardsDone, cursor.ResumeVoter, remaining),
+			cursor.TargetEra, cursor.ScanPhase, cursor.ResumeVoter, remaining),
 		Amount: "0",
 	})
 	if err != nil {

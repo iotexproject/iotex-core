@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -71,6 +72,15 @@ func eraTestContractBucket(owner, cand int, amount int64) *contractstaking.Bucke
 		CreatedAt:        1,
 		IsTimestampBased: true,
 	}
+}
+
+func eraTestAddress(t *testing.T, prefix, suffix byte) address.Address {
+	t.Helper()
+	raw := make([]byte, 20)
+	raw[0], raw[len(raw)-1] = prefix, suffix
+	addr, err := address.FromBytes(raw)
+	require.NoError(t, err)
+	return addr
 }
 
 // TestBeginEraCOWWindowFreezesBucketHighWaterMarks pins the two boundaries the
@@ -214,6 +224,161 @@ func TestFrozenNativeBucketSurvivesWithdrawal(t *testing.T) {
 	indices, err := FrozenNativeBucketIndices(sm, window, voter)
 	r.NoError(err)
 	r.Equal(BucketIndices{index}, indices)
+}
+
+func TestFrozenVotersPageCountsVotersNotBuckets(t *testing.T) {
+	r := require.New(t)
+	ctx := forkGateCtx(eraTestFreezeHeight, true)
+	sm := eraTestSM(t)
+	csm := eraTestCSM(ctx, sm)
+	cand := identityset.Address(1)
+	voters := []address.Address{
+		eraTestAddress(t, 0x10, 1),
+		eraTestAddress(t, 0x40, 2),
+		eraTestAddress(t, 0x70, 3),
+	}
+
+	var withdrawn uint64
+	for i, voter := range voters {
+		buckets := 1
+		if i == 1 {
+			buckets = 3
+		}
+		for j := 0; j < buckets; j++ {
+			bucket := NewVoteBucket(cand, voter, big.NewInt(int64(100+j)), 91, time.Now(), true)
+			index, err := csm.putBucketAndIndex(bucket)
+			r.NoError(err)
+			if i == 2 {
+				withdrawn = index
+			}
+		}
+	}
+	r.NoError(beginEraCOWWindow(ctx, sm, eraTestFreezeHeight))
+	window, err := EraCOWWindow(sm)
+	r.NoError(err)
+
+	// Delete the third voter's only live index entry. Its frozen voter index is
+	// now available only through COW and must still be enumerated.
+	r.NoError(csm.delBucketAndIndex(voters[2], cand, withdrawn))
+
+	first, err := FrozenVotersPage(sm, window, make([]byte, 20), nil, nil, 2, 100)
+	r.NoError(err)
+	r.False(first.Done)
+	r.Equal(voters[:2], first.Voters,
+		"three buckets owned by one voter must consume one voter slot")
+
+	second, err := FrozenVotersPage(sm, window, make([]byte, 20), nil, first.Next, 2, 100)
+	r.NoError(err)
+	r.True(second.Done)
+	r.Equal([]address.Address{voters[2]}, second.Voters,
+		"a voter deleted from the live index must be recovered from COW")
+}
+
+func TestFrozenVotersPageAdvancesAcrossCOWTombstones(t *testing.T) {
+	r := require.New(t)
+	ctx := forkGateCtx(eraTestFreezeHeight, true)
+	sm := eraTestSM(t)
+	csm := eraTestCSM(ctx, sm)
+	cand := identityset.Address(1)
+	owed := eraTestAddress(t, 0xf0, 1)
+	owedBucket := NewVoteBucket(cand, owed, big.NewInt(100), 91, time.Now(), true)
+	_, err := csm.putBucketAndIndex(owedBucket)
+	r.NoError(err)
+	r.NoError(beginEraCOWWindow(ctx, sm, eraTestFreezeHeight))
+	window, err := EraCOWWindow(sm)
+	r.NoError(err)
+
+	// These voters enter and fully exit after the freeze. Their live index keys
+	// are gone and their COW entries are tombstones, so they consume scan work
+	// without becoming voters in the frozen page.
+	for i := 0; i < 10; i++ {
+		voter := eraTestAddress(t, 0x10, byte(i+1))
+		bucket := NewVoteBucket(cand, voter, big.NewInt(100), 91, time.Now(), true)
+		index, err := csm.putBucketAndIndex(bucket)
+		r.NoError(err)
+		r.NoError(csm.delBucketAndIndex(voter, cand, index))
+	}
+
+	var (
+		resume     []byte
+		got        []address.Address
+		emptyPages int
+	)
+	for i := 0; i < 20; i++ {
+		page, err := FrozenVotersPage(sm, window, make([]byte, 20), nil, resume, 2, 8)
+		r.NoError(err)
+		if len(page.Voters) == 0 && !page.Done {
+			emptyPages++
+		}
+		got = append(got, page.Voters...)
+		resume = page.Next
+		if page.Done {
+			break
+		}
+	}
+	r.Positive(emptyPages, "tombstone-only pages must advance without inventing voters")
+	r.Equal([]address.Address{owed}, got)
+}
+
+func TestFrozenVotersPageDoesNotCountPostFreezeVoters(t *testing.T) {
+	r := require.New(t)
+	ctx := forkGateCtx(eraTestFreezeHeight, true)
+	sm := eraTestSM(t)
+	csm := eraTestCSM(ctx, sm)
+	cand := identityset.Address(1)
+	owed := eraTestAddress(t, 0xf0, 1)
+	_, err := csm.putBucketAndIndex(NewVoteBucket(cand, owed, big.NewInt(100), 91, time.Now(), true))
+	r.NoError(err)
+	r.NoError(beginEraCOWWindow(ctx, sm, eraTestFreezeHeight))
+	window, err := EraCOWWindow(sm)
+	r.NoError(err)
+
+	// The newcomer has a live index, but its COW tombstone says that index did
+	// not exist at the freeze height. It must not consume the single voter slot.
+	newcomer := eraTestAddress(t, 0x10, 1)
+	_, err = csm.putBucketAndIndex(NewVoteBucket(cand, newcomer, big.NewInt(100), 91, time.Now(), true))
+	r.NoError(err)
+	page, err := FrozenVotersPage(sm, window, make([]byte, 20), nil, nil, 1, 100)
+	r.NoError(err)
+	r.Equal([]address.Address{owed}, page.Voters)
+	next, err := FrozenVotersPage(sm, window, make([]byte, 20), nil, page.Next, 1, 100)
+	r.NoError(err)
+	r.True(next.Done)
+	r.Empty(next.Voters)
+}
+
+func TestFrozenVotersPageAppliesCOWPerIndexFamily(t *testing.T) {
+	r := require.New(t)
+	ctx := forkGateCtx(eraTestFreezeHeight, true)
+	sm := eraTestSM(t)
+	csm := eraTestCSM(ctx, sm)
+	cs := contractstaking.NewContractStakingStateManager(sm)
+	cand := identityset.Address(1)
+	contract := identityset.Address(20)
+	nativeAtFreeze := eraTestAddress(t, 0x40, 1)
+	contractAtFreeze := eraTestAddress(t, 0x80, 1)
+
+	_, err := csm.putBucketAndIndex(NewVoteBucket(cand, nativeAtFreeze, big.NewInt(100), 91, time.Now(), true))
+	r.NoError(err)
+	r.NoError(cs.UpsertBucket(ctx, contract, 1, &contractstaking.Bucket{
+		Owner: contractAtFreeze, Candidate: cand, StakedAmount: big.NewInt(100),
+	}))
+	r.NoError(beginEraCOWWindow(ctx, sm, eraTestFreezeHeight))
+	window, err := EraCOWWindow(sm)
+	r.NoError(err)
+
+	// Each voter enters the other index family only after the freeze. Those
+	// family-specific tombstones must not hide the index that did exist at H.
+	r.NoError(cs.UpsertBucket(ctx, contract, 2, &contractstaking.Bucket{
+		Owner: nativeAtFreeze, Candidate: cand, StakedAmount: big.NewInt(100),
+	}))
+	_, err = csm.putBucketAndIndex(NewVoteBucket(cand, contractAtFreeze, big.NewInt(100), 91, time.Now(), true))
+	r.NoError(err)
+
+	page, err := FrozenVotersPage(sm, window, make([]byte, 20), nil, nil, 10, 100)
+	r.NoError(err)
+	r.True(page.Done)
+	r.Equal([]address.Address{nativeAtFreeze, contractAtFreeze}, page.Voters)
 }
 
 // TestFrozenNativeBucketRejectsPostFreezeIndex pins the high-water mark: a

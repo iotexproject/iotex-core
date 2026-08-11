@@ -24,7 +24,8 @@ import (
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
-const _settlementSeedDomain = "iip59.settlement-start.v1"
+const _settlementSeedDomain = "iip59.settlement-start.v2"
+const _epochDrainProgressVersion = uint32(1)
 
 // epochDrainDelegateWork is one immutable per-delegate allocation input.
 type epochDrainDelegateWork struct {
@@ -56,32 +57,26 @@ const noSelfStakeBucketIndex = staking.NoSelfStakeBucketIndex
 // epochDrainCursor composes the immutable plan and mutable progress used by
 // execution and ReadState. Only its two embedded parts are persisted.
 //
-// The drain walks the voter key space rather than the delegate list. The space
-// is split into 256 shards by the first byte of the voter address; the start
-// shard is derived from SettlementSeed, ShardsDone counts finished shards
-// (256 means done), and ResumeVoter is the last address visited inside the
-// shard currently in progress. Distributed is the per-delegate running payout
-// total, positionally aligned with Delegates, and is what the payout clamp
-// measures against. Completed cursors remain available for voter queries until
-// the next era boundary; only incomplete cursors emit continuation actions.
+// The drain walks the voter address space from a seed-derived start. It first
+// scans the tail [start, max], then wraps once and scans the head [min, start).
+// ResumeVoter is an exclusive lower bound in the current range. Distributed is
+// the per-delegate running payout total, positionally aligned with Delegates.
+// Completed cursors remain available for voter queries until the next era
+// boundary; only incomplete cursors emit continuation actions.
 type epochDrainCursor struct {
 	epochDrainPlan
 	epochDrainProgress
 }
 
-// totalShards is the number of key-space shards a drain visits. Aliased from
-// staking so the two cannot drift: the shard id is the first byte of an
-// address, and it is staking that owns the key layout being sharded.
-const totalShards = uint16(staking.AddressShards)
+type voterScanPhase uint8
 
-// currentShard is the shard the next voter will come from. Meaningless once the
-// drain is over, which is what shardsRemaining is for.
-func (c *epochDrainCursor) currentShard() byte {
-	return byte((uint16(settlementStartShard(c.SettlementSeed)) + c.ShardsDone) % totalShards)
-}
+const (
+	voterScanTail voterScanPhase = iota
+	voterScanHead
+	voterScanDone
+)
 
-// drainFinished reports whether every shard has been walked.
-func (c *epochDrainCursor) drainFinished() bool { return c.ShardsDone >= totalShards }
+func (c *epochDrainCursor) drainFinished() bool { return c.ScanPhase == voterScanDone }
 
 // distributedAt returns the running payout total for one delegate.
 func (c *epochDrainCursor) distributedAt(i int) *big.Int {
@@ -104,7 +99,7 @@ type epochDrainPlan struct {
 // epochDrainProgress is the compact checkpoint rewritten by continuation
 // blocks.
 type epochDrainProgress struct {
-	ShardsDone      uint16
+	ScanPhase       voterScanPhase
 	ResumeVoter     []byte
 	Distributed     []*big.Int
 	CompletedHeight uint64
@@ -118,8 +113,8 @@ func (c epochDrainCursor) Serialize() ([]byte, error) {
 		SettlementSeed:  c.SettlementSeed,
 		Completed:       c.drainFinished(),
 		CompletedHeight: c.CompletedHeight,
-		StartShard:      uint32(settlementStartShard(c.SettlementSeed)),
-		ShardsDone:      uint32(c.ShardsDone),
+		StartVoter:      settlementStartVoter(c.SettlementSeed),
+		ScanPhase:       uint32(c.ScanPhase),
 		ResumeVoter:     c.ResumeVoter,
 	}
 	if len(c.Delegates) > 0 {
@@ -146,7 +141,7 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 	c.SettlementSeed = append(c.SettlementSeed[:0], m.GetSettlementSeed()...)
 	c.CompletedHeight = m.GetCompletedHeight()
 	var err error
-	if c.ShardsDone, err = decodeShardsDone(m.GetShardsDone()); err != nil {
+	if c.ScanPhase, err = decodeVoterScanPhase(m.GetScanPhase()); err != nil {
 		return err
 	}
 	c.ResumeVoter = append(c.ResumeVoter[:0], m.GetResumeVoter()...)
@@ -163,12 +158,11 @@ func (c *epochDrainCursor) Deserialize(data []byte) error {
 	return nil
 }
 
-// decodeShardsDone allows the full count, which is the "drain finished" value.
-func decodeShardsDone(v uint32) (uint16, error) {
-	if v > uint32(totalShards) {
-		return 0, errors.Errorf("rewarding: shards done %d out of range", v)
+func decodeVoterScanPhase(v uint32) (voterScanPhase, error) {
+	if v > uint32(voterScanDone) {
+		return 0, errors.Errorf("rewarding: voter scan phase %d out of range", v)
 	}
-	return uint16(v), nil
+	return voterScanPhase(v), nil
 }
 
 func epochDrainDelegateWorkToProto(d epochDrainDelegateWork) *rewardingpb.EpochDrainDelegateWork {
@@ -236,9 +230,10 @@ func (p *epochDrainPlan) Decode(v systemcontracts.GenericValue) error {
 
 func (p epochDrainProgress) Serialize() ([]byte, error) {
 	m := &rewardingpb.EpochDrainProgress{
-		ShardsDone:      uint32(p.ShardsDone),
+		ScanPhase:       uint32(p.ScanPhase),
 		ResumeVoter:     p.ResumeVoter,
 		CompletedHeight: p.CompletedHeight,
+		SchemaVersion:   _epochDrainProgressVersion,
 	}
 	if len(p.Distributed) > 0 {
 		m.VoterDistributed = make([][]byte, len(p.Distributed))
@@ -254,8 +249,13 @@ func (p *epochDrainProgress) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, m); err != nil {
 		return err
 	}
+	if m.GetSchemaVersion() != _epochDrainProgressVersion {
+		return errors.Errorf(
+			"rewarding: unsupported epoch drain progress version %d", m.GetSchemaVersion(),
+		)
+	}
 	var err error
-	if p.ShardsDone, err = decodeShardsDone(m.GetShardsDone()); err != nil {
+	if p.ScanPhase, err = decodeVoterScanPhase(m.GetScanPhase()); err != nil {
 		return err
 	}
 	p.ResumeVoter = append(p.ResumeVoter[:0], m.GetResumeVoter()...)
@@ -293,7 +293,7 @@ func epochDrainProgressFromCursor(c *epochDrainCursor) *epochDrainProgress {
 		distributed[i] = new(big.Int).Set(c.distributedAt(i))
 	}
 	return &epochDrainProgress{
-		ShardsDone:      c.ShardsDone,
+		ScanPhase:       c.ScanPhase,
 		ResumeVoter:     c.ResumeVoter,
 		Distributed:     distributed,
 		CompletedHeight: c.CompletedHeight,
@@ -349,23 +349,13 @@ func settlementSeed(ctx context.Context, targetEra uint64) hash.Hash256 {
 	return hash.Hash256b(payload)
 }
 
-// settlementListOffset treats seed as an unsigned big-endian integer and
-// maps it into [0, length). Empty lists have no valid offset and return zero.
-func settlementListOffset(seed []byte, length int) uint32 {
-	if length <= 0 {
-		return 0
-	}
-	n := new(big.Int).SetBytes(seed)
-	n.Mod(n, new(big.Int).SetUint64(uint64(length)))
-	return uint32(n.Uint64())
-}
-
-// settlementStartShard maps the settlement seed onto the 256-shard key space.
-// The rotation exists so the shard visited first is not always shard 0, which
-// would let an address prefix buy a permanent position at the head or tail of
-// every drain.
-func settlementStartShard(seed []byte) uint8 {
-	return uint8(settlementListOffset(seed, int(totalShards)))
+// settlementStartVoter maps the uniformly distributed settlement seed onto the
+// 160-bit voter address space. Production seeds are 32 bytes; copying the first
+// 20 bytes keeps the mapping transparent to off-chain readers.
+func settlementStartVoter(seed []byte) []byte {
+	start := make([]byte, 20)
+	copy(start, seed)
+	return start
 }
 
 // epochDrainBigIntBytes returns big-endian bytes, or nil for nil.
@@ -474,17 +464,16 @@ func (p *Protocol) reportVoterRewardChunkFailure(
 		zap.Error(cause),
 	}
 	var (
-		shardsDone uint16
-		hasCursor  bool
+		scanPhase voterScanPhase
+		hasCursor bool
 	)
 	if c, err := p.readEpochDrainCursor(ctx, sm); err == nil && c != nil {
-		shardsDone, hasCursor = c.ShardsDone, true
+		scanPhase, hasCursor = c.ScanPhase, true
 		fields = append(fields,
 			zap.Uint64("targetEra", c.TargetEra),
 			zap.Uint64("freezeHeight", c.FreezeHeight),
-			zap.Uint16("shardsDone", c.ShardsDone),
-			zap.Uint8("currentShard", c.currentShard()),
-			// One address, the shard walk's resume point -- not the voter set.
+			zap.Uint8("scanPhase", uint8(c.ScanPhase)),
+			// One address, the global walk's resume point -- not the voter set.
 			// The voter set is unbounded and never belongs in a log line.
 			zap.String("resumeVoter", hex.EncodeToString(c.ResumeVoter)),
 			zap.Int("delegates", len(c.Delegates)),
@@ -492,10 +481,10 @@ func (p *Protocol) reportVoterRewardChunkFailure(
 		)
 	}
 	log.L().Error("IIP-59 voter reward chunk failed; drain cursor did not advance", fields...)
-	noteIIP59DrainChunkFailure(shardsDone, hasCursor)
+	noteIIP59DrainChunkFailure(scanPhase, hasCursor)
 }
 
-// TestOnlyEpochDrainSnapshot returns the live cursor's shards-done count, the
+// TestOnlyEpochDrainSnapshot returns the live cursor's scan phase, the
 // length of its resume-voter checkpoint, the total delegate count, and the
 // target era, or zero values with present=false when no drain is in progress.
 // Used by the e2e perf bench to watch the drain advance chunk by chunk.
@@ -503,10 +492,10 @@ func (p *Protocol) reportVoterRewardChunkFailure(
 func (p *Protocol) TestOnlyEpochDrainSnapshot(
 	ctx context.Context,
 	sm protocol.StateReader,
-) (shardsDone uint32, resumeVoterLen uint32, totalDelegates uint32, targetEra uint64, present bool, err error) {
+) (scanPhase uint32, resumeVoterLen uint32, totalDelegates uint32, targetEra uint64, present bool, err error) {
 	c, err := p.readEpochDrainCursor(ctx, sm)
 	if err != nil || c == nil || c.drainFinished() {
 		return 0, 0, 0, 0, false, err
 	}
-	return uint32(c.ShardsDone), uint32(len(c.ResumeVoter)), uint32(len(c.Delegates)), c.TargetEra, true, nil
+	return uint32(c.ScanPhase), uint32(len(c.ResumeVoter)), uint32(len(c.Delegates)), c.TargetEra, true, nil
 }

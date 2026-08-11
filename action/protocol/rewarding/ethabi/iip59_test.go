@@ -160,9 +160,9 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 		Completed:       true,
 		CompletedHeight: 99,
 		FreezeHeight:    8_800,
-		StartShard:      7,
-		ShardsDone:      256,
-		ResumeVoter:     identityset.Address(5).Bytes(),
+		StartVoter:      identityset.Address(5).Bytes(),
+		ScanPhase:       2,
+		ResumeVoter:     identityset.Address(6).Bytes(),
 		SettlementSeed:  common.HexToHash("0x9876").Bytes(),
 		Delegates: []*rewardingpb.EpochDrainDelegateWork{{
 			CandidateIdentifier:    identityset.Address(3).Bytes(),
@@ -183,9 +183,9 @@ func TestIIP59CursorAndSnapshotEncoding(t *testing.T) {
 	r.Equal(true, values[1])
 	r.Equal(uint64(99), values[2])
 	r.Equal(uint64(8_800), values[3])
-	r.Equal(uint32(7), values[4])
-	r.Equal(uint32(256), values[5])
-	r.Equal(identityset.Address(5).Bytes(), values[6])
+	r.Equal(common.BytesToAddress(identityset.Address(5).Bytes()), values[4])
+	r.Equal(uint32(2), values[5])
+	r.Equal(identityset.Address(6).Bytes(), values[6])
 	r.Equal([32]byte(common.HexToHash("0x9876")), values[7])
 	r.Equal([]common.Address{common.BytesToAddress(identityset.Address(3).Bytes())}, values[8])
 	r.Zero(values[9].([]*big.Int)[0].Cmp(big.NewInt(1000)))
@@ -250,9 +250,9 @@ func TestIIP59RetiredVoterRewardSnapshotSelector(t *testing.T) {
 // selector is reachable from calldata that is nothing but the 4-byte id. Its
 // tuple carried the candidate-major quartet (delegateIndex, voterIndex,
 // delegateStartIndex, voterStartIndices); the drain is voter-major now and the
-// replacement carries (startShard, shardsDone, resumeVoter) instead. Decoded
-// against the old ABI, a shard counter reads as a delegate index -- a small
-// plausible number, which is the worst kind of wrong.
+// replacement carries (startVoter, scanPhase, resumeVoter) instead. Decoded
+// against the old ABI, bytes from the circular-address cursor would be read as
+// candidate-major positions, producing plausible but wrong progress.
 func TestIIP59RetiredEpochDrainCursorSelector(t *testing.T) {
 	r := require.New(t)
 	retired := abiutil.MustLoadMethod(`[
@@ -262,6 +262,18 @@ func TestIIP59RetiredEpochDrainCursorSelector(t *testing.T) {
 	r.NotEqual(retired.ID, _eraDrainCursorMethod.ID,
 		"the replacement must not reuse the retired selector")
 
+	_, err := BuildReadStateRequest(retired.ID)
+	r.ErrorIs(err, errInvalidCallSig)
+}
+
+func TestIIP59RetiredShardEraDrainCursorSelector(t *testing.T) {
+	r := require.New(t)
+	retired := abiutil.MustLoadMethod(`[
+		{"inputs":[],"name":"eraDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"completed","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"freezeHeight","type":"uint64"},{"name":"startShard","type":"uint32"},{"name":"shardsDone","type":"uint32"},{"name":"resumeVoter","type":"bytes"},{"name":"settlementSeed","type":"bytes32"},{"name":"candidateIds","type":"address[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"},{"name":"selfStakeBucketIdxs","type":"uint64[]"}],"stateMutability":"view","type":"function"}
+	]`, "eraDrainCursor")
+
+	r.NotEqual(retired.ID, _eraDrainCursorMethod.ID,
+		"the global voter scan must not reuse the retired shard cursor selector")
 	_, err := BuildReadStateRequest(retired.ID)
 	r.ErrorIs(err, errInvalidCallSig)
 }

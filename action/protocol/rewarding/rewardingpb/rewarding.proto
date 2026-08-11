@@ -56,7 +56,7 @@ message RewardLog {
         // GrantVoterRewardChunk before the drain runs, so off-chain
         // observers can track cursor pile-up across a multi-block drain
         // without inspecting state directly. addr encodes
-        // "<target_era>:<delegate_index>:<voter_index>:<delegates_remaining>";
+        // "<target_era>:<scan_phase>:<resume_voter>:<ranges_remaining>";
         // amount is the fixed literal "0" (no monetary value — this is a
         // cursor snapshot, not a payout).
         CURSOR_PROGRESS = 6;
@@ -136,42 +136,39 @@ message EpochDrainDelegateWork {
 // EpochDrainCursor checkpoints a multi-block IIP-59 era-boundary drain of
 // PendingBlockRewardPool balances into voter accounts.
 //
-// The drain walks the voter key space, not the delegate list: the space is
-// split into 256 shards by the first byte of the voter address, and the shards
-// are visited in a rotation starting at start_shard. shards_done counts the
-// shards fully finished so far, so the drain is over at 256; resume_voter is
-// the last voter address visited inside the shard currently in progress, which
-// is what lets a block stop part-way through a shard whose population an
-// attacker chose. An incomplete cursor signals that the system-action layer
-// must emit a continuation grant. A completed cursor is retained for voter
-// queries until the next era boundary replaces it.
+// The drain walks the voter key space, not the delegate list. It starts at a
+// settlement-seed-derived address, scans to the end of the address space, then
+// wraps once and scans up to the start. resume_voter is the exclusive lower
+// bound in the current range. An incomplete cursor signals that the
+// system-action layer must emit a continuation grant. A completed cursor is
+// retained for voter queries until the next era boundary replaces it.
 message EpochDrainCursor {
     uint64 target_era     = 1;
     // 2 was delegate_index, 4 was voter_index and 6 was delegate_start_index:
     // the resume position of the old candidate-major drain, which walked the
     // frozen delegate list and, inside each delegate, a frozen voter list.
-    // Nothing in the shard walk corresponds to them. Retired, never reused.
+    // Nothing in the voter-major walk corresponds to them. Retired, never reused.
     reserved 2, 4, 6;
     repeated EpochDrainDelegateWork delegates = 3;
     // Domain-separated hash of the parent block hash and target era. The
-    // same value determines start_shard for this settlement.
+    // first 20 bytes determine start_voter for this settlement.
     bytes settlement_seed = 5;
-    // Derived from shards_done == 256.
+    // Derived from scan_phase == 2.
     bool completed = 7;
     uint64 completed_height = 8;
     // An accumulated pending pool may span reward eras, so these fields did
     // not describe the money being settled precisely.
     reserved 9, 10;
-    // First shard of the visit rotation, derived from settlement_seed. Shard
-    // (start_shard + n) mod 256 is the n-th shard visited.
-    uint32 start_shard = 11;
-    // Number of shards fully drained. 256 means the drain is over, which is why
-    // this cannot be a uint8.
-    uint32 shards_done = 12;
-    // Last voter address visited in the shard now in progress; empty when that
-    // shard has not been entered yet. Resume skips every address <= this one.
+    // start_shard and shards_done belonged to the retired 256-shard walk.
+    reserved 11, 12;
+    // Exclusive lower bound in the current address range. It may be a scan
+    // coverage point at which no voter exists.
     bytes resume_voter = 13;
     uint64 freeze_height = 14;
+    // First address of the circular walk, derived from settlement_seed.
+    bytes start_voter = 15;
+    // 0 scans [start_voter, max], 1 scans [min, start_voter), 2 is complete.
+    uint32 scan_phase = 16;
 }
 
 // VoterRewardAddress is the effective post-IIP-59 delegate payout address.
@@ -231,11 +228,10 @@ message EpochDrainPlan {
     repeated EpochDrainDelegateWork delegates = 2;
     bytes settlement_seed = 3;
     // 4 was delegate_start_index, the rotation offset into the delegate list
-    // the candidate-major drain walked. The rotation now applies to the shard
-    // sequence and lives in start_shard. Retired, never reused.
+    // the candidate-major drain walked. Retired, never reused.
     reserved 4;
     // start_epoch/end_epoch were inaccurate once pending balances could carry
-    // across eras. start_shard is derived from settlement_seed.
+    // across eras. start_voter is derived from settlement_seed.
     reserved 5, 6, 7;
     uint64 freeze_height = 8;
 }
@@ -250,15 +246,15 @@ message EpochDrainProgress {
     // touches many delegates per block, so it has to carry one running total
     // per delegate -- voter_distributed below. Retired, never reused.
     reserved 2, 3, 4;
-    // completed is derived from shards_done == 256.
+    // completed is derived from scan_phase == 2.
     reserved 5;
     uint64 completed_height = 6;
     // Invalid work is excluded while the plan is built, so no delegate can be
     // dynamically skipped during a drain.
     reserved 7;
-    // Number of shards fully drained; 256 means done.
-    uint32 shards_done = 8;
-    // Last voter address visited in the shard now in progress.
+    // shards_done belonged to the retired 256-shard walk.
+    reserved 8;
+    // Exclusive lower bound in the current address range.
     bytes resume_voter = 9;
     // Running distributed total per delegate, positionally aligned with
     // EpochDrainPlan.delegates. Big-endian unsigned; an entry shorter than the
@@ -268,4 +264,9 @@ message EpochDrainProgress {
     // for most of the settlement, and there is no index position from which the
     // per-delegate totals could be inferred.
     repeated bytes voter_distributed = 10;
+    // 0 scans [start_voter, max], 1 scans [min, start_voter), 2 is complete.
+    uint32 scan_phase = 11;
+    // Version 1 is the global circular voter scan. A missing version is the
+    // retired shard cursor and must not be resumed under the new semantics.
+    uint32 schema_version = 12;
 }

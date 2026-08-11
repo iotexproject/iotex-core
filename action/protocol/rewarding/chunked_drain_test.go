@@ -24,10 +24,8 @@ import (
 )
 
 // TestVoterBudgetPerBlock confirms the fork gate short-circuits the
-// voter-count cap. Pre-fork, VoterBudgetPerBlock is force-zeroed so
-// distributeVoterOnly never runs a window; the payout stays unbounded
-// (matches genesis-parity). Post-fork the configured value is passed
-// through.
+// voter-count cap. Pre-fork, VoterBudgetPerBlock is force-zeroed. Post-fork,
+// values may lower the cap but cannot disable or raise the 2000-voter bound.
 func TestVoterBudgetPerBlock(t *testing.T) {
 	r := require.New(t)
 
@@ -42,8 +40,16 @@ func TestVoterBudgetPerBlock(t *testing.T) {
 		"post-fork with budget=2000: voter budget must be 2000")
 
 	pForkOn.cfg.VoterBudgetPerBlock = 0
-	r.Equal(uint32(0), pForkOn.voterBudgetPerBlock(forkOn),
-		"post-fork with budget=0: voter budget must be 0 (unbounded voters per delegate)")
+	r.Equal(uint32(2000), pForkOn.voterBudgetPerBlock(forkOn),
+		"post-fork with budget=0: use the safe default")
+
+	pForkOn.cfg.VoterBudgetPerBlock = 3000
+	r.Equal(uint32(2000), pForkOn.voterBudgetPerBlock(forkOn),
+		"post-fork budget cannot exceed the consensus maximum")
+
+	pForkOn.cfg.VoterBudgetPerBlock = ^uint64(0)
+	r.Equal(uint32(2000), pForkOn.voterBudgetPerBlock(forkOn),
+		"conversion overflow must not turn the cap into zero/unbounded")
 }
 
 // TestGrantEpochReward_DefaultsToOwnerWhenProfileUnregistered confirms that a
@@ -292,7 +298,7 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(got, "cursor must survive a legacy epoch grant")
 		r.Equal(injected.TargetEra, got.TargetEra)
-		r.Equal(injected.ShardsDone, got.ShardsDone)
+		r.Equal(injected.ScanPhase, got.ScanPhase)
 		r.Len(got.Delegates, 1)
 		r.Equal(injected.Delegates[0].CandidateIdentifier, got.Delegates[0].CandidateIdentifier)
 		r.Equal(int64(42), got.Delegates[0].VoterAmountFrozen.Int64())
@@ -345,7 +351,7 @@ func TestGrantEpochReward_PoolAccrualBuildsCursor(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(got, "pool accrual must build a cursor entry")
 		r.Equal(uint64(1), got.TargetEra)
-		r.Equal(uint16(0), got.ShardsDone)
+		r.Equal(voterScanTail, got.ScanPhase)
 
 		var found bool
 		for _, work := range got.Delegates {

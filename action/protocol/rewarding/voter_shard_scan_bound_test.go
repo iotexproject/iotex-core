@@ -19,10 +19,8 @@ import (
 )
 
 // scanCountingStateManager counts the keys every ranged States() scan
-// materializes. That is the quantity R4 is about: the per-block voter budget
-// used to bound only the voters a block *paid*, while the shard read that fed
-// the loop was issued unbounded and therefore sized by the shard, which an
-// attacker chooses.
+// materializes. VoterBudgetPerBlock bounds voters processed; the independent
+// key budget prevents enumeration work from following the total index size.
 type scanCountingStateManager struct {
 	protocol.StateManager
 	rangeScans    int
@@ -42,10 +40,7 @@ func (c *scanCountingStateManager) States(opts ...protocol.StateOption) (uint64,
 	return height, iter, err
 }
 
-// stuffedShardScenario plants `count` voters that all share one shard byte,
-// which is the adversarial shape: the first byte of an address is grindable, so
-// an attacker can pile an unbounded number of voters into a single contiguous
-// key range and make whichever block lands on that shard read all of it.
+// stuffedShardScenario plants `count` voters in one compact address range.
 func stuffedShardScenario(
 	t *testing.T,
 	shard byte,
@@ -75,7 +70,7 @@ func stuffedShardScenario(
 	return ctx, &scanCountingStateManager{StateManager: sm}, p, voters
 }
 
-// TestVoterDrainScanCostDoesNotFollowShardSize is the R4 regression.
+// TestVoterDrainScanCostDoesNotFollowVoterSetSize is the R4 regression.
 //
 // It is deliberately a *relative* assertion. An absolute key count would encode
 // how many index streams the fixture happens to populate and would have to be
@@ -84,7 +79,7 @@ func stuffedShardScenario(
 // increase what a single block reads. Before the fix the first block scanned
 // the whole shard, so the two counts differed by the same factor as the shard
 // sizes.
-func TestVoterDrainScanCostDoesNotFollowShardSize(t *testing.T) {
+func TestVoterDrainScanCostDoesNotFollowVoterSetSize(t *testing.T) {
 	r := require.New(t)
 	const shard = byte(0x7a)
 	const budget = uint64(5)
@@ -102,25 +97,22 @@ func TestVoterDrainScanCostDoesNotFollowShardSize(t *testing.T) {
 
 	r.Greater(small, 0, "the fixture must actually issue ranged scans")
 	r.LessOrEqual(large, small,
-		"one block's scan cost must be set by the per-block budget, not by shard population "+
+		"one block's scan cost must be set by the per-block budget, not by voter population "+
 			"(50 voters cost %d keys, 200 voters cost %d)", small, large)
 	r.Less(large, 200,
-		"a single block must not materialize a whole stuffed shard (read %d keys for 200 voters)", large)
+		"a single block must not materialize the whole voter range (read %d keys for 200 voters)", large)
 
-	// And the bound is the one the budget implies, not an accident: at most the
-	// per-block key budget plus the one round that may cross it.
-	maxRoundKeys := len(liveAndCOWStreams) * (int(budget) + 1)
-	r.LessOrEqual(large, int(budget)*_voterScanKeyBudgetPerVoter+maxRoundKeys,
+	r.LessOrEqual(large, int(budget)*_voterScanKeyBudgetPerVoter,
 		"scan keys must stay inside the per-block key budget")
 }
 
-// liveAndCOWStreams names the four key streams staking.FrozenShardVoters
+// liveAndCOWStreams names the four key streams staking.FrozenVotersPage
 // merges: the native and liquid-staking live voter indexes, plus the
 // copy-on-write entry range for each. Its length is what a single round's key
 // cost is a multiple of.
 var liveAndCOWStreams = [4]string{"native", "lsd", "cowNative", "cowLSD"}
 
-// TestVoterDrainStuffedShardPaysEveryVoterExactlyOnce is the correctness half
+// TestVoterDrainDenseRangePaysEveryVoterExactlyOnce is the correctness half
 // of R4, and the reason the bound is a coverage bound rather than a result
 // count.
 //
@@ -132,7 +124,7 @@ var liveAndCOWStreams = [4]string{"native", "lsd", "cowNative", "cowLSD"}
 // voter is never revisited and never paid in this era -- a silent underpayment
 // that no fund invariant would catch, since the money would remain in the
 // pending pool.
-func TestVoterDrainStuffedShardPaysEveryVoterExactlyOnce(t *testing.T) {
+func TestVoterDrainDenseRangePaysEveryVoterExactlyOnce(t *testing.T) {
 	r := require.New(t)
 	const shard = byte(0x7a)
 	const count = 120
@@ -160,45 +152,38 @@ func TestVoterDrainStuffedShardPaysEveryVoterExactlyOnce(t *testing.T) {
 	}
 }
 
-// TestBoundedShardReaderPassesThroughUnrangedCalls guards the decorator's
-// blast radius. Only ranged scans may be limited: the copy-on-write tombstone
-// check is a point read per key, and a keyed States() call has no ordering to
-// truncate.
-func TestBoundedShardReaderPassesThroughUnrangedCalls(t *testing.T) {
+func TestVoterDrainProcessesExactlyTwoThousandVotersPerBlock(t *testing.T) {
 	r := require.New(t)
-	_, sm, _, _, _ := newVoterRewardCtx(t, true)
-	reader := newBoundedShardReader(sm, 3)
-	r.Equal(4, reader.limit, "the injected limit must leave a slot for the resume key")
+	const (
+		shard  = byte(0x7a)
+		count  = 2001
+		budget = uint64(2000)
+	)
+	ctx, sm, p, _ := stuffedShardScenario(t, shard, count, budget)
 
-	// No range set: not decorated, not recorded.
-	_, _, _ = reader.States(protocol.NamespaceOption("test"), protocol.KeysOption(func() ([][]byte, error) {
-		return [][]byte{[]byte("a")}, nil
-	}))
-	r.Empty(reader.scans, "keyed States() must not be recorded as a bounded scan")
-
-	coverage, complete, err := reader.coverage()
+	txLogs, _, err := p.GrantVoterRewardChunk(ctx, sm)
 	r.NoError(err)
-	r.True(complete, "no bounded scans means nothing constrains coverage")
-	r.Equal(_completeCoverage, coverage)
-}
+	paid := 0
+	for _, l := range txLogs {
+		if l.Type == iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND {
+			paid++
+		}
+	}
+	r.Equal(int(budget), paid)
+	cursor, err := p.readEpochDrainCursor(ctx, sm)
+	r.NoError(err)
+	r.False(cursor.drainFinished())
 
-// TestVoterScanLimitZeroBudgetIsUnbounded pins the pre-fork / unconfigured
-// path: a zero voter budget means "no limit", and the decorator must then be a
-// pure pass-through so behaviour is byte-identical to before this file existed.
-func TestVoterScanLimitZeroBudgetIsUnbounded(t *testing.T) {
-	r := require.New(t)
-	r.Equal(0, voterScanLimit(0, 0))
-	r.Equal(0, voterScanLimit(0, 100))
-	r.Equal(5, voterScanLimit(5, 40))
-	r.Equal(3, voterScanLimit(5, 3), "the key budget caps the voter budget")
-	// A non-positive key budget imposes no extra cap. It is unreachable from
-	// the drain (the chunk loop breaks before calling in with an exhausted key
-	// budget), so the safe reading is "no constraint supplied", not "limit to
-	// zero" -- a zero here would mean unbounded, the opposite of intent.
-	r.Equal(5, voterScanLimit(5, 0))
-	r.Equal(5, voterScanLimit(5, -1))
-
-	_, sm, _, _, _ := newVoterRewardCtx(t, true)
-	reader := newBoundedShardReader(sm, 0)
-	r.Equal(0, reader.limit)
+	txLogs, _, err = p.GrantVoterRewardChunk(ctx, sm)
+	r.NoError(err)
+	paid = 0
+	for _, l := range txLogs {
+		if l.Type == iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND {
+			paid++
+		}
+	}
+	r.Equal(1, paid)
+	cursor, err = p.readEpochDrainCursor(ctx, sm)
+	r.NoError(err)
+	r.True(cursor.drainFinished())
 }

@@ -114,8 +114,6 @@ func TestComputeVoterSharesRecordsTheClamp(t *testing.T) {
 	r.NotNil(cursor)
 	window, err := staking.EraCOWWindow(sm)
 	r.NoError(err)
-	ensureDistributed(cursor)
-
 	in := voterShareInputs{
 		window:       window,
 		staking:      staking.FindProtocol(protocol.MustGetRegistry(ctx)),
@@ -125,7 +123,7 @@ func TestComputeVoterSharesRecordsTheClamp(t *testing.T) {
 		distributed:  cursor.Distributed,
 	}
 
-	// Walk the voters in the order the shard walk would, accumulating into the
+	// Walk the voters in address order, accumulating into the
 	// same aliased vector the drain uses.
 	order := append([]address.Address(nil), c.voters...)
 	sortAddrs(order)

@@ -6,9 +6,12 @@
 package rewarding
 
 import (
+	"bytes"
 	"context"
 	"math/big"
+	"sort"
 	"testing"
+	"time"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -20,7 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
-// This file holds the properties of the voter-major shard drain that are not
+// This file holds the properties of the voter-major address drain that are not
 // visible from any single function: what order voters are paid in, that a voter
 // is paid once no matter how many bucket kinds they hold, that the weight
 // recompute is anchored to the era and not to the block, and that every rau a
@@ -143,20 +146,20 @@ func payoutOrder(logs []*action.TransactionLog) []string {
 	return out
 }
 
-// TestVoterDrainShardOrderIsDeterministic is required test #3.
+// TestVoterDrainAddressOrderIsDeterministic is required test #3.
 //
 // The payout sequence must be a function of the settlement seed and the voter
 // addresses, and of nothing else. In particular it must not depend on the order
 // the buckets were written in, because that order is attacker-influenced (a
 // voter chooses when to stake) and because two nodes replaying the same era
 // from different starting states must produce the same sequence.
-func TestVoterDrainShardOrderIsDeterministic(t *testing.T) {
+func TestVoterDrainAddressOrderIsDeterministic(t *testing.T) {
 	r := require.New(t)
 	seed := []byte{0x9e, 0x21, 0x77, 0x04, 0x31, 0xbc, 0x5a, 0xd0}
 	delegate := identityset.Address(4)
 	const rau = int64(1_000_000_000_000_000_000)
 
-	// Voters are spread deliberately across shards, and their shard ids are
+	// Voters are spread deliberately across the address space, and their prefixes are
 	// unrelated to the order they are planted in.
 	shards := []byte{0xf1, 0x03, 0xa7, 0x40, 0x11, 0xcc}
 	voters := make([]address.Address, len(shards))
@@ -185,19 +188,74 @@ func TestVoterDrainShardOrderIsDeterministic(t *testing.T) {
 	r.Equal(first, second,
 		"payout order must depend on the seed and the addresses, not on insertion order")
 
-	// And it is the rotation the seed picked, not plain ascending address
-	// order: the walk starts at settlementStartShard(seed) and wraps.
-	start := settlementStartShard(seed)
-	want := make([]string, 0, len(voters))
-	for step := uint16(0); step < totalShards; step++ {
-		shard := byte((uint16(start) + step) % totalShards)
-		for i, sh := range shards {
-			if sh == shard {
-				want = append(want, voters[i].String())
-			}
+	// And it is the circular order the seed picked, not plain ascending order.
+	start := settlementStartVoter(seed)
+	ordered := append([]address.Address(nil), voters...)
+	sort.Slice(ordered, func(i, j int) bool {
+		iTail := bytes.Compare(ordered[i].Bytes(), start) >= 0
+		jTail := bytes.Compare(ordered[j].Bytes(), start) >= 0
+		if iTail != jTail {
+			return iTail
+		}
+		return bytes.Compare(ordered[i].Bytes(), ordered[j].Bytes()) < 0
+	})
+	want := make([]string, len(ordered))
+	for i, voter := range ordered {
+		want[i] = voter.String()
+	}
+	r.Equal(want, first, "the walk must start at the seed-derived address and wrap")
+}
+
+func TestVoterDrainStartAddressIsVisitedOnce(t *testing.T) {
+	r := require.New(t)
+	delegate := identityset.Address(4)
+	before := sameShardVoter(0x20, 0)
+	start := sameShardVoter(0x80, 0)
+	after := sameShardVoter(0xc0, 0)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+	p.cfg.VoterBudgetPerBlock = 1
+	newDrainScenario(t, ctx, sm, p, start.Bytes(), 1_000_000,
+		[]iip59NativeSeed{
+			{delegate: delegate, voter: before, amount: 1_000_000_000_000_000_000},
+			{delegate: delegate, voter: start, amount: 1_000_000_000_000_000_000},
+			{delegate: delegate, voter: after, amount: 1_000_000_000_000_000_000},
+		}, nil,
+	)
+	logs := drainCollectingVoterPayouts(t, ctx, sm, p, []address.Address{before, start, after})
+	r.Equal([]string{start.String(), after.String(), before.String()}, payoutOrder(logs))
+}
+
+func TestPostFreezeVoterDoesNotConsumeVoterBudget(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+	p.cfg.VoterBudgetPerBlock = 1
+	delegate := identityset.Address(4)
+	newcomer := sameShardVoter(0x10, 0)
+	owed := sameShardVoter(0xf0, 0)
+	newDrainScenario(t, ctx, sm, p, make([]byte, 20), 1_000_000,
+		[]iip59NativeSeed{{
+			delegate: delegate, voter: owed, amount: 1_000_000_000_000_000_000,
+		}}, nil,
+	)
+
+	// The newcomer sorts before the frozen voter but first stakes only after
+	// the era window opened. Its COW tombstone must keep it out of the one-voter
+	// budget so the owed voter is still paid in this block.
+	_, err := staking.TestOnlyPutVoterBucketThroughCOW(
+		ctx, sm, delegate, newcomer, big.NewInt(1_000_000_000_000_000_000),
+		91, time.Unix(1_700_000_000, 0), true,
+	)
+	r.NoError(err)
+	txLogs, _, err := p.GrantVoterRewardChunk(ctx, sm)
+	r.NoError(err)
+
+	paid := make([]string, 0, 1)
+	for _, log := range txLogs {
+		if log.Type == iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND {
+			paid = append(paid, log.Recipient)
 		}
 	}
-	r.Equal(want, first, "the walk must start at the seed's shard and wrap")
+	r.Equal([]string{owed.String()}, paid)
 }
 
 // TestVoterDrainMergesNativeAndContractStreams is required test #4.
@@ -485,7 +543,7 @@ func TestVoterDrainRefusesASupersededEraWindow(t *testing.T) {
 	after, err := p.readEpochDrainCursor(ctx, sm)
 	r.NoError(err)
 	r.NotNil(after)
-	r.Equal(before.ShardsDone, after.ShardsDone)
+	r.Equal(before.ScanPhase, after.ScanPhase)
 	r.Equal(before.ResumeVoter, after.ResumeVoter)
 	r.False(after.drainFinished())
 	for i := range after.Delegates {

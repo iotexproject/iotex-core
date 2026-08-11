@@ -19,7 +19,7 @@ import (
 const _iip59InterfaceABI = `[
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"pendingBlockRewardPool","outputs":[{"name":"amount","type":"uint256"}],"stateMutability":"view","type":"function"},
 	{"inputs":[],"name":"pendingBlockRewardPoolIndex","outputs":[{"name":"candidateIds","type":"address[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[],"name":"eraDrainCursor","outputs":[{"name":"targetEra","type":"uint64"},{"name":"completed","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"freezeHeight","type":"uint64"},{"name":"startShard","type":"uint32"},{"name":"shardsDone","type":"uint32"},{"name":"resumeVoter","type":"bytes"},{"name":"settlementSeed","type":"bytes32"},{"name":"candidateIds","type":"address[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"},{"name":"selfStakeBucketIdxs","type":"uint64[]"}],"stateMutability":"view","type":"function"},
+	{"inputs":[],"name":"eraDrainCursorV2","outputs":[{"name":"targetEra","type":"uint64"},{"name":"completed","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"freezeHeight","type":"uint64"},{"name":"startVoter","type":"address"},{"name":"scanPhase","type":"uint32"},{"name":"resumeVoter","type":"bytes"},{"name":"settlementSeed","type":"bytes32"},{"name":"candidateIds","type":"address[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"},{"name":"selfStakeBucketIdxs","type":"uint64[]"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardDelegateSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"onchainRewardEnabled","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"freezeHeight","type":"uint64"},{"name":"selfStakeBucketIdx","type":"uint64"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardAddress","outputs":[{"name":"rewardAddress","type":"address"},{"name":"explicitlySet","type":"bool"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"name":"voter","type":"address"}],"name":"voterRewardDestination","outputs":[{"name":"recipient","type":"address"},{"name":"explicitlySet","type":"bool"},{"name":"updatedHeight","type":"uint64"}],"stateMutability":"view","type":"function"},
@@ -33,9 +33,9 @@ var (
 	// not named voterRewardSnapshot. That name took no arguments, so keeping it
 	// would have kept its 4-byte selector while the tuple underneath it changed
 	// shape: the per-delegate (delegateIndex, voterIndex, delegateStartIndex,
-	// voterStartIndices) quartet is gone, replaced by the shard triple
-	// (startShard, shardsDone, resumeVoter). A caller built against the old ABI
-	// would decode a shard counter as a delegate index and read a plausible,
+	// voterStartIndices) quartet is gone, replaced by the circular voter scan
+	// fields (startVoter, scanPhase, resumeVoter). A caller built against the old
+	// ABI would decode the scan phase as a delegate index and read a plausible,
 	// wrong cursor.
 	_eraDrainCursorMethod abi.Method
 	// The delegate snapshot view is deliberately not named voterRewardSnapshot.
@@ -54,7 +54,7 @@ var (
 func init() {
 	_pendingBlockRewardPoolMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "pendingBlockRewardPool")
 	_pendingBlockRewardPoolIndexMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "pendingBlockRewardPoolIndex")
-	_eraDrainCursorMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "eraDrainCursor")
+	_eraDrainCursorMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "eraDrainCursorV2")
 	_voterRewardDelegateSnapshotMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardDelegateSnapshot")
 	_voterRewardAddressMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardAddress")
 	_voterRewardDestinationMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardDestination")
@@ -260,7 +260,7 @@ func (r *EraDrainCursorStateContext) EncodeToEth(resp *iotexapi.ReadStateRespons
 	}
 	data, err := _eraDrainCursorMethod.Outputs.Pack(
 		cursor.GetTargetEra(), cursor.GetCompleted(), cursor.GetCompletedHeight(), cursor.GetFreezeHeight(),
-		cursor.GetStartShard(), cursor.GetShardsDone(), cursor.GetResumeVoter(),
+		common.BytesToAddress(cursor.GetStartVoter()), cursor.GetScanPhase(), cursor.GetResumeVoter(),
 		common.BytesToHash(cursor.GetSettlementSeed()),
 		ids, voterAmounts, distributedAmounts, totalWeights, selfStakeBucketIdxs,
 	)

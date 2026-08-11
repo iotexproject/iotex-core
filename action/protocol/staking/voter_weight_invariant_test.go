@@ -254,27 +254,26 @@ func (e *vwInvariantEnv) frozenSums(ctx context.Context) map[string]*big.Int {
 
 	_, csm := e.candCenter()
 	sums := make(map[string]*big.Int)
-	for shard := 0; shard < AddressShards; shard++ {
-		voters, err := FrozenShardVoters(e.sm, window, byte(shard), nil)
+	page, err := FrozenVotersPage(e.sm, window, make([]byte, 20), nil, nil, 0, 0)
+	r.NoError(err)
+	r.True(page.Done)
+	for _, voter := range page.Voters {
+		candidates, err := FrozenVoterCandidates(e.sm, window, voter)
 		r.NoError(err)
-		for _, voter := range voters {
-			candidates, err := FrozenVoterCandidates(e.sm, window, voter)
-			r.NoError(err)
-			for _, candID := range candidates {
-				selfStakeIdx := uint64(candidateNoSelfStakeBucketIndex)
-				if cand := csm.GetByIdentifier(candID); cand != nil {
-					selfStakeIdx = cand.SelfStakeBucketIdx
-				}
-				w, err := FrozenVoterWeight(
-					e.sm, window, e.p, candID, voter, selfStakeIdx, evalHeight,
-				)
-				r.NoError(err)
-				key := string(candID.Bytes())
-				if sums[key] == nil {
-					sums[key] = new(big.Int)
-				}
-				sums[key].Add(sums[key], w)
+		for _, candID := range candidates {
+			selfStakeIdx := uint64(candidateNoSelfStakeBucketIndex)
+			if cand := csm.GetByIdentifier(candID); cand != nil {
+				selfStakeIdx = cand.SelfStakeBucketIdx
 			}
+			w, err := FrozenVoterWeight(
+				e.sm, window, e.p, candID, voter, selfStakeIdx, evalHeight,
+			)
+			r.NoError(err)
+			key := string(candID.Bytes())
+			if sums[key] == nil {
+				sums[key] = new(big.Int)
+			}
+			sums[key].Add(sums[key], w)
 		}
 	}
 	return sums

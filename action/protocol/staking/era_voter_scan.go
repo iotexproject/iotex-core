@@ -19,40 +19,18 @@ import (
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
-// This file lets the IIP-59 drain enumerate voters without a frozen entry list.
-//
-// The drain is voter-major: it walks the voter key space and, for each voter it
-// lands on, recomputes what that voter is owed. "The voter key space" is the
-// union of two indexes -- {_voterIndex}||addr for native buckets and
-// {_lsdVoterIndex}||addr for contract-staking ones -- so walking it means
-// merging two ordered streams and visiting each address once.
-//
-// The walk has to be resumable at a bounded cost per block, which rules out
-// scanning either index end to end. Both are keyed by a 20-byte address
-// immediately after a 1-byte tag, so the first address byte partitions the
-// space into 256 shards of roughly equal size that are each a single contiguous
-// key range. A block drains whole shards, and can stop part-way through one by
-// remembering the last address it visited: shard population is attacker-
-// controllable (addresses are cheap and their first byte is grindable), so
-// shard-granular resume alone would leave the per-block work unbounded.
-
-// AddressShards is the number of key-space shards the voter walk is split into,
-// one per possible value of an address's first byte.
-const AddressShards = 256
-
 // _addrLen is the byte length of an IoTeX address body.
 const _addrLen = 20
 
-// ShardOf returns the shard an address belongs to.
-func ShardOf(addr address.Address) byte {
-	if addr == nil {
-		return 0
-	}
-	b := addr.Bytes()
-	if len(b) == 0 {
-		return 0
-	}
-	return b[0]
+// FrozenVoterPage is one bounded page of the voter address space at an era's
+// freeze height. Voters are ascending and deduplicated. Next is an exclusive
+// resume bound; it may name a scanned address at which no voter exists. Done
+// means the requested address range was covered completely.
+type FrozenVoterPage struct {
+	Voters      []address.Address
+	Next        []byte
+	Done        bool
+	KeysScanned int
 }
 
 // liveVoterIndexPrefixes are the two live index tags the walk merges. They are
@@ -63,9 +41,8 @@ var liveVoterIndexPrefixes = [2]byte{_voterIndex, contractstaking.LSDVoterIndexP
 // cowVoterIndexKinds are the copy-on-write counterparts of the two live tags.
 var cowVoterIndexKinds = [2]eracow.Kind{eracow.KindNativeVoterIndex, eracow.KindLSDVoterIndex}
 
-// rawState is a state value we do not want to decode. The scans below care
-// about keys only; decoding every index list to throw it away would double the
-// cost of the walk.
+// rawState is a state value we do not want to decode. Voter enumeration uses
+// index keys only.
 type rawState struct{ data []byte }
 
 func (r *rawState) Deserialize(b []byte) error {
@@ -73,113 +50,238 @@ func (r *rawState) Deserialize(b []byte) error {
 	return nil
 }
 
-// FrozenShardVoters returns every voter address in one shard that had a native
-// or contract-staking bucket index at the era freeze height, ascending and
-// deduplicated, skipping everything at or before `after`.
+// FrozenVotersPage returns at most voterLimit voters in [start, end), resuming
+// strictly after `after`. A nil end means the top of the address space. A zero
+// voterLimit or keyLimit disables that bound.
 //
-// Four ranges are merged, not two. The obvious pair is the two live indexes,
-// but a voter who withdraws their last bucket during the drain window has their
-// live index key deleted while the copy-on-write layer keeps the value they had
-// at the freeze height. Scanning only the live keys would silently drop such a
-// voter -- they are owed a share of an era they were part of, and otherwise
-// the money would remain pending without reaching them. So the copy-on-write
-// ranges are scanned as well; their keys are
-// {EntryPrefix}||u64BE(H)||kind||addr, which puts the shard byte at a fixed
-// offset and makes them shard-bounded in exactly the same way.
+// The four streams are voter indexes, not bucket lists: native live,
+// contract-staking live, and their two copy-on-write counterparts. The COW
+// streams retain voters whose final bucket index was deleted after the freeze.
+// This function owns their merge so rewarding can paginate voters without
+// depending on the staking storage layout.
 //
-// The reverse case -- a voter who acquires their first bucket after the freeze
-// -- costs nothing to admit: the copy-on-write layer wrote a tombstone for
-// them, and the tombstone is skipped here; even if it were not, the weight
-// recompute would resolve them to zero.
-//
-// Every scan is bounded to this shard's key range. None of them may be issued
-// unbounded: the state layer materializes whatever range it is handed before
-// any limit is applied, so an unbounded scan is an unbounded amount of work
-// inside one block regardless of what the caller intends to consume.
-func FrozenShardVoters(
+// keyLimit bounds index enumeration independently of voter processing. COW
+// tombstones and duplicate addresses can consume keys without producing a
+// voter, so a raw `Limit(voterLimit)` cannot be resumed safely. The merge only
+// returns addresses at or below the minimum point covered by every truncated
+// stream and uses that coverage point as Next when necessary.
+func FrozenVotersPage(
 	sr protocol.StateReader,
 	window eracow.Window,
-	shard byte,
+	start []byte,
+	end []byte,
 	after []byte,
-) ([]address.Address, error) {
+	voterLimit int,
+	keyLimit int,
+) (FrozenVoterPage, error) {
 	if !window.Open() {
-		return nil, errors.New("staking: no era window open")
+		return FrozenVoterPage{}, errors.New("staking: no era window open")
 	}
-	var found [][]byte
-	for _, prefix := range liveVoterIndexPrefixes {
-		addrs, err := scanLiveVoterShard(sr, prefix, shard, after)
-		if err != nil {
-			return nil, err
+	if err := validateVoterRange(start, end, after); err != nil {
+		return FrozenVoterPage{}, err
+	}
+	page := FrozenVoterPage{Next: append([]byte(nil), after...)}
+	for voterLimit <= 0 || len(page.Voters) < voterLimit {
+		if keyLimit > 0 && page.KeysScanned >= keyLimit {
+			return page, nil
 		}
-		found = append(found, addrs...)
+		remainingVoters := voterLimit - len(page.Voters)
+		roundLimit := remainingVoters
+		if voterLimit <= 0 {
+			roundLimit = 0
+		}
+		if keyLimit > 0 {
+			streamCount := len(liveVoterIndexPrefixes) + len(cowVoterIndexKinds)
+			remainingKeys := keyLimit - page.KeysScanned
+			if remainingKeys < streamCount {
+				return page, nil
+			}
+			perStream := remainingKeys / streamCount
+			if roundLimit <= 0 || perStream < roundLimit {
+				roundLimit = perStream
+			}
+		}
+		resumeBefore := append([]byte(nil), page.Next...)
+		round, err := scanFrozenVoterRange(sr, window, start, end, page.Next, roundLimit)
+		if err != nil {
+			return FrozenVoterPage{}, err
+		}
+		page.KeysScanned += round.keysScanned
+		for _, raw := range round.voters {
+			if voterLimit > 0 && len(page.Voters) >= voterLimit {
+				return page, nil
+			}
+			addr, err := address.FromBytes(raw)
+			if err != nil {
+				return FrozenVoterPage{}, errors.Wrap(err, "staking: decode voter address from index key")
+			}
+			page.Voters = append(page.Voters, addr)
+			page.Next = append(page.Next[:0], raw...)
+		}
+		if round.done {
+			page.Done = true
+			return page, nil
+		}
+		if len(page.Next) == 0 || bytes.Compare(round.coverage, page.Next) > 0 {
+			page.Next = append(page.Next[:0], round.coverage...)
+		} else if bytes.Equal(page.Next, resumeBefore) {
+			return FrozenVoterPage{}, errors.Errorf(
+				"staking: bounded voter scan made no progress (coverage %x <= resume %x)",
+				round.coverage, page.Next,
+			)
+		}
+	}
+	return page, nil
+}
+
+type frozenVoterScanRound struct {
+	voters      [][]byte
+	coverage    []byte
+	done        bool
+	keysScanned int
+}
+
+type voterIndexScan struct {
+	entries  []frozenVoterIndexEntry
+	coverage []byte
+	done     bool
+	keys     int
+}
+
+// frozenVoterIndexEntry is one live or copied voter-index key. For COW keys,
+// exists is the value the index had at the freeze height; false is a tombstone
+// that must override a matching live key created after the freeze.
+type frozenVoterIndexEntry struct {
+	voter  []byte
+	exists bool
+}
+
+func validateVoterRange(start, end, after []byte) error {
+	if len(start) != _addrLen {
+		return errors.Errorf("staking: voter range start has length %d, want %d", len(start), _addrLen)
+	}
+	if end != nil && len(end) != _addrLen {
+		return errors.Errorf("staking: voter range end has length %d, want %d", len(end), _addrLen)
+	}
+	if end != nil && bytes.Compare(start, end) > 0 {
+		return errors.New("staking: voter range start exceeds end")
+	}
+	if after != nil {
+		if len(after) != _addrLen {
+			return errors.Errorf("staking: voter resume has length %d, want %d", len(after), _addrLen)
+		}
+		if bytes.Compare(after, start) < 0 || (end != nil && bytes.Compare(after, end) >= 0) {
+			return errors.New("staking: voter resume lies outside requested range")
+		}
+	}
+	return nil
+}
+
+func scanFrozenVoterRange(
+	sr protocol.StateReader,
+	window eracow.Window,
+	start, end, after []byte,
+	limit int,
+) (frozenVoterScanRound, error) {
+	scans := make([]voterIndexScan, 0, len(liveVoterIndexPrefixes)+len(cowVoterIndexKinds))
+	for _, prefix := range liveVoterIndexPrefixes {
+		scan, err := scanLiveVoterRange(sr, prefix, start, end, after, limit)
+		if err != nil {
+			return frozenVoterScanRound{}, err
+		}
+		scans = append(scans, scan)
 	}
 	for _, kind := range cowVoterIndexKinds {
-		addrs, err := scanCOWVoterShard(sr, window.FreezeHeight, kind, shard, after)
+		scan, err := scanCOWVoterRange(sr, window.FreezeHeight, kind, start, end, after, limit)
 		if err != nil {
-			return nil, err
+			return frozenVoterScanRound{}, err
 		}
-		found = append(found, addrs...)
+		scans = append(scans, scan)
 	}
-	sort.Slice(found, func(i, j int) bool { return bytes.Compare(found[i], found[j]) < 0 })
-	out := make([]address.Address, 0, len(found))
-	var prev []byte
-	for _, raw := range found {
-		if prev != nil && bytes.Equal(prev, raw) {
-			continue
+
+	round := frozenVoterScanRound{done: true}
+	for _, scan := range scans {
+		round.keysScanned += scan.keys
+		if !scan.done && (round.done || bytes.Compare(scan.coverage, round.coverage) < 0) {
+			round.coverage = append(round.coverage[:0], scan.coverage...)
+			round.done = false
 		}
-		addr, err := address.FromBytes(raw)
-		if err != nil {
-			return nil, errors.Wrap(err, "staking: decode voter address from index key")
-		}
-		out = append(out, addr)
-		prev = raw
 	}
-	return out, nil
+	type voterPresence struct {
+		voter   []byte
+		present [2]bool
+	}
+	found := make(map[string]*voterPresence)
+	for i, scan := range scans {
+		family := i % len(liveVoterIndexPrefixes)
+		isCOW := i >= len(liveVoterIndexPrefixes)
+		for _, entry := range scan.entries {
+			if !round.done && bytes.Compare(entry.voter, round.coverage) > 0 {
+				continue
+			}
+			key := string(entry.voter)
+			presence := found[key]
+			if presence == nil {
+				presence = &voterPresence{voter: entry.voter}
+				found[key] = presence
+			}
+			if isCOW {
+				// First-write-wins COW records are authoritative for this
+				// family. In particular, a tombstone suppresses a live index
+				// that was first created after the freeze.
+				presence.present[family] = entry.exists
+			} else {
+				presence.present[family] = true
+			}
+		}
+	}
+	for _, presence := range found {
+		if presence.present[0] || presence.present[1] {
+			round.voters = append(round.voters, presence.voter)
+		}
+	}
+	sort.Slice(round.voters, func(i, j int) bool {
+		return bytes.Compare(round.voters[i], round.voters[j]) < 0
+	})
+	return round, nil
 }
 
-// shardRange builds the half-open key range covering one shard, given the fixed
-// prefix that precedes the shard byte. The upper bound is the prefix with the
-// shard byte incremented; the top shard has no such successor, so it borrows
-// the successor of the last prefix byte instead. Both callers pass a prefix
-// whose last byte is a tag well below 0xFF, and the assertion below keeps that
-// from becoming a silent wrap.
-func shardRange(prefix []byte, shard byte) ([]byte, []byte, error) {
-	if len(prefix) == 0 {
-		return nil, nil, errors.New("staking: empty shard range prefix")
+func scanVoterRangeKeys(sr protocol.StateReader, prefix, start, end, after []byte, limit int) ([][]byte, bool, error) {
+	minAddr := start
+	if after != nil {
+		var ok bool
+		minAddr, ok = nextVoterAddress(after)
+		if !ok || (end != nil && bytes.Compare(minAddr, end) >= 0) {
+			return nil, true, nil
+		}
 	}
-	min := append(append([]byte{}, prefix...), shard)
+	min := append(append([]byte{}, prefix...), minAddr...)
 	var max []byte
-	if shard != 0xFF {
-		max = append(append([]byte{}, prefix...), shard+1)
-		return min, max, nil
+	if end != nil {
+		max = append(append([]byte{}, prefix...), end...)
+	} else {
+		if len(prefix) == 0 || prefix[len(prefix)-1] == 0xFF {
+			return nil, false, errors.New("staking: voter index prefix has no successor")
+		}
+		max = append([]byte{}, prefix...)
+		max[len(max)-1]++
 	}
-	last := prefix[len(prefix)-1]
-	if last == 0xFF {
-		return nil, nil, errors.New("staking: shard range prefix has no successor")
-	}
-	max = append([]byte{}, prefix...)
-	max[len(max)-1] = last + 1
-	return min, max, nil
-}
-
-// scanShardKeys runs one bounded, ordered scan and hands back the keys.
-//
-// It asserts that the keys arrive strictly ascending. That is the contract the
-// range scan is documented to provide, and every caller here depends on it: the
-// merge dedupes by comparing against the previous key, and the resume point is
-// the last key seen. A backend that returned keys out of order would turn both
-// into silent underpayment, so this is an error and not a comment.
-func scanShardKeys(sr protocol.StateReader, min, max []byte) ([][]byte, error) {
-	_, iter, err := sr.States(
+	opts := []protocol.StateOption{
 		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.RangeOption(min, max),
+	}
+	if limit > 0 {
+		opts = append(opts, protocol.LimitOption(limit))
+	}
+	_, iter, err := sr.States(
+		opts...,
 	)
 	switch {
 	case err == nil:
 	case errors.Is(err, state.ErrStateNotExist):
-		return nil, nil
+		return nil, true, nil
 	default:
-		return nil, err
+		return nil, false, err
 	}
 	keys := make([][]byte, 0, iter.Size())
 	var prev []byte
@@ -187,76 +289,61 @@ func scanShardKeys(sr protocol.StateReader, min, max []byte) ([][]byte, error) {
 		var v rawState
 		key, err := iter.Next(&v)
 		if err != nil && !errors.Is(err, state.ErrNilValue) {
-			return nil, err
+			return nil, false, err
 		}
 		if prev != nil && bytes.Compare(key, prev) <= 0 {
-			return nil, errors.Errorf(
+			return nil, false, errors.Errorf(
 				"staking: range scan returned non-ascending keys (%x after %x)", key, prev,
 			)
 		}
-		prev = key
-		keys = append(keys, key)
+		owned := append([]byte(nil), key...)
+		prev = owned
+		keys = append(keys, owned)
 	}
-	return keys, nil
+	return keys, limit <= 0 || len(keys) < limit, nil
 }
 
-// scanLiveVoterShard reads one shard of a live {tag}||addr index.
-func scanLiveVoterShard(sr protocol.StateReader, prefix byte, shard byte, after []byte) ([][]byte, error) {
-	min, max, err := shardRange([]byte{prefix}, shard)
+func scanLiveVoterRange(
+	sr protocol.StateReader,
+	prefix byte,
+	start, end, after []byte,
+	limit int,
+) (voterIndexScan, error) {
+	keys, done, err := scanVoterRangeKeys(sr, []byte{prefix}, start, end, after, limit)
 	if err != nil {
-		return nil, err
+		return voterIndexScan{}, err
 	}
-	if resumed := resumeMin(min, after, shard); resumed != nil {
-		min = resumed
-	}
-	keys, err := scanShardKeys(sr, min, max)
-	if err != nil {
-		return nil, err
-	}
-	out := make([][]byte, 0, len(keys))
+	out := voterIndexScan{done: done, keys: len(keys)}
 	for _, key := range keys {
 		if len(key) != 1+_addrLen || key[0] != prefix {
-			// A key of another shape sorted into the range. The staking
-			// namespace is shared, so this is a tag collision, not a stray
-			// value: refuse rather than decode 20 bytes of something else as
-			// an address.
-			return nil, errors.Errorf("staking: unexpected key %x in voter index shard scan", key)
+			return voterIndexScan{}, errors.Errorf("staking: unexpected key %x in voter index range scan", key)
 		}
-		addr := key[1:]
-		if after != nil && bytes.Compare(addr, after) <= 0 {
-			continue
-		}
-		out = append(out, append([]byte{}, addr...))
+		out.entries = append(out.entries, frozenVoterIndexEntry{
+			voter: append([]byte{}, key[1:]...), exists: true,
+		})
+	}
+	if !done && len(keys) > 0 {
+		out.coverage = append([]byte(nil), keys[len(keys)-1][1:]...)
 	}
 	return out, nil
 }
 
-// scanCOWVoterShard reads one shard of a copy-on-write voter-index entry range.
-// Tombstones are dropped: they record that the voter had no index at the freeze
-// height, which is precisely the case this walk must not pay.
-func scanCOWVoterShard(
+func scanCOWVoterRange(
 	sr protocol.StateReader,
 	freezeHeight uint64,
 	kind eracow.Kind,
-	shard byte,
-	after []byte,
-) ([][]byte, error) {
+	start, end, after []byte,
+	limit int,
+) (voterIndexScan, error) {
 	prefix := eracow.EntryKey(freezeHeight, kind, nil)
-	min, max, err := shardRange(prefix, shard)
+	keys, done, err := scanVoterRangeKeys(sr, prefix, start, end, after, limit)
 	if err != nil {
-		return nil, err
+		return voterIndexScan{}, err
 	}
-	if resumed := resumeMin(min, after, shard); resumed != nil {
-		min = resumed
-	}
-	keys, err := scanShardKeys(sr, min, max)
-	if err != nil {
-		return nil, err
-	}
-	out := make([][]byte, 0, len(keys))
+	out := voterIndexScan{done: done, keys: len(keys)}
 	for _, key := range keys {
 		if len(key) != len(prefix)+_addrLen || !bytes.Equal(key[:len(prefix)], prefix) {
-			return nil, errors.Errorf("staking: unexpected key %x in era copy shard scan", key)
+			return voterIndexScan{}, errors.Errorf("staking: unexpected key %x in era copy voter scan", key)
 		}
 		addr := key[len(prefix):]
 		if after != nil && bytes.Compare(addr, after) <= 0 {
@@ -270,26 +357,27 @@ func scanCOWVoterShard(
 			if errors.Is(err, state.ErrStateNotExist) {
 				continue
 			}
-			return nil, err
+			return voterIndexScan{}, err
 		}
-		if !entry.Exists {
-			continue
-		}
-		out = append(out, append([]byte{}, addr...))
+		out.entries = append(out.entries, frozenVoterIndexEntry{
+			voter: append([]byte{}, addr...), exists: entry.Exists,
+		})
+	}
+	if !done && len(keys) > 0 {
+		out.coverage = append([]byte(nil), keys[len(keys)-1][len(prefix):]...)
 	}
 	return out, nil
 }
 
-// resumeMin narrows a shard's lower bound to the resume point, or returns nil
-// when the resume point does not fall in this shard. Addresses are fixed width,
-// so starting at exactly `after` and dropping the equal key is enough; no
-// byte-increment is needed.
-func resumeMin(min []byte, after []byte, shard byte) []byte {
-	if len(after) != _addrLen || after[0] != shard {
-		return nil
+func nextVoterAddress(addr []byte) ([]byte, bool) {
+	next := append([]byte(nil), addr...)
+	for i := len(next) - 1; i >= 0; i-- {
+		next[i]++
+		if next[i] != 0 {
+			return next, true
+		}
 	}
-	// min already ends with the shard byte, which is after[0].
-	return append(append([]byte{}, min...), after[1:]...)
+	return nil, false
 }
 
 // FrozenVoterCandidates returns the distinct candidates one voter's frozen

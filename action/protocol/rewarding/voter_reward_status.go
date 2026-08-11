@@ -90,26 +90,30 @@ func (p *Protocol) voterRewardStatus(
 	return status, nil
 }
 
-// voterDrainPosition reports whether the shard walk has already passed a voter.
-//
-// Position is measured in the rotation, not in raw shard ids: shard
-// (StartShard + n) mod 256 is the n-th visited, so the voter's own shard maps
-// to a rotation position that compares directly against ShardsDone. Inside the
-// shard in progress, the walk pays voters in ascending address order, so
-// ResumeVoter -- the last address visited -- separates paid from pending.
+// voterDrainPosition reports whether the circular address walk has passed a
+// voter. The tail phase covers [start, max]; after the single wrap, the head
+// phase covers [min, start). ResumeVoter is the exclusive lower bound already
+// covered inside the current phase.
 func voterDrainPosition(cursor *epochDrainCursor, voter address.Address) rewardingpb.VoterRewardStatus_Status {
 	if cursor.drainFinished() {
 		return rewardingpb.VoterRewardStatus_PROCESSED
 	}
-	pos := (uint16(staking.ShardOf(voter)) + totalShards - uint16(settlementStartShard(cursor.SettlementSeed))) % totalShards
-	switch {
-	case pos < cursor.ShardsDone:
-		return rewardingpb.VoterRewardStatus_PROCESSED
-	case pos > cursor.ShardsDone:
-		return rewardingpb.VoterRewardStatus_WAITING
-	case len(cursor.ResumeVoter) > 0 && bytes.Compare(voter.Bytes(), cursor.ResumeVoter) <= 0:
-		return rewardingpb.VoterRewardStatus_PROCESSED
+	addr := voter.Bytes()
+	start := settlementStartVoter(cursor.SettlementSeed)
+	switch cursor.ScanPhase {
+	case voterScanTail:
+		if bytes.Compare(addr, start) < 0 {
+			return rewardingpb.VoterRewardStatus_WAITING
+		}
+	case voterScanHead:
+		if bytes.Compare(addr, start) >= 0 {
+			return rewardingpb.VoterRewardStatus_PROCESSED
+		}
 	default:
 		return rewardingpb.VoterRewardStatus_WAITING
 	}
+	if len(cursor.ResumeVoter) > 0 && bytes.Compare(addr, cursor.ResumeVoter) <= 0 {
+		return rewardingpb.VoterRewardStatus_PROCESSED
+	}
+	return rewardingpb.VoterRewardStatus_WAITING
 }

@@ -71,8 +71,8 @@ func drainVoterIndexes(votersPerDelegate int) []int {
 // Planting buckets is not optional after P5. The drain walks the voter key
 // space and recomputes weights from frozen buckets; it never reads
 // CandidatePollSnapshot.Entries. A fixture that writes only snapshots presents
-// the drain with an empty key space, every shard completes in the first block,
-// and every "the drain paid X" assertion passes vacuously.
+// the drain with an empty key space, both scan ranges complete in the first
+// block, and every "the drain paid X" assertion passes vacuously.
 func seedPoolAccrualsForRewardedDelegates(
 	t *testing.T,
 	ctx context.Context,
@@ -102,8 +102,8 @@ func seedPoolAccrualsForRewardedDelegates(
 }
 
 // seedSameShardDrain is seedPoolAccrualsForRewardedDelegates with every voter
-// forced into one key-space shard, so a budget-limited chunk is guaranteed to
-// stop part-way through a shard rather than exactly on a shard boundary.
+// forced under one address prefix, so a budget-limited chunk is guaranteed to
+// stop part-way through a scan range.
 func seedSameShardDrain(
 	t *testing.T,
 	ctx context.Context,
@@ -170,7 +170,7 @@ func runDrainToCompletion(
 	for {
 		got, gErr := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(gErr)
-		if got == nil || got.drainFinished() {
+		if got == nil || got.ScanPhase == voterScanDone {
 			break
 		}
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
@@ -204,11 +204,10 @@ func TestGrantEpochReward_SettlementStartUsesOneSeed(t *testing.T) {
 		expectedSeed := settlementSeed(ctx, cursor.TargetEra)
 		r.Equal(expectedSeed[:], cursor.SettlementSeed)
 
-		// Rotation now applies to the shard sequence, not to the delegate list:
-		// the drain is voter-major, so there is no delegate list to rotate. The
-		// one seed still decides where the walk starts.
-		r.Equal(settlementStartShard(expectedSeed[:]), settlementStartShard(cursor.SettlementSeed))
-		r.Equal(uint16(0), cursor.ShardsDone)
+		// The seed maps directly into the voter address space. The drain starts
+		// with [start, max], then wraps once to [min, start).
+		r.Equal(settlementStartVoter(expectedSeed[:]), settlementStartVoter(cursor.SettlementSeed))
+		r.Equal(voterScanTail, cursor.ScanPhase)
 		r.Empty(cursor.ResumeVoter)
 
 		// The delegate work list is in canonical pending-pool key order, and the
@@ -240,16 +239,16 @@ func TestGrantEpochReward_SettlementStartUsesOneSeed(t *testing.T) {
 // continuation blocks), chunkSize=0 (unbounded, Phase A drains inline) —
 // must produce reflect.DeepEqual snapshots.
 //
-// Twelve voters spread over the four delegates give the shard walk something
-// to split; a budget of 1, 2, 5 or unbounded therefore stops in genuinely
-// different places, including part-way through a shard.
+// Twelve voters spread over the four delegates give the voter-range walk
+// something to split; a budget of 1, 2, 5 or unbounded therefore stops in
+// genuinely different places, including part-way through a range.
 //
 // This is the P5 replacement for TestVoterAllocationIsChunkInvariant, which
 // asserted the same property of the deleted per-candidate allocator. The claim
 // moved from "the allocator hands out the same amounts regardless of window"
-// to "the shard walk pays the same voter the same amount regardless of where
-// the block boundaries fall", which is the property chunk-size tuning at
-// activation actually depends on.
+// to "the voter-range walk pays the same voter the same amount regardless of
+// where the block boundaries fall", which is the property chunk-size tuning
+// at activation actually depends on.
 func TestChunkedDrain_InvariantAcrossChunkSizes(t *testing.T) {
 	const votersPerDelegate = 3
 	voterAddrs := make([]address.Address, 0, len(rewardedCandidateIndexes)*votersPerDelegate)
@@ -379,7 +378,7 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		midDrain, err = p.TestOnlyDumpRewardState(ctx, sm, allProtocolAddrs(t))
 		r.NoError(err)
 		r.True(midDrain.CursorPresent, "Phase-A snapshot must observe a live cursor")
-		r.Equal(uint32(0), midDrain.CursorShardsDone)
+		r.Equal(uint32(voterScanTail), midDrain.CursorScanPhase)
 		r.Equal(uint32(0), midDrain.CursorResumeLen)
 
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
@@ -387,7 +386,7 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		for {
 			cursor, readErr := p.readEpochDrainCursor(ctx, sm)
 			r.NoError(readErr)
-			if cursor == nil || cursor.drainFinished() {
+			if cursor == nil || cursor.ScanPhase == voterScanDone {
 				break
 			}
 			_, _, err = p.GrantVoterRewardChunk(ctx, sm)
@@ -402,16 +401,16 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		"end-state after a paused-then-resumed drain must equal an uninterrupted drain")
 }
 
-// TestChunkedDrain_VoterBudgetStopsMidShardWalk confirms the per-block voter
-// budget is spent on voters and that stopping part-way through a shard leaves
-// a resumable cursor.
+// TestChunkedDrain_VoterBudgetStopsMidVoterScan confirms the per-block voter
+// budget is spent on voters and that stopping part-way through a scan range
+// leaves a resumable cursor.
 //
 // This replaces TestChunkedDrain_VoterBudgetStopsAtDelegateBoundary. The
 // delegate boundary it named no longer exists: the drain is voter-major, so a
-// block ends in the middle of a shard, at a voter, and possibly with several
+// block ends in the middle of a range, at a voter, and possibly with several
 // delegates each partly paid. ResumeVoter is what makes that position
 // recoverable, and it is the thing worth asserting.
-func TestChunkedDrain_VoterBudgetStopsMidShardWalk(t *testing.T) {
+func TestChunkedDrain_VoterBudgetStopsMidVoterScan(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
@@ -422,8 +421,8 @@ func TestChunkedDrain_VoterBudgetStopsMidShardWalk(t *testing.T) {
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
-		// All twelve voters share a shard, so a one-voter budget necessarily
-		// stops inside a shard rather than on a shard boundary.
+		// All twelve voters share an address prefix, so a one-voter budget
+		// necessarily stops inside one of the two scan ranges.
 		seedSameShardDrain(t, ctx, sm, p, 200, 3, 0x7a)
 
 		_, _, err = p.GrantEpochReward(ctx, sm)
@@ -444,11 +443,11 @@ func TestChunkedDrain_VoterBudgetStopsMidShardWalk(t *testing.T) {
 		cursor, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
 		r.NotNil(cursor)
-		r.False(cursor.drainFinished(), "one voter out of twelve cannot finish the drain")
-		r.NotEmpty(cursor.ResumeVoter, "stopping inside a shard must record where to resume")
+		r.NotEqual(voterScanDone, cursor.ScanPhase, "one voter out of twelve cannot finish the drain")
+		r.NotEmpty(cursor.ResumeVoter, "stopping inside a scan range must record where to resume")
 		r.Equal(txLogs[0].Recipient, mustAddressFromBytes(t, cursor.ResumeVoter).String(),
 			"the resume point is the last voter visited")
-		r.Less(cursor.ShardsDone, totalShards)
+		r.Less(cursor.ScanPhase, voterScanDone)
 
 		// Exactly one delegate's running total moved, and by the amount paid.
 		moved := 0
