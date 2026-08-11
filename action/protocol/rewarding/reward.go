@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/eracow"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -1087,59 +1088,10 @@ func (p *Protocol) runVoterDistributionChunk(
 	stop := startIIP59Duration("chunk_distribution")
 	defer stop()
 
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
 	transactionLogs := make([]*action.TransactionLog, 0)
-	rewardLogs := make([]*action.Log, 0)
-
-	// The liquid-staking owner index is one of the two live streams the voter walk
-	// merges. Without it the walk still completes and still reports success --
-	// it just pays every contract staker nothing. A silent underpayment of real
-	// money is worse than a halted block, so refuse to run at all.
-	//
-	// The backfill that populates the index has no persisted completion state to
-	// assert against, so this checks availability only. If a completion marker
-	// is added later it belongs here.
-	if !contractstaking.OwnerIndexEnabled(ctx) {
-		return nil, nil, errors.New(
-			"rewarding: contract-staking owner index unavailable; refusing to drain native-only")
-	}
-	window, err := staking.EraCOWWindow(sm)
+	window, err := validateVoterDrainWindow(ctx, sm, cursor)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "rewarding: read era copy-on-write window")
-	}
-	if !window.Open() {
-		// Every bucket the recompute reads must be the era's frozen copy. A
-		// closed window means the drain would read live buckets and pay weights
-		// the era never froze.
-		return nil, nil, errors.New("rewarding: era copy-on-write window is closed during drain")
-	}
-	// Open is not enough: it must be *this* era's window. The next era's freeze
-	// rides PutPollResult, which fires around the midpoint of the epoch before
-	// the boundary epoch -- roughly 1.5 epochs before the boundary block where
-	// the next era boundary would notice the overrun and hand this cursor to
-	// rollOverIncompleteEpochDrain. eracow.Begin does not refuse to supersede an
-	// open window; it queues the old one for collection and installs the new
-	// one. So for that 1.5-epoch stretch EraCOWWindow answers at the new freeze
-	// height while every work item here still carries the old one, and the two
-	// travel together into staking.FrozenVoterWeight.
-	//
-	// The reads that follow would not fail, they would answer for the wrong
-	// era: a bucket that grew since the old H pays at its grown amount, and a
-	// bucket minted after the old H becomes payable at all, because the
-	// high-water marks moved with the window.
-	//
-	// Stop rather than pay. Nothing is lost by stopping: the pending pools stay
-	// where they are, and the incoming era boundary runs
-	// rollOverIncompleteEpochDrain, which deletes this cursor and rolls every
-	// delegate's residue into the era that can freeze it properly. Settleable
-	// because both heights are committed state that every node reads
-	// identically, so a Failure receipt is a verdict the whole network reaches
-	// on the same block.
-	if cursor.FreezeHeight == 0 || cursor.FreezeHeight != window.FreezeHeight {
-		return nil, nil, settleableVoterChunkError(
-			"rewarding: era %d drain frozen at height %d outlived its copy-on-write window, which is now open at height %d",
-			cursor.TargetEra, cursor.FreezeHeight, window.FreezeHeight)
+		return nil, nil, err
 	}
 	routing, err := p.resolveVoterRouting(ctx, sm)
 	if err != nil {
@@ -1199,29 +1151,17 @@ func (p *Protocol) runVoterDistributionChunk(
 			keyBudget -= page.KeysScanned
 		}
 		for _, voter := range page.Voters {
-			shares, err := computeVoterShares(sm, in, voter)
+			tLog, compounded, err := p.settleVoterReward(
+				ctx, sm, cursor, routing, in, voter, chunkLogs, &routeDurations,
+			)
 			if err != nil {
 				return nil, nil, err
 			}
-			payout, err := p.payVoterCombined(ctx, sm, routing, in, voter, shares, &routeDurations)
-			if err != nil {
-				return nil, nil, err
+			if tLog != nil {
+				transactionLogs = append(transactionLogs, tLog)
 			}
-			if payout.amount != nil && payout.amount.Sign() > 0 {
-				if err := p.bookVoterPayout(ctx, sm, cursor, payout); err != nil {
-					return nil, nil, err
-				}
-				recordVoterPayout(chunkLogs, payout)
-				if tLog := voterTransactionLog(payout); tLog != nil {
-					transactionLogs = append(transactionLogs, tLog)
-				}
-				// payout.compounded, not compoundBucketID != 0: native
-				// bucket 0 is a real bucket, and missing it here would
-				// under-report the block's rewarding-pool -> bucket-pool
-				// outflow while the money had already moved.
-				if payout.compounded {
-					compoundedTotal.Add(compoundedTotal, payout.amount)
-				}
+			if compounded != nil {
+				compoundedTotal.Add(compoundedTotal, compounded)
 			}
 			visited++
 			if budget > 0 {
@@ -1240,24 +1180,12 @@ func (p *Protocol) runVoterDistributionChunk(
 	}
 	addIIP59Items("chunk_voter", visited)
 
-	if compoundedTotal.Sign() > 0 {
-		compoundLog, err := p.settleCompoundOutflow(compoundedTotal)
-		if err != nil {
-			return nil, nil, err
-		}
-		transactionLogs = append(transactionLogs, compoundLog)
+	compoundLog, rewardLogs, err := p.buildVoterChunkLogs(ctx, cursor, chunkLogs, compoundedTotal)
+	if err != nil {
+		return nil, nil, err
 	}
-	for i := range chunkLogs {
-		delegateLog, err := p.packDelegateChunkLog(
-			cursor.TargetEra, cursor.Delegates[i], chunkLogs[i],
-			blkCtx.BlockHeight, actionCtx.ActionHash,
-		)
-		if err != nil {
-			return nil, nil, err
-		}
-		if delegateLog != nil {
-			rewardLogs = append(rewardLogs, delegateLog)
-		}
+	if compoundLog != nil {
+		transactionLogs = append(transactionLogs, compoundLog)
 	}
 
 	if !cursor.drainFinished() {
@@ -1275,6 +1203,110 @@ func (p *Protocol) runVoterDistributionChunk(
 		return nil, nil, err
 	}
 	return transactionLogs, rewardLogs, nil
+}
+
+// validateVoterDrainWindow verifies that every voter and bucket source needed
+// by this cursor still represents the era it froze.
+func validateVoterDrainWindow(
+	ctx context.Context,
+	sr protocol.StateReader,
+	cursor *epochDrainCursor,
+) (eracow.Window, error) {
+	// Without the contract-staking owner index the walk would complete while
+	// silently omitting every liquid-staking voter.
+	if !contractstaking.OwnerIndexEnabled(ctx) {
+		return eracow.Window{}, errors.New(
+			"rewarding: contract-staking owner index unavailable; refusing to drain native-only")
+	}
+	window, err := staking.EraCOWWindow(sr)
+	if err != nil {
+		return eracow.Window{}, errors.Wrap(err, "rewarding: read era copy-on-write window")
+	}
+	if !window.Open() {
+		return eracow.Window{}, errors.New("rewarding: era copy-on-write window is closed during drain")
+	}
+	// A later freeze may supersede an unfinished cursor's window before the
+	// next era boundary rolls that cursor over. Reading from the replacement
+	// window would combine old denominators with new bucket state.
+	if cursor.FreezeHeight == 0 || cursor.FreezeHeight != window.FreezeHeight {
+		return eracow.Window{}, settleableVoterChunkError(
+			"rewarding: era %d drain frozen at height %d outlived its copy-on-write window, which is now open at height %d",
+			cursor.TargetEra, cursor.FreezeHeight, window.FreezeHeight)
+	}
+	return window, nil
+}
+
+// settleVoterReward computes, transfers, books, and records one voter's full
+// entitlement. Keeping this order together prevents a transfer from drifting
+// away from its pending-pool and rewarding-fund accounting.
+func (p *Protocol) settleVoterReward(
+	ctx context.Context,
+	sm protocol.StateManager,
+	cursor *epochDrainCursor,
+	routing voterRouting,
+	in voterShareInputs,
+	voter address.Address,
+	chunkLogs []delegateChunkLog,
+	routeDurations *iip59RouteDurations,
+) (*action.TransactionLog, *big.Int, error) {
+	shares, err := computeVoterShares(sm, in, voter)
+	if err != nil {
+		return nil, nil, err
+	}
+	payout, err := p.payVoterCombined(ctx, sm, routing, in, voter, shares, routeDurations)
+	if err != nil {
+		return nil, nil, err
+	}
+	if isNilOrZero(payout.amount) {
+		return nil, nil, nil
+	}
+	if err := p.bookVoterPayout(ctx, sm, cursor, payout); err != nil {
+		return nil, nil, err
+	}
+	recordVoterPayout(chunkLogs, payout)
+
+	var compounded *big.Int
+	if payout.compounded {
+		// Use the explicit discriminator: native bucket 0 is a valid compound
+		// destination and cannot be inferred from compoundBucketID.
+		compounded = new(big.Int).Set(payout.amount)
+	}
+	return voterTransactionLog(payout), compounded, nil
+}
+
+// buildVoterChunkLogs produces the block-level compound outflow and one
+// DelegateDistributed event per delegate touched by this chunk.
+func (p *Protocol) buildVoterChunkLogs(
+	ctx context.Context,
+	cursor *epochDrainCursor,
+	chunkLogs []delegateChunkLog,
+	compoundedTotal *big.Int,
+) (*action.TransactionLog, []*action.Log, error) {
+	var compoundLog *action.TransactionLog
+	if safeBig(compoundedTotal).Sign() > 0 {
+		var err error
+		compoundLog, err = p.settleCompoundOutflow(compoundedTotal)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	rewardLogs := make([]*action.Log, 0)
+	for i := range chunkLogs {
+		delegateLog, err := p.packDelegateChunkLog(
+			cursor.TargetEra, cursor.Delegates[i], chunkLogs[i],
+			blkCtx.BlockHeight, actionCtx.ActionHash,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		if delegateLog != nil {
+			rewardLogs = append(rewardLogs, delegateLog)
+		}
+	}
+	return compoundLog, rewardLogs, nil
 }
 
 // bookVoterPayout books the funds one voter's combined transfer moved: draw
