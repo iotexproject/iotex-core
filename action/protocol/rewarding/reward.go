@@ -445,9 +445,9 @@ func (p *Protocol) payDelegateShare(
 	return nil
 }
 
-// resolveStaleDrainCursor deals with a previous era's cursor still being live at
-// this Phase A boundary. A completed cursor is simply retired; an incomplete
-// one is an overrun handed off to handlePhaseAEntryOverrun (IIP-59 §10.2).
+// resolveStaleDrainCursor deals with a previous era's cursor at the next era
+// boundary. A completed cursor is retired; an incomplete one rolls over via
+// rollOverIncompleteEpochDrain (IIP-59 §10.2).
 func (p *Protocol) resolveStaleDrainCursor(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -462,7 +462,7 @@ func (p *Protocol) resolveStaleDrainCursor(
 	if existing.drainFinished() {
 		return nil, p.deleteEpochDrainCursor(ctx, sm)
 	}
-	return p.handlePhaseAEntryOverrun(ctx, sm, existing)
+	return p.rollOverIncompleteEpochDrain(ctx, sm, existing)
 }
 
 // slashUnproductiveDelegates takes back self-stake from delegates that missed
@@ -778,7 +778,7 @@ func (p *Protocol) persistDrainCursor(
 		}
 		return nil
 	}
-	stop := startIIP59Duration("cursor_write_phase_a")
+	stop := startIIP59Duration("cursor_write_era_boundary")
 	defer stop()
 	distributed := make([]*big.Int, len(entries))
 	for i := range distributed {
@@ -802,7 +802,8 @@ func (p *Protocol) persistDrainCursor(
 // GrantEpochReward runs the epoch-last-block work as a single body for
 // both pre- and post-fork chains:
 //
-//  1. Pre-A checks: epoch-last and no prior sentinel; hand off any overrun cursor.
+//  1. Preconditions: epoch-last, no prior sentinel, and rollover of any
+//     incomplete cursor.
 //  2. Load inputs: admin config, exempt set, uqd map, candidates, split partition.
 //  3. Slashing (its own feature flag; independent of IIP-59).
 //  4. Per-delegate epoch split loop — for each rewarded candidate:
@@ -954,11 +955,11 @@ func (p *Protocol) GrantEpochReward(
 // era-boundary drain. Emitted by CreatePostSystemActions on every
 // non-epoch-boundary block while a cursor is incomplete; the final chunk
 // seals the COW window and records cursor completion inline. Foundation bonus
-// and the epoch sentinel are committed by GrantEpochReward in Phase A.
+// and the epoch sentinel are committed by the era-boundary GrantEpochReward.
 //
-// Epoch-scoped allocation inputs are frozen in the plan by Phase A. A
+// Epoch-scoped allocation inputs are frozen when the cursor is created. A
 // continuation does not re-run candidate selection or slashing against its
-// current epoch, which may only contain a few blocks.
+// current epoch, which may contain only a few blocks.
 func (p *Protocol) GrantVoterRewardChunk(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -1005,8 +1006,8 @@ func (p *Protocol) GrantVoterRewardChunk(
 }
 
 // loadEpochDistributionInputs derives the deterministic epoch-scoped state
-// Phase A needs: admin config, exempt set, uqdMap, poll candidates, and the
-// splitEpochReward partition (rewardedCandidates, addrs, amounts).
+// needed by GrantEpochReward: admin config, exempt set, uqdMap, poll candidates,
+// and the splitEpochReward partition (rewardedCandidates, addrs, amounts).
 func (p *Protocol) loadEpochDistributionInputs(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -1116,8 +1117,8 @@ func (p *Protocol) runVoterDistributionChunk(
 	// Open is not enough: it must be *this* era's window. The next era's freeze
 	// rides PutPollResult, which fires around the midpoint of the epoch before
 	// the boundary epoch -- roughly 1.5 epochs before the boundary block where
-	// Phase A would notice the overrun and hand this cursor to
-	// handlePhaseAEntryOverrun. eracow.Begin does not refuse to supersede an
+	// the next era boundary would notice the overrun and hand this cursor to
+	// rollOverIncompleteEpochDrain. eracow.Begin does not refuse to supersede an
 	// open window; it queues the old one for collection and installs the new
 	// one. So for that 1.5-epoch stretch EraCOWWindow answers at the new freeze
 	// height while every work item here still carries the old one, and the two
@@ -1129,8 +1130,8 @@ func (p *Protocol) runVoterDistributionChunk(
 	// high-water marks moved with the window.
 	//
 	// Stop rather than pay. Nothing is lost by stopping: the pending pools stay
-	// where they are, and Phase A of the incoming era runs
-	// handlePhaseAEntryOverrun, which deletes this cursor and rolls every
+	// where they are, and the incoming era boundary runs
+	// rollOverIncompleteEpochDrain, which deletes this cursor and rolls every
 	// delegate's residue into the era that can freeze it properly. Settleable
 	// because both heights are committed state that every node reads
 	// identically, so a Failure receipt is a verdict the whole network reaches
@@ -1378,20 +1379,19 @@ func (p *Protocol) encodeRewardLog(
 	return proto.Marshal(&rewardLog)
 }
 
-// handlePhaseAEntryOverrun implements the IIP-59 §10.2 graceful degrade for
-// the case where a previous era's cursor is still live at Phase A entry.
+// rollOverIncompleteEpochDrain implements the IIP-59 §10.2 graceful degrade for
+// a previous era's cursor that remains incomplete at the next era boundary.
 // It sums the residue (pool balance that would have drained had the era
 // completed) across every delegate the stale cursor named, deletes the stale
 // cursor, and returns an EPOCH_DRAIN_OVERRUN log describing the handoff.
-// The pool entries themselves are left in place — Phase A's own cursor
-// materialisation, later in this same call, picks them up as freshly
-// frozen work for the new era.
-func (p *Protocol) handlePhaseAEntryOverrun(
+// The pool entries remain in place; the new cursor materialized later in this
+// call picks them up as freshly frozen work for the new era.
+func (p *Protocol) rollOverIncompleteEpochDrain(
 	ctx context.Context,
 	sm protocol.StateManager,
 	cursor *epochDrainCursor,
 ) (*action.Log, error) {
-	residue, remaining, err := p.computePhaseAOverrunResidue(ctx, sm, cursor)
+	residue, remaining, err := p.computeIncompleteDrainResidue(ctx, sm, cursor)
 	if err != nil {
 		return nil, err
 	}
@@ -1402,7 +1402,7 @@ func (p *Protocol) handlePhaseAEntryOverrun(
 	if err := p.deleteEpochDrainCursor(ctx, sm); err != nil {
 		return nil, err
 	}
-	log.L().Warn("IIP-59: prior era drain overran into Phase A; residue rolls into next era",
+	log.L().Warn("IIP-59: prior era drain incomplete at next era boundary; residue rolls forward",
 		zap.Uint64("staleTargetEra", cursor.TargetEra),
 		zap.Uint8("staleScanPhase", uint8(cursor.ScanPhase)),
 		zap.Uint32("delegatesRemaining", remaining),
@@ -1411,7 +1411,7 @@ func (p *Protocol) handlePhaseAEntryOverrun(
 	return logEntry, nil
 }
 
-// computePhaseAOverrunResidue sums the live pool balance across the stale
+// computeIncompleteDrainResidue sums the live pool balance across the stale
 // cursor's delegates and counts how many still hold one.
 //
 // It sums over every delegate, not over a suffix of the work list: the drain is
@@ -1419,8 +1419,8 @@ func (p *Protocol) handlePhaseAEntryOverrun(
 // paid rather than leaving a clean prefix done and a suffix untouched.
 // VoterAmountFrozen from the cursor is intentionally NOT used -- the true
 // leftover is the live pool balance, which may have accrued additional
-// block-time credit between the era-boundary freeze and this Phase A entry.
-func (p *Protocol) computePhaseAOverrunResidue(
+// block-time credit between the freeze and the next era boundary.
+func (p *Protocol) computeIncompleteDrainResidue(
 	ctx context.Context,
 	sm protocol.StateReader,
 	cursor *epochDrainCursor,

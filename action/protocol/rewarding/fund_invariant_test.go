@@ -83,12 +83,12 @@ func TestFundInvariant_HoldsAfterGrantEpochReward_PreFork(t *testing.T) {
 		r.NoError(err)
 
 		r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, allProtocolAddrs(t)),
-			"pre-fork Phase A must preserve total = unclaimed + Σ(perAddress) + Σ(pool)")
+			"pre-fork era-boundary setup must preserve total = unclaimed + Σ(perAddress) + Σ(pool)")
 	}, noUnproductives, false, 0)
 }
 
 // TestFundInvariant_HoldsAfterGrantEpochReward_PostForkDeferredCursor walks the
-// post-fork Phase A path in the absence of any block-side voter accrual:
+// post-fork era-boundary setup path in the absence of any block-side voter accrual:
 // no poll snapshot is present, so the full epoch share enters pending pools
 // and a deferred cursor is created. The invariant must still hold.
 func TestFundInvariant_HoldsAfterGrantEpochReward_PostForkDeferredCursor(t *testing.T) {
@@ -123,7 +123,7 @@ func TestFundInvariant_HoldsAfterGrantEpochReward_PostForkDeferredCursor(t *test
 // (iip59_stress_test.go), which runs a real staking factory so
 // distributeVoterOnly's grantToAccount side effects actually fire and
 // offset the pool decrement. The unit scaffold's mock view does not
-// support ConstructBaseView, so unit tests are limited to Phase A.
+// support ConstructBaseView, so unit tests are limited to era-boundary setup.
 func TestFundInvariant_DetectsViolation(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)

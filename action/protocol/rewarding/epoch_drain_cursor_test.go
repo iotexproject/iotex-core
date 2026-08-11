@@ -205,7 +205,7 @@ func TestEpochDrainCursor_EmptyDelegates(t *testing.T) {
 }
 
 // TestEpochDrainCursor_ZeroPoolAmount — a delegate whose pool balance
-// is zero at Phase A freeze round-trips as a big.Int with Sign() == 0
+// is zero at era-boundary setup freeze round-trips as a big.Int with Sign() == 0
 // (not nil), so chunk callers can safely call amt.Sign() without a
 // nil check.
 func TestEpochDrainCursor_ZeroPoolAmount(t *testing.T) {

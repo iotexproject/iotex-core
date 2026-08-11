@@ -56,14 +56,18 @@ func TestCandidatePollSnapshot_SerializeRoundtrip(t *testing.T) {
 		FreezeHeight:               909_090,
 		SelfStakeBucketIdx:         7,
 	}
-	blob := orig.toBlob()
-	buf, err := blob.Serialize()
+	buf, err := orig.Serialize()
 	r.NoError(err)
+	encoded, err := orig.Encode()
+	r.NoError(err)
+	r.Equal(buf, encoded.PrimaryData, "Erigon and trie storage must use identical bytes")
 
-	var round candidatePollSnapshotBlob
+	var round CandidatePollSnapshot
 	r.NoError(round.Deserialize(buf))
-	out, err := fromBlob(&round)
-	r.NoError(err)
+	out := &round
+	var genericRound CandidatePollSnapshot
+	r.NoError(genericRound.Decode(encoded))
+	r.Zero(orig.TotalWeight.Cmp(genericRound.TotalWeight))
 
 	r.Equal(orig.BlockCommissionBasisPoints, out.BlockCommissionBasisPoints)
 	r.Equal(orig.EpochCommissionBasisPoints, out.EpochCommissionBasisPoints)
@@ -85,14 +89,12 @@ func TestCandidatePollSnapshot_SerializeZeroTotalWeight(t *testing.T) {
 		EpochCommissionBasisPoints: 2000,
 		Registered:                 true,
 	}
-	blob := orig.toBlob()
-	buf, err := blob.Serialize()
+	buf, err := orig.Serialize()
 	r.NoError(err)
 
-	var round candidatePollSnapshotBlob
+	var round CandidatePollSnapshot
 	r.NoError(round.Deserialize(buf))
-	out, err := fromBlob(&round)
-	r.NoError(err)
+	out := &round
 	r.NotNil(out.TotalWeight)
 	r.Zero(out.TotalWeight.Sign())
 	r.True(out.Registered)
@@ -104,8 +106,7 @@ func TestCandidatePollSnapshot_ZeroValueSerializes(t *testing.T) {
 	// disabled.
 	r := require.New(t)
 	orig := &CandidatePollSnapshot{}
-	blob := orig.toBlob()
-	buf, err := blob.Serialize()
+	buf, err := orig.Serialize()
 	r.NoError(err)
 
 	var pb stakingpb.CandidatePollSnapshot

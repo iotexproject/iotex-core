@@ -87,34 +87,41 @@ type CandidatePollSnapshot struct {
 	SelfStakeBucketIdx uint64
 }
 
-// candidatePollSnapshotBlob is the state.Serializer / state.Deserializer
-// wrapper around stakingpb.CandidatePollSnapshot. Kept package-private —
-// callers work with CandidatePollSnapshot.
-type candidatePollSnapshotBlob struct {
-	pb *stakingpb.CandidatePollSnapshot
-}
-
 // Serialize implements state.Serializer.
-func (b *candidatePollSnapshotBlob) Serialize() ([]byte, error) {
-	if b.pb == nil {
+func (s *CandidatePollSnapshot) Serialize() ([]byte, error) {
+	if s == nil {
 		return proto.Marshal(&stakingpb.CandidatePollSnapshot{})
 	}
-	return proto.Marshal(b.pb)
+	return proto.Marshal(&stakingpb.CandidatePollSnapshot{
+		BlockCommissionBasisPoints: s.BlockCommissionBasisPoints,
+		EpochCommissionBasisPoints: s.EpochCommissionBasisPoints,
+		Registered:                 s.Registered,
+		OnchainRewardEnabled:       s.OnchainRewardEnabled,
+		TotalWeight:                safeBigInt(s.TotalWeight).Bytes(),
+		FreezeHeight:               s.FreezeHeight,
+		SelfStakeBucketIdx:         s.SelfStakeBucketIdx,
+	})
 }
 
 // Deserialize implements state.Deserializer.
-func (b *candidatePollSnapshotBlob) Deserialize(buf []byte) error {
+func (s *CandidatePollSnapshot) Deserialize(buf []byte) error {
 	pb := &stakingpb.CandidatePollSnapshot{}
 	if err := proto.Unmarshal(buf, pb); err != nil {
 		return errors.Wrap(err, "failed to unmarshal candidate poll snapshot")
 	}
-	b.pb = pb
+	s.BlockCommissionBasisPoints = pb.GetBlockCommissionBasisPoints()
+	s.EpochCommissionBasisPoints = pb.GetEpochCommissionBasisPoints()
+	s.Registered = pb.GetRegistered()
+	s.OnchainRewardEnabled = pb.GetOnchainRewardEnabled()
+	s.TotalWeight = new(big.Int).SetBytes(pb.GetTotalWeight())
+	s.FreezeHeight = pb.GetFreezeHeight()
+	s.SelfStakeBucketIdx = pb.GetSelfStakeBucketIdx()
 	return nil
 }
 
 // Encode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
-func (b *candidatePollSnapshotBlob) Encode() (systemcontracts.GenericValue, error) {
-	data, err := b.Serialize()
+func (s *CandidatePollSnapshot) Encode() (systemcontracts.GenericValue, error) {
+	data, err := s.Serialize()
 	if err != nil {
 		return systemcontracts.GenericValue{}, err
 	}
@@ -122,8 +129,8 @@ func (b *candidatePollSnapshotBlob) Encode() (systemcontracts.GenericValue, erro
 }
 
 // Decode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
-func (b *candidatePollSnapshotBlob) Decode(v systemcontracts.GenericValue) error {
-	return b.Deserialize(v.PrimaryData)
+func (s *CandidatePollSnapshot) Decode(v systemcontracts.GenericValue) error {
+	return s.Deserialize(v.PrimaryData)
 }
 
 // candidatePollSnapshotKey returns the state-trie key for a candidate's
@@ -134,36 +141,6 @@ func candidatePollSnapshotKey(candID address.Address) []byte {
 	out := make([]byte, 1, 1+len(candID.Bytes()))
 	out[0] = _candidatePollSnapshot
 	return append(out, candID.Bytes()...)
-}
-
-// toBlob returns the wire form for PutState. Unlike the entry-list version it
-// replaces, it derives nothing: all fields are frozen by FreezePollSnapshot.
-func (s *CandidatePollSnapshot) toBlob() *candidatePollSnapshotBlob {
-	return &candidatePollSnapshotBlob{pb: &stakingpb.CandidatePollSnapshot{
-		BlockCommissionBasisPoints: s.BlockCommissionBasisPoints,
-		EpochCommissionBasisPoints: s.EpochCommissionBasisPoints,
-		Registered:                 s.Registered,
-		OnchainRewardEnabled:       s.OnchainRewardEnabled,
-		TotalWeight:                safeBigInt(s.TotalWeight).Bytes(),
-		FreezeHeight:               s.FreezeHeight,
-		SelfStakeBucketIdx:         s.SelfStakeBucketIdx,
-	}}
-}
-
-// fromBlob converts a decoded blob back into a CandidatePollSnapshot.
-func fromBlob(b *candidatePollSnapshotBlob) (*CandidatePollSnapshot, error) {
-	if b == nil || b.pb == nil {
-		return &CandidatePollSnapshot{}, nil
-	}
-	return &CandidatePollSnapshot{
-		BlockCommissionBasisPoints: b.pb.GetBlockCommissionBasisPoints(),
-		EpochCommissionBasisPoints: b.pb.GetEpochCommissionBasisPoints(),
-		Registered:                 b.pb.GetRegistered(),
-		OnchainRewardEnabled:       b.pb.GetOnchainRewardEnabled(),
-		TotalWeight:                new(big.Int).SetBytes(b.pb.GetTotalWeight()),
-		FreezeHeight:               b.pb.GetFreezeHeight(),
-		SelfStakeBucketIdx:         b.pb.GetSelfStakeBucketIdx(),
-	}, nil
 }
 
 // safeBigInt returns v, or a fresh zero when v is nil.
@@ -318,7 +295,7 @@ func writeCandidatePollSnapshot(
 	snap *CandidatePollSnapshot,
 ) error {
 	if _, err := sm.PutState(
-		snap.toBlob(),
+		snap,
 		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeyOption(candidatePollSnapshotKey(candID)),
 	); err != nil {
@@ -344,7 +321,7 @@ func TestOnlyPutPollSnapshotFor(
 		return errors.New("staking: nil snapshot")
 	}
 	_, err := sm.PutState(
-		snap.toBlob(),
+		snap,
 		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeyOption(candidatePollSnapshotKey(candID)),
 	)
@@ -358,15 +335,15 @@ func PollSnapshotFor(sr protocol.StateReader, candID address.Address) (*Candidat
 	if candID == nil {
 		return nil, errors.New("staking: nil candidate identity")
 	}
-	blob := &candidatePollSnapshotBlob{}
+	snapshot := &CandidatePollSnapshot{}
 	if _, err := sr.State(
-		blob,
+		snapshot,
 		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeyOption(candidatePollSnapshotKey(candID)),
 	); err != nil {
 		return nil, err
 	}
-	return fromBlob(blob)
+	return snapshot, nil
 }
 
 // CandidateRewardAddress is retained for ReadState compatibility. It returns

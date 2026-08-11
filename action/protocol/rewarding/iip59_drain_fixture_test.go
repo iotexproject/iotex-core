@@ -75,7 +75,7 @@ type iip59DrainFixture struct {
 	voters       []address.Address
 	// weight is keyed by delegate bytes then voter bytes.
 	weight map[string]map[string]*big.Int
-	// total is the per-delegate sum of weight, i.e. what Phase A freezes as
+	// total is the per-delegate sum of weight, i.e. what era-boundary setup freezes as
 	// TotalWeight.
 	total map[string]*big.Int
 }
@@ -207,8 +207,8 @@ func seedIIP59DrainState(
 		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, delegate, &staking.CandidatePollSnapshot{
 			OnchainRewardEnabled: true,
 			// Zero commission: the whole epoch reward becomes the voter pool,
-			// so a Phase A run over this fixture produces a non-zero
-			// VoterAmountFrozen for Phase B to actually distribute.
+			// so an era-boundary setup run over this fixture produces a non-zero
+			// VoterAmountFrozen for voter reward drain to actually distribute.
 			BlockCommissionBasisPoints: 0,
 			EpochCommissionBasisPoints: 0,
 			Registered:                 true,
@@ -297,10 +297,10 @@ func accountBalances(
 	return out
 }
 
-// drainPhaseBToCompletion drives GrantVoterRewardChunk until the cursor reports
-// completion and returns how many chunk calls that took. Phase A must already
+// drainVoterRewardsToCompletion drives GrantVoterRewardChunk until the cursor reports
+// completion and returns how many chunk calls that took. era-boundary setup must already
 // have run.
-func drainPhaseBToCompletion(
+func drainVoterRewardsToCompletion(
 	t *testing.T,
 	ctx context.Context,
 	sm protocol.StateManager,

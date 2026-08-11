@@ -44,12 +44,12 @@ func (s drainScenario) poolOf(delegate address.Address) *big.Int {
 	return new(big.Int)
 }
 
-// newDrainScenario plants an era and writes the cursor Phase A would have
+// newDrainScenario plants an era and writes the cursor era-boundary setup would have
 // written for it.
 //
-// Phase A is not run here. The poll protocol it needs is not part of the
+// era-boundary setup is not run here. The poll protocol it needs is not part of the
 // newVoterRewardCtx fixture, and running it would tie every assertion below to
-// the epoch-reward split. What Phase A produces that matters to the drain is a
+// the epoch-reward split. What era-boundary setup produces that matters to the drain is a
 // cursor whose TotalWeight and FreezeHeight match the planted era, and that is
 // written directly.
 //
@@ -482,7 +482,7 @@ func TestVoterDrainConservesEveryDelegatePool(t *testing.T) {
 //
 // The freeze rides PutPollResult, which fires around the midpoint of the epoch
 // before the boundary epoch — roughly 1.5 epochs before the boundary block where
-// Phase A hands an overrunning cursor to handlePhaseAEntryOverrun. eracow.Begin
+// era-boundary setup hands an overrunning cursor to rollOverIncompleteEpochDrain. eracow.Begin
 // does not refuse to supersede an open window, so for that entire stretch
 // EraCOWWindow answers at the new freeze height while the cursor still carries
 // the old one. Nothing errors: the reads simply answer for the wrong era, at
@@ -491,7 +491,7 @@ func TestVoterDrainConservesEveryDelegatePool(t *testing.T) {
 // TestSupersededWindowSilentlyAnswersForTheWrongEra in the staking package for
 // that mechanism in isolation.
 //
-// So the drain must notice the swap itself. Stopping costs nothing: Phase A of
+// So the drain must notice the swap itself. Stopping costs nothing: era-boundary setup of
 // the incoming era rolls every delegate's residue into an era that can freeze it
 // properly.
 func TestVoterDrainRefusesASupersededEraWindow(t *testing.T) {
@@ -539,7 +539,7 @@ func TestVoterDrainRefusesASupersededEraWindow(t *testing.T) {
 		"a halted block here would stop the chain for 1.5 epochs, not just the drain")
 
 	// Refusing must be inert: no partial payout, no cursor movement, so the
-	// residue Phase A rolls forward is still whole.
+	// residue era-boundary setup rolls forward is still whole.
 	after, err := p.readEpochDrainCursor(ctx, sm)
 	r.NoError(err)
 	r.NotNil(after)

@@ -341,7 +341,7 @@ func writeSnapshot(
 	require.NoError(t, staking.TestOnlyPutPollSnapshotFor(sm, candAddr, snap))
 }
 
-// distributionMetadata reads back the denominator Phase A freezes into a work
+// distributionMetadata reads back the denominator era-boundary setup freezes into a work
 // item. It returns what the frozen snapshot recorded rather than recomputing,
 // because that is what the cursor carries and what the drain divides by.
 func distributionMetadata(

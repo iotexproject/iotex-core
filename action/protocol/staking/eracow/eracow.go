@@ -542,8 +542,8 @@ func Begin(
 		// drain -- and it is the drain, not this function, that acts on it.
 		// runVoterDistributionChunk compares the live window's FreezeHeight
 		// against its cursor's and settles a Failure receipt rather than paying
-		// through the wrong era; Phase A of the incoming era then rolls the
-		// residue forward via handlePhaseAEntryOverrun.
+		// through the wrong era; the incoming era boundary then rolls the residue
+		// forward via rollOverIncompleteEpochDrain.
 		c.Pending = append(c.Pending, GCState{
 			FreezeHeight: c.FreezeHeight,
 			Cursor:       0,

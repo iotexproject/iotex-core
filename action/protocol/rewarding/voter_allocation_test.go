@@ -65,7 +65,7 @@ func TestVoterShareClampNeverOverpaysDelegatePool(t *testing.T) {
 	r.True(naiveTotal.Cmp(c.pool) > 0,
 		"fixture must force an over-payment: naive total %s vs pool %s", naiveTotal, c.pool)
 
-	chunks := drainPhaseBToCompletion(t, ctx, sm, p)
+	chunks := drainVoterRewardsToCompletion(t, ctx, sm, p)
 	r.Positive(chunks, "the drain must actually have run")
 
 	balances := accountBalances(t, sm, c.voters)
@@ -370,7 +370,7 @@ func TestLapsedSelfStakeBonusCannotOverpayDelegatePool(t *testing.T) {
 	r.Positive(naiveTotal.Cmp(pool),
 		"without the clamp this fixture pays %s out of a %s pool", naiveTotal, pool)
 
-	chunks := drainPhaseBToCompletion(t, ctx, sm, p)
+	chunks := drainVoterRewardsToCompletion(t, ctx, sm, p)
 	r.Positive(chunks, "the drain must actually have run")
 
 	balances := accountBalances(t, sm, voters)

@@ -407,7 +407,8 @@ func (p *Protocol) readEpochDrainCursor(
 }
 
 // writeEpochDrainCursor creates or replaces both parts of a settlement. It is
-// used at Phase A; continuation blocks must call writeEpochDrainProgress.
+// used when the era-boundary cursor is created; continuation blocks must call
+// writeEpochDrainProgress.
 func (p *Protocol) writeEpochDrainCursor(
 	ctx context.Context,
 	sm protocol.StateManager,

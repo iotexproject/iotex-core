@@ -369,7 +369,7 @@ func TestOnlySeedPerfBenchState(
 			TotalWeight:                new(big.Int).Set(cand.Votes),
 		}
 		if _, err := sm.PutState(
-			snap.toBlob(),
+			snap,
 			protocol.NamespaceOption(_stakingNameSpace),
 			protocol.KeyOption(candidatePollSnapshotKey(delAddr)),
 		); err != nil {

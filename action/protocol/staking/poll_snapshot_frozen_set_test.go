@@ -39,12 +39,12 @@ import (
 // isolation assertion a byte-identity assertion.
 func rawPollSnapshotBytes(t *testing.T, sm protocol.StateManager, candID address.Address) []byte {
 	t.Helper()
-	blob := &candidatePollSnapshotBlob{}
-	_, err := sm.State(blob,
+	snapshot := &CandidatePollSnapshot{}
+	_, err := sm.State(snapshot,
 		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeyOption(candidatePollSnapshotKey(candID)))
 	require.NoError(t, err)
-	raw, err := blob.Serialize()
+	raw, err := snapshot.Serialize()
 	require.NoError(t, err)
 	return raw
 }
@@ -102,7 +102,7 @@ func TestFreezePollSnapshot_RecordIsIndependentOfSetSize(t *testing.T) {
 		FreezeHeight:               freezeHeight,
 		SelfStakeBucketIdx:         solo.SelfStakeBucketIdx,
 	}
-	expectedBytes, err := expected.toBlob().Serialize()
+	expectedBytes, err := expected.Serialize()
 	r.NoError(err)
 	r.Equal(expectedBytes, soloBytes,
 		"frozen snapshot drifted from the specified field set")

@@ -124,7 +124,7 @@ func resolveDelegateRewardRouting(
 // defers that pool until a later era has an eligible snapshot.
 // The caller uses the voter portion as the epoch contribution to the
 // per-delegate voter drain and the commission portion as the immediate
-// per-delegate payout at Phase A.
+// per-delegate payout in GrantEpochReward.
 func (p *Protocol) splitDelegateEpochReward(
 	ctx context.Context,
 	sm protocol.StateReader,
@@ -597,7 +597,7 @@ func splitCommission(totalReward *big.Int, bps uint64) (*big.Int, *big.Int) {
 }
 
 // assertNonNegativeReward rejects a negative reward amount. Nil is treated
-// as zero so callers can opt one of the two streams out of a Phase B call.
+// as zero so callers can opt one of the two streams out of a voter reward drain call.
 func assertNonNegativeReward(v *big.Int) error {
 	if v == nil {
 		return nil

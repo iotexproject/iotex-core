@@ -36,7 +36,7 @@ const (
 	RewardLog_FOUNDATION_BONUS   RewardLog_RewardType = 2
 	RewardLog_PRIORITY_BONUS     RewardLog_RewardType = 3
 	RewardLog_UNPRODUCTIVE_SLASH RewardLog_RewardType = 4
-	// IIP-59 §10.2: emitted at Phase A entry when a live cursor is
+	// IIP-59 §10.2: emitted at an era boundary when a live cursor is
 	// detected from a previous era that failed to drain in time. The
 	// stale cursor is deleted and its residue is rolled into the
 	// fresh era's cursor materialization. addr encodes
@@ -629,7 +629,7 @@ type EpochDrainDelegateWork struct {
 	// continuation give the final weighted voter the exact remainder without
 	// rescanning every preceding voter on each block.
 	VoterAmountDistributed []byte `protobuf:"bytes,5,opt,name=voter_amount_distributed,json=voterAmountDistributed,proto3" json:"voter_amount_distributed,omitempty"`
-	// Total voter weight is frozen once when Phase A creates the cursor.
+	// Total voter weight is frozen once when the era-boundary cursor is created.
 	// Continuation chunks use this value directly instead of recomputing it.
 	// Sourced from the era snapshot's totalWeight, i.e. the frozen value of
 	// candidate.Votes.

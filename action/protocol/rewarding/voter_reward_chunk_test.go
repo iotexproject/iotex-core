@@ -37,7 +37,7 @@ import (
 // starts with the fork off.
 //
 // EpochsPerRewardEra is forced to 1 so every epoch counts as an era
-// boundary; unit tests here exercise the Phase A cursor lifecycle at
+// boundary; unit tests here exercise the era-boundary setup cursor lifecycle at
 // a single epoch's last block, and the default (24) would gate that
 // off. Tests that need multi-era cadence override this after calling.
 func enableIIP59(t *testing.T, ctx context.Context) context.Context {
@@ -118,7 +118,7 @@ func TestGrantVoterRewardChunk_DirectPayoutNeedsNoClaim(t *testing.T) {
 	r.Zero(available.Cmp(big.NewInt(400)))
 }
 
-// seedChunkCursor loads the same epoch-scoped rewarded-candidate list Phase A
+// seedChunkCursor loads the same epoch-scoped rewarded-candidate list era-boundary setup
 // would derive and builds a cursor with one entry per candidate (frozen voter
 // amount = 1 rau). It also opens an era copy-on-write window, because the drain
 // refuses to run against a closed one.
@@ -215,7 +215,7 @@ func TestGrantVoterRewardChunk_UnroutableDelegatesFinish(t *testing.T) {
 
 // TestGrantVoterRewardChunk_LastChunkRunsCoda verifies the terminal
 // chunk runs the post-C3 coda: COW sealing + cursor completion. The
-// epoch sentinel is Phase A's responsibility (written by
+// epoch sentinel is era-boundary setup's responsibility (written by
 // GrantEpochReward) and is NOT touched by the chunk anymore. Seeded
 // state: cursor in the final address range, so this run reaches the coda.
 func TestGrantVoterRewardChunk_LastChunkRunsCoda(t *testing.T) {
@@ -395,21 +395,21 @@ func TestGrantVoterRewardChunk_PreForkRejects(t *testing.T) {
 
 // TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra guards the C3
 // design's cross-era accrual claim: a block-side voter credit that lands
-// in a delegate's pending pool after Phase A has frozen the era-N cursor
+// in a delegate's pending pool after era-boundary setup has frozen the era-N cursor
 // but before that delegate's era-N chunk runs is NOT drained by the
 // era-N chunk (which drains only the frozen amount), stays in the pool
 // through the era-N coda, and is folded into the era-N+1 cursor by the
-// next Phase A.
+// next era-boundary setup.
 //
-// Fixture: seed 250 rau in candidate 27's pool → Phase A at epoch 1's
-// last block freezes 250 in the cursor entry. Before the first Phase B
+// Fixture: seed 250 rau in candidate 27's pool → era-boundary setup at epoch 1's
+// last block freezes 250 in the cursor entry. Before the first voter reward drain
 // chunk runs, seed another 100 rau in the same pool entry (mimicking a
 // block-time voter credit from GrantBlockReward for a block produced by
-// candidate 27 during era N+1). Drive Phase B to completion. Assert:
+// candidate 27 during era N+1). Drive voter reward drain to completion. Assert:
 //
 //   - candidate 27's pool balance = 100 (residual, not 0 and not -100)
 //   - cursor is marked complete (era-N drain completed)
-//   - a fresh Phase A at epoch 2's last block folds the 100 residual
+//   - a fresh era-boundary setup at epoch 2's last block folds the 100 residual
 //     into a new era-N+1 cursor entry with VoterAmountFrozen=100
 func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
@@ -424,7 +424,7 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 		patches.ApplyMethodReturn(sp, "SlashCandidateByOperator", nil)
 		patches.ApplyMethodReturn(sp, "SlashCandidateByID", nil)
 
-		// Seed only candidate 27's pool. Phase A will freeze exactly one
+		// Seed only candidate 27's pool. era-boundary setup will freeze exactly one
 		// cursor entry — makes the "same delegate accrues more mid-drain"
 		// invariant unambiguous to assert.
 		candidate := identityset.Address(27)
@@ -455,18 +455,18 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 			}))
 		}
 
-		// Era-N Phase A: freeze the cursor at 250 for candidate 27.
+		// Era-N boundary setup: freeze the cursor at 250 for candidate 27.
 		_, eraNLogs, err := p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
 		// This is a clean era boundary — no prior cursor was live, so the
 		// §10.2 overrun handoff must NOT fire. The observability contract
 		// is: EPOCH_DRAIN_OVERRUN appears iff a stale cursor was found and
-		// deleted at Phase A entry.
+		// deleted at era boundary.
 		for _, entry := range eraNLogs {
 			rl := &rewardingpb.RewardLog{}
 			r.NoError(proto.Unmarshal(entry.Data, rl))
 			r.NotEqual(rewardingpb.RewardLog_EPOCH_DRAIN_OVERRUN, rl.Type,
-				"no overrun log allowed at a clean Phase A entry")
+				"no overrun log allowed at a clean era boundary")
 		}
 		frozen, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
@@ -478,13 +478,13 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 				frozenAmt = w.VoterAmountFrozen.Int64()
 			}
 		}
-		r.Equal(int64(250), frozenAmt, "Phase A must freeze 250 for candidate 27")
+		r.Equal(int64(250), frozenAmt, "era-boundary setup must freeze 250 for candidate 27")
 
 		// Mid-drain late accrual: another 100 lands in candidate 27's pool
 		// while the era-N cursor is still live.
 		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(100)))
 
-		// Drive Phase B to completion. The frozen 250 is paid while the later
+		// Drive voter reward drain to completion. The frozen 250 is paid while the later
 		// 100 remains in the pending pool for the next era.
 		for {
 			got, cErr := p.readEpochDrainCursor(ctx, sm)
@@ -504,7 +504,7 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 			"late accrual must survive era-N drain — era-N chunk drains only the frozen 250")
 
 		// Advance the block context to epoch 2's last block and re-derive
-		// feature ctxs, then run era-N+1 Phase A. It must build a fresh
+		// feature ctxs, then run era-N+1 boundary setup. It must build a fresh
 		// cursor entry for candidate 27 with the residual folded in.
 		rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 		g := genesis.MustExtractGenesisContext(ctx)
@@ -520,7 +520,7 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 
 		_, eraNext1Logs, err := p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
-		// Era-N drained cleanly to completion before this era-N+1 Phase A,
+		// Era-N drained cleanly to completion before this era-N+1 boundary setup,
 		// so the overrun handoff still must not fire.
 		for _, entry := range eraNext1Logs {
 			rl := &rewardingpb.RewardLog{}
@@ -531,7 +531,7 @@ func TestGrantVoterRewardChunk_LateAccrualSurvivesToNextEra(t *testing.T) {
 
 		nextCursor, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.NotNil(nextCursor, "era-N+1 Phase A must produce a cursor from the surviving pool residual")
+		r.NotNil(nextCursor, "era-N+1 boundary setup must produce a cursor from the surviving pool residual")
 		r.Equal(uint64(2), nextCursor.TargetEra)
 		var carriedAmt int64
 		for _, w := range nextCursor.Delegates {

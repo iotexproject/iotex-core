@@ -188,15 +188,15 @@ func TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor(t *testing.T) {
 	}, noUnproductives, false, 0)
 }
 
-// TestGrantEpochReward_LiveCursorAtPhaseA_DegradesGracefully confirms the
+// TestGrantEpochReward_IncompleteDrainAtEraBoundaryDegradesGracefully confirms the
 // IIP-59 §10.2 degrade path: when a previous era's cursor survives into
-// the next era's Phase A entry, GrantEpochReward does NOT halt block
+// the next era boundary, GrantEpochReward does NOT halt block
 // production. Instead it emits an EPOCH_DRAIN_OVERRUN receipt log
 // describing the residue, deletes the stale cursor, and continues the
-// Phase A grant. The stale pool balances themselves stay in place —
-// Phase A's own materialisation later in the same call picks them up
+// era-boundary setup grant. The stale pool balances themselves stay in place —
+// era-boundary setup's own materialisation later in the same call picks them up
 // as work items for the fresh era.
-func TestGrantEpochReward_LiveCursorAtPhaseA_DegradesGracefully(t *testing.T) {
+func TestGrantEpochReward_IncompleteDrainAtEraBoundaryDegradesGracefully(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		// enableIIP59 sets ToBeEnabledBlockHeight=1 AND forces
@@ -264,7 +264,7 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 
 		// Seed a plausible-looking cursor for the CURRENT epoch so that,
 		// if the fork gate were mistakenly bypassed, GrantEpochReward
-		// would take the continuation branch and skip Phase A. A survivor
+		// would take the continuation branch and skip era-boundary setup. A survivor
 		// cursor after grant proves cursorEnabled=false held.
 		injected := &epochDrainCursor{
 			epochDrainPlan: epochDrainPlan{
@@ -292,7 +292,7 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 
 		// The cursor must still be present, unmodified. If the fork-off
 		// path had read it, we'd have taken the continuation branch and
-		// either skipped Phase A's assertNoRewardYet (invalid) or finalized
+		// either skipped era-boundary setup's assertNoRewardYet (invalid) or finalized
 		// the cursor (equally invalid).
 		got, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
@@ -311,7 +311,7 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 // when the per-delegate epoch split has no fresh voter share (fallback
 // branch of splitDelegateEpochReward). This is what preserves late-
 // arriving voter accruals across the era boundary: the cursor freezes
-// pool + epochShare, and Phase B's decrement removes exactly that
+// pool + epochShare, and voter reward drain's decrement removes exactly that
 // frozen amount from the pool.
 func TestGrantEpochReward_PoolAccrualBuildsCursor(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {

@@ -134,7 +134,7 @@ func seedSameShardDrain(
 }
 
 // registerStubStakingProtocol installs a staking.Protocol and no-ops the
-// SlashCandidate* entry points GrantEpochReward invokes during Phase A.
+// SlashCandidate* entry points GrantEpochReward invokes during era-boundary setup.
 // Returns the *Patches so callers can Reset() it.
 //
 // It must be called before any fixture that plants buckets: the fixture
@@ -151,10 +151,10 @@ func registerStubStakingProtocol(t *testing.T, ctx context.Context) *gomonkey.Pa
 	return patches
 }
 
-// runDrainToCompletion runs Phase A once and then drives GrantVoterRewardChunk
-// in a tight loop until the cursor is completed. Returns the number of Phase B
+// runDrainToCompletion runs era-boundary setup once and then drives GrantVoterRewardChunk
+// in a tight loop until the cursor is completed. Returns the number of voter reward drain
 // chunk calls that were needed. Callers assert this against the chunk size
-// they configured; a chunkSize=0 run completes Phase B in one unbounded
+// they configured; a chunkSize=0 run completes voter reward drain in one unbounded
 // continuation call.
 func runDrainToCompletion(
 	t *testing.T,
@@ -228,15 +228,15 @@ func TestGrantEpochReward_SettlementStartUsesOneSeed(t *testing.T) {
 }
 
 // TestChunkedDrain_InvariantAcrossChunkSizes is the central determinism
-// claim of the chunking machinery: the final rewarding state after Phase A
-// + Phase B is byte-identical regardless of how the drain is chunked. If
+// claim of the chunking machinery: the final rewarding state after era-boundary setup
+// + voter reward drain is byte-identical regardless of how the drain is chunked. If
 // this ever fails, chunk-size tuning at mainnet activation becomes unsafe
 // under any value.
 //
 // The fixture seeds equal pool accruals for the four rewarded delegates
-// so Phase A freezes four cursor entries with identical VoterAmountFrozen.
+// so era-boundary setup freezes four cursor entries with identical VoterAmountFrozen.
 // Three runs — chunkSize=1 (four continuation blocks), chunkSize=2 (two
-// continuation blocks), chunkSize=0 (unbounded, Phase A drains inline) —
+// continuation blocks), chunkSize=0 (unbounded, era-boundary setup drains inline) —
 // must produce reflect.DeepEqual snapshots.
 //
 // Twelve voters spread over the four delegates give the voter-range walk
@@ -433,7 +433,7 @@ func TestChunkedDrain_VoterBudgetStopsMidVoterScan(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(frozen)
 		r.Equal(len(rewardedCandidateIndexes), len(frozen.Delegates),
-			"Phase A must have frozen one entry per rewarded delegate")
+			"era-boundary setup must have frozen one entry per rewarded delegate")
 
 		// One call pays exactly one voter because voterBudget=1.
 		txLogs, _, err := p.GrantVoterRewardChunk(ctx, sm)
@@ -491,9 +491,9 @@ func findRewardLogsOfType(
 	return out
 }
 
-// TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra exercises the full
+// TestEraBoundary_IncompleteDrainRollsResidueIntoNextEra exercises the full
 // IIP-59 §10.2 residue handoff: a live cursor from era-N survives into
-// era-N+1's Phase A entry, GrantEpochReward degrades gracefully, and
+// era-N+1 boundary, GrantEpochReward degrades gracefully, and
 // the surviving pool balances are re-frozen into a fresh era-N+1 cursor
 // with VoterAmountFrozen == (prior residue + new epoch voter share).
 //
@@ -501,7 +501,7 @@ func findRewardLogsOfType(
 //   - Seed candidate 27's pool with 250 rau.
 //   - Write a stale era-N cursor pinning candidate 27 with DelegateIndex=0,
 //     asserting the delegate has not yet been drained. The pool balance
-//     is what handlePhaseAEntryOverrun sums as residue, so the cursor's
+//     is what rollOverIncompleteEpochDrain sums as residue, so the cursor's
 //     VoterAmountFrozen field is intentionally set to a bogus value (999)
 //     to prove the residue path reads live pool state, not the frozen
 //     amount.
@@ -509,15 +509,15 @@ func findRewardLogsOfType(
 //
 // Assertions (in order):
 //  1. GrantEpochReward returns no error.
-//  2. The stale era-N cursor is deleted before Phase A materialises the
-//     new one — since Phase A writes to the same slot, we assert by
+//  2. The stale era-N cursor is deleted before era-boundary setup materialises the
+//     new one — since era-boundary setup writes to the same slot, we assert by
 //     observing the post-call cursor's TargetEra == 2 (era N+1), not 1.
 //  3. The new era-N+1 cursor freezes 250 for candidate 27 (the residual
 //     pool balance, since no fresh voter share arrives in this fixture).
 //  4. Exactly one EPOCH_DRAIN_OVERRUN log is emitted, with:
 //     Addr = "1:1"  (target_era=1, delegates_remaining=1)
 //     Amount = "250" (residue as decimal string).
-func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
+func TestEraBoundary_IncompleteDrainRollsResidueIntoNextEra(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
@@ -553,7 +553,7 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 		}
 		r.NoError(p.writeEpochDrainCursor(ctx, sm, stale))
 
-		// Advance to epoch 2's last block so GrantEpochReward runs Phase A
+		// Advance to epoch 2's last block so GrantEpochReward runs era-boundary setup
 		// for era-N+1.
 		rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 		g := genesis.MustExtractGenesisContext(ctx)
@@ -571,13 +571,13 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 		openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
 
 		_, rewardLogs, err := p.GrantEpochReward(ctx, sm)
-		r.NoError(err, "graceful degrade must not error at Phase A entry")
+		r.NoError(err, "graceful degrade must not error at era boundary")
 
 		// New cursor must have TargetEra=2 (the fresh era) — proves the
-		// stale era-1 cursor was deleted before Phase A wrote its own.
+		// stale era-1 cursor was deleted before era-boundary setup wrote its own.
 		next, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
-		r.NotNil(next, "era-N+1 Phase A must produce a cursor from the surviving pool residual")
+		r.NotNil(next, "era-N+1 boundary setup must produce a cursor from the surviving pool residual")
 		r.Equal(uint64(2), next.TargetEra, "stale cursor deletion must precede fresh materialisation")
 
 		// The candidate 27 entry in the new cursor must carry the 250 rau
@@ -608,17 +608,17 @@ func TestPhaseA_OverrunHandoff_RollsResidueIntoNextEra(t *testing.T) {
 	}, nil, false, 0)
 }
 
-// TestPhaseA_OverrunHandoff_ZeroResidue covers the boundary case where a
+// TestEraBoundary_IncompleteDrainWithZeroResidue covers the boundary case where a
 // stale cursor exists but every referenced delegate's pool balance has
 // already been drained to zero. The overrun log must still be emitted
 // (with amount "0") because its purpose is observability of the handoff
 // itself, not conditional on residue magnitude. The stale cursor must
-// still be deleted so Phase A can start clean.
+// still be deleted so era-boundary setup can start clean.
 //
 // This differs from the "no cursor" happy path — a cursor exists, so the
 // degrade branch is taken; but the residue path returns zero because no
 // pool entry survives among the still-undrained delegates.
-func TestPhaseA_OverrunHandoff_ZeroResidue(t *testing.T) {
+func TestEraBoundary_IncompleteDrainWithZeroResidue(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
@@ -672,7 +672,7 @@ func TestPhaseA_OverrunHandoff_ZeroResidue(t *testing.T) {
 		r.Equal("0", overruns[0].Amount, "zero-residue handoff still logs amount=0")
 
 		// Stale cursor must be gone. Either no cursor (no pool accrual for
-		// any rewarded delegate → Phase A skips materialisation) OR a fresh
+		// any rewarded delegate → era-boundary setup skips materialisation) OR a fresh
 		// era-N+1 cursor. Either way, TargetEra must not be 1.
 		next, err := p.readEpochDrainCursor(ctx, sm)
 		r.NoError(err)
