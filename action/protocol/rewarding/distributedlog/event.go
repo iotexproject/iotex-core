@@ -46,9 +46,9 @@ var (
 	// any Amounts[i] is nil.
 	ErrNilBigInt = errors.New("distributedlog: nil *big.Int")
 
-	// ErrNotDelegateDistributed is returned by Unpack when the log is some
-	// other event -- wrong topic count, or a Topics[0] that is not this
-	// event's ID. It is the ordinary outcome of scanning a block's logs and
+	// ErrNotDelegateDistributed is returned by Unpack when the log has no topic
+	// or Topics[0] is not this event's ID. It is the ordinary outcome of scanning
+	// a block's logs and
 	// means "skip this one", so it is deliberately distinct from the
 	// malformed-log errors below, which mean "this IS our event and it is
 	// broken" and are worth alerting on.
@@ -246,11 +246,14 @@ func Unpack(topics action.Topics, data []byte) (*EventArgs, error) {
 	if !ok {
 		return nil, errors.Errorf("distributedlog: event %q not found in parsed ABI", EventName)
 	}
-	if len(topics) != 3 {
-		return nil, errors.Wrapf(ErrNotDelegateDistributed, "got %d topics, want 3", len(topics))
+	if len(topics) == 0 {
+		return nil, errors.Wrap(ErrNotDelegateDistributed, "log has no topics")
 	}
 	if topics[0] != hash.Hash256(ev.ID) {
 		return nil, errors.Wrapf(ErrNotDelegateDistributed, "topics[0]=%x", topics[0])
+	}
+	if len(topics) != 3 {
+		return nil, errors.Wrapf(ErrMalformedLog, "got %d topics, want 3", len(topics))
 	}
 
 	epoch, err := decodeUint64Topic(topics[1])

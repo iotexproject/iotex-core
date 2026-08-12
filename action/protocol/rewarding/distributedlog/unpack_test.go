@@ -112,6 +112,11 @@ func TestUnpackRejectsForeignEvent(t *testing.T) {
 		topics, _, err := Pack(happyArgs())
 		require.NoError(t, err)
 		_, err = Unpack(topics[:2], data)
+		require.ErrorIs(t, err, ErrMalformedLog)
+	})
+
+	t.Run("no topics", func(t *testing.T) {
+		_, err := Unpack(nil, data)
 		require.ErrorIs(t, err, ErrNotDelegateDistributed)
 	})
 }
