@@ -33,13 +33,13 @@ func happyArgs() EventArgs {
 		identityset.Address(5),
 	}
 	return EventArgs{
-		Epoch:           4200,
-		Delegate:        delegate,
-		RewardAddr:      reward,
-		TotalCommission: big.NewInt(1_000_000),
-		TotalVoterPool:  big.NewInt(9_000_000),
-		SnapshotHash:    hash.Hash256b([]byte("snapshot@epoch4200")),
-		Voters:          voters,
+		Epoch:            4200,
+		Delegate:         delegate,
+		RewardAddr:       reward,
+		EraCommission:    big.NewInt(1_000_000),
+		ChunkVoterReward: big.NewInt(9_000_000),
+		SnapshotHash:     hash.Hash256b([]byte("snapshot@epoch4200")),
+		Voters:           voters,
 		Recipients: []address.Address{
 			voters[0],
 			voters[1],
@@ -66,9 +66,9 @@ func TestPack_HappyPath(t *testing.T) {
 	r.NoError(err)
 	r.Len(topics, 3, "one selector + two indexed args")
 
-	// Topics[0] must equal keccak256(eventSignature); the golden test
+	// Topics[0] must equal keccak256(EventSignature); the golden test
 	// below pins the exact bytes, but sanity-check the derivation here.
-	r.Equal(hash.Hash256(crypto.Keccak256Hash([]byte(eventSignature))), topics[0])
+	r.Equal(hash.Hash256(crypto.Keccak256Hash([]byte(EventSignature))), topics[0])
 
 	// Topics[1] is the 32-byte left-padded epoch.
 	var epochWord [32]byte
@@ -79,14 +79,14 @@ func TestPack_HappyPath(t *testing.T) {
 	r.Equal(hash.BytesToHash256(args.Delegate.Bytes()), topics[2])
 
 	// Data must be a valid ABI-encoded tuple — parse it back and compare.
-	parsed, err := abi.JSON(strings.NewReader(abiJSON))
+	parsed, err := abi.JSON(strings.NewReader(ABIJSON))
 	r.NoError(err)
-	unpacked, err := parsed.Events[eventName].Inputs.NonIndexed().Unpack(data)
+	unpacked, err := parsed.Events[EventName].Inputs.NonIndexed().Unpack(data)
 	r.NoError(err)
 	r.Len(unpacked, 9)
 	r.Equal(common.BytesToAddress(args.RewardAddr.Bytes()), unpacked[0])
-	r.Equal(0, args.TotalCommission.Cmp(unpacked[1].(*big.Int)))
-	r.Equal(0, args.TotalVoterPool.Cmp(unpacked[2].(*big.Int)))
+	r.Equal(0, args.EraCommission.Cmp(unpacked[1].(*big.Int)))
+	r.Equal(0, args.ChunkVoterReward.Cmp(unpacked[2].(*big.Int)))
 	r.Equal([32]byte(args.SnapshotHash), unpacked[3])
 }
 
@@ -106,9 +106,9 @@ func TestPack_ZeroVoters(t *testing.T) {
 	r.NoError(err)
 	r.Len(topics, 3)
 
-	parsed, err := abi.JSON(strings.NewReader(abiJSON))
+	parsed, err := abi.JSON(strings.NewReader(ABIJSON))
 	r.NoError(err)
-	unpacked, err := parsed.Events[eventName].Inputs.NonIndexed().Unpack(data)
+	unpacked, err := parsed.Events[EventName].Inputs.NonIndexed().Unpack(data)
 	r.NoError(err)
 	r.Len(unpacked[4].([]common.Address), 0, "voters must decode as empty array")
 	r.Len(unpacked[5].([]common.Address), 0, "recipients must decode as empty array")
@@ -171,19 +171,19 @@ func TestPack_NilRewardAddr(t *testing.T) {
 	r.ErrorIs(err, ErrNilAddress)
 }
 
-func TestPack_NilTotalCommission(t *testing.T) {
+func TestPack_NilEraCommission(t *testing.T) {
 	r := require.New(t)
 	args := happyArgs()
-	args.TotalCommission = nil
+	args.EraCommission = nil
 
 	_, _, err := Pack(args)
 	r.ErrorIs(err, ErrNilBigInt)
 }
 
-func TestPack_NilTotalVoterPool(t *testing.T) {
+func TestPack_NilChunkVoterReward(t *testing.T) {
 	r := require.New(t)
 	args := happyArgs()
-	args.TotalVoterPool = nil
+	args.ChunkVoterReward = nil
 
 	_, _, err := Pack(args)
 	r.ErrorIs(err, ErrNilBigInt)
@@ -226,7 +226,7 @@ func TestPack_SelectorPinned(t *testing.T) {
 	// Pin the exact 32-byte selector. If this test breaks, either the
 	// event signature drifted (spec change → requires a new selector and
 	// coordinated verifier update) or a whitespace typo crept into
-	// eventSignature.
+	// EventSignature.
 	r := require.New(t)
 	args := happyArgs()
 	topics, _, err := Pack(args)
@@ -249,9 +249,9 @@ func TestPack_BucketZeroIsDistinguishable(t *testing.T) {
 	r.NoError(err)
 	r.Len(topics, 3)
 
-	parsed, err := abi.JSON(strings.NewReader(abiJSON))
+	parsed, err := abi.JSON(strings.NewReader(ABIJSON))
 	r.NoError(err)
-	unpacked, err := parsed.Events[eventName].Inputs.NonIndexed().Unpack(data)
+	unpacked, err := parsed.Events[EventName].Inputs.NonIndexed().Unpack(data)
 	r.NoError(err)
 
 	bucketIDs := unpacked[7].([]uint64)
@@ -274,7 +274,7 @@ func TestPack_RoundTrip(t *testing.T) {
 	topics, data, err := Pack(args)
 	r.NoError(err)
 
-	parsed, err := abi.JSON(strings.NewReader(abiJSON))
+	parsed, err := abi.JSON(strings.NewReader(ABIJSON))
 	r.NoError(err)
 
 	// Topics[1] round-trip → epoch.
@@ -288,11 +288,11 @@ func TestPack_RoundTrip(t *testing.T) {
 	r.Equal(args.Delegate.Bytes(), delegateOut[12:])
 
 	// Data round-trip: every non-indexed field.
-	unpacked, err := parsed.Events[eventName].Inputs.NonIndexed().Unpack(data)
+	unpacked, err := parsed.Events[EventName].Inputs.NonIndexed().Unpack(data)
 	r.NoError(err)
 	r.Equal(common.BytesToAddress(args.RewardAddr.Bytes()), unpacked[0])
-	r.Equal(0, args.TotalCommission.Cmp(unpacked[1].(*big.Int)))
-	r.Equal(0, args.TotalVoterPool.Cmp(unpacked[2].(*big.Int)))
+	r.Equal(0, args.EraCommission.Cmp(unpacked[1].(*big.Int)))
+	r.Equal(0, args.ChunkVoterReward.Cmp(unpacked[2].(*big.Int)))
 	r.Equal([32]byte(args.SnapshotHash), unpacked[3])
 
 	votersOut := unpacked[4].([]common.Address)
