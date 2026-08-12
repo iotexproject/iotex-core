@@ -37,8 +37,8 @@ func TestUnpackRoundTrip(t *testing.T) {
 	r.Equal(args.Epoch, got.Epoch)
 	r.Equal(args.Delegate.String(), got.Delegate.String())
 	r.Equal(args.RewardAddr.String(), got.RewardAddr.String())
-	r.Zero(args.TotalCommission.Cmp(got.TotalCommission))
-	r.Zero(args.TotalVoterPool.Cmp(got.TotalVoterPool))
+	r.Zero(args.EraCommission.Cmp(got.EraCommission))
+	r.Zero(args.ChunkVoterReward.Cmp(got.ChunkVoterReward))
 	r.Equal(args.SnapshotHash, got.SnapshotHash)
 
 	r.Len(got.Voters, len(args.Voters))
@@ -157,6 +157,7 @@ func TestUnpackRejectsTruncatedData(t *testing.T) {
 	_, err = Unpack(topics, data[:len(data)/2])
 	r.Error(err)
 	r.NotErrorIs(err, ErrNotDelegateDistributed, "a truncated payload of our own event is corruption, not a foreign event")
+	r.ErrorIs(err, ErrMalformedLog)
 }
 
 // TestTopic0MatchesPackedLog pins the filter an indexer uses against what Pack
@@ -185,6 +186,18 @@ func TestABIExportedIsParseable(t *testing.T) {
 	ev, ok := parsed.Events[EventName]
 	r.True(ok, "EventName must resolve in the exported ABI")
 	r.Equal(EventSignature, ev.Sig)
+}
+
+func TestABICallerCannotMutateEncoderCache(t *testing.T) {
+	r := require.New(t)
+	parsed, err := ABI()
+	r.NoError(err)
+	delete(parsed.Events, EventName)
+
+	_, _, err = Pack(happyArgs())
+	r.NoError(err)
+	_, ok := parsed.Events[EventName]
+	r.False(ok, "the caller's ABI remains independently mutable")
 }
 
 // TestUnpackDoesNotAliasPackInput is a defensive check that Unpack returns

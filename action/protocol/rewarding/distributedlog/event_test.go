@@ -33,13 +33,13 @@ func happyArgs() EventArgs {
 		identityset.Address(5),
 	}
 	return EventArgs{
-		Epoch:           4200,
-		Delegate:        delegate,
-		RewardAddr:      reward,
-		TotalCommission: big.NewInt(1_000_000),
-		TotalVoterPool:  big.NewInt(9_000_000),
-		SnapshotHash:    hash.Hash256b([]byte("snapshot@epoch4200")),
-		Voters:          voters,
+		Epoch:            4200,
+		Delegate:         delegate,
+		RewardAddr:       reward,
+		EraCommission:    big.NewInt(1_000_000),
+		ChunkVoterReward: big.NewInt(9_000_000),
+		SnapshotHash:     hash.Hash256b([]byte("snapshot@epoch4200")),
+		Voters:           voters,
 		Recipients: []address.Address{
 			voters[0],
 			voters[1],
@@ -85,8 +85,8 @@ func TestPack_HappyPath(t *testing.T) {
 	r.NoError(err)
 	r.Len(unpacked, 9)
 	r.Equal(common.BytesToAddress(args.RewardAddr.Bytes()), unpacked[0])
-	r.Equal(0, args.TotalCommission.Cmp(unpacked[1].(*big.Int)))
-	r.Equal(0, args.TotalVoterPool.Cmp(unpacked[2].(*big.Int)))
+	r.Equal(0, args.EraCommission.Cmp(unpacked[1].(*big.Int)))
+	r.Equal(0, args.ChunkVoterReward.Cmp(unpacked[2].(*big.Int)))
 	r.Equal([32]byte(args.SnapshotHash), unpacked[3])
 }
 
@@ -171,19 +171,19 @@ func TestPack_NilRewardAddr(t *testing.T) {
 	r.ErrorIs(err, ErrNilAddress)
 }
 
-func TestPack_NilTotalCommission(t *testing.T) {
+func TestPack_NilEraCommission(t *testing.T) {
 	r := require.New(t)
 	args := happyArgs()
-	args.TotalCommission = nil
+	args.EraCommission = nil
 
 	_, _, err := Pack(args)
 	r.ErrorIs(err, ErrNilBigInt)
 }
 
-func TestPack_NilTotalVoterPool(t *testing.T) {
+func TestPack_NilChunkVoterReward(t *testing.T) {
 	r := require.New(t)
 	args := happyArgs()
-	args.TotalVoterPool = nil
+	args.ChunkVoterReward = nil
 
 	_, _, err := Pack(args)
 	r.ErrorIs(err, ErrNilBigInt)
@@ -291,8 +291,8 @@ func TestPack_RoundTrip(t *testing.T) {
 	unpacked, err := parsed.Events[EventName].Inputs.NonIndexed().Unpack(data)
 	r.NoError(err)
 	r.Equal(common.BytesToAddress(args.RewardAddr.Bytes()), unpacked[0])
-	r.Equal(0, args.TotalCommission.Cmp(unpacked[1].(*big.Int)))
-	r.Equal(0, args.TotalVoterPool.Cmp(unpacked[2].(*big.Int)))
+	r.Equal(0, args.EraCommission.Cmp(unpacked[1].(*big.Int)))
+	r.Equal(0, args.ChunkVoterReward.Cmp(unpacked[2].(*big.Int)))
 	r.Equal([32]byte(args.SnapshotHash), unpacked[3])
 
 	votersOut := unpacked[4].([]common.Address)

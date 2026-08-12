@@ -42,7 +42,7 @@ var (
 	// otherwise packet as the zero address, silently masking a lost voter.
 	ErrNilAddress = errors.New("distributedlog: nil address")
 
-	// ErrNilBigInt is returned when TotalCommission, TotalVoterPool, or
+	// ErrNilBigInt is returned when EraCommission, ChunkVoterReward, or
 	// any Amounts[i] is nil.
 	ErrNilBigInt = errors.New("distributedlog: nil *big.Int")
 
@@ -90,10 +90,16 @@ func loadABI() (abi.ABI, error) {
 	return parsedABI, abiParseErr
 }
 
-// ABI returns the parsed, cached event ABI. Exported so an off-chain consumer
-// can dispatch with EventByID or unpack selected fields itself without
-// re-parsing ABIJSON.
-func ABI() (abi.ABI, error) { return loadABI() }
+// ABI parses and returns the event ABI for off-chain consumers. The internal
+// encoder cache is deliberately not exposed because abi.ABI contains maps; a
+// caller mutating them would otherwise affect later Pack and Unpack calls.
+func ABI() (abi.ABI, error) {
+	parsed, err := abi.JSON(strings.NewReader(ABIJSON))
+	if err != nil {
+		return abi.ABI{}, errors.Wrap(err, "distributedlog: parse ABI")
+	}
+	return parsed, nil
+}
 
 // Topic0 returns keccak256(EventSignature) -- the value every
 // DelegateDistributed log carries in Topics[0], and the filter an indexer
@@ -118,8 +124,8 @@ type EventArgs struct {
 	Epoch             uint64            // indexed → Topics[1]
 	Delegate          address.Address   // indexed → Topics[2]
 	RewardAddr        address.Address   // where commission was credited
-	TotalCommission   *big.Int          // aggregate delegate commission
-	TotalVoterPool    *big.Int          // pool split across voters
+	EraCommission     *big.Int          // era-wide constant, repeated in every chunk
+	ChunkVoterReward  *big.Int          // voter reward subtotal carried by this chunk
 	SnapshotHash      hash.Hash256      // frozen era parameter digest (see EraSnapshotHash)
 	Voters            []address.Address // canonical sorted order per §3.4
 	Recipients        []address.Address // actual direct recipient; voter for compound payout
@@ -140,7 +146,7 @@ type EventArgs struct {
 //	[2] address delegate, left-padded to 32 bytes
 //
 // Data layout: ABI-standard tuple of the remaining (non-indexed) inputs
-// in declaration order — rewardAddr, totalCommission, totalVoterPool,
+// in declaration order — rewardAddr, eraCommission, chunkVoterReward,
 // snapshotHash, voters[], recipients[], amounts[], compoundBucketIds[],
 // compounded[].
 //
@@ -154,11 +160,11 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 	if args.RewardAddr == nil {
 		return nil, nil, errors.Wrap(ErrNilAddress, "rewardAddr")
 	}
-	if args.TotalCommission == nil {
-		return nil, nil, errors.Wrap(ErrNilBigInt, "totalCommission")
+	if args.EraCommission == nil {
+		return nil, nil, errors.Wrap(ErrNilBigInt, "eraCommission")
 	}
-	if args.TotalVoterPool == nil {
-		return nil, nil, errors.Wrap(ErrNilBigInt, "totalVoterPool")
+	if args.ChunkVoterReward == nil {
+		return nil, nil, errors.Wrap(ErrNilBigInt, "chunkVoterReward")
 	}
 	if len(args.Voters) != len(args.Recipients) || len(args.Voters) != len(args.Amounts) ||
 		len(args.Voters) != len(args.CompoundBucketIDs) || len(args.Voters) != len(args.Compounded) {
@@ -193,8 +199,8 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 	}
 	data, err := ev.Inputs.NonIndexed().Pack(
 		common.BytesToAddress(args.RewardAddr.Bytes()),
-		args.TotalCommission,
-		args.TotalVoterPool,
+		args.EraCommission,
+		args.ChunkVoterReward,
 		[32]byte(args.SnapshotHash),
 		voterAddrs,
 		recipientAddrs,
@@ -258,7 +264,8 @@ func Unpack(topics action.Topics, data []byte) (*EventArgs, error) {
 
 	values, err := ev.Inputs.NonIndexed().Unpack(data)
 	if err != nil {
-		return nil, errors.Wrap(err, "distributedlog: unpack DelegateDistributed data")
+		return nil, errors.Wrapf(ErrMalformedLog,
+			"unpack DelegateDistributed data: %v", err)
 	}
 	if len(values) != 9 {
 		return nil, errors.Wrapf(ErrMalformedLog, "got %d non-indexed values, want 9", len(values))
@@ -272,13 +279,13 @@ func Unpack(topics action.Topics, data []byte) (*EventArgs, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "distributedlog: decode rewardAddr")
 	}
-	totalCommission, ok := values[1].(*big.Int)
+	eraCommission, ok := values[1].(*big.Int)
 	if !ok {
-		return nil, errors.Wrapf(ErrMalformedLog, "totalCommission has type %T", values[1])
+		return nil, errors.Wrapf(ErrMalformedLog, "eraCommission has type %T", values[1])
 	}
-	totalVoterPool, ok := values[2].(*big.Int)
+	chunkVoterReward, ok := values[2].(*big.Int)
 	if !ok {
-		return nil, errors.Wrapf(ErrMalformedLog, "totalVoterPool has type %T", values[2])
+		return nil, errors.Wrapf(ErrMalformedLog, "chunkVoterReward has type %T", values[2])
 	}
 	snapshotHash, ok := values[3].([32]byte)
 	if !ok {
@@ -320,8 +327,8 @@ func Unpack(topics action.Topics, data []byte) (*EventArgs, error) {
 		Epoch:             epoch,
 		Delegate:          delegate,
 		RewardAddr:        rewardAddr,
-		TotalCommission:   totalCommission,
-		TotalVoterPool:    totalVoterPool,
+		EraCommission:     eraCommission,
+		ChunkVoterReward:  chunkVoterReward,
 		SnapshotHash:      hash.Hash256(snapshotHash),
 		Voters:            voters,
 		Recipients:        recipients,
