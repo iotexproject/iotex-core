@@ -43,6 +43,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
 	"github.com/iotexproject/iotex-core/v2/state/factory"
+	"github.com/iotexproject/iotex-core/v2/supplychecker"
 	"github.com/iotexproject/iotex-core/v2/systemcontractindex/stakingindex"
 )
 
@@ -84,6 +85,7 @@ type ChainService struct {
 	apiStats                 *nodestats.APILocalStats
 	actionsync               *actsync.ActionSync
 	minter                   *factory.Minter
+	supplyObserver           *supplychecker.Observer
 
 	lastReceivedBlockHeight uint64
 	paused                  atomic.Bool
@@ -93,6 +95,21 @@ type ChainService struct {
 func (cs *ChainService) Start(ctx context.Context) error {
 	if err := cs.lifecycle.OnStartSequentially(ctx); err != nil {
 		return errors.Wrap(err, "failed to start chain service")
+	}
+	// Launch the off-consensus total-supply observer. It periodically recomputes
+	// the IOTX supply (account balances + rewarding fund + staking pool) and
+	// reports when it exceeds the genesis cap, catching ex-nihilo minting bugs.
+	// It is read-only and never affects consensus or state transitions, so it is
+	// safe to run on a live node even if the invariant is violated.
+	if cs.supplyObserver == nil && cs.factory != nil {
+		cs.supplyObserver = supplychecker.NewObserver(
+			cs.factory,
+			cs.chain.Genesis(),
+			time.Minute,
+		)
+	}
+	if cs.supplyObserver != nil {
+		go cs.supplyObserver.Run(ctx)
 	}
 	go func() {
 		ticker := time.NewTicker(time.Minute)
