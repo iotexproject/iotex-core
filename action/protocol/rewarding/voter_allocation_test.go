@@ -100,11 +100,10 @@ func TestVoterShareClampNeverOverpaysDelegatePool(t *testing.T) {
 	r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, c.voters))
 }
 
-// TestComputeVoterSharesRecordsTheClamp checks the clamp is observable rather
-// than silent. A share reduced to fit the pool is flagged, because "the drain
-// paid less than the formula" is a fact an operator investigating a shortfall
-// has to be able to establish.
-func TestComputeVoterSharesRecordsTheClamp(t *testing.T) {
+// TestComputeVoterSharesClampsToPool verifies the externally relevant
+// invariant: an understated denominator cannot make cumulative payouts exceed
+// the frozen pool.
+func TestComputeVoterSharesClampsToPool(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 	c := newClampFixture(t, ctx, sm, p, 3)
@@ -129,15 +128,11 @@ func TestComputeVoterSharesRecordsTheClamp(t *testing.T) {
 	sortAddrs(order)
 
 	running := new(big.Int)
-	sawClamp := false
 	for _, voter := range order {
 		shares, err := computeVoterShares(sm, in, voter)
 		r.NoError(err)
 		for _, s := range shares.shares {
 			r.True(s.share.Sign() > 0, "a zero share must not be recorded at all")
-			if s.clamped {
-				sawClamp = true
-			}
 			cursor.Distributed[s.delegateIndex] = new(big.Int).Add(
 				cursor.Distributed[s.delegateIndex], s.share,
 			)
@@ -146,7 +141,6 @@ func TestComputeVoterSharesRecordsTheClamp(t *testing.T) {
 		r.True(running.Cmp(c.pool) <= 0,
 			"the running total must never exceed the pool, reached %s", running)
 	}
-	r.True(sawClamp, "the clamp must have fired and been recorded")
 	r.Zero(running.Cmp(c.pool), "a clamped drain exhausts the pool exactly")
 }
 

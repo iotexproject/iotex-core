@@ -59,6 +59,24 @@ func TestSplitCommission(t *testing.T) {
 	}
 }
 
+func splitEpochRewardForTest(
+	t *testing.T,
+	ctx context.Context,
+	sm protocol.StateReader,
+	cand *state.Candidate,
+	amount *big.Int,
+) (*big.Int, *big.Int, error) {
+	t.Helper()
+	var routing *delegateRewardRouting
+	if cand != nil && !protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+		candID, err := address.FromString(candidateIdentifier(cand))
+		require.NoError(t, err)
+		routing, err = resolveDelegateRewardRouting(sm, candID)
+		require.NoError(t, err)
+	}
+	return splitDelegateEpochReward(ctx, amount, routing)
+}
+
 // TestSplitDelegateEpochReward covers the fallback branches that route the
 // full amount to commission (voter share = 0), and the happy-path split.
 // Fallback cases must return (amount, 0) so GrantEpochReward's caller runs
@@ -68,8 +86,8 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 
 	t.Run("fork off", func(t *testing.T) {
 		r := require.New(t)
-		ctx, sm, p, cand, _ := newVoterRewardCtx(t, false /* iip59On */)
-		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
+		ctx, sm, _, cand, _ := newVoterRewardCtx(t, false /* iip59On */)
+		c, v, err := splitEpochRewardForTest(t, ctx, sm, cand, amount)
 		r.NoError(err)
 		r.Equal(0, c.Cmp(amount))
 		r.Equal(0, v.Sign())
@@ -77,8 +95,8 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 
 	t.Run("nil candidate", func(t *testing.T) {
 		r := require.New(t)
-		ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
-		c, v, err := p.splitDelegateEpochReward(ctx, sm, nil, amount)
+		ctx, sm, _, _, _ := newVoterRewardCtx(t, true)
+		c, v, err := splitEpochRewardForTest(t, ctx, sm, nil, amount)
 		r.NoError(err)
 		r.Equal(0, c.Cmp(amount))
 		r.Equal(0, v.Sign())
@@ -86,8 +104,8 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 
 	t.Run("zero amount", func(t *testing.T) {
 		r := require.New(t)
-		ctx, sm, p, cand, _ := newVoterRewardCtx(t, true)
-		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, big.NewInt(0))
+		ctx, sm, _, cand, _ := newVoterRewardCtx(t, true)
+		c, v, err := splitEpochRewardForTest(t, ctx, sm, cand, big.NewInt(0))
 		r.NoError(err)
 		r.Equal(0, c.Sign())
 		r.Equal(0, v.Sign())
@@ -95,15 +113,16 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 
 	t.Run("negative amount rejected", func(t *testing.T) {
 		r := require.New(t)
-		ctx, sm, p, cand, _ := newVoterRewardCtx(t, true)
-		_, _, err := p.splitDelegateEpochReward(ctx, sm, cand, big.NewInt(-1))
+		ctx, sm, _, cand, candAddr := newVoterRewardCtx(t, true)
+		writeSnapshot(t, sm, candAddr, true, 2000, nil)
+		_, _, err := splitEpochRewardForTest(t, ctx, sm, cand, big.NewInt(-1))
 		r.Error(err)
 	})
 
 	t.Run("no snapshot fallback", func(t *testing.T) {
 		r := require.New(t)
-		ctx, sm, p, cand, _ := newVoterRewardCtx(t, true)
-		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
+		ctx, sm, _, cand, _ := newVoterRewardCtx(t, true)
+		c, v, err := splitEpochRewardForTest(t, ctx, sm, cand, amount)
 		r.NoError(err)
 		r.Zero(c.Cmp(amount))
 		r.Zero(v.Sign())
@@ -111,9 +130,9 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 
 	t.Run("unregistered defaults to all owner", func(t *testing.T) {
 		r := require.New(t)
-		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
+		ctx, sm, _, cand, candAddr := newVoterRewardCtx(t, true)
 		writeSnapshot(t, sm, candAddr, false, _basisPointsDenom, []voterEntry{{identityset.Address(3), big.NewInt(100)}})
-		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
+		c, v, err := splitEpochRewardForTest(t, ctx, sm, cand, amount)
 		r.NoError(err)
 		r.Zero(c.Cmp(amount))
 		r.Zero(v.Sign())
@@ -121,9 +140,9 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 
 	t.Run("empty voters fallback", func(t *testing.T) {
 		r := require.New(t)
-		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
+		ctx, sm, _, cand, candAddr := newVoterRewardCtx(t, true)
 		writeSnapshot(t, sm, candAddr, true, 2000, nil)
-		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
+		c, v, err := splitEpochRewardForTest(t, ctx, sm, cand, amount)
 		r.NoError(err)
 		r.Zero(c.Cmp(big.NewInt(200)))
 		r.Zero(v.Cmp(big.NewInt(800)))
@@ -131,9 +150,9 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 
 	t.Run("happy path 20 percent commission", func(t *testing.T) {
 		r := require.New(t)
-		ctx, sm, p, cand, candAddr := newVoterRewardCtx(t, true)
+		ctx, sm, _, cand, candAddr := newVoterRewardCtx(t, true)
 		writeSnapshot(t, sm, candAddr, true, 2000, []voterEntry{{identityset.Address(3), big.NewInt(100)}})
-		c, v, err := p.splitDelegateEpochReward(ctx, sm, cand, amount)
+		c, v, err := splitEpochRewardForTest(t, ctx, sm, cand, amount)
 		r.NoError(err)
 		r.Equal(0, c.Cmp(big.NewInt(200)))
 		r.Equal(0, v.Cmp(big.NewInt(800)))
@@ -159,8 +178,6 @@ func newRoutingShares(delegate address.Address, amount *big.Int) (voterShareSet,
 	return voterShareSet{
 			shares: []voterDelegateShare{{
 				delegateIndex: 0,
-				candidate:     delegate,
-				weight:        big.NewInt(1),
 				share:         new(big.Int).Set(amount),
 			}},
 			total: new(big.Int).Set(amount),
@@ -378,9 +395,8 @@ func testBlocksToDuration(start, end, viewAt uint64) time.Duration {
 	return time.Duration(end-start) * time.Second
 }
 
-// newVoterRewardCtx wires the minimum context splitDelegateEpochReward reads:
-// a StateManager, registered rolldpos+staking protocols, and feature ctx
-// toggled by iip59On.
+// newVoterRewardCtx wires the common IIP-59 reward test context: a state
+// manager, registered rolldpos+staking protocols, and the feature flag.
 func newVoterRewardCtx(
 	t *testing.T,
 	iip59On bool,

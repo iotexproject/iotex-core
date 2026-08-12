@@ -431,8 +431,6 @@ func selfStakeMismatchShares(
 	return voterShareSet{
 			shares: []voterDelegateShare{{
 				delegateIndex: 0,
-				candidate:     delegate,
-				weight:        big.NewInt(1),
 				share:         new(big.Int).Set(amount),
 			}},
 			total: new(big.Int).Set(amount),

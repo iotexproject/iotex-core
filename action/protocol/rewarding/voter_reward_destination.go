@@ -82,25 +82,43 @@ func voterRewardDestinationKey(voter address.Address) []byte {
 	return append(key, voter.Bytes()...)
 }
 
-func (p *Protocol) resolveVoterRewardDestination(
+// readVoterRewardDestination returns nil when the voter has no explicit
+// override. Stored entries are always explicit; the voter itself is the
+// effective default and is never persisted.
+func (p *Protocol) readVoterRewardDestination(
 	ctx context.Context,
 	sr protocol.StateReader,
 	voter address.Address,
-) (address.Address, bool, uint64, error) {
+) (*voterRewardDestination, error) {
 	destination := &voterRewardDestination{}
 	if _, err := p.state(ctx, sr, voterRewardDestinationKey(voter), destination); err != nil {
 		if errors.Is(err, state.ErrStateNotExist) {
-			return voter, false, 0, nil
+			return nil, nil
 		}
-		return nil, false, 0, err
+		return nil, err
 	}
 	if destination.recipient == nil {
-		return nil, false, 0, errors.New("nil stored voter reward destination")
+		return nil, errors.New("nil stored voter reward destination")
 	}
 	if bytes.Equal(destination.recipient.Bytes(), voter.Bytes()) {
-		return nil, false, 0, errors.New("stored voter reward destination equals voter")
+		return nil, errors.New("stored voter reward destination equals voter")
 	}
-	return destination.recipient, true, destination.updatedHeight, nil
+	return destination, nil
+}
+
+func (p *Protocol) effectiveVoterRewardDestination(
+	ctx context.Context,
+	sr protocol.StateReader,
+	voter address.Address,
+) (address.Address, error) {
+	destination, err := p.readVoterRewardDestination(ctx, sr, voter)
+	if err != nil {
+		return nil, err
+	}
+	if destination == nil {
+		return voter, nil
+	}
+	return destination.recipient, nil
 }
 
 func (p *Protocol) setVoterRewardDestination(
@@ -109,7 +127,7 @@ func (p *Protocol) setVoterRewardDestination(
 	voter address.Address,
 	recipientBytes []byte,
 ) (address.Address, address.Address, error) {
-	oldRecipient, _, _, err := p.resolveVoterRewardDestination(ctx, sm, voter)
+	oldRecipient, err := p.effectiveVoterRewardDestination(ctx, sm, voter)
 	if err != nil {
 		return nil, nil, err
 	}

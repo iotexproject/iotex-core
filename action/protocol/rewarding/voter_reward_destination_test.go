@@ -24,43 +24,46 @@ func TestVoterRewardDestinationState(t *testing.T) {
 	voter := identityset.Address(7)
 	recipient := identityset.Address(8)
 
-	effective, explicitlySet, updatedHeight, err := p.resolveVoterRewardDestination(ctx, sm, voter)
+	effective, err := p.effectiveVoterRewardDestination(ctx, sm, voter)
 	r.NoError(err)
 	r.Equal(voter.Bytes(), effective.Bytes())
-	r.False(explicitlySet)
-	r.Zero(updatedHeight)
+	destination, err := p.readVoterRewardDestination(ctx, sm, voter)
+	r.NoError(err)
+	r.Nil(destination)
 
 	oldRecipient, newRecipient, err := p.setVoterRewardDestination(ctx, sm, voter, recipient.Bytes())
 	r.NoError(err)
 	r.Equal(voter.Bytes(), oldRecipient.Bytes())
 	r.Equal(recipient.Bytes(), newRecipient.Bytes())
 
-	effective, explicitlySet, updatedHeight, err = p.resolveVoterRewardDestination(ctx, sm, voter)
+	effective, err = p.effectiveVoterRewardDestination(ctx, sm, voter)
 	r.NoError(err)
 	r.Equal(recipient.Bytes(), effective.Bytes())
-	r.True(explicitlySet)
-	r.Equal(uint64(100), updatedHeight)
+	destination, err = p.readVoterRewardDestination(ctx, sm, voter)
+	r.NoError(err)
+	r.Equal(recipient.Bytes(), destination.recipient.Bytes())
+	r.Equal(uint64(100), destination.updatedHeight)
 
 	oldRecipient, newRecipient, err = p.setVoterRewardDestination(ctx, sm, voter, voter.Bytes())
 	r.NoError(err)
 	r.Equal(recipient.Bytes(), oldRecipient.Bytes())
 	r.Equal(voter.Bytes(), newRecipient.Bytes())
 
-	effective, explicitlySet, updatedHeight, err = p.resolveVoterRewardDestination(ctx, sm, voter)
+	effective, err = p.effectiveVoterRewardDestination(ctx, sm, voter)
 	r.NoError(err)
 	r.Equal(voter.Bytes(), effective.Bytes())
-	r.False(explicitlySet)
-	r.Zero(updatedHeight)
+	destination, err = p.readVoterRewardDestination(ctx, sm, voter)
+	r.NoError(err)
+	r.Nil(destination)
 	_, err = p.state(ctx, sm, voterRewardDestinationKey(voter), &voterRewardDestination{})
 	r.True(errors.Is(err, state.ErrStateNotExist), "reset must delete sparse override state")
 
 	r.NoError(p.putState(ctx, sm, voterRewardDestinationKey(voter), &voterRewardDestination{recipient: recipient}))
 	_, _, err = p.setVoterRewardDestination(ctx, sm, voter, nil)
 	r.NoError(err)
-	effective, explicitlySet, _, err = p.resolveVoterRewardDestination(ctx, sm, voter)
+	effective, err = p.effectiveVoterRewardDestination(ctx, sm, voter)
 	r.NoError(err)
 	r.Equal(voter.Bytes(), effective.Bytes())
-	r.False(explicitlySet)
 }
 
 func TestVoterRewardDestinationValidationGate(t *testing.T) {
@@ -99,7 +102,7 @@ func TestVoterRewardDestinationRejectsMalformedStoredState(t *testing.T) {
 	r.NoError(p.putState(ctx, sm, voterRewardDestinationKey(voter), &voterRewardDestination{
 		recipient: voter, updatedHeight: 1,
 	}))
-	_, _, _, err := p.resolveVoterRewardDestination(ctx, sm, voter)
+	_, err := p.readVoterRewardDestination(ctx, sm, voter)
 	r.Error(err)
 }
 

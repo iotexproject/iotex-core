@@ -6,7 +6,6 @@
 package rewarding
 
 import (
-	"bytes"
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -20,10 +19,7 @@ import (
 // voterDelegateShare is one voter's claim on one delegate's frozen voter pool.
 type voterDelegateShare struct {
 	delegateIndex int
-	candidate     address.Address
-	weight        *big.Int
 	share         *big.Int
-	clamped       bool
 }
 
 // voterShareSet is the whole answer for one voter: a share per delegate the
@@ -137,23 +133,18 @@ func computeVoterShares(
 		// however far the accumulator has drifted, the pool is still the
 		// ceiling.
 		remaining := new(big.Int).Sub(pool, safeBig(in.distributed[i]))
-		clamped := false
 		if remaining.Sign() < 0 {
 			remaining.SetInt64(0)
 		}
 		if share.Cmp(remaining) > 0 {
 			share = remaining
-			clamped = true
 		}
 		if share.Sign() <= 0 {
 			continue
 		}
 		out.shares = append(out.shares, voterDelegateShare{
 			delegateIndex: i,
-			candidate:     candidate,
-			weight:        weight,
 			share:         share,
-			clamped:       clamped,
 		})
 		out.total.Add(out.total, share)
 	}
@@ -169,23 +160,4 @@ func delegateWorkIndex(delegates []epochDrainDelegateWork) map[string]int {
 		byCandidate[string(delegates[i].CandidateIdentifier)] = i
 	}
 	return byCandidate
-}
-
-// distributedVector returns the per-delegate running totals, padded to the
-// delegate count so callers can index it without a bounds check.
-func distributedVector(c *epochDrainCursor) []*big.Int {
-	out := make([]*big.Int, len(c.Delegates))
-	for i := range out {
-		if i < len(c.Distributed) && c.Distributed[i] != nil {
-			out[i] = new(big.Int).Set(c.Distributed[i])
-			continue
-		}
-		out[i] = new(big.Int)
-	}
-	return out
-}
-
-// candidateBytesEqual reports whether a work item names the given candidate.
-func candidateBytesEqual(work epochDrainDelegateWork, candidate address.Address) bool {
-	return candidate != nil && bytes.Equal(work.CandidateIdentifier, candidate.Bytes())
 }

@@ -526,18 +526,17 @@ func (p *Protocol) distributeEpochCommissions(
 			continue
 		}
 		rewardAddr := in.addrs[i]
-		onchainReward := false
+		var routing *delegateRewardRouting
 		if postFork {
 			candAddr, err := address.FromString(candidateIdentifier(cand))
 			if err != nil {
 				return err
 			}
-			routing, err := resolveDelegateRewardRouting(sm, candAddr)
+			routing, err = resolveDelegateRewardRouting(sm, candAddr)
 			if err != nil {
 				return err
 			}
 			rewardAddr = routing.PayoutAddress()
-			onchainReward = routing.onchainRewardEnabled
 		}
 		if rewardAddr == nil {
 			continue
@@ -546,19 +545,19 @@ func (p *Protocol) distributeEpochCommissions(
 		if epochAmt == nil {
 			epochAmt = new(big.Int)
 		}
-		commission, voterShare, err := p.splitDelegateEpochReward(ctx, sm, cand, epochAmt)
+		commission, voterShare, err := splitDelegateEpochReward(ctx, epochAmt, routing)
 		if err != nil {
 			return err
 		}
 		if commission.Sign() > 0 {
 			if err := p.payDelegateShare(
-				ctx, sm, rewardAddr, commission, onchainReward,
+				ctx, sm, rewardAddr, commission, routing != nil && routing.onchainRewardEnabled,
 				rewardingpb.RewardLog_EPOCH_REWARD, out,
 			); err != nil {
 				return err
 			}
 		}
-		if !onchainReward {
+		if routing == nil || !routing.onchainRewardEnabled {
 			continue
 		}
 		if voterShare.Sign() == 0 {
@@ -1080,6 +1079,12 @@ func (p *Protocol) loadEpochDistributionInputs(
 // frozen buckets.
 //
 // Post-fork only -- GrantVoterRewardChunk is the sole caller.
+//
+// The scan key multiplier leaves room for the four frozen voter-index streams,
+// duplicates, and COW tombstones. VoterBudgetPerBlock independently bounds
+// voters processed.
+const _voterScanKeyBudgetPerVoter = 8
+
 func (p *Protocol) runVoterDistributionChunk(
 	ctx context.Context,
 	sm protocol.StateManager,

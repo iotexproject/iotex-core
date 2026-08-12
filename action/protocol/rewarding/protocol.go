@@ -538,9 +538,15 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		recipient, explicitlySet, updatedHeight, err := p.resolveVoterRewardDestination(ctx, sr, voter)
+		destination, err := p.readVoterRewardDestination(ctx, sr, voter)
 		if err != nil {
 			return nil, uint64(0), err
+		}
+		recipient, explicitlySet, updatedHeight := voter, false, uint64(0)
+		if destination != nil {
+			recipient = destination.recipient
+			explicitlySet = true
+			updatedHeight = destination.updatedHeight
 		}
 		return marshalWithHeight(sr, &rewardingpb.VoterRewardDestination{
 			Recipient: recipient.Bytes(), ExplicitlySet: explicitlySet, UpdatedHeight: updatedHeight,

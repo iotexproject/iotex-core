@@ -9,152 +9,18 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/distributedlog"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
-
-const _basisPointsDenom uint64 = 10_000
-
-type delegateRewardRouting struct {
-	candidate            *staking.Candidate
-	onchainRewardEnabled bool
-	blockCommissionBPs   uint64
-	epochCommissionBPs   uint64
-}
-
-// PayoutAddress returns the delegate's own-share destination for this era.
-func (r *delegateRewardRouting) PayoutAddress() address.Address {
-	if r.onchainRewardEnabled {
-		return r.candidate.Owner
-	}
-	return r.candidate.Reward
-}
-
-func resolveDelegateRewardRouting(
-	sr protocol.StateReader,
-	candID address.Address,
-) (*delegateRewardRouting, error) {
-	candidate, _, err := staking.NewCandidateByAddressReader(sr).CandidateByAddress(candID)
-	if err != nil {
-		return nil, err
-	}
-	routing := &delegateRewardRouting{
-		candidate:            candidate,
-		onchainRewardEnabled: candidate.VoterRewardOnchainOptIn,
-		blockCommissionBPs:   _basisPointsDenom,
-		epochCommissionBPs:   _basisPointsDenom,
-	}
-	// No staleness check here, unlike freezeDelegateDrainWork. This runs at
-	// EVERY epoch of an era, and the only authoritative source of the era's H
-	// is the copy-on-write window — which is open for the freeze block and the
-	// few drain blocks after the boundary, and closed (FreezeHeight 0) for the
-	// rest of the era. Testing snapshot.FreezeHeight against it here would
-	// declare every perfectly fresh snapshot stale for ~23 of an era's 24
-	// epochs, and "stale" collapses to the ErrStateNotExist branch below, whose
-	// 100%-commission default pays voters nothing. The guard belongs where the
-	// window is guaranteed open, i.e. at the boundary.
-	//
-	// The exposure that leaves is bounded and strictly milder: a delegate
-	// carrying a previous era's snapshot splits this era's epoch rewards at the
-	// previous era's commission rate. Money is still conserved and still
-	// reaches the voter pool; only the rate is off. The drain-side guard then
-	// refuses to settle that pool on a mixed basis and rolls it forward.
-	snap, err := staking.PollSnapshotFor(sr, candID)
-	switch {
-	case err == nil:
-		routing.onchainRewardEnabled = snap.OnchainRewardEnabled
-		if snap.OnchainRewardEnabled {
-			routing.blockCommissionBPs = snap.BlockCommissionBasisPoints
-			routing.epochCommissionBPs = snap.EpochCommissionBasisPoints
-		}
-	case errors.Is(err, state.ErrStateNotExist):
-		// The era's snapshot is the sole authority on opt-in status, so a
-		// delegate with no snapshot at H is not on IIP-59 rails for this era
-		// and its opt-in takes effect at the next freeze. Overriding the LIVE
-		// value read above is what makes that rule uniform.
-		//
-		// FreezePollSnapshot freezes every candidate that was opted in at H,
-		// so absence here means exactly one thing: this delegate was not
-		// opted in at H. Either it opted in during the era, or it registered
-		// after H and could not have been frozen at all.
-		//
-		// Keeping the live value here instead would pay such a delegate on
-		// IIP-59 rails at the 100% commission default — the whole amount to
-		// the owner and nothing to the voters. For a Hermes-vault delegate
-		// that also bypasses the vault, so off-chain Hermes never sees the
-		// money and its voters lose it permanently. Routing to legacy pays
-		// the vault instead, and off-chain Hermes distributes as it did
-		// before.
-		//
-		// This is also why the freezer writes nothing for an opted-out
-		// candidate rather than an OnchainRewardEnabled=false placeholder:
-		// the placeholder and the absence would land on the same line below,
-		// so it was a state write per candidate per era that no reader could
-		// tell from its own absence.
-		routing.onchainRewardEnabled = false
-	default:
-		return nil, err
-	}
-	return routing, nil
-}
-
-// splitDelegateEpochReward computes the epoch-reward commission / voter
-// split for a delegate. Before the fork it returns (amount, 0). After the
-// fork, only an enabled delegate is split. Missing profile data defaults to
-// 100% delegate commission; disabled delegates stay on the legacy claim path.
-//
-//   - fork off (NoVoterRewardDistribution)
-//   - nil candidate or zero amount
-//
-// Otherwise it returns splitCommission(amount, snap.EpochCommissionBasisPoints).
-// Empty voter metadata still routes the amount to the pending pool; the cursor
-// defers that pool until a later era has an eligible snapshot.
-// The caller uses the voter portion as the epoch contribution to the
-// per-delegate voter drain and the commission portion as the immediate
-// per-delegate payout in GrantEpochReward.
-func (p *Protocol) splitDelegateEpochReward(
-	ctx context.Context,
-	sm protocol.StateReader,
-	cand *state.Candidate,
-	amount *big.Int,
-) (*big.Int, *big.Int, error) {
-	if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
-		return safeBig(amount), new(big.Int), nil
-	}
-	if cand == nil || isNilOrZero(amount) {
-		return safeBig(amount), new(big.Int), nil
-	}
-	if err := assertNonNegativeReward(amount); err != nil {
-		return nil, nil, err
-	}
-	candidateID := candidateIdentifier(cand)
-	candID, err := address.FromString(candidateID)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "rewarding: invalid candidate identity %q", candidateID)
-	}
-	routing, err := resolveDelegateRewardRouting(sm, candID)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "rewarding: resolve reward routing for %s", candID.String())
-	}
-	if !routing.onchainRewardEnabled {
-		return safeBig(amount), new(big.Int), nil
-	}
-	commission, voterShare := splitCommission(amount, routing.epochCommissionBPs)
-	return commission, voterShare, nil
-}
 
 // voterRouting holds the collaborators the payout loop needs to decide
 // compound-vs-credit for each voter. Resolved once per chunk because every one
@@ -284,7 +150,7 @@ func (p *Protocol) payVoterCombined(
 	}
 
 	stopDestination := startIIP59Accumulation(&routeDurations.destinationLookup)
-	recipient, _, _, err := p.resolveVoterRewardDestination(ctx, sm, voter)
+	recipient, err := p.effectiveVoterRewardDestination(ctx, sm, voter)
 	stopDestination()
 	addIIP59Items("reward_destination_lookup", 1)
 	if err != nil {
@@ -302,137 +168,6 @@ func (p *Protocol) payVoterCombined(
 	return out, nil
 }
 
-// compoundErrorIsChainDetermined classifies a failure returned by
-// staking.AddDepositForCompound into the only two classes that matter to a
-// system action running inside consensus.
-//
-// The split is NOT "recoverable vs unrecoverable". It is:
-//
-//	DETERMINED BY CHAIN STATE -> degrade to a direct credit.
-//	    Every node executing this block sees the same committed state and
-//	    therefore reaches the same verdict. Degrading is safe: proposer and
-//	    validators all take the credit branch, produce the same writes, and the
-//	    drain cursor advances. The voter is still paid -- only the destination
-//	    changes -- so the era's accounting is unaffected.
-//
-//	INFRASTRUCTURE -> halt the chunk (return the error).
-//	    A trie read that failed, a write that failed, a corrupted view. These
-//	    are node-local: the proposer's disk can fail where a validator's does
-//	    not. Degrading such an error would make the two nodes write different
-//	    state from the same block, which is a consensus fork. Halting is loud
-//	    and recoverable; the block fails, the operator sees it, and the cursor
-//	    does not move.
-//
-// When in doubt an error goes to the halting class. Under-degrading stalls a
-// drain, which an operator can see and fix; over-degrading forks the chain.
-//
-// The full error surface of AddDepositForCompound and its callees, in the order
-// the function can raise them:
-//
-//	 #  site                                  error                                    class
-//	 1  nil voter guard                       "staking: nil voter address"             HALT (unreachable: caller checks)
-//	 2  nil amount guard                      "staking: nil compound amount"           HALT (unreachable: caller checks)
-//	 3  non-positive amount guard             "staking: non-positive compound amount"  HALT (unreachable: caller checks)
-//	 4  NewCandidateStateManagerWithContext   view/state read failure                  HALT  (infrastructure)
-//	 5  fetchBucket -> NativeBucket           ErrStateNotExist  -> *handleError
-//	                                          (ErrInvalidBucketIndex, 202)             DEGRADE (bucket genuinely absent)
-//	 6  fetchBucket -> NativeBucket           any other read failure -> *handleError
-//	                                          (ReceiptStatus_Failure, 0)               HALT  (infrastructure)
-//	 7  owner re-check                        ErrCompoundBucketOwnerMismatch           DEGRADE (bucket ownership is chain state)
-//	 8  GetByIdentifier == nil                errCandNotExist -> *handleError
-//	                                          (ErrCandidateNotExist, 102)              DEGRADE (candidate genuinely absent)
-//	 9  isSelfStakeBucket -> endorsement
-//	    manager Height()/Status()             state read failure                       HALT  (infrastructure)
-//	10  frozen-vs-live self-stake guard       ErrCompoundSelfStakeRoleChanged          DEGRADE (role is chain state; pre-existing case)
-//	11  csm.updateBucket                      COW snapshot / PutState failure          HALT  (infrastructure)
-//	12  subCandidateVotes (Candidate.SubVote) action.ErrInvalidAmount (votes < weight) DEGRADE (accumulator drift is chain state)
-//	13  addCandidateVotes (Candidate.AddVote) action.ErrInvalidAmount                  DEGRADE (same)
-//	14  candidate.AddSelfStake                action.ErrInvalidAmount                  DEGRADE (same)
-//	15  csm.Upsert -> Validate/collision      *handleError via csmErrorToHandleError
-//	                                          (ErrCandidateConflict 101 /
-//	                                           ErrCandidateNotExist 102)               DEGRADE (name/operator/owner collisions are chain state)
-//	16  csm.Upsert -> putCandidate            PutState failure (bare error)            HALT  (infrastructure)
-//	17  csm.DebitBucketPool                   PutState failure                         HALT  (infrastructure)
-//
-// Rows 5, 8 and 15 share one mechanical rule: the staking protocol already
-// classified them. Anything it wrapped in a *handleError carrying a SPECIFIC
-// receipt status is an error it would have turned into a deterministic failure
-// receipt for an equivalent user action -- by construction a verdict every node
-// reproduces. The generic ReceiptStatus_Failure (0) carries no such promise;
-// row 6 uses it precisely for an unclassified read failure, so it is excluded.
-func compoundErrorIsChainDetermined(err error) bool {
-	if err == nil {
-		return false
-	}
-	switch {
-	case errors.Is(err, staking.ErrCompoundSelfStakeRoleChanged): // row 10
-		return true
-	case errors.Is(err, staking.ErrCompoundBucketOwnerMismatch): // row 7
-		return true
-	case errors.Is(err, action.ErrInvalidAmount): // rows 12-14
-		return true
-	}
-	// Rows 5, 8, 15. *handleError does not implement Unwrap, so the sentinel it
-	// carries is unreachable by errors.Is; its receipt status is the classifier.
-	var rErr staking.ReceiptError
-	if errors.As(err, &rErr) {
-		status := rErr.ReceiptStatus()
-		return status != uint64(iotextypes.ReceiptStatus_Failure) &&
-			status != uint64(iotextypes.ReceiptStatus_Success)
-	}
-	return false
-}
-
-// voterChunkSettleableError marks a drain-chunk failure that Handle may turn
-// into a Failure receipt instead of failing the block.
-//
-// The default is the opposite: any error out of GrantVoterRewardChunk that is
-// NOT marked halts. That inversion is the whole point of the type. Settling a
-// Failure receipt writes a consensus-visible outcome -- "this block paid no
-// voters and the cursor did not move" -- so it is only sound when every node
-// executing the block reaches the same verdict.
-//
-// The line is not "which layer raised it". It is: is the fact that produced
-// this error derivable from chain state that every node shares?
-//
-//   - Derivable, therefore markable: the dispatcher invariants below. Whether a
-//     cursor exists, whether it is already completed, and whether the IIP-59
-//     fork is active are all read from committed state and the block's own
-//     feature set. Every node reads the same answer, so every node writes the
-//     same Failure receipt.
-//
-//   - Not derivable, therefore never marked: everything the scan and read path
-//     can raise. A ranged scan can fail because a particular working set does
-//     not support ordered range scans at all -- and the proposer's derived
-//     working set and a validator's freshly built one need not agree on that.
-//     The proposer would write Failure with no payouts while validators write
-//     Success with payouts: same block, two state roots. There is no sentinel
-//     to test for either; `ErrNotSupported` exists twice with identical message
-//     text (state/factory and db), both are reachable here, and an errors.Is
-//     against one silently misses the other. So the capability class is not
-//     detected -- it is simply never opted in.
-//
-// Per-item chain-state conditions inside the chunk (missing bucket, self-stake
-// role change, invalid amount) are not affected by any of this: they never
-// reach here, because compoundErrorIsChainDetermined above degrades them to a
-// direct credit so the voter is paid and the cursor advances.
-type voterChunkSettleableError struct{ error }
-
-// settleableVoterChunkError builds an error Handle is allowed to settle as a
-// Failure receipt. Use it only for a condition every node derives identically
-// from committed state.
-func settleableVoterChunkError(format string, args ...interface{}) error {
-	return &voterChunkSettleableError{errors.Errorf(format, args...)}
-}
-
-// voterChunkErrorIsSettleable reports whether err was explicitly marked
-// settleable. Unmarked errors -- including every error from a state read, a
-// state write, or a range scan -- must propagate and fail the block.
-func voterChunkErrorIsSettleable(err error) bool {
-	var target *voterChunkSettleableError
-	return errors.As(err, &target)
-}
-
 // frozenEraForBucket returns the era view of the delegate a compound bucket
 // votes for. A bucket whose candidate is not in the frozen work list yields the
 // zero value, which disables the self-stake role check rather than checking it
@@ -447,99 +182,6 @@ func frozenEraForBucket(in voterShareInputs, bucket *staking.VoteBucket) staking
 	}
 	work := in.delegates[i]
 	return staking.FrozenSelfStake{FreezeHeight: in.freezeHeight, BucketIdx: work.SelfStakeBucketIdx}
-}
-
-// delegateChunkLog accumulates the DelegateDistributed rows for one delegate
-// across a whole chunk. The drain is voter-major, so a delegate is touched by
-// many voters within one block; emitting a log per (voter, delegate) pair would
-// multiply the log stream by the average delegate count per voter. One log per
-// delegate per block preserves the off-chain aggregation contract, keyed by
-// target era and delegate.
-type delegateChunkLog struct {
-	voters            []address.Address
-	recipients        []address.Address
-	amounts           []*big.Int
-	compoundBucketIDs []uint64
-	compounded        []bool
-	paid              *big.Int
-}
-
-// recordVoterPayout files one voter's combined payout into the per-delegate
-// log rows. The amount recorded against a delegate is that delegate's share,
-// not the combined transfer, so the rows still sum to the delegate's pool.
-func recordVoterPayout(logs []delegateChunkLog, payout voterCombinedPayout) {
-	for _, share := range payout.shares {
-		i := share.delegateIndex
-		if i < 0 || i >= len(logs) {
-			continue
-		}
-		logs[i].voters = append(logs[i].voters, payout.voter)
-		logs[i].recipients = append(logs[i].recipients, payout.recipient)
-		logs[i].amounts = append(logs[i].amounts, new(big.Int).Set(share.share))
-		logs[i].compoundBucketIDs = append(logs[i].compoundBucketIDs, payout.compoundBucketID)
-		logs[i].compounded = append(logs[i].compounded, payout.compounded)
-		if logs[i].paid == nil {
-			logs[i].paid = new(big.Int)
-		}
-		logs[i].paid.Add(logs[i].paid, share.share)
-	}
-}
-
-// voterTransactionLog is the outflow record for a directly credited voter.
-// Compounded amounts are not claims from the rewarding fund; they are settled
-// once per block through settleCompoundOutflow.
-// A compounded payout is identified by payout.compounded, never by a zero
-// bucket ID: bucket 0 is a real native bucket, and treating it as "not
-// compounded" would emit a CLAIM_FROM_REWARDING_FUND log for money that never
-// left the fund toward the voter's account.
-func voterTransactionLog(payout voterCombinedPayout) *action.TransactionLog {
-	if payout.compounded || payout.recipient == nil || isNilOrZero(payout.amount) {
-		return nil
-	}
-	return &action.TransactionLog{
-		Type:      iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND,
-		Sender:    address.RewardingPoolAddr,
-		Recipient: payout.recipient.String(),
-		Amount:    new(big.Int).Set(payout.amount),
-	}
-}
-
-// packDelegateChunkLog builds the DelegateDistributed event for one delegate's
-// slice of this chunk. Returns nil when the delegate paid no voter this block.
-func (p *Protocol) packDelegateChunkLog(
-	targetEra uint64,
-	work epochDrainDelegateWork,
-	rows delegateChunkLog,
-	blkHeight uint64,
-	actionHash hash.Hash256,
-) (*action.Log, error) {
-	if len(rows.voters) == 0 {
-		return nil, nil
-	}
-	candID, err := address.FromBytes(work.CandidateIdentifier)
-	if err != nil {
-		return nil, errors.Wrap(err, "rewarding: decode cursor candidate identifier")
-	}
-	topics, data, err := distributedlog.Pack(distributedlog.EventArgs{
-		Epoch:             targetEra,
-		Delegate:          candID,
-		VoterAmount:       safeBig(rows.paid),
-		Voters:            rows.voters,
-		Recipients:        rows.recipients,
-		Amounts:           rows.amounts,
-		CompoundBucketIDs: rows.compoundBucketIDs,
-		Compounded:        rows.compounded,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
-	}
-	return &action.Log{
-		Address:     p.addr.String(),
-		Topics:      topics,
-		Data:        data,
-		BlockHeight: blkHeight,
-		ActionHash:  actionHash,
-	}, nil
 }
 
 // resolveVoterRouting gathers the per-chunk collaborators for compound routing.
@@ -574,26 +216,6 @@ func (p *Protocol) resolveVoterRouting(
 		}
 	}
 	return routing, nil
-}
-
-// splitCommission returns (commission, voterPool) for a totalReward given
-// a basis-points rate. Integer division truncates in favour of the voter
-// pool: commission = totalReward * bps / 10_000. Rates above 100% are
-// clamped to 100% so a malformed on-chain rate cannot over-pay commission.
-func splitCommission(totalReward *big.Int, bps uint64) (*big.Int, *big.Int) {
-	if totalReward == nil || totalReward.Sign() == 0 {
-		return new(big.Int), new(big.Int)
-	}
-	if bps == 0 {
-		return new(big.Int), new(big.Int).Set(totalReward)
-	}
-	if bps >= _basisPointsDenom {
-		return new(big.Int).Set(totalReward), new(big.Int)
-	}
-	commission := new(big.Int).Mul(totalReward, new(big.Int).SetUint64(bps))
-	commission.Div(commission, new(big.Int).SetUint64(_basisPointsDenom))
-	voterPool := new(big.Int).Sub(totalReward, commission)
-	return commission, voterPool
 }
 
 // assertNonNegativeReward rejects a negative reward amount. Nil is treated

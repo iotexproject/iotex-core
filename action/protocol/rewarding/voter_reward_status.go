@@ -117,3 +117,14 @@ func voterDrainPosition(cursor *epochDrainCursor, voter address.Address) rewardi
 	}
 	return rewardingpb.VoterRewardStatus_WAITING
 }
+
+// distributedVector returns an isolated, nil-free view for the read-only
+// reward query. The drain itself aliases cursor.Distributed so each payout is
+// visible to the next voter in the same block.
+func distributedVector(c *epochDrainCursor) []*big.Int {
+	out := make([]*big.Int, len(c.Delegates))
+	for i := range out {
+		out[i] = c.distributedAt(i)
+	}
+	return out
+}
