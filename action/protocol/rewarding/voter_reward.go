@@ -450,7 +450,7 @@ func frozenEraForBucket(in voterShareInputs, bucket *staking.VoteBucket) staking
 	return staking.FrozenSelfStake{FreezeHeight: work.FreezeHeight, BucketIdx: work.SelfStakeBucketIdx}
 }
 
-// delegateChunkLog accumulates the DelegateDistributed rows for one delegate
+// delegateChunkLog accumulates the DelegateVoterRewardsDistributed rows for one delegate
 // across a whole chunk. The drain is voter-major, so a delegate is touched by
 // many voters within one block; emitting a log per (voter, delegate) pair would
 // multiply the log stream by the average delegate count per voter. One log per
@@ -505,7 +505,7 @@ func voterTransactionLog(payout voterCombinedPayout) *action.TransactionLog {
 	}
 }
 
-// packDelegateChunkLog builds the DelegateDistributed event for one delegate's
+// packDelegateChunkLog builds the DelegateVoterRewardsDistributed event for one delegate's
 // slice of this chunk. Returns nil when the delegate paid no voter this block.
 func (p *Protocol) packDelegateChunkLog(
 	epochNum uint64,
@@ -536,7 +536,7 @@ func (p *Protocol) packDelegateChunkLog(
 		Compounded:        rows.compounded,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
+		return nil, errors.Wrap(err, "rewarding: pack DelegateVoterRewardsDistributed log")
 	}
 	return &action.Log{
 		Address:     p.addr.String(),

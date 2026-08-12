@@ -130,7 +130,7 @@ message CandidatePollSnapshot {
     // Deterministic digest of this delegate's frozen era parameters, computed
     // at freeze time from the scalars in this message plus the candidate
     // identifier. It is the join key off-chain consumers use to assemble the
-    // partial DelegateDistributed logs one settlement emits across many blocks.
+    // partial DelegateVoterRewardsDistributed logs one settlement emits across many blocks.
     bytes snapshotHash = 7;
     // IIP-59: the height this snapshot was frozen at, i.e. the era boundary H.
     // The drain runs several blocks later and must evaluate contract-staking

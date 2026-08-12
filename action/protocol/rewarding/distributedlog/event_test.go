@@ -233,7 +233,7 @@ func TestPack_SelectorPinned(t *testing.T) {
 	r.NoError(err)
 
 	expected := crypto.Keccak256Hash([]byte(
-		"DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[],bool[])",
+		"DelegateVoterRewardsDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[],bool[])",
 	))
 	r.Equal(hash.Hash256(expected), topics[0])
 }

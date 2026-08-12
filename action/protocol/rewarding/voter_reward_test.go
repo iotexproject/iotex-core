@@ -176,7 +176,7 @@ func newRoutingShares(delegate address.Address, amount *big.Int) (voterShareSet,
 
 // TestPayVoterCombinedCustomRewardDestination pins that a voter who has
 // registered a reward destination is credited there rather than at their own
-// address, and that the DelegateDistributed row records both.
+// address, and that the DelegateVoterRewardsDistributed row records both.
 func TestPayVoterCombinedCustomRewardDestination(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
@@ -297,18 +297,18 @@ func TestPayVoterCombinedCompoundOverridesCustomRewardDestination(t *testing.T) 
 	r.Nil(voterTransactionLog(payout), "compound payout must not emit a direct account transfer")
 }
 
-const delegateDistributedDestinationTestABI = `[{"anonymous":false,"inputs":[
+const delegateVoterRewardsDistributedDestinationTestABI = `[{"anonymous":false,"inputs":[
 	{"indexed":true,"name":"epoch","type":"uint64"},
 	{"indexed":true,"name":"delegate","type":"address"},
 	{"indexed":false,"name":"rewardAddr","type":"address"},
-	{"indexed":false,"name":"totalCommission","type":"uint256"},
-	{"indexed":false,"name":"totalVoterPool","type":"uint256"},
+	{"indexed":false,"name":"eraCommission","type":"uint256"},
+	{"indexed":false,"name":"chunkVoterReward","type":"uint256"},
 	{"indexed":false,"name":"snapshotHash","type":"bytes32"},
 	{"indexed":false,"name":"voters","type":"address[]"},
 	{"indexed":false,"name":"recipients","type":"address[]"},
 	{"indexed":false,"name":"amounts","type":"uint256[]"},
 	{"indexed":false,"name":"compoundBucketIds","type":"uint64[]"}],
-	"name":"DelegateDistributed","type":"event"}]`
+	"name":"DelegateVoterRewardsDistributed","type":"event"}]`
 
 type voterEntry struct {
 	addr   address.Address

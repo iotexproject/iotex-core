@@ -132,7 +132,7 @@ The snapshot is **scalars only**:
 | `BlockCommissionBasisPoints`, `EpochCommissionBasisPoints`, `Registered` | the DelegateProfile contract can change between H and the last chunk |
 | `OnchainRewardEnabled` | opt-in must not flip mid-settlement |
 | `TotalWeight` | the denominator of every share; it is `candidate.Votes` at H, and `Votes` keeps moving during the drain window |
-| `SnapshotHash` | join key stamped into every partial `DelegateDistributed` log so off-chain consumers can reassemble one settlement's per-block logs |
+| `SnapshotHash` | join key stamped into every partial `DelegateVoterRewardsDistributed` log so off-chain consumers can reassemble one settlement's per-block logs |
 | `FreezeHeight` (H) | the height every weight recompute is evaluated at |
 | `SelfStakeBucketIdx` | the only candidate field the weight recompute reads |
 

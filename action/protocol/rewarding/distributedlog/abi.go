@@ -28,13 +28,13 @@ const ABIJSON = `[
 			{"indexed": false, "name": "compoundBucketIds", "type": "uint64[]"},
 			{"indexed": false, "name": "compounded",      "type": "bool[]"}
 		],
-		"name": "DelegateDistributed",
+		"name": "DelegateVoterRewardsDistributed",
 		"type": "event"
 	}
 ]`
 
 // EventName is the event's ABI name; used for method lookup and error text.
-const EventName = "DelegateDistributed"
+const EventName = "DelegateVoterRewardsDistributed"
 
 // EventSignature is the canonical Solidity signature. keccak256 of this
 // string is Topics[0]. Kept as a const for the golden-selector test, and
@@ -47,4 +47,4 @@ const EventName = "DelegateDistributed"
 // -- it is indistinguishable from "voter i was compounded into bucket 0".
 // The parallel bool is the authoritative discriminator; consumers must read
 // compoundBucketIds[i] only when compounded[i] is true.
-const EventSignature = "DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[],bool[])"
+const EventSignature = "DelegateVoterRewardsDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[],bool[])"

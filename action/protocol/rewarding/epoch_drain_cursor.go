@@ -50,7 +50,7 @@ type epochDrainDelegateWork struct {
 	// and with the list gone that is exactly this field being positive.
 	TotalWeight *big.Int
 	// SnapshotHash is the era snapshot's digest, stamped into every
-	// DelegateDistributed log this settlement emits for the delegate so an
+	// DelegateVoterRewardsDistributed log this settlement emits for the delegate so an
 	// off-chain consumer can group the per-block partial logs back together.
 	SnapshotHash []byte
 	// FreezeHeight is the block height the era's state was frozen at. It is
