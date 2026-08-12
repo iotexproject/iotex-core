@@ -3,7 +3,7 @@
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
-// Package distributedlog encodes the IIP-59 §3.2 DelegateDistributed
+// Package distributedlog encodes the IIP-59 §3.2 DelegateVoterRewardsDistributed
 // receipt event. distributeToVoters (PR 3') calls Pack once per delegate
 // at epoch close and wraps the returned Topics+data into an *action.Log;
 // this package deliberately does NOT construct action.Log itself so it
@@ -46,19 +46,20 @@ var (
 	// any Amounts[i] is nil.
 	ErrNilBigInt = errors.New("distributedlog: nil *big.Int")
 
-	// ErrNotDelegateDistributed is returned by Unpack when the log has no topic
+	// ErrNotDelegateVoterRewardsDistributed is returned by Unpack when the log has no topic
 	// or Topics[0] is not this event's ID. It is the ordinary outcome of scanning
 	// a block's logs and
 	// means "skip this one", so it is deliberately distinct from the
 	// malformed-log errors below, which mean "this IS our event and it is
 	// broken" and are worth alerting on.
-	ErrNotDelegateDistributed = errors.New("distributedlog: not a DelegateDistributed log")
+	ErrNotDelegateVoterRewardsDistributed = errors.New(
+		"distributedlog: not a DelegateVoterRewardsDistributed log")
 
 	// ErrMalformedLog is returned by Unpack when the log carries this
 	// event's topic but its payload does not decode to the expected shape:
 	// a topic with non-zero padding, an unexpected ABI value type, or the
 	// wrong number of non-indexed fields.
-	ErrMalformedLog = errors.New("distributedlog: malformed DelegateDistributed log")
+	ErrMalformedLog = errors.New("distributedlog: malformed DelegateVoterRewardsDistributed log")
 )
 
 // eraSnapshotDomainSeparator scopes EraSnapshotHash so its output cannot
@@ -102,7 +103,7 @@ func ABI() (abi.ABI, error) {
 }
 
 // Topic0 returns keccak256(EventSignature) -- the value every
-// DelegateDistributed log carries in Topics[0], and the filter an indexer
+// DelegateVoterRewardsDistributed log carries in Topics[0], and the filter an indexer
 // matches on.
 func Topic0() (hash.Hash256, error) {
 	parsed, err := loadABI()
@@ -116,7 +117,7 @@ func Topic0() (hash.Hash256, error) {
 	return hash.Hash256(ev.ID), nil
 }
 
-// EventArgs are the fields of one DelegateDistributed log. Field order
+// EventArgs are the fields of one DelegateVoterRewardsDistributed log. Field order
 // matches the Solidity signature so a struct literal reads left-to-right
 // the same way as the on-chain event definition. Callers build one per
 // delegate (top-N loop and orphan-drain loop use the same shape).
@@ -135,7 +136,7 @@ type EventArgs struct {
 }
 
 // Pack encodes args as an EVM-shaped receipt log. The returned Topics
-// and data satisfy the same layout an EVM-emitted DelegateDistributed
+// and data satisfy the same layout an EVM-emitted DelegateVoterRewardsDistributed
 // event would produce, so off-chain verifiers (PR #45) can decode with
 // stock ethers.js / web3.py against this event ABI.
 //
@@ -209,7 +210,7 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 		args.Compounded,
 	)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "distributedlog: pack DelegateDistributed data")
+		return nil, nil, errors.Wrap(err, "distributedlog: pack DelegateVoterRewardsDistributed data")
 	}
 
 	topics := make(action.Topics, 3)
@@ -219,7 +220,7 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 	return topics, data, nil
 }
 
-// Unpack is the inverse of Pack: it decodes an on-chain DelegateDistributed
+// Unpack is the inverse of Pack: it decodes an on-chain DelegateVoterRewardsDistributed
 // log back into EventArgs.
 //
 // It exists so off-chain consumers -- the analyser indexer, explorers -- decode
@@ -234,7 +235,7 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 // otherwise an attacker-deployed contract emitting the same topic would be
 // decoded as a protocol payout.
 //
-// Returns ErrNotDelegateDistributed when the log is some other event, which
+// Returns ErrNotDelegateVoterRewardsDistributed when the log is some other event, which
 // callers should treat as "skip", distinct from the malformed-log errors that
 // signal a corrupt or truncated payload and are worth alerting on.
 func Unpack(topics action.Topics, data []byte) (*EventArgs, error) {
@@ -247,10 +248,10 @@ func Unpack(topics action.Topics, data []byte) (*EventArgs, error) {
 		return nil, errors.Errorf("distributedlog: event %q not found in parsed ABI", EventName)
 	}
 	if len(topics) == 0 {
-		return nil, errors.Wrap(ErrNotDelegateDistributed, "log has no topics")
+		return nil, errors.Wrap(ErrNotDelegateVoterRewardsDistributed, "log has no topics")
 	}
 	if topics[0] != hash.Hash256(ev.ID) {
-		return nil, errors.Wrapf(ErrNotDelegateDistributed, "topics[0]=%x", topics[0])
+		return nil, errors.Wrapf(ErrNotDelegateVoterRewardsDistributed, "topics[0]=%x", topics[0])
 	}
 	if len(topics) != 3 {
 		return nil, errors.Wrapf(ErrMalformedLog, "got %d topics, want 3", len(topics))
@@ -268,7 +269,7 @@ func Unpack(topics action.Topics, data []byte) (*EventArgs, error) {
 	values, err := ev.Inputs.NonIndexed().Unpack(data)
 	if err != nil {
 		return nil, errors.Wrapf(ErrMalformedLog,
-			"unpack DelegateDistributed data: %v", err)
+			"unpack DelegateVoterRewardsDistributed data: %v", err)
 	}
 	if len(values) != 9 {
 		return nil, errors.Wrapf(ErrMalformedLog, "got %d non-indexed values, want 9", len(values))
@@ -420,7 +421,7 @@ type EraSnapshotParams struct {
 	OnchainRewardEnabled       bool
 }
 
-// EraSnapshotHash produces the bytes32 digest a DelegateDistributed log
+// EraSnapshotHash produces the bytes32 digest a DelegateVoterRewardsDistributed log
 // carries in its snapshotHash field.
 //
 // One settlement pays a delegate's voters across many blocks and emits one

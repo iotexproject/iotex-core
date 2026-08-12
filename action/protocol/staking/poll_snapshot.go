@@ -71,7 +71,7 @@ type CandidatePollSnapshot struct {
 	TotalWeight *big.Int
 	// SnapshotHash is the deterministic digest of this delegate's frozen era
 	// parameters. See eraSnapshotHash: it is the join key that lets off-chain
-	// consumers assemble the partial DelegateDistributed logs one settlement
+	// consumers assemble the partial DelegateVoterRewardsDistributed logs one settlement
 	// emits across many blocks.
 	SnapshotHash hash.Hash256
 	// FreezeHeight is the era boundary height H this snapshot was taken at.
@@ -187,7 +187,7 @@ func safeBigInt(v *big.Int) *big.Int {
 }
 
 // eraSnapshotHash is the deterministic digest stamped into every
-// DelegateDistributed log a settlement emits for this delegate.
+// DelegateVoterRewardsDistributed log a settlement emits for this delegate.
 //
 // Its consumer is off-chain: one settlement pays a delegate's voters across
 // many blocks, so the delegate's payout is reported as a stream of partial logs

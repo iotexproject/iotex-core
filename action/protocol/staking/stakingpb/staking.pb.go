@@ -819,7 +819,7 @@ type CandidatePollSnapshot struct {
 	// Deterministic digest of this delegate's frozen era parameters, computed
 	// at freeze time from the scalars in this message plus the candidate
 	// identifier. It is the join key off-chain consumers use to assemble the
-	// partial DelegateDistributed logs one settlement emits across many blocks.
+	// partial DelegateVoterRewardsDistributed logs one settlement emits across many blocks.
 	SnapshotHash []byte `protobuf:"bytes,7,opt,name=snapshotHash,proto3" json:"snapshotHash,omitempty"`
 	// IIP-59: the height this snapshot was frozen at, i.e. the era boundary H.
 	// The drain runs several blocks later and must evaluate contract-staking

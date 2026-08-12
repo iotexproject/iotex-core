@@ -20,7 +20,7 @@ import (
 
 // voterDistributionMetadata lifts the two allocation inputs Phase A freezes
 // into a delegate's work item out of the era snapshot: the weight total the
-// drain divides by, and the digest every DelegateDistributed log for this
+// drain divides by, and the digest every DelegateVoterRewardsDistributed log for this
 // delegate is stamped with.
 //
 // Both are read, not derived. TotalWeight is the frozen candidate.Votes the

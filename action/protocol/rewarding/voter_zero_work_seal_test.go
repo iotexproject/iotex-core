@@ -143,7 +143,7 @@ func TestZeroWorkSealIsIdempotent(t *testing.T) {
 // a voter whose auto-deposit bucket is index 0 compounded successfully and was
 // then reported as a direct credit: a spurious CLAIM_FROM_REWARDING_FUND
 // transaction log for tokens that never left the rewarding fund, the amount
-// missing from the block's compound outflow, and a DelegateDistributed row
+// missing from the block's compound outflow, and a DelegateVoterRewardsDistributed row
 // telling off-chain consumers the voter was paid at their reward address when
 // they were not.
 func TestCompoundIntoNativeBucketZero(t *testing.T) {

@@ -90,7 +90,7 @@ func TestUnpackEmptyVoterList(t *testing.T) {
 }
 
 // TestUnpackRejectsForeignEvent pins the skip/alert split. A log from some
-// other event must come back as ErrNotDelegateDistributed so an indexer
+// other event must come back as ErrNotDelegateVoterRewardsDistributed so an indexer
 // scanning every log in a block can skip it silently, without that outcome
 // being confusable with a corrupt log of our own.
 func TestUnpackRejectsForeignEvent(t *testing.T) {
@@ -105,7 +105,17 @@ func TestUnpackRejectsForeignEvent(t *testing.T) {
 			hash.Hash256{},
 		}
 		_, err := Unpack(topics, data)
-		require.ErrorIs(t, err, ErrNotDelegateDistributed)
+		require.ErrorIs(t, err, ErrNotDelegateVoterRewardsDistributed)
+	})
+
+	t.Run("retired event name", func(t *testing.T) {
+		topics, _, err := Pack(happyArgs())
+		require.NoError(t, err)
+		topics[0] = hash.Hash256b([]byte(
+			"DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[],bool[])",
+		))
+		_, err = Unpack(topics, data)
+		require.ErrorIs(t, err, ErrNotDelegateVoterRewardsDistributed)
 	})
 
 	t.Run("wrong topic count", func(t *testing.T) {
@@ -117,7 +127,7 @@ func TestUnpackRejectsForeignEvent(t *testing.T) {
 
 	t.Run("no topics", func(t *testing.T) {
 		_, err := Unpack(nil, data)
-		require.ErrorIs(t, err, ErrNotDelegateDistributed)
+		require.ErrorIs(t, err, ErrNotDelegateVoterRewardsDistributed)
 	})
 }
 
@@ -161,7 +171,7 @@ func TestUnpackRejectsTruncatedData(t *testing.T) {
 
 	_, err = Unpack(topics, data[:len(data)/2])
 	r.Error(err)
-	r.NotErrorIs(err, ErrNotDelegateDistributed, "a truncated payload of our own event is corruption, not a foreign event")
+	r.NotErrorIs(err, ErrNotDelegateVoterRewardsDistributed, "a truncated payload of our own event is corruption, not a foreign event")
 	r.ErrorIs(err, ErrMalformedLog)
 }
 
