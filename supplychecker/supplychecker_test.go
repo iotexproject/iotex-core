@@ -29,6 +29,8 @@ type fakeStateReader struct {
 	accounts map[hash.Hash160]*big.Int
 	fund     *big.Int
 	pool     *big.Int
+	hasFund  bool
+	hasPool  bool
 }
 
 func newFakeStateReader() *fakeStateReader {
@@ -36,6 +38,8 @@ func newFakeStateReader() *fakeStateReader {
 		accounts: map[hash.Hash160]*big.Int{},
 		fund:     big.NewInt(0),
 		pool:     big.NewInt(0),
+		hasFund:  true,
+		hasPool:  true,
 	}
 }
 
@@ -51,6 +55,9 @@ func (f *fakeStateReader) State(value interface{}, opts ...protocol.StateOption)
 	}
 	switch cfg.Namespace {
 	case state.RewardingNamespace:
+		if !f.hasFund {
+			return 0, state.ErrStateNotExist
+		}
 		fnd, ok := value.(*rewardingFund)
 		if !ok {
 			return 0, state.ErrUnknownAccountType
@@ -58,6 +65,9 @@ func (f *fakeStateReader) State(value interface{}, opts ...protocol.StateOption)
 		fnd.totalBalance = new(big.Int).Set(f.fund)
 		fnd.unclaimedBalance = new(big.Int).Set(f.fund)
 	case state.StakingNamespace:
+		if !f.hasPool {
+			return 0, state.ErrStateNotExist
+		}
 		pool, ok := value.(*bucketPoolTotal)
 		if !ok {
 			return 0, state.ErrUnknownAccountType
@@ -232,4 +242,32 @@ func TestLocalDeserializersAgainstRealSchema(t *testing.T) {
 	require.NoError(ta.Deserialize(poolBytes))
 	require.Equal(big.NewInt(12345), ta.amount)
 	require.Equal(uint64(7), ta.count)
+}
+
+func TestSupplyCheckToleratesMissingReserveStates(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+
+	a := identityset.Address(0).String()
+	g := testGenesis("500", "300", []string{a})
+
+	fr := newFakeStateReader()
+	fr.setAccount(a, big.NewInt(500))
+	fr.fund = big.NewInt(300)
+	// Funds/pool present like on mainnet.
+	o := NewObserver(fr, g, 0)
+	res, err := o.Check(ctx)
+	require.NoError(err)
+	require.Equal(big.NewInt(800), res.Total)
+
+	// A pre-Greenland node has no bucket-pool state. Treating it as 0 must not
+	// error and must not create a false violation (only under-counts -> sound).
+	fr.hasPool = false
+	res, err = o.Check(ctx)
+	require.NoError(err)
+	require.Equal(big.NewInt(500), res.Account)
+	require.Equal(big.NewInt(300), res.Fund)
+	require.Equal(big.NewInt(0), res.Pool)
+	require.Equal(big.NewInt(800), res.Total)
+	require.NotEqual(1, res.Total.Cmp(res.Cap))
 }

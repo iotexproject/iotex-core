@@ -193,20 +193,31 @@ func sumPrimaryBalances(sr protocol.StateReader) (*big.Int, error) {
 }
 
 // readFundTotal reads the rewarding fund total balance from the Rewarding namespace.
+// A missing fund state is treated as a zero balance: this is the same conservative
+// direction as every other under-count (it weakens the check but never produces a
+// false alarm), and it keeps the observer usable on nodes whose current height
+// predates the v2-storage layout that stores this state.
 func readFundTotal(sr protocol.StateReader) (*big.Int, error) {
 	key := append(state.RewardingKeyPrefix[:], _fundKey...)
 	var f rewardingFund
 	if _, err := sr.State(&f, protocol.NamespaceOption(state.RewardingNamespace), protocol.KeyOption(key)); err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			return big.NewInt(0), nil
+		}
 		return nil, errors.Wrap(err, "failed to read rewarding fund")
 	}
 	return f.totalBalance, nil
 }
 
-// readBucketPoolTotal reads the staking bucket pool total staked amount.
+// readBucketPoolTotal reads the staking bucket pool total staked amount. Like the
+// rewarding fund, a missing pool state (pre-Greenland layout) is treated as zero.
 func readBucketPoolTotal(sr protocol.StateReader) (*big.Int, error) {
 	key := append([]byte{0x00}, _bucketPoolKeyTemplate[:]...)
 	var t bucketPoolTotal
 	if _, err := sr.State(&t, protocol.NamespaceOption(state.StakingNamespace), protocol.KeyOption(key)); err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			return big.NewInt(0), nil
+		}
 		return nil, errors.Wrap(err, "failed to read staking bucket pool")
 	}
 	return t.amount, nil
