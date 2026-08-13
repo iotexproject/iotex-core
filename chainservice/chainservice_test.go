@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_factory"
@@ -68,19 +69,30 @@ func TestStartSupplyObserver(t *testing.T) {
 	r := require.New(t)
 	ctx := context.Background()
 
-	// Empty ChainService (no factory): observer is a no-op and not started.
-	cs := &ChainService{}
+	// Empty ChainService (no factory): observer is a no-op and not started, even
+	// when enabled (there is no state factory to read from).
+	cs := &ChainService{supplyCfg: blockchain.SupplyCheckConfig{Enabled: true}}
 	r.False(cs.startSupplyObserver(ctx))
 	r.Nil(cs.supplyObserver)
 
-	// With a state factory, the observer is constructed (from the chain genesis)
-	// and started.
 	ctrl := gomock.NewController(t)
 	factory := mock_factory.NewMockFactory(ctrl)
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bc.EXPECT().Genesis().Return(genesis.TestDefault()).AnyTimes()
 
-	cs2 := &ChainService{factory: factory, chain: bc}
+	// Default (not enabled in config): the observer must NOT start even with a
+	// factory, so ordinary validators never run the full-namespace scan.
+	csDefault := &ChainService{factory: factory, chain: bc}
+	r.False(csDefault.startSupplyObserver(ctx))
+	r.Nil(csDefault.supplyObserver)
+
+	// Enabled with a state factory: the observer is constructed (from the chain
+	// genesis) and started. This is the opt-in auditor-node path.
+	cs2 := &ChainService{
+		factory:   factory,
+		chain:     bc,
+		supplyCfg: blockchain.SupplyCheckConfig{Enabled: true},
+	}
 	r.True(cs2.startSupplyObserver(ctx))
 	r.NotNil(cs2.supplyObserver)
 

@@ -86,6 +86,7 @@ type ChainService struct {
 	actionsync               *actsync.ActionSync
 	minter                   *factory.Minter
 	supplyObserver           *supplychecker.Observer
+	supplyCfg                blockchain.SupplyCheckConfig
 
 	lastReceivedBlockHeight uint64
 	paused                  atomic.Bool
@@ -96,11 +97,12 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if err := cs.lifecycle.OnStartSequentially(ctx); err != nil {
 		return errors.Wrap(err, "failed to start chain service")
 	}
-	// Launch the off-consensus total-supply observer. It periodically recomputes
-	// the IOTX supply (account balances + rewarding fund + staking pool) and
-	// reports when it exceeds the genesis cap, catching ex-nihilo minting bugs.
-	// It is read-only and never affects consensus or state transitions, so it is
-	// safe to run on a live node even if the invariant is violated.
+	// Optionally launch the off-consensus total-supply reconciliation observer
+	// (L3 tier). It periodically recomputes the IOTX supply (account balances +
+	// rewarding fund + staking pool) against the genesis cap, catching ex-nihilo
+	// minting bugs. It is DISABLED by default: the full Account-namespace scan it
+	// performs would otherwise stall block commits on every validator, so it is
+	// meant to run only on opt-in auditor nodes (see blockchain.SupplyCheckConfig).
 	cs.startSupplyObserver(ctx)
 	go func() {
 		ticker := time.NewTicker(time.Minute)
@@ -130,22 +132,25 @@ func (cs *ChainService) Start(ctx context.Context) error {
 }
 
 // startSupplyObserver constructs (if needed) and launches the off-consensus
-// total-supply observer. It is a no-op when no state factory is available (for
-// example in tests that build an empty ChainService). Returns true when an
-// observer was started.
+// total-supply observer. It is a no-op unless the supply check is enabled in
+// config and a state factory is available (for example in tests that build an
+// empty ChainService). Returns true when an observer was started.
 func (cs *ChainService) startSupplyObserver(ctx context.Context) bool {
+	if !cs.supplyCfg.Enabled {
+		return false
+	}
 	if cs.supplyObserver == nil && cs.factory != nil {
-		cs.supplyObserver = supplychecker.NewObserver(
-			cs.factory,
-			cs.chain.Genesis(),
-			time.Minute,
-		)
+		interval := cs.supplyCfg.Interval
+		if interval <= 0 {
+			interval = time.Hour
+		}
+		cs.supplyObserver = supplychecker.NewObserver(cs.factory, cs.chain.Genesis(), interval)
 	}
-	if cs.supplyObserver != nil {
-		go cs.supplyObserver.Run(ctx)
-		return true
+	if cs.supplyObserver == nil {
+		return false
 	}
-	return false
+	go cs.supplyObserver.Run(ctx)
+	return true
 }
 
 // Stop stops the server

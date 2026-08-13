@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/account/accountpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -29,6 +30,7 @@ import (
 // the rewarding fund, and the staking bucket pool.
 type fakeStateReader struct {
 	accounts    map[hash.Hash160]*big.Int
+	rawAccounts map[hash.Hash160][]byte // raw serialized entries injected verbatim into the Account iterator
 	fund        *big.Int
 	pool        *big.Int
 	hasFund     bool
@@ -40,11 +42,12 @@ type fakeStateReader struct {
 
 func newFakeStateReader() *fakeStateReader {
 	return &fakeStateReader{
-		accounts: map[hash.Hash160]*big.Int{},
-		fund:     big.NewInt(0),
-		pool:     big.NewInt(0),
-		hasFund:  true,
-		hasPool:  true,
+		accounts:    map[hash.Hash160]*big.Int{},
+		rawAccounts: map[hash.Hash160][]byte{},
+		fund:        big.NewInt(0),
+		pool:        big.NewInt(0),
+		hasFund:     true,
+		hasPool:     true,
 	}
 }
 
@@ -98,14 +101,18 @@ func (f *fakeStateReader) States(opts ...protocol.StateOption) (uint64, state.It
 	if f.failStates {
 		return 0, nil, errors.New("states read failure")
 	}
-	keys := make([][]byte, 0, len(f.accounts))
-	states := make([][]byte, 0, len(f.accounts))
+	keys := make([][]byte, 0, len(f.accounts)+len(f.rawAccounts))
+	states := make([][]byte, 0, len(f.accounts)+len(f.rawAccounts))
 	for key, bal := range f.accounts {
 		acc := state.Account{Balance: new(big.Int).Set(bal)}
 		data, err := acc.Serialize()
 		if err != nil {
 			return 0, nil, err
 		}
+		keys = append(keys, key[:])
+		states = append(states, data)
+	}
+	for key, data := range f.rawAccounts {
 		keys = append(keys, key[:])
 		states = append(states, data)
 	}
@@ -121,6 +128,10 @@ func (f *fakeStateReader) States(opts ...protocol.StateOption) (uint64, state.It
 
 func (f *fakeStateReader) setAccount(addr string, bal *big.Int) {
 	f.accounts[hash.Hash160b([]byte(addr))] = bal
+}
+
+func (f *fakeStateReader) setRawAccount(addr string, data []byte) {
+	f.rawAccounts[hash.Hash160b([]byte(addr))] = data
 }
 
 // testGenesis returns a small genesis config with initial accounts plus the
@@ -314,9 +325,10 @@ func TestSumPrimaryBalancesSkipsNilAccount(t *testing.T) {
 	fr.setAccount(b, big.NewInt(222))
 	fr.nilAccounts = true
 
-	total, err := sumPrimaryBalances(fr)
+	total, accounts, err := sumPrimaryBalances(fr)
 	require.NoError(err)
 	require.Equal(big.NewInt(333), total)
+	require.Equal(uint64(2), accounts)
 }
 
 func TestObserverCheckReadFailure(t *testing.T) {
@@ -368,4 +380,148 @@ func TestObserverRunTicksAndStops(t *testing.T) {
 	time.Sleep(5 * time.Millisecond)
 	cancel2()
 	require.True(true) // reached end without panic
+}
+
+// TestDecodeAccountStrict verifies the strict, non-panicking decoder accepts every
+// genuine account shape and rejects the legacy Poll/Rewarding payloads that share
+// the Account namespace and would panic state.Account.Deserialize.
+func TestDecodeAccountStrict(t *testing.T) {
+	require := require.New(t)
+
+	mustMarshal := func(m proto.Message) []byte {
+		b, err := proto.Marshal(m)
+		require.NoError(err)
+		return b
+	}
+
+	// --- Genuine accounts must be accepted ---
+	accept := []proto.Message{
+		// Plain EOA with nonce and balance.
+		&accountpb.Account{Nonce: 3, Balance: "1000", Type: accountpb.AccountType_DEFAULT},
+		// Zero-balance EOA.
+		&accountpb.Account{Nonce: 1, Balance: "0", Type: accountpb.AccountType_DEFAULT},
+		// ZERO_NONCE account type (the second legal enum value).
+		&accountpb.Account{Balance: "500", Type: accountpb.AccountType_ZERO_NONCE},
+		// Contract account carrying storage root + code hash.
+		&accountpb.Account{
+			Balance:  "777",
+			Root:     []byte{1, 2, 3, 4, 5, 6, 7, 8},
+			CodeHash: []byte{9, 9, 9, 9},
+			Type:     accountpb.AccountType_DEFAULT,
+		},
+	}
+	for _, m := range accept {
+		acct, ok := decodeAccount(mustMarshal(m))
+		require.True(ok, "must accept genuine account %T", m)
+		require.NotNil(acct)
+	}
+
+	// --- Legacy Poll/Rewarding/staking payloads must be rejected (never panic) ---
+	reject := []proto.Message{
+		// Rewarding fund: field2 string collides with Account.balance ("1e26"
+		// is not a decimal integer), field1 is an unknown wire type.
+		&rewardingpb.Fund{TotalBalance: "1e26", UnclaimedBalance: "1e26"},
+		// Rewarding admin with productivityThreshold=85 -> field7 collides
+		// with Account.type and would panic state.Account.FromProto.
+		&rewardingpb.Admin{BlockReward: "12500", EpochReward: "12500", ProductivityThreshold: 85},
+		// Rewarding exempt list (repeated bytes at field1).
+		&rewardingpb.Exempt{Addrs: [][]byte{{1, 2, 3}}},
+		// Rewarding rewardAccount (rewardingpb.Account{Balance:"..."} at field1).
+		&rewardingpb.Account{Balance: "1e26"},
+		// Staking bucket pool total (TotalAmount at field1).
+		&stakingpb.TotalAmount{Amount: "100", Count: 1},
+	}
+	for _, m := range reject {
+		require.NotPanics(func() {
+			acct, ok := decodeAccount(mustMarshal(m))
+			require.False(ok, "must reject legacy payload %T", m)
+			require.Nil(acct)
+		}, "decoder must never panic on %T", m)
+	}
+
+	// --- Non-canonical / corrupt bytes must be rejected ---
+	require.NotPanics(func() {
+		acct, ok := decodeAccount([]byte{0xff, 0xff, 0xff})
+		require.False(ok)
+		require.Nil(acct)
+	})
+	// Empty payload is skipped, not decoded.
+	acct, ok := decodeAccount(nil)
+	require.False(ok)
+	require.Nil(acct)
+}
+
+// TestSumPrimaryBalancesRejectsLegacyStates proves the Account-namespace scan
+// tolerates the legacy Poll/Rewarding states that were written pre-Greenland and
+// never deleted: it skips them instead of crashing (P0) or over-counting them as
+// account balances (over-count false-positive).
+func TestSumPrimaryBalancesRejectsLegacyStates(t *testing.T) {
+	require := require.New(t)
+
+	mustMarshal := func(m proto.Message) []byte {
+		b, err := proto.Marshal(m)
+		require.NoError(err)
+		return b
+	}
+
+	fr := newFakeStateReader()
+	realAddr := identityset.Address(0).String()
+	fr.setAccount(realAddr, big.NewInt(1000))
+	// Inject the legacy rewarding fund, admin (with 85 -> enum collision), exempt,
+	// and rewardAccount payloads into the raw Account-namespace iterator exactly as
+	// a live pre-Greenland node would have them.
+	fr.setRawAccount("legacy-fund", mustMarshal(&rewardingpb.Fund{TotalBalance: "1e26", UnclaimedBalance: "1e26"}))
+	fr.setRawAccount("legacy-admin", mustMarshal(&rewardingpb.Admin{BlockReward: "12500", ProductivityThreshold: 85}))
+	fr.setRawAccount("legacy-exempt", mustMarshal(&rewardingpb.Exempt{Addrs: [][]byte{{1, 2, 3}}}))
+	fr.setRawAccount("legacy-reward-account", mustMarshal(&rewardingpb.Account{Balance: "1e26"}))
+
+	total, accounts, err := sumPrimaryBalances(fr)
+	require.NoError(err)
+	// Only the genuine account's balance is counted; legacy states add nothing.
+	require.Equal(big.NewInt(1000), total)
+	require.Equal(uint64(1), accounts)
+}
+
+// TestObserverCheckToleratesLegacyStatesEndToEnd reproduces the exact mainnet
+// hazard the reviewer flagged: the Account namespace also holds legacy
+// Poll/Rewarding states written pre-Greenland (rewarding fund, admin with a
+// productivityThreshold that collides with the account-type enum, exempt,
+// rewardAccount) that are never deleted. Running the observer against such a
+// namespace must neither panic (P0, since Run is a bare goroutine) nor
+// over-count them into R1 (which would invert the "never a false positive"
+// property). This runs through the full Observer.Check path, not just the
+// internal sum helper.
+func TestObserverCheckToleratesLegacyStatesEndToEnd(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+
+	mustMarshal := func(m proto.Message) []byte {
+		b, err := proto.Marshal(m)
+		require.NoError(err)
+		return b
+	}
+
+	addr := identityset.Address(0).String()
+	g := testGenesis("1000", "200", []string{addr})
+
+	fr := newFakeStateReader()
+	fr.setAccount(addr, big.NewInt(1000))
+	fr.fund = big.NewInt(200)
+	// Inject the legacy rewarding states exactly as they sit in the Account
+	// namespace on a real pre-Greenland node.
+	fr.setRawAccount("legacy-fund", mustMarshal(&rewardingpb.Fund{TotalBalance: "1e26", UnclaimedBalance: "1e26"}))
+	fr.setRawAccount("legacy-admin", mustMarshal(&rewardingpb.Admin{BlockReward: "12500", ProductivityThreshold: 85}))
+	fr.setRawAccount("legacy-exempt", mustMarshal(&rewardingpb.Exempt{Addrs: [][]byte{{1}}}))
+
+	o := NewObserver(fr, g, 0)
+	require.NotPanics(func() {
+		res, err := o.Check(ctx)
+		require.NoError(err)
+		// Only the genuine account is counted; legacy states add nothing, so R1 is
+		// not over-counted and the observer does not false-positive.
+		require.Equal(big.NewInt(1000), res.Account)
+		require.Equal(uint64(1), res.Accounts)
+		require.Equal(big.NewInt(1200), res.Total)
+		require.Equal(0, res.Total.Cmp(res.Cap))
+	})
 }
