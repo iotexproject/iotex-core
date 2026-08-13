@@ -239,7 +239,7 @@ Everything else is in the new `ioswarm/` directory. When `ioswarm.enabled: false
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=iotexproject/iotex-core&type=Date)](https://star-history.com/#iotexproject/iotex-core&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=iotexproject/iotex-core&type=Date)](https://star-history.dera.page/#iotexproject/iotex-core&Date)
 
 ## Contact
 
