@@ -107,7 +107,11 @@ func (b *Bundle) Hash() hash.Hash256 {
 		return hash.ZeroHash256
 	}
 
-	return hash.BytesToHash256(b.Serialize())
+	// hash.BytesToHash256 keeps only the trailing 32 bytes of the input
+	// instead of hashing it, so two bundles sharing the same final action
+	// and target height collide on the pool's dedup key. Use a real digest
+	// over the full serialization so the identity covers every action.
+	return hash.Hash256b(b.Serialize())
 }
 
 // Gas calculates the total gas of all items in the bundle.
