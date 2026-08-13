@@ -101,16 +101,7 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	// reports when it exceeds the genesis cap, catching ex-nihilo minting bugs.
 	// It is read-only and never affects consensus or state transitions, so it is
 	// safe to run on a live node even if the invariant is violated.
-	if cs.supplyObserver == nil && cs.factory != nil {
-		cs.supplyObserver = supplychecker.NewObserver(
-			cs.factory,
-			cs.chain.Genesis(),
-			time.Minute,
-		)
-	}
-	if cs.supplyObserver != nil {
-		go cs.supplyObserver.Run(ctx)
-	}
+	cs.startSupplyObserver(ctx)
 	go func() {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
@@ -136,6 +127,25 @@ func (cs *ChainService) Start(ctx context.Context) error {
 		}
 	}()
 	return nil
+}
+
+// startSupplyObserver constructs (if needed) and launches the off-consensus
+// total-supply observer. It is a no-op when no state factory is available (for
+// example in tests that build an empty ChainService). Returns true when an
+// observer was started.
+func (cs *ChainService) startSupplyObserver(ctx context.Context) bool {
+	if cs.supplyObserver == nil && cs.factory != nil {
+		cs.supplyObserver = supplychecker.NewObserver(
+			cs.factory,
+			cs.chain.Genesis(),
+			time.Minute,
+		)
+	}
+	if cs.supplyObserver != nil {
+		go cs.supplyObserver.Run(ctx)
+		return true
+	}
+	return false
 }
 
 // Stop stops the server

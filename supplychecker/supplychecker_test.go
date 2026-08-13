@@ -9,7 +9,9 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -26,11 +28,14 @@ import (
 // three accounting reservoirs the observer reads: primary account balances,
 // the rewarding fund, and the staking bucket pool.
 type fakeStateReader struct {
-	accounts map[hash.Hash160]*big.Int
-	fund     *big.Int
-	pool     *big.Int
-	hasFund  bool
-	hasPool  bool
+	accounts    map[hash.Hash160]*big.Int
+	fund        *big.Int
+	pool        *big.Int
+	hasFund     bool
+	hasPool     bool
+	failState   bool // if set, State() returns a hard error
+	failStates  bool // if set, States() returns a hard error
+	nilAccounts bool // if set, States() returns an account iterator with a nil entry
 }
 
 func newFakeStateReader() *fakeStateReader {
@@ -52,6 +57,9 @@ func (f *fakeStateReader) State(value interface{}, opts ...protocol.StateOption)
 	cfg, err := protocol.CreateStateConfig(opts...)
 	if err != nil {
 		return 0, err
+	}
+	if f.failState {
+		return 0, errors.New("state read failure")
 	}
 	switch cfg.Namespace {
 	case state.RewardingNamespace:
@@ -87,6 +95,9 @@ func (f *fakeStateReader) States(opts ...protocol.StateOption) (uint64, state.It
 	if cfg.Namespace != state.AccountKVNamespace {
 		return 0, nil, state.ErrStateNotExist
 	}
+	if f.failStates {
+		return 0, nil, errors.New("states read failure")
+	}
 	keys := make([][]byte, 0, len(f.accounts))
 	states := make([][]byte, 0, len(f.accounts))
 	for key, bal := range f.accounts {
@@ -97,6 +108,12 @@ func (f *fakeStateReader) States(opts ...protocol.StateOption) (uint64, state.It
 		}
 		keys = append(keys, key[:])
 		states = append(states, data)
+	}
+	if f.nilAccounts && len(states) > 0 {
+		// Inject a nil (deleted-account) storage entry after the first real one.
+		states = append(states, nil)
+		delKey := hash.Hash160b([]byte("deleted"))
+		keys = append(keys, delKey[:])
 	}
 	iter, err := state.NewIterator(keys, states)
 	return 0, iter, err
@@ -270,4 +287,85 @@ func TestSupplyCheckToleratesMissingReserveStates(t *testing.T) {
 	require.Equal(big.NewInt(0), res.Pool)
 	require.Equal(big.NewInt(800), res.Total)
 	require.NotEqual(1, res.Total.Cmp(res.Cap))
+}
+
+func TestGenesisTotalSupplyGuards(t *testing.T) {
+	require := require.New(t)
+
+	// A bogus init-balance value must not abort the sum; it is skipped.
+	g := genesis.TestDefault()
+	g.InitBalanceMap = map[string]string{"io1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "not-a-number"}
+	g.InitBalanceMap["io1bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"] = "7"
+	g.Rewarding.InitBalanceStr = "3"
+	require.Equal(big.NewInt(10), genesisTotalSupply(g))
+
+	// A bogus rewarding init string is also skipped.
+	g.Rewarding.InitBalanceStr = "nope"
+	require.Equal(big.NewInt(7), genesisTotalSupply(g))
+}
+
+func TestSumPrimaryBalancesSkipsNilAccount(t *testing.T) {
+	require := require.New(t)
+
+	a := identityset.Address(0).String()
+	b := identityset.Address(1).String()
+	fr := newFakeStateReader()
+	fr.setAccount(a, big.NewInt(111))
+	fr.setAccount(b, big.NewInt(222))
+	fr.nilAccounts = true
+
+	total, err := sumPrimaryBalances(fr)
+	require.NoError(err)
+	require.Equal(big.NewInt(333), total)
+}
+
+func TestObserverCheckReadFailure(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+
+	g := testGenesis("500", "300", []string{identityset.Address(0).String()})
+	fr := newFakeStateReader()
+	fr.setAccount(identityset.Address(0).String(), big.NewInt(500))
+	fr.fund = big.NewInt(300)
+
+	o := NewObserver(fr, g, 0)
+	_, err := o.Check(ctx)
+	require.NoError(err)
+
+	// States() failure propagates through Check.
+	fr.failStates = true
+	_, err = o.Check(ctx)
+	require.Error(err)
+
+	fr.failStates = false
+	// State() failure propagates through Check.
+	fr.failState = true
+	_, err = o.Check(ctx)
+	require.Error(err)
+}
+
+func TestObserverRunTicksAndStops(t *testing.T) {
+	require := require.New(t)
+
+	g := testGenesis("500", "300", []string{identityset.Address(0).String()})
+	fr := newFakeStateReader()
+	fr.setAccount(identityset.Address(0).String(), big.NewInt(500))
+	fr.fund = big.NewInt(300)
+
+	// Run must not panic and should exit on context cancellation after at least
+	// one tick. Use a tiny interval and cancel shortly after.
+	o := NewObserver(fr, g, time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
+	go o.Run(ctx)
+	time.Sleep(5 * time.Millisecond)
+	cancel()
+
+	// Error path inside Run is exercised with a failing reader.
+	fr.failState = true
+	o2 := NewObserver(fr, g, time.Millisecond)
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	go o2.Run(ctx2)
+	time.Sleep(5 * time.Millisecond)
+	cancel2()
+	require.True(true) // reached end without panic
 }

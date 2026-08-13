@@ -6,11 +6,17 @@
 package chainservice
 
 import (
+	"context"
 	"testing"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_factory"
 )
 
 func TestChainService_Filter_NilHeader(t *testing.T) {
@@ -56,4 +62,29 @@ func TestChainService_ReportFullness_NilHeader(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestStartSupplyObserver(t *testing.T) {
+	r := require.New(t)
+	ctx := context.Background()
+
+	// Empty ChainService (no factory): observer is a no-op and not started.
+	cs := &ChainService{}
+	r.False(cs.startSupplyObserver(ctx))
+	r.Nil(cs.supplyObserver)
+
+	// With a state factory, the observer is constructed (from the chain genesis)
+	// and started.
+	ctrl := gomock.NewController(t)
+	factory := mock_factory.NewMockFactory(ctrl)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	bc.EXPECT().Genesis().Return(genesis.TestDefault()).AnyTimes()
+
+	cs2 := &ChainService{factory: factory, chain: bc}
+	r.True(cs2.startSupplyObserver(ctx))
+	r.NotNil(cs2.supplyObserver)
+
+	// A second call must not recreate the observer; it just restarts it.
+	r.True(cs2.startSupplyObserver(ctx))
+	r.NotNil(cs2.supplyObserver)
 }

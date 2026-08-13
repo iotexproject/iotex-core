@@ -93,13 +93,13 @@ func (f *rewardingFund) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
-	total, ok := new(big.Int).SetString(gen.TotalBalance, 10)
-	if !ok {
-		return errors.New("failed to parse rewarding fund total balance")
+	total, err := parseDecimal(gen.TotalBalance, "rewarding fund total balance")
+	if err != nil {
+		return err
 	}
-	unclaimed, ok := new(big.Int).SetString(gen.UnclaimedBalance, 10)
-	if !ok {
-		return errors.New("failed to parse rewarding fund unclaimed balance")
+	unclaimed, err := parseDecimal(gen.UnclaimedBalance, "rewarding fund unclaimed balance")
+	if err != nil {
+		return err
 	}
 	f.totalBalance = total
 	f.unclaimedBalance = unclaimed
@@ -112,13 +112,23 @@ func (t *bucketPoolTotal) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
-	amount, ok := new(big.Int).SetString(gen.Amount, 10)
-	if !ok {
-		return errors.New("failed to parse bucket pool total amount")
+	amount, err := parseDecimal(gen.Amount, "bucket pool total amount")
+	if err != nil {
+		return err
 	}
 	t.amount = amount
 	t.count = gen.Count
 	return nil
+}
+
+// parseDecimal converts a decimal-string field into a big.Int, reporting a
+// stable error that names the on-chain field when the string is malformed.
+func parseDecimal(s, field string) (*big.Int, error) {
+	n, ok := new(big.Int).SetString(s, 10)
+	if !ok {
+		return nil, errors.Errorf("failed to parse %s", field)
+	}
+	return n, nil
 }
 
 // Conservation invariants governing the genesis-locked IOTX accounting. The
