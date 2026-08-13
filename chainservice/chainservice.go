@@ -86,6 +86,7 @@ type ChainService struct {
 	actionsync               *actsync.ActionSync
 	minter                   *factory.Minter
 	supplyObserver           *supplychecker.Observer
+	supplyTracker            *supplychecker.SupplyTracker
 	supplyCfg                blockchain.SupplyCheckConfig
 
 	lastReceivedBlockHeight uint64
@@ -132,22 +133,30 @@ func (cs *ChainService) Start(ctx context.Context) error {
 }
 
 // startSupplyObserver constructs (if needed) and launches the off-consensus
-// total-supply observer. It is a no-op unless the supply check is enabled in
-// config and a state factory is available (for example in tests that build an
-// empty ChainService). Returns true when an observer was started.
+// total-supply observers (L2 per-block tracker + L3 periodic scanner). It is a
+// no-op unless the supply check is enabled in config and a state factory is
+// available (for example in tests that build an empty ChainService).
 func (cs *ChainService) startSupplyObserver(ctx context.Context) bool {
 	if !cs.supplyCfg.Enabled {
 		return false
 	}
-	if cs.supplyObserver == nil && cs.factory != nil {
+	if cs.factory == nil {
+		return false
+	}
+	// L2 tier: per-block running supply tracker, wired into the state factory's
+	// diff callback. Observatory-only and non-fatal; composes with ioSwarm's
+	// existing callback rather than replacing it.
+	if cs.supplyTracker == nil {
+		cs.supplyTracker = supplychecker.NewSupplyTrackerFromGenesis(cs.chain.Genesis())
+		factory.AddDiffCallback(cs.factory, cs.supplyTracker.OnBlockCommitted)
+	}
+	// L3 tier: opt-in periodic full-namespace reconciliation.
+	if cs.supplyObserver == nil {
 		interval := cs.supplyCfg.Interval
 		if interval <= 0 {
 			interval = time.Hour
 		}
 		cs.supplyObserver = supplychecker.NewObserver(cs.factory, cs.chain.Genesis(), interval)
-	}
-	if cs.supplyObserver == nil {
-		return false
 	}
 	go cs.supplyObserver.Run(ctx)
 	return true
