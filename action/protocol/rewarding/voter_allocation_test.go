@@ -25,11 +25,8 @@ import (
 // allocator and the entry list are gone: shares are now recomputed per voter
 // from the era's frozen buckets, and the remainder stays in the pending pool.
 //
-// What survives is the claim those tests existed to protect -- that the
-// read-only status path and the paying path cannot drift -- and it now holds by
-// construction, because both call computeVoterShares. What replaces them is the
-// property that construction cannot give for free: that the sum of what the
-// drain pays a delegate's voters never exceeds what the era froze for them.
+// What survives is the allocation-safety property those tests protected: the
+// sum paid to a delegate's voters never exceeds what the era froze for them.
 
 // clampFixture is the planted state plus the numbers the clamp must produce.
 type clampFixture struct {

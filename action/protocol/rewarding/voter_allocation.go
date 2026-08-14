@@ -29,8 +29,8 @@ type voterShareSet struct {
 	total  *big.Int
 }
 
-// voterShareInputs is the state a share computation reads. Bundled so the drain
-// and the read-only status query cannot pass different things by accident.
+// voterShareInputs is the state a share computation reads. Keeping the inputs
+// together prevents payout and routing code from assembling different era views.
 type voterShareInputs struct {
 	window       eracow.Window
 	staking      *staking.Protocol
@@ -41,11 +41,6 @@ type voterShareInputs struct {
 }
 
 // computeVoterShares is the single implementation of the per-voter share rule.
-//
-// Two callers need it: the drain, which pays, and the read-only status query,
-// which reports what a voter is owed. Keeping one implementation behind both is
-// what makes TestVoterRewardAmountMatchesAllocation a statement about the code
-// rather than a coincidence.
 //
 // The rule is: for each delegate the voter has a frozen bucket with, recompute
 // the voter's weight toward that delegate as of the era freeze height, take

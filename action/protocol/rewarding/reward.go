@@ -316,8 +316,8 @@ func (p *Protocol) creditBlockProducer(
 // encodeBlockRewardLog builds the receipt log for a block grant, in whichever
 // of the two wire formats the chain is on. blockCommission is what the producer
 // was actually paid now; post-fork the voter share is attested separately by
-// the batched DelegateVoterRewardsDistributed log at era close. A zero payout emits no log
-// at all rather than a log naming zero.
+// batched DelegateVoterRewardsDistributed logs during voter distribution. A
+// zero payout emits no log at all rather than a log naming zero.
 func (p *Protocol) encodeBlockRewardLog(
 	ctx context.Context,
 	payout blockProducerPayout,

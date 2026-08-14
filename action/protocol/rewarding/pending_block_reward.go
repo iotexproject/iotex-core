@@ -139,8 +139,8 @@ func (p *Protocol) deletePendingBlockRewardPool(
 
 // decrementPendingBlockRewardPool subtracts amount from the delegate's
 // pool balance. If the resulting balance is zero, the entry is deleted;
-// otherwise the reduced balance is persisted. Used by voter reward drain chunk drain
-// so any voter-side
+// otherwise the reduced balance is persisted. Used by voter reward distribution
+// chunks so any voter-side
 // balance that accrued after the era-boundary freeze is preserved for
 // the next era's cursor. Amount larger than the current balance is
 // clamped to the balance (guards against arithmetic slippage).
