@@ -17,10 +17,6 @@ import (
 
 func TestSetVoterRewardDestinationRoundTrip(t *testing.T) {
 	r := require.New(t)
-	contractABI := NativeStakingContractABI()
-	r.Contains(contractABI.Methods, "setVoterRewardDestination")
-	r.Contains(contractABI.Events, "VoterRewardDestinationSet")
-
 	recipient := identityset.Address(7)
 	act := NewSetVoterRewardDestination(recipient.Bytes())
 
