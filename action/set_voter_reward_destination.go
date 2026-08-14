@@ -7,7 +7,6 @@ package action
 
 import (
 	"bytes"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,28 +16,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	SetVoterRewardDestinationBaseIntrinsicGas = uint64(10000)
-	_setVoterRewardDestinationABI             = `[
-		{
-			"inputs":[{"internalType":"address","name":"recipient","type":"address"}],
-			"name":"setVoterRewardDestination",
-			"outputs":[],
-			"stateMutability":"nonpayable",
-			"type":"function"
-		},
-		{
-			"anonymous":false,
-			"inputs":[
-				{"indexed":true,"internalType":"address","name":"voter","type":"address"},
-				{"indexed":false,"internalType":"address","name":"oldRecipient","type":"address"},
-				{"indexed":false,"internalType":"address","name":"newRecipient","type":"address"}
-			],
-			"name":"VoterRewardDestinationSet",
-			"type":"event"
-		}
-	]`
-)
+const SetVoterRewardDestinationBaseIntrinsicGas = uint64(10000)
 
 var (
 	setVoterRewardDestinationMethod abi.Method
@@ -54,16 +32,12 @@ type SetVoterRewardDestination struct {
 }
 
 func init() {
-	contractABI, err := abi.JSON(strings.NewReader(_setVoterRewardDestinationABI))
-	if err != nil {
-		panic(err)
-	}
 	var ok bool
-	setVoterRewardDestinationMethod, ok = contractABI.Methods["setVoterRewardDestination"]
+	setVoterRewardDestinationMethod, ok = NativeStakingContractABI().Methods["setVoterRewardDestination"]
 	if !ok {
 		panic("fail to load the setVoterRewardDestination method")
 	}
-	voterRewardDestinationSetEvent, ok = contractABI.Events["VoterRewardDestinationSet"]
+	voterRewardDestinationSetEvent, ok = NativeStakingContractABI().Events["VoterRewardDestinationSet"]
 	if !ok {
 		panic("fail to load the VoterRewardDestinationSet event")
 	}
