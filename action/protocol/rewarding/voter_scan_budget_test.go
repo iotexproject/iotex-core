@@ -40,10 +40,10 @@ func (c *scanCountingStateManager) States(opts ...protocol.StateOption) (uint64,
 	return height, iter, err
 }
 
-// stuffedShardScenario plants `count` voters in one compact address range.
-func stuffedShardScenario(
+// denseVoterRangeScenario plants count voters in one compact address range.
+func denseVoterRangeScenario(
 	t *testing.T,
-	shard byte,
+	prefix byte,
 	count int,
 	budget uint64,
 ) (context.Context, *scanCountingStateManager, *Protocol, []address.Address) {
@@ -56,7 +56,7 @@ func stuffedShardScenario(
 	voters := make([]address.Address, count)
 	seeds := make([]iip59NativeSeed, 0, count)
 	for i := 0; i < count; i++ {
-		voters[i] = sameShardVoter(shard, i)
+		voters[i] = voterWithPrefix(prefix, i)
 		// Stakes vary but stay small: int64 rau amounts overflow past ~9
 		// tokens' worth of multiples, and an overflowed (negative) amount is
 		// rejected by the bucket writer long before the drain sees it.
@@ -64,9 +64,8 @@ func stuffedShardScenario(
 			delegate: delegate, voter: voters[i], amount: int64(i%5+1) * rau,
 		})
 	}
-	// A seed whose start shard is the stuffed one, so the very first chunk
-	// lands on it rather than sweeping empty shards first.
-	newDrainScenario(t, ctx, sm, p, []byte{shard}, 1_000_000_000, seeds, nil)
+	// Start in the populated range so the first chunk measures real scan work.
+	newDrainScenario(t, ctx, sm, p, []byte{prefix}, 1_000_000_000, seeds, nil)
 	return ctx, &scanCountingStateManager{StateManager: sm}, p, voters
 }
 
@@ -75,17 +74,17 @@ func stuffedShardScenario(
 // It is deliberately a *relative* assertion. An absolute key count would encode
 // how many index streams the fixture happens to populate and would have to be
 // retuned whenever that changed. The property that matters cannot be tuned
-// away: quadrupling the number of voters crammed into one shard must not
+// away: quadrupling the number of voters in one compact range must not
 // increase what a single block reads. Before the fix the first block scanned
-// the whole shard, so the two counts differed by the same factor as the shard
+// the whole range, so the two counts differed by the same factor as the range
 // sizes.
 func TestVoterDrainScanCostDoesNotFollowVoterSetSize(t *testing.T) {
 	r := require.New(t)
-	const shard = byte(0x7a)
+	const prefix = byte(0x7a)
 	const budget = uint64(5)
 
 	firstChunkScanKeys := func(count int) int {
-		ctx, sm, p, _ := stuffedShardScenario(t, shard, count, budget)
+		ctx, sm, p, _ := denseVoterRangeScenario(t, prefix, count, budget)
 		before := sm.rangeScanKeys
 		_, _, err := p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
@@ -106,7 +105,7 @@ func TestVoterDrainScanCostDoesNotFollowVoterSetSize(t *testing.T) {
 		"scan keys must stay inside the per-block key budget")
 }
 
-// liveAndCOWStreams names the four key streams staking.FrozenVotersPage
+// liveAndCOWStreams names the four key streams staking.ScanFrozenVoters
 // merges: the native and liquid-staking live voter indexes, plus the
 // copy-on-write entry range for each. Its length is what a single round's key
 // cost is a multiple of.
@@ -126,15 +125,15 @@ var liveAndCOWStreams = [4]string{"native", "lsd", "cowNative", "cowLSD"}
 // pending pool.
 func TestVoterDrainDenseRangePaysEveryVoterExactlyOnce(t *testing.T) {
 	r := require.New(t)
-	const shard = byte(0x7a)
+	const prefix = byte(0x7a)
 	const count = 120
-	ctx, sm, p, voters := stuffedShardScenario(t, shard, count, 5)
+	ctx, sm, p, voters := denseVoterRangeScenario(t, prefix, count, 5)
 
 	paid := map[string]int{}
 	for i := 0; ; i++ {
-		cursor, err := p.readEpochDrainCursor(ctx, sm)
+		cursor, err := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
-		if cursor == nil || cursor.drainFinished() {
+		if cursor == nil || cursor.completed() {
 			break
 		}
 		txLogs, _, err := p.GrantVoterRewardChunk(ctx, sm)
@@ -155,11 +154,11 @@ func TestVoterDrainDenseRangePaysEveryVoterExactlyOnce(t *testing.T) {
 func TestVoterDrainProcessesExactlyTwoThousandVotersPerBlock(t *testing.T) {
 	r := require.New(t)
 	const (
-		shard  = byte(0x7a)
+		prefix = byte(0x7a)
 		count  = 2001
 		budget = uint64(2000)
 	)
-	ctx, sm, p, _ := stuffedShardScenario(t, shard, count, budget)
+	ctx, sm, p, _ := denseVoterRangeScenario(t, prefix, count, budget)
 
 	txLogs, _, err := p.GrantVoterRewardChunk(ctx, sm)
 	r.NoError(err)
@@ -170,9 +169,9 @@ func TestVoterDrainProcessesExactlyTwoThousandVotersPerBlock(t *testing.T) {
 		}
 	}
 	r.Equal(int(budget), paid)
-	cursor, err := p.readEpochDrainCursor(ctx, sm)
+	cursor, err := p.readVoterRewardDistributionState(ctx, sm)
 	r.NoError(err)
-	r.False(cursor.drainFinished())
+	r.False(cursor.completed())
 
 	txLogs, _, err = p.GrantVoterRewardChunk(ctx, sm)
 	r.NoError(err)
@@ -183,7 +182,7 @@ func TestVoterDrainProcessesExactlyTwoThousandVotersPerBlock(t *testing.T) {
 		}
 	}
 	r.Equal(1, paid)
-	cursor, err = p.readEpochDrainCursor(ctx, sm)
+	cursor, err = p.readVoterRewardDistributionState(ctx, sm)
 	r.NoError(err)
-	r.True(cursor.drainFinished())
+	r.True(cursor.completed())
 }

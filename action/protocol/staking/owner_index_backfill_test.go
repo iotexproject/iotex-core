@@ -75,13 +75,13 @@ func backfillRefIDs(t *testing.T, sm protocol.StateManager, owner address.Addres
 
 func backfillMarks(t *testing.T, sm protocol.StateManager) map[string]uint64 {
 	t.Helper()
-	marks, err := contractstaking.BucketHighWaterMarks(sm)
+	marks, err := contractstaking.BucketIndexUpperBounds(sm)
 	require.NoError(t, err)
 	out := make(map[string]uint64, len(marks))
 	for _, m := range marks {
 		addr, err := address.FromBytes(m.Contract)
 		require.NoError(t, err)
-		out[addr.String()] = m.NumOfBuckets
+		out[addr.String()] = m.BucketIndexUpperBound - 1
 	}
 	return out
 }
@@ -195,6 +195,19 @@ func TestBackfillOwnerIndexKeepsTheHigherMark(t *testing.T) {
 	marks := backfillMarks(t, sm)
 	r.EqualValues(12, marks[v1.String()])
 	r.EqualValues(8, marks[v2.String()])
+}
+
+func TestBackfillOwnerIndexKeepsMarkWhenAllBucketsAreBurned(t *testing.T) {
+	r := require.New(t)
+	sm := eraTestSM(t)
+	v1, _, _ := backfillTestContracts(t)
+
+	// The V1 indexer retains the historical maximum after every bucket has
+	// been burned. Backfill must preserve it even though the bucket scan is empty.
+	r.NoError(contractstaking.NewContractStakingStateManager(sm).UpdateNumOfBuckets(v1, 12))
+	r.NoError(backfillOwnerIndex(forkGateCtx(100, true), sm))
+
+	r.EqualValues(12, backfillMarks(t, sm)[v1.String()])
 }
 
 // TestBackfillOwnerIndexIsIdempotent guards the only way the backfill could run
@@ -321,16 +334,16 @@ func TestBackfillOwnerIndexThroughCreatePreStates(t *testing.T) {
 	// Both halves have to be right for this: the owner index gives the drain the
 	// refs, and the high-water marks decide whether the window admits the ids.
 	ctx := backfillPreStatesCtx(g, backfillActivationHeight)
-	r.NoError(beginEraCOWWindow(ctx, sm, backfillActivationHeight))
-	window, err2 := EraCOWWindow(sm)
+	r.NoError(BeginEraCOWWindow(ctx, sm, backfillActivationHeight))
+	window, err2 := LoadEraCOWWindow(sm)
 	r.NoError(err2)
 	r.True(window.Open())
 
-	refs, err := FrozenContractBucketRefs(sm, window, alice)
+	refs, err := contractstaking.NewStateReader(sm).FrozenBucketRefs(window, alice)
 	r.NoError(err)
 	got := make([]uint64, 0, len(refs))
 	for _, ref := range refs {
-		bkt, err := FrozenContractBucket(sm, window, ref.Contract, ref.BucketID)
+		bkt, err := contractstaking.NewStateReader(sm).FrozenBucket(window, ref.Contract, ref.BucketID)
 		r.NoError(err, "a bucket the backfill indexed must be admitted by the frozen window")
 		r.Equal(alice.String(), bkt.Owner.String())
 		got = append(got, ref.BucketID)
@@ -339,27 +352,22 @@ func TestBackfillOwnerIndexThroughCreatePreStates(t *testing.T) {
 		"a voter who held LSD buckets before activation must be payable in the first era after it")
 }
 
-// TestBackfillContractsUnionsGenesisAndMeta pins the contract set. Genesis
-// alone misses a contract that only has a meta record; the meta namespace alone
-// misses V2/V3, whose marks were never maintained. Order is by raw address
-// bytes, because the write order reaches the trie.
-func TestBackfillContractsUnionsGenesisAndMeta(t *testing.T) {
+// TestBackfillContractsUsesGenesis pins the contract set to the configured V1,
+// V2 and V3 system staking contracts. Order is by raw address bytes because the
+// write order reaches the trie.
+func TestBackfillContractsUsesGenesis(t *testing.T) {
 	r := require.New(t)
-	sm := eraTestSM(t)
 	v1, v2, v3 := backfillTestContracts(t)
-	stray := identityset.Address(25)
-	r.NoError(contractstaking.NewContractStakingStateManager(sm).UpdateNumOfBuckets(stray, 3))
 
-	contracts, marks, err := backfillContracts(forkGateCtx(100, true), sm)
+	contracts, err := backfillContracts(forkGateCtx(100, true))
 	r.NoError(err)
 
 	got := make([]string, 0, len(contracts))
 	for _, c := range contracts {
 		got = append(got, c.String())
 	}
-	r.ElementsMatch([]string{v1.String(), v2.String(), v3.String(), stray.String()}, got)
+	r.ElementsMatch([]string{v1.String(), v2.String(), v3.String()}, got)
 	for i := 1; i < len(contracts); i++ {
 		r.Less(string(contracts[i-1].Bytes()), string(contracts[i].Bytes()))
 	}
-	r.Equal(map[string]uint64{string(stray.Bytes()): 3}, marks)
 }

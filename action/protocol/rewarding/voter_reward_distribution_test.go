@@ -20,18 +20,18 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
-// TestEpochDrainCursor_RoundTrip — Serialize→Deserialize preserves
+// TestVoterRewardDistributionState_RoundTrip — Serialize→Deserialize preserves
 // every field, including the frozen delegate work list with big.Int
 // pool balances and the circular address-walk resume point.
-func TestEpochDrainCursor_RoundTrip(t *testing.T) {
+func TestVoterRewardDistributionState_RoundTrip(t *testing.T) {
 	r := require.New(t)
 
-	in := epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{
+	in := voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{
 			TargetEra:      42,
 			FreezeHeight:   900,
 			SettlementSeed: []byte{7, 8, 9},
-			Delegates: []epochDrainDelegateWork{
+			DelegateAllocations: []voterRewardDelegateAllocation{
 				{
 					CandidateIdentifier: identityset.Address(1).Bytes(),
 					VoterAmountFrozen:   big.NewInt(1_000),
@@ -46,11 +46,11 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 				},
 			},
 		},
-		epochDrainProgress: epochDrainProgress{
-			ScanPhase:       voterScanHead,
-			ResumeVoter:     identityset.Address(9).Bytes(),
-			Distributed:     []*big.Int{big.NewInt(11), big.NewInt(22)},
-			CompletedHeight: 12345,
+		voterRewardDistributionProgress: voterRewardDistributionProgress{
+			ScanPhase:             voterScanHead,
+			ResumeVoter:           identityset.Address(9).Bytes(),
+			DistributedByDelegate: []*big.Int{big.NewInt(11), big.NewInt(22)},
+			CompletedHeight:       12345,
 		},
 	}
 
@@ -58,7 +58,7 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 	r.NoError(err)
 	r.NotEmpty(raw)
 
-	var out epochDrainCursor
+	var out voterRewardDistributionState
 	r.NoError(out.Deserialize(raw))
 	r.Equal(in.TargetEra, out.TargetEra)
 	r.Equal(in.FreezeHeight, out.FreezeHeight)
@@ -66,28 +66,28 @@ func TestEpochDrainCursor_RoundTrip(t *testing.T) {
 	r.Equal(in.ResumeVoter, out.ResumeVoter)
 	r.Equal(in.SettlementSeed, out.SettlementSeed)
 	r.Equal(in.CompletedHeight, out.CompletedHeight)
-	r.Len(out.Delegates, 2)
-	for i := range in.Delegates {
-		r.Equal(in.Delegates[i].CandidateIdentifier, out.Delegates[i].CandidateIdentifier)
-		r.Zero(in.Delegates[i].VoterAmountFrozen.Cmp(out.Delegates[i].VoterAmountFrozen),
+	r.Len(out.DelegateAllocations, 2)
+	for i := range in.DelegateAllocations {
+		r.Equal(in.DelegateAllocations[i].CandidateIdentifier, out.DelegateAllocations[i].CandidateIdentifier)
+		r.Zero(in.DelegateAllocations[i].VoterAmountFrozen.Cmp(out.DelegateAllocations[i].VoterAmountFrozen),
 			"delegate %d pool amount mismatch: in=%s out=%s",
-			i, in.Delegates[i].VoterAmountFrozen, out.Delegates[i].VoterAmountFrozen)
-		r.Zero(in.Delegates[i].TotalWeight.Cmp(out.Delegates[i].TotalWeight))
-		r.Equal(in.Delegates[i].SelfStakeBucketIdx, out.Delegates[i].SelfStakeBucketIdx)
+			i, in.DelegateAllocations[i].VoterAmountFrozen, out.DelegateAllocations[i].VoterAmountFrozen)
+		r.Zero(in.DelegateAllocations[i].TotalWeight.Cmp(out.DelegateAllocations[i].TotalWeight))
+		r.Equal(in.DelegateAllocations[i].SelfStakeBucketIdx, out.DelegateAllocations[i].SelfStakeBucketIdx)
 		// The per-delegate running total rides the read-only view field.
-		r.Zero(in.Distributed[i].Cmp(out.Distributed[i]))
+		r.Zero(in.DistributedByDelegate[i].Cmp(out.DistributedByDelegate[i]))
 	}
 
-	view := &rewardingpb.EpochDrainCursor{}
+	view := &rewardingpb.VoterRewardDistributionState{}
 	r.NoError(proto.Unmarshal(raw, view))
 	r.Equal(settlementStartVoter(in.SettlementSeed), view.GetStartVoter())
 	r.Equal(uint32(voterScanHead), view.GetScanPhase())
 }
 
-// TestEpochDrainCursor_ScanPhaseRejectsOutOfRange pins the wire guard. The
+// TestVoterRewardDistributionState_ScanPhaseRejectsOutOfRange pins the wire guard. The
 // phase is encoded as uint32, so values outside tail/head/done must fail rather
 // than silently becoming a valid-looking resume position.
-func TestEpochDrainCursor_ScanPhaseRejectsOutOfRange(t *testing.T) {
+func TestVoterRewardDistributionState_ScanPhaseRejectsOutOfRange(t *testing.T) {
 	r := require.New(t)
 
 	for _, phase := range []voterScanPhase{voterScanTail, voterScanHead, voterScanDone} {
@@ -98,53 +98,33 @@ func TestEpochDrainCursor_ScanPhaseRejectsOutOfRange(t *testing.T) {
 	_, err := decodeVoterScanPhase(uint32(voterScanDone) + 1)
 	r.Error(err)
 
-	raw, err := proto.Marshal(&rewardingpb.EpochDrainCursor{
+	raw, err := proto.Marshal(&rewardingpb.VoterRewardDistributionState{
 		TargetEra: 1, ScanPhase: uint32(voterScanDone) + 1,
 	})
 	r.NoError(err)
-	var cursor epochDrainCursor
-	r.Error(cursor.Deserialize(raw))
+	var distribution voterRewardDistributionState
+	r.Error(distribution.Deserialize(raw))
 
-	raw, err = proto.Marshal(&rewardingpb.EpochDrainProgress{
-		ScanPhase: uint32(voterScanDone) + 1, SchemaVersion: _epochDrainProgressVersion,
+	raw, err = proto.Marshal(&rewardingpb.VoterRewardDistributionProgress{
+		ScanPhase: uint32(voterScanDone) + 1,
 	})
 	r.NoError(err)
-	var progress epochDrainProgress
+	var progress voterRewardDistributionProgress
 	r.Error(progress.Deserialize(raw))
 }
 
-func TestEpochDrainProgressRejectsRetiredShardCursor(t *testing.T) {
-	r := require.New(t)
-	// Field 8 was shards_done. Its presence is deliberately irrelevant: a
-	// missing schema version is enough to reject every retired cursor, including
-	// one whose shards_done value encoded to the protobuf zero value.
-	retired := []byte{0x40, 0x01}
-	progress := &epochDrainProgress{}
-	err := progress.Deserialize(retired)
-	r.ErrorContains(err, "unsupported epoch drain progress version 0")
-}
-
-// TestEpochDrainCursor_ScanPhaseLifecycle pins the only legal completion
+// TestVoterRewardDistributionState_ScanPhaseLifecycle pins the only legal completion
 // transition: neither address range alone is complete; done is.
-func TestEpochDrainCursor_ScanPhaseLifecycle(t *testing.T) {
+func TestVoterRewardDistributionState_ScanPhaseLifecycle(t *testing.T) {
 	r := require.New(t)
 
-	c := &epochDrainCursor{}
+	c := &voterRewardDistributionState{}
 	r.Equal(voterScanTail, c.ScanPhase)
-	r.False(c.drainFinished())
+	r.False(c.completed())
 	c.ScanPhase = voterScanHead
-	r.False(c.drainFinished())
+	r.False(c.completed())
 	c.ScanPhase = voterScanDone
-	r.True(c.drainFinished())
-}
-
-func TestRewardEraEpochRange(t *testing.T) {
-	r := require.New(t)
-	r.Equal(uint64(0), rewardEraStartEpoch(0, 24))
-	r.Equal(uint64(1), rewardEraStartEpoch(12, 24))
-	r.Equal(uint64(1), rewardEraStartEpoch(24, 24))
-	r.Equal(uint64(25), rewardEraStartEpoch(48, 24))
-
+	r.True(c.completed())
 }
 
 func TestSettlementSeed(t *testing.T) {
@@ -187,32 +167,32 @@ func TestSettlementStartVoter(t *testing.T) {
 	r.Equal(byte(1), short[0], "the derived start must not alias the seed")
 }
 
-// TestEpochDrainCursor_EmptyDelegates — a cursor with no delegate work
+// TestVoterRewardDistributionState_EmptyDelegates covers state with no delegate allocations
 // (era boundary hit but pool was empty) round-trips as an empty slice,
 // not a nil.
-func TestEpochDrainCursor_EmptyDelegates(t *testing.T) {
+func TestVoterRewardDistributionState_EmptyDelegates(t *testing.T) {
 	r := require.New(t)
 
-	in := epochDrainCursor{epochDrainPlan: epochDrainPlan{TargetEra: 1}}
+	in := voterRewardDistributionState{voterRewardDistributionPlan: voterRewardDistributionPlan{TargetEra: 1}}
 	raw, err := in.Serialize()
 	r.NoError(err)
 
-	var out epochDrainCursor
+	var out voterRewardDistributionState
 	r.NoError(out.Deserialize(raw))
 	r.Equal(uint64(1), out.TargetEra)
 	r.Equal(voterScanTail, out.ScanPhase)
-	r.Empty(out.Delegates)
+	r.Empty(out.DelegateAllocations)
 }
 
-// TestEpochDrainCursor_ZeroPoolAmount — a delegate whose pool balance
+// TestVoterRewardDistributionState_ZeroPoolAmount — a delegate whose pool balance
 // is zero at era-boundary setup freeze round-trips as a big.Int with Sign() == 0
 // (not nil), so chunk callers can safely call amt.Sign() without a
 // nil check.
-func TestEpochDrainCursor_ZeroPoolAmount(t *testing.T) {
+func TestVoterRewardDistributionState_ZeroPoolAmount(t *testing.T) {
 	r := require.New(t)
 
-	in := epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{TargetEra: 3, Delegates: []epochDrainDelegateWork{
+	in := voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{TargetEra: 3, DelegateAllocations: []voterRewardDelegateAllocation{
 			{
 				CandidateIdentifier: identityset.Address(5).Bytes(),
 				VoterAmountFrozen:   new(big.Int),
@@ -222,122 +202,122 @@ func TestEpochDrainCursor_ZeroPoolAmount(t *testing.T) {
 	raw, err := in.Serialize()
 	r.NoError(err)
 
-	var out epochDrainCursor
+	var out voterRewardDistributionState
 	r.NoError(out.Deserialize(raw))
-	r.Len(out.Delegates, 1)
-	r.NotNil(out.Delegates[0].VoterAmountFrozen)
-	r.Equal(0, out.Delegates[0].VoterAmountFrozen.Sign())
+	r.Len(out.DelegateAllocations, 1)
+	r.NotNil(out.DelegateAllocations[0].VoterAmountFrozen)
+	r.Equal(0, out.DelegateAllocations[0].VoterAmountFrozen.Sign())
 }
 
-// TestEpochDrainCursor_ReadMissingReturnsNil — an unpopulated cursor
-// key returns (nil, nil) so callers can use presence as the drain-in-
+// TestVoterRewardDistributionState_ReadMissingReturnsNil verifies that absent state
+// returns (nil, nil) so callers can use presence as the distribution-in-
 // progress signal without a distinct sentinel error.
-func TestEpochDrainCursor_ReadMissingReturnsNil(t *testing.T) {
+func TestVoterRewardDistributionState_ReadMissingReturnsNil(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 
-	c, err := p.readEpochDrainCursor(ctx, sm)
+	c, err := p.readVoterRewardDistributionState(ctx, sm)
 	r.NoError(err)
 	r.Nil(c)
 }
 
-// TestEpochDrainCursor_WriteReadDelete — full lifecycle. Write persists
-// the cursor; read returns byte-equal fields; delete makes read return
+// TestVoterRewardDistributionState_WriteReadDelete — full lifecycle. Write persists
+// the distribution state; read returns byte-equal fields; delete makes read return
 // (nil, nil); a second delete is a no-op (idempotency).
-func TestEpochDrainCursor_WriteReadDelete(t *testing.T) {
+func TestVoterRewardDistributionState_WriteReadDelete(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 
-	in := &epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{TargetEra: 99, Delegates: []epochDrainDelegateWork{
+	in := &voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{TargetEra: 99, DelegateAllocations: []voterRewardDelegateAllocation{
 			{
 				CandidateIdentifier: identityset.Address(1).Bytes(),
 				VoterAmountFrozen:   big.NewInt(10_000),
 			},
 		}},
-		epochDrainProgress: epochDrainProgress{ScanPhase: voterScanHead},
+		voterRewardDistributionProgress: voterRewardDistributionProgress{ScanPhase: voterScanHead},
 	}
-	r.NoError(p.writeEpochDrainCursor(ctx, sm, in))
+	r.NoError(p.writeVoterRewardDistributionState(ctx, sm, in))
 
-	got, err := p.readEpochDrainCursor(ctx, sm)
+	got, err := p.readVoterRewardDistributionState(ctx, sm)
 	r.NoError(err)
 	r.NotNil(got)
 	r.Equal(in.TargetEra, got.TargetEra)
 	r.Equal(in.ScanPhase, got.ScanPhase)
-	r.Len(got.Delegates, 1)
-	r.Equal(in.Delegates[0].CandidateIdentifier, got.Delegates[0].CandidateIdentifier)
-	r.Zero(in.Delegates[0].VoterAmountFrozen.Cmp(got.Delegates[0].VoterAmountFrozen))
+	r.Len(got.DelegateAllocations, 1)
+	r.Equal(in.DelegateAllocations[0].CandidateIdentifier, got.DelegateAllocations[0].CandidateIdentifier)
+	r.Zero(in.DelegateAllocations[0].VoterAmountFrozen.Cmp(got.DelegateAllocations[0].VoterAmountFrozen))
 
-	r.NoError(p.deleteEpochDrainCursor(ctx, sm))
-	got, err = p.readEpochDrainCursor(ctx, sm)
+	r.NoError(p.deleteVoterRewardDistributionState(ctx, sm))
+	got, err = p.readVoterRewardDistributionState(ctx, sm)
 	r.NoError(err)
 	r.Nil(got)
 
 	// Second delete: no error even though the key is already gone.
-	r.NoError(p.deleteEpochDrainCursor(ctx, sm))
+	r.NoError(p.deleteVoterRewardDistributionState(ctx, sm))
 }
 
-// TestEpochDrainCursor_WriteOverwrites — writing a new cursor over an
+// TestVoterRewardDistributionState_WriteOverwrites verifies writing new state over an
 // existing entry replaces it wholesale (proto3 wire semantics for
 // repeated fields could otherwise merge lists on some codecs).
-func TestEpochDrainCursor_WriteOverwrites(t *testing.T) {
+func TestVoterRewardDistributionState_WriteOverwrites(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 
-	first := &epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{TargetEra: 10, Delegates: []epochDrainDelegateWork{
+	first := &voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{TargetEra: 10, DelegateAllocations: []voterRewardDelegateAllocation{
 			{CandidateIdentifier: identityset.Address(1).Bytes(), VoterAmountFrozen: big.NewInt(1)},
 			{CandidateIdentifier: identityset.Address(2).Bytes(), VoterAmountFrozen: big.NewInt(2)},
 		}},
 	}
-	r.NoError(p.writeEpochDrainCursor(ctx, sm, first))
+	r.NoError(p.writeVoterRewardDistributionState(ctx, sm, first))
 
-	second := &epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{TargetEra: 10, Delegates: []epochDrainDelegateWork{
+	second := &voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{TargetEra: 10, DelegateAllocations: []voterRewardDelegateAllocation{
 			{CandidateIdentifier: identityset.Address(3).Bytes(), VoterAmountFrozen: big.NewInt(9)},
 		}},
-		epochDrainProgress: epochDrainProgress{
+		voterRewardDistributionProgress: voterRewardDistributionProgress{
 			ScanPhase:   voterScanHead,
 			ResumeVoter: identityset.Address(4).Bytes(),
 		},
 	}
-	r.NoError(p.writeEpochDrainCursor(ctx, sm, second))
+	r.NoError(p.writeVoterRewardDistributionState(ctx, sm, second))
 
-	got, err := p.readEpochDrainCursor(ctx, sm)
+	got, err := p.readVoterRewardDistributionState(ctx, sm)
 	r.NoError(err)
 	r.NotNil(got)
 	r.Equal(voterScanHead, got.ScanPhase)
 	r.Equal(identityset.Address(4).Bytes(), got.ResumeVoter,
 		"second write must replace ResumeVoter, not merge")
-	r.Len(got.Delegates, 1, "second write must replace, not append")
-	r.Equal(identityset.Address(3).Bytes(), got.Delegates[0].CandidateIdentifier)
+	r.Len(got.DelegateAllocations, 1, "second write must replace, not append")
+	r.Equal(identityset.Address(3).Bytes(), got.DelegateAllocations[0].CandidateIdentifier)
 
 	// Starting a new range clears the resume point; the cleared value must
 	// round-trip as empty rather than carrying the prior address forward.
-	third := &epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{TargetEra: 10, Delegates: []epochDrainDelegateWork{
+	third := &voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{TargetEra: 10, DelegateAllocations: []voterRewardDelegateAllocation{
 			{CandidateIdentifier: identityset.Address(4).Bytes(), VoterAmountFrozen: big.NewInt(7)},
 		}},
-		epochDrainProgress: epochDrainProgress{ScanPhase: voterScanTail},
+		voterRewardDistributionProgress: voterRewardDistributionProgress{ScanPhase: voterScanTail},
 	}
-	r.NoError(p.writeEpochDrainCursor(ctx, sm, third))
-	got, err = p.readEpochDrainCursor(ctx, sm)
+	r.NoError(p.writeVoterRewardDistributionState(ctx, sm, third))
+	got, err = p.readVoterRewardDistributionState(ctx, sm)
 	r.NoError(err)
 	r.NotNil(got)
 	r.Empty(got.ResumeVoter, "a cleared resume point must not carry the prior value")
 }
 
-func TestEpochDrainCursor_ProgressWritePreservesPlan(t *testing.T) {
+func TestVoterRewardDistributionState_ProgressWritePreservesPlan(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 	settlementSeed := hash.Hash256b([]byte("settlement-seed"))
 
-	cursor := &epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{
+	distribution := &voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{
 			TargetEra:      24,
 			FreezeHeight:   900,
 			SettlementSeed: settlementSeed[:],
-			Delegates: []epochDrainDelegateWork{
+			DelegateAllocations: []voterRewardDelegateAllocation{
 				{
 					CandidateIdentifier: identityset.Address(1).Bytes(),
 					VoterAmountFrozen:   big.NewInt(100),
@@ -351,34 +331,34 @@ func TestEpochDrainCursor_ProgressWritePreservesPlan(t *testing.T) {
 			},
 		},
 	}
-	r.NoError(p.writeEpochDrainCursor(ctx, sm, cursor))
+	r.NoError(p.writeVoterRewardDistributionState(ctx, sm, distribution))
 
-	planBefore := &epochDrainPlan{}
-	_, err := p.state(ctx, sm, state.EpochDrainPlanKey, planBefore)
+	planBefore := &voterRewardDistributionPlan{}
+	_, err := p.state(ctx, sm, state.VoterRewardDistributionPlanKey, planBefore)
 	r.NoError(err)
 	planBytesBefore, err := planBefore.Serialize()
 	r.NoError(err)
 
-	cursor.ScanPhase = voterScanHead
-	cursor.ResumeVoter = identityset.Address(7).Bytes()
-	cursor.Distributed = []*big.Int{new(big.Int), big.NewInt(75)}
-	r.NoError(p.writeEpochDrainProgress(ctx, sm, cursor))
+	distribution.ScanPhase = voterScanHead
+	distribution.ResumeVoter = identityset.Address(7).Bytes()
+	distribution.DistributedByDelegate = []*big.Int{new(big.Int), big.NewInt(75)}
+	r.NoError(p.writeVoterRewardDistributionProgress(ctx, sm, distribution))
 
-	planAfter := &epochDrainPlan{}
-	_, err = p.state(ctx, sm, state.EpochDrainPlanKey, planAfter)
+	planAfter := &voterRewardDistributionPlan{}
+	_, err = p.state(ctx, sm, state.VoterRewardDistributionPlanKey, planAfter)
 	r.NoError(err)
 	planBytesAfter, err := planAfter.Serialize()
 	r.NoError(err)
 	r.Equal(planBytesBefore, planBytesAfter)
 
-	progress := &epochDrainProgress{}
-	_, err = p.state(ctx, sm, state.EpochDrainCursorKey, progress)
+	progress := &voterRewardDistributionProgress{}
+	_, err = p.state(ctx, sm, state.VoterRewardDistributionProgressKey, progress)
 	r.NoError(err)
 	progressBytes, err := progress.Serialize()
 	r.NoError(err)
 	r.Less(len(progressBytes), len(planBytesBefore))
 
-	got, err := p.readEpochDrainCursor(ctx, sm)
+	got, err := p.readVoterRewardDistributionState(ctx, sm)
 	r.NoError(err)
 	r.Equal(voterScanHead, got.ScanPhase)
 	r.Equal(identityset.Address(7).Bytes(), got.ResumeVoter)
@@ -387,29 +367,29 @@ func TestEpochDrainCursor_ProgressWritePreservesPlan(t *testing.T) {
 	r.Zero(big.NewInt(75).Cmp(got.distributedAt(1)))
 }
 
-// TestEpochDrainCursor_ProgressWithoutPlanIsRefused pins the composed read:
+// TestVoterRewardDistributionState_ProgressWithoutPlanIsRefused pins the composed read:
 // the running per-delegate totals are only meaningful next to the frozen work
 // list they index into, so a half-written settlement is an error rather than a
-// cursor with an empty delegate list (which would drain nothing while leaving
+// distribution with an empty delegate list (which would pay nothing while leaving
 // every pool indefinitely pending).
-func TestEpochDrainCursor_ProgressWithoutPlanIsRefused(t *testing.T) {
+func TestVoterRewardDistributionState_ProgressWithoutPlanIsRefused(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 
-	r.NoError(p.putState(ctx, sm, state.EpochDrainCursorKey, &epochDrainProgress{}))
-	_, err := p.readEpochDrainCursor(ctx, sm)
+	r.NoError(p.putState(ctx, sm, state.VoterRewardDistributionProgressKey, &voterRewardDistributionProgress{}))
+	_, err := p.readVoterRewardDistributionState(ctx, sm)
 	r.ErrorContains(err, "progress exists without a plan")
 }
 
-// TestEpochDrainCursor_DistributedLongerThanPlanIsRefused guards the payout
+// TestVoterRewardDistributionState_DistributedLongerThanPlanIsRefused guards the payout
 // clamp's index: a progress record carrying more running totals than the plan
 // has delegates cannot be aligned positionally, and guessing an alignment
 // would mis-attribute money already paid.
-func TestEpochDrainCursor_DistributedLongerThanPlanIsRefused(t *testing.T) {
+func TestVoterRewardDistributionState_DistributedLongerThanPlanIsRefused(t *testing.T) {
 	r := require.New(t)
-	_, err := epochDrainCursorFromState(
-		&epochDrainPlan{TargetEra: 1, Delegates: make([]epochDrainDelegateWork, 1)},
-		&epochDrainProgress{Distributed: []*big.Int{big.NewInt(1), big.NewInt(2)}},
+	_, err := composeVoterRewardDistributionState(
+		&voterRewardDistributionPlan{TargetEra: 1, DelegateAllocations: make([]voterRewardDelegateAllocation, 1)},
+		&voterRewardDistributionProgress{DistributedByDelegate: []*big.Int{big.NewInt(1), big.NewInt(2)}},
 	)
 	r.ErrorContains(err, "distributed totals")
 }

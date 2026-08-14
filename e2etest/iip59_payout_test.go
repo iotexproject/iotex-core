@@ -64,7 +64,7 @@ func newIIP59PayoutModel(
 	t *testing.T,
 	tier perfTier,
 	g genesis.Genesis,
-	plan []rewarding.TestOnlyDrainDelegateWork,
+	plan []rewarding.TestOnlyVoterRewardDelegateAllocation,
 ) *iip59PayoutModel {
 	t.Helper()
 	r := require.New(t)
@@ -141,9 +141,9 @@ func (m *iip59PayoutModel) expectedDelegatePayout(i int) *big.Int {
 
 // iip59WorkFor finds a delegate's work item in a settlement plan.
 func iip59WorkFor(
-	plan []rewarding.TestOnlyDrainDelegateWork,
+	plan []rewarding.TestOnlyVoterRewardDelegateAllocation,
 	delegate address.Address,
-) (rewarding.TestOnlyDrainDelegateWork, bool) {
+) (rewarding.TestOnlyVoterRewardDelegateAllocation, bool) {
 	want := delegate.Bytes()
 	for _, w := range plan {
 		if len(w.CandidateID) == len(want) {
@@ -159,7 +159,7 @@ func iip59WorkFor(
 			}
 		}
 	}
-	return rewarding.TestOnlyDrainDelegateWork{}, false
+	return rewarding.TestOnlyVoterRewardDelegateAllocation{}, false
 }
 
 // assertIIP59PerVoterPayouts is the core cross-check: every seeded voter ended
@@ -223,7 +223,7 @@ func newIIP59DrainWatch() *iip59DrainWatch {
 	return &iip59DrainWatch{last: make(map[string]*big.Int)}
 }
 
-func (w *iip59DrainWatch) observe(t *testing.T, height uint64, plan []rewarding.TestOnlyDrainDelegateWork) {
+func (w *iip59DrainWatch) observe(t *testing.T, height uint64, plan []rewarding.TestOnlyVoterRewardDelegateAllocation) {
 	t.Helper()
 	r := require.New(t)
 	for _, work := range plan {
@@ -247,12 +247,12 @@ func drainPlan(
 	g genesis.Genesis,
 	p *rewarding.Protocol,
 	height uint64,
-) ([]rewarding.TestOnlyDrainDelegateWork, bool, bool, error) {
+) ([]rewarding.TestOnlyVoterRewardDelegateAllocation, bool, bool, error) {
 	ctx := protocol.WithRegistry(context.Background(), cs.Registry())
 	ctx = genesis.WithGenesisContext(ctx, g)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
 	ctx = protocol.WithFeatureCtx(ctx)
-	return p.TestOnlyEpochDrainPlan(ctx, cs.StateFactory())
+	return p.TestOnlyVoterRewardDistributionPlan(ctx, cs.StateFactory())
 }
 
 // iip59VoterBalances samples the native account balance of every address given,
@@ -290,7 +290,7 @@ func iip59VoterBalances(
 type iip59DrainRun struct {
 	tier        perfTier
 	g           genesis.Genesis
-	plan        []rewarding.TestOnlyDrainDelegateWork
+	plan        []rewarding.TestOnlyVoterRewardDelegateAllocation
 	balances    map[string]*big.Int
 	drainBlocks int
 	startHeight uint64

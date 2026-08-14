@@ -27,20 +27,18 @@ func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 		return newAvailableBalanceStateContext()
 	case hex.EncodeToString(_unclaimedBalanceMethod.ID):
 		return newUnclaimedBalanceStateContext(data[4:])
-	case hex.EncodeToString(_pendingBlockRewardPoolMethod.ID):
-		return newPendingBlockRewardPoolStateContext(data[4:])
-	case hex.EncodeToString(_pendingBlockRewardPoolIndexMethod.ID):
-		return newPendingBlockRewardPoolIndexStateContext()
-	case hex.EncodeToString(_eraDrainCursorMethod.ID):
-		return newEraDrainCursorStateContext()
-	case hex.EncodeToString(_voterRewardDelegateSnapshotMethod.ID):
-		return newVoterRewardDelegateSnapshotStateContext(data[4:])
-	case hex.EncodeToString(_voterRewardAddressMethod.ID):
-		return newVoterRewardAddressStateContext(data[4:])
+	case hex.EncodeToString(_pendingVoterRewardMethod.ID):
+		return newPendingVoterRewardStateContext(data[4:])
+	case hex.EncodeToString(_pendingVoterRewardDelegatesMethod.ID):
+		return newPendingVoterRewardDelegatesStateContext()
+	case hex.EncodeToString(_voterRewardDistributionMethod.ID):
+		return newVoterRewardDistributionStateContext()
+	case hex.EncodeToString(_delegateRewardSnapshotMethod.ID):
+		return newDelegateRewardSnapshotStateContext(data[4:])
+	case hex.EncodeToString(_delegatePayoutAddressMethod.ID):
+		return newDelegatePayoutAddressStateContext(data[4:])
 	case hex.EncodeToString(_voterRewardDestinationMethod.ID):
 		return newVoterRewardDestinationStateContext(data[4:])
-	case hex.EncodeToString(_voterRewardStatusMethod.ID):
-		return newVoterRewardStatusStateContext(data[4:])
 	default:
 		return nil, errInvalidCallSig
 	}

@@ -333,7 +333,7 @@ func TestVoterChunkErrorSettleabilityDefaultsToHalt(t *testing.T) {
 		"wrapping must not lose the marking")
 
 	r.False(voterChunkErrorIsSettleable(nil))
-	r.False(voterChunkErrorIsSettleable(errors.New("rewarding: scan voter shard 7")))
+	r.False(voterChunkErrorIsSettleable(errors.New("rewarding: scan voter range")))
 	r.False(voterChunkErrorIsSettleable(errors.New("not supported")),
 		"a capability error must never be settled into a Failure receipt")
 	r.False(voterChunkErrorIsSettleable(errors.Wrap(state.ErrStateNotExist, "read")))
@@ -367,7 +367,7 @@ func newCompoundFixture(t *testing.T) compoundFixture {
 	})
 	g := genesis.TestDefault()
 
-	csm, err := staking.NewCandidateStateManager(sm)
+	csm, err := staking.NewCandidateStateManagerWithContext(context.Background(), sm)
 	r.NoError(err)
 	delegates, err := staking.TestOnlySeedPerfBenchState(ctx, csm, staking.TestOnlyPerfBenchSpec{
 		NumDelegates:            1,
@@ -422,12 +422,12 @@ func selfStakeMismatchShares(
 	bucketID uint64,
 	amount *big.Int,
 ) (voterShareSet, voterShareInputs) {
-	work := epochDrainDelegateWork{
+	work := voterRewardDelegateAllocation{
 		CandidateIdentifier: delegate.Bytes(),
 		VoterAmountFrozen:   new(big.Int).Set(amount),
 		SelfStakeBucketIdx:  bucketID,
 	}
-	delegates := []epochDrainDelegateWork{work}
+	delegates := []voterRewardDelegateAllocation{work}
 	return voterShareSet{
 			shares: []voterDelegateShare{{
 				delegateIndex: 0,
@@ -444,7 +444,7 @@ func selfStakeMismatchShares(
 
 // TestPayVoterCombinedDegradesChainDeterminedCompoundFailure is the R5 happy
 // case: a compound rejected on grounds every node can see must still pay the
-// voter, by credit, so the drain cursor advances past them.
+// voter, by credit, so voter reward distribution advances past them.
 //
 // Before this, any AddDepositForCompound error propagated out of the chunk and
 // the block failed. One voter whose bucket had been unstaked since the freeze

@@ -84,13 +84,13 @@ func TestCoveredKeyAddresses(t *testing.T) {
 		ns, key := addrOf(t, contractstaking.NewStateReader(nil).OwnerIndexStateOpts(addr))
 		r.Equal(stakingNS, ns)
 		r.Len(key, 21)
-		r.Equal(byte(8), key[0])
+		r.Equal(byte(6), key[0])
 		r.Equal(addr.Bytes(), key[1:])
 	})
 
 	// That the frozen reads use these same constructors is not asserted here —
-	// it is a compile-time fact (era_window.go calls them) reinforced by the
-	// live-write/frozen-read round trips in era_window_test.go.
+	// it is a compile-time fact (frozen_voter_weight.go calls them) reinforced by
+	// the live-write/frozen-read round trips in era_cow_window_test.go.
 }
 
 // TestCoveredKeyAccessorsAddNoReadBehavior pins the other half of what
@@ -143,7 +143,7 @@ func TestCoveredKeyAccessorsAddNoReadBehavior(t *testing.T) {
 	require.NoError(t, cs.UpsertBucket(ctx, contract, 3, eraTestContractBucket(2, 1, 100)))
 
 	// The contract-side reader is built with no options, matching
-	// era_window.go's contractStakingAddresser — that is the reader Resolve's
+	// contractstaking.ContractStakingStateReader — that is the reader Resolve's
 	// address actually comes from.
 	csr := contractstaking.NewStateReader(sm)
 

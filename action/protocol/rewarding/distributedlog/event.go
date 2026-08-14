@@ -3,7 +3,7 @@
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
-// Package distributedlog encodes the IIP-59 §3.2 DelegateDistributed
+// Package distributedlog encodes the IIP-59 §3.2 DelegateVoterRewardsDistributed
 // receipt event. distributeToVoters (PR 3') calls Pack once per delegate
 // at epoch close and wraps the returned Topics+data into an *action.Log;
 // this package deliberately does NOT construct action.Log itself so it
@@ -45,6 +45,15 @@ var (
 	// ErrNilBigInt is returned when VoterAmount or
 	// any Amounts[i] is nil.
 	ErrNilBigInt = errors.New("distributedlog: nil *big.Int")
+
+	// ErrNotDelegateVoterRewardsDistributed identifies logs for another event.
+	ErrNotDelegateVoterRewardsDistributed = errors.New(
+		"distributedlog: not a DelegateVoterRewardsDistributed log")
+
+	// ErrMalformedLog identifies logs carrying this event's selector whose
+	// topics or data do not match its ABI.
+	ErrMalformedLog = errors.New(
+		"distributedlog: malformed DelegateVoterRewardsDistributed log")
 )
 
 // abiOnce guards parseABI: abi.JSON is not free and the parsed ABI is
@@ -57,12 +66,35 @@ var (
 
 func loadABI() (abi.ABI, error) {
 	abiOnce.Do(func() {
-		parsedABI, abiParseErr = abi.JSON(strings.NewReader(abiJSON))
+		parsedABI, abiParseErr = abi.JSON(strings.NewReader(ABIJSON))
 	})
 	return parsedABI, abiParseErr
 }
 
-// EventArgs are the fields of one DelegateDistributed log. Field order
+// ABI parses and returns an independent copy of the event ABI. Returning a
+// fresh value prevents callers from mutating the maps used by Pack and Unpack.
+func ABI() (abi.ABI, error) {
+	parsed, err := abi.JSON(strings.NewReader(ABIJSON))
+	if err != nil {
+		return abi.ABI{}, errors.Wrap(err, "distributedlog: parse ABI")
+	}
+	return parsed, nil
+}
+
+// Topic0 returns the selector carried in Topics[0].
+func Topic0() (hash.Hash256, error) {
+	parsed, err := loadABI()
+	if err != nil {
+		return hash.ZeroHash256, errors.Wrap(err, "distributedlog: parse ABI")
+	}
+	ev, ok := parsed.Events[EventName]
+	if !ok {
+		return hash.ZeroHash256, errors.Errorf("distributedlog: event %q not found in parsed ABI", EventName)
+	}
+	return hash.Hash256(ev.ID), nil
+}
+
+// EventArgs are the fields of one DelegateVoterRewardsDistributed log. Field order
 // matches the Solidity signature so a struct literal reads left-to-right
 // the same way as the on-chain event definition. Callers build one per
 // delegate touched by a voter-major settlement chunk.
@@ -78,13 +110,13 @@ type EventArgs struct {
 }
 
 // Pack encodes args as an EVM-shaped receipt log. The returned Topics
-// and data satisfy the same layout an EVM-emitted DelegateDistributed
+// and data satisfy the same layout an EVM-emitted DelegateVoterRewardsDistributed
 // event would produce, so off-chain verifiers (PR #45) can decode with
 // stock ethers.js / web3.py against this event ABI.
 //
 // Topics layout:
 //
-//	[0] keccak256(eventSignature)
+//	[0] keccak256(EventSignature)
 //	[1] uint64 epoch, left-padded to 32 bytes
 //	[2] address delegate, left-padded to 32 bytes
 //
@@ -129,9 +161,9 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "distributedlog: parse ABI")
 	}
-	ev, ok := parsed.Events[eventName]
+	ev, ok := parsed.Events[EventName]
 	if !ok {
-		return nil, nil, errors.Errorf("distributedlog: event %q not found in parsed ABI", eventName)
+		return nil, nil, errors.Errorf("distributedlog: event %q not found in parsed ABI", EventName)
 	}
 	data, err := ev.Inputs.NonIndexed().Pack(
 		args.VoterAmount,
@@ -142,7 +174,7 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 		args.Compounded,
 	)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "distributedlog: pack DelegateDistributed data")
+		return nil, nil, errors.Wrap(err, "distributedlog: pack DelegateVoterRewardsDistributed data")
 	}
 
 	topics := make(action.Topics, 3)
@@ -150,6 +182,127 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 	topics[1] = encodeUint64Topic(args.Epoch)
 	topics[2] = hash.BytesToHash256(args.Delegate.Bytes())
 	return topics, data, nil
+}
+
+// Unpack decodes a DelegateVoterRewardsDistributed log. Callers must check the
+// emitting protocol address separately. A foreign selector returns
+// ErrNotDelegateVoterRewardsDistributed; a matching selector with invalid
+// topics or data returns ErrMalformedLog.
+func Unpack(topics action.Topics, data []byte) (*EventArgs, error) {
+	parsed, err := loadABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "distributedlog: parse ABI")
+	}
+	ev, ok := parsed.Events[EventName]
+	if !ok {
+		return nil, errors.Errorf("distributedlog: event %q not found in parsed ABI", EventName)
+	}
+	if len(topics) == 0 {
+		return nil, errors.Wrap(ErrNotDelegateVoterRewardsDistributed, "log has no topics")
+	}
+	if topics[0] != hash.Hash256(ev.ID) {
+		return nil, errors.Wrapf(ErrNotDelegateVoterRewardsDistributed, "topics[0]=%x", topics[0])
+	}
+	if len(topics) != 3 {
+		return nil, errors.Wrapf(ErrMalformedLog, "got %d topics, want 3", len(topics))
+	}
+
+	epoch, err := decodeUint64Topic(topics[1])
+	if err != nil {
+		return nil, errors.Wrap(err, "distributedlog: decode epoch topic")
+	}
+	delegate, err := decodeAddressTopic(topics[2])
+	if err != nil {
+		return nil, errors.Wrap(err, "distributedlog: decode delegate topic")
+	}
+
+	values, err := ev.Inputs.NonIndexed().Unpack(data)
+	if err != nil {
+		return nil, errors.Wrapf(ErrMalformedLog,
+			"unpack DelegateVoterRewardsDistributed data: %v", err)
+	}
+	if len(values) != 6 {
+		return nil, errors.Wrapf(ErrMalformedLog, "got %d non-indexed values, want 6", len(values))
+	}
+	voterAmount, ok := values[0].(*big.Int)
+	if !ok {
+		return nil, errors.Wrapf(ErrMalformedLog, "voterAmount has type %T", values[0])
+	}
+	voters, err := fromEthAddresses(values[1], "voters")
+	if err != nil {
+		return nil, err
+	}
+	recipients, err := fromEthAddresses(values[2], "recipients")
+	if err != nil {
+		return nil, err
+	}
+	amounts, ok := values[3].([]*big.Int)
+	if !ok {
+		return nil, errors.Wrapf(ErrMalformedLog, "amounts has type %T", values[3])
+	}
+	compoundBucketIDs, ok := values[4].([]uint64)
+	if !ok {
+		return nil, errors.Wrapf(ErrMalformedLog, "compoundBucketIds has type %T", values[4])
+	}
+	compounded, ok := values[5].([]bool)
+	if !ok {
+		return nil, errors.Wrapf(ErrMalformedLog, "compounded has type %T", values[5])
+	}
+	if len(voters) != len(recipients) || len(voters) != len(amounts) ||
+		len(voters) != len(compoundBucketIDs) || len(voters) != len(compounded) {
+		return nil, errors.Wrapf(ErrParallelArrayLengthMismatch,
+			"voters=%d recipients=%d amounts=%d compoundBucketIds=%d compounded=%d",
+			len(voters), len(recipients), len(amounts), len(compoundBucketIDs), len(compounded))
+	}
+
+	return &EventArgs{
+		Epoch:             epoch,
+		Delegate:          delegate,
+		VoterAmount:       voterAmount,
+		Voters:            voters,
+		Recipients:        recipients,
+		Amounts:           amounts,
+		CompoundBucketIDs: compoundBucketIDs,
+		Compounded:        compounded,
+	}, nil
+}
+
+func decodeUint64Topic(t hash.Hash256) (uint64, error) {
+	for _, b := range t[:24] {
+		if b != 0 {
+			return 0, errors.Wrapf(ErrMalformedLog, "uint64 topic has non-zero padding: %x", t)
+		}
+	}
+	return binary.BigEndian.Uint64(t[24:]), nil
+}
+
+func decodeAddressTopic(t hash.Hash256) (address.Address, error) {
+	for _, b := range t[:12] {
+		if b != 0 {
+			return nil, errors.Wrapf(ErrMalformedLog, "address topic has non-zero padding: %x", t)
+		}
+	}
+	addr, err := address.FromBytes(t[12:])
+	if err != nil {
+		return nil, errors.Wrap(ErrMalformedLog, err.Error())
+	}
+	return addr, nil
+}
+
+func fromEthAddresses(v any, field string) ([]address.Address, error) {
+	ethAddrs, ok := v.([]common.Address)
+	if !ok {
+		return nil, errors.Wrapf(ErrMalformedLog, "%s has type %T", field, v)
+	}
+	out := make([]address.Address, len(ethAddrs))
+	for i, a := range ethAddrs {
+		addr, err := address.FromBytes(a.Bytes())
+		if err != nil {
+			return nil, errors.Wrapf(ErrMalformedLog, "decode %s[%d]: %v", field, i, err)
+		}
+		out[i] = addr
+	}
+	return out, nil
 }
 
 // encodeUint64Topic returns the 32-byte, left-padded big-endian

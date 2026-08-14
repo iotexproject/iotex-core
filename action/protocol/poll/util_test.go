@@ -81,11 +81,11 @@ func (sm *snapshotTrackingStateManager) Revert(snapshot int) error {
 	return sm.revertError
 }
 
-// freezeSnapshotEraGateCtx builds the minimum ctx freezeIIP59PollSnapshot
+// freezeSnapshotEraGateCtx builds the minimum ctx freezeIIP59RewardState
 // needs: post-fork FeatureCtx (so the fork gate lets us through) plus a
 // genesis with the given EpochsPerRewardEra. DelegateProfileContractAddress
 // stays empty so the bridge is nil and the code path that would call
-// FreezePollSnapshot on the state manager is exercised only via the small
+// FreezeCandidateRewardSnapshots on the state manager is exercised only via the small
 // nil-bridge branch (single PutState per candidate under _stakingNameSpace).
 func freezeSnapshotEraGateCtx(t *testing.T, epochsPerEra uint64, height uint64) context.Context {
 	t.Helper()
@@ -114,7 +114,7 @@ func delegateProfileReaderCtx() context.Context {
 	})
 }
 
-func TestFreezeIIP59PollSnapshot_NonEraBoundarySkipsWrite(t *testing.T) {
+func TestFreezeIIP59RewardState_NonEraBoundarySkipsWrite(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 
@@ -124,18 +124,18 @@ func TestFreezeIIP59PollSnapshot_NonEraBoundarySkipsWrite(t *testing.T) {
 
 	// Non-boundary: epochsPerEra=24, epochNum=25.
 	ctx := freezeSnapshotEraGateCtx(t, 24, 1)
-	r.NoError(freezeIIP59PollSnapshot(ctx, sm, 25))
+	r.NoError(freezeIIP59RewardState(ctx, sm, 25))
 }
 
-func TestFreezeIIP59PollSnapshot_EraBoundaryProceeds(t *testing.T) {
+func TestFreezeIIP59RewardState_EraBoundaryProceeds(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 
 	// Boundary epoch: the function must proceed through the gate and reach
-	// staking.FreezePollSnapshot.
+	// staking.FreezeCandidateRewardSnapshots.
 	//
 	// What proves it got there is the error. The frozen set now comes from the
-	// candidate center, so the first thing FreezePollSnapshot does is construct
+	// candidate center, so the first thing FreezeCandidateRewardSnapshots does is construct
 	// the base view -- reading the height, then the view -- and a view that
 	// cannot be read is fatal there rather than degraded: a boundary that
 	// cannot enumerate candidates would freeze an empty era and put every
@@ -149,12 +149,12 @@ func TestFreezeIIP59PollSnapshot_EraBoundaryProceeds(t *testing.T) {
 	sm.EXPECT().ReadView(gomock.Any()).Return(nil, protocol.ErrNoName).AnyTimes()
 
 	ctx := freezeSnapshotEraGateCtx(t, 24, 1)
-	err := freezeIIP59PollSnapshot(ctx, sm, 24)
+	err := freezeIIP59RewardState(ctx, sm, 24)
 	r.ErrorIs(err, protocol.ErrNoName)
-	r.Contains(err.Error(), "construct candidate view for poll snapshot")
+	r.Contains(err.Error(), "construct candidate view for reward snapshot")
 }
 
-func TestFreezeIIP59PollSnapshot_EpochsPerRewardEraZeroDisables(t *testing.T) {
+func TestFreezeIIP59RewardState_EpochsPerRewardEraZeroDisables(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 
@@ -164,12 +164,12 @@ func TestFreezeIIP59PollSnapshot_EpochsPerRewardEraZeroDisables(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 
 	ctx := freezeSnapshotEraGateCtx(t, 0, 1)
-	r.NoError(freezeIIP59PollSnapshot(ctx, sm, 1))
-	r.NoError(freezeIIP59PollSnapshot(ctx, sm, 24))
-	r.NoError(freezeIIP59PollSnapshot(ctx, sm, 1_000_000))
+	r.NoError(freezeIIP59RewardState(ctx, sm, 1))
+	r.NoError(freezeIIP59RewardState(ctx, sm, 24))
+	r.NoError(freezeIIP59RewardState(ctx, sm, 1_000_000))
 }
 
-func TestFreezeIIP59PollSnapshot_PreForkGateStillWins(t *testing.T) {
+func TestFreezeIIP59RewardState_PreForkGateStillWins(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 
@@ -187,7 +187,7 @@ func TestFreezeIIP59PollSnapshot_PreForkGateStillWins(t *testing.T) {
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1})
 	ctx = protocol.WithFeatureCtx(ctx)
 
-	r.NoError(freezeIIP59PollSnapshot(ctx, sm, 24))
+	r.NoError(freezeIIP59RewardState(ctx, sm, 24))
 }
 
 func TestDelegateProfileContractReaderInstallsEVMHelperContext(t *testing.T) {

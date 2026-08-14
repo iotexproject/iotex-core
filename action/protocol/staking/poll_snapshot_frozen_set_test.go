@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
-// These tests pin WHICH candidates FreezePollSnapshot writes.
+// These tests pin WHICH candidates FreezeCandidateRewardSnapshots writes.
 //
 // The rule is: every opted-in candidate in the candidate center, and nothing
 // else. It has no relationship to the poll list, which is where this function
@@ -31,7 +31,7 @@ import (
 // the rest of the era.
 //
 // Sourcing the set from the opt-in bit instead closes that by construction.
-// TestFreezePollSnapshot_UnrankedOptedInCandidateIsFrozen is the regression
+// TestFreezeCandidateRewardSnapshots_UnrankedOptedInCandidateIsFrozen is the regression
 // pin for the original defect.
 
 // rawPollSnapshotBytes returns the serialized blob exactly as it sits in the
@@ -39,10 +39,10 @@ import (
 // isolation assertion a byte-identity assertion.
 func rawPollSnapshotBytes(t *testing.T, sm protocol.StateManager, candID address.Address) []byte {
 	t.Helper()
-	snapshot := &CandidatePollSnapshot{}
+	snapshot := &CandidateRewardSnapshot{}
 	_, err := sm.State(snapshot,
 		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(candidatePollSnapshotKey(candID)))
+		protocol.KeyOption(candidateRewardSnapshotKey(candID)))
 	require.NoError(t, err)
 	raw, err := snapshot.Serialize()
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func freezeCtxAt(height uint64) context.Context {
 	return protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{BlockHeight: height})
 }
 
-// TestFreezePollSnapshot_RecordIsIndependentOfSetSize asserts two things about
+// TestFreezeCandidateRewardSnapshots_RecordIsIndependentOfSetSize asserts two things about
 // one candidate's frozen record:
 //
 //   - isolation: adding a second opted-in candidate to the set does not change
@@ -62,7 +62,7 @@ func freezeCtxAt(height uint64) context.Context {
 //     the freezer is specified to write. That second half is what would catch a
 //     change that moved every snapshot in the same direction, which the first
 //     half alone cannot see.
-func TestFreezePollSnapshot_RecordIsIndependentOfSetSize(t *testing.T) {
+func TestFreezeCandidateRewardSnapshots_RecordIsIndependentOfSetSize(t *testing.T) {
 	r := require.New(t)
 	const freezeHeight = uint64(1_234_567)
 
@@ -72,7 +72,7 @@ func TestFreezePollSnapshot_RecordIsIndependentOfSetSize(t *testing.T) {
 	solo := onchainCandidate(1, "solo", big.NewInt(4_200))
 	r.NoError(putOnchainCandidate(newCandidateStateManager(soloSM), solo))
 	installCandCenter(t, soloSM, solo)
-	r.NoError(FreezePollSnapshot(freezeCtxAt(freezeHeight), soloSM, nil, nil))
+	r.NoError(FreezeCandidateRewardSnapshots(freezeCtxAt(freezeHeight), soloSM, nil, nil, freezeHeight))
 	soloBytes := rawPollSnapshotBytes(t, soloSM, solo.GetIdentifier())
 
 	// Run 2: same candidate, same height, but the center now also holds a
@@ -85,7 +85,7 @@ func TestFreezePollSnapshot_RecordIsIndependentOfSetSize(t *testing.T) {
 	r.NoError(putOnchainCandidate(pairCSM, first))
 	r.NoError(putOnchainCandidate(pairCSM, second))
 	installCandCenter(t, pairSM, first, second)
-	r.NoError(FreezePollSnapshot(freezeCtxAt(freezeHeight), pairSM, nil, nil))
+	r.NoError(FreezeCandidateRewardSnapshots(freezeCtxAt(freezeHeight), pairSM, nil, nil, freezeHeight))
 	pairBytes := rawPollSnapshotBytes(t, pairSM, first.GetIdentifier())
 
 	r.Equal(soloBytes, pairBytes,
@@ -93,11 +93,10 @@ func TestFreezePollSnapshot_RecordIsIndependentOfSetSize(t *testing.T) {
 
 	// Absolute value: what the freezer is specified to write for an opted-in
 	// candidate with no DelegateProfile bridge configured.
-	expected := &CandidatePollSnapshot{
+	expected := &CandidateRewardSnapshot{
 		BlockCommissionBasisPoints: _fullCommissionBasisPoints,
 		EpochCommissionBasisPoints: _fullCommissionBasisPoints,
-		Registered:                 false,
-		OnchainRewardEnabled:       true,
+		CommissionConfigured:       false,
 		TotalWeight:                big.NewInt(4_200),
 		FreezeHeight:               freezeHeight,
 		SelfStakeBucketIdx:         solo.SelfStakeBucketIdx,
@@ -108,12 +107,12 @@ func TestFreezePollSnapshot_RecordIsIndependentOfSetSize(t *testing.T) {
 		"frozen snapshot drifted from the specified field set")
 }
 
-// TestFreezePollSnapshot_UnrankedOptedInCandidateIsFrozen is the defect this
+// TestFreezeCandidateRewardSnapshots_UnrankedOptedInCandidateIsFrozen is the defect this
 // design exists for, kept as a regression pin now that the poll list is gone
 // from the signature: a candidate's presence in the frozen set must depend on
 // nothing but its opt-in bit -- not on vote rank, not on activity, not on
 // having been in whatever list happened to ride the boundary block.
-func TestFreezePollSnapshot_UnrankedOptedInCandidateIsFrozen(t *testing.T) {
+func TestFreezeCandidateRewardSnapshots_UnrankedOptedInCandidateIsFrozen(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -130,11 +129,10 @@ func TestFreezePollSnapshot_UnrankedOptedInCandidateIsFrozen(t *testing.T) {
 	r.NoError(putOnchainCandidate(csm, unranked))
 	installCandCenter(t, sm, ranked, unranked)
 
-	r.NoError(FreezePollSnapshot(freezeCtxAt(freezeHeight), sm, nil, nil))
+	r.NoError(FreezeCandidateRewardSnapshots(freezeCtxAt(freezeHeight), sm, nil, nil, freezeHeight))
 
-	snap, err := PollSnapshotFor(sm, unranked.GetIdentifier())
+	snap, err := CandidateRewardSnapshotFor(sm, unranked.GetIdentifier())
 	r.NoError(err, "an opted-in candidate must be frozen regardless of rank or activity")
-	r.True(snap.OnchainRewardEnabled)
 	r.Equal(freezeHeight, snap.FreezeHeight)
 	r.Equal(unranked.SelfStakeBucketIdx, snap.SelfStakeBucketIdx)
 	r.Zero(big.NewInt(555).Cmp(snap.TotalWeight),
@@ -142,13 +140,10 @@ func TestFreezePollSnapshot_UnrankedOptedInCandidateIsFrozen(t *testing.T) {
 	r.Equal(_fullCommissionBasisPoints, snap.EpochCommissionBasisPoints)
 }
 
-// TestFreezePollSnapshot_OptedOutCandidateNotFrozen is the other side of the
-// membership rule. It also fixes the shape of what rewarding sees for an
-// opted-out delegate: nothing at all, rather than the zeroed placeholder this
-// used to write for opted-out poll members. The two are consensus-equivalent
-// -- voter_reward.go maps both to onchainRewardEnabled=false -- so the
-// placeholder was a state write per candidate per era for no reader.
-func TestFreezePollSnapshot_OptedOutCandidateNotFrozen(t *testing.T) {
+// TestFreezeCandidateRewardSnapshots_NotOptedInCandidateNotFrozen is the other
+// side of the membership rule. Since opt-in is one-way, a missing snapshot is
+// the only representation of a candidate that was not enabled at H.
+func TestFreezeCandidateRewardSnapshots_NotOptedInCandidateNotFrozen(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -162,20 +157,43 @@ func TestFreezePollSnapshot_OptedOutCandidateNotFrozen(t *testing.T) {
 	r.NoError(csm.putCandidate(optedOut))
 	installCandCenter(t, sm, optedIn, optedOut)
 
-	r.NoError(FreezePollSnapshot(freezeCtxAt(4_242), sm, nil, nil))
+	r.NoError(FreezeCandidateRewardSnapshots(freezeCtxAt(4_242), sm, nil, nil, 4_242))
 
-	_, err := PollSnapshotFor(sm, optedOut.GetIdentifier())
+	_, err := CandidateRewardSnapshotFor(sm, optedOut.GetIdentifier())
 	r.ErrorIs(err, state.ErrStateNotExist)
 
-	_, err = PollSnapshotFor(sm, optedIn.GetIdentifier())
+	_, err = CandidateRewardSnapshotFor(sm, optedIn.GetIdentifier())
 	r.NoError(err)
 }
 
-// TestFreezePollSnapshot_FrozenSetOrderIsDeterministic guards the ordering
+func TestRewardSnapshotsAndCOWWindowUseExplicitSharedHeight(t *testing.T) {
+	r := require.New(t)
+	const freezeHeight = uint64(4_243)
+	ctx := forkGateCtx(freezeHeight, true)
+	sm := testdb.NewMockStateManager(gomock.NewController(t))
+	candidate := onchainCandidate(1, "candidate", big.NewInt(100))
+	r.NoError(putOnchainCandidate(newCandidateStateManager(sm), candidate))
+	installCandCenter(t, sm, candidate)
+
+	r.NoError(FreezeCandidateRewardSnapshots(ctx, sm, nil, nil, freezeHeight))
+	window, err := LoadEraCOWWindow(sm)
+	r.NoError(err)
+	r.False(window.Open(), "snapshot freezing must not hide the COW lifecycle transition")
+
+	r.NoError(BeginEraCOWWindow(ctx, sm, freezeHeight))
+	window, err = LoadEraCOWWindow(sm)
+	r.NoError(err)
+	r.Equal(freezeHeight, window.FreezeHeight)
+	snapshot, err := CandidateRewardSnapshotFor(sm, candidate.GetIdentifier())
+	r.NoError(err)
+	r.Equal(window.FreezeHeight, snapshot.FreezeHeight)
+}
+
+// TestFreezeCandidateRewardSnapshots_FrozenSetOrderIsDeterministic guards the ordering
 // rule: the candidate center enumerates from a Go map, and the order it hands
 // back reaches both PutState and the DelegateProfile bridge call. Iterating it
 // unsorted would make the freeze non-deterministic across nodes.
-func TestFreezePollSnapshot_FrozenSetOrderIsDeterministic(t *testing.T) {
+func TestFreezeCandidateRewardSnapshots_FrozenSetOrderIsDeterministic(t *testing.T) {
 	r := require.New(t)
 	const freezeHeight = uint64(31_337)
 
@@ -191,7 +209,7 @@ func TestFreezePollSnapshot_FrozenSetOrderIsDeterministic(t *testing.T) {
 			cands = append(cands, c)
 		}
 		installCandCenter(t, sm, cands...)
-		r.NoError(FreezePollSnapshot(freezeCtxAt(freezeHeight), sm, nil, nil))
+		r.NoError(FreezeCandidateRewardSnapshots(freezeCtxAt(freezeHeight), sm, nil, nil, freezeHeight))
 
 		got := make([][]byte, 0, len(cands))
 		for _, c := range cands {

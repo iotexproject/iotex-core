@@ -71,9 +71,11 @@ func (f ContractReaderFunc) Read(ctx context.Context, contract string, callData 
 
 // CommissionRates carries the per-delegate result of a single bridge lookup.
 //
-// Registered flags whether the DelegateProfile contract has both portion
-// fields set for this delegate. If false, both commission rates default to
-// zero, so the post-fork rewarding path sends the full amount to voters.
+// Configured flags whether DelegateProfile has both reward portion fields set
+// to valid values for this delegate. It is deliberately unrelated to the
+// legacy DelegateProfile.registered(address) view, which is not reliable for
+// the deployed mainnet contract. The snapshot consumer ignores both rates
+// when Configured is false and applies the all-to-delegate fallback.
 type CommissionRates struct {
 	// BlockCommissionBasisPoints is the delegate's take of the block-reward
 	// stream, in basis points [0, 10000]. Derived as 10000 - voterTake_bp,
@@ -85,10 +87,10 @@ type CommissionRates struct {
 	// stream, in basis points [0, 10000]. Derived from "epochRewardPortion".
 	EpochCommissionBasisPoints uint64
 
-	// Registered is true iff both portion fields returned non-empty bytes.
+	// Configured is true iff both portion fields returned non-empty valid bytes.
 	// A partial profile (one field set, the other empty) is treated as
-	// Registered=false and therefore uses the all-to-owner default.
-	Registered bool
+	// Configured=false and therefore uses the all-to-owner default.
+	Configured bool
 }
 
 // Bridge is the reusable read-only wrapper around a specific DelegateProfile
@@ -126,12 +128,9 @@ func (b *Bridge) Contract() string { return b.contract }
 // Reads run sequentially in `delegates` order, so per-epoch behaviour is
 // deterministic and matches the caller's PutPollResult ordering.
 //
-// A per-delegate read error (RPC failure, ABI mismatch, out-of-range value) is
-// logged, not returned: it degrades that delegate to Registered=false with zero
-// rates, and rewarding falls back to paying everything to the owner. This runs
-// at every epoch boundary on every validator, so returning an error would let
-// one malformed on-chain profile halt the chain. Same state ⇒ same fallback ⇒
-// no fork.
+// A per-delegate read error is logged and represented as Configured=false;
+// rewarding then applies the full-owner commission fallback. This keeps one
+// malformed profile from blocking the entire era snapshot.
 //
 // Only wiring bugs — nil reader, nil delegate address — return an error.
 func (b *Bridge) Snapshot(
@@ -150,12 +149,12 @@ func (b *Bridge) Snapshot(
 		rates, err := b.readOne(ctx, reader, d)
 		if err != nil {
 			log.L().Warn(
-				"delegateprofile: read failed, using default voter reward split",
+				"delegateprofile: read failed, using full-owner commission fallback",
 				zap.String("delegate", d.String()),
 				zap.String("contract", b.contract),
 				zap.Error(err),
 			)
-			out[d.String()] = &CommissionRates{Registered: false}
+			out[d.String()] = &CommissionRates{}
 			continue
 		}
 		out[d.String()] = rates
@@ -181,12 +180,12 @@ func (b *Bridge) readOne(
 		return nil, err
 	}
 	if !blockOK || !epochOK {
-		return &CommissionRates{Registered: false}, nil
+		return &CommissionRates{}, nil
 	}
 	return &CommissionRates{
 		BlockCommissionBasisPoints: maxBasisPoints - blockVoterBp,
 		EpochCommissionBasisPoints: maxBasisPoints - epochVoterBp,
-		Registered:                 true,
+		Configured:                 true,
 	}, nil
 }
 

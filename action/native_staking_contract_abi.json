@@ -628,18 +628,7 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "bytes",
-        "name": "candidateIdentifier",
-        "type": "bytes"
-      },
-      {
-        "internalType": "bool",
-        "name": "optIn",
-        "type": "bool"
-      }
-    ],
+    "inputs": [],
     "name": "setVoterRewardOptIn",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -653,12 +642,6 @@
         "internalType": "bytes32",
         "name": "candidateIdentifier",
         "type": "bytes32"
-      },
-      {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "optIn",
-        "type": "bool"
       }
     ],
     "name": "VoterRewardOptInSet",

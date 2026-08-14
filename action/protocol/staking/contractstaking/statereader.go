@@ -6,8 +6,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/eracow"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
 )
@@ -128,6 +131,43 @@ func (r *ContractStakingStateReader) Bucket(contractAddr address.Address, bucket
 	}
 
 	return &ssb, nil
+}
+
+// FrozenBucket reads a contract-staking bucket as of the era freeze height.
+func (r *ContractStakingStateReader) FrozenBucket(
+	window eracow.Window,
+	contractAddr address.Address,
+	bucketID uint64,
+) (*Bucket, error) {
+	if !window.Open() {
+		return nil, errors.New("contractstaking: no era window open")
+	}
+	if !window.ContractBucketExisted(contractAddr.Bytes(), bucketID) {
+		if !window.ContractKnown(contractAddr.Bytes()) {
+			log.L().Error("IIP-59: contract-staking contract has no frozen bucket high-water mark; "+
+				"all of its buckets are excluded from this era's voter weights",
+				zap.String("contract", contractAddr.String()),
+				zap.Uint64("bucketID", bucketID),
+				zap.Uint64("freezeHeight", window.FreezeHeight),
+			)
+		}
+		return nil, errors.Wrapf(eracow.ErrBucketPostFreeze, "contract bucket %d of %s", bucketID, contractAddr.String())
+	}
+	bucket := &Bucket{}
+	err := eracow.Resolve(
+		r.sr, window.FreezeHeight,
+		eracow.KindLSDBucket, eracow.LSDBucketSubkey(contractAddr.Bytes(), bucketID),
+		bucket,
+		r.BucketStateOpts(contractAddr, bucketID)...,
+	)
+	switch {
+	case err == nil:
+		return bucket, nil
+	case errors.Is(err, eracow.ErrNotFrozen):
+		return nil, errors.Wrapf(eracow.ErrBucketPostFreeze, "contract bucket %d of %s", bucketID, contractAddr.String())
+	default:
+		return nil, err
+	}
 }
 
 // BucketTypes returns all BucketType for a given contract and bucket id.

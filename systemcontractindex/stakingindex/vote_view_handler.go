@@ -1,6 +1,7 @@
 package stakingindex
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -36,7 +37,7 @@ func newVoteViewEventHandler(store BucketStore, view CandidateVotes, fn Calculat
 	}, nil
 }
 
-func (s *voteViewEventHandler) PutBucket(addr address.Address, id uint64, bucket *contractstaking.Bucket) error {
+func (s *voteViewEventHandler) PutBucket(ctx context.Context, addr address.Address, id uint64, bucket *contractstaking.Bucket) error {
 	org, err := s.BucketStore.DeductBucket(addr, id)
 	switch errors.Cause(err) {
 	case nil, contractstaking.ErrBucketNotExist:
@@ -56,10 +57,10 @@ func (s *voteViewEventHandler) PutBucket(addr address.Address, id uint64, bucket
 	}
 	s.view.Add(bucket.Candidate.String(), deltaAmount, deltaVotes)
 
-	return s.BucketStore.PutBucket(addr, id, bucket)
+	return s.BucketStore.PutBucket(ctx, addr, id, bucket)
 }
 
-func (s *voteViewEventHandler) DeleteBucket(addr address.Address, id uint64) error {
+func (s *voteViewEventHandler) DeleteBucket(ctx context.Context, addr address.Address, id uint64) error {
 	org, err := s.BucketStore.DeductBucket(addr, id)
 	switch errors.Cause(err) {
 	case nil:
@@ -71,7 +72,7 @@ func (s *voteViewEventHandler) DeleteBucket(addr address.Address, id uint64) err
 	default:
 		return errors.Wrapf(err, "failed to deduct bucket")
 	}
-	return s.BucketStore.DeleteBucket(addr, id)
+	return s.BucketStore.DeleteBucket(ctx, addr, id)
 }
 
 func (s *voteViewEventHandler) calculateBucket(bucket *contractstaking.Bucket) (votes *big.Int, amount *big.Int) {
@@ -112,7 +113,7 @@ func (swb *bucketStore) DeductBucket(addr address.Address, id uint64) (*contract
 	return bucket, nil
 }
 
-func (swb *bucketStore) PutBucket(addr address.Address, id uint64, bkt *contractstaking.Bucket) error {
+func (swb *bucketStore) PutBucket(_ context.Context, addr address.Address, id uint64, bkt *contractstaking.Bucket) error {
 	if _, ok := swb.dirty[addr.String()]; !ok {
 		swb.dirty[addr.String()] = make(map[uint64]*Bucket)
 	}
@@ -120,7 +121,7 @@ func (swb *bucketStore) PutBucket(addr address.Address, id uint64, bkt *contract
 	return nil
 }
 
-func (swb *bucketStore) DeleteBucket(addr address.Address, id uint64) error {
+func (swb *bucketStore) DeleteBucket(_ context.Context, addr address.Address, id uint64) error {
 	if _, ok := swb.dirty[addr.String()]; !ok {
 		swb.dirty[addr.String()] = make(map[uint64]*Bucket)
 	}

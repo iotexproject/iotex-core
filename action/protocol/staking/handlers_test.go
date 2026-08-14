@@ -264,7 +264,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			candidate, _, err := csr.CandidateByAddress(candidateAddr)
 			require.NoError(err)
 			require.LessOrEqual(test.amount, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidateAddr)
 			require.NotNil(candidate)
@@ -659,7 +659,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 				require.Equal(test.ownerAddrStr, candidate.Owner.String())
 			}
 			require.Equal(test.votesStr, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -695,7 +695,7 @@ func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1})
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: candidate.Owner, GasPrice: big.NewInt(0)})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		candidate.VoterRewardOnchainOptIn = true
 		r.NoError(csm.Upsert(candidate))
@@ -730,7 +730,7 @@ func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1, BlockTimeStamp: time.Now()})
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: owner, GasPrice: big.NewInt(0)})
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 
 		_, _, err = p.handleCandidateRegister(ctx, act, csm)
@@ -764,7 +764,7 @@ func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
 			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1})
 			ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: candidate.Owner, GasPrice: big.NewInt(0)})
 			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			r.NoError(err)
 
 			_, err = p.handleCandidateUpdate(ctx, act, csm)
@@ -1071,7 +1071,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 				require.Equal(test.ownerAddrStr, candidate.Owner.String())
 			}
 			require.Equal(test.afterUpdate, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -1281,7 +1281,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		})
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			sc, ok := csm.(*candSM)
 			require.True(ok)
@@ -1319,7 +1319,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			candidate, _, err = csr.CandidateByAddress(candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterUnstake, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -1433,7 +1433,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		}
 		t.Run("NotCleanAtUpernavik", func(t *testing.T) {
 			runtest(t, g.UpernavikBlockHeight, func(vb *VoteBucket, cand *Candidate, sm protocol.StateManager) {
-				csm, err := NewCandidateStateManager(sm)
+				csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 				require.NoError(err)
 				newCand := csm.GetByIdentifier(cand.GetIdentifier())
 				selfStakeVotes := CalculateVoteWeight(p.config.VoteWeightCalConsts, vb, true)
@@ -1445,7 +1445,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		})
 		t.Run("CleanAtVanuatu", func(t *testing.T) {
 			runtest(t, g.VanuatuBlockHeight, func(vb *VoteBucket, cand *Candidate, sm protocol.StateManager) {
-				csm, err := NewCandidateStateManager(sm)
+				csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 				require.NoError(err)
 				newCand := csm.GetByIdentifier(cand.GetIdentifier())
 				require.Equal("0", newCand.Votes.String())
@@ -1850,7 +1850,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			sc, ok := csm.(*candSM)
 			require.True(ok)
@@ -1898,7 +1898,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			require.Equal(candidate.Reward.String(), candidate.Reward.String())
 			require.Equal(candidate.Owner.String(), candidate.Owner.String())
 			require.Equal(test.afterChangeSelfStake, candidate.SelfStake.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -1958,7 +1958,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 		r.NoError(err)
 		r.EqualValues(iotextypes.ReceiptStatus_Success, recipt.Status)
 		// test previous candidate self stake
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		prevCand := csm.GetByOwner(identityset.Address(1))
 		r.Equal("0", prevCand.SelfStake.String())
@@ -2006,7 +2006,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 		r.NoError(err)
 		r.EqualValues(iotextypes.ReceiptStatus_Success, recipt.Status)
 		// test previous candidate self stake
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		prevCand := csm.GetByOwner(buckets[2].Candidate)
 		r.Equal("120000000000000000000", prevCand.SelfStake.String())
@@ -2054,7 +2054,7 @@ func TestProtocol_HandleChangeCandidate_ClearPrevCandidateSelfStake(t *testing.T
 		r.NoError(err)
 		r.EqualValues(iotextypes.ReceiptStatus_Success, recipt.Status)
 		// test previous candidate self stake
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		prevCand := csm.GetByOwner(buckets[2].Candidate)
 		r.Equal("120000000000000000000", prevCand.SelfStake.String())
@@ -2242,7 +2242,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			candidate, _, err := csr.CandidateByAddress(candi.Owner)
 			require.NoError(err)
 			require.Equal(test.afterTransfer, candidate.Votes.Uint64())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candi.Owner)
 			require.NotNil(candidate)
@@ -2475,7 +2475,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 			candidate, _, err := csr.CandidateByAddress(cand1.GetIdentifier())
 			require.NoError(err)
 			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(cand1.GetIdentifier())
 			require.NotNil(candidate)
@@ -2706,7 +2706,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 		})
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			sc, ok := csm.(*candSM)
 			require.True(ok)
@@ -2744,7 +2744,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			candidate, _, err = csr.CandidateByAddress(candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterRestake, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -2914,7 +2914,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 		})
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			sc, ok := csm.(*candSM)
 			require.True(ok)
@@ -2962,7 +2962,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			candidate, _, err = csr.CandidateByAddress(candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterDeposit, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -2984,7 +2984,7 @@ func TestProtocol_FetchBucketAndValidate(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm, p, _, _ := initAll(t, ctrl)
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 	r.NoError(err)
 
 	// The patched targets — the process-global `(*candSM).NativeBucket` machine
@@ -3058,7 +3058,7 @@ func TestChangeCandidate(t *testing.T) {
 		}
 		sm, p, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
 		r.NoError(setupAccount(sm, identityset.Address(1), 10000))
-		// csm, err := NewCandidateStateManager(sm)
+		// csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		nonce := uint64(1)
 		act := action.NewChangeCandidate("test1", buckets[0].Index, nil)
 		intrinsic, err := act.IntrinsicGas()

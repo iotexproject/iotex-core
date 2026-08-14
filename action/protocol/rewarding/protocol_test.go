@@ -186,7 +186,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	for _, candidate := range candidates {
 		id, err := address.FromString(candidate.Identity)
 		require.NoError(t, err)
-		require.NoError(t, staking.TestOnlyPutCandidateRewardAddress(sm, id, id, id, false, false))
+		require.NoError(t, staking.TestOnlyPutCandidateRewardAddress(ctx, sm, id, id, id, false, false))
 	}
 
 	ctx = protocol.WithBlockCtx(

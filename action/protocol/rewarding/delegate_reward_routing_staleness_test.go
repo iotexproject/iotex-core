@@ -18,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
-// The poll snapshot lives under one per-candidate key with no era qualifier.
+// The reward snapshot lives under one per-candidate key with no era qualifier.
 // A candidate frozen in era N and skipped at era N+1's freeze therefore still
 // reads back, carrying era N's FreezeHeight H'. Handed to the drain unchecked,
 // H' becomes the evaluation height for weights whose buckets come from era
@@ -38,8 +38,7 @@ func TestFreezePendingPoolDrainWork_StaleSnapshotDefersPool(t *testing.T) {
 	const previousEraH = uint64(10_000)
 	openEraWindowForTest(t, ctx, sm, currentEraH)
 
-	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
-		OnchainRewardEnabled:       true,
+	r.NoError(staking.TestOnlyPutCandidateRewardSnapshotFor(sm, candAddr, &staking.CandidateRewardSnapshot{
 		EpochCommissionBasisPoints: 3_000,
 		BlockCommissionBasisPoints: 3_000,
 		TotalWeight:                big.NewInt(1_000_000),
@@ -69,8 +68,7 @@ func TestFreezePendingPoolDrainWork_CurrentEraSnapshotEntersPlan(t *testing.T) {
 	const currentEraH = uint64(20_000)
 	openEraWindowForTest(t, ctx, sm, currentEraH)
 
-	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
-		OnchainRewardEnabled:       true,
+	r.NoError(staking.TestOnlyPutCandidateRewardSnapshotFor(sm, candAddr, &staking.CandidateRewardSnapshot{
 		EpochCommissionBasisPoints: 3_000,
 		BlockCommissionBasisPoints: 3_000,
 		TotalWeight:                big.NewInt(1_000_000),
@@ -107,11 +105,10 @@ func TestFreezePendingPoolDrainWork_ExitedCandidateStillEntersPlan(t *testing.T)
 		"fixture candidate must be absent from current candidate state")
 
 	openEraWindowForTest(t, ctx, sm, currentEraH)
-	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, exited, &staking.CandidatePollSnapshot{
-		OnchainRewardEnabled: true,
-		TotalWeight:          big.NewInt(900),
-		FreezeHeight:         currentEraH,
-		SelfStakeBucketIdx:   staking.NoSelfStakeBucketIndex,
+	r.NoError(staking.TestOnlyPutCandidateRewardSnapshotFor(sm, exited, &staking.CandidateRewardSnapshot{
+		TotalWeight:        big.NewInt(900),
+		FreezeHeight:       currentEraH,
+		SelfStakeBucketIdx: staking.NoSelfStakeBucketIndex,
 	}))
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, exited.Bytes(), big.NewInt(321)))
 
@@ -152,11 +149,10 @@ func TestFreezePendingPoolDrainWork_ZeroWeightSnapshotDefersPool(t *testing.T) {
 
 	const currentEraH = uint64(20_000)
 	openEraWindowForTest(t, ctx, sm, currentEraH)
-	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
-		OnchainRewardEnabled: true,
-		TotalWeight:          new(big.Int),
-		FreezeHeight:         currentEraH,
-		SelfStakeBucketIdx:   7,
+	r.NoError(staking.TestOnlyPutCandidateRewardSnapshotFor(sm, candAddr, &staking.CandidateRewardSnapshot{
+		TotalWeight:        new(big.Int),
+		FreezeHeight:       currentEraH,
+		SelfStakeBucketIdx: 7,
 	}))
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candAddr.Bytes(), big.NewInt(5_000)))
 
@@ -189,8 +185,7 @@ func TestDistributeEpochCommissions_StaleSnapshotDefersPool(t *testing.T) {
 			const currentEraH = uint64(20_000)
 			openEraWindowForTest(t, ctx, sm, currentEraH)
 
-			r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
-				OnchainRewardEnabled: true,
+			r.NoError(staking.TestOnlyPutCandidateRewardSnapshotFor(sm, candAddr, &staking.CandidateRewardSnapshot{
 				// All to voters, so the commission leg never touches the fund
 				// and this test stays about the snapshot.
 				EpochCommissionBasisPoints: 0,

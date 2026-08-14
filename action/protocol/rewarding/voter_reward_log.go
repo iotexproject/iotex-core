@@ -61,7 +61,7 @@ func voterTransactionLog(payout voterCombinedPayout) *action.TransactionLog {
 
 func (p *Protocol) packDelegateChunkLog(
 	targetEra uint64,
-	work epochDrainDelegateWork,
+	work voterRewardDelegateAllocation,
 	rows delegateChunkLog,
 	blkHeight uint64,
 	actionHash hash.Hash256,
@@ -84,7 +84,7 @@ func (p *Protocol) packDelegateChunkLog(
 		Compounded:        rows.compounded,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "rewarding: pack DelegateDistributed log")
+		return nil, errors.Wrap(err, "rewarding: pack DelegateVoterRewardsDistributed log")
 	}
 	return &action.Log{
 		Address: p.addr.String(), Topics: topics, Data: data,

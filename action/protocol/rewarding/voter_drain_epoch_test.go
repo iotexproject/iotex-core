@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -52,14 +53,14 @@ func TestVoterBudgetPerBlock(t *testing.T) {
 		"conversion overflow must not turn the cap into zero/unbounded")
 }
 
-// TestGrantEpochReward_DefaultsToOwnerWhenProfileUnregistered confirms that a
-// migrated delegate that opted in but never registered a DelegateProfile
+// TestGrantEpochReward_DefaultsToOwnerWhenProfileUnconfigured confirms that a
+// migrated delegate that opted in but has no complete DelegateProfile split
 // receives the full reward directly.
 //
-// The fixture writes the snapshot FreezePollSnapshot produces for exactly that
-// candidate (poll_snapshot.go): opted in, Registered false, and both commission
+// The fixture writes the snapshot FreezeCandidateRewardSnapshots produces for exactly that
+// candidate (poll_snapshot.go): opted in, CommissionConfigured false, and both commission
 // rates defaulted to the full 10000 bps because the profile view returned
-// nothing to override them with. That default is the design — no registered
+// nothing to override them with. That default is the design — no configured
 // rate means no voter split — so the delegate stays on IIP-59 rails and
 // creditRewardDirect pays the owner, which is what the transaction log below
 // counts.
@@ -67,18 +68,17 @@ func TestVoterBudgetPerBlock(t *testing.T) {
 // Writing the snapshot is load-bearing. Omitting it does not reach this design
 // at all: it reaches the no-snapshot-for-the-era branch of
 // resolveDelegateRewardRouting, which is a different rule (not on rails this
-// era, pay legacy) covered by voter_snapshot_missing_test.go. The two used to
+// era, pay legacy) covered by delegate_reward_routing_missing_test.go. The two used to
 // coincide, so this test passed without a snapshot while asserting something
 // it did not set up.
-func TestGrantEpochReward_DefaultsToOwnerWhenProfileUnregistered(t *testing.T) {
+func TestGrantEpochReward_DefaultsToOwnerWhenProfileUnconfigured(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = enableIIP59(t, ctx)
 
 		for i := 27; i <= 31; i++ {
-			r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(i), &staking.CandidatePollSnapshot{
-				OnchainRewardEnabled:       true,
-				Registered:                 false,
+			r.NoError(staking.TestOnlyPutCandidateRewardSnapshotFor(sm, identityset.Address(i), &staking.CandidateRewardSnapshot{
+				CommissionConfigured:       false,
 				BlockCommissionBasisPoints: _basisPointsDenom,
 				EpochCommissionBasisPoints: _basisPointsDenom,
 				TotalWeight:                new(big.Int),
@@ -108,7 +108,7 @@ func TestGrantEpochReward_DefaultsToOwnerWhenProfileUnregistered(t *testing.T) {
 		}
 		r.Positive(directPayouts)
 
-		got, err := p.readEpochDrainCursor(ctx, sm)
+		got, err := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
 		r.Nil(got)
 
@@ -152,9 +152,9 @@ func TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor(t *testing.T) {
 		pool, err := p.readPendingBlockRewardPool(ctx, sm, candID)
 		r.NoError(err)
 		r.Equal(int64(30), pool.Int64(), "non-era epoch voter share must accrue in the pool")
-		cursor, err := p.readEpochDrainCursor(ctx, sm)
+		cursor, err := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
-		r.Nil(cursor, "non-era epoch must not materialize a drain cursor")
+		r.Nil(cursor, "non-era epoch must not initialize voter reward distribution")
 		r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, allProtocolAddrs(t)))
 
 		// Epoch 2 is the era boundary. Its 30 rau voter share joins the
@@ -172,11 +172,11 @@ func TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor(t *testing.T) {
 		pool, err = p.readPendingBlockRewardPool(ctx, sm, candID)
 		r.NoError(err)
 		r.Equal(int64(60), pool.Int64())
-		cursor, err = p.readEpochDrainCursor(ctx, sm)
+		cursor, err = p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
-		r.NotNil(cursor, "era boundary must materialize a drain cursor")
-		var frozen *epochDrainDelegateWork
-		for _, work := range cursor.Delegates {
+		r.NotNil(cursor, "era boundary must initialize voter reward distribution")
+		var frozen *voterRewardDelegateAllocation
+		for _, work := range cursor.DelegateAllocations {
 			if string(work.CandidateIdentifier) == string(candID) {
 				frozen = &work
 				break
@@ -205,15 +205,15 @@ func TestGrantEpochReward_IncompleteDrainAtEraBoundaryDegradesGracefully(t *test
 		// only fires on era boundaries.
 		ctx = enableIIP59(t, ctx)
 
-		live := &epochDrainCursor{
-			epochDrainPlan: epochDrainPlan{
+		live := &voterRewardDistributionState{
+			voterRewardDistributionPlan: voterRewardDistributionPlan{
 				TargetEra: 1,
-				Delegates: []epochDrainDelegateWork{
+				DelegateAllocations: []voterRewardDelegateAllocation{
 					{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(1)},
 				},
 			},
 		}
-		r.NoError(p.writeEpochDrainCursor(ctx, sm, live))
+		r.NoError(p.writeVoterRewardDistributionState(ctx, sm, live))
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
@@ -231,7 +231,7 @@ func TestGrantEpochReward_IncompleteDrainAtEraBoundaryDegradesGracefully(t *test
 		r.NoError(err)
 		// The stale cursor is deleted. With no profile snapshot, the new epoch
 		// defaults to full owner payout and creates no replacement cursor.
-		after, err := p.readEpochDrainCursor(ctx, sm)
+		after, err := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
 		r.Nil(after)
 		// First log must be the EPOCH_DRAIN_OVERRUN handoff naming the
@@ -266,15 +266,15 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 		// if the fork gate were mistakenly bypassed, GrantEpochReward
 		// would take the continuation branch and skip era-boundary setup. A survivor
 		// cursor after grant proves cursorEnabled=false held.
-		injected := &epochDrainCursor{
-			epochDrainPlan: epochDrainPlan{
+		injected := &voterRewardDistributionState{
+			voterRewardDistributionPlan: voterRewardDistributionPlan{
 				TargetEra: 1,
-				Delegates: []epochDrainDelegateWork{
+				DelegateAllocations: []voterRewardDelegateAllocation{
 					{CandidateIdentifier: identityset.Address(27).Bytes(), VoterAmountFrozen: big.NewInt(42)},
 				},
 			},
 		}
-		r.NoError(p.writeEpochDrainCursor(ctx, sm, injected))
+		r.NoError(p.writeVoterRewardDistributionState(ctx, sm, injected))
 
 		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
@@ -294,14 +294,14 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 		// path had read it, we'd have taken the continuation branch and
 		// either skipped era-boundary setup's assertNoRewardYet (invalid) or finalized
 		// the cursor (equally invalid).
-		got, err := p.readEpochDrainCursor(ctx, sm)
+		got, err := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
 		r.NotNil(got, "cursor must survive a legacy epoch grant")
 		r.Equal(injected.TargetEra, got.TargetEra)
 		r.Equal(injected.ScanPhase, got.ScanPhase)
-		r.Len(got.Delegates, 1)
-		r.Equal(injected.Delegates[0].CandidateIdentifier, got.Delegates[0].CandidateIdentifier)
-		r.Equal(int64(42), got.Delegates[0].VoterAmountFrozen.Int64())
+		r.Len(got.DelegateAllocations, 1)
+		r.Equal(injected.DelegateAllocations[0].CandidateIdentifier, got.DelegateAllocations[0].CandidateIdentifier)
+		r.Equal(int64(42), got.DelegateAllocations[0].VoterAmountFrozen.Int64())
 	}, nil, false, 0)
 }
 
@@ -327,11 +327,10 @@ func TestGrantEpochReward_PoolAccrualBuildsCursor(t *testing.T) {
 		// purely from the pool accrual.
 		candID := identityset.Address(27).Bytes()
 		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(1_234)))
-		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(27), &staking.CandidatePollSnapshot{
-			OnchainRewardEnabled:       true,
+		r.NoError(staking.TestOnlyPutCandidateRewardSnapshotFor(sm, identityset.Address(27), &staking.CandidateRewardSnapshot{
 			BlockCommissionBasisPoints: _basisPointsDenom,
 			EpochCommissionBasisPoints: _basisPointsDenom,
-			Registered:                 true,
+			CommissionConfigured:       true,
 			TotalWeight:                big.NewInt(1),
 			FreezeHeight:               iip59FixtureFreezeHeight,
 		}))
@@ -347,14 +346,14 @@ func TestGrantEpochReward_PoolAccrualBuildsCursor(t *testing.T) {
 		_, _, err = p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
 
-		got, err := p.readEpochDrainCursor(ctx, sm)
+		got, err := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
 		r.NotNil(got, "pool accrual must build a cursor entry")
 		r.Equal(uint64(1), got.TargetEra)
 		r.Equal(voterScanTail, got.ScanPhase)
 
 		var found bool
-		for _, work := range got.Delegates {
+		for _, work := range got.DelegateAllocations {
 			if string(work.CandidateIdentifier) == string(candID) {
 				found = true
 				r.Equal(int64(1_234), work.VoterAmountFrozen.Int64(),
@@ -367,4 +366,34 @@ func TestGrantEpochReward_PoolAccrualBuildsCursor(t *testing.T) {
 		r.Error(p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, 1),
 			"sentinel must be written in the same call that builds the cursor")
 	}, nil, false, 0)
+}
+
+func TestZeroWorkEraSealsItsWindow(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+	openEraWindowForTest(t, ctx, sm, iip59FixtureFreezeHeight)
+
+	var seed hash.Hash256
+	copy(seed[:], []byte{0x11, 0x22, 0x33})
+	r.NoError(p.initializeVoterRewardDistribution(ctx, sm, 1, seed, iip59FixtureFreezeHeight, nil))
+
+	window, err := staking.LoadEraCOWWindow(sm)
+	r.NoError(err)
+	r.False(window.Open(), "an era boundary with no payable work must seal its own window")
+	cursor, err := p.readVoterRewardDistributionState(ctx, sm)
+	r.NoError(err)
+	r.Nil(cursor, "a zero-work era must not materialize a cursor")
+}
+
+func TestZeroWorkSealIsIdempotent(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	var seed hash.Hash256
+	r.NoError(p.initializeVoterRewardDistribution(ctx, sm, 1, seed, iip59FixtureFreezeHeight, nil))
+	r.NoError(p.initializeVoterRewardDistribution(ctx, sm, 2, seed, iip59FixtureFreezeHeight, nil))
+
+	window, err := staking.LoadEraCOWWindow(sm)
+	r.NoError(err)
+	r.False(window.Open())
 }

@@ -29,10 +29,10 @@
 //     present and return without touching it. That is what makes the copy the
 //     as-of-H value rather than the as-of-last-mutation value.
 //
-//  2. **Absence is meaningful, so absence is recorded.** A key that did not
-//     exist at H but is created afterwards still gets an entry — a tombstone
-//     with Exists=false. Without it, Resolve would fall through to the live
-//     value and hand the drain a bucket that did not exist at H.
+//  2. **Absence is meaningful, so absence is recorded where bounds cannot
+//     prove it.** A voter index created after H gets a tombstone with
+//     Exists=false. So does a contract bucket created in a historical ID gap
+//     below its bound. Buckets beyond a frozen bound need no entry.
 //
 //  3. **The era tag is the freeze height H, not an era number.** H is unique,
 //     monotonic, and is exactly what the weight recompute needs anyway (see
@@ -40,11 +40,9 @@
 //     never has to translate between two identifiers. Stale eras are
 //     identifiable by their tag being != the live window's.
 //
-//  4. **A journal, not a scan.** GC must be bounded per block and must not
-//     depend on range scans over a shared namespace. Every copy also appends
-//     one journal record keyed by a monotone per-era sequence number, so GC is
-//     a bounded walk of dense integer keys: read journal[i], delete the entry
-//     it names, delete the journal record, advance the cursor.
+//  4. **GC scans only stale entry ranges.** Entry keys are ordered by freeze
+//     height, so a bounded range scan can delete old copies directly. No
+//     journal, sequence counter, or persistent GC cursor is needed.
 //
 //  5. **The gate is checked before any state access.** Pre-activation
 //     NewSession returns an inert session that performs zero reads and zero
@@ -73,6 +71,11 @@ import (
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
+// ErrBucketPostFreeze means a bucket could not have existed at the era freeze
+// height. Native and contract-staking readers share this error so callers can
+// handle post-freeze buckets without depending on either storage package.
+var ErrBucketPostFreeze = errors.New("eracow: bucket did not exist at the era freeze height")
+
 // Namespace is where every record this package writes lives. The COW copies of
 // contract-staking buckets do NOT live in their source namespace
 // (cs_bucket_<contract>): keeping every record of this layer in one namespace
@@ -81,20 +84,13 @@ import (
 // the Kind byte plus the contract address in the subkey.
 const Namespace = state.StakingNamespace
 
-// State key tags, continuing the iota block in
-// action/protocol/staking/protocol.go (which reserves 0..8). They are defined
-// here rather than there because `staking` imports this package, not the other
-// way round — the same arrangement as contractstaking.LSDVoterIndexPrefix. The
-// staking package carries compile-time assertions that the two agree.
+// State key tags continue the staking namespace tags 0..6.
 const (
-	// ControlPrefix keys the single control record: {9}.
-	ControlPrefix = byte(9)
+	// ControlPrefix keys the single control record: {7}.
+	ControlPrefix = byte(7)
 	// EntryPrefix keys one copied value:
-	// {10} || u64BE(freezeHeight) || kind || subkey.
-	EntryPrefix = byte(10)
-	// JournalPrefix keys one GC journal record:
-	// {11} || u64BE(freezeHeight) || u64BE(seq), value = kind || subkey.
-	JournalPrefix = byte(11)
+	// {8} || u64BE(freezeHeight) || kind || subkey.
+	EntryPrefix = byte(8)
 )
 
 // Kind names a covered key family. It is part of the entry key, so these
@@ -114,10 +110,10 @@ const (
 	//
 	// Note the subkey uses big-endian while the live key is little-endian
 	// (byteutil.Uint64ToBytes). That is deliberate: the live encoding is fixed
-	// by existing state, this one is ours, and big-endian keeps the journal and
-	// entry key spaces sorted in id order for anyone reading a dump.
+	// by existing state, this one is ours, and big-endian keeps entry keys sorted
+	// in id order for anyone reading a dump.
 	KindLSDBucket Kind = 3
-	// KindLSDVoterIndex mirrors _stakingNameSpace {8}||owner(20), the
+	// KindLSDVoterIndex mirrors _stakingNameSpace {6}||owner(20), the
 	// contract-staking owner index. Subkey: owner(20).
 	KindLSDVoterIndex Kind = 4
 )
@@ -132,14 +128,6 @@ func EntryKey(freezeHeight uint64, kind Kind, subkey []byte) []byte {
 	key = appendU64(key, freezeHeight)
 	key = append(key, byte(kind))
 	return append(key, subkey...)
-}
-
-// JournalKey returns the state key of one GC journal record.
-func JournalKey(freezeHeight, seq uint64) []byte {
-	key := make([]byte, 0, 1+8+8)
-	key = append(key, JournalPrefix)
-	key = appendU64(key, freezeHeight)
-	return appendU64(key, seq)
 }
 
 // NativeBucketSubkey builds the subkey for KindNativeBucket.
@@ -207,104 +195,44 @@ func (e *Entry) Encode() (systemcontracts.GenericValue, error) {
 // Decode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
 func (e *Entry) Decode(v systemcontracts.GenericValue) error { return e.Deserialize(v.PrimaryData) }
 
-// journalRecord names the covered key one copy belongs to, so GC can delete
-// the entry without scanning for it.
-type journalRecord struct {
-	Kind   Kind
-	Subkey []byte
-}
-
-// Serialize implements state.Serializer.
-func (j *journalRecord) Serialize() ([]byte, error) {
-	return append([]byte{byte(j.Kind)}, j.Subkey...), nil
-}
-
-// Deserialize implements state.Deserializer.
-func (j *journalRecord) Deserialize(buf []byte) error {
-	if len(buf) < 1 {
-		return errors.New("eracow: journal record must be at least 1 byte")
-	}
-	j.Kind = Kind(buf[0])
-	j.Subkey = append([]byte{}, buf[1:]...)
-	return nil
-}
-
-// Encode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
-func (j *journalRecord) Encode() (systemcontracts.GenericValue, error) {
-	data, err := j.Serialize()
-	if err != nil {
-		return systemcontracts.GenericValue{}, err
-	}
-	return systemcontracts.GenericValue{PrimaryData: data}, nil
-}
-
-// Decode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
-func (j *journalRecord) Decode(v systemcontracts.GenericValue) error {
-	return j.Deserialize(v.PrimaryData)
-}
-
-// GCState is one sealed era awaiting collection. Cursor is the next journal
-// sequence to delete; End is the exclusive upper bound recorded at Seal.
-type GCState struct {
-	FreezeHeight uint64
-	Cursor       uint64
-	End          uint64
-}
-
-// ContractBucketCount is one contract-staking contract's bucket high-water
-// mark, frozen at H. Contract is the 20-byte address; NumOfBuckets is the
-// value NumOfBuckets(contract) held at H.
-type ContractBucketCount struct {
-	Contract     []byte
-	NumOfBuckets uint64
+// ContractBucketLimit is one contract-staking contract's bucket index bound,
+// frozen at H. BucketIndexUpperBound is exclusive, matching the native bound.
+type ContractBucketLimit struct {
+	Contract              []byte
+	BucketIndexUpperBound uint64
 }
 
 const _contractCountLen = 20 + 8
 
-// Control is the single record describing the live window and the GC backlog.
+// Control is the single record describing the live window.
 //
-// FreezeHeight == 0 means no window is open. TotalBucketCount is the native
-// bucket high-water mark captured at Begin — see the comment on
-// Window.TotalBucketCount.
-//
-// Pending is a FIFO of sealed-but-not-yet-collected eras. In practice it never
-// holds more than one entry: an era is thousands of blocks long and GC runs in
-// bounded chunks every block, so a sealed era is collected long before the
-// next boundary. It is a slice rather than a single value so that a slow GC
-// can never silently lose an era's backlog.
+// FreezeHeight == 0 means no window is open. NativeBucketIndexUpperBound is
+// the exclusive upper bound of native bucket indices captured at Begin — see
+// the comment on Window.NativeBucketIndexUpperBound.
 type Control struct {
-	FreezeHeight     uint64
-	TotalBucketCount uint64
-	NextSeq          uint64
-	Pending          []GCState
-	// ContractCounts holds the per-contract LSD bucket high-water marks at H.
+	FreezeHeight                uint64
+	NativeBucketIndexUpperBound uint64
+	// ContractLimits holds the per-contract LSD bucket bounds at H.
 	// Bounded by the number of registered contract-staking contracts (single
 	// digits), so it lives inline in the control record rather than in its own
 	// keyspace.
-	ContractCounts []ContractBucketCount
+	ContractLimits []ContractBucketLimit
 }
 
-const _controlHeaderLen = 8 + 8 + 8 + 4 + 4
+const _controlHeaderLen = 8 + 8 + 4
 
 // Serialize implements state.Serializer.
 func (c *Control) Serialize() ([]byte, error) {
-	out := make([]byte, 0, _controlHeaderLen+len(c.Pending)*24+len(c.ContractCounts)*_contractCountLen)
+	out := make([]byte, 0, _controlHeaderLen+len(c.ContractLimits)*_contractCountLen)
 	out = appendU64(out, c.FreezeHeight)
-	out = appendU64(out, c.TotalBucketCount)
-	out = appendU64(out, c.NextSeq)
-	out = appendU32(out, uint32(len(c.Pending)))
-	out = appendU32(out, uint32(len(c.ContractCounts)))
-	for _, p := range c.Pending {
-		out = appendU64(out, p.FreezeHeight)
-		out = appendU64(out, p.Cursor)
-		out = appendU64(out, p.End)
-	}
-	for _, cc := range c.ContractCounts {
+	out = appendU64(out, c.NativeBucketIndexUpperBound)
+	out = appendU32(out, uint32(len(c.ContractLimits)))
+	for _, cc := range c.ContractLimits {
 		if len(cc.Contract) != 20 {
 			return nil, errors.Errorf("eracow: contract address must be 20 bytes, got %d", len(cc.Contract))
 		}
 		out = append(out, cc.Contract...)
-		out = appendU64(out, cc.NumOfBuckets)
+		out = appendU64(out, cc.BucketIndexUpperBound)
 	}
 	return out, nil
 }
@@ -315,35 +243,20 @@ func (c *Control) Deserialize(buf []byte) error {
 		return errors.Errorf("eracow: control record must be at least %d bytes, got %d", _controlHeaderLen, len(buf))
 	}
 	c.FreezeHeight = binary.BigEndian.Uint64(buf[0:])
-	c.TotalBucketCount = binary.BigEndian.Uint64(buf[8:])
-	c.NextSeq = binary.BigEndian.Uint64(buf[16:])
-	nPending := int(binary.BigEndian.Uint32(buf[24:]))
-	nContracts := int(binary.BigEndian.Uint32(buf[28:]))
+	c.NativeBucketIndexUpperBound = binary.BigEndian.Uint64(buf[8:])
+	nContracts := int(binary.BigEndian.Uint32(buf[16:]))
 	rest := buf[_controlHeaderLen:]
-	if want := nPending*24 + nContracts*_contractCountLen; len(rest) != want {
+	if want := nContracts * _contractCountLen; len(rest) != want {
 		return errors.Errorf("eracow: control record declares %d bytes of body but carries %d", want, len(rest))
 	}
-	c.Pending = nil
-	if nPending > 0 {
-		c.Pending = make([]GCState, 0, nPending)
-		for i := 0; i < nPending; i++ {
-			off := i * 24
-			c.Pending = append(c.Pending, GCState{
-				FreezeHeight: binary.BigEndian.Uint64(rest[off:]),
-				Cursor:       binary.BigEndian.Uint64(rest[off+8:]),
-				End:          binary.BigEndian.Uint64(rest[off+16:]),
-			})
-		}
-	}
-	c.ContractCounts = nil
+	c.ContractLimits = nil
 	if nContracts > 0 {
-		base := nPending * 24
-		c.ContractCounts = make([]ContractBucketCount, 0, nContracts)
+		c.ContractLimits = make([]ContractBucketLimit, 0, nContracts)
 		for i := 0; i < nContracts; i++ {
-			off := base + i*_contractCountLen
-			c.ContractCounts = append(c.ContractCounts, ContractBucketCount{
-				Contract:     append([]byte{}, rest[off:off+20]...),
-				NumOfBuckets: binary.BigEndian.Uint64(rest[off+20:]),
+			off := i * _contractCountLen
+			c.ContractLimits = append(c.ContractLimits, ContractBucketLimit{
+				Contract:              append([]byte{}, rest[off:off+20]...),
+				BucketIndexUpperBound: binary.BigEndian.Uint64(rest[off+20:]),
 			})
 		}
 	}
@@ -379,20 +292,6 @@ func readControl(sr protocol.StateReader) (*Control, error) {
 }
 
 func writeControl(sm protocol.StateManager, c *Control) error {
-	// Nothing open and nothing pending: drop the key rather than leave a
-	// zero-valued record alive forever. The absence of the key is the same
-	// signal as a zeroed one and costs no trie node.
-	if c.FreezeHeight == 0 && len(c.Pending) == 0 {
-		_, err := sm.DelState(
-			protocol.NamespaceOption(Namespace),
-			protocol.KeyOption(_controlKey),
-			protocol.ObjectOption(&Control{}),
-		)
-		if err != nil && errors.Cause(err) == state.ErrStateNotExist {
-			return nil
-		}
-		return errors.Wrap(err, "eracow: delete control record")
-	}
 	_, err := sm.PutState(c,
 		protocol.NamespaceOption(Namespace),
 		protocol.KeyOption(_controlKey),
@@ -405,7 +304,6 @@ func writeControl(sm protocol.StateManager, c *Control) error {
 // Enabled reports whether the COW layer may touch the state trie at all.
 //
 // Bound to the IIP-59 fork gate, exactly like
-// staking.voterWeightPersistenceEnabled and
 // contractstaking.OwnerIndexEnabled. A context with no feature context (test
 // setups, indexer bootstraps) reads as pre-activation so nothing is written by
 // accident.
@@ -419,7 +317,7 @@ type Window struct {
 	// FreezeHeight is H, the height the era's state is frozen at. Zero means
 	// no window is open.
 	FreezeHeight uint64
-	// TotalBucketCount is the native totalBucketCount read at H.
+	// NativeBucketIndexUpperBound is the native totalBucketCount read at H.
 	//
 	// putBucket assigns index = count and then increments, and delBucket never
 	// decrements, so native bucket indices are strictly monotonic and never
@@ -428,8 +326,8 @@ type Window struct {
 	// than a COW copy on purpose: it is strictly stronger, because it still
 	// rejects a post-H bucket even if that bucket's COW copy were somehow
 	// missed, whereas a COW copy of the counter would not.
-	TotalBucketCount uint64
-	// ContractCounts are the per-contract LSD bucket high-water marks at H.
+	NativeBucketIndexUpperBound uint64
+	// ContractLimits are the per-contract LSD bucket bounds at H.
 	//
 	// The same "never reused, so the id bounds existence" argument holds for
 	// contract-staking buckets. All three deployed IIP-13 contracts mint ids
@@ -442,7 +340,7 @@ type Window struct {
 	// "total number of buckets including burned buckets" and only ever
 	// raises it — and persists it through UpdateNumOfBuckets, so it is
 	// readable at H as NumOfBuckets(contract).
-	ContractCounts []ContractBucketCount
+	ContractLimits []ContractBucketLimit
 }
 
 // Open reports whether a window is open.
@@ -451,18 +349,17 @@ func (w Window) Open() bool { return w.FreezeHeight != 0 }
 // NativeBucketExisted reports whether a native bucket index could have existed
 // at the freeze height.
 //
-// totalBucketCount is the *next* index to be assigned, so the last valid index
-// at H is TotalBucketCount-1: the bound is exclusive.
+// totalBucketCount is the *next* index to be assigned, so this bound is
+// exclusive.
 func (w Window) NativeBucketExisted(index uint64) bool {
-	return index < w.TotalBucketCount
+	return index < w.NativeBucketIndexUpperBound
 }
 
 // ContractBucketExisted reports whether a contract-staking bucket id could have
 // existed at the freeze height.
 //
-// NumOfBuckets is a max-*seen* id rather than a next-id counter, so the last
-// valid id at H is NumOfBuckets itself: the bound is inclusive. Note the
-// deliberate off-by-one against NativeBucketExisted.
+// The max-seen id is converted to an exclusive upper bound at freeze time, so
+// native and contract buckets use the same `< bound` rule.
 //
 // A contract with no frozen entry had no NumOfBuckets record at H, which means
 // no bucket of it existed at H, so everything is rejected. Rejecting is the
@@ -473,9 +370,9 @@ func (w Window) NativeBucketExisted(index uint64) bool {
 // contract's high-water mark was never recorded", and complain about the
 // second.
 func (w Window) ContractBucketExisted(contract []byte, id uint64) bool {
-	for i := range w.ContractCounts {
-		if bytes.Equal(w.ContractCounts[i].Contract, contract) {
-			return id <= w.ContractCounts[i].NumOfBuckets
+	for i := range w.ContractLimits {
+		if bytes.Equal(w.ContractLimits[i].Contract, contract) {
+			return id < w.ContractLimits[i].BucketIndexUpperBound
 		}
 	}
 	return false
@@ -490,8 +387,8 @@ func (w Window) ContractBucketExisted(contract []byte, id uint64) bool {
 // upsert, and the activation backfill seeds it for buckets that predate the
 // fork. So a live contract reading false is a bug, not a state of the world.
 func (w Window) ContractKnown(contract []byte) bool {
-	for i := range w.ContractCounts {
-		if bytes.Equal(w.ContractCounts[i].Contract, contract) {
+	for i := range w.ContractLimits {
+		if bytes.Equal(w.ContractLimits[i].Contract, contract) {
 			return true
 		}
 	}
@@ -504,14 +401,12 @@ func (w Window) ContractKnown(contract []byte) bool {
 // to block H has already been applied — everything written from this point on
 // is "after H" and must be copied aside before it changes.
 //
-// No-op pre-activation. Re-opening a window at the same height is idempotent
-// so a replayed boundary does not reset the sequence counter and orphan the
-// entries already written under it.
+// No-op pre-activation. Re-opening a window at the same height is idempotent.
 func Begin(
 	ctx context.Context,
 	sm protocol.StateManager,
-	freezeHeight, totalBucketCount uint64,
-	contractCounts []ContractBucketCount,
+	freezeHeight, nativeBucketIndexUpperBound uint64,
+	contractLimits []ContractBucketLimit,
 ) error {
 	if !Enabled(ctx) {
 		return nil
@@ -529,35 +424,13 @@ func Begin(
 	if c.FreezeHeight == freezeHeight {
 		return nil
 	}
-	if c.FreezeHeight != 0 {
-		// A boundary arrived while the previous era's drain was still
-		// outstanding. Seal the old window so its copies are still collected;
-		// silently discarding the entries would leak them forever.
-		//
-		// Superseding here does not refuse the freeze, and deliberately so: this
-		// runs inside PutPollResult, where returning an error fails a
-		// consensus-critical system action and halts the chain rather than
-		// degrading one settlement. The outgoing drain is left reading a window
-		// that is no longer maintained, which is a correctness problem for that
-		// drain -- and it is the drain, not this function, that acts on it.
-		// runVoterDistributionChunk compares the live window's FreezeHeight
-		// against its cursor's and settles a Failure receipt rather than paying
-		// through the wrong era; the incoming era boundary then rolls the residue
-		// forward via rollOverIncompleteEpochDrain.
-		c.Pending = append(c.Pending, GCState{
-			FreezeHeight: c.FreezeHeight,
-			Cursor:       0,
-			End:          c.NextSeq,
-		})
-	}
 	c.FreezeHeight = freezeHeight
-	c.TotalBucketCount = totalBucketCount
-	c.ContractCounts = contractCounts
-	c.NextSeq = 0
+	c.NativeBucketIndexUpperBound = nativeBucketIndexUpperBound
+	c.ContractLimits = contractLimits
 	return writeControl(sm, c)
 }
 
-// Seal closes the open window and queues its copies for collection. Call it
+// Seal closes the open window. Call it
 // when the era's drain completes: from here on nothing needs protecting until
 // the next boundary, and the hooks become branch-only no-ops.
 //
@@ -570,16 +443,17 @@ func Seal(ctx context.Context, sm protocol.StateManager) error {
 	if err != nil || c == nil || c.FreezeHeight == 0 {
 		return err
 	}
-	c.Pending = append(c.Pending, GCState{
-		FreezeHeight: c.FreezeHeight,
-		Cursor:       0,
-		End:          c.NextSeq,
-	})
-	c.FreezeHeight = 0
-	c.TotalBucketCount = 0
-	c.ContractCounts = nil
-	c.NextSeq = 0
-	return writeControl(sm, c)
+	_, err = sm.DelState(
+		protocol.NamespaceOption(Namespace),
+		protocol.KeyOption(_controlKey),
+		protocol.ObjectOption(&Control{}),
+	)
+	switch {
+	case err == nil, errors.Cause(err) == state.ErrStateNotExist:
+		return nil
+	default:
+		return errors.Wrap(err, "eracow: delete control record")
+	}
 }
 
 // LoadWindow returns the open window, or the zero Window when none is open.
@@ -590,92 +464,67 @@ func LoadWindow(sr protocol.StateReader) (Window, error) {
 		return Window{}, err
 	}
 	return Window{
-		FreezeHeight:     c.FreezeHeight,
-		TotalBucketCount: c.TotalBucketCount,
-		ContractCounts:   c.ContractCounts,
+		FreezeHeight:                c.FreezeHeight,
+		NativeBucketIndexUpperBound: c.NativeBucketIndexUpperBound,
+		ContractLimits:              c.ContractLimits,
 	}, nil
 }
 
-// CollectGarbage deletes at most max copied entries belonging to sealed eras
-// and returns how many it deleted.
+// CollectGarbage deletes at most max copied entries older than the open window
+// and returns how many it deleted. With no open window, every entry is stale.
 //
 // Bounded on purpose: a busy era can accumulate tens of thousands of copies
 // and deleting them in one block would blow the block budget the drain was
 // chunked to respect in the first place. max <= 0 collects nothing.
 //
-// No-op pre-activation and when the backlog is empty.
+// No-op pre-activation and when there are no stale entries.
 func CollectGarbage(ctx context.Context, sm protocol.StateManager, max int) (int, error) {
 	if !Enabled(ctx) || max <= 0 {
 		return 0, nil
 	}
 	c, err := readControl(sm)
-	if err != nil || c == nil || len(c.Pending) == 0 {
+	if err != nil {
 		return 0, err
 	}
-	deleted := 0
-	for deleted < max && len(c.Pending) > 0 {
-		gc := &c.Pending[0]
-		if gc.Cursor >= gc.End {
-			c.Pending = c.Pending[1:]
-			continue
+	minKey := []byte{EntryPrefix}
+	maxKey := []byte{EntryPrefix + 1}
+	if c != nil && c.FreezeHeight != 0 {
+		// RangeOption is half-open. Since every entry key is
+		// EntryPrefix || freezeHeight || kind || subkey, using
+		// EntryPrefix || H as the exclusive upper bound admits only entries
+		// from heights below H and protects every entry in the open window.
+		maxKey = appendU64([]byte{EntryPrefix}, c.FreezeHeight)
+	}
+	_, iter, err := sm.States(
+		protocol.NamespaceOption(Namespace),
+		protocol.RangeOption(minKey, maxKey),
+		protocol.LimitOption(max),
+	)
+	if err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			return 0, nil
 		}
-		var rec journalRecord
-		jKey := JournalKey(gc.FreezeHeight, gc.Cursor)
-		_, rErr := sm.State(&rec,
+		return 0, errors.Wrap(err, "eracow: scan copied entries")
+	}
+	keys := make([][]byte, 0, iter.Size())
+	for i := 0; i < iter.Size(); i++ {
+		var entry Entry
+		key, nextErr := iter.Next(&entry)
+		if nextErr != nil && !errors.Is(nextErr, state.ErrNilValue) {
+			return 0, errors.Wrap(nextErr, "eracow: read copied entry")
+		}
+		keys = append(keys, append([]byte{}, key...))
+	}
+	for i, key := range keys {
+		if _, err := sm.DelState(
 			protocol.NamespaceOption(Namespace),
-			protocol.KeyOption(jKey),
-		)
-		switch {
-		case rErr == nil:
-			if _, dErr := sm.DelState(
-				protocol.NamespaceOption(Namespace),
-				protocol.KeyOption(EntryKey(gc.FreezeHeight, rec.Kind, rec.Subkey)),
-				protocol.ObjectOption(&Entry{}),
-			); dErr != nil && errors.Cause(dErr) != state.ErrStateNotExist {
-				return deleted, errors.Wrap(dErr, "eracow: delete copied entry")
-			}
-			if _, dErr := sm.DelState(
-				protocol.NamespaceOption(Namespace),
-				protocol.KeyOption(jKey),
-				protocol.ObjectOption(&journalRecord{}),
-			); dErr != nil && errors.Cause(dErr) != state.ErrStateNotExist {
-				return deleted, errors.Wrap(dErr, "eracow: delete journal record")
-			}
-		case errors.Cause(rErr) == state.ErrStateNotExist:
-			// Already collected (a replay, or a partially applied chunk).
-			// Advancing past it is the only sound move: the sequence is dense
-			// by construction, so a hole cannot mean "look further on".
-		default:
-			return deleted, errors.Wrap(rErr, "eracow: read journal record")
-		}
-		gc.Cursor++
-		deleted++
-	}
-	// Drop any era whose backlog is exhausted, so the FIFO does not keep a
-	// finished era alive until the next call.
-	for len(c.Pending) > 0 && c.Pending[0].Cursor >= c.Pending[0].End {
-		c.Pending = c.Pending[1:]
-	}
-	if err := writeControl(sm, c); err != nil {
-		return deleted, err
-	}
-	return deleted, nil
-}
-
-// PendingGarbage reports how many copied entries are still queued for
-// collection across all sealed eras.
-func PendingGarbage(sr protocol.StateReader) (uint64, error) {
-	c, err := readControl(sr)
-	if err != nil || c == nil {
-		return 0, err
-	}
-	var n uint64
-	for _, p := range c.Pending {
-		if p.End > p.Cursor {
-			n += p.End - p.Cursor
+			protocol.KeyOption(key),
+			protocol.ObjectOption(&Entry{}),
+		); err != nil && errors.Cause(err) != state.ErrStateNotExist {
+			return i, errors.Wrap(err, "eracow: delete copied entry")
 		}
 	}
-	return n, nil
+	return len(keys), nil
 }
 
 // ----------------------------------------------------------------- session --
@@ -688,7 +537,7 @@ func PendingGarbage(sr protocol.StateReader) (uint64, error) {
 //
 // Only an *open* window is cached. "No window is open" is re-checked on every
 // use, because the window is opened by a consensus action — the era boundary's
-// FreezePollSnapshot — that can run after this session was built and before it
+// FreezeCandidateRewardSnapshots — that can run after this session was built and before it
 // is used again. Caching that negative would silently skip every copy for the
 // rest of the object's life, which is the one failure this layer cannot
 // tolerate. The re-check is a single small state read, and it happens only
@@ -729,51 +578,47 @@ func (s *Session) Active() (bool, error) {
 	}
 	if c != nil {
 		s.window = Window{
-			FreezeHeight:     c.FreezeHeight,
-			TotalBucketCount: c.TotalBucketCount,
-			ContractCounts:   c.ContractCounts,
+			FreezeHeight:                c.FreezeHeight,
+			NativeBucketIndexUpperBound: c.NativeBucketIndexUpperBound,
+			ContractLimits:              c.ContractLimits,
 		}
 	}
 	return s.window.Open(), nil
 }
 
-// FreezeHeight returns the open window's H, or 0.
-func (s *Session) FreezeHeight() (uint64, error) {
-	active, err := s.Active()
-	if err != nil || !active {
-		return 0, err
-	}
-	return s.window.FreezeHeight, nil
-}
-
 // SnapshotNativeBucket records the as-of-H value of one native bucket.
 //
-// prior is the value the bucket held before the mutation in flight, or nil if
-// it is being created. A bucket whose index is beyond the high-water mark did
-// not exist at H no matter what it holds now, so it is recorded as a tombstone
-// rather than as a copy of its current contents. That makes the COW layer
-// self-sufficient: a reader that forgets the high-water-mark check still gets
-// "did not exist at H" out of Resolve rather than a post-H bucket.
+// A bucket outside the frozen bound did not exist at H and needs no entry;
+// frozen readers reject it from the same bound before calling Resolve.
 func (s *Session) SnapshotNativeBucket(index uint64, prior state.Serializer) error {
 	active, err := s.Active()
 	if err != nil || !active {
 		return err
 	}
 	if !s.window.NativeBucketExisted(index) {
-		prior = nil
+		return nil
 	}
 	return s.Snapshot(KindNativeBucket, NativeBucketSubkey(index), prior)
 }
 
+// SnapshotNativeVoterIndex records the as-of-H native bucket list for one
+// voter. Unlike native bucket values, address-keyed index entries have no
+// frozen upper bound, so a list first created after H must leave a tombstone.
+func (s *Session) SnapshotNativeVoterIndex(voter []byte, prior state.Serializer) error {
+	return s.Snapshot(KindNativeVoterIndex, AddrSubkey(voter), prior)
+}
+
 // SnapshotContractBucket records the as-of-H value of one contract-staking
-// bucket. See SnapshotNativeBucket for the tombstone rule.
+// bucket. IDs beyond the frozen bound need no entry. A missing ID below the
+// bound still gets a tombstone because historical contract ID ranges may have
+// holes, and the bound alone cannot distinguish one from a live bucket.
 func (s *Session) SnapshotContractBucket(contract []byte, id uint64, prior state.Serializer) error {
 	active, err := s.Active()
 	if err != nil || !active {
 		return err
 	}
 	if !s.window.ContractBucketExisted(contract, id) {
-		prior = nil
+		return nil
 	}
 	return s.Snapshot(KindLSDBucket, LSDBucketSubkey(contract, id), prior)
 }
@@ -811,7 +656,7 @@ func (s *Session) Snapshot(kind Kind, subkey []byte, prior state.Serializer) err
 	// Re-read the control record before committing to a write. Active() caches
 	// the window for the session's lifetime, and the window can be sealed by an
 	// action executed after this session was built. Writing under a sealed
-	// window would leak an entry past the journal end recorded at Seal.
+	// window would write an unreachable entry under a stale era tag.
 	c, err := readControl(s.sm)
 	if err != nil {
 		return err
@@ -836,14 +681,7 @@ func (s *Session) Snapshot(kind Kind, subkey []byte, prior state.Serializer) err
 	); pErr != nil {
 		return errors.Wrap(pErr, "eracow: write copied entry")
 	}
-	if _, pErr := s.sm.PutState(&journalRecord{Kind: kind, Subkey: subkey},
-		protocol.NamespaceOption(Namespace),
-		protocol.KeyOption(JournalKey(s.window.FreezeHeight, c.NextSeq)),
-	); pErr != nil {
-		return errors.Wrap(pErr, "eracow: write journal record")
-	}
-	c.NextSeq++
-	return writeControl(s.sm, c)
+	return nil
 }
 
 // -------------------------------------------------------------- resolution --
@@ -867,7 +705,7 @@ var ErrNotFrozen = errors.New("eracow: key did not exist at the freeze height")
 // state manager that owns a key's layout may also carry construction-time
 // global options (see ContractStakingStateReader.globalOpts), and a pair cannot
 // express those. Callers must obtain it from that owner — see
-// staking.FrozenNativeBucket and friends — so the frozen read and the live
+// staking's native and contract frozen readers — so the frozen read and live
 // read/write of the same key are addressed by one expression, not two that have
 // to be kept in agreement by hand. A mismatch here does not fail loudly: the
 // resolve misses, the drain skips the bucket, and the voter is underpaid.

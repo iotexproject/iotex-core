@@ -18,20 +18,9 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
-// The era's poll snapshot is the sole authority on opt-in status. Two kinds of
-// delegate can reach a payout with no snapshot at all: one registered after the
-// freeze height H (unfreezable by construction), and one that existed at H
-// outside the poll list and opted in afterwards. Both are the same real-world
-// situation as a candidate INSIDE the poll list that opts in after H — and that
-// one is frozen as an OnchainRewardEnabled=false placeholder, which routes it
-// to the legacy path.
-//
-// Before the fix the two diverged on nothing but poll-list membership at H: the
-// placeholder case paid legacy, the missing case stayed on the LIVE opt-in flag
-// and so paid on IIP-59 rails at the 100% commission default — the whole amount
-// to the owner, nothing to the voters, no error and no log. For a Hermes-vault
-// delegate that also bypassed the vault, so off-chain Hermes never saw the
-// money and its voters lost it permanently.
+// The era's reward snapshot is the sole authority on opt-in status. A delegate
+// registered after freeze height H, or one that opts in after H, has no snapshot
+// and remains on the legacy path until the next era is frozen.
 //
 // newVoterRewardCtx builds exactly the delegate at issue: owner is
 // identityset.Address(1), its reward address is identityset.Address(2), and
@@ -51,7 +40,7 @@ func TestResolveDelegateRewardRouting_MissingSnapshotIsOffRails(t *testing.T) {
 	r.True(live.VoterRewardOnchainOptIn,
 		"harness must present a live-opted-in delegate or this test proves nothing")
 
-	_, err = staking.PollSnapshotFor(sm, candAddr)
+	_, err = staking.CandidateRewardSnapshotFor(sm, candAddr)
 	r.ErrorIs(err, state.ErrStateNotExist, "no snapshot is the condition under test")
 
 	routing, err := resolveDelegateRewardRouting(sm, candAddr)
@@ -63,39 +52,6 @@ func TestResolveDelegateRewardRouting_MissingSnapshotIsOffRails(t *testing.T) {
 	r.Equal(identityset.Address(2).String(), addr.String(),
 		"payout must go to the legacy reward address (the Hermes vault), not the owner")
 	r.NotEqual(identityset.Address(1).String(), addr.String())
-}
-
-// TestResolveDelegateRewardRouting_MissingAgreesWithPlaceholder is the point of
-// the change: the two ways of expressing "not opted in for this era" must be
-// indistinguishable at the payout. A fix that only special-cased the missing
-// case without matching the placeholder would leave the asymmetry in place.
-func TestResolveDelegateRewardRouting_MissingAgreesWithPlaceholder(t *testing.T) {
-	r := require.New(t)
-
-	resolve := func(withPlaceholder bool) (*delegateRewardRouting, address.Address) {
-		_, sm, _, _, candAddr := newVoterRewardCtx(t, true)
-		if withPlaceholder {
-			// Exactly what FreezePollSnapshot writes for a candidate in the
-			// poll list that was not opted in at H.
-			r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
-				OnchainRewardEnabled: false,
-				FreezeHeight:         20_000,
-				SelfStakeBucketIdx:   staking.NoSelfStakeBucketIndex,
-				TotalWeight:          new(big.Int),
-			}))
-		}
-		routing, err := resolveDelegateRewardRouting(sm, candAddr)
-		r.NoError(err)
-		return routing, routing.PayoutAddress()
-	}
-
-	missing, missingAddr := resolve(false)
-	placeholder, placeholderAddr := resolve(true)
-
-	r.Equal(placeholder.onchainRewardEnabled, missing.onchainRewardEnabled)
-	r.Equal(placeholder.blockCommissionBPs, missing.blockCommissionBPs)
-	r.Equal(placeholder.epochCommissionBPs, missing.epochCommissionBPs)
-	r.Equal(placeholderAddr.String(), missingAddr.String())
 }
 
 // TestDistributeEpochCommissions_MissingSnapshotPaysLegacy walks the real epoch
@@ -199,8 +155,7 @@ func TestDistributeEpochCommissions_FreshSnapshotStaysOnRails(t *testing.T) {
 
 	const currentEraH = uint64(20_000)
 	openEraWindowForTest(t, ctx, sm, currentEraH)
-	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
-		OnchainRewardEnabled: true,
+	r.NoError(staking.TestOnlyPutCandidateRewardSnapshotFor(sm, candAddr, &staking.CandidateRewardSnapshot{
 		// All to voters, so the commission leg never touches the fund and this
 		// test stays about the routing decision.
 		EpochCommissionBasisPoints: 0,

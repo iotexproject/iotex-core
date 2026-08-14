@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
 )
 
 const SetVoterRewardOptInBaseIntrinsicGas = uint64(10000)
@@ -25,8 +24,6 @@ var (
 // SetVoterRewardOptIn enables protocol-native voter reward distribution for a candidate.
 type SetVoterRewardOptIn struct {
 	stake_common
-	candidateIdentifier []byte
-	optIn               bool
 }
 
 func init() {
@@ -41,86 +38,43 @@ func init() {
 	}
 }
 
-func PackVoterRewardOptInSetEvent(candidateIdentifier []byte, optIn bool) (Topics, []byte, error) {
-	data, err := _voterRewardOptInSetEvent.Inputs.NonIndexed().Pack(optIn)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to pack VoterRewardOptInSet event")
-	}
+func VoterRewardOptInSetEvent(candidateIdentifier []byte) Topics {
 	topics := make(Topics, 2)
 	topics[0] = hash.Hash256(_voterRewardOptInSetEvent.ID)
 	topics[1] = hash.BytesToHash256(candidateIdentifier)
-	return topics, data, nil
+	return topics
 }
 
-func NewSetVoterRewardOptIn(candidateIdentifier []byte, optIn bool) *SetVoterRewardOptIn {
-	return &SetVoterRewardOptIn{candidateIdentifier: candidateIdentifier, optIn: optIn}
-}
-
-func (s *SetVoterRewardOptIn) CandidateIdentifier() []byte {
-	return append([]byte(nil), s.candidateIdentifier...)
-}
-
-func (s *SetVoterRewardOptIn) OptIn() bool { return s.optIn }
+func NewSetVoterRewardOptIn() *SetVoterRewardOptIn { return &SetVoterRewardOptIn{} }
 
 func (s *SetVoterRewardOptIn) IntrinsicGas() (uint64, error) {
 	return SetVoterRewardOptInBaseIntrinsicGas, nil
 }
 
-func (s *SetVoterRewardOptIn) SanityCheck() error {
-	if len(s.candidateIdentifier) == 0 {
-		return ErrAddress
-	}
-	return nil
-}
+func (*SetVoterRewardOptIn) SanityCheck() error { return nil }
 
 func (s *SetVoterRewardOptIn) FillAction(act *iotextypes.ActionCore) {
 	act.Action = &iotextypes.ActionCore_SetVoterRewardOptIn{SetVoterRewardOptIn: s.Proto()}
 }
 
 func (s *SetVoterRewardOptIn) Proto() *iotextypes.SetVoterRewardOptIn {
-	return &iotextypes.SetVoterRewardOptIn{
-		CandidateIdentifier: append([]byte(nil), s.candidateIdentifier...),
-		OptIn:               s.optIn,
-	}
+	return &iotextypes.SetVoterRewardOptIn{}
 }
 
 func (s *SetVoterRewardOptIn) LoadProto(pbAct *iotextypes.SetVoterRewardOptIn) error {
 	if pbAct == nil {
 		return ErrNilProto
 	}
-	s.candidateIdentifier = append([]byte(nil), pbAct.GetCandidateIdentifier()...)
-	s.optIn = pbAct.GetOptIn()
 	return nil
 }
 
 func (s *SetVoterRewardOptIn) EthData() ([]byte, error) {
-	data, err := setVoterRewardOptInMethod.Inputs.Pack(s.candidateIdentifier, s.optIn)
-	if err != nil {
-		return nil, err
-	}
-	return append(setVoterRewardOptInMethod.ID, data...), nil
+	return append([]byte(nil), setVoterRewardOptInMethod.ID...), nil
 }
 
 func NewSetVoterRewardOptInFromABIBinary(data []byte) (*SetVoterRewardOptIn, error) {
-	var (
-		paramsMap = map[string]any{}
-		s         SetVoterRewardOptIn
-	)
-	if len(data) <= 4 || !bytes.Equal(setVoterRewardOptInMethod.ID, data[:4]) {
+	if len(data) != 4 || !bytes.Equal(setVoterRewardOptInMethod.ID, data) {
 		return nil, errDecodeFailure
 	}
-	if err := setVoterRewardOptInMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
-		return nil, err
-	}
-	id, ok := paramsMap["candidateIdentifier"].([]byte)
-	if !ok {
-		return nil, errDecodeFailure
-	}
-	optIn, ok := paramsMap["optIn"].(bool)
-	if !ok {
-		return nil, errDecodeFailure
-	}
-	s.candidateIdentifier = id
-	s.optIn = optIn
-	return &s, nil
+	return NewSetVoterRewardOptIn(), nil
 }

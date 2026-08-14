@@ -316,7 +316,7 @@ func (p *Protocol) creditBlockProducer(
 // encodeBlockRewardLog builds the receipt log for a block grant, in whichever
 // of the two wire formats the chain is on. blockCommission is what the producer
 // was actually paid now; post-fork the voter share is attested separately by
-// the batched DelegateDistributed log at era close. A zero payout emits no log
+// the batched DelegateVoterRewardsDistributed log at era close. A zero payout emits no log
 // at all rather than a log naming zero.
 func (p *Protocol) encodeBlockRewardLog(
 	ctx context.Context,
@@ -446,24 +446,24 @@ func (p *Protocol) payDelegateShare(
 	return nil
 }
 
-// resolveStaleDrainCursor deals with a previous era's cursor at the next era
-// boundary. A completed cursor is retired; an incomplete one rolls over via
-// rollOverIncompleteEpochDrain (IIP-59 §10.2).
-func (p *Protocol) resolveStaleDrainCursor(
+// resolveStaleVoterRewardDistribution deals with a previous era's distribution at the next era
+// boundary. A completed distribution is retired; an incomplete one rolls over via
+// rollOverIncompleteVoterRewardDistribution (IIP-59 §10.2).
+func (p *Protocol) resolveStaleVoterRewardDistribution(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) (*action.Log, error) {
-	existing, err := p.readEpochDrainCursor(ctx, sm)
+	existing, err := p.readVoterRewardDistributionState(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
 	if existing == nil {
 		return nil, nil
 	}
-	if existing.drainFinished() {
-		return nil, p.deleteEpochDrainCursor(ctx, sm)
+	if existing.completed() {
+		return nil, p.deleteVoterRewardDistributionState(ctx, sm)
 	}
-	return p.rollOverIncompleteEpochDrain(ctx, sm, existing)
+	return p.rollOverIncompleteVoterRewardDistribution(ctx, sm, existing)
 }
 
 // slashUnproductiveDelegates takes back self-stake from delegates that missed
@@ -582,12 +582,12 @@ func (p *Protocol) freezePendingPoolDrainWork(
 	ctx context.Context,
 	sm protocol.StateManager,
 	eraFreezeHeight uint64,
-) ([]epochDrainDelegateWork, error) {
+) ([]voterRewardDelegateAllocation, error) {
 	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
-	work := make([]epochDrainDelegateWork, 0, len(ids))
+	work := make([]voterRewardDelegateAllocation, 0, len(ids))
 	for _, candID := range ids {
 		amount, err := p.readPendingBlockRewardPool(ctx, sm, candID)
 		if err != nil {
@@ -612,14 +612,14 @@ func (p *Protocol) freezeDelegateDrainWork(
 	candID []byte,
 	totalVoter *big.Int,
 	eraFreezeHeight uint64,
-) (epochDrainDelegateWork, bool, error) {
-	var none epochDrainDelegateWork
+) (voterRewardDelegateAllocation, bool, error) {
+	var none voterRewardDelegateAllocation
 	candAddr, err := address.FromBytes(candID)
 	if err != nil {
 		return none, false, err
 	}
 	stop := startIIP59Duration("cursor_snapshot")
-	snapshot, err := staking.PollSnapshotFor(sm, candAddr)
+	snapshot, err := staking.CandidateRewardSnapshotFor(sm, candAddr)
 	stop()
 	if err != nil && !errors.Is(err, state.ErrStateNotExist) {
 		return none, false, err
@@ -655,14 +655,14 @@ func (p *Protocol) freezeDelegateDrainWork(
 	if snapshot == nil || eraFreezeHeight == 0 || snapshot.FreezeHeight != eraFreezeHeight ||
 		safeBig(snapshot.TotalWeight).Sign() <= 0 {
 		if snapshot != nil && snapshot.FreezeHeight != eraFreezeHeight {
-			log.L().Warn("stale poll snapshot for delegate; deferring voter pool to a later era",
+			log.L().Warn("stale reward snapshot for delegate; deferring voter pool to a later era",
 				zap.String("delegate", candAddr.String()),
 				zap.Uint64("snapshotFreezeHeight", snapshot.FreezeHeight),
 				zap.Uint64("eraFreezeHeight", eraFreezeHeight))
 		}
 		return none, false, nil
 	}
-	return epochDrainDelegateWork{
+	return voterRewardDelegateAllocation{
 		CandidateIdentifier: candID,
 		VoterAmountFrozen:   new(big.Int).Set(totalVoter),
 		TotalWeight:         new(big.Int).Set(snapshot.TotalWeight),
@@ -732,16 +732,16 @@ func (p *Protocol) distributeFoundationBonus(
 	return nil
 }
 
-// persistDrainCursor writes the era's frozen work list together with the seed
+// initializeVoterRewardDistribution writes the era's frozen delegate allocations and seed
 // that determines where the voter walk starts, so a settlement that runs long does not
 // always serve the same corner of the address space first. No entries means no
-// voter drain is queued and no cursor is written — the absence of a cursor is
+// voter distribution is queued and no state is written. The absence of state is
 // what tells later blocks there is nothing to continue.
 //
 // A zero-work era boundary still has to seal the era copy-on-write window.
 // PutPollResult opened that window roughly 1.5 epochs ago, unconditionally, and
-// the only other seal on the normal path is completeEpochDrain — which never
-// runs when no cursor was written. An era with no opted-in delegate, with every
+// the only other seal on the normal path is completeVoterRewardDistribution, which never
+// runs when no distribution state was written. An era with no opted-in delegate, with every
 // delegate on 100% commission, or with an empty pool would therefore leave the
 // window open until the *next* boundary's Begin, and every bucket write in
 // between would pay the copy-on-write cost for a snapshot nobody will read.
@@ -749,7 +749,7 @@ func (p *Protocol) distributeFoundationBonus(
 // The same hole opens on a boundary DECLINED because the LSD owner-index
 // backfill has not finished. The freeze already ran ~1.5 epochs earlier — it
 // keys on the epoch arithmetic alone and knows nothing about the backfill — so
-// a window exists for an era that will produce no cursor and no drain. Hence
+// a window exists for an era that will produce no distribution. Hence
 // the caller passes isEraBoundaryEpoch here rather than the narrower
 // isEraBoundary: this parameter answers "was a window opened for this era",
 // which is a question about the freeze, not about whether the drain runs.
@@ -761,16 +761,16 @@ func (p *Protocol) distributeFoundationBonus(
 // fork.
 //
 // It is deliberately NOT hoisted out of the len(entries)==0 branch: when a
-// cursor was written the drain still needs the window, and completeEpochDrain
+// distribution state was written, reward calculation still needs the window, and completeVoterRewardDistribution
 // seals it at the end. staking.SealEraCOWWindow is idempotent and a no-op when
 // no window is open, so a boundary that never opened one costs nothing.
-func (p *Protocol) persistDrainCursor(
+func (p *Protocol) initializeVoterRewardDistribution(
 	ctx context.Context,
 	sm protocol.StateManager,
 	epochNum uint64,
 	settlementSeed hash.Hash256,
 	freezeHeight uint64,
-	entries []epochDrainDelegateWork,
+	entries []voterRewardDelegateAllocation,
 ) error {
 	if len(entries) == 0 {
 		if err := staking.SealEraCOWWindow(ctx, sm); err != nil {
@@ -784,14 +784,14 @@ func (p *Protocol) persistDrainCursor(
 	for i := range distributed {
 		distributed[i] = new(big.Int)
 	}
-	if err := p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{
-			TargetEra:      epochNum,
-			FreezeHeight:   freezeHeight,
-			SettlementSeed: append([]byte(nil), settlementSeed[:]...),
-			Delegates:      entries,
+	if err := p.writeVoterRewardDistributionState(ctx, sm, &voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{
+			TargetEra:           epochNum,
+			FreezeHeight:        freezeHeight,
+			SettlementSeed:      append([]byte(nil), settlementSeed[:]...),
+			DelegateAllocations: entries,
 		},
-		epochDrainProgress: epochDrainProgress{Distributed: distributed},
+		voterRewardDistributionProgress: voterRewardDistributionProgress{DistributedByDelegate: distributed},
 	}); err != nil {
 		return err
 	}
@@ -833,7 +833,7 @@ func (p *Protocol) GrantEpochReward(
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	g := genesis.MustExtractGenesisContext(ctx)
 	// isEraBoundary is the epoch-arithmetic gate, and it is deliberately
-	// the *identical* expression to the one in freezeIIP59PollSnapshot
+	// the *identical* expression to the one in freezeIIP59RewardState
 	// (poll/util.go). That matters: the freeze is what opens this era's
 	// copy-on-write window, ~1.5 epochs before this block runs, so this
 	// predicate is exactly "a window was opened for this era" and is what the
@@ -876,7 +876,7 @@ func (p *Protocol) GrantEpochReward(
 	var overrunLog *action.Log
 	if isEraBoundary {
 		var err error
-		overrunLog, err = p.resolveStaleDrainCursor(ctx, sm)
+		overrunLog, err = p.resolveStaleVoterRewardDistribution(ctx, sm)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -915,7 +915,7 @@ func (p *Protocol) GrantEpochReward(
 		return nil, nil, err
 	}
 	if isEraBoundary {
-		window, err := staking.EraCOWWindow(sm)
+		window, err := staking.LoadEraCOWWindow(sm)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "rewarding: read era copy-on-write window for drain plan")
 		}
@@ -926,7 +926,7 @@ func (p *Protocol) GrantEpochReward(
 		if err != nil {
 			return nil, nil, err
 		}
-		if err := p.persistDrainCursor(
+		if err := p.initializeVoterRewardDistribution(
 			ctx, sm, epochNum, eraSettlementSeed, window.FreezeHeight, entries,
 		); err != nil {
 			return nil, nil, err
@@ -975,7 +975,7 @@ func (p *Protocol) GrantVoterRewardChunk(
 			"rewarding: voter reward chunk action requires IIP-59 fork")
 	}
 
-	cursor, err := p.readEpochDrainCursor(ctx, sm)
+	cursor, err := p.readVoterRewardDistributionState(ctx, sm)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -987,7 +987,7 @@ func (p *Protocol) GrantVoterRewardChunk(
 		return nil, nil, settleableVoterChunkError(
 			"rewarding: voter reward chunk dispatched without a live cursor")
 	}
-	if cursor.drainFinished() {
+	if cursor.completed() {
 		return nil, nil, settleableVoterChunkError(
 			"rewarding: voter reward chunk dispatched for a completed cursor")
 	}
@@ -1088,7 +1088,7 @@ const _voterScanKeyBudgetPerVoter = 8
 func (p *Protocol) runVoterDistributionChunk(
 	ctx context.Context,
 	sm protocol.StateManager,
-	cursor *epochDrainCursor,
+	cursor *voterRewardDistributionState,
 ) ([]*action.TransactionLog, []*action.Log, error) {
 	stop := startIIP59Duration("chunk_distribution")
 	defer stop()
@@ -1106,15 +1106,15 @@ func (p *Protocol) runVoterDistributionChunk(
 	in := voterShareInputs{
 		window:       window,
 		staking:      routing.stakingProto,
-		delegates:    cursor.Delegates,
-		byCandidate:  delegateWorkIndex(cursor.Delegates),
+		delegates:    cursor.DelegateAllocations,
+		byCandidate:  delegateWorkIndex(cursor.DelegateAllocations),
 		freezeHeight: cursor.FreezeHeight,
 		// Aliased, not copied: the clamp has to see payouts made earlier in this
 		// same block, not only those persisted by earlier blocks.
-		distributed: cursor.Distributed,
+		distributed: cursor.DistributedByDelegate,
 	}
 
-	chunkLogs := make([]delegateChunkLog, len(cursor.Delegates))
+	chunkLogs := make([]delegateChunkLog, len(cursor.DelegateAllocations))
 	routeDurations := iip59RouteDurations{}
 	defer routeDurations.observe()
 
@@ -1132,7 +1132,7 @@ func (p *Protocol) runVoterDistributionChunk(
 	startVoter := settlementStartVoter(cursor.SettlementSeed)
 	minVoter := make([]byte, len(startVoter))
 
-	for !cursor.drainFinished() {
+	for !cursor.completed() {
 		if budget > 0 && (remaining == 0 || keyBudget < 4) {
 			break
 		}
@@ -1145,7 +1145,7 @@ func (p *Protocol) runVoterDistributionChunk(
 		default:
 			return nil, nil, errors.Errorf("rewarding: invalid voter scan phase %d", cursor.ScanPhase)
 		}
-		page, err := staking.FrozenVotersPage(
+		page, err := staking.ScanFrozenVoters(
 			sm, window, rangeStart, rangeEnd, cursor.ResumeVoter,
 			int(remaining), keyBudget,
 		)
@@ -1153,7 +1153,7 @@ func (p *Protocol) runVoterDistributionChunk(
 			return nil, nil, errors.Wrapf(err, "rewarding: scan voter range in phase %d", cursor.ScanPhase)
 		}
 		if budget > 0 {
-			keyBudget -= page.KeysScanned
+			keyBudget -= page.IndexKeysScanned
 		}
 		for _, voter := range page.Voters {
 			tLog, compounded, err := p.settleVoterReward(
@@ -1173,9 +1173,9 @@ func (p *Protocol) runVoterDistributionChunk(
 				remaining--
 			}
 		}
-		cursor.ResumeVoter = append(cursor.ResumeVoter[:0], page.Next...)
-		if !page.Done {
-			if len(page.Voters) == 0 && page.KeysScanned == 0 {
+		cursor.ResumeVoter = append(cursor.ResumeVoter[:0], page.ResumeAfter...)
+		if !page.Complete {
+			if len(page.Voters) == 0 && page.IndexKeysScanned == 0 {
 				return nil, nil, errors.New("rewarding: bounded voter scan made no progress")
 			}
 			continue
@@ -1193,18 +1193,18 @@ func (p *Protocol) runVoterDistributionChunk(
 		transactionLogs = append(transactionLogs, compoundLog)
 	}
 
-	if !cursor.drainFinished() {
-		// Drain still in progress. Persist the cursor and let
+	if !cursor.completed() {
+		// Distribution is still in progress. Persist progress and let
 		// CreatePostSystemActions emit the continuation on the next block.
 		stopWrite := startIIP59Duration("cursor_write_chunk")
-		if err := p.writeEpochDrainProgress(ctx, sm, cursor); err != nil {
+		if err := p.writeVoterRewardDistributionProgress(ctx, sm, cursor); err != nil {
 			return nil, nil, err
 		}
 		stopWrite()
 		return transactionLogs, rewardLogs, nil
 	}
 
-	if err := p.completeEpochDrain(ctx, sm, cursor); err != nil {
+	if err := p.completeVoterRewardDistribution(ctx, sm, cursor); err != nil {
 		return nil, nil, err
 	}
 	return transactionLogs, rewardLogs, nil
@@ -1215,7 +1215,7 @@ func (p *Protocol) runVoterDistributionChunk(
 func validateVoterDrainWindow(
 	ctx context.Context,
 	sr protocol.StateReader,
-	cursor *epochDrainCursor,
+	cursor *voterRewardDistributionState,
 ) (eracow.Window, error) {
 	// Without the contract-staking owner index the walk would complete while
 	// silently omitting every liquid-staking voter.
@@ -1223,7 +1223,7 @@ func validateVoterDrainWindow(
 		return eracow.Window{}, errors.New(
 			"rewarding: contract-staking owner index unavailable; refusing to drain native-only")
 	}
-	window, err := staking.EraCOWWindow(sr)
+	window, err := staking.LoadEraCOWWindow(sr)
 	if err != nil {
 		return eracow.Window{}, errors.Wrap(err, "rewarding: read era copy-on-write window")
 	}
@@ -1247,7 +1247,7 @@ func validateVoterDrainWindow(
 func (p *Protocol) settleVoterReward(
 	ctx context.Context,
 	sm protocol.StateManager,
-	cursor *epochDrainCursor,
+	cursor *voterRewardDistributionState,
 	routing voterRouting,
 	in voterShareInputs,
 	voter address.Address,
@@ -1280,10 +1280,10 @@ func (p *Protocol) settleVoterReward(
 }
 
 // buildVoterChunkLogs produces the block-level compound outflow and one
-// DelegateDistributed event per delegate touched by this chunk.
+// DelegateVoterRewardsDistributed event per delegate touched by this chunk.
 func (p *Protocol) buildVoterChunkLogs(
 	ctx context.Context,
-	cursor *epochDrainCursor,
+	cursor *voterRewardDistributionState,
 	chunkLogs []delegateChunkLog,
 	compoundedTotal *big.Int,
 ) (*action.TransactionLog, []*action.Log, error) {
@@ -1301,7 +1301,7 @@ func (p *Protocol) buildVoterChunkLogs(
 	rewardLogs := make([]*action.Log, 0)
 	for i := range chunkLogs {
 		delegateLog, err := p.packDelegateChunkLog(
-			cursor.TargetEra, cursor.Delegates[i], chunkLogs[i],
+			cursor.TargetEra, cursor.DelegateAllocations[i], chunkLogs[i],
 			blkCtx.BlockHeight, actionCtx.ActionHash,
 		)
 		if err != nil {
@@ -1321,39 +1321,39 @@ func (p *Protocol) buildVoterChunkLogs(
 func (p *Protocol) bookVoterPayout(
 	ctx context.Context,
 	sm protocol.StateManager,
-	cursor *epochDrainCursor,
+	cursor *voterRewardDistributionState,
 	payout voterCombinedPayout,
 ) error {
 	for _, share := range payout.shares {
 		i := share.delegateIndex
-		if i < 0 || i >= len(cursor.Delegates) {
+		if i < 0 || i >= len(cursor.DelegateAllocations) {
 			return errors.Errorf("rewarding: share names delegate %d outside the work list", i)
 		}
 		if share.share == nil || share.share.Sign() <= 0 {
 			continue
 		}
 		if err := p.decrementPendingBlockRewardPool(
-			ctx, sm, cursor.Delegates[i].CandidateIdentifier, share.share,
+			ctx, sm, cursor.DelegateAllocations[i].CandidateIdentifier, share.share,
 		); err != nil {
 			return err
 		}
 		if err := p.updateTotalBalance(ctx, sm, share.share); err != nil {
 			return errors.Wrap(err, "rewarding: debit voter reward outflow")
 		}
-		cursor.Distributed[i] = new(big.Int).Add(cursor.Distributed[i], share.share)
+		cursor.DistributedByDelegate[i] = new(big.Int).Add(cursor.DistributedByDelegate[i], share.share)
 	}
 	return nil
 }
 
-// completeEpochDrain seals the COW window and records completion. Any rounding
+// completeVoterRewardDistribution seals the COW window and records completion. Any rounding
 // residual remains in its pending pool and is eligible for the next era.
-func (p *Protocol) completeEpochDrain(
+func (p *Protocol) completeVoterRewardDistribution(
 	ctx context.Context,
 	sm protocol.StateManager,
-	cursor *epochDrainCursor,
+	cursor *voterRewardDistributionState,
 ) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	// The era's copies exist to serve this drain; once it is done nothing may
+	// The era's copies exist to serve this distribution; once it is done nothing may
 	// read them again, so close the window here rather than at the next
 	// boundary. Sealing also stops the per-write copy hooks, which is the
 	// difference between paying for them for six blocks and paying for them
@@ -1367,7 +1367,7 @@ func (p *Protocol) completeEpochDrain(
 	cursor.ResumeVoter = nil
 	stop := startIIP59Duration("cursor_write_complete")
 	defer stop()
-	if err := p.writeEpochDrainProgress(ctx, sm, cursor); err != nil {
+	if err := p.writeVoterRewardDistributionProgress(ctx, sm, cursor); err != nil {
 		return err
 	}
 	return nil
@@ -1416,17 +1416,17 @@ func (p *Protocol) encodeRewardLog(
 	return proto.Marshal(&rewardLog)
 }
 
-// rollOverIncompleteEpochDrain implements the IIP-59 §10.2 graceful degrade for
+// rollOverIncompleteVoterRewardDistribution implements the IIP-59 §10.2 graceful degrade for
 // a previous era's cursor that remains incomplete at the next era boundary.
 // It sums the residue (pool balance that would have drained had the era
 // completed) across every delegate the stale cursor named, deletes the stale
 // cursor, and returns an EPOCH_DRAIN_OVERRUN log describing the handoff.
 // The pool entries remain in place; the new cursor materialized later in this
 // call picks them up as freshly frozen work for the new era.
-func (p *Protocol) rollOverIncompleteEpochDrain(
+func (p *Protocol) rollOverIncompleteVoterRewardDistribution(
 	ctx context.Context,
 	sm protocol.StateManager,
-	cursor *epochDrainCursor,
+	cursor *voterRewardDistributionState,
 ) (*action.Log, error) {
 	residue, remaining, err := p.computeIncompleteDrainResidue(ctx, sm, cursor)
 	if err != nil {
@@ -1436,7 +1436,7 @@ func (p *Protocol) rollOverIncompleteEpochDrain(
 	if err != nil {
 		return nil, err
 	}
-	if err := p.deleteEpochDrainCursor(ctx, sm); err != nil {
+	if err := p.deleteVoterRewardDistributionState(ctx, sm); err != nil {
 		return nil, err
 	}
 	log.L().Warn("IIP-59: prior era drain incomplete at next era boundary; residue rolls forward",
@@ -1460,12 +1460,12 @@ func (p *Protocol) rollOverIncompleteEpochDrain(
 func (p *Protocol) computeIncompleteDrainResidue(
 	ctx context.Context,
 	sm protocol.StateReader,
-	cursor *epochDrainCursor,
+	cursor *voterRewardDistributionState,
 ) (*big.Int, uint32, error) {
 	residue := new(big.Int)
 	remaining := uint32(0)
-	for i := range cursor.Delegates {
-		bal, err := p.readPendingBlockRewardPool(ctx, sm, cursor.Delegates[i].CandidateIdentifier)
+	for i := range cursor.DelegateAllocations {
+		bal, err := p.readPendingBlockRewardPool(ctx, sm, cursor.DelegateAllocations[i].CandidateIdentifier)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -1516,7 +1516,7 @@ func (p *Protocol) encodeOverrunLog(
 // cursor pile-up without inspecting protocol state. See IIP-59 §10.3.
 func (p *Protocol) encodeCursorProgressLog(
 	ctx context.Context,
-	cursor *epochDrainCursor,
+	cursor *voterRewardDistributionState,
 ) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)

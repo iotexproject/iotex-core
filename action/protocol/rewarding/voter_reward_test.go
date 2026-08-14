@@ -11,12 +11,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-address/address"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
@@ -25,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
@@ -169,12 +172,12 @@ func TestSplitDelegateEpochReward(t *testing.T) {
 // newRoutingShares builds a one-delegate share set for a routing test. Routing
 // is indifferent to how the number was derived; it only moves the total.
 func newRoutingShares(delegate address.Address, amount *big.Int) (voterShareSet, voterShareInputs) {
-	work := epochDrainDelegateWork{
+	work := voterRewardDelegateAllocation{
 		CandidateIdentifier: delegate.Bytes(),
 		VoterAmountFrozen:   new(big.Int).Set(amount),
 		SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
 	}
-	delegates := []epochDrainDelegateWork{work}
+	delegates := []voterRewardDelegateAllocation{work}
 	return voterShareSet{
 			shares: []voterDelegateShare{{
 				delegateIndex: 0,
@@ -191,7 +194,7 @@ func newRoutingShares(delegate address.Address, amount *big.Int) (voterShareSet,
 
 // TestPayVoterCombinedCustomRewardDestination pins that a voter who has
 // registered a reward destination is credited there rather than at their own
-// address, and that the DelegateDistributed row records both.
+// address, and that the DelegateVoterRewardsDistributed row records both.
 func TestPayVoterCombinedCustomRewardDestination(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
@@ -248,7 +251,7 @@ func TestPayVoterCombinedCompoundOverridesCustomRewardDestination(t *testing.T) 
 	})
 	g := genesis.TestDefault()
 
-	csm, err := staking.NewCandidateStateManager(sm)
+	csm, err := staking.NewCandidateStateManagerWithContext(context.Background(), sm)
 	r.NoError(err)
 	delegates, err := staking.TestOnlySeedPerfBenchState(ctx, csm, staking.TestOnlyPerfBenchSpec{
 		NumDelegates:            1,
@@ -312,19 +315,6 @@ func TestPayVoterCombinedCompoundOverridesCustomRewardDestination(t *testing.T) 
 	r.Nil(voterTransactionLog(payout), "compound payout must not emit a direct account transfer")
 }
 
-const delegateDistributedDestinationTestABI = `[{"anonymous":false,"inputs":[
-	{"indexed":true,"name":"epoch","type":"uint64"},
-	{"indexed":true,"name":"delegate","type":"address"},
-	{"indexed":false,"name":"rewardAddr","type":"address"},
-	{"indexed":false,"name":"totalCommission","type":"uint256"},
-	{"indexed":false,"name":"totalVoterPool","type":"uint256"},
-	{"indexed":false,"name":"snapshotHash","type":"bytes32"},
-	{"indexed":false,"name":"voters","type":"address[]"},
-	{"indexed":false,"name":"recipients","type":"address[]"},
-	{"indexed":false,"name":"amounts","type":"uint256[]"},
-	{"indexed":false,"name":"compoundBucketIds","type":"uint64[]"}],
-	"name":"DelegateDistributed","type":"event"}]`
-
 type voterEntry struct {
 	addr   address.Address
 	weight *big.Int
@@ -334,7 +324,7 @@ func writeSnapshot(
 	t *testing.T,
 	sm protocol.StateManager,
 	candAddr address.Address,
-	registered bool,
+	commissionConfigured bool,
 	epochBps uint64,
 	voters []voterEntry,
 ) {
@@ -347,15 +337,14 @@ func writeSnapshot(
 	for _, v := range voters {
 		totalWeight.Add(totalWeight, v.weight)
 	}
-	snap := &staking.CandidatePollSnapshot{
-		OnchainRewardEnabled:       true,
-		Registered:                 registered,
+	snap := &staking.CandidateRewardSnapshot{
+		CommissionConfigured:       commissionConfigured,
 		BlockCommissionBasisPoints: epochBps,
 		EpochCommissionBasisPoints: epochBps,
 		TotalWeight:                totalWeight,
 		FreezeHeight:               iip59FixtureFreezeHeight,
 	}
-	require.NoError(t, staking.TestOnlyPutPollSnapshotFor(sm, candAddr, snap))
+	require.NoError(t, staking.TestOnlyPutCandidateRewardSnapshotFor(sm, candAddr, snap))
 }
 
 // distributionMetadata reads back the denominator era-boundary setup freezes into a work
@@ -367,7 +356,7 @@ func distributionMetadata(
 	candAddr address.Address,
 ) *big.Int {
 	t.Helper()
-	snapshot, err := staking.PollSnapshotFor(sm, candAddr)
+	snapshot, err := staking.CandidateRewardSnapshotFor(sm, candAddr)
 	require.NoError(t, err)
 	return snapshot.TotalWeight
 }
@@ -436,6 +425,13 @@ func newVoterRewardCtx(
 	p := NewProtocol(g.Rewarding)
 	r.NoError(p.Register(registry))
 
+	ctx := genesis.WithGenesisContext(context.Background(), g)
+	ctx = protocol.WithRegistry(ctx, registry)
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 100})
+	ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: identityset.Address(0)})
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	ctx = protocol.WithFeatureCtx(ctx)
+
 	candAddr := identityset.Address(1)
 	cand := &state.Candidate{
 		Identity:      candAddr.String(),
@@ -444,15 +440,8 @@ func newVoterRewardCtx(
 		Votes:         big.NewInt(1_000_000),
 	}
 	r.NoError(staking.TestOnlyPutCandidateRewardAddress(
-		sm, candAddr, candAddr, identityset.Address(2), false, iip59On,
+		ctx, sm, candAddr, candAddr, identityset.Address(2), false, iip59On,
 	))
-
-	ctx := genesis.WithGenesisContext(context.Background(), g)
-	ctx = protocol.WithRegistry(ctx, registry)
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 100})
-	ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: identityset.Address(0)})
-	ctx = protocol.WithFeatureWithHeightCtx(ctx)
-	ctx = protocol.WithFeatureCtx(ctx)
 
 	view, err := stakingProtocol.Start(ctx, sm)
 	r.NoError(err)
@@ -515,4 +504,183 @@ func TestProtocolOptions(t *testing.T) {
 	r.NoError(err)
 	r.Same(fake, got)
 	r.True(factoryCalled)
+}
+
+func TestVoterRewardDestinationState(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+	voter := identityset.Address(7)
+	recipient := identityset.Address(8)
+
+	effective, err := p.effectiveVoterRewardDestination(ctx, sm, voter)
+	r.NoError(err)
+	r.Equal(voter.Bytes(), effective.Bytes())
+	destination, err := p.readVoterRewardDestination(ctx, sm, voter)
+	r.NoError(err)
+	r.Nil(destination)
+
+	oldRecipient, newRecipient, err := p.setVoterRewardDestination(ctx, sm, voter, recipient.Bytes())
+	r.NoError(err)
+	r.Equal(voter.Bytes(), oldRecipient.Bytes())
+	r.Equal(recipient.Bytes(), newRecipient.Bytes())
+	effective, err = p.effectiveVoterRewardDestination(ctx, sm, voter)
+	r.NoError(err)
+	r.Equal(recipient.Bytes(), effective.Bytes())
+	destination, err = p.readVoterRewardDestination(ctx, sm, voter)
+	r.NoError(err)
+	r.Equal(recipient.Bytes(), destination.recipient.Bytes())
+	r.Equal(uint64(100), destination.updatedHeight)
+
+	oldRecipient, newRecipient, err = p.setVoterRewardDestination(ctx, sm, voter, voter.Bytes())
+	r.NoError(err)
+	r.Equal(recipient.Bytes(), oldRecipient.Bytes())
+	r.Equal(voter.Bytes(), newRecipient.Bytes())
+	effective, err = p.effectiveVoterRewardDestination(ctx, sm, voter)
+	r.NoError(err)
+	r.Equal(voter.Bytes(), effective.Bytes())
+	destination, err = p.readVoterRewardDestination(ctx, sm, voter)
+	r.NoError(err)
+	r.Nil(destination)
+	_, err = p.state(ctx, sm, voterRewardDestinationKey(voter), &voterRewardDestination{})
+	r.True(errors.Is(err, state.ErrStateNotExist), "reset must delete sparse override state")
+
+	r.NoError(p.putState(ctx, sm, voterRewardDestinationKey(voter), &voterRewardDestination{recipient: recipient}))
+	_, _, err = p.setVoterRewardDestination(ctx, sm, voter, nil)
+	r.NoError(err)
+	effective, err = p.effectiveVoterRewardDestination(ctx, sm, voter)
+	r.NoError(err)
+	r.Equal(voter.Bytes(), effective.Bytes())
+}
+
+func TestVoterRewardDestinationValidationGate(t *testing.T) {
+	r := require.New(t)
+	act := action.NewSetVoterRewardDestination(identityset.Address(8).Bytes())
+	elp := (&action.EnvelopeBuilder{}).SetAction(act).Build()
+
+	preForkCtx, preForkSM, preForkProtocol, _, _ := newVoterRewardCtx(t, false)
+	r.Error(preForkProtocol.Validate(preForkCtx, elp, preForkSM))
+
+	postForkCtx, postForkSM, postForkProtocol, _, _ := newVoterRewardCtx(t, true)
+	r.NoError(postForkProtocol.Validate(postForkCtx, elp, postForkSM))
+
+	invalid := (&action.EnvelopeBuilder{}).
+		SetAction(action.NewSetVoterRewardDestination([]byte{1, 2, 3})).Build()
+	r.Error(postForkProtocol.Validate(postForkCtx, invalid, postForkSM))
+}
+
+func TestVoterRewardDestinationRejectsMalformedStoredState(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+	voter := identityset.Address(7)
+	zero := mustTestAddress(t, make([]byte, common.AddressLength))
+
+	for _, destination := range []*voterRewardDestination{
+		{},
+		{recipient: zero, updatedHeight: 1},
+	} {
+		data, err := destination.Serialize()
+		r.NoError(err)
+		decoded := &voterRewardDestination{}
+		err = decoded.Deserialize(data)
+		r.Error(err)
+	}
+
+	r.NoError(p.putState(ctx, sm, voterRewardDestinationKey(voter), &voterRewardDestination{
+		recipient: voter, updatedHeight: 1,
+	}))
+	_, err := p.readVoterRewardDestination(ctx, sm, voter)
+	r.Error(err)
+}
+
+func mustTestAddress(t *testing.T, raw []byte) address.Address {
+	t.Helper()
+	addr, err := address.FromBytes(raw)
+	require.NoError(t, err)
+	return addr
+}
+
+func TestCompoundIntoNativeBucketZero(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    100,
+		BlockTimeStamp: time.Unix(100, 0).UTC(),
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Tip: protocol.TipInfo{Height: 99},
+	})
+	testdb.AllowRevert(sm.(*mock_chainmanager.MockStateManager))
+
+	voter := identityset.Address(3)
+	bucketID, err := staking.TestOnlySeedNativeVoterBucket(
+		sm, candAddr, voter, big.NewInt(1_000), 30, time.Unix(0, 0).UTC(), true,
+	)
+	r.NoError(err)
+	r.Zero(bucketID, "the fixture must exercise a genuine native bucket 0")
+
+	csr, err := staking.ConstructBaseView(sm)
+	r.NoError(err)
+	bucket, err := csr.NativeBucket(0)
+	r.NoError(err)
+	r.True(autodeposit.IsBucketEligibleForCompound(bucket, voter))
+	stakedBefore := new(big.Int).Set(bucket.StakedAmount)
+
+	g := genesis.TestDefault()
+	csm, err := staking.NewCandidateStateManagerWithContext(context.Background(), sm)
+	r.NoError(err)
+	cand := csm.GetByIdentifier(candAddr)
+	r.NotNil(cand)
+	cand = cand.Clone()
+	cand.Votes = staking.CalculateVoteWeight(g.VoteWeightCalConsts, bucket, false)
+	r.NoError(csm.Upsert(cand))
+	r.NoError(csm.DebitBucketPool(bucket.StakedAmount, true))
+	r.NoError(csm.Commit(ctx))
+
+	bridge, err := autodeposit.New(identityset.Address(0).String())
+	r.NoError(err)
+	p.autoDepositBridge = bridge
+	p.autoDepositBucketReaderFactory = func(autodeposit.SlotReader) autodeposit.BucketReader {
+		return &registeredBucketReader{voter: voter, bucketID: 0}
+	}
+	routing, err := p.resolveVoterRouting(ctx, sm)
+	r.NoError(err)
+
+	amount := big.NewInt(777)
+	shares, in := newRoutingShares(candAddr, amount)
+	payout, err := p.payVoterCombined(ctx, sm, routing, in, voter, shares, &iip59RouteDurations{})
+	r.NoError(err)
+	r.True(payout.compounded, "a compound into bucket 0 must be recorded as compounded")
+	r.Zero(payout.compoundBucketID)
+
+	updatedCSR, err := staking.ConstructBaseView(sm)
+	r.NoError(err)
+	updated, err := updatedCSR.NativeBucket(0)
+	r.NoError(err)
+	r.Zero(updated.StakedAmount.Cmp(new(big.Int).Add(stakedBefore, amount)))
+	r.Nil(voterTransactionLog(payout),
+		"a compound into bucket 0 must not emit a CLAIM_FROM_REWARDING_FUND log")
+
+	rows := make([]delegateChunkLog, 1)
+	recordVoterPayout(rows, payout)
+	r.Equal([]bool{true}, rows[0].compounded)
+	r.Equal([]uint64{0}, rows[0].compoundBucketIDs)
+	r.Equal([]address.Address{voter}, rows[0].voters)
+}
+
+func TestNonCompoundedPayoutCarriesBucketZeroWithFalseFlag(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
+	voter := identityset.Address(3)
+	routing, err := p.resolveVoterRouting(ctx, sm)
+	r.NoError(err)
+	shares, in := newRoutingShares(candAddr, big.NewInt(500))
+	payout, err := p.payVoterCombined(ctx, sm, routing, in, voter, shares, &iip59RouteDurations{})
+	r.NoError(err)
+	r.False(payout.compounded)
+	r.Zero(payout.compoundBucketID, "an uncompounded payout leaves the id at its zero value")
+	r.NotNil(voterTransactionLog(payout), "a direct credit is a real transfer and must be logged")
+	rows := make([]delegateChunkLog, 1)
+	recordVoterPayout(rows, payout)
+	r.Equal([]bool{false}, rows[0].compounded)
+	r.Equal([]uint64{0}, rows[0].compoundBucketIDs)
 }

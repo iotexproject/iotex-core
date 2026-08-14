@@ -108,18 +108,18 @@ func TestComputeVoterSharesClampsToPool(t *testing.T) {
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 	c := newClampFixture(t, ctx, sm, p, 3)
 
-	cursor, err := p.readEpochDrainCursor(ctx, sm)
+	cursor, err := p.readVoterRewardDistributionState(ctx, sm)
 	r.NoError(err)
 	r.NotNil(cursor)
-	window, err := staking.EraCOWWindow(sm)
+	window, err := staking.LoadEraCOWWindow(sm)
 	r.NoError(err)
 	in := voterShareInputs{
 		window:       window,
 		staking:      staking.FindProtocol(protocol.MustGetRegistry(ctx)),
-		delegates:    cursor.Delegates,
-		byCandidate:  delegateWorkIndex(cursor.Delegates),
+		delegates:    cursor.DelegateAllocations,
+		byCandidate:  delegateWorkIndex(cursor.DelegateAllocations),
 		freezeHeight: cursor.FreezeHeight,
-		distributed:  cursor.Distributed,
+		distributed:  cursor.DistributedByDelegate,
 	}
 
 	// Walk the voters in address order, accumulating into the
@@ -133,8 +133,8 @@ func TestComputeVoterSharesClampsToPool(t *testing.T) {
 		r.NoError(err)
 		for _, s := range shares.shares {
 			r.True(s.share.Sign() > 0, "a zero share must not be recorded at all")
-			cursor.Distributed[s.delegateIndex] = new(big.Int).Add(
-				cursor.Distributed[s.delegateIndex], s.share,
+			cursor.DistributedByDelegate[s.delegateIndex] = new(big.Int).Add(
+				cursor.DistributedByDelegate[s.delegateIndex], s.share,
 			)
 			running.Add(running, s.share)
 		}
@@ -156,10 +156,10 @@ func TestComputeVoterSharesRefusesWorkItemWithoutFreezeHeight(t *testing.T) {
 	f := seedIIP59DrainState(t, ctx, sm, iip59FixtureFreezeHeight, []iip59NativeSeed{
 		{delegate: delegate, voter: voter, amount: 1_000_000_000_000_000_000},
 	}, nil)
-	window, err := staking.EraCOWWindow(sm)
+	window, err := staking.LoadEraCOWWindow(sm)
 	r.NoError(err)
 
-	work := epochDrainDelegateWork{
+	work := voterRewardDelegateAllocation{
 		CandidateIdentifier: delegate.Bytes(),
 		VoterAmountFrozen:   big.NewInt(100),
 		TotalWeight:         f.totalWeightOf(delegate),
@@ -170,8 +170,8 @@ func TestComputeVoterSharesRefusesWorkItemWithoutFreezeHeight(t *testing.T) {
 	_, err = computeVoterShares(sm, voterShareInputs{
 		window:      window,
 		staking:     staking.FindProtocol(protocol.MustGetRegistry(ctx)),
-		delegates:   []epochDrainDelegateWork{work},
-		byCandidate: delegateWorkIndex([]epochDrainDelegateWork{work}),
+		delegates:   []voterRewardDelegateAllocation{work},
+		byCandidate: delegateWorkIndex([]voterRewardDelegateAllocation{work}),
 		distributed: []*big.Int{new(big.Int)},
 	}, voter)
 	r.Error(err)
@@ -210,11 +210,11 @@ func newClampFixture(
 	}))
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, delegate.Bytes(), pool))
 	r.NoError(p.updateAvailableBalance(ctx, sm, pool))
-	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{
+	r.NoError(p.writeVoterRewardDistributionState(ctx, sm, &voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{
 			TargetEra:    1,
 			FreezeHeight: iip59FixtureFreezeHeight,
-			Delegates: []epochDrainDelegateWork{{
+			DelegateAllocations: []voterRewardDelegateAllocation{{
 				CandidateIdentifier: delegate.Bytes(),
 				VoterAmountFrozen:   pool,
 				TotalWeight:         understated,
@@ -291,7 +291,7 @@ func TestLapsedSelfStakeBonusCannotOverpayDelegatePool(t *testing.T) {
 		{delegate: delegate, voter: ordinary[0], amount: rau},
 		{delegate: delegate, voter: ordinary[1], amount: 2 * rau},
 	}, nil)
-	window, err := staking.EraCOWWindow(sm)
+	window, err := staking.LoadEraCOWWindow(sm)
 	r.NoError(err)
 	stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx))
 	r.NotNil(stakingProto)
@@ -325,11 +325,11 @@ func TestLapsedSelfStakeBonusCannotOverpayDelegatePool(t *testing.T) {
 	}))
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, delegate.Bytes(), pool))
 	r.NoError(p.updateAvailableBalance(ctx, sm, pool))
-	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		epochDrainPlan: epochDrainPlan{
+	r.NoError(p.writeVoterRewardDistributionState(ctx, sm, &voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{
 			TargetEra:    1,
 			FreezeHeight: iip59FixtureFreezeHeight,
-			Delegates: []epochDrainDelegateWork{{
+			DelegateAllocations: []voterRewardDelegateAllocation{{
 				CandidateIdentifier: delegate.Bytes(),
 				VoterAmountFrozen:   pool,
 				TotalWeight:         totalWeight,
@@ -388,4 +388,104 @@ func TestLapsedSelfStakeBonusCannotOverpayDelegatePool(t *testing.T) {
 	r.NoError(err)
 	r.Zero(left.Sign(), "pool must be exhausted, and never negative")
 	r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, voters))
+}
+
+// TestVoterDrainPayoutsUnchangedByScalarSnapshot pins the payout amounts after
+// replacing the materialized per-voter snapshot with a scalar denominator.
+func TestVoterDrainPayoutsUnchangedByScalarSnapshot(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	delegates := []address.Address{identityset.Address(4), identityset.Address(5)}
+	voters := []address.Address{
+		identityset.Address(8), identityset.Address(9),
+		identityset.Address(10), identityset.Address(11),
+	}
+	const rau = int64(1_000_000_000_000_000_000)
+	const pool = int64(999_997)
+
+	seeds := make([]iip59NativeSeed, 0, len(delegates)*len(voters))
+	for di, delegate := range delegates {
+		for vi, voter := range voters {
+			seeds = append(seeds, iip59NativeSeed{
+				delegate: delegate, voter: voter,
+				amount: int64(di*3+vi+1) * rau,
+			})
+		}
+	}
+	s := newDrainScenario(t, ctx, sm, p, []byte{0x5c, 0x11}, pool, seeds, nil)
+
+	before := accountBalances(t, sm, delegates)
+	drainCollectingVoterPayouts(t, ctx, sm, p, voters)
+
+	done, err := p.readVoterRewardDistributionState(ctx, sm)
+	r.NoError(err)
+	r.NotNil(done)
+	r.True(done.completed())
+
+	after := accountBalances(t, sm, delegates)
+	balances := accountBalances(t, sm, voters)
+	wantVoter := map[string]int64{
+		identityset.Address(8).String():  281_816,
+		identityset.Address(9).String():  427_271,
+		identityset.Address(10).String(): 572_725,
+		identityset.Address(11).String(): 718_178,
+	}
+	gotVoter := make(map[string]int64, len(voters))
+	for _, voter := range voters {
+		gotVoter[voter.String()] = balances[voter.String()].Int64()
+	}
+	r.Equal(wantVoter, gotVoter, "per-voter payouts drifted")
+
+	wantResidual := map[string]int64{
+		identityset.Address(4).String(): 2,
+		identityset.Address(5).String(): 2,
+	}
+	gotResidual := make(map[string]int64, len(delegates))
+	for _, delegate := range delegates {
+		left, readErr := p.readPendingBlockRewardPool(ctx, sm, delegate.Bytes())
+		r.NoError(readErr)
+		gotResidual[delegate.String()] = left.Int64()
+		r.Zero(after[delegate.String()].Cmp(before[delegate.String()]),
+			"delegate %s must not receive a residual sweep", delegate)
+	}
+	r.Equal(wantResidual, gotResidual, "per-delegate pending residuals drifted")
+
+	grandTotal := new(big.Int)
+	for _, work := range done.DelegateAllocations {
+		grandTotal.Add(grandTotal, work.VoterAmountFrozen)
+	}
+	r.Equal(int64(len(delegates))*pool, grandTotal.Int64())
+
+	moved := new(big.Int)
+	for _, voter := range voters {
+		moved.Add(moved, balances[voter.String()])
+	}
+	residual := new(big.Int)
+	for _, amount := range gotResidual {
+		residual.Add(residual, big.NewInt(amount))
+	}
+	r.Zero(new(big.Int).Add(moved, residual).Cmp(grandTotal))
+
+	for _, delegate := range delegates {
+		oldDenominator := new(big.Int)
+		for _, voter := range voters {
+			oldDenominator.Add(oldDenominator, s.fixture.weightOf(delegate, voter))
+		}
+		r.True(oldDenominator.Sign() > 0, "fixture must carry non-zero weight")
+		r.Zero(oldDenominator.Cmp(s.fixture.totalWeightOf(delegate)),
+			"the fixture's running total must equal the sum over its per-voter weights")
+		persisted, sErr := staking.CandidateRewardSnapshotFor(sm, delegate)
+		r.NoError(sErr)
+		r.Zero(oldDenominator.Cmp(persisted.TotalWeight),
+			"delegate %s: frozen scalar TotalWeight != sum of the pre-refactor entry list",
+			delegate.String())
+		for _, voter := range voters {
+			want := new(big.Int).Mul(big.NewInt(pool), s.fixture.weightOf(delegate, voter))
+			want.Div(want, oldDenominator)
+			r.Zero(want.Cmp(s.fixture.expectedShare(delegate, voter, s.poolOf(delegate))),
+				"delegate %s voter %s share drifted from the pre-refactor formula",
+				delegate.String(), voter.String())
+		}
+	}
 }

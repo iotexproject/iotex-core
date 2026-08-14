@@ -45,22 +45,19 @@ func resolveDelegateRewardRouting(
 		return nil, err
 	}
 	routing := &delegateRewardRouting{
-		candidate:            candidate,
-		onchainRewardEnabled: candidate.VoterRewardOnchainOptIn,
-		blockCommissionBPs:   _basisPointsDenom,
-		epochCommissionBPs:   _basisPointsDenom,
+		candidate:          candidate,
+		blockCommissionBPs: _basisPointsDenom,
+		epochCommissionBPs: _basisPointsDenom,
 	}
 
 	// Snapshot absence means the delegate was not opted in at this era's
 	// freeze. A live opt-in takes effect only when the next snapshot is frozen.
-	snap, err := staking.PollSnapshotFor(sr, candID)
+	snap, err := staking.CandidateRewardSnapshotFor(sr, candID)
 	switch {
 	case err == nil:
-		routing.onchainRewardEnabled = snap.OnchainRewardEnabled
-		if snap.OnchainRewardEnabled {
-			routing.blockCommissionBPs = snap.BlockCommissionBasisPoints
-			routing.epochCommissionBPs = snap.EpochCommissionBasisPoints
-		}
+		routing.onchainRewardEnabled = true
+		routing.blockCommissionBPs = snap.BlockCommissionBasisPoints
+		routing.epochCommissionBPs = snap.EpochCommissionBasisPoints
 	case errors.Is(err, state.ErrStateNotExist):
 		routing.onchainRewardEnabled = false
 	default:

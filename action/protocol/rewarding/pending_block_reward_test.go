@@ -169,7 +169,7 @@ func TestPendingBlockRewardPool_EnumerationIsolatesEntries(t *testing.T) {
 }
 
 // TestCandidateIdentifierBytes — the address-parse helper mirrors the
-// identifier convention used by staking.PollSnapshotFor.
+// identifier convention used by staking.CandidateRewardSnapshotFor.
 func TestCandidateIdentifierBytes(t *testing.T) {
 	r := require.New(t)
 

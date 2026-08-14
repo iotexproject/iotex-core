@@ -70,7 +70,7 @@ func drainVoterIndexes(votersPerDelegate int) []int {
 //
 // Planting buckets is not optional after P5. The drain walks the voter key
 // space and recomputes weights from frozen buckets; it never reads
-// CandidatePollSnapshot.Entries. A fixture that writes only snapshots presents
+// CandidateRewardSnapshot.Entries. A fixture that writes only snapshots presents
 // the drain with an empty key space, both scan ranges complete in the first
 // block, and every "the drain paid X" assertion passes vacuously.
 func seedPoolAccrualsForRewardedDelegates(
@@ -101,17 +101,16 @@ func seedPoolAccrualsForRewardedDelegates(
 	return seedIIP59DrainState(t, ctx, sm, iip59FixtureFreezeHeight, seeds, nil)
 }
 
-// seedSameShardDrain is seedPoolAccrualsForRewardedDelegates with every voter
-// forced under one address prefix, so a budget-limited chunk is guaranteed to
-// stop part-way through a scan range.
-func seedSameShardDrain(
+// seedDenseRangeDrain places every voter under one address prefix, so a
+// budget-limited chunk is guaranteed to stop part-way through a scan range.
+func seedDenseRangeDrain(
 	t *testing.T,
 	ctx context.Context,
 	sm protocol.StateManager,
 	p *Protocol,
 	perDelegate int64,
 	votersPerDelegate int,
-	shard byte,
+	prefix byte,
 ) *iip59DrainFixture {
 	t.Helper()
 	r := require.New(t)
@@ -125,7 +124,7 @@ func seedSameShardDrain(
 		for j := 0; j < votersPerDelegate; j++ {
 			seeds = append(seeds, iip59NativeSeed{
 				delegate: identityset.Address(idx),
-				voter:    sameShardVoter(shard, i*votersPerDelegate+j),
+				voter:    voterWithPrefix(prefix, i*votersPerDelegate+j),
 				amount:   int64(j+1) * rau,
 			})
 		}
@@ -168,7 +167,7 @@ func runDrainToCompletion(
 	r.NoError(err)
 	chunks := 0
 	for {
-		got, gErr := p.readEpochDrainCursor(ctx, sm)
+		got, gErr := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(gErr)
 		if got == nil || got.ScanPhase == voterScanDone {
 			break
@@ -198,7 +197,7 @@ func TestGrantEpochReward_SettlementStartUsesOneSeed(t *testing.T) {
 		_, _, err = p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
 
-		cursor, err := p.readEpochDrainCursor(ctx, sm)
+		cursor, err := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
 		r.NotNil(cursor)
 		expectedSeed := settlementSeed(ctx, cursor.TargetEra)
@@ -212,7 +211,7 @@ func TestGrantEpochReward_SettlementStartUsesOneSeed(t *testing.T) {
 
 		// The delegate work list is in canonical pending-pool key order, and the
 		// plan carries the era's single freeze height.
-		r.Len(cursor.Delegates, len(rewardedCandidateIndexes))
+		r.Len(cursor.DelegateAllocations, len(rewardedCandidateIndexes))
 		expectedIDs := make([][]byte, 0, len(rewardedCandidateIndexes))
 		for _, index := range rewardedCandidateIndexes {
 			expectedIDs = append(expectedIDs, identityset.Address(index).Bytes())
@@ -220,7 +219,7 @@ func TestGrantEpochReward_SettlementStartUsesOneSeed(t *testing.T) {
 		sort.Slice(expectedIDs, func(i, j int) bool {
 			return bytes.Compare(expectedIDs[i], expectedIDs[j]) < 0
 		})
-		for i, work := range cursor.Delegates {
+		for i, work := range cursor.DelegateAllocations {
 			r.Equal(expectedIDs[i], work.CandidateIdentifier)
 			r.NotZero(cursor.FreezeHeight)
 		}
@@ -323,8 +322,8 @@ func TestChunkedDrain_InvariantAcrossChunkSizes(t *testing.T) {
 
 	// TestOnlyDumpRewardState treats a completed cursor as inactive so the
 	// distribution state comparison remains independent of chunk count.
-	r.False(snapChunk1.CursorPresent, "cursor must be absent at end of chunkSize=1 drain")
-	r.False(snapChunkUnbounded.CursorPresent, "cursor must be absent at end of chunkSize=0 drain")
+	r.False(snapChunk1.VoterRewardDistributionPresent, "distribution must be absent at end of chunkSize=1 run")
+	r.False(snapChunkUnbounded.VoterRewardDistributionPresent, "distribution must be absent at end of chunkSize=0 run")
 }
 
 // TestChunkedDrain_ReplayFromPersistedCursor confirms the cursor is a
@@ -377,14 +376,14 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		r.NoError(err)
 		midDrain, err = p.TestOnlyDumpRewardState(ctx, sm, allProtocolAddrs(t))
 		r.NoError(err)
-		r.True(midDrain.CursorPresent, "Phase-A snapshot must observe a live cursor")
-		r.Equal(uint32(voterScanTail), midDrain.CursorScanPhase)
-		r.Equal(uint32(0), midDrain.CursorResumeLen)
+		r.True(midDrain.VoterRewardDistributionPresent, "snapshot must observe a live voter reward distribution")
+		r.Equal(uint32(voterScanTail), midDrain.VoterRewardScanPhase)
+		r.Equal(uint32(0), midDrain.VoterRewardResumeVoterLen)
 
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
 		r.NoError(err)
 		for {
-			cursor, readErr := p.readEpochDrainCursor(ctx, sm)
+			cursor, readErr := p.readVoterRewardDistributionState(ctx, sm)
 			r.NoError(readErr)
 			if cursor == nil || cursor.ScanPhase == voterScanDone {
 				break
@@ -423,16 +422,16 @@ func TestChunkedDrain_VoterBudgetStopsMidVoterScan(t *testing.T) {
 		r.NoError(err)
 		// All twelve voters share an address prefix, so a one-voter budget
 		// necessarily stops inside one of the two scan ranges.
-		seedSameShardDrain(t, ctx, sm, p, 200, 3, 0x7a)
+		seedDenseRangeDrain(t, ctx, sm, p, 200, 3, 0x7a)
 
 		_, _, err = p.GrantEpochReward(ctx, sm)
 		r.NoError(err)
 
 		// Snapshot the frozen cursor for later comparison.
-		frozen, err := p.readEpochDrainCursor(ctx, sm)
+		frozen, err := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
 		r.NotNil(frozen)
-		r.Equal(len(rewardedCandidateIndexes), len(frozen.Delegates),
+		r.Equal(len(rewardedCandidateIndexes), len(frozen.DelegateAllocations),
 			"era-boundary setup must have frozen one entry per rewarded delegate")
 
 		// One call pays exactly one voter because voterBudget=1.
@@ -440,7 +439,7 @@ func TestChunkedDrain_VoterBudgetStopsMidVoterScan(t *testing.T) {
 		r.NoError(err)
 		r.Len(txLogs, 1, "a budget of one voter must produce exactly one transfer")
 
-		cursor, err := p.readEpochDrainCursor(ctx, sm)
+		cursor, err := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
 		r.NotNil(cursor)
 		r.NotEqual(voterScanDone, cursor.ScanPhase, "one voter out of twelve cannot finish the drain")
@@ -451,7 +450,7 @@ func TestChunkedDrain_VoterBudgetStopsMidVoterScan(t *testing.T) {
 
 		// Exactly one delegate's running total moved, and by the amount paid.
 		moved := 0
-		for i := range cursor.Delegates {
+		for i := range cursor.DelegateAllocations {
 			if cursor.distributedAt(i).Sign() > 0 {
 				moved++
 			}
@@ -501,7 +500,7 @@ func findRewardLogsOfType(
 //   - Seed candidate 27's pool with 250 rau.
 //   - Write a stale era-N cursor pinning candidate 27 with DelegateIndex=0,
 //     asserting the delegate has not yet been drained. The pool balance
-//     is what rollOverIncompleteEpochDrain sums as residue, so the cursor's
+//     is what rollOverIncompleteVoterRewardDistribution sums as residue, so the cursor's
 //     VoterAmountFrozen field is intentionally set to a bogus value (999)
 //     to prove the residue path reads live pool state, not the frozen
 //     amount.
@@ -530,11 +529,10 @@ func TestEraBoundary_IncompleteDrainRollsResidueIntoNextEra(t *testing.T) {
 		candID := identityset.Address(27).Bytes()
 		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(250)))
 		r.NoError(p.updateAvailableBalance(ctx, sm, big.NewInt(250)))
-		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, identityset.Address(27), &staking.CandidatePollSnapshot{
-			OnchainRewardEnabled:       true,
+		r.NoError(staking.TestOnlyPutCandidateRewardSnapshotFor(sm, identityset.Address(27), &staking.CandidateRewardSnapshot{
 			BlockCommissionBasisPoints: _basisPointsDenom,
 			EpochCommissionBasisPoints: _basisPointsDenom,
-			Registered:                 true,
+			CommissionConfigured:       true,
 			TotalWeight:                big.NewInt(1),
 			FreezeHeight:               iip59FixtureFreezeHeight,
 		}))
@@ -543,15 +541,15 @@ func TestEraBoundary_IncompleteDrainRollsResidueIntoNextEra(t *testing.T) {
 		// VoterAmountFrozen deliberately does NOT match the live pool
 		// balance — the residue path must read pool state, not the frozen
 		// field.
-		stale := &epochDrainCursor{
-			epochDrainPlan: epochDrainPlan{
+		stale := &voterRewardDistributionState{
+			voterRewardDistributionPlan: voterRewardDistributionPlan{
 				TargetEra: 1,
-				Delegates: []epochDrainDelegateWork{
+				DelegateAllocations: []voterRewardDelegateAllocation{
 					{CandidateIdentifier: candID, VoterAmountFrozen: big.NewInt(999)},
 				},
 			},
 		}
-		r.NoError(p.writeEpochDrainCursor(ctx, sm, stale))
+		r.NoError(p.writeVoterRewardDistributionState(ctx, sm, stale))
 
 		// Advance to epoch 2's last block so GrantEpochReward runs era-boundary setup
 		// for era-N+1.
@@ -575,7 +573,7 @@ func TestEraBoundary_IncompleteDrainRollsResidueIntoNextEra(t *testing.T) {
 
 		// New cursor must have TargetEra=2 (the fresh era) — proves the
 		// stale era-1 cursor was deleted before era-boundary setup wrote its own.
-		next, err := p.readEpochDrainCursor(ctx, sm)
+		next, err := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
 		r.NotNil(next, "era-N+1 boundary setup must produce a cursor from the surviving pool residual")
 		r.Equal(uint64(2), next.TargetEra, "stale cursor deletion must precede fresh materialisation")
@@ -583,7 +581,7 @@ func TestEraBoundary_IncompleteDrainRollsResidueIntoNextEra(t *testing.T) {
 		// The candidate 27 entry in the new cursor must carry the 250 rau
 		// residue (no fresh voter share in this fixture, so residue only).
 		var carried int64
-		for _, w := range next.Delegates {
+		for _, w := range next.DelegateAllocations {
 			if string(w.CandidateIdentifier) == string(candID) {
 				carried = w.VoterAmountFrozen.Int64()
 			}
@@ -630,15 +628,15 @@ func TestEraBoundary_IncompleteDrainWithZeroResidue(t *testing.T) {
 		// seeded — the residue sum walks the delegate list, reads zero
 		// from each pool key, and returns 0.
 		candID := identityset.Address(27).Bytes()
-		stale := &epochDrainCursor{
-			epochDrainPlan: epochDrainPlan{
+		stale := &voterRewardDistributionState{
+			voterRewardDistributionPlan: voterRewardDistributionPlan{
 				TargetEra: 1,
-				Delegates: []epochDrainDelegateWork{
+				DelegateAllocations: []voterRewardDelegateAllocation{
 					{CandidateIdentifier: candID, VoterAmountFrozen: big.NewInt(999)},
 				},
 			},
 		}
-		r.NoError(p.writeEpochDrainCursor(ctx, sm, stale))
+		r.NoError(p.writeVoterRewardDistributionState(ctx, sm, stale))
 
 		// Advance to epoch 2's last block.
 		rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
@@ -674,7 +672,7 @@ func TestEraBoundary_IncompleteDrainWithZeroResidue(t *testing.T) {
 		// Stale cursor must be gone. Either no cursor (no pool accrual for
 		// any rewarded delegate → era-boundary setup skips materialisation) OR a fresh
 		// era-N+1 cursor. Either way, TargetEra must not be 1.
-		next, err := p.readEpochDrainCursor(ctx, sm)
+		next, err := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
 		if next != nil {
 			r.NotEqual(uint64(1), next.TargetEra, "stale era-1 cursor must not survive")

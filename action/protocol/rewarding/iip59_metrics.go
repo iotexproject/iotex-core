@@ -31,7 +31,7 @@ var (
 	// a Failure receipt, and the cursor is left exactly where it was. That is
 	// deliberate (degrade the item, never abort the block) but it makes the
 	// failure invisible from chain data alone -- the next era boundary's
-	// writeEpochDrainCursor replaces both plan and progress, so a chunk that
+	// writeVoterRewardDistributionState replaces both plan and progress, so a chunk that
 	// keeps failing quietly discards an era of voter payouts at the boundary.
 	// These two are the only signal an operator gets before that happens.
 	_iip59DrainChunkFailureMtc = prometheus.NewCounter(

@@ -34,7 +34,7 @@ type voterShareSet struct {
 type voterShareInputs struct {
 	window       eracow.Window
 	staking      *staking.Protocol
-	delegates    []epochDrainDelegateWork
+	delegates    []voterRewardDelegateAllocation
 	byCandidate  map[string]int
 	freezeHeight uint64
 	distributed  []*big.Int
@@ -63,7 +63,7 @@ func computeVoterShares(
 	voter address.Address,
 ) (voterShareSet, error) {
 	out := voterShareSet{total: new(big.Int)}
-	candidates, err := staking.FrozenVoterCandidates(sr, in.window, voter)
+	candidates, err := staking.FrozenCandidatesForVoter(sr, in.window, voter)
 	if err != nil {
 		return out, err
 	}
@@ -154,7 +154,7 @@ func computeVoterShares(
 // delegateWorkIndex maps candidate identifier bytes to a position in the frozen
 // work list. Built once per call; only ever read by key, never iterated, so it
 // introduces no map-ordering nondeterminism.
-func delegateWorkIndex(delegates []epochDrainDelegateWork) map[string]int {
+func delegateWorkIndex(delegates []voterRewardDelegateAllocation) map[string]int {
 	byCandidate := make(map[string]int, len(delegates))
 	for i := range delegates {
 		byCandidate[string(delegates[i].CandidateIdentifier)] = i

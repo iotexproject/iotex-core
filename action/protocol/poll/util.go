@@ -216,8 +216,8 @@ func setCandidates(
 			return errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
 		}
 	}
-	if err := freezeIIP59PollSnapshot(ctx, sm, epochNum); err != nil {
-		return errors.Wrap(err, "failed to freeze IIP-59 poll snapshot")
+	if err := freezeIIP59RewardState(ctx, sm, epochNum); err != nil {
+		return errors.Wrap(err, "failed to freeze IIP-59 reward state")
 	}
 	if loadCandidatesLegacy {
 		key, org := candidatesutil.ConstructLegacyKeyWithOrg(height)
@@ -229,11 +229,11 @@ func setCandidates(
 	return err
 }
 
-// freezeIIP59PollSnapshot writes the per-candidate poll snapshot introduced
-// by IIP-59, capturing commission rates from the DelegateProfile contract.
+// freezeIIP59RewardState freezes the per-candidate reward inputs and then
+// opens the bucket copy-on-write window at the same explicit height.
 //
 // It deliberately does not hand the poll list down. What gets frozen is the
-// opted-in candidate set, which FreezePollSnapshot enumerates from the
+// opted-in candidate set, which FreezeCandidateRewardSnapshots enumerates from the
 // candidate center; the poll list is a vote-score-ranked subset on a different
 // cadence and the two drift within an era. This function is here for its
 // TIMING, not for its argument — PutPollResult is simply the last thing that
@@ -245,9 +245,9 @@ func setCandidates(
 // therefore on the right epoch — but the action itself is created around the
 // MIDPOINT OF THE PRECEDING EPOCH (see createPostSystemActions above, which
 // returns nil until blockHeight >= epochHeight + epochLen/2). So the freeze
-// height H that FreezePollSnapshot stamps into the snapshot, and that
-// beginEraCOWWindow opens the window at, is half an epoch BEFORE the era
-// boundary epoch starts — and the drain's cursor is not created until the last
+// height H passed to FreezeCandidateRewardSnapshots and BeginEraCOWWindow is
+// half an epoch BEFORE the era boundary epoch starts — and the drain's cursor
+// is not created until the last
 // block of that boundary epoch, ~1.5 epochs after H (~2,160 blocks, ~90 minutes
 // on mainnet).
 //
@@ -263,11 +263,11 @@ func setCandidates(
 // runs on a per-era cadence (IIP-59 §8), so freezing at every PutPollResult
 // would waste state writes and would shorten the span of stake activity that
 // participates in the era's reward math.
-// Post-fork, era boundary, no contract configured: bridge nil, snapshot
-// carries zero commission rates, so all rewards go to voters.
+// Post-fork, era boundary, no contract configured: bridge nil, snapshot uses
+// the full-owner commission fallback.
 // Post-fork, era boundary, contract configured: bridge called; snapshot
-// carries frozen rates + registration bit.
-func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, epochNum uint64) error {
+// carries frozen rates + commission-configuration bit.
+func freezeIIP59RewardState(ctx context.Context, sm protocol.StateManager, epochNum uint64) error {
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	if fCtx.NoVoterRewardDistribution {
 		return nil
@@ -289,7 +289,11 @@ func freezeIIP59PollSnapshot(ctx context.Context, sm protocol.StateManager, epoc
 		bridge = b
 		reader = delegateProfileContractReader(sm)
 	}
-	return staking.FreezePollSnapshot(ctx, sm, bridge, reader)
+	freezeHeight := protocol.MustGetBlockCtx(ctx).BlockHeight
+	if err := staking.FreezeCandidateRewardSnapshots(ctx, sm, bridge, reader, freezeHeight); err != nil {
+		return err
+	}
+	return staking.BeginEraCOWWindow(ctx, sm, freezeHeight)
 }
 
 // _delegateProfileViewCallGasLimit bounds the simulated DelegateProfile view

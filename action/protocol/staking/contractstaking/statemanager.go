@@ -3,6 +3,7 @@ package contractstaking
 import (
 	"bytes"
 	"context"
+	"math"
 	"sort"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -17,12 +18,6 @@ import (
 type ContractStakingStateManager struct {
 	ContractStakingStateReader
 	sm protocol.StateManager
-	// erigonOnly is true when this manager was built with
-	// protocol.ErigonStoreOnlyOption. Such a manager is a mirror writer: the
-	// authoritative trie writes for the same buckets are made later in the
-	// block by the view commit path. It therefore takes no part in the IIP-59
-	// era copy-on-write layer, which lives in the trie.
-	erigonOnly bool
 	// cow is the IIP-59 era copy-on-write session, built on first use so that a
 	// manager constructed pre-activation never touches state.
 	cow *eracow.Session
@@ -30,14 +25,9 @@ type ContractStakingStateManager struct {
 
 // NewContractStakingStateManager creates a new ContractStakingStateManager
 func NewContractStakingStateManager(sm protocol.StateManager, opts ...protocol.StateOption) *ContractStakingStateManager {
-	erigonOnly := false
-	if cfg, err := protocol.CreateStateConfig(opts...); err == nil {
-		erigonOnly = cfg.ErigonStoreOnly
-	}
 	return &ContractStakingStateManager{
 		ContractStakingStateReader: *NewStateReader(sm, opts...),
 		sm:                         sm,
-		erigonOnly:                 erigonOnly,
 	}
 }
 
@@ -47,9 +37,6 @@ func NewContractStakingStateManager(sm protocol.StateManager, opts ...protocol.S
 // pre-activation. The session caches the era window, which is why it must not
 // outlive the block: every construction site of this manager is per-block.
 func (cs *ContractStakingStateManager) cowSession(ctx context.Context) *eracow.Session {
-	if cs.erigonOnly {
-		return nil
-	}
 	if cs.cow == nil {
 		cs.cow = eracow.NewSession(ctx, cs.sm)
 	}
@@ -67,24 +54,29 @@ func (cs *ContractStakingStateManager) cowSession(ctx context.Context) *eracow.S
 // Receipt processing rewrites these buckets on essentially every block, so the
 // extra read is deliberately behind the window check: it happens only while an
 // era drain is actually outstanding.
-func (cs *ContractStakingStateManager) snapshotBucketForEra(ctx context.Context, contractAddr address.Address, bucketID uint64) error {
+func (cs *ContractStakingStateManager) snapshotBucketForEra(ctx context.Context, contractAddr address.Address, bucketID uint64, prior *Bucket) error {
 	s := cs.cowSession(ctx)
 	active, err := s.Active()
 	if err != nil || !active {
 		return err
 	}
-	// A nil *Bucket inside a non-nil interface would be recorded as "existed at
-	// H and serialized to nothing", so the absent case stays a nil interface
-	// and becomes a tombstone.
-	var prior state.Serializer
-	switch prev, bErr := cs.Bucket(contractAddr, bucketID); {
-	case bErr == nil:
-		prior = prev
-	case errors.Is(bErr, ErrBucketNotExist), errors.Cause(bErr) == state.ErrStateNotExist:
-	default:
-		return bErr
+	if prior == nil {
+		return s.SnapshotContractBucket(contractAddr.Bytes(), bucketID, nil)
 	}
 	return s.SnapshotContractBucket(contractAddr.Bytes(), bucketID, prior)
+}
+
+// priorBucket returns the bucket before a mutation, or nil when it is new.
+func (cs *ContractStakingStateManager) priorBucket(contractAddr address.Address, bucketID uint64) (*Bucket, error) {
+	prior, err := cs.Bucket(contractAddr, bucketID)
+	switch {
+	case err == nil:
+		return prior, nil
+	case errors.Is(err, ErrBucketNotExist), errors.Cause(err) == state.ErrStateNotExist:
+		return nil, nil
+	default:
+		return nil, err
+	}
 }
 
 // snapshotOwnerIndexForEra copies an owner's contract-staking bucket list into
@@ -124,14 +116,22 @@ func (cs *ContractStakingStateManager) UpsertBucketType(contractAddr address.Add
 // ctx carries the fork gate for the owner index only; the bucket write itself
 // is unconditional and byte-for-byte what it was before the index existed.
 func (cs *ContractStakingStateManager) DeleteBucket(ctx context.Context, contractAddr address.Address, bucketID uint64) error {
+	var prior *Bucket
+	if OwnerIndexEnabled(ctx) {
+		var err error
+		prior, err = cs.priorBucket(contractAddr, bucketID)
+		if err != nil {
+			return err
+		}
+	}
 	// IIP-59: a bucket that counted towards the era being drained must keep
 	// its as-of-H value even after it is burned.
-	if err := cs.snapshotBucketForEra(ctx, contractAddr, bucketID); err != nil {
+	if err := cs.snapshotBucketForEra(ctx, contractAddr, bucketID, prior); err != nil {
 		return err
 	}
 	// Read the owner before the delete, while the bucket is still there.
 	if OwnerIndexEnabled(ctx) {
-		if err := cs.indexDelete(ctx, contractAddr, bucketID); err != nil {
+		if err := cs.indexDelete(ctx, contractAddr, bucketID, prior); err != nil {
 			return err
 		}
 	}
@@ -147,15 +147,23 @@ func (cs *ContractStakingStateManager) DeleteBucket(ctx context.Context, contrac
 // This and DeleteBucket are the only writers of contract-staking bucket state,
 // which is what makes them the single choke point for the owner index.
 func (cs *ContractStakingStateManager) UpsertBucket(ctx context.Context, contractAddr address.Address, bid uint64, bucket *Bucket) error {
+	var prior *Bucket
+	if OwnerIndexEnabled(ctx) {
+		var err error
+		prior, err = cs.priorBucket(contractAddr, bid)
+		if err != nil {
+			return err
+		}
+	}
 	// IIP-59: capture the value this write is about to replace, so the era
 	// drain keeps seeing the bucket as it stood at the boundary.
-	if err := cs.snapshotBucketForEra(ctx, contractAddr, bid); err != nil {
+	if err := cs.snapshotBucketForEra(ctx, contractAddr, bid, prior); err != nil {
 		return err
 	}
 	// Read the prior bucket before overwriting it, so an owner change can be
 	// detected and the ref moved off the old owner's list.
 	if OwnerIndexEnabled(ctx) {
-		if err := cs.indexUpsert(ctx, contractAddr, bid, bucket); err != nil {
+		if err := cs.indexUpsert(ctx, contractAddr, bid, bucket, prior); err != nil {
 			return err
 		}
 		// IIP-59: every contract whose buckets can count towards a voter's
@@ -238,17 +246,18 @@ func (cs *ContractStakingStateManager) UpdateNumOfBuckets(contractAddr address.A
 	return err
 }
 
-// BucketHighWaterMarks returns every staking contract's bucket high-water mark,
-// sorted ascending by contract address, for freezing into an IIP-59 era window.
+// BucketIndexUpperBounds returns every staking contract's exclusive bucket
+// index upper bound, sorted ascending by contract address, for freezing into an
+// IIP-59 era window.
 //
 // The values come from the contract meta namespace, which holds exactly one
 // small record per registered staking contract and nothing else, so this is a
-// bounded scan rather than a state walk. The number it reads is the max bucket
-// id ever seen for the contract: it is only ever raised, never lowered, and
+// bounded scan rather than a state walk. The stored number is the max bucket id
+// ever seen for the contract: it is only ever raised, never lowered, and
 // contract bucket ids are minted from a strictly monotonic counter that burning
 // does not touch. A bucket id above the frozen mark therefore cannot have
-// existed at the freeze height. Note this is an *inclusive* bound -- the mark
-// is an id that exists, not one past the end.
+// existed at the freeze height. This function converts that inclusive mark to
+// an exclusive upper bound, matching native bucket semantics.
 //
 // Post-IIP-59 the mark is maintained for every contract by
 // ContractStakingStateManager.RaiseNumOfBuckets, hooked into UpsertBucket. Do
@@ -263,7 +272,7 @@ func (cs *ContractStakingStateManager) UpdateNumOfBuckets(contractAddr address.A
 //
 // Sorted output matters: this ends up in a consensus record, and map iteration
 // order would make two nodes disagree byte-for-byte on identical state.
-func BucketHighWaterMarks(sr protocol.StateReader) ([]eracow.ContractBucketCount, error) {
+func BucketIndexUpperBounds(sr protocol.StateReader) ([]eracow.ContractBucketLimit, error) {
 	_, iter, err := sr.States(protocol.NamespaceOption(state.StakingContractMetaNamespace))
 	if err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
@@ -271,7 +280,7 @@ func BucketHighWaterMarks(sr protocol.StateReader) ([]eracow.ContractBucketCount
 		}
 		return nil, errors.Wrap(err, "failed to enumerate staking contracts")
 	}
-	out := make([]eracow.ContractBucketCount, 0, iter.Size())
+	out := make([]eracow.ContractBucketLimit, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
 		var sc StakingContract
 		key, err := iter.Next(&sc)
@@ -286,9 +295,12 @@ func BucketHighWaterMarks(sr protocol.StateReader) ([]eracow.ContractBucketCount
 			// a stray key must not become a 20-byte-address-shaped lie.
 			continue
 		}
-		out = append(out, eracow.ContractBucketCount{
-			Contract:     append([]byte{}, key...),
-			NumOfBuckets: sc.NumOfBuckets,
+		if sc.NumOfBuckets == math.MaxUint64 {
+			return nil, errors.Errorf("bucket high-water mark of contract %x cannot be converted to an exclusive bound", key)
+		}
+		out = append(out, eracow.ContractBucketLimit{
+			Contract:              append([]byte{}, key...),
+			BucketIndexUpperBound: sc.NumOfBuckets + 1,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return bytes.Compare(out[i].Contract, out[j].Contract) < 0 })

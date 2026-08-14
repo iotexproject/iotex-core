@@ -54,7 +54,7 @@ func TestMigrateHermesRewardOptInThroughCreatePreStates(t *testing.T) {
 	candidateID := identityset.Address(1)
 	vault := identityset.Address(10)
 	g.HermesRewardVaultAddresses = []string{vault.String()}
-	r.NoError(TestOnlyPutCandidateRewardAddress(sm, candidateID, candidateID, vault, false, false))
+	r.NoError(TestOnlyPutCandidateRewardAddress(context.Background(), sm, candidateID, candidateID, vault, false, false))
 
 	readOptIn := func() bool {
 		candidate, _, err := NewCandidateByAddressReader(sm).CandidateByAddress(candidateID)
@@ -69,7 +69,7 @@ func TestMigrateHermesRewardOptInThroughCreatePreStates(t *testing.T) {
 	r.True(readOptIn(), "candidate must be migrated at activation")
 
 	lateCandidateID := identityset.Address(2)
-	r.NoError(TestOnlyPutCandidateRewardAddress(sm, lateCandidateID, lateCandidateID, vault, false, false))
+	r.NoError(TestOnlyPutCandidateRewardAddress(context.Background(), sm, lateCandidateID, lateCandidateID, vault, false, false))
 	r.NoError(p.CreatePreStates(backfillPreStatesCtx(g, backfillActivationHeight+1), sm))
 	r.True(readOptIn(), "the persisted migration must survive later blocks")
 	lateCandidate, _, err := NewCandidateByAddressReader(sm).CandidateByAddress(lateCandidateID)

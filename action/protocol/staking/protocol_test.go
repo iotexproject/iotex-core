@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/eracow"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
@@ -37,12 +38,11 @@ func TestProtocol(t *testing.T) {
 	r.Equal(byte(1), _bucket)
 	r.Equal(byte(2), _voterIndex)
 	r.Equal(byte(3), _candIndex)
-	r.Equal(byte(8), _lsdVoterIndex)
-	// The owner -> contract-staking bucket index is written from the
-	// contractstaking package, which keeps its own copy of the tag. protocol.go
-	// asserts this at compile time; assert it here too so a reader of the tag
-	// list sees the coupling.
-	r.Equal(_lsdVoterIndex, contractstaking.LSDVoterIndexPrefix)
+	r.Equal(byte(4), _endorsement)
+	r.Equal(byte(5), _candidateRewardSnapshot)
+	r.Equal(byte(6), contractstaking.LSDVoterIndexPrefix)
+	r.Equal(byte(7), eracow.ControlPrefix)
+	r.Equal(byte(8), eracow.EntryPrefix)
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -140,7 +140,7 @@ func TestProtocol(t *testing.T) {
 	_, ok := v.(*viewData)
 	r.True(ok)
 
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 	r.NoError(err)
 	// load a number of candidates
 	for _, e := range testCandidates {
@@ -239,7 +239,7 @@ func TestCreatePreStates(t *testing.T) {
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	require.NoError(sm.WriteView(_protocolID, v))
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 	require.NoError(err)
 	require.NotNil(csm)
 	require.NoError(p.CreatePreStates(ctx, sm))
@@ -314,7 +314,7 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	_, err = NewCandidateStateManager(sm)
+	_, err = NewCandidateStateManagerWithContext(context.Background(), sm)
 	require.Error(err)
 
 	require.NoError(sm.WriteView(_protocolID, v))
@@ -523,7 +523,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 		}
 		candCfgs := []*candidateConfig{}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
 		r.NoError(err)
@@ -540,7 +540,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
@@ -558,7 +558,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
@@ -577,7 +577,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[1])
@@ -595,7 +595,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
@@ -613,7 +613,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestStateWithHeight(t, ctrl, bucketCfgs, candCfgs, 0)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
@@ -631,7 +631,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestStateWithHeight(t, ctrl, bucketCfgs, candCfgs, 2)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
 		r.NoError(err)
@@ -675,7 +675,7 @@ func TestSlashCandidate(t *testing.T) {
 			},
 		},
 	}))
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 	require.NoError(err)
 
 	p := &Protocol{

@@ -124,7 +124,7 @@ func TestLapsedEndorsementDivergesSelfStakePredicates(t *testing.T) {
 				total:           &totalAmount{amount: big.NewInt(0)},
 			},
 		}))
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		_, err = csm.putBucket(bucket)
 		r.NoError(err)

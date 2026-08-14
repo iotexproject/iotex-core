@@ -8,42 +8,23 @@ package staking
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 func (p *Protocol) handleSetVoterRewardOptIn(
-	ctx context.Context, act *action.SetVoterRewardOptIn, csm CandidateStateManager,
+	ctx context.Context, _ *action.SetVoterRewardOptIn, csm CandidateStateManager,
 ) (*receiptLog, []*action.TransactionLog, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
-	id, err := address.FromBytes(act.CandidateIdentifier())
-	if err != nil {
-		return nil, nil, &handleError{
-			err: errors.Wrap(err, "invalid candidate identifier"), failureStatus: iotextypes.ReceiptStatus_ErrCandidateNotExist,
-		}
-	}
-	cand := csm.GetByIdentifier(id)
+	cand := csm.GetByOwner(actCtx.Caller)
 	if cand == nil {
 		return nil, nil, errCandNotExist
-	}
-	if !address.Equal(actCtx.Caller, cand.Owner) {
-		return nil, nil, &handleError{
-			err: errors.New("caller is not the candidate owner"), failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
-		}
 	}
 	cand.VoterRewardOnchainOptIn = true
 	if err := csm.Upsert(cand); err != nil {
 		return nil, nil, csmErrorToHandleError(cand.GetIdentifier().String(), err)
 	}
-	topics, eventData, err := action.PackVoterRewardOptInSetEvent(cand.GetIdentifier().Bytes(), true)
-	if err != nil {
-		return nil, nil, err
-	}
 	rLog := newReceiptLog(p.addr.String())
-	rLog.AddEvent(topics, eventData)
+	rLog.AddEvent(action.VoterRewardOptInSetEvent(cand.GetIdentifier().Bytes()), nil)
 	return rLog, nil, nil
 }

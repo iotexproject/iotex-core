@@ -17,89 +17,30 @@ import (
 )
 
 const _iip59InterfaceABI = `[
-	{"inputs":[{"name":"candidateId","type":"address"}],"name":"pendingBlockRewardPool","outputs":[{"name":"amount","type":"uint256"}],"stateMutability":"view","type":"function"},
-	{"inputs":[],"name":"pendingBlockRewardPoolIndex","outputs":[{"name":"candidateIds","type":"address[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[],"name":"eraDrainCursorV2","outputs":[{"name":"targetEra","type":"uint64"},{"name":"completed","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"freezeHeight","type":"uint64"},{"name":"startVoter","type":"address"},{"name":"scanPhase","type":"uint32"},{"name":"resumeVoter","type":"bytes"},{"name":"settlementSeed","type":"bytes32"},{"name":"candidateIds","type":"address[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"},{"name":"selfStakeBucketIdxs","type":"uint64[]"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardDelegateSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"registered","type":"bool"},{"name":"onchainRewardEnabled","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"freezeHeight","type":"uint64"},{"name":"selfStakeBucketIdx","type":"uint64"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"name":"candidateId","type":"address"}],"name":"voterRewardAddress","outputs":[{"name":"rewardAddress","type":"address"},{"name":"explicitlySet","type":"bool"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"name":"voter","type":"address"}],"name":"voterRewardDestination","outputs":[{"name":"recipient","type":"address"},{"name":"explicitlySet","type":"bool"},{"name":"updatedHeight","type":"uint64"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"name":"voter","type":"address"}],"name":"voterRewardStatus","outputs":[{"name":"targetEra","type":"uint64"},{"name":"eraStartEpoch","type":"uint64"},{"name":"eraEndEpoch","type":"uint64"},{"name":"settlementCompleted","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"status","type":"uint8"},{"name":"rewardAmount","type":"uint256"}],"stateMutability":"view","type":"function"}
+	{"inputs":[{"name":"delegateId","type":"address"}],"name":"pendingVoterReward","outputs":[{"name":"amount","type":"uint256"}],"stateMutability":"view","type":"function"},
+	{"inputs":[],"name":"pendingVoterRewardDelegates","outputs":[{"name":"delegateIds","type":"address[]"}],"stateMutability":"view","type":"function"},
+	{"inputs":[],"name":"voterRewardDistribution","outputs":[{"name":"targetEra","type":"uint64"},{"name":"completed","type":"bool"},{"name":"completedHeight","type":"uint64"},{"name":"freezeHeight","type":"uint64"},{"name":"startVoter","type":"address"},{"name":"scanPhase","type":"uint32"},{"name":"resumeVoter","type":"bytes"},{"name":"settlementSeed","type":"bytes32"},{"name":"delegateIds","type":"address[]"},{"name":"voterAmounts","type":"uint256[]"},{"name":"distributedAmounts","type":"uint256[]"},{"name":"totalWeights","type":"uint256[]"},{"name":"selfStakeBucketIdxs","type":"uint64[]"}],"stateMutability":"view","type":"function"},
+	{"inputs":[{"name":"delegateId","type":"address"}],"name":"delegateRewardSnapshot","outputs":[{"name":"blockCommissionBasisPoints","type":"uint64"},{"name":"epochCommissionBasisPoints","type":"uint64"},{"name":"commissionConfigured","type":"bool"},{"name":"totalWeight","type":"uint256"},{"name":"freezeHeight","type":"uint64"},{"name":"selfStakeBucketIdx","type":"uint64"}],"stateMutability":"view","type":"function"},
+	{"inputs":[{"name":"delegateId","type":"address"}],"name":"delegatePayoutAddress","outputs":[{"name":"payoutAddress","type":"address"},{"name":"onchainRewardEnabled","type":"bool"}],"stateMutability":"view","type":"function"},
+	{"inputs":[{"name":"voter","type":"address"}],"name":"voterRewardDestination","outputs":[{"name":"recipient","type":"address"},{"name":"explicitlySet","type":"bool"},{"name":"updatedHeight","type":"uint64"}],"stateMutability":"view","type":"function"}
 ]`
 
 var (
-	_pendingBlockRewardPoolMethod      abi.Method
-	_pendingBlockRewardPoolIndexMethod abi.Method
-	// Not named epochDrainCursor, for the same reason the snapshot view below is
-	// not named voterRewardSnapshot. That name took no arguments, so keeping it
-	// would have kept its 4-byte selector while the tuple underneath it changed
-	// shape: the per-delegate (delegateIndex, voterIndex, delegateStartIndex,
-	// voterStartIndices) quartet is gone, replaced by the circular voter scan
-	// fields (startVoter, scanPhase, resumeVoter). A caller built against the old
-	// ABI would decode the scan phase as a delegate index and read a plausible,
-	// wrong cursor.
-	_eraDrainCursorMethod abi.Method
-	// The delegate snapshot view is deliberately not named voterRewardSnapshot.
-	// That name once returned (…, address[] voters, uint256[] weights) off the
-	// materialized per-voter entry list; the list is gone and the tuple now ends
-	// in (uint64 freezeHeight, uint64 selfStakeBucketIdx). Keeping the old name
-	// would keep the old 4-byte selector and decode the new tuple as the old one
-	// for every caller that never rebuilt. IIP-59 is unactivated, so the old
-	// selector is removed outright rather than aliased.
-	_voterRewardDelegateSnapshotMethod abi.Method
-	_voterRewardAddressMethod          abi.Method
+	_pendingVoterRewardMethod          abi.Method
+	_pendingVoterRewardDelegatesMethod abi.Method
+	_voterRewardDistributionMethod     abi.Method
+	_delegateRewardSnapshotMethod      abi.Method
+	_delegatePayoutAddressMethod       abi.Method
 	_voterRewardDestinationMethod      abi.Method
-	_voterRewardStatusMethod           abi.Method
 )
 
 func init() {
-	_pendingBlockRewardPoolMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "pendingBlockRewardPool")
-	_pendingBlockRewardPoolIndexMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "pendingBlockRewardPoolIndex")
-	_eraDrainCursorMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "eraDrainCursorV2")
-	_voterRewardDelegateSnapshotMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardDelegateSnapshot")
-	_voterRewardAddressMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardAddress")
+	_pendingVoterRewardMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "pendingVoterReward")
+	_pendingVoterRewardDelegatesMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "pendingVoterRewardDelegates")
+	_voterRewardDistributionMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardDistribution")
+	_delegateRewardSnapshotMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "delegateRewardSnapshot")
+	_delegatePayoutAddressMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "delegatePayoutAddress")
 	_voterRewardDestinationMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardDestination")
-	_voterRewardStatusMethod = abiutil.MustLoadMethod(_iip59InterfaceABI, "voterRewardStatus")
-}
-
-type VoterRewardStatusStateContext struct {
-	*protocolctx.BaseStateContext
-}
-
-func newVoterRewardStatusStateContext(data []byte) (*VoterRewardStatusStateContext, error) {
-	params := make(map[string]interface{})
-	if err := _voterRewardStatusMethod.Inputs.UnpackIntoMap(params, data); err != nil {
-		return nil, err
-	}
-	// One argument. The drain pays a voter once for their whole entitlement
-	// across every delegate, so there is no per-candidate answer to ask for.
-	voter, ok := params["voter"].(common.Address)
-	if !ok {
-		return nil, errDecodeFailure
-	}
-	voterAddress, err := address.FromBytes(voter.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	return &VoterRewardStatusStateContext{&protocolctx.BaseStateContext{Parameter: &protocolctx.Parameters{
-		MethodName: []byte("VoterRewardStatus"),
-		Arguments:  [][]byte{[]byte(voterAddress.String())},
-	}}}, nil
-}
-
-func (r *VoterRewardStatusStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
-	status := &rewardingpb.VoterRewardStatus{}
-	if err := proto.Unmarshal(resp.Data, status); err != nil {
-		return "", err
-	}
-	data, err := _voterRewardStatusMethod.Outputs.Pack(
-		status.GetTargetEra(), status.GetEraStartEpoch(), status.GetEraEndEpoch(),
-		status.GetSettlementCompleted(), status.GetCompletedHeight(), uint8(status.GetStatus()),
-		new(big.Int).SetBytes(status.GetRewardAmount()),
-	)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(data), nil
 }
 
 type iip59AddressStateContext struct {
@@ -134,20 +75,16 @@ func newIIP59AddressStateContext(
 	}, nil
 }
 
-func newPendingBlockRewardPoolStateContext(data []byte) (*iip59AddressStateContext, error) {
-	return newIIP59AddressStateContext(data, _pendingBlockRewardPoolMethod, "PendingBlockRewardPool", "candidateId")
+func newPendingVoterRewardStateContext(data []byte) (*iip59AddressStateContext, error) {
+	return newIIP59AddressStateContext(data, _pendingVoterRewardMethod, "PendingVoterReward", "delegateId")
 }
 
-// newVoterRewardDelegateSnapshotStateContext builds the per-delegate snapshot
-// read. The native ReadState method keeps its original name: only the eth ABI
-// tuple changed, and the repo pairs a renamed selector with an unchanged native
-// method elsewhere too (candidateByAddressV4 → CANDIDATE_BY_ADDRESS).
-func newVoterRewardDelegateSnapshotStateContext(data []byte) (*iip59AddressStateContext, error) {
-	return newIIP59AddressStateContext(data, _voterRewardDelegateSnapshotMethod, "VoterRewardSnapshot", "candidateId")
+func newDelegateRewardSnapshotStateContext(data []byte) (*iip59AddressStateContext, error) {
+	return newIIP59AddressStateContext(data, _delegateRewardSnapshotMethod, "DelegateRewardSnapshot", "delegateId")
 }
 
-func newVoterRewardAddressStateContext(data []byte) (*iip59AddressStateContext, error) {
-	return newIIP59AddressStateContext(data, _voterRewardAddressMethod, "VoterRewardAddress", "candidateId")
+func newDelegatePayoutAddressStateContext(data []byte) (*iip59AddressStateContext, error) {
+	return newIIP59AddressStateContext(data, _delegatePayoutAddressMethod, "DelegatePayoutAddress", "delegateId")
 }
 
 func newVoterRewardDestinationStateContext(data []byte) (*iip59AddressStateContext, error) {
@@ -160,32 +97,27 @@ func (r *iip59AddressStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse)
 		err  error
 	)
 	switch r.method.Name {
-	case _pendingBlockRewardPoolMethod.Name:
+	case _pendingVoterRewardMethod.Name:
 		amount, ok := new(big.Int).SetString(string(resp.Data), 10)
 		if !ok {
 			return "", errConvertBigNumber
 		}
 		data, err = r.method.Outputs.Pack(amount)
-	case _voterRewardDelegateSnapshotMethod.Name:
-		// The `voters` and `weights` arrays this used to return are gone with
-		// the frozen entry list they came from. Callers that wanted a specific
-		// voter's standing call voterRewardStatus(voter), which is per-voter
-		// and sums across every delegate the voter is frozen against;
-		// freezeHeight and selfStakeBucketIdx are returned in their place.
-		snapshot := &stakingpb.CandidatePollSnapshot{}
+	case _delegateRewardSnapshotMethod.Name:
+		snapshot := &stakingpb.CandidateRewardSnapshot{}
 		if err = proto.Unmarshal(resp.Data, snapshot); err == nil {
 			data, err = r.method.Outputs.Pack(
 				snapshot.GetBlockCommissionBasisPoints(), snapshot.GetEpochCommissionBasisPoints(),
-				snapshot.GetRegistered(), snapshot.GetOnchainRewardEnabled(),
+				snapshot.GetCommissionConfigured(),
 				new(big.Int).SetBytes(snapshot.GetTotalWeight()), snapshot.GetFreezeHeight(),
 				snapshot.GetSelfStakeBucketIdx(),
 			)
 		}
-	case _voterRewardAddressMethod.Name:
-		state := &rewardingpb.VoterRewardAddress{}
+	case _delegatePayoutAddressMethod.Name:
+		state := &rewardingpb.DelegatePayoutAddress{}
 		if err = proto.Unmarshal(resp.Data, state); err == nil {
 			data, err = r.method.Outputs.Pack(
-				common.BytesToAddress(state.GetAddress()), state.GetExplicitlySet(),
+				common.BytesToAddress(state.GetAddress()), state.GetOnchainRewardEnabled(),
 			)
 		}
 	case _voterRewardDestinationMethod.Name:
@@ -204,48 +136,48 @@ func (r *iip59AddressStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse)
 	return hex.EncodeToString(data), nil
 }
 
-type PendingBlockRewardPoolIndexStateContext struct {
+type PendingVoterRewardDelegatesStateContext struct {
 	*protocolctx.BaseStateContext
 }
 
-func newPendingBlockRewardPoolIndexStateContext() (*PendingBlockRewardPoolIndexStateContext, error) {
-	return &PendingBlockRewardPoolIndexStateContext{&protocolctx.BaseStateContext{Parameter: &protocolctx.Parameters{
-		MethodName: []byte("PendingBlockRewardPoolIndex"),
+func newPendingVoterRewardDelegatesStateContext() (*PendingVoterRewardDelegatesStateContext, error) {
+	return &PendingVoterRewardDelegatesStateContext{&protocolctx.BaseStateContext{Parameter: &protocolctx.Parameters{
+		MethodName: []byte("PendingVoterRewardDelegates"),
 	}}}, nil
 }
 
-func (r *PendingBlockRewardPoolIndexStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
-	index := &rewardingpb.PendingBlockRewardPoolIndex{}
-	if err := proto.Unmarshal(resp.Data, index); err != nil {
+func (r *PendingVoterRewardDelegatesStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
+	delegates := &rewardingpb.PendingVoterRewardDelegates{}
+	if err := proto.Unmarshal(resp.Data, delegates); err != nil {
 		return "", err
 	}
-	ids := make([]common.Address, len(index.GetCandidateIdentifiers()))
-	for i, id := range index.GetCandidateIdentifiers() {
+	ids := make([]common.Address, len(delegates.GetDelegateIdentifiers()))
+	for i, id := range delegates.GetDelegateIdentifiers() {
 		ids[i] = common.BytesToAddress(id)
 	}
-	data, err := _pendingBlockRewardPoolIndexMethod.Outputs.Pack(ids)
+	data, err := _pendingVoterRewardDelegatesMethod.Outputs.Pack(ids)
 	if err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(data), nil
 }
 
-type EraDrainCursorStateContext struct {
+type VoterRewardDistributionStateContext struct {
 	*protocolctx.BaseStateContext
 }
 
-func newEraDrainCursorStateContext() (*EraDrainCursorStateContext, error) {
-	return &EraDrainCursorStateContext{&protocolctx.BaseStateContext{Parameter: &protocolctx.Parameters{
-		MethodName: []byte("EpochDrainCursor"),
+func newVoterRewardDistributionStateContext() (*VoterRewardDistributionStateContext, error) {
+	return &VoterRewardDistributionStateContext{&protocolctx.BaseStateContext{Parameter: &protocolctx.Parameters{
+		MethodName: []byte("VoterRewardDistribution"),
 	}}}, nil
 }
 
-func (r *EraDrainCursorStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
-	cursor := &rewardingpb.EpochDrainCursor{}
+func (r *VoterRewardDistributionStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
+	cursor := &rewardingpb.VoterRewardDistributionState{}
 	if err := proto.Unmarshal(resp.Data, cursor); err != nil {
 		return "", err
 	}
-	delegates := cursor.GetDelegates()
+	delegates := cursor.GetDelegateAllocations()
 	ids := make([]common.Address, len(delegates))
 	voterAmounts := make([]*big.Int, len(delegates))
 	distributedAmounts := make([]*big.Int, len(delegates))
@@ -258,7 +190,7 @@ func (r *EraDrainCursorStateContext) EncodeToEth(resp *iotexapi.ReadStateRespons
 		totalWeights[i] = new(big.Int).SetBytes(delegate.GetTotalWeight())
 		selfStakeBucketIdxs[i] = delegate.GetSelfStakeBucketIdx()
 	}
-	data, err := _eraDrainCursorMethod.Outputs.Pack(
+	data, err := _voterRewardDistributionMethod.Outputs.Pack(
 		cursor.GetTargetEra(), cursor.GetCompleted(), cursor.GetCompletedHeight(), cursor.GetFreezeHeight(),
 		common.BytesToAddress(cursor.GetStartVoter()), cursor.GetScanPhase(), cursor.GetResumeVoter(),
 		common.BytesToHash(cursor.GetSettlementSeed()),

@@ -40,7 +40,7 @@ var ErrCompoundSelfStakeRoleChanged = errors.New(
 // handleDepositToStake: same in-place bucket + candidate + bucket-pool
 // updates, but without the user-action plumbing (no signature check, no gas,
 // no caller balance debit, no receipt log — the caller emits a batched
-// DelegateDistributed log instead).
+// DelegateVoterRewardsDistributed log instead).
 //
 // Preconditions the caller MUST have already established:
 //
@@ -63,7 +63,7 @@ var ErrCompoundSelfStakeRoleChanged = errors.New(
 //   - bucket pool total grows by amount via DebitBucketPool
 //
 // No transaction log is returned: the caller wraps the whole per-delegate
-// distribution into a single DelegateDistributed batched log, and the
+// distribution into a single DelegateVoterRewardsDistributed batched log, and the
 // rewarding→bucket-pool token movement is captured in that batch's
 // transactionLogs slice at the call site.
 func (p *Protocol) AddDepositForCompound(
@@ -133,11 +133,11 @@ func (p *Protocol) AddDepositForCompound(
 		return errors.Wrapf(err, "staking: update compound bucket %d", bucketID)
 	}
 
-	if err := subCandidateVotes(candidate, prevWeighted); err != nil {
+	if err := candidate.SubVote(prevWeighted); err != nil {
 		return errors.Wrapf(err, "staking: subtract vote for candidate %s", bucket.Candidate.String())
 	}
 	newWeighted := p.calculateVoteWeight(bucket, selfStake)
-	if err := addCandidateVotes(candidate, newWeighted); err != nil {
+	if err := candidate.AddVote(newWeighted); err != nil {
 		return errors.Wrapf(err, "staking: add vote for candidate %s", bucket.Candidate.String())
 	}
 	if selfStake {

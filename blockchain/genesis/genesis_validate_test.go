@@ -33,6 +33,7 @@ func TestNewRejectsUnsettleableEra(t *testing.T) {
 			path := writeGenesisYAML(t, fmt.Sprintf(`
 blockchain:
   greenlandHeight: 999
+  xinguHeight: 999
   toBeEnabledHeight: 1000
 rewarding:
   epochsPerRewardEra: %d
@@ -50,6 +51,7 @@ func TestNewAcceptsEra(t *testing.T) {
 		path := writeGenesisYAML(t, `
 blockchain:
   greenlandHeight: 999
+  xinguHeight: 1000
   toBeEnabledHeight: 1000
 rewarding:
   epochsPerRewardEra: 2
@@ -63,12 +65,26 @@ rewarding:
 		path := writeGenesisYAML(t, `
 blockchain:
   greenlandHeight: 1001
+  xinguHeight: 999
   toBeEnabledHeight: 1000
 rewarding:
   epochsPerRewardEra: 2
 `)
 		_, err := New(path)
 		r.ErrorContains(err, "toBeEnabledHeight 1000 must not precede greenlandHeight 1001")
+	})
+
+	t.Run("scheduled before Xingu", func(t *testing.T) {
+		path := writeGenesisYAML(t, `
+blockchain:
+  greenlandHeight: 999
+  xinguHeight: 1001
+  toBeEnabledHeight: 1000
+rewarding:
+  epochsPerRewardEra: 2
+`)
+		_, err := New(path)
+		r.ErrorContains(err, "toBeEnabledHeight 1000 must not precede xinguHeight 1001")
 	})
 
 	t.Run("unscheduled tolerates any era", func(t *testing.T) {

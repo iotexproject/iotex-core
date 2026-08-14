@@ -91,10 +91,10 @@ message ExitQueue {
     uint64 epoch = 1;
 }
 
-// IIP-59: per-candidate poll snapshot frozen at PutPollResult. The rewarding
-// protocol reads this at each epoch close; nothing else mutates it during the
-// reward era, so mid-era DelegateProfile changes do not retroactively re-split
-// rewards.
+// IIP-59: per-candidate reward inputs frozen at the reward-era boundary. The
+// rewarding protocol reads this at each epoch close; nothing else mutates it
+// during the reward era, so mid-era DelegateProfile changes do not
+// retroactively re-split rewards.
 //
 // The snapshot is scalars only. It used to also materialize the delegate's
 // entire (voter, weight) list at every era boundary, which made the boundary
@@ -102,27 +102,15 @@ message ExitQueue {
 // voter set into consensus state. The drain is voter-major now and recomputes
 // each voter's weight from the era's copy-on-write bucket window, so nothing
 // reads that list.
-message CandidatePollSnapshot {
+message CandidateRewardSnapshot {
     // Commission split frozen from the DelegateProfile contract at snapshot
-    // time. Basis points in [0, 10000]. Both default to 10000 when
-    // `registered` is false and on-chain reward distribution is enabled.
+    // time. Basis points in [0, 10000]. Both default to 10000 when the
+    // commission configuration is incomplete.
     uint64 blockCommissionBasisPoints = 1;
     uint64 epochCommissionBasisPoints = 2;
-    // Whether the DelegateProfile contract returned both portion fields as
-    // non-empty bytes at snapshot time.
-    bool registered = 3;
-    // Whether this reward era uses protocol-native distribution. The value is
-    // frozen so mid-era candidate updates cannot change reward routing.
-    bool onchainRewardEnabled = 4;
-    // 5 was `entries`, the materialized per-voter weight list; 7 was
-    // `snapshotHash`, the digest formerly attached to distribution logs; 8 was
-    // `lastWeightedIndex`, the position in that list that absorbed the
-    // floor-division remainder; 9 was `hasWeightedEntries`, which distinguished
-    // a valid index 0 from "no weights at all". None survive the removal of the
-    // list: `totalWeight` below is now sourced from candidate.Votes, and
-    // `totalWeight > 0` is exactly what `hasWeightedEntries` used to mean.
-    // Retired, never reused.
-    reserved 5, 7, 8, 9;
+    // Whether DelegateProfile returned both reward portion fields as
+    // non-empty, valid values. This is unrelated to registered(address).
+    bool commissionConfigured = 3;
     // The denominator the drain divides each recomputed voter weight by: the
     // frozen value of the candidate's Votes accumulator at the era boundary.
     // Big-endian unsigned. Zero means the era has no payable voter set for this
@@ -150,7 +138,7 @@ message ContractBucketRef {
 }
 
 // IIP-59: the set of contract-staking buckets owned by one address, stored in
-// the staking namespace under {_lsdVoterIndex} || owner(20). This is the LSD
+// the staking namespace under {LSDVoterIndexPrefix} || owner(20). This is the LSD
 // counterpart of BucketIndices, which can only carry native bucket ids.
 //
 // Refs are sorted ascending by (contract bytes, index) before serialization so

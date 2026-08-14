@@ -27,7 +27,7 @@ const (
 	EpochReward
 	// VoterRewardChunk indicates that the action is to advance one chunk
 	// of an in-progress IIP-59 era-boundary voter-reward drain. Emitted
-	// only on non-epoch-boundary blocks while a drain cursor is live.
+	// only on non-epoch-boundary blocks while voter reward distribution is active.
 	VoterRewardChunk
 
 	_grantrewardInterfaceABI = `[

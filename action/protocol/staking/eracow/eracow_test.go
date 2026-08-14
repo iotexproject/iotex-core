@@ -70,16 +70,11 @@ func putLive(t *testing.T, sm protocol.StateManager, key []byte, v *testValue) {
 func TestControlSerializeRoundTrip(t *testing.T) {
 	r := require.New(t)
 	c := &Control{
-		FreezeHeight:     1234,
-		TotalBucketCount: 99,
-		NextSeq:          7,
-		Pending: []GCState{
-			{FreezeHeight: 100, Cursor: 3, End: 40},
-			{FreezeHeight: 200, Cursor: 0, End: 1},
-		},
-		ContractCounts: []ContractBucketCount{
-			{Contract: identityset.Address(1).Bytes(), NumOfBuckets: 11},
-			{Contract: identityset.Address(2).Bytes(), NumOfBuckets: 0},
+		FreezeHeight:                1234,
+		NativeBucketIndexUpperBound: 99,
+		ContractLimits: []ContractBucketLimit{
+			{Contract: identityset.Address(1).Bytes(), BucketIndexUpperBound: 12},
+			{Contract: identityset.Address(2).Bytes(), BucketIndexUpperBound: 1},
 		},
 	}
 	data, err := c.Serialize()
@@ -100,7 +95,7 @@ func TestControlSerializeRoundTrip(t *testing.T) {
 	r.Error(got.Deserialize(data[:3]))
 
 	// A contract address of the wrong width never makes it into state.
-	bad := &Control{ContractCounts: []ContractBucketCount{{Contract: []byte{1, 2, 3}}}}
+	bad := &Control{ContractLimits: []ContractBucketLimit{{Contract: []byte{1, 2, 3}}}}
 	_, err = bad.Serialize()
 	r.Error(err)
 }
@@ -149,10 +144,13 @@ func TestFirstWriteWins(t *testing.T) {
 	r.NoError(Resolve(sm, 500, KindNativeBucket, sub, &got, liveOpts([]byte("whatever"))...))
 	r.Equal("at-H", string(got.v))
 
-	// Exactly one journal record was appended, so GC will not double-count.
-	c, err := readControl(sm)
+	var entry Entry
+	_, err := sm.State(&entry,
+		protocol.NamespaceOption(Namespace),
+		protocol.KeyOption(EntryKey(500, KindNativeBucket, sub)),
+	)
 	r.NoError(err)
-	r.EqualValues(1, c.NextSeq)
+	r.True(entry.Exists)
 }
 
 // TestFrozenReadResolution covers the three outcomes of Resolve.
@@ -251,7 +249,7 @@ func TestFeatureGateTouchesNothing(t *testing.T) {
 	hostile := &hostileSM{t: t}
 
 	r.False(Enabled(ctx))
-	r.NoError(Begin(ctx, hostile, 500, 10, []ContractBucketCount{{Contract: identityset.Address(1).Bytes(), NumOfBuckets: 5}}))
+	r.NoError(Begin(ctx, hostile, 500, 10, []ContractBucketLimit{{Contract: identityset.Address(1).Bytes(), BucketIndexUpperBound: 6}}))
 	r.NoError(Seal(ctx, hostile))
 	n, err := CollectGarbage(ctx, hostile, 100)
 	r.NoError(err)
@@ -262,9 +260,6 @@ func TestFeatureGateTouchesNothing(t *testing.T) {
 	r.NoError(err)
 	r.False(active)
 	r.NoError(s.Snapshot(KindNativeBucket, NativeBucketSubkey(1), val("x")))
-	h, err := s.FreezeHeight()
-	r.NoError(err)
-	r.Zero(h)
 
 	// A context with no feature context at all also reads as pre-activation.
 	r.False(Enabled(context.Background()))
@@ -307,7 +302,7 @@ func TestNoOutstandingDrainIsANoOp(t *testing.T) {
 	r.NoError(err)
 	r.False(w.Open())
 
-	// After Seal: sessions are inert again, and no journal grows.
+	// After Seal: sessions are inert again.
 	post := NewSession(ctx, sm)
 	active, err = post.Active()
 	r.NoError(err)
@@ -315,9 +310,7 @@ func TestNoOutstandingDrainIsANoOp(t *testing.T) {
 	r.NoError(post.Snapshot(KindNativeBucket, NativeBucketSubkey(2), val("ignored")))
 	c, err = readControl(sm)
 	r.NoError(err)
-	r.EqualValues(0, c.NextSeq)
-	r.Len(c.Pending, 1)
-	r.EqualValues(1, c.Pending[0].End)
+	r.Nil(c)
 
 	// A session built before Seal must not write into the sealed era either:
 	// its cached window is re-validated against the control record before the
@@ -349,18 +342,22 @@ func TestBeginIsIdempotentAtTheSameHeight(t *testing.T) {
 
 	r.NoError(Begin(ctx, sm, 500, 10, nil))
 	r.NoError(NewSession(ctx, sm).Snapshot(KindNativeBucket, NativeBucketSubkey(1), val("as-of-H")))
-	// A replayed boundary must not reset the sequence counter and orphan the
-	// entry already written under it.
+	// A replayed boundary must leave the existing entry and window unchanged.
 	r.NoError(Begin(ctx, sm, 500, 10, nil))
 	c, err := readControl(sm)
 	r.NoError(err)
-	r.EqualValues(1, c.NextSeq)
-	r.Empty(c.Pending)
+	r.EqualValues(500, c.FreezeHeight)
+	var entry Entry
+	_, err = sm.State(&entry,
+		protocol.NamespaceOption(Namespace),
+		protocol.KeyOption(EntryKey(500, KindNativeBucket, NativeBucketSubkey(1))),
+	)
+	r.NoError(err)
 
 	r.Error(Begin(ctx, sm, 0, 0, nil))
 }
 
-func TestBeginOverAnOpenWindowQueuesTheOldEra(t *testing.T) {
+func TestBeginOverAnOpenWindowMakesTheOldEraCollectable(t *testing.T) {
 	r := require.New(t)
 	sm := newTestSM(t)
 	ctx := forkCtx(true)
@@ -373,15 +370,14 @@ func TestBeginOverAnOpenWindowQueuesTheOldEra(t *testing.T) {
 	c, err := readControl(sm)
 	r.NoError(err)
 	r.EqualValues(900, c.FreezeHeight)
-	r.EqualValues(20, c.TotalBucketCount)
-	r.EqualValues(0, c.NextSeq)
-	r.Len(c.Pending, 1)
-	r.Equal(GCState{FreezeHeight: 500, Cursor: 0, End: 2}, c.Pending[0])
+	r.EqualValues(20, c.NativeBucketIndexUpperBound)
+	n, err := CollectGarbage(ctx, sm, 100)
+	r.NoError(err)
+	r.Equal(2, n)
 }
 
-// TestBucketHighWaterMarks pins both HWM boundaries, including the deliberate
-// off-by-one between them.
-func TestBucketHighWaterMarks(t *testing.T) {
+// TestBucketIndexUpperBounds pins the shared exclusive-bound semantics.
+func TestBucketIndexUpperBounds(t *testing.T) {
 	r := require.New(t)
 	sm := newTestSM(t)
 	ctx := forkCtx(true)
@@ -389,9 +385,9 @@ func TestBucketHighWaterMarks(t *testing.T) {
 	contractA := identityset.Address(1).Bytes()
 	contractB := identityset.Address(2).Bytes()
 	unknown := identityset.Address(3).Bytes()
-	r.NoError(Begin(ctx, sm, 500, 10, []ContractBucketCount{
-		{Contract: contractA, NumOfBuckets: 7},
-		{Contract: contractB, NumOfBuckets: 0},
+	r.NoError(Begin(ctx, sm, 500, 10, []ContractBucketLimit{
+		{Contract: contractA, BucketIndexUpperBound: 8},
+		{Contract: contractB, BucketIndexUpperBound: 1},
 	}))
 
 	w, err := LoadWindow(sm)
@@ -399,13 +395,13 @@ func TestBucketHighWaterMarks(t *testing.T) {
 	r.True(w.Open())
 	r.EqualValues(500, w.FreezeHeight)
 
-	// Native: totalBucketCount is the NEXT index, so the bound is exclusive.
+	// Native: totalBucketCount is the next index, so the bound is exclusive.
 	r.True(w.NativeBucketExisted(0))
 	r.True(w.NativeBucketExisted(9))
 	r.False(w.NativeBucketExisted(10))
 	r.False(w.NativeBucketExisted(11))
 
-	// LSD: NumOfBuckets is the MAX SEEN id, so the bound is inclusive.
+	// Contract limits use the same exclusive rule.
 	r.True(w.ContractBucketExisted(contractA, 0))
 	r.True(w.ContractBucketExisted(contractA, 7))
 	r.False(w.ContractBucketExisted(contractA, 8))
@@ -424,7 +420,7 @@ func TestBucketHighWaterMarks(t *testing.T) {
 
 // TestGarbageCollectionIsBoundedAndComplete covers both halves of the GC
 // contract: never more than max deletions in one call, and eventually every
-// entry and journal record of a sealed era is gone.
+// entry of a sealed era is gone.
 func TestGarbageCollectionIsBoundedAndComplete(t *testing.T) {
 	r := require.New(t)
 	sm := newTestSM(t)
@@ -439,14 +435,7 @@ func TestGarbageCollectionIsBoundedAndComplete(t *testing.T) {
 	n, err := CollectGarbage(ctx, sm, 100)
 	r.NoError(err)
 	r.Zero(n)
-	pending, err := PendingGarbage(sm)
-	r.NoError(err)
-	r.Zero(pending)
-
 	r.NoError(Seal(ctx, sm))
-	pending, err = PendingGarbage(sm)
-	r.NoError(err)
-	r.EqualValues(total, pending)
 
 	// Bounded: each call removes at most the chunk size.
 	const chunk = 4
@@ -463,24 +452,16 @@ func TestGarbageCollectionIsBoundedAndComplete(t *testing.T) {
 	}
 	r.Equal((total+chunk-1)/chunk, rounds)
 
-	// Complete: every entry and journal record is gone.
+	// Complete: every entry is gone.
 	for i := 0; i < total; i++ {
 		_, err = sm.State(&Entry{},
 			protocol.NamespaceOption(Namespace),
 			protocol.KeyOption(EntryKey(500, KindNativeBucket, NativeBucketSubkey(uint64(i)))),
 		)
 		r.Equal(state.ErrStateNotExist, errors.Cause(err), "entry %d survived GC", i)
-		_, err = sm.State(&journalRecord{},
-			protocol.NamespaceOption(Namespace),
-			protocol.KeyOption(JournalKey(500, uint64(i))),
-		)
-		r.Equal(state.ErrStateNotExist, errors.Cause(err), "journal %d survived GC", i)
 	}
-	pending, err = PendingGarbage(sm)
-	r.NoError(err)
-	r.Zero(pending)
 
-	// With nothing open and nothing pending, the control record is retired.
+	// Seal retires the control record.
 	c, err := readControl(sm)
 	r.NoError(err)
 	r.Nil(c)
@@ -491,8 +472,7 @@ func TestGarbageCollectionIsBoundedAndComplete(t *testing.T) {
 	r.Zero(n)
 }
 
-// TestGarbageCollectionSpansEras checks the FIFO drains eras in order and does
-// not lose one when a second is queued behind it.
+// TestGarbageCollectionSpansEras checks range GC across multiple era tags.
 func TestGarbageCollectionSpansEras(t *testing.T) {
 	r := require.New(t)
 	sm := newTestSM(t)
@@ -507,10 +487,6 @@ func TestGarbageCollectionSpansEras(t *testing.T) {
 		r.NoError(NewSession(ctx, sm).Snapshot(KindLSDVoterIndex, AddrSubkey(identityset.Address(i).Bytes()), val("era-900")))
 	}
 	r.NoError(Seal(ctx, sm))
-
-	pending, err := PendingGarbage(sm)
-	r.NoError(err)
-	r.EqualValues(5, pending)
 
 	total := 0
 	for {
@@ -527,51 +503,39 @@ func TestGarbageCollectionSpansEras(t *testing.T) {
 	r.Nil(c)
 }
 
-// TestGarbageCollectionToleratesAMissingJournalRecord makes the replay path
-// explicit: a hole in the sequence advances the cursor rather than stalling.
-func TestGarbageCollectionToleratesAMissingJournalRecord(t *testing.T) {
+func TestGarbageCollectionProtectsTheOpenWindow(t *testing.T) {
 	r := require.New(t)
 	sm := newTestSM(t)
 	ctx := forkCtx(true)
 
 	r.NoError(Begin(ctx, sm, 500, 10, nil))
-	for i := 0; i < 3; i++ {
-		r.NoError(NewSession(ctx, sm).Snapshot(KindNativeBucket, NativeBucketSubkey(uint64(i)), val("x")))
-	}
-	r.NoError(Seal(ctx, sm))
-
-	_, err := sm.DelState(
-		protocol.NamespaceOption(Namespace),
-		protocol.KeyOption(JournalKey(500, 1)),
-		protocol.ObjectOption(&journalRecord{}),
-	)
-	r.NoError(err)
+	r.NoError(NewSession(ctx, sm).Snapshot(KindNativeBucket, NativeBucketSubkey(1), val("era-500")))
+	r.NoError(Begin(ctx, sm, 900, 10, nil))
+	r.NoError(NewSession(ctx, sm).Snapshot(KindNativeBucket, NativeBucketSubkey(2), val("era-900")))
 
 	n, err := CollectGarbage(ctx, sm, 100)
 	r.NoError(err)
-	r.Equal(3, n)
-	c, err := readControl(sm)
+	r.Equal(1, n)
+	_, err = sm.State(&Entry{},
+		protocol.NamespaceOption(Namespace),
+		protocol.KeyOption(EntryKey(900, KindNativeBucket, NativeBucketSubkey(2))),
+	)
 	r.NoError(err)
-	r.Nil(c)
 }
 
 func TestKeyLayout(t *testing.T) {
 	r := require.New(t)
 	// The tag bytes are consensus-visible; pin them so a reordering of the
 	// iota block in the staking package cannot silently move them.
-	r.EqualValues(9, ControlPrefix)
-	r.EqualValues(10, EntryPrefix)
-	r.EqualValues(11, JournalPrefix)
+	r.EqualValues(7, ControlPrefix)
+	r.EqualValues(8, EntryPrefix)
 	r.EqualValues(1, KindNativeBucket)
 	r.EqualValues(2, KindNativeVoterIndex)
 	r.EqualValues(3, KindLSDBucket)
 	r.EqualValues(4, KindLSDVoterIndex)
 
-	r.Equal([]byte{10, 0, 0, 0, 0, 0, 0, 1, 244, 1, 0, 0, 0, 0, 0, 0, 0, 5},
+	r.Equal([]byte{8, 0, 0, 0, 0, 0, 0, 1, 244, 1, 0, 0, 0, 0, 0, 0, 0, 5},
 		EntryKey(500, KindNativeBucket, NativeBucketSubkey(5)))
-	r.Equal([]byte{11, 0, 0, 0, 0, 0, 0, 1, 244, 0, 0, 0, 0, 0, 0, 0, 6},
-		JournalKey(500, 6))
-
 	// Distinct (era, kind, subkey) triples never collide.
 	contract := identityset.Address(1).Bytes()
 	r.NotEqual(EntryKey(500, KindLSDBucket, LSDBucketSubkey(contract, 1)),
