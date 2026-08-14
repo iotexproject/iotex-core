@@ -356,7 +356,7 @@ func TestChunkedDrain_ReplayFromPersistedCursor(t *testing.T) {
 		r.NoError(err)
 	}, nil, false, 0)
 
-	// Observation run: same fixture, observe the persisted Phase-A cursor,
+	// Observation run: same fixture, observe the persisted initial distribution state,
 	// then continue and confirm the end state matches the reference.
 	var observed *TestOnlyRewardStateSnapshot
 	var midDrain *TestOnlyRewardStateSnapshot
