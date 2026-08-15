@@ -1067,7 +1067,7 @@ func (p *Protocol) loadEpochDistributionInputs(
 // The drain walks the voter key space rather than the frozen delegate list. It
 // starts at a seed-derived address, scans to the end, wraps once, and scans the
 // remaining prefix. Each block resumes just past ResumeVoter and processes at
-// most 2000 voters; a lower configured limit is honored. A voter is paid once for
+// most 256 voters; a lower configured limit is honored. A voter is paid once for
 // everything they are owed across every delegate they staked with, native and
 // liquid-staking alike.
 //
@@ -1390,12 +1390,12 @@ func (p *Protocol) settleCompoundOutflow(
 // voterBudgetPerBlock returns the maximum number of voters processed by one
 // IIP-59 drain block. Before activation zero preserves the legacy path. After
 // activation the configured value may lower the limit, but zero and values
-// above 2000 are clamped to the consensus-safe maximum.
+// above 256 are clamped to the consensus-safe maximum.
 func (p *Protocol) voterBudgetPerBlock(ctx context.Context) uint32 {
 	if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
 		return 0
 	}
-	const maxVotersPerBlock = uint64(2000)
+	const maxVotersPerBlock = uint64(256)
 	configured := p.cfg.VoterBudgetPerBlock
 	if configured == 0 || configured > maxVotersPerBlock {
 		return uint32(maxVotersPerBlock)

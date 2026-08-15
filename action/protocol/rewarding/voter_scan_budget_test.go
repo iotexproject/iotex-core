@@ -151,12 +151,12 @@ func TestVoterDrainDenseRangePaysEveryVoterExactlyOnce(t *testing.T) {
 	}
 }
 
-func TestVoterDrainProcessesExactlyTwoThousandVotersPerBlock(t *testing.T) {
+func TestVoterDrainProcessesExactlyMaxVotersPerBlock(t *testing.T) {
 	r := require.New(t)
 	const (
 		prefix = byte(0x7a)
-		count  = 2001
-		budget = uint64(2000)
+		count  = 257
+		budget = uint64(256)
 	)
 	ctx, sm, p, _ := denseVoterRangeScenario(t, prefix, count, budget)
 

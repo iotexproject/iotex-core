@@ -26,30 +26,34 @@ import (
 
 // TestVoterBudgetPerBlock confirms the fork gate short-circuits the
 // voter-count cap. Pre-fork, VoterBudgetPerBlock is force-zeroed. Post-fork,
-// values may lower the cap but cannot disable or raise the 2000-voter bound.
+// values may lower the cap but cannot disable or raise the 256-voter bound.
 func TestVoterBudgetPerBlock(t *testing.T) {
 	r := require.New(t)
 
 	forkOff, _, pForkOff, _, _ := newVoterRewardCtx(t, false)
-	pForkOff.cfg.VoterBudgetPerBlock = 2000
+	pForkOff.cfg.VoterBudgetPerBlock = 256
 	r.Equal(uint32(0), pForkOff.voterBudgetPerBlock(forkOff),
 		"pre-fork: voter budget must be 0 regardless of VoterBudgetPerBlock")
 
 	forkOn, _, pForkOn, _, _ := newVoterRewardCtx(t, true)
-	pForkOn.cfg.VoterBudgetPerBlock = 2000
-	r.Equal(uint32(2000), pForkOn.voterBudgetPerBlock(forkOn),
-		"post-fork with budget=2000: voter budget must be 2000")
+	pForkOn.cfg.VoterBudgetPerBlock = 256
+	r.Equal(uint32(256), pForkOn.voterBudgetPerBlock(forkOn),
+		"post-fork with budget=256: voter budget must be 256")
+
+	pForkOn.cfg.VoterBudgetPerBlock = 128
+	r.Equal(uint32(128), pForkOn.voterBudgetPerBlock(forkOn),
+		"post-fork may use a lower configured budget")
 
 	pForkOn.cfg.VoterBudgetPerBlock = 0
-	r.Equal(uint32(2000), pForkOn.voterBudgetPerBlock(forkOn),
+	r.Equal(uint32(256), pForkOn.voterBudgetPerBlock(forkOn),
 		"post-fork with budget=0: use the safe default")
 
 	pForkOn.cfg.VoterBudgetPerBlock = 3000
-	r.Equal(uint32(2000), pForkOn.voterBudgetPerBlock(forkOn),
+	r.Equal(uint32(256), pForkOn.voterBudgetPerBlock(forkOn),
 		"post-fork budget cannot exceed the consensus maximum")
 
 	pForkOn.cfg.VoterBudgetPerBlock = ^uint64(0)
-	r.Equal(uint32(2000), pForkOn.voterBudgetPerBlock(forkOn),
+	r.Equal(uint32(256), pForkOn.voterBudgetPerBlock(forkOn),
 		"conversion overflow must not turn the cap into zero/unbounded")
 }
 

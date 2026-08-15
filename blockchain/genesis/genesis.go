@@ -164,7 +164,7 @@ func defaultConfig() Genesis {
 			ProductivityThreshold:          85,
 			WakeBlockRewardStr:             "4000000000000000000",
 			EpochsPerRewardEra:             24,
-			VoterBudgetPerBlock:            2000,
+			VoterBudgetPerBlock:            256,
 			HermesRewardVaultAddresses: []string{
 				"io19604a05s2p3mecam2zz7d27hcr6ndyw80wvkmh",
 				"io12mgttmfa2ffn9uqvn0yn37f4nz43d248l2ga85",
