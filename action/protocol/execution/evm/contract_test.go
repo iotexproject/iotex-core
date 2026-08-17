@@ -253,10 +253,10 @@ func TestSnapshot(t *testing.T) {
 //     value written earlier in the same tx.
 //
 // Repro pattern (mainnet block 48,900,885, tx 0xfe792b0c...):
-//   1. SLOAD  K  (K absent → trie.ErrNotExist propagated up)
-//   2. SSTORE K, V1  (writes V1 to the live trie)
-//   3. SLOAD  K  (trie now returns V1 without error)
-//   4. GetCommittedState(K)
+//  1. SLOAD  K  (K absent → trie.ErrNotExist propagated up)
+//  2. SSTORE K, V1  (writes V1 to the live trie)
+//  3. SLOAD  K  (trie now returns V1 without error)
+//  4. GetCommittedState(K)
 //
 // Under the pre-fork code path, step 4 returns V1 (post-mutation), causing
 // EIP-2200 SSTORE gas to be misclassified as SSTORE_RESET on the next write

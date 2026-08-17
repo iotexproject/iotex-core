@@ -52,14 +52,14 @@ and pass it to "ioctl stake2 register --bls-pubkey ... --bls-pop ...".`,
 //
 // Two key sources:
 //
-//   --bls-priv-key HEX
-//       Use a standalone BLS private key. Bytes are read directly; nothing
-//       is decrypted, so this flow is safe to use on an offline machine.
+//	--bls-priv-key HEX
+//	    Use a standalone BLS private key. Bytes are read directly; nothing
+//	    is decrypted, so this flow is safe to use on an offline machine.
 //
-//   --signer ADDRESS  (paired with -P PASSWORD)
-//       Use the BLS key derived from an existing iotex account's ECDSA
-//       private key — same scheme as `ioctl account blskey`. Requires
-//       the keystore + password to be present.
+//	--signer ADDRESS  (paired with -P PASSWORD)
+//	    Use the BLS key derived from an existing iotex account's ECDSA
+//	    private key — same scheme as `ioctl account blskey`. Requires
+//	    the keystore + password to be present.
 //
 // Exactly one of the two must be supplied. Output is the 96-byte PoP
 // hex written to stdout (so it composes with shell redirection).

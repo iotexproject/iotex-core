@@ -24,26 +24,26 @@ import (
 // blsPoPFlags holds the user's BLS proof-of-possession choices for
 // stake2 register / update. The three-option matrix:
 //
-//   Option 1 (default, register only): all flags empty.
-//     Tool derives a BLS keypair deterministically from the signer's
-//     ECDSA private key (same scheme as `ioctl account blskey`),
-//     computes the PoP, and prompts the user to confirm before
-//     proceeding. --yes suppresses the prompt for scripted use.
+//	Option 1 (default, register only): all flags empty.
+//	  Tool derives a BLS keypair deterministically from the signer's
+//	  ECDSA private key (same scheme as `ioctl account blskey`),
+//	  computes the PoP, and prompts the user to confirm before
+//	  proceeding. --yes suppresses the prompt for scripted use.
 //
-//   Option 2: --bls-priv-key (hex) supplied.
-//     Tool uses the provided BLS key, derives its pubkey, computes
-//     the PoP. No prompt.
+//	Option 2: --bls-priv-key (hex) supplied.
+//	  Tool uses the provided BLS key, derives its pubkey, computes
+//	  the PoP. No prompt.
 //
-//   Option 3: --bls-pubkey and --bls-pop both supplied.
-//     Tool sends as-is. If --candidate-id is also supplied the PoP is
-//     verified locally before submission so a malformed PoP fails
-//     fast without burning gas.
+//	Option 3: --bls-pubkey and --bls-pop both supplied.
+//	  Tool sends as-is. If --candidate-id is also supplied the PoP is
+//	  verified locally before submission so a malformed PoP fails
+//	  fast without burning gas.
 //
 // For update, the matrix is augmented with one extra Option 0:
 //
-//   Option 0 (update only): all BLS flags empty.
-//     No BLS field is sent — the update touches only the non-BLS
-//     fields (name / operator / reward).
+//	Option 0 (update only): all BLS flags empty.
+//	  No BLS field is sent — the update touches only the non-BLS
+//	  fields (name / operator / reward).
 //
 // Update Option 1 is opt-in via --bls-from-signer because the
 // implicit default for "update with no BLS flag" is "don't touch BLS",
@@ -260,10 +260,10 @@ func loadBLSPrivKey(hexStr string) (*crypto.BLS12381PrivateKey, error) {
 type blsMode int
 
 const (
-	blsModeNone         blsMode = iota // update-only Option 0: don't touch BLS
-	blsModeAutoDerive                  // Option 1: derive BLS from signer
-	blsModeExplicitKey                 // Option 2: --bls-priv-key (or --bls-keystore in the future)
-	blsModeExplicitPoP                 // Option 3: --bls-pubkey + --bls-pop
+	blsModeNone        blsMode = iota // update-only Option 0: don't touch BLS
+	blsModeAutoDerive                 // Option 1: derive BLS from signer
+	blsModeExplicitKey                // Option 2: --bls-priv-key (or --bls-keystore in the future)
+	blsModeExplicitPoP                // Option 3: --bls-pubkey + --bls-pop
 )
 
 func (f *blsPoPFlags) classifyForRegister() (blsMode, error) {

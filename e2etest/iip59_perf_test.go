@@ -40,14 +40,14 @@ import (
 // blocks — otherwise the bench collapses to a single-block run and
 // stops measuring what we care about (chunking behaviour).
 type perfTier struct {
-	numDelegates        int
-	numVoters           int
-	numNativeBuckets    int
-	numContractBuckets  int
+	numDelegates         int
+	numVoters            int
+	numNativeBuckets     int
+	numContractBuckets   int
 	spreadVoterAddresses bool
-	sampleVoterPayouts  bool
-	epochsPerEra        uint64
-	voterBudgetPerBlock uint64
+	sampleVoterPayouts   bool
+	epochsPerEra         uint64
+	voterBudgetPerBlock  uint64
 }
 
 var iip59PerfTiers = map[string]perfTier{
@@ -55,14 +55,14 @@ var iip59PerfTiers = map[string]perfTier{
 	"medium":  {numDelegates: 10, numVoters: 1_000, epochsPerEra: 4, voterBudgetPerBlock: 250},
 	"mainnet": {numDelegates: 24, numVoters: 27_020, epochsPerEra: 24, voterBudgetPerBlock: 4_504},
 	"scale": {
-		numDelegates:        24,
-		numVoters:           30_000,
-		numNativeBuckets:    50_000,
-		numContractBuckets:  10_000,
+		numDelegates:         24,
+		numVoters:            30_000,
+		numNativeBuckets:     50_000,
+		numContractBuckets:   10_000,
 		spreadVoterAddresses: true,
-		sampleVoterPayouts:  true,
-		epochsPerEra:        2,
-		voterBudgetPerBlock: 4_504,
+		sampleVoterPayouts:   true,
+		epochsPerEra:         2,
+		voterBudgetPerBlock:  4_504,
 	},
 }
 

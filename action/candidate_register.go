@@ -30,8 +30,8 @@ const (
 
 var (
 	// _candidateRegisterInterface is the interface of the abi encoding of stake action
-	_candidateRegisterMethod             abi.Method
-	_candidateRegisterWithBLSMethod      abi.Method
+	_candidateRegisterMethod        abi.Method
+	_candidateRegisterWithBLSMethod abi.Method
 	// _candidateRegisterWithBLSAndPoPMethod is the V2 ABI entry that adds the
 	// BLS proof-of-possession parameter alongside the existing WithBLS fields.
 	// Required post-fork (EnforceBLSPoP gate) because the handler rejects
@@ -41,12 +41,12 @@ var (
 	// post-fork, but coexistence avoids breaking the function-selector ID of
 	// the legacy method for any client tracking it.
 	_candidateRegisterWithBLSAndPoPMethod abi.Method
-	_candidateRegisteredEvent            abi.Event
-	_stakedEvent                         abi.Event
-	_candidateActivatedEvent             abi.Event
-	_candidateDeactivationRequestedEvent abi.Event
-	_candidateDeactivationScheduledEvent abi.Event
-	_candidateDeactivatedEvent           abi.Event
+	_candidateRegisteredEvent             abi.Event
+	_stakedEvent                          abi.Event
+	_candidateActivatedEvent              abi.Event
+	_candidateDeactivationRequestedEvent  abi.Event
+	_candidateDeactivationScheduledEvent  abi.Event
+	_candidateDeactivatedEvent            abi.Event
 
 	// ErrInvalidAmount represents that amount is 0 or negative
 	ErrInvalidAmount = errors.New("invalid amount")

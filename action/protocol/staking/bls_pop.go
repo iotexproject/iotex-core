@@ -17,13 +17,13 @@ import (
 // proof-of-possession signatures at candidate register / update time.
 //
 // Domain separation matters for two reasons:
-//   1. It prevents a PoP signature from being replayed as a consensus
-//      vote signature (or vice versa) — even though both schemes use
-//      the same BLS ciphersuite DST, the message they sign starts with
-//      this iotex-application-level tag and so the resulting signing
-//      root will never collide with a consensus signing root.
-//   2. The version suffix ("v1") reserves room for a future fork to
-//      rotate the PoP scheme without ambiguity.
+//  1. It prevents a PoP signature from being replayed as a consensus
+//     vote signature (or vice versa) — even though both schemes use
+//     the same BLS ciphersuite DST, the message they sign starts with
+//     this iotex-application-level tag and so the resulting signing
+//     root will never collide with a consensus signing root.
+//  2. The version suffix ("v1") reserves room for a future fork to
+//     rotate the PoP scheme without ambiguity.
 const blsPopDomain = "IOTEX_BLS_POP_v1"
 
 // BLSPopSigningRoot returns the bytes that a BLS proof-of-possession

@@ -35,8 +35,8 @@ var (
 	// fields. Required post-fork (EnforceBLSPoP gate) — the handler rejects
 	// updates that rotate the blsPubKey without a fresh PoP.
 	_candidateUpdateWithBLSAndPoPMethod abi.Method
-	_candidateUpdateWithBLSEvent  abi.Event
-	_                             EthCompatibleAction = (*CandidateUpdate)(nil)
+	_candidateUpdateWithBLSEvent        abi.Event
+	_                                   EthCompatibleAction = (*CandidateUpdate)(nil)
 )
 
 // CandidateUpdate is the action to update a candidate
