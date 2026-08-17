@@ -178,7 +178,7 @@ type (
 		// per-candidate CandidateRewardSnapshot and rewarding stays on the legacy
 		// Hermes path. Post-fork (false) the snapshot is written at every
 		// PutPollResult and rewarding consumes it. Bound to
-		// !g.IsToBeEnabled(height): default zero-value = active after fork.
+		// !g.IsZanzibar(height): default zero-value = active after fork.
 		NoVoterRewardDistribution bool
 		// EnforceBLSPoP gates the BLS proof-of-possession requirement at
 		// candidate register / update. The staking handler validates
@@ -372,10 +372,10 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			PrePectraEVM:                            !g.IsYap(height),
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
-			FixInContractTransferLogTopic:           g.IsToBeEnabled(height),
-			NoVoterRewardDistribution:               !g.IsToBeEnabled(height),
-			EnforceBLSPoP:                           g.IsToBeEnabled(height),
-			CorrectPrestateForAbsentKeys:            g.IsToBeEnabled(height),
+			FixInContractTransferLogTopic:           g.IsZanzibar(height),
+			NoVoterRewardDistribution:               !g.IsZanzibar(height),
+			EnforceBLSPoP:                           g.IsZanzibar(height),
+			CorrectPrestateForAbsentKeys:            g.IsZanzibar(height),
 		},
 	)
 }

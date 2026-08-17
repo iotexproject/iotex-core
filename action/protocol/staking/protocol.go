@@ -639,7 +639,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	// IIP-59: build the owner -> contract-staking bucket index for buckets that
 	// predate activation, in one shot.
 	//
-	// The height is g.ToBeEnabledBlockHeight rather than a separate constant
+	// The height is g.ZanzibarBlockHeight rather than a separate constant
 	// because that is the same height FeatureCtx.NoVoterRewardDistribution
 	// flips at (action/protocol/context.go), and therefore the height
 	// contractstaking.OwnerIndexEnabled starts maintaining this index at. A
@@ -649,7 +649,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	// on the same height as one of them (Xingu flushes every contract bucket
 	// into state) sees the state they produced, and before the epoch-boundary
 	// indexer work below, which returns early on most blocks.
-	if blkCtx.BlockHeight == g.ToBeEnabledBlockHeight {
+	if blkCtx.BlockHeight == g.ZanzibarBlockHeight {
 		if err := migrateHermesRewardOptIn(ctx, sm, g.HermesRewardVaultAddresses); err != nil {
 			return err
 		}

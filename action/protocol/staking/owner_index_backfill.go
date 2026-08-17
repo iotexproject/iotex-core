@@ -41,7 +41,7 @@ import (
 //
 // # Shape: one block, no persisted progress
 //
-// The whole index is built in the single block at g.ToBeEnabledBlockHeight,
+// The whole index is built in the single block at g.ZanzibarBlockHeight,
 // from CreatePreStates. There is no job record, no cursor, and no "complete"
 // marker, because there is no intermediate state for anything to observe.
 //
@@ -61,7 +61,7 @@ import (
 //     is the PutPollResult action handler. Actions run after CreatePreStates,
 //     so the backfill has always finished before the first window can open.
 //   - freezeIIP59RewardState returns early while FeatureCtx.NoVoterRewardDistribution
-//     is set, and that flag is !g.IsToBeEnabled(height) — so no window exists at
+//     is set, and that flag is !g.IsZanzibar(height) — so no window exists at
 //     any height below the one this runs at, either.
 //
 // This is also why the index cannot be half-built at activation:

@@ -47,7 +47,7 @@ func TestActivationBackfillCOWDrainPayout(t *testing.T) {
 	dave := identityset.Address(11)
 	eve := identityset.Address(12)
 
-	activationCtx := iip59BackfillDrainCtx(ctx, g.ToBeEnabledBlockHeight)
+	activationCtx := iip59BackfillDrainCtx(ctx, g.ZanzibarBlockHeight)
 	createdAt := time.Unix(1, 0).UTC()
 	contractBucket := func(owner address.Address, amount int64, days uint64) *contractstaking.Bucket {
 		return &contractstaking.Bucket{
@@ -135,7 +135,7 @@ func TestActivationBackfillCOWDrainPayout(t *testing.T) {
 	r.Len(refs, 2, "activation must backfill both of Alice's pre-fork LSD buckets")
 	snapshot, err := staking.CandidateRewardSnapshotFor(sm, delegate)
 	r.NoError(err)
-	r.Equal(g.ToBeEnabledBlockHeight, snapshot.FreezeHeight)
+	r.Equal(g.ZanzibarBlockHeight, snapshot.FreezeHeight)
 	r.Zero(totalWeight.Cmp(snapshot.TotalWeight))
 
 	// Mutate every contract generation after the freeze. The live state now

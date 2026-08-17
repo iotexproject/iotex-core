@@ -42,7 +42,7 @@ func eraTestSM(t *testing.T) protocol.StateManager {
 func forkGateCtx(height uint64, activated bool) context.Context {
 	g := genesis.TestDefault()
 	if activated {
-		g.ToBeEnabledBlockHeight = height
+		g.ZanzibarBlockHeight = height
 	}
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
@@ -928,7 +928,7 @@ func TestSupersededWindowSilentlyAnswersForTheWrongEra(t *testing.T) {
 	ctxAtH2 := protocol.WithFeatureCtx(protocol.WithBlockCtx(
 		genesis.WithGenesisContext(context.Background(), func() genesis.Genesis {
 			g := genesis.TestDefault()
-			g.ToBeEnabledBlockHeight = h1
+			g.ZanzibarBlockHeight = h1
 			return g
 		}()),
 		protocol.BlockCtx{BlockHeight: h2},

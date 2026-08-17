@@ -31,7 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
-// enableIIP59 flips ToBeEnabledBlockHeight so cursorEnabled=true at the
+// enableIIP59 flips ZanzibarBlockHeight so cursorEnabled=true at the
 // current block height and re-derives the feature contexts. Callers use
 // this to turn on the fork gate for a testProtocol-scaffolded ctx that
 // starts with the fork off.
@@ -44,7 +44,7 @@ func enableIIP59(t *testing.T, ctx context.Context) context.Context {
 	t.Helper()
 	g := genesis.MustExtractGenesisContext(ctx)
 	g.GreenlandBlockHeight = 1
-	g.ToBeEnabledBlockHeight = 1
+	g.ZanzibarBlockHeight = 1
 	g.Rewarding.EpochsPerRewardEra = 1
 	g.Rewarding.HermesRewardVaultAddresses = make([]string, 0, 35)
 	for i := 0; i < 35; i++ {

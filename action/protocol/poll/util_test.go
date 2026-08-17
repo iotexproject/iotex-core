@@ -91,7 +91,7 @@ func freezeSnapshotEraGateCtx(t *testing.T, epochsPerEra uint64, height uint64) 
 	t.Helper()
 	g := genesis.TestDefault()
 	// Turn IIP-59 fork on unconditionally: 0 <= any height means feature is on.
-	g.ToBeEnabledBlockHeight = 0
+	g.ZanzibarBlockHeight = 0
 	g.Rewarding.EpochsPerRewardEra = epochsPerEra
 
 	ctx := genesis.WithGenesisContext(context.Background(), g)
@@ -179,9 +179,9 @@ func TestFreezeIIP59RewardState_PreForkGateStillWins(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 
 	g := genesis.TestDefault()
-	// ToBeEnabledBlockHeight sits above the current block height, so
+	// ZanzibarBlockHeight sits above the current block height, so
 	// NoVoterRewardDistribution=true.
-	g.ToBeEnabledBlockHeight = 1_000_000
+	g.ZanzibarBlockHeight = 1_000_000
 	g.Rewarding.EpochsPerRewardEra = 24
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1})

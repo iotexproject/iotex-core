@@ -400,10 +400,10 @@ func newVoterRewardCtx(
 	// Greenland. Keep this fixture on the valid side of that fork ordering.
 	g.GreenlandBlockHeight = 1
 	if iip59On {
-		g.ToBeEnabledBlockHeight = 1
+		g.ZanzibarBlockHeight = 1
 		g.Rewarding.HermesRewardVaultAddresses = []string{identityset.Address(2).String()}
 	} else {
-		g.ToBeEnabledBlockHeight = 1_000_000_000
+		g.ZanzibarBlockHeight = 1_000_000_000
 	}
 
 	registry := protocol.NewRegistry()

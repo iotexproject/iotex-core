@@ -1683,7 +1683,7 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 //  5. Update without PoP post-fork — handler rejects, BLS pubkey
 //     remains unchanged.
 //
-// The gate is wired via genesis.ToBeEnabledBlockHeight = XinguBlockHeight,
+// The gate is wired via genesis.ZanzibarBlockHeight = XinguBlockHeight,
 // so XinguBlockHeight is both the activation point for BLS-bearing
 // registration and the activation point for EnforceBLSPoP. Pre-fork
 // blocks have neither feature active; post-fork blocks have both.
@@ -1697,7 +1697,7 @@ func TestCandidateBLSPoP(t *testing.T) {
 	// Wire EnforceBLSPoP to activate alongside the BLS register path
 	// itself. Without this, the post-fork PoP gate is never reached
 	// during the test.
-	cfg.Genesis.ToBeEnabledBlockHeight = uint64(cfg.Genesis.XinguBlockHeight)
+	cfg.Genesis.ZanzibarBlockHeight = uint64(cfg.Genesis.XinguBlockHeight)
 	cfg.Genesis.SystemStakingContractAddress = ""
 	cfg.Genesis.SystemStakingContractV2Address = ""
 	cfg.Genesis.SystemStakingContractV3Address = ""
@@ -1749,7 +1749,7 @@ func TestCandidateBLSPoP(t *testing.T) {
 		},
 	})
 
-	// Advance past the XinguBlockHeight + ToBeEnabledBlockHeight gate.
+	// Advance past the XinguBlockHeight + ZanzibarBlockHeight gate.
 	height, err := test.cs.BlockDAO().Height()
 	require.NoError(err)
 	advance := int(cfg.Genesis.XinguBlockHeight) - int(height)

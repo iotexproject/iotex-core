@@ -82,6 +82,7 @@ func defaultConfig() Genesis {
 			XinguBetaBlockHeight:      41648761,
 			YapBlockHeight:            48985561,
 			YapBetaBlockHeight:        48985561,
+			ZanzibarBlockHeight:       math.MaxUint64,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
@@ -396,6 +397,13 @@ type (
 		YapBlockHeight uint64 `yaml:"yapHeight"`
 		// YapBetaBlockHeight is the start height to enable slashing candidate by identity
 		YapBetaBlockHeight uint64 `yaml:"yapBetaHeight"`
+		// ZanzibarBlockHeight is the start height of the Zanzibar hardfork
+		// 1. enable IIP-59 on-chain voter reward distribution
+		// 2. enable BLS proof-of-possession at candidate register/update
+		// 3. fix in-contract transfer log topic
+		// 4. stop GetCommittedState returning post-mutation values for
+		//    storage slots absent from the pre-tx trie
+		ZanzibarBlockHeight uint64 `yaml:"zanzibarHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -590,29 +598,29 @@ func New(genesisPath string) (Genesis, error) {
 // inert rather than failing loudly. It runs on the YAML load path only: callers
 // that build a Genesis literal (tests, defaultConfig) are trusted.
 func (g *Genesis) validate() error {
-	// IIP-59 shares ToBeEnabledBlockHeight with the other WIP features, so
-	// scheduling that height schedules voter reward distribution too. Until it
-	// is scheduled, the era length is never read and any value is acceptable.
-	if g.ToBeEnabledBlockHeight == math.MaxUint64 {
+	// IIP-59 activates at Zanzibar, so scheduling that height schedules voter
+	// reward distribution too. Until it is scheduled, the era length is never
+	// read and any value is acceptable.
+	if g.ZanzibarBlockHeight == math.MaxUint64 {
 		return nil
 	}
 	// IIP-59 enumerates pending reward pools by their unhashed V2 state-key
 	// prefix. Greenland activates that layout; allowing IIP-59 earlier would
 	// make orphan-pool enumeration incomplete because legacy rewarding keys are
 	// content-addressed and cannot be prefix-scanned.
-	if g.ToBeEnabledBlockHeight < g.GreenlandBlockHeight {
+	if g.ZanzibarBlockHeight < g.GreenlandBlockHeight {
 		return errors.Errorf(
-			"genesis: toBeEnabledHeight %d must not precede greenlandHeight %d",
-			g.ToBeEnabledBlockHeight, g.GreenlandBlockHeight,
+			"genesis: zanzibarHeight %d must not precede greenlandHeight %d",
+			g.ZanzibarBlockHeight, g.GreenlandBlockHeight,
 		)
 	}
 	// IIP-59 recomputes contract-staking voter weights from bucket state in the
 	// trie. Xingu migrates those buckets from the Erigon-only mirror into the
 	// trie, so activating IIP-59 before Xingu would silently omit them.
-	if g.ToBeEnabledBlockHeight < g.XinguBlockHeight {
+	if g.ZanzibarBlockHeight < g.XinguBlockHeight {
 		return errors.Errorf(
-			"genesis: toBeEnabledHeight %d must not precede xinguHeight %d",
-			g.ToBeEnabledBlockHeight, g.XinguBlockHeight,
+			"genesis: zanzibarHeight %d must not precede xinguHeight %d",
+			g.ZanzibarBlockHeight, g.XinguBlockHeight,
 		)
 	}
 	// IsEraBoundary returns false for every epoch when EpochsPerRewardEra is 0,
@@ -624,7 +632,7 @@ func (g *Genesis) validate() error {
 	// room between the two. See IIP-59 section 14.
 	if g.Rewarding.EpochsPerRewardEra < 2 {
 		return errors.Errorf(
-			"genesis: epochsPerRewardEra must be at least 2 once toBeEnabledHeight is scheduled, got %d",
+			"genesis: epochsPerRewardEra must be at least 2 once zanzibarHeight is scheduled, got %d",
 			g.Rewarding.EpochsPerRewardEra,
 		)
 	}
@@ -866,6 +874,11 @@ func (g *Blockchain) IsYap(height uint64) bool {
 // IsYapBeta checks whether height is equal to or larger than yap beta height
 func (g *Blockchain) IsYapBeta(height uint64) bool {
 	return g.isPost(g.YapBetaBlockHeight, height)
+}
+
+// IsZanzibar checks whether height is equal to or larger than zanzibar height
+func (g *Blockchain) IsZanzibar(height uint64) bool {
+	return g.isPost(g.ZanzibarBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
