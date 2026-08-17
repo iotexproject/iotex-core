@@ -36,7 +36,7 @@ import (
 //
 // The right-hand side is not a model of the drain, it *is* the drain's
 // arithmetic: computeVoterShares divides a delegate's frozen pool by
-// candidate.Votes (frozen as CandidatePollSnapshot.TotalWeight) and multiplies
+// candidate.Votes (frozen as CandidateRewardSnapshot.TotalWeight) and multiplies
 // by exactly this FrozenVoterWeight. So this compares the path-dependent
 // running accumulator every staking handler maintains against the stateless
 // recompute that will divide by it. If they can drift, every share in the era
@@ -50,8 +50,8 @@ import (
 // therefore strictly stronger than the test it replaces.
 //
 // The test drives real actions through Protocol.Handle rather than a model, so
-// it exercises the actual choke points (addCandidateVotes / subCandidateVotes)
-// and the real bucket writes the recompute reads back.
+// it exercises the actual Candidate.Votes mutations and the bucket writes the
+// recompute reads back.
 //
 // Four preconditions, all inherited from the version this replaces and all
 // still load-bearing:
@@ -62,13 +62,10 @@ import (
 //	    quantity. newVWInvariantEnv pulls every fork gate to height 1.
 //	V2. No VoteReviser height at or after Xingu. A revise rebuilds
 //	    candidate.Votes wholesale, which would move the denominator of an era
-//	    already being drained. Pinned by the calculateVoteWeight exemption in
-//	    TestCandidateVoteMutationsUseChokePoint.
+//	    already being drained.
 //	V3. No handler subtracts more from candidate.Votes than the voter's own
 //	    contribution. SubVote refuses to go negative, but a partial over-subtract
 //	    is silent; this test is what makes it visible.
-//	V4. Every vote mutation goes through addCandidateVotes / subCandidateVotes.
-//	    Pinned structurally by voter_weight_chokepoint_test.go.
 //
 // The equality is asserted only for candidates in the *active set*, because
 // only active candidates reach a poll result and therefore a frozen snapshot.
@@ -219,7 +216,7 @@ func (e *vwInvariantEnv) do(caller address.Address, act vwAction) {
 // observes exactly the accumulator a freeze would capture as TotalWeight.
 func (e *vwInvariantEnv) candCenter() (*CandidateCenter, CandidateStateManager) {
 	r := require.New(e.t)
-	csm, err := NewCandidateStateManager(e.sm)
+	csm, err := NewCandidateStateManagerWithContext(context.Background(), e.sm)
 	r.NoError(err)
 	return csm.DirtyView().candCenter, csm
 }
@@ -254,27 +251,26 @@ func (e *vwInvariantEnv) frozenSums(ctx context.Context) map[string]*big.Int {
 
 	_, csm := e.candCenter()
 	sums := make(map[string]*big.Int)
-	for shard := 0; shard < AddressShards; shard++ {
-		voters, err := FrozenShardVoters(e.sm, window, byte(shard), nil)
+	page, err := ScanFrozenVoters(e.sm, window, make([]byte, 20), nil, nil, 0, 0)
+	r.NoError(err)
+	r.True(page.Complete)
+	for _, voter := range page.Voters {
+		candidates, err := FrozenCandidatesForVoter(e.sm, window, voter)
 		r.NoError(err)
-		for _, voter := range voters {
-			candidates, err := FrozenVoterCandidates(e.sm, window, voter)
-			r.NoError(err)
-			for _, candID := range candidates {
-				selfStakeIdx := uint64(candidateNoSelfStakeBucketIndex)
-				if cand := csm.GetByIdentifier(candID); cand != nil {
-					selfStakeIdx = cand.SelfStakeBucketIdx
-				}
-				w, err := FrozenVoterWeight(
-					e.sm, window, e.p, candID, voter, selfStakeIdx, evalHeight,
-				)
-				r.NoError(err)
-				key := string(candID.Bytes())
-				if sums[key] == nil {
-					sums[key] = new(big.Int)
-				}
-				sums[key].Add(sums[key], w)
+		for _, candID := range candidates {
+			selfStakeIdx := uint64(candidateNoSelfStakeBucketIndex)
+			if cand := csm.GetByIdentifier(candID); cand != nil {
+				selfStakeIdx = cand.SelfStakeBucketIdx
 			}
+			w, err := FrozenVoterWeight(
+				e.sm, window, e.p, candID, voter, selfStakeIdx, evalHeight,
+			)
+			r.NoError(err)
+			key := string(candID.Bytes())
+			if sums[key] == nil {
+				sums[key] = new(big.Int)
+			}
+			sums[key].Add(sums[key], w)
 		}
 	}
 	return sums
@@ -493,7 +489,7 @@ func (e *vwInvariantEnv) checkContractStakingBuckets(cand *Candidate) {
 		UnstakedAt:       MaxDurationNumber, // not unstaked
 		IsTimestampBased: true,
 	}
-	r.NoError(handler.PutBucket(contract, 1, bkt))
+	r.NoError(handler.PutBucket(ctx, contract, 1, bkt))
 	// The era window freezes each contract's bucket high-water mark as the
 	// bound on which ids could have existed at H. A real indexer maintains it;
 	// a unit test that plants a bucket without it would have the recompute
@@ -501,6 +497,6 @@ func (e *vwInvariantEnv) checkContractStakingBuckets(cand *Candidate) {
 	r.NoError(contractstaking.NewContractStakingStateManager(e.sm).UpdateNumOfBuckets(contract, 1))
 	e.checkInvariant("contract-staking PutBucket")
 
-	r.NoError(handler.DeleteBucket(contract, 1))
+	r.NoError(handler.DeleteBucket(ctx, contract, 1))
 	e.checkInvariant("contract-staking DeleteBucket")
 }

@@ -9,19 +9,15 @@ package distributedlog
 // and indexed flags mirror IIP-59 §3.2 exactly; off-chain verifiers pin
 // the selector derived from this signature.
 //
-// Exported so that off-chain consumers in other repositories (the analyser
-// indexer, explorers) decode against this exact definition rather than a
-// hand-copied duplicate that can drift from it.
+// It is exported so off-chain consumers decode against the protocol's exact
+// definition instead of maintaining copies that can drift.
 const ABIJSON = `[
 	{
 		"anonymous": false,
 		"inputs": [
 			{"indexed": true,  "name": "epoch",           "type": "uint64"},
 			{"indexed": true,  "name": "delegate",        "type": "address"},
-			{"indexed": false, "name": "rewardAddr",      "type": "address"},
-			{"indexed": false, "name": "eraCommission",   "type": "uint256"},
-			{"indexed": false, "name": "chunkVoterReward", "type": "uint256"},
-			{"indexed": false, "name": "snapshotHash",    "type": "bytes32"},
+			{"indexed": false, "name": "voterAmount",     "type": "uint256"},
 			{"indexed": false, "name": "voters",          "type": "address[]"},
 			{"indexed": false, "name": "recipients",      "type": "address[]"},
 			{"indexed": false, "name": "amounts",         "type": "uint256[]"},
@@ -33,13 +29,11 @@ const ABIJSON = `[
 	}
 ]`
 
-// EventName is the event's ABI name; used for method lookup and error text.
+// EventName is the event's ABI name.
 const EventName = "DelegateVoterRewardsDistributed"
 
-// EventSignature is the canonical Solidity signature. keccak256 of this
-// string is Topics[0]. Kept as a const for the golden-selector test, and
-// exported so off-chain consumers can pin the same topic without
-// re-deriving it from a copied ABI.
+// EventSignature is the canonical Solidity signature. Its keccak256 is
+// Topics[0].
 //
 // The trailing `bool[] compounded` is not redundant with `uint64[]
 // compoundBucketIds`. Native bucket index 0 is a real, ordinary bucket, so
@@ -47,4 +41,4 @@ const EventName = "DelegateVoterRewardsDistributed"
 // -- it is indistinguishable from "voter i was compounded into bucket 0".
 // The parallel bool is the authoritative discriminator; consumers must read
 // compoundBucketIds[i] only when compounded[i] is true.
-const EventSignature = "DelegateVoterRewardsDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[],bool[])"
+const EventSignature = "DelegateVoterRewardsDistributed(uint64,address,uint256,address[],address[],uint256[],uint64[],bool[])"

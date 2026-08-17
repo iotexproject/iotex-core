@@ -6,10 +6,8 @@
 package rewarding
 
 import (
-	"bytes"
 	"math/big"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
@@ -18,44 +16,10 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/eracow"
 )
 
-// voterDistributionMetadata lifts the two allocation inputs Phase A freezes
-// into a delegate's work item out of the era snapshot: the weight total the
-// drain divides by, and the digest every DelegateVoterRewardsDistributed log for this
-// delegate is stamped with.
-//
-// Both are read, not derived. TotalWeight is the frozen candidate.Votes the
-// boundary captured -- the same number the retired per-voter entry list summed
-// to (TestVoterWeightInvariant: candidate.Votes == Σ_voters view[cand][voter]),
-// taken from the one place that still holds it at H. SnapshotHash was computed
-// at freeze time from the snapshot's scalars.
-//
-// There is no third "does this delegate have any weighted voter" return any
-// more: with the entry list gone, that question is exactly totalWeight > 0.
-//
-// The drain never calls this -- it reads the frozen numbers back out of the
-// work item, because the candidate's Votes keeps moving underneath a
-// settlement that spans blocks and a re-read total would shift every remaining
-// voter's share.
-func voterDistributionMetadata(
-	snap *staking.CandidatePollSnapshot,
-) (*big.Int, hash.Hash256) {
-	if snap == nil {
-		return new(big.Int), hash.ZeroHash256
-	}
-	totalWeight := new(big.Int)
-	if snap.TotalWeight != nil && snap.TotalWeight.Sign() > 0 {
-		totalWeight.Set(snap.TotalWeight)
-	}
-	return totalWeight, snap.SnapshotHash
-}
-
 // voterDelegateShare is one voter's claim on one delegate's frozen voter pool.
 type voterDelegateShare struct {
 	delegateIndex int
-	candidate     address.Address
-	weight        *big.Int
 	share         *big.Int
-	clamped       bool
 }
 
 // voterShareSet is the whole answer for one voter: a share per delegate the
@@ -65,32 +29,26 @@ type voterShareSet struct {
 	total  *big.Int
 }
 
-// voterShareInputs is the state a share computation reads. Bundled so the drain
-// and the read-only status query cannot pass different things by accident.
+// voterShareInputs is the state a share computation reads. Keeping the inputs
+// together prevents payout and routing code from assembling different era views.
 type voterShareInputs struct {
-	window      eracow.Window
-	staking     *staking.Protocol
-	delegates   []epochDrainDelegateWork
-	byCandidate map[string]int
-	payable     []bool
-	distributed []*big.Int
+	window       eracow.Window
+	staking      *staking.Protocol
+	delegates    []voterRewardDelegateAllocation
+	byCandidate  map[string]int
+	freezeHeight uint64
+	distributed  []*big.Int
 }
 
 // computeVoterShares is the single implementation of the per-voter share rule.
 //
-// Two callers need it: the drain, which pays, and the read-only status query,
-// which reports what a voter is owed. Keeping one implementation behind both is
-// what makes TestVoterRewardAmountMatchesAllocation a statement about the code
-// rather than a coincidence.
-//
 // The rule is: for each delegate the voter has a frozen bucket with, recompute
 // the voter's weight toward that delegate as of the era freeze height, take
 // floor(pool * weight / totalWeight), clamp it to what is left of the pool, and
-// sum. Delegates outside the frozen work list, and delegates the work list
-// marked unpayable, contribute nothing.
+// sum. Delegates outside the frozen work list contribute nothing.
 //
-// evalHeight is the delegate's own FreezeHeight and never the height of the
-// block this runs in. A contract bucket that is not timestamp-based has its
+// evalHeight is the plan's FreezeHeight and never the height of the block this
+// runs in. A contract bucket that is not timestamp-based has its
 // remaining duration measured against a block height, so the same bucket is
 // worth different amounts in chunk 1 and chunk 5 of the same drain if the
 // current height leaks in here.
@@ -100,7 +58,7 @@ func computeVoterShares(
 	voter address.Address,
 ) (voterShareSet, error) {
 	out := voterShareSet{total: new(big.Int)}
-	candidates, err := staking.FrozenVoterCandidates(sr, in.window, voter)
+	candidates, err := staking.FrozenCandidatesForVoter(sr, in.window, voter)
 	if err != nil {
 		return out, err
 	}
@@ -109,16 +67,13 @@ func computeVoterShares(
 		if !ok || i >= len(in.delegates) {
 			continue
 		}
-		if i < len(in.payable) && !in.payable[i] {
-			continue
-		}
 		work := in.delegates[i]
 		pool := safeBig(work.VoterAmountFrozen)
 		totalWeight := safeBig(work.TotalWeight)
 		if pool.Sign() <= 0 || totalWeight.Sign() <= 0 {
 			continue
 		}
-		if work.FreezeHeight == 0 {
+		if in.freezeHeight == 0 {
 			// The recompute is height-sensitive and there is no height to hand
 			// it. Refuse rather than substitute the current block's.
 			return out, errors.Errorf(
@@ -127,7 +82,7 @@ func computeVoterShares(
 		}
 		weight, err := staking.FrozenVoterWeight(
 			sr, in.window, in.staking, candidate, voter,
-			work.SelfStakeBucketIdx, work.FreezeHeight,
+			work.SelfStakeBucketIdx, in.freezeHeight,
 		)
 		if err != nil {
 			return out, errors.Wrapf(err,
@@ -167,29 +122,24 @@ func computeVoterShares(
 		//
 		// The clamp turns every such mismatch into under-payment. A numerator
 		// that is too large stops at the pool boundary; a numerator that is too
-		// small leaves a residual, which the drain sweeps to the orphan path at
-		// completion. Both are safe; over-payment is not. It also bounds
+		// small leaves a residual in the pending pool for a future era. Both are
+		// safe; over-payment is not. It also bounds
 		// violations of the candidate.Votes invariant preconditions V2 and V3:
 		// however far the accumulator has drifted, the pool is still the
 		// ceiling.
 		remaining := new(big.Int).Sub(pool, safeBig(in.distributed[i]))
-		clamped := false
 		if remaining.Sign() < 0 {
 			remaining.SetInt64(0)
 		}
 		if share.Cmp(remaining) > 0 {
 			share = remaining
-			clamped = true
 		}
 		if share.Sign() <= 0 {
 			continue
 		}
 		out.shares = append(out.shares, voterDelegateShare{
 			delegateIndex: i,
-			candidate:     candidate,
-			weight:        weight,
 			share:         share,
-			clamped:       clamped,
 		})
 		out.total.Add(out.total, share)
 	}
@@ -199,29 +149,10 @@ func computeVoterShares(
 // delegateWorkIndex maps candidate identifier bytes to a position in the frozen
 // work list. Built once per call; only ever read by key, never iterated, so it
 // introduces no map-ordering nondeterminism.
-func delegateWorkIndex(delegates []epochDrainDelegateWork) map[string]int {
+func delegateWorkIndex(delegates []voterRewardDelegateAllocation) map[string]int {
 	byCandidate := make(map[string]int, len(delegates))
 	for i := range delegates {
 		byCandidate[string(delegates[i].CandidateIdentifier)] = i
 	}
 	return byCandidate
-}
-
-// distributedVector returns the per-delegate running totals, padded to the
-// delegate count so callers can index it without a bounds check.
-func distributedVector(c *epochDrainCursor) []*big.Int {
-	out := make([]*big.Int, len(c.Delegates))
-	for i := range out {
-		if i < len(c.Distributed) && c.Distributed[i] != nil {
-			out[i] = new(big.Int).Set(c.Distributed[i])
-			continue
-		}
-		out[i] = new(big.Int)
-	}
-	return out
-}
-
-// candidateBytesEqual reports whether a work item names the given candidate.
-func candidateBytesEqual(work epochDrainDelegateWork, candidate address.Address) bool {
-	return candidate != nil && bytes.Equal(work.CandidateIdentifier, candidate.Bytes())
 }

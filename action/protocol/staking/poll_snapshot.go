@@ -8,20 +8,17 @@ package staking
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"math/big"
 	"sort"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/distributedlog"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
@@ -31,9 +28,9 @@ import (
 // whole amount.
 const _fullCommissionBasisPoints uint64 = 10_000
 
-// CandidatePollSnapshot is the frozen per-candidate view that IIP-59's
+// CandidateRewardSnapshot is the frozen per-candidate view that IIP-59's
 // rewarding path consumes at each epoch close. It is written once per reward
-// era by FreezePollSnapshot (called from the poll layer's PutPollResult) for
+// era by FreezeCandidateRewardSnapshots (called from the poll layer's PutPollResult) for
 // each opted-in candidate, and never mutated during the era. Mid-era
 // DelegateProfile changes do not retroactively re-split rewards that have
 // already begun accruing.
@@ -43,22 +40,20 @@ const _fullCommissionBasisPoints uint64 = 10_000
 // boundary cost proportional to the voter population and duplicated the voter
 // set into consensus state. The drain is voter-major now: it walks the voter
 // key space and recomputes each weight from the era's copy-on-write bucket
-// window, so the only thing it needs frozen per delegate is the denominator
-// and the two inputs the recompute is sensitive to (FreezeHeight,
+// window. Besides the commission policy, it only needs the denominator and
+// the two inputs the recompute is sensitive to (FreezeHeight,
 // SelfStakeBucketIdx).
-type CandidatePollSnapshot struct {
+type CandidateRewardSnapshot struct {
 	// BlockCommissionBasisPoints is the delegate's take of block rewards, in
-	// basis points [0, 10000]. Defaults to 10000 when Registered is false.
+	// basis points [0, 10000]. Defaults to 10000 when CommissionConfigured is false.
 	BlockCommissionBasisPoints uint64
 	// EpochCommissionBasisPoints is the delegate's take of epoch rewards, in
-	// basis points [0, 10000]. Defaults to 10000 when Registered is false.
+	// basis points [0, 10000]. Defaults to 10000 when CommissionConfigured is false.
 	EpochCommissionBasisPoints uint64
-	// Registered is true when the DelegateProfile contract returned both
-	// portion fields as non-empty bytes at snapshot time.
-	Registered bool
-	// OnchainRewardEnabled freezes whether this candidate uses protocol-native
-	// reward distribution during the current reward era.
-	OnchainRewardEnabled bool
+	// CommissionConfigured is true when DelegateProfile returned both reward
+	// portion fields as non-empty, valid values at snapshot time. It is not the
+	// result of DelegateProfile.registered(address).
+	CommissionConfigured bool
 	// TotalWeight is the denominator the drain divides each recomputed voter
 	// weight by: the frozen value of the candidate's Votes accumulator at H.
 	//
@@ -69,11 +64,6 @@ type CandidatePollSnapshot struct {
 	// Zero means "this era has no payable voter set for this delegate"; the
 	// delegate's pending pool is left intact and rolls into a later era.
 	TotalWeight *big.Int
-	// SnapshotHash is the deterministic digest of this delegate's frozen era
-	// parameters. See eraSnapshotHash: it is the join key that lets off-chain
-	// consumers assemble the partial DelegateVoterRewardsDistributed logs one settlement
-	// emits across many blocks.
-	SnapshotHash hash.Hash256
 	// FreezeHeight is the era boundary height H this snapshot was taken at.
 	//
 	// The IIP-59 drain runs several blocks after H and recomputes voter weights
@@ -95,34 +85,39 @@ type CandidatePollSnapshot struct {
 	SelfStakeBucketIdx uint64
 }
 
-// candidatePollSnapshotBlob is the state.Serializer / state.Deserializer
-// wrapper around stakingpb.CandidatePollSnapshot. Kept package-private —
-// callers work with CandidatePollSnapshot.
-type candidatePollSnapshotBlob struct {
-	pb *stakingpb.CandidatePollSnapshot
-}
-
 // Serialize implements state.Serializer.
-func (b *candidatePollSnapshotBlob) Serialize() ([]byte, error) {
-	if b.pb == nil {
-		return proto.Marshal(&stakingpb.CandidatePollSnapshot{})
+func (s *CandidateRewardSnapshot) Serialize() ([]byte, error) {
+	if s == nil {
+		return proto.Marshal(&stakingpb.CandidateRewardSnapshot{})
 	}
-	return proto.Marshal(b.pb)
+	return proto.Marshal(&stakingpb.CandidateRewardSnapshot{
+		BlockCommissionBasisPoints: s.BlockCommissionBasisPoints,
+		EpochCommissionBasisPoints: s.EpochCommissionBasisPoints,
+		CommissionConfigured:       s.CommissionConfigured,
+		TotalWeight:                safeBigInt(s.TotalWeight).Bytes(),
+		FreezeHeight:               s.FreezeHeight,
+		SelfStakeBucketIdx:         s.SelfStakeBucketIdx,
+	})
 }
 
 // Deserialize implements state.Deserializer.
-func (b *candidatePollSnapshotBlob) Deserialize(buf []byte) error {
-	pb := &stakingpb.CandidatePollSnapshot{}
+func (s *CandidateRewardSnapshot) Deserialize(buf []byte) error {
+	pb := &stakingpb.CandidateRewardSnapshot{}
 	if err := proto.Unmarshal(buf, pb); err != nil {
-		return errors.Wrap(err, "failed to unmarshal candidate poll snapshot")
+		return errors.Wrap(err, "failed to unmarshal candidate reward snapshot")
 	}
-	b.pb = pb
+	s.BlockCommissionBasisPoints = pb.GetBlockCommissionBasisPoints()
+	s.EpochCommissionBasisPoints = pb.GetEpochCommissionBasisPoints()
+	s.CommissionConfigured = pb.GetCommissionConfigured()
+	s.TotalWeight = new(big.Int).SetBytes(pb.GetTotalWeight())
+	s.FreezeHeight = pb.GetFreezeHeight()
+	s.SelfStakeBucketIdx = pb.GetSelfStakeBucketIdx()
 	return nil
 }
 
 // Encode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
-func (b *candidatePollSnapshotBlob) Encode() (systemcontracts.GenericValue, error) {
-	data, err := b.Serialize()
+func (s *CandidateRewardSnapshot) Encode() (systemcontracts.GenericValue, error) {
+	data, err := s.Serialize()
 	if err != nil {
 		return systemcontracts.GenericValue{}, err
 	}
@@ -130,52 +125,18 @@ func (b *candidatePollSnapshotBlob) Encode() (systemcontracts.GenericValue, erro
 }
 
 // Decode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
-func (b *candidatePollSnapshotBlob) Decode(v systemcontracts.GenericValue) error {
-	return b.Deserialize(v.PrimaryData)
+func (s *CandidateRewardSnapshot) Decode(v systemcontracts.GenericValue) error {
+	return s.Deserialize(v.PrimaryData)
 }
 
-// candidatePollSnapshotKey returns the state-trie key for a candidate's
-// frozen poll snapshot: {_candidatePollSnapshot} || candID.Bytes(). Namespace
+// candidateRewardSnapshotKey returns the state-trie key for a candidate's
+// frozen reward snapshot: {_candidateRewardSnapshot} || candID.Bytes(). Namespace
 // is _stakingNameSpace (see protocol.go). Mirrors the layout of the other
 // candidate-scoped keys in this package.
-func candidatePollSnapshotKey(candID address.Address) []byte {
+func candidateRewardSnapshotKey(candID address.Address) []byte {
 	out := make([]byte, 1, 1+len(candID.Bytes()))
-	out[0] = _candidatePollSnapshot
+	out[0] = _candidateRewardSnapshot
 	return append(out, candID.Bytes()...)
-}
-
-// toBlob returns the wire form for PutState. Unlike the entry-list version it
-// replaces, it derives nothing: TotalWeight and SnapshotHash are both frozen by
-// FreezePollSnapshot, which is the only place that has the candidate record and
-// the era height they are computed from.
-func (s *CandidatePollSnapshot) toBlob() *candidatePollSnapshotBlob {
-	return &candidatePollSnapshotBlob{pb: &stakingpb.CandidatePollSnapshot{
-		BlockCommissionBasisPoints: s.BlockCommissionBasisPoints,
-		EpochCommissionBasisPoints: s.EpochCommissionBasisPoints,
-		Registered:                 s.Registered,
-		OnchainRewardEnabled:       s.OnchainRewardEnabled,
-		TotalWeight:                safeBigInt(s.TotalWeight).Bytes(),
-		SnapshotHash:               s.SnapshotHash[:],
-		FreezeHeight:               s.FreezeHeight,
-		SelfStakeBucketIdx:         s.SelfStakeBucketIdx,
-	}}
-}
-
-// fromBlob converts a decoded blob back into a CandidatePollSnapshot.
-func fromBlob(b *candidatePollSnapshotBlob) (*CandidatePollSnapshot, error) {
-	if b == nil || b.pb == nil {
-		return &CandidatePollSnapshot{}, nil
-	}
-	return &CandidatePollSnapshot{
-		BlockCommissionBasisPoints: b.pb.GetBlockCommissionBasisPoints(),
-		EpochCommissionBasisPoints: b.pb.GetEpochCommissionBasisPoints(),
-		Registered:                 b.pb.GetRegistered(),
-		OnchainRewardEnabled:       b.pb.GetOnchainRewardEnabled(),
-		TotalWeight:                new(big.Int).SetBytes(b.pb.GetTotalWeight()),
-		SnapshotHash:               hash.BytesToHash256(b.pb.GetSnapshotHash()),
-		FreezeHeight:               b.pb.GetFreezeHeight(),
-		SelfStakeBucketIdx:         b.pb.GetSelfStakeBucketIdx(),
-	}, nil
 }
 
 // safeBigInt returns v, or a fresh zero when v is nil.
@@ -186,49 +147,13 @@ func safeBigInt(v *big.Int) *big.Int {
 	return v
 }
 
-// eraSnapshotHash is the deterministic digest stamped into every
-// DelegateVoterRewardsDistributed log a settlement emits for this delegate.
-//
-// Its consumer is off-chain: one settlement pays a delegate's voters across
-// many blocks, so the delegate's payout is reported as a stream of partial logs
-// that a consumer has to reassemble. The reassembly key is
-// (snapshotHash, delegate, epoch). What the hash therefore has to be is a
-// stable per-delegate-per-era identifier -- constant for every chunk of one
-// settlement, different for the next era -- and, ideally, a commitment to the
-// parameters that determined the payouts being reassembled, so a consumer can
-// recompute it from a snapshot read and confirm the logs it collected describe
-// the era it thinks they do.
-//
-// It commits to exactly that: the candidate identifier plus every scalar the
-// snapshot freezes. FreezeHeight makes it era-unique even for a delegate whose
-// stake and commission did not move between two boundaries. It deliberately
-// does not commit to the voter set: the voter set is no longer frozen, it is
-// recomputed from the copy-on-write bucket window, and TotalWeight (the frozen
-// candidate.Votes) is the aggregate that actually governs every share.
-func eraSnapshotHash(candID address.Address, s *CandidatePollSnapshot) hash.Hash256 {
-	if s == nil {
-		return hash.ZeroHash256
-	}
-	return distributedlog.EraSnapshotHash(distributedlog.EraSnapshotParams{
-		Delegate:                   candID,
-		FreezeHeight:               s.FreezeHeight,
-		TotalWeight:                safeBigInt(s.TotalWeight),
-		SelfStakeBucketIdx:         s.SelfStakeBucketIdx,
-		BlockCommissionBasisPoints: s.BlockCommissionBasisPoints,
-		EpochCommissionBasisPoints: s.EpochCommissionBasisPoints,
-		Registered:                 s.Registered,
-		OnchainRewardEnabled:       s.OnchainRewardEnabled,
-	})
-}
-
-// FreezePollSnapshot writes a CandidatePollSnapshot for every candidate that is
-// on the IIP-59 rails at the era boundary, freezing state as of H, the height of
-// the block it runs in. This is the *only* writer of the snapshot; rewarding is
-// a pure reader via PollSnapshotFor.
+// FreezeCandidateRewardSnapshots writes a CandidateRewardSnapshot for every candidate that is
+// on the IIP-59 rails at freeze block H. This is the *only* writer of the snapshot; rewarding is
+// a pure reader via CandidateRewardSnapshotFor.
 //
 // THE SET IS THE OPTED-IN CANDIDATE SET. It is enumerated from the candidate
-// center and filtered by live routing: a candidate is frozen iff it is already
-// using a configured Hermes vault, or has explicitly opted in.
+// center and filtered by the persisted VoterRewardOnchainOptIn bit. The
+// activation migration sets that bit for pre-IIP-59 Hermes candidates.
 //
 // It deliberately has nothing to do with the poll list this used to be handed.
 // That list is filtered twice before a PutPollResult carries it -- ActiveCandidates
@@ -242,38 +167,33 @@ func eraSnapshotHash(candID address.Address, s *CandidatePollSnapshot) hash.Hash
 // 0% voter, silently, for up to a full day. Freezing from the opt-in set
 // closes that by construction rather than by union.
 //
-// The converse costs nothing: an opted-out candidate gets no record at all.
-// That is the same thing rewarding reads for a candidate it has never seen
-// (voter_reward.go maps ErrStateNotExist to onchainRewardEnabled=false), so
-// the placeholders this used to write for opted-out poll members were
-// indistinguishable from their own absence.
+// A candidate that has not opted in gets no record. Rewarding treats snapshot
+// absence as the legacy route for this era, so no explicit disabled record is
+// needed.
 //
 // Sorted by identifier bytes, because the candidate center enumerates from a Go
 // map and the order reaches both PutState and the DelegateProfile bridge call.
 //
-// A per-delegate bridge read failure (malformed profile, RPC/EVM error) is
+// A per-delegate bridge read failure is
 // absorbed by the bridge itself: the affected delegate lands with
-// Registered=false and rewarding uses the all-to-owner default. This
-// prevents one bad on-chain profile from deterministically halting the
-// chain at every epoch boundary — same state ⇒ same fallback on every
-// validator ⇒ no fork.
+// CommissionConfigured=false and rewarding uses the all-to-owner default. This
+// prevents one bad on-chain profile from halting every era boundary.
 //
 // Note what is deliberately absent: any materialized per-voter weight list.
 // The retired VoterWeightView had one, and freezing it meant the boundary
 // had to degrade whenever the list was incomplete. TotalWeight now comes
 // from the candidate record's own Votes accumulator, which is complete at
 // every height, and the drain enumerates voters from the bucket indexes.
-func FreezePollSnapshot(
+func FreezeCandidateRewardSnapshots(
 	ctx context.Context,
 	sm protocol.StateManager,
 	bridge *delegateprofile.Bridge,
 	reader delegateprofile.ContractReader,
+	freezeHeight uint64,
 ) error {
 	if bridge != nil && reader == nil {
 		return errors.New("staking: nil ContractReader with non-nil DelegateProfile bridge")
 	}
-	g, _ := genesis.ExtractGenesisContext(ctx)
-
 	// The candidate center is the sole source of the frozen set, of
 	// SelfStakeBucketIdx, and of TotalWeight, so failing to reach it is
 	// returned rather than degraded -- including the protocol.ErrNoName and
@@ -293,35 +213,16 @@ func FreezePollSnapshot(
 	// the poll protocol that calls this holds a reference to that protocol.
 	csr, err := ConstructBaseView(sm)
 	if err != nil {
-		return errors.Wrap(err, "staking: construct candidate view for poll snapshot")
+		return errors.Wrap(err, "staking: construct candidate view for reward snapshots")
 	}
 	if v := csr.BaseView(); v == nil || v.candCenter == nil {
-		return errors.New("staking: no candidate center to freeze the poll snapshot from")
+		return errors.New("staking: no candidate center to freeze reward snapshots from")
 	}
 
-	// Opt-in is re-read from state rather than taken off the center record in
-	// hand. The two agree -- Candidate.Clone carries every field
-	// candidateOnchainRewardEnabled looks at -- but ReadCandidateRewardRouting
-	// is what every other reader of this bit uses, and one source for one
-	// question is worth a read per candidate once per era.
 	all := csr.AllCandidates()
 	frozen := make([]*Candidate, 0, len(all))
 	for _, c := range all {
-		if c == nil {
-			continue
-		}
-		id := c.GetIdentifier()
-		if id == nil {
-			continue
-		}
-		routing, rErr := ReadCandidateRewardRouting(sm, id, g.HermesRewardVaultAddresses)
-		if rErr != nil {
-			if errors.Is(rErr, state.ErrStateNotExist) {
-				continue
-			}
-			return errors.Wrapf(rErr, "staking: read reward routing for candidate %s", id.String())
-		}
-		if routing.OnchainRewardEnabled {
+		if c != nil && c.GetIdentifier() != nil && c.VoterRewardOnchainOptIn {
 			frozen = append(frozen, c)
 		}
 	}
@@ -341,75 +242,56 @@ func FreezePollSnapshot(
 		}
 	}
 
-	freezeHeight, err := freezeHeightOf(ctx, sm)
-	if err != nil {
-		return err
-	}
-	// Unconditional, and not folded into the loop: the window's lifecycle is
-	// keyed on "this epoch was an era boundary", not on the boundary having
-	// found anything to freeze, and the zero-work seal in rewarding is what
-	// closes an era that froze nothing.
-	if err := beginEraCOWWindow(ctx, sm, freezeHeight); err != nil {
-		return err
-	}
-
 	for _, cand := range frozen {
 		id := cand.GetIdentifier()
-		snap := &CandidatePollSnapshot{
-			OnchainRewardEnabled:       true,
+		snap := &CandidateRewardSnapshot{
 			FreezeHeight:               freezeHeight,
 			SelfStakeBucketIdx:         cand.SelfStakeBucketIdx,
 			TotalWeight:                new(big.Int),
 			BlockCommissionBasisPoints: _fullCommissionBasisPoints,
 			EpochCommissionBasisPoints: _fullCommissionBasisPoints,
 		}
-		if r, ok := rates[id.String()]; ok && r != nil && r.Registered {
+		if r, ok := rates[id.String()]; ok && r != nil && r.Configured {
 			snap.BlockCommissionBasisPoints = r.BlockCommissionBasisPoints
 			snap.EpochCommissionBasisPoints = r.EpochCommissionBasisPoints
-			snap.Registered = true
+			snap.CommissionConfigured = true
 		}
 		// Copied, not aliased: the candidate center hands back a record whose
 		// Votes keeps moving for the rest of the era.
 		if cand.Votes != nil && cand.Votes.Sign() > 0 {
 			snap.TotalWeight = new(big.Int).Set(cand.Votes)
 		}
-		// Last, so the digest covers the finished record.
-		snap.SnapshotHash = eraSnapshotHash(id, snap)
-		if err := writeCandidatePollSnapshot(sm, id, snap); err != nil {
+		if err := writeCandidateRewardSnapshot(sm, id, snap); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeCandidatePollSnapshot(
+func writeCandidateRewardSnapshot(
 	sm protocol.StateManager,
 	candID address.Address,
-	snap *CandidatePollSnapshot,
+	snap *CandidateRewardSnapshot,
 ) error {
 	if _, err := sm.PutState(
-		snap.toBlob(),
+		snap,
 		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(candidatePollSnapshotKey(candID)),
+		protocol.KeyOption(candidateRewardSnapshotKey(candID)),
 	); err != nil {
-		return errors.Wrapf(err, "staking: write poll snapshot for candidate %s", candID.String())
+		return errors.Wrapf(err, "staking: write reward snapshot for candidate %s", candID.String())
 	}
 	return nil
 }
 
-// TestOnlyPutPollSnapshotFor seeds a CandidatePollSnapshot directly under
-// the same key layout FreezePollSnapshot uses. Intended solely for
+// TestOnlyPutCandidateRewardSnapshotFor seeds a CandidateRewardSnapshot directly under
+// the same key layout FreezeCandidateRewardSnapshots uses. Intended solely for
 // rewarding-package unit tests that exercise post-fork branches without
 // standing up the full poll layer + DelegateProfile bridge. Production
-// code MUST use FreezePollSnapshot at PutPollResult.
-//
-// A zero SnapshotHash is filled in the same way the freezer would, so a test
-// fixture cannot accidentally assert against a digest production would never
-// have written. Set it explicitly to override.
-func TestOnlyPutPollSnapshotFor(
+// code MUST use FreezeCandidateRewardSnapshots at PutPollResult.
+func TestOnlyPutCandidateRewardSnapshotFor(
 	sm protocol.StateManager,
 	candID address.Address,
-	snap *CandidatePollSnapshot,
+	snap *CandidateRewardSnapshot,
 ) error {
 	if candID == nil {
 		return errors.New("staking: nil candidate identity")
@@ -417,117 +299,71 @@ func TestOnlyPutPollSnapshotFor(
 	if snap == nil {
 		return errors.New("staking: nil snapshot")
 	}
-	if snap.SnapshotHash == hash.ZeroHash256 {
-		snap.SnapshotHash = eraSnapshotHash(candID, snap)
-	}
 	_, err := sm.PutState(
-		snap.toBlob(),
+		snap,
 		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(candidatePollSnapshotKey(candID)),
+		protocol.KeyOption(candidateRewardSnapshotKey(candID)),
 	)
 	return err
 }
 
-// PollSnapshotFor returns the frozen snapshot written at the most recent
+// CandidateRewardSnapshotFor returns the frozen snapshot written at the most recent
 // PutPollResult for the given candidate identity. Returns
 // (nil, state.ErrStateNotExist) when no snapshot has been written.
-func PollSnapshotFor(sr protocol.StateReader, candID address.Address) (*CandidatePollSnapshot, error) {
+func CandidateRewardSnapshotFor(sr protocol.StateReader, candID address.Address) (*CandidateRewardSnapshot, error) {
 	if candID == nil {
 		return nil, errors.New("staking: nil candidate identity")
 	}
-	blob := &candidatePollSnapshotBlob{}
+	snapshot := &CandidateRewardSnapshot{}
 	if _, err := sr.State(
-		blob,
+		snapshot,
 		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(candidatePollSnapshotKey(candID)),
+		protocol.KeyOption(candidateRewardSnapshotKey(candID)),
 	); err != nil {
 		return nil, err
 	}
-	return fromBlob(blob)
-}
-
-// CandidateRewardRouting is the deterministic IIP-59 routing view for a candidate.
-type CandidateRewardRouting struct {
-	Owner                address.Address
-	LegacyRewardAddress  address.Address
-	OnchainRewardEnabled bool
-	ExplicitlyEnabled    bool
-	RewardAddressUpdated bool
-}
-
-func ReadCandidateRewardRouting(
-	sr protocol.StateReader,
-	candID address.Address,
-	hermesVaults []string,
-) (*CandidateRewardRouting, error) {
-	var c Candidate
-	if _, err := sr.State(
-		&c,
-		protocol.NamespaceOption(_candidateNameSpace),
-		protocol.KeyOption(candID.Bytes()),
-	); err != nil {
-		return nil, err
-	}
-	return &CandidateRewardRouting{
-		Owner:                c.Owner,
-		LegacyRewardAddress:  c.Reward,
-		OnchainRewardEnabled: candidateOnchainRewardEnabled(&c, hermesVaults),
-		ExplicitlyEnabled:    c.VoterRewardOnchainOptIn,
-		RewardAddressUpdated: c.RewardAddressUpdated,
-	}, nil
-}
-
-func candidateOnchainRewardEnabled(c *Candidate, hermesVaults []string) bool {
-	if c == nil {
-		return false
-	}
-	if c.VoterRewardOnchainOptIn {
-		return true
-	}
-	if c.RewardAddressUpdated || c.Reward == nil {
-		return false
-	}
-	for _, vault := range hermesVaults {
-		if c.Reward.String() == vault {
-			return true
-		}
-	}
-	return false
+	return snapshot, nil
 }
 
 // CandidateRewardAddress is retained for ReadState compatibility. It returns
 // the persisted legacy reward address and whether it was updated post-fork.
 func CandidateRewardAddress(sr protocol.StateReader, candID address.Address) (address.Address, bool, error) {
-	routing, err := ReadCandidateRewardRouting(sr, candID, nil)
+	candidate, _, err := NewCandidateByAddressReader(sr).CandidateByAddress(candID)
 	if err != nil {
 		return nil, false, err
 	}
-	if routing.RewardAddressUpdated {
-		return routing.LegacyRewardAddress, true, nil
+	if candidate.RewardAddressUpdated {
+		return candidate.Reward, true, nil
 	}
-	return routing.Owner, false, nil
+	return candidate.Owner, false, nil
 }
 
-// TestOnlyPutCandidateRewardAddress seeds persistent candidate state used by
-// CandidateRewardAddress without requiring a full staking protocol fixture.
+// TestOnlyPutCandidateRewardAddress seeds candidate state used by rewarding
+// tests. When a staking view exists it updates state through CandidateStateManager.
 func TestOnlyPutCandidateRewardAddress(
+	ctx context.Context,
 	sm protocol.StateManager,
 	candID address.Address,
 	owner address.Address,
 	reward address.Address,
 	updated bool,
+	optedIn bool,
 ) error {
 	if reward == nil {
 		reward = owner
 	}
 	candidate := &Candidate{
 		Owner: owner, Operator: owner, Reward: reward, Identifier: candID,
-		Name: "iip59-owner", Votes: new(big.Int), SelfStake: new(big.Int),
-		SelfStakeBucketIdx:   candidateNoSelfStakeBucketIndex,
-		RewardAddressUpdated: updated,
+		Name: hex.EncodeToString(candID.Bytes()[:6]), Votes: new(big.Int), SelfStake: new(big.Int),
+		SelfStakeBucketIdx:      candidateNoSelfStakeBucketIndex,
+		RewardAddressUpdated:    updated,
+		VoterRewardOnchainOptIn: optedIn,
 	}
 	if address.Equal(candID, owner) {
 		candidate.Identifier = nil
+	}
+	if csm, err := NewCandidateStateManagerWithContext(ctx, sm); err == nil {
+		return csm.Upsert(candidate)
 	}
 	_, err := sm.PutState(
 		candidate,

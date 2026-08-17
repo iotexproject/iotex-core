@@ -35,11 +35,11 @@ func TestBuildReadStateRequest(t *testing.T) {
 	r.Nil(err)
 	r.IsType(&UnclaimedBalanceStateContext{}, ctx)
 
-	ctx, err = BuildReadStateRequest(_pendingBlockRewardPoolIndexMethod.ID)
+	ctx, err = BuildReadStateRequest(_pendingVoterRewardDelegatesMethod.ID)
 	r.NoError(err)
-	r.IsType(&PendingBlockRewardPoolIndexStateContext{}, ctx)
+	r.IsType(&PendingVoterRewardDelegatesStateContext{}, ctx)
 
-	ctx, err = BuildReadStateRequest(_eraDrainCursorMethod.ID)
+	ctx, err = BuildReadStateRequest(_voterRewardDistributionMethod.ID)
 	r.NoError(err)
-	r.IsType(&EraDrainCursorStateContext{}, ctx)
+	r.IsType(&VoterRewardDistributionStateContext{}, ctx)
 }

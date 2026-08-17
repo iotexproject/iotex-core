@@ -164,8 +164,7 @@ func defaultConfig() Genesis {
 			ProductivityThreshold:          85,
 			WakeBlockRewardStr:             "4000000000000000000",
 			EpochsPerRewardEra:             24,
-			VoterBudgetPerBlock:            2000,
-			VoterWeightSeedBatchSize:       2000,
+			VoterBudgetPerBlock:            256,
 			HermesRewardVaultAddresses: []string{
 				"io19604a05s2p3mecam2zz7d27hcr6ndyw80wvkmh",
 				"io12mgttmfa2ffn9uqvn0yn37f4nz43d248l2ga85",
@@ -519,11 +518,6 @@ type (
 		// credit path (IIP-59 Phase 2). 0 falls back to a single-block drain, preserving pre-IIP-59 behavior for
 		// tests that never touch the field.
 		VoterBudgetPerBlock uint64 `yaml:"voterBudgetPerBlock"`
-		// VoterWeightSeedBatchSize is deprecated and unused. It sized the per-block batch of the one-time flush
-		// of the IIP-59 VoterWeightView into state at activation; that view was removed before IIP-59 activated
-		// on any network and nothing reads this field any more. Kept, per the repo rule on genesis fields, so a
-		// config file that still sets it continues to parse.
-		VoterWeightSeedBatchSize uint64 `yaml:"voterWeightSeedBatchSize"`
 		// HermesRewardVaultAddresses lists legacy reward addresses whose delegates are
 		// automatically migrated to protocol-native reward distribution at IIP-59 activation.
 		HermesRewardVaultAddresses []string `yaml:"hermesRewardVaultAddresses"`
@@ -601,6 +595,25 @@ func (g *Genesis) validate() error {
 	// is scheduled, the era length is never read and any value is acceptable.
 	if g.ToBeEnabledBlockHeight == math.MaxUint64 {
 		return nil
+	}
+	// IIP-59 enumerates pending reward pools by their unhashed V2 state-key
+	// prefix. Greenland activates that layout; allowing IIP-59 earlier would
+	// make orphan-pool enumeration incomplete because legacy rewarding keys are
+	// content-addressed and cannot be prefix-scanned.
+	if g.ToBeEnabledBlockHeight < g.GreenlandBlockHeight {
+		return errors.Errorf(
+			"genesis: toBeEnabledHeight %d must not precede greenlandHeight %d",
+			g.ToBeEnabledBlockHeight, g.GreenlandBlockHeight,
+		)
+	}
+	// IIP-59 recomputes contract-staking voter weights from bucket state in the
+	// trie. Xingu migrates those buckets from the Erigon-only mirror into the
+	// trie, so activating IIP-59 before Xingu would silently omit them.
+	if g.ToBeEnabledBlockHeight < g.XinguBlockHeight {
+		return errors.Errorf(
+			"genesis: toBeEnabledHeight %d must not precede xinguHeight %d",
+			g.ToBeEnabledBlockHeight, g.XinguBlockHeight,
+		)
 	}
 	// IsEraBoundary returns false for every epoch when EpochsPerRewardEra is 0,
 	// so a zero would activate IIP-59 and then never settle a single era -- the

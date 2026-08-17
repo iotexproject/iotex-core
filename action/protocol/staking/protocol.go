@@ -28,7 +28,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/eracow"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -62,70 +61,11 @@ const (
 	_voterIndex
 	_candIndex
 	_endorsement
-	// _candidatePollSnapshot is the tag for a CandidatePollSnapshot blob keyed
+	// _candidateRewardSnapshot is the tag for a CandidateRewardSnapshot blob keyed
 	// by a candidate's identity address (see poll_snapshot.go). Written at
 	// PutPollResult, read once per epoch by the rewarding protocol under
-	// IIP-59. Full key: {_candidatePollSnapshot} || candID.Bytes().
-	_candidatePollSnapshot
-	// RETIRED — do not reuse either slot.
-	//
-	// _voterWeightsRetired held the per-(candidate, voter) entries of the
-	// IIP-59 VoterWeightView ({tag} || candID(20) || voterAddress(20)), and
-	// _voterWeightSeedRetired the single-value cursor that tracked flushing
-	// that table into state at activation. The view was removed before IIP-59
-	// activated on any network, so no node ever wrote a key under either tag
-	// and there is nothing to migrate — but the iota positions stay occupied
-	// for the same reason retired proto field numbers stay `reserved`: a future
-	// tag that reuses one would collide with any archive node, test fixture or
-	// devnet that did run a build which wrote them.
-	//
-	// Spelled as blank identifiers so the slots cannot be referenced at all;
-	// deleting the two lines would renumber every tag below them.
-	_ // retired: _voterWeights
-	_ // retired: _voterWeightSeed
-	// _lsdVoterIndex is the tag for the owner -> contract-staking (LSD) bucket
-	// index, the LSD counterpart of _voterIndex. Full key:
-	// {_lsdVoterIndex} || ownerAddress(20); value is a
-	// contractstaking.ContractBucketRefs, i.e. (contract, bucket id) pairs,
-	// because contract-staking bucket ids are only unique per contract.
-	//
-	// Written exclusively by contractstaking.ContractStakingStateManager's
-	// UpsertBucket/DeleteBucket, and only once IIP-59 has activated. The tag
-	// value itself lives in the contractstaking package (staking imports
-	// contractstaking, not the reverse); the assertion below keeps the two
-	// definitions from drifting apart.
-	_lsdVoterIndex
-	// _eraCOWControl, _eraCOWEntry and _eraCOWJournal are the three tags of the
-	// IIP-59 era copy-on-write layer (see the eracow package). Full keys:
-	//   {_eraCOWControl}
-	//   {_eraCOWEntry}   || u64BE(freezeHeight) || kind || subkey
-	//   {_eraCOWJournal} || u64BE(freezeHeight) || u64BE(seq)
-	//
-	// The drain window recomputes voter weights from buckets several blocks
-	// after the era boundary, so bucket state mutated in between has its
-	// as-of-boundary value copied under _eraCOWEntry on first write. As with
-	// _lsdVoterIndex the tag values live in the leaf package (staking imports
-	// eracow, not the reverse) and the assertions below keep them in step.
-	_eraCOWControl
-	_eraCOWEntry
-	_eraCOWJournal
-)
-
-// The staking namespace is shared, so every tag must be unique and no two key
-// shapes may be confusable. {_lsdVoterIndex}||owner is 21 bytes, same length as
-// the _voterIndex / _candIndex / _candidatePollSnapshot keys but with a
-// distinct leading tag. These two constants overflow (and so fail to compile)
-// the moment the tag byte the contractstaking package writes stops matching the
-// one reserved here.
-const (
-	_ = byte(_lsdVoterIndex - contractstaking.LSDVoterIndexPrefix)
-	_ = byte(contractstaking.LSDVoterIndexPrefix - _lsdVoterIndex)
-	_ = byte(_eraCOWControl - eracow.ControlPrefix)
-	_ = byte(eracow.ControlPrefix - _eraCOWControl)
-	_ = byte(_eraCOWEntry - eracow.EntryPrefix)
-	_ = byte(eracow.EntryPrefix - _eraCOWEntry)
-	_ = byte(_eraCOWJournal - eracow.JournalPrefix)
-	_ = byte(eracow.JournalPrefix - _eraCOWJournal)
+	// IIP-59. Full key: {_candidateRewardSnapshot} || candID.Bytes().
+	_candidateRewardSnapshot
 )
 
 // Errors
@@ -466,10 +406,6 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 	}
 
-	// The retired VoterWeightView used to be materialized here, which cost a
-	// full native-bucket scan plus a per-indexer contract bucket load on every
-	// node start. Nothing needs it now: the era drain recomputes a voter's
-	// weight from the frozen buckets on demand.
 	return c, nil
 }
 
@@ -594,11 +530,11 @@ func (p *Protocol) slashCandidate(
 	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
 		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)
 	}
-	if err := subCandidateVotes(candidate, prevWeightedVotes); err != nil {
+	if err := candidate.SubVote(prevWeightedVotes); err != nil {
 		return errors.Wrapf(err, "failed to sub candidate votes")
 	}
 	weightedVotes := p.calculateVoteWeight(bucket, true)
-	if err := addCandidateVotes(candidate, weightedVotes); err != nil {
+	if err := candidate.AddVote(weightedVotes); err != nil {
 		return errors.Wrapf(err, "failed to add candidate votes")
 	}
 	if err := candidate.SubSelfStake(amount); err != nil {
@@ -714,6 +650,9 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	// into state) sees the state they produced, and before the epoch-boundary
 	// indexer work below, which returns early on most blocks.
 	if blkCtx.BlockHeight == g.ToBeEnabledBlockHeight {
+		if err := migrateHermesRewardOptIn(ctx, sm, g.HermesRewardVaultAddresses); err != nil {
+			return err
+		}
 		if err := backfillOwnerIndex(ctx, sm); err != nil {
 			return err
 		}
@@ -961,7 +900,7 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		if err := v.(*viewData).contractsStake.Handle(ctx, receipt); err != nil {
 			return err
 		}
-		handler = newNFTBucketEventHandlerErigonOnly(ctx, sm, ccvw)
+		handler = newNFTBucketEventHandlerErigonOnly(sm, ccvw)
 	} else {
 		handler, err = newNFTBucketEventHandler(ctx, sm, ccvw)
 	}

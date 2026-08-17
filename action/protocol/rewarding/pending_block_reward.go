@@ -9,35 +9,24 @@ import (
 	"bytes"
 	"context"
 	"math/big"
-	"sort"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
-	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
-// _pendingBlockRewardPoolIndexKey stores the sorted list of candidate
-// identifier byte-slices that currently hold a non-zero pool balance. It
-// makes end-of-epoch enumeration deterministic without a namespace scan;
-// the individual balances live at
-// _pendingBlockRewardPoolKeyPrefix || candidateIdentifier.
-var _pendingBlockRewardPoolIndexKey = []byte("pbrpi")
+const _candidateIdentifierSize = 20
 
 // pendingBlockRewardPool is a single delegate's accumulated block reward
-// balance under IIP-59 §3.2. Created lazily on first credit, deleted on
-// drain. Value is stored as raw big-endian bytes so the entry is compact
+// balance under IIP-59 §3.2. Created lazily on first credit and decremented as
+// voters are paid; rounding residual may carry into a later era. Value is
+// stored as raw big-endian bytes so the entry is compact
 // and independent of the big.Int text-radix representation.
 type pendingBlockRewardPool struct {
 	amount *big.Int
@@ -80,44 +69,6 @@ func (b *pendingBlockRewardPool) Decode(v systemcontracts.GenericValue) error {
 	return b.Deserialize(v.PrimaryData)
 }
 
-// pendingBlockRewardPoolIndex is the sorted list of candidate identifier
-// byte-slices with a non-zero pool balance. Sorted at every write so
-// enumeration order is deterministic across replay.
-type pendingBlockRewardPoolIndex struct {
-	ids [][]byte
-}
-
-// Serialize marshals the index. The proto wire format preserves the
-// caller-supplied byte-slice ordering, which is already sorted.
-func (i pendingBlockRewardPoolIndex) Serialize() ([]byte, error) {
-	m := &rewardingpb.PendingBlockRewardPoolIndex{CandidateIdentifiers: i.ids}
-	return proto.Marshal(m)
-}
-
-// Deserialize decodes the deterministic candidate-identifier list.
-func (i *pendingBlockRewardPoolIndex) Deserialize(data []byte) error {
-	m := &rewardingpb.PendingBlockRewardPoolIndex{}
-	if err := proto.Unmarshal(data, m); err != nil {
-		return err
-	}
-	i.ids = m.CandidateIdentifiers
-	return nil
-}
-
-// Encode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
-func (i *pendingBlockRewardPoolIndex) Encode() (systemcontracts.GenericValue, error) {
-	data, err := i.Serialize()
-	if err != nil {
-		return systemcontracts.GenericValue{}, err
-	}
-	return systemcontracts.GenericValue{PrimaryData: data}, nil
-}
-
-// Decode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
-func (i *pendingBlockRewardPoolIndex) Decode(v systemcontracts.GenericValue) error {
-	return i.Deserialize(v.PrimaryData)
-}
-
 // pendingBlockRewardPoolKey returns the per-delegate key layout used by
 // credit/read/delete. The prefix bytes are copied so the returned slice is
 // independent of the prefix constant.
@@ -149,9 +100,8 @@ func (p *Protocol) readPendingBlockRewardPool(
 	return entry.amount, nil
 }
 
-// creditPendingBlockRewardPool adds amount to the delegate's pool balance
-// and inserts the candidate into the enumeration index if absent. Zero or
-// nil amount is a no-op. The caller has already debited amount from
+// creditPendingBlockRewardPool adds amount to the delegate's pool balance.
+// Zero or nil amount is a no-op. The caller has already debited amount from
 // unclaimedBalance via updateAvailableBalance; the pool holds the balance
 // until drain.
 func (p *Protocol) creditPendingBlockRewardPool(
@@ -174,30 +124,23 @@ func (p *Protocol) creditPendingBlockRewardPool(
 		entry.amount = new(big.Int)
 	}
 	entry.amount = new(big.Int).Add(entry.amount, amount)
-	if err := p.putState(ctx, sm, key, &entry); err != nil {
-		return err
-	}
-	return p.addPendingBlockRewardPoolIndex(ctx, sm, candID)
+	return p.putState(ctx, sm, key, &entry)
 }
 
-// deletePendingBlockRewardPool removes a delegate's pool entry and its
-// index entry. Idempotent — a missing key is silently swallowed by
-// deleteState.
+// deletePendingBlockRewardPool removes a delegate's pool entry. Idempotent —
+// a missing key is silently swallowed by deleteState.
 func (p *Protocol) deletePendingBlockRewardPool(
 	ctx context.Context,
 	sm protocol.StateManager,
 	candID []byte,
 ) error {
-	if err := p.deleteState(ctx, sm, pendingBlockRewardPoolKey(candID), &pendingBlockRewardPool{}); err != nil {
-		return err
-	}
-	return p.removePendingBlockRewardPoolIndex(ctx, sm, candID)
+	return p.deleteState(ctx, sm, pendingBlockRewardPoolKey(candID), &pendingBlockRewardPool{})
 }
 
 // decrementPendingBlockRewardPool subtracts amount from the delegate's
-// pool balance. If the resulting balance is zero, the entry (and its
-// enumeration index membership) is deleted; otherwise the reduced
-// balance is persisted. Used by Phase B chunk drain so any voter-side
+// pool balance. If the resulting balance is zero, the entry is deleted;
+// otherwise the reduced balance is persisted. Used by voter reward distribution
+// chunks so any voter-side
 // balance that accrued after the era-boundary freeze is preserved for
 // the next era's cursor. Amount larger than the current balance is
 // clamped to the balance (guards against arithmetic slippage).
@@ -228,85 +171,61 @@ func (p *Protocol) decrementPendingBlockRewardPool(
 	return p.putState(ctx, sm, key, &entry)
 }
 
-// readPendingBlockRewardPoolIndex returns the deterministic list of
-// candidate identifier byte-slices that currently hold a pool balance.
-// Returns an empty slice for a missing index (no entries exist yet).
-func (p *Protocol) readPendingBlockRewardPoolIndex(
+// pendingBlockRewardPoolRange is the half-open V2 state-key range containing
+// every per-delegate pool entry. IIP-59 is required to activate after the
+// Greenland/V2 rewarding-store fork, so these unhashed keys are enumerable.
+func (p *Protocol) pendingBlockRewardPoolRange() ([]byte, []byte) {
+	min := make([]byte, 0, len(p.keyPrefix)+len(_pendingBlockRewardPoolKeyPrefix))
+	min = append(min, p.keyPrefix...)
+	min = append(min, _pendingBlockRewardPoolKeyPrefix...)
+	max := append([]byte(nil), min...)
+	max[len(max)-1]++
+	return min, max
+}
+
+// listPendingBlockRewardPoolIDs enumerates candidate identifiers with a pool
+// entry in deterministic byte order. Before V2 storage is active there can be
+// no IIP-59 pool entries, and legacy rewarding keys are hashed and therefore
+// not prefix-enumerable.
+func (p *Protocol) listPendingBlockRewardPoolIDs(
 	ctx context.Context,
-	sm protocol.StateReader,
+	sr protocol.StateReader,
 ) ([][]byte, error) {
-	idx := pendingBlockRewardPoolIndex{}
-	if _, err := p.state(ctx, sm, _pendingBlockRewardPoolIndexKey, &idx); err != nil {
+	if !useV2Storage(ctx) {
+		return nil, nil
+	}
+	min, max := p.pendingBlockRewardPoolRange()
+	_, iter, err := sr.States(
+		protocol.NamespaceOption(_v2RewardingNamespace),
+		protocol.RangeOption(min, max),
+	)
+	if err != nil {
 		if errors.Is(err, state.ErrStateNotExist) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	// Return a deep copy so callers can safely mutate the returned slice
-	// without accidentally reaching back into the deserialised state.
-	out := make([][]byte, len(idx.ids))
-	for i, id := range idx.ids {
-		cp := make([]byte, len(id))
-		copy(cp, id)
-		out[i] = cp
+	ids := make([][]byte, 0, iter.Size())
+	var previous []byte
+	for i := 0; i < iter.Size(); i++ {
+		var pool pendingBlockRewardPool
+		key, err := iter.Next(&pool)
+		if err != nil {
+			return nil, errors.Wrap(err, "rewarding: decode pending block reward pool during range scan")
+		}
+		if !bytes.HasPrefix(key, min) || len(key) != len(min)+_candidateIdentifierSize {
+			return nil, errors.Errorf("rewarding: malformed pending block reward pool key %x", key)
+		}
+		if previous != nil && bytes.Compare(key, previous) <= 0 {
+			return nil, errors.Errorf(
+				"rewarding: pending block reward pool scan returned non-ascending key %x after %x",
+				key, previous,
+			)
+		}
+		ids = append(ids, append([]byte(nil), key[len(min):]...))
+		previous = key
 	}
-	return out, nil
-}
-
-// writePendingBlockRewardPoolIndex persists the index, or deletes the key when
-// the index is empty so an exhausted pool leaves no state behind.
-//
-// ids must already be sorted ascending: the orphan sweep walks this index and
-// pays from it, so its order is consensus-visible. Both callers preserve the
-// order by splicing at a binary-searched position.
-func (p *Protocol) writePendingBlockRewardPoolIndex(
-	ctx context.Context,
-	sm protocol.StateManager,
-	ids [][]byte,
-) error {
-	if len(ids) == 0 {
-		return p.deleteState(ctx, sm, _pendingBlockRewardPoolIndexKey, &pendingBlockRewardPoolIndex{})
-	}
-	return p.putState(ctx, sm, _pendingBlockRewardPoolIndexKey, &pendingBlockRewardPoolIndex{ids: ids})
-}
-
-func (p *Protocol) addPendingBlockRewardPoolIndex(
-	ctx context.Context,
-	sm protocol.StateManager,
-	candID []byte,
-) error {
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
-	if err != nil {
-		return err
-	}
-	// Binary-search insert to keep the index sorted at all times.
-	pos := sort.Search(len(ids), func(i int) bool { return bytes.Compare(ids[i], candID) >= 0 })
-	if pos < len(ids) && bytes.Equal(ids[pos], candID) {
-		return nil
-	}
-	cp := make([]byte, len(candID))
-	copy(cp, candID)
-	ids = append(ids, nil)
-	copy(ids[pos+1:], ids[pos:])
-	ids[pos] = cp
-	return p.writePendingBlockRewardPoolIndex(ctx, sm, ids)
-}
-
-func (p *Protocol) removePendingBlockRewardPoolIndex(
-	ctx context.Context,
-	sm protocol.StateManager,
-	candID []byte,
-) error {
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
-	if err != nil {
-		return err
-	}
-	pos := sort.Search(len(ids), func(i int) bool { return bytes.Compare(ids[i], candID) >= 0 })
-	if pos >= len(ids) || !bytes.Equal(ids[pos], candID) {
-		return nil
-	}
-	ids = append(ids[:pos], ids[pos+1:]...)
-	return p.writePendingBlockRewardPoolIndex(ctx, sm, ids)
+	return ids, nil
 }
 
 // candidateIdentifierBytes resolves the stable candidate identity used by
@@ -332,156 +251,4 @@ func candidateIdentifier(candidate *state.Candidate) string {
 		return candidate.Identity
 	}
 	return candidate.Address
-}
-
-// refundPendingBlockRewardPool returns amount to the rewarding fund's
-// unclaimed balance. Used by the orphan-drain fallback when a pool entry
-// has no reachable destination (candidate fully unregistered, no reward
-// address). Never touches totalBalance — the deposit that funded this
-// amount is still on the books.
-func (p *Protocol) refundPendingBlockRewardPool(
-	ctx context.Context,
-	sm protocol.StateManager,
-	amount *big.Int,
-) error {
-	if amount == nil || amount.Sign() <= 0 {
-		return nil
-	}
-	f := fund{}
-	if _, err := p.state(ctx, sm, _fundKey, &f); err != nil {
-		return err
-	}
-	f.unclaimedBalance = new(big.Int).Add(f.unclaimedBalance, amount)
-	return p.putState(ctx, sm, _fundKey, &f)
-}
-
-// drainPendingBlockRewardOrphans handles pool entries left over after the
-// per-candidate epoch loop. Any pool ID not in visited is a delegate that
-// dropped out of the current epoch's reward split entirely (deactivated,
-// unregistered, or otherwise fell off the poll list) after having
-// accumulated block reward inside the epoch.
-//
-// Resolution order per orphan:
-//  1. Look up the live staking.Candidate by identifier. If present, credit
-//     the pool balance to its owner (the post-fork default reward address)
-//     and emit a BLOCK_REWARD log naming it.
-//  2. Otherwise (candidate fully gone), refund the
-//     balance to fund.unclaimedBalance and emit a BLOCK_REWARD log with
-//     an empty addr for observability. Never burn — that would violate
-//     the unclaimedBalance ≤ totalBalance invariant.
-//
-// Regardless of destination, the pool entry and its index membership are
-// deleted so a replay is a no-op.
-func (p *Protocol) drainPendingBlockRewardOrphans(
-	ctx context.Context,
-	sm protocol.StateManager,
-	visited map[string]bool,
-	blkHeight uint64,
-	actionHash hash.Hash256,
-) ([]*action.TransactionLog, []*action.Log, error) {
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sm)
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(ids) == 0 {
-		return nil, nil, nil
-	}
-	transactionLogs := make([]*action.TransactionLog, 0)
-	logs := make([]*action.Log, 0)
-	for _, candID := range ids {
-		if visited[string(candID)] {
-			continue
-		}
-		poolAmt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
-		if err != nil {
-			return nil, nil, err
-		}
-		if poolAmt.Sign() == 0 {
-			if err := p.deletePendingBlockRewardPool(ctx, sm, candID); err != nil {
-				return nil, nil, err
-			}
-			continue
-		}
-
-		tLog, rLog, err := p.sweepPendingPoolAmount(ctx, sm, candID, poolAmt, blkHeight, actionHash)
-		if err != nil {
-			return nil, nil, err
-		}
-		if tLog != nil {
-			transactionLogs = append(transactionLogs, tLog)
-		}
-		logs = append(logs, rLog)
-		if err := p.deletePendingBlockRewardPool(ctx, sm, candID); err != nil {
-			return nil, nil, err
-		}
-	}
-	return transactionLogs, logs, nil
-}
-
-// sweepPendingPoolAmount moves one amount out of a delegate's pending pool to
-// the delegate's owner, or back to the rewarding fund's unclaimed balance when
-// no owner can be resolved, and emits the BLOCK_REWARD log that records it.
-//
-// Both sinks of unpaid pool money go through here: the orphan drain, which
-// sweeps a whole pool whose delegate fell off the list, and the drain's
-// completion residual, which sweeps the part of a frozen pool that floor
-// division and the payout clamp left behind. There is deliberately only one
-// sink -- a second one would be a second place for the fund accounting
-// invariant to be got wrong.
-//
-// The pool is decremented rather than deleted, because the pool may have kept
-// accruing behind the drain and that accrual belongs to the next era. The
-// decrement deletes the entry on its own when it empties.
-func (p *Protocol) sweepPendingPoolAmount(
-	ctx context.Context,
-	sm protocol.StateManager,
-	candID []byte,
-	amount *big.Int,
-	blkHeight uint64,
-	actionHash hash.Hash256,
-) (*action.TransactionLog, *action.Log, error) {
-	if amount == nil || amount.Sign() <= 0 {
-		return nil, nil, nil
-	}
-	var target address.Address
-	var targetStr string
-	candAddr, addrErr := address.FromBytes(candID)
-	if addrErr == nil {
-		routing, rewardErr := staking.ReadCandidateRewardRouting(sm, candAddr,
-			genesis.MustExtractGenesisContext(ctx).HermesRewardVaultAddresses)
-		if rewardErr == nil {
-			target = routing.Owner
-			targetStr = routing.Owner.String()
-		} else if !errors.Is(rewardErr, state.ErrStateNotExist) {
-			return nil, nil, errors.Wrap(rewardErr, "rewarding: read candidate owner for pool sweep")
-		}
-	} else {
-		log.L().Warn("rewarding: pool ID does not decode to an address; refunding",
-			zap.Binary("candID", candID),
-			zap.Error(addrErr))
-	}
-
-	var tLog *action.TransactionLog
-	if target != nil {
-		var err error
-		if tLog, err = p.creditRewardDirect(ctx, sm, target, amount); err != nil {
-			return nil, nil, err
-		}
-	} else if err := p.refundPendingBlockRewardPool(ctx, sm, amount); err != nil {
-		return nil, nil, err
-	}
-	data, err := p.encodeRewardLog(rewardingpb.RewardLog_BLOCK_REWARD, targetStr, amount)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := p.decrementPendingBlockRewardPool(ctx, sm, candID, amount); err != nil {
-		return nil, nil, err
-	}
-	return tLog, &action.Log{
-		Address:     p.addr.String(),
-		Topics:      nil,
-		Data:        data,
-		BlockHeight: blkHeight,
-		ActionHash:  actionHash,
-	}, nil
 }

@@ -36,20 +36,20 @@ type TestOnlyPoolEntry struct {
 // block producers. Nil-balance addresses are omitted so an unused address
 // does not affect equality.
 type TestOnlyRewardStateSnapshot struct {
-	TotalBalance     *big.Int
-	UnclaimedBalance *big.Int
-	PerAddress       map[string]*big.Int
-	PoolEntries      []TestOnlyPoolEntry
-	CursorPresent    bool
-	CursorDelegates  uint32
-	CursorShardsDone uint32
-	CursorResumeLen  uint32
-	CursorTargetEra  uint64
+	TotalBalance                   *big.Int
+	UnclaimedBalance               *big.Int
+	PerAddress                     map[string]*big.Int
+	PoolEntries                    []TestOnlyPoolEntry
+	VoterRewardDistributionPresent bool
+	VoterRewardDelegateCount       uint32
+	VoterRewardScanPhase           uint32
+	VoterRewardResumeVoterLen      uint32
+	VoterRewardTargetEra           uint64
 }
 
 // TestOnlyDumpRewardState snapshots fund state, per-address unclaimed
 // balances for addrs, all pending pool entries in deterministic order,
-// and the cursor summary. Returns a fully-owned struct — reading it does
+// and the voter reward distribution summary. Returns a fully-owned struct — reading it does
 // not alias into the state manager.
 func (p *Protocol) TestOnlyDumpRewardState(
 	ctx context.Context,
@@ -81,73 +81,70 @@ func (p *Protocol) TestOnlyDumpRewardState(
 	if err != nil {
 		return nil, err
 	}
-	shardsDone, resumeLen, totalCands, era, present, err := p.TestOnlyEpochDrainSnapshot(ctx, sr)
+	scanPhase, resumeLen, totalCands, era, present, err := p.TestOnlyVoterRewardDistributionProgress(ctx, sr)
 	if err != nil {
 		return nil, err
 	}
 	return &TestOnlyRewardStateSnapshot{
-		TotalBalance:     new(big.Int).Set(total),
-		UnclaimedBalance: new(big.Int).Set(unclaimed),
-		PerAddress:       perAddr,
-		PoolEntries:      entries,
-		CursorPresent:    present,
-		CursorDelegates:  totalCands,
-		CursorShardsDone: shardsDone,
-		CursorResumeLen:  resumeLen,
-		CursorTargetEra:  era,
+		TotalBalance:                   new(big.Int).Set(total),
+		UnclaimedBalance:               new(big.Int).Set(unclaimed),
+		PerAddress:                     perAddr,
+		PoolEntries:                    entries,
+		VoterRewardDistributionPresent: present,
+		VoterRewardDelegateCount:       totalCands,
+		VoterRewardScanPhase:           scanPhase,
+		VoterRewardResumeVoterLen:      resumeLen,
+		VoterRewardTargetEra:           era,
 	}, nil
 }
 
-// TestOnlyDrainDelegateWork is one delegate's frozen drain work item, copied
-// out of the live settlement. It exists so an e2e harness can recompute what
-// the drain should have paid without linking against the unexported cursor
+// TestOnlyVoterRewardDelegateAllocation is one delegate's frozen reward allocation,
+// copied out of the live distribution. It exists so an e2e harness can recompute what
+// distribution should have paid without linking against the unexported state
 // types — and, more to the point, without calling computeVoterShares, which
 // would make the cross-check circular.
-type TestOnlyDrainDelegateWork struct {
+type TestOnlyVoterRewardDelegateAllocation struct {
 	CandidateID            []byte
 	VoterAmountFrozen      *big.Int
 	VoterAmountDistributed *big.Int
 	TotalWeight            *big.Int
 	FreezeHeight           uint64
 	SelfStakeBucketIdx     uint64
-	Skipped                bool
 }
 
-// TestOnlyEpochDrainPlan returns the current settlement's per-delegate work
+// TestOnlyVoterRewardDistributionPlan returns the current settlement's per-delegate work
 // items, whether it has completed, and whether any settlement state exists.
 //
-// Unlike TestOnlyEpochDrainSnapshot it keeps answering after the drain
+// Unlike TestOnlyVoterRewardDistributionProgress it keeps answering after distribution
 // finishes. The plan and progress records outlive completion — the next era
 // boundary is what replaces them — and the post-completion Distributed totals
 // are the only record of what the settlement actually moved.
 //
-// Note that completeEpochDrain folds each delegate's residual into Distributed
-// on the way out, so a completed item reports Distributed == VoterAmountFrozen.
-// A caller that wants the payout total alone has to sample before completion.
-func (p *Protocol) TestOnlyEpochDrainPlan(
+// Distributed reports actual voter payout. Any rounding residual remains in
+// the pending pool for a later era.
+func (p *Protocol) TestOnlyVoterRewardDistributionPlan(
 	ctx context.Context,
 	sr protocol.StateReader,
-) (works []TestOnlyDrainDelegateWork, completed bool, present bool, err error) {
-	c, err := p.readEpochDrainCursor(ctx, sr)
+) (allocations []TestOnlyVoterRewardDelegateAllocation, completed bool, present bool, err error) {
+	c, err := p.readVoterRewardDistributionState(ctx, sr)
 	if err != nil || c == nil {
 		return nil, false, false, err
 	}
-	out := make([]TestOnlyDrainDelegateWork, len(c.Delegates))
-	for i, d := range c.Delegates {
-		out[i] = TestOnlyDrainDelegateWork{
+	out := make([]TestOnlyVoterRewardDelegateAllocation, len(c.DelegateAllocations))
+	for i, d := range c.DelegateAllocations {
+		out[i] = TestOnlyVoterRewardDelegateAllocation{
 			CandidateID:            append([]byte(nil), d.CandidateIdentifier...),
 			VoterAmountFrozen:      new(big.Int).Set(safeBig(d.VoterAmountFrozen)),
 			VoterAmountDistributed: new(big.Int).Set(c.distributedAt(i)),
 			TotalWeight:            new(big.Int).Set(safeBig(d.TotalWeight)),
-			FreezeHeight:           d.FreezeHeight,
+			FreezeHeight:           c.FreezeHeight,
 			SelfStakeBucketIdx:     d.SelfStakeBucketIdx,
-			Skipped:                delegateSkipped(c, uint32(i)),
 		}
 	}
-	return out, c.Completed, true, nil
+	return out, c.completed(), true, nil
 }
 
-// TestOnlyAllPoolEntries walks the pending block-reward pool index and
+// TestOnlyAllPoolEntries walks the pending block-reward pool key range and
 // returns each (candID, amount) pair sorted by candID bytes. Zero-amount
 // entries are elided so equality does not depend on residuals that were
 // never physically written.
@@ -155,7 +152,7 @@ func (p *Protocol) TestOnlyAllPoolEntries(
 	ctx context.Context,
 	sr protocol.StateReader,
 ) ([]TestOnlyPoolEntry, error) {
-	ids, err := p.readPendingBlockRewardPoolIndex(ctx, sr)
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sr)
 	if err != nil {
 		return nil, err
 	}

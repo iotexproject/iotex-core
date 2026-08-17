@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // This file is the activation path for the IIP-59 owner -> contract-staking
@@ -28,9 +29,8 @@ import (
 // contractstaking.ContractStakingStateManager maintains the owner index from
 // the moment IIP-59 activates, on every bucket upsert and delete. That covers
 // buckets created after activation and nothing else. An LSD voter whose buckets
-// all predate activation has no entry, and the era drain walks voters
-// shard-major over the index — so that voter is never visited, never paid, and
-// their share silently falls into the residual.
+// all predate activation has no entry, so the era drain never visits that
+// voter, never pays them, and leaves their share in the residual.
 //
 // It does not self-heal either. When such a bucket is next written (a lock, an
 // unlock, an expansion, a restake — anything that is not an owner change),
@@ -57,11 +57,10 @@ import (
 // backfill as an in-era mutation and copy the pre-backfill (empty) list aside,
 // which is precisely the value the drain must not see. It cannot happen:
 //
-//   - beginEraCOWWindow is only reached from FreezePollSnapshot, which is only
-//     reached from poll.setCandidates, whose only caller is the PutPollResult
-//     action handler. Actions run after CreatePreStates, so the backfill has
-//     always finished before the first window of the chain can open.
-//   - freezeIIP59PollSnapshot returns early while FeatureCtx.NoVoterRewardDistribution
+//   - BeginEraCOWWindow is reached from poll.setCandidates, whose only caller
+//     is the PutPollResult action handler. Actions run after CreatePreStates,
+//     so the backfill has always finished before the first window can open.
+//   - freezeIIP59RewardState returns early while FeatureCtx.NoVoterRewardDistribution
 //     is set, and that flag is !g.IsToBeEnabled(height) — so no window exists at
 //     any height below the one this runs at, either.
 //
@@ -75,7 +74,7 @@ import (
 // Called exactly once in the life of a chain, from CreatePreStates at the
 // activation height.
 func backfillOwnerIndex(ctx context.Context, sm protocol.StateManager) error {
-	contracts, marks, err := backfillContracts(ctx, sm)
+	contracts, err := backfillContracts(ctx)
 	if err != nil {
 		return err
 	}
@@ -124,10 +123,14 @@ func backfillOwnerIndex(ctx context.Context, sm protocol.StateManager) error {
 		// the top bucket may since have been burned. Keep the larger: the mark
 		// is the era layer's "this bucket existed at the freeze height" bound,
 		// and lowering it would exclude buckets that do exist.
-		if mark, ok := marks[string(contract.Bytes())]; ok {
+		switch mark, err := csr.NumOfBuckets(contract); {
+		case err == nil:
 			if !found || mark > maxID {
 				maxID, found = mark, true
 			}
+		case errors.Cause(err) == state.ErrStateNotExist:
+		default:
+			return errors.Wrapf(err, "staking: failed to read bucket high-water mark of contract %s", contract.String())
 		}
 		if !found {
 			// No buckets and no mark: nothing to backfill. Any bucket this
@@ -161,16 +164,11 @@ func backfillOwnerIndex(ctx context.Context, sm protocol.StateManager) error {
 	return nil
 }
 
-// backfillContracts returns the staking contracts to walk, sorted by raw
-// address bytes, together with their recorded bucket high-water marks.
-//
-// The set is the genesis system staking contracts unioned with every contract
-// that already has a record in the meta namespace. Genesis alone is not enough
-// (a contract can have a mark without being named in genesis) and the meta
-// namespace alone is not enough (only the V1 indexer ever maintained the mark).
-func backfillContracts(ctx context.Context, sm protocol.StateManager) ([]address.Address, map[string]uint64, error) {
+// backfillContracts returns the V1, V2 and V3 system staking contracts from
+// genesis, deduplicated and sorted by raw address bytes.
+func backfillContracts(ctx context.Context) ([]address.Address, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
-	byAddr := make(map[string]address.Address, 4)
+	byAddr := make(map[string]address.Address, 3)
 	for _, s := range []string{
 		g.SystemStakingContractAddress,
 		g.SystemStakingContractV2Address,
@@ -181,22 +179,9 @@ func backfillContracts(ctx context.Context, sm protocol.StateManager) ([]address
 		}
 		addr, err := address.FromString(s)
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "staking: bad system staking contract address %q in genesis", s)
+			return nil, errors.Wrapf(err, "staking: bad system staking contract address %q in genesis", s)
 		}
 		byAddr[string(addr.Bytes())] = addr
-	}
-	records, err := contractstaking.BucketHighWaterMarks(sm)
-	if err != nil {
-		return nil, nil, err
-	}
-	marks := make(map[string]uint64, len(records))
-	for _, m := range records {
-		addr, err := address.FromBytes(m.Contract)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "staking: bad contract address in the staking contract meta namespace")
-		}
-		byAddr[string(m.Contract)] = addr
-		marks[string(m.Contract)] = m.NumOfBuckets
 	}
 
 	out := make([]address.Address, 0, len(byAddr))
@@ -206,5 +191,5 @@ func backfillContracts(ctx context.Context, sm protocol.StateManager) ([]address
 	sort.Slice(out, func(i, j int) bool {
 		return bytes.Compare(out[i].Bytes(), out[j].Bytes()) < 0
 	})
-	return out, marks, nil
+	return out, nil
 }

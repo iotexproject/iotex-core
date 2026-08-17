@@ -18,88 +18,40 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
-// The era's poll snapshot is the sole authority on opt-in status. Two kinds of
-// delegate can reach a payout with no snapshot at all: one registered after the
-// freeze height H (unfreezable by construction), and one that existed at H
-// outside the poll list and opted in afterwards. Both are the same real-world
-// situation as a candidate INSIDE the poll list that opts in after H — and that
-// one is frozen as an OnchainRewardEnabled=false placeholder, which routes it
-// to the legacy path.
-//
-// Before the fix the two diverged on nothing but poll-list membership at H: the
-// placeholder case paid legacy, the missing case stayed on the LIVE opt-in flag
-// and so paid on IIP-59 rails at the 100% commission default — the whole amount
-// to the owner, nothing to the voters, no error and no log. For a Hermes-vault
-// delegate that also bypassed the vault, so off-chain Hermes never saw the
-// money and its voters lost it permanently.
+// The era's reward snapshot is the sole authority on opt-in status. A delegate
+// registered after freeze height H, or one that opts in after H, has no snapshot
+// and remains on the legacy path until the next era is frozen.
 //
 // newVoterRewardCtx builds exactly the delegate at issue: owner is
 // identityset.Address(1), its reward address is identityset.Address(2), and
-// that address is the configured Hermes vault, so candidateOnchainRewardEnabled
-// reads LIVE-opted-in. Writing no snapshot is the whole setup.
+// that address is the configured Hermes vault and its persisted opt-in bit is
+// set. Writing no snapshot is the whole setup.
 
 // TestResolveDelegateRewardRouting_MissingSnapshotIsOffRails is the fix.
 func TestResolveDelegateRewardRouting_MissingSnapshotIsOffRails(t *testing.T) {
 	r := require.New(t)
-	ctx, sm, _, _, candAddr := newVoterRewardCtx(t, true)
+	_, sm, _, _, candAddr := newVoterRewardCtx(t, true)
 
 	// Precondition: the delegate really is opted in as of live state, so the
 	// assertions below are about the snapshot and not about the opt-in test.
-	live, err := staking.ReadCandidateRewardRouting(
-		sm, candAddr, []string{identityset.Address(2).String()},
-	)
+	live, _, err := staking.NewCandidateByAddressReader(sm).CandidateByAddress(candAddr)
 	r.NoError(err)
-	r.True(live.OnchainRewardEnabled,
+	r.NotNil(live)
+	r.True(live.VoterRewardOnchainOptIn,
 		"harness must present a live-opted-in delegate or this test proves nothing")
 
-	_, err = staking.PollSnapshotFor(sm, candAddr)
+	_, err = staking.CandidateRewardSnapshotFor(sm, candAddr)
 	r.ErrorIs(err, state.ErrStateNotExist, "no snapshot is the condition under test")
 
-	routing, err := resolveDelegateRewardRouting(ctx, sm, candAddr)
+	routing, err := resolveDelegateRewardRouting(sm, candAddr)
 	r.NoError(err)
 	r.False(routing.onchainRewardEnabled,
 		"no snapshot at H means this era is not on IIP-59 rails, whatever live state says")
 
-	addr, _, err := onchainPayoutAddress(ctx, sm, candAddr)
-	r.NoError(err)
+	addr := routing.PayoutAddress()
 	r.Equal(identityset.Address(2).String(), addr.String(),
 		"payout must go to the legacy reward address (the Hermes vault), not the owner")
 	r.NotEqual(identityset.Address(1).String(), addr.String())
-}
-
-// TestResolveDelegateRewardRouting_MissingAgreesWithPlaceholder is the point of
-// the change: the two ways of expressing "not opted in for this era" must be
-// indistinguishable at the payout. A fix that only special-cased the missing
-// case without matching the placeholder would leave the asymmetry in place.
-func TestResolveDelegateRewardRouting_MissingAgreesWithPlaceholder(t *testing.T) {
-	r := require.New(t)
-
-	resolve := func(withPlaceholder bool) (*delegateRewardRouting, address.Address) {
-		ctx, sm, _, _, candAddr := newVoterRewardCtx(t, true)
-		if withPlaceholder {
-			// Exactly what FreezePollSnapshot writes for a candidate in the
-			// poll list that was not opted in at H.
-			r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
-				OnchainRewardEnabled: false,
-				FreezeHeight:         20_000,
-				SelfStakeBucketIdx:   staking.NoSelfStakeBucketIndex,
-				TotalWeight:          new(big.Int),
-			}))
-		}
-		routing, err := resolveDelegateRewardRouting(ctx, sm, candAddr)
-		r.NoError(err)
-		addr, _, err := onchainPayoutAddress(ctx, sm, candAddr)
-		r.NoError(err)
-		return routing, addr
-	}
-
-	missing, missingAddr := resolve(false)
-	placeholder, placeholderAddr := resolve(true)
-
-	r.Equal(placeholder.onchainRewardEnabled, missing.onchainRewardEnabled)
-	r.Equal(placeholder.blockCommissionBPs, missing.blockCommissionBPs)
-	r.Equal(placeholder.epochCommissionBPs, missing.epochCommissionBPs)
-	r.Equal(placeholderAddr.String(), missingAddr.String())
 }
 
 // TestDistributeEpochCommissions_MissingSnapshotPaysLegacy walks the real epoch
@@ -127,11 +79,10 @@ func TestDistributeEpochCommissions_MissingSnapshotPaysLegacy(t *testing.T) {
 	}
 	r.NoError(p.distributeEpochCommissions(ctx, sm, epochCommissionInputs{
 		rewardedCandidates: []*state.Candidate{cand},
-		// Production passes onchainPayoutAddress's answer here; the pre-fork
-		// declared address is only a fallback. Either way the routing decides.
-		addrs:         []address.Address{identityset.Address(2)},
-		amounts:       []*big.Int{big.NewInt(1_000)},
-		isEraBoundary: true,
+		// Production passes delegateRewardRouting.PayoutAddress's answer here;
+		// the pre-fork declared address is only a fallback.
+		addrs:   []address.Address{identityset.Address(2)},
+		amounts: []*big.Int{big.NewInt(1_000)},
 	}, out))
 
 	vaultBalance, _, err := p.UnclaimedBalance(ctx, sm, identityset.Address(2))
@@ -151,7 +102,6 @@ func TestDistributeEpochCommissions_MissingSnapshotPaysLegacy(t *testing.T) {
 	pool, err := p.readPendingBlockRewardPool(ctx, sm, candAddr.Bytes())
 	r.NoError(err)
 	r.Zero(pool.Sign())
-	r.Empty(out.cursorEntries)
 }
 
 // TestCreditBlockProducer_MissingSnapshotPaysLegacy covers the other payment
@@ -163,11 +113,10 @@ func TestCreditBlockProducer_MissingSnapshotPaysLegacy(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, candAddr := newVoterRewardCtx(t, true)
 
-	rewardAddr, routing, err := onchainPayoutAddress(ctx, sm, candAddr)
+	routing, err := resolveDelegateRewardRouting(sm, candAddr)
 	r.NoError(err)
 	payout := blockProducerPayout{
-		addr:        rewardAddr,
-		addrStr:     rewardAddr.String(),
+		addr:        routing.PayoutAddress(),
 		candAddr:    candAddr,
 		onchainPool: routing.onchainRewardEnabled,
 	}
@@ -206,8 +155,7 @@ func TestDistributeEpochCommissions_FreshSnapshotStaysOnRails(t *testing.T) {
 
 	const currentEraH = uint64(20_000)
 	openEraWindowForTest(t, ctx, sm, currentEraH)
-	r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, candAddr, &staking.CandidatePollSnapshot{
-		OnchainRewardEnabled: true,
+	r.NoError(staking.TestOnlyPutCandidateRewardSnapshotFor(sm, candAddr, &staking.CandidateRewardSnapshot{
 		// All to voters, so the commission leg never touches the fund and this
 		// test stays about the routing decision.
 		EpochCommissionBasisPoints: 0,
@@ -217,7 +165,7 @@ func TestDistributeEpochCommissions_FreshSnapshotStaysOnRails(t *testing.T) {
 		SelfStakeBucketIdx:         7,
 	}))
 
-	routing, err := resolveDelegateRewardRouting(ctx, sm, candAddr)
+	routing, err := resolveDelegateRewardRouting(sm, candAddr)
 	r.NoError(err)
 	r.True(routing.onchainRewardEnabled)
 
@@ -230,14 +178,23 @@ func TestDistributeEpochCommissions_FreshSnapshotStaysOnRails(t *testing.T) {
 		rewardedCandidates: []*state.Candidate{cand},
 		addrs:              []address.Address{identityset.Address(2)},
 		amounts:            []*big.Int{big.NewInt(1_000)},
-		isEraBoundary:      true,
 	}, out))
 
 	pool, err := p.readPendingBlockRewardPool(ctx, sm, candAddr.Bytes())
 	r.NoError(err)
 	r.Zero(big.NewInt(1_000).Cmp(pool), "voter money must still accrue into the pending pool")
-	r.Len(out.cursorEntries, 1)
-	r.Equal(currentEraH, out.cursorEntries[0].FreezeHeight)
+
+	work, err := p.freezePendingPoolDrainWork(ctx, sm, currentEraH)
+	r.NoError(err)
+	r.Len(work, 1, "a fresh positive-weight snapshot must enter the immutable drain plan")
+	r.Equal(candAddr.Bytes(), work[0].CandidateIdentifier)
+	r.Zero(big.NewInt(1_000).Cmp(work[0].VoterAmountFrozen))
+	r.Zero(big.NewInt(1_000_000).Cmp(work[0].TotalWeight))
+	r.Equal(uint64(7), work[0].SelfStakeBucketIdx)
+
+	poolAfterPlan, err := p.readPendingBlockRewardPool(ctx, sm, candAddr.Bytes())
+	r.NoError(err)
+	r.Zero(pool.Cmp(poolAfterPlan), "building the plan must not consume the pending pool")
 
 	vaultBalance, _, err := p.UnclaimedBalance(ctx, sm, identityset.Address(2))
 	r.NoError(err)

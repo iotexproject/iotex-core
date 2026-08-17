@@ -44,7 +44,7 @@ type perfTier struct {
 	numVoters           int
 	numNativeBuckets    int
 	numContractBuckets  int
-	shardVoterAddresses bool
+	spreadVoterAddresses bool
 	sampleVoterPayouts  bool
 	epochsPerEra        uint64
 	voterBudgetPerBlock uint64
@@ -59,7 +59,7 @@ var iip59PerfTiers = map[string]perfTier{
 		numVoters:           30_000,
 		numNativeBuckets:    50_000,
 		numContractBuckets:  10_000,
-		shardVoterAddresses: true,
+		spreadVoterAddresses: true,
 		sampleVoterPayouts:  true,
 		epochsPerEra:        2,
 		voterBudgetPerBlock: 4_504,
@@ -98,8 +98,8 @@ func (tier perfTier) voterBucketCount(voter int) int {
 }
 
 func perfVoterAddress(tier perfTier, voter int) address.Address {
-	if tier.shardVoterAddresses {
-		return staking.TestOnlyPerfBenchShardedVoterAddress(voter)
+	if tier.spreadVoterAddresses {
+		return staking.TestOnlyPerfBenchSpreadVoterAddress(voter)
 	}
 	return staking.TestOnlyPerfBenchVoterAddress(voter)
 }
@@ -149,12 +149,12 @@ func sampledIIP59PerfVoters(tier perfTier) []int {
 	}
 	add(0)
 	add(tier.numVoters - 1)
-	// First and last voter in every shard pin both shard transitions and the
-	// full key range within each shard.
-	for shard := 0; shard < 256; shard++ {
-		add(shard)
+	// Sample the first and last voter for every possible address prefix so the
+	// checks cover the full ordered key space.
+	for prefix := 0; prefix < 256; prefix++ {
+		add(prefix)
 		last := tier.numVoters - 1
-		last -= (last - shard) & 255
+		last -= (last - prefix) & 255
 		add(last)
 	}
 	// Boundaries where the fixture changes from multiple to one native bucket,
@@ -237,7 +237,7 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	// Phase 1: mint through the first full epoch of the era so voter
 	// buckets accrue block-reward pool credits, then keep going until
 	// we cross an era boundary. Once the target-era epoch closes, the
-	// drain cursor is installed and continuation grants begin.
+	// voter reward distribution state is installed and continuation grants begin.
 	var (
 		drainStartHeight uint64
 		drainStartEpoch  uint64
@@ -398,6 +398,7 @@ func newIIP59PerfCfg(r *require.Assertions, tier perfTier) config.Config {
 	// Turn IIP-59 on from height 1 so the very first block already runs
 	// through the new voter-reward gate. NoVoterRewardDistribution is
 	// bound to !g.IsToBeEnabled(height) — see action/protocol/context.go.
+	cfg.Genesis.GreenlandBlockHeight = 1
 	cfg.Genesis.ToBeEnabledBlockHeight = 1
 	if tier.numContractBuckets > 0 {
 		cfg.Genesis.XinguBlockHeight = 1
@@ -419,7 +420,7 @@ func newIIP59PerfCfg(r *require.Assertions, tier perfTier) config.Config {
 	// Populate genesis Delegates with the perf-bench addresses so the
 	// LifeLong poll protocol returns exactly the delegates the seeder
 	// plants — otherwise GrantEpochReward would try to pay rewards to
-	// identityset addresses that have no CandidatePollSnapshot.
+	// identityset addresses that have no CandidateRewardSnapshot.
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[:0]
 	votesPerDelegate := unit.ConvertIotxToRau(1200000).String()
 	for i := 0; i < tier.numDelegates; i++ {
@@ -456,7 +457,7 @@ func newIIP59PerfCfg(r *require.Assertions, tier perfTier) config.Config {
 //
 // There is deliberately no DelegateProfile seam. The commission rates below are
 // planted straight into each snapshot by the seeder, and this harness never
-// reaches freezeIIP59PollSnapshot's contract read at all: it runs on
+// reaches freezeIIP59RewardSnapshots' contract read at all: it runs on
 // poll.NewLifeLongDelegatesProtocol, whose single setCandidates call happens at
 // genesis, where the fork gate (height 0 < ToBeEnabledBlockHeight) and the era
 // gate (IsEraBoundary(1, epochsPerEra) is false for every tier) each block it
@@ -498,7 +499,7 @@ func iip59PerfSeederSpec(t *testing.T, tier perfTier, g genesis.Genesis) staking
 		NumNativeBuckets:           tier.nativeBucketCount(),
 		NumContractBuckets:         tier.numContractBuckets,
 		ContractStakingAddresses:   contractAddrs,
-		ShardVoterAddresses:        tier.shardVoterAddresses,
+		SpreadVoterAddresses:       tier.spreadVoterAddresses,
 		DeferContractBucketSeeding: tier.numContractBuckets > 0,
 		DelegateSelfStake:          iip59PerfDelegateSelfStake(),
 		VoterStake:                 iip59PerfVoterStake(),
@@ -571,7 +572,7 @@ func registerIIP59PreActivationContractSeeder(
 //
 // Before the drain became voter-major that was invisible: it paid from the
 // frozen entry list in the snapshot, which the genesis seeder plants directly.
-// The shard walk instead recomputes each voter's weight from the era's frozen
+// The address walk instead recomputes each voter's weight from the era's frozen
 // buckets, so a closed window is now a hard error and a zero freeze height
 // makes the delegate unpayable. This protocol reinstates the missing half of
 // the boundary at the first block of every era-boundary epoch, which is where
@@ -618,7 +619,7 @@ func (f *iip59EraFreezer) CreatePreStates(ctx context.Context, sm protocol.State
 	}
 	for i := 0; i < f.numDelegates; i++ {
 		id := staking.TestOnlyPerfBenchDelegateAddress(i)
-		snap, err := staking.PollSnapshotFor(sm, id)
+		snap, err := staking.CandidateRewardSnapshotFor(sm, id)
 		if err != nil {
 			return err
 		}
@@ -626,7 +627,7 @@ func (f *iip59EraFreezer) CreatePreStates(ctx context.Context, sm protocol.State
 		// resolves frozen values by the window's height, while the drain
 		// evaluates weights at the snapshot's.
 		snap.FreezeHeight = height
-		if err := staking.TestOnlyPutPollSnapshotFor(sm, id, snap); err != nil {
+		if err := staking.TestOnlyPutCandidateRewardSnapshotFor(sm, id, snap); err != nil {
 			return err
 		}
 	}
@@ -660,9 +661,9 @@ func mintOne(bc blockchain.Blockchain, ap actpool.ActPool, blkTime time.Time) (t
 }
 
 // drainSnapshot queries the rewarding protocol for chunked-drain state
-// mid-flight. Returns (shardsDone, resumeVoterLen, totalDelegates,
-// targetEra, present, error). resumeVoterLen is non-zero when the per-block
-// voter cap stopped payout part-way through a key-space shard.
+// mid-flight. Returns (scanPhase, resumeVoterLen, totalDelegates, targetEra,
+// present, error). resumeVoterLen is non-zero when the per-block voter cap
+// stopped payout part-way through an address range.
 func drainSnapshot(
 	cs *chainservice.ChainService,
 	g genesis.Genesis,
@@ -673,7 +674,7 @@ func drainSnapshot(
 	ctx = genesis.WithGenesisContext(ctx, g)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
 	ctx = protocol.WithFeatureCtx(ctx)
-	return p.TestOnlyEpochDrainSnapshot(ctx, cs.StateFactory())
+	return p.TestOnlyVoterRewardDistributionProgress(ctx, cs.StateFactory())
 }
 
 // mockAutoDepositBucketReader reports every voter as "unregistered", so

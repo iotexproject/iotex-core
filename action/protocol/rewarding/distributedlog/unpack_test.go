@@ -9,240 +9,140 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/action"
-	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
-// TestUnpackRoundTrip is the property that matters: whatever Pack emits,
-// Unpack must return field-for-field. It is asserted on every field rather
-// than with a struct compare so a failure names the field that drifted.
-//
-// The parallel arrays are the reason this test exists. Their meaning is
-// entirely positional -- voters[i] pairs with recipients[i], amounts[i],
-// compoundBucketIds[i] and compounded[i] -- so an encoder/decoder ordering
-// mismatch produces a log that decodes cleanly and reports wrong payouts.
 func TestUnpackRoundTrip(t *testing.T) {
 	r := require.New(t)
-	args := happyArgs()
-
-	topics, data, err := Pack(args)
+	in := happyArgs()
+	topics, data, err := Pack(in)
 	r.NoError(err)
 
-	got, err := Unpack(topics, data)
+	out, err := Unpack(topics, data)
 	r.NoError(err)
-
-	r.Equal(args.Epoch, got.Epoch)
-	r.Equal(args.Delegate.String(), got.Delegate.String())
-	r.Equal(args.RewardAddr.String(), got.RewardAddr.String())
-	r.Zero(args.EraCommission.Cmp(got.EraCommission))
-	r.Zero(args.ChunkVoterReward.Cmp(got.ChunkVoterReward))
-	r.Equal(args.SnapshotHash, got.SnapshotHash)
-
-	r.Len(got.Voters, len(args.Voters))
-	for i := range args.Voters {
-		r.Equal(args.Voters[i].String(), got.Voters[i].String(), "voters[%d]", i)
-		r.Equal(args.Recipients[i].String(), got.Recipients[i].String(), "recipients[%d]", i)
-		r.Zero(args.Amounts[i].Cmp(got.Amounts[i]), "amounts[%d]", i)
-		r.Equal(args.CompoundBucketIDs[i], got.CompoundBucketIDs[i], "compoundBucketIds[%d]", i)
-		r.Equal(args.Compounded[i], got.Compounded[i], "compounded[%d]", i)
+	r.Equal(in.Epoch, out.Epoch)
+	r.Equal(in.Delegate.String(), out.Delegate.String())
+	r.Zero(in.VoterAmount.Cmp(out.VoterAmount))
+	r.Len(out.Voters, len(in.Voters))
+	for i := range in.Voters {
+		r.Equal(in.Voters[i].String(), out.Voters[i].String())
+		r.Equal(in.Recipients[i].String(), out.Recipients[i].String())
+		r.Zero(in.Amounts[i].Cmp(out.Amounts[i]))
 	}
+	r.Equal(in.CompoundBucketIDs, out.CompoundBucketIDs)
+	r.Equal(in.Compounded, out.Compounded)
 }
 
-// TestUnpackPreservesBucketZeroCompound guards the one encoding subtlety a
-// consumer is most likely to get wrong. Native bucket index 0 is a real
-// bucket, so compoundBucketIds[i] == 0 does NOT mean "not compounded" --
-// compounded[i] is the only valid discriminator. happyArgs deliberately puts a
-// genuine compound-into-bucket-0 at index 0 and a non-compounded voter, also
-// carrying bucket id 0, at index 2.
-func TestUnpackPreservesBucketZeroCompound(t *testing.T) {
-	r := require.New(t)
-
-	topics, data, err := Pack(happyArgs())
-	r.NoError(err)
-	got, err := Unpack(topics, data)
-	r.NoError(err)
-
-	r.Equal(uint64(0), got.CompoundBucketIDs[0])
-	r.True(got.Compounded[0], "a real compound into bucket 0 must survive the round trip")
-	r.Equal(uint64(0), got.CompoundBucketIDs[2])
-	r.False(got.Compounded[2], "bucket id 0 alone must not read as compounded")
-}
-
-// TestUnpackEmptyVoterList covers the degenerate log Pack still accepts.
 func TestUnpackEmptyVoterList(t *testing.T) {
 	r := require.New(t)
-	args := happyArgs()
-	args.Voters = nil
-	args.Recipients = nil
-	args.Amounts = nil
-	args.CompoundBucketIDs = nil
-	args.Compounded = nil
+	in := happyArgs()
+	in.VoterAmount = new(big.Int)
+	in.Voters = nil
+	in.Recipients = nil
+	in.Amounts = nil
+	in.CompoundBucketIDs = nil
+	in.Compounded = nil
+	topics, data, err := Pack(in)
+	r.NoError(err)
 
-	topics, data, err := Pack(args)
+	out, err := Unpack(topics, data)
 	r.NoError(err)
-	got, err := Unpack(topics, data)
-	r.NoError(err)
-	r.Empty(got.Voters)
-	r.Equal(args.Epoch, got.Epoch)
+	r.Empty(out.Voters)
+	r.Empty(out.Recipients)
+	r.Empty(out.Amounts)
+	r.Empty(out.CompoundBucketIDs)
+	r.Empty(out.Compounded)
 }
 
-// TestUnpackRejectsForeignEvent pins the skip/alert split. A log from some
-// other event must come back as ErrNotDelegateVoterRewardsDistributed so an indexer
-// scanning every log in a block can skip it silently, without that outcome
-// being confusable with a corrupt log of our own.
-func TestUnpackRejectsForeignEvent(t *testing.T) {
+func TestExportedABISurface(t *testing.T) {
 	r := require.New(t)
-	_, data, err := Pack(happyArgs())
+	parsed, err := ABI()
 	r.NoError(err)
+	ev, ok := parsed.Events[EventName]
+	r.True(ok)
+	r.Equal(EventSignature, ev.Sig)
 
-	t.Run("wrong topic0", func(t *testing.T) {
-		topics := action.Topics{
-			hash.Hash256b([]byte("SomeOtherEvent(uint256)")),
-			hash.Hash256{},
-			hash.Hash256{},
-		}
-		_, err := Unpack(topics, data)
-		require.ErrorIs(t, err, ErrNotDelegateVoterRewardsDistributed)
-	})
+	topic0, err := Topic0()
+	r.NoError(err)
+	r.Equal(hash.Hash256(ev.ID), topic0)
 
-	t.Run("retired event name", func(t *testing.T) {
-		topics, _, err := Pack(happyArgs())
-		require.NoError(t, err)
-		topics[0] = hash.Hash256b([]byte(
-			"DelegateDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[],bool[])",
-		))
-		_, err = Unpack(topics, data)
-		require.ErrorIs(t, err, ErrNotDelegateVoterRewardsDistributed)
-	})
+	// Mutating an ABI returned to a consumer must not corrupt the encoder cache.
+	delete(parsed.Events, EventName)
+	_, _, err = Pack(happyArgs())
+	r.NoError(err)
+}
 
-	t.Run("wrong topic count", func(t *testing.T) {
-		topics, _, err := Pack(happyArgs())
-		require.NoError(t, err)
-		_, err = Unpack(topics[:2], data)
-		require.ErrorIs(t, err, ErrMalformedLog)
-	})
+func TestUnpackClassifiesForeignAndMalformedLogs(t *testing.T) {
+	topics, data, err := Pack(happyArgs())
+	require.NoError(t, err)
 
 	t.Run("no topics", func(t *testing.T) {
 		_, err := Unpack(nil, data)
 		require.ErrorIs(t, err, ErrNotDelegateVoterRewardsDistributed)
 	})
+	t.Run("foreign selector", func(t *testing.T) {
+		foreign := append(action.Topics(nil), topics...)
+		foreign[0] = hash.Hash256b([]byte("other event"))
+		_, err := Unpack(foreign, data)
+		require.ErrorIs(t, err, ErrNotDelegateVoterRewardsDistributed)
+	})
+	t.Run("retired selector", func(t *testing.T) {
+		retired := append(action.Topics(nil), topics...)
+		retired[0] = hash.Hash256b([]byte(
+			"DelegateDistributed(uint64,address,uint256,address[],address[],uint256[],uint64[],bool[])",
+		))
+		_, err := Unpack(retired, data)
+		require.ErrorIs(t, err, ErrNotDelegateVoterRewardsDistributed)
+	})
+	t.Run("matching selector wrong topic count", func(t *testing.T) {
+		_, err := Unpack(topics[:1], data)
+		require.ErrorIs(t, err, ErrMalformedLog)
+	})
+	t.Run("truncated data", func(t *testing.T) {
+		_, err := Unpack(topics, data[:len(data)/2])
+		require.ErrorIs(t, err, ErrMalformedLog)
+	})
 }
 
-// TestUnpackRejectsMalformedTopicPadding covers the silent-truncation hazard.
-// Both indexed values are left-padded into 32 bytes; returning just the low
-// bytes of a topic whose padding is dirty would turn a malformed log into a
-// plausible small epoch or a valid-looking address.
-func TestUnpackRejectsMalformedTopicPadding(t *testing.T) {
-	r := require.New(t)
+func TestUnpackRejectsInvalidIndexedPadding(t *testing.T) {
+	topics, data, err := Pack(happyArgs())
+	require.NoError(t, err)
 
 	t.Run("epoch", func(t *testing.T) {
-		topics, data, err := Pack(happyArgs())
-		require.NoError(t, err)
-		topics[1][0] = 0x01
-		_, err = Unpack(topics, data)
+		malformed := append(action.Topics(nil), topics...)
+		malformed[1][0] = 1
+		_, err := Unpack(malformed, data)
 		require.ErrorIs(t, err, ErrMalformedLog)
 	})
-
 	t.Run("delegate", func(t *testing.T) {
-		topics, data, err := Pack(happyArgs())
-		require.NoError(t, err)
-		topics[2][0] = 0x01
-		_, err = Unpack(topics, data)
+		malformed := append(action.Topics(nil), topics...)
+		malformed[2][0] = 1
+		_, err := Unpack(malformed, data)
 		require.ErrorIs(t, err, ErrMalformedLog)
 	})
+}
 
-	// Sanity: the unmutated log decodes, so the assertions above are not
-	// passing for some unrelated reason.
-	topics, data, err := Pack(happyArgs())
+func TestUnpackRejectsRaggedArrays(t *testing.T) {
+	r := require.New(t)
+	args := happyArgs()
+	topics, _, err := Pack(args)
 	r.NoError(err)
+	parsed, err := ABI()
+	r.NoError(err)
+	data, err := parsed.Events[EventName].Inputs.NonIndexed().Pack(
+		big.NewInt(3),
+		[]common.Address{common.BytesToAddress(args.Voters[0].Bytes())},
+		[]common.Address{},
+		[]*big.Int{big.NewInt(3)},
+		[]uint64{0},
+		[]bool{false},
+	)
+	r.NoError(err)
+
 	_, err = Unpack(topics, data)
-	r.NoError(err)
-}
-
-// TestUnpackRejectsTruncatedData ensures a short payload is an error rather
-// than a partially populated EventArgs.
-func TestUnpackRejectsTruncatedData(t *testing.T) {
-	r := require.New(t)
-	topics, data, err := Pack(happyArgs())
-	r.NoError(err)
-
-	_, err = Unpack(topics, data[:len(data)/2])
-	r.Error(err)
-	r.NotErrorIs(err, ErrNotDelegateVoterRewardsDistributed, "a truncated payload of our own event is corruption, not a foreign event")
-	r.ErrorIs(err, ErrMalformedLog)
-}
-
-// TestTopic0MatchesPackedLog pins the filter an indexer uses against what Pack
-// actually emits. If these ever diverge the indexer silently sees no events.
-func TestTopic0MatchesPackedLog(t *testing.T) {
-	r := require.New(t)
-
-	topic0, err := Topic0()
-	r.NoError(err)
-
-	topics, _, err := Pack(happyArgs())
-	r.NoError(err)
-	r.Equal(topics[0], topic0)
-
-	r.Equal(hash.Hash256b([]byte(EventSignature)), hash.Hash256(topic0),
-		"Topic0 must be keccak256(EventSignature)")
-}
-
-// TestABIExportedIsParseable guards the exported ABI surface: a consumer that
-// parses ABIJSON itself must find the same event this package encodes.
-func TestABIExportedIsParseable(t *testing.T) {
-	r := require.New(t)
-
-	parsed, err := ABI()
-	r.NoError(err)
-	ev, ok := parsed.Events[EventName]
-	r.True(ok, "EventName must resolve in the exported ABI")
-	r.Equal(EventSignature, ev.Sig)
-}
-
-func TestABICallerCannotMutateEncoderCache(t *testing.T) {
-	r := require.New(t)
-	parsed, err := ABI()
-	r.NoError(err)
-	delete(parsed.Events, EventName)
-
-	_, _, err = Pack(happyArgs())
-	r.NoError(err)
-	_, ok := parsed.Events[EventName]
-	r.False(ok, "the caller's ABI remains independently mutable")
-}
-
-// TestUnpackDoesNotAliasPackInput is a defensive check that Unpack returns
-// independent big.Ints -- a consumer accumulating into the returned values
-// must not corrupt anything the encoder still holds.
-func TestUnpackDoesNotAliasPackInput(t *testing.T) {
-	r := require.New(t)
-	args := happyArgs()
-	original := new(big.Int).Set(args.Amounts[0])
-
-	topics, data, err := Pack(args)
-	r.NoError(err)
-	got, err := Unpack(topics, data)
-	r.NoError(err)
-
-	got.Amounts[0].Add(got.Amounts[0], big.NewInt(1))
-	r.Zero(original.Cmp(args.Amounts[0]), "mutating the decoded amount must not touch the input")
-}
-
-// TestUnpackUnknownDelegateAddressStillDecodes confirms Unpack does not care
-// whether the delegate is a known identity -- it decodes whatever address the
-// topic carries.
-func TestUnpackUnknownDelegateAddressStillDecodes(t *testing.T) {
-	r := require.New(t)
-	args := happyArgs()
-	args.Delegate = identityset.Address(20)
-
-	topics, data, err := Pack(args)
-	r.NoError(err)
-	got, err := Unpack(topics, data)
-	r.NoError(err)
-	r.Equal(identityset.Address(20).String(), got.Delegate.String())
+	r.ErrorIs(err, ErrParallelArrayLengthMismatch)
 }

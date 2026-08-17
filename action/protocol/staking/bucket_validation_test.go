@@ -23,7 +23,7 @@ func TestValidateBucket(t *testing.T) {
 		v, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, false)
 		r.NoError(err)
 		sm.WriteView(_protocolID, v)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		esm := NewEndorsementStateManager(sm)
 		return csm, esm

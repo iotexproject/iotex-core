@@ -117,8 +117,8 @@ func TestNFTEventHandlerBucket(t *testing.T) {
 		IsTimestampBased: false,
 	}
 	contractAddr := identityset.Address(11)
-	require.NoError(t, handler.PutBucket(contractAddr, 1, bucket))
-	csm, err := NewCandidateStateManager(sm)
+	require.NoError(t, handler.PutBucket(context.Background(), contractAddr, 1, bucket))
+	csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 	require.NoError(t, err)
 	candidate := csm.GetByIdentifier(identityset.Address(1))
 	require.NotNil(t, candidate)
@@ -129,5 +129,5 @@ func TestNFTEventHandlerBucket(t *testing.T) {
 	candidate = csm.GetByIdentifier(identityset.Address(1))
 	require.NotNil(t, candidate)
 	require.Equal(t, 0, big.NewInt(1000).Cmp(candidate.Votes))
-	require.NoError(t, handler.DeleteBucket(contractAddr, 1))
+	require.NoError(t, handler.DeleteBucket(context.Background(), contractAddr, 1))
 }

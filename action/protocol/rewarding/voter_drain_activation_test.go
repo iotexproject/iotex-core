@@ -127,11 +127,13 @@ func TestActivationBackfillCOWDrainPayout(t *testing.T) {
 	// the full owner index, then a PutPollResult action in that same activation
 	// block can freeze the first era. There is no intervening block or context.
 	r.NoError(sp.CreatePreStates(activationCtx, sm))
-	r.NoError(staking.FreezePollSnapshot(activationCtx, sm, nil, nil))
+	freezeHeight := protocol.MustGetBlockCtx(activationCtx).BlockHeight
+	r.NoError(staking.FreezeCandidateRewardSnapshots(activationCtx, sm, nil, nil, freezeHeight))
+	r.NoError(staking.BeginEraCOWWindow(activationCtx, sm, freezeHeight))
 	refs, _, err := contractstaking.NewStateReader(sm).BucketRefsByOwner(alice)
 	r.NoError(err)
 	r.Len(refs, 2, "activation must backfill both of Alice's pre-fork LSD buckets")
-	snapshot, err := staking.PollSnapshotFor(sm, delegate)
+	snapshot, err := staking.CandidateRewardSnapshotFor(sm, delegate)
 	r.NoError(err)
 	r.Equal(g.ToBeEnabledBlockHeight, snapshot.FreezeHeight)
 	r.Zero(totalWeight.Cmp(snapshot.TotalWeight))
@@ -163,22 +165,20 @@ func TestActivationBackfillCOWDrainPayout(t *testing.T) {
 	}))
 	r.NoError(p.creditPendingBlockRewardPool(activationCtx, sm, delegate.Bytes(), big.NewInt(pool)))
 	r.NoError(p.updateAvailableBalance(activationCtx, sm, big.NewInt(pool)))
-	cursor := &epochDrainCursor{
-		TargetEra:      1,
-		StartEpoch:     1,
-		EndEpoch:       1,
-		SettlementSeed: []byte{0x59},
-		StartShard:     settlementStartShard([]byte{0x59}),
-		Delegates: []epochDrainDelegateWork{{
-			CandidateIdentifier: delegate.Bytes(),
-			VoterAmountFrozen:   big.NewInt(pool),
-			RewardAddress:       delegate.Bytes(),
-			TotalWeight:         new(big.Int).Set(snapshot.TotalWeight),
-			FreezeHeight:        snapshot.FreezeHeight,
-			SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
-		}},
+	cursor := &voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{
+			TargetEra:      1,
+			FreezeHeight:   snapshot.FreezeHeight,
+			SettlementSeed: []byte{0x59},
+			DelegateAllocations: []voterRewardDelegateAllocation{{
+				CandidateIdentifier: delegate.Bytes(),
+				VoterAmountFrozen:   big.NewInt(pool),
+				TotalWeight:         new(big.Int).Set(snapshot.TotalWeight),
+				SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
+			}},
+		},
 	}
-	r.NoError(p.writeEpochDrainCursor(activationCtx, sm, cursor))
+	r.NoError(p.writeVoterRewardDistributionState(activationCtx, sm, cursor))
 
 	voters := []address.Address{alice, bob, carol, dave, eve}
 	logs := drainCollectingVoterPayouts(t, activationCtx, sm, p, voters)

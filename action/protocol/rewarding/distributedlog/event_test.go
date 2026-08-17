@@ -26,20 +26,16 @@ import (
 // test.
 func happyArgs() EventArgs {
 	delegate := identityset.Address(1)
-	reward := identityset.Address(2)
 	voters := []address.Address{
 		identityset.Address(3),
 		identityset.Address(4),
 		identityset.Address(5),
 	}
 	return EventArgs{
-		Epoch:            4200,
-		Delegate:         delegate,
-		RewardAddr:       reward,
-		EraCommission:    big.NewInt(1_000_000),
-		ChunkVoterReward: big.NewInt(9_000_000),
-		SnapshotHash:     hash.Hash256b([]byte("snapshot@epoch4200")),
-		Voters:           voters,
+		Epoch:       4200,
+		Delegate:    delegate,
+		VoterAmount: big.NewInt(9_000_000),
+		Voters:      voters,
 		Recipients: []address.Address{
 			voters[0],
 			voters[1],
@@ -83,11 +79,8 @@ func TestPack_HappyPath(t *testing.T) {
 	r.NoError(err)
 	unpacked, err := parsed.Events[EventName].Inputs.NonIndexed().Unpack(data)
 	r.NoError(err)
-	r.Len(unpacked, 9)
-	r.Equal(common.BytesToAddress(args.RewardAddr.Bytes()), unpacked[0])
-	r.Equal(0, args.EraCommission.Cmp(unpacked[1].(*big.Int)))
-	r.Equal(0, args.ChunkVoterReward.Cmp(unpacked[2].(*big.Int)))
-	r.Equal([32]byte(args.SnapshotHash), unpacked[3])
+	r.Len(unpacked, 6)
+	r.Equal(0, args.VoterAmount.Cmp(unpacked[0].(*big.Int)))
 }
 
 func TestPack_ZeroVoters(t *testing.T) {
@@ -110,11 +103,11 @@ func TestPack_ZeroVoters(t *testing.T) {
 	r.NoError(err)
 	unpacked, err := parsed.Events[EventName].Inputs.NonIndexed().Unpack(data)
 	r.NoError(err)
-	r.Len(unpacked[4].([]common.Address), 0, "voters must decode as empty array")
-	r.Len(unpacked[5].([]common.Address), 0, "recipients must decode as empty array")
-	r.Len(unpacked[6].([]*big.Int), 0, "amounts must decode as empty array")
-	r.Len(unpacked[7].([]uint64), 0, "compound bucket IDs must decode as empty array")
-	r.Len(unpacked[8].([]bool), 0, "compounded flags must decode as empty array")
+	r.Len(unpacked[1].([]common.Address), 0, "voters must decode as empty array")
+	r.Len(unpacked[2].([]common.Address), 0, "recipients must decode as empty array")
+	r.Len(unpacked[3].([]*big.Int), 0, "amounts must decode as empty array")
+	r.Len(unpacked[4].([]uint64), 0, "compound bucket IDs must decode as empty array")
+	r.Len(unpacked[5].([]bool), 0, "compounded flags must decode as empty array")
 }
 
 func TestPack_ParallelLengthMismatch_Recipients(t *testing.T) {
@@ -162,28 +155,10 @@ func TestPack_NilDelegate(t *testing.T) {
 	r.ErrorIs(err, ErrNilAddress)
 }
 
-func TestPack_NilRewardAddr(t *testing.T) {
+func TestPack_NilVoterAmount(t *testing.T) {
 	r := require.New(t)
 	args := happyArgs()
-	args.RewardAddr = nil
-
-	_, _, err := Pack(args)
-	r.ErrorIs(err, ErrNilAddress)
-}
-
-func TestPack_NilEraCommission(t *testing.T) {
-	r := require.New(t)
-	args := happyArgs()
-	args.EraCommission = nil
-
-	_, _, err := Pack(args)
-	r.ErrorIs(err, ErrNilBigInt)
-}
-
-func TestPack_NilChunkVoterReward(t *testing.T) {
-	r := require.New(t)
-	args := happyArgs()
-	args.ChunkVoterReward = nil
+	args.VoterAmount = nil
 
 	_, _, err := Pack(args)
 	r.ErrorIs(err, ErrNilBigInt)
@@ -233,7 +208,7 @@ func TestPack_SelectorPinned(t *testing.T) {
 	r.NoError(err)
 
 	expected := crypto.Keccak256Hash([]byte(
-		"DelegateVoterRewardsDistributed(uint64,address,address,uint256,uint256,bytes32,address[],address[],uint256[],uint64[],bool[])",
+		"DelegateVoterRewardsDistributed(uint64,address,uint256,address[],address[],uint256[],uint64[],bool[])",
 	))
 	r.Equal(hash.Hash256(expected), topics[0])
 }
@@ -254,8 +229,8 @@ func TestPack_BucketZeroIsDistinguishable(t *testing.T) {
 	unpacked, err := parsed.Events[EventName].Inputs.NonIndexed().Unpack(data)
 	r.NoError(err)
 
-	bucketIDs := unpacked[7].([]uint64)
-	compounded := unpacked[8].([]bool)
+	bucketIDs := unpacked[4].([]uint64)
+	compounded := unpacked[5].([]bool)
 	r.Equal([]uint64{0, 42, 0}, bucketIDs)
 	r.Equal([]bool{true, true, false}, compounded)
 	// Voter 0 and voter 2 are indistinguishable by bucket ID...
@@ -290,103 +265,28 @@ func TestPack_RoundTrip(t *testing.T) {
 	// Data round-trip: every non-indexed field.
 	unpacked, err := parsed.Events[EventName].Inputs.NonIndexed().Unpack(data)
 	r.NoError(err)
-	r.Equal(common.BytesToAddress(args.RewardAddr.Bytes()), unpacked[0])
-	r.Equal(0, args.EraCommission.Cmp(unpacked[1].(*big.Int)))
-	r.Equal(0, args.ChunkVoterReward.Cmp(unpacked[2].(*big.Int)))
-	r.Equal([32]byte(args.SnapshotHash), unpacked[3])
+	r.Equal(0, args.VoterAmount.Cmp(unpacked[0].(*big.Int)))
 
-	votersOut := unpacked[4].([]common.Address)
+	votersOut := unpacked[1].([]common.Address)
 	r.Len(votersOut, len(args.Voters))
 	for i, v := range args.Voters {
 		r.Equal(common.BytesToAddress(v.Bytes()), votersOut[i])
 	}
-	recipientsOut := unpacked[5].([]common.Address)
+	recipientsOut := unpacked[2].([]common.Address)
 	r.Len(recipientsOut, len(args.Recipients))
 	for i, recipient := range args.Recipients {
 		r.Equal(common.BytesToAddress(recipient.Bytes()), recipientsOut[i])
 	}
-	amountsOut := unpacked[6].([]*big.Int)
+	amountsOut := unpacked[3].([]*big.Int)
 	r.Len(amountsOut, len(args.Amounts))
 	for i, a := range args.Amounts {
 		r.Equal(0, a.Cmp(amountsOut[i]))
 	}
-	bucketIDsOut := unpacked[7].([]uint64)
+	bucketIDsOut := unpacked[4].([]uint64)
 	r.Len(bucketIDsOut, len(args.CompoundBucketIDs))
 	for i, bucketID := range args.CompoundBucketIDs {
 		r.Equal(bucketID, bucketIDsOut[i])
 	}
-}
-
-// eraParams returns a plausible frozen-era parameter set. Each test mutates
-// one field to isolate the property under test.
-func eraParams() EraSnapshotParams {
-	return EraSnapshotParams{
-		Delegate:                   identityset.Address(1),
-		FreezeHeight:               4_200_000,
-		TotalWeight:                big.NewInt(9_000_000),
-		SelfStakeBucketIdx:         17,
-		BlockCommissionBasisPoints: 500,
-		EpochCommissionBasisPoints: 1_000,
-		Registered:                 true,
-		OnchainRewardEnabled:       true,
-	}
-}
-
-func TestEraSnapshotHash_Determinism(t *testing.T) {
-	// The digest is the join key an off-chain consumer groups a settlement's
-	// per-block partial logs on, so the same frozen era must hash identically
-	// every time it is recomputed.
-	r := require.New(t)
-	p := eraParams()
-	r.Equal(EraSnapshotHash(p), EraSnapshotHash(p), "same input must hash identically")
-
-	// A caller-supplied *big.Int must not be aliased into the digest state.
-	q := eraParams()
-	q.TotalWeight = new(big.Int).Set(p.TotalWeight)
-	r.Equal(EraSnapshotHash(p), EraSnapshotHash(q), "equal values must hash equally")
-}
-
-func TestEraSnapshotHash_EveryFieldIsCommitted(t *testing.T) {
-	// A digest that ignored a field would let two eras with different payout
-	// parameters share a join key, and a consumer would silently merge them.
-	r := require.New(t)
-	base := EraSnapshotHash(eraParams())
-
-	mutations := map[string]func(*EraSnapshotParams){
-		"delegate":       func(p *EraSnapshotParams) { p.Delegate = identityset.Address(2) },
-		"freezeHeight":   func(p *EraSnapshotParams) { p.FreezeHeight++ },
-		"totalWeight":    func(p *EraSnapshotParams) { p.TotalWeight = big.NewInt(9_000_001) },
-		"selfStakeIdx":   func(p *EraSnapshotParams) { p.SelfStakeBucketIdx++ },
-		"blockCommBps":   func(p *EraSnapshotParams) { p.BlockCommissionBasisPoints++ },
-		"epochCommBps":   func(p *EraSnapshotParams) { p.EpochCommissionBasisPoints++ },
-		"registered":     func(p *EraSnapshotParams) { p.Registered = false },
-		"onchainEnabled": func(p *EraSnapshotParams) { p.OnchainRewardEnabled = false },
-	}
-	seen := map[hash.Hash256]string{base: "base"}
-	for name, mutate := range mutations {
-		p := eraParams()
-		mutate(&p)
-		h := EraSnapshotHash(p)
-		r.NotEqualf(base, h, "changing %s must change the digest", name)
-		if prev, dup := seen[h]; dup {
-			r.Failf("digest collision", "%s collides with %s", name, prev)
-		}
-		seen[h] = name
-	}
-}
-
-func TestEraSnapshotHash_ZeroValue(t *testing.T) {
-	// A delegate frozen with nothing set (opted out, or no candidate record at
-	// the boundary) still needs a well-defined digest. This asserts the exact
-	// bytes so external verifiers can pin them, and pins the nil-address and
-	// nil-*big.Int handling at the same time.
-	r := require.New(t)
-
-	got := EraSnapshotHash(EraSnapshotParams{})
-
-	// domainSep || 20 zero bytes || be64(0) || 32 zero bytes || be64(0)*3 || 0x00
-	var expected []byte
-	expected = append(expected, eraSnapshotDomainSeparator[:]...)
-	expected = append(expected, make([]byte, 20+8+32+8+8+8+1)...)
-	r.Equal(hash.Hash256b(expected), got)
+	compoundedOut := unpacked[5].([]bool)
+	r.Equal(args.Compounded, compoundedOut)
 }

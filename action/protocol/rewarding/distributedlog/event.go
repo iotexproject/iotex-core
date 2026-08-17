@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 )
 
-// Errors returned by Pack. All three indicate a wiring bug in the caller
+// Errors returned by Pack. Both indicate a wiring bug in the caller
 // (PR 3'), not on-chain data, so they hard-fail rather than degrade —
 // there is no per-item fallback available at the log-encode layer.
 var (
@@ -37,44 +37,24 @@ var (
 	ErrParallelArrayLengthMismatch = errors.New(
 		"distributedlog: voters, recipients, amounts, compound bucket IDs, and compounded flags must have equal length")
 
-	// ErrNilAddress is returned when Delegate, RewardAddr, or any
-	// Voters[i] is nil. Passing nil is a caller-side mistake and would
+	// ErrNilAddress is returned when Delegate, Voters[i], or Recipients[i]
+	// is nil. Passing nil is a caller-side mistake and would
 	// otherwise packet as the zero address, silently masking a lost voter.
 	ErrNilAddress = errors.New("distributedlog: nil address")
 
-	// ErrNilBigInt is returned when EraCommission, ChunkVoterReward, or
+	// ErrNilBigInt is returned when VoterAmount or
 	// any Amounts[i] is nil.
 	ErrNilBigInt = errors.New("distributedlog: nil *big.Int")
 
-	// ErrNotDelegateVoterRewardsDistributed is returned by Unpack when the log has no topic
-	// or Topics[0] is not this event's ID. It is the ordinary outcome of scanning
-	// a block's logs and
-	// means "skip this one", so it is deliberately distinct from the
-	// malformed-log errors below, which mean "this IS our event and it is
-	// broken" and are worth alerting on.
+	// ErrNotDelegateVoterRewardsDistributed identifies logs for another event.
 	ErrNotDelegateVoterRewardsDistributed = errors.New(
 		"distributedlog: not a DelegateVoterRewardsDistributed log")
 
-	// ErrMalformedLog is returned by Unpack when the log carries this
-	// event's topic but its payload does not decode to the expected shape:
-	// a topic with non-zero padding, an unexpected ABI value type, or the
-	// wrong number of non-indexed fields.
-	ErrMalformedLog = errors.New("distributedlog: malformed DelegateVoterRewardsDistributed log")
+	// ErrMalformedLog identifies logs carrying this event's selector whose
+	// topics or data do not match its ABI.
+	ErrMalformedLog = errors.New(
+		"distributedlog: malformed DelegateVoterRewardsDistributed log")
 )
-
-// eraSnapshotDomainSeparator scopes EraSnapshotHash so its output cannot
-// collide with a hash computed from the same byte layout in some other
-// context. Value: keccak256("iip59.delegatedistributed.snapshot.v2"),
-// evaluated once at init to keep the hot path allocation-free.
-//
-// v2, not v1: v1 scoped a digest over the frozen (voter, weight) list, a
-// preimage of an entirely different shape. Bumping the separator keeps the two
-// domains disjoint rather than relying on the layouts never colliding.
-var eraSnapshotDomainSeparator hash.Hash256
-
-func init() {
-	eraSnapshotDomainSeparator = hash.Hash256b([]byte("iip59.delegatedistributed.snapshot.v2"))
-}
 
 // abiOnce guards parseABI: abi.JSON is not free and the parsed ABI is
 // immutable, so we cache it for the process lifetime.
@@ -91,9 +71,8 @@ func loadABI() (abi.ABI, error) {
 	return parsedABI, abiParseErr
 }
 
-// ABI parses and returns the event ABI for off-chain consumers. The internal
-// encoder cache is deliberately not exposed because abi.ABI contains maps; a
-// caller mutating them would otherwise affect later Pack and Unpack calls.
+// ABI parses and returns an independent copy of the event ABI. Returning a
+// fresh value prevents callers from mutating the maps used by Pack and Unpack.
 func ABI() (abi.ABI, error) {
 	parsed, err := abi.JSON(strings.NewReader(ABIJSON))
 	if err != nil {
@@ -102,9 +81,7 @@ func ABI() (abi.ABI, error) {
 	return parsed, nil
 }
 
-// Topic0 returns keccak256(EventSignature) -- the value every
-// DelegateVoterRewardsDistributed log carries in Topics[0], and the filter an indexer
-// matches on.
+// Topic0 returns the selector carried in Topics[0].
 func Topic0() (hash.Hash256, error) {
 	parsed, err := loadABI()
 	if err != nil {
@@ -120,14 +97,11 @@ func Topic0() (hash.Hash256, error) {
 // EventArgs are the fields of one DelegateVoterRewardsDistributed log. Field order
 // matches the Solidity signature so a struct literal reads left-to-right
 // the same way as the on-chain event definition. Callers build one per
-// delegate (top-N loop and orphan-drain loop use the same shape).
+// delegate touched by a voter-major settlement chunk.
 type EventArgs struct {
 	Epoch             uint64            // indexed → Topics[1]
 	Delegate          address.Address   // indexed → Topics[2]
-	RewardAddr        address.Address   // where commission was credited
-	EraCommission     *big.Int          // era-wide constant, repeated in every chunk
-	ChunkVoterReward  *big.Int          // voter reward subtotal carried by this chunk
-	SnapshotHash      hash.Hash256      // frozen era parameter digest (see EraSnapshotHash)
+	VoterAmount       *big.Int          // voter rewards paid in this chunk
 	Voters            []address.Address // canonical sorted order per §3.4
 	Recipients        []address.Address // actual direct recipient; voter for compound payout
 	Amounts           []*big.Int        // parallel to Voters
@@ -147,8 +121,7 @@ type EventArgs struct {
 //	[2] address delegate, left-padded to 32 bytes
 //
 // Data layout: ABI-standard tuple of the remaining (non-indexed) inputs
-// in declaration order — rewardAddr, eraCommission, chunkVoterReward,
-// snapshotHash, voters[], recipients[], amounts[], compoundBucketIds[],
+// in declaration order — voterAmount, voters[], recipients[], amounts[], compoundBucketIds[],
 // compounded[].
 //
 // compounded[i] is the only valid test for "was voter i's share compounded".
@@ -158,14 +131,8 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 	if args.Delegate == nil {
 		return nil, nil, errors.Wrap(ErrNilAddress, "delegate")
 	}
-	if args.RewardAddr == nil {
-		return nil, nil, errors.Wrap(ErrNilAddress, "rewardAddr")
-	}
-	if args.EraCommission == nil {
-		return nil, nil, errors.Wrap(ErrNilBigInt, "eraCommission")
-	}
-	if args.ChunkVoterReward == nil {
-		return nil, nil, errors.Wrap(ErrNilBigInt, "chunkVoterReward")
+	if args.VoterAmount == nil {
+		return nil, nil, errors.Wrap(ErrNilBigInt, "voterAmount")
 	}
 	if len(args.Voters) != len(args.Recipients) || len(args.Voters) != len(args.Amounts) ||
 		len(args.Voters) != len(args.CompoundBucketIDs) || len(args.Voters) != len(args.Compounded) {
@@ -199,10 +166,7 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 		return nil, nil, errors.Errorf("distributedlog: event %q not found in parsed ABI", EventName)
 	}
 	data, err := ev.Inputs.NonIndexed().Pack(
-		common.BytesToAddress(args.RewardAddr.Bytes()),
-		args.EraCommission,
-		args.ChunkVoterReward,
-		[32]byte(args.SnapshotHash),
+		args.VoterAmount,
 		voterAddrs,
 		recipientAddrs,
 		amounts,
@@ -220,24 +184,10 @@ func Pack(args EventArgs) (action.Topics, []byte, error) {
 	return topics, data, nil
 }
 
-// Unpack is the inverse of Pack: it decodes an on-chain DelegateVoterRewardsDistributed
-// log back into EventArgs.
-//
-// It exists so off-chain consumers -- the analyser indexer, explorers -- decode
-// against this package's own definition instead of a hand-copied ABI. A copy
-// drifts silently: the event carries five parallel arrays whose meaning depends
-// on their pairing, so a field reordered on one side and not the other still
-// decodes without error and yields wrong payouts.
-//
-// Callers pass a log's Topics and Data. The log's Address is NOT checked here
-// -- this package has no access to the rewarding protocol's address. Callers
-// must filter on it themselves (address.RewardingProtocol) before calling,
-// otherwise an attacker-deployed contract emitting the same topic would be
-// decoded as a protocol payout.
-//
-// Returns ErrNotDelegateVoterRewardsDistributed when the log is some other event, which
-// callers should treat as "skip", distinct from the malformed-log errors that
-// signal a corrupt or truncated payload and are worth alerting on.
+// Unpack decodes a DelegateVoterRewardsDistributed log. Callers must check the
+// emitting protocol address separately. A foreign selector returns
+// ErrNotDelegateVoterRewardsDistributed; a matching selector with invalid
+// topics or data returns ErrMalformedLog.
 func Unpack(topics action.Topics, data []byte) (*EventArgs, error) {
 	parsed, err := loadABI()
 	if err != nil {
@@ -271,55 +221,33 @@ func Unpack(topics action.Topics, data []byte) (*EventArgs, error) {
 		return nil, errors.Wrapf(ErrMalformedLog,
 			"unpack DelegateVoterRewardsDistributed data: %v", err)
 	}
-	if len(values) != 9 {
-		return nil, errors.Wrapf(ErrMalformedLog, "got %d non-indexed values, want 9", len(values))
+	if len(values) != 6 {
+		return nil, errors.Wrapf(ErrMalformedLog, "got %d non-indexed values, want 6", len(values))
 	}
-
-	rewardAddrEth, ok := values[0].(common.Address)
+	voterAmount, ok := values[0].(*big.Int)
 	if !ok {
-		return nil, errors.Wrapf(ErrMalformedLog, "rewardAddr has type %T", values[0])
+		return nil, errors.Wrapf(ErrMalformedLog, "voterAmount has type %T", values[0])
 	}
-	rewardAddr, err := address.FromBytes(rewardAddrEth.Bytes())
-	if err != nil {
-		return nil, errors.Wrap(err, "distributedlog: decode rewardAddr")
-	}
-	eraCommission, ok := values[1].(*big.Int)
-	if !ok {
-		return nil, errors.Wrapf(ErrMalformedLog, "eraCommission has type %T", values[1])
-	}
-	chunkVoterReward, ok := values[2].(*big.Int)
-	if !ok {
-		return nil, errors.Wrapf(ErrMalformedLog, "chunkVoterReward has type %T", values[2])
-	}
-	snapshotHash, ok := values[3].([32]byte)
-	if !ok {
-		return nil, errors.Wrapf(ErrMalformedLog, "snapshotHash has type %T", values[3])
-	}
-	voters, err := fromEthAddresses(values[4], "voters")
+	voters, err := fromEthAddresses(values[1], "voters")
 	if err != nil {
 		return nil, err
 	}
-	recipients, err := fromEthAddresses(values[5], "recipients")
+	recipients, err := fromEthAddresses(values[2], "recipients")
 	if err != nil {
 		return nil, err
 	}
-	amounts, ok := values[6].([]*big.Int)
+	amounts, ok := values[3].([]*big.Int)
 	if !ok {
-		return nil, errors.Wrapf(ErrMalformedLog, "amounts has type %T", values[6])
+		return nil, errors.Wrapf(ErrMalformedLog, "amounts has type %T", values[3])
 	}
-	compoundBucketIDs, ok := values[7].([]uint64)
+	compoundBucketIDs, ok := values[4].([]uint64)
 	if !ok {
-		return nil, errors.Wrapf(ErrMalformedLog, "compoundBucketIds has type %T", values[7])
+		return nil, errors.Wrapf(ErrMalformedLog, "compoundBucketIds has type %T", values[4])
 	}
-	compounded, ok := values[8].([]bool)
+	compounded, ok := values[5].([]bool)
 	if !ok {
-		return nil, errors.Wrapf(ErrMalformedLog, "compounded has type %T", values[8])
+		return nil, errors.Wrapf(ErrMalformedLog, "compounded has type %T", values[5])
 	}
-
-	// Pack refuses to emit ragged arrays, so a mismatch here means the log was
-	// not produced by this encoder or was truncated in transit. Reject rather
-	// than hand the caller five slices it would have to length-check itself --
-	// the pairing is the entire meaning of the payload.
 	if len(voters) != len(recipients) || len(voters) != len(amounts) ||
 		len(voters) != len(compoundBucketIDs) || len(voters) != len(compounded) {
 		return nil, errors.Wrapf(ErrParallelArrayLengthMismatch,
@@ -330,10 +258,7 @@ func Unpack(topics action.Topics, data []byte) (*EventArgs, error) {
 	return &EventArgs{
 		Epoch:             epoch,
 		Delegate:          delegate,
-		RewardAddr:        rewardAddr,
-		EraCommission:     eraCommission,
-		ChunkVoterReward:  chunkVoterReward,
-		SnapshotHash:      hash.Hash256(snapshotHash),
+		VoterAmount:       voterAmount,
 		Voters:            voters,
 		Recipients:        recipients,
 		Amounts:           amounts,
@@ -342,10 +267,6 @@ func Unpack(topics action.Topics, data []byte) (*EventArgs, error) {
 	}, nil
 }
 
-// decodeUint64Topic reverses encodeUint64Topic. The leading 24 bytes must be
-// zero: a non-zero prefix means the topic does not hold a uint64 this encoder
-// produced, and silently returning the low 8 bytes would turn a malformed log
-// into a plausible small epoch number.
 func decodeUint64Topic(t hash.Hash256) (uint64, error) {
 	for _, b := range t[:24] {
 		if b != 0 {
@@ -355,20 +276,19 @@ func decodeUint64Topic(t hash.Hash256) (uint64, error) {
 	return binary.BigEndian.Uint64(t[24:]), nil
 }
 
-// decodeAddressTopic reverses the hash.BytesToHash256 left-pad Pack applies to
-// an indexed address. As above, a non-zero 12-byte prefix is rejected rather
-// than truncated.
 func decodeAddressTopic(t hash.Hash256) (address.Address, error) {
 	for _, b := range t[:12] {
 		if b != 0 {
 			return nil, errors.Wrapf(ErrMalformedLog, "address topic has non-zero padding: %x", t)
 		}
 	}
-	return address.FromBytes(t[12:])
+	addr, err := address.FromBytes(t[12:])
+	if err != nil {
+		return nil, errors.Wrap(ErrMalformedLog, err.Error())
+	}
+	return addr, nil
 }
 
-// fromEthAddresses converts a decoded []common.Address argument back to the
-// iotex address form. field names the argument in the error.
 func fromEthAddresses(v any, field string) ([]address.Address, error) {
 	ethAddrs, ok := v.([]common.Address)
 	if !ok {
@@ -378,7 +298,7 @@ func fromEthAddresses(v any, field string) ([]address.Address, error) {
 	for i, a := range ethAddrs {
 		addr, err := address.FromBytes(a.Bytes())
 		if err != nil {
-			return nil, errors.Wrapf(err, "distributedlog: decode %s[%d]", field, i)
+			return nil, errors.Wrapf(ErrMalformedLog, "decode %s[%d]: %v", field, i, err)
 		}
 		out[i] = addr
 	}
@@ -405,95 +325,4 @@ func encodeUint64Topic(x uint64) hash.Hash256 {
 	var buf [32]byte
 	binary.BigEndian.PutUint64(buf[24:], x)
 	return hash.BytesToHash256(buf[:])
-}
-
-// EraSnapshotParams are the frozen per-delegate era scalars EraSnapshotHash
-// commits to. They are exactly the contents of a CandidatePollSnapshot plus
-// the candidate identifier that keys it.
-type EraSnapshotParams struct {
-	Delegate                   address.Address
-	FreezeHeight               uint64
-	TotalWeight                *big.Int
-	SelfStakeBucketIdx         uint64
-	BlockCommissionBasisPoints uint64
-	EpochCommissionBasisPoints uint64
-	Registered                 bool
-	OnchainRewardEnabled       bool
-}
-
-// EraSnapshotHash produces the bytes32 digest a DelegateVoterRewardsDistributed log
-// carries in its snapshotHash field.
-//
-// One settlement pays a delegate's voters across many blocks and emits one
-// partial log per block, so an off-chain consumer reassembles a delegate's
-// payout by grouping logs on (snapshotHash, delegate, epoch). The digest's job
-// is therefore to be a stable per-delegate-per-era identifier that a consumer
-// can also recompute from a `voterRewardDelegateSnapshot` read to confirm the batch it
-// assembled belongs to the era it thinks it does.
-//
-// It commits to every scalar the era froze for the delegate. FreezeHeight is
-// what makes it era-unique: two consecutive boundaries at which nothing about
-// a delegate changed still produce different digests. It does not commit to a
-// voter list, because there is no longer a frozen one -- voters are enumerated
-// from the era's copy-on-write bucket window and their weights recomputed, and
-// TotalWeight (the frozen candidate.Votes) is the aggregate that governs every
-// share the logs report.
-//
-// Layout hashed:
-//
-//	keccak256(
-//	    domainSep ||
-//	    delegate.Bytes()(20B) ||
-//	    be_uint64(freezeHeight) ||
-//	    left_pad32(totalWeight) ||
-//	    be_uint64(selfStakeBucketIdx) ||
-//	    be_uint64(blockCommissionBasisPoints) ||
-//	    be_uint64(epochCommissionBasisPoints) ||
-//	    flags(1B: bit0=registered, bit1=onchainRewardEnabled)
-//	)
-//
-// A nil Delegate hashes as 20 zero bytes rather than erroring; the freezer
-// never passes one, and a digest is not a place to fail a block from.
-func EraSnapshotHash(p EraSnapshotParams) hash.Hash256 {
-	buf := make([]byte, 0, 32+20+8+32+8+8+8+1)
-	buf = append(buf, eraSnapshotDomainSeparator[:]...)
-	if p.Delegate == nil {
-		buf = append(buf, make([]byte, 20)...)
-	} else {
-		buf = append(buf, p.Delegate.Bytes()...)
-	}
-	buf = appendUint64BE(buf, p.FreezeHeight)
-	buf = append(buf, leftPad32(p.TotalWeight)...)
-	buf = appendUint64BE(buf, p.SelfStakeBucketIdx)
-	buf = appendUint64BE(buf, p.BlockCommissionBasisPoints)
-	buf = appendUint64BE(buf, p.EpochCommissionBasisPoints)
-	var flags byte
-	if p.Registered {
-		flags |= 1
-	}
-	if p.OnchainRewardEnabled {
-		flags |= 2
-	}
-	return hash.Hash256b(append(buf, flags))
-}
-
-// appendUint64BE appends x in 8-byte big-endian form.
-func appendUint64BE(buf []byte, x uint64) []byte {
-	var b [8]byte
-	binary.BigEndian.PutUint64(b[:], x)
-	return append(buf, b[:]...)
-}
-
-// leftPad32 returns the big-endian, zero-left-padded 32-byte
-// representation of x's absolute value. nil is treated as zero;
-// negative values (not expected in this domain) are encoded by
-// absolute value — the snapshot never contains negative weights.
-func leftPad32(x *big.Int) []byte {
-	var out [32]byte
-	if x == nil {
-		return out[:]
-	}
-	b := x.Bytes()
-	copy(out[32-len(b):], b)
-	return out[:]
 }

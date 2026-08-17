@@ -51,10 +51,10 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 		prevWith := p.calculateVoteWeight(prevBucket, true)
 		prevWithout := p.calculateVoteWeight(prevBucket, false)
 		// IIP-59: previous self-stake bucket drops the self-stake bonus.
-		if err := subCandidateVotes(cand, prevWith); err != nil {
+		if err := cand.SubVote(prevWith); err != nil {
 			return log, nil, err
 		}
-		if err := addCandidateVotes(cand, prevWithout); err != nil {
+		if err := cand.AddVote(prevWithout); err != nil {
 			return log, nil, err
 		}
 	}
@@ -65,10 +65,10 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 	newWithout := p.calculateVoteWeight(bucket, false)
 	newWith := p.calculateVoteWeight(bucket, true)
 	// IIP-59: new self-stake bucket gains the self-stake bonus.
-	if err := subCandidateVotes(cand, newWithout); err != nil {
+	if err := cand.SubVote(newWithout); err != nil {
 		return log, nil, err
 	}
-	if err := addCandidateVotes(cand, newWith); err != nil {
+	if err := cand.AddVote(newWith); err != nil {
 		return log, nil, err
 	}
 

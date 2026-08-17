@@ -82,31 +82,18 @@ type (
 		protocol.StateManager
 		candCenter *CandidateCenter
 		bucketPool *BucketPool
-		// cow is the IIP-59 era copy-on-write session for the native bucket
-		// writes below. It is nil for state managers built without a context
-		// (tests, and the ctx-less legacy constructor), which reads as
-		// pre-activation and makes every hook a no-op.
+		// cow is the IIP-59 era copy-on-write session for native bucket and
+		// voter-index writes.
 		cow *eracow.Session
 	}
 )
-
-// NewCandidateStateManager returns a new CandidateStateManager instance.
-//
-// Deprecated for production use: prefer NewCandidateStateManagerWithContext.
-// Without a context this manager cannot see the IIP-59 fork gate, so native
-// bucket mutations made through it are not copy-on-written into the era
-// window. That is exactly the right behaviour before activation and exactly
-// the wrong one after it. Kept because ~70 tests construct managers this way.
-func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, error) {
-	return NewCandidateStateManagerWithContext(context.Background(), sm)
-}
 
 // NewCandidateStateManagerWithContext returns a new CandidateStateManager whose
 // native bucket writes participate in the IIP-59 era copy-on-write window.
 //
 // ctx supplies the fork gate only. Pre-activation the session it builds is
-// inert and performs no state access whatsoever, so this constructor is
-// byte-for-byte equivalent to the ctx-less one until IIP-59 activates.
+// inert and performs no state access whatsoever, so adding the session does
+// not change state access or writes until IIP-59 activates.
 func NewCandidateStateManagerWithContext(ctx context.Context, sm protocol.StateManager) (CandidateStateManager, error) {
 	// TODO: we can store csm in a local cache, just as how statedb store the workingset
 	// b/c most time the sm is used before, no need to create another clone
@@ -262,12 +249,10 @@ func (csm *candSM) deactivate(cand *Candidate, bucket *VoteBucket, height uint64
 	}
 	prevWeight := calcVote(bucket, true)
 	newWeight := calcVote(bucket, false)
-	// IIP-59: same bucket loses the self-stake bonus, so the view sees -prev
-	// then +new on (cand, bucket.Owner).
-	if err := subCandidateVotes(cand, prevWeight); err != nil {
+	if err := cand.SubVote(prevWeight); err != nil {
 		return err
 	}
-	if err := addCandidateVotes(cand, newWeight); err != nil {
+	if err := cand.AddVote(newWeight); err != nil {
 		return err
 	}
 	cand.SelfStake = big.NewInt(0)
@@ -396,30 +381,6 @@ func (csm *candSM) delBucketAndIndex(owner, cand address.Address, index uint64) 
 	return nil
 }
 
-// snapshotBucketIndexForEra copies the as-of-H value of a bucket-index entry
-// into the IIP-59 era window before it is changed.
-//
-// Only _voterIndex is covered. That is the list the drain enumerates a voter's
-// native buckets from, and it is volatile in exactly the way that matters:
-// delBucketIndex removes the whole entry once a voter's last bucket is
-// withdrawn, so a voter who was owed a share at H can otherwise vanish from
-// the state the drain walks. _candIndex is not on the recompute read path — the
-// drain is keyed by voter, and the candidate side of the era is already frozen
-// into the per-delegate work record — so copying it would be pure cost.
-//
-// `bis` is the value read immediately before the mutation; existed=false means
-// the key held nothing, which is recorded as a tombstone.
-func (csm *candSM) snapshotBucketIndexForEra(addr address.Address, prefix byte, bis *BucketIndices, existed bool) error {
-	if prefix != _voterIndex {
-		return nil
-	}
-	var prior state.Serializer
-	if existed {
-		prior = bis
-	}
-	return csm.cow.Snapshot(eracow.KindNativeVoterIndex, eracow.AddrSubkey(addr.Bytes()), prior)
-}
-
 func (csm *candSM) putBucketIndex(addr address.Address, prefix byte, index uint64) error {
 	var (
 		bis  BucketIndices
@@ -432,8 +393,14 @@ func (csm *candSM) putBucketIndex(addr address.Address, prefix byte, index uint6
 		}
 		existed = false
 	}
-	if err := csm.snapshotBucketIndexForEra(addr, prefix, &bis, existed); err != nil {
-		return err
+	if prefix == _voterIndex {
+		var prior state.Serializer
+		if existed {
+			prior = &bis
+		}
+		if err := csm.cow.SnapshotNativeVoterIndex(addr.Bytes(), prior); err != nil {
+			return err
+		}
 	}
 	bis.addBucketIndex(index)
 	_, err := csm.PutState(&bis, opts...)
@@ -452,8 +419,10 @@ func (csm *candSM) delBucketIndex(addr address.Address, prefix byte, index uint6
 	if _, err := csm.State(&bis, opts...); err != nil {
 		return err
 	}
-	if err := csm.snapshotBucketIndexForEra(addr, prefix, &bis, true); err != nil {
-		return err
+	if prefix == _voterIndex {
+		if err := csm.cow.SnapshotNativeVoterIndex(addr.Bytes(), &bis); err != nil {
+			return err
+		}
 	}
 	bis.deleteBucketIndex(index)
 

@@ -19,7 +19,7 @@ import (
 // candSM/candSR, and as-of-the-freeze-height, through eracow.Resolve's live
 // fallback. If the two derive the address separately they can drift, and the
 // drift does not fail loudly: the frozen read misses, FrozenVoterWeight skips
-// the bucket (era_window.go), and the voter is silently underpaid. Sharing the
+// the bucket (frozen_voter_weight.go), and the voter is silently underpaid. Sharing the
 // constructor makes that class of divergence unrepresentable.
 //
 // The contract-staking counterparts are
@@ -40,7 +40,7 @@ func nativeBucketStateOpts(index uint64) []protocol.StateOption {
 //
 // prefix stays a parameter because putBucketIndex/delBucketIndex serve both
 // _voterIndex and _candIndex through one code path. Only _voterIndex is covered
-// by the era copy-on-write layer (see snapshotBucketIndexForEra), but both
+// by the era copy-on-write layer (see SnapshotNativeVoterIndex), but both
 // share the key shape and must share the constructor, or changing the shape
 // would fix one and break the other.
 func nativeBucketIndexStateOpts(addr address.Address, prefix byte) []protocol.StateOption {

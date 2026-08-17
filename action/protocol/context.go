@@ -175,7 +175,7 @@ type (
 		FixInContractTransferLogTopic bool
 		// NoVoterRewardDistribution gates IIP-59's protocol-native voter reward
 		// distribution. Pre-fork (true) the poll layer does NOT freeze the
-		// per-candidate CandidatePollSnapshot and rewarding stays on the legacy
+		// per-candidate CandidateRewardSnapshot and rewarding stays on the legacy
 		// Hermes path. Post-fork (false) the snapshot is written at every
 		// PutPollResult and rewarding consumes it. Bound to
 		// !g.IsToBeEnabled(height): default zero-value = active after fork.

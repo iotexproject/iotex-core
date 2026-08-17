@@ -26,7 +26,7 @@ import (
 // index lists. It returns the new bucket's index.
 //
 // It exists so tests outside this package -- the rewarding protocol's drain
-// tests in particular -- can build the voter key space the IIP-59 shard walk
+// tests in particular -- can build the voter key space the IIP-59 address walk
 // enumerates. bucketKey, AddrKeyWithPrefix and the _voterIndex / _candIndex
 // tags are package-private, and writing those keys by hand from another package
 // would encode this package's key layout in a test, which is exactly the
@@ -183,9 +183,8 @@ type TestOnlyPerfBenchSpec struct {
 	// ContractStakingAddresses are the contracts used for contract buckets.
 	// At least one is required when NumContractBuckets is non-zero.
 	ContractStakingAddresses []address.Address
-	// ShardVoterAddresses spreads voter addresses evenly over all 256 possible
-	// first bytes, matching the voter-major drain's production key space.
-	ShardVoterAddresses bool
+	// SpreadVoterAddresses spreads voters across the full address key space.
+	SpreadVoterAddresses bool
 	// DeferContractBucketSeeding leaves contract bucket state for a harness to
 	// plant after genesis while still including its weight in candidate totals.
 	// This is needed by the real state factory, which filters contract-staking
@@ -205,13 +204,13 @@ type TestOnlyPerfBenchSpec struct {
 	// active genesis's copy so weight math matches production.
 	VoteWeightCalConsts genesis.VoteWeightCalConsts
 	// BlockCommissionBasisPoints is the frozen block-side commission rate
-	// planted into each candidate's CandidatePollSnapshot. Downstream
+	// planted into each candidate's CandidateRewardSnapshot. Downstream
 	// GrantBlockReward reads this to split the base reward at block time.
 	// Left at zero, the harness would route the full block reward straight
 	// into the voter pool; that's rarely what a bench wants.
 	BlockCommissionBasisPoints uint64
 	// EpochCommissionBasisPoints is the frozen epoch-side commission rate
-	// planted into each candidate's CandidatePollSnapshot.
+	// planted into each candidate's CandidateRewardSnapshot.
 	EpochCommissionBasisPoints uint64
 }
 
@@ -295,8 +294,8 @@ func TestOnlySeedPerfBenchState(
 	}
 
 	voterAddress := TestOnlyPerfBenchVoterAddress
-	if spec.ShardVoterAddresses {
-		voterAddress = TestOnlyPerfBenchShardedVoterAddress
+	if spec.SpreadVoterAddresses {
+		voterAddress = TestOnlyPerfBenchSpreadVoterAddress
 	}
 	voterWeight := CalculateVoteWeight(spec.VoteWeightCalConsts, NewVoteBucket(
 		delegates[0], voterAddress(0), new(big.Int).Set(spec.VoterStake),
@@ -344,11 +343,11 @@ func TestOnlySeedPerfBenchState(
 		}
 	}
 
-	// Plant a frozen CandidatePollSnapshot per delegate. Production writes
-	// this from PutPollResult via freezeIIP59PollSnapshot; the perf harness
+	// Plant a frozen CandidateRewardSnapshot per delegate. Production writes
+	// this from PutPollResult via freezeIIP59RewardState; the perf harness
 	// runs on the LifeLong poll protocol, which never emits PutPollResult,
 	// so the freeze would otherwise never happen and downstream rewarding
-	// would land in the Registered=false fallback on every delegate.
+	// would land in the CommissionConfigured=false fallback on every delegate.
 	sm := csm.SM()
 	for i, delAddr := range delegates {
 		// TotalWeight is read back from the candidate exactly as the real
@@ -360,21 +359,19 @@ func TestOnlySeedPerfBenchState(
 		if cand == nil {
 			return nil, errors.Errorf("perf-bench: delegate %s missing before snapshot", delAddr.String())
 		}
-		snap := &CandidatePollSnapshot{
-			OnchainRewardEnabled:       true,
+		snap := &CandidateRewardSnapshot{
 			BlockCommissionBasisPoints: spec.BlockCommissionBasisPoints,
 			EpochCommissionBasisPoints: spec.EpochCommissionBasisPoints,
-			Registered:                 true,
+			CommissionConfigured:       true,
 			SelfStakeBucketIdx:         selfStakeIdx[i],
 			TotalWeight:                new(big.Int).Set(cand.Votes),
 		}
-		snap.SnapshotHash = eraSnapshotHash(delAddr, snap)
 		if _, err := sm.PutState(
-			snap.toBlob(),
+			snap,
 			protocol.NamespaceOption(_stakingNameSpace),
-			protocol.KeyOption(candidatePollSnapshotKey(delAddr)),
+			protocol.KeyOption(candidateRewardSnapshotKey(delAddr)),
 		); err != nil {
-			return nil, errors.Wrapf(err, "plant poll snapshot for delegate %d", i)
+			return nil, errors.Wrapf(err, "plant reward snapshot for delegate %d", i)
 		}
 	}
 	return delegates, nil
@@ -400,8 +397,8 @@ func TestOnlySeedPerfBenchContractBuckets(
 		spec.VoterStakedDurationDays = 30
 	}
 	voterAddress := TestOnlyPerfBenchVoterAddress
-	if spec.ShardVoterAddresses {
-		voterAddress = TestOnlyPerfBenchShardedVoterAddress
+	if spec.SpreadVoterAddresses {
+		voterAddress = TestOnlyPerfBenchSpreadVoterAddress
 	}
 	ts := protocol.MustGetBlockCtx(ctx).BlockTimeStamp
 	contractSM := contractstaking.NewContractStakingStateManager(sm)
@@ -473,10 +470,10 @@ func TestOnlyPerfBenchVoterAddress(j int) address.Address {
 	return perfBenchAddress(uint64(j) + perfBenchVoterSeedBase)
 }
 
-// TestOnlyPerfBenchShardedVoterAddress returns a deterministic voter address
-// whose first byte is j mod 256. It lets the scale harness exercise every
-// voter-major shard instead of concentrating the entire fixture in shard 0.
-func TestOnlyPerfBenchShardedVoterAddress(j int) address.Address {
+// TestOnlyPerfBenchSpreadVoterAddress returns a deterministic voter address
+// whose first byte is j mod 256, spreading scale fixtures across the full
+// ordered voter key space.
+func TestOnlyPerfBenchSpreadVoterAddress(j int) address.Address {
 	var b [20]byte
 	b[0] = byte(j)
 	binary.BigEndian.PutUint64(b[12:], uint64(j)+perfBenchVoterSeedBase)

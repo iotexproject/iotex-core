@@ -85,6 +85,19 @@ func TestBundle_Hash(t *testing.T) {
 		b2.SetTargetBlockHeight(20)
 		require.NotEqual(t, b1.Hash(), b2.Hash())
 	})
+	t.Run("differing early action produces different hash", func(t *testing.T) {
+		// Two bundles that share the same final action and target height but
+		// differ in an earlier action must not collide on the pool's dedup
+		// key. A right-truncating "hash" keyed only off the trailing bytes
+		// (final action + height) would return the same value here.
+		last := signedTransfer(t, 9)
+		b1, b2 := NewBundle(), NewBundle()
+		require.NoError(t, b1.Add(signedTransfer(t, 0), last))
+		require.NoError(t, b2.Add(signedTransfer(t, 1), last))
+		b1.SetTargetBlockHeight(10)
+		b2.SetTargetBlockHeight(10)
+		require.NotEqual(t, b1.Hash(), b2.Hash())
+	})
 }
 
 func TestBundle_Gas(t *testing.T) {

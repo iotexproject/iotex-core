@@ -264,11 +264,11 @@ func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.Stat
 	// ever written on the fork-on path, so pre-fork blocks skip the
 	// read entirely (state is empty).
 	if !protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
-		cursor, err := p.readEpochDrainCursor(ctx, sr)
+		cursor, err := p.readVoterRewardDistributionState(ctx, sr)
 		if err != nil {
 			return nil, err
 		}
-		if cursor != nil && !cursor.Completed {
+		if cursor != nil && !cursor.completed() {
 			grants = append(grants, createGrantRewardAction(action.VoterRewardChunk, blkCtx.BlockHeight))
 		}
 	}
@@ -448,7 +448,7 @@ func (p *Protocol) ReadState(
 			return nil, uint64(0), err
 		}
 		return []byte(balance.String()), height, nil
-	case "PendingBlockRewardPool":
+	case "PendingVoterReward":
 		if len(args) != 1 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
@@ -465,32 +465,32 @@ func (p *Protocol) ReadState(
 			return nil, uint64(0), err
 		}
 		return []byte(balance.String()), height, nil
-	case "PendingBlockRewardPoolIndex":
+	case "PendingVoterRewardDelegates":
 		if len(args) != 0 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		ids, err := p.readPendingBlockRewardPoolIndex(ctx, sr)
+		ids, err := p.listPendingBlockRewardPoolIDs(ctx, sr)
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		return marshalWithHeight(sr, &rewardingpb.PendingBlockRewardPoolIndex{CandidateIdentifiers: ids})
-	case "EpochDrainCursor":
+		return marshalWithHeight(sr, &rewardingpb.PendingVoterRewardDelegates{DelegateIdentifiers: ids})
+	case "VoterRewardDistribution":
 		if len(args) != 0 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		cursor, err := p.readEpochDrainCursor(ctx, sr)
+		cursor, err := p.readVoterRewardDistributionState(ctx, sr)
 		if err != nil {
 			return nil, uint64(0), err
 		}
 		if cursor == nil {
-			return marshalWithHeight(sr, &rewardingpb.EpochDrainCursor{})
+			return marshalWithHeight(sr, &rewardingpb.VoterRewardDistributionState{})
 		}
 		data, err := cursor.Serialize()
 		if err != nil {
 			return nil, uint64(0), err
 		}
 		return bytesWithHeight(sr, data)
-	case "VoterRewardSnapshot":
+	case "DelegateRewardSnapshot":
 		if len(args) != 1 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
@@ -498,25 +498,19 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		snapshot, err := staking.PollSnapshotFor(sr, candID)
+		snapshot, err := staking.CandidateRewardSnapshotFor(sr, candID)
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		// Scalars only. The frozen (voter, weight) list this used to enumerate
-		// no longer exists; a caller that wants a voter's position and amount
-		// asks VoterRewardStatus, which is per-voter and answers across every
-		// delegate the voter has a frozen bucket with.
-		return marshalWithHeight(sr, &stakingpb.CandidatePollSnapshot{
+		return marshalWithHeight(sr, &stakingpb.CandidateRewardSnapshot{
 			BlockCommissionBasisPoints: snapshot.BlockCommissionBasisPoints,
 			EpochCommissionBasisPoints: snapshot.EpochCommissionBasisPoints,
-			Registered:                 snapshot.Registered,
-			OnchainRewardEnabled:       snapshot.OnchainRewardEnabled,
+			CommissionConfigured:       snapshot.CommissionConfigured,
 			TotalWeight:                safeBig(snapshot.TotalWeight).Bytes(),
-			SnapshotHash:               snapshot.SnapshotHash[:],
 			FreezeHeight:               snapshot.FreezeHeight,
 			SelfStakeBucketIdx:         snapshot.SelfStakeBucketIdx,
 		})
-	case "VoterRewardAddress":
+	case "DelegatePayoutAddress":
 		if len(args) != 1 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
@@ -524,16 +518,12 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		routing, err := resolveDelegateRewardRouting(ctx, sr, candID)
+		routing, err := resolveDelegateRewardRouting(sr, candID)
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		rewardAddr := routing.legacyRewardAddress
-		if routing.onchainRewardEnabled {
-			rewardAddr = routing.owner
-		}
-		return marshalWithHeight(sr, &rewardingpb.VoterRewardAddress{
-			Address: rewardAddr.Bytes(), ExplicitlySet: routing.rewardAddressUpdated,
+		return marshalWithHeight(sr, &rewardingpb.DelegatePayoutAddress{
+			Address: routing.PayoutAddress().Bytes(), OnchainRewardEnabled: routing.onchainRewardEnabled,
 		})
 	case "VoterRewardDestination":
 		if len(args) != 1 {
@@ -543,28 +533,19 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		recipient, explicitlySet, updatedHeight, err := p.resolveVoterRewardDestination(ctx, sr, voter)
+		destination, err := p.readVoterRewardDestination(ctx, sr, voter)
 		if err != nil {
 			return nil, uint64(0), err
+		}
+		recipient, explicitlySet, updatedHeight := voter, false, uint64(0)
+		if destination != nil {
+			recipient = destination.recipient
+			explicitlySet = true
+			updatedHeight = destination.updatedHeight
 		}
 		return marshalWithHeight(sr, &rewardingpb.VoterRewardDestination{
 			Recipient: recipient.Bytes(), ExplicitlySet: explicitlySet, UpdatedHeight: updatedHeight,
 		})
-	case "VoterRewardStatus":
-		// One argument, not two: the drain pays a voter once for everything they
-		// are owed across every delegate, so the answer is per-voter.
-		if len(args) != 1 {
-			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
-		}
-		voter, err := address.FromString(string(args[0]))
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		status, err := p.voterRewardStatus(ctx, sr, voter)
-		if err != nil {
-			return nil, uint64(0), err
-		}
-		return marshalWithHeight(sr, status)
 	default:
 		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}

@@ -14,7 +14,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -46,89 +45,83 @@ const delegateProfileABI = `[
   }
 ]`
 
-func TestCandidatePollSnapshot_SerializeRoundtrip(t *testing.T) {
+func TestCandidateRewardSnapshot_SerializeRoundtrip(t *testing.T) {
 	r := require.New(t)
-	orig := &CandidatePollSnapshot{
+	orig := &CandidateRewardSnapshot{
 		BlockCommissionBasisPoints: 1234,
 		EpochCommissionBasisPoints: 5678,
-		Registered:                 true,
-		OnchainRewardEnabled:       true,
+		CommissionConfigured:       true,
 		TotalWeight:                big.NewInt(3_500_000),
-		SnapshotHash:               hash.Hash256b([]byte("era-42")),
 		FreezeHeight:               909_090,
 		SelfStakeBucketIdx:         7,
 	}
-	blob := orig.toBlob()
-	buf, err := blob.Serialize()
+	buf, err := orig.Serialize()
 	r.NoError(err)
+	encoded, err := orig.Encode()
+	r.NoError(err)
+	r.Equal(buf, encoded.PrimaryData, "Erigon and trie storage must use identical bytes")
 
-	var round candidatePollSnapshotBlob
+	var round CandidateRewardSnapshot
 	r.NoError(round.Deserialize(buf))
-	out, err := fromBlob(&round)
-	r.NoError(err)
+	out := &round
+	var genericRound CandidateRewardSnapshot
+	r.NoError(genericRound.Decode(encoded))
+	r.Zero(orig.TotalWeight.Cmp(genericRound.TotalWeight))
 
 	r.Equal(orig.BlockCommissionBasisPoints, out.BlockCommissionBasisPoints)
 	r.Equal(orig.EpochCommissionBasisPoints, out.EpochCommissionBasisPoints)
-	r.Equal(orig.Registered, out.Registered)
-	r.Equal(orig.OnchainRewardEnabled, out.OnchainRewardEnabled)
+	r.Equal(orig.CommissionConfigured, out.CommissionConfigured)
 	r.Zero(orig.TotalWeight.Cmp(out.TotalWeight))
-	r.Equal(orig.SnapshotHash, out.SnapshotHash)
 	r.Equal(orig.FreezeHeight, out.FreezeHeight)
 	r.Equal(orig.SelfStakeBucketIdx, out.SelfStakeBucketIdx)
 }
 
-func TestCandidatePollSnapshot_SerializeZeroTotalWeight(t *testing.T) {
-	// A snapshot with no payable voter set (opted-out delegate, or a candidate
-	// record the freezer could not read) must round-trip to a zero, non-nil
-	// TotalWeight — that is the value rewarding tests with Sign() to decide
-	// whether the delegate has anything to distribute this era.
+func TestCandidateRewardSnapshot_SerializeZeroTotalWeight(t *testing.T) {
+	// An opted-in candidate with frozen Votes=0 must round-trip to a zero,
+	// non-nil TotalWeight. Rewarding checks Sign() to decide whether the
+	// candidate has anything to distribute this era.
 	r := require.New(t)
-	orig := &CandidatePollSnapshot{
+	orig := &CandidateRewardSnapshot{
 		BlockCommissionBasisPoints: 1000,
 		EpochCommissionBasisPoints: 2000,
-		Registered:                 true,
+		CommissionConfigured:       true,
 	}
-	blob := orig.toBlob()
-	buf, err := blob.Serialize()
+	buf, err := orig.Serialize()
 	r.NoError(err)
 
-	var round candidatePollSnapshotBlob
+	var round CandidateRewardSnapshot
 	r.NoError(round.Deserialize(buf))
-	out, err := fromBlob(&round)
-	r.NoError(err)
+	out := &round
 	r.NotNil(out.TotalWeight)
 	r.Zero(out.TotalWeight.Sign())
-	r.True(out.Registered)
+	r.True(out.CommissionConfigured)
 }
 
-func TestCandidatePollSnapshot_ZeroValueSerializes(t *testing.T) {
-	// A zero-value CandidatePollSnapshot must round-trip cleanly — this is
-	// what a delegate looks like when the DelegateProfile bridge is
-	// disabled.
+func TestCandidateRewardSnapshot_ZeroValueSerializes(t *testing.T) {
+	// A zero-value CandidateRewardSnapshot must round-trip cleanly.
 	r := require.New(t)
-	orig := &CandidatePollSnapshot{}
-	blob := orig.toBlob()
-	buf, err := blob.Serialize()
+	orig := &CandidateRewardSnapshot{}
+	buf, err := orig.Serialize()
 	r.NoError(err)
 
-	var pb stakingpb.CandidatePollSnapshot
+	var pb stakingpb.CandidateRewardSnapshot
 	r.NoError(proto.Unmarshal(buf, &pb))
 	r.Zero(pb.GetBlockCommissionBasisPoints())
 	r.Zero(pb.GetEpochCommissionBasisPoints())
-	r.False(pb.GetRegistered())
+	r.False(pb.GetCommissionConfigured())
 	r.Empty(pb.GetTotalWeight())
 	r.Zero(pb.GetFreezeHeight())
 }
 
-func TestCandidatePollSnapshotKey_Layout(t *testing.T) {
+func TestCandidateRewardSnapshotKey_Layout(t *testing.T) {
 	r := require.New(t)
 	// Key is exactly 1 tag byte + candidate address bytes; tag byte is the
-	// _candidatePollSnapshot constant. This test guards against accidental
+	// _candidateRewardSnapshot constant. This test guards against accidental
 	// reuse of another byte for the same key layout.
 	candID := identityset.Address(3)
-	key := candidatePollSnapshotKey(candID)
+	key := candidateRewardSnapshotKey(candID)
 	r.Equal(1+len(candID.Bytes()), len(key))
-	r.Equal(_candidatePollSnapshot, key[0])
+	r.Equal(_candidateRewardSnapshot, key[0])
 	r.Equal(candID.Bytes(), key[1:])
 }
 
@@ -136,27 +129,29 @@ func TestCandidateRewardAddress(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	csm := newCandidateStateManager(sm)
 
 	cand := &Candidate{
 		Owner: identityset.Address(1), Operator: identityset.Address(2), Reward: identityset.Address(3),
 		Name: "delegate", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
 	}
-	r.NoError(putOnchainCandidate(csm, cand))
+	installCandCenter(t, sm, cand)
+	csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
+	r.NoError(err)
+	r.NoError(csm.Upsert(cand))
 	got, explicitlySet, err := CandidateRewardAddress(sm, cand.GetIdentifier())
 	r.NoError(err)
 	r.True(address.Equal(cand.Owner, got))
 	r.False(explicitlySet)
 
 	cand.Owner = identityset.Address(7)
-	r.NoError(putOnchainCandidate(csm, cand))
+	r.NoError(csm.Upsert(cand))
 	got, explicitlySet, err = CandidateRewardAddress(sm, cand.GetIdentifier())
 	r.NoError(err)
 	r.True(address.Equal(cand.Owner, got), "default reward address must follow owner transfers")
 	r.False(explicitlySet)
 
 	cand.RewardAddressUpdated = true
-	r.NoError(putOnchainCandidate(csm, cand))
+	r.NoError(csm.Upsert(cand))
 	got, explicitlySet, err = CandidateRewardAddress(sm, cand.GetIdentifier())
 	r.NoError(err)
 	r.True(address.Equal(cand.Reward, got))
@@ -166,53 +161,12 @@ func TestCandidateRewardAddress(t *testing.T) {
 	r.ErrorIs(err, state.ErrStateNotExist)
 }
 
-func TestCandidateRewardRoutingModes(t *testing.T) {
-	r := require.New(t)
-	ctrl := gomock.NewController(t)
-	sm := testdb.NewMockStateManager(ctrl)
-	csm := newCandidateStateManager(sm)
-	vault, err := address.FromString("io19604a05s2p3mecam2zz7d27hcr6ndyw80wvkmh")
-	r.NoError(err)
-	other := identityset.Address(3)
-	candidate := &Candidate{
-		Owner: identityset.Address(1), Operator: identityset.Address(2), Reward: vault,
-		Name: "delegate", Votes: big.NewInt(1), SelfStake: big.NewInt(1),
-	}
-	r.NoError(csm.putCandidate(candidate))
-
-	routing, err := ReadCandidateRewardRouting(sm, candidate.GetIdentifier(), []string{vault.String()})
-	r.NoError(err)
-	r.True(routing.OnchainRewardEnabled)
-	r.True(address.Equal(candidate.Owner, routing.Owner))
-	r.True(address.Equal(vault, routing.LegacyRewardAddress))
-
-	candidate.Reward = other
-	r.NoError(csm.putCandidate(candidate))
-	routing, err = ReadCandidateRewardRouting(sm, candidate.GetIdentifier(), []string{vault.String()})
-	r.NoError(err)
-	r.False(routing.OnchainRewardEnabled)
-
-	candidate.Reward = vault
-	candidate.RewardAddressUpdated = true
-	r.NoError(csm.putCandidate(candidate))
-	routing, err = ReadCandidateRewardRouting(sm, candidate.GetIdentifier(), []string{vault.String()})
-	r.NoError(err)
-	r.False(routing.OnchainRewardEnabled, "post-fork address updates must not trigger automatic migration")
-
-	candidate.VoterRewardOnchainOptIn = true
-	r.NoError(csm.putCandidate(candidate))
-	routing, err = ReadCandidateRewardRouting(sm, candidate.GetIdentifier(), []string{vault.String()})
-	r.NoError(err)
-	r.True(routing.OnchainRewardEnabled)
-	r.True(routing.ExplicitlyEnabled)
-}
-
 // A legacy candidate -- one that pays its voters off-chain -- is enumerated by
 // the freezer along with everyone else and then dropped on the opt-in test,
 // before either the profile read or the snapshot write. Both omissions are
 // asserted: the reader fails the test if called, and the candidate ends the
 // boundary with no record at all.
-func TestFreezePollSnapshot_LegacyCandidateSkipsProfileAndSnapshot(t *testing.T) {
+func TestFreezeCandidateRewardSnapshots_LegacyCandidateSkipsProfileAndSnapshot(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -231,15 +185,16 @@ func TestFreezePollSnapshot_LegacyCandidateSkipsProfileAndSnapshot(t *testing.T)
 		return nil, nil
 	})
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
-	r.NoError(FreezePollSnapshot(ctx, sm, bridge, reader))
+	r.NoError(FreezeCandidateRewardSnapshots(ctx, sm, bridge, reader, 0))
 
-	_, err = PollSnapshotFor(sm, candidate.GetIdentifier())
+	_, err = CandidateRewardSnapshotFor(sm, candidate.GetIdentifier())
 	r.ErrorIs(errors.Cause(err), state.ErrStateNotExist)
 }
 
-func TestFreezePollSnapshot_NilBridge(t *testing.T) {
+func TestFreezeCandidateRewardSnapshots_NilBridge(t *testing.T) {
 	// Bridge nil path: the snapshot writer still runs (post-fork, no
-	// contract configured), records Registered=false and full owner commission.
+	// contract configured), records CommissionConfigured=false and full owner
+	// commission.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -267,23 +222,22 @@ func TestFreezePollSnapshot_NilBridge(t *testing.T) {
 	r.NoError(putOnchainCandidate(csm, secondCand))
 	installCandCenter(t, sm, firstCand, secondCand)
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, nil))
+	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0))
 
-	snap, err := PollSnapshotFor(sm, firstCand.Owner)
+	snap, err := CandidateRewardSnapshotFor(sm, firstCand.Owner)
 	r.NoError(err)
-	r.False(snap.Registered)
+	r.False(snap.CommissionConfigured)
 	r.Equal(uint64(10000), snap.BlockCommissionBasisPoints)
 	r.Equal(uint64(10000), snap.EpochCommissionBasisPoints)
-	r.True(snap.OnchainRewardEnabled)
 
-	snap, err = PollSnapshotFor(sm, secondCand.Owner)
+	snap, err = CandidateRewardSnapshotFor(sm, secondCand.Owner)
 	r.NoError(err)
-	r.False(snap.Registered)
+	r.False(snap.CommissionConfigured)
 }
 
-func TestFreezePollSnapshot_HappyPath(t *testing.T) {
+func TestFreezeCandidateRewardSnapshots_HappyPath(t *testing.T) {
 	// End-to-end path with a working bridge + reader: rates come back
-	// registered=true with the expected inversion from voter-take portion
+	// CommissionConfigured=true with the expected inversion from voter-take portion
 	// (9000, 8000) → commission (1000, 2000) basis points.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -308,16 +262,42 @@ func TestFreezePollSnapshot_HappyPath(t *testing.T) {
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, bridge, fake.reader(t)))
+	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0))
 
-	snap, err := PollSnapshotFor(sm, cand.Owner)
+	snap, err := CandidateRewardSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
-	r.True(snap.Registered)
+	r.True(snap.CommissionConfigured)
 	r.Equal(uint64(1000), snap.BlockCommissionBasisPoints)
 	r.Equal(uint64(2000), snap.EpochCommissionBasisPoints)
 }
 
-func TestFreezePollSnapshot_UsesCandidateIdentity(t *testing.T) {
+func TestFreezeCandidateRewardSnapshots_ExplicitZeroProfileIsConfigured(t *testing.T) {
+	r := require.New(t)
+	sm := testdb.NewMockStateManager(gomock.NewController(t))
+	csm := newCandidateStateManager(sm)
+	candidate := &Candidate{
+		Owner: identityset.Address(1), Operator: identityset.Address(2),
+		Reward: identityset.Address(3), Name: "zero-voter-portion",
+		Votes: big.NewInt(1), SelfStake: big.NewInt(1),
+	}
+	r.NoError(putOnchainCandidate(csm, candidate))
+	installCandCenter(t, sm, candidate)
+
+	fake := newFakeProfileStore()
+	fake.setPortion(candidate.Owner, "blockRewardPortion", 0)
+	fake.setPortion(candidate.Owner, "epochRewardPortion", 0)
+	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
+	r.NoError(err)
+	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0))
+
+	snapshot, err := CandidateRewardSnapshotFor(sm, candidate.Owner)
+	r.NoError(err)
+	r.True(snapshot.CommissionConfigured)
+	r.Equal(_fullCommissionBasisPoints, snapshot.BlockCommissionBasisPoints)
+	r.Equal(_fullCommissionBasisPoints, snapshot.EpochCommissionBasisPoints)
+}
+
+func TestFreezeCandidateRewardSnapshots_UsesCandidateIdentity(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -343,18 +323,18 @@ func TestFreezePollSnapshot_UsesCandidateIdentity(t *testing.T) {
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, bridge, fake.reader(t)))
+	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0))
 
-	snapshot, err := PollSnapshotFor(sm, identity)
+	snapshot, err := CandidateRewardSnapshotFor(sm, identity)
 	r.NoError(err)
-	r.True(snapshot.Registered)
-	_, err = PollSnapshotFor(sm, operator)
+	r.True(snapshot.CommissionConfigured)
+	_, err = CandidateRewardSnapshotFor(sm, operator)
 	r.ErrorIs(err, state.ErrStateNotExist)
 }
 
-func TestFreezePollSnapshot_PartialProfile(t *testing.T) {
-	// One delegate registered on-chain, another absent from DelegateProfile.
-	// The unregistered one still gets a snapshot row (Registered=false),
+func TestFreezeCandidateRewardSnapshots_PartialProfile(t *testing.T) {
+	// One delegate has a complete commission profile, another is absent from DelegateProfile.
+	// The unconfigured one still gets a snapshot row (CommissionConfigured=false),
 	// and therefore uses the all-to-owner default.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -391,26 +371,26 @@ func TestFreezePollSnapshot_PartialProfile(t *testing.T) {
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, bridge, fake.reader(t)))
+	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0))
 
-	snap, err := PollSnapshotFor(sm, registered.Owner)
+	snap, err := CandidateRewardSnapshotFor(sm, registered.Owner)
 	r.NoError(err)
-	r.True(snap.Registered)
+	r.True(snap.CommissionConfigured)
 	r.Equal(uint64(9500), snap.BlockCommissionBasisPoints)
 	r.Equal(uint64(9250), snap.EpochCommissionBasisPoints)
 
-	snap, err = PollSnapshotFor(sm, unregistered.Owner)
+	snap, err = CandidateRewardSnapshotFor(sm, unregistered.Owner)
 	r.NoError(err)
-	r.False(snap.Registered)
+	r.False(snap.CommissionConfigured)
 	r.Equal(uint64(10000), snap.BlockCommissionBasisPoints)
 	r.Equal(uint64(10000), snap.EpochCommissionBasisPoints)
 }
 
-func TestFreezePollSnapshot_BridgeErrorDegradesToLegacy(t *testing.T) {
+func TestFreezeCandidateRewardSnapshots_BridgeErrorDefaultsToFullOwnerCommission(t *testing.T) {
 	// A per-delegate bridge failure must NOT abort the block. Any single
 	// delegate's read error deterministically halts the chain at every epoch
 	// boundary — worse than the reward-misroute it would prevent. The
-	// snapshot is still written with Registered=false and full owner commission.
+	// snapshot is still written with CommissionConfigured=false and full owner commission.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -433,26 +413,26 @@ func TestFreezePollSnapshot_BridgeErrorDegradesToLegacy(t *testing.T) {
 		return nil, errors.New("rpc down")
 	})
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, bridge, failing))
+	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, failing, 0))
 
-	snap, err := PollSnapshotFor(sm, cand.Owner)
+	snap, err := CandidateRewardSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
-	r.False(snap.Registered)
+	r.False(snap.CommissionConfigured)
 	r.Equal(uint64(10000), snap.BlockCommissionBasisPoints)
 	r.Equal(uint64(10000), snap.EpochCommissionBasisPoints)
 }
 
-// The old TestFreezePollSnapshot_InvalidCandidateAddress lived here. It
+// The old TestFreezeCandidateRewardSnapshots_InvalidCandidateAddress lived here. It
 // asserted that an unparseable identity in the poll list aborted the freeze;
 // that parse no longer exists, because identities now come from the candidate
 // center as address.Address values that were parsed when the candidate was
 // registered.
 
-func TestFreezePollSnapshot_NilBridgeSkipsReader(t *testing.T) {
+func TestFreezeCandidateRewardSnapshots_NilBridgeSkipsReader(t *testing.T) {
 	// A reader with no bridge is not an error -- there is nothing to read
 	// against -- but it must not be invoked. The empty candidate center makes
 	// this the empty-era case too: a boundary that finds no opted-in candidate
-	// still opens the window and succeeds.
+	// succeeds; the poll-layer caller opens the window as a separate next step.
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -463,10 +443,10 @@ func TestFreezePollSnapshot_NilBridgeSkipsReader(t *testing.T) {
 		t.Fatalf("reader must not be called when bridge is nil")
 		return nil, nil
 	})
-	r.NoError(FreezePollSnapshot(context.Background(), sm, nil, panicReader))
+	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, nil, panicReader, 0))
 }
 
-func TestFreezePollSnapshot_NonNilBridgeRequiresReader(t *testing.T) {
+func TestFreezeCandidateRewardSnapshots_NonNilBridgeRequiresReader(t *testing.T) {
 	// The wiring check runs before the freezer touches state, so this case
 	// needs no view: a bridge with no reader is a caller bug, not a state
 	// condition.
@@ -476,33 +456,33 @@ func TestFreezePollSnapshot_NonNilBridgeRequiresReader(t *testing.T) {
 
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
-	err = FreezePollSnapshot(context.Background(), sm, bridge, nil)
+	err = FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, nil, 0)
 	r.Error(err)
 	r.Contains(err.Error(), "nil ContractReader")
 }
 
-func TestPollSnapshotFor_MissingReturnsErrStateNotExist(t *testing.T) {
+func TestCandidateRewardSnapshotFor_MissingReturnsErrStateNotExist(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	_, err := PollSnapshotFor(sm, identityset.Address(1))
+	_, err := CandidateRewardSnapshotFor(sm, identityset.Address(1))
 	r.ErrorIs(errors.Cause(err), state.ErrStateNotExist)
 }
 
-func TestPollSnapshotFor_NilCandidateRejected(t *testing.T) {
+func TestCandidateRewardSnapshotFor_NilCandidateRejected(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	_, err := PollSnapshotFor(sm, nil)
+	_, err := CandidateRewardSnapshotFor(sm, nil)
 	r.Error(err)
 }
 
-// TestFreezePollSnapshot_EveryMemberGetsItsOwnRates is the multi-delegate
+// TestFreezeCandidateRewardSnapshots_EveryMemberGetsItsOwnRates is the multi-delegate
 // bridge case: each member of the frozen set is looked up separately and each
 // gets its own rates back, with no bleed between them. The order the bridge
 // sees is pinned separately, by
-// TestFreezePollSnapshot_FrozenSetOrderIsDeterministic.
-func TestFreezePollSnapshot_EveryMemberGetsItsOwnRates(t *testing.T) {
+// TestFreezeCandidateRewardSnapshots_FrozenSetOrderIsDeterministic.
+func TestFreezeCandidateRewardSnapshots_EveryMemberGetsItsOwnRates(t *testing.T) {
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -534,11 +514,11 @@ func TestFreezePollSnapshot_EveryMemberGetsItsOwnRates(t *testing.T) {
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 
-	r.NoError(FreezePollSnapshot(context.Background(), sm, bridge, fake.reader(t)))
+	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0))
 	for i, c := range cands {
-		snap, err := PollSnapshotFor(sm, c.Owner)
+		snap, err := CandidateRewardSnapshotFor(sm, c.Owner)
 		r.NoError(err)
-		r.True(snap.Registered)
+		r.True(snap.CommissionConfigured)
 		r.Equal(uint64(6000-i*100), snap.BlockCommissionBasisPoints)
 		r.Equal(uint64(5000-i*100), snap.EpochCommissionBasisPoints)
 	}
@@ -564,13 +544,9 @@ func newFakeProfileStore() *fakeProfileStore {
 }
 
 func (s *fakeProfileStore) setPortion(delegate address.Address, field string, bp uint64) {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, bp)
-	trimmed := buf
-	for len(trimmed) > 0 && trimmed[0] == 0 {
-		trimmed = trimmed[1:]
-	}
-	s.values[storeKey(delegate, field)] = trimmed
+	buf := make([]byte, 2)
+	binary.BigEndian.PutUint16(buf, uint16(bp))
+	s.values[storeKey(delegate, field)] = buf
 }
 
 func storeKey(delegate address.Address, field string) string {

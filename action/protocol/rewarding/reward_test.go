@@ -147,14 +147,13 @@ func TestGrantBlockReward_UsesEffectiveCandidateRewardAddress(t *testing.T) {
 				owner := identityset.Address(12)
 				candidates[0].Identity = stableID.String()
 				r.NoError(staking.TestOnlyPutCandidateRewardAddress(
-					sm, stableID, owner, configuredReward, test.explicitSet,
+					ctx, sm, stableID, owner, configuredReward, test.explicitSet, true,
 				))
 
-				r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, stableID, &staking.CandidatePollSnapshot{
-					OnchainRewardEnabled:       true,
+				r.NoError(staking.TestOnlyPutCandidateRewardSnapshotFor(sm, stableID, &staking.CandidateRewardSnapshot{
 					BlockCommissionBasisPoints: 2000,
 					EpochCommissionBasisPoints: 2000,
-					Registered:                 true,
+					CommissionConfigured:       true,
 					TotalWeight:                big.NewInt(1),
 				}))
 				_, err = p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
@@ -206,8 +205,7 @@ func TestGrantBlockReward_LegacyDelegateRemainsClaimBased(t *testing.T) {
 		stableID := identityset.Address(10)
 		owner := identityset.Address(12)
 		candidates[0].Identity = stableID.String()
-		r.NoError(staking.TestOnlyPutCandidateRewardAddress(sm, stableID, owner, legacyReward, false))
-		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, stableID, &staking.CandidatePollSnapshot{}))
+		r.NoError(staking.TestOnlyPutCandidateRewardAddress(ctx, sm, stableID, owner, legacyReward, false, false))
 		_, err = p.Deposit(ctx, sm, big.NewInt(1_000), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		r.NoError(err)
 

@@ -36,16 +36,11 @@ type fakeStore struct {
 func newFakeStore() *fakeStore { return &fakeStore{values: map[string][]byte{}} }
 
 func (s *fakeStore) set(delegate address.Address, field string, portionBP uint64) {
-	// Contract encodes the field value as big-endian uint256 bytes. Any
-	// leading zeroes are trimmed by the on-chain encoding; encode without
-	// zero-padding to mimic that.
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, portionBP)
-	trimmed := buf
-	for len(trimmed) > 0 && trimmed[0] == 0 {
-		trimmed = trimmed[1:]
-	}
-	s.values[storeKey(delegate, field)] = trimmed
+	// PermyriadVerifier requires exactly two bytes, including 0x0000 for an
+	// explicit zero. Match the deployed contract rather than trimming zeros.
+	buf := make([]byte, 2)
+	binary.BigEndian.PutUint16(buf, uint16(portionBP))
+	s.values[storeKey(delegate, field)] = buf
 }
 
 func (s *fakeStore) setRaw(delegate address.Address, field string, raw []byte) {
@@ -111,28 +106,29 @@ func TestNew(t *testing.T) {
 	})
 }
 
-func TestSnapshot_RegisteredDelegate(t *testing.T) {
+func TestSnapshot_EmmaSiotxProfile(t *testing.T) {
 	r := require.New(t)
 	b, err := New(mainnetContract)
 	r.NoError(err)
 
-	delegate := identityset.Address(1)
+	delegate, err := address.FromString("io1mjy60gywe6spqh6sn2vjugyq6r0epddc5sgz6g")
+	r.NoError(err)
 	store := newFakeStore()
-	// voter-take 90.00% on block reward, 80.00% on epoch reward.
+	// emmasiotx's mainnet DelegateProfile values, verified at block 51,281,199.
 	store.set(delegate, fieldBlockRewardPortion, 9000)
-	store.set(delegate, fieldEpochRewardPortion, 8000)
+	store.set(delegate, fieldEpochRewardPortion, 9000)
 
 	out, err := b.Snapshot(context.Background(), store.reader(t), []address.Address{delegate})
 	r.NoError(err)
 	r.Len(out, 1)
 	rates := out[delegate.String()]
 	r.NotNil(rates)
-	r.True(rates.Registered)
+	r.True(rates.Configured)
 	r.Equal(uint64(1000), rates.BlockCommissionBasisPoints) // 10000 - 9000
-	r.Equal(uint64(2000), rates.EpochCommissionBasisPoints) // 10000 - 8000
+	r.Equal(uint64(1000), rates.EpochCommissionBasisPoints) // 10000 - 9000
 }
 
-func TestSnapshot_UnregisteredDelegate(t *testing.T) {
+func TestSnapshot_UnconfiguredDelegate(t *testing.T) {
 	r := require.New(t)
 	b, err := New(mainnetContract)
 	r.NoError(err)
@@ -145,36 +141,38 @@ func TestSnapshot_UnregisteredDelegate(t *testing.T) {
 	r.Len(out, 1)
 	rates := out[delegate.String()]
 	r.NotNil(rates)
-	r.False(rates.Registered, "unregistered delegate must use the all-to-owner default")
+	r.False(rates.Configured, "unconfigured delegate must use the all-to-owner default")
 	r.Zero(rates.BlockCommissionBasisPoints)
 	r.Zero(rates.EpochCommissionBasisPoints)
 }
 
-func TestSnapshot_PartialProfileIsUnregistered(t *testing.T) {
+func TestSnapshot_PartialProfileIsUnconfigured(t *testing.T) {
 	// A partial profile (one field set, other missing) is deliberately treated
-	// as unregistered, so both reward streams use the all-to-owner default.
-	r := require.New(t)
+	// as unconfigured, so both reward streams use the all-to-owner default.
 	b, err := New(mainnetContract)
-	r.NoError(err)
+	require.NoError(t, err)
 
-	delegate := identityset.Address(3)
-	store := newFakeStore()
-	store.set(delegate, fieldBlockRewardPortion, 5000)
-	// epoch portion left unset
+	for _, configuredField := range []string{fieldBlockRewardPortion, fieldEpochRewardPortion} {
+		t.Run(configuredField+" only", func(t *testing.T) {
+			r := require.New(t)
+			delegate := identityset.Address(3)
+			store := newFakeStore()
+			store.set(delegate, configuredField, 5000)
 
-	out, err := b.Snapshot(context.Background(), store.reader(t), []address.Address{delegate})
-	r.NoError(err)
-	rates := out[delegate.String()]
-	r.False(rates.Registered)
-	r.Zero(rates.BlockCommissionBasisPoints)
-	r.Zero(rates.EpochCommissionBasisPoints)
+			out, err := b.Snapshot(context.Background(), store.reader(t), []address.Address{delegate})
+			r.NoError(err)
+			rates := out[delegate.String()]
+			r.False(rates.Configured)
+			r.Zero(rates.BlockCommissionBasisPoints)
+			r.Zero(rates.EpochCommissionBasisPoints)
+		})
+	}
 }
 
 func TestSnapshot_ExplicitZeroVoterTakeIs100PercentCommission(t *testing.T) {
 	// A delegate who explicitly sets voter-take-0% keeps 100% for themselves.
-	// This must be distinguishable from "field never set" (unregistered).
-	// getProfileByField returns non-empty bytes for an explicit zero (the
-	// caller stored a 0-byte or wrote uint(0) = single 0x00 byte).
+	// This must be distinguishable from "field never set" (unconfigured).
+	// PermyriadVerifier stores an explicit zero as the non-empty value 0x0000.
 	r := require.New(t)
 	b, err := New(mainnetContract)
 	r.NoError(err)
@@ -182,20 +180,20 @@ func TestSnapshot_ExplicitZeroVoterTakeIs100PercentCommission(t *testing.T) {
 	delegate := identityset.Address(4)
 	store := newFakeStore()
 	// Explicit zero — non-empty byte slice representing uint(0).
-	store.setRaw(delegate, fieldBlockRewardPortion, []byte{0x00})
-	store.setRaw(delegate, fieldEpochRewardPortion, []byte{0x00})
+	store.set(delegate, fieldBlockRewardPortion, 0)
+	store.set(delegate, fieldEpochRewardPortion, 0)
 
 	out, err := b.Snapshot(context.Background(), store.reader(t), []address.Address{delegate})
 	r.NoError(err)
 	rates := out[delegate.String()]
-	r.True(rates.Registered, "explicit zero voter-take is a valid registered profile")
+	r.True(rates.Configured, "explicit zero voter-take is a valid commission configuration")
 	r.Equal(uint64(10000), rates.BlockCommissionBasisPoints)
 	r.Equal(uint64(10000), rates.EpochCommissionBasisPoints)
 }
 
-func TestSnapshot_OutOfRangeDegradesToUnregistered(t *testing.T) {
+func TestSnapshot_OutOfRangeDegradesToUnconfigured(t *testing.T) {
 	// A malformed on-chain value must NOT halt the block. The bridge degrades
-	// the affected delegate to Registered=false; rewarding routes it via the
+	// the affected delegate to Configured=false; rewarding routes it via the
 	// default split. Same on-chain state ⇒ same fallback on every validator ⇒
 	// no fork.
 	r := require.New(t)
@@ -212,12 +210,12 @@ func TestSnapshot_OutOfRangeDegradesToUnregistered(t *testing.T) {
 	r.Len(got, 1)
 	rates := got[delegate.String()]
 	r.NotNil(rates)
-	r.False(rates.Registered)
+	r.False(rates.Configured)
 	r.Zero(rates.BlockCommissionBasisPoints)
 	r.Zero(rates.EpochCommissionBasisPoints)
 }
 
-func TestSnapshot_LargeBigIntDegradesToUnregistered(t *testing.T) {
+func TestSnapshot_LargeBigIntDegradesToUnconfigured(t *testing.T) {
 	r := require.New(t)
 	b, err := New(mainnetContract)
 	r.NoError(err)
@@ -233,12 +231,12 @@ func TestSnapshot_LargeBigIntDegradesToUnregistered(t *testing.T) {
 	r.NoError(err)
 	rates := got[delegate.String()]
 	r.NotNil(rates)
-	r.False(rates.Registered)
+	r.False(rates.Configured)
 }
 
-func TestSnapshot_ReaderErrorDegradesToUnregistered(t *testing.T) {
+func TestSnapshot_ReaderErrorDegradesToUnconfigured(t *testing.T) {
 	// Per-delegate reader failure (RPC hiccup, EVM revert, ABI mismatch) must
-	// degrade to Registered=false, not abort PutPollResult. Otherwise a single
+	// degrade to Configured=false, not abort PutPollResult. Otherwise a single
 	// bad delegate deterministically halts the chain at every epoch boundary.
 	r := require.New(t)
 	b, err := New(mainnetContract)
@@ -253,7 +251,7 @@ func TestSnapshot_ReaderErrorDegradesToUnregistered(t *testing.T) {
 	r.NoError(err)
 	rates := got[delegate.String()]
 	r.NotNil(rates)
-	r.False(rates.Registered)
+	r.False(rates.Configured)
 }
 
 func TestSnapshot_PerDelegateErrorIsolated(t *testing.T) {
@@ -278,13 +276,13 @@ func TestSnapshot_PerDelegateErrorIsolated(t *testing.T) {
 
 	gr := got[good.String()]
 	r.NotNil(gr)
-	r.True(gr.Registered)
+	r.True(gr.Configured)
 	r.Equal(uint64(1000), gr.BlockCommissionBasisPoints)
 	r.Equal(uint64(2000), gr.EpochCommissionBasisPoints)
 
 	br := got[bad.String()]
 	r.NotNil(br)
-	r.False(br.Registered)
+	r.False(br.Configured)
 }
 
 func TestSnapshot_NilReaderRejected(t *testing.T) {
@@ -335,7 +333,7 @@ func TestSnapshot_PreservesIterationOrder(t *testing.T) {
 	for i, d := range delegates {
 		rates := out[d.String()]
 		r.NotNil(rates, "delegate %d missing", i)
-		r.True(rates.Registered)
+		r.True(rates.Configured)
 		r.Equal(maxBasisPoints-uint64(1000*(i+1)), rates.BlockCommissionBasisPoints)
 		r.Equal(maxBasisPoints-uint64(500*(i+1)), rates.EpochCommissionBasisPoints)
 	}

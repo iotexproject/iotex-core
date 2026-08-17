@@ -76,14 +76,14 @@ func refIDs(refs ContractBucketRefs) []uint64 {
 }
 
 // TestLSDVoterIndexKeyShape pins the on-disk key layout. The staking namespace
-// is shared with native bucket indices, endorsements, poll snapshots and voter
+// is shared with native bucket indices, endorsements, reward snapshots and voter
 // weights, so both the tag byte and the length are consensus surface.
 func TestLSDVoterIndexKeyShape(t *testing.T) {
 	r := require.New(t)
 	owner := identityset.Address(1)
 	key := lsdVoterIndexKey(owner)
 
-	r.Equal(byte(8), LSDVoterIndexPrefix)
+	r.Equal(byte(6), LSDVoterIndexPrefix)
 	r.Len(key, 21)
 	r.Equal(LSDVoterIndexPrefix, key[0])
 	r.Equal(owner.Bytes(), key[1:])

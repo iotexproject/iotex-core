@@ -23,13 +23,10 @@ import (
 // suite checked a per-candidate allocator that walked a frozen entry list and
 // handed the integer-division remainder to a designated last voter. Both the
 // allocator and the entry list are gone: shares are now recomputed per voter
-// from the era's frozen buckets, and the remainder goes to the orphan sink.
+// from the era's frozen buckets, and the remainder stays in the pending pool.
 //
-// What survives is the claim those tests existed to protect -- that the
-// read-only status path and the paying path cannot drift -- and it now holds by
-// construction, because both call computeVoterShares. What replaces them is the
-// property that construction cannot give for free: that the sum of what the
-// drain pays a delegate's voters never exceeds what the era froze for them.
+// What survives is the allocation-safety property those tests protected: the
+// sum paid to a delegate's voters never exceeds what the era froze for them.
 
 // clampFixture is the planted state plus the numbers the clamp must produce.
 type clampFixture struct {
@@ -65,7 +62,7 @@ func TestVoterShareClampNeverOverpaysDelegatePool(t *testing.T) {
 	r.True(naiveTotal.Cmp(c.pool) > 0,
 		"fixture must force an over-payment: naive total %s vs pool %s", naiveTotal, c.pool)
 
-	chunks := drainPhaseBToCompletion(t, ctx, sm, p)
+	chunks := drainVoterRewardsToCompletion(t, ctx, sm, p)
 	r.Positive(chunks, "the drain must actually have run")
 
 	balances := accountBalances(t, sm, c.voters)
@@ -100,55 +97,47 @@ func TestVoterShareClampNeverOverpaysDelegatePool(t *testing.T) {
 	r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, c.voters))
 }
 
-// TestComputeVoterSharesRecordsTheClamp checks the clamp is observable rather
-// than silent. A share reduced to fit the pool is flagged, because "the drain
-// paid less than the formula" is a fact an operator investigating a shortfall
-// has to be able to establish.
-func TestComputeVoterSharesRecordsTheClamp(t *testing.T) {
+// TestComputeVoterSharesClampsToPool verifies the externally relevant
+// invariant: an understated denominator cannot make cumulative payouts exceed
+// the frozen pool.
+func TestComputeVoterSharesClampsToPool(t *testing.T) {
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 	c := newClampFixture(t, ctx, sm, p, 3)
 
-	cursor, err := p.readEpochDrainCursor(ctx, sm)
+	cursor, err := p.readVoterRewardDistributionState(ctx, sm)
 	r.NoError(err)
 	r.NotNil(cursor)
-	window, err := staking.EraCOWWindow(sm)
+	window, err := staking.LoadEraCOWWindow(sm)
 	r.NoError(err)
-	ensureDistributed(cursor)
-
 	in := voterShareInputs{
-		window:      window,
-		staking:     staking.FindProtocol(protocol.MustGetRegistry(ctx)),
-		delegates:   cursor.Delegates,
-		byCandidate: delegateWorkIndex(cursor.Delegates),
-		payable:     []bool{true},
-		distributed: cursor.Distributed,
+		window:       window,
+		staking:      staking.FindProtocol(protocol.MustGetRegistry(ctx)),
+		delegates:    cursor.DelegateAllocations,
+		byCandidate:  delegateWorkIndex(cursor.DelegateAllocations),
+		freezeHeight: cursor.FreezeHeight,
+		distributed:  cursor.DistributedByDelegate,
 	}
 
-	// Walk the voters in the order the shard walk would, accumulating into the
+	// Walk the voters in address order, accumulating into the
 	// same aliased vector the drain uses.
 	order := append([]address.Address(nil), c.voters...)
 	sortAddrs(order)
 
 	running := new(big.Int)
-	sawClamp := false
 	for _, voter := range order {
 		shares, err := computeVoterShares(sm, in, voter)
 		r.NoError(err)
 		for _, s := range shares.shares {
 			r.True(s.share.Sign() > 0, "a zero share must not be recorded at all")
-			if s.clamped {
-				sawClamp = true
-			}
-			cursor.Distributed[s.delegateIndex] = new(big.Int).Add(
-				cursor.Distributed[s.delegateIndex], s.share,
+			cursor.DistributedByDelegate[s.delegateIndex] = new(big.Int).Add(
+				cursor.DistributedByDelegate[s.delegateIndex], s.share,
 			)
 			running.Add(running, s.share)
 		}
 		r.True(running.Cmp(c.pool) <= 0,
 			"the running total must never exceed the pool, reached %s", running)
 	}
-	r.True(sawClamp, "the clamp must have fired and been recorded")
 	r.Zero(running.Cmp(c.pool), "a clamped drain exhausts the pool exactly")
 }
 
@@ -164,10 +153,10 @@ func TestComputeVoterSharesRefusesWorkItemWithoutFreezeHeight(t *testing.T) {
 	f := seedIIP59DrainState(t, ctx, sm, iip59FixtureFreezeHeight, []iip59NativeSeed{
 		{delegate: delegate, voter: voter, amount: 1_000_000_000_000_000_000},
 	}, nil)
-	window, err := staking.EraCOWWindow(sm)
+	window, err := staking.LoadEraCOWWindow(sm)
 	r.NoError(err)
 
-	work := epochDrainDelegateWork{
+	work := voterRewardDelegateAllocation{
 		CandidateIdentifier: delegate.Bytes(),
 		VoterAmountFrozen:   big.NewInt(100),
 		TotalWeight:         f.totalWeightOf(delegate),
@@ -178,9 +167,8 @@ func TestComputeVoterSharesRefusesWorkItemWithoutFreezeHeight(t *testing.T) {
 	_, err = computeVoterShares(sm, voterShareInputs{
 		window:      window,
 		staking:     staking.FindProtocol(protocol.MustGetRegistry(ctx)),
-		delegates:   []epochDrainDelegateWork{work},
-		byCandidate: delegateWorkIndex([]epochDrainDelegateWork{work}),
-		payable:     []bool{true},
+		delegates:   []voterRewardDelegateAllocation{work},
+		byCandidate: delegateWorkIndex([]voterRewardDelegateAllocation{work}),
 		distributed: []*big.Int{new(big.Int)},
 	}, voter)
 	r.Error(err)
@@ -199,7 +187,6 @@ func newClampFixture(
 	t.Helper()
 	r := require.New(t)
 	delegate := identityset.Address(4)
-	rewardAddr := identityset.Address(6)
 	voters := []address.Address{
 		identityset.Address(8), identityset.Address(9),
 		identityset.Address(10), identityset.Address(11),
@@ -220,16 +207,17 @@ func newClampFixture(
 	}))
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, delegate.Bytes(), pool))
 	r.NoError(p.updateAvailableBalance(ctx, sm, pool))
-	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra: 1,
-		Delegates: []epochDrainDelegateWork{{
-			CandidateIdentifier: delegate.Bytes(),
-			VoterAmountFrozen:   pool,
-			RewardAddress:       rewardAddr.Bytes(),
-			TotalWeight:         understated,
-			FreezeHeight:        iip59FixtureFreezeHeight,
-			SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
-		}},
+	r.NoError(p.writeVoterRewardDistributionState(ctx, sm, &voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{
+			TargetEra:    1,
+			FreezeHeight: iip59FixtureFreezeHeight,
+			DelegateAllocations: []voterRewardDelegateAllocation{{
+				CandidateIdentifier: delegate.Bytes(),
+				VoterAmountFrozen:   pool,
+				TotalWeight:         understated,
+				SelfStakeBucketIdx:  staking.NoSelfStakeBucketIndex,
+			}},
+		},
 	}))
 	return clampFixture{
 		fixture: f, delegate: delegate, voters: voters,
@@ -276,7 +264,6 @@ func TestLapsedSelfStakeBonusCannotOverpayDelegatePool(t *testing.T) {
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
 
 	delegate := identityset.Address(4)
-	rewardAddr := identityset.Address(6)
 	endorser := identityset.Address(7)
 	ordinary := []address.Address{identityset.Address(8), identityset.Address(9)}
 
@@ -301,7 +288,7 @@ func TestLapsedSelfStakeBonusCannotOverpayDelegatePool(t *testing.T) {
 		{delegate: delegate, voter: ordinary[0], amount: rau},
 		{delegate: delegate, voter: ordinary[1], amount: 2 * rau},
 	}, nil)
-	window, err := staking.EraCOWWindow(sm)
+	window, err := staking.LoadEraCOWWindow(sm)
 	r.NoError(err)
 	stakingProto := staking.FindProtocol(protocol.MustGetRegistry(ctx))
 	r.NotNil(stakingProto)
@@ -335,18 +322,19 @@ func TestLapsedSelfStakeBonusCannotOverpayDelegatePool(t *testing.T) {
 	}))
 	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, delegate.Bytes(), pool))
 	r.NoError(p.updateAvailableBalance(ctx, sm, pool))
-	r.NoError(p.writeEpochDrainCursor(ctx, sm, &epochDrainCursor{
-		TargetEra: 1,
-		Delegates: []epochDrainDelegateWork{{
-			CandidateIdentifier: delegate.Bytes(),
-			VoterAmountFrozen:   pool,
-			RewardAddress:       rewardAddr.Bytes(),
-			TotalWeight:         totalWeight,
-			FreezeHeight:        iip59FixtureFreezeHeight,
-			// The index the lapsed endorsement left behind. This is the entire
-			// cause of the over-payment condition.
-			SelfStakeBucketIdx: selfStakeIdx,
-		}},
+	r.NoError(p.writeVoterRewardDistributionState(ctx, sm, &voterRewardDistributionState{
+		voterRewardDistributionPlan: voterRewardDistributionPlan{
+			TargetEra:    1,
+			FreezeHeight: iip59FixtureFreezeHeight,
+			DelegateAllocations: []voterRewardDelegateAllocation{{
+				CandidateIdentifier: delegate.Bytes(),
+				VoterAmountFrozen:   pool,
+				TotalWeight:         totalWeight,
+				// The index the lapsed endorsement left behind. This is the entire
+				// cause of the over-payment condition.
+				SelfStakeBucketIdx: selfStakeIdx,
+			}},
+		},
 	}))
 
 	// Precondition (a): the numerators the drain will recompute really do sum to
@@ -373,7 +361,7 @@ func TestLapsedSelfStakeBonusCannotOverpayDelegatePool(t *testing.T) {
 	r.Positive(naiveTotal.Cmp(pool),
 		"without the clamp this fixture pays %s out of a %s pool", naiveTotal, pool)
 
-	chunks := drainPhaseBToCompletion(t, ctx, sm, p)
+	chunks := drainVoterRewardsToCompletion(t, ctx, sm, p)
 	r.Positive(chunks, "the drain must actually have run")
 
 	balances := accountBalances(t, sm, voters)
@@ -397,4 +385,104 @@ func TestLapsedSelfStakeBonusCannotOverpayDelegatePool(t *testing.T) {
 	r.NoError(err)
 	r.Zero(left.Sign(), "pool must be exhausted, and never negative")
 	r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, voters))
+}
+
+// TestVoterDrainPayoutsUnchangedByScalarSnapshot pins the payout amounts after
+// replacing the materialized per-voter snapshot with a scalar denominator.
+func TestVoterDrainPayoutsUnchangedByScalarSnapshot(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	delegates := []address.Address{identityset.Address(4), identityset.Address(5)}
+	voters := []address.Address{
+		identityset.Address(8), identityset.Address(9),
+		identityset.Address(10), identityset.Address(11),
+	}
+	const rau = int64(1_000_000_000_000_000_000)
+	const pool = int64(999_997)
+
+	seeds := make([]iip59NativeSeed, 0, len(delegates)*len(voters))
+	for di, delegate := range delegates {
+		for vi, voter := range voters {
+			seeds = append(seeds, iip59NativeSeed{
+				delegate: delegate, voter: voter,
+				amount: int64(di*3+vi+1) * rau,
+			})
+		}
+	}
+	s := newDrainScenario(t, ctx, sm, p, []byte{0x5c, 0x11}, pool, seeds, nil)
+
+	before := accountBalances(t, sm, delegates)
+	drainCollectingVoterPayouts(t, ctx, sm, p, voters)
+
+	done, err := p.readVoterRewardDistributionState(ctx, sm)
+	r.NoError(err)
+	r.NotNil(done)
+	r.True(done.completed())
+
+	after := accountBalances(t, sm, delegates)
+	balances := accountBalances(t, sm, voters)
+	wantVoter := map[string]int64{
+		identityset.Address(8).String():  281_816,
+		identityset.Address(9).String():  427_271,
+		identityset.Address(10).String(): 572_725,
+		identityset.Address(11).String(): 718_178,
+	}
+	gotVoter := make(map[string]int64, len(voters))
+	for _, voter := range voters {
+		gotVoter[voter.String()] = balances[voter.String()].Int64()
+	}
+	r.Equal(wantVoter, gotVoter, "per-voter payouts drifted")
+
+	wantResidual := map[string]int64{
+		identityset.Address(4).String(): 2,
+		identityset.Address(5).String(): 2,
+	}
+	gotResidual := make(map[string]int64, len(delegates))
+	for _, delegate := range delegates {
+		left, readErr := p.readPendingBlockRewardPool(ctx, sm, delegate.Bytes())
+		r.NoError(readErr)
+		gotResidual[delegate.String()] = left.Int64()
+		r.Zero(after[delegate.String()].Cmp(before[delegate.String()]),
+			"delegate %s must not receive a residual sweep", delegate)
+	}
+	r.Equal(wantResidual, gotResidual, "per-delegate pending residuals drifted")
+
+	grandTotal := new(big.Int)
+	for _, work := range done.DelegateAllocations {
+		grandTotal.Add(grandTotal, work.VoterAmountFrozen)
+	}
+	r.Equal(int64(len(delegates))*pool, grandTotal.Int64())
+
+	moved := new(big.Int)
+	for _, voter := range voters {
+		moved.Add(moved, balances[voter.String()])
+	}
+	residual := new(big.Int)
+	for _, amount := range gotResidual {
+		residual.Add(residual, big.NewInt(amount))
+	}
+	r.Zero(new(big.Int).Add(moved, residual).Cmp(grandTotal))
+
+	for _, delegate := range delegates {
+		oldDenominator := new(big.Int)
+		for _, voter := range voters {
+			oldDenominator.Add(oldDenominator, s.fixture.weightOf(delegate, voter))
+		}
+		r.True(oldDenominator.Sign() > 0, "fixture must carry non-zero weight")
+		r.Zero(oldDenominator.Cmp(s.fixture.totalWeightOf(delegate)),
+			"the fixture's running total must equal the sum over its per-voter weights")
+		persisted, sErr := staking.CandidateRewardSnapshotFor(sm, delegate)
+		r.NoError(sErr)
+		r.Zero(oldDenominator.Cmp(persisted.TotalWeight),
+			"delegate %s: frozen scalar TotalWeight != sum of the pre-refactor entry list",
+			delegate.String())
+		for _, voter := range voters {
+			want := new(big.Int).Mul(big.NewInt(pool), s.fixture.weightOf(delegate, voter))
+			want.Div(want, oldDenominator)
+			r.Zero(want.Cmp(s.fixture.expectedShare(delegate, voter, s.poolOf(delegate))),
+				"delegate %s voter %s share drifted from the pre-refactor formula",
+				delegate.String(), voter.String())
+		}
+	}
 }

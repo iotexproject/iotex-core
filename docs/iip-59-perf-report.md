@@ -17,10 +17,10 @@ The previous revision of this document reported a mainnet-tier drain at
 budget". Those numbers are withdrawn, not merely stale.
 
 `e2etest/iip59_perf_test.go` and `e2etest/iip59_stress_test.go` ran on
-`poll.NewLifeLongDelegatesProtocol`, which never calls `FreezePollSnapshot`. No
-era was ever frozen, so every `CandidatePollSnapshot` the harness produced
+`poll.NewLifeLongDelegatesProtocol`, which never calls `FreezeCandidateRewardSnapshots`. No
+era was ever frozen, so every `CandidateRewardSnapshot` the harness produced
 carried `FreezeHeight 0` — the value that makes a delegate **unpayable**. The
-drain dutifully created a cursor, walked its shards, paid **nobody**, and swept
+drain dutifully created a cursor, walked the voter index, paid **nobody**, and swept
 the entire pool as residual. The only assertions in place were cursor-lifecycle
 and fund-conservation ones, and fund conservation holds perfectly well when
 every voter is paid zero. The harness was measuring an empty walk.
@@ -92,21 +92,16 @@ Read these as a lower bound. Four reasons, in decreasing order of size:
    factory over the test DB paths, not a mainnet-sized trie under leveldb/pebble
    with hash verification. Real per-read cost is higher by an
    implementation-dependent factor.
-2. **All 27,020 voters live in shard 0.** `perfBenchAddress` writes its seed into
-   the low 8 bytes of a 20-byte address and leaves the top 12 zero, so every
-   seeded delegate and voter has first byte `0x00`. The drain's 256-shard
-   partition is therefore maximally degenerate: one shard holds everything and
-   255 are empty. This is *pessimistic for the intra-shard resume path* (every
-   chunk boundary falls inside a shard, exercising `ResumeVoter`) and
-   *optimistic for the scan* (255 shards cost an empty range query each). It is
-   not representative of the mainnet key distribution, and it means the fixture
-   does not exercise cross-shard rotation at all.
+2. **The historical fixture concentrated addresses under one prefix.** This is
+   not representative of the mainnet key distribution. The current scale
+   fixture spreads voter addresses over the full key space; new measurements
+   should not be compared directly with this historical table.
 3. **Contract dispatch is stubbed.** No `AutoDeposit.bucket` read, no
    `DelegateProfile.getProfileByField`. See §2.
 4. **The freeze is driven by a test-only protocol.** `iip59EraFreezer` opens the
    copy-on-write window and stamps `FreezeHeight` at the first block of every
    era-boundary epoch; production drives the same path from `PutPollResult` →
-   `FreezePollSnapshot`. The COW window and the recompute are the real ones.
+   `FreezeCandidateRewardSnapshots`. The COW window and the recompute are the real ones.
 
 ## 2. Contract-read cost (unreproducible from this tree)
 
@@ -193,9 +188,8 @@ this report:
 
 1. A trie-backed measurement. Everything in §1 and §3 is in-memory; the
    multiplier from real trie reads is the single largest unknown in the budget.
-2. A fixture whose addresses are distributed across the shard space, so the
-   256-shard walk is measured on something other than a degenerate partition
-   (§1.1 item 2).
+2. A run of the current spread-address fixture against a trie-backed multi-node
+   cluster (§1.1 item 2).
 
 ## 5. Reproducing
 

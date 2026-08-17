@@ -6,6 +6,7 @@
 package contractstaking
 
 import (
+	"math"
 	"testing"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -79,12 +80,12 @@ func TestUpsertBucketMaintainsHighWaterMark(t *testing.T) {
 		r.EqualValues(7, mark)
 
 		// And the era window can now bound the contract, which is the whole
-		// point: BucketHighWaterMarks is what beginEraCOWWindow freezes.
-		marks, err := BucketHighWaterMarks(sm)
+		// point: BucketIndexUpperBounds is what BeginEraCOWWindow freezes.
+		marks, err := BucketIndexUpperBounds(sm)
 		r.NoError(err)
 		r.Len(marks, 1)
 		r.Equal(contract.Bytes(), marks[0].Contract)
-		r.EqualValues(7, marks[0].NumOfBuckets)
+		r.EqualValues(8, marks[0].BucketIndexUpperBound)
 	})
 
 	t.Run("pre-activation nothing is written", func(t *testing.T) {
@@ -97,7 +98,7 @@ func TestUpsertBucketMaintainsHighWaterMark(t *testing.T) {
 		_, err := cs.NumOfBuckets(contract)
 		r.ErrorIs(errors.Cause(err), state.ErrStateNotExist)
 
-		marks, err := BucketHighWaterMarks(sm)
+		marks, err := BucketIndexUpperBounds(sm)
 		r.NoError(err)
 		r.Empty(marks)
 	})
@@ -115,17 +116,56 @@ func TestUpsertBucketMaintainsHighWaterMark(t *testing.T) {
 		r.NoError(cs.UpsertBucket(ctx, v2, 22, testBucket(alice)))
 		r.NoError(cs.UpsertBucket(ctx, v3, 33, testBucket(alice)))
 
-		marks, err := BucketHighWaterMarks(sm)
+		marks, err := BucketIndexUpperBounds(sm)
 		r.NoError(err)
 		r.Len(marks, 3)
 		got := make(map[string]uint64, 3)
 		for _, m := range marks {
-			got[string(m.Contract)] = m.NumOfBuckets
+			got[string(m.Contract)] = m.BucketIndexUpperBound
 		}
-		r.EqualValues(11, got[string(v1.Bytes())])
-		r.EqualValues(22, got[string(v2.Bytes())])
-		r.EqualValues(33, got[string(v3.Bytes())])
+		r.EqualValues(12, got[string(v1.Bytes())])
+		r.EqualValues(23, got[string(v2.Bytes())])
+		r.EqualValues(34, got[string(v3.Bytes())])
 	})
+
+	t.Run("updates and deletes never lower the mark", func(t *testing.T) {
+		sm := newTestSM(t)
+		cs := NewContractStakingStateManager(sm)
+		ctx := forkCtx(true)
+
+		r.NoError(cs.UpsertBucket(ctx, contract, 2, testBucket(alice)))
+		r.NoError(cs.UpsertBucket(ctx, contract, 9, testBucket(alice)))
+		r.NoError(cs.UpsertBucket(ctx, contract, 4, testBucket(alice)))
+		r.NoError(cs.DeleteBucket(ctx, contract, 9))
+
+		mark, err := cs.NumOfBuckets(contract)
+		r.NoError(err)
+		r.EqualValues(9, mark)
+	})
+}
+
+func TestBucketIndexUpperBoundsRejectsOverflow(t *testing.T) {
+	r := require.New(t)
+	sm := newTestSM(t)
+	cs := NewContractStakingStateManager(sm)
+	r.NoError(cs.UpdateNumOfBuckets(identityset.Address(20), math.MaxUint64))
+
+	_, err := BucketIndexUpperBounds(sm)
+	r.ErrorContains(err, "cannot be converted to an exclusive bound")
+}
+
+func TestBucketIndexUpperBoundsConvertsFirstBucketID(t *testing.T) {
+	r := require.New(t)
+	sm := newTestSM(t)
+	cs := NewContractStakingStateManager(sm)
+	contract := identityset.Address(20)
+	r.NoError(cs.UpdateNumOfBuckets(contract, 0))
+
+	limits, err := BucketIndexUpperBounds(sm)
+	r.NoError(err)
+	r.Len(limits, 1)
+	r.Equal(contract.Bytes(), limits[0].Contract)
+	r.EqualValues(1, limits[0].BucketIndexUpperBound)
 }
 
 // TestBucketsScanReturnsEveryID pins what staking.backfillOwnerIndex derives

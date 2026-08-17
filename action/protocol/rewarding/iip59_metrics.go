@@ -31,7 +31,7 @@ var (
 	// a Failure receipt, and the cursor is left exactly where it was. That is
 	// deliberate (degrade the item, never abort the block) but it makes the
 	// failure invisible from chain data alone -- the next era boundary's
-	// writeEpochDrainCursor replaces both plan and progress, so a chunk that
+	// writeVoterRewardDistributionState replaces both plan and progress, so a chunk that
 	// keeps failing quietly discards an era of voter payouts at the boundary.
 	// These two are the only signal an operator gets before that happens.
 	_iip59DrainChunkFailureMtc = prometheus.NewCounter(
@@ -40,13 +40,12 @@ var (
 			Help: "Number of IIP-59 voter-reward chunk actions that failed and settled with a Failure receipt.",
 		},
 	)
-	// Read next to the counter: a rising counter with a flat gauge is a stuck
-	// drain, a rising counter with a rising gauge is a drain that is making
-	// progress through intermittent failures.
-	_iip59DrainStalledShardsMtc = prometheus.NewGauge(
+	// Read next to the counter and the resume-voter field in the error log. The
+	// phase distinguishes the tail scan, wrapped head scan, and completion.
+	_iip59DrainStalledScanPhaseMtc = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "iotex_rewarding_iip59_drain_stalled_shards_done",
-			Help: "Voter key-space shards completed by the drain cursor as of the most recent failed voter-reward chunk.",
+			Name: "iotex_rewarding_iip59_drain_stalled_scan_phase",
+			Help: "Voter address scan phase of the most recent failed voter-reward chunk.",
 		},
 	)
 )
@@ -54,18 +53,18 @@ var (
 func init() {
 	prometheus.MustRegister(
 		_iip59DurationMtc, _iip59ItemsMtc,
-		_iip59DrainChunkFailureMtc, _iip59DrainStalledShardsMtc,
+		_iip59DrainChunkFailureMtc, _iip59DrainStalledScanPhaseMtc,
 	)
 }
 
-// noteIIP59DrainChunkFailure counts one failed chunk. shardsDone is the cursor
+// noteIIP59DrainChunkFailure counts one failed chunk. scanPhase is the cursor
 // position it failed at; hasCursor is false when the cursor could not be read,
 // in which case the position gauge is left at its previous value rather than
 // being reset to a misleading zero.
-func noteIIP59DrainChunkFailure(shardsDone uint16, hasCursor bool) {
+func noteIIP59DrainChunkFailure(scanPhase voterScanPhase, hasCursor bool) {
 	_iip59DrainChunkFailureMtc.Inc()
 	if hasCursor {
-		_iip59DrainStalledShardsMtc.Set(float64(shardsDone))
+		_iip59DrainStalledScanPhaseMtc.Set(float64(scanPhase))
 	}
 }
 

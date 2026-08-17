@@ -38,8 +38,9 @@ type (
 		// RewardAddressUpdated marks Reward as explicitly configured after
 		// IIP-59 activation.
 		RewardAddressUpdated bool
-		// VoterRewardOnchainOptIn is set by the candidate owner to explicitly
-		// enable protocol-native reward distribution. The transition is one-way.
+		// VoterRewardOnchainOptIn enables protocol-native reward distribution.
+		// Existing Hermes candidates are migrated at activation; later opt-in is
+		// owner-controlled. The transition is one-way.
 		VoterRewardOnchainOptIn bool
 	}
 

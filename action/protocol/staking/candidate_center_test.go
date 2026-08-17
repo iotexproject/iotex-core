@@ -330,14 +330,14 @@ func TestFixAlias(t *testing.T) {
 		})
 
 		// simulate handleCandidateUpdate: update name
-		center := candCenterFromNewCandidateStateManager(r, views)
+		center := candCenterFromCandidateStateManager(r, views)
 		name := testCandidates[0].d.Name
 		nameAlias := center.GetByName(name)
 		nameAlias.Equal(testCandidates[0].d)
 		nameAlias.Name = "break"
 		r.NoError(center.Upsert(nameAlias))
 
-		center = candCenterFromNewCandidateStateManager(r, views)
+		center = candCenterFromCandidateStateManager(r, views)
 		n := center.GetByName("break")
 		n.Equal(nameAlias)
 		r.True(center.ContainsName("break"))
@@ -356,7 +356,7 @@ func TestFixAlias(t *testing.T) {
 		}
 
 		// verify cand center with name/op alias
-		center = candCenterFromNewCandidateStateManager(r, views)
+		center = candCenterFromCandidateStateManager(r, views)
 		n = center.GetByName("break")
 		n.Equal(nameAlias)
 		r.True(center.ContainsName("break"))
@@ -382,7 +382,7 @@ func TestFixAlias(t *testing.T) {
 		}
 
 		// verify cand center after Commit()
-		center = candCenterFromNewCandidateStateManager(r, views)
+		center = candCenterFromCandidateStateManager(r, views)
 		n = center.GetByName("break")
 		n.Equal(nameAlias)
 		n = center.GetByOwner(testCandidates[1].d.Owner)
@@ -479,7 +479,7 @@ func TestMultipleNonStakingCandidate(t *testing.T) {
 		views.Write(_protocolID, &viewData{
 			candCenter: candcenter,
 		})
-		candcenter = candCenterFromNewCandidateStateManager(r, views)
+		candcenter = candCenterFromCandidateStateManager(r, views)
 		r.True(testEqual(candcenter, CandidateList(cands)))
 	}
 	t.Run("nonstaked candidate not collision on bucket", func(t *testing.T) {
@@ -534,7 +534,7 @@ func TestMultipleNonStakingCandidate(t *testing.T) {
 	})
 }
 
-func candCenterFromNewCandidateStateManager(r *require.Assertions, views protocol.Views) *CandidateCenter {
+func candCenterFromCandidateStateManager(r *require.Assertions, views protocol.Views) *CandidateCenter {
 	// get cand center: csm.ConstructBaseView
 	v, err := views.Read(_protocolID)
 	r.NoError(err)

@@ -26,9 +26,9 @@ import (
 
 // This file builds the state a voter-major IIP-59 drain actually walks.
 //
-// The drain no longer reads CandidatePollSnapshot.Entries; it enumerates the
+// The drain no longer reads CandidateRewardSnapshot.Entries; it enumerates the
 // voter key space and recomputes each voter's weight from the era's frozen
-// buckets. A fixture that only writes poll snapshots -- which is what every
+// buckets. A fixture that only writes reward snapshots -- which is what every
 // rewarding test did before P5 -- therefore presents the drain with zero voters,
 // and every assertion about who got paid becomes vacuous. So these helpers plant
 // real buckets, real voter-index keys, and a real era copy-on-write window.
@@ -75,7 +75,7 @@ type iip59DrainFixture struct {
 	voters       []address.Address
 	// weight is keyed by delegate bytes then voter bytes.
 	weight map[string]map[string]*big.Int
-	// total is the per-delegate sum of weight, i.e. what Phase A freezes as
+	// total is the per-delegate sum of weight, i.e. what era-boundary setup freezes as
 	// TotalWeight.
 	total map[string]*big.Int
 }
@@ -87,7 +87,7 @@ type iip59DrainFixture struct {
 const iip59FixtureFreezeHeight = uint64(64)
 
 // seedIIP59DrainState plants buckets, opens the era window, computes the frozen
-// weights, and writes one poll snapshot per delegate.
+// weights, and writes one reward snapshot per delegate.
 //
 // Order matters. Everything is planted before the window opens so the drain sees
 // it as state that existed at the freeze height; a bucket written after Begin
@@ -150,7 +150,7 @@ func seedIIP59DrainState(
 	}
 
 	r.NoError(staking.TestOnlyBeginEraCOWWindow(ctx, sm, freezeHeight))
-	window, err := staking.EraCOWWindow(sm)
+	window, err := staking.LoadEraCOWWindow(sm)
 	r.NoError(err)
 	r.True(window.Open(), "fixture must leave an era window open for the drain")
 
@@ -204,14 +204,13 @@ func seedIIP59DrainState(
 		// planting a candidate record means the drain's per-voter recompute
 		// is still checked against an independently derived total.
 		totalWeight := new(big.Int).Set(f.total[dk])
-		r.NoError(staking.TestOnlyPutPollSnapshotFor(sm, delegate, &staking.CandidatePollSnapshot{
-			OnchainRewardEnabled: true,
+		r.NoError(staking.TestOnlyPutCandidateRewardSnapshotFor(sm, delegate, &staking.CandidateRewardSnapshot{
 			// Zero commission: the whole epoch reward becomes the voter pool,
-			// so a Phase A run over this fixture produces a non-zero
-			// VoterAmountFrozen for Phase B to actually distribute.
+			// so an era-boundary setup run over this fixture produces a non-zero
+			// VoterAmountFrozen for voter reward drain to actually distribute.
 			BlockCommissionBasisPoints: 0,
 			EpochCommissionBasisPoints: 0,
-			Registered:                 true,
+			CommissionConfigured:       true,
 			TotalWeight:                totalWeight,
 			FreezeHeight:               freezeHeight,
 			SelfStakeBucketIdx:         staking.NoSelfStakeBucketIndex,
@@ -252,17 +251,11 @@ func (f *iip59DrainFixture) expectedShare(delegate, voter address.Address, pool 
 	return share.Div(share, total)
 }
 
-// sameShardVoter returns an address whose first byte -- and therefore whose
-// key-space shard -- is fixed by the caller, so a fixture can force several
-// voters into one shard.
-//
-// This exists because identityset addresses are hashes: the first 35 of them
-// land in 35 distinct shards, so a drain seeded from them finishes every shard
-// it enters and can never be stopped part-way through one. Any test about
-// mid-shard resume needs addresses it controls the shard of.
-func sameShardVoter(shard byte, n int) address.Address {
+// voterWithPrefix returns an address whose first byte is fixed by the caller,
+// so a fixture can place several voters in one compact ordered-key range.
+func voterWithPrefix(prefix byte, n int) address.Address {
 	var b [20]byte
-	b[0] = shard
+	b[0] = prefix
 	binary.BigEndian.PutUint64(b[12:], uint64(n)+1)
 	addr, err := address.FromBytes(b[:])
 	if err != nil {
@@ -297,10 +290,10 @@ func accountBalances(
 	return out
 }
 
-// drainPhaseBToCompletion drives GrantVoterRewardChunk until the cursor reports
-// completion and returns how many chunk calls that took. Phase A must already
+// drainVoterRewardsToCompletion drives GrantVoterRewardChunk until the cursor reports
+// completion and returns how many chunk calls that took. era-boundary setup must already
 // have run.
-func drainPhaseBToCompletion(
+func drainVoterRewardsToCompletion(
 	t *testing.T,
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -310,9 +303,9 @@ func drainPhaseBToCompletion(
 	r := require.New(t)
 	chunks := 0
 	for {
-		cursor, err := p.readEpochDrainCursor(ctx, sm)
+		cursor, err := p.readVoterRewardDistributionState(ctx, sm)
 		r.NoError(err)
-		if cursor == nil || cursor.Completed {
+		if cursor == nil || cursor.completed() {
 			return chunks
 		}
 		_, _, err = p.GrantVoterRewardChunk(ctx, sm)
@@ -335,7 +328,7 @@ func openEraWindowForTest(
 	t.Helper()
 	r := require.New(t)
 	r.NoError(staking.TestOnlyBeginEraCOWWindow(ctx, sm, freezeHeight))
-	window, err := staking.EraCOWWindow(sm)
+	window, err := staking.LoadEraCOWWindow(sm)
 	r.NoError(err)
 	r.True(window.Open())
 	return window

@@ -133,11 +133,11 @@ func (p *Protocol) AddDepositForCompound(
 		return errors.Wrapf(err, "staking: update compound bucket %d", bucketID)
 	}
 
-	if err := subCandidateVotes(candidate, prevWeighted); err != nil {
+	if err := candidate.SubVote(prevWeighted); err != nil {
 		return errors.Wrapf(err, "staking: subtract vote for candidate %s", bucket.Candidate.String())
 	}
 	newWeighted := p.calculateVoteWeight(bucket, selfStake)
-	if err := addCandidateVotes(candidate, newWeighted); err != nil {
+	if err := candidate.AddVote(newWeighted); err != nil {
 		return errors.Wrapf(err, "staking: add vote for candidate %s", bucket.Candidate.String())
 	}
 	if selfStake {

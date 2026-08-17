@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/eracow"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
@@ -23,19 +24,13 @@ import (
 // LSDVoterIndexPrefix is the 1-byte tag of the owner -> contract-staking
 // bucket index inside state.StakingNamespace.
 //
-// The staking package owns the tag space (see the iota block in
-// action/protocol/staking/protocol.go, where the same value is reserved as
-// _lsdVoterIndex). It is duplicated here rather than imported because
-// `staking` imports `contractstaking`, not the other way round; a compile-time
-// equality assertion on the `staking` side keeps the two from drifting.
-//
 // Key shape is {LSDVoterIndexPrefix} || owner(20) = 21 bytes. That is the same
-// length as the native _voterIndex / _candIndex / _candidatePollSnapshot keys,
+// length as the native _voterIndex / _candIndex / _candidateRewardSnapshot keys,
 // which is fine because those carry a different leading tag; readers that scan
 // the shared namespace discriminate on tag *and* length (see
 // parseVoterWeightKey in the staking package), and no existing tag uses this
 // value.
-const LSDVoterIndexPrefix = byte(8)
+const LSDVoterIndexPrefix = byte(6)
 
 // _lsdVoterIndexKeyLen is the length of an owner index key.
 const _lsdVoterIndexKeyLen = 1 + 20
@@ -89,7 +84,7 @@ func (r *ContractStakingStateReader) OwnerIndexStateOpts(owner address.Address) 
 
 // ParseLSDVoterIndexKey reverses lsdVoterIndexKey. ok is false for any key in
 // the staking namespace that is not an owner index entry -- buckets, native
-// bucket indices, endorsements, poll snapshots and voter weights all share the
+// bucket indices, endorsements, reward snapshots and voter weights all share the
 // namespace, so a scan must discriminate by key rather than by whether the
 // value happens to deserialize.
 func ParseLSDVoterIndexKey(key []byte) (address.Address, bool) {
@@ -227,9 +222,8 @@ func (refs *ContractBucketRefs) Decode(gv systemcontracts.GenericValue) error {
 //
 // Pre-activation it must stay out of it: nodes upgrade over days, and one that
 // wrote these keys early would diverge from every node still on the old binary
-// -- a split at deployment time rather than at activation. This mirrors
-// voterWeightPersistenceEnabled in the staking package exactly; both are bound
-// to protocol.FeatureCtx.NoVoterRewardDistribution, the IIP-59 fork gate.
+// -- a split at deployment time rather than at activation. It is bound to
+// protocol.FeatureCtx.NoVoterRewardDistribution, the IIP-59 fork gate.
 //
 // A context with no feature context at all (indexer bootstraps, tests) is
 // treated as pre-activation, so nothing is written by accident.
@@ -261,6 +255,29 @@ func (r *ContractStakingStateReader) BucketRefsByOwner(owner address.Address) (C
 		return nil, height, err
 	}
 	return refs, height, nil
+}
+
+// FrozenBucketRefs reads an owner's contract-staking bucket list as of the era
+// freeze height. An absent list is returned as nil without an error.
+func (r *ContractStakingStateReader) FrozenBucketRefs(window eracow.Window, owner address.Address) (ContractBucketRefs, error) {
+	if !window.Open() {
+		return nil, errors.New("contractstaking: no era window open")
+	}
+	var refs ContractBucketRefs
+	err := eracow.Resolve(
+		r.sr, window.FreezeHeight,
+		eracow.KindLSDVoterIndex, eracow.AddrSubkey(owner.Bytes()),
+		&refs,
+		r.OwnerIndexStateOpts(owner)...,
+	)
+	switch {
+	case err == nil:
+		return refs, nil
+	case errors.Is(err, eracow.ErrNotFrozen), errors.Cause(err) == state.ErrStateNotExist:
+		return nil, nil
+	default:
+		return nil, err
+	}
 }
 
 // readOwnerIndex loads an owner's refs, treating "no key" as the empty list.
@@ -375,42 +392,21 @@ func (cs *ContractStakingStateManager) delOwnerRef(ctx context.Context, owner ad
 	return errors.Wrapf(cs.writeOwnerIndex(owner, refs), "failed to write owner index for %s", owner.String())
 }
 
-// priorOwner returns the owner recorded for (contract, bucketID) before the
-// write in flight, or nil if the bucket is new. Only a missing bucket is
-// tolerated; any other read failure is propagated, because silently treating
-// it as "new" would leave the previous owner's list pointing at a bucket that
-// has moved.
-func (cs *ContractStakingStateManager) priorOwner(contractAddr address.Address, bucketID uint64) (address.Address, error) {
-	prev, err := cs.Bucket(contractAddr, bucketID)
-	switch {
-	case err == nil:
-		return prev.Owner, nil
-	case errors.Is(err, ErrBucketNotExist), errors.Cause(err) == state.ErrStateNotExist:
-		return nil, nil
-	default:
-		return nil, err
-	}
-}
-
 // indexUpsert keeps the owner index in step with a bucket write: a new bucket
 // is added to its owner's list, and a bucket whose owner changed is moved from
 // the old list to the new one.
-func (cs *ContractStakingStateManager) indexUpsert(ctx context.Context, contractAddr address.Address, bucketID uint64, bucket *Bucket) error {
+func (cs *ContractStakingStateManager) indexUpsert(ctx context.Context, contractAddr address.Address, bucketID uint64, bucket, prior *Bucket) error {
 	if bucket == nil || bucket.Owner == nil {
 		return errors.Errorf("contract-staking bucket %d of %s has no owner", bucketID, contractAddr.String())
 	}
 	ref := ContractBucketRef{Contract: contractAddr, BucketID: bucketID}
-	prev, err := cs.priorOwner(contractAddr, bucketID)
-	if err != nil {
-		return err
-	}
-	if prev != nil {
-		if bytes.Equal(prev.Bytes(), bucket.Owner.Bytes()) {
+	if prior != nil && prior.Owner != nil {
+		if bytes.Equal(prior.Owner.Bytes(), bucket.Owner.Bytes()) {
 			// same owner: the ref is already there, and add() is a no-op
 			// anyway. Skip both reads.
 			return nil
 		}
-		if err := cs.delOwnerRef(ctx, prev, ref); err != nil {
+		if err := cs.delOwnerRef(ctx, prior.Owner, ref); err != nil {
 			return err
 		}
 	}
@@ -418,14 +414,10 @@ func (cs *ContractStakingStateManager) indexUpsert(ctx context.Context, contract
 }
 
 // indexDelete removes a bucket's ref from its owner's list.
-func (cs *ContractStakingStateManager) indexDelete(ctx context.Context, contractAddr address.Address, bucketID uint64) error {
-	owner, err := cs.priorOwner(contractAddr, bucketID)
-	if err != nil {
-		return err
-	}
-	if owner == nil {
+func (cs *ContractStakingStateManager) indexDelete(ctx context.Context, contractAddr address.Address, bucketID uint64, prior *Bucket) error {
+	if prior == nil || prior.Owner == nil {
 		// deleting a bucket that is not in state; nothing is indexed either.
 		return nil
 	}
-	return cs.delOwnerRef(ctx, owner, ContractBucketRef{Contract: contractAddr, BucketID: bucketID})
+	return cs.delOwnerRef(ctx, prior.Owner, ContractBucketRef{Contract: contractAddr, BucketID: bucketID})
 }
