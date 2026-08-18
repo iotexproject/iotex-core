@@ -99,7 +99,6 @@ var (
 		ValidateAPI,
 		ValidateActPool,
 		ValidateForkHeights,
-		ValidateStakingPatchHeights,
 	}
 )
 
@@ -354,30 +353,6 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "XinguBeta is heigher than Yap")
 	case hu.YapBlockHeight > hu.YapBetaBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Yap is heigher than YapBeta")
-	case hu.FixAliasForNonStopHeight > hu.PersistStakingPatchBlock:
-		return errors.Wrap(ErrInvalidCfg, "FixAliasForNonStop is heigher than PersistStakingPatch")
-	case hu.PersistStakingPatchBlock > hu.OkhotskBlockHeight:
-		return errors.Wrap(ErrInvalidCfg, "PersistStakingPatch is heigher than Okhotsk")
-	}
-	return nil
-}
-
-// ValidateStakingPatchHeights validates that the deprecated chain-level staking patch heights, if
-// still present in the node's config, agree with the genesis they are now sourced from
-func ValidateStakingPatchHeights(cfg Config) error {
-	for _, v := range []struct {
-		key     string
-		chain   uint64
-		genesis uint64
-	}{
-		{"chain.persistStakingPatchBlock", cfg.Chain.PersistStakingPatchBlock, cfg.Genesis.PersistStakingPatchBlock},
-		{"chain.fixAliasForNonStopHeight", cfg.Chain.FixAliasForNonStopHeight, cfg.Genesis.FixAliasForNonStopHeight},
-	} {
-		if v.chain != 0 && v.chain != v.genesis {
-			return errors.Wrapf(ErrInvalidCfg,
-				"%s = %d is deprecated and disagrees with genesis value %d, remove it from the config",
-				v.key, v.chain, v.genesis)
-		}
 	}
 	return nil
 }

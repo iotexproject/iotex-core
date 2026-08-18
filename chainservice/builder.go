@@ -684,10 +684,26 @@ func (builder *Builder) buildActionSyncer() error {
 	return nil
 }
 
+// warnDeprecatedStakingPatchHeight logs the deprecated chain-level staking patch height that is
+// still present in a node's config. The genesis value is the one in effect.
+func warnDeprecatedStakingPatchHeight(key string, chain, genesis uint64) {
+	if chain == 0 {
+		return
+	}
+	log.L().Warn("deprecated config key is ignored, the height comes from genesis",
+		zap.String("key", key),
+		zap.Uint64("ignoredValue", chain),
+		zap.Uint64("genesisValue", genesis))
+}
+
 func (builder *Builder) registerStakingProtocol() error {
 	if !builder.cfg.Chain.EnableStakingProtocol {
 		return nil
 	}
+	warnDeprecatedStakingPatchHeight("chain.persistStakingPatchBlock",
+		builder.cfg.Chain.PersistStakingPatchBlock, builder.cfg.Genesis.PersistStakingPatchBlock)
+	warnDeprecatedStakingPatchHeight("chain.fixAliasForNonStopHeight",
+		builder.cfg.Chain.FixAliasForNonStopHeight, builder.cfg.Genesis.FixAliasForNonStopHeight)
 	consensusCfg := consensusfsm.NewConsensusConfig(builder.cfg.Consensus.RollDPoS.FSM, builder.cfg.DardanellesUpgrade, builder.cfg.WakeUpgrade, builder.cfg.Genesis, builder.cfg.Consensus.RollDPoS.Delay)
 	opts := []staking.Option{}
 	if builder.cs.contractStakingIndexerV3 != nil {

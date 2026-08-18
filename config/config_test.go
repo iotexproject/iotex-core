@@ -7,6 +7,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -394,12 +395,6 @@ func TestValidateForkHeights(t *testing.T) {
 			"Yap", ErrInvalidCfg, "Yap is heigher than YapBeta",
 		},
 		{
-			"FixAliasForNonStop", ErrInvalidCfg, "FixAliasForNonStop is heigher than PersistStakingPatch",
-		},
-		{
-			"PersistStakingPatch", ErrInvalidCfg, "PersistStakingPatch is heigher than Okhotsk",
-		},
-		{
 			"", nil, "",
 		},
 	}
@@ -473,10 +468,6 @@ func newTestCfg(fork string) Config {
 		cfg.Genesis.XinguBetaBlockHeight = cfg.Genesis.YapBlockHeight + 1
 	case "Yap":
 		cfg.Genesis.YapBlockHeight = cfg.Genesis.YapBetaBlockHeight + 1
-	case "FixAliasForNonStop":
-		cfg.Genesis.FixAliasForNonStopHeight = cfg.Genesis.PersistStakingPatchBlock + 1
-	case "PersistStakingPatch":
-		cfg.Genesis.PersistStakingPatchBlock = cfg.Genesis.OkhotskBlockHeight + 1
 	}
 	return cfg
 }
@@ -491,28 +482,47 @@ func TestStakingPatchHeights(t *testing.T) {
 	// the deprecated chain keys are unset by default
 	r.Zero(Default.Chain.PersistStakingPatchBlock)
 	r.Zero(Default.Chain.FixAliasForNonStopHeight)
-	r.NoError(ValidateStakingPatchHeights(Default))
 
-	// a leftover key that repeats the genesis value is accepted
-	cfg := Default
-	cfg.Chain.PersistStakingPatchBlock = cfg.Genesis.PersistStakingPatchBlock
-	cfg.Chain.FixAliasForNonStopHeight = cfg.Genesis.FixAliasForNonStopHeight
-	r.NoError(ValidateStakingPatchHeights(cfg))
-
-	// a key that disagrees with genesis is rejected
+	// a config still carrying the deprecated keys loads and validates, whatever they hold. the
+	// published testnet config sets persistStakingPatchBlock to MaxUint64
 	for _, v := range []struct {
-		set    func(*Config)
-		errMsg string
+		persist  uint64
+		fixAlias uint64
 	}{
-		{func(c *Config) { c.Chain.PersistStakingPatchBlock = 100 }, "chain.persistStakingPatchBlock = 100"},
-		{func(c *Config) { c.Chain.FixAliasForNonStopHeight = 100 }, "chain.fixAliasForNonStopHeight = 100"},
+		{math.MaxUint64, 0},
+		{math.MaxUint64, math.MaxUint64},
+		{Default.Genesis.PersistStakingPatchBlock, Default.Genesis.FixAliasForNonStopHeight},
+		{100, 100},
 	} {
 		cfg := Default
-		v.set(&cfg)
-		err := ValidateStakingPatchHeights(cfg)
-		r.Equal(ErrInvalidCfg, errors.Cause(err))
-		r.Contains(err.Error(), v.errMsg)
+		cfg.Chain.PersistStakingPatchBlock = v.persist
+		cfg.Chain.FixAliasForNonStopHeight = v.fixAlias
+		for _, validate := range Validates {
+			r.NoError(validate(cfg))
+		}
 	}
+}
+
+func TestDeprecatedStakingPatchHeightsFromYAML(t *testing.T) {
+	r := require.New(t)
+
+	// a testnet-style config file carrying the deprecated keys must still load
+	cfgFile, err := os.CreateTemp("", "config")
+	r.NoError(err)
+	name := cfgFile.Name()
+	defer func() {
+		r.NoError(cfgFile.Close())
+		r.NoError(os.Remove(name))
+	}()
+	_, err = cfgFile.WriteString("chain:\n  persistStakingPatchBlock: 18446744073709551615\n  fixAliasForNonStopHeight: 18446744073709551615\n")
+	r.NoError(err)
+
+	cfg, err := New([]string{name}, nil)
+	r.NoError(err)
+	r.Equal(uint64(math.MaxUint64), cfg.Chain.PersistStakingPatchBlock)
+	// the genesis value is the one in effect
+	r.Equal(uint64(19778037), cfg.Genesis.PersistStakingPatchBlock)
+	r.Equal(uint64(19778036), cfg.Genesis.FixAliasForNonStopHeight)
 }
 
 func TestNewSubConfigWithWrongConfigPath(t *testing.T) {
