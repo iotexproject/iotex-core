@@ -191,6 +191,14 @@ type (
 		// Activating EnforceBLSPoP BEFORE the BLS aggregation fork closes
 		// the window for collecting un-attested pubkeys.
 		EnforceBLSPoP bool
+		// OptionalCandidateBLSPublicKey relaxes the Xingu-era rule that every
+		// candidate register / update must carry a BLS public key. Post-fork
+		// the key is optional -- nothing consumes it until IIP-52 aggregation
+		// activates -- but it and its proof-of-possession must travel
+		// together: a key with no PoP cannot be verified, and a PoP with no
+		// key has nothing to attest to. An update that omits both leaves any
+		// previously registered key untouched.
+		OptionalCandidateBLSPublicKey bool
 		// CorrectPrestateForAbsentKeys, when true, makes contract.GetCommittedState
 		// return the true tx-start prestate value (zero, via trie.ErrNotExist) for
 		// storage slots that were absent in the pre-tx trie. Prior to this gate the
@@ -375,6 +383,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixInContractTransferLogTopic:           g.IsZanzibar(height),
 			NoVoterRewardDistribution:               !g.IsZanzibar(height),
 			EnforceBLSPoP:                           g.IsZanzibar(height),
+			OptionalCandidateBLSPublicKey:           g.IsZanzibar(height),
 			CorrectPrestateForAbsentKeys:            g.IsZanzibar(height),
 		},
 	)
