@@ -394,6 +394,12 @@ func TestValidateForkHeights(t *testing.T) {
 			"Yap", ErrInvalidCfg, "Yap is heigher than YapBeta",
 		},
 		{
+			"FixAliasForNonStop", ErrInvalidCfg, "FixAliasForNonStop is heigher than PersistStakingPatch",
+		},
+		{
+			"PersistStakingPatch", ErrInvalidCfg, "PersistStakingPatch is heigher than Okhotsk",
+		},
+		{
 			"", nil, "",
 		},
 	}
@@ -467,8 +473,46 @@ func newTestCfg(fork string) Config {
 		cfg.Genesis.XinguBetaBlockHeight = cfg.Genesis.YapBlockHeight + 1
 	case "Yap":
 		cfg.Genesis.YapBlockHeight = cfg.Genesis.YapBetaBlockHeight + 1
+	case "FixAliasForNonStop":
+		cfg.Genesis.FixAliasForNonStopHeight = cfg.Genesis.PersistStakingPatchBlock + 1
+	case "PersistStakingPatch":
+		cfg.Genesis.PersistStakingPatchBlock = cfg.Genesis.OkhotskBlockHeight + 1
 	}
 	return cfg
+}
+
+func TestStakingPatchHeights(t *testing.T) {
+	r := require.New(t)
+
+	// the heights moved from chain config to genesis, the values must not change
+	r.Equal(uint64(19778037), Default.Genesis.PersistStakingPatchBlock)
+	r.Equal(uint64(19778036), Default.Genesis.FixAliasForNonStopHeight)
+
+	// the deprecated chain keys are unset by default
+	r.Zero(Default.Chain.PersistStakingPatchBlock)
+	r.Zero(Default.Chain.FixAliasForNonStopHeight)
+	r.NoError(ValidateStakingPatchHeights(Default))
+
+	// a leftover key that repeats the genesis value is accepted
+	cfg := Default
+	cfg.Chain.PersistStakingPatchBlock = cfg.Genesis.PersistStakingPatchBlock
+	cfg.Chain.FixAliasForNonStopHeight = cfg.Genesis.FixAliasForNonStopHeight
+	r.NoError(ValidateStakingPatchHeights(cfg))
+
+	// a key that disagrees with genesis is rejected
+	for _, v := range []struct {
+		set    func(*Config)
+		errMsg string
+	}{
+		{func(c *Config) { c.Chain.PersistStakingPatchBlock = 100 }, "chain.persistStakingPatchBlock = 100"},
+		{func(c *Config) { c.Chain.FixAliasForNonStopHeight = 100 }, "chain.fixAliasForNonStopHeight = 100"},
+	} {
+		cfg := Default
+		v.set(&cfg)
+		err := ValidateStakingPatchHeights(cfg)
+		r.Equal(ErrInvalidCfg, errors.Cause(err))
+		r.Contains(err.Error(), v.errMsg)
+	}
 }
 
 func TestNewSubConfigWithWrongConfigPath(t *testing.T) {
