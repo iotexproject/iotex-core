@@ -136,7 +136,7 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 		cfg:            cfg,
 		g:              g,
 		sf:             sf,
-		isBlackListed:  cfg.IsBlackListedFunc(),
+		isBlackListed:  cfg.IsBlackListedFunc(g.ZanzibarBlockHeight),
 		accountDesActs: &destinationMap{acts: make(map[string]map[hash.Hash256]*action.SealedEnvelope)},
 		allActions:     actsMap,
 		jobQueue:       make([]chan workerJob, _numWorker),

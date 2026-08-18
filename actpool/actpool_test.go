@@ -1299,7 +1299,7 @@ func TestIsBlackListedFunc(t *testing.T) {
 		cfg := Config{
 			BlackList: []string{},
 		}
-		isBlackListed := cfg.IsBlackListedFunc()
+		isBlackListed := cfg.IsBlackListedFunc(math.MaxUint64)
 		require.False(isBlackListed("io1abc", 100))
 		require.False(isBlackListed("io1xyz", 0))
 	})
@@ -1309,7 +1309,7 @@ func TestIsBlackListedFunc(t *testing.T) {
 			BlackList:             []string{"io1abc", "io1xyz"},
 			BlackListActiveHeight: 0,
 		}
-		isBlackListed := cfg.IsBlackListedFunc()
+		isBlackListed := cfg.IsBlackListedFunc(math.MaxUint64)
 		require.True(isBlackListed("io1abc", 0))
 		require.True(isBlackListed("io1abc", 100))
 		require.True(isBlackListed("io1xyz", 1))
@@ -1321,7 +1321,7 @@ func TestIsBlackListedFunc(t *testing.T) {
 			BlackList:             []string{"io1abc"},
 			BlackListActiveHeight: 100,
 		}
-		isBlackListed := cfg.IsBlackListedFunc()
+		isBlackListed := cfg.IsBlackListedFunc(math.MaxUint64)
 		// Before activation height - not enforced
 		require.False(isBlackListed("io1abc", 99))
 		require.False(isBlackListed("io1abc", 50))
@@ -1336,12 +1336,11 @@ func TestIsBlackListedFunc(t *testing.T) {
 
 	t.Run("removal drops listed addresses from removalHeight onwards", func(t *testing.T) {
 		cfg := Config{
-			BlackList:              []string{"io1abc", "io1xyz"},
-			BlackListActiveHeight:  100,
-			BlackListRemoval:       []string{"io1abc"},
-			BlackListRemovalHeight: 200,
+			BlackList:             []string{"io1abc", "io1xyz"},
+			BlackListActiveHeight: 100,
+			BlackListRemoval:      []string{"io1abc"},
 		}
-		isBlackListed := cfg.IsBlackListedFunc()
+		isBlackListed := cfg.IsBlackListedFunc(200)
 		// Removal entry: enforced in [activeHeight, removalHeight), dropped at removalHeight
 		require.False(isBlackListed("io1abc", 99))
 		require.True(isBlackListed("io1abc", 100))
@@ -1356,13 +1355,42 @@ func TestIsBlackListedFunc(t *testing.T) {
 
 	t.Run("removalHeight=MaxUint64 keeps everyone blacklisted", func(t *testing.T) {
 		cfg := Config{
-			BlackList:              []string{"io1abc"},
-			BlackListActiveHeight:  100,
-			BlackListRemoval:       []string{"io1abc"},
-			BlackListRemovalHeight: math.MaxUint64,
+			BlackList:             []string{"io1abc"},
+			BlackListActiveHeight: 100,
+			BlackListRemoval:      []string{"io1abc"},
 		}
-		isBlackListed := cfg.IsBlackListedFunc()
+		isBlackListed := cfg.IsBlackListedFunc(math.MaxUint64)
 		require.True(isBlackListed("io1abc", 100))
 		require.True(isBlackListed("io1abc", math.MaxUint64-1))
 	})
+}
+
+// TestBlackListRemovalTracksZanzibar pins the removal height to the genesis
+// fork height. The predicate this builds is handed to the execution protocol
+// and consulted by the EIP-7702 authorization check, so the height must come
+// from genesis rather than node config -- two operators disagreeing on it
+// would fork the chain.
+func TestBlackListRemovalTracksZanzibar(t *testing.T) {
+	require := require.New(t)
+
+	g := genesis.Default
+	g.ZanzibarBlockHeight = 46850041
+	cfg := Config{
+		BlackList:             []string{"io1abc", "io1xyz"},
+		BlackListActiveHeight: 100,
+		BlackListRemoval:      []string{"io1abc"},
+	}
+	isBlackListed := cfg.IsBlackListedFunc(g.ZanzibarBlockHeight)
+
+	// Removal entry: blacklisted right up to the fork, dropped from it onwards.
+	require.True(isBlackListed("io1abc", g.ZanzibarBlockHeight-1))
+	require.False(isBlackListed("io1abc", g.ZanzibarBlockHeight))
+	// Non-removal entry is unaffected by the fork.
+	require.True(isBlackListed("io1xyz", g.ZanzibarBlockHeight))
+
+	// Unscheduled fork (the mainnet default) keeps everyone blacklisted.
+	require.True(Config{
+		BlackList:        []string{"io1abc"},
+		BlackListRemoval: []string{"io1abc"},
+	}.IsBlackListedFunc(genesis.Default.ZanzibarBlockHeight)("io1abc", 1<<62))
 }
