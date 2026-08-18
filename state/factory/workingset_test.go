@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -25,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
@@ -234,6 +237,112 @@ func TestWorkingSet_ValidateBlock_RecoversPanic(t *testing.T) {
 	require.NotPanics(func() { validateErr = f.Validate(zctx, blk) })
 	require.Error(validateErr)
 	require.Contains(validateErr.Error(), "recovered from panic")
+}
+
+// TestWorkingSet_Mint_SkipsPanickingAction verifies that an action panicking
+// while it is being run during block production does not stall the proposer:
+// the panic is turned into an error, the offending sender is dropped from the
+// action pool, and the next mint produces a block without it.
+func TestWorkingSet_Mint_SkipsPanickingAction(t *testing.T) {
+	require := require.New(t)
+	var (
+		badSender  = identityset.Address(28)
+		goodSender = identityset.Address(29)
+	)
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	cfg.Genesis.InitBalanceMap[badSender.String()] = "100000000000000000000"
+	cfg.Genesis.InitBalanceMap[goodSender.String()] = "100000000000000000000"
+
+	registry := protocol.NewRegistry()
+	// a deposit-gas hook that panics for one particular sender stands in for any
+	// action handler that panics on a specific action
+	depositGas := func(ctx context.Context, _ protocol.StateManager, _ *big.Int, _ ...protocol.DepositOption) ([]*action.TransactionLog, error) {
+		if actCtx, ok := protocol.GetActionCtx(ctx); ok && actCtx.Caller.String() == badSender.String() {
+			panic("injected panic while running action")
+		}
+		return nil, nil
+	}
+	require.NoError(account.NewProtocol(depositGas).Register(registry))
+
+	sdb, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+	require.NoError(err)
+	startCtx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(sdb.Start(startCtx))
+	defer func() {
+		require.NoError(sdb.Stop(startCtx))
+	}()
+
+	badAct, err := action.SignedTransfer(goodSender.String(), identityset.PrivateKey(28), 1, big.NewInt(1), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	require.NoError(err)
+	badHash, err := badAct.Hash()
+	require.NoError(err)
+	goodAct, err := action.SignedTransfer(badSender.String(), identityset.PrivateKey(29), 1, big.NewInt(1), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	require.NoError(err)
+	goodHash, err := goodAct.Hash()
+	require.NoError(err)
+
+	pending := map[string][]*action.SealedEnvelope{
+		badSender.String():  {badAct},
+		goodSender.String(): {goodAct},
+	}
+	deleted := []string{}
+	ctrl := gomock.NewController(t)
+	ap := mock_actpool.NewMockActPool(ctrl)
+	ap.EXPECT().BundlePool().Return(nil).AnyTimes()
+	ap.EXPECT().PendingActionMap().DoAndReturn(func() map[string][]*action.SealedEnvelope {
+		snapshot := make(map[string][]*action.SealedEnvelope, len(pending))
+		for sender, acts := range pending {
+			snapshot[sender] = acts
+		}
+		return snapshot
+	}).AnyTimes()
+	ap.EXPECT().DeleteAction(gomock.Any()).Do(func(caller address.Address) {
+		deleted = append(deleted, caller.String())
+		delete(pending, caller.String())
+	}).AnyTimes()
+
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit * 100000,
+		})
+	ctx = protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{},
+	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+
+	// first round: the offending action aborts the draft and its sender is dropped
+	var blk *block.Block
+	require.NotPanics(func() {
+		blk, err = sdb.Mint(ctx, ap, identityset.PrivateKey(27))
+	})
+	require.Error(err)
+	require.Contains(err.Error(), "panic while running action")
+	require.Nil(blk)
+	require.Equal([]string{badSender.String()}, deleted)
+
+	// second round: block production resumes without the offending action
+	require.NotPanics(func() {
+		blk, err = sdb.Mint(ctx, ap, identityset.PrivateKey(27))
+	})
+	require.NoError(err)
+	require.NotNil(blk)
+	minted := make(map[hash.Hash256]bool)
+	for _, act := range blk.Actions {
+		h, err := act.Hash()
+		require.NoError(err)
+		minted[h] = true
+	}
+	require.True(minted[goodHash])
+	require.False(minted[badHash])
 }
 
 func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {

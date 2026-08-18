@@ -55,6 +55,10 @@ var (
 		},
 		[]string{"type"},
 	)
+	_runActionPanicMtc = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "iotex_mint_action_panics_total",
+		Help: "Number of panics recovered while running an action during block production (the action is dropped from the pool and the draft is discarded).",
+	})
 
 	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
 	errUnfoldTxContainer         = errors.New("failed to unfold tx container")
@@ -64,6 +68,7 @@ var (
 func init() {
 	prometheus.MustRegister(_stateDBMtc)
 	prometheus.MustRegister(_mintAbility)
+	prometheus.MustRegister(_runActionPanicMtc)
 }
 
 type (
@@ -924,7 +929,7 @@ func (ws *workingSet) pickAndRunActions(
 				_mintAbility.WithLabelValues("saturation").Set(0)
 				break
 			}
-			popAccount, deleteAction, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, nextAction, blkCtx.GasLimit, blobCnt, uint64(blobLimit), true)
+			popAccount, deleteAction, receipt, err := ws.validateAndRunSafely(ctxWithBlockContext, reg, nextAction, blkCtx.GasLimit, blobCnt, uint64(blobLimit))
 			if popAccount {
 				actionIterator.PopAccount()
 			}
@@ -980,6 +985,48 @@ func (ws *workingSet) pickAndRunActions(
 	ws.receipts = receipts
 
 	return executedActions, ws.finalize(ctx)
+}
+
+// validateAndRunSafely runs one action picked from the action pool and turns a
+// panic raised by it into an ordinary error, so that a single malformed action
+// cannot take down block production. The caller drops the action from the pool
+// (deleteAction is set) and abandons the draft: the working set already holds
+// the partial writes of the action that blew up, so it is not safe to keep
+// minting on it. The next round starts from a clean working set without the
+// offending action.
+func (ws *workingSet) validateAndRunSafely(
+	ctx context.Context,
+	reg *protocol.Registry,
+	nextAction *action.SealedEnvelope,
+	gasLimit uint64,
+	blobCnt uint64,
+	blobLimit uint64,
+) (popAccount bool, deleteAction bool, receipt *action.Receipt, err error) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			return
+		}
+		_runActionPanicMtc.Inc()
+		actHash, hashErr := nextAction.Hash()
+		fields := []zap.Field{
+			zap.Any("panic", r),
+			zap.Uint64("height", ws.height),
+			zap.String("stack", string(debug.Stack())),
+		}
+		if hashErr == nil {
+			fields = append(fields, log.Hex("actionHash", actHash[:]))
+		}
+		if sender := nextAction.SenderAddress(); sender != nil {
+			fields = append(fields, zap.String("sender", sender.String()))
+		}
+		log.L().Error("panic while running action during block production, dropping it from the action pool", fields...)
+		popAccount = false
+		deleteAction = true
+		receipt = nil
+		err = errors.Errorf("panic while running action at height %d: %v", ws.height, r)
+	}()
+	return ws.validateAndRun(ctx, reg, nextAction, gasLimit, blobCnt, blobLimit, true)
 }
 
 func (ws *workingSet) validateAndRun(
