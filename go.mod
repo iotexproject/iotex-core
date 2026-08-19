@@ -31,7 +31,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.9-0.20251203033311-6e8aa4fd43ef
 	github.com/iotexproject/iotex-antenna-go/v2 v2.6.4
 	github.com/iotexproject/iotex-election v0.3.8-0.20251015031218-8df952babca1
-	github.com/iotexproject/iotex-proto v0.6.6-0.20260211020747-f26bd969ed16
+	github.com/iotexproject/iotex-proto v0.6.12
 	github.com/ipfs/go-ipfs-api v0.7.0
 	github.com/libp2p/go-libp2p v0.47.0
 	github.com/libp2p/go-libp2p-pubsub v0.17.0
@@ -355,5 +355,3 @@ replace github.com/ethereum/go-ethereum/crypto/secp256k1 => github.com/erigontec
 
 // Fix for go-libutp compatibility with GCC 15+
 replace github.com/anacrolix/go-libutp => github.com/anacrolix/go-libutp v0.0.0-20251121015447-f294e5ed5b4d
-
-replace github.com/iotexproject/iotex-proto => github.com/envestcc/iotex-proto v0.0.0-20260610010006-7a486f6a453d
