@@ -1063,7 +1063,7 @@ func (ws *workingSet) validateAndRun(
 		log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, true, nil, nil
 	}
-	receipt, err := ws.runAction(actionCtx, nextAction, revertAllSnapshots)
+	receipt, err := ws.runActionDuringMint(actionCtx, nextAction, revertAllSnapshots)
 	switch errors.Cause(err) {
 	case nil:
 		// do nothing
@@ -1081,6 +1081,32 @@ func (ws *workingSet) validateAndRun(
 		return true, true, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 	}
 	return false, false, receipt, nil
+}
+
+// runActionDuringMint runs a single action while assembling a draft block, recovering from
+// any panic raised in the process. A panic here otherwise unwinds past this whole draft (caught
+// only by the mint goroutine's recover in blockpreparer.go) and, unlike a normal error return,
+// skips the caller's sender-eviction logic — so the same poison action would be picked again on
+// every subsequent mint attempt, stalling block production instead of losing a single draft.
+// Converting the panic into an ordinary error routes it through validateAndRun's default case,
+// which evicts the sender from the pool before this draft is abandoned.
+func (ws *workingSet) runActionDuringMint(ctx context.Context, selp *action.SealedEnvelope, revertAllSnapshots bool) (receipt *action.Receipt, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			_mintActionPanicMtc.Inc()
+			actHash, hashErr := selp.Hash()
+			if hashErr != nil {
+				log.L().Error("failed to get action hash after recovering from mint-time panic", zap.Error(hashErr))
+			}
+			log.L().Error("recovered from panic while running action during mint; sender will be evicted from the pool",
+				log.Hex("action", actHash[:]),
+				zap.Any("panic", r),
+				zap.String("stack", string(debug.Stack())))
+			receipt = nil
+			err = errors.Errorf("recovered from panic while running action %x: %v", actHash, r)
+		}
+	}()
+	return ws.runAction(ctx, selp, revertAllSnapshots)
 }
 
 func (ws *workingSet) generateSignedSystemActions(ctx context.Context, sign func(elp action.Envelope) (*action.SealedEnvelope, error)) ([]*action.SealedEnvelope, error) {
