@@ -54,6 +54,7 @@ type blsPoPFlags struct {
 	privKeyHex     string // --bls-priv-key
 	keystorePath   string // --bls-keystore (placeholder, see error message)
 	fromSigner     bool   // --bls-from-signer (update path Option 1 opt-in)
+	noBLS          bool   // --no-bls (register path Option 0: register without a BLS key)
 	autoConfirm    bool   // --yes / -y
 	candidateIDStr string // --candidate-id (for update; optional local verify in register Option 3)
 }
@@ -123,6 +124,9 @@ func resolveBLSForRegister(flags *blsPoPFlags, signer, password string, ownerAdd
 		return nil, nil, err
 	}
 	switch mode {
+	case blsModeNone:
+		return nil, nil, nil
+
 	case blsModeAutoDerive:
 		sk, err := derivedBLSFromSigner(signer, password)
 		if err != nil {
@@ -268,6 +272,14 @@ const (
 
 func (f *blsPoPFlags) classifyForRegister() (blsMode, error) {
 	switch {
+	case f.noBLS:
+		// The key is optional from the fork on. Auto-derive stays the
+		// default so existing invocations are unchanged; opting out is
+		// explicit.
+		if f.pubKeyHex != "" || f.popHex != "" || f.privKeyHex != "" || f.keystorePath != "" {
+			return 0, errMutex("--no-bls", "--bls-pubkey/--bls-pop/--bls-priv-key/--bls-keystore")
+		}
+		return blsModeNone, nil
 	case f.pubKeyHex != "" && f.popHex != "":
 		if f.privKeyHex != "" {
 			return 0, errMutex("--bls-pubkey/--bls-pop", "--bls-priv-key")
