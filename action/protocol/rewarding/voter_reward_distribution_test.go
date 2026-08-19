@@ -85,28 +85,28 @@ func TestVoterRewardDistributionState_RoundTrip(t *testing.T) {
 }
 
 // TestVoterRewardDistributionState_ScanPhaseRejectsOutOfRange pins the wire guard. The
-// phase is encoded as uint32, so values outside tail/head/done must fail rather
-// than silently becoming a valid-looking resume position.
+// phase is encoded as uint32, so values outside tail/head/done/abandoned must
+// fail rather than silently becoming a valid-looking resume position.
 func TestVoterRewardDistributionState_ScanPhaseRejectsOutOfRange(t *testing.T) {
 	r := require.New(t)
 
-	for _, phase := range []voterScanPhase{voterScanTail, voterScanHead, voterScanDone} {
+	for _, phase := range []voterScanPhase{voterScanTail, voterScanHead, voterScanDone, voterScanAbandoned} {
 		decoded, err := decodeVoterScanPhase(uint32(phase))
 		r.NoError(err)
 		r.Equal(phase, decoded)
 	}
-	_, err := decodeVoterScanPhase(uint32(voterScanDone) + 1)
+	_, err := decodeVoterScanPhase(uint32(voterScanAbandoned) + 1)
 	r.Error(err)
 
 	raw, err := proto.Marshal(&rewardingpb.VoterRewardDistributionState{
-		TargetEra: 1, ScanPhase: uint32(voterScanDone) + 1,
+		TargetEra: 1, ScanPhase: uint32(voterScanAbandoned) + 1,
 	})
 	r.NoError(err)
 	var distribution voterRewardDistributionState
 	r.Error(distribution.Deserialize(raw))
 
 	raw, err = proto.Marshal(&rewardingpb.VoterRewardDistributionProgress{
-		ScanPhase: uint32(voterScanDone) + 1,
+		ScanPhase: uint32(voterScanAbandoned) + 1,
 	})
 	r.NoError(err)
 	var progress voterRewardDistributionProgress

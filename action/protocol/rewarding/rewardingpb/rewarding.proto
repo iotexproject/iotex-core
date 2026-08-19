@@ -60,6 +60,15 @@ message RewardLog {
         // amount is the fixed literal "0" (no monetary value — this is a
         // progress snapshot, not a payout).
         CURSOR_PROGRESS = 6;
+        // IIP-59: emitted once when a drain is abandoned because its
+        // copy-on-write window was superseded by a later freeze. The cursor
+        // moves to a terminal state and stops emitting continuations, so this
+        // is the single event that distinguishes "gave up" from "still
+        // retrying" -- previously the only signal was an unbounded run of
+        // identical failure receipts. addr encodes
+        // "<target_era>:<cursor_freeze_height>:<window_freeze_height>";
+        // amount is the fixed literal "0" (nothing is paid out).
+        DRAIN_ABANDONED = 7;
     }
     RewardType type = 1;
     string addr = 2;

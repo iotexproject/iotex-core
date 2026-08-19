@@ -49,3 +49,29 @@ func voterChunkErrorIsSettleable(err error) bool {
 	var target *voterChunkSettleableError
 	return errors.As(err, &target)
 }
+
+// voterChunkAbandonError marks the subset of settleable failures that can
+// never succeed on a later block, so the cursor should stop rather than have
+// the dispatcher re-emit an identical chunk every block until the next era
+// boundary rewrites it.
+//
+// Only the superseded copy-on-write window qualifies today: once a later
+// freeze has replaced the window, the denominators the drain was reading are
+// gone and nothing restores them. It embeds voterChunkSettleableError so it
+// satisfies voterChunkErrorIsSettleable -- the block still commits with a
+// Failure receipt, and the verdict stays derivable from committed state.
+type voterChunkAbandonError struct{ *voterChunkSettleableError }
+
+// Unwrap exposes the embedded settleable error so errors.As finds it: an
+// abandon is a settleable failure with an extra property, not a separate
+// category, and the block must still commit.
+func (e *voterChunkAbandonError) Unwrap() error { return e.voterChunkSettleableError }
+
+func abandonVoterChunkError(format string, args ...interface{}) error {
+	return &voterChunkAbandonError{&voterChunkSettleableError{errors.Errorf(format, args...)}}
+}
+
+func voterChunkErrorIsAbandon(err error) bool {
+	var target *voterChunkAbandonError
+	return errors.As(err, &target)
+}

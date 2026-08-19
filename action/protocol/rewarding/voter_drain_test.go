@@ -8,6 +8,7 @@ package rewarding
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math/big"
 	"sort"
 	"testing"
@@ -16,9 +17,11 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
@@ -550,4 +553,85 @@ func TestVoterDrainRefusesASupersededEraWindow(t *testing.T) {
 		r.Zero(before.distributedAt(i).Cmp(after.distributedAt(i)),
 			"delegate %d paid out while the window was superseded", i)
 	}
+}
+
+// TestSupersededWindowRetiresTheCursor covers what happens after the refusal in
+// TestVoterDrainRefusesASupersededEraWindow. Refusing is correct; refusing
+// forever is not. The window is gone and no later block brings it back, so
+// leaving the cursor merely "incomplete" made CreatePostSystemActions emit an
+// identical chunk on every subsequent non-boundary block, each failing for the
+// same reason -- an unbounded run of failure receipts in every explorer until
+// the next era boundary rewrote the cursor.
+func TestSupersededWindowRetiresTheCursor(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+	delegate := identityset.Address(4)
+	const rau = int64(1_000_000_000_000_000_000)
+
+	p.cfg.VoterBudgetPerBlock = 1
+	voters := []address.Address{
+		voterWithPrefix(0x11, 0), voterWithPrefix(0x22, 1), voterWithPrefix(0x33, 2),
+	}
+	seeds := make([]iip59NativeSeed, 0, len(voters))
+	for i, voter := range voters {
+		seeds = append(seeds, iip59NativeSeed{
+			delegate: delegate, voter: voter, amount: int64(i+1) * rau,
+		})
+	}
+	newDrainScenario(t, ctx, sm, p, []byte{0x71, 0x0d}, 1_000_000, seeds, nil)
+
+	_, _, err := p.GrantVoterRewardChunk(ctx, sm)
+	r.NoError(err)
+	before, err := p.readVoterRewardDistributionState(ctx, sm)
+	r.NoError(err)
+	r.False(before.terminal(), "fixture must leave the drain mid-flight")
+
+	// While incomplete, the dispatcher is supposed to keep going.
+	grants, err := p.CreatePostSystemActions(ctx, sm)
+	r.NoError(err)
+	r.NotEmpty(grants, "an unfinished drain must emit a continuation")
+
+	// A later freeze supersedes the window the drain was frozen against.
+	r.NoError(staking.TestOnlyBeginEraCOWWindow(ctx, sm, iip59FixtureFreezeHeight+2_000))
+
+	_, _, err = p.GrantVoterRewardChunk(ctx, sm)
+	r.Error(err)
+	r.True(voterChunkErrorIsSettleable(err), "the block must still commit")
+	r.True(voterChunkErrorIsAbandon(err),
+		"a superseded window can never recover, so it must be distinguishable from a retryable failure")
+
+	// Handle retires the cursor on that verdict.
+	logs, err := p.abandonVoterRewardDistribution(ctx, sm)
+	r.NoError(err)
+	r.Len(logs, 1, "exactly one terminal event, not one per failing block")
+
+	var rl rewardingpb.RewardLog
+	r.NoError(proto.Unmarshal(logs[0].Data, &rl))
+	r.Equal(rewardingpb.RewardLog_DRAIN_ABANDONED, rl.Type)
+	r.Equal("0", rl.Amount, "nothing is paid out when a drain is abandoned")
+	r.Contains(rl.Addr, fmt.Sprintf("%d:%d:", before.TargetEra, before.FreezeHeight))
+
+	after, err := p.readVoterRewardDistributionState(ctx, sm)
+	r.NoError(err)
+	r.True(after.abandoned())
+	r.True(after.terminal())
+	r.False(after.completed(), "abandoned is not success; ReadState must not report it as finished")
+
+	// The acceptance criterion: no further chunks, so at most one failure receipt.
+	grants, err = p.CreatePostSystemActions(ctx, sm)
+	r.NoError(err)
+	for _, g := range grants {
+		gr, ok := g.Action().(*action.GrantReward)
+		r.False(ok && gr.RewardType() == action.VoterRewardChunk,
+			"a retired cursor must not emit another chunk")
+	}
+
+	// The plan survives so the shortfall stays explainable.
+	r.Equal(before.TargetEra, after.TargetEra)
+	r.Equal(len(before.DelegateAllocations), len(after.DelegateAllocations))
+
+	// Retiring twice is inert -- Handle must be safe to reach again.
+	again, err := p.abandonVoterRewardDistribution(ctx, sm)
+	r.NoError(err)
+	r.Empty(again, "already retired: no second event")
 }
