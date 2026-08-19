@@ -191,6 +191,13 @@ type (
 		// Activating EnforceBLSPoP BEFORE the BLS aggregation fork closes
 		// the window for collecting un-attested pubkeys.
 		EnforceBLSPoP bool
+		// OptionalCandidateBLSPublicKey relaxes the Xingu-era rule that every
+		// candidate register / update must carry a BLS public key. Post-fork
+		// the key is optional -- nothing consumes it until IIP-52 aggregation
+		// activates -- but a proof-of-possession may not arrive without one.
+		// An update that omits both leaves any previously registered key
+		// untouched.
+		OptionalCandidateBLSPublicKey bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -368,6 +375,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixInContractTransferLogTopic:           g.IsToBeEnabled(height),
 			CorrectPrestateForAbsentKeys:            g.IsToBeEnabled(height),
 			EnforceBLSPoP:                           g.IsToBeEnabled(height),
+			OptionalCandidateBLSPublicKey:           g.IsToBeEnabled(height),
 		},
 	)
 }
