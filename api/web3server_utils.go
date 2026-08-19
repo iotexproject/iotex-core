@@ -121,6 +121,7 @@ func (svr *web3Handler) getBlockWithTransactions(blk *block.Block, receipts []*a
 	}
 	return &getBlockResult{
 		blk:          blk,
+		receipts:     receipts,
 		transactions: transactions,
 	}, nil
 }
