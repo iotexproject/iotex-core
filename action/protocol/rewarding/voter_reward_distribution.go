@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -16,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
@@ -74,9 +76,23 @@ const (
 	voterScanTail voterScanPhase = iota
 	voterScanHead
 	voterScanDone
+	// voterScanAbandoned is the second terminal phase. A drain reaches it
+	// when its copy-on-write window is superseded by a later freeze, which
+	// is unrecoverable: the window it was reading is gone and no later block
+	// can bring it back. Keeping it distinct from voterScanDone lets
+	// ReadState and the RewardLog say "gave up" rather than "finished".
+	voterScanAbandoned
 )
 
 func (c *voterRewardDistributionState) completed() bool { return c.ScanPhase == voterScanDone }
+
+func (c *voterRewardDistributionState) abandoned() bool { return c.ScanPhase == voterScanAbandoned }
+
+// terminal reports whether the cursor will never emit another continuation.
+// The dispatcher keys on this rather than completed(): an abandoned drain is
+// just as finished, and treating it as merely incomplete is what produced an
+// unbounded run of identically failing chunk grants.
+func (c *voterRewardDistributionState) terminal() bool { return c.completed() || c.abandoned() }
 
 // distributedAt returns the running payout total for one delegate.
 func (c *voterRewardDistributionState) distributedAt(i int) *big.Int {
@@ -159,7 +175,7 @@ func (c *voterRewardDistributionState) Deserialize(data []byte) error {
 }
 
 func decodeVoterScanPhase(v uint32) (voterScanPhase, error) {
-	if v > uint32(voterScanDone) {
+	if v > uint32(voterScanAbandoned) {
 		return 0, errors.Errorf("rewarding: voter scan phase %d out of range", v)
 	}
 	return voterScanPhase(v), nil
@@ -483,4 +499,75 @@ func (p *Protocol) TestOnlyVoterRewardDistributionProgress(
 		return 0, 0, 0, 0, false, err
 	}
 	return uint32(c.ScanPhase), uint32(len(c.ResumeVoter)), uint32(len(c.DelegateAllocations)), c.TargetEra, true, nil
+}
+
+// abandonVoterRewardDistribution retires a cursor whose copy-on-write window
+// was superseded, and returns the single RewardLog announcing it.
+//
+// Only the progress half is rewritten: the plan is immutable for the lifetime
+// of a settlement, and leaving it in place keeps the abandoned settlement
+// readable -- which era, which delegates, how much had already been paid --
+// until the next era boundary rolls it over. Deleting the state instead would
+// also stop the dispatcher, but it would erase exactly the record an operator
+// needs to explain the shortfall.
+func (p *Protocol) abandonVoterRewardDistribution(
+	ctx context.Context,
+	sm protocol.StateManager,
+) ([]*action.Log, error) {
+	cursor, err := p.readVoterRewardDistributionState(ctx, sm)
+	if err != nil {
+		return nil, err
+	}
+	if cursor == nil || cursor.terminal() {
+		// Already retired, or never materialized. Nothing to announce; the
+		// dispatcher is already quiet either way.
+		return nil, nil
+	}
+	// Best-effort: the window is only used to label the log with the freeze
+	// that displaced this one. A read failure must not stop the retirement.
+	windowFreeze := uint64(0)
+	if window, werr := staking.LoadEraCOWWindow(sm); werr == nil {
+		windowFreeze = window.FreezeHeight
+	}
+
+	cursor.ScanPhase = voterScanAbandoned
+	cursor.CompletedHeight = protocol.MustGetBlockCtx(ctx).BlockHeight
+	if err := p.writeVoterRewardDistributionProgress(ctx, sm, cursor); err != nil {
+		return nil, err
+	}
+
+	log, err := p.encodeDrainAbandonedLog(ctx, cursor, windowFreeze)
+	if err != nil {
+		return nil, err
+	}
+	return []*action.Log{log}, nil
+}
+
+// encodeDrainAbandonedLog builds the DRAIN_ABANDONED entry. addr encodes
+// "<target_era>:<cursor_freeze_height>:<window_freeze_height>" so an indexer
+// can attribute the shortfall without reading protocol state; amount is "0"
+// because nothing is paid out.
+func (p *Protocol) encodeDrainAbandonedLog(
+	ctx context.Context,
+	cursor *voterRewardDistributionState,
+	windowFreezeHeight uint64,
+) (*action.Log, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	data, err := proto.Marshal(&rewardingpb.RewardLog{
+		Type: rewardingpb.RewardLog_DRAIN_ABANDONED,
+		Addr: fmt.Sprintf("%d:%d:%d",
+			cursor.TargetEra, cursor.FreezeHeight, windowFreezeHeight),
+		Amount: "0",
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &action.Log{
+		Address:     p.addr.String(),
+		Topics:      nil,
+		Data:        data,
+		BlockHeight: blkCtx.BlockHeight,
+		ActionHash:  actionCtx.ActionHash,
+	}, nil
 }

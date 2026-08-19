@@ -1234,7 +1234,10 @@ func validateVoterDrainWindow(
 	// next era boundary rolls that cursor over. Reading from the replacement
 	// window would combine old denominators with new bucket state.
 	if cursor.FreezeHeight == 0 || cursor.FreezeHeight != window.FreezeHeight {
-		return eracow.Window{}, settleableVoterChunkError(
+		// Unrecoverable: the window this drain was reading has been replaced,
+		// so no later block can complete it. Marked as abandon so Handle
+		// retires the cursor instead of letting the dispatcher retry forever.
+		return eracow.Window{}, abandonVoterChunkError(
 			"rewarding: era %d drain frozen at height %d outlived its copy-on-write window, which is now open at height %d",
 			cursor.TargetEra, cursor.FreezeHeight, window.FreezeHeight)
 	}

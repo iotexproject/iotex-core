@@ -268,7 +268,7 @@ func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.Stat
 		if err != nil {
 			return nil, err
 		}
-		if cursor != nil && !cursor.completed() {
+		if cursor != nil && !cursor.terminal() {
 			grants = append(grants, createGrantRewardAction(action.VoterRewardChunk, blkCtx.BlockHeight))
 		}
 	}
@@ -403,6 +403,20 @@ func (p *Protocol) Handle(
 					// the block fail. See voterChunkSettleableError for why the
 					// default is to halt and what may opt out.
 					return nil, err
+				}
+				if voterChunkErrorIsAbandon(err) {
+					// Permanent. Retire the cursor so the dispatcher stops
+					// re-emitting a chunk that fails identically on every
+					// subsequent block, and emit the one event that lets an
+					// indexer tell "gave up" from "still retrying".
+					abandonLogs, aerr := p.abandonVoterRewardDistribution(ctx, sm)
+					if aerr != nil {
+						// The read and write both target state this block
+						// already owns; failing here is node-local, so halt
+						// rather than commit a cursor that may differ by node.
+						return nil, aerr
+					}
+					return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, abandonLogs)
 				}
 				// Explicitly marked as derivable from committed state (see
 				// settleableVoterChunkError): every node agrees, so a Failure
