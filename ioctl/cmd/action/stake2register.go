@@ -66,6 +66,8 @@ func init() {
 		"BLS private key (32 B hex) — Option 2. Tool derives the pubkey + signs the PoP. WARNING: appears in shell history.")
 	f.StringVar(&_registerBLSFlags.keystorePath, "bls-keystore", "",
 		"BLS keystore path — placeholder; not yet implemented.")
+	f.BoolVar(&_registerBLSFlags.noBLS, "no-bls", false,
+		"Register without a BLS public key. Allowed from the Zanzibar fork on; before it the handler rejects a registration with no key.")
 	f.BoolVar(&_registerBLSFlags.autoConfirm, "yes", false,
 		"Skip the auto-derive confirmation prompt (Option 1). Use for CI / scripted flows.")
 }
@@ -141,8 +143,19 @@ func register(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	cr, err := action.NewCandidateRegisterWithBLS(name, operatorAddrStr, rewardAddrStr, ownerAddrStr,
-		amountInRau.String(), duration, _stake2AutoStake, blsPubKey, blsPop, payload)
+	// A registration with a BLS key rides the value-carrying ABI; one without
+	// has no such method to call, so it goes through the legacy entry whose
+	// amount travels in the ABI parameter. Building the WithBLS shape with an
+	// empty key would leave value set and amount nil, and Amount() -- which
+	// keys off WithBLS() -- would return nil.
+	var cr *action.CandidateRegister
+	if len(blsPubKey) > 0 {
+		cr, err = action.NewCandidateRegisterWithBLS(name, operatorAddrStr, rewardAddrStr, ownerAddrStr,
+			amountInRau.String(), duration, _stake2AutoStake, blsPubKey, blsPop, payload)
+	} else {
+		cr, err = action.NewCandidateRegister(name, operatorAddrStr, rewardAddrStr, ownerAddrStr,
+			amountInRau.String(), duration, _stake2AutoStake, payload)
+	}
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateRegister instance", err)
 	}

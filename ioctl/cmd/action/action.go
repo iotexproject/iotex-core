@@ -90,6 +90,7 @@ func init() {
 	ActionCmd.AddCommand(_actionInvokeCmd)
 	ActionCmd.AddCommand(_actionReadCmd)
 	ActionCmd.AddCommand(_actionClaimCmd)
+	ActionCmd.AddCommand(_actionVoterRewardDestinationCmd)
 	ActionCmd.AddCommand(_actionDepositCmd)
 	ActionCmd.AddCommand(_actionSendRawCmd)
 	ActionCmd.AddCommand(_actionSignAuthCmd)
