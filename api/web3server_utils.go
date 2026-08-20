@@ -40,6 +40,22 @@ func hexStringToNumber(hexStr string) (uint64, error) {
 	return strconv.ParseUint(util.Remove0xPrefix(hexStr), 16, 64)
 }
 
+// hexOrDecimalToNumber parses a JSON-RPC integer that callers may send either as
+// a 0x-prefixed hex quantity ("0xa") or as a bare decimal ("10"). It follows
+// go-ethereum's math.HexOrDecimal64 semantics: only the 0x prefix selects hex, so
+// a bare "10" keeps meaning ten and is never reinterpreted as sixteen.
+func hexOrDecimalToNumber(str string) (uint64, error) {
+	// math.ParseUint64 maps "" to 0; reject it so a missing value stays an error.
+	if str == "" {
+		return 0, errors.Wrapf(errUnkownType, "number: %s", str)
+	}
+	num, ok := math.ParseUint64(str)
+	if !ok {
+		return 0, errors.Wrapf(errUnkownType, "number: %s", str)
+	}
+	return num, nil
+}
+
 func ethAddrToIoAddr(ethAddr string) (address.Address, error) {
 	if ok := common.IsHexAddress(ethAddr); !ok {
 		return nil, errors.Wrapf(errUnkownType, "ethAddr: %s", ethAddr)
@@ -162,7 +178,9 @@ func (svr *web3Handler) parseBlockNumber(str string) (uint64, error) {
 	switch str {
 	case _earliestBlockNumber:
 		return 1, nil
-	case "", _pendingBlockNumber, _latestBlockNumber:
+	case "", _pendingBlockNumber, _latestBlockNumber, _safeBlockNumber, _finalizedBlockNumber:
+		// Roll-DPoS gives deterministic instant finality, so the committed tip is
+		// already irreversible: safe and finalized both resolve to the latest block.
 		return svr.coreService.TipHeight(), nil
 	default:
 		return hexStringToNumber(str)
