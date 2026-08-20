@@ -91,8 +91,22 @@ type (
 		FactoryDBType string `yaml:"factoryDBType"`
 		// MintTimeout is the timeout for minting
 		MintTimeout time.Duration `yaml:"-"`
+		// SupplyCheck governs the opt-in, off-consensus total-supply reconciliation
+		// observer (L3 tier). Disabled by default: it scans the entire Account
+		// namespace which would stall block commits on every validator, so it is
+		// meant to be enabled only on dedicated auditor nodes, run daily or per
+		// epoch rather than every minute.
+		SupplyCheck SupplyCheckConfig `yaml:"supplyCheck"`
 	}
 )
+
+// SupplyCheckConfig configures the opt-in total-supply reconciliation observer.
+type SupplyCheckConfig struct {
+	// Enabled turns on the observer. Keep false on ordinary validators.
+	Enabled bool `yaml:"enabled"`
+	// Interval is the cadence at which the full Account-namespace scan runs.
+	Interval time.Duration `yaml:"interval"`
+}
 
 var (
 	// DefaultConfig is the default config of chain
@@ -137,6 +151,12 @@ var (
 		FixAliasForNonStopHeight:      19778036,
 		FactoryDBType:                 db.DBAuto,
 		MintTimeout:                   700 * time.Millisecond,
+		// Supply reconciliation is an auditor-side, opt-in capability; disabled by
+		// default so validators never run a full-namespace scan.
+		SupplyCheck: SupplyCheckConfig{
+			Enabled:  false,
+			Interval: time.Hour,
+		},
 	}
 
 	// ErrConfig config error
