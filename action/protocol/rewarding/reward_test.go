@@ -60,14 +60,14 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 			req.NoError(err)
 			req.Equal(tv.blockReward, br)
 			// Grant block reward will fail because of no available balance
-			_, err = p.GrantBlockReward(ctx, sm)
+			_, _, err = p.GrantBlockReward(ctx, sm)
 			req.Error(err)
 
 			_, err = p.Deposit(ctx, sm, tv.deposit, iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 			req.NoError(err)
 
 			// Grant block reward
-			rewardLog, err := p.GrantBlockReward(ctx, sm)
+			rewardLog, _, err := p.GrantBlockReward(ctx, sm)
 			req.NoError(err)
 			req.Equal(p.addr.String(), rewardLog.Address)
 			var rl rewardingpb.RewardLog
@@ -89,7 +89,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 			req.Equal(tv.blockReward, unclaimedBalance)
 
 			// Grant the same block reward again will fail
-			_, err = p.GrantBlockReward(ctx, sm)
+			_, _, err = p.GrantBlockReward(ctx, sm)
 			req.Error(err)
 
 			// Grant with priority fee after VanuatuBlockHeight
@@ -100,7 +100,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 			req.NoError(err)
 			req.Equal(tLog[0].Type, iotextypes.TransactionLogType_PRIORITY_FEE)
 			req.Equal(&blkCtx.AccumulatedTips, tLog[0].Amount)
-			rewardLog, err = p.GrantBlockReward(ctx, sm)
+			rewardLog, _, err = p.GrantBlockReward(ctx, sm)
 			req.NoError(err)
 			rls, err := UnmarshalRewardLog(rewardLog.Data)
 			req.NoError(err)
@@ -289,7 +289,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		require.NoError(t, err)
 
 		// Grant block reward
-		rewardLog, err := p.GrantBlockReward(ctx, sm)
+		rewardLog, _, err := p.GrantBlockReward(ctx, sm)
 		require.NoError(t, err)
 		require.Equal(t, p.addr.String(), rewardLog.Address)
 		var rl rewardingpb.RewardLog
@@ -520,7 +520,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	// Grant block reward
-	_, err = p.GrantBlockReward(ctx, sm)
+	_, _, err = p.GrantBlockReward(ctx, sm)
 	require.NoError(t, err)
 
 	availableBalance, _, err := p.AvailableBalance(ctx, sm)
@@ -629,7 +629,8 @@ func TestProtocol_CalculateReward(t *testing.T) {
 				ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(ctx, blkCtx), g))
 			}
 			// verify block reward, total reward, and tip
-			total, br, tip, err := p.calculateTotalRewardAndTip(ctx, sm)
+			// Pre-activation IIP-62: mStakerBlock is zero, so the clamp degenerates.
+			total, br, tip, err := p.calculateTotalRewardAndTip(ctx, sm, nil)
 			req.NoError(err)
 			req.Zero(tv.blockReward.Cmp(br))
 			req.Zero(tv.totalReward.Cmp(total))

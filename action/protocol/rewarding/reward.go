@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -110,11 +111,14 @@ func (a *rewardAccount) Decode(v systemcontracts.GenericValue) error {
 	return a.Deserialize(v.AuxiliaryData)
 }
 
-// GrantBlockReward grants the block reward (token) to the block producer
+// GrantBlockReward grants the block reward (token) to the block producer.
+// Also runs the IIP-62 per-block productive-inflation mint at the head of the
+// pipeline (post-activation only) and returns its transaction logs alongside the
+// block-reward event log.
 func (p *Protocol) GrantBlockReward(
 	ctx context.Context,
 	sm protocol.StateManager,
-) (*action.Log, error) {
+) (*action.Log, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	fCtx := protocol.MustGetFeatureCtx(ctx)
@@ -126,7 +130,7 @@ func (p *Protocol) GrantBlockReward(
 		key := append(_blockRewardHistoryKeyPrefix, indexBytes[:]...)
 		err := p.deleteStateV1(sm, key, &rewardHistory{}, protocol.ErigonStoreOnlyOption())
 		if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {
-			return nil, err
+			return nil, nil, err
 		}
 		// revert the changese for erigon storage optimazation
 		defer func() {
@@ -138,7 +142,17 @@ func (p *Protocol) GrantBlockReward(
 	}
 
 	if err := p.assertNoRewardYet(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	// IIP-62: per-block productive-inflation mint. Runs once per block from activation
+	// onward, before the block-reward grant debits the fund. Pre-activation this is a
+	// no-op and returns zero mStakerBlock + nil logs; the clamp in calculateTotalRewardAndTip
+	// degenerates accordingly. Mint tLogs are returned even if the producer has no
+	// reward address (the credit to Fund and Machina has already happened).
+	mStakerBlock, mintLogs, err := p.mintAndAllocate(ctx, sm)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	producerAddrStr := blkCtx.Producer.String()
@@ -147,7 +161,7 @@ func (p *Protocol) GrantBlockReward(
 	if pp != nil {
 		candidates, err := pp.Candidates(ctx, sm)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, candidate := range candidates {
 			if candidate.Address == producerAddrStr {
@@ -156,27 +170,28 @@ func (p *Protocol) GrantBlockReward(
 			}
 		}
 	}
-	// If reward address doesn't exist, do nothing
+	// If reward address doesn't exist, do nothing for the block-reward grant; still
+	// surface the mint tLogs so the inflation credit is attributable.
 	if rewardAddrStr == "" {
 		log.S().Debugf("Producer %s doesn't have a reward address", producerAddrStr)
-		return nil, nil
+		return nil, mintLogs, nil
 	}
 	rewardAddr, err := address.FromString(rewardAddrStr)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	totalReward, blockReward, effectiveTip, err := p.calculateTotalRewardAndTip(ctx, sm)
+	totalReward, blockReward, effectiveTip, err := p.calculateTotalRewardAndTip(ctx, sm, mStakerBlock)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := p.updateAvailableBalance(ctx, sm, totalReward); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := p.grantToAccount(ctx, sm, rewardAddr, totalReward); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := p.updateRewardHistory(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var (
 		featureCtx = protocol.MustGetFeatureCtx(ctx)
@@ -201,7 +216,7 @@ func (p *Protocol) GrantBlockReward(
 	}
 	data, err := proto.Marshal(msg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return &action.Log{
 		Address:     p.addr.String(),
@@ -209,7 +224,7 @@ func (p *Protocol) GrantBlockReward(
 		Data:        data,
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
-	}, nil
+	}, mintLogs, nil
 }
 
 // GrantEpochReward grants the epoch reward (token) to all beneficiaries of a epoch
@@ -282,7 +297,31 @@ func (p *Protocol) GrantEpochReward(
 	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
 		epochRewardSplitUqdMap = uqdMap
 	}
-	addrs, amounts, err := p.splitEpochReward(candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap)
+	// IIP-62 step G: post-activation, the epoch grant is funded by the per-block
+	// inflation surplus (mStaker minus the clamped block reward), not by the legacy
+	// admin.epochReward constant. The surplus is no longer accumulated in state — it is
+	// derived in closed form over the epoch's block range via EpochInflationSurplus,
+	// using a.blockReward (the same clamp threshold calculateTotalRewardAndTip applies).
+	g := genesis.MustExtractGenesisContext(ctx)
+	cfg := g.Rewarding
+	postActivation := g.IsToBeEnabled(blkCtx.BlockHeight)
+	epochAmount := a.epochReward
+	if postActivation {
+		epochAmount = EpochInflationSurplus(
+			cfg.OutstandingSupplyAtActivationBig(),
+			g.ToBeEnabledBlockHeight,
+			cfg.BlocksPerYear,
+			epochStartHeight,
+			blkCtx.BlockHeight,
+			cfg.InflationRateY1Bps,
+			cfg.InflationDecayNumerator,
+			cfg.InflationDecayDenominator,
+			cfg.InflationFloorBps,
+			cfg.StakerShareBps,
+			a.blockReward,
+		)
+	}
+	addrs, amounts, err := p.splitEpochReward(candidates, epochAmount, a.numDelegatesForEpochReward, exemptAddrs, epochRewardSplitUqdMap)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -354,6 +393,10 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.updateAvailableBalance(ctx, sm, actualTotalReward); err != nil {
 		return nil, nil, err
 	}
+	// IIP-62 step G: the epoch surplus is derived (EpochInflationSurplus over this epoch's
+	// block range), not drained from stored state, so there is no accumulator to reset
+	// here. The epoch-reward history sentinel (below) is what makes a retry at the same
+	// height idempotent.
 	if err := p.updateRewardHistory(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, nil, err
 	}
@@ -503,7 +546,7 @@ func (p *Protocol) claimFromAccount(ctx context.Context, sm protocol.StateManage
 	return accountutil.StoreAccount(sm, addr, primAcc)
 }
 
-func (p *Protocol) calculateTotalRewardAndTip(ctx context.Context, sm protocol.StateManager) (*big.Int, *big.Int, *big.Int, error) {
+func (p *Protocol) calculateTotalRewardAndTip(ctx context.Context, sm protocol.StateManager, mStakerBlock *big.Int) (*big.Int, *big.Int, *big.Int, error) {
 	a := admin{}
 	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return nil, nil, nil, err
@@ -515,6 +558,15 @@ func (p *Protocol) calculateTotalRewardAndTip(ctx context.Context, sm protocol.S
 		blockReward  = (&big.Int{}).Set(a.blockReward)
 		effectiveTip = &big.Int{}
 	)
+	// IIP-62 step F: post-activation, clamp the constant block reward down to the
+	// per-block staker-share mint when the latter is smaller (e.g. at the Y12+ floor
+	// where annual mint dips below WakeBlockReward × blocksPerYear). The excess
+	// (mStakerBlock − effective_block_reward) is the per-block inflation surplus that
+	// EpochInflationSurplus re-derives over the epoch and step G grants. Pre-activation
+	// mStakerBlock is zero, so this branch is a no-op.
+	if mStakerBlock != nil && mStakerBlock.Sign() > 0 && mStakerBlock.Cmp(blockReward) < 0 {
+		blockReward.Set(mStakerBlock)
+	}
 	if featureCtx.EnableDynamicFeeTx {
 		if blkCtx.AccumulatedTips.Sign() > 0 {
 			effectiveTip.Set(&blkCtx.AccumulatedTips)

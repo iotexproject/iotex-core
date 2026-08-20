@@ -73,6 +73,9 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	g.Rewarding.NumDelegatesForFoundationBonus = 5
 	g.Rewarding.FoundationBonusLastEpoch = 365
 	g.Rewarding.ProductivityThreshold = 50
+	// Default MachinaDaoAddress so NewProtocol can pre-parse it. IIP-62 tests that
+	// activate the inflation gate override this address and the rest of the cfg.
+	g.Rewarding.MachinaDaoAddress = identityset.Address(33).String()
 	g.XinguBlockHeight = slashHeight
 	// Initialize the protocol
 	if withExempt {
