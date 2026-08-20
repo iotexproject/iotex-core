@@ -102,14 +102,14 @@ func (bm *Manager) Put(msg *Message, opts ...Option) error {
 	if !exist {
 		cfg := _defaultWriterConfig
 		for _, opt := range opts {
-			opt(cfg)
+			opt(&cfg)
 		}
 		bm.mu.Lock()
 		if len(bm.writerMap) > _maxWriters {
 			bm.mu.Unlock()
 			return errors.New("the batch is full")
 		}
-		writer = newBatchWriter(cfg, bm)
+		writer = newBatchWriter(&cfg, bm)
 		bm.writerMap[id] = writer
 		bm.mu.Unlock()
 	}
@@ -200,7 +200,7 @@ type writerConfig struct {
 	msgInterval      time.Duration
 }
 
-var _defaultWriterConfig = &writerConfig{
+var _defaultWriterConfig = writerConfig{
 	expiredThreshold: 2,
 	msgInterval:      100 * time.Millisecond,
 	sizeLimit:        1000,
