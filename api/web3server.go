@@ -351,10 +351,10 @@ func (svr *web3Handler) feeHistory(ctx context.Context, in *gjson.Result) (inter
 	if !blkCnt.Exists() || !newestBlk.Exists() {
 		return nil, errInvalidFormat
 	}
-	// blockCount is a hex quantity per the eth_feeHistory spec (e.g. "0x5"); parse
-	// it as hex. hexStringToNumber tolerates values without the 0x prefix, so bare
-	// decimal-looking inputs (0x0-0x9) remain backward compatible.
-	blocks, err := hexStringToNumber(blkCnt.String())
+	// blockCount is a hex quantity per the eth_feeHistory spec (e.g. "0x5"), but
+	// this endpoint has always accepted a bare decimal too. Parse both forms with
+	// geth's hex-or-decimal rule so "0xa" and "10" alike request ten blocks.
+	blocks, err := hexOrDecimalToNumber(blkCnt.String())
 	if err != nil {
 		return nil, err
 	}

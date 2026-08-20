@@ -860,8 +860,10 @@ func feeHistory(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, da
 		expected int
 	}{
 		{`[4, "latest", [25,75]]`, 1},
-		// blockCount as a hex quantity string, per the eth_feeHistory spec (what
-		// standard callers such as MetaMask send); must resolve to the same 4 blocks.
+		// blockCount as a bare decimal string, historically accepted here, and as a
+		// hex quantity string per the eth_feeHistory spec (what standard callers such
+		// as MetaMask send); both must resolve to the same 4 blocks.
+		{`["4", "latest", [25,75]]`, 1},
 		{`["0x4", "latest", [25,75]]`, 1},
 	} {
 		oldnest := max(bc.TipHeight()-4+1, 1)

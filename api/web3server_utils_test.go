@@ -1,6 +1,7 @@
 package api
 
 import (
+	"math"
 	"math/big"
 	"testing"
 
@@ -188,4 +189,43 @@ func TestParseBlockNumber(t *testing.T) {
 		num, _ := web3svr.parseBlockNumber("finalized")
 		require.Equal(num, uint64(0x1))
 	})
+}
+
+func TestHexOrDecimalToNumber(t *testing.T) {
+	require := require.New(t)
+
+	for _, test := range []struct {
+		input    string
+		expected uint64
+	}{
+		// bare decimal keeps its decimal meaning, as it did before hex was accepted
+		{"0", 0},
+		{"10", 10},
+		{"1024", 1024},
+		{"18446744073709551615", math.MaxUint64},
+		// 0x-prefixed hex quantity, per the eth JSON-RPC spec
+		{"0x0", 0},
+		{"0xa", 10},
+		{"0xA", 10},
+		{"0X10", 16},
+		{"0xffffffffffffffff", math.MaxUint64},
+	} {
+		num, err := hexOrDecimalToNumber(test.input)
+		require.NoError(err, test.input)
+		require.Equal(test.expected, num, test.input)
+	}
+
+	for _, input := range []string{
+		"",                     // missing value
+		"0x",                   // prefix without digits
+		"-1",                   // negative
+		"1.5",                  // not an integer
+		"a",                    // hex digits without the 0x prefix
+		"latest",               // block tag, not a count
+		"18446744073709551616", // decimal overflow
+		"0x10000000000000000",  // hex overflow
+	} {
+		_, err := hexOrDecimalToNumber(input)
+		require.ErrorIs(err, errUnkownType, input)
+	}
 }
