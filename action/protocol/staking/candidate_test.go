@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -89,14 +90,16 @@ func TestSerWithDeactivation(t *testing.T) {
 	r := require.New(t)
 
 	original := &Candidate{
-		Owner:              identityset.Address(1),
-		Operator:           identityset.Address(2),
-		Reward:             identityset.Address(3),
-		Name:               "test_candidate",
-		Votes:              big.NewInt(100),
-		SelfStake:          big.NewInt(1000),
-		SelfStakeBucketIdx: 1,
-		DeactivatedAt:      99999,
+		Owner:                   identityset.Address(1),
+		Operator:                identityset.Address(2),
+		Reward:                  identityset.Address(3),
+		Name:                    "test_candidate",
+		Votes:                   big.NewInt(100),
+		SelfStake:               big.NewInt(1000),
+		SelfStakeBucketIdx:      1,
+		DeactivatedAt:           99999,
+		RewardAddressUpdated:    true,
+		VoterRewardOnchainOptIn: true,
 	}
 
 	data, err := original.Serialize()
@@ -107,8 +110,31 @@ func TestSerWithDeactivation(t *testing.T) {
 
 	r.Equal(original.DeactivatedAt, deserialized.DeactivatedAt)
 	r.Equal(uint64(99999), deserialized.DeactivatedAt)
+	r.True(deserialized.RewardAddressUpdated)
+	r.True(deserialized.VoterRewardOnchainOptIn)
 
 	r.True(original.Equal(deserialized))
+}
+
+func TestCandidateLegacyOptInFieldDoesNotSetRewardAddressUpdated(t *testing.T) {
+	r := require.New(t)
+	candidate := &Candidate{
+		Owner:     identityset.Address(1),
+		Operator:  identityset.Address(2),
+		Reward:    identityset.Address(3),
+		Name:      "legacy",
+		Votes:     big.NewInt(100),
+		SelfStake: big.NewInt(1000),
+	}
+	data, err := candidate.Serialize()
+	r.NoError(err)
+	data = protowire.AppendTag(data, 11, protowire.VarintType)
+	data = protowire.AppendVarint(data, 1)
+
+	deserialized := &Candidate{}
+	r.NoError(deserialized.Deserialize(data))
+	r.False(deserialized.RewardAddressUpdated)
+	r.True(deserialized.VoterRewardOnchainOptIn)
 }
 
 func TestClone(t *testing.T) {

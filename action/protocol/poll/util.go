@@ -20,9 +20,13 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -212,6 +216,9 @@ func setCandidates(
 			return errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
 		}
 	}
+	if err := freezeIIP59RewardState(ctx, sm, epochNum); err != nil {
+		return errors.Wrap(err, "failed to freeze IIP-59 reward state")
+	}
 	if loadCandidatesLegacy {
 		key, org := candidatesutil.ConstructLegacyKeyWithOrg(height)
 		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(key), protocol.ErigonStoreKeyOption(org))
@@ -220,6 +227,125 @@ func setCandidates(
 	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
 	_, err := sm.PutState(&candidates, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err
+}
+
+// freezeIIP59RewardState freezes the per-candidate reward inputs and then
+// opens the bucket copy-on-write window at the same explicit height.
+//
+// It deliberately does not hand the poll list down. What gets frozen is the
+// opted-in candidate set, which FreezeCandidateRewardSnapshots enumerates from the
+// candidate center; the poll list is a vote-score-ranked subset on a different
+// cadence and the two drift within an era. This function is here for its
+// TIMING, not for its argument — PutPollResult is simply the last thing that
+// runs at a known point relative to the era boundary.
+//
+// WHEN THIS RUNS, precisely, because "era boundary freeze" is a half-truth:
+// epochNum here is the number of the epoch this PutPollResult is FOR, derived
+// by setCandidates from the action's nextEpochHeight. The gate below is
+// therefore on the right epoch — but the action itself is created around the
+// MIDPOINT OF THE PRECEDING EPOCH (see createPostSystemActions above, which
+// returns nil until blockHeight >= epochHeight + epochLen/2). So the freeze
+// height H passed to FreezeCandidateRewardSnapshots and BeginEraCOWWindow is
+// half an epoch BEFORE the era boundary epoch starts — and the drain's cursor
+// is not created until the last
+// block of that boundary epoch, ~1.5 epochs after H (~2,160 blocks, ~90 minutes
+// on mainnet).
+//
+// That is an accepted position, not a bug, and it is not a divergence risk: H
+// travels with the snapshot as FreezeHeight and every weight recompute
+// evaluates at it, so all nodes compute identical numbers. The consequence to
+// know is that stake activity in the last half of the preceding epoch, and in
+// the whole boundary epoch, does not affect the weights that settle that era.
+// See docs/iip-59-distribution-architecture.md §2.1.
+//
+// Pre-fork (NoVoterRewardDistribution=true): no-op.
+// Target epoch is not an era boundary (post-fork): no-op. Reward distribution
+// runs on a per-era cadence (IIP-59 §8), so freezing at every PutPollResult
+// would waste state writes and would shorten the span of stake activity that
+// participates in the era's reward math.
+// Post-fork, era boundary, no contract configured: bridge nil, snapshot uses
+// the full-owner commission fallback.
+// Post-fork, era boundary, contract configured: bridge called; snapshot
+// carries frozen rates + commission-configuration bit.
+func freezeIIP59RewardState(ctx context.Context, sm protocol.StateManager, epochNum uint64) error {
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	if fCtx.NoVoterRewardDistribution {
+		return nil
+	}
+	g := genesis.MustExtractGenesisContext(ctx)
+	if !protocol.IsEraBoundary(epochNum, g.EpochsPerRewardEra) {
+		return nil
+	}
+	contract := g.DelegateProfileContractAddress
+	var (
+		bridge *delegateprofile.Bridge
+		reader delegateprofile.ContractReader
+	)
+	if contract != "" {
+		b, err := delegateprofile.New(contract)
+		if err != nil {
+			return errors.Wrap(err, "invalid DelegateProfile contract address")
+		}
+		bridge = b
+		reader = delegateProfileContractReader(sm)
+	}
+	freezeHeight := protocol.MustGetBlockCtx(ctx).BlockHeight
+	if err := staking.FreezeCandidateRewardSnapshots(ctx, sm, bridge, reader, freezeHeight); err != nil {
+		return err
+	}
+	return staking.BeginEraCOWWindow(ctx, sm, freezeHeight)
+}
+
+// _delegateProfileViewCallGasLimit bounds the simulated DelegateProfile view
+// call. Nothing is billed — the ceiling only exists so a malformed contract
+// cannot spin the interpreter during block production.
+const _delegateProfileViewCallGasLimit uint64 = 10_000_000
+
+// delegateProfileContractReader mirrors consortium.go's
+// getContractReaderForGenesisStates: build an unsigned Execution against the
+// target contract, wrap it in an envelope, and call evm.SimulateExecution
+// with the zero-address caller. The pattern is deterministic (fixed caller,
+// no gas billing to a real account) and reuses the existing view-call plumb.
+func delegateProfileContractReader(sm protocol.StateManager) delegateprofile.ContractReader {
+	return delegateprofile.ContractReaderFunc(func(ctx context.Context, contract string, callData []byte) (ret []byte, err error) {
+		gasLimit := _delegateProfileViewCallGasLimit
+		ex := action.NewExecution(contract, big.NewInt(0), callData)
+		caller, err := address.FromString(address.ZeroAddress)
+		if err != nil {
+			return nil, err
+		}
+		callerState, err := accountutil.AccountState(ctx, sm, caller)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load DelegateProfile simulation caller")
+		}
+		elp := (&action.EnvelopeBuilder{}).
+			SetNonce(callerState.PendingNonceConsideringFreshAccount()).
+			SetGasLimit(gasLimit).
+			SetAction(ex).
+			Build()
+		bcCtx := protocol.MustGetBlockchainCtx(ctx)
+		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+			GetBlockHash: bcCtx.GetBlockHash,
+			GetBlockTime: bcCtx.GetBlockTime,
+			DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) (
+				[]*action.TransactionLog, error,
+			) {
+				return nil, nil
+			},
+		})
+		snapshot := sm.Snapshot()
+		defer func() {
+			if revertErr := sm.Revert(snapshot); revertErr != nil {
+				if err != nil {
+					err = errors.Wrapf(revertErr, "failed to revert DelegateProfile simulation after execution failed: %v", err)
+				} else {
+					err = errors.Wrap(revertErr, "failed to revert DelegateProfile simulation")
+				}
+			}
+		}()
+		ret, _, err = evm.SimulateExecution(ctx, sm, caller, elp)
+		return ret, err
+	})
 }
 
 // setNextEpochProbationList sets the probation list with next key

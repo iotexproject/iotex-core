@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -68,7 +69,7 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 		err = store.GetObject(namespace, key3, &valueInStore)
 		require.NoError(err)
 		require.True(bytes.Equal(value3, valueInStore))
-		iter, err := store.States(namespace, nil, [][]byte{key1, key2, key3})
+		iter, err := store.States(namespace, nil, [][]byte{key1, key2, key3}, nil)
 		require.NoError(err)
 		require.Equal(3, iter.Size())
 		var valuesInStore []valueBytes
@@ -91,7 +92,7 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 		require.NoError(store.DeleteObject(namespace, key1, nil))
 		err = store.GetObject(namespace, key1, &valueInStore)
 		require.Error(err)
-		iter, err = store.States(namespace, &valueInStore, [][]byte{key1, key2, key3})
+		iter, err = store.States(namespace, &valueInStore, [][]byte{key1, key2, key3}, nil)
 		require.NoError(err)
 		require.Equal(3, iter.Size())
 		valuesInStore = []valueBytes{}
@@ -142,6 +143,62 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 		require.True(bytes.Equal(heightInStore, byteutil.Uint64ToBytes(height)))
 	})
 	require.NoError(store.Stop(ctx))
+}
+
+func TestStateDBWorkingSetStoreDumpWriteQueue(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
+	require.NoError(err)
+	store := newStateDBWorkingSetStore(flusher, true)
+	require.NoError(store.Start(ctx))
+	defer func() { require.NoError(store.Stop(ctx)) }()
+
+	namespace := "namespace"
+	value1 := valueBytes("value1")
+	require.NoError(store.PutObject(namespace, []byte("key1"), &value1))
+	require.NoError(store.DeleteObject(namespace, []byte("key2"), nil))
+
+	var buf bytes.Buffer
+	require.NoError(store.DumpWriteQueue(&buf))
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+
+	// one line per queued write, in queue order — this ordering is what Digest()
+	// hashes over, so it is the thing a mismatch diff needs to line up on
+	require.Len(lines, 2)
+	require.True(strings.HasPrefix(lines[0], "0\t"))
+	require.True(strings.HasPrefix(lines[1], "1\t"))
+	for i, key := range []string{"key1", "key2"} {
+		fields := strings.Split(lines[i], "\t")
+		require.Len(fields, 6)
+		require.Equal(namespace, fields[2])
+		require.Equal(hex.EncodeToString([]byte(key)), fields[3])
+	}
+	// the put carries its value, the delete does not
+	require.Equal("6", strings.Split(lines[0], "\t")[5])
+	require.Equal("0", strings.Split(lines[1], "\t")[5])
+
+	// dumping twice must give identical output, otherwise diffing two binaries'
+	// dumps would report spurious divergence
+	var buf2 bytes.Buffer
+	require.NoError(store.DumpWriteQueue(&buf2))
+	require.Equal(buf.String(), buf2.String())
+
+	// a differing value shows up as a differing line while ns/key stay equal —
+	// the exact signal used to localise a delta state digest mismatch
+	flusher2, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
+	require.NoError(err)
+	store2 := newStateDBWorkingSetStore(flusher2, true)
+	require.NoError(store2.Start(ctx))
+	defer func() { require.NoError(store2.Stop(ctx)) }()
+	other := valueBytes("valueX")
+	require.NoError(store2.PutObject(namespace, []byte("key1"), &other))
+	var buf3 bytes.Buffer
+	require.NoError(store2.DumpWriteQueue(&buf3))
+	line := strings.Split(strings.TrimRight(buf3.String(), "\n"), "\n")[0]
+	require.NotEqual(lines[0], line)
+	require.Equal(strings.Split(lines[0], "\t")[3], strings.Split(line, "\t")[3]) // same key
+	require.NotEqual(strings.Split(lines[0], "\t")[4], strings.Split(line, "\t")[4])
 }
 
 func TestFactoryWorkingSetStore(t *testing.T) {
