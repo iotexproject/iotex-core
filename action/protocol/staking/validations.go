@@ -77,6 +77,9 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 		return action.ErrInvalidCanName
 	}
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if err := rejectPrePoPForkPop(featureCtx, act.BLSPop()); err != nil {
+		return err
+	}
 	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
 		if !featureCtx.CandidateRegisterMustWithStake &&
 			act.Amount().Sign() == 0 {
@@ -120,6 +123,48 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	return nil
 }
 
+// rejectPrePoPForkPop refuses any action carrying a proof-of-possession before
+// the PoP fork activates, so that a node which understands blsPop reaches the
+// same verdict on every block as one that does not.
+//
+// Without it an attacker picks any pre-fork height and splits the network, by
+// either of two independent routes:
+//
+//   - ABI. An old node does not know selectors 0x370c13df
+//     (candidateRegisterWithBLSAndPoP) or 0x80980508
+//     (candidateUpdateWithBLSAndPoP): every New*FromABIBinary in the
+//     builder.go fallthrough chain returns errDecodeFailure, txContainer
+//     Unfold fails, and the block is rejected. A new node decodes the call,
+//     skips VerifyBLSPop because the gate is off, and executes it — writing
+//     BLSPubKey to state. Both selectors reject an empty blsPop at decode
+//     time, so "the V2 call decoded" and "blsPop is non-empty" are the same
+//     statement, and rejecting the latter rejects exactly the V2 calls.
+//
+//   - Native protobuf. An old node's iotex-proto has no blsPop field
+//     (it landed in v0.6.12). LoadProto copies known fields into the Go
+//     struct and Proto() rebuilds the message from those, so the field does
+//     not survive the round trip; envelopeHash therefore differs and
+//     signature verification fails there while it passes here.
+//
+// This lives in validation rather than in the handler on purpose. A handler
+// error writes a failure receipt — gas charged, receipt root advanced — which
+// is itself a divergence from the old node's outright block rejection. A
+// validation error aborts workingSet.process before any receipt exists, which
+// is what the old node's Unfold and signature failures also do.
+//
+// The check is keyed only on the gate and sits outside the
+// CandidateBLSPublicKey / OptionalCandidateBLSPublicKey switch below, because
+// the rule holds identically in all three eras while only the post-fork branch
+// looks at blsPop at all: the pre-Xingu and Xingu-until-fork branches test
+// act.WithBLS(), which reads the public key and never the PoP.
+func rejectPrePoPForkPop(featureCtx protocol.FeatureCtx, pop []byte) error {
+	if featureCtx.EnforceBLSPoP || len(pop) == 0 {
+		return nil
+	}
+	return errors.Wrap(action.ErrInvalidAct,
+		"BLS proof-of-possession is not accepted before the PoP fork")
+}
+
 // validateBLSPairing rejects a PoP that arrives without the public key it is
 // supposed to attest to.
 //
@@ -143,6 +188,9 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 		}
 	}
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if err := rejectPrePoPForkPop(featureCtx, act.BLSPop()); err != nil {
+		return err
+	}
 	switch {
 	case !featureCtx.CandidateBLSPublicKey:
 		if act.WithBLS() {

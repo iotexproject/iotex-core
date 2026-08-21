@@ -182,13 +182,17 @@ func (cu *CandidateUpdate) Proto() *iotextypes.CandidateBasicInfo {
 		act.RewardAddress = cu.rewardAddress.String()
 	}
 
+	// blsPop is nested under the pubkey, matching CandidateRegister.Proto().
+	// The two have to agree: a PoP can only ever attest to a key, so emitting
+	// one without its key would put a message on the wire that no decode path
+	// produces and that validateBLSPairing exists to reject.
 	if len(cu.blsPubKey) > 0 {
 		act.BlsPubKey = make([]byte, len(cu.blsPubKey))
 		copy(act.BlsPubKey, cu.blsPubKey)
-	}
-	if len(cu.blsPop) > 0 {
-		act.BlsPop = make([]byte, len(cu.blsPop))
-		copy(act.BlsPop, cu.blsPop)
+		if len(cu.blsPop) > 0 {
+			act.BlsPop = make([]byte, len(cu.blsPop))
+			copy(act.BlsPop, cu.blsPop)
+		}
 	}
 	return act
 }

@@ -134,6 +134,9 @@ func TestValidateCandidateUpdateBLSEras(t *testing.T) {
 	t.Run("pre-xingu: BLS forbidden", func(t *testing.T) {
 		ctx := ctxAtEra(t, "pre-xingu")
 		r.NoError(p.validateCandidateUpdate(ctx, plain))
-		r.ErrorContains(p.validateCandidateUpdate(ctx, withKeyAndPoP), "cannot include BLS public key")
+		// Asserted with the no-PoP shape so this stays a statement about the
+		// key alone. A PoP-carrying action is rejected earlier and for a
+		// different reason -- see TestValidateRejectsPoPBeforeFork.
+		r.ErrorContains(p.validateCandidateUpdate(ctx, withKeyNoPoP), "cannot include BLS public key")
 	})
 }
