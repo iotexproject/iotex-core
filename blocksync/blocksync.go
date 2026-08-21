@@ -316,6 +316,11 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 
 func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInfo, start uint64, end uint64) error {
 	tip := bs.tipHeightHandler()
+	// Reject an inverted window outright: there is nothing to serve.
+	if start > end {
+		return nil
+	}
+	// Never serve above the local tip.
 	if end > tip {
 		log.L().Debug(
 			"Do not have requested blocks",
@@ -324,6 +329,17 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInf
 			zap.Uint64("tipHeight", tip),
 		)
 		end = tip
+	}
+	// After clamping `end` to tip, the window may become empty.
+	if start > tip || start > end {
+		return nil
+	}
+	// Bound the per-request served range so a cheap {start:0,end:tip} request cannot
+	// make us re-serialize and unicast the entire chain (serve amplification). We keep
+	// the tail of the window (the highest maxBlocks blocks), which is what a syncing
+	// peer actually needs. 0 means "disabled" (not recommended).
+	if limit := bs.cfg.MaxBlocksPerSyncRequest; limit > 0 && end-start+1 > limit {
+		start = end - limit + 1
 	}
 	// TODO: send back multiple blocks in one shot
 	for i := start; i <= end; i++ {
