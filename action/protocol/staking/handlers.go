@@ -747,15 +747,24 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	// producing an off-by-one mismatch that lets the second delegate's
 	// stake-weight "vote for free".
 	if act.WithBLS() && featureCtx.EnforceBLSPoP {
-		if holder := csm.GetByBLSPubKey(act.BLSPubKey()); holder != nil {
-			// Re-registration from the same owner (no self-stake yet)
-			// is allowed to carry forward its existing pubkey; any
-			// other holder is a collision.
-			if !ownerExist || holder.GetIdentifier().String() != c.GetIdentifier().String() {
-				return log, nil, &handleError{
-					err:           errors.New("BLS pubkey already registered by another candidate"),
-					failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
-				}
+		// Re-registration from the same owner (no self-stake yet) is allowed
+		// to carry forward its existing pubkey; a holder that is anyone else
+		// is a collision. Asking "does anyone else hold it" rather than "who
+		// holds it" is what keeps the verdict identical on every node: a
+		// pubkey shared by two candidates from before this rule existed would
+		// otherwise resolve to whichever the map yielded first.
+		//
+		// self is nil for a first-time registration -- c.GetIdentifier() is
+		// freshly generated and cannot match an existing candidate, so any
+		// holder is "other" either way.
+		var self address.Address
+		if ownerExist {
+			self = c.GetIdentifier()
+		}
+		if csm.HasBLSPubKeyOtherThan(act.BLSPubKey(), self) {
+			return log, nil, &handleError{
+				err:           errors.New("BLS pubkey already registered by another candidate"),
+				failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
 			}
 		}
 	}
@@ -924,8 +933,11 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 					failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
 				}
 			}
-			if holder := csm.GetByBLSPubKey(act.BLSPubKey()); holder != nil &&
-				holder.GetIdentifier().String() != c.GetIdentifier().String() {
+			// "Does anyone else hold it", not "who holds it": see
+			// HasBLSPubKeyOtherThan. A pubkey shared by two candidates from
+			// before this rule existed would otherwise resolve to whichever
+			// one the map yielded first, and nodes would disagree.
+			if csm.HasBLSPubKeyOtherThan(act.BLSPubKey(), c.GetIdentifier()) {
 				return log, &handleError{
 					err:           errors.New("BLS pubkey already registered by another candidate"),
 					failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
@@ -988,8 +1000,8 @@ func (p *Protocol) handleCandidateUpdateByOperator(ctx context.Context, act *act
 				failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
 			}
 		}
-		if holder := csm.GetByBLSPubKey(act.BLSPubKey()); holder != nil &&
-			holder.GetIdentifier().String() != c.GetIdentifier().String() {
+		// See the owner-path handler above for why this is a predicate.
+		if csm.HasBLSPubKeyOtherThan(act.BLSPubKey(), c.GetIdentifier()) {
 			return log, &handleError{
 				err:           errors.New("BLS pubkey already registered by another candidate"),
 				failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,

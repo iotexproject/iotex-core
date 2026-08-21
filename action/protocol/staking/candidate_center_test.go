@@ -646,44 +646,94 @@ func TestCandidateUpsert(t *testing.T) {
 	})
 }
 
-// TestCandidateCenter_GetByBLSPubKey covers the uniqueness lookup used
-// by handleCandidateRegister and handleCandidateUpdate to enforce one
-// BLS pubkey per delegate — a precondition for IIP-52's
-// quorum-counting model (FastAggregateVerify dedups pubkeys but the
-// signer bitmap does not). Callers exclude "self" by comparing the
-// returned candidate's identifier to their own.
-func TestCandidateCenter_GetByBLSPubKey(t *testing.T) {
+// TestCandidateCenter_HasBLSPubKeyOtherThan covers the uniqueness predicate
+// used by handleCandidateRegister and handleCandidateUpdate to enforce one BLS
+// pubkey per delegate — a precondition for IIP-52's quorum-counting model
+// (FastAggregateVerify dedups pubkeys but the signer bitmap does not).
+func TestCandidateCenter_HasBLSPubKeyOtherThan(t *testing.T) {
 	r := require.New(t)
-	c, err := NewCandidateCenter(nil)
-	r.NoError(err)
 
 	pkA := []byte("dummy-bls-pubkey-A-48-bytes-pad-________________")[:48]
 	pkB := []byte("dummy-bls-pubkey-B-48-bytes-pad-________________")[:48]
 
-	candA := &Candidate{
-		Owner:              identityset.Address(1),
-		Operator:           identityset.Address(7),
-		Reward:             identityset.Address(1),
-		Name:               "cand-a",
-		Votes:              big.NewInt(0),
-		SelfStake:          big.NewInt(0),
-		SelfStakeBucketIdx: 0,
-		BLSPubKey:          pkA,
+	mk := func(idx int, name string, pk []byte) *Candidate {
+		return &Candidate{
+			Owner:              identityset.Address(idx),
+			Operator:           identityset.Address(idx + 6),
+			Reward:             identityset.Address(idx),
+			Name:               name,
+			Votes:              big.NewInt(0),
+			SelfStake:          big.NewInt(0),
+			SelfStakeBucketIdx: uint64(idx),
+			BLSPubKey:          pk,
+		}
 	}
+
+	candA := mk(1, "cand-a", pkA)
+	c, err := NewCandidateCenter(nil)
+	r.NoError(err)
 	r.NoError(c.Upsert(candA))
 	r.NoError(c.commit())
 
-	// Empty / nil / unregistered pubkey returns nil.
-	r.Nil(c.GetByBLSPubKey(nil), "nil pubkey returns nil")
-	r.Nil(c.GetByBLSPubKey([]byte{}), "empty pubkey returns nil")
-	r.Nil(c.GetByBLSPubKey(pkB), "unregistered pubkey returns nil")
+	r.False(c.HasBLSPubKeyOtherThan(nil, nil), "nil pubkey is not a collision")
+	r.False(c.HasBLSPubKeyOtherThan([]byte{}, nil), "empty pubkey is not a collision")
+	r.False(c.HasBLSPubKeyOtherThan(pkB, nil), "unregistered pubkey is not a collision")
 
-	// pkA returns the holder. Callers compare identifiers to decide
-	// whether a registration / update should reject — same-identifier
-	// is allowed (self), different-identifier is the rogue case.
-	holder := c.GetByBLSPubKey(pkA)
-	r.NotNil(holder)
-	r.Equal(candA.Name, holder.Name)
-	r.Equal(candA.GetIdentifier().String(), holder.GetIdentifier().String(),
-		"holder's identifier matches the registrant")
+	// The sole holder asking about its own key is not a collision; anyone
+	// else asking about it is.
+	r.False(c.HasBLSPubKeyOtherThan(pkA, candA.GetIdentifier()),
+		"a candidate may carry its own key forward")
+	r.True(c.HasBLSPubKeyOtherThan(pkA, identityset.Address(9)),
+		"another candidate claiming the key is a collision")
+	r.True(c.HasBLSPubKeyOtherThan(pkA, nil),
+		"a first-time registrant has no identity to be excluded by")
+}
+
+// TestCandidateCenter_HasBLSPubKeyOtherThanIsOrderIndependent is the
+// regression guard for a consensus fork.
+//
+// Two candidates can already share a BLS pubkey: nothing forbids it before the
+// uniqueness rule activates, and it can be arranged deliberately ahead of the
+// fork. A "return the first holder" lookup walks candBase.identifierMap, whose
+// iteration order Go randomises per process, so each node would name a
+// different holder; every caller then compares that holder against itself to
+// choose between Success and ErrCandidateConflict, and the nodes would write
+// different receipt statuses and different receipt roots.
+//
+// The predicate has to give the same answer every time, for each of the two
+// holders and for a third party alike.
+func TestCandidateCenter_HasBLSPubKeyOtherThanIsOrderIndependent(t *testing.T) {
+	r := require.New(t)
+	pk := []byte("dummy-bls-pubkey-X-48-bytes-pad-________________")[:48]
+
+	mk := func(idx int, name string) *Candidate {
+		return &Candidate{
+			Owner:              identityset.Address(idx),
+			Operator:           identityset.Address(idx + 6),
+			Reward:             identityset.Address(idx),
+			Name:               name,
+			Votes:              big.NewInt(0),
+			SelfStake:          big.NewInt(0),
+			SelfStakeBucketIdx: uint64(idx),
+			BLSPubKey:          pk,
+		}
+	}
+	candA, candB := mk(1, "cand-a"), mk(2, "cand-b")
+
+	// Rebuild the center every round: the map ordering is drawn afresh, which
+	// is what produced a 176/24 split across 200 rounds before the fix.
+	for i := 0; i < 200; i++ {
+		c, err := NewCandidateCenter(nil)
+		r.NoError(err)
+		r.NoError(c.Upsert(candA))
+		r.NoError(c.Upsert(candB))
+		r.NoError(c.commit())
+
+		r.True(c.HasBLSPubKeyOtherThan(pk, candA.GetIdentifier()),
+			"round %d: A must see B", i)
+		r.True(c.HasBLSPubKeyOtherThan(pk, candB.GetIdentifier()),
+			"round %d: B must see A", i)
+		r.True(c.HasBLSPubKeyOtherThan(pk, identityset.Address(9)),
+			"round %d: a third party must see both", i)
+	}
 }
