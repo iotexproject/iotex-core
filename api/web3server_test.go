@@ -1330,3 +1330,34 @@ func TestResponseIDMatchTypeWithRequest(t *testing.T) {
 		require.Contains(string(bodyBytes), tt.sub)
 	}
 }
+
+func TestFeeHistory(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	// a JSON number, a bare decimal string and a hex quantity all ask for 10 blocks
+	for _, blkCnt := range []string{`10`, `"10"`, `"0xa"`} {
+		core.EXPECT().TipHeight().Return(uint64(100))
+		core.EXPECT().FeeHistory(gomock.Any(), uint64(10), uint64(100), []float64{25, 75}).
+			Return(uint64(91), [][]*big.Int{}, []*big.Int{}, []float64{}, []*big.Int{}, []float64{}, nil)
+		in := gjson.Parse(fmt.Sprintf(`{"params":[%s, "latest", [25,75]]}`, blkCnt))
+		ret, err := web3svr.feeHistory(context.Background(), &in)
+		require.NoError(err, blkCnt)
+		require.Equal(uint64ToHex(91), ret.(*feeHistoryResult).OldestBlock, blkCnt)
+	}
+
+	// malformed or overflowing block counts are rejected before reaching the core service
+	for _, blkCnt := range []string{`"0x"`, `"-1"`, `"latest"`, `"0x10000000000000000"`, `18446744073709551616`} {
+		in := gjson.Parse(fmt.Sprintf(`{"params":[%s, "latest", [25,75]]}`, blkCnt))
+		_, err := web3svr.feeHistory(context.Background(), &in)
+		require.ErrorIs(err, errUnkownType, blkCnt)
+	}
+
+	// a missing blockCount is still a format error
+	in := gjson.Parse(`{"params":[]}`)
+	_, err := web3svr.feeHistory(context.Background(), &in)
+	require.ErrorIs(err, errInvalidFormat)
+}
