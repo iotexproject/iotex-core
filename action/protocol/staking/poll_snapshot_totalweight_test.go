@@ -85,7 +85,9 @@ func TestFreezeCandidateRewardSnapshots_TotalWeightIsCandidateVotes(t *testing.T
 	r.NoError(putOnchainCandidate(csm, cand))
 	installCandCenter(t, sm, cand)
 
-	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0))
+	_, frzE1 := FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0, 0)
+
+	r.NoError(frzE1)
 
 	snap, err := CandidateRewardSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
@@ -111,7 +113,9 @@ func TestFreezeCandidateRewardSnapshots_TotalWeightMultipleCandidatesIsolated(t 
 	r.NoError(putOnchainCandidate(csm, candB))
 	installCandCenter(t, sm, candA, candB)
 
-	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0))
+	_, frzE2 := FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0, 0)
+
+	r.NoError(frzE2)
 
 	snapA, err := CandidateRewardSnapshotFor(sm, candA.Owner)
 	r.NoError(err)
@@ -137,7 +141,9 @@ func TestFreezeCandidateRewardSnapshots_TotalWeightZeroVotes(t *testing.T) {
 	r.NoError(putOnchainCandidate(csm, cand))
 	installCandCenter(t, sm, cand)
 
-	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0))
+	_, frzE3 := FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0, 0)
+
+	r.NoError(frzE3)
 
 	snap, err := CandidateRewardSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
@@ -172,7 +178,7 @@ func TestFreezeCandidateRewardSnapshots_MissingViewIsFatal(t *testing.T) {
 	r.NoError(putOnchainCandidate(csm, cand))
 	// deliberately no installCandCenter
 
-	err := FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0)
+	_, err := FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0, 0)
 	r.Error(err)
 	r.Contains(err.Error(), "candidate view")
 
@@ -195,7 +201,7 @@ func TestFreezeCandidateRewardSnapshots_EmptyCandCenterIsFatal(t *testing.T) {
 	r.NoError(putOnchainCandidate(csm, cand))
 	r.NoError(sm.WriteView(_protocolID, &viewData{}))
 
-	err := FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0)
+	_, err := FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0, 0)
 	r.Error(err)
 	r.Contains(err.Error(), "no candidate center")
 }
@@ -216,7 +222,9 @@ func TestFreezeCandidateRewardSnapshots_VotesCloneIsolation(t *testing.T) {
 	r.NoError(putOnchainCandidate(csm, cand))
 	installCandCenter(t, sm, cand)
 
-	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0))
+	_, frzE4 := FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0, 0)
+
+	r.NoError(frzE4)
 
 	// Mutate the same *big.Int the candidate record carries, in place —
 	// this is what a post-freeze stake change looks like to an aliasing bug.

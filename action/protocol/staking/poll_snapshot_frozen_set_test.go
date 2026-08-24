@@ -72,7 +72,8 @@ func TestFreezeCandidateRewardSnapshots_RecordIsIndependentOfSetSize(t *testing.
 	solo := onchainCandidate(1, "solo", big.NewInt(4_200))
 	r.NoError(putOnchainCandidate(newCandidateStateManager(soloSM), solo))
 	installCandCenter(t, soloSM, solo)
-	r.NoError(FreezeCandidateRewardSnapshots(freezeCtxAt(freezeHeight), soloSM, nil, nil, freezeHeight))
+	_, freezeErr1 := FreezeCandidateRewardSnapshots(freezeCtxAt(freezeHeight), soloSM, nil, nil, freezeHeight, 0)
+	r.NoError(freezeErr1)
 	soloBytes := rawPollSnapshotBytes(t, soloSM, solo.GetIdentifier())
 
 	// Run 2: same candidate, same height, but the center now also holds a
@@ -85,7 +86,8 @@ func TestFreezeCandidateRewardSnapshots_RecordIsIndependentOfSetSize(t *testing.
 	r.NoError(putOnchainCandidate(pairCSM, first))
 	r.NoError(putOnchainCandidate(pairCSM, second))
 	installCandCenter(t, pairSM, first, second)
-	r.NoError(FreezeCandidateRewardSnapshots(freezeCtxAt(freezeHeight), pairSM, nil, nil, freezeHeight))
+	_, freezeErr2 := FreezeCandidateRewardSnapshots(freezeCtxAt(freezeHeight), pairSM, nil, nil, freezeHeight, 0)
+	r.NoError(freezeErr2)
 	pairBytes := rawPollSnapshotBytes(t, pairSM, first.GetIdentifier())
 
 	r.Equal(soloBytes, pairBytes,
@@ -129,7 +131,8 @@ func TestFreezeCandidateRewardSnapshots_UnrankedOptedInCandidateIsFrozen(t *test
 	r.NoError(putOnchainCandidate(csm, unranked))
 	installCandCenter(t, sm, ranked, unranked)
 
-	r.NoError(FreezeCandidateRewardSnapshots(freezeCtxAt(freezeHeight), sm, nil, nil, freezeHeight))
+	_, freezeErr3 := FreezeCandidateRewardSnapshots(freezeCtxAt(freezeHeight), sm, nil, nil, freezeHeight, 0)
+	r.NoError(freezeErr3)
 
 	snap, err := CandidateRewardSnapshotFor(sm, unranked.GetIdentifier())
 	r.NoError(err, "an opted-in candidate must be frozen regardless of rank or activity")
@@ -157,7 +160,8 @@ func TestFreezeCandidateRewardSnapshots_NotOptedInCandidateNotFrozen(t *testing.
 	r.NoError(csm.putCandidate(optedOut))
 	installCandCenter(t, sm, optedIn, optedOut)
 
-	r.NoError(FreezeCandidateRewardSnapshots(freezeCtxAt(4_242), sm, nil, nil, 4_242))
+	_, freezeErr4 := FreezeCandidateRewardSnapshots(freezeCtxAt(4_242), sm, nil, nil, 4_242, 0)
+	r.NoError(freezeErr4)
 
 	_, err := CandidateRewardSnapshotFor(sm, optedOut.GetIdentifier())
 	r.ErrorIs(err, state.ErrStateNotExist)
@@ -175,7 +179,8 @@ func TestRewardSnapshotsAndCOWWindowUseExplicitSharedHeight(t *testing.T) {
 	r.NoError(putOnchainCandidate(newCandidateStateManager(sm), candidate))
 	installCandCenter(t, sm, candidate)
 
-	r.NoError(FreezeCandidateRewardSnapshots(ctx, sm, nil, nil, freezeHeight))
+	_, freezeErr5 := FreezeCandidateRewardSnapshots(ctx, sm, nil, nil, freezeHeight, 0)
+	r.NoError(freezeErr5)
 	window, err := LoadEraCOWWindow(sm)
 	r.NoError(err)
 	r.False(window.Open(), "snapshot freezing must not hide the COW lifecycle transition")
@@ -209,7 +214,8 @@ func TestFreezeCandidateRewardSnapshots_FrozenSetOrderIsDeterministic(t *testing
 			cands = append(cands, c)
 		}
 		installCandCenter(t, sm, cands...)
-		r.NoError(FreezeCandidateRewardSnapshots(freezeCtxAt(freezeHeight), sm, nil, nil, freezeHeight))
+		_, freezeErr6 := FreezeCandidateRewardSnapshots(freezeCtxAt(freezeHeight), sm, nil, nil, freezeHeight, 0)
+		r.NoError(freezeErr6)
 
 		got := make([][]byte, 0, len(cands))
 		for _, c := range cands {

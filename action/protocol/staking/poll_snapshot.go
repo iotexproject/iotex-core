@@ -16,8 +16,10 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/freezelog"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
@@ -190,9 +192,10 @@ func FreezeCandidateRewardSnapshots(
 	bridge *delegateprofile.Bridge,
 	reader delegateprofile.ContractReader,
 	freezeHeight uint64,
-) error {
+	era uint64,
+) ([]*action.Log, error) {
 	if bridge != nil && reader == nil {
-		return errors.New("staking: nil ContractReader with non-nil DelegateProfile bridge")
+		return nil, errors.New("staking: nil ContractReader with non-nil DelegateProfile bridge")
 	}
 	// The candidate center is the sole source of the frozen set, of
 	// SelfStakeBucketIdx, and of TotalWeight, so failing to reach it is
@@ -213,10 +216,10 @@ func FreezeCandidateRewardSnapshots(
 	// the poll protocol that calls this holds a reference to that protocol.
 	csr, err := ConstructBaseView(sm)
 	if err != nil {
-		return errors.Wrap(err, "staking: construct candidate view for reward snapshots")
+		return nil, errors.Wrap(err, "staking: construct candidate view for reward snapshots")
 	}
 	if v := csr.BaseView(); v == nil || v.candCenter == nil {
-		return errors.New("staking: no candidate center to freeze reward snapshots from")
+		return nil, errors.New("staking: no candidate center to freeze reward snapshots from")
 	}
 
 	all := csr.AllCandidates()
@@ -238,8 +241,23 @@ func FreezeCandidateRewardSnapshots(
 		}
 		rates, err = bridge.Snapshot(ctx, reader, ids)
 		if err != nil {
-			return errors.Wrap(err, "staking: DelegateProfile snapshot failed")
+			return nil, errors.Wrap(err, "staking: DelegateProfile snapshot failed")
 		}
+	}
+
+	// Non-panicking: this function is called directly by tests with a bare
+	// context, and "no feature context" can only mean "not gated on", never
+	// "emit". Production always arrives through poll's handle, which builds one.
+	fCtx, hasFeature := protocol.GetFeatureCtx(ctx)
+	emitLogs := hasFeature && fCtx.EmitEraFreezeLog
+	var (
+		logs         []*action.Log
+		protocolAddr string
+		blockHeight  uint64
+	)
+	if emitLogs {
+		protocolAddr = ProtocolAddr().String()
+		blockHeight = protocol.MustGetBlockCtx(ctx).BlockHeight
 	}
 
 	for _, cand := range frozen {
@@ -262,10 +280,35 @@ func FreezeCandidateRewardSnapshots(
 			snap.TotalWeight = new(big.Int).Set(cand.Votes)
 		}
 		if err := writeCandidateRewardSnapshot(sm, id, snap); err != nil {
-			return err
+			return nil, err
+		}
+		// Emitted inside this loop, which iterates `frozen` -- already sorted by
+		// identifier bytes above. The candidate center enumerates from a Go map,
+		// so without that ordering the log sequence would differ between nodes
+		// and the receipt root with it.
+		if emitLogs {
+			topics, data, err := freezelog.Pack(freezelog.EventArgs{
+				Era:                  era,
+				Delegate:             id,
+				FreezeHeight:         freezeHeight,
+				BlockCommissionBps:   snap.BlockCommissionBasisPoints,
+				EpochCommissionBps:   snap.EpochCommissionBasisPoints,
+				CommissionConfigured: snap.CommissionConfigured,
+				TotalWeight:          snap.TotalWeight,
+				SelfStakeBucketIdx:   snap.SelfStakeBucketIdx,
+			})
+			if err != nil {
+				return nil, errors.Wrapf(err, "staking: pack freeze log for candidate %s", id.String())
+			}
+			logs = append(logs, &action.Log{
+				Address:     protocolAddr,
+				Topics:      topics,
+				Data:        data,
+				BlockHeight: blockHeight,
+			})
 		}
 	}
-	return nil
+	return logs, nil
 }
 
 func writeCandidateRewardSnapshot(

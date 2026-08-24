@@ -218,6 +218,22 @@ type (
 		// fork any node that resynced. A chain that has not activated sets both
 		// heights to the same value and gets this from the start.
 		RequireProfileForHermesMigration bool
+		// EmitEraFreezeLog, when true, makes the era freeze emit one
+		// DelegateRewardFrozen log per frozen delegate.
+		//
+		// Freezing is otherwise completely silent: the freeze block and its
+		// neighbours carry the same single untopiced block-reward log, so an
+		// event-driven indexer cannot tell that an era was frozen, which
+		// delegates are in it, or what commission each was frozen at. On TestNet
+		// the analyser ran without error across the freeze and settlement heights
+		// and left all four of its tables empty, because none of the three IIP-59
+		// events it follows had occurred.
+		//
+		// Receipt logs are part of the receipt root, so this is gated on
+		// ZanzibarBeta rather than Zanzibar: testnet has already produced freeze
+		// blocks without it, and adding logs to those heights retroactively would
+		// change their receipt roots.
+		EmitEraFreezeLog bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -398,6 +414,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			OptionalCandidateBLSPublicKey:           g.IsZanzibar(height),
 			CorrectPrestateForAbsentKeys:            g.IsZanzibar(height),
 			RequireProfileForHermesMigration:        g.IsZanzibarBeta(height),
+			EmitEraFreezeLog:                        g.IsZanzibarBeta(height),
 		},
 	)
 }
