@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // compoundErrorIsChainDetermined reports whether every node can derive the
@@ -34,6 +35,48 @@ func compoundErrorIsChainDetermined(err error) bool {
 	status := receiptErr.ReceiptStatus()
 	return status != uint64(iotextypes.ReceiptStatus_Failure) &&
 		status != uint64(iotextypes.ReceiptStatus_Success)
+}
+
+// bucketReadErrorIsChainDetermined separates "the chain says there is no such
+// bucket" from "this node could not read one".
+//
+// NativeBucket reports an absent bucket with state.ErrStateNotExist and one
+// already withdrawn with ErrWithdrawnBucket. Both are facts every validator
+// reads identically off committed state, so rerouting the voter's share to a
+// direct credit is a verdict the whole network reaches together. Every other
+// error is the node failing at a read it should have served, and routing a
+// payout on it would put the compound branch and the credit branch in the same
+// block on different validators.
+func bucketReadErrorIsChainDetermined(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, state.ErrStateNotExist) ||
+		errors.Is(err, staking.ErrWithdrawnBucket)
+}
+
+// epochRewardSettleableError marks an epoch-grant failure that every node
+// derives identically from committed state, so Handle may turn it into a
+// Failure receipt and still commit the block.
+//
+// The default is the opposite. GrantEpochReward used to settle every error
+// this way, which was defensible while it only touched the rewarding
+// namespace. IIP-59 put era-window reads, per-candidate snapshot reads, a
+// pending-pool scan and a cursor write on the same path, and a node-local
+// fault on any of them settled as a Failure receipt means one validator
+// commits "no epoch rewards at all" -- no commissions, no foundation bonus, no
+// sentinel -- while the rest commit the full grant. Same block, two receipt
+// roots. Nor does it self-correct: the epoch grant runs once, on the epoch's
+// last block, so there is no "next block starts over".
+type epochRewardSettleableError struct{ error }
+
+func settleableEpochRewardError(format string, args ...interface{}) error {
+	return &epochRewardSettleableError{errors.Errorf(format, args...)}
+}
+
+func epochRewardErrorIsSettleable(err error) bool {
+	var target *epochRewardSettleableError
+	return errors.As(err, &target)
 }
 
 // voterChunkSettleableError marks a consensus-determined dispatcher failure

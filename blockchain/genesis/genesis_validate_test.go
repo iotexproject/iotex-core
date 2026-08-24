@@ -44,18 +44,110 @@ rewarding:
 	}
 }
 
-func TestNewAcceptsEra(t *testing.T) {
-	r := require.New(t)
+// _validDelegateProfile is any well-formed address; validate only checks that
+// the string parses, not that a contract lives there.
+const _validDelegateProfile = "io1drde9f483guaetl3w3w6n6y7yv80f8fael7qme"
 
-	t.Run("scheduled with a settleable era", func(t *testing.T) {
-		path := writeGenesisYAML(t, `
+func TestNewRejectsMissingDelegateProfileContract(t *testing.T) {
+	// An unset DelegateProfile address does not disable commission routing, it
+	// silently maximises it. FreezeCandidateRewardSnapshots still writes a
+	// snapshot for every opted-in candidate, defaulted to 100% commission, and a
+	// present snapshot is what flips onchainRewardEnabled on. So every opted-in
+	// delegate takes the whole epoch reward at their owner address, no voter is
+	// paid on chain, and the payout stops arriving at the reward address the
+	// off-chain distributor watches. Nothing errors and nothing looks wrong.
+	r := require.New(t)
+	path := writeGenesisYAML(t, `
 blockchain:
   greenlandHeight: 999
-  xinguHeight: 1000
+  xinguHeight: 999
   toBeEnabledHeight: 1000
 rewarding:
   epochsPerRewardEra: 2
 `)
+	_, err := New(path)
+	r.ErrorContains(err, "delegateProfileContractAddress must be set")
+}
+
+func TestNewRejectsMalformedIIP59ContractAddresses(t *testing.T) {
+	r := require.New(t)
+
+	t.Run("delegate profile", func(t *testing.T) {
+		path := writeGenesisYAML(t, `
+blockchain:
+  greenlandHeight: 999
+  xinguHeight: 999
+  toBeEnabledHeight: 1000
+poll:
+  delegateProfileContractAddress: "not-an-address"
+rewarding:
+  epochsPerRewardEra: 2
+`)
+		_, err := New(path)
+		r.ErrorContains(err, "delegateProfileContractAddress")
+	})
+
+	t.Run("auto deposit", func(t *testing.T) {
+		// Empty is a supported mode for this one -- every voter share falls back
+		// to a pull-claim credit -- but a typo must not silently select it.
+		path := writeGenesisYAML(t, fmt.Sprintf(`
+blockchain:
+  greenlandHeight: 999
+  xinguHeight: 999
+  toBeEnabledHeight: 1000
+  autoDepositContractAddress: "not-an-address"
+poll:
+  delegateProfileContractAddress: %q
+rewarding:
+  epochsPerRewardEra: 2
+`, _validDelegateProfile))
+		_, err := New(path)
+		r.ErrorContains(err, "autoDepositContractAddress")
+	})
+}
+
+func TestNewAcceptsIIP59ContractAddresses(t *testing.T) {
+	r := require.New(t)
+
+	t.Run("auto deposit may stay empty", func(t *testing.T) {
+		path := writeGenesisYAML(t, fmt.Sprintf(`
+blockchain:
+  greenlandHeight: 999
+  xinguHeight: 999
+  toBeEnabledHeight: 1000
+poll:
+  delegateProfileContractAddress: %q
+rewarding:
+  epochsPerRewardEra: 2
+`, _validDelegateProfile))
+		g, err := New(path)
+		r.NoError(err)
+		r.Empty(g.AutoDepositContractAddress)
+	})
+
+	t.Run("unscheduled tolerates both unset", func(t *testing.T) {
+		// The addresses are read only once IIP-59 is live. Requiring them on an
+		// unscheduled chain would stop every existing network from starting.
+		g, err := New(writeGenesisYAML(t, "rewarding:\n  epochsPerRewardEra: 24\n"))
+		r.NoError(err)
+		r.Empty(g.DelegateProfileContractAddress)
+	})
+}
+
+func TestNewAcceptsEra(t *testing.T) {
+	r := require.New(t)
+
+	t.Run("scheduled with a settleable era", func(t *testing.T) {
+		path := writeGenesisYAML(t, fmt.Sprintf(`
+blockchain:
+  greenlandHeight: 999
+  xinguHeight: 1000
+  toBeEnabledHeight: 1000
+poll:
+  delegateProfileContractAddress: %q
+rewarding:
+  epochsPerRewardEra: 2
+`, _validDelegateProfile))
 		g, err := New(path)
 		r.NoError(err)
 		r.Equal(uint64(2), g.Rewarding.EpochsPerRewardEra)

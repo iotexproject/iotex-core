@@ -378,6 +378,24 @@ func (p *Protocol) Handle(
 			transactionLogs, rewardLogs, err := p.GrantEpochReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
+				// Pre-fork, every error settled as a Failure receipt, and
+				// mainnet has committed blocks that did. Replay has to
+				// reproduce them byte for byte, so the classification below
+				// starts at the fork and never applies behind it.
+				//
+				// Post-fork the default inverts, for the same reason it did on
+				// the drain chunk. IIP-59 put era-window reads, snapshot reads,
+				// a pending-pool scan and a cursor write on this path; whether
+				// a node can serve any of them is node-local, and a Failure
+				// receipt settled on such a fault commits "this epoch paid
+				// nobody" on one validator while the rest commit the full
+				// grant. Two receipt roots, one block. Only verdicts marked
+				// settleable -- ones every node derives from committed state --
+				// keep the receipt.
+				if !protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution &&
+					!epochRewardErrorIsSettleable(err) {
+					return nil, err
+				}
 				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
 			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs, transactionLogs...)

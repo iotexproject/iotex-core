@@ -62,10 +62,18 @@ type voterCombinedPayout struct {
 //
 // Routing is decided once for the combined amount. If the voter has an
 // eligible auto-deposit bucket the whole sum is compounded into it; otherwise
-// the whole sum is credited to their reward destination. Every fallback branch
-// (no bridge, bridge RPC error, unreadable or ineligible bucket, self-stake
-// role changed since the freeze) degrades to a direct credit rather than
-// halting the block -- the share is still owed, only its destination changed.
+// the whole sum is credited to their reward destination.
+//
+// Which branch a fault takes is not a matter of taste. A fallback degrades to
+// a direct credit only when every validator derives it from the same committed
+// state: no bridge configured, no registrant, a bucket that is absent,
+// withdrawn or ineligible, a self-stake role changed since the freeze. The
+// share is still owed in all of those, and only its destination changes.
+//
+// A read this node could not serve is the opposite case. Degrading it would
+// let one validator credit the balance while another compounds into the
+// bucket and moves candidate votes with it -- one block, two state roots. Those
+// propagate.
 func (p *Protocol) payVoterCombined(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -92,15 +100,34 @@ func (p *Protocol) payVoterCombined(
 		addIIP59Items("auto_deposit_lookup", 1)
 		switch {
 		case lookupErr != nil:
-			log.L().Warn("autodeposit bucket lookup failed; routing voter share to credit",
-				zap.String("voter", voter.String()), zap.Error(lookupErr))
+			// Not degradable, despite reading like one. This lookup decides
+			// where the share goes, and the two destinations are not
+			// equivalent: a credit moves the voter's unclaimed balance, a
+			// compound moves the bucket, the candidate's votes and the bucket
+			// pool. SlotBucketReader reports every on-chain shape it can read
+			// -- unset registrant, zero or malformed bucket id -- as
+			// (0, false, nil), so a non-nil error here is the node failing to
+			// serve a read, which is exactly the class that differs between
+			// validators. Letting it pick the destination puts the credit
+			// branch and the compound branch in the same block on different
+			// nodes.
+			return none, errors.Wrapf(lookupErr,
+				"rewarding: auto-deposit bucket lookup for voter %s", voter.String())
 		case present:
 			stopRead := startIIP59Accumulation(&routeDurations.nativeBucketRead)
 			bucket, bErr := routing.csr.NativeBucket(bucketID)
 			stopRead()
 			addIIP59Items("native_bucket_read", 1)
 			if bErr != nil {
-				log.L().Warn("bucket read for compound routing failed; routing voter share to credit",
+				// Same rule, one read later. "No such bucket" and "already
+				// withdrawn" are committed state and degrade; anything else is
+				// node-local and must fail the block rather than reroute money
+				// on a fault only some validators saw.
+				if !bucketReadErrorIsChainDetermined(bErr) {
+					return none, errors.Wrapf(bErr,
+						"rewarding: read compound bucket %d for voter %s", bucketID, voter.String())
+				}
+				log.L().Warn("bucket absent or withdrawn since the freeze; routing voter share to credit",
 					zap.String("voter", voter.String()),
 					zap.Uint64("bucket", bucketID),
 					zap.Error(bErr))

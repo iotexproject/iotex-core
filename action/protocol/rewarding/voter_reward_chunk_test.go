@@ -633,11 +633,19 @@ func TestVoterRewardChunkFailureIsLoudAndCounted(t *testing.T) {
 		r.Equal(before+1, counterValue(t, _iip59DrainChunkFailureMtc))
 
 		// The sibling grant types in the same switch keep their quiet Debug
-		// handling; only VoterRewardChunk was upgraded. A failed epoch grant
-		// must not move the drain counter.
+		// handling; only VoterRewardChunk was upgraded to report loudly. A
+		// failed epoch grant must not move the drain counter.
+		//
+		// It does fail, and post-fork it fails the block rather than settling:
+		// this fixture registers no staking protocol, so the epoch grant dies
+		// in slashUqd on a wiring fault. Whether a node has the protocol
+		// registered is not chain state, so settling a Failure receipt on it
+		// would let a misconfigured validator commit "this epoch paid nobody"
+		// against everyone else's full grant. What is asserted here is the
+		// counter, which belongs to the drain and must stay put either way.
 		before = counterValue(t, _iip59DrainChunkFailureMtc)
 		_, err = p.Handle(ctx, createGrantRewardAction(action.EpochReward, blk.BlockHeight), sm)
-		r.NoError(err)
+		r.ErrorContains(err, "staking protocol not found")
 		r.Equal(before, counterValue(t, _iip59DrainChunkFailureMtc))
 	}, nil, false, 0)
 }

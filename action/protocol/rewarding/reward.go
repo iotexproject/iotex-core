@@ -920,16 +920,41 @@ func (p *Protocol) GrantEpochReward(
 			return nil, nil, errors.Wrap(err, "rewarding: read era copy-on-write window for drain plan")
 		}
 		if !window.Open() {
-			return nil, nil, errors.New("rewarding: era copy-on-write window is closed at era boundary")
-		}
-		entries, err := p.freezePendingPoolDrainWork(ctx, sm, window.FreezeHeight)
-		if err != nil {
-			return nil, nil, err
-		}
-		if err := p.initializeVoterRewardDistribution(
-			ctx, sm, epochNum, eraSettlementSeed, window.FreezeHeight, entries,
-		); err != nil {
-			return nil, nil, err
+			// This era never froze, so there is no era here to settle.
+			//
+			// isEraBoundary above is pure epoch arithmetic, and the freeze that
+			// opens the window gates on the identical expression -- but the two
+			// are evaluated at different heights. The freeze rides
+			// PutPollResult, which executes roughly one and a half epochs
+			// before this block. An activation height that lands between them
+			// leaves the freeze skipped as pre-fork while this boundary runs as
+			// post-fork.
+			//
+			// Skip rather than fail. Nothing is owed: a pending pool is
+			// credited only for a delegate carrying a snapshot from this era's
+			// freeze, so no freeze means no credits, and any pool left from an
+			// earlier era is exactly what freezeDelegateDrainWork already
+			// defers to a later boundary. Failing instead would take the rest
+			// of this epoch's grant down with it -- commissions, foundation
+			// bonus, the sentinel, none of them IIP-59's -- and the epoch grant
+			// runs once, on this block, so nothing retries it.
+			//
+			// Safe to settle rather than halt, by the same rule the drain uses:
+			// window state is committed state, so every validator reads the
+			// same answer and skips the same boundary in the same block.
+			log.L().Warn("era boundary reached with no copy-on-write window; deferring voter settlement",
+				zap.Uint64("epoch", epochNum),
+				zap.Uint64("height", blkCtx.BlockHeight))
+		} else {
+			entries, err := p.freezePendingPoolDrainWork(ctx, sm, window.FreezeHeight)
+			if err != nil {
+				return nil, nil, err
+			}
+			if err := p.initializeVoterRewardDistribution(
+				ctx, sm, epochNum, eraSettlementSeed, window.FreezeHeight, entries,
+			); err != nil {
+				return nil, nil, err
+			}
 		}
 	}
 
@@ -1895,7 +1920,10 @@ func (p *Protocol) assertNoRewardYet(ctx context.Context, sm protocol.StateManag
 	enc.MachineEndian.PutUint64(indexBytes[:], index)
 	_, err := p.state(ctx, sm, append(prefix, indexBytes[:]...), &history)
 	if err == nil {
-		return errors.Errorf("reward history already exists on index %d", index)
+		// The sentinel's presence is committed state, so every node reaches
+		// this verdict on the same block: settleable. The read *failure* below
+		// is not, and stays unmarked.
+		return settleableEpochRewardError("reward history already exists on index %d", index)
 	}
 	if errors.Cause(err) != state.ErrStateNotExist {
 		return err
@@ -1906,7 +1934,9 @@ func (p *Protocol) assertNoRewardYet(ctx context.Context, sm protocol.StateManag
 func (p *Protocol) assertLastBlockInEpoch(blkHeight uint64, epochNum uint64, rp *rolldpos.Protocol) error {
 	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
 	if blkHeight != lastBlkHeight {
-		return errors.Errorf("current block %d is not the last block of epoch %d", blkHeight, epochNum)
+		// Epoch arithmetic over the block height: identical on every node.
+		return settleableEpochRewardError(
+			"current block %d is not the last block of epoch %d", blkHeight, epochNum)
 	}
 	return nil
 }

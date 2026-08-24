@@ -628,6 +628,34 @@ func (g *Genesis) validate() error {
 			g.Rewarding.EpochsPerRewardEra,
 		)
 	}
+	// An unset DelegateProfile address does not switch commission routing off,
+	// it silently pins it at the maximum. FreezeCandidateRewardSnapshots writes
+	// a snapshot for every opted-in candidate whether or not a bridge exists,
+	// defaulting the rate to 100%, and the presence of a snapshot is what turns
+	// onchainRewardEnabled on. So each opted-in delegate takes the whole epoch
+	// reward at its owner address, no voter is paid on chain, and the payout
+	// stops arriving at the reward address an off-chain distributor watches --
+	// with nothing logged and no error raised.
+	if g.DelegateProfileContractAddress == "" {
+		return errors.New(
+			"genesis: delegateProfileContractAddress must be set once toBeEnabledHeight is scheduled; " +
+				"leaving it empty freezes every opted-in delegate at 100% commission")
+	}
+	if _, err := address.FromString(g.DelegateProfileContractAddress); err != nil {
+		return errors.Wrapf(err,
+			"genesis: delegateProfileContractAddress %q is not a valid address",
+			g.DelegateProfileContractAddress)
+	}
+	// Empty is a supported mode here, unlike above: it routes every voter share
+	// to a pull-claim credit, which pays the same voter the same amount. Only a
+	// malformed value is rejected, so a typo cannot silently select that mode.
+	if g.AutoDepositContractAddress != "" {
+		if _, err := address.FromString(g.AutoDepositContractAddress); err != nil {
+			return errors.Wrapf(err,
+				"genesis: autoDepositContractAddress %q is not a valid address",
+				g.AutoDepositContractAddress)
+		}
+	}
 	return nil
 }
 
