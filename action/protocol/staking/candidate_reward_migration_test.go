@@ -13,9 +13,28 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
+
+// migrationCtx builds the feature context the migration reads, with ZanzibarBeta
+// either live or still ahead.
+func migrationCtx(betaActive bool) context.Context {
+	g := genesis.TestDefault()
+	g.ZanzibarBlockHeight = 0
+	if betaActive {
+		g.ZanzibarBetaBlockHeight = 0
+	} else {
+		g.ZanzibarBetaBlockHeight = 100
+	}
+	return protocol.WithFeatureCtx(protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), g),
+		protocol.BlockCtx{BlockHeight: 1},
+	))
+}
 
 func TestMigrateHermesRewardOptIn(t *testing.T) {
 	r := require.New(t)
@@ -36,7 +55,7 @@ func TestMigrateHermesRewardOptIn(t *testing.T) {
 	}
 	installCandCenter(t, sm, legacy, explicit, hermes)
 
-	r.NoError(migrateHermesRewardOptIn(context.Background(), sm, []string{vault.String()}))
+	r.NoError(migrateHermesRewardOptIn(migrationCtx(false), sm, []string{vault.String()}, nil, nil))
 	csr, err := ConstructBaseView(sm)
 	r.NoError(err)
 	r.True(csr.GetByIdentifier(hermes.GetIdentifier()).VoterRewardOnchainOptIn)
@@ -76,4 +95,119 @@ func TestMigrateHermesRewardOptInThroughCreatePreStates(t *testing.T) {
 	r.NoError(err)
 	r.False(lateCandidate.VoterRewardOnchainOptIn,
 		"using a Hermes vault after activation must not implicitly opt in")
+}
+
+// From ZanzibarBeta on, a Hermes candidate with no usable commission
+// configuration stays opted out.
+//
+// Being migrated and having portions published are independent facts, and the
+// gap between them is silent: the candidate is frozen at 100% commission and its
+// voters receive nothing, with no error and no event. TestNet froze its first era
+// with three of four migrated delegates in that state.
+func TestMigrateHermesRewardOptInRequiresProfileAfterBeta(t *testing.T) {
+	r := require.New(t)
+	sm := testdb.NewMockStateManager(gomock.NewController(t))
+	vault := identityset.Address(10)
+
+	full := &Candidate{
+		Owner: identityset.Address(1), Operator: identityset.Address(2), Reward: vault,
+		Name: "full", Votes: big.NewInt(1), SelfStakeBucketIdx: 1, SelfStake: big.NewInt(1),
+	}
+	// Half a configuration is the same as none -- this is TestNet's uuu, which
+	// had set blockRewardPortion and not epochRewardPortion and was frozen at
+	// 100% commission exactly like the candidates that had set neither.
+	half := &Candidate{
+		Owner: identityset.Address(3), Operator: identityset.Address(4), Reward: vault,
+		Name: "half", Votes: big.NewInt(1), SelfStakeBucketIdx: 2, SelfStake: big.NewInt(1),
+	}
+	none := &Candidate{
+		Owner: identityset.Address(5), Operator: identityset.Address(6), Reward: vault,
+		Name: "none", Votes: big.NewInt(1), SelfStakeBucketIdx: 3, SelfStake: big.NewInt(1),
+	}
+	installCandCenter(t, sm, full, half, none)
+
+	store := newFakeProfileStore()
+	store.setPortion(full.GetIdentifier(), "blockRewardPortion", 8500)
+	store.setPortion(full.GetIdentifier(), "epochRewardPortion", 8600)
+	store.setPortion(half.GetIdentifier(), "blockRewardPortion", 8500)
+
+	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
+	r.NoError(err)
+
+	r.NoError(migrateHermesRewardOptIn(
+		migrationCtx(true), sm, []string{vault.String()}, bridge, store.reader(t)))
+
+	csr, err := ConstructBaseView(sm)
+	r.NoError(err)
+	r.True(csr.GetByIdentifier(full.GetIdentifier()).VoterRewardOnchainOptIn,
+		"a complete profile migrates")
+	r.False(csr.GetByIdentifier(half.GetIdentifier()).VoterRewardOnchainOptIn,
+		"block portion without epoch portion is not a usable configuration")
+	r.False(csr.GetByIdentifier(none.GetIdentifier()).VoterRewardOnchainOptIn,
+		"no profile means stay on the Hermes off-chain payout")
+}
+
+// Before ZanzibarBeta the migration must behave exactly as it did, profile or
+// not. Testnet already ran this block; changing what it did would alter its
+// receipt root and fork any node that resynced.
+func TestMigrateHermesRewardOptInUnchangedBeforeBeta(t *testing.T) {
+	r := require.New(t)
+	sm := testdb.NewMockStateManager(gomock.NewController(t))
+	vault := identityset.Address(10)
+	none := &Candidate{
+		Owner: identityset.Address(5), Operator: identityset.Address(6), Reward: vault,
+		Name: "none", Votes: big.NewInt(1), SelfStakeBucketIdx: 3, SelfStake: big.NewInt(1),
+	}
+	installCandCenter(t, sm, none)
+
+	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
+	r.NoError(err)
+	reader := delegateprofile.ContractReaderFunc(func(context.Context, string, []byte) ([]byte, error) {
+		t.Fatal("the profile must not be consulted before ZanzibarBeta")
+		return nil, nil
+	})
+
+	r.NoError(migrateHermesRewardOptIn(migrationCtx(false), sm, []string{vault.String()}, bridge, reader))
+
+	csr, err := ConstructBaseView(sm)
+	r.NoError(err)
+	r.True(csr.GetByIdentifier(none.GetIdentifier()).VoterRewardOnchainOptIn,
+		"pre-Beta behaviour is migrate-on-reward-address, unchanged")
+}
+
+// A chain with no DelegateProfile contract, or a node with no reader injected,
+// must not filter: treating an unreadable contract as "nobody is configured"
+// would opt out every candidate rather than the misconfigured ones.
+func TestMigrateHermesRewardOptInWithoutProfileSourceDoesNotFilter(t *testing.T) {
+	r := require.New(t)
+	for _, tc := range []struct {
+		name   string
+		bridge *delegateprofile.Bridge
+		reader delegateprofile.ContractReader
+	}{
+		{"no contract configured", nil, nil},
+		{"no reader injected", mustBridge(t), nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sm := testdb.NewMockStateManager(gomock.NewController(t))
+			vault := identityset.Address(10)
+			cand := &Candidate{
+				Owner: identityset.Address(1), Operator: identityset.Address(2), Reward: vault,
+				Name: "c", Votes: big.NewInt(1), SelfStakeBucketIdx: 1, SelfStake: big.NewInt(1),
+			}
+			installCandCenter(t, sm, cand)
+			r.NoError(migrateHermesRewardOptIn(
+				migrationCtx(true), sm, []string{vault.String()}, tc.bridge, tc.reader))
+			csr, err := ConstructBaseView(sm)
+			r.NoError(err)
+			r.True(csr.GetByIdentifier(cand.GetIdentifier()).VoterRewardOnchainOptIn)
+		})
+	}
+}
+
+func mustBridge(t *testing.T) *delegateprofile.Bridge {
+	t.Helper()
+	b, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
+	require.NoError(t, err)
+	return b
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
@@ -122,6 +123,7 @@ type (
 		blockStore               BlockStore
 		blocksToDurationFn       func(startHeight, endHeight, currentHeight uint64) time.Duration
 		genesisStateSeeder       GenesisStateSeeder
+		delegateProfileReader    func(protocol.StateManager) delegateprofile.ContractReader
 	}
 
 	// GenesisStateSeeder plants additional genesis state inside the same
@@ -196,6 +198,23 @@ func WithBlockStore(bs BlockStore) Option {
 func WithGenesisStateSeeder(seeder GenesisStateSeeder) Option {
 	return func(p *Protocol) {
 		p.genesisStateSeeder = seeder
+	}
+}
+
+// WithDelegateProfileReader injects the reader used to consult the
+// DelegateProfile contract during the Hermes opt-in migration.
+//
+// It is injected rather than constructed here because the reader runs a
+// simulated view call, which lives in the evm package. staking cannot reach the
+// existing one in poll (poll imports staking), and importing evm directly would
+// add a dependency edge to a package that otherwise only touches state.
+// chainservice imports both and wires the two together.
+//
+// Left unset, the migration falls back to its pre-ZanzibarBeta behaviour of
+// migrating on reward address alone.
+func WithDelegateProfileReader(fn func(protocol.StateManager) delegateprofile.ContractReader) Option {
+	return func(p *Protocol) {
+		p.delegateProfileReader = fn
 	}
 }
 
@@ -650,7 +669,11 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	// into state) sees the state they produced, and before the epoch-boundary
 	// indexer work below, which returns early on most blocks.
 	if blkCtx.BlockHeight == g.ZanzibarBlockHeight {
-		if err := migrateHermesRewardOptIn(ctx, sm, g.HermesRewardVaultAddresses); err != nil {
+		bridge, reader, err := p.delegateProfileFor(sm, g.DelegateProfileContractAddress)
+		if err != nil {
+			return err
+		}
+		if err := migrateHermesRewardOptIn(ctx, sm, g.HermesRewardVaultAddresses, bridge, reader); err != nil {
 			return err
 		}
 		if err := backfillOwnerIndex(ctx, sm); err != nil {
@@ -1359,4 +1382,21 @@ func contractStakingIndexerAt(index ContractStakingIndexer, sr protocol.StateRea
 		return nil, errors.Errorf("indexer height %d is too old for state reader height %d", indexHeight, srHeight)
 	}
 	return index.IndexerAt(sr), nil
+}
+
+// delegateProfileFor builds the bridge and reader the Hermes opt-in migration
+// consults, or (nil, nil) when the chain has no DelegateProfile contract or no
+// reader was injected. Both nils mean "do not filter" -- see
+// hermesMigrationProfileFilter.
+func (p *Protocol) delegateProfileFor(
+	sm protocol.StateManager, contract string,
+) (*delegateprofile.Bridge, delegateprofile.ContractReader, error) {
+	if contract == "" || p.delegateProfileReader == nil {
+		return nil, nil, nil
+	}
+	bridge, err := delegateprofile.New(contract)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "staking: invalid DelegateProfile contract address")
+	}
+	return bridge, p.delegateProfileReader(sm), nil
 }

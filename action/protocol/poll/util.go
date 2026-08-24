@@ -306,6 +306,18 @@ const _delegateProfileViewCallGasLimit uint64 = 10_000_000
 // target contract, wrap it in an envelope, and call evm.SimulateExecution
 // with the zero-address caller. The pattern is deterministic (fixed caller,
 // no gas billing to a real account) and reuses the existing view-call plumb.
+// NewDelegateProfileContractReader exposes the view-call reader so callers
+// outside this package can read the DelegateProfile contract with the same
+// deterministic plumbing the era freeze uses.
+//
+// It exists because the Hermes opt-in migration in the staking protocol needs
+// the same reader, and staking cannot import poll (poll imports staking) nor
+// evm without taking on a new dependency edge. chainservice imports both and
+// injects it.
+func NewDelegateProfileContractReader(sm protocol.StateManager) delegateprofile.ContractReader {
+	return delegateProfileContractReader(sm)
+}
+
 func delegateProfileContractReader(sm protocol.StateManager) delegateprofile.ContractReader {
 	return delegateprofile.ContractReaderFunc(func(ctx context.Context, contract string, callData []byte) (ret []byte, err error) {
 		gasLimit := _delegateProfileViewCallGasLimit

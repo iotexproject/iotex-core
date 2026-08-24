@@ -206,6 +206,18 @@ type (
 		// for such slots, causing EIP-2200 SSTORE dynamic gas to misclassify
 		// dirty in-place writes as SSTORE_RESET (100 → 2900 gas overcharge per hit).
 		CorrectPrestateForAbsentKeys bool
+		// RequireProfileForHermesMigration, when true, makes the fork-block
+		// Hermes opt-in migration skip candidates whose DelegateProfile portions
+		// are missing or only half set, leaving them on the off-chain Hermes
+		// payout instead of moving them into an on-chain path that would freeze
+		// them at 100% commission and pay their voters nothing.
+		//
+		// Gated on ZanzibarBeta rather than Zanzibar because the migration runs
+		// in the single block at ZanzibarBlockHeight, which testnet has already
+		// passed; changing what that block did would alter its receipt root and
+		// fork any node that resynced. A chain that has not activated sets both
+		// heights to the same value and gets this from the start.
+		RequireProfileForHermesMigration bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -385,6 +397,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			EnforceBLSPoP:                           g.IsZanzibar(height),
 			OptionalCandidateBLSPublicKey:           g.IsZanzibar(height),
 			CorrectPrestateForAbsentKeys:            g.IsZanzibar(height),
+			RequireProfileForHermesMigration:        g.IsZanzibarBeta(height),
 		},
 	)
 }
