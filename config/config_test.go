@@ -394,6 +394,12 @@ func TestValidateForkHeights(t *testing.T) {
 			"Yap", ErrInvalidCfg, "Yap is heigher than YapBeta",
 		},
 		{
+			"YapBeta", ErrInvalidCfg, "YapBeta is heigher than Zanzibar",
+		},
+		{
+			"Zanzibar", ErrInvalidCfg, "Zanzibar is heigher than ZanzibarBeta",
+		},
+		{
 			"", nil, "",
 		},
 	}
@@ -467,6 +473,15 @@ func newTestCfg(fork string) Config {
 		cfg.Genesis.XinguBetaBlockHeight = cfg.Genesis.YapBlockHeight + 1
 	case "Yap":
 		cfg.Genesis.YapBlockHeight = cfg.Genesis.YapBetaBlockHeight + 1
+	case "YapBeta":
+		// Zanzibar defaults to MaxUint64, so it has to be pinned to a real
+		// height first -- otherwise +1 wraps to 0 and an earlier case fires.
+		cfg.Genesis.ZanzibarBlockHeight = cfg.Genesis.YapBetaBlockHeight + 100
+		cfg.Genesis.ZanzibarBetaBlockHeight = cfg.Genesis.ZanzibarBlockHeight
+		cfg.Genesis.YapBetaBlockHeight = cfg.Genesis.ZanzibarBlockHeight + 1
+	case "Zanzibar":
+		cfg.Genesis.ZanzibarBetaBlockHeight = cfg.Genesis.YapBetaBlockHeight + 100
+		cfg.Genesis.ZanzibarBlockHeight = cfg.Genesis.ZanzibarBetaBlockHeight + 1
 	}
 	return cfg
 }

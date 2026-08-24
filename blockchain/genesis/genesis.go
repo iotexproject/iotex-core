@@ -83,6 +83,7 @@ func defaultConfig() Genesis {
 			YapBlockHeight:            48985561,
 			YapBetaBlockHeight:        48985561,
 			ZanzibarBlockHeight:       math.MaxUint64,
+			ZanzibarBetaBlockHeight:   math.MaxUint64,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 		},
 		Account: Account{
@@ -404,6 +405,16 @@ type (
 		// 4. stop GetCommittedState returning post-mutation values for
 		//    storage slots absent from the pre-tx trie
 		ZanzibarBlockHeight uint64 `yaml:"zanzibarHeight"`
+		// ZanzibarBetaBlockHeight is the start height for corrections to Zanzibar
+		// that cannot be made at ZanzibarBlockHeight itself.
+		//
+		// Zanzibar has already activated on testnet, and its one-shot work runs
+		// in the single block at ZanzibarBlockHeight. Changing what that block
+		// does would make a node replaying history compute a different receipt
+		// root, so a resync would fork. A chain that has not activated yet sets
+		// this equal to ZanzibarBlockHeight and gets the corrected behaviour at
+		// activation, exactly as mainnet does for XinguBeta.
+		ZanzibarBetaBlockHeight uint64 `yaml:"zanzibarBetaHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -879,6 +890,11 @@ func (g *Blockchain) IsYapBeta(height uint64) bool {
 // IsZanzibar checks whether height is equal to or larger than zanzibar height
 func (g *Blockchain) IsZanzibar(height uint64) bool {
 	return g.isPost(g.ZanzibarBlockHeight, height)
+}
+
+// IsZanzibarBeta checks whether height is equal to or larger than zanzibar beta height
+func (g *Blockchain) IsZanzibarBeta(height uint64) bool {
+	return g.isPost(g.ZanzibarBetaBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
