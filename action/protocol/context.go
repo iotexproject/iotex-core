@@ -210,6 +210,32 @@ type (
 		// needs its own height, one fork later than the gate above. Both are
 		// wired to IsToBeEnabled until the named heights are assigned.
 		FixEpochSettlementFaultHandling bool
+		// RequireProfileForHermesMigration makes the activation-block Hermes
+		// opt-in migration skip candidates whose DelegateProfile portions are
+		// missing or only half set, leaving them on the off-chain Hermes payout
+		// instead of moving them into an on-chain path that freezes them at
+		// 100% commission and pays their voters nothing.
+		//
+		// Separate from NoVoterRewardDistribution because the migration is a
+		// one-shot that runs in the single block that gate turns on at. A chain
+		// where it has already fired has that block committed; changing what it
+		// did would alter the block's receipt root and fork any node replaying
+		// history. Wired to IsToBeEnabled until the named height is assigned.
+		RequireProfileForHermesMigration bool
+		// EmitEraFreezeLog makes the era freeze emit one DelegateRewardFrozen
+		// log per frozen delegate.
+		//
+		// Freezing is otherwise silent: the freeze block and its neighbours
+		// carry the same single untopiced block-reward log, so an event-driven
+		// indexer cannot tell an era was frozen, which delegates are in it, or
+		// what commission each was frozen at.
+		//
+		// Receipt logs are part of the receipt root, so this needs its own
+		// height rather than riding on the gate that turns IIP-59 on: a chain
+		// that has already produced freeze blocks without these logs would
+		// recompute different roots for them. Wired to IsToBeEnabled until the
+		// named height is assigned.
+		EmitEraFreezeLog bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -388,6 +414,8 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectPrestateForAbsentKeys:            g.IsToBeEnabled(height),
 			NoVoterRewardDistribution:               !g.IsToBeEnabled(height),
 			FixEpochSettlementFaultHandling:         g.IsToBeEnabled(height),
+			RequireProfileForHermesMigration:        g.IsToBeEnabled(height),
+			EmitEraFreezeLog:                        g.IsToBeEnabled(height),
 		},
 	)
 }

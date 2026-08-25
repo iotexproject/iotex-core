@@ -737,6 +737,10 @@ func (builder *Builder) registerStakingProtocol() error {
 		opts = append(opts, staking.WithContractStakingIndexerV3(builder.cs.contractStakingIndexerV3))
 	}
 	opts = append(opts, staking.WithBlockStore(builder.cs.blockdao))
+	// The Hermes opt-in migration consults DelegateProfile before opting a
+	// candidate in. The reader runs a simulated view call, which staking cannot
+	// build itself without importing evm or poll; this is the seam.
+	opts = append(opts, staking.WithDelegateProfileReader(poll.NewDelegateProfileContractReader))
 	opts = append(opts, builder.stakingOpts...)
 	stakingProtocol, err := staking.NewProtocol(
 		staking.HelperCtx{
