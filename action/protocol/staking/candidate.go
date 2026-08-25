@@ -356,6 +356,13 @@ func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 		Id:                 d.GetIdentifier().String(),
 		BlsPubKey:          blsPubKey,
 		DeactivatedAt:      d.DeactivatedAt,
+		// Surfaced so a client can answer "is this delegate on protocol-native
+		// voter rewards" from the staking API alone. The alternative it
+		// otherwise has to use -- the rewarding protocol's delegatePayoutAddress
+		// -- reports whether a freeze snapshot exists for the current era, not
+		// whether this bit is set, and therefore answers false for a delegate
+		// that opted in after the last freeze.
+		VoterRewardOnchainOptIn: d.VoterRewardOnchainOptIn,
 	}
 }
 

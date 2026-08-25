@@ -523,3 +523,32 @@ func TestCandidate_DeletedCannotModifySelfStake(t *testing.T) {
 	r.NoError(candidate.SubSelfStake(big.NewInt(100)))
 	r.Equal(uint64(1400), candidate.SelfStake.Uint64())
 }
+
+// TestCandidateToIoTeXTypesCarriesOptIn guards the field the outward-facing type
+// exists to expose.
+//
+// Without it a client has to ask the rewarding protocol's delegatePayoutAddress
+// instead, and that view reports whether a freeze snapshot exists for the
+// current era rather than whether the bit is set -- so it answers false for a
+// delegate that opted in after the last freeze, which on a 24-epoch era is a
+// window of hours.
+func TestCandidateToIoTeXTypesCarriesOptIn(t *testing.T) {
+	r := require.New(t)
+	base := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(2),
+		Reward:             identityset.Address(3),
+		Identifier:         identityset.Address(1),
+		Name:               "cand",
+		Votes:              big.NewInt(1),
+		SelfStakeBucketIdx: 1,
+		SelfStake:          big.NewInt(1),
+	}
+
+	r.False(base.toIoTeXTypes().GetVoterRewardOnchainOptIn(),
+		"a candidate that has not opted in must not report that it has")
+
+	optedIn := base.Clone()
+	optedIn.VoterRewardOnchainOptIn = true
+	r.True(optedIn.toIoTeXTypes().GetVoterRewardOnchainOptIn())
+}
