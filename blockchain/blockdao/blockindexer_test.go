@@ -26,6 +26,77 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_blockdao"
 )
 
+// checkIndexerFixture is the mock wiring the two table-driven CheckIndexer tests
+// share. They differ only in what they assert -- TestCheckIndexer covers the
+// indexer-ahead-of-DAO error, TestCheckIndexerTargetHeight the targetHeight cap
+// -- so the setup lives here rather than being written out twice.
+type checkIndexerFixture struct {
+	checker   BlockIndexerChecker
+	indexer   *mock_blockdao.MockBlockIndexer
+	ctx       context.Context
+	putBlocks *[]*block.Block
+}
+
+// newCheckIndexerFixture serves a synthetic header for any height the checker
+// asks for and records every block handed to the indexer.
+//
+// putBlocks is appended to from inside the PutBlock expectation, so read it only
+// after CheckIndexer has returned.
+func newCheckIndexerFixture(t *testing.T, daoHeight, indexerTipHeight uint64) *checkIndexerFixture {
+	t.Helper()
+	ctrl := gomock.NewController(t)
+	t.Cleanup(ctrl.Finish)
+
+	mockDao := mock_blockdao.NewMockBlockDAO(ctrl)
+	indexer := mock_blockdao.NewMockBlockIndexer(ctrl)
+	putBlocks := make([]*block.Block, 0)
+
+	blockAt := func(height uint64) (*block.Block, error) {
+		pb := &iotextypes.BlockHeader{
+			Core: &iotextypes.BlockHeaderCore{
+				Height:    height,
+				Timestamp: timestamppb.Now(),
+			},
+			ProducerPubkey: identityset.PrivateKey(1).PublicKey().Bytes(),
+		}
+		blk := &block.Block{}
+		err := blk.LoadFromBlockHeaderProto(pb)
+		return blk, err
+	}
+
+	mockDao.EXPECT().Height().Return(daoHeight, nil).Times(1)
+	mockDao.EXPECT().GetBlockByHeight(gomock.Any()).DoAndReturn(blockAt).AnyTimes()
+	mockDao.EXPECT().GetReceipts(gomock.Any()).Return(nil, nil).AnyTimes()
+	mockDao.EXPECT().HeaderByHeight(gomock.Any()).DoAndReturn(func(height uint64) (*block.Header, error) {
+		blk, err := blockAt(height)
+		return &blk.Header, err
+	}).AnyTimes()
+	indexer.EXPECT().Height().Return(indexerTipHeight, nil).Times(1)
+	indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, blk *block.Block) error {
+		putBlocks = append(putBlocks, blk)
+		return nil
+	}).AnyTimes()
+
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
+	ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
+
+	return &checkIndexerFixture{
+		checker:   NewBlockIndexerChecker(mockDao),
+		indexer:   indexer,
+		ctx:       ctx,
+		putBlocks: &putBlocks,
+	}
+}
+
+func (f *checkIndexerFixture) requirePutHeights(t *testing.T, expected []uint64) {
+	t.Helper()
+	require := require.New(t)
+	require.Len(*f.putBlocks, len(expected))
+	for i, h := range expected {
+		require.Equal(h, (*f.putBlocks)[i].Height())
+	}
+}
+
 func TestCheckIndexer(t *testing.T) {
 
 	cases := []struct {
@@ -45,54 +116,10 @@ func TestCheckIndexer(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.FormatUint(uint64(i), 10), func(t *testing.T) {
-			require := require.New(t)
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			mockDao := mock_blockdao.NewMockBlockDAO(ctrl)
-			checker := NewBlockIndexerChecker(mockDao)
-			indexer := mock_blockdao.NewMockBlockIndexer(ctrl)
-
-			putBlocks := make([]*block.Block, 0)
-			mockDao.EXPECT().Height().Return(c.daoHeight, nil).Times(1)
-			mockDao.EXPECT().GetBlockByHeight(gomock.Any()).DoAndReturn(func(arg0 uint64) (*block.Block, error) {
-				pb := &iotextypes.BlockHeader{
-					Core: &iotextypes.BlockHeaderCore{
-						Height:    arg0,
-						Timestamp: timestamppb.Now(),
-					},
-					ProducerPubkey: identityset.PrivateKey(1).PublicKey().Bytes(),
-				}
-				blk := &block.Block{}
-				err := blk.LoadFromBlockHeaderProto(pb)
-				return blk, err
-			}).AnyTimes()
-			mockDao.EXPECT().GetReceipts(gomock.Any()).Return(nil, nil).AnyTimes()
-			mockDao.EXPECT().HeaderByHeight(gomock.Any()).DoAndReturn(func(arg0 uint64) (*block.Header, error) {
-				pb := &iotextypes.BlockHeader{
-					Core: &iotextypes.BlockHeaderCore{
-						Height:    arg0,
-						Timestamp: timestamppb.Now(),
-					},
-					ProducerPubkey: identityset.PrivateKey(1).PublicKey().Bytes(),
-				}
-				blk := &block.Block{}
-				err := blk.LoadFromBlockHeaderProto(pb)
-				return &blk.Header, err
-			}).AnyTimes()
-			indexer.EXPECT().Height().Return(c.indexerTipHeight, nil).Times(1)
-			indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).DoAndReturn(func(arg0 context.Context, arg1 *block.Block) error {
-				putBlocks = append(putBlocks, arg1)
-				return nil
-			}).AnyTimes()
-
-			ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
-			ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
-			err := checker.CheckIndexer(ctx, indexer, 0, func(u uint64) {})
-			require.Equalf(c.noErr, err == nil, "error: %v", err)
-			require.Len(putBlocks, len(c.expectedPutBlocks))
-			for k, h := range c.expectedPutBlocks {
-				require.Equal(h, putBlocks[k].Height())
-			}
+			f := newCheckIndexerFixture(t, c.daoHeight, c.indexerTipHeight)
+			err := f.checker.CheckIndexer(f.ctx, f.indexer, 0, func(uint64) {})
+			require.Equalf(t, c.noErr, err == nil, "error: %v", err)
+			f.requirePutHeights(t, c.expectedPutBlocks)
 		})
 	}
 }
@@ -118,53 +145,9 @@ func TestCheckIndexerTargetHeight(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			require := require.New(t)
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			mockDao := mock_blockdao.NewMockBlockDAO(ctrl)
-			checker := NewBlockIndexerChecker(mockDao)
-			indexer := mock_blockdao.NewMockBlockIndexer(ctrl)
-
-			putBlocks := make([]*block.Block, 0)
-			mockDao.EXPECT().Height().Return(c.daoHeight, nil).Times(1)
-			mockDao.EXPECT().GetBlockByHeight(gomock.Any()).DoAndReturn(func(arg0 uint64) (*block.Block, error) {
-				pb := &iotextypes.BlockHeader{
-					Core: &iotextypes.BlockHeaderCore{
-						Height:    arg0,
-						Timestamp: timestamppb.Now(),
-					},
-					ProducerPubkey: identityset.PrivateKey(1).PublicKey().Bytes(),
-				}
-				blk := &block.Block{}
-				err := blk.LoadFromBlockHeaderProto(pb)
-				return blk, err
-			}).AnyTimes()
-			mockDao.EXPECT().GetReceipts(gomock.Any()).Return(nil, nil).AnyTimes()
-			mockDao.EXPECT().HeaderByHeight(gomock.Any()).DoAndReturn(func(arg0 uint64) (*block.Header, error) {
-				pb := &iotextypes.BlockHeader{
-					Core: &iotextypes.BlockHeaderCore{
-						Height:    arg0,
-						Timestamp: timestamppb.Now(),
-					},
-					ProducerPubkey: identityset.PrivateKey(1).PublicKey().Bytes(),
-				}
-				blk := &block.Block{}
-				err := blk.LoadFromBlockHeaderProto(pb)
-				return &blk.Header, err
-			}).AnyTimes()
-			indexer.EXPECT().Height().Return(c.indexerTipHeight, nil).Times(1)
-			indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, blk *block.Block) error {
-				putBlocks = append(putBlocks, blk)
-				return nil
-			}).AnyTimes()
-
-			ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
-			ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
-			require.NoError(checker.CheckIndexer(ctx, indexer, c.targetHeight, func(uint64) {}))
-			require.Len(putBlocks, len(c.expectedPutBlocks))
-			for k, h := range c.expectedPutBlocks {
-				require.Equal(h, putBlocks[k].Height())
-			}
+			f := newCheckIndexerFixture(t, c.daoHeight, c.indexerTipHeight)
+			require.NoError(t, f.checker.CheckIndexer(f.ctx, f.indexer, c.targetHeight, func(uint64) {}))
+			f.requirePutHeights(t, c.expectedPutBlocks)
 		})
 	}
 }
