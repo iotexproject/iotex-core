@@ -54,6 +54,16 @@ type (
 		GetByOwner(address.Address) *Candidate
 		GetByIdentifier(address.Address) *Candidate
 		GetByOperator(address.Address) *Candidate
+		// HasBLSPubKeyOtherThan reports whether any candidate except self
+		// has registered the given BLS pubkey. Used to enforce one BLS
+		// pubkey per delegate — a hard requirement for IIP-52's
+		// FastAggregateVerify quorum-counting model.
+		//
+		// Deliberately a predicate and not a "who holds it" lookup: two
+		// candidates may already share a pubkey from before the rule
+		// existed, and naming one of them means naming whichever a Go map
+		// happened to yield first, which differs per node.
+		HasBLSPubKeyOtherThan(blsPubKey []byte, self address.Address) bool
 		Upsert(*Candidate) error
 		CreditBucketPool(*big.Int, bool) error
 		DebitBucketPool(*big.Int, bool) error
@@ -137,6 +147,10 @@ func (csm *candSM) ContainsOwner(addr address.Address) bool {
 
 func (csm *candSM) ContainsOperator(addr address.Address) bool {
 	return csm.candCenter.ContainsOperator(addr)
+}
+
+func (csm *candSM) HasBLSPubKeyOtherThan(blsPubKey []byte, self address.Address) bool {
+	return csm.candCenter.HasBLSPubKeyOtherThan(blsPubKey, self)
 }
 
 func (csm *candSM) ContainsSelfStakingBucket(index uint64) bool {
