@@ -128,7 +128,8 @@ func TestActivationBackfillCOWDrainPayout(t *testing.T) {
 	// block can freeze the first era. There is no intervening block or context.
 	r.NoError(sp.CreatePreStates(activationCtx, sm))
 	freezeHeight := protocol.MustGetBlockCtx(activationCtx).BlockHeight
-	r.NoError(staking.FreezeCandidateRewardSnapshots(activationCtx, sm, nil, nil, freezeHeight))
+	_, frzErr := staking.FreezeCandidateRewardSnapshots(activationCtx, sm, nil, nil, freezeHeight, 0)
+	r.NoError(frzErr)
 	r.NoError(staking.BeginEraCOWWindow(activationCtx, sm, freezeHeight))
 	refs, _, err := contractstaking.NewStateReader(sm).BucketRefsByOwner(alice)
 	r.NoError(err)

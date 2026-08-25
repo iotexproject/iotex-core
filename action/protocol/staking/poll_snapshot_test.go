@@ -185,7 +185,8 @@ func TestFreezeCandidateRewardSnapshots_LegacyCandidateSkipsProfileAndSnapshot(t
 		return nil, nil
 	})
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
-	r.NoError(FreezeCandidateRewardSnapshots(ctx, sm, bridge, reader, 0))
+	_, frzErr1 := FreezeCandidateRewardSnapshots(ctx, sm, bridge, reader, 0, 0)
+	r.NoError(frzErr1)
 
 	_, err = CandidateRewardSnapshotFor(sm, candidate.GetIdentifier())
 	r.ErrorIs(errors.Cause(err), state.ErrStateNotExist)
@@ -222,7 +223,9 @@ func TestFreezeCandidateRewardSnapshots_NilBridge(t *testing.T) {
 	r.NoError(putOnchainCandidate(csm, secondCand))
 	installCandCenter(t, sm, firstCand, secondCand)
 
-	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0))
+	_, frzErr2 := FreezeCandidateRewardSnapshots(context.Background(), sm, nil, nil, 0, 0)
+
+	r.NoError(frzErr2)
 
 	snap, err := CandidateRewardSnapshotFor(sm, firstCand.Owner)
 	r.NoError(err)
@@ -262,7 +265,9 @@ func TestFreezeCandidateRewardSnapshots_HappyPath(t *testing.T) {
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 
-	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0))
+	_, frzErr3 := FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0, 0)
+
+	r.NoError(frzErr3)
 
 	snap, err := CandidateRewardSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
@@ -288,7 +293,8 @@ func TestFreezeCandidateRewardSnapshots_ExplicitZeroProfileIsConfigured(t *testi
 	fake.setPortion(candidate.Owner, "epochRewardPortion", 0)
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
-	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0))
+	_, frzErr4 := FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0, 0)
+	r.NoError(frzErr4)
 
 	snapshot, err := CandidateRewardSnapshotFor(sm, candidate.Owner)
 	r.NoError(err)
@@ -323,7 +329,9 @@ func TestFreezeCandidateRewardSnapshots_UsesCandidateIdentity(t *testing.T) {
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 
-	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0))
+	_, frzErr5 := FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0, 0)
+
+	r.NoError(frzErr5)
 
 	snapshot, err := CandidateRewardSnapshotFor(sm, identity)
 	r.NoError(err)
@@ -371,7 +379,9 @@ func TestFreezeCandidateRewardSnapshots_PartialProfile(t *testing.T) {
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 
-	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0))
+	_, frzErr6 := FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0, 0)
+
+	r.NoError(frzErr6)
 
 	snap, err := CandidateRewardSnapshotFor(sm, registered.Owner)
 	r.NoError(err)
@@ -413,7 +423,9 @@ func TestFreezeCandidateRewardSnapshots_BridgeErrorDefaultsToFullOwnerCommission
 		return nil, errors.New("rpc down")
 	})
 
-	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, failing, 0))
+	_, frzErr7 := FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, failing, 0, 0)
+
+	r.NoError(frzErr7)
 
 	snap, err := CandidateRewardSnapshotFor(sm, cand.Owner)
 	r.NoError(err)
@@ -443,7 +455,8 @@ func TestFreezeCandidateRewardSnapshots_NilBridgeSkipsReader(t *testing.T) {
 		t.Fatalf("reader must not be called when bridge is nil")
 		return nil, nil
 	})
-	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, nil, panicReader, 0))
+	_, frzErr8 := FreezeCandidateRewardSnapshots(context.Background(), sm, nil, panicReader, 0, 0)
+	r.NoError(frzErr8)
 }
 
 func TestFreezeCandidateRewardSnapshots_NonNilBridgeRequiresReader(t *testing.T) {
@@ -456,7 +469,7 @@ func TestFreezeCandidateRewardSnapshots_NonNilBridgeRequiresReader(t *testing.T)
 
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
-	err = FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, nil, 0)
+	_, err = FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, nil, 0, 0)
 	r.Error(err)
 	r.Contains(err.Error(), "nil ContractReader")
 }
@@ -514,7 +527,9 @@ func TestFreezeCandidateRewardSnapshots_EveryMemberGetsItsOwnRates(t *testing.T)
 	bridge, err := delegateprofile.New("io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u")
 	r.NoError(err)
 
-	r.NoError(FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0))
+	_, frzErr9 := FreezeCandidateRewardSnapshots(context.Background(), sm, bridge, fake.reader(t), 0, 0)
+
+	r.NoError(frzErr9)
 	for i, c := range cands {
 		snap, err := CandidateRewardSnapshotFor(sm, c.Owner)
 		r.NoError(err)

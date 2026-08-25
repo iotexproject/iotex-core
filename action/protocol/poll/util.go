@@ -61,16 +61,21 @@ func handle(ctx context.Context, act action.Action, sm protocol.StateManager, in
 	}
 	zap.L().Debug("Handle PutPollResult Action", zap.Uint64("height", r.Height()))
 
-	if err := setCandidates(ctx, sm, indexer, r.Candidates(), r.Height()); err != nil {
+	freezeLogs, err := setCandidates(ctx, sm, indexer, r.Candidates(), r.Height())
+	if err != nil {
 		return nil, errors.Wrap(err, "failed to set candidates")
 	}
-	return &action.Receipt{
+	receipt := &action.Receipt{
 		Status:          uint64(iotextypes.ReceiptStatus_Success),
 		ActionHash:      actionCtx.ActionHash,
 		BlockHeight:     blkCtx.BlockHeight,
 		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: protocolAddr,
-	}, nil
+	}
+	for _, l := range freezeLogs {
+		l.ActionHash = actionCtx.ActionHash
+	}
+	return receipt.AddLogs(freezeLogs...), nil
 }
 
 func validate(ctx context.Context, sr protocol.StateReader, p Protocol, act action.Action) error {
@@ -166,12 +171,12 @@ func setCandidates(
 	indexer *CandidateIndexer,
 	candidates state.CandidateList,
 	height uint64, // epoch start height
-) error {
+) ([]*action.Log, error) {
 	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(height)
 	if height != rp.GetEpochHeight(epochNum) {
-		return errors.New("put poll result height should be epoch start height")
+		return nil, errors.New("put poll result height should be epoch start height")
 	}
 	loadCandidatesLegacy := featureCtx.LoadCandidatesLegacy(height)
 	accountCreationOpts := []state.AccountCreationOption{}
@@ -183,26 +188,26 @@ func setCandidates(
 	for _, candidate := range candidates {
 		addr, err := address.FromString(candidate.Address)
 		if err != nil {
-			return errors.Wrapf(err, "failed to decode delegate address %s", candidate.Address)
+			return nil, errors.Wrapf(err, "failed to decode delegate address %s", candidate.Address)
 		}
 		delegate, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
 		if err != nil {
-			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
+			return nil, errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}
 		if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
 			delegate.MarkAsCandidate()
 		}
 		if loadCandidatesLegacy {
 			if err := candidatesutil.LoadAndAddCandidates(sm, height, candidate.Address); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		candAddr, err := address.FromString(candidate.Address)
 		if err != nil && protocol.MustGetFeatureCtx(ctx).FixUnproductiveDelegates {
-			return errors.Wrap(err, "failed to convert candidate address")
+			return nil, errors.Wrap(err, "failed to convert candidate address")
 		}
 		if err := accountutil.StoreAccount(sm, candAddr, delegate); err != nil {
-			return errors.Wrap(err, "failed to update pending account changes to trie")
+			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		log.L().Debug(
 			"add candidate",
@@ -213,20 +218,25 @@ func setCandidates(
 	}
 	if indexer != nil {
 		if err := indexer.PutCandidateList(height, &candidates); err != nil {
-			return errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
+			return nil, errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
 		}
 	}
-	if err := freezeIIP59RewardState(ctx, sm, epochNum); err != nil {
-		return errors.Wrap(err, "failed to freeze IIP-59 reward state")
+	freezeLogs, err := freezeIIP59RewardState(ctx, sm, epochNum)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to freeze IIP-59 reward state")
 	}
 	if loadCandidatesLegacy {
 		key, org := candidatesutil.ConstructLegacyKeyWithOrg(height)
-		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(key), protocol.ErigonStoreKeyOption(org))
-		return err
+		if _, err := sm.PutState(&candidates, protocol.LegacyKeyOption(key), protocol.ErigonStoreKeyOption(org)); err != nil {
+			return nil, err
+		}
+		return freezeLogs, nil
 	}
 	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
-	_, err := sm.PutState(&candidates, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
-	return err
+	if _, err := sm.PutState(&candidates, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+		return nil, err
+	}
+	return freezeLogs, nil
 }
 
 // freezeIIP59RewardState freezes the per-candidate reward inputs and then
@@ -267,14 +277,14 @@ func setCandidates(
 // the full-owner commission fallback.
 // Post-fork, era boundary, contract configured: bridge called; snapshot
 // carries frozen rates + commission-configuration bit.
-func freezeIIP59RewardState(ctx context.Context, sm protocol.StateManager, epochNum uint64) error {
+func freezeIIP59RewardState(ctx context.Context, sm protocol.StateManager, epochNum uint64) ([]*action.Log, error) {
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	if fCtx.NoVoterRewardDistribution {
-		return nil
+		return nil, nil
 	}
 	g := genesis.MustExtractGenesisContext(ctx)
 	if !protocol.IsEraBoundary(epochNum, g.EpochsPerRewardEra) {
-		return nil
+		return nil, nil
 	}
 	contract := g.DelegateProfileContractAddress
 	var (
@@ -284,16 +294,22 @@ func freezeIIP59RewardState(ctx context.Context, sm protocol.StateManager, epoch
 	if contract != "" {
 		b, err := delegateprofile.New(contract)
 		if err != nil {
-			return errors.Wrap(err, "invalid DelegateProfile contract address")
+			return nil, errors.Wrap(err, "invalid DelegateProfile contract address")
 		}
 		bridge = b
 		reader = delegateProfileContractReader(sm)
 	}
 	freezeHeight := protocol.MustGetBlockCtx(ctx).BlockHeight
-	if err := staking.FreezeCandidateRewardSnapshots(ctx, sm, bridge, reader, freezeHeight); err != nil {
-		return err
+	// The era is named by the boundary epoch itself, matching the cursor the
+	// settlement later writes (TargetEra: epochNum).
+	logs, err := staking.FreezeCandidateRewardSnapshots(ctx, sm, bridge, reader, freezeHeight, epochNum)
+	if err != nil {
+		return nil, err
 	}
-	return staking.BeginEraCOWWindow(ctx, sm, freezeHeight)
+	if err := staking.BeginEraCOWWindow(ctx, sm, freezeHeight); err != nil {
+		return nil, err
+	}
+	return logs, nil
 }
 
 // _delegateProfileViewCallGasLimit bounds the simulated DelegateProfile view

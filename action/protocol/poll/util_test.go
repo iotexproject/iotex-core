@@ -124,7 +124,8 @@ func TestFreezeIIP59RewardState_NonEraBoundarySkipsWrite(t *testing.T) {
 
 	// Non-boundary: epochsPerEra=24, epochNum=25.
 	ctx := freezeSnapshotEraGateCtx(t, 24, 1)
-	r.NoError(freezeIIP59RewardState(ctx, sm, 25))
+	_, ferr1 := freezeIIP59RewardState(ctx, sm, 25)
+	r.NoError(ferr1)
 }
 
 func TestFreezeIIP59RewardState_EraBoundaryProceeds(t *testing.T) {
@@ -149,7 +150,7 @@ func TestFreezeIIP59RewardState_EraBoundaryProceeds(t *testing.T) {
 	sm.EXPECT().ReadView(gomock.Any()).Return(nil, protocol.ErrNoName).AnyTimes()
 
 	ctx := freezeSnapshotEraGateCtx(t, 24, 1)
-	err := freezeIIP59RewardState(ctx, sm, 24)
+	_, err := freezeIIP59RewardState(ctx, sm, 24)
 	r.ErrorIs(err, protocol.ErrNoName)
 	r.Contains(err.Error(), "construct candidate view for reward snapshot")
 }
@@ -164,9 +165,12 @@ func TestFreezeIIP59RewardState_EpochsPerRewardEraZeroDisables(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 
 	ctx := freezeSnapshotEraGateCtx(t, 0, 1)
-	r.NoError(freezeIIP59RewardState(ctx, sm, 1))
-	r.NoError(freezeIIP59RewardState(ctx, sm, 24))
-	r.NoError(freezeIIP59RewardState(ctx, sm, 1_000_000))
+	_, ferr2 := freezeIIP59RewardState(ctx, sm, 1)
+	r.NoError(ferr2)
+	_, ferr3 := freezeIIP59RewardState(ctx, sm, 24)
+	r.NoError(ferr3)
+	_, ferr4 := freezeIIP59RewardState(ctx, sm, 1_000_000)
+	r.NoError(ferr4)
 }
 
 func TestFreezeIIP59RewardState_PreForkGateStillWins(t *testing.T) {
@@ -187,7 +191,9 @@ func TestFreezeIIP59RewardState_PreForkGateStillWins(t *testing.T) {
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1})
 	ctx = protocol.WithFeatureCtx(ctx)
 
-	r.NoError(freezeIIP59RewardState(ctx, sm, 24))
+	_, ferr5 := freezeIIP59RewardState(ctx, sm, 24)
+
+	r.NoError(ferr5)
 }
 
 func TestDelegateProfileContractReaderInstallsEVMHelperContext(t *testing.T) {
