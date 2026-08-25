@@ -919,6 +919,12 @@ func (p *Protocol) GrantEpochReward(
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "rewarding: read era copy-on-write window for drain plan")
 		}
+		if !window.Open() && !featureCtx.FixEpochSettlementFaultHandling {
+			// Pre-correction behaviour, kept for replay: a chain that activated
+			// IIP-59 before the height below would have failed this grant, and
+			// reproducing its blocks means failing it the same way.
+			return nil, nil, errors.New("rewarding: era copy-on-write window is closed at era boundary")
+		}
 		if !window.Open() {
 			// This era never froze, so there is no era here to settle.
 			//

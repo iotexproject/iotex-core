@@ -93,6 +93,8 @@ func (p *Protocol) payVoterCombined(
 	}
 	out := voterCombinedPayout{voter: voter, recipient: voter, amount: total, shares: shares.shares}
 
+	failClosed := protocol.MustGetFeatureCtx(ctx).FixEpochSettlementFaultHandling
+
 	if routing.bucketReader != nil {
 		stop := startIIP59Accumulation(&routeDurations.autoDepositLookup)
 		bucketID, present, lookupErr := routing.bucketReader.LookupBucket(voter)
@@ -111,8 +113,16 @@ func (p *Protocol) payVoterCombined(
 			// validators. Letting it pick the destination puts the credit
 			// branch and the compound branch in the same block on different
 			// nodes.
-			return none, errors.Wrapf(lookupErr,
-				"rewarding: auto-deposit bucket lookup for voter %s", voter.String())
+			//
+			// Gated: a chain that activated IIP-59 before this height already
+			// committed blocks where the fault produced a credit, and replay
+			// has to reproduce them.
+			if failClosed {
+				return none, errors.Wrapf(lookupErr,
+					"rewarding: auto-deposit bucket lookup for voter %s", voter.String())
+			}
+			log.L().Warn("autodeposit bucket lookup failed; routing voter share to credit",
+				zap.String("voter", voter.String()), zap.Error(lookupErr))
 		case present:
 			stopRead := startIIP59Accumulation(&routeDurations.nativeBucketRead)
 			bucket, bErr := routing.csr.NativeBucket(bucketID)
@@ -123,11 +133,11 @@ func (p *Protocol) payVoterCombined(
 				// withdrawn" are committed state and degrade; anything else is
 				// node-local and must fail the block rather than reroute money
 				// on a fault only some validators saw.
-				if !bucketReadErrorIsChainDetermined(bErr) {
+				if failClosed && !bucketReadErrorIsChainDetermined(bErr) {
 					return none, errors.Wrapf(bErr,
 						"rewarding: read compound bucket %d for voter %s", bucketID, voter.String())
 				}
-				log.L().Warn("bucket absent or withdrawn since the freeze; routing voter share to credit",
+				log.L().Warn("bucket unreadable for compound routing; routing voter share to credit",
 					zap.String("voter", voter.String()),
 					zap.Uint64("bucket", bucketID),
 					zap.Error(bErr))

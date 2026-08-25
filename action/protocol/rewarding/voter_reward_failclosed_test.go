@@ -235,6 +235,96 @@ func TestEpochRewardPreForkStillSettlesEveryError(t *testing.T) {
 	}, nil, false, 0)
 }
 
+// withFixOff returns patches that make every MustGetFeatureCtx in the call
+// under test report the pre-correction era: IIP-59 active,
+// FixEpochSettlementFaultHandling not yet.
+//
+// The two flags are wired to the same height today, so no genesis can separate
+// them and the pre-correction branches would otherwise be unreachable from a
+// test. They stop moving together as soon as the named heights are assigned,
+// and until then this is the only way to hold replay behaviour down.
+func withFixOff(t *testing.T, ctx context.Context) *gomonkey.Patches {
+	t.Helper()
+	fc, ok := protocol.GetFeatureCtx(ctx)
+	require.True(t, ok, "fixture must already carry a feature context")
+	require.False(t, fc.NoVoterRewardDistribution, "fixture must be post-IIP-59")
+	fc.FixEpochSettlementFaultHandling = false
+	return gomonkey.NewPatches().ApplyFuncReturn(protocol.MustGetFeatureCtx, fc)
+}
+
+// TestPayVoterCombinedDegradesLookupFailureBeforeTheFix pins what a chain that
+// activated IIP-59 ahead of the correction already committed: the fault picked
+// the destination, and the voter was credited. Replaying those blocks has to
+// reproduce it, so the old branch cannot simply be deleted.
+func TestPayVoterCombinedDegradesLookupFailureBeforeTheFix(t *testing.T) {
+	r := require.New(t)
+	f := newCompoundFixture(t)
+	f.routing.bucketReader = failingBucketReader{}
+
+	patches := withFixOff(t, f.ctx)
+	defer patches.Reset()
+
+	amount := big.NewInt(777)
+	shares, in := selfStakeMismatchShares(f.delegate, f.bucket.Index, amount)
+	payout, err := f.p.payVoterCombined(
+		f.ctx, f.sm, f.routing, in, f.voter, shares, &iip59RouteDurations{},
+	)
+	r.NoError(err, "before the fix, a lookup fault degraded to a credit")
+	r.False(payout.compounded)
+	r.Equal(f.voter.String(), payout.recipient.String())
+	r.Zero(amount.Cmp(payout.amount))
+}
+
+// TestGrantEpochRewardFailsOnAClosedWindowBeforeTheFix is the same guarantee
+// for the era boundary: the grant used to fail outright, taking the epoch's
+// commissions and foundation bonus with it, and that is what a replaying node
+// has to reproduce.
+func TestGrantEpochRewardFailsOnAClosedWindowBeforeTheFix(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		ctx = enableIIP59(t, ctx)
+
+		_, err := p.Deposit(ctx, sm, big.NewInt(500), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		r.NoError(err)
+
+		patches := withFixOff(t, ctx)
+		defer patches.Reset()
+		sp := &staking.Protocol{}
+		r.NoError(sp.Register(protocol.MustGetRegistry(ctx)))
+		patches.ApplyMethodReturn(sp, "SlashCandidateByOperator", nil)
+		patches.ApplyMethodReturn(sp, "SlashCandidateByID", nil)
+
+		_, _, err = p.GrantEpochReward(ctx, sm)
+		r.ErrorContains(err, "era copy-on-write window is closed at era boundary")
+	}, nil, false, 0)
+}
+
+// TestEpochRewardSettlesEveryErrorBeforeTheFix covers the receipt half. With
+// IIP-59 live but the correction not yet active, a node-local fault still
+// settles a Failure receipt -- which is the divergence the fix removes, and
+// also exactly what such a chain has on disk.
+func TestEpochRewardSettlesEveryErrorBeforeTheFix(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		ctx = enableIIP59(t, ctx)
+		testdb.AllowRevert(sm.(*mock_chainmanager.MockStateManager))
+
+		patches := withFixOff(t, ctx)
+		defer patches.Reset()
+		patches.ApplyPrivateMethod(p, "loadEpochDistributionInputs", func(
+			_ *Protocol, _ context.Context, _ protocol.StateManager, _ uint64,
+		) (*admin, map[string]interface{}, map[string]uint64,
+			[]*state.Candidate, []*state.Candidate, []address.Address, []*big.Int, error) {
+			return nil, nil, nil, nil, nil, nil, nil, errNodeLocal
+		})
+
+		receipt, err := p.Handle(ctx, epochRewardEnvelope(t), sm)
+		r.NoError(err, "before the fix, every epoch-grant error settled a receipt")
+		r.NotNil(receipt)
+		r.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
+	}, nil, false, 0)
+}
+
 // epochRewardEnvelope builds the system action Handle dispatches on.
 func epochRewardEnvelope(t *testing.T) action.Envelope {
 	t.Helper()

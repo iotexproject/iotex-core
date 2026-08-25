@@ -187,6 +187,29 @@ type (
 		// PutPollResult and rewarding consumes it. Bound to
 		// !g.IsToBeEnabled(height): default zero-value = active after fork.
 		NoVoterRewardDistribution bool
+		// FixEpochSettlementFaultHandling corrects how faults raised during
+		// epoch settlement are classified, in three places:
+		//
+		//   - the auto-deposit lookup and the compound bucket read no longer
+		//     reroute a voter's share on a fault only some nodes saw; an absent
+		//     or withdrawn bucket, which every node reads identically, still
+		//     degrades to a direct credit;
+		//   - an era boundary reached with no copy-on-write window skips the
+		//     drain cursor instead of failing the whole epoch grant, which used
+		//     to take that epoch's commissions, foundation bonus and sentinel
+		//     down with it;
+		//   - a GrantEpochReward error settles a Failure receipt only when it
+		//     is derivable from committed state; the rest fail the block rather
+		//     than let one node commit "this epoch paid nobody" against
+		//     everyone else's full grant.
+		//
+		// Deliberately separate from NoVoterRewardDistribution. That gate is
+		// what turns IIP-59 on, so a chain where it has already activated is
+		// executing the pre-correction behaviour; changing it in place would
+		// alter blocks that chain has already committed. This flag therefore
+		// needs its own height, one fork later than the gate above. Both are
+		// wired to IsToBeEnabled until the named heights are assigned.
+		FixEpochSettlementFaultHandling bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -364,6 +387,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixInContractTransferLogTopic:           g.IsToBeEnabled(height),
 			CorrectPrestateForAbsentKeys:            g.IsToBeEnabled(height),
 			NoVoterRewardDistribution:               !g.IsToBeEnabled(height),
+			FixEpochSettlementFaultHandling:         g.IsToBeEnabled(height),
 		},
 	)
 }
