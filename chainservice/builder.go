@@ -931,6 +931,11 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.registerRollDPoSProtocol(); err != nil {
 		return nil, errors.Wrap(err, "failed to register roll dpos related protocols")
 	}
+	// Needs the epoch arithmetic rolldpos was just registered with, which is
+	// why this is not in Genesis.validate().
+	if err := checkIIP59EraMargin(builder.cfg.Genesis, builder.cs.registry); err != nil {
+		return nil, err
+	}
 	if err := builder.registerExecutionProtocol(); err != nil {
 		return nil, errors.Wrap(err, "failed to register execution protocol")
 	}
