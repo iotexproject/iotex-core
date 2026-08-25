@@ -180,6 +180,24 @@ type (
 		// for such slots, causing EIP-2200 SSTORE dynamic gas to misclassify
 		// dirty in-place writes as SSTORE_RESET (100 → 2900 gas overcharge per hit).
 		CorrectPrestateForAbsentKeys bool
+		// EnforceBLSPoP gates the BLS proof-of-possession requirement at
+		// candidate register / update. The staking handler validates
+		// blsPubKey only with BLS12381PublicKeyFromBytes (format +
+		// subgroup); without a possession proof, IIP-52's planned
+		// FastAggregateVerify path is vulnerable to a rogue-key
+		// aggregate-forgery attack (a registered candidate could publish
+		// pk_rogue = g^x − Σ(other pubkeys) and, once aggregation goes
+		// live, forge a 2/3+ quorum certificate with a single signature).
+		// Activating EnforceBLSPoP BEFORE the BLS aggregation fork closes
+		// the window for collecting un-attested pubkeys.
+		EnforceBLSPoP bool
+		// OptionalCandidateBLSPublicKey relaxes the Xingu-era rule that every
+		// candidate register / update must carry a BLS public key. Post-fork
+		// the key is optional -- nothing consumes it until IIP-52 aggregation
+		// activates -- but a proof-of-possession may not arrive without one.
+		// An update that omits both leaves any previously registered key
+		// untouched.
+		OptionalCandidateBLSPublicKey bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -356,6 +374,8 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			NoCandidateExitQueue:                    !g.IsYap(height),
 			FixInContractTransferLogTopic:           g.IsToBeEnabled(height),
 			CorrectPrestateForAbsentKeys:            g.IsToBeEnabled(height),
+			EnforceBLSPoP:                           g.IsToBeEnabled(height),
+			OptionalCandidateBLSPublicKey:           g.IsToBeEnabled(height),
 		},
 	)
 }
