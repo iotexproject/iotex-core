@@ -16,6 +16,14 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 )
 
+// delegateRewardSnapshot reports a zero snapshot for a delegate that is not in
+// the current settlement set, rather than reverting: not having opted in is a
+// normal state, and a caller should not need a try/catch to ask about it.
+//
+// Test freezeHeight to tell the two apart. A real snapshot always carries the
+// height its freeze ran at and a freeze cannot run at height 0, so
+// freezeHeight == 0 means "no snapshot". Do not test the commission fields --
+// 0 basis points is a legitimate value meaning the delegate takes nothing.
 const _iip59InterfaceABI = `[
 	{"inputs":[{"name":"delegateId","type":"address"}],"name":"pendingVoterReward","outputs":[{"name":"amount","type":"uint256"}],"stateMutability":"view","type":"function"},
 	{"inputs":[],"name":"pendingVoterRewardDelegates","outputs":[{"name":"delegateIds","type":"address[]"}],"stateMutability":"view","type":"function"},

@@ -536,7 +536,22 @@ func (p *Protocol) ReadState(
 			return nil, uint64(0), err
 		}
 		snapshot, err := staking.CandidateRewardSnapshotFor(sr, candID)
-		if err != nil {
+		switch {
+		case err == nil:
+		case errors.Is(err, state.ErrStateNotExist):
+			// Not being in the settlement set is a normal answer, not a fault:
+			// it is what every delegate that has not opted in looks like. This
+			// used to revert with "state does not exist", forcing callers to
+			// wrap a try/catch around an ordinary question.
+			//
+			// Absence is reported as a zero snapshot. freezeHeight is the field
+			// to test: a real snapshot always carries the height its freeze ran
+			// at, and a freeze cannot run at height 0, so freezeHeight == 0
+			// means "no snapshot" and never "frozen at height 0". The commission
+			// fields cannot serve that purpose -- 0 basis points is a legitimate
+			// value, meaning the delegate takes nothing.
+			snapshot = &staking.CandidateRewardSnapshot{}
+		default:
 			return nil, uint64(0), err
 		}
 		return marshalWithHeight(sr, &stakingpb.CandidateRewardSnapshot{

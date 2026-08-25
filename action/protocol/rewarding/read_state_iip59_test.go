@@ -146,3 +146,34 @@ func TestReadStateIIP59MissingAndArguments(t *testing.T) {
 	r.False(destination.GetExplicitlySet())
 	r.Zero(destination.GetUpdatedHeight())
 }
+
+// TestReadStateDelegateRewardSnapshotAbsent pins the answer for a delegate that
+// is not in the settlement set.
+//
+// That is what every delegate which has not opted in looks like -- an ordinary
+// state, not a fault. It used to revert with "state does not exist", so a caller
+// needed a try/catch to ask an ordinary question.
+func TestReadStateDelegateRewardSnapshotAbsent(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+	absent := identityset.Address(9)
+
+	data, _, err := p.ReadState(ctx, sm, []byte("DelegateRewardSnapshot"), []byte(absent.String()))
+	r.NoError(err, "a delegate outside the settlement set is a normal answer")
+
+	snapshot := &stakingpb.CandidateRewardSnapshot{}
+	r.NoError(proto.Unmarshal(data, snapshot))
+
+	// freezeHeight is the discriminator: a real snapshot always carries the
+	// height its freeze ran at, and a freeze cannot run at height 0.
+	r.Zero(snapshot.GetFreezeHeight(), "freezeHeight == 0 is how a caller detects absence")
+	r.Zero(snapshot.GetBlockCommissionBasisPoints())
+	r.Zero(snapshot.GetEpochCommissionBasisPoints())
+	r.False(snapshot.GetCommissionConfigured())
+	r.Empty(snapshot.GetTotalWeight())
+	r.Zero(snapshot.GetSelfStakeBucketIdx())
+
+	// A malformed identifier is still an error -- only absence was reclassified.
+	_, _, err = p.ReadState(ctx, sm, []byte("DelegateRewardSnapshot"), []byte("not-an-address"))
+	r.Error(err)
+}
