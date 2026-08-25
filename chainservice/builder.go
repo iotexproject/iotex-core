@@ -295,6 +295,18 @@ func (builder *Builder) buildActionPool() error {
 			bp := actpool.NewBundlePool(builder.cfg.Genesis)
 			options = append(options, actpool.WithBundlePool(bp))
 		}
+		// Refuse actions the protocols themselves will certainly reject, so a
+		// feature-gated action no proposer can include is turned away at
+		// submission instead of taking a nonce and stalling the account until
+		// it expires.
+		//
+		// The registry is passed by pointer and read at validation time: the
+		// protocols are registered after this pool is built, so the slice is
+		// still empty right now. Registered as a private validator on purpose --
+		// see WithPrivateValidator.
+		options = append(options, actpool.WithPrivateValidator(
+			actpool.NewProtocolValidator(builder.cs.registry, builder.cs.factory),
+		))
 		ac, err := actpool.NewActPool(builder.cfg.Genesis, builder.cs.factory, builder.cfg.ActPool, options...)
 		if err != nil {
 			return errors.Wrap(err, "failed to create actpool")
