@@ -165,6 +165,12 @@ func defaultConfig() Genesis {
 			FoundationBonusP2EndEpoch:      18458,
 			ProductivityThreshold:          85,
 			WakeBlockRewardStr:             "4000000000000000000",
+			EpochsPerRewardEra:             24,
+			VoterBudgetPerBlock:            256,
+			HermesRewardVaultAddresses: []string{
+				"io19604a05s2p3mecam2zz7d27hcr6ndyw80wvkmh",
+				"io12mgttmfa2ffn9uqvn0yn37f4nz43d248l2ga85",
+			},
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
@@ -401,6 +407,12 @@ type (
 		// FixAliasForNonStopHeight is the height at which the candidate center's name/operator maps
 		// are rebuilt, so a node that never restarted ends up with the same maps as one that did
 		FixAliasForNonStopHeight uint64 `yaml:"fixAliasForNonStopHeight"`
+		// AutoDepositContractAddress is the IoTeX bech32 address of the
+		// AutoDeposit contract from which IIP-59 reads per-voter compound
+		// preferences at epoch reward distribution time. Empty means
+		// compound routing is inactive and every voter share is credited
+		// to the voter's unclaimed balance for pull-claim.
+		AutoDepositContractAddress string `yaml:"autoDepositContractAddress"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -461,6 +473,12 @@ type (
 		SystemStakingContractV3Address string `yaml:"systemStakingContractV3Address"`
 		// SystemStakingContractV3Height is the height of system staking contract
 		SystemStakingContractV3Height uint64 `yaml:"systemStakingContractV3Height"`
+		// DelegateProfileContractAddress is the bech32 address of the on-chain
+		// DelegateProfile contract from which IIP-59 reads per-delegate voter-take
+		// portions at PutPollResult. Empty ⇒ IIP-59 commission-rate freeze is
+		// inactive and the rewarding protocol falls back to the legacy Hermes
+		// distribution path. Populated per-network in the mainnet/testnet YAML.
+		DelegateProfileContractAddress string `yaml:"delegateProfileContractAddress"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {
@@ -501,6 +519,16 @@ type (
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
 		// WakeBlockRewardStr is the block reward amount, in decimal string format, effective from the Wake height
 		WakeBlockRewardStr string `yaml:"wakeBlockRewardStr"`
+		// EpochsPerRewardEra is the number of epochs per IIP-59 voter reward era. Era boundaries are epochs where
+		// epochNum%EpochsPerRewardEra==0. Only consulted when the IIP-59 voter reward distribution feature is active.
+		EpochsPerRewardEra uint64 `yaml:"epochsPerRewardEra"`
+		// VoterBudgetPerBlock is the maximum number of voters credited per block during the era-boundary chunked
+		// credit path (IIP-59 Phase 2). 0 falls back to a single-block drain, preserving pre-IIP-59 behavior for
+		// tests that never touch the field.
+		VoterBudgetPerBlock uint64 `yaml:"voterBudgetPerBlock"`
+		// HermesRewardVaultAddresses lists legacy reward addresses whose delegates are
+		// automatically migrated to protocol-native reward distribution at IIP-59 activation.
+		HermesRewardVaultAddresses []string `yaml:"hermesRewardVaultAddresses"`
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {
@@ -560,7 +588,83 @@ func New(genesisPath string) (Genesis, error) {
 	if len(genesis.InitBalanceMap) == 0 {
 		genesis.InitBalanceMap = defaultInitBalanceMap()
 	}
+	if err := genesis.validate(); err != nil {
+		return Genesis{}, err
+	}
 	return genesis, nil
+}
+
+// validate rejects genesis values that would leave a scheduled feature silently
+// inert rather than failing loudly. It runs on the YAML load path only: callers
+// that build a Genesis literal (tests, defaultConfig) are trusted.
+func (g *Genesis) validate() error {
+	// IIP-59 shares ToBeEnabledBlockHeight with the other WIP features, so
+	// scheduling that height schedules voter reward distribution too. Until it
+	// is scheduled, the era length is never read and any value is acceptable.
+	if g.ToBeEnabledBlockHeight == math.MaxUint64 {
+		return nil
+	}
+	// IIP-59 enumerates pending reward pools by their unhashed V2 state-key
+	// prefix. Greenland activates that layout; allowing IIP-59 earlier would
+	// make orphan-pool enumeration incomplete because legacy rewarding keys are
+	// content-addressed and cannot be prefix-scanned.
+	if g.ToBeEnabledBlockHeight < g.GreenlandBlockHeight {
+		return errors.Errorf(
+			"genesis: toBeEnabledHeight %d must not precede greenlandHeight %d",
+			g.ToBeEnabledBlockHeight, g.GreenlandBlockHeight,
+		)
+	}
+	// IIP-59 recomputes contract-staking voter weights from bucket state in the
+	// trie. Xingu migrates those buckets from the Erigon-only mirror into the
+	// trie, so activating IIP-59 before Xingu would silently omit them.
+	if g.ToBeEnabledBlockHeight < g.XinguBlockHeight {
+		return errors.Errorf(
+			"genesis: toBeEnabledHeight %d must not precede xinguHeight %d",
+			g.ToBeEnabledBlockHeight, g.XinguBlockHeight,
+		)
+	}
+	// IsEraBoundary returns false for every epoch when EpochsPerRewardEra is 0,
+	// so a zero would activate IIP-59 and then never settle a single era -- the
+	// rewards accrue and no voter is ever paid, with nothing in the logs saying
+	// why. One is rejected for a subtler reason: the era window a settlement
+	// reads is superseded at the next freeze height, which lands roughly one and
+	// a half epochs before the next era boundary, so a one-epoch era leaves no
+	// room between the two. See IIP-59 section 14.
+	if g.Rewarding.EpochsPerRewardEra < 2 {
+		return errors.Errorf(
+			"genesis: epochsPerRewardEra must be at least 2 once toBeEnabledHeight is scheduled, got %d",
+			g.Rewarding.EpochsPerRewardEra,
+		)
+	}
+	// An unset DelegateProfile address does not switch commission routing off,
+	// it silently pins it at the maximum. FreezeCandidateRewardSnapshots writes
+	// a snapshot for every opted-in candidate whether or not a bridge exists,
+	// defaulting the rate to 100%, and the presence of a snapshot is what turns
+	// onchainRewardEnabled on. So each opted-in delegate takes the whole epoch
+	// reward at its owner address, no voter is paid on chain, and the payout
+	// stops arriving at the reward address an off-chain distributor watches --
+	// with nothing logged and no error raised.
+	if g.DelegateProfileContractAddress == "" {
+		return errors.New(
+			"genesis: delegateProfileContractAddress must be set once toBeEnabledHeight is scheduled; " +
+				"leaving it empty freezes every opted-in delegate at 100% commission")
+	}
+	if _, err := address.FromString(g.DelegateProfileContractAddress); err != nil {
+		return errors.Wrapf(err,
+			"genesis: delegateProfileContractAddress %q is not a valid address",
+			g.DelegateProfileContractAddress)
+	}
+	// Empty is a supported mode here, unlike above: it routes every voter share
+	// to a pull-claim credit, which pays the same voter the same amount. Only a
+	// malformed value is rejected, so a typo cannot silently select that mode.
+	if g.AutoDepositContractAddress != "" {
+		if _, err := address.FromString(g.AutoDepositContractAddress); err != nil {
+			return errors.Wrapf(err,
+				"genesis: autoDepositContractAddress %q is not a valid address",
+				g.AutoDepositContractAddress)
+		}
+	}
+	return nil
 }
 
 // SetGenesisTimestamp sets the genesis timestamp

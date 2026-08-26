@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -19,7 +20,11 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/enc"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -39,7 +44,11 @@ var (
 	_epochRewardHistoryKeyPrefix = state.EpochRewardHistoryKeyPrefix
 	_accountKeyPrefix            = []byte("acc")
 	_exemptKey                   = []byte("xpt")
-	errInvalidEpoch              = errors.New("invalid start/end epoch number")
+	// _pendingBlockRewardPoolKeyPrefix keys the per-delegate IIP-59 block
+	// reward pool. Full key layout is "pbrp/" || candidate identifier bytes,
+	// with entries deleted at drain (see pending_block_reward.go).
+	_pendingBlockRewardPoolKeyPrefix = []byte("pbrp/")
+	errInvalidEpoch                  = errors.New("invalid start/end epoch number")
 )
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
@@ -49,10 +58,42 @@ type Protocol struct {
 	keyPrefix []byte
 	addr      address.Address
 	cfg       genesis.Rewarding
+	// autoDepositBridge is the IIP-59 AutoDeposit contract adapter used by
+	// distributeVoterReward for per-voter compound routing. Nil means the
+	// network has no AutoDeposit contract configured: every voter share is
+	// credited directly to the primary account and no compound
+	// deposit is attempted.
+	autoDepositBridge *autodeposit.Bridge
+	// autoDepositBucketReaderFactory lets tests inject a fake BucketReader
+	// without pulling the EVM state adapter into scope. Nil in production;
+	// production paths construct SlotBucketReader via
+	// resolveAutoDepositBucketReader — one adapter setup per drain,
+	// direct-slot reads per voter (see docs/iip-59-perf-report.md).
+	autoDepositBucketReaderFactory func(autodeposit.SlotReader) autodeposit.BucketReader
+}
+
+// Option customises a rewarding Protocol at construction. Options are
+// applied in order after the default fields are set.
+type Option func(*Protocol)
+
+// WithAutoDepositBridge wires the IIP-59 AutoDeposit contract bridge into
+// the rewarding protocol. Pass nil (or omit the option) when the network
+// has no AutoDeposit contract; distributeVoterReward will then credit
+// every voter share instead of routing to compound.
+func WithAutoDepositBridge(bridge *autodeposit.Bridge) Option {
+	return func(p *Protocol) { p.autoDepositBridge = bridge }
+}
+
+// WithAutoDepositBucketReader injects a factory for the BucketReader used
+// against the AutoDeposit contract. Intended for tests that supply a fake
+// in place of the direct-slot reader; production leaves this unset so
+// Bridge.NewSlotBucketReader is used.
+func WithAutoDepositBucketReader(factory func(autodeposit.SlotReader) autodeposit.BucketReader) Option {
+	return func(p *Protocol) { p.autoDepositBucketReaderFactory = factory }
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol(cfg genesis.Rewarding) *Protocol {
+func NewProtocol(cfg genesis.Rewarding, opts ...Option) *Protocol {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -61,11 +102,15 @@ func NewProtocol(cfg genesis.Rewarding) *Protocol {
 	if err = validateFoundationBonusExtension(cfg); err != nil {
 		log.L().Panic("failed to validate foundation bonus extension", zap.Error(err))
 	}
-	return &Protocol{
+	p := &Protocol{
 		keyPrefix: state.RewardingKeyPrefix[:],
 		addr:      addr,
 		cfg:       cfg,
 	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
 }
 
 // ProtocolAddr returns the address generated from protocol id
@@ -110,6 +155,9 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	if err != nil && !errors.Is(err, state.ErrErigonStoreNotSupported) {
 		return errors.Wrap(err, "failed to delete block reward history for erigon store")
 	}
+	if err := p.collectEraCOWGarbage(ctx, sm); err != nil {
+		return err
+	}
 	switch blkCtx.BlockHeight {
 	case g.AleutianBlockHeight:
 		return p.SetReward(ctx, sm, g.AleutianEpochReward(), false)
@@ -121,6 +169,31 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return p.setFoundationBonusExtension(ctx, sm)
 	case g.WakeBlockHeight:
 		return p.SetReward(ctx, sm, g.WakeBlockReward(), true)
+	}
+	return nil
+}
+
+// _eraCOWGarbagePerBlock is how many sealed era copy-on-write entries are
+// deleted per block. An era with heavy bucket churn can leave tens of
+// thousands behind; deleting them in one block would spend the very block
+// budget the drain itself is chunked to protect, and there is no deadline —
+// the entries are unreachable the moment the era is sealed, so the backlog
+// only has to drain before the next era accumulates a comparable one.
+const _eraCOWGarbagePerBlock = 256
+
+// collectEraCOWGarbage deletes a bounded batch of copies left by sealed IIP-59
+// era windows. It runs from CreatePreStates so it happens once per block on
+// every node in the same place, before any action executes.
+//
+// No-op pre-activation and whenever the backlog is empty; the staking side
+// checks the fork gate before touching state.
+func (p *Protocol) collectEraCOWGarbage(ctx context.Context, sm protocol.StateManager) error {
+	n, err := staking.CollectEraCOWGarbage(ctx, sm, _eraCOWGarbagePerBlock)
+	if err != nil {
+		return errors.Wrap(err, "failed to collect era copy-on-write garbage")
+	}
+	if n > 0 {
+		addIIP59Items("eracow_gc", n)
 	}
 	return nil
 }
@@ -149,6 +222,10 @@ func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value inte
 	return p.deleteStateV1(sm, key, value)
 }
 
+// _foundationBonusExtensionEpochs is how far past the activation block the
+// Kamchatka foundation-bonus extension runs — one year of hourly epochs.
+const _foundationBonusExtensionEpochs uint64 = 8760
+
 func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.StateManager) error {
 	a := admin{}
 	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
@@ -160,7 +237,7 @@ func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.
 		return nil
 	}
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	newLastEpoch := rp.GetEpochNum(blkCtx.BlockHeight) + 8760
+	newLastEpoch := rp.GetEpochNum(blkCtx.BlockHeight) + _foundationBonusExtensionEpochs
 
 	if a.foundationBonusLastEpoch < p.cfg.FoundationBonusP2EndEpoch {
 		a.foundationBonusLastEpoch = p.cfg.FoundationBonusP2EndEpoch
@@ -172,14 +249,29 @@ func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.
 }
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
-func (p *Protocol) CreatePostSystemActions(ctx context.Context, _ protocol.StateReader) ([]action.Envelope, error) {
+func (p *Protocol) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	grants := []action.Envelope{createGrantRewardAction(action.BlockReward, blkCtx.BlockHeight)}
 	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
-	if rp != nil && blkCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(blkCtx.BlockHeight)) {
+	epochLast := rp != nil && blkCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(blkCtx.BlockHeight))
+	if epochLast {
 		grants = append(grants, createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight))
+		return grants, nil
 	}
-
+	// IIP-59 continuation dispatch: an incomplete chunked drain emits a dedicated
+	// VoterRewardChunk grant on every non-epoch-boundary block until
+	// GrantVoterRewardChunk's coda marks the cursor complete. Cursor is only
+	// ever written on the fork-on path, so pre-fork blocks skip the
+	// read entirely (state is empty).
+	if !protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+		cursor, err := p.readVoterRewardDistributionState(ctx, sr)
+		if err != nil {
+			return nil, err
+		}
+		if cursor != nil && !cursor.terminal() {
+			grants = append(grants, createGrantRewardAction(action.VoterRewardChunk, blkCtx.BlockHeight))
+		}
+	}
 	return grants, nil
 }
 
@@ -202,10 +294,20 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		if actionCtx.GasPrice != nil && actionCtx.GasPrice.Cmp(big.NewInt(0)) != 0 || actionCtx.IntrinsicGas != 0 {
 			return errors.New("invalid gas price or intrinsic gas for reward action")
 		}
+		// VoterRewardChunk is an IIP-59 action; pre-fork blocks must
+		// never accept one even if a producer crafts it manually.
+		if act.RewardType() == action.VoterRewardChunk && protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+			return errors.New("voter reward chunk action not enabled yet")
+		}
 	case *action.ClaimFromRewardingFund:
 		if !protocol.MustGetFeatureCtx(ctx).AddClaimRewardAddress && act.Address() != nil {
 			return errors.New("claim reward address not enabled yet")
 		}
+	case *action.SetVoterRewardDestination:
+		if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+			return errors.New("voter reward destination is not enabled yet")
+		}
+		return act.SanityCheck()
 	}
 	return nil
 }
@@ -240,22 +342,130 @@ func (p *Protocol) Handle(
 			return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 		}
 		return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
+	case *action.SetVoterRewardDestination:
+		actCtx := protocol.MustGetActionCtx(ctx)
+		oldRecipient, newRecipient, err := p.setVoterRewardDestination(ctx, sm, actCtx.Caller, act.Recipient())
+		if err != nil {
+			log.L().Debug("Error when setting voter reward destination", zap.Error(err))
+			return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+		}
+		topics, data, err := action.PackVoterRewardDestinationSetEvent(actCtx.Caller, oldRecipient, newRecipient)
+		if err != nil {
+			log.L().Debug("Error when encoding voter reward destination event", zap.Error(err))
+			return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+		}
+		blkCtx := protocol.MustGetBlockCtx(ctx)
+		return p.settleUserAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{{
+			Address:     p.addr.String(),
+			Topics:      topics,
+			Data:        data,
+			BlockHeight: blkCtx.BlockHeight,
+			ActionHash:  actCtx.ActionHash,
+		}})
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:
-			rewardLog, err := p.GrantBlockReward(ctx, sm)
+			rewardLog, transactionLogs, err := p.GrantBlockReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
 				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
 			if rewardLog == nil {
-				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, nil)
+				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, nil, transactionLogs...)
 			}
-			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog})
+			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog}, transactionLogs...)
 		case action.EpochReward:
 			transactionLogs, rewardLogs, err := p.GrantEpochReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
+				// Before this gate, every error settled as a Failure receipt,
+				// and chains have committed blocks that did. Replay has to
+				// reproduce them byte for byte, so the classification below
+				// starts at its own height and never applies behind it.
+				//
+				// After it the default inverts, for the same reason it did on
+				// the drain chunk. IIP-59 put era-window reads, snapshot reads,
+				// a pending-pool scan and a cursor write on this path; whether
+				// a node can serve any of them is node-local, and a Failure
+				// receipt settled on such a fault commits "this epoch paid
+				// nobody" on one validator while the rest commit the full
+				// grant. Two receipt roots, one block. Only verdicts marked
+				// settleable -- ones every node derives from committed state --
+				// keep the receipt.
+				//
+				// Keyed on FixEpochSettlementFaultHandling, not on the IIP-59
+				// gate: a chain that already activated IIP-59 is running the
+				// old classification, so the correction has to arrive on a
+				// later height of its own.
+				if protocol.MustGetFeatureCtx(ctx).FixEpochSettlementFaultHandling &&
+					!epochRewardErrorIsSettleable(err) {
+					return nil, err
+				}
+				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+			}
+			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs, transactionLogs...)
+		case action.VoterRewardChunk:
+			transactionLogs, rewardLogs, err := p.GrantVoterRewardChunk(ctx, sm)
+			if err != nil {
+				// Deliberately louder than its siblings above. A failed block or
+				// epoch grant is self-announcing -- the receipt is the whole
+				// story and the next block starts over. A failed drain chunk is
+				// not: the cursor stays put, the chain keeps advancing, and the
+				// era's remaining voter payouts are silently dropped when the
+				// next boundary rewrites the cursor.
+				p.reportVoterRewardChunkFailure(ctx, sm, err)
+				if !voterChunkErrorIsSettleable(err) {
+					// Not a verdict every node reaches identically -- most of
+					// what the drain can raise is a state read, a state write,
+					// or a range scan, and a working set's ability to serve an
+					// ordered range scan is a node-local capability, not chain
+					// state. Settling a Failure receipt here would let the
+					// proposer commit "no payouts, cursor unmoved" while
+					// validators that could serve the scan commit the payouts:
+					// same block, two state roots. Propagate instead and let
+					// the block fail. See voterChunkSettleableError for why the
+					// default is to halt and what may opt out.
+					return nil, err
+				}
+				if voterChunkErrorIsAbandon(err) {
+					// Permanent. Retire the cursor so the dispatcher stops
+					// re-emitting a chunk that fails identically on every
+					// subsequent block, and emit the one event that lets an
+					// indexer tell "gave up" from "still retrying".
+					//
+					// Order matters, and it is not the obvious one. si was
+					// taken at the top of Handle, and settleAction reverts to
+					// it for every Failure receipt -- so retiring first and
+					// settling against si would roll the retirement back
+					// together with the failed chunk that prompted it. What
+					// committed was a cursor still non-terminal, and the
+					// dispatcher went on emitting the same failing chunk every
+					// block until the era rolled over. The logs survived
+					// because they ride the receipt rather than state, which is
+					// why the symptom was one DRAIN_ABANDONED per block.
+					//
+					// So: discard the failed chunk first, retire on top of that
+					// clean state, then settle against a snapshot taken after
+					// the retirement, where the Failure revert is a no-op.
+					// Reverting explicitly rather than snapshotting around the
+					// retirement also means this does not rely on the chunk
+					// having written nothing before it raised the verdict.
+					if rerr := sm.Revert(si); rerr != nil {
+						return nil, rerr
+					}
+					abandonLogs, aerr := p.abandonVoterRewardDistribution(ctx, sm)
+					if aerr != nil {
+						// The read and write both target state this block
+						// already owns; failing here is node-local, so halt
+						// rather than commit a cursor that may differ by node.
+						return nil, aerr
+					}
+					return p.settleSystemAction(
+						ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), sm.Snapshot(), abandonLogs)
+				}
+				// Explicitly marked as derivable from committed state (see
+				// settleableVoterChunkError): every node agrees, so a Failure
+				// receipt is a consistent outcome and the block still commits.
 				return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
 			return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs, transactionLogs...)
@@ -297,9 +507,141 @@ func (p *Protocol) ReadState(
 			return nil, uint64(0), err
 		}
 		return []byte(balance.String()), height, nil
+	case "PendingVoterReward":
+		if len(args) != 1 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		candID, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		balance, err := p.readPendingBlockRewardPool(ctx, sr, candID.Bytes())
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		height, err := sr.Height()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return []byte(balance.String()), height, nil
+	case "PendingVoterRewardDelegates":
+		if len(args) != 0 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		ids, err := p.listPendingBlockRewardPoolIDs(ctx, sr)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return marshalWithHeight(sr, &rewardingpb.PendingVoterRewardDelegates{DelegateIdentifiers: ids})
+	case "VoterRewardDistribution":
+		if len(args) != 0 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		cursor, err := p.readVoterRewardDistributionState(ctx, sr)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		if cursor == nil {
+			return marshalWithHeight(sr, &rewardingpb.VoterRewardDistributionState{})
+		}
+		data, err := cursor.Serialize()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return bytesWithHeight(sr, data)
+	case "DelegateRewardSnapshot":
+		if len(args) != 1 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		candID, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		snapshot, err := staking.CandidateRewardSnapshotFor(sr, candID)
+		switch {
+		case err == nil:
+		case errors.Is(err, state.ErrStateNotExist):
+			// Not being in the settlement set is a normal answer, not a fault:
+			// it is what every delegate that has not opted in looks like. This
+			// used to revert with "state does not exist", forcing callers to
+			// wrap a try/catch around an ordinary question.
+			//
+			// Absence is reported as a zero snapshot. freezeHeight is the field
+			// to test: a real snapshot always carries the height its freeze ran
+			// at, and a freeze cannot run at height 0, so freezeHeight == 0
+			// means "no snapshot" and never "frozen at height 0". The commission
+			// fields cannot serve that purpose -- 0 basis points is a legitimate
+			// value, meaning the delegate takes nothing.
+			snapshot = &staking.CandidateRewardSnapshot{}
+		default:
+			return nil, uint64(0), err
+		}
+		return marshalWithHeight(sr, &stakingpb.CandidateRewardSnapshot{
+			BlockCommissionBasisPoints: snapshot.BlockCommissionBasisPoints,
+			EpochCommissionBasisPoints: snapshot.EpochCommissionBasisPoints,
+			CommissionConfigured:       snapshot.CommissionConfigured,
+			TotalWeight:                safeBig(snapshot.TotalWeight).Bytes(),
+			FreezeHeight:               snapshot.FreezeHeight,
+			SelfStakeBucketIdx:         snapshot.SelfStakeBucketIdx,
+		})
+	case "DelegatePayoutAddress":
+		if len(args) != 1 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		candID, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		routing, err := resolveDelegateRewardRouting(sr, candID)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return marshalWithHeight(sr, &rewardingpb.DelegatePayoutAddress{
+			Address: routing.PayoutAddress().Bytes(), OnchainRewardEnabled: routing.onchainRewardEnabled,
+		})
+	case "VoterRewardDestination":
+		if len(args) != 1 {
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		voter, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		destination, err := p.readVoterRewardDestination(ctx, sr, voter)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		recipient, explicitlySet, updatedHeight := voter, false, uint64(0)
+		if destination != nil {
+			recipient = destination.recipient
+			explicitlySet = true
+			updatedHeight = destination.updatedHeight
+		}
+		return marshalWithHeight(sr, &rewardingpb.VoterRewardDestination{
+			Recipient: recipient.Bytes(), ExplicitlySet: explicitlySet, UpdatedHeight: updatedHeight,
+		})
 	default:
 		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}
+}
+
+// marshalWithHeight builds the (data, height, error) triple every ReadState
+// case returns, stamping the response with the height it was read at.
+func marshalWithHeight(sr protocol.StateReader, m proto.Message) ([]byte, uint64, error) {
+	data, err := proto.Marshal(m)
+	if err != nil {
+		return nil, uint64(0), err
+	}
+	return bytesWithHeight(sr, data)
+}
+
+// bytesWithHeight is marshalWithHeight for a value that serializes itself.
+func bytesWithHeight(sr protocol.StateReader, data []byte) ([]byte, uint64, error) {
+	height, err := sr.Height()
+	if err != nil {
+		return nil, uint64(0), err
+	}
+	return data, height, nil
 }
 
 // Register registers the protocol with a unique ID

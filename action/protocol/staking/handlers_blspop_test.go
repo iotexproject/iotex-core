@@ -132,7 +132,7 @@ func TestHandleCandidateRegister_PoPGate(t *testing.T) {
 			"handler should accept a valid PoP under EnforceBLSPoP")
 
 		// confirm the BLS pubkey actually landed in state
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		require.NoError(err)
 		cand := csm.GetByOwner(owner)
 		require.NotNil(cand)
@@ -261,7 +261,7 @@ func TestHandleCandidateUpdate_PoPGate(t *testing.T) {
 
 	t.Run("gate on, valid PoP → rotation succeeds, new BLSPubKey in state", func(t *testing.T) {
 		sm, p := setupCand()
-		csm0, err := NewCandidateStateManager(sm)
+		csm0, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		require.NoError(err)
 		c0 := csm0.GetByOwner(owner)
 		require.NotNil(c0)
@@ -279,7 +279,7 @@ func TestHandleCandidateUpdate_PoPGate(t *testing.T) {
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r.Status,
 			"update with valid PoP under c.GetIdentifier() must succeed")
 
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		require.NoError(err)
 		c := csm.GetByOwner(owner)
 		require.NotNil(c)

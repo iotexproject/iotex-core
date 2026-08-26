@@ -344,7 +344,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				},
 				iotextypes.ReceiptStatus_Success,
 				func(t *testing.T) {
-					csm, err := NewCandidateStateManager(sm)
+					csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 					require.NoError(err)
 					esm := NewEndorsementStateManager(csm.SM())
 					bucket, err := csm.NativeBucket(1)
@@ -382,7 +382,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 				},
 				iotextypes.ReceiptStatus_Success,
 				func(t *testing.T) {
-					csm, err := NewCandidateStateManager(sm)
+					csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 					require.NoError(err)
 					esm := NewEndorsementStateManager(csm.SM())
 					bucket, err := csm.NativeBucket(1)
@@ -561,7 +561,7 @@ func TestProtocol_HandleCandidateEndorsement(t *testing.T) {
 
 			if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 				// check candidate
-				csm, err := NewCandidateStateManager(sm)
+				csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 				require.NoError(err)
 				for _, expectCand := range test.expectCandidates {
 					candidate := csm.GetByOwner(expectCand.owner)
@@ -1077,18 +1077,18 @@ func TestProtocol_HandleCandidateEndorsement_RevokeSelfStakeAfterHardfork(t *tes
 			// Set initial deactivation state if needed
 			if tt.initialDeactivatedAt != candidate.DeactivatedAt {
 				candidate.DeactivatedAt = tt.initialDeactivatedAt
-				csm, err := NewCandidateStateManager(sm)
+				csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 				r.NoError(err)
 				r.NoError(csm.Upsert(candidate))
 				r.NoError(csm.Commit(context.Background()))
 				// Verify the candidate was persisted correctly and update the local reference
-				verifyCsm, err := NewCandidateStateManager(sm)
+				verifyCsm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 				r.NoError(err)
 				verifyCand := verifyCsm.GetByOwner(candidate.Owner)
 				r.NotNil(verifyCand)
 				r.Equal(tt.initialDeactivatedAt, verifyCand.DeactivatedAt, "DeactivatedAt was not persisted")
 				// Update the local candidate reference - fetch from the latest csm after commit
-				freshCsm, err := NewCandidateStateManager(sm)
+				freshCsm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 				r.NoError(err)
 				candidate = freshCsm.GetByOwner(candidate.Owner)
 				r.NotNil(candidate)
@@ -1146,7 +1146,7 @@ func TestProtocol_HandleCandidateEndorsement_RevokeSelfStakeAfterHardfork(t *tes
 				r.Equal(iotextypes.ReceiptStatus_Success, iotextypes.ReceiptStatus(rLog.Status))
 
 				// Verify candidate state - create csm AFTER Handle to get updated state
-				csm, _ := NewCandidateStateManager(sm)
+				csm, _ := NewCandidateStateManagerWithContext(context.Background(), sm)
 				updatedCand := csm.GetByIdentifier(candidate.Owner)
 				r.NotNil(updatedCand)
 				r.Equal(tt.expectedDeactivatedAt, updatedCand.DeactivatedAt)
@@ -1258,7 +1258,7 @@ func TestProtocol_HandleCandidateEndorsement_RevokeNonSelfStakeAfterHardfork(t *
 		})
 
 		// Handle Revoke
-		csm, _ := NewCandidateStateManager(sm)
+		csm, _ := NewCandidateStateManagerWithContext(context.Background(), sm)
 		rLog, err = p.Handle(ctx, revokeElp, sm)
 		r.NoError(err)
 		r.NotNil(rLog)
@@ -1409,7 +1409,7 @@ func TestProtocol_HandleCandidateEndorsement_DeactivatedCandidateEndorsementEdge
 
 			// Set initial deactivation state
 			candidate.DeactivatedAt = tt.initialDeactivatedAt
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			r.NoError(err)
 			r.NoError(csm.Upsert(candidate))
 			r.NoError(csm.Commit(context.Background()))
@@ -1537,7 +1537,7 @@ func TestProtocol_HandleCandidateEndorsement_DeactivatedCandidateEndorsementEdge
 			}
 
 			// Verify candidate state
-			csm, _ = NewCandidateStateManager(sm)
+			csm, _ = NewCandidateStateManagerWithContext(context.Background(), sm)
 			updatedCand := csm.GetByIdentifier(candidate.Owner)
 			r.NotNil(updatedCand)
 			r.Equal(tt.expectedDeactivatedAt, updatedCand.DeactivatedAt)

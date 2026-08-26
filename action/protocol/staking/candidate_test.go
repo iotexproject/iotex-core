@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -89,14 +90,16 @@ func TestSerWithDeactivation(t *testing.T) {
 	r := require.New(t)
 
 	original := &Candidate{
-		Owner:              identityset.Address(1),
-		Operator:           identityset.Address(2),
-		Reward:             identityset.Address(3),
-		Name:               "test_candidate",
-		Votes:              big.NewInt(100),
-		SelfStake:          big.NewInt(1000),
-		SelfStakeBucketIdx: 1,
-		DeactivatedAt:      99999,
+		Owner:                   identityset.Address(1),
+		Operator:                identityset.Address(2),
+		Reward:                  identityset.Address(3),
+		Name:                    "test_candidate",
+		Votes:                   big.NewInt(100),
+		SelfStake:               big.NewInt(1000),
+		SelfStakeBucketIdx:      1,
+		DeactivatedAt:           99999,
+		RewardAddressUpdated:    true,
+		VoterRewardOnchainOptIn: true,
 	}
 
 	data, err := original.Serialize()
@@ -107,8 +110,31 @@ func TestSerWithDeactivation(t *testing.T) {
 
 	r.Equal(original.DeactivatedAt, deserialized.DeactivatedAt)
 	r.Equal(uint64(99999), deserialized.DeactivatedAt)
+	r.True(deserialized.RewardAddressUpdated)
+	r.True(deserialized.VoterRewardOnchainOptIn)
 
 	r.True(original.Equal(deserialized))
+}
+
+func TestCandidateLegacyOptInFieldDoesNotSetRewardAddressUpdated(t *testing.T) {
+	r := require.New(t)
+	candidate := &Candidate{
+		Owner:     identityset.Address(1),
+		Operator:  identityset.Address(2),
+		Reward:    identityset.Address(3),
+		Name:      "legacy",
+		Votes:     big.NewInt(100),
+		SelfStake: big.NewInt(1000),
+	}
+	data, err := candidate.Serialize()
+	r.NoError(err)
+	data = protowire.AppendTag(data, 11, protowire.VarintType)
+	data = protowire.AppendVarint(data, 1)
+
+	deserialized := &Candidate{}
+	r.NoError(deserialized.Deserialize(data))
+	r.False(deserialized.RewardAddressUpdated)
+	r.True(deserialized.VoterRewardOnchainOptIn)
 }
 
 func TestClone(t *testing.T) {
@@ -496,4 +522,33 @@ func TestCandidate_DeletedCannotModifySelfStake(t *testing.T) {
 
 	r.NoError(candidate.SubSelfStake(big.NewInt(100)))
 	r.Equal(uint64(1400), candidate.SelfStake.Uint64())
+}
+
+// TestCandidateToIoTeXTypesCarriesOptIn guards the field the outward-facing type
+// exists to expose.
+//
+// Without it a client has to ask the rewarding protocol's delegatePayoutAddress
+// instead, and that view reports whether a freeze snapshot exists for the
+// current era rather than whether the bit is set -- so it answers false for a
+// delegate that opted in after the last freeze, which on a 24-epoch era is a
+// window of hours.
+func TestCandidateToIoTeXTypesCarriesOptIn(t *testing.T) {
+	r := require.New(t)
+	base := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(2),
+		Reward:             identityset.Address(3),
+		Identifier:         identityset.Address(1),
+		Name:               "cand",
+		Votes:              big.NewInt(1),
+		SelfStakeBucketIdx: 1,
+		SelfStake:          big.NewInt(1),
+	}
+
+	r.False(base.toIoTeXTypes().GetVoterRewardOnchainOptIn(),
+		"a candidate that has not opted in must not report that it has")
+
+	optedIn := base.Clone()
+	optedIn.VoterRewardOnchainOptIn = true
+	r.True(optedIn.toIoTeXTypes().GetVoterRewardOnchainOptIn())
 }

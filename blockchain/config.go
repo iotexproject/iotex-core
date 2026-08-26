@@ -36,25 +36,31 @@ type (
 		CandidateIndexDBPath   string `yaml:"candidateIndexDBPath"`
 		StakingIndexDBPath     string `yaml:"stakingIndexDBPath"`
 		// deprecated
-		SGDIndexDBPath             string           `yaml:"sgdIndexDBPath"`
-		ContractStakingIndexDBPath string           `yaml:"contractStakingIndexDBPath"`
-		BlobStoreDBPath            string           `yaml:"blobStoreDBPath"`
-		BlobStoreRetentionDays     uint32           `yaml:"blobStoreRetentionDays"`
-		PatchReceiptIndexPath      string           `yaml:"patchReceiptIndexPath"`
-		PatchReceiptIndexEndHeight uint64           `yaml:"patchReceiptIndexEndHeight"`
-		PatchTransactionLogPath    string           `yaml:"patchTransactionLogPath"`
-		HistoryIndexPath           string           `yaml:"historyIndexPath"`
-		HistoryBlockRetention      uint64           `yaml:"historyBlockRetention"`
-		ID                         uint32           `yaml:"id"`
-		EVMNetworkID               uint32           `yaml:"evmNetworkID"`
-		Address                    string           `yaml:"address"`
-		ProducerPrivKey            string           `yaml:"producerPrivKey"`
-		ProducerPrivKeySchema      string           `yaml:"producerPrivKeySchema"`
-		ProducerPrivKeyRange       string           `yaml:"producerPrivKeyRange"`
-		SignatureScheme            []string         `yaml:"signatureScheme"`
-		EmptyGenesis               bool             `yaml:"emptyGenesis"`
-		GravityChainDB             db.Config        `yaml:"gravityChainDB"`
-		Committee                  committee.Config `yaml:"committee"`
+		SGDIndexDBPath             string `yaml:"sgdIndexDBPath"`
+		ContractStakingIndexDBPath string `yaml:"contractStakingIndexDBPath"`
+		BlobStoreDBPath            string `yaml:"blobStoreDBPath"`
+		BlobStoreRetentionDays     uint32 `yaml:"blobStoreRetentionDays"`
+		PatchReceiptIndexPath      string `yaml:"patchReceiptIndexPath"`
+		PatchReceiptIndexEndHeight uint64 `yaml:"patchReceiptIndexEndHeight"`
+		PatchTransactionLogPath    string `yaml:"patchTransactionLogPath"`
+		HistoryIndexPath           string `yaml:"historyIndexPath"`
+		HistoryBlockRetention      uint64 `yaml:"historyBlockRetention"`
+		// StopAtHeight, when non-zero, caps the startup indexer catch-up at this
+		// height and shuts the node down cleanly once it is reached. Zero (the
+		// default) means "catch up to the block DAO tip and keep running", i.e.
+		// normal node behaviour. Intended for segmented replay/verification runs
+		// (see the fullsync test), not for production nodes.
+		StopAtHeight          uint64           `yaml:"stopAtHeight"`
+		ID                    uint32           `yaml:"id"`
+		EVMNetworkID          uint32           `yaml:"evmNetworkID"`
+		Address               string           `yaml:"address"`
+		ProducerPrivKey       string           `yaml:"producerPrivKey"`
+		ProducerPrivKeySchema string           `yaml:"producerPrivKeySchema"`
+		ProducerPrivKeyRange  string           `yaml:"producerPrivKeyRange"`
+		SignatureScheme       []string         `yaml:"signatureScheme"`
+		EmptyGenesis          bool             `yaml:"emptyGenesis"`
+		GravityChainDB        db.Config        `yaml:"gravityChainDB"`
+		Committee             committee.Config `yaml:"committee"`
 
 		// EnableTrielessStateDB enables trieless state db (deprecated)
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`

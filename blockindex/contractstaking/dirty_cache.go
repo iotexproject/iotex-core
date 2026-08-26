@@ -6,6 +6,7 @@
 package contractstaking
 
 import (
+	"context"
 	"math/big"
 	"sync"
 
@@ -77,12 +78,12 @@ func (dirty *contractStakingDirty) DeductBucket(contractAddr address.Address, id
 	}, nil
 }
 
-func (dirty *contractStakingDirty) DeleteBucket(contractAddr address.Address, id uint64) error {
+func (dirty *contractStakingDirty) DeleteBucket(_ context.Context, contractAddr address.Address, id uint64) error {
 	dirty.deleteBucketInfo(id)
 	return nil
 }
 
-func (dirty *contractStakingDirty) PutBucket(contractAddr address.Address, id uint64, bkt *contractstaking.Bucket) error {
+func (dirty *contractStakingDirty) PutBucket(_ context.Context, contractAddr address.Address, id uint64, bkt *contractstaking.Bucket) error {
 	bi, err := dirty.convertToBucketInfo(bkt)
 	if err != nil {
 		return err
