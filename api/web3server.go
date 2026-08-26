@@ -611,7 +611,14 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 	if err != nil {
 		return "0x" + hex.EncodeToString(retval), err
 	}
-	if estimatedGas < 21000 {
+	// 21000 is the floor eth clients expect for a call that reaches the EVM. A
+	// native protocol action never does: it is charged its own intrinsic gas,
+	// which for most staking and rewarding actions is below 21000. Applying the
+	// floor there reports a number the receipt will never match -- 21000
+	// estimated against 10000 actually consumed for setVoterRewardDestination,
+	// measured on TestNet -- and wallets read that gap as a failed interaction
+	// even though the action succeeded and its view returned the new value.
+	if estimatedGas < 21000 && !isNativeProtocolTx(tx) {
 		estimatedGas = 21000
 	}
 	return uint64ToHex(estimatedGas), nil
