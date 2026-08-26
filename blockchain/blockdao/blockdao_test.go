@@ -169,6 +169,39 @@ func Test_blockDAO_checkIndexers(t *testing.T) {
 	})
 }
 
+// recordingChecker captures the targetHeight checkIndexers hands to CheckIndexer.
+type recordingChecker struct{ target uint64 }
+
+func (c *recordingChecker) Height() (uint64, error) { return 0, nil }
+
+func (c *recordingChecker) CheckIndexer(_ context.Context, _ BlockIndexer, targetHeight uint64, _ func(uint64)) error {
+	c.target = targetHeight
+	return nil
+}
+
+func Test_blockDAO_checkIndexers_stopAtHeight(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	indexer := mock_blockdao.NewMockBlockIndexer(ctrl)
+
+	t.Run("Unset", func(t *testing.T) {
+		dao := &blockDAO{indexers: []BlockIndexer{indexer}}
+		checker := &recordingChecker{}
+		r.NoError(dao.checkIndexers(context.Background(), checker))
+		// 0 means "catch up to the block DAO tip" — normal node behaviour
+		r.Zero(checker.target)
+	})
+
+	t.Run("Set", func(t *testing.T) {
+		dao := &blockDAO{indexers: []BlockIndexer{indexer}}
+		WithStopAtHeight(38000000)(dao)
+		checker := &recordingChecker{}
+		r.NoError(dao.checkIndexers(context.Background(), checker))
+		r.Equal(uint64(38000000), checker.target)
+	})
+}
+
 func Test_blockDAO_Stop(t *testing.T) {
 	r := require.New(t)
 

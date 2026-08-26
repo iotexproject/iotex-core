@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/autodeposit"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote/candidatesutil"
@@ -53,15 +54,54 @@ import (
 
 // Builder is a builder to build chainservice
 type Builder struct {
-	cfg config.Config
-	cs  *ChainService
+	cfg           config.Config
+	cs            *ChainService
+	rewardingOpts []rewarding.Option
+	stakingOpts   []staking.Option
+}
+
+// BuildOption customizes a Builder before it registers protocols. It exists so
+// callers that only have a config.Config — itx.NewServer and everything above
+// it — can still reach the protocol-level functional options, without any of
+// those options having to travel through a package-level variable.
+type BuildOption func(*Builder)
+
+// WithRewardingOptions supplies extra options to rewarding.NewProtocol.
+func WithRewardingOptions(opts ...rewarding.Option) BuildOption {
+	return func(builder *Builder) {
+		builder.rewardingOpts = append(builder.rewardingOpts, opts...)
+	}
+}
+
+// WithStakingOptions supplies extra options to staking.NewProtocol.
+func WithStakingOptions(opts ...staking.Option) BuildOption {
+	return func(builder *Builder) {
+		builder.stakingOpts = append(builder.stakingOpts, opts...)
+	}
 }
 
 // NewBuilder creates a new chainservice builder
-func NewBuilder(cfg config.Config) *Builder {
+func NewBuilder(cfg config.Config, opts ...BuildOption) *Builder {
 	builder := &Builder{cfg: cfg}
 	builder.createInstance()
+	for _, opt := range opts {
+		opt(builder)
+	}
 
+	return builder
+}
+
+// SetRewardingOptions appends options passed to rewarding.NewProtocol.
+func (builder *Builder) SetRewardingOptions(opts ...rewarding.Option) *Builder {
+	builder.createInstance()
+	builder.rewardingOpts = append(builder.rewardingOpts, opts...)
+	return builder
+}
+
+// SetStakingOptions appends options passed to staking.NewProtocol.
+func (builder *Builder) SetStakingOptions(opts ...staking.Option) *Builder {
+	builder.createInstance()
+	builder.stakingOpts = append(builder.stakingOpts, opts...)
 	return builder
 }
 
@@ -352,6 +392,9 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 	if err != nil {
 		return err
+	}
+	if cfg.Chain.StopAtHeight > 0 {
+		opts = append(opts, blockdao.WithStopAtHeight(cfg.Chain.StopAtHeight))
 	}
 	builder.cs.blockdao = blockdao.NewBlockDAOWithIndexersAndCache(
 		store, indexers, cfg.DB.MaxCacheSize, opts...)
@@ -706,6 +749,11 @@ func (builder *Builder) registerStakingProtocol() error {
 		opts = append(opts, staking.WithContractStakingIndexerV3(builder.cs.contractStakingIndexerV3))
 	}
 	opts = append(opts, staking.WithBlockStore(builder.cs.blockdao))
+	// The Hermes opt-in migration consults DelegateProfile before opting a
+	// candidate in. The reader runs a simulated view call, which staking cannot
+	// build itself without importing evm or poll; this is the seam.
+	opts = append(opts, staking.WithDelegateProfileReader(poll.NewDelegateProfileContractReader))
+	opts = append(opts, builder.stakingOpts...)
 	stakingProtocol, err := staking.NewProtocol(
 		staking.HelperCtx{
 			DepositGas:    rewarding.DepositGas,
@@ -740,7 +788,16 @@ func (builder *Builder) registerStakingProtocol() error {
 
 func (builder *Builder) registerRewardingProtocol() error {
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
-	return rewarding.NewProtocol(builder.cfg.Genesis.Rewarding).Register(builder.cs.registry)
+	opts := []rewarding.Option{}
+	if contract := builder.cfg.Genesis.Blockchain.AutoDepositContractAddress; contract != "" {
+		bridge, err := autodeposit.New(contract)
+		if err != nil {
+			return errors.Wrap(err, "failed to construct autodeposit bridge")
+		}
+		opts = append(opts, rewarding.WithAutoDepositBridge(bridge))
+	}
+	opts = append(opts, builder.rewardingOpts...)
+	return rewarding.NewProtocol(builder.cfg.Genesis.Rewarding, opts...).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerAccountProtocol() error {
@@ -885,6 +942,11 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	}
 	if err := builder.registerRollDPoSProtocol(); err != nil {
 		return nil, errors.Wrap(err, "failed to register roll dpos related protocols")
+	}
+	// Needs the epoch arithmetic rolldpos was just registered with, which is
+	// why this is not in Genesis.validate().
+	if err := checkIIP59EraMargin(builder.cfg.Genesis, builder.cs.registry); err != nil {
+		return nil, err
 	}
 	if err := builder.registerExecutionProtocol(); err != nil {
 		return nil, errors.Wrap(err, "failed to register execution protocol")
