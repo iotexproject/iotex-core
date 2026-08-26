@@ -83,6 +83,8 @@ func defaultConfig() Genesis {
 			YapBlockHeight:            48985561,
 			YapBetaBlockHeight:        48985561,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
+			PersistStakingPatchBlock:  19778037,
+			FixAliasForNonStopHeight:  19778036,
 		},
 		Account: Account{
 			InitBalanceMap:          map[string]string{},
@@ -399,6 +401,12 @@ type (
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
+		// PersistStakingPatchBlock is the height from which the candidate center's name/operator
+		// maps are persisted to (and read back from) the staking patch file
+		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
+		// FixAliasForNonStopHeight is the height at which the candidate center's name/operator maps
+		// are rebuilt, so a node that never restarted ends up with the same maps as one that did
+		FixAliasForNonStopHeight uint64 `yaml:"fixAliasForNonStopHeight"`
 		// AutoDepositContractAddress is the IoTeX bech32 address of the
 		// AutoDeposit contract from which IIP-59 reads per-voter compound
 		// preferences at epoch reward distribution time. Empty means

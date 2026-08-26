@@ -586,7 +586,8 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 	}
-	if blkCtx.BlockHeight == p.config.FixAliasForNonStopHeight {
+	if blkCtx.BlockHeight == p.config.FixAliasForNonStopHeight &&
+		protocol.MustGetFeatureWithHeightCtx(ctx).CandCenterHasAlias(blkCtx.BlockHeight) {
 		csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 		if err != nil {
 			return err

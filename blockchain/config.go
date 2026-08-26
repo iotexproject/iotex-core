@@ -90,8 +90,14 @@ type (
 		// StreamingBlockBufferSize
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
 		// PersistStakingPatchBlock is the block to persist staking patch
+		// Deprecated: the height is network-wide behaviour and now comes from genesis. The key is
+		// still parsed so that existing configs load, but its value is ignored; setting it only
+		// produces a warning at start-up. 0 means not set.
 		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
 		// FixAliasForNonStopHeight is the height to fix candidate alias for a non-stopping node
+		// Deprecated: the height is network-wide behaviour and now comes from genesis. The key is
+		// still parsed so that existing configs load, but its value is ignored; setting it only
+		// produces a warning at start-up. 0 means not set.
 		FixAliasForNonStopHeight uint64 `yaml:"fixAliasForNonStopHeight"`
 		// FactoryDBType is the type of factory db
 		FactoryDBType string `yaml:"factoryDBType"`
@@ -139,8 +145,6 @@ var (
 		StateDBCacheSize:              1000,
 		WorkingSetCacheSize:           20,
 		StreamingBlockBufferSize:      200,
-		PersistStakingPatchBlock:      19778037,
-		FixAliasForNonStopHeight:      19778036,
 		FactoryDBType:                 db.DBAuto,
 		MintTimeout:                   700 * time.Millisecond,
 	}
