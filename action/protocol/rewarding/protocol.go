@@ -432,6 +432,27 @@ func (p *Protocol) Handle(
 					// re-emitting a chunk that fails identically on every
 					// subsequent block, and emit the one event that lets an
 					// indexer tell "gave up" from "still retrying".
+					//
+					// Order matters, and it is not the obvious one. si was
+					// taken at the top of Handle, and settleAction reverts to
+					// it for every Failure receipt -- so retiring first and
+					// settling against si would roll the retirement back
+					// together with the failed chunk that prompted it. What
+					// committed was a cursor still non-terminal, and the
+					// dispatcher went on emitting the same failing chunk every
+					// block until the era rolled over. The logs survived
+					// because they ride the receipt rather than state, which is
+					// why the symptom was one DRAIN_ABANDONED per block.
+					//
+					// So: discard the failed chunk first, retire on top of that
+					// clean state, then settle against a snapshot taken after
+					// the retirement, where the Failure revert is a no-op.
+					// Reverting explicitly rather than snapshotting around the
+					// retirement also means this does not rely on the chunk
+					// having written nothing before it raised the verdict.
+					if rerr := sm.Revert(si); rerr != nil {
+						return nil, rerr
+					}
 					abandonLogs, aerr := p.abandonVoterRewardDistribution(ctx, sm)
 					if aerr != nil {
 						// The read and write both target state this block
@@ -439,7 +460,8 @@ func (p *Protocol) Handle(
 						// rather than commit a cursor that may differ by node.
 						return nil, aerr
 					}
-					return p.settleSystemAction(ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), si, abandonLogs)
+					return p.settleSystemAction(
+						ctx, sm, elp, uint64(iotextypes.ReceiptStatus_Failure), sm.Snapshot(), abandonLogs)
 				}
 				// Explicitly marked as derivable from committed state (see
 				// settleableVoterChunkError): every node agrees, so a Failure
