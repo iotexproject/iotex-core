@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
@@ -64,7 +65,7 @@ type (
 		setNonce(uint64)
 		setGas(uint64)
 		setChainID(uint32)
-		toEthTx(*common.Address, *big.Int, []byte) *types.Transaction
+		toEthTx(*common.Address, *big.Int, []byte) (*types.Transaction, error)
 	}
 
 	TxDynamicGas interface {
@@ -255,7 +256,20 @@ func (elp *envelope) ToEthTx() (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	return elp.common.toEthTx(to, tx.Value(), data), nil
+	return elp.common.toEthTx(to, tx.Value(), data)
+}
+
+// uint256FromBig converts a big.Int into a uint256.Int, returning an error
+// instead of panicking when the value is nil or out of the uint256 range.
+func uint256FromBig(v *big.Int) (*uint256.Int, error) {
+	if v == nil {
+		return uint256.NewInt(0), nil
+	}
+	u, overflow := uint256.FromBig(v)
+	if overflow {
+		return nil, errors.Wrapf(ErrValueVeryHigh, "value %s does not fit in 256 bits", v.String())
+	}
+	return u, nil
 }
 
 func (elp *envelope) ProtoForHash() *iotextypes.ActionCore {
