@@ -43,16 +43,18 @@ type (
 	stateDBWorkingSetStore struct {
 		lock sync.Mutex
 		// TODO: handle committed flag properly in the functions
-		committed  bool
-		readBuffer bool
-		flusher    db.KVStoreFlusher
+		committed         bool
+		readBuffer        bool
+		capturePriorValue bool // read base-store prior values for delta consumers (e.g. supply tracker)
+		flusher           db.KVStoreFlusher
 	}
 )
 
-func newStateDBWorkingSetStore(flusher db.KVStoreFlusher, readBuffer bool) workingSetStore {
+func newStateDBWorkingSetStore(flusher db.KVStoreFlusher, readBuffer, capturePriorValue bool) workingSetStore {
 	return &stateDBWorkingSetStore{
-		flusher:    flusher,
-		readBuffer: readBuffer,
+		flusher:           flusher,
+		readBuffer:        readBuffer,
+		capturePriorValue: capturePriorValue,
 	}
 }
 
@@ -221,8 +223,24 @@ func (store *stateDBWorkingSetStore) ErigonStore() (any, error) {
 
 // CaptureWriteQueue returns a snapshot of all entries in the write queue.
 // Must be called BEFORE Commit() which flushes and clears the buffer.
+//
+// Each captured entry also records PriorValue: the value committed to the base
+// store before this block's mutations, so a downstream consumer can compute the
+// exact per-key delta (PriorValue -> Value) without an extra state read at
+// callback time. PriorValue is nil when the key did not exist in the committed
+// state (i.e. it is created within this block). This is an observability-only
+// addition and does not change any state transition.
+//
+// PriorValue is only populated when a state-diff consumer that needs it (e.g.
+// the supply-conservation tracker) is registered; otherwise the base-store
+// reads are skipped so an ordinary validator pays no extra disk lookups per
+// block on the commit path.
 func (store *stateDBWorkingSetStore) CaptureWriteQueue() []WriteQueueEntry {
 	kvb := store.flusher.KVStoreWithBuffer()
+	var base db.KVStore
+	if store.capturePriorValue {
+		base = store.flusher.BaseKVStore()
+	}
 	size := kvb.Size()
 	entries := make([]WriteQueueEntry, 0, size)
 	for i := 0; i < size; i++ {
@@ -230,11 +248,23 @@ func (store *stateDBWorkingSetStore) CaptureWriteQueue() []WriteQueueEntry {
 		if err != nil {
 			continue
 		}
+		key := wi.Key()
+		var prior []byte
+		if store.capturePriorValue {
+			// The base store still holds the pre-block committed value: Flush
+			// (which applies the buffer to the base store) only happens in
+			// Commit(), which is called after CaptureWriteQueue. A miss means the
+			// key is created here.
+			if pv, err := base.Get(wi.Namespace(), key); err == nil {
+				prior = append([]byte(nil), pv...)
+			}
+		}
 		entries = append(entries, WriteQueueEntry{
-			WriteType: uint8(wi.WriteType()),
-			Namespace: wi.Namespace(),
-			Key:       append([]byte(nil), wi.Key()...),
-			Value:     append([]byte(nil), wi.Value()...),
+			WriteType:  uint8(wi.WriteType()),
+			Namespace:  wi.Namespace(),
+			Key:        append([]byte(nil), key...),
+			PriorValue: prior,
+			Value:      append([]byte(nil), wi.Value()...),
 		})
 	}
 	return entries
@@ -245,5 +275,8 @@ type WriteQueueEntry struct {
 	WriteType uint8 // 0=Put, 1=Delete
 	Namespace string
 	Key       []byte
-	Value     []byte
+	// PriorValue is the base-store (committed) value before this block's
+	// mutations. nil when the key did not exist in committed state.
+	PriorValue []byte
+	Value      []byte
 }

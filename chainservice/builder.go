@@ -852,6 +852,7 @@ func (builder *Builder) buildConsensusComponent() error {
 
 func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) {
 	builder.cs.registry = protocol.NewRegistry()
+	builder.cs.supplyCfg = builder.cfg.Chain.SupplyCheck
 	if builder.cs.p2pAgent == nil {
 		builder.cs.p2pAgent = p2p.NewDummyAgent()
 	}

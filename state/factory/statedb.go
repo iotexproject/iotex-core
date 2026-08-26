@@ -115,6 +115,28 @@ func SetDiffCallback(f Factory, cb StateDiffCallback) bool {
 	return false
 }
 
+// AddDiffCallback registers cb to be invoked after each block commit IN ADDITION
+// to any callback already set. Multiple observers (for example ioSwarm's state
+// diff streaming and the supply-conservation tracker) can therefore coexist
+// without clobbering each other. Observers are chained in registration order.
+// Returns false if the factory is not a stateDB (e.g., in-memory test factory).
+func AddDiffCallback(f Factory, cb StateDiffCallback) bool {
+	sdb, ok := f.(*stateDB)
+	if !ok {
+		return false
+	}
+	sdb.mutex.Lock()
+	prev := sdb.diffCallback
+	sdb.diffCallback = func(height uint64, entries []WriteQueueEntry, digest []byte) {
+		if prev != nil {
+			prev(height, entries, digest)
+		}
+		cb(height, entries, digest)
+	}
+	sdb.mutex.Unlock()
+	return true
+}
+
 // DisableWorkingSetCacheOption disable workingset cache
 func DisableWorkingSetCacheOption() StateDBOption {
 	return func(sdb *stateDB, cfg *Config) error {
@@ -355,7 +377,7 @@ func (sdb *stateDB) createWorkingSetStore(ctx context.Context, height uint64, kv
 			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
 		}
 	}
-	return newStateDBWorkingSetStore(flusher, g.IsNewfoundland(height)), nil
+	return newStateDBWorkingSetStore(flusher, g.IsNewfoundland(height), sdb.diffCallback != nil), nil
 }
 
 func (sdb *stateDB) Register(p protocol.Protocol) error {

@@ -38,7 +38,7 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 	inMemStore := db.NewMemKVStore()
 	flusher, err := db.NewKVStoreFlusher(inMemStore, batch.NewCachedBatch())
 	require.NoError(err)
-	store := newStateDBWorkingSetStore(flusher, true)
+	store := newStateDBWorkingSetStore(flusher, true, false)
 	require.NotNil(store)
 	require.NoError(store.Start(ctx))
 	namespace := "namespace"
@@ -146,4 +146,42 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 
 func TestFactoryWorkingSetStore(t *testing.T) {
 	// TODO: add unit test for factory working set store
+}
+
+func TestCaptureWriteQueuePriorValue(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+
+	ns := "namespace"
+	key := []byte("key")
+
+	for _, capture := range []bool{true, false} {
+		kv := db.NewMemKVStore()
+		// A pre-block committed value directly in the base store.
+		require.NoError(kv.Put(ns, key, []byte("prior")))
+		flusher, err := db.NewKVStoreFlusher(kv, batch.NewCachedBatch())
+		require.NoError(err)
+		wsAny := newStateDBWorkingSetStore(flusher, true, capture)
+		require.NoError(wsAny.Start(ctx))
+		ws := wsAny.(*stateDBWorkingSetStore)
+		// The block writes a new value into the buffer.
+		curVal := valueBytes("cur")
+		require.NoError(ws.PutObject(ns, key, &curVal))
+
+		entries := ws.CaptureWriteQueue()
+		var matched bool
+		for _, e := range entries {
+			if e.Namespace == ns && bytes.Equal(e.Key, key) {
+				matched = true
+				require.Equal([]byte("cur"), e.Value)
+				if capture {
+					require.Equal([]byte("prior"), e.PriorValue, "prior value must be captured when a delta consumer is registered")
+				} else {
+					require.Nil(e.PriorValue, "no base-store read when no delta consumer is registered")
+				}
+			}
+		}
+		require.True(matched, "expected the key in the captured write queue")
+		require.NoError(ws.Stop(ctx))
+	}
 }
