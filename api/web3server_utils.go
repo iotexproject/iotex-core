@@ -219,6 +219,32 @@ func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope,
 	return elpBuilder.BuildTransfer(tx)
 }
 
+// isNativeProtocolTx reports whether the transaction is addressed to a native
+// protocol pseudo-address, i.e. whether ethTxToEnvelope decoded it into a
+// protocol action rather than a transfer or an execution.
+//
+// Those actions carry their own intrinsic gas and are not charged by the EVM,
+// so the 21000 floor eth clients expect for a call does not apply to them --
+// see estimateGas. The address set is kept identical to the dispatch in
+// ethTxToEnvelope and to coreService.checkContract; widening one without the
+// others would make eth_estimateGas and eth_sendRawTransaction disagree about
+// what an action even is.
+func isNativeProtocolTx(tx *types.Transaction) bool {
+	if tx.To() == nil {
+		return false
+	}
+	ioAddr, err := address.FromBytes(tx.To().Bytes())
+	if err != nil {
+		return false
+	}
+	switch ioAddr.String() {
+	case address.StakingProtocolAddr, address.RewardingProtocol:
+		return true
+	default:
+		return false
+	}
+}
+
 func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
 	if to == "" {
 		return true, nil
