@@ -161,10 +161,12 @@ func (p *Protocol) clearCandidateSelfStake(bucket *VoteBucket, cand *Candidate) 
 	if cand.SelfStakeBucketIdx != bucket.Index {
 		return errors.New("self-stake bucket index mismatch")
 	}
-	if err := cand.SubVote(p.calculateVoteWeight(bucket, true)); err != nil {
+	prevWeight := p.calculateVoteWeight(bucket, true)
+	newWeight := p.calculateVoteWeight(bucket, false)
+	if err := cand.SubVote(prevWeight); err != nil {
 		return errors.Wrapf(err, "failed to subtract vote weight for bucket index %d", bucket.Index)
 	}
-	if err := cand.AddVote(p.calculateVoteWeight(bucket, false)); err != nil {
+	if err := cand.AddVote(newWeight); err != nil {
 		return errors.Wrapf(err, "failed to add vote weight for bucket index %d", bucket.Index)
 	}
 	cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex

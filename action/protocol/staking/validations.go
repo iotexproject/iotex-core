@@ -249,3 +249,10 @@ func (p *Protocol) validateCandidateDeactivate(ctx context.Context, act *action.
 	}
 	return nil
 }
+
+func (p *Protocol) validateSetVoterRewardOptIn(ctx context.Context, _ *action.SetVoterRewardOptIn) error {
+	if protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution {
+		return errors.Wrap(action.ErrInvalidAct, "SetVoterRewardOptIn is disabled")
+	}
+	return nil
+}

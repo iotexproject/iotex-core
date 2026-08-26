@@ -217,7 +217,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		return nil, nil, nil, nil, err
 	}
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
-	if err := setCandidates(ctx, sm, indexer, candidates, 1); err != nil {
+	if _, err := setCandidates(ctx, sm, indexer, candidates, 1); err != nil {
 		return nil, nil, nil, nil, err
 	}
 	if err := setNextEpochProbationList(sm, indexer, 1, vote.NewProbationList(cfg.Genesis.ProbationIntensityRate)); err != nil {
@@ -337,7 +337,8 @@ func TestCreatePreStates(t *testing.T) {
 		candidates, err := p.Candidates(ctx, sm)
 		require.Equal(len(candidates), 6)
 		require.NoError(err)
-		require.NoError(setCandidates(ctx, sm, nil, candidates, nextEpochStartHeight)) // set next candidate
+		_, serr := setCandidates(ctx, sm, nil, candidates, nextEpochStartHeight) // set next candidate
+		require.NoError(serr)
 
 		// at last of epoch, set probationList into next probation key
 		epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)

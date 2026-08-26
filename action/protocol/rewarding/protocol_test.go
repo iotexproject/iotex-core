@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
@@ -147,6 +148,12 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			RewardAddress: identityset.Address(31).String(),
 		},
 	}
+	for _, candidate := range candidates {
+		candidate.Identity = candidate.Address
+	}
+	for _, candidate := range abps {
+		candidate.Identity = candidate.Address
+	}
 	view := protocol.NewMockView(ctrl)
 	view.EXPECT().Snapshot().AnyTimes()
 	view.EXPECT().Revert(gomock.Any()).AnyTimes()
@@ -176,6 +183,11 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
+	for _, candidate := range candidates {
+		id, err := address.FromString(candidate.Identity)
+		require.NoError(t, err)
+		require.NoError(t, staking.TestOnlyPutCandidateRewardAddress(ctx, sm, id, id, id, false, false))
+	}
 
 	ctx = protocol.WithBlockCtx(
 		ctx, protocol.BlockCtx{

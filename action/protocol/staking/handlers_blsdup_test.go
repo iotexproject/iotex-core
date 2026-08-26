@@ -6,6 +6,7 @@
 package staking
 
 import (
+	"context"
 	"testing"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -48,7 +49,7 @@ func TestHandleCandidateUpdate_DuplicateBLSKeyIsDeterministic(t *testing.T) {
 
 			// Put both candidates on the same pubkey, the pre-fork state the
 			// uniqueness rule was never able to prevent.
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			require.NoError(err)
 			a, b := candA.Clone(), candB.Clone()
 			a.BLSPubKey, b.BLSPubKey = pk, pk

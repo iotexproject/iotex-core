@@ -467,6 +467,18 @@ func (elp *envelope) loadProtoActionPayload(pbAct *iotextypes.ActionCore) error 
 			return err
 		}
 		elp.payload = act
+	case pbAct.GetSetVoterRewardOptIn() != nil:
+		act := &SetVoterRewardOptIn{}
+		if err := act.LoadProto(pbAct.GetSetVoterRewardOptIn()); err != nil {
+			return err
+		}
+		elp.payload = act
+	case pbAct.GetSetVoterRewardDestination() != nil:
+		act := &SetVoterRewardDestination{}
+		if err := act.LoadProto(pbAct.GetSetVoterRewardDestination()); err != nil {
+			return err
+		}
+		elp.payload = act
 	default:
 		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}
