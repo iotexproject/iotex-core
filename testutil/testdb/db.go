@@ -3,6 +3,7 @@ package testdb
 import (
 	"bytes"
 	"context"
+	"sort"
 
 	"github.com/pkg/errors"
 	"go.uber.org/mock/gomock"
@@ -178,11 +179,28 @@ func NewMockStateManagerWithoutHeightFunc(ctrl *gomock.Controller) *mock_chainma
 			var fk [][]byte
 			var fv [][]byte
 			if cfg.Keys == nil {
+				// The real state factory serves a bounded States() scan in
+				// ascending key order over the half-open interval
+				// [RangeMin, RangeMax), then applies Limit. The in-memory KV
+				// returns Go-map order, so reproduce the contract here --
+				// otherwise a caller that relies on ordering (the IIP-59 shard
+				// walk asserts strictly ascending keys) passes against a real
+				// database and fails, nondeterministically, against this mock.
 				fk, fv, err = kv.Filter(cfg.Namespace, func(k, v []byte) bool {
+					if cfg.RangeMin != nil && bytes.Compare(k, cfg.RangeMin) < 0 {
+						return false
+					}
+					if cfg.RangeMax != nil && bytes.Compare(k, cfg.RangeMax) >= 0 {
+						return false
+					}
 					return true
 				}, nil, nil)
 				if err != nil {
 					return 0, nil, state.ErrStateNotExist
+				}
+				fk, fv = sortByKeyAscending(fk, fv)
+				if cfg.Limit > 0 && len(fk) > cfg.Limit {
+					fk, fv = fk[:cfg.Limit], fv[:cfg.Limit]
 				}
 			} else {
 				for _, key := range cfg.Keys {
@@ -227,6 +245,49 @@ func NewMockStateManagerWithoutHeightFunc(ctrl *gomock.Controller) *mock_chainma
 			return 0
 		},
 	).AnyTimes()
+	// Deliberately no default Revert() expectation here, unlike Snapshot()
+	// above. gomock resolves a call against the first *unexhausted* matching
+	// expectation in declaration order, and one installed by this constructor
+	// is declared before anything a test writes -- an AnyTimes() Revert here
+	// would swallow every call and leave a test's own
+	// `EXPECT().Revert(...).Times(1)` permanently unmet. Tests that drive a
+	// handler down its rollback path declare their own; AllowRevert is the
+	// shorthand for the ones that only need the call not to abort.
 
 	return sm
+}
+
+// AllowRevert accepts any number of Revert calls on sm and does nothing.
+//
+// This mock keeps no undo log, so it could not roll state back even if it
+// wanted to: what the expectation buys is the ability to drive a handler down
+// a failure path that reverts without gomock aborting on an unexpected call.
+// No test may depend on revert semantics through it.
+//
+// Call it only from tests that assert nothing about Revert. Because gomock
+// matches expectations in declaration order, this one shadows any narrower
+// Revert expectation declared after it.
+func AllowRevert(sm *mock_chainmanager.MockStateManager) {
+	sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
+}
+
+// sortByKeyAscending reorders a (keys, values) pair into ascending key order,
+// keeping the two slices aligned.
+func sortByKeyAscending(keys [][]byte, values [][]byte) ([][]byte, [][]byte) {
+	order := make([]int, len(keys))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(a, b int) bool {
+		return bytes.Compare(keys[order[a]], keys[order[b]]) < 0
+	})
+	sortedKeys := make([][]byte, len(keys))
+	sortedValues := make([][]byte, len(values))
+	for i, j := range order {
+		sortedKeys[i] = keys[j]
+		if j < len(values) {
+			sortedValues[i] = values[j]
+		}
+	}
+	return sortedKeys, sortedValues
 }

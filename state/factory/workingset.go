@@ -10,6 +10,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
 	"runtime/debug"
 	"slices"
 	"time"
@@ -95,6 +97,30 @@ func newWorkingSet(height uint64, views protocol.Views, store workingSetStore, s
 	}
 	ws.txValidator = protocol.NewGenericValidator(ws, accountutil.AccountState)
 	return ws
+}
+
+// dumpWriteQueue writes the ordered state-write queue for the given height to
+// $IOTEX_DIGEST_DUMP_DIR, so the same block can be replayed under two binaries
+// and the dumps diffed; the first differing line is the point of divergence.
+// No-op unless the env var is set, so this costs nothing on a normal node.
+func (ws *workingSet) dumpWriteQueue(height uint64) {
+	dir := os.Getenv("IOTEX_DIGEST_DUMP_DIR")
+	if dir == "" {
+		return
+	}
+	path := filepath.Join(dir, fmt.Sprintf("digest-%d.txt", height))
+	f, err := os.Create(path)
+	if err != nil {
+		log.L().Error("failed to create digest dump file", zap.String("path", path), zap.Error(err))
+		return
+	}
+	defer f.Close()
+	if err := ws.store.DumpWriteQueue(f); err != nil {
+		log.L().Error("failed to dump write queue", zap.Uint64("height", height), zap.Error(err))
+		return
+	}
+	log.L().Info("dumped state write queue for digest mismatch",
+		zap.Uint64("height", height), zap.String("path", path))
 }
 
 func (ws *workingSet) digest() (hash.Hash256, error) {
@@ -408,11 +434,18 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
+	// Keys and Range/Limit describe two different queries, so combining them has no
+	// well-defined answer -- reject rather than silently pick one
+	if err := validateStatesConfig(cfg); err != nil {
+		return 0, nil, err
+	}
 	store, err := ws.matchStore(cfg)
 	if err != nil {
 		return 0, nil, err
 	}
-	iter, err := store.States(cfg.Namespace, cfg.Object, cfg.Keys)
+	// rangeScanFromConfig returns nil unless Range/Limit was explicitly requested,
+	// which keeps every existing caller on the untouched legacy path
+	iter, err := store.States(cfg.Namespace, cfg.Object, cfg.Keys, rangeScanFromConfig(cfg))
 	if err != nil {
 		return 0, nil, err
 	}
@@ -1030,7 +1063,7 @@ func (ws *workingSet) validateAndRun(
 		log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, true, nil, nil
 	}
-	receipt, err := ws.runAction(actionCtx, nextAction, revertAllSnapshots)
+	receipt, err := ws.runActionDuringMint(actionCtx, nextAction, revertAllSnapshots)
 	switch errors.Cause(err) {
 	case nil:
 		// do nothing
@@ -1048,6 +1081,32 @@ func (ws *workingSet) validateAndRun(
 		return true, true, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 	}
 	return false, false, receipt, nil
+}
+
+// runActionDuringMint runs a single action while assembling a draft block, recovering from
+// any panic raised in the process. A panic here otherwise unwinds past this whole draft (caught
+// only by the mint goroutine's recover in blockpreparer.go) and, unlike a normal error return,
+// skips the caller's sender-eviction logic — so the same poison action would be picked again on
+// every subsequent mint attempt, stalling block production instead of losing a single draft.
+// Converting the panic into an ordinary error routes it through validateAndRun's default case,
+// which evicts the sender from the pool before this draft is abandoned.
+func (ws *workingSet) runActionDuringMint(ctx context.Context, selp *action.SealedEnvelope, revertAllSnapshots bool) (receipt *action.Receipt, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			_mintActionPanicMtc.Inc()
+			actHash, hashErr := selp.Hash()
+			if hashErr != nil {
+				log.L().Error("failed to get action hash after recovering from mint-time panic", zap.Error(hashErr))
+			}
+			log.L().Error("recovered from panic while running action during mint; sender will be evicted from the pool",
+				log.Hex("action", actHash[:]),
+				zap.Any("panic", r),
+				zap.String("stack", string(debug.Stack())))
+			receipt = nil
+			err = errors.Errorf("recovered from panic while running action %x: %v", actHash, r)
+		}
+	}()
+	return ws.runAction(ctx, selp, revertAllSnapshots)
 }
 
 func (ws *workingSet) generateSignedSystemActions(ctx context.Context, sign func(elp action.Envelope) (*action.SealedEnvelope, error)) ([]*action.SealedEnvelope, error) {
@@ -1145,6 +1204,7 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) (err 
 		return err
 	}
 	if !blk.VerifyDeltaStateDigest(digest) {
+		ws.dumpWriteQueue(blk.Height())
 		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x' at height %d", blk.DeltaStateDigest(), digest, blk.Height())
 	}
 	receiptRoot := calculateReceiptRoot(ws.receipts)

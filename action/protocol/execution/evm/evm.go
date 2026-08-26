@@ -428,6 +428,51 @@ func ReadContractStorage(
 	return res[:], nil
 }
 
+// SlotReader is a read-only handle over the world-state trie. It amortises
+// StateDBAdapter construction across many GetSlot calls — the underlying
+// setup (contract cache, snapshot buffers, access list, transient storage,
+// Erigon dryrun wrap) is heavy enough that per-call ReadContractStorage
+// costs ~12× more than reusing a single reader. See
+// docs/iip-59-perf-report.md for the measurement supporting per-drain reuse
+// in the IIP-59 voter distribution path.
+//
+// The reader captures state at construction time. It is safe to reuse
+// across an entire epoch drain because the IIP-59 compound path writes to
+// the staking namespace, not to the AutoDeposit contract's storage; other
+// consumers must confirm the same invariant before adopting it.
+type SlotReader struct {
+	db stateDB
+}
+
+// NewSlotReader constructs a reusable read-only slot reader for the current
+// working set. It uses the matching Erigon adapter for both block validation
+// and simulation so every node reads the same in-block contract state.
+func NewSlotReader(ctx context.Context, sm protocol.StateManager) (*SlotReader, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(protocol.WithActionCtx(ctx,
+		protocol.ActionCtx{
+			ActionHash: hash.ZeroHash256,
+		}),
+		protocol.BlockCtx{
+			BlockHeight: bcCtx.Tip.Height + 1,
+		},
+	))
+	db, err := prepareStateDB(ctx, sm)
+	if err != nil {
+		return nil, err
+	}
+	return &SlotReader{db: db}, nil
+}
+
+// GetSlot returns the 32-byte value stored at (contract, key). Never
+// panics: unset slots return a zero-filled slice. key must be 32 bytes;
+// shorter keys are left-padded, longer keys are truncated to the last 32
+// bytes (matching common.BytesToHash).
+func (r *SlotReader) GetSlot(contract address.Address, key []byte) []byte {
+	res := r.db.GetState(common.BytesToAddress(contract.Bytes()), common.BytesToHash(key))
+	return res[:]
+}
+
 // ReadContractCode reads contract's code
 func ReadContractCode(
 	ctx context.Context,
@@ -545,6 +590,9 @@ func prepareStateDBAdapter(ctx context.Context, sm protocol.StateManager) (*Stat
 	}
 	if !featureCtx.AlwaysWriteCachedContract {
 		opts = append(opts, SkipWriteCleanContractOption())
+	}
+	if featureCtx.CorrectPrestateForAbsentKeys {
+		opts = append(opts, CorrectPrestateForAbsentKeysOption())
 	}
 	return NewStateDBAdapter(
 		sm,

@@ -42,7 +42,7 @@ func TestProtocol_HandleCandidateDeactivateHandler(t *testing.T) {
 	newCand := func(t *testing.T) (*Protocol, CandidateStateManager, *Candidate) {
 		ctrl := gomock.NewController(t)
 		sm, p, _, cands := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		require.NoError(t, err)
 		return p, csm, cands[0]
 	}
@@ -147,7 +147,7 @@ func TestProtocol_HandleScheduleCandidateDeactivation(t *testing.T) {
 	newCand := func(t *testing.T) (*Protocol, CandidateStateManager, *Candidate) {
 		ctrl := gomock.NewController(t)
 		sm, p, _, cands := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		require.NoError(t, err)
 		return p, csm, cands[0]
 	}

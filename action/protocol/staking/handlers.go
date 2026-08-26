@@ -368,6 +368,9 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 
 	// update previous candidate
+	// IIP-59: this pair moves the voter's weight from the old candidate to the
+	// new one; the second half runs a few lines below, after the old candidate
+	// has been upserted.
 	weightedVotes := p.calculateVoteWeight(bucket, false)
 	if err := prevCandidate.SubVote(weightedVotes); err != nil {
 		return log, &handleError{
@@ -450,6 +453,13 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
+
+	// A transfer keeps the bucket's candidate, its weight and its duration; only
+	// the owner changes. The candidate's total weighted votes are therefore
+	// unchanged and no AddVote/SubVote is owed here. The retired
+	// per-(candidate, voter) view needed an explicit -old/+new pair at this
+	// point; the era drain re-derives a voter's weight from the frozen bucket
+	// owner index instead, which follows the new owner by construction.
 
 	log.AddAddress(actionCtx.Caller)
 	return log, nil
@@ -740,6 +750,34 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
 		}
 	}
+	// cannot collide with an existing BLS pubkey. Two delegates sharing
+	// a BLS pubkey break IIP-52's quorum-counting model: the signer
+	// bitmap would count both delegates, but FastAggregateVerify sums
+	// the pubkey set as a set (one contribution per distinct pubkey),
+	// producing an off-by-one mismatch that lets the second delegate's
+	// stake-weight "vote for free".
+	if act.WithBLS() && featureCtx.EnforceBLSPoP {
+		// Re-registration from the same owner (no self-stake yet) is allowed
+		// to carry forward its existing pubkey; a holder that is anyone else
+		// is a collision. Asking "does anyone else hold it" rather than "who
+		// holds it" is what keeps the verdict identical on every node: a
+		// pubkey shared by two candidates from before this rule existed would
+		// otherwise resolve to whichever the map yielded first.
+		//
+		// self is nil for a first-time registration -- c.GetIdentifier() is
+		// freshly generated and cannot match an existing candidate, so any
+		// holder is "other" either way.
+		var self address.Address
+		if ownerExist {
+			self = c.GetIdentifier()
+		}
+		if csm.HasBLSPubKeyOtherThan(act.BLSPubKey(), self) {
+			return log, nil, &handleError{
+				err:           errors.New("BLS pubkey already registered by another candidate"),
+				failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+			}
+		}
+	}
 
 	var (
 		bucketIdx     uint64
@@ -770,18 +808,27 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), candID.Bytes())
 
 	c = &Candidate{
-		Owner:              owner,
-		Operator:           act.OperatorAddress(),
-		Reward:             act.RewardAddress(),
-		Name:               act.Name(),
-		Votes:              votes,
-		SelfStakeBucketIdx: bucketIdx,
-		SelfStake:          act.Amount(),
+		Owner:                owner,
+		Operator:             act.OperatorAddress(),
+		Reward:               act.RewardAddress(),
+		Name:                 act.Name(),
+		Votes:                votes,
+		SelfStakeBucketIdx:   bucketIdx,
+		SelfStake:            act.Amount(),
+		RewardAddressUpdated: !featureCtx.NoVoterRewardDistribution,
 	}
 	if !featureCtx.CandidateIdentifiedByOwner {
 		c.Identifier = candID
 	}
 	if act.WithBLS() {
+		if featureCtx.EnforceBLSPoP {
+			if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), owner); err != nil {
+				return log, nil, &handleError{
+					err:           errors.Wrap(err, "BLS proof-of-possession invalid"),
+					failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+				}
+			}
+		}
 		c.BLSPubKey = act.BLSPubKey()
 		topics, eventData, err := action.PackCandidateRegisteredEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
 		if err != nil {
@@ -882,9 +929,35 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 
 	if act.RewardAddress() != nil {
 		c.Reward = act.RewardAddress()
+		if !featureCtx.NoVoterRewardDistribution {
+			c.RewardAddressUpdated = true
+		}
 	}
 
 	if act.WithBLS() {
+		if featureCtx.EnforceBLSPoP {
+			// PoP binds to the candidate's stable identity, not the
+			// current owner — for post-Xingu candidates this stays
+			// constant across CandidateTransferOwnership; for pre-Xingu
+			// GetIdentifier falls back to c.Owner so behavior is
+			// unchanged from owner-binding.
+			if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), c.GetIdentifier()); err != nil {
+				return log, &handleError{
+					err:           errors.Wrap(err, "BLS proof-of-possession invalid"),
+					failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+				}
+			}
+			// "Does anyone else hold it", not "who holds it": see
+			// HasBLSPubKeyOtherThan. A pubkey shared by two candidates from
+			// before this rule existed would otherwise resolve to whichever
+			// one the map yielded first, and nodes would disagree.
+			if csm.HasBLSPubKeyOtherThan(act.BLSPubKey(), c.GetIdentifier()) {
+				return log, &handleError{
+					err:           errors.New("BLS pubkey already registered by another candidate"),
+					failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+				}
+			}
+		}
 		c.BLSPubKey = act.BLSPubKey()
 		topics, eventData, err := action.PackCandidateUpdatedEvent(c.GetIdentifier(), c.Operator, c.Owner, c.Name, c.Reward, act.BLSPubKey())
 		if err != nil {
@@ -930,6 +1003,23 @@ func (p *Protocol) handleCandidateUpdateByOperator(ctx context.Context, act *act
 		return log, &handleError{
 			err:           errors.New("candidate reward address cannot be updated by operator"),
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		}
+	}
+	if protocol.MustGetFeatureCtx(ctx).EnforceBLSPoP {
+		// PoP binds to the candidate's stable identity (see the
+		// owner-path handler above for rationale).
+		if err := VerifyBLSPop(act.BLSPubKey(), act.BLSPop(), c.GetIdentifier()); err != nil {
+			return log, &handleError{
+				err:           errors.Wrap(err, "BLS proof-of-possession invalid"),
+				failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+			}
+		}
+		// See the owner-path handler above for why this is a predicate.
+		if csm.HasBLSPubKeyOtherThan(act.BLSPubKey(), c.GetIdentifier()) {
+			return log, &handleError{
+				err:           errors.New("BLS pubkey already registered by another candidate"),
+				failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+			}
 		}
 	}
 	// update BLS public key

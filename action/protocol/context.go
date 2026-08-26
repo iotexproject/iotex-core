@@ -173,6 +173,87 @@ type (
 		AlwaysWriteCachedContract     bool
 		NoCandidateExitQueue          bool
 		FixInContractTransferLogTopic bool
+		// CorrectPrestateForAbsentKeys, when true, makes contract.GetCommittedState
+		// return the true tx-start prestate value (zero, via trie.ErrNotExist) for
+		// storage slots that were absent in the pre-tx trie. Prior to this gate the
+		// contract-level committed[] cache was populated with post-mutation values
+		// for such slots, causing EIP-2200 SSTORE dynamic gas to misclassify
+		// dirty in-place writes as SSTORE_RESET (100 → 2900 gas overcharge per hit).
+		CorrectPrestateForAbsentKeys bool
+		// NoVoterRewardDistribution gates IIP-59's protocol-native voter reward
+		// distribution. Pre-fork (true) the poll layer does NOT freeze the
+		// per-candidate CandidateRewardSnapshot and rewarding stays on the legacy
+		// Hermes path. Post-fork (false) the snapshot is written at every
+		// PutPollResult and rewarding consumes it. Bound to
+		// !g.IsToBeEnabled(height): default zero-value = active after fork.
+		NoVoterRewardDistribution bool
+		// FixEpochSettlementFaultHandling corrects how faults raised during
+		// epoch settlement are classified, in three places:
+		//
+		//   - the auto-deposit lookup and the compound bucket read no longer
+		//     reroute a voter's share on a fault only some nodes saw; an absent
+		//     or withdrawn bucket, which every node reads identically, still
+		//     degrades to a direct credit;
+		//   - an era boundary reached with no copy-on-write window skips the
+		//     drain cursor instead of failing the whole epoch grant, which used
+		//     to take that epoch's commissions, foundation bonus and sentinel
+		//     down with it;
+		//   - a GrantEpochReward error settles a Failure receipt only when it
+		//     is derivable from committed state; the rest fail the block rather
+		//     than let one node commit "this epoch paid nobody" against
+		//     everyone else's full grant.
+		//
+		// Deliberately separate from NoVoterRewardDistribution. That gate is
+		// what turns IIP-59 on, so a chain where it has already activated is
+		// executing the pre-correction behaviour; changing it in place would
+		// alter blocks that chain has already committed. This flag therefore
+		// needs its own height, one fork later than the gate above. Both are
+		// wired to IsToBeEnabled until the named heights are assigned.
+		FixEpochSettlementFaultHandling bool
+		// RequireProfileForHermesMigration makes the activation-block Hermes
+		// opt-in migration skip candidates whose DelegateProfile portions are
+		// missing or only half set, leaving them on the off-chain Hermes payout
+		// instead of moving them into an on-chain path that freezes them at
+		// 100% commission and pays their voters nothing.
+		//
+		// Separate from NoVoterRewardDistribution because the migration is a
+		// one-shot that runs in the single block that gate turns on at. A chain
+		// where it has already fired has that block committed; changing what it
+		// did would alter the block's receipt root and fork any node replaying
+		// history. Wired to IsToBeEnabled until the named height is assigned.
+		RequireProfileForHermesMigration bool
+		// EmitEraFreezeLog makes the era freeze emit one DelegateRewardFrozen
+		// log per frozen delegate.
+		//
+		// Freezing is otherwise silent: the freeze block and its neighbours
+		// carry the same single untopiced block-reward log, so an event-driven
+		// indexer cannot tell an era was frozen, which delegates are in it, or
+		// what commission each was frozen at.
+		//
+		// Receipt logs are part of the receipt root, so this needs its own
+		// height rather than riding on the gate that turns IIP-59 on: a chain
+		// that has already produced freeze blocks without these logs would
+		// recompute different roots for them. Wired to IsToBeEnabled until the
+		// named height is assigned.
+		EmitEraFreezeLog bool
+		// EnforceBLSPoP gates the BLS proof-of-possession requirement at
+		// candidate register / update. The staking handler validates
+		// blsPubKey only with BLS12381PublicKeyFromBytes (format +
+		// subgroup); without a possession proof, IIP-52's planned
+		// FastAggregateVerify path is vulnerable to a rogue-key
+		// aggregate-forgery attack (a registered candidate could publish
+		// pk_rogue = g^x − Σ(other pubkeys) and, once aggregation goes
+		// live, forge a 2/3+ quorum certificate with a single signature).
+		// Activating EnforceBLSPoP BEFORE the BLS aggregation fork closes
+		// the window for collecting un-attested pubkeys.
+		EnforceBLSPoP bool
+		// OptionalCandidateBLSPublicKey relaxes the Xingu-era rule that every
+		// candidate register / update must carry a BLS public key. Post-fork
+		// the key is optional -- nothing consumes it until IIP-52 aggregation
+		// activates -- but a proof-of-possession may not arrive without one.
+		// An update that omits both leaves any previously registered key
+		// untouched.
+		OptionalCandidateBLSPublicKey bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -348,6 +429,13 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
 			FixInContractTransferLogTopic:           g.IsToBeEnabled(height),
+			CorrectPrestateForAbsentKeys:            g.IsToBeEnabled(height),
+			NoVoterRewardDistribution:               !g.IsToBeEnabled(height),
+			FixEpochSettlementFaultHandling:         g.IsToBeEnabled(height),
+			RequireProfileForHermesMigration:        g.IsToBeEnabled(height),
+			EmitEraFreezeLog:                        g.IsToBeEnabled(height),
+			EnforceBLSPoP:                           g.IsToBeEnabled(height),
+			OptionalCandidateBLSPublicKey:           g.IsToBeEnabled(height),
 		},
 	)
 }
@@ -441,4 +529,15 @@ func WithVMConfigCtx(ctx context.Context, vmConfig vm.Config) context.Context {
 func GetVMConfigCtx(ctx context.Context) (vm.Config, bool) {
 	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
 	return cfg, ok
+}
+
+// IsEraBoundary reports whether the given epoch number falls on an IIP-59 voter reward era boundary.
+// An era boundary is any epoch where epochNum%epochsPerEra == 0. Epoch 0 is never a boundary because
+// the genesis pre-epoch has no rewards to distribute; the first live boundary is at epoch epochsPerEra.
+// epochsPerEra == 0 disables era boundaries entirely (used by tests that opt out of the era cadence).
+func IsEraBoundary(epochNum, epochsPerEra uint64) bool {
+	if epochsPerEra == 0 || epochNum == 0 {
+		return false
+	}
+	return epochNum%epochsPerEra == 0
 }

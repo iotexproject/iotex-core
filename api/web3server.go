@@ -90,9 +90,11 @@ var (
 	errHTTPNotSupported  = errors.New("http not supported")
 	errPanic             = errors.New("panic")
 
-	_pendingBlockNumber  = "pending"
-	_latestBlockNumber   = "latest"
-	_earliestBlockNumber = "earliest"
+	_pendingBlockNumber   = "pending"
+	_latestBlockNumber    = "latest"
+	_earliestBlockNumber  = "earliest"
+	_safeBlockNumber      = "safe"
+	_finalizedBlockNumber = "finalized"
 )
 
 func init() {
@@ -349,7 +351,10 @@ func (svr *web3Handler) feeHistory(ctx context.Context, in *gjson.Result) (inter
 	if !blkCnt.Exists() || !newestBlk.Exists() {
 		return nil, errInvalidFormat
 	}
-	blocks, err := strconv.ParseUint(blkCnt.String(), 10, 64)
+	// blockCount is a hex quantity per the eth_feeHistory spec (e.g. "0x5"), but
+	// this endpoint has always accepted a bare decimal too. Parse both forms with
+	// geth's hex-or-decimal rule so "0xa" and "10" alike request ten blocks.
+	blocks, err := hexOrDecimalToNumber(blkCnt.String())
 	if err != nil {
 		return nil, err
 	}
@@ -606,7 +611,14 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 	if err != nil {
 		return "0x" + hex.EncodeToString(retval), err
 	}
-	if estimatedGas < 21000 {
+	// 21000 is the floor eth clients expect for a call that reaches the EVM. A
+	// native protocol action never does: it is charged its own intrinsic gas,
+	// which for most staking and rewarding actions is below 21000. Applying the
+	// floor there reports a number the receipt will never match -- 21000
+	// estimated against 10000 actually consumed for setVoterRewardDestination,
+	// measured on TestNet -- and wallets read that gap as a failed interaction
+	// even though the action succeeded and its view returned the new value.
+	if estimatedGas < 21000 && !isNativeProtocolTx(tx) {
 		estimatedGas = 21000
 	}
 	return uint64ToHex(estimatedGas), nil
