@@ -41,7 +41,7 @@ import (
 //
 // # Shape: one block, no persisted progress
 //
-// The whole index is built in the single block at g.ToBeEnabledBlockHeight,
+// The whole index is built in the single block at g.ZanzibarBlockHeight,
 // from CreatePreStates. There is no job record, no cursor, and no "complete"
 // marker, because there is no intermediate state for anything to observe.
 //

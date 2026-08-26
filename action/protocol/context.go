@@ -185,7 +185,7 @@ type (
 		// per-candidate CandidateRewardSnapshot and rewarding stays on the legacy
 		// Hermes path. Post-fork (false) the snapshot is written at every
 		// PutPollResult and rewarding consumes it. Bound to
-		// !g.IsToBeEnabled(height): default zero-value = active after fork.
+		// !g.IsZanzibar(height): default zero-value = active after fork.
 		NoVoterRewardDistribution bool
 		// FixEpochSettlementFaultHandling corrects how faults raised during
 		// epoch settlement are classified, in three places:
@@ -207,8 +207,8 @@ type (
 		// what turns IIP-59 on, so a chain where it has already activated is
 		// executing the pre-correction behaviour; changing it in place would
 		// alter blocks that chain has already committed. This flag therefore
-		// needs its own height, one fork later than the gate above. Both are
-		// wired to IsToBeEnabled until the named heights are assigned.
+		// needs its own height, one fork later than the gate above:
+		// Zanzibar Beta.
 		FixEpochSettlementFaultHandling bool
 		// RequireProfileForHermesMigration makes the activation-block Hermes
 		// opt-in migration skip candidates whose DelegateProfile portions are
@@ -220,7 +220,7 @@ type (
 		// one-shot that runs in the single block that gate turns on at. A chain
 		// where it has already fired has that block committed; changing what it
 		// did would alter the block's receipt root and fork any node replaying
-		// history. Wired to IsToBeEnabled until the named height is assigned.
+		// history. Carried by Zanzibar Beta.
 		RequireProfileForHermesMigration bool
 		// EmitEraFreezeLog makes the era freeze emit one DelegateRewardFrozen
 		// log per frozen delegate.
@@ -233,8 +233,7 @@ type (
 		// Receipt logs are part of the receipt root, so this needs its own
 		// height rather than riding on the gate that turns IIP-59 on: a chain
 		// that has already produced freeze blocks without these logs would
-		// recompute different roots for them. Wired to IsToBeEnabled until the
-		// named height is assigned.
+		// recompute different roots for them. Carried by Zanzibar Beta.
 		EmitEraFreezeLog bool
 		// EnforceBLSPoP gates the BLS proof-of-possession requirement at
 		// candidate register / update. The staking handler validates
@@ -428,14 +427,20 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			PrePectraEVM:                            !g.IsYap(height),
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
-			FixInContractTransferLogTopic:           g.IsToBeEnabled(height),
-			CorrectPrestateForAbsentKeys:            g.IsToBeEnabled(height),
-			NoVoterRewardDistribution:               !g.IsToBeEnabled(height),
-			FixEpochSettlementFaultHandling:         g.IsToBeEnabled(height),
-			RequireProfileForHermesMigration:        g.IsToBeEnabled(height),
-			EmitEraFreezeLog:                        g.IsToBeEnabled(height),
-			EnforceBLSPoP:                           g.IsToBeEnabled(height),
-			OptionalCandidateBLSPublicKey:           g.IsToBeEnabled(height),
+			// Zanzibar. These five are exactly what v2.5.0-rc0 activated, and
+			// testnet has already run it -- so this set is fixed by what that
+			// chain committed, not by what would be tidy to group together.
+			FixInContractTransferLogTopic: g.IsZanzibar(height),
+			CorrectPrestateForAbsentKeys:  g.IsZanzibar(height),
+			NoVoterRewardDistribution:     !g.IsZanzibar(height),
+			EnforceBLSPoP:                 g.IsZanzibar(height),
+			OptionalCandidateBLSPublicKey: g.IsZanzibar(height),
+			// Zanzibar Beta. Every one of these corrects behaviour Zanzibar
+			// already turned on, and none of them existed in rc0. Selecting
+			// them with Zanzibar would rewrite blocks testnet has committed.
+			FixEpochSettlementFaultHandling:  g.IsZanzibarBeta(height),
+			RequireProfileForHermesMigration: g.IsZanzibarBeta(height),
+			EmitEraFreezeLog:                 g.IsZanzibarBeta(height),
 		},
 	)
 }
