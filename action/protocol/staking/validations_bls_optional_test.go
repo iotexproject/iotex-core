@@ -31,13 +31,16 @@ func ctxAtEra(t *testing.T, era string) context.Context {
 		g.XinguBetaBlockHeight = 100
 		g.YapBlockHeight = 100
 		g.YapBetaBlockHeight = 100
-		g.ToBeEnabledBlockHeight = math.MaxUint64
+		g.ZanzibarBlockHeight = math.MaxUint64
+		g.ZanzibarBetaBlockHeight = math.MaxUint64
 	case "xingu":
 		g.XinguBlockHeight = 0
-		g.ToBeEnabledBlockHeight = math.MaxUint64
+		g.ZanzibarBlockHeight = math.MaxUint64
+		g.ZanzibarBetaBlockHeight = math.MaxUint64
 	case "optional":
 		g.XinguBlockHeight = 0
-		g.ToBeEnabledBlockHeight = 0
+		g.ZanzibarBlockHeight = 0
+		g.ZanzibarBetaBlockHeight = 0
 	default:
 		t.Fatalf("unknown era %s", era)
 	}

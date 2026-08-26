@@ -37,15 +37,17 @@ func blsKeyFromSeed(t *testing.T, seed string) *crypto.BLS12381PrivateKey {
 // genesisWithPoPGate returns a TestDefault genesis tuned for the PoP
 // gate tests: XinguBlockHeight is forced to 0 so the BLS-register
 // codepath is reachable (CandidateBLSPublicKey feature requires it),
-// and ToBeEnabledBlockHeight controls whether EnforceBLSPoP is on.
+// and ZanzibarBlockHeight controls whether EnforceBLSPoP is on.
 func genesisWithPoPGate(gate bool) genesis.Genesis {
 	g := deepcopy.Copy(genesis.TestDefault()).(genesis.Genesis)
 	g.TsunamiBlockHeight = 0
 	g.XinguBlockHeight = 0
 	if gate {
-		g.ToBeEnabledBlockHeight = 0
+		g.ZanzibarBlockHeight = 0
+		g.ZanzibarBetaBlockHeight = 0
 	} else {
-		g.ToBeEnabledBlockHeight = math.MaxUint64
+		g.ZanzibarBlockHeight = math.MaxUint64
+		g.ZanzibarBetaBlockHeight = math.MaxUint64
 	}
 	return g
 }

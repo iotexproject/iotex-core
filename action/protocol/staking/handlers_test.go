@@ -690,7 +690,8 @@ func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
 		act, err := action.NewCandidateUpdate("", "", identityset.Address(29).String())
 		r.NoError(err)
 		g := genesis.TestDefault()
-		g.ToBeEnabledBlockHeight = 1
+		g.ZanzibarBlockHeight = 1
+		g.ZanzibarBetaBlockHeight = 1
 		ctx := genesis.WithGenesisContext(context.Background(), g)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1})
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: candidate.Owner, GasPrice: big.NewInt(0)})
@@ -725,7 +726,8 @@ func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
 		)
 		r.NoError(err)
 		g := genesis.TestDefault()
-		g.ToBeEnabledBlockHeight = 1
+		g.ZanzibarBlockHeight = 1
+		g.ZanzibarBetaBlockHeight = 1
 		ctx := genesis.WithGenesisContext(context.Background(), g)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1, BlockTimeStamp: time.Now()})
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: owner, GasPrice: big.NewInt(0)})
@@ -759,7 +761,8 @@ func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
 			act, err := action.NewCandidateUpdate("", "", test.reward)
 			r.NoError(err)
 			g := genesis.TestDefault()
-			g.ToBeEnabledBlockHeight = test.forkHeight
+			g.ZanzibarBlockHeight = test.forkHeight
+			g.ZanzibarBetaBlockHeight = test.forkHeight
 			ctx := genesis.WithGenesisContext(context.Background(), g)
 			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1})
 			ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: candidate.Owner, GasPrice: big.NewInt(0)})

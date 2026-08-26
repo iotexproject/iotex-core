@@ -1692,16 +1692,16 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 // TestCandidateBLSPoP exercises the post-fork BLS proof-of-possession
 // gate end-to-end through the e2etest harness. Five subcases:
 //
-//   1. Register without PoP pre-fork — handler accepts (backward compat).
-//   2. Register with valid PoP post-fork — handler accepts, candidate
-//      state carries the BLS pubkey.
-//   3. Register without PoP post-fork — handler returns
-//      ErrUnauthorizedOperator and no candidate is created.
-//   4. Update with valid PoP post-fork — BLS pubkey rotates in state.
-//   5. Update without PoP post-fork — handler rejects, BLS pubkey
-//      remains unchanged.
+//  1. Register without PoP pre-fork — handler accepts (backward compat).
+//  2. Register with valid PoP post-fork — handler accepts, candidate
+//     state carries the BLS pubkey.
+//  3. Register without PoP post-fork — handler returns
+//     ErrUnauthorizedOperator and no candidate is created.
+//  4. Update with valid PoP post-fork — BLS pubkey rotates in state.
+//  5. Update without PoP post-fork — handler rejects, BLS pubkey
+//     remains unchanged.
 //
-// The gate is wired via genesis.ToBeEnabledBlockHeight = XinguBlockHeight,
+// The gate is wired via genesis.ZanzibarBlockHeight = XinguBlockHeight,
 // so XinguBlockHeight is both the activation point for BLS-bearing
 // registration and the activation point for EnforceBLSPoP. Pre-fork
 // blocks have neither feature active; post-fork blocks have both.
@@ -1715,7 +1715,8 @@ func TestCandidateBLSPoP(t *testing.T) {
 	// Wire EnforceBLSPoP to activate alongside the BLS register path
 	// itself. Without this, the post-fork PoP gate is never reached
 	// during the test.
-	cfg.Genesis.ToBeEnabledBlockHeight = uint64(cfg.Genesis.XinguBlockHeight)
+	cfg.Genesis.ZanzibarBlockHeight = uint64(cfg.Genesis.XinguBlockHeight)
+	cfg.Genesis.ZanzibarBetaBlockHeight = uint64(cfg.Genesis.XinguBlockHeight)
 	cfg.Genesis.SystemStakingContractAddress = ""
 	cfg.Genesis.SystemStakingContractV2Address = ""
 	cfg.Genesis.SystemStakingContractV3Address = ""
@@ -1732,11 +1733,11 @@ func TestCandidateBLSPoP(t *testing.T) {
 		// Distinct owners so each subcase registers a fresh candidate
 		// (the register handler rejects re-registration on the same
 		// owner that already has self-stake).
-		preForkOwnerID    = 3
-		preForkOpID       = 1
-		postForkOwnerID   = 4
-		postForkOpID      = 2
-		rejectOwnerID = 5
+		preForkOwnerID  = 3
+		preForkOpID     = 1
+		postForkOwnerID = 4
+		postForkOpID    = 2
+		rejectOwnerID   = 5
 	)
 
 	postForkBLSSk, err := crypto.GenerateBLS12381PrivateKey(identityset.PrivateKey(9).Bytes())
@@ -1767,7 +1768,7 @@ func TestCandidateBLSPoP(t *testing.T) {
 		},
 	})
 
-	// Advance past the XinguBlockHeight + ToBeEnabledBlockHeight gate.
+	// Advance past the XinguBlockHeight + ZanzibarBlockHeight gate.
 	height, err := test.cs.BlockDAO().Height()
 	require.NoError(err)
 	advance := int(cfg.Genesis.XinguBlockHeight) - int(height)

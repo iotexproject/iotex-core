@@ -37,7 +37,7 @@ import (
 // on restart -- and Genesis.validate() is skipped for defaultConfig() and test
 // literals, so no test suite would catch that first.
 func validateIIP59EraMargin(g genesis.Genesis, rp *rolldpos.Protocol) error {
-	if g.ToBeEnabledBlockHeight == math.MaxUint64 {
+	if g.ZanzibarBlockHeight == math.MaxUint64 {
 		// Not scheduled; nothing to constrain.
 		return nil
 	}
@@ -55,7 +55,7 @@ func validateIIP59EraMargin(g genesis.Genesis, rp *rolldpos.Protocol) error {
 		return nil
 	}
 
-	activationEpoch := rp.GetEpochNum(g.ToBeEnabledBlockHeight)
+	activationEpoch := rp.GetEpochNum(g.ZanzibarBlockHeight)
 	if activationEpoch == 0 {
 		return nil
 	}
@@ -66,14 +66,14 @@ func validateIIP59EraMargin(g genesis.Genesis, rp *rolldpos.Protocol) error {
 		return nil
 	}
 	freezeHeight := eraFreezeHeight(rp, boundaryEpoch)
-	if g.ToBeEnabledBlockHeight <= freezeHeight {
+	if g.ZanzibarBlockHeight <= freezeHeight {
 		return nil
 	}
 	return errors.Errorf(
 		"genesis: IIP-59 activation height %d lands in epoch %d, past the freeze at height %d that opens era %d "+
 			"(settled at height %d) -- that era's epoch reward would be lost in full. "+
 			"Use a height at or below %d, or schedule past era %d by using a height at or above %d",
-		g.ToBeEnabledBlockHeight, activationEpoch, freezeHeight, boundaryEpoch,
+		g.ZanzibarBlockHeight, activationEpoch, freezeHeight, boundaryEpoch,
 		rp.GetEpochHeight(boundaryEpoch)+rp.NumBlocksByEpoch(boundaryEpoch)-1,
 		freezeHeight, boundaryEpoch, rp.GetEpochHeight(boundaryEpoch)+rp.NumBlocksByEpoch(boundaryEpoch),
 	)
