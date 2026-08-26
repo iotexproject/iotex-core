@@ -1074,21 +1074,39 @@ func TestCandidateTransferOwnership(t *testing.T) {
 					{mustNoErr(action.SignedCandidateRegister(test.nonceMgr.pop(identityset.Address(candOwnerID).String()), "cand1", identityset.Address(1).String(), identityset.Address(1).String(), identityset.Address(candOwnerID).String(), registerAmount.String(), 1, true, nil, gasLimit, gasPrice, identityset.PrivateKey(candOwnerID), action.WithChainID(chainID))), time.Now()},
 					{mustNoErr(action.SignedCreateStake(test.nonceMgr.pop(identityset.Address(stakerID).String()), "cand1", registerAmount.String(), 91, true, nil, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), stakeTime},
 				},
-				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr[(identityset.Address(stakerID).String())], 1, action.CandidateEndorsementOpEndorse, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{&basicActionExpect{errReceiptNotFound, 0, ""}},
+				act: &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr[(identityset.Address(stakerID).String())], 1, action.CandidateEndorsementOpEndorse, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				// Refused at submission now that the pool applies the protocols'
+				// own rules, instead of being accepted and silently never
+				// included -- so it also no longer produces a block.
+				expect: []actionExpect{&basicActionExpect{action.ErrInvalidAct, 0, ""}},
 			},
 			{
-				name:   "intentToRevokeEndorsement action disabled before UpernavikBlockHeight",
-				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr[(identityset.Address(stakerID).String())], 1, action.CandidateEndorsementOpIntentToRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{&basicActionExpect{errReceiptNotFound, 0, ""}},
+				name: "intentToRevokeEndorsement action disabled before UpernavikBlockHeight",
+				act:  &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr[(identityset.Address(stakerID).String())], 1, action.CandidateEndorsementOpIntentToRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				// Refused at submission now that the pool applies the protocols'
+				// own rules, instead of being accepted and silently never
+				// included -- so it also no longer produces a block.
+				expect: []actionExpect{&basicActionExpect{action.ErrInvalidAct, 0, ""}},
 			},
 			{
-				name:   "revokeEndorsement action disabled before UpernavikBlockHeight",
-				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr[(identityset.Address(stakerID).String())], 1, action.CandidateEndorsementOpRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
-				expect: []actionExpect{&basicActionExpect{errReceiptNotFound, 0, ""}},
+				name: "revokeEndorsement action disabled before UpernavikBlockHeight",
+				act:  &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr[(identityset.Address(stakerID).String())], 1, action.CandidateEndorsementOpRevoke, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
+				// Refused at submission now that the pool applies the protocols'
+				// own rules, instead of being accepted and silently never
+				// included -- so it also no longer produces a block.
+				expect: []actionExpect{&basicActionExpect{action.ErrInvalidAct, 0, ""}},
 			},
 			{
-				name:   "endorse action disabled after UpernavikBlockHeight",
+				name: "endorse action disabled after UpernavikBlockHeight",
+				// The three cases above used to each contribute a block on their
+				// way to being dropped at mint. They are refused at submission
+				// now, so the height they carried has to come from here instead:
+				// UpernavikBlockHeight is 6.
+				preActs: []*actionWithTime{
+					{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(candOwnerID2), test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(candOwnerID2), test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+					{mustNoErr(action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(candOwnerID2), test.nonceMgr.pop(identityset.Address(candOwnerID2).String()), unit.ConvertIotxToRau(1), nil, gasLimit, gasPrice, action.WithChainID(chainID))), time.Now()},
+				},
 				act:    &actionWithTime{mustNoErr(action.SignedCandidateEndorsement(test.nonceMgr.pop(identityset.Address(stakerID).String()), 1, action.CandidateEndorsementOpEndorse, gasLimit, gasPrice, identityset.PrivateKey(stakerID), action.WithChainID(chainID))), time.Now()},
 				expect: []actionExpect{successExpect},
 			},
