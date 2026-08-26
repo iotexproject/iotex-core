@@ -40,29 +40,38 @@ import (
 // blocks — otherwise the bench collapses to a single-block run and
 // stops measuring what we care about (chunking behaviour).
 type perfTier struct {
-	numDelegates        int
-	numVoters           int
-	numNativeBuckets    int
-	numContractBuckets  int
+	numDelegates         int
+	numVoters            int
+	numNativeBuckets     int
+	numContractBuckets   int
 	spreadVoterAddresses bool
-	sampleVoterPayouts  bool
-	epochsPerEra        uint64
-	voterBudgetPerBlock uint64
+	sampleVoterPayouts   bool
+	epochsPerEra         uint64
+	voterBudgetPerBlock  uint64
+	// epochCommissionBPs overrides the commission the freezer records for
+	// every delegate. Zero means the default below. 10000 (100%) leaves the
+	// voter share at zero, which is how a tier asks for an era with nothing
+	// to settle.
+	epochCommissionBPs uint64
 }
+
+// _iip59PerfDefaultCommissionBPs is 9000 bp -- a 10% voter take on both the
+// block-side and epoch-side streams, and the only source of the bench's rates.
+const _iip59PerfDefaultCommissionBPs = uint64(9000)
 
 var iip59PerfTiers = map[string]perfTier{
 	"small":   {numDelegates: 3, numVoters: 100, epochsPerEra: 2, voterBudgetPerBlock: 50},
 	"medium":  {numDelegates: 10, numVoters: 1_000, epochsPerEra: 4, voterBudgetPerBlock: 250},
 	"mainnet": {numDelegates: 24, numVoters: 27_020, epochsPerEra: 24, voterBudgetPerBlock: 4_504},
 	"scale": {
-		numDelegates:        24,
-		numVoters:           30_000,
-		numNativeBuckets:    50_000,
-		numContractBuckets:  10_000,
+		numDelegates:         24,
+		numVoters:            30_000,
+		numNativeBuckets:     50_000,
+		numContractBuckets:   10_000,
 		spreadVoterAddresses: true,
-		sampleVoterPayouts:  true,
-		epochsPerEra:        2,
-		voterBudgetPerBlock: 4_504,
+		sampleVoterPayouts:   true,
+		epochsPerEra:         2,
+		voterBudgetPerBlock:  4_504,
 	},
 }
 
@@ -493,6 +502,10 @@ func iip59PerfSeederSpec(t *testing.T, tier perfTier, g genesis.Genesis) staking
 			contractAddrs = append(contractAddrs, contract)
 		}
 	}
+	commissionBPs := tier.epochCommissionBPs
+	if commissionBPs == 0 {
+		commissionBPs = _iip59PerfDefaultCommissionBPs
+	}
 	return staking.TestOnlyPerfBenchSpec{
 		NumDelegates:               tier.numDelegates,
 		NumVoters:                  tier.numVoters,
@@ -505,10 +518,8 @@ func iip59PerfSeederSpec(t *testing.T, tier perfTier, g genesis.Genesis) staking
 		VoterStake:                 iip59PerfVoterStake(),
 		VoterStakedDurationDays:    iip59PerfVoterStakeDurationDays,
 		VoteWeightCalConsts:        g.Staking.VoteWeightCalConsts,
-		// 9000 bp commission (10 % voter take) on both the block-side and
-		// epoch-side streams. This is the only source of the bench's rates.
-		BlockCommissionBasisPoints: 9000,
-		EpochCommissionBasisPoints: 9000,
+		BlockCommissionBasisPoints: commissionBPs,
+		EpochCommissionBasisPoints: commissionBPs,
 	}
 }
 
