@@ -266,6 +266,64 @@ func TestCreatePreStates(t *testing.T) {
 	require.NoError(err)
 }
 
+func TestCreatePreStatesFixAliasForNonStop(t *testing.T) {
+	g := genesis.TestDefault()
+
+	run := func(t *testing.T, height uint64) CandidateList {
+		r := require.New(t)
+		ctrl := gomock.NewController(t)
+		sm := testdb.NewMockStateManager(ctrl)
+		p, err := NewProtocol(HelperCtx{
+			DepositGas:    nil,
+			BlockInterval: getBlockInterval,
+		}, &BuilderConfig{
+			Staking:                       g.Staking,
+			PersistStakingPatchBlock:      math.MaxUint64,
+			FixAliasForNonStopHeight:      height,
+			SkipContractStakingViewHeight: math.MaxUint64,
+			Revise: ReviseConfig{
+				VoteWeight: g.Staking.VoteWeightCalConsts,
+			},
+		}, nil, nil, nil, nil)
+		r.NoError(err)
+		ctx := protocol.WithBlockCtx(
+			genesis.WithGenesisContext(context.Background(), g),
+			protocol.BlockCtx{BlockHeight: height},
+		)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		v, err := p.Start(ctx, sm)
+		r.NoError(err)
+		r.NoError(sm.WriteView(_protocolID, v))
+
+		// seed the owner list so it is visible whether the rebuild ran
+		csr, err := ConstructBaseView(sm)
+		r.NoError(err)
+		base := csr.BaseView().candCenter.base
+		base.recordOwner(&Candidate{
+			Owner:              identityset.Address(1),
+			Operator:           identityset.Address(7),
+			Reward:             identityset.Address(1),
+			Name:               "test1",
+			Votes:              big.NewInt(2),
+			SelfStakeBucketIdx: 1,
+			SelfStake:          unit.ConvertIotxToRau(1200000),
+		})
+		r.Len(base.ownersList(), 1)
+
+		r.NoError(p.CreatePreStates(ctx, sm))
+		return base.ownersList()
+	}
+
+	t.Run("alias era", func(t *testing.T) {
+		// the rebuild resets the owner list
+		require.Nil(t, run(t, g.OkhotskBlockHeight-1))
+	})
+	t.Run("post okhotsk", func(t *testing.T) {
+		// candidate center no longer keeps aliases, the rebuild must not run
+		require.Len(t, run(t, g.OkhotskBlockHeight), 1)
+	})
+}
+
 func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
