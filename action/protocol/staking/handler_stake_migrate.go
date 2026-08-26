@@ -130,6 +130,9 @@ func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account
 	}
 	// update candidate vote
 	weightedVote := p.calculateVoteWeight(bucket, false)
+	// IIP-59: native bucket is being burned in favor of a contract bucket
+	// minted by the EVM call below. Drop the native weight from the view here;
+	// the matching +W on the contract side flows through nfteventhandler hooks.
 	if err := cand.SubVote(weightedVote); err != nil {
 		return nil, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String()),

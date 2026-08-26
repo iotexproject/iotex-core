@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	contractstakingstate "github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/config"
@@ -63,6 +64,23 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func contractBucketHighWaterMark(test *e2etest, contractAddress string) (uint64, error) {
+	addr, err := address.FromString(contractAddress)
+	if err != nil {
+		return 0, err
+	}
+	return contractstakingstate.NewStateReader(test.cs.StateFactory()).NumOfBuckets(addr)
+}
+
+func contractBucketHighWaterExpect(r *require.Assertions, contractAddress string, expected func() uint64) actionExpect {
+	return &functionExpect{func(test *e2etest, _ *action.SealedEnvelope, _ *action.Receipt, err error) {
+		r.NoError(err)
+		mark, err := contractBucketHighWaterMark(test, contractAddress)
+		r.NoError(err)
+		r.Equal(expected(), mark)
+	}}
 }
 
 func TestContractStakingV1(t *testing.T) {
@@ -1188,6 +1206,7 @@ func TestContractStakingV3(t *testing.T) {
 	cfg.Genesis.VanuatuBlockHeight = 100
 	cfg.Genesis.WakeBlockHeight = 120  // mute staking v2 & enable staking v3
 	cfg.Genesis.XinguBlockHeight = 200 // store contract staking in trie
+	cfg.Genesis.ToBeEnabledBlockHeight = cfg.Genesis.XinguBlockHeight
 	cfg.Genesis.SystemStakingContractAddress = ""
 	cfg.Genesis.SystemStakingContractV2Address = contractV2Address
 	cfg.Genesis.SystemStakingContractV2Height = 1
@@ -1217,6 +1236,10 @@ func TestContractStakingV3(t *testing.T) {
 		stakeDurationSeconds = big.NewInt(int64(secondsPerDay)) // 1 day
 		minAmount            = unit.ConvertIotxToRau(1000)
 		bktIdx               uint64
+		v2HighWater          uint64
+		v3HighWater          uint64
+		backfillV2MaxID      uint64
+		backfillV3MaxID      uint64
 
 		tmpVotes   = big.NewInt(0)
 		tmpBalance = big.NewInt(0)
@@ -1283,6 +1306,10 @@ func TestContractStakingV3(t *testing.T) {
 				require.NoError(err)
 				_, ok := tmpVotes.SetString(candidate.TotalWeightedVotes, 10)
 				require.True(ok)
+				_, err = contractBucketHighWaterMark(e, contractV2Address)
+				require.ErrorIs(err, state.ErrStateNotExist)
+				_, err = contractBucketHighWaterMark(e, contractV3Address)
+				require.ErrorIs(err, state.ErrStateNotExist)
 			},
 			act: &actionWithTime{mustNoErr(action.SignedExecution(contractV3Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice, mustCallData("stake(uint256,address)", stakeDurationSeconds, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), stakeTime},
 			expect: []actionExpect{successExpect,
@@ -1525,6 +1552,45 @@ func TestContractStakingV3(t *testing.T) {
 		},
 	})
 
+	// Keep the newest real V2 and V3 buckets alive across activation. Both
+	// contracts mint their first bucket as ID 1 (asserted above), so their
+	// monotonically increasing token IDs make the latest receipt ID the exact
+	// inclusive high-water mark that backfillOwnerIndex must persist.
+	test.run([]*testcase{
+		{
+			name: "v2 bucket for activation backfill",
+			act:  &actionWithTime{mustNoErr(action.SignedExecution(contractV2Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("stake(uint256,address)", stakeDurationBlocks, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), stakeTime},
+			expect: []actionExpect{successExpect,
+				&functionExpect{func(test *e2etest, _ *action.SealedEnvelope, receipt *action.Receipt, err error) {
+					require.NoError(err)
+					ids, err := parseV2StakedBucketIdx(contractV2Address, receipt)
+					require.NoError(err)
+					require.Len(ids, 1)
+					require.NotZero(ids[0])
+					backfillV2MaxID = ids[0]
+					_, err = contractBucketHighWaterMark(test, contractV2Address)
+					require.ErrorIs(err, state.ErrStateNotExist)
+				}},
+			},
+		},
+		{
+			name: "v3 bucket for activation backfill",
+			act:  &actionWithTime{mustNoErr(action.SignedExecution(contractV3Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallDataV3("stake(uint256,address)", stakeDurationSeconds, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), stakeTime},
+			expect: []actionExpect{successExpect,
+				&functionExpect{func(test *e2etest, _ *action.SealedEnvelope, receipt *action.Receipt, err error) {
+					require.NoError(err)
+					ids, err := parseV3StakedBucketIdx(contractV3Address, receipt)
+					require.NoError(err)
+					require.Len(ids, 1)
+					require.NotZero(ids[0])
+					backfillV3MaxID = ids[0]
+					_, err = contractBucketHighWaterMark(test, contractV3Address)
+					require.ErrorIs(err, state.ErrStateNotExist)
+				}},
+			},
+		},
+	})
+
 	// case: after xingu
 	tipHeight, err := test.cs.BlockDAO().Height()
 	require.NoError(err)
@@ -1544,6 +1610,61 @@ func TestContractStakingV3(t *testing.T) {
 				candidate, err := test.getCandidateByName("cand1")
 				require.NoError(err)
 				require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
+				v2Mark, err := contractBucketHighWaterMark(test, contractV2Address)
+				require.NoError(err)
+				v3Mark, err := contractBucketHighWaterMark(test, contractV3Address)
+				require.NoError(err)
+				reader := contractstakingstate.NewStateReader(test.cs.StateFactory())
+				v2Addr, err := address.FromString(contractV2Address)
+				require.NoError(err)
+				v2IDs, _, err := reader.Buckets(v2Addr)
+				require.NoError(err)
+				require.NotEmpty(v2IDs)
+				v3Addr, err := address.FromString(contractV3Address)
+				require.NoError(err)
+				v3IDs, _, err := reader.Buckets(v3Addr)
+				require.NoError(err)
+				require.NotEmpty(v3IDs)
+				require.Equal(backfillV2MaxID, slices.Max(v2IDs))
+				require.Equal(backfillV3MaxID, slices.Max(v3IDs))
+				require.Equal(backfillV2MaxID, v2Mark)
+				require.Equal(backfillV3MaxID, v3Mark)
+				v2HighWater, v3HighWater = v2Mark, v3Mark
+			},
+		},
+		{
+			name: "v2 stake after activation",
+			act:  &actionWithTime{mustNoErr(action.SignedExecution(contractV2Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("stake(uint256,address)", stakeDurationBlocks, common.BytesToAddress(identityset.Address(candOwnerID).Bytes())), action.WithChainID(chainID))), stakeTime},
+			expect: []actionExpect{successExpect,
+				&functionExpect{func(test *e2etest, _ *action.SealedEnvelope, receipt *action.Receipt, err error) {
+					require.NoError(err)
+					ids, err := parseV2StakedBucketIdx(contractV2Address, receipt)
+					require.NoError(err)
+					require.Len(ids, 1)
+					v2HighWater = ids[0]
+				}},
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
+			},
+		},
+	})
+	test.run([]*testcase{
+		{
+			name: "migrate v2 bucket after activation",
+			preActs: []*actionWithTime{
+				{mustNoErr(action.SignedExecution(contractV2Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice1559, mustCallData("approve(address,uint256)", contractV3AddressEth, new(big.Int).SetUint64(v2HighWater)), action.WithChainID(chainID))), stakeTime},
+			},
+			act: &actionWithTime{mustNoErr(action.SignedExecution(contractV3Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice1559, mustCallDataV3("migrateLegacyBucket(uint256)", new(big.Int).SetUint64(v2HighWater)), action.WithChainID(chainID))), stakeTime},
+			expect: []actionExpect{successExpect,
+				&functionExpect{func(test *e2etest, _ *action.SealedEnvelope, receipt *action.Receipt, err error) {
+					require.NoError(err)
+					ids, err := parseV3StakedBucketIdx(contractV3Address, receipt)
+					require.NoError(err)
+					require.Len(ids, 1)
+					v3HighWater = ids[0]
+				}},
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
 			},
 		},
 		{
@@ -1562,11 +1683,14 @@ func TestContractStakingV3(t *testing.T) {
 					require.NoError(err)
 					require.Len(bkts, 1)
 					bktIdx = bkts[0]
+					v3HighWater = bktIdx
 					candidate, err := test.getCandidateByName("cand1")
 					require.NoError(err)
 					deltaVotes := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{AutoStake: true, StakedDuration: time.Duration(stakeDurationSeconds.Int64()) * (time.Second), StakedAmount: stakeAmount, Timestamped: true}, false)
 					require.Equal(tmpVotes.Add(tmpVotes, deltaVotes).String(), candidate.TotalWeightedVotes)
 				}},
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
 			},
 		},
 	})
@@ -1584,6 +1708,8 @@ func TestContractStakingV3(t *testing.T) {
 					tmpVotes.Add(tmpVotes, unlockedVotes)
 					require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
 				}},
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
 			},
 		},
 		{
@@ -1599,6 +1725,8 @@ func TestContractStakingV3(t *testing.T) {
 					tmpVotes.Add(tmpVotes, postVotes)
 					require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
 				}},
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
 			},
 		},
 		{
@@ -1606,8 +1734,12 @@ func TestContractStakingV3(t *testing.T) {
 			preActs: []*actionWithTime{
 				{mustNoErr(action.SignedExecution(contractV3Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice1559, mustCallData("unlock(uint256)", big.NewInt(int64(bktIdx))), action.WithChainID(chainID))), unlockTime},
 			},
-			act:    &actionWithTime{mustNoErr(action.SignedExecution(contractV3Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice1559, mustCallData("unstake(uint256)", big.NewInt(int64(bktIdx))), action.WithChainID(chainID))), unstakeTime},
-			expect: []actionExpect{successExpect},
+			act: &actionWithTime{mustNoErr(action.SignedExecution(contractV3Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice1559, mustCallData("unstake(uint256)", big.NewInt(int64(bktIdx))), action.WithChainID(chainID))), unstakeTime},
+			expect: []actionExpect{
+				successExpect,
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
+			},
 			blockExpect: func(test *e2etest, blk *block.Block, err error) {
 				require.NoError(err)
 				candidate, err := test.getCandidateByName("cand1")
@@ -1634,6 +1766,8 @@ func TestContractStakingV3(t *testing.T) {
 					tmpBalance.Add(tmpBalance, stakeAmount)
 					require.Equal(tmpBalance.String(), acc.AccountMeta.Balance)
 				}},
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
 			},
 		},
 	})
@@ -1653,7 +1787,10 @@ func TestContractStakingV3(t *testing.T) {
 					require.NoError(err)
 					require.Len(bktIdxs, 1)
 					bktIdx = bktIdxs[0]
+					v3HighWater = bktIdx
 				}},
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
 			},
 		},
 	})
@@ -1668,6 +1805,8 @@ func TestContractStakingV3(t *testing.T) {
 					require.NoError(err)
 					require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
 				}},
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
 			},
 		},
 		{
@@ -1685,12 +1824,15 @@ func TestContractStakingV3(t *testing.T) {
 					require.NoError(err)
 					require.Equal(10, len(bktIdxs))
 					tmpBktIdxs = bktIdxs
+					v3HighWater = slices.Max(bktIdxs)
 					candidate, err := test.getCandidateByName("cand2")
 					require.NoError(err)
 					deltaVotes := staking.CalculateVoteWeight(test.cfg.Genesis.VoteWeightCalConsts, &staking.VoteBucket{AutoStake: true, StakedDuration: time.Duration(stakeDurationSeconds.Uint64()) * (time.Second), StakedAmount: stakeAmount}, false)
 					tmpVotes.Add(tmpVotes, deltaVotes.Mul(deltaVotes, big.NewInt(10)))
 					require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
 				}},
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
 			},
 		},
 	})
@@ -1709,12 +1851,18 @@ func TestContractStakingV3(t *testing.T) {
 					tmpVotes.Add(tmpVotes, addVotes)
 					require.Equal(tmpVotes.String(), candidate.TotalWeightedVotes)
 				}},
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
 			},
 		},
 		{
-			name:   "expand",
-			act:    &actionWithTime{mustNoErr(action.SignedExecution(contractV3Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("expandBucket(uint256,uint256)", big.NewInt(int64(tmpBktIdxs[0])), big.NewInt(0).Mul(stakeDurationSeconds, big.NewInt(2))), action.WithChainID(chainID))), time.Now()},
-			expect: []actionExpect{successExpect},
+			name: "expand",
+			act:  &actionWithTime{mustNoErr(action.SignedExecution(contractV3Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), stakeAmount, gasLimit, gasPrice1559, mustCallData("expandBucket(uint256,uint256)", big.NewInt(int64(tmpBktIdxs[0])), big.NewInt(0).Mul(stakeDurationSeconds, big.NewInt(2))), action.WithChainID(chainID))), time.Now()},
+			expect: []actionExpect{
+				successExpect,
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
+			},
 		},
 		{
 			name: "donate",
@@ -1732,6 +1880,17 @@ func TestContractStakingV3(t *testing.T) {
 					tmpBalance.Add(tmpBalance, stakeAmount)
 					require.Equal(tmpBalance.String(), resp.AccountMeta.Balance)
 				}},
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
+			},
+		},
+		{
+			name: "transfer",
+			act:  &actionWithTime{mustNoErr(action.SignedExecution(contractV3Address, identityset.PrivateKey(stakerID), test.nonceMgr.pop(identityset.Address(stakerID).String()), big.NewInt(0), gasLimit, gasPrice1559, mustCallDataV3("transferFrom(address,address,uint256)", common.BytesToAddress(identityset.Address(stakerID).Bytes()), common.BytesToAddress(identityset.Address(candOwnerID2).Bytes()), new(big.Int).SetUint64(tmpBktIdxs[3])), action.WithChainID(chainID))), time.Now()},
+			expect: []actionExpect{
+				successExpect,
+				contractBucketHighWaterExpect(require, contractV2Address, func() uint64 { return v2HighWater }),
+				contractBucketHighWaterExpect(require, contractV3Address, func() uint64 { return v3HighWater }),
 			},
 		},
 	})
