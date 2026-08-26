@@ -1,6 +1,7 @@
 package contractstaking
 
 import (
+	"context"
 	"errors"
 	"math/big"
 	"testing"
@@ -75,7 +76,7 @@ func TestDeleteBucket_Error(t *testing.T) {
 	contractAddr := identityset.Address(1)
 	bucketID := uint64(456)
 
-	err := csm.DeleteBucket(contractAddr, bucketID)
+	err := csm.DeleteBucket(context.Background(), contractAddr, bucketID)
 	assert.Error(t, err)
 	assert.Equal(t, "delstate error", err.Error())
 }
@@ -92,7 +93,7 @@ func TestDeleteBucket_Success(t *testing.T) {
 	contractAddr := identityset.Address(1)
 	bucketID := uint64(456)
 
-	err := csm.DeleteBucket(contractAddr, bucketID)
+	err := csm.DeleteBucket(context.Background(), contractAddr, bucketID)
 	require.NoError(t, err)
 }
 
@@ -118,7 +119,7 @@ func TestUpsertBucket_Success(t *testing.T) {
 		Muted:          false,
 	}
 
-	err := csm.UpsertBucket(contractAddr, bid, bucket)
+	err := csm.UpsertBucket(context.Background(), contractAddr, bid, bucket)
 	require.NoError(t, err)
 }
 
@@ -144,7 +145,7 @@ func TestUpsertBucket_Error(t *testing.T) {
 		Muted:          true,
 	}
 
-	err := csm.UpsertBucket(contractAddr, bid, bucket)
+	err := csm.UpsertBucket(context.Background(), contractAddr, bid, bucket)
 	assert.Error(t, err)
 	assert.Equal(t, "putstate error", err.Error())
 }

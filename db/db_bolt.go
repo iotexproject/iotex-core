@@ -200,6 +200,50 @@ func (b *BoltDB) Filter(namespace string, cond Condition, minKey, maxKey []byte)
 	return fk, fv, nil
 }
 
+// ScanRange returns up to limit <k, v> pairs in [min, max), ascending by bytes.Compare(k).
+// See KVStoreWithRangeScan for the exact semantics, which must stay identical across engines.
+func (b *BoltDB) ScanRange(namespace string, min, max []byte, limit int) ([][]byte, [][]byte, error) {
+	if !b.IsReady() {
+		return nil, nil, ErrDBNotStarted
+	}
+	if emptyScanRange(min, max) {
+		return nil, nil, nil
+	}
+
+	var keys, values [][]byte
+	if err := b.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(namespace))
+		if bucket == nil {
+			// a missing namespace is an empty result, not an error
+			return nil
+		}
+		var (
+			c    = bucket.Cursor()
+			k, v []byte
+		)
+		if len(min) > 0 {
+			k, v = c.Seek(min)
+		} else {
+			k, v = c.First()
+		}
+		for ; k != nil; k, v = c.Next() {
+			// half-open interval: max itself is excluded
+			if max != nil && bytes.Compare(k, max) >= 0 {
+				break
+			}
+			keys = append(keys, copyBytes(k))
+			values = append(values, copyBytes(v))
+			if limit > 0 && len(keys) >= limit {
+				break
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, err
+	}
+	return keys, values, nil
+}
+
 // Range retrieves values for a range of keys
 func (b *BoltDB) Range(namespace string, key []byte, count uint64) ([][]byte, error) {
 	if !b.IsReady() {

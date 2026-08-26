@@ -106,13 +106,13 @@ func TestHeadLess(t *testing.T) {
 	gpLow := big.NewInt(1)
 	gpHigh := big.NewInt(100)
 	cases := []struct {
-		name                                       string
-		aHasNext, aSettled                         bool
-		aGP                                        *big.Int
-		bHasNext, bSettled                         bool
-		bGP                                        *big.Int
-		want                                       bool
-		description                                string
+		name               string
+		aHasNext, aSettled bool
+		aGP                *big.Int
+		bHasNext, bSettled bool
+		bGP                *big.Int
+		want               bool
+		description        string
 	}{
 		// nil-next handling mirrors Less: jgp==nil → true; igp==nil (b non-nil) → false.
 		{"b has no next", true, true, gpLow, false, false, nil, true, "b has no next: a wins eviction"},
