@@ -56,7 +56,12 @@ func NewPebbleDB(cfg Config) *PebbleDB {
 
 // Start opens the DB (creates new file if not existing yet)
 func (b *PebbleDB) Start(_ context.Context) error {
-	comparer := pebble.DefaultComparer
+	// pebble.DefaultComparer is a *Comparer, i.e. a package-level global shared by
+	// the whole process. Clone the struct before mutating Split, otherwise every
+	// other pebble DB opened in this process (and pebble's own internals) would
+	// silently inherit our 8-byte prefix split.
+	comparer := new(pebble.Comparer)
+	*comparer = *pebble.DefaultComparer
 	comparer.Split = func(a []byte) int {
 		return prefixLength
 	}
@@ -232,6 +237,86 @@ func (b *PebbleDB) Filter(ns string, cond Condition, minKey []byte, maxKey []byt
 	return
 }
 
+// ScanRange returns up to limit <k, v> pairs in [min, max), ascending by bytes.Compare(k).
+// See KVStoreWithRangeScan for the exact semantics, which must stay identical across engines.
+//
+// This deliberately does NOT use SeekPrefixGE (which Filter() uses): prefix
+// iteration is entangled with the Comparer.Split / bloom-filter configuration and
+// its stopping rule is implicit. An explicitly bounded iterator is auditable and
+// engine-independent.
+func (b *PebbleDB) ScanRange(ns string, min, max []byte, limit int) ([][]byte, [][]byte, error) {
+	if !b.IsReady() {
+		return nil, nil, ErrDBNotStarted
+	}
+	if emptyScanRange(min, max) {
+		return nil, nil, nil
+	}
+
+	// keys are physically stored as nsToPrefix(ns) || key
+	lowerBound := nsKey(ns, min)
+	var upperBound []byte
+	if max != nil {
+		upperBound = nsKey(ns, max)
+	} else {
+		// scan to the end of the namespace: the exclusive bound is the namespace
+		// prefix incremented with carry. nil means the prefix is all-0xFF, in which
+		// case no key of any other namespace can sort after it, so leaving the
+		// iterator unbounded above is exactly right.
+		upperBound = nextPrefix(nsToPrefix(ns))
+	}
+	iter, err := b.db.NewIter(&pebble.IterOptions{
+		LowerBound: lowerBound,
+		UpperBound: upperBound,
+	})
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to create iterator")
+	}
+	defer func() {
+		if e := iter.Close(); e != nil {
+			log.L().Error("Failed to close iterator", zap.Error(e))
+		}
+	}()
+
+	var keys, values [][]byte
+	for iter.SeekGE(lowerBound); iter.Valid(); iter.Next() {
+		k, err := decodeKey(iter.Key())
+		if err != nil {
+			return nil, nil, err
+		}
+		keys = append(keys, copyBytes(k))
+		values = append(values, copyBytes(iter.Value()))
+		if limit > 0 && len(keys) >= limit {
+			break
+		}
+	}
+	if err := iter.Error(); err != nil {
+		return nil, nil, errors.Wrap(err, "failed to iterate")
+	}
+	return keys, values, nil
+}
+
+// nextPrefix returns the smallest byte slice of the same length that sorts
+// strictly after every slice having the given prefix, i.e. the prefix
+// incremented with carry. It returns nil when the prefix is all 0xFF (carry-out),
+// meaning no such bound exists.
+//
+// The length is intentionally preserved instead of truncating the trailing zero
+// bytes: pebble is configured with a fixed 8-byte Comparer.Split, so handing it a
+// bound shorter than the prefix length is asking for trouble. [0x12, 0xFF] ->
+// [0x13, 0x00] is just as valid an exclusive bound as [0x13].
+func nextPrefix(prefix []byte) []byte {
+	next := make([]byte, len(prefix))
+	copy(next, prefix)
+	for i := len(next) - 1; i >= 0; i-- {
+		next[i]++
+		if next[i] != 0 {
+			return next
+		}
+		// this byte wrapped around to 0x00, carry into the next one
+	}
+	return nil
+}
+
 // ForEach iterates over all <k, v> pairs in a bucket
 func (b *PebbleDB) ForEach(ns string, fn func(k, v []byte) error) error {
 	if !b.IsReady() {
@@ -271,6 +356,39 @@ func nsKey(ns string, key []byte) []byte {
 func nsToPrefix(ns string) []byte {
 	h := hash.Hash160b([]byte(ns))
 	return h[:prefixLength]
+}
+
+// CheckNamespacePrefixCollision verifies that no two distinct namespaces share the
+// same 8-byte pebble key prefix.
+//
+// PebbleDB stores every record as Hash160b(ns)[:8] || key, and decodeKey() strips
+// those 8 bytes without checking which namespace produced them. Two namespaces
+// whose prefixes collide would therefore interleave into a single logical bucket
+// in pebble while remaining separate buckets in bolt -- i.e. the two engines would
+// return different states for the same query, which is a chain fork.
+//
+// It returns an error naming the colliding namespaces, or nil.
+func CheckNamespacePrefixCollision(namespaces []string) error {
+	return checkNamespacePrefixCollision(namespaces, func(ns string) string {
+		return string(nsToPrefix(ns))
+	})
+}
+
+func checkNamespacePrefixCollision(namespaces []string, prefixOf func(string) string) error {
+	seen := make(map[string]string, len(namespaces))
+	for _, ns := range namespaces {
+		p := prefixOf(ns)
+		if other, ok := seen[p]; ok {
+			if other == ns {
+				// the same namespace listed twice is not a collision
+				continue
+			}
+			return errors.Errorf(
+				"namespace prefix collision: %q and %q both hash to %x", other, ns, []byte(p))
+		}
+		seen[p] = ns
+	}
+	return nil
 }
 
 func decodeKey(k []byte) (key []byte, err error) {
