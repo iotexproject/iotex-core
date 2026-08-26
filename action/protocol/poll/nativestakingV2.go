@@ -58,7 +58,10 @@ func (ns *nativeStakingV2) CreateGenesisStates(ctx context.Context, sm protocol.
 	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	cands = ns.filterAndSortCandidatesByVoteScore(cands, bcCtx.Tip.Timestamp)
-	return setCandidates(ctx, sm, ns.candIndexer, cands, uint64(1))
+	// Genesis states carry no receipt, so freeze logs (which cannot occur at
+	// height 1 anyway) are discarded.
+	_, err = setCandidates(ctx, sm, ns.candIndexer, cands, uint64(1))
+	return err
 }
 
 func (ns *nativeStakingV2) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {

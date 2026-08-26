@@ -1221,12 +1221,12 @@ func deactivateBucketType(r *require.Assertions, handler *contractStakingEventPr
 }
 
 func stake(r *require.Assertions, handler *contractStakingEventProcessor, owner, candidate address.Address, token, amount, duration int64, height uint64) {
-	err := handler.handleTransferEvent(eventParam{
+	err := handler.handleTransferEvent(context.Background(), eventParam{
 		"to":      common.BytesToAddress(owner.Bytes()),
 		"tokenId": big.NewInt(token),
 	})
 	r.NoError(err)
-	err = handler.handleStakedEvent(eventParam{
+	err = handler.handleStakedEvent(context.Background(), eventParam{
 		"tokenId":  big.NewInt(token),
 		"delegate": common.BytesToAddress(candidate.Bytes()),
 		"amount":   big.NewInt(amount),
@@ -1236,14 +1236,14 @@ func stake(r *require.Assertions, handler *contractStakingEventProcessor, owner,
 }
 
 func unlock(r *require.Assertions, handler *contractStakingEventProcessor, token int64, height uint64) {
-	err := handler.handleUnlockedEvent(eventParam{
+	err := handler.handleUnlockedEvent(context.Background(), eventParam{
 		"tokenId": big.NewInt(token),
 	}, height)
 	r.NoError(err)
 }
 
 func lock(r *require.Assertions, handler *contractStakingEventProcessor, token, duration int64) {
-	err := handler.handleLockedEvent(eventParam{
+	err := handler.handleLockedEvent(context.Background(), eventParam{
 		"tokenId":  big.NewInt(token),
 		"duration": big.NewInt(duration),
 	})
@@ -1251,21 +1251,21 @@ func lock(r *require.Assertions, handler *contractStakingEventProcessor, token, 
 }
 
 func unstake(r *require.Assertions, handler *contractStakingEventProcessor, token int64, height uint64) {
-	err := handler.handleUnstakedEvent(eventParam{
+	err := handler.handleUnstakedEvent(context.Background(), eventParam{
 		"tokenId": big.NewInt(token),
 	}, height)
 	r.NoError(err)
 }
 
 func withdraw(r *require.Assertions, handler *contractStakingEventProcessor, token int64) {
-	err := handler.handleWithdrawalEvent(eventParam{
+	err := handler.handleWithdrawalEvent(context.Background(), eventParam{
 		"tokenId": big.NewInt(token),
 	})
 	r.NoError(err)
 }
 
 func expandBucketType(r *require.Assertions, handler *contractStakingEventProcessor, token, amount, duration int64) {
-	err := handler.handleBucketExpandedEvent(eventParam{
+	err := handler.handleBucketExpandedEvent(context.Background(), eventParam{
 		"tokenId":  big.NewInt(token),
 		"amount":   big.NewInt(amount),
 		"duration": big.NewInt(duration),
@@ -1274,7 +1274,7 @@ func expandBucketType(r *require.Assertions, handler *contractStakingEventProces
 }
 
 func transfer(r *require.Assertions, handler *contractStakingEventProcessor, owner address.Address, token int64) {
-	err := handler.handleTransferEvent(eventParam{
+	err := handler.handleTransferEvent(context.Background(), eventParam{
 		"to":      common.BytesToAddress(owner.Bytes()),
 		"tokenId": big.NewInt(token),
 	})
@@ -1282,7 +1282,7 @@ func transfer(r *require.Assertions, handler *contractStakingEventProcessor, own
 }
 
 func changeDelegate(r *require.Assertions, handler *contractStakingEventProcessor, delegate address.Address, token int64) {
-	err := handler.handleDelegateChangedEvent(eventParam{
+	err := handler.handleDelegateChangedEvent(context.Background(), eventParam{
 		"newDelegate": common.BytesToAddress(delegate.Bytes()),
 		"tokenId":     big.NewInt(token),
 	})
@@ -1294,7 +1294,7 @@ func mergeBuckets(r *require.Assertions, handler *contractStakingEventProcessor,
 	for i, token := range tokenIds {
 		tokens[i] = big.NewInt(token)
 	}
-	err := handler.handleMergedEvent(eventParam{
+	err := handler.handleMergedEvent(context.Background(), eventParam{
 		"amount":   big.NewInt(amount),
 		"duration": big.NewInt(duration),
 		"tokenIds": tokens,

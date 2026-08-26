@@ -285,7 +285,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		r.Len(receipts, 1)
 		r.NoError(errs[0])
 		r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipts[0].Status)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		preVotes := csm.GetByOwner(identityset.Address(candOwnerID)).Votes
 		bkt, err := csm.NativeBucket(bktIdx)
@@ -339,7 +339,7 @@ func TestHandleStakeMigrate(t *testing.T) {
 		}, receipts[0].TransactionLogs()[0])
 		r.Equal(receipt.TransactionLogs()[0], receipts[0].TransactionLogs()[1])
 		// native bucket burned
-		csm, err = NewCandidateStateManager(sm)
+		csm, err = NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		_, err = csm.NativeBucket(bktIdx)
 		r.ErrorIs(err, state.ErrStateNotExist)

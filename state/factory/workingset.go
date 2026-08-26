@@ -10,6 +10,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
 	"runtime/debug"
 	"slices"
 	"time"
@@ -95,6 +97,30 @@ func newWorkingSet(height uint64, views protocol.Views, store workingSetStore, s
 	}
 	ws.txValidator = protocol.NewGenericValidator(ws, accountutil.AccountState)
 	return ws
+}
+
+// dumpWriteQueue writes the ordered state-write queue for the given height to
+// $IOTEX_DIGEST_DUMP_DIR, so the same block can be replayed under two binaries
+// and the dumps diffed; the first differing line is the point of divergence.
+// No-op unless the env var is set, so this costs nothing on a normal node.
+func (ws *workingSet) dumpWriteQueue(height uint64) {
+	dir := os.Getenv("IOTEX_DIGEST_DUMP_DIR")
+	if dir == "" {
+		return
+	}
+	path := filepath.Join(dir, fmt.Sprintf("digest-%d.txt", height))
+	f, err := os.Create(path)
+	if err != nil {
+		log.L().Error("failed to create digest dump file", zap.String("path", path), zap.Error(err))
+		return
+	}
+	defer f.Close()
+	if err := ws.store.DumpWriteQueue(f); err != nil {
+		log.L().Error("failed to dump write queue", zap.Uint64("height", height), zap.Error(err))
+		return
+	}
+	log.L().Info("dumped state write queue for digest mismatch",
+		zap.Uint64("height", height), zap.String("path", path))
 }
 
 func (ws *workingSet) digest() (hash.Hash256, error) {
@@ -408,11 +434,18 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
+	// Keys and Range/Limit describe two different queries, so combining them has no
+	// well-defined answer -- reject rather than silently pick one
+	if err := validateStatesConfig(cfg); err != nil {
+		return 0, nil, err
+	}
 	store, err := ws.matchStore(cfg)
 	if err != nil {
 		return 0, nil, err
 	}
-	iter, err := store.States(cfg.Namespace, cfg.Object, cfg.Keys)
+	// rangeScanFromConfig returns nil unless Range/Limit was explicitly requested,
+	// which keeps every existing caller on the untouched legacy path
+	iter, err := store.States(cfg.Namespace, cfg.Object, cfg.Keys, rangeScanFromConfig(cfg))
 	if err != nil {
 		return 0, nil, err
 	}
@@ -1171,6 +1204,7 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) (err 
 		return err
 	}
 	if !blk.VerifyDeltaStateDigest(digest) {
+		ws.dumpWriteQueue(blk.Height())
 		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x' at height %d", blk.DeltaStateDigest(), digest, blk.Height())
 	}
 	receiptRoot := calculateReceiptRoot(ws.receipts)

@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/stakingpb"
@@ -61,6 +62,11 @@ const (
 	_voterIndex
 	_candIndex
 	_endorsement
+	// _candidateRewardSnapshot is the tag for a CandidateRewardSnapshot blob keyed
+	// by a candidate's identity address (see poll_snapshot.go). Written at
+	// PutPollResult, read once per epoch by the rewarding protocol under
+	// IIP-59. Full key: {_candidateRewardSnapshot} || candID.Bytes().
+	_candidateRewardSnapshot
 )
 
 // Errors
@@ -116,7 +122,14 @@ type (
 		helperCtx                HelperCtx
 		blockStore               BlockStore
 		blocksToDurationFn       func(startHeight, endHeight, currentHeight uint64) time.Duration
+		genesisStateSeeder       GenesisStateSeeder
+		delegateProfileReader    func(protocol.StateManager) delegateprofile.ContractReader
 	}
+
+	// GenesisStateSeeder plants additional genesis state inside the same
+	// candidate-state transaction that CreateGenesisStates uses for
+	// BootstrapCandidates. See WithGenesisStateSeeder.
+	GenesisStateSeeder func(ctx context.Context, csm CandidateStateManager) error
 
 	// Configuration is the staking protocol configuration.
 	Configuration struct {
@@ -172,6 +185,36 @@ func WithContractStakingIndexerV3(indexer ContractStakingIndexer) Option {
 func WithBlockStore(bs BlockStore) Option {
 	return func(p *Protocol) {
 		p.blockStore = bs
+	}
+}
+
+// WithGenesisStateSeeder sets a seeder invoked from CreateGenesisStates AFTER
+// the BootstrapCandidates loop and BEFORE the final Commit. It lets a test
+// harness plant candidates + voter buckets directly in the same genesis
+// transaction, avoiding the action-pool bottleneck at mainnet-scale voter
+// counts. Nothing in production wires this — a node built from config alone
+// never reaches it, which is the point of it being an option rather than a
+// package-level hook.
+func WithGenesisStateSeeder(seeder GenesisStateSeeder) Option {
+	return func(p *Protocol) {
+		p.genesisStateSeeder = seeder
+	}
+}
+
+// WithDelegateProfileReader injects the reader used to consult the
+// DelegateProfile contract during the Hermes opt-in migration.
+//
+// It is injected rather than constructed here because the reader runs a
+// simulated view call, which lives in the evm package. staking cannot reach the
+// existing one in poll (poll imports staking), and importing evm directly would
+// add a dependency edge to a package that otherwise only touches state.
+// chainservice imports both and wires the two together.
+//
+// Left unset, the migration falls back to its pre-ZanzibarBeta behaviour of
+// migrating on reward address alone.
+func WithDelegateProfileReader(fn func(protocol.StateManager) delegateprofile.ContractReader) Option {
+	return func(p *Protocol) {
+		p.delegateProfileReader = fn
 	}
 }
 
@@ -297,65 +340,72 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 		}
 	}
 	c.contractsStake = &contractStakeView{}
-	checkIndex := func(indexer ContractStakingIndexer) error {
+	checkIndex := func(indexer ContractStakingIndexer) (bool, error) {
 		checker := blockdao.GetChecker(ctx)
 		if checker == nil {
-			return nil
+			return true, nil
 		}
 		if err := indexer.Start(ctx); err != nil {
-			return errors.Wrap(err, "failed to start contract staking indexer")
+			return false, errors.Wrap(err, "failed to start contract staking indexer")
 		}
 		if indexer.StartHeight() > height {
-			return nil
+			return false, nil
 		}
 		indexerHeight, err := indexer.Height()
 		if err != nil {
-			return errors.Wrap(err, "failed to get contract staking indexer height")
+			return false, errors.Wrap(err, "failed to get contract staking indexer height")
 		}
 		if indexerHeight > height {
-			return errors.Errorf("contract staking indexer height %d > current height %d", indexerHeight, height)
+			return false, errors.Errorf("contract staking indexer height %d > current height %d", indexerHeight, height)
 		}
 		if height == 0 {
-			return nil
+			return true, nil
 		}
 		checkerHeight, err := checker.Height()
 		if err != nil {
-			return errors.Wrap(err, "failed to get checker height")
+			return false, errors.Wrap(err, "failed to get checker height")
 		}
 		if checkerHeight < height {
-			return errors.Errorf("checker height %d < target height %d", checkerHeight, height)
+			return false, errors.Errorf("checker height %d < target height %d", checkerHeight, height)
 		}
-		return checker.CheckIndexer(ctx, indexer, height, func(h uint64) {
+		if err := checker.CheckIndexer(ctx, indexer, height, func(h uint64) {
 			if h%5000 == 0 || h == height {
 				log.L().Info("Checking contract staking indexer", zap.Uint64("height", h), zap.String("contract", indexer.ContractAddress().String()))
 			}
-		})
+		}); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 	// List of all indexers to process
 	indexers := []struct {
 		indexer ContractStakingIndexer
 		setter  func(ContractStakeView)
+		active  bool
 	}{
-		{p.contractStakingIndexer, func(v ContractStakeView) { c.contractsStake.v1 = v }},
-		{p.contractStakingIndexerV2, func(v ContractStakeView) { c.contractsStake.v2 = v }},
-		{p.contractStakingIndexerV3, func(v ContractStakeView) { c.contractsStake.v3 = v }},
+		{indexer: p.contractStakingIndexer, setter: func(v ContractStakeView) { c.contractsStake.v1 = v }},
+		{indexer: p.contractStakingIndexerV2, setter: func(v ContractStakeView) { c.contractsStake.v2 = v }},
+		{indexer: p.contractStakingIndexerV3, setter: func(v ContractStakeView) { c.contractsStake.v3 = v }},
 	}
 	// Process all indexers in parallel
 	wg := sync.WaitGroup{}
 	errChan := make(chan error, len(indexers))
 	skipView := p.skipContractStakingView(height)
-	for _, idx := range indexers {
+	for i := range indexers {
+		idx := &indexers[i]
 		if idx.indexer == nil {
 			continue
 		}
 		wg.Add(1)
-		func(indexer ContractStakingIndexer, setter func(ContractStakeView)) {
+		func(indexer ContractStakingIndexer, setter func(ContractStakeView), active *bool) {
 			defer wg.Done()
 			// First, checking the indexer
-			if err := checkIndex(indexer); err != nil {
+			available, err := checkIndex(indexer)
+			if err != nil {
 				errChan <- errors.Wrapf(err, "failed to check contract staking indexer %s", indexer.ContractAddress())
 				return
 			}
+			*active = available
 			// If not skipping view creation, build the view
 			if !skipView {
 				view, err := NewContractStakeViewBuilder(indexer, p.blockStore).Build(ctx, sr, height)
@@ -365,7 +415,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 				}
 				setter(view)
 			}
-		}(idx.indexer, idx.setter)
+		}(idx.indexer, idx.setter, &idx.active)
 	}
 	wg.Wait()
 	close(errChan)
@@ -374,6 +424,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (protocol
 			return nil, err
 		}
 	}
+
 	return c, nil
 }
 
@@ -382,11 +433,11 @@ func (p *Protocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) error {
-	if len(p.config.BootstrapCandidates) == 0 {
+	if len(p.config.BootstrapCandidates) == 0 && p.genesisStateSeeder == nil {
 		return nil
 	}
 	// TODO: set init values based on ctx
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return err
 	}
@@ -435,6 +486,12 @@ func (p *Protocol) CreateGenesisStates(
 		}
 	}
 
+	if p.genesisStateSeeder != nil {
+		if err := p.genesisStateSeeder(ctx, csm); err != nil {
+			return errors.Wrap(err, "genesis state seeder failed")
+		}
+	}
+
 	// commit updated view
 	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
 }
@@ -445,7 +502,7 @@ func (p *Protocol) SlashCandidateByOperator(
 	operator address.Address,
 	amount *big.Int,
 ) error {
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return errors.Wrap(err, "failed to create candidate state manager")
 	}
@@ -458,7 +515,7 @@ func (p *Protocol) SlashCandidateByID(
 	id address.Address,
 	amount *big.Int,
 ) error {
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return errors.Wrap(err, "failed to create candidate state manager")
 	}
@@ -529,8 +586,9 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 	}
-	if blkCtx.BlockHeight == p.config.FixAliasForNonStopHeight {
-		csm, err := NewCandidateStateManager(sm)
+	if blkCtx.BlockHeight == p.config.FixAliasForNonStopHeight &&
+		protocol.MustGetFeatureWithHeightCtx(ctx).CandCenterHasAlias(blkCtx.BlockHeight) {
+		csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 		if err != nil {
 			return err
 		}
@@ -541,7 +599,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 		if err != nil {
 			return err
 		}
@@ -550,7 +608,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 	if blkCtx.BlockHeight == g.XinguBlockHeight {
-		handler, err := newNFTBucketEventHandler(sm, p.calculateContractBucketVoteWeight)
+		handler, err := newNFTBucketEventHandler(ctx, sm, p.calculateContractBucketVoteWeight)
 		if err != nil {
 			return err
 		}
@@ -580,7 +638,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	}
 	// remove BLS public key of all candidates at XinguBeta
 	if blkCtx.BlockHeight == g.XinguBetaBlockHeight {
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 		if err != nil {
 			return err
 		}
@@ -595,6 +653,32 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			if err := csm.Upsert(c); err != nil {
 				return errors.Wrapf(err, "failed to update candidate %s", c.GetIdentifier().String())
 			}
+		}
+	}
+
+	// IIP-59: build the owner -> contract-staking bucket index for buckets that
+	// predate activation, in one shot.
+	//
+	// The height is g.ToBeEnabledBlockHeight rather than a separate constant
+	// because that is the same height FeatureCtx.NoVoterRewardDistribution
+	// flips at (action/protocol/context.go), and therefore the height
+	// contractstaking.OwnerIndexEnabled starts maintaining this index at. A
+	// backfill on any other block would leave a gap or redo live work.
+	//
+	// Placed after the height-keyed migrations above so that a fork activating
+	// on the same height as one of them (Xingu flushes every contract bucket
+	// into state) sees the state they produced, and before the epoch-boundary
+	// indexer work below, which returns early on most blocks.
+	if blkCtx.BlockHeight == g.ToBeEnabledBlockHeight {
+		bridge, reader, err := p.delegateProfileFor(sm, g.DelegateProfileContractAddress)
+		if err != nil {
+			return err
+		}
+		if err := migrateHermesRewardOptIn(ctx, sm, g.HermesRewardVaultAddresses, bridge, reader); err != nil {
+			return err
+		}
+		if err := backfillOwnerIndex(ctx, sm); err != nil {
+			return err
 		}
 	}
 
@@ -720,7 +804,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 		return nil
 	}
 
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return err
 	}
@@ -731,7 +815,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (receipt *action.Receipt, err error) {
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
@@ -798,6 +882,8 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		if err == nil {
 			nonceUpdateOption = noUpdateNonce
 		}
+	case *action.SetVoterRewardOptIn:
+		rLog, tLogs, err = p.handleSetVoterRewardOptIn(ctx, act, csm)
 	default:
 		return nil, nil
 	}
@@ -840,7 +926,7 @@ func (p *Protocol) HandleReceipt(ctx context.Context, elp action.Envelope, sm pr
 		}
 		handler = newNFTBucketEventHandlerErigonOnly(sm, ccvw)
 	} else {
-		handler, err = newNFTBucketEventHandler(sm, ccvw)
+		handler, err = newNFTBucketEventHandler(ctx, sm, ccvw)
 	}
 	if err != nil {
 		return err
@@ -909,6 +995,8 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		return p.validateMigrateStake(ctx, act)
 	case *action.CandidateDeactivate:
 		return p.validateCandidateDeactivate(ctx, act)
+	case *action.SetVoterRewardOptIn:
+		return p.validateSetVoterRewardOptIn(ctx, act)
 	}
 	return nil
 }
@@ -1295,4 +1383,21 @@ func contractStakingIndexerAt(index ContractStakingIndexer, sr protocol.StateRea
 		return nil, errors.Errorf("indexer height %d is too old for state reader height %d", indexHeight, srHeight)
 	}
 	return index.IndexerAt(sr), nil
+}
+
+// delegateProfileFor builds the bridge and reader the Hermes opt-in migration
+// consults, or (nil, nil) when the chain has no DelegateProfile contract or no
+// reader was injected. Both nils mean "do not filter" -- see
+// hermesMigrationProfileFilter.
+func (p *Protocol) delegateProfileFor(
+	sm protocol.StateManager, contract string,
+) (*delegateprofile.Bridge, delegateprofile.ContractReader, error) {
+	if contract == "" || p.delegateProfileReader == nil {
+		return nil, nil, nil
+	}
+	bridge, err := delegateprofile.New(contract)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "staking: invalid DelegateProfile contract address")
+	}
+	return bridge, p.delegateProfileReader(sm), nil
 }
