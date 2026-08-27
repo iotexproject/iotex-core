@@ -11,7 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/action"
@@ -34,9 +36,11 @@ func TestTestnetGrant(t *testing.T) {
 	var (
 		sender   = identityset.Address(10)
 		senderSK = identityset.PrivateKey(10)
-		// no genesis balance, no role in the genesis delegate set -- what a
-		// replacement delegate owner key looks like
-		fresh = mustNoErr(address.FromHex("0x00000000000000000000000000000000000c0ffe"))
+		// index 25 is outside the genesis delegate set (NumDelegates is 24) and
+		// its init balance is dropped below, so it does not exist until the
+		// grant creates it -- what a replacement delegate owner key looks like
+		fresh   = identityset.Address(25)
+		freshSK = identityset.PrivateKey(25)
 		// already holds a genesis balance, to prove the grant adds to it
 		funded      = identityset.Address(1)
 		fundedInit  = unit.ConvertIotxToRau(100000000)
@@ -57,6 +61,7 @@ func TestTestnetGrant(t *testing.T) {
 		cfg.API.WebSocketPort = 0
 		cfg.Genesis.InitBalanceMap[sender.String()] = unit.ConvertIotxToRau(10000).String()
 		cfg.Genesis.InitBalanceMap[funded.String()] = fundedInit.String()
+		delete(cfg.Genesis.InitBalanceMap, fresh.String())
 		if withGrant {
 			cfg.Genesis.Account.TestnetGrants = []genesis.TestnetGrant{{
 				Height: grantHeight,
@@ -69,11 +74,14 @@ func TestTestnetGrant(t *testing.T) {
 		return cfg
 	}
 
+	newTransferFrom := func(chainID uint32, nonce uint64, sk crypto.PrivateKey, to address.Address) *actionWithTime {
+		tx := action.NewLegacyTx(chainID, nonce, gasLimit, big.NewInt(unit.Qev))
+		elp := action.NewEnvelope(tx, action.NewTransfer(big.NewInt(1), to.String(), nil))
+		return &actionWithTime{mustNoErr(action.Sign(elp, sk)), time.Now()}
+	}
 	// purely to have something to mint
 	newTransfer := func(chainID uint32, nonce uint64) *actionWithTime {
-		tx := action.NewLegacyTx(chainID, nonce, gasLimit, big.NewInt(unit.Qev))
-		elp := action.NewEnvelope(tx, action.NewTransfer(big.NewInt(1), sender.String(), nil))
-		return &actionWithTime{mustNoErr(action.Sign(elp, senderSK)), time.Now()}
+		return newTransferFrom(chainID, nonce, senderSK, sender)
 	}
 
 	t.Run("both nodes carry the grant", func(t *testing.T) {
@@ -116,6 +124,17 @@ func TestTestnetGrant(t *testing.T) {
 				r.Equalf(wantFunded, b(funded), "unexpected funded balance at height %d", h)
 			}
 		}
+
+		// The granted account has to be able to spend, or the grant is useless:
+		// a replacement delegate owner's first act is CandidateRegister. Note
+		// this runs at a pre-Okhotsk height under TestDefault, so it also covers
+		// the account type the grant creates being usable there.
+		spend := newTransferFrom(cfgA.Chain.ID, 0, freshSK, sender)
+		_, receipt, blk, err := addOneTx(ctx, apA, bcA, spend)
+		r.NoError(err)
+		r.EqualValues(iotextypes.ReceiptStatus_Success, receipt.Status)
+		r.NoError(bcB.ValidateBlock(blk))
+		r.NoError(bcB.CommitBlock(blk))
 	})
 
 	// The operational failure mode, pinned so it stays the loud one: a node that
