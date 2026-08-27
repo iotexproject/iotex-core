@@ -25,21 +25,19 @@ import (
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
-// TestTestnetGrant runs a scheduled balance grant on a live chain across two
-// nodes: one mints the blocks, the other independently validates and commits
-// them. The second node is the point of the test -- it recomputes the delta
-// state digest from its own working set, so if the grant did not reproduce
-// identically there, ValidateBlock would fail with ErrDeltaStateMismatch
-// instead of the balances lining up.
+// TestTestnetGrant runs a grant across two nodes: one mints, the other
+// independently validates and commits. The second node is the point of the test
+// -- it recomputes the delta state digest from its own working set, so a grant
+// that did not reproduce identically there fails ValidateBlock rather than
+// quietly producing different balances.
 func TestTestnetGrant(t *testing.T) {
 	var (
 		sender   = identityset.Address(10)
 		senderSK = identityset.PrivateKey(10)
-		// an address with no genesis balance, and no role in the genesis
-		// delegate set -- what a replacement delegate owner key looks like
+		// no genesis balance, no role in the genesis delegate set -- what a
+		// replacement delegate owner key looks like
 		fresh = mustNoErr(address.FromHex("0x00000000000000000000000000000000000c0ffe"))
-		// an address that already holds a genesis balance, to prove the grant
-		// adds rather than overwrites
+		// already holds a genesis balance, to prove the grant adds to it
 		funded      = identityset.Address(1)
 		fundedInit  = unit.ConvertIotxToRau(100000000)
 		grantHeight = uint64(3)
@@ -50,8 +48,7 @@ func TestTestnetGrant(t *testing.T) {
 
 	newCfg := func(r *require.Assertions, withGrant bool) config.Config {
 		cfg := initCfg(r)
-		// A grant is refused on mainnet's chain ID and EVM network ID, so a
-		// test that schedules one has to declare a testnet identity.
+		// a grant is refused on mainnet's chain ID and EVM network ID
 		cfg.Chain.ID = 2
 		cfg.Chain.EVMNetworkID = 4690
 		cfg.Network.Port = testutil.RandomPort()
@@ -72,7 +69,7 @@ func TestTestnetGrant(t *testing.T) {
 		return cfg
 	}
 
-	// a plain self-transfer per block, purely to have something to mint
+	// purely to have something to mint
 	newTransfer := func(chainID uint32, nonce uint64) *actionWithTime {
 		tx := action.NewLegacyTx(chainID, nonce, gasLimit, big.NewInt(unit.Qev))
 		elp := action.NewEnvelope(tx, action.NewTransfer(big.NewInt(1), sender.String(), nil))
@@ -82,8 +79,6 @@ func TestTestnetGrant(t *testing.T) {
 	t.Run("both nodes carry the grant", func(t *testing.T) {
 		r := require.New(t)
 		cfgA, cfgB := newCfg(r, true), newCfg(r, true)
-		// the two nodes differ only in their local paths and ports -- the
-		// genesis, including the grant, has to be identical to agree
 		r.Equal(cfgA.Genesis.Hash(), cfgB.Genesis.Hash())
 
 		producer := newE2ETest(t, cfgA)
@@ -107,8 +102,8 @@ func TestTestnetGrant(t *testing.T) {
 			r.NoErrorf(err, "failed to mint block %d", h)
 			r.Equal(h, blk.Height())
 
-			// the second node reproduces the block from scratch; ValidateBlock
-			// is what compares its own digest against the one in the header
+			// node B reproduces the block from scratch and compares its own
+			// digest against the one in the header
 			r.NoErrorf(bcB.ValidateBlock(blk), "node B failed to validate block %d", h)
 			r.NoErrorf(bcB.CommitBlock(blk), "node B failed to commit block %d", h)
 
@@ -123,11 +118,9 @@ func TestTestnetGrant(t *testing.T) {
 		}
 	})
 
-	// The operational failure mode, pinned so it stays the loud one. A node
-	// that did not get the updated genesis file stays on the same p2p network
-	// -- the grant is not part of the genesis hash -- and follows the chain
-	// normally right up to the activation height, where its own digest no
-	// longer matches the block header and it stops. It does not silently fork.
+	// The operational failure mode, pinned so it stays the loud one: a node that
+	// missed the genesis update stays on the same p2p network, follows the chain
+	// normally, then stops at the activation height. It does not silently fork.
 	t.Run("node missing the grant rejects the block", func(t *testing.T) {
 		r := require.New(t)
 		cfgA, cfgB := newCfg(r, true), newCfg(r, false)

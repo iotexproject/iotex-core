@@ -29,27 +29,14 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
-// _mainnetGenesisHash is Hash() of the IoTeX mainnet genesis config, and the
-// guard that keeps TestnetGrants off mainnet.
-//
-// The grant list is deliberately not among the fields Hash() hashes over. That
-// is what makes this work: a mainnet genesis file still hashes to this value
-// after someone appends grants to it, so the check below still recognises it as
-// mainnet and refuses. Adding grants to the hashed set would let a mainnet file
-// hash to something else and slip past -- and would also change the p2p network
-// identity of every testnet node that schedules a grant.
+// _mainnetGenesisHash is Hash() of the mainnet genesis config. TestnetGrants is
+// not among the fields Hash() covers, so a mainnet file still hashes to this
+// after grants are appended to it and ValidateTestnetGrants still recognises it.
 const _mainnetGenesisHash = "b337983730981c2d50f114eed5da9dd20b83c8c5e130beefdb3001dc858cfe8b"
 
 var (
 	// Default contains the default genesis config
 	Default = defaultConfig()
-
-	// _maxTestnetGrantTotal caps the sum of every grant in one genesis file. It
-	// bounds the blast radius of a mistyped amount -- the realistic mistake is
-	// an extra run of zeros, and this turns that into a startup error instead
-	// of an unrecoverable balance at the activation height. 1e9 IOTX is two
-	// orders of magnitude above what a full delegate set needs to self-stake.
-	_maxTestnetGrantTotal = unit.ConvertIotxToRau(1000000000)
 
 	_genesisTs     int64
 	_loadGenesisTs sync.Once
@@ -110,9 +97,8 @@ func defaultConfig() Genesis {
 		Account: Account{
 			InitBalanceMap:          map[string]string{},
 			ReplayDeployerWhitelist: []string{"0x3fab184622dc19b6109349b94811493bf2a45362"},
-			// empty, not nil: the YAML loader materialises an absent sequence
-			// as an empty slice, and config equality checks compare the loaded
-			// config against this literal
+			// empty, not nil: the YAML loader materialises an absent sequence as
+			// an empty slice, and config equality checks compare against this
 			TestnetGrants: []TestnetGrant{},
 		},
 		Poll: Poll{
@@ -467,41 +453,29 @@ type (
 		InitBalanceMap map[string]string `yaml:"initBalances"`
 		// ReplayDeployerWhitelist is the whitelist address for unprotected (pre-EIP155) transaction
 		ReplayDeployerWhitelist []string `yaml:"replayDeployerWhitelist"`
-		// TestnetGrants credits balance to a fixed set of addresses at a fixed
-		// height on a chain that is already running. It exists so a test
-		// network whose delegate owner keys have been lost can fund a
-		// replacement delegate set without restarting the chain, which
-		// InitBalanceMap cannot do -- that one only runs at height 0, and
-		// changing it changes the genesis state, the genesis hash and hence
-		// the network itself.
+		// TestnetGrants credits balance to a set of addresses at a given height
+		// on a chain that is already running, so a test network that has lost
+		// its delegate owner keys can fund a replacement set without restarting
+		// the chain. Rejected on mainnet, see ValidateTestnetGrants.
 		//
-		// It is rejected outright on mainnet; see ValidateTestnetGrants.
-		//
-		// A scheduled grant is consensus state. Every node has to carry the
-		// same genesis file before the activation height, or the ones that do
-		// not will fail the delta state digest check on that block and stop.
-		// Scheduling one is a hard fork and should be rolled out like one.
+		// A scheduled grant is consensus state: every node needs the same
+		// genesis file before the activation height, or it will fail the delta
+		// state digest check on that block and stop. Roll one out as a hard fork.
 		TestnetGrants []TestnetGrant `yaml:"testnetGrants"`
 	}
 	// TestnetGrant is one scheduled batch of balance credits. Recipients is a
-	// list rather than a map because it is applied in order and the order is
-	// part of consensus.
+	// list rather than a map because the apply order is part of consensus.
 	TestnetGrant struct {
-		// Height is the block height the credits are applied at, before any
-		// action in that block executes. It must be non-zero -- balances that
-		// exist from the start of the chain belong in InitBalanceMap.
-		Height uint64 `yaml:"height"`
-		// Recipients is the ordered list of addresses to credit.
+		// Height is applied before any action in that block. Must be non-zero;
+		// balances that exist from the start of the chain go in InitBalanceMap.
+		Height     uint64           `yaml:"height"`
 		Recipients []GrantRecipient `yaml:"recipients"`
 	}
-	// GrantRecipient is one address/amount pair of a TestnetGrant.
+	// GrantRecipient is one address/amount pair of a TestnetGrant. Amount is in
+	// Rau and is added to whatever the address already holds.
 	GrantRecipient struct {
-		// Address is the IoTeX bech32 address to credit.
 		Address string `yaml:"address"`
-		// Amount is the amount to add to the address' balance, in Rau, decimal.
-		// It is added to whatever the address already holds, so an address with
-		// history keeps its nonce and its existing balance.
-		Amount string `yaml:"amount"`
+		Amount  string `yaml:"amount"`
 	}
 	// Poll contains the configs for poll protocol
 	Poll struct {
@@ -760,20 +734,15 @@ func (g *Genesis) validate() error {
 	return nil
 }
 
-// IsMainnet reports whether this is the IoTeX mainnet genesis config.
+// IsMainnet reports whether this is the mainnet genesis config.
 func (g *Genesis) IsMainnet() bool {
 	h := g.Hash()
 	return hex.EncodeToString(h[:]) == _mainnetGenesisHash
 }
 
-// ValidateTestnetGrants rejects a TestnetGrants list that is unusable or that
-// does not belong on this network. It is separate from validate() because the
-// YAML load path is not the only one that has to enforce it: a Genesis built as
-// a literal never reaches validate(), so chainservice re-runs this at build
-// time, where it also checks the chain ID.
-//
-// A nil or empty list is always fine -- that is every network except the one
-// being recovered.
+// ValidateTestnetGrants rejects a grant list that is unusable or does not belong
+// on this network. It is separate from validate() because a Genesis built as a
+// literal never reaches validate(), so chainservice re-runs it at build time.
 func (g *Genesis) ValidateTestnetGrants() error {
 	if len(g.TestnetGrants) == 0 {
 		return nil
@@ -781,10 +750,7 @@ func (g *Genesis) ValidateTestnetGrants() error {
 	if g.IsMainnet() {
 		return errors.New("genesis: testnetGrants must not be used on mainnet")
 	}
-	var (
-		total      = big.NewInt(0)
-		prevHeight uint64
-	)
+	var prevHeight uint64
 	for i, grant := range g.TestnetGrants {
 		if grant.Height == 0 {
 			return errors.Errorf(
@@ -815,24 +781,15 @@ func (g *Genesis) ValidateTestnetGrants() error {
 			if amount.Sign() <= 0 {
 				return errors.Errorf("genesis: testnetGrants[%d].recipients[%d] amount %q must be positive", i, j, r.Amount)
 			}
-			total.Add(total, amount)
 		}
-	}
-	if total.Cmp(_maxTestnetGrantTotal) > 0 {
-		return errors.Errorf(
-			"genesis: testnetGrants total %s Rau exceeds the cap of %s Rau", total, _maxTestnetGrantTotal)
 	}
 	return nil
 }
 
-// GrantsAtHeight returns the addresses and amounts of the grant scheduled at
-// the given height, in the order they are configured, or nil when no grant is
-// scheduled there -- which is every height on every network but one.
-//
-// The parsing here cannot fail on a node that came up: ValidateTestnetGrants
-// has already walked the same values. It still returns an error rather than
-// panicking, because CreatePreStates runs mid-block and a panic there takes the
-// node down instead of rejecting the block.
+// GrantsAtHeight returns the grant scheduled at the given height in configured
+// order, or nil when there is none. It returns an error rather than panicking on
+// unparsable values -- ValidateTestnetGrants has already walked them, but this
+// runs mid-block, where a panic takes the node down instead of rejecting a block.
 func (a *Account) GrantsAtHeight(height uint64) ([]address.Address, []*big.Int, error) {
 	if height == 0 || len(a.TestnetGrants) == 0 {
 		return nil, nil, nil

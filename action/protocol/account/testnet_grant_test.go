@@ -23,8 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 )
 
-// newGrantStateManager returns a state manager backed by an in-memory batch,
-// the same shape the other tests in this package use.
 func newGrantStateManager(t *testing.T) protocol.StateManager {
 	ctrl := gomock.NewController(t)
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
@@ -84,13 +82,11 @@ func TestCreatePreStatesGrant(t *testing.T) {
 	r.NoError(g.ValidateTestnetGrants())
 
 	// `funded` already exists with a balance and a bumped nonce; the grant must
-	// add to it rather than replace it, which is the whole reason this goes
-	// through LoadOrCreateAccount instead of writing a fresh Account.
+	// add to it rather than replace it. Two bumps, so the expected nonce below
+	// is one a fresh account could not coincidentally have.
 	pre, err := accountutil.LoadOrCreateAccount(sm, funded)
 	r.NoError(err)
 	r.NoError(pre.AddBalance(big.NewInt(42)))
-	// two bumps, so the expected nonce below is one a fresh account could not
-	// coincidentally have
 	r.NoError(pre.SetPendingNonce(1))
 	r.NoError(pre.SetPendingNonce(2))
 	r.NoError(accountutil.StoreAccount(sm, funded, pre))
@@ -117,7 +113,7 @@ func TestCreatePreStatesGrant(t *testing.T) {
 	r.NoError(err)
 	r.Equal("0", acct.Balance.String())
 
-	// the height after is a no-op again -- a grant fires once, at its height
+	// a grant fires once, at its height
 	r.NoError(p.CreatePreStates(grantCtx(g, 101), sm))
 	acct, err = accountutil.LoadAccount(sm, fresh)
 	r.NoError(err)
@@ -134,9 +130,8 @@ func TestCreatePreStatesNoGrants(t *testing.T) {
 	}
 }
 
-// A malformed grant that somehow reached a running node -- ValidateTestnetGrants
-// should have caught it at startup -- must fail the block rather than panic and
-// take the node down.
+// A malformed grant that reached a running node must fail the block rather than
+// panic and take the node down.
 func TestCreatePreStatesGrantMalformed(t *testing.T) {
 	r := require.New(t)
 	p := NewProtocol(rewarding.DepositGas)
@@ -156,8 +151,7 @@ func TestCreatePreStatesGrantMalformed(t *testing.T) {
 	r.Error(p.CreatePreStates(grantCtx(g, 100), sm))
 }
 
-// The protocol has to actually be picked up as a PreStatesCreator, otherwise
-// the hook above never runs and the grant silently does nothing.
+// Without this the hook never runs and the grant silently does nothing.
 func TestProtocolIsPreStatesCreator(t *testing.T) {
 	var p interface{} = NewProtocol(rewarding.DepositGas)
 	_, ok := p.(protocol.PreStatesCreator)
