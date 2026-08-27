@@ -221,6 +221,13 @@ type (
 		// where it has already fired has that block committed; changing what it
 		// did would alter the block's receipt root and fork any node replaying
 		// history. Carried by Zanzibar Beta.
+		//
+		// Because that migration is a one-shot in the block Zanzibar activates
+		// at, this flag only ever has an effect where Zanzibar Beta is not
+		// scheduled after Zanzibar. On a chain that activated Zanzibar first
+		// the migration has already run unguarded and cannot be re-run, so the
+		// flag is inert there by construction -- it exists to protect a chain
+		// that activates both together. See ZanzibarBetaBlockHeight.
 		RequireProfileForHermesMigration bool
 		// EmitEraFreezeLog makes the era freeze emit one DelegateRewardFrozen
 		// log per frozen delegate.
