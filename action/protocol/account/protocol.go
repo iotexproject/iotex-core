@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -151,6 +152,65 @@ func (p *Protocol) CreateGenesisStates(ctx context.Context, sm protocol.StateMan
 		if err := createAccount(sm, addr.String(), amounts[i], opts...); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// CreatePreStates credits the testnet balance grant scheduled at this height,
+// if there is one. It runs once per block on every node, before any action in
+// the block executes, so the credit is in place for actions in the very block
+// that activates it.
+//
+// This is the escape hatch for a test network that has lost the owner keys of
+// its delegate set: there is no way to move the old delegates' stake, and no
+// account left with enough balance to register replacements. Rather than
+// restart the chain, a grant funds fresh owner accounts in place, and delegate
+// registration then proceeds through the ordinary CandidateRegister path with
+// real keys, real receipts and real transaction logs.
+//
+// It is not available on mainnet -- genesis.ValidateTestnetGrants refuses to
+// load a config that schedules one there, and chainservice refuses to build a
+// node whose chain ID is mainnet's.
+//
+// Writes go through the state manager rather than straight at the trie, so they
+// reach the Erigon secondary store too and archive nodes stay consistent. There
+// is no transaction log: nothing spends here, so there is no sender to record.
+// Downstream indexers that derive balances from transfer logs alone will not
+// see this credit, which is the one externally visible cost of the mechanism.
+func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
+	addrs, amounts, err := g.GrantsAtHeight(blkCtx.BlockHeight)
+	if err != nil {
+		return err
+	}
+	if len(addrs) == 0 {
+		return nil
+	}
+	opts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		opts = append(opts, state.LegacyNonceAccountTypeOption())
+	}
+	for i, addr := range addrs {
+		acct, err := accountutil.LoadOrCreateAccount(sm, addr, opts...)
+		if err != nil {
+			return errors.Wrapf(err, "failed to load account %s for testnet grant", addr)
+		}
+		if err := acct.AddBalance(amounts[i]); err != nil {
+			return errors.Wrapf(err, "failed to credit %s to %s", amounts[i], addr)
+		}
+		if err := accountutil.StoreAccount(sm, addr, acct); err != nil {
+			return errors.Wrapf(err, "failed to store account %s after testnet grant", addr)
+		}
+		// Warn, not Info: minting balance outside the normal issuance path is
+		// exactly the event an operator reading logs after the fact needs to
+		// find, and it happens at most a handful of times in a chain's life.
+		log.L().Warn("credited testnet balance grant",
+			zap.Uint64("height", blkCtx.BlockHeight),
+			zap.String("address", addr.String()),
+			zap.String("amount", amounts[i].String()),
+			zap.String("balance", acct.Balance.String()),
+		)
 	}
 	return nil
 }
