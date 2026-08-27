@@ -409,6 +409,18 @@ type (
 		// chain that has already activated Zanzibar is running the
 		// pre-correction behaviour, and changing what Zanzibar selects would
 		// rewrite the semantics of blocks that chain has already committed.
+		//
+		// Set this EQUAL to ZanzibarBlockHeight on any chain that has not
+		// activated Zanzibar yet. A later height is only for a chain that has,
+		// where it is forced, and it costs something real: it schedules a
+		// window in which the chain knowingly runs behaviour already found to
+		// be wrong, and one of the corrections cannot take effect at all.
+		//
+		// RequireProfileForHermesMigration guards migrateHermesRewardOptIn,
+		// which runs in exactly one block -- the one at ZanzibarBlockHeight --
+		// and never again. If this height is later than that block, the guard
+		// reads false there, the migration runs unguarded, and no later height
+		// brings it back. On such a chain the flag is permanently inert.
 		ZanzibarBetaBlockHeight uint64 `yaml:"zanzibarBetaHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
