@@ -164,6 +164,12 @@ func (p *Protocol) CreateGenesisStates(ctx context.Context, sm protocol.StateMan
 // reach the Erigon secondary store too. There is no transaction log, since
 // nothing spends -- indexers deriving balances from transfer logs alone will not
 // see the credit.
+//
+// A grant can only be scheduled at a height that has not happened yet, which on
+// any live chain is past Okhotsk, so a recipient that does not exist yet is
+// created with the default zero-nonce account type. No
+// LegacyNonceAccountTypeOption here, unlike the paths that also replay
+// pre-Okhotsk history.
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
@@ -171,15 +177,8 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	if err != nil {
 		return err
 	}
-	if len(addrs) == 0 {
-		return nil
-	}
-	opts := []state.AccountCreationOption{}
-	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
-		opts = append(opts, state.LegacyNonceAccountTypeOption())
-	}
 	for i, addr := range addrs {
-		acct, err := accountutil.LoadOrCreateAccount(sm, addr, opts...)
+		acct, err := accountutil.LoadOrCreateAccount(sm, addr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to load account %s for testnet grant", addr)
 		}
