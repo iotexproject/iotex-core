@@ -923,23 +923,19 @@ func (builder *Builder) buildConsensusComponent() error {
 	return nil
 }
 
-// Mainnet's chain ID and EVM network ID. They back the second of the two gates
-// on genesis.TestnetGrants; the first is the mainnet genesis hash check inside
-// genesis.ValidateTestnetGrants. This one catches the case that one misses: a
-// config derived from mainnet's but with a hashed field edited, which no longer
-// matches the mainnet genesis hash but is still pointed at mainnet.
 const (
 	_mainnetChainID      uint32 = 1
 	_mainnetEVMNetworkID uint32 = 4689
 )
 
-// checkTestnetGrants re-validates any scheduled balance grant at node build
-// time and refuses to run one on mainnet.
+// checkTestnetGrants is the second gate on genesis.TestnetGrants, after the
+// mainnet genesis hash check in ValidateTestnetGrants. It catches what that one
+// misses: a config derived from mainnet's with a hashed field edited, so the
+// hash no longer matches but the node still points at mainnet.
 //
-// genesis.New() already validates on the YAML path, but a Genesis built as a
-// literal never goes through it -- server/main.go assigns cfg.Genesis after
-// config.New has run its validators, and tests build one directly. This is the
-// choke point every node passes through.
+// It also re-runs ValidateTestnetGrants, because a Genesis built as a literal
+// never reaches genesis.New() -- server/main.go assigns cfg.Genesis after
+// config.New has run its validators.
 func (builder *Builder) checkTestnetGrants() error {
 	g := builder.cfg.Genesis
 	if len(g.TestnetGrants) == 0 {

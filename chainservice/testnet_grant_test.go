@@ -55,8 +55,7 @@ func TestCheckTestnetGrants(t *testing.T) {
 			errMsg:       "must not be used on mainnet",
 		},
 		{
-			// Genesis built as a literal never passes through genesis.New's
-			// validate(), so the build-time check has to re-run it.
+			// a Genesis literal never reaches genesis.New's validate()
 			name:         "invalid grant on testnet ids",
 			chainID:      2,
 			evmNetworkID: 4690,
@@ -67,9 +66,7 @@ func TestCheckTestnetGrants(t *testing.T) {
 			errMsg: "height must be non-zero",
 		},
 		{
-			// Even with testnet IDs, the mainnet genesis config itself is
-			// refused -- this is the gate that catches a mainnet genesis file
-			// deployed with a doctored node config.
+			// mainnet genesis is refused even under a doctored node config
 			name:         "mainnet genesis with testnet ids",
 			chainID:      2,
 			evmNetworkID: 4690,

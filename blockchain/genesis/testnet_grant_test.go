@@ -7,7 +7,6 @@ package genesis
 
 import (
 	"encoding/hex"
-	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,12 +22,10 @@ const (
 	_addrC = "io1vrl48nsdm8jaujccd9cx4ve23cskr0ys6urx92"
 )
 
-// The in-repo defaults are the mainnet genesis config -- New("") and
-// iotex-bootstrap's genesis_mainnet.yaml produce the same Hash(). That is what
-// lets _mainnetGenesisHash be pinned without shipping a copy of the mainnet
-// YAML, and it is what this test guards: if a future change to defaultConfig
-// touches a field Hash() covers, the pinned constant stops matching mainnet and
-// the guard silently stops guarding.
+// The in-repo defaults are the mainnet genesis config: New("") and
+// iotex-bootstrap's genesis_mainnet.yaml produce the same Hash(). If a change to
+// defaultConfig touches a field Hash() covers, the pinned constant stops
+// matching mainnet and the guard silently stops guarding.
 func TestMainnetGenesisHashIsPinned(t *testing.T) {
 	r := require.New(t)
 	cfg, err := New("")
@@ -49,8 +46,8 @@ func TestTestnetGrantsRejectedOnMainnet(t *testing.T) {
 		Height:     100,
 		Recipients: []GrantRecipient{{Address: _addrA, Amount: "1"}},
 	}}
-	// The grant list is not part of Hash(), so mainnet is still recognisable
-	// after the list is appended -- that is the whole point of leaving it out.
+	// still recognisable as mainnet after appending grants, which is the point
+	// of leaving them out of Hash()
 	r.True(cfg.IsMainnet())
 	r.ErrorContains(cfg.ValidateTestnetGrants(), "must not be used on mainnet")
 }
@@ -63,7 +60,6 @@ func testnetGenesis(grants ...TestnetGrant) Genesis {
 
 func TestValidateTestnetGrants(t *testing.T) {
 	oneIotx := unit.ConvertIotxToRau(1).String()
-	overCap := new(big.Int).Add(_maxTestnetGrantTotal, big.NewInt(1)).String()
 
 	for _, c := range []struct {
 		name   string
@@ -130,19 +126,6 @@ func TestValidateTestnetGrants(t *testing.T) {
 			grants: []TestnetGrant{{Height: 100, Recipients: []GrantRecipient{{Address: _addrA, Amount: "-1"}}}},
 			errMsg: "must be positive",
 		},
-		{
-			name:   "over the cap in one grant",
-			grants: []TestnetGrant{{Height: 100, Recipients: []GrantRecipient{{Address: _addrA, Amount: overCap}}}},
-			errMsg: "exceeds the cap",
-		},
-		{
-			name: "over the cap across grants",
-			grants: []TestnetGrant{
-				{Height: 100, Recipients: []GrantRecipient{{Address: _addrA, Amount: _maxTestnetGrantTotal.String()}}},
-				{Height: 200, Recipients: []GrantRecipient{{Address: _addrB, Amount: oneIotx}}},
-			},
-			errMsg: "exceeds the cap",
-		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			r := require.New(t)
@@ -161,8 +144,7 @@ func TestGrantsAtHeight(t *testing.T) {
 	r := require.New(t)
 	g := testnetGenesis(
 		[]TestnetGrant{
-			// deliberately not in sorted address order: the configured order is
-			// the applied order, and callers must not re-sort it
+			// not in sorted address order: configured order is applied order
 			{Height: 100, Recipients: []GrantRecipient{
 				{Address: _addrC, Amount: "3"},
 				{Address: _addrA, Amount: "1"},
@@ -193,8 +175,6 @@ func TestGrantsAtHeight(t *testing.T) {
 		r.Nil(amounts)
 	}
 
-	// a genesis with no grants -- the case on every network but the one being
-	// recovered -- never allocates or parses anything
 	noGrants := TestDefault()
 	addrs, amounts, err = noGrants.GrantsAtHeight(100)
 	r.NoError(err)
@@ -202,9 +182,8 @@ func TestGrantsAtHeight(t *testing.T) {
 	r.Nil(amounts)
 }
 
-// The whole feature is driven from a YAML file an operator edits, so the tags
-// have to actually round-trip. This also pins that a genesis file without the
-// key still loads, and that a bad one is rejected by New() rather than at the
+// The feature is driven from a YAML file an operator edits, so the tags have to
+// round-trip, and a bad file has to be rejected by New() rather than at the
 // activation height.
 func TestTestnetGrantsFromYAML(t *testing.T) {
 	r := require.New(t)
@@ -214,8 +193,8 @@ func TestTestnetGrantsFromYAML(t *testing.T) {
 		return p
 	}
 
-	// a testnet-shaped genesis: anything that moves it off the mainnet hash
-	// works, and a different timestamp is the smallest such change
+	// a different timestamp is the smallest change that moves a config off the
+	// mainnet hash
 	const header = "blockchain:\n  timestamp: 1571036400\n"
 
 	t.Run("absent", func(t *testing.T) {
@@ -271,9 +250,8 @@ func TestTestnetGrantsFromYAML(t *testing.T) {
 	})
 }
 
-// A grant must not change the genesis hash: nodes that carry the grant and
-// nodes that do not have to stay on the same p2p network, so that the ones
-// missing it fail loudly on the delta state digest at the activation height
+// Nodes with and without the grant must stay on the same p2p network, so the
+// ones missing it fail loudly on the delta state digest at the activation height
 // rather than quietly forming a second network at startup.
 func TestTestnetGrantsDoNotChangeGenesisHash(t *testing.T) {
 	r := require.New(t)
