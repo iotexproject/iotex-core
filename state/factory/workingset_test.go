@@ -7,10 +7,12 @@ package factory
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -408,6 +410,142 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 			require.ErrorIs(f.Validate(zctx, block), errInvalidSystemActionLayout)
 		}
 	})
+}
+
+// TestWorkingSet_ValidateBlock_HeaderGasFields checks that a validating node
+// re-derives the header's gasUsed and blobGasUsed from the receipts it produced
+// while executing the block, and rejects a header whose values disagree.
+//
+// The check is gated: before the fork height a header carrying gas fields that
+// do not match its receipts must still be accepted, so that already-committed
+// blocks keep replaying.
+func TestWorkingSet_ValidateBlock_HeaderGasFields(t *testing.T) {
+	tests := []struct {
+		name string
+		// toBeEnabled is the fork height the check is wired to; math.MaxUint64
+		// is the shipped default, i.e. the check is off
+		toBeEnabled  uint64
+		gasUsedDelta uint64
+		blobGasUsed  uint64
+		expectedErr  error
+	}{
+		{"pre-fork gas used mismatch accepted", math.MaxUint64, 1, 0, nil},
+		{"pre-fork blob gas used mismatch accepted", math.MaxUint64, 0, params.BlobTxBlobGasPerBlob, nil},
+		{"post-fork matching header accepted", 1, 0, 0, nil},
+		{"post-fork gas used mismatch rejected", 1, 1, 0, block.ErrGasUsedMismatch},
+		{"post-fork blob gas used mismatch rejected", 1, 0, params.BlobTxBlobGasPerBlob, block.ErrBlobGasUsedMismatch},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require := require.New(t)
+			cfg := gasFieldTestConfig(test.toBeEnabled)
+			minter, ctx := newGasFieldTestFactory(t, cfg)
+			validator, _ := newGasFieldTestFactory(t, cfg)
+
+			ctrl := gomock.NewController(t)
+			ap := mock_actpool.NewMockActPool(ctrl)
+			ap.EXPECT().BundlePool().Return(nil).Times(1)
+			ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
+				identityset.Address(28).String(): {makeGasFieldTransferAction(t, 0)},
+			}).Times(1)
+
+			blk, err := minter.Mint(ctx, ap, identityset.PrivateKey(27))
+			require.NoError(err)
+			// the proposer must have put a non-zero gas used in the header,
+			// otherwise the mismatch below would be indistinguishable from the
+			// zero value
+			require.NotZero(blk.GasUsed())
+			require.Zero(blk.BlobGasUsed())
+
+			tampered := rebuildWithGasFields(t, blk, blk.GasUsed()+test.gasUsedDelta, test.blobGasUsed)
+			err = validator.Validate(ctx, tampered)
+			if test.expectedErr == nil {
+				require.NoError(err)
+			} else {
+				require.ErrorIs(err, test.expectedErr)
+			}
+		})
+	}
+}
+
+// gasFieldTestConfig returns a config where every fork but the one gating the
+// header gas check is active at height 1, so the two cases differ only by that
+// gate.
+func gasFieldTestConfig(toBeEnabled uint64) Config {
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	cfg.Genesis.YapBetaBlockHeight = 1
+	cfg.Genesis.ToBeEnabledBlockHeight = toBeEnabled
+	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000000000000000"
+	return cfg
+}
+
+func newGasFieldTestFactory(t *testing.T, cfg Config) (Factory, context.Context) {
+	require := require.New(t)
+	registry := protocol.NewRegistry()
+	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
+	f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+	require.NoError(err)
+	startCtx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(f.Start(startCtx))
+	t.Cleanup(func() {
+		require.NoError(f.Stop(startCtx))
+	})
+
+	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+		BlockHeight:    1,
+		BlockTimeStamp: time.Unix(cfg.Genesis.Timestamp, 0),
+		Producer:       identityset.Address(27),
+		GasLimit:       testutil.TestGasLimit * 100000,
+		BaseFee:        big.NewInt(action.InitialBaseFee),
+	})
+	ctx = protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{ChainID: 1},
+	)
+	return f, protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+}
+
+func makeGasFieldTransferAction(t *testing.T, nonce uint64) *action.SealedEnvelope {
+	tsf := action.NewTransfer(big.NewInt(1), identityset.Address(29).String(), nil)
+	evlp := (&action.EnvelopeBuilder{}).
+		SetAction(tsf).
+		SetGasLimit(testutil.TestGasLimit).
+		SetGasPrice(big.NewInt(action.InitialBaseFee)).
+		SetNonce(nonce).
+		SetChainID(1).
+		SetVersion(1).
+		Build()
+	sevlp, err := action.Sign(evlp, identityset.PrivateKey(28))
+	require.NoError(t, err)
+	return sevlp
+}
+
+// rebuildWithGasFields re-signs a copy of blk that carries the given gas fields
+// and is otherwise identical, standing in for a header a proposer published
+// with gas fields that do not follow from its receipts.
+func rebuildWithGasFields(t *testing.T, blk *block.Block, gasUsed, blobGasUsed uint64) *block.Block {
+	tampered, err := block.NewBuilder(blk.RunnableActions()).
+		SetVersion(blk.Version()).
+		SetHeight(blk.Height()).
+		SetTimestamp(blk.Timestamp()).
+		SetPrevBlockHash(blk.PrevHash()).
+		SetDeltaStateDigest(blk.DeltaStateDigest()).
+		SetReceiptRoot(blk.ReceiptRoot()).
+		SetLogsBloom(blk.LogsBloomfilter()).
+		SetBaseFee(blk.BaseFee()).
+		SetExcessBlobGas(blk.ExcessBlobGas()).
+		SetGasUsed(gasUsed).
+		SetBlobGasUsed(blobGasUsed).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(t, err)
+	return &tampered
 }
 
 func makeTransferAction(t *testing.T, nonce uint64) *action.SealedEnvelope {
