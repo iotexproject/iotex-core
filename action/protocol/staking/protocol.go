@@ -823,6 +823,19 @@ func (p *Protocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.
 	if err != nil {
 		return nil, err
 	}
+	// The handlers mutate two places: the protocol view (candidate center and
+	// bucket pool) and the state manager itself (buckets, bucket indexes,
+	// endorsements, accounts). A view snapshot rolls back only the first, so an
+	// action that gives up part way through keeps whatever it had already
+	// written through to the state manager.
+	//
+	// Past the gate, handle() takes a state-manager snapshot instead, which
+	// covers both -- a working set snapshots every protocol view alongside its
+	// own store -- and settles its own rollbacks, so no view snapshot is taken
+	// here and the number of view snapshots per action is unchanged.
+	if protocol.MustGetFeatureCtx(ctx).RevertStakingStateOnFailedReceipt {
+		return p.handle(ctx, elp, csm)
+	}
 	snapshot := view.Snapshot()
 	receipt, err = p.handle(ctx, elp, csm)
 	if err != nil {
@@ -846,7 +859,14 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		gasConsumed       = actionCtx.IntrinsicGas
 		gasToBeDeducted   = gasConsumed
 		isSystemAction    bool
+		// snapshot is the pre-action state-manager snapshot the failure paths
+		// below roll back to; -1 before the gate, where no snapshot is taken
+		// and the old behavior of keeping partial writes is preserved.
+		snapshot = -1
 	)
+	if protocol.MustGetFeatureCtx(ctx).RevertStakingStateOnFailedReceipt {
+		snapshot = csm.SM().Snapshot()
+	}
 	switch act := elp.Action().(type) {
 	case *action.CreateStake:
 		rLog, tLogs, err = p.handleCreateStake(ctx, act, csm)
@@ -900,7 +920,29 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
 			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
+		// Discard whatever the handler wrote before it reached its verdict, so
+		// that the receipt and the state agree the action did nothing.
+		//
+		// Order matters. The rollback runs first and settleAction deposits the
+		// gas and bumps the nonce afterwards, on top of the restored state, so
+		// both survive exactly as they do today -- a failure receipt still
+		// charges its caller. Settling first and reverting after would take the
+		// gas and the nonce down together with the partial writes.
+		if snapshot >= 0 {
+			if rerr := csm.SM().Revert(snapshot); rerr != nil {
+				return nil, errors.Wrap(rerr, "failed to revert state")
+			}
+		}
 		return p.settleAction(ctx, csm.SM(), elp, receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption, isSystemAction)
+	}
+	// A non-receipt error abandons the block being built or validated, so the
+	// rollback is not what makes the caller safe. It is taken anyway to leave
+	// the working set consistent for whoever inspects it next, matching the
+	// view rollback Handle performs before the gate.
+	if snapshot >= 0 {
+		if rerr := csm.SM().Revert(snapshot); rerr != nil {
+			return nil, errors.Wrap(rerr, "failed to revert state")
+		}
 	}
 	return nil, err
 }

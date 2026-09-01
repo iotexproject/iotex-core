@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
 // blsKeyFromSeed generates a deterministic BLS keypair for tests.
@@ -143,6 +144,10 @@ func TestHandleCandidateRegister_PoPGate(t *testing.T) {
 
 	t.Run("gate on, empty PoP → ErrUnauthorizedOperator", func(t *testing.T) {
 		sm, p, _, _ := initAll(t, ctrl)
+		// Post-fork, a failure receipt rolls the state manager back to the
+		// pre-action snapshot. The mock keeps no undo log, so the call only
+		// needs to be accepted; nothing here asserts on it.
+		testdb.AllowRevert(sm)
 		r := runRegisterWithBLS(t, p, sm, caller, owner, 1, "nopop", pk, nil, true)
 		require.NotNil(r)
 		require.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, r.Status,
@@ -151,6 +156,10 @@ func TestHandleCandidateRegister_PoPGate(t *testing.T) {
 
 	t.Run("gate on, invalid PoP → ErrUnauthorizedOperator", func(t *testing.T) {
 		sm, p, _, _ := initAll(t, ctrl)
+		// Post-fork, a failure receipt rolls the state manager back to the
+		// pre-action snapshot. The mock keeps no undo log, so the call only
+		// needs to be accepted; nothing here asserts on it.
+		testdb.AllowRevert(sm)
 		// PoP shape-correct but signed by a different key — verifier
 		// rejects because Verify(pk, ...) doesn't accept a sig produced
 		// under sk_attacker.
@@ -183,6 +192,10 @@ func TestHandleCandidateRegister_BLSPubKeyUniqueness(t *testing.T) {
 	defer ctrl.Finish()
 
 	sm, p, _, _ := initAll(t, ctrl)
+	// Post-fork, a failure receipt rolls the state manager back to the
+	// pre-action snapshot. The mock keeps no undo log, so the call only
+	// needs to be accepted; nothing here asserts on it.
+	testdb.AllowRevert(sm)
 
 	sk := blsKeyFromSeed(t, "shared")
 	pk := sk.PublicKey().Bytes()
@@ -233,6 +246,10 @@ func TestHandleCandidateUpdate_PoPGate(t *testing.T) {
 	// Set up state with an existing candidate owned by `owner`.
 	setupCand := func() (protocol.StateManager, *Protocol) {
 		sm, p, _, _ := initAll(t, ctrl)
+		// Post-fork, a failure receipt rolls the state manager back to the
+		// pre-action snapshot. The mock keeps no undo log, so the call only
+		// needs to be accepted; nothing here asserts on it.
+		testdb.AllowRevert(sm)
 		sk0 := blsKeyFromSeed(t, "original")
 		pk0 := sk0.PublicKey().Bytes()
 		pop0, err := SignBLSPop(sk0, owner)

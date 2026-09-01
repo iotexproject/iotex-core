@@ -260,6 +260,26 @@ type (
 		// An update that omits both leaves any previously registered key
 		// untouched.
 		OptionalCandidateBLSPublicKey bool
+		// RevertStakingStateOnFailedReceipt makes a staking action that ends in
+		// a failure receipt discard every state-manager write it made before
+		// the failure, instead of only rolling back the protocol view.
+		//
+		// The handlers mutate the state manager as they go -- a bucket is
+		// written, then the bucket pool is debited, then the caller's account
+		// is stored -- and a verdict raised part way through is reported as a
+		// failure receipt rather than an error. Without this, whatever the
+		// handler had already written stays in committed state under a receipt
+		// that says the action did nothing.
+		//
+		// The rollback runs before gas is deposited and the nonce is bumped, so
+		// a failed action still charges its caller exactly as it does today;
+		// what it no longer keeps is the half-applied state.
+		//
+		// Needs its own height: what state a failed action leaves behind is
+		// part of the state root, so a chain that has already committed such
+		// blocks would recompute different roots for them on replay. Wired to
+		// IsToBeEnabled until the named height is assigned.
+		RevertStakingStateOnFailedReceipt bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -448,6 +468,10 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixEpochSettlementFaultHandling:  g.IsZanzibarBeta(height),
 			RequireProfileForHermesMigration: g.IsZanzibarBeta(height),
 			EmitEraFreezeLog:                 g.IsZanzibarBeta(height),
+			// Same batch: a correction that did not exist in rc0. Note this
+			// lands later than EnforceBLSPoP on any chain where Beta trails
+			// Zanzibar, which is the case testnet is already in.
+			RevertStakingStateOnFailedReceipt: g.IsZanzibarBeta(height),
 		},
 	)
 }

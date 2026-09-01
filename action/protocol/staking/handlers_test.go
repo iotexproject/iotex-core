@@ -32,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
@@ -3415,7 +3416,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 	return ctx, cost
 }
 
-func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Protocol, *Candidate, *Candidate) {
+func initAll(t *testing.T, ctrl *gomock.Controller) (*mock_chainmanager.MockStateManager, *Protocol, *Candidate, *Candidate) {
 	require := require.New(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	csm := newCandidateStateManager(sm)
