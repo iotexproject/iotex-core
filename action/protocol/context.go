@@ -464,9 +464,10 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixEpochSettlementFaultHandling:  g.IsZanzibarBeta(height),
 			RequireProfileForHermesMigration: g.IsZanzibarBeta(height),
 			EmitEraFreezeLog:                 g.IsZanzibarBeta(height),
-			// Same batch: a correction that did not exist in rc0, so it rides
-			// Beta for the same reason the three above do.
-			ValidateHeaderGasUsed: g.IsZanzibarBeta(height),
+			// Zanzibar Gamma: found after Beta was scheduled, so folding it into
+			// Beta would rewrite blocks a chain that activated Beta has
+			// already committed.
+			ValidateHeaderGasUsed: g.IsZanzibarGamma(height),
 		},
 	)
 }

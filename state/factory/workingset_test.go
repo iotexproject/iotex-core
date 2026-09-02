@@ -422,9 +422,9 @@ func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
 func TestWorkingSet_ValidateBlock_HeaderGasFields(t *testing.T) {
 	tests := []struct {
 		name string
-		// toBeEnabled is the fork height the check is wired to; math.MaxUint64
-		// is the shipped default, i.e. the check is off
-		toBeEnabled  uint64
+		// gateHeight is the Zanzibar Gamma height the check is wired to;
+		// math.MaxUint64 is the shipped default, i.e. the check is off
+		gateHeight   uint64
 		gasUsedDelta uint64
 		blobGasUsed  uint64
 		expectedErr  error
@@ -438,7 +438,7 @@ func TestWorkingSet_ValidateBlock_HeaderGasFields(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			require := require.New(t)
-			cfg := gasFieldTestConfig(test.toBeEnabled)
+			cfg := gasFieldTestConfig(test.gateHeight)
 			minter, ctx := newGasFieldTestFactory(t, cfg)
 			validator, _ := newGasFieldTestFactory(t, cfg)
 
@@ -471,13 +471,18 @@ func TestWorkingSet_ValidateBlock_HeaderGasFields(t *testing.T) {
 // gasFieldTestConfig returns a config where every fork but the one gating the
 // header gas check is active at height 1, so the two cases differ only by that
 // gate.
-func gasFieldTestConfig(toBeEnabled uint64) Config {
+func gasFieldTestConfig(gateHeight uint64) Config {
 	cfg := Config{
 		Chain:   blockchain.DefaultConfig,
 		Genesis: genesis.TestDefault(),
 	}
 	cfg.Genesis.YapBetaBlockHeight = 1
-	cfg.Genesis.ToBeEnabledBlockHeight = toBeEnabled
+	// All three at one height: the check rides Zanzibar Gamma, and a chain
+	// that has activated none of the family carries them equal. Setting the
+	// later ones alone would bake a partial-family genesis into the test.
+	cfg.Genesis.ZanzibarBlockHeight = gateHeight
+	cfg.Genesis.ZanzibarBetaBlockHeight = gateHeight
+	cfg.Genesis.ZanzibarGammaBlockHeight = gateHeight
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000000000000000"
 	return cfg
@@ -487,7 +492,19 @@ func newGasFieldTestFactory(t *testing.T, cfg Config) (Factory, context.Context)
 	require := require.New(t)
 	registry := protocol.NewRegistry()
 	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
-	f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+	// A real KV store rather than db.NewMemKVStore(): committing a block range
+	// scans, which the in-memory store does not support, and the fork-boundary
+	// case has to commit one block to reach the next height.
+	dbPath, err := testutil.PathOfTempFile("gas-field-statedb")
+	require.NoError(err)
+	t.Cleanup(func() { testutil.CleanupPath(dbPath) })
+	chainCfg := cfg.Chain
+	chainCfg.TrieDBPath = dbPath
+	chainCfg.TrieDBPatchFile = ""
+	cfg.Chain = chainCfg
+	kv, err := db.CreateKVStoreWithCache(db.DefaultConfig, dbPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(err)
+	f, err := NewStateDB(cfg, kv, RegistryStateDBOption(registry))
 	require.NoError(err)
 	startCtx := protocol.WithBlockCtx(
 		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
@@ -498,18 +515,27 @@ func newGasFieldTestFactory(t *testing.T, cfg Config) (Factory, context.Context)
 		require.NoError(f.Stop(startCtx))
 	})
 
+	return f, gasFieldCtx(cfg, protocol.TipInfo{})
+}
+
+// gasFieldCtx builds the context for the block that follows tip. Mint derives
+// the height it is being asked for from the tip it is handed, so the
+// fork-boundary case advances the tip to cross an activation height, and the
+// feature context follows from the same height.
+func gasFieldCtx(cfg Config, tip protocol.TipInfo) context.Context {
+	height := tip.Height + 1
 	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
-		BlockHeight:    1,
-		BlockTimeStamp: time.Unix(cfg.Genesis.Timestamp, 0),
+		BlockHeight:    height,
+		BlockTimeStamp: time.Unix(cfg.Genesis.Timestamp, 0).Add(time.Duration(height) * time.Second),
 		Producer:       identityset.Address(27),
 		GasLimit:       testutil.TestGasLimit * 100000,
 		BaseFee:        big.NewInt(action.InitialBaseFee),
 	})
 	ctx = protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
-		protocol.BlockchainCtx{ChainID: 1},
+		protocol.BlockchainCtx{ChainID: 1, Tip: tip},
 	)
-	return f, protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+	return protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 }
 
 func makeGasFieldTransferAction(t *testing.T, nonce uint64) *action.SealedEnvelope {
@@ -586,4 +612,62 @@ func makeBlock(t *testing.T, prevHash hash.Hash256, receiptRoot hash.Hash256, di
 		SignAndBuild(identityset.PrivateKey(0))
 	require.NoError(t, err)
 	return &blk
+}
+
+// TestWorkingSet_ValidateBlock_HeaderGasFieldsForkBoundary walks the activation
+// height itself rather than comparing a gate that is off against one that has
+// been on all along. The same tampering is applied to the block at fork-1 and
+// to the block at fork, against one config and one pair of factories, so the
+// only thing that differs between the two outcomes is the height the block
+// lands on.
+func TestWorkingSet_ValidateBlock_HeaderGasFieldsForkBoundary(t *testing.T) {
+	require := require.New(t)
+	const forkHeight = uint64(2)
+	cfg := gasFieldTestConfig(forkHeight)
+	minter, _ := newGasFieldTestFactory(t, cfg)
+	validator, _ := newGasFieldTestFactory(t, cfg)
+
+	// mintTamperValidate mints the block at height, hands the validator a copy
+	// whose gasUsed does not follow from its receipts, and then commits the
+	// untampered block on both factories so the next height can be minted.
+	tip := protocol.TipInfo{}
+	mintTamperValidate := func(height, nonce uint64) error {
+		ctx := gasFieldCtx(cfg, tip)
+		ctrl := gomock.NewController(t)
+		ap := mock_actpool.NewMockActPool(ctrl)
+		ap.EXPECT().BundlePool().Return(nil).Times(1)
+		ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
+			identityset.Address(28).String(): {makeGasFieldTransferAction(t, nonce)},
+		}).Times(1)
+
+		blk, err := minter.Mint(ctx, ap, identityset.PrivateKey(27))
+		require.NoError(err)
+		require.Equal(height, blk.Height())
+		require.NotZero(blk.GasUsed(), "the mismatch below has to be distinguishable from a zero value")
+
+		verr := validator.Validate(ctx, rebuildWithGasFields(t, blk, blk.GasUsed()+1, 0))
+
+		require.NoError(minter.PutBlock(ctx, blk))
+		require.NoError(validator.PutBlock(ctx, blk))
+		// EIP-1559 header verification derives the next base fee from the
+		// parent, so the tip has to carry the whole gas picture, not just the
+		// height and hash.
+		tip = protocol.TipInfo{
+			Height:        blk.Height(),
+			Hash:          blk.HashBlock(),
+			Timestamp:     blk.Timestamp(),
+			GasUsed:       blk.GasUsed(),
+			BaseFee:       blk.BaseFee(),
+			BlobGasUsed:   blk.BlobGasUsed(),
+			ExcessBlobGas: blk.ExcessBlobGas(),
+		}
+		return verr
+	}
+
+	// At fork-1 the check is still off, so a header that disagrees with its
+	// receipts has to be accepted: committed history must keep replaying.
+	require.NoError(mintTamperValidate(forkHeight-1, 0))
+
+	// At the activation height exactly, the same tampering is rejected.
+	require.ErrorIs(mintTamperValidate(forkHeight, 1), block.ErrGasUsedMismatch)
 }
