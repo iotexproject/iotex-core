@@ -7,6 +7,7 @@ package genesis
 
 import (
 	"encoding/hex"
+	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
@@ -60,6 +61,9 @@ func testnetGenesis(grants ...TestnetGrant) Genesis {
 
 func TestValidateTestnetGrants(t *testing.T) {
 	oneIotx := unit.ConvertIotxToRau(1).String()
+	// The widest balance the Erigon secondary store can hold, and one past it.
+	maxBalance := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), MaxBalanceBits), big.NewInt(1))
+	overMaxBalance := new(big.Int).Add(maxBalance, big.NewInt(1))
 
 	for _, c := range []struct {
 		name   string
@@ -125,6 +129,15 @@ func TestValidateTestnetGrants(t *testing.T) {
 			name:   "negative amount",
 			grants: []TestnetGrant{{Height: 100, Recipients: []GrantRecipient{{Address: _addrA, Amount: "-1"}}}},
 			errMsg: "must be positive",
+		},
+		{
+			name:   "amount at the balance bound",
+			grants: []TestnetGrant{{Height: 100, Recipients: []GrantRecipient{{Address: _addrA, Amount: maxBalance.String()}}}},
+		},
+		{
+			name:   "amount over the balance bound",
+			grants: []TestnetGrant{{Height: 100, Recipients: []GrantRecipient{{Address: _addrA, Amount: overMaxBalance.String()}}}},
+			errMsg: "does not fit in 256 bits",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {

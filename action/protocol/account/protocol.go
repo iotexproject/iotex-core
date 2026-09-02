@@ -185,6 +185,14 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		if err := acct.AddBalance(amounts[i]); err != nil {
 			return errors.Wrapf(err, "failed to credit %s to %s", amounts[i], addr)
 		}
+		// ValidateTestnetGrants bounds the configured amount, but the balance it
+		// lands on is only known here. Over the bound the Erigon store panics in
+		// uint256.MustFromBig; returning an error rejects the block instead.
+		if acct.Balance.BitLen() > genesis.MaxBalanceBits {
+			return errors.Errorf(
+				"testnet grant of %s puts %s over %d bits of balance",
+				amounts[i], addr, genesis.MaxBalanceBits)
+		}
 		if err := accountutil.StoreAccount(sm, addr, acct); err != nil {
 			return errors.Wrapf(err, "failed to store account %s after testnet grant", addr)
 		}

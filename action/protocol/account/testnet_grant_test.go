@@ -151,6 +151,45 @@ func TestCreatePreStatesGrantMalformed(t *testing.T) {
 	r.Error(p.CreatePreStates(grantCtx(g, 100), sm))
 }
 
+// A grant amount that passes ValidateTestnetGrants on its own can still push the
+// balance it lands on past what the Erigon secondary store holds -- the prior
+// balance is only known at the activation height. Over the bound the store
+// panics in uint256.MustFromBig, so the block has to be rejected here instead.
+func TestCreatePreStatesGrantOverflowsBalance(t *testing.T) {
+	r := require.New(t)
+
+	var (
+		rich = identityset.Address(10)
+		p    = NewProtocol(rewarding.DepositGas)
+		sm   = newGrantStateManager(t)
+		max  = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), genesis.MaxBalanceBits), big.NewInt(1))
+	)
+
+	pre, err := accountutil.LoadOrCreateAccount(sm, rich)
+	r.NoError(err)
+	r.NoError(pre.AddBalance(max))
+	r.NoError(accountutil.StoreAccount(sm, rich, pre))
+
+	g := genesis.TestDefault()
+	g.Account.TestnetGrants = []genesis.TestnetGrant{{
+		Height:     100,
+		Recipients: []genesis.GrantRecipient{{Address: rich.String(), Amount: "1"}},
+	}}
+	// the config itself is fine; only the sum is not
+	r.NoError(g.ValidateTestnetGrants())
+
+	err = p.CreatePreStates(grantCtx(g, 100), sm)
+	r.ErrorContains(err, "over 256 bits of balance")
+
+	// landing exactly on the bound is allowed
+	sm = newGrantStateManager(t)
+	g.Account.TestnetGrants[0].Recipients[0].Amount = max.String()
+	r.NoError(p.CreatePreStates(grantCtx(g, 100), sm))
+	acct, err := accountutil.LoadAccount(sm, rich)
+	r.NoError(err)
+	r.Equal(max.String(), acct.Balance.String())
+}
+
 // Without this the hook never runs and the grant silently does nothing.
 func TestProtocolIsPreStatesCreator(t *testing.T) {
 	var p interface{} = NewProtocol(rewarding.DepositGas)

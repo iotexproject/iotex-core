@@ -34,6 +34,15 @@ import (
 // after grants are appended to it and ValidateTestnetGrants still recognises it.
 const _mainnetGenesisHash = "b337983730981c2d50f114eed5da9dd20b83c8c5e130beefdb3001dc858cfe8b"
 
+// MaxBalanceBits is the width of the balance field in the Erigon secondary
+// store, which holds it as a uint256. Every other path that moves balance
+// conserves supply, so no account can approach the bound; a grant mints, so it
+// is the one place a configured number can cross it. Past the bound the write
+// panics in uint256.MustFromBig rather than failing, which takes the node down
+// instead of rejecting the block -- hence the check here and the one in
+// account.Protocol.CreatePreStates for the sum.
+const MaxBalanceBits = 256
+
 var (
 	// Default contains the default genesis config
 	Default = defaultConfig()
@@ -748,6 +757,11 @@ func (g *Genesis) ValidateTestnetGrants() error {
 			}
 			if amount.Sign() <= 0 {
 				return errors.Errorf("genesis: testnetGrants[%d].recipients[%d] amount %q must be positive", i, j, r.Amount)
+			}
+			if amount.BitLen() > MaxBalanceBits {
+				return errors.Errorf(
+					"genesis: testnetGrants[%d].recipients[%d] amount %q does not fit in %d bits",
+					i, j, r.Amount, MaxBalanceBits)
 			}
 		}
 	}
