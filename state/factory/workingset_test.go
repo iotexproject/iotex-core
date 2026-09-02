@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -448,4 +449,122 @@ func makeBlock(t *testing.T, prevHash hash.Hash256, receiptRoot hash.Hash256, di
 		SignAndBuild(identityset.PrivateKey(0))
 	require.NoError(t, err)
 	return &blk
+}
+
+// intrinsicGasProtocol fails one designated recipient the way the EVM reports a
+// call whose gas limit is below its own intrinsic cost.
+type intrinsicGasProtocol struct{ poison string }
+
+func (p *intrinsicGasProtocol) Name() string { return "intrinsicgas" }
+
+func (p *intrinsicGasProtocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+	if tsf, ok := elp.Action().(*action.Transfer); ok && tsf.Recipient() == p.poison {
+		return nil, errors.Wrap(action.ErrIntrinsicGas, "failed to execute contract")
+	}
+	// Leave the receipt to the account protocol.
+	return nil, nil
+}
+
+func (p *intrinsicGasProtocol) ReadState(context.Context, protocol.StateReader, []byte, ...[]byte) ([]byte, uint64, error) {
+	return nil, 0, protocol.ErrUnimplemented
+}
+
+func (p *intrinsicGasProtocol) Register(r *protocol.Registry) error { return r.Register(p.Name(), p) }
+
+func (p *intrinsicGasProtocol) ForceRegister(r *protocol.Registry) error {
+	return r.ForceRegister(p.Name(), p)
+}
+
+func signedTransfer(t *testing.T, key crypto.PrivateKey, nonce uint64, recipient string) *action.SealedEnvelope {
+	tsf := action.NewTransfer(big.NewInt(1), recipient, nil)
+	evlp := (&action.EnvelopeBuilder{}).
+		SetAction(tsf).
+		SetGasLimit(testutil.TestGasLimit).
+		SetGasPrice(big.NewInt(unit.Qev)).
+		SetNonce(nonce).
+		SetChainID(1).
+		SetVersion(1).
+		Build()
+	sevlp, err := action.Sign(evlp, key)
+	require.NoError(t, err)
+	return sevlp
+}
+
+// TestWorkingSet_Mint_IntrinsicGasSkipsAction pins how a proposer treats an
+// action whose execution never starts for want of intrinsic gas. Reported as an
+// unrecognised error it lands in the default case, which abandons the draft; as
+// ErrIntrinsicGas the sender is dropped from the pool and the rest of the block
+// is built, which is what every other permanently-invalid action already does.
+func TestWorkingSet_Mint_IntrinsicGasSkipsAction(t *testing.T) {
+	require := require.New(t)
+	poisonSender := identityset.Address(28)
+	goodSender := identityset.Address(30)
+	poisonRecipient := identityset.Address(31).String()
+
+	registry := protocol.NewRegistry()
+	// Ahead of the account protocol: runAction stops at the first handler that
+	// returns a receipt, so this one has to see the action first.
+	require.NoError((&intrinsicGasProtocol{poison: poisonRecipient}).Register(registry))
+	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
+
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	cfg.Genesis.InitBalanceMap[poisonSender.String()] = "100000000000000000000"
+	cfg.Genesis.InitBalanceMap[goodSender.String()] = "100000000000000000000"
+	require.NoError(rewarding.NewProtocol(cfg.Genesis.Rewarding).Register(registry))
+	f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+	require.NoError(err)
+
+	startCtx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(f.Start(startCtx))
+	defer func() { require.NoError(f.Stop(startCtx)) }()
+
+	ctrl := gomock.NewController(t)
+	ap := mock_actpool.NewMockActPool(ctrl)
+	ap.EXPECT().BundlePool().Return(nil).Times(1)
+	ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
+		poisonSender.String(): {signedTransfer(t, identityset.PrivateKey(28), 1, poisonRecipient)},
+		goodSender.String():   {signedTransfer(t, identityset.PrivateKey(30), 1, identityset.Address(29).String())},
+	}).Times(1)
+	deleted := make([]string, 0, 1)
+	ap.EXPECT().DeleteAction(gomock.Any()).Do(func(addr address.Address) {
+		deleted = append(deleted, addr.String())
+	}).AnyTimes()
+
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: uint64(1),
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit * 100000,
+		})
+	ctx = protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{},
+	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+
+	blk, err := f.Mint(ctx, ap, identityset.PrivateKey(27))
+	require.NoError(err, "one underfunded action must not cost the whole draft")
+
+	var sawPoison, sawGood bool
+	for _, selp := range blk.Actions {
+		tsf, ok := selp.Action().(*action.Transfer)
+		if !ok {
+			continue
+		}
+		switch tsf.Recipient() {
+		case poisonRecipient:
+			sawPoison = true
+		case identityset.Address(29).String():
+			sawGood = true
+		}
+	}
+	require.False(sawPoison, "the action that never ran must not reach the block")
+	require.True(sawGood, "the rest of the block must still be built")
+	require.Contains(deleted, poisonSender.String(), "its sender must be dropped from the pool")
 }
