@@ -624,6 +624,10 @@ func TestWorkingSet_ValidateBlock_HeaderGasFieldsForkBoundary(t *testing.T) {
 	require := require.New(t)
 	const forkHeight = uint64(2)
 	cfg := gasFieldTestConfig(forkHeight)
+	// Keep the earlier Zanzibar family members active at fork-1. This pins
+	// the header check to Gamma rather than merely testing a family-wide gate.
+	cfg.Genesis.ZanzibarBlockHeight = forkHeight - 1
+	cfg.Genesis.ZanzibarBetaBlockHeight = forkHeight - 1
 	minter, _ := newGasFieldTestFactory(t, cfg)
 	validator, _ := newGasFieldTestFactory(t, cfg)
 
