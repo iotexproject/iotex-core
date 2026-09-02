@@ -15,6 +15,7 @@ package staking_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"math"
 	"math/big"
 	"testing"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -45,6 +47,8 @@ var (
 	// the ordinary (non self-stake) bucket the withdraw acts on.
 	_candOwner = identityset.Address(27)
 	_staker    = identityset.Address(28)
+	// owner of the candidate the proof-of-possession case registers
+	_popOwner = identityset.Address(29)
 
 	_selfStakeAmount = unit.ConvertIotxToRau(1200000)
 	_stakeAmount     = unit.ConvertIotxToRau(100)
@@ -78,11 +82,20 @@ func testDepositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.I
 // rollback on at toBeEnabledHeight. math.MaxUint64 leaves it off, which is what
 // mainnet runs today.
 func newStakingEnv(t *testing.T, toBeEnabledHeight uint64) *stakingEnv {
+	return newStakingEnvWith(t, toBeEnabledHeight)
+}
+
+// newStakingEnvWith is newStakingEnv with room to adjust the genesis before the
+// factory is built, for cases that need a feature the default heights leave off.
+func newStakingEnvWith(t *testing.T, toBeEnabledHeight uint64, tweaks ...func(*genesis.Genesis)) *stakingEnv {
 	r := require.New(t)
 
 	g := genesis.TestDefault()
 	g.ToBeEnabledBlockHeight = toBeEnabledHeight
-	for _, addr := range []address.Address{_candOwner, _staker} {
+	for _, tweak := range tweaks {
+		tweak(&g)
+	}
+	for _, addr := range []address.Address{_candOwner, _staker, _popOwner} {
 		g.InitBalanceMap[addr.String()] = unit.ConvertIotxToRau(100000000).String()
 	}
 
@@ -372,4 +385,156 @@ func TestSnapshotCoversStakingView(t *testing.T) {
 	r.NoError(e.csm(t).Commit(commitCtx))
 	votes = zeroOutVotes()
 	r.Equal(votes, e.csm(t).GetByName("cand1").Votes)
+}
+
+// blsKey derives a deterministic BLS keypair so the case does not depend on
+// randomness across runs.
+func blsKey(t *testing.T, seed string) *crypto.BLS12381PrivateKey {
+	t.Helper()
+	h := sha256.Sum256([]byte(seed))
+	sk, err := crypto.GenerateBLS12381PrivateKey(h[:])
+	require.NoError(t, err)
+	return sk
+}
+
+// TestCandidateRegisterPoPFailureLeavesNoBucket covers the ordering that makes
+// this rollback matter beyond the withdraw case: handleCandidateRegister writes
+// the self-stake bucket and its indexes and only then verifies the BLS
+// proof-of-possession, and a rejected proof settles a failure receipt rather
+// than an error. Without the rollback the bucket stays behind, owned by an
+// address that has no candidate record but still counted against the bucket
+// total.
+//
+// EnforceBLSPoP rides the same height as the corrected rollback, so there is no
+// pre-gate half to compare against: below the gate the proof is not checked at
+// all and the registration simply succeeds. The case is therefore post-gate
+// only, and its teeth were confirmed by removing the rollback and watching the
+// orphan bucket reappear.
+func TestCandidateRegisterPoPFailureLeavesNoBucket(t *testing.T) {
+	r := require.New(t)
+	// XinguBlockHeight reaches the BLS register path; the CandidateBLSPublicKey
+	// feature is gated on it and TestDefault leaves it out of range.
+	e := newStakingEnvWith(t, 1, func(g *genesis.Genesis) { g.XinguBlockHeight = 0 })
+	genesisTime := time.Unix(e.g.Timestamp, 0)
+
+	// buckets 0 and 1 belong to the fixture candidate and _staker, so a
+	// self-stake bucket written by the register below would land at index 2.
+	e.setupBucket(t)
+	const orphanIdx = uint64(2)
+	_, err := e.csm(t).NativeBucket(orphanIdx)
+	r.ErrorIs(err, state.ErrStateNotExist, "fixture must not have used the index yet")
+
+	balanceBefore := new(big.Int).Set(e.account(t, _popOwner).Balance)
+	nonceBefore := e.account(t, _popOwner).PendingNonce()
+
+	// A pubkey with no proof at all: the shape the gate exists to reject.
+	pk := blsKey(t, "register-pop-failure").PublicKey().Bytes()
+	reg, err := action.NewCandidateRegisterWithBLS(
+		"cand2", _popOwner.String(), _popOwner.String(), _popOwner.String(),
+		_selfStakeAmount.String(), 0, false, pk, nil, nil)
+	r.NoError(err)
+
+	receipt := e.run(t, _popOwner, 1, envelope(1).SetAction(reg).Build(), genesisTime)
+	r.EqualValues(iotextypes.ReceiptStatus_ErrUnauthorizedOperator, receipt.Status)
+
+	// The self-stake bucket the handler wrote before it reached the proof is
+	// gone, so nothing is left owned by a candidate that was never recorded.
+	_, err = e.csm(t).NativeBucket(orphanIdx)
+	r.ErrorIs(err, state.ErrStateNotExist)
+	r.Nil(e.csm(t).GetByName("cand2"), "the rejected candidate must not be registered")
+	r.Nil(e.csm(t).GetByOwner(_popOwner), "the rejected candidate must not be registered")
+
+	// The self-stake was not taken either: only the gas left the account, and
+	// the nonce still advanced, which is what a failure receipt owes its caller.
+	acc := e.account(t, _popOwner)
+	gasFee := new(big.Int).Mul(_testGasPrice, new(big.Int).SetUint64(receipt.GasConsumed))
+	r.Equal(new(big.Int).Sub(balanceBefore, gasFee), acc.Balance)
+	r.Equal(nonceBefore+1, acc.PendingNonce())
+}
+
+// runExpectingError sends one staking action through Handle and returns the
+// error it reports instead of a receipt.
+func (e *stakingEnv) runExpectingError(t *testing.T, caller address.Address, nonce uint64, elp action.Envelope, blkTime time.Time) error {
+	r := require.New(t)
+	intrinsicGas, err := elp.IntrinsicGas()
+	r.NoError(err)
+	receipt, err := e.p.Handle(e.actionCtx(caller, nonce, intrinsicGas, blkTime), elp, e.ws)
+	r.Error(err)
+	r.Nil(receipt)
+	return err
+}
+
+// setupMigratableBucket opens an auto-staked, still-staked bucket for _staker,
+// which is what validateStakeMigrate requires, and returns its index.
+func (e *stakingEnv) setupMigratableBucket(t *testing.T) uint64 {
+	r := require.New(t)
+	genesisTime := time.Unix(e.g.Timestamp, 0)
+
+	cs, err := action.NewCreateStake("cand1", _stakeAmount.String(), 91, true, nil)
+	r.NoError(err)
+	receipt := e.run(t, _staker, 3, envelope(3).SetAction(cs).Build(), genesisTime)
+	r.EqualValues(iotextypes.ReceiptStatus_Success, receipt.Status)
+
+	const bucketIdx = uint64(2)
+	bucket, err := e.csm(t).NativeBucket(bucketIdx)
+	r.NoError(err)
+	r.True(bucket.AutoStake)
+	r.Equal(_staker.String(), bucket.Owner.String())
+	return bucketIdx
+}
+
+// TestStakeMigrateFailureRevertsNested covers the one handler that snapshots on
+// its own: handleStakeMigrate withdraws the native bucket, then calls the
+// staking contract, and reverts to its own inner snapshot if that call fails.
+// The rollback added here takes an outer snapshot around the same action, so
+// the two have to compose -- the inner revert must not leave the outer index
+// unusable, and neither may leave the withdrawn bucket destroyed.
+//
+// The contract call is made to fail by handing the action a context whose
+// registry carries no execution protocol, which is the shortest way to reach
+// the failure branch after withdrawBucket has already written. That branch
+// returns a plain error rather than a ReceiptError, so it is also the
+// hard-error path: no receipt is settled, and nothing may survive the action.
+func TestStakeMigrateFailureRevertsNested(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		toBeEnabled uint64
+	}{
+		{"pre-gate", math.MaxUint64},
+		{"post-gate", 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := require.New(t)
+			e := newStakingEnv(t, tc.toBeEnabled)
+			e.setupBucket(t)
+			bucketIdx := e.setupMigratableBucket(t)
+
+			before, err := e.csm(t).NativeBucket(bucketIdx)
+			r.NoError(err)
+			votesBefore := new(big.Int).Set(e.csm(t).GetByName("cand1").Votes)
+			balanceBefore := new(big.Int).Set(e.account(t, _staker).Balance)
+			nonceBefore := e.account(t, _staker).PendingNonce()
+
+			err = e.runExpectingError(t, _staker, 4,
+				envelope(4).SetAction(action.NewMigrateStake(bucketIdx)).Build(),
+				time.Unix(e.g.Timestamp, 0))
+			r.ErrorContains(err, "execution protocol is not registered")
+
+			// The bucket the migration withdrew before the contract call failed
+			// is back, with its stake and its candidate intact.
+			after, err := e.csm(t).NativeBucket(bucketIdx)
+			r.NoError(err)
+			r.Equal(before.StakedAmount, after.StakedAmount)
+			r.Equal(before.Candidate.String(), after.Candidate.String())
+			r.Equal(before.Owner.String(), after.Owner.String())
+			r.True(after.AutoStake)
+
+			// The candidate keeps the votes the withdraw had taken off it, and
+			// a hard error settles no receipt, so neither gas nor nonce moved.
+			r.Equal(votesBefore, e.csm(t).GetByName("cand1").Votes)
+			acc := e.account(t, _staker)
+			r.Equal(balanceBefore, acc.Balance)
+			r.Equal(nonceBefore, acc.PendingNonce())
+		})
+	}
 }
