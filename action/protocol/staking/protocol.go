@@ -865,6 +865,16 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		snapshot = -1
 	)
 	if protocol.MustGetFeatureCtx(ctx).RevertStakingStateOnFailedReceipt {
+		// Covers the store and every protocol view, which is everything the
+		// handlers below write through -- with one exception that costs
+		// nothing here. recordOwner writes into candCenter.base rather than
+		// the dirty change set, and viewData.Snapshot records only the center
+		// size, the pending change count, the pool totals and contractsStake,
+		// so a base write would outlive this rollback. Both of its call sites
+		// sit behind needToWriteCandsMap, which requires CandCenterHasAlias,
+		// that is !IsOkhotsk. That window closed long before any height this
+		// gate can be given, so the two are mutually exclusive and no
+		// recordOwner write can happen where this rollback applies.
 		snapshot = csm.SM().Snapshot()
 	}
 	switch act := elp.Action().(type) {
