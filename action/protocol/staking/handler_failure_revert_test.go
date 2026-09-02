@@ -81,17 +81,24 @@ func testDepositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.I
 // newStakingEnv boots a state factory whose genesis turns the corrected
 // rollback on at toBeEnabledHeight. math.MaxUint64 leaves it off, which is what
 // mainnet runs today.
-func newStakingEnv(t *testing.T, toBeEnabledHeight uint64) *stakingEnv {
-	return newStakingEnvWith(t, toBeEnabledHeight)
+func newStakingEnv(t *testing.T, gateHeight uint64) *stakingEnv {
+	return newStakingEnvWith(t, gateHeight)
 }
 
 // newStakingEnvWith is newStakingEnv with room to adjust the genesis before the
 // factory is built, for cases that need a feature the default heights leave off.
-func newStakingEnvWith(t *testing.T, toBeEnabledHeight uint64, tweaks ...func(*genesis.Genesis)) *stakingEnv {
+func newStakingEnvWith(t *testing.T, gateHeight uint64, tweaks ...func(*genesis.Genesis)) *stakingEnv {
 	r := require.New(t)
 
 	g := genesis.TestDefault()
-	g.ToBeEnabledBlockHeight = toBeEnabledHeight
+	// The rollback rides Zanzibar Gamma. All three heights are set together
+	// because a chain that has activated none of the family carries them
+	// equal; leaving the earlier ones off would be a partial-family genesis,
+	// and the register case below also needs EnforceBLSPoP, which Zanzibar
+	// carries.
+	g.ZanzibarBlockHeight = gateHeight
+	g.ZanzibarBetaBlockHeight = gateHeight
+	g.ZanzibarGammaBlockHeight = gateHeight
 	for _, tweak := range tweaks {
 		tweak(&g)
 	}

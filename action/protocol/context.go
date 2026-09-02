@@ -468,10 +468,10 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixEpochSettlementFaultHandling:  g.IsZanzibarBeta(height),
 			RequireProfileForHermesMigration: g.IsZanzibarBeta(height),
 			EmitEraFreezeLog:                 g.IsZanzibarBeta(height),
-			// Same batch: a correction that did not exist in rc0. Note this
-			// lands later than EnforceBLSPoP on any chain where Beta trails
+			// Zanzibar Gamma: found after Beta was scheduled. Note this lands
+			// later than EnforceBLSPoP on any chain where Gamma trails
 			// Zanzibar, which is the case testnet is already in.
-			RevertStakingStateOnFailedReceipt: g.IsZanzibarBeta(height),
+			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
 		},
 	)
 }
