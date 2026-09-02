@@ -913,7 +913,17 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		}
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm.SM(), elp, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption, isSystemAction)
+		receipt, serr := p.settleAction(ctx, csm.SM(), elp, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption, isSystemAction)
+		if serr != nil && snapshot >= 0 {
+			// settleAction moves the gas fee before it touches the nonce, so a
+			// failure here can land between the two. Put the whole action back,
+			// its successful handler writes included, rather than leave the
+			// caller a half-settled one.
+			if rerr := csm.SM().Revert(snapshot); rerr != nil {
+				return nil, errors.Wrap(rerr, "failed to revert state")
+			}
+		}
+		return receipt, serr
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
@@ -933,6 +943,13 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 				return nil, errors.Wrap(rerr, "failed to revert state")
 			}
 		}
+		// No second rollback around settleAction here. The snapshot above has
+		// been spent -- reverting to the same index twice is rejected, since
+		// the first revert truncates the view snapshot list to it -- so
+		// covering a settleAction failure on this path would mean taking a
+		// fresh snapshot on the restored state and settling against that. That
+		// is the shape that has gone wrong before, and it would be added to a
+		// reachable path to cover a failure that is not reachable at all.
 		return p.settleAction(ctx, csm.SM(), elp, receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption, isSystemAction)
 	}
 	// A non-receipt error abandons the block being built or validated, so the
