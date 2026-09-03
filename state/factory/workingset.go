@@ -1070,7 +1070,7 @@ func (ws *workingSet) validateAndRun(
 	case action.ErrGasLimit:
 		log.L().Info("runAction() failed due to gas limit", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, false, nil, nil
-	case action.ErrChainID, action.ErrIntrinsicGas, action.ErrFloorDataGas, errUnfoldTxContainer, errDeployerNotWhitelisted:
+	case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
 		log.L().Info("runAction() failed", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, true, nil, nil
 	default:
