@@ -9,6 +9,7 @@ import (
 	"context"
 	"math"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -796,4 +798,208 @@ func TestWorkingSet_RemainingBlockGas(t *testing.T) {
 			}
 		})
 	}
+}
+
+// viewTrace records what a protocol view was asked to do. Forks share it, so a
+// test can watch a view that only ever exists inside Mint.
+type viewTrace struct {
+	mu  sync.Mutex
+	ops []string
+}
+
+func (tr *viewTrace) record(op string) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+	tr.ops = append(tr.ops, op)
+}
+
+func (tr *viewTrace) snapshot() []string {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+	return append([]string(nil), tr.ops...)
+}
+
+// countingView is a minimal protocol view: an integer every handled action
+// bumps, with the snapshot and revert semantics the working set relies on.
+type countingView struct {
+	n         int
+	snapshots []int
+	trace     *viewTrace
+}
+
+func (v *countingView) Fork() protocol.View {
+	// The fork shares the trace on purpose: it is the only handle the test has
+	// on the copy the working set actually mutates.
+	return &countingView{n: v.n, snapshots: append([]int(nil), v.snapshots...), trace: v.trace}
+}
+
+func (v *countingView) Snapshot() int {
+	v.snapshots = append(v.snapshots, v.n)
+	v.trace.record("snapshot")
+	return len(v.snapshots) - 1
+}
+
+func (v *countingView) Revert(i int) error {
+	if i < 0 || i >= len(v.snapshots) {
+		return errors.Errorf("invalid snapshot index %d", i)
+	}
+	v.n = v.snapshots[i]
+	v.snapshots = v.snapshots[:i]
+	v.trace.record("revert")
+	return nil
+}
+
+func (v *countingView) Commit(context.Context, protocol.StateManager) error { return nil }
+
+// viewBumpProtocol mutates its view for every transfer it sees and fails on one
+// designated recipient, which is how the bundle below is made to give up after
+// it has already changed a view.
+type viewBumpProtocol struct {
+	poison string
+	trace  *viewTrace
+}
+
+func (p *viewBumpProtocol) Name() string { return "viewbump" }
+
+func (p *viewBumpProtocol) Start(context.Context, protocol.StateReader) (protocol.View, error) {
+	return &countingView{trace: p.trace}, nil
+}
+
+func (p *viewBumpProtocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+	tsf, ok := elp.Action().(*action.Transfer)
+	if !ok {
+		return nil, nil
+	}
+	v, err := sm.ReadView(p.Name())
+	if err != nil {
+		return nil, err
+	}
+	cv, ok := v.(*countingView)
+	if !ok {
+		return nil, errors.Errorf("unexpected view type %T", v)
+	}
+	cv.n++
+	cv.trace.record("bump")
+	if tsf.Recipient() == p.poison {
+		return nil, errors.New("injected failure inside bundle")
+	}
+	// Leave the receipt to the account protocol.
+	return nil, nil
+}
+
+func (p *viewBumpProtocol) ReadState(context.Context, protocol.StateReader, []byte, ...[]byte) ([]byte, uint64, error) {
+	return nil, 0, protocol.ErrUnimplemented
+}
+
+func (p *viewBumpProtocol) Register(r *protocol.Registry) error { return r.Register(p.Name(), p) }
+
+func (p *viewBumpProtocol) ForceRegister(r *protocol.Registry) error {
+	return r.ForceRegister(p.Name(), p)
+}
+
+func bundleTransfer(t *testing.T, nonce uint64, recipient string) *action.SealedEnvelope {
+	tsf := action.NewTransfer(big.NewInt(1), recipient, nil)
+	evlp := (&action.EnvelopeBuilder{}).
+		SetAction(tsf).
+		SetGasLimit(testutil.TestGasLimit).
+		SetNonce(nonce).
+		SetChainID(1).
+		SetVersion(1).
+		Build()
+	sevlp, err := action.Sign(evlp, identityset.PrivateKey(28))
+	require.NoError(t, err)
+	return sevlp
+}
+
+// TestWorkingSet_Mint_BundleAbortRevertsView pins the rollback a bundle takes
+// when it gives up part way through. The store snapshot alone leaves protocol
+// views carrying the changes of a bundle that was dropped, and the block the
+// proposer goes on to build then reflects actions it did not include. Reverting
+// through the working set puts both back.
+func TestWorkingSet_Mint_BundleAbortRevertsView(t *testing.T) {
+	require := require.New(t)
+	trace := &viewTrace{}
+	registry := protocol.NewRegistry()
+	// Registered ahead of the account protocol: runAction walks the registry in
+	// registration order and stops at the first handler that returns a receipt,
+	// so this one has to see the action before account settles it.
+	poison := identityset.Address(30).String()
+	require.NoError((&viewBumpProtocol{poison: poison, trace: trace}).Register(registry))
+	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
+
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000000000000000"
+	f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+	require.NoError(err)
+
+	startCtx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(f.Start(startCtx))
+	defer func() { require.NoError(f.Stop(startCtx)) }()
+
+	// A bundle whose second action fails, after the first has already moved the
+	// view. Bundles only accept transfers, executions and tx containers.
+	bundle := action.NewBundle()
+	require.NoError(bundle.Add(
+		bundleTransfer(t, 1, identityset.Address(29).String()),
+		bundleTransfer(t, 2, poison),
+	))
+	bundle.SetTargetBlockHeight(1)
+
+	bp := actpool.NewBundlePool(cfg.Genesis)
+	require.NoError(bp.AddBundle(context.Background(), identityset.Address(28), "bundle-uuid", bundle))
+
+	ctrl := gomock.NewController(t)
+	ap := mock_actpool.NewMockActPool(ctrl)
+	ap.EXPECT().BundlePool().Return(bp).Times(1)
+	ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{}).Times(1)
+
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: uint64(1),
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit * 100000,
+		})
+	ctx = protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{},
+	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+
+	blk, err := f.Mint(ctx, ap, identityset.PrivateKey(27))
+	require.NoError(err, "a failed bundle is skipped, it must not fail the mint")
+	for _, selp := range blk.Actions {
+		if tsf, ok := selp.Action().(*action.Transfer); ok {
+			require.NotEqual(poison, tsf.Recipient(), "the dropped bundle must not reach the block")
+		}
+	}
+
+	ops := trace.snapshot()
+	require.Contains(ops, "bump", "the bundle must have reached the protocol")
+	require.Contains(ops, "revert", "the dropped bundle must have rolled its view back")
+	// The revert has to come after the mutations it undoes.
+	require.Greater(indexOfLast(ops, "revert"), indexOfFirst(ops, "bump"))
+}
+
+func indexOfFirst(ops []string, want string) int {
+	for i, op := range ops {
+		if op == want {
+			return i
+		}
+	}
+	return -1
+}
+
+func indexOfLast(ops []string, want string) int {
+	for i := len(ops) - 1; i >= 0; i-- {
+		if ops[i] == want {
+			return i
+		}
+	}
+	return -1
 }

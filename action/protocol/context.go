@@ -307,6 +307,26 @@ type (
 		// budget changes which actions a block may carry, so this is gated at
 		// its own height. It rides Zanzibar Gamma, which is unscheduled.
 		CheckedBlockGasDeduction bool
+		// RevertStakingStateOnFailedReceipt makes a staking action that ends in
+		// a failure receipt discard every state-manager write it made before
+		// the failure, instead of only rolling back the protocol view.
+		//
+		// The handlers mutate the state manager as they go -- a bucket is
+		// written, then the bucket pool is debited, then the caller's account
+		// is stored -- and a verdict raised part way through is reported as a
+		// failure receipt rather than an error. Without this, whatever the
+		// handler had already written stays in committed state under a receipt
+		// that says the action did nothing.
+		//
+		// The rollback runs before gas is deposited and the nonce is bumped, so
+		// a failed action still charges its caller exactly as it does today;
+		// what it no longer keeps is the half-applied state.
+		//
+		// Needs its own height: what state a failed action leaves behind is
+		// part of the state root, so a chain that has already committed such
+		// blocks would recompute different roots for them on replay. It rides
+		// Zanzibar Gamma, which is unscheduled.
+		RevertStakingStateOnFailedReceipt bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -498,9 +518,10 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			// Zanzibar Gamma: all found after Beta was scheduled, so folding
 			// them into Beta would rewrite blocks a chain that activated Beta
 			// has already committed.
-			ValidateHeaderGasUsed:    g.IsZanzibarGamma(height),
-			CorrectStakeMigrationGas: g.IsZanzibarGamma(height),
-			CheckedBlockGasDeduction: g.IsZanzibarGamma(height),
+			ValidateHeaderGasUsed:             g.IsZanzibarGamma(height),
+			CorrectStakeMigrationGas:          g.IsZanzibarGamma(height),
+			CheckedBlockGasDeduction:          g.IsZanzibarGamma(height),
+			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
 		},
 	)
 }

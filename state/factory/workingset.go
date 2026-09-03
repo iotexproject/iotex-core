@@ -908,7 +908,13 @@ func (ws *workingSet) pickAndRunActions(
 					}
 					bBlobCnt := blobCnt
 					bReceipts := make([]*action.Receipt, 0, bundle.Len())
-					si := ws.store.Snapshot()
+					// ws.Snapshot() rather than ws.store.Snapshot(): a bundle
+					// that gives up part way through has to put the protocol
+					// views back as well as the store, and only the working
+					// set snapshot records both. Mint is the only caller of
+					// this path, so a proposer that skips a bundle carries on
+					// from the state it held before the bundle ran.
+					si := ws.Snapshot()
 					if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
 						_, _, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, selp, bGasLimit, bBlobCnt, uint64(blobLimit), false)
 						if err != nil {
@@ -932,7 +938,7 @@ func (ws *workingSet) pickAndRunActions(
 						return nil
 					}); err != nil {
 						log.L().Warn("failed to process bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.Error(err))
-						if err := ws.store.RevertSnapshot(si); err != nil {
+						if err := ws.Revert(si); err != nil {
 							return nil, errors.Wrapf(err, "failed to revert snapshot %d for bundle %s at height %d", si, bids[i], ws.height)
 						}
 						continue
