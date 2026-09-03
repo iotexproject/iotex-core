@@ -923,7 +923,46 @@ func (builder *Builder) buildConsensusComponent() error {
 	return nil
 }
 
+const (
+	_mainnetChainID      uint32 = 1
+	_mainnetEVMNetworkID uint32 = 4689
+)
+
+// checkTestnetGrants is the second gate on genesis.TestnetGrants, after the
+// mainnet genesis hash check in ValidateTestnetGrants. It catches what that one
+// misses: a config derived from mainnet's with a hashed field edited, so the
+// hash no longer matches but the node still points at mainnet.
+//
+// It also re-runs ValidateTestnetGrants, because a Genesis built as a literal
+// never reaches genesis.New() -- server/main.go assigns cfg.Genesis after
+// config.New has run its validators.
+func (builder *Builder) checkTestnetGrants() error {
+	g := builder.cfg.Genesis
+	if len(g.TestnetGrants) == 0 {
+		return nil
+	}
+	if err := g.ValidateTestnetGrants(); err != nil {
+		return err
+	}
+	if builder.cfg.Chain.ID == _mainnetChainID || builder.cfg.Chain.EVMNetworkID == _mainnetEVMNetworkID {
+		return errors.Errorf(
+			"genesis testnetGrants must not be used on mainnet (chain ID %d, EVM network ID %d)",
+			builder.cfg.Chain.ID, builder.cfg.Chain.EVMNetworkID,
+		)
+	}
+	for _, grant := range g.TestnetGrants {
+		log.L().Warn("testnet balance grant is scheduled",
+			zap.Uint64("height", grant.Height),
+			zap.Int("recipients", len(grant.Recipients)),
+		)
+	}
+	return nil
+}
+
 func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) {
+	if err := builder.checkTestnetGrants(); err != nil {
+		return nil, err
+	}
 	builder.cs.registry = protocol.NewRegistry()
 	if builder.cs.p2pAgent == nil {
 		builder.cs.p2pAgent = p2p.NewDummyAgent()

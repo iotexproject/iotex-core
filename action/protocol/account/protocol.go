@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -151,6 +152,56 @@ func (p *Protocol) CreateGenesisStates(ctx context.Context, sm protocol.StateMan
 		if err := createAccount(sm, addr.String(), amounts[i], opts...); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// CreatePreStates credits the testnet balance grant scheduled at this height, if
+// there is one, before any action in the block executes. See
+// genesis.TestnetGrants; it is refused on mainnet.
+//
+// Writes go through the state manager rather than straight at the trie, so they
+// reach the Erigon secondary store too. There is no transaction log, since
+// nothing spends -- indexers deriving balances from transfer logs alone will not
+// see the credit.
+//
+// A grant can only be scheduled at a height that has not happened yet, which on
+// any live chain is past Okhotsk, so a recipient that does not exist yet is
+// created with the default zero-nonce account type. No
+// LegacyNonceAccountTypeOption here, unlike the paths that also replay
+// pre-Okhotsk history.
+func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
+	addrs, amounts, err := g.GrantsAtHeight(blkCtx.BlockHeight)
+	if err != nil {
+		return err
+	}
+	for i, addr := range addrs {
+		acct, err := accountutil.LoadOrCreateAccount(sm, addr)
+		if err != nil {
+			return errors.Wrapf(err, "failed to load account %s for testnet grant", addr)
+		}
+		if err := acct.AddBalance(amounts[i]); err != nil {
+			return errors.Wrapf(err, "failed to credit %s to %s", amounts[i], addr)
+		}
+		// ValidateTestnetGrants bounds the configured amount, but the balance it
+		// lands on is only known here. Over the bound the Erigon store panics in
+		// uint256.MustFromBig; returning an error rejects the block instead.
+		if acct.Balance.BitLen() > genesis.MaxBalanceBits {
+			return errors.Errorf(
+				"testnet grant of %s puts %s over %d bits of balance",
+				amounts[i], addr, genesis.MaxBalanceBits)
+		}
+		if err := accountutil.StoreAccount(sm, addr, acct); err != nil {
+			return errors.Wrapf(err, "failed to store account %s after testnet grant", addr)
+		}
+		log.L().Warn("credited testnet balance grant",
+			zap.Uint64("height", blkCtx.BlockHeight),
+			zap.String("address", addr.String()),
+			zap.String("amount", amounts[i].String()),
+			zap.String("balance", acct.Balance.String()),
+		)
 	}
 	return nil
 }
