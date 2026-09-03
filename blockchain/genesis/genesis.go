@@ -84,6 +84,7 @@ func defaultConfig() Genesis {
 			YapBetaBlockHeight:        48985561,
 			ZanzibarBlockHeight:       math.MaxUint64,
 			ZanzibarBetaBlockHeight:   math.MaxUint64,
+			ZanzibarGammaBlockHeight:  math.MaxUint64,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 			PersistStakingPatchBlock:  19778037,
 			FixAliasForNonStopHeight:  19778036,
@@ -422,6 +423,22 @@ type (
 		// reads false there, the migration runs unguarded, and no later height
 		// brings it back. On such a chain the flag is permanently inert.
 		ZanzibarBetaBlockHeight uint64 `yaml:"zanzibarBetaHeight"`
+		// ZanzibarGammaBlockHeight is the start height of the corrections found
+		// after Zanzibar Beta was scheduled. It exists for the same reason Beta
+		// does, one level up: a chain that has already activated Beta is running
+		// the pre-correction behaviour, and folding these into Beta would
+		// rewrite the semantics of blocks that chain has committed.
+		//
+		// Set this EQUAL to ZanzibarBetaBlockHeight on any chain that has not
+		// activated Beta yet. A later height is only for a chain that has, and
+		// it carries the same cost: a window in which the chain knowingly runs
+		// behaviour already found to be wrong.
+		//
+		// One such window is not avoidable. EnforceBLSPoP rides Zanzibar, and
+		// candidate register writes its self-stake bucket before it verifies the
+		// proof, so on a chain where Gamma trails Zanzibar a rejected proof
+		// leaves that bucket behind until Gamma activates.
+		ZanzibarGammaBlockHeight uint64 `yaml:"zanzibarGammaHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -634,6 +651,14 @@ func (g *Genesis) validate() error {
 		return errors.Errorf(
 			"genesis: zanzibarBetaHeight %d must not precede zanzibarHeight %d",
 			g.ZanzibarBetaBlockHeight, g.ZanzibarBlockHeight,
+		)
+	}
+	// Zanzibar Gamma only corrects behaviour Zanzibar Beta already turned on,
+	// so it cannot precede it.
+	if g.ZanzibarGammaBlockHeight < g.ZanzibarBetaBlockHeight {
+		return errors.Errorf(
+			"genesis: zanzibarGammaHeight %d must not precede zanzibarBetaHeight %d",
+			g.ZanzibarGammaBlockHeight, g.ZanzibarBetaBlockHeight,
 		)
 	}
 	// IIP-59 enumerates pending reward pools by their unhashed V2 state-key
@@ -944,6 +969,11 @@ func (g *Blockchain) IsZanzibar(height uint64) bool {
 // IsZanzibarBeta checks whether height is equal to or larger than zanzibar beta height
 func (g *Blockchain) IsZanzibarBeta(height uint64) bool {
 	return g.isPost(g.ZanzibarBetaBlockHeight, height)
+}
+
+// IsZanzibarGamma checks whether height is equal to or larger than zanzibar gamma height
+func (g *Blockchain) IsZanzibarGamma(height uint64) bool {
+	return g.isPost(g.ZanzibarGammaBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
