@@ -260,6 +260,22 @@ type (
 		// An update that omits both leaves any previously registered key
 		// untouched.
 		OptionalCandidateBLSPublicKey bool
+		// ValidateHeaderGasUsed makes a validating node recompute the header's
+		// gasUsed and blobGasUsed from the receipts it produced while executing
+		// the block, and reject the block when either disagrees with the value
+		// the proposer put in the header.
+		//
+		// The proposer fills both fields from its own receipts (see
+		// workingSet.CreateBuilder), but until now nothing on the validating
+		// side re-derived them, so the two header fields were accepted as
+		// given. gasUsed feeds the EIP-1559 base fee of the next block and
+		// blobGasUsed feeds its excessBlobGas, and both are served over the
+		// API, so they need to agree with the executed block.
+		//
+		// Needs its own height: a chain that has already committed blocks whose
+		// header gas fields do not match their receipts must keep accepting
+		// them on replay, so the check may only start at a fork boundary.
+		ValidateHeaderGasUsed bool
 		// CorrectStakeMigrationGas budgets the contract call a stake migration
 		// makes with the action's gas limit minus the migration's own intrinsic
 		// gas, instead of the full gas limit.
@@ -276,8 +292,8 @@ type (
 		// Both the budget handed to the EVM and the gas on the receipt are
 		// consensus data, so this needs its own height: a chain that has already
 		// executed migrations under the old budget would recompute different
-		// receipts for those blocks. Wired to IsToBeEnabled until the named
-		// height is assigned.
+		// receipts for those blocks. It rides Zanzibar Gamma, which is
+		// unscheduled.
 		CorrectStakeMigrationGas bool
 		// CheckedBlockGasDeduction subtracts a receipt's gas from the remaining
 		// block gas budget without letting the unsigned counter wrap: a receipt
@@ -289,8 +305,7 @@ type (
 		// budget -- and the following action is then rejected for want of gas,
 		// so the condition is never absorbed silently. Changing the remaining
 		// budget changes which actions a block may carry, so this is gated at
-		// its own height. Wired to IsToBeEnabled until the named height is
-		// assigned.
+		// its own height. It rides Zanzibar Gamma, which is unscheduled.
 		CheckedBlockGasDeduction bool
 	}
 
@@ -480,9 +495,10 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixEpochSettlementFaultHandling:  g.IsZanzibarBeta(height),
 			RequireProfileForHermesMigration: g.IsZanzibarBeta(height),
 			EmitEraFreezeLog:                 g.IsZanzibarBeta(height),
-			// Zanzibar Gamma: both were found after Beta was scheduled, so
-			// folding them into Beta would rewrite blocks a chain that
-			// activated Beta has already committed.
+			// Zanzibar Gamma: all found after Beta was scheduled, so folding
+			// them into Beta would rewrite blocks a chain that activated Beta
+			// has already committed.
+			ValidateHeaderGasUsed:    g.IsZanzibarGamma(height),
 			CorrectStakeMigrationGas: g.IsZanzibarGamma(height),
 			CheckedBlockGasDeduction: g.IsZanzibarGamma(height),
 		},
