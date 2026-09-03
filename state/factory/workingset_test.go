@@ -453,13 +453,16 @@ func makeBlock(t *testing.T, prevHash hash.Hash256, receiptRoot hash.Hash256, di
 
 // intrinsicGasProtocol fails one designated recipient the way the EVM reports a
 // call whose gas limit is below its own intrinsic cost.
-type intrinsicGasProtocol struct{ poison string }
+type intrinsicGasProtocol struct {
+	poison string
+	err    error
+}
 
 func (p *intrinsicGasProtocol) Name() string { return "intrinsicgas" }
 
 func (p *intrinsicGasProtocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
 	if tsf, ok := elp.Action().(*action.Transfer); ok && tsf.Recipient() == p.poison {
-		return nil, errors.Wrap(action.ErrIntrinsicGas, "failed to execute contract")
+		return nil, errors.Wrap(p.err, "failed to execute contract")
 	}
 	// Leave the receipt to the account protocol.
 	return nil, nil
@@ -496,6 +499,20 @@ func signedTransfer(t *testing.T, key crypto.PrivateKey, nonce uint64, recipient
 // ErrIntrinsicGas the sender is dropped from the pool and the rest of the block
 // is built, which is what every other permanently-invalid action already does.
 func TestWorkingSet_Mint_IntrinsicGasSkipsAction(t *testing.T) {
+	// Both refusals mean the call never started for want of gas, and the gas
+	// limit is signed into the action, so neither can ever succeed on a retry.
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{"intrinsic gas", action.ErrIntrinsicGas},
+		{"data floor gas", action.ErrFloorDataGas},
+	} {
+		t.Run(tc.name, func(t *testing.T) { mintSkipsUnderfundedAction(t, tc.err) })
+	}
+}
+
+func mintSkipsUnderfundedAction(t *testing.T, injected error) {
 	require := require.New(t)
 	poisonSender := identityset.Address(28)
 	goodSender := identityset.Address(30)
@@ -504,7 +521,7 @@ func TestWorkingSet_Mint_IntrinsicGasSkipsAction(t *testing.T) {
 	registry := protocol.NewRegistry()
 	// Ahead of the account protocol: runAction stops at the first handler that
 	// returns a receipt, so this one has to see the action first.
-	require.NoError((&intrinsicGasProtocol{poison: poisonRecipient}).Register(registry))
+	require.NoError((&intrinsicGasProtocol{poison: poisonRecipient, err: injected}).Register(registry))
 	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
 
 	cfg := Config{
