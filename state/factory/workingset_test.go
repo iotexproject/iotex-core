@@ -678,6 +678,128 @@ func TestWorkingSet_ValidateBlock_HeaderGasFieldsForkBoundary(t *testing.T) {
 	require.ErrorIs(mintTamperValidate(forkHeight, 1), block.ErrGasUsedMismatch)
 }
 
+// gasReportingProtocol is a post-action handler that rewrites the gas reported
+// by the receipt of the action carrying a given nonce. It lets a test drive
+// the remaining-block-gas bookkeeping with a receipt that reports more gas
+// than the block has left.
+type gasReportingProtocol struct {
+	nonce       uint64
+	gasConsumed uint64
+}
+
+func (p *gasReportingProtocol) Handle(context.Context, action.Envelope, protocol.StateManager) (*action.Receipt, error) {
+	return nil, nil
+}
+
+func (p *gasReportingProtocol) HandleReceipt(_ context.Context, elp action.Envelope, _ protocol.StateManager, receipt *action.Receipt) error {
+	if elp.Nonce() == p.nonce {
+		receipt.GasConsumed = p.gasConsumed
+	}
+	return nil
+}
+
+func (p *gasReportingProtocol) ReadState(context.Context, protocol.StateReader, []byte, ...[]byte) ([]byte, uint64, error) {
+	return nil, 0, protocol.ErrUnimplemented
+}
+
+func (p *gasReportingProtocol) Register(r *protocol.Registry) error {
+	return r.Register(p.Name(), p)
+}
+
+func (p *gasReportingProtocol) ForceRegister(r *protocol.Registry) error {
+	return r.ForceRegister(p.Name(), p)
+}
+
+func (p *gasReportingProtocol) Name() string { return "gasReporting" }
+
+// TestWorkingSet_RemainingBlockGas covers what happens when a receipt reports
+// more gas than the block has left. The remaining budget is an unsigned
+// counter: before the fix height the subtraction is unchecked and wraps to a
+// huge value, so the rest of the block is processed as if the budget were
+// untouched; from the fix height on it saturates at zero and the next action
+// is rejected for want of gas.
+func TestWorkingSet_RemainingBlockGas(t *testing.T) {
+	const blkGasLimit = uint64(15000)
+	for _, tt := range []struct {
+		name string
+		// height from which the checked subtraction takes effect
+		gateHeight uint64
+		// whether the action following the over-reporting one is refused
+		wantNextActionOutOfGas bool
+	}{
+		{
+			name:                   "before fix height",
+			gateHeight:             math.MaxUint64,
+			wantNextActionOutOfGas: false,
+		},
+		{
+			name:                   "from fix height",
+			gateHeight:             1,
+			wantNextActionOutOfGas: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			require := require.New(t)
+			cfg := Config{
+				Chain:   blockchain.DefaultConfig,
+				Genesis: genesis.TestDefault(),
+			}
+			cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000"
+			// the remaining budget is only carried across actions on the
+			// post-Vanuatu processing path
+			cfg.Genesis.VanuatuBlockHeight = 1
+			// The corrections ride Zanzibar Gamma; a chain that has activated
+			// none of the family carries the heights equal, so set all three
+			// rather than leaving a partial-family genesis in a test.
+			cfg.Genesis.ZanzibarBlockHeight = tt.gateHeight
+			cfg.Genesis.ZanzibarBetaBlockHeight = tt.gateHeight
+			cfg.Genesis.ZanzibarGammaBlockHeight = tt.gateHeight
+			registry := protocol.NewRegistry()
+			require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
+			// makes the first transfer report one unit more gas than the block
+			// has to give
+			require.NoError((&gasReportingProtocol{nonce: 0, gasConsumed: blkGasLimit + 1}).Register(registry))
+			f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+			require.NoError(err)
+
+			startCtx := protocol.WithBlockCtx(
+				genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+				protocol.BlockCtx{},
+			)
+			require.NoError(f.Start(startCtx))
+			defer func() {
+				require.NoError(f.Stop(startCtx))
+			}()
+
+			blk := makeBlock(t, hash.ZeroHash256, hash.ZeroHash256, hash.ZeroHash256,
+				makeTransferAction(t, 0), makeTransferAction(t, 1))
+
+			zctx := protocol.WithBlockCtx(context.Background(),
+				protocol.BlockCtx{
+					BlockHeight: uint64(1),
+					Producer:    identityset.Address(27),
+					GasLimit:    blkGasLimit,
+				})
+			zctx = genesis.WithGenesisContext(zctx, cfg.Genesis)
+			zctx = protocol.WithFeatureCtx(protocol.WithBlockchainCtx(zctx, protocol.BlockchainCtx{
+				ChainID: 1,
+			}))
+			zctx = protocol.WithFeatureWithHeightCtx(zctx)
+
+			err = f.Validate(zctx, blk)
+			require.Error(err)
+			if tt.wantNextActionOutOfGas {
+				require.ErrorIs(err, action.ErrGasLimit)
+			} else {
+				// the budget wrapped around, so the second action was run
+				// anyway and the block only failed later, on the state digest
+				require.NotErrorIs(err, action.ErrGasLimit)
+				require.ErrorIs(err, block.ErrDeltaStateMismatch)
+			}
+		})
+	}
+}
+
 // viewTrace records what a protocol view was asked to do. Forks share it, so a
 // test can watch a view that only ever exists inside Mint.
 type viewTrace struct {

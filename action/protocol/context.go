@@ -276,6 +276,37 @@ type (
 		// header gas fields do not match their receipts must keep accepting
 		// them on replay, so the check may only start at a fork boundary.
 		ValidateHeaderGasUsed bool
+		// CorrectStakeMigrationGas budgets the contract call a stake migration
+		// makes with the action's gas limit minus the migration's own intrinsic
+		// gas, instead of the full gas limit.
+		//
+		// The migration receipt reports the intrinsic gas plus whatever the
+		// contract call consumed. While the call is budgeted with the whole gas
+		// limit, that sum can exceed the gas limit the action declared -- and
+		// the gas limit is what the block gas budget was reserved against, so a
+		// receipt reporting beyond it reports gas the block never had. Taking
+		// the intrinsic gas out of the call's budget bounds the reported total
+		// by the declared limit, which is also what the gas estimator has always
+		// assumed (it quotes contract gas + intrinsic gas).
+		//
+		// Both the budget handed to the EVM and the gas on the receipt are
+		// consensus data, so this needs its own height: a chain that has already
+		// executed migrations under the old budget would recompute different
+		// receipts for those blocks. It rides Zanzibar Gamma, which is
+		// unscheduled.
+		CorrectStakeMigrationGas bool
+		// CheckedBlockGasDeduction subtracts a receipt's gas from the remaining
+		// block gas budget without letting the unsigned counter wrap: a receipt
+		// reporting more gas than is left saturates the budget at zero rather
+		// than rolling it over to near 2^64, which would let the rest of the
+		// block run as if the budget were untouched.
+		//
+		// Saturating is deterministic -- every node lands on the same remaining
+		// budget -- and the following action is then rejected for want of gas,
+		// so the condition is never absorbed silently. Changing the remaining
+		// budget changes which actions a block may carry, so this is gated at
+		// its own height. It rides Zanzibar Gamma, which is unscheduled.
+		CheckedBlockGasDeduction bool
 		// RevertStakingStateOnFailedReceipt makes a staking action that ends in
 		// a failure receipt discard every state-manager write it made before
 		// the failure, instead of only rolling back the protocol view.
@@ -488,6 +519,8 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			// them into Beta would rewrite blocks a chain that activated Beta
 			// has already committed.
 			ValidateHeaderGasUsed:             g.IsZanzibarGamma(height),
+			CorrectStakeMigrationGas:          g.IsZanzibarGamma(height),
+			CheckedBlockGasDeduction:          g.IsZanzibarGamma(height),
 			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
 		},
 	)

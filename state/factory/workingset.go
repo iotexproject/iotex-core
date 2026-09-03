@@ -68,6 +68,20 @@ func init() {
 	prometheus.MustRegister(_mintAbility)
 }
 
+// deductBlockGas takes the gas reported by a receipt out of the gas a block has
+// left. The counter is unsigned, so before the fix height the subtraction wraps
+// around when a receipt reports more gas than remains; from that height on it
+// saturates at zero, which keeps the remaining budget monotonic and makes the
+// next action in the block run out of gas instead of being waved through.
+func deductBlockGas(fCtx protocol.FeatureCtx, remaining, consumed uint64) uint64 {
+	if fCtx.CheckedBlockGasDeduction && remaining < consumed {
+		log.L().Warn("receipt reports more gas than the block has left",
+			zap.Uint64("remaining", remaining), zap.Uint64("consumed", consumed))
+		return 0
+	}
+	return remaining - consumed
+}
+
 type (
 	// WorkingSetStoreFactory is the factory to create working set store
 	WorkingSetStoreFactory interface {
@@ -650,7 +664,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		}
 		receipts = append(receipts, receipt)
 		if !action.IsSystemAction(act) {
-			blkCtx.GasLimit -= receipt.GasConsumed
+			blkCtx.GasLimit = deductBlockGas(fCtx, blkCtx.GasLimit, receipt.GasConsumed)
 			if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 			}
@@ -913,7 +927,7 @@ func (ws *workingSet) pickAndRunActions(
 							}
 							return errors.Errorf("receipt is nil for transaction %x", h)
 						}
-						bGasLimit -= receipt.GasConsumed
+						bGasLimit = deductBlockGas(fCtx, bGasLimit, receipt.GasConsumed)
 						if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 							(&bBlkCtx.AccumulatedTips).Add(&bBlkCtx.AccumulatedTips, receipt.PriorityFee())
 						}
@@ -930,7 +944,7 @@ func (ws *workingSet) pickAndRunActions(
 						continue
 					}
 					for _, receipt := range bReceipts {
-						blkCtx.GasLimit -= receipt.GasConsumed
+						blkCtx.GasLimit = deductBlockGas(fCtx, blkCtx.GasLimit, receipt.GasConsumed)
 						if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 							(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 						}
@@ -976,7 +990,7 @@ func (ws *workingSet) pickAndRunActions(
 			if receipt == nil {
 				continue
 			}
-			blkCtx.GasLimit -= receipt.GasConsumed
+			blkCtx.GasLimit = deductBlockGas(fCtx, blkCtx.GasLimit, receipt.GasConsumed)
 			if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 			}
