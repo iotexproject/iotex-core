@@ -6,6 +6,7 @@
 package genesis
 
 import (
+	"encoding/hex"
 	"math"
 	"math/big"
 	"sort"
@@ -27,6 +28,20 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
+
+// _mainnetGenesisHash is Hash() of the mainnet genesis config. TestnetGrants is
+// not among the fields Hash() covers, so a mainnet file still hashes to this
+// after grants are appended to it and ValidateTestnetGrants still recognises it.
+const _mainnetGenesisHash = "b337983730981c2d50f114eed5da9dd20b83c8c5e130beefdb3001dc858cfe8b"
+
+// MaxBalanceBits is the width of the balance field in the Erigon secondary
+// store, which holds it as a uint256. Every other path that moves balance
+// conserves supply, so no account can approach the bound; a grant mints, so it
+// is the one place a configured number can cross it. Past the bound the write
+// panics in uint256.MustFromBig rather than failing, which takes the node down
+// instead of rejecting the block -- hence the check here and the one in
+// account.Protocol.CreatePreStates for the sum.
+const MaxBalanceBits = 256
 
 var (
 	// Default contains the default genesis config
@@ -92,6 +107,9 @@ func defaultConfig() Genesis {
 		Account: Account{
 			InitBalanceMap:          map[string]string{},
 			ReplayDeployerWhitelist: []string{"0x3fab184622dc19b6109349b94811493bf2a45362"},
+			// empty, not nil: the YAML loader materialises an absent sequence as
+			// an empty slice, and config equality checks compare against this
+			TestnetGrants: []TestnetGrant{},
 		},
 		Poll: Poll{
 			PollMode:                         "nativeMix",
@@ -461,6 +479,29 @@ type (
 		InitBalanceMap map[string]string `yaml:"initBalances"`
 		// ReplayDeployerWhitelist is the whitelist address for unprotected (pre-EIP155) transaction
 		ReplayDeployerWhitelist []string `yaml:"replayDeployerWhitelist"`
+		// TestnetGrants credits balance to a set of addresses at a given height
+		// on a chain that is already running, so a test network that has lost
+		// its delegate owner keys can fund a replacement set without restarting
+		// the chain. Rejected on mainnet, see ValidateTestnetGrants.
+		//
+		// A scheduled grant is consensus state: every node needs the same
+		// genesis file before the activation height, or it will fail the delta
+		// state digest check on that block and stop. Roll one out as a hard fork.
+		TestnetGrants []TestnetGrant `yaml:"testnetGrants"`
+	}
+	// TestnetGrant is one scheduled batch of balance credits. Recipients is a
+	// list rather than a map because the apply order is part of consensus.
+	TestnetGrant struct {
+		// Height is applied before any action in that block. Must be non-zero;
+		// balances that exist from the start of the chain go in InitBalanceMap.
+		Height     uint64           `yaml:"height"`
+		Recipients []GrantRecipient `yaml:"recipients"`
+	}
+	// GrantRecipient is one address/amount pair of a TestnetGrant. Amount is in
+	// Rau and is added to whatever the address already holds.
+	GrantRecipient struct {
+		Address string `yaml:"address"`
+		Amount  string `yaml:"amount"`
 	}
 	// Poll contains the configs for poll protocol
 	Poll struct {
@@ -639,9 +680,15 @@ func New(genesisPath string) (Genesis, error) {
 // inert rather than failing loudly. It runs on the YAML load path only: callers
 // that build a Genesis literal (tests, defaultConfig) are trusted.
 func (g *Genesis) validate() error {
-	// Everything below is IIP-59, which Zanzibar turns on. Until that height
-	// is scheduled the era length and the contract addresses are never read,
-	// so any value is acceptable and a node must still be able to start.
+	// The testnet grants are their own schedule and are read whether or not
+	// IIP-59 is on, so they are checked before anything below returns early.
+	if err := g.ValidateTestnetGrants(); err != nil {
+		return err
+	}
+	// Everything below is IIP-59, which Zanzibar turns on -- it no longer
+	// shares ToBeEnabledBlockHeight with the other WIP features. Until that
+	// height is scheduled the era length and the contract addresses are never
+	// read, so any value is acceptable and a node must still be able to start.
 	if g.ZanzibarBlockHeight == math.MaxUint64 {
 		return nil
 	}
@@ -722,6 +769,95 @@ func (g *Genesis) validate() error {
 		}
 	}
 	return nil
+}
+
+// IsMainnet reports whether this is the mainnet genesis config.
+func (g *Genesis) IsMainnet() bool {
+	h := g.Hash()
+	return hex.EncodeToString(h[:]) == _mainnetGenesisHash
+}
+
+// ValidateTestnetGrants rejects a grant list that is unusable or does not belong
+// on this network. It is separate from validate() because a Genesis built as a
+// literal never reaches validate(), so chainservice re-runs it at build time.
+func (g *Genesis) ValidateTestnetGrants() error {
+	if len(g.TestnetGrants) == 0 {
+		return nil
+	}
+	if g.IsMainnet() {
+		return errors.New("genesis: testnetGrants must not be used on mainnet")
+	}
+	var prevHeight uint64
+	for i, grant := range g.TestnetGrants {
+		if grant.Height == 0 {
+			return errors.Errorf(
+				"genesis: testnetGrants[%d] height must be non-zero, use initBalances for balances that exist at genesis", i)
+		}
+		if i > 0 && grant.Height <= prevHeight {
+			return errors.Errorf(
+				"genesis: testnetGrants heights must be strictly increasing, got %d after %d", grant.Height, prevHeight)
+		}
+		prevHeight = grant.Height
+		if len(grant.Recipients) == 0 {
+			return errors.Errorf("genesis: testnetGrants[%d] at height %d has no recipients", i, grant.Height)
+		}
+		seen := make(map[string]struct{}, len(grant.Recipients))
+		for j, r := range grant.Recipients {
+			addr, err := address.FromString(r.Address)
+			if err != nil {
+				return errors.Wrapf(err, "genesis: testnetGrants[%d].recipients[%d] has an invalid address %q", i, j, r.Address)
+			}
+			if _, dup := seen[addr.String()]; dup {
+				return errors.Errorf("genesis: testnetGrants[%d] credits %s more than once", i, addr.String())
+			}
+			seen[addr.String()] = struct{}{}
+			amount, ok := new(big.Int).SetString(r.Amount, 10)
+			if !ok {
+				return errors.Errorf("genesis: testnetGrants[%d].recipients[%d] has an unparsable amount %q", i, j, r.Amount)
+			}
+			if amount.Sign() <= 0 {
+				return errors.Errorf("genesis: testnetGrants[%d].recipients[%d] amount %q must be positive", i, j, r.Amount)
+			}
+			if amount.BitLen() > MaxBalanceBits {
+				return errors.Errorf(
+					"genesis: testnetGrants[%d].recipients[%d] amount %q does not fit in %d bits",
+					i, j, r.Amount, MaxBalanceBits)
+			}
+		}
+	}
+	return nil
+}
+
+// GrantsAtHeight returns the grant scheduled at the given height in configured
+// order, or nil when there is none. It returns an error rather than panicking on
+// unparsable values -- ValidateTestnetGrants has already walked them, but this
+// runs mid-block, where a panic takes the node down instead of rejecting a block.
+func (a *Account) GrantsAtHeight(height uint64) ([]address.Address, []*big.Int, error) {
+	if height == 0 || len(a.TestnetGrants) == 0 {
+		return nil, nil, nil
+	}
+	for _, grant := range a.TestnetGrants {
+		if grant.Height != height {
+			continue
+		}
+		addrs := make([]address.Address, 0, len(grant.Recipients))
+		amounts := make([]*big.Int, 0, len(grant.Recipients))
+		for _, r := range grant.Recipients {
+			addr, err := address.FromString(r.Address)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "invalid testnet grant address %q at height %d", r.Address, height)
+			}
+			amount, ok := new(big.Int).SetString(r.Amount, 10)
+			if !ok {
+				return nil, nil, errors.Errorf(
+					"invalid testnet grant amount %q for %s at height %d", r.Amount, r.Address, height)
+			}
+			addrs = append(addrs, addr)
+			amounts = append(amounts, amount)
+		}
+		return addrs, amounts, nil
+	}
+	return nil, nil, nil
 }
 
 // SetGenesisTimestamp sets the genesis timestamp
