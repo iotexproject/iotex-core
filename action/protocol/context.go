@@ -260,6 +260,22 @@ type (
 		// An update that omits both leaves any previously registered key
 		// untouched.
 		OptionalCandidateBLSPublicKey bool
+		// ValidateHeaderGasUsed makes a validating node recompute the header's
+		// gasUsed and blobGasUsed from the receipts it produced while executing
+		// the block, and reject the block when either disagrees with the value
+		// the proposer put in the header.
+		//
+		// The proposer fills both fields from its own receipts (see
+		// workingSet.CreateBuilder), but until now nothing on the validating
+		// side re-derived them, so the two header fields were accepted as
+		// given. gasUsed feeds the EIP-1559 base fee of the next block and
+		// blobGasUsed feeds its excessBlobGas, and both are served over the
+		// API, so they need to agree with the executed block.
+		//
+		// Needs its own height: a chain that has already committed blocks whose
+		// header gas fields do not match their receipts must keep accepting
+		// them on replay, so the check may only start at a fork boundary.
+		ValidateHeaderGasUsed bool
 		// RevertStakingStateOnFailedReceipt makes a staking action that ends in
 		// a failure receipt discard every state-manager write it made before
 		// the failure, instead of only rolling back the protocol view.
@@ -277,8 +293,8 @@ type (
 		//
 		// Needs its own height: what state a failed action leaves behind is
 		// part of the state root, so a chain that has already committed such
-		// blocks would recompute different roots for them on replay. Wired to
-		// IsToBeEnabled until the named height is assigned.
+		// blocks would recompute different roots for them on replay. It rides
+		// Zanzibar Gamma, which is unscheduled.
 		RevertStakingStateOnFailedReceipt bool
 	}
 
@@ -468,9 +484,10 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixEpochSettlementFaultHandling:  g.IsZanzibarBeta(height),
 			RequireProfileForHermesMigration: g.IsZanzibarBeta(height),
 			EmitEraFreezeLog:                 g.IsZanzibarBeta(height),
-			// Zanzibar Gamma: found after Beta was scheduled. Note this lands
-			// later than EnforceBLSPoP on any chain where Gamma trails
-			// Zanzibar, which is the case testnet is already in.
+			// Zanzibar Gamma: all found after Beta was scheduled, so folding
+			// them into Beta would rewrite blocks a chain that activated Beta
+			// has already committed.
+			ValidateHeaderGasUsed:             g.IsZanzibarGamma(height),
 			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
 		},
 	)

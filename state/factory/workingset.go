@@ -1217,6 +1217,25 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) (err 
 	if !blk.VerifyReceiptRoot(receiptRoot) {
 		return errors.Wrapf(block.ErrReceiptRootMismatch, "receipt root in block '%x' vs receipt root in workingset '%x'", blk.ReceiptRoot(), receiptRoot)
 	}
+	// The proposer derives the header's gasUsed/blobGasUsed from its own
+	// receipts in CreateBuilder; re-derive them here from the receipts this
+	// node produced and reject a header that disagrees. Each field is checked
+	// only when the feature that makes the proposer set it is active, so the
+	// validator never demands a value the proposer never wrote.
+	if fCtx.ValidateHeaderGasUsed {
+		if fCtx.EnableDynamicFeeTx {
+			gasUsed := calculateGasUsed(ws.receipts)
+			if !blk.VerifyGasUsed(gasUsed) {
+				return errors.Wrapf(block.ErrGasUsedMismatch, "gas used in block %d vs gas used in workingset %d at height %d", blk.GasUsed(), gasUsed, blk.Height())
+			}
+		}
+		if fCtx.EnableBlobTransaction {
+			blobGasUsed := calculateBlobGasUsed(ws.receipts)
+			if !blk.VerifyBlobGasUsed(blobGasUsed) {
+				return errors.Wrapf(block.ErrBlobGasUsedMismatch, "blob gas used in block %d vs blob gas used in workingset %d at height %d", blk.BlobGasUsed(), blobGasUsed, blk.Height())
+			}
+		}
+	}
 
 	return nil
 }
