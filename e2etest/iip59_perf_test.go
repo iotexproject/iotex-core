@@ -239,7 +239,7 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 	r.NotNil(rewardProto, "rewarding protocol must be registered")
 
 	// Baseline: mint one throwaway block so the fork gate flips before
-	// any measurements. IIP-59 turns on at ToBeEnabledBlockHeight=1.
+	// any measurements. IIP-59 turns on at ZanzibarBlockHeight=1.
 	blkTime := time.Unix(cfg.Genesis.Timestamp, 0)
 	step := 1 * time.Second
 
@@ -282,7 +282,7 @@ func TestIIP59EpochGrantPerf(t *testing.T) {
 		minted++
 
 		height := bc.TipHeight()
-		if height == cfg.Genesis.ToBeEnabledBlockHeight {
+		if height == cfg.Genesis.ZanzibarBlockHeight {
 			m := metric
 			activationMetric = &m
 			logIIP59PerfMetric(t, "activation-backfill", height, metric)
@@ -408,11 +408,13 @@ func newIIP59PerfCfg(r *require.Assertions, tier perfTier) config.Config {
 	// through the new voter-reward gate. NoVoterRewardDistribution is
 	// bound to !g.IsToBeEnabled(height) — see action/protocol/context.go.
 	cfg.Genesis.GreenlandBlockHeight = 1
-	cfg.Genesis.ToBeEnabledBlockHeight = 1
+	cfg.Genesis.ZanzibarBlockHeight = 1
+	cfg.Genesis.ZanzibarBetaBlockHeight = 1
 	if tier.numContractBuckets > 0 {
 		cfg.Genesis.XinguBlockHeight = 1
 		cfg.Genesis.XinguBetaBlockHeight = 1
-		cfg.Genesis.ToBeEnabledBlockHeight = 2
+		cfg.Genesis.ZanzibarBlockHeight = 2
+		cfg.Genesis.ZanzibarBetaBlockHeight = 2
 	}
 
 	// Tier: shrink NumDelegates to match the seeded set; keep
@@ -468,7 +470,7 @@ func newIIP59PerfCfg(r *require.Assertions, tier perfTier) config.Config {
 // planted straight into each snapshot by the seeder, and this harness never
 // reaches freezeIIP59RewardSnapshots' contract read at all: it runs on
 // poll.NewLifeLongDelegatesProtocol, whose single setCandidates call happens at
-// genesis, where the fork gate (height 0 < ToBeEnabledBlockHeight) and the era
+// genesis, where the fork gate (height 0 < ZanzibarBlockHeight) and the era
 // gate (IsEraBoundary(1, epochsPerEra) is false for every tier) each block it
 // independently. DelegateProfileContractAddress is likewise left unset, so the
 // bridge stays nil and the path degrades to zero rates rather than an EVM call

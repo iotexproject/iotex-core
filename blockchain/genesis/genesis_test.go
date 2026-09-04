@@ -7,6 +7,7 @@ package genesis
 
 import (
 	"encoding/hex"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -141,4 +142,50 @@ func TestIIP59EraDefaults(t *testing.T) {
 		"io19604a05s2p3mecam2zz7d27hcr6ndyw80wvkmh",
 		"io12mgttmfa2ffn9uqvn0yn37f4nz43d248l2ga85",
 	}, cfg.Rewarding.HermesRewardVaultAddresses)
+}
+
+// TestZanzibarHeightOrdering covers the two ordering rules in the Zanzibar
+// family. Both are checked before the Greenland, Xingu and contract-address
+// requirements, so a case that trips one of them needs nothing else set up.
+func TestZanzibarHeightOrdering(t *testing.T) {
+	r := require.New(t)
+	withHeights := func(zanzibar, beta, gamma uint64) *Genesis {
+		g := TestDefault()
+		g.ZanzibarBlockHeight = zanzibar
+		g.ZanzibarBetaBlockHeight = beta
+		g.ZanzibarGammaBlockHeight = gamma
+		return &g
+	}
+
+	t.Run("gamma may not precede beta", func(t *testing.T) {
+		err := withHeights(100, 200, 150).validate()
+		r.ErrorContains(err, "zanzibarGammaHeight 150 must not precede zanzibarBetaHeight 200")
+	})
+
+	t.Run("beta may not precede zanzibar", func(t *testing.T) {
+		err := withHeights(200, 100, 300).validate()
+		r.ErrorContains(err, "zanzibarBetaHeight 100 must not precede zanzibarHeight 200")
+	})
+
+	t.Run("equal heights clear both rules", func(t *testing.T) {
+		// A chain that has activated none of them carries all three at one
+		// height. validate goes on to the requirements this fixture does not
+		// meet, so the assertion is that it got past the ordering rules.
+		err := withHeights(100, 100, 100).validate()
+		r.Error(err)
+		r.NotContains(err.Error(), "zanzibarGammaHeight")
+		r.NotContains(err.Error(), "zanzibarBetaHeight")
+	})
+
+	t.Run("unscheduled zanzibar skips the family", func(t *testing.T) {
+		// Nothing below the gate is read, so any value has to be acceptable and
+		// a node still has to start.
+		g := TestDefault()
+		r.EqualValues(uint64(math.MaxUint64), g.ZanzibarBlockHeight)
+		r.EqualValues(uint64(math.MaxUint64), g.ZanzibarBetaBlockHeight)
+		r.EqualValues(uint64(math.MaxUint64), g.ZanzibarGammaBlockHeight)
+		r.NoError(g.validate())
+		g.ZanzibarGammaBlockHeight = 1
+		r.NoError(g.validate())
+	})
 }

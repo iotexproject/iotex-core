@@ -97,6 +97,9 @@ func defaultConfig() Genesis {
 			XinguBetaBlockHeight:      41648761,
 			YapBlockHeight:            48985561,
 			YapBetaBlockHeight:        48985561,
+			ZanzibarBlockHeight:       math.MaxUint64,
+			ZanzibarBetaBlockHeight:   math.MaxUint64,
+			ZanzibarGammaBlockHeight:  math.MaxUint64,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 			PersistStakingPatchBlock:  19778037,
 			FixAliasForNonStopHeight:  19778036,
@@ -416,6 +419,44 @@ type (
 		YapBlockHeight uint64 `yaml:"yapHeight"`
 		// YapBetaBlockHeight is the start height to enable slashing candidate by identity
 		YapBetaBlockHeight uint64 `yaml:"yapBetaHeight"`
+		// ZanzibarBlockHeight is the start height of IIP-59 protocol-native
+		// voter reward distribution and of the BLS proof-of-possession
+		// requirement at candidate register / update.
+		ZanzibarBlockHeight uint64 `yaml:"zanzibarHeight"`
+		// ZanzibarBetaBlockHeight is the start height of the corrections to
+		// what Zanzibar turned on. They need a height of their own because a
+		// chain that has already activated Zanzibar is running the
+		// pre-correction behaviour, and changing what Zanzibar selects would
+		// rewrite the semantics of blocks that chain has already committed.
+		//
+		// Set this EQUAL to ZanzibarBlockHeight on any chain that has not
+		// activated Zanzibar yet. A later height is only for a chain that has,
+		// where it is forced, and it costs something real: it schedules a
+		// window in which the chain knowingly runs behaviour already found to
+		// be wrong, and one of the corrections cannot take effect at all.
+		//
+		// RequireProfileForHermesMigration guards migrateHermesRewardOptIn,
+		// which runs in exactly one block -- the one at ZanzibarBlockHeight --
+		// and never again. If this height is later than that block, the guard
+		// reads false there, the migration runs unguarded, and no later height
+		// brings it back. On such a chain the flag is permanently inert.
+		ZanzibarBetaBlockHeight uint64 `yaml:"zanzibarBetaHeight"`
+		// ZanzibarGammaBlockHeight is the start height of the corrections found
+		// after Zanzibar Beta was scheduled. It exists for the same reason Beta
+		// does, one level up: a chain that has already activated Beta is running
+		// the pre-correction behaviour, and folding these into Beta would
+		// rewrite the semantics of blocks that chain has committed.
+		//
+		// Set this EQUAL to ZanzibarBetaBlockHeight on any chain that has not
+		// activated Beta yet. A later height is only for a chain that has, and
+		// it carries the same cost: a window in which the chain knowingly runs
+		// behaviour already found to be wrong.
+		//
+		// One such window is not avoidable. EnforceBLSPoP rides Zanzibar, and
+		// candidate register writes its self-stake bucket before it verifies the
+		// proof, so on a chain where Gamma trails Zanzibar a rejected proof
+		// leaves that bucket behind until Gamma activates.
+		ZanzibarGammaBlockHeight uint64 `yaml:"zanzibarGammaHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -639,32 +680,51 @@ func New(genesisPath string) (Genesis, error) {
 // inert rather than failing loudly. It runs on the YAML load path only: callers
 // that build a Genesis literal (tests, defaultConfig) are trusted.
 func (g *Genesis) validate() error {
+	// The testnet grants are their own schedule and are read whether or not
+	// IIP-59 is on, so they are checked before anything below returns early.
 	if err := g.ValidateTestnetGrants(); err != nil {
 		return err
 	}
-	// IIP-59 shares ToBeEnabledBlockHeight with the other WIP features, so
-	// scheduling that height schedules voter reward distribution too. Until it
-	// is scheduled, the era length is never read and any value is acceptable.
-	if g.ToBeEnabledBlockHeight == math.MaxUint64 {
+	// Everything below is IIP-59, which Zanzibar turns on -- it no longer
+	// shares ToBeEnabledBlockHeight with the other WIP features. Until that
+	// height is scheduled the era length and the contract addresses are never
+	// read, so any value is acceptable and a node must still be able to start.
+	if g.ZanzibarBlockHeight == math.MaxUint64 {
 		return nil
+	}
+	// Zanzibar Beta only corrects behaviour Zanzibar already turned on, so it
+	// cannot precede it.
+	if g.ZanzibarBetaBlockHeight < g.ZanzibarBlockHeight {
+		return errors.Errorf(
+			"genesis: zanzibarBetaHeight %d must not precede zanzibarHeight %d",
+			g.ZanzibarBetaBlockHeight, g.ZanzibarBlockHeight,
+		)
+	}
+	// Zanzibar Gamma only corrects behaviour Zanzibar Beta already turned on,
+	// so it cannot precede it.
+	if g.ZanzibarGammaBlockHeight < g.ZanzibarBetaBlockHeight {
+		return errors.Errorf(
+			"genesis: zanzibarGammaHeight %d must not precede zanzibarBetaHeight %d",
+			g.ZanzibarGammaBlockHeight, g.ZanzibarBetaBlockHeight,
+		)
 	}
 	// IIP-59 enumerates pending reward pools by their unhashed V2 state-key
 	// prefix. Greenland activates that layout; allowing IIP-59 earlier would
 	// make orphan-pool enumeration incomplete because legacy rewarding keys are
 	// content-addressed and cannot be prefix-scanned.
-	if g.ToBeEnabledBlockHeight < g.GreenlandBlockHeight {
+	if g.ZanzibarBlockHeight < g.GreenlandBlockHeight {
 		return errors.Errorf(
-			"genesis: toBeEnabledHeight %d must not precede greenlandHeight %d",
-			g.ToBeEnabledBlockHeight, g.GreenlandBlockHeight,
+			"genesis: zanzibarHeight %d must not precede greenlandHeight %d",
+			g.ZanzibarBlockHeight, g.GreenlandBlockHeight,
 		)
 	}
 	// IIP-59 recomputes contract-staking voter weights from bucket state in the
 	// trie. Xingu migrates those buckets from the Erigon-only mirror into the
 	// trie, so activating IIP-59 before Xingu would silently omit them.
-	if g.ToBeEnabledBlockHeight < g.XinguBlockHeight {
+	if g.ZanzibarBlockHeight < g.XinguBlockHeight {
 		return errors.Errorf(
-			"genesis: toBeEnabledHeight %d must not precede xinguHeight %d",
-			g.ToBeEnabledBlockHeight, g.XinguBlockHeight,
+			"genesis: zanzibarHeight %d must not precede xinguHeight %d",
+			g.ZanzibarBlockHeight, g.XinguBlockHeight,
 		)
 	}
 	// IsEraBoundary returns false for every epoch when EpochsPerRewardEra is 0,
@@ -676,7 +736,7 @@ func (g *Genesis) validate() error {
 	// room between the two. See IIP-59 section 14.
 	if g.Rewarding.EpochsPerRewardEra < 2 {
 		return errors.Errorf(
-			"genesis: epochsPerRewardEra must be at least 2 once toBeEnabledHeight is scheduled, got %d",
+			"genesis: epochsPerRewardEra must be at least 2 once zanzibarHeight is scheduled, got %d",
 			g.Rewarding.EpochsPerRewardEra,
 		)
 	}
@@ -690,7 +750,7 @@ func (g *Genesis) validate() error {
 	// with nothing logged and no error raised.
 	if g.DelegateProfileContractAddress == "" {
 		return errors.New(
-			"genesis: delegateProfileContractAddress must be set once toBeEnabledHeight is scheduled; " +
+			"genesis: delegateProfileContractAddress must be set once zanzibarHeight is scheduled; " +
 				"leaving it empty freezes every opted-in delegate at 100% commission")
 	}
 	if _, err := address.FromString(g.DelegateProfileContractAddress); err != nil {
@@ -1035,6 +1095,21 @@ func (g *Blockchain) IsYap(height uint64) bool {
 // IsYapBeta checks whether height is equal to or larger than yap beta height
 func (g *Blockchain) IsYapBeta(height uint64) bool {
 	return g.isPost(g.YapBetaBlockHeight, height)
+}
+
+// IsZanzibar checks whether height is equal to or larger than zanzibar height
+func (g *Blockchain) IsZanzibar(height uint64) bool {
+	return g.isPost(g.ZanzibarBlockHeight, height)
+}
+
+// IsZanzibarBeta checks whether height is equal to or larger than zanzibar beta height
+func (g *Blockchain) IsZanzibarBeta(height uint64) bool {
+	return g.isPost(g.ZanzibarBetaBlockHeight, height)
+}
+
+// IsZanzibarGamma checks whether height is equal to or larger than zanzibar gamma height
+func (g *Blockchain) IsZanzibarGamma(height uint64) bool {
+	return g.isPost(g.ZanzibarGammaBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
