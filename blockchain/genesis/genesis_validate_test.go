@@ -23,7 +23,7 @@ func writeGenesisYAML(t *testing.T, body string) string {
 }
 
 func TestNewRejectsUnsettleableEra(t *testing.T) {
-	// A scheduled toBeEnabledHeight activates IIP-59, so the era length stops
+	// A scheduled zanzibarHeight activates IIP-59, so the era length stops
 	// being decorative. Zero makes IsEraBoundary false forever and one leaves no
 	// room between a settlement and the freeze that supersedes its era window;
 	// both fail silently at run time, which is what this rejects.
@@ -34,7 +34,8 @@ func TestNewRejectsUnsettleableEra(t *testing.T) {
 blockchain:
   greenlandHeight: 999
   xinguHeight: 999
-  toBeEnabledHeight: 1000
+  zanzibarHeight: 1000
+  zanzibarBetaHeight: 1000
 rewarding:
   epochsPerRewardEra: %d
 `, epochsPerEra))
@@ -61,7 +62,8 @@ func TestNewRejectsMissingDelegateProfileContract(t *testing.T) {
 blockchain:
   greenlandHeight: 999
   xinguHeight: 999
-  toBeEnabledHeight: 1000
+  zanzibarHeight: 1000
+  zanzibarBetaHeight: 1000
 rewarding:
   epochsPerRewardEra: 2
 `)
@@ -77,7 +79,8 @@ func TestNewRejectsMalformedIIP59ContractAddresses(t *testing.T) {
 blockchain:
   greenlandHeight: 999
   xinguHeight: 999
-  toBeEnabledHeight: 1000
+  zanzibarHeight: 1000
+  zanzibarBetaHeight: 1000
 poll:
   delegateProfileContractAddress: "not-an-address"
 rewarding:
@@ -94,7 +97,8 @@ rewarding:
 blockchain:
   greenlandHeight: 999
   xinguHeight: 999
-  toBeEnabledHeight: 1000
+  zanzibarHeight: 1000
+  zanzibarBetaHeight: 1000
   autoDepositContractAddress: "not-an-address"
 poll:
   delegateProfileContractAddress: %q
@@ -114,7 +118,8 @@ func TestNewAcceptsIIP59ContractAddresses(t *testing.T) {
 blockchain:
   greenlandHeight: 999
   xinguHeight: 999
-  toBeEnabledHeight: 1000
+  zanzibarHeight: 1000
+  zanzibarBetaHeight: 1000
 poll:
   delegateProfileContractAddress: %q
 rewarding:
@@ -142,7 +147,8 @@ func TestNewAcceptsEra(t *testing.T) {
 blockchain:
   greenlandHeight: 999
   xinguHeight: 1000
-  toBeEnabledHeight: 1000
+  zanzibarHeight: 1000
+  zanzibarBetaHeight: 1000
 poll:
   delegateProfileContractAddress: %q
 rewarding:
@@ -158,12 +164,13 @@ rewarding:
 blockchain:
   greenlandHeight: 1001
   xinguHeight: 999
-  toBeEnabledHeight: 1000
+  zanzibarHeight: 1000
+  zanzibarBetaHeight: 1000
 rewarding:
   epochsPerRewardEra: 2
 `)
 		_, err := New(path)
-		r.ErrorContains(err, "toBeEnabledHeight 1000 must not precede greenlandHeight 1001")
+		r.ErrorContains(err, "zanzibarHeight 1000 must not precede greenlandHeight 1001")
 	})
 
 	t.Run("scheduled before Xingu", func(t *testing.T) {
@@ -171,16 +178,17 @@ rewarding:
 blockchain:
   greenlandHeight: 999
   xinguHeight: 1001
-  toBeEnabledHeight: 1000
+  zanzibarHeight: 1000
+  zanzibarBetaHeight: 1000
 rewarding:
   epochsPerRewardEra: 2
 `)
 		_, err := New(path)
-		r.ErrorContains(err, "toBeEnabledHeight 1000 must not precede xinguHeight 1001")
+		r.ErrorContains(err, "zanzibarHeight 1000 must not precede xinguHeight 1001")
 	})
 
 	t.Run("unscheduled tolerates any era", func(t *testing.T) {
-		// toBeEnabledHeight defaults to MaxUint64: IIP-59 never activates, so
+		// zanzibarHeight defaults to MaxUint64: IIP-59 never activates, so
 		// EpochsPerRewardEra is never read and must not block a node from
 		// starting. Existing networks rely on this.
 		path := writeGenesisYAML(t, `

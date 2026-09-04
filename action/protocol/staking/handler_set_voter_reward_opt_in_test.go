@@ -21,7 +21,8 @@ import (
 
 func voterRewardOptInContext(callerIndex int, height uint64) context.Context {
 	g := genesis.TestDefault()
-	g.ToBeEnabledBlockHeight = 1
+	g.ZanzibarBlockHeight = 1
+	g.ZanzibarBetaBlockHeight = 1
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})
 	ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: identityset.Address(callerIndex)})
