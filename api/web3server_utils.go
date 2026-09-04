@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -772,6 +773,41 @@ func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
 	return cfg
 }
 
+// serializeStopAndResult returns t with its Stop and GetResult serialized
+// against each other.
+//
+// The timeout watchdog armed by parseTracer calls Stop from its own goroutine
+// while the goroutine running the trace calls GetResult. geth's StructLogger
+// stores the interruption reason on a plain field -- Stop writes l.reason and
+// only then flips the atomic l.interrupt, and GetResult reads l.reason without
+// consulting that atomic -- so the two overlap without a happens-before edge.
+// Holding a mutex across both calls supplies it. Hooks are passed through
+// untouched: they run on the tracing goroutine and coordinate through
+// l.interrupt, which is already atomic.
+func serializeStopAndResult(t *tracers.Tracer) *tracers.Tracer {
+	var (
+		mu        sync.Mutex
+		getResult = t.GetResult
+		stop      = t.Stop
+	)
+	guarded := &tracers.Tracer{Hooks: t.Hooks}
+	if getResult != nil {
+		guarded.GetResult = func() (json.RawMessage, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			return getResult()
+		}
+	}
+	if stop != nil {
+		guarded.Stop = func(err error) {
+			mu.Lock()
+			defer mu.Unlock()
+			stop(err)
+		}
+	}
+	return guarded
+}
+
 // parseTracer builds the tracer described by config and arms a timeout watchdog
 // that stops the tracer once the deadline expires. The watchdog covers every
 // tracer type (default struct logger, configured struct logger and named
@@ -811,6 +847,10 @@ func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.Tr
 			Stop:      loger.Stop,
 		}
 	}
+
+	// The watchdog below calls Stop concurrently with the caller's GetResult,
+	// so hand back a tracer that serializes the two.
+	tracer = serializeStopAndResult(tracer)
 
 	// Define a meaningful timeout for a single transaction trace. This applies
 	// to all tracer types.
