@@ -97,9 +97,9 @@ func defaultConfig() Genesis {
 			XinguBetaBlockHeight:      41648761,
 			YapBlockHeight:            48985561,
 			YapBetaBlockHeight:        48985561,
-			ZanzibarBlockHeight:       math.MaxUint64,
-			ZanzibarBetaBlockHeight:   math.MaxUint64,
-			ZanzibarGammaBlockHeight:  math.MaxUint64,
+			ZanzibarBlockHeight:       52813081,
+			ZanzibarBetaBlockHeight:   52813081,
+			ZanzibarGammaBlockHeight:  52813081,
 			ToBeEnabledBlockHeight:    math.MaxUint64,
 			PersistStakingPatchBlock:  19778037,
 			FixAliasForNonStopHeight:  19778036,
@@ -124,15 +124,21 @@ func defaultConfig() Genesis {
 			SystemStakingContractV2Height:    30934838,
 			SystemStakingContractV3Address:   "io1vkcvq4ywarvfj4u9zwlqedfsttalq55jmtmqcu", // https://iotexscan.io/tx/0261599524be26cd0a5bdfffc4df1316b244306b4d31488bf60d3f6cbfa6722e
 			SystemStakingContractV3Height:    36726575,
-			NativeStakingContractAddress:     "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
-			VoteThreshold:                    "100000000000000000000",
-			StakingContractAddress:           "0x87c9dbff0016af23f5b1ab9b8e072124ab729193",
-			SelfStakingThreshold:             "1200000000000000000000000",
-			ScoreThreshold:                   "2000000000000000000000000",
-			RegisterContractAddress:          "0x95724986563028deb58f15c5fac19fa09304f32d",
-			GravityChainStartHeight:          7614500,
-			GravityChainHeightInterval:       100,
-			Delegates:                        []Delegate{},
+			// Deployed on MainNet well before Zanzibar; IIP-59 reads each delegate's
+			// voter-take portions from it at the era freeze. Scheduling zanzibarHeight
+			// without this address is rejected by validate(), because an empty address
+			// does not switch commission routing off -- it pins every opted-in delegate
+			// at 100% commission, paying no voter and logging nothing.
+			DelegateProfileContractAddress: "io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u",
+			NativeStakingContractAddress:   "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+			VoteThreshold:                  "100000000000000000000",
+			StakingContractAddress:         "0x87c9dbff0016af23f5b1ab9b8e072124ab729193",
+			SelfStakingThreshold:           "1200000000000000000000000",
+			ScoreThreshold:                 "2000000000000000000000000",
+			RegisterContractAddress:        "0x95724986563028deb58f15c5fac19fa09304f32d",
+			GravityChainStartHeight:        7614500,
+			GravityChainHeightInterval:     100,
+			Delegates:                      []Delegate{},
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:             unit.ConvertIotxToRau(200000000).String(),
@@ -257,6 +263,13 @@ func TestDefault() Genesis {
 	cfg.PacificBlockHeight = 0
 	cfg.NumSubEpochs = 2
 	cfg.EnableGravityChainVoting = false
+	// A test chain does not inherit MainNet's Zanzibar schedule. It never reaches
+	// that height, and carrying it would make validate() enforce the IIP-59
+	// contract requirements on every genesis a unit test builds.
+	cfg.ZanzibarBlockHeight = math.MaxUint64
+	cfg.ZanzibarBetaBlockHeight = math.MaxUint64
+	cfg.ZanzibarGammaBlockHeight = math.MaxUint64
+	cfg.DelegateProfileContractAddress = ""
 	for i := 0; i < identityset.Size(); i++ {
 		addr := identityset.Address(i).String()
 		value := unit.ConvertIotxToRau(100000000).String()

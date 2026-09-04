@@ -64,6 +64,8 @@ blockchain:
   xinguHeight: 999
   zanzibarHeight: 1000
   zanzibarBetaHeight: 1000
+poll:
+  delegateProfileContractAddress: ""
 rewarding:
   epochsPerRewardEra: 2
 `)
@@ -133,7 +135,9 @@ rewarding:
 	t.Run("unscheduled tolerates both unset", func(t *testing.T) {
 		// The addresses are read only once IIP-59 is live. Requiring them on an
 		// unscheduled chain would stop every existing network from starting.
-		g, err := New(writeGenesisYAML(t, "rewarding:\n  epochsPerRewardEra: 24\n"))
+		g, err := New(writeGenesisYAML(t, "blockchain:\n  zanzibarHeight: 18446744073709551615\n  zanzibarBetaHeight: 18446744073709551615\n  zanzibarGammaHeight: 18446744073709551615\n"+
+			"poll:\n  delegateProfileContractAddress: \"\"\n"+
+			"rewarding:\n  epochsPerRewardEra: 24\n"))
 		r.NoError(err)
 		r.Empty(g.DelegateProfileContractAddress)
 	})
@@ -192,6 +196,10 @@ rewarding:
 		// EpochsPerRewardEra is never read and must not block a node from
 		// starting. Existing networks rely on this.
 		path := writeGenesisYAML(t, `
+blockchain:
+  zanzibarHeight: 18446744073709551615
+  zanzibarBetaHeight: 18446744073709551615
+  zanzibarGammaHeight: 18446744073709551615
 rewarding:
   epochsPerRewardEra: 0
 `)
