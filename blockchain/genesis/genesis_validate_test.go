@@ -122,6 +122,7 @@ blockchain:
   xinguHeight: 999
   zanzibarHeight: 1000
   zanzibarBetaHeight: 1000
+  autoDepositContractAddress: ""
 poll:
   delegateProfileContractAddress: %q
 rewarding:

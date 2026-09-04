@@ -100,9 +100,16 @@ func defaultConfig() Genesis {
 			ZanzibarBlockHeight:       52813081,
 			ZanzibarBetaBlockHeight:   52813081,
 			ZanzibarGammaBlockHeight:  52813081,
-			ToBeEnabledBlockHeight:    math.MaxUint64,
-			PersistStakingPatchBlock:  19778037,
-			FixAliasForNonStopHeight:  19778036,
+			// The AutoDepositRegister iotex-hub writes compound registrations to, so
+			// a preference set through the hub is the one the protocol acts on. Its
+			// runtime is byte-identical to e2etest/autodeposit_bytecode, which is what
+			// the slot constants in action/protocol/rewarding/autodeposit were derived
+			// against -- IIP-59 reads those slots directly rather than calling
+			// bucket(), so the address and that layout travel together.
+			AutoDepositContractAddress: "io108ckwzlzpkhva7cnfceajlu7wu6ql5kq95uat9",
+			ToBeEnabledBlockHeight:     math.MaxUint64,
+			PersistStakingPatchBlock:   19778037,
+			FixAliasForNonStopHeight:   19778036,
 		},
 		Account: Account{
 			InitBalanceMap:          map[string]string{},
@@ -270,6 +277,7 @@ func TestDefault() Genesis {
 	cfg.ZanzibarBetaBlockHeight = math.MaxUint64
 	cfg.ZanzibarGammaBlockHeight = math.MaxUint64
 	cfg.DelegateProfileContractAddress = ""
+	cfg.AutoDepositContractAddress = ""
 	for i := 0; i < identityset.Size(); i++ {
 		addr := identityset.Address(i).String()
 		value := unit.ConvertIotxToRau(100000000).String()
