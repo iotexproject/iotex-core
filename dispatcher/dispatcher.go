@@ -52,7 +52,10 @@ var (
 		MiscChanSize:      1000,
 		AccountRateLimit:  100,
 
-		ProcessSyncRequestInterval: 0 * time.Second,
+		// Positive by default so the per-peer block-sync request rate limit in
+		// filter() is active out of the box; an attacker-connected peer cannot issue
+		// an unbounded sequential stream of {start:0,end:tip} re-sync requests.
+		ProcessSyncRequestInterval: 2 * time.Second,
 	}
 )
 
