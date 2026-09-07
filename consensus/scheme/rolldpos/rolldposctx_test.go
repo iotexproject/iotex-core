@@ -437,3 +437,78 @@ func getBlockforctx(t *testing.T, i int, sign bool, prevHash hash.Hash256) block
 	b := block.Block{Header: header}
 	return b
 }
+
+// TestCommitAlreadyCommittedHeight covers the case where block sync commits a block at
+// the round's height while the round is still collecting endorsements. Committing the
+// round's own block is then refused by the block store, and the consensus context must
+// report the round as done instead of surfacing an error.
+func TestCommitAlreadyCommittedHeight(t *testing.T) {
+	require := require.New(t)
+	b, sf, _, rp, _ := makeChain(t)
+	g := genesis.TestDefault()
+	g.Blockchain.BlockInterval = time.Second * 20
+	delegates := make([]string, 0, rp.NumDelegates())
+	keyOfDelegate := make(map[string]crypto.PrivateKey, rp.NumDelegates())
+	for i := 0; i < int(rp.NumDelegates()); i++ {
+		addr := identityset.Address(i).String()
+		delegates = append(delegates, addr)
+		keyOfDelegate[addr] = identityset.PrivateKey(i)
+	}
+	delegatesByEpoch := func(uint64, []byte) ([]string, error) { return delegates, nil }
+	rdctx, err := NewRollDPoSCtx(
+		consensusfsm.NewConsensusConfig(DefaultConfig.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, DefaultConfig.Delay),
+		db.DefaultConfig,
+		true,
+		time.Second,
+		true,
+		NewChainManager(b, sf, &dummyBlockBuildFactory{}),
+		block.NewDeserializer(0),
+		rp,
+		nil,
+		delegatesByEpoch,
+		delegatesByEpoch,
+		[]crypto.PrivateKey{identityset.PrivateKey(10)},
+		clock.New(),
+		g.BeringBlockHeight,
+	)
+	require.NoError(err)
+	rctx, ok := rdctx.(*rollDPoSCtx)
+	require.True(ok)
+	require.NoError(rctx.Start(context.Background()))
+	defer rctx.Stop(context.Background())
+	require.NoError(rctx.Prepare())
+	require.Equal(b.TipHeight()+1, rctx.round.Height())
+
+	// the round is working on its own block
+	ts := time.Unix(1562382372+100, 0)
+	pending, err := b.MintNewBlock(ts)
+	require.NoError(err)
+	require.Equal(rctx.round.Height(), pending.Height())
+	require.NoError(rctx.round.AddBlock(pending))
+	blkHash := pending.HashBlock()
+
+	// meanwhile block sync commits a different block at the same height
+	synced, err := b.MintNewBlock(ts.Add(time.Second))
+	require.NoError(err)
+	require.NoError(synced.Finalize(nil, ts.Add(time.Second)))
+	require.NotEqual(blkHash, synced.HashBlock())
+	require.NoError(b.CommitBlock(synced))
+	require.Equal(pending.Height(), b.TipHeight())
+
+	// the round then reaches consensus on its own block: the block store refuses it,
+	// which must be reported as the height being done rather than as an error
+	vote := NewConsensusVote(blkHash[:], COMMIT)
+	var done bool
+	for _, delegate := range rctx.round.Delegates() {
+		ens, err := endorsement.Endorse(vote, ts, keyOfDelegate[delegate])
+		require.NoError(err)
+		done, err = rctx.Commit(NewEndorsedConsensusMessage(pending.Height(), vote, ens[0]))
+		require.NoError(err)
+		if done {
+			break
+		}
+	}
+	require.True(done)
+	// the block committed by block sync is still the tip
+	require.Equal(synced.HashBlock(), b.TipHash())
+}

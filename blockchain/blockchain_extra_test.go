@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_blockchain"
@@ -83,4 +84,29 @@ func TestBlockchainAccessorsAndSubscriber(t *testing.T) {
 
 	// a nil subscriber is rejected
 	r.Error(bc.AddSubscriber(nil))
+}
+
+// TestCommitBlockInvalidTipHeight asserts that a height rejection raised by the block
+// store surfaces as blockchain.ErrInvalidTipHeight, which is what callers such as
+// rolldpos and the block sync handler match on to skip an already-committed height.
+func TestCommitBlockInvalidTipHeight(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	dao := mock_blockdao.NewMockBlockDAO(ctrl)
+
+	blk, err := block.NewTestingBuilder().
+		SetHeight(51).
+		SetVersion(1).
+		SignAndBuild(identityset.PrivateKey(0))
+	r.NoError(err)
+	tipHeader := blk.Header
+
+	dao.EXPECT().Height().Return(uint64(51), nil).Times(1)
+	dao.EXPECT().HeaderByHeight(uint64(51)).Return(&tipHeader, nil).Times(1)
+	dao.EXPECT().PutBlock(gomock.Any(), gomock.Any()).Return(filedao.ErrInvalidTipHeight).Times(1)
+
+	bc := blockchain.NewBlockchain(blockchain.DefaultConfig, genesis.TestDefault(), dao, nil)
+	err = bc.CommitBlock(&blk)
+	r.ErrorIs(err, blockchain.ErrInvalidTipHeight)
+	r.ErrorIs(err, filedao.ErrInvalidTipHeight)
 }
