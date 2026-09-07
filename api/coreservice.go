@@ -1072,8 +1072,38 @@ func (core *coreService) TransactionLogByBlockHeight(blockHeight uint64) (*iotex
 	return blockIdentifier, sysLog, nil
 }
 
+// TipHeight returns the tip height that is fully queryable through the API.
+//
+// It is the blockchain tip capped by the action-indexer height. A block is
+// committed to the block store (which advances the blockchain tip) before its
+// actions and receipts are written to the action indexer, and by default that
+// indexing happens asynchronously (see chain config EnableAsyncIndexWrite). This
+// leaves a brief window in which a block is already the "latest" block yet its
+// receipts cannot be resolved by hash, so eth_getTransactionReceipt returns nil
+// even though eth_getBlockByNumber("latest") already returns the block (see
+// https://github.com/iotexproject/iotex-core/issues/4677).
+//
+// Capping the reported tip at the indexer height makes a block become "latest"
+// only once its actions/receipts are indexed and can be served, so the block and
+// its receipts appear atomically to API clients. The action indexer's Height() is
+// an in-memory read guarded by the same lock as its writes, so once it reports
+// height N the action index for block N is committed. This affects only the
+// API's view of the tip; it does not touch consensus, which reads
+// blockchain.TipHeight() directly.
 func (core *coreService) TipHeight() uint64 {
-	return core.bc.TipHeight()
+	tipHeight := core.bc.TipHeight()
+	if core.indexer == nil {
+		return tipHeight
+	}
+	indexHeight, err := core.indexer.Height()
+	if err != nil {
+		// fall back to the blockchain tip if the indexer height is unavailable
+		return tipHeight
+	}
+	if indexHeight < tipHeight {
+		return indexHeight
+	}
+	return tipHeight
 }
 
 // Start starts the API server

@@ -1055,3 +1055,42 @@ type mockWS struct {
 var _ protocol.StateManagerWithCloser = (*mockWS)(nil)
 
 func (m *mockWS) Close() {}
+
+func TestTipHeight(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	indexer := mock_blockindex.NewMockIndexer(ctrl)
+	cs := &coreService{bc: bc}
+
+	t.Run("NoIndexer", func(t *testing.T) {
+		// without an action indexer the blockchain tip is returned as-is
+		bc.EXPECT().TipHeight().Return(uint64(100)).Times(1)
+		require.Equal(uint64(100), cs.TipHeight())
+	})
+
+	cs.indexer = indexer
+
+	t.Run("IndexerBehind", func(t *testing.T) {
+		// block store advanced to 100 but the (async) action indexer only reached
+		// 99; the API must report 99 so a block is advertised as latest only once
+		// its actions/receipts are indexed and queryable. See issue #4677.
+		bc.EXPECT().TipHeight().Return(uint64(100)).Times(1)
+		indexer.EXPECT().Height().Return(uint64(99), nil).Times(1)
+		require.Equal(uint64(99), cs.TipHeight())
+	})
+
+	t.Run("IndexerCaughtUp", func(t *testing.T) {
+		bc.EXPECT().TipHeight().Return(uint64(100)).Times(1)
+		indexer.EXPECT().Height().Return(uint64(100), nil).Times(1)
+		require.Equal(uint64(100), cs.TipHeight())
+	})
+
+	t.Run("IndexerHeightErrorFallsBackToChainTip", func(t *testing.T) {
+		bc.EXPECT().TipHeight().Return(uint64(100)).Times(1)
+		indexer.EXPECT().Height().Return(uint64(0), errors.New("boom")).Times(1)
+		require.Equal(uint64(100), cs.TipHeight())
+	})
+}
