@@ -20,6 +20,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/consensus/consensusfsm"
@@ -438,30 +439,42 @@ func getBlockforctx(t *testing.T, i int, sign bool, prevHash hash.Hash256) block
 	return b
 }
 
-// TestCommitAlreadyCommittedHeight covers the case where block sync commits a block at
-// the round's height while the round is still collecting endorsements. Committing the
-// round's own block is then refused by the block store, and the consensus context must
-// report the round as done instead of surfacing an error.
-func TestCommitAlreadyCommittedHeight(t *testing.T) {
+// commitTestEnv is a rollDPoSCtx whose round sits at the chain tip + 1 with a pending
+// block registered, ready to be driven to consensus by reachConsensus.
+type commitTestEnv struct {
+	rctx    *rollDPoSCtx
+	chain   blockchain.Blockchain
+	pending *block.Block
+	keys    map[string]crypto.PrivateKey
+	ts      time.Time
+}
+
+// newCommitTestEnv builds the environment above. wrap, when not nil, may replace the
+// chain manager that the consensus context commits through.
+func newCommitTestEnv(t *testing.T, wrap func(ChainManager) ChainManager) *commitTestEnv {
 	require := require.New(t)
 	b, sf, _, rp, _ := makeChain(t)
 	g := genesis.TestDefault()
 	g.Blockchain.BlockInterval = time.Second * 20
 	delegates := make([]string, 0, rp.NumDelegates())
-	keyOfDelegate := make(map[string]crypto.PrivateKey, rp.NumDelegates())
+	keys := make(map[string]crypto.PrivateKey, rp.NumDelegates())
 	for i := 0; i < int(rp.NumDelegates()); i++ {
 		addr := identityset.Address(i).String()
 		delegates = append(delegates, addr)
-		keyOfDelegate[addr] = identityset.PrivateKey(i)
+		keys[addr] = identityset.PrivateKey(i)
 	}
 	delegatesByEpoch := func(uint64, []byte) ([]string, error) { return delegates, nil }
+	var cm ChainManager = NewChainManager(b, sf, &dummyBlockBuildFactory{})
+	if wrap != nil {
+		cm = wrap(cm)
+	}
 	rdctx, err := NewRollDPoSCtx(
 		consensusfsm.NewConsensusConfig(DefaultConfig.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, DefaultConfig.Delay),
 		db.DefaultConfig,
 		true,
 		time.Second,
 		true,
-		NewChainManager(b, sf, &dummyBlockBuildFactory{}),
+		cm,
 		block.NewDeserializer(0),
 		rp,
 		nil,
@@ -475,40 +488,91 @@ func TestCommitAlreadyCommittedHeight(t *testing.T) {
 	rctx, ok := rdctx.(*rollDPoSCtx)
 	require.True(ok)
 	require.NoError(rctx.Start(context.Background()))
-	defer rctx.Stop(context.Background())
+	t.Cleanup(func() { rctx.Stop(context.Background()) })
 	require.NoError(rctx.Prepare())
 	require.Equal(b.TipHeight()+1, rctx.round.Height())
 
-	// the round is working on its own block
 	ts := time.Unix(1562382372+100, 0)
 	pending, err := b.MintNewBlock(ts)
 	require.NoError(err)
 	require.Equal(rctx.round.Height(), pending.Height())
 	require.NoError(rctx.round.AddBlock(pending))
-	blkHash := pending.HashBlock()
+	return &commitTestEnv{rctx: rctx, chain: b, pending: pending, keys: keys, ts: ts}
+}
 
-	// meanwhile block sync commits a different block at the same height
-	synced, err := b.MintNewBlock(ts.Add(time.Second))
-	require.NoError(err)
-	require.NoError(synced.Finalize(nil, ts.Add(time.Second)))
-	require.NotEqual(blkHash, synced.HashBlock())
-	require.NoError(b.CommitBlock(synced))
-	require.Equal(pending.Height(), b.TipHeight())
-
-	// the round then reaches consensus on its own block: the block store refuses it,
-	// which must be reported as the height being done rather than as an error
+// reachConsensus feeds COMMIT endorsements from the round's delegates and returns the
+// outcome of the Commit call that crosses the majority, i.e. the one that commits.
+func (env *commitTestEnv) reachConsensus(t *testing.T) (bool, error) {
+	require := require.New(t)
+	blkHash := env.pending.HashBlock()
 	vote := NewConsensusVote(blkHash[:], COMMIT)
-	var done bool
-	for _, delegate := range rctx.round.Delegates() {
-		ens, err := endorsement.Endorse(vote, ts, keyOfDelegate[delegate])
+	for _, delegate := range env.rctx.round.Delegates() {
+		ens, err := endorsement.Endorse(vote, env.ts, env.keys[delegate])
 		require.NoError(err)
-		done, err = rctx.Commit(NewEndorsedConsensusMessage(pending.Height(), vote, ens[0]))
-		require.NoError(err)
-		if done {
-			break
+		done, err := env.rctx.Commit(NewEndorsedConsensusMessage(env.pending.Height(), vote, ens[0]))
+		if err != nil || env.rctx.round.EndorsedByMajority(blkHash[:], []ConsensusVoteTopic{COMMIT}) {
+			return done, err
 		}
 	}
+	require.FailNow("the round never reached a majority of COMMIT endorsements")
+	return false, nil
+}
+
+// TestCommitAlreadyCommittedHeight covers the case where block sync commits a block at
+// the round's height while the round is still collecting endorsements. Committing the
+// round's own block is then refused by the block store, and the consensus context must
+// report the round as done instead of surfacing an error.
+func TestCommitAlreadyCommittedHeight(t *testing.T) {
+	require := require.New(t)
+	env := newCommitTestEnv(t, nil)
+
+	// block sync commits a different block at the height the round is working on
+	synced, err := env.chain.MintNewBlock(env.ts.Add(time.Second))
+	require.NoError(err)
+	require.NoError(synced.Finalize(nil, env.ts.Add(time.Second)))
+	require.NotEqual(env.pending.HashBlock(), synced.HashBlock())
+	require.NoError(env.chain.CommitBlock(synced))
+	require.Equal(env.pending.Height(), env.chain.TipHeight())
+
+	// the block store refuses the round's block, which must be reported as the height
+	// being done rather than as an error
+	done, err := env.reachConsensus(t)
+	require.NoError(err)
 	require.True(done)
 	// the block committed by block sync is still the tip
-	require.Equal(synced.HashBlock(), b.TipHash())
+	require.Equal(synced.HashBlock(), env.chain.TipHash())
 }
+
+// TestCommitPausedChain asserts that a paused chain leaves the round unfinished without
+// reporting an error, so that the FSM retries rather than failing the round.
+func TestCommitPausedChain(t *testing.T) {
+	require := require.New(t)
+	env := newCommitTestEnv(t, nil)
+	env.chain.Pause(true)
+
+	done, err := env.reachConsensus(t)
+	require.NoError(err)
+	require.False(done)
+	require.Less(env.chain.TipHeight(), env.pending.Height())
+}
+
+// TestCommitBlockError asserts that any other commit failure is still reported as an
+// error and does not finish the round.
+func TestCommitBlockError(t *testing.T) {
+	require := require.New(t)
+	env := newCommitTestEnv(t, func(cm ChainManager) ChainManager {
+		return &commitErrChainManager{ChainManager: cm, err: errors.New("commit failed")}
+	})
+
+	done, err := env.reachConsensus(t)
+	require.ErrorContains(err, "commit failed")
+	require.False(done)
+}
+
+// commitErrChainManager fails every CommitBlock with a fixed error.
+type commitErrChainManager struct {
+	ChainManager
+	err error
+}
+
+func (cm *commitErrChainManager) CommitBlock(*block.Block) error { return cm.err }
