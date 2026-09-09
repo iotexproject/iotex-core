@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/pprof"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -201,6 +202,29 @@ func newServer(cfg config.Config, testing bool, opts ...chainservice.BuildOption
 func (s *Server) Start(ctx context.Context) error {
 	cctx, cancel := context.WithCancel(ctx)
 	s.subModuleCancel = cancel
+	// DIAGNOSTIC ONLY -- not for release.
+	//
+	// The admin mux below carries pprof, but it is bound after every chainservice
+	// has started, and a fullsync replay runs entirely inside ChainService.Start.
+	// That makes the replay -- the only phase worth profiling here -- the one
+	// phase pprof cannot see. This opens a second, profile-only listener first.
+	// It binds all interfaces rather than loopback because the replay runs in a
+	// container and the profile is taken from the host; that is acceptable only
+	// because this build is never deployed.
+	if port := os.Getenv("IOTEX_REPLAY_PPROF_PORT"); port != "" {
+		mux := http.NewServeMux()
+		mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+		mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+		mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+		mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+		mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+		go func() {
+			log.L().Info("replay pprof listener", zap.String("addr", "0.0.0.0:"+port))
+			if err := http.ListenAndServe("0.0.0.0:"+port, mux); err != nil {
+				log.L().Error("replay pprof listener stopped", zap.Error(err))
+			}
+		}()
+	}
 	for id, cs := range s.chainservices {
 		if err := cs.Start(cctx); err != nil {
 			return errors.Wrap(err, "error when starting blockchain")
