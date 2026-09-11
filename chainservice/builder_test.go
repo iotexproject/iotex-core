@@ -1,6 +1,8 @@
 package chainservice
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -8,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
@@ -103,4 +106,35 @@ func TestBlockDistanceAt(t *testing.T) {
 			r.Equal(tt.want, got, "test %d: %s", i, tt.name)
 		})
 	}
+}
+
+// TestBuildBlockDAOPropagatesStoreError guards against the block store
+// construction error being swallowed. The "else" branch of buildBlockDAO used
+// to redeclare err with ":=", shadowing the one the check after the block
+// reads, so a chain DB that could not be opened produced no error and left
+// cs.blockdao nil -- NewBlockDAOWithIndexersAndCache returns nil for a nil
+// store. The node then continued building over that nil.
+//
+// The forTest branch was unaffected, which is why no existing test caught it.
+func TestBuildBlockDAOPropagatesStoreError(t *testing.T) {
+	r := require.New(t)
+
+	// A directory where a bolt file is expected, so the store cannot be opened.
+	badPath := filepath.Join(t.TempDir(), "chain.db")
+	r.NoError(os.Mkdir(badPath, 0o755))
+
+	cfg := deepcopy.Copy(config.Default).(config.Config)
+	cfg.Chain.ChainDBPath = badPath
+	cfg.Chain.BlobStoreDBPath = ""
+	cfg.Chain.PatchReceiptIndexPath = ""
+	cfg.Chain.PatchTransactionLogPath = ""
+
+	// Without this the test could pass while proving nothing.
+	dbCfg := cfg.DB
+	dbCfg.DbPath = badPath
+	_, ferr := filedao.NewFileDAO(dbCfg, block.NewDeserializer(cfg.Chain.EVMNetworkID))
+	r.Error(ferr, "precondition: NewFileDAO must fail for this config")
+
+	builder := NewBuilder(cfg)
+	r.Error(builder.buildBlockDAO(false), "block store failure must be propagated, not swallowed")
 }
