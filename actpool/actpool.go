@@ -483,8 +483,11 @@ func (ap *actPool) validate(ctx context.Context, selp *action.SealedEnvelope) er
 	if err != nil {
 		return err
 	}
-	if _, ok := ap.allActions.Get(selpHash); ok {
-		return nil
+	if cached, ok := ap.allActions.Get(selpHash); ok {
+		if prev, ok := cached.(*action.SealedEnvelope); ok &&
+			address.Equal(prev.SenderAddress(), caller) {
+			return nil
+		}
 	}
 	for _, ev := range ap.actionEnvelopeValidators {
 		span.AddEvent("ev.Validate")
