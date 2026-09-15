@@ -32,6 +32,16 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, Default.EpochReward(), cfg.EpochReward())
 	assert.Equal(t, Default.FoundationBonus(), cfg.FoundationBonus())
 }
+
+func TestMainnetZanzibarSchedule(t *testing.T) {
+	const activationHeight uint64 = 53155801
+
+	require.Equal(t, activationHeight, Default.ZanzibarBlockHeight)
+	require.Equal(t, activationHeight, Default.ZanzibarBetaBlockHeight)
+	require.Equal(t, activationHeight, Default.ZanzibarGammaBlockHeight)
+	require.Zero(t, (activationHeight-Default.YapBlockHeight)%1440)
+}
+
 func TestHash(t *testing.T) {
 	require := require.New(t)
 	cfg, err := New("")

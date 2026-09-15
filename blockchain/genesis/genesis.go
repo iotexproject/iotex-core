@@ -97,9 +97,9 @@ func defaultConfig() Genesis {
 			XinguBetaBlockHeight:      41648761,
 			YapBlockHeight:            48985561,
 			YapBetaBlockHeight:        48985561,
-			ZanzibarBlockHeight:       52813081,
-			ZanzibarBetaBlockHeight:   52813081,
-			ZanzibarGammaBlockHeight:  52813081,
+			ZanzibarBlockHeight:       53155801,
+			ZanzibarBetaBlockHeight:   53155801,
+			ZanzibarGammaBlockHeight:  53155801,
 			// The AutoDepositRegister iotex-hub writes compound registrations to, so
 			// a preference set through the hub is the one the protocol acts on. Its
 			// runtime is byte-identical to e2etest/autodeposit_bytecode, which is what
