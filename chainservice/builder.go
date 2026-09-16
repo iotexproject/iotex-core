@@ -627,6 +627,42 @@ func (builder *Builder) buildNodeInfoManager() error {
 	return nil
 }
 
+// commitSyncedBlock validates and commits a block received from block sync, retrying
+// the failures that are expected to clear on their own. committed reports whether the
+// block was actually appended: it is false, with a nil error, when the block store has
+// already moved past the block's height, so there is nothing left to do for it.
+func commitSyncedBlock(
+	chain blockchain.Blockchain,
+	blk *block.Block,
+	retries int,
+	opts ...blockchain.BlockValidationOption,
+) (committed bool, err error) {
+	for i := 0; i < retries; i++ {
+		if err = chain.ValidateBlock(blk, opts...); err == nil {
+			if err = chain.CommitBlock(blk); err == nil {
+				return true, nil
+			}
+		}
+		switch errors.Cause(err) {
+		case blockchain.ErrInvalidTipHeight:
+			log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+			return false, nil
+		case block.ErrDeltaStateMismatch:
+			log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
+		case blockdao.ErrRemoteHeightTooLow:
+			if retries == 1 {
+				retries = 4
+			}
+			log.L().Debug("Remote height too low.", zap.Uint64("height", blk.Height()))
+			time.Sleep(100 * time.Millisecond)
+		default:
+			log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+			return false, err
+		}
+	}
+	return false, err
+}
+
 func (builder *Builder) buildBlockSyncer() error {
 	if builder.cs.blocksync != nil {
 		return nil
@@ -674,38 +710,18 @@ func (builder *Builder) buildBlockSyncer() error {
 			if !builder.cfg.Genesis.IsHawaii(blk.Height()) {
 				retries = 4
 			}
-			var err error
 			opts := []blockchain.BlockValidationOption{}
 			if now := time.Now(); now.After(blk.Timestamp()) &&
 				blk.Height()+cfg.Genesis.MinBlocksForBlobRetention <= estimateTipHeight(&cfg, blk, now.Sub(blk.Timestamp())) {
 				opts = append(opts, blockchain.SkipSidecarValidationOption())
 			}
-			for i := 0; i < retries; i++ {
-				if err = chain.ValidateBlock(blk, opts...); err == nil {
-					if err = chain.CommitBlock(blk); err == nil {
-						break
-					}
-				}
-				switch errors.Cause(err) {
-				case blockchain.ErrInvalidTipHeight:
-					log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-					return nil
-				case block.ErrDeltaStateMismatch:
-					log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
-				case blockdao.ErrRemoteHeightTooLow:
-					if retries == 1 {
-						retries = 4
-					}
-					log.L().Debug("Remote height too low.", zap.Uint64("height", blk.Height()))
-					time.Sleep(100 * time.Millisecond)
-				default:
-					log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-					return err
-				}
-			}
+			committed, err := commitSyncedBlock(chain, blk, retries, opts...)
 			if err != nil {
 				log.L().Debug("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 				return err
+			}
+			if !committed {
+				return nil
 			}
 			log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))
 			consens.Calibrate(blk.Height())

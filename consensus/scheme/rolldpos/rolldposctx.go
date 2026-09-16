@@ -615,17 +615,18 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	}
 
 	// Commit and broadcast the pending block
-	switch err := ctx.chain.CommitBlock(pendingBlock); errors.Cause(err) {
-	case blockchain.ErrInvalidTipHeight:
-		return true, nil
-	case blockchain.ErrPaused:
-		ctx.logger().Info("chain is paused, block will not be committed")
-		return false, nil
-	case nil:
-		break
-	default:
-		log.L().Error("error when committing the block", zap.Error(err))
-		return false, errors.Wrap(err, "error when committing a block")
+	if err := ctx.chain.CommitBlock(pendingBlock); err != nil {
+		switch {
+		case errors.Is(err, blockchain.ErrInvalidTipHeight):
+			// the height is already committed, e.g. by block sync, so the round is done
+			return true, nil
+		case errors.Is(err, blockchain.ErrPaused):
+			ctx.logger().Info("chain is paused, block will not be committed")
+			return false, nil
+		default:
+			log.L().Error("error when committing the block", zap.Error(err))
+			return false, errors.Wrap(err, "error when committing a block")
+		}
 	}
 	// Broadcast the committed block to the network
 	if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
