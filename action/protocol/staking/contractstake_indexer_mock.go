@@ -61,31 +61,31 @@ func (mr *MockEventHandlerMockRecorder) DeductBucket(arg0, arg1 any) *gomock.Cal
 }
 
 // DeleteBucket mocks base method.
-func (m *MockEventHandler) DeleteBucket(arg0 address.Address, arg1 uint64) error {
+func (m *MockEventHandler) DeleteBucket(arg0 context.Context, arg1 address.Address, arg2 uint64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteBucket", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteBucket", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteBucket indicates an expected call of DeleteBucket.
-func (mr *MockEventHandlerMockRecorder) DeleteBucket(arg0, arg1 any) *gomock.Call {
+func (mr *MockEventHandlerMockRecorder) DeleteBucket(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBucket", reflect.TypeOf((*MockEventHandler)(nil).DeleteBucket), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBucket", reflect.TypeOf((*MockEventHandler)(nil).DeleteBucket), arg0, arg1, arg2)
 }
 
 // PutBucket mocks base method.
-func (m *MockEventHandler) PutBucket(arg0 address.Address, arg1 uint64, arg2 *contractstaking.Bucket) error {
+func (m *MockEventHandler) PutBucket(arg0 context.Context, arg1 address.Address, arg2 uint64, arg3 *contractstaking.Bucket) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PutBucket", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "PutBucket", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PutBucket indicates an expected call of PutBucket.
-func (mr *MockEventHandlerMockRecorder) PutBucket(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockEventHandlerMockRecorder) PutBucket(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutBucket", reflect.TypeOf((*MockEventHandler)(nil).PutBucket), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutBucket", reflect.TypeOf((*MockEventHandler)(nil).PutBucket), arg0, arg1, arg2, arg3)
 }
 
 // PutBucketType mocks base method.

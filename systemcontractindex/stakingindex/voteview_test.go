@@ -67,7 +67,7 @@ func TestVoteView(t *testing.T) {
 		})
 		mockIndexer.EXPECT().StartHeight().Return(uint64(0)).Times(1)
 		mockIndexer.EXPECT().ContractStakingBuckets().Return(uint64(99), buckets, nil)
-		mockHandler.EXPECT().PutBucket(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(addr address.Address, id uint64, bucket *contractstaking.Bucket) error {
+		mockHandler.EXPECT().PutBucket(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, addr address.Address, id uint64, bucket *contractstaking.Bucket) error {
 			require.Equal(identityset.Address(0), addr)
 			migratedBuckets[id] = bucket
 			return nil

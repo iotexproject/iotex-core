@@ -1330,3 +1330,92 @@ func TestResponseIDMatchTypeWithRequest(t *testing.T) {
 		require.Contains(string(bodyBytes), tt.sub)
 	}
 }
+
+func TestFeeHistory(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	// a JSON number, a bare decimal string and a hex quantity all ask for 10 blocks
+	for _, blkCnt := range []string{`10`, `"10"`, `"0xa"`} {
+		core.EXPECT().TipHeight().Return(uint64(100))
+		core.EXPECT().FeeHistory(gomock.Any(), uint64(10), uint64(100), []float64{25, 75}).
+			Return(uint64(91), [][]*big.Int{}, []*big.Int{}, []float64{}, []*big.Int{}, []float64{}, nil)
+		in := gjson.Parse(fmt.Sprintf(`{"params":[%s, "latest", [25,75]]}`, blkCnt))
+		ret, err := web3svr.feeHistory(context.Background(), &in)
+		require.NoError(err, blkCnt)
+		require.Equal(uint64ToHex(91), ret.(*feeHistoryResult).OldestBlock, blkCnt)
+	}
+
+	// malformed or overflowing block counts are rejected before reaching the core service
+	for _, blkCnt := range []string{`"0x"`, `"-1"`, `"latest"`, `"0x10000000000000000"`, `18446744073709551616`} {
+		in := gjson.Parse(fmt.Sprintf(`{"params":[%s, "latest", [25,75]]}`, blkCnt))
+		_, err := web3svr.feeHistory(context.Background(), &in)
+		require.ErrorIs(err, errUnkownType, blkCnt)
+	}
+
+	// a missing blockCount is still a format error
+	in := gjson.Parse(`{"params":[]}`)
+	_, err := web3svr.feeHistory(context.Background(), &in)
+	require.ErrorIs(err, errInvalidFormat)
+}
+
+// TestEstimateGasNativeProtocolActionSkipsFloor pins the difference between an
+// action charged by the EVM and one charged its own intrinsic gas.
+//
+// Every native staking action has a base intrinsic gas of 10000, so the 21000
+// call floor overstates every one of them. Measured on TestNet across eight
+// submissions: 21000 estimated against 10000 consumed, every time. MetaMask
+// reads that gap as a failed interaction, so the action shows up as failed in
+// the wallet while the chain reports success.
+func TestEstimateGasNativeProtocolActionSkipsFloor(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+	core.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+	core.EXPECT().EVMNetworkID().Return(uint32(0)).AnyTimes()
+
+	t.Run("staking protocol action reports its intrinsic gas", func(t *testing.T) {
+		// candidateActivate(uint64) against the staking protocol pseudo-address.
+		// No Account() lookup: ethTxToEnvelope dispatches on the address before
+		// it ever asks whether the target holds code.
+		core.EXPECT().EstimateGasForNonExecution(gomock.Any()).Return(uint64(10000), nil)
+
+		in := gjson.Parse(`{"params":[{
+			"from":     "",
+			"to":       "0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
+			"gas":      "0x4e20",
+			"gasPrice": "0xe8d4a51000",
+			"value":    "0x0",
+			"data":     "0xef68b1a4000000000000000000000000000000000000000000000000000000000000002f"
+		   }, "0x1"]}`)
+		ret, err := web3svr.estimateGas(context.Background(), &in)
+		require.NoError(err)
+		require.Equal(uint64ToHex(uint64(10000)), ret.(string),
+			"a native action's intrinsic gas is authoritative; the 21000 call floor does not apply")
+	})
+
+	t.Run("plain transfer keeps the 21000 floor", func(t *testing.T) {
+		// TransferBaseIntrinsicGas is also 10000, so this is the case the floor
+		// exists for. Eth tooling expects 21000 for a bare transfer and this
+		// change must not disturb it.
+		core.EXPECT().Account(gomock.Any()).Return(&iotextypes.AccountMeta{IsContract: false}, nil, nil)
+		core.EXPECT().EstimateGasForNonExecution(gomock.Any()).Return(uint64(10000), nil)
+
+		in := gjson.Parse(`{"params":[{
+			"from":     "",
+			"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
+			"gas":      "0x4e20",
+			"gasPrice": "0xe8d4a51000",
+			"value":    "0x1",
+			"data":     ""
+		   }, "0x1"]}`)
+		ret, err := web3svr.estimateGas(context.Background(), &in)
+		require.NoError(err)
+		require.Equal(uint64ToHex(uint64(21000)), ret.(string))
+	})
+}

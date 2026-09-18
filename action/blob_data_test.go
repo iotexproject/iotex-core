@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -149,4 +150,27 @@ func createTestBlobTxData() *BlobTxData {
 		sidecar:    sidecar,
 	}
 	return blobData
+}
+
+func TestFromProtoBlobTxSideCar_countBound(t *testing.T) {
+	r := require.New(t)
+	permitted := MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob
+
+	// An over-large blob count is rejected before the backing array is allocated,
+	// rather than eagerly allocating one 128 KiB element per declared entry.
+	t.Run("too many blobs", func(t *testing.T) {
+		pb := &iotextypes.BlobTxSidecar{
+			Blobs: make([][]byte, permitted+1), // empty entries; only the count matters
+		}
+		_, err := FromProtoBlobTxSideCar(pb)
+		r.ErrorContains(err, "too many blobs in sidecar")
+	})
+	t.Run("too many commitments", func(t *testing.T) {
+		pb := &iotextypes.BlobTxSidecar{
+			Blobs:       make([][]byte, 1),
+			Commitments: make([][]byte, permitted+1),
+		}
+		_, err := FromProtoBlobTxSideCar(pb)
+		r.ErrorContains(err, "too many blobs in sidecar")
+	})
 }

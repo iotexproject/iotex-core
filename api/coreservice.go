@@ -1869,7 +1869,7 @@ func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, 
 	estimatedGas := receipt.GasConsumed
 	elp.SetGas(estimatedGas)
 	enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
-	if err != nil && !isInsufficientFundsError(err) {
+	if err != nil && !isGasTooLowError(err) {
 		return 0, nil, status.Error(codes.Internal, err.Error())
 	}
 	if !enough {
@@ -1879,7 +1879,7 @@ func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, 
 			mid := (low + high) / 2
 			elp.SetGas(mid)
 			enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
-			if err != nil && !isInsufficientFundsError(err) {
+			if err != nil && !isGasTooLowError(err) {
 				return 0, nil, status.Error(codes.Internal, err.Error())
 			}
 			if enough {
@@ -2477,6 +2477,12 @@ func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Re
 	return nil
 }
 
-func isInsufficientFundsError(err error) bool {
-	return errors.Is(err, action.ErrInsufficientFunds) || errors.Is(err, action.ErrFloorDataGas)
+// isGasTooLowError reports the failures that mean the gas limit handed to a
+// simulation was too small, which during a binary search is a signal to try a
+// larger one rather than an error to report. ErrIntrinsicGas belongs here for
+// the same reason the other two do: the run never started.
+func isGasTooLowError(err error) bool {
+	return errors.Is(err, action.ErrInsufficientFunds) ||
+		errors.Is(err, action.ErrFloorDataGas) ||
+		errors.Is(err, action.ErrIntrinsicGas)
 }

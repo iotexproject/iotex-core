@@ -107,16 +107,31 @@ func (tx *SetCodeTx) fromProto(pb *iotextypes.ActionCore) error {
 	return nil
 }
 
-func (tx *SetCodeTx) toEthTx(to *common.Address, value *big.Int, data []byte) *types.Transaction {
+func (tx *SetCodeTx) toEthTx(to *common.Address, value *big.Int, data []byte) (*types.Transaction, error) {
+	if to == nil {
+		return nil, ErrSetCodeTxCreate
+	}
+	tipCap, err := uint256FromBig(tx.GasTipCap())
+	if err != nil {
+		return nil, err
+	}
+	feeCap, err := uint256FromBig(tx.GasFeeCap())
+	if err != nil {
+		return nil, err
+	}
+	val, err := uint256FromBig(value)
+	if err != nil {
+		return nil, err
+	}
 	return types.NewTx(&types.SetCodeTx{
 		Nonce:      tx.nonce,
-		GasTipCap:  uint256.MustFromBig(tx.GasTipCap()),
-		GasFeeCap:  uint256.MustFromBig(tx.GasFeeCap()),
+		GasTipCap:  tipCap,
+		GasFeeCap:  feeCap,
 		Gas:        tx.gasLimit,
 		To:         *to,
-		Value:      uint256.MustFromBig(value),
+		Value:      val,
 		Data:       data,
 		AccessList: tx.accessList,
 		AuthList:   tx.authList,
-	})
+	}), nil
 }

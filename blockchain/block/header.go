@@ -48,6 +48,8 @@ var (
 	ErrTxRootMismatch      = errors.New("transaction merkle root does not match")
 	ErrDeltaStateMismatch  = errors.New("delta state digest doesn't match")
 	ErrReceiptRootMismatch = errors.New("receipt root hash does not match")
+	ErrGasUsedMismatch     = errors.New("gas used does not match")
+	ErrBlobGasUsedMismatch = errors.New("blob gas used does not match")
 )
 
 // Version returns the version of this block.
@@ -238,6 +240,16 @@ func (h *Header) VerifyReceiptRoot(root hash.Hash256) bool {
 // VerifyTransactionRoot verifies the delta state digest in header
 func (h *Header) VerifyTransactionRoot(root hash.Hash256) bool {
 	return h.txRoot == root
+}
+
+// VerifyGasUsed verifies the gas used in header
+func (h *Header) VerifyGasUsed(gasUsed uint64) bool {
+	return h.gasUsed == gasUsed
+}
+
+// VerifyBlobGasUsed verifies the blob gas used in header
+func (h *Header) VerifyBlobGasUsed(blobGasUsed uint64) bool {
+	return h.blobGasUsed == blobGasUsed
 }
 
 // ProducerAddress returns the address of producer

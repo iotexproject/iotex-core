@@ -25,6 +25,10 @@ const (
 	BlockReward = iota
 	// EpochReward indicates that the action is to grant epoch reward
 	EpochReward
+	// VoterRewardChunk indicates that the action is to advance one chunk
+	// of an in-progress IIP-59 era-boundary voter-reward drain. Emitted
+	// only on non-epoch-boundary blocks while voter reward distribution is active.
+	VoterRewardChunk
 
 	_grantrewardInterfaceABI = `[
 		{
@@ -99,6 +103,8 @@ func (g *GrantReward) Proto() *iotextypes.GrantReward {
 		gProto.Type = iotextypes.RewardType_BlockReward
 	case EpochReward:
 		gProto.Type = iotextypes.RewardType_EpochReward
+	case VoterRewardChunk:
+		gProto.Type = iotextypes.RewardType_VoterRewardChunk
 	}
 	return &gProto
 }
@@ -113,6 +119,8 @@ func (g *GrantReward) LoadProto(gProto *iotextypes.GrantReward) error {
 		g.rewardType = BlockReward
 	case iotextypes.RewardType_EpochReward:
 		g.rewardType = EpochReward
+	case iotextypes.RewardType_VoterRewardChunk:
+		g.rewardType = VoterRewardChunk
 	}
 	return nil
 }

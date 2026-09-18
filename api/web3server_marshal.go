@@ -48,6 +48,7 @@ type (
 
 	getBlockResult struct {
 		blk          *block.Block
+		receipts     []*action.Receipt
 		transactions []interface{}
 	}
 
@@ -191,7 +192,15 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 	for _, tx := range obj.blk.Actions {
 		gasLimit += tx.Gas()
 	}
-	for _, r := range obj.blk.Receipts {
+	// Prefer the receipts explicitly fetched from storage so that the block-level
+	// gasUsed aggregate is correct on read regardless of recency or node type. The
+	// in-memory block loaded from the DAO does not carry its receipts, so falling
+	// back to obj.blk.Receipts would yield 0x0 for historical/archive reads.
+	receipts := obj.receipts
+	if len(receipts) == 0 {
+		receipts = obj.blk.Receipts
+	}
+	for _, r := range receipts {
 		gasUsed += r.GasConsumed
 	}
 	if logsBloom := obj.blk.Header.LogsBloomfilter(); logsBloom != nil {

@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/db/batch"
+	"github.com/iotexproject/iotex-core/v2/db/trie"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
@@ -99,7 +100,7 @@ func TestLoadStoreCommit(t *testing.T) {
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
 		acct := &state.Account{}
-		cntr1, err := newContract(hash.BytesToHash160(_c1[:]), acct, sm, enableAsync)
+		cntr1, err := newContract(hash.BytesToHash160(_c1[:]), acct, sm, enableAsync, true)
 		require.NoError(err)
 
 		tests := []cntrTest{
@@ -222,6 +223,7 @@ func TestSnapshot(t *testing.T) {
 			s,
 			sm,
 			enableAsync,
+			true,
 		)
 		require.NoError(err)
 		require.NoError(_c1.SetState(_k2b, _v2[:]))
@@ -237,4 +239,66 @@ func TestSnapshot(t *testing.T) {
 	t.Run("async mode", func(t *testing.T) {
 		testfunc(true)
 	})
+}
+
+// TestGetCommittedStateAbsentKey guards two aspects of the prestate-absent
+// storage-slot behavior around the CorrectPrestateForAbsentKeys fork gate:
+//
+//   - post-fork (trackAbsent=true, this PR's fix): GetCommittedState must
+//     report the true prestate (ErrNotExist / zero) for a slot that was
+//     absent at tx start, even after an intra-tx SSTORE has landed on it.
+//   - pre-fork (trackAbsent=false): the historical buggy behavior is
+//     preserved so catch-up from mainnet state prior to the fork height
+//     replays byte-identically. GetCommittedState returns the post-mutation
+//     value written earlier in the same tx.
+//
+// Repro pattern (mainnet block 48,900,885, tx 0xfe792b0c...):
+//  1. SLOAD  K  (K absent → trie.ErrNotExist propagated up)
+//  2. SSTORE K, V1  (writes V1 to the live trie)
+//  3. SLOAD  K  (trie now returns V1 without error)
+//  4. GetCommittedState(K)
+//
+// Under the pre-fork code path, step 4 returns V1 (post-mutation), causing
+// EIP-2200 SSTORE gas to be misclassified as SSTORE_RESET on the next write
+// and burning ~2800 extra gas per SSTORE — enough to OOG-revert the ioID
+// device registration flow.
+func TestGetCommittedStateAbsentKey(t *testing.T) {
+	require := require.New(t)
+	run := func(t *testing.T, enableAsync, trackAbsent bool) {
+		ctrl := gomock.NewController(t)
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		acct, err := state.NewAccount()
+		require.NoError(err)
+		c, err := newContract(hash.BytesToHash160(_c1[:]), acct, sm, enableAsync, trackAbsent)
+		require.NoError(err)
+
+		// 1. First SLOAD on an absent key surfaces trie.ErrNotExist.
+		v, err := c.GetState(_k1b)
+		require.True(errors.Cause(err) == trie.ErrNotExist)
+		require.Empty(v)
+
+		// 2. Write V1 to the same key.
+		require.NoError(c.SetState(_k1b, _v1b[:]))
+
+		// 3. Second SLOAD now succeeds and returns the just-written value.
+		v, err = c.GetState(_k1b)
+		require.NoError(err)
+		require.Equal(_v1b[:], v)
+
+		// 4. GetCommittedState behaviour depends on the fork gate.
+		v, err = c.GetCommittedState(_k1b)
+		if trackAbsent {
+			require.True(errors.Cause(err) == trie.ErrNotExist,
+				"post-fork: expected trie.ErrNotExist for prestate-absent key, got err=%v v=%x", err, v)
+			require.Empty(v)
+		} else {
+			require.NoError(err, "pre-fork: GetCommittedState must succeed and return polluted value")
+			require.Equal(_v1b[:], v, "pre-fork: expected post-mutation V1 (bug-preserving), got %x", v)
+		}
+	}
+	t.Run("post-fork sync", func(t *testing.T) { run(t, false, true) })
+	t.Run("post-fork async", func(t *testing.T) { run(t, true, true) })
+	t.Run("pre-fork sync (bug preserved)", func(t *testing.T) { run(t, false, false) })
+	t.Run("pre-fork async (bug preserved)", func(t *testing.T) { run(t, true, false) })
 }

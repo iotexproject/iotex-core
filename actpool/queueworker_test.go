@@ -8,6 +8,7 @@ package actpool
 import (
 	"context"
 	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -18,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 )
 
@@ -220,4 +222,59 @@ func TestQueueWorker_RemoveEmptyAccounts(t *testing.T) {
 	w.removeEmptyAccounts()
 	r.Nil(w.accountActs.Account(_addr1)) // deleted because empty
 	r.Equal(0, w.emptyAccounts.Count())  // marker cache reset
+}
+
+// TestQueueWorker_ResetAccountConcurrentWithPendingActions runs the account-map
+// read path (PendingActions ranges accountActs) against ResetAccount, which
+// removes an account from the same map and heap, on one shared worker. The two
+// must never touch the map at the same time; run with -race to catch it.
+func TestQueueWorker_ResetAccountConcurrentWithPendingActions(t *testing.T) {
+	r := require.New(t)
+	ap, sf := newTestWorkerActPool(t)
+	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			if acct, ok := account.(*state.Account); ok {
+				_ = acct.AddBalance(big.NewInt(maxBalance))
+			}
+			return 0, nil
+		}).AnyTimes()
+
+	const (
+		numAccounts = 24
+		numRounds   = 200
+	)
+	var (
+		w     = ap.worker[0]
+		addrs = make([]address.Address, numAccounts)
+		acts  = make([]*action.SealedEnvelope, numAccounts)
+	)
+	for i := 0; i < numAccounts; i++ {
+		addrs[i] = identityset.Address(i)
+		tsf, err := action.SignedTransfer(_addr2, identityset.PrivateKey(i), 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
+		r.NoError(err)
+		acts[i] = tsf
+		r.NoError(w.putAction(addrs[i].String(), tsf, 1, big.NewInt(maxBalance)))
+	}
+
+	var (
+		ctx = ap.context(context.Background())
+		wg  sync.WaitGroup
+	)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < numRounds; i++ {
+			w.PendingActions(ctx)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < numRounds; i++ {
+			idx := i % numAccounts
+			w.ResetAccount(addrs[idx])
+			// put the account back so the next round has something to remove
+			_ = w.putAction(addrs[idx].String(), acts[idx], 1, big.NewInt(maxBalance))
+		}
+	}()
+	wg.Wait()
 }

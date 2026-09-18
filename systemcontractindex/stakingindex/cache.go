@@ -208,12 +208,12 @@ func (s *base) Commit(ctx context.Context, ca address.Address, timestamp bool, s
 	cssm := contractstaking.NewContractStakingStateManager(sm)
 	for id, bkt := range s.delta {
 		if bkt == nil {
-			if err := cssm.DeleteBucket(ca, id); err != nil {
+			if err := cssm.DeleteBucket(ctx, ca, id); err != nil {
 				return nil, err
 			}
 		} else {
 			bkt.IsTimestampBased = timestamp
-			if err := cssm.UpsertBucket(ca, id, bkt); err != nil {
+			if err := cssm.UpsertBucket(ctx, ca, id, bkt); err != nil {
 				return nil, err
 			}
 		}

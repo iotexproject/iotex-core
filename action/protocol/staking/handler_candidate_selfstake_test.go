@@ -465,7 +465,7 @@ func TestProtocol_HandleCandidateSelfStake(t *testing.T) {
 
 			if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 				// check candidate
-				csm, err := NewCandidateStateManager(sm)
+				csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 				require.NoError(err)
 				for _, expectCand := range test.expectCandidates {
 					candidate := csm.GetByOwner(expectCand.owner)
@@ -655,7 +655,7 @@ func TestProtocol_HandleCandidateDeactivate(t *testing.T) {
 			})
 			candidate := candidates[0]
 			candidate.DeactivatedAt = tt.exitBlock
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			r.NoError(err)
 			r.NoError(csm.Upsert(candidate))
 

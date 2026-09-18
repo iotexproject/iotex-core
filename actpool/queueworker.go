@@ -332,13 +332,15 @@ func (worker *queueWorker) PendingNonce(sender address.Address) (uint64, bool) {
 // ResetAccount resets account in the accountActs of worker
 func (worker *queueWorker) ResetAccount(sender address.Address) []*action.SealedEnvelope {
 	senderStr := sender.String()
-	worker.mu.RLock()
+	// PopAccount removes the account from the map and the priority queue, so
+	// this is a writer and must not share the lock with the readers.
+	worker.mu.Lock()
 	actQueue := worker.accountActs.PopAccount(senderStr)
-	worker.mu.RUnlock()
+	worker.mu.Unlock()
 	if actQueue != nil {
 		pendingActs := actQueue.AllActs()
 		actQueue.Reset()
-		// the following line is thread safe with worker.mu.RLock
+		// emptyAccounts is thread safe on its own
 		worker.emptyAccounts.Set(senderStr, struct{}{})
 		return pendingActs
 	}

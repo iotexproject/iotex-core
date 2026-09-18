@@ -129,7 +129,7 @@ func (s *voteView) Migrate(ctx context.Context, handler staking.EventHandler) er
 	}
 	slices.Sort(sortedIDs)
 	for _, id := range sortedIDs {
-		if err := handler.PutBucket(s.config.ContractAddr, id, buckets[id]); err != nil {
+		if err := handler.PutBucket(ctx, s.config.ContractAddr, id, buckets[id]); err != nil {
 			return err
 		}
 	}

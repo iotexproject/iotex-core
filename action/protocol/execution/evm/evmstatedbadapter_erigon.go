@@ -40,7 +40,7 @@ func NewErigonStateDBAdapter(adapter *StateDBAdapter,
 	intra *erigonstate.IntraBlockState,
 ) *ErigonStateDBAdapter {
 	adapter.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
-		return newContractAdapter(addr, account, adapter.sm, intra, adapter.asyncContractTrie)
+		return newContractAdapter(addr, account, adapter.sm, intra, adapter.asyncContractTrie, adapter.correctPrestateForAbsentKeys)
 	}
 	return &ErigonStateDBAdapter{
 		StateDBAdapter: adapter,

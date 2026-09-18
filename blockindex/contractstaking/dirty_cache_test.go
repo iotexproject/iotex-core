@@ -1,6 +1,7 @@
 package contractstaking
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -63,7 +64,7 @@ func TestContractStakingDirty_getBucketInfo(t *testing.T) {
 
 	// added bucket info
 	dirty.addBucketType(2, &BucketType{Amount: big.NewInt(200), Duration: 200, ActivatedAt: 2})
-	dirty.PutBucket(identityset.Address(1), 2, &contractstaking.Bucket{
+	dirty.PutBucket(context.Background(), identityset.Address(1), 2, &contractstaking.Bucket{
 		StakedAmount:   big.NewInt(200),
 		StakedDuration: 200,
 		CreatedAt:      2,
@@ -93,7 +94,7 @@ func TestContractStakingDirty_getBucketInfo(t *testing.T) {
 	require.Equal(identityset.Address(4), bi.Owner)
 
 	// removed bucket info
-	require.NoError(dirty.DeleteBucket(identityset.Address(1), 1))
+	require.NoError(dirty.DeleteBucket(context.Background(), identityset.Address(1), 1))
 	bi, ok = dirty.getBucketInfo(1)
 	require.False(ok)
 	require.Nil(bi)
@@ -249,7 +250,7 @@ func TestContractStakingDirty_noSideEffectOnClean(t *testing.T) {
 	// remove bucket info existed in clean cache
 	clean.PutBucketInfo(3, &bucketInfo{TypeIndex: 1, CreatedAt: 1, UnlockedAt: maxBlockNumber, UnstakedAt: maxBlockNumber, Delegate: identityset.Address(1), Owner: identityset.Address(2)})
 	// remove bucket info from dirty cache
-	require.NoError(dirty.DeleteBucket(identityset.Address(5), 3))
+	require.NoError(dirty.DeleteBucket(context.Background(), identityset.Address(5), 3))
 	// check that clean cache is not affected
 	bi, ok = clean.getBucketInfo(3)
 	require.True(ok)

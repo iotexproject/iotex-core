@@ -183,3 +183,30 @@ func TestGetVMConfigCtx(t *testing.T) {
 	require.True(ok)
 	require.True(ret.NoBaseFee)
 }
+
+func TestIsEraBoundary(t *testing.T) {
+	require := require.New(t)
+
+	for _, c := range []struct {
+		name         string
+		epochNum     uint64
+		epochsPerEra uint64
+		want         bool
+	}{
+		{"epoch zero never boundary", 0, 24, false},
+		{"epoch zero with disabled cadence", 0, 0, false},
+		{"epochsPerEra zero disables boundaries", 100, 0, false},
+		{"first live boundary at epoch = epochsPerEra", 24, 24, true},
+		{"exact multiple", 48, 24, true},
+		{"one before boundary", 23, 24, false},
+		{"one after boundary", 25, 24, false},
+		{"epochsPerEra of 1 makes every non-zero epoch a boundary", 1, 1, true},
+		{"epochsPerEra of 1 also holds for arbitrary epochs", 12345, 1, true},
+		{"large multiple", 24 * 30, 24, true},
+		{"large non-multiple", 24*30 + 1, 24, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			require.Equal(c.want, IsEraBoundary(c.epochNum, c.epochsPerEra))
+		})
+	}
+}

@@ -10,6 +10,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
 	"runtime/debug"
 	"slices"
 	"time"
@@ -66,6 +68,20 @@ func init() {
 	prometheus.MustRegister(_mintAbility)
 }
 
+// deductBlockGas takes the gas reported by a receipt out of the gas a block has
+// left. The counter is unsigned, so before the fix height the subtraction wraps
+// around when a receipt reports more gas than remains; from that height on it
+// saturates at zero, which keeps the remaining budget monotonic and makes the
+// next action in the block run out of gas instead of being waved through.
+func deductBlockGas(fCtx protocol.FeatureCtx, remaining, consumed uint64) uint64 {
+	if fCtx.CheckedBlockGasDeduction && remaining < consumed {
+		log.L().Warn("receipt reports more gas than the block has left",
+			zap.Uint64("remaining", remaining), zap.Uint64("consumed", consumed))
+		return 0
+	}
+	return remaining - consumed
+}
+
 type (
 	// WorkingSetStoreFactory is the factory to create working set store
 	WorkingSetStoreFactory interface {
@@ -95,6 +111,30 @@ func newWorkingSet(height uint64, views protocol.Views, store workingSetStore, s
 	}
 	ws.txValidator = protocol.NewGenericValidator(ws, accountutil.AccountState)
 	return ws
+}
+
+// dumpWriteQueue writes the ordered state-write queue for the given height to
+// $IOTEX_DIGEST_DUMP_DIR, so the same block can be replayed under two binaries
+// and the dumps diffed; the first differing line is the point of divergence.
+// No-op unless the env var is set, so this costs nothing on a normal node.
+func (ws *workingSet) dumpWriteQueue(height uint64) {
+	dir := os.Getenv("IOTEX_DIGEST_DUMP_DIR")
+	if dir == "" {
+		return
+	}
+	path := filepath.Join(dir, fmt.Sprintf("digest-%d.txt", height))
+	f, err := os.Create(path)
+	if err != nil {
+		log.L().Error("failed to create digest dump file", zap.String("path", path), zap.Error(err))
+		return
+	}
+	defer f.Close()
+	if err := ws.store.DumpWriteQueue(f); err != nil {
+		log.L().Error("failed to dump write queue", zap.Uint64("height", height), zap.Error(err))
+		return
+	}
+	log.L().Info("dumped state write queue for digest mismatch",
+		zap.Uint64("height", height), zap.String("path", path))
 }
 
 func (ws *workingSet) digest() (hash.Hash256, error) {
@@ -408,11 +448,18 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
+	// Keys and Range/Limit describe two different queries, so combining them has no
+	// well-defined answer -- reject rather than silently pick one
+	if err := validateStatesConfig(cfg); err != nil {
+		return 0, nil, err
+	}
 	store, err := ws.matchStore(cfg)
 	if err != nil {
 		return 0, nil, err
 	}
-	iter, err := store.States(cfg.Namespace, cfg.Object, cfg.Keys)
+	// rangeScanFromConfig returns nil unless Range/Limit was explicitly requested,
+	// which keeps every existing caller on the untouched legacy path
+	iter, err := store.States(cfg.Namespace, cfg.Object, cfg.Keys, rangeScanFromConfig(cfg))
 	if err != nil {
 		return 0, nil, err
 	}
@@ -617,7 +664,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		}
 		receipts = append(receipts, receipt)
 		if !action.IsSystemAction(act) {
-			blkCtx.GasLimit -= receipt.GasConsumed
+			blkCtx.GasLimit = deductBlockGas(fCtx, blkCtx.GasLimit, receipt.GasConsumed)
 			if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 			}
@@ -861,7 +908,13 @@ func (ws *workingSet) pickAndRunActions(
 					}
 					bBlobCnt := blobCnt
 					bReceipts := make([]*action.Receipt, 0, bundle.Len())
-					si := ws.store.Snapshot()
+					// ws.Snapshot() rather than ws.store.Snapshot(): a bundle
+					// that gives up part way through has to put the protocol
+					// views back as well as the store, and only the working
+					// set snapshot records both. Mint is the only caller of
+					// this path, so a proposer that skips a bundle carries on
+					// from the state it held before the bundle ran.
+					si := ws.Snapshot()
 					if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
 						_, _, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, selp, bGasLimit, bBlobCnt, uint64(blobLimit), false)
 						if err != nil {
@@ -874,7 +927,7 @@ func (ws *workingSet) pickAndRunActions(
 							}
 							return errors.Errorf("receipt is nil for transaction %x", h)
 						}
-						bGasLimit -= receipt.GasConsumed
+						bGasLimit = deductBlockGas(fCtx, bGasLimit, receipt.GasConsumed)
 						if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 							(&bBlkCtx.AccumulatedTips).Add(&bBlkCtx.AccumulatedTips, receipt.PriorityFee())
 						}
@@ -885,13 +938,13 @@ func (ws *workingSet) pickAndRunActions(
 						return nil
 					}); err != nil {
 						log.L().Warn("failed to process bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.Error(err))
-						if err := ws.store.RevertSnapshot(si); err != nil {
+						if err := ws.Revert(si); err != nil {
 							return nil, errors.Wrapf(err, "failed to revert snapshot %d for bundle %s at height %d", si, bids[i], ws.height)
 						}
 						continue
 					}
 					for _, receipt := range bReceipts {
-						blkCtx.GasLimit -= receipt.GasConsumed
+						blkCtx.GasLimit = deductBlockGas(fCtx, blkCtx.GasLimit, receipt.GasConsumed)
 						if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 							(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 						}
@@ -937,7 +990,7 @@ func (ws *workingSet) pickAndRunActions(
 			if receipt == nil {
 				continue
 			}
-			blkCtx.GasLimit -= receipt.GasConsumed
+			blkCtx.GasLimit = deductBlockGas(fCtx, blkCtx.GasLimit, receipt.GasConsumed)
 			if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 			}
@@ -1030,7 +1083,7 @@ func (ws *workingSet) validateAndRun(
 		log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, true, nil, nil
 	}
-	receipt, err := ws.runAction(actionCtx, nextAction, revertAllSnapshots)
+	receipt, err := ws.runActionDuringMint(actionCtx, nextAction, revertAllSnapshots)
 	switch errors.Cause(err) {
 	case nil:
 		// do nothing
@@ -1048,6 +1101,32 @@ func (ws *workingSet) validateAndRun(
 		return true, true, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 	}
 	return false, false, receipt, nil
+}
+
+// runActionDuringMint runs a single action while assembling a draft block, recovering from
+// any panic raised in the process. A panic here otherwise unwinds past this whole draft (caught
+// only by the mint goroutine's recover in blockpreparer.go) and, unlike a normal error return,
+// skips the caller's sender-eviction logic — so the same poison action would be picked again on
+// every subsequent mint attempt, stalling block production instead of losing a single draft.
+// Converting the panic into an ordinary error routes it through validateAndRun's default case,
+// which evicts the sender from the pool before this draft is abandoned.
+func (ws *workingSet) runActionDuringMint(ctx context.Context, selp *action.SealedEnvelope, revertAllSnapshots bool) (receipt *action.Receipt, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			_mintActionPanicMtc.Inc()
+			actHash, hashErr := selp.Hash()
+			if hashErr != nil {
+				log.L().Error("failed to get action hash after recovering from mint-time panic", zap.Error(hashErr))
+			}
+			log.L().Error("recovered from panic while running action during mint; sender will be evicted from the pool",
+				log.Hex("action", actHash[:]),
+				zap.Any("panic", r),
+				zap.String("stack", string(debug.Stack())))
+			receipt = nil
+			err = errors.Errorf("recovered from panic while running action %x: %v", actHash, r)
+		}
+	}()
+	return ws.runAction(ctx, selp, revertAllSnapshots)
 }
 
 func (ws *workingSet) generateSignedSystemActions(ctx context.Context, sign func(elp action.Envelope) (*action.SealedEnvelope, error)) ([]*action.SealedEnvelope, error) {
@@ -1145,11 +1224,31 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) (err 
 		return err
 	}
 	if !blk.VerifyDeltaStateDigest(digest) {
+		ws.dumpWriteQueue(blk.Height())
 		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x' at height %d", blk.DeltaStateDigest(), digest, blk.Height())
 	}
 	receiptRoot := calculateReceiptRoot(ws.receipts)
 	if !blk.VerifyReceiptRoot(receiptRoot) {
 		return errors.Wrapf(block.ErrReceiptRootMismatch, "receipt root in block '%x' vs receipt root in workingset '%x'", blk.ReceiptRoot(), receiptRoot)
+	}
+	// The proposer derives the header's gasUsed/blobGasUsed from its own
+	// receipts in CreateBuilder; re-derive them here from the receipts this
+	// node produced and reject a header that disagrees. Each field is checked
+	// only when the feature that makes the proposer set it is active, so the
+	// validator never demands a value the proposer never wrote.
+	if fCtx.ValidateHeaderGasUsed {
+		if fCtx.EnableDynamicFeeTx {
+			gasUsed := calculateGasUsed(ws.receipts)
+			if !blk.VerifyGasUsed(gasUsed) {
+				return errors.Wrapf(block.ErrGasUsedMismatch, "gas used in block %d vs gas used in workingset %d at height %d", blk.GasUsed(), gasUsed, blk.Height())
+			}
+		}
+		if fCtx.EnableBlobTransaction {
+			blobGasUsed := calculateBlobGasUsed(ws.receipts)
+			if !blk.VerifyBlobGasUsed(blobGasUsed) {
+				return errors.Wrapf(block.ErrBlobGasUsedMismatch, "blob gas used in block %d vs blob gas used in workingset %d at height %d", blk.BlobGasUsed(), blobGasUsed, blk.Height())
+			}
+		}
 	}
 
 	return nil

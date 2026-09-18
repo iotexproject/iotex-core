@@ -106,7 +106,7 @@ func TestBucketPool(t *testing.T) {
 	}
 
 	// simulate bucket pool operation success, but sm did not commit (Snapshot() implements workingset.Reset(), clearing data stored in Dock())
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 	r.NoError(err)
 	r.NoError(csm.DebitBucketPool(tests[0].amount, true))
 	total.Add(total, tests[0].amount)
@@ -116,7 +116,7 @@ func TestBucketPool(t *testing.T) {
 	var testGreenland bool
 	ctx := protocol.WithFeatureWithHeightCtx(genesis.WithGenesisContext(context.Background(), genesis.TestDefault()))
 	for _, v := range tests {
-		csm, err = NewCandidateStateManager(sm)
+		csm, err = NewCandidateStateManagerWithContext(context.Background(), sm)
 		if v.postGreenland && testGreenland {
 			csm.(*candSM).bucketPool.EnableSMStorage()
 		}
@@ -173,7 +173,7 @@ func TestBucketPool(t *testing.T) {
 	r.Equal(count, b.count)
 
 	// test again bucket pool operation success but sm did not commit
-	csm, err = NewCandidateStateManager(sm)
+	csm, err = NewCandidateStateManagerWithContext(context.Background(), sm)
 	r.NoError(err)
 	r.NoError(csm.DebitBucketPool(tests[0].amount, true))
 	sm.Snapshot()

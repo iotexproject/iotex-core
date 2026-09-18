@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/eracow"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -23,6 +24,10 @@ type (
 	// NativeBucketGetByIndex related to obtaining bucket by index
 	NativeBucketGetByIndex interface {
 		NativeBucket(index uint64) (*VoteBucket, error)
+	}
+	// CandidateByAddressReader reads candidates directly from staking state.
+	CandidateByAddressReader interface {
+		CandidateByAddress(address.Address) (*Candidate, uint64, error)
 	}
 	// ReadState related to read bucket and candidate by request
 	ReadState interface {
@@ -45,6 +50,8 @@ type (
 		NativeBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error)
 		NativeBucketIndicesByVoter(addr address.Address) (*BucketIndices, uint64, error)
 		NativeBucketIndicesByCandidate(addr address.Address) (*BucketIndices, uint64, error)
+		FrozenNativeBucket(eracow.Window, uint64) (*VoteBucket, error)
+		FrozenNativeBucketIndices(eracow.Window, address.Address) (BucketIndices, error)
 		CandidateByAddress(name address.Address) (*Candidate, uint64, error)
 		CreateCandidateCenter(ctx protocol.FeatureCtx) (*CandidateCenter, uint64, error)
 		ReadState
@@ -72,6 +79,13 @@ func newCandidateStateReader(sr protocol.StateReader) CandidateStateReader {
 	return &candSR{
 		StateReader: sr,
 	}
+}
+
+// NewCandidateByAddressReader returns the state-backed candidate lookup for sr.
+// Its narrow interface is safe for historical and archive readers, which do
+// not carry the live staking view required by the full CandidateStateReader.
+func NewCandidateByAddressReader(sr protocol.StateReader) CandidateByAddressReader {
+	return newCandidateStateReader(sr)
 }
 
 func (c *candSR) Height() uint64 {
@@ -182,10 +196,7 @@ func (c *candSR) NativeBucket(index uint64) (*VoteBucket, error) {
 		vb  VoteBucket
 		err error
 	)
-	if _, err = c.State(
-		&vb,
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(bucketKey(index))); err != nil {
+	if _, err = c.State(&vb, nativeBucketStateOpts(index)...); err != nil {
 		return nil, err
 	}
 	var tc totalBucketCount
@@ -199,6 +210,55 @@ func (c *candSR) NativeBucket(index uint64) (*VoteBucket, error) {
 		return nil, ErrWithdrawnBucket
 	}
 	return &vb, nil
+}
+
+// FrozenNativeBucket reads a native bucket as of the era freeze height.
+func (c *candSR) FrozenNativeBucket(window eracow.Window, index uint64) (*VoteBucket, error) {
+	if !window.Open() {
+		return nil, errors.New("staking: no era window open")
+	}
+	if !window.NativeBucketExisted(index) {
+		return nil, errors.Wrapf(eracow.ErrBucketPostFreeze, "native bucket %d", index)
+	}
+	vb := &VoteBucket{}
+	err := eracow.Resolve(
+		c.StateReader, window.FreezeHeight,
+		eracow.KindNativeBucket, eracow.NativeBucketSubkey(index),
+		vb,
+		nativeBucketStateOpts(index)...,
+	)
+	switch {
+	case err == nil:
+		vb.Index = index
+		return vb, nil
+	case errors.Is(err, eracow.ErrNotFrozen):
+		return nil, errors.Wrapf(eracow.ErrBucketPostFreeze, "native bucket %d", index)
+	default:
+		return nil, err
+	}
+}
+
+// FrozenNativeBucketIndices reads a voter's native bucket index list as of the
+// era freeze height. An absent list is returned as nil without an error.
+func (c *candSR) FrozenNativeBucketIndices(window eracow.Window, voter address.Address) (BucketIndices, error) {
+	if !window.Open() {
+		return nil, errors.New("staking: no era window open")
+	}
+	var bis BucketIndices
+	err := eracow.Resolve(
+		c.StateReader, window.FreezeHeight,
+		eracow.KindNativeVoterIndex, eracow.AddrSubkey(voter.Bytes()),
+		&bis,
+		nativeBucketIndexStateOpts(voter, _voterIndex)...,
+	)
+	switch {
+	case err == nil:
+		return bis, nil
+	case errors.Is(err, eracow.ErrNotFrozen), errors.Cause(err) == state.ErrStateNotExist:
+		return nil, nil
+	default:
+		return nil, err
+	}
 }
 
 func (c *candSR) NativeBuckets() ([]*VoteBucket, uint64, error) {
@@ -266,14 +326,8 @@ func (c *candSR) getExistingBucketsWithIndices(indices BucketIndices) ([]*VoteBu
 }
 
 func (c *candSR) NativeBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error) {
-	var (
-		bis BucketIndices
-		key = AddrKeyWithPrefix(addr, prefix)
-	)
-	height, err := c.State(
-		&bis,
-		protocol.NamespaceOption(_stakingNameSpace),
-		protocol.KeyOption(key))
+	var bis BucketIndices
+	height, err := c.State(&bis, nativeBucketIndexStateOpts(addr, prefix)...)
 	if err != nil {
 		return nil, height, err
 	}

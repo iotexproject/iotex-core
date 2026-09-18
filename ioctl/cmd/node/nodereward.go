@@ -24,8 +24,8 @@ import (
 // Multi-language support
 var (
 	_rewardCmdUses = map[config.Language]string{
-		config.English: "reward unclaimed|pool [ALIAS|REWARD_ADDRESS|NAME]",
-		config.Chinese: "reward 未支取|奖金池 [别名|奖励地址|名称]",
+		config.English: "reward unclaimed|pool|pending|delegates|distribution|snapshot|payout|destination [ALIAS|ADDRESS|NAME]",
+		config.Chinese: "reward 未支取|奖金池|待发放|代表列表|发放进度|快照|佣金地址|收款地址 [别名|地址|名称]",
 	}
 	_rewardCmdShorts = map[config.Language]string{
 		config.English: "Query rewards",
@@ -57,6 +57,36 @@ var _nodeRewardCmd = &cobra.Command{
 				return output.NewError(output.InputError, "wrong number of arg(s) for ioctl node reward unclaimed [ALIAS|DELEGATE_ADDRESS] command. \nRun 'ioctl node reward --help' for usage.", nil)
 			}
 			err = reward(args[1])
+		case "pending":
+			if len(args) != 2 {
+				return output.NewError(output.InputError, "wrong number of arg(s) for ioctl node reward pending [ALIAS|DELEGATE_ADDRESS] command. \nRun 'ioctl node reward --help' for usage.", nil)
+			}
+			err = voterRewardPending(args[1])
+		case "delegates":
+			if len(args) != 1 {
+				return output.NewError(output.InputError, "wrong number of arg(s) for ioctl node reward delegates command. \nRun 'ioctl node reward --help' for usage.", nil)
+			}
+			err = voterRewardDelegates()
+		case "distribution":
+			if len(args) != 1 {
+				return output.NewError(output.InputError, "wrong number of arg(s) for ioctl node reward distribution command. \nRun 'ioctl node reward --help' for usage.", nil)
+			}
+			err = voterRewardDistribution()
+		case "snapshot":
+			if len(args) != 2 {
+				return output.NewError(output.InputError, "wrong number of arg(s) for ioctl node reward snapshot [ALIAS|DELEGATE_ADDRESS] command. \nRun 'ioctl node reward --help' for usage.", nil)
+			}
+			err = voterRewardSnapshot(args[1])
+		case "payout":
+			if len(args) != 2 {
+				return output.NewError(output.InputError, "wrong number of arg(s) for ioctl node reward payout [ALIAS|DELEGATE_ADDRESS] command. \nRun 'ioctl node reward --help' for usage.", nil)
+			}
+			err = voterRewardPayoutAddress(args[1])
+		case "destination":
+			if len(args) != 2 {
+				return output.NewError(output.InputError, "wrong number of arg(s) for ioctl node reward destination [ALIAS|VOTER_ADDRESS] command. \nRun 'ioctl node reward --help' for usage.", nil)
+			}
+			err = voterRewardDestination(args[1])
 		default:
 			return output.NewError(output.InputError, "unknown command. \nRun 'ioctl node reward --help' for usage.", nil)
 		}

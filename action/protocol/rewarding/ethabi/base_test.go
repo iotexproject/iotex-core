@@ -34,4 +34,12 @@ func TestBuildReadStateRequest(t *testing.T) {
 	ctx, err = BuildReadStateRequest(data)
 	r.Nil(err)
 	r.IsType(&UnclaimedBalanceStateContext{}, ctx)
+
+	ctx, err = BuildReadStateRequest(_pendingVoterRewardDelegatesMethod.ID)
+	r.NoError(err)
+	r.IsType(&PendingVoterRewardDelegatesStateContext{}, ctx)
+
+	ctx, err = BuildReadStateRequest(_voterRewardDistributionMethod.ID)
+	r.NoError(err)
+	r.IsType(&VoterRewardDistributionStateContext{}, ctx)
 }

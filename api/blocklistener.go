@@ -16,19 +16,19 @@ import (
 type streamHandler func(interface{}) (int, error)
 
 type gRPCBlockListener struct {
-	streamHandle streamHandler
-	errChan      chan error
+	sender *streamSender
 }
 
 // NewGRPCBlockListener returns a new gRPC block listener
 func NewGRPCBlockListener(handler streamHandler, errChan chan error) apitypes.Responder {
 	return &gRPCBlockListener{
-		streamHandle: handler,
-		errChan:      errChan,
+		sender: newStreamSender("blocks", handler, errChan),
 	}
 }
 
-// Respond to new block
+// Respond to new block. It only serialises the block and queues it; the write
+// itself happens on the subscription's own goroutine, so a peer that stops
+// reading cannot stall block commitment. See streamSender.
 func (bl *gRPCBlockListener) Respond(_ string, blk *block.Block) error {
 	var receiptsPb []*iotextypes.Receipt
 	for _, receipt := range blk.Receipts {
@@ -43,25 +43,15 @@ func (bl *gRPCBlockListener) Respond(_ string, blk *block.Block) error {
 		Hash:   hex.EncodeToString(h[:]),
 		Height: blk.Height(),
 	}
-	// send blockInfo thru streaming API
-	if _, err := bl.streamHandle(&iotexapi.StreamBlocksResponse{
+	return bl.sender.enqueue(&iotexapi.StreamBlocksResponse{
 		Block:           blockInfo,
 		BlockIdentifier: blockID,
-	}); err != nil {
-		log.L().Info(
-			"Error when streaming the block",
-			zap.Uint64("height", blockInfo.GetBlock().GetHeader().GetCore().GetHeight()),
-			zap.Error(err),
-		)
-		bl.errChan <- err
-		return err
-	}
-	return nil
+	})
 }
 
-// Exit send to error channel
+// Exit ends the subscription and releases the RPC handler
 func (bl *gRPCBlockListener) Exit() {
-	bl.errChan <- nil
+	bl.sender.fail(nil)
 }
 
 type web3BlockListener struct {

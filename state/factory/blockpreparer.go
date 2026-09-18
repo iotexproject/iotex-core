@@ -26,9 +26,15 @@ var _validateBlockPanicMtc = prometheus.NewCounter(prometheus.CounterOpts{
 	Help: "Number of panics recovered while validating a proposed block (the block was rejected; process kept alive).",
 })
 
+var _mintActionPanicMtc = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "iotex_mint_action_panics_total",
+	Help: "Number of panics recovered while running a single action during minting (the action's sender was evicted from the pool so the next mint attempt won't retry it; this draft was still discarded).",
+})
+
 func init() {
 	prometheus.MustRegister(_mintPanicMtc)
 	prometheus.MustRegister(_validateBlockPanicMtc)
+	prometheus.MustRegister(_mintActionPanicMtc)
 }
 
 type (

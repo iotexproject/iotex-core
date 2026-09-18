@@ -6,6 +6,7 @@
 package genesis
 
 import (
+	"encoding/hex"
 	"math"
 	"math/big"
 	"sort"
@@ -27,6 +28,20 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
+
+// _mainnetGenesisHash is Hash() of the mainnet genesis config. TestnetGrants is
+// not among the fields Hash() covers, so a mainnet file still hashes to this
+// after grants are appended to it and ValidateTestnetGrants still recognises it.
+const _mainnetGenesisHash = "b337983730981c2d50f114eed5da9dd20b83c8c5e130beefdb3001dc858cfe8b"
+
+// MaxBalanceBits is the width of the balance field in the Erigon secondary
+// store, which holds it as a uint256. Every other path that moves balance
+// conserves supply, so no account can approach the bound; a grant mints, so it
+// is the one place a configured number can cross it. Past the bound the write
+// panics in uint256.MustFromBig rather than failing, which takes the node down
+// instead of rejecting the block -- hence the check here and the one in
+// account.Protocol.CreatePreStates for the sum.
+const MaxBalanceBits = 256
 
 var (
 	// Default contains the default genesis config
@@ -82,11 +97,26 @@ func defaultConfig() Genesis {
 			XinguBetaBlockHeight:      41648761,
 			YapBlockHeight:            48985561,
 			YapBetaBlockHeight:        48985561,
-			ToBeEnabledBlockHeight:    math.MaxUint64,
+			ZanzibarBlockHeight:       53155801,
+			ZanzibarBetaBlockHeight:   53155801,
+			ZanzibarGammaBlockHeight:  53155801,
+			// The AutoDepositRegister iotex-hub writes compound registrations to, so
+			// a preference set through the hub is the one the protocol acts on. Its
+			// runtime is byte-identical to e2etest/autodeposit_bytecode, which is what
+			// the slot constants in action/protocol/rewarding/autodeposit were derived
+			// against -- IIP-59 reads those slots directly rather than calling
+			// bucket(), so the address and that layout travel together.
+			AutoDepositContractAddress: "io108ckwzlzpkhva7cnfceajlu7wu6ql5kq95uat9",
+			ToBeEnabledBlockHeight:     math.MaxUint64,
+			PersistStakingPatchBlock:   19778037,
+			FixAliasForNonStopHeight:   19778036,
 		},
 		Account: Account{
 			InitBalanceMap:          map[string]string{},
 			ReplayDeployerWhitelist: []string{"0x3fab184622dc19b6109349b94811493bf2a45362"},
+			// empty, not nil: the YAML loader materialises an absent sequence as
+			// an empty slice, and config equality checks compare against this
+			TestnetGrants: []TestnetGrant{},
 		},
 		Poll: Poll{
 			PollMode:                         "nativeMix",
@@ -101,15 +131,21 @@ func defaultConfig() Genesis {
 			SystemStakingContractV2Height:    30934838,
 			SystemStakingContractV3Address:   "io1vkcvq4ywarvfj4u9zwlqedfsttalq55jmtmqcu", // https://iotexscan.io/tx/0261599524be26cd0a5bdfffc4df1316b244306b4d31488bf60d3f6cbfa6722e
 			SystemStakingContractV3Height:    36726575,
-			NativeStakingContractAddress:     "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
-			VoteThreshold:                    "100000000000000000000",
-			StakingContractAddress:           "0x87c9dbff0016af23f5b1ab9b8e072124ab729193",
-			SelfStakingThreshold:             "1200000000000000000000000",
-			ScoreThreshold:                   "2000000000000000000000000",
-			RegisterContractAddress:          "0x95724986563028deb58f15c5fac19fa09304f32d",
-			GravityChainStartHeight:          7614500,
-			GravityChainHeightInterval:       100,
-			Delegates:                        []Delegate{},
+			// Deployed on MainNet well before Zanzibar; IIP-59 reads each delegate's
+			// voter-take portions from it at the era freeze. Scheduling zanzibarHeight
+			// without this address is rejected by validate(), because an empty address
+			// does not switch commission routing off -- it pins every opted-in delegate
+			// at 100% commission, paying no voter and logging nothing.
+			DelegateProfileContractAddress: "io1lfl4ppn2c3wcft04f0rk0jy9lyn4pcjcm7638u",
+			NativeStakingContractAddress:   "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+			VoteThreshold:                  "100000000000000000000",
+			StakingContractAddress:         "0x87c9dbff0016af23f5b1ab9b8e072124ab729193",
+			SelfStakingThreshold:           "1200000000000000000000000",
+			ScoreThreshold:                 "2000000000000000000000000",
+			RegisterContractAddress:        "0x95724986563028deb58f15c5fac19fa09304f32d",
+			GravityChainStartHeight:        7614500,
+			GravityChainHeightInterval:     100,
+			Delegates:                      []Delegate{},
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:             unit.ConvertIotxToRau(200000000).String(),
@@ -163,6 +199,12 @@ func defaultConfig() Genesis {
 			FoundationBonusP2EndEpoch:      18458,
 			ProductivityThreshold:          85,
 			WakeBlockRewardStr:             "4000000000000000000",
+			EpochsPerRewardEra:             24,
+			VoterBudgetPerBlock:            256,
+			HermesRewardVaultAddresses: []string{
+				"io19604a05s2p3mecam2zz7d27hcr6ndyw80wvkmh",
+				"io12mgttmfa2ffn9uqvn0yn37f4nz43d248l2ga85",
+			},
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
@@ -228,6 +270,14 @@ func TestDefault() Genesis {
 	cfg.PacificBlockHeight = 0
 	cfg.NumSubEpochs = 2
 	cfg.EnableGravityChainVoting = false
+	// A test chain does not inherit MainNet's Zanzibar schedule. It never reaches
+	// that height, and carrying it would make validate() enforce the IIP-59
+	// contract requirements on every genesis a unit test builds.
+	cfg.ZanzibarBlockHeight = math.MaxUint64
+	cfg.ZanzibarBetaBlockHeight = math.MaxUint64
+	cfg.ZanzibarGammaBlockHeight = math.MaxUint64
+	cfg.DelegateProfileContractAddress = ""
+	cfg.AutoDepositContractAddress = ""
 	for i := 0; i < identityset.Size(); i++ {
 		addr := identityset.Address(i).String()
 		value := unit.ConvertIotxToRau(100000000).String()
@@ -390,9 +440,59 @@ type (
 		YapBlockHeight uint64 `yaml:"yapHeight"`
 		// YapBetaBlockHeight is the start height to enable slashing candidate by identity
 		YapBetaBlockHeight uint64 `yaml:"yapBetaHeight"`
+		// ZanzibarBlockHeight is the start height of IIP-59 protocol-native
+		// voter reward distribution and of the BLS proof-of-possession
+		// requirement at candidate register / update.
+		ZanzibarBlockHeight uint64 `yaml:"zanzibarHeight"`
+		// ZanzibarBetaBlockHeight is the start height of the corrections to
+		// what Zanzibar turned on. They need a height of their own because a
+		// chain that has already activated Zanzibar is running the
+		// pre-correction behaviour, and changing what Zanzibar selects would
+		// rewrite the semantics of blocks that chain has already committed.
+		//
+		// Set this EQUAL to ZanzibarBlockHeight on any chain that has not
+		// activated Zanzibar yet. A later height is only for a chain that has,
+		// where it is forced, and it costs something real: it schedules a
+		// window in which the chain knowingly runs behaviour already found to
+		// be wrong, and one of the corrections cannot take effect at all.
+		//
+		// RequireProfileForHermesMigration guards migrateHermesRewardOptIn,
+		// which runs in exactly one block -- the one at ZanzibarBlockHeight --
+		// and never again. If this height is later than that block, the guard
+		// reads false there, the migration runs unguarded, and no later height
+		// brings it back. On such a chain the flag is permanently inert.
+		ZanzibarBetaBlockHeight uint64 `yaml:"zanzibarBetaHeight"`
+		// ZanzibarGammaBlockHeight is the start height of the corrections found
+		// after Zanzibar Beta was scheduled. It exists for the same reason Beta
+		// does, one level up: a chain that has already activated Beta is running
+		// the pre-correction behaviour, and folding these into Beta would
+		// rewrite the semantics of blocks that chain has committed.
+		//
+		// Set this EQUAL to ZanzibarBetaBlockHeight on any chain that has not
+		// activated Beta yet. A later height is only for a chain that has, and
+		// it carries the same cost: a window in which the chain knowingly runs
+		// behaviour already found to be wrong.
+		//
+		// One such window is not avoidable. EnforceBLSPoP rides Zanzibar, and
+		// candidate register writes its self-stake bucket before it verifies the
+		// proof, so on a chain where Gamma trails Zanzibar a rejected proof
+		// leaves that bucket behind until Gamma activates.
+		ZanzibarGammaBlockHeight uint64 `yaml:"zanzibarGammaHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
+		// PersistStakingPatchBlock is the height from which the candidate center's name/operator
+		// maps are persisted to (and read back from) the staking patch file
+		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
+		// FixAliasForNonStopHeight is the height at which the candidate center's name/operator maps
+		// are rebuilt, so a node that never restarted ends up with the same maps as one that did
+		FixAliasForNonStopHeight uint64 `yaml:"fixAliasForNonStopHeight"`
+		// AutoDepositContractAddress is the IoTeX bech32 address of the
+		// AutoDeposit contract from which IIP-59 reads per-voter compound
+		// preferences at epoch reward distribution time. Empty means
+		// compound routing is inactive and every voter share is credited
+		// to the voter's unclaimed balance for pull-claim.
+		AutoDepositContractAddress string `yaml:"autoDepositContractAddress"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -400,6 +500,29 @@ type (
 		InitBalanceMap map[string]string `yaml:"initBalances"`
 		// ReplayDeployerWhitelist is the whitelist address for unprotected (pre-EIP155) transaction
 		ReplayDeployerWhitelist []string `yaml:"replayDeployerWhitelist"`
+		// TestnetGrants credits balance to a set of addresses at a given height
+		// on a chain that is already running, so a test network that has lost
+		// its delegate owner keys can fund a replacement set without restarting
+		// the chain. Rejected on mainnet, see ValidateTestnetGrants.
+		//
+		// A scheduled grant is consensus state: every node needs the same
+		// genesis file before the activation height, or it will fail the delta
+		// state digest check on that block and stop. Roll one out as a hard fork.
+		TestnetGrants []TestnetGrant `yaml:"testnetGrants"`
+	}
+	// TestnetGrant is one scheduled batch of balance credits. Recipients is a
+	// list rather than a map because the apply order is part of consensus.
+	TestnetGrant struct {
+		// Height is applied before any action in that block. Must be non-zero;
+		// balances that exist from the start of the chain go in InitBalanceMap.
+		Height     uint64           `yaml:"height"`
+		Recipients []GrantRecipient `yaml:"recipients"`
+	}
+	// GrantRecipient is one address/amount pair of a TestnetGrant. Amount is in
+	// Rau and is added to whatever the address already holds.
+	GrantRecipient struct {
+		Address string `yaml:"address"`
+		Amount  string `yaml:"amount"`
 	}
 	// Poll contains the configs for poll protocol
 	Poll struct {
@@ -453,6 +576,12 @@ type (
 		SystemStakingContractV3Address string `yaml:"systemStakingContractV3Address"`
 		// SystemStakingContractV3Height is the height of system staking contract
 		SystemStakingContractV3Height uint64 `yaml:"systemStakingContractV3Height"`
+		// DelegateProfileContractAddress is the bech32 address of the on-chain
+		// DelegateProfile contract from which IIP-59 reads per-delegate voter-take
+		// portions at PutPollResult. Empty ⇒ IIP-59 commission-rate freeze is
+		// inactive and the rewarding protocol falls back to the legacy Hermes
+		// distribution path. Populated per-network in the mainnet/testnet YAML.
+		DelegateProfileContractAddress string `yaml:"delegateProfileContractAddress"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {
@@ -493,6 +622,16 @@ type (
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
 		// WakeBlockRewardStr is the block reward amount, in decimal string format, effective from the Wake height
 		WakeBlockRewardStr string `yaml:"wakeBlockRewardStr"`
+		// EpochsPerRewardEra is the number of epochs per IIP-59 voter reward era. Era boundaries are epochs where
+		// epochNum%EpochsPerRewardEra==0. Only consulted when the IIP-59 voter reward distribution feature is active.
+		EpochsPerRewardEra uint64 `yaml:"epochsPerRewardEra"`
+		// VoterBudgetPerBlock is the maximum number of voters credited per block during the era-boundary chunked
+		// credit path (IIP-59 Phase 2). 0 falls back to a single-block drain, preserving pre-IIP-59 behavior for
+		// tests that never touch the field.
+		VoterBudgetPerBlock uint64 `yaml:"voterBudgetPerBlock"`
+		// HermesRewardVaultAddresses lists legacy reward addresses whose delegates are
+		// automatically migrated to protocol-native reward distribution at IIP-59 activation.
+		HermesRewardVaultAddresses []string `yaml:"hermesRewardVaultAddresses"`
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {
@@ -552,7 +691,194 @@ func New(genesisPath string) (Genesis, error) {
 	if len(genesis.InitBalanceMap) == 0 {
 		genesis.InitBalanceMap = defaultInitBalanceMap()
 	}
+	if err := genesis.validate(); err != nil {
+		return Genesis{}, err
+	}
 	return genesis, nil
+}
+
+// validate rejects genesis values that would leave a scheduled feature silently
+// inert rather than failing loudly. It runs on the YAML load path only: callers
+// that build a Genesis literal (tests, defaultConfig) are trusted.
+func (g *Genesis) validate() error {
+	// The testnet grants are their own schedule and are read whether or not
+	// IIP-59 is on, so they are checked before anything below returns early.
+	if err := g.ValidateTestnetGrants(); err != nil {
+		return err
+	}
+	// Everything below is IIP-59, which Zanzibar turns on -- it no longer
+	// shares ToBeEnabledBlockHeight with the other WIP features. Until that
+	// height is scheduled the era length and the contract addresses are never
+	// read, so any value is acceptable and a node must still be able to start.
+	if g.ZanzibarBlockHeight == math.MaxUint64 {
+		return nil
+	}
+	// Zanzibar Beta only corrects behaviour Zanzibar already turned on, so it
+	// cannot precede it.
+	if g.ZanzibarBetaBlockHeight < g.ZanzibarBlockHeight {
+		return errors.Errorf(
+			"genesis: zanzibarBetaHeight %d must not precede zanzibarHeight %d",
+			g.ZanzibarBetaBlockHeight, g.ZanzibarBlockHeight,
+		)
+	}
+	// Zanzibar Gamma only corrects behaviour Zanzibar Beta already turned on,
+	// so it cannot precede it.
+	if g.ZanzibarGammaBlockHeight < g.ZanzibarBetaBlockHeight {
+		return errors.Errorf(
+			"genesis: zanzibarGammaHeight %d must not precede zanzibarBetaHeight %d",
+			g.ZanzibarGammaBlockHeight, g.ZanzibarBetaBlockHeight,
+		)
+	}
+	// IIP-59 enumerates pending reward pools by their unhashed V2 state-key
+	// prefix. Greenland activates that layout; allowing IIP-59 earlier would
+	// make orphan-pool enumeration incomplete because legacy rewarding keys are
+	// content-addressed and cannot be prefix-scanned.
+	if g.ZanzibarBlockHeight < g.GreenlandBlockHeight {
+		return errors.Errorf(
+			"genesis: zanzibarHeight %d must not precede greenlandHeight %d",
+			g.ZanzibarBlockHeight, g.GreenlandBlockHeight,
+		)
+	}
+	// IIP-59 recomputes contract-staking voter weights from bucket state in the
+	// trie. Xingu migrates those buckets from the Erigon-only mirror into the
+	// trie, so activating IIP-59 before Xingu would silently omit them.
+	if g.ZanzibarBlockHeight < g.XinguBlockHeight {
+		return errors.Errorf(
+			"genesis: zanzibarHeight %d must not precede xinguHeight %d",
+			g.ZanzibarBlockHeight, g.XinguBlockHeight,
+		)
+	}
+	// IsEraBoundary returns false for every epoch when EpochsPerRewardEra is 0,
+	// so a zero would activate IIP-59 and then never settle a single era -- the
+	// rewards accrue and no voter is ever paid, with nothing in the logs saying
+	// why. One is rejected for a subtler reason: the era window a settlement
+	// reads is superseded at the next freeze height, which lands roughly one and
+	// a half epochs before the next era boundary, so a one-epoch era leaves no
+	// room between the two. See IIP-59 section 14.
+	if g.Rewarding.EpochsPerRewardEra < 2 {
+		return errors.Errorf(
+			"genesis: epochsPerRewardEra must be at least 2 once zanzibarHeight is scheduled, got %d",
+			g.Rewarding.EpochsPerRewardEra,
+		)
+	}
+	// An unset DelegateProfile address does not switch commission routing off,
+	// it silently pins it at the maximum. FreezeCandidateRewardSnapshots writes
+	// a snapshot for every opted-in candidate whether or not a bridge exists,
+	// defaulting the rate to 100%, and the presence of a snapshot is what turns
+	// onchainRewardEnabled on. So each opted-in delegate takes the whole epoch
+	// reward at its owner address, no voter is paid on chain, and the payout
+	// stops arriving at the reward address an off-chain distributor watches --
+	// with nothing logged and no error raised.
+	if g.DelegateProfileContractAddress == "" {
+		return errors.New(
+			"genesis: delegateProfileContractAddress must be set once zanzibarHeight is scheduled; " +
+				"leaving it empty freezes every opted-in delegate at 100% commission")
+	}
+	if _, err := address.FromString(g.DelegateProfileContractAddress); err != nil {
+		return errors.Wrapf(err,
+			"genesis: delegateProfileContractAddress %q is not a valid address",
+			g.DelegateProfileContractAddress)
+	}
+	// Empty is a supported mode here, unlike above: it routes every voter share
+	// to a pull-claim credit, which pays the same voter the same amount. Only a
+	// malformed value is rejected, so a typo cannot silently select that mode.
+	if g.AutoDepositContractAddress != "" {
+		if _, err := address.FromString(g.AutoDepositContractAddress); err != nil {
+			return errors.Wrapf(err,
+				"genesis: autoDepositContractAddress %q is not a valid address",
+				g.AutoDepositContractAddress)
+		}
+	}
+	return nil
+}
+
+// IsMainnet reports whether this is the mainnet genesis config.
+func (g *Genesis) IsMainnet() bool {
+	h := g.Hash()
+	return hex.EncodeToString(h[:]) == _mainnetGenesisHash
+}
+
+// ValidateTestnetGrants rejects a grant list that is unusable or does not belong
+// on this network. It is separate from validate() because a Genesis built as a
+// literal never reaches validate(), so chainservice re-runs it at build time.
+func (g *Genesis) ValidateTestnetGrants() error {
+	if len(g.TestnetGrants) == 0 {
+		return nil
+	}
+	if g.IsMainnet() {
+		return errors.New("genesis: testnetGrants must not be used on mainnet")
+	}
+	var prevHeight uint64
+	for i, grant := range g.TestnetGrants {
+		if grant.Height == 0 {
+			return errors.Errorf(
+				"genesis: testnetGrants[%d] height must be non-zero, use initBalances for balances that exist at genesis", i)
+		}
+		if i > 0 && grant.Height <= prevHeight {
+			return errors.Errorf(
+				"genesis: testnetGrants heights must be strictly increasing, got %d after %d", grant.Height, prevHeight)
+		}
+		prevHeight = grant.Height
+		if len(grant.Recipients) == 0 {
+			return errors.Errorf("genesis: testnetGrants[%d] at height %d has no recipients", i, grant.Height)
+		}
+		seen := make(map[string]struct{}, len(grant.Recipients))
+		for j, r := range grant.Recipients {
+			addr, err := address.FromString(r.Address)
+			if err != nil {
+				return errors.Wrapf(err, "genesis: testnetGrants[%d].recipients[%d] has an invalid address %q", i, j, r.Address)
+			}
+			if _, dup := seen[addr.String()]; dup {
+				return errors.Errorf("genesis: testnetGrants[%d] credits %s more than once", i, addr.String())
+			}
+			seen[addr.String()] = struct{}{}
+			amount, ok := new(big.Int).SetString(r.Amount, 10)
+			if !ok {
+				return errors.Errorf("genesis: testnetGrants[%d].recipients[%d] has an unparsable amount %q", i, j, r.Amount)
+			}
+			if amount.Sign() <= 0 {
+				return errors.Errorf("genesis: testnetGrants[%d].recipients[%d] amount %q must be positive", i, j, r.Amount)
+			}
+			if amount.BitLen() > MaxBalanceBits {
+				return errors.Errorf(
+					"genesis: testnetGrants[%d].recipients[%d] amount %q does not fit in %d bits",
+					i, j, r.Amount, MaxBalanceBits)
+			}
+		}
+	}
+	return nil
+}
+
+// GrantsAtHeight returns the grant scheduled at the given height in configured
+// order, or nil when there is none. It returns an error rather than panicking on
+// unparsable values -- ValidateTestnetGrants has already walked them, but this
+// runs mid-block, where a panic takes the node down instead of rejecting a block.
+func (a *Account) GrantsAtHeight(height uint64) ([]address.Address, []*big.Int, error) {
+	if height == 0 || len(a.TestnetGrants) == 0 {
+		return nil, nil, nil
+	}
+	for _, grant := range a.TestnetGrants {
+		if grant.Height != height {
+			continue
+		}
+		addrs := make([]address.Address, 0, len(grant.Recipients))
+		amounts := make([]*big.Int, 0, len(grant.Recipients))
+		for _, r := range grant.Recipients {
+			addr, err := address.FromString(r.Address)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "invalid testnet grant address %q at height %d", r.Address, height)
+			}
+			amount, ok := new(big.Int).SetString(r.Amount, 10)
+			if !ok {
+				return nil, nil, errors.Errorf(
+					"invalid testnet grant amount %q for %s at height %d", r.Amount, r.Address, height)
+			}
+			addrs = append(addrs, addr)
+			amounts = append(amounts, amount)
+		}
+		return addrs, amounts, nil
+	}
+	return nil, nil, nil
 }
 
 // SetGenesisTimestamp sets the genesis timestamp
@@ -790,6 +1116,21 @@ func (g *Blockchain) IsYap(height uint64) bool {
 // IsYapBeta checks whether height is equal to or larger than yap beta height
 func (g *Blockchain) IsYapBeta(height uint64) bool {
 	return g.isPost(g.YapBetaBlockHeight, height)
+}
+
+// IsZanzibar checks whether height is equal to or larger than zanzibar height
+func (g *Blockchain) IsZanzibar(height uint64) bool {
+	return g.isPost(g.ZanzibarBlockHeight, height)
+}
+
+// IsZanzibarBeta checks whether height is equal to or larger than zanzibar beta height
+func (g *Blockchain) IsZanzibarBeta(height uint64) bool {
+	return g.isPost(g.ZanzibarBetaBlockHeight, height)
+}
+
+// IsZanzibarGamma checks whether height is equal to or larger than zanzibar gamma height
+func (g *Blockchain) IsZanzibarGamma(height uint64) bool {
+	return g.isPost(g.ZanzibarGammaBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

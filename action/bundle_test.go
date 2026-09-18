@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -135,4 +136,29 @@ func TestBundle_ProtoRoundTrip(t *testing.T) {
 	require.Equal(t, orig.TargetBlockHeight(), restored.TargetBlockHeight())
 	require.Equal(t, orig.Gas(), restored.Gas())
 	require.Equal(t, orig.Hash(), restored.Hash())
+}
+
+// Regression guard: system actions must never be admissible into a bundle,
+// through either construction path. Legitimate system actions are generated
+// exclusively by the block producer at mint time (CreatePostSystemActions).
+func TestBundleRejectsSystemActions(t *testing.T) {
+	elp := (&EnvelopeBuilder{}).SetNonce(0).
+		SetAction(NewScheduleCandidateDeactivation(identityset.Address(5))).
+		Build()
+	selp, err := Sign(elp, identityset.PrivateKey(7))
+	require.NoError(t, err)
+
+	t.Run("Add rejects system action", func(t *testing.T) {
+		b := NewBundle()
+		require.ErrorIs(t, b.Add(selp), ErrInvalidAct)
+	})
+
+	t.Run("LoadProto rejects system action", func(t *testing.T) {
+		pb := &iotextypes.Bundle{
+			Actions:           []*iotextypes.Action{selp.Proto()},
+			TargetBlockNumber: 101,
+		}
+		b := NewBundle()
+		require.ErrorIs(t, b.LoadProto(pb, &Deserializer{}), ErrInvalidAct)
+	})
 }

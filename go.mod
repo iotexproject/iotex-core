@@ -1,6 +1,6 @@
 module github.com/iotexproject/iotex-core/v2
 
-go 1.25.7
+go 1.25.14
 
 require (
 	dario.cat/mergo v1.0.2
@@ -31,7 +31,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.9-0.20251203033311-6e8aa4fd43ef
 	github.com/iotexproject/iotex-antenna-go/v2 v2.6.4
 	github.com/iotexproject/iotex-election v0.3.8-0.20251015031218-8df952babca1
-	github.com/iotexproject/iotex-proto v0.6.6-0.20260211020747-f26bd969ed16
+	github.com/iotexproject/iotex-proto v0.6.13
 	github.com/ipfs/go-ipfs-api v0.7.0
 	github.com/libp2p/go-libp2p v0.47.0
 	github.com/libp2p/go-libp2p-pubsub v0.17.0
@@ -121,7 +121,7 @@ require (
 	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/crate-crypto/go-kzg-4844 v1.1.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
@@ -240,7 +240,7 @@ require (
 	github.com/RoaringBitmap/roaring v1.2.3 // indirect
 	github.com/c2h5oh/datasize v0.0.0-20231215233829-aa82cc1e6500 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/cilium/ebpf v0.11.0 // indirect
+	github.com/cilium/ebpf v0.22.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -289,7 +289,7 @@ require (
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/pion/transport/v4 v4.0.2 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/polydawn/refmt v0.89.1-0.20231129105047-37766d95467a // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/common v0.70.1 // indirect
@@ -306,7 +306,7 @@ require (
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/shirou/gopsutil/v4 v4.24.7 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
