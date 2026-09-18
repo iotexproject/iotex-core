@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/version"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	mock_apitypes "github.com/iotexproject/iotex-core/v2/test/mock/mock_apiresponder"
+	mock_apiserver "github.com/iotexproject/iotex-core/v2/test/mock/mock_apiserver"
 )
 
 func TestGrpcServer_GetAccount(t *testing.T) {
@@ -353,19 +354,31 @@ func TestGrpcServer_StreamBlocks(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		listener := mock_apitypes.NewMockListener(ctrl)
 		listener.EXPECT().AddResponder(gomock.Any()).DoAndReturn(func(g *gRPCBlockListener) (string, error) {
-			go func() {
-				g.errChan <- nil
-			}()
+			// ending the subscription is Exit()'s job; errChan is buffered and
+			// the send is non-blocking, so no helper goroutine is needed
+			g.Exit()
 			return "", nil
 		})
 		listener.EXPECT().RemoveResponder(gomock.Any()).DoAndReturn(func(string) (bool, error) {
 			return true, nil
 		})
 		core.EXPECT().ChainListener().Return(listener)
-		err := grpcSvr.StreamBlocks(&iotexapi.StreamBlocksRequest{}, nil)
+		stream := mock_apiserver.NewMockStreamBlocksServer(ctrl)
+		stream.EXPECT().Context().Return(context.Background()).AnyTimes()
+		err := grpcSvr.StreamBlocks(&iotexapi.StreamBlocksRequest{}, stream)
 		require.NoError(err)
 	})
 }
+
+// fakeLogsStream is a minimal APIService_StreamLogsServer whose only real
+// method is Context(); the embedded interface supplies the rest (unused in the
+// success path, where Exit() makes errChan ready before any Send).
+type fakeLogsStream struct {
+	iotexapi.APIService_StreamLogsServer
+	ctx context.Context
+}
+
+func (f *fakeLogsStream) Context() context.Context { return f.ctx }
 
 func TestGrpcServer_StreamLogs(t *testing.T) {
 	require := require.New(t)
@@ -388,16 +401,17 @@ func TestGrpcServer_StreamLogs(t *testing.T) {
 	t.Run("StreamLogsSuccess", func(t *testing.T) {
 		listener := mock_apitypes.NewMockListener(ctrl)
 		listener.EXPECT().AddResponder(gomock.Any()).DoAndReturn(func(g *gRPCLogListener) (string, error) {
-			go func() {
-				g.errChan <- nil
-			}()
+			// ending the subscription is Exit()'s job; errChan is buffered and
+			// the send is non-blocking, so no helper goroutine is needed
+			g.Exit()
 			return "", nil
 		})
 		listener.EXPECT().RemoveResponder(gomock.Any()).DoAndReturn(func(string) (bool, error) {
 			return true, nil
 		})
 		core.EXPECT().ChainListener().Return(listener)
-		err := grpcSvr.StreamLogs(&iotexapi.StreamLogsRequest{Filter: &iotexapi.LogsFilter{}}, nil)
+		stream := &fakeLogsStream{ctx: context.Background()}
+		err := grpcSvr.StreamLogs(&iotexapi.StreamLogsRequest{Filter: &iotexapi.LogsFilter{}}, stream)
 		require.NoError(err)
 	})
 }
