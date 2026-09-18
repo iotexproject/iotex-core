@@ -111,6 +111,29 @@ type (
 	}
 )
 
+// maxFutureProposalTimestamp is the maximum drift between a proposal's
+// timestamp and this node's clock beyond which the node refuses to endorse
+// the proposal. It must exceed the worst-case clock skew among honest
+// delegates (NTP-synced nodes drift by far less); an honest proposal is
+// stamped with its round's start time, which is never later than the
+// producer's own clock. Endorsing a far-future proposal would anchor the
+// chain at a future time and stall every node's consensus until the wall
+// clock catches up. See GHSA-47pw-mwgm-24rf.
+const maxFutureProposalTimestamp = 10 * time.Second
+
+// validateProposalTimestamp reports whether the proposal is stamped too far
+// into the future for this node to endorse
+func validateProposalTimestamp(blk *block.Block, now time.Time) error {
+	if blk.Timestamp().After(now.Add(maxFutureProposalTimestamp)) {
+		return errors.Errorf(
+			"proposal timestamp %s is more than %s in the future",
+			blk.Timestamp(),
+			maxFutureProposalTimestamp,
+		)
+	}
+	return nil
+}
+
 // WithPremintDisabled turns off the prepareNextProposal pre-mint goroutine.
 // API nodes (with a secondary erigon store) must pass this: their workingset
 // store has no KVStore() for forking, so premint always fails at workingset.NewWorkingSet.
@@ -502,6 +525,15 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		proposal, ok := ecm.Document().(*blockProposal)
 		if !ok {
 			return nil, errors.New("invalid endorsed block")
+		}
+		// Refuse to endorse a proposal stamped too far into the future. This is
+		// node-local policy, not a block validity rule: the endorser simply
+		// withholds its vote, so the fleet cannot split at any adoption rate.
+		// Once >= 1/3 of the delegate weight runs this check, a future-stamped
+		// proposal can no longer reach the 2/3+1 PROPOSAL endorsement quorum.
+		if err := validateProposalTimestamp(proposal.block, ctx.clock.Now()); err != nil {
+			ctx.logger().Warn("refuse to endorse proposal with future timestamp", zap.Error(err))
+			return nil, err
 		}
 		blkHash := proposal.block.HashBlock()
 		blockHash = blkHash[:]
