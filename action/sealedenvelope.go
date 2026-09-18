@@ -1,6 +1,7 @@
 package action
 
 import (
+	"bytes"
 	"encoding/hex"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -189,6 +190,17 @@ func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) 
 		}
 		if _, err = rlpSignedHash(tx, signer, pbAct.GetSignature()); err != nil {
 			return err
+		}
+		// bind the declared sender to the signature: recover the signer from the
+		// signature and require it to equal SenderPubKey (recovery id is pinned by
+		// the signature's V byte), as txContainer.Unfold already does.
+		rawHash := signer.Hash(tx)
+		recovered, err := crypto.RecoverPubkey(rawHash[:], pbAct.GetSignature())
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(recovered.Bytes(), srcPub.Bytes()) {
+			return errors.Wrap(ErrInvalidSender, "sender public key does not match signature")
 		}
 		sealed.evmNetworkID = evmID
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
