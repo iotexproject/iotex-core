@@ -344,7 +344,11 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		store, err = filedao.NewFileDAOInMemForTest()
 	} else {
 		path := builder.cfg.Chain.ChainDBPath
-		uri, err := url.Parse(path)
+		// NOTE: assign to the err declared above rather than declaring a new one.
+		// A ":=" here shadows it for the whole block, and the store-construction
+		// error below would then never reach the "if err != nil" after the block.
+		var uri *url.URL
+		uri, err = url.Parse(path)
 		if err != nil {
 			return errors.Wrapf(err, "failed to parse chain db path %s", path)
 		}
