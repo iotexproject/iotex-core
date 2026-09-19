@@ -88,6 +88,37 @@ func NewCandidateByAddressReader(sr protocol.StateReader) CandidateByAddressRead
 	return newCandidateStateReader(sr)
 }
 
+// CandidateIdentifiersFor enumerates the identifier of every candidate record sr
+// can see. Like NewCandidateByAddressReader it goes straight to state, so it is
+// usable by historical and archive readers that carry no live staking view; it is
+// also a plain full-namespace read rather than an ordered range scan, which the
+// erigon-backed historical store does not serve.
+func CandidateIdentifiersFor(sr protocol.StateReader) ([]address.Address, error) {
+	if sr == nil {
+		return nil, ErrMissingField
+	}
+	_, iter, err := sr.States(
+		protocol.NamespaceOption(_candidateNameSpace),
+		protocol.ObjectOption(&Candidate{}),
+	)
+	switch errors.Cause(err) {
+	case nil:
+	case state.ErrStateNotExist:
+		return nil, nil
+	default:
+		return nil, err
+	}
+	ids := make([]address.Address, 0, iter.Size())
+	for i := 0; i < iter.Size(); i++ {
+		c := &Candidate{}
+		if _, err := iter.Next(c); err != nil {
+			return nil, errors.Wrap(err, "failed to deserialize candidate")
+		}
+		ids = append(ids, c.GetIdentifier())
+	}
+	return ids, nil
+}
+
 func (c *candSR) Height() uint64 {
 	return c.height
 }
