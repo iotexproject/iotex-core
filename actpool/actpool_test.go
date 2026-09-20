@@ -1394,3 +1394,27 @@ func TestBlackListRemovalTracksZanzibar(t *testing.T) {
 		BlackListRemoval: []string{"io1abc"},
 	}.IsBlackListedFunc(math.MaxUint64)("io1abc", 1<<62))
 }
+
+func TestDefaultBlackListRemoval(t *testing.T) {
+	require := require.New(t)
+	newlyRemoved := []string{
+		"io16zkt2tg3rv9wnunjdsffywdhw7ceyhpph7v3r5",
+		"io14y3zwpnpd5uv8clanfr73xnkxz2mk2qgjcgngu",
+		"io1rxzrf2q3letflu36p2w097ekkz4da4wuk7wnxw",
+		"io147r62u9rf2szarfnn6pxse53vmkahlgk9s69ru",
+		"io1va6umgyewzjatq8nrznyct9f2yp49rkpxtx3jj",
+		"io1470pxq9qusz36pk4ljny446pwmkg9pvuzeshlj",
+		"io15526y7w3n24dhjsk958ge23aprs9urrte3jlr3",
+	}
+
+	require.Len(DefaultConfig.BlackListRemoval, 20)
+	unique := make(map[string]struct{}, len(DefaultConfig.BlackListRemoval))
+	for _, addr := range DefaultConfig.BlackListRemoval {
+		require.Contains(DefaultConfig.BlackList, addr)
+		unique[addr] = struct{}{}
+	}
+	require.Len(unique, len(DefaultConfig.BlackListRemoval))
+	for _, addr := range newlyRemoved {
+		require.Contains(DefaultConfig.BlackListRemoval, addr)
+	}
+}
