@@ -62,7 +62,42 @@ func (s *voteView) Height() uint64 {
 	return s.height
 }
 
+// preDeployment reports whether the staking contract behind this view cannot
+// have emitted an event yet by the block the returned view will serve. The only
+// thing that ever mutates cur is voteViewEventHandler, and it is reached solely
+// from eventProcessor.ProcessReceipts, which drops every log whose address is
+// not config.ContractAddr; before the contract exists there is no such log, so
+// the layer Wrap/Fork would push can never hold a change and has nothing to
+// isolate.
+//
+// It still has a cost: every layer is another link that IsDirty walks, and the
+// chain is only collapsed by Commit, which the staking protocol runs only on
+// blocks where the whole viewData is dirty. Replaying mainnet from genesis that
+// is almost never (the first system staking contract lands at 24486464), so
+// without this guard the chain grows roughly with the block height and the
+// recursive IsDirty turns replay quadratic (measured 185 blk/s at height 10k
+// vs 3.2 blk/s at 355k, with IsDirty at 60% of CPU).
+//
+// s.height is the height this view last served (set in CreatePreStates), so the
+// next block is s.height+1; requiring that one to be below the start height too
+// means the view is already layering normally a block before the contract can
+// be touched, and no view that shares cur with a sibling can ever commit a
+// change into it.
+func (s *voteView) preDeployment() bool {
+	return s.height+1 < s.indexer.StartHeight()
+}
+
+// shallowCopy returns a view backed by the same cur and store. Only safe while
+// preDeployment holds, i.e. while neither can be mutated.
+func (s *voteView) shallowCopy() staking.ContractStakeView {
+	cp := *s
+	return &cp
+}
+
 func (s *voteView) Wrap() staking.ContractStakeView {
+	if s.preDeployment() {
+		return s.shallowCopy()
+	}
 	cur := newCandidateVotesWrapper(s.cur)
 	var store BucketStore
 	if s.store != nil {
@@ -81,6 +116,9 @@ func (s *voteView) Wrap() staking.ContractStakeView {
 }
 
 func (s *voteView) Fork() staking.ContractStakeView {
+	if s.preDeployment() {
+		return s.shallowCopy()
+	}
 	cur := newCandidateVotesWrapperCommitInClone(s.cur)
 	var store BucketStore
 	if s.store != nil {
