@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"math/big"
+	"sort"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -17,6 +18,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
@@ -225,6 +228,69 @@ func (p *Protocol) listPendingBlockRewardPoolIDs(
 		ids = append(ids, append([]byte(nil), key[len(min):]...))
 		previous = key
 	}
+	return ids, nil
+}
+
+// listPendingBlockRewardPoolIDsForRead answers the same question as
+// listPendingBlockRewardPoolIDs for the read-only ReadState path, on state
+// readers that cannot serve an ordered range scan.
+//
+// An archive node serves a historical height out of the erigon store, whose
+// objects are addressed by contract slot instead of by an ordered iotex key
+// space; it rejects RangeOption rather than hand back a differently-ordered
+// answer. Point reads are unaffected, so the same set is recoverable by probing
+// one key per candidate: a pool is only ever credited under a candidate
+// identifier and candidate records are not deleted, so the candidate set at that
+// height contains every delegate that can hold a pool.
+//
+// Read paths only. freezePendingPoolDrainWork must keep failing on a rejected
+// scan: an era freeze that quietly switched enumeration source would make block
+// validity depend on which storage backend a node happens to run.
+func (p *Protocol) listPendingBlockRewardPoolIDsForRead(
+	ctx context.Context,
+	sr protocol.StateReader,
+) ([][]byte, error) {
+	// Only the scan itself is retried differently. Anything else the scan
+	// reports -- a malformed key, a decode failure -- is real damage in state
+	// and must reach the caller instead of being papered over by a second,
+	// weaker enumeration.
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sr)
+	if err == nil || !errors.Is(err, db.ErrNotSupported) {
+		return ids, err
+	}
+	return p.probePendingBlockRewardPoolIDs(sr)
+}
+
+// probePendingBlockRewardPoolIDs rebuilds the pool set with one point read per
+// candidate. O(candidates) round-trips where the range scan costs one, which is
+// why it stays behind the ErrNotSupported fallback instead of becoming the
+// default.
+func (p *Protocol) probePendingBlockRewardPoolIDs(sr protocol.StateReader) ([][]byte, error) {
+	candidates, err := staking.CandidateIdentifiersFor(sr)
+	if err != nil {
+		return nil, errors.Wrap(err, "rewarding: enumerate candidates for pending block reward pool probe")
+	}
+	ids := make([][]byte, 0, len(candidates))
+	for _, cand := range candidates {
+		if cand == nil {
+			continue
+		}
+		candID := cand.Bytes()
+		// stateV2 rather than state: the scan being stood in for covers the V2
+		// namespace alone, and the legacy fallback inside p.state would double the
+		// round-trips looking for keys that cannot be there.
+		var entry pendingBlockRewardPool
+		switch _, err := p.stateV2(sr, pendingBlockRewardPoolKey(candID), &entry); {
+		case err == nil:
+			ids = append(ids, candID)
+		case errors.Is(err, state.ErrStateNotExist):
+		default:
+			return nil, err
+		}
+	}
+	// The scan contract is ascending by state key; the shared key prefix makes
+	// that the same order as ascending by candidate identifier.
+	sort.Slice(ids, func(i, j int) bool { return bytes.Compare(ids[i], ids[j]) < 0 })
 	return ids, nil
 }
 
