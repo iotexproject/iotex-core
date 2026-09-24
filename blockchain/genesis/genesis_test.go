@@ -34,7 +34,7 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestMainnetZanzibarSchedule(t *testing.T) {
-	const activationHeight uint64 = 53155801
+	const activationHeight uint64 = 53533081
 
 	require.Equal(t, activationHeight, Default.ZanzibarBlockHeight)
 	require.Equal(t, activationHeight, Default.ZanzibarBetaBlockHeight)
