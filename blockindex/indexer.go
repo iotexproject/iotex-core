@@ -126,11 +126,13 @@ func (x *blockIndexer) PutBlocks(ctx context.Context, blks []*block.Block) error
 	defer x.mutex.Unlock()
 	for _, blk := range blks {
 		if err := x.putBlock(ctx, blk); err != nil {
-			// TODO: Revert changes
-			return err
+			return x.revert(err)
 		}
 	}
-	return x.commit()
+	if err := x.commit(); err != nil {
+		return x.revert(err)
+	}
+	return nil
 }
 
 // PutBlock index the block
@@ -139,9 +141,12 @@ func (x *blockIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	defer x.mutex.Unlock()
 
 	if err := x.putBlock(ctx, blk); err != nil {
-		return err
+		return x.revert(err)
 	}
-	return x.commit()
+	if err := x.commit(); err != nil {
+		return x.revert(err)
+	}
+	return nil
 }
 
 // Height return the blockchain height
@@ -331,6 +336,26 @@ func (x *blockIndexer) commit() error {
 	}
 	x.batch.Clear()
 	return nil
+}
+
+// revert discards the uncommitted changes after a failed putBlock or commit.
+// The pending entries only live in the shared batch and in the in-memory sizes
+// of the counting indexes, so clearing the batch and reloading the indexes from
+// the DB restores the last committed state.
+func (x *blockIndexer) revert(cause error) error {
+	x.batch.Clear()
+	for k, v := range x.dirtyAddr {
+		v.Close()
+		delete(x.dirtyAddr, k)
+	}
+	var err error
+	if x.tbk, err = db.NewCountingIndexNX(x.kvStore, _totalBlocksBucket); err != nil {
+		return errors.Wrapf(cause, "failed to reload total block index: %v", err)
+	}
+	if x.tac, err = db.NewCountingIndexNX(x.kvStore, _totalActionsBucket); err != nil {
+		return errors.Wrapf(cause, "failed to reload total action index: %v", err)
+	}
+	return cause
 }
 
 // getIndexerForAddr returns the counting indexer for an address
