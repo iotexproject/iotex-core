@@ -54,10 +54,19 @@ func (b *blockBuffer) AddBlock(tipHeight uint64, blk *peerBlock) (bool, uint64) 
 	if blkHeight > tipHeight+b.bufferSize {
 		return false, tipHeight + b.bufferSize
 	}
+	// heights at or below the tip can never be popped again; drop them so the
+	// map stays bounded by the (tip, tip+bufferSize] window it is meant to hold.
+	for h := range b.blockQueues {
+		if h <= tipHeight {
+			delete(b.blockQueues, h)
+		}
+	}
 	if _, ok := b.blockQueues[blkHeight]; !ok {
 		b.blockQueues[blkHeight] = newUniQueue()
 	}
-	b.blockQueues[blkHeight].enque(blk)
+	if !b.blockQueues[blkHeight].enque(blk) {
+		return false, blkHeight
+	}
 	return true, blkHeight
 }
 

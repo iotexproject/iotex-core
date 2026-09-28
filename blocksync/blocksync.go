@@ -325,6 +325,22 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInf
 		)
 		end = tip
 	}
+	if start > end {
+		return nil
+	}
+	// Bound the egress a single request can force. GetBlocksIntervalsToSync
+	// never asks for more than the sync window, so an honest requester is
+	// unaffected; without the bound one small request makes this node read and
+	// unicast the entire chain while holding a blockSync worker.
+	if window := bs.cfg.BufferSize; window > 0 && end-start >= window {
+		end = start + window - 1
+		log.L().Debug(
+			"Clamping sync request range",
+			zap.Uint64("start", start),
+			zap.Uint64("end", end),
+			zap.Uint64("window", window),
+		)
+	}
 	// TODO: send back multiple blocks in one shot
 	for i := start; i <= end; i++ {
 		// TODO: fetch block from buffer
@@ -332,13 +348,20 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInf
 		if err != nil {
 			return err
 		}
-		syncCtx, cancel := context.WithTimeout(ctx, bs.cfg.ProcessSyncRequestTTL)
-		defer cancel()
-		if err := bs.unicastOutbound(syncCtx, peer, blk.ConvertToBlockPb()); err != nil {
+		if err := bs.sendBlock(ctx, peer, blk); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// sendBlock unicasts one block. The timeout is scoped to this call rather than
+// deferred inside the caller's loop, where cancel funcs and their timers would
+// accumulate for the whole requested range.
+func (bs *blockSyncer) sendBlock(ctx context.Context, peer peer.AddrInfo, blk *block.Block) error {
+	syncCtx, cancel := context.WithTimeout(ctx, bs.cfg.ProcessSyncRequestTTL)
+	defer cancel()
+	return bs.unicastOutbound(syncCtx, peer, blk.ConvertToBlockPb())
 }
 
 func (bs *blockSyncer) syncStageChecker() {

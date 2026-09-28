@@ -9,6 +9,15 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 )
 
+// maxBlocksPerHeight bounds how many distinct blocks are buffered for a single
+// height. Blocks are buffered before any validation, and dedup is by full block
+// hash, so without a cap a peer can flood cheaply-mutated variants of one height
+// and grow the queue without bound while the tip is stalled.
+//
+// Honest traffic needs very few: a height carries one block, plus a small number
+// of competing proposals across a fork.
+const maxBlocksPerHeight = 8
+
 // uniQueue is not threadsafe
 type uniQueue struct {
 	blocks []*peerBlock
@@ -22,13 +31,19 @@ func newUniQueue() *uniQueue {
 	}
 }
 
-func (uq *uniQueue) enque(blk *peerBlock) {
+// enque adds blk unless it is a duplicate or the height is already full. It
+// reports whether the block was added.
+func (uq *uniQueue) enque(blk *peerBlock) bool {
 	h := blk.block.HashBlock()
 	if _, ok := uq.hashes[h]; ok {
-		return
+		return false
+	}
+	if len(uq.blocks) >= maxBlocksPerHeight {
+		return false
 	}
 	uq.hashes[h] = struct{}{}
 	uq.blocks = append(uq.blocks, blk)
+	return true
 }
 
 func (uq *uniQueue) dequeAll() []*peerBlock {
