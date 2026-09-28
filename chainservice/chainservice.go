@@ -47,6 +47,12 @@ import (
 )
 
 var (
+	_stalledTipMtc = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "iotex_chainservice_stalled_tip_ticks",
+			Help: "Consecutive watchdog ticks with a static tip while blocks arrive.",
+		},
+	)
 	_blockchainFullnessMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_blockchain_fullness",
@@ -58,6 +64,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(_blockchainFullnessMtc)
+	prometheus.MustRegister(_stalledTipMtc)
 }
 
 // ChainService is a blockchain service with all blockchain components.
@@ -88,6 +95,10 @@ type ChainService struct {
 	paused                  atomic.Bool
 }
 
+// stalledTipPanicTicks is how many consecutive one-minute watchdog ticks must
+// show a static tip with arriving blocks before the service restarts itself.
+const stalledTipPanicTicks = 3
+
 // Start starts the server
 func (cs *ChainService) Start(ctx context.Context) error {
 	if err := cs.lifecycle.OnStartSequentially(ctx); err != nil {
@@ -99,6 +110,7 @@ func (cs *ChainService) Start(ctx context.Context) error {
 
 		var lastHeight uint64
 		var lastReceivedBlockHeight uint64
+		var stalledTicks int
 		for {
 			select {
 			case <-ctx.Done():
@@ -110,7 +122,24 @@ func (cs *ChainService) Start(ctx context.Context) error {
 				currentHeight := cs.chain.TipHeight()
 				lrbh := atomic.LoadUint64(&cs.lastReceivedBlockHeight)
 				if currentHeight == lastHeight && lastReceivedBlockHeight != lrbh {
-					log.L().Panic("Blockchain height has not changed, restarting service")
+					stalledTicks++
+					_stalledTipMtc.Set(float64(stalledTicks))
+					log.L().Warn("Blockchain height has not changed while blocks are arriving",
+						zap.Uint64("tipHeight", currentHeight),
+						zap.Int("consecutiveTicks", stalledTicks),
+						zap.Int("threshold", stalledTipPanicTicks))
+					// Only restart once the condition has held for several ticks.
+					// A single tick is remotely triggerable: lastReceivedBlockHeight
+					// is fed by inbound blocks, so during a genuine network halt --
+					// when every node is tip-static -- one crafted block would
+					// otherwise crash-loop the whole listening set and prevent
+					// recovery.
+					if stalledTicks >= stalledTipPanicTicks {
+						log.L().Panic("Blockchain height has not changed, restarting service")
+					}
+				} else {
+					stalledTicks = 0
+					_stalledTipMtc.Set(0)
 				}
 				lastHeight = currentHeight
 				lastReceivedBlockHeight = lrbh
@@ -138,15 +167,22 @@ func (cs *ChainService) Filter(messageType iotexrpc.MessageType, msg proto.Messa
 	if !ok || blk == nil || blk.Header == nil || blk.Header.Core == nil {
 		return false
 	}
-	if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
-		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
-	}
 	tip, err := cs.blockdao.Height()
 	if err != nil {
 		log.L().Error("failed to get tip height from blockdao", zap.Error(err))
 		return true
 	}
-	return blk.Header.Core.Height < tip+uint64(cap)
+	if blk.Header.Core.Height >= tip+uint64(cap) {
+		return false
+	}
+	// Record the height only for blocks this node would actually buffer. The
+	// field drives the watchdog in Start(), and the header is unvalidated at
+	// this point -- recording it before the window check let a peer name any
+	// height it liked, up to 2^63.
+	if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
+		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
+	}
+	return true
 }
 
 // ReportFullness switch on or off block sync
