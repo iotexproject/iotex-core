@@ -48,7 +48,9 @@ var (
 			Name: "iotex_p2p_message_counter",
 			Help: "P2P message stats",
 		},
-		[]string{"protocol", "message", "direction", "peer", "status"},
+		// deliberately no per-peer label: peer identities are unbounded (a
+		// libp2p identity is just a keypair), so the label set would be too.
+		[]string{"protocol", "message", "direction", "status"},
 	)
 	_p2pMsgLatency = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -151,7 +153,6 @@ type (
 	cacheValue struct {
 		msgType   iotexrpc.MessageType
 		message   proto.Message
-		peerID    string
 		timestamp time.Time
 	}
 
@@ -346,7 +347,6 @@ func (p *agent) Start(ctx context.Context) error {
 		p.caches.Add(hash.Hash256b(msg.Data), &cacheValue{
 			msgType:   broadcast.MsgType,
 			message:   pMsg,
-			peerID:    pid.String(),
 			timestamp: time.Now(),
 		})
 		return pubsub.ValidationAccept
@@ -365,17 +365,21 @@ func (p *agent) Start(ctx context.Context) error {
 			return nil
 		}
 		var (
-			peerID  string
 			pMsg    proto.Message
 			msgType iotexrpc.MessageType
 			latency int64
 		)
+		// the peer identity handed downstream is the authenticated libp2p peer
+		// that delivered this copy, never broadcast.PeerId -- that field is
+		// unauthenticated peer input, and downstream it keys rate limits,
+		// dispatcher bookkeeping and BlockPeer() blacklisting.
+		peerID := pid.String()
 		defer func() {
 			status := _successStr
 			if err != nil {
 				status = _failureStr
 			}
-			_p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), "in", peerID, status).Inc()
+			_p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), "in", status).Inc()
 			_p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), status).Observe(float64(latency))
 		}()
 		// Check the cache first
@@ -383,7 +387,6 @@ func (p *agent) Start(ctx context.Context) error {
 		if ok {
 			value := cache.(*cacheValue)
 			pMsg = value.message
-			peerID = value.peerID
 			msgType = value.msgType
 			latency = time.Since(value.timestamp).Nanoseconds() / time.Millisecond.Nanoseconds()
 		} else {
@@ -400,7 +403,6 @@ func (p *agent) Start(ctx context.Context) error {
 				err = errors.Wrap(err, "error when typifying broadcast message")
 				return
 			}
-			peerID = broadcast.PeerId
 			msgType = broadcast.MsgType
 		}
 		// TODO: skip signature verification for actions
@@ -416,7 +418,10 @@ func (p *agent) Start(ctx context.Context) error {
 		broadcastValidator, broadcastHandler); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
-	// add consensus topic
+	// add consensus topic. It carries a dedicated validator that, on top of the
+	// chain-ID and structural checks, rejects any non-CONSENSUS message type:
+	// without one, consensus gossip would skip those checks entirely and land
+	// straight on the single consensus worker.
 	if err := host.AddBroadcastPubSub(
 		ctx,
 		_broadcastTopic+_broadcastSubTopicConsensus+p.topicSuffix,
@@ -454,7 +459,7 @@ func (p *agent) Start(ctx context.Context) error {
 			if err != nil {
 				status = _failureStr
 			}
-			_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status).Inc()
+			_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", status).Inc()
 			_p2pMsgLatency.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), status).Observe(float64(latency))
 		}()
 		if err = proto.Unmarshal(data, &unicast); err != nil {
@@ -547,7 +552,6 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 			"broadcast",
 			strconv.Itoa(int(msgType)),
 			"out",
-			host.HostIdentity(),
 			status,
 		).Inc()
 	}()
@@ -619,7 +623,7 @@ func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 		if err != nil {
 			status = _failureStr
 		}
-		_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.String(), status).Inc()
+		_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", status).Inc()
 	}()
 
 	msgType, msgBody, err = convertAppMsg(msg)
