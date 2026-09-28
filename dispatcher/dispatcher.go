@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
@@ -40,7 +41,29 @@ type (
 	}
 )
 
+const (
+	// maxActionsPerMessage bounds the per-element work one gossiped Actions
+	// message can force in the pubsub validation goroutine. The message
+	// batcher emits at most pkg/messagebatcher sizeLimit (1000) actions per
+	// batch, so this leaves 2x headroom for legitimate traffic.
+	maxActionsPerMessage = 2048
+
+	// maxActionSyncHashes bounds the reflected unicasts one ActionSync request
+	// can trigger on the single misc worker. actsync requests exactly one hash
+	// per message (actsync/actionsync.go), so this is generous.
+	maxActionSyncHashes = 64
+
+	// maxPeerLastSyncEntries bounds the block-request throttle map. Entries
+	// older than syncInterval carry no information, so the map is swept once it
+	// grows past this.
+	maxPeerLastSyncEntries = 4096
+)
+
 var (
+	// ErrMsgTooLarge is returned for an inbound message carrying more elements
+	// than the node is willing to process.
+	ErrMsgTooLarge = errors.New("message carries too many elements")
+
 	// DefaultConfig is the default config
 	DefaultConfig = Config{
 		ActionChanSize:    5000,
@@ -51,7 +74,11 @@ var (
 		MiscChanSize:      1000,
 		AccountRateLimit:  100,
 
-		ProcessSyncRequestInterval: 0 * time.Second,
+		// Non-zero so the per-peer block-request throttle in filter() is
+		// actually armed; at zero it is a no-op. Kept small so that an honest
+		// peer catching up is not slowed: each request is separately bounded to
+		// the sync window by blocksync.ProcessSyncRequest.
+		ProcessSyncRequestInterval: 100 * time.Millisecond,
 	}
 )
 
@@ -223,6 +250,12 @@ func (d *IotxDispatcher) ValidateMessage(pMsg proto.Message) (bool, error) {
 		return d.ratelimiter.Remainings(sender) == 0, nil
 	case *iotextypes.Actions:
 		actions := pb.GetActions()
+		// bound the per-element work before doing any of it: every action below
+		// costs a full secp256k1 recovery, inline in the pubsub validation
+		// goroutine.
+		if len(actions) > maxActionsPerMessage {
+			return true, errors.Wrapf(ErrMsgTooLarge, "actions = %d, max %d", len(actions), maxActionsPerMessage)
+		}
 		counters := make(map[string]int, len(actions))
 		for _, act := range actions {
 			sender, err := d.verificationFunc(act)
@@ -336,8 +369,29 @@ func (d *IotxDispatcher) filter(msg *message) bool {
 	if ok && last.Add(d.syncInterval).After(now) {
 		return false
 	}
+	if len(d.peerLastSync) >= maxPeerLastSyncEntries {
+		d.sweepPeerLastSync(now)
+	}
 	d.peerLastSync[peerID] = now
 	return true
+}
+
+// sweepPeerLastSync drops entries that are already outside the throttle window
+// and therefore carry no information. Callers must hold peerSyncLock.
+//
+// Without this the map is unbounded: every distinct peer that ever sent a
+// block request keeps a permanent entry.
+func (d *IotxDispatcher) sweepPeerLastSync(now time.Time) {
+	for peerID, last := range d.peerLastSync {
+		if !last.Add(d.syncInterval).After(now) {
+			delete(d.peerLastSync, peerID)
+		}
+	}
+	if len(d.peerLastSync) >= maxPeerLastSyncEntries {
+		// every entry is still inside the window; reset rather than grow without
+		// bound. The cost is one skipped throttle round.
+		clear(d.peerLastSync)
+	}
 }
 
 func (d *IotxDispatcher) dispatchMsg(message *message) {
@@ -399,6 +453,15 @@ func (d *IotxDispatcher) dispatchMsg(message *message) {
 	case *iotexrpc.ActionSync:
 		if message.peerInfo == nil {
 			log.L().Warn("ActionSync message must be unicast.")
+			return
+		}
+		// each hash costs a pool lookup and, on a hit, a reflected unicast, all
+		// on the single misc worker -- bound the reflection factor.
+		if len(msg.Hashes) > maxActionSyncHashes {
+			log.L().Warn("ActionSync message carries too many hashes.",
+				zap.Int("hashes", len(msg.Hashes)),
+				zap.Int("max", maxActionSyncHashes),
+				zap.String("peer", message.peer))
 			return
 		}
 		for _, h := range msg.Hashes {
