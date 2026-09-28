@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -73,6 +74,17 @@ func (b *Bundle) Proto() *iotextypes.Bundle {
 	return pbBundle
 }
 
+// MaxBundleActions bounds how many actions one bundle may carry. Every action
+// costs a full signature recovery at decode and another at pool admission, and
+// the inbound bundle path is untrusted, so the count is bounded before any of
+// that work is done. Bundles are not part of the block wire format -- a block
+// carries the expanded actions -- so this is a p2p/mempool bound only.
+const MaxBundleActions = 64
+
+// ErrBundleTooLarge is returned when a bundle carries more actions than
+// MaxBundleActions.
+var ErrBundleTooLarge = errors.New("bundle carries too many actions")
+
 // LoadProto populates the Bundle from its protobuf representation.
 func (b *Bundle) LoadProto(pbBundle *iotextypes.Bundle, d *Deserializer) error {
 	if pbBundle == nil || len(pbBundle.Actions) == 0 {
@@ -80,6 +92,9 @@ func (b *Bundle) LoadProto(pbBundle *iotextypes.Bundle, d *Deserializer) error {
 	}
 	if b == nil {
 		return ErrNilAction
+	}
+	if len(pbBundle.Actions) > MaxBundleActions {
+		return errors.Wrapf(ErrBundleTooLarge, "actions = %d, max %d", len(pbBundle.Actions), MaxBundleActions)
 	}
 	selps := make([]*SealedEnvelope, 0, len(pbBundle.Actions))
 	for _, pbAction := range pbBundle.Actions {
