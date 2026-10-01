@@ -282,3 +282,50 @@ func (cs *counterSubscriber) HandleActionHash(context.Context, hash.Hash256, str
 	cs.actionHash.Inc()
 	return nil
 }
+
+// TestDispatcherDefaultBlockSyncRateLimit regression-guards the availability fix:
+// Config.ProcessSyncRequestInterval must be positive by default so IotxDispatcher.filter()
+// rate-limits BLOCK_REQUEST messages per peer. Before the fix the default was 0, which
+// disabled the filter and let a cheap peer stream an unbounded sequence of full-chain
+// {start:0,end:tip} sync requests. Now two rapid BLOCK_REQUESTs from the same peer are
+// throttled, while a fresh peer is served.
+func TestDispatcherDefaultBlockSyncRateLimit(t *testing.T) {
+	require := require.New(t)
+
+	// DefaultConfig.ProcessSyncRequestInterval must be enabled out of the box.
+	require.Positive(DefaultConfig.ProcessSyncRequestInterval,
+		"ProcessSyncRequestInterval default must be positive so the per-peer filter is active")
+
+	d := &IotxDispatcher{
+		peerLastSync: make(map[string]time.Time),
+		syncInterval: DefaultConfig.ProcessSyncRequestInterval,
+	}
+
+	blockReq := &message{msgType: iotexrpc.MessageType_BLOCK_REQUEST, peer: "peer-A"}
+
+	// First request passes the filter.
+	require.True(d.filter(blockReq), "first BLOCK_REQUEST of a peer is served")
+
+	// An immediate second request from the same peer is rate-limited.
+	require.False(d.filter(blockReq), "rapid repeated BLOCK_REQUEST from the same peer must be throttled")
+
+	// A different peer is unaffected.
+	other := &message{msgType: iotexrpc.MessageType_BLOCK_REQUEST, peer: "peer-B"}
+	require.True(d.filter(other), "a fresh peer is not throttled by another peer's requests")
+}
+
+// TestDispatcherFilterIgnoresNonBlockRequest guards that the filter only throttles
+// BLOCK_REQUEST and leaves other message types untouched even when the default interval
+// is active.
+func TestDispatcherFilterIgnoresNonBlockRequest(t *testing.T) {
+	require := require.New(t)
+
+	d := &IotxDispatcher{
+		peerLastSync: make(map[string]time.Time),
+		syncInterval: DefaultConfig.ProcessSyncRequestInterval,
+	}
+
+	consensus := &message{msgType: iotexrpc.MessageType_CONSENSUS, peer: "peer-A"}
+	require.True(d.filter(consensus), "non-BLOCK_REQUEST messages are never throttled")
+	require.True(d.filter(consensus), "repeated non-BLOCK_REQUEST messages are never throttled")
+}
