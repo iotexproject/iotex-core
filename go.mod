@@ -27,7 +27,7 @@ require (
 	github.com/holiman/uint256 v1.3.2
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.3.7
-	github.com/iotexproject/go-pkgs v0.1.16-0.20250813090621-fc1c4ebefcb4
+	github.com/iotexproject/go-pkgs v0.1.16
 	github.com/iotexproject/iotex-address v0.2.9-0.20251203033311-6e8aa4fd43ef
 	github.com/iotexproject/iotex-antenna-go/v2 v2.6.4
 	github.com/iotexproject/iotex-election v0.3.8-0.20251015031218-8df952babca1
@@ -340,8 +340,6 @@ require (
 replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v1.7.4-0.20260114032628-a8ad6229e289
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
-
-replace github.com/iotexproject/go-pkgs => github.com/iotexproject/go-pkgs v0.1.16-0.20250813094138-d89b145b833c
 
 replace github.com/erigontech/erigon => github.com/envestcc/erigon v0.0.0-20251229032433-18f245cc374a
 
