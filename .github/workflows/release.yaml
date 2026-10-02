@@ -25,8 +25,8 @@ jobs:
             artifact_name: ioctl-windows-amd64.exe
             server_artifact_name: iotex-core-windows-amd64.exe
           - os: macos-latest
-            artifact_name: ioctl-darwin-amd64
-            server_artifact_name: iotex-core-darwin-amd64
+            artifact_name: ioctl-darwin-arm64
+            server_artifact_name: iotex-core-darwin-arm64
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
