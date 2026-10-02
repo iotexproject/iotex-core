@@ -115,6 +115,8 @@ func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websock
 		return nil
 	})
 
+	// each connection gets its own budget at the configured rate
+	limiter := rate.NewLimiter(wsSvr.limiter.Limit(), wsSvr.limiter.Burst())
 	ctx, cancel := context.WithCancel(WithStreamContext(ctx))
 	safeWs := &safeWebsocketConn{ws: ws}
 	go ping(ctx, safeWs, cancel)
@@ -132,7 +134,7 @@ func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websock
 		case <-ctx.Done():
 			return
 		default:
-			if err := wsSvr.limiter.Wait(ctx); err != nil {
+			if err := limiter.Wait(ctx); err != nil {
 				cancel()
 				return
 			}
