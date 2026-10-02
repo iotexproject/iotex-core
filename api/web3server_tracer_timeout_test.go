@@ -197,3 +197,44 @@ func errString(err error) string {
 	}
 	return err.Error()
 }
+
+// TestParseTracerRejectsJSTracer verifies that caller-supplied JS tracer code is
+// refused before it is evaluated: constructing a JS tracer runs its setup()
+// before any timeout is armed, so a looping setup() would never return.
+func TestParseTracerRejectsJSTracer(t *testing.T) {
+	require := require.New(t)
+	ctx := tracerCtxForTest()
+
+	code := `{setup: function() { while (true) {} }, result: function() {}, fault: function() {}}`
+	timeout := "100ms"
+	cfg := &tracers.TraceConfig{Tracer: &code, Timeout: &timeout}
+
+	done := make(chan error, 1)
+	go func() {
+		_, _, err := parseTracer(ctx, new(tracers.Context), cfg)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		require.ErrorIs(err, errJSTracer)
+	case <-time.After(5 * time.Second):
+		t.Fatal("JS tracer setup ran unbounded")
+	}
+}
+
+// TestTraceTimeoutCapped verifies that a caller-supplied trace timeout is capped.
+func TestTraceTimeoutCapped(t *testing.T) {
+	require := require.New(t)
+	for _, c := range []struct {
+		in   *string
+		want time.Duration
+	}{
+		{nil, defaultTraceTimeout},
+		{func() *string { s := "2s"; return &s }(), 2 * time.Second},
+		{func() *string { s := "24h"; return &s }(), maxTraceTimeout},
+	} {
+		got, err := traceTimeout(&tracers.TraceConfig{Timeout: c.in})
+		require.NoError(err)
+		require.Equal(c.want, got)
+	}
+}

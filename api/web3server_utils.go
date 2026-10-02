@@ -876,11 +876,27 @@ func serializeStopAndResult(t *tracers.Tracer) *tracers.Tracer {
 	return guarded
 }
 
+// traceTimeout returns the timeout for a single transaction trace, which applies
+// to all tracer types: the caller's value, capped at maxTraceTimeout.
+func traceTimeout(config *tracers.TraceConfig) (time.Duration, error) {
+	if config == nil || config.Timeout == nil {
+		return defaultTraceTimeout, nil
+	}
+	timeout, err := time.ParseDuration(*config.Timeout)
+	if err != nil {
+		return 0, err
+	}
+	if timeout > maxTraceTimeout {
+		timeout = maxTraceTimeout
+	}
+	return timeout, nil
+}
+
 // parseTracer builds the tracer described by config and arms a timeout watchdog
 // that stops the tracer once the deadline expires. The watchdog covers every
 // tracer type (default struct logger, configured struct logger and named
-// JS/native tracers), since all of them perform per-opcode work that must be
-// bounded.
+// native tracers), since all of them perform per-opcode work that must be
+// bounded. JS tracers are refused.
 //
 // The returned cleanup func MUST be called by the caller *after* the trace has
 // finished executing: it disarms the watchdog goroutine (so it does not leak and
@@ -898,6 +914,11 @@ func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.Tr
 			Stop:      loger.Stop,
 		}
 	case config.Tracer != nil:
+		// a JS tracer runs caller-supplied code while it is being constructed,
+		// before the timeout below is armed; only native tracers are served
+		if tracers.DefaultDirectory.IsJS(*config.Tracer) {
+			return nil, nil, errJSTracer
+		}
 		cc, err := evm.NewChainConfig(ctx)
 		if err != nil {
 			return nil, nil, err
@@ -920,14 +941,9 @@ func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.Tr
 	// so hand back a tracer that serializes the two.
 	tracer = serializeStopAndResult(tracer)
 
-	// Define a meaningful timeout for a single transaction trace. This applies
-	// to all tracer types.
-	timeout := defaultTraceTimeout
-	if config != nil && config.Timeout != nil {
-		var err error
-		if timeout, err = time.ParseDuration(*config.Timeout); err != nil {
-			return nil, nil, err
-		}
+	timeout, err := traceTimeout(config)
+	if err != nil {
+		return nil, nil, err
 	}
 	// Arm a watchdog that stops the tracer if the trace runs past the deadline.
 	// cleanup (context cancel) is returned to the caller and is invoked once

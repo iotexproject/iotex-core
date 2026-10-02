@@ -78,6 +78,8 @@ const (
 	// defaultTraceTimeout is the amount of time a single transaction can execute
 	// by default before being forcefully aborted.
 	defaultTraceTimeout = 5 * time.Second
+	// maxTraceTimeout caps a caller-supplied trace timeout
+	maxTraceTimeout = 30 * time.Second
 )
 
 type (

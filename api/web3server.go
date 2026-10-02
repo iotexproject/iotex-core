@@ -96,6 +96,7 @@ var (
 	errPanic             = errors.New("panic")
 	errSubscribeInBatch  = errors.New("eth_subscribe is not supported in batch requests")
 	errTooManySubs       = errors.New("too many subscriptions on this connection")
+	errJSTracer          = errors.New("JavaScript tracers are not supported, use a native tracer")
 
 	_pendingBlockNumber   = "pending"
 	_latestBlockNumber    = "latest"
