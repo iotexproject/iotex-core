@@ -9,7 +9,9 @@ import (
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestBlockDeserializer(t *testing.T) {
@@ -51,4 +53,35 @@ func TestBlockStoreDeserializer(t *testing.T) {
 	require.Equal(store1.height, store.Block.height)
 	require.Equal(store1.Header.prevBlockHash, store.Block.Header.prevBlockHash)
 	require.Equal(store1.Header.blockSig, store.Block.Header.blockSig)
+}
+
+func TestBlockDeserializerNilBody(t *testing.T) {
+	r := require.New(t)
+	bd := Deserializer{}
+
+	pbBlock := proto.Clone(&_pbBlock).(*iotextypes.Block)
+	pbBlock.Body = nil
+	_, err := bd.FromBlockProto(pbBlock)
+	r.ErrorContains(err, "block body is nil")
+
+	raw, err := proto.Marshal(pbBlock)
+	r.NoError(err)
+	_, err = bd.DeserializeBlock(raw)
+	r.ErrorContains(err, "block body is nil")
+
+	_, err = bd.BlockFromBlockStoreProto(&iotextypes.BlockStore{})
+	r.Error(err)
+	_, err = bd.ReceiptsFromBlockStoreProto(&iotextypes.BlockStore{})
+	r.NoError(err)
+
+	// an empty body must still round-trip as a non-nil body
+	pbBlock.Body = &iotextypes.BlockBody{}
+	raw, err = proto.Marshal(pbBlock)
+	r.NoError(err)
+	decoded := &iotextypes.Block{}
+	r.NoError(proto.Unmarshal(raw, decoded))
+	r.NotNil(decoded.GetBody())
+	blk, err := bd.FromBlockProto(decoded)
+	r.NoError(err)
+	r.Empty(blk.Actions)
 }
