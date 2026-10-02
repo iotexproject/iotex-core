@@ -70,16 +70,13 @@ func (v *viewData) Fork() protocol.View {
 	fork := &viewData{}
 	fork.candCenter = v.candCenter.Clone()
 	fork.bucketPool = v.bucketPool.Clone()
-	fork.snapshots = make([]Snapshot, len(v.snapshots))
-	for i := range v.snapshots {
-		fork.snapshots[i] = Snapshot{
-			size:           v.snapshots[i].size,
-			changes:        v.snapshots[i].changes,
-			amount:         new(big.Int).Set(v.snapshots[i].amount),
-			count:          v.snapshots[i].count,
-			contractsStake: v.snapshots[i].contractsStake,
-		}
-	}
+	// snapshots is left empty on purpose: it is an in-memory undo log whose
+	// indices never outlive a fork, because protocol.views (its only long-lived
+	// holder) is rebuilt empty by views.Fork() and the two direct callers
+	// (Protocol.Handle here, slashDelegates in rewarding) revert within one call
+	// frame. Copying it only cost a Snapshot plus a big.Int per entry per fork,
+	// which is quadratic whenever the view stays clean and Commit never clears
+	// the log.
 	fork.contractsStake = v.contractsStake.Fork()
 	return fork
 }

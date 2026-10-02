@@ -22,7 +22,9 @@ func TestViewData_Fork(t *testing.T) {
 	require.Equal(t, vd.candCenter.base, fork.candCenter.base)
 	require.Equal(t, vd.candCenter.change, fork.candCenter.change)
 	require.NotSame(t, vd.bucketPool, fork.bucketPool)
-	require.Equal(t, vd.snapshots, fork.snapshots)
+	// the undo log is not carried across a fork, and the parent keeps its own
+	require.Empty(t, fork.snapshots)
+	require.Len(t, vd.snapshots, 1)
 
 	sm := mock_chainmanager.NewMockStateManager(gomock.NewController(t))
 	sm.EXPECT().Height().Return(uint64(100), nil).Times(1)
@@ -35,7 +37,7 @@ func TestViewData_Fork(t *testing.T) {
 	require.Equal(t, vd.candCenter.base, fork.candCenter.base)
 	require.Equal(t, vd.candCenter.change, fork.candCenter.change)
 	require.Equal(t, vd.bucketPool, fork.bucketPool)
-	require.Equal(t, vd.snapshots, fork.snapshots)
+	require.Empty(t, fork.snapshots)
 }
 
 func prepareViewData(t *testing.T) (*viewData, int) {
@@ -86,4 +88,53 @@ func TestViewData_Snapshot_Revert(t *testing.T) {
 	require.Equal(t, 1, len(viewData.snapshots))
 	require.NoError(t, viewData.Revert(ss))
 	require.Equal(t, 0, len(viewData.snapshots))
+}
+
+// A fork starts a fresh undo log, so snapshot/revert inside the fork must still
+// restore the exact pre-snapshot state, and must not disturb the parent's log.
+func TestViewData_Snapshot_RevertAfterFork(t *testing.T) {
+	r := require.New(t)
+	parent, _ := prepareViewData(t)
+	r.Len(parent.snapshots, 1)
+
+	fork := parent.Fork().(*viewData)
+	r.Empty(fork.snapshots)
+
+	var (
+		size    = fork.candCenter.size
+		changes = len(fork.candCenter.change.candidates)
+		amount  = new(big.Int).Set(fork.bucketPool.total.amount)
+		count   = fork.bucketPool.total.count
+	)
+
+	ss := fork.Snapshot()
+	r.Equal(0, ss)
+
+	owner := identityset.Address(1)
+	r.NoError(fork.candCenter.Upsert(&Candidate{
+		Owner:              owner,
+		Operator:           owner,
+		Reward:             owner,
+		Identifier:         owner,
+		Name:               "name2",
+		Votes:              big.NewInt(200),
+		SelfStakeBucketIdx: 1,
+		SelfStake:          big.NewInt(0),
+	}))
+	fork.bucketPool.total.amount.SetInt64(999)
+	fork.bucketPool.total.count = 42
+	r.NotEqual(size, fork.candCenter.size)
+
+	r.NoError(fork.Revert(ss))
+	r.Equal(size, fork.candCenter.size)
+	r.Len(fork.candCenter.change.candidates, changes)
+	r.Zero(amount.Cmp(fork.bucketPool.total.amount))
+	r.Equal(count, fork.bucketPool.total.count)
+	r.Empty(fork.snapshots)
+
+	// the parent's entry is neither consumed nor aliased by the fork
+	r.Len(parent.snapshots, 1)
+	r.Zero(parent.snapshots[0].amount.Cmp(amount))
+	r.NoError(parent.Revert(0))
+	r.Empty(parent.snapshots)
 }
