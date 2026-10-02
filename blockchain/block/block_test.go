@@ -235,3 +235,21 @@ func actionHashs(blk *Block) []string {
 	}
 	return actHash
 }
+
+func TestWithBlobSidecarsCopiesInput(t *testing.T) {
+	r := require.New(t)
+	blk, err := (&Deserializer{}).FromBlockProto(&_pbBlock)
+	r.NoError(err)
+	r.NotEmpty(blk.Actions)
+	origActions := blk.Actions
+	origFirst := blk.Actions[0]
+
+	// no sidecars match, but the returned block must be a copy with its own
+	// Actions backing array so later sidecar writes never touch the shared block.
+	deser := (&action.Deserializer{}).SetEvmNetworkID(0)
+	nb, err := blk.WithBlobSidecars(nil, nil, deser)
+	r.NoError(err)
+	r.NotSame(blk, nb)
+	r.NotSame(&origActions[0], &nb.Actions[0])
+	r.Same(origFirst, blk.Actions[0]) // original untouched
+}

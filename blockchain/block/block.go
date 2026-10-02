@@ -139,7 +139,12 @@ func (b *Block) WithBlobSidecars(sidecars []*types.BlobTxSidecar, txhash []strin
 		}
 		scMap[h] = sidecars[i]
 	}
-	for i, act := range b.Actions {
+	// b may be a pointer shared from a block cache; copy it and its Actions slice
+	// before attaching sidecars so concurrent readers are not mutated underneath.
+	nb := *b
+	nb.Actions = make([]*action.SealedEnvelope, len(b.Actions))
+	copy(nb.Actions, b.Actions)
+	for i, act := range nb.Actions {
 		h, _ := act.Hash()
 		if sc, ok := scMap[h]; ok {
 			// add the sidecar to this action
@@ -154,8 +159,8 @@ func (b *Block) WithBlobSidecars(sidecars []*types.BlobTxSidecar, txhash []strin
 			if err != nil {
 				return nil, err
 			}
-			b.Actions[i] = actWithBlob
+			nb.Actions[i] = actWithBlob
 		}
 	}
-	return b, nil
+	return &nb, nil
 }
