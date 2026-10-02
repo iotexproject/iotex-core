@@ -237,7 +237,12 @@ func (etx *txContainer) Unfold(selp *SealedEnvelope, ctx context.Context, checke
 
 func (etx *txContainer) Cost() (*big.Int, error) {
 	maxExecFee := big.NewInt(0).Mul(etx.tx.GasPrice(), big.NewInt(0).SetUint64(etx.tx.Gas()))
-	return maxExecFee.Add(etx.tx.Value(), maxExecFee), nil
+	cost := maxExecFee.Add(etx.tx.Value(), maxExecFee)
+	// account for blob fee, as envelope.Cost does
+	if etx.tx.Type() == types.BlobTxType {
+		cost.Add(cost, new(big.Int).Mul(etx.tx.BlobGasFeeCap(), new(big.Int).SetUint64(etx.tx.BlobGas())))
+	}
+	return cost, nil
 }
 
 func (etx *txContainer) IntrinsicGas() (uint64, error) {
