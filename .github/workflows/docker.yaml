@@ -31,9 +31,10 @@ on:
         default: true
         type: boolean
 
-# A new push to the same PR supersedes the previous build.
+# A new push to the same PR supersedes the previous build. Other events get a
+# unique group so every master commit and tag still builds its own image.
 concurrency:
-  group: docker-${{ github.ref }}
+  group: docker-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -54,6 +55,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      commit_short: ${{ steps.package_info.outputs.COMMIT_SHORT }}
 
     steps:
       - name: Prepare
@@ -89,6 +92,7 @@ jobs:
         run: |
           echo "PACKAGE_VERSION=$(git describe --tags --always)" >> $GITHUB_OUTPUT
           echo "PACKAGE_COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          echo "COMMIT_SHORT=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
           GIT_STATUS=$(git status --porcelain)
           if [ -n "$GIT_STATUS" ]; then
             echo "GIT_STATUS=dirty" >> $GITHUB_OUTPUT
@@ -160,19 +164,21 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # github.ref/github.sha describe the dispatching branch, not inputs.ref,
+          # so ref-derived tags are only set for push events. A manual dispatch
+          # is tagged with the commit that was actually built and never moves
+          # latest, a branch tag, or a version tag.
           tags: |
-            # set latest tag for master branch
-            type=raw,value=latest,enable={{is_default_branch}}
+            # set latest tag for master branch pushes
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
             # set version tag for tags
-            type=ref,event=tag
+            type=ref,event=tag,enable=${{ github.event_name == 'push' }}
             # set branch name for branch pushes
-            type=ref,event=branch
-            # set pr-<number> for pull requests
-            type=ref,event=pr
+            type=ref,event=branch,enable=${{ github.event_name == 'push' }}
             # set sha-<short_sha> for any push
-            type=sha,prefix=sha-
-            # set manual-<short_sha> for manual workflow dispatch
-            type=sha,prefix=manual-,enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=sha,prefix=sha-,enable=${{ github.event_name == 'push' }}
+            # set manual-<short_sha> of the built commit for manual workflow dispatch
+            type=raw,value=manual-${{ needs.build.outputs.commit_short }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Create manifest list and push
         id: manifest
