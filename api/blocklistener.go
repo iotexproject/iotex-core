@@ -3,14 +3,11 @@ package api
 import (
 	"encoding/hex"
 
-	"go.uber.org/zap"
-
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type streamHandler func(interface{}) (int, error)
@@ -55,35 +52,30 @@ func (bl *gRPCBlockListener) Exit() {
 }
 
 type web3BlockListener struct {
-	streamHandle streamHandler
+	sender *streamSender
 }
 
 // NewWeb3BlockListener returns a new websocket block listener
 func NewWeb3BlockListener(handler streamHandler) apitypes.Responder {
 	return &web3BlockListener{
-		streamHandle: handler,
+		// nobody waits on a websocket subscription's outcome: a failed write
+		// ends the subscription and the next Respond evicts it
+		sender: newStreamSender("web3Blocks", handler, make(chan error, 1)),
 	}
 }
 
-// Respond to new block
+// Respond to new block. Like the gRPC listener it only queues the block; the
+// websocket write happens on the subscription's own goroutine. See streamSender.
 func (bl *web3BlockListener) Respond(id string, blk *block.Block) error {
-	res := &streamResponse{
+	return bl.sender.enqueue(&streamResponse{
 		id: id,
 		result: &getBlockResult{
 			blk: blk,
 		},
-	}
-	// send blockInfo thru streaming API
-	if _, err := bl.streamHandle(res); err != nil {
-		log.L().Info(
-			"Error when streaming the block",
-			zap.Uint64("height", blk.Height()),
-			zap.Error(err),
-		)
-		return err
-	}
-	return nil
+	})
 }
 
-// Exit send to error channel
-func (bl *web3BlockListener) Exit() {}
+// Exit ends the subscription
+func (bl *web3BlockListener) Exit() {
+	bl.sender.fail(nil)
+}

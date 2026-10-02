@@ -2,12 +2,10 @@ package api
 
 import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/v2/api/logfilter"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
-	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
 
 type gRPCLogListener struct {
@@ -52,45 +50,45 @@ func (ll *gRPCLogListener) Exit() {
 }
 
 type web3LogListener struct {
-	logFilter    *logfilter.LogFilter
-	streamHandle streamHandler
+	logFilter *logfilter.LogFilter
+	sender    *streamSender
 }
 
 // NewWeb3LogListener returns a new websocket block listener
 func NewWeb3LogListener(filter *logfilter.LogFilter, handler streamHandler) apitypes.Responder {
 	return &web3LogListener{
-		logFilter:    filter,
-		streamHandle: handler,
+		logFilter: filter,
+		// nobody waits on a websocket subscription's outcome: a failed write
+		// ends the subscription and the next Respond evicts it
+		sender: newStreamSender("web3Logs", handler, make(chan error, 1)),
 	}
 }
 
-// Respond to new block
+// Respond to new block. Matching logs are queued as one group, not written
+// inline; see streamSender.
 func (ll *web3LogListener) Respond(id string, blk *block.Block) error {
 	if !ll.logFilter.ExistInBloomFilter(blk.LogsBloomfilter()) {
 		return nil
 	}
 	blkHash := blk.HashBlock()
 	logs := ll.logFilter.MatchLogs(blk.Receipts)
-
+	if len(logs) == 0 {
+		return nil
+	}
+	msgs := make([]interface{}, 0, len(logs))
 	for _, e := range logs {
-		res := &streamResponse{
+		msgs = append(msgs, &streamResponse{
 			id: id,
 			result: &getLogsResult{
 				blockHash: blkHash,
 				log:       e,
 			},
-		}
-		if _, err := ll.streamHandle(res); err != nil {
-			log.L().Info(
-				"Error when streaming the block",
-				zap.Uint64("height", blk.Height()),
-				zap.Error(err),
-			)
-			return err
-		}
+		})
 	}
-	return nil
+	return ll.sender.enqueue(msgs...)
 }
 
-// Exit send to error channel
-func (ll *web3LogListener) Exit() {}
+// Exit ends the subscription
+func (ll *web3LogListener) Exit() {
+	ll.sender.fail(nil)
+}

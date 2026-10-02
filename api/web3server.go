@@ -42,6 +42,9 @@ const (
 	_metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
 	// _defaultBatchRequestLimit is the default maximum number of items in a batch.
 	_defaultBatchRequestLimit = 100 // Maximum number of items in a batch.
+	// _maxSubscriptionsPerConnection bounds the eth_subscribe subscriptions one
+	// websocket connection may hold at a time
+	_maxSubscriptionsPerConnection = 32
 )
 
 type (
@@ -92,6 +95,7 @@ var (
 	errHTTPNotSupported  = errors.New("http not supported")
 	errPanic             = errors.New("panic")
 	errSubscribeInBatch  = errors.New("eth_subscribe is not supported in batch requests")
+	errTooManySubs       = errors.New("too many subscriptions on this connection")
 
 	_pendingBlockNumber   = "pending"
 	_latestBlockNumber    = "latest"
@@ -269,6 +273,9 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.subscribe(sc, web3Req, writer)
 	case "eth_unsubscribe":
 		res, err = svr.unsubscribe(web3Req)
+		if sc, ok := StreamFromContext(ctx); ok && err == nil {
+			sc.RemoveListener(web3Req.Get("params.0").String())
+		}
 	case "eth_getBlobSidecars":
 		res, err = svr.getBlobSidecars(web3Req)
 	case "debug_traceTransaction":
@@ -1357,6 +1364,9 @@ func (svr *web3Handler) subscribe(ctx *StreamContext, in *gjson.Result, writer a
 	subscription := in.Get("params.0")
 	if !subscription.Exists() {
 		return nil, errInvalidFormat
+	}
+	if ctx.ListenerCount() >= _maxSubscriptionsPerConnection {
+		return nil, errTooManySubs
 	}
 	switch subscription.String() {
 	case "newHeads":
