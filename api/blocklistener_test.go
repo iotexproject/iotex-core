@@ -79,13 +79,6 @@ func TestBlockListener(t *testing.T) {
 func TestWeb3BlockListener(t *testing.T) {
 	require := require.New(t)
 
-	var streamErr error
-	handler := func(in interface{}) (int, error) {
-		return 0, streamErr
-	}
-
-	responder := NewWeb3BlockListener(handler)
-
 	builder := block.NewTestingBuilder().
 		SetHeight(1).
 		SetVersion(111).
@@ -93,17 +86,34 @@ func TestWeb3BlockListener(t *testing.T) {
 	testBlock, err := builder.SignAndBuild(identityset.PrivateKey(0))
 	require.NoError(err)
 
-	t.Run("success send blockInfo", func(t *testing.T) {
-		streamErr = nil
-		err = responder.Respond("test", &testBlock)
-		require.NoError(err)
+	// the websocket write happens on the subscription's own goroutine, so
+	// Respond returns once the block is queued
+	sent := make(chan interface{}, 1)
+	responder := NewWeb3BlockListener(func(in interface{}) (int, error) {
+		sent <- in
+		return 0, nil
 	})
-
-	t.Run("stream handle raise error", func(t *testing.T) {
-		streamErr = errorSend
-		err = responder.Respond("test", &testBlock)
-		require.Equal(errorSend, err)
-	})
-
+	require.NoError(responder.Respond("test", &testBlock))
+	select {
+	case in := <-sent:
+		resp, ok := in.(*streamResponse)
+		require.True(ok)
+		require.Equal("test", resp.id)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for streamed block")
+	}
 	responder.Exit()
+
+	// a failed write ends the subscription; the next Respond reports it so the
+	// chain listener evicts the responder
+	failed := make(chan struct{})
+	responder = NewWeb3BlockListener(func(interface{}) (int, error) {
+		close(failed)
+		return 0, errorSend
+	})
+	require.NoError(responder.Respond("test", &testBlock))
+	<-failed
+	require.Eventually(func() bool {
+		return errors.Is(responder.Respond("test", &testBlock), errSlowStreamConsumer)
+	}, time.Second, 10*time.Millisecond)
 }

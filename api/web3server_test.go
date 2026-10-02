@@ -1654,3 +1654,50 @@ func TestWeb3MalformedParams(t *testing.T) {
 		require.Error(err)
 	})
 }
+
+func TestSubscribeLimitPerConnection(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	cl := NewChainListener(1000)
+	core.EXPECT().ChainListener().Return(cl).AnyTimes()
+	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	ctx := WithStreamContext(context.Background())
+	var lastResp []byte
+	writer := apitypes.NewResponseWriter(func(resp interface{}) (int, error) {
+		lastResp, _ = json.Marshal(resp)
+		return 0, nil
+	})
+	call := func(body string) string {
+		require.NoError(web3svr.HandlePOSTReq(ctx, strings.NewReader(body), writer))
+		return string(lastResp)
+	}
+	subscribe := `{"jsonrpc":"2.0","id":1,"method":"eth_subscribe","params":["newHeads"]}`
+
+	var ids []string
+	for i := 0; i < _maxSubscriptionsPerConnection; i++ {
+		resp := call(subscribe)
+		id := gjson.Get(resp, "result").String()
+		require.NotEmpty(id, resp)
+		ids = append(ids, id)
+	}
+	resp := call(subscribe)
+	require.Contains(resp, errTooManySubs.Error())
+
+	// unsubscribing frees a slot on this connection
+	resp = call(fmt.Sprintf(`{"jsonrpc":"2.0","id":2,"method":"eth_unsubscribe","params":["%s"]}`, ids[0]))
+	require.True(gjson.Get(resp, "result").Bool(), resp)
+	resp = call(subscribe)
+	require.NotEmpty(gjson.Get(resp, "result").String(), resp)
+
+	// the limit is per connection
+	ctx = WithStreamContext(context.Background())
+	resp = call(subscribe)
+	require.NotEmpty(gjson.Get(resp, "result").String(), resp)
+	for _, id := range append(ids, gjson.Get(resp, "result").String()) {
+		_, _ = cl.RemoveResponder(id)
+	}
+}
