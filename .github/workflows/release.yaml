@@ -13,6 +13,9 @@ jobs:
     name: Release
     runs-on: ${{ matrix.os }}
     strategy:
+      # Keep building the other platforms when one fails, so a single broken
+      # job does not leave the release with no binaries at all.
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -41,9 +44,17 @@ jobs:
       # found" (issue #4066). ioctl and server both pull in CGO dependencies
       # (erigon-lib/mdbx-go, supranational/blst), so CGO cannot simply be
       # disabled; lowering the build-time glibc is the correct fix.
+      #
+      # The official golang images stopped shipping bullseye variants after
+      # 1.24, so the image only provides the bullseye userland (glibc 2.31, gcc,
+      # git). GOTOOLCHAIN pins the Go toolchain to the version in go.mod; the go
+      # command downloads it (checksum-verified via sum.golang.org) instead of
+      # failing with "go.mod requires go >= X (running go 1.24.6;
+      # GOTOOLCHAIN=local)" whenever go.mod is bumped.
       - name: make iotex-server/ioctl (Linux, glibc 2.31 for Ubuntu 20.04+)
         if: startsWith(matrix.os, 'ubuntu')
         run: |
+          GO_VERSION=$(go mod edit -json | jq -r .Go)
           # Create bin/ on the host first so it is owned by the runner user; the
           # container writes the (root-owned) binaries into it, and the later GPG
           # signing steps can still create the *.asc files inside this directory.
@@ -55,6 +66,7 @@ jobs:
             -e PACKAGE_VERSION=${{ github.ref_name }} \
             -e PACKAGE_COMMIT_ID=${{ github.sha }} \
             -e GIT_STATUS=clean \
+            -e GOTOOLCHAIN=go${GO_VERSION} \
             golang:1.24.6-bullseye \
             bash -c "git config --global --add safe.directory /src && make build"
 
