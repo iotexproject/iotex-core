@@ -17,6 +17,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/pkg/errors"
@@ -1417,5 +1418,52 @@ func TestEstimateGasNativeProtocolActionSkipsFloor(t *testing.T) {
 		ret, err := web3svr.estimateGas(context.Background(), &in)
 		require.NoError(err)
 		require.Equal(uint64ToHex(uint64(21000)), ret.(string))
+	})
+}
+
+func TestWeb3MalformedParams(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	t.Run("non-string method", func(t *testing.T) {
+		require := require.New(t)
+		for _, req := range []string{
+			`{"jsonrpc":"2.0","id":1,"method":1}`,
+			`{"jsonrpc":"2.0","id":1,"method":null}`,
+			`[{"jsonrpc":"2.0","id":1,"method":{"a":1}}]`,
+		} {
+			_, err := parseWeb3Reqs(strings.NewReader(req))
+			require.Error(err, req)
+		}
+		_, err := parseWeb3Reqs(strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"eth_chainId"}`))
+		require.NoError(err)
+	})
+
+	t.Run("block lookup error", func(t *testing.T) {
+		require := require.New(t)
+		lookupErr := errors.New("index unavailable")
+		core.EXPECT().BlockByHash(gomock.Any()).Return(nil, lookupErr)
+		in := gjson.Parse(`{"params":["0x0000000000000000000000000000000000000000000000000000000000000001", "0"]}`)
+		_, err := web3svr.getTransactionByBlockHashAndIndex(&in)
+		require.ErrorIs(err, lookupErr)
+
+		core.EXPECT().TipHeight().Return(uint64(10)).AnyTimes()
+		core.EXPECT().BlockByHeight(gomock.Any()).Return(nil, lookupErr)
+		in = gjson.Parse(`{"params":["0x1", "0"]}`)
+		_, err = web3svr.getTransactionByBlockNumberAndIndex(&in)
+		require.ErrorIs(err, lookupErr)
+	})
+
+	t.Run("set code call value out of range", func(t *testing.T) {
+		require := require.New(t)
+		call := &callMsg{
+			To:                identityset.Address(1).String(),
+			Value:             new(big.Int).Lsh(big.NewInt(1), 256),
+			AuthorizationList: []types.SetCodeAuthorization{{}},
+		}
+		_, err := call.toUnsignedTx(4689)
+		require.Error(err)
 	})
 }
