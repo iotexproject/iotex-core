@@ -193,6 +193,10 @@ func (svr *web3Handler) parseBlockRange(fromStr string, toStr string) (from uint
 	if err != nil {
 		return
 	}
+	// logs start at block 1; a start of 0 would otherwise be read as the tip
+	if from == 0 {
+		from = 1
+	}
 	to, err = svr.parseBlockNumber(toStr)
 	return
 }
@@ -277,6 +281,26 @@ func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string
 	return ret, nil
 }
 
+func (svr *web3Handler) getLogsInBlock(blockHashStr string, addrs []string, topics [][]string) ([]*getLogsResult, error) {
+	blkHash, err := hash.HexStringToHash256(util.Remove0xPrefix(blockHashStr))
+	if err != nil {
+		return nil, errors.Wrapf(errUnkownType, "blockHash: %s", blockHashStr)
+	}
+	filter, err := newLogFilterFrom(addrs, topics)
+	if err != nil {
+		return nil, err
+	}
+	logs, err := svr.coreService.LogsInBlockByHash(filter, blkHash)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*getLogsResult, 0, len(logs))
+	for i := range logs {
+		ret = append(ret, &getLogsResult{blkHash, logs[i]})
+	}
+	return ret, nil
+}
+
 // construct filter topics and addresses
 func newLogFilterFrom(addrs []string, topics [][]string) (*logfilter.LogFilter, error) {
 	filter := iotexapi.LogsFilter{}
@@ -322,6 +346,7 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 		req := in.Array()[0]
 		logReq.FromBlock = req.Get("fromBlock").String()
 		logReq.ToBlock = req.Get("toBlock").String()
+		logReq.BlockHash = req.Get("blockHash").String()
 		for _, addr := range req.Get("address").Array() {
 			logReq.Address = append(logReq.Address, addr.String())
 		}

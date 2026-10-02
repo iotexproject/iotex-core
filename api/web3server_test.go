@@ -1419,3 +1419,44 @@ func TestEstimateGasNativeProtocolActionSkipsFloor(t *testing.T) {
 		require.Equal(uint64ToHex(uint64(21000)), ret.(string))
 	})
 }
+
+func TestGetLogsByBlockHashAndEarliestStart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+	blkHash := hash.Hash256b([]byte("_block1"))
+	logs := []*action.Log{{Address: "_topic1", BlockHeight: 1}}
+
+	t.Run("blockHash", func(t *testing.T) {
+		require := require.New(t)
+		core.EXPECT().LogsInBlockByHash(gomock.Any(), blkHash).Return(logs, nil).Times(1)
+		ret, err := web3svr.getLogs(&filterObject{BlockHash: "0x" + hex.EncodeToString(blkHash[:])})
+		require.NoError(err)
+		rlt, ok := ret.([]*getLogsResult)
+		require.True(ok)
+		require.Len(rlt, 1)
+		require.Equal(blkHash, rlt[0].blockHash)
+		require.Equal("_topic1", rlt[0].log.Address)
+	})
+
+	t.Run("blockHash with range", func(t *testing.T) {
+		require := require.New(t)
+		_, err := web3svr.getLogs(&filterObject{BlockHash: "0x" + hex.EncodeToString(blkHash[:]), FromBlock: "0x1"})
+		require.ErrorIs(err, errInvalidFormat)
+	})
+
+	t.Run("parse blockHash", func(t *testing.T) {
+		require := require.New(t)
+		req, err := parseLogRequest(gjson.Parse(`[{"blockHash":"0xabc"}]`))
+		require.NoError(err)
+		require.Equal("0xabc", req.BlockHash)
+	})
+
+	t.Run("fromBlock 0x0 starts at the first block", func(t *testing.T) {
+		require := require.New(t)
+		core.EXPECT().LogsInRange(gomock.Any(), uint64(1), uint64(16), gomock.Any()).Return(nil, nil, nil).Times(1)
+		_, err := web3svr.getLogs(&filterObject{FromBlock: "0x0", ToBlock: "0x10"})
+		require.NoError(err)
+	})
+}
