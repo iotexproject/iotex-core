@@ -258,7 +258,11 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 	switch actions := msgProto.(type) {
 	case *iotextypes.Actions:
 		for _, act := range actions.Actions {
-			d.ratelimiter.Wait(string(act.SenderPubKey))
+			// never block the pubsub delivery goroutine; drop actions over the per-sender rate
+			if !d.ratelimiter.Allow(string(act.SenderPubKey)) {
+				requestMtc.WithLabelValues("RateLimitAction", "false").Inc()
+				continue
+			}
 			msg := &message{
 				ctx:     ctx,
 				chainID: chainID,
@@ -270,7 +274,10 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 		}
 		return
 	case *iotextypes.Action:
-		d.ratelimiter.Wait(string(actions.SenderPubKey))
+		if !d.ratelimiter.Allow(string(actions.SenderPubKey)) {
+			requestMtc.WithLabelValues("RateLimitAction", "false").Inc()
+			return
+		}
 	}
 	msg := &message{
 		ctx:     ctx,
