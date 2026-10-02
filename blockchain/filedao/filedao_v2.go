@@ -23,6 +23,8 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
+var errWriteFailed = errors.New("a previous write to the file failed, reopen it to continue")
+
 // namespace for hash, block, and header storage
 const (
 	_hashDataNS   = "hsh"
@@ -48,6 +50,10 @@ type (
 		blkStore        db.CountingIndex // store raw blocks
 		sysStore        db.CountingIndex // store transaction log
 		deser           *block.Deserializer
+		// writeFailed is set when a batch write fails. The in-memory index
+		// sizes and staging buffer may then be ahead of the file, so further
+		// writes are refused until the file is reopened.
+		writeFailed atomic.Bool
 	}
 )
 
@@ -221,6 +227,9 @@ func (fd *fileDAOv2) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 }
 
 func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
+	if fd.writeFailed.Load() {
+		return errWriteFailed
+	}
 	tip := fd.loadTip()
 	if blk.Height() != tip.Height+1 {
 		return ErrInvalidTipHeight
@@ -242,6 +251,7 @@ func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
 	}
 
 	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
+		fd.failWrite()
 		return errors.Wrapf(err, "failed to put block at height %d", blk.Height())
 	}
 	fd.batch.Clear()
@@ -252,6 +262,9 @@ func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
 }
 
 func (fd *fileDAOv2) DeleteTipBlock() error {
+	if fd.writeFailed.Load() {
+		return errWriteFailed
+	}
 	tip := fd.loadTip()
 	height := tip.Height
 
@@ -297,11 +310,21 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 	fd.batch.Put(_headerDataNs, _topHeightKey, ser, "failed to put file tip")
 
 	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
+		fd.failWrite()
 		return err
 	}
 	fd.batch.Clear()
 	fd.storeTip(tip)
 	return nil
+}
+
+// failWrite drops the pending batch and refuses further writes. The counting
+// indexes and the staging buffer were already advanced for the failed write,
+// so writing on would persist entries at the wrong positions; reopening the
+// file reloads them from what is on disk.
+func (fd *fileDAOv2) failWrite() {
+	fd.batch.Clear()
+	fd.writeFailed.Store(true)
 }
 
 func (fd *fileDAOv2) loadTip() *FileTip {

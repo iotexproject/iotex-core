@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/compress"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
@@ -415,5 +416,72 @@ func TestBlockWithSidecar(t *testing.T) {
 				testBlockWithSidecar(cfg, start, r)
 			})
 		}
+	}
+}
+
+type failingWriteKVStore struct {
+	db.KVStore
+}
+
+func (failingWriteKVStore) WriteBatch(batch.KVStoreBatch) error {
+	return errors.New("write failed")
+}
+
+func TestFileDAOv2RefusesWritesAfterFailedWrite(t *testing.T) {
+	r := require.New(t)
+	testPath, err := testutil.PathOfTempFile("test-failed-write")
+	r.NoError(err)
+	defer testutil.CleanupPath(testPath)
+
+	cfg := db.DefaultConfig
+	cfg.DbPath = testPath
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
+	ctx := context.Background()
+	fd, err := newFileDAOv2(1, cfg, deser)
+	r.NoError(err)
+	r.NoError(fd.Start(ctx))
+
+	builder := block.NewTestingBuilder()
+	h := hash.ZeroHash256
+	blks := make([]*block.Block, 0, _blockStoreBatchSize+4)
+	for i := uint64(1); i <= _blockStoreBatchSize+4; i++ {
+		blk := createTestingBlock(builder, i, h)
+		blks = append(blks, blk)
+		h = blk.HashBlock()
+	}
+	// the last block before the failure fills the staging buffer, so the
+	// failed write also advances the block store
+	for _, blk := range blks[:_blockStoreBatchSize-1] {
+		r.NoError(fd.PutBlock(ctx, blk))
+	}
+	next := blks[_blockStoreBatchSize-1]
+	kv := fd.kvStore
+	fd.kvStore = failingWriteKVStore{kv}
+	r.Error(fd.PutBlock(ctx, next))
+	fd.kvStore = kv
+	r.ErrorIs(fd.PutBlock(ctx, next), errWriteFailed)
+	r.ErrorIs(fd.DeleteTipBlock(), errWriteFailed)
+	r.NoError(fd.Stop(ctx))
+
+	// reopening reloads the state from the file and writing resumes
+	fd = openFileDAOv2(cfg, deser)
+	r.NoError(fd.Start(ctx))
+	defer fd.Stop(ctx)
+	for _, blk := range blks[_blockStoreBatchSize-1:] {
+		r.NoError(fd.PutBlock(ctx, blk))
+	}
+	height, err := fd.Height()
+	r.NoError(err)
+	r.Equal(uint64(len(blks)), height)
+	for _, want := range blks {
+		got, err := fd.GetBlockByHeight(want.Height())
+		r.NoError(err)
+		r.Equal(want.HashBlock(), got.HashBlock())
+		h, err := fd.GetBlockHash(want.Height())
+		r.NoError(err)
+		r.Equal(want.HashBlock(), h)
+		receipts, err := fd.GetReceipts(want.Height())
+		r.NoError(err)
+		r.Equal(want.Height(), receipts[0].BlockHeight)
 	}
 }
