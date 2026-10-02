@@ -11,6 +11,13 @@ on:
   pull_request:
     branches:
       - master
+    # Skip PRs that cannot change the image. Later patterns override earlier
+    # ones, so edits to this workflow itself still trigger a build.
+    paths:
+      - "**"
+      - "!**/*.md"
+      - "!.github/**"
+      - ".github/workflows/docker.yaml"
   workflow_dispatch:
     inputs:
       ref:
@@ -24,20 +31,36 @@ on:
         default: true
         type: boolean
 
+# A new push to the same PR supersedes the previous build.
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  PUSH_IMAGE: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.event.inputs.push_image == 'true') }}
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
+  # Each platform builds natively on its own runner (no QEMU) and pushes an
+  # untagged image by digest; the merge job then publishes the tagged
+  # multi-platform manifest list. PRs only compile-check linux/amd64.
+  build:
+    runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ github.event_name == 'pull_request' && fromJSON('["linux/amd64"]') || fromJSON('["linux/amd64","linux/arm64"]') }}
     permissions:
       contents: read
       packages: write
-      id-token: write
-      attestations: write
 
     steps:
+      - name: Prepare
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
@@ -48,7 +71,84 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to Container Registry
-        if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.event.inputs.push_image == 'true')
+        if: env.PUSH_IMAGE == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Get package info
+        id: package_info
+        run: |
+          echo "PACKAGE_VERSION=$(git describe --tags --always)" >> $GITHUB_OUTPUT
+          echo "PACKAGE_COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          GIT_STATUS=$(git status --porcelain)
+          if [ -n "$GIT_STATUS" ]; then
+            echo "GIT_STATUS=dirty" >> $GITHUB_OUTPUT
+          else
+            echo "GIT_STATUS=clean" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=${{ env.PUSH_IMAGE }}
+          build-args: |
+            PACKAGE_VERSION=${{ steps.package_info.outputs.PACKAGE_VERSION }}
+            PACKAGE_COMMIT_ID=${{ steps.package_info.outputs.PACKAGE_COMMIT_ID }}
+            GIT_STATUS=${{ steps.package_info.outputs.GIT_STATUS }}
+          cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=${{ env.PLATFORM_PAIR }}
+
+      - name: Export digest
+        if: env.PUSH_IMAGE == 'true'
+        run: |
+          mkdir -p ${{ runner.temp }}/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        if: env.PUSH_IMAGE == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.event.inputs.push_image == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Container Registry
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -74,38 +174,21 @@ jobs:
             # set manual-<short_sha> for manual workflow dispatch
             type=sha,prefix=manual-,enable=${{ github.event_name == 'workflow_dispatch' }}
 
-      - name: Get package info
-        id: package_info
+      - name: Create manifest list and push
+        id: manifest
+        working-directory: ${{ runner.temp }}/digests
         run: |
-          echo "PACKAGE_VERSION=$(git describe --tags --always)" >> $GITHUB_OUTPUT
-          echo "PACKAGE_COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-          GIT_STATUS=$(git status --porcelain)
-          if [ -n "$GIT_STATUS" ]; then
-            echo "GIT_STATUS=dirty" >> $GITHUB_OUTPUT
-          else
-            echo "GIT_STATUS=clean" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Build and push Docker image
-        id: build
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.event.inputs.push_image == 'true') }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            PACKAGE_VERSION=${{ steps.package_info.outputs.PACKAGE_VERSION }}
-            PACKAGE_COMMIT_ID=${{ steps.package_info.outputs.PACKAGE_COMMIT_ID }}
-            GIT_STATUS=${{ steps.package_info.outputs.GIT_STATUS }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+          ref=$(jq -r '.tags[0]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          docker buildx imagetools inspect "$ref"
+          digest=$(docker buildx imagetools inspect "$ref" --format '{{json .Manifest}}' | jq -r .digest)
+          echo "digest=$digest" >> $GITHUB_OUTPUT
 
       - name: Generate artifact attestation
-        if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.event.inputs.push_image == 'true')
         uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
-          subject-digest: ${{ steps.build.outputs.digest }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
           push-to-registry: true
