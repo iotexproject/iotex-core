@@ -62,6 +62,7 @@ type (
 		FilterType string     `json:"filterType"`
 		FromBlock  string     `json:"fromBlock,omitempty"`
 		ToBlock    string     `json:"toBlock,omitempty"`
+		BlockHash  string     `json:"blockHash,omitempty"`
 		Address    []string   `json:"address,omitempty"`
 		Topics     [][]string `json:"topics,omitempty"`
 	}
@@ -906,6 +907,12 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 }
 
 func (svr *web3Handler) getLogs(filter *filterObject) (interface{}, error) {
+	if filter.BlockHash != "" {
+		if filter.FromBlock != "" || filter.ToBlock != "" {
+			return nil, errors.Wrap(errInvalidFormat, "blockHash cannot be combined with fromBlock or toBlock")
+		}
+		return svr.getLogsInBlock(filter.BlockHash, filter.Address, filter.Topics)
+	}
 	from, to, err := svr.parseBlockRange(filter.FromBlock, filter.ToBlock)
 	if err != nil {
 		return nil, err
