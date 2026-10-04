@@ -124,11 +124,15 @@ func (cs *CreateStake) LoadProto(pbAct *iotextypes.StakeCreate) error {
 	cs.duration = pbAct.StakedDuration
 	cs.autoStake = pbAct.AutoStake
 
+	// an absent StakedAmount decodes to zero, the same default Transfer,
+	// Execution and DepositToStake use.
+	cs.amount = big.NewInt(0)
 	if len(pbAct.GetStakedAmount()) > 0 {
-		var ok bool
-		if cs.amount, ok = new(big.Int).SetString(pbAct.StakedAmount, 10); !ok {
-			return errors.Errorf("invalid amount %s", pbAct.StakedAmount)
+		amount, ok := new(big.Int).SetString(pbAct.GetStakedAmount(), 10)
+		if !ok {
+			return errors.Errorf("invalid amount %s", pbAct.GetStakedAmount())
 		}
+		cs.amount = amount
 	}
 
 	cs.payload = nil
