@@ -33,9 +33,17 @@ const rewardPoolABI = `[
 	{"inputs":[{"internalType":"address[]","name":"_agents","type":"address[]"},{"internalType":"uint256[]","name":"_weights","type":"uint256[]"},{"internalType":"address[]","name":"_claimees","type":"address[]"}],"name":"depositSettleAndClaim","outputs":[],"stateMutability":"payable","type":"function"}
 ]`
 
+// settlerClient is the part of ethclient.Client the settler uses.
+type settlerClient interface {
+	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+}
+
 // OnChainSettler implements RewardSettler using go-ethereum's ethclient.
 type OnChainSettler struct {
-	client   *ethclient.Client
+	client   settlerClient
 	chainID  *big.Int
 	contract common.Address
 	privKey  *ecdsa.PrivateKey
@@ -45,6 +53,10 @@ type OnChainSettler struct {
 	mu          sync.Mutex
 	nonce       uint64
 	nonceLoaded bool
+	// sendFailed is set when the last send returned an error. The node may
+	// still have accepted that tx, so the next attempt reuses its nonce
+	// rather than paying the same epoch again under a fresh one.
+	sendFailed bool
 }
 
 // NewOnChainSettler creates a settler from Config.
@@ -127,14 +139,28 @@ func (s *OnChainSettler) Settle(ctx context.Context, agents []string, weights []
 	defer s.mu.Unlock()
 
 	// Get nonce (cached, incremented after each send)
+	from := crypto.PubkeyToAddress(s.privKey.PublicKey)
 	if !s.nonceLoaded {
-		from := crypto.PubkeyToAddress(s.privKey.PublicKey)
 		nonce, err := s.client.PendingNonceAt(ctx, from)
 		if err != nil {
 			return fmt.Errorf("get nonce: %w", err)
 		}
 		s.nonce = nonce
 		s.nonceLoaded = true
+	} else if s.sendFailed {
+		// If the account's pending nonce moved past the one the failed send
+		// used, that tx was accepted after all: this settlement is done.
+		pending, err := s.client.PendingNonceAt(ctx, from)
+		if err != nil {
+			return fmt.Errorf("get nonce: %w", err)
+		}
+		if pending > s.nonce {
+			s.logger.Warn("earlier depositAndSettle send reported an error but was accepted; not resending",
+				zap.Uint64("nonce", s.nonce))
+			s.nonce = pending
+			s.sendFailed = false
+			return nil
+		}
 	}
 
 	// Gas price
@@ -168,12 +194,13 @@ func (s *OnChainSettler) Settle(ctx context.Context, agents []string, weights []
 
 	// Send
 	if err := s.client.SendTransaction(ctx, signedTx); err != nil {
-		s.nonceLoaded = false
+		s.sendFailed = true
 		return fmt.Errorf("send tx: %w", err)
 	}
 
 	txHash := signedTx.Hash().Hex()
 	s.nonce++
+	s.sendFailed = false
 
 	s.logger.Info("depositAndSettle tx sent",
 		zap.String("tx_hash", txHash),

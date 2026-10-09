@@ -6,6 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/iotex-address/address"
+
 	pb "github.com/iotexproject/iotex-core/v2/ioswarm/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -191,6 +194,17 @@ func (h *grpcHandler) getRateBucket(agentID string) *rateBucket {
 	return actual.(*rateBucket)
 }
 
+// normaliseWalletAddress returns addr as 0x hex, accepting 0x hex or io1.
+func normaliseWalletAddress(addr string) (string, error) {
+	if common.IsHexAddress(addr) {
+		return common.HexToAddress(addr).Hex(), nil
+	}
+	if ioAddr, err := address.FromString(addr); err == nil {
+		return common.BytesToAddress(ioAddr.Bytes()).Hex(), nil
+	}
+	return "", fmt.Errorf("invalid wallet address %q", addr)
+}
+
 // Compile-time check that grpcHandler implements IOSwarmServer.
 var _ IOSwarmServer = (*grpcHandler)(nil)
 
@@ -207,6 +221,20 @@ func (h *grpcHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 		}, nil
 	}
 
+	// Settlement hands the wallet to common.HexToAddress, which silently turns
+	// anything that is not 0x hex into some other address, so normalise io1
+	// and refuse the rest before registering anything.
+	var wallet string
+	if req.WalletAddress != "" {
+		var err error
+		if wallet, err = normaliseWalletAddress(req.WalletAddress); err != nil {
+			return &pb.RegisterResponse{
+				Accepted: false,
+				Reason:   err.Error(),
+			}, nil
+		}
+	}
+
 	agent, ok := h.coord.registry.Register(req)
 	if !ok {
 		return &pb.RegisterResponse{
@@ -216,8 +244,8 @@ func (h *grpcHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 	}
 
 	// Store wallet address for reward distribution
-	if req.WalletAddress != "" {
-		h.coord.reward.SetAgentWallet(req.AgentID, req.WalletAddress)
+	if wallet != "" {
+		h.coord.reward.SetAgentWallet(req.AgentID, wallet)
 	}
 
 	h.coord.logger.Info("agent registered",
