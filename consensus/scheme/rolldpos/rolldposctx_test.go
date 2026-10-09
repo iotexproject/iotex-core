@@ -481,15 +481,38 @@ func TestNewProposalEndorsementRejectsFutureTimestamp(t *testing.T) {
 	require := require.New(t)
 
 	t.Run("unit-validateProposalTimestamp", func(t *testing.T) {
+		interval := consensusfsm.DefaultWakeUpgradeConfig.BlockInterval
 		blk := block.NewBlockDeprecated(1, 1, hash.ZeroHash256, time.Now().Add(time.Hour), identityset.PrivateKey(0).PublicKey(), nil)
-		require.ErrorContains(validateProposalTimestamp(blk, time.Now()), "in the future")
+		require.ErrorContains(validateProposalTimestamp(blk, time.Now(), interval), "in the future")
 		// within the bound: an honest proposal is stamped with its round's
 		// start time, never later than the producer's own clock
-		require.NoError(validateProposalTimestamp(blk, blk.Timestamp()))
+		require.NoError(validateProposalTimestamp(blk, blk.Timestamp(), interval))
 		require.NoError(validateProposalTimestamp(
 			block.NewBlockDeprecated(1, 1, hash.ZeroHash256, time.Now(), identityset.PrivateKey(0).PublicKey(), nil),
 			time.Now(),
+			interval,
 		))
+	})
+
+	t.Run("tolerance-below-block-interval", func(t *testing.T) {
+		for _, c := range []struct {
+			interval, tolerance time.Duration
+		}{
+			{consensusfsm.DefaultWakeUpgradeConfig.BlockInterval, 2 * time.Second},
+			{consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval, 4 * time.Second},
+			{10 * time.Second, 8 * time.Second},
+			{time.Minute, maxFutureProposalTimestamp},
+		} {
+			require.Equal(c.tolerance, futureProposalTolerance(c.interval))
+			now := time.Now()
+			ok := block.NewBlockDeprecated(1, 1, hash.ZeroHash256, now.Add(c.tolerance), identityset.PrivateKey(0).PublicKey(), nil)
+			require.NoError(validateProposalTimestamp(ok, now, c.interval))
+			if c.tolerance < c.interval {
+				// a proposal stamped a full block interval ahead is refused
+				late := block.NewBlockDeprecated(1, 1, hash.ZeroHash256, now.Add(c.interval), identityset.PrivateKey(0).PublicKey(), nil)
+				require.ErrorContains(validateProposalTimestamp(late, now, c.interval), "in the future")
+			}
+		}
 	})
 
 	t.Run("endorsement-refused-for-future-proposal", func(t *testing.T) {

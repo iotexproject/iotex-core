@@ -111,24 +111,37 @@ type (
 	}
 )
 
-// maxFutureProposalTimestamp is the maximum drift between a proposal's
-// timestamp and this node's clock beyond which the node refuses to endorse
-// the proposal. It must exceed the worst-case clock skew among honest
-// delegates (NTP-synced nodes drift by far less); an honest proposal is
-// stamped with its round's start time, which is never later than the
-// producer's own clock. Endorsing a far-future proposal would anchor the
+// maxFutureProposalTimestamp is the upper limit of the drift between a
+// proposal's timestamp and this node's clock beyond which the node refuses to
+// endorse the proposal. Endorsing a far-future proposal would anchor the
 // chain at a future time and stall every node's consensus until the wall
 // clock catches up. See GHSA-47pw-mwgm-24rf.
 const maxFutureProposalTimestamp = 10 * time.Second
 
+// futureProposalTolerance returns the maximum drift between a proposal's
+// timestamp and this node's clock that the node tolerates, which is kept
+// below one block interval so that a future-stamped proposal delays the next
+// height by less than one round.
+//
+// An honest proposal is stamped with the start time of its round. The round
+// of a proposal event is derived from that time, and the event is only
+// handled once this node has entered that round, which it does not do before
+// its own clock reaches the round start. So an honest proposal is never
+// stamped later than this node's clock when it is checked, regardless of
+// the clock skew between delegates; the tolerance only absorbs small clock
+// adjustments.
+func futureProposalTolerance(blockInterval time.Duration) time.Duration {
+	return min(blockInterval*4/5, maxFutureProposalTimestamp)
+}
+
 // validateProposalTimestamp reports whether the proposal is stamped too far
 // into the future for this node to endorse
-func validateProposalTimestamp(blk *block.Block, now time.Time) error {
-	if blk.Timestamp().After(now.Add(maxFutureProposalTimestamp)) {
+func validateProposalTimestamp(blk *block.Block, now time.Time, blockInterval time.Duration) error {
+	if tolerance := futureProposalTolerance(blockInterval); blk.Timestamp().After(now.Add(tolerance)) {
 		return errors.Errorf(
 			"proposal timestamp %s is more than %s in the future",
 			blk.Timestamp(),
-			maxFutureProposalTimestamp,
+			tolerance,
 		)
 	}
 	return nil
@@ -563,7 +576,7 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		// withholds its vote, so the fleet cannot split at any adoption rate.
 		// Once >= 1/3 of the delegate weight runs this check, a future-stamped
 		// proposal can no longer reach the 2/3+1 PROPOSAL endorsement quorum.
-		if err := validateProposalTimestamp(proposal.block, ctx.clock.Now()); err != nil {
+		if err := validateProposalTimestamp(proposal.block, ctx.clock.Now(), ctx.BlockInterval(proposal.block.Height())); err != nil {
 			ctx.logger().Warn("refuse to endorse proposal with future timestamp", zap.Error(err))
 			return nil, err
 		}
