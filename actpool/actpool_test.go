@@ -1460,5 +1460,7 @@ func TestActPool_AddRejectsNonCanonicalSignature(t *testing.T) {
 	// wrong recovery id
 	require.ErrorIs(ap.Add(ctx, withV(1-sig[64])), action.ErrInvalidSender)
 	require.ErrorIs(ap.Add(ctx, withV(28-sig[64])), action.ErrInvalidSender)
+	// correct recovery id with the offset of 27
+	require.ErrorIs(ap.Add(ctx, withV(27+sig[64])), action.ErrInvalidSender)
 	require.NoError(ap.Add(ctx, tsf))
 }

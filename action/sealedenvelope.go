@@ -256,8 +256,8 @@ func (sealed *SealedEnvelope) VerifySignature() error {
 }
 
 // VerifyCanonicalSignature verifies that the signature of an IOTEX_PROTOBUF
-// encoded action is in canonical form, i.e., its V byte is the recovery id of
-// the sender's public key. VerifySignature() does not check V, while V is
+// encoded action is in canonical form, i.e., its V byte is the recovery id (0
+// or 1, without the offset of 27) of the sender's public key. VerifySignature() does not check V, while V is
 // covered by the action hash, so the same signed action could otherwise be
 // presented with different hashes.
 //
@@ -273,6 +273,9 @@ func (sealed *SealedEnvelope) VerifyCanonicalSignature() error {
 	if _, ok := sealed.SrcPubkey().(*crypto.P256sm2PubKey); ok {
 		// no recovery id in the signature
 		return nil
+	}
+	if len(sealed.signature) != 65 || sealed.signature[64] > 1 {
+		return errors.Wrap(ErrInvalidSender, "signature V is not 0 or 1")
 	}
 	h, err := sealed.envelopeHash()
 	if err != nil {

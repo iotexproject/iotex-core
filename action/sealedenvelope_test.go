@@ -233,7 +233,7 @@ func TestSealedEnvelope_VerifyCanonicalSignature(t *testing.T) {
 	req.NoError(err)
 	req.NoError(selp.VerifyCanonicalSignature())
 	sig := selp.Signature()
-	for _, v := range []byte{1 - sig[64], 28 - sig[64]} {
+	for _, v := range []byte{1 - sig[64], 28 - sig[64], 27 + sig[64]} {
 		pb := selp.Proto()
 		pb.Signature = append([]byte(nil), sig...)
 		pb.Signature[64] = v
