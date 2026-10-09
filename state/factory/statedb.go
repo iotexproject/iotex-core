@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -64,6 +65,10 @@ type (
 		erigonDB                 *erigonstore.ErigonDB
 		dependencies             []blockdao.BlockIndexer
 		diffCallback             StateDiffCallback
+		// captureStateDiff is set once a diff callback is installed. Copying
+		// a block's write queue for it costs every working set, so working
+		// sets do it only when something will receive the copy.
+		captureStateDiff atomic.Bool
 	}
 )
 
@@ -99,6 +104,7 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 func DiffCallbackStateDBOption(cb StateDiffCallback) StateDBOption {
 	return func(sdb *stateDB, cfg *Config) error {
 		sdb.diffCallback = cb
+		sdb.captureStateDiff.Store(cb != nil)
 		return nil
 	}
 }
@@ -109,6 +115,7 @@ func SetDiffCallback(f Factory, cb StateDiffCallback) bool {
 	if sdb, ok := f.(*stateDB); ok {
 		sdb.mutex.Lock()
 		sdb.diffCallback = cb
+		sdb.captureStateDiff.Store(cb != nil)
 		sdb.mutex.Unlock()
 		return true
 	}
@@ -328,7 +335,9 @@ func (sdb *stateDB) newWorkingSetWithKVStore(ctx context.Context, height uint64,
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-	return newWorkingSet(height, views, store, sdb), nil
+	ws := newWorkingSet(height, views, store, sdb)
+	ws.captureStateDiff = sdb.captureStateDiff.Load()
+	return ws, nil
 }
 
 func (sdb *stateDB) CreateWorkingSetStore(ctx context.Context, height uint64, kvstore db.KVStore) (workingSetStore, error) {

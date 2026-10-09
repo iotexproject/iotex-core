@@ -96,6 +96,7 @@ type (
 		finalized              bool
 		txValidator            *protocol.GenericValidator
 		receipts               []*action.Receipt
+		captureStateDiff       bool              // capture the write queue for a state diff callback
 		stateDiffEntries       []WriteQueueEntry // captured write queue for state diff broadcasting
 		stateDiffDigest        []byte            // cached digest bytes for state diff callback
 	}
@@ -336,7 +337,7 @@ func (ws *workingSet) finalize(ctx context.Context) error {
 	}
 	// Capture write queue entries and digest for state diff broadcasting.
 	// Must happen after Finalize (which writes height) but before Commit (which flushes).
-	if sdbStore := ws.getStateDBStore(); sdbStore != nil {
+	if sdbStore := ws.getStateDBStore(); ws.captureStateDiff && sdbStore != nil {
 		ws.stateDiffEntries = sdbStore.CaptureWriteQueue()
 		d := sdbStore.Digest()
 		ws.stateDiffDigest = d[:]
