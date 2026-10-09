@@ -134,6 +134,32 @@ func validateProposalTimestamp(blk *block.Block, now time.Time) error {
 	return nil
 }
 
+// maxFutureEndorsementTimestamp returns the maximum drift between an
+// endorsement's timestamp and this node's clock beyond which a received
+// consensus message is dropped. An honest endorsement is stamped at most one
+// block interval after the start of its round (the vote TTLs sum up to no
+// more than the block interval), and its endorser only signs once its own
+// clock has reached the round start. The second block interval tolerates
+// clock skew between delegates. The round of a consensus event is derived
+// from this timestamp, so an endorsement stamped beyond this bound could only
+// wait in the event queue until it goes stale.
+func maxFutureEndorsementTimestamp(blockInterval time.Duration) time.Duration {
+	return 2 * blockInterval
+}
+
+// validateEndorsementTimestamp reports whether the endorsement is stamped too
+// far into the future to be handled
+func validateEndorsementTimestamp(en *endorsement.Endorsement, now time.Time, blockInterval time.Duration) error {
+	if bound := maxFutureEndorsementTimestamp(blockInterval); en.Timestamp().After(now.Add(bound)) {
+		return errors.Errorf(
+			"endorsement timestamp %s is more than %s in the future",
+			en.Timestamp(),
+			bound,
+		)
+	}
+	return nil
+}
+
 // WithPremintDisabled turns off the prepareNextProposal pre-mint goroutine.
 // API nodes (with a secondary erigon store) must pass this: their workingset
 // store has no KVStore() for forking, so premint always fails at workingset.NewWorkingSet.
@@ -275,6 +301,9 @@ func (ctx *rollDPoSCtx) CheckVoteEndorser(
 	if endorserAddr == nil {
 		return errors.New("failed to get address")
 	}
+	if err := validateEndorsementTimestamp(en, ctx.clock.Now(), ctx.BlockInterval(height)); err != nil {
+		return err
+	}
 	fork, err := ctx.chain.Fork(ctx.round.prevHash)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get fork at block %d, hash %x", height, ctx.round.prevHash[:])
@@ -305,6 +334,9 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 	endorserAddr := en.Endorser().Address()
 	if endorserAddr == nil {
 		return errors.New("failed to get address")
+	}
+	if err := validateEndorsementTimestamp(en, ctx.clock.Now(), ctx.BlockInterval(height)); err != nil {
+		return err
 	}
 	prevHash := proposal.block.PrevHash()
 	fork, err := ctx.chain.Fork(prevHash)

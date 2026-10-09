@@ -215,6 +215,14 @@ func TestCheckVoteEndorser(t *testing.T) {
 	// case 3:normal
 	en = endorsement.NewEndorsement(time.Now(), identityset.PrivateKey(10).PublicKey(), nil)
 	require.NoError(rctx.CheckVoteEndorser(51, nil, en))
+
+	// case 4:timestamp within one block interval ahead, as an honest vote
+	en = endorsement.NewEndorsement(time.Now().Add(rctx.BlockInterval(51)), identityset.PrivateKey(10).PublicKey(), nil)
+	require.NoError(rctx.CheckVoteEndorser(51, nil, en))
+
+	// case 5:timestamp far in the future
+	en = endorsement.NewEndorsement(time.Now().Add(time.Hour), identityset.PrivateKey(10).PublicKey(), nil)
+	require.ErrorContains(rctx.CheckVoteEndorser(51, nil, en), "in the future")
 }
 
 func TestCheckBlockProposer(t *testing.T) {
@@ -328,6 +336,36 @@ func TestCheckBlockProposer(t *testing.T) {
 	block = getBlockforctx(t, 1, true, prevHash)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
 	require.NoError(rctx.CheckBlockProposer(51, bp, en))
+
+	// case 10:endorsement timestamp far in the future
+	en = endorsement.NewEndorsement(time.Now().Add(time.Hour), identityset.PrivateKey(1).PublicKey(), nil)
+	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
+	require.ErrorContains(rctx.CheckBlockProposer(51, bp, en), "in the future")
+}
+
+func TestValidateEndorsementTimestamp(t *testing.T) {
+	require := require.New(t)
+	now := time.Now()
+	interval := 2500 * time.Millisecond
+	for _, c := range []struct {
+		ts    time.Time
+		valid bool
+	}{
+		{now.Add(-time.Hour), true},
+		{now, true},
+		{now.Add(interval), true},
+		{now.Add(2 * interval), true},
+		{now.Add(2*interval + time.Millisecond), false},
+		{now.Add(time.Hour), false},
+	} {
+		en := endorsement.NewEndorsement(c.ts, identityset.PrivateKey(1).PublicKey(), nil)
+		err := validateEndorsementTimestamp(en, now, interval)
+		if c.valid {
+			require.NoError(err)
+		} else {
+			require.ErrorContains(err, "in the future")
+		}
+	}
 }
 
 func TestNotProducingMultipleBlocks(t *testing.T) {
