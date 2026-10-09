@@ -351,6 +351,15 @@ type (
 		// That value can steer contract execution, so this needs its own
 		// height. Gated at ToBeEnabled, which is unscheduled.
 		UseEffectiveGasPriceInEVM bool
+		// ChargeBlobFeeAtBlockExcessBlobGas prices the blob fee charged for a
+		// blob transaction from the excess blob gas of the block it is in,
+		// which is what the fee cap check and the BLOBBASEFEE opcode already
+		// use (EIP-4844), instead of from the parent block's excess blob gas.
+		//
+		// The fee charged and the receipt's blob gas price are consensus data,
+		// so this needs its own height. Gated at ToBeEnabled, which is
+		// unscheduled.
+		ChargeBlobFeeAtBlockExcessBlobGas bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -547,8 +556,9 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CheckedBlockGasDeduction:          g.IsZanzibarGamma(height),
 			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
 			// Next hardfork, not yet scheduled.
-			SettleFloorDataGasShortfall: g.IsToBeEnabled(height),
-			UseEffectiveGasPriceInEVM:   g.IsToBeEnabled(height),
+			SettleFloorDataGasShortfall:       g.IsToBeEnabled(height),
+			UseEffectiveGasPriceInEVM:         g.IsToBeEnabled(height),
+			ChargeBlobFeeAtBlockExcessBlobGas: g.IsToBeEnabled(height),
 		},
 	)
 }
