@@ -724,6 +724,17 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
 		}
 		if evmParams.gas < floorDataGas {
+			if evmParams.featureCtx.SettleFloorDataGasShortfall {
+				// The call never runs. Settle a failure receipt that consumes
+				// the whole gas limit, and bump the nonce as a failed call or
+				// create would, rather than returning an error that abandons
+				// the block being built or validated.
+				log.T(ctx).Debug("gas limit below floor data gas", zap.Uint64("gas", evmParams.gas), zap.Uint64("floorDataGas", floorDataGas),
+					log.Hex("actionHash", evmParams.actionCtx.ActionHash[:]))
+				stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1, tracing.NonceChangeUnspecified)
+				traceGasChange(remainingGas, 0, tracing.GasChangeTxDataFloor)
+				return nil, evmParams.gas, 0, action.EmptyAddress, iotextypes.ReceiptStatus_ErrOutOfGas, nil
+			}
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, errors.Wrapf(action.ErrFloorDataGas, "have %d, want %d", evmParams.gas, floorDataGas)
 		}
 	}

@@ -327,6 +327,20 @@ type (
 		// blocks would recompute different roots for them on replay. It rides
 		// Zanzibar Gamma, which is unscheduled.
 		RevertStakingStateOnFailedReceipt bool
+		// SettleFloorDataGasShortfall makes an execution whose gas limit
+		// covers the intrinsic gas but not the EIP-7623 data floor end in a
+		// failure receipt that consumes its whole gas limit and bumps the
+		// sender's nonce, instead of returning an error out of the EVM.
+		//
+		// An error out of an action handler abandons the whole block being
+		// built or validated. Admission already refuses such an execution, so
+		// this only changes what happens if one gets past it, the way the
+		// stake-migration contract call already does; the outcome is then the
+		// same failed action on the mint and the validation path.
+		//
+		// Needs its own height: the receipt, the gas charged and the nonce are
+		// all consensus data. Gated at ToBeEnabled, which is unscheduled.
+		SettleFloorDataGasShortfall bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -522,6 +536,8 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectStakeMigrationGas:          g.IsZanzibarGamma(height),
 			CheckedBlockGasDeduction:          g.IsZanzibarGamma(height),
 			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
+			// Next hardfork, not yet scheduled.
+			SettleFloorDataGasShortfall: g.IsToBeEnabled(height),
 		},
 	)
 }
