@@ -86,3 +86,28 @@ func TestWorkingSetAtTransactionPanicReturnsError(t *testing.T) {
 	r.Nil(sm)
 	r.ErrorContains(err, "panic occurred while processing actions")
 }
+
+func TestStateDBProtocolViewsConcurrentAccess(t *testing.T) {
+	r := require.New(t)
+	sdb, err := NewStateDB(DefaultConfig, db.NewMemKVStore(), SkipBlockValidationStateDBOption())
+	r.NoError(err)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+	r.NoError(sdb.Start(ctx))
+	defer func() { r.NoError(sdb.Stop(ctx)) }()
+
+	s := sdb.(*stateDB)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range 100 {
+			// same as committing a block in PutBlock
+			s.mutex.Lock()
+			s.protocolViews = protocol.NewViews()
+			s.mutex.Unlock()
+		}
+	}()
+	for range 100 {
+		_, _ = sdb.ReadView("test")
+	}
+	<-done
+}
