@@ -82,6 +82,69 @@ func TestActionIterator(t *testing.T) {
 	require.Equal(appliedActionList, []*action.SealedEnvelope{selp3, selp1, selp2, selp4, selp5, selp6})
 }
 
+func TestActionIteratorPopAccount(t *testing.T) {
+	r := require.New(t)
+
+	sign := func(idx int, nonce uint64, price int64) *action.SealedEnvelope {
+		tsf := action.NewTransfer(big.NewInt(100), identityset.Address(0).String(), nil)
+		elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(big.NewInt(price)).
+			SetAction(tsf).Build()
+		selp, err := action.Sign(elp, identityset.PrivateKey(idx))
+		r.NoError(err)
+		return selp
+	}
+	collect := func(ai ActionIterator, pop func(*action.SealedEnvelope) bool) []*action.SealedEnvelope {
+		var acts []*action.SealedEnvelope
+		for {
+			act, ok := ai.Next()
+			if !ok {
+				return acts
+			}
+			acts = append(acts, act)
+			if pop(act) {
+				ai.PopAccount()
+			}
+		}
+	}
+
+	t.Run("single action sender", func(t *testing.T) {
+		require := require.New(t)
+		a1, b1 := sign(28, 1, 20), sign(29, 1, 10)
+		ai := NewActionIterator(map[string][]*action.SealedEnvelope{
+			identityset.Address(28).String(): {a1},
+			identityset.Address(29).String(): {b1},
+		})
+		acts := collect(ai, func(act *action.SealedEnvelope) bool { return act == a1 })
+		require.Equal([]*action.SealedEnvelope{a1, b1}, acts)
+	})
+	t.Run("next action of sender is not on top", func(t *testing.T) {
+		require := require.New(t)
+		a1, a2, b1 := sign(28, 1, 30), sign(28, 2, 5), sign(29, 1, 10)
+		ai := NewActionIterator(map[string][]*action.SealedEnvelope{
+			identityset.Address(28).String(): {a1, a2},
+			identityset.Address(29).String(): {b1},
+		})
+		acts := collect(ai, func(act *action.SealedEnvelope) bool { return act == a1 })
+		require.Equal([]*action.SealedEnvelope{a1, b1}, acts)
+	})
+	t.Run("pop without a returned action", func(t *testing.T) {
+		require := require.New(t)
+		a1, b1 := sign(28, 1, 20), sign(29, 1, 10)
+		ai := NewActionIterator(map[string][]*action.SealedEnvelope{
+			identityset.Address(28).String(): {a1},
+			identityset.Address(29).String(): {b1},
+		})
+		act, ok := ai.Next()
+		require.True(ok)
+		require.Equal(a1, act)
+		ai.PopAccount()
+		ai.PopAccount()
+		act, ok = ai.Next()
+		require.True(ok)
+		require.Equal(b1, act)
+	})
+}
+
 func TestActionByPrice(t *testing.T) {
 	require := require.New(t)
 
