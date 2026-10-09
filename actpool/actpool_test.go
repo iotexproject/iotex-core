@@ -1418,3 +1418,47 @@ func TestDefaultBlackListRemoval(t *testing.T) {
 		require.Contains(DefaultConfig.BlackListRemoval, addr)
 	}
 }
+
+func TestActPool_AddRejectsNonCanonicalSignature(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	require := require.New(t)
+	sf := mock_chainmanager.NewMockStateReader(ctrl)
+	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+		acct, ok := account.(*state.Account)
+		require.True(ok)
+		require.NoError(acct.AddBalance(unit.ConvertIotxToRau(100)))
+		return 0, nil
+	}).AnyTimes()
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+	Ap, err := NewActPool(genesis.TestDefault(), sf, getActPoolCfg())
+	require.NoError(err)
+	ap, ok := Ap.(*actPool)
+	require.True(ok)
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+
+	tsf, err := action.SignedTransfer(_addr2, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	sig := tsf.Signature()
+	require.Len(sig, 65)
+	require.True(sig[64] == 0 || sig[64] == 1)
+	withV := func(v byte) *action.SealedEnvelope {
+		pb := tsf.Proto()
+		pb.Signature = append([]byte(nil), sig...)
+		pb.Signature[64] = v
+		selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(pb)
+		require.NoError(err)
+		// the signature itself is valid, but the hash differs
+		require.NoError(selp.VerifySignature())
+		h1, err := tsf.Hash()
+		require.NoError(err)
+		h2, err := selp.Hash()
+		require.NoError(err)
+		require.NotEqual(h1, h2)
+		return selp
+	}
+	// wrong recovery id
+	require.ErrorIs(ap.Add(ctx, withV(1-sig[64])), action.ErrInvalidSender)
+	require.ErrorIs(ap.Add(ctx, withV(28-sig[64])), action.ErrInvalidSender)
+	require.NoError(ap.Add(ctx, tsf))
+}

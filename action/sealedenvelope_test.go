@@ -226,3 +226,20 @@ func createSealedEnvelope(chainID uint32) (*SealedEnvelope, error) {
 	se.signature = _signByte
 	return se, err
 }
+
+func TestSealedEnvelope_VerifyCanonicalSignature(t *testing.T) {
+	req := require.New(t)
+	selp, err := SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(0), 1, big.NewInt(1), nil, 100000, big.NewInt(0))
+	req.NoError(err)
+	req.NoError(selp.VerifyCanonicalSignature())
+	sig := selp.Signature()
+	for _, v := range []byte{1 - sig[64], 28 - sig[64]} {
+		pb := selp.Proto()
+		pb.Signature = append([]byte(nil), sig...)
+		pb.Signature[64] = v
+		variant, err := (&Deserializer{}).ActionToSealedEnvelope(pb)
+		req.NoError(err)
+		req.NoError(variant.VerifySignature())
+		req.ErrorIs(variant.VerifyCanonicalSignature(), ErrInvalidSender)
+	}
+}

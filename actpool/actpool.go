@@ -339,6 +339,9 @@ func checkSelpData(act *action.SealedEnvelope) error {
 	if act.SrcPubkey() == nil {
 		return action.ErrAddress
 	}
+	if err := act.VerifyCanonicalSignature(); err != nil {
+		return err
+	}
 	return action.CheckTransferAddress(act.Action())
 }
 
