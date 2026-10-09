@@ -63,6 +63,14 @@ var (
 	errDeployerNotWhitelisted    = errors.New("deployer not whitelisted")
 )
 
+// receiptHandlerError is a failure of a PostActionHandler, after the action
+// itself has run. The action is unusable but says nothing about the rest of
+// the block, so mint drops it rather than the draft; see validateAndRun.
+type receiptHandlerError struct{ error }
+
+func (e receiptHandlerError) Cause() error  { return errors.Cause(e.error) }
+func (e receiptHandlerError) Unwrap() error { return e.error }
+
 func init() {
 	prometheus.MustRegister(_stateDBMtc)
 	prometheus.MustRegister(_mintAbility)
@@ -280,7 +288,7 @@ func (ws *workingSet) runAction(
 	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PostActionHandler); ok {
 			if err := pp.HandleReceipt(ctx, selp.Envelope, ws, receipt); err != nil {
-				return nil, errors.Wrapf(err, "error when handle action %x receipt", selpHash)
+				return nil, receiptHandlerError{errors.Wrapf(err, "error when handle action %x receipt", selpHash)}
 			}
 		}
 	}
@@ -1089,7 +1097,21 @@ func (ws *workingSet) validateAndRun(
 		log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, true, nil, nil
 	}
-	receipt, err := ws.runActionDuringMint(actionCtx, nextAction, revertAllSnapshots)
+	// The snapshot lets an action whose receipt handling fails be dropped on
+	// its own, so runAction must not reset the store snapshots before the
+	// revert below; the reset it would do is deferred here instead.
+	si := ws.Snapshot()
+	if revertAllSnapshots {
+		defer ws.store.ResetSnapshots()
+	}
+	receipt, err := ws.runActionDuringMint(actionCtx, nextAction, false)
+	if errors.As(err, new(receiptHandlerError)) {
+		log.L().Info("runAction() failed to handle receipt", zap.Uint64("height", ws.height), zap.Error(err))
+		if rerr := ws.Revert(si); rerr != nil {
+			return true, true, nil, errors.Wrapf(rerr, "failed to revert snapshot %d", si)
+		}
+		return true, true, nil, nil
+	}
 	switch errors.Cause(err) {
 	case nil:
 		// do nothing
