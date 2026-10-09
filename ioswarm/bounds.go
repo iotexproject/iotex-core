@@ -31,12 +31,27 @@ type outstandingTask struct {
 
 // outstandingTasks records which agent each dispatched task went to.
 type outstandingTasks struct {
-	mu    sync.Mutex
-	tasks map[uint32]outstandingTask
+	mu       sync.Mutex
+	tasks    map[uint32]outstandingTask
+	perAgent map[string]int
 }
 
 func newOutstandingTasks() *outstandingTasks {
-	return &outstandingTasks{tasks: make(map[uint32]outstandingTask)}
+	return &outstandingTasks{tasks: make(map[uint32]outstandingTask), perAgent: make(map[string]int)}
+}
+
+func (o *outstandingTasks) drop(id uint32, t outstandingTask) {
+	delete(o.tasks, id)
+	if o.perAgent[t.agentID]--; o.perAgent[t.agentID] <= 0 {
+		delete(o.perAgent, t.agentID)
+	}
+}
+
+// pending returns how many tasks agentID has been sent and not answered.
+func (o *outstandingTasks) pending(agentID string) int {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.perAgent[agentID]
 }
 
 // add records the tasks of a batch as dispatched to agentID. A task that is
@@ -46,10 +61,13 @@ func (o *outstandingTasks) add(agentID string, batch *pb.TaskBatch) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	for _, t := range batch.Tasks {
-		if _, ok := o.tasks[t.TaskID]; !ok && len(o.tasks) >= maxOutstandingTasks {
+		if prev, ok := o.tasks[t.TaskID]; ok {
+			o.drop(t.TaskID, prev)
+		} else if len(o.tasks) >= maxOutstandingTasks {
 			continue
 		}
 		o.tasks[t.TaskID] = outstandingTask{agentID: agentID, at: now}
+		o.perAgent[agentID]++
 	}
 }
 
@@ -62,7 +80,7 @@ func (o *outstandingTasks) take(agentID string, taskID uint32) bool {
 	if !ok || t.agentID != agentID {
 		return false
 	}
-	delete(o.tasks, taskID)
+	o.drop(taskID, t)
 	return true
 }
 
@@ -72,7 +90,7 @@ func (o *outstandingTasks) expire(cutoff time.Time) {
 	defer o.mu.Unlock()
 	for id, t := range o.tasks {
 		if t.at.Before(cutoff) {
-			delete(o.tasks, id)
+			o.drop(id, t)
 		}
 	}
 }

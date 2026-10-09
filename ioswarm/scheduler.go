@@ -20,6 +20,9 @@ type Scheduler struct {
 	retryQueue []*pb.TaskBatch
 	// onDispatch, if set, is told which agent each batch went to.
 	onDispatch func(agentID string, batch *pb.TaskBatch)
+	// pending, if set, reports the tasks an agent was sent and has not
+	// answered. It stands in for the agent's own TasksPending report.
+	pending func(agentID string) int
 }
 
 // NewScheduler creates a new task scheduler.
@@ -99,7 +102,7 @@ func (s *Scheduler) dispatchBatch(batch *pb.TaskBatch) bool {
 	}
 
 	// Filter by capability and sort by load (least-loaded first)
-	capable := filterAndSortByLoad(agents, requiredLevel)
+	capable := filterAndSortByLoad(agents, requiredLevel, s.pending)
 	if len(capable) == 0 {
 		s.logger.Debug("no capable agents for task level",
 			zap.Int32("level", int32(requiredLevel)))
@@ -139,8 +142,11 @@ func (s *Scheduler) enqueueRetry(batch *pb.TaskBatch) {
 }
 
 // filterAndSortByLoad returns agents capable of handling the given task level,
-// sorted by estimated load (TasksPending + channel queue length).
-func filterAndSortByLoad(agents []*AgentInfo, requiredLevel pb.TaskLevel) []*AgentInfo {
+// sorted by estimated load: batches queued for the agent plus, when pending is
+// set, tasks it was sent and has not answered. The agent's self-reported
+// TasksPending is not used, since an agent could understate it to be picked
+// first.
+func filterAndSortByLoad(agents []*AgentInfo, requiredLevel pb.TaskLevel, pending func(string) int) []*AgentInfo {
 	var capable []*AgentInfo
 	for _, a := range agents {
 		if a.Capability >= requiredLevel {
@@ -148,10 +154,15 @@ func filterAndSortByLoad(agents []*AgentInfo, requiredLevel pb.TaskLevel) []*Age
 		}
 	}
 
+	load := func(a *AgentInfo) int {
+		n := len(a.TaskChan)
+		if pending != nil {
+			n += pending(a.ID)
+		}
+		return n
+	}
 	sort.Slice(capable, func(i, j int) bool {
-		loadI := int(capable[i].TasksPending) + len(capable[i].TaskChan)
-		loadJ := int(capable[j].TasksPending) + len(capable[j].TaskChan)
-		return loadI < loadJ
+		return load(capable[i]) < load(capable[j])
 	})
 
 	return capable

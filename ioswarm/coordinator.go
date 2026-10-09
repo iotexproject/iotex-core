@@ -126,6 +126,7 @@ func (c *Coordinator) initBounds() {
 	c.outstanding = newOutstandingTasks()
 	c.l3Cache = newL3EnrichmentCache()
 	c.scheduler.onDispatch = c.outstanding.add
+	c.scheduler.pending = c.outstanding.pending
 }
 
 // Option configures the coordinator.
@@ -326,7 +327,7 @@ func (c *Coordinator) pollAndDispatch() {
 	// Building tasks reads state for every pending tx (and at L3 simulates
 	// it), so do none of it unless some agent can take the tasks.
 	level := parseTaskLevel(c.cfg.TaskLevel)
-	if len(filterAndSortByLoad(c.registry.LiveAgents(30*time.Second), level)) == 0 {
+	if len(filterAndSortByLoad(c.registry.LiveAgents(30*time.Second), level, nil)) == 0 {
 		return
 	}
 

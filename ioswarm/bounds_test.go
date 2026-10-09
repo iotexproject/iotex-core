@@ -213,3 +213,37 @@ func TestComputePayoutsLargeWeights(t *testing.T) {
 	r.Equal("a", summary.Payouts[0].AgentID)
 	r.Equal(summary.Payouts[0].Amount, new(big.Int).Mul(summary.Payouts[1].Amount, big.NewInt(2)))
 }
+
+func TestLiveAgentsSnapshotsAreRaceFree(t *testing.T) {
+	r := NewRegistry(10)
+	r.Register(&pb.RegisterRequest{AgentID: "a", Capability: pb.TaskLevel_L2_STATE_VERIFY})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 1000; i++ {
+			r.Heartbeat(&pb.HeartbeatRequest{AgentID: "a", TasksPending: uint32(i)})
+			r.Register(&pb.RegisterRequest{AgentID: "a", Capability: pb.TaskLevel_L3_FULL_EXECUTE})
+		}
+	}()
+	for i := 0; i < 1000; i++ {
+		for _, a := range r.LiveAgents(time.Minute) {
+			_ = a.TasksPending + uint32(a.Capability)
+			_ = a.LastHeartbeat
+		}
+	}
+	<-done
+}
+
+func TestSchedulerIgnoresSelfReportedPending(t *testing.T) {
+	r := require.New(t)
+	c, h := newBoundsTestCoordinator(t, "L2", &mockActPool{}, &mockState{})
+	busy := register(t, h, "busy", pb.TaskLevel_L2_STATE_VERIFY)
+	idle := register(t, h, "idle", pb.TaskLevel_L2_STATE_VERIFY)
+	// busy holds 5 unanswered tasks but claims to have none pending
+	c.outstanding.add("busy", &pb.TaskBatch{Tasks: []*pb.TaskPackage{{TaskID: 1}, {TaskID: 2}, {TaskID: 3}, {TaskID: 4}, {TaskID: 5}}})
+	c.registry.Heartbeat(&pb.HeartbeatRequest{AgentID: "busy", TasksPending: 0})
+	c.registry.Heartbeat(&pb.HeartbeatRequest{AgentID: "idle", TasksPending: 1000})
+	r.Equal(1, c.scheduler.Dispatch([]*pb.TaskPackage{{TaskID: 9, Level: pb.TaskLevel_L2_STATE_VERIFY}}, 10))
+	r.Len(idle.TaskChan, 1)
+	r.Len(busy.TaskChan, 0)
+}
