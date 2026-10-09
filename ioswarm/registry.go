@@ -20,7 +20,7 @@ type AgentInfo struct {
 	CPUUsage       float64
 	MemUsage       float64
 	TaskChan       chan *pb.TaskBatch // channel to push tasks to this agent's stream
-	closeOnce      sync.Once          // prevent double-close panic
+	closeOnce      *sync.Once         // prevent double-close panic; shared by snapshots
 }
 
 // CloseTaskChan safely closes the TaskChan exactly once.
@@ -72,6 +72,7 @@ func (r *Registry) Register(req *pb.RegisterRequest) (*AgentInfo, bool) {
 		RegisteredAt:  time.Now(),
 		LastHeartbeat: time.Now(),
 		TaskChan:      make(chan *pb.TaskBatch, 16),
+		closeOnce:     new(sync.Once),
 	}
 	r.agents[req.AgentID] = agent
 	return agent, true
@@ -115,6 +116,8 @@ func (r *Registry) GetAgent(agentID string) (*AgentInfo, bool) {
 }
 
 // LiveAgents returns all agents with a heartbeat within the given threshold.
+// Each is a snapshot taken under the lock, so callers can read its fields
+// while Register and Heartbeat update the registry; TaskChan is shared.
 func (r *Registry) LiveAgents(threshold time.Duration) []*AgentInfo {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -123,7 +126,8 @@ func (r *Registry) LiveAgents(threshold time.Duration) []*AgentInfo {
 	var live []*AgentInfo
 	for _, agent := range r.agents {
 		if agent.LastHeartbeat.After(cutoff) {
-			live = append(live, agent)
+			snapshot := *agent
+			live = append(live, &snapshot)
 		}
 	}
 	return live
