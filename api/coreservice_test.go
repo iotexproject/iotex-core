@@ -684,6 +684,38 @@ func TestTraceCall(t *testing.T) {
 	require.Empty(receipt.ExecutionRevertMsg())
 }
 
+func TestTraceCallWithNamedTracer(t *testing.T) {
+	require := require.New(t)
+	svr, bc, _, ap, cleanCallback := setupTestCoreService()
+	defer cleanCallback()
+	ctx := context.Background()
+	tsf, err := action.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf))
+	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+
+	// a named tracer needs the chain config, which reads the block context
+	for _, height := range []uint64{0, blk.Height()} {
+		tracerName := "callTracer"
+		require.NotPanics(func() {
+			_, receipt, tracer, err := svr.TraceCall(ctx,
+				identityset.Address(29), height,
+				identityset.Address(29).String(),
+				0, big.NewInt(0), testutil.TestGasLimit,
+				[]byte{}, &tracers.TraceConfig{Tracer: &tracerName})
+			require.NoError(err)
+			require.Equal(uint64(1), receipt.Status)
+			res, err := tracer.(*tracers.Tracer).GetResult()
+			require.NoError(err)
+			require.NotEmpty(res)
+		})
+	}
+}
+
 func TestProofAndCompareReverseActions(t *testing.T) {
 	sliceN := func(n uint64) (value []uint64) {
 		value = make([]uint64, 0, n)
