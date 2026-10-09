@@ -446,7 +446,12 @@ func TestEthTxDecodeVerify(t *testing.T) {
 					require.True(ok)
 					container, ok := selp.Action().(TxContainer)
 					require.True(ok)
-					require.NoError(container.Unfold(selp, context.Background(), checkContract(v.to, v.actType)))
+					folded := selp
+					selp = MustNoErrorV(container.Unfold(selp, context.Background(), checkContract(v.to, v.actType)))
+					// the container itself is not modified
+					require.Equal(iotextypes.Encoding_TX_CONTAINER, folded.encoding)
+					_, ok = folded.Action().(TxContainer)
+					require.True(ok)
 					require.True(bytes.Equal(sig, selp.signature))
 					checkSelp(selp, tx, v)
 					require.Equal(v.encoding, selp.encoding)
