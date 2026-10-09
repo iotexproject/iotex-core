@@ -1217,6 +1217,35 @@ func TestSubscribe(t *testing.T) {
 	})
 }
 
+func TestSubscribeInBatch(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
+	core.EXPECT().ChainListener().Times(0)
+	web3svr := NewWeb3Handler(core, "", _defaultBatchRequestLimit)
+
+	var out []byte
+	writer := apitypes.NewResponseWriter(func(resp interface{}) (int, error) {
+		var err error
+		out, err = json.Marshal(resp)
+		return len(out), err
+	})
+	ctx := WithStreamContext(context.Background())
+	req := `[{"jsonrpc":"2.0","method":"eth_subscribe","params":["newHeads"],"id":1},` +
+		`{"jsonrpc":"2.0","method":"eth_subscribe","params":["logs",{}],"id":2}]`
+	require.NoError(web3svr.HandlePOSTReq(ctx, strings.NewReader(req), writer))
+	resps := gjson.ParseBytes(out).Array()
+	require.Len(resps, 2)
+	for _, resp := range resps {
+		require.False(resp.Get("result").Exists())
+		require.Contains(resp.Get("error.message").String(), errSubscribeInBatch.Error())
+	}
+	sc, _ := StreamFromContext(ctx)
+	require.Empty(sc.ListenerIDs())
+}
+
 func TestUnsubscribe(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)

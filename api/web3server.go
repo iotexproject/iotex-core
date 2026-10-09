@@ -90,6 +90,7 @@ var (
 	errMsgBatchTooLarge  = errors.New("batch too large")
 	errHTTPNotSupported  = errors.New("http not supported")
 	errPanic             = errors.New("panic")
+	errSubscribeInBatch  = errors.New("eth_subscribe is not supported in batch requests")
 
 	_pendingBlockNumber   = "pending"
 	_latestBlockNumber    = "latest"
@@ -257,6 +258,12 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		sc, ok := StreamFromContext(ctx)
 		if !ok {
 			return errHTTPNotSupported
+		}
+		if _, isBatch := writer.(*apitypes.BatchWriter); isBatch {
+			// the batch writer is discarded once the batch response is
+			// flushed, so notifications written to it never reach the client
+			res, err = nil, errSubscribeInBatch
+			break
 		}
 		res, err = svr.subscribe(sc, web3Req, writer)
 	case "eth_unsubscribe":
