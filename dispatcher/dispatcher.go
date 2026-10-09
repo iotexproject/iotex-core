@@ -80,10 +80,18 @@ var (
 		},
 		[]string{"method", "succeed"},
 	)
+	msgPanicMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_dispatch_msg_panic",
+			Help: "Inbound messages whose handler panicked and was recovered.",
+		},
+		[]string{"queue", "msgType"},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(requestMtc)
+	prometheus.MustRegister(msgPanicMtc)
 }
 
 type (

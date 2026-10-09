@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"context"
+	"runtime/debug"
 	"sync"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
@@ -114,12 +115,56 @@ func (m *msgQueueMgr) consume(q string) {
 			if q == blockSyncQ {
 				m.blockRequestPeers.decrement(msg.peer)
 			}
-			m.handleMsg(msg)
+			m.handleMsgOnQueue(q, msg)
 		case <-m.quit:
 			log.L().Debug("message handler is terminated.")
 			return
 		}
 	}
+}
+
+// recoverableQ lists the queues whose handlers do not mutate committed chain
+// state. A panic there is confined to the message that caused it, so the worker
+// can log it and move on instead of taking the process down.
+//
+// blockQ is deliberately absent: ChainService.HandleBlock runs
+// blocksync.ProcessBlock, which calls commitBlocks inline on the worker while
+// holding bs.mu. A panic raised there may be a deliberate unrecoverable-state
+// signal (see FeatureCtx.PanicUnrecoverableError) and unwinding it would
+// release bs.mu over half-applied state, so blockQ keeps today's fail-stop
+// behaviour.
+//
+// blockSyncQ is recoverable: it serves a peer's BLOCK_REQUEST via
+// ChainService.HandleSyncRequest -> blocksync.ProcessSyncRequest, which is
+// read-only -- it reads stored blocks and unicasts them to the peer, never
+// taking bs.mu and never committing. A panic there leaves no half-applied
+// state behind, so recovering drops only that request.
+var recoverableQ = map[string]bool{
+	actionQ:    true,
+	blockSyncQ: true,
+	consensusQ: true,
+	miscQ:      true,
+}
+
+// handleMsgOnQueue runs the message handler, with a panic boundary on the
+// queues where recovering is safe. A malformed inbound message then costs the
+// message, not the node.
+func (m *msgQueueMgr) handleMsgOnQueue(q string, msg *message) {
+	if recoverableQ[q] {
+		defer func() {
+			if r := recover(); r != nil {
+				msgPanicMtc.WithLabelValues(q, msg.msgType.String()).Inc()
+				log.L().Error("recovered from a panic while handling an inbound message",
+					zap.String("queue", q),
+					zap.String("msgType", msg.msgType.String()),
+					zap.String("peer", msg.peer),
+					zap.Any("panic", r),
+					zap.ByteString("stack", debug.Stack()),
+				)
+			}
+		}()
+	}
+	m.handleMsg(msg)
 }
 
 func (m *msgQueueMgr) Queue(msg *message, subscriber Subscriber) bool {
