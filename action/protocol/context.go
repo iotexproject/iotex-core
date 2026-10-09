@@ -351,6 +351,13 @@ type (
 		// That value can steer contract execution, so this needs its own
 		// height. Gated at ToBeEnabled, which is unscheduled.
 		UseEffectiveGasPriceInEVM bool
+		// CompareFullAuthorizationChainID compares an EIP-7702 authorization's
+		// chain ID with the chain's as full 256-bit values, instead of
+		// comparing only the low 64 bits of the authorization's chain ID.
+		//
+		// Which authorizations apply is consensus data, so this needs its own
+		// height. Gated at ToBeEnabled, which is unscheduled.
+		CompareFullAuthorizationChainID bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -547,8 +554,9 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CheckedBlockGasDeduction:          g.IsZanzibarGamma(height),
 			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
 			// Next hardfork, not yet scheduled.
-			SettleFloorDataGasShortfall: g.IsToBeEnabled(height),
-			UseEffectiveGasPriceInEVM:   g.IsToBeEnabled(height),
+			SettleFloorDataGasShortfall:     g.IsToBeEnabled(height),
+			UseEffectiveGasPriceInEVM:       g.IsToBeEnabled(height),
+			CompareFullAuthorizationChainID: g.IsToBeEnabled(height),
 		},
 	)
 }
