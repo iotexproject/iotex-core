@@ -7,6 +7,7 @@ package rolldpos
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -492,4 +493,105 @@ func TestNewProposalEndorsementRejectsFutureTimestamp(t *testing.T) {
 		require.Error(err)
 		require.NotContains(err.Error(), "in the future")
 	})
+}
+
+// countingBlockBuildFactory mints a well-formed block for the requested
+// height and parent, and counts the number of mints
+type countingBlockBuildFactory struct {
+	mints int
+}
+
+func (f *countingBlockBuildFactory) Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error) {
+	f.mints++
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	return block.NewBlockDeprecated(1, blkCtx.BlockHeight, bcCtx.Tip.Hash, blkCtx.BlockTimeStamp, pk.PublicKey(), nil), nil
+}
+
+func (f *countingBlockBuildFactory) ReceiveBlock(*block.Block) error {
+	return nil
+}
+
+func TestConsensusDBSurvivesRestart(t *testing.T) {
+	require := require.New(t)
+	b, sf, _, rp, _ := makeChain(t)
+	g := genesis.TestDefault()
+	g.Blockchain.BlockInterval = 20 * time.Second
+	numDelegates := int(rp.NumDelegates())
+	var (
+		delegates []string
+		priKeys   []crypto.PrivateKey
+	)
+	for i := 0; i < numDelegates; i++ {
+		delegates = append(delegates, identityset.Address(i).String())
+		priKeys = append(priKeys, identityset.PrivateKey(i))
+	}
+	delegatesByEpoch := func(uint64, []byte) ([]string, error) { return delegates, nil }
+	dbConfig := db.DefaultConfig
+	dbConfig.DbPath = filepath.Join(t.TempDir(), "consensus.db")
+	c := clock.NewMock()
+	c.Add(time.Duration(time.Now().UnixNano()))
+	bbf := &countingBlockBuildFactory{}
+	newCtx := func() RDPoSCtx {
+		rctx, err := NewRollDPoSCtx(
+			consensusfsm.NewConsensusConfig(DefaultConfig.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, DefaultConfig.Delay),
+			dbConfig,
+			true,
+			time.Second,
+			true,
+			NewChainManager(b, sf, bbf),
+			block.NewDeserializer(0),
+			rp,
+			nil,
+			delegatesByEpoch,
+			delegatesByEpoch,
+			priKeys,
+			c,
+			g.BeringBlockHeight,
+			WithPremintDisabled(),
+		)
+		require.NoError(err)
+		return rctx
+	}
+	propose := func(rctx RDPoSCtx) hash.Hash256 {
+		require.NoError(rctx.Prepare())
+		res, err := rctx.Proposal()
+		require.NoError(err)
+		ecm, ok := res.(*EndorsedConsensusMessage)
+		require.True(ok)
+		proposal, ok := ecm.Document().(*blockProposal)
+		require.True(ok)
+		return proposal.block.HashBlock()
+	}
+
+	rctx := newCtx()
+	require.NoError(rctx.Start(context.Background()))
+	h1 := propose(rctx)
+	require.Equal(1, bbf.mints)
+	inner, ok := rctx.(*rollDPoSCtx)
+	require.True(ok)
+	require.NoError(inner.round.AddBlock(inner.round.CachedMintedBlock()))
+	require.NoError(rctx.Stop(context.Background()))
+
+	// restart within the same round: the minted block is loaded from the
+	// consensus db and proposed again instead of minting a new one
+	rctx = newCtx()
+	require.NoError(rctx.Start(context.Background()))
+	h2 := propose(rctx)
+	require.Equal(1, bbf.mints)
+	require.Equal(h1, h2)
+	inner, ok = rctx.(*rollDPoSCtx)
+	require.True(ok)
+	require.Equal(1, inner.round.eManager.Size())
+	require.NotNil(inner.round.Block(h1[:]))
+	require.NoError(rctx.Stop(context.Background()))
+
+	// restart in a later round: the outdated block is not reused
+	c.Add(g.Blockchain.BlockInterval)
+	rctx = newCtx()
+	require.NoError(rctx.Start(context.Background()))
+	h3 := propose(rctx)
+	require.Equal(2, bbf.mints)
+	require.NotEqual(h1, h3)
+	require.NoError(rctx.Stop(context.Background()))
 }

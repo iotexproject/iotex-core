@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -424,6 +425,20 @@ func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 		return m.PutEndorsementManagerToDB()
 	}
 	return nil
+}
+
+// Restore keeps the loaded state that belongs to the round of the given
+// height on top of the given parent block, and drops everything else
+func (m *endorsementManager) Restore(height uint64, prevHash hash.Hash256, roundStartTime time.Time) error {
+	for encoded, c := range m.collections {
+		if blk := c.Block(); blk == nil || blk.Height() != height || blk.PrevHash() != prevHash {
+			delete(m.collections, encoded)
+		}
+	}
+	if blk := m.cachedMintedBlk; blk != nil && (blk.Height() != height || blk.PrevHash() != prevHash) {
+		m.cachedMintedBlk = nil
+	}
+	return m.Cleanup(roundStartTime)
 }
 
 func (m *endorsementManager) Log(

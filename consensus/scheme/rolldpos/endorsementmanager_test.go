@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
@@ -267,4 +268,46 @@ func TestEndorsementManagerFromCorruptedProto(t *testing.T) {
 			require.ErrorContains(err, "mismatched number of topics")
 		})
 	})
+}
+
+func TestEndorsementManagerRestore(t *testing.T) {
+	require := require.New(t)
+	b := getBlock(t)
+	blkHash := b.HashBlock()
+	end := endorsement.NewEndorsement(b.Timestamp(), b.PublicKey(), []byte("123"))
+	newManager := func() *endorsementManager {
+		em, err := newEndorsementManager(nil, block.NewDeserializer(0))
+		require.NoError(err)
+		require.NoError(em.RegisterBlock(&b))
+		require.NoError(em.AddVoteEndorsement(NewConsensusVote(blkHash[:], PROPOSAL), end))
+		require.NoError(em.AddVoteEndorsement(NewConsensusVote([]byte{}, PROPOSAL), end))
+		require.NoError(em.SetMintedBlock(&b))
+		return em
+	}
+
+	// state of the same height and parent is kept
+	em := newManager()
+	require.NoError(em.Restore(b.Height(), b.PrevHash(), b.Timestamp()))
+	require.Equal(1, em.Size())
+	require.NotNil(em.CollectionByBlockHash(blkHash[:]).Endorsement(end.Endorser().HexString(), PROPOSAL))
+	require.Equal(&b, em.CachedMintedBlock())
+
+	// state of another height is dropped
+	em = newManager()
+	require.NoError(em.Restore(b.Height()+1, b.PrevHash(), b.Timestamp()))
+	require.Zero(em.Size())
+	require.Nil(em.CachedMintedBlock())
+
+	// state on top of another parent is dropped
+	em = newManager()
+	require.NoError(em.Restore(b.Height(), hash.Hash256b([]byte("other")), b.Timestamp()))
+	require.Zero(em.Size())
+	require.Nil(em.CachedMintedBlock())
+
+	// state of an earlier round is cleaned up
+	em = newManager()
+	require.NoError(em.Restore(b.Height(), b.PrevHash(), b.Timestamp().Add(time.Second)))
+	require.Equal(1, em.Size())
+	require.Nil(em.CollectionByBlockHash(blkHash[:]).Endorsement(end.Endorser().HexString(), PROPOSAL))
+	require.Nil(em.CachedMintedBlock())
 }

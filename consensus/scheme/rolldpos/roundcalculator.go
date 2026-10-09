@@ -66,7 +66,9 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 	var status status
 	var blockInLock []byte
 	var proofOfLock []*endorsement.Endorsement
-	if height == round.Height() {
+	prevHash := c.chain.TipHash()
+	switch {
+	case height == round.Height():
 		err = round.eManager.Cleanup(roundStartTime)
 		if err != nil {
 			return nil, err
@@ -74,13 +76,19 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		status = round.status
 		blockInLock = round.blockInLock
 		proofOfLock = round.proofOfLock
-	} else {
+	case round.Height() == 0:
+		// the initial round created on start carries the state loaded from the
+		// consensus db, keep the part that belongs to this round
+		err = round.eManager.Restore(height, prevHash, roundStartTime)
+		if err != nil {
+			return nil, err
+		}
+	default:
 		err = round.eManager.Cleanup(time.Time{})
 		if err != nil {
 			return nil, err
 		}
 	}
-	prevHash := c.chain.TipHash()
 	return &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
