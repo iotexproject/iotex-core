@@ -231,10 +231,10 @@ func TestActPool_AddActs(t *testing.T) {
 		ap2.allActions.Set(nTsfHash, nTsf)
 	}
 	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
-	// Tx Pool is full, but replacement happens
-	require.Error(action.ErrTxPoolOverflow, ap2.Add(ctx, tsf1))
+	// Tx Pool is full, the new action is the lowest priority and gets evicted
+	require.ErrorIs(ap2.Add(ctx, tsf1), action.ErrTxPoolOverflow)
 	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
-	require.NoError(ap2.Add(ctx, tsf4))
+	require.ErrorIs(ap2.Add(ctx, tsf4), action.ErrTxPoolOverflow)
 	require.Equal(uint64(ap2.allActions.Count()), apConfig.MaxNumActsPerPool)
 
 	Ap3, err := NewActPool(genesis.TestDefault(), sf, apConfig)
