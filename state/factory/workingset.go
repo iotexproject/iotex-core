@@ -929,6 +929,9 @@ func (ws *workingSet) pickAndRunActions(
 					bh := bundle.Hash()
 					log.L().Info("processing bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.String("hash", hex.EncodeToString(bh[:])), zap.Int("size", bundle.Len()), zap.Uint64("gas", bundle.Gas()))
 					bBlkCtx := blkCtx
+					// A struct copy shares the big.Int's words, and adding the
+					// bundle's tips to them in place would also change blkCtx.
+					bBlkCtx.AccumulatedTips = *new(big.Int).Set(&blkCtx.AccumulatedTips)
 					bGasLimit := bBlkCtx.GasLimit
 					if deadline != nil && time.Now().After(*deadline) {
 						duration := time.Since(bBlkCtx.BlockTimeStamp)
@@ -975,6 +978,9 @@ func (ws *workingSet) pickAndRunActions(
 						if err := ws.Revert(si); err != nil {
 							return nil, errors.Wrapf(err, "failed to revert snapshot %d for bundle %s at height %d", si, bids[i], ws.height)
 						}
+						// drop the bundle's block context too, or what runs
+						// next sees the tips of actions that are not in the block
+						ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 						continue
 					}
 					for _, receipt := range bReceipts {
