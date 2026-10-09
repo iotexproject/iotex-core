@@ -18,6 +18,8 @@ type Scheduler struct {
 	logger     *zap.Logger
 	mu         sync.Mutex
 	retryQueue []*pb.TaskBatch
+	// onDispatch, if set, is told which agent each batch went to.
+	onDispatch func(agentID string, batch *pb.TaskBatch)
 }
 
 // NewScheduler creates a new task scheduler.
@@ -108,6 +110,9 @@ func (s *Scheduler) dispatchBatch(batch *pb.TaskBatch) bool {
 	for _, agent := range capable {
 		select {
 		case agent.TaskChan <- batch:
+			if s.onDispatch != nil {
+				s.onDispatch(agent.ID, batch)
+			}
 			s.logger.Debug("dispatched batch",
 				zap.String("agent", agent.ID),
 				zap.String("batch", batch.BatchID),

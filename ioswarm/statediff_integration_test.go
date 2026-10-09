@@ -47,6 +47,7 @@ func TestStateDiffStreamE2E(t *testing.T) {
 		diffBroadcaster: NewStateDiffBroadcaster(cfg.DiffBufferSize, logger),
 		logger:          logger,
 	}
+	coord.initBounds()
 
 	// 2. Start gRPC server
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
@@ -196,6 +197,7 @@ func TestStateDiffCatchUpOnly(t *testing.T) {
 		diffBroadcaster: NewStateDiffBroadcaster(cfg.DiffBufferSize, logger),
 		logger:          logger,
 	}
+	coord.initBounds()
 
 	// Publish 20 diffs
 	for h := uint64(100); h < 120; h++ {

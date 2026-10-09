@@ -272,16 +272,23 @@ func (h *grpcHandler) SubmitResults(ctx context.Context, result *pb.BatchResult)
 		}
 	}
 
+	// Verify agent is registered before keeping any per-agent state for it
+	if _, ok := h.coord.registry.GetAgent(result.AgentID); !ok {
+		return &pb.SubmitResponse{
+			Accepted: false,
+			Reason:   "agent not registered",
+		}, nil
+	}
+
 	// Rate limiting per agent
 	if !h.getRateBucket(result.AgentID).allow() {
 		return nil, status.Error(codes.ResourceExhausted, "rate limit exceeded")
 	}
 
-	// Verify agent is registered
-	if _, ok := h.coord.registry.GetAgent(result.AgentID); !ok {
+	if len(result.Results) > maxResultsPerSubmit {
 		return &pb.SubmitResponse{
 			Accepted: false,
-			Reason:   "agent not registered",
+			Reason:   fmt.Sprintf("too many results (%d > %d)", len(result.Results), maxResultsPerSubmit),
 		}, nil
 	}
 

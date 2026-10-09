@@ -9,7 +9,7 @@ type Config struct {
 	TaskLevel       string  `yaml:"taskLevel"`       // "L1", "L2", "L3", "L4"
 	ShadowMode      bool    `yaml:"shadowMode"`      // default true
 	PollIntervalMS  int     `yaml:"pollIntervalMs"`  // default 1000
-	MasterSecret    string  `yaml:"masterSecret"`    // HMAC master secret for agent auth (empty = no auth)
+	MasterSecret    string  `yaml:"masterSecret"`    // HMAC master secret for agent auth (required)
 	DelegateAddress string  `yaml:"delegateAddress"` // delegate's IOTX address for reward payout
 	EpochRewardIOTX float64 `yaml:"epochRewardIOTX"` // IOTX per epoch for reward distribution (default 800)
 
