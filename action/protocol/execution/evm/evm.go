@@ -104,6 +104,10 @@ type (
 		featureCtx  protocol.FeatureCtx
 		actionCtx   protocol.ActionCtx
 		helperCtx   HelperContext
+		// evmGasPrice, when set, is the gas price the EVM reports to
+		// contracts in place of txCtx.GasPrice; txCtx.GasPrice still prices
+		// the security deposit and its refund
+		evmGasPrice *big.Int
 	}
 
 	stateDB interface {
@@ -208,6 +212,12 @@ func newParams(
 		Origin:   executorAddr,
 		GasPrice: execution.GasPrice(),
 	}
+	var evmGasPrice *big.Int
+	if featureCtx.UseEffectiveGasPriceInEVM {
+		// nil before dynamic-fee transactions are enabled, in which case the
+		// gas price is the price the sender pays
+		evmGasPrice = protocol.EffectiveGasPrice(ctx, execution)
+	}
 	if g.IsVanuatu(blkCtx.BlockHeight) {
 		// enable BLOBHASH opcode
 		vmTxCtx.BlobHashes = execution.BlobHashes()
@@ -230,7 +240,17 @@ func newParams(
 		featureCtx,
 		actionCtx,
 		helperCtx,
+		evmGasPrice,
 	}, nil
+}
+
+// evmTxContext returns the transaction context handed to the EVM
+func (ps *Params) evmTxContext() vm.TxContext {
+	txCtx := ps.txCtx
+	if ps.evmGasPrice != nil {
+		txCtx.GasPrice = new(big.Int).Set(ps.evmGasPrice)
+	}
+	return txCtx
 }
 
 func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
@@ -295,7 +315,7 @@ func HandleSystemContractCall(ctx context.Context, sm protocol.StateManager, exe
 		return nil, errors.New("contract address is nil")
 	}
 	evm := vm.NewEVM(params.context, stateDB, params.chainConfig, params.evmConfig)
-	evm.SetTxContext(params.txCtx)
+	evm.SetTxContext(params.evmTxContext())
 	stateDB.AddAddressToAccessList(*params.contract)
 	output, _, err := evm.Call(params.txCtx.Origin, *params.contract, params.data, params.gas, uint256.MustFromBig(params.amount))
 	if err != nil {
@@ -684,7 +704,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		floorDataGas uint64
 	)
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, evmParams.evmConfig)
-	evm.SetTxContext(evmParams.txCtx)
+	evm.SetTxContext(evmParams.evmTxContext())
 	// during a traced simulation, register this EVM so the trace-timeout
 	// watchdog can abort opcode execution (see TraceCanceller); never set on
 	// the consensus path

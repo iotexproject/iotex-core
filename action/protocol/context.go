@@ -341,6 +341,16 @@ type (
 		// Needs its own height: the receipt, the gas charged and the nonce are
 		// all consensus data. Gated at ToBeEnabled, which is unscheduled.
 		SettleFloorDataGasShortfall bool
+		// UseEffectiveGasPriceInEVM hands the EVM the effective gas price,
+		// min(feeCap, baseFee+tipCap), as the transaction's gas price, so the
+		// GASPRICE opcode reports what the sender actually pays per unit of
+		// gas instead of the fee cap of a dynamic-fee transaction.
+		//
+		// The security deposit, its refund and the receipt keep using the
+		// prices they use today; only the value contracts can observe changes.
+		// That value can steer contract execution, so this needs its own
+		// height. Gated at ToBeEnabled, which is unscheduled.
+		UseEffectiveGasPriceInEVM bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -538,6 +548,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
 			// Next hardfork, not yet scheduled.
 			SettleFloorDataGasShortfall: g.IsToBeEnabled(height),
+			UseEffectiveGasPriceInEVM:   g.IsToBeEnabled(height),
 		},
 	)
 }
