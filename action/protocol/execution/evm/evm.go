@@ -788,7 +788,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		// Apply EIP-7702 authorizations.
 		for _, auth := range evmParams.authList {
 			// Note errors are ignored, we simply skip invalid authorizations here.
-			if err := applyAuthorization(evm, stateDB, &auth, evmParams.helperCtx.IsBlackListed, evmParams.blkCtx.BlockHeight); err != nil {
+			if err := applyAuthorization(evm, stateDB, &auth, evmParams.helperCtx.IsBlackListed, evmParams.blkCtx.BlockHeight, evmParams.featureCtx.CompareFullAuthorizationChainID); err != nil {
 				log.T(ctx).Debug("failed to apply authorization", zap.Error(err), zap.String("auth", auth.Address.String()))
 			}
 		}
@@ -1088,11 +1088,17 @@ func ExtractRevertMessage(ret []byte) (string, error) {
 	return string(data[64 : 64+msgLength]), nil
 }
 
-func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64) (authority common.Address, err error) {
-	chainID := evm.ChainConfig().ChainID.Uint64()
+func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64, compareFullChainID bool) (authority common.Address, err error) {
 	// Verify chain ID is 0 or equal to current chain ID.
-	if !auth.ChainID.IsZero() && chainID != (auth.ChainID.Uint64()) {
-		return authority, errors.Errorf("authorization chain ID %v does not match current chain ID %v", auth.ChainID, chainID)
+	if compareFullChainID {
+		if !auth.ChainID.IsZero() && auth.ChainID.CmpBig(evm.ChainConfig().ChainID) != 0 {
+			return authority, errors.Errorf("authorization chain ID %v does not match current chain ID %v", &auth.ChainID, evm.ChainConfig().ChainID)
+		}
+	} else {
+		chainID := evm.ChainConfig().ChainID.Uint64()
+		if !auth.ChainID.IsZero() && chainID != (auth.ChainID.Uint64()) {
+			return authority, errors.Errorf("authorization chain ID %v does not match current chain ID %v", auth.ChainID, chainID)
+		}
 	}
 	// Limit nonce to 2^64-1 per EIP-2681.
 	if auth.Nonce+1 < auth.Nonce {
@@ -1126,8 +1132,8 @@ func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthoriz
 	return authority, nil
 }
 
-func applyAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64) error {
-	authority, err := validateAuthorization(evm, sdb, auth, isBlackListed, blockHeight)
+func applyAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64, compareFullChainID bool) error {
+	authority, err := validateAuthorization(evm, sdb, auth, isBlackListed, blockHeight, compareFullChainID)
 	if err != nil {
 		return err
 	}
