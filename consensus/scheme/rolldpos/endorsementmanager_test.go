@@ -6,13 +6,18 @@
 package rolldpos
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/v2/consensus/scheme/rolldpos/endorsementpb"
+	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/endorsement"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -210,4 +215,56 @@ func TestEndorsementManagerProto(t *testing.T) {
 	encoded := encodeToString(cv.BlockHash())
 	require.Equal(em.collections[encoded].endorsers, em2.collections[encoded].endorsers)
 	require.Equal(em.cachedMintedBlk.HashBlock(), em2.cachedMintedBlk.HashBlock())
+}
+
+func TestEndorsementManagerFromCorruptedProto(t *testing.T) {
+	require := require.New(t)
+	b := getBlock(t)
+	blkHash := b.HashBlock()
+	end := endorsement.NewEndorsement(time.Now(), b.PublicKey(), []byte("123"))
+
+	t.Run("fewer endorsements than topics", func(t *testing.T) {
+		ee := &endorserEndorsementCollection{}
+		require.NotPanics(func() {
+			require.ErrorContains(ee.fromProto(&endorsementpb.EndorserEndorsementCollection{
+				Endorser:     "endorser",
+				Topics:       []uint32{uint32(PROPOSAL), uint32(LOCK)},
+				Endorsements: []*iotextypes.Endorsement{end.Proto()},
+			}), "mismatched number of topics")
+		})
+	})
+
+	t.Run("fewer block hashes than collections", func(t *testing.T) {
+		em, err := newEndorsementManager(nil, block.NewDeserializer(0))
+		require.NoError(err)
+		require.NoError(em.RegisterBlock(&b))
+		require.NoError(em.AddVoteEndorsement(NewConsensusVote(blkHash[:], PROPOSAL), end))
+		emProto, err := em.toProto()
+		require.NoError(err)
+		emProto.BlkHash = nil
+		require.NotPanics(func() {
+			require.ErrorContains(em.fromProto(emProto, block.NewDeserializer(0)), "mismatched number of block hashes")
+		})
+	})
+
+	t.Run("corrupted db fails to load", func(t *testing.T) {
+		emProto := &endorsementpb.EndorsementManager{
+			BlkHash: []string{encodeToString(blkHash[:])},
+			BlockEndorsements: []*endorsementpb.BlockEndorsementCollection{{
+				BlockMap: []*endorsementpb.EndorserEndorsementCollection{{
+					Endorser: "endorser",
+					Topics:   []uint32{uint32(COMMIT)},
+				}},
+			}},
+		}
+		valBytes, err := proto.Marshal(emProto)
+		require.NoError(err)
+		kv := db.NewMemKVStore()
+		require.NoError(kv.Start(context.Background()))
+		require.NoError(kv.Put(_eManagerNS, _statusKey, valBytes))
+		require.NotPanics(func() {
+			_, err = newEndorsementManager(kv, block.NewDeserializer(0))
+			require.ErrorContains(err, "mismatched number of topics")
+		})
+	})
 }

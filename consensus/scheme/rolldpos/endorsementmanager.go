@@ -44,6 +44,13 @@ func newEndorserEndorsementCollection() *endorserEndorsementCollection {
 }
 
 func (ee *endorserEndorsementCollection) fromProto(endorserPro *endorsementpb.EndorserEndorsementCollection) error {
+	if len(endorserPro.Topics) != len(endorserPro.Endorsements) {
+		return errors.Errorf(
+			"mismatched number of topics %d and endorsements %d",
+			len(endorserPro.Topics),
+			len(endorserPro.Endorsements),
+		)
+	}
 	ee.endorsements = make(map[ConsensusVoteTopic]*endorsement.Endorsement)
 	for index := range endorserPro.Topics {
 		endorse := &endorsement.Endorsement{}
@@ -127,6 +134,9 @@ func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEnd
 		bc.blk = blk
 	}
 	for _, endorsement := range blockPro.BlockMap {
+		if endorsement == nil {
+			return errors.New("nil endorser endorsement collection")
+		}
 		ee := &endorserEndorsementCollection{}
 		if err := ee.fromProto(endorsement); err != nil {
 			return err
@@ -275,8 +285,18 @@ func (m *endorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajorit
 }
 
 func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager, deserializer *block.Deserializer) error {
+	if len(managerPro.BlkHash) != len(managerPro.BlockEndorsements) {
+		return errors.Errorf(
+			"mismatched number of block hashes %d and block endorsements %d",
+			len(managerPro.BlkHash),
+			len(managerPro.BlockEndorsements),
+		)
+	}
 	m.collections = make(map[string]*blockEndorsementCollection)
 	for i, block := range managerPro.BlockEndorsements {
+		if block == nil {
+			return errors.New("nil block endorsement collection")
+		}
 		bc := &blockEndorsementCollection{}
 		if err := bc.fromProto(block, deserializer); err != nil {
 			return err
