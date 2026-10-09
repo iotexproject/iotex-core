@@ -42,6 +42,9 @@ const (
 	_metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
 	// _defaultBatchRequestLimit is the default maximum number of items in a batch.
 	_defaultBatchRequestLimit = 100 // Maximum number of items in a batch.
+	// _maxSubscriptionsPerConnection is the maximum number of active
+	// subscriptions a single websocket connection can hold.
+	_maxSubscriptionsPerConnection = 100
 )
 
 type (
@@ -91,6 +94,7 @@ var (
 	errHTTPNotSupported  = errors.New("http not supported")
 	errPanic             = errors.New("panic")
 	errSubscribeInBatch  = errors.New("eth_subscribe is not supported in batch requests")
+	errSubscriptionLimit = errors.New("too many subscriptions on this connection")
 
 	_pendingBlockNumber   = "pending"
 	_latestBlockNumber    = "latest"
@@ -267,7 +271,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		}
 		res, err = svr.subscribe(sc, web3Req, writer)
 	case "eth_unsubscribe":
-		res, err = svr.unsubscribe(web3Req)
+		res, err = svr.unsubscribe(ctx, web3Req)
 	case "eth_getBlobSidecars":
 		res, err = svr.getBlobSidecars(web3Req)
 	case "debug_traceTransaction":
@@ -1335,6 +1339,9 @@ func (svr *web3Handler) subscribe(ctx *StreamContext, in *gjson.Result, writer a
 	if !subscription.Exists() {
 		return nil, errInvalidFormat
 	}
+	if ctx.ListenerCount() >= _maxSubscriptionsPerConnection {
+		return nil, errSubscriptionLimit
+	}
 	switch subscription.String() {
 	case "newHeads":
 		return svr.streamBlocks(ctx, writer)
@@ -1373,10 +1380,15 @@ func (svr *web3Handler) streamLogs(ctx *StreamContext, filterObj *filterObject, 
 	return streamID, nil
 }
 
-func (svr *web3Handler) unsubscribe(in *gjson.Result) (interface{}, error) {
+func (svr *web3Handler) unsubscribe(ctx context.Context, in *gjson.Result) (interface{}, error) {
 	id := in.Get("params.0")
 	if !id.Exists() {
 		return nil, errInvalidFormat
+	}
+	if sc, ok := StreamFromContext(ctx); ok {
+		// release the slot on this connection even if the listener has
+		// already dropped the subscription
+		sc.RemoveListener(id.String())
 	}
 	chainListener := svr.coreService.ChainListener()
 	return chainListener.RemoveResponder(id.String())

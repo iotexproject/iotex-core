@@ -28,6 +28,12 @@ func (sc *StreamContext) RemoveListener(id string) {
 	delete(sc.listenerIDs, id)
 }
 
+func (sc *StreamContext) ListenerCount() int {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+	return len(sc.listenerIDs)
+}
+
 func (sc *StreamContext) ListenerIDs() []string {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
