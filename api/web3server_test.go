@@ -936,7 +936,15 @@ func TestNewfilter(t *testing.T) {
 		Topics:    [][]string{{byteToHex([]byte("_topic1")), byteToHex([]byte("_topic2")), byteToHex([]byte("_topic3"))}, {byteToHex([]byte("_topic4"))}},
 	})
 	require.NoError(err)
-	require.Equal("0x6e86c450ba48d23a459b74581736ca033ed60ef2a3d5ae09c316f77f67d7fad7", ret.(string))
+	id := ret.(string)
+	require.Len(id, 66)
+	filterObj, err := loadFilterFromCache(web3svr.cache, id[2:])
+	require.NoError(err)
+	require.Equal("log", filterObj.FilterType)
+	require.Equal("1", filterObj.FromBlock)
+	require.Equal("2", filterObj.ToBlock)
+	require.Len(filterObj.Address, 2)
+	require.Len(filterObj.Topics, 2)
 }
 
 func TestNewBlockFilter(t *testing.T) {
@@ -949,7 +957,49 @@ func TestNewBlockFilter(t *testing.T) {
 
 	ret, err := web3svr.newBlockFilter()
 	require.NoError(err)
-	require.Equal("0x4c6ace15a9c5b9d3c89e786b7b6dfaf1bdc5807b8d7da0292db94d473f349101", ret.(string))
+	id := ret.(string)
+	require.Len(id, 66)
+	filterObj, err := loadFilterFromCache(web3svr.cache, id[2:])
+	require.NoError(err)
+	require.Equal("block", filterObj.FilterType)
+	require.Equal(uint64(123), filterObj.LogHeight)
+}
+
+func TestFilterIDUnique(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, newAPICache(1*time.Second, ""), _defaultBatchRequestLimit}
+	core.EXPECT().TipHeight().Return(uint64(123)).Times(2)
+
+	newFilter := func() string {
+		ret, err := web3svr.newFilter(&filterObject{FromBlock: "1", ToBlock: "2"})
+		require.NoError(err)
+		return ret.(string)
+	}
+	newBlockFilter := func() string {
+		ret, err := web3svr.newBlockFilter()
+		require.NoError(err)
+		return ret.(string)
+	}
+	// identical filters must get distinct ids, so they do not share a cursor
+	for _, create := range []func() string{newFilter, newBlockFilter} {
+		id1, id2 := create(), create()
+		require.NotEqual(id1, id2)
+		for _, id := range []string{id1, id2} {
+			require.Len(id, 66)
+			_, err := hex.DecodeString(id[2:])
+			require.NoError(err)
+		}
+		// removing one filter does not affect the other
+		in := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, id1))
+		ret, err := web3svr.uninstallFilter(&in)
+		require.NoError(err)
+		require.True(ret.(bool))
+		_, err = loadFilterFromCache(web3svr.cache, id2[2:])
+		require.NoError(err)
+	}
 }
 
 func TestUninstallFilter(t *testing.T) {
