@@ -444,12 +444,12 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManagerWithCl
 	return sdb.newReadOnlyWorkingSet(ctx, height+1)
 }
 
-func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
+func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (_ protocol.StateManagerWithCloser, err error) {
 	ws, err := sdb.newReadOnlyWorkingSet(ctx, height-1)
 	if err != nil {
 		return nil, err
 	}
-	// handle panic to ensure workingset is closed
+	// handle panic to ensure workingset is closed, and an error is returned
 	defer func() {
 		if r := recover(); r != nil {
 			ws.Close()
