@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -440,10 +441,12 @@ func TestFileDAOv2FailedWrite(t *testing.T) {
 		blks = append(blks, blk)
 		h = blk.HashBlock()
 	}
+	// checkBlocks checks the tip and every data relation of blks
 	checkBlocks := func(r *require.Assertions, fd *fileDAOv2, blks []*block.Block) {
 		height, err := fd.Height()
 		r.NoError(err)
 		r.Equal(uint64(len(blks)), height)
+		r.Equal(blks[len(blks)-1].HashBlock(), fd.loadTip().Hash)
 		for _, want := range blks {
 			got, err := fd.GetBlockByHeight(want.Height())
 			r.NoError(err)
@@ -451,35 +454,94 @@ func TestFileDAOv2FailedWrite(t *testing.T) {
 			h, err := fd.GetBlockHash(want.Height())
 			r.NoError(err)
 			r.Equal(want.HashBlock(), h)
+			height, err := fd.GetBlockHeight(want.HashBlock())
+			r.NoError(err)
+			r.Equal(want.Height(), height)
 			receipts, err := fd.GetReceipts(want.Height())
 			r.NoError(err)
 			r.Equal(want.Height(), receipts[0].BlockHeight)
+			wantLog, err := block.DeserializeSystemLogPb(want.TransactionLog().Serialize())
+			r.NoError(err)
+			r.NotEmpty(wantLog.Logs)
+			gotLog, err := fd.TransactionLogs(want.Height())
+			r.NoError(err)
+			r.True(proto.Equal(wantLog, gotLog))
 		}
+	}
+	// checkNotWritten checks that nothing of blk can be read
+	checkNotWritten := func(r *require.Assertions, fd *fileDAOv2, blk *block.Block) {
+		_, err := fd.GetBlockByHeight(blk.Height())
+		r.ErrorIs(err, db.ErrNotExist)
+		_, err = fd.GetReceipts(blk.Height())
+		r.ErrorIs(err, db.ErrNotExist)
+		_, err = fd.TransactionLogs(blk.Height())
+		r.ErrorIs(err, ErrNotSupported)
+		_, err = fd.GetBlockHeight(blk.HashBlock())
+		r.ErrorIs(err, db.ErrNotExist)
+		_, err = fd.GetBlockHash(blk.Height())
+		r.ErrorIs(err, db.ErrNotExist)
 	}
 	indexSizes := func(fd *fileDAOv2) []uint64 {
 		return []uint64{fd.hashStore.Size(), fd.blkStore.Size(), fd.sysStore.Size()}
 	}
+	bufferSlots := func(fd *fileDAOv2) []*block.Store {
+		fd.blkBuffer.lock.RLock()
+		defer fd.blkBuffer.lock.RUnlock()
+		return append([]*block.Store{}, fd.blkBuffer.buffer...)
+	}
+	// checkBufferRound checks that the staging buffer of a reopened file holds
+	// exactly the blocks of the current round
+	checkBufferRound := func(r *require.Assertions, fd *fileDAOv2, blks []*block.Block) {
+		tip := uint64(len(blks))
+		roundStart := tip - (tip-fd.header.Start+1)%fd.header.BlockStoreSize + 1
+		for i, v := range bufferSlots(fd) {
+			height := roundStart + uint64(i)
+			if height > tip {
+				r.Nil(v, "slot %d", i)
+				continue
+			}
+			r.NotNil(v, "slot %d", i)
+			r.Equal(blks[height-1].HashBlock(), v.Block.HashBlock(), "slot %d", i)
+		}
+	}
+	// failCompressAt makes the n-th compression from now on fail, PutBlock
+	// compresses the block first and then the transaction log
+	failCompressAt := func(r *require.Assertions, n int) func() {
+		calls := 0
+		_compress = func(v []byte, comp string) ([]byte, error) {
+			calls++
+			if calls == n {
+				return nil, errors.New("compress failed")
+			}
+			return compress.Compress(v, comp)
+		}
+		return func() {
+			_compress = compress.Compress
+			r.GreaterOrEqual(calls, n, "compression did not fail")
+		}
+	}
 
 	for _, f := range []struct {
 		name   string
-		inject func(*fileDAOv2) (restore func())
+		inject func(*require.Assertions, *fileDAOv2) (restore func())
 	}{
 		{
 			"write batch fails",
-			func(fd *fileDAOv2) func() {
+			func(_ *require.Assertions, fd *fileDAOv2) func() {
 				kv := fd.kvStore
 				fd.kvStore = failingWriteKVStore{kv}
 				return func() { fd.kvStore = kv }
 			},
 		},
 		{
-			"compress fails before write batch",
-			func(*fileDAOv2) func() {
-				_compress = func([]byte, string) ([]byte, error) {
-					return nil, errors.New("compress failed")
-				}
-				return func() { _compress = compress.Compress }
-			},
+			// fails in putBlock, after the hash index entry is in the batch
+			"block compression fails",
+			func(r *require.Assertions, _ *fileDAOv2) func() { return failCompressAt(r, 1) },
+		},
+		{
+			// fails in putTransactionLog, after putBlock has returned its apply
+			"transaction log compression fails",
+			func(r *require.Assertions, _ *fileDAOv2) func() { return failCompressAt(r, 2) },
 		},
 	} {
 		for _, c := range []struct {
@@ -502,22 +564,32 @@ func TestFileDAOv2FailedWrite(t *testing.T) {
 				fd, err := newFileDAOv2(1, cfg, deser)
 				r.NoError(err)
 				r.NoError(fd.Start(ctx))
-				for _, blk := range blks[:c.height-1] {
+				written, failed := blks[:c.height-1], blks[c.height-1]
+				for _, blk := range written {
 					r.NoError(fd.PutBlock(ctx, blk))
 				}
-				sizes := indexSizes(fd)
+				sizes, slots := indexSizes(fd), bufferSlots(fd)
 
 				// a failed write leaves the in-memory state unchanged
-				restore := f.inject(fd)
-				r.Error(fd.PutBlock(ctx, blks[c.height-1]))
+				restore := f.inject(r, fd)
+				r.Error(fd.PutBlock(ctx, failed))
 				restore()
 				r.Equal(sizes, indexSizes(fd))
-				r.Equal(blks[c.height-2].HashBlock(), fd.loadTip().Hash)
-				checkBlocks(r, fd, blks[:c.height-1])
-				_, err = fd.GetBlockByHeight(c.height)
-				r.ErrorIs(err, db.ErrNotExist)
-				_, err = fd.GetReceipts(c.height)
-				r.ErrorIs(err, db.ErrNotExist)
+				newSlots := bufferSlots(fd)
+				for i := range slots {
+					r.Same(slots[i], newSlots[i], "slot %d", i)
+				}
+				checkBlocks(r, fd, written)
+				checkNotWritten(r, fd, failed)
+				r.NoError(fd.Stop(ctx))
+
+				// and nothing of it reached the file
+				fd = openFileDAOv2(cfg, deser)
+				r.NoError(fd.Start(ctx))
+				r.Equal(sizes, indexSizes(fd))
+				checkBufferRound(r, fd, written)
+				checkBlocks(r, fd, written)
+				checkNotWritten(r, fd, failed)
 
 				// retrying the same block succeeds
 				for _, blk := range blks[c.height-1 : 2*_blockStoreBatchSize+2] {
@@ -530,6 +602,7 @@ func TestFileDAOv2FailedWrite(t *testing.T) {
 				fd = openFileDAOv2(cfg, deser)
 				r.NoError(fd.Start(ctx))
 				defer fd.Stop(ctx)
+				checkBufferRound(r, fd, blks[:2*_blockStoreBatchSize+2])
 				checkBlocks(r, fd, blks[:2*_blockStoreBatchSize+2])
 				for _, blk := range blks[2*_blockStoreBatchSize+2:] {
 					r.NoError(fd.PutBlock(ctx, blk))
