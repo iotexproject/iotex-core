@@ -33,6 +33,10 @@ type (
 		Size() uint64
 		// Add inserts a value into the index
 		Add([]byte, bool) error
+		// AddToBatch puts a value and the new size into the batch without changing
+		// the index, and returns a func that updates the size once the batch is
+		// committed. At most one value can be added per batch.
+		AddToBatch(batch.KVStoreBatch, []byte) func()
 		// Get return value of key[slot]
 		Get(uint64) ([]byte, error)
 		// Range return value of keys [start, start+count)
@@ -141,6 +145,17 @@ func (c *countingIndex) addBatch(value []byte) error {
 	c.batch.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(size), value, fmt.Sprintf("failed to add %d-th item", size+1))
 	atomic.AddUint64(&c.size, 1)
 	return nil
+}
+
+// AddToBatch puts a value and the new size into the batch without changing
+// the index, and returns a func that updates the size once the batch is
+// committed. At most one value can be added per batch.
+func (c *countingIndex) AddToBatch(b batch.KVStoreBatch, value []byte) func() {
+	size := c.Size()
+	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(size), value, fmt.Sprintf("failed to add %d-th item", size+1))
+	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(size+1), fmt.Sprintf("failed to update size = %d", size+1))
+	b.AddFillPercent(c.bucket, 1.0)
+	return func() { atomic.StoreUint64(&c.size, size+1) }
 }
 
 // Get return value of key[slot]

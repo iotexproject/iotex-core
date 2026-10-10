@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
-	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
@@ -68,7 +67,6 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 		},
 		blkStorePbCache: cache.NewThreadSafeLruCache(16),
 		kvStore:         db.NewMemKVStore(),
-		batch:           batch.NewBatch(),
 		deser:           block.NewDeserializer(_defaultEVMNetworkID),
 	}
 	return &fd, nil
