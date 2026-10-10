@@ -104,6 +104,10 @@ type (
 		featureCtx  protocol.FeatureCtx
 		actionCtx   protocol.ActionCtx
 		helperCtx   HelperContext
+		// evmGasPrice, when set, is the gas price the EVM reports to
+		// contracts in place of txCtx.GasPrice; txCtx.GasPrice still prices
+		// the security deposit and its refund
+		evmGasPrice *big.Int
 	}
 
 	stateDB interface {
@@ -208,6 +212,12 @@ func newParams(
 		Origin:   executorAddr,
 		GasPrice: execution.GasPrice(),
 	}
+	var evmGasPrice *big.Int
+	if featureCtx.UseEffectiveGasPriceInEVM {
+		// nil before dynamic-fee transactions are enabled, in which case the
+		// gas price is the price the sender pays
+		evmGasPrice = protocol.EffectiveGasPrice(ctx, execution)
+	}
 	if g.IsVanuatu(blkCtx.BlockHeight) {
 		// enable BLOBHASH opcode
 		vmTxCtx.BlobHashes = execution.BlobHashes()
@@ -230,7 +240,17 @@ func newParams(
 		featureCtx,
 		actionCtx,
 		helperCtx,
+		evmGasPrice,
 	}, nil
+}
+
+// evmTxContext returns the transaction context handed to the EVM
+func (ps *Params) evmTxContext() vm.TxContext {
+	txCtx := ps.txCtx
+	if ps.evmGasPrice != nil {
+		txCtx.GasPrice = new(big.Int).Set(ps.evmGasPrice)
+	}
+	return txCtx
 }
 
 func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
@@ -295,7 +315,7 @@ func HandleSystemContractCall(ctx context.Context, sm protocol.StateManager, exe
 		return nil, errors.New("contract address is nil")
 	}
 	evm := vm.NewEVM(params.context, stateDB, params.chainConfig, params.evmConfig)
-	evm.SetTxContext(params.txCtx)
+	evm.SetTxContext(params.evmTxContext())
 	stateDB.AddAddressToAccessList(*params.contract)
 	output, _, err := evm.Call(params.txCtx.Origin, *params.contract, params.data, params.gas, uint256.MustFromBig(params.amount))
 	if err != nil {
@@ -684,7 +704,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		floorDataGas uint64
 	)
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, evmParams.evmConfig)
-	evm.SetTxContext(evmParams.txCtx)
+	evm.SetTxContext(evmParams.evmTxContext())
 	// during a traced simulation, register this EVM so the trace-timeout
 	// watchdog can abort opcode execution (see TraceCanceller); never set on
 	// the consensus path
@@ -724,6 +744,17 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
 		}
 		if evmParams.gas < floorDataGas {
+			if evmParams.featureCtx.SettleFloorDataGasShortfall {
+				// The call never runs. Settle a failure receipt that consumes
+				// the whole gas limit, and bump the nonce as a failed call or
+				// create would, rather than returning an error that abandons
+				// the block being built or validated.
+				log.T(ctx).Debug("gas limit below floor data gas", zap.Uint64("gas", evmParams.gas), zap.Uint64("floorDataGas", floorDataGas),
+					log.Hex("actionHash", evmParams.actionCtx.ActionHash[:]))
+				stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1, tracing.NonceChangeUnspecified)
+				traceGasChange(remainingGas, 0, tracing.GasChangeTxDataFloor)
+				return nil, evmParams.gas, 0, action.EmptyAddress, iotextypes.ReceiptStatus_ErrOutOfGas, nil
+			}
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, errors.Wrapf(action.ErrFloorDataGas, "have %d, want %d", evmParams.gas, floorDataGas)
 		}
 	}
@@ -757,7 +788,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		// Apply EIP-7702 authorizations.
 		for _, auth := range evmParams.authList {
 			// Note errors are ignored, we simply skip invalid authorizations here.
-			if err := applyAuthorization(evm, stateDB, &auth, evmParams.helperCtx.IsBlackListed, evmParams.blkCtx.BlockHeight); err != nil {
+			if err := applyAuthorization(evm, stateDB, &auth, evmParams.helperCtx.IsBlackListed, evmParams.blkCtx.BlockHeight, evmParams.featureCtx.CompareFullAuthorizationChainID); err != nil {
 				log.T(ctx).Debug("failed to apply authorization", zap.Error(err), zap.String("auth", auth.Address.String()))
 			}
 		}
@@ -1057,11 +1088,17 @@ func ExtractRevertMessage(ret []byte) (string, error) {
 	return string(data[64 : 64+msgLength]), nil
 }
 
-func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64) (authority common.Address, err error) {
-	chainID := evm.ChainConfig().ChainID.Uint64()
+func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64, compareFullChainID bool) (authority common.Address, err error) {
 	// Verify chain ID is 0 or equal to current chain ID.
-	if !auth.ChainID.IsZero() && chainID != (auth.ChainID.Uint64()) {
-		return authority, errors.Errorf("authorization chain ID %v does not match current chain ID %v", auth.ChainID, chainID)
+	if compareFullChainID {
+		if !auth.ChainID.IsZero() && auth.ChainID.CmpBig(evm.ChainConfig().ChainID) != 0 {
+			return authority, errors.Errorf("authorization chain ID %v does not match current chain ID %v", &auth.ChainID, evm.ChainConfig().ChainID)
+		}
+	} else {
+		chainID := evm.ChainConfig().ChainID.Uint64()
+		if !auth.ChainID.IsZero() && chainID != (auth.ChainID.Uint64()) {
+			return authority, errors.Errorf("authorization chain ID %v does not match current chain ID %v", auth.ChainID, chainID)
+		}
 	}
 	// Limit nonce to 2^64-1 per EIP-2681.
 	if auth.Nonce+1 < auth.Nonce {
@@ -1095,8 +1132,8 @@ func validateAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthoriz
 	return authority, nil
 }
 
-func applyAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64) error {
-	authority, err := validateAuthorization(evm, sdb, auth, isBlackListed, blockHeight)
+func applyAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorization, isBlackListed IsBlackListedFunc, blockHeight uint64, compareFullChainID bool) error {
+	authority, err := validateAuthorization(evm, sdb, auth, isBlackListed, blockHeight, compareFullChainID)
 	if err != nil {
 		return err
 	}
