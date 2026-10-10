@@ -551,64 +551,72 @@ func TestFileDAOv2FailedWrite(t *testing.T) {
 			{"staging buffer not full", _blockStoreBatchSize + 4},
 			{"staging buffer full", 2 * _blockStoreBatchSize},
 		} {
-			t.Run(f.name+"/"+c.name, func(t *testing.T) {
-				r := require.New(t)
-				testPath, err := testutil.PathOfTempFile("test-failed-write")
-				r.NoError(err)
-				defer testutil.CleanupPath(testPath)
-
-				cfg := db.DefaultConfig
-				cfg.DbPath = testPath
-				r.Equal(_blockStoreBatchSize, cfg.BlockStoreBatchSize)
-				r.NotEmpty(cfg.Compressor)
-				fd, err := newFileDAOv2(1, cfg, deser)
-				r.NoError(err)
-				r.NoError(fd.Start(ctx))
-				written, failed := blks[:c.height-1], blks[c.height-1]
-				for _, blk := range written {
-					r.NoError(fd.PutBlock(ctx, blk))
+			for _, reopen := range []bool{false, true} {
+				name := f.name + "/" + c.name + "/retry in place"
+				if reopen {
+					name = f.name + "/" + c.name + "/retry after reopen"
 				}
-				sizes, slots := indexSizes(fd), bufferSlots(fd)
+				t.Run(name, func(t *testing.T) {
+					r := require.New(t)
+					testPath, err := testutil.PathOfTempFile("test-failed-write")
+					r.NoError(err)
+					defer testutil.CleanupPath(testPath)
 
-				// a failed write leaves the in-memory state unchanged
-				restore := f.inject(r, fd)
-				r.Error(fd.PutBlock(ctx, failed))
-				restore()
-				r.Equal(sizes, indexSizes(fd))
-				newSlots := bufferSlots(fd)
-				for i := range slots {
-					r.Same(slots[i], newSlots[i], "slot %d", i)
-				}
-				checkBlocks(r, fd, written)
-				checkNotWritten(r, fd, failed)
-				r.NoError(fd.Stop(ctx))
+					cfg := db.DefaultConfig
+					cfg.DbPath = testPath
+					r.Equal(_blockStoreBatchSize, cfg.BlockStoreBatchSize)
+					r.NotEmpty(cfg.Compressor)
+					fd, err := newFileDAOv2(1, cfg, deser)
+					r.NoError(err)
+					r.NoError(fd.Start(ctx))
+					written, failed := blks[:c.height-1], blks[c.height-1]
+					for _, blk := range written {
+						r.NoError(fd.PutBlock(ctx, blk))
+					}
+					sizes, slots := indexSizes(fd), bufferSlots(fd)
 
-				// and nothing of it reached the file
-				fd = openFileDAOv2(cfg, deser)
-				r.NoError(fd.Start(ctx))
-				r.Equal(sizes, indexSizes(fd))
-				checkBufferRound(r, fd, written)
-				checkBlocks(r, fd, written)
-				checkNotWritten(r, fd, failed)
+					// a failed write leaves the in-memory state unchanged
+					restore := f.inject(r, fd)
+					r.Error(fd.PutBlock(ctx, failed))
+					restore()
+					r.Equal(sizes, indexSizes(fd))
+					newSlots := bufferSlots(fd)
+					for i := range slots {
+						r.Same(slots[i], newSlots[i], "slot %d", i)
+					}
+					checkBlocks(r, fd, written)
+					checkNotWritten(r, fd, failed)
 
-				// retrying the same block succeeds
-				for _, blk := range blks[c.height-1 : 2*_blockStoreBatchSize+2] {
-					r.NoError(fd.PutBlock(ctx, blk))
-				}
-				checkBlocks(r, fd, blks[:2*_blockStoreBatchSize+2])
-				r.NoError(fd.Stop(ctx))
+					if reopen {
+						// and nothing of it reached the file
+						r.NoError(fd.Stop(ctx))
+						fd = openFileDAOv2(cfg, deser)
+						r.NoError(fd.Start(ctx))
+						r.Equal(sizes, indexSizes(fd))
+						checkBufferRound(r, fd, written)
+						checkBlocks(r, fd, written)
+						checkNotWritten(r, fd, failed)
+					}
 
-				// reopening reloads the same state from the file and writing resumes
-				fd = openFileDAOv2(cfg, deser)
-				r.NoError(fd.Start(ctx))
-				defer fd.Stop(ctx)
-				checkBufferRound(r, fd, blks[:2*_blockStoreBatchSize+2])
-				checkBlocks(r, fd, blks[:2*_blockStoreBatchSize+2])
-				for _, blk := range blks[2*_blockStoreBatchSize+2:] {
-					r.NoError(fd.PutBlock(ctx, blk))
-				}
-				checkBlocks(r, fd, blks)
-			})
+					// retrying the same block succeeds
+					for _, blk := range blks[c.height-1 : 2*_blockStoreBatchSize+2] {
+						r.NoError(fd.PutBlock(ctx, blk))
+					}
+					checkBlocks(r, fd, blks[:2*_blockStoreBatchSize+2])
+					r.NoError(fd.Stop(ctx))
+
+					// reopening reloads the same state from the file and writing resumes
+					fd = openFileDAOv2(cfg, deser)
+					r.NoError(fd.Start(ctx))
+					defer fd.Stop(ctx)
+					checkBufferRound(r, fd, blks[:2*_blockStoreBatchSize+2])
+					checkBlocks(r, fd, blks[:2*_blockStoreBatchSize+2])
+					for _, blk := range blks[2*_blockStoreBatchSize+2:] {
+						r.NoError(fd.PutBlock(ctx, blk))
+					}
+					checkBlocks(r, fd, blks)
+				})
+			}
 		}
 	}
 }
