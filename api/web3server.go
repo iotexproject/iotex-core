@@ -322,6 +322,9 @@ func parseWeb3Reqs(reader io.Reader) (gjson.Result, error) {
 		if !id.Exists() || !method.Exists() {
 			return gjson.Result{}, errors.New("request field is incomplete")
 		}
+		if method.Type != gjson.String {
+			return gjson.Result{}, errors.New("request method must be a string")
+		}
 	}
 	return ret, nil
 }
@@ -1109,11 +1112,14 @@ func (svr *web3Handler) getTransactionByBlockHashAndIndex(in *gjson.Result) (int
 	}
 	blkHashHex := util.Remove0xPrefix(blkHashStr.String())
 	blk, err := svr.coreService.BlockByHash(blkHashHex)
-	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(blk.Receipts)) || len(blk.Receipts) == 0 {
+	if errors.Cause(err) == ErrNotFound {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
+	}
+	if idx >= uint64(len(blk.Receipts)) {
+		return nil, nil
 	}
 	blkHash, err := hash.HexStringToHash256(blkHashHex)
 	if err != nil {
@@ -1136,11 +1142,14 @@ func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (i
 		return nil, err
 	}
 	blk, err := svr.coreService.BlockByHeight(num)
-	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(blk.Receipts)) || len(blk.Receipts) == 0 {
+	if errors.Cause(err) == ErrNotFound {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
+	}
+	if idx >= uint64(len(blk.Receipts)) {
+		return nil, nil
 	}
 	return svr.assembleConfirmedTransaction(blk.Block.HashBlock(), blk.Block.Actions[idx], blk.Receipts[idx])
 }
