@@ -7,11 +7,15 @@ package factory
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 )
@@ -62,4 +66,48 @@ func TestWorkingSetAtHeightNonArchive(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(wsGenesis)
 	wsGenesis.Close()
+}
+
+func TestWorkingSetAtTransactionPanicReturnsError(t *testing.T) {
+	r := require.New(t)
+	sdb, err := NewStateDB(DefaultConfig, db.NewMemKVStore(), SkipBlockValidationStateDBOption())
+	r.NoError(err)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+	r.NoError(sdb.Start(ctx))
+	defer func() { r.NoError(sdb.Stop(ctx)) }()
+
+	p := gomonkey.ApplyMethodFunc(reflect.TypeOf(&workingSet{}), "Process", func(context.Context, []*action.SealedEnvelope) error {
+		panic("test panic")
+	})
+	defer p.Reset()
+
+	var sm protocol.StateManagerWithCloser
+	r.NotPanics(func() { sm, err = sdb.WorkingSetAtTransaction(ctx, 1) })
+	r.Nil(sm)
+	r.ErrorContains(err, "panic occurred while processing actions")
+}
+
+func TestStateDBProtocolViewsConcurrentAccess(t *testing.T) {
+	r := require.New(t)
+	sdb, err := NewStateDB(DefaultConfig, db.NewMemKVStore(), SkipBlockValidationStateDBOption())
+	r.NoError(err)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+	r.NoError(sdb.Start(ctx))
+	defer func() { r.NoError(sdb.Stop(ctx)) }()
+
+	s := sdb.(*stateDB)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range 100 {
+			// same as committing a block in PutBlock
+			s.mutex.Lock()
+			s.protocolViews = protocol.NewViews()
+			s.mutex.Unlock()
+		}
+	}()
+	for range 100 {
+		_, _ = sdb.ReadView("test")
+	}
+	<-done
 }

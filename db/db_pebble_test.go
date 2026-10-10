@@ -228,3 +228,30 @@ func TestPebbleDB_Foreach(t *testing.T) {
 	})
 	r.NoError(err)
 }
+
+type entryErrBatch struct {
+	batch.KVStoreBatch
+}
+
+func (b *entryErrBatch) Entry(int) (*batch.WriteInfo, error) {
+	return nil, batch.ErrOutOfBound
+}
+
+func TestPebbleDB_WriteBatchEntryError(t *testing.T) {
+	r := require.New(t)
+	cfg := DefaultConfig
+	cfg.DbPath = t.TempDir()
+	db := NewPebbleDB(cfg)
+	ctx := context.Background()
+	r.NoError(db.Start(ctx))
+	defer func() {
+		r.NoError(db.Stop(ctx))
+	}()
+
+	b := batch.NewBatch()
+	b.Put(_namespace, _k1, _v1, "")
+	err := db.WriteBatch(&entryErrBatch{b})
+	r.ErrorIs(err, batch.ErrOutOfBound)
+	_, err = db.Get(_namespace, _k1)
+	r.Error(err)
+}

@@ -22,15 +22,25 @@ func (lv *lazyViews) ensureLoaded() {
 	}
 }
 
+// _unloadedSnapshotID is returned by Snapshot() while the views are not loaded
+// yet. Views.Snapshot() of loaded views never returns it (ids start from 1)
+const _unloadedSnapshotID = 0
+
 func (lv *lazyViews) Snapshot() int {
 	if lv.v == nil {
-		return 0
+		return _unloadedSnapshotID
 	}
 	return lv.v.Snapshot()
 }
 
 func (lv *lazyViews) Revert(id int) error {
 	if lv.v == nil {
+		return nil
+	}
+	if id == _unloadedSnapshotID {
+		// the snapshot was taken before the views were loaded, discard the
+		// loaded views so that they are reloaded on next access
+		lv.v = nil
 		return nil
 	}
 	return lv.v.Revert(id)
