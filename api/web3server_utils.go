@@ -570,11 +570,18 @@ func (call *callMsg) toUnsignedTx(chainID uint32) (*types.Transaction, error) {
 		if toAddr == nil {
 			return nil, errors.Wrap(action.ErrSetCodeTxCreate, "contract creation with SetCodeTx is not supported")
 		}
+		value := new(uint256.Int)
+		if call.Value != nil {
+			var overflow bool
+			if value, overflow = uint256.FromBig(call.Value); overflow {
+				return nil, errors.New("value overflows uint256")
+			}
+		}
 		tx = types.NewTx(&types.SetCodeTx{
 			ChainID:    uint256.NewInt(uint64(chainID)),
 			Gas:        call.Gas,
 			To:         *toAddr,
-			Value:      uint256.MustFromBig(call.Value),
+			Value:      value,
 			Data:       call.Data,
 			AccessList: call.AccessList,
 			AuthList:   call.AuthorizationList,

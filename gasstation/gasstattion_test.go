@@ -283,3 +283,16 @@ func prepareBlocks(r *require.Assertions, cases []testActionGas) map[uint64]*blo
 	}
 	return blocks
 }
+
+func TestFeesPercentiles(t *testing.T) {
+	r := require.New(t)
+	fees := make([]*big.Int, 10)
+	for i := range fees {
+		fees[i] = big.NewInt(int64(i + 1))
+	}
+	got := feesPercentiles(fees, []float64{0, 25, 50, 75, 100})
+	r.Equal([]*big.Int{big.NewInt(1), big.NewInt(3), big.NewInt(6), big.NewInt(8), big.NewInt(10)}, got)
+
+	got = feesPercentiles(nil, []float64{10, 90})
+	r.Equal([]*big.Int{big.NewInt(0), big.NewInt(0)}, got)
+}
