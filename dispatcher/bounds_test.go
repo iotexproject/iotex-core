@@ -8,12 +8,12 @@ package dispatcher
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -140,23 +140,39 @@ func TestQueueLimitDropsZeroedKeys(t *testing.T) {
 	r.Empty(q.counts)
 }
 
-// peerLastSync must not grow without bound: entries outside the throttle window
-// carry no information.
-func TestFilterSweepsPeerLastSync(t *testing.T) {
+// An honest catch-up burst must be served: blockSyncer.sync() sends a whole
+// window of consecutive interval requests at once, so the per-peer throttle has
+// to let a burst through rather than drop all but the first.
+func TestFilterServesHonestSyncBurst(t *testing.T) {
 	r := require.New(t)
 
 	d := &IotxDispatcher{
-		peerLastSync: make(map[string]time.Time),
-		syncInterval: time.Millisecond,
+		syncRateLimiter: NewRateLimiter(syncRequestLimiterSize, rate.Limit(syncRequestRefillPerSecond), syncRequestBurst),
 	}
-	stale := time.Now().Add(-time.Hour)
-	for i := range maxPeerLastSyncEntries {
-		d.peerLastSync[string(rune(i))] = stale
+	for i := 0; i < syncRequestBurst; i++ {
+		r.True(d.filter(&message{msgType: iotexrpc.MessageType_BLOCK_REQUEST, peer: "honest"}),
+			"request %d within the burst must be served", i)
 	}
-	r.Len(d.peerLastSync, maxPeerLastSyncEntries)
+}
 
-	r.True(d.filter(&message{msgType: iotexrpc.MessageType_BLOCK_REQUEST, peer: "fresh"}))
-	r.Len(d.peerLastSync, 1)
+// A peer that keeps asking beyond its burst+refill is throttled, and a
+// non-BLOCK_REQUEST message is never throttled.
+func TestFilterThrottlesSustainedBlockRequests(t *testing.T) {
+	r := require.New(t)
+
+	d := &IotxDispatcher{
+		syncRateLimiter: NewRateLimiter(syncRequestLimiterSize, rate.Limit(syncRequestRefillPerSecond), syncRequestBurst),
+	}
+	// drain the burst
+	for i := 0; i < syncRequestBurst; i++ {
+		d.filter(&message{msgType: iotexrpc.MessageType_BLOCK_REQUEST, peer: "spammer"})
+	}
+	// the next immediate request is dropped
+	r.False(d.filter(&message{msgType: iotexrpc.MessageType_BLOCK_REQUEST, peer: "spammer"}))
+	// a different peer is unaffected (per-peer bucket)
+	r.True(d.filter(&message{msgType: iotexrpc.MessageType_BLOCK_REQUEST, peer: "other"}))
+	// non-block-request traffic is never throttled here
+	r.True(d.filter(&message{msgType: iotexrpc.MessageType_ACTION, peer: "spammer"}))
 }
 
 type filterAllSubscriber struct{ dummySubscriber }

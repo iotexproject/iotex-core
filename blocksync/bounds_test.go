@@ -7,6 +7,7 @@ package blocksync
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -29,9 +30,10 @@ func blockAtHeight(t *testing.T, height uint64, nonce uint64) *block.Block {
 	return &blk
 }
 
-// Blocks are buffered before any validation and deduped only by full block
-// hash, so without a per-height cap a peer can flood cheaply mutated variants
-// of one height and grow the buffer without bound while the tip is stalled.
+// Total buffered blocks for a height are bounded: distinct peers can fill up to
+// maxBlocksPerHeight slots, but no further. Blocks are buffered before any
+// validation and deduped only by full block hash, so without the cap a flood of
+// cheaply mutated variants grows the buffer without bound while the tip stalls.
 func TestBufferBoundsBlocksPerHeight(t *testing.T) {
 	r := require.New(t)
 
@@ -39,13 +41,38 @@ func TestBufferBoundsBlocksPerHeight(t *testing.T) {
 	const tip, height = 10, 12
 
 	accepted := 0
+	// one distinct peer per block so the total cap (not the per-peer cap) binds
 	for i := range maxBlocksPerHeight * 4 {
-		if ok, _ := b.AddBlock(tip, newPeerBlock("busy", blockAtHeight(t, height, uint64(i)))); ok {
+		pid := "peer" + strconv.Itoa(i)
+		if ok, _ := b.AddBlock(tip, newPeerBlock(pid, blockAtHeight(t, height, uint64(i)))); ok {
 			accepted++
 		}
 	}
 	r.Equal(maxBlocksPerHeight, accepted)
 	r.Len(b.blockQueues[height].blocks, maxBlocksPerHeight)
+}
+
+// A single peer must not be able to fill a height with unvalidated junk and
+// crowd out the authentic block delivered by another peer. The busy peer is
+// capped at maxBlocksPerPeerPerHeight and the honest block still gets a slot.
+func TestBufferOnePeerCannotExcludeHonestBlock(t *testing.T) {
+	r := require.New(t)
+
+	b := newBlockBuffer(200, 20)
+	const tip, height = 10, 12
+
+	busyAccepted := 0
+	for i := range maxBlocksPerHeight * 4 {
+		if ok, _ := b.AddBlock(tip, newPeerBlock("busy", blockAtHeight(t, height, uint64(i)))); ok {
+			busyAccepted++
+		}
+	}
+	// the busy peer is held to its per-peer share, not the whole height
+	r.Equal(maxBlocksPerPeerPerHeight, busyAccepted)
+
+	// the authentic block, delivered later by a different peer, is still admitted
+	ok, _ := b.AddBlock(tip, newPeerBlock("honest", blockAtHeight(t, height, 999)))
+	r.True(ok)
 }
 
 // Heights at or below the tip can never be popped again, so they must not
