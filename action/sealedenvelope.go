@@ -255,6 +255,42 @@ func (sealed *SealedEnvelope) VerifySignature() error {
 	return nil
 }
 
+// VerifyCanonicalSignature verifies that the signature of an IOTEX_PROTOBUF
+// encoded action is in canonical form, i.e., its V byte is the recovery id (0
+// or 1, without the offset of 27) of the sender's public key. VerifySignature() does not check V, while V is
+// covered by the action hash, so the same signed action could otherwise be
+// presented with different hashes.
+//
+// It is meant for admitting new actions only, actions already in blocks are
+// not required to pass it.
+func (sealed *SealedEnvelope) VerifyCanonicalSignature() error {
+	if sealed.encoding != iotextypes.Encoding_IOTEX_PROTOBUF {
+		return nil
+	}
+	if sealed.SrcPubkey() == nil {
+		return errors.New("empty public key")
+	}
+	if _, ok := sealed.SrcPubkey().(*crypto.P256sm2PubKey); ok {
+		// no recovery id in the signature
+		return nil
+	}
+	if len(sealed.signature) != 65 || sealed.signature[64] > 1 {
+		return errors.Wrap(ErrInvalidSender, "signature V is not 0 or 1")
+	}
+	h, err := sealed.envelopeHash()
+	if err != nil {
+		return errors.Wrap(err, "failed to generate envelope hash")
+	}
+	recovered, err := crypto.RecoverPubkey(h[:], sealed.signature)
+	if err != nil {
+		return errors.Wrap(ErrInvalidSender, err.Error())
+	}
+	if !bytes.Equal(recovered.Bytes(), sealed.SrcPubkey().Bytes()) {
+		return errors.Wrap(ErrInvalidSender, "signature recovery id does not match sender public key")
+	}
+	return nil
+}
+
 // Protected says whether the transaction is replay-protected.
 func (sealed *SealedEnvelope) Protected() bool {
 	switch sealed.encoding {
