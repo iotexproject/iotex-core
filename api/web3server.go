@@ -62,6 +62,7 @@ type (
 		FilterType string     `json:"filterType"`
 		FromBlock  string     `json:"fromBlock,omitempty"`
 		ToBlock    string     `json:"toBlock,omitempty"`
+		BlockHash  string     `json:"blockHash,omitempty"`
 		Address    []string   `json:"address,omitempty"`
 		Topics     [][]string `json:"topics,omitempty"`
 	}
@@ -909,6 +910,10 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 }
 
 func (svr *web3Handler) getLogs(filter *filterObject) (interface{}, error) {
+	if filter.BlockHash != "" {
+		// parseLogRequest has rejected blockHash combined with fromBlock/toBlock
+		return svr.getLogsInBlock(filter.BlockHash, filter.Address, filter.Topics)
+	}
 	from, to, err := svr.parseBlockRange(filter.FromBlock, filter.ToBlock)
 	if err != nil {
 		return nil, err
@@ -1259,6 +1264,19 @@ func (svr *web3Handler) getFilterChanges(in *gjson.Result) (interface{}, error) 
 	)
 	switch filterObj.FilterType {
 	case "log":
+		if filterObj.BlockHash != "" {
+			// the filter selects a single existing block, so its logs are
+			// returned on the first poll only; LogHeight is 0 until then
+			if filterObj.LogHeight != 0 {
+				return []*getLogsResult{}, nil
+			}
+			logs, err := svr.getLogsInBlock(filterObj.BlockHash, filterObj.Address, filterObj.Topics)
+			if err != nil {
+				return nil, err
+			}
+			ret, newLogHeight = logs, tipHeight+1
+			break
+		}
 		if filterObj.LogHeight > tipHeight {
 			return []*getLogsResult{}, nil
 		}
@@ -1315,11 +1333,7 @@ func (svr *web3Handler) getFilterLogs(in *gjson.Result) (interface{}, error) {
 	if filterObj.FilterType != "log" {
 		return nil, errInvalidFilterID
 	}
-	from, to, err := svr.parseBlockRange(filterObj.FromBlock, filterObj.ToBlock)
-	if err != nil {
-		return nil, err
-	}
-	return svr.getLogsWithFilter(from, to, filterObj.Address, filterObj.Topics)
+	return svr.getLogs(&filterObj)
 }
 
 func (svr *web3Handler) subscribe(ctx *StreamContext, in *gjson.Result, writer apitypes.Web3ResponseWriter) (interface{}, error) {
