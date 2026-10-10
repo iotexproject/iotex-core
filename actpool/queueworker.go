@@ -100,6 +100,13 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	if err := worker.checkSelpWithState(act, nonce, balance); err != nil {
 		return err
 	}
+	// the caller-side check can race with other adds of the same sender;
+	// re-check here, as the counter is only updated on this worker
+	if worker.ap.blobValidator != nil {
+		if err := worker.ap.blobValidator.Validate(ctx, act); err != nil {
+			return err
+		}
+	}
 	if err := worker.putAction(sender, act, nonce, balance); err != nil {
 		return err
 	}
@@ -134,7 +141,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 			log.L().Warn("UNEXPECTED ERROR: action pool is full, but no action to drop")
 		} else {
 			worker.ap.removeInvalidActs([]*action.SealedEnvelope{actToReplace})
-			if actToReplace.SenderAddress().String() == sender && actToReplace.Nonce() == nonce {
+			if actToReplace.SenderAddress().String() == sender && actToReplace.Nonce() == act.Nonce() {
 				err = action.ErrTxPoolOverflow
 				_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
 			}

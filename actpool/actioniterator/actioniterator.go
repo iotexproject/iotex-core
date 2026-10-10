@@ -56,6 +56,9 @@ type ActionIterator interface {
 type actionIterator struct {
 	accountActs map[string][]*action.SealedEnvelope
 	heads       actionByPrice
+	// returned is true if heads[0] is the action last returned by Next and
+	// its account has not been advanced or popped yet
+	returned bool
 }
 
 // NewActionIterator return a new action iterator
@@ -93,18 +96,25 @@ func (ai *actionIterator) loadNextActionForTopAccount() {
 
 // Next load next action of account of top action
 func (ai *actionIterator) Next() (*action.SealedEnvelope, bool) {
+	// advance the account of the previously returned action lazily, so that
+	// PopAccount can still find it at the top of the heap
+	if ai.returned {
+		ai.loadNextActionForTopAccount()
+		ai.returned = false
+	}
 	if len(ai.heads) == 0 {
 		return nil, false
 	}
 
-	headAction := ai.heads[0]
-	ai.loadNextActionForTopAccount()
-	return headAction, true
+	ai.returned = true
+	return ai.heads[0], true
 }
 
-// PopAccount will remove all actions related to this account
+// PopAccount will remove all actions related to the account of the action
+// last returned by Next
 func (ai *actionIterator) PopAccount() {
-	if len(ai.heads) != 0 {
+	if ai.returned {
 		heap.Pop(&ai.heads)
+		ai.returned = false
 	}
 }
