@@ -23,8 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 )
 
-var errWriteFailed = errors.New("a previous write to the file failed, reopen it to continue")
-
 // namespace for hash, block, and header storage
 const (
 	_hashDataNS   = "hsh"
@@ -45,15 +43,10 @@ type (
 		blkBuffer       *stagingBuffer
 		blkStorePbCache cache.LRUCache
 		kvStore         db.KVStore
-		batch           batch.KVStoreBatch
 		hashStore       db.CountingIndex // store block hash
 		blkStore        db.CountingIndex // store raw blocks
 		sysStore        db.CountingIndex // store transaction log
 		deser           *block.Deserializer
-		// writeFailed is set when a batch write fails. The in-memory index
-		// sizes and staging buffer may then be ahead of the file, so further
-		// writes are refused until the file is reopened.
-		writeFailed atomic.Bool
 	}
 )
 
@@ -76,7 +69,6 @@ func newFileDAOv2(bottom uint64, cfg db.Config, deser *block.Deserializer) (*fil
 		},
 		blkStorePbCache: cache.NewThreadSafeLruCache(16),
 		kvStore:         db.NewBoltDB(cfg),
-		batch:           batch.NewBatch(),
 		deser:           deser,
 	}
 	return &fd, nil
@@ -88,7 +80,6 @@ func openFileDAOv2(cfg db.Config, deser *block.Deserializer) *fileDAOv2 {
 		filename:        cfg.DbPath,
 		blkStorePbCache: cache.NewThreadSafeLruCache(16),
 		kvStore:         db.NewBoltDB(cfg),
-		batch:           batch.NewBatch(),
 		deser:           deser,
 	}
 }
@@ -226,45 +217,50 @@ func (fd *fileDAOv2) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 	return block.DeserializeSystemLogPb(value)
 }
 
+// PutBlock writes the block in a single batch, and updates the in-memory state
+// (index sizes, staging buffer and tip) only after the batch is committed. So a
+// failed write leaves fd unchanged, and the same block can be put again.
+// It assumes a single writer.
 func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
-	if fd.writeFailed.Load() {
-		return errWriteFailed
-	}
 	tip := fd.loadTip()
 	if blk.Height() != tip.Height+1 {
 		return ErrInvalidTipHeight
 	}
 
+	b := batch.NewBatch()
 	// write tip hash and hash-height mapping
-	if err := fd.putTipHashHeightMapping(blk); err != nil {
+	applyHash, err := fd.putTipHashHeightMapping(b, blk)
+	if err != nil {
 		return errors.Wrap(err, "failed to write hash-height mapping")
 	}
 
 	// write block data
-	if err := fd.putBlock(blk); err != nil {
+	applyBlock, err := fd.putBlock(b, blk)
+	if err != nil {
 		return errors.Wrap(err, "failed to write block")
 	}
 
 	// write receipt and transaction log
-	if err := fd.putTransactionLog(blk); err != nil {
+	applyLog, err := fd.putTransactionLog(b, blk)
+	if err != nil {
 		return errors.Wrap(err, "failed to write receipt")
 	}
 
-	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
-		fd.failWrite()
+	if err := fd.kvStore.WriteBatch(b); err != nil {
 		return errors.Wrapf(err, "failed to put block at height %d", blk.Height())
 	}
-	fd.batch.Clear()
-	// update file tip
-	tip = &FileTip{Height: blk.Height(), Hash: blk.HashBlock()}
-	fd.storeTip(tip)
+	// update in-memory state, data first and tip last, since reads are gated
+	// by the tip
+	applyHash()
+	applyBlock()
+	applyLog()
+	fd.storeTip(&FileTip{Height: blk.Height(), Hash: blk.HashBlock()})
 	return nil
 }
 
+// Deprecated: DeleteTipBlock is only used in tests, and its reverts are not
+// atomic
 func (fd *fileDAOv2) DeleteTipBlock() error {
-	if fd.writeFailed.Load() {
-		return errWriteFailed
-	}
 	tip := fd.loadTip()
 	height := tip.Height
 
@@ -289,7 +285,8 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 	}
 
 	// delete hash -> height mapping
-	fd.batch.Delete(_blockHashHeightMappingNS, hashKey(tip.Hash), "failed to delete hash -> height mapping")
+	b := batch.NewBatch()
+	b.Delete(_blockHashHeightMappingNS, hashKey(tip.Hash), "failed to delete hash -> height mapping")
 
 	// update file tip
 	var (
@@ -307,24 +304,13 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 	if err != nil {
 		return err
 	}
-	fd.batch.Put(_headerDataNs, _topHeightKey, ser, "failed to put file tip")
+	b.Put(_headerDataNs, _topHeightKey, ser, "failed to put file tip")
 
-	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
-		fd.failWrite()
+	if err := fd.kvStore.WriteBatch(b); err != nil {
 		return err
 	}
-	fd.batch.Clear()
 	fd.storeTip(tip)
 	return nil
-}
-
-// failWrite drops the pending batch and refuses further writes. The counting
-// indexes and the staging buffer were already advanced for the failed write,
-// so writing on would persist entries at the wrong positions; reopening the
-// file reloads them from what is on disk.
-func (fd *fileDAOv2) failWrite() {
-	fd.batch.Clear()
-	fd.writeFailed.Store(true)
 }
 
 func (fd *fileDAOv2) loadTip() *FileTip {
