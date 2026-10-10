@@ -908,6 +908,7 @@ func (ws *workingSet) pickAndRunActions(
 					}
 					bBlobCnt := blobCnt
 					bReceipts := make([]*action.Receipt, 0, bundle.Len())
+					bActions := make([]*action.SealedEnvelope, 0, bundle.Len())
 					// ws.Snapshot() rather than ws.store.Snapshot(): a bundle
 					// that gives up part way through has to put the protocol
 					// views back as well as the store, and only the working
@@ -916,7 +917,7 @@ func (ws *workingSet) pickAndRunActions(
 					// from the state it held before the bundle ran.
 					si := ws.Snapshot()
 					if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
-						_, _, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, selp, bGasLimit, bBlobCnt, uint64(blobLimit), false)
+						executed, _, _, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, selp, bGasLimit, bBlobCnt, uint64(blobLimit), false)
 						if err != nil {
 							return errors.Wrapf(err, "failed to run action in bundle %s at height %d", bids[i], ws.height)
 						}
@@ -933,7 +934,8 @@ func (ws *workingSet) pickAndRunActions(
 						}
 						ctxWithBlockContext = protocol.WithBlockCtx(ctx, bBlkCtx)
 						bReceipts = append(bReceipts, receipt)
-						bBlobCnt += uint64(len(selp.BlobHashes()))
+						bActions = append(bActions, executed)
+						bBlobCnt += uint64(len(executed.BlobHashes()))
 
 						return nil
 					}); err != nil {
@@ -951,11 +953,10 @@ func (ws *workingSet) pickAndRunActions(
 						receipts = append(receipts, receipt)
 					}
 					ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
-					bundle.ForEach(func(selp *action.SealedEnvelope) error {
+					for _, selp := range bActions {
 						executedActions = append(executedActions, selp)
 						blobCnt += uint64(len(selp.BlobHashes()))
-						return nil
-					})
+					}
 					log.L().Info("processed bundle", zap.String("hash", hex.EncodeToString(bh[:])), zap.Uint64("height", ws.height))
 				}
 			case actpool.ErrNoBundlesForHeight:
@@ -977,7 +978,7 @@ func (ws *workingSet) pickAndRunActions(
 				_mintAbility.WithLabelValues("saturation").Set(0)
 				break
 			}
-			popAccount, deleteAction, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, nextAction, blkCtx.GasLimit, blobCnt, uint64(blobLimit), true)
+			executed, popAccount, deleteAction, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, nextAction, blkCtx.GasLimit, blobCnt, uint64(blobLimit), true)
 			if popAccount {
 				actionIterator.PopAccount()
 			}
@@ -996,8 +997,8 @@ func (ws *workingSet) pickAndRunActions(
 			}
 			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 			receipts = append(receipts, receipt)
-			executedActions = append(executedActions, nextAction)
-			blobCnt += uint64(len(nextAction.BlobHashes()))
+			executedActions = append(executedActions, executed)
+			blobCnt += uint64(len(executed.BlobHashes()))
 
 			// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
 			// than certain threshold
@@ -1043,27 +1044,30 @@ func (ws *workingSet) validateAndRun(
 	blobCnt uint64,
 	blobLimit uint64,
 	revertAllSnapshots bool,
-) (bool, bool, *action.Receipt, error) {
+) (*action.SealedEnvelope, bool, bool, *action.Receipt, error) {
 	if nextAction.Gas() > gasLimit {
 		log.L().Info("action gas exceeds limit", zap.Uint64("height", ws.height), zap.Uint64("gasLimit", gasLimit), zap.Uint64("actionGas", nextAction.Gas()))
-		return true, false, nil, nil
+		return nil, true, false, nil, nil
 	}
 	if blobCnt+uint64(len(nextAction.BlobHashes())) > uint64(blobLimit) {
 		log.L().Info("blob count exceeds limit", zap.Uint64("height", ws.height), zap.Uint64("blobCnt", blobCnt), zap.Uint64("blobLimit", blobLimit))
-		return true, false, nil, nil
+		return nil, true, false, nil, nil
 	}
 	if container, ok := nextAction.Envelope.(action.TxContainer); ok {
-		if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
+		// unfold into a new envelope, nextAction is shared with the actpool
+		unfolded, err := container.Unfold(nextAction, ctx, ws.checkContract)
+		if err != nil {
 			log.L().Info("failed to unfold tx container", zap.Uint64("height", ws.height), zap.Error(err))
-			return true, true, nil, nil
+			return nil, true, true, nil, nil
 		}
+		nextAction = unfolded
 	}
 	if err := ws.txValidator.ValidateWithState(ctx, nextAction); err != nil {
 		log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
 		if !errors.Is(err, action.ErrNonceTooLow) {
-			return true, true, nil, nil
+			return nil, true, true, nil, nil
 		}
-		return false, false, nil, nil
+		return nil, false, false, nil, nil
 	}
 	actionCtx, err := withActionCtx(ctx, nextAction)
 	if err == nil {
@@ -1078,10 +1082,10 @@ func (ws *workingSet) validateAndRun(
 	caller := nextAction.SenderAddress()
 	if err != nil {
 		if caller == nil {
-			return false, false, nil, errors.New("failed to get address")
+			return nil, false, false, nil, errors.New("failed to get address")
 		}
 		log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
-		return true, true, nil, nil
+		return nil, true, true, nil, nil
 	}
 	receipt, err := ws.runActionDuringMint(actionCtx, nextAction, revertAllSnapshots)
 	switch errors.Cause(err) {
@@ -1089,18 +1093,18 @@ func (ws *workingSet) validateAndRun(
 		// do nothing
 	case action.ErrGasLimit:
 		log.L().Info("runAction() failed due to gas limit", zap.Uint64("height", ws.height), zap.Error(err))
-		return true, false, nil, nil
+		return nil, true, false, nil, nil
 	case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
 		log.L().Info("runAction() failed", zap.Uint64("height", ws.height), zap.Error(err))
-		return true, true, nil, nil
+		return nil, true, true, nil, nil
 	default:
 		nextActionHash, hashErr := nextAction.Hash()
 		if hashErr != nil {
-			return true, true, nil, errors.Wrapf(hashErr, "Failed to get hash for %x", nextActionHash)
+			return nil, true, true, nil, errors.Wrapf(hashErr, "Failed to get hash for %x", nextActionHash)
 		}
-		return true, true, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
+		return nil, true, true, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 	}
-	return false, false, receipt, nil
+	return nextAction, false, false, receipt, nil
 }
 
 // runActionDuringMint runs a single action while assembling a draft block, recovering from

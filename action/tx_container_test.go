@@ -79,10 +79,11 @@ func TestTxContainerSetCodeAuthorizationChainID(t *testing.T) {
 			sender := selp.SenderAddress().String()
 			container, ok := selp.Envelope.(TxContainer)
 			r.True(ok)
-			r.NoError(container.Unfold(selp, context.Background(), isContract))
+			unfoldedSelp, err := container.Unfold(selp, context.Background(), isContract)
+			r.NoError(err)
 			// the unfolded action is what a block stores; it must decode back
 			// to the same sender
-			unfolded, err := deser.ActionToSealedEnvelope(selp.Proto())
+			unfolded, err := deser.ActionToSealedEnvelope(unfoldedSelp.Proto())
 			r.NoError(err)
 			r.Equal(sender, unfolded.SenderAddress().String())
 		})
