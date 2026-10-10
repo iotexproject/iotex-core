@@ -43,8 +43,11 @@ func TestSetCodeTx_E2E(t *testing.T) {
 	// Configure blacklist for testing EIP-7702 blacklist enforcement
 	blacklistedAccount := 28
 	cfg.Genesis.InitBalanceMap[identityset.Address(blacklistedAccount).String()] = unit.ConvertIotxToRau(1000000).String()
-	cfg.ActPool.BlackList = []string{identityset.Address(blacklistedAccount).String()}
-	cfg.ActPool.BlackListActiveHeight = cfg.Genesis.YapBlockHeight + 1
+	cfg.Genesis.SetCodeAuthorityBlackList = []string{identityset.Address(blacklistedAccount).String()}
+	cfg.Genesis.SetCodeAuthorityBlackListActiveHeight = cfg.Genesis.YapBlockHeight + 1
+	cfg.Genesis.SetCodeAuthorityBlackListRemoval = nil
+	// the node-local admission list must not affect the execution check
+	cfg.ActPool.BlackList = nil
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
 	chainID := cfg.Chain.ID
