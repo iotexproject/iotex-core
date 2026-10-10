@@ -179,6 +179,11 @@ func (etx *txContainer) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if _, r, s := tx.RawSignatureValues(); r == nil || s == nil || r.BitLen() > 256 || s.BitLen() > 256 {
 		return errors.Wrap(ErrInvalidAct, "invalid signature R/S length")
 	}
+	for _, auth := range tx.SetCodeAuthorizations() {
+		if auth.ChainID.BitLen() > 32 {
+			return errors.Wrap(ErrInvalidAct, "authorization chain ID exceeds 32 bits")
+		}
+	}
 	etx.chainID = pbAct.GetChainID()
 	etx.raw = make([]byte, len(raw))
 	copy(etx.raw, raw)
