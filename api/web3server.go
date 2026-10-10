@@ -908,9 +908,7 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 
 func (svr *web3Handler) getLogs(filter *filterObject) (interface{}, error) {
 	if filter.BlockHash != "" {
-		if filter.FromBlock != "" || filter.ToBlock != "" {
-			return nil, errors.Wrap(errInvalidFormat, "blockHash cannot be combined with fromBlock or toBlock")
-		}
+		// parseLogRequest has rejected blockHash combined with fromBlock/toBlock
 		return svr.getLogsInBlock(filter.BlockHash, filter.Address, filter.Topics)
 	}
 	from, to, err := svr.parseBlockRange(filter.FromBlock, filter.ToBlock)
@@ -1313,11 +1311,7 @@ func (svr *web3Handler) getFilterLogs(in *gjson.Result) (interface{}, error) {
 	if filterObj.FilterType != "log" {
 		return nil, errInvalidFilterID
 	}
-	from, to, err := svr.parseBlockRange(filterObj.FromBlock, filterObj.ToBlock)
-	if err != nil {
-		return nil, err
-	}
-	return svr.getLogsWithFilter(from, to, filterObj.Address, filterObj.Topics)
+	return svr.getLogs(&filterObj)
 }
 
 func (svr *web3Handler) subscribe(ctx *StreamContext, in *gjson.Result, writer apitypes.Web3ResponseWriter) (interface{}, error) {

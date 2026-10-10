@@ -188,16 +188,25 @@ func (svr *web3Handler) parseBlockNumber(str string) (uint64, error) {
 	}
 }
 
+// parseBlockRange returns the block range to query logs from. The range is
+// empty (to < from) when it ends at block 0, which holds no logs; callers must
+// not pass it on as is, since LogsInRange reads a 0 as the tip.
 func (svr *web3Handler) parseBlockRange(fromStr string, toStr string) (from uint64, to uint64, err error) {
-	from, err = svr.parseBlockNumber(fromStr)
-	if err != nil {
+	if from, err = svr.parseBlockNumber(fromStr); err != nil {
 		return
 	}
-	// logs start at block 1; a start of 0 would otherwise be read as the tip
+	if to, err = svr.parseBlockNumber(toStr); err != nil {
+		return
+	}
+	// same as geth: reject a range whose end is below its start
+	if from > to {
+		err = errors.Wrapf(errInvalidFormat, "invalid block range: fromBlock %d > toBlock %d", from, to)
+		return
+	}
+	// logs start at block 1
 	if from == 0 {
 		from = 1
 	}
-	to, err = svr.parseBlockNumber(toStr)
 	return
 }
 
@@ -270,6 +279,10 @@ func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string
 	if err != nil {
 		return nil, err
 	}
+	if to < from {
+		// empty range, see parseBlockRange
+		return []*getLogsResult{}, nil
+	}
 	logs, hashes, err := svr.coreService.LogsInRange(filter, from, to, 0)
 	if err != nil {
 		return nil, err
@@ -282,9 +295,9 @@ func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string
 }
 
 func (svr *web3Handler) getLogsInBlock(blockHashStr string, addrs []string, topics [][]string) ([]*getLogsResult, error) {
-	blkHash, err := hash.HexStringToHash256(util.Remove0xPrefix(blockHashStr))
+	blkHash, err := parseBlockHash(blockHashStr)
 	if err != nil {
-		return nil, errors.Wrapf(errUnkownType, "blockHash: %s", blockHashStr)
+		return nil, err
 	}
 	filter, err := newLogFilterFrom(addrs, topics)
 	if err != nil {
@@ -299,6 +312,14 @@ func (svr *web3Handler) getLogsInBlock(blockHashStr string, addrs []string, topi
 		ret = append(ret, &getLogsResult{blkHash, logs[i]})
 	}
 	return ret, nil
+}
+
+func parseBlockHash(str string) (hash.Hash256, error) {
+	h, err := hash.HexStringToHash256(util.Remove0xPrefix(str))
+	if err != nil {
+		return hash.ZeroHash256, errors.Wrapf(errInvalidFormat, "invalid blockHash %s: %v", str, err)
+	}
+	return h, nil
 }
 
 // construct filter topics and addresses
@@ -347,6 +368,16 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 		logReq.FromBlock = req.Get("fromBlock").String()
 		logReq.ToBlock = req.Get("toBlock").String()
 		logReq.BlockHash = req.Get("blockHash").String()
+		// same as geth's FilterCriteria: blockHash selects a single block, so it
+		// cannot be combined with a block range
+		if logReq.BlockHash != "" {
+			if logReq.FromBlock != "" || logReq.ToBlock != "" {
+				return nil, errors.Wrap(errInvalidFormat, "blockHash cannot be combined with fromBlock or toBlock")
+			}
+			if _, err := parseBlockHash(logReq.BlockHash); err != nil {
+				return nil, err
+			}
+		}
 		for _, addr := range req.Get("address").Array() {
 			logReq.Address = append(logReq.Address, addr.String())
 		}

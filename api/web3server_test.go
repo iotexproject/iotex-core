@@ -981,7 +981,7 @@ func TestGetFilterChanges(t *testing.T) {
 	defer ctrl.Finish()
 	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, newAPICache(1*time.Second, ""), _defaultBatchRequestLimit}
-	core.EXPECT().TipHeight().Return(uint64(0)).Times(3)
+	core.EXPECT().TipHeight().Return(uint64(2)).Times(3)
 
 	t.Run("log filterType", func(t *testing.T) {
 		logs := []*action.Log{
@@ -1091,7 +1091,7 @@ func TestGetFilterLogs(t *testing.T) {
 		blkHash1,
 		blkHash2,
 	}
-	core.EXPECT().TipHeight().Return(uint64(0))
+	core.EXPECT().TipHeight().Return(uint64(2))
 	core.EXPECT().LogsInRange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(logs, hashes, nil)
 
 	require.NoError(web3svr.cache.Set("123456789abc", []byte(`{"logHeight":0,"filterType":"log","fromBlock":"0x1"}`)))
@@ -1424,14 +1424,15 @@ func TestGetLogsByBlockHashAndEarliestStart(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := NewMockCoreService(ctrl)
-	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+	web3svr := &web3Handler{core, newAPICache(1*time.Second, ""), _defaultBatchRequestLimit}
 	blkHash := hash.Hash256b([]byte("_block1"))
+	blkHashStr := "0x" + hex.EncodeToString(blkHash[:])
 	logs := []*action.Log{{Address: "_topic1", BlockHeight: 1}}
 
 	t.Run("blockHash", func(t *testing.T) {
 		require := require.New(t)
 		core.EXPECT().LogsInBlockByHash(gomock.Any(), blkHash).Return(logs, nil).Times(1)
-		ret, err := web3svr.getLogs(&filterObject{BlockHash: "0x" + hex.EncodeToString(blkHash[:])})
+		ret, err := web3svr.getLogs(&filterObject{BlockHash: blkHashStr})
 		require.NoError(err)
 		rlt, ok := ret.([]*getLogsResult)
 		require.True(ok)
@@ -1440,17 +1441,42 @@ func TestGetLogsByBlockHashAndEarliestStart(t *testing.T) {
 		require.Equal("_topic1", rlt[0].log.Address)
 	})
 
-	t.Run("blockHash with range", func(t *testing.T) {
+	t.Run("parse blockHash", func(t *testing.T) {
 		require := require.New(t)
-		_, err := web3svr.getLogs(&filterObject{BlockHash: "0x" + hex.EncodeToString(blkHash[:]), FromBlock: "0x1"})
+		req, err := parseLogRequest(gjson.Parse(fmt.Sprintf(`[{"blockHash":"%s"}]`, blkHashStr)))
+		require.NoError(err)
+		require.Equal(blkHashStr, req.BlockHash)
+	})
+
+	t.Run("parse blockHash with range", func(t *testing.T) {
+		require := require.New(t)
+		for _, rng := range []string{`"fromBlock":"0x1"`, `"toBlock":"latest"`} {
+			_, err := parseLogRequest(gjson.Parse(fmt.Sprintf(`[{"blockHash":"%s",%s}]`, blkHashStr, rng)))
+			require.ErrorIs(err, errInvalidFormat)
+		}
+	})
+
+	t.Run("parse invalid blockHash", func(t *testing.T) {
+		require := require.New(t)
+		_, err := parseLogRequest(gjson.Parse(`[{"blockHash":"0xabc"}]`))
 		require.ErrorIs(err, errInvalidFormat)
 	})
 
-	t.Run("parse blockHash", func(t *testing.T) {
+	t.Run("eth_getFilterLogs with blockHash", func(t *testing.T) {
 		require := require.New(t)
-		req, err := parseLogRequest(gjson.Parse(`[{"blockHash":"0xabc"}]`))
+		filter, err := parseLogRequest(gjson.Parse(fmt.Sprintf(`[{"blockHash":"%s"}]`, blkHashStr)))
 		require.NoError(err)
-		require.Equal("0xabc", req.BlockHash)
+		core.EXPECT().TipHeight().Return(uint64(2)).AnyTimes()
+		id, err := web3svr.newFilter(filter)
+		require.NoError(err)
+		core.EXPECT().LogsInBlockByHash(gomock.Any(), blkHash).Return(logs, nil).Times(1)
+		in := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, id))
+		ret, err := web3svr.getFilterLogs(&in)
+		require.NoError(err)
+		rlt, ok := ret.([]*getLogsResult)
+		require.True(ok)
+		require.Len(rlt, 1)
+		require.Equal(blkHash, rlt[0].blockHash)
 	})
 
 	t.Run("fromBlock 0x0 starts at the first block", func(t *testing.T) {
@@ -1458,5 +1484,22 @@ func TestGetLogsByBlockHashAndEarliestStart(t *testing.T) {
 		core.EXPECT().LogsInRange(gomock.Any(), uint64(1), uint64(16), gomock.Any()).Return(nil, nil, nil).Times(1)
 		_, err := web3svr.getLogs(&filterObject{FromBlock: "0x0", ToBlock: "0x10"})
 		require.NoError(err)
+	})
+
+	t.Run("toBlock 0x0 is block 0", func(t *testing.T) {
+		require := require.New(t)
+		// LogsInRange is not called: it would read the end 0 as the tip
+		ret, err := web3svr.getLogs(&filterObject{FromBlock: "0x0", ToBlock: "0x0"})
+		require.NoError(err)
+		require.Empty(ret)
+	})
+
+	t.Run("fromBlock > toBlock", func(t *testing.T) {
+		require := require.New(t)
+		core.EXPECT().TipHeight().Return(uint64(2)).AnyTimes()
+		for _, rng := range [][2]string{{"0x5", "0x0"}, {"0x5", "0x4"}, {"0x5", "latest"}} {
+			_, err := web3svr.getLogs(&filterObject{FromBlock: rng[0], ToBlock: rng[1]})
+			require.ErrorIs(err, errInvalidFormat)
+		}
 	})
 }
