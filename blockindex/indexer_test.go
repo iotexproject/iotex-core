@@ -285,3 +285,43 @@ func TestIndexer(t *testing.T) {
 		testDelete(db.NewBoltDB(cfg), t)
 	})
 }
+
+func TestIndexerPutBlocksRevertsOnFailure(t *testing.T) {
+	require := require.New(t)
+	blks := getTestBlocks(t)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+
+	indexer, err := NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
+	require.NoError(err)
+	require.NoError(indexer.Start(ctx))
+	defer func() {
+		require.NoError(indexer.Stop(ctx))
+	}()
+
+	// blks[0] is indexed into the pending batch, then blks[2] skips a height and fails
+	err = indexer.PutBlocks(ctx, []*block.Block{blks[0], blks[2]})
+	require.Equal(db.ErrInvalid, errors.Cause(err))
+
+	// nothing of the failed call is visible
+	height, err := indexer.Height()
+	require.NoError(err)
+	require.EqualValues(0, height)
+	_, err = indexer.GetBlockIndex(1)
+	require.Error(err)
+	count, err := indexer.GetTotalActions()
+	require.NoError(err)
+	require.Zero(count)
+
+	// the same blocks can be indexed again, and the result matches a clean run
+	require.NoError(indexer.PutBlocks(ctx, blks))
+	height, err = indexer.Height()
+	require.NoError(err)
+	require.EqualValues(3, height)
+	count, err = indexer.GetTotalActions()
+	require.NoError(err)
+	require.EqualValues(9, count)
+	addr28 := hash.BytesToHash160(identityset.Address(28).Bytes())
+	actionCount, err := indexer.GetActionCountByAddress(addr28)
+	require.NoError(err)
+	require.EqualValues(4, actionCount)
+}
