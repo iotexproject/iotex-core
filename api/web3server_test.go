@@ -17,6 +17,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/pkg/errors"
@@ -981,7 +982,7 @@ func TestGetFilterChanges(t *testing.T) {
 	defer ctrl.Finish()
 	core := NewMockCoreService(ctrl)
 	web3svr := &web3Handler{core, newAPICache(1*time.Second, ""), _defaultBatchRequestLimit}
-	core.EXPECT().TipHeight().Return(uint64(0)).Times(3)
+	core.EXPECT().TipHeight().Return(uint64(2)).Times(3)
 
 	t.Run("log filterType", func(t *testing.T) {
 		logs := []*action.Log{
@@ -1091,7 +1092,7 @@ func TestGetFilterLogs(t *testing.T) {
 		blkHash1,
 		blkHash2,
 	}
-	core.EXPECT().TipHeight().Return(uint64(0))
+	core.EXPECT().TipHeight().Return(uint64(2))
 	core.EXPECT().LogsInRange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(logs, hashes, nil)
 
 	require.NoError(web3svr.cache.Set("123456789abc", []byte(`{"logHeight":0,"filterType":"log","fromBlock":"0x1"}`)))
@@ -1417,5 +1418,160 @@ func TestEstimateGasNativeProtocolActionSkipsFloor(t *testing.T) {
 		ret, err := web3svr.estimateGas(context.Background(), &in)
 		require.NoError(err)
 		require.Equal(uint64ToHex(uint64(21000)), ret.(string))
+	})
+}
+
+func TestGetLogsByBlockHashAndEarliestStart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, newAPICache(1*time.Second, ""), _defaultBatchRequestLimit}
+	blkHash := hash.Hash256b([]byte("_block1"))
+	blkHashStr := "0x" + hex.EncodeToString(blkHash[:])
+	logs := []*action.Log{{Address: "_topic1", BlockHeight: 1}}
+
+	t.Run("blockHash", func(t *testing.T) {
+		require := require.New(t)
+		core.EXPECT().LogsInBlockByHash(gomock.Any(), blkHash).Return(logs, nil).Times(1)
+		ret, err := web3svr.getLogs(&filterObject{BlockHash: blkHashStr})
+		require.NoError(err)
+		rlt, ok := ret.([]*getLogsResult)
+		require.True(ok)
+		require.Len(rlt, 1)
+		require.Equal(blkHash, rlt[0].blockHash)
+		require.Equal("_topic1", rlt[0].log.Address)
+	})
+
+	t.Run("parse blockHash", func(t *testing.T) {
+		require := require.New(t)
+		req, err := parseLogRequest(gjson.Parse(fmt.Sprintf(`[{"blockHash":"%s"}]`, blkHashStr)))
+		require.NoError(err)
+		require.Equal(blkHashStr, req.BlockHash)
+	})
+
+	t.Run("parse blockHash with range", func(t *testing.T) {
+		require := require.New(t)
+		for _, rng := range []string{`"fromBlock":"0x1"`, `"toBlock":"latest"`} {
+			_, err := parseLogRequest(gjson.Parse(fmt.Sprintf(`[{"blockHash":"%s",%s}]`, blkHashStr, rng)))
+			require.ErrorIs(err, errInvalidFormat)
+		}
+	})
+
+	t.Run("parse invalid blockHash", func(t *testing.T) {
+		require := require.New(t)
+		for _, h := range []string{"0xabc", "0xab", blkHashStr + "00", "0x00" + blkHashStr[2:]} {
+			_, err := parseLogRequest(gjson.Parse(fmt.Sprintf(`[{"blockHash":"%s"}]`, h)))
+			require.ErrorIs(err, errInvalidFormat, h)
+		}
+	})
+
+	t.Run("eth_getFilterLogs with blockHash", func(t *testing.T) {
+		require := require.New(t)
+		filter, err := parseLogRequest(gjson.Parse(fmt.Sprintf(`[{"blockHash":"%s"}]`, blkHashStr)))
+		require.NoError(err)
+		core.EXPECT().TipHeight().Return(uint64(2)).AnyTimes()
+		id, err := web3svr.newFilter(filter)
+		require.NoError(err)
+		core.EXPECT().LogsInBlockByHash(gomock.Any(), blkHash).Return(logs, nil).Times(1)
+		in := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, id))
+		ret, err := web3svr.getFilterLogs(&in)
+		require.NoError(err)
+		rlt, ok := ret.([]*getLogsResult)
+		require.True(ok)
+		require.Len(rlt, 1)
+		require.Equal(blkHash, rlt[0].blockHash)
+	})
+
+	t.Run("eth_getFilterChanges with blockHash", func(t *testing.T) {
+		require := require.New(t)
+		filter, err := parseLogRequest(gjson.Parse(fmt.Sprintf(`[{"blockHash":"%s"}]`, blkHashStr)))
+		require.NoError(err)
+		core.EXPECT().TipHeight().Return(uint64(2)).AnyTimes()
+		id, err := web3svr.newFilter(filter)
+		require.NoError(err)
+		in := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, id))
+		// the first poll returns the logs of the given block, not of the tip
+		core.EXPECT().LogsInBlockByHash(gomock.Any(), blkHash).Return(logs, nil).Times(1)
+		ret, err := web3svr.getFilterChanges(&in)
+		require.NoError(err)
+		rlt, ok := ret.([]*getLogsResult)
+		require.True(ok)
+		require.Len(rlt, 1)
+		require.Equal(blkHash, rlt[0].blockHash)
+		// later polls return nothing new
+		ret, err = web3svr.getFilterChanges(&in)
+		require.NoError(err)
+		require.Empty(ret)
+	})
+
+	t.Run("fromBlock 0x0 starts at the first block", func(t *testing.T) {
+		require := require.New(t)
+		core.EXPECT().LogsInRange(gomock.Any(), uint64(1), uint64(16), gomock.Any()).Return(nil, nil, nil).Times(1)
+		_, err := web3svr.getLogs(&filterObject{FromBlock: "0x0", ToBlock: "0x10"})
+		require.NoError(err)
+	})
+
+	t.Run("toBlock 0x0 is block 0", func(t *testing.T) {
+		require := require.New(t)
+		// LogsInRange is not called: it would read the end 0 as the tip
+		ret, err := web3svr.getLogs(&filterObject{FromBlock: "0x0", ToBlock: "0x0"})
+		require.NoError(err)
+		require.Empty(ret)
+	})
+
+	t.Run("fromBlock > toBlock", func(t *testing.T) {
+		require := require.New(t)
+		core.EXPECT().TipHeight().Return(uint64(2)).AnyTimes()
+		for _, rng := range [][2]string{{"0x5", "0x0"}, {"0x5", "0x4"}, {"0x5", "latest"}} {
+			_, err := web3svr.getLogs(&filterObject{FromBlock: rng[0], ToBlock: rng[1]})
+			require.ErrorIs(err, errInvalidFormat)
+		}
+	})
+}
+
+func TestWeb3MalformedParams(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	t.Run("non-string method", func(t *testing.T) {
+		require := require.New(t)
+		for _, req := range []string{
+			`{"jsonrpc":"2.0","id":1,"method":1}`,
+			`{"jsonrpc":"2.0","id":1,"method":null}`,
+			`[{"jsonrpc":"2.0","id":1,"method":{"a":1}}]`,
+		} {
+			_, err := parseWeb3Reqs(strings.NewReader(req))
+			require.Error(err, req)
+		}
+		_, err := parseWeb3Reqs(strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"eth_chainId"}`))
+		require.NoError(err)
+	})
+
+	t.Run("block lookup error", func(t *testing.T) {
+		require := require.New(t)
+		lookupErr := errors.New("index unavailable")
+		core.EXPECT().BlockByHash(gomock.Any()).Return(nil, lookupErr)
+		in := gjson.Parse(`{"params":["0x0000000000000000000000000000000000000000000000000000000000000001", "0"]}`)
+		_, err := web3svr.getTransactionByBlockHashAndIndex(&in)
+		require.ErrorIs(err, lookupErr)
+
+		core.EXPECT().TipHeight().Return(uint64(10)).AnyTimes()
+		core.EXPECT().BlockByHeight(gomock.Any()).Return(nil, lookupErr)
+		in = gjson.Parse(`{"params":["0x1", "0"]}`)
+		_, err = web3svr.getTransactionByBlockNumberAndIndex(&in)
+		require.ErrorIs(err, lookupErr)
+	})
+
+	t.Run("set code call value out of range", func(t *testing.T) {
+		require := require.New(t)
+		call := &callMsg{
+			To:                identityset.Address(1).String(),
+			Value:             new(big.Int).Lsh(big.NewInt(1), 256),
+			AuthorizationList: []types.SetCodeAuthorization{{}},
+		}
+		_, err := call.toUnsignedTx(4689)
+		require.Error(err)
 	})
 }
