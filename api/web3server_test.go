@@ -937,7 +937,15 @@ func TestNewfilter(t *testing.T) {
 		Topics:    [][]string{{byteToHex([]byte("_topic1")), byteToHex([]byte("_topic2")), byteToHex([]byte("_topic3"))}, {byteToHex([]byte("_topic4"))}},
 	})
 	require.NoError(err)
-	require.Equal("0x6e86c450ba48d23a459b74581736ca033ed60ef2a3d5ae09c316f77f67d7fad7", ret.(string))
+	id := ret.(string)
+	require.Len(id, 66)
+	filterObj, err := loadFilterFromCache(web3svr.cache, id[2:])
+	require.NoError(err)
+	require.Equal("log", filterObj.FilterType)
+	require.Equal("1", filterObj.FromBlock)
+	require.Equal("2", filterObj.ToBlock)
+	require.Len(filterObj.Address, 2)
+	require.Len(filterObj.Topics, 2)
 }
 
 func TestNewBlockFilter(t *testing.T) {
@@ -950,7 +958,49 @@ func TestNewBlockFilter(t *testing.T) {
 
 	ret, err := web3svr.newBlockFilter()
 	require.NoError(err)
-	require.Equal("0x4c6ace15a9c5b9d3c89e786b7b6dfaf1bdc5807b8d7da0292db94d473f349101", ret.(string))
+	id := ret.(string)
+	require.Len(id, 66)
+	filterObj, err := loadFilterFromCache(web3svr.cache, id[2:])
+	require.NoError(err)
+	require.Equal("block", filterObj.FilterType)
+	require.Equal(uint64(123), filterObj.LogHeight)
+}
+
+func TestFilterIDUnique(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	web3svr := &web3Handler{core, newAPICache(1*time.Second, ""), _defaultBatchRequestLimit}
+	core.EXPECT().TipHeight().Return(uint64(123)).Times(2)
+
+	newFilter := func() string {
+		ret, err := web3svr.newFilter(&filterObject{FromBlock: "1", ToBlock: "2"})
+		require.NoError(err)
+		return ret.(string)
+	}
+	newBlockFilter := func() string {
+		ret, err := web3svr.newBlockFilter()
+		require.NoError(err)
+		return ret.(string)
+	}
+	// identical filters must get distinct ids, so they do not share a cursor
+	for _, create := range []func() string{newFilter, newBlockFilter} {
+		id1, id2 := create(), create()
+		require.NotEqual(id1, id2)
+		for _, id := range []string{id1, id2} {
+			require.Len(id, 66)
+			_, err := hex.DecodeString(id[2:])
+			require.NoError(err)
+		}
+		// removing one filter does not affect the other
+		in := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, id1))
+		ret, err := web3svr.uninstallFilter(&in)
+		require.NoError(err)
+		require.True(ret.(bool))
+		_, err = loadFilterFromCache(web3svr.cache, id2[2:])
+		require.NoError(err)
+	}
 }
 
 func TestUninstallFilter(t *testing.T) {
@@ -1168,6 +1218,79 @@ func TestSubscribe(t *testing.T) {
 	})
 }
 
+func TestSubscribeInBatch(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
+	core.EXPECT().ChainListener().Times(0)
+	web3svr := NewWeb3Handler(core, "", _defaultBatchRequestLimit)
+
+	var out []byte
+	writer := apitypes.NewResponseWriter(func(resp interface{}) (int, error) {
+		var err error
+		out, err = json.Marshal(resp)
+		return len(out), err
+	})
+	ctx := WithStreamContext(context.Background())
+	req := `[{"jsonrpc":"2.0","method":"eth_subscribe","params":["newHeads"],"id":1},` +
+		`{"jsonrpc":"2.0","method":"eth_subscribe","params":["logs",{}],"id":2}]`
+	require.NoError(web3svr.HandlePOSTReq(ctx, strings.NewReader(req), writer))
+	resps := gjson.ParseBytes(out).Array()
+	require.Len(resps, 2)
+	for _, resp := range resps {
+		require.False(resp.Get("result").Exists())
+		require.Contains(resp.Get("error.message").String(), errSubscribeInBatch.Error())
+	}
+	sc, _ := StreamFromContext(ctx)
+	require.Empty(sc.ListenerIDs())
+}
+
+func TestSubscribePerConnectionLimit(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
+	listener := NewChainListener(10 * _maxSubscriptionsPerConnection)
+	core.EXPECT().ChainListener().Return(listener).AnyTimes()
+	web3svr := NewWeb3Handler(core, "", _defaultBatchRequestLimit)
+
+	var out []byte
+	writer := apitypes.NewResponseWriter(func(resp interface{}) (int, error) {
+		var err error
+		out, err = json.Marshal(resp)
+		return len(out), err
+	})
+	call := func(ctx context.Context, method, params string) gjson.Result {
+		req := fmt.Sprintf(`{"jsonrpc":"2.0","method":"%s","params":%s,"id":1}`, method, params)
+		require.NoError(web3svr.HandlePOSTReq(ctx, strings.NewReader(req), writer))
+		return gjson.ParseBytes(out)
+	}
+
+	ctx := WithStreamContext(context.Background())
+	var ids []string
+	for i := 0; i < _maxSubscriptionsPerConnection; i++ {
+		resp := call(ctx, "eth_subscribe", `["newHeads"]`)
+		require.True(resp.Get("result").Exists(), resp.Raw)
+		ids = append(ids, resp.Get("result").String())
+	}
+	// the connection has reached its limit
+	resp := call(ctx, "eth_subscribe", `["newHeads"]`)
+	require.Contains(resp.Get("error.message").String(), errSubscriptionLimit.Error())
+	// other connections are not affected
+	resp = call(WithStreamContext(context.Background()), "eth_subscribe", `["newHeads"]`)
+	require.True(resp.Get("result").Exists(), resp.Raw)
+	// unsubscribing frees a slot on the connection
+	resp = call(ctx, "eth_unsubscribe", fmt.Sprintf(`["%s"]`, ids[0]))
+	require.True(resp.Get("result").Bool(), resp.Raw)
+	resp = call(ctx, "eth_subscribe", `["newHeads"]`)
+	require.True(resp.Get("result").Exists(), resp.Raw)
+	sc, _ := StreamFromContext(ctx)
+	require.Len(sc.ListenerIDs(), _maxSubscriptionsPerConnection)
+}
+
 func TestUnsubscribe(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -1181,13 +1304,13 @@ func TestUnsubscribe(t *testing.T) {
 
 	t.Run("nil params", func(t *testing.T) {
 		inNil := gjson.Parse(`{"params":[]}`)
-		_, err := web3svr.unsubscribe(&inNil)
+		_, err := web3svr.unsubscribe(context.Background(), &inNil)
 		require.EqualError(err, errInvalidFormat.Error())
 	})
 
 	t.Run("unsubscribe", func(t *testing.T) {
 		in := gjson.Parse(`{"params":["0x123456789abc"]}`)
-		ret, err := web3svr.unsubscribe(&in)
+		ret, err := web3svr.unsubscribe(context.Background(), &in)
 		require.NoError(err)
 		require.True(ret.(bool))
 	})

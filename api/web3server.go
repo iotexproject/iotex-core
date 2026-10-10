@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -41,6 +42,9 @@ const (
 	_metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
 	// _defaultBatchRequestLimit is the default maximum number of items in a batch.
 	_defaultBatchRequestLimit = 100 // Maximum number of items in a batch.
+	// _maxSubscriptionsPerConnection is the maximum number of active
+	// subscriptions a single websocket connection can hold.
+	_maxSubscriptionsPerConnection = 100
 )
 
 type (
@@ -90,6 +94,8 @@ var (
 	errMsgBatchTooLarge  = errors.New("batch too large")
 	errHTTPNotSupported  = errors.New("http not supported")
 	errPanic             = errors.New("panic")
+	errSubscribeInBatch  = errors.New("eth_subscribe is not supported in batch requests")
+	errSubscriptionLimit = errors.New("too many subscriptions on this connection")
 
 	_pendingBlockNumber   = "pending"
 	_latestBlockNumber    = "latest"
@@ -258,9 +264,15 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		if !ok {
 			return errHTTPNotSupported
 		}
+		if _, isBatch := writer.(*apitypes.BatchWriter); isBatch {
+			// the batch writer is discarded once the batch response is
+			// flushed, so notifications written to it never reach the client
+			res, err = nil, errSubscribeInBatch
+			break
+		}
 		res, err = svr.subscribe(sc, web3Req, writer)
 	case "eth_unsubscribe":
-		res, err = svr.unsubscribe(web3Req)
+		res, err = svr.unsubscribe(ctx, web3Req)
 	case "eth_getBlobSidecars":
 		res, err = svr.getBlobSidecars(web3Req)
 	case "debug_traceTransaction":
@@ -1212,16 +1224,10 @@ func (svr *web3Handler) newFilter(filter *filterObject) (interface{}, error) {
 		}
 	}
 
-	// cache filter and return hash value of the filter as filter id
+	// cache filter and return a random filter id
 	filter.FilterType = "log"
 	objInByte, _ := json.Marshal(*filter)
-	keyHash := hash.Hash256b(objInByte)
-	filterID := hex.EncodeToString(keyHash[:])
-	err := svr.cache.Set(filterID, objInByte)
-	if err != nil {
-		return nil, err
-	}
-	return "0x" + filterID, nil
+	return svr.installFilter(objInByte)
 }
 
 func (svr *web3Handler) newBlockFilter() (interface{}, error) {
@@ -1230,13 +1236,28 @@ func (svr *web3Handler) newBlockFilter() (interface{}, error) {
 		LogHeight:  svr.coreService.TipHeight(),
 	}
 	objInByte, _ := json.Marshal(filterObj)
-	keyHash := hash.Hash256b(objInByte)
-	filterID := hex.EncodeToString(keyHash[:])
-	err := svr.cache.Set(filterID, objInByte)
+	return svr.installFilter(objInByte)
+}
+
+// installFilter stores the filter under a newly generated random id, so that
+// every installed filter has its own id and cursor
+func (svr *web3Handler) installFilter(objInByte []byte) (interface{}, error) {
+	filterID, err := newFilterID()
 	if err != nil {
 		return nil, err
 	}
+	if err := svr.cache.Set(filterID, objInByte); err != nil {
+		return nil, err
+	}
 	return "0x" + filterID, nil
+}
+
+func newFilterID() (string, error) {
+	var id [32]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		return "", errors.Wrap(err, "failed to generate filter id")
+	}
+	return hex.EncodeToString(id[:]), nil
 }
 
 func (svr *web3Handler) uninstallFilter(in *gjson.Result) (interface{}, error) {
@@ -1341,6 +1362,9 @@ func (svr *web3Handler) subscribe(ctx *StreamContext, in *gjson.Result, writer a
 	if !subscription.Exists() {
 		return nil, errInvalidFormat
 	}
+	if ctx.ListenerCount() >= _maxSubscriptionsPerConnection {
+		return nil, errSubscriptionLimit
+	}
 	switch subscription.String() {
 	case "newHeads":
 		return svr.streamBlocks(ctx, writer)
@@ -1379,10 +1403,15 @@ func (svr *web3Handler) streamLogs(ctx *StreamContext, filterObj *filterObject, 
 	return streamID, nil
 }
 
-func (svr *web3Handler) unsubscribe(in *gjson.Result) (interface{}, error) {
+func (svr *web3Handler) unsubscribe(ctx context.Context, in *gjson.Result) (interface{}, error) {
 	id := in.Get("params.0")
 	if !id.Exists() {
 		return nil, errInvalidFormat
+	}
+	if sc, ok := StreamFromContext(ctx); ok {
+		// release the slot on this connection even if the listener has
+		// already dropped the subscription
+		sc.RemoveListener(id.String())
 	}
 	chainListener := svr.coreService.ChainListener()
 	return chainListener.RemoveResponder(id.String())
