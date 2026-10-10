@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -44,6 +45,13 @@ func newEndorserEndorsementCollection() *endorserEndorsementCollection {
 }
 
 func (ee *endorserEndorsementCollection) fromProto(endorserPro *endorsementpb.EndorserEndorsementCollection) error {
+	if len(endorserPro.Topics) != len(endorserPro.Endorsements) {
+		return errors.Errorf(
+			"mismatched number of topics %d and endorsements %d",
+			len(endorserPro.Topics),
+			len(endorserPro.Endorsements),
+		)
+	}
 	ee.endorsements = make(map[ConsensusVoteTopic]*endorsement.Endorsement)
 	for index := range endorserPro.Topics {
 		endorse := &endorsement.Endorsement{}
@@ -127,6 +135,9 @@ func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEnd
 		bc.blk = blk
 	}
 	for _, endorsement := range blockPro.BlockMap {
+		if endorsement == nil {
+			return errors.New("nil endorser endorsement collection")
+		}
 		ee := &endorserEndorsementCollection{}
 		if err := ee.fromProto(endorsement); err != nil {
 			return err
@@ -275,8 +286,18 @@ func (m *endorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajorit
 }
 
 func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager, deserializer *block.Deserializer) error {
+	if len(managerPro.BlkHash) != len(managerPro.BlockEndorsements) {
+		return errors.Errorf(
+			"mismatched number of block hashes %d and block endorsements %d",
+			len(managerPro.BlkHash),
+			len(managerPro.BlockEndorsements),
+		)
+	}
 	m.collections = make(map[string]*blockEndorsementCollection)
 	for i, block := range managerPro.BlockEndorsements {
+		if block == nil {
+			return errors.New("nil block endorsement collection")
+		}
 		bc := &blockEndorsementCollection{}
 		if err := bc.fromProto(block, deserializer); err != nil {
 			return err
@@ -404,6 +425,20 @@ func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 		return m.PutEndorsementManagerToDB()
 	}
 	return nil
+}
+
+// Restore keeps the loaded state that belongs to the round of the given
+// height on top of the given parent block, and drops everything else
+func (m *endorsementManager) Restore(height uint64, prevHash hash.Hash256, roundStartTime time.Time) error {
+	for encoded, c := range m.collections {
+		if blk := c.Block(); blk == nil || blk.Height() != height || blk.PrevHash() != prevHash {
+			delete(m.collections, encoded)
+		}
+	}
+	if blk := m.cachedMintedBlk; blk != nil && (blk.Height() != height || blk.PrevHash() != prevHash) {
+		m.cachedMintedBlk = nil
+	}
+	return m.Cleanup(roundStartTime)
 }
 
 func (m *endorsementManager) Log(

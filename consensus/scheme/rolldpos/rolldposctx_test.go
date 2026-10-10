@@ -7,6 +7,7 @@ package rolldpos
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -214,6 +215,14 @@ func TestCheckVoteEndorser(t *testing.T) {
 	// case 3:normal
 	en = endorsement.NewEndorsement(time.Now(), identityset.PrivateKey(10).PublicKey(), nil)
 	require.NoError(rctx.CheckVoteEndorser(51, nil, en))
+
+	// case 4:timestamp within one block interval ahead, as an honest vote
+	en = endorsement.NewEndorsement(time.Now().Add(rctx.BlockInterval(51)), identityset.PrivateKey(10).PublicKey(), nil)
+	require.NoError(rctx.CheckVoteEndorser(51, nil, en))
+
+	// case 5:timestamp far in the future
+	en = endorsement.NewEndorsement(time.Now().Add(time.Hour), identityset.PrivateKey(10).PublicKey(), nil)
+	require.ErrorContains(rctx.CheckVoteEndorser(51, nil, en), "in the future")
 }
 
 func TestCheckBlockProposer(t *testing.T) {
@@ -327,6 +336,36 @@ func TestCheckBlockProposer(t *testing.T) {
 	block = getBlockforctx(t, 1, true, prevHash)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
 	require.NoError(rctx.CheckBlockProposer(51, bp, en))
+
+	// case 10:endorsement timestamp far in the future
+	en = endorsement.NewEndorsement(time.Now().Add(time.Hour), identityset.PrivateKey(1).PublicKey(), nil)
+	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
+	require.ErrorContains(rctx.CheckBlockProposer(51, bp, en), "in the future")
+}
+
+func TestValidateEndorsementTimestamp(t *testing.T) {
+	require := require.New(t)
+	now := time.Now()
+	interval := 2500 * time.Millisecond
+	for _, c := range []struct {
+		ts    time.Time
+		valid bool
+	}{
+		{now.Add(-time.Hour), true},
+		{now, true},
+		{now.Add(interval), true},
+		{now.Add(2 * interval), true},
+		{now.Add(2*interval + time.Millisecond), false},
+		{now.Add(time.Hour), false},
+	} {
+		en := endorsement.NewEndorsement(c.ts, identityset.PrivateKey(1).PublicKey(), nil)
+		err := validateEndorsementTimestamp(en, now, interval)
+		if c.valid {
+			require.NoError(err)
+		} else {
+			require.ErrorContains(err, "in the future")
+		}
+	}
 }
 
 func TestNotProducingMultipleBlocks(t *testing.T) {
@@ -442,15 +481,38 @@ func TestNewProposalEndorsementRejectsFutureTimestamp(t *testing.T) {
 	require := require.New(t)
 
 	t.Run("unit-validateProposalTimestamp", func(t *testing.T) {
+		interval := consensusfsm.DefaultWakeUpgradeConfig.BlockInterval
 		blk := block.NewBlockDeprecated(1, 1, hash.ZeroHash256, time.Now().Add(time.Hour), identityset.PrivateKey(0).PublicKey(), nil)
-		require.ErrorContains(validateProposalTimestamp(blk, time.Now()), "in the future")
+		require.ErrorContains(validateProposalTimestamp(blk, time.Now(), interval), "in the future")
 		// within the bound: an honest proposal is stamped with its round's
 		// start time, never later than the producer's own clock
-		require.NoError(validateProposalTimestamp(blk, blk.Timestamp()))
+		require.NoError(validateProposalTimestamp(blk, blk.Timestamp(), interval))
 		require.NoError(validateProposalTimestamp(
 			block.NewBlockDeprecated(1, 1, hash.ZeroHash256, time.Now(), identityset.PrivateKey(0).PublicKey(), nil),
 			time.Now(),
+			interval,
 		))
+	})
+
+	t.Run("tolerance-below-block-interval", func(t *testing.T) {
+		for _, c := range []struct {
+			interval, tolerance time.Duration
+		}{
+			{consensusfsm.DefaultWakeUpgradeConfig.BlockInterval, 2 * time.Second},
+			{consensusfsm.DefaultDardanellesUpgradeConfig.BlockInterval, 4 * time.Second},
+			{10 * time.Second, 8 * time.Second},
+			{time.Minute, maxFutureProposalTimestamp},
+		} {
+			require.Equal(c.tolerance, futureProposalTolerance(c.interval))
+			now := time.Now()
+			ok := block.NewBlockDeprecated(1, 1, hash.ZeroHash256, now.Add(c.tolerance), identityset.PrivateKey(0).PublicKey(), nil)
+			require.NoError(validateProposalTimestamp(ok, now, c.interval))
+			if c.tolerance < c.interval {
+				// a proposal stamped a full block interval ahead is refused
+				late := block.NewBlockDeprecated(1, 1, hash.ZeroHash256, now.Add(c.interval), identityset.PrivateKey(0).PublicKey(), nil)
+				require.ErrorContains(validateProposalTimestamp(late, now, c.interval), "in the future")
+			}
+		}
 	})
 
 	t.Run("endorsement-refused-for-future-proposal", func(t *testing.T) {
@@ -492,4 +554,105 @@ func TestNewProposalEndorsementRejectsFutureTimestamp(t *testing.T) {
 		require.Error(err)
 		require.NotContains(err.Error(), "in the future")
 	})
+}
+
+// countingBlockBuildFactory mints a well-formed block for the requested
+// height and parent, and counts the number of mints
+type countingBlockBuildFactory struct {
+	mints int
+}
+
+func (f *countingBlockBuildFactory) Mint(ctx context.Context, pk crypto.PrivateKey) (*block.Block, error) {
+	f.mints++
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	return block.NewBlockDeprecated(1, blkCtx.BlockHeight, bcCtx.Tip.Hash, blkCtx.BlockTimeStamp, pk.PublicKey(), nil), nil
+}
+
+func (f *countingBlockBuildFactory) ReceiveBlock(*block.Block) error {
+	return nil
+}
+
+func TestConsensusDBSurvivesRestart(t *testing.T) {
+	require := require.New(t)
+	b, sf, _, rp, _ := makeChain(t)
+	g := genesis.TestDefault()
+	g.Blockchain.BlockInterval = 20 * time.Second
+	numDelegates := int(rp.NumDelegates())
+	var (
+		delegates []string
+		priKeys   []crypto.PrivateKey
+	)
+	for i := 0; i < numDelegates; i++ {
+		delegates = append(delegates, identityset.Address(i).String())
+		priKeys = append(priKeys, identityset.PrivateKey(i))
+	}
+	delegatesByEpoch := func(uint64, []byte) ([]string, error) { return delegates, nil }
+	dbConfig := db.DefaultConfig
+	dbConfig.DbPath = filepath.Join(t.TempDir(), "consensus.db")
+	c := clock.NewMock()
+	c.Add(time.Duration(time.Now().UnixNano()))
+	bbf := &countingBlockBuildFactory{}
+	newCtx := func() RDPoSCtx {
+		rctx, err := NewRollDPoSCtx(
+			consensusfsm.NewConsensusConfig(DefaultConfig.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, DefaultConfig.Delay),
+			dbConfig,
+			true,
+			time.Second,
+			true,
+			NewChainManager(b, sf, bbf),
+			block.NewDeserializer(0),
+			rp,
+			nil,
+			delegatesByEpoch,
+			delegatesByEpoch,
+			priKeys,
+			c,
+			g.BeringBlockHeight,
+			WithPremintDisabled(),
+		)
+		require.NoError(err)
+		return rctx
+	}
+	propose := func(rctx RDPoSCtx) hash.Hash256 {
+		require.NoError(rctx.Prepare())
+		res, err := rctx.Proposal()
+		require.NoError(err)
+		ecm, ok := res.(*EndorsedConsensusMessage)
+		require.True(ok)
+		proposal, ok := ecm.Document().(*blockProposal)
+		require.True(ok)
+		return proposal.block.HashBlock()
+	}
+
+	rctx := newCtx()
+	require.NoError(rctx.Start(context.Background()))
+	h1 := propose(rctx)
+	require.Equal(1, bbf.mints)
+	inner, ok := rctx.(*rollDPoSCtx)
+	require.True(ok)
+	require.NoError(inner.round.AddBlock(inner.round.CachedMintedBlock()))
+	require.NoError(rctx.Stop(context.Background()))
+
+	// restart within the same round: the minted block is loaded from the
+	// consensus db and proposed again instead of minting a new one
+	rctx = newCtx()
+	require.NoError(rctx.Start(context.Background()))
+	h2 := propose(rctx)
+	require.Equal(1, bbf.mints)
+	require.Equal(h1, h2)
+	inner, ok = rctx.(*rollDPoSCtx)
+	require.True(ok)
+	require.Equal(1, inner.round.eManager.Size())
+	require.NotNil(inner.round.Block(h1[:]))
+	require.NoError(rctx.Stop(context.Background()))
+
+	// restart in a later round: the outdated block is not reused
+	c.Add(g.Blockchain.BlockInterval)
+	rctx = newCtx()
+	require.NoError(rctx.Start(context.Background()))
+	h3 := propose(rctx)
+	require.Equal(2, bbf.mints)
+	require.NotEqual(h1, h3)
+	require.NoError(rctx.Stop(context.Background()))
 }
