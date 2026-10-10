@@ -30,14 +30,23 @@ import (
 type (
 	// Config is the config for dispatcher
 	Config struct {
-		ActionChanSize             uint          `yaml:"actionChanSize"`
-		BlockChanSize              uint          `yaml:"blockChanSize"`
-		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
-		BlockSyncLimit             uint          `yaml:"blockSyncLimit"`
-		ConsensusChanSize          uint          `yaml:"consensusChanSize"`
-		MiscChanSize               uint          `yaml:"miscChanSize"`
+		ActionChanSize    uint `yaml:"actionChanSize"`
+		BlockChanSize     uint `yaml:"blockChanSize"`
+		BlockSyncChanSize uint `yaml:"blockSyncChanSize"`
+		BlockSyncLimit    uint `yaml:"blockSyncLimit"`
+		ConsensusChanSize uint `yaml:"consensusChanSize"`
+		MiscChanSize      uint `yaml:"miscChanSize"`
+		// Deprecated: block-sync requests are now throttled by a per-peer token
+		// bucket (see BlockSyncRequestBurst / BlockSyncRequestRefillPerSecond).
+		// Retained for config compatibility; no longer read.
 		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
 		AccountRateLimit           uint          `yaml:"accountRateLimit"`
+		// BlockSyncRequestBurst is the per-peer burst of inbound block-sync
+		// requests served before throttling; <=0 falls back to the default.
+		BlockSyncRequestBurst int `yaml:"blockSyncRequestBurst"`
+		// BlockSyncRequestRefillPerSecond refills each peer's block-sync request
+		// bucket; <=0 falls back to the default.
+		BlockSyncRequestRefillPerSecond float64 `yaml:"blockSyncRequestRefillPerSecond"`
 	}
 )
 
@@ -53,10 +62,22 @@ const (
 	// per message (actsync/actionsync.go), so this is generous.
 	maxActionSyncHashes = 64
 
-	// maxPeerLastSyncEntries bounds the block-request throttle map. Entries
-	// older than syncInterval carry no information, so the map is swept once it
-	// grows past this.
-	maxPeerLastSyncEntries = 4096
+	// syncRequestLimiterSize bounds the per-peer block-request throttle state:
+	// the token buckets live in an LRU of this size, so a flood of distinct
+	// (authenticated) peers cannot grow the map without bound.
+	syncRequestLimiterSize = 4096
+
+	// syncRequestBurst is the per-peer block-request burst. blockSyncer.sync()
+	// splits the sync window into BufferSize/IntervalSize consecutive interval
+	// requests (10 with the defaults) and may retry, so a bucket this size lets
+	// an honest catch-up burst through in one round while still bounding a peer
+	// that keeps asking. Each served request is additionally range-clamped in
+	// ProcessSyncRequest, so egress per request is bounded too.
+	syncRequestBurst = 30
+
+	// syncRequestRefillPerSecond refills the per-peer bucket so sustained honest
+	// sync (retried every 30s) keeps flowing while abusive volume is throttled.
+	syncRequestRefillPerSecond = 5
 )
 
 var (
@@ -74,11 +95,9 @@ var (
 		MiscChanSize:      1000,
 		AccountRateLimit:  100,
 
-		// Non-zero so the per-peer block-request throttle in filter() is
-		// actually armed; at zero it is a no-op. Kept small so that an honest
-		// peer catching up is not slowed: each request is separately bounded to
-		// the sync window by blocksync.ProcessSyncRequest.
-		ProcessSyncRequestInterval: 100 * time.Millisecond,
+		ProcessSyncRequestInterval:      0, // deprecated, no longer read
+		BlockSyncRequestBurst:           syncRequestBurst,
+		BlockSyncRequestRefillPerSecond: syncRequestRefillPerSecond,
 	}
 )
 
@@ -135,10 +154,8 @@ type (
 		// subscribers
 		subscribers   map[uint32]Subscriber
 		subscribersMU sync.RWMutex
-		// filter for blocksync message
-		peerLastSync     map[string]time.Time
-		syncInterval     time.Duration
-		peerSyncLock     sync.RWMutex
+		// per-peer token bucket throttling inbound block-sync requests
+		syncRateLimiter  *RateLimiter
 		ratelimiter      *RateLimiter
 		verificationFunc VerificationFunc
 	}
@@ -155,10 +172,17 @@ type (
 
 // NewDispatcher creates a new Dispatcher
 func NewDispatcher(cfg Config, verificationFunc VerificationFunc) (Dispatcher, error) {
+	syncBurst := cfg.BlockSyncRequestBurst
+	if syncBurst <= 0 {
+		syncBurst = syncRequestBurst
+	}
+	syncRefill := cfg.BlockSyncRequestRefillPerSecond
+	if syncRefill <= 0 {
+		syncRefill = syncRequestRefillPerSecond
+	}
 	d := &IotxDispatcher{
 		subscribers:      make(map[uint32]Subscriber),
-		peerLastSync:     make(map[string]time.Time),
-		syncInterval:     cfg.ProcessSyncRequestInterval,
+		syncRateLimiter:  NewRateLimiter(syncRequestLimiterSize, rate.Limit(syncRefill), syncBurst),
 		eventAudit:       make(map[iotexrpc.MessageType]int),
 		ratelimiter:      NewRateLimiter(100000, rate.Limit(cfg.AccountRateLimit), int(cfg.AccountRateLimit)),
 		verificationFunc: verificationFunc,
@@ -360,38 +384,13 @@ func (d *IotxDispatcher) filter(msg *message) bool {
 	if msg.msgType != iotexrpc.MessageType_BLOCK_REQUEST {
 		return true
 	}
-	// filter block sync to avoid too frequent sync
-	now := time.Now()
-	peerID := msg.peer
-	d.peerSyncLock.Lock()
-	defer d.peerSyncLock.Unlock()
-	last, ok := d.peerLastSync[peerID]
-	if ok && last.Add(d.syncInterval).After(now) {
-		return false
-	}
-	if len(d.peerLastSync) >= maxPeerLastSyncEntries {
-		d.sweepPeerLastSync(now)
-	}
-	d.peerLastSync[peerID] = now
-	return true
-}
-
-// sweepPeerLastSync drops entries that are already outside the throttle window
-// and therefore carry no information. Callers must hold peerSyncLock.
-//
-// Without this the map is unbounded: every distinct peer that ever sent a
-// block request keeps a permanent entry.
-func (d *IotxDispatcher) sweepPeerLastSync(now time.Time) {
-	for peerID, last := range d.peerLastSync {
-		if !last.Add(d.syncInterval).After(now) {
-			delete(d.peerLastSync, peerID)
-		}
-	}
-	if len(d.peerLastSync) >= maxPeerLastSyncEntries {
-		// every entry is still inside the window; reset rather than grow without
-		// bound. The cost is one skipped throttle round.
-		clear(d.peerLastSync)
-	}
+	// Throttle block-sync requests with a per-peer token bucket. An honest
+	// requester bursts a whole sync window (BufferSize/IntervalSize consecutive
+	// interval requests) at once and is served; a peer that keeps asking beyond
+	// the refill rate is dropped. The bucket size absorbs the honest burst, the
+	// per-request range clamp in ProcessSyncRequest bounds egress per request,
+	// and the limiter's LRU bounds the per-peer state.
+	return d.syncRateLimiter.Allow(msg.peer)
 }
 
 func (d *IotxDispatcher) dispatchMsg(message *message) {
