@@ -1458,8 +1458,10 @@ func TestGetLogsByBlockHashAndEarliestStart(t *testing.T) {
 
 	t.Run("parse invalid blockHash", func(t *testing.T) {
 		require := require.New(t)
-		_, err := parseLogRequest(gjson.Parse(`[{"blockHash":"0xabc"}]`))
-		require.ErrorIs(err, errInvalidFormat)
+		for _, h := range []string{"0xabc", "0xab", blkHashStr + "00", "0x00" + blkHashStr[2:]} {
+			_, err := parseLogRequest(gjson.Parse(fmt.Sprintf(`[{"blockHash":"%s"}]`, h)))
+			require.ErrorIs(err, errInvalidFormat, h)
+		}
 	})
 
 	t.Run("eth_getFilterLogs with blockHash", func(t *testing.T) {
@@ -1477,6 +1479,28 @@ func TestGetLogsByBlockHashAndEarliestStart(t *testing.T) {
 		require.True(ok)
 		require.Len(rlt, 1)
 		require.Equal(blkHash, rlt[0].blockHash)
+	})
+
+	t.Run("eth_getFilterChanges with blockHash", func(t *testing.T) {
+		require := require.New(t)
+		filter, err := parseLogRequest(gjson.Parse(fmt.Sprintf(`[{"blockHash":"%s"}]`, blkHashStr)))
+		require.NoError(err)
+		core.EXPECT().TipHeight().Return(uint64(2)).AnyTimes()
+		id, err := web3svr.newFilter(filter)
+		require.NoError(err)
+		in := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, id))
+		// the first poll returns the logs of the given block, not of the tip
+		core.EXPECT().LogsInBlockByHash(gomock.Any(), blkHash).Return(logs, nil).Times(1)
+		ret, err := web3svr.getFilterChanges(&in)
+		require.NoError(err)
+		rlt, ok := ret.([]*getLogsResult)
+		require.True(ok)
+		require.Len(rlt, 1)
+		require.Equal(blkHash, rlt[0].blockHash)
+		// later polls return nothing new
+		ret, err = web3svr.getFilterChanges(&in)
+		require.NoError(err)
+		require.Empty(ret)
 	})
 
 	t.Run("fromBlock 0x0 starts at the first block", func(t *testing.T) {

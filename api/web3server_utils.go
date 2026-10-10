@@ -315,11 +315,16 @@ func (svr *web3Handler) getLogsInBlock(blockHashStr string, addrs []string, topi
 }
 
 func parseBlockHash(str string) (hash.Hash256, error) {
-	h, err := hash.HexStringToHash256(util.Remove0xPrefix(str))
+	// HexStringToHash256 pads a short input and truncates a long one, so check
+	// the length here
+	b, err := hex.DecodeString(util.Remove0xPrefix(str))
 	if err != nil {
 		return hash.ZeroHash256, errors.Wrapf(errInvalidFormat, "invalid blockHash %s: %v", str, err)
 	}
-	return h, nil
+	if len(b) != len(hash.ZeroHash256) {
+		return hash.ZeroHash256, errors.Wrapf(errInvalidFormat, "invalid blockHash %s: length %d, expecting %d", str, len(b), len(hash.ZeroHash256))
+	}
+	return hash.BytesToHash256(b), nil
 }
 
 // construct filter topics and addresses

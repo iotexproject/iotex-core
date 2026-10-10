@@ -1255,6 +1255,19 @@ func (svr *web3Handler) getFilterChanges(in *gjson.Result) (interface{}, error) 
 	)
 	switch filterObj.FilterType {
 	case "log":
+		if filterObj.BlockHash != "" {
+			// the filter selects a single existing block, so its logs are
+			// returned on the first poll only; LogHeight is 0 until then
+			if filterObj.LogHeight != 0 {
+				return []*getLogsResult{}, nil
+			}
+			logs, err := svr.getLogsInBlock(filterObj.BlockHash, filterObj.Address, filterObj.Topics)
+			if err != nil {
+				return nil, err
+			}
+			ret, newLogHeight = logs, tipHeight+1
+			break
+		}
 		if filterObj.LogHeight > tipHeight {
 			return []*getLogsResult{}, nil
 		}
