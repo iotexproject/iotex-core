@@ -32,6 +32,11 @@ type uniQueue struct {
 	blocks  []*peerBlock
 	hashes  map[hash.Hash256]struct{}
 	perPeer map[string]int
+	// lossy is set once a candidate for this height was refused or evicted for
+	// lack of room. Blocks are buffered unvalidated, so the authentic block may
+	// be among those lost: a lossy height must not count as received, and if its
+	// buffered candidates all fail to commit it has to be requested again.
+	lossy bool
 }
 
 func newUniQueue() *uniQueue {
@@ -43,13 +48,14 @@ func newUniQueue() *uniQueue {
 }
 
 // enque adds blk and reports whether it was added. It rejects duplicates and a
-// peer that already holds its per-peer share. When the height is otherwise full,
-// a block from an under-represented peer evicts one from the most-represented
-// peer instead of being dropped: blocks are buffered before validation, so a set
-// of peers flooding unvalidated candidates must never be able to crowd out the
-// authentic block relayed by another peer (which would otherwise be lost and the
-// height stall until a later sync round). Memory stays bounded by
-// maxBlocksPerHeight; only which blocks occupy the slots changes.
+// peer that already holds its per-peer share. When the height is full, the
+// block may only displace a block held by a peer that is over its fair share
+// (an honest peer relays one block per height, so a peer holding more than one
+// slot is not entitled to the extra one); otherwise it is refused. Either way
+// the height is marked lossy so the refused or evicted candidate can be
+// recovered by re-requesting the height. A peer's single block is therefore
+// never evicted, however many other peers flood the height, and memory stays
+// bounded by maxBlocksPerHeight.
 func (uq *uniQueue) enque(blk *peerBlock) bool {
 	h := blk.block.HashBlock()
 	if _, ok := uq.hashes[h]; ok {
@@ -58,8 +64,11 @@ func (uq *uniQueue) enque(blk *peerBlock) bool {
 	if uq.perPeer[blk.pid] >= maxBlocksPerPeerPerHeight {
 		return false
 	}
-	if len(uq.blocks) >= maxBlocksPerHeight && !uq.evictFrom(blk.pid) {
-		return false
+	if len(uq.blocks) >= maxBlocksPerHeight {
+		uq.lossy = true
+		if !uq.evictOverShare() {
+			return false
+		}
 	}
 	uq.hashes[h] = struct{}{}
 	uq.perPeer[blk.pid]++
@@ -67,29 +76,14 @@ func (uq *uniQueue) enque(blk *peerBlock) bool {
 	return true
 }
 
-// evictFrom makes room for a block delivered by incoming by dropping the oldest
-// block of the most-represented peer, but only when that peer holds strictly
-// more slots than incoming would. It reports whether a slot was freed. This
-// guarantees a block from a new or under-represented peer can always displace an
-// over-represented one, so no coalition of peers can permanently exclude an
-// honest block while keeping the per-height memory bound.
-func (uq *uniQueue) evictFrom(incoming string) bool {
-	victim := ""
-	for pid, n := range uq.perPeer {
-		if n > uq.perPeer[incoming] && (victim == "" || n > uq.perPeer[victim]) {
-			victim = pid
-		}
-	}
-	if victim == "" {
-		return false
-	}
+// evictOverShare drops the oldest block held by a peer that occupies more than
+// one slot, and reports whether a slot was freed. The choice depends only on
+// queue order, never on map iteration order.
+func (uq *uniQueue) evictOverShare() bool {
 	for i, b := range uq.blocks {
-		if b.pid == victim {
+		if uq.perPeer[b.pid] > 1 {
 			delete(uq.hashes, b.block.HashBlock())
-			uq.perPeer[victim]--
-			if uq.perPeer[victim] == 0 {
-				delete(uq.perPeer, victim)
-			}
+			uq.perPeer[b.pid]--
 			uq.blocks = append(uq.blocks[:i], uq.blocks[i+1:]...)
 			return true
 		}
@@ -97,12 +91,15 @@ func (uq *uniQueue) evictFrom(incoming string) bool {
 	return false
 }
 
-func (uq *uniQueue) dequeAll() []*peerBlock {
-	blks := uq.blocks
-	if len(uq.blocks) > 0 {
+// dequeAll returns the buffered blocks and whether any candidate for the height
+// was refused or evicted, and resets the queue.
+func (uq *uniQueue) dequeAll() ([]*peerBlock, bool) {
+	blks, lossy := uq.blocks, uq.lossy
+	if len(uq.blocks) > 0 || uq.lossy {
 		uq.blocks = []*peerBlock{}
 		uq.hashes = map[hash.Hash256]struct{}{}
 		uq.perPeer = map[string]int{}
+		uq.lossy = false
 	}
-	return blks
+	return blks, lossy
 }

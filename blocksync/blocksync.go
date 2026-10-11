@@ -163,7 +163,10 @@ func NewBlockSyncer(
 	return bs, nil
 }
 
-func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
+// commitBlocks commits the first candidate that is accepted. It reports whether
+// one was committed, and whether any candidate was rejected as invalid (its
+// peer is blocked).
+func (bs *blockSyncer) commitBlocks(blks []*peerBlock) (committed bool, rejected bool) {
 	for _, blk := range blks {
 		if blk == nil {
 			continue
@@ -175,17 +178,18 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 				bs.lastTip = blk.block.Height()
 				bs.lastTipTime = blk.block.Timestamp()
 			}
-			return true
+			return true, rejected
 		case blockdao.ErrRemoteHeightTooLow:
 			log.L().Info("remote height too low", zap.Uint64("height", blk.block.Height()))
 		case blockchain.ErrPaused:
 			log.L().Info("blockchain is paused, skip committing block", zap.Uint64("height", blk.block.Height()))
 		default:
+			rejected = true
 			bs.blockP2pPeer(blk.pid)
 			log.L().Error("failed to commit block", zap.Error(err), zap.Uint64("height", blk.block.Height()), zap.String("peer", blk.pid))
 		}
 	}
-	return false
+	return false, rejected
 }
 
 func (bs *blockSyncer) flushInfo() (time.Time, uint64) {
@@ -293,6 +297,21 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		return errors.New("block is nil")
 	}
 
+	if height := bs.processBlock(peer, blk); height > 0 {
+		// Every candidate buffered for this height was invalid, and the height
+		// had refused or evicted candidates for lack of room, so the authentic
+		// block may have been among those lost. Ask for it again now instead of
+		// leaving the height to stall; the peers that served the invalid
+		// candidates were blocked in commitBlocks.
+		log.L().Info("re-requesting height whose buffered candidates all failed", zap.Uint64("height", height))
+		bs.requestBlock(ctx, height, height, bs.cfg.MaxRepeat)
+	}
+	return nil
+}
+
+// processBlock buffers blk and commits as far as the buffer allows. It returns
+// a height that has to be re-requested, or 0.
+func (bs *blockSyncer) processBlock(peer string, blk *block.Block) uint64 {
 	tip := bs.tipHeightHandler()
 	added, targetHeight := bs.buf.AddBlock(tip, newPeerBlock(peer, blk))
 	bs.mu.Lock()
@@ -301,17 +320,32 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		bs.targetHeight = targetHeight
 	}
 	if !added {
-		return nil
+		return 0
 	}
-	syncedHeight := tip
+	var (
+		syncedHeight = tip
+		retry        uint64
+	)
 	for {
-		if !bs.commitBlocks(bs.buf.Pop(syncedHeight + 1)) {
+		next := syncedHeight + 1
+		blks, lossy := bs.buf.Pop(next)
+		committed, rejected := bs.commitBlocks(blks)
+		if !committed {
+			// Recovery fires at most once per height: only a height at or above
+			// tip+2 can fill up and turn lossy (a block at tip+1 is committed on
+			// arrival), and the tip never moves back below it. Each occurrence
+			// also needs a full queue of rejected candidates, i.e. at least
+			// maxBlocksPerHeight/maxBlocksPerPeerPerHeight peers, all of which
+			// commitBlocks has just blocked.
+			if lossy && rejected {
+				retry = next
+			}
 			break
 		}
 		syncedHeight++
 	}
 	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", syncedHeight))
-	return nil
+	return retry
 }
 
 func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInfo, start uint64, end uint64) error {
