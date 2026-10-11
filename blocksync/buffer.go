@@ -30,17 +30,19 @@ func newBlockBuffer(bufferSize, intervalSize uint64) *blockBuffer {
 	}
 }
 
-func (b *blockBuffer) Pop(height uint64) []*peerBlock {
+// Pop removes and returns the blocks buffered at height, and whether any
+// candidate for that height was refused or evicted while it was buffered.
+func (b *blockBuffer) Pop(height uint64) ([]*peerBlock, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	queue, ok := b.blockQueues[height]
 	if !ok {
-		return nil
+		return nil, false
 	}
-	blks := queue.dequeAll()
+	blks, lossy := queue.dequeAll()
 	delete(b.blockQueues, height)
 
-	return blks
+	return blks, lossy
 }
 
 // AddBlock tries to put given block into buffer and flush buffer into blockchain.
@@ -91,7 +93,9 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(confirmedHeight uint64, targetHei
 
 	var iLen uint64
 	for h := confirmedHeight + 1; h <= targetHeight; h++ {
-		if _, ok := b.blockQueues[h]; !ok {
+		// a lossy height may have refused the authentic block, so keep asking
+		// for it instead of treating it as received
+		if q, ok := b.blockQueues[h]; !ok || q.lossy {
 			iLen++
 			if !startSet {
 				start = h

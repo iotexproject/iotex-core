@@ -11,11 +11,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/v2/blockchain/block"
-	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/nodeinfo"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 // blockAtHeight builds a distinct, structurally valid block at the given height.
@@ -162,4 +167,119 @@ func TestProcessSyncRequestClampsRange(t *testing.T) {
 	served = nil
 	r.NoError(bs.ProcessSyncRequest(context.Background(), peer.AddrInfo{}, 50, 69))
 	r.Len(served, 20)
+}
+
+// fakeChain commits only blocks it considers authentic, in height order.
+type fakeChain struct {
+	tip   uint64
+	valid map[hash.Hash256]bool
+}
+
+func (c *fakeChain) commit(blk *block.Block) error {
+	if !c.valid[blk.HashBlock()] || blk.Height() != c.tip+1 {
+		return errors.New("invalid block")
+	}
+	c.tip++
+	return nil
+}
+
+type syncHarness struct {
+	bs       *blockSyncer
+	chain    *fakeChain
+	requests []*iotexrpc.BlockSync
+	blocked  map[string]bool
+}
+
+func newSyncHarness(t *testing.T, tip uint64) *syncHarness {
+	h := &syncHarness{
+		chain:   &fakeChain{tip: tip, valid: map[hash.Hash256]bool{}},
+		blocked: map[string]bool{},
+	}
+	h.bs = &blockSyncer{
+		cfg:                Config{BufferSize: 200, IntervalSize: 20, MaxRepeat: 3, RepeatDecayStep: 1},
+		buf:                newBlockBuffer(200, 20),
+		tipHeightHandler:   func() uint64 { return h.chain.tip },
+		commitBlockHandler: h.chain.commit,
+		p2pNeighbor: func() ([]peer.AddrInfo, error) {
+			return []peer.AddrInfo{{ID: "honest-server"}}, nil
+		},
+		unicastOutbound: func(_ context.Context, _ peer.AddrInfo, msg proto.Message) error {
+			if req, ok := msg.(*iotexrpc.BlockSync); ok {
+				h.requests = append(h.requests, req)
+			}
+			return nil
+		},
+		blockP2pPeer:    func(pid string) { h.blocked[pid] = true },
+		nodeInfoManager: nodeinfo.NewInfoManager(&nodeinfo.DefaultConfig, nil, nil, time.Second),
+	}
+	return h
+}
+
+func (h *syncHarness) authentic(t *testing.T, height uint64) *block.Block {
+	blk := blockAtHeight(t, height, 7777)
+	h.chain.valid[blk.HashBlock()] = true
+	return blk
+}
+
+func (h *syncHarness) requested(height uint64) bool {
+	for _, r := range h.requests {
+		if r.Start <= height && height <= r.End {
+			return true
+		}
+	}
+	return false
+}
+
+// The authentic block arrives first, then maxBlocksPerHeight
+// distinct peers keep rotating unvalidated candidates at the same
+// height. The authentic block must survive and the chain must reach it.
+func TestBufferAuthenticBlockSurvivesPeerRotation(t *testing.T) {
+	r := require.New(t)
+	for round := 0; round < 10; round++ {
+		h := newSyncHarness(t, 10)
+		ctx := context.Background()
+
+		r.NoError(h.bs.ProcessBlock(ctx, "honest", h.authentic(t, 12)))
+		nonce := uint64(0)
+		for rot := 0; rot < 4; rot++ {
+			for p := 0; p < maxBlocksPerHeight; p++ {
+				r.NoError(h.bs.ProcessBlock(ctx, "mal"+strconv.Itoa(p), blockAtHeight(t, 12, nonce)))
+				nonce++
+			}
+		}
+		r.NoError(h.bs.ProcessBlock(ctx, "honest", h.authentic(t, 11)))
+		r.Equal(uint64(12), h.chain.tip, "round %d: tip stuck below the authentic block", round)
+	}
+}
+
+// Recovery path: the height is full of invalid candidates before the authentic
+// block arrives, so the authentic block cannot be buffered. Once the candidates
+// fail to commit, the node must re-request the height instead of treating it as
+// received, and the re-delivered authentic block must commit.
+func TestBufferRecoversHeightAfterCandidatesFail(t *testing.T) {
+	r := require.New(t)
+	h := newSyncHarness(t, 10)
+	ctx := context.Background()
+
+	for p := 0; p < maxBlocksPerHeight; p++ {
+		r.NoError(h.bs.ProcessBlock(ctx, "mal"+strconv.Itoa(p), blockAtHeight(t, 12, uint64(p))))
+	}
+	auth12 := h.authentic(t, 12)
+	r.NoError(h.bs.ProcessBlock(ctx, "honest", auth12)) // may be refused while the height is full
+
+	// the height must not be considered complete while candidates were refused
+	r.NotEmpty(h.bs.buf.GetBlocksIntervalsToSync(h.chain.tip, 12))
+
+	r.NoError(h.bs.ProcessBlock(ctx, "honest", h.authentic(t, 11)))
+	r.Equal(uint64(11), h.chain.tip)
+	// every invalid candidate failed and its peer was blocked ...
+	for p := 0; p < maxBlocksPerHeight; p++ {
+		r.True(h.blocked["mal"+strconv.Itoa(p)])
+	}
+	// ... and the height was re-requested rather than abandoned
+	r.True(h.requested(12), "height 12 must be re-requested after its candidates failed")
+
+	// the re-delivered authentic block commits
+	r.NoError(h.bs.ProcessBlock(ctx, "honest-server", auth12))
+	r.Equal(uint64(12), h.chain.tip)
 }
