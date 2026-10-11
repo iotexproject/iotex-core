@@ -30,49 +30,75 @@ func blockAtHeight(t *testing.T, height uint64, nonce uint64) *block.Block {
 	return &blk
 }
 
-// Total buffered blocks for a height are bounded: distinct peers can fill up to
-// maxBlocksPerHeight slots, but no further. Blocks are buffered before any
-// validation and deduped only by full block hash, so without the cap a flood of
-// cheaply mutated variants grows the buffer without bound while the tip stalls.
+// However many distinct peers flood a height, the buffered-block count for it
+// stays bounded by maxBlocksPerHeight. Blocks are buffered before any validation
+// and deduped only by full block hash, so without the cap a flood of cheaply
+// mutated variants would grow the buffer without bound while the tip stalls.
 func TestBufferBoundsBlocksPerHeight(t *testing.T) {
 	r := require.New(t)
 
 	b := newBlockBuffer(200, 20)
 	const tip, height = 10, 12
 
-	accepted := 0
-	// one distinct peer per block so the total cap (not the per-peer cap) binds
 	for i := range maxBlocksPerHeight * 4 {
 		pid := "peer" + strconv.Itoa(i)
-		if ok, _ := b.AddBlock(tip, newPeerBlock(pid, blockAtHeight(t, height, uint64(i)))); ok {
-			accepted++
-		}
+		b.AddBlock(tip, newPeerBlock(pid, blockAtHeight(t, height, uint64(i))))
 	}
-	r.Equal(maxBlocksPerHeight, accepted)
 	r.Len(b.blockQueues[height].blocks, maxBlocksPerHeight)
 }
 
-// A single peer must not be able to fill a height with unvalidated junk and
-// crowd out the authentic block delivered by another peer. The busy peer is
-// capped at maxBlocksPerPeerPerHeight and the honest block still gets a slot.
-func TestBufferOnePeerCannotExcludeHonestBlock(t *testing.T) {
+// No coalition of peers may crowd out the authentic block. Even once the height
+// is full of unvalidated candidates, a block delivered by a peer that is not yet
+// over-represented displaces an over-represented one instead of being dropped,
+// so the honest block always secures a slot while memory stays bounded.
+func TestBufferCoalitionCannotExcludeHonestBlock(t *testing.T) {
 	r := require.New(t)
 
 	b := newBlockBuffer(200, 20)
 	const tip, height = 10, 12
 
-	busyAccepted := 0
-	for i := range maxBlocksPerHeight * 4 {
-		if ok, _ := b.AddBlock(tip, newPeerBlock("busy", blockAtHeight(t, height, uint64(i)))); ok {
-			busyAccepted++
+	// four peers fill all maxBlocksPerHeight (=8) slots, two each
+	nonce := uint64(0)
+	for p := 0; p < maxBlocksPerHeight/maxBlocksPerPeerPerHeight; p++ {
+		pid := "busy" + strconv.Itoa(p)
+		for range maxBlocksPerPeerPerHeight {
+			ok, _ := b.AddBlock(tip, newPeerBlock(pid, blockAtHeight(t, height, nonce)))
+			r.True(ok)
+			nonce++
 		}
 	}
-	// the busy peer is held to its per-peer share, not the whole height
-	r.Equal(maxBlocksPerPeerPerHeight, busyAccepted)
+	r.Len(b.blockQueues[height].blocks, maxBlocksPerHeight)
 
-	// the authentic block, delivered later by a different peer, is still admitted
-	ok, _ := b.AddBlock(tip, newPeerBlock("honest", blockAtHeight(t, height, 999)))
+	// the authentic block, delivered later by a different peer, is admitted
+	honest := blockAtHeight(t, height, 999)
+	ok, _ := b.AddBlock(tip, newPeerBlock("honest", honest))
 	r.True(ok)
+	r.Len(b.blockQueues[height].blocks, maxBlocksPerHeight) // still bounded
+
+	// and it is actually present in the queue
+	found := false
+	for _, blk := range b.blockQueues[height].blocks {
+		if blk.pid == "honest" {
+			found = true
+		}
+	}
+	r.True(found)
+}
+
+// A single peer is still held to its per-peer share and cannot take the height.
+func TestBufferCapsBlocksPerPeer(t *testing.T) {
+	r := require.New(t)
+
+	b := newBlockBuffer(200, 20)
+	const tip, height = 10, 12
+
+	accepted := 0
+	for i := range maxBlocksPerHeight * 4 {
+		if ok, _ := b.AddBlock(tip, newPeerBlock("busy", blockAtHeight(t, height, uint64(i)))); ok {
+			accepted++
+		}
+	}
+	r.Equal(maxBlocksPerPeerPerHeight, accepted)
 }
 
 // Heights at or below the tip can never be popped again, so they must not
