@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime/debug"
 	"slices"
 	"time"
@@ -57,17 +58,32 @@ var (
 		},
 		[]string{"type"},
 	)
+	_mintSkipMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_mint_skipped_actions_total",
+			Help: "Number of actions left out of a draft block while minting, by reason and action type",
+		},
+		[]string{"reason", "action"},
+	)
 
 	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
 	errDeployerNotWhitelisted    = errors.New("deployer not whitelisted")
 	// errMintDeadline tells the mint loop to stop picking actions and seal
 	// the draft, because the deadline passed while an action was running
 	errMintDeadline = errors.New("mint deadline passed while running an action")
+	// errMintActionPanic marks an action that panicked while running during mint
+	errMintActionPanic = errors.New("recovered from panic while running action")
 )
+
+// _mintDropLogLimit caps the actions a draft logs in detail when it drops
+// them for failing to run, so that a pool full of failing actions cannot
+// flood the log; the rest are counted and summed up once the draft is done.
+const _mintDropLogLimit = 16
 
 func init() {
 	prometheus.MustRegister(_stateDBMtc)
 	prometheus.MustRegister(_mintAbility)
+	prometheus.MustRegister(_mintSkipMtc)
 }
 
 // deductBlockGas takes the gas reported by a receipt out of the gas a block has
@@ -101,6 +117,7 @@ type (
 		captureStateDiff       bool              // capture the write queue for a state diff callback
 		stateDiffEntries       []WriteQueueEntry // captured write queue for state diff broadcasting
 		stateDiffDigest        []byte            // cached digest bytes for state diff callback
+		mintDrops              int               // actions dropped from the draft for failing to run
 	}
 )
 
@@ -1030,6 +1047,10 @@ func (ws *workingSet) pickAndRunActions(
 		}
 	}
 
+	if ws.mintDrops > _mintDropLogLimit {
+		log.L().Warn("dropped more actions that failed during mint than were logged", zap.Uint64("height", ws.height), zap.Int("dropped", ws.mintDrops), zap.Int("logged", _mintDropLogLimit))
+	}
+
 	if !fCtx.PreStateSystemAction {
 		systemActions, err = ws.generateSignedSystemActions(ctx, sign)
 		if err != nil {
@@ -1068,23 +1089,28 @@ func (ws *workingSet) validateAndRun(
 ) (bool, bool, *action.Receipt, error) {
 	if nextAction.Gas() > gasLimit {
 		log.L().Info("action gas exceeds limit", zap.Uint64("height", ws.height), zap.Uint64("gasLimit", gasLimit), zap.Uint64("actionGas", nextAction.Gas()))
+		countMintSkip("gas_limit", nextAction)
 		return true, false, nil, nil
 	}
 	if blobCnt+uint64(len(nextAction.BlobHashes())) > uint64(blobLimit) {
 		log.L().Info("blob count exceeds limit", zap.Uint64("height", ws.height), zap.Uint64("blobCnt", blobCnt), zap.Uint64("blobLimit", blobLimit))
+		countMintSkip("blob_limit", nextAction)
 		return true, false, nil, nil
 	}
 	if container, ok := nextAction.Envelope.(action.TxContainer); ok {
 		if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
 			log.L().Info("failed to unfold tx container", zap.Uint64("height", ws.height), zap.Error(err))
+			countMintSkip("unfold", nextAction)
 			return true, true, nil, nil
 		}
 	}
 	if err := ws.txValidator.ValidateWithState(ctx, nextAction); err != nil {
 		log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
 		if !errors.Is(err, action.ErrNonceTooLow) {
+			countMintSkip("validate", nextAction)
 			return true, true, nil, nil
 		}
+		countMintSkip("nonce_too_low", nextAction)
 		return false, false, nil, nil
 	}
 	actionCtx, err := withActionCtx(ctx, nextAction)
@@ -1099,6 +1125,7 @@ func (ws *workingSet) validateAndRun(
 	}
 	if err != nil {
 		log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
+		countMintSkip("validate", nextAction)
 		// without a sender there is nobody to evict
 		return true, nextAction.SenderAddress() != nil, nil, nil
 	}
@@ -1123,17 +1150,40 @@ func (ws *workingSet) validateAndRun(
 		if rerr := ws.revertDuringMint(si); rerr != nil {
 			return true, false, nil, errors.Wrap(rerr, "failed to revert action at mint deadline")
 		}
+		countMintSkip("deadline", nextAction)
 		return true, false, nil, errMintDeadline
 	case errors.Cause(err) == action.ErrGasLimit:
 		log.L().Info("runAction() failed due to gas limit", zap.Uint64("height", ws.height), zap.Error(err))
+		countMintSkip("gas_limit", nextAction)
 		return true, false, nil, nil
 	}
 	nextActionHash, _ := nextAction.Hash()
-	log.L().Info("dropping action that failed during mint", zap.Uint64("height", ws.height), log.Hex("action", nextActionHash[:]), zap.Error(err))
+	if ws.mintDrops < _mintDropLogLimit {
+		log.L().Warn("dropping action that failed during mint", zap.Uint64("height", ws.height), log.Hex("action", nextActionHash[:]), zap.Error(err))
+	}
+	ws.mintDrops++
 	if rerr := ws.revertDuringMint(si); rerr != nil {
 		return true, true, nil, errors.Wrapf(rerr, "failed to revert action %x", nextActionHash)
 	}
+	reason := "run_failed"
+	if errors.Is(err, errMintActionPanic) {
+		reason = "panic"
+	}
+	countMintSkip(reason, nextAction)
 	return true, true, nil, nil
+}
+
+// countMintSkip counts an action left out of a draft block.
+func countMintSkip(reason string, selp *action.SealedEnvelope) {
+	actType := "unknown"
+	if act := selp.Envelope.Action(); act != nil {
+		t := reflect.TypeOf(act)
+		if t.Kind() == reflect.Pointer {
+			t = t.Elem()
+		}
+		actType = t.Name()
+	}
+	_mintSkipMtc.WithLabelValues(reason, actType).Inc()
 }
 
 // revertDuringMint reverts the working set to snapshot si after an action
@@ -1166,12 +1216,14 @@ func (ws *workingSet) runActionDuringMint(ctx context.Context, selp *action.Seal
 			if hashErr != nil {
 				log.L().Error("failed to get action hash after recovering from mint-time panic", zap.Error(hashErr))
 			}
-			log.L().Error("recovered from panic while running action during mint; sender will be evicted from the pool",
-				log.Hex("action", actHash[:]),
-				zap.Any("panic", r),
-				zap.String("stack", string(debug.Stack())))
+			if ws.mintDrops < _mintDropLogLimit {
+				log.L().Error("recovered from panic while running action during mint; sender will be evicted from the pool",
+					log.Hex("action", actHash[:]),
+					zap.Any("panic", r),
+					zap.String("stack", string(debug.Stack())))
+			}
 			receipt = nil
-			err = errors.Errorf("recovered from panic while running action %x: %v", actHash, r)
+			err = errors.Wrapf(errMintActionPanic, "%x: %v", actHash, r)
 		}
 	}()
 	return ws.runAction(ctx, selp, revertAllSnapshots)

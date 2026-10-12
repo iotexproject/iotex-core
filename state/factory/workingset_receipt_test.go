@@ -13,8 +13,12 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/iotexproject/iotex-address/address"
 
@@ -34,7 +38,7 @@ import (
 // poisonProtocol fails actions from one sender at a chosen stage, after
 // writing to state, as a handler with a bad input would.
 type poisonProtocol struct {
-	bad     address.Address
+	bad     map[string]bool
 	scratch address.Address
 	stage   poisonStage
 	cancel  context.CancelFunc
@@ -98,7 +102,7 @@ func (p *poisonProtocol) HandleReceipt(ctx context.Context, _ action.Envelope, s
 }
 
 func (p *poisonProtocol) isBad(ctx context.Context) bool {
-	return protocol.MustGetActionCtx(ctx).Caller.String() == p.bad.String()
+	return p.bad[protocol.MustGetActionCtx(ctx).Caller.String()]
 }
 
 func (p *poisonProtocol) touchState(sm protocol.StateManager) error {
@@ -110,6 +114,12 @@ func (p *poisonProtocol) touchState(sm protocol.StateManager) error {
 		return err
 	}
 	return accountutil.StoreAccount(sm, p.scratch, acct)
+}
+
+func counterValue(t *testing.T, c prometheus.Counter) float64 {
+	var m dto.Metric
+	require.NoError(t, c.Write(&m))
+	return m.GetCounter().GetValue()
 }
 
 func makeTransferFrom(t *testing.T, signer int, nonce uint64, gasPrice int64) *action.SealedEnvelope {
@@ -134,19 +144,26 @@ func makeTransferFrom(t *testing.T, signer int, nonce uint64, gasPrice int64) *a
 // erigon, where a revert after the tx was finalized panics.
 func TestWorkingSet_Mint_DropsFailingAction(t *testing.T) {
 	for _, tc := range []struct {
-		name  string
-		stage poisonStage
+		name   string
+		stage  poisonStage
+		reason string
 	}{
-		{"receipt", failReceipt},
-		{"handle", failHandle},
-		{"panic", panicHandle},
+		{"receipt", failReceipt, "run_failed"},
+		{"handle", failHandle, "run_failed"},
+		{"panic", panicHandle, "panic"},
 	} {
-		t.Run(tc.name+"/statedb", func(t *testing.T) {
-			testMintDropsFailingAction(t, tc.stage, false)
-		})
-		t.Run(tc.name+"/erigon", func(t *testing.T) {
-			testMintDropsFailingAction(t, tc.stage, true)
-		})
+		for _, withHistory := range []bool{false, true} {
+			store := "statedb"
+			if withHistory {
+				store = "erigon"
+			}
+			t.Run(tc.name+"/"+store, func(t *testing.T) {
+				skips := _mintSkipMtc.WithLabelValues(tc.reason, "Transfer")
+				before := counterValue(t, skips)
+				testMintDropsFailingAction(t, tc.stage, withHistory)
+				require.Equal(t, before+1, counterValue(t, skips))
+			})
+		}
 	}
 }
 
@@ -166,6 +183,35 @@ func TestWorkingSet_Mint_DropsOnlyTheFailingSender(t *testing.T) {
 	require.NoError(err)
 	require.Equal(okHash, h)
 	require.NoError(validator.Validate(ctx, blk))
+}
+
+// TestWorkingSet_Mint_LimitsDropLogs verifies that a draft logs only the
+// first few actions it drops for failing to run, and sums up the rest.
+func TestWorkingSet_Mint_LimitsDropLogs(t *testing.T) {
+	require := require.New(t)
+	const senders = _mintDropLogLimit + 4
+	poison := &poisonProtocol{stage: failHandle, bad: map[string]bool{}}
+	pending := map[string][]*action.SealedEnvelope{}
+	for i := 0; i < senders; i++ {
+		addr := identityset.Address(i).String()
+		poison.bad[addr] = true
+		pending[addr] = []*action.SealedEnvelope{makeTransferFrom(t, i, 1, 1)}
+	}
+	proposer, _, ctx := newPoisonMintEnv(t, poison, false, context.Background())
+	ap := mock_actpool.NewMockActPool(gomock.NewController(t))
+	ap.EXPECT().BundlePool().Return(nil).Times(1)
+	ap.EXPECT().PendingActionMap().Return(pending).Times(1)
+	ap.EXPECT().DeleteAction(gomock.Any()).Times(senders)
+
+	core, logs := observer.New(zap.InfoLevel)
+	defer zap.ReplaceGlobals(zap.New(core))()
+	blk, err := proposer.Mint(ctx, ap, identityset.PrivateKey(27))
+	require.NoError(err)
+	require.Empty(blk.Actions)
+	require.Equal(_mintDropLogLimit, logs.FilterMessage("dropping action that failed during mint").Len())
+	summary := logs.FilterMessage("dropped more actions that failed during mint than were logged").All()
+	require.Len(summary, 1)
+	require.EqualValues(senders, summary[0].ContextMap()["dropped"])
 }
 
 // TestWorkingSet_Mint_StopsWhenCancelled verifies that an action failing
@@ -193,6 +239,9 @@ func TestWorkingSet_Mint_SealsAtDeadline(t *testing.T) {
 	defer cancel()
 	proposer, validator, ctx := newPoisonMintEnv(t, &poisonProtocol{stage: expireHandle}, false, ctx)
 	ap, ok := newPoisonActPool(t, 0)
+	skips := _mintSkipMtc.WithLabelValues("deadline", "Transfer")
+	before := counterValue(t, skips)
+	defer func() { require.Equal(before+1, counterValue(t, skips)) }()
 	var (
 		blk *block.Block
 		err error
@@ -252,7 +301,10 @@ var (
 // action before the transfer is handled.
 func newPoisonMintEnv(t *testing.T, poison *poisonProtocol, withHistory bool, parent context.Context) (Factory, Factory, context.Context) {
 	require := require.New(t)
-	poison.bad, poison.scratch = _poisonSender, identityset.Address(30)
+	if poison.bad == nil {
+		poison.bad = map[string]bool{_poisonSender.String(): true}
+	}
+	poison.scratch = identityset.Address(30)
 	registry := protocol.NewRegistry()
 	noDeposit := func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) ([]*action.TransactionLog, error) {
 		return nil, nil
@@ -263,7 +315,9 @@ func newPoisonMintEnv(t *testing.T, poison *poisonProtocol, withHistory bool, pa
 		Chain:   blockchain.DefaultConfig,
 		Genesis: genesis.TestDefault(),
 	}
-	cfg.Genesis.InitBalanceMap[_poisonSender.String()] = "100000000"
+	for bad := range poison.bad {
+		cfg.Genesis.InitBalanceMap[bad] = "100000000"
+	}
 	cfg.Genesis.InitBalanceMap[_honestSender.String()] = "100000000"
 	newFactory := func(withHistory bool) Factory {
 		cfg := cfg
