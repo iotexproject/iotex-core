@@ -8,6 +8,7 @@ package factory
 import (
 	"context"
 	"math/big"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -295,11 +296,25 @@ var (
 	_honestSender = identityset.Address(26)
 )
 
+type (
+	// poisonEnv is what a poisonEnvOption can adjust
+	poisonEnv struct {
+		registry *protocol.Registry
+		cfg      *Config
+		// onDisk keeps state in a file-backed store, which unlike the
+		// in-memory one supports the range reads staking needs
+		onDisk bool
+	}
+	// poisonEnvOption registers more protocols or adjusts the config of a
+	// poison mint env; the poison and account protocols are registered first.
+	poisonEnvOption func(*testing.T, *poisonEnv)
+)
+
 // newPoisonMintEnv returns a proposer, which writes history to erigon if
 // withHistory is set, a validator, and the context to mint block 1 in. The
 // poison protocol runs ahead of the account protocol, so it sees every
 // action before the transfer is handled.
-func newPoisonMintEnv(t *testing.T, poison *poisonProtocol, withHistory bool, parent context.Context) (Factory, Factory, context.Context) {
+func newPoisonMintEnv(t *testing.T, poison *poisonProtocol, withHistory bool, parent context.Context, opts ...poisonEnvOption) (Factory, Factory, context.Context) {
 	require := require.New(t)
 	if poison.bad == nil {
 		poison.bad = map[string]bool{_poisonSender.String(): true}
@@ -315,24 +330,40 @@ func newPoisonMintEnv(t *testing.T, poison *poisonProtocol, withHistory bool, pa
 		Chain:   blockchain.DefaultConfig,
 		Genesis: genesis.TestDefault(),
 	}
+	// genesis.TestDefault shares its balance map, so fund a copy
+	balances := make(map[string]string, len(cfg.Genesis.InitBalanceMap))
+	for addr, balance := range cfg.Genesis.InitBalanceMap {
+		balances[addr] = balance
+	}
+	cfg.Genesis.InitBalanceMap = balances
 	for bad := range poison.bad {
 		cfg.Genesis.InitBalanceMap[bad] = "100000000"
 	}
 	cfg.Genesis.InitBalanceMap[_honestSender.String()] = "100000000"
+	env := &poisonEnv{registry: registry, cfg: &cfg}
+	for _, opt := range opts {
+		opt(t, env)
+	}
 	newFactory := func(withHistory bool) Factory {
 		cfg := cfg
 		if withHistory {
 			cfg.Chain.HistoryIndexPath = t.TempDir()
 		}
-		f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+		var kv db.KVStore = db.NewMemKVStore()
+		if env.onDisk {
+			var err error
+			kv, err = db.CreateKVStore(db.DefaultConfig, filepath.Join(t.TempDir(), "state.db"))
+			require.NoError(err)
+		}
+		f, err := NewStateDB(cfg, kv, RegistryStateDBOption(registry))
 		require.NoError(err)
-		startCtx := protocol.WithBlockchainCtx(
+		startCtx := protocol.WithFeatureWithHeightCtx(protocol.WithBlockchainCtx(
 			protocol.WithBlockCtx(
 				genesis.WithGenesisContext(context.Background(), cfg.Genesis),
 				protocol.BlockCtx{},
 			),
 			protocol.BlockchainCtx{ChainID: 1},
-		)
+		))
 		require.NoError(f.Start(startCtx))
 		t.Cleanup(func() {
 			// a draft that failed part way keeps its erigon store open, and
