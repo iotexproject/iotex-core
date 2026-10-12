@@ -129,3 +129,73 @@ func BenchmarkLooping(b *testing.B) {
 	}
 	b.StopTimer()
 }
+
+func TestActionIterator_PopAccount(t *testing.T) {
+	sign := func(t *testing.T, key int, nonce uint64, price int64) *action.SealedEnvelope {
+		tsf := action.NewTransfer(big.NewInt(1), identityset.Address(31).String(), nil)
+		elp := (&action.EnvelopeBuilder{}).SetNonce(nonce).SetGasPrice(big.NewInt(price)).
+			SetAction(tsf).Build()
+		selp, err := action.Sign(elp, identityset.PrivateKey(key))
+		require.NoError(t, err)
+		return selp
+	}
+	drain := func(ai ActionIterator) []*action.SealedEnvelope {
+		var acts []*action.SealedEnvelope
+		for {
+			act, ok := ai.Next()
+			if !ok {
+				return acts
+			}
+			acts = append(acts, act)
+		}
+	}
+	a, b, c := identityset.Address(28).String(), identityset.Address(29).String(), identityset.Address(30).String()
+
+	t.Run("sender without more actions", func(t *testing.T) {
+		// a's only action is no longer in the iterator once returned, so
+		// popping a must not take b's actions with it
+		a1, b1, b2, c1 := sign(t, 28, 1, 30), sign(t, 29, 1, 20), sign(t, 29, 2, 20), sign(t, 30, 1, 10)
+		ai := NewActionIterator(map[string][]*action.SealedEnvelope{
+			a: {a1}, b: {b1, b2}, c: {c1},
+		})
+		act, ok := ai.Next()
+		require.True(t, ok)
+		require.Equal(t, a1, act)
+		ai.PopAccount()
+		require.Equal(t, []*action.SealedEnvelope{b1, b2, c1}, drain(ai))
+	})
+
+	t.Run("sender whose next action is cheaper than another head", func(t *testing.T) {
+		// once a1 is returned, b1 outranks a2 at the top of the iterator
+		a1, a2, b1 := sign(t, 28, 1, 30), sign(t, 28, 2, 10), sign(t, 29, 1, 20)
+		ai := NewActionIterator(map[string][]*action.SealedEnvelope{
+			a: {a1, a2}, b: {b1},
+		})
+		act, ok := ai.Next()
+		require.True(t, ok)
+		require.Equal(t, a1, act)
+		ai.PopAccount()
+		require.Equal(t, []*action.SealedEnvelope{b1}, drain(ai))
+	})
+
+	t.Run("sender whose next action stays on top", func(t *testing.T) {
+		a1, a2, a3, b1 := sign(t, 28, 1, 30), sign(t, 28, 2, 25), sign(t, 28, 3, 25), sign(t, 29, 1, 20)
+		ai := NewActionIterator(map[string][]*action.SealedEnvelope{
+			a: {a1, a2, a3}, b: {b1},
+		})
+		act, ok := ai.Next()
+		require.True(t, ok)
+		require.Equal(t, a1, act)
+		ai.PopAccount()
+		require.Equal(t, []*action.SealedEnvelope{b1}, drain(ai))
+	})
+
+	t.Run("without a returned action", func(t *testing.T) {
+		a1, b1 := sign(t, 28, 1, 30), sign(t, 29, 1, 20)
+		ai := NewActionIterator(map[string][]*action.SealedEnvelope{
+			a: {a1}, b: {b1},
+		})
+		ai.PopAccount()
+		require.Equal(t, []*action.SealedEnvelope{a1, b1}, drain(ai))
+	})
+}
