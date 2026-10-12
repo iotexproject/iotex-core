@@ -250,10 +250,10 @@ func TestWorkingSet_ValidateBlock_RecoversPanic(t *testing.T) {
 }
 
 // TestWorkingSet_Mint_RecoversActionPanic verifies that a panic raised while running a
-// single pending action during minting is recovered into an error (the draft is discarded,
-// same as today) and that the offending sender is evicted from the pool — so the next mint
-// attempt no longer sees the poison action, turning what would otherwise be a persistent
-// block-production stall into a one-time lost draft.
+// single pending action during minting is recovered, and that the offending action is
+// dropped from the draft and its sender evicted from the pool, while the draft itself is
+// still minted — so a poison action neither crashes the mint goroutine nor stalls block
+// production.
 func TestWorkingSet_Mint_RecoversActionPanic(t *testing.T) {
 	require := require.New(t)
 	registry := protocol.NewRegistry()
@@ -303,14 +303,20 @@ func TestWorkingSet_Mint_RecoversActionPanic(t *testing.T) {
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 
-	// the panic must be recovered and surfaced as an error, not crash the mint goroutine,
-	// and the poison action's sender must be evicted from the pool (see ap.EXPECT().DeleteAction above)
-	var mintErr error
+	// the panic must be recovered, not crash the mint goroutine, the poison action must be
+	// left out of the block, and its sender must be evicted from the pool (see
+	// ap.EXPECT().DeleteAction above)
+	var (
+		blk     *block.Block
+		mintErr error
+	)
 	require.NotPanics(func() {
-		_, mintErr = f.Mint(ctx, ap, identityset.PrivateKey(27))
+		blk, mintErr = f.Mint(ctx, ap, identityset.PrivateKey(27))
 	})
-	require.Error(mintErr)
-	require.Contains(mintErr.Error(), "recovered from panic")
+	require.NoError(mintErr)
+	for _, act := range blk.Actions {
+		require.NotEqual(sender.String(), act.SenderAddress().String())
+	}
 }
 
 // TestWorkingSet_ValidateAndRun_SkipsExecutionBelowFloorDataGas verifies that

@@ -59,17 +59,8 @@ var (
 	)
 
 	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
-	errUnfoldTxContainer         = errors.New("failed to unfold tx container")
 	errDeployerNotWhitelisted    = errors.New("deployer not whitelisted")
 )
-
-// receiptHandlerError is a failure of a PostActionHandler, after the action
-// itself has run. The action is unusable but says nothing about the rest of
-// the block, so mint drops it rather than the draft; see validateAndRun.
-type receiptHandlerError struct{ error }
-
-func (e receiptHandlerError) Cause() error  { return errors.Cause(e.error) }
-func (e receiptHandlerError) Unwrap() error { return e.error }
 
 func init() {
 	prometheus.MustRegister(_stateDBMtc)
@@ -296,7 +287,7 @@ func (ws *workingSet) runAction(
 	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PostActionHandler); ok {
 			if err := pp.HandleReceipt(ctx, selp.Envelope, ws, receipt); err != nil {
-				return nil, receiptHandlerError{errors.Wrapf(err, "error when handle action %x receipt", selpHash)}
+				return nil, errors.Wrapf(err, "error when handle action %x receipt", selpHash)
 			}
 		}
 	}
@@ -1106,47 +1097,55 @@ func (ws *workingSet) validateAndRun(
 		log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, true, nil, nil
 	}
-	// The snapshot lets an action whose receipt handling fails be dropped on
-	// its own, so runAction must not reset the store snapshots before the
-	// revert below; the reset it would do is deferred here instead.
+	// An action that fails says nothing about the rest of the block, so it is
+	// reverted to this snapshot and dropped on its own; runAction must not
+	// reset the store snapshots before that, so the reset is deferred here.
 	si := ws.Snapshot()
 	if revertAllSnapshots {
 		defer ws.store.ResetSnapshots()
 	}
 	receipt, err := ws.runActionDuringMint(actionCtx, nextAction, false)
-	if errors.As(err, new(receiptHandlerError)) {
-		log.L().Info("runAction() failed to handle receipt", zap.Uint64("height", ws.height), zap.Error(err))
-		if rerr := ws.Revert(si); rerr != nil {
-			return true, true, nil, errors.Wrapf(rerr, "failed to revert snapshot %d", si)
-		}
-		return true, true, nil, nil
-	}
-	switch errors.Cause(err) {
-	case nil:
-		// do nothing
-	case action.ErrGasLimit:
+	switch {
+	case err == nil:
+		return false, false, receipt, nil
+	case ctx.Err() != nil:
+		// the draft was cancelled or ran out of time, which is not the
+		// sender's fault
+		return true, false, nil, errors.Wrap(err, "mint stopped while running an action")
+	case errors.Cause(err) == action.ErrGasLimit:
 		log.L().Info("runAction() failed due to gas limit", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, false, nil, nil
-	case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
-		log.L().Info("runAction() failed", zap.Uint64("height", ws.height), zap.Error(err))
-		return true, true, nil, nil
-	default:
-		nextActionHash, hashErr := nextAction.Hash()
-		if hashErr != nil {
-			return true, true, nil, errors.Wrapf(hashErr, "Failed to get hash for %x", nextActionHash)
-		}
-		return true, true, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 	}
-	return false, false, receipt, nil
+	nextActionHash, _ := nextAction.Hash()
+	log.L().Info("dropping action that failed during mint", zap.Uint64("height", ws.height), log.Hex("action", nextActionHash[:]), zap.Error(err))
+	if rerr := ws.revertDuringMint(si); rerr != nil {
+		return true, true, nil, errors.Wrapf(rerr, "failed to revert action %x", nextActionHash)
+	}
+	return true, true, nil, nil
+}
+
+// revertDuringMint reverts the working set to snapshot si after an action
+// failed. The draft can only be kept if the revert succeeds, so a panic in
+// the revert is returned as an error and the caller abandons the draft.
+func (ws *workingSet) revertDuringMint(si int) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Errorf("recovered from panic while reverting snapshot %d: %v", si, r)
+		}
+	}()
+	if err := ws.Revert(si); err != nil {
+		return errors.Wrapf(err, "failed to revert snapshot %d", si)
+	}
+	return nil
 }
 
 // runActionDuringMint runs a single action while assembling a draft block, recovering from
 // any panic raised in the process. A panic here otherwise unwinds past this whole draft (caught
 // only by the mint goroutine's recover in blockpreparer.go) and, unlike a normal error return,
 // skips the caller's sender-eviction logic — so the same poison action would be picked again on
-// every subsequent mint attempt, stalling block production instead of losing a single draft.
-// Converting the panic into an ordinary error routes it through validateAndRun's default case,
-// which evicts the sender from the pool before this draft is abandoned.
+// every subsequent mint attempt, stalling block production. Converting the panic into an
+// ordinary error lets validateAndRun revert and drop the action and evict its sender, and the
+// draft carries on without it.
 func (ws *workingSet) runActionDuringMint(ctx context.Context, selp *action.SealedEnvelope, revertAllSnapshots bool) (receipt *action.Receipt, err error) {
 	defer func() {
 		if r := recover(); r != nil {

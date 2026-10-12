@@ -28,7 +28,7 @@ var _validateBlockPanicMtc = prometheus.NewCounter(prometheus.CounterOpts{
 
 var _mintActionPanicMtc = prometheus.NewCounter(prometheus.CounterOpts{
 	Name: "iotex_mint_action_panics_total",
-	Help: "Number of panics recovered while running a single action during minting (the action's sender was evicted from the pool so the next mint attempt won't retry it; this draft was still discarded).",
+	Help: "Number of panics recovered while running a single action during minting (the action was dropped from the draft and its sender evicted from the pool).",
 })
 
 func init() {
