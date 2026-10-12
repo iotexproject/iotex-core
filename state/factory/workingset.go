@@ -241,7 +241,15 @@ func (ws *workingSet) runAction(
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
-	defer ws.finalizeTx(ctx)
+	// Finalize the tx only once it has run through: erigon drops its revert
+	// journal on FinalizeTx, so a failed action that mint is about to revert
+	// must not be finalized first.
+	succeeded := false
+	defer func() {
+		if succeeded {
+			ws.finalizeTx(ctx)
+		}
+	}()
 	if revertAllSnapshots {
 		defer ws.store.ResetSnapshots()
 	}
@@ -292,6 +300,7 @@ func (ws *workingSet) runAction(
 			}
 		}
 	}
+	succeeded = true
 	return receipt, nil
 }
 
