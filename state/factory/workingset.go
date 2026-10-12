@@ -60,6 +60,9 @@ var (
 
 	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
 	errDeployerNotWhitelisted    = errors.New("deployer not whitelisted")
+	// errMintDeadline tells the mint loop to stop picking actions and seal
+	// the draft, because the deadline passed while an action was running
+	errMintDeadline = errors.New("mint deadline passed while running an action")
 )
 
 func init() {
@@ -998,6 +1001,11 @@ func (ws *workingSet) pickAndRunActions(
 			if deleteAction {
 				ap.DeleteAction(nextAction.SenderAddress())
 			}
+			if errors.Is(err, errMintDeadline) {
+				log.L().Warn("Stop processing actions due to deadline, please consider increasing hardware", zap.Timep("deadline", deadline), zap.Duration("duration", time.Since(blkCtx.BlockTimeStamp)), zap.Int("actions", len(executedActions)), zap.Uint64("gas", fullGas-blkCtx.GasLimit))
+				_mintAbility.WithLabelValues("saturation").Set(1)
+				break
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -1089,13 +1097,10 @@ func (ws *workingSet) validateAndRun(
 			}
 		}
 	}
-	caller := nextAction.SenderAddress()
 	if err != nil {
-		if caller == nil {
-			return false, false, nil, errors.New("failed to get address")
-		}
 		log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
-		return true, true, nil, nil
+		// without a sender there is nobody to evict
+		return true, nextAction.SenderAddress() != nil, nil, nil
 	}
 	// An action that fails says nothing about the rest of the block, so it is
 	// reverted to this snapshot and dropped on its own; runAction must not
@@ -1109,9 +1114,16 @@ func (ws *workingSet) validateAndRun(
 	case err == nil:
 		return false, false, receipt, nil
 	case ctx.Err() != nil:
-		// the draft was cancelled or ran out of time, which is not the
-		// sender's fault
-		return true, false, nil, errors.Wrap(err, "mint stopped while running an action")
+		// neither is the sender's fault, so it is not evicted
+		if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return true, false, nil, errors.Wrap(err, "mint cancelled while running an action")
+		}
+		// out of time: drop this action and seal what the draft holds, as
+		// the mint loop does when the deadline passes between actions
+		if rerr := ws.revertDuringMint(si); rerr != nil {
+			return true, false, nil, errors.Wrap(rerr, "failed to revert action at mint deadline")
+		}
+		return true, false, nil, errMintDeadline
 	case errors.Cause(err) == action.ErrGasLimit:
 		log.L().Info("runAction() failed due to gas limit", zap.Uint64("height", ws.height), zap.Error(err))
 		return true, false, nil, nil
