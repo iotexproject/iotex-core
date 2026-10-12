@@ -51,6 +51,8 @@ const (
 	panicHandle
 	// cancelHandle cancels the mint context and fails in Handle
 	cancelHandle
+	// expireHandle waits in Handle for the mint deadline to pass, then fails
+	expireHandle
 )
 
 func (p *poisonProtocol) Handle(ctx context.Context, _ action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
@@ -65,6 +67,8 @@ func (p *poisonProtocol) Handle(ctx context.Context, _ action.Envelope, sm proto
 		panic("injected panic while handling action")
 	case cancelHandle:
 		p.cancel()
+	case expireHandle:
+		<-ctx.Done()
 	}
 	return nil, errors.New("injected action handling failure")
 }
@@ -159,7 +163,33 @@ func TestWorkingSet_Mint_StopsWhenCancelled(t *testing.T) {
 	require.NotPanics(func() {
 		_, err = proposer.Mint(ctx, ap, identityset.PrivateKey(27))
 	})
-	require.ErrorContains(err, "mint stopped while running an action")
+	require.ErrorContains(err, "mint cancelled while running an action")
+}
+
+// TestWorkingSet_Mint_SealsAtDeadline verifies that an action failing after
+// the mint deadline passed is reverted and left out, without evicting its
+// sender, and that the draft is sealed with the actions it already holds.
+func TestWorkingSet_Mint_SealsAtDeadline(t *testing.T) {
+	require := require.New(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	proposer, validator, ctx := newPoisonMintEnv(t, &poisonProtocol{stage: expireHandle}, false, ctx)
+	ap, ok := newPoisonActPool(t, 0)
+	var (
+		blk *block.Block
+		err error
+	)
+	require.NotPanics(func() {
+		blk, err = proposer.Mint(ctx, ap, identityset.PrivateKey(27))
+	})
+	require.NoError(err)
+	okHash, err := ok.Hash()
+	require.NoError(err)
+	require.Len(blk.Actions, 1)
+	h, err := blk.Actions[0].Hash()
+	require.NoError(err)
+	require.Equal(okHash, h)
+	require.NoError(validator.Validate(context.WithoutCancel(ctx), blk))
 }
 
 func testMintDropsFailingAction(t *testing.T, stage poisonStage, withHistory bool) {
