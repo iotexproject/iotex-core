@@ -31,35 +31,73 @@ import (
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
-// failingReceiptProtocol fails HandleReceipt for actions from one sender,
-// after writing to state, as a post-action handler with a bad input would.
-type failingReceiptProtocol struct {
+// poisonProtocol fails actions from one sender at a chosen stage, after
+// writing to state, as a handler with a bad input would.
+type poisonProtocol struct {
 	bad     address.Address
 	scratch address.Address
+	stage   poisonStage
+	cancel  context.CancelFunc
 }
 
-func (p *failingReceiptProtocol) Handle(context.Context, action.Envelope, protocol.StateManager) (*action.Receipt, error) {
-	return nil, nil
+type poisonStage int
+
+const (
+	// failReceipt fails in HandleReceipt, after the action has run
+	failReceipt poisonStage = iota
+	// failHandle returns an error from Handle
+	failHandle
+	// panicHandle panics in Handle
+	panicHandle
+	// cancelHandle cancels the mint context and fails in Handle
+	cancelHandle
+)
+
+func (p *poisonProtocol) Handle(ctx context.Context, _ action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
+	if p.stage == failReceipt || !p.isBad(ctx) {
+		return nil, nil
+	}
+	if err := p.touchState(sm); err != nil {
+		return nil, err
+	}
+	switch p.stage {
+	case panicHandle:
+		panic("injected panic while handling action")
+	case cancelHandle:
+		p.cancel()
+	}
+	return nil, errors.New("injected action handling failure")
 }
 
-func (p *failingReceiptProtocol) ReadState(context.Context, protocol.StateReader, []byte, ...[]byte) ([]byte, uint64, error) {
+func (p *poisonProtocol) ReadState(context.Context, protocol.StateReader, []byte, ...[]byte) ([]byte, uint64, error) {
 	return nil, 0, nil
 }
 
-func (p *failingReceiptProtocol) Register(r *protocol.Registry) error {
+func (p *poisonProtocol) Register(r *protocol.Registry) error {
 	return r.Register(p.Name(), p)
 }
 
-func (p *failingReceiptProtocol) ForceRegister(r *protocol.Registry) error {
+func (p *poisonProtocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(p.Name(), p)
 }
 
-func (p *failingReceiptProtocol) Name() string { return "failingReceipt" }
+func (p *poisonProtocol) Name() string { return "poison" }
 
-func (p *failingReceiptProtocol) HandleReceipt(ctx context.Context, _ action.Envelope, sm protocol.StateManager, _ *action.Receipt) error {
-	if protocol.MustGetActionCtx(ctx).Caller.String() != p.bad.String() {
+func (p *poisonProtocol) HandleReceipt(ctx context.Context, _ action.Envelope, sm protocol.StateManager, _ *action.Receipt) error {
+	if p.stage != failReceipt || !p.isBad(ctx) {
 		return nil
 	}
+	if err := p.touchState(sm); err != nil {
+		return err
+	}
+	return errors.New("injected receipt handling failure")
+}
+
+func (p *poisonProtocol) isBad(ctx context.Context) bool {
+	return protocol.MustGetActionCtx(ctx).Caller.String() == p.bad.String()
+}
+
+func (p *poisonProtocol) touchState(sm protocol.StateManager) error {
 	acct, err := accountutil.LoadOrCreateAccount(sm, p.scratch)
 	if err != nil {
 		return err
@@ -67,10 +105,7 @@ func (p *failingReceiptProtocol) HandleReceipt(ctx context.Context, _ action.Env
 	if err := acct.AddBalance(big.NewInt(1000)); err != nil {
 		return err
 	}
-	if err := accountutil.StoreAccount(sm, p.scratch, acct); err != nil {
-		return err
-	}
-	return errors.New("injected receipt handling failure")
+	return accountutil.StoreAccount(sm, p.scratch, acct)
 }
 
 func makeTransferFrom(t *testing.T, signer int, nonce uint64, gasPrice int64) *action.SealedEnvelope {
@@ -88,88 +123,49 @@ func makeTransferFrom(t *testing.T, signer int, nonce uint64, gasPrice int64) *a
 	return selp
 }
 
-// TestWorkingSet_Mint_DropsActionFailingReceiptHandling verifies that an
-// action whose receipt handling fails is left out of the block, with its
-// state changes reverted and its sender evicted, while the rest of the draft
-// is kept and validates on another node. It runs with a proposer that also
-// writes history to erigon, where a revert after the tx was finalized panics.
-func TestWorkingSet_Mint_DropsActionFailingReceiptHandling(t *testing.T) {
-	t.Run("statedb", func(t *testing.T) {
-		testMintDropsActionFailingReceiptHandling(t, false)
-	})
-	t.Run("erigon", func(t *testing.T) {
-		testMintDropsActionFailingReceiptHandling(t, true)
-	})
+// TestWorkingSet_Mint_DropsFailingAction verifies that an action that fails
+// while running is left out of the block, with its state changes reverted
+// and its sender evicted, while the rest of the draft is kept and validates
+// on another node. It also runs with a proposer that writes history to
+// erigon, where a revert after the tx was finalized panics.
+func TestWorkingSet_Mint_DropsFailingAction(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		stage poisonStage
+	}{
+		{"receipt", failReceipt},
+		{"handle", failHandle},
+		{"panic", panicHandle},
+	} {
+		t.Run(tc.name+"/statedb", func(t *testing.T) {
+			testMintDropsFailingAction(t, tc.stage, false)
+		})
+		t.Run(tc.name+"/erigon", func(t *testing.T) {
+			testMintDropsFailingAction(t, tc.stage, true)
+		})
+	}
 }
 
-func testMintDropsActionFailingReceiptHandling(t *testing.T, withHistory bool) {
+// TestWorkingSet_Mint_StopsWhenCancelled verifies that an action failing
+// because the mint context is gone abandons the draft without evicting the
+// sender, who did nothing wrong.
+func TestWorkingSet_Mint_StopsWhenCancelled(t *testing.T) {
 	require := require.New(t)
-	bad, honest := identityset.Address(28), identityset.Address(26)
-	registry := protocol.NewRegistry()
-	noDeposit := func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) ([]*action.TransactionLog, error) {
-		return nil, nil
-	}
-	require.NoError(account.NewProtocol(noDeposit).Register(registry))
-	require.NoError((&failingReceiptProtocol{bad: bad, scratch: identityset.Address(30)}).Register(registry))
-	cfg := Config{
-		Chain:   blockchain.DefaultConfig,
-		Genesis: genesis.TestDefault(),
-	}
-	cfg.Genesis.InitBalanceMap[bad.String()] = "100000000"
-	cfg.Genesis.InitBalanceMap[honest.String()] = "100000000"
-	newFactory := func(withHistory bool) Factory {
-		cfg := cfg
-		if withHistory {
-			cfg.Chain.HistoryIndexPath = t.TempDir()
-		}
-		f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
-		require.NoError(err)
-		startCtx := protocol.WithBlockchainCtx(
-			protocol.WithBlockCtx(
-				genesis.WithGenesisContext(context.Background(), cfg.Genesis),
-				protocol.BlockCtx{},
-			),
-			protocol.BlockchainCtx{ChainID: 1},
-		)
-		require.NoError(f.Start(startCtx))
-		t.Cleanup(func() {
-			// a draft that failed part way keeps its erigon store open, and
-			// stopping the factory would then wait on it forever
-			if t.Failed() {
-				return
-			}
-			require.NoError(f.Stop(startCtx))
-		})
-		return f
-	}
-	proposer, validator := newFactory(withHistory), newFactory(false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	proposer, _, ctx := newPoisonMintEnv(t, &poisonProtocol{stage: cancelHandle, cancel: cancel}, false, ctx)
+	ap, _ := newPoisonActPool(t, 0)
+	var err error
+	require.NotPanics(func() {
+		_, err = proposer.Mint(ctx, ap, identityset.PrivateKey(27))
+	})
+	require.ErrorContains(err, "mint stopped while running an action")
+}
 
-	// the honest action is priced higher so it runs first and the draft
-	// already holds it when the poison action fails
-	poison, ok := makeTransferFrom(t, 28, 1, 0), makeTransferFrom(t, 26, 1, 1)
-	ctrl := gomock.NewController(t)
-	ap := mock_actpool.NewMockActPool(ctrl)
-	ap.EXPECT().BundlePool().Return(nil).Times(1)
-	ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
-		bad.String():    {poison},
-		honest.String(): {ok},
-	}).Times(1)
-	ap.EXPECT().DeleteAction(gomock.Any()).Do(func(addr address.Address) {
-		require.Equal(bad.String(), addr.String())
-	}).Times(1)
-
-	ctx := protocol.WithBlockCtx(context.Background(),
-		protocol.BlockCtx{
-			BlockHeight:    uint64(1),
-			BlockTimeStamp: time.Unix(1700000000, 0),
-			Producer:       identityset.Address(27),
-			GasLimit:       testutil.TestGasLimit * 100000,
-		})
-	ctx = protocol.WithBlockchainCtx(
-		genesis.WithGenesisContext(ctx, cfg.Genesis),
-		protocol.BlockchainCtx{ChainID: 1},
-	)
-	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+func testMintDropsFailingAction(t *testing.T, stage poisonStage, withHistory bool) {
+	require := require.New(t)
+	proposer, validator, ctx := newPoisonMintEnv(t, &poisonProtocol{stage: stage}, withHistory, context.Background())
+	ap, ok := newPoisonActPool(t, 1)
 
 	var (
 		blk *block.Block
@@ -195,4 +191,87 @@ func testMintDropsActionFailingReceiptHandling(t *testing.T, withHistory bool) {
 	// commit the draft on the proposer, which also writes its history to
 	// erigon and releases the erigon store before the factory stops
 	require.NoError(proposer.PutBlock(ctx, blk))
+}
+
+var (
+	_poisonSender = identityset.Address(28)
+	_honestSender = identityset.Address(26)
+)
+
+// newPoisonMintEnv returns a proposer, which writes history to erigon if
+// withHistory is set, a validator, and the context to mint block 1 in. The
+// poison protocol runs ahead of the account protocol, so it sees every
+// action before the transfer is handled.
+func newPoisonMintEnv(t *testing.T, poison *poisonProtocol, withHistory bool, parent context.Context) (Factory, Factory, context.Context) {
+	require := require.New(t)
+	poison.bad, poison.scratch = _poisonSender, identityset.Address(30)
+	registry := protocol.NewRegistry()
+	noDeposit := func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) ([]*action.TransactionLog, error) {
+		return nil, nil
+	}
+	require.NoError(poison.Register(registry))
+	require.NoError(account.NewProtocol(noDeposit).Register(registry))
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	cfg.Genesis.InitBalanceMap[_poisonSender.String()] = "100000000"
+	cfg.Genesis.InitBalanceMap[_honestSender.String()] = "100000000"
+	newFactory := func(withHistory bool) Factory {
+		cfg := cfg
+		if withHistory {
+			cfg.Chain.HistoryIndexPath = t.TempDir()
+		}
+		f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+		require.NoError(err)
+		startCtx := protocol.WithBlockchainCtx(
+			protocol.WithBlockCtx(
+				genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+				protocol.BlockCtx{},
+			),
+			protocol.BlockchainCtx{ChainID: 1},
+		)
+		require.NoError(f.Start(startCtx))
+		t.Cleanup(func() {
+			// a draft that failed part way keeps its erigon store open, and
+			// stopping the factory would then wait on it forever
+			if t.Failed() {
+				return
+			}
+			require.NoError(f.Stop(startCtx))
+		})
+		return f
+	}
+
+	ctx := protocol.WithBlockCtx(parent,
+		protocol.BlockCtx{
+			BlockHeight:    uint64(1),
+			BlockTimeStamp: time.Unix(1700000000, 0),
+			Producer:       identityset.Address(27),
+			GasLimit:       testutil.TestGasLimit * 100000,
+		})
+	ctx = protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{ChainID: 1},
+	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+	return newFactory(withHistory), newFactory(false), ctx
+}
+
+// newPoisonActPool returns a pool holding one action from the poison sender
+// and a higher-priced one from an honest sender, which therefore runs first
+// so the draft already holds it when the poison action fails. The pool
+// expects the poison sender to be evicted evictions times.
+func newPoisonActPool(t *testing.T, evictions int) (*mock_actpool.MockActPool, *action.SealedEnvelope) {
+	poison, ok := makeTransferFrom(t, 28, 1, 0), makeTransferFrom(t, 26, 1, 1)
+	ap := mock_actpool.NewMockActPool(gomock.NewController(t))
+	ap.EXPECT().BundlePool().Return(nil).Times(1)
+	ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
+		_poisonSender.String(): {poison},
+		_honestSender.String(): {ok},
+	}).Times(1)
+	ap.EXPECT().DeleteAction(gomock.Any()).Do(func(addr address.Address) {
+		require.Equal(t, _poisonSender.String(), addr.String())
+	}).Times(evictions)
+	return ap, ok
 }
