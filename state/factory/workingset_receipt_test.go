@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
+	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -90,8 +91,18 @@ func makeTransferFrom(t *testing.T, signer int, nonce uint64, gasPrice int64) *a
 // TestWorkingSet_Mint_DropsActionFailingReceiptHandling verifies that an
 // action whose receipt handling fails is left out of the block, with its
 // state changes reverted and its sender evicted, while the rest of the draft
-// is kept and validates on another node.
+// is kept and validates on another node. It runs with a proposer that also
+// writes history to erigon, where a revert after the tx was finalized panics.
 func TestWorkingSet_Mint_DropsActionFailingReceiptHandling(t *testing.T) {
+	t.Run("statedb", func(t *testing.T) {
+		testMintDropsActionFailingReceiptHandling(t, false)
+	})
+	t.Run("erigon", func(t *testing.T) {
+		testMintDropsActionFailingReceiptHandling(t, true)
+	})
+}
+
+func testMintDropsActionFailingReceiptHandling(t *testing.T, withHistory bool) {
 	require := require.New(t)
 	bad, honest := identityset.Address(28), identityset.Address(26)
 	registry := protocol.NewRegistry()
@@ -106,18 +117,32 @@ func TestWorkingSet_Mint_DropsActionFailingReceiptHandling(t *testing.T) {
 	}
 	cfg.Genesis.InitBalanceMap[bad.String()] = "100000000"
 	cfg.Genesis.InitBalanceMap[honest.String()] = "100000000"
-	newFactory := func() Factory {
+	newFactory := func(withHistory bool) Factory {
+		cfg := cfg
+		if withHistory {
+			cfg.Chain.HistoryIndexPath = t.TempDir()
+		}
 		f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
 		require.NoError(err)
-		startCtx := protocol.WithBlockCtx(
-			genesis.WithGenesisContext(context.Background(), cfg.Genesis),
-			protocol.BlockCtx{},
+		startCtx := protocol.WithBlockchainCtx(
+			protocol.WithBlockCtx(
+				genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+				protocol.BlockCtx{},
+			),
+			protocol.BlockchainCtx{ChainID: 1},
 		)
 		require.NoError(f.Start(startCtx))
-		t.Cleanup(func() { require.NoError(f.Stop(startCtx)) })
+		t.Cleanup(func() {
+			// a draft that failed part way keeps its erigon store open, and
+			// stopping the factory would then wait on it forever
+			if t.Failed() {
+				return
+			}
+			require.NoError(f.Stop(startCtx))
+		})
 		return f
 	}
-	proposer, validator := newFactory(), newFactory()
+	proposer, validator := newFactory(withHistory), newFactory(false)
 
 	// the honest action is priced higher so it runs first and the draft
 	// already holds it when the poison action fails
@@ -146,7 +171,13 @@ func TestWorkingSet_Mint_DropsActionFailingReceiptHandling(t *testing.T) {
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 
-	blk, err := proposer.Mint(ctx, ap, identityset.PrivateKey(27))
+	var (
+		blk *block.Block
+		err error
+	)
+	require.NotPanics(func() {
+		blk, err = proposer.Mint(ctx, ap, identityset.PrivateKey(27))
+	})
 	require.NoError(err)
 	okHash, err := ok.Hash()
 	require.NoError(err)
@@ -161,4 +192,7 @@ func TestWorkingSet_Mint_DropsActionFailingReceiptHandling(t *testing.T) {
 	// a validator re-executes the block from scratch: if the dropped action
 	// had left any state behind on the proposer, the digests would differ
 	require.NoError(validator.Validate(ctx, blk))
+	// commit the draft on the proposer, which also writes its history to
+	// erigon and releases the erigon store before the factory stops
+	require.NoError(proposer.PutBlock(ctx, blk))
 }
