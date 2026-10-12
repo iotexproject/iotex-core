@@ -150,6 +150,24 @@ func TestWorkingSet_Mint_DropsFailingAction(t *testing.T) {
 	}
 }
 
+// TestWorkingSet_Mint_DropsOnlyTheFailingSender verifies that dropping a
+// failing action leaves out only its sender, not the account that runs next.
+func TestWorkingSet_Mint_DropsOnlyTheFailingSender(t *testing.T) {
+	require := require.New(t)
+	proposer, validator, ctx := newPoisonMintEnv(t, &poisonProtocol{stage: failHandle}, false, context.Background())
+	// the poison action is priced higher, so it fails before the honest one runs
+	ap, ok := newPoisonActPoolWithPrices(t, 1, 2, 1)
+	blk, err := proposer.Mint(ctx, ap, identityset.PrivateKey(27))
+	require.NoError(err)
+	okHash, err := ok.Hash()
+	require.NoError(err)
+	require.Len(blk.Actions, 1)
+	h, err := blk.Actions[0].Hash()
+	require.NoError(err)
+	require.Equal(okHash, h)
+	require.NoError(validator.Validate(ctx, blk))
+}
+
 // TestWorkingSet_Mint_StopsWhenCancelled verifies that an action failing
 // because the mint context is gone abandons the draft without evicting the
 // sender, who did nothing wrong.
@@ -293,7 +311,11 @@ func newPoisonMintEnv(t *testing.T, poison *poisonProtocol, withHistory bool, pa
 // so the draft already holds it when the poison action fails. The pool
 // expects the poison sender to be evicted evictions times.
 func newPoisonActPool(t *testing.T, evictions int) (*mock_actpool.MockActPool, *action.SealedEnvelope) {
-	poison, ok := makeTransferFrom(t, 28, 1, 0), makeTransferFrom(t, 26, 1, 1)
+	return newPoisonActPoolWithPrices(t, evictions, 0, 1)
+}
+
+func newPoisonActPoolWithPrices(t *testing.T, evictions int, poisonPrice, okPrice int64) (*mock_actpool.MockActPool, *action.SealedEnvelope) {
+	poison, ok := makeTransferFrom(t, 28, 1, poisonPrice), makeTransferFrom(t, 26, 1, okPrice)
 	ap := mock_actpool.NewMockActPool(gomock.NewController(t))
 	ap.EXPECT().BundlePool().Return(nil).Times(1)
 	ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
