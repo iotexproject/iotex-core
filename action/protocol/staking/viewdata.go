@@ -117,9 +117,12 @@ func (v *viewData) Snapshot() int {
 	return snapshot
 }
 
+// Revert rolls the view back to a snapshot and consumes it, along with every
+// snapshot taken after it. Snapshot then hands the same index out again, so
+// a snapshot must be reverted to at most once.
 func (v *viewData) Revert(snapshot int) error {
 	if snapshot < 0 || snapshot >= len(v.snapshots) {
-		return errors.Errorf("invalid snapshot index %d", snapshot)
+		return errors.Errorf("invalid snapshot index %d: never taken or already reverted", snapshot)
 	}
 	s := v.snapshots[snapshot]
 	change, err := listToCandChange(v.candCenter.change.items()[:s.changes])
