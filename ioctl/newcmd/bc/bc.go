@@ -95,8 +95,26 @@ func GetEpochMeta(client ioctl.Client, epochNum uint64) (*iotexapi.GetEpochMetaR
 	return epochMetaresponse, nil
 }
 
+// EpochReadHeight returns the height to read the poll protocol state of an epoch:
+// empty (i.e. latest state) for the current epoch, which a non-archive node can
+// serve, and the epoch start height for a past epoch, which needs an archive node
+func EpochReadHeight(client ioctl.Client, epochNum uint64, epochStartHeight uint64) (string, error) {
+	chainMeta, err := GetChainMeta(client)
+	if err != nil {
+		return "", err
+	}
+	if chainMeta.GetEpoch().GetNum() == epochNum {
+		return "", nil
+	}
+	return strconv.FormatUint(epochStartHeight, 10), nil
+}
+
 // GetProbationList gets probation list
 func GetProbationList(client ioctl.Client, epochNum uint64, epochStartHeight uint64) (*iotexapi.ReadStateResponse, error) {
+	height, err := EpochReadHeight(client, epochNum, epochStartHeight)
+	if err != nil {
+		return nil, err
+	}
 	apiServiceClient, err := client.APIServiceClient()
 	if err != nil {
 		return nil, err
@@ -106,7 +124,7 @@ func GetProbationList(client ioctl.Client, epochNum uint64, epochStartHeight uin
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ProbationListByEpoch"),
 		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
-		Height:     strconv.FormatUint(epochStartHeight, 10),
+		Height:     height,
 	}
 	ctx := context.Background()
 	if jwtMD, err := util.JwtAuth(); err == nil {

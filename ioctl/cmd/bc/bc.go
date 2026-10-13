@@ -111,8 +111,26 @@ func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 	return response, nil
 }
 
+// EpochReadHeight returns the height to read the poll protocol state of an epoch:
+// empty (i.e. latest state) for the current epoch, which a non-archive node can
+// serve, and the epoch start height for a past epoch, which needs an archive node
+func EpochReadHeight(epochNum uint64, epochStartHeight uint64) (string, error) {
+	chainMeta, err := GetChainMeta()
+	if err != nil {
+		return "", err
+	}
+	if chainMeta.GetEpoch().GetNum() == epochNum {
+		return "", nil
+	}
+	return strconv.FormatUint(epochStartHeight, 10), nil
+}
+
 // GetProbationList gets probation list
 func GetProbationList(epochNum uint64, epochStartHeight uint64) (*iotexapi.ReadStateResponse, error) {
+	height, err := EpochReadHeight(epochNum, epochStartHeight)
+	if err != nil {
+		return nil, err
+	}
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
@@ -124,7 +142,7 @@ func GetProbationList(epochNum uint64, epochStartHeight uint64) (*iotexapi.ReadS
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ProbationListByEpoch"),
 		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
-		Height:     strconv.FormatUint(epochStartHeight, 10),
+		Height:     height,
 	}
 	ctx := context.Background()
 

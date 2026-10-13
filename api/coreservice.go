@@ -880,7 +880,14 @@ func (core *coreService) EpochMeta(epochNum uint64) (*iotextypes.EpochData, uint
 
 	methodName := []byte("ActiveBlockProducersByEpoch")
 	arguments := [][]byte{[]byte(strconv.FormatUint(epochNum, 10))}
-	height := strconv.FormatUint(epochHeight, 10)
+	tipHeight := core.bc.TipHeight()
+	// the poll protocol resolves the epoch from the state reader's height, so
+	// the current epoch can be served from the latest state; only a past epoch
+	// requires historical state (i.e. an archive node)
+	height := ""
+	if epochNum != rp.GetEpochNum(tipHeight) {
+		height = strconv.FormatUint(epochHeight, 10)
+	}
 	data, _, err := core.readState(context.Background(), pp, height, methodName, arguments...)
 	if err != nil {
 		return nil, 0, nil, status.Error(codes.NotFound, err.Error())
@@ -891,7 +898,7 @@ func (core *coreService) EpochMeta(epochNum uint64) (*iotextypes.EpochData, uint
 		return nil, 0, nil, status.Error(codes.Internal, err.Error())
 	}
 
-	numBlks, produce, err := core.getProductivityByEpoch(rp, epochNum, core.bc.TipHeight(), activeConsensusBlockProducers)
+	numBlks, produce, err := core.getProductivityByEpoch(rp, epochNum, tipHeight, activeConsensusBlockProducers)
 	if err != nil {
 		return nil, 0, nil, status.Error(codes.NotFound, err.Error())
 	}

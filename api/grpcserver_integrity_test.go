@@ -32,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -2192,16 +2193,61 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 		coreService, ok := svr.core.(*coreService)
 		require.True(ok)
 		coreService.readCache.Clear()
-		// the epoch under test (height 1) is below the non-archive statedb's tip
-		// (height 4): a historical protocol-state read is rejected rather than
-		// silently served from latest state (issue #4916).
-		_, err := grpcHandler.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
-		require.ErrorContains(err, "not available on a non-archive node")
+		// the epoch under test is the current epoch (tip height 4 is in epoch 1),
+		// so it is served from the latest state even on a non-archive node
+		res, err := grpcHandler.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
+		require.NoError(err)
+		require.Equal(test.epochData.Num, res.EpochData.Num)
+		require.Equal(test.epochData.Height, res.EpochData.Height)
+		require.Equal(test.epochData.GravityChainStartHeight, res.EpochData.GravityChainStartHeight)
+		require.Equal(test.numBlksInEpoch, int(res.TotalBlocks))
+		require.Equal(test.numConsenusBlockProducers, len(res.BlockProducersInfo))
+		var numActiveBlockProducers int
+		var prevInfo *iotexapi.BlockProducerInfo
+		for _, bp := range res.BlockProducersInfo {
+			if bp.Active {
+				numActiveBlockProducers++
+			}
+			if prevInfo != nil {
+				prevVotes, _ := strconv.Atoi(prevInfo.Votes)
+				currVotes, _ := strconv.Atoi(bp.Votes)
+				require.True(prevVotes >= currVotes)
+			}
+			prevInfo = bp
+		}
+		require.Equal(test.numActiveCensusBlockProducers, numActiveBlockProducers)
 	}
 
 	// failure: epoch number
 	_, err = grpcHandler.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: 0})
 	require.Error(err)
+}
+
+func TestGrpcServer_GetEpochMetaPastEpochIntegrity(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+	cfg.api.GRPCPort = testutil.RandomPort()
+	svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
+	require.NoError(err)
+	grpcHandler := newGRPCHandler(svr.core)
+	defer func() {
+		testutil.CleanupPath(bfIndexFile)
+	}()
+	// shrink the epoch to 2 blocks, so tip height 4 is in epoch 2
+	require.NoError(rolldpos.NewProtocol(2, 2, 1).ForceRegister(registry))
+	require.NoError(poll.NewLifeLongDelegatesProtocol(cfg.genesis.Delegates).ForceRegister(registry))
+
+	// current epoch is served from the latest state
+	res, err := grpcHandler.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: 2})
+	require.NoError(err)
+	require.Equal(uint64(2), res.EpochData.Num)
+	require.Equal(uint64(3), res.EpochData.Height)
+	require.Equal(uint64(2), res.TotalBlocks)
+
+	// a past epoch needs historical state, which a non-archive node rejects
+	// rather than silently serving latest state (issue #4916)
+	_, err = grpcHandler.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: 1})
+	require.ErrorContains(err, "not available on a non-archive node")
 }
 
 func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {

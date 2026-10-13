@@ -68,7 +68,13 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 			Data: d,
 		}
 
-		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.Any()).Return(probationList, nil).Times(1)
+		// a past epoch is read at its start height
+		apiServiceClient.EXPECT().ReadState(gomock.Any(), &iotexapi.ReadStateRequest{
+			ProtocolID: []byte("poll"),
+			MethodName: []byte("ProbationListByEpoch"),
+			Arguments:  [][]byte{[]byte("1")},
+			Height:     strconv.FormatUint(3223081, 10),
+		}).Return(probationList, nil).Times(1)
 
 		cmd := NewNodeProbationlistCmd(client)
 		result, err := util.ExecuteCmd(cmd, "-e", "1")
@@ -77,11 +83,11 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 	})
 
 	t.Run("failed to get probation list", func(t *testing.T) {
+		// the current epoch is read at the latest state
 		apiServiceClient.EXPECT().ReadState(gomock.Any(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte("poll"),
 			MethodName: []byte("ProbationListByEpoch"),
 			Arguments:  [][]byte{[]byte("7000")},
-			Height:     strconv.FormatUint(3223081, 10),
 		}).Return(&iotexapi.ReadStateResponse{
 			Data: []byte("0")},
 			nil)

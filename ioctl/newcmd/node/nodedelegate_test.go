@@ -31,12 +31,12 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 		"c": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
 		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
 	}).Times(2)
-	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(5)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(6)
 
 	chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{Epoch: &iotextypes.EpochData{Num: 7000}}}
 	probationList := &iotexapi.ReadStateResponse{}
 
-	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(2)
+	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(3)
 	apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.Any()).Return(probationList, nil).Times(3)
 
 	t.Run("next epoch", func(t *testing.T) {
