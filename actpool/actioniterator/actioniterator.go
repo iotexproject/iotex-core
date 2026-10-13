@@ -9,6 +9,8 @@ import (
 	"bytes"
 	"container/heap"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 )
 
@@ -50,16 +52,12 @@ func (s *actionByPrice) Pop() interface{} {
 // ActionIterator define the interface of action iterator
 type ActionIterator interface {
 	Next() (*action.SealedEnvelope, bool)
-	PopAccount()
+	SkipAccount(sender address.Address)
 }
 
 type actionIterator struct {
 	accountActs map[string][]*action.SealedEnvelope
 	heads       actionByPrice
-	// lastSender is the sender of the action Next returned last, and
-	// lastLoaded the action of that sender Next put in its place, if any
-	lastSender string
-	lastLoaded *action.SealedEnvelope
 }
 
 // NewActionIterator return a new action iterator
@@ -87,10 +85,8 @@ func NewActionIterator(accountActs map[string][]*action.SealedEnvelope) ActionIt
 // loadNextActionForTopAccount load next action of account of top action
 func (ai *actionIterator) loadNextActionForTopAccount() {
 	callerAddrStr := ai.heads[0].SenderAddress().String()
-	ai.lastSender, ai.lastLoaded = callerAddrStr, nil
 	if actions, ok := ai.accountActs[callerAddrStr]; ok && len(actions) > 0 {
 		ai.heads[0], ai.accountActs[callerAddrStr] = actions[0], actions[1:]
-		ai.lastLoaded = ai.heads[0]
 		heap.Fix(&ai.heads, 0)
 	} else {
 		heap.Pop(&ai.heads)
@@ -108,21 +104,18 @@ func (ai *actionIterator) Next() (*action.SealedEnvelope, bool) {
 	return headAction, true
 }
 
-// PopAccount removes the remaining actions of the account whose action Next
-// returned last. Next has already put that account's next action in the
-// heap, where it need not be on top, so it is looked up rather than popped.
-func (ai *actionIterator) PopAccount() {
-	if ai.lastSender == "" {
+// SkipAccount removes the remaining actions of sender. Next may already have
+// put sender's next action in the heap, where it need not be on top, so it
+// is looked up rather than popped.
+func (ai *actionIterator) SkipAccount(sender address.Address) {
+	if sender == nil {
 		return
 	}
-	delete(ai.accountActs, ai.lastSender)
-	if ai.lastLoaded != nil {
-		for i := range ai.heads {
-			if ai.heads[i] == ai.lastLoaded {
-				heap.Remove(&ai.heads, i)
-				break
-			}
+	delete(ai.accountActs, sender.String())
+	for i := range ai.heads {
+		if address.Equal(ai.heads[i].SenderAddress(), sender) {
+			heap.Remove(&ai.heads, i)
+			return
 		}
 	}
-	ai.lastSender, ai.lastLoaded = "", nil
 }

@@ -1013,7 +1013,7 @@ func (ws *workingSet) pickAndRunActions(
 			}
 			popAccount, deleteAction, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, nextAction, blkCtx.GasLimit, blobCnt, uint64(blobLimit), true)
 			if popAccount {
-				actionIterator.PopAccount()
+				actionIterator.SkipAccount(nextAction.SenderAddress())
 			}
 			if deleteAction {
 				ap.DeleteAction(nextAction.SenderAddress())
