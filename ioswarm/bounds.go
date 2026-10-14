@@ -54,50 +54,56 @@ func (o *outstandingTasks) pending(agentID string) int {
 	return o.perAgent[agentID]
 }
 
-// add records the tasks of a batch as dispatched to agentID, before the batch
-// is sent, so a result that comes back at once is already expected. A task
-// that is re-dispatched moves to the new agent. If the batch does not fit,
-// nothing is recorded and add returns false: the caller must not send it.
-// Otherwise undo puts back what add changed, for a batch that was not sent.
-func (o *outstandingTasks) add(agentID string, batch *pb.TaskBatch) (undo func(), ok bool) {
-	now := time.Now()
+// add records the tasks of a batch as dispatched to agentID. A task that is
+// re-dispatched moves to the new agent. If the batch's new tasks do not fit,
+// nothing is recorded and add returns false.
+func (o *outstandingTasks) add(agentID string, batch *pb.TaskBatch) bool {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+	if !o.fits(batch) {
+		return false
+	}
+	o.record(agentID, batch)
+	return true
+}
+
+// send runs send, which hands the batch to agentID without blocking, and
+// records the batch if it was handed over. Both happen under the lock that
+// take holds, so a result is accepted only for a batch the agent was really
+// given, however quickly it answers. tracked is false, and send is not run,
+// if the batch does not fit.
+func (o *outstandingTasks) send(agentID string, batch *pb.TaskBatch, send func() bool) (sent, tracked bool) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if !o.fits(batch) {
+		return false, false
+	}
+	if !send() {
+		return false, true
+	}
+	o.record(agentID, batch)
+	return true, true
+}
+
+func (o *outstandingTasks) fits(batch *pb.TaskBatch) bool {
 	added := 0
 	for _, t := range batch.Tasks {
 		if _, ok := o.tasks[t.TaskID]; !ok {
 			added++
 		}
 	}
-	if len(o.tasks)+added > maxOutstandingTasks {
-		return nil, false
-	}
-	prevs := make(map[uint32]outstandingTask)
+	return len(o.tasks)+added <= maxOutstandingTasks
+}
+
+func (o *outstandingTasks) record(agentID string, batch *pb.TaskBatch) {
+	now := time.Now()
 	for _, t := range batch.Tasks {
 		if prev, ok := o.tasks[t.TaskID]; ok {
-			if _, seen := prevs[t.TaskID]; !seen {
-				prevs[t.TaskID] = prev
-			}
 			o.drop(t.TaskID, prev)
 		}
 		o.tasks[t.TaskID] = outstandingTask{agentID: agentID, at: now}
 		o.perAgent[agentID]++
 	}
-	return func() {
-		o.mu.Lock()
-		defer o.mu.Unlock()
-		for _, t := range batch.Tasks {
-			cur, ok := o.tasks[t.TaskID]
-			if !ok || cur.agentID != agentID || !cur.at.Equal(now) {
-				continue
-			}
-			o.drop(t.TaskID, cur)
-			if prev, ok := prevs[t.TaskID]; ok {
-				o.tasks[t.TaskID] = prev
-				o.perAgent[prev.agentID]++
-			}
-		}
-	}, true
 }
 
 // take reports whether taskID was dispatched to agentID and is still
