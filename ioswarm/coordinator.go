@@ -125,7 +125,7 @@ func NewCoordinator(cfg Config, actPool ActPoolReader, stateReader StateReader, 
 func (c *Coordinator) initBounds() {
 	c.outstanding = newOutstandingTasks()
 	c.l3Cache = newL3EnrichmentCache()
-	c.scheduler.onDispatch = c.outstanding.add
+	c.scheduler.onDispatch = c.outstanding.send
 	c.scheduler.pending = c.outstanding.pending
 }
 

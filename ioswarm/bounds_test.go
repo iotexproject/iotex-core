@@ -248,7 +248,33 @@ func TestSchedulerIgnoresSelfReportedPending(t *testing.T) {
 	r.Len(busy.TaskChan, 0)
 }
 
-func TestDispatchRecordsTasksBeforeSending(t *testing.T) {
+func TestOutstandingTasksAcceptResultsOnlyForSentBatches(t *testing.T) {
+	r := require.New(t)
+	batch := &pb.TaskBatch{Tasks: []*pb.TaskPackage{{TaskID: 7}}}
+	for _, handedOver := range []bool{true, false} {
+		o := newOutstandingTasks()
+		answer := make(chan bool, 1)
+		sent, tracked := o.send("alice", batch, func() bool {
+			// the agent answers while the batch is being handed over; its
+			// answer has to wait until the hand-over is settled
+			go func() { answer <- o.take("alice", 7) }()
+			select {
+			case got := <-answer:
+				answer <- got
+			case <-time.After(50 * time.Millisecond):
+			}
+			return handedOver
+		})
+		r.True(tracked)
+		r.Equal(handedOver, sent)
+		// a fast answer counts for a batch that went out, and never for
+		// one that did not
+		r.Equal(handedOver, <-answer)
+		r.Zero(o.len())
+	}
+}
+
+func TestDispatchTracksOnlyTheAgentThatGotTheBatch(t *testing.T) {
 	r := require.New(t)
 	c, h := newBoundsTestCoordinator(t, "L2", &mockActPool{}, &mockState{})
 	full := register(t, h, "full", pb.TaskLevel_L2_STATE_VERIFY)
@@ -256,17 +282,12 @@ func TestDispatchRecordsTasksBeforeSending(t *testing.T) {
 	for i := 0; i < cap(full.TaskChan); i++ {
 		full.TaskChan <- &pb.TaskBatch{}
 	}
-	record := c.scheduler.onDispatch
-	c.scheduler.onDispatch = func(agentID string, batch *pb.TaskBatch) (func(), bool) {
-		// an agent that answers at once must find its tasks expected
-		r.Zero(len(alice.TaskChan))
-		return record(agentID, batch)
-	}
 	r.Equal(1, c.scheduler.Dispatch([]*pb.TaskPackage{{TaskID: 7, Level: pb.TaskLevel_L2_STATE_VERIFY}}, 10))
 	r.Len(alice.TaskChan, 1)
-	// the agent whose channel was full was not left holding the task
+	// the agent whose channel was full cannot claim the task
 	r.Zero(c.outstanding.pending("full"))
-	r.Equal(1, c.outstanding.pending("alice"))
+	c.handleResults(&pb.BatchResult{AgentID: "full", Results: results(7)})
+	r.Zero(tasksProcessed(c, "full"))
 	c.handleResults(&pb.BatchResult{AgentID: "alice", Results: results(7)})
 	r.Equal(uint64(1), tasksProcessed(c, "alice"))
 }
@@ -279,8 +300,7 @@ func TestDispatchDefersBatchesThatCannotBeTracked(t *testing.T) {
 	for i := range batch.Tasks {
 		batch.Tasks[i] = &pb.TaskPackage{TaskID: uint32(1_000_000 + i)}
 	}
-	_, ok := c.outstanding.add("slow", batch)
-	r.True(ok)
+	r.True(c.outstanding.add("slow", batch))
 	r.Zero(c.scheduler.Dispatch([]*pb.TaskPackage{{TaskID: 7, Level: pb.TaskLevel_L2_STATE_VERIFY}}, 10))
 	r.Len(alice.TaskChan, 0)
 	r.Equal(1, c.scheduler.RetryQueueLen())
