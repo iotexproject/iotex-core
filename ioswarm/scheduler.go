@@ -18,8 +18,10 @@ type Scheduler struct {
 	logger     *zap.Logger
 	mu         sync.Mutex
 	retryQueue []*pb.TaskBatch
-	// onDispatch, if set, is told which agent each batch went to.
-	onDispatch func(agentID string, batch *pb.TaskBatch)
+	// onDispatch, if set, records a batch as going to an agent before it is
+	// sent. If it returns false the batch is not sent; undo is called if the
+	// send does not happen after all.
+	onDispatch func(agentID string, batch *pb.TaskBatch) (undo func(), ok bool)
 	// pending, if set, reports the tasks an agent was sent and has not
 	// answered. It stands in for the agent's own TasksPending report.
 	pending func(agentID string) int
@@ -111,11 +113,20 @@ func (s *Scheduler) dispatchBatch(batch *pb.TaskBatch) bool {
 
 	// Try each agent in order of increasing load
 	for _, agent := range capable {
+		// record the batch before the agent can see it, so its results are
+		// expected however quickly they come back
+		var undo func()
+		if s.onDispatch != nil {
+			u, ok := s.onDispatch(agent.ID, batch)
+			if !ok {
+				s.logger.Debug("too many outstanding tasks, deferring batch",
+					zap.String("batch", batch.BatchID))
+				return false
+			}
+			undo = u
+		}
 		select {
 		case agent.TaskChan <- batch:
-			if s.onDispatch != nil {
-				s.onDispatch(agent.ID, batch)
-			}
 			s.logger.Debug("dispatched batch",
 				zap.String("agent", agent.ID),
 				zap.String("batch", batch.BatchID),
@@ -123,6 +134,9 @@ func (s *Scheduler) dispatchBatch(batch *pb.TaskBatch) bool {
 			return true
 		default:
 			// Channel full, try next agent
+			if undo != nil {
+				undo()
+			}
 			continue
 		}
 	}

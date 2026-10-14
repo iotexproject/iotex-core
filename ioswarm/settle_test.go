@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -22,8 +23,18 @@ import (
 type fakeSettlerClient struct {
 	pending      uint64
 	sent         []uint64
+	accepted     map[common.Hash]bool
 	failNext     bool
 	acceptOnFail bool
+}
+
+func (f *fakeSettlerClient) accept(tx *types.Transaction) {
+	if f.accepted == nil {
+		f.accepted = make(map[common.Hash]bool)
+	}
+	f.accepted[tx.Hash()] = true
+	f.sent = append(f.sent, tx.Nonce())
+	f.pending = tx.Nonce() + 1
 }
 
 func (f *fakeSettlerClient) PendingNonceAt(context.Context, common.Address) (uint64, error) {
@@ -38,14 +49,19 @@ func (f *fakeSettlerClient) SendTransaction(_ context.Context, tx *types.Transac
 	if f.failNext {
 		f.failNext = false
 		if f.acceptOnFail {
-			f.sent = append(f.sent, tx.Nonce())
-			f.pending = tx.Nonce() + 1
+			f.accept(tx)
 		}
 		return errors.New("timeout")
 	}
-	f.sent = append(f.sent, tx.Nonce())
-	f.pending = tx.Nonce() + 1
+	f.accept(tx)
 	return nil
+}
+
+func (f *fakeSettlerClient) TransactionByHash(_ context.Context, h common.Hash) (*types.Transaction, bool, error) {
+	if f.accepted[h] {
+		return nil, true, nil
+	}
+	return nil, false, ethereum.NotFound
 }
 
 func (f *fakeSettlerClient) TransactionReceipt(context.Context, common.Hash) (*types.Receipt, error) {
@@ -75,6 +91,19 @@ func TestSettleDoesNotPayAnEpochTwice(t *testing.T) {
 		require.NoError(t, s.Settle(context.Background(), agents, weights, big.NewInt(100), nil))
 		require.Equal(t, []uint64{5, 6}, c.sent, "accepted=%v", accepted)
 	}
+}
+
+func TestSettleResendsWhenAnotherTxTookTheNonce(t *testing.T) {
+	agents := []string{"0x0000000000000000000000000000000000000001"}
+	weights := []*big.Int{big.NewInt(1)}
+	c := &fakeSettlerClient{pending: 5, failNext: true}
+	s := newTestSettler(t, c)
+	require.Error(t, s.Settle(context.Background(), agents, weights, big.NewInt(100), nil))
+	// some other tx from the settler's account uses nonce 5
+	c.pending = 6
+	require.NoError(t, s.Settle(context.Background(), agents, weights, big.NewInt(100), nil))
+	// the epoch was never paid, so it goes out under the next free nonce
+	require.Equal(t, []uint64{6}, c.sent)
 }
 
 func TestRegisterNormalisesWalletAddress(t *testing.T) {

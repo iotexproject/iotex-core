@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -38,6 +40,7 @@ type settlerClient interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	TransactionByHash(ctx context.Context, hash common.Hash) (tx *types.Transaction, isPending bool, err error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
 
@@ -53,10 +56,11 @@ type OnChainSettler struct {
 	mu          sync.Mutex
 	nonce       uint64
 	nonceLoaded bool
-	// sendFailed is set when the last send returned an error. The node may
-	// still have accepted that tx, so the next attempt reuses its nonce
-	// rather than paying the same epoch again under a fresh one.
-	sendFailed bool
+	// failedSends holds the txs sent under nonce whose send returned an
+	// error. The node may still have accepted one of them, so the next
+	// attempt reuses the nonce rather than paying the same epoch again under
+	// a fresh one, and checks these hashes if the nonce has been used.
+	failedSends []common.Hash
 }
 
 // NewOnChainSettler creates a settler from Config.
@@ -147,19 +151,31 @@ func (s *OnChainSettler) Settle(ctx context.Context, agents []string, weights []
 		}
 		s.nonce = nonce
 		s.nonceLoaded = true
-	} else if s.sendFailed {
-		// If the account's pending nonce moved past the one the failed send
-		// used, that tx was accepted after all: this settlement is done.
+	} else if len(s.failedSends) > 0 {
+		// If the account's pending nonce moved past the one the failed sends
+		// used, either one of them was accepted after all, and this
+		// settlement is done, or another tx from this account took the nonce,
+		// and this settlement still has to be sent.
 		pending, err := s.client.PendingNonceAt(ctx, from)
 		if err != nil {
 			return fmt.Errorf("get nonce: %w", err)
 		}
 		if pending > s.nonce {
-			s.logger.Warn("earlier depositAndSettle send reported an error but was accepted; not resending",
-				zap.Uint64("nonce", s.nonce))
+			for _, h := range s.failedSends {
+				if _, _, err := s.client.TransactionByHash(ctx, h); err == nil {
+					s.logger.Warn("earlier depositAndSettle send reported an error but was accepted; not resending",
+						zap.Uint64("nonce", s.nonce), zap.String("tx_hash", h.Hex()))
+					s.nonce = pending
+					s.failedSends = nil
+					return nil
+				} else if !errors.Is(err, ethereum.NotFound) {
+					return fmt.Errorf("look up earlier depositAndSettle tx %s: %w", h.Hex(), err)
+				}
+			}
+			s.logger.Warn("nonce of a failed depositAndSettle send was used by another tx; resending",
+				zap.Uint64("nonce", s.nonce), zap.Uint64("pending", pending))
 			s.nonce = pending
-			s.sendFailed = false
-			return nil
+			s.failedSends = nil
 		}
 	}
 
@@ -194,13 +210,13 @@ func (s *OnChainSettler) Settle(ctx context.Context, agents []string, weights []
 
 	// Send
 	if err := s.client.SendTransaction(ctx, signedTx); err != nil {
-		s.sendFailed = true
+		s.failedSends = append(s.failedSends, signedTx.Hash())
 		return fmt.Errorf("send tx: %w", err)
 	}
 
 	txHash := signedTx.Hash().Hex()
 	s.nonce++
-	s.sendFailed = false
+	s.failedSends = nil
 
 	s.logger.Info("depositAndSettle tx sent",
 		zap.String("tx_hash", txHash),

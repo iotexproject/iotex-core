@@ -247,3 +247,47 @@ func TestSchedulerIgnoresSelfReportedPending(t *testing.T) {
 	r.Len(idle.TaskChan, 1)
 	r.Len(busy.TaskChan, 0)
 }
+
+func TestDispatchRecordsTasksBeforeSending(t *testing.T) {
+	r := require.New(t)
+	c, h := newBoundsTestCoordinator(t, "L2", &mockActPool{}, &mockState{})
+	full := register(t, h, "full", pb.TaskLevel_L2_STATE_VERIFY)
+	alice := register(t, h, "alice", pb.TaskLevel_L2_STATE_VERIFY)
+	for i := 0; i < cap(full.TaskChan); i++ {
+		full.TaskChan <- &pb.TaskBatch{}
+	}
+	record := c.scheduler.onDispatch
+	c.scheduler.onDispatch = func(agentID string, batch *pb.TaskBatch) (func(), bool) {
+		// an agent that answers at once must find its tasks expected
+		r.Zero(len(alice.TaskChan))
+		return record(agentID, batch)
+	}
+	r.Equal(1, c.scheduler.Dispatch([]*pb.TaskPackage{{TaskID: 7, Level: pb.TaskLevel_L2_STATE_VERIFY}}, 10))
+	r.Len(alice.TaskChan, 1)
+	// the agent whose channel was full was not left holding the task
+	r.Zero(c.outstanding.pending("full"))
+	r.Equal(1, c.outstanding.pending("alice"))
+	c.handleResults(&pb.BatchResult{AgentID: "alice", Results: results(7)})
+	r.Equal(uint64(1), tasksProcessed(c, "alice"))
+}
+
+func TestDispatchDefersBatchesThatCannotBeTracked(t *testing.T) {
+	r := require.New(t)
+	c, h := newBoundsTestCoordinator(t, "L2", &mockActPool{}, &mockState{})
+	alice := register(t, h, "alice", pb.TaskLevel_L2_STATE_VERIFY)
+	batch := &pb.TaskBatch{Tasks: make([]*pb.TaskPackage, maxOutstandingTasks)}
+	for i := range batch.Tasks {
+		batch.Tasks[i] = &pb.TaskPackage{TaskID: uint32(1_000_000 + i)}
+	}
+	_, ok := c.outstanding.add("slow", batch)
+	r.True(ok)
+	r.Zero(c.scheduler.Dispatch([]*pb.TaskPackage{{TaskID: 7, Level: pb.TaskLevel_L2_STATE_VERIFY}}, 10))
+	r.Len(alice.TaskChan, 0)
+	r.Equal(1, c.scheduler.RetryQueueLen())
+	r.Equal(maxOutstandingTasks, c.outstanding.len())
+	// once the slow agent's tasks expire, the deferred batch goes out
+	c.outstanding.expire(time.Now().Add(time.Second))
+	r.Equal(1, c.scheduler.Dispatch(nil, 10))
+	r.Len(alice.TaskChan, 1)
+	r.Equal(1, c.outstanding.pending("alice"))
+}
