@@ -25,9 +25,11 @@ import (
 func migrationCtx(requireProfile bool) context.Context {
 	g := genesis.TestDefault()
 	if requireProfile {
-		g.ToBeEnabledBlockHeight = 0
+		g.ZanzibarBlockHeight = 0
+		g.ZanzibarBetaBlockHeight = 0
 	} else {
-		g.ToBeEnabledBlockHeight = 100
+		g.ZanzibarBlockHeight = 100
+		g.ZanzibarBetaBlockHeight = 100
 	}
 	return protocol.WithFeatureCtx(protocol.WithBlockCtx(
 		genesis.WithGenesisContext(context.Background(), g),

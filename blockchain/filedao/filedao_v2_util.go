@@ -52,86 +52,87 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 	return buffer, nil
 }
 
-func (fd *fileDAOv2) putTipHashHeightMapping(blk *block.Block) error {
+// putTipHashHeightMapping puts the block hash, hash -> height mapping and the
+// new file tip into the batch, and returns a func that updates the hash index
+// once the batch is committed
+func (fd *fileDAOv2) putTipHashHeightMapping(b batch.KVStoreBatch, blk *block.Block) (func(), error) {
 	// write height <-> hash mapping
 	h := blk.HashBlock()
-	if err := addOneEntryToBatch(fd.hashStore, h[:], fd.batch); err != nil {
-		return err
-	}
+	apply := fd.hashStore.AddToBatch(b, h[:])
 
 	// write hash <-> height mapping
 	height := blk.Height()
-	fd.batch.Put(_blockHashHeightMappingNS, hashKey(h), byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
+	b.Put(_blockHashHeightMappingNS, hashKey(h), byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
 
 	// update file tip
 	ser, err := (&FileTip{Height: height, Hash: h}).Serialize()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	fd.batch.Put(_headerDataNs, _topHeightKey, ser, "failed to put file tip")
-	return nil
+	b.Put(_headerDataNs, _topHeightKey, ser, "failed to put file tip")
+	return apply, nil
 }
 
-func (fd *fileDAOv2) putBlock(blk *block.Block) error {
+// putBlock puts the block into the batch, either to its staging buffer slot or,
+// if it fills the staging buffer, packed with the buffered blocks to the block
+// store. It returns a func that updates the staging buffer and block store index
+// once the batch is committed
+func (fd *fileDAOv2) putBlock(b batch.KVStoreBatch, blk *block.Block) (func(), error) {
 	blkInfo := &block.Store{
 		Block:    blk,
 		Receipts: blk.Receipts,
 	}
-	ser, err := blkInfo.Serialize()
-	if err != nil {
-		return err
-	}
-	blkBytes, err := compBytes(ser, fd.header.Compressor)
-	if err != nil {
-		return err
-	}
-
-	// add to staging buffer
-	full, err := fd.blkBuffer.Put(blk.Height(), blkInfo)
-	if err != nil {
-		return err
-	}
-	if !full {
-		index := fd.blkBuffer.slot(blk.Height())
-		fd.batch.Put(_headerDataNs, byteutil.Uint64ToBytesBigEndian(index), blkBytes, "failed to put block")
-		return nil
+	height := blk.Height()
+	if !fd.blkBuffer.isLastSlot(height) {
+		ser, err := blkInfo.Serialize()
+		if err != nil {
+			return nil, err
+		}
+		blkBytes, err := compBytes(ser, fd.header.Compressor)
+		if err != nil {
+			return nil, err
+		}
+		index := fd.blkBuffer.slot(height)
+		b.Put(_headerDataNs, byteutil.Uint64ToBytesBigEndian(index), blkBytes, "failed to put block")
+		return func() { _, _ = fd.blkBuffer.Put(height, blkInfo) }, nil
 	}
 
 	// pack blocks together, write to block store
-	if ser, err = fd.blkBuffer.Serialize(); err != nil {
-		return err
+	ser, err := fd.blkBuffer.serializeWith(height, blkInfo)
+	if err != nil {
+		return nil, err
 	}
-	if blkBytes, err = compBytes(ser, fd.header.Compressor); err != nil {
-		return err
+	blkBytes, err := compBytes(ser, fd.header.Compressor)
+	if err != nil {
+		return nil, err
 	}
-	return addOneEntryToBatch(fd.blkStore, blkBytes, fd.batch)
+	applyBlkStore := fd.blkStore.AddToBatch(b, blkBytes)
+	return func() {
+		applyBlkStore()
+		_, _ = fd.blkBuffer.Put(height, blkInfo)
+	}, nil
 }
 
-func (fd *fileDAOv2) putTransactionLog(blk *block.Block) error {
+// putTransactionLog puts the transaction log into the batch, and returns a
+// func that updates the transaction log index once the batch is committed
+func (fd *fileDAOv2) putTransactionLog(b batch.KVStoreBatch, blk *block.Block) (func(), error) {
 	sysLog := blk.TransactionLog()
 	if sysLog == nil {
 		sysLog = &block.BlkTransactionLog{}
 	}
 	logBytes, err := compBytes(sysLog.Serialize(), fd.header.Compressor)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return addOneEntryToBatch(fd.sysStore, logBytes, fd.batch)
+	return fd.sysStore.AddToBatch(b, logBytes), nil
 }
 
-func addOneEntryToBatch(c db.CountingIndex, v []byte, b batch.KVStoreBatch) error {
-	if err := c.UseBatch(b); err != nil {
-		return err
-	}
-	if err := c.Add(v, true); err != nil {
-		return err
-	}
-	return c.Finalize()
-}
+// _compress compresses the data written to the file, replaced in tests
+var _compress = compress.Compress
 
 func compBytes(v []byte, comp string) ([]byte, error) {
 	if comp != "" {
-		return compress.Compress(v, comp)
+		return _compress(v, comp)
 	}
 	return v, nil
 }

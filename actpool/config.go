@@ -1,7 +1,6 @@
 package actpool
 
 import (
-	"math"
 	"math/big"
 	"time"
 
@@ -57,6 +56,11 @@ var (
 			"io10jr2hh4xcm3s3yhq98zudxh08e9uume6e0ekee",
 			"io126e8lcld9ucl6nxm55s6hxmq9velxw9u9t8ps5",
 			"io13pgqh3dhd63sen5clvt2cvqflshf0swxzq4utt",
+			"io1470pxq9qusz36pk4ljny446pwmkg9pvuzeshlj",
+			"io147r62u9rf2szarfnn6pxse53vmkahlgk9s69ru",
+			"io14y3zwpnpd5uv8clanfr73xnkxz2mk2qgjcgngu",
+			"io15526y7w3n24dhjsk958ge23aprs9urrte3jlr3",
+			"io16zkt2tg3rv9wnunjdsffywdhw7ceyhpph7v3r5",
 			"io19rw6y85rh4d78az0s7w5dknp6j06cst5wtwnt3",
 			"io1aj8u2a0tr2mjumcxy4zrnecszr8mh6wkrmjrxq",
 			"io1fp748ue6tsssn3z9q5cxcpyewjvcptkrtryju3",
@@ -66,8 +70,9 @@ var (
 			"io1fsrrc02mldtwhjjncngvf58yxw2emmgsz9gk0p",
 			"io1ft54ueh2qn0nfep6xf92nm60n5sqlj0d9uzksg",
 			"io1ftl20mky24k43yp06zcjx653ktas9xmvzvtasz",
+			"io1rxzrf2q3letflu36p2w097ekkz4da4wuk7wnxw",
+			"io1va6umgyewzjatq8nrznyct9f2yp49rkpxtx3jj",
 		},
-		BlackListRemovalHeight: math.MaxUint64,
 		Store: &StoreConfig{
 			Datadir: "/var/data/actpool.cache",
 		},
@@ -92,10 +97,12 @@ type Config struct {
 	BlackList []string `yaml:"blackList"`
 	// BlackListActiveHeight is the height from which the blacklist is enforced (0 means always enforced)
 	BlackListActiveHeight uint64 `yaml:"blackListActiveHeight"`
-	// BlackListRemoval lists the account addresses that are removed from the blacklist at BlackListRemovalHeight
+	// BlackListRemoval lists the account addresses that stop being treated as
+	// blacklisted once the Zanzibar fork activates. The height itself is not
+	// configurable here: it is read from genesis, because the blacklist feeds
+	// the EIP-7702 authorization check in block execution and two nodes
+	// disagreeing on the height would fork. See IsBlackListedFunc.
 	BlackListRemoval []string `yaml:"blackListRemoval"`
-	// BlackListRemovalHeight is the height from which BlackListRemoval entries are no longer treated as blacklisted
-	BlackListRemovalHeight uint64 `yaml:"blackListRemovalHeight"`
 	// Store defines the config for persistent cache
 	Store *StoreConfig `yaml:"store"`
 	// MaxNumBlobsPerAcct defines the maximum number of blob txs an account can have
@@ -113,9 +120,16 @@ func (ap Config) MinGasPrice() *big.Int {
 	return mgp
 }
 
-// IsBlackListedFunc returns a function that checks if an address is blacklisted at a given height
-func (ap Config) IsBlackListedFunc() func(addr string, height uint64) bool {
-	return IsBlackListedFunc(ap.BlackList, ap.BlackListActiveHeight, ap.BlackListRemoval, ap.BlackListRemovalHeight)
+// IsBlackListedFunc returns a function that checks if an address is blacklisted
+// at a given height. removalHeight is the Zanzibar fork height from genesis:
+// from it onwards the BlackListRemoval entries stop counting as blacklisted.
+//
+// It is a parameter rather than a config field on purpose. The predicate is
+// wired into the execution protocol and consulted by the EIP-7702
+// authorization check, so it is consensus-critical; sourcing the height from
+// genesis means an operator cannot set it to a different value and fork.
+func (ap Config) IsBlackListedFunc(removalHeight uint64) func(addr string, height uint64) bool {
+	return IsBlackListedFunc(ap.BlackList, ap.BlackListActiveHeight, ap.BlackListRemoval, removalHeight)
 }
 
 // StoreConfig is the configuration for the blob store

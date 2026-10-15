@@ -68,6 +68,20 @@ func init() {
 	prometheus.MustRegister(_mintAbility)
 }
 
+// deductBlockGas takes the gas reported by a receipt out of the gas a block has
+// left. The counter is unsigned, so before the fix height the subtraction wraps
+// around when a receipt reports more gas than remains; from that height on it
+// saturates at zero, which keeps the remaining budget monotonic and makes the
+// next action in the block run out of gas instead of being waved through.
+func deductBlockGas(fCtx protocol.FeatureCtx, remaining, consumed uint64) uint64 {
+	if fCtx.CheckedBlockGasDeduction && remaining < consumed {
+		log.L().Warn("receipt reports more gas than the block has left",
+			zap.Uint64("remaining", remaining), zap.Uint64("consumed", consumed))
+		return 0
+	}
+	return remaining - consumed
+}
+
 type (
 	// WorkingSetStoreFactory is the factory to create working set store
 	WorkingSetStoreFactory interface {
@@ -650,7 +664,7 @@ func (ws *workingSet) process(ctx context.Context, actions []*action.SealedEnvel
 		}
 		receipts = append(receipts, receipt)
 		if !action.IsSystemAction(act) {
-			blkCtx.GasLimit -= receipt.GasConsumed
+			blkCtx.GasLimit = deductBlockGas(fCtx, blkCtx.GasLimit, receipt.GasConsumed)
 			if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 			}
@@ -894,7 +908,13 @@ func (ws *workingSet) pickAndRunActions(
 					}
 					bBlobCnt := blobCnt
 					bReceipts := make([]*action.Receipt, 0, bundle.Len())
-					si := ws.store.Snapshot()
+					// ws.Snapshot() rather than ws.store.Snapshot(): a bundle
+					// that gives up part way through has to put the protocol
+					// views back as well as the store, and only the working
+					// set snapshot records both. Mint is the only caller of
+					// this path, so a proposer that skips a bundle carries on
+					// from the state it held before the bundle ran.
+					si := ws.Snapshot()
 					if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
 						_, _, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, selp, bGasLimit, bBlobCnt, uint64(blobLimit), false)
 						if err != nil {
@@ -907,7 +927,7 @@ func (ws *workingSet) pickAndRunActions(
 							}
 							return errors.Errorf("receipt is nil for transaction %x", h)
 						}
-						bGasLimit -= receipt.GasConsumed
+						bGasLimit = deductBlockGas(fCtx, bGasLimit, receipt.GasConsumed)
 						if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 							(&bBlkCtx.AccumulatedTips).Add(&bBlkCtx.AccumulatedTips, receipt.PriorityFee())
 						}
@@ -918,13 +938,13 @@ func (ws *workingSet) pickAndRunActions(
 						return nil
 					}); err != nil {
 						log.L().Warn("failed to process bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.Error(err))
-						if err := ws.store.RevertSnapshot(si); err != nil {
+						if err := ws.Revert(si); err != nil {
 							return nil, errors.Wrapf(err, "failed to revert snapshot %d for bundle %s at height %d", si, bids[i], ws.height)
 						}
 						continue
 					}
 					for _, receipt := range bReceipts {
-						blkCtx.GasLimit -= receipt.GasConsumed
+						blkCtx.GasLimit = deductBlockGas(fCtx, blkCtx.GasLimit, receipt.GasConsumed)
 						if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 							(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 						}
@@ -970,7 +990,7 @@ func (ws *workingSet) pickAndRunActions(
 			if receipt == nil {
 				continue
 			}
-			blkCtx.GasLimit -= receipt.GasConsumed
+			blkCtx.GasLimit = deductBlockGas(fCtx, blkCtx.GasLimit, receipt.GasConsumed)
 			if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
 				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 			}
@@ -1210,6 +1230,25 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) (err 
 	receiptRoot := calculateReceiptRoot(ws.receipts)
 	if !blk.VerifyReceiptRoot(receiptRoot) {
 		return errors.Wrapf(block.ErrReceiptRootMismatch, "receipt root in block '%x' vs receipt root in workingset '%x'", blk.ReceiptRoot(), receiptRoot)
+	}
+	// The proposer derives the header's gasUsed/blobGasUsed from its own
+	// receipts in CreateBuilder; re-derive them here from the receipts this
+	// node produced and reject a header that disagrees. Each field is checked
+	// only when the feature that makes the proposer set it is active, so the
+	// validator never demands a value the proposer never wrote.
+	if fCtx.ValidateHeaderGasUsed {
+		if fCtx.EnableDynamicFeeTx {
+			gasUsed := calculateGasUsed(ws.receipts)
+			if !blk.VerifyGasUsed(gasUsed) {
+				return errors.Wrapf(block.ErrGasUsedMismatch, "gas used in block %d vs gas used in workingset %d at height %d", blk.GasUsed(), gasUsed, blk.Height())
+			}
+		}
+		if fCtx.EnableBlobTransaction {
+			blobGasUsed := calculateBlobGasUsed(ws.receipts)
+			if !blk.VerifyBlobGasUsed(blobGasUsed) {
+				return errors.Wrapf(block.ErrBlobGasUsedMismatch, "blob gas used in block %d vs blob gas used in workingset %d at height %d", blk.BlobGasUsed(), blobGasUsed, blk.Height())
+			}
+		}
 	}
 
 	return nil

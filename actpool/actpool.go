@@ -136,7 +136,7 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 		cfg:            cfg,
 		g:              g,
 		sf:             sf,
-		isBlackListed:  cfg.IsBlackListedFunc(),
+		isBlackListed:  cfg.IsBlackListedFunc(g.ZanzibarBlockHeight),
 		accountDesActs: &destinationMap{acts: make(map[string]map[hash.Hash256]*action.SealedEnvelope)},
 		allActions:     actsMap,
 		jobQueue:       make([]chan workerJob, _numWorker),
@@ -484,8 +484,11 @@ func (ap *actPool) validate(ctx context.Context, selp *action.SealedEnvelope) er
 	if err != nil {
 		return err
 	}
-	if _, ok := ap.allActions.Get(selpHash); ok {
-		return nil
+	if cached, ok := ap.allActions.Get(selpHash); ok {
+		if prev, ok := cached.(*action.SealedEnvelope); ok &&
+			address.Equal(prev.SenderAddress(), caller) {
+			return nil
+		}
 	}
 	for _, ev := range ap.actionEnvelopeValidators {
 		span.AddEvent("ev.Validate")

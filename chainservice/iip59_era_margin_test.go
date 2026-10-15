@@ -35,7 +35,8 @@ func testnetGenesis(activation uint64) genesis.Genesis {
 	g.WakeBlockHeight = 31943521
 	g.WakeNumSubEpochs = 60
 	g.Rewarding.EpochsPerRewardEra = 24
-	g.ToBeEnabledBlockHeight = activation
+	g.ZanzibarBlockHeight = activation
+	g.ZanzibarBetaBlockHeight = activation
 	return g
 }
 

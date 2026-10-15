@@ -9,7 +9,19 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
+	"sync"
 	"time"
+)
+
+const (
+	minRandomPort = 30000
+	maxRandomPort = 50000
+)
+
+var (
+	randomPortMu       sync.Mutex
+	nextRandomPort     = rand.New(rand.NewSource(time.Now().UnixNano())).Intn(maxRandomPort-minRandomPort) + minRandomPort
+	claimedRandomPorts = make(map[int]struct{})
 )
 
 func checkPortIsOpen(port int) bool {
@@ -22,14 +34,27 @@ func checkPortIsOpen(port int) bool {
 	return true
 }
 
-// RandomPort returns a random port number between 30000 and 50000
+// RandomPort returns an available port number between 30000 and 50000. Ports
+// already handed out in this process are skipped even if their server has not
+// started listening yet.
 func RandomPort() int {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	var port int
-	for port = r.Intn(2000) + 30000; port < 50000; port++ {
-		if !checkPortIsOpen(port) {
-			break
+	randomPortMu.Lock()
+	defer randomPortMu.Unlock()
+
+	for range maxRandomPort - minRandomPort {
+		port := nextRandomPort
+		nextRandomPort++
+		if nextRandomPort == maxRandomPort {
+			nextRandomPort = minRandomPort
 		}
+		if _, claimed := claimedRandomPorts[port]; claimed {
+			continue
+		}
+		if checkPortIsOpen(port) {
+			continue
+		}
+		claimedRandomPorts[port] = struct{}{}
+		return port
 	}
-	return port
+	panic("no available test port between 30000 and 50000")
 }

@@ -44,7 +44,6 @@ func nonMatchingFilter() *logfilter.LogFilter {
 }
 
 func TestGRPCLogListener(t *testing.T) {
-	r := require.New(t)
 	logObj := &action.Log{
 		Address:     identityset.Address(1).String(),
 		Topics:      action.Topics{hash.Hash256b([]byte("topic"))},
@@ -53,44 +52,60 @@ func TestGRPCLogListener(t *testing.T) {
 	blk := buildBlockWithLogs(t, logObj)
 
 	t.Run("match and stream", func(t *testing.T) {
+		r := require.New(t)
 		errChan := make(chan error, 10)
-		var got []*iotexapi.StreamLogsResponse
+		got := make(chan *iotexapi.StreamLogsResponse, 1)
 		handler := func(in interface{}) (int, error) {
-			got = append(got, in.(*iotexapi.StreamLogsResponse))
+			got <- in.(*iotexapi.StreamLogsResponse)
 			return 0, nil
 		}
 		ll := NewGRPCLogListener(matchAllFilter(), handler, errChan)
+		t.Cleanup(ll.Exit)
 		r.NoError(ll.Respond("", blk))
-		r.Len(got, 1)
-		// the block hash is injected into the streamed log
-		blkHash := blk.HashBlock()
-		r.Equal(blkHash[:], got[0].Log.BlkHash)
+		select {
+		case resp := <-got:
+			// the block hash is injected into the streamed log
+			blkHash := blk.HashBlock()
+			r.Equal(blkHash[:], resp.Log.BlkHash)
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for streamed log")
+		}
 	})
 
 	t.Run("no match short-circuits without streaming", func(t *testing.T) {
+		r := require.New(t)
 		errChan := make(chan error, 10)
-		called := false
+		called := make(chan struct{}, 1)
 		handler := func(in interface{}) (int, error) {
-			called = true
+			called <- struct{}{}
 			return 0, nil
 		}
 		ll := NewGRPCLogListener(nonMatchingFilter(), handler, errChan)
+		t.Cleanup(ll.Exit)
 		r.NoError(ll.Respond("", blk))
-		r.False(called)
+		r.Never(func() bool { return len(called) > 0 }, 50*time.Millisecond, time.Millisecond)
 	})
 
 	t.Run("stream error is propagated to errChan", func(t *testing.T) {
+		r := require.New(t)
 		errChan := make(chan error, 10)
 		sendErr := errorSend
 		handler := func(in interface{}) (int, error) {
 			return 0, sendErr
 		}
 		ll := NewGRPCLogListener(matchAllFilter(), handler, errChan)
-		r.Equal(sendErr, ll.Respond("", blk))
-		r.Equal(sendErr, <-errChan)
+		t.Cleanup(ll.Exit)
+		r.NoError(ll.Respond("", blk))
+		select {
+		case err := <-errChan:
+			r.Equal(sendErr, err)
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for stream error")
+		}
 	})
 
 	t.Run("exit sends nil to errChan", func(t *testing.T) {
+		r := require.New(t)
 		errChan := make(chan error, 10)
 		ll := NewGRPCLogListener(matchAllFilter(), nil, errChan)
 		ll.Exit()

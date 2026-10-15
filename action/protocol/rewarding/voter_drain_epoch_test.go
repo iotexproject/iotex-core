@@ -203,7 +203,7 @@ func TestGrantEpochReward_NonEraAccruesVoterShareWithoutCursor(t *testing.T) {
 func TestGrantEpochReward_IncompleteDrainAtEraBoundaryDegradesGracefully(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
-		// enableIIP59 sets ToBeEnabledBlockHeight=1 AND forces
+		// enableIIP59 sets the Zanzibar heights to 1 AND forces
 		// EpochsPerRewardEra=1 so the block-height fixture (epoch 1's
 		// last block) counts as an era boundary; the overrun handler
 		// only fires on era boundaries.
@@ -261,7 +261,7 @@ func TestGrantEpochReward_FeatureOffIgnoresCursor(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := require.New(t)
 		ctx = protocol.WithFeatureWithHeightCtx(ctx)
-		// testProtocol leaves ToBeEnabledBlockHeight at the default
+		// testProtocol leaves the Zanzibar heights at the default
 		// (math.MaxUint64), so fork is off. Sanity-check.
 		r.True(protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution,
 			"testProtocol default must have fork off")

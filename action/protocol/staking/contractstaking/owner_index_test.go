@@ -31,7 +31,8 @@ func forkCtx(activated bool) context.Context {
 	const height = uint64(1)
 	g := genesis.TestDefault()
 	if activated {
-		g.ToBeEnabledBlockHeight = height
+		g.ZanzibarBlockHeight = height
+		g.ZanzibarBetaBlockHeight = height
 	}
 	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height})

@@ -90,7 +90,7 @@ func backfillMarks(t *testing.T, sm protocol.StateManager) map[string]uint64 {
 // same height FeatureCtx.NoVoterRewardDistribution flips at.
 //
 // The two are separate expressions -- protocol.go compares against
-// g.ToBeEnabledBlockHeight, action/protocol/context.go derives the flag from
+// g.ZanzibarBlockHeight, action/protocol/context.go derives the flag from
 // g.IsToBeEnabled -- and they must name the same block. A backfill one block
 // early writes an index the live path is not yet maintaining; one block late
 // leaves a block's worth of upserts indexed against an empty base.
@@ -98,7 +98,8 @@ func TestBackfillOwnerIndexRunsAtTheActivationHeightOnly(t *testing.T) {
 	r := require.New(t)
 	const activation = uint64(100)
 	g := genesis.TestDefault()
-	g.ToBeEnabledBlockHeight = activation
+	g.ZanzibarBlockHeight = activation
+	g.ZanzibarBetaBlockHeight = activation
 
 	at := func(height uint64) bool {
 		ctx := genesis.WithGenesisContext(context.Background(), g)
@@ -110,7 +111,7 @@ func TestBackfillOwnerIndexRunsAtTheActivationHeightOnly(t *testing.T) {
 	r.True(at(activation + 1))
 	// Which is to say: the backfill's trigger height and the height the live
 	// index maintenance starts at are the same number.
-	r.Equal(activation, g.ToBeEnabledBlockHeight)
+	r.Equal(activation, g.ZanzibarBlockHeight)
 }
 
 // TestBackfillOwnerIndexCoversEveryContract is the main case: sparse ids,
@@ -252,7 +253,8 @@ const backfillActivationHeight = uint64(60_000_000)
 func backfillPreStatesEnv(t *testing.T) (*Protocol, protocol.StateManager, genesis.Genesis) {
 	t.Helper()
 	g := genesis.TestDefault()
-	g.ToBeEnabledBlockHeight = backfillActivationHeight
+	g.ZanzibarBlockHeight = backfillActivationHeight
+	g.ZanzibarBetaBlockHeight = backfillActivationHeight
 	sm := eraTestSM(t)
 	p, err := NewProtocol(HelperCtx{
 		DepositGas:    nil,

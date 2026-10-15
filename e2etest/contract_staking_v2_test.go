@@ -1206,7 +1206,8 @@ func TestContractStakingV3(t *testing.T) {
 	cfg.Genesis.VanuatuBlockHeight = 100
 	cfg.Genesis.WakeBlockHeight = 120  // mute staking v2 & enable staking v3
 	cfg.Genesis.XinguBlockHeight = 200 // store contract staking in trie
-	cfg.Genesis.ToBeEnabledBlockHeight = cfg.Genesis.XinguBlockHeight
+	cfg.Genesis.ZanzibarBlockHeight = cfg.Genesis.XinguBlockHeight
+	cfg.Genesis.ZanzibarBetaBlockHeight = cfg.Genesis.XinguBlockHeight
 	cfg.Genesis.SystemStakingContractAddress = ""
 	cfg.Genesis.SystemStakingContractV2Address = contractV2Address
 	cfg.Genesis.SystemStakingContractV2Height = 1

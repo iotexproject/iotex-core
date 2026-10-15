@@ -51,7 +51,20 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, elp action.Envelope, 
 	if candidate == nil {
 		return nil, nil, gasConsumed, gasToBeDeducted, errCandNotExist
 	}
-	exec, err := p.constructExecution(ctx, candidate.GetIdentifier(), bucket.StakedAmount, bucket.StakedDuration, elp.Nonce(), elp.Gas(), elp.GasPrice())
+	// the receipt reports insGas on top of whatever the contract call consumes,
+	// so the call only gets what is left of the action's gas limit after the
+	// intrinsic gas; otherwise the two together can exceed the declared limit
+	execGas := elp.Gas()
+	if protocol.MustGetFeatureCtx(ctx).CorrectStakeMigrationGas {
+		if execGas < insGas {
+			// an action whose gas limit does not cover its own intrinsic gas is
+			// rejected before it gets here; leave the call with nothing to spend
+			execGas = 0
+		} else {
+			execGas -= insGas
+		}
+	}
+	exec, err := p.constructExecution(ctx, candidate.GetIdentifier(), bucket.StakedAmount, bucket.StakedDuration, elp.Nonce(), execGas, elp.GasPrice())
 	if err != nil {
 		return nil, nil, gasConsumed, gasToBeDeducted, errors.Wrap(err, "failed to construct execution")
 	}
@@ -79,6 +92,19 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, elp action.Envelope, 
 	excReceipt, err := p.createNFTBucket(ctx, exec, csm.SM())
 	if err != nil {
 		revertSM()
+		if protocol.MustGetFeatureCtx(ctx).CorrectStakeMigrationGas && isCallNeverStartedError(err) {
+			// The call was refused before it ran, for want of gas. The
+			// execution protocol reports that as a plain error rather than a
+			// failed receipt, and a plain error out of a handler abandons the
+			// whole block being built or validated. Settle a receipt instead,
+			// so an underfunded migration costs its sender a failed action and
+			// nothing more.
+			gasToBeDeducted = gasConsumed
+			return nil, nil, gasConsumed, gasToBeDeducted, &handleError{
+				err:           errors.Wrapf(err, "staking contract call could not start with %d gas of the %d declared", execGas, elp.Gas()),
+				failureStatus: iotextypes.ReceiptStatus_ErrOutOfGas,
+			}
+		}
 		return nil, nil, gasConsumed, gasToBeDeducted, errors.Wrap(err, "failed to handle execution action")
 	}
 	gasConsumed += excReceipt.GasConsumed
@@ -202,6 +228,25 @@ func (p *Protocol) constructExecution(ctx context.Context, candidate address.Add
 	}
 	return (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contractAddress, amount, data)).
 		SetNonce(nonce).SetGasLimit(gasLimit).SetGasPrice(gasPrice).Build(), nil
+}
+
+// isCallNeverStartedError reports the refusals the EVM raises before a call
+// executes at all, because the gas it was handed does not cover what the call
+// costs just to begin: the intrinsic cost, the EIP-7623 data floor that Prague
+// added on top of it, and the balance needed to pay for either.
+//
+// They are named rather than derived. The arithmetic behind each lives in the
+// EVM, is gated on its own fork, and has grown once already, so a handler that
+// recomputed it would go stale without anything failing loudly. Reading the
+// verdict off the error keeps this correct as that set grows.
+//
+// ErrInsufficientFunds is in the set because the EVM currently reports the
+// intrinsic shortfall with it as well as the genuine balance shortfall. Either
+// way the call never ran, and neither should cost a block draft.
+func isCallNeverStartedError(err error) bool {
+	return errors.Is(err, action.ErrIntrinsicGas) ||
+		errors.Is(err, action.ErrFloorDataGas) ||
+		errors.Is(err, action.ErrInsufficientFunds)
 }
 
 func (p *Protocol) createNFTBucket(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {
