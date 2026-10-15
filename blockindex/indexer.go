@@ -42,7 +42,15 @@ var (
 )
 
 type (
-	addrIndex map[hash.Hash160]db.CountingIndex
+	// pendingIndex collects the entries of the counting indexes to be added in a
+	// batch. Addresses are kept in the order they are first seen, so that the
+	// batch is deterministic
+	pendingIndex struct {
+		blocks      [][]byte
+		actions     [][]byte
+		addrs       []hash.Hash160
+		addrActions map[hash.Hash160][][]byte
+	}
 
 	// Indexer is the interface for block indexer
 	Indexer interface {
@@ -66,8 +74,6 @@ type (
 		mutex       sync.RWMutex
 		genesisHash hash.Hash256
 		kvStore     db.KVStoreWithRange
-		batch       batch.KVStoreBatch
-		dirtyAddr   addrIndex
 		tbk         db.CountingIndex
 		tac         db.CountingIndex
 	}
@@ -84,8 +90,6 @@ func NewIndexer(kv db.KVStore, genesisHash hash.Hash256) (Indexer, error) {
 	}
 	x := blockIndexer{
 		kvStore:     kvRange,
-		batch:       batch.NewBatch(),
-		dirtyAddr:   make(addrIndex),
 		genesisHash: genesisHash,
 	}
 	return &x, nil
@@ -120,33 +124,34 @@ func (x *blockIndexer) Stop(ctx context.Context) error {
 	return x.kvStore.Stop(ctx)
 }
 
-// PutBlocks writes the batch to DB
+// PutBlocks indexes the blocks in a single batch. The in-memory sizes of the
+// total block and action indexes are updated only after the batch is committed,
+// so a failure leaves the indexer unchanged, and the same blocks can be put again
 func (x *blockIndexer) PutBlocks(ctx context.Context, blks []*block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
+
+	b := batch.NewBatch()
+	p := newPendingIndex()
 	for _, blk := range blks {
-		if err := x.putBlock(ctx, blk); err != nil {
-			return x.revert(err)
+		if err := x.putBlock(ctx, b, p, blk); err != nil {
+			return err
 		}
 	}
-	if err := x.commit(); err != nil {
-		return x.revert(err)
+	apply, err := x.addToBatch(b, p)
+	if err != nil {
+		return err
 	}
+	if err := x.kvStore.WriteBatch(b); err != nil {
+		return err
+	}
+	apply()
 	return nil
 }
 
 // PutBlock index the block
 func (x *blockIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
-	x.mutex.Lock()
-	defer x.mutex.Unlock()
-
-	if err := x.putBlock(ctx, blk); err != nil {
-		return x.revert(err)
-	}
-	if err := x.commit(); err != nil {
-		return x.revert(err)
-	}
-	return nil
+	return x.PutBlocks(ctx, []*block.Block{blk})
 }
 
 // Height return the blockchain height
@@ -261,33 +266,26 @@ func (x *blockIndexer) GetActionsByAddress(addrBytes hash.Hash160, start, count 
 	return addr.Range(start, count)
 }
 
-func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
+// putBlock puts the hash and action mappings of the block into the batch, and
+// collects its entries of the counting indexes into p
+func (x *blockIndexer) putBlock(ctx context.Context, b batch.KVStoreBatch, p *pendingIndex, blk *block.Block) error {
 	// the block to be indexed must be exactly current top + 1, otherwise counting index would not work correctly
 	height := blk.Height()
-	if height != x.tbk.Size() {
-		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, x.tbk.Size())
+	if expect := x.tbk.Size() + uint64(len(p.blocks)); height != expect {
+		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, expect)
 	}
 
 	// index hash --> height
 	hash := blk.HashBlock()
-	x.batch.Put(_blockHashToHeightNS, hash[_hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
+	b.Put(_blockHashToHeightNS, hash[_hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
 
 	// index height --> block hash, number of actions, and total transfer amount
 	bd := &BlockIndex{
 		hash:      hash[:],
 		numAction: uint32(len(blk.Actions)),
 		tsfAmount: blk.CalculateTransferAmount()}
-	if err := x.tbk.UseBatch(x.batch); err != nil {
-		return err
-	}
-	if err := x.tbk.Add(bd.Serialize(), true); err != nil {
-		return errors.Wrapf(err, "failed to put block %d index", height)
-	}
+	p.blocks = append(p.blocks, bd.Serialize())
 
-	// store height of the block, so getReceiptByActionHash() can use height to directly pull receipts
-	if err := x.tac.UseBatch(x.batch); err != nil {
-		return err
-	}
 	// index actions in the block
 	fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: blk.Height(),
@@ -297,105 +295,53 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 		if err != nil {
 			return err
 		}
+		// store height of the block, so getReceiptByActionHash() can use height to directly pull receipts
 		ad := (&ActionIndex{blkHeight: blk.Height(), txNumber: uint32(idx + 1)}).Serialize()
-		x.batch.Put(_actionToBlockHashNS, actHash[_hashOffset:], ad, fmt.Sprintf("failed to put action hash %x", actHash))
+		b.Put(_actionToBlockHashNS, actHash[_hashOffset:], ad, fmt.Sprintf("failed to put action hash %x", actHash))
 		// add to total account index
-		if err := x.tac.Add(actHash[:], true); err != nil {
-			return err
-		}
-		if err := x.indexAction(actHash, selp, fCtx.TolerateLegacyAddress); err != nil {
+		p.actions = append(p.actions, actHash[:])
+		if err := indexAction(p, actHash, selp, fCtx.TolerateLegacyAddress); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// commit writes the changes
-func (x *blockIndexer) commit() error {
-	var commitErr error
-	for k, v := range x.dirtyAddr {
-		if commitErr == nil {
-			if err := v.Finalize(); err != nil {
-				commitErr = err
-			}
-		}
-		delete(x.dirtyAddr, k)
-	}
-	if commitErr != nil {
-		return commitErr
-	}
-	// total block and total action index
-	if err := x.tbk.Finalize(); err != nil {
-		return err
-	}
-	if err := x.tac.Finalize(); err != nil {
-		return err
-	}
-	if err := x.kvStore.WriteBatch(x.batch); err != nil {
-		return err
-	}
-	x.batch.Clear()
-	return nil
-}
-
-// revert discards the uncommitted changes after a failed putBlock or commit.
-// The pending entries only live in the shared batch and in the in-memory sizes
-// of the counting indexes, so clearing the batch and reloading the indexes from
-// the DB restores the last committed state.
-func (x *blockIndexer) revert(cause error) error {
-	x.batch.Clear()
-	for k, v := range x.dirtyAddr {
-		v.Close()
-		delete(x.dirtyAddr, k)
-	}
-	var err error
-	if x.tbk, err = db.NewCountingIndexNX(x.kvStore, _totalBlocksBucket); err != nil {
-		return errors.Wrapf(cause, "failed to reload total block index: %v", err)
-	}
-	if x.tac, err = db.NewCountingIndexNX(x.kvStore, _totalActionsBucket); err != nil {
-		return errors.Wrapf(cause, "failed to reload total action index: %v", err)
-	}
-	return cause
-}
-
-// getIndexerForAddr returns the counting indexer for an address
-// if batch is true, the indexer will be placed into a dirty map, to be committed later
-func (x *blockIndexer) getIndexerForAddr(addr []byte) (db.CountingIndex, error) {
-	address := hash.BytesToHash160(addr)
-	indexer, ok := x.dirtyAddr[address]
-	if !ok {
-		// create indexer for addr if not exist
-		var err error
-		indexer, err = db.NewCountingIndexNX(x.kvStore, addr)
+// addToBatch puts the collected entries of the counting indexes into the batch,
+// and returns a func that updates the total block and action indexes once the
+// batch is committed. The address indexes are loaded per batch, so they need
+// no update
+func (x *blockIndexer) addToBatch(b batch.KVStoreBatch, p *pendingIndex) (func(), error) {
+	for _, addr := range p.addrs {
+		indexer, err := db.LoadCountingIndex(x.kvStore, addr[:])
 		if err != nil {
 			return nil, err
 		}
-		if err := indexer.UseBatch(x.batch); err != nil {
-			return nil, err
-		}
-		x.dirtyAddr[address] = indexer
+		indexer.AddToBatch(b, p.addrActions[addr]...)
 	}
-	return indexer, nil
+	applyTbk := x.tbk.AddToBatch(b, p.blocks...)
+	applyTac := x.tac.AddToBatch(b, p.actions...)
+	return func() {
+		applyTac()
+		applyTbk()
+	}, nil
 }
 
 // indexAction builds index for an action
-func (x *blockIndexer) indexAction(actHash hash.Hash256, elp *action.SealedEnvelope, tolerateLegacyAddress bool) error {
+func indexAction(p *pendingIndex, actHash hash.Hash256, elp *action.SealedEnvelope, tolerateLegacyAddress bool) error {
 	// add to sender's index
 	callerAddrBytes := elp.SrcPubkey().Hash()
-	sender, err := x.getIndexerForAddr(callerAddrBytes)
-	if err != nil {
-		return err
-	}
-	if err = sender.Add(actHash[:], true); err != nil {
-		return err
-	}
+	p.addAddrAction(callerAddrBytes, actHash)
 
 	dst, ok := elp.Destination()
 	if !ok || dst == "" {
 		return nil
 	}
 
-	var dstAddr address.Address
+	var (
+		dstAddr address.Address
+		err     error
+	)
 	if tolerateLegacyAddress {
 		dstAddr, err = address.FromStringLegacy(dst)
 	} else {
@@ -412,9 +358,20 @@ func (x *blockIndexer) indexAction(actHash hash.Hash256, elp *action.SealedEnvel
 	}
 
 	// add to recipient's index
-	recipient, err := x.getIndexerForAddr(dstAddrBytes)
-	if err != nil {
-		return err
+	p.addAddrAction(dstAddrBytes, actHash)
+	return nil
+}
+
+func newPendingIndex() *pendingIndex {
+	return &pendingIndex{
+		addrActions: make(map[hash.Hash160][][]byte),
 	}
-	return recipient.Add(actHash[:], true)
+}
+
+func (p *pendingIndex) addAddrAction(addrBytes []byte, actHash hash.Hash256) {
+	addr := hash.BytesToHash160(addrBytes)
+	if _, ok := p.addrActions[addr]; !ok {
+		p.addrs = append(p.addrs, addr)
+	}
+	p.addrActions[addr] = append(p.addrActions[addr], actHash[:])
 }

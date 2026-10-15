@@ -7,6 +7,7 @@ package blockindex
 
 import (
 	"context"
+	"fmt"
 	"hash/fnv"
 	"math/big"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
@@ -324,4 +326,134 @@ func TestIndexerPutBlocksRevertsOnFailure(t *testing.T) {
 	actionCount, err := indexer.GetActionCountByAddress(addr28)
 	require.NoError(err)
 	require.EqualValues(4, actionCount)
+}
+
+var errInjected = errors.New("injected fault")
+
+// faultyKVStore fails reads or batch writes on demand
+type faultyKVStore struct {
+	db.KVStoreWithRange
+	failGet   bool
+	failWrite bool
+}
+
+func (f *faultyKVStore) Get(ns string, key []byte) ([]byte, error) {
+	if f.failGet {
+		return nil, errInjected
+	}
+	return f.KVStoreWithRange.Get(ns, key)
+}
+
+func (f *faultyKVStore) Put(ns string, key, value []byte) error {
+	if f.failWrite {
+		return errInjected
+	}
+	return f.KVStoreWithRange.Put(ns, key, value)
+}
+
+func (f *faultyKVStore) WriteBatch(b batch.KVStoreBatch) error {
+	if f.failWrite {
+		return errInjected
+	}
+	return f.KVStoreWithRange.WriteBatch(b)
+}
+
+type indexerState struct {
+	height     uint64
+	actions    uint64
+	addrCounts []uint64
+}
+
+func getIndexerState(t *testing.T, indexer Indexer) indexerState {
+	r := require.New(t)
+	var (
+		s   indexerState
+		err error
+	)
+	s.height, err = indexer.Height()
+	r.NoError(err)
+	s.actions, err = indexer.GetTotalActions()
+	r.NoError(err)
+	for i := 27; i <= 31; i++ {
+		count, err := indexer.GetActionCountByAddress(hash.BytesToHash160(identityset.Address(i).Bytes()))
+		r.NoError(err)
+		s.addrCounts = append(s.addrCounts, count)
+	}
+	return s
+}
+
+func TestIndexerPutBlocksFailureLeavesNoChange(t *testing.T) {
+	blks := getTestBlocks(t)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+
+	// the state after indexing the first n blocks without failure
+	expected := make([]indexerState, len(blks)+1)
+	for n := range expected {
+		indexer, err := NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
+		require.NoError(t, err)
+		require.NoError(t, indexer.Start(ctx))
+		if n > 0 {
+			require.NoError(t, indexer.PutBlocks(ctx, blks[:n]))
+		}
+		expected[n] = getIndexerState(t, indexer)
+		require.NoError(t, indexer.Stop(ctx))
+	}
+
+	for _, test := range []struct {
+		name   string
+		inject func(*faultyKVStore)
+		gap    bool
+	}{
+		{"wrong height", func(*faultyKVStore) {}, true},
+		{"write batch fails", func(f *faultyKVStore) { f.failWrite = true }, false},
+		{"read fails", func(f *faultyKVStore) { f.failGet = true }, false},
+		{"read and write fail", func(f *faultyKVStore) { f.failGet, f.failWrite = true, true }, false},
+	} {
+		for _, committed := range []int{0, 1} {
+			t.Run(fmt.Sprintf("%s after %d blocks", test.name, committed), func(t *testing.T) {
+				r := require.New(t)
+				kv := &faultyKVStore{KVStoreWithRange: db.NewMemKVStore().(db.KVStoreWithRange)}
+				indexer, err := NewIndexer(kv, hash.ZeroHash256)
+				r.NoError(err)
+				r.NoError(indexer.Start(ctx))
+				defer func() {
+					r.NoError(indexer.Stop(ctx))
+				}()
+				if committed > 0 {
+					r.NoError(indexer.PutBlocks(ctx, blks[:committed]))
+				}
+				r.Equal(expected[committed], getIndexerState(t, indexer))
+
+				// with a gap, a valid block (if any) is put before the one skipping a height
+				pending, single := blks[committed:], blks[committed]
+				if test.gap {
+					pending, single = []*block.Block{blks[2]}, blks[2]
+					if committed == 0 {
+						pending = []*block.Block{blks[0], blks[2]}
+					}
+				}
+				test.inject(kv)
+				r.Error(indexer.PutBlocks(ctx, pending))
+				r.Error(indexer.PutBlock(ctx, single))
+				kv.failGet, kv.failWrite = false, false
+
+				// nothing of the failed calls is visible, in memory or in the DB
+				r.Equal(expected[committed], getIndexerState(t, indexer))
+				_, err = indexer.GetBlockIndex(uint64(committed + 1))
+				r.Error(err)
+				if committed == 0 {
+					_, err = kv.Get(string(identityset.Address(31).Bytes()), db.CountKey)
+					r.ErrorIs(err, db.ErrNotExist)
+				}
+				// and a restart loads the same state
+				r.NoError(indexer.Stop(ctx))
+				r.NoError(indexer.Start(ctx))
+				r.Equal(expected[committed], getIndexerState(t, indexer))
+
+				// the same blocks can be indexed again, and the result matches a clean run
+				r.NoError(indexer.PutBlocks(ctx, blks[committed:]))
+				r.Equal(expected[len(blks)], getIndexerState(t, indexer))
+			})
+		}
+	}
 }
