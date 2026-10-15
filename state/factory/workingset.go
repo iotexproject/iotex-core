@@ -110,6 +110,11 @@ func newWorkingSet(height uint64, views protocol.Views, store workingSetStore, s
 		store:                  store,
 		workingSetStoreFactory: storeFactory,
 	}
+	// Set here so every path, including a working set derived from an
+	// uncommitted parent, follows the factory's current callback state.
+	if sdb, ok := storeFactory.(*stateDB); ok {
+		ws.captureStateDiff = sdb.diffCallback.Load() != nil
+	}
 	ws.txValidator = protocol.NewGenericValidator(ws, accountutil.AccountState)
 	return ws
 }

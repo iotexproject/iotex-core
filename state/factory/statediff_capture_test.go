@@ -48,4 +48,17 @@ func TestFinalizeCapturesStateDiffOnlyWithCallback(t *testing.T) {
 
 	r.True(SetDiffCallback(f, nil))
 	r.Empty(finalized().stateDiffEntries)
+
+	// Mint derives a working set from an uncommitted parent when it runs
+	// ahead of the committed height; that child must capture too.
+	r.True(SetDiffCallback(f, func(uint64, []WriteQueueEntry, []byte) {}))
+	child, err := finalized().NewWorkingSet(ctx)
+	r.NoError(err)
+	childCtx := protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 2})
+	acct, err := accountutil.LoadOrCreateAccount(child, identityset.Address(2))
+	r.NoError(err)
+	r.NoError(accountutil.StoreAccount(child, identityset.Address(2), acct))
+	r.NoError(child.finalize(childCtx))
+	r.NotEmpty(child.stateDiffEntries)
+	r.NotEmpty(child.stateDiffDigest)
 }
