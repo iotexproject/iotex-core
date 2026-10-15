@@ -78,6 +78,9 @@ func (bd *Deserializer) DeserializeBlock(buf []byte) (*Block, error) {
 // fromBodyProto converts protobuf to body
 func (bd *Deserializer) fromBodyProto(pbBody *iotextypes.BlockBody) (Body, error) {
 	b := Body{}
+	if pbBody == nil {
+		return b, errors.New("block body is nil")
+	}
 	for _, actPb := range pbBody.Actions {
 		act, err := (&action.Deserializer{}).SetEvmNetworkID(bd.evmNetworkID).ActionToSealedEnvelope(actPb)
 		if err != nil {
@@ -106,7 +109,7 @@ func (bd *Deserializer) BlockFromBlockStoreProto(pb *iotextypes.BlockStore) (*Bl
 }
 
 func (bd *Deserializer) blockFromBlockStoreProto(pb *iotextypes.BlockStore) (*Block, error) {
-	blk, err := bd.FromBlockProto(pb.Block)
+	blk, err := bd.FromBlockProto(pb.GetBlock())
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +127,7 @@ func (bd *Deserializer) ReceiptsFromBlockStoreProto(pb *iotextypes.BlockStore) (
 
 func (bd *Deserializer) receiptsFromBlockStoreProto(pb *iotextypes.BlockStore) ([]*action.Receipt, error) {
 	receipts := make([]*action.Receipt, 0)
-	for _, receiptPb := range pb.Receipts {
+	for _, receiptPb := range pb.GetReceipts() {
 		receipt := &action.Receipt{}
 		receipt.ConvertFromReceiptPb(receiptPb)
 		receipts = append(receipts, receipt)

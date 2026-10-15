@@ -13,6 +13,7 @@ import (
 	"encoding/hex"
 	"math"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/holiman/uint256"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/mohae/deepcopy"
@@ -1417,4 +1419,51 @@ func TestDefaultBlackListRemoval(t *testing.T) {
 	for _, addr := range newlyRemoved {
 		require.Contains(DefaultConfig.BlackListRemoval, addr)
 	}
+}
+
+func TestActPool_ConcurrentPendingActionMapAndReset(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	require := require.New(t)
+	sf := mock_chainmanager.NewMockStateReader(ctrl)
+	Ap, err := NewActPool(genesis.TestDefault(), sf, getActPoolCfg())
+	require.NoError(err)
+	ap, ok := Ap.(*actPool)
+	require.True(ok)
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+		acct, ok := account.(*state.Account)
+		require.True(ok)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
+		return 0, nil
+	}).AnyTimes()
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+	// enough senders that every worker holds several accounts
+	for i := 0; i < 64; i++ {
+		key, err := crypto.GenerateKey()
+		require.NoError(err)
+		for n := uint64(1); n <= 3; n++ {
+			tsf, err := action.SignedTransfer(_addr1, key, n, big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+			require.NoError(err)
+			require.NoError(ap.Add(ctx, tsf))
+		}
+	}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 20; j++ {
+				ap.PendingActionMap()
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 20; j++ {
+				ap.Reset()
+			}
+		}()
+	}
+	wg.Wait()
 }
