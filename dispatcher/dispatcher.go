@@ -37,7 +37,6 @@ type (
 		MiscChanSize               uint          `yaml:"miscChanSize"`
 		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
 		AccountRateLimit           uint          `yaml:"accountRateLimit"`
-		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	}
 )
 

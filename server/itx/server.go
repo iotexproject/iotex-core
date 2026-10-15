@@ -139,7 +139,6 @@ func newServer(cfg config.Config, testing bool, opts ...chainservice.BuildOption
 			return nil, errors.Wrap(err, "failed to add api server as subscriber")
 		}
 	}
-	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
 	svr := Server{
@@ -264,7 +263,6 @@ func (s *Server) Stop(ctx context.Context) error {
 func (s *Server) NewSubChainService(cfg config.Config) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	builder := chainservice.NewBuilder(cfg)
 	cs, err := builder.SetP2PAgent(s.p2pAgent).BuildForSubChain()
 	if err != nil {

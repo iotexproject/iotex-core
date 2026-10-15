@@ -93,7 +93,6 @@ type (
 	rollDPoSCtx struct {
 		consensusfsm.ConsensusConfig
 
-		// TODO: explorer dependency deleted at #1085, need to add api params here
 		chain             ChainManager
 		blockDeserializer *block.Deserializer
 		broadcastHandler  scheme.Broadcast
@@ -668,8 +667,6 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 				zap.Uint64("block", pendingBlock.Height()),
 			)
 		}
-		// putblock to parent chain if the current node is proposer and current chain is a sub chain
-		// TODO: explorer dependency deleted at #1085, need to call putblock related method
 	} else {
 		ctx.logger().Panic(
 			"error when converting a block into a proto msg",
