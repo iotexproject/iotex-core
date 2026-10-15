@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
@@ -306,6 +307,85 @@ func TestWorkingSet_Mint_RecoversActionPanic(t *testing.T) {
 	})
 	require.Error(mintErr)
 	require.Contains(mintErr.Error(), "recovered from panic")
+}
+
+// TestWorkingSet_ValidateAndRun_SkipsExecutionBelowFloorDataGas verifies that
+// an execution whose gas covers the intrinsic gas but not the EIP-7623 floor
+// data gas is skipped and its sender evicted, instead of failing the whole draft.
+func TestWorkingSet_ValidateAndRun_SkipsExecutionBelowFloorDataGas(t *testing.T) {
+	require := require.New(t)
+	registry := protocol.NewRegistry()
+	noDeposit := func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) ([]*action.TransactionLog, error) {
+		return nil, nil
+	}
+	require.NoError(account.NewProtocol(noDeposit).Register(registry))
+	require.NoError(execution.NewProtocol(
+		func(uint64) (hash.Hash256, error) { return hash.ZeroHash256, nil },
+		noDeposit,
+		func(uint64) (time.Time, error) { return time.Time{}, nil },
+		nil,
+	).Register(registry))
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	cfg.Genesis.YapBlockHeight = 1 // enable the Pectra EVM rules
+	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
+	sender := identityset.Address(28)
+	cfg.Genesis.InitBalanceMap[sender.String()] = "100000000000000000000"
+	f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+	require.NoError(err)
+
+	startCtx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(f.Start(startCtx))
+	defer func() {
+		require.NoError(f.Stop(startCtx))
+	}()
+
+	// 100 bytes of calldata: intrinsic gas 20000, floor data gas 35000
+	data := make([]byte, 100)
+	exec := action.NewExecution(identityset.Address(29).String(), big.NewInt(0), data)
+	intrinsicGas, err := exec.IntrinsicGas()
+	require.NoError(err)
+	floorDataGas, err := action.FloorDataGas(data)
+	require.NoError(err)
+	gasLimit := (intrinsicGas + floorDataGas) / 2
+	require.True(intrinsicGas <= gasLimit && gasLimit < floorDataGas)
+	selp, err := action.Sign((&action.EnvelopeBuilder{}).
+		SetAction(exec).
+		SetGasLimit(gasLimit).
+		SetGasPrice(big.NewInt(0)).
+		SetNonce(1).
+		SetChainID(1).
+		SetVersion(1).
+		Build(), identityset.PrivateKey(28))
+	require.NoError(err)
+
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight:    uint64(1),
+			BlockTimeStamp: time.Unix(1700000000, 0),
+			Producer:       identityset.Address(27),
+			GasLimit:       testutil.TestGasLimit * 100000,
+		})
+	ctx = protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{ChainID: 1},
+	)
+	ctx = protocol.WithRegistry(ctx, registry)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+	require.False(protocol.MustGetFeatureCtx(ctx).PrePectraEVM)
+
+	ws, err := f.(workingSetCreator).newWorkingSet(ctx, 1)
+	require.NoError(err)
+	popAccount, deleteAction, receipt, err := ws.validateAndRun(ctx, registry, selp, testutil.TestGasLimit*100000, 0, 6, true)
+	require.NoError(err)
+	require.True(popAccount)
+	require.True(deleteAction)
+	require.Nil(receipt)
 }
 
 func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {

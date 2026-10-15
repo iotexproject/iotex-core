@@ -236,8 +236,15 @@ func (gs *GasStation) FeeHistory(ctx context.Context, blocks, lastBlock uint64, 
 
 func feesPercentiles(ascFees []*big.Int, percentiles []float64) []*big.Int {
 	res := make([]*big.Int, len(percentiles))
+	if len(ascFees) == 0 {
+		for i := range res {
+			res[i] = big.NewInt(0)
+		}
+		return res
+	}
 	for i, p := range percentiles {
-		idx := int(float64(len(ascFees)) * p)
+		// percentiles are given in [0, 100]
+		idx := int(float64(len(ascFees)) * p / 100)
 		if idx >= len(ascFees) {
 			idx = len(ascFees) - 1
 		}
