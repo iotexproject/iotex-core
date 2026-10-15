@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/grpc/codes"
@@ -14,7 +13,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/tracer"
-	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
@@ -85,13 +83,12 @@ func (core *coreServiceReaderWithHeight) ReadContract(ctx context.Context, calle
 		return "", nil, ErrArchiveNotSupported
 	}
 	log.Logger("api").Debug("receive read smart contract request")
-	exec, ok := elp.Action().(*action.Execution)
-	if !ok {
+	if _, ok := elp.Action().(*action.Execution); !ok {
 		return "", nil, status.Error(codes.InvalidArgument, "expecting action.Execution")
 	}
-	var (
-		hdBytes = append(byteutil.Uint64ToBytesBigEndian(core.height), []byte(exec.Contract())...)
-		key     = hash.Hash160b(append(hdBytes, exec.Data()...))
-	)
+	key, err := readContractCacheKey(core.height, callerAddr, elp)
+	if err != nil {
+		return "", nil, status.Error(codes.Internal, err.Error())
+	}
 	return core.cs.readContract(ctx, key, core.height, true, callerAddr, elp)
 }

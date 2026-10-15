@@ -267,6 +267,12 @@ func (sdb *stateDB) AddDependency(indexer blockdao.BlockIndexer) {
 	sdb.dependencies = append(sdb.dependencies, indexer)
 }
 
+// isHistoryPruned reports whether state at height is older than the retained
+// history window below tip.
+func isHistoryPruned(height, tip, retention uint64) bool {
+	return tip > retention && height < tip-retention
+}
+
 func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
 	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, &readOnlyKV{sdb.dao.atHeight(height)}, nil)
 	if err != nil {
@@ -277,7 +283,7 @@ func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*
 			sdb.mutex.RLock()
 			tip := sdb.currentChainHeight
 			sdb.mutex.RUnlock()
-			if height < tip-sdb.cfg.Chain.HistoryBlockRetention {
+			if isHistoryPruned(height, tip, sdb.cfg.Chain.HistoryBlockRetention) {
 				return nil, errors.Wrapf(
 					ErrNotSupported,
 					"history is pruned, only supported for latest %d blocks, but requested height %d",
