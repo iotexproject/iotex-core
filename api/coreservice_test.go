@@ -178,8 +178,10 @@ func getTopicsAddress(addr []string, topics [][]string) (*iotexapi.LogsFilter, e
 }
 
 func setupTestCoreService() (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
-	cfg := newConfig()
+	return setupTestCoreServiceWithConfig(newConfig())
+}
 
+func setupTestCoreServiceWithConfig(cfg testConfig) (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
 	// TODO (zhi): revise
 	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
 	if err != nil {
@@ -714,6 +716,50 @@ func TestTraceCallWithNamedTracer(t *testing.T) {
 			require.NotEmpty(res)
 		})
 	}
+}
+
+func TestTraceCallForkBoundary(t *testing.T) {
+	require := require.New(t)
+	const vanuatuHeight = 10
+	cfg := newConfig()
+	cfg.genesis.VanuatuBlockHeight = vanuatuHeight
+	testutil.NormalizeGenesisHeights(&cfg.genesis.Blockchain)
+	svr, bc, _, _, cleanCallback := setupTestCoreServiceWithConfig(cfg)
+	defer cleanCallback()
+	ctx := context.Background()
+
+	// the JS tracer derives its precompile set from the chain config it is
+	// built with; 0x0a (point evaluation) is only active from Cancun (Vanuatu)
+	tracerCode := `{step: function(log, db) {}, fault: function(log, db) {},
+		result: function(ctx, db) { return isPrecompiled(toAddress("0x000000000000000000000000000000000000000a")); }}`
+	isCancunPrecompiled := func() string {
+		_, receipt, tracer, err := svr.TraceCall(ctx,
+			identityset.Address(29), 0,
+			identityset.Address(29).String(),
+			0, big.NewInt(0), testutil.TestGasLimit,
+			[]byte{}, &tracers.TraceConfig{Tracer: &tracerCode})
+		require.NoError(err)
+		require.Equal(uint64(1), receipt.Status)
+		res, err := tracer.(*tracers.Tracer).GetResult()
+		require.NoError(err)
+		return string(res)
+	}
+	mintTo := func(height uint64) {
+		for bc.TipHeight() < height {
+			blk, err := bc.MintNewBlock(testutil.TimestampNow())
+			require.NoError(err)
+			require.NoError(bc.CommitBlock(blk))
+		}
+		require.Equal(height, bc.TipHeight())
+	}
+
+	// tip = fork - 2: the call executes at fork - 1, before Cancun
+	mintTo(vanuatuHeight - 2)
+	require.Equal("false", isCancunPrecompiled())
+	// tip = fork - 1: the call executes at the fork height, so the tracer
+	// must see Cancun as well
+	mintTo(vanuatuHeight - 1)
+	require.Equal("true", isCancunPrecompiled())
 }
 
 func TestProofAndCompareReverseActions(t *testing.T) {

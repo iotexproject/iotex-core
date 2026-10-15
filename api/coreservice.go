@@ -2200,11 +2200,13 @@ func (core *coreService) TraceCall(ctx context.Context,
 		return nil, nil, nil, err
 	}
 	// the tracer setup reads the chain config from the block context, so
-	// provide the same block context the simulation runs with
+	// provide the next-block height and timestamp that evm.SimulateExecution
+	// runs the call at; otherwise the tracer and the execution can disagree on
+	// the fork rules right before a fork
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight:    bcCtx.Tip.Height,
-		BlockTimeStamp: bcCtx.Tip.Timestamp,
+		BlockHeight:    bcCtx.Tip.Height + 1,
+		BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
 	}))
 	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contractAddress, amount, data)).
 		SetGasLimit(gasLimit).Build()
