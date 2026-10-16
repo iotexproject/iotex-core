@@ -17,8 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        # with:
-        #   submodules: recursive
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -29,17 +27,21 @@ jobs:
       - name: Build Go
         run: go build ./...
 
+      - name: Check go.mod is tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Vet
+        run: go vet ./...
+
+      # -gcflags="all=-N -l" disables inlining, which gomonkey patches rely on.
       - name: Run Test
         id: unittest
-        shell: bash
-        run: |
-          go install github.com/dave/courtney@latest
-          go mod tidy
-          go vet $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
-          #go get -u github.com/dave/courtney@038390a12707e2d91979d2ca77a71597f4afe400
-          ./go.test.sh
-          #make test
-          go test -run=XXX -bench=. $(go list ./crypto)
+        run: go test -gcflags="all=-N -l" -short -covermode=count -coverprofile=coverage.txt ./...
+
+      - name: Run Benchmark (crypto)
+        run: go test -run=XXX -bench=. ./crypto
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
@@ -56,9 +58,3 @@ jobs:
         shell: bash
         run: make fuzz-short
 
-      - name: Make Minicluster
-        if: github.event.pull_request.merged == true
-        id: minicluster
-        shell: bash
-        run: |
-          make minicluster
