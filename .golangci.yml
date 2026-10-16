@@ -1,0 +1,50 @@
+version: "2"
+
+run:
+  timeout: 10m
+  build-tags:
+    - nosilkworm
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck
+    - unused
+  settings:
+    gosec:
+      excludes:
+        - G104 # duplicate of errcheck
+        - G115 # integer overflow conversion: too noisy for chain arithmetic
+    govet:
+      disable:
+        - inline # go:fix inline suggestions; better handled by `go fix`
+    misspell:
+      locale: US
+      ignore-rules:
+        - finalise # go-ethereum API (StateDB.Finalise)
+    staticcheck:
+      checks:
+        - all
+        - -QF* # quick-fix suggestions, style only
+        - -ST* # stylecheck; naming/comment style not enforced in this repo
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - std-error-handling
+    paths:
+      - test/mock
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
