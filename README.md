@@ -3,10 +3,10 @@
 Official Golang implementation of the IoTeX protocol, the modular DePIN Layer-1 network.
 
 [![Join the forum](https://img.shields.io/badge/Discuss-IoTeX%20Community-blue)](https://community.iotex.io/c/research-development/protocol)
-[![Go version](https://img.shields.io/badge/go-1.18.5-blue.svg)](https://github.com/moovweb/gvm)
+[![Go version](https://img.shields.io/github/go-mod/go-version/iotexproject/iotex-core)](go.mod)
 [![Go Report Card](https://goreportcard.com/badge/github.com/iotexproject/iotex-core)](https://goreportcard.com/report/github.com/iotexproject/iotex-core)
 [![Coverage](https://codecov.io/gh/iotexproject/iotex-core/branch/master/graph/badge.svg)](https://codecov.io/gh/iotexproject/iotex-core)
-[![Godoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/iotexproject/iotex-core)
+[![Go Reference](https://pkg.go.dev/badge/github.com/iotexproject/iotex-core/v2.svg)](https://pkg.go.dev/github.com/iotexproject/iotex-core/v2)
 [![Releases](https://img.shields.io/github/release/iotexproject/iotex-core/all.svg?style=flat-square)](https://github.com/iotexproject/iotex-core/releases)
 [![LICENSE](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 

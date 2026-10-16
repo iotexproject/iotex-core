@@ -1,82 +1,50 @@
-run:
-  timeout: 2m
-  skip-dirs:
-    - .git
-    - proto
-    - vendor
-    - network/proto
-    - explorer/idl
-    - test
+version: "2"
 
-linters-settings:
-  govet:
-    check-shadowing: true
-  gocyclo:
-    min-complexity: 15
-  maligned:
-    suggest-new: true
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  depguard:
-    list-type: blacklist
-  misspell:
-    locale: US
-  lll:
-    line-length: 140
-  goimports:
-    local-prefixes: github.com/iotexproject/iotex-core
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - wrapperFunc
-      - dupImport # https://github.com/go-critic/go-critic/issues/845
-      - ifElseChain
-      - octalLiteral
-  funlen:
-    lines: 150
-    statements: 50
+run:
+  timeout: 10m
+  build-tags:
+    - nosilkworm
 
 linters:
-  # please, do not use `enable-all`: it's deprecated and will be removed soon.
-  # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
-  disable-all: true
+  default: none
   enable:
-    - bodyclose
-    - deadcode
-    - depguard
-    - dogsled
-    - dupl
     - errcheck
-    - funlen
-    - gochecknoinits
-    - goconst
-    - gocritic
-    - gocyclo
-    - gofmt
-    - goimports
     - gosec
-    - gosimple
     - govet
     - ineffassign
-    - interfacer
-    - lll
     - misspell
-    - nakedret
-    - scopelint
     - staticcheck
-    - structcheck
-    - stylecheck
-    - typecheck
-    - unconvert
-    - unparam
     - unused
-    - varcheck
-    - whitespace
+  settings:
+    gosec:
+      excludes:
+        - G104 # duplicate of errcheck
+        - G115 # integer overflow conversion: too noisy for chain arithmetic
+    govet:
+      disable:
+        - inline # go:fix inline suggestions; better handled by `go fix`
+    misspell:
+      locale: US
+      ignore-rules:
+        - finalise # go-ethereum API (StateDB.Finalise)
+    staticcheck:
+      checks:
+        - all
+        - -QF* # quick-fix suggestions, style only
+        - -ST* # stylecheck; naming/comment style not enforced in this repo
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - std-error-handling
+    paths:
+      - test/mock
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

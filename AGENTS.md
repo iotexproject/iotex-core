@@ -81,8 +81,8 @@ Long-standing project practice. Follow unless you have a concrete reason not to.
 - **Protobuf `big.Int` encoding.** `big.Int` fields in `.proto` schemas are
   encoded as base-10 decimal strings. Parse with `new(big.Int).SetString(s, 10)`
   and check the `ok` return; ignoring it silently produces a nil value.
-- **Linter and formatting.** Respect `.golangci.yml`. Run `make fmt` before
-  committing.
+- **Linter and formatting.** Respect `.golangci.yml` (CI reports issues
+  introduced by the PR). Run `make fmt` and `make lint` before committing.
 
 ---
 
