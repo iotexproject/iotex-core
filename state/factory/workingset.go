@@ -284,7 +284,13 @@ func (ws *workingSet) runAction(
 func (ws *workingSet) handleBlob(ctx context.Context, act *action.SealedEnvelope, receipt *action.Receipt) error {
 	// Deposit blob fee
 	receipt.BlobGasUsed = act.BlobGas()
-	receipt.BlobGasPrice = protocol.CalcBlobFee(protocol.MustGetBlockchainCtx(ctx).Tip.ExcessBlobGas)
+	excessBlobGas := protocol.MustGetBlockchainCtx(ctx).Tip.ExcessBlobGas
+	if protocol.MustGetFeatureCtx(ctx).ChargeBlobFeeAtBlockExcessBlobGas {
+		// price the blob gas from this block's excess blob gas (EIP-4844),
+		// which is what the fee cap was checked against
+		excessBlobGas = protocol.MustGetBlockCtx(ctx).ExcessBlobGas
+	}
+	receipt.BlobGasPrice = protocol.CalcBlobFee(excessBlobGas)
 	blobFee := new(big.Int).Mul(receipt.BlobGasPrice, new(big.Int).SetUint64(receipt.BlobGasUsed))
 	logs, err := rewarding.DepositGas(ctx, ws, new(big.Int), protocol.BlobGasFeeOption(blobFee))
 	if err != nil {

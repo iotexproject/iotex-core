@@ -327,6 +327,46 @@ type (
 		// blocks would recompute different roots for them on replay. It rides
 		// Zanzibar Gamma, which is unscheduled.
 		RevertStakingStateOnFailedReceipt bool
+		// SettleFloorDataGasShortfall makes an execution whose gas limit
+		// covers the intrinsic gas but not the EIP-7623 data floor end in a
+		// failure receipt that consumes its whole gas limit and bumps the
+		// sender's nonce, instead of returning an error out of the EVM.
+		//
+		// An error out of an action handler abandons the whole block being
+		// built or validated. Admission already refuses such an execution, so
+		// this only changes what happens if one gets past it, the way the
+		// stake-migration contract call already does; the outcome is then the
+		// same failed action on the mint and the validation path.
+		//
+		// Needs its own height: the receipt, the gas charged and the nonce are
+		// all consensus data. Gated at ToBeEnabled, which is unscheduled.
+		SettleFloorDataGasShortfall bool
+		// UseEffectiveGasPriceInEVM hands the EVM the effective gas price,
+		// min(feeCap, baseFee+tipCap), as the transaction's gas price, so the
+		// GASPRICE opcode reports what the sender actually pays per unit of
+		// gas instead of the fee cap of a dynamic-fee transaction.
+		//
+		// The security deposit, its refund and the receipt keep using the
+		// prices they use today; only the value contracts can observe changes.
+		// That value can steer contract execution, so this needs its own
+		// height. Gated at ToBeEnabled, which is unscheduled.
+		UseEffectiveGasPriceInEVM bool
+		// ChargeBlobFeeAtBlockExcessBlobGas prices the blob fee charged for a
+		// blob transaction from the excess blob gas of the block it is in,
+		// which is what the fee cap check and the BLOBBASEFEE opcode already
+		// use (EIP-4844), instead of from the parent block's excess blob gas.
+		//
+		// The fee charged and the receipt's blob gas price are consensus data,
+		// so this needs its own height. Gated at ToBeEnabled, which is
+		// unscheduled.
+		ChargeBlobFeeAtBlockExcessBlobGas bool
+		// CompareFullAuthorizationChainID compares an EIP-7702 authorization's
+		// chain ID with the chain's as full 256-bit values, instead of
+		// comparing only the low 64 bits of the authorization's chain ID.
+		//
+		// Which authorizations apply is consensus data, so this needs its own
+		// height. Gated at ToBeEnabled, which is unscheduled.
+		CompareFullAuthorizationChainID bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -522,6 +562,11 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectStakeMigrationGas:          g.IsZanzibarGamma(height),
 			CheckedBlockGasDeduction:          g.IsZanzibarGamma(height),
 			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
+			// Next hardfork, not yet scheduled.
+			SettleFloorDataGasShortfall:       g.IsToBeEnabled(height),
+			UseEffectiveGasPriceInEVM:         g.IsToBeEnabled(height),
+			ChargeBlobFeeAtBlockExcessBlobGas: g.IsToBeEnabled(height),
+			CompareFullAuthorizationChainID:   g.IsToBeEnabled(height),
 		},
 	)
 }
