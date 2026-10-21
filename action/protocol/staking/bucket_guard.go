@@ -377,3 +377,9 @@ func addBucketGuardEvent(log *receiptLog, index uint64, op uint32, g *bucketguar
 		hash.BytesToHash256(byteutil.Uint32ToBytesBigEndian(op)),
 	}, data)
 }
+
+// ReadBucketGuard returns the guard record of a native bucket, or nil if the
+// bucket has none.
+func ReadBucketGuard(sr protocol.StateReader, index uint64) (*bucketguard.Guard, error) {
+	return getBucketGuard(sr, index)
+}
