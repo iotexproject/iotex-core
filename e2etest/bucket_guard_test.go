@@ -10,19 +10,28 @@ import (
 	"context"
 	"encoding/binary"
 	"math/big"
+	"os"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto/signer"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
@@ -59,10 +68,13 @@ type guardFixture struct {
 	blockTime time.Time
 }
 
-func newGuardFixture(t *testing.T) *guardFixture {
+func newGuardFixture(t *testing.T, opts ...func(*config.Config)) *guardFixture {
 	cfg := initCfg(require.New(t))
 	cfg.Genesis.ToBeEnabledBlockHeight = guardFork
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 	test := newE2ETest(t, cfg)
 	now := time.Now()
 	return &guardFixture{
@@ -140,6 +152,33 @@ func (f *guardFixture) balance(id int) *big.Int {
 	acc, err := accountutil.AccountState(ctx, f.test.cs.StateFactory(), identityset.Address(id))
 	require.NoError(f.test.t, err)
 	return acc.Balance
+}
+
+// readGuard reads a bucket's guard through the ReadStakingData API; height ""
+// is the tip.
+func (f *guardFixture) readGuard(index uint64, height string) *iotextypes.BucketGuard {
+	method := mustNoErr(proto.Marshal(&iotexapi.ReadStakingDataMethod{Method: iotexapi.ReadStakingDataMethod_BUCKET_GUARD}))
+	arg := mustNoErr(proto.Marshal(&iotexapi.ReadStakingDataRequest{
+		Request: &iotexapi.ReadStakingDataRequest_BucketGuard_{BucketGuard: &iotexapi.ReadStakingDataRequest_BucketGuard{Index: index}},
+	}))
+	resp, err := f.test.api.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		ProtocolID: []byte("staking"), MethodName: method, Arguments: [][]byte{arg}, Height: height,
+	})
+	require.NoError(f.test.t, err)
+	g := &iotextypes.BucketGuard{}
+	require.NoError(f.test.t, proto.Unmarshal(resp.GetData(), g))
+	return g
+}
+
+// callGuard reads a bucket's guard through eth_call bucketGuard(uint64) on the
+// staking address at block height (nil: latest).
+func (f *guardFixture) callGuard(index uint64, height *big.Int) []interface{} {
+	m := mustNoErr(abi.JSON(strings.NewReader(`[{"inputs":[{"name":"index","type":"uint64"}],"name":"bucketGuard","outputs":[{"name":"guarded","type":"bool"},{"name":"algID","type":"uint32"},{"name":"publicKey","type":"bytes"},{"name":"generation","type":"uint64"},{"name":"nonce","type":"uint64"},{"name":"boundHeight","type":"uint64"}],"stateMutability":"view","type":"function"}]`))).Methods["bucketGuard"]
+	stakingAddr := common.BytesToAddress(address.StakingProtocolAddrHash[:])
+	data := append(append([]byte{}, m.ID...), mustNoErr(m.Inputs.Pack(index))...)
+	out, err := f.test.ethcli.CallContract(context.Background(), ethereum.CallMsg{To: &stakingAddr, Data: data}, height)
+	require.NoError(f.test.t, err)
+	return mustNoErr(m.Outputs.Unpack(out))
 }
 
 func receiptStatus(s iotextypes.ReceiptStatus) actionExpect {
@@ -433,6 +472,109 @@ func TestBucketGuardTransferAndClear(t *testing.T) {
 				return a
 			}(),
 			expect: []actionExpect{successExpect, guardAbsent(bucket)},
+		},
+	})
+}
+
+// TestBucketGuardErigon runs a guarded bucket through bind, restake, rotate,
+// unstake and withdraw on the Erigon dual-storage backend, then reads the
+// guard record back at every height through both the ReadStakingData API and
+// eth_call, which serve historical heights from the Erigon archive.
+func TestBucketGuardErigon(t *testing.T) {
+	historyIndexPath, err := os.MkdirTemp("", "historyindex")
+	require.NoError(t, err)
+	defer os.RemoveAll(historyIndexPath)
+	f := newGuardFixture(t, func(cfg *config.Config) {
+		cfg.Chain.HistoryIndexPath = historyIndexPath
+		cfg.API.GRPCPort = testutil.RandomPort()
+		cfg.API.HTTPPort = testutil.RandomPort()
+		cfg.API.WebSocketPort = 0
+		cfg.Plugins[config.GatewayPlugin] = true
+	})
+	defer f.test.teardown()
+	var (
+		ownerID, sponsorID = 3, 4
+		owner              = identityset.Address(ownerID)
+		keyA, keyB         = guardKey(0xa), guardKey(0xb)
+	)
+	const bucket = 1
+	type want struct {
+		key               *signer.PrivateKey
+		gen, nonce, bound uint64
+	}
+	// state after each block, by height; the zero value means no record
+	history := map[uint64]want{
+		guardFork:     {keyA, 1, 0, guardFork},
+		guardFork + 1: {keyA, 1, 1, guardFork},
+		guardFork + 2: {keyB, 2, 2, guardFork + 2},
+		guardFork + 3: {keyB, 2, 3, guardFork + 2},
+	}
+	f.test.run([]*testcase{
+		{
+			name:    "setup",
+			preActs: []*actionWithTime{f.register(1, "cand1"), f.createStake(ownerID, "cand1", guardStakeAmount), f.createStake(ownerID, "cand1", guardStakeAmount)},
+			act:     f.createStake(ownerID, "cand1", guardStakeAmount),
+			expect:  []actionExpect{successExpect},
+		},
+		{name: "bind", act: f.signed(ownerID, f.bind(bucket, keyA, 1, owner)), expect: []actionExpect{successExpect}},
+		{
+			name: "restake",
+			act: func() *actionWithTime {
+				m := guardOp(bucket, bucketguard.OpRestake, 1, 0)
+				m.Duration = 7
+				return f.signed(sponsorID, f.guarded(keyA, owner, m))
+			}(),
+			expect: []actionExpect{successExpect},
+		},
+		{
+			name: "rotate",
+			act: func() *actionWithTime {
+				m := guardOp(bucket, bucketguard.OpRotate, 1, 1)
+				f.newGuard(m, keyB, owner)
+				return f.signed(sponsorID, f.guarded(keyA, owner, m))
+			}(),
+			expect: []actionExpect{successExpect},
+		},
+		{
+			name: "unstake",
+			act: func() *actionWithTime {
+				a := f.signed(sponsorID, f.guarded(keyB, owner, guardOp(bucket, bucketguard.OpUnstake, 2, 2)))
+				// the restake set a 7-day duration starting at its block
+				a.t = f.start.Add(8 * 24 * time.Hour)
+				return a
+			}(),
+			expect: []actionExpect{successExpect},
+		},
+		{
+			name: "withdraw, then read every height back",
+			act: func() *actionWithTime {
+				m := guardOp(bucket, bucketguard.OpWithdraw, 2, 3)
+				m.Recipient = identityset.Address(5).Bytes()
+				a := f.signed(sponsorID, f.guarded(keyB, owner, m))
+				a.t = f.start.Add(8*24*time.Hour + f.test.cfg.Genesis.WithdrawWaitingPeriod + time.Hour)
+				return a
+			}(),
+			expect: []actionExpect{successExpect, expectFn(func(test *e2etest, _ *action.Receipt) {
+				tip := test.cs.Blockchain().TipHeight()
+				require.EqualValues(test.t, guardFork+4, tip)
+				for h := uint64(guardFork - 1); h <= tip; h++ {
+					w := history[h]
+					g := f.readGuard(bucket, strconv.FormatUint(h, 10))
+					vals := f.callGuard(bucket, new(big.Int).SetUint64(h))
+					if w.key == nil {
+						require.Empty(test.t, g.GetPublicKey(), "height %d: API", h)
+						require.Zero(test.t, g.GetGeneration(), "height %d: API", h)
+						require.Equal(test.t, false, vals[0], "height %d: eth_call guarded", h)
+						continue
+					}
+					pk := w.key.PublicKey().Bytes()
+					require.Equal(test.t, pk, g.GetPublicKey(), "height %d: API key", h)
+					require.Equal(test.t, []uint64{w.gen, w.nonce, w.bound}, []uint64{g.GetGeneration(), g.GetNonce(), g.GetBoundHeight()}, "height %d: API counters", h)
+					require.Equal(test.t, []interface{}{true, uint32(guardAlg), pk, w.gen, w.nonce, w.bound}, vals, "height %d: eth_call", h)
+				}
+				require.Empty(test.t, f.readGuard(bucket, "").GetPublicKey(), "tip: record deleted")
+				require.Equal(test.t, false, f.callGuard(bucket, nil)[0], "tip: eth_call")
+			})},
 		},
 	})
 }
