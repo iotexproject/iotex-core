@@ -83,6 +83,36 @@ case pbAct.GetGuardedBucketOp() != nil:
 Add the corresponding `FillAction` calls so the payload can be serialized back.
 Do not wrap either action in a generic inner-action envelope.
 
+### 2.3 Web3 entry
+
+Every legacy staking action is also reachable as an eth transaction to the
+native staking address (`EthData` / `New*FromABIBinary`). The guarded actions
+get the same entry, one ABI method per operation, defined in
+`bucketguard/web3.go`:
+
+| Method | Decodes to |
+|---|---|
+| `bindBucketGuard(uint64,uint32,bytes,bytes)` | `BindBucketGuard` |
+| `guardedUnstake(uint64,uint64,uint64,uint64,bytes)` | UNSTAKE |
+| `guardedWithdraw(uint64,uint64,uint64,uint64,address,bytes)` | WITHDRAW |
+| `guardedTransfer(uint64,uint64,uint64,uint64,address,bool,uint32,bytes,bytes,bytes)` | TRANSFER |
+| `guardedChangeCandidate(uint64,uint64,uint64,uint64,string,address,bytes)` | CHANGE_CANDIDATE |
+| `guardedRestake(uint64,uint64,uint64,uint64,uint32,bool,bytes)` | RESTAKE |
+| `guardedRotate(uint64,uint64,uint64,uint64,uint32,bytes,bytes,bytes)` | ROTATE |
+
+The ABI is only an envelope: decoding (`BindBucketGuardFromEthData`,
+`GuardedBucketOpFromEthData`) yields the same values as the native encoding,
+which then follow the same validation, authorization and transition path.
+Size limits and intrinsic gas are computed over C(m) of the decoded value, so
+an action costs the same through either entry; the eth tx data length must
+not be priced with the generic per-byte staking payload gas. At integration the
+methods join `action.NativeStakingContractABI`, and the action types'
+`EthData` delegate to `bucketguard`.
+
+The SLH-DSA signatures are produced outside the eth wallet (by a
+`pkg/pqcrypto/signer`-based tool); any eth wallet can then submit the call and
+pay gas as the sponsor.
+
 ## 3. Staking dispatch
 
 Add cases to both `Protocol.Validate` and `Protocol.handle` in
