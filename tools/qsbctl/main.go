@@ -41,6 +41,7 @@ const usage = `qsbctl — quantum-safe staking bucket test tool
 Usage: qsbctl [-endpoint host:port] <command> [flags]
 
 Commands:
+  account   [-n N]                                   generate secp256k1 test accounts (key, address)
   key       -seed HEX [-account N -index N]          print the guard public key (QSB-KDF-v1)
   stake     -key HEX -candidate NAME -amount IOTX    create a native bucket (duration 0, no auto-stake)
   buckets   -owner ADDR                              list native buckets of an owner
@@ -70,8 +71,12 @@ func main() {
 		os.Exit(2)
 	}
 	cmd, args := flag.Arg(0), flag.Args()[1:]
-	if cmd == "key" {
+	switch cmd {
+	case "key":
 		check(cmdKey(args))
+		return
+	case "account":
+		check(cmdAccount(args))
 		return
 	}
 	conn, err := grpc.NewClient(*endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -124,6 +129,20 @@ func ecdsaKey(h string) (crypto.PrivateKey, error) {
 		return nil, fmt.Errorf("missing secp256k1 key")
 	}
 	return crypto.HexStringToPrivateKey(h)
+}
+
+func cmdAccount(args []string) error {
+	fs := flag.NewFlagSet("account", flag.ExitOnError)
+	n := fs.Int("n", 1, "number of accounts")
+	check(fs.Parse(args))
+	for i := 0; i < *n; i++ {
+		sk, err := crypto.GenerateKey()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s %s\n", sk.HexString(), sk.PublicKey().Address())
+	}
+	return nil
 }
 
 func cmdKey(args []string) error {
