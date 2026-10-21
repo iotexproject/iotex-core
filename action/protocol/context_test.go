@@ -15,6 +15,8 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 func TestRegistryCtx(t *testing.T) {
@@ -208,5 +210,26 @@ func TestIsEraBoundary(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			require.Equal(c.want, IsEraBoundary(c.epochNum, c.epochsPerEra))
 		})
+	}
+}
+
+func TestFeatureCtxEnableBucketGuard(t *testing.T) {
+	r := require.New(t)
+	g := genesis.TestDefault()
+	g.QuantumSafeBucketsBlockHeight = 100
+	for _, tc := range []struct {
+		height uint64
+		want   bool
+	}{
+		{99, false},
+		{100, true},
+		{101, true},
+	} {
+		ctx := genesis.WithGenesisContext(context.Background(), g)
+		ctx = WithBlockCtx(ctx, BlockCtx{BlockHeight: tc.height})
+		ctx = WithFeatureCtx(ctx)
+		fCtx, ok := GetFeatureCtx(ctx)
+		r.True(ok)
+		r.Equal(tc.want, fCtx.EnableBucketGuard)
 	}
 }

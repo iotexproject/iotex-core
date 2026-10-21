@@ -42,6 +42,18 @@ func TestMainnetZanzibarSchedule(t *testing.T) {
 	require.Zero(t, (activationHeight-Default.YapBlockHeight)%1440)
 }
 
+func TestQuantumSafeBucketsSchedule(t *testing.T) {
+	r := require.New(t)
+	g := TestDefault()
+	r.EqualValues(uint64(math.MaxUint64), g.QuantumSafeBucketsBlockHeight)
+	r.False(g.IsQuantumSafeBuckets(math.MaxUint64 - 1))
+
+	g.QuantumSafeBucketsBlockHeight = 100
+	r.False(g.IsQuantumSafeBuckets(99))
+	r.True(g.IsQuantumSafeBuckets(100))
+	r.True(g.IsQuantumSafeBuckets(101))
+}
+
 func TestHash(t *testing.T) {
 	require := require.New(t)
 	cfg, err := New("")

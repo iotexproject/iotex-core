@@ -18,12 +18,15 @@ The package implements the consensus-neutral pieces:
 - stateless validation;
 - SLH-DSA-SHA2-192s verification with `IOTEX-PQ-BUCKET-v1`;
 - a fork-gate helper that requires an explicit non-zero activation height;
+- a `FeatureCtx.EnableBucketGuard` flag backed by the default-disabled
+  `QuantumSafeBucketsBlockHeight` genesis field;
 - canonical serialization and a state manager/reader helper for the
   `_bucketGuard` record.
 
 It does **not** include protobuf changes, action registration, handler wiring,
-receipt emission, or a hardfork height. No action can create a guard record yet;
-the state helper is exercised only by tests.
+or receipt emission. No hardfork height is selected; the gate defaults to
+`math.MaxUint64`. No action can create a guard record yet; the state helper is
+exercised only by tests.
 
 ## Integration sequence
 

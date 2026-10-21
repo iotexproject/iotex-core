@@ -327,6 +327,10 @@ type (
 		// blocks would recompute different roots for them on replay. It rides
 		// Zanzibar Gamma, which is unscheduled.
 		RevertStakingStateOnFailedReceipt bool
+		// EnableBucketGuard gates the QSB feature: new BIND/guarded bucket
+		// actions, the _bucketGuard state namespace, and the legacy guard
+		// checks. It is false until QuantumSafeBucketsBlockHeight.
+		EnableBucketGuard bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -522,6 +526,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectStakeMigrationGas:          g.IsZanzibarGamma(height),
 			CheckedBlockGasDeduction:          g.IsZanzibarGamma(height),
 			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
+			EnableBucketGuard:                 g.IsQuantumSafeBuckets(height),
 		},
 	)
 }

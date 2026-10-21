@@ -40,8 +40,10 @@ maintainers must approve the height, protobuf changes, and activation.
       state reader/view. Partial: `_bucketGuard` record serialization and a
       state manager/reader helper exist; no action writes them and Erigon/
       migration wiring is pending.
-- [ ] `FeatureCtx` + genesis: new hardfork gate, default disabled. Tests must
-      cover `height = fork - 1` and `height = fork`.
+- [ ] `FeatureCtx` + genesis: new hardfork gate, default disabled. Partial:
+      `QuantumSafeBucketsBlockHeight` defaults to `math.MaxUint64` and
+      `EnableBucketGuard` is covered at `fork - 1` / `fork`; no QSB action is
+      wired to the gate yet.
 - [ ] Audit every legacy path that can mutate a guarded bucket: `Unstake`,
       `WithdrawStake`, `TransferStake`, `ChangeCandidate`, `Restake`,
       `MigrateStake`, consignment, candidate activation/endorsement, contract

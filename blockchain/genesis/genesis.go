@@ -54,52 +54,53 @@ var (
 func defaultConfig() Genesis {
 	return Genesis{
 		Blockchain: Blockchain{
-			Timestamp:                 1553558500,
-			BlockGasLimit:             20000000,
-			TsunamiBlockGasLimit:      50000000,
-			WakeBlockGasLimit:         25000000,
-			ActionGasLimit:            5000000,
-			BlockInterval:             10 * time.Second,
-			NumSubEpochs:              15,
-			DardanellesNumSubEpochs:   30,
-			WakeNumSubEpochs:          60,
-			NumDelegates:              24,
-			NumCandidateDelegates:     36,
-			TimeBasedRotation:         true,
-			MinBlocksForBlobRetention: 345600,
-			PacificBlockHeight:        432001,
-			AleutianBlockHeight:       864001,
-			BeringBlockHeight:         1512001,
-			CookBlockHeight:           1641601,
-			DardanellesBlockHeight:    1816201,
-			DaytonaBlockHeight:        3238921,
-			EasterBlockHeight:         4478761,
-			FbkMigrationBlockHeight:   5157001,
-			FairbankBlockHeight:       5165641,
-			GreenlandBlockHeight:      6544441,
-			HawaiiBlockHeight:         11267641,
-			IcelandBlockHeight:        12289321,
-			JutlandBlockHeight:        13685401,
-			KamchatkaBlockHeight:      13816441,
-			LordHoweBlockHeight:       13979161,
-			MidwayBlockHeight:         16509241,
-			NewfoundlandBlockHeight:   17662681,
-			OkhotskBlockHeight:        21542761,
-			PalauBlockHeight:          22991401,
-			QuebecBlockHeight:         24838201,
-			RedseaBlockHeight:         26704441,
-			SumatraBlockHeight:        28516681,
-			TsunamiBlockHeight:        29275561,
-			UpernavikBlockHeight:      31174201,
-			VanuatuBlockHeight:        33730921,
-			WakeBlockHeight:           36893881,
-			XinguBlockHeight:          41648761,
-			XinguBetaBlockHeight:      41648761,
-			YapBlockHeight:            48985561,
-			YapBetaBlockHeight:        48985561,
-			ZanzibarBlockHeight:       53533081,
-			ZanzibarBetaBlockHeight:   53533081,
-			ZanzibarGammaBlockHeight:  53533081,
+			Timestamp:                     1553558500,
+			BlockGasLimit:                 20000000,
+			TsunamiBlockGasLimit:          50000000,
+			WakeBlockGasLimit:             25000000,
+			ActionGasLimit:                5000000,
+			BlockInterval:                 10 * time.Second,
+			NumSubEpochs:                  15,
+			DardanellesNumSubEpochs:       30,
+			WakeNumSubEpochs:              60,
+			NumDelegates:                  24,
+			NumCandidateDelegates:         36,
+			TimeBasedRotation:             true,
+			MinBlocksForBlobRetention:     345600,
+			PacificBlockHeight:            432001,
+			AleutianBlockHeight:           864001,
+			BeringBlockHeight:             1512001,
+			CookBlockHeight:               1641601,
+			DardanellesBlockHeight:        1816201,
+			DaytonaBlockHeight:            3238921,
+			EasterBlockHeight:             4478761,
+			FbkMigrationBlockHeight:       5157001,
+			FairbankBlockHeight:           5165641,
+			GreenlandBlockHeight:          6544441,
+			HawaiiBlockHeight:             11267641,
+			IcelandBlockHeight:            12289321,
+			JutlandBlockHeight:            13685401,
+			KamchatkaBlockHeight:          13816441,
+			LordHoweBlockHeight:           13979161,
+			MidwayBlockHeight:             16509241,
+			NewfoundlandBlockHeight:       17662681,
+			OkhotskBlockHeight:            21542761,
+			PalauBlockHeight:              22991401,
+			QuebecBlockHeight:             24838201,
+			RedseaBlockHeight:             26704441,
+			SumatraBlockHeight:            28516681,
+			TsunamiBlockHeight:            29275561,
+			UpernavikBlockHeight:          31174201,
+			VanuatuBlockHeight:            33730921,
+			WakeBlockHeight:               36893881,
+			XinguBlockHeight:              41648761,
+			XinguBetaBlockHeight:          41648761,
+			YapBlockHeight:                48985561,
+			YapBetaBlockHeight:            48985561,
+			ZanzibarBlockHeight:           53533081,
+			ZanzibarBetaBlockHeight:       53533081,
+			ZanzibarGammaBlockHeight:      53533081,
+			QuantumSafeBucketsBlockHeight: math.MaxUint64,
 			// The AutoDepositRegister iotex-hub writes compound registrations to, so
 			// a preference set through the hub is the one the protocol acts on. Its
 			// runtime is byte-identical to e2etest/autodeposit_bytecode, which is what
@@ -276,6 +277,7 @@ func TestDefault() Genesis {
 	cfg.ZanzibarBlockHeight = math.MaxUint64
 	cfg.ZanzibarBetaBlockHeight = math.MaxUint64
 	cfg.ZanzibarGammaBlockHeight = math.MaxUint64
+	cfg.QuantumSafeBucketsBlockHeight = math.MaxUint64
 	cfg.DelegateProfileContractAddress = ""
 	cfg.AutoDepositContractAddress = ""
 	for i := 0; i < identityset.Size(); i++ {
@@ -478,6 +480,12 @@ type (
 		// proof, so on a chain where Gamma trails Zanzibar a rejected proof
 		// leaves that bucket behind until Gamma activates.
 		ZanzibarGammaBlockHeight uint64 `yaml:"zanzibarGammaHeight"`
+		// QuantumSafeBucketsBlockHeight is the start height of the QSB
+		// (quantum-safe staking bucket) feature. It gates the new BIND and
+		// guarded bucket actions, the guard state namespace, and the legacy
+		// guard checks. Default is math.MaxUint64 (disabled); a chain must
+		// schedule it explicitly in genesis.
+		QuantumSafeBucketsBlockHeight uint64 `yaml:"quantumSafeBucketsHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -1131,6 +1139,12 @@ func (g *Blockchain) IsZanzibarBeta(height uint64) bool {
 // IsZanzibarGamma checks whether height is equal to or larger than zanzibar gamma height
 func (g *Blockchain) IsZanzibarGamma(height uint64) bool {
 	return g.isPost(g.ZanzibarGammaBlockHeight, height)
+}
+
+// IsQuantumSafeBuckets checks whether height is equal to or larger than the
+// QSB activation height.
+func (g *Blockchain) IsQuantumSafeBuckets(height uint64) bool {
+	return g.isPost(g.QuantumSafeBucketsBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
