@@ -19,7 +19,7 @@ import (
 func TestBucketGuardKey(t *testing.T) {
 	r := require.New(t)
 	key := bucketGuardKey(0x0102030405060708)
-	r.Equal(byte(6), key[0])
+	r.Equal(byte(9), key[0])
 	r.Len(key, 9)
 	r.Equal([]byte{1, 2, 3, 4, 5, 6, 7, 8}, key[1:])
 }

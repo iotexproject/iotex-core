@@ -67,9 +67,14 @@ const (
 	// PutPollResult, read once per epoch by the rewarding protocol under
 	// IIP-59. Full key: {_candidateRewardSnapshot} || candID.Bytes().
 	_candidateRewardSnapshot
+	// Tags 6-8 are owned by contractstaking/eracow. Reserve them so the next
+	// tag does not collide with an existing key family.
+	_ // 6: contractstaking.LSDVoterIndexPrefix
+	_ // 7: eracow.ControlPrefix
+	_ // 8: eracow.EntryPrefix
 	// _bucketGuard is the tag for a QSB guard record keyed by bucket index.
 	// Full key: {_bucketGuard} || uint64_be(bucketIndex).
-	_bucketGuard
+	_bucketGuard // 9
 )
 
 // Errors

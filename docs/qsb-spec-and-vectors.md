@@ -264,7 +264,8 @@ A later legacy withdraw or migration deletes the tombstone.
 ### 6.1 Guard state record
 
 The record lives in the staking namespace under the new key prefix
-`_bucketGuard`, appended to the existing prefix enumeration:
+`_bucketGuard`, tag `9`, after the existing tags `0..8` (including
+contractstaking `6` and eracow `7..8`):
 
 ```text
 key   = _bucketGuard || uint64_be(bucketIndex)
