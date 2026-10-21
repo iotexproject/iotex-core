@@ -103,6 +103,9 @@ func init() {
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.VoteBucket{}, StakingBucketsContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.Endorsement{}, EndorsementContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.BucketIndices{}, BucketIndicesContractIndex))
+	// QSB guard records share the existing bucket-pool system contract. Their
+	// key prefix (_bucketGuard) keeps them disjoint from the pool record.
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.BucketGuard{}, BucketPoolContractIndex))
 }
 
 // GetObjectStorageRegistry returns the global object storage registry

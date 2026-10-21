@@ -39,9 +39,9 @@ maintainers must approve the height, protobuf changes, and activation.
       Partial: guard state and legacy checks are wired; the guard event packer
       exists, but no QSB handler emits it yet.
 - [ ] `state/`: new namespace, append-only schema, migration, Erigon backend,
-      state reader/view. Partial: `_bucketGuard` record serialization and a
-      state manager/reader helper exist; no action writes them and Erigon/
-      migration wiring is pending.
+      state reader/view. Partial: `_bucketGuard` serialization, state
+      manager/reader, and Erigon object-storage registration exist; no action
+      writes them. Migration is not needed for a new post-fork key family.
 - [ ] `FeatureCtx` + genesis: new hardfork gate, default disabled. Partial:
       `QuantumSafeBucketsBlockHeight` defaults to `math.MaxUint64` and
       `EnableBucketGuard` is covered at `fork - 1` / `fork`; no QSB action is
