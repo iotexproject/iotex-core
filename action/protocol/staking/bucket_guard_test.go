@@ -301,3 +301,45 @@ func TestGuardedDepositAllowed(t *testing.T) {
 	r.NoError(err)
 	r.Equal(guard, got)
 }
+
+func TestGuardedLegacyPathsPreForkUnaffected(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm, p, buckets, _ := initTestState(t, ctrl, []*bucketConfig{
+		{identityset.Address(1), identityset.Address(1), "100000000000000000000", 30, false, false, nil, 0},
+	}, []*candidateConfig{
+		{identityset.Address(1), identityset.Address(1), identityset.Address(1), "test"},
+	})
+	guard := &BucketGuard{
+		Guarded:     true,
+		AlgID:       bucketguard.AlgSLHDSA192s,
+		PublicKey:   bytes.Repeat([]byte{0x22}, bucketguard.PubKeySize),
+		Generation:  1,
+		Nonce:       2,
+		BoundHeight: 3,
+	}
+	r.NoError(NewBucketGuardStateManager(sm).Put(buckets[0].Index, guard))
+	r.NoError(setupAccount(sm, identityset.Address(1), 100))
+	csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
+	r.NoError(err)
+
+	g := genesis.TestDefault()
+	g.QuantumSafeBucketsBlockHeight = 100
+	ctx := genesis.WithGenesisContext(context.Background(), g)
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    1,
+		BlockTimeStamp: buckets[0].StakeStartTime.Add(buckets[0].StakedDuration),
+	})
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+	ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+		Caller:   identityset.Address(1),
+		GasPrice: testGasPrice,
+		Nonce:    1,
+	})
+
+	_, err = p.handleUnstake(ctx, action.NewUnstake(buckets[0].Index, nil), csm)
+	r.NoError(err)
+	got, err := NewBucketGuardStateReader(sm).Get(buckets[0].Index)
+	r.NoError(err)
+	r.Equal(guard, got)
+}
