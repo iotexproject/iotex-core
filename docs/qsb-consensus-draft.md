@@ -10,17 +10,26 @@ hardfork height is selected, and no staking state is mutated.
 
 ## Scope of the scaffold
 
-The package implements the consensus-neutral pieces:
+The package holds the whole QSB rule set as pure functions over the guard
+record, so it can be pinned by vectors before any wiring:
 
-- guard record and action types;
+- guard record and action types, with canonical record serialization;
 - byte-exact CALL/ACCEPT transcripts;
-- canonical proto3 encoding, size limits, and intrinsic gas;
-- stateless validation;
-- SLH-DSA-SHA2-192s verification with `IOTEX-PQ-BUCKET-v1`;
-- a fork-gate helper that requires an explicit non-zero activation height.
+- canonical proto3 encoding, size limits, and intrinsic gas, grouped in a
+  fork-versioned `Params` (`ParamsV1`);
+- stateless validation of guard fields;
+- the stateful rules: `AuthorizeBind`, `CheckOp`, `CheckCandidate`,
+  `VerifyOp`, `Next`, `RejectIfGuarded`, with one sentinel error per receipt
+  status;
+- a web3 ABI envelope, one method per operation.
+
+Signature verification (SLH-DSA-SHA2-192s, context `IOTEX-PQ-BUCKET-v1`) goes
+through the domain-neutral `pkg/pqcrypto`; wallet key derivation and signing
+live in `pkg/pqcrypto/signer`.
 
 It does **not** include protobuf changes, action registration, state storage,
-receipts, handler wiring, or a hardfork height.
+receipts and events, handler wiring, or a hardfork height. Event encoding is
+left to integration because it touches the receipt-log emission path.
 
 ## Integration sequence
 
