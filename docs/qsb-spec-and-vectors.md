@@ -72,7 +72,7 @@ in `iotex-proto`.
 | `newOwner` | 7 | bytes | TRANSFER only; 20 bytes |
 | `candidateName` | 8 | string | CHANGE_CANDIDATE only |
 | `expectedCandidateID` | 9 | bytes | CHANGE_CANDIDATE only; 20 bytes |
-| `duration` | 10 | varint | RESTAKE only; `1..1050` days |
+| `duration` | 10 | varint | RESTAKE only; days, bounded by the existing `Restake` validation (≤ 1050, 0 allowed) |
 | `autoStake` | 11 | varint | RESTAKE only |
 | `newGuard` | 12 | message | TRANSFER/ROTATE only |
 | `clearGuard` | 13 | varint | TRANSFER only; mutually exclusive with `newGuard` |
@@ -129,13 +129,18 @@ canonical size, not the RLP envelope size.
 | UNSTAKE | 1 | none | all op-specific fields |
 | WITHDRAW | 2 | `recipient` (20 bytes) | all other op-specific fields |
 | TRANSFER | 3 | `newOwner` (20 bytes), exactly one of `newGuard` / `clearGuard` | all other op-specific fields |
-| CHANGE_CANDIDATE | 4 | `candidateName` (1..12 lowercase ASCII alnum), `expectedCandidateID` (20 bytes) | all other op-specific fields |
-| RESTAKE | 5 | `duration` (1..1050) | all other op-specific fields |
+| CHANGE_CANDIDATE | 4 | `candidateName` (non-empty; format per `action.IsValidCandidateName`), `expectedCandidateID` (20 bytes) | all other op-specific fields |
+| RESTAKE | 5 | none (`duration`, `autoStake` optional; bounds per existing `Restake` validation) | all other op-specific fields |
 | ROTATE | 6 | `newGuard`, `clearGuard=false` | all other op-specific fields |
 
 `newGuard` is valid only when `algID=0x12`, `publicKey` is 48 bytes, and
 `acceptSig` is 16,224 bytes. An op with `newGuard` has a 34,000-byte limit and
 pays two verifications; all other ops have a 17,000-byte limit and pay one.
+
+Staking rules of the underlying operation (restake duration bound,
+candidate-name format) are the existing staking checks, applied to guarded ops
+exactly as to legacy actions; the guard layer does not restate them. This
+keeps RESTAKE to 0 days available, as legacy `Restake` allows it.
 
 ## 4. Transcripts
 
