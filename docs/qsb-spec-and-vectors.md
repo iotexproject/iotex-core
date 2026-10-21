@@ -22,7 +22,7 @@ Companion documents:
 | `algID` | `0x12` |
 | Public key | 48 bytes |
 | Signature | 16,224 bytes |
-| Signing context | `IOTX-PQ-BUCKET-v1` |
+| Signing context | `IOTEX-PQ-BUCKET-v1` (18 ASCII bytes) |
 | CALL domain | `IOTX-QSB-CALL` |
 | ACCEPT domain | `IOTX-QSB-ACCEPT` |
 | Max BIND size | 17,000 bytes |
@@ -30,7 +30,7 @@ Companion documents:
 | Max op size with `newGuard` | 34,000 bytes |
 | Intrinsic gas | `10,000 + 16*size + k*30,000` |
 | `k` | 1 for BIND and ordinary ops; 2 when an op carries `newGuard` |
-| Native chain ID used in vectors | 4689 |
+| Native chain ID used in vectors | 1 (mainnet; testnet is 2). This is `BlockchainCtx.ChainID`, **not** the EVM network ID 4689/4690 |
 
 `G_VERIFY = 30,000` is the current draft value. It is normative only after
 native linux/amd64 full-action calibration; emulated builds are not a
@@ -189,16 +189,16 @@ owner after the operation.
 
 ### 4.3 Transcript vectors
 
-Inputs for both vectors: chain ID 4689, bucket 1, generation 1, nonce 0,
+Inputs for both vectors: native chain ID 1, bucket 1, generation 1, nonce 0,
 deadline 1010, owner `0x11` repeated 20 times, op UNSTAKE.
 
 CALL:
 
 ```text
-494f54582d5153422d43414c4c00001251000000000000000111111111111111111111111111111111111111110000000000000001000000000000000000000000000003f2000000010000000000000000000000000000000000000000000000
+494f54582d5153422d43414c4c00000001000000000000000111111111111111111111111111111111111111110000000000000001000000000000000000000000000003f2000000010000000000000000000000000000000000000000000000
 ```
 
-ACCEPT inputs: chain ID 4689, bucket 1, new generation 1, resulting owner
+ACCEPT inputs: native chain ID 1, bucket 1, new generation 1, resulting owner
 `0x11` repeated 20 times, `algID=0x12`, public key
 `c3530472b05ab2c631028bf08d7fa740f87ccbe26c8290b286f8317dbc30787febe5366d8be38345ec93d0fca288459a`,
 deadline 0.
@@ -206,7 +206,7 @@ deadline 0.
 ACCEPT:
 
 ```text
-494f54582d5153422d414343455054000012510000000000000001000000000000000111111111111111111111111111111111111111110000001200000030c3530472b05ab2c631028bf08d7fa740f87ccbe26c8290b286f8317dbc30787febe5366d8be38345ec93d0fca288459a0000000000000000
+494f54582d5153422d414343455054000000010000000000000001000000000000000111111111111111111111111111111111111111110000001200000030c3530472b05ab2c631028bf08d7fa740f87ccbe26c8290b286f8317dbc30787febe5366d8be38345ec93d0fca288459a0000000000000000
 ```
 
 The Go tests in

@@ -112,11 +112,18 @@ time state.
 
 Execution:
 
+Steps follow IIP §5 in order; the order fixes which receipt status wins when
+several checks fail.
+
 1. Snapshot the state manager.
-2. `fetchBucket`; absent = `ErrInvalidBucketIndex`.
-3. Require the bucket is native, not a contract/NFT bucket, and not a self-stake
-   bucket (`ErrGuardScope`). Use the existing `isSelfStakeBucket` helper.
-4. Require `actionCtx.Caller` equals `bucket.Owner` (`ErrUnauthorizedOperator`).
+2. `fetchBucket`; absent = `ErrInvalidBucketIndex`. The bucket must be native,
+   not a contract/NFT bucket (`ErrGuardScope`).
+3. Require `actionCtx.Caller` equals `bucket.Owner` (`ErrUnauthorizedOperator`).
+4. Require the bucket is not a self-stake bucket and has no endorsement record
+   in any state (`ErrGuardScope`). Both checks are structural, per IIP §3: no
+   candidate's `SelfStakeBucketIdx` equals the bucket index, and an
+   endorsement-state `Get` returns `ErrStateNotExist`. Do **not** substitute
+   `isSelfStakeBucket` or the endorsement `Status`.
 5. Load the guard record. It must be absent or a tombstone (`ErrGuardScope`).
 6. `generation+1` must not overflow (`ErrGuardMismatch`).
 7. Verify `acceptSig` over ACCEPT with `newGeneration=generation+1`,

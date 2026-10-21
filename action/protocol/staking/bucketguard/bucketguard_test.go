@@ -38,15 +38,15 @@ func TestTranscriptVectors(t *testing.T) {
 		Deadline:    1010,
 		Op:          OpUnstake,
 	}
-	gotCall := hex.EncodeToString(EncodeCall(4689, owner, op))
-	wantCall := "494f54582d5153422d43414c4c00001251000000000000000111111111111111111111111111111111111111110000000000000001000000000000000000000000000003f2000000010000000000000000000000000000000000000000000000"
+	gotCall := hex.EncodeToString(EncodeCall(1, owner, op))
+	wantCall := "494f54582d5153422d43414c4c00000001000000000000000111111111111111111111111111111111111111110000000000000001000000000000000000000000000003f2000000010000000000000000000000000000000000000000000000"
 	if gotCall != wantCall {
 		t.Fatalf("CALL transcript mismatch\n got %s\nwant %s", gotCall, wantCall)
 	}
 
 	pub := mustHex(t, "c3530472b05ab2c631028bf08d7fa740f87ccbe26c8290b286f8317dbc30787febe5366d8be38345ec93d0fca288459a")
-	gotAccept := hex.EncodeToString(EncodeAccept(4689, 1, 1, owner, AlgSLHDSA192s, pub, 0))
-	wantAccept := "494f54582d5153422d414343455054000012510000000000000001000000000000000111111111111111111111111111111111111111110000001200000030c3530472b05ab2c631028bf08d7fa740f87ccbe26c8290b286f8317dbc30787febe5366d8be38345ec93d0fca288459a0000000000000000"
+	gotAccept := hex.EncodeToString(EncodeAccept(1, 1, 1, owner, AlgSLHDSA192s, pub, 0))
+	wantAccept := "494f54582d5153422d414343455054000000010000000000000001000000000000000111111111111111111111111111111111111111110000001200000030c3530472b05ab2c631028bf08d7fa740f87ccbe26c8290b286f8317dbc30787febe5366d8be38345ec93d0fca288459a0000000000000000"
 	if gotAccept != wantAccept {
 		t.Fatalf("ACCEPT transcript mismatch\n got %s\nwant %s", gotAccept, wantAccept)
 	}
@@ -269,7 +269,7 @@ func TestVerifyRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	op := &GuardedBucketOp{BucketIndex: 1, Generation: 1, Nonce: 0, Deadline: 1010, Op: OpUnstake}
-	call := EncodeCall(4689, testOwner(), op)
+	call := EncodeCall(1, testOwner(), op)
 	sig, err := slhdsa.SignDeterministic(&priv, slhdsa.NewMessage(call), []byte(Context))
 	if err != nil {
 		t.Fatal(err)
