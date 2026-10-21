@@ -6,6 +6,8 @@
 package staking
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -19,8 +21,8 @@ import (
 // Draft IIP §9.5 statuses. They must be replaced with the generated
 // iotextypes values when iotex-proto adds them.
 const (
-	receiptStatusErrBucketGuarded = iotextypes.ReceiptStatus(216)
-	receiptStatusErrGuardScope    = iotextypes.ReceiptStatus(220)
+	receiptStatusErrBucketGuarded = iotextypes.ReceiptStatus_ErrBucketGuarded
+	receiptStatusErrGuardScope    = iotextypes.ReceiptStatus_ErrGuardScope
 )
 
 type (
@@ -90,11 +92,28 @@ func (bsr *BucketGuardStateReader) Get(index uint64) (*BucketGuard, error) {
 // requireUnguarded rejects a legacy action on a bucket whose guard record is
 // active. A state read failure is returned unwrapped so it aborts the block;
 // only the guarded verdict becomes a receipt error.
-func requireUnguarded(enabled bool, sr protocol.StateReader, index uint64) error {
+func requireUnguarded(ctx context.Context, enabled bool, sr protocol.StateReader, index uint64) error {
 	if !enabled {
 		return nil
 	}
+	if authorized, ok := guardAuthorizationFromContext(ctx); ok && authorized == index {
+		return nil
+	}
 	return requireNoGuard(sr, index, receiptStatusErrBucketGuarded)
+}
+
+type guardAuthorizationCtxKey struct{}
+
+// withGuardAuthorization marks one bucket as authorized by an already verified
+// guarded operation. It is scoped to a single bucket index and is only set by
+// the QSB handlers.
+func withGuardAuthorization(ctx context.Context, index uint64) context.Context {
+	return context.WithValue(ctx, guardAuthorizationCtxKey{}, index)
+}
+
+func guardAuthorizationFromContext(ctx context.Context) (uint64, bool) {
+	index, ok := ctx.Value(guardAuthorizationCtxKey{}).(uint64)
+	return index, ok
 }
 
 // requireUnguardedScope enforces the invariant that a guarded bucket is never

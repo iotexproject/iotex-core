@@ -31,7 +31,7 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 	if rErr != nil {
 		return log, nil, rErr
 	}
-	if err := requireUnguarded(featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
+	if err := requireUnguarded(ctx, featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
 		return log, nil, err
 	}
 	// caller must be the owner of a candidate

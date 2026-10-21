@@ -30,22 +30,22 @@ maintainers must approve the height, protobuf changes, and activation.
 
 ## Gate 1 — reference implementation behind a disabled gate
 
-- [ ] `iotex-proto`: messages, `ActionCore` oneof fields, receipt statuses;
-      regenerate Go bindings and update the dependency.
-- [ ] `action/`: action types, envelope/deserializer support, intrinsic gas,
-      size limits, stateless validation.
-- [ ] `action/protocol/staking`: dispatch, guard state, handlers, receipt/log
-      emission, snapshot/revert, deterministic-vs-fatal error classification.
-      Partial: guard state and legacy checks are wired; the guard event packer
-      exists, but no QSB handler emits it yet.
-- [ ] `state/`: new namespace, append-only schema, migration, Erigon backend,
-      state reader/view. Partial: `_bucketGuard` serialization, state
-      manager/reader, and Erigon object-storage registration exist; no action
-      writes them. Migration is not needed for a new post-fork key family.
-- [ ] `FeatureCtx` + genesis: new hardfork gate, default disabled. Partial:
-      `QuantumSafeBucketsBlockHeight` defaults to `math.MaxUint64` and
-      `EnableBucketGuard` is covered at `fork - 1` / `fork`; no QSB action is
-      wired to the gate yet.
+- [x] `iotex-proto`: messages, `ActionCore` oneof fields 59/60, receipt
+      statuses 216–221, regenerated Go bindings. Implemented on draft branch
+      `qsb/guarded-bucket-proto` at `4f59d11`; not merged, so `iotex-core`
+      currently pins the pseudo-version.
+- [x] `action/`: `BindBucketGuard` and `GuardedBucketOp`, envelope/deserializer
+      support, canonical intrinsic gas, size limits, stateless validation.
+- [x] `action/protocol/staking`: dispatch, guard state, BIND/UNSTAKE/WITHDRAW/
+      TRANSFER/CHANGE_CANDIDATE/RESTAKE/ROTATE handlers, one guard event per
+      success, guarded WITHDRAW transaction log, and explicit per-bucket
+      authorization for reused legacy effects.
+- [x] `state/`: `_bucketGuard` serialization, state manager/reader, and Erigon
+      object-storage registration; QSB handlers write/delete the record. No
+      migration is needed for the new post-fork key family.
+- [x] `FeatureCtx` + genesis: `QuantumSafeBucketsBlockHeight` defaults to
+      `math.MaxUint64`; `EnableBucketGuard` gates validation and dispatch, and
+      pre-fork legacy behavior is tested unchanged.
 - [ ] Audit every legacy path that can mutate a guarded bucket: `Unstake`,
       `WithdrawStake`, `TransferStake`, `ChangeCandidate`, `Restake`,
       `MigrateStake`, consignment, candidate activation/endorsement, contract

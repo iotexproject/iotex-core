@@ -43,7 +43,7 @@ func (p *Protocol) handleStakeMigrate(ctx context.Context, elp action.Envelope, 
 	if rErr != nil {
 		return nil, nil, gasConsumed, gasToBeDeducted, rErr
 	}
-	if err := requireUnguarded(protocol.MustGetFeatureCtx(ctx).EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
+	if err := requireUnguarded(ctx, protocol.MustGetFeatureCtx(ctx).EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
 		return nil, nil, gasConsumed, gasToBeDeducted, err
 	}
 	staker, rerr := fetchCaller(ctx, csm, big.NewInt(0))

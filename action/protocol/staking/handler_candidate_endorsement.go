@@ -31,7 +31,7 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 	if rErr != nil {
 		return log, nil, rErr
 	}
-	if err := requireUnguarded(featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
+	if err := requireUnguarded(ctx, featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
 		return log, nil, err
 	}
 	cand := csm.GetByIdentifier(bucket.Candidate)

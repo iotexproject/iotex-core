@@ -72,6 +72,20 @@ func (p *Protocol) validateRestake(ctx context.Context, act *action.Restake) err
 	return nil
 }
 
+func (p *Protocol) validateBindBucketGuard(ctx context.Context, act *action.BindBucketGuard) error {
+	if !protocol.MustGetFeatureCtx(ctx).EnableBucketGuard {
+		return action.ErrInvalidAct
+	}
+	return act.SanityCheck()
+}
+
+func (p *Protocol) validateGuardedBucketOp(ctx context.Context, act *action.GuardedBucketOp) error {
+	if !protocol.MustGetFeatureCtx(ctx).EnableBucketGuard {
+		return action.ErrInvalidAct
+	}
+	return act.SanityCheck()
+}
+
 func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.CandidateRegister) error {
 	if !action.IsValidCandidateName(act.Name()) {
 		return action.ErrInvalidCanName

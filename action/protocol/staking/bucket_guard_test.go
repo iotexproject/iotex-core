@@ -31,8 +31,8 @@ func TestRequireUnguarded(t *testing.T) {
 	sm := testdb.NewMockStateManager(ctrl)
 	bsm := NewBucketGuardStateManager(sm)
 
-	r.NoError(requireUnguarded(true, sm, 1))
-	r.NoError(requireUnguarded(false, sm, 1))
+	r.NoError(requireUnguarded(context.Background(), true, sm, 1))
+	r.NoError(requireUnguarded(context.Background(), false, sm, 1))
 
 	pub := bytes.Repeat([]byte{0x22}, bucketguard.PubKeySize)
 	r.NoError(bsm.Put(1, &BucketGuard{
@@ -42,12 +42,15 @@ func TestRequireUnguarded(t *testing.T) {
 		Nonce:       2,
 		BoundHeight: 3,
 	}))
-	err := requireUnguarded(true, sm, 1)
+	err := requireUnguarded(context.Background(), true, sm, 1)
 	r.Error(err)
 	var receiptErr ReceiptError
 	r.ErrorAs(err, &receiptErr)
 	r.EqualValues(216, receiptErr.ReceiptStatus())
-	r.NoError(requireUnguarded(false, sm, 1))
+	r.NoError(requireUnguarded(context.Background(), false, sm, 1))
+
+	r.NoError(requireUnguarded(withGuardAuthorization(context.Background(), 1), true, sm, 1))
+	r.Error(requireUnguarded(withGuardAuthorization(context.Background(), 2), true, sm, 1))
 
 	err = requireUnguardedScope(true, sm, 1)
 	r.Error(err)
@@ -55,7 +58,7 @@ func TestRequireUnguarded(t *testing.T) {
 	r.EqualValues(220, receiptErr.ReceiptStatus())
 
 	r.NoError(bsm.Put(1, &BucketGuard{Generation: 1, Nonce: 3}))
-	r.NoError(requireUnguarded(true, sm, 1))
+	r.NoError(requireUnguarded(context.Background(), true, sm, 1))
 }
 
 func TestGuardedLegacyUnstakeRejected(t *testing.T) {

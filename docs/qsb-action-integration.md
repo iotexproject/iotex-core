@@ -1,9 +1,9 @@
 # QSB action and state integration draft
 
-Status: **draft, non-activated**. This is the wiring plan for the reference
-implementation behind a disabled fork gate. It does not select a hardfork height
-or register an action in this branch. Protobuf changes require a separate
-`iotex-proto` change and maintainer sign-off.
+Status: **draft, non-activated**. The reference implementation is wired behind
+a disabled fork gate. It does not select a hardfork height. The protobuf change
+lives on `iotexproject/iotex-proto` branch `qsb/guarded-bucket-proto` at commit
+`4f59d11` and still requires maintainer sign-off before merge.
 
 See [`qsb-spec-and-vectors.md`](./qsb-spec-and-vectors.md) for the frozen
 encoding, statuses, event, and vectors, and
@@ -38,19 +38,24 @@ guarded buckets). A zero height means permanently disabled.
 
 ### 2.1 `iotex-proto`
 
-Add the messages and `ActionCore` oneof fields from
-[`qsb-proto-draft.proto`](./qsb-proto-draft.proto), regenerate Go bindings, and
-bump the dependency. Add the six receipt statuses to `receiptstatus.proto`.
-Final field/oneof/status numbers need maintainer approval.
+Implemented on `iotexproject/iotex-proto` branch `qsb/guarded-bucket-proto`
+(commit `4f59d11`): messages from
+[`qsb-proto-draft.proto`](./qsb-proto-draft.proto), `ActionCore` oneof fields
+59/60, and receipt statuses 216–221. Go bindings were regenerated with
+`protoc-gen-go v1.34.2`. `iotex-core` depends on the pseudo-version
+`v0.6.14-0.20261021040621-4f59d11d9ea3`; replace it with the merged release
+before production. Final field/oneof/status numbers still need maintainer
+approval.
 
 ### 2.2 `action/`
 
-Add two payload types:
+Implemented:
 
 - `action/bind_bucket_guard.go` — `BindBucketGuard`.
 - `action/guarded_bucket_op.go` — `GuardedBucketOp`.
 
-Each type implements the existing `actionPayload` contract:
+Both wrap the canonical structs in `bucketguard` and implement the existing
+`actionPayload` contract:
 
 ```go
 IntrinsicGas() (uint64, error)
@@ -62,7 +67,7 @@ and a `LoadProto`/`Proto` pair. `SanityCheck` calls the stateless validators in
 `action/protocol/staking/bucketguard` and returns `ErrInvalidAct` on failure.
 `IntrinsicGas` returns the canonical gas, not generic staking payload pricing.
 
-Add cases to `action/envelope.go`:
+Envelope/deserializer cases are implemented in `action/envelope.go`:
 
 ```go
 case pbAct.GetBindBucketGuard() != nil:
@@ -79,13 +84,12 @@ case pbAct.GetGuardedBucketOp() != nil:
     elp.payload = act
 ```
 
-Add the corresponding `FillAction` calls so the payload can be serialized back.
-Do not wrap either action in a generic inner-action envelope.
+`FillAction` is implemented on both payloads. Neither action is wrapped in a
+generic inner-action envelope.
 
 ## 3. Staking dispatch
 
-Add cases to both `Protocol.Validate` and `Protocol.handle` in
-`action/protocol/staking/protocol.go`:
+Implemented in `action/protocol/staking/protocol.go`:
 
 ```go
 case *action.BindBucketGuard:
@@ -103,10 +107,12 @@ case *action.GuardedBucketOp:
     rLog, tLogs, err = p.handleGuardedBucketOp(ctx, act, csm)
 ```
 
-Both handlers must be behind `FeatureCtx.EnableBucketGuard`; before the fork they
-must return an invalid-action error and must not be dispatched. `Validate` is
-stateless and may reject malformed actions early; `handle` re-checks execution-
-time state.
+Both handlers live in `handler_bucket_guard.go` and are behind
+`FeatureCtx.EnableBucketGuard`; before the fork `Validate` returns
+`action.ErrInvalidAct`. `Validate` is stateless; `handle` re-checks
+execution-time state. The guarded path uses an explicit per-bucket authorization
+context when it reuses legacy effects, so legacy handlers still reject guarded
+buckets when called directly.
 
 ### 3.1 `BindBucketGuard`
 

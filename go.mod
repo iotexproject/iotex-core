@@ -8,8 +8,8 @@ require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cockroachdb/errors v1.14.0
 	github.com/cloudflare/circl v1.6.5
+	github.com/cockroachdb/errors v1.14.0
 	github.com/cockroachdb/pebble v1.1.5
 	github.com/erigontech/erigon v1.9.7-0.20250305121304-76181961ed24
 	github.com/erigontech/erigon-lib v1.0.0
@@ -32,7 +32,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.9-0.20251203033311-6e8aa4fd43ef
 	github.com/iotexproject/iotex-antenna-go/v2 v2.6.4
 	github.com/iotexproject/iotex-election v0.3.8-0.20251015031218-8df952babca1
-	github.com/iotexproject/iotex-proto v0.6.13
+	github.com/iotexproject/iotex-proto v0.6.14-0.20261021040621-4f59d11d9ea3
 	github.com/ipfs/go-ipfs-api v0.7.0
 	github.com/libp2p/go-libp2p v0.47.0
 	github.com/libp2p/go-libp2p-pubsub v0.17.0

@@ -922,6 +922,10 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		}
 	case *action.SetVoterRewardOptIn:
 		rLog, tLogs, err = p.handleSetVoterRewardOptIn(ctx, act, csm)
+	case *action.BindBucketGuard:
+		rLog, tLogs, err = p.handleBindBucketGuard(ctx, act, csm)
+	case *action.GuardedBucketOp:
+		rLog, tLogs, err = p.handleGuardedBucketOp(ctx, act, csm)
 	default:
 		return nil, nil
 	}
@@ -1074,6 +1078,10 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		return p.validateCandidateDeactivate(ctx, act)
 	case *action.SetVoterRewardOptIn:
 		return p.validateSetVoterRewardOptIn(ctx, act)
+	case *action.BindBucketGuard:
+		return p.validateBindBucketGuard(ctx, act)
+	case *action.GuardedBucketOp:
+		return p.validateGuardedBucketOp(ctx, act)
 	}
 	return nil
 }

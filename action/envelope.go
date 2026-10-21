@@ -479,6 +479,18 @@ func (elp *envelope) loadProtoActionPayload(pbAct *iotextypes.ActionCore) error 
 			return err
 		}
 		elp.payload = act
+	case pbAct.GetBindBucketGuard() != nil:
+		act := &BindBucketGuard{}
+		if err := act.LoadProto(pbAct.GetBindBucketGuard()); err != nil {
+			return err
+		}
+		elp.payload = act
+	case pbAct.GetGuardedBucketOp() != nil:
+		act := &GuardedBucketOp{}
+		if err := act.LoadProto(pbAct.GetGuardedBucketOp()); err != nil {
+			return err
+		}
+		elp.payload = act
 	default:
 		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}

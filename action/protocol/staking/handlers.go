@@ -145,7 +145,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	if fetchErr != nil {
 		return log, fetchErr
 	}
-	if err := requireUnguarded(featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
+	if err := requireUnguarded(ctx, featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
 		return log, err
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
@@ -247,7 +247,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	if fetchErr != nil {
 		return log, nil, fetchErr
 	}
-	if err := requireUnguarded(featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
+	if err := requireUnguarded(ctx, featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
 		return log, nil, err
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
@@ -333,7 +333,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	if fetchErr != nil {
 		return log, fetchErr
 	}
-	if err := requireUnguarded(featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
+	if err := requireUnguarded(ctx, featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
 		return log, err
 	}
 	if !featureCtx.DisableDelegateEndorsement {
@@ -428,7 +428,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	bucket, fetchErr := p.fetchBucketAndValidate(featureCtx, csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
 		if bucket != nil {
-			if err := requireUnguarded(featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
+			if err := requireUnguarded(ctx, featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
 				return log, err
 			}
 		}
@@ -444,7 +444,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 			return log, fetchErr
 		}
 	} else {
-		if err := requireUnguarded(featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
+		if err := requireUnguarded(ctx, featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
 			return log, err
 		}
 	}
@@ -636,7 +636,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	if fetchErr != nil {
 		return log, fetchErr
 	}
-	if err := requireUnguarded(featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
+	if err := requireUnguarded(ctx, featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
 		return log, err
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
