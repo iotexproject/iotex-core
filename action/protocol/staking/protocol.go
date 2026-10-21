@@ -67,6 +67,9 @@ const (
 	// PutPollResult, read once per epoch by the rewarding protocol under
 	// IIP-59. Full key: {_candidateRewardSnapshot} || candID.Bytes().
 	_candidateRewardSnapshot
+	// _bucketGuard is the tag for a QSB guard record keyed by bucket index.
+	// Full key: {_bucketGuard} || uint64_be(bucketIndex).
+	_bucketGuard
 )
 
 // Errors

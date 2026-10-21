@@ -175,17 +175,19 @@ Use the staking namespace prefix `_bucketGuard` and key
 `uint64_be(bucketIndex)`. The value is the protobuf `BucketGuard` from
 [`qsb-proto-draft.proto`](./qsb-proto-draft.proto).
 
-Add a `BucketGuardStateManager` or equivalent helper around
-`protocol.StateManager`:
+The scaffold now provides `BucketGuardStateManager` and
+`BucketGuardStateReader` in `action/protocol/staking/bucket_guard.go`:
 
 ```go
-func (m *bucketGuardSM) Get(index uint64) (*BucketGuard, error)
-func (m *bucketGuardSM) Put(index uint64, g *BucketGuard) error
-func (m *bucketGuardSM) Delete(index uint64) error
+func (bsr *BucketGuardStateReader) Get(index uint64) (*BucketGuard, error)
+func (bsm *BucketGuardStateManager) Put(index uint64, g *BucketGuard) error
+func (bsm *BucketGuardStateManager) Delete(index uint64) error
 ```
 
-`Get` maps `state.ErrStateNotExist` to an absent record with `generation=0,
-nonce=0`. A tombstone is a present record with empty `publicKey`.
+`Get` returns `nil, nil` for an absent record; the caller treats it as
+`generation=0, nonce=0`. `Put`/`Delete` use the `_bucketGuard` key prefix under
+`state.StakingNamespace`. Erigon registration and migration are still pending.
+A tombstone is a present record with empty `publicKey`.
 
 ### 4.2 Snapshot and delete rules
 

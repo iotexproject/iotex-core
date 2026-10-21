@@ -21,8 +21,12 @@ Design and conformance documents:
 - `validate.go` — stateless validation (§5, §9.1) and the existing staking
   bounds that guarded actions must reuse.
 - `slhdsa.go` — pure SLH-DSA-SHA2-192s verification with the fixed QSB context.
+- `state.go` — canonical `BucketGuard` state serialization/deserialization and
+  the state-manager/reader helper in the staking package.
 - `bucketguard_test.go` — transcript, size/gas, validation, fork-gate, and
   signature round-trip tests.
+- `state_test.go` — guard state round-trip, tombstone, and malformed-encoding
+  tests.
 
 ## Integration checklist (not done here)
 

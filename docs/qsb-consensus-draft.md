@@ -17,10 +17,13 @@ The package implements the consensus-neutral pieces:
 - canonical proto3 encoding, size limits, and intrinsic gas;
 - stateless validation;
 - SLH-DSA-SHA2-192s verification with `IOTEX-PQ-BUCKET-v1`;
-- a fork-gate helper that requires an explicit non-zero activation height.
+- a fork-gate helper that requires an explicit non-zero activation height;
+- canonical serialization and a state manager/reader helper for the
+  `_bucketGuard` record.
 
-It does **not** include protobuf changes, action registration, state storage,
-receipts, handler wiring, or a hardfork height.
+It does **not** include protobuf changes, action registration, handler wiring,
+receipt emission, or a hardfork height. No action can create a guard record yet;
+the state helper is exercised only by tests.
 
 ## Integration sequence
 

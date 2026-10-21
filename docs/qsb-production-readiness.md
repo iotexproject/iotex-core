@@ -37,7 +37,9 @@ maintainers must approve the height, protobuf changes, and activation.
 - [ ] `action/protocol/staking`: dispatch, guard state, handlers, receipt/log
       emission, snapshot/revert, deterministic-vs-fatal error classification.
 - [ ] `state/`: new namespace, append-only schema, migration, Erigon backend,
-      state reader/view.
+      state reader/view. Partial: `_bucketGuard` record serialization and a
+      state manager/reader helper exist; no action writes them and Erigon/
+      migration wiring is pending.
 - [ ] `FeatureCtx` + genesis: new hardfork gate, default disabled. Tests must
       cover `height = fork - 1` and `height = fork`.
 - [ ] Audit every legacy path that can mutate a guarded bucket: `Unstake`,
