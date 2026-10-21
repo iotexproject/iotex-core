@@ -29,8 +29,9 @@ Add the height to `blockchain/genesis/genesis.go` with the same pattern as the
 existing forks. The draft must use `0` (disabled) until maintainers approve a
 name and height. Never reuse or edit an existing mainnet height.
 
-`bucketguard.Active(blockHeight, forkHeight)` already implements the boundary
-rule. Tests must cover `height = fork-1` (action invalid/not dispatched; legacy
+The flag selects the rule version as well: post-fork code uses
+`bucketguard.ParamsV1()`, and any later change of sizes, gas or algorithms is a
+new `ParamsVn` behind a new flag. Tests must cover `height = fork-1` (action invalid/not dispatched; legacy
 paths unchanged) and `height = fork` (new actions valid; legacy paths reject
 guarded buckets). A zero height means permanently disabled.
 
@@ -128,6 +129,9 @@ several checks fail.
 6. `generation+1` must not overflow (`ErrGuardMismatch`).
 7. Verify `acceptSig` over ACCEPT with `newGeneration=generation+1`,
    `resultingOwner=owner`, `deadline=0` (`ErrGuardSignature`).
+
+   Steps 4–7 are `bucketguard.AuthorizeBind(p, chainID, owner, scope, cur,
+   act, height)`, which returns the record to store.
 8. Write the guard record and emit the BIND event. Do not change the bucket,
    owner, candidate, votes, or pool.
 9. Settle gas and nonce.
@@ -153,6 +157,18 @@ Execution:
    sender is only a sponsor: it pays gas and advances its own account nonce.
 9. Update/delete the guard record per the transition table; emit exactly one
    guard event; settle.
+
+Mapping to `bucketguard`: steps 3–4 are `CheckOp(cur, act, height)`; step 6 is
+`act.CheckCandidate(resolvedID)`; step 7 is `VerifyOp(p, chainID, owner, cur,
+act)`; step 9 is `Next(cur, act, height)`. Step 5 also covers the staking
+sanity checks the guard layer does not repeat: `validateRestake` for RESTAKE
+and `action.IsValidCandidateName` for CHANGE_CANDIDATE, run in
+`Protocol.Validate` exactly as for the legacy actions.
+
+Error mapping is one table keyed with `errors.Is`: `ErrMalformed` makes the
+action invalid (not includable); `ErrBucketGuarded`, `ErrBucketNotGuarded`,
+`ErrGuardMismatch`, `ErrGuardSignature`, `ErrGuardScope` and
+`ErrCandidateMismatch` map to the receipt statuses of IIP §9.5.
 
 The sponsor may be any account. Do not pass a general "guard authorized" flag
 into legacy handlers; pass an explicit authorization scoped to

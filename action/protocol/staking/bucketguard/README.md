@@ -14,15 +14,20 @@ Design and conformance documents:
 
 ## What is here
 
-- `types.go` — IIP constants, `Guard`, `BindBucketGuard`, `GuardedBucketOp`,
-  `NewGuard`, operation tags, and a fork-gate helper.
-- `transcript.go` — byte-exact CALL and ACCEPT transcripts (§7).
-- `encode.go` — canonical proto3 encoding, size limits, and intrinsic gas (§8).
-- `validate.go` — stateless validation (§5, §9.1) and the existing staking
-  bounds that guarded actions must reuse.
-- `slhdsa.go` — pure SLH-DSA-SHA2-192s verification with the fixed QSB context.
-- `bucketguard_test.go` — transcript, size/gas, validation, fork-gate, and
-  signature round-trip tests.
+| File | Contents |
+|---|---|
+| `types.go` | `Op`, `BindBucketGuard`, `GuardedBucketOp`, `NewGuard`, signing context and domains |
+| `params.go` | `Params` and `ParamsV1()`: sizes, gas, accepted algorithms, versioned by fork |
+| `errors.go` | Sentinel errors, one per IIP receipt status, plus `ErrMalformed` |
+| `encode.go` | Canonical proto3 encoding C(m), `CanonicalSize`, `IntrinsicGas(p)` (§8) |
+| `validate.go` | Stateless guard checks (§5, §9.1) |
+| `transcript.go` | `EncodeCall` / `EncodeAccept`, the byte-exact signing messages (§7) |
+| `guard.go` | `Guard` record with canonical `Serialize` / `Deserialize` (§4) |
+| `authorize.go` | `AuthorizeBind`, `CheckOp`, `CheckCandidate`, `VerifyOp`, `Next`, `RejectIfGuarded` |
+
+Signature verification and the algorithm registry live in `pkg/pqcrypto`;
+wallet-side key derivation (`QSB-KDF-v1`) and signing in `pkg/pqcrypto/signer`.
+`example_test.go` walks a bind and a guarded withdraw through the API.
 
 ## Integration checklist (not done here)
 
@@ -42,18 +47,18 @@ Design and conformance documents:
 9. Get a security audit and maintainer sign-off on the fork height and
    serialization.
 
-## Corrections to the standalone MVP
+## Staking rules are not duplicated
 
-The MVP was a simulator and deliberately simplified some staking rules. This
-scaffold uses the production bounds:
+The guard layer checks only what belongs to the guard: sizes, deadline,
+algorithms and which fields each op carries. The staking rules of the
+underlying operation (restake duration bound, candidate-name format) are
+applied by the staking protocol with its existing checks, so guarded and
+legacy actions cannot drift apart. In particular RESTAKE accepts any duration
+here, including 0, as legacy `Restake` does.
 
-- RESTAKE duration: `1..1050` days (`staking._stakeDurationLimit`), not the
-  MVP's 30 days.
-- Candidate name: 1..12 lowercase ASCII letters or digits
-  (`action.IsValidCandidateName`), not the MVP's 1..40 printable characters.
-- The CALL transcript intentionally does not commit to an amount. TRANSFER and
-  WITHDRAW act on the bucket's execution-time amount, including deposits and
-  IIP-59 compounding that arrived after signing.
+The CALL transcript intentionally does not commit to an amount. TRANSFER and
+WITHDRAW act on the bucket's execution-time amount, including deposits and
+IIP-59 compounding that arrived after signing.
 
 ## Security notes
 

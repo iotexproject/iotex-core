@@ -1,143 +1,132 @@
 package bucketguard
 
-import "fmt"
+import (
+	"fmt"
 
-// Validate performs stateless validation for BindBucketGuard.
-func (m *BindBucketGuard) Validate() error {
-	if m.AlgID != AlgSLHDSA192s {
-		return fmt.Errorf("unsupported algID 0x%x", m.AlgID)
+	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
+)
+
+const addressLen = 20
+
+// Validate performs the stateless checks of BindBucketGuard (IIP §5). Errors
+// wrap ErrMalformed.
+func (m *BindBucketGuard) Validate(p Params) error {
+	if err := validateKey(p, m.AlgID, m.PublicKey, m.AcceptSig); err != nil {
+		return err
 	}
-	if len(m.PublicKey) != PubKeySize {
-		return fmt.Errorf("public key must be %d bytes, got %d", PubKeySize, len(m.PublicKey))
-	}
-	if len(m.AcceptSig) != SigSize {
-		return fmt.Errorf("accept signature must be %d bytes, got %d", SigSize, len(m.AcceptSig))
-	}
-	if size := m.CanonicalSize(); size > MaxBindSize {
-		return fmt.Errorf("canonical size %d exceeds %d", size, MaxBindSize)
+	if size := m.CanonicalSize(); size > p.MaxBindSize {
+		return malformed("canonical size %d exceeds %d", size, p.MaxBindSize)
 	}
 	return nil
 }
 
-// Validate performs stateless validation for GuardedBucketOp.
-func (m *GuardedBucketOp) Validate() error {
+// Validate performs the stateless checks of GuardedBucketOp (IIP §9.1) that
+// belong to the guard: sizes, deadline, and which fields each op carries.
+// Errors wrap ErrMalformed.
+//
+// The staking business rules of the underlying operation (restake duration
+// bound, candidate-name format) are not repeated here; the staking protocol
+// must apply its existing checks to the op, as it does for the legacy actions.
+func (m *GuardedBucketOp) Validate(p Params) error {
 	if m.Deadline == 0 {
-		return fmt.Errorf("deadline must be > 0")
+		return malformed("deadline must be > 0")
 	}
-	if len(m.Sig) != SigSize {
-		return fmt.Errorf("CALL signature must be %d bytes, got %d", SigSize, len(m.Sig))
+	if !p.acceptsSigSize(len(m.Sig)) {
+		return malformed("CALL signature has invalid size %d", len(m.Sig))
 	}
-	limit := MaxOpSize
-	if m.NewGuard != nil {
-		limit = MaxOpWithNewGuardSize
+	limit := p.MaxOpSize
+	if m.installsKey() {
+		limit = p.MaxOpWithNewGuardSize
 	}
 	if size := m.CanonicalSize(); size > limit {
-		return fmt.Errorf("canonical size %d exceeds %d", size, limit)
+		return malformed("canonical size %d exceeds %d", size, limit)
 	}
-	return m.validateOpFields()
+	return m.validateFields(p)
 }
 
-func (m *GuardedBucketOp) validateOpFields() error {
+// field presence per op; true means required, absent means must be empty.
+type fieldSet struct {
+	recipient, newOwner, candidate, newGuard, clearGuard, restake bool
+}
+
+func (m *GuardedBucketOp) validateFields(p Params) error {
+	var want fieldSet
 	switch m.Op {
 	case OpUnstake:
-		if m.hasAnyOpField() {
-			return fmt.Errorf("UNSTAKE must not carry op-specific fields")
-		}
 	case OpWithdraw:
-		if len(m.Recipient) != len(Address{}) {
-			return fmt.Errorf("WITHDRAW recipient must be 20 bytes")
-		}
-		if len(m.NewOwner) != 0 || m.CandidateName != "" || len(m.ExpectedCandidateID) != 0 ||
-			m.Duration != 0 || m.AutoStake || m.NewGuard != nil || m.ClearGuard {
-			return fmt.Errorf("WITHDRAW carries unused fields")
-		}
+		want.recipient = true
 	case OpTransfer:
-		if len(m.NewOwner) != len(Address{}) {
-			return fmt.Errorf("TRANSFER newOwner must be 20 bytes")
+		want.newOwner = true
+		if m.installsKey() == m.ClearGuard {
+			return malformed("TRANSFER requires exactly one of newGuard or clearGuard")
 		}
-		if (m.NewGuard == nil) == !m.ClearGuard {
-			return fmt.Errorf("TRANSFER requires exactly one of newGuard or clearGuard")
-		}
-		if m.NewGuard != nil {
-			if err := m.NewGuard.validate(); err != nil {
-				return err
-			}
-		}
-		if len(m.Recipient) != 0 || m.CandidateName != "" || len(m.ExpectedCandidateID) != 0 ||
-			m.Duration != 0 || m.AutoStake {
-			return fmt.Errorf("TRANSFER carries unused fields")
-		}
+		want.newGuard, want.clearGuard = m.installsKey(), m.ClearGuard
 	case OpChangeCandidate:
-		if err := validateCandidateName(m.CandidateName); err != nil {
-			return err
-		}
-		if len(m.ExpectedCandidateID) != len(Address{}) {
-			return fmt.Errorf("CHANGE_CANDIDATE expectedCandidateID must be 20 bytes")
-		}
-		if len(m.Recipient) != 0 || len(m.NewOwner) != 0 || m.Duration != 0 || m.AutoStake ||
-			m.NewGuard != nil || m.ClearGuard {
-			return fmt.Errorf("CHANGE_CANDIDATE carries unused fields")
-		}
+		want.candidate = true
 	case OpRestake:
-		if m.Duration == 0 || m.Duration > MaxRestakeDurationDays {
-			return fmt.Errorf("RESTAKE duration must be in 1..%d", MaxRestakeDurationDays)
-		}
-		if len(m.Recipient) != 0 || len(m.NewOwner) != 0 || m.CandidateName != "" ||
-			len(m.ExpectedCandidateID) != 0 || m.NewGuard != nil || m.ClearGuard {
-			return fmt.Errorf("RESTAKE carries unused fields")
-		}
+		want.restake = true
 	case OpRotate:
-		if m.NewGuard == nil {
-			return fmt.Errorf("ROTATE requires newGuard")
-		}
-		if err := m.NewGuard.validate(); err != nil {
-			return err
-		}
-		if m.ClearGuard {
-			return fmt.Errorf("ROTATE must not set clearGuard")
-		}
-		if len(m.Recipient) != 0 || len(m.NewOwner) != 0 || m.CandidateName != "" ||
-			len(m.ExpectedCandidateID) != 0 || m.Duration != 0 || m.AutoStake {
-			return fmt.Errorf("ROTATE carries unused fields")
-		}
+		want.newGuard = true
 	default:
-		return fmt.Errorf("unknown op %d", m.Op)
+		return malformed("unknown op %d", uint32(m.Op))
+	}
+	if err := checkAddr(m.Op, "recipient", m.Recipient, want.recipient); err != nil {
+		return err
+	}
+	if err := checkAddr(m.Op, "newOwner", m.NewOwner, want.newOwner); err != nil {
+		return err
+	}
+	if err := checkAddr(m.Op, "expectedCandidateID", m.ExpectedCandidateID, want.candidate); err != nil {
+		return err
+	}
+	if want.candidate != (m.CandidateName != "") {
+		return unexpected(m.Op, "candidateName", want.candidate)
+	}
+	if !want.restake && (m.Duration != 0 || m.AutoStake) {
+		return unexpected(m.Op, "duration/autoStake", false)
+	}
+	if want.newGuard != m.installsKey() {
+		return unexpected(m.Op, "newGuard", want.newGuard)
+	}
+	if want.clearGuard != m.ClearGuard {
+		return unexpected(m.Op, "clearGuard", want.clearGuard)
+	}
+	if m.installsKey() {
+		return validateKey(p, m.NewGuard.AlgID, m.NewGuard.PublicKey, m.NewGuard.AcceptSig)
 	}
 	return nil
 }
 
-func (m *GuardedBucketOp) hasAnyOpField() bool {
-	return len(m.Recipient) != 0 || len(m.NewOwner) != 0 || m.CandidateName != "" ||
-		len(m.ExpectedCandidateID) != 0 || m.Duration != 0 || m.AutoStake ||
-		m.NewGuard != nil || m.ClearGuard
-}
-
-func (n *NewGuard) validate() error {
-	if n == nil {
-		return fmt.Errorf("newGuard is required")
-	}
-	if n.AlgID != AlgSLHDSA192s {
-		return fmt.Errorf("unsupported newGuard algID 0x%x", n.AlgID)
-	}
-	if len(n.PublicKey) != PubKeySize {
-		return fmt.Errorf("newGuard public key must be %d bytes", PubKeySize)
-	}
-	if len(n.AcceptSig) != SigSize {
-		return fmt.Errorf("newGuard accept signature must be %d bytes", SigSize)
+func checkAddr(op Op, name string, v []byte, required bool) error {
+	switch {
+	case required && len(v) != addressLen:
+		return malformed("%s %s must be %d bytes, got %d", op, name, addressLen, len(v))
+	case !required && len(v) != 0:
+		return unexpected(op, name, false)
 	}
 	return nil
 }
 
-// validateCandidateName mirrors action.IsValidCandidateName: 1..12 lowercase
-// ASCII letters or digits.
-func validateCandidateName(name string) error {
-	if len(name) == 0 || len(name) > MaxCandidateNameLen {
-		return fmt.Errorf("candidate name must be 1..%d bytes", MaxCandidateNameLen)
+func validateKey(p Params, alg pqcrypto.AlgID, publicKey, acceptSig []byte) error {
+	if !p.accepts(alg) {
+		return malformed("unsupported algorithm %s", alg)
 	}
-	for _, c := range name {
-		if !(('a' <= c && c <= 'z') || ('0' <= c && c <= '9')) {
-			return fmt.Errorf("candidate name must be lowercase alphanumeric")
-		}
+	if len(publicKey) != alg.PublicKeySize() {
+		return malformed("%s public key must be %d bytes, got %d", alg, alg.PublicKeySize(), len(publicKey))
+	}
+	if len(acceptSig) != alg.SignatureSize() {
+		return malformed("%s accept signature must be %d bytes, got %d", alg, alg.SignatureSize(), len(acceptSig))
 	}
 	return nil
+}
+
+func malformed(format string, args ...any) error {
+	return fmt.Errorf("%w: "+format, append([]any{ErrMalformed}, args...)...)
+}
+
+func unexpected(op Op, field string, required bool) error {
+	if required {
+		return malformed("%s requires %s", op, field)
+	}
+	return malformed("%s must not carry %s", op, field)
 }

@@ -1,160 +1,93 @@
 package bucketguard
 
-import "encoding/binary"
+import "google.golang.org/protobuf/encoding/protowire"
 
-// Minimal deterministic proto3 encoder. It implements the canonical encoding
-// C(m) defined by IIP section 8: ascending field order, default-valued scalars
-// and empty bytes/strings omitted, minimal varints and length prefixes, nested
-// messages emitted iff set, and no unknown fields.
+// Canonical proto3 encoding C(m) of IIP §8: fields in ascending field-number
+// order, each at most once; default scalars and empty bytes/strings omitted;
+// minimal varints and length prefixes; nested messages emitted iff set; no
+// unknown fields. Size limits and gas are defined over C(m) of the decoded
+// message, never over received bytes.
 
-const (
-	wireVarint  = 0
-	wireFixed64 = 1
-	wireBytes   = 2
-	wireFixed32 = 5
-)
-
-func protoVarint(b []byte, v uint64) []byte {
-	for v >= 0x80 {
-		b = append(b, byte(v)|0x80)
-		v >>= 7
-	}
-	return append(b, byte(v))
-}
-
-func protoTag(b []byte, field int, wire int) []byte {
-	return protoVarint(b, uint64(field)<<3|uint64(wire))
-}
-
-func protoUint32(b []byte, field int, v uint32) []byte {
+func appendVarintField(b []byte, num protowire.Number, v uint64) []byte {
 	if v == 0 {
 		return b
 	}
-	b = protoTag(b, field, wireVarint)
-	return protoVarint(b, uint64(v))
+	b = protowire.AppendTag(b, num, protowire.VarintType)
+	return protowire.AppendVarint(b, v)
 }
 
-func protoUint64(b []byte, field int, v uint64) []byte {
-	if v == 0 {
-		return b
-	}
-	b = protoTag(b, field, wireVarint)
-	return protoVarint(b, v)
-}
-
-func protoBool(b []byte, field int, v bool) []byte {
+func appendBoolField(b []byte, num protowire.Number, v bool) []byte {
 	if !v {
 		return b
 	}
-	b = protoTag(b, field, wireVarint)
-	return protoVarint(b, 1)
+	return appendVarintField(b, num, 1)
 }
 
-func protoBytes(b []byte, field int, v []byte) []byte {
+func appendBytesField(b []byte, num protowire.Number, v []byte) []byte {
 	if len(v) == 0 {
 		return b
 	}
-	b = protoTag(b, field, wireBytes)
-	b = protoVarint(b, uint64(len(v)))
-	return append(b, v...)
+	b = protowire.AppendTag(b, num, protowire.BytesType)
+	return protowire.AppendBytes(b, v)
 }
 
-func protoString(b []byte, field int, v string) []byte {
-	if v == "" {
-		return b
-	}
-	return protoBytes(b, field, []byte(v))
-}
-
-func protoMessage(b []byte, field int, msg []byte, present bool) []byte {
-	if !present {
-		return b
-	}
-	b = protoTag(b, field, wireBytes)
-	b = protoVarint(b, uint64(len(msg)))
-	return append(b, msg...)
-}
-
-// ProtoVarint exposes the canonical varint encoding for vector tooling.
-func ProtoVarint(v uint64) []byte { return protoVarint(nil, v) }
-
-// Uint64BE returns the big-endian representation used by transcripts and logs.
-func Uint64BE(v uint64) []byte {
-	var b [8]byte
-	binary.BigEndian.PutUint64(b[:], v)
-	return b[:]
-}
-
-// CanonicalBytes returns C(newGuard).
-func (n *NewGuard) CanonicalBytes() []byte {
-	if n == nil {
-		return nil
-	}
-	b := make([]byte, 0, 96+len(n.PublicKey)+len(n.AcceptSig))
-	b = protoUint32(b, 1, n.AlgID)
-	b = protoBytes(b, 2, n.PublicKey)
-	b = protoBytes(b, 3, n.AcceptSig)
+func (n *NewGuard) canonicalBytes() []byte {
+	var b []byte
+	b = appendVarintField(b, 1, uint64(n.AlgID))
+	b = appendBytesField(b, 2, n.PublicKey)
+	b = appendBytesField(b, 3, n.AcceptSig)
 	return b
 }
 
-// CanonicalBytes returns C(bind).
-func (m *BindBucketGuard) CanonicalBytes() []byte {
-	b := make([]byte, 0, 96+len(m.PublicKey)+len(m.AcceptSig))
-	b = protoUint64(b, 1, m.BucketIndex)
-	b = protoUint32(b, 2, m.AlgID)
-	b = protoBytes(b, 3, m.PublicKey)
-	b = protoBytes(b, 4, m.AcceptSig)
+func (m *BindBucketGuard) canonicalBytes() []byte {
+	b := make([]byte, 0, 32+len(m.PublicKey)+len(m.AcceptSig))
+	b = appendVarintField(b, 1, m.BucketIndex)
+	b = appendVarintField(b, 2, uint64(m.AlgID))
+	b = appendBytesField(b, 3, m.PublicKey)
+	b = appendBytesField(b, 4, m.AcceptSig)
 	return b
 }
 
-// CanonicalSize is the consensus size used for limits and pricing.
-func (m *BindBucketGuard) CanonicalSize() int { return len(m.CanonicalBytes()) }
-
-// IntrinsicGas is 10,000 + 16*size + G_VERIFY for the single ACCEPT
-// verification required by BIND.
-func (m *BindBucketGuard) IntrinsicGas() uint64 {
-	return intrinsicGas(m.CanonicalSize(), 1)
-}
-
-// CanonicalBytes returns C(op).
-func (m *GuardedBucketOp) CanonicalBytes() []byte {
-	capacity := 256 + len(m.Recipient) + len(m.NewOwner) + len(m.CandidateName) + len(m.ExpectedCandidateID) + len(m.Sig)
+func (m *GuardedBucketOp) canonicalBytes() []byte {
+	b := make([]byte, 0, 128+len(m.Sig))
+	b = appendVarintField(b, 1, m.BucketIndex)
+	b = appendVarintField(b, 2, m.Generation)
+	b = appendVarintField(b, 3, m.Nonce)
+	b = appendVarintField(b, 4, m.Deadline)
+	b = appendVarintField(b, 5, uint64(m.Op))
+	b = appendBytesField(b, 6, m.Recipient)
+	b = appendBytesField(b, 7, m.NewOwner)
+	b = appendBytesField(b, 8, []byte(m.CandidateName))
+	b = appendBytesField(b, 9, m.ExpectedCandidateID)
+	b = appendVarintField(b, 10, uint64(m.Duration))
+	b = appendBoolField(b, 11, m.AutoStake)
 	if m.NewGuard != nil {
-		capacity += 512 + len(m.NewGuard.PublicKey) + len(m.NewGuard.AcceptSig)
+		// A set nested message is emitted even when all its fields are empty.
+		b = protowire.AppendTag(b, 12, protowire.BytesType)
+		b = protowire.AppendBytes(b, m.NewGuard.canonicalBytes())
 	}
-	b := make([]byte, 0, capacity)
-	b = protoUint64(b, 1, m.BucketIndex)
-	b = protoUint64(b, 2, m.Generation)
-	b = protoUint64(b, 3, m.Nonce)
-	b = protoUint64(b, 4, m.Deadline)
-	b = protoUint32(b, 5, m.Op)
-	b = protoBytes(b, 6, m.Recipient)
-	b = protoBytes(b, 7, m.NewOwner)
-	b = protoString(b, 8, m.CandidateName)
-	b = protoBytes(b, 9, m.ExpectedCandidateID)
-	b = protoUint32(b, 10, m.Duration)
-	b = protoBool(b, 11, m.AutoStake)
-	if m.NewGuard != nil {
-		b = protoMessage(b, 12, m.NewGuard.CanonicalBytes(), true)
-	}
-	b = protoBool(b, 13, m.ClearGuard)
-	b = protoBytes(b, 14, m.Sig)
+	b = appendBoolField(b, 13, m.ClearGuard)
+	b = appendBytesField(b, 14, m.Sig)
 	return b
 }
 
-// CanonicalSize is the consensus size used for limits and pricing.
-func (m *GuardedBucketOp) CanonicalSize() int { return len(m.CanonicalBytes()) }
+// CanonicalSize is the consensus size of the action, len(C(m)).
+func (m *BindBucketGuard) CanonicalSize() int { return len(m.canonicalBytes()) }
 
-// IntrinsicGas is 10,000 + 16*size + k*G_VERIFY, with k=2 when a new guard is
-// installed and k=1 otherwise.
-func (m *GuardedBucketOp) IntrinsicGas() uint64 {
+// CanonicalSize is the consensus size of the action, len(C(m)).
+func (m *GuardedBucketOp) CanonicalSize() int { return len(m.canonicalBytes()) }
+
+// IntrinsicGas prices BIND, which needs one verification (ACCEPT).
+func (m *BindBucketGuard) IntrinsicGas(p Params) uint64 {
+	return p.gas(m.CanonicalSize(), 1)
+}
+
+// IntrinsicGas prices an op: one verification (CALL), plus one (ACCEPT) when
+// the op installs a new key.
+func (m *GuardedBucketOp) IntrinsicGas(p Params) uint64 {
 	k := uint64(1)
-	if m.NewGuard != nil {
+	if m.installsKey() {
 		k = 2
 	}
-	return intrinsicGas(m.CanonicalSize(), k)
-}
-
-func intrinsicGas(size int, verifications uint64) uint64 {
-	return IntrinsicGasBase + uint64(GasPerSizeByte)*uint64(size) + verifications*GVerify
+	return p.gas(m.CanonicalSize(), k)
 }
