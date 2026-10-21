@@ -1244,6 +1244,9 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		resp, height, err = stakeSR.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
 	case iotexapi.ReadStakingDataMethod_CONTRACT_STAKING_BUCKET_TYPES:
 		resp, height, err = stakeSR.readStateContractStakingBucketTypes(ctx, r.GetContractStakingBucketTypes())
+	case iotexapi.ReadStakingDataMethod_BUCKET_GUARD:
+		resp, err = readStateBucketGuard(sr, r.GetBucketGuard())
+		height = inputHeight
 	default:
 		err = errors.New("corresponding method isn't found")
 	}

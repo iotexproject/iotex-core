@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -376,6 +377,22 @@ func addBucketGuardEvent(log *receiptLog, index uint64, op uint32, g *bucketguar
 		hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(index)),
 		hash.BytesToHash256(byteutil.Uint32ToBytesBigEndian(op)),
 	}, data)
+}
+
+// readStateBucketGuard serves ReadStakingDataMethod_BUCKET_GUARD. A bucket
+// without a record yields an all-zero BucketGuard (empty publicKey: unguarded).
+func readStateBucketGuard(sr protocol.StateReader, req *iotexapi.ReadStakingDataRequest_BucketGuard) (*iotextypes.BucketGuard, error) {
+	g, err := getBucketGuard(sr, req.GetIndex())
+	if err != nil || g == nil {
+		return &iotextypes.BucketGuard{}, err
+	}
+	return &iotextypes.BucketGuard{
+		AlgID:       uint32(g.AlgID),
+		PublicKey:   g.PublicKey,
+		Generation:  g.Generation,
+		Nonce:       g.Nonce,
+		BoundHeight: g.BoundHeight,
+	}, nil
 }
 
 // ReadBucketGuard returns the guard record of a native bucket, or nil if the
