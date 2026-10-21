@@ -24,6 +24,7 @@ Design and conformance documents:
 | `transcript.go` | `EncodeCall` / `EncodeAccept`, the byte-exact signing messages (§7) |
 | `guard.go` | `Guard` record with canonical `Serialize` / `Deserialize` (§4) |
 | `authorize.go` | `AuthorizeBind`, `CheckOp`, `CheckCandidate`, `VerifyOp`, `Next`, `RejectIfGuarded` |
+| `web3.go` | ABI envelope: one method per op, `EthData` / `*FromEthData`, priced over the decoded value |
 
 Signature verification and the algorithm registry live in `pkg/pqcrypto`;
 wallet-side key derivation (`QSB-KDF-v1`) and signing in `pkg/pqcrypto/signer`.
