@@ -1,9 +1,10 @@
 # QSB legacy-path audit
 
 Status: **draft, non-activated**. This audit maps every staking path that can
-touch a native bucket and states what the QSB integration must do. It is a
-design review, not an implementation: the scaffold does not register actions or
-mutate state.
+touch a native bucket and states what the QSB integration must do. The scaffold
+now enforces the guard check on the listed legacy paths, but it does not
+register QSB actions and no action can create a guard record. A guard record
+therefore cannot exist before activation; the check is inert on current state.
 
 Scope: native buckets only. Contract/NFT staking is outside QSB. The only native
 to contract path is `MigrateStake`, which is blocked for a guarded bucket.

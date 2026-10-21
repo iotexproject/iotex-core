@@ -2,12 +2,17 @@ package staking
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
@@ -17,6 +22,75 @@ func TestBucketGuardKey(t *testing.T) {
 	r.Equal(byte(6), key[0])
 	r.Len(key, 9)
 	r.Equal([]byte{1, 2, 3, 4, 5, 6, 7, 8}, key[1:])
+}
+
+func TestRequireUnguarded(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm := testdb.NewMockStateManager(ctrl)
+	bsm := NewBucketGuardStateManager(sm)
+
+	r.NoError(requireUnguarded(sm, 1))
+
+	pub := bytes.Repeat([]byte{0x22}, bucketguard.PubKeySize)
+	r.NoError(bsm.Put(1, &BucketGuard{
+		AlgID:       bucketguard.AlgSLHDSA192s,
+		PublicKey:   pub,
+		Generation:  1,
+		Nonce:       2,
+		BoundHeight: 3,
+	}))
+	err := requireUnguarded(sm, 1)
+	r.Error(err)
+	var receiptErr ReceiptError
+	r.ErrorAs(err, &receiptErr)
+	r.EqualValues(216, receiptErr.ReceiptStatus())
+
+	r.NoError(bsm.Put(1, &BucketGuard{Generation: 1, Nonce: 3}))
+	r.NoError(requireUnguarded(sm, 1))
+}
+
+func TestGuardedLegacyUnstakeRejected(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	sm, p, buckets, _ := initTestState(t, ctrl, []*bucketConfig{
+		{identityset.Address(1), identityset.Address(1), "100000000000000000000", 30, false, false, nil, 0},
+	}, []*candidateConfig{
+		{identityset.Address(1), identityset.Address(1), identityset.Address(1), "test"},
+	})
+	bucket := buckets[0]
+	r.NoError(NewBucketGuardStateManager(sm).Put(bucket.Index, &BucketGuard{
+		AlgID:       bucketguard.AlgSLHDSA192s,
+		PublicKey:   bytes.Repeat([]byte{0x22}, bucketguard.PubKeySize),
+		Generation:  1,
+		Nonce:       2,
+		BoundHeight: 3,
+	}))
+	r.NoError(setupAccount(sm, identityset.Address(1), 100))
+
+	act := action.NewUnstake(bucket.Index, nil)
+	intrinsicGas, err := act.IntrinsicGas()
+	r.NoError(err)
+	elp := builder.SetNonce(1).SetGasLimit(10000).
+		SetGasPrice(testGasPrice).SetAction(act).Build()
+
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    1,
+		BlockTimeStamp: bucket.StakeStartTime.Add(bucket.StakedDuration),
+	})
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+	ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+		Caller:       identityset.Address(1),
+		GasPrice:     testGasPrice,
+		IntrinsicGas: intrinsicGas,
+		Nonce:        1,
+	})
+
+	receipt, err := p.Handle(ctx, elp, sm)
+	r.NoError(err)
+	r.EqualValues(216, receipt.Status)
+	r.False(bucket.isUnstaked())
 }
 
 func TestBucketGuardStateManager(t *testing.T) {

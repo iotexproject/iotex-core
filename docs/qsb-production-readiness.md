@@ -45,7 +45,9 @@ maintainers must approve the height, protobuf changes, and activation.
 - [ ] Audit every legacy path that can mutate a guarded bucket: `Unstake`,
       `WithdrawStake`, `TransferStake`, `ChangeCandidate`, `Restake`,
       `MigrateStake`, consignment, candidate activation/endorsement, contract
-      staking, delegate self-stake. Deposit remains allowed.
+      staking, delegate self-stake. Deposit remains allowed. Partial: guard
+      checks are wired for the native legacy paths and covered by unit tests;
+      contract staking, delegate self-stake, and the full test matrix remain.
 - [ ] Unit, integration, replay, reorg, backend-failure, and cross-backend tests.
 - [ ] Fuzzing for canonical decoding and transcript parsing.
 - [ ] ACVP vectors for the SLH-DSA primitive; protocol transcript and KDF

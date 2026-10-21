@@ -8,11 +8,17 @@ package staking
 import (
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
+
+// receiptStatusErrBucketGuarded is the draft IIP §9.5 status. It must be
+// replaced with the generated iotextypes value when iotex-proto adds it.
+const receiptStatusErrBucketGuarded = iotextypes.ReceiptStatus(216)
 
 type (
 	// BucketGuard is the on-chain QSB guard record for a native bucket.
@@ -76,4 +82,21 @@ func (bsr *BucketGuardStateReader) Get(index uint64) (*BucketGuard, error) {
 		return nil, err
 	}
 	return &guard, nil
+}
+
+// requireUnguarded rejects a legacy action on a bucket whose guard record is
+// active. A state read failure is returned unwrapped so it aborts the block;
+// only the guarded verdict becomes a receipt error.
+func requireUnguarded(sr protocol.StateReader, index uint64) error {
+	guard, err := NewBucketGuardStateReader(sr).Get(index)
+	if err != nil {
+		return err
+	}
+	if guard != nil && guard.Guarded {
+		return &handleError{
+			err:           errors.Errorf("bucket %d is guarded", index),
+			failureStatus: receiptStatusErrBucketGuarded,
+		}
+	}
+	return nil
 }

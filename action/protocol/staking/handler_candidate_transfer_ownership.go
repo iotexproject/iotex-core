@@ -33,6 +33,11 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 		return log, nil, err
 	}
 	candidate := csm.GetByOwner(actCtx.Caller)
+	if candidate.SelfStakeBucketIdx != candidateNoSelfStakeBucketIndex {
+		if err := requireUnguarded(csm.SR(), candidate.SelfStakeBucketIdx); err != nil {
+			return log, nil, err
+		}
+	}
 	if candidate.Identifier == nil || candidate.Identifier.String() == "" {
 		candidate.Identifier = candidate.Owner
 	}

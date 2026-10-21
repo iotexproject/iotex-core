@@ -230,18 +230,20 @@ failure and one `WITHDRAW_BUCKET` transaction log for guarded WITHDRAW.
 
 ## 6. Legacy-path guards
 
-Add a helper that returns a deterministic `ErrBucketGuarded` when a record is
-present and guarded, and a fatal error for backend failures:
+The scaffold provides a helper that returns a deterministic `ErrBucketGuarded`
+receipt error when a record is present and guarded, and a fatal error for
+backend failures:
 
 ```go
-func requireUnguarded(csm CandidateStateManager, index uint64) ReceiptError
+func requireUnguarded(sr protocol.StateReader, index uint64) error
 ```
 
-Call it after fetching the bucket and before any mutation in every path listed
-in [`qsb-legacy-path-audit.md`](./qsb-legacy-path-audit.md). Do not put it inside
-`fetchBucketAndValidate` unconditionally: `DepositToStake` and IIP-59 compounding
-must remain allowed, and `CandidateActivate` needs the target bucket, not the
-caller's bucket.
+It is called after fetching the bucket and before any mutation in the native
+paths listed in [`qsb-legacy-path-audit.md`](./qsb-legacy-path-audit.md). Do not
+put it inside `fetchBucketAndValidate` unconditionally: `DepositToStake` and
+IIP-59 compounding must remain allowed, and `CandidateActivate` needs the target
+bucket, not the caller's bucket. The status is the draft value 216; replace it
+with the generated `iotextypes` value when `iotex-proto` adds it.
 
 Minimum placements:
 

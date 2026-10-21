@@ -145,6 +145,9 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	if fetchErr != nil {
 		return log, fetchErr
 	}
+	if err := requireUnguarded(csm.SR(), bucket.Index); err != nil {
+		return log, err
+	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 
 	candidate := csm.GetByIdentifier(bucket.Candidate)
@@ -244,6 +247,9 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	if fetchErr != nil {
 		return log, nil, fetchErr
 	}
+	if err := requireUnguarded(csm.SR(), bucket.Index); err != nil {
+		return log, nil, err
+	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 
 	// check unstake time
@@ -326,6 +332,9 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	bucket, fetchErr := p.fetchBucketAndValidate(featureCtx, csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
 		return log, fetchErr
+	}
+	if err := requireUnguarded(csm.SR(), bucket.Index); err != nil {
+		return log, err
 	}
 	if !featureCtx.DisableDelegateEndorsement {
 		if rErr := validateBucketWithoutEndorsement(ctx, NewEndorsementStateManager(csm.SM()), bucket, blkCtx.BlockHeight); rErr != nil {
@@ -418,6 +427,11 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	newOwner := act.VoterAddress()
 	bucket, fetchErr := p.fetchBucketAndValidate(featureCtx, csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
+		if bucket != nil {
+			if err := requireUnguarded(csm.SR(), bucket.Index); err != nil {
+				return log, err
+			}
+		}
 		if featureCtx.ReturnFetchError ||
 			fetchErr.ReceiptStatus() != uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator) {
 			return log, fetchErr
@@ -428,6 +442,10 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 			newOwner = consignment.Transferee()
 		} else {
 			return log, fetchErr
+		}
+	} else {
+		if err := requireUnguarded(csm.SR(), bucket.Index); err != nil {
+			return log, err
 		}
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), act.VoterAddress().Bytes(), bucket.Candidate.Bytes())
@@ -617,6 +635,9 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	bucket, fetchErr := p.fetchBucketAndValidate(featureCtx, csm, actionCtx.Caller, act.BucketIndex(), true, true)
 	if fetchErr != nil {
 		return log, fetchErr
+	}
+	if err := requireUnguarded(csm.SR(), bucket.Index); err != nil {
+		return log, err
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 

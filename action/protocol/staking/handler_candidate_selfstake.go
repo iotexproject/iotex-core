@@ -31,6 +31,9 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 	if rErr != nil {
 		return log, nil, rErr
 	}
+	if err := requireUnguarded(csm.SR(), bucket.Index); err != nil {
+		return log, nil, err
+	}
 	// caller must be the owner of a candidate
 	cand := csm.GetByOwner(actCtx.Caller)
 	if cand == nil {
@@ -90,6 +93,9 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketIndex,
 		}
 	}
+	if err := requireUnguarded(csm.SR(), cand.SelfStakeBucketIdx); err != nil {
+		return nil, nil, err
+	}
 	var topics action.Topics
 	var eventData []byte
 	var err error
@@ -127,6 +133,11 @@ func (p *Protocol) handleScheduleCandidateDeactivation(ctx context.Context, act 
 	g := genesis.MustExtractGenesisContext(ctx)
 	if c == nil {
 		return nil, nil, errCandNotExist
+	}
+	if c.SelfStakeBucketIdx != candidateNoSelfStakeBucketIndex {
+		if err := requireUnguarded(csm.SR(), c.SelfStakeBucketIdx); err != nil {
+			return nil, nil, err
+		}
 	}
 	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
 	if rp == nil {
