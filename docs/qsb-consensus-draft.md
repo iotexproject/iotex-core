@@ -21,7 +21,8 @@ The package implements the consensus-neutral pieces:
 - a `FeatureCtx.EnableBucketGuard` flag backed by the default-disabled
   `QuantumSafeBucketsBlockHeight` genesis field;
 - canonical serialization and a state manager/reader helper for the
-  `_bucketGuard` record.
+  `_bucketGuard` record;
+- the guard event topic and data packer.
 
 It does **not** include protobuf changes, action registration, handler wiring,
 or receipt emission. No hardfork height is selected; the gate defaults to

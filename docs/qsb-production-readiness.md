@@ -36,6 +36,8 @@ maintainers must approve the height, protobuf changes, and activation.
       size limits, stateless validation.
 - [ ] `action/protocol/staking`: dispatch, guard state, handlers, receipt/log
       emission, snapshot/revert, deterministic-vs-fatal error classification.
+      Partial: guard state and legacy checks are wired; the guard event packer
+      exists, but no QSB handler emits it yet.
 - [ ] `state/`: new namespace, append-only schema, migration, Erigon backend,
       state reader/view. Partial: `_bucketGuard` record serialization and a
       state manager/reader helper exist; no action writes them and Erigon/
