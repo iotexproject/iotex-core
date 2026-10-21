@@ -49,7 +49,7 @@ const (
 // Transcript domain separators and context fixed by the IIP.
 const (
 	// Context is the SLH-DSA signing context.
-	Context = "IOTX-PQ-BUCKET-v1"
+	Context = "IOTEX-PQ-BUCKET-v1"
 	// DomainCall prefixes GuardedBucketOp CALL transcripts.
 	DomainCall = "IOTX-QSB-CALL"
 	// DomainAccept prefixes incoming-key ACCEPT transcripts.
