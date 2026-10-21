@@ -31,7 +31,8 @@ func TestRequireUnguarded(t *testing.T) {
 	sm := testdb.NewMockStateManager(ctrl)
 	bsm := NewBucketGuardStateManager(sm)
 
-	r.NoError(requireUnguarded(sm, 1))
+	r.NoError(requireUnguarded(true, sm, 1))
+	r.NoError(requireUnguarded(false, sm, 1))
 
 	pub := bytes.Repeat([]byte{0x22}, bucketguard.PubKeySize)
 	r.NoError(bsm.Put(1, &BucketGuard{
@@ -41,19 +42,20 @@ func TestRequireUnguarded(t *testing.T) {
 		Nonce:       2,
 		BoundHeight: 3,
 	}))
-	err := requireUnguarded(sm, 1)
+	err := requireUnguarded(true, sm, 1)
 	r.Error(err)
 	var receiptErr ReceiptError
 	r.ErrorAs(err, &receiptErr)
 	r.EqualValues(216, receiptErr.ReceiptStatus())
+	r.NoError(requireUnguarded(false, sm, 1))
 
-	err = requireUnguardedScope(sm, 1)
+	err = requireUnguardedScope(true, sm, 1)
 	r.Error(err)
 	r.ErrorAs(err, &receiptErr)
 	r.EqualValues(220, receiptErr.ReceiptStatus())
 
 	r.NoError(bsm.Put(1, &BucketGuard{Generation: 1, Nonce: 3}))
-	r.NoError(requireUnguarded(sm, 1))
+	r.NoError(requireUnguarded(true, sm, 1))
 }
 
 func TestGuardedLegacyUnstakeRejected(t *testing.T) {
@@ -80,7 +82,9 @@ func TestGuardedLegacyUnstakeRejected(t *testing.T) {
 	elp := builder.SetNonce(1).SetGasLimit(10000).
 		SetGasPrice(testGasPrice).SetAction(act).Build()
 
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+	g := genesis.TestDefault()
+	g.QuantumSafeBucketsBlockHeight = 1
+	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight:    1,
 		BlockTimeStamp: bucket.StakeStartTime.Add(bucket.StakedDuration),
@@ -171,7 +175,9 @@ func TestGuardedLegacyPaths(t *testing.T) {
 	csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 	r.NoError(err)
 
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+	g := genesis.TestDefault()
+	g.QuantumSafeBucketsBlockHeight = 1
+	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight:    1,
 		BlockTimeStamp: buckets[0].StakeStartTime.Add(buckets[0].StakedDuration),
@@ -275,7 +281,9 @@ func TestGuardedDepositAllowed(t *testing.T) {
 
 	act, err := action.NewDepositToStake(buckets[0].Index, "1000000000000000000", nil)
 	r.NoError(err)
-	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+	g := genesis.TestDefault()
+	g.QuantumSafeBucketsBlockHeight = 1
+	ctx := genesis.WithGenesisContext(context.Background(), g)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight:    1,
 		BlockTimeStamp: buckets[0].StakeStartTime.Add(time.Hour),

@@ -235,10 +235,12 @@ receipt error when a record is present and guarded, and a fatal error for
 backend failures:
 
 ```go
-func requireUnguarded(sr protocol.StateReader, index uint64) error
+func requireUnguarded(enabled bool, sr protocol.StateReader, index uint64) error
 ```
 
-It is called after fetching the bucket and before any mutation in the native
+`enabled` is `FeatureCtx.EnableBucketGuard`; before the fork the helper returns
+nil without touching state, so pre-fork behavior is unchanged. It is called
+after fetching the bucket and before any mutation in the native
 paths listed in [`qsb-legacy-path-audit.md`](./qsb-legacy-path-audit.md). Do not
 put it inside `fetchBucketAndValidate` unconditionally: `DepositToStake` and
 IIP-59 compounding must remain allowed, and `CandidateActivate` needs the target

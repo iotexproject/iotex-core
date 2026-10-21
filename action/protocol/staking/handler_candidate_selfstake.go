@@ -31,7 +31,7 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 	if rErr != nil {
 		return log, nil, rErr
 	}
-	if err := requireUnguarded(csm.SR(), bucket.Index); err != nil {
+	if err := requireUnguarded(featureCtx.EnableBucketGuard, csm.SR(), bucket.Index); err != nil {
 		return log, nil, err
 	}
 	// caller must be the owner of a candidate
@@ -83,6 +83,7 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 
 func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.CandidateDeactivate, csm CandidateStateManager) (*receiptLog, []*action.TransactionLog, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	cand := csm.GetByOwner(actCtx.Caller)
 	if cand == nil {
 		return nil, nil, errCandNotExist
@@ -93,7 +94,7 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketIndex,
 		}
 	}
-	if err := requireUnguardedScope(csm.SR(), cand.SelfStakeBucketIdx); err != nil {
+	if err := requireUnguardedScope(featureCtx.EnableBucketGuard, csm.SR(), cand.SelfStakeBucketIdx); err != nil {
 		return nil, nil, err
 	}
 	var topics action.Topics
@@ -129,13 +130,14 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 }
 
 func (p *Protocol) handleScheduleCandidateDeactivation(ctx context.Context, act *action.ScheduleCandidateDeactivation, csm CandidateStateManager) (*receiptLog, []*action.TransactionLog, error) {
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	c := csm.GetByIdentifier(act.Delegate())
 	g := genesis.MustExtractGenesisContext(ctx)
 	if c == nil {
 		return nil, nil, errCandNotExist
 	}
 	if c.SelfStakeBucketIdx != candidateNoSelfStakeBucketIndex {
-		if err := requireUnguardedScope(csm.SR(), c.SelfStakeBucketIdx); err != nil {
+		if err := requireUnguardedScope(featureCtx.EnableBucketGuard, csm.SR(), c.SelfStakeBucketIdx); err != nil {
 			return nil, nil, err
 		}
 	}

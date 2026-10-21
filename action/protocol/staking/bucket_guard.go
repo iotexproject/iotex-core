@@ -90,13 +90,19 @@ func (bsr *BucketGuardStateReader) Get(index uint64) (*BucketGuard, error) {
 // requireUnguarded rejects a legacy action on a bucket whose guard record is
 // active. A state read failure is returned unwrapped so it aborts the block;
 // only the guarded verdict becomes a receipt error.
-func requireUnguarded(sr protocol.StateReader, index uint64) error {
+func requireUnguarded(enabled bool, sr protocol.StateReader, index uint64) error {
+	if !enabled {
+		return nil
+	}
 	return requireNoGuard(sr, index, receiptStatusErrBucketGuarded)
 }
 
 // requireUnguardedScope enforces the invariant that a guarded bucket is never
 // a candidate self-stake bucket.
-func requireUnguardedScope(sr protocol.StateReader, index uint64) error {
+func requireUnguardedScope(enabled bool, sr protocol.StateReader, index uint64) error {
+	if !enabled {
+		return nil
+	}
 	return requireNoGuard(sr, index, receiptStatusErrGuardScope)
 }
 
