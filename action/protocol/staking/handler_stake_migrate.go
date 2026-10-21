@@ -126,6 +126,10 @@ func (p *Protocol) validateStakeMigrate(ctx context.Context, bucket *VoteBucket,
 	if err := validateBucketOwner(bucket, protocol.MustGetActionCtx(ctx).Caller); err != nil {
 		return err
 	}
+	// A guarded bucket must not leave guard control for an ERC-721 bucket.
+	if err := p.rejectGuardedBucket(ctx, csm, bucket.Index); err != nil {
+		return err
+	}
 	if !bucket.AutoStake {
 		return &handleError{
 			err:           errors.New("cannot migrate non-auto-staked bucket"),
@@ -148,6 +152,9 @@ func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account
 	// delete bucket and bucket index
 	if err := csm.delBucketAndIndex(bucket.Owner, bucket.Candidate, bucket.Index); err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
+	}
+	if err := deleteBucketGuardWithBucket(ctx, csm.SM(), bucket.Index); err != nil {
+		return nil, nil, err
 	}
 
 	// update bucket pool
