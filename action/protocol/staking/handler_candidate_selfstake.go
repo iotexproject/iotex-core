@@ -93,7 +93,7 @@ func (p *Protocol) handleCandidateDeactivate(ctx context.Context, act *action.Ca
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketIndex,
 		}
 	}
-	if err := requireUnguarded(csm.SR(), cand.SelfStakeBucketIdx); err != nil {
+	if err := requireUnguardedScope(csm.SR(), cand.SelfStakeBucketIdx); err != nil {
 		return nil, nil, err
 	}
 	var topics action.Topics
@@ -135,7 +135,7 @@ func (p *Protocol) handleScheduleCandidateDeactivation(ctx context.Context, act 
 		return nil, nil, errCandNotExist
 	}
 	if c.SelfStakeBucketIdx != candidateNoSelfStakeBucketIndex {
-		if err := requireUnguarded(csm.SR(), c.SelfStakeBucketIdx); err != nil {
+		if err := requireUnguardedScope(csm.SR(), c.SelfStakeBucketIdx); err != nil {
 			return nil, nil, err
 		}
 	}

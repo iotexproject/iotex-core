@@ -16,9 +16,12 @@ import (
 	"github.com/iotexproject/iotex-core/v2/state"
 )
 
-// receiptStatusErrBucketGuarded is the draft IIP §9.5 status. It must be
-// replaced with the generated iotextypes value when iotex-proto adds it.
-const receiptStatusErrBucketGuarded = iotextypes.ReceiptStatus(216)
+// Draft IIP §9.5 statuses. They must be replaced with the generated
+// iotextypes values when iotex-proto adds them.
+const (
+	receiptStatusErrBucketGuarded = iotextypes.ReceiptStatus(216)
+	receiptStatusErrGuardScope    = iotextypes.ReceiptStatus(220)
+)
 
 type (
 	// BucketGuard is the on-chain QSB guard record for a native bucket.
@@ -88,6 +91,16 @@ func (bsr *BucketGuardStateReader) Get(index uint64) (*BucketGuard, error) {
 // active. A state read failure is returned unwrapped so it aborts the block;
 // only the guarded verdict becomes a receipt error.
 func requireUnguarded(sr protocol.StateReader, index uint64) error {
+	return requireNoGuard(sr, index, receiptStatusErrBucketGuarded)
+}
+
+// requireUnguardedScope enforces the invariant that a guarded bucket is never
+// a candidate self-stake bucket.
+func requireUnguardedScope(sr protocol.StateReader, index uint64) error {
+	return requireNoGuard(sr, index, receiptStatusErrGuardScope)
+}
+
+func requireNoGuard(sr protocol.StateReader, index uint64, status iotextypes.ReceiptStatus) error {
 	guard, err := NewBucketGuardStateReader(sr).Get(index)
 	if err != nil {
 		return err
@@ -95,7 +108,7 @@ func requireUnguarded(sr protocol.StateReader, index uint64) error {
 	if guard != nil && guard.Guarded {
 		return &handleError{
 			err:           errors.Errorf("bucket %d is guarded", index),
-			failureStatus: receiptStatusErrBucketGuarded,
+			failureStatus: status,
 		}
 	}
 	return nil

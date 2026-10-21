@@ -242,8 +242,9 @@ It is called after fetching the bucket and before any mutation in the native
 paths listed in [`qsb-legacy-path-audit.md`](./qsb-legacy-path-audit.md). Do not
 put it inside `fetchBucketAndValidate` unconditionally: `DepositToStake` and
 IIP-59 compounding must remain allowed, and `CandidateActivate` needs the target
-bucket, not the caller's bucket. The status is the draft value 216; replace it
-with the generated `iotextypes` value when `iotex-proto` adds it.
+bucket, not the caller's bucket. The draft statuses are 216 for
+`ErrBucketGuarded` and 220 for `ErrGuardScope`; replace them with the generated
+`iotextypes` values when `iotex-proto` adds them.
 
 Minimum placements:
 

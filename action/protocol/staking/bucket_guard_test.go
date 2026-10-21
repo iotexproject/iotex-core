@@ -46,6 +46,11 @@ func TestRequireUnguarded(t *testing.T) {
 	r.ErrorAs(err, &receiptErr)
 	r.EqualValues(216, receiptErr.ReceiptStatus())
 
+	err = requireUnguardedScope(sm, 1)
+	r.Error(err)
+	r.ErrorAs(err, &receiptErr)
+	r.EqualValues(220, receiptErr.ReceiptStatus())
+
 	r.NoError(bsm.Put(1, &BucketGuard{Generation: 1, Nonce: 3}))
 	r.NoError(requireUnguarded(sm, 1))
 }
