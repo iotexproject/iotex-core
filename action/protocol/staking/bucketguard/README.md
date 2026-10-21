@@ -30,23 +30,22 @@ Signature verification and the algorithm registry live in `pkg/pqcrypto`;
 wallet-side key derivation (`QSB-KDF-v1`) and signing in `pkg/pqcrypto/signer`.
 `example_test.go` walks a bind and a guarded withdraw through the API.
 
-## Integration checklist (not done here)
+## Integration status
 
-1. Add protobuf messages and `ActionCore` oneof fields in `iotex-proto`.
-2. Add action types, deserialization, and envelope handling in `action/`.
-3. Add `FeatureCtx` gates and a new hardfork height. Do not reuse an existing
-   mainnet height.
-4. Add `BucketGuard` state storage and a migration under a new namespace.
-5. Route `BindBucketGuard` and `GuardedBucketOp` through the staking protocol.
-6. Audit every legacy path that can mutate a guarded bucket: `Unstake`,
-   `WithdrawStake`, `TransferStake`, `ChangeCandidate`, `Restake`,
-   `MigrateStake`, consignment, candidate activation/endorsement, contract
-   staking, and delegate self-stake.
-7. Emit receipts/logs with the IIP statuses and event layout.
-8. Add pre-fork/post-fork tests, backend-failure tests, fuzzing, ACVP vectors,
-   and native linux/amd64 full-action benchmarks.
-9. Get a security audit and maintainer sign-off on the fork height and
-   serialization.
+Wired behind `FeatureCtx.EnableBucketGuard` (= `ToBeEnabled && ZanzibarGamma`):
+
+| Item | Where | Status |
+|---|---|---|
+| Protobuf messages, `ActionCore` oneof 59/60, receipt statuses 216–221 | iotex-proto `qsb/actions` | draft; `go.mod` replaces iotex-proto locally — **must be released before merge** |
+| Action types, envelope, web3 builder | `action/bucket_guard.go` | done |
+| Fork gate | `action/protocol/context.go` | done (WIP height `ToBeEnabled`; name and height to be chosen by maintainers) |
+| Guard record state (`_bucketGuard`), Erigon `Encode`/`Decode` | `staking/bucket_guard.go` | done; Erigon backend not exercised by tests yet |
+| Bind / guarded-op handlers, receipts, BucketGuard event | `staking/bucket_guard.go` | done |
+| Legacy-path rejection (§10), tombstone deletion with the bucket | `staking/handlers.go`, `handler_*.go` | done |
+| Shared bucket effects for legacy and guarded ops | `staking/handlers.go` | done (moved verbatim) |
+| Query API for the guard record | — | `staking.ReadBucketGuard` only; no `ReadStakingData` method yet |
+| e2e | `e2etest/bucket_guard_test.go` | done |
+| Fuzzing of action decoding, ACVP, linux/amd64 benchmarks, audit | — | open |
 
 ## Staking rules are not duplicated
 
