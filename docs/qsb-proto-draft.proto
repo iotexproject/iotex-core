@@ -1,0 +1,121 @@
+// Draft only. Do not merge into iotex-proto without maintainer review.
+//
+// Proposed additions for Quantum-Safe Staking Buckets (QSB), IIP draft PR #86.
+// Field and oneof numbers are proposals; final assignment belongs to
+// iotex-proto. See docs/qsb-spec-and-vectors.md for the frozen encoding rules.
+//
+// Add to iotex-proto/proto/types/action.proto (package iotextypes):
+//
+//   message NewGuard {
+//     uint32 algID = 1;
+//     bytes publicKey = 2;
+//     bytes acceptSig = 3;
+//   }
+//
+//   message BindBucketGuard {
+//     uint64 bucketIndex = 1;
+//     uint32 algID = 2;
+//     bytes publicKey = 3;
+//     bytes acceptSig = 4;
+//   }
+//
+//   message GuardedBucketOp {
+//     uint64 bucketIndex = 1;
+//     uint64 generation = 2;
+//     uint64 nonce = 3;
+//     uint64 deadline = 4;
+//     uint32 op = 5;
+//     bytes recipient = 6;
+//     bytes newOwner = 7;
+//     string candidateName = 8;
+//     bytes expectedCandidateID = 9;
+//     uint32 duration = 10;
+//     bool autoStake = 11;
+//     NewGuard newGuard = 12;
+//     bool clearGuard = 13;
+//     bytes sig = 14;
+//   }
+//
+// Add to the ActionCore oneof (action.proto), after the current last field 58:
+//
+//   BindBucketGuard bindBucketGuard = 59;
+//   GuardedBucketOp guardedBucketOp = 60;
+//
+// Add the on-chain guard record to the staking state protobufs:
+//
+//   message BucketGuard {
+//     uint32 algID = 1;
+//     bytes publicKey = 2;
+//     uint64 generation = 3;
+//     uint64 nonce = 4;
+//     uint64 boundHeight = 5;
+//   }
+//
+// Add to iotex-proto/proto/types/receiptstatus.proto, after ErrWriteCandidate = 215:
+//
+//   ErrBucketGuarded     = 216;
+//   ErrBucketNotGuarded  = 217;
+//   ErrGuardMismatch     = 218;
+//   ErrGuardSignature    = 219;
+//   ErrGuardScope        = 220;
+//   ErrCandidateMismatch = 221;
+//
+// The canonical encoding C(m) is not the same as protobuf wire output with
+// unknown fields or non-default scalars. The consensus encoder emits fields in
+// ascending order, omits defaults and empty bytes/strings, uses minimal
+// varints, and rejects unknown fields. Tests must compare C(m), not a generic
+// protobuf marshal.
+
+syntax = "proto3";
+
+package iotextypes;
+
+option go_package = "github.com/iotexproject/iotex-proto/golang/iotextypes";
+option java_multiple_files = true;
+option java_package = "com.github.iotexproject.grpc.types";
+
+// NewGuard is the incoming key carried by TRANSFER with newGuard and ROTATE.
+message NewGuard {
+  uint32 algID = 1;
+  bytes publicKey = 2;
+  bytes acceptSig = 3;
+}
+
+// BindBucketGuard attaches a guard to an existing native bucket.
+message BindBucketGuard {
+  uint64 bucketIndex = 1;
+  uint32 algID = 2;
+  bytes publicKey = 3;
+  bytes acceptSig = 4;
+}
+
+// GuardedBucketOp performs one operation on a guarded bucket. The outer ECDSA
+// sender is a sponsor; the guard signature authorizes the bucket effect.
+message GuardedBucketOp {
+  uint64 bucketIndex = 1;
+  uint64 generation = 2;
+  uint64 nonce = 3;
+  uint64 deadline = 4;
+  uint32 op = 5;
+  bytes recipient = 6;
+  bytes newOwner = 7;
+  string candidateName = 8;
+  bytes expectedCandidateID = 9;
+  uint32 duration = 10;
+  bool autoStake = 11;
+  NewGuard newGuard = 12;
+  bool clearGuard = 13;
+  bytes sig = 14;
+}
+
+// BucketGuard is the staking-state value under _bucketGuard ||
+// uint64_be(bucketIndex). An absent record means generation=0, nonce=0.
+// A tombstone has algID=0, empty publicKey, boundHeight=0, and retained
+// generation/nonce.
+message BucketGuard {
+  uint32 algID = 1;
+  bytes publicKey = 2;
+  uint64 generation = 3;
+  uint64 nonce = 4;
+  uint64 boundHeight = 5;
+}

@@ -53,8 +53,11 @@ receipts, handler wiring, or a hardfork height.
 
 - Hardfork name and height.
 - Protobuf field numbers and `ActionCore` oneof numbering.
-- Whether bucket indices are guaranteed never to be reused after deletion; if
-  not, tombstone deletion plus index reuse could create a replay surface.
+- ~~Whether bucket indices are guaranteed never to be reused after deletion; if
+  not, tombstone deletion plus index reuse could create a replay surface.~~
+  Resolved: `putBucket` assigns `totalBucketCount` and increments it;
+  `delBucketAndIndex` does not decrement it. Indices are monotonic and never
+  reused. See [`qsb-spec-and-vectors.md`](./qsb-spec-and-vectors.md) §8.
 - Wallet/exchange support for SLH-DSA signing and seed-derived recovery.
 - Native linux/amd64 gas calibration and a minimum validator hardware baseline.
 

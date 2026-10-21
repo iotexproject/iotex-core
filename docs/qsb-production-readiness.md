@@ -1,7 +1,11 @@
 # QSB production readiness
 
 Status: **draft, non-activated**. Companion to
-[`qsb-consensus-draft.md`](./qsb-consensus-draft.md) and the scaffold at
+[`qsb-consensus-draft.md`](./qsb-consensus-draft.md),
+[`qsb-spec-and-vectors.md`](./qsb-spec-and-vectors.md),
+[`qsb-legacy-path-audit.md`](./qsb-legacy-path-audit.md),
+[`qsb-proto-draft.proto`](./qsb-proto-draft.proto),
+[`qsb-action-integration.md`](./qsb-action-integration.md), and the scaffold at
 `action/protocol/staking/bucketguard`.
 
 This is a gate-based plan, not a schedule. No hardfork height is selected here;
@@ -14,13 +18,15 @@ maintainers must approve the height, protobuf changes, and activation.
 - [ ] Exact vectors for bind and every op variant, including failures.
 - [ ] Decision on `G_VERIFY` after native linux/amd64 full-action benchmarks,
       with and without SHA-NI. Do not calibrate on emulated builds.
-- [ ] Confirm bucket indices are never reused after deletion. Tombstone deletion
-      plus index reuse would create a replay surface.
+- [x] Confirm bucket indices are never reused after deletion. `putBucket` uses
+      the monotonic `totalBucketCount`; deletion does not decrement it. See
+      [`qsb-spec-and-vectors.md`](./qsb-spec-and-vectors.md) §8.
 - [ ] Confirm wallet-profile details: `QSB-KDF-v1`, key index range, recovery
       vectors, and cross-wallet interoperability.
-- [ ] Document the residual ECDSA exposure: delegate operator keys, delegate
+- [x] Document the residual ECDSA exposure: delegate operator keys, delegate
       self-stake, contract staking, liquid balances, IIP-59 rewards paid to
-      addresses, candidate operator identity.
+      addresses, candidate operator identity. See
+      [`qsb-spec-and-vectors.md`](./qsb-spec-and-vectors.md) §10.
 
 ## Gate 1 — reference implementation behind a disabled gate
 

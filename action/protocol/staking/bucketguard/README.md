@@ -5,6 +5,13 @@ hardfork height, or mutate staking state. It is a reviewable, consensus-neutral
 port of the IIP "Quantum-Safe Staking Buckets" pieces that can be validated
 before wiring the feature into iotex-core.
 
+Design and conformance documents:
+
+- [`docs/qsb-spec-and-vectors.md`](../../../../docs/qsb-spec-and-vectors.md)
+- [`docs/qsb-legacy-path-audit.md`](../../../../docs/qsb-legacy-path-audit.md)
+- [`docs/qsb-proto-draft.proto`](../../../../docs/qsb-proto-draft.proto)
+- [`docs/qsb-action-integration.md`](../../../../docs/qsb-action-integration.md)
+
 ## What is here
 
 - `types.go` — IIP constants, `Guard`, `BindBucketGuard`, `GuardedBucketOp`,

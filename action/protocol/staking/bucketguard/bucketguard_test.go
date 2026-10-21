@@ -2,6 +2,7 @@ package bucketguard
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"testing"
 
@@ -117,6 +118,93 @@ func TestCanonicalSizeAndGasVectors(t *testing.T) {
 			}
 			if got := tc.got.IntrinsicGas(); got != tc.gas {
 				t.Fatalf("gas = %d, want %d", got, tc.gas)
+			}
+		})
+	}
+}
+
+func TestCanonicalDigestVectors(t *testing.T) {
+	zeroSig := make([]byte, SigSize)
+	zeroPub := make([]byte, PubKeySize)
+	tests := []struct {
+		name string
+		got  interface {
+			CanonicalBytes() []byte
+			CanonicalSize() int
+			IntrinsicGas() uint64
+		}
+		size int
+		gas  uint64
+		hash string
+	}{
+		{
+			name: "BindBucketGuard",
+			got:  &BindBucketGuard{BucketIndex: 1, AlgID: AlgSLHDSA192s, PublicKey: zeroPub, AcceptSig: zeroSig},
+			size: 16281,
+			gas:  300496,
+			hash: "e39fec5a6a1739ff165ab0c0ffe59878fcec475778da8bdddd08f4e4aad09ce4",
+		},
+		{
+			name: "UNSTAKE",
+			got:  &GuardedBucketOp{BucketIndex: 1, Generation: 1, Nonce: 0, Deadline: 1010, Op: OpUnstake, Sig: zeroSig},
+			size: 16236,
+			gas:  299776,
+			hash: "15f253feb5642b8b3976bd822a83a4d1ca22f9bbdd2eaa4ddc44c59b975f2b85",
+		},
+		{
+			name: "WITHDRAW",
+			got:  &GuardedBucketOp{BucketIndex: 1, Generation: 1, Nonce: 0, Deadline: 1010, Op: OpWithdraw, Recipient: make([]byte, 20), Sig: zeroSig},
+			size: 16258,
+			gas:  300128,
+			hash: "ed7811a696608574581c53db032d0ec1972375e83f73a2de64adadb122459856",
+		},
+		{
+			name: "TRANSFER+clear",
+			got:  &GuardedBucketOp{BucketIndex: 1, Generation: 1, Nonce: 0, Deadline: 1010, Op: OpTransfer, NewOwner: make([]byte, 20), ClearGuard: true, Sig: zeroSig},
+			size: 16260,
+			gas:  300160,
+			hash: "cb8bee995cd6ec0088914ce227831453f85291d0db683e04a0087adeac565c9e",
+		},
+		{
+			name: "CHANGE_CANDIDATE",
+			got:  &GuardedBucketOp{BucketIndex: 1, Generation: 1, Nonce: 0, Deadline: 1010, Op: OpChangeCandidate, CandidateName: "delegateab", ExpectedCandidateID: make([]byte, 20), Sig: zeroSig},
+			size: 16270,
+			gas:  300320,
+			hash: "34419e212ee93d25331bb8f108795e85a9902b0f74b4a0a9bd7d38688ec98c80",
+		},
+		{
+			name: "RESTAKE",
+			got:  &GuardedBucketOp{BucketIndex: 1, Generation: 1, Nonce: 0, Deadline: 1010, Op: OpRestake, Duration: 7, AutoStake: true, Sig: zeroSig},
+			size: 16240,
+			gas:  299840,
+			hash: "27c100e25c9665f6d7dbf35461d8f17138ef36359e81e99e8cfaaf30f33a0679",
+		},
+		{
+			name: "ROTATE",
+			got:  &GuardedBucketOp{BucketIndex: 1, Generation: 1, Nonce: 0, Deadline: 1010, Op: OpRotate, NewGuard: &NewGuard{AlgID: AlgSLHDSA192s, PublicKey: zeroPub, AcceptSig: zeroSig}, Sig: zeroSig},
+			size: 32518,
+			gas:  590288,
+			hash: "4435a0e0f21a208232a0ef38f6a733d1207b1e731452ff40aadf19fca3379ec0",
+		},
+		{
+			name: "TRANSFER+newGuard",
+			got:  &GuardedBucketOp{BucketIndex: 1, Generation: 1, Nonce: 0, Deadline: 1010, Op: OpTransfer, NewOwner: make([]byte, 20), NewGuard: &NewGuard{AlgID: AlgSLHDSA192s, PublicKey: zeroPub, AcceptSig: zeroSig}, Sig: zeroSig},
+			size: 32540,
+			gas:  590640,
+			hash: "1d29df46e4678ad90b6a7578ca4a1caef6f62fccd8ee23824f72a35fe36834b3",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.got.CanonicalSize(); got != tc.size {
+				t.Fatalf("size = %d, want %d", got, tc.size)
+			}
+			if got := tc.got.IntrinsicGas(); got != tc.gas {
+				t.Fatalf("gas = %d, want %d", got, tc.gas)
+			}
+			sum := sha256.Sum256(tc.got.CanonicalBytes())
+			if got := hex.EncodeToString(sum[:]); got != tc.hash {
+				t.Fatalf("canonical sha256 = %s, want %s", got, tc.hash)
 			}
 		})
 	}
