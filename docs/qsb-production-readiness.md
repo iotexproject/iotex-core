@@ -48,8 +48,9 @@ maintainers must approve the height, protobuf changes, and activation.
       `WithdrawStake`, `TransferStake`, `ChangeCandidate`, `Restake`,
       `MigrateStake`, consignment, candidate activation/endorsement, contract
       staking, delegate self-stake. Deposit remains allowed. Partial: guard
-      checks are wired for the native legacy paths and covered by unit tests;
-      contract staking, delegate self-stake, and the full test matrix remain.
+      checks are wired for every native legacy path, guarded-path and
+      deposit-allowed tests pass; contract staking, delegate self-stake, and
+      the fork/backend/reorg matrix remain.
 - [ ] Unit, integration, replay, reorg, backend-failure, and cross-backend tests.
 - [ ] Fuzzing for canonical decoding and transcript parsing.
 - [ ] ACVP vectors for the SLH-DSA primitive; protocol transcript and KDF
