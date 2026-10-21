@@ -8,8 +8,8 @@ require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cockroachdb/errors v1.14.0
 	github.com/cloudflare/circl v1.6.5
+	github.com/cockroachdb/errors v1.14.0
 	github.com/cockroachdb/pebble v1.1.5
 	github.com/erigontech/erigon v1.9.7-0.20250305121304-76181961ed24
 	github.com/erigontech/erigon-lib v1.0.0
