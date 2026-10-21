@@ -67,6 +67,9 @@ const (
 	// PutPollResult, read once per epoch by the rewarding protocol under
 	// IIP-59. Full key: {_candidateRewardSnapshot} || candID.Bytes().
 	_candidateRewardSnapshot
+	// _bucketGuard is the tag for the quantum-safe guard record of a native
+	// bucket (bucket_guard.go). Full key: {_bucketGuard} || uint64_be(index).
+	_bucketGuard
 )
 
 // Errors
@@ -914,6 +917,10 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		}
 	case *action.SetVoterRewardOptIn:
 		rLog, tLogs, err = p.handleSetVoterRewardOptIn(ctx, act, csm)
+	case *action.BindBucketGuard:
+		rLog, tLogs, err = p.handleBindBucketGuard(ctx, act, csm)
+	case *action.GuardedBucketOp:
+		rLog, tLogs, err = p.handleGuardedBucketOp(ctx, act, csm)
 	default:
 		return nil, nil
 	}
@@ -1066,6 +1073,10 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		return p.validateCandidateDeactivate(ctx, act)
 	case *action.SetVoterRewardOptIn:
 		return p.validateSetVoterRewardOptIn(ctx, act)
+	case *action.BindBucketGuard:
+		return p.validateBindBucketGuard(ctx, act)
+	case *action.GuardedBucketOp:
+		return p.validateGuardedBucketOp(ctx, act)
 	}
 	return nil
 }
