@@ -1,12 +1,13 @@
 package bucketguard
 
 import (
-	"crypto/rand"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"testing"
 
-	"github.com/cloudflare/circl/sign/slhdsa"
+	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
+	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto/signer"
 )
 
 func mustHex(t *testing.T, s string) []byte {
@@ -24,6 +25,15 @@ func testOwner() Address {
 		a[i] = 0x11
 	}
 	return a
+}
+
+func newTestKey(t *testing.T, fill byte) *signer.PrivateKey {
+	t.Helper()
+	k, err := signer.NewKeyFromSeeds(pqcrypto.AlgSLHDSA192s, bytes.Repeat([]byte{fill}, signer.SeedSize(pqcrypto.AlgSLHDSA192s)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return k
 }
 
 func zeroSig() []byte { return make([]byte, SigSize) }
@@ -260,17 +270,11 @@ func TestActive(t *testing.T) {
 }
 
 func TestVerifyRoundTrip(t *testing.T) {
-	pub, priv, err := slhdsa.GenerateKey(rand.Reader, slhdsa.SHA2_192s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pubBytes, err := pub.MarshalBinary()
-	if err != nil {
-		t.Fatal(err)
-	}
+	priv := newTestKey(t, 1)
+	pubBytes := priv.PublicKey().Bytes()
 	op := &GuardedBucketOp{BucketIndex: 1, Generation: 1, Nonce: 0, Deadline: 1010, Op: OpUnstake}
 	call := EncodeCall(1, testOwner(), op)
-	sig, err := slhdsa.SignDeterministic(&priv, slhdsa.NewMessage(call), []byte(Context))
+	sig, err := priv.Sign([]byte(Context), call)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,14 +292,7 @@ func TestVerifyRoundTrip(t *testing.T) {
 	if Verify(pubBytes, call, tamperedSig) {
 		t.Fatal("tampered signature accepted")
 	}
-	otherPub, _, err := slhdsa.GenerateKey(rand.Reader, slhdsa.SHA2_192s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	otherBytes, err := otherPub.MarshalBinary()
-	if err != nil {
-		t.Fatal(err)
-	}
+	otherBytes := newTestKey(t, 2).PublicKey().Bytes()
 	if Verify(otherBytes, call, sig) {
 		t.Fatal("wrong public key accepted")
 	}

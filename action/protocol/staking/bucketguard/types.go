@@ -1,16 +1,23 @@
 package bucketguard
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
+)
+
+// Key and signature sizes of SLH-DSA-SHA2-192s.
+var (
+	// PubKeySize is the serialized SLH-DSA-SHA2-192s public key size.
+	PubKeySize = pqcrypto.AlgSLHDSA192s.PublicKeySize()
+	// SigSize is the serialized SLH-DSA-SHA2-192s signature size.
+	SigSize = pqcrypto.AlgSLHDSA192s.SignatureSize()
+)
 
 // Consensus constants fixed by the IIP draft.
 const (
 	// AlgSLHDSA192s is the SLH-DSA-SHA2-192s algorithm identifier.
-	AlgSLHDSA192s uint32 = 0x12
-
-	// PubKeySize is the serialized SLH-DSA-SHA2-192s public key size.
-	PubKeySize = 48
-	// SigSize is the serialized SLH-DSA-SHA2-192s signature size.
-	SigSize = 16224
+	AlgSLHDSA192s = uint32(pqcrypto.AlgSLHDSA192s)
 
 	// MaxBindSize is the canonical size limit for BindBucketGuard.
 	MaxBindSize = 17_000

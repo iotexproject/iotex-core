@@ -1,20 +1,13 @@
 package bucketguard
 
-import (
-	"github.com/cloudflare/circl/sign/slhdsa"
-)
+import "github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
 
 // Verify reports whether sig is a valid pure SLH-DSA-SHA2-192s signature over
-// message under the fixed QSB context. publicKey and sig must already be at
-// their fixed sizes; malformed inputs return false.
+// message under the fixed QSB context. Malformed inputs return false.
 func Verify(publicKey, message, sig []byte) bool {
-	if len(publicKey) != PubKeySize || len(sig) != SigSize {
+	pk, err := pqcrypto.ParsePublicKey(pqcrypto.AlgSLHDSA192s, publicKey)
+	if err != nil {
 		return false
 	}
-	var pk slhdsa.PublicKey
-	pk.ID = slhdsa.SHA2_192s
-	if err := pk.UnmarshalBinary(publicKey); err != nil {
-		return false
-	}
-	return slhdsa.Verify(&pk, slhdsa.NewMessage(message), sig, []byte(Context))
+	return pk.Verify([]byte(Context), message, sig)
 }
