@@ -41,8 +41,8 @@ us to start.
 **Out of scope** (report to the respective project):
 
 * vulnerabilities in third-party dependencies that are not reachable through
-  iotex-core (report them upstream; if they are reachable through iotex-core,
-  report here too);
+  iotex-core (report those upstream). Dependency issues that are reachable
+  through iotex-core are in scope — report them here;
 * websites, front ends, and ecosystem dApps not maintained in this repository;
 * rate limiting or availability of public RPC endpoints operated by third
   parties;
@@ -102,6 +102,7 @@ before we disclose.
 Currently supported: **v2.5.x**. Older release lines receive security fixes only
 when explicitly announced for a specific release. Node operators should always
 run the latest patch release.
+
 Published advisories:
 <https://github.com/iotexproject/iotex-core/security/advisories>
 
