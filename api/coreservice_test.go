@@ -7,6 +7,7 @@ package api
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
@@ -236,6 +237,50 @@ func TestEstimateGasForAction(t *testing.T) {
 
 	_, err = svr.EstimateGasForAction(context.Background(), nil)
 	require.Contains(err.Error(), action.ErrNilProto.Error())
+}
+
+func lossyTxContainerProto(t *testing.T) *iotextypes.Action {
+	r := require.New(t)
+	sk := identityset.PrivateKey(1).EcdsaPrivateKey().(*ecdsa.PrivateKey)
+	data, err := action.NewUnstake(1, []byte("payload")).EthData()
+	r.NoError(err)
+	data = append(data, make([]byte, 32)...)
+	to := common.BytesToAddress(address.StakingProtocolAddrHash[:])
+	tx := gethtypes.MustSignNewTx(sk, gethtypes.LatestSignerForChainID(big.NewInt(4689)), &gethtypes.DynamicFeeTx{
+		ChainID:   big.NewInt(4689),
+		Nonce:     1,
+		GasTipCap: big.NewInt(1),
+		GasFeeCap: big.NewInt(2),
+		Gas:       100000,
+		To:        &to,
+		Value:     big.NewInt(0),
+		Data:      data,
+	})
+	raw, err := tx.MarshalBinary()
+	r.NoError(err)
+	_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+	r.NoError(err)
+	return &iotextypes.Action{
+		Core: &iotextypes.ActionCore{
+			ChainID: 1,
+			Action:  &iotextypes.ActionCore_TxContainer{TxContainer: &iotextypes.TxContainer{Raw: raw}},
+		},
+		SenderPubKey: pubkey.Bytes(),
+		Signature:    sig,
+		Encoding:     iotextypes.Encoding_TX_CONTAINER,
+	}
+}
+
+func TestCoreServiceRejectsLossyTxContainer(t *testing.T) {
+	r := require.New(t)
+	svr, _, _, _, cleanCallback := setupTestCoreService()
+	defer cleanCallback()
+
+	lossy := lossyTxContainerProto(t)
+	_, err := svr.SendAction(context.Background(), lossy)
+	r.ErrorContains(err, "unfolded action does not match the signed transaction")
+	_, err = svr.EstimateGasForAction(context.Background(), lossy)
+	r.ErrorContains(err, "unfolded action does not match the signed transaction")
 }
 
 func TestElectionBuckets(t *testing.T) {
