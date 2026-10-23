@@ -157,6 +157,42 @@ func TestBatchManager(t *testing.T) {
 	})
 }
 
+func TestBatchManagerOptionIsolation(t *testing.T) {
+	require := require.New(t)
+	manager := NewManager(func(*Message) error { return nil })
+
+	msgWithOptions := &Message{
+		ChainID: 1,
+		Data:    txProto1,
+	}
+	msgWithDefaults := &Message{
+		ChainID: 2,
+		Data:    txProto2,
+	}
+
+	require.NoError(manager.Put(msgWithOptions, WithSizeLimit(2), WithInterval(time.Second)))
+	require.NoError(manager.Put(msgWithDefaults))
+
+	configuredID, err := msgWithOptions.batchID()
+	require.NoError(err)
+	defaultID, err := msgWithDefaults.batchID()
+	require.NoError(err)
+
+	configuredWriter := manager.writerMap[configuredID]
+	defaultWriter := manager.writerMap[defaultID]
+	require.NotNil(configuredWriter)
+	require.NotNil(defaultWriter)
+	t.Cleanup(func() {
+		configuredWriter.Close()
+		defaultWriter.Close()
+	})
+
+	require.Equal(uint64(2), configuredWriter.cfg.sizeLimit)
+	require.Equal(time.Second, configuredWriter.cfg.msgInterval)
+	require.Equal(uint64(1000), defaultWriter.cfg.sizeLimit)
+	require.Equal(100*time.Millisecond, defaultWriter.cfg.msgInterval)
+}
+
 func TestBatchDataCorrectness(t *testing.T) {
 	require := require.New(t)
 
