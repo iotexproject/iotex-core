@@ -108,8 +108,11 @@ func defaultConfig() Genesis {
 			// bucket(), so the address and that layout travel together.
 			AutoDepositContractAddress: "io108ckwzlzpkhva7cnfceajlu7wu6ql5kq95uat9",
 			ToBeEnabledBlockHeight:     math.MaxUint64,
-			PersistStakingPatchBlock:   19778037,
-			FixAliasForNonStopHeight:   19778036,
+			// empty, not nil, for the same reason as TestnetGrants below
+			SetCodeAuthorityBlackList:        []string{},
+			SetCodeAuthorityBlackListRemoval: []string{},
+			PersistStakingPatchBlock:         19778037,
+			FixAliasForNonStopHeight:         19778036,
 		},
 		Account: Account{
 			InitBalanceMap:          map[string]string{},
@@ -224,6 +227,73 @@ func defaultConfig() Genesis {
 			ExitAdmissionInterval:            24,
 			ExitUnboundingDuration:           2,
 		},
+	}
+}
+
+// MainnetSetCodeAuthorityBlackListActiveHeight is the height from which
+// MainNet enforces MainnetSetCodeAuthorityBlackList.
+const MainnetSetCodeAuthorityBlackListActiveHeight uint64 = 45404174
+
+// MainnetSetCodeAuthorityBlackList returns the accounts MainNet refuses as the
+// authority of an EIP-7702 authorization.
+func MainnetSetCodeAuthorityBlackList() []string {
+	return []string{
+		"io10epxv6w4he9pgx0qtagm7lc78aw9jsm7s8t0tw",
+		"io10jr2hh4xcm3s3yhq98zudxh08e9uume6e0ekee",
+		"io126e8lcld9ucl6nxm55s6hxmq9velxw9u9t8ps5",
+		"io13pgqh3dhd63sen5clvt2cvqflshf0swxzq4utt",
+		"io1470pxq9qusz36pk4ljny446pwmkg9pvuzeshlj",
+		"io147r62u9rf2szarfnn6pxse53vmkahlgk9s69ru",
+		"io14y3zwpnpd5uv8clanfr73xnkxz2mk2qgjcgngu",
+		"io153n6d37236qjaxtmlegvunnejx4dqz5gdeq889",
+		"io15526y7w3n24dhjsk958ge23aprs9urrte3jlr3",
+		"io16zkt2tg3rv9wnunjdsffywdhw7ceyhpph7v3r5",
+		"io17n3utl90flcnn9wlskx8c7lk8rmcrf5th86273",
+		"io19rw6y85rh4d78az0s7w5dknp6j06cst5wtwnt3",
+		"io1aj8u2a0tr2mjumcxy4zrnecszr8mh6wkrmjrxq",
+		"io1d97phgd9uvrcw9yylucx5drwuwl8s7eef8mh0p",
+		"io1e3uf73n3vfyev3hhhkwx6phnatduqtp7l2hvjr",
+		"io1fp748ue6tsssn3z9q5cxcpyewjvcptkrtryju3",
+		"io1fqv56nlmr2fnuex66j09k0qn5962yeezkp688n",
+		"io1frcfdlrtrk0kk354sl703e2v7qwd3rclajhg5r",
+		"io1fseuvqpg8gchcnc4sz3e2z73h8q837ult8yjv6",
+		"io1fsrrc02mldtwhjjncngvf58yxw2emmgsz9gk0p",
+		"io1ft54ueh2qn0nfep6xf92nm60n5sqlj0d9uzksg",
+		"io1ftl20mky24k43yp06zcjx653ktas9xmvzvtasz",
+		"io1g0k4e2km87l0vyx6mz4wvg23nvstxn0x6vddn7",
+		"io1jyclx2jhdpe0ljn38683ga26hnpucx03v9elmn",
+		"io1llaf2w7kpek7zv2gqe6u9mkvfmd20h3ael6c2u",
+		"io1rvfvt9hdyu6fe3f7z5cj8a4vqhn8yk5eync2jp",
+		"io1rxzrf2q3letflu36p2w097ekkz4da4wuk7wnxw",
+		"io1va6umgyewzjatq8nrznyct9f2yp49rkpxtx3jj",
+		"io1zh88jlem8vvzp9z6t73rs4qd72jnzpm8pv8ndu",
+	}
+}
+
+// MainnetSetCodeAuthorityBlackListRemoval returns the accounts of
+// MainnetSetCodeAuthorityBlackList that MainNet stops refusing at Zanzibar.
+func MainnetSetCodeAuthorityBlackListRemoval() []string {
+	return []string{
+		"io10epxv6w4he9pgx0qtagm7lc78aw9jsm7s8t0tw",
+		"io10jr2hh4xcm3s3yhq98zudxh08e9uume6e0ekee",
+		"io126e8lcld9ucl6nxm55s6hxmq9velxw9u9t8ps5",
+		"io13pgqh3dhd63sen5clvt2cvqflshf0swxzq4utt",
+		"io1470pxq9qusz36pk4ljny446pwmkg9pvuzeshlj",
+		"io147r62u9rf2szarfnn6pxse53vmkahlgk9s69ru",
+		"io14y3zwpnpd5uv8clanfr73xnkxz2mk2qgjcgngu",
+		"io15526y7w3n24dhjsk958ge23aprs9urrte3jlr3",
+		"io16zkt2tg3rv9wnunjdsffywdhw7ceyhpph7v3r5",
+		"io19rw6y85rh4d78az0s7w5dknp6j06cst5wtwnt3",
+		"io1aj8u2a0tr2mjumcxy4zrnecszr8mh6wkrmjrxq",
+		"io1fp748ue6tsssn3z9q5cxcpyewjvcptkrtryju3",
+		"io1fqv56nlmr2fnuex66j09k0qn5962yeezkp688n",
+		"io1frcfdlrtrk0kk354sl703e2v7qwd3rclajhg5r",
+		"io1fseuvqpg8gchcnc4sz3e2z73h8q837ult8yjv6",
+		"io1fsrrc02mldtwhjjncngvf58yxw2emmgsz9gk0p",
+		"io1ft54ueh2qn0nfep6xf92nm60n5sqlj0d9uzksg",
+		"io1ftl20mky24k43yp06zcjx653ktas9xmvzvtasz",
+		"io1rxzrf2q3letflu36p2w097ekkz4da4wuk7wnxw",
+		"io1va6umgyewzjatq8nrznyct9f2yp49rkpxtx3jj",
 	}
 }
 
@@ -493,6 +563,17 @@ type (
 		// compound routing is inactive and every voter share is credited
 		// to the voter's unclaimed balance for pull-claim.
 		AutoDepositContractAddress string `yaml:"autoDepositContractAddress"`
+		// SetCodeAuthorityBlackList lists the accounts that cannot be the authority
+		// of an EIP-7702 authorization on a chain other than MainNet, whose list
+		// is fixed in code. See SetCodeAuthorityBlackListParams.
+		SetCodeAuthorityBlackList []string `yaml:"setCodeAuthorityBlackList"`
+		// SetCodeAuthorityBlackListActiveHeight is the height from which
+		// SetCodeAuthorityBlackList is enforced (0 means always enforced)
+		SetCodeAuthorityBlackListActiveHeight uint64 `yaml:"setCodeAuthorityBlackListActiveHeight"`
+		// SetCodeAuthorityBlackListRemoval lists the accounts of
+		// SetCodeAuthorityBlackList that stop being blacklisted from
+		// ZanzibarBlockHeight onwards
+		SetCodeAuthorityBlackListRemoval []string `yaml:"setCodeAuthorityBlackListRemoval"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -706,6 +787,11 @@ func (g *Genesis) validate() error {
 	if err := g.ValidateTestnetGrants(); err != nil {
 		return err
 	}
+	if g.IsMainnet() && (len(g.SetCodeAuthorityBlackList) != 0 ||
+		g.SetCodeAuthorityBlackListActiveHeight != 0 ||
+		len(g.SetCodeAuthorityBlackListRemoval) != 0) {
+		return errors.New("genesis: setCodeAuthorityBlackList* must not be set on mainnet, its blacklist is fixed in code")
+	}
 	// Everything below is IIP-59, which Zanzibar turns on -- it no longer
 	// shares ToBeEnabledBlockHeight with the other WIP features. Until that
 	// height is scheduled the era length and the contract addresses are never
@@ -790,6 +876,22 @@ func (g *Genesis) validate() error {
 		}
 	}
 	return nil
+}
+
+// SetCodeAuthorityBlackListParams returns the blacklist that the EIP-7702
+// authority check in block execution enforces: the accounts, the height from
+// which they are refused, and the subset no longer refused from
+// ZanzibarBlockHeight onwards.
+//
+// The check decides whether an authorization is applied, so every node must
+// see the same values. MainNet's are therefore fixed in code rather than read
+// from node or genesis config, and validate() rejects a MainNet genesis that
+// tries to set them. Other chains take them from genesis, empty by default.
+func (g *Genesis) SetCodeAuthorityBlackListParams() (blackList []string, activeHeight uint64, removal []string) {
+	if g.IsMainnet() {
+		return MainnetSetCodeAuthorityBlackList(), MainnetSetCodeAuthorityBlackListActiveHeight, MainnetSetCodeAuthorityBlackListRemoval()
+	}
+	return g.SetCodeAuthorityBlackList, g.SetCodeAuthorityBlackListActiveHeight, g.SetCodeAuthorityBlackListRemoval
 }
 
 // IsMainnet reports whether this is the mainnet genesis config.

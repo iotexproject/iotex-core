@@ -821,7 +821,11 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(nil, rewarding.DepositGas, nil, builder.cfg.ActPool.IsBlackListedFunc(builder.cfg.Genesis.ZanzibarBlockHeight)).Register(builder.cs.registry)
+	// The EIP-7702 authority check runs in block execution, so it reads the
+	// blacklist from genesis; the actpool config only governs admission.
+	blackList, activeHeight, removal := builder.cfg.Genesis.SetCodeAuthorityBlackListParams()
+	isBlackListed := actpool.IsBlackListedFunc(blackList, activeHeight, removal, builder.cfg.Genesis.ZanzibarBlockHeight)
+	return execution.NewProtocol(nil, rewarding.DepositGas, nil, isBlackListed).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
