@@ -57,6 +57,10 @@ type web3BlockListener struct {
 
 // NewWeb3BlockListener returns a new websocket block listener
 func NewWeb3BlockListener(handler streamHandler) apitypes.Responder {
+	return newWeb3BlockListener(handler)
+}
+
+func newWeb3BlockListener(handler streamHandler) *web3BlockListener {
 	return &web3BlockListener{
 		// nobody waits on a websocket subscription's outcome: a failed write
 		// ends the subscription and the next Respond evicts it

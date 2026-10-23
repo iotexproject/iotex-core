@@ -60,6 +60,8 @@ func (sc *StreamContext) ListenerIDs() []string {
 
 // pruneListeners requires sc.mutex. Nil channels represent listeners whose
 // lifecycle is managed explicitly with RemoveListener.
+// Calling RemoveResponder while holding sc.mutex relies on chainListener never
+// calling back into StreamContext; Exit must remain non-blocking.
 func (sc *StreamContext) pruneListeners() {
 	for id, listener := range sc.listenerIDs {
 		select {
