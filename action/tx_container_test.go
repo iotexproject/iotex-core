@@ -172,3 +172,108 @@ func TestTxContainerCostIncludesBlobFee(t *testing.T) {
 	r.NoError(err)
 	r.Equal(big.NewInt(21000*10+5), cost)
 }
+
+func TestTxContainerUnfoldRoundTrip(t *testing.T) {
+	r := require.New(t)
+	const evmNetworkID = 4689
+	var (
+		sk    = identityset.PrivateKey(1).EcdsaPrivateKey().(*ecdsa.PrivateKey)
+		deser = (&Deserializer{}).SetEvmNetworkID(evmNetworkID)
+		pad   = make([]byte, 32)
+	)
+	unstake, err := NewUnstake(1, []byte("payload")).EthData()
+	r.NoError(err)
+	claim, err := NewClaimFromRewardingFund(big.NewInt(100), nil, nil).EthData()
+	r.NoError(err)
+	register, err := NewCandidateRegisterWithBLS("cand", identityset.Address(2).String(), identityset.Address(3).String(),
+		identityset.Address(1).String(), "1200000000000000000000000", 1, true, popTestPubKey(t), nil, nil)
+	r.NoError(err)
+	registerData, err := register.EthData()
+	r.NoError(err)
+	registerValue, _ := new(big.Int).SetString("1200000000000000000000000", 10)
+
+	newTx := func(legacy bool, to common.Address, value *big.Int, data []byte) *types.Transaction {
+		if legacy {
+			return types.MustSignNewTx(sk, types.NewEIP155Signer(big.NewInt(evmNetworkID)), &types.LegacyTx{
+				Nonce: 1, GasPrice: big.NewInt(1), Gas: 100000, To: &to, Value: value, Data: data,
+			})
+		}
+		return types.MustSignNewTx(sk, types.LatestSignerForChainID(big.NewInt(evmNetworkID)), &types.DynamicFeeTx{
+			ChainID: big.NewInt(evmNetworkID), Nonce: 1, GasTipCap: big.NewInt(1), GasFeeCap: big.NewInt(2),
+			Gas: 100000, To: &to, Value: value, Data: data,
+		})
+	}
+	checker := func(to common.Address) func(context.Context, *common.Address) (bool, bool, bool, error) {
+		return func(context.Context, *common.Address) (bool, bool, bool, error) {
+			return false, to == _stakingProtocolEthAddr, to == _rewardingProtocolEthAddr, nil
+		}
+	}
+
+	for _, c := range []struct {
+		name  string
+		to    common.Address
+		value *big.Int
+		data  []byte
+		ok    bool
+	}{
+		{"unstake", _stakingProtocolEthAddr, big.NewInt(0), unstake, true},
+		{"unstake with trailing bytes", _stakingProtocolEthAddr, big.NewInt(0), append(append([]byte{}, unstake...), pad...), false},
+		{"unstake with value", _stakingProtocolEthAddr, big.NewInt(1), unstake, false},
+		{"claim reward", _rewardingProtocolEthAddr, big.NewInt(0), claim, true},
+		{"claim reward with trailing bytes", _rewardingProtocolEthAddr, big.NewInt(0), append(append([]byte{}, claim...), pad...), false},
+		{"claim reward with value", _rewardingProtocolEthAddr, big.NewInt(1), claim, false},
+		{"candidate register with value", _stakingProtocolEthAddr, registerValue, registerData, true},
+	} {
+		for _, legacy := range []bool{false, true} {
+			name := c.name
+			if legacy {
+				name += " legacy"
+			}
+			t.Run(name, func(t *testing.T) {
+				r := require.New(t)
+				tx := newTx(legacy, c.to, c.value, c.data)
+				raw, err := tx.MarshalBinary()
+				r.NoError(err)
+				_, sig, pubkey, err := ExtractTypeSigPubkey(tx)
+				r.NoError(err)
+				selp, err := deser.ActionToSealedEnvelope(&iotextypes.Action{
+					Core: &iotextypes.ActionCore{
+						ChainID: 1,
+						Action:  &iotextypes.ActionCore_TxContainer{TxContainer: &iotextypes.TxContainer{Raw: raw}},
+					},
+					SenderPubKey: pubkey.Bytes(),
+					Signature:    sig,
+					Encoding:     iotextypes.Encoding_TX_CONTAINER,
+				})
+				r.NoError(err)
+				h, err := selp.Hash()
+				r.NoError(err)
+				sender := selp.SenderAddress().String()
+				container, ok := selp.Envelope.(TxContainer)
+				r.True(ok)
+
+				err = container.Unfold(selp, context.Background(), checker(c.to))
+				if !c.ok {
+					r.ErrorIs(err, ErrInvalidAct)
+					r.ErrorContains(err, "unfolded action does not match the signed transaction")
+					// selp is left untouched
+					r.Equal(container, selp.Envelope)
+					r.EqualValues(iotextypes.Encoding_TX_CONTAINER, selp.Encoding())
+					h2, err := selp.Hash()
+					r.NoError(err)
+					r.Equal(h, h2)
+					return
+				}
+				r.NoError(err)
+				// the unfolded action is what a block stores; it must decode back
+				// to the same sender and hash
+				unfolded, err := deser.ActionToSealedEnvelope(selp.Proto())
+				r.NoError(err)
+				r.Equal(sender, unfolded.SenderAddress().String())
+				h2, err := unfolded.Hash()
+				r.NoError(err)
+				r.Equal(h, h2)
+			})
+		}
+	}
+}

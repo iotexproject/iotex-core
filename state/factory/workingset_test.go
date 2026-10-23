@@ -7,12 +7,15 @@ package factory
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"math"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
@@ -20,6 +23,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -1082,4 +1086,102 @@ func indexOfLast(ops []string, want string) int {
 		}
 	}
 	return -1
+}
+
+// TestWorkingSet_Mint_SkipsLossyTxContainer checks that a tx container whose
+// unfolded native action does not rebuild the signed eth tx (here: trailing
+// calldata the ABI decoder ignores) is left out of the block and its sender
+// evicted. Validators rebuild the eth tx from the stored action to recover the
+// sender, so including it would produce a block nobody can decode.
+func TestWorkingSet_Mint_SkipsLossyTxContainer(t *testing.T) {
+	require := require.New(t)
+	registry := protocol.NewRegistry()
+	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
+	require.NoError(rewarding.NewProtocol(genesis.TestDefault().Rewarding).Register(registry))
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	good, bad := identityset.Address(28), identityset.Address(29)
+	cfg.Genesis.InitBalanceMap[good.String()] = "100000000000000000000"
+	cfg.Genesis.InitBalanceMap[bad.String()] = "100000000000000000000"
+	f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+	require.NoError(err)
+
+	startCtx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(f.Start(startCtx))
+	defer func() { require.NoError(f.Stop(startCtx)) }()
+
+	evmNetworkID := cfg.Chain.EVMNetworkID
+	deposit, err := action.NewDepositToRewardingFund(big.NewInt(1), nil).EthData()
+	require.NoError(err)
+	newContainer := func(signer int, data []byte) *action.SealedEnvelope {
+		to := common.BytesToAddress(address.RewardingProtocolAddrHash[:])
+		tx := types.MustSignNewTx(identityset.PrivateKey(signer).EcdsaPrivateKey().(*ecdsa.PrivateKey),
+			types.NewEIP155Signer(big.NewInt(int64(evmNetworkID))),
+			&types.LegacyTx{Nonce: 1, GasPrice: big.NewInt(0), Gas: 100000, To: &to, Value: big.NewInt(0), Data: data})
+		raw, err := tx.MarshalBinary()
+		require.NoError(err)
+		_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+		require.NoError(err)
+		selp, err := (&action.Deserializer{}).SetEvmNetworkID(evmNetworkID).ActionToSealedEnvelope(&iotextypes.Action{
+			Core: &iotextypes.ActionCore{
+				ChainID: 1,
+				Action:  &iotextypes.ActionCore_TxContainer{TxContainer: &iotextypes.TxContainer{Raw: raw}},
+			},
+			SenderPubKey: pubkey.Bytes(),
+			Signature:    sig,
+			Encoding:     iotextypes.Encoding_TX_CONTAINER,
+		})
+		require.NoError(err)
+		return selp
+	}
+	canonical := newContainer(28, deposit)
+	canonicalHash, err := canonical.Hash()
+	require.NoError(err)
+	lossy := newContainer(29, append(append([]byte{}, deposit...), make([]byte, 32)...))
+
+	ctrl := gomock.NewController(t)
+	ap := mock_actpool.NewMockActPool(ctrl)
+	ap.EXPECT().BundlePool().Return(nil).Times(1)
+	ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
+		good.String(): {canonical},
+		bad.String():  {lossy},
+	}).Times(1)
+	ap.EXPECT().DeleteAction(gomock.Any()).Do(func(addr address.Address) {
+		require.Equal(bad.String(), addr.String())
+	}).Times(1)
+
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: uint64(1),
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit * 100000,
+		})
+	ctx = protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{ChainID: 1, EvmNetworkID: evmNetworkID},
+	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+
+	blk, err := f.Mint(ctx, ap, identityset.PrivateKey(27))
+	require.NoError(err)
+	// the minted block decodes on a validator
+	_, err = (&block.Deserializer{}).SetEvmNetworkID(evmNetworkID).FromBlockProto(blk.ConvertToBlockPb())
+	require.NoError(err)
+	var (
+		hashes  []hash.Hash256
+		senders []string
+	)
+	for _, selp := range blk.Actions {
+		h, err := selp.Hash()
+		require.NoError(err)
+		hashes = append(hashes, h)
+		senders = append(senders, selp.SenderAddress().String())
+	}
+	require.Contains(hashes, canonicalHash)
+	require.NotContains(senders, bad.String())
 }
