@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -118,6 +119,8 @@ type (
 		stateDiffEntries       []WriteQueueEntry // captured write queue for state diff broadcasting
 		stateDiffDigest        []byte            // cached digest bytes for state diff callback
 		mintDrops              int               // actions dropped from the draft for failing to run
+		mintOwnerOrOpChanged   bool              // a candidate's owner or operator changed in this block (mint only)
+		mintDeferred           map[string]bool   // senders held back to the next block (mint only)
 	}
 )
 
@@ -126,6 +129,7 @@ func newWorkingSet(height uint64, views protocol.Views, store workingSetStore, s
 		height:                 height,
 		views:                  views,
 		viewsSnapshots:         make(map[int]int),
+		mintDeferred:           make(map[string]bool),
 		store:                  store,
 		workingSetStoreFactory: storeFactory,
 	}
@@ -951,7 +955,7 @@ func (ws *workingSet) pickAndRunActions(
 					// set snapshot records both. Mint is the only caller of
 					// this path, so a proposer that skips a bundle carries on
 					// from the state it held before the bundle ran.
-					si := ws.Snapshot()
+					si, ownerOrOpChanged, deferred := ws.Snapshot(), ws.mintOwnerOrOpChanged, maps.Clone(ws.mintDeferred)
 					if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
 						_, _, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, selp, bGasLimit, bBlobCnt, uint64(blobLimit), false)
 						if err != nil {
@@ -981,6 +985,7 @@ func (ws *workingSet) pickAndRunActions(
 						// drop the bundle's block context too, or what runs
 						// next sees the tips of actions that are not in the block
 						ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
+						ws.mintOwnerOrOpChanged, ws.mintDeferred = ownerOrOpChanged, deferred
 						continue
 					}
 					for _, receipt := range bReceipts {
@@ -1110,6 +1115,10 @@ func (ws *workingSet) validateAndRun(
 			return true, true, nil, nil
 		}
 	}
+	// a sender held back by the candidate cap below waits for the next block
+	if sender := nextAction.SenderAddress(); sender != nil && ws.mintDeferred[sender.String()] {
+		return false, false, nil, nil
+	}
 	if err := ws.txValidator.ValidateWithState(ctx, nextAction); err != nil {
 		log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
 		if !errors.Is(err, action.ErrNonceTooLow) {
@@ -1135,6 +1144,14 @@ func (ws *workingSet) validateAndRun(
 		// without a sender there is nobody to evict
 		return true, nextAction.SenderAddress() != nil, nil, nil
 	}
+	// after a candidate's owner or operator changed in this block, later
+	// candidate actions, and the rest of their senders' actions, wait
+	if ws.mintOwnerOrOpChanged && isCandidateAction(nextAction.Action()) {
+		if sender := nextAction.SenderAddress(); sender != nil {
+			ws.mintDeferred[sender.String()] = true
+		}
+		return false, false, nil, nil
+	}
 	// An action that fails says nothing about the rest of the block, so it is
 	// reverted to this snapshot and dropped on its own; runAction must not
 	// reset the store snapshots before that, so the reset is deferred here.
@@ -1145,6 +1162,9 @@ func (ws *workingSet) validateAndRun(
 	receipt, err := ws.runActionDuringMint(actionCtx, nextAction, false)
 	switch {
 	case err == nil:
+		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) && changesOwnerOrOperator(nextAction.Action()) {
+			ws.mintOwnerOrOpChanged = true
+		}
 		return false, false, receipt, nil
 	case ctx.Err() != nil:
 		// neither is the sender's fault, so it is not evicted
@@ -1205,6 +1225,29 @@ func (ws *workingSet) revertDuringMint(si int) (err error) {
 		return errors.Wrapf(err, "failed to revert snapshot %d", si)
 	}
 	return nil
+}
+
+// isCandidateAction reports whether act manages a candidate (not a bucket)
+func isCandidateAction(act action.Action) bool {
+	switch act.(type) {
+	case *action.CandidateRegister, *action.CandidateUpdate, *action.CandidateTransferOwnership,
+		*action.CandidateActivate, *action.CandidateDeactivate,
+		*action.SetVoterRewardOptIn:
+		return true
+	}
+	return false
+}
+
+// changesOwnerOrOperator reports whether act, if successful, may change a
+// candidate's owner or operator (an unchanged operator also counts)
+func changesOwnerOrOperator(act action.Action) bool {
+	switch act := act.(type) {
+	case *action.CandidateTransferOwnership:
+		return true
+	case *action.CandidateUpdate:
+		return act.OperatorAddress() != nil
+	}
+	return false
 }
 
 // runActionDuringMint runs a single action while assembling a draft block, recovering from
