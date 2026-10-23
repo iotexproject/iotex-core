@@ -47,6 +47,7 @@ func TestSetCodeTx_E2E(t *testing.T) {
 	cfg.ActPool.BlackListActiveHeight = cfg.Genesis.YapBlockHeight + 1
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	evmNetworkID := cfg.Chain.EVMNetworkID
 	gasPrice := big.NewInt(unit.Qev)
@@ -332,6 +333,7 @@ func TestSetCodeTx_BatchTransfer(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[sender] = unit.ConvertIotxToRau(1000000).String()
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	evmNetworkID := cfg.Chain.EVMNetworkID
 	gasPrice := big.NewInt(unit.Qev)
@@ -497,6 +499,7 @@ func TestSetCodeTx_ERC20ApproveAndTransfer(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[sender] = unit.ConvertIotxToRau(1000000).String()
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	evmNetworkID := cfg.Chain.EVMNetworkID
 	gasPrice := big.NewInt(unit.Qev)
@@ -736,6 +739,7 @@ func TestSetCodeTx_GasSponsorship(t *testing.T) {
 
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	evmNetworkID := cfg.Chain.EVMNetworkID
 	gasPrice := big.NewInt(unit.Qev)
@@ -959,6 +963,7 @@ func TestEstimateGas(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[sender] = unit.ConvertIotxToRau(1000000).String()
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	evmNetworkID := cfg.Chain.EVMNetworkID
 	gasPrice := big.NewInt(unit.Qev)
