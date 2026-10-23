@@ -191,22 +191,25 @@ func (etx *txContainer) LoadProto(pbAct *iotextypes.ActionCore) error {
 	return nil
 }
 
-func (etx *txContainer) Unfold(selp *SealedEnvelope, ctx context.Context, checker func(context.Context, *common.Address) (bool, bool, bool, error)) error {
+// Unfold returns a new SealedEnvelope that holds the tx inside the container
+// converted to its concrete action. The passed-in selp is not modified, since
+// it can be shared (e.g., held by the actpool)
+func (etx *txContainer) Unfold(selp *SealedEnvelope, ctx context.Context, checker func(context.Context, *common.Address) (bool, bool, bool, error)) (*SealedEnvelope, error) {
 	if etx.chainID != selp.ChainID() {
-		return errors.Wrapf(ErrInvalidAct, "Unfold() expect chainID = %d, got chainID = %d", etx.chainID, selp.ChainID())
+		return nil, errors.Wrapf(ErrInvalidAct, "Unfold() expect chainID = %d, got chainID = %d", etx.chainID, selp.ChainID())
 	}
 	if selp.Encoding() != uint32(iotextypes.Encoding_TX_CONTAINER) {
-		return errors.Wrapf(ErrInvalidAct, "Unfold() expect encoding = %d, got encoding = %d", iotextypes.Encoding_TX_CONTAINER, selp.Encoding())
+		return nil, errors.Wrapf(ErrInvalidAct, "Unfold() expect encoding = %d, got encoding = %d", iotextypes.Encoding_TX_CONTAINER, selp.Encoding())
 	}
 	_, sig, pubkey, err := ExtractTypeSigPubkey(etx.tx)
 	if err != nil {
-		return errors.Wrap(err, "Unfold() failed to extract sig and pubkey")
+		return nil, errors.Wrap(err, "Unfold() failed to extract sig and pubkey")
 	}
 	if !bytes.Equal(sig, selp.signature) {
-		return errors.Wrapf(ErrInvalidAct, "Unfold() expect sig = %x, got sig = %x", sig, selp.signature)
+		return nil, errors.Wrapf(ErrInvalidAct, "Unfold() expect sig = %x, got sig = %x", sig, selp.signature)
 	}
 	if !bytes.Equal(pubkey.Hash(), selp.srcPubkey.Hash()) {
-		return errors.Wrapf(ErrInvalidAct, "Unfold() expect sender = %x, got sender = %x", pubkey.Hash(), selp.srcPubkey.Hash())
+		return nil, errors.Wrapf(ErrInvalidAct, "Unfold() expect sender = %x, got sender = %x", pubkey.Hash(), selp.srcPubkey.Hash())
 	}
 	var (
 		elp        Envelope
@@ -214,7 +217,7 @@ func (etx *txContainer) Unfold(selp *SealedEnvelope, ctx context.Context, checke
 	)
 	isContract, isStaking, isRewarding, err := checker(ctx, etx.tx.To())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if isStaking {
 		elp, err = elpBuilder.BuildStakingAction(etx.tx)
@@ -227,17 +230,18 @@ func (etx *txContainer) Unfold(selp *SealedEnvelope, ctx context.Context, checke
 		elp, err = elpBuilder.BuildTransfer(etx.tx)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	encoding, err := etx.typeToEncoding()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	selp.Envelope = elp
-	selp.encoding = encoding
-	selp.hash = hash.ZeroHash256
-	selp.srcAddress = nil
-	return nil
+	unfolded := *selp
+	unfolded.Envelope = elp
+	unfolded.encoding = encoding
+	unfolded.hash = hash.ZeroHash256
+	unfolded.srcAddress = nil
+	return &unfolded, nil
 }
 
 func (etx *txContainer) Cost() (*big.Int, error) {

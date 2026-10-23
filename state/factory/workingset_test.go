@@ -381,7 +381,7 @@ func TestWorkingSet_ValidateAndRun_SkipsExecutionBelowFloorDataGas(t *testing.T)
 
 	ws, err := f.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(err)
-	popAccount, deleteAction, receipt, err := ws.validateAndRun(ctx, registry, selp, testutil.TestGasLimit*100000, 0, 6, true)
+	_, popAccount, deleteAction, receipt, err := ws.validateAndRun(ctx, registry, selp, testutil.TestGasLimit*100000, 0, 6, true)
 	require.NoError(err)
 	require.True(popAccount)
 	require.True(deleteAction)

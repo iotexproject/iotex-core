@@ -40,7 +40,7 @@ type (
 	}
 
 	TxContainer interface {
-		Unfold(*SealedEnvelope, context.Context, func(context.Context, *common.Address) (bool, bool, bool, error)) error // unfold the tx inside the container
+		Unfold(*SealedEnvelope, context.Context, func(context.Context, *common.Address) (bool, bool, bool, error)) (*SealedEnvelope, error) // unfold the tx inside the container into a new SealedEnvelope
 	}
 
 	actionPayload interface {
