@@ -388,10 +388,20 @@ type epochGrantResult struct {
 	// returns value (reclaim), grants and pool credits pay out. Block-time
 	// voter credits were already debited at GrantBlockReward time.
 	debit *big.Int
+	// credit is this block's inflow into fund.totalBalance. Only slashing
+	// produces one, and only under CreditSlashToTotalBalance; before that the
+	// slashed value reached unclaimedBalance alone.
+	credit *big.Int
 }
 
 func (r *epochGrantResult) pay(amount *big.Int)     { r.debit = new(big.Int).Add(r.debit, amount) }
 func (r *epochGrantResult) reclaim(amount *big.Int) { r.debit = new(big.Int).Sub(r.debit, amount) }
+func (r *epochGrantResult) deposit(amount *big.Int) {
+	if r.credit == nil {
+		r.credit = new(big.Int)
+	}
+	r.credit = new(big.Int).Add(r.credit, amount)
+}
 
 // appendRewardLog records one RewardLog entry against the current block.
 func (p *Protocol) appendRewardLog(
@@ -497,6 +507,9 @@ func (p *Protocol) slashUnproductiveDelegates(
 	}
 	out.rewardLogs = append(out.rewardLogs, slashLogs...)
 	out.reclaim(slashAmount)
+	if protocol.MustGetFeatureCtx(ctx).CreditSlashToTotalBalance {
+		out.deposit(slashAmount)
+	}
 	return nil
 }
 
@@ -972,7 +985,14 @@ func (p *Protocol) GrantEpochReward(
 	// replaying history rejects the first epoch boundary it reaches, and a live
 	// node forks off at the next one. Keep the balance update ahead of the
 	// sentinel, matching what mainnet committed.
-	if err := p.updateAvailableBalance(ctx, sm, out.debit); err != nil {
+	//
+	// The slash credit, when there is one, rides the same fund write rather
+	// than a second one, so the write queue keeps its shape either way.
+	if out.credit != nil && out.credit.Sign() > 0 {
+		if err := p.updateFundBalances(ctx, sm, out.credit, out.debit); err != nil {
+			return nil, nil, err
+		}
+	} else if err := p.updateAvailableBalance(ctx, sm, out.debit); err != nil {
 		return nil, nil, err
 	}
 	// Sentinel.
@@ -1638,6 +1658,22 @@ func (p *Protocol) updateAvailableBalance(ctx context.Context, sm protocol.State
 	if availableBalance.Cmp(big.NewInt(0)) < 0 {
 		return errors.New("no enough available balance")
 	}
+	f.unclaimedBalance = availableBalance
+	return p.putState(ctx, sm, _fundKey, &f)
+}
+
+// updateFundBalances credits totalBalance by credit and debits
+// unclaimedBalance by debit in a single fund write.
+func (p *Protocol) updateFundBalances(ctx context.Context, sm protocol.StateManager, credit, debit *big.Int) error {
+	f := fund{}
+	if _, err := p.state(ctx, sm, _fundKey, &f); err != nil {
+		return err
+	}
+	availableBalance := big.NewInt(0).Sub(f.unclaimedBalance, debit)
+	if availableBalance.Cmp(big.NewInt(0)) < 0 {
+		return errors.New("no enough available balance")
+	}
+	f.totalBalance = big.NewInt(0).Add(f.totalBalance, credit)
 	f.unclaimedBalance = availableBalance
 	return p.putState(ctx, sm, _fundKey, &f)
 }

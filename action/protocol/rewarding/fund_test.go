@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -18,6 +19,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
 func TestProtocol_Fund(t *testing.T) {
@@ -220,4 +224,83 @@ func TestFundInvariant_DetectsViolation(t *testing.T) {
 		r.Contains(err.Error(), "rewarding fund invariant violated")
 		r.Contains(err.Error(), "delta=42")
 	}, noUnproductives, false, 0)
+}
+
+func slashFixtureUnproductives() map[string]uint64 {
+	return map[string]uint64{
+		identityset.Address(29).String(): 1,
+		identityset.Address(31).String(): 6,
+	}
+}
+
+// grantEpochRewardWithSlash runs the TestProtocol_GrantEpochReward fixture
+// (deposit 200, delegates 29 and 31 slashed 10 and 60) with the next-fork gate
+// either at genesis or unreached, and returns the slashed total.
+func grantEpochRewardWithSlash(
+	t *testing.T,
+	ctx context.Context,
+	sm protocol.StateManager,
+	p *Protocol,
+	nextFork bool,
+) *big.Int {
+	r := require.New(t)
+	if nextFork {
+		g := genesis.MustExtractGenesisContext(ctx)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+	}
+	ctx = protocol.WithFeatureCtx(ctx)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	r.Equal(nextFork, protocol.MustGetFeatureCtx(ctx).CreditSlashToTotalBalance)
+	r.True(protocol.MustGetFeatureCtx(ctx).NoVoterRewardDistribution)
+
+	_, err := p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+	r.NoError(err)
+	sp := &staking.Protocol{}
+	r.NoError(sp.Register(protocol.MustGetRegistry(ctx)))
+	patches := gomonkey.NewPatches()
+	patches = patches.ApplyMethodReturn(sp, "SlashCandidateByOperator", nil)
+	patches = patches.ApplyMethodReturn(sp, "SlashCandidateByID", nil)
+	defer patches.Reset()
+
+	transactionLogs, _, err := p.GrantEpochReward(ctx, sm)
+	r.NoError(err)
+	r.Len(transactionLogs, 1)
+	r.Equal(iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND, transactionLogs[0].Type)
+	r.Equal("70", transactionLogs[0].Amount.String())
+	return transactionLogs[0].Amount
+}
+
+func TestFundInvariant_HoldsAfterSlash_NextFork(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		grantEpochRewardWithSlash(t, ctx, sm, p, true)
+
+		total, _, err := p.TotalBalance(ctx, sm)
+		r.NoError(err)
+		r.Equal("270", total.String(), "deposit 200 + slash 70")
+		unclaimed, _, err := p.AvailableBalance(ctx, sm)
+		r.NoError(err)
+		r.Equal("165", unclaimed.String())
+		r.NoError(p.TestOnlyAssertFundInvariant(ctx, sm, allProtocolAddrs(t)))
+	}, slashFixtureUnproductives(), false, 1)
+}
+
+func TestFundInvariant_SlashLeavesTotalBalance_BeforeNextFork(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		r := require.New(t)
+		grantEpochRewardWithSlash(t, ctx, sm, p, false)
+
+		// Replay behaviour: the slash reaches unclaimedBalance only, so the fund
+		// is short by exactly the slashed amount.
+		total, _, err := p.TotalBalance(ctx, sm)
+		r.NoError(err)
+		r.Equal("200", total.String())
+		unclaimed, _, err := p.AvailableBalance(ctx, sm)
+		r.NoError(err)
+		r.Equal("165", unclaimed.String())
+		err = p.TestOnlyAssertFundInvariant(ctx, sm, allProtocolAddrs(t))
+		r.Error(err)
+		r.Contains(err.Error(), "delta=-70")
+	}, slashFixtureUnproductives(), false, 1)
 }
