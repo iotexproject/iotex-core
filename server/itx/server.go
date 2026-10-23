@@ -36,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/routine"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/httputil"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
+	"github.com/iotexproject/iotex-core/v2/state/factory"
 )
 
 // Server is the iotex server instance containing all components.
@@ -221,8 +222,9 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	if s.ioswarmCoord != nil {
 		if err := s.ioswarmCoord.Start(cctx); err != nil {
-			// IOSwarm failure is non-fatal: log warning but don't block consensus
-			log.L().Warn("IOSwarm coordinator failed to start (node continues without it)", zap.Error(err))
+			// Non-fatal for the node; unhook the coordinator from block commits.
+			log.L().Error("IOSwarm coordinator failed to start, IOSwarm is disabled on this node", zap.Error(err))
+			factory.SetDiffCallback(s.rootChainService.StateFactory(), nil)
 			s.ioswarmCoord = nil
 		}
 	}
