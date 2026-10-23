@@ -25,20 +25,22 @@ type testCase struct {
 	code     int
 }
 
+// Probe tests use port 17788 to avoid the 7788 ports used by e2e tests
+// when Go runs packages concurrently.
 func testFunc(t *testing.T, ts []testCase) {
 	for _, tt := range ts {
-		resp, err := http.Get("http://localhost:7788" + tt.endpoint)
+		resp, err := http.Get("http://localhost:17788" + tt.endpoint)
 		require.NoError(t, err)
 		assert.Equal(t, tt.code, resp.StatusCode)
 	}
 }
 
 func TestBasicProbe(t *testing.T) {
-	s := New(7788)
+	s := New(17788)
 	ctx := context.Background()
 	require.NoError(t, s.Start(ctx))
 	require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (b bool, e error) {
-		_, err := http.Get("http://localhost:7788/liveness")
+		_, err := http.Get("http://localhost:17788/liveness")
 		return err == nil, nil
 	}))
 	test1 := []testCase{
@@ -93,20 +95,20 @@ func TestBasicProbe(t *testing.T) {
 	require.False(t, s.IsReady())
 
 	require.NoError(t, s.Stop(ctx))
-	_, err := http.Get("http://localhost:7788/liveness")
+	_, err := http.Get("http://localhost:17788/liveness")
 	require.Error(t, err)
 }
 
 func TestReadniessHandler(t *testing.T) {
 	ctx := context.Background()
-	s := New(7788, WithReadinessHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := New(17788, WithReadinessHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 	})))
 	defer s.Stop(ctx)
 
 	require.NoError(t, s.Start(ctx))
 	require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (b bool, e error) {
-		_, err := http.Get("http://localhost:7788/liveness")
+		_, err := http.Get("http://localhost:17788/liveness")
 		return err == nil, nil
 	}))
 	test := []testCase{

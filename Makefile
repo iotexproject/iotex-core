@@ -25,13 +25,10 @@ BUILD_TARGET_MINICLUSTER=minicluster
 BUILD_TARGET_RECOVER=recover
 BUILD_TARGET_READTIP=readtip
 BUILD_TARGET_IOMIGRATER=iomigrater
-BUILD_TARGET_OS=$(shell go env GOOS)
-BUILD_TARGET_ARCH=$(shell go env GOARCH)
 
 # Pkgs
 ALL_PKGS := $(shell go list ./... )
 PKGS := $(shell go list ./... | grep -v /test/ )
-ROOT_PKG := "github.com/iotexproject/iotex-core"
 TEST_PKGS := $(shell go list ./... | grep -E -v 'pb$|testdata|mock')
 TEST_PKGS_NO_E2E := $(shell go list ./... | grep -E -v 'pb$|testdata|mock|e2etest')
 E2E_TEST_PKGS := $(shell go list ./... | grep e2etest)
@@ -66,19 +63,9 @@ PackageFlags += -s -w
 
 BUILD_TAGS = nosilkworm
 
-TEST_IGNORE= ".git,vendor"
-COV_OUT := profile.coverprofile
-COV_REPORT := overalls.coverprofile
-COV_HTML := coverage.html
-
-LINT_LOG := lint.log
-
 V ?= 0
 ifeq ($(V),0)
 	ECHO_V = @
-else
-	VERBOSITY_FLAG = -v
-	DEBUG_FLAG = -debug
 endif
 
 default: clean build test
@@ -120,12 +107,6 @@ fmt:
 lint:
 	go list ./... | xargs $(GOVET)
 
-.PHONY: lint-rich
-lint-rich:
-	$(ECHO_V)rm -rf $(LINT_LOG)
-	@echo "Running golangcli lint..."
-	$(ECHO_V)golangci-lint run $(VERBOSITY_FLAG)--enable-all -D gochecknoglobals -D prealloc -D lll -D interfacer -D scopelint -D maligned -D dupl| tee -a $(LINT_LOG)
-
 .PHONY: test
 test: fmt
 	@echo "Running unit tests with race detector..."
@@ -163,25 +144,6 @@ test-e2e: fmt
 	@echo "Running e2e tests without race detector..."
 	@$(GOTEST) -gcflags="all=-N -l" -short ${E2E_TEST_PKGS}
 
-.PHONY: test-rich
-test-rich:
-	@echo "Running test cases..."
-	$(ECHO_V)rm -f $(COV_REPORT)
-	$(ECHO_V)touch $(COV_OUT)
-	$(ECHO_V)RICHGO_FORCE_COLOR=1 overalls \
-		-project=$(ROOT_PKG) \
-		-go-binary=richgo \
-		-ignore $(TEST_IGNORE) \
-		$(DEBUG_FLAG) -- \
-		$(VERBOSITY_FLAG) -short | \
-		grep -v -e "Test args" -e "Processing"
-
-.PHONY: test-html
-test-html: test-rich
-	@echo "Generating test report html..."
-	$(ECHO_V)gocov convert $(COV_REPORT) | gocov-html > $(COV_HTML)
-	$(ECHO_V)open $(COV_HTML)
-
 .PHONY: mockgen
 mockgen:
 	@./misc/scripts/mockgen.sh
@@ -194,30 +156,18 @@ stringer:
 license:
 	@./misc/scripts/licenseheader.sh
 
-.PHONY: dev-deps
-dev-deps:
-	@echo "Installing dev dependencies..."
-	$(ECHO_V)go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
-	$(ECHO_V)go get -u github.com/kyoh86/richgo
-	$(ECHO_V)go get -u github.com/axw/gocov/gocov
-	$(ECHO_V)go get -u gopkg.in/matm/v1/gocov-html
-	$(ECHO_V)go get -u github.com/go-playground/overalls
-
 .PHONY: clean
 clean:
 	@echo "Cleaning..."
 	$(ECHO_V)rm -rf ./bin/$(BUILD_TARGET_SERVER)
 	$(ECHO_V)rm -rf ./bin/$(BUILD_TARGET_ADDRGEN)
-	$(ECHO_V)rm -rf ./bin/$(BUILD_TARGET_IOTC)
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(ECHO_V)rm -rf *chain*.db
 	$(ECHO_V)rm -rf *trie*.db
 	$(ECHO_V)rm -rf *index*.db
 	$(ECHO_V)rm -rf *systemlog*.db
 	$(ECHO_V)rm -rf *candidate.index*.db
-	$(ECHO_V)rm -rf $(COV_REPORT) $(COV_HTML) $(LINT_LOG)
-	$(ECHO_V)find . -name $(COV_OUT) -delete
-	$(ECHO_V)find . -name $(TESTBED_COV_OUT) -delete
+	$(ECHO_V)rm -f coverage.txt
 	$(ECHO_V)$(GOCLEAN) -i $(PKGS)
 
 .PHONY: reboot
@@ -242,11 +192,6 @@ run:
 docker:
 	DOCKER_BUILDKIT=1 $(DOCKERCMD) buildx build --platform linux/amd64 -t iotex$(USER)/iotex-core:latest --load .
 
-.PHONY: docker-scan
-docker-scan: docker
-	DOCKER_BUILDKIT=1 $(DOCKERCMD) login
-	DOCKER_BUILDKIT=1 $(DOCKERCMD) scan $(USER)/iotex-core:latest .
-
 .PHONY: minicluster
 minicluster:
 	$(ECHO_V)rm -rf *chain*.db
@@ -259,15 +204,6 @@ minicluster:
 	$(ECHO_V)rm -rf *contractstaking.index*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	./bin/$(BUILD_TARGET_MINICLUSTER)
-
-.PHONY: nightlybuild
-nightlybuild:
-	$(ECHO_V)rm -rf *chain*.db
-	$(ECHO_V)rm -rf *trie*.db
-	$(ECHO_V)rm -rf *index*.db
-	$(ECHO_V)rm -rf *candidate.index*.db
-	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
-	./bin/$(BUILD_TARGET_MINICLUSTER) -timeout=14400 -fp-token=true
 
 .PHONY: recover
 recover:
@@ -283,26 +219,6 @@ ioctl:
 newioctl:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_NEWIOCTL) -v ./tools/newioctl
 	
-.PHONY: ioctl-cross
-ioctl-cross:
-	$(DOCKERCMD) pull techknowlogick/xgo:latest
-	$(GOCMD) get src.techknowlogick.com/xgo
-	mkdir -p $(GOPATH)/src
-	sudo cp ./tools/ioctl/ioctl.go $(GOPATH)/src
-	cd $(GOPATH)/src && sudo rm -f go.mod && $(GOCMD) mod init main && $(GOCMD) mod tidy
-	cd $(GOPATH)/src && $(GOPATH)/bin/xgo --targets=$(BUILD_TARGET_OS)/$(BUILD_TARGET_ARCH) .
-	mkdir -p ./bin/$(BUILD_TARGET_IOCTL) && sudo mv $(GOPATH)/src/main-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH) ./bin/$(BUILD_TARGET_IOCTL)/ioctl-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH)
-
-.PHONY: newioctl-cross
-newioctl-cross:
-	$(DOCKERCMD) pull techknowlogick/xgo:latest
-	$(GOCMD) get src.techknowlogick.com/xgo
-	mkdir -p $(GOPATH)/src
-	sudo cp ./tools/newioctl/ioctl.go $(GOPATH)/src
-	cd $(GOPATH)/src && sudo rm -f go.mod && $(GOCMD) mod init main && $(GOCMD) mod tidy
-	cd $(GOPATH)/src && $(GOPATH)/bin/xgo --targets=$(BUILD_TARGET_OS)/$(BUILD_TARGET_ARCH) .
-	mkdir -p ./bin/$(BUILD_TARGET_NEWIOCTL) && sudo mv $(GOPATH)/src/main-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH) ./bin/$(BUILD_TARGET_NEWIOCTL)/ioctl-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH)
-
 .PHONY: xctl
 xctl:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_XCTL) -v ./tools/xctl
