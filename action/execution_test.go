@@ -63,6 +63,9 @@ func TestExecutionSanityCheck(t *testing.T) {
 			[]byte{},
 		)
 		require.Contains(ex.SanityCheck().Error(), "error when validating contract's address")
+		require.NotPanics(func() { require.Nil(ex.To()) })
+		_, err := ex.EthTo()
+		require.Error(err)
 	})
 
 	t.Run("Empty contract address", func(t *testing.T) {

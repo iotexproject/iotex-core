@@ -143,7 +143,14 @@ func (cv *candidateVotes) Encodes() ([][]byte, []systemcontracts.GenericValue, e
 		keys   [][]byte
 		values []systemcontracts.GenericValue
 	)
-	for cand, c := range cv.cands {
+	// sort candidates for consistent ordering
+	addresses := make([]string, 0, len(cv.cands))
+	for cand := range cv.cands {
+		addresses = append(addresses, cand)
+	}
+	sort.Strings(addresses)
+	for _, cand := range addresses {
+		c := cv.cands[cand]
 		key := []byte(cand)
 		data, err := proto.Marshal(&stakingpb.Candidate{
 			Votes:  c.votes.String(),

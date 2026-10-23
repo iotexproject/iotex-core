@@ -53,17 +53,14 @@ func NewExecution(contract string, amount *big.Int, data []byte) *Execution {
 }
 
 // To returns the contract address pointer
-// nil indicates a contract-creation transaction
+// nil indicates a contract-creation transaction, or a malformed contract
+// address; use EthTo() or SanityCheck() to tell the two apart
 func (ex *Execution) To() *common.Address {
-	if ex.contract == EmptyAddress {
+	to, err := ex.EthTo()
+	if err != nil {
 		return nil
 	}
-	addr, err := address.FromString(ex.contract)
-	if err != nil {
-		panic(err)
-	}
-	evmAddr := common.BytesToAddress(addr.Bytes())
-	return &evmAddr
+	return to
 }
 
 // Contract returns a contract address

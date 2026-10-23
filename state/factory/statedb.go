@@ -308,7 +308,7 @@ func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
-	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height), sdb.protocolViews.Fork())
+	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height), sdb.views().Fork())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create new working set")
 	}
@@ -450,12 +450,12 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManagerWithCl
 	return sdb.newReadOnlyWorkingSet(ctx, height+1)
 }
 
-func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
+func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (_ protocol.StateManagerWithCloser, err error) {
 	ws, err := sdb.newReadOnlyWorkingSet(ctx, height-1)
 	if err != nil {
 		return nil, err
 	}
-	// handle panic to ensure workingset is closed
+	// handle panic to ensure workingset is closed, and an error is returned
 	defer func() {
 		if r := recover(); r != nil {
 			ws.Close()
@@ -613,7 +613,13 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 
 // ReadView reads the view
 func (sdb *stateDB) ReadView(name string) (protocol.View, error) {
-	return sdb.protocolViews.Read(name)
+	return sdb.views().Read(name)
+}
+
+func (sdb *stateDB) views() protocol.Views {
+	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
+	return sdb.protocolViews
 }
 
 // StateReaderAt returns a state reader at a specific height

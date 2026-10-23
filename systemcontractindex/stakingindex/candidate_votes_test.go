@@ -212,3 +212,23 @@ func candidateVotesEqual(r *require.Assertions, cv1, cv2 CandidateVotes, cands [
 		r.Equal(cv1.Votes(ctxAfterRedsea, cand), cv2.Votes(ctxAfterRedsea, cand))
 	}
 }
+
+func TestCandidateVotesEncodesSorted(t *testing.T) {
+	require := require.New(t)
+	cv := newCandidateVotes()
+	for i := 0; i < 20; i++ {
+		cv.Add(fmt.Sprintf("cand%02d", 19-i), big.NewInt(int64(i)), big.NewInt(int64(i)))
+	}
+	for range 10 {
+		keys, values, err := cv.Encodes()
+		require.NoError(err)
+		require.Len(keys, 20)
+		require.Len(values, 20)
+		for i, k := range keys {
+			require.Equal(fmt.Sprintf("cand%02d", i), string(k))
+		}
+		decoded := newCandidateVotes()
+		require.NoError(decoded.Decodes(keys, values))
+		require.Equal(big.NewInt(19), decoded.cands["cand00"].votes)
+	}
+}

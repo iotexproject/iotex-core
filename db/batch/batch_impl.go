@@ -83,7 +83,7 @@ func (b *baseKVStoreBatch) Append(kvb KVStoreBatch) {
 	kvb.Lock()
 	defer kvb.Unlock()
 	for i := range kvb.Size() {
-		wi, err := b.Entry(i)
+		wi, err := kvb.Entry(i)
 		if err != nil {
 			panic(err)
 		}
