@@ -97,6 +97,8 @@ var (
 	errSubscribeInBatch  = errors.New("eth_subscribe is not supported in batch requests")
 	errTooManySubs       = errors.New("too many subscriptions on this connection")
 	errJSTracer          = errors.New("JavaScript tracers are not supported, use a native tracer")
+	errTraceOutputLimit  = errors.New("trace output exceeds the limit; set a lower \"limit\", disable stack/storage/memory, or use callTracer")
+	errTooManyTraces     = errors.New("too many concurrent traces, retry later")
 
 	_pendingBlockNumber   = "pending"
 	_latestBlockNumber    = "latest"
