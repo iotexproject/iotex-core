@@ -1701,3 +1701,50 @@ func TestSubscribeLimitPerConnection(t *testing.T) {
 		_, _ = cl.RemoveResponder(id)
 	}
 }
+
+func TestDroppedSubscriptionsFreeConnectionSlots(t *testing.T) {
+	for _, kind := range []string{"newHeads", "logs"} {
+		t.Run(kind, func(t *testing.T) {
+			r := require.New(t)
+			core := NewMockCoreService(gomock.NewController(t))
+			cl := NewChainListener(1000)
+			defer cl.Stop()
+			core.EXPECT().ChainListener().Return(cl).AnyTimes()
+			svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+			ctx, _ := StreamFromContext(WithStreamContext(context.Background()))
+			writer := apitypes.NewResponseWriter(func(interface{}) (int, error) {
+				return 0, errors.New("write failed")
+			})
+			request := gjson.Parse(fmt.Sprintf(`{"params":["%s",{}]}`, kind))
+			var senders []*streamSender
+			for range _maxSubscriptionsPerConnection {
+				id, err := svr.subscribe(ctx, &request, writer)
+				r.NoError(err)
+				responder, ok := cl.(*chainListener).streamMap.Get(id)
+				r.True(ok)
+				switch listener := responder.(type) {
+				case *web3BlockListener:
+					senders = append(senders, listener.sender)
+				case *web3LogListener:
+					senders = append(senders, listener.sender)
+				}
+			}
+			_, err := svr.subscribe(ctx, &request, writer)
+			r.ErrorIs(err, errTooManySubs)
+			// Fail asynchronously, without requiring another block to arrive.
+			for _, sender := range senders {
+				r.NoError(sender.enqueue(&streamResponse{}))
+				select {
+				case <-sender.closed:
+				case <-time.After(time.Second):
+					t.Fatal("sender did not report the write failure")
+				}
+			}
+			r.Zero(ctx.ListenerCount())
+			r.Empty(ctx.ListenerIDs())
+			r.Zero(cl.(*chainListener).streamMap.Count(), "pruning must also evict stopped responders")
+			_, err = svr.subscribe(ctx, &request, writer)
+			r.NoError(err, "dropped subscriptions must not exhaust the connection permanently")
+		})
+	}
+}

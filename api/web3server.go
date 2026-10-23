@@ -276,7 +276,7 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		res, err = svr.subscribe(sc, web3Req, writer)
 	case "eth_unsubscribe":
 		res, err = svr.unsubscribe(web3Req)
-		if sc, ok := StreamFromContext(ctx); ok && err == nil {
+		if sc, ok := StreamFromContext(ctx); ok && (err == nil || errors.Is(err, errListenerNotFound)) {
 			sc.RemoveListener(web3Req.Get("params.0").String())
 		}
 	case "eth_getBlobSidecars":
@@ -1387,11 +1387,15 @@ func (svr *web3Handler) subscribe(ctx *StreamContext, in *gjson.Result, writer a
 
 func (svr *web3Handler) streamBlocks(ctx *StreamContext, writer apitypes.Web3ResponseWriter) (interface{}, error) {
 	chainListener := svr.coreService.ChainListener()
-	streamID, err := chainListener.AddResponder(NewWeb3BlockListener(writer.Write))
+	listener := NewWeb3BlockListener(writer.Write).(*web3BlockListener)
+	streamID, err := chainListener.AddResponder(listener)
 	if err != nil {
+		listener.Exit()
 		return nil, err
 	}
-	ctx.AddListener(streamID)
+	ctx.addListener(streamID, listener.sender.closed, func() {
+		_, _ = chainListener.RemoveResponder(streamID)
+	})
 	return streamID, nil
 }
 
@@ -1401,11 +1405,15 @@ func (svr *web3Handler) streamLogs(ctx *StreamContext, filterObj *filterObject, 
 		return nil, err
 	}
 	chainListener := svr.coreService.ChainListener()
-	streamID, err := chainListener.AddResponder(NewWeb3LogListener(filter, writer.Write))
+	listener := NewWeb3LogListener(filter, writer.Write).(*web3LogListener)
+	streamID, err := chainListener.AddResponder(listener)
 	if err != nil {
+		listener.Exit()
 		return nil, err
 	}
-	ctx.AddListener(streamID)
+	ctx.addListener(streamID, listener.sender.closed, func() {
+		_, _ = chainListener.RemoveResponder(streamID)
+	})
 	return streamID, nil
 }
 
