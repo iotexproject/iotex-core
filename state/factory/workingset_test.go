@@ -1118,11 +1118,13 @@ func TestWorkingSet_Mint_SkipsLossyTxContainer(t *testing.T) {
 	evmNetworkID := cfg.Chain.EVMNetworkID
 	deposit, err := action.NewDepositToRewardingFund(big.NewInt(1), nil).EthData()
 	require.NoError(err)
-	newContainer := func(signer int, data []byte) *action.SealedEnvelope {
+	signTx := func(signer int, data []byte) *types.Transaction {
 		to := common.BytesToAddress(address.RewardingProtocolAddrHash[:])
-		tx := types.MustSignNewTx(identityset.PrivateKey(signer).EcdsaPrivateKey().(*ecdsa.PrivateKey),
+		return types.MustSignNewTx(identityset.PrivateKey(signer).EcdsaPrivateKey().(*ecdsa.PrivateKey),
 			types.NewEIP155Signer(big.NewInt(int64(evmNetworkID))),
 			&types.LegacyTx{Nonce: 1, GasPrice: big.NewInt(0), Gas: 100000, To: &to, Value: big.NewInt(0), Data: data})
+	}
+	newContainer := func(tx *types.Transaction) *action.SealedEnvelope {
 		raw, err := tx.MarshalBinary()
 		require.NoError(err)
 		_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
@@ -1139,10 +1141,26 @@ func TestWorkingSet_Mint_SkipsLossyTxContainer(t *testing.T) {
 		require.NoError(err)
 		return selp
 	}
-	canonical := newContainer(28, deposit)
+	canonical := newContainer(signTx(28, deposit))
 	canonicalHash, err := canonical.Hash()
 	require.NoError(err)
-	lossy := newContainer(29, append(append([]byte{}, deposit...), make([]byte, 32)...))
+	// decode refuses a lossy container, so decode a canonical one with the lossy
+	// tx's signature, then swap the lossy tx into it in place
+	lossyTx := signTx(29, append(append([]byte{}, deposit...), make([]byte, 32)...))
+	lossyRaw, err := lossyTx.MarshalBinary()
+	require.NoError(err)
+	_, lossySig, lossyPub, err := action.ExtractTypeSigPubkey(lossyTx)
+	require.NoError(err)
+	pb := newContainer(signTx(29, deposit)).Proto()
+	pb.SenderPubKey, pb.Signature = lossyPub.Bytes(), lossySig
+	lossy, err := (&action.Deserializer{}).SetEvmNetworkID(evmNetworkID).ActionToSealedEnvelope(pb)
+	require.NoError(err)
+	inner, err := lossy.Envelope.ToEthTx()
+	require.NoError(err)
+	require.NoError(inner.UnmarshalBinary(lossyRaw))
+	lossyHash, err := lossy.Hash()
+	require.NoError(err)
+	require.Equal(lossyTx.Hash().Bytes(), lossyHash[:])
 
 	ctrl := gomock.NewController(t)
 	ap := mock_actpool.NewMockActPool(ctrl)

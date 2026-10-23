@@ -184,10 +184,49 @@ func (etx *txContainer) LoadProto(pbAct *iotextypes.ActionCore) error {
 			return errors.Wrap(ErrInvalidAct, "authorization chain ID exceeds 32 bits")
 		}
 	}
+	if err := checkNativeRoundTrip(pbAct.GetChainID(), &tx); err != nil {
+		return err
+	}
 	etx.chainID = pbAct.GetChainID()
 	etx.raw = make([]byte, len(raw))
 	copy(etx.raw, raw)
 	etx.tx = &tx
+	return nil
+}
+
+// checkNativeRoundTrip refuses a tx to the staking or rewarding protocol that
+// does not re-encode to itself once converted to the native action
+func checkNativeRoundTrip(chainID uint32, tx *types.Transaction) (err error) {
+	// this runs on peer input before relay, so a decoder panic must not escape
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Wrapf(ErrInvalidAct, "failed to build native action: %v", r)
+		}
+	}()
+	elp, err := StakingRewardingTxToEnvelope(chainID, tx)
+	if err != nil {
+		return errors.Wrapf(ErrInvalidAct, "failed to build native action: %v", err)
+	}
+	if elp == nil {
+		return nil
+	}
+	// both txs are hashed with the same signer, so the tx's own chain ID will do
+	var signer types.Signer = types.HomesteadSigner{}
+	if tx.Protected() {
+		signer = types.LatestSignerForChainID(tx.ChainId())
+	}
+	return verifyRebuiltTx(elp, tx, signer)
+}
+
+// verifyRebuiltTx checks that elp re-encodes to the signed tx
+func verifyRebuiltTx(elp Envelope, signed *types.Transaction, signer types.Signer) error {
+	rebuilt, err := elp.ToEthTx()
+	if err != nil {
+		return err
+	}
+	if signer.Hash(rebuilt) != signer.Hash(signed) {
+		return errors.Wrap(ErrInvalidAct, "unfolded action does not match the signed transaction")
+	}
 	return nil
 }
 
@@ -233,20 +272,13 @@ func (etx *txContainer) Unfold(selp *SealedEnvelope, ctx context.Context, checke
 	if err != nil {
 		return err
 	}
-	// a block stores the unfolded action, and validators rebuild the eth tx from
-	// it to recover the sender (see SealedEnvelope.loadProto). The rebuild must
-	// yield the very tx that was signed: an ABI decoder ignores trailing calldata,
-	// and native staking/rewarding actions drop the tx value
+	// validators recover the sender from the eth tx rebuilt from the unfolded action
 	signer, err := NewEthSigner(encoding, selp.evmNetworkID)
 	if err != nil {
 		return err
 	}
-	rebuilt, err := elp.ToEthTx()
-	if err != nil {
+	if err := verifyRebuiltTx(elp, etx.tx, signer); err != nil {
 		return err
-	}
-	if signer.Hash(rebuilt) != signer.Hash(etx.tx) {
-		return errors.Wrap(ErrInvalidAct, "unfolded action does not match the signed transaction")
 	}
 	selp.Envelope = elp
 	selp.encoding = encoding
