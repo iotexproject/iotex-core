@@ -1387,7 +1387,7 @@ func (svr *web3Handler) subscribe(ctx *StreamContext, in *gjson.Result, writer a
 
 func (svr *web3Handler) streamBlocks(ctx *StreamContext, writer apitypes.Web3ResponseWriter) (interface{}, error) {
 	chainListener := svr.coreService.ChainListener()
-	listener := NewWeb3BlockListener(writer.Write).(*web3BlockListener)
+	listener := newWeb3BlockListener(writer.Write)
 	streamID, err := chainListener.AddResponder(listener)
 	if err != nil {
 		listener.Exit()
@@ -1405,7 +1405,7 @@ func (svr *web3Handler) streamLogs(ctx *StreamContext, filterObj *filterObject, 
 		return nil, err
 	}
 	chainListener := svr.coreService.ChainListener()
-	listener := NewWeb3LogListener(filter, writer.Write).(*web3LogListener)
+	listener := newWeb3LogListener(filter, writer.Write)
 	streamID, err := chainListener.AddResponder(listener)
 	if err != nil {
 		listener.Exit()

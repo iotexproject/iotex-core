@@ -2343,7 +2343,7 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 	defer cleanup()
 	retval, receipt, err := simulateFn(ctx)
 	if err != nil {
-		return retval, receipt, tracer, err
+		return retval, receipt, nil, err
 	}
 	// Materialize the result while the slot is held: GetResult can allocate
 	// another full copy of the trace. Return only the cached result so callers

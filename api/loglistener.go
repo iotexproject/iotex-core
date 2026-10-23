@@ -56,6 +56,10 @@ type web3LogListener struct {
 
 // NewWeb3LogListener returns a new websocket block listener
 func NewWeb3LogListener(filter *logfilter.LogFilter, handler streamHandler) apitypes.Responder {
+	return newWeb3LogListener(filter, handler)
+}
+
+func newWeb3LogListener(filter *logfilter.LogFilter, handler streamHandler) *web3LogListener {
 	return &web3LogListener{
 		logFilter: filter,
 		// nobody waits on a websocket subscription's outcome: a failed write
