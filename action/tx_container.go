@@ -233,6 +233,21 @@ func (etx *txContainer) Unfold(selp *SealedEnvelope, ctx context.Context, checke
 	if err != nil {
 		return err
 	}
+	// a block stores the unfolded action, and validators rebuild the eth tx from
+	// it to recover the sender (see SealedEnvelope.loadProto). The rebuild must
+	// yield the very tx that was signed: an ABI decoder ignores trailing calldata,
+	// and native staking/rewarding actions drop the tx value
+	signer, err := NewEthSigner(encoding, selp.evmNetworkID)
+	if err != nil {
+		return err
+	}
+	rebuilt, err := elp.ToEthTx()
+	if err != nil {
+		return err
+	}
+	if signer.Hash(rebuilt) != signer.Hash(etx.tx) {
+		return errors.Wrap(ErrInvalidAct, "unfolded action does not match the signed transaction")
+	}
 	selp.Envelope = elp
 	selp.encoding = encoding
 	selp.hash = hash.ZeroHash256
