@@ -308,6 +308,8 @@ func (p *agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
 
+	// Unlike the delivery callback below, a pubsub validator receives the
+	// immediate forwarding peer as pid. Do not use it to attribute block authorship.
 	validateBroadcast := func(ctx context.Context, pid peer.ID, msg *pubsub.Message, allowType func(iotexrpc.MessageType) bool) pubsub.ValidationResult {
 		if pid.String() == host.HostIdentity() {
 			return pubsub.ValidationAccept
@@ -369,10 +371,11 @@ func (p *agent) Start(ctx context.Context) error {
 			msgType iotexrpc.MessageType
 			latency int64
 		)
-		// the peer identity handed downstream is the authenticated libp2p peer
-		// that delivered this copy, never broadcast.PeerId -- that field is
-		// unauthenticated peer input, and downstream it keys rate limits,
-		// dispatcher bookkeeping and BlockPeer() blacklisting.
+		// go-p2p v0.3.7 passes msg.GetFrom(): the signed pubsub publisher,
+		// not msg.ReceivedFrom (the forwarding hop). Its default StrictSign
+		// policy authenticates this identity. Never use broadcast.PeerId:
+		// that payload field is publisher-controlled and can name a victim.
+		// Downstream this identity keys bookkeeping and BlockPeer().
 		peerID := pid.String()
 		defer func() {
 			status := _successStr
