@@ -50,7 +50,7 @@ var (
 	_stalledTipMtc = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "iotex_chainservice_stalled_tip_ticks",
-			Help: "Consecutive watchdog ticks with a static tip while blocks arrive.",
+			Help: "Consecutive observation ticks with a static tip and changing unvalidated inbound block height; not a restart signal.",
 		},
 	)
 	_blockchainFullnessMtc = prometheus.NewGaugeVec(
@@ -95,10 +95,6 @@ type ChainService struct {
 	paused                  atomic.Bool
 }
 
-// stalledTipPanicTicks is how many consecutive one-minute watchdog ticks must
-// show a static tip with arriving blocks before the service restarts itself.
-const stalledTipPanicTicks = 3
-
 // Start starts the server
 func (cs *ChainService) Start(ctx context.Context) error {
 	if err := cs.lifecycle.OnStartSequentially(ctx); err != nil {
@@ -108,45 +104,47 @@ func (cs *ChainService) Start(ctx context.Context) error {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 
-		var lastHeight uint64
-		var lastReceivedBlockHeight uint64
-		var stalledTicks int
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				if cs.paused.Load() {
-					continue
-				}
-				currentHeight := cs.chain.TipHeight()
-				lrbh := atomic.LoadUint64(&cs.lastReceivedBlockHeight)
-				if currentHeight == lastHeight && lastReceivedBlockHeight != lrbh {
-					stalledTicks++
-					_stalledTipMtc.Set(float64(stalledTicks))
-					log.L().Warn("Blockchain height has not changed while blocks are arriving",
-						zap.Uint64("tipHeight", currentHeight),
-						zap.Int("consecutiveTicks", stalledTicks),
-						zap.Int("threshold", stalledTipPanicTicks))
-					// Only restart once the condition has held for several ticks.
-					// A single tick is remotely triggerable: lastReceivedBlockHeight
-					// is fed by inbound blocks, so during a genuine network halt --
-					// when every node is tip-static -- one crafted block would
-					// otherwise crash-loop the whole listening set and prevent
-					// recovery.
-					if stalledTicks >= stalledTipPanicTicks {
-						log.L().Panic("Blockchain height has not changed, restarting service")
-					}
-				} else {
-					stalledTicks = 0
-					_stalledTipMtc.Set(0)
-				}
-				lastHeight = currentHeight
-				lastReceivedBlockHeight = lrbh
-			}
-		}
+		cs.monitorChainProgress(ctx, ticker.C)
 	}()
 	return nil
+}
+
+// monitorChainProgress reports observations, not proof of a stuck node. Both
+// Filter and ReportFullness record unvalidated network input: a peer can change
+// that height during a genuine chain halt. Never terminate the process based on
+// this signal, or wire its metric directly to an automatic restart policy.
+// Warnings are limited to one per observation tick (one minute in production).
+func (cs *ChainService) monitorChainProgress(ctx context.Context, ticks <-chan time.Time) {
+	_stalledTipMtc.Set(0)
+
+	var lastHeight uint64
+	var lastReceivedBlockHeight uint64
+	var stalledTicks int
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticks:
+			if cs.paused.Load() {
+				continue
+			}
+			currentHeight := cs.chain.TipHeight()
+			lrbh := atomic.LoadUint64(&cs.lastReceivedBlockHeight)
+			if currentHeight == lastHeight && lastReceivedBlockHeight != lrbh {
+				stalledTicks++
+				_stalledTipMtc.Set(float64(stalledTicks))
+				log.L().Warn("Blockchain tip is static while unvalidated inbound block height changes",
+					zap.Uint64("tipHeight", currentHeight),
+					zap.Uint64("unvalidatedReceivedHeight", lrbh),
+					zap.Int("consecutiveTicks", stalledTicks))
+			} else {
+				stalledTicks = 0
+				_stalledTipMtc.Set(0)
+			}
+			lastHeight = currentHeight
+			lastReceivedBlockHeight = lrbh
+		}
+	}
 }
 
 // Stop stops the server
@@ -175,10 +173,8 @@ func (cs *ChainService) Filter(messageType iotexrpc.MessageType, msg proto.Messa
 	if blk.Header.Core.Height >= tip+uint64(cap) {
 		return false
 	}
-	// Record the height only for blocks this node would actually buffer. The
-	// field drives the watchdog in Start(), and the header is unvalidated at
-	// this point -- recording it before the window check let a peer name any
-	// height it liked, up to 2^63.
+	// Record accepted-window heights for observation only. The header remains
+	// unvalidated, so this is not evidence of chain progress or node failure.
 	if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
 		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
 	}
