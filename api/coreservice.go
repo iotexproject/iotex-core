@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -2341,7 +2342,16 @@ func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, co
 	// has executed so the deadline is enforced during simulateFn.
 	defer cleanup()
 	retval, receipt, err := simulateFn(ctx)
-	return retval, receipt, tracer, err
+	if err != nil {
+		return retval, receipt, tracer, err
+	}
+	// Materialize the result while the slot is held: GetResult can allocate
+	// another full copy of the trace. Return only the cached result so callers
+	// cannot marshal again outside the slot or retain the logger via its hooks.
+	result, resultErr := tracer.GetResult()
+	return retval, receipt, &tracers.Tracer{
+		GetResult: func() (json.RawMessage, error) { return result, resultErr },
+	}, nil
 }
 
 func (core *coreService) traceContext(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (context.Context, *tracers.Tracer, context.CancelFunc, error) {

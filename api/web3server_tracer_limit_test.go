@@ -6,11 +6,19 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"testing"
 
+	. "github.com/agiledragon/gomonkey/v2"
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+
+	"github.com/iotexproject/iotex-core/v2/action"
+	"github.com/iotexproject/iotex-core/v2/action/protocol"
 )
 
 func TestStructLogLimit(t *testing.T) {
@@ -60,5 +68,50 @@ func TestAcquireTraceSlot(t *testing.T) {
 	release()
 	for _, release := range releases[1:] {
 		release()
+	}
+}
+
+func TestTraceTxMaterializesResultWithinSlot(t *testing.T) {
+	for _, resultErr := range []error{nil, errTraceOutputLimit} {
+		t.Run(fmt.Sprint(resultErr), func(t *testing.T) {
+			r := require.New(t)
+			// Leave exactly one slot for traceTx. GetResult must still see all
+			// slots occupied, and the returned tracer must use the cached result.
+			for range maxConcurrentTraces - 1 {
+				release, err := acquireTraceSlot()
+				r.NoError(err)
+				t.Cleanup(release)
+			}
+			calls := 0
+			tracer := &tracers.Tracer{GetResult: func() (json.RawMessage, error) {
+				calls++
+				release, err := acquireTraceSlot()
+				if err == nil {
+					release()
+				}
+				r.ErrorIs(err, errTooManyTraces)
+				return json.RawMessage(`{}`), resultErr
+			}}
+			patch := ApplyFunc(parseTracer, func(context.Context, *tracers.Context, *tracers.TraceConfig) (*tracers.Tracer, context.CancelFunc, error) {
+				return tracer, func() {}, nil
+			})
+			defer patch.Reset()
+			ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
+			core := &coreService{}
+			_, _, result, err := core.traceTx(ctx, nil, nil, func(context.Context) ([]byte, *action.Receipt, error) {
+				return nil, nil, nil
+			})
+			r.NoError(err)
+			r.Equal(1, calls, "GetResult must run before traceTx returns")
+			for range 2 {
+				res, err := result.(*tracers.Tracer).GetResult()
+				r.Equal(json.RawMessage(`{}`), res)
+				r.ErrorIs(err, resultErr)
+			}
+			r.Equal(1, calls, "callers must not marshal the trace again")
+			release, err := acquireTraceSlot()
+			r.NoError(err, "the slot must be released even when GetResult fails")
+			release()
+		})
 	}
 }
