@@ -309,6 +309,70 @@ func TestWorkingSet_Mint_RecoversActionPanic(t *testing.T) {
 	require.Contains(mintErr.Error(), "recovered from panic")
 }
 
+// TestWorkingSet_Mint_SkippedSenderDoesNotDropOthers verifies that when the
+// action of one sender is skipped during mint, only that sender is removed from
+// the iteration and the action of the next sender is still included.
+func TestWorkingSet_Mint_SkippedSenderDoesNotDropOthers(t *testing.T) {
+	require := require.New(t)
+	registry := protocol.NewRegistry()
+	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100000000"
+	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "100000000"
+	f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+	require.NoError(err)
+
+	startCtx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(f.Start(startCtx))
+	defer func() {
+		require.NoError(f.Stop(startCtx))
+	}()
+
+	gasLimit := uint64(1000000)
+	sign := func(idx int, gas uint64, price int64) *action.SealedEnvelope {
+		tsf := action.NewTransfer(big.NewInt(1), identityset.Address(27).String(), nil)
+		elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(gas).
+			SetGasPrice(big.NewInt(price)).SetAction(tsf).Build()
+		selp, err := action.Sign(elp, identityset.PrivateKey(idx))
+		require.NoError(err)
+		return selp
+	}
+	// sender 28 pays more so it is picked first, but its gas exceeds the
+	// block gas limit and it is skipped
+	skipped := sign(28, gasLimit+1, 1)
+	included := sign(29, testutil.TestGasLimit, 0)
+
+	ctrl := gomock.NewController(t)
+	ap := mock_actpool.NewMockActPool(ctrl)
+	ap.EXPECT().BundlePool().Return(nil).Times(1)
+	ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
+		identityset.Address(28).String(): {skipped},
+		identityset.Address(29).String(): {included},
+	}).Times(1)
+
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: uint64(1),
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		})
+	ctx = protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{},
+	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+	blk, err := f.Mint(ctx, ap, identityset.PrivateKey(27))
+	require.NoError(err)
+	require.Contains(blk.Actions, included)
+	require.NotContains(blk.Actions, skipped)
+}
+
 // TestWorkingSet_ValidateAndRun_SkipsExecutionBelowFloorDataGas verifies that
 // an execution whose gas covers the intrinsic gas but not the EIP-7623 floor
 // data gas is skipped and its sender evicted, instead of failing the whole draft.

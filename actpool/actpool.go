@@ -123,6 +123,9 @@ type actPool struct {
 	worker            []*queueWorker
 	subs              []Subscriber
 	store             *actionStore // store is the persistent cache for actpool
+	// blobValidator is re-checked on the sender's worker, where its counter is
+	// updated, so that concurrent adds cannot exceed the per-account blob cap
+	blobValidator *blobValidator
 }
 
 // NewActPool constructs a new actpool
@@ -148,9 +151,9 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 		}
 	}
 	// init validators
-	blobValidator := newBlobValidator(cfg.MaxNumBlobsPerAcct)
-	ap.privateValidators = append(ap.privateValidators, blobValidator)
-	ap.AddSubscriber(blobValidator)
+	ap.blobValidator = newBlobValidator(cfg.MaxNumBlobsPerAcct)
+	ap.privateValidators = append(ap.privateValidators, ap.blobValidator)
+	ap.AddSubscriber(ap.blobValidator)
 	if ap.bundlePool != nil {
 		ap.bundlePool.SetValidator(ap.Validate)
 	}
