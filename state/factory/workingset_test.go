@@ -20,10 +20,12 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/v2/actpool"
@@ -309,10 +311,10 @@ func TestWorkingSet_Mint_RecoversActionPanic(t *testing.T) {
 	require.Contains(mintErr.Error(), "recovered from panic")
 }
 
-// TestWorkingSet_ValidateAndRun_SkipsExecutionBelowFloorDataGas verifies that
-// an execution whose gas covers the intrinsic gas but not the EIP-7623 floor
-// data gas is skipped and its sender evicted, instead of failing the whole draft.
-func TestWorkingSet_ValidateAndRun_SkipsExecutionBelowFloorDataGas(t *testing.T) {
+// floorDataGasShortfallWorkingSet builds a working set past Yap, with the next
+// hardfork at gateHeight, and a signed execution whose gas covers the intrinsic
+// gas but not the EIP-7623 floor data gas.
+func floorDataGasShortfallWorkingSet(t *testing.T, gateHeight uint64) (context.Context, *protocol.Registry, *workingSet, *action.SealedEnvelope) {
 	require := require.New(t)
 	registry := protocol.NewRegistry()
 	noDeposit := func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) ([]*action.TransactionLog, error) {
@@ -331,6 +333,7 @@ func TestWorkingSet_ValidateAndRun_SkipsExecutionBelowFloorDataGas(t *testing.T)
 	}
 	cfg.Genesis.YapBlockHeight = 1 // enable the Pectra EVM rules
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
+	cfg.Genesis.ToBeEnabledBlockHeight = gateHeight
 	sender := identityset.Address(28)
 	cfg.Genesis.InitBalanceMap[sender.String()] = "100000000000000000000"
 	f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
@@ -341,9 +344,9 @@ func TestWorkingSet_ValidateAndRun_SkipsExecutionBelowFloorDataGas(t *testing.T)
 		protocol.BlockCtx{},
 	)
 	require.NoError(f.Start(startCtx))
-	defer func() {
+	t.Cleanup(func() {
 		require.NoError(f.Stop(startCtx))
-	}()
+	})
 
 	// 100 bytes of calldata: intrinsic gas 20000, floor data gas 35000
 	data := make([]byte, 100)
@@ -381,11 +384,54 @@ func TestWorkingSet_ValidateAndRun_SkipsExecutionBelowFloorDataGas(t *testing.T)
 
 	ws, err := f.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(err)
-	popAccount, deleteAction, receipt, err := ws.validateAndRun(ctx, registry, selp, testutil.TestGasLimit*100000, 0, 6, true)
-	require.NoError(err)
-	require.True(popAccount)
-	require.True(deleteAction)
-	require.Nil(receipt)
+	return ctx, registry, ws, selp
+}
+
+// TestWorkingSet_ValidateAndRun_SkipsExecutionBelowFloorDataGas verifies that
+// an execution whose gas covers the intrinsic gas but not the EIP-7623 floor
+// data gas is skipped and its sender evicted, instead of failing the whole draft.
+// The admission check that does this stays in place across the next hardfork.
+func TestWorkingSet_ValidateAndRun_SkipsExecutionBelowFloorDataGas(t *testing.T) {
+	for _, gateHeight := range []uint64{math.MaxUint64, 1} {
+		require := require.New(t)
+		ctx, registry, ws, selp := floorDataGasShortfallWorkingSet(t, gateHeight)
+		popAccount, deleteAction, receipt, err := ws.validateAndRun(ctx, registry, selp, testutil.TestGasLimit*100000, 0, 6, true)
+		require.NoError(err)
+		require.True(popAccount)
+		require.True(deleteAction)
+		require.Nil(receipt)
+	}
+}
+
+// TestWorkingSet_RunAction_FloorDataGasShortfall runs an execution below the
+// floor data gas past admission, as both the mint and the validation path do
+// once an action has been admitted. Before the next hardfork that is an error,
+// which abandons the block; from it, the execution settles a failure receipt.
+func TestWorkingSet_RunAction_FloorDataGasShortfall(t *testing.T) {
+	t.Run("before the next hardfork", func(t *testing.T) {
+		require := require.New(t)
+		ctx, _, ws, selp := floorDataGasShortfallWorkingSet(t, math.MaxUint64)
+		actionCtx, err := withActionCtx(ctx, selp)
+		require.NoError(err)
+		receipt, err := ws.runAction(actionCtx, selp, true)
+		require.ErrorIs(err, action.ErrFloorDataGas)
+		require.Nil(receipt)
+	})
+	t.Run("from the next hardfork", func(t *testing.T) {
+		require := require.New(t)
+		ctx, _, ws, selp := floorDataGasShortfallWorkingSet(t, 1)
+		before, err := accountutil.AccountState(ctx, ws, selp.SenderAddress())
+		require.NoError(err)
+		actionCtx, err := withActionCtx(ctx, selp)
+		require.NoError(err)
+		receipt, err := ws.runAction(actionCtx, selp, true)
+		require.NoError(err)
+		require.Equal(uint64(iotextypes.ReceiptStatus_ErrOutOfGas), receipt.Status)
+		require.Equal(selp.Gas(), receipt.GasConsumed)
+		after, err := accountutil.AccountState(ctx, ws, selp.SenderAddress())
+		require.NoError(err)
+		require.Equal(before.PendingNonceConsideringFreshAccount()+1, after.PendingNonce())
+	})
 }
 
 func TestWorkingSet_ValidateBlock_SystemAction(t *testing.T) {
