@@ -8,8 +8,13 @@ import (
 type (
 	streamContextKey struct{}
 
+	streamListener struct {
+		done   <-chan struct{}
+		remove func()
+	}
+
 	StreamContext struct {
-		listenerIDs map[string]struct{}
+		listenerIDs map[string]streamListener
 		mutex       sync.Mutex
 	}
 
@@ -17,9 +22,16 @@ type (
 )
 
 func (sc *StreamContext) AddListener(id string) {
+	sc.addListener(id, nil, nil)
+}
+
+// addListener tracks the sender lifecycle as well as the subscription ID.
+// A dropped sender frees its connection slot even before the next block evicts
+// the responder from the chain listener.
+func (sc *StreamContext) addListener(id string, done <-chan struct{}, remove func()) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
-	sc.listenerIDs[id] = struct{}{}
+	sc.listenerIDs[id] = streamListener{done: done, remove: remove}
 }
 
 func (sc *StreamContext) RemoveListener(id string) {
@@ -32,6 +44,7 @@ func (sc *StreamContext) RemoveListener(id string) {
 func (sc *StreamContext) ListenerCount() int {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
+	sc.pruneListeners()
 	return len(sc.listenerIDs)
 }
 
@@ -45,9 +58,24 @@ func (sc *StreamContext) ListenerIDs() []string {
 	return ids
 }
 
+// pruneListeners requires sc.mutex. Nil channels represent listeners whose
+// lifecycle is managed explicitly with RemoveListener.
+func (sc *StreamContext) pruneListeners() {
+	for id, listener := range sc.listenerIDs {
+		select {
+		case <-listener.done:
+			if listener.remove != nil {
+				listener.remove()
+			}
+			delete(sc.listenerIDs, id)
+		default:
+		}
+	}
+}
+
 func WithStreamContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, streamContextKey{}, &StreamContext{
-		listenerIDs: make(map[string]struct{}),
+		listenerIDs: make(map[string]streamListener),
 	})
 }
 
