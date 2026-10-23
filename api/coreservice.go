@@ -80,7 +80,34 @@ const (
 	defaultTraceTimeout = 5 * time.Second
 	// maxTraceTimeout caps a caller-supplied trace timeout
 	maxTraceTimeout = 30 * time.Second
+	// defaultTraceOutputLimit bounds the struct-log output of a single
+	// transaction trace when the caller sets no limit
+	defaultTraceOutputLimit = 16 << 20
+	// maxTraceOutputLimit caps a caller-supplied struct-log limit
+	maxTraceOutputLimit = 64 << 20
+	// maxBlockTraceOutput bounds the combined output of all transactions in a
+	// block trace
+	maxBlockTraceOutput = 64 << 20
+	// maxConcurrentTraces bounds the number of traces executing at once
+	maxConcurrentTraces = 8
 )
+
+// traceSlots admits at most maxConcurrentTraces traces at a time. Each trace
+// holds up to its output limit in memory, so the per-trace limit alone does not
+// bound a node that serves many traces concurrently.
+var traceSlots = make(chan struct{}, maxConcurrentTraces)
+
+// acquireTraceSlot reserves a trace slot without waiting, so a caller holding
+// every slot cannot queue up further requests behind it. The returned func
+// releases the slot.
+func acquireTraceSlot() (func(), error) {
+	select {
+	case traceSlots <- struct{}{}:
+		return func() { <-traceSlots }, nil
+	default:
+		return nil, errTooManyTraces
+	}
+}
 
 type (
 	// CoreService provides api interface for user to interact with blockchain data
@@ -2301,6 +2328,11 @@ func (core *coreService) Track(ctx context.Context, start time.Time, method stri
 }
 
 func (core *coreService) traceTx(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig, simulateFn func(ctx context.Context) ([]byte, *action.Receipt, error)) ([]byte, *action.Receipt, any, error) {
+	release, err := acquireTraceSlot()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer release()
 	ctx, tracer, cleanup, err := core.traceContext(ctx, txctx, config)
 	if err != nil {
 		return nil, nil, nil, err
@@ -2413,7 +2445,12 @@ func (core *coreService) workingSetAt(ctx context.Context, height uint64) (conte
 }
 
 func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, config *tracers.TraceConfig) ([][]byte, []*action.Receipt, any, error) {
-	ctx, err := core.bc.ContextAtHeight(ctx, blk.Height())
+	release, err := acquireTraceSlot()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer release()
+	ctx, err = core.bc.ContextAtHeight(ctx, blk.Height())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -2457,7 +2494,8 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 	// executeInEVM registers each EVM it creates with this canceller; a fired
 	// per-tx watchdog aborts the in-flight EVM (and any created afterwards),
 	// and traceErr below fails the whole request
-	ctx = evm.WithTraceCanceller(ctx, evm.NewTraceCanceller())
+	canceller := evm.NewTraceCanceller()
+	ctx = evm.WithTraceCanceller(ctx, canceller)
 	sharedHooks := new(tracing.Hooks)
 	var (
 		curTracer  *tracers.Tracer
@@ -2493,10 +2531,32 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 	// synchronously in the execution goroutine, so no extra synchronization is
 	// needed. We surface it as the RPC error instead of silently returning
 	// partial/empty results.
-	var traceErr error
+	//
+	// Each per-tx result is bounded by the tracer's own limit, but a block holds
+	// as many transactions as its gas limit allows, so the results are also
+	// bounded together: once their combined size passes maxBlockTraceOutput the
+	// remaining execution is aborted and the request fails.
+	var (
+		traceErr    error
+		outputBytes int
+	)
 	ctx = evm.WithTracerCtx(ctx, evm.TracerContext{
 		CaptureTx: func(retval []byte, receipt *action.Receipt) {
+			if traceErr != nil {
+				// the request has already failed; keep no further results
+				if err := newTracer(); err != nil {
+					log.L().Error("failed to create tracer for next transaction", zap.Error(err))
+				}
+				return
+			}
 			res, err := curTracer.GetResult()
+			if err == nil {
+				if outputBytes += len(res); outputBytes > maxBlockTraceOutput {
+					err = errors.Wrapf(errTraceOutputLimit, "block limit %d bytes", maxBlockTraceOutput)
+					canceller.Cancel()
+					results, retvals, receipts = nil, nil, nil
+				}
+			}
 			if err != nil {
 				if traceErr == nil {
 					traceErr = err
@@ -2517,12 +2577,16 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 		},
 	})
 	ws, err := core.sf.WorkingSetAtTransaction(ctx, blk.Height(), blk.Actions...)
-	if err != nil {
-		return nil, nil, nil, err
+	if err == nil {
+		defer ws.Close()
 	}
-	defer ws.Close()
+	// a tracer failure aborts the remaining execution, which may surface as a
+	// working-set error; report the tracer failure, which is the cause
 	if traceErr != nil {
 		return nil, nil, nil, traceErr
+	}
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
 	return retvals, receipts, results, nil
