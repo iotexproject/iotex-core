@@ -67,6 +67,7 @@ func TestErigonArchiveContract(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[sender] = balance.String()
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	gasPrice := big.NewInt(unit.Qev)
 	newLegacyTx := func(nonce uint64) action.TxCommonInternal {

@@ -37,6 +37,7 @@ func TestDynamicFeeTx(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[sender] = unit.ConvertIotxToRau(10000).String()
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	evmNetworkID := cfg.Chain.EVMNetworkID
 	gasPrice := big.NewInt(unit.Qev)
