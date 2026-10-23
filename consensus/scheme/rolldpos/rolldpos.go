@@ -265,13 +265,12 @@ type (
 	Builder struct {
 		cfg BuilderConfig
 		// TODO: we should use keystore in the future
-		encodedAddr       string
-		priKey            []crypto.PrivateKey
-		chain             ChainManager
-		blockDeserializer *block.Deserializer
-		broadcastHandler  scheme.Broadcast
-		clock             clock.Clock
-		// TODO: explorer dependency deleted at #1085, need to add api params
+		encodedAddr          string
+		priKey               []crypto.PrivateKey
+		chain                ChainManager
+		blockDeserializer    *block.Deserializer
+		broadcastHandler     scheme.Broadcast
+		clock                clock.Clock
 		rp                   *rolldpos.Protocol
 		delegatesByEpochFunc NodesSelectionByEpochFunc
 		proposersByEpochFunc NodesSelectionByEpochFunc

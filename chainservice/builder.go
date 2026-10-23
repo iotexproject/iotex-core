@@ -902,7 +902,6 @@ func (builder *Builder) buildConsensusComponent() error {
 		copts = append(copts, consensus.WithPollProtocol(pollProtocol))
 	}
 
-	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	builderCfg := rp.BuilderConfig{
 		Chain:              builder.cfg.Chain,
 		Consensus:          builder.cfg.Consensus.RollDPoS,
