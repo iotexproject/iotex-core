@@ -47,8 +47,10 @@ var (
 		},
 		[]string{"type"},
 	)
-	// ErrInvalidTipHeight is the error returned when the block height is not valid
-	ErrInvalidTipHeight = errors.New("invalid tip height")
+	// ErrInvalidTipHeight is the error returned when the block height is not valid.
+	// It aliases filedao.ErrInvalidTipHeight so that a height rejection raised by the
+	// block store on CommitBlock still matches the sentinel callers compare against.
+	ErrInvalidTipHeight = filedao.ErrInvalidTipHeight
 	// ErrInvalidBlock is the error returned when the block is not valid
 	ErrInvalidBlock = errors.New("failed to validate the block")
 	// ErrActionNonce is the error when the nonce of the action is wrong
