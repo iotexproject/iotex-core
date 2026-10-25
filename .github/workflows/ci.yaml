@@ -25,6 +25,11 @@ jobs:
     name: ci flow
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
+    env:
+      # one set of compiler flags for build, vet and test, so packages are
+      # compiled once and shared through the build cache; -l (no inlining) is
+      # what the gomonkey-based tests need
+      GOFLAGS: -gcflags=all=-l
     steps:
       - uses: actions/checkout@v7
 
@@ -66,10 +71,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # no shared cache here: this job finishes first, and saving its partial
+      # cache under the same key would stop ci flow from saving the full one
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          cache: false
 
       - name: Run Fuzz (short)
         continue-on-error: true
