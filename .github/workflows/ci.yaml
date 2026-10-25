@@ -89,8 +89,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # read FUZZ_TARGETS straight from the Makefile: running make would
+      # evaluate its $(shell go list ...) variables and download every module
       - id: list
-        run: echo "targets=$(make -s fuzz-targets | jq -Rcn '[inputs]')" >> "$GITHUB_OUTPUT"
+        run: |
+          targets=$(awk '/^FUZZ_TARGETS[[:space:]]*:=/{f=1;next} f{c=/\\[[:space:]]*$/; gsub(/[\\[:space:]]/,""); if($0!="")print; if(!c)exit}' Makefile | jq -Rcn '[inputs]')
+          [[ "$targets" != "[]" ]]
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
 
   fuzz:
     name: fuzz (${{ matrix.target }})
