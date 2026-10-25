@@ -37,6 +37,21 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          cache: false
+
+      # Keyed by commit so the cache follows the code (setup-go's own cache is
+      # keyed by go.sum only and is never refreshed once saved). Restore falls
+      # back to the newest cache for the same go.sum, then to any Go cache.
+      - name: Go build cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ hashFiles('go.sum') }}-
+            go-${{ runner.os }}-
 
       - name: Build Go
         run: go build ./...
@@ -60,26 +75,54 @@ jobs:
         run: |
           make minicluster
 
-  # Fuzz harness for crypto/action/state codec & primitives. Runs each target
-  # for 30s, in its own job so it does not add to the ci flow's wall time.
+  # Fuzz harness for crypto/action/state codec & primitives. Each target runs
+  # for 30s in its own job, in parallel, so the fuzz run takes about as long as
+  # one target. The targets are listed once, in the Makefile.
   # Marked continue-on-error while existing panic sites found by the harness
   # are triaged in follow-ups; promote to required after they are fixed.
-  fuzz:
-    name: fuzz (short)
+  fuzz-targets:
+    name: fuzz targets
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.list.outputs.targets }}
     steps:
       - uses: actions/checkout@v7
 
-      # no shared cache here: this job finishes first, and saving its partial
-      # cache under the same key would stop ci flow from saving the full one
+      - id: list
+        run: echo "targets=$(make -s fuzz-targets | jq -Rcn '[inputs]')" >> "$GITHUB_OUTPUT"
+
+  fuzz:
+    name: fuzz (${{ matrix.target }})
+    needs: fuzz-targets
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.fuzz-targets.outputs.targets) }}
+    steps:
+      - uses: actions/checkout@v7
+
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: false
 
+      # read-only: reuse ci flow's modules and build cache without saving a
+      # partial cache of its own
+      - name: Go build cache (restore only)
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ hashFiles('go.sum') }}-
+            go-${{ runner.os }}-
+
       - name: Run Fuzz (short)
         continue-on-error: true
         shell: bash
-        run: make fuzz-short
+        run: make fuzz-short FUZZ_TARGETS='${{ matrix.target }}'

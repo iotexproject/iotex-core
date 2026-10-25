@@ -146,6 +146,10 @@ FUZZ_TARGETS := \
 	./state:FuzzAccountDeserialize \
 	./state:FuzzCandidateListDeserialize
 
+.PHONY: fuzz-targets
+fuzz-targets:
+	@printf '%s\n' $(FUZZ_TARGETS)
+
 .PHONY: fuzz-short
 fuzz-short:
 	@for t in $(FUZZ_TARGETS); do \
