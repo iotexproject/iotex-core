@@ -3,10 +3,19 @@ name: ci
 on:
   pull_request:
     branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+  # runs on master as well, so the Go build cache saved there is restored by
+  # pull requests (a cache saved by one pull request is not visible to others)
+  push:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   GO111MODULE: on
@@ -14,47 +23,30 @@ env:
 jobs:
   ci:
     name: ci flow
+    if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        # with:
-        #   submodules: recursive
 
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: false
 
       - name: Build Go
         run: go build ./...
+
+      - name: Vet
+        run: |
+          go mod tidy
+          go vet $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
 
       - name: Run Test
         id: unittest
         shell: bash
         run: |
-          go install github.com/dave/courtney@latest
-          go mod tidy
-          go vet $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
-          #go get -u github.com/dave/courtney@038390a12707e2d91979d2ca77a71597f4afe400
           ./go.test.sh
-          #make test
           go test -run=XXX -bench=. $(go list ./crypto)
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v7
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-
-      # Fuzz harness for crypto/action/state codec & primitives. Runs each
-      # target for 30s. Marked continue-on-error while existing panic sites
-      # found by the harness are triaged in follow-ups; promote to required
-      # after they are fixed.
-      - name: Run Fuzz (short)
-        continue-on-error: true
-        shell: bash
-        run: make fuzz-short
 
       - name: Make Minicluster
         if: github.event.pull_request.merged == true
@@ -62,3 +54,24 @@ jobs:
         shell: bash
         run: |
           make minicluster
+
+  # Fuzz harness for crypto/action/state codec & primitives. Runs each target
+  # for 30s, in its own job so it does not add to the ci flow's wall time.
+  # Marked continue-on-error while existing panic sites found by the harness
+  # are triaged in follow-ups; promote to required after they are fixed.
+  fuzz:
+    name: fuzz (short)
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Run Fuzz (short)
+        shell: bash
+        run: make fuzz-short
