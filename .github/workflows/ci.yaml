@@ -3,10 +3,19 @@ name: ci
 on:
   pull_request:
     branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+  # runs on master as well, so the Go build cache saved there is restored by
+  # pull requests (a cache saved by one pull request is not visible to others)
+  push:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   GO111MODULE: on
@@ -14,11 +23,15 @@ env:
 jobs:
   ci:
     name: ci flow
+    if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
+    env:
+      # one set of compiler flags for build, vet and test, so packages are
+      # compiled once and shared through the build cache; -l (no inlining) is
+      # what the gomonkey-based tests need
+      GOFLAGS: -gcflags=all=-l
     steps:
       - uses: actions/checkout@v7
-        # with:
-        #   submodules: recursive
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -26,35 +39,34 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      # Keyed by commit so the cache follows the code (setup-go's own cache is
+      # keyed by go.sum only and is never refreshed once saved). Restore falls
+      # back to the newest cache for the same go.sum, then to any Go cache.
+      - name: Go build cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ hashFiles('go.sum') }}-
+            go-${{ runner.os }}-
+
       - name: Build Go
         run: go build ./...
+
+      - name: Vet
+        run: |
+          go mod tidy
+          go vet $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
 
       - name: Run Test
         id: unittest
         shell: bash
         run: |
-          go install github.com/dave/courtney@latest
-          go mod tidy
-          go vet $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
-          #go get -u github.com/dave/courtney@038390a12707e2d91979d2ca77a71597f4afe400
           ./go.test.sh
-          #make test
           go test -run=XXX -bench=. $(go list ./crypto)
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v7
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-
-      # Fuzz harness for crypto/action/state codec & primitives. Runs each
-      # target for 30s. Marked continue-on-error while existing panic sites
-      # found by the harness are triaged in follow-ups; promote to required
-      # after they are fixed.
-      - name: Run Fuzz (short)
-        continue-on-error: true
-        shell: bash
-        run: make fuzz-short
 
       - name: Make Minicluster
         if: github.event.pull_request.merged == true
@@ -62,3 +74,60 @@ jobs:
         shell: bash
         run: |
           make minicluster
+
+  # Fuzz harness for crypto/action/state codec & primitives. Each target runs
+  # for 30s in its own job, in parallel, so the fuzz run takes about as long as
+  # one target. The targets are listed once, in the Makefile.
+  # Marked continue-on-error while existing panic sites found by the harness
+  # are triaged in follow-ups; promote to required after they are fixed.
+  fuzz-targets:
+    name: fuzz targets
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.list.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # read FUZZ_TARGETS straight from the Makefile: running make would
+      # evaluate its $(shell go list ...) variables and download every module
+      - id: list
+        run: |
+          targets=$(awk '/^FUZZ_TARGETS[[:space:]]*:=/{f=1;next} f{c=/\\[[:space:]]*$/; gsub(/[\\[:space:]]/,""); if($0!="")print; if(!c)exit}' Makefile | jq -Rcn '[inputs]')
+          [[ "$targets" != "[]" ]]
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+
+  fuzz:
+    name: fuzz (${{ matrix.target }})
+    needs: fuzz-targets
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.fuzz-targets.outputs.targets) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # read-only: reuse ci flow's modules and build cache without saving a
+      # partial cache of its own
+      - name: Go build cache (restore only)
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ hashFiles('go.sum') }}-
+            go-${{ runner.os }}-
+
+      - name: Run Fuzz (short)
+        continue-on-error: true
+        shell: bash
+        run: make fuzz-short FUZZ_TARGETS='${{ matrix.target }}'
