@@ -40,6 +40,9 @@ import (
 const (
 	_successStr = "success"
 	_failureStr = "failure"
+	// _unknownMsgTypeLabel is the "message" label value recorded for any
+	// message type outside the iotexrpc.MessageType enum
+	_unknownMsgTypeLabel = "unknown"
 )
 
 var (
@@ -67,6 +70,18 @@ var (
 func init() {
 	prometheus.MustRegister(_p2pMsgCounter)
 	prometheus.MustRegister(_p2pMsgLatency)
+}
+
+// msgTypeLabel returns the "message" label value for a message type. Message
+// types are read from remote peers' payloads before they are validated, so
+// only values defined in the iotexrpc.MessageType enum keep their numeric
+// label; everything else shares a single label value. This keeps the number
+// of series in _p2pMsgCounter and _p2pMsgLatency bounded.
+func msgTypeLabel(t iotexrpc.MessageType) string {
+	if _, ok := iotexrpc.MessageType_name[int32(t)]; !ok {
+		return _unknownMsgTypeLabel
+	}
+	return strconv.Itoa(int(t))
 }
 
 const (
@@ -382,8 +397,9 @@ func (p *agent) Start(ctx context.Context) error {
 			if err != nil {
 				status = _failureStr
 			}
-			_p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), "in", status).Inc()
-			_p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), status).Observe(float64(latency))
+			label := msgTypeLabel(msgType)
+			_p2pMsgCounter.WithLabelValues("broadcast", label, "in", status).Inc()
+			_p2pMsgLatency.WithLabelValues("broadcast", label, status).Observe(float64(latency))
 		}()
 		// Check the cache first
 		cache, ok := p.caches.Get(hash.Hash256b(data))
@@ -462,8 +478,10 @@ func (p *agent) Start(ctx context.Context) error {
 			if err != nil {
 				status = _failureStr
 			}
-			_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", status).Inc()
-			_p2pMsgLatency.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), status).Observe(float64(latency))
+			// unicast.MsgType is still unvalidated on the error paths below
+			label := msgTypeLabel(unicast.MsgType)
+			_p2pMsgCounter.WithLabelValues("unicast", label, "in", status).Inc()
+			_p2pMsgLatency.WithLabelValues("unicast", label, status).Observe(float64(latency))
 		}()
 		if err = proto.Unmarshal(data, &unicast); err != nil {
 			err = errors.Wrap(err, "error when marshaling unicast message")
@@ -553,7 +571,7 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		}
 		_p2pMsgCounter.WithLabelValues(
 			"broadcast",
-			strconv.Itoa(int(msgType)),
+			msgTypeLabel(msgType),
 			"out",
 			status,
 		).Inc()
@@ -626,7 +644,7 @@ func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 		if err != nil {
 			status = _failureStr
 		}
-		_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", status).Inc()
+		_p2pMsgCounter.WithLabelValues("unicast", msgTypeLabel(msgType), "out", status).Inc()
 	}()
 
 	msgType, msgBody, err = convertAppMsg(msg)
