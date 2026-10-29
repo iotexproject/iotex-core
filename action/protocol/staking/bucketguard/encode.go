@@ -2,11 +2,12 @@ package bucketguard
 
 import "google.golang.org/protobuf/encoding/protowire"
 
-// Canonical proto3 encoding C(m) of IIP §8: fields in ascending field-number
-// order, each at most once; default scalars and empty bytes/strings omitted;
-// minimal varints and length prefixes; nested messages emitted iff set; no
-// unknown fields. Size limits and gas are defined over C(m) of the decoded
-// message, never over received bytes.
+// Canonical proto3 encoding C(m): fields in ascending field-number order, each
+// at most once; default scalars and empty bytes/strings omitted; minimal
+// varints and length prefixes; nested messages emitted iff set; no unknown
+// fields. Every field number is at most 15, so len(C(m)) equals the IIP §8
+// formula QSBSizeV1 term by term. Size limits and gas are defined over the
+// decoded message, never over received bytes.
 
 func appendVarintField(b []byte, num protowire.Number, v uint64) []byte {
 	if v == 0 {
@@ -68,6 +69,7 @@ func (m *GuardedBucketOp) canonicalBytes() []byte {
 	}
 	b = appendBoolField(b, 13, m.ClearGuard)
 	b = appendBytesField(b, 14, m.Sig)
+	b = appendBytesField(b, 15, m.Sponsor)
 	return b
 }
 

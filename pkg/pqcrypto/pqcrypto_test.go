@@ -83,12 +83,12 @@ func flip(b []byte) []byte {
 }
 
 func TestTranscript(t *testing.T) {
-	got := pqcrypto.NewTranscript("D").
+	got := pqcrypto.NewTranscript().
 		Uint8(0xaa).Bool(true).Bool(false).
 		Uint32(0x01020304).Uint64(0x0102030405060708).
 		Fixed([]byte{0xee, 0xff}).Bytes([]byte{0x11}).Bytes(nil).
 		Message()
-	want := "44" + "aa" + "01" + "00" + "01020304" + "0102030405060708" + "eeff" + "0000000111" + "00000000"
+	want := "aa" + "01" + "00" + "01020304" + "0102030405060708" + "eeff" + "0000000111" + "00000000"
 	if hex.EncodeToString(got) != want {
 		t.Fatalf("transcript = %x, want %s", got, want)
 	}

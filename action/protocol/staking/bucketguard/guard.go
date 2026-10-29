@@ -10,15 +10,16 @@ import (
 )
 
 // Guard is the guard record of one native bucket (IIP §4). A record with an
-// empty PublicKey is a tombstone: the bucket is unguarded, AlgID and
-// BoundHeight are zero, and the counters are kept so they never decrease.
+// empty PublicKey is a tombstone: the bucket is unguarded, AlgID is zero,
+// the counters are kept so they never decrease, and BoundHeight is the
+// height of the clear.
 // A nil *Guard means no record.
 type Guard struct {
 	AlgID       pqcrypto.AlgID
 	PublicKey   []byte
-	Generation  uint64 // incremented on every key installation
+	Generation  uint64 // incremented on every key change: bind, rotate, transfer, clear
 	Nonce       uint64 // incremented on every successful GuardedBucketOp
-	BoundHeight uint64 // height at which the current key was installed
+	BoundHeight uint64 // height of the most recent key change
 }
 
 // IsGuarded reports whether g guards its bucket.
@@ -115,8 +116,8 @@ func (g *Guard) Deserialize(b []byte) error {
 
 func (g *Guard) check() error {
 	if len(g.PublicKey) == 0 {
-		if g.AlgID != 0 || g.BoundHeight != 0 {
-			return fmt.Errorf("bucket guard: tombstone must have algID 0 and boundHeight 0")
+		if g.AlgID != 0 {
+			return fmt.Errorf("bucket guard: tombstone must have algID 0")
 		}
 		return nil
 	}

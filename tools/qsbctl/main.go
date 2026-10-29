@@ -3,7 +3,7 @@
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
-// qsbctl drives quantum-safe staking buckets (IIP draft #86) against a node's
+// qsbctl drives quantum-safe staking buckets (IIP-65) against a node's
 // gRPC API: derive guard keys, create and list buckets, bind a guard, submit
 // guarded operations as a sponsor, query the guard record, and send legacy
 // staking actions to see them rejected on a guarded bucket.
@@ -42,24 +42,27 @@ Usage: qsbctl [-endpoint host:port] <command> [flags]
 
 Commands:
   account   [-n N]                                   generate secp256k1 test accounts (key, address)
-  key       -seed HEX [-account N -index N]          print the guard public key (QSB-KDF-v1)
+  key       -seed HEX [-vault N -index N]            print the guard public key (QSB-KDF-v1)
   stake     -key HEX -candidate NAME -amount IOTX    create a native bucket (duration 0, no auto-stake)
   buckets   -owner ADDR                              list native buckets of an owner
-  bind      -key HEX -bucket N -seed HEX [-index N]  bind a guard (sent by the bucket owner)
+  bind      -key HEX -bucket N -seed HEX [-vault N -index N]
+                                                     bind a guard (sent by the bucket owner)
   guard     -bucket N [-height H]                    show the guard record
   op        <unstake|withdraw|transfer|change-candidate|restake|rotate>
-            -sponsor HEX -bucket N -seed HEX [-index N]
-            [-recipient ADDR] [-new-owner ADDR] [-clear] [-new-seed HEX -new-index N]
+            -sponsor HEX -bucket N -seed HEX [-vault N -index N]
+            [-recipient ADDR] [-new-owner ADDR] [-clear] [-new-seed HEX -new-vault N -new-index N]
             [-candidate NAME] [-duration DAYS -auto-stake] [-deadline-blocks N]
   legacy    <unstake|withdraw|change-candidate|transfer|restake>
             -key HEX -bucket N [-candidate NAME] [-new-owner ADDR] [-duration DAYS]
 
 HEX keys are secp256k1 private keys; -seed is the BIP-39 seed (hex) guard keys are derived from.
+Transcripts are bound to the node's chain ID and genesis hash, read from the node.
 `
 
 type client struct {
 	api     iotexapi.APIServiceClient
 	chainID uint32
+	domain  bucketguard.Domain
 }
 
 func main() {
@@ -86,6 +89,9 @@ func main() {
 	meta, err := c.api.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
 	check(err)
 	c.chainID = meta.GetChainMeta().GetChainID()
+	genesisHash, err := c.genesisHash()
+	check(err)
+	c.domain = bucketguard.NewDomain(c.chainID, genesisHash)
 
 	switch cmd {
 	case "stake":
@@ -116,12 +122,12 @@ func check(err error) {
 
 // ---- keys ----
 
-func guardKey(seedHex string, account, index uint) (*signer.PrivateKey, error) {
+func guardKey(seedHex string, vault, index uint) (*signer.PrivateKey, error) {
 	seed, err := hex.DecodeString(seedHex)
 	if err != nil || len(seed) < 16 {
 		return nil, fmt.Errorf("-seed must be at least 16 bytes of hex")
 	}
-	return signer.DeriveQSBKey(seed, uint32(account), uint32(index))
+	return signer.DeriveQSBKey(seed, uint32(vault), uint32(index))
 }
 
 func ecdsaKey(h string) (crypto.PrivateKey, error) {
@@ -148,10 +154,10 @@ func cmdAccount(args []string) error {
 func cmdKey(args []string) error {
 	fs := flag.NewFlagSet("key", flag.ExitOnError)
 	seed := fs.String("seed", "", "BIP-39 seed (hex)")
-	account := fs.Uint("account", 0, "account")
+	vault := fs.Uint("vault", 0, "vault index")
 	index := fs.Uint("index", 0, "key index")
 	check(fs.Parse(args))
-	k, err := guardKey(*seed, *account, *index)
+	k, err := guardKey(*seed, *vault, *index)
 	if err != nil {
 		return err
 	}
@@ -330,19 +336,39 @@ func (c *client) listBuckets(owner string) error {
 	return nil
 }
 
+// genesisHash reads the genesis block hash, the parent of block 1.
+func (c *client) genesisHash() ([32]byte, error) {
+	var h [32]byte
+	resp, err := c.api.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{
+		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{ByIndex: &iotexapi.GetBlockMetasByIndexRequest{Start: 1, Count: 1}},
+	})
+	if err != nil {
+		return h, err
+	}
+	if len(resp.GetBlkMetas()) != 1 {
+		return h, fmt.Errorf("block 1 not found")
+	}
+	b, err := hex.DecodeString(resp.GetBlkMetas()[0].GetPreviousBlockHash())
+	if err != nil || len(b) != len(h) {
+		return h, fmt.Errorf("bad genesis hash %q", resp.GetBlkMetas()[0].GetPreviousBlockHash())
+	}
+	copy(h[:], b)
+	return h, nil
+}
+
 func (c *client) cmdBind(args []string) error {
 	fs := flag.NewFlagSet("bind", flag.ExitOnError)
 	keyHex := fs.String("key", "", "bucket owner secp256k1 key")
 	index := fs.Uint64("bucket", 0, "bucket index")
 	seed := fs.String("seed", "", "guard seed (hex)")
-	account := fs.Uint("account", 0, "guard key account")
+	vault := fs.Uint("vault", 0, "guard key vault index")
 	keyIndex := fs.Uint("index", 0, "guard key index")
 	check(fs.Parse(args))
 	sk, err := ecdsaKey(*keyHex)
 	if err != nil {
 		return err
 	}
-	k, err := guardKey(*seed, *account, *keyIndex)
+	k, err := guardKey(*seed, *vault, *keyIndex)
 	if err != nil {
 		return err
 	}
@@ -352,7 +378,7 @@ func (c *client) cmdBind(args []string) error {
 	}
 	pub := k.PublicKey().Bytes()
 	owner := sk.PublicKey().Address()
-	acc, err := k.Sign([]byte(bucketguard.Context), bucketguard.EncodeAccept(c.chainID, *index, cur.GetGeneration()+1, owner, k.PublicKey().Alg(), pub, 0))
+	acc, err := k.Sign([]byte(bucketguard.AcceptContext), bucketguard.EncodeAccept(c.domain, *index, cur.GetGeneration()+1, owner, k.PublicKey().Alg(), pub, [32]byte{}))
 	if err != nil {
 		return err
 	}
@@ -405,13 +431,13 @@ func (c *client) cmdOp(args []string) error {
 	sponsorHex := fs.String("sponsor", "", "sponsor secp256k1 key (pays gas)")
 	index := fs.Uint64("bucket", 0, "bucket index")
 	seed := fs.String("seed", "", "current guard seed (hex)")
-	account := fs.Uint("account", 0, "current guard key account")
+	vault := fs.Uint("vault", 0, "current guard key vault index")
 	keyIndex := fs.Uint("index", 0, "current guard key index")
 	recipient := fs.String("recipient", "", "WITHDRAW recipient")
 	newOwner := fs.String("new-owner", "", "TRANSFER new owner")
 	clearGuard := fs.Bool("clear", false, "TRANSFER: clear the guard instead of installing a new key")
 	newSeed := fs.String("new-seed", "", "TRANSFER/ROTATE: seed of the incoming key (hex)")
-	newAccount := fs.Uint("new-account", 0, "incoming key account")
+	newVault := fs.Uint("new-vault", 0, "incoming key vault index")
 	newIndex := fs.Uint("new-index", 0, "incoming key index")
 	cand := fs.String("candidate", "", "CHANGE_CANDIDATE candidate name")
 	duration := fs.Uint("duration", 0, "RESTAKE duration in days")
@@ -423,7 +449,7 @@ func (c *client) cmdOp(args []string) error {
 	if err != nil {
 		return err
 	}
-	k, err := guardKey(*seed, *account, *keyIndex)
+	k, err := guardKey(*seed, *vault, *keyIndex)
 	if err != nil {
 		return err
 	}
@@ -481,19 +507,22 @@ func (c *client) cmdOp(args []string) error {
 		op.Duration, op.AutoStake = uint32(*duration), *autoStake
 	}
 	if o == bucketguard.OpRotate || (o == bucketguard.OpTransfer && !*clearGuard) {
-		nk, err := guardKey(*newSeed, *newAccount, *newIndex)
+		nk, err := guardKey(*newSeed, *newVault, *newIndex)
 		if err != nil {
 			return fmt.Errorf("incoming key: %w", err)
 		}
+		// The incoming key accepts this exact CALL, which covers its public
+		// key but not its ACCEPT signature.
 		pub := nk.PublicKey().Bytes()
-		acc, err := nk.Sign([]byte(bucketguard.Context), bucketguard.EncodeAccept(c.chainID, *index, op.Generation+1, resultingOwner, nk.PublicKey().Alg(), pub, op.Deadline))
-		if err != nil {
+		op.NewGuard = &bucketguard.NewGuard{AlgID: nk.PublicKey().Alg(), PublicKey: pub}
+		h := bucketguard.CallHash(c.domain, owner, op)
+		if op.NewGuard.AcceptSig, err = nk.Sign([]byte(bucketguard.AcceptContext),
+			bucketguard.EncodeAccept(c.domain, *index, op.Generation+1, resultingOwner, nk.PublicKey().Alg(), pub, h)); err != nil {
 			return err
 		}
-		op.NewGuard = &bucketguard.NewGuard{AlgID: nk.PublicKey().Alg(), PublicKey: pub, AcceptSig: acc}
 	}
 	start := time.Now()
-	if op.Sig, err = k.Sign([]byte(bucketguard.Context), bucketguard.EncodeCall(c.chainID, owner, op)); err != nil {
+	if op.Sig, err = k.Sign([]byte(bucketguard.CallContext), bucketguard.EncodeCall(c.domain, owner, op)); err != nil {
 		return err
 	}
 	fmt.Printf("%s: generation %d nonce %d deadline %d, signed in %v (%d-byte signature)\n",

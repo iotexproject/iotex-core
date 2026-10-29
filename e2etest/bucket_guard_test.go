@@ -44,7 +44,6 @@ const guardFork = 5
 
 var (
 	guardAlg         = pqcrypto.AlgSLHDSA192s
-	guardCtx         = []byte(bucketguard.Context)
 	guardEventTopic  = crypto.Keccak256([]byte("BucketGuard(uint64,uint64,uint64,uint64,address,address)"))
 	guardRegAmount   = unit.ConvertIotxToRau(1_200_000)
 	guardStakeAmount = unit.ConvertIotxToRau(10_000)
@@ -61,7 +60,8 @@ type guardPayload interface {
 // helpers to build signed actions and expectations.
 type guardFixture struct {
 	test      *e2etest
-	chainID   uint32 // native chain ID, as the transcripts require
+	chainID   uint32
+	domain    bucketguard.Domain // native chain ID and genesis hash, as the transcripts require
 	gasLimit  uint64
 	gasPrice  *big.Int
 	start     time.Time
@@ -80,7 +80,8 @@ func newGuardFixture(t *testing.T, opts ...func(*config.Config)) *guardFixture {
 	return &guardFixture{
 		test:      test,
 		chainID:   test.cfg.Chain.ID,
-		gasLimit:  2_000_000,
+		domain:    bucketguard.NewDomain(test.cfg.Chain.ID, test.cfg.Genesis.Hash()),
+		gasLimit:  4_000_000,
 		gasPrice:  big.NewInt(unit.Qev*2 + 1),
 		start:     now,
 		blockTime: now,
@@ -126,7 +127,7 @@ func (f *guardFixture) createStake(id int, cand string, amount *big.Int) *action
 
 func (f *guardFixture) bind(index uint64, k *signer.PrivateKey, newGen uint64, owner address.Address) *action.BindBucketGuard {
 	pub := k.PublicKey().Bytes()
-	acc := mustNoErr(k.Sign(guardCtx, bucketguard.EncodeAccept(f.chainID, index, newGen, owner, guardAlg, pub, 0)))
+	acc := mustNoErr(k.Sign([]byte(bucketguard.AcceptContext), bucketguard.EncodeAccept(f.domain, index, newGen, owner, guardAlg, pub, [32]byte{})))
 	return action.NewBindBucketGuard(&bucketguard.BindBucketGuard{BucketIndex: index, AlgID: guardAlg, PublicKey: pub, AcceptSig: acc})
 }
 
@@ -134,16 +135,19 @@ func guardOp(index uint64, o bucketguard.Op, gen, nonce uint64) *bucketguard.Gua
 	return &bucketguard.GuardedBucketOp{BucketIndex: index, Generation: gen, Nonce: nonce, Deadline: 1000, Op: o}
 }
 
-// newGuard attaches next as the incoming key, accepted for resultingOwner.
-func (f *guardFixture) newGuard(op *bucketguard.GuardedBucketOp, next *signer.PrivateKey, resultingOwner address.Address) {
+// newGuard attaches next as the incoming key, accepting op (otherwise
+// complete, on a bucket owned by owner) for resultingOwner.
+func (f *guardFixture) newGuard(op *bucketguard.GuardedBucketOp, owner address.Address, next *signer.PrivateKey, resultingOwner address.Address) {
 	pub := next.PublicKey().Bytes()
-	acc := mustNoErr(next.Sign(guardCtx, bucketguard.EncodeAccept(f.chainID, op.BucketIndex, op.Generation+1, resultingOwner, guardAlg, pub, op.Deadline)))
-	op.NewGuard = &bucketguard.NewGuard{AlgID: guardAlg, PublicKey: pub, AcceptSig: acc}
+	op.NewGuard = &bucketguard.NewGuard{AlgID: guardAlg, PublicKey: pub}
+	h := bucketguard.CallHash(f.domain, owner, op)
+	op.NewGuard.AcceptSig = mustNoErr(next.Sign([]byte(bucketguard.AcceptContext),
+		bucketguard.EncodeAccept(f.domain, op.BucketIndex, op.Generation+1, resultingOwner, guardAlg, pub, h)))
 }
 
 // guarded signs op's CALL with k for a bucket owned by owner at execution time.
 func (f *guardFixture) guarded(k *signer.PrivateKey, owner address.Address, op *bucketguard.GuardedBucketOp) *action.GuardedBucketOp {
-	op.Sig = mustNoErr(k.Sign(guardCtx, bucketguard.EncodeCall(f.chainID, owner, op)))
+	op.Sig = mustNoErr(k.Sign([]byte(bucketguard.CallContext), bucketguard.EncodeCall(f.domain, owner, op)))
 	return action.NewGuardedBucketOp(op)
 }
 
@@ -222,16 +226,19 @@ func guardEventIs(index uint64, op uint32, gen, nonce uint64, sponsor, counterpa
 		l := receipt.Logs()[0]
 		require.Equal(test.t, guardEventTopic, l.Topics[0][:])
 		require.Equal(test.t, index, binary.BigEndian.Uint64(l.Topics[1][24:]))
-		require.Equal(test.t, op, binary.BigEndian.Uint32(l.Topics[2][28:]))
-		require.Len(test.t, l.Data, 56)
-		require.Equal(test.t, gen, binary.BigEndian.Uint64(l.Data[0:8]))
-		require.Equal(test.t, nonce, binary.BigEndian.Uint64(l.Data[8:16]))
-		require.Equal(test.t, sponsor.Bytes(), l.Data[16:36], "sponsor")
-		want := make([]byte, 20)
+		require.Equal(test.t, uint64(op), binary.BigEndian.Uint64(l.Topics[2][24:]))
+		// abi.encode(uint64 generation, uint64 nonce, address sponsor, address counterparty)
+		var want []byte
+		word := func(b []byte) { want = append(append(want, make([]byte, 32-len(b))...), b...) }
+		word(binary.BigEndian.AppendUint64(nil, gen))
+		word(binary.BigEndian.AppendUint64(nil, nonce))
+		word(sponsor.Bytes())
 		if counterparty != nil {
-			want = counterparty.Bytes()
+			word(counterparty.Bytes())
+		} else {
+			word(nil)
 		}
-		require.Equal(test.t, want, l.Data[36:56], "counterparty")
+		require.Equal(test.t, want, l.Data, "event data")
 	})
 }
 
@@ -337,6 +344,17 @@ func TestBucketGuard(t *testing.T) {
 			expect: []actionExpect{receiptStatus(iotextypes.ReceiptStatus_ErrGuardMismatch), guardIs(bucket, 1, 1, keyA)},
 		},
 		{
+			name: "an op signed for another chain instance with the same chain ID is refused",
+			act: func() *actionWithTime {
+				m := guardOp(bucket, bucketguard.OpRestake, 1, 1)
+				m.Duration = 30
+				other := bucketguard.NewDomain(f.chainID, [32]byte{0xff})
+				m.Sig = mustNoErr(keyA.Sign([]byte(bucketguard.CallContext), bucketguard.EncodeCall(other, owner, m)))
+				return f.signed(sponsorID, action.NewGuardedBucketOp(m))
+			}(),
+			expect: []actionExpect{receiptStatus(iotextypes.ReceiptStatus_ErrGuardSignature), guardIs(bucket, 1, 1, keyA)},
+		},
+		{
 			name: "a key that is not the guard is refused and the restake is rolled back",
 			act: func() *actionWithTime {
 				m := guardOp(bucket, bucketguard.OpRestake, 1, 1)
@@ -352,7 +370,7 @@ func TestBucketGuard(t *testing.T) {
 			name: "ROTATE from key A to key B",
 			act: func() *actionWithTime {
 				m := guardOp(bucket, bucketguard.OpRotate, 1, 1)
-				f.newGuard(m, keyB, owner)
+				f.newGuard(m, owner, keyB, owner)
 				return f.signed(sponsorID, f.guarded(keyA, owner, m))
 			}(),
 			expect: []actionExpect{successExpect, guardIs(bucket, 2, 2, keyB), guardEventIs(bucket, uint32(bucketguard.OpRotate), 2, 2, sponsor, nil)},
@@ -438,7 +456,7 @@ func TestBucketGuardTransferAndClear(t *testing.T) {
 			act: func() *actionWithTime {
 				m := guardOp(bucket, bucketguard.OpTransfer, 1, 0)
 				m.NewOwner = newOwner.Bytes()
-				f.newGuard(m, keyC, newOwner)
+				f.newGuard(m, owner, keyC, newOwner)
 				return f.signed(newOwnerID, f.guarded(keyA, owner, m))
 			}(),
 			expect: []actionExpect{successExpect, guardIs(bucket, 2, 1, keyC),
@@ -454,7 +472,8 @@ func TestBucketGuardTransferAndClear(t *testing.T) {
 				m.NewOwner, m.ClearGuard = owner.Bytes(), true
 				return f.signed(newOwnerID, f.guarded(keyC, newOwner, m))
 			}(),
-			expect: []actionExpect{successExpect, guardIs(bucket, 2, 2, nil),
+			expect: []actionExpect{successExpect, guardIs(bucket, 3, 2, nil),
+				guardEventIs(bucket, uint32(bucketguard.OpTransfer), 3, 2, newOwner, owner),
 				bucketIs(bucket, func(t *testing.T, b *iotextypes.VoteBucket) {
 					require.Equal(t, owner.String(), b.Owner)
 				})},
@@ -462,7 +481,7 @@ func TestBucketGuardTransferAndClear(t *testing.T) {
 		{
 			name:   "legacy Unstake works on the cleared bucket",
 			act:    f.at(action.SignedReclaimStake(false, f.nonce(ownerID), bucket, nil, f.gasLimit, f.gasPrice, identityset.PrivateKey(ownerID), action.WithChainID(f.chainID))),
-			expect: []actionExpect{successExpect, guardIs(bucket, 2, 2, nil)},
+			expect: []actionExpect{successExpect, guardIs(bucket, 3, 2, nil)},
 		},
 		{
 			name: "legacy WithdrawStake deletes the tombstone with the bucket",
@@ -530,7 +549,7 @@ func TestBucketGuardErigon(t *testing.T) {
 			name: "rotate",
 			act: func() *actionWithTime {
 				m := guardOp(bucket, bucketguard.OpRotate, 1, 1)
-				f.newGuard(m, keyB, owner)
+				f.newGuard(m, owner, keyB, owner)
 				return f.signed(sponsorID, f.guarded(keyA, owner, m))
 			}(),
 			expect: []actionExpect{successExpect},

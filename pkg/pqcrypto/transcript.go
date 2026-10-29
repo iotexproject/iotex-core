@@ -9,14 +9,15 @@ import "encoding/binary"
 
 // Transcript builds a byte-exact message to be signed directly (no
 // intermediate digest). Integers are big-endian; booleans are one byte, 0x00
-// or 0x01; variable-length byte strings carry a uint32 length prefix.
+// or 0x01; variable-length byte strings carry a uint32 length prefix. Domain
+// separation belongs in the signing context, not in the transcript.
 type Transcript struct {
 	b []byte
 }
 
-// NewTranscript starts a transcript with the raw ASCII domain separator.
-func NewTranscript(domain string) *Transcript {
-	return &Transcript{b: append(make([]byte, 0, 256), domain...)}
+// NewTranscript starts an empty transcript.
+func NewTranscript() *Transcript {
+	return &Transcript{b: make([]byte, 0, 256)}
 }
 
 // Uint8 appends one byte.

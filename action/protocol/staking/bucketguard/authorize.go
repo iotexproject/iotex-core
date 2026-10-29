@@ -2,6 +2,7 @@ package bucketguard
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"math"
 
@@ -29,7 +30,7 @@ type BindScope struct {
 // AuthorizeBind runs IIP §5 execution steps 4–7 and returns the record to
 // store. The caller has already run steps 1–3: snapshot, bucket exists and is
 // native, caller is the owner. cur is the bucket's current record or nil.
-func AuthorizeBind(p Params, chainID uint32, owner address.Address, scope BindScope, cur *Guard, m *BindBucketGuard, height uint64) (*Guard, error) {
+func AuthorizeBind(p Params, d Domain, owner address.Address, scope BindScope, cur *Guard, m *BindBucketGuard, height uint64) (*Guard, error) {
 	if scope.SelfStake || scope.Endorsed {
 		return nil, fmt.Errorf("%w: self-stake or endorsed bucket", ErrGuardScope)
 	}
@@ -43,7 +44,7 @@ func AuthorizeBind(p Params, chainID uint32, owner address.Address, scope BindSc
 	if !p.accepts(m.AlgID) {
 		return nil, malformed("unsupported algorithm %s", m.AlgID)
 	}
-	if err := verifyAccept(chainID, m.BucketIndex, gen+1, owner, m.AlgID, m.PublicKey, 0, m.AcceptSig); err != nil {
+	if err := verifyAccept(d, m.BucketIndex, gen+1, owner, m.AlgID, m.PublicKey, [32]byte{}, m.AcceptSig); err != nil {
 		return nil, err
 	}
 	return &Guard{
@@ -71,7 +72,7 @@ func CheckOp(cur *Guard, op *GuardedBucketOp, height uint64) error {
 		return fmt.Errorf("%w: deadline %d passed at height %d", ErrGuardMismatch, op.Deadline, height)
 	case cur.Nonce == math.MaxUint64:
 		return fmt.Errorf("%w: nonce overflow", ErrGuardMismatch)
-	case op.installsKey() && cur.Generation == math.MaxUint64:
+	case op.changesKey() && cur.Generation == math.MaxUint64:
 		return fmt.Errorf("%w: generation overflow", ErrGuardMismatch)
 	}
 	return nil
@@ -88,14 +89,15 @@ func (m *GuardedBucketOp) CheckCandidate(resolved address.Address) error {
 }
 
 // VerifyOp runs IIP §9.2 step 5: the CALL signature by the current key and,
-// when the op installs a new key, the ACCEPT signature by that key. owner is
-// the bucket owner at execution time.
-func VerifyOp(p Params, chainID uint32, owner address.Address, cur *Guard, op *GuardedBucketOp) error {
+// when the op installs a new key, the ACCEPT signature by that key over the
+// hash of this CALL. owner is the bucket owner at execution time.
+func VerifyOp(p Params, d Domain, owner address.Address, cur *Guard, op *GuardedBucketOp) error {
 	pk, err := pqcrypto.ParsePublicKey(cur.AlgID, cur.PublicKey)
 	if err != nil {
 		return fmt.Errorf("%w: stored key: %v", ErrGuardSignature, err)
 	}
-	if !pk.Verify([]byte(Context), EncodeCall(chainID, owner, op), op.Sig) {
+	call := EncodeCall(d, owner, op)
+	if !pk.Verify([]byte(CallContext), call, op.Sig) {
 		return fmt.Errorf("%w: CALL", ErrGuardSignature)
 	}
 	if !op.installsKey() {
@@ -111,16 +113,16 @@ func VerifyOp(p Params, chainID uint32, owner address.Address, cur *Guard, op *G
 			return malformed("TRANSFER newOwner: %v", err)
 		}
 	}
-	return verifyAccept(chainID, op.BucketIndex, cur.Generation+1, resultingOwner, ng.AlgID, ng.PublicKey, op.Deadline, ng.AcceptSig)
+	return verifyAccept(d, op.BucketIndex, cur.Generation+1, resultingOwner, ng.AlgID, ng.PublicKey, sha256.Sum256(call), ng.AcceptSig)
 }
 
-func verifyAccept(chainID uint32, bucketIndex, newGeneration uint64, resultingOwner address.Address, alg pqcrypto.AlgID, publicKey []byte, deadline uint64, sig []byte) error {
+func verifyAccept(d Domain, bucketIndex, newGeneration uint64, resultingOwner address.Address, alg pqcrypto.AlgID, publicKey []byte, callHash [32]byte, sig []byte) error {
 	pk, err := pqcrypto.ParsePublicKey(alg, publicKey)
 	if err != nil {
 		return malformed("incoming key: %v", err)
 	}
-	msg := EncodeAccept(chainID, bucketIndex, newGeneration, resultingOwner, alg, publicKey, deadline)
-	if !pk.Verify([]byte(Context), msg, sig) {
+	msg := EncodeAccept(d, bucketIndex, newGeneration, resultingOwner, alg, publicKey, callHash)
+	if !pk.Verify([]byte(AcceptContext), msg, sig) {
 		return fmt.Errorf("%w: ACCEPT", ErrGuardSignature)
 	}
 	return nil
@@ -147,7 +149,9 @@ func Next(cur *Guard, op *GuardedBucketOp, height uint64) (next *Guard, deleted 
 		next.Generation++
 		next.BoundHeight = height
 	case op.ClearGuard:
-		next.AlgID, next.PublicKey, next.BoundHeight = 0, nil, 0
+		next.AlgID, next.PublicKey = 0, nil
+		next.Generation++
+		next.BoundHeight = height
 	}
 	return next, false
 }
