@@ -34,6 +34,7 @@
 //     NewGuard newGuard = 12;
 //     bool clearGuard = 13;
 //     bytes sig = 14;
+//     bytes sponsor = 15;
 //   }
 //
 // Add to the ActionCore oneof (action.proto), after the current last field 58:
@@ -106,12 +107,15 @@ message GuardedBucketOp {
   NewGuard newGuard = 12;
   bool clearGuard = 13;
   bytes sig = 14;
+  // Optional: empty (bearer) or the 20-byte address of the only sender that
+  // may submit the op. Signed in CALL.
+  bytes sponsor = 15;
 }
 
 // BucketGuard is the staking-state value under _bucketGuard ||
 // uint64_be(bucketIndex). An absent record means generation=0, nonce=0.
-// A tombstone has algID=0, empty publicKey, boundHeight=0, and retained
-// generation/nonce.
+// A tombstone has algID=0, empty publicKey, the clearing height as
+// boundHeight, and retained generation/nonce.
 message BucketGuard {
   uint32 algID = 1;
   bytes publicKey = 2;

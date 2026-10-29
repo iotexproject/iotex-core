@@ -158,10 +158,11 @@ several checks fail.
 5. Load the guard record. It must be absent or a tombstone (`ErrGuardScope`).
 6. `generation+1` must not overflow (`ErrGuardMismatch`).
 7. Verify `acceptSig` over ACCEPT with `newGeneration=generation+1`,
-   `resultingOwner=owner`, `deadline=0` (`ErrGuardSignature`).
+   `resultingOwner=owner`, zero `callHash` (`ErrGuardSignature`).
 
-   Steps 4–7 are `bucketguard.AuthorizeBind(p, chainID, owner, scope, cur,
-   act, height)`, which returns the record to store.
+   Steps 4–7 are `bucketguard.AuthorizeBind(p, domain, owner, scope, cur,
+   act, height)`, which returns the record to store. `domain` is
+   `bucketguard.NewDomain(chainID, genesisHash)` from the block context.
 8. Write the guard record and emit the BIND event. Do not change the bucket,
    owner, candidate, votes, or pool.
 9. Settle gas and nonce.
@@ -189,7 +190,7 @@ Execution:
    guard event; settle.
 
 Mapping to `bucketguard`: steps 3–4 are `CheckOp(cur, act, height)`; step 6 is
-`act.CheckCandidate(resolvedID)`; step 7 is `VerifyOp(p, chainID, owner, cur,
+`act.CheckCandidate(resolvedID)`; step 7 is `VerifyOp(p, domain, owner, cur,
 act)`; step 9 is `Next(cur, act, height)`. Step 5 also covers the staking
 sanity checks the guard layer does not repeat: `validateRestake` for RESTAKE
 and `action.IsValidCandidateName` for CHANGE_CANDIDATE, run in

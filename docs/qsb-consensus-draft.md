@@ -23,7 +23,8 @@ record, so it can be pinned by vectors before any wiring:
   status;
 - a web3 ABI envelope, one method per operation.
 
-Signature verification (SLH-DSA-SHA2-192s, context `IOTEX-PQ-BUCKET-v1`) goes
+Signature verification (SLH-DSA-SHA2-192s, contexts `IoTeX-PQ-Bucket-Call-v1` /
+`IoTeX-PQ-Bucket-Accept-v1`) goes
 through the domain-neutral `pkg/pqcrypto`; wallet key derivation and signing
 live in `pkg/pqcrypto/signer`.
 
