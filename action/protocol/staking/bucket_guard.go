@@ -20,17 +20,18 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/systemcontracts"
 )
 
-// Quantum-safe staking buckets (IIP draft #86). The rules live in
-// bucketguard; this file stores the guard record, wires the two actions, and
-// gives the legacy handlers their guard check.
+// Quantum-safe staking buckets (IIP-65). The rules live in bucketguard; this
+// file stores the guard record, wires the two actions, and gives the legacy
+// handlers their guard check.
 
 // bucketGuardEventTopic is Keccak-256("BucketGuard(uint64,uint64,uint64,uint64,address,address)")
-// (IIP §11); the event data is not ABI-encoded.
+// (IIP §11).
 var bucketGuardEventTopic = hash.BytesToHash256(common.FromHex("0x73a1cc2c5c34de8d095f5003eb096fa77f44357dd83dcea0225ca286942426ec"))
 
 // bucketGuardOpBind is the event op tag of BindBucketGuard; guarded ops use
@@ -142,6 +143,13 @@ func guardReceiptError(err error) error {
 	return err
 }
 
+// guardDomain is the chain-instance domain of the guard transcripts: the
+// native chain ID and the genesis block hash (IIP §7).
+func guardDomain(ctx context.Context) bucketguard.Domain {
+	g := genesis.MustExtractGenesisContext(ctx)
+	return bucketguard.NewDomain(protocol.MustGetBlockchainCtx(ctx).ChainID, g.Hash())
+}
+
 func (p *Protocol) validateBindBucketGuard(ctx context.Context, _ *action.BindBucketGuard) error {
 	if !protocol.MustGetFeatureCtx(ctx).EnableBucketGuard {
 		return errors.Wrap(action.ErrInvalidAct, "bucket guard is disabled")
@@ -223,7 +231,7 @@ func (p *Protocol) handleBindBucketGuard(ctx context.Context, act *action.BindBu
 	if err != nil {
 		return log, nil, err
 	}
-	next, err := bucketguard.AuthorizeBind(bucketguard.ParamsV1(), protocol.MustGetBlockchainCtx(ctx).ChainID,
+	next, err := bucketguard.AuthorizeBind(bucketguard.ParamsV1(), guardDomain(ctx),
 		bucket.Owner, scope, cur, act.Guard(), blkCtx.BlockHeight)
 	if err != nil {
 		return log, nil, guardReceiptError(err)
@@ -320,7 +328,7 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 	}
 
 	// step 5
-	if err := bucketguard.VerifyOp(bucketguard.ParamsV1(), protocol.MustGetBlockchainCtx(ctx).ChainID, owner, cur, op); err != nil {
+	if err := bucketguard.VerifyOp(bucketguard.ParamsV1(), guardDomain(ctx), owner, cur, op); err != nil {
 		return log, nil, guardReceiptError(err)
 	}
 
@@ -360,22 +368,26 @@ func (p *Protocol) guardedWithdraw(ctx context.Context, csm CandidateStateManage
 }
 
 // addBucketGuardEvent emits the single IIP §11 event of a successful bind or
-// op: topics (BucketGuard, bucketIndex, op); data generation || nonce ||
-// sponsor || counterparty, with the resulting counters.
+// op: topics (BucketGuard, bucketIndex, op); data abi.encode(generation,
+// nonce, sponsor, counterparty), with the resulting counters.
 func addBucketGuardEvent(log *receiptLog, index uint64, op uint32, g *bucketguard.Guard, sponsor, counterparty address.Address) {
-	data := make([]byte, 0, 56)
-	data = append(data, byteutil.Uint64ToBytesBigEndian(g.Generation)...)
-	data = append(data, byteutil.Uint64ToBytesBigEndian(g.Nonce)...)
-	data = append(data, sponsor.Bytes()...)
-	if counterparty != nil {
-		data = append(data, counterparty.Bytes()...)
-	} else {
-		data = append(data, make([]byte, 20)...)
+	word := func(b []byte) []byte {
+		w := hash.BytesToHash256(b)
+		return w[:]
 	}
+	var cp []byte
+	if counterparty != nil {
+		cp = counterparty.Bytes()
+	}
+	data := make([]byte, 0, 4*32)
+	data = append(data, word(byteutil.Uint64ToBytesBigEndian(g.Generation))...)
+	data = append(data, word(byteutil.Uint64ToBytesBigEndian(g.Nonce))...)
+	data = append(data, word(sponsor.Bytes())...)
+	data = append(data, word(cp)...)
 	log.AddEvent(action.Topics{
 		bucketGuardEventTopic,
 		hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(index)),
-		hash.BytesToHash256(byteutil.Uint32ToBytesBigEndian(op)),
+		hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(uint64(op))),
 	}, data)
 }
 

@@ -16,7 +16,8 @@ func TestGuardSerializeVectors(t *testing.T) {
 	}{
 		{"guarded", Guard{AlgID: alg, PublicKey: bytes.Repeat([]byte{7}, 48), Generation: 1, Nonce: 2, BoundHeight: 100},
 			"0812" + "1230" + strings.Repeat("07", 48) + "1801" + "2002" + "2864"},
-		{"tombstone", Guard{Generation: 3, Nonce: 9}, "1803" + "2009"},
+		{"tombstone", Guard{Generation: 3, Nonce: 9, BoundHeight: 100}, "1803" + "2009" + "2864"},
+		{"tombstone at height 0", Guard{Generation: 3, Nonce: 9}, "1803" + "2009"},
 		{"empty", Guard{}, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -57,7 +58,6 @@ func TestGuardRejects(t *testing.T) {
 		"truncated":       "12",
 		"key without alg": key,
 		"tombstone alg":   "0812",
-		"tombstone bound": "2864",
 	} {
 		var g Guard
 		if err := g.Deserialize(mustHex(t, h)); err == nil {

@@ -14,22 +14,24 @@ import (
 // Example shows the calls a staking handler makes for a bind and a guarded
 // withdraw. Storage, the bucket effect and receipts are the handler's own.
 func Example() {
-	const chainID, bucket = 2, 7
+	const bucket = 7
+	// The node reads the chain ID and the genesis hash from its context; a
+	// wallet gets the domain from the node or from published vectors.
+	domain := bucketguard.NewDomain(2, [32]byte{0x9e})
 	p := bucketguard.ParamsV1()
 	alg := pqcrypto.AlgSLHDSA192s
 	owner, _ := address.FromBytes(bytes.Repeat([]byte{0xa1}, 20))
 	recipient, _ := address.FromBytes(bytes.Repeat([]byte{0xb0}, 20))
 	key, _ := signer.NewKeyFromSeeds(alg, bytes.Repeat([]byte{1}, signer.SeedSize(alg)))
-	ctx := []byte(bucketguard.Context)
 
-	// Wallet: bind key, proving possession with ACCEPT.
+	// Wallet: bind key, proving possession with ACCEPT (no CALL, zero hash).
 	pub := key.PublicKey().Bytes()
-	acc, _ := key.Sign(ctx, bucketguard.EncodeAccept(chainID, bucket, 1, owner, alg, pub, 0))
+	acc, _ := key.Sign([]byte(bucketguard.AcceptContext), bucketguard.EncodeAccept(domain, bucket, 1, owner, alg, pub, [32]byte{}))
 	bind := &bucketguard.BindBucketGuard{BucketIndex: bucket, AlgID: alg, PublicKey: pub, AcceptSig: acc}
 
 	// Node: stateless check, then (after bucket/native/owner checks) authorize.
 	fmt.Println("bind valid:", bind.Validate(p) == nil, "gas:", bind.IntrinsicGas(p))
-	guard, err := bucketguard.AuthorizeBind(p, chainID, owner, bucketguard.BindScope{}, nil, bind, 100)
+	guard, err := bucketguard.AuthorizeBind(p, domain, owner, bucketguard.BindScope{}, nil, bind, 100)
 	fmt.Println("bound:", err == nil, "generation:", guard.Generation)
 
 	// Wallet: sign a withdraw to a fresh address; anyone may submit it.
@@ -37,17 +39,17 @@ func Example() {
 		BucketIndex: bucket, Generation: guard.Generation, Nonce: guard.Nonce,
 		Deadline: 200, Op: bucketguard.OpWithdraw, Recipient: recipient.Bytes(),
 	}
-	op.Sig, _ = key.Sign(ctx, bucketguard.EncodeCall(chainID, owner, op))
+	op.Sig, _ = key.Sign([]byte(bucketguard.CallContext), bucketguard.EncodeCall(domain, owner, op))
 
 	// Node: IIP §9.2 order — counters, staking preconditions, signatures, effect.
 	fmt.Println("valid:", op.Validate(p) == nil)
 	fmt.Println("check:", bucketguard.CheckOp(guard, op, 150))
-	fmt.Println("verify:", bucketguard.VerifyOp(p, chainID, owner, guard, op))
+	fmt.Println("verify:", bucketguard.VerifyOp(p, domain, owner, guard, op))
 	_, deleted := bucketguard.Next(guard, op, 150)
 	fmt.Println("guard deleted:", deleted)
 
 	// Output:
-	// bind valid: true gas: 300496
+	// bind valid: true gas: 1668100
 	// bound: true generation: 1
 	// valid: true
 	// check: <nil>

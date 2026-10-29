@@ -34,6 +34,9 @@ func (m *GuardedBucketOp) Validate(p Params) error {
 	if !p.acceptsSigSize(len(m.Sig)) {
 		return malformed("CALL signature has invalid size %d", len(m.Sig))
 	}
+	if len(m.Sponsor) != 0 && len(m.Sponsor) != addressLen {
+		return malformed("sponsor must be empty or %d bytes, got %d", addressLen, len(m.Sponsor))
+	}
 	limit := p.MaxOpSize
 	if m.installsKey() {
 		limit = p.MaxOpWithNewGuardSize

@@ -16,12 +16,12 @@ Design and conformance documents:
 
 | File | Contents |
 |---|---|
-| `types.go` | `Op`, `BindBucketGuard`, `GuardedBucketOp`, `NewGuard`, signing context and domains |
+| `types.go` | `Op`, `BindBucketGuard`, `GuardedBucketOp`, `NewGuard`, signing contexts, chain-instance `Domain` |
 | `params.go` | `Params` and `ParamsV1()`: sizes, gas, accepted algorithms, versioned by fork |
 | `errors.go` | Sentinel errors, one per IIP receipt status, plus `ErrMalformed` |
 | `encode.go` | Canonical proto3 encoding C(m), `CanonicalSize`, `IntrinsicGas(p)` (§8) |
 | `validate.go` | Stateless guard checks (§5, §9.1) |
-| `transcript.go` | `EncodeCall` / `EncodeAccept`, the byte-exact signing messages (§7) |
+| `transcript.go` | `EncodeCall` / `CallHash` / `EncodeAccept`, the byte-exact signing messages (§7) |
 | `guard.go` | `Guard` record with canonical `Serialize` / `Deserialize` (§4) |
 | `authorize.go` | `AuthorizeBind`, `CheckOp`, `CheckCandidate`, `VerifyOp`, `Next`, `RejectIfGuarded` |
 | `web3.go` | ABI envelope: one method per op, `EthData` / `*FromEthData`, priced over the decoded value |
@@ -69,7 +69,8 @@ IIP-59 compounding that arrived after signing.
   returns the bucket to ECDSA control. A later legacy withdraw or migration
   deletes the tombstone. This is not a lost-key recovery path.
 - **Signed ops are bearer authorizations:** anyone can submit a valid signed op
-  before its deadline. There is no cancel path except changing state with
+  before its deadline. The `sponsor` field that binds an op to one sender is
+  signed in CALL but not yet carried by the action proto or enforced. There is no cancel path except changing state with
   another guarded op; wallets should treat signing as final.
 - **Lost guard key:** the bucket is permanently locked unless the wallet seed is
   available for derivation.

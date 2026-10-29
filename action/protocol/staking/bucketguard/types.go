@@ -1,20 +1,35 @@
 package bucketguard
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
 )
 
-// Signing context and transcript domains fixed by the IIP (§2, §7).
+// SLH-DSA signing contexts, one per message type (IIP §7). FIPS 205 encodes
+// the context with a length prefix, so it alone separates CALL from ACCEPT;
+// the transcripts carry no further tag.
 const (
-	// Context is the SLH-DSA signing context.
-	Context = "IOTEX-PQ-BUCKET-v1"
-	// DomainCall prefixes GuardedBucketOp CALL transcripts.
-	DomainCall = "IOTX-QSB-CALL"
-	// DomainAccept prefixes incoming-key ACCEPT transcripts.
-	DomainAccept = "IOTX-QSB-ACCEPT"
+	// CallContext is the context of CALL, signed by the current guard key.
+	CallContext = "IoTeX-PQ-Bucket-Call-v1"
+	// AcceptContext is the context of ACCEPT, signed by an incoming key.
+	AcceptContext = "IoTeX-PQ-Bucket-Accept-v1"
 )
+
+// Domain identifies one chain instance in every transcript (IIP §7). It is a
+// constant per network.
+type Domain [32]byte
+
+// NewDomain returns SHA-256("IoTeX-PQ-Bucket-Domain-v1" || uint32_be(chainID)
+// || genesisHash). chainID is the native chain ID (1 on mainnet, 2 on
+// testnet), not the EVM network ID; genesisHash is the network's genesis
+// block hash (block.GenesisHash, equal to genesis.Genesis.Hash).
+func NewDomain(chainID uint32, genesisHash [32]byte) Domain {
+	b := append([]byte("IoTeX-PQ-Bucket-Domain-v1"), binary.BigEndian.AppendUint32(nil, chainID)...)
+	return sha256.Sum256(append(b, genesisHash[:]...))
+}
 
 // Op is a guarded operation tag (IIP §6). Unknown tags are invalid.
 type Op uint32
@@ -83,7 +98,14 @@ type GuardedBucketOp struct {
 	NewGuard            *NewGuard
 	ClearGuard          bool // TRANSFER
 	Sig                 []byte
+	// Sponsor, when set, is the only sender that may submit the op; empty
+	// makes the op a bearer authorization. It is signed in CALL.
+	Sponsor []byte
 }
 
 // installsKey reports whether op carries a new guard key.
 func (m *GuardedBucketOp) installsKey() bool { return m.NewGuard != nil }
+
+// changesKey reports whether op replaces or clears the guard key, which
+// advances the generation.
+func (m *GuardedBucketOp) changesKey() bool { return m.installsKey() || m.ClearGuard }

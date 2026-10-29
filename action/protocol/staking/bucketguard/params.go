@@ -22,7 +22,8 @@ type Params struct {
 	MaxOpWithNewGuardSize int
 	// GasBase, GasPerByte and GasPerVerify price an action as
 	// GasBase + GasPerByte*size + k*GasPerVerify, k being the number of
-	// signature verifications (IIP §8).
+	// signature verifications (IIP §8). GasPerByte equals the staking payload
+	// price, so failed actions are no cheaper a data channel than others.
 	GasBase      uint64
 	GasPerByte   uint64
 	GasPerVerify uint64
@@ -38,7 +39,7 @@ func ParamsV1() Params {
 		MaxOpSize:             17_000,
 		MaxOpWithNewGuardSize: 34_000,
 		GasBase:               10_000,
-		GasPerByte:            16,
+		GasPerByte:            100,
 		GasPerVerify:          30_000,
 	}
 }

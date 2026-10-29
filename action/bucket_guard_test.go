@@ -71,7 +71,7 @@ func TestBindBucketGuardProtoRoundTrip(t *testing.T) {
 	r.NoError(act.SanityCheck())
 	gas, err := act.IntrinsicGas()
 	r.NoError(err)
-	r.EqualValues(300496, gas) // docs/qsb-spec-and-vectors.md, BIND vector
+	r.EqualValues(1668100, gas) // docs/qsb-spec-and-vectors.md, BIND vector
 	core := &iotextypes.ActionCore{}
 	act.FillAction(core)
 	elp := &envelope{}
