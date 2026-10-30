@@ -285,6 +285,71 @@ func TestActPool_crossShardEviction_rejectsLowerFeeNewcomer(t *testing.T) {
 	r.NoError(err)
 }
 
+// TestActPool_crossShardEviction_rejectsQueuedNewcomer covers the case where
+// the incoming action is queued (its nonce is above the sender's confirmed
+// pending nonce) and is itself picked as the eviction victim. The Add must
+// report ErrTxPoolOverflow instead of returning success for a dropped action.
+func TestActPool_crossShardEviction_rejectsQueuedNewcomer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	r := require.New(t)
+
+	idxA, idxB := -1, -1
+	probe := &actPool{}
+	for i := 0; i < identityset.Size() && idxA < 0; i++ {
+		for j := i + 1; j < identityset.Size(); j++ {
+			if probeShard(probe, identityset.Address(i)) != probeShard(probe, identityset.Address(j)) {
+				idxA, idxB = i, j
+				break
+			}
+		}
+	}
+	r.GreaterOrEqual(idxA, 0)
+	pkA, pkB := identityset.PrivateKey(idxA), identityset.PrivateKey(idxB)
+	addrA, addrB := pkA.PublicKey().Address(), pkB.PublicKey().Address()
+
+	sf := mock_chainmanager.NewMockStateReader(ctrl)
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(acc interface{}, opts ...protocol.StateOption) (uint64, error) {
+		acct, ok := acc.(*state.Account)
+		r.True(ok)
+		r.NoError(acct.AddBalance(big.NewInt(1_000_000_000)))
+		return 0, nil
+	}).AnyTimes()
+
+	cfg := getActPoolCfg()
+	cfg.MaxNumActsPerPool = 2
+	Ap, err := NewActPool(genesis.TestDefault(), sf, cfg)
+	r.NoError(err)
+	ap := Ap.(*actPool)
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+
+	hi1, err := action.SignedTransfer(addrB.String(), pkA, 1, big.NewInt(1), nil, uint64(100000), big.NewInt(100))
+	r.NoError(err)
+	hi2, err := action.SignedTransfer(addrB.String(), pkA, 2, big.NewInt(1), nil, uint64(100000), big.NewInt(100))
+	r.NoError(err)
+	r.NoError(ap.Add(ctx, hi1))
+	r.NoError(ap.Add(ctx, hi2))
+
+	// Sender B's confirmed pending nonce is 1, so nonce 2 is queued behind a
+	// gap. B has no executable head and is the lowest priority, so the
+	// newcomer itself is evicted and the Add must fail.
+	queued, err := action.SignedTransfer(addrA.String(), pkB, 2, big.NewInt(1), nil, uint64(100000), big.NewInt(100))
+	r.NoError(err)
+	err = ap.Add(ctx, queued)
+	r.ErrorIs(errors.Cause(err), action.ErrTxPoolOverflow)
+
+	qHash, _ := queued.Hash()
+	_, err = ap.GetActionByHash(qHash)
+	r.ErrorIs(errors.Cause(err), action.ErrNotFound)
+	h1, _ := hi1.Hash()
+	h2, _ := hi2.Hash()
+	_, err = ap.GetActionByHash(h1)
+	r.NoError(err)
+	_, err = ap.GetActionByHash(h2)
+	r.NoError(err)
+}
+
 // TestActPool_crossShardEviction_concurrent stresses the multi-lock global
 // pop under load. It is primarily a deadlock smoke test: many goroutines
 // concurrently exercise Add across all 16 shards. With -race, any lock-order
