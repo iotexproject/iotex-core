@@ -88,3 +88,39 @@ func isEqual(expected string, hash hash.Hash256) bool {
 	h := fmt.Sprintf("%x", hash[:])
 	return strings.EqualFold(expected, h)
 }
+
+// TestHeaderVerifyGasUsed covers the two header comparisons a validating node
+// makes against the gas figures it re-derived from the receipts it produced.
+func TestHeaderVerifyGasUsed(t *testing.T) {
+	require := require.New(t)
+
+	t.Run("gas used", func(t *testing.T) {
+		h := getHeader(true)
+		require.EqualValues(189000, h.gasUsed, "fixture must carry a non-zero value")
+		require.True(h.VerifyGasUsed(189000))
+		require.False(h.VerifyGasUsed(188999))
+		require.False(h.VerifyGasUsed(189001))
+		require.False(h.VerifyGasUsed(0), "a zero recomputation must not pass a non-zero header")
+	})
+
+	t.Run("blob gas used", func(t *testing.T) {
+		h := getHeader(true)
+		h.blobGasUsed = 262144
+		require.True(h.VerifyBlobGasUsed(262144))
+		require.False(h.VerifyBlobGasUsed(262143))
+		require.False(h.VerifyBlobGasUsed(524288))
+		require.False(h.VerifyBlobGasUsed(0))
+	})
+
+	t.Run("unset fields verify as zero", func(t *testing.T) {
+		// The proposer only writes these under their own feature gates, so a
+		// header that never carried them has to agree with a zero recompute.
+		h := getHeader(false)
+		require.Zero(h.gasUsed)
+		require.Zero(h.blobGasUsed)
+		require.True(h.VerifyGasUsed(0))
+		require.True(h.VerifyBlobGasUsed(0))
+		require.False(h.VerifyGasUsed(1))
+		require.False(h.VerifyBlobGasUsed(1))
+	})
+}

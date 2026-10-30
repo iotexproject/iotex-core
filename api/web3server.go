@@ -62,6 +62,7 @@ type (
 		FilterType string     `json:"filterType"`
 		FromBlock  string     `json:"fromBlock,omitempty"`
 		ToBlock    string     `json:"toBlock,omitempty"`
+		BlockHash  string     `json:"blockHash,omitempty"`
 		Address    []string   `json:"address,omitempty"`
 		Topics     [][]string `json:"topics,omitempty"`
 	}
@@ -90,9 +91,11 @@ var (
 	errHTTPNotSupported  = errors.New("http not supported")
 	errPanic             = errors.New("panic")
 
-	_pendingBlockNumber  = "pending"
-	_latestBlockNumber   = "latest"
-	_earliestBlockNumber = "earliest"
+	_pendingBlockNumber   = "pending"
+	_latestBlockNumber    = "latest"
+	_earliestBlockNumber  = "earliest"
+	_safeBlockNumber      = "safe"
+	_finalizedBlockNumber = "finalized"
 )
 
 func init() {
@@ -320,6 +323,9 @@ func parseWeb3Reqs(reader io.Reader) (gjson.Result, error) {
 		if !id.Exists() || !method.Exists() {
 			return gjson.Result{}, errors.New("request field is incomplete")
 		}
+		if method.Type != gjson.String {
+			return gjson.Result{}, errors.New("request method must be a string")
+		}
 	}
 	return ret, nil
 }
@@ -349,7 +355,10 @@ func (svr *web3Handler) feeHistory(ctx context.Context, in *gjson.Result) (inter
 	if !blkCnt.Exists() || !newestBlk.Exists() {
 		return nil, errInvalidFormat
 	}
-	blocks, err := strconv.ParseUint(blkCnt.String(), 10, 64)
+	// blockCount is a hex quantity per the eth_feeHistory spec (e.g. "0x5"), but
+	// this endpoint has always accepted a bare decimal too. Parse both forms with
+	// geth's hex-or-decimal rule so "0xa" and "10" alike request ten blocks.
+	blocks, err := hexOrDecimalToNumber(blkCnt.String())
 	if err != nil {
 		return nil, err
 	}
@@ -606,7 +615,14 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 	if err != nil {
 		return "0x" + hex.EncodeToString(retval), err
 	}
-	if estimatedGas < 21000 {
+	// 21000 is the floor eth clients expect for a call that reaches the EVM. A
+	// native protocol action never does: it is charged its own intrinsic gas,
+	// which for most staking and rewarding actions is below 21000. Applying the
+	// floor there reports a number the receipt will never match -- 21000
+	// estimated against 10000 actually consumed for setVoterRewardDestination,
+	// measured on TestNet -- and wallets read that gap as a failed interaction
+	// even though the action succeeded and its view returned the new value.
+	if estimatedGas < 21000 && !isNativeProtocolTx(tx) {
 		estimatedGas = 21000
 	}
 	return uint64ToHex(estimatedGas), nil
@@ -894,6 +910,10 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 }
 
 func (svr *web3Handler) getLogs(filter *filterObject) (interface{}, error) {
+	if filter.BlockHash != "" {
+		// parseLogRequest has rejected blockHash combined with fromBlock/toBlock
+		return svr.getLogsInBlock(filter.BlockHash, filter.Address, filter.Topics)
+	}
 	from, to, err := svr.parseBlockRange(filter.FromBlock, filter.ToBlock)
 	if err != nil {
 		return nil, err
@@ -1097,11 +1117,14 @@ func (svr *web3Handler) getTransactionByBlockHashAndIndex(in *gjson.Result) (int
 	}
 	blkHashHex := util.Remove0xPrefix(blkHashStr.String())
 	blk, err := svr.coreService.BlockByHash(blkHashHex)
-	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(blk.Receipts)) || len(blk.Receipts) == 0 {
+	if errors.Cause(err) == ErrNotFound {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
+	}
+	if idx >= uint64(len(blk.Receipts)) {
+		return nil, nil
 	}
 	blkHash, err := hash.HexStringToHash256(blkHashHex)
 	if err != nil {
@@ -1124,11 +1147,14 @@ func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (i
 		return nil, err
 	}
 	blk, err := svr.coreService.BlockByHeight(num)
-	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(blk.Receipts)) || len(blk.Receipts) == 0 {
+	if errors.Cause(err) == ErrNotFound {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
+	}
+	if idx >= uint64(len(blk.Receipts)) {
+		return nil, nil
 	}
 	return svr.assembleConfirmedTransaction(blk.Block.HashBlock(), blk.Block.Actions[idx], blk.Receipts[idx])
 }
@@ -1238,6 +1264,19 @@ func (svr *web3Handler) getFilterChanges(in *gjson.Result) (interface{}, error) 
 	)
 	switch filterObj.FilterType {
 	case "log":
+		if filterObj.BlockHash != "" {
+			// the filter selects a single existing block, so its logs are
+			// returned on the first poll only; LogHeight is 0 until then
+			if filterObj.LogHeight != 0 {
+				return []*getLogsResult{}, nil
+			}
+			logs, err := svr.getLogsInBlock(filterObj.BlockHash, filterObj.Address, filterObj.Topics)
+			if err != nil {
+				return nil, err
+			}
+			ret, newLogHeight = logs, tipHeight+1
+			break
+		}
 		if filterObj.LogHeight > tipHeight {
 			return []*getLogsResult{}, nil
 		}
@@ -1294,11 +1333,7 @@ func (svr *web3Handler) getFilterLogs(in *gjson.Result) (interface{}, error) {
 	if filterObj.FilterType != "log" {
 		return nil, errInvalidFilterID
 	}
-	from, to, err := svr.parseBlockRange(filterObj.FromBlock, filterObj.ToBlock)
-	if err != nil {
-		return nil, err
-	}
-	return svr.getLogsWithFilter(from, to, filterObj.Address, filterObj.Topics)
+	return svr.getLogs(&filterObj)
 }
 
 func (svr *web3Handler) subscribe(ctx *StreamContext, in *gjson.Result, writer apitypes.Web3ResponseWriter) (interface{}, error) {

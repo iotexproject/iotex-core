@@ -20,9 +20,13 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/rewarding/delegateprofile"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -57,16 +61,21 @@ func handle(ctx context.Context, act action.Action, sm protocol.StateManager, in
 	}
 	zap.L().Debug("Handle PutPollResult Action", zap.Uint64("height", r.Height()))
 
-	if err := setCandidates(ctx, sm, indexer, r.Candidates(), r.Height()); err != nil {
+	freezeLogs, err := setCandidates(ctx, sm, indexer, r.Candidates(), r.Height())
+	if err != nil {
 		return nil, errors.Wrap(err, "failed to set candidates")
 	}
-	return &action.Receipt{
+	receipt := &action.Receipt{
 		Status:          uint64(iotextypes.ReceiptStatus_Success),
 		ActionHash:      actionCtx.ActionHash,
 		BlockHeight:     blkCtx.BlockHeight,
 		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: protocolAddr,
-	}, nil
+	}
+	for _, l := range freezeLogs {
+		l.ActionHash = actionCtx.ActionHash
+	}
+	return receipt.AddLogs(freezeLogs...), nil
 }
 
 func validate(ctx context.Context, sr protocol.StateReader, p Protocol, act action.Action) error {
@@ -162,12 +171,12 @@ func setCandidates(
 	indexer *CandidateIndexer,
 	candidates state.CandidateList,
 	height uint64, // epoch start height
-) error {
+) ([]*action.Log, error) {
 	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(height)
 	if height != rp.GetEpochHeight(epochNum) {
-		return errors.New("put poll result height should be epoch start height")
+		return nil, errors.New("put poll result height should be epoch start height")
 	}
 	loadCandidatesLegacy := featureCtx.LoadCandidatesLegacy(height)
 	accountCreationOpts := []state.AccountCreationOption{}
@@ -179,26 +188,26 @@ func setCandidates(
 	for _, candidate := range candidates {
 		addr, err := address.FromString(candidate.Address)
 		if err != nil {
-			return errors.Wrapf(err, "failed to decode delegate address %s", candidate.Address)
+			return nil, errors.Wrapf(err, "failed to decode delegate address %s", candidate.Address)
 		}
 		delegate, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
 		if err != nil {
-			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
+			return nil, errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}
 		if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
 			delegate.MarkAsCandidate()
 		}
 		if loadCandidatesLegacy {
 			if err := candidatesutil.LoadAndAddCandidates(sm, height, candidate.Address); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		candAddr, err := address.FromString(candidate.Address)
 		if err != nil && protocol.MustGetFeatureCtx(ctx).FixUnproductiveDelegates {
-			return errors.Wrap(err, "failed to convert candidate address")
+			return nil, errors.Wrap(err, "failed to convert candidate address")
 		}
 		if err := accountutil.StoreAccount(sm, candAddr, delegate); err != nil {
-			return errors.Wrap(err, "failed to update pending account changes to trie")
+			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		log.L().Debug(
 			"add candidate",
@@ -209,17 +218,162 @@ func setCandidates(
 	}
 	if indexer != nil {
 		if err := indexer.PutCandidateList(height, &candidates); err != nil {
-			return errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
+			return nil, errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
 		}
+	}
+	freezeLogs, err := freezeIIP59RewardState(ctx, sm, epochNum)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to freeze IIP-59 reward state")
 	}
 	if loadCandidatesLegacy {
 		key, org := candidatesutil.ConstructLegacyKeyWithOrg(height)
-		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(key), protocol.ErigonStoreKeyOption(org))
-		return err
+		if _, err := sm.PutState(&candidates, protocol.LegacyKeyOption(key), protocol.ErigonStoreKeyOption(org)); err != nil {
+			return nil, err
+		}
+		return freezeLogs, nil
 	}
 	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
-	_, err := sm.PutState(&candidates, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
-	return err
+	if _, err := sm.PutState(&candidates, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+		return nil, err
+	}
+	return freezeLogs, nil
+}
+
+// freezeIIP59RewardState freezes the per-candidate reward inputs and then
+// opens the bucket copy-on-write window at the same explicit height.
+//
+// It deliberately does not hand the poll list down. What gets frozen is the
+// opted-in candidate set, which FreezeCandidateRewardSnapshots enumerates from the
+// candidate center; the poll list is a vote-score-ranked subset on a different
+// cadence and the two drift within an era. This function is here for its
+// TIMING, not for its argument — PutPollResult is simply the last thing that
+// runs at a known point relative to the era boundary.
+//
+// WHEN THIS RUNS, precisely, because "era boundary freeze" is a half-truth:
+// epochNum here is the number of the epoch this PutPollResult is FOR, derived
+// by setCandidates from the action's nextEpochHeight. The gate below is
+// therefore on the right epoch — but the action itself is created around the
+// MIDPOINT OF THE PRECEDING EPOCH (see createPostSystemActions above, which
+// returns nil until blockHeight >= epochHeight + epochLen/2). So the freeze
+// height H passed to FreezeCandidateRewardSnapshots and BeginEraCOWWindow is
+// half an epoch BEFORE the era boundary epoch starts — and the drain's cursor
+// is not created until the last
+// block of that boundary epoch, ~1.5 epochs after H (~2,160 blocks, ~90 minutes
+// on mainnet).
+//
+// That is an accepted position, not a bug, and it is not a divergence risk: H
+// travels with the snapshot as FreezeHeight and every weight recompute
+// evaluates at it, so all nodes compute identical numbers. The consequence to
+// know is that stake activity in the last half of the preceding epoch, and in
+// the whole boundary epoch, does not affect the weights that settle that era.
+// See docs/iip-59-distribution-architecture.md §2.1.
+//
+// Pre-fork (NoVoterRewardDistribution=true): no-op.
+// Target epoch is not an era boundary (post-fork): no-op. Reward distribution
+// runs on a per-era cadence (IIP-59 §8), so freezing at every PutPollResult
+// would waste state writes and would shorten the span of stake activity that
+// participates in the era's reward math.
+// Post-fork, era boundary, no contract configured: bridge nil, snapshot uses
+// the full-owner commission fallback.
+// Post-fork, era boundary, contract configured: bridge called; snapshot
+// carries frozen rates + commission-configuration bit.
+func freezeIIP59RewardState(ctx context.Context, sm protocol.StateManager, epochNum uint64) ([]*action.Log, error) {
+	fCtx := protocol.MustGetFeatureCtx(ctx)
+	if fCtx.NoVoterRewardDistribution {
+		return nil, nil
+	}
+	g := genesis.MustExtractGenesisContext(ctx)
+	if !protocol.IsEraBoundary(epochNum, g.EpochsPerRewardEra) {
+		return nil, nil
+	}
+	contract := g.DelegateProfileContractAddress
+	var (
+		bridge *delegateprofile.Bridge
+		reader delegateprofile.ContractReader
+	)
+	if contract != "" {
+		b, err := delegateprofile.New(contract)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid DelegateProfile contract address")
+		}
+		bridge = b
+		reader = delegateProfileContractReader(sm)
+	}
+	freezeHeight := protocol.MustGetBlockCtx(ctx).BlockHeight
+	// The era is named by the boundary epoch itself, matching the cursor the
+	// settlement later writes (TargetEra: epochNum).
+	logs, err := staking.FreezeCandidateRewardSnapshots(ctx, sm, bridge, reader, freezeHeight, epochNum)
+	if err != nil {
+		return nil, err
+	}
+	if err := staking.BeginEraCOWWindow(ctx, sm, freezeHeight); err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+// _delegateProfileViewCallGasLimit bounds the simulated DelegateProfile view
+// call. Nothing is billed — the ceiling only exists so a malformed contract
+// cannot spin the interpreter during block production.
+const _delegateProfileViewCallGasLimit uint64 = 10_000_000
+
+// delegateProfileContractReader mirrors consortium.go's
+// getContractReaderForGenesisStates: build an unsigned Execution against the
+// target contract, wrap it in an envelope, and call evm.SimulateExecution
+// with the zero-address caller. The pattern is deterministic (fixed caller,
+// no gas billing to a real account) and reuses the existing view-call plumb.
+// NewDelegateProfileContractReader exposes the view-call reader so callers
+// outside this package can read the DelegateProfile contract with the same
+// deterministic plumbing the era freeze uses.
+//
+// It exists because the Hermes opt-in migration in the staking protocol needs
+// the same reader, and staking cannot import poll (poll imports staking) nor
+// evm without taking on a new dependency edge. chainservice imports both and
+// injects it.
+func NewDelegateProfileContractReader(sm protocol.StateManager) delegateprofile.ContractReader {
+	return delegateProfileContractReader(sm)
+}
+
+func delegateProfileContractReader(sm protocol.StateManager) delegateprofile.ContractReader {
+	return delegateprofile.ContractReaderFunc(func(ctx context.Context, contract string, callData []byte) (ret []byte, err error) {
+		gasLimit := _delegateProfileViewCallGasLimit
+		ex := action.NewExecution(contract, big.NewInt(0), callData)
+		caller, err := address.FromString(address.ZeroAddress)
+		if err != nil {
+			return nil, err
+		}
+		callerState, err := accountutil.AccountState(ctx, sm, caller)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load DelegateProfile simulation caller")
+		}
+		elp := (&action.EnvelopeBuilder{}).
+			SetNonce(callerState.PendingNonceConsideringFreshAccount()).
+			SetGasLimit(gasLimit).
+			SetAction(ex).
+			Build()
+		bcCtx := protocol.MustGetBlockchainCtx(ctx)
+		ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
+			GetBlockHash: bcCtx.GetBlockHash,
+			GetBlockTime: bcCtx.GetBlockTime,
+			DepositGasFunc: func(context.Context, protocol.StateManager, *big.Int, ...protocol.DepositOption) (
+				[]*action.TransactionLog, error,
+			) {
+				return nil, nil
+			},
+		})
+		snapshot := sm.Snapshot()
+		defer func() {
+			if revertErr := sm.Revert(snapshot); revertErr != nil {
+				if err != nil {
+					err = errors.Wrapf(revertErr, "failed to revert DelegateProfile simulation after execution failed: %v", err)
+				} else {
+					err = errors.Wrap(revertErr, "failed to revert DelegateProfile simulation")
+				}
+			}
+		}()
+		ret, _, err = evm.SimulateExecution(ctx, sm, caller, elp)
+		return ret, err
+	})
 }
 
 // setNextEpochProbationList sets the probation list with next key

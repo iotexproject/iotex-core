@@ -71,6 +71,7 @@ var AccountCmd = &cobra.Command{
 func init() {
 	AccountCmd.AddCommand(accountBalanceCmd)
 	AccountCmd.AddCommand(_accountBlsCmd)
+	AccountCmd.AddCommand(_accountBlsSignPoPCmd)
 	AccountCmd.AddCommand(_accountCreateCmd)
 	AccountCmd.AddCommand(_accountCreateAddCmd)
 	AccountCmd.AddCommand(_accountDeleteCmd)

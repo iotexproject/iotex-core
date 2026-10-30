@@ -43,6 +43,32 @@ message RewardLog {
         FOUNDATION_BONUS= 2;
         PRIORITY_BONUS = 3;
         UNPRODUCTIVE_SLASH = 4;
+        // IIP-59 §10.2: emitted at an era boundary when a live voter reward
+        // distribution is detected from a previous era that did not finish.
+        // The stale distribution state is deleted and its residue is rolled
+        // into the fresh era's distribution. addr encodes
+        // "<target_era>:<delegates_remaining>" and amount encodes the
+        // residue (leftover pool balance across the remaining delegates)
+        // as a decimal string; both fields reuse the existing wire slots
+        // to avoid a payload-shape change on the RewardLog message.
+        EPOCH_DRAIN_OVERRUN = 5;
+        // IIP-59 §10.3: informational log emitted at each
+        // GrantVoterRewardChunk before distribution runs, so off-chain
+        // observers can track progress across multiple blocks
+        // without inspecting state directly. addr encodes
+        // "<target_era>:<scan_phase>:<resume_voter>:<ranges_remaining>";
+        // amount is the fixed literal "0" (no monetary value — this is a
+        // progress snapshot, not a payout).
+        CURSOR_PROGRESS = 6;
+        // IIP-59: emitted once when a drain is abandoned because its
+        // copy-on-write window was superseded by a later freeze. The cursor
+        // moves to a terminal state and stops emitting continuations, so this
+        // is the single event that distinguishes "gave up" from "still
+        // retrying" -- previously the only signal was an unbounded run of
+        // identical failure receipts. addr encodes
+        // "<target_era>:<cursor_freeze_height>:<window_freeze_height>";
+        // amount is the fixed literal "0" (nothing is paid out).
+        DRAIN_ABANDONED = 7;
     }
     RewardType type = 1;
     string addr = 2;
@@ -51,4 +77,113 @@ message RewardLog {
 
 message RewardLogs {
     repeated RewardLog logs = 1;
+}
+
+// PendingBlockRewardPool holds a delegate's accumulated block-reward
+// balance for IIP-59 §3.2. Written at block time when a producer earns the
+// voter portion of a block reward; distributed at era settlement through the
+// batched voter split. One entry per delegate under the pending
+// pool key prefix.
+message PendingBlockRewardPool {
+    bytes amount = 1;
+}
+
+// VoterRewardDelegateAllocation is one frozen per-delegate work item captured at the
+// era boundary. Chunks read it while PendingBlockRewardPool may keep accruing.
+message VoterRewardDelegateAllocation {
+    bytes candidate_identifier = 1;
+    bytes voter_amount_frozen = 2;
+    // Amount already distributed from voter_amount_frozen. This lets a
+    // continuation give the final weighted voter the exact remainder without
+    // rescanning every preceding voter on each block.
+    bytes voter_amount_distributed = 3;
+    // Total voter weight is frozen once when the era-boundary distribution is initialized.
+    // Continuation chunks use this value directly instead of recomputing it.
+    // Sourced from the era snapshot's totalWeight, i.e. the frozen value of
+    // candidate.Votes.
+    bytes total_weight = 4;
+    // IIP-59: the delegate's self-stake bucket index at H. The weight recompute
+    // decides the self-stake bonus with `bucket.Index == SelfStakeBucketIdx`,
+    // and the compound-deposit path during distribution would otherwise read
+    // the live candidate record, which distribution itself may mutate.
+    // math.MaxUint64 means "no self-stake bucket".
+    uint64 self_stake_bucket_idx = 5;
+}
+
+// VoterRewardDistributionState represents a multi-block IIP-59 distribution of
+// PendingBlockRewardPool balances into voter accounts.
+//
+// Distribution walks the voter key space, not the delegate list. It starts at a
+// settlement-seed-derived address, scans to the end of the address space, then
+// wraps once and scans up to the start. resume_voter is the exclusive lower
+// bound in the current range. Incomplete state signals that the system-action
+// layer must emit a continuation grant. Completed state is
+// retained for voter queries until the next era boundary replaces it.
+message VoterRewardDistributionState {
+    uint64 target_era = 1;
+    repeated VoterRewardDelegateAllocation delegate_allocations = 2;
+    // Domain-separated hash of the parent block hash and target era. The
+    // first 20 bytes determine start_voter for this settlement.
+    bytes settlement_seed = 3;
+    // Derived from scan_phase == 2.
+    bool completed = 4;
+    uint64 completed_height = 5;
+    // Exclusive lower bound in the current address range. It may be a scan
+    // coverage point at which no voter exists.
+    bytes resume_voter = 6;
+    uint64 freeze_height = 7;
+    // First address of the circular walk, derived from settlement_seed.
+    bytes start_voter = 8;
+    // 0 scans [start_voter, max], 1 scans [min, start_voter), 2 is complete.
+    uint32 scan_phase = 9;
+}
+
+// DelegatePayoutAddress is the effective delegate payout destination for the
+// current reward era. On-chain delegates are paid at their owner address;
+// other delegates are paid at their configured reward address.
+message DelegatePayoutAddress {
+    bytes address = 1;
+    bool onchain_reward_enabled = 2;
+}
+
+// VoterRewardDestination is the effective account for direct IIP-59 voter
+// payouts. State stores only explicit overrides; ReadState materializes the
+// voter itself as recipient when explicitly_set is false.
+message VoterRewardDestination {
+    bytes recipient = 1;
+    bool explicitly_set = 2;
+    uint64 updated_height = 3;
+}
+
+// PendingVoterRewardDelegates lists delegates with pending voter rewards.
+// The list is derived from the V2 rewarding key range in deterministic order;
+// it is not persisted separately.
+message PendingVoterRewardDelegates {
+    repeated bytes delegate_identifiers = 1;
+}
+
+// VoterRewardDistributionPlan is the immutable portion of one era settlement. It is
+// written once at the era boundary and retained until the next settlement.
+message VoterRewardDistributionPlan {
+    uint64 target_era = 1;
+    repeated VoterRewardDelegateAllocation delegate_allocations = 2;
+    bytes settlement_seed = 3;
+    uint64 freeze_height = 4;
+}
+
+// VoterRewardDistributionProgress is the small, frequently updated settlement checkpoint.
+message VoterRewardDistributionProgress {
+    uint64 completed_height = 1;
+    // Exclusive lower bound in the current address range.
+    bytes resume_voter = 2;
+    // Running distributed total per delegate, positionally aligned with
+    // VoterRewardDistributionPlan.delegate_allocations. Big-endian unsigned;
+    // an entry shorter than the allocation list means the missing tail is zero. This vector is what
+    // the payout clamp measures against, so it has to be persisted rather than
+    // reconstructed: the voter-major drain leaves every delegate partially paid
+    // for most of the settlement, and there is no index position from which the
+    // per-delegate totals could be inferred.
+    repeated bytes distributed_by_delegate = 3;
+    // 0 scans [start_voter, max], 1 scans [min, start_voter), 2 is complete.
+    uint32 scan_phase = 4;
 }

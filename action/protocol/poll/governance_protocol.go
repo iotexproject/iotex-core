@@ -91,7 +91,10 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	if err = validateDelegates(ds); err != nil {
 		return
 	}
-	return setCandidates(ctx, sm, p.indexer, ds, uint64(1))
+	// Genesis states carry no receipt, so freeze logs (which cannot occur at
+	// height 1 anyway) are discarded.
+	_, err = setCandidates(ctx, sm, p.indexer, ds, uint64(1))
+	return err
 }
 
 func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {

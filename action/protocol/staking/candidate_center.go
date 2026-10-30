@@ -198,6 +198,47 @@ func (m *CandidateCenter) ContainsOwner(owner address.Address) bool {
 	return false
 }
 
+// HasBLSPubKeyOtherThan reports whether any candidate other than self has
+// registered the given BLS pubkey.
+//
+// It answers a question about the whole set rather than naming one holder,
+// and that is the point. A "return the first match" lookup reads All(), which
+// walks candBase.identifierMap — a Go map, whose iteration order is
+// randomised per process. Nothing forbids two candidates from sharing a BLS
+// pubkey before the uniqueness rule activates, and for such a pair each node
+// would name a different holder. Every caller then compares that holder
+// against itself to pick between Success and ErrCandidateConflict, so the two
+// nodes write different receipt statuses, different receipt roots, and fork.
+//
+// Phrased as "does anyone else hold this", the answer no longer depends on
+// which duplicate is seen first: for holders {A, B} it is true for A, for B,
+// and for any third party alike. This also matches ContainsName and
+// ContainsOperator, the two collision checks either side of it at the call
+// sites, which are likewise existence predicates.
+//
+// Linear scan over candidates — registration is rare and the candidate set is
+// bounded, trading O(N) lookup for not having to maintain another index map
+// across the change/base commit flow.
+func (m *CandidateCenter) HasBLSPubKeyOtherThan(blsPubKey []byte, self address.Address) bool {
+	if len(blsPubKey) == 0 {
+		return false
+	}
+	selfID := ""
+	if self != nil {
+		selfID = self.String()
+	}
+	for _, d := range m.All() {
+		if len(d.BLSPubKey) == 0 || !bytes.Equal(d.BLSPubKey, blsPubKey) {
+			continue
+		}
+		if id := d.GetIdentifier(); id != nil && id.String() == selfID {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
 // ContainsOperator returns true if the map contains the candidate by operator
 func (m *CandidateCenter) ContainsOperator(operator address.Address) bool {
 	if operator == nil {

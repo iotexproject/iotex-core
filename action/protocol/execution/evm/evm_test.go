@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	erigonstate "github.com/erigontech/erigon/core/state"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -35,6 +36,31 @@ import (
 	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
+
+type slotReaderErigonStateManager struct {
+	protocol.StateManager
+	intra  *erigonstate.IntraBlockState
+	dryrun bool
+}
+
+func (sm slotReaderErigonStateManager) Erigon() (*erigonstate.IntraBlockState, bool) {
+	return sm.intra, sm.dryrun
+}
+
+func TestNewSlotReaderSupportsErigonValidationWorkingSet(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.TestDefault())
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Tip: protocol.TipInfo{Height: 128}})
+
+	reader, err := NewSlotReader(ctx, slotReaderErigonStateManager{
+		StateManager: sm,
+		intra:        erigonstate.New(nil),
+		dryrun:       false,
+	})
+	require.NoError(t, err)
+	require.IsType(t, &ErigonStateDBAdapter{}, reader.db)
+}
 
 func TestExecuteContractFailure(t *testing.T) {
 	ctrl := gomock.NewController(t)

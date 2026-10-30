@@ -63,7 +63,7 @@ func newEventProcessor(contractAddr address.Address, blkCtx protocol.BlockCtx, h
 	}
 }
 
-func (ep *eventProcessor) handleStakedEvent(event *abiutil.EventParam) error {
+func (ep *eventProcessor) handleStakedEvent(ctx context.Context, event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -99,10 +99,10 @@ func (ep *eventProcessor) handleStakedEvent(event *abiutil.EventParam) error {
 		IsTimestampBased: ep.timestamped,
 		Muted:            ep.muted,
 	}
-	return ep.handler.PutBucket(ep.contractAddr, tokenIDParam.Uint64(), bucket)
+	return ep.handler.PutBucket(ctx, ep.contractAddr, tokenIDParam.Uint64(), bucket)
 }
 
-func (ep *eventProcessor) handleLockedEvent(event *abiutil.EventParam) error {
+func (ep *eventProcessor) handleLockedEvent(ctx context.Context, event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -119,10 +119,10 @@ func (ep *eventProcessor) handleLockedEvent(event *abiutil.EventParam) error {
 	bkt.StakedDuration = durationParam.Uint64()
 	bkt.UnlockedAt = maxStakingNumber
 	bkt.Muted = ep.muted
-	return ep.handler.PutBucket(ep.contractAddr, tokenIDParam.Uint64(), bkt)
+	return ep.handler.PutBucket(ctx, ep.contractAddr, tokenIDParam.Uint64(), bkt)
 }
 
-func (ep *eventProcessor) handleUnlockedEvent(event *abiutil.EventParam) error {
+func (ep *eventProcessor) handleUnlockedEvent(ctx context.Context, event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -136,10 +136,10 @@ func (ep *eventProcessor) handleUnlockedEvent(event *abiutil.EventParam) error {
 	if ep.timestamped {
 		bkt.UnlockedAt = uint64(ep.blockCtx.BlockTimeStamp.Unix())
 	}
-	return ep.handler.PutBucket(ep.contractAddr, tokenIDParam.Uint64(), bkt)
+	return ep.handler.PutBucket(ctx, ep.contractAddr, tokenIDParam.Uint64(), bkt)
 }
 
-func (ep *eventProcessor) handleUnstakedEvent(event *abiutil.EventParam) error {
+func (ep *eventProcessor) handleUnstakedEvent(ctx context.Context, event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -153,10 +153,10 @@ func (ep *eventProcessor) handleUnstakedEvent(event *abiutil.EventParam) error {
 	if ep.timestamped {
 		bkt.UnstakedAt = uint64(ep.blockCtx.BlockTimeStamp.Unix())
 	}
-	return ep.handler.PutBucket(ep.contractAddr, tokenIDParam.Uint64(), bkt)
+	return ep.handler.PutBucket(ctx, ep.contractAddr, tokenIDParam.Uint64(), bkt)
 }
 
-func (ep *eventProcessor) handleDelegateChangedEvent(event *abiutil.EventParam) error {
+func (ep *eventProcessor) handleDelegateChangedEvent(ctx context.Context, event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -171,19 +171,19 @@ func (ep *eventProcessor) handleDelegateChangedEvent(event *abiutil.EventParam) 
 		return err
 	}
 	bkt.Candidate = delegateParam
-	return ep.handler.PutBucket(ep.contractAddr, tokenIDParam.Uint64(), bkt)
+	return ep.handler.PutBucket(ctx, ep.contractAddr, tokenIDParam.Uint64(), bkt)
 }
 
-func (ep *eventProcessor) handleWithdrawalEvent(event *abiutil.EventParam) error {
+func (ep *eventProcessor) handleWithdrawalEvent(ctx context.Context, event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
 	}
 
-	return ep.handler.DeleteBucket(ep.contractAddr, tokenIDParam.Uint64())
+	return ep.handler.DeleteBucket(ctx, ep.contractAddr, tokenIDParam.Uint64())
 }
 
-func (ep *eventProcessor) handleTransferEvent(event *abiutil.EventParam) error {
+func (ep *eventProcessor) handleTransferEvent(ctx context.Context, event *abiutil.EventParam) error {
 	to, err := event.FieldByIDAddress(1)
 	if err != nil {
 		return err
@@ -201,7 +201,7 @@ func (ep *eventProcessor) handleTransferEvent(event *abiutil.EventParam) error {
 	switch errors.Cause(err) {
 	case nil:
 		bkt.Owner = to
-		return ep.handler.PutBucket(ep.contractAddr, tokenID, bkt)
+		return ep.handler.PutBucket(ctx, ep.contractAddr, tokenID, bkt)
 	case contractstaking.ErrBucketNotExist:
 		return nil
 	default:
@@ -209,7 +209,7 @@ func (ep *eventProcessor) handleTransferEvent(event *abiutil.EventParam) error {
 	}
 }
 
-func (ep *eventProcessor) handleMergedEvent(event *abiutil.EventParam) error {
+func (ep *eventProcessor) handleMergedEvent(ctx context.Context, event *abiutil.EventParam) error {
 	tokenIDsParam, err := event.FieldByIDUint256Slice(0)
 	if err != nil {
 		return err
@@ -233,14 +233,14 @@ func (ep *eventProcessor) handleMergedEvent(event *abiutil.EventParam) error {
 	b.UnlockedAt = maxStakingNumber
 	b.Muted = ep.muted
 	for i := 1; i < len(tokenIDsParam); i++ {
-		if err := ep.handler.DeleteBucket(ep.contractAddr, tokenIDsParam[i].Uint64()); err != nil {
+		if err := ep.handler.DeleteBucket(ctx, ep.contractAddr, tokenIDsParam[i].Uint64()); err != nil {
 			return err
 		}
 	}
-	return ep.handler.PutBucket(ep.contractAddr, tokenIDsParam[0].Uint64(), b)
+	return ep.handler.PutBucket(ctx, ep.contractAddr, tokenIDsParam[0].Uint64(), b)
 }
 
-func (ep *eventProcessor) handleBucketExpandedEvent(event *abiutil.EventParam) error {
+func (ep *eventProcessor) handleBucketExpandedEvent(ctx context.Context, event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -261,10 +261,10 @@ func (ep *eventProcessor) handleBucketExpandedEvent(event *abiutil.EventParam) e
 	b.StakedAmount = amountParam
 	b.StakedDuration = durationParam.Uint64()
 	b.Muted = ep.muted
-	return ep.handler.PutBucket(ep.contractAddr, tokenIDParam.Uint64(), b)
+	return ep.handler.PutBucket(ctx, ep.contractAddr, tokenIDParam.Uint64(), b)
 }
 
-func (ep *eventProcessor) handleDonatedEvent(event *abiutil.EventParam) error {
+func (ep *eventProcessor) handleDonatedEvent(ctx context.Context, event *abiutil.EventParam) error {
 	tokenIDParam, err := event.FieldByIDUint256(0)
 	if err != nil {
 		return err
@@ -280,7 +280,7 @@ func (ep *eventProcessor) handleDonatedEvent(event *abiutil.EventParam) error {
 	}
 	b.StakedAmount.Sub(b.StakedAmount, amountParam)
 	b.Muted = ep.muted
-	return ep.handler.PutBucket(ep.contractAddr, tokenIDParam.Uint64(), b)
+	return ep.handler.PutBucket(ctx, ep.contractAddr, tokenIDParam.Uint64(), b)
 }
 
 func (ep *eventProcessor) ProcessReceipts(ctx context.Context, receipts ...*action.Receipt) error {
@@ -317,25 +317,25 @@ func (ep *eventProcessor) processEvent(ctx context.Context, actLog *action.Log) 
 	// handle different kinds of event
 	switch abiEvent.Name {
 	case "Staked":
-		return ep.handleStakedEvent(event)
+		return ep.handleStakedEvent(ctx, event)
 	case "Locked":
-		return ep.handleLockedEvent(event)
+		return ep.handleLockedEvent(ctx, event)
 	case "Unlocked":
-		return ep.handleUnlockedEvent(event)
+		return ep.handleUnlockedEvent(ctx, event)
 	case "Unstaked":
-		return ep.handleUnstakedEvent(event)
+		return ep.handleUnstakedEvent(ctx, event)
 	case "Merged":
-		return ep.handleMergedEvent(event)
+		return ep.handleMergedEvent(ctx, event)
 	case "BucketExpanded":
-		return ep.handleBucketExpandedEvent(event)
+		return ep.handleBucketExpandedEvent(ctx, event)
 	case "DelegateChanged":
-		return ep.handleDelegateChangedEvent(event)
+		return ep.handleDelegateChangedEvent(ctx, event)
 	case "Withdrawal":
-		return ep.handleWithdrawalEvent(event)
+		return ep.handleWithdrawalEvent(ctx, event)
 	case "Donated":
-		return ep.handleDonatedEvent(event)
+		return ep.handleDonatedEvent(ctx, event)
 	case "Transfer":
-		return ep.handleTransferEvent(event)
+		return ep.handleTransferEvent(ctx, event)
 	case "Approval", "ApprovalForAll", "OwnershipTransferred", "Paused", "Unpaused", "BeneficiaryChanged",
 		"Migrated":
 		// not require handling events

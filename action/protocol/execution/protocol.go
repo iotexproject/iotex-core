@@ -219,6 +219,16 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, _ protocol
 	if fCtx.PrePectraEVM && elp.TxType() == action.SetCodeTxType {
 		return errors.Wrapf(action.ErrInvalidAct, "SetCodeTxType is not allowed before Pectra EVM upgrade")
 	}
+	// Reject execution with gas below the EIP-7623 floor data gas
+	if !fCtx.PrePectraEVM {
+		floorDataGas, err := action.FloorDataGas(exec.Data())
+		if err != nil {
+			return err
+		}
+		if elp.Gas() < floorDataGas {
+			return errors.Wrapf(action.ErrFloorDataGas, "have %d, want %d", elp.Gas(), floorDataGas)
+		}
+	}
 	return nil
 }
 

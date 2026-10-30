@@ -414,23 +414,23 @@ func (processor *contractStakingEventProcessor) HandleEvent(ctx context.Context,
 	case "BucketTypeDeactivated":
 		return processor.handleBucketTypeDeactivatedEvent(event, log.BlockHeight)
 	case "Staked":
-		return processor.handleStakedEvent(event, log.BlockHeight)
+		return processor.handleStakedEvent(ctx, event, log.BlockHeight)
 	case "Locked":
-		return processor.handleLockedEvent(event)
+		return processor.handleLockedEvent(ctx, event)
 	case "Unlocked":
-		return processor.handleUnlockedEvent(event, log.BlockHeight)
+		return processor.handleUnlockedEvent(ctx, event, log.BlockHeight)
 	case "Unstaked":
-		return processor.handleUnstakedEvent(event, log.BlockHeight)
+		return processor.handleUnstakedEvent(ctx, event, log.BlockHeight)
 	case "Merged":
-		return processor.handleMergedEvent(event)
+		return processor.handleMergedEvent(ctx, event)
 	case "BucketExpanded":
-		return processor.handleBucketExpandedEvent(event)
+		return processor.handleBucketExpandedEvent(ctx, event)
 	case "DelegateChanged":
-		return processor.handleDelegateChangedEvent(event)
+		return processor.handleDelegateChangedEvent(ctx, event)
 	case "Withdrawal":
-		return processor.handleWithdrawalEvent(event)
+		return processor.handleWithdrawalEvent(ctx, event)
 	case "Transfer":
-		return processor.handleTransferEvent(event)
+		return processor.handleTransferEvent(ctx, event)
 	case "Approval", "ApprovalForAll", "OwnershipTransferred", "Paused", "Unpaused":
 		// not require handling events
 		return nil
@@ -439,7 +439,7 @@ func (processor *contractStakingEventProcessor) HandleEvent(ctx context.Context,
 	}
 }
 
-func (processor *contractStakingEventProcessor) handleTransferEvent(event eventParam) error {
+func (processor *contractStakingEventProcessor) handleTransferEvent(ctx context.Context, event eventParam) error {
 	to, err := event.IndexedFieldAddress("to")
 	if err != nil {
 		return err
@@ -457,7 +457,7 @@ func (processor *contractStakingEventProcessor) handleTransferEvent(event eventP
 	switch errors.Cause(err) {
 	case nil:
 		bucket.Owner = to
-		return processor.dirty.PutBucket(processor.contractAddr, tokenID, bucket)
+		return processor.dirty.PutBucket(ctx, processor.contractAddr, tokenID, bucket)
 	case contractstaking.ErrBucketNotExist:
 		return nil
 	default:
@@ -502,7 +502,7 @@ func (processor *contractStakingEventProcessor) handleBucketTypeDeactivatedEvent
 	return processor.dirty.PutBucketType(processor.contractAddr, &bt)
 }
 
-func (processor *contractStakingEventProcessor) handleStakedEvent(event eventParam, height uint64) error {
+func (processor *contractStakingEventProcessor) handleStakedEvent(ctx context.Context, event eventParam, height uint64) error {
 	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -525,7 +525,7 @@ func (processor *contractStakingEventProcessor) handleStakedEvent(event eventPar
 		return errors.Errorf("no owner for token id %d", tokenIDParam.Uint64())
 	}
 
-	return processor.dirty.PutBucket(processor.contractAddr, tokenIDParam.Uint64(), &contractstaking.Bucket{
+	return processor.dirty.PutBucket(ctx, processor.contractAddr, tokenIDParam.Uint64(), &contractstaking.Bucket{
 		Candidate:      delegateParam,
 		Owner:          owner,
 		StakedAmount:   amountParam,
@@ -536,7 +536,7 @@ func (processor *contractStakingEventProcessor) handleStakedEvent(event eventPar
 	})
 }
 
-func (processor *contractStakingEventProcessor) handleLockedEvent(event eventParam) error {
+func (processor *contractStakingEventProcessor) handleLockedEvent(ctx context.Context, event eventParam) error {
 	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -554,10 +554,10 @@ func (processor *contractStakingEventProcessor) handleLockedEvent(event eventPar
 	bucket.StakedDuration = durationParam.Uint64()
 	bucket.UnlockedAt = maxBlockNumber
 
-	return processor.dirty.PutBucket(processor.contractAddr, tokenIDParam.Uint64(), bucket)
+	return processor.dirty.PutBucket(ctx, processor.contractAddr, tokenIDParam.Uint64(), bucket)
 }
 
-func (processor *contractStakingEventProcessor) handleUnlockedEvent(event eventParam, height uint64) error {
+func (processor *contractStakingEventProcessor) handleUnlockedEvent(ctx context.Context, event eventParam, height uint64) error {
 	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -568,10 +568,10 @@ func (processor *contractStakingEventProcessor) handleUnlockedEvent(event eventP
 		return err
 	}
 	bucket.UnlockedAt = height
-	return processor.dirty.PutBucket(processor.contractAddr, tokenIDParam.Uint64(), bucket)
+	return processor.dirty.PutBucket(ctx, processor.contractAddr, tokenIDParam.Uint64(), bucket)
 }
 
-func (processor *contractStakingEventProcessor) handleUnstakedEvent(event eventParam, height uint64) error {
+func (processor *contractStakingEventProcessor) handleUnstakedEvent(ctx context.Context, event eventParam, height uint64) error {
 	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -582,10 +582,10 @@ func (processor *contractStakingEventProcessor) handleUnstakedEvent(event eventP
 		return err
 	}
 	bucket.UnstakedAt = height
-	return processor.dirty.PutBucket(processor.contractAddr, tokenIDParam.Uint64(), bucket)
+	return processor.dirty.PutBucket(ctx, processor.contractAddr, tokenIDParam.Uint64(), bucket)
 }
 
-func (processor *contractStakingEventProcessor) handleMergedEvent(event eventParam) error {
+func (processor *contractStakingEventProcessor) handleMergedEvent(ctx context.Context, event eventParam) error {
 	tokenIDsParam, err := event.FieldUint256Slice("tokenIds")
 	if err != nil {
 		return err
@@ -608,14 +608,14 @@ func (processor *contractStakingEventProcessor) handleMergedEvent(event eventPar
 	bucket.StakedDuration = durationParam.Uint64()
 	bucket.UnlockedAt = maxBlockNumber
 	for i := 1; i < len(tokenIDsParam); i++ {
-		if err := processor.dirty.DeleteBucket(processor.contractAddr, tokenIDsParam[i].Uint64()); err != nil {
+		if err := processor.dirty.DeleteBucket(ctx, processor.contractAddr, tokenIDsParam[i].Uint64()); err != nil {
 			return err
 		}
 	}
-	return processor.dirty.PutBucket(processor.contractAddr, tokenIDsParam[0].Uint64(), bucket)
+	return processor.dirty.PutBucket(ctx, processor.contractAddr, tokenIDsParam[0].Uint64(), bucket)
 }
 
-func (processor *contractStakingEventProcessor) handleBucketExpandedEvent(event eventParam) error {
+func (processor *contractStakingEventProcessor) handleBucketExpandedEvent(ctx context.Context, event eventParam) error {
 	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -636,10 +636,10 @@ func (processor *contractStakingEventProcessor) handleBucketExpandedEvent(event 
 	bucket.StakedAmount = amountParam
 	bucket.StakedDuration = durationParam.Uint64()
 
-	return processor.dirty.PutBucket(processor.contractAddr, tokenIDParam.Uint64(), bucket)
+	return processor.dirty.PutBucket(ctx, processor.contractAddr, tokenIDParam.Uint64(), bucket)
 }
 
-func (processor *contractStakingEventProcessor) handleDelegateChangedEvent(event eventParam) error {
+func (processor *contractStakingEventProcessor) handleDelegateChangedEvent(ctx context.Context, event eventParam) error {
 	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
 	if err != nil {
 		return err
@@ -655,13 +655,13 @@ func (processor *contractStakingEventProcessor) handleDelegateChangedEvent(event
 	}
 	bucket.Candidate = delegateParam
 
-	return processor.dirty.PutBucket(processor.contractAddr, tokenIDParam.Uint64(), bucket)
+	return processor.dirty.PutBucket(ctx, processor.contractAddr, tokenIDParam.Uint64(), bucket)
 }
 
-func (processor *contractStakingEventProcessor) handleWithdrawalEvent(event eventParam) error {
+func (processor *contractStakingEventProcessor) handleWithdrawalEvent(ctx context.Context, event eventParam) error {
 	tokenIDParam, err := event.IndexedFieldUint256("tokenId")
 	if err != nil {
 		return err
 	}
-	return processor.dirty.DeleteBucket(processor.contractAddr, tokenIDParam.Uint64())
+	return processor.dirty.DeleteBucket(ctx, processor.contractAddr, tokenIDParam.Uint64())
 }

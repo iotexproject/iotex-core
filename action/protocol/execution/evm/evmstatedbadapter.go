@@ -98,6 +98,14 @@ type (
 		// contracts in CommitContracts; when true, only contracts with dirty state
 		// or code are committed and written back to the state trie
 		skipWriteCleanContract bool
+		// correctPrestateForAbsentKeys, when true, records storage slots observed
+		// absent in the pre-tx trie in a dedicated `missing` map on the contract,
+		// and returns trie.ErrNotExist from GetCommittedState for those slots.
+		// This corrects a long-standing EIP-2200 non-conformance where the
+		// contract-level committed[] cache would be populated with the
+		// post-mutation value from a later intra-tx GetState, causing SSTORE
+		// dynamic gas to be miscomputed as SSTORE_RESET on dirty in-place writes.
+		correctPrestateForAbsentKeys bool
 	}
 )
 
@@ -243,6 +251,16 @@ func SkipWriteCleanContractOption() StateDBAdapterOption {
 	}
 }
 
+// CorrectPrestateForAbsentKeysOption enables recording of prestate-absent
+// storage slots so that GetCommittedState returns the true zero prestate
+// instead of a post-mutation cache-poisoned value. See FeatureCtx doc.
+func CorrectPrestateForAbsentKeysOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.correctPrestateForAbsentKeys = true
+		return nil
+	}
+}
+
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
 	sm protocol.StateManager,
@@ -286,7 +304,7 @@ func NewStateDBAdapter(
 		s.createdAccountSnapshot = make(map[int]createdAccount)
 	}
 	s.newContract = func(addr hash.Hash160, account *state.Account) (Contract, error) {
-		return newContract(addr, account, s.sm, s.asyncContractTrie)
+		return newContract(addr, account, s.sm, s.asyncContractTrie, s.correctPrestateForAbsentKeys)
 	}
 	return s, nil
 }
@@ -1058,7 +1076,11 @@ func (stateDB *StateDBAdapter) generateSelfDestructTransferLog(sender string, am
 					Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
 					Sender:    sender,
 					Recipient: stateDB.lastAddBalanceAddr,
-					Amount:    stateDB.lastAddBalanceAmount,
+					// Copy the amount: lastAddBalanceAmount is a mutable *big.Int that is
+					// modified in place by every subsequent AddBalance (e.g. the gas-deposit
+					// refund done right after the EVM returns). Aliasing it here retroactively
+					// corrupts this already-recorded log with a later value.
+					Amount: new(big.Int).Set(stateDB.lastAddBalanceAmount),
 				})
 			}
 		} else {

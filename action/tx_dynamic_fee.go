@@ -179,7 +179,7 @@ func (tx *DynamicFeeTx) setChainID(n uint32) {
 	tx.chainID = n
 }
 
-func (tx *DynamicFeeTx) toEthTx(to *common.Address, value *big.Int, data []byte) *types.Transaction {
+func (tx *DynamicFeeTx) toEthTx(to *common.Address, value *big.Int, data []byte) (*types.Transaction, error) {
 	return types.NewTx(&types.DynamicFeeTx{
 		Nonce:      tx.nonce,
 		GasTipCap:  tx.GasTipCap(),
@@ -189,5 +189,5 @@ func (tx *DynamicFeeTx) toEthTx(to *common.Address, value *big.Int, data []byte)
 		Value:      value,
 		Data:       data,
 		AccessList: tx.accessList,
-	})
+	}), nil
 }

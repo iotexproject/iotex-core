@@ -158,7 +158,7 @@ func TestVoteReviser(t *testing.T) {
 	_, ok := v.(*viewData)
 	r.True(ok)
 
-	csm, err = NewCandidateStateManager(sm)
+	csm, err = NewCandidateStateManagerWithContext(context.Background(), sm)
 	r.NoError(err)
 	oldCand := testCandidates[3].d.Clone()
 	oldCand.Name = "old name"
@@ -268,7 +268,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 		view, _, err := CreateBaseView(protocol.FeatureCtx{}, sm, true)
 		r.NoError(err)
 		sm.WriteView(_protocolID, view)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		esm := NewEndorsementStateManager(sm)
 		// prepare endorsements
@@ -354,7 +354,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 				CreateTime:     time.Now(),
 				AutoStake:      true,
 			}
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			r.NoError(err)
 			bktIdx, err := csm.putBucketAndIndex(bkt)
 			r.NoError(err)
@@ -388,7 +388,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 				CreateTime:     time.Now(),
 				AutoStake:      true,
 			}
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			r.NoError(err)
 			bktIdx, err := csm.putBucketAndIndex(bkt)
 			r.NoError(err)
@@ -424,7 +424,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 				CreateTime:     time.Now(),
 				AutoStake:      true,
 			}
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			r.NoError(err)
 			bktIdx, err := csm.putBucketAndIndex(bkt)
 			r.NoError(err)
@@ -460,7 +460,7 @@ func TestVoteRevise_CorrectEndorsement(t *testing.T) {
 				CreateTime:     time.Now(),
 				AutoStake:      true,
 			}
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 			r.NoError(err)
 			bktIdx, err := csm.putBucketAndIndex(bkt)
 			r.NoError(err)
@@ -537,7 +537,7 @@ func TestVoteRevise_CorrectSelfStake(t *testing.T) {
 			AutoStake:        true,
 			UnstakeStartTime: time.Now(),
 		}
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		bktIdx, err := csm.putBucketAndIndex(bkt)
 		r.NoError(err)

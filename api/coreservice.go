@@ -705,16 +705,35 @@ func (core *coreService) validateChainID(chainID uint32) error {
 // ReadContract reads the state in a contract address specified by the slot
 func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Address, elp action.Envelope) (string, *iotextypes.Receipt, error) {
 	log.Logger("api").Debug("receive read smart contract request")
-	exec, ok := elp.Action().(*action.Execution)
-	if !ok {
+	if _, ok := elp.Action().(*action.Execution); !ok {
 		return "", nil, status.Error(codes.InvalidArgument, "expecting action.Execution")
 	}
-	var (
-		tipHeight = core.bc.TipHeight()
-		hdBytes   = append(byteutil.Uint64ToBytesBigEndian(tipHeight), []byte(exec.Contract())...)
-		key       = hash.Hash160b(append(hdBytes, exec.Data()...))
-	)
+	tipHeight := core.bc.TipHeight()
+	key, err := readContractCacheKey(tipHeight, callerAddr, elp)
+	if err != nil {
+		return "", nil, status.Error(codes.Internal, err.Error())
+	}
 	return core.readContract(ctx, key, tipHeight, false, callerAddr, elp)
+}
+
+// readContractCacheKey identifies a contract read by everything that can change
+// its result: the height, the caller and the whole call (contract, data, value,
+// gas, gas price, access list).
+func readContractCacheKey(height uint64, callerAddr address.Address, elp action.Envelope) (hash.Hash160, error) {
+	call, err := proto.MarshalOptions{Deterministic: true}.Marshal(elp.Proto())
+	if err != nil {
+		return hash.ZeroHash160, err
+	}
+	var caller []byte
+	if callerAddr != nil {
+		caller = callerAddr.Bytes()
+	}
+	b := make([]byte, 0, 8+1+len(caller)+len(call))
+	b = append(b, byteutil.Uint64ToBytesBigEndian(height)...)
+	b = append(b, byte(len(caller)))
+	b = append(b, caller...)
+	b = append(b, call...)
+	return hash.Hash160b(b), nil
 }
 
 func (core *coreService) readContract(
@@ -1869,7 +1888,7 @@ func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, 
 	estimatedGas := receipt.GasConsumed
 	elp.SetGas(estimatedGas)
 	enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
-	if err != nil && !isInsufficientFundsError(err) {
+	if err != nil && !isGasTooLowError(err) {
 		return 0, nil, status.Error(codes.Internal, err.Error())
 	}
 	if !enough {
@@ -1879,7 +1898,7 @@ func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, 
 			mid := (low + high) / 2
 			elp.SetGas(mid)
 			enough, _, _, err = core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
-			if err != nil && !isInsufficientFundsError(err) {
+			if err != nil && !isGasTooLowError(err) {
 				return 0, nil, status.Error(codes.Internal, err.Error())
 			}
 			if enough {
@@ -2477,6 +2496,12 @@ func filterReceipts(receipts []*action.Receipt, actHash hash.Hash256) *action.Re
 	return nil
 }
 
-func isInsufficientFundsError(err error) bool {
-	return errors.Is(err, action.ErrInsufficientFunds) || errors.Is(err, action.ErrFloorDataGas)
+// isGasTooLowError reports the failures that mean the gas limit handed to a
+// simulation was too small, which during a binary search is a signal to try a
+// larger one rather than an error to report. ErrIntrinsicGas belongs here for
+// the same reason the other two do: the run never started.
+func isGasTooLowError(err error) bool {
+	return errors.Is(err, action.ErrInsufficientFunds) ||
+		errors.Is(err, action.ErrFloorDataGas) ||
+		errors.Is(err, action.ErrIntrinsicGas)
 }

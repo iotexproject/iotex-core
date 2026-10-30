@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
+
+	"github.com/iotexproject/iotex-core/v2/action"
 )
 
 // ActQueueOption is the option for actQueue.
@@ -42,6 +44,22 @@ func WithBundlePool(bp *BundlePool) func(*actPool) error {
 			return errors.New("bundle pool cannot be nil")
 		}
 		ap.bundlePool = bp
+		return nil
+	}
+}
+
+// WithPrivateValidator adds a validator that runs on the Add path only.
+//
+// Private validators are deliberately excluded from actPool.Validate, which
+// block validation reaches via the bundle pool. Anything whose rejection would
+// change a block's validity -- rather than merely keeping an action out of this
+// node's pool -- belongs here rather than in AddActionEnvelopeValidators.
+func WithPrivateValidator(v action.SealedEnvelopeValidator) func(*actPool) error {
+	return func(ap *actPool) error {
+		if v == nil {
+			return errors.New("private validator cannot be nil")
+		}
+		ap.privateValidators = append(ap.privateValidators, v)
 		return nil
 	}
 }

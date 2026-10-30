@@ -703,6 +703,7 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
 		blsPubKey,
+		nil,
 	)
 	require.NoError(err)
 	data9, err := act9.EthData()
@@ -860,6 +861,11 @@ func feeHistory(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, da
 		expected int
 	}{
 		{`[4, "latest", [25,75]]`, 1},
+		// blockCount as a bare decimal string, historically accepted here, and as a
+		// hex quantity string per the eth_feeHistory spec (what standard callers such
+		// as MetaMask send); both must resolve to the same 4 blocks.
+		{`["4", "latest", [25,75]]`, 1},
+		{`["0x4", "latest", [25,75]]`, 1},
 	} {
 		oldnest := max(bc.TipHeight()-4+1, 1)
 		result := serveTestHTTP(require, handler, "eth_feeHistory", test.params)

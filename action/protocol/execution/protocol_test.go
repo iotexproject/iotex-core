@@ -831,6 +831,42 @@ func TestProtocol_Validate(t *testing.T) {
 	}
 }
 
+func TestProtocol_ValidateFloorDataGas(t *testing.T) {
+	require := require.New(t)
+	p := execution.NewProtocol(func(uint64) (hash.Hash256, error) {
+		return hash.ZeroHash256, nil
+	}, rewarding.DepositGas, getBlockTimeForTest, nil)
+	g := genesis.TestDefault()
+
+	// 100 bytes of calldata: intrinsic gas 20000, floor data gas 35000
+	data := make([]byte, 100)
+	cases := []struct {
+		name      string
+		height    uint64
+		data      []byte
+		gas       uint64
+		expectErr error
+	}{
+		{"below floor before Yap", g.YapBlockHeight - 1, data, 20000, nil},
+		{"below floor at Yap", g.YapBlockHeight, data, 20000, action.ErrFloorDataGas},
+		{"one below floor at Yap", g.YapBlockHeight, data, 34999, action.ErrFloorDataGas},
+		{"at floor at Yap", g.YapBlockHeight, data, 35000, nil},
+		{"empty data at Yap", g.YapBlockHeight, nil, 10000, nil},
+	}
+	for i := range cases {
+		t.Run(cases[i].name, func(t *testing.T) {
+			ex := action.NewExecution("2", big.NewInt(0), cases[i].data)
+			elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasLimit(cases[i].gas).SetAction(ex).Build()
+			ctx := genesis.WithGenesisContext(context.Background(), g)
+			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+				BlockHeight: cases[i].height,
+			})
+			ctx = protocol.WithFeatureCtx(ctx)
+			require.Equal(cases[i].expectErr, errors.Cause(p.Validate(ctx, elp, nil)))
+		})
+	}
+}
+
 func TestProtocol_Handle(t *testing.T) {
 	testEVM := func(t *testing.T) {
 		log.S().Info("Test EVM")

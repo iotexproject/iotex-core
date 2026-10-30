@@ -282,3 +282,20 @@ func (cs *counterSubscriber) HandleActionHash(context.Context, hash.Hash256, str
 	cs.actionHash.Inc()
 	return nil
 }
+
+func TestHandleBroadcastDoesNotBlockOnRateLimit(t *testing.T) {
+	r := require.New(t)
+	ctx, d := startDispatcher(t)
+	defer stopDispatcher(ctx, d, t)
+
+	// far more actions from one sender than the per-sender burst; the old
+	// blocking Wait would hold the caller for ~(n-burst)/rate seconds
+	acts := make([]*iotextypes.Action, 1000)
+	for i := range acts {
+		acts[i] = &iotextypes.Action{SenderPubKey: []byte("same-sender")}
+	}
+	start := time.Now()
+	d.HandleBroadcast(ctx, defaultChainID, "peer1", &iotextypes.Actions{Actions: acts})
+	d.HandleBroadcast(ctx, defaultChainID, "peer1", &iotextypes.Action{SenderPubKey: []byte("same-sender")})
+	r.Less(time.Since(start), time.Second)
+}

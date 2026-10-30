@@ -114,6 +114,22 @@ func (b *KvWithVersion) Filter(ns string, cond Condition, minKey, maxKey []byte)
 	return b.db.Filter(b.version, ns, cond, minKey, maxKey)
 }
 
+// KvWithVersion deliberately does NOT implement KVStoreWithRangeScan.
+//
+// In a versioned namespace the physical key is <key> + 8-byte version, plus a
+// per-key metadata entry at <key> + 0x00. A lexicographic scan of the raw keyspace
+// would therefore return every historical version of every key, interleaved with
+// metadata entries, instead of the one value visible at b.version -- and the
+// caller has no way to tell them apart. Producing the correct answer needs a
+// version-aware iterator (seek to <key>+version, step to the next distinct key),
+// which is a separate piece of work.
+//
+// Leaving the method off means a type assertion to KVStoreWithRangeScan fails and
+// the caller gets an explicit ErrNotSupported, which is the safe outcome: nothing
+// today routes a versioned store into a range scan (the state factory's
+// ScanRange path runs over the non-versioned working-set store), and a future
+// caller that tries gets a loud failure rather than silently wrong data.
+
 // WriteBatch commits a batch
 func (b *KvWithVersion) WriteBatch(kvsb batch.KVStoreBatch) error {
 	return b.db.CommitBatch(b.version, kvsb)

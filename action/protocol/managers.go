@@ -34,6 +34,42 @@ func KeysOption(f func() ([][]byte, error)) StateOption {
 	}
 }
 
+// RangeOption sets an ordered, half-open key range [min, max) for States().
+//
+// min == nil means "from the start of the namespace", max == nil means "to the end
+// of the namespace"; a key equal to max is NOT returned, so adjacent ranges can be
+// tiled without overlap. Results come back ascending by bytes.Compare(key).
+//
+// This is mutually exclusive with KeyOption/KeysOption.
+func RangeOption(min, max []byte) StateOption {
+	return func(cfg *StateConfig) error {
+		// nil-ness is meaningful (nil = unbounded, empty = a real bound), so only
+		// copy when the caller passed a non-nil slice
+		if min != nil {
+			cfg.RangeMin = append([]byte{}, min...)
+		} else {
+			cfg.RangeMin = nil
+		}
+		if max != nil {
+			cfg.RangeMax = append([]byte{}, max...)
+		} else {
+			cfg.RangeMax = nil
+		}
+		return nil
+	}
+}
+
+// LimitOption caps States() at n results, taken from the start of the ascending
+// key order. n <= 0 means unlimited.
+//
+// This is mutually exclusive with KeyOption/KeysOption.
+func LimitOption(n int) StateOption {
+	return func(cfg *StateConfig) error {
+		cfg.Limit = n
+		return nil
+	}
+}
+
 // LegacyKeyOption sets the key for call with legacy key
 func LegacyKeyOption(key hash.Hash160) StateOption {
 	return func(cfg *StateConfig) error {
@@ -88,6 +124,13 @@ type (
 		Object          any    // object used by state's storage
 		ErigonStoreOnly bool   // whether only read/write from/to erigon store
 		ErigonStoreKey  []byte // erigon store key used by state's storage. If nil, use Key field
+		// RangeMin/RangeMax bound an ordered States() scan over the half-open
+		// interval [RangeMin, RangeMax); nil means unbounded on that side. Limit
+		// caps the number of results (<= 0 means unlimited). All three are unset by
+		// default, in which case States() behaves exactly as it always has.
+		RangeMin []byte
+		RangeMax []byte
+		Limit    int
 	}
 
 	// StateOption sets parameter for access state

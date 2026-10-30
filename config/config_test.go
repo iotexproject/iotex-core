@@ -7,6 +7,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -469,6 +470,59 @@ func newTestCfg(fork string) Config {
 		cfg.Genesis.YapBlockHeight = cfg.Genesis.YapBetaBlockHeight + 1
 	}
 	return cfg
+}
+
+func TestStakingPatchHeights(t *testing.T) {
+	r := require.New(t)
+
+	// the heights moved from chain config to genesis, the values must not change
+	r.Equal(uint64(19778037), Default.Genesis.PersistStakingPatchBlock)
+	r.Equal(uint64(19778036), Default.Genesis.FixAliasForNonStopHeight)
+
+	// the deprecated chain keys are unset by default
+	r.Zero(Default.Chain.PersistStakingPatchBlock)
+	r.Zero(Default.Chain.FixAliasForNonStopHeight)
+
+	// a config still carrying the deprecated keys loads and validates, whatever they hold. the
+	// published testnet config sets persistStakingPatchBlock to MaxUint64
+	for _, v := range []struct {
+		persist  uint64
+		fixAlias uint64
+	}{
+		{math.MaxUint64, 0},
+		{math.MaxUint64, math.MaxUint64},
+		{Default.Genesis.PersistStakingPatchBlock, Default.Genesis.FixAliasForNonStopHeight},
+		{100, 100},
+	} {
+		cfg := Default
+		cfg.Chain.PersistStakingPatchBlock = v.persist
+		cfg.Chain.FixAliasForNonStopHeight = v.fixAlias
+		for _, validate := range Validates {
+			r.NoError(validate(cfg))
+		}
+	}
+}
+
+func TestDeprecatedStakingPatchHeightsFromYAML(t *testing.T) {
+	r := require.New(t)
+
+	// a testnet-style config file carrying the deprecated keys must still load
+	cfgFile, err := os.CreateTemp("", "config")
+	r.NoError(err)
+	name := cfgFile.Name()
+	defer func() {
+		r.NoError(cfgFile.Close())
+		r.NoError(os.Remove(name))
+	}()
+	_, err = cfgFile.WriteString("chain:\n  persistStakingPatchBlock: 18446744073709551615\n  fixAliasForNonStopHeight: 18446744073709551615\n")
+	r.NoError(err)
+
+	cfg, err := New([]string{name}, nil)
+	r.NoError(err)
+	r.Equal(uint64(math.MaxUint64), cfg.Chain.PersistStakingPatchBlock)
+	// the genesis value is the one in effect
+	r.Equal(uint64(19778037), cfg.Genesis.PersistStakingPatchBlock)
+	r.Equal(uint64(19778036), cfg.Genesis.FixAliasForNonStopHeight)
 }
 
 func TestNewSubConfigWithWrongConfigPath(t *testing.T) {
