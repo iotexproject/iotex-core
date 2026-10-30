@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -90,6 +91,7 @@ var (
 	errMsgBatchTooLarge  = errors.New("batch too large")
 	errHTTPNotSupported  = errors.New("http not supported")
 	errPanic             = errors.New("panic")
+	errSubscribeInBatch  = errors.New("eth_subscribe is not supported in batch requests")
 
 	_pendingBlockNumber   = "pending"
 	_latestBlockNumber    = "latest"
@@ -257,6 +259,12 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		sc, ok := StreamFromContext(ctx)
 		if !ok {
 			return errHTTPNotSupported
+		}
+		if _, isBatch := writer.(*apitypes.BatchWriter); isBatch {
+			// the batch writer is discarded once the batch response is
+			// flushed, so notifications written to it never reach the client
+			res, err = nil, errSubscribeInBatch
+			break
 		}
 		res, err = svr.subscribe(sc, web3Req, writer)
 	case "eth_unsubscribe":
@@ -1212,16 +1220,10 @@ func (svr *web3Handler) newFilter(filter *filterObject) (interface{}, error) {
 		}
 	}
 
-	// cache filter and return hash value of the filter as filter id
+	// cache filter and return a random filter id
 	filter.FilterType = "log"
 	objInByte, _ := json.Marshal(*filter)
-	keyHash := hash.Hash256b(objInByte)
-	filterID := hex.EncodeToString(keyHash[:])
-	err := svr.cache.Set(filterID, objInByte)
-	if err != nil {
-		return nil, err
-	}
-	return "0x" + filterID, nil
+	return svr.installFilter(objInByte)
 }
 
 func (svr *web3Handler) newBlockFilter() (interface{}, error) {
@@ -1230,13 +1232,28 @@ func (svr *web3Handler) newBlockFilter() (interface{}, error) {
 		LogHeight:  svr.coreService.TipHeight(),
 	}
 	objInByte, _ := json.Marshal(filterObj)
-	keyHash := hash.Hash256b(objInByte)
-	filterID := hex.EncodeToString(keyHash[:])
-	err := svr.cache.Set(filterID, objInByte)
+	return svr.installFilter(objInByte)
+}
+
+// installFilter stores the filter under a newly generated random id, so that
+// every installed filter has its own id and cursor
+func (svr *web3Handler) installFilter(objInByte []byte) (interface{}, error) {
+	filterID, err := newFilterID()
 	if err != nil {
 		return nil, err
 	}
+	if err := svr.cache.Set(filterID, objInByte); err != nil {
+		return nil, err
+	}
 	return "0x" + filterID, nil
+}
+
+func newFilterID() (string, error) {
+	var id [32]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		return "", errors.Wrap(err, "failed to generate filter id")
+	}
+	return hex.EncodeToString(id[:]), nil
 }
 
 func (svr *web3Handler) uninstallFilter(in *gjson.Result) (interface{}, error) {
