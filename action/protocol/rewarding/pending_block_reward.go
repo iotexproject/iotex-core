@@ -239,9 +239,18 @@ func (p *Protocol) listPendingBlockRewardPoolIDs(
 // objects are addressed by contract slot instead of by an ordered iotex key
 // space; it rejects RangeOption rather than hand back a differently-ordered
 // answer. Point reads are unaffected, so the same set is recoverable by probing
-// one key per candidate: a pool is only ever credited under a candidate
-// identifier and candidate records are not deleted, so the candidate set at that
-// height contains every delegate that can hold a pool.
+// one key per candidate. The candidate set at that height contains every
+// delegate that can hold a pool, given:
+//
+//  1. A pool is only ever credited under a candidate identifier.
+//  2. Candidate records are not deleted.
+//  3. The pool key equals the staking candidate identifier. Crediting keys a
+//     pool by the poll candidate's Identity (falling back to its operator
+//     address), and the probe keys by Candidate.GetIdentifier(). They agree
+//     because pool crediting only activates with on-chain reward distribution,
+//     after Yap, and poll candidates carry Identity from Yap on. Crediting also
+//     has to read a candidate record and a reward snapshot under the same key,
+//     and both are keyed by GetIdentifier().
 //
 // Read paths only. freezePendingPoolDrainWork must keep failing on a rejected
 // scan: an era freeze that quietly switched enumeration source would make block
