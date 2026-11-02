@@ -11,6 +11,7 @@ Design and conformance documents:
 - [`docs/qsb-legacy-path-audit.md`](../../../../docs/qsb-legacy-path-audit.md)
 - [`docs/qsb-proto-draft.proto`](../../../../docs/qsb-proto-draft.proto)
 - [`docs/qsb-action-integration.md`](../../../../docs/qsb-action-integration.md)
+- [`docs/qsb-ioctl.md`](../../../../docs/qsb-ioctl.md) (wallet CLI)
 
 ## What is here
 
@@ -46,6 +47,7 @@ Wired behind `FeatureCtx.EnableBucketGuard` (= `ToBeEnabled && ZanzibarGamma`):
 | Write layer (§10): bucket writes carry a `bucketAuth` (legacy, or a `Grant` from `VerifyOp`); self-stake and endorsement writes refuse guarded buckets | `staking/candidate_statemanager.go`, `bucket_guard.go` | done |
 | Query API for the guard record | `ReadStakingData` `BUCKET_GUARD`, eth_call `bucketGuard(uint64)` | done |
 | e2e | `e2etest/bucket_guard_test.go` | done |
+| Wallet CLI: vault, bind, guarded ops, offline signing ([guide](../../../../docs/qsb-ioctl.md)) | `ioctl stake2 guard` (`ioctl/qsb`, `ioctl/cmd/action/stake2guard*.go`) | done |
 | Fuzzing of action decoding, ACVP, linux/amd64 benchmarks, audit | — | open |
 
 ## Staking rules are not duplicated

@@ -56,6 +56,9 @@ maintainers must approve the height, protobuf changes, and activation.
       staking dashboards.
 - [ ] Wallet support: SLH-DSA keygen/sign, seed-derived recovery, guard nonce
       tracking, deadline UX, signed-op warnings, multi-device behavior.
+      Reference implementation: `ioctl stake2 guard`
+      ([`qsb-ioctl.md`](./qsb-ioctl.md)) — encrypted vault, key recovery scan,
+      online ops, offline sign/accept/submit with request files.
 - [ ] Exchange/custodian/staking-provider support for binding and guarded ops.
 - [ ] Recovery tooling and support documentation; 16 KB signatures and offline
       signing workflows tested.

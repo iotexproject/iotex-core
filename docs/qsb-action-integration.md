@@ -348,6 +348,11 @@ Minimum suite:
 - Fuzzing for canonical decoding and transcript parsing.
 - Exact size/gas/digest vectors from `qsb-spec-and-vectors.md`.
 
+Manual end-to-end runs on a local or nightly network use the reference CLI,
+`ioctl stake2 guard` ([`qsb-ioctl.md`](./qsb-ioctl.md)): bind, every op online
+and through offline request files, and negative cases (a legacy action on a
+guarded bucket, a stale op sent with the hidden `submit --skip-checks`).
+
 ## 8. Non-goals and blockers
 
 - No fork height or fork name in this draft.
