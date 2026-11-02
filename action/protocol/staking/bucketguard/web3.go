@@ -18,8 +18,9 @@ import (
 // GuardedBucketOp values as the native encoding, which then go through the
 // same Validate / CheckOp / VerifyOp / Next path; size limits and gas are
 // computed over C(m) of the decoded value, never over the ABI bytes, so both
-// entries price an action identically. At integration these methods join
-// action.NativeStakingContractABI.
+// entries price an action identically. The same methods are published in
+// action.NativeStakingContractABI (package action imports this one, so the
+// ABI is repeated here); a test in package action keeps the two equal.
 const web3ABI = `[
 {"type":"function","name":"bindBucketGuard","inputs":[
  {"name":"bucketIndex","type":"uint64"},{"name":"algID","type":"uint32"},
