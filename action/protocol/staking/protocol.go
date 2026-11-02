@@ -67,10 +67,14 @@ const (
 	// PutPollResult, read once per epoch by the rewarding protocol under
 	// IIP-59. Full key: {_candidateRewardSnapshot} || candID.Bytes().
 	_candidateRewardSnapshot
-	// _bucketGuard is the tag for the quantum-safe guard record of a native
-	// bucket (bucket_guard.go). Full key: {_bucketGuard} || uint64_be(index).
-	_bucketGuard
 )
+
+// _bucketGuard is the tag for the quantum-safe guard record of a native
+// bucket (bucket_guard.go). Full key: {_bucketGuard} || uint64_be(index).
+// It is not the next iota value: 6 is contractstaking.LSDVoterIndexPrefix and
+// 7-8 are eracow.ControlPrefix/EntryPrefix, all in the same namespace, and
+// each tag holds one record type.
+const _bucketGuard = byte(9)
 
 // Errors
 var (

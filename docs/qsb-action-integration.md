@@ -228,8 +228,9 @@ legacy `WithdrawStake` handler is not called for a guarded withdraw.
 
 ### 4.1 Namespace and key
 
-Use the staking namespace prefix `_bucketGuard` and key
-`uint64_be(bucketIndex)`. The value is the protobuf `BucketGuard` from
+Use the staking namespace prefix `_bucketGuard = 9` and key
+`uint64_be(bucketIndex)`. Tags 6-8 are already taken in that namespace
+(contract-staking owner index, era copy-on-write records). The value is the protobuf `BucketGuard` from
 [`qsb-proto-draft.proto`](./qsb-proto-draft.proto).
 
 Add a `BucketGuardStateManager` or equivalent helper around

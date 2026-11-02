@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto/signer"
@@ -254,5 +255,56 @@ func TestGuardedOpVerifiesBeforeWriting(t *testing.T) {
 				r.Equal(uint64(1), g.Nonce)
 			}
 		})
+	}
+}
+
+// TestBucketGuardRecordOutsideVoterScans stores guard records next to the
+// voter indexes the IIP-59 reward settlement scans. With _bucketGuard = 6 the
+// record of bucket 1 fell inside the contract-staking owner index range and
+// ScanFrozenVoters failed with "unexpected key", failing the block.
+func TestBucketGuardRecordOutsideVoterScans(t *testing.T) {
+	r := require.New(t)
+	ctx := forkGateCtx(eraTestFreezeHeight, true)
+	sm := eraTestSM(t)
+	csm := eraTestCSM(ctx, sm)
+	cs := contractstaking.NewContractStakingStateManager(sm)
+	cand := identityset.Address(1)
+	nativeVoter := eraTestAddress(t, 0x40, 1)
+	contractVoter := eraTestAddress(t, 0x80, 1)
+
+	// Buckets 0, 1 and 2; guard records at index 0 would sort below the scan
+	// start, so the records go on 1 and 2.
+	for i := uint64(0); i < 3; i++ {
+		idx, err := csm.putBucketAndIndex(NewVoteBucket(cand, nativeVoter, big.NewInt(100), 91, time.Now(), true))
+		r.NoError(err)
+		r.Equal(i, idx)
+	}
+	r.NoError(cs.UpsertBucket(ctx, identityset.Address(20), 1, &contractstaking.Bucket{
+		Owner: contractVoter, Candidate: cand, StakedAmount: big.NewInt(100),
+	}))
+	r.NoError(BeginEraCOWWindow(ctx, sm, eraTestFreezeHeight))
+	window, err := LoadEraCOWWindow(sm)
+	r.NoError(err)
+
+	guardBucket(t, sm, 1, testGuardKey(t, 1), 1, 0)
+	// A cleared guard leaves a tombstone, which is a record all the same.
+	r.NoError(putBucketGuard(sm, 2, &bucketguard.Guard{Generation: 2, Nonce: 3, BoundHeight: 5}))
+
+	for _, limits := range [][2]int{{0, 0}, {1, 100}, {10, 4}} {
+		var (
+			voters []address.Address
+			resume []byte
+		)
+		for {
+			page, err := ScanFrozenVoters(sm, window, make([]byte, _addressLength), nil, resume, limits[0], limits[1])
+			r.NoError(err, "limits %v", limits)
+			voters = append(voters, page.Voters...)
+			if page.Complete {
+				break
+			}
+			r.NotEqual(resume, page.ResumeAfter, "limits %v: scan made no progress", limits)
+			resume = page.ResumeAfter
+		}
+		r.Equal([]address.Address{nativeVoter, contractVoter}, voters, "limits %v", limits)
 	}
 }

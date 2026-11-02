@@ -294,8 +294,11 @@ A later legacy withdraw or migration deletes the tombstone.
 
 ### 6.1 Guard state record
 
-The record lives in the staking namespace under the new key prefix
-`_bucketGuard`, appended to the existing prefix enumeration:
+The record lives in the staking namespace under the one-byte key prefix
+`_bucketGuard = 9`. Tags 0-5 are the native staking records, 6 is the
+contract-staking owner index and 7-8 are the IIP-59 era copy-on-write records,
+all in the same namespace; each tag holds one record type, so readers that scan
+a tag's key range never meet a guard record.
 
 ```text
 key   = _bucketGuard || uint64_be(bucketIndex)
