@@ -88,32 +88,55 @@ func (m *GuardedBucketOp) CheckCandidate(resolved address.Address) error {
 	return nil
 }
 
+// Grant is the authority of one verified guarded operation (IIP §6, §10).
+// Only VerifyOp issues one, so code holding a Grant has checked the
+// signatures. The staking protocol passes it to the writes that apply the
+// operation, which accept it only for the bucket and counters it was issued
+// for.
+type Grant struct {
+	bucketIndex, generation, nonce uint64
+	op                             Op
+}
+
+// Op returns the operation g authorizes.
+func (g *Grant) Op() Op { return g.op }
+
+// Covers reports whether g authorizes a write to bucket index whose current
+// guard record is cur.
+func (g *Grant) Covers(index uint64, cur *Guard) bool {
+	return g != nil && cur.IsGuarded() && g.bucketIndex == index &&
+		g.generation == cur.Generation && g.nonce == cur.Nonce
+}
+
 // VerifyOp runs IIP §9.2 step 6: the CALL signature by the current key and,
 // when the op installs a new key, the ACCEPT signature by that key over the
-// hash of this CALL. owner is the bucket owner at execution time.
-func VerifyOp(p Params, d Domain, owner address.Address, cur *Guard, op *GuardedBucketOp) error {
+// hash of this CALL. owner is the bucket owner at execution time. On success
+// it returns the Grant that authorizes applying op.
+func VerifyOp(p Params, d Domain, owner address.Address, cur *Guard, op *GuardedBucketOp) (*Grant, error) {
 	pk, err := pqcrypto.ParsePublicKey(cur.AlgID, cur.PublicKey)
 	if err != nil {
-		return fmt.Errorf("%w: stored key: %v", ErrGuardSignature, err)
+		return nil, fmt.Errorf("%w: stored key: %v", ErrGuardSignature, err)
 	}
 	call := EncodeCall(d, owner, op)
 	if !pk.Verify([]byte(CallContext), call, op.Sig) {
-		return fmt.Errorf("%w: CALL", ErrGuardSignature)
+		return nil, fmt.Errorf("%w: CALL", ErrGuardSignature)
 	}
-	if !op.installsKey() {
-		return nil
-	}
-	ng := op.NewGuard
-	if !p.accepts(ng.AlgID) {
-		return malformed("unsupported algorithm %s", ng.AlgID)
-	}
-	resultingOwner := owner
-	if op.Op == OpTransfer {
-		if resultingOwner, err = address.FromBytes(op.NewOwner); err != nil {
-			return malformed("TRANSFER newOwner: %v", err)
+	if op.installsKey() {
+		ng := op.NewGuard
+		if !p.accepts(ng.AlgID) {
+			return nil, malformed("unsupported algorithm %s", ng.AlgID)
+		}
+		resultingOwner := owner
+		if op.Op == OpTransfer {
+			if resultingOwner, err = address.FromBytes(op.NewOwner); err != nil {
+				return nil, malformed("TRANSFER newOwner: %v", err)
+			}
+		}
+		if err := verifyAccept(d, op.BucketIndex, cur.Generation+1, resultingOwner, ng.AlgID, ng.PublicKey, sha256.Sum256(call), ng.AcceptSig); err != nil {
+			return nil, err
 		}
 	}
-	return verifyAccept(d, op.BucketIndex, cur.Generation+1, resultingOwner, ng.AlgID, ng.PublicKey, sha256.Sum256(call), ng.AcceptSig)
+	return &Grant{bucketIndex: op.BucketIndex, generation: cur.Generation, nonce: cur.Nonce, op: op.Op}, nil
 }
 
 func verifyAccept(d Domain, bucketIndex, newGeneration uint64, resultingOwner address.Address, alg pqcrypto.AlgID, publicKey []byte, callHash [32]byte, sig []byte) error {
@@ -157,9 +180,11 @@ func Next(cur *Guard, op *GuardedBucketOp, height uint64) (next *Guard, deleted 
 }
 
 // RejectIfGuarded returns ErrBucketGuarded when g guards its bucket. Every
-// legacy staking path that changes a native bucket's owner, candidate,
-// duration, auto-stake flag, stake status or existence must call it (IIP §10);
-// deposits and IIP-59 compounding do not.
+// legacy staking action that changes a native bucket's owner, candidate,
+// duration, auto-stake flag, stake status or existence calls it first, so it
+// reports ErrBucketGuarded rather than a later precondition's status;
+// deposits and IIP-59 compounding do not. The staking protocol's write layer
+// enforces the same rule on every write (IIP §10).
 func RejectIfGuarded(g *Guard) error {
 	if g.IsGuarded() {
 		return ErrBucketGuarded

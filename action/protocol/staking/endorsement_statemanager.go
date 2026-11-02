@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
 )
@@ -13,6 +14,8 @@ type (
 	EndorsementStateManager struct {
 		protocol.StateManager
 		*EndorsementStateReader
+		// guardEnforced refuses endorsements of guarded buckets (IIP-65 §3).
+		guardEnforced bool
 	}
 	// EndorsementStateReader defines the interface of endorsement state reader
 	EndorsementStateReader struct {
@@ -28,8 +31,24 @@ func NewEndorsementStateManager(sm protocol.StateManager) *EndorsementStateManag
 	}
 }
 
+// enforceBucketGuard makes Put refuse guarded buckets when on is true, which
+// it is from the QSB fork on.
+func (esm *EndorsementStateManager) enforceBucketGuard(on bool) *EndorsementStateManager {
+	esm.guardEnforced = on
+	return esm
+}
+
 // Put puts the endorsement of a bucket
 func (esm *EndorsementStateManager) Put(bucketIndex uint64, endorse *Endorsement) error {
+	if esm.guardEnforced {
+		g, err := getBucketGuard(esm.StateManager, bucketIndex)
+		if err != nil {
+			return err
+		}
+		if err := guardReceiptError(bucketguard.RejectIfGuarded(g)); err != nil {
+			return err
+		}
+	}
 	_, err := esm.PutState(endorse, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(endorsementKey(bucketIndex)))
 	return err
 }

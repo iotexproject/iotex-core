@@ -44,7 +44,8 @@ func Example() {
 	// Node: IIP §9.2 order — counters, staking preconditions, signatures, effect.
 	fmt.Println("valid:", op.Validate(p) == nil)
 	fmt.Println("check:", bucketguard.CheckOp(guard, op, 150))
-	fmt.Println("verify:", bucketguard.VerifyOp(p, domain, owner, guard, op))
+	grant, err := bucketguard.VerifyOp(p, domain, owner, guard, op)
+	fmt.Println("verify:", err, "grant for:", grant.Op())
 	_, deleted := bucketguard.Next(guard, op, 150)
 	fmt.Println("guard deleted:", deleted)
 
@@ -53,6 +54,6 @@ func Example() {
 	// bound: true generation: 1
 	// valid: true
 	// check: <nil>
-	// verify: <nil>
+	// verify: <nil> grant for: WITHDRAW
 	// guard deleted: true
 }

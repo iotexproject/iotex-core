@@ -102,6 +102,135 @@ func deleteBucketGuardWithBucket(ctx context.Context, sm protocol.StateManager, 
 	return errors.Wrapf(err, "failed to delete guard of bucket %d", index)
 }
 
+// bucketAuth is the authority under which a native bucket is written
+// (IIP-65 §10). The zero value, legacyAuth, is any authority other than the
+// guard: the owner's ECDSA key, a deposit, or a protocol rule. On a guarded
+// bucket it may only add to the staked amount. A guard grant authorizes the
+// changes of the one verified operation it was issued for.
+type bucketAuth struct {
+	grant *bucketguard.Grant
+}
+
+var legacyAuth = bucketAuth{}
+
+func guardAuth(g *bucketguard.Grant) bucketAuth { return bucketAuth{grant: g} }
+
+// bucketField is one field of a native bucket that an operation may change.
+type bucketField uint16
+
+const (
+	fieldOwner bucketField = 1 << iota
+	fieldCandidate
+	fieldStakedAmount
+	fieldStakedDuration
+	fieldStakeStartTime
+	fieldUnstakeStartTime
+	fieldAutoStake
+	fieldOther // any field no native-bucket operation changes
+)
+
+// changedFields returns the fields in which next differs from prior.
+func changedFields(prior, next *VoteBucket) bucketField {
+	var f bucketField
+	if !address.Equal(prior.Owner, next.Owner) {
+		f |= fieldOwner
+	}
+	if !address.Equal(prior.Candidate, next.Candidate) {
+		f |= fieldCandidate
+	}
+	if prior.StakedAmount.Cmp(next.StakedAmount) != 0 {
+		f |= fieldStakedAmount
+	}
+	if prior.StakedDuration != next.StakedDuration {
+		f |= fieldStakedDuration
+	}
+	if !prior.StakeStartTime.Equal(next.StakeStartTime) {
+		f |= fieldStakeStartTime
+	}
+	if !prior.UnstakeStartTime.Equal(next.UnstakeStartTime) {
+		f |= fieldUnstakeStartTime
+	}
+	if prior.AutoStake != next.AutoStake {
+		f |= fieldAutoStake
+	}
+	if prior.Index != next.Index || !prior.CreateTime.Equal(next.CreateTime) ||
+		prior.ContractAddress != next.ContractAddress ||
+		prior.StakedDurationBlockNumber != next.StakedDurationBlockNumber ||
+		prior.CreateBlockHeight != next.CreateBlockHeight ||
+		prior.StakeStartBlockHeight != next.StakeStartBlockHeight ||
+		prior.UnstakeStartBlockHeight != next.UnstakeStartBlockHeight ||
+		prior.Timestamped != next.Timestamped {
+		f |= fieldOther
+	}
+	return f
+}
+
+// guardedOpFields are the fields each guarded operation changes. WITHDRAW
+// deletes the bucket and ROTATE writes none.
+var guardedOpFields = map[bucketguard.Op]bucketField{
+	bucketguard.OpUnstake:         fieldUnstakeStartTime,
+	bucketguard.OpTransfer:        fieldOwner,
+	bucketguard.OpChangeCandidate: fieldCandidate,
+	bucketguard.OpRestake:         fieldStakedDuration | fieldStakeStartTime | fieldAutoStake,
+}
+
+// checkBucketWrite enforces IIP-65 §10 on a write of bucket index from prior
+// to next, or its deletion when next is nil. On a guarded bucket, legacy
+// authority may only add to the staked amount, and a guard grant only covers
+// its own bucket, counters and operation.
+func (csm *candSM) checkBucketWrite(index uint64, prior, next *VoteBucket, auth bucketAuth) error {
+	if !csm.guardEnforced {
+		return nil
+	}
+	g, err := getBucketGuard(csm.StateManager, index)
+	if err != nil || !g.IsGuarded() {
+		return err
+	}
+	if auth.grant != nil {
+		if !auth.grant.Covers(index, g) {
+			return guardReceiptError(errors.Wrapf(bucketguard.ErrBucketGuarded, "grant does not cover bucket %d", index))
+		}
+		op := auth.grant.Op()
+		if next == nil {
+			if op == bucketguard.OpWithdraw {
+				return nil
+			}
+		} else if changed := changedFields(prior, next); changed&^guardedOpFields[op] == 0 {
+			return nil
+		}
+		return guardReceiptError(errors.Wrapf(bucketguard.ErrBucketGuarded, "%s may not make this change to bucket %d", op, index))
+	}
+	if next != nil && changedFields(prior, next)&^fieldStakedAmount == 0 && next.StakedAmount.Cmp(prior.StakedAmount) >= 0 {
+		return nil
+	}
+	return guardReceiptError(errors.Wrapf(bucketguard.ErrBucketGuarded, "bucket %d", index))
+}
+
+// checkSelfStakeWrite refuses a candidate write that makes a guarded bucket a
+// self-stake bucket (IIP-65 §3 (b)).
+func (csm *candSM) checkSelfStakeWrite(d *Candidate) error {
+	if !csm.guardEnforced || !d.isSelfStakeBucketSettled() {
+		return nil
+	}
+	if cur := csm.candCenter.GetByIdentifier(d.GetIdentifier()); cur != nil && cur.SelfStakeBucketIdx == d.SelfStakeBucketIdx {
+		return nil
+	}
+	g, err := getBucketGuard(csm.StateManager, d.SelfStakeBucketIdx)
+	if err != nil {
+		return err
+	}
+	return guardReceiptError(bucketguard.RejectIfGuarded(g))
+}
+
+// keepReceiptError wraps err unless it is a ReceiptError, which the staking
+// protocol recognizes only unwrapped.
+func keepReceiptError(err error, format string, args ...any) error {
+	if _, ok := err.(ReceiptError); ok {
+		return err
+	}
+	return errors.Wrapf(err, format, args...)
+}
+
 // rejectGuardedBucket is the IIP §10 check of every legacy action that would
 // change a native bucket's owner, candidate, duration, auto-stake flag,
 // stake status, role or existence.
@@ -249,8 +378,10 @@ func (p *Protocol) handleBindBucketGuard(ctx context.Context, act *action.BindBu
 //  4. generation, nonce and deadline match (bucketguard.CheckOp);
 //  5. the op's staking preconditions, checked on copies by the same check
 //     functions the legacy handlers use from the QSB fork (bucket_ops.go);
-//  6. the CALL and ACCEPT signatures (bucketguard.VerifyOp);
-//  7. the bucket writes, and the guard record transition (bucketguard.Next).
+//  6. the CALL and ACCEPT signatures (bucketguard.VerifyOp), which yield the
+//     grant that authorizes the writes;
+//  7. the bucket writes under that grant, and the guard record transition
+//     (bucketguard.Next).
 //
 // Nothing is written before step 6 succeeds. The staking snapshot still
 // covers a failure after it.
@@ -321,14 +452,15 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 	}
 
 	// step 6
-	if err := bucketguard.VerifyOp(bucketguard.ParamsV1(), guardDomain(ctx), owner, cur, op); err != nil {
+	grant, err := bucketguard.VerifyOp(bucketguard.ParamsV1(), guardDomain(ctx), owner, cur, op)
+	if err != nil {
 		return log, nil, guardReceiptError(err)
 	}
 
 	// step 7
 	var tLogs []*action.TransactionLog
 	if change != nil {
-		if err := change.apply(ctx, csm); err != nil {
+		if err := change.apply(ctx, csm, guardAuth(grant)); err != nil {
 			return log, nil, err
 		}
 	}

@@ -150,7 +150,7 @@ func (p *Protocol) validateStakeMigrate(ctx context.Context, bucket *VoteBucket,
 
 func (p *Protocol) withdrawBucket(ctx context.Context, withdrawer *state.Account, bucket *VoteBucket, cand *Candidate, csm CandidateStateManager) (*receiptLog, *action.TransactionLog, error) {
 	// delete bucket and bucket index
-	if err := csm.delBucketAndIndex(bucket.Owner, bucket.Candidate, bucket.Index); err != nil {
+	if err := csm.delBucketAndIndex(bucket.Owner, bucket.Candidate, bucket.Index, legacyAuth); err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
 	}
 	if err := deleteBucketGuardWithBucket(ctx, csm.SM(), bucket.Index); err != nil {

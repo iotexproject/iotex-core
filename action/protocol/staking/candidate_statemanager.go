@@ -23,11 +23,11 @@ import (
 type (
 	// BucketSet related to setting bucket
 	BucketSet interface {
-		updateBucket(index uint64, bucket *VoteBucket) error
+		updateBucket(index uint64, bucket *VoteBucket, auth bucketAuth) error
 		putBucket(bucket *VoteBucket) (uint64, error)
 		delBucket(index uint64) error
 		putBucketAndIndex(bucket *VoteBucket) (uint64, error)
-		delBucketAndIndex(owner, cand address.Address, index uint64) error
+		delBucketAndIndex(owner, cand address.Address, index uint64, auth bucketAuth) error
 	}
 	// CandidateSet related to setting candidates
 	CandidateSet interface {
@@ -91,6 +91,9 @@ type (
 		// cow is the IIP-59 era copy-on-write session for native bucket and
 		// voter-index writes.
 		cow *eracow.Session
+		// guardEnforced turns on the IIP-65 §10 checks of bucket, self-stake
+		// and endorsement writes. It is set from the QSB fork on.
+		guardEnforced bool
 	}
 )
 
@@ -111,11 +114,13 @@ func NewCandidateStateManagerWithContext(ctx context.Context, sm protocol.StateM
 	// make a copy of candidate center and bucket pool, so they can be modified by csm
 	// and won't affect base view until being committed
 	view := csr.BaseView()
+	fCtx, ok := protocol.GetFeatureCtx(ctx)
 	return &candSM{
-		StateManager: sm,
-		candCenter:   view.candCenter,
-		bucketPool:   view.bucketPool,
-		cow:          eracow.NewSession(ctx, sm),
+		StateManager:  sm,
+		candCenter:    view.candCenter,
+		bucketPool:    view.bucketPool,
+		cow:           eracow.NewSession(ctx, sm),
+		guardEnforced: ok && fCtx.EnableBucketGuard,
 	}, nil
 }
 
@@ -192,6 +197,9 @@ func (csm *candSM) Upsert(d *Candidate) error {
 }
 
 func (csm *candSM) upsert(d *Candidate) error {
+	if err := csm.checkSelfStakeWrite(d); err != nil {
+		return err
+	}
 	if err := csm.candCenter.Upsert(d); err != nil {
 		return err
 	}
@@ -279,9 +287,12 @@ func (csm *candSM) deactivate(cand *Candidate, bucket *VoteBucket, height uint64
 	return csm.upsert(cand)
 }
 
-func (csm *candSM) updateBucket(index uint64, bucket *VoteBucket) error {
+func (csm *candSM) updateBucket(index uint64, bucket *VoteBucket, auth bucketAuth) error {
 	prior, err := csm.NativeBucket(index)
 	if err != nil {
+		return err
+	}
+	if err := csm.checkBucketWrite(index, prior, bucket, auth); err != nil {
 		return err
 	}
 	// IIP-59: the era drain recomputes weights from buckets several blocks
@@ -376,7 +387,16 @@ func (csm *candSM) putBucketAndIndex(bucket *VoteBucket) (uint64, error) {
 	return index, nil
 }
 
-func (csm *candSM) delBucketAndIndex(owner, cand address.Address, index uint64) error {
+func (csm *candSM) delBucketAndIndex(owner, cand address.Address, index uint64, auth bucketAuth) error {
+	if csm.guardEnforced {
+		prior, err := csm.NativeBucket(index)
+		if err != nil {
+			return err
+		}
+		if err := csm.checkBucketWrite(index, prior, nil, auth); err != nil {
+			return err
+		}
+	}
 	if err := csm.delBucket(index); err != nil {
 		return errors.Wrap(err, "failed to delete bucket")
 	}

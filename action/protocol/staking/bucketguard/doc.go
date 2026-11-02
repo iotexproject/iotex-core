@@ -8,7 +8,8 @@
 //
 //	Validate / IntrinsicGas           stateless checks and pricing (IIP §8, §9.1)
 //	AuthorizeBind                     BindBucketGuard steps 4–7 (IIP §5)
-//	CheckOp, VerifyOp                 GuardedBucketOp steps 2–3 and 5 (IIP §9.2)
+//	CheckOp, VerifyOp                 GuardedBucketOp steps 2, 4 and 6 (IIP §9.2);
+//	                                  VerifyOp returns the Grant that authorizes the writes
 //	Next                              guard record transitions (IIP §9.4)
 //	RejectIfGuarded                   legacy staking paths (IIP §10)
 //	EncodeCall / EncodeAccept         signing messages for wallets (IIP §7)

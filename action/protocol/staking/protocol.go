@@ -549,7 +549,7 @@ func (p *Protocol) slashCandidate(
 		return errors.Errorf("amount %s is greater than staked amount %s", amount.String(), bucket.StakedAmount.String())
 	}
 	bucket.StakedAmount.Sub(bucket.StakedAmount, amount)
-	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
+	if err := csm.updateBucket(bucket.Index, bucket, legacyAuth); err != nil {
 		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)
 	}
 	if err := candidate.SubVote(prevWeightedVotes); err != nil {

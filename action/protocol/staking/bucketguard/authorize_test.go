@@ -60,10 +60,16 @@ func authorize(t *testing.T, cur *Guard, owner address.Address, op *GuardedBucke
 	if err := CheckOp(cur, op, height); err != nil {
 		t.Fatalf("%s: CheckOp: %v", op.Op, err)
 	}
-	if err := VerifyOp(p, testDomain, owner, cur, op); err != nil {
+	if err := verifyOp(p, testDomain, owner, cur, op); err != nil {
 		t.Fatalf("%s: VerifyOp: %v", op.Op, err)
 	}
 	return Next(cur, op, height)
+}
+
+// verifyOp is VerifyOp for tests that only look at the error.
+func verifyOp(p Params, d Domain, owner address.Address, cur *Guard, op *GuardedBucketOp) error {
+	_, err := VerifyOp(p, d, owner, cur, op)
+	return err
 }
 
 func wantErr(t *testing.T, name string, err, target error) {
@@ -117,7 +123,7 @@ func TestLifecycle(t *testing.T) {
 	// Key A no longer authorizes anything.
 	stale := &GuardedBucketOp{BucketIndex: bucket, Generation: 2, Nonce: 2, Deadline: 400, Op: OpUnstake}
 	signOp(t, keyA, alice, stale, nil, nil)
-	wantErr(t, "old key", VerifyOp(p, testDomain, alice, g, stale), ErrGuardSignature)
+	wantErr(t, "old key", verifyOp(p, testDomain, alice, g, stale), ErrGuardSignature)
 
 	// TRANSFER to bob with bob's key C.
 	transfer := &GuardedBucketOp{BucketIndex: bucket, Generation: 2, Nonce: 2, Deadline: 400, Op: OpTransfer, NewOwner: bob.Bytes()}
@@ -210,19 +216,19 @@ func TestCheckAndVerifyOpErrors(t *testing.T) {
 	clearMax := &GuardedBucketOp{BucketIndex: 7, Generation: math.MaxUint64, Nonce: 8, Deadline: 100, Op: OpTransfer, NewOwner: bob.Bytes(), ClearGuard: true}
 	wantErr(t, "clear generation overflow", CheckOp(&Guard{AlgID: alg, PublicKey: g.PublicKey, Generation: math.MaxUint64, Nonce: 8}, clearMax, 50), ErrGuardMismatch)
 
-	if err := VerifyOp(p, testDomain, alice, g, op); err != nil {
+	if err := verifyOp(p, testDomain, alice, g, op); err != nil {
 		t.Fatal(err)
 	}
 	// The owner is bound at execution time: a transfer after signing voids the op.
-	wantErr(t, "owner changed", VerifyOp(p, testDomain, bob, g, op), ErrGuardSignature)
-	wantErr(t, "chain", VerifyOp(p, otherChainDomain, alice, g, op), ErrGuardSignature)
-	wantErr(t, "genesis", VerifyOp(p, otherGenesisDomain, alice, g, op), ErrGuardSignature)
+	wantErr(t, "owner changed", verifyOp(p, testDomain, bob, g, op), ErrGuardSignature)
+	wantErr(t, "chain", verifyOp(p, otherChainDomain, alice, g, op), ErrGuardSignature)
+	wantErr(t, "genesis", verifyOp(p, otherGenesisDomain, alice, g, op), ErrGuardSignature)
 	tampered := *op
 	tampered.Recipient = alice.Bytes()
-	wantErr(t, "recipient changed", VerifyOp(p, testDomain, alice, g, &tampered), ErrGuardSignature)
+	wantErr(t, "recipient changed", verifyOp(p, testDomain, alice, g, &tampered), ErrGuardSignature)
 	tampered = *op
 	tampered.Sponsor = bob.Bytes()
-	wantErr(t, "sponsor changed", VerifyOp(p, testDomain, alice, g, &tampered), ErrGuardSignature)
+	wantErr(t, "sponsor changed", verifyOp(p, testDomain, alice, g, &tampered), ErrGuardSignature)
 
 	// A CALL signed under the ACCEPT context is not a CALL signature.
 	wrongCtx := *op
@@ -230,19 +236,19 @@ func TestCheckAndVerifyOpErrors(t *testing.T) {
 	if wrongCtx.Sig, err = k.Sign([]byte(AcceptContext), EncodeCall(testDomain, alice, op)); err != nil {
 		t.Fatal(err)
 	}
-	wantErr(t, "CALL under ACCEPT context", VerifyOp(p, testDomain, alice, g, &wrongCtx), ErrGuardSignature)
+	wantErr(t, "CALL under ACCEPT context", verifyOp(p, testDomain, alice, g, &wrongCtx), ErrGuardSignature)
 
 	// ACCEPT signed for the wrong resulting owner.
 	rot := &GuardedBucketOp{BucketIndex: 7, Generation: 3, Nonce: 8, Deadline: 100, Op: OpRotate}
 	signOp(t, k, alice, rot, newTestKey(t, 2), bob)
-	wantErr(t, "accept owner", VerifyOp(p, testDomain, alice, g, rot), ErrGuardSignature)
+	wantErr(t, "accept owner", verifyOp(p, testDomain, alice, g, rot), ErrGuardSignature)
 
 	// An ACCEPT is bound to one CALL: reusing it with another CALL that has
 	// the same bucket, generation, owner and key fails, even when the current
 	// key signs the new CALL.
 	rot = &GuardedBucketOp{BucketIndex: 7, Generation: 3, Nonce: 8, Deadline: 100, Op: OpRotate}
 	signOp(t, k, alice, rot, newTestKey(t, 2), alice)
-	if err := VerifyOp(p, testDomain, alice, g, rot); err != nil {
+	if err := verifyOp(p, testDomain, alice, g, rot); err != nil {
 		t.Fatal(err)
 	}
 	other := *rot
@@ -250,7 +256,7 @@ func TestCheckAndVerifyOpErrors(t *testing.T) {
 	if other.Sig, err = k.Sign([]byte(CallContext), EncodeCall(testDomain, alice, &other)); err != nil {
 		t.Fatal(err)
 	}
-	wantErr(t, "accept reused", VerifyOp(p, testDomain, alice, g, &other), ErrGuardSignature)
+	wantErr(t, "accept reused", verifyOp(p, testDomain, alice, g, &other), ErrGuardSignature)
 }
 
 func TestCheckCandidate(t *testing.T) {
@@ -270,5 +276,41 @@ func TestNextDoesNotMutate(t *testing.T) {
 	next.PublicKey[0] = 1
 	if cur.Generation != before.Generation || cur.Nonce != before.Nonce || cur.PublicKey[0] != 0 {
 		t.Fatal("Next modified its input")
+	}
+}
+
+func TestGrant(t *testing.T) {
+	p := ParamsV1()
+	alice := testAddr(t, 0xa1)
+	k := newTestKey(t, 1)
+	g := &Guard{AlgID: alg, PublicKey: k.PublicKey().Bytes(), Generation: 3, Nonce: 8, BoundHeight: 10}
+	op := &GuardedBucketOp{BucketIndex: 7, Generation: 3, Nonce: 8, Deadline: 100, Op: OpUnstake}
+	signOp(t, k, alice, op, nil, nil)
+	grant, err := VerifyOp(p, testDomain, alice, g, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if grant.Op() != OpUnstake || !grant.Covers(7, g) {
+		t.Fatalf("grant %+v does not cover its own op", grant)
+	}
+	for name, tc := range map[string]struct {
+		index uint64
+		cur   *Guard
+	}{
+		"other bucket":    {8, g},
+		"next nonce":      {7, &Guard{AlgID: alg, PublicKey: g.PublicKey, Generation: 3, Nonce: 9}},
+		"next generation": {7, &Guard{AlgID: alg, PublicKey: g.PublicKey, Generation: 4, Nonce: 8}},
+		"tombstone":       {7, &Guard{Generation: 3, Nonce: 8}},
+		"no guard record": {7, nil},
+	} {
+		if grant.Covers(tc.index, tc.cur) {
+			t.Errorf("%s: grant covers it", name)
+		}
+	}
+	if (*Grant)(nil).Covers(7, g) {
+		t.Error("nil grant covers a write")
+	}
+	if grant, err := VerifyOp(p, otherChainDomain, alice, g, op); err == nil || grant != nil {
+		t.Fatalf("failed verification returned grant %+v, err %v", grant, err)
 	}
 }

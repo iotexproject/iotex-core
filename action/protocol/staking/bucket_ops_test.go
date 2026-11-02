@@ -116,7 +116,7 @@ func TestBucketOpsMatchBeforeQSB(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		return c.apply(ctx, csm)
+		return c.apply(ctx, csm, legacyAuth)
 	}
 	withdraw := func(ctx context.Context, p *Protocol, csm CandidateStateManager, b *VoteBucket, split bool) error {
 		acct, err := accountutil.LoadAccount(csm.SM(), b.Owner)
@@ -130,7 +130,7 @@ func TestBucketOpsMatchBeforeQSB(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		return c.apply(ctx, csm)
+		return c.apply(ctx, csm, legacyAuth)
 	}
 	changeTo := func(name string) run {
 		return func(ctx context.Context, p *Protocol, csm CandidateStateManager, b *VoteBucket, split bool) error {
@@ -142,7 +142,7 @@ func TestBucketOpsMatchBeforeQSB(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			return c.apply(ctx, csm)
+			return c.apply(ctx, csm, legacyAuth)
 		}
 	}
 	transferTo := func(to address.Address) run {
@@ -154,7 +154,7 @@ func TestBucketOpsMatchBeforeQSB(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			return c.apply(ctx, csm)
+			return c.apply(ctx, csm, legacyAuth)
 		}
 	}
 	restake := func(days uint32, autoStake bool) run {
@@ -166,7 +166,7 @@ func TestBucketOpsMatchBeforeQSB(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			return c.apply(ctx, csm)
+			return c.apply(ctx, csm, legacyAuth)
 		}
 	}
 	// Each case acts on bucket 0. Bucket 1 is candidate test1's self-stake

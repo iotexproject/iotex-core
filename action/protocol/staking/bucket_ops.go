@@ -23,7 +23,8 @@ import (
 // guarded ops of IIP-65. Each is split into a check, which runs every
 // precondition and computes the result on copies without writing any state,
 // and an apply, which only writes. A guarded op verifies its signatures
-// between the two (IIP-65 §9.2).
+// between the two (IIP-65 §9.2), and the apply carries the authority of the
+// write (§10).
 //
 // From the QSB fork (FeatureCtx.EnableBucketGuard) the legacy handlers use
 // them too. Before the fork they keep the *BeforeQSB helpers in handlers.go:
@@ -35,7 +36,7 @@ import (
 // bucketChange is the result of an operation's checks: the writes that apply
 // it.
 type bucketChange interface {
-	apply(ctx context.Context, csm CandidateStateManager) error
+	apply(ctx context.Context, csm CandidateStateManager, auth bucketAuth) error
 }
 
 // copyBucket returns a copy of b that can be changed without changing b.
@@ -113,9 +114,9 @@ func (p *Protocol) checkUnstake(ctx context.Context, csm CandidateStateManager, 
 	return &unstakeChange{index: index, bucket: next, candidate: candidate}, nil
 }
 
-func (c *unstakeChange) apply(_ context.Context, csm CandidateStateManager) error {
-	if err := csm.updateBucket(c.index, c.bucket); err != nil {
-		return errors.Wrapf(err, "failed to update bucket for voter %s", c.bucket.Owner.String())
+func (c *unstakeChange) apply(_ context.Context, csm CandidateStateManager, auth bucketAuth) error {
+	if err := csm.updateBucket(c.index, c.bucket, auth); err != nil {
+		return keepReceiptError(err, "failed to update bucket for voter %s", c.bucket.Owner.String())
 	}
 	if err := csm.Upsert(c.candidate); err != nil {
 		return csmErrorToHandleError(c.candidate.GetIdentifier().String(), err)
@@ -164,9 +165,9 @@ func (p *Protocol) checkWithdraw(ctx context.Context, csm CandidateStateManager,
 	return &withdrawChange{index: index, bucket: bucket, recipient: recipient, recipientAcct: recipientAcct}, nil
 }
 
-func (c *withdrawChange) apply(ctx context.Context, csm CandidateStateManager) error {
-	if err := csm.delBucketAndIndex(c.bucket.Owner, c.bucket.Candidate, c.index); err != nil {
-		return errors.Wrapf(err, "failed to delete bucket for candidate %s", c.bucket.Candidate.String())
+func (c *withdrawChange) apply(ctx context.Context, csm CandidateStateManager, auth bucketAuth) error {
+	if err := csm.delBucketAndIndex(c.bucket.Owner, c.bucket.Candidate, c.index, auth); err != nil {
+		return keepReceiptError(err, "failed to delete bucket for candidate %s", c.bucket.Candidate.String())
 	}
 	if err := deleteBucketGuardWithBucket(ctx, csm.SM(), c.index); err != nil {
 		return err
@@ -236,9 +237,9 @@ func (p *Protocol) checkChangeCandidate(ctx context.Context, csm CandidateStateM
 	return &changeCandidateChange{index: index, prior: bucket, bucket: next, prevCand: prevCandidate, targetCand: candidate}, nil
 }
 
-func (c *changeCandidateChange) apply(_ context.Context, csm CandidateStateManager) error {
-	if err := csm.updateBucket(c.index, c.bucket); err != nil {
-		return errors.Wrapf(err, "failed to update bucket for voter %s", c.bucket.Owner.String())
+func (c *changeCandidateChange) apply(_ context.Context, csm CandidateStateManager, auth bucketAuth) error {
+	if err := csm.updateBucket(c.index, c.bucket, auth); err != nil {
+		return keepReceiptError(err, "failed to update bucket for voter %s", c.bucket.Owner.String())
 	}
 	if err := csm.delCandBucketIndex(c.prior.Candidate, c.index); err != nil {
 		return errors.Wrapf(err, "failed to delete candidate bucket index for candidate %s", c.prior.Candidate.String())
@@ -275,9 +276,9 @@ func (p *Protocol) checkTransfer(ctx context.Context, _ CandidateStateManager, i
 	return &transferChange{index: index, prior: bucket, bucket: next}, nil
 }
 
-func (c *transferChange) apply(_ context.Context, csm CandidateStateManager) error {
-	if err := csm.updateBucket(c.index, c.bucket); err != nil {
-		return errors.Wrapf(err, "failed to update bucket for voter %s", c.bucket.Owner.String())
+func (c *transferChange) apply(_ context.Context, csm CandidateStateManager, auth bucketAuth) error {
+	if err := csm.updateBucket(c.index, c.bucket, auth); err != nil {
+		return keepReceiptError(err, "failed to update bucket for voter %s", c.bucket.Owner.String())
 	}
 	if err := csm.delVoterBucketIndex(c.prior.Owner, c.index); err != nil {
 		return errors.Wrapf(err, "failed to delete voter bucket index for voter %s", c.prior.Owner.String())
@@ -352,9 +353,9 @@ func (p *Protocol) checkRestake(ctx context.Context, csm CandidateStateManager, 
 	return &restakeChange{index: index, bucket: next, candidate: candidate}, nil
 }
 
-func (c *restakeChange) apply(_ context.Context, csm CandidateStateManager) error {
-	if err := csm.updateBucket(c.index, c.bucket); err != nil {
-		return errors.Wrapf(err, "failed to update bucket for voter %s", c.bucket.Owner.String())
+func (c *restakeChange) apply(_ context.Context, csm CandidateStateManager, auth bucketAuth) error {
+	if err := csm.updateBucket(c.index, c.bucket, auth); err != nil {
+		return keepReceiptError(err, "failed to update bucket for voter %s", c.bucket.Owner.String())
 	}
 	if err := csm.Upsert(c.candidate); err != nil {
 		return csmErrorToHandleError(c.candidate.GetIdentifier().String(), err)

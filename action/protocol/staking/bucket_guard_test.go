@@ -8,6 +8,7 @@ package staking
 import (
 	"bytes"
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -68,6 +69,124 @@ func signGuardOp(ctx context.Context, t *testing.T, k *signer.PrivateKey, owner 
 	require.NoError(t, err)
 	op.Sig = sig
 	return op
+}
+
+// grantFor verifies a CALL signed by k for op and returns its grant.
+func grantFor(ctx context.Context, t *testing.T, k *signer.PrivateKey, owner address.Address, cur *bucketguard.Guard, op *bucketguard.GuardedBucketOp) *bucketguard.Grant {
+	op = signGuardOp(ctx, t, k, owner, cur, op)
+	grant, err := bucketguard.VerifyOp(bucketguard.ParamsV1(), guardDomain(ctx), owner, cur, op)
+	require.NoError(t, err)
+	return grant
+}
+
+func requireGuarded(t *testing.T, err error) {
+	t.Helper()
+	require.Error(t, err)
+	r, ok := err.(ReceiptError)
+	require.True(t, ok, "want a receipt error, got %v", err)
+	require.Equal(t, uint64(iotextypes.ReceiptStatus_ErrBucketGuarded), r.ReceiptStatus(), err.Error())
+}
+
+// TestBucketWriteAuthorization covers the IIP-65 §10 checks in the candidate
+// state manager: bucket writes and deletions, self-stake references and
+// endorsements of a guarded bucket.
+func TestBucketWriteAuthorization(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	owner1, owner2 := identityset.Address(1), identityset.Address(2)
+	buckets := []*bucketConfig{
+		{owner1, owner2, "1200000000000000000000000", 30, false, false, nil, 0},
+		{owner1, owner2, "1200000000000000000000000", 30, false, false, nil, 0},
+	}
+	cands := []*candidateConfig{{owner1, identityset.Address(7), owner1, "test1"}}
+	k := testGuardKey(t, 1)
+	ctx := guardTestCtx(t, true, timeBlock, owner2)
+
+	newState := func() (protocol.StateManager, CandidateStateManager, *bucketguard.Guard) {
+		sm, _, _, _ := initTestStateWithHeight(t, ctrl, buckets, cands, 10)
+		cur := guardBucket(t, sm, 0, k, 1, 0)
+		csm, err := NewCandidateStateManagerWithContext(ctx, sm)
+		r.NoError(err)
+		return sm, csm, cur
+	}
+	bucket := func(csm CandidateStateManager, index uint64) *VoteBucket {
+		b, err := csm.NativeBucket(index)
+		r.NoError(err)
+		return b
+	}
+
+	t.Run("legacy authority may only add stake", func(t *testing.T) {
+		_, csm, _ := newState()
+		b := bucket(csm, 0)
+		b.StakedAmount.Add(b.StakedAmount, big.NewInt(1))
+		r.NoError(csm.updateBucket(0, b, legacyAuth))
+
+		b = bucket(csm, 0)
+		b.StakedAmount.Sub(b.StakedAmount, big.NewInt(2))
+		requireGuarded(t, csm.updateBucket(0, b, legacyAuth))
+		b = bucket(csm, 0)
+		b.Owner = identityset.Address(3)
+		requireGuarded(t, csm.updateBucket(0, b, legacyAuth))
+		requireGuarded(t, csm.delBucketAndIndex(owner2, owner1, 0, legacyAuth))
+
+		// bucket 1 is not guarded
+		b = bucket(csm, 1)
+		b.Owner = identityset.Address(3)
+		r.NoError(csm.updateBucket(1, b, legacyAuth))
+	})
+
+	t.Run("a grant covers its own bucket, counters and fields", func(t *testing.T) {
+		sm, csm, cur := newState()
+		unstake := grantFor(ctx, t, k, owner2, cur, &bucketguard.GuardedBucketOp{BucketIndex: 0, Op: bucketguard.OpUnstake})
+
+		b := bucket(csm, 0)
+		b.Owner = identityset.Address(3)
+		requireGuarded(t, csm.updateBucket(0, b, guardAuth(unstake)))
+		requireGuarded(t, csm.delBucketAndIndex(owner2, owner1, 0, guardAuth(unstake)))
+		b = bucket(csm, 0)
+		b.UnstakeStartTime = timeBlock
+		r.NoError(csm.updateBucket(0, b, guardAuth(unstake)))
+
+		// once the counters move, the grant no longer covers the bucket
+		guardBucket(t, sm, 0, k, 1, 1)
+		b = bucket(csm, 0)
+		b.UnstakeStartTime = timeBlock.Add(time.Hour)
+		requireGuarded(t, csm.updateBucket(0, b, guardAuth(unstake)))
+	})
+
+	t.Run("a withdraw grant deletes its bucket only", func(t *testing.T) {
+		sm, csm, cur := newState()
+		guardBucket(t, sm, 1, k, 1, 0)
+		withdraw := grantFor(ctx, t, k, owner2, cur, &bucketguard.GuardedBucketOp{BucketIndex: 0, Op: bucketguard.OpWithdraw, Recipient: owner2.Bytes()})
+		requireGuarded(t, csm.delBucketAndIndex(owner2, owner1, 1, guardAuth(withdraw)))
+		r.NoError(csm.delBucketAndIndex(owner2, owner1, 0, guardAuth(withdraw)))
+	})
+
+	t.Run("a guarded bucket cannot become a self-stake bucket", func(t *testing.T) {
+		_, csm, _ := newState()
+		c := csm.GetByName("test1")
+		c.SelfStakeBucketIdx = 0
+		requireGuarded(t, csm.Upsert(c))
+		c.SelfStakeBucketIdx = 1
+		r.NoError(csm.Upsert(c))
+	})
+
+	t.Run("a guarded bucket cannot be endorsed", func(t *testing.T) {
+		sm, _, _ := newState()
+		requireGuarded(t, NewEndorsementStateManager(sm).enforceBucketGuard(true).Put(0, &Endorsement{ExpireHeight: 100}))
+		r.NoError(NewEndorsementStateManager(sm).enforceBucketGuard(true).Put(1, &Endorsement{ExpireHeight: 100}))
+	})
+
+	t.Run("nothing is enforced before the fork", func(t *testing.T) {
+		sm, _, _, _ := initTestStateWithHeight(t, ctrl, buckets, cands, 10)
+		guardBucket(t, sm, 0, k, 1, 0)
+		csm, err := NewCandidateStateManagerWithContext(guardTestCtx(t, false, timeBlock, owner2), sm)
+		r.NoError(err)
+		b := bucket(csm, 0)
+		b.Owner = identityset.Address(3)
+		r.NoError(csm.updateBucket(0, b, legacyAuth))
+		r.NoError(NewEndorsementStateManager(sm).Put(0, &Endorsement{ExpireHeight: 100}))
+	})
 }
 
 // TestGuardedOpVerifiesBeforeWriting checks IIP-65 §9.2: a guarded op whose

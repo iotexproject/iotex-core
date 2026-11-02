@@ -154,7 +154,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		if err != nil {
 			return log, err
 		}
-		if err := change.apply(ctx, csm); err != nil {
+		if err := change.apply(ctx, csm, legacyAuth); err != nil {
 			return log, err
 		}
 	} else if err := p.unstakeBucketBeforeQSB(ctx, csm, act.BucketIndex(), bucket); err != nil {
@@ -207,7 +207,7 @@ func (p *Protocol) unstakeBucketBeforeQSB(ctx context.Context, csm CandidateStat
 	if featureCtx.UnstakedButNotClearSelfStakeAmount {
 		// update bucket
 		bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
-		if err := csm.updateBucket(index, bucket); err != nil {
+		if err := csm.updateBucket(index, bucket, legacyAuth); err != nil {
 			return errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 		}
 	}
@@ -227,7 +227,7 @@ func (p *Protocol) unstakeBucketBeforeQSB(ctx context.Context, csm CandidateStat
 	if !featureCtx.UnstakedButNotClearSelfStakeAmount {
 		// update bucket
 		bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
-		if err := csm.updateBucket(index, bucket); err != nil {
+		if err := csm.updateBucket(index, bucket, legacyAuth); err != nil {
 			return errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 		}
 	}
@@ -277,7 +277,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		if err != nil {
 			return log, nil, err
 		}
-		if err := change.apply(ctx, csm); err != nil {
+		if err := change.apply(ctx, csm, legacyAuth); err != nil {
 			return log, nil, err
 		}
 	} else if err := p.withdrawStakedBucketBeforeQSB(ctx, csm, act.BucketIndex(), bucket, actionCtx.Caller, withdrawer); err != nil {
@@ -330,7 +330,7 @@ func (p *Protocol) withdrawStakedBucketBeforeQSB(ctx context.Context, csm Candid
 	}
 
 	// delete bucket and bucket index
-	if err := csm.delBucketAndIndex(bucket.Owner, bucket.Candidate, index); err != nil {
+	if err := csm.delBucketAndIndex(bucket.Owner, bucket.Candidate, index, legacyAuth); err != nil {
 		return errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
 	}
 
@@ -390,7 +390,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		if err != nil {
 			return log, err
 		}
-		if err := change.apply(ctx, csm); err != nil {
+		if err := change.apply(ctx, csm, legacyAuth); err != nil {
 			return log, err
 		}
 	} else if err := p.changeBucketCandidateBeforeQSB(ctx, csm, act.BucketIndex(), bucket, candidate); err != nil {
@@ -437,7 +437,7 @@ func (p *Protocol) changeBucketCandidateBeforeQSB(ctx context.Context, csm Candi
 	}
 	// update bucket
 	bucket.Candidate = candidate.GetIdentifier()
-	if err := csm.updateBucket(index, bucket); err != nil {
+	if err := csm.updateBucket(index, bucket, legacyAuth); err != nil {
 		return errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
@@ -512,7 +512,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 		if err != nil {
 			return log, err
 		}
-		if err := change.apply(ctx, csm); err != nil {
+		if err := change.apply(ctx, csm, legacyAuth); err != nil {
 			return log, err
 		}
 	} else if err := p.transferBucketOwnerBeforeQSB(ctx, csm, act.BucketIndex(), bucket, newOwner); err != nil {
@@ -547,7 +547,7 @@ func (p *Protocol) transferBucketOwnerBeforeQSB(ctx context.Context, csm Candida
 
 	// update bucket
 	bucket.Owner = newOwner
-	if err := csm.updateBucket(index, bucket); err != nil {
+	if err := csm.updateBucket(index, bucket, legacyAuth); err != nil {
 		return errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
@@ -637,7 +637,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	prevWeightedVotes := p.calculateVoteWeight(bucket, selfStake)
 	// update bucket
 	bucket.StakedAmount.Add(bucket.StakedAmount, act.Amount())
-	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
+	if err := csm.updateBucket(act.BucketIndex(), bucket, legacyAuth); err != nil {
 		return log, nil, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
@@ -723,7 +723,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 		if err != nil {
 			return log, err
 		}
-		if err := change.apply(ctx, csm); err != nil {
+		if err := change.apply(ctx, csm, legacyAuth); err != nil {
 			return log, err
 		}
 	} else if err := p.restakeBucketBeforeQSB(ctx, csm, act.BucketIndex(), bucket, act.Duration(), act.AutoStake()); err != nil {
@@ -780,7 +780,7 @@ func (p *Protocol) restakeBucketBeforeQSB(ctx context.Context, csm CandidateStat
 	bucket.StakedDuration = actDuration
 	bucket.StakeStartTime = blkCtx.BlockTimeStamp.UTC()
 	bucket.AutoStake = autoStake
-	if err := csm.updateBucket(index, bucket); err != nil {
+	if err := csm.updateBucket(index, bucket, legacyAuth); err != nil {
 		return errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 

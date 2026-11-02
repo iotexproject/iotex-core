@@ -43,6 +43,7 @@ Wired behind `FeatureCtx.EnableBucketGuard` (= `ToBeEnabled && ZanzibarGamma`):
 | Bind / guarded-op handlers, receipts, BucketGuard event | `staking/bucket_guard.go` | done |
 | Legacy-path rejection (§10), tombstone deletion with the bucket | `staking/handlers.go`, `handler_*.go` | done |
 | Verify before writing (§9.2): each shared bucket operation split into a check and an apply | `staking/bucket_ops.go` | done; legacy actions use it from the QSB fork, and keep the original `*BeforeQSB` helpers before it |
+| Write layer (§10): bucket writes carry a `bucketAuth` (legacy, or a `Grant` from `VerifyOp`); self-stake and endorsement writes refuse guarded buckets | `staking/candidate_statemanager.go`, `bucket_guard.go` | done |
 | Query API for the guard record | `ReadStakingData` `BUCKET_GUARD`, eth_call `bucketGuard(uint64)` | done |
 | e2e | `e2etest/bucket_guard_test.go` | done |
 | Fuzzing of action decoding, ACVP, linux/amd64 benchmarks, audit | — | open |
