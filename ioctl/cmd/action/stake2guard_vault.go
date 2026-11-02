@@ -367,7 +367,7 @@ func scanKeyring(kr *qsb.Keyring, pub *pqcrypto.PublicKey, first, window uint32)
 		return 0, false, output.NewError(output.CryptoError, "", err)
 	}
 	if !output.Quiet && output.Format == "" && window > 64 {
-		fmt.Printf("Searched key indices %d..%d in %v\n", first, last, time.Since(start).Round(time.Millisecond))
+		fmt.Printf("Key search (indices %d..%d) took %v\n", first, last, time.Since(start).Round(time.Millisecond))
 	}
 	return idx, ok, nil
 }
