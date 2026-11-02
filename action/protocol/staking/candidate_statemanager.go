@@ -67,6 +67,9 @@ type (
 		HasBLSPubKeyOtherThan(blsPubKey []byte, self address.Address) bool
 		Upsert(*Candidate) error
 		CreditBucketPool(*big.Int, bool) error
+		// checkCreditBucketPool reports the error CreditBucketPool would
+		// return, without changing the pool.
+		checkCreditBucketPool(*big.Int, bool) error
 		DebitBucketPool(*big.Int, bool) error
 		Commit(context.Context) error
 		SM() protocol.StateManager
@@ -198,6 +201,10 @@ func (csm *candSM) upsert(d *Candidate) error {
 
 func (csm *candSM) CreditBucketPool(amount *big.Int, deleteBucket bool) error {
 	return csm.bucketPool.CreditPool(csm.StateManager, amount, deleteBucket)
+}
+
+func (csm *candSM) checkCreditBucketPool(amount *big.Int, _ bool) error {
+	return csm.bucketPool.total.checkSubBalance(amount)
 }
 
 func (csm *candSM) DebitBucketPool(amount *big.Int, newBucket bool) error {

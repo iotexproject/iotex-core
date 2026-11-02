@@ -42,7 +42,7 @@ Wired behind `FeatureCtx.EnableBucketGuard` (= `ToBeEnabled && ZanzibarGamma`):
 | Guard record state (`_bucketGuard`), Erigon `Encode`/`Decode` | `staking/bucket_guard.go` | done; e2e on the Erigon backend incl. historical reads |
 | Bind / guarded-op handlers, receipts, BucketGuard event | `staking/bucket_guard.go` | done |
 | Legacy-path rejection (§10), tombstone deletion with the bucket | `staking/handlers.go`, `handler_*.go` | done |
-| Shared bucket effects for legacy and guarded ops | `staking/handlers.go` | done (moved verbatim) |
+| Verify before writing (§9.2): each shared bucket operation split into a check and an apply | `staking/bucket_ops.go` | done; legacy actions use it from the QSB fork, and keep the original `*BeforeQSB` helpers before it |
 | Query API for the guard record | `ReadStakingData` `BUCKET_GUARD`, eth_call `bucketGuard(uint64)` | done |
 | e2e | `e2etest/bucket_guard_test.go` | done |
 | Fuzzing of action decoding, ACVP, linux/amd64 benchmarks, audit | — | open |

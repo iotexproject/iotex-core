@@ -56,10 +56,10 @@ func AuthorizeBind(p Params, d Domain, owner address.Address, scope BindScope, c
 	}, nil
 }
 
-// CheckOp runs IIP §9.2 steps 2–3 on the guard record: the bucket must be
+// CheckOp runs the guard part of IIP §9.2 steps 2 and 4: the bucket must be
 // guarded, the op must match the stored generation and nonce, the deadline
 // must not have passed, and no counter may overflow. Call it before the
-// op-specific staking preconditions (step 4) and before VerifyOp (step 5).
+// op-specific staking preconditions (step 5) and before VerifyOp (step 6).
 func CheckOp(cur *Guard, op *GuardedBucketOp, height uint64) error {
 	if !cur.IsGuarded() {
 		return fmt.Errorf("%w: bucket %d", ErrBucketNotGuarded, op.BucketIndex)
@@ -78,7 +78,7 @@ func CheckOp(cur *Guard, op *GuardedBucketOp, height uint64) error {
 	return nil
 }
 
-// CheckCandidate is the CHANGE_CANDIDATE precondition of IIP §9.2 step 4:
+// CheckCandidate is the CHANGE_CANDIDATE precondition of IIP §9.2 step 5:
 // the candidate the staking protocol resolved from op.CandidateName at
 // execution time must be the one the owner signed for.
 func (m *GuardedBucketOp) CheckCandidate(resolved address.Address) error {
@@ -88,7 +88,7 @@ func (m *GuardedBucketOp) CheckCandidate(resolved address.Address) error {
 	return nil
 }
 
-// VerifyOp runs IIP §9.2 step 5: the CALL signature by the current key and,
+// VerifyOp runs IIP §9.2 step 6: the CALL signature by the current key and,
 // when the op installs a new key, the ACCEPT signature by that key over the
 // hash of this CALL. owner is the bucket owner at execution time.
 func VerifyOp(p Params, d Domain, owner address.Address, cur *Guard, op *GuardedBucketOp) error {

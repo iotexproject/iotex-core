@@ -246,16 +246,14 @@ func (p *Protocol) handleBindBucketGuard(ctx context.Context, act *action.BindBu
 // handleGuardedBucketOp follows IIP §9.2:
 //
 //  2. the bucket exists, is native and guarded;
-//  3. generation, nonce and deadline match (bucketguard.CheckOp);
-//  4. the op's staking preconditions, through the same helpers as the legacy
-//     handlers, which also apply the bucket effect (step 6);
-//  5. the CALL and ACCEPT signatures (bucketguard.VerifyOp);
-//  9. the guard record transition (bucketguard.Next).
+//  4. generation, nonce and deadline match (bucketguard.CheckOp);
+//  5. the op's staking preconditions, checked on copies by the same check
+//     functions the legacy handlers use from the QSB fork (bucket_ops.go);
+//  6. the CALL and ACCEPT signatures (bucketguard.VerifyOp);
+//  7. the bucket writes, and the guard record transition (bucketguard.Next).
 //
-// Applying the effect together with step 4 keeps one implementation per
-// operation. If step 5 then fails, the staking snapshot discards the effect
-// (EnableBucketGuard requires RevertStakingStateOnFailedReceipt), so the
-// outcome and the receipt status are those of the IIP order.
+// Nothing is written before step 6 succeeds. The staking snapshot still
+// covers a failure after it.
 func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.GuardedBucketOp, csm CandidateStateManager,
 ) (*receiptLog, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
@@ -277,37 +275,31 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 	if err != nil {
 		return log, nil, err
 	}
-	// step 3
+	// step 4
 	if err := bucketguard.CheckOp(cur, op, height); err != nil {
 		return log, nil, guardReceiptError(err)
 	}
 	// The CALL commits to the owner at execution time, before any effect.
 	owner := bucket.Owner
 
-	// steps 4 and 6
+	// step 5
 	var (
-		tLogs        []*action.TransactionLog
+		change       bucketChange
 		counterparty address.Address
 	)
 	switch op.Op {
 	case bucketguard.OpUnstake:
-		err = p.unstakeBucket(ctx, csm, index, bucket)
+		change, err = p.checkUnstake(ctx, csm, index, bucket)
 	case bucketguard.OpWithdraw:
-		counterparty, err = address.FromBytes(op.Recipient)
-		if err != nil {
+		if counterparty, err = address.FromBytes(op.Recipient); err != nil {
 			return log, nil, guardReceiptError(errors.Wrap(bucketguard.ErrMalformed, err.Error()))
 		}
-		var tLog *action.TransactionLog
-		tLog, err = p.guardedWithdraw(ctx, csm, index, bucket, counterparty)
-		if tLog != nil {
-			tLogs = append(tLogs, tLog)
-		}
+		change, err = p.checkGuardedWithdraw(ctx, csm, index, bucket, counterparty)
 	case bucketguard.OpTransfer:
-		counterparty, err = address.FromBytes(op.NewOwner)
-		if err != nil {
+		if counterparty, err = address.FromBytes(op.NewOwner); err != nil {
 			return log, nil, guardReceiptError(errors.Wrap(bucketguard.ErrMalformed, err.Error()))
 		}
-		err = p.transferBucketOwner(ctx, csm, index, bucket, counterparty)
+		change, err = p.checkTransfer(ctx, csm, index, bucket, counterparty)
 	case bucketguard.OpChangeCandidate:
 		candidate := csm.GetByName(op.CandidateName)
 		if candidate == nil {
@@ -316,10 +308,11 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 		if err := op.CheckCandidate(candidate.GetIdentifier()); err != nil {
 			return log, nil, guardReceiptError(err)
 		}
-		err = p.changeBucketCandidate(ctx, csm, index, bucket, candidate)
+		change, err = p.checkChangeCandidate(ctx, csm, index, bucket, candidate)
 	case bucketguard.OpRestake:
-		err = p.restakeBucket(ctx, csm, index, bucket, op.Duration, op.AutoStake)
+		change, err = p.checkRestake(ctx, csm, index, bucket, op.Duration, op.AutoStake)
 	case bucketguard.OpRotate:
+		// no bucket change
 	default:
 		err = guardReceiptError(errors.Wrapf(bucketguard.ErrMalformed, "unknown op %d", uint32(op.Op)))
 	}
@@ -327,12 +320,27 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 		return log, nil, err
 	}
 
-	// step 5
+	// step 6
 	if err := bucketguard.VerifyOp(bucketguard.ParamsV1(), guardDomain(ctx), owner, cur, op); err != nil {
 		return log, nil, guardReceiptError(err)
 	}
 
-	// step 9: WITHDRAW already removed the record together with the bucket.
+	// step 7
+	var tLogs []*action.TransactionLog
+	if change != nil {
+		if err := change.apply(ctx, csm); err != nil {
+			return log, nil, err
+		}
+	}
+	if op.Op == bucketguard.OpWithdraw {
+		tLogs = append(tLogs, &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_WITHDRAW_BUCKET,
+			Sender:    address.StakingBucketPoolAddr,
+			Recipient: counterparty.String(),
+			Amount:    new(big.Int).Set(bucket.StakedAmount),
+		})
+	}
+	// WITHDRAW removed the record together with the bucket.
 	next, deleted := bucketguard.Next(cur, op, height)
 	if !deleted {
 		if err := putBucketGuard(csm.SM(), index, next); err != nil {
@@ -345,26 +353,20 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 	return log, tLogs, nil
 }
 
-// guardedWithdraw withdraws bucket to recipient instead of the action sender.
-func (p *Protocol) guardedWithdraw(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket, recipient address.Address,
-) (*action.TransactionLog, error) {
+// checkGuardedWithdraw checks a guarded withdrawal of bucket to recipient,
+// which, unlike the legacy WithdrawStake, need not be the sender. A missing
+// recipient account is created in memory only; the apply stores it.
+func (p *Protocol) checkGuardedWithdraw(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket, recipient address.Address,
+) (*withdrawChange, error) {
 	opts := []state.AccountCreationOption{}
 	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
 		opts = append(opts, state.LegacyNonceAccountTypeOption())
 	}
-	acct, err := accountutil.LoadOrCreateAccount(csm.SM(), recipient, opts...)
+	acct, err := accountutil.LoadAccount(csm.SM(), recipient, opts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account %s", recipient.String())
 	}
-	if err := p.withdrawStakedBucket(ctx, csm, index, bucket, recipient, acct); err != nil {
-		return nil, err
-	}
-	return &action.TransactionLog{
-		Type:      iotextypes.TransactionLogType_WITHDRAW_BUCKET,
-		Sender:    address.StakingBucketPoolAddr,
-		Recipient: recipient.String(),
-		Amount:    new(big.Int).Set(bucket.StakedAmount),
-	}, nil
+	return p.checkWithdraw(ctx, csm, index, bucket, recipient, acct)
 }
 
 // addBucketGuardEvent emits the single IIP §11 event of a successful bind or

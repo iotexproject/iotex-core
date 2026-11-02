@@ -183,8 +183,10 @@ Execution:
 6. For CHANGE_CANDIDATE, resolve `candidateName` at execution time and require
    its identifier equals `expectedCandidateID` (`ErrCandidateMismatch`).
 7. Verify the CALL signature with the current key (`ErrGuardSignature`). Verify
-   ACCEPT if `newGuard` is present (`ErrGuardSignature`).
-8. Apply the bucket effect through existing staking helpers. The outer ECDSA
+   ACCEPT if `newGuard` is present (`ErrGuardSignature`). Steps 5 and 6 run the
+   check half of the shared operations (`staking/bucket_ops.go`) and write
+   nothing.
+8. Apply the bucket effect (the apply half). The outer ECDSA
    sender is only a sponsor: it pays gas and advances its own account nonce.
 9. Update/delete the guard record per the transition table; emit exactly one
    guard event; settle.

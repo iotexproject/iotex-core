@@ -85,12 +85,21 @@ func (t *totalAmount) AddBalance(amount *big.Int, newBucket bool) {
 }
 
 func (t *totalAmount) SubBalance(amount *big.Int, deleteBucket bool) error {
-	if amount.Cmp(t.amount) == 1 || t.count == 0 {
-		return state.ErrNotEnoughBalance
+	if err := t.checkSubBalance(amount); err != nil {
+		return err
 	}
 	t.amount.Sub(t.amount, amount)
 	if deleteBucket {
 		t.count--
+	}
+	return nil
+}
+
+// checkSubBalance reports the error SubBalance would return, without
+// changing t.
+func (t *totalAmount) checkSubBalance(amount *big.Int) error {
+	if amount.Cmp(t.amount) == 1 || t.count == 0 {
+		return state.ErrNotEnoughBalance
 	}
 	return nil
 }

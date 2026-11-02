@@ -149,7 +149,15 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	if err := p.rejectGuardedBucket(ctx, csm, act.BucketIndex()); err != nil {
 		return log, err
 	}
-	if err := p.unstakeBucket(ctx, csm, act.BucketIndex(), bucket); err != nil {
+	if featureCtx.EnableBucketGuard {
+		change, err := p.checkUnstake(ctx, csm, act.BucketIndex(), bucket)
+		if err != nil {
+			return log, err
+		}
+		if err := change.apply(ctx, csm); err != nil {
+			return log, err
+		}
+	} else if err := p.unstakeBucketBeforeQSB(ctx, csm, act.BucketIndex(), bucket); err != nil {
 		return log, err
 	}
 
@@ -157,10 +165,11 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	return log, nil
 }
 
-// unstakeBucket checks and applies an unstake of bucket. It is shared by the
-// legacy Unstake and the guarded UNSTAKE op, which differ only in how the
-// caller is authorized.
-func (p *Protocol) unstakeBucket(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket) error {
+// unstakeBucketBeforeQSB checks and applies an unstake of bucket for the
+// legacy Unstake before the QSB fork; from the fork on, checkUnstake and its
+// apply replace it (bucket_ops.go). Keep it unchanged: before ZanzibarGamma a
+// failed receipt kept the writes made before the failing check.
+func (p *Protocol) unstakeBucketBeforeQSB(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	candidate := csm.GetByIdentifier(bucket.Candidate)
@@ -263,7 +272,15 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	if err := p.rejectGuardedBucket(ctx, csm, act.BucketIndex()); err != nil {
 		return log, nil, err
 	}
-	if err := p.withdrawStakedBucket(ctx, csm, act.BucketIndex(), bucket, actionCtx.Caller, withdrawer); err != nil {
+	if featureCtx.EnableBucketGuard {
+		change, err := p.checkWithdraw(ctx, csm, act.BucketIndex(), bucket, actionCtx.Caller, withdrawer)
+		if err != nil {
+			return log, nil, err
+		}
+		if err := change.apply(ctx, csm); err != nil {
+			return log, nil, err
+		}
+	} else if err := p.withdrawStakedBucketBeforeQSB(ctx, csm, act.BucketIndex(), bucket, actionCtx.Caller, withdrawer); err != nil {
 		return log, nil, err
 	}
 
@@ -282,11 +299,11 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}, nil
 }
 
-// withdrawStakedBucket checks and applies a withdrawal of bucket, crediting
-// recipient (whose loaded account is recipientAcct). It is shared by the legacy
-// WithdrawStake, which pays the caller, and the guarded WITHDRAW op, which pays
-// the signed recipient.
-func (p *Protocol) withdrawStakedBucket(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket, recipient address.Address, recipientAcct *state.Account) error {
+// withdrawStakedBucketBeforeQSB checks and applies a withdrawal of bucket,
+// crediting recipient (whose loaded account is recipientAcct), for the legacy
+// WithdrawStake before the QSB fork; from the fork on, checkWithdraw and its
+// apply replace it. Keep it unchanged (see unstakeBucketBeforeQSB).
+func (p *Protocol) withdrawStakedBucketBeforeQSB(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket, recipient address.Address, recipientAcct *state.Account) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	// check unstake time
@@ -315,9 +332,6 @@ func (p *Protocol) withdrawStakedBucket(ctx context.Context, csm CandidateStateM
 	// delete bucket and bucket index
 	if err := csm.delBucketAndIndex(bucket.Owner, bucket.Candidate, index); err != nil {
 		return errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
-	}
-	if err := deleteBucketGuardWithBucket(ctx, csm.SM(), index); err != nil {
-		return err
 	}
 
 	// update bucket pool
@@ -371,7 +385,15 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), candidate.GetIdentifier().Bytes())
 
-	if err := p.changeBucketCandidate(ctx, csm, act.BucketIndex(), bucket, candidate); err != nil {
+	if featureCtx.EnableBucketGuard {
+		change, err := p.checkChangeCandidate(ctx, csm, act.BucketIndex(), bucket, candidate)
+		if err != nil {
+			return log, err
+		}
+		if err := change.apply(ctx, csm); err != nil {
+			return log, err
+		}
+	} else if err := p.changeBucketCandidateBeforeQSB(ctx, csm, act.BucketIndex(), bucket, candidate); err != nil {
 		return log, err
 	}
 
@@ -380,10 +402,11 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	return log, nil
 }
 
-// changeBucketCandidate checks and applies moving bucket's votes to
-// candidate. It is shared by the legacy ChangeCandidate and the guarded
-// CHANGE_CANDIDATE op.
-func (p *Protocol) changeBucketCandidate(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket, candidate *Candidate) error {
+// changeBucketCandidateBeforeQSB checks and applies moving bucket's votes to
+// candidate for the legacy ChangeCandidate before the QSB fork; from the fork
+// on, checkChangeCandidate and its apply replace it. Keep it unchanged (see
+// unstakeBucketBeforeQSB).
+func (p *Protocol) changeBucketCandidateBeforeQSB(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket, candidate *Candidate) error {
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	prevCandidate := csm.GetByIdentifier(bucket.Candidate)
 	if prevCandidate == nil {
@@ -484,7 +507,15 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), act.VoterAddress().Bytes(), bucket.Candidate.Bytes())
 
-	if err := p.transferBucketOwner(ctx, csm, act.BucketIndex(), bucket, newOwner); err != nil {
+	if featureCtx.EnableBucketGuard {
+		change, err := p.checkTransfer(ctx, csm, act.BucketIndex(), bucket, newOwner)
+		if err != nil {
+			return log, err
+		}
+		if err := change.apply(ctx, csm); err != nil {
+			return log, err
+		}
+	} else if err := p.transferBucketOwnerBeforeQSB(ctx, csm, act.BucketIndex(), bucket, newOwner); err != nil {
 		return log, err
 	}
 
@@ -492,10 +523,11 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	return log, nil
 }
 
-// transferBucketOwner checks and applies transferring bucket to newOwner. It
-// is shared by the legacy TransferStake (including consignment) and the
-// guarded TRANSFER op.
-func (p *Protocol) transferBucketOwner(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket, newOwner address.Address) error {
+// transferBucketOwnerBeforeQSB checks and applies transferring bucket to
+// newOwner for the legacy TransferStake (including consignment) before the QSB
+// fork; from the fork on, checkTransfer and its apply replace it. Keep it
+// unchanged (see unstakeBucketBeforeQSB).
+func (p *Protocol) transferBucketOwnerBeforeQSB(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket, newOwner address.Address) error {
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	if featureCtx.CannotTranferToSelf && address.Equal(newOwner, bucket.Owner) {
 		// change to same owner, do nothing
@@ -686,7 +718,15 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	if err := p.rejectGuardedBucket(ctx, csm, act.BucketIndex()); err != nil {
 		return log, err
 	}
-	if err := p.restakeBucket(ctx, csm, act.BucketIndex(), bucket, act.Duration(), act.AutoStake()); err != nil {
+	if featureCtx.EnableBucketGuard {
+		change, err := p.checkRestake(ctx, csm, act.BucketIndex(), bucket, act.Duration(), act.AutoStake())
+		if err != nil {
+			return log, err
+		}
+		if err := change.apply(ctx, csm); err != nil {
+			return log, err
+		}
+	} else if err := p.restakeBucketBeforeQSB(ctx, csm, act.BucketIndex(), bucket, act.Duration(), act.AutoStake()); err != nil {
 		return log, err
 	}
 
@@ -694,9 +734,10 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	return log, nil
 }
 
-// restakeBucket checks and applies a restake of bucket. It is shared by the
-// legacy Restake and the guarded RESTAKE op.
-func (p *Protocol) restakeBucket(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket, duration uint32, autoStake bool) error {
+// restakeBucketBeforeQSB checks and applies a restake of bucket for the legacy
+// Restake before the QSB fork; from the fork on, checkRestake and its apply
+// replace it. Keep it unchanged (see unstakeBucketBeforeQSB).
+func (p *Protocol) restakeBucketBeforeQSB(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket, duration uint32, autoStake bool) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	candidate := csm.GetByIdentifier(bucket.Candidate)
