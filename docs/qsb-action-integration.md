@@ -175,11 +175,19 @@ Execution:
 
 1. Snapshot the state manager.
 2. `fetchBucket`; absent = `ErrInvalidBucketIndex`.
-3. Require a guarded record (`ErrBucketNotGuarded`).
-4. Require `generation` and `nonce` equal stored values, no counter overflow, and
-   `blockHeight <= deadline` (`ErrGuardMismatch`).
+3. Require a guarded record (`ErrBucketNotGuarded`). If `sponsor` is
+   non-empty, require the outer sender to equal it (`ErrUnauthorizedOperator`).
+4. Require `generation` and `nonce` equal stored values, no counter overflow,
+   `anchorHeight <= blockHeight <= deadline`, `deadline <= anchorHeight +
+   MAX_DEADLINE_WINDOW`, then (only when the heights pass) that block
+   `anchorHeight` has hash `anchorHash` (`ErrGuardMismatch`). The hash comes
+   from `BlockchainCtx.GetBlockHash`; a failed read aborts the block, and an
+   anchor at the current height fails without a lookup.
 5. Run op-specific preconditions through the existing handlers/helpers. Do not
    duplicate maturity, auto-stake, endorsement, duration, or candidate checks.
+   For TRANSFER, `newOwner` must differ from the owner, and with `clearGuard`
+   must not have contract code or be a native protocol address
+   (`ErrGuardScope`).
 6. For CHANGE_CANDIDATE, resolve `candidateName` at execution time and require
    its identifier equals `expectedCandidateID` (`ErrCandidateMismatch`).
 7. Verify the CALL signature with the current key (`ErrGuardSignature`). Verify
@@ -192,7 +200,8 @@ Execution:
 9. Update/delete the guard record per the transition table; emit exactly one
    guard event; settle.
 
-Mapping to `bucketguard`: steps 3–4 are `CheckOp(cur, act, height)`; step 6 is
+Mapping to `bucketguard`: steps 3–4 are `CheckOp(p, cur, act, OpEnv{Height,
+Sender, BlockHash})`; step 6 is
 `act.CheckCandidate(resolvedID)`; step 7 is `VerifyOp(p, domain, owner, cur,
 act)`; step 9 is `Next(cur, act, height)`. Step 5 also covers the staking
 sanity checks the guard layer does not repeat: `validateRestake` for RESTAKE
@@ -202,9 +211,10 @@ and `action.IsValidCandidateName` for CHANGE_CANDIDATE, run in
 Error mapping is one table keyed with `errors.Is`: `ErrMalformed` makes the
 action invalid (not includable); `ErrBucketGuarded`, `ErrBucketNotGuarded`,
 `ErrGuardMismatch`, `ErrGuardSignature`, `ErrGuardScope` and
-`ErrCandidateMismatch` map to the receipt statuses of IIP §9.5.
+`ErrCandidateMismatch` map to the receipt statuses of IIP §9.5, and
+`ErrSponsorMismatch` to `ErrUnauthorizedOperator` (203).
 
-The sponsor may be any account. Do not pass a general "guard authorized" flag
+The sponsor may be any account unless the op binds one. Do not pass a general "guard authorized" flag
 into legacy handlers; pass an explicit authorization scoped to
 `(bucketIndex, generation, op)`, and always act on `act.BucketIndex()`.
 
@@ -275,10 +285,11 @@ reverts are fatal block-processing errors, not failed receipts.
 Emit one guard event per successful bind/op:
 
 ```text
-topic[0] = 0x73a1cc2c5c34de8d095f5003eb096fa77f44357dd83dcea0225ca286942426ec
+topic[0] = 0x4f1fdf0147920455e35f6845574ab0c83ec3a3a8dd8f8c5fcce1be972acc5a49
 topic[1] = uint64_be(bucketIndex), 32-byte left-padded
 topic[2] = uint64_be(op), 32-byte left-padded; 0 = BIND
-data     = uint64_be(generation) || uint64_be(nonce) || sponsor[20] || counterparty[20]
+topic[3] = guardKeyID = SHA-256(uint32_be(algID) || publicKey) after the action; zero without a key
+data     = abi.encode(uint64 generation, uint64 nonce, address sponsor, address counterparty)
 ```
 
 Do not emit the legacy per-handler logs for guarded ops. Keep gas-fee logs on

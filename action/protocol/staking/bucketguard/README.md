@@ -37,23 +37,26 @@ Wired behind `FeatureCtx.EnableBucketGuard` (= `ToBeEnabled && ZanzibarGamma`):
 
 | Item | Where | Status |
 |---|---|---|
-| Protobuf messages, `ActionCore` oneof 59/60, receipt statuses 216–221 | iotex-proto `qsb/actions` | draft; `go.mod` replaces iotex-proto locally — **must be released before merge** |
+| Protobuf messages, `ActionCore` oneof 59/60, receipt statuses 216–221; Draft 4 `sponsor`/`anchorHeight`/`anchorHash` (15–17) | iotex-proto `qsb/actions` | draft; `go.mod` replaces iotex-proto locally — **must be released before merge** |
 | Action types, envelope, web3 builder | `action/bucket_guard.go` | done |
 | Fork gate | `action/protocol/context.go` | done (WIP height `ToBeEnabled`; name and height to be chosen by maintainers) |
 | Guard record state (`_bucketGuard`), Erigon `Encode`/`Decode` | `staking/bucket_guard.go` | done; e2e on the Erigon backend incl. historical reads |
-| Bind / guarded-op handlers, receipts, BucketGuard event | `staking/bucket_guard.go` | done |
+| Bind / guarded-op handlers, receipts, BucketGuard event with `guardKeyID` topic | `staking/bucket_guard.go` | done (Draft 4) |
+| Draft 4 anchor (§6, §9.2 step 4), SHA-512 `callHash` (§7), sponsor binding (step 3, 203) | `bucketguard` (`CheckOp`, transcripts), `staking/bucket_guard.go` | done |
+| Address rules (§6): non-zero 20-byte recipient/newOwner/sponsor; TRANSFER `newOwner` ≠ owner; `clearGuard` not to a contract or native protocol address | `bucketguard/validate.go`, `staking/bucket_guard.go` | done |
+| `BUCKETS_BY_GUARD_KEY` node index (MAY in Draft 4) | — | not implemented; indexers use the event's `guardKeyID` topic |
 | Legacy-path rejection (§10), tombstone deletion with the bucket | `staking/handlers.go`, `handler_*.go` | done |
 | Verify before writing (§9.2): each shared bucket operation split into a check and an apply | `staking/bucket_ops.go` | done; legacy actions use it from the QSB fork, and keep the original `*BeforeQSB` helpers before it |
 | Write layer (§10): bucket writes carry a `bucketAuth` (legacy, or a `Grant` from `VerifyOp`); self-stake and endorsement writes refuse guarded buckets | `staking/candidate_statemanager.go`, `bucket_guard.go` | done |
 | Query API for the guard record | `ReadStakingData` `BUCKET_GUARD`, eth_call `bucketGuard(uint64)` | done |
 | e2e | `e2etest/bucket_guard_test.go` | done |
-| Wallet CLI: vault, bind, guarded ops, offline signing ([guide](../../../../docs/qsb-ioctl.md)) | `ioctl stake2 guard` (`ioctl/qsb`, `ioctl/cmd/action/stake2guard*.go`) | done |
+| Wallet CLI: vault, bind, guarded ops, offline signing, anchor and `--sponsor` ([guide](../../../../docs/qsb-ioctl.md)) | `ioctl stake2 guard` (`ioctl/qsb`, `ioctl/cmd/action/stake2guard*.go`) | done (request file v2) |
 | Fuzzing of action decoding, ACVP, linux/amd64 benchmarks, audit | — | open |
 
 ## Staking rules are not duplicated
 
-The guard layer checks only what belongs to the guard: sizes, deadline,
-algorithms and which fields each op carries. The staking rules of the
+The guard layer checks only what belongs to the guard: sizes, deadline and
+anchor, addresses, algorithms and which fields each op carries. The staking rules of the
 underlying operation (restake duration bound, candidate-name format) are
 applied by the staking protocol with its existing checks, so guarded and
 legacy actions cannot drift apart. In particular RESTAKE accepts any duration
@@ -71,10 +74,11 @@ IIP-59 compounding that arrived after signing.
 - **ClearGuard is an opt-out:** a guard-signed TRANSFER with `clearGuard`
   returns the bucket to ECDSA control. A later legacy withdraw or migration
   deletes the tombstone. This is not a lost-key recovery path.
-- **Signed ops are bearer authorizations:** anyone can submit a valid signed op
-  before its deadline. The `sponsor` field that binds an op to one sender is
-  signed in CALL but not yet carried by the action proto or enforced. There is no cancel path except changing state with
-  another guarded op; wallets should treat signing as final.
+- **Unbound ops are bearer authorizations:** without a `sponsor`, anyone can
+  submit a valid signed op between its anchor block and its deadline, at most
+  `MAX_DEADLINE_WINDOW` blocks. A non-empty `sponsor` restricts submission to
+  that sender. There is no cancel path except changing state with another
+  guarded op; wallets should treat signing as final.
 - **Lost guard key:** the bucket is permanently locked unless the wallet seed is
   available for derivation.
 - **No activation:** nothing in this package changes mainnet behavior.

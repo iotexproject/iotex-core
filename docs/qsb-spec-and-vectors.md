@@ -1,10 +1,11 @@
 # QSB spec and conformance vectors
 
 Status: **draft, non-activated**. This document freezes the consensus surface
-that the `bucketguard` scaffold implements. It does not select a hardfork
-height, register an action, or change mainnet behavior. Protobuf field numbers
-and receipt statuses remain proposals until `iotex-proto` review and maintainer
-sign-off.
+that the `bucketguard` scaffold implements, as of IIP-65 Draft 4 (recent-block
+anchor, SHA-512 `callHash`, `guardKeyID` event topic, sponsor binding). It
+does not select a hardfork height, register an action, or change mainnet
+behavior. Protobuf field numbers and receipt statuses remain proposals until
+`iotex-proto` review and maintainer sign-off.
 
 Companion documents:
 
@@ -30,6 +31,8 @@ Companion documents:
 | Max op size with `newGuard` | 34,000 bytes |
 | Intrinsic gas | `10,000 + 100*size + k*30,000` |
 | `k` | 1 for BIND and ordinary ops; 2 when an op carries `newGuard` |
+| `MAX_DEADLINE_WINDOW` | 241,920 blocks (≈ 7 days at 2.5 s), counted from `anchorHeight` (`ParamsV1.MaxDeadlineWindow`) |
+| `callHash` | SHA-512 of CALL (64 bytes) |
 | Domain used in vectors | Mainnet: native chain ID 1 (`BlockchainCtx.ChainID`, **not** the EVM network ID 4689) and genesis hash `b3379837…cfe8b`; `qsbDomain = 49d87941a7e817ba842f0f3ec9252840a56d0d090ec50f1d6938fc8a82bed871` |
 
 `genesisHash` is `block.GenesisHash()`, which equals `genesis.Genesis.Hash()`
@@ -39,7 +42,9 @@ from public data; they read it from a node as the parent hash of block 1 (or
 
 `G_VERIFY = 30,000` is the current draft value. It is normative only after
 native linux/amd64 full-action calibration; emulated builds are not a
-calibration source. No value in this document changes `G_VERIFY`.
+calibration source. No value in this document changes `G_VERIFY`. There is
+no per-block verification cap: the block gas limit bounds verification work,
+and `G_VERIFY` must be re-evaluated whenever the block gas limit is raised.
 
 ## 2. Protobuf surface
 
@@ -71,10 +76,10 @@ in `iotex-proto`.
 | `bucketIndex` | 1 | varint | Native bucket index |
 | `generation` | 2 | varint | Must equal stored generation |
 | `nonce` | 3 | varint | Must equal stored nonce |
-| `deadline` | 4 | varint | Absolute block height; must be > 0 |
+| `deadline` | 4 | varint | Last valid block height; must be > 0, `>= anchorHeight` and `<= anchorHeight + MAX_DEADLINE_WINDOW` |
 | `op` | 5 | varint | `1..6`; unknown values invalid |
-| `recipient` | 6 | bytes | WITHDRAW only; 20 bytes |
-| `newOwner` | 7 | bytes | TRANSFER only; 20 bytes |
+| `recipient` | 6 | bytes | WITHDRAW only; 20 bytes, not the zero address |
+| `newOwner` | 7 | bytes | TRANSFER only; 20 bytes, not the zero address |
 | `candidateName` | 8 | string | CHANGE_CANDIDATE only |
 | `expectedCandidateID` | 9 | bytes | CHANGE_CANDIDATE only; 20 bytes |
 | `duration` | 10 | varint | RESTAKE only; days, bounded by the existing `Restake` validation (≤ 1050, 0 allowed) |
@@ -82,7 +87,9 @@ in `iotex-proto`.
 | `newGuard` | 12 | message | TRANSFER/ROTATE only |
 | `clearGuard` | 13 | varint | TRANSFER only; mutually exclusive with `newGuard` |
 | `sig` | 14 | bytes | 16,224-byte CALL signature |
-| `sponsor` | 15 | bytes | Optional; empty (bearer) or the 20-byte address of the only allowed sender. Signed in CALL. Not yet in the action proto or enforced (IIP-65 §6) |
+| `sponsor` | 15 | bytes | Optional; empty (bearer) or the 20-byte non-zero address of the only allowed sender (`ErrUnauthorizedOperator` otherwise). Signed in CALL |
+| `anchorHeight` | 16 | varint | Height of a recent block; must be > 0. Two-byte tag |
+| `anchorHash` | 17 | bytes | Hash of block `anchorHeight`; exactly 32 bytes. Two-byte tag |
 
 ### 2.4 `ActionCore` oneof
 
@@ -106,10 +113,12 @@ Proposed `iotextypes.ReceiptStatus` values:
 | `ErrGuardScope` | 220 |
 | `ErrCandidateMismatch` | 221 |
 
-Existing statuses reused by the draft:
+A counter overflow is reported as `ErrGuardMismatch`; there is no separate
+status. Existing statuses reused by the draft:
 
 - `ErrInvalidBucketIndex = 202`
-- `ErrUnauthorizedOperator = 203`
+- `ErrUnauthorizedOperator = 203` (BIND not sent by the owner; an op with a
+  `sponsor` sent by another account)
 
 Final numeric assignment belongs to `iotex-proto`. A mismatch between the
 document and generated bindings is a consensus bug.
@@ -123,18 +132,24 @@ document and generated bindings is a consensus bug.
 - minimal varints and length prefixes;
 - nested messages emitted only when present;
 - no unknown fields;
-- addresses are raw 20-byte native addresses, not `0x` strings.
+- addresses are raw 20-byte native addresses, not `0x` strings;
+- tags are protobuf wire tags: one byte for fields 1–15, two bytes for
+  `anchorHeight` (16) and `anchorHash` (17).
 
 `CanonicalSize()` is `len(C(m))`. Size limits and intrinsic gas use this
 canonical size, not the RLP envelope size.
 
 ### 3.1 Per-op field rules
 
+All ops also require the anchor (`anchorHeight > 0`, a 32-byte
+`anchorHash`, `anchorHeight <= deadline <= anchorHeight +
+MAX_DEADLINE_WINDOW`) and allow an optional non-zero 20-byte `sponsor`.
+
 | Op | Tag | Required fields | Forbidden fields |
 |---|---:|---|---|
 | UNSTAKE | 1 | none | all op-specific fields |
-| WITHDRAW | 2 | `recipient` (20 bytes) | all other op-specific fields |
-| TRANSFER | 3 | `newOwner` (20 bytes), exactly one of `newGuard` / `clearGuard` | all other op-specific fields |
+| WITHDRAW | 2 | `recipient` (20 bytes, non-zero) | all other op-specific fields |
+| TRANSFER | 3 | `newOwner` (20 bytes, non-zero), exactly one of `newGuard` / `clearGuard` | all other op-specific fields |
 | CHANGE_CANDIDATE | 4 | `candidateName` (non-empty; format per `action.IsValidCandidateName`), `expectedCandidateID` (20 bytes) | all other op-specific fields |
 | RESTAKE | 5 | none (`duration`, `autoStake` optional; bounds per existing `Restake` validation) | all other op-specific fields |
 | ROTATE | 6 | `newGuard`, `clearGuard=false` | all other op-specific fields |
@@ -167,6 +182,8 @@ owner[20]
 uint64_be(generation)
 uint64_be(nonce)
 uint64_be(deadline)
+uint64_be(anchorHeight)
+anchorHash[32]                      // raw, no length prefix
 uint32_be(op)
 uint32_be(len(recipient)) || recipient
 uint32_be(len(newOwner)) || newOwner
@@ -197,12 +214,15 @@ uint64_be(newGeneration)
 resultingOwner[20]
 uint32_be(algID)
 uint32_be(len(publicKey)) || publicKey
-callHash[32]
+callHash[64]
 ```
 
-For BIND, `callHash` is 32 zero bytes. For TRANSFER/ROTATE with `newGuard`, it
-is `SHA-256(CALL)` of the operation (`bucketguard.CallHash`), so an ACCEPT is
-bound to exactly one CALL. CALL covers the incoming key but not its ACCEPT
+For BIND, `callHash` is 64 zero bytes (a bind carries no anchor). For
+TRANSFER/ROTATE with `newGuard`, it is `SHA-512(CALL)` of the operation
+(`bucketguard.CallHash`), so an ACCEPT is bound to exactly one CALL. SHA-512
+keeps the binding at NIST category 3 or above, the level of
+SLH-DSA-SHA2-192s; transcripts are not stored, so size and gas do not depend
+on it. CALL covers the incoming key but not its ACCEPT
 signature, so the wallet builds CALL, has the incoming key sign ACCEPT over its
 hash, then signs CALL with the current key. `resultingOwner` is the owner after
 the operation.
@@ -212,70 +232,91 @@ the operation.
 All vectors use the mainnet domain
 `qsbDomain = 49d87941a7e817ba842f0f3ec9252840a56d0d090ec50f1d6938fc8a82bed871`
 (chain ID 1, genesis hash
-`b337983730981c2d50f114eed5da9dd20b83c8c5e130beefdb3001dc858cfe8b`) and owner
-`0x11` repeated 20 times.
+`b337983730981c2d50f114eed5da9dd20b83c8c5e130beefdb3001dc858cfe8b`), owner
+`0x11` repeated 20 times, and the anchor block 1000 with hash `0x33` repeated
+32 times.
 
-CALL inputs: bucket 1, generation 1, nonce 0, deadline 1010, op UNSTAKE, no
-sponsor.
+CALL inputs: bucket 1, generation 1, nonce 0, deadline 1010, anchor 1000,
+op UNSTAKE, no sponsor.
 
 ```text
-49d87941a7e817ba842f0f3ec9252840a56d0d090ec50f1d6938fc8a82bed871000000000000000111111111111111111111111111111111111111110000000000000001000000000000000000000000000003f200000001000000000000000000000000000000000000000000000000000000
+49d87941a7e817ba842f0f3ec9252840a56d0d090ec50f1d6938fc8a82bed871000000000000000111111111111111111111111111111111111111110000000000000001000000000000000000000000000003f200000000000003e8333333333333333333333333333333333333333333333333333333333333333300000001000000000000000000000000000000000000000000000000000000
 ```
 
 BIND ACCEPT inputs: bucket 1, new generation 1, `algID=0x12`, public key
 `c3530472b05ab2c631028bf08d7fa740f87ccbe26c8290b286f8317dbc30787febe5366d8be38345ec93d0fca288459a`,
-zero `callHash`.
+64 zero bytes of `callHash`.
 
 ```text
-49d87941a7e817ba842f0f3ec9252840a56d0d090ec50f1d6938fc8a82bed8710000000000000001000000000000000111111111111111111111111111111111111111110000001200000030c3530472b05ab2c631028bf08d7fa740f87ccbe26c8290b286f8317dbc30787febe5366d8be38345ec93d0fca288459a0000000000000000000000000000000000000000000000000000000000000000
+49d87941a7e817ba842f0f3ec9252840a56d0d090ec50f1d6938fc8a82bed8710000000000000001000000000000000111111111111111111111111111111111111111110000001200000030c3530472b05ab2c631028bf08d7fa740f87ccbe26c8290b286f8317dbc30787febe5366d8be38345ec93d0fca288459a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ```
 
-ROTATE inputs: bucket 1, generation 1, nonce 2, deadline 1010, incoming key
-the public key above, sponsor `0x22` repeated 20 times.
+ROTATE inputs: bucket 1, generation 1, nonce 2, deadline 1010, anchor 1000,
+incoming key the public key above, sponsor `0x22` repeated 20 times.
 
 | Value | Hex |
 |---|---|
-| `callHash = SHA-256(CALL)` | `bb4e4bdeb3b03dee7cc5e6822fa2b13a23ca4cdca1615087039f55cff185fec6` |
-| SHA-256 of ACCEPT (new generation 2) | `93375a34350d3b8e0045ff9b6c9f440dc963d7b5afa4d0269f8c3316cc47a408` |
+| `callHash = SHA-512(CALL)` | `f098e3c9f256a7293c8f1e3c155d16011c9b74286435a9c015803f9c5221e0dd7b3c6a31032eba2a1ccc471a4e708e90af5349b6c829381765350cf93aae51bd` |
+| SHA-256 of ACCEPT (new generation 2) | `98ace1e9e138f66d6beab41858ef6e20f69e28f1ab9e0417ba5170e87241167c` |
+| `guardKeyID` of the incoming key (§7) | `5822fceae8513928ac3b49fc3f87696a3ec93bcaf812bcdcf43d83b750dbe653` |
 
 These vectors were computed independently of the Go code (Python, standard
-library only) and are asserted by `TestTranscriptVectors` in
-`action/protocol/staking/bucketguard/bucketguard_test.go`.
+library only: `hashlib`, `struct`) and are asserted by `TestTranscriptVectors`
+in `action/protocol/staking/bucketguard/bucketguard_test.go`.
 
 ## 5. Canonical size and gas vectors
 
-The objects below use a 48-byte zero public key and a 16,224-byte zero
-signature. `sha256` is over the canonical bytes `C(m)`, not over the transcript
-or the envelope.
+The objects below use a 48-byte zero public key, a 16,224-byte zero
+signature, bucket 1, generation 1, nonce 0, deadline 1010, anchor block 1000
+with hash `0x33` × 32, and `0x44` × 20 for `recipient`, `newOwner` and
+`expectedCandidateID`. `sha256` is over the canonical bytes `C(m)`, not over
+the transcript or the envelope.
 
 | Action / variant | Size | Intrinsic gas | SHA-256 of `C(m)` |
 |---|---:|---:|---|
 | `BindBucketGuard` | 16,281 | 1,668,100 | `e39fec5a6a1739ff165ab0c0ffe59878fcec475778da8bdddd08f4e4aad09ce4` |
-| UNSTAKE | 16,236 | 1,663,600 | `15f253feb5642b8b3976bd822a83a4d1ca22f9bbdd2eaa4ddc44c59b975f2b85` |
-| WITHDRAW | 16,258 | 1,665,800 | `ed7811a696608574581c53db032d0ec1972375e83f73a2de64adadb122459856` |
-| TRANSFER + `clearGuard` | 16,260 | 1,666,000 | `cb8bee995cd6ec0088914ce227831453f85291d0db683e04a0087adeac565c9e` |
-| CHANGE_CANDIDATE | 16,270 | 1,667,000 | `34419e212ee93d25331bb8f108795e85a9902b0f74b4a0a9bd7d38688ec98c80` |
-| RESTAKE | 16,240 | 1,664,000 | `27c100e25c9665f6d7dbf35461d8f17138ef36359e81e99e8cfaaf30f33a0679` |
-| ROTATE | 32,518 | 3,321,800 | `4435a0e0f21a208232a0ef38f6a733d1207b1e731452ff40aadf19fca3379ec0` |
-| TRANSFER + `newGuard` | 32,540 | 3,324,000 | `1d29df46e4678ad90b6a7578ca4a1caef6f62fccd8ee23824f72a35fe36834b3` |
-| UNSTAKE + `sponsor` | 16,258 | 1,665,800 | `3a588d82cff23452522fe0c392a23a68d516dff90b7276f6b597c800347e8c71` |
+| UNSTAKE | 16,275 | 1,667,500 | `5e036b59d04be808968a4831c5eff1259959c7e42889fa4b66050055d06bf1ee` |
+| WITHDRAW | 16,297 | 1,669,700 | `a29d9725e9d92e65752889227036b86bc66944060b75fc3e86efecd7083f179d` |
+| TRANSFER + `clearGuard` | 16,299 | 1,669,900 | `d7aa8801752cb5f8bb2042781c1fd4409f2f1b597f114e57eccbbc31df4cad93` |
+| CHANGE_CANDIDATE (`delegateab`) | 16,309 | 1,670,900 | `8c8fd5613a39f05403f804add7068d30db525c7837adfe89419268c9fc37e726` |
+| RESTAKE (7 days, autoStake) | 16,279 | 1,667,900 | `9c869032738758f64a7ab884a436174d3bbad40daf75c960d286c624f1d50783` |
+| ROTATE | 32,557 | 3,325,700 | `e7836c0e0df88bf9f6348a1d2840f9055a9383358ae4273647f814fef0b5ec17` |
+| TRANSFER + `newGuard` | 32,579 | 3,327,900 | `d831db5b5e2d3038ca27ddd3cccda2476e3d0a239eba9142a90808359e5170e3` |
+| UNSTAKE + `sponsor` (`0x22` × 20) | 16,297 | 1,669,700 | `2d14d32b020768b6a3e273e10a57fbbe16cb6e9c7b8ffc5ec09705440dbb64d5` |
+| UNSTAKE, `anchorHeight = 2^28` | 16,278 | 1,667,800 | `e34256c46d6ea409dd0c815faf38c9f1c5cd7e902c870d717fb4abb79455c19d` |
+| ROTATE with an empty `newGuard` (invalid; size only) | 16,277 | 1,697,700 | `2565c01dd96ee1fad524b7bd9c0aa07d7eb346b73b2519861ecd4db7374b6d9a` |
 
-Every field number is at most 15, so `len(C(m))` equals the IIP-65 §8
-`QSBSizeV1` formula. `TestCanonicalVectors` enforces these values. Any encoding change must update the IIP, the vectors, and the tests in
-the same change.
+The anchor adds `2 + vlen(anchorHeight)` bytes for field 16 (4 at height
+1000, 6 for heights up to 2^28 − 1) and 35 for field 17. `len(C(m))` equals the
+IIP-65 §8 `QSBSizeV1` formula, whose tag length is 1 for fields 1–15 and 2 for
+fields 16–17. These vectors were computed independently with Python (standard
+library only) and `TestCanonicalVectors` enforces them. Any encoding change
+must update the IIP, the vectors, and the tests in the same change.
 
 ## 6. Execution and guard transitions
 
 Execution order:
 
 1. Snapshot the state manager.
-2. Load the native bucket; absent = `ErrInvalidBucketIndex`.
-3. Require a guarded record; absent = `ErrBucketNotGuarded`.
-4. Require `generation` and `nonce` equal to stored values, no overflow, and
-   `blockHeight <= deadline`; otherwise `ErrGuardMismatch`.
+2. Load the native bucket; absent = `ErrInvalidBucketIndex`. Require a
+   guarded record; absent = `ErrBucketNotGuarded`.
+3. If `sponsor` is non-empty, require the outer sender to equal it
+   (`ErrUnauthorizedOperator`).
+4. Require, each with `ErrGuardMismatch`: `generation` and `nonce` equal to
+   stored values and no counter overflow; `anchorHeight <= blockHeight <=
+   deadline`; `deadline <= anchorHeight + MAX_DEADLINE_WINDOW`; and the hash of
+   block `anchorHeight` equal to `anchorHash`. The heights are compared first
+   and the hash is looked up only when they pass, so only the last
+   `MAX_DEADLINE_WINDOW` blocks are read. A failed read is a storage error
+   (fatal, no receipt). The block being executed has no hash yet, so
+   `anchorHeight = blockHeight` fails without a lookup.
 5. Apply op-specific preconditions using existing handler statuses; for
    CHANGE_CANDIDATE require the resolved candidate ID to equal
-   `expectedCandidateID` (`ErrCandidateMismatch`).
+   `expectedCandidateID` (`ErrCandidateMismatch`); for TRANSFER require
+   `newOwner` to differ from the owner and, with `clearGuard`, `newOwner` to
+   have no contract code and not be a native protocol address (account,
+   staking, rewarding, poll, rolldpos, smart_contract, the bucket pool)
+   (`ErrGuardScope`).
 6. Verify CALL, then ACCEPT if present; failure = `ErrGuardSignature`.
 7. Apply the bucket effect through existing staking helpers.
 8. Update or delete the guard record and emit one guard event.
@@ -325,23 +366,37 @@ be registered as a storage object.
 One event per successful BIND or guarded op. Emitter is the staking protocol
 address. The event is produced by a single `AddEvent` call.
 
+```solidity
+event BucketGuard(uint64 indexed bucketIndex, uint64 indexed op, bytes32 indexed guardKeyID,
+                  uint64 generation, uint64 nonce, address sponsor, address counterparty);
+```
+
 ```text
-topic[0] = 0x73a1cc2c5c34de8d095f5003eb096fa77f44357dd83dcea0225ca286942426ec
+topic[0] = 0x4f1fdf0147920455e35f6845574ab0c83ec3a3a8dd8f8c5fcce1be972acc5a49
 topic[1] = uint64_be(bucketIndex), left-padded to 32 bytes
 topic[2] = uint64_be(op), left-padded to 32 bytes; op=0 is BIND, 1..6 are ops
+topic[3] = guardKeyID = SHA-256(uint32_be(algID) || publicKey)
 data     = abi.encode(uint64 generation, uint64 nonce, address sponsor, address counterparty)
 ```
 
-`data` is 128 bytes: four 32-byte words, each value left-padded. `generation` and `nonce` are the resulting values. For
-WITHDRAW the record is deleted and `nonce` is the consumed value plus one.
-`counterparty` is `newOwner` for TRANSFER, `recipient` for WITHDRAW, and 20 zero
-address otherwise. Legacy per-handler logs are not emitted for guarded ops.
-Transaction logs follow existing rules: gas-fee logs always, and one
+`guardKeyID` is the key the bucket has after the action: the bound key for
+BIND, the new key for ROTATE and TRANSFER with `newGuard`, the unchanged key
+for UNSTAKE, CHANGE_CANDIDATE and RESTAKE, and 32 zero bytes when the bucket
+has no key afterwards (TRANSFER with `clearGuard`, WITHDRAW). Wallet recovery
+uses indexers of this topic; a node-side `BUCKETS_BY_GUARD_KEY` index is
+optional and not implemented.
+
+`data` is 128 bytes: four 32-byte words, each value left-padded. `generation`
+and `nonce` are the resulting values. For WITHDRAW the record is deleted and
+`nonce` is the consumed value plus one. `sponsor` is the outer sender.
+`counterparty` is `newOwner` for TRANSFER, `recipient` for WITHDRAW, and the
+zero address otherwise. Legacy per-handler logs are not emitted for guarded
+ops. Transaction logs follow existing rules: gas-fee logs always, and one
 `WITHDRAW_BUCKET` log from the bucket pool to `recipient` for WITHDRAW.
 
 `topic[0]` is Keccak-256 of the ASCII string
-`BucketGuard(uint64,uint64,uint64,uint64,address,address)`, so Ethereum tooling
-decodes the log with the event ABI.
+`BucketGuard(uint64,uint64,bytes32,uint64,uint64,address,address)`, so
+Ethereum tooling decodes the log with the event ABI (`TestBucketGuardEventTopic`).
 
 ## 8. Bucket index non-reuse
 

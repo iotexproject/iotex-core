@@ -35,6 +35,8 @@
 //     bool clearGuard = 13;
 //     bytes sig = 14;
 //     bytes sponsor = 15;
+//     uint64 anchorHeight = 16;
+//     bytes anchorHash = 17;
 //   }
 //
 // Add to the ActionCore oneof (action.proto), after the current last field 58:
@@ -110,6 +112,10 @@ message GuardedBucketOp {
   // Optional: empty (bearer) or the 20-byte address of the only sender that
   // may submit the op. Signed in CALL.
   bytes sponsor = 15;
+  // A recent block: the op is valid from anchorHeight to deadline, and
+  // deadline - anchorHeight <= MAX_DEADLINE_WINDOW. anchorHash is 32 bytes.
+  uint64 anchorHeight = 16;
+  bytes anchorHash = 17;
 }
 
 // BucketGuard is the staking-state value under _bucketGuard ||
