@@ -13,15 +13,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/mohae/deepcopy"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
@@ -274,6 +277,129 @@ func TestGuardedOpVerifiesBeforeWriting(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestGuardedOpExecutionRules covers the IIP-65 Draft 4 execution checks
+// that come before the signatures: sponsor binding (step 3), the anchor
+// (step 4) and the TRANSFER newOwner rules (step 5). Each failure writes
+// nothing and reports its status.
+func TestGuardedOpExecutionRules(t *testing.T) {
+	owner1, owner2 := identityset.Address(1), identityset.Address(2)
+	sponsor, other := identityset.Address(3), identityset.Address(4)
+	contract := identityset.Address(26)
+	cands := []*candidateConfig{{owner1, identityset.Address(7), owner1, "test1"}}
+	guardKey := testGuardKey(t, 1)
+	anchorAt := func(h uint64) func(*bucketguard.GuardedBucketOp) {
+		return func(op *bucketguard.GuardedBucketOp) {
+			hh, _ := testBlockHash(h)
+			op.AnchorHeight, op.AnchorHash = h, hh[:]
+		}
+	}
+	protocolAddr := func(id string) []byte {
+		h := hash.Hash160b([]byte(id))
+		return h[:]
+	}
+	unstake := func(f ...func(*bucketguard.GuardedBucketOp)) *bucketguard.GuardedBucketOp {
+		op := &bucketguard.GuardedBucketOp{Op: bucketguard.OpUnstake}
+		for _, f := range f {
+			f(op)
+		}
+		return op
+	}
+	clearTo := func(to []byte) *bucketguard.GuardedBucketOp {
+		return &bucketguard.GuardedBucketOp{Op: bucketguard.OpTransfer, NewOwner: to, ClearGuard: true}
+	}
+	for _, tc := range []struct {
+		name   string
+		sender address.Address
+		op     *bucketguard.GuardedBucketOp
+		status iotextypes.ReceiptStatus // Success: no error
+	}{
+		{"bound sponsor sends", sponsor, unstake(func(op *bucketguard.GuardedBucketOp) { op.Sponsor = sponsor.Bytes() }), iotextypes.ReceiptStatus_Success},
+		{"another sender", other, unstake(func(op *bucketguard.GuardedBucketOp) { op.Sponsor = sponsor.Bytes() }), iotextypes.ReceiptStatus_ErrUnauthorizedOperator},
+		{"bearer op, any sender", other, unstake(), iotextypes.ReceiptStatus_Success},
+		{"anchor at the previous block", other, unstake(anchorAt(9)), iotextypes.ReceiptStatus_Success},
+		{"wrong anchor hash", other, unstake(anchorAt(5), func(op *bucketguard.GuardedBucketOp) { op.AnchorHash = bytes.Repeat([]byte{1}, 32) }), iotextypes.ReceiptStatus_ErrGuardMismatch},
+		{"anchor hash of another block", other, unstake(anchorAt(5), func(op *bucketguard.GuardedBucketOp) { h, _ := testBlockHash(6); op.AnchorHash = h[:] }), iotextypes.ReceiptStatus_ErrGuardMismatch},
+		{"anchor is the current block", other, unstake(anchorAt(10)), iotextypes.ReceiptStatus_ErrGuardMismatch},
+		{"anchor above the current block", other, unstake(anchorAt(11)), iotextypes.ReceiptStatus_ErrGuardMismatch},
+		{"transfer to the owner", other, clearTo(owner2.Bytes()), iotextypes.ReceiptStatus_ErrGuardScope},
+		{"clear to an EOA", other, clearTo(identityset.Address(25).Bytes()), iotextypes.ReceiptStatus_Success},
+		{"clear to a contract", other, clearTo(contract.Bytes()), iotextypes.ReceiptStatus_ErrGuardScope},
+		{"clear to the staking protocol", other, clearTo(protocolAddr("staking")), iotextypes.ReceiptStatus_ErrGuardScope},
+		{"clear to the rewarding protocol", other, clearTo(protocolAddr("rewarding")), iotextypes.ReceiptStatus_ErrGuardScope},
+		{"clear to the bucket pool", other, clearTo(protocolAddr(_stakingBucketPool)), iotextypes.ReceiptStatus_ErrGuardScope},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := require.New(t)
+			ctrl := gomock.NewController(t)
+			ctx := guardTestCtx(t, true, timeBlock, tc.sender)
+			sm, p, _, _ := initTestStateWithHeight(t, ctrl, []*bucketConfig{
+				{owner1, owner2, "1200000000000000000000000", 30, false, false, nil, 0},
+			}, cands, 10)
+			acct, err := accountutil.LoadAccount(sm, contract)
+			r.NoError(err)
+			acct.CodeHash = bytes.Repeat([]byte{0xc0}, 32)
+			r.NoError(accountutil.StoreAccount(sm, contract, acct))
+			cur := guardBucket(t, sm, 0, guardKey, 1, 0)
+			counted := &writeCountingSM{StateManager: sm}
+			csm, err := NewCandidateStateManagerWithContext(ctx, counted)
+			r.NoError(err)
+			op := *tc.op
+			_, _, err = p.handleGuardedBucketOp(ctx, action.NewGuardedBucketOp(signGuardOp(ctx, t, guardKey, owner2, cur, &op)), csm)
+			if tc.status == iotextypes.ReceiptStatus_Success {
+				r.NoError(err)
+				return
+			}
+			re, ok := err.(ReceiptError)
+			r.True(ok, "want a receipt error, got %v", err)
+			r.Equal(uint64(tc.status), re.ReceiptStatus(), err.Error())
+			r.Zero(counted.writes)
+		})
+	}
+
+	t.Run("a failed anchor lookup is a storage error", func(t *testing.T) {
+		r := require.New(t)
+		ctrl := gomock.NewController(t)
+		ctx := guardTestCtx(t, true, timeBlock, other)
+		bc := protocol.MustGetBlockchainCtx(ctx)
+		bc.GetBlockHash = func(uint64) (hash.Hash256, error) { return hash.ZeroHash256, errors.New("disk") }
+		ctx = protocol.WithBlockchainCtx(ctx, bc)
+		sm, p, _, _ := initTestStateWithHeight(t, ctrl, []*bucketConfig{
+			{owner1, owner2, "1200000000000000000000000", 30, true, false, nil, 0},
+		}, cands, 10)
+		cur := guardBucket(t, sm, 0, guardKey, 1, 0)
+		csm, err := NewCandidateStateManagerWithContext(ctx, sm)
+		r.NoError(err)
+		_, _, err = p.handleGuardedBucketOp(ctx, action.NewGuardedBucketOp(signGuardOp(ctx, t, guardKey, owner2, cur, unstake())), csm)
+		r.ErrorContains(err, "disk")
+		_, isReceipt := err.(ReceiptError)
+		r.False(isReceipt, "a storage error must abort the block")
+	})
+}
+
+// The native protocol addresses refused as clearGuard owners include the
+// published ones of iotex-address.
+func TestNativeProtocolAddrs(t *testing.T) {
+	r := require.New(t)
+	for _, h := range []address.Hash160{
+		address.StakingProtocolAddrHash, address.RewardingProtocolAddrHash,
+		address.PollProtocolAddrHash, address.RollDPoSProtocolAddrHash,
+	} {
+		r.True(nativeProtocolAddrs[hash.BytesToHash160(h[:])], "%x", h)
+	}
+	staking, err := address.FromString(address.StakingProtocolAddr)
+	r.NoError(err)
+	r.True(nativeProtocolAddrs[hash.BytesToHash160(staking.Bytes())])
+	r.True(nativeProtocolAddrs[hash.BytesToHash160(protocol.HashStringToAddress("account").Bytes())])
+	r.False(nativeProtocolAddrs[hash.BytesToHash160(identityset.Address(1).Bytes())])
+}
+
+// TestBucketGuardEventTopic pins topic0 of the IIP-65 §11 event to the
+// Keccak-256 of its canonical signature.
+func TestBucketGuardEventTopic(t *testing.T) {
+	want := crypto.Keccak256([]byte("BucketGuard(uint64,uint64,bytes32,uint64,uint64,address,address)"))
+	require.Equal(t, want, bucketGuardEventTopic[:])
 }
 
 // TestBucketGuardRecordOutsideVoterScans stores guard records next to the

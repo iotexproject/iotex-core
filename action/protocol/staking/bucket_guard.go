@@ -30,9 +30,10 @@ import (
 // file stores the guard record, wires the two actions, and gives the legacy
 // handlers their guard check.
 
-// bucketGuardEventTopic is Keccak-256("BucketGuard(uint64,uint64,uint64,uint64,address,address)")
+// bucketGuardEventTopic is
+// Keccak-256("BucketGuard(uint64,uint64,bytes32,uint64,uint64,address,address)")
 // (IIP §11).
-var bucketGuardEventTopic = hash.BytesToHash256(common.FromHex("0x73a1cc2c5c34de8d095f5003eb096fa77f44357dd83dcea0225ca286942426ec"))
+var bucketGuardEventTopic = hash.BytesToHash256(common.FromHex("0x4f1fdf0147920455e35f6845574ab0c83ec3a3a8dd8f8c5fcce1be972acc5a49"))
 
 // bucketGuardOpBind is the event op tag of BindBucketGuard; guarded ops use
 // their bucketguard.Op value.
@@ -393,7 +394,8 @@ func anchorBlockHash(ctx context.Context) func(uint64) ([32]byte, error) {
 //  3. a bound sponsor is the sender;
 //  4. generation, nonce, anchor and deadline match (bucketguard.CheckOp);
 //  5. the op's staking preconditions, checked on copies by the same check
-//     functions the legacy handlers use from the QSB fork (bucket_ops.go);
+//     functions the legacy handlers use from the QSB fork (bucket_ops.go),
+//     and for TRANSFER the newOwner rules of IIP §6;
 //  6. the CALL and ACCEPT signatures (bucketguard.VerifyOp), which yield the
 //     grant that authorizes the writes;
 //  7. the bucket writes under that grant, and the guard record transition
@@ -446,6 +448,9 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 	case bucketguard.OpTransfer:
 		if counterparty, err = address.FromBytes(op.NewOwner); err != nil {
 			return log, nil, guardReceiptError(errors.Wrap(bucketguard.ErrMalformed, err.Error()))
+		}
+		if err := checkGuardedNewOwner(csm.SM(), bucket.Owner, counterparty, op.ClearGuard); err != nil {
+			return log, nil, err
 		}
 		change, err = p.checkTransfer(ctx, csm, index, bucket, counterparty)
 	case bucketguard.OpChangeCandidate:
@@ -502,6 +507,51 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 	return log, tLogs, nil
 }
 
+// nativeProtocolAddrs are the addresses of the native protocols, the hash160
+// of each protocol ID (protocol.HashStringToAddress), and of the staking
+// bucket pool. None of them can send a staking action.
+var nativeProtocolAddrs = func() map[hash.Hash160]bool {
+	m := map[hash.Hash160]bool{}
+	for _, id := range []string{
+		"account",        // account.protocolID
+		_protocolID,      // staking
+		"rewarding",      // rewarding._protocolID
+		"poll",           // poll._protocolID
+		"rolldpos",       // rolldpos.protocolID
+		"smart_contract", // execution._protocolID
+		_stakingBucketPool,
+	} {
+		m[hash.Hash160b([]byte(id))] = true
+	}
+	return m
+}()
+
+// checkGuardedNewOwner applies the newOwner rules of IIP §6 to a guarded
+// TRANSFER (step 5). A transfer to the current owner is a ROTATE in disguise.
+// With clearGuard the bucket returns to ECDSA control, so the new owner must
+// be able to send staking actions: an address with contract code at
+// execution time, or a native protocol address, would lock the bucket.
+// A missing account is an EOA. Any other read error is a storage failure.
+func checkGuardedNewOwner(sr protocol.StateReader, owner, newOwner address.Address, clearGuard bool) error {
+	if address.Equal(owner, newOwner) {
+		return guardReceiptError(errors.Wrap(bucketguard.ErrGuardScope, "TRANSFER to the current owner"))
+	}
+	if !clearGuard {
+		return nil
+	}
+	if nativeProtocolAddrs[hash.BytesToHash160(newOwner.Bytes())] {
+		return guardReceiptError(errors.Wrapf(bucketguard.ErrGuardScope, "TRANSFER with clearGuard to native protocol address %s", newOwner))
+	}
+	acct, err := accountutil.LoadAccount(sr, newOwner)
+	if err != nil {
+		return errors.Wrapf(err, "failed to load account %s", newOwner)
+	}
+	if acct.IsContract() {
+		return guardReceiptError(errors.Wrapf(bucketguard.ErrGuardScope, "TRANSFER with clearGuard to contract %s", newOwner))
+	}
+	return nil
+}
+
 // checkGuardedWithdraw checks a guarded withdrawal of bucket to recipient,
 // which, unlike the legacy WithdrawStake, need not be the sender. A missing
 // recipient account is created in memory only; the apply stores it.
@@ -519,8 +569,10 @@ func (p *Protocol) checkGuardedWithdraw(ctx context.Context, csm CandidateStateM
 }
 
 // addBucketGuardEvent emits the single IIP §11 event of a successful bind or
-// op: topics (BucketGuard, bucketIndex, op); data abi.encode(generation,
-// nonce, sponsor, counterparty), with the resulting counters.
+// op: topics (BucketGuard, bucketIndex, op, guardKeyID); data
+// abi.encode(generation, nonce, sponsor, counterparty), with the resulting
+// counters. guardKeyID is the key of g, the record after the action, and
+// zero when the bucket has no key after it (clear, withdraw).
 func addBucketGuardEvent(log *receiptLog, index uint64, op uint32, g *bucketguard.Guard, sponsor, counterparty address.Address) {
 	word := func(b []byte) []byte {
 		w := hash.BytesToHash256(b)
@@ -539,6 +591,7 @@ func addBucketGuardEvent(log *receiptLog, index uint64, op uint32, g *bucketguar
 		bucketGuardEventTopic,
 		hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(index)),
 		hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(uint64(op))),
+		hash.Hash256(g.KeyID()),
 	}, data)
 }
 
