@@ -8,10 +8,12 @@ package staking
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/mohae/deepcopy"
@@ -25,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto/signer"
+	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
@@ -41,13 +44,23 @@ func guardTestCtx(t *testing.T, qsb bool, blkTime time.Time, caller address.Addr
 		g.ToBeEnabledBlockHeight = 1_000_000
 	}
 	ctx := genesis.WithGenesisContext(context.Background(), g)
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{ChainID: testGuardChainID})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{ChainID: testGuardChainID, GetBlockHash: testBlockHash})
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 10, BlockTimeStamp: blkTime})
 	ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: caller})
 	ctx = protocol.WithFeatureCtx(ctx)
 	require.Equal(t, qsb, protocol.MustGetFeatureCtx(ctx).EnableBucketGuard)
 	return ctx
 }
+
+// testBlockHash is the chain of the guard tests: block h has hash
+// SHA-256(uint64_be(h)).
+func testBlockHash(h uint64) (hash.Hash256, error) {
+	return sha256.Sum256(byteutil.Uint64ToBytesBigEndian(h)), nil
+}
+
+// testAnchorHeight is the anchor block of the ops signed by signGuardOp,
+// below the height 10 of guardTestCtx.
+const testAnchorHeight = 5
 
 func testGuardKey(t *testing.T, fill byte) *signer.PrivateKey {
 	k, err := signer.NewKeyFromSeeds(pqcrypto.AlgSLHDSA192s, bytes.Repeat([]byte{fill}, signer.SeedSize(pqcrypto.AlgSLHDSA192s)))
@@ -62,10 +75,15 @@ func guardBucket(t *testing.T, sm protocol.StateManager, index uint64, k *signer
 	return g
 }
 
-// signGuardOp fills op's counters and deadline from cur and signs its CALL
-// with k for a bucket owned by owner.
+// signGuardOp fills op's counters, deadline and, unless set, its anchor
+// (block testAnchorHeight) from cur, and signs its CALL with k for a bucket
+// owned by owner.
 func signGuardOp(ctx context.Context, t *testing.T, k *signer.PrivateKey, owner address.Address, cur *bucketguard.Guard, op *bucketguard.GuardedBucketOp) *bucketguard.GuardedBucketOp {
 	op.Generation, op.Nonce, op.Deadline = cur.Generation, cur.Nonce, 100
+	if op.AnchorHeight == 0 {
+		h, _ := testBlockHash(testAnchorHeight)
+		op.AnchorHeight, op.AnchorHash = testAnchorHeight, h[:]
+	}
 	sig, err := k.Sign([]byte(bucketguard.CallContext), bucketguard.EncodeCall(guardDomain(ctx), owner, op))
 	require.NoError(t, err)
 	op.Sig = sig

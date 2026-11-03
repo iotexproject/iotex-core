@@ -148,9 +148,9 @@ func (r *Request) Complete() bool {
 	return r.Kind == KindBind || r.CallSigned()
 }
 
-// CallHash returns SHA-256 of the CALL transcript of an op. ok is false for a
+// CallHash returns SHA-512 of the CALL transcript of an op. ok is false for a
 // bind, or while the incoming key is pending.
-func (r *Request) CallHash() (h [32]byte, ok bool) {
+func (r *Request) CallHash() (h [bucketguard.CallHashLen]byte, ok bool) {
 	if r.Kind != KindOp || r.IncomingPending() {
 		return h, false
 	}

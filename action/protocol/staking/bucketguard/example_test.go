@@ -26,7 +26,7 @@ func Example() {
 
 	// Wallet: bind key, proving possession with ACCEPT (no CALL, zero hash).
 	pub := key.PublicKey().Bytes()
-	acc, _ := key.Sign([]byte(bucketguard.AcceptContext), bucketguard.EncodeAccept(domain, bucket, 1, owner, alg, pub, [32]byte{}))
+	acc, _ := key.Sign([]byte(bucketguard.AcceptContext), bucketguard.EncodeAccept(domain, bucket, 1, owner, alg, pub, [bucketguard.CallHashLen]byte{}))
 	bind := &bucketguard.BindBucketGuard{BucketIndex: bucket, AlgID: alg, PublicKey: pub, AcceptSig: acc}
 
 	// Node: stateless check, then (after bucket/native/owner checks) authorize.
@@ -34,16 +34,23 @@ func Example() {
 	guard, err := bucketguard.AuthorizeBind(p, domain, owner, bucketguard.BindScope{}, nil, bind, 100)
 	fmt.Println("bound:", err == nil, "generation:", guard.Generation)
 
-	// Wallet: sign a withdraw to a fresh address; anyone may submit it.
+	// The chain the node executes on; the wallet reads the anchor block from it.
+	blockHash := func(h uint64) ([32]byte, error) { return [32]byte{byte(h)}, nil }
+	anchor, _ := blockHash(140)
+
+	// Wallet: sign a withdraw to a fresh address, anchored to the recent block
+	// 140; anyone may submit it.
 	op := &bucketguard.GuardedBucketOp{
 		BucketIndex: bucket, Generation: guard.Generation, Nonce: guard.Nonce,
-		Deadline: 200, Op: bucketguard.OpWithdraw, Recipient: recipient.Bytes(),
+		Deadline: 200, AnchorHeight: 140, AnchorHash: anchor[:],
+		Op: bucketguard.OpWithdraw, Recipient: recipient.Bytes(),
 	}
 	op.Sig, _ = key.Sign([]byte(bucketguard.CallContext), bucketguard.EncodeCall(domain, owner, op))
 
-	// Node: IIP §9.2 order — counters, staking preconditions, signatures, effect.
+	// Node: IIP §9.2 order — guard, sponsor, counters and anchor, staking
+	// preconditions, signatures, effect.
 	fmt.Println("valid:", op.Validate(p) == nil)
-	fmt.Println("check:", bucketguard.CheckOp(guard, op, 150))
+	fmt.Println("check:", bucketguard.CheckOp(p, guard, op, bucketguard.OpEnv{Height: 150, Sender: recipient, BlockHash: blockHash}))
 	grant, err := bucketguard.VerifyOp(p, domain, owner, guard, op)
 	fmt.Println("verify:", err, "grant for:", grant.Op())
 	_, deleted := bucketguard.Next(guard, op, 150)

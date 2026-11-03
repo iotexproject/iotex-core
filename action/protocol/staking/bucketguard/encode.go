@@ -5,9 +5,11 @@ import "google.golang.org/protobuf/encoding/protowire"
 // Canonical proto3 encoding C(m): fields in ascending field-number order, each
 // at most once; default scalars and empty bytes/strings omitted; minimal
 // varints and length prefixes; nested messages emitted iff set; no unknown
-// fields. Every field number is at most 15, so len(C(m)) equals the IIP §8
-// formula QSBSizeV1 term by term. Size limits and gas are defined over the
-// decoded message, never over received bytes.
+// fields. len(C(m)) equals the IIP §8 formula QSBSizeV1 term by term,
+// including its tag lengths: one byte for field numbers 1-15, two bytes for
+// anchorHeight (16) and anchorHash (17), as protowire.AppendTag writes them.
+// Size limits and gas are defined over the decoded message, never over
+// received bytes.
 
 func appendVarintField(b []byte, num protowire.Number, v uint64) []byte {
 	if v == 0 {
@@ -50,7 +52,7 @@ func (m *BindBucketGuard) canonicalBytes() []byte {
 }
 
 func (m *GuardedBucketOp) canonicalBytes() []byte {
-	b := make([]byte, 0, 128+len(m.Sig))
+	b := make([]byte, 0, 192+len(m.Sig))
 	b = appendVarintField(b, 1, m.BucketIndex)
 	b = appendVarintField(b, 2, m.Generation)
 	b = appendVarintField(b, 3, m.Nonce)
@@ -70,6 +72,8 @@ func (m *GuardedBucketOp) canonicalBytes() []byte {
 	b = appendBoolField(b, 13, m.ClearGuard)
 	b = appendBytesField(b, 14, m.Sig)
 	b = appendBytesField(b, 15, m.Sponsor)
+	b = appendVarintField(b, 16, m.AnchorHeight)
+	b = appendBytesField(b, 17, m.AnchorHash)
 	return b
 }
 

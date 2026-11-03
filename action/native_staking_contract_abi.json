@@ -784,6 +784,21 @@
         "type": "uint64"
       },
       {
+        "internalType": "uint64",
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
         "internalType": "bytes",
         "name": "sig",
         "type": "bytes"
@@ -817,8 +832,23 @@
         "type": "uint64"
       },
       {
+        "internalType": "uint64",
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
         "internalType": "address",
         "name": "recipient",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "sponsor",
         "type": "address"
       },
       {
@@ -855,6 +885,16 @@
         "type": "uint64"
       },
       {
+        "internalType": "uint64",
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
         "internalType": "address",
         "name": "newOwner",
         "type": "address"
@@ -878,6 +918,11 @@
         "internalType": "bytes",
         "name": "newAcceptSig",
         "type": "bytes"
+      },
+      {
+        "internalType": "address",
+        "name": "sponsor",
+        "type": "address"
       },
       {
         "internalType": "bytes",
@@ -913,6 +958,16 @@
         "type": "uint64"
       },
       {
+        "internalType": "uint64",
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
         "internalType": "string",
         "name": "candidateName",
         "type": "string"
@@ -920,6 +975,11 @@
       {
         "internalType": "address",
         "name": "expectedCandidateID",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "sponsor",
         "type": "address"
       },
       {
@@ -956,6 +1016,16 @@
         "type": "uint64"
       },
       {
+        "internalType": "uint64",
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
         "internalType": "uint32",
         "name": "duration",
         "type": "uint32"
@@ -964,6 +1034,11 @@
         "internalType": "bool",
         "name": "autoStake",
         "type": "bool"
+      },
+      {
+        "internalType": "address",
+        "name": "sponsor",
+        "type": "address"
       },
       {
         "internalType": "bytes",
@@ -999,6 +1074,16 @@
         "type": "uint64"
       },
       {
+        "internalType": "uint64",
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
         "internalType": "uint32",
         "name": "newAlgID",
         "type": "uint32"
@@ -1012,6 +1097,11 @@
         "internalType": "bytes",
         "name": "newAcceptSig",
         "type": "bytes"
+      },
+      {
+        "internalType": "address",
+        "name": "sponsor",
+        "type": "address"
       },
       {
         "internalType": "bytes",

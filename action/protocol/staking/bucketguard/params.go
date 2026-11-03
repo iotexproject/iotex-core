@@ -27,6 +27,9 @@ type Params struct {
 	GasBase      uint64
 	GasPerByte   uint64
 	GasPerVerify uint64
+	// MaxDeadlineWindow bounds the lifetime of a signed op from its anchor
+	// block: deadline - anchorHeight must not exceed it (IIP §6, §8).
+	MaxDeadlineWindow uint64
 }
 
 // ParamsV1 returns the parameters of the IIP draft. GasPerVerify is the
@@ -41,6 +44,8 @@ func ParamsV1() Params {
 		GasBase:               10_000,
 		GasPerByte:            100,
 		GasPerVerify:          30_000,
+		// About 7 days at the 2.5-second block interval.
+		MaxDeadlineWindow: 241_920,
 	}
 }
 

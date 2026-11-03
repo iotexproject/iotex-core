@@ -2,6 +2,7 @@ package bucketguard
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"strings"
 	"testing"
@@ -81,4 +82,17 @@ func FuzzGuardDeserialize(f *testing.F) {
 			t.Fatalf("accepted %x but re-serialized to %x (%v)", b, out, err)
 		}
 	})
+}
+
+func TestGuardKeyID(t *testing.T) {
+	g := &Guard{AlgID: alg, PublicKey: bytes.Repeat([]byte{7}, alg.PublicKeySize()), Generation: 1}
+	want := sha256.Sum256(append([]byte{0, 0, 0, 0x12}, g.PublicKey...))
+	if g.KeyID() != want {
+		t.Fatalf("guardKeyID = %x, want %x", g.KeyID(), want)
+	}
+	for name, g := range map[string]*Guard{"no record": nil, "tombstone": {Generation: 2, Nonce: 3}} {
+		if g.KeyID() != ([32]byte{}) {
+			t.Errorf("%s: guardKeyID = %x, want zero", name, g.KeyID())
+		}
+	}
 }

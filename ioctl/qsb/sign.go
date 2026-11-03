@@ -52,7 +52,7 @@ func (r *Request) acceptMessage() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	var h [32]byte
+	var h [bucketguard.CallHashLen]byte
 	if r.Kind == KindOp {
 		h, _ = r.CallHash()
 	}

@@ -2,6 +2,8 @@ package bucketguard
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 
 	"google.golang.org/protobuf/encoding/protowire"
@@ -24,6 +26,17 @@ type Guard struct {
 
 // IsGuarded reports whether g guards its bucket.
 func (g *Guard) IsGuarded() bool { return g != nil && len(g.PublicKey) > 0 }
+
+// KeyID returns guardKeyID = SHA-256(uint32_be(algID) || publicKey) of the
+// guard key (IIP §11), or 32 zero bytes when g guards nothing (no record or
+// a tombstone). Indexers of the BucketGuard event use it to find the buckets
+// of a key.
+func (g *Guard) KeyID() [32]byte {
+	if !g.IsGuarded() {
+		return [32]byte{}
+	}
+	return sha256.Sum256(append(binary.BigEndian.AppendUint32(nil, uint32(g.AlgID)), g.PublicKey...))
+}
 
 func (g *Guard) counters() (generation, nonce uint64) {
 	if g == nil {

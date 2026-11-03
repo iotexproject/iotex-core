@@ -97,7 +97,7 @@ func NewBindBucketGuardFromABIBinary(data []byte) (*BindBucketGuard, error) {
 }
 
 // GuardedBucketOp performs one guard-authorized operation on a bucket. The
-// sender is only a sponsor.
+// sender only pays for it, and must be the op's sponsor when one is bound.
 type GuardedBucketOp struct {
 	stake_common
 	act bucketguard.GuardedBucketOp
@@ -150,6 +150,9 @@ func (a *GuardedBucketOp) Proto() *iotextypes.GuardedBucketOp {
 		AutoStake:           m.AutoStake,
 		ClearGuard:          m.ClearGuard,
 		Sig:                 bytes.Clone(m.Sig),
+		Sponsor:             bytes.Clone(m.Sponsor),
+		AnchorHeight:        m.AnchorHeight,
+		AnchorHash:          bytes.Clone(m.AnchorHash),
 	}
 	if m.NewGuard != nil {
 		pb.NewGuard = &iotextypes.NewGuard{
@@ -180,6 +183,9 @@ func (a *GuardedBucketOp) LoadProto(pb *iotextypes.GuardedBucketOp) error {
 		AutoStake:           pb.GetAutoStake(),
 		ClearGuard:          pb.GetClearGuard(),
 		Sig:                 bytes.Clone(pb.GetSig()),
+		Sponsor:             bytes.Clone(pb.GetSponsor()),
+		AnchorHeight:        pb.GetAnchorHeight(),
+		AnchorHash:          bytes.Clone(pb.GetAnchorHash()),
 	}
 	if ng := pb.GetNewGuard(); ng != nil {
 		a.act.NewGuard = &bucketguard.NewGuard{

@@ -21,31 +21,42 @@ import (
 // entries price an action identically. The same methods are published in
 // action.NativeStakingContractABI (package action imports this one, so the
 // ABI is repeated here); a test in package action keeps the two equal.
+//
+// Every guarded method carries the anchor after the deadline, as CALL does,
+// and the sponsor before the signature. anchorHash is bytes32, the block hash
+// itself. sponsor is an address: the zero address stands for an empty
+// (bearer) sponsor, which a 20-byte sponsor cannot be (IIP §6).
 const web3ABI = `[
 {"type":"function","name":"bindBucketGuard","inputs":[
  {"name":"bucketIndex","type":"uint64"},{"name":"algID","type":"uint32"},
  {"name":"publicKey","type":"bytes"},{"name":"acceptSig","type":"bytes"}]},
 {"type":"function","name":"guardedUnstake","inputs":[
  {"name":"bucketIndex","type":"uint64"},{"name":"generation","type":"uint64"},{"name":"nonce","type":"uint64"},{"name":"deadline","type":"uint64"},
- {"name":"sig","type":"bytes"}]},
+ {"name":"anchorHeight","type":"uint64"},{"name":"anchorHash","type":"bytes32"},
+ {"name":"sponsor","type":"address"},{"name":"sig","type":"bytes"}]},
 {"type":"function","name":"guardedWithdraw","inputs":[
  {"name":"bucketIndex","type":"uint64"},{"name":"generation","type":"uint64"},{"name":"nonce","type":"uint64"},{"name":"deadline","type":"uint64"},
- {"name":"recipient","type":"address"},{"name":"sig","type":"bytes"}]},
+ {"name":"anchorHeight","type":"uint64"},{"name":"anchorHash","type":"bytes32"},
+ {"name":"recipient","type":"address"},{"name":"sponsor","type":"address"},{"name":"sig","type":"bytes"}]},
 {"type":"function","name":"guardedTransfer","inputs":[
  {"name":"bucketIndex","type":"uint64"},{"name":"generation","type":"uint64"},{"name":"nonce","type":"uint64"},{"name":"deadline","type":"uint64"},
+ {"name":"anchorHeight","type":"uint64"},{"name":"anchorHash","type":"bytes32"},
  {"name":"newOwner","type":"address"},{"name":"clearGuard","type":"bool"},
  {"name":"newAlgID","type":"uint32"},{"name":"newPublicKey","type":"bytes"},{"name":"newAcceptSig","type":"bytes"},
- {"name":"sig","type":"bytes"}]},
+ {"name":"sponsor","type":"address"},{"name":"sig","type":"bytes"}]},
 {"type":"function","name":"guardedChangeCandidate","inputs":[
  {"name":"bucketIndex","type":"uint64"},{"name":"generation","type":"uint64"},{"name":"nonce","type":"uint64"},{"name":"deadline","type":"uint64"},
- {"name":"candidateName","type":"string"},{"name":"expectedCandidateID","type":"address"},{"name":"sig","type":"bytes"}]},
+ {"name":"anchorHeight","type":"uint64"},{"name":"anchorHash","type":"bytes32"},
+ {"name":"candidateName","type":"string"},{"name":"expectedCandidateID","type":"address"},{"name":"sponsor","type":"address"},{"name":"sig","type":"bytes"}]},
 {"type":"function","name":"guardedRestake","inputs":[
  {"name":"bucketIndex","type":"uint64"},{"name":"generation","type":"uint64"},{"name":"nonce","type":"uint64"},{"name":"deadline","type":"uint64"},
- {"name":"duration","type":"uint32"},{"name":"autoStake","type":"bool"},{"name":"sig","type":"bytes"}]},
+ {"name":"anchorHeight","type":"uint64"},{"name":"anchorHash","type":"bytes32"},
+ {"name":"duration","type":"uint32"},{"name":"autoStake","type":"bool"},{"name":"sponsor","type":"address"},{"name":"sig","type":"bytes"}]},
 {"type":"function","name":"guardedRotate","inputs":[
  {"name":"bucketIndex","type":"uint64"},{"name":"generation","type":"uint64"},{"name":"nonce","type":"uint64"},{"name":"deadline","type":"uint64"},
+ {"name":"anchorHeight","type":"uint64"},{"name":"anchorHash","type":"bytes32"},
  {"name":"newAlgID","type":"uint32"},{"name":"newPublicKey","type":"bytes"},{"name":"newAcceptSig","type":"bytes"},
- {"name":"sig","type":"bytes"}]}
+ {"name":"sponsor","type":"address"},{"name":"sig","type":"bytes"}]}
 ]`
 
 const bindMethod = "bindBucketGuard"
@@ -98,7 +109,17 @@ func (m *GuardedBucketOp) EthData() ([]byte, error) {
 	if !ok {
 		return nil, malformed("unknown op %d", uint32(m.Op))
 	}
-	head := []any{m.BucketIndex, m.Generation, m.Nonce, m.Deadline}
+	if len(m.AnchorHash) != AnchorHashLen {
+		return nil, malformed("anchorHash must be %d bytes, got %d", AnchorHashLen, len(m.AnchorHash))
+	}
+	var sponsor common.Address
+	if len(m.Sponsor) > 0 {
+		var err error
+		if sponsor, err = toAddr(m.Op, "sponsor", m.Sponsor); err != nil {
+			return nil, err
+		}
+	}
+	head := []any{m.BucketIndex, m.Generation, m.Nonce, m.Deadline, m.AnchorHeight, [AnchorHashLen]byte(m.AnchorHash)}
 	var ng NewGuard
 	if m.NewGuard != nil {
 		ng = *m.NewGuard
@@ -129,7 +150,7 @@ func (m *GuardedBucketOp) EthData() ([]byte, error) {
 	case OpRotate:
 		args = []any{uint32(ng.AlgID), ng.PublicKey, ng.AcceptSig}
 	}
-	return pack(method, append(append(head, args...), m.Sig)...)
+	return pack(method, append(append(head, args...), sponsor, m.Sig)...)
 }
 
 // GuardedBucketOpFromEthData decodes a call of one of the guarded methods.
@@ -151,12 +172,18 @@ func GuardedBucketOpFromEthData(data []byte) (*GuardedBucketOp, error) {
 		return nil, err
 	}
 	m := &GuardedBucketOp{
-		BucketIndex: v.u64("bucketIndex"),
-		Generation:  v.u64("generation"),
-		Nonce:       v.u64("nonce"),
-		Deadline:    v.u64("deadline"),
-		Op:          op,
-		Sig:         v.bytes("sig"),
+		BucketIndex:  v.u64("bucketIndex"),
+		Generation:   v.u64("generation"),
+		Nonce:        v.u64("nonce"),
+		Deadline:     v.u64("deadline"),
+		AnchorHeight: v.u64("anchorHeight"),
+		AnchorHash:   v.bytes32("anchorHash"),
+		Op:           op,
+		Sig:          v.bytes("sig"),
+	}
+	// The zero address is no sponsor; Validate rejects it as a 20-byte value.
+	if sponsor := v.addr("sponsor"); !bytes.Equal(sponsor, zeroAddress[:]) {
+		m.Sponsor = sponsor
 	}
 	newGuard := func() *NewGuard {
 		g := &NewGuard{AlgID: pqcrypto.AlgID(v.u32("newAlgID")), PublicKey: v.bytes("newPublicKey"), AcceptSig: v.bytes("newAcceptSig")}
@@ -243,6 +270,10 @@ func (v *abiValues) u32(name string) uint32    { return get[uint32](v, name) }
 func (v *abiValues) bool(name string) bool     { return get[bool](v, name) }
 func (v *abiValues) string(name string) string { return get[string](v, name) }
 func (v *abiValues) bytes(name string) []byte  { return bytes.Clone(get[[]byte](v, name)) }
+func (v *abiValues) bytes32(name string) []byte {
+	b := get[[32]byte](v, name)
+	return b[:]
+}
 func (v *abiValues) addr(name string) []byte {
 	a := get[common.Address](v, name)
 	return a.Bytes()

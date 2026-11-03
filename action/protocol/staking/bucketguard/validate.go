@@ -1,6 +1,7 @@
 package bucketguard
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
@@ -21,8 +22,8 @@ func (m *BindBucketGuard) Validate(p Params) error {
 }
 
 // Validate performs the stateless checks of GuardedBucketOp (IIP §9.1) that
-// belong to the guard: sizes, deadline, and which fields each op carries.
-// Errors wrap ErrMalformed.
+// belong to the guard: sizes, deadline and anchor, addresses, and which fields
+// each op carries. Errors wrap ErrMalformed.
 //
 // The staking business rules of the underlying operation (restake duration
 // bound, candidate-name format) are not repeated here; the staking protocol
@@ -31,11 +32,16 @@ func (m *GuardedBucketOp) Validate(p Params) error {
 	if m.Deadline == 0 {
 		return malformed("deadline must be > 0")
 	}
+	if err := m.validateAnchor(p); err != nil {
+		return err
+	}
 	if !p.acceptsSigSize(len(m.Sig)) {
 		return malformed("CALL signature has invalid size %d", len(m.Sig))
 	}
-	if len(m.Sponsor) != 0 && len(m.Sponsor) != addressLen {
-		return malformed("sponsor must be empty or %d bytes, got %d", addressLen, len(m.Sponsor))
+	if len(m.Sponsor) != 0 {
+		if err := checkAccount("sponsor", m.Sponsor); err != nil {
+			return err
+		}
 	}
 	limit := p.MaxOpSize
 	if m.installsKey() {
@@ -45,6 +51,23 @@ func (m *GuardedBucketOp) Validate(p Params) error {
 		return malformed("canonical size %d exceeds %d", size, limit)
 	}
 	return m.validateFields(p)
+}
+
+// validateAnchor checks the anchor fields on their own and against the
+// deadline: the op may live at most p.MaxDeadlineWindow blocks after its
+// anchor block. The anchor block itself is checked at execution.
+func (m *GuardedBucketOp) validateAnchor(p Params) error {
+	switch {
+	case m.AnchorHeight == 0:
+		return malformed("anchorHeight must be > 0")
+	case len(m.AnchorHash) != AnchorHashLen:
+		return malformed("anchorHash must be %d bytes, got %d", AnchorHashLen, len(m.AnchorHash))
+	case m.AnchorHeight > m.Deadline:
+		return malformed("anchorHeight %d is after deadline %d", m.AnchorHeight, m.Deadline)
+	case m.Deadline-m.AnchorHeight > p.MaxDeadlineWindow:
+		return malformed("deadline %d is more than %d blocks after anchorHeight %d", m.Deadline, p.MaxDeadlineWindow, m.AnchorHeight)
+	}
+	return nil
 }
 
 // field presence per op; true means required, absent means must be empty.
@@ -79,6 +102,16 @@ func (m *GuardedBucketOp) validateFields(p Params) error {
 	if err := checkAddr(m.Op, "newOwner", m.NewOwner, want.newOwner); err != nil {
 		return err
 	}
+	if want.recipient {
+		if err := checkAccount("recipient", m.Recipient); err != nil {
+			return err
+		}
+	}
+	if want.newOwner {
+		if err := checkAccount("newOwner", m.NewOwner); err != nil {
+			return err
+		}
+	}
 	if err := checkAddr(m.Op, "expectedCandidateID", m.ExpectedCandidateID, want.candidate); err != nil {
 		return err
 	}
@@ -109,6 +142,20 @@ func checkAddr(op Op, name string, v []byte, required bool) error {
 	}
 	return nil
 }
+
+// checkAccount applies the IIP §6 address rule to recipient, newOwner and a
+// non-empty sponsor: a 20-byte account address other than the zero address.
+func checkAccount(name string, v []byte) error {
+	if len(v) != addressLen {
+		return malformed("%s must be %d bytes, got %d", name, addressLen, len(v))
+	}
+	if bytes.Equal(v, zeroAddress[:]) {
+		return malformed("%s must not be the zero address", name)
+	}
+	return nil
+}
+
+var zeroAddress [addressLen]byte
 
 func validateKey(p Params, alg pqcrypto.AlgID, publicKey, acceptSig []byte) error {
 	if !p.accepts(alg) {

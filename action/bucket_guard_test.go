@@ -27,7 +27,8 @@ func testGuardedOps() map[string]*bucketguard.GuardedBucketOp {
 	addr := bytes.Repeat([]byte{0xab}, 20)
 	newGuard := &bucketguard.NewGuard{AlgID: alg, PublicKey: make([]byte, alg.PublicKeySize()), AcceptSig: sig}
 	op := func(o bucketguard.Op, f func(*bucketguard.GuardedBucketOp)) *bucketguard.GuardedBucketOp {
-		m := &bucketguard.GuardedBucketOp{BucketIndex: 7, Generation: 2, Nonce: 3, Deadline: 100, Op: o, Sig: sig}
+		m := &bucketguard.GuardedBucketOp{BucketIndex: 7, Generation: 2, Nonce: 3, Deadline: 100,
+			AnchorHeight: 90, AnchorHash: bytes.Repeat([]byte{0x33}, 32), Op: o, Sig: sig}
 		f(m)
 		return m
 	}
@@ -39,6 +40,7 @@ func testGuardedOps() map[string]*bucketguard.GuardedBucketOp {
 		"candidate":      op(bucketguard.OpChangeCandidate, func(m *bucketguard.GuardedBucketOp) { m.CandidateName, m.ExpectedCandidateID = "cand1", addr }),
 		"restake":        op(bucketguard.OpRestake, func(m *bucketguard.GuardedBucketOp) { m.Duration, m.AutoStake = 91, true }),
 		"rotate":         op(bucketguard.OpRotate, func(m *bucketguard.GuardedBucketOp) { m.NewGuard = newGuard }),
+		"sponsored":      op(bucketguard.OpUnstake, func(m *bucketguard.GuardedBucketOp) { m.Sponsor = bytes.Repeat([]byte{0xcd}, 20) }),
 	}
 }
 
@@ -62,6 +64,33 @@ func TestGuardedBucketOpProtoRoundTrip(t *testing.T) {
 		g2, _ := back.IntrinsicGas()
 		r.Equal(g1, g2, name)
 		r.True(proto.Equal(act.Proto(), back.Proto()), name)
+		r.Equal(m.Sponsor, back.Guard().Sponsor, name)
+		r.Equal(m.AnchorHeight, back.Guard().AnchorHeight, name)
+		r.Equal(m.AnchorHash, back.Guard().AnchorHash, name)
+	}
+}
+
+// IntrinsicGas covers the anchor and the sponsor: they are part of C(m).
+func TestGuardedBucketOpGasCoversNewFields(t *testing.T) {
+	r := require.New(t)
+	m := testGuardedOps()["unstake"]
+	gas, err := NewGuardedBucketOp(m).IntrinsicGas()
+	r.NoError(err)
+	// 16,275 bytes; docs/qsb-spec-and-vectors.md, UNSTAKE vector.
+	r.EqualValues(10_000+100*16_275+30_000, gas)
+	m.Sponsor = bytes.Repeat([]byte{0xcd}, 20)
+	sponsored, err := NewGuardedBucketOp(m).IntrinsicGas()
+	r.NoError(err)
+	r.EqualValues(gas+100*22, sponsored)
+
+	for name, f := range map[string]func(*bucketguard.GuardedBucketOp){
+		"no anchor":    func(m *bucketguard.GuardedBucketOp) { m.AnchorHeight, m.AnchorHash = 0, nil },
+		"zero sponsor": func(m *bucketguard.GuardedBucketOp) { m.Sponsor = make([]byte, 20) },
+		"window":       func(m *bucketguard.GuardedBucketOp) { m.Deadline = m.AnchorHeight + 241_921 },
+	} {
+		bad := *testGuardedOps()["unstake"]
+		f(&bad)
+		r.ErrorIs(NewGuardedBucketOp(&bad).SanityCheck(), ErrInvalidAct, name)
 	}
 }
 
@@ -126,7 +155,8 @@ func TestNativeStakingABIGuardedMethods(t *testing.T) {
 	// Distinct values per field, so an argument published under the wrong
 	// name is caught.
 	sig, pub, accept := fill(1, alg.SignatureSize()), fill(2, alg.PublicKeySize()), fill(3, alg.SignatureSize())
-	addrA, addrB := fill(0xaa, 20), fill(0xbb, 20)
+	addrA, addrB, sponsor := fill(0xaa, 20), fill(0xbb, 20), fill(0xcc, 20)
+	anchor := [32]byte(fill(0xdd, 32))
 	newGuard := &bucketguard.NewGuard{AlgID: alg, PublicKey: pub, AcceptSig: accept}
 	type testCase struct {
 		method string
@@ -134,10 +164,12 @@ func TestNativeStakingABIGuardedMethods(t *testing.T) {
 		args   map[string]any // the published arguments the call must decode to
 	}
 	guarded := func(method string, o bucketguard.Op, f func(*bucketguard.GuardedBucketOp), args map[string]any) testCase {
-		m := &bucketguard.GuardedBucketOp{BucketIndex: 7, Generation: 2, Nonce: 3, Deadline: 100, Op: o, Sig: sig}
+		m := &bucketguard.GuardedBucketOp{BucketIndex: 7, Generation: 2, Nonce: 3, Deadline: 100,
+			AnchorHeight: 90, AnchorHash: anchor[:], Op: o, Sig: sig, Sponsor: sponsor}
 		f(m)
 		args["bucketIndex"], args["generation"], args["nonce"], args["deadline"], args["sig"] =
 			uint64(7), uint64(2), uint64(3), uint64(100), sig
+		args["anchorHeight"], args["anchorHash"], args["sponsor"] = uint64(90), anchor, common.BytesToAddress(sponsor)
 		return testCase{method, NewGuardedBucketOp(m), args}
 	}
 	tests := []testCase{

@@ -261,6 +261,7 @@ func guardReceiptError(err error) error {
 		{bucketguard.ErrGuardSignature, iotextypes.ReceiptStatus_ErrGuardSignature},
 		{bucketguard.ErrGuardScope, iotextypes.ReceiptStatus_ErrGuardScope},
 		{bucketguard.ErrCandidateMismatch, iotextypes.ReceiptStatus_ErrCandidateMismatch},
+		{bucketguard.ErrSponsorMismatch, iotextypes.ReceiptStatus_ErrUnauthorizedOperator},
 		// Stateless failures are rejected before execution; one surfacing here
 		// is still a deterministic verdict on the action, not a node fault.
 		{bucketguard.ErrMalformed, iotextypes.ReceiptStatus_Failure},
@@ -372,10 +373,25 @@ func (p *Protocol) handleBindBucketGuard(ctx context.Context, act *action.BindBu
 	return log, nil, nil
 }
 
+// anchorBlockHash returns the hash of a committed block, for the anchor check
+// of bucketguard.CheckOp. A failed read is a storage error, which aborts the
+// block (IIP §9.3).
+func anchorBlockHash(ctx context.Context) func(uint64) ([32]byte, error) {
+	get := protocol.MustGetBlockchainCtx(ctx).GetBlockHash
+	return func(height uint64) ([32]byte, error) {
+		if get == nil {
+			return [32]byte{}, errors.New("block hash lookup is unavailable")
+		}
+		h, err := get(height)
+		return [32]byte(h), err
+	}
+}
+
 // handleGuardedBucketOp follows IIP §9.2:
 //
 //  2. the bucket exists, is native and guarded;
-//  4. generation, nonce and deadline match (bucketguard.CheckOp);
+//  3. a bound sponsor is the sender;
+//  4. generation, nonce, anchor and deadline match (bucketguard.CheckOp);
 //  5. the op's staking preconditions, checked on copies by the same check
 //     functions the legacy handlers use from the QSB fork (bucket_ops.go);
 //  6. the CALL and ACCEPT signatures (bucketguard.VerifyOp), which yield the
@@ -406,8 +422,9 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 	if err != nil {
 		return log, nil, err
 	}
-	// step 4
-	if err := bucketguard.CheckOp(cur, op, height); err != nil {
+	// steps 2 (guarded), 3 and 4
+	env := bucketguard.OpEnv{Height: height, Sender: actionCtx.Caller, BlockHash: anchorBlockHash(ctx)}
+	if err := bucketguard.CheckOp(bucketguard.ParamsV1(), cur, op, env); err != nil {
 		return log, nil, guardReceiptError(err)
 	}
 	// The CALL commits to the owner at execution time, before any effect.

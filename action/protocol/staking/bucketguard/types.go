@@ -18,6 +18,9 @@ const (
 	AcceptContext = "IoTeX-PQ-Bucket-Accept-v1"
 )
 
+// AnchorHashLen is the size of GuardedBucketOp.AnchorHash, a block hash.
+const AnchorHashLen = 32
+
 // Domain identifies one chain instance in every transcript (IIP §7). It is a
 // constant per network.
 type Domain [32]byte
@@ -84,10 +87,16 @@ type BindBucketGuard struct {
 // sender is only a sponsor; Sig, by the current guard key, authorizes it.
 // Address fields are raw 20-byte addresses; fields unused by Op must be empty.
 type GuardedBucketOp struct {
-	BucketIndex         uint64
-	Generation          uint64
-	Nonce               uint64
-	Deadline            uint64
+	BucketIndex uint64
+	Generation  uint64
+	Nonce       uint64
+	Deadline    uint64
+	// AnchorHeight and AnchorHash name a recent block (IIP §6). A block hash
+	// cannot be predicted, so the op cannot have been signed before that
+	// block, and it is valid from AnchorHeight to Deadline, at most
+	// Params.MaxDeadlineWindow blocks. AnchorHash is 32 bytes.
+	AnchorHeight        uint64
+	AnchorHash          []byte
 	Op                  Op
 	Recipient           []byte // WITHDRAW
 	NewOwner            []byte // TRANSFER
@@ -99,7 +108,8 @@ type GuardedBucketOp struct {
 	ClearGuard          bool // TRANSFER
 	Sig                 []byte
 	// Sponsor, when set, is the only sender that may submit the op; empty
-	// makes the op a bearer authorization. It is signed in CALL.
+	// makes the op a bearer authorization. It is signed in CALL and enforced
+	// at execution (IIP §9.2 step 3).
 	Sponsor []byte
 }
 

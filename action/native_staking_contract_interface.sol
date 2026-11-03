@@ -186,10 +186,12 @@ interface INativeStakingContract {
     // Quantum-safe buckets (IIP-65). bindBucketGuard binds a post-quantum
     // guard key to a native bucket; each guarded* method is one guarded
     // operation on a bucket, authorized by sig, a guard-key signature over
-    // the operation at the bucket's (generation, nonce). The ABI is only an
-    // envelope: the node decodes these calls into the same actions as the
-    // native encoding (bucketguard/web3.go keeps the private copy it decodes
-    // with; TestNativeStakingABIGuardedMethods keeps the two equal).
+    // the operation at the bucket's (generation, nonce). anchorHeight and
+    // anchorHash name a recent block the signature was made after; sponsor,
+    // unless zero, is the only sender that may submit the call. The ABI is
+    // only an envelope: the node decodes these calls into the same actions as
+    // the native encoding (bucketguard/web3.go keeps the private copy it
+    // decodes with; TestNativeStakingABIGuardedMethods keeps the two equal).
     function bindBucketGuard(
         uint64 bucketIndex,
         uint32 algID,
@@ -202,6 +204,9 @@ interface INativeStakingContract {
         uint64 generation,
         uint64 nonce,
         uint64 deadline,
+        uint64 anchorHeight,
+        bytes32 anchorHash,
+        address sponsor,
         bytes memory sig
     ) external;
 
@@ -210,7 +215,10 @@ interface INativeStakingContract {
         uint64 generation,
         uint64 nonce,
         uint64 deadline,
+        uint64 anchorHeight,
+        bytes32 anchorHash,
         address recipient,
+        address sponsor,
         bytes memory sig
     ) external;
 
@@ -219,11 +227,14 @@ interface INativeStakingContract {
         uint64 generation,
         uint64 nonce,
         uint64 deadline,
+        uint64 anchorHeight,
+        bytes32 anchorHash,
         address newOwner,
         bool clearGuard,
         uint32 newAlgID,
         bytes memory newPublicKey,
         bytes memory newAcceptSig,
+        address sponsor,
         bytes memory sig
     ) external;
 
@@ -232,8 +243,11 @@ interface INativeStakingContract {
         uint64 generation,
         uint64 nonce,
         uint64 deadline,
+        uint64 anchorHeight,
+        bytes32 anchorHash,
         string memory candidateName,
         address expectedCandidateID,
+        address sponsor,
         bytes memory sig
     ) external;
 
@@ -242,8 +256,11 @@ interface INativeStakingContract {
         uint64 generation,
         uint64 nonce,
         uint64 deadline,
+        uint64 anchorHeight,
+        bytes32 anchorHash,
         uint32 duration,
         bool autoStake,
+        address sponsor,
         bytes memory sig
     ) external;
 
@@ -252,9 +269,12 @@ interface INativeStakingContract {
         uint64 generation,
         uint64 nonce,
         uint64 deadline,
+        uint64 anchorHeight,
+        bytes32 anchorHash,
         uint32 newAlgID,
         bytes memory newPublicKey,
         bytes memory newAcceptSig,
+        address sponsor,
         bytes memory sig
     ) external;
 }

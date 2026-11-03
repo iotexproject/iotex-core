@@ -2,7 +2,7 @@ package bucketguard
 
 import (
 	"bytes"
-	"crypto/sha256"
+	"crypto/sha512"
 	"fmt"
 	"math"
 
@@ -44,7 +44,7 @@ func AuthorizeBind(p Params, d Domain, owner address.Address, scope BindScope, c
 	if !p.accepts(m.AlgID) {
 		return nil, malformed("unsupported algorithm %s", m.AlgID)
 	}
-	if err := verifyAccept(d, m.BucketIndex, gen+1, owner, m.AlgID, m.PublicKey, [32]byte{}, m.AcceptSig); err != nil {
+	if err := verifyAccept(d, m.BucketIndex, gen+1, owner, m.AlgID, m.PublicKey, [CallHashLen]byte{}, m.AcceptSig); err != nil {
 		return nil, err
 	}
 	return &Guard{
@@ -56,24 +56,64 @@ func AuthorizeBind(p Params, d Domain, owner address.Address, scope BindScope, c
 	}, nil
 }
 
-// CheckOp runs the guard part of IIP §9.2 steps 2 and 4: the bucket must be
-// guarded, the op must match the stored generation and nonce, the deadline
-// must not have passed, and no counter may overflow. Call it before the
-// op-specific staking preconditions (step 5) and before VerifyOp (step 6).
-func CheckOp(cur *Guard, op *GuardedBucketOp, height uint64) error {
+// OpEnv is what CheckOp needs from the execution context.
+type OpEnv struct {
+	// Height is the height of the block being executed.
+	Height uint64
+	// Sender is the outer sender of the action.
+	Sender address.Address
+	// BlockHash returns the hash of the committed block at a height below
+	// Height. An error is a storage failure, not a mismatch; CheckOp returns
+	// it unwrapped so the staking protocol treats it as fatal (IIP §9.3).
+	BlockHash func(height uint64) ([32]byte, error)
+}
+
+// CheckOp runs the guard part of IIP §9.2 steps 2 to 4, in this order:
+//
+//  2. the bucket must be guarded (ErrBucketNotGuarded);
+//  3. a non-empty sponsor must be the sender (ErrSponsorMismatch);
+//  4. the op must match the stored generation and nonce, no counter may
+//     overflow, anchorHeight <= height <= deadline, deadline <=
+//     anchorHeight + MaxDeadlineWindow, and the block at anchorHeight must
+//     have hash anchorHash (ErrGuardMismatch).
+//
+// The heights are compared before the block hash is looked up, so only the
+// last MaxDeadlineWindow blocks are ever looked up. The block being executed
+// has no hash yet, so an anchor at env.Height fails without a lookup. Call
+// CheckOp after loading the native bucket (step 2), and before the
+// op-specific staking preconditions (step 5) and VerifyOp (step 6).
+func CheckOp(p Params, cur *Guard, op *GuardedBucketOp, env OpEnv) error {
 	if !cur.IsGuarded() {
 		return fmt.Errorf("%w: bucket %d", ErrBucketNotGuarded, op.BucketIndex)
+	}
+	if len(op.Sponsor) > 0 && (env.Sender == nil || !bytes.Equal(env.Sender.Bytes(), op.Sponsor)) {
+		return fmt.Errorf("%w: op is bound to sponsor %x", ErrSponsorMismatch, op.Sponsor)
 	}
 	switch {
 	case op.Generation != cur.Generation || op.Nonce != cur.Nonce:
 		return fmt.Errorf("%w: op is for generation %d nonce %d, guard is at %d/%d",
 			ErrGuardMismatch, op.Generation, op.Nonce, cur.Generation, cur.Nonce)
-	case height > op.Deadline:
-		return fmt.Errorf("%w: deadline %d passed at height %d", ErrGuardMismatch, op.Deadline, height)
 	case cur.Nonce == math.MaxUint64:
 		return fmt.Errorf("%w: nonce overflow", ErrGuardMismatch)
 	case op.changesKey() && cur.Generation == math.MaxUint64:
 		return fmt.Errorf("%w: generation overflow", ErrGuardMismatch)
+	case env.Height < op.AnchorHeight:
+		return fmt.Errorf("%w: anchor %d is above height %d", ErrGuardMismatch, op.AnchorHeight, env.Height)
+	case env.Height > op.Deadline:
+		return fmt.Errorf("%w: deadline %d passed at height %d", ErrGuardMismatch, op.Deadline, env.Height)
+	case op.Deadline-op.AnchorHeight > p.MaxDeadlineWindow:
+		// op.AnchorHeight <= env.Height <= op.Deadline here, so no underflow.
+		return fmt.Errorf("%w: deadline %d is more than %d blocks after anchor %d",
+			ErrGuardMismatch, op.Deadline, p.MaxDeadlineWindow, op.AnchorHeight)
+	case op.AnchorHeight == env.Height:
+		return fmt.Errorf("%w: anchor %d is the block being executed", ErrGuardMismatch, op.AnchorHeight)
+	}
+	h, err := env.BlockHash(op.AnchorHeight)
+	if err != nil {
+		return fmt.Errorf("failed to read the hash of anchor block %d: %w", op.AnchorHeight, err)
+	}
+	if !bytes.Equal(h[:], op.AnchorHash) {
+		return fmt.Errorf("%w: block %d has hash %x, op is anchored to %x", ErrGuardMismatch, op.AnchorHeight, h, op.AnchorHash)
 	}
 	return nil
 }
@@ -132,14 +172,14 @@ func VerifyOp(p Params, d Domain, owner address.Address, cur *Guard, op *Guarded
 				return nil, malformed("TRANSFER newOwner: %v", err)
 			}
 		}
-		if err := verifyAccept(d, op.BucketIndex, cur.Generation+1, resultingOwner, ng.AlgID, ng.PublicKey, sha256.Sum256(call), ng.AcceptSig); err != nil {
+		if err := verifyAccept(d, op.BucketIndex, cur.Generation+1, resultingOwner, ng.AlgID, ng.PublicKey, sha512.Sum512(call), ng.AcceptSig); err != nil {
 			return nil, err
 		}
 	}
 	return &Grant{bucketIndex: op.BucketIndex, generation: cur.Generation, nonce: cur.Nonce, op: op.Op}, nil
 }
 
-func verifyAccept(d Domain, bucketIndex, newGeneration uint64, resultingOwner address.Address, alg pqcrypto.AlgID, publicKey []byte, callHash [32]byte, sig []byte) error {
+func verifyAccept(d Domain, bucketIndex, newGeneration uint64, resultingOwner address.Address, alg pqcrypto.AlgID, publicKey []byte, callHash [CallHashLen]byte, sig []byte) error {
 	pk, err := pqcrypto.ParsePublicKey(alg, publicKey)
 	if err != nil {
 		return malformed("incoming key: %v", err)
