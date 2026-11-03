@@ -26,6 +26,7 @@ func testGuardedOp() *bucketguard.GuardedBucketOp {
 	alg := pqcrypto.AlgSLHDSA192s
 	return &bucketguard.GuardedBucketOp{
 		BucketIndex: 7, Generation: 3, Nonce: 5, Deadline: 1100, Op: bucketguard.OpTransfer,
+		AnchorHeight: 1000, AnchorHash: bytes.Repeat([]byte{0xab}, 32), Sponsor: identityset.Address(4).Bytes(),
 		NewOwner: identityset.Address(3).Bytes(),
 		NewGuard: &bucketguard.NewGuard{
 			AlgID: alg, PublicKey: bytes.Repeat([]byte{1}, alg.PublicKeySize()),
@@ -93,6 +94,14 @@ func TestGuardDeadline(t *testing.T) {
 	r.Error(err)
 	_, err = guardDeadline(newCmd("--deadline-blocks", "0"), 1000, false)
 	r.Error(err)
+	// The read height is the anchor: at most MAX_DEADLINE_WINDOW blocks after it.
+	d, err = guardDeadline(newCmd("--deadline-blocks", "241920"), 1000, false)
+	r.NoError(err)
+	r.EqualValues(242920, d)
+	_, err = guardDeadline(newCmd("--deadline-blocks", "241921"), 1000, false)
+	r.ErrorContains(err, "1..241920")
+	_, err = guardDeadline(newCmd("--deadline", "242921"), 1000, false)
+	r.ErrorContains(err, "more than 241920 blocks after the tip 1000")
 }
 
 func TestPrintGuardActionProto(t *testing.T) {
@@ -119,7 +128,8 @@ func TestPrintGuardActionProto(t *testing.T) {
 		r.Contains(out, "<16224 bytes, sha256 ", name)
 		if name == "op" {
 			for _, want := range []string{"guardedBucketOp: <", "op: 3 (TRANSFER)", "generation: 3", "nonce: 5",
-				"deadline: 1100", "newOwner: " + identityset.Address(3).String(), "newGuard: <", "SLH-DSA-SHA2-192s"} {
+				"deadline: 1100", "anchorHeight: 1000", "anchorHash: abab", "sponsor: " + identityset.Address(4).String(),
+				"newOwner: " + identityset.Address(3).String(), "newGuard: <", "SLH-DSA-SHA2-192s"} {
 				r.Contains(out, want)
 			}
 			r.Equal(2, strings.Count(out, "<16224 bytes"))
@@ -136,7 +146,7 @@ func TestMatchGuardStatuses(t *testing.T) {
 		m := Match(strconv.Itoa(s), "status")
 		r.True(strings.HasPrefix(m, "(Failure : "), "%d: %q", s, m)
 	}
-	r.Contains(Match("218", "status"), "mismatch")
+	r.Contains(Match("218", "status"), "anchor")
 	r.Contains(Match("219", "status"), "signature")
 	r.Equal("", Match("222", "status"))
 }
@@ -180,7 +190,46 @@ func TestSignRequest(t *testing.T) {
 	r.NoError(qsb.Verify(req))
 	r.Contains(nextSteps(req, "f.json"), "valid until block 1100")
 
+	r.Contains(nextSteps(req, "f.json"), "from any account")
+
 	// New keys beyond the recovery window need --allow-high-index.
 	r.ErrorContains(checkKeyIndex(high), "--allow-high-index")
 	r.NoError(checkKeyIndex(1023))
+}
+
+// TestCheckAnchorAndSponsor covers the submit pre-checks of a Draft 4 op: the
+// anchor block must be on the endpoint's chain, and a bound sponsor must be
+// the sender.
+func TestCheckAnchorAndSponsor(t *testing.T) {
+	r := require.New(t)
+	kr := testKeyring(t, "")
+	cur, err := kr.Key(0)
+	r.NoError(err)
+	anchor := [32]byte{0xa1}
+	s := &qsb.ChainState{
+		ChainID: 2, Height: 1000, HeightHash: anchor, BucketIndex: 7, Owner: identityset.Address(1),
+		Guard: &bucketguard.Guard{AlgID: pqcrypto.AlgSLHDSA192s, PublicKey: cur.PublicKey().Bytes(), Generation: 1},
+	}
+	sponsor := identityset.Address(4)
+	req, err := qsb.NewOpRequest(s, &qsb.OpParams{Op: bucketguard.OpUnstake, Deadline: 1100, Sponsor: sponsor})
+	r.NoError(err)
+
+	chain := func(h [32]byte) func(uint64) ([32]byte, error) {
+		return func(height uint64) ([32]byte, error) {
+			r.EqualValues(1000, height)
+			return h, nil
+		}
+	}
+	r.NoError(checkAnchor(req, 1010, chain(anchor)))
+	r.ErrorContains(checkAnchor(req, 1010, chain([32]byte{0xa2})), "status 218")
+	r.ErrorContains(checkAnchor(req, 999, chain(anchor)), "above the tip")
+
+	r.NoError(checkSponsor(req, sponsor.String()))
+	r.ErrorContains(checkSponsor(req, identityset.Address(5).String()), "status 203")
+	r.ErrorContains(checkSponsor(req, "hdw::1/2"), "hdwallet")
+	r.Contains(nextSteps(req, "f.json"), "as the sponsor:   ioctl stake2 guard submit f.json -s "+sponsor.String())
+
+	bearer, err := qsb.NewOpRequest(s, &qsb.OpParams{Op: bucketguard.OpUnstake, Deadline: 1100})
+	r.NoError(err)
+	r.NoError(checkSponsor(bearer, identityset.Address(5).String()))
 }

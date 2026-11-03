@@ -304,7 +304,12 @@ func printGuardedBucketOp(m *iotextypes.GuardedBucketOp) string {
 		fmt.Sprintf("  op: %d (%s)\n", m.GetOp(), bucketguard.Op(m.GetOp())) +
 		fmt.Sprintf("  generation: %d\n", m.GetGeneration()) +
 		fmt.Sprintf("  nonce: %d\n", m.GetNonce()) +
-		fmt.Sprintf("  deadline: %d\n", m.GetDeadline())
+		fmt.Sprintf("  deadline: %d\n", m.GetDeadline()) +
+		fmt.Sprintf("  anchorHeight: %d\n", m.GetAnchorHeight()) +
+		fmt.Sprintf("  anchorHash: %x\n", m.GetAnchorHash())
+	if len(m.GetSponsor()) > 0 {
+		result += fmt.Sprintf("  sponsor: %s\n", addr(m.GetSponsor()))
+	}
 	if len(m.GetRecipient()) > 0 {
 		result += fmt.Sprintf("  recipient: %s\n", addr(m.GetRecipient()))
 	}
@@ -431,7 +436,7 @@ func Match(in string, matchType string) string {
 		case "217":
 			return "(Failure : Bucket is not guarded)"
 		case "218":
-			return "(Failure : Guard generation, nonce or deadline mismatch)"
+			return "(Failure : Guard generation, nonce, anchor or deadline mismatch)"
 		case "219":
 			return "(Failure : Invalid guard signature)"
 		case "220":

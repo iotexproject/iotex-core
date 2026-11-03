@@ -116,6 +116,23 @@ func GetCandidateByName(name string) (*iotextypes.CandidateV2, error) {
 	return c, nil
 }
 
+// GetBlockHash returns the hash of the block at height, the anchor of a
+// guarded op.
+func GetBlockHash(height uint64) ([32]byte, error) {
+	meta, err := getBlockMetaByHeight(height)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	if meta.GetHeight() != height {
+		return [32]byte{}, output.NewError(output.APIError, fmt.Sprintf("asked for block %d, got block %d", height, meta.GetHeight()), nil)
+	}
+	h, err := parseHash32(meta.GetHash())
+	if err != nil {
+		return h, output.NewError(output.ConvertError, fmt.Sprintf("invalid hash %q of block %d", meta.GetHash(), height), nil)
+	}
+	return h, nil
+}
+
 // GetGenesisHash returns the hash of the genesis block, read as the parent
 // hash of block 1.
 func GetGenesisHash() ([32]byte, error) {
@@ -127,10 +144,18 @@ func GetGenesisHash() ([32]byte, error) {
 }
 
 func parseGenesisHash(s string) ([32]byte, error) {
+	h, err := parseHash32(s)
+	if err != nil {
+		return h, output.NewError(output.ConvertError, fmt.Sprintf("invalid genesis hash %q", s), nil)
+	}
+	return h, nil
+}
+
+func parseHash32(s string) ([32]byte, error) {
 	var h [32]byte
 	b, err := hex.DecodeString(s)
 	if err != nil || len(b) != len(h) {
-		return h, output.NewError(output.ConvertError, fmt.Sprintf("invalid genesis hash %q", s), nil)
+		return h, fmt.Errorf("invalid 32-byte hash %q", s)
 	}
 	copy(h[:], b)
 	return h, nil

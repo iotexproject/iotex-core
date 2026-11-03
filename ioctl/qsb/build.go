@@ -22,6 +22,8 @@ type ChainState struct {
 	ChainID     uint32
 	GenesisHash [32]byte
 	Height      uint64
+	// HeightHash is the hash of block Height. An op is anchored to it.
+	HeightHash  [32]byte
 	BucketIndex uint64
 	Owner       address.Address
 	Candidate   string
@@ -49,6 +51,9 @@ func (s *ChainState) bucketInfo() BucketInfo {
 type OpParams struct {
 	Op       bucketguard.Op
 	Deadline uint64
+	// Sponsor, when set, is the only account that may submit the op; nil
+	// makes the signed op a bearer authorization.
+	Sponsor address.Address
 	// WITHDRAW
 	Recipient address.Address
 	// TRANSFER
@@ -72,7 +77,8 @@ func addrBytes(a address.Address) []byte {
 	return a.Bytes()
 }
 
-// NewOpRequest prepares a guarded op on a guarded bucket.
+// NewOpRequest prepares a guarded op on a guarded bucket, anchored to the
+// block the state was read at (IIP-65 §6).
 func NewOpRequest(s *ChainState, p *OpParams) (*Request, error) {
 	if !s.Guard.IsGuarded() {
 		return nil, fmt.Errorf("bucket %d is not guarded", s.BucketIndex)
@@ -83,11 +89,17 @@ func NewOpRequest(s *ChainState, p *OpParams) (*Request, error) {
 	if p.Deadline <= s.Height {
 		return nil, fmt.Errorf("deadline %d is not after the read height %d", p.Deadline, s.Height)
 	}
+	if w := bucketguard.ParamsV1().MaxDeadlineWindow; p.Deadline-s.Height > w {
+		return nil, fmt.Errorf("deadline %d is more than %d blocks after the anchor block %d", p.Deadline, w, s.Height)
+	}
 	op := &bucketguard.GuardedBucketOp{
 		BucketIndex:         s.BucketIndex,
 		Generation:          s.Guard.Generation,
 		Nonce:               s.Guard.Nonce,
 		Deadline:            p.Deadline,
+		AnchorHeight:        s.Height,
+		AnchorHash:          bytes.Clone(s.HeightHash[:]),
+		Sponsor:             addrBytes(p.Sponsor),
 		Op:                  p.Op,
 		Recipient:           addrBytes(p.Recipient),
 		NewOwner:            addrBytes(p.NewOwner),

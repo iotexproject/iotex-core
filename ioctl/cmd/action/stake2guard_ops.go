@@ -38,6 +38,7 @@ var (
 	_guardNewVaultPassword string
 	_guardNewGuardPubkey   string
 	_guardOpAutoStake      bool
+	_guardSponsor          string
 )
 
 const _guardWriteFlags = " [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y] [-w]"
@@ -118,6 +119,8 @@ func newGuardOpCmd(spec guardOpSpec) *cobra.Command {
 		f.Uint64Var(&_guardDeadlineBlocks, "deadline-blocks", _defaultDeadlineBlocks,
 			fmt.Sprintf("deadline in blocks after the tip (default %d, or %d with --out)", _defaultDeadlineBlocks, _defaultOfflineDeadlineBlocks))
 		f.Uint64Var(&_guardDeadline, "deadline", 0, "deadline as an absolute block height")
+		f.StringVar(&_guardSponsor, "sponsor", "", "address or alias of the only account that may submit the op "+
+			"(default: none, anyone holding the signed op can submit it)")
 	}
 	switch spec.op {
 	case bucketguard.OpWithdraw:
@@ -159,6 +162,11 @@ func guardOpParams(cmd *cobra.Command, o bucketguard.Op, args []string) (*qsb.Op
 	changed := cmd.Flags().Changed
 	p := &qsb.OpParams{Op: o}
 	var err error
+	if changed("sponsor") {
+		if p.Sponsor, err = resolveAddress("sponsor", _guardSponsor); err != nil {
+			return nil, err
+		}
+	}
 	switch o {
 	case bucketguard.OpWithdraw:
 		if p.Recipient, err = resolveAddress("recipient", _guardRecipient); err != nil {
@@ -274,15 +282,18 @@ func runGuardOp(cmd *cobra.Command, o bucketguard.Op, args []string) error {
 		return nil
 	}
 
+	sender, err := Signer()
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get signer address", err)
+	}
 	if o == 0 {
-		sender, err := Signer()
-		if err != nil {
-			return output.NewError(output.AddressError, "failed to get signer address", err)
-		}
 		if !util.AliasIsHdwalletKey(sender) && sender != s.Owner.String() {
 			return output.NewError(output.ValidationError, fmt.Sprintf(
 				"a bind must be sent by the bucket owner %s (-s), not %s", s.Owner, sender), nil)
 		}
+	} else if err := checkSponsor(r, sender); err != nil {
+		// before the vault is unlocked; submitRequest checks again
+		return err
 	}
 	sum := qsb.Summary(r)
 	printGuardResult(sum.String(), sum)
@@ -335,7 +346,11 @@ func nextSteps(r *qsb.Request, file string) string {
 	default:
 		fmt.Fprintf(&b, "  on the vault device:    ioctl stake2 guard sign %s\n", file)
 	}
-	fmt.Fprintf(&b, "  then, from any account: ioctl stake2 guard submit %s -s SPONSOR\n", file)
+	if sp := r.Sponsor(); sp != nil {
+		fmt.Fprintf(&b, "  then, as the sponsor:   ioctl stake2 guard submit %s -s %s\n", file, sp)
+	} else {
+		fmt.Fprintf(&b, "  then, from any account: ioctl stake2 guard submit %s -s SPONSOR\n", file)
+	}
 	fmt.Fprintf(&b, "  the signed file is valid until block %d", r.Op.Deadline)
 	return b.String()
 }

@@ -57,6 +57,9 @@ type SummaryMessage struct {
 	Generation     uint64            `json:"generation"`
 	Nonce          uint64            `json:"nonce"`
 	GuardKey       string            `json:"guardKey,omitempty"`
+	AnchorHeight   uint64            `json:"anchorHeight,omitempty"`
+	AnchorHash     string            `json:"anchorHash,omitempty"`
+	Sponsor        string            `json:"sponsor,omitempty"`
 	Deadline       uint64            `json:"deadline,omitempty"`
 	DeadlineBlocks uint64            `json:"deadlineBlocks,omitempty"`
 	Fields         map[string]string `json:"fields,omitempty"`
@@ -107,6 +110,11 @@ func Summary(r *Request) *SummaryMessage {
 	op := r.Op
 	m.Op = op.Op.String()
 	m.GuardKey = hex.EncodeToString(r.Guard.PublicKey)
+	m.AnchorHeight = op.AnchorHeight
+	m.AnchorHash = hex.EncodeToString(op.AnchorHash)
+	if s := r.Sponsor(); s != nil {
+		m.Sponsor = s.String()
+	}
 	m.Deadline = op.Deadline
 	if op.Deadline > r.Bucket.ReadHeight {
 		m.DeadlineBlocks = op.Deadline - r.Bucket.ReadHeight
@@ -144,8 +152,10 @@ func Summary(r *Request) *SummaryMessage {
 		add("duration", fmt.Sprintf("%d days", op.Duration))
 		add("autoStake", fmt.Sprintf("%v", op.AutoStake))
 	}
-	m.Warnings = append(m.Warnings, fmt.Sprintf(
-		"a signed op is a bearer authorization: anyone holding it can submit it until block %d", op.Deadline))
+	if m.Sponsor == "" {
+		m.Warnings = append(m.Warnings, fmt.Sprintf(
+			"no sponsor: the signed op is a bearer authorization, anyone holding it can submit it until block %d", op.Deadline))
+	}
 	if m.DeadlineBlocks > MaxSafeDeadlineBlocks {
 		m.Warnings = append(m.Warnings, fmt.Sprintf("the deadline is %d blocks (%s) after the read height",
 			m.DeadlineBlocks, approx(m.DeadlineBlocks)))
@@ -203,6 +213,14 @@ func (m *SummaryMessage) String() string {
 	line("generation/nonce", "%d/%d", m.Generation, m.Nonce)
 	for _, k := range m.fieldOrder {
 		line(k, "%s", m.Fields[k])
+	}
+	if m.Kind == KindOp {
+		line("anchor", "block %d, hash %s", m.AnchorHeight, m.AnchorHash)
+		if m.Sponsor != "" {
+			line("sponsor", "%s (the only account that can submit it)", m.Sponsor)
+		} else {
+			line("sponsor", "none (anyone holding the signed op can submit it)")
+		}
 	}
 	if m.Deadline > 0 {
 		line("deadline", "block %d (%d blocks after the read height, %s)", m.Deadline, m.DeadlineBlocks, approx(m.DeadlineBlocks))

@@ -7,9 +7,10 @@ CLI for IIP-65. It works against a network that has activated the feature
 A *guard* is a post-quantum key (SLH-DSA-SHA2-192s) bound to a native staking
 bucket. Once a bucket is guarded, the owner's ECDSA key alone can no longer
 unstake, withdraw, transfer, restake or change the candidate of the bucket.
-Each of these is a *guarded op*: a CALL signed by the guard key, which any
-account (the *sponsor*, `-s`) submits and pays for. Deposits still work
-without the guard.
+Each of these is a *guarded op*: a CALL signed by the guard key, which an
+account (the *sponsor*, `-s`) submits and pays for. The op can name its
+sponsor (`--sponsor`), and then only that account can submit it; otherwise
+any account can. Deposits still work without the guard.
 
 The code is in `ioctl/qsb` (vault, request files, signing; no network) and
 `ioctl/cmd/action/stake2guard*.go` (commands).
@@ -57,7 +58,7 @@ apply as for every `stake2` command.
 ioctl stake2 guard bind BUCKET --key-index 0 -s OWNER          # once, by the owner
 ioctl stake2 guard show BUCKET [--height H]
 
-ioctl stake2 guard unstake BUCKET -s SPONSOR
+ioctl stake2 guard unstake BUCKET -s SPONSOR [--sponsor SPONSOR]
 ioctl stake2 guard withdraw BUCKET --recipient ADDR -s SPONSOR
 ioctl stake2 guard change-candidate BUCKET NAME -s SPONSOR
 ioctl stake2 guard restake BUCKET DAYS [--auto-stake] -s SPONSOR
@@ -70,17 +71,30 @@ ioctl stake2 guard transfer BUCKET --new-owner ADDR --new-key-index 0 \
 - `bind` must be sent by the owner and asks for an explicit confirmation.
 - The current guard key is found by scanning `--scan-window` (64) key indices
   unless `--key-index` is given.
+- Every op is anchored to the tip block it is prepared at: the request
+  carries that block's height and hash (`anchorHeight`, `anchorHash`), and
+  the CALL signs them. A block hash cannot be predicted, so the signature
+  provably postdates the anchor, and the op is valid only from the anchor to
+  its deadline.
 - The deadline is 100 blocks after the tip by default (`--deadline-blocks`,
-  or an absolute `--deadline`); deadlines over 17,280 blocks (≈ 1 day at
-  2.5 s per block) get a warning.
+  or an absolute `--deadline`). It may be at most 241,920 blocks (≈ 7 days,
+  `MAX_DEADLINE_WINDOW`) after the anchor; deadlines over 17,280 blocks
+  (≈ 1 day at 2.5 s per block) get a warning.
+- `--sponsor ADDR` (address or alias) binds the op to one sender: the node
+  refuses it from any other account (status 203). The one-step commands
+  check that `-s` is the sponsor before unlocking the vault.
 - Without `-l`, the gas limit is the action's intrinsic gas plus 10,000.
-- Before sending, the domain, owner, guard key, generation, nonce, deadline
-  and, for `change-candidate`, the candidate ID are compared with the chain,
-  so a stale op is refused instead of burning gas on a failed receipt.
+- Before sending, the domain, owner, guard key, generation, nonce, deadline,
+  the anchor (the block at `anchorHeight` on the endpoint's chain must have
+  hash `anchorHash`), the sponsor (a bound sponsor must be `-s`) and, for
+  `change-candidate`, the candidate ID are compared with the chain, so a
+  stale op is refused instead of burning gas on a failed receipt.
 - With `-w`, the receipt and the new guard state are printed. Receipt
   statuses 216–221 are the IIP-65 failures (216 bucket is guarded, 217 not
-  guarded, 218 generation/nonce/deadline mismatch, 219 bad signature, 220
-  cannot be guarded, 221 candidate mismatch).
+  guarded, 218 generation/nonce/anchor/deadline mismatch or counter
+  overflow, 219 bad signature, 220 cannot be guarded or TRANSFER owner rule,
+  221 candidate mismatch); 203 is an op sent by another account than its
+  bound sponsor.
 
 ## 3. Offline, several steps
 
@@ -90,11 +104,11 @@ the request and needs no vault. The deadline then defaults to 720 blocks
 
 ```sh
 # online machine
-ioctl stake2 guard unstake BUCKET --out op.json
+ioctl stake2 guard unstake BUCKET [--sponsor SPONSOR] --out op.json
 # vault device (no network needed)
 ioctl stake2 guard inspect op.json
 ioctl stake2 guard sign op.json [--key-index N]
-# any online machine, any account
+# any online machine; the bound sponsor if there is one
 ioctl stake2 guard submit op.json -s SPONSOR -w
 ```
 
@@ -104,9 +118,12 @@ file (or writes `--out`). For `bind` and `rotate` prepared without a key, pass
 the new key's index to `sign` (`--key-index` for bind, `--new-key-index` for
 rotate).
 
-**A complete request is a bearer authorization**: anyone holding it can
-submit it until its deadline. Transfer it like a signed cheque and keep the
-deadline short. Request files carry no sponsor.
+**A complete request without a sponsor is a bearer authorization**: anyone
+holding it can submit it until its deadline, and a copy broadcast by someone
+else can front-run yours. Bind the sponsor with `--sponsor` when you know who
+will submit; otherwise transfer the file like a signed cheque and keep the
+deadline short. `inspect` and the summary show the anchor and the sponsor
+(or "none").
 
 ### Two-party transfer
 
@@ -130,25 +147,30 @@ ioctl stake2 guard submit transfer.json -s SPONSOR
 other. Accepting first lets the new owner check the transfer before the
 current owner commits to it.
 
-### Request file v1
+### Request file v2
 
 JSON, read strictly (unknown fields are rejected). uint64 values are decimal
 strings, bytes are lowercase hex, addresses are `io1…`.
 
 ```json
 {
-  "type": "iotex-qsb-request", "version": 1, "kind": "op",
+  "type": "iotex-qsb-request", "version": 2, "kind": "op",
   "network": {"chainID": 2, "genesisHash": "…", "domain": "…"},
   "bucket": {"index": "7", "owner": "io1…", "candidate": "io1…", "amount": "…", "readHeight": "1000"},
   "guard": {"algID": 18, "publicKey": "…", "generation": "1", "nonce": "0"},
-  "op": {"op": "TRANSFER", "deadline": "1720", "newOwner": "io1…",
+  "op": {"op": "TRANSFER", "deadline": "1720", "anchorHeight": "1000", "anchorHash": "…",
+         "sponsor": "io1…", "newOwner": "io1…",
          "newGuard": {"algID": 18, "publicKey": "…", "acceptSig": "…"}, "sig": "…"},
   "callHash": "…"
 }
 ```
 
+- Version 2 is IIP-65 Draft 4. Version 1 files predate the anchor and are
+  rejected; prepare the request again.
+- `anchorHeight` and `anchorHash` are the block the request was prepared at
+  (the read height); `sponsor` is optional (absent: bearer).
 - `domain` must equal `NewDomain(chainID, genesisHash)` and `callHash` the
-  hash of the CALL transcript; both are checked on load. The summary names
+  SHA-512 of the CALL transcript (64 bytes); both are checked on load. The summary names
   mainnet (chain 1) and testnet (chain 2) and shows any other domain as
   "unknown network".
 - `bucket.owner` is signed; `candidate`, `amount` and `readHeight` are
@@ -164,5 +186,4 @@ strings, bytes are lowercase hex, addresses are `io1…`.
 
 - Binding from a cold ECDSA owner key: `bind` is sent by the owner from
   ioctl's own keystore.
-- A sponsor-restricted op: the action proto does not carry `sponsor` yet.
 - QR transport of request files.

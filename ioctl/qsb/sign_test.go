@@ -66,6 +66,12 @@ func TestSignOps(t *testing.T) {
 			tampered.Bucket.Owner = identityset.Address(9)
 			r.ErrorIs(Verify(tampered), bucketguard.ErrGuardSignature)
 			tampered = roundTrip(t, req)
+			tampered.Op.AnchorHash[0] ^= 1
+			r.ErrorIs(Verify(tampered), bucketguard.ErrGuardSignature)
+			tampered = roundTrip(t, req)
+			tampered.Op.Sponsor = identityset.Address(9).Bytes()
+			r.ErrorIs(Verify(tampered), bucketguard.ErrGuardSignature)
+			tampered = roundTrip(t, req)
 			tampered.Op.Sig[0] ^= 1
 			call, _ := Signatures(tampered)
 			r.Equal(SigInvalid, call)
@@ -221,9 +227,21 @@ func TestSummary(t *testing.T) {
 	text := m.String()
 	for _, want := range []string{"CHANGE_CANDIDATE on bucket 7", "testnet (chain 2", "1234.5 IOTX",
 		"candidateName:", "bot4", "expectedCandidateID:", "generation/nonce:", "3/5", "bearer authorization",
-		"blocks (≈ 12h0m0s) after the read height"} {
+		"blocks (≈ 12h0m0s) after the read height", "anchor:", "block 1000, hash a12b0000",
+		"sponsor:", "none (anyone holding the signed op can submit it)"} {
 		r.Contains(text, want)
 	}
+	r.EqualValues(1000, m.AnchorHeight)
+	r.Empty(m.Sponsor)
+
+	// A sponsor-bound op names its sponsor and is not a bearer authorization.
+	p.Sponsor = identityset.Address(9)
+	req, err = NewOpRequest(s, p)
+	r.NoError(err)
+	m = Summary(req)
+	r.Equal(identityset.Address(9).String(), m.Sponsor)
+	r.Contains(m.String(), identityset.Address(9).String()+" (the only account that can submit it)")
+	r.NotContains(m.String(), "bearer authorization")
 	r.False(strings.Contains(text, "ACCEPT:"))
 	b, err := json.Marshal(m)
 	r.NoError(err)

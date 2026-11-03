@@ -14,6 +14,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
@@ -70,6 +71,7 @@ func testState(t testing.TB) *ChainState {
 		ChainID:     2,
 		GenesisHash: genesis(t, testnetGenesis),
 		Height:      1000,
+		HeightHash:  [32]byte{0xa1, 0x2b},
 		BucketIndex: 7,
 		Owner:       identityset.Address(1),
 		Candidate:   identityset.Address(5).String(),
@@ -142,13 +144,23 @@ func TestRequestRoundTrip(t *testing.T) {
 	}
 	cases["TRANSFER clear"] = &OpParams{Op: bucketguard.OpTransfer, Deadline: 1100, NewOwner: identityset.Address(3), ClearGuard: true}
 	cases["ROTATE pending"] = &OpParams{Op: bucketguard.OpRotate, Deadline: 1100}
+	cases["UNSTAKE sponsored"] = &OpParams{Op: bucketguard.OpUnstake, Deadline: 1100, Sponsor: identityset.Address(9)}
 	for name, p := range cases {
 		req, err := NewOpRequest(s, p)
 		r.NoError(err, name)
 		out := roundTrip(t, req)
 		r.Equal(req, out, name)
 		r.Equal(bucketguard.EncodeCall(req.Domain(), req.Owner(), req.Op), bucketguard.EncodeCall(out.Domain(), out.Owner(), out.Op), name)
-		r.Empty(out.Op.Sponsor)
+		// Anchored to the block the state was read at.
+		r.EqualValues(1000, out.Op.AnchorHeight, name)
+		r.Equal(s.HeightHash[:], out.Op.AnchorHash, name)
+		if p.Sponsor != nil {
+			r.Equal(p.Sponsor.Bytes(), out.Op.Sponsor, name)
+			r.Equal(p.Sponsor.String(), out.Sponsor().String(), name)
+		} else {
+			r.Empty(out.Op.Sponsor, name)
+			r.Nil(out.Sponsor(), name)
+		}
 		_, ok := out.CallHash()
 		r.Equal(name != "ROTATE pending", ok, name)
 	}
@@ -163,8 +175,8 @@ func TestRequestRoundTrip(t *testing.T) {
 	r.Equal(os.FileMode(0600), fi.Mode().Perm())
 	b, err := os.ReadFile(path)
 	r.NoError(err)
-	for _, want := range []string{`"type": "iotex-qsb-request"`, `"index": "7"`, `"generation": "3"`, `"nonce": "5"`,
-		`"deadline": "1100"`, `"op": "WITHDRAW"`, `"chainID": 2`, `"recipient": "io1`} {
+	for _, want := range []string{`"type": "iotex-qsb-request"`, `"version": 2`, `"index": "7"`, `"generation": "3"`, `"nonce": "5"`,
+		`"deadline": "1100"`, `"anchorHeight": "1000"`, `"anchorHash": "a12b000000`, `"op": "WITHDRAW"`, `"chainID": 2`, `"recipient": "io1`} {
 		r.Contains(string(b), want)
 	}
 	got, err := ReadRequest(path)
@@ -203,8 +215,15 @@ func TestRequestRejects(t *testing.T) {
 	h, _ := req.CallHash()
 	d := req.Domain()
 	for name, bad := range map[string]string{
-		"unknown field":   strings.Replace(good, `"kind":`, `"extra":1,"kind":`, 1),
-		"sponsor":         strings.Replace(good, `"deadline":`, `"sponsor":"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3","deadline":`, 1),
+		"unknown field": strings.Replace(good, `"kind":`, `"extra":1,"kind":`, 1),
+		"zero sponsor":  strings.Replace(good, `"deadline":`, `"sponsor":"io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7","deadline":`, 1),
+		"bad sponsor":   strings.Replace(good, `"deadline":`, `"sponsor":"0x01","deadline":`, 1),
+		// The CALL covers the sponsor, so adding one changes the callHash.
+		"added sponsor":   strings.Replace(good, `"deadline":`, `"sponsor":"`+identityset.Address(9).String()+`","deadline":`, 1),
+		"anchor changed":  strings.Replace(good, `"anchorHeight":"1000"`, `"anchorHeight":"999"`, 1),
+		"no anchor":       strings.Replace(good, `"anchorHeight":"1000"`, `"anchorHeight":"0"`, 1),
+		"short anchor":    strings.Replace(good, `"anchorHash":"a12b`, `"anchorHash":"`, 1),
+		"anchor>deadline": strings.Replace(good, `"anchorHeight":"1000"`, `"anchorHeight":"1101"`, 1),
 		"bad callHash":    strings.Replace(good, hex.EncodeToString(h[:]), strings.Repeat("00", 32), 1),
 		"bad domain":      strings.Replace(good, hex.EncodeToString(d[:]), strings.Repeat("00", 32), 1),
 		"other chain":     strings.Replace(good, `"chainID":2`, `"chainID":1`, 1),
@@ -214,7 +233,7 @@ func TestRequestRejects(t *testing.T) {
 		"command op name": strings.Replace(good, `"op":"TRANSFER"`, `"op":"transfer"`, 1),
 		"trailing data":   good + "{}",
 		"wrong type":      strings.Replace(good, RequestType, "other", 1),
-		"wrong version":   strings.Replace(good, `"version":1`, `"version":2`, 1),
+		"wrong version":   strings.Replace(good, `"version":2`, `"version":3`, 1),
 		"bind kind":       strings.Replace(good, `"kind":"op"`, `"kind":"bind"`, 1),
 		"missing owner":   strings.Replace(good, `"newOwner":"`+identityset.Address(3).String()+`",`, "", 1),
 		"guard cleared":   strings.Replace(good, hex.EncodeToString(req.Guard.PublicKey), "", 1),
@@ -224,9 +243,12 @@ func TestRequestRejects(t *testing.T) {
 		var out Request
 		r.Error(json.Unmarshal([]byte(bad), &out), name)
 	}
+	// Version 1 files predate the anchor; the message says so.
 	var o2 Request
-	err = json.Unmarshal([]byte(strings.Replace(good, `"deadline":`, `"sponsor":"","deadline":`, 1)), &o2)
-	r.ErrorContains(err, "sponsor is not supported")
+	err = json.Unmarshal([]byte(strings.Replace(good, `"version":2`, `"version":1`, 1)), &o2)
+	r.ErrorContains(err, "version 1 files predate IIP-65 Draft 4")
+	err = json.Unmarshal([]byte(strings.Replace(strings.Replace(good, `"version":2`, `"version":1`, 1), `"kind":`, `"extra":1,"kind":`, 1)), &o2)
+	r.ErrorContains(err, "version 1 files predate IIP-65 Draft 4")
 
 	// A bind of a guarded bucket, and an op on an unguarded one, are refused.
 	_, err = NewBindRequest(s, nil)
@@ -244,4 +266,17 @@ func TestRequestRejects(t *testing.T) {
 	p.Deadline = s.Height
 	_, err = NewOpRequest(s, p)
 	r.ErrorContains(err, "deadline")
+	// The deadline may be at most MAX_DEADLINE_WINDOW after the anchor.
+	p.Deadline = s.Height + bucketguard.ParamsV1().MaxDeadlineWindow
+	_, err = NewOpRequest(s, p)
+	r.NoError(err)
+	p.Deadline++
+	_, err = NewOpRequest(s, p)
+	r.ErrorContains(err, "more than 241920 blocks after the anchor block 1000")
+	p = testParams(t, bucketguard.OpUnstake)
+	zero, err := address.FromBytes(make([]byte, 20))
+	r.NoError(err)
+	p.Sponsor = zero
+	_, err = NewOpRequest(s, p)
+	r.ErrorContains(err, "sponsor must not be the zero address")
 }

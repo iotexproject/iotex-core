@@ -23,10 +23,12 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
 )
 
-// Request file envelope (v1).
+// Request file envelope. Version 2 (IIP-65 Draft 4) adds the anchor and the
+// optional sponsor of an op; version 1 files predate the anchor and are
+// rejected.
 const (
 	RequestType    = "iotex-qsb-request"
-	RequestVersion = 1
+	RequestVersion = 2
 )
 
 // Kind is the kind of a request.
@@ -43,8 +45,9 @@ const (
 // (ACCEPT by the new key). The same struct builds the transcripts and the
 // summary a signer confirms.
 //
-// Requests are bearer: there is no sponsor, so anyone holding a complete op
-// request can submit it until its deadline.
+// An op request without a sponsor is a bearer authorization: anyone holding
+// the complete request can submit it until its deadline. With a sponsor, only
+// that account can.
 type Request struct {
 	Kind        Kind
 	ChainID     uint32
@@ -54,8 +57,9 @@ type Request struct {
 	// key and counters of an op; the counters (tombstone or none) of a bind.
 	Guard bucketguard.Guard
 	// Op is set for KindOp. BucketIndex, Generation and Nonce mirror Bucket
-	// and Guard. A NewGuard with an empty PublicKey is pending: the incoming
-	// key is not chosen yet, so CALL cannot be signed.
+	// and Guard; AnchorHeight and AnchorHash name the block the request was
+	// prepared at. A NewGuard with an empty PublicKey is pending: the
+	// incoming key is not chosen yet, so CALL cannot be signed.
 	Op *bucketguard.GuardedBucketOp
 	// Bind is set for KindBind. An empty PublicKey is pending.
 	Bind *bucketguard.BindBucketGuard
@@ -157,8 +161,21 @@ func (r *Request) CallHash() (h [bucketguard.CallHashLen]byte, ok bool) {
 	return bucketguard.CallHash(r.Domain(), r.Bucket.Owner, r.Op), true
 }
 
-// GuardedOp returns the op. Sponsor is always empty.
+// GuardedOp returns the op.
 func (r *Request) GuardedOp() *bucketguard.GuardedBucketOp { return r.Op }
+
+// Sponsor returns the only account that may submit an op request, or nil if
+// anyone may.
+func (r *Request) Sponsor() address.Address {
+	if r.Kind != KindOp || len(r.Op.Sponsor) == 0 {
+		return nil
+	}
+	a, err := address.FromBytes(r.Op.Sponsor)
+	if err != nil {
+		return nil
+	}
+	return a
+}
 
 // BindOp returns the bind.
 func (r *Request) BindOp() *bucketguard.BindBucketGuard { return r.Bind }
@@ -261,6 +278,9 @@ type wireKey struct {
 type wireOp struct {
 	Op                  string   `json:"op"`
 	Deadline            u64      `json:"deadline"`
+	AnchorHeight        u64      `json:"anchorHeight"`
+	AnchorHash          string   `json:"anchorHash"`
+	Sponsor             string   `json:"sponsor,omitempty"`
 	Recipient           string   `json:"recipient,omitempty"`
 	NewOwner            string   `json:"newOwner,omitempty"`
 	CandidateName       string   `json:"candidateName,omitempty"`
@@ -308,7 +328,7 @@ func decodeHex(field, s string) ([]byte, error) {
 	return b, nil
 }
 
-// MarshalJSON writes request file v1.
+// MarshalJSON writes request file v2.
 func (r *Request) MarshalJSON() ([]byte, error) {
 	if err := r.check(); err != nil {
 		return nil, err
@@ -349,6 +369,8 @@ func (r *Request) MarshalJSON() ([]byte, error) {
 		wo := &wireOp{
 			Op:            op.Op.String(),
 			Deadline:      u64(op.Deadline),
+			AnchorHeight:  u64(op.AnchorHeight),
+			AnchorHash:    hex.EncodeToString(op.AnchorHash),
 			CandidateName: op.CandidateName,
 			Duration:      op.Duration,
 			AutoStake:     op.AutoStake,
@@ -363,6 +385,9 @@ func (r *Request) MarshalJSON() ([]byte, error) {
 			return nil, err
 		}
 		if wo.ExpectedCandidateID, err = encodeAddr(op.ExpectedCandidateID); err != nil {
+			return nil, err
+		}
+		if wo.Sponsor, err = encodeAddr(op.Sponsor); err != nil {
 			return nil, err
 		}
 		if ng := op.NewGuard; ng != nil {
@@ -380,24 +405,35 @@ func (r *Request) MarshalJSON() ([]byte, error) {
 	return json.MarshalIndent(w, "", "  ")
 }
 
-// UnmarshalJSON reads request file v1 strictly: unknown fields (a sponsor
-// included), a domain that does not match the chain ID and genesis hash, and
-// a callHash that does not match the CALL transcript are rejected.
+// UnmarshalJSON reads request file v2 strictly: other versions, unknown
+// fields, a domain that does not match the chain ID and genesis hash, and a
+// callHash that does not match the CALL transcript are rejected.
 func (r *Request) UnmarshalJSON(b []byte) error {
+	// The envelope first, so a file of another version gets a clear message
+	// rather than an unknown-field error.
+	var env struct {
+		Type    string `json:"type"`
+		Version int    `json:"version"`
+	}
+	if err := json.Unmarshal(b, &env); err != nil {
+		return fmt.Errorf("request: %w", err)
+	}
+	switch {
+	case env.Type != RequestType:
+		return fmt.Errorf("request: unsupported type %q", env.Type)
+	case env.Version == 1:
+		return errors.New("request: version 1 files predate IIP-65 Draft 4 and carry no anchor block; prepare the request again")
+	case env.Version != RequestVersion:
+		return fmt.Errorf("request: unsupported version %d (this ioctl reads version %d)", env.Version, RequestVersion)
+	}
 	var w wireRequest
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&w); err != nil {
-		if strings.Contains(err.Error(), `"sponsor"`) {
-			return errors.New("request: sponsor is not supported; guarded ops are bearer authorizations")
-		}
 		return fmt.Errorf("request: %w", err)
 	}
 	if _, err := dec.Token(); err != io.EOF {
 		return errors.New("request: trailing data after the JSON object")
-	}
-	if w.Type != RequestType || w.Version != RequestVersion {
-		return fmt.Errorf("request: unsupported type %q version %d", w.Type, w.Version)
 	}
 	var out Request
 	out.Kind = w.Kind
@@ -494,6 +530,7 @@ func decodeOp(w *wireRequest, index uint64, g bucketguard.Guard) (*bucketguard.G
 		Generation:    g.Generation,
 		Nonce:         g.Nonce,
 		Deadline:      uint64(wo.Deadline),
+		AnchorHeight:  uint64(wo.AnchorHeight),
 		Op:            o,
 		CandidateName: wo.CandidateName,
 		Duration:      wo.Duration,
@@ -507,6 +544,12 @@ func decodeOp(w *wireRequest, index uint64, g bucketguard.Guard) (*bucketguard.G
 		return nil, fmt.Errorf("request: %w", err)
 	}
 	if op.ExpectedCandidateID, err = decodeAddr("op.expectedCandidateID", wo.ExpectedCandidateID); err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+	if op.Sponsor, err = decodeAddr("op.sponsor", wo.Sponsor); err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+	if op.AnchorHash, err = decodeHex("op.anchorHash", wo.AnchorHash); err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
 	if op.Sig, err = decodeHex("op.sig", wo.Sig); err != nil {
@@ -559,9 +602,6 @@ func (r *Request) check() error {
 		op := *r.Op
 		if op.BucketIndex != r.Bucket.Index || op.Generation != r.Guard.Generation || op.Nonce != r.Guard.Nonce {
 			return errors.New("request: op index, generation or nonce mismatch")
-		}
-		if len(op.Sponsor) != 0 {
-			return errors.New("request: sponsor is not supported; guarded ops are bearer authorizations")
 		}
 		if len(op.Sig) == 0 {
 			op.Sig = make([]byte, r.Guard.AlgID.SignatureSize())

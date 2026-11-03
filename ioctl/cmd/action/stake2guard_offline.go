@@ -8,7 +8,6 @@ package action
 import (
 	"encoding/hex"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -187,9 +186,13 @@ func guardSignFile(cmd *cobra.Command, path string, signCall bool) error {
 	call, accept := qsb.Signatures(r)
 	status := fmt.Sprintf("Wrote %s (CALL: %s, ACCEPT: %s)", out, call, accept)
 	if r.Complete() {
-		status += "\nComplete. Submit from any account: ioctl stake2 guard submit " + out + " -s SPONSOR"
-		if r.Kind == qsb.KindBind {
-			status = strings.Replace(status, "any account", "the owner", 1) + " (-s " + r.Bucket.Owner.String() + ")"
+		switch sp := r.Sponsor(); {
+		case r.Kind == qsb.KindBind:
+			status += "\nComplete. Submit as the owner: ioctl stake2 guard submit " + out + " -s " + r.Bucket.Owner.String()
+		case sp != nil:
+			status += "\nComplete. Submit as the sponsor: ioctl stake2 guard submit " + out + " -s " + sp.String()
+		default:
+			status += "\nComplete. Submit from any account: ioctl stake2 guard submit " + out + " -s SPONSOR"
 		}
 	}
 	printGuardResult(status, map[string]any{"file": out, "call": call, "accept": accept, "complete": r.Complete()})

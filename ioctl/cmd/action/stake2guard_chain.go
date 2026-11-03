@@ -63,7 +63,8 @@ func guardFromProto(g *iotextypes.BucketGuard) *bucketguard.Guard {
 }
 
 // loadChainState reads the network identity and a bucket with its guard
-// record, both at the tip of the same block.
+// record, both at the tip of the same block, and that block's hash, the
+// anchor of an op prepared from the state.
 func loadChainState(index uint64) (*qsb.ChainState, error) {
 	meta, err := bc.GetChainMeta()
 	if err != nil {
@@ -89,10 +90,15 @@ func loadChainState(index uint64) (*qsb.ChainState, error) {
 		if err != nil {
 			return nil, output.NewError(output.AddressError, "invalid bucket owner", err)
 		}
+		anchor, err := bc.GetBlockHash(gh2)
+		if err != nil {
+			return nil, output.NewError(0, fmt.Sprintf("failed to read the hash of block %d", gh2), err)
+		}
 		return &qsb.ChainState{
 			ChainID:     meta.GetChainID(),
 			GenesisHash: gh,
 			Height:      gh2,
+			HeightHash:  anchor,
 			BucketIndex: index,
 			Owner:       owner,
 			Candidate:   b.GetCandidateAddress(),
@@ -103,15 +109,22 @@ func loadChainState(index uint64) (*qsb.ChainState, error) {
 }
 
 // guardDeadline returns --deadline, or the read height plus
-// --deadline-blocks (default 100, or 720 for a file to sign offline).
+// --deadline-blocks (default 100, or 720 for a file to sign offline). The
+// read height is the op's anchor, so the deadline may be at most
+// MAX_DEADLINE_WINDOW blocks after it.
 func guardDeadline(cmd *cobra.Command, height uint64, offline bool) (uint64, error) {
 	abs, rel := cmd.Flags().Changed("deadline"), cmd.Flags().Changed("deadline-blocks")
+	window := bucketguard.ParamsV1().MaxDeadlineWindow
 	switch {
 	case abs && rel:
 		return 0, output.NewError(output.FlagError, "give --deadline or --deadline-blocks, not both", nil)
 	case abs:
 		if _guardDeadline <= height {
 			return 0, output.NewError(output.FlagError, fmt.Sprintf("--deadline %d is not after the tip %d", _guardDeadline, height), nil)
+		}
+		if _guardDeadline-height > window {
+			return 0, output.NewError(output.FlagError, fmt.Sprintf(
+				"--deadline %d is more than %d blocks after the tip %d, the op's anchor", _guardDeadline, window, height), nil)
 		}
 		return _guardDeadline, nil
 	}
@@ -122,8 +135,8 @@ func guardDeadline(cmd *cobra.Command, height uint64, offline bool) (uint64, err
 			blocks = _defaultOfflineDeadlineBlocks
 		}
 	}
-	if blocks == 0 {
-		return 0, output.NewError(output.FlagError, "--deadline-blocks must be > 0", nil)
+	if blocks == 0 || blocks > window {
+		return 0, output.NewError(output.FlagError, fmt.Sprintf("--deadline-blocks must be in 1..%d", window), nil)
 	}
 	return height + blocks, nil
 }
@@ -306,6 +319,12 @@ func precheckRequest(r *qsb.Request, sender string) error {
 		return output.NewError(output.ValidationError, fmt.Sprintf(
 			"the deadline %d has passed (tip %d)", r.Op.Deadline, s.Height), nil)
 	}
+	if err := checkAnchor(r, s.Height, bc.GetBlockHash); err != nil {
+		return err
+	}
+	if err := checkSponsor(r, sender); err != nil {
+		return err
+	}
 	if r.Op.Op == bucketguard.OpChangeCandidate {
 		id, err := candidateID(r.Op.CandidateName)
 		if err != nil {
@@ -315,6 +334,43 @@ func precheckRequest(r *qsb.Request, sender string) error {
 			return output.NewError(output.ValidationError, fmt.Sprintf(
 				"candidate %q is now %s, not the signed one; it would fail with status 221", r.Op.CandidateName, id), nil)
 		}
+	}
+	return nil
+}
+
+// checkAnchor checks that the request's anchor block is on the chain the
+// endpoint serves: the block at anchorHeight must have hash anchorHash.
+func checkAnchor(r *qsb.Request, tip uint64, blockHash func(uint64) ([32]byte, error)) error {
+	op := r.Op
+	if op.AnchorHeight > tip {
+		return output.NewError(output.ValidationError, fmt.Sprintf(
+			"the anchor block %d is above the tip %d; is the endpoint on the request's chain?", op.AnchorHeight, tip), nil)
+	}
+	h, err := blockHash(op.AnchorHeight)
+	if err != nil {
+		return output.NewError(0, fmt.Sprintf("failed to read the hash of the anchor block %d", op.AnchorHeight), err)
+	}
+	if !bytes.Equal(h[:], op.AnchorHash) {
+		return output.NewError(output.ValidationError, fmt.Sprintf(
+			"block %d has hash %x on this chain, the request is anchored to %x; it would fail with status 218",
+			op.AnchorHeight, h, op.AnchorHash), nil)
+	}
+	return nil
+}
+
+// checkSponsor checks that a sponsor-bound op is sent by its sponsor.
+func checkSponsor(r *qsb.Request, sender string) error {
+	sp := r.Sponsor()
+	switch {
+	case sp == nil:
+		return nil
+	case util.AliasIsHdwalletKey(sender):
+		return output.NewError(output.ValidationError, fmt.Sprintf(
+			"the op is bound to sponsor %s and an hdwallet signer cannot be checked against it; "+
+				"send it from that account's alias or address (or --skip-checks)", sp), nil)
+	case sender != sp.String():
+		return output.NewError(output.ValidationError, fmt.Sprintf(
+			"the op is bound to sponsor %s and must be sent by it (-s), not %s; it would fail with status 203", sp, sender), nil)
 	}
 	return nil
 }
@@ -337,9 +393,9 @@ func candidateID(name string) (address.Address, error) {
 	return a, nil
 }
 
-// submitRequest sends a complete request from -s (any sponsor; the owner
-// for a bind). Unless skipChecks, the request is first compared with the
-// chain.
+// submitRequest sends a complete request from -s: the bound sponsor of an
+// op, any account for an op without one, the owner for a bind. Unless
+// skipChecks, the request is first compared with the chain.
 func submitRequest(cmd *cobra.Command, r *qsb.Request, skipChecks bool) error {
 	if !r.Complete() {
 		var missing []string
