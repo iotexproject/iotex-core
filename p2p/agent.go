@@ -696,24 +696,38 @@ func (p *agent) ReceiveBlock(blk *block.Block) error {
 }
 
 func (p *agent) connectBootNode(ctx context.Context) error {
-	if len(p.cfg.BootstrapNodes) == 0 {
+	return connectBootNodes(ctx, p.bootNodeAddr, func(ctx context.Context, addr multiaddr.Multiaddr) error {
+		return exponentialRetry(
+			ctx,
+			func() error { return p.host.ConnectWithMultiaddr(ctx, addr) },
+			_dialRetryInterval,
+			_numDialRetries,
+		)
+	})
+}
+
+// connectBootNodes dials all the bootnodes in parallel. It returns nil as soon as half+1 of them are connected,
+// or when every dial attempt has finished and at least one bootnode is connected. It returns an error if no
+// bootnode could be connected, or if ctx is done first.
+func connectBootNodes(
+	ctx context.Context,
+	addrs []multiaddr.Multiaddr,
+	dial func(context.Context, multiaddr.Multiaddr) error,
+) error {
+	total := len(addrs)
+	if total == 0 {
 		return nil
 	}
-	var errNum, connNum, desiredConnNum int
-	conn := make(chan struct{}, len(p.cfg.BootstrapNodes))
-	connErrChan := make(chan error, len(p.cfg.BootstrapNodes))
+	// buffered to total, so dial goroutines never block on send even after we return
+	conn := make(chan struct{}, total)
+	connErrChan := make(chan error, total)
 
 	// try to connect to all bootstrap node beside itself.
-	for i := range p.bootNodeAddr {
-		bootAddr := p.bootNodeAddr[i]
+	for i := range addrs {
+		bootAddr := addrs[i]
 		go func() {
-			if err := exponentialRetry(
-				func() error { return p.host.ConnectWithMultiaddr(ctx, bootAddr) },
-				_dialRetryInterval,
-				_numDialRetries,
-			); err != nil {
-				err := errors.Wrap(err, fmt.Sprintf("error when connecting bootstrap node %s", bootAddr.String()))
-				connErrChan <- err
+			if err := dial(ctx, bootAddr); err != nil {
+				connErrChan <- errors.Wrap(err, fmt.Sprintf("error when connecting bootstrap node %s", bootAddr.String()))
 				return
 			}
 			conn <- struct{}{}
@@ -721,23 +735,26 @@ func (p *agent) connectBootNode(ctx context.Context) error {
 		}()
 	}
 
-	// wait until half+1 bootnodes get connected
-	desiredConnNum = len(p.bootNodeAddr)/2 + 1
-	for {
+	// wait until half+1 bootnodes get connected, or all attempts are finished
+	var errNum, connNum int
+	desiredConnNum := total/2 + 1
+	for connNum < desiredConnNum && connNum+errNum < total {
 		select {
 		case err := <-connErrChan:
 			log.L().Info("Connection failed.", zap.Error(err))
 			errNum++
-			if errNum == len(p.bootNodeAddr) {
-				return errors.New("failed to connect to any bootstrap node")
-			}
 		case <-conn:
 			connNum++
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "stopped waiting for bootstrap nodes")
 		}
-		// can add more condition later
-		if connNum >= desiredConnNum {
-			break
-		}
+	}
+	if connNum == 0 {
+		return errors.New("failed to connect to any bootstrap node")
+	}
+	if connNum < desiredConnNum {
+		log.L().Warn("Connected to fewer bootstrap nodes than desired.",
+			zap.Int("connected", connNum), zap.Int("desired", desiredConnNum), zap.Int("total", total))
 	}
 	return nil
 }
@@ -776,14 +793,18 @@ func convertAppMsg(msg proto.Message) (iotexrpc.MessageType, []byte, error) {
 	return msgType, msgBody, nil
 }
 
-func exponentialRetry(f func() error, retryInterval time.Duration, numRetries int) (err error) {
+func exponentialRetry(ctx context.Context, f func() error, retryInterval time.Duration, numRetries int) (err error) {
 	for i := 0; i < numRetries; i++ {
 		if err = f(); err == nil {
 			return
 		}
 		// expected during cold start (e.g. bootnode not yet reachable), will retry
 		log.L().Warn("Error happens, will retry.", zap.Error(err))
-		time.Sleep(retryInterval)
+		select {
+		case <-time.After(retryInterval):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 		retryInterval *= 2
 	}
 	return

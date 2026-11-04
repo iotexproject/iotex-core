@@ -7,12 +7,14 @@ package p2p
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -194,4 +196,70 @@ func TestConsensusTopicMsgTypes(t *testing.T) {
 	} {
 		r.False(isConsensusTopicMsgType(mt), mt.String())
 	}
+}
+
+func TestConnectBootNodes(t *testing.T) {
+	addrs := make([]multiaddr.Multiaddr, 6)
+	for i := range addrs {
+		addrs[i] = multiaddr.StringCast("/ip4/127.0.0.1/tcp/" + strconv.Itoa(4000+i))
+	}
+	// dialer that succeeds for the first n addresses and fails for the rest
+	dialFirst := func(n int) func(context.Context, multiaddr.Multiaddr) error {
+		return func(_ context.Context, a multiaddr.Multiaddr) error {
+			for _, ok := range addrs[:n] {
+				if ok.Equal(a) {
+					return nil
+				}
+			}
+			return errors.New("refused")
+		}
+	}
+	// run connectBootNodes and fail the test if it does not return in time
+	run := func(t *testing.T, ctx context.Context, addrs []multiaddr.Multiaddr, dial func(context.Context, multiaddr.Multiaddr) error) error {
+		done := make(chan error, 1)
+		go func() { done <- connectBootNodes(ctx, addrs, dial) }()
+		select {
+		case err := <-done:
+			return err
+		case <-time.After(3 * time.Second):
+			t.Fatal("connectBootNodes did not return")
+			return nil
+		}
+	}
+
+	t.Run("no bootnode", func(t *testing.T) {
+		require.NoError(t, run(t, context.Background(), nil, dialFirst(0)))
+	})
+	t.Run("enough connected", func(t *testing.T) {
+		require.NoError(t, run(t, context.Background(), addrs, dialFirst(4)))
+	})
+	t.Run("some connected, some failed", func(t *testing.T) {
+		// 3 of 6 are reachable but 4 are wanted: must return instead of waiting forever
+		require.NoError(t, run(t, context.Background(), addrs, dialFirst(3)))
+	})
+	t.Run("all failed", func(t *testing.T) {
+		err := run(t, context.Background(), addrs, dialFirst(0))
+		require.ErrorContains(t, err, "failed to connect to any bootstrap node")
+	})
+	t.Run("context canceled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		block := func(ctx context.Context, _ multiaddr.Multiaddr) error {
+			<-ctx.Done()
+			return ctx.Err()
+		}
+		go func() {
+			time.Sleep(50 * time.Millisecond)
+			cancel()
+		}()
+		require.ErrorIs(t, run(t, ctx, addrs, block), context.Canceled)
+	})
+}
+
+func TestExponentialRetryContext(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	err := exponentialRetry(ctx, func() error { return errors.New("fail") }, time.Minute, 3)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Less(t, time.Since(start), 5*time.Second)
 }
