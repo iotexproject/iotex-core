@@ -327,6 +327,14 @@ type (
 		// blocks would recompute different roots for them on replay. It rides
 		// Zanzibar Gamma, which is unscheduled.
 		RevertStakingStateOnFailedReceipt bool
+		// EnableBucketGuard turns on quantum-safe staking buckets (IIP draft
+		// #86): the BindBucketGuard and GuardedBucketOp actions, the guard
+		// record in staking state, and the rejection of legacy bucket actions
+		// on guarded buckets. Work in progress, gated on ToBeEnabled. It also
+		// requires Zanzibar Gamma: a guarded op that fails after applying its
+		// bucket effect relies on RevertStakingStateOnFailedReceipt to discard
+		// it, which is what makes the IIP's check order safe.
+		EnableBucketGuard bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -522,6 +530,8 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectStakeMigrationGas:          g.IsZanzibarGamma(height),
 			CheckedBlockGasDeduction:          g.IsZanzibarGamma(height),
 			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
+			// Quantum-safe staking buckets (WIP).
+			EnableBucketGuard: g.IsToBeEnabled(height) && g.IsZanzibarGamma(height),
 		},
 	)
 }

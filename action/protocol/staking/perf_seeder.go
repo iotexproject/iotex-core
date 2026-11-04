@@ -154,7 +154,7 @@ func TestOnlyDeleteVoterBucketsThroughCOW(
 			}
 			return 0, err
 		}
-		if err := csm.delBucketAndIndex(bkt.Owner, bkt.Candidate, index); err != nil {
+		if err := csm.delBucketAndIndex(bkt.Owner, bkt.Candidate, index, legacyAuth); err != nil {
 			return 0, err
 		}
 	}

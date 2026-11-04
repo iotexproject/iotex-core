@@ -31,6 +31,10 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 	if rErr != nil {
 		return log, nil, rErr
 	}
+	// a guarded bucket must never receive an endorsement record (IIP §3)
+	if err := p.rejectGuardedBucket(ctx, csm, act.BucketIndex()); err != nil {
+		return log, nil, err
+	}
 	cand := csm.GetByIdentifier(bucket.Candidate)
 	if cand == nil {
 		return log, nil, errCandNotExist
@@ -41,7 +45,7 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 		log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), byteutil.Uint32ToBytesBigEndian(uint32(act.Op())))
 	}
 
-	esm := NewEndorsementStateManager(csm.SM())
+	esm := NewEndorsementStateManager(csm.SM()).enforceBucketGuard(featureCtx.EnableBucketGuard)
 	expireHeight := uint64(0)
 	switch act.Op() {
 	case action.CandidateEndorsementOpEndorse:
