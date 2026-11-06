@@ -129,10 +129,6 @@ func register(args []string) error {
 	}
 
 	gasLimit := _gasLimitFlag.Value().(uint64)
-	if gasLimit == 0 {
-		gasLimit = action.CandidateRegisterBaseIntrinsicGas +
-			action.CandidateRegisterPayloadGas*uint64(len(payload))
-	}
 
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {

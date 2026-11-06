@@ -67,14 +67,6 @@ func stake2Migrate(args []string) error {
 		return output.NewError(0, "failed to get gas price", err)
 	}
 	gasLimit := _gasLimitFlag.Value().(uint64)
-	if gasLimit == 0 {
-		s2t := action.NewMigrateStake(bucketIndex)
-		gas, err := migrateGasLimit(sender, s2t)
-		if err != nil {
-			return output.NewError(0, "failed to estimate gas limit", err)
-		}
-		gasLimit = gas
-	}
 
 	s2t := action.NewMigrateStake(bucketIndex)
 	return SendAction(

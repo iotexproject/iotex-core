@@ -66,6 +66,8 @@ func TestNewDidUpdateCmd(t *testing.T) {
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResp, nil).Times(2)
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResp, nil).Times(1)
 	apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(sendActionResp, nil).Times(1)
+	apiServiceClient.EXPECT().EstimateActionGasConsumption(gomock.Any(), gomock.Any()).
+		Return(&iotexapi.EstimateActionGasConsumptionResponse{Gas: 50000}, nil).Times(1)
 
 	t.Run("update did", func(t *testing.T) {
 		cmd := NewDidUpdateCmd(client)

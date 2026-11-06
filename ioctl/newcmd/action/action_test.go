@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/util"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -375,4 +376,33 @@ func TestRead(t *testing.T) {
 		_, err := Read(client, accAddr, "100", []byte(bytecode), "test", 100)
 		require.Contains(err.Error(), expectErr.Error())
 	})
+}
+
+func TestExecutionGasLimit(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	client := mock_ioctlclient.NewMockClient(ctrl)
+	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).AnyTimes()
+	caller := identityset.Address(1).String()
+	tx := action.NewExecution(identityset.Address(2).String(), big.NewInt(0), []byte{1})
+
+	t.Run("estimate within the cap", func(t *testing.T) {
+		apiServiceClient.EXPECT().EstimateActionGasConsumption(gomock.Any(), gomock.Any()).Return(
+			&iotexapi.EstimateActionGasConsumptionResponse{Gas: maxTxGasLimit}, nil)
+		gas, err := executionGasLimit(client, caller, tx)
+		require.NoError(err)
+		require.Equal(maxTxGasLimit, gas)
+	})
+
+	t.Run("estimate above the cap", func(t *testing.T) {
+		apiServiceClient.EXPECT().EstimateActionGasConsumption(gomock.Any(), gomock.Any()).Return(
+			&iotexapi.EstimateActionGasConsumptionResponse{Gas: maxTxGasLimit + 1}, nil)
+		_, err := executionGasLimit(client, caller, tx)
+		require.ErrorContains(err, "exceeds the per-transaction gas limit cap 16777216")
+	})
+}
+
+func TestGasLimitFlagDefault(t *testing.T) {
+	require.Equal(t, uint64(0), GasLimitFlagDefault)
 }

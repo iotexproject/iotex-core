@@ -51,8 +51,8 @@ var (
 		config.Chinese: "退出",
 	}
 	_flagGasLimitUsages = map[config.Language]string{
-		config.English: "set gas limit",
-		config.Chinese: "设置燃气上限",
+		config.English: "set gas limit (estimated if not set or 0: intrinsic gas for native actions, the node's gas estimation for contract calls)",
+		config.Chinese: "设置燃气上限 (未设置或为 0 时自动估算: 原生 action 使用 intrinsic gas, 合约调用使用节点的 gas 估算)",
 	}
 	_flagGasPriceUsages = map[config.Language]string{
 		config.English: `set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is "0"`,
@@ -84,7 +84,7 @@ var (
 const (
 	gasLimitFlagLabel       = "gas-limit"
 	gasLimitFlagShortLabel  = "l"
-	GasLimitFlagDefault     = uint64(20000000)
+	GasLimitFlagDefault     = uint64(0)
 	gasPriceFlagLabel       = "gas-price"
 	gasPriceFlagShortLabel  = "p"
 	gasPriceFlagDefault     = "1"
@@ -289,6 +289,23 @@ func fixGasLimit(client ioctl.Client, caller string, execution *action.Execution
 	return res.Gas, nil
 }
 
+// maxTxGasLimit is the per-transaction gas limit cap of EIP-7825 (2^24).
+const maxTxGasLimit = uint64(1 << 24)
+
+// executionGasLimit estimates the gas limit of an execution, rejecting an
+// estimate above the per-transaction gas limit cap.
+func executionGasLimit(client ioctl.Client, caller string, execution *action.Execution) (uint64, error) {
+	gas, err := fixGasLimit(client, caller, execution)
+	if err != nil {
+		return 0, err
+	}
+	if gas > maxTxGasLimit {
+		return 0, errors.Errorf("estimated gas %d exceeds the per-transaction gas limit cap %d (EIP-7825); "+
+			"use --gas-limit to set the gas limit explicitly", gas, maxTxGasLimit)
+	}
+	return gas, nil
+}
+
 // SendRaw sends raw action to blockchain
 func SendRaw(client ioctl.Client, cmd *cobra.Command, selp *iotextypes.Action) error {
 	cli, err := client.APIServiceClient()
@@ -353,6 +370,15 @@ func SendAction(client ioctl.Client,
 			return errors.Wrap(err, "failed to get nonce")
 		}
 		elp.SetNonce(nonce)
+		// Execute leaves the gas limit of an HD wallet signer to be estimated
+		// here, since the signer address is only known after unlocking.
+		if exec, ok := elp.Action().(*action.Execution); ok && elp.Gas() == 0 {
+			gasLimit, err := executionGasLimit(client, signer, exec)
+			if err != nil {
+				return errors.Wrap(err, "failed to fix Execution gas limit")
+			}
+			elp.SetGas(gasLimit)
+		}
 	}
 
 	sealed, err := action.Sign(elp, sk)
@@ -413,8 +439,9 @@ func Execute(client ioctl.Client,
 		return errors.Wrap(err, "failed to get nonce")
 	}
 	tx := action.NewExecution(contract, amount, bytecode)
-	if gasLimit == 0 {
-		gasLimit, err = fixGasLimit(client, sender, tx)
+	// For an HD wallet signer the gas limit is estimated in SendAction.
+	if gasLimit == 0 && !util.AliasIsHdwalletKey(sender) {
+		gasLimit, err = executionGasLimit(client, sender, tx)
 		if err != nil {
 			return errors.Wrap(err, "failed to fix Execution gas limit")
 		}
