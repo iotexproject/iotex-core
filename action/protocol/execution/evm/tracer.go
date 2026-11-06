@@ -132,6 +132,6 @@ func newEVM(ctx context.Context, sm protocol.StateManager, execution action.TxDa
 		return nil, err
 	}
 	evm := vm.NewEVM(evmParams.context, stateDB, evmParams.chainConfig, evmParams.evmConfig)
-	evm.SetTxContext(evmParams.txCtx)
+	evm.SetTxContext(evmParams.evmTxContext())
 	return evm, nil
 }
