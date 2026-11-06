@@ -176,6 +176,9 @@ func (etx *txContainer) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if err := tx.UnmarshalBinary(raw); err != nil {
 		return err
 	}
+	if err := checkBlobSidecarVersion(&tx); err != nil {
+		return err
+	}
 	if _, r, s := tx.RawSignatureValues(); r == nil || s == nil || r.BitLen() > 256 || s.BitLen() > 256 {
 		return errors.Wrap(ErrInvalidAct, "invalid signature R/S length")
 	}

@@ -845,5 +845,26 @@ func TestBlobSiderCar(t *testing.T) {
 			"txHash":"0x0000000000000000000000000000000000000000000000000000000000000003"
 		}
 		`, string(res))
+
+		// the result still decodes into the go-ethereum sidecar type
+		var decoded apitypes.BlobSidecarResult
+		require.NoError(json.Unmarshal(res, &decoded))
+		require.Equal(types.BlobSidecarVersion0, decoded.BlobSidecar.Version)
+		require.Len(decoded.BlobSidecar.Commitments, 1)
+		require.Len(decoded.BlobSidecar.Proofs, 1)
+		require.Equal(uint64(1), decoded.BlockNumber)
+	})
+	t.Run("MarshalNilSidecar", func(t *testing.T) {
+		res, err := json.Marshal(&apitypes.BlobSidecarResult{BlockNumber: 1})
+		require.NoError(err)
+		require.JSONEq(`
+		{
+			"blobSidecar":null,
+			"blockHeight":1,
+			"blockHash":"0x0000000000000000000000000000000000000000000000000000000000000000",
+			"txIndex":0,
+			"txHash":"0x0000000000000000000000000000000000000000000000000000000000000000"
+		}
+		`, string(res))
 	})
 }

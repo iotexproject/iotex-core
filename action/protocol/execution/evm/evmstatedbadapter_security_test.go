@@ -425,7 +425,7 @@ func TestAdapterGetters(t *testing.T) {
 	require.Equal(common.Hash{}, stateDB.GetStorageRoot(_c1))
 
 	// after setting code, code size reflects it
-	stateDB.SetCode(_c1, []byte("0123456789"))
+	stateDB.SetCode(_c1, []byte("0123456789"), tracing.CodeChangeUnspecified)
 	require.Equal(len("0123456789"), stateDB.GetCodeSize(_c1))
 
 	// Error is nil on a clean run
