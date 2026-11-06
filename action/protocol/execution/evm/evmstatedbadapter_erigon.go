@@ -223,6 +223,7 @@ func NewErigonRules(rules *params.Rules) *erigonchain.Rules {
 		IsShanghai:         rules.IsShanghai,
 		IsCancun:           rules.IsCancun,
 		IsPrague:           rules.IsPrague,
+		IsOsaka:            rules.IsOsaka,
 	}
 }
 
