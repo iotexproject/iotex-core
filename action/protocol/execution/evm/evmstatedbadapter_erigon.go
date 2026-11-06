@@ -74,8 +74,8 @@ func (s *ErigonStateDBAdapter) AddBalance(evmAddr common.Address, v *uint256.Int
 }
 
 // SetCode set the code of the given address
-func (s *ErigonStateDBAdapter) SetCode(evmAddr common.Address, c []byte) []byte {
-	return s.StateDBAdapter.SetCode(evmAddr, c)
+func (s *ErigonStateDBAdapter) SetCode(evmAddr common.Address, c []byte, r tracing.CodeChangeReason) []byte {
+	return s.StateDBAdapter.SetCode(evmAddr, c, r)
 	// code updates for erigon will be done by Contract
 }
 
