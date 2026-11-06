@@ -68,6 +68,12 @@ func (v *GenericValidator) Validate(ctx context.Context, selp *action.SealedEnve
 			return action.ErrSystemActionNonce
 		}
 	} else {
+		// Same rule as in ValidateWithState, applied here as well so the action
+		// pool refuses the action at admission instead of holding a nonce for
+		// an action no block can carry.
+		if err := ValidateActionGasLimit(featureCtx, selp.Gas()); err != nil {
+			return err
+		}
 		var nonce uint64
 		if featureCtx.FixGasAndNonceUpdate || selp.Nonce() != 0 {
 			confirmedState, err := v.accountState(ctx, v.sr, caller)
@@ -125,6 +131,14 @@ func (v *GenericValidator) ValidateWithState(ctx context.Context, selp *action.S
 	if caller == nil {
 		return errors.New("failed to get address")
 	}
+	// EIP-7825. This is the check that decides block validity: the proposer
+	// (workingSet.validateAndRun) and every validating node
+	// (workingSet.process) run ValidateWithState on each user action of the
+	// block, so both sides reach the same verdict. System actions are produced
+	// by the proposer and return above, so they are never subject to the cap.
+	if err := ValidateActionGasLimit(featureCtx, selp.Gas()); err != nil {
+		return err
+	}
 	if featureCtx.FixGasAndNonceUpdate || selp.Nonce() != 0 {
 		confirmedState, err := v.accountState(ctx, v.sr, caller)
 		if err != nil {
@@ -170,4 +184,28 @@ func (v *GenericValidator) ValidateWithState(ctx context.Context, selp *action.S
 		}
 	}
 	return nil
+}
+
+// ValidateActionGasLimit rejects an action whose declared gas limit exceeds the
+// EIP-7825 cap once the Osaka EVM is active. The cap applies to every action
+// type, not only to EVM calls, and the outcome is a rejected action, never a
+// failure receipt: such an action cannot be included in a block.
+//
+// Simulations (eth_call, eth_estimateGas, ReadContract, debug_traceCall) are
+// not actions and must not go through this check; the API lowers their gas to
+// the cap instead (see CapSimulationGas).
+func ValidateActionGasLimit(fCtx FeatureCtx, gas uint64) error {
+	if fCtx.EnableOsakaEVM && gas > action.MaxTxGas {
+		return errors.Wrapf(action.ErrGasLimitTooHigh, "cap: %d, tx: %d", action.MaxTxGas, gas)
+	}
+	return nil
+}
+
+// CapSimulationGas returns the gas a simulated call may use: gas itself, or
+// the EIP-7825 cap if gas is above it and the Osaka EVM is active.
+func CapSimulationGas(fCtx FeatureCtx, gas uint64) uint64 {
+	if fCtx.EnableOsakaEVM && gas > action.MaxTxGas {
+		return action.MaxTxGas
+	}
+	return gas
 }
