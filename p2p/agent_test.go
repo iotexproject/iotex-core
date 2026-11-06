@@ -253,6 +253,24 @@ func TestConnectBootNodes(t *testing.T) {
 		}()
 		require.ErrorIs(t, run(t, ctx, addrs, block), context.Canceled)
 	})
+	t.Run("leftover dials are canceled on return", func(t *testing.T) {
+		canceled := make(chan struct{})
+		dial := func(ctx context.Context, a multiaddr.Multiaddr) error {
+			if !a.Equal(addrs[2]) {
+				return nil
+			}
+			<-ctx.Done()
+			close(canceled)
+			return ctx.Err()
+		}
+		// 2 of 3 connected is enough, so it returns while the third dial is still running
+		require.NoError(t, run(t, context.Background(), addrs[:3], dial))
+		select {
+		case <-canceled:
+		case <-time.After(3 * time.Second):
+			t.Fatal("leftover dial was not canceled")
+		}
+	})
 }
 
 func TestExponentialRetryContext(t *testing.T) {
@@ -262,4 +280,58 @@ func TestExponentialRetryContext(t *testing.T) {
 	err := exponentialRetry(ctx, func() error { return errors.New("fail") }, time.Minute, 3)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.Less(t, time.Since(start), 5*time.Second)
+}
+
+func TestExponentialRetryNoSleepAfterLastAttempt(t *testing.T) {
+	calls := 0
+	done := make(chan error, 1)
+	go func() {
+		done <- exponentialRetry(context.Background(), func() error {
+			calls++
+			return errors.New("fail")
+		}, time.Hour, 1)
+	}()
+	select {
+	case err := <-done:
+		require.EqualError(t, err, "fail")
+		require.Equal(t, 1, calls)
+	case <-time.After(3 * time.Second):
+		t.Fatal("exponentialRetry slept after its last attempt")
+	}
+}
+
+func TestStopCancelsReconnect(t *testing.T) {
+	r := require.New(t)
+	ctx := context.Background()
+
+	bootnode, err := p2p.NewHost(ctx, p2p.DHTProtocolID(2), p2p.Port(testutil.RandomPort()), p2p.SecureIO(), p2p.MasterKey("bootnode"))
+	r.NoError(err)
+	b := func(context.Context, uint32, string, proto.Message) {}
+	u := func(context.Context, uint32, peer.AddrInfo, proto.Message) {}
+	a := NewAgent(Config{
+		Host:              "127.0.0.1",
+		Port:              testutil.RandomPort(),
+		BootstrapNodes:    []string{bootnode.Addresses()[0].String()},
+		ReconnectInterval: 100 * time.Millisecond,
+		MasterKey:         "agent",
+	}, 2, hash.ZeroHash256, func(proto.Message) (bool, error) { return false, nil }, b, u)
+	r.NoError(a.Start(ctx))
+
+	// take the only bootnode away, so the next reconnect tick keeps retrying it
+	r.NoError(bootnode.Close())
+	r.NoError(testutil.WaitUntil(50*time.Millisecond, 10*time.Second, func() (bool, error) {
+		peers, err := a.ConnectedPeers()
+		return len(peers) == 0, err
+	}))
+	// let a reconnect start and reach its retry backoff
+	time.Sleep(500 * time.Millisecond)
+
+	done := make(chan error, 1)
+	go func() { done <- a.Stop(ctx) }()
+	select {
+	case err := <-done:
+		r.NoError(err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Stop waited for the reconnect to finish its retries")
+	}
 }

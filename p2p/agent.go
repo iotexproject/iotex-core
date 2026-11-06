@@ -142,10 +142,13 @@ type (
 		bootNodeAddr               []multiaddr.Multiaddr
 		reconnectTimeout           time.Duration
 		reconnectTask              *routine.RecurringTask
-		qosMetrics                 *Qos
-		unifiedTopic               atomic.Bool
-		isUnifiedTopic             func(height uint64) bool
-		enableBundleTopic          bool
+		// runCtx lives from Start to Stop; Stop cancels it so a running reconnect returns at once
+		runCtx            context.Context
+		runCancel         context.CancelFunc
+		qosMetrics        *Qos
+		unifiedTopic      atomic.Bool
+		isUnifiedTopic    func(height uint64) bool
+		enableBundleTopic bool
 	}
 
 	cacheValue struct {
@@ -510,6 +513,7 @@ func (p *agent) Start(ctx context.Context) error {
 	close(ready)
 
 	// check network connectivity every 60 blocks, and reconnect in case of disconnection
+	p.runCtx, p.runCancel = context.WithCancel(context.Background())
 	p.reconnectTask = routine.NewRecurringTask(p.reconnect, p.reconnectTimeout)
 	return p.reconnectTask.Start(ctx)
 }
@@ -519,6 +523,9 @@ func (p *agent) Stop(ctx context.Context) error {
 		return ErrAgentNotStarted
 	}
 	log.L().Info("p2p is shutting down.", zap.Error(ctx.Err()))
+	if p.runCancel != nil {
+		p.runCancel()
+	}
 	if err := p.reconnectTask.Stop(ctx); err != nil {
 		return err
 	}
@@ -718,16 +725,18 @@ func connectBootNodes(
 	if total == 0 {
 		return nil
 	}
+	// stop the remaining dials once we return
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	// buffered to total, so dial goroutines never block on send even after we return
 	conn := make(chan struct{}, total)
 	connErrChan := make(chan error, total)
 
 	// try to connect to all bootstrap node beside itself.
-	for i := range addrs {
-		bootAddr := addrs[i]
+	for _, bootAddr := range addrs {
 		go func() {
 			if err := dial(ctx, bootAddr); err != nil {
-				connErrChan <- errors.Wrap(err, fmt.Sprintf("error when connecting bootstrap node %s", bootAddr.String()))
+				connErrChan <- errors.Wrapf(err, "error when connecting bootstrap node %s", bootAddr.String())
 				return
 			}
 			conn <- struct{}{}
@@ -766,7 +775,7 @@ func (p *agent) reconnect() {
 	if len(p.host.ConnectedPeers()) == 0 || p.qosMetrics.lostConnection() {
 		log.L().Info("network lost, try re-connecting.")
 		p.host.ClearBlocklist()
-		if err := p.connectBootNode(context.Background()); err != nil {
+		if err := p.connectBootNode(p.runCtx); err != nil {
 			// transient network hiccup, will retry on the next reconnect tick
 			log.L().Warn("fail to connect bootnode, will retry.", zap.Error(err))
 			return
@@ -797,6 +806,10 @@ func exponentialRetry(ctx context.Context, f func() error, retryInterval time.Du
 	for i := 0; i < numRetries; i++ {
 		if err = f(); err == nil {
 			return
+		}
+		if i == numRetries-1 {
+			// no sleep after the last attempt
+			break
 		}
 		// expected during cold start (e.g. bootnode not yet reachable), will retry
 		log.L().Warn("Error happens, will retry.", zap.Error(err))
