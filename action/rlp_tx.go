@@ -83,7 +83,21 @@ func DecodeEtherTx(rawData string) (*types.Transaction, error) {
 	if err = tx.UnmarshalBinary(rawTxBytes); err != nil {
 		return nil, err
 	}
+	if err = checkBlobSidecarVersion(&tx); err != nil {
+		return nil, err
+	}
 	return &tx, nil
+}
+
+// checkBlobSidecarVersion rejects a blob tx that carries a sidecar other than
+// version 0. go-ethereum v1.16 decodes the version 1 (EIP-7594 cell proof)
+// network form, which v1.15 failed to decode. IoTeX only supports version 0
+// sidecars, so such txs stay rejected right after decoding, as they were before.
+func checkBlobSidecarVersion(tx *types.Transaction) error {
+	if sc := tx.BlobTxSidecar(); sc != nil && sc.Version != types.BlobSidecarVersion0 {
+		return errors.Wrapf(ErrInvalidAct, "unsupported blob sidecar version %d", sc.Version)
+	}
+	return nil
 }
 
 // ExtractTypeSigPubkey extracts tx type, signature, and pubkey
