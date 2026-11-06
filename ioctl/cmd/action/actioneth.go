@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	"github.com/spf13/cobra"
@@ -85,8 +86,13 @@ type EthTxBuilder func(senderECKey *ecdsa.PrivateKey, nonce uint64, evmChainID *
 // SetCodeTxBuilder returns an EthTxBuilder that produces a signed EIP-7702 SetCodeTx.
 // gasPrice is used for BOTH GasTipCap and GasFeeCap (the simplification keeps the
 // existing --gas-price UX working for both legacy and SetCodeTx paths).
+// A zero gasLimit is estimated by the node for the signer of the tx.
 func SetCodeTxBuilder(to common.Address, value, gasPrice *big.Int, gasLimit uint64, data []byte, auths []types.SetCodeAuthorization) EthTxBuilder {
 	return func(key *ecdsa.PrivateKey, nonce uint64, evmChainID *big.Int) (*types.Transaction, error) {
+		gasLimit, err := resolveSetCodeTxGasLimit(gasLimit, crypto.PubkeyToAddress(key.PublicKey), to, value, data, auths)
+		if err != nil {
+			return nil, err
+		}
 		chainID256, _ := uint256.FromBig(evmChainID)
 		value256, overflow := uint256.FromBig(value)
 		if overflow {

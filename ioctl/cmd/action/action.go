@@ -50,11 +50,9 @@ var (
 	}
 )
 
-const _defaultGasLimit = uint64(20000000)
-
 // Flags
 var (
-	_gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", _defaultGasLimit, "set gas limit")
+	_gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", 0, "set gas limit (estimated if not set or 0: intrinsic gas for native actions, the node's gas estimation for contract calls)")
 	_gasPriceFlag = flag.NewStringVarP("gas-price", "p", "1", "set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is \"0\"")
 	_nonceFlag    = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
 	_signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
@@ -264,7 +262,8 @@ func SendAction(elp action.Envelope, signer string) error {
 	return outputActionInfo(resp.ActionHash)
 }
 
-// SendActionAndResponse sends signed action to blockchain with response and error return
+// SendActionAndResponse sends signed action to blockchain with response and error return.
+// If elp has no gas limit, it is estimated for the signer (see resolveGasLimit).
 func SendActionAndResponse(elp action.Envelope, signer string) (*iotexapi.SendActionResponse, error) {
 	prvKey, err := account.PrivateKeyFromSigner(signer, account.PasswordByFlag())
 	if err != nil {
@@ -286,6 +285,12 @@ func SendActionAndResponse(elp action.Envelope, signer string) (*iotexapi.SendAc
 		}
 		elp.SetNonce(nonce)
 	}
+	gasLimit, err := resolveGasLimit(signer, elp)
+	if err != nil {
+		prvKey.Zero()
+		return nil, err
+	}
+	elp.SetGas(gasLimit)
 
 	sealed, err := action.Sign(elp, prvKey)
 	prvKey.Zero()
@@ -357,9 +362,6 @@ func ExecuteAndResponse(contract string, amount *big.Int, bytecode []byte) (*iot
 				"--auth cannot be used with contract deploy; SetCodeTx requires a target address", nil)
 		}
 		gasLimit := _gasLimitFlag.Value().(uint64)
-		if gasLimit == 0 {
-			gasLimit = _defaultGasLimit
-		}
 		contractIoAddr, err := address.FromString(contract)
 		if err != nil {
 			return nil, output.NewError(output.AddressError, "failed to parse contract address", err)
@@ -376,14 +378,10 @@ func ExecuteAndResponse(contract string, amount *big.Int, bytecode []byte) (*iot
 	if err != nil {
 		return nil, output.NewError(0, "failed to get nonce", err)
 	}
+	// A zero gas limit is estimated in SendActionAndResponse, once the signer
+	// address is known (an HD wallet signer is resolved only after unlocking).
 	gasLimit := _gasLimitFlag.Value().(uint64)
 	tx := action.NewExecution(contract, amount, bytecode)
-	if gasLimit == 0 {
-		gasLimit, err = fixGasLimit(signer, tx)
-		if err != nil {
-			return nil, output.NewError(0, "failed to fix Execution gaslimit", err)
-		}
-	}
 	return SendActionAndResponse(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).
