@@ -646,6 +646,16 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 		pragueTimestamp := (uint64)(pragueTime.Unix())
 		chainConfig.PragueTime = &pragueTimestamp
 	}
+	// enable Osaka. It rides ToBeEnabled until the hardfork carrying it is
+	// named; FeatureCtx.EnableOsakaEVM reads the same height and must move
+	// with it.
+	osakaTime, err := getBlockTime(g.ToBeEnabledBlockHeight)
+	if err != nil {
+		return nil, err
+	} else if osakaTime != nil {
+		osakaTimestamp := (uint64)(osakaTime.Unix())
+		chainConfig.OsakaTime = &osakaTimestamp
+	}
 	return &chainConfig, nil
 }
 
