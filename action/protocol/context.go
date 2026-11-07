@@ -327,6 +327,16 @@ type (
 		// blocks would recompute different roots for them on replay. It rides
 		// Zanzibar Gamma, which is unscheduled.
 		RevertStakingStateOnFailedReceipt bool
+		// EnableOsakaEVM turns on Ethereum's Osaka EVM rules: the CLZ opcode
+		// (EIP-7939), the MODEXP input bound and repricing (EIP-7823 /
+		// EIP-7883) and the P256VERIFY precompile at 0x100 (EIP-7951), all of
+		// which come with go-ethereum once getChainConfig sets OsakaTime, plus
+		// the per-action gas limit cap of EIP-7825, which IoTeX enforces itself
+		// (see GenericValidator).
+		//
+		// getChainConfig derives OsakaTime from the same height, so this flag
+		// and rules.IsOsaka must move together when the fork is named.
+		EnableOsakaEVM bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -522,6 +532,9 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectStakeMigrationGas:          g.IsZanzibarGamma(height),
 			CheckedBlockGasDeduction:          g.IsZanzibarGamma(height),
 			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
+			// Osaka EVM. Not scheduled yet: it rides ToBeEnabled until the
+			// hardfork that carries it is named.
+			EnableOsakaEVM: g.IsToBeEnabled(height),
 		},
 	)
 }

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -214,7 +215,7 @@ func TestEmptyAndCode(t *testing.T) {
 	require.True(stateDB.Empty(addr))
 	stateDB.CreateAccount(addr)
 	require.True(stateDB.Empty(addr))
-	stateDB.SetCode(addr, []byte("0123456789"))
+	stateDB.SetCode(addr, []byte("0123456789"), tracing.CodeChangeUnspecified)
 	require.True(bytes.Equal(stateDB.GetCode(addr), []byte("0123456789")))
 	require.False(stateDB.Empty(addr))
 }
@@ -512,7 +513,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			}
 			// set code
 			for _, e := range test.codes {
-				stateDB.SetCode(e.addr, e.v)
+				stateDB.SetCode(e.addr, e.v, tracing.CodeChangeUnspecified)
 				v := stateDB.GetCode(e.addr)
 				require.Equal(e.v, v)
 			}
@@ -822,7 +823,7 @@ func TestClearSnapshots(t *testing.T) {
 			}
 			// set code
 			for _, e := range test.codes {
-				stateDB.SetCode(e.addr, e.v)
+				stateDB.SetCode(e.addr, e.v, tracing.CodeChangeUnspecified)
 				v := stateDB.GetCode(e.addr)
 				require.Equal(e.v, v)
 			}
@@ -1002,7 +1003,7 @@ func TestSortMap(t *testing.T) {
 
 		for i := 0; i < size; i++ {
 			addr := common.HexToAddress(identityset.Address(i).Hex())
-			stateDB.SetCode(addr, []byte("0123456789"))
+			stateDB.SetCode(addr, []byte("0123456789"), tracing.CodeChangeUnspecified)
 			stateDB.SetState(addr, _k1, _k2)
 		}
 		sn := stateDB.Snapshot()
@@ -1110,7 +1111,7 @@ func TestSelfdestruct6780(t *testing.T) {
 	addrs := []common.Address{_c1, _c2, _c3, _c4}
 	for _, addr := range addrs {
 		if addr == _c4 {
-			state.SetCode(addr, []byte{1, 2})
+			state.SetCode(addr, []byte{1, 2}, tracing.CodeChangeUnspecified)
 		} else {
 			state.CreateAccount(addr)
 		}

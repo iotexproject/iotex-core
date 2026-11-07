@@ -417,6 +417,11 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isYap, chainRules.IsPrague)
 		require.Equal(isYap, evmChainConfig.IsPrague(big.NewInt(int64(e.height)), evm.Context.Time))
 
+		// Osaka rides ToBeEnabled, which this genesis does not schedule
+		isOsaka := g.IsToBeEnabled(e.height)
+		require.Equal(isOsaka, chainRules.IsOsaka)
+		require.Equal(isOsaka, evmChainConfig.IsOsaka(big.NewInt(int64(e.height)), evm.Context.Time))
+
 		// Verkle not yet enabled
 		require.False(chainRules.IsVerkle)
 		require.False(evmChainConfig.IsVerkle(big.NewInt(int64(e.height)), evm.Context.Time))

@@ -846,9 +846,25 @@ func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextype
 	if callerAddr == nil {
 		return 0, status.Error(codes.Internal, "failed to get address")
 	}
-	_, receipt, err := core.SimulateExecution(ctx, callerAddr, selp.Envelope)
+	var (
+		g             = core.bc.Genesis()
+		tipHeight     = core.bc.TipHeight()
+		blockGasLimit = g.BlockGasLimitByHeight(tipHeight + 1)
+		// Once EIP-7825 is active no action may declare more gas than the cap,
+		// so an estimate is searched for under it. Only estimation is capped:
+		// eth_call, ReadContract and debug_traceCall keep running with the
+		// block gas limit, as go-ethereum does for eth_call.
+		gasCap = protocol.CapSimulationGas(featureCtxAt(g, tipHeight+1), blockGasLimit)
+	)
+	selp.Envelope.SetGas(gasCap)
+	_, receipt, err := core.simulateExecution(ctx, tipHeight, false, callerAddr, selp.Envelope)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
+	}
+	// running out of gas at the cap means no gas limit the action may declare
+	// is enough
+	if gasCap < blockGasLimit && isOutOfGasStatus(receipt.Status) {
+		return 0, errGasRequiredExceedsTxGasCap()
 	}
 	return receipt.GasConsumed, nil
 }
@@ -1851,6 +1867,11 @@ func (core *coreService) estimateMigrateStakeGasConsumptionAt(ctx context.Contex
 	if err != nil {
 		return 0, retval, err
 	}
+	// the action declares the contract call's gas plus its own intrinsic gas,
+	// and that sum is what EIP-7825 caps
+	if protocol.ValidateActionGasLimit(protocol.MustGetFeatureCtx(ctx), gas+intrinsicGas) != nil {
+		return 0, retval, errGasRequiredExceedsTxGasCap()
+	}
 	return gas + intrinsicGas, retval, nil
 }
 
@@ -1866,12 +1887,19 @@ func (core *coreService) EstimateExecutionGasConsumptionAt(ctx context.Context, 
 func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, elp action.Envelope, callerAddr address.Address, height uint64, opts ...protocol.SimulateOption) (uint64, []byte, error) {
 	var (
 		g             = core.bc.Genesis()
-		blockGasLimit = g.BlockGasLimitByHeight(core.bc.TipHeight())
+		tipHeight     = core.bc.TipHeight()
+		blockGasLimit = g.BlockGasLimitByHeight(tipHeight)
+		simHeight     = tipHeight + 1
 	)
 	if height != 0 {
 		blockGasLimit = g.BlockGasLimitByHeight(height)
+		simHeight = height + 1
 	}
-	elp.SetGas(blockGasLimit)
+	// Once EIP-7825 is active no action may declare more than the cap, so the
+	// search tops out there: an estimate above it would name a gas limit the
+	// action pool refuses.
+	gasCap := protocol.CapSimulationGas(featureCtxAt(g, simHeight), blockGasLimit)
+	elp.SetGas(gasCap)
 	enough, receipt, retval, err := core.isGasLimitEnough(ctx, callerAddr, elp, height, opts...)
 	if err != nil {
 		return 0, nil, status.Error(codes.Internal, err.Error())
@@ -1883,6 +1911,9 @@ func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, 
 			}
 			return 0, retval, status.Error(codes.InvalidArgument, "execution reverted")
 		}
+		if gasCap < blockGasLimit && isOutOfGasStatus(receipt.Status) {
+			return 0, retval, errGasRequiredExceedsTxGasCap()
+		}
 		return 0, retval, status.Error(codes.Internal, fmt.Sprintf("execution simulation failed: status = %d", receipt.Status))
 	}
 	estimatedGas := receipt.GasConsumed
@@ -1892,7 +1923,7 @@ func (core *coreService) estimateExecutionGasConsumptionAt(ctx context.Context, 
 		return 0, nil, status.Error(codes.Internal, err.Error())
 	}
 	if !enough {
-		low, high := estimatedGas, blockGasLimit
+		low, high := estimatedGas, gasCap
 		estimatedGas = high
 		for low <= high {
 			mid := (low + high) / 2
@@ -2504,4 +2535,24 @@ func isGasTooLowError(err error) bool {
 	return errors.Is(err, action.ErrInsufficientFunds) ||
 		errors.Is(err, action.ErrFloorDataGas) ||
 		errors.Is(err, action.ErrIntrinsicGas)
+}
+
+// isOutOfGasStatus reports the receipt statuses of a call that ran out of gas.
+func isOutOfGasStatus(s uint64) bool {
+	return s == uint64(iotextypes.ReceiptStatus_ErrOutOfGas) ||
+		s == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas)
+}
+
+// errGasRequiredExceedsTxGasCap is returned by gas estimation when the call
+// needs more gas than EIP-7825 lets a single action declare.
+func errGasRequiredExceedsTxGasCap() error {
+	return status.Error(codes.InvalidArgument,
+		errors.Wrapf(action.ErrGasLimitTooHigh, "gas required exceeds allowance (%d)", action.MaxTxGas).Error())
+}
+
+// featureCtxAt returns the features in effect for a block at height.
+func featureCtxAt(g genesis.Genesis, height uint64) protocol.FeatureCtx {
+	ctx := genesis.WithGenesisContext(context.Background(), g)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height}))
+	return protocol.MustGetFeatureCtx(ctx)
 }

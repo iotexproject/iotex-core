@@ -274,7 +274,7 @@ func DeploySystemContracts(ctx context.Context, sm protocol.StateManager,
 		addr := common.BytesToAddress(addrs[i].Bytes())
 		stateDB.CreateAccount(addr)
 		stateDB.CreateContract(addr)
-		stateDB.SetCode(addr, codes[i])
+		stateDB.SetCode(addr, codes[i], tracing.CodeChangeGenesis)
 		stateDB.SetNonce(addr, stateDB.GetNonce(addr)+1, tracing.NonceChangeContractCreator)
 	}
 	return stateDB.CommitContracts()
@@ -645,6 +645,16 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32, getBlockTime
 	} else if pragueTime != nil {
 		pragueTimestamp := (uint64)(pragueTime.Unix())
 		chainConfig.PragueTime = &pragueTimestamp
+	}
+	// enable Osaka. It rides ToBeEnabled until the hardfork carrying it is
+	// named; FeatureCtx.EnableOsakaEVM reads the same height and must move
+	// with it.
+	osakaTime, err := getBlockTime(g.ToBeEnabledBlockHeight)
+	if err != nil {
+		return nil, err
+	} else if osakaTime != nil {
+		osakaTimestamp := (uint64)(osakaTime.Unix())
+		chainConfig.OsakaTime = &osakaTimestamp
 	}
 	return &chainConfig, nil
 }
@@ -1111,12 +1121,12 @@ func applyAuthorization(evm *vm.EVM, sdb stateDB, auth *types.SetCodeAuthorizati
 	sdb.SetNonce(authority, auth.Nonce+1, tracing.NonceChangeAuthorization)
 	if auth.Address == (common.Address{}) {
 		// Delegation to zero address means clear.
-		sdb.SetCode(authority, nil)
+		sdb.SetCode(authority, nil, tracing.CodeChangeAuthorizationClear)
 		return nil
 	}
 
 	// Otherwise install delegation to auth.Address.
-	sdb.SetCode(authority, types.AddressToDelegation(auth.Address))
+	sdb.SetCode(authority, types.AddressToDelegation(auth.Address), tracing.CodeChangeAuthorization)
 
 	return nil
 }

@@ -374,6 +374,10 @@ func TestHandleStakeMigrateGasAccounting(t *testing.T) {
 		wantExecGasLimit uint64
 		// gas the migration receipt is expected to report
 		wantReceiptGas uint64
+		// gas limit the migration declares, gasLimit if zero
+		outerGas uint64
+		// height from which the Osaka EVM (EIP-7825) is active
+		osakaHeight uint64
 	}{
 		{
 			name:             "before fix height",
@@ -386,6 +390,17 @@ func TestHandleStakeMigrateGasAccounting(t *testing.T) {
 			gateHeight:       migrateHgt,
 			wantExecGasLimit: gasLimit - action.MigrateStakeBaseIntrinsicGas,
 			wantReceiptGas:   gasLimit,
+		},
+		{
+			// EIP-7825 caps the gas limit the migration declares; the inner
+			// call is budgeted out of that limit, so it stays under the cap
+			// without a check of its own
+			name:             "at the EIP-7825 cap",
+			gateHeight:       migrateHgt,
+			osakaHeight:      migrateHgt,
+			outerGas:         action.MaxTxGas,
+			wantExecGasLimit: action.MaxTxGas - action.MigrateStakeBaseIntrinsicGas,
+			wantReceiptGas:   action.MaxTxGas,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -436,6 +451,13 @@ func TestHandleStakeMigrateGasAccounting(t *testing.T) {
 			cfg.ZanzibarBlockHeight = tt.gateHeight
 			cfg.ZanzibarBetaBlockHeight = tt.gateHeight
 			cfg.ZanzibarGammaBlockHeight = tt.gateHeight
+			if tt.osakaHeight != 0 {
+				cfg.ToBeEnabledBlockHeight = tt.osakaHeight
+			}
+			outerGas := gasLimit
+			if tt.outerGas != 0 {
+				outerGas = tt.outerGas
+			}
 
 			ctx := genesis.WithGenesisContext(context.Background(), cfg)
 			ctx = protocol.WithFeatureWithHeightCtx(ctx)
@@ -463,7 +485,7 @@ func TestHandleStakeMigrateGasAccounting(t *testing.T) {
 				blkCtx := protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 					BlockHeight:    height,
 					BlockTimeStamp: timeBlock,
-					GasLimit:       gasLimit,
+					GasLimit:       max(gasLimit, outerGas),
 				})
 				blkCtx = protocol.WithBlockchainCtx(blkCtx, protocol.BlockchainCtx{
 					Tip: protocol.TipInfo{Height: height},
@@ -525,11 +547,19 @@ func TestHandleStakeMigrateGasAccounting(t *testing.T) {
 					GasConsumed: elp.Gas(),
 				}, nil
 			})
-			act := assertions.MustNoErrorV(action.SignedMigrateStake(1, bktIdx, gasLimit, gasPrice, identityset.PrivateKey(stakerID)))
+			act := assertions.MustNoErrorV(action.SignedMigrateStake(1, bktIdx, outerGas, gasPrice, identityset.PrivateKey(stakerID)))
+			if tt.osakaHeight != 0 {
+				fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: migrateHgt})))
+				r.True(fCtx.EnableOsakaEVM)
+				// the declared limit is admissible, one more unit is not
+				r.NoError(protocol.ValidateActionGasLimit(fCtx, act.Gas()))
+				r.ErrorIs(protocol.ValidateActionGasLimit(fCtx, act.Gas()+1), action.ErrGasLimitTooHigh)
+			}
 			receipts = runBlock(migrateHgt, act)
 			r.Len(receipts, 1)
 			r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipts[0].Status)
 			r.Equal(tt.wantExecGasLimit, execGasLimit)
+			r.LessOrEqual(execGasLimit, act.Gas())
 			r.Equal(tt.wantReceiptGas, receipts[0].GasConsumed)
 			// the declared gas limit is the ceiling the block budget was
 			// reserved against, so the receipt must never report beyond it

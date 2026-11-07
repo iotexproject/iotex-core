@@ -75,6 +75,7 @@ type (
 		IsShanghai bool `json:"isShanghai"`
 		IsCancun   bool `json:"isCancun"`
 		IsPrague   bool `json:"isPrague"`
+		IsOsaka    bool `json:"isOsaka"`
 	}
 
 	Log struct {
@@ -496,6 +497,15 @@ func (sct *SmartContractTest) prepareBlockchain(
 	if sct.InitGenesis.IsPrague {
 		cfg.Genesis.Blockchain.YapBlockHeight = 1
 		testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
+	}
+	if sct.InitGenesis.IsOsaka {
+		// Osaka rides ToBeEnabled until its hardfork is named. It is set after
+		// normalizing so the Zanzibar family stays unscheduled, as it is in
+		// the Prague runs: the Prague suite is rerun under Osaka and has to
+		// differ from them only by Osaka.
+		cfg.Genesis.Blockchain.YapBlockHeight = 1
+		testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
+		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 1
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -1647,6 +1657,129 @@ func TestPragueEVM(t *testing.T) {
 	})
 	t.Run("transientstorage", func(t *testing.T) {
 		NewSmartContractTestWithOverwrite(t, "testdata-cancun/transientstorage.json", "testdata-prague/transientstorage.json")
+	})
+}
+
+// TestOsakaEVM runs the Osaka-specific probes (testdata-osaka/osaka_probe.json),
+// their pre-Osaka counterpart, and the whole Prague suite again with Osaka on,
+// which must produce the same results.
+func TestOsakaEVM(t *testing.T) {
+	t.Run("osaka-probe", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-osaka/osaka_probe.json")
+	})
+	t.Run("osaka-probe-before-osaka", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-osaka/osaka_probe-prague.json")
+	})
+	t.Run("eip2935-historical_block_hashes", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-prague/historical_block_hashes.json", "testdata-osaka/historical_block_hashes.json")
+	})
+	t.Run("eip2537-bls12381", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-prague/bls12381.json", "testdata-osaka/bls12381.json")
+	})
+	t.Run("array-return", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/array-return.json", "testdata-osaka/array-return.json")
+	})
+	t.Run("basic-token", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/basic-token.json", "testdata-osaka/basic-token.json")
+	})
+	t.Run("basefee", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/basefee.json", "testdata-osaka/basefee.json")
+	})
+	t.Run("call-dynamic", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/call-dynamic.json", "testdata-osaka/call-dynamic.json")
+	})
+	t.Run("changestate", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/changestate.json", "testdata-osaka/changestate.json")
+	})
+	t.Run("chainid-selfbalance", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/chainid-selfbalance.json", "testdata-osaka/chainid-selfbalance.json")
+	})
+	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/CVE-2021-39137-attack-replay.json", "testdata-osaka/CVE-2021-39137-attack-replay.json")
+	})
+	t.Run("datacopy", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/datacopy.json", "testdata-osaka/datacopy.json")
+	})
+	t.Run("datacopy-accesslist", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/datacopy-accesslist.json", "testdata-osaka/datacopy-accesslist.json")
+	})
+	t.Run("f.value", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/f.value.json", "testdata-osaka/f.value.json")
+	})
+	t.Run("factory", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/factory.json", "testdata-osaka/factory.json")
+	})
+	t.Run("gas-test", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/gas-test.json", "testdata-osaka/gas-test.json")
+	})
+	t.Run("infiniteloop", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/infiniteloop.json", "testdata-osaka/infiniteloop.json")
+	})
+	t.Run("mapping-delete", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/mapping-delete.json", "testdata-osaka/mapping-delete.json")
+	})
+	t.Run("maxtime", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/maxtime.json", "testdata-osaka/maxtime.json")
+	})
+	t.Run("modifiers", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/modifiers.json", "testdata-osaka/modifiers.json")
+	})
+	t.Run("multisend", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/multisend.json", "testdata-osaka/multisend.json")
+	})
+	t.Run("no-variable-length-returns", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/no-variable-length-returns.json", "testdata-osaka/no-variable-length-returns.json")
+	})
+	t.Run("prevrandao", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/prevrandao.json", "testdata-osaka/prevrandao.json")
+	})
+	t.Run("public-mapping", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/public-mapping.json", "testdata-osaka/public-mapping.json")
+	})
+	t.Run("push0", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/push0.json", "testdata-osaka/push0.json")
+	})
+	t.Run("reentry-attack", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/reentry-attack.json", "testdata-osaka/reentry-attack.json")
+	})
+	t.Run("remove-from-array", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/remove-from-array.json", "testdata-osaka/remove-from-array.json")
+	})
+	t.Run("selfdestruct", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/selfdestruct.json", "testdata-osaka/selfdestruct.json")
+	})
+	t.Run("send-eth", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/send-eth.json", "testdata-osaka/send-eth.json")
+	})
+	t.Run("sha3", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/sha3.json", "testdata-osaka/sha3.json")
+	})
+	t.Run("storage-test", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/storage-test.json", "testdata-osaka/storage-test.json")
+	})
+	t.Run("tail-recursion", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/tail-recursion.json", "testdata-osaka/tail-recursion.json")
+	})
+	t.Run("tuple", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/tuple.json", "testdata-osaka/tuple.json")
+	})
+	t.Run("wireconnection", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-shanghai/wireconnection.json", "testdata-osaka/wireconnection.json")
+	})
+	t.Run("blobbasefee", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/blobbasefee.json", "testdata-osaka/blobbasefee.json")
+	})
+	t.Run("blobhash", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/blobhash.json", "testdata-osaka/blobhash.json")
+	})
+	t.Run("mcopy", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/mcopy.json", "testdata-osaka/mcopy.json")
+	})
+	t.Run("point_evaluation", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/point_evaluation.json", "testdata-osaka/point_evaluation.json")
+	})
+	t.Run("transientstorage", func(t *testing.T) {
+		NewSmartContractTestWithOverwrite(t, "testdata-cancun/transientstorage.json", "testdata-osaka/transientstorage.json")
 	})
 }
 

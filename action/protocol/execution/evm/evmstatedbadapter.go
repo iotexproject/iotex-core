@@ -1153,7 +1153,7 @@ func (stateDB *StateDBAdapter) GetCodeSize(evmAddr common.Address) int {
 }
 
 // SetCode sets contract's code
-func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) []byte {
+func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte, _ tracing.CodeChangeReason) []byte {
 	contract, err := stateDB.getContract(evmAddr)
 	if err != nil {
 		log.T(stateDB.ctx).Error("Failed to get contract.", zap.Error(err), zap.String("address", evmAddr.Hex()), stateDB.actionHashField())
@@ -1167,6 +1167,22 @@ func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) []by
 	}
 	contract.SetCode(hash.Hash256b(code), code)
 	return prev
+}
+
+// GetStateAndCommittedState returns the current and the committed value of a
+// slot. go-ethereum v1.16 calls it from the SSTORE gas functions in place of
+// separate GetState and GetCommittedState calls.
+//
+// It calls GetState first and then GetCommittedState, the order the SSTORE gas
+// functions used before. The contract's committed/missing caches (see
+// contract.GetState and CorrectPrestateForAbsentKeysOption) are filled by
+// GetState, so right after it GetCommittedState either hits those caches or
+// re-reads the same absent slot, and changes nothing. The gas functions now
+// also call it where they used to skip GetCommittedState (legacy metering and
+// the no-op current == value case), which therefore leaves gas and state
+// unchanged at every height. TestSStoreGasPinned pins this.
+func (stateDB *StateDBAdapter) GetStateAndCommittedState(evmAddr common.Address, k common.Hash) (common.Hash, common.Hash) {
+	return stateDB.GetState(evmAddr, k), stateDB.GetCommittedState(evmAddr, k)
 }
 
 // GetCommittedState gets committed state
