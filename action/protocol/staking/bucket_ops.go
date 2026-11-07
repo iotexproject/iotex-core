@@ -32,6 +32,11 @@ import (
 // failing check, so their order of checks and writes is part of history.
 // The checks here run in the same order as there, so a failing action reports
 // the same receipt status.
+//
+// One difference is deliberate: a failed state read is returned as a plain
+// error, which aborts the block, where the *BeforeQSB helpers report
+// ErrUnknown. A read error is not a property of the action, and a receipt
+// for it would let two nodes settle the same block differently (IIP-65 §9.3).
 
 // bucketChange is the result of an operation's checks: the writes that apply
 // it.
@@ -44,6 +49,32 @@ func copyBucket(b *VoteBucket) *VoteBucket {
 	c := *b
 	c.StakedAmount = new(big.Int).Set(b.StakedAmount)
 	return &c
+}
+
+// checkBucketNotEndorsed is validateBucketWithoutEndorsement with a failed
+// read of the endorsement returned as a storage error.
+func checkBucketNotEndorsed(featureCtx protocol.FeatureCtx, sr protocol.StateReader, bucket *VoteBucket, height uint64) error {
+	status, err := NewEndorsementStateReader(sr).Status(featureCtx, bucket.Index, height)
+	if err != nil {
+		return errors.Wrapf(err, "failed to read endorsement of bucket %d", bucket.Index)
+	}
+	if status != EndorseExpired {
+		return &handleError{
+			err:           errors.Errorf("bucket is still endorsed"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		}
+	}
+	return nil
+}
+
+// checkSelfStakeBucket is isSelfStakeBucket with its read errors returned as
+// storage errors.
+func checkSelfStakeBucket(featureCtx protocol.FeatureCtx, csm CandidateStateManager, bucket *VoteBucket) (bool, error) {
+	selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket)
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to read the self-stake status of bucket %d", bucket.Index)
+	}
+	return selfStake, nil
 }
 
 type unstakeChange struct {
@@ -79,16 +110,13 @@ func (p *Protocol) checkUnstake(ctx context.Context, csm CandidateStateManager, 
 		}
 	}
 	if !featureCtx.DisableDelegateEndorsement {
-		if rErr := validateBucketWithoutEndorsement(ctx, NewEndorsementStateManager(csm.SM()), bucket, blkCtx.BlockHeight); rErr != nil {
-			return nil, rErr
+		if err := checkBucketNotEndorsed(featureCtx, csm.SR(), bucket, blkCtx.BlockHeight); err != nil {
+			return nil, err
 		}
 	}
-	selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket)
+	selfStake, err := checkSelfStakeBucket(featureCtx, csm, bucket)
 	if err != nil {
-		return nil, &handleError{
-			err:           err,
-			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
-		}
+		return nil, err
 	}
 	if selfStake && !featureCtx.NoCandidateExitQueue {
 		return nil, &handleError{
@@ -311,12 +339,9 @@ func (p *Protocol) checkRestake(ctx context.Context, csm CandidateStateManager, 
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
-	selfStake, err := isSelfStakeBucket(featureCtx, csm, bucket)
+	selfStake, err := checkSelfStakeBucket(featureCtx, csm, bucket)
 	if err != nil {
-		return nil, &handleError{
-			err:           err,
-			failureStatus: iotextypes.ReceiptStatus_ErrUnknown,
-		}
+		return nil, err
 	}
 	prevWeightedVotes := p.calculateVoteWeight(bucket, selfStake)
 	actDuration := time.Duration(duration) * 24 * time.Hour
