@@ -60,10 +60,10 @@ var _gasBurnerRuntime = "6000355b8015601057600190036003565b505a60005260206000f3"
 //   - block production: an over-cap action admitted before the fork is left
 //     out of the first post-fork block and dropped, not settled with a failure
 //     receipt;
-//   - simulation: eth_call, ReadContract and debug_traceCall run with their
-//     gas lowered to the cap rather than failing, and eth_estimateGas /
-//     EstimateGasForAction report an explicit error for a call that needs
-//     more than the cap.
+//   - simulation: eth_call, ReadContract and debug_traceCall are not capped
+//     and keep running with up to the block gas limit, as go-ethereum does
+//     for eth_call; eth_estimateGas / EstimateGasForAction search under the
+//     cap and report an explicit error for a call that needs more than it.
 func TestEIP7825(t *testing.T) {
 	const fork = 5
 	r := require.New(t)
@@ -294,10 +294,15 @@ func TestEIP7825(t *testing.T) {
 	// simulation at the fork (the next block is fork)
 	post := simulate(true)
 	r.Equal(pre.estimateLight, post.estimateLight, "an estimate below the cap is unchanged")
-	r.Equal(post.callGas, post.call20MGas)
-	for name, gas := range map[string]uint64{"eth_call": post.callGas, "eth_call 20M": post.call20MGas, "ReadContract": post.readGas, "debug_traceCall": post.traceGas} {
-		r.LessOrEqual(gas, action.MaxTxGas, name)
-		r.Greater(gas, action.MaxTxGas-100_000, "%s runs with the cap, not with a rejection", name)
+	r.Greater(pre.traceGas, action.MaxTxGas)
+	for name, gas := range map[string][2]uint64{
+		"eth_call":        {pre.callGas, post.callGas},
+		"eth_call 20M":    {pre.call20MGas, post.call20MGas},
+		"ReadContract":    {pre.readGas, post.readGas},
+		"debug_traceCall": {pre.traceGas, post.traceGas},
+	} {
+		r.Equal(gas[0], gas[1], "%s is not capped after the fork", name)
+		r.Greater(gas[1], action.MaxTxGas, "%s still runs with more than the cap", name)
 	}
 
 	// block validation at the fork

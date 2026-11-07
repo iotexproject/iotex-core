@@ -846,15 +846,24 @@ func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextype
 	if callerAddr == nil {
 		return 0, status.Error(codes.Internal, "failed to get address")
 	}
-	_, receipt, err := core.SimulateExecution(ctx, callerAddr, selp.Envelope)
+	var (
+		g             = core.bc.Genesis()
+		tipHeight     = core.bc.TipHeight()
+		blockGasLimit = g.BlockGasLimitByHeight(tipHeight + 1)
+		// Once EIP-7825 is active no action may declare more gas than the cap,
+		// so an estimate is searched for under it. Only estimation is capped:
+		// eth_call, ReadContract and debug_traceCall keep running with the
+		// block gas limit, as go-ethereum does for eth_call.
+		gasCap = protocol.CapSimulationGas(featureCtxAt(g, tipHeight+1), blockGasLimit)
+	)
+	selp.Envelope.SetGas(gasCap)
+	_, receipt, err := core.simulateExecution(ctx, tipHeight, false, callerAddr, selp.Envelope)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
-	// SimulateExecution runs with the block gas limit, lowered to the EIP-7825
-	// cap once that is active. Running out of gas at the cap means no gas limit
-	// the action may declare is enough.
-	if isOutOfGasStatus(receipt.Status) && selp.Envelope.Gas() == action.MaxTxGas &&
-		featureCtxAt(core.bc.Genesis(), receipt.BlockHeight).EnableOsakaEVM {
+	// running out of gas at the cap means no gas limit the action may declare
+	// is enough
+	if gasCap < blockGasLimit && isOutOfGasStatus(receipt.Status) {
 		return 0, errGasRequiredExceedsTxGasCap()
 	}
 	return receipt.GasConsumed, nil
@@ -2364,12 +2373,6 @@ func (core *coreService) simulateExecution(
 		pendingNonce = state.PendingNonce()
 	}
 	elp.SetNonce(pendingNonce)
-	// The call runs as if in the block after the tip (see evm.SimulateExecution).
-	// Once EIP-7825 is active there no action may declare more gas than the cap,
-	// so the simulation is held to it as well. It is capped rather than
-	// rejected: callers routinely pass the block gas limit, or nothing, and
-	// expect the call to run.
-	elp.SetGas(protocol.CapSimulationGas(featureCtxAt(genesis.MustExtractGenesisContext(ctx), bcCtx.Tip.Height+1), elp.Gas()))
 	ctx = evm.WithHelperCtx(ctx, evm.HelperContext{
 		GetBlockHash:   bcCtx.GetBlockHash,
 		GetBlockTime:   bcCtx.GetBlockTime,
