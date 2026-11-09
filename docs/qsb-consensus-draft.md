@@ -54,8 +54,9 @@ left to integration because it touches the receipt-log emission path.
 7. **Testing.** Cover pre-fork/post-fork branches, every rejected path,
    replay/rotation/clear/rebind, competing sponsors, snapshot rollback, backend
    failure injection, fuzzing, ACVP vectors, and exact size/gas/receipt vectors.
-8. **Performance.** Run the full-action harness on native linux/amd64, with and
-   without SHA-NI, before fixing `G_VERIFY`. The current draft uses 30,000.
+8. **Performance.** The full-action harness ran on native linux/amd64, with and
+   without SHA-NI, and set `G_VERIFY = 150,000` (see
+   `qsb-spec-and-vectors.md` §1).
 9. **Audit.** Consensus-critical crypto and state transitions need an external
    audit before activation.
 

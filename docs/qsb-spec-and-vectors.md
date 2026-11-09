@@ -29,7 +29,7 @@ Companion documents:
 | Max BIND size | 17,000 bytes |
 | Max op size | 17,000 bytes |
 | Max op size with `newGuard` | 34,000 bytes |
-| Intrinsic gas | `10,000 + 100*size + k*30,000` |
+| Intrinsic gas | `10,000 + 100*size + k*150,000` |
 | `k` | 1 for BIND and ordinary ops; 2 when an op carries `newGuard` |
 | `MAX_DEADLINE_WINDOW` | 241,920 blocks (≈ 7 days at 2.5 s), counted from `anchorHeight` (`ParamsV1.MaxDeadlineWindow`) |
 | `callHash` | SHA-512 of CALL (64 bytes) |
@@ -40,11 +40,18 @@ Companion documents:
 from public data; they read it from a node as the parent hash of block 1 (or
 `eth_getBlockByNumber(0).hash`), or use a published value.
 
-`G_VERIFY = 30,000` is the current draft value. It is normative only after
-native linux/amd64 full-action calibration; emulated builds are not a
-calibration source. No value in this document changes `G_VERIFY`. There is
-no per-block verification cap: the block gas limit bounds verification work,
-and `G_VERIFY` must be re-evaluated whenever the block gas limit is raised.
+`G_VERIFY = 150,000` comes from full-handler benchmarks on native linux/amd64
+(`BenchmarkVerifyOp` in `bucketguard`, and `TestBucketGuardBlockPerf` in
+`e2etest`, which executes blocks filled to the 25 M gas limit with guarded ops
+on the state database). The slowest configuration measured, an AMD Ryzen 5 3600
+with the SHA extensions turned off (`GODEBUG=cpu.sha=off`), took 1.29 ms per
+UNSTAKE and 2.53 ms per ROTATE, about 77,000 gas per verification at the
+16.7 ns/gas basis of IIP-65 §8; `G_VERIFY` keeps a 2× margin over it. With the
+SHA extensions the same machine took 0.70 ms and 1.21 ms. Failing signatures
+cost the same as valid ones. Emulated builds are not a calibration source.
+There is no per-block verification cap: the block gas limit bounds
+verification work, and `G_VERIFY` must be re-evaluated whenever the block gas
+limit is raised.
 
 ## 2. Protobuf surface
 
@@ -274,17 +281,17 @@ the transcript or the envelope.
 
 | Action / variant | Size | Intrinsic gas | SHA-256 of `C(m)` |
 |---|---:|---:|---|
-| `BindBucketGuard` | 16,281 | 1,668,100 | `e39fec5a6a1739ff165ab0c0ffe59878fcec475778da8bdddd08f4e4aad09ce4` |
-| UNSTAKE | 16,275 | 1,667,500 | `5e036b59d04be808968a4831c5eff1259959c7e42889fa4b66050055d06bf1ee` |
-| WITHDRAW | 16,297 | 1,669,700 | `a29d9725e9d92e65752889227036b86bc66944060b75fc3e86efecd7083f179d` |
-| TRANSFER + `clearGuard` | 16,299 | 1,669,900 | `d7aa8801752cb5f8bb2042781c1fd4409f2f1b597f114e57eccbbc31df4cad93` |
-| CHANGE_CANDIDATE (`delegateab`) | 16,309 | 1,670,900 | `8c8fd5613a39f05403f804add7068d30db525c7837adfe89419268c9fc37e726` |
-| RESTAKE (7 days, autoStake) | 16,279 | 1,667,900 | `9c869032738758f64a7ab884a436174d3bbad40daf75c960d286c624f1d50783` |
-| ROTATE | 32,557 | 3,325,700 | `e7836c0e0df88bf9f6348a1d2840f9055a9383358ae4273647f814fef0b5ec17` |
-| TRANSFER + `newGuard` | 32,579 | 3,327,900 | `d831db5b5e2d3038ca27ddd3cccda2476e3d0a239eba9142a90808359e5170e3` |
-| UNSTAKE + `sponsor` (`0x22` × 20) | 16,297 | 1,669,700 | `2d14d32b020768b6a3e273e10a57fbbe16cb6e9c7b8ffc5ec09705440dbb64d5` |
-| UNSTAKE, `anchorHeight = 2^28` | 16,278 | 1,667,800 | `e34256c46d6ea409dd0c815faf38c9f1c5cd7e902c870d717fb4abb79455c19d` |
-| ROTATE with an empty `newGuard` (invalid; size only) | 16,277 | 1,697,700 | `2565c01dd96ee1fad524b7bd9c0aa07d7eb346b73b2519861ecd4db7374b6d9a` |
+| `BindBucketGuard` | 16,281 | 1,788,100 | `e39fec5a6a1739ff165ab0c0ffe59878fcec475778da8bdddd08f4e4aad09ce4` |
+| UNSTAKE | 16,275 | 1,787,500 | `5e036b59d04be808968a4831c5eff1259959c7e42889fa4b66050055d06bf1ee` |
+| WITHDRAW | 16,297 | 1,789,700 | `a29d9725e9d92e65752889227036b86bc66944060b75fc3e86efecd7083f179d` |
+| TRANSFER + `clearGuard` | 16,299 | 1,789,900 | `d7aa8801752cb5f8bb2042781c1fd4409f2f1b597f114e57eccbbc31df4cad93` |
+| CHANGE_CANDIDATE (`delegateab`) | 16,309 | 1,790,900 | `8c8fd5613a39f05403f804add7068d30db525c7837adfe89419268c9fc37e726` |
+| RESTAKE (7 days, autoStake) | 16,279 | 1,787,900 | `9c869032738758f64a7ab884a436174d3bbad40daf75c960d286c624f1d50783` |
+| ROTATE | 32,557 | 3,565,700 | `e7836c0e0df88bf9f6348a1d2840f9055a9383358ae4273647f814fef0b5ec17` |
+| TRANSFER + `newGuard` | 32,579 | 3,567,900 | `d831db5b5e2d3038ca27ddd3cccda2476e3d0a239eba9142a90808359e5170e3` |
+| UNSTAKE + `sponsor` (`0x22` × 20) | 16,297 | 1,789,700 | `2d14d32b020768b6a3e273e10a57fbbe16cb6e9c7b8ffc5ec09705440dbb64d5` |
+| UNSTAKE, `anchorHeight = 2^28` | 16,278 | 1,787,800 | `e34256c46d6ea409dd0c815faf38c9f1c5cd7e902c870d717fb4abb79455c19d` |
+| ROTATE with an empty `newGuard` (invalid; size only) | 16,277 | 1,937,700 | `2565c01dd96ee1fad524b7bd9c0aa07d7eb346b73b2519861ecd4db7374b6d9a` |
 
 The anchor adds `2 + vlen(anchorHeight)` bytes for field 16 (4 at height
 1000, 6 for heights up to 2^28 − 1) and 35 for field 17. `len(C(m))` equals the
@@ -491,11 +498,11 @@ bound. It does not eliminate every ECDSA role:
 
 ## 11. Open items
 
-- Native linux/amd64 full-action calibration, with and without SHA-NI; then
-  confirm or amend `G_VERIFY`.
+- A full-handler measurement on a native linux/arm64 server. A linux/arm64 VM
+  on Apple silicon measured 0.33 ms per verification, faster than linux/amd64,
+  so it does not change `G_VERIFY`.
 - Full SLH-DSA signature vectors and FIPS 205 ACVP vectors, beyond the digest
   vectors above.
 - Cross-wallet KDF/recovery interoperability tests.
-- Final protobuf field/oneof numbering and receipt status values.
 - Hardfork name and height, selected by maintainers.
 - External audit before any activation.

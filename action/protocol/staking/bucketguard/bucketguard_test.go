@@ -123,30 +123,30 @@ func TestCanonicalVectors(t *testing.T) {
 		hash string
 	}{
 		{"BindBucketGuard", &BindBucketGuard{BucketIndex: 1, AlgID: alg, PublicKey: zeroPub(), AcceptSig: zeroSig()},
-			16281, 1668100, "e39fec5a6a1739ff165ab0c0ffe59878fcec475778da8bdddd08f4e4aad09ce4"},
+			16281, 1788100, "e39fec5a6a1739ff165ab0c0ffe59878fcec475778da8bdddd08f4e4aad09ce4"},
 		{"UNSTAKE", op(OpUnstake, func(*GuardedBucketOp) {}),
-			16275, 1667500, "5e036b59d04be808968a4831c5eff1259959c7e42889fa4b66050055d06bf1ee"},
+			16275, 1787500, "5e036b59d04be808968a4831c5eff1259959c7e42889fa4b66050055d06bf1ee"},
 		{"WITHDRAW", op(OpWithdraw, func(m *GuardedBucketOp) { m.Recipient = addr }),
-			16297, 1669700, "a29d9725e9d92e65752889227036b86bc66944060b75fc3e86efecd7083f179d"},
+			16297, 1789700, "a29d9725e9d92e65752889227036b86bc66944060b75fc3e86efecd7083f179d"},
 		{"TRANSFER+clear", op(OpTransfer, func(m *GuardedBucketOp) { m.NewOwner, m.ClearGuard = addr, true }),
-			16299, 1669900, "d7aa8801752cb5f8bb2042781c1fd4409f2f1b597f114e57eccbbc31df4cad93"},
+			16299, 1789900, "d7aa8801752cb5f8bb2042781c1fd4409f2f1b597f114e57eccbbc31df4cad93"},
 		{"CHANGE_CANDIDATE", op(OpChangeCandidate, func(m *GuardedBucketOp) {
 			m.CandidateName, m.ExpectedCandidateID = "delegateab", addr
-		}), 16309, 1670900, "8c8fd5613a39f05403f804add7068d30db525c7837adfe89419268c9fc37e726"},
+		}), 16309, 1790900, "8c8fd5613a39f05403f804add7068d30db525c7837adfe89419268c9fc37e726"},
 		{"RESTAKE", op(OpRestake, func(m *GuardedBucketOp) { m.Duration, m.AutoStake = 7, true }),
-			16279, 1667900, "9c869032738758f64a7ab884a436174d3bbad40daf75c960d286c624f1d50783"},
+			16279, 1787900, "9c869032738758f64a7ab884a436174d3bbad40daf75c960d286c624f1d50783"},
 		{"ROTATE", op(OpRotate, func(m *GuardedBucketOp) { m.NewGuard = zeroNewGuard() }),
-			32557, 3325700, "e7836c0e0df88bf9f6348a1d2840f9055a9383358ae4273647f814fef0b5ec17"},
+			32557, 3565700, "e7836c0e0df88bf9f6348a1d2840f9055a9383358ae4273647f814fef0b5ec17"},
 		{"TRANSFER+newGuard", op(OpTransfer, func(m *GuardedBucketOp) { m.NewOwner, m.NewGuard = addr, zeroNewGuard() }),
-			32579, 3327900, "d831db5b5e2d3038ca27ddd3cccda2476e3d0a239eba9142a90808359e5170e3"},
+			32579, 3567900, "d831db5b5e2d3038ca27ddd3cccda2476e3d0a239eba9142a90808359e5170e3"},
 		{"UNSTAKE+sponsor", op(OpUnstake, func(m *GuardedBucketOp) { m.Sponsor = bytes.Repeat([]byte{0x22}, addressLen) }),
-			16297, 1669700, "2d14d32b020768b6a3e273e10a57fbbe16cb6e9c7b8ffc5ec09705440dbb64d5"},
+			16297, 1789700, "2d14d32b020768b6a3e273e10a57fbbe16cb6e9c7b8ffc5ec09705440dbb64d5"},
 		// anchorHeight 2^28 takes a five-byte varint.
 		{"UNSTAKE+anchor2^28", op(OpUnstake, func(m *GuardedBucketOp) { m.AnchorHeight = 1 << 28 }),
-			16278, 1667800, "e34256c46d6ea409dd0c815faf38c9f1c5cd7e902c870d717fb4abb79455c19d"},
+			16278, 1787800, "e34256c46d6ea409dd0c815faf38c9f1c5cd7e902c870d717fb4abb79455c19d"},
 		// A set but empty newGuard is emitted (and later fails Validate).
 		{"ROTATE+emptyNewGuard", op(OpRotate, func(m *GuardedBucketOp) { m.NewGuard = &NewGuard{} }),
-			16277, 1697700, "2565c01dd96ee1fad524b7bd9c0aa07d7eb346b73b2519861ecd4db7374b6d9a"},
+			16277, 1937700, "2565c01dd96ee1fad524b7bd9c0aa07d7eb346b73b2519861ecd4db7374b6d9a"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := tc.got.CanonicalSize(); got != tc.size {

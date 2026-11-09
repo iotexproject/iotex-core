@@ -32,9 +32,10 @@ type Params struct {
 	MaxDeadlineWindow uint64
 }
 
-// ParamsV1 returns the parameters of the IIP draft. GasPerVerify is the
-// draft value pending linux/amd64 calibration. Never change these values;
-// add a ParamsV2 instead.
+// ParamsV1 returns the parameters of IIP-65. GasPerVerify was set from the
+// full-handler benchmarks on native linux/amd64 (BenchmarkVerifyOp and
+// e2etest TestBucketGuardBlockPerf). Never change these values; add a
+// ParamsV2 instead.
 func ParamsV1() Params {
 	return Params{
 		Algs:                  []pqcrypto.AlgID{pqcrypto.AlgSLHDSA192s},
@@ -43,7 +44,10 @@ func ParamsV1() Params {
 		MaxOpWithNewGuardSize: 34_000,
 		GasBase:               10_000,
 		GasPerByte:            100,
-		GasPerVerify:          30_000,
+		// About twice the slowest measured full-handler cost of one
+		// verification, 1.29 ms on linux/amd64 without SHA extensions,
+		// at 16.7 ns per gas (IIP §8).
+		GasPerVerify: 150_000,
 		// About 7 days at the 2.5-second block interval.
 		MaxDeadlineWindow: 241_920,
 	}

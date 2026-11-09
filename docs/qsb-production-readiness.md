@@ -16,8 +16,8 @@ maintainers must approve the height, protobuf changes, and activation.
 - [ ] IIP is final enough to implement: action field numbers, receipt statuses,
       event layout, transcript encoding, size/gas formula.
 - [ ] Exact vectors for bind and every op variant, including failures.
-- [ ] Decision on `G_VERIFY` after native linux/amd64 full-action benchmarks,
-      with and without SHA-NI. Do not calibrate on emulated builds.
+- [x] Decision on `G_VERIFY` after native linux/amd64 full-action benchmarks,
+      with and without SHA-NI: 150,000 (`qsb-spec-and-vectors.md` §1).
 - [x] Confirm bucket indices are never reused after deletion. `putBucket` uses
       the monotonic `totalBucketCount`; deletion does not decrement it. See
       [`qsb-spec-and-vectors.md`](./qsb-spec-and-vectors.md) §8.
@@ -104,7 +104,6 @@ maintainers must approve the height, protobuf changes, and activation.
 
 - Hardfork name and height.
 - Protobuf field and oneof numbering.
-- `G_VERIFY` value after native linux/amd64 measurements.
 - Minimum validator hardware baseline (SHA-NI or equivalent).
 - Whether to support category 5 (SLH-DSA-SHA2-256s) later; two 256s signatures do
   not fit the current 34 KB action limit.

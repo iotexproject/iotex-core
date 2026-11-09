@@ -77,7 +77,7 @@ func TestGuardedBucketOpGasCoversNewFields(t *testing.T) {
 	gas, err := NewGuardedBucketOp(m).IntrinsicGas()
 	r.NoError(err)
 	// 16,275 bytes; docs/qsb-spec-and-vectors.md, UNSTAKE vector.
-	r.EqualValues(10_000+100*16_275+30_000, gas)
+	r.EqualValues(10_000+100*16_275+150_000, gas)
 	m.Sponsor = bytes.Repeat([]byte{0xcd}, 20)
 	sponsored, err := NewGuardedBucketOp(m).IntrinsicGas()
 	r.NoError(err)
@@ -101,7 +101,7 @@ func TestBindBucketGuardProtoRoundTrip(t *testing.T) {
 	r.NoError(act.SanityCheck())
 	gas, err := act.IntrinsicGas()
 	r.NoError(err)
-	r.EqualValues(1668100, gas) // docs/qsb-spec-and-vectors.md, BIND vector
+	r.EqualValues(1788100, gas) // docs/qsb-spec-and-vectors.md, BIND vector
 	core := &iotextypes.ActionCore{}
 	act.FillAction(core)
 	elp := &envelope{}

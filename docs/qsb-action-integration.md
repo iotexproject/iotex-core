@@ -370,5 +370,5 @@ guarded bucket, a stale op sent with the hidden `submit --skip-checks`).
 - No action registration or state mutation in the scaffold.
 - No contract staking, liquid staking, or delegate self-stake protection.
 - No ECDSA escape hatch or emergency recovery.
-- Native linux/amd64 calibration and external audit remain blockers before
-  activation.
+- An external audit remains a blocker before activation. `G_VERIFY` was
+  calibrated on native linux/amd64.

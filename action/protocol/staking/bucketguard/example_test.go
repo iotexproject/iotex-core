@@ -57,7 +57,7 @@ func Example() {
 	fmt.Println("guard deleted:", deleted)
 
 	// Output:
-	// bind valid: true gas: 1668100
+	// bind valid: true gas: 1788100
 	// bound: true generation: 1
 	// valid: true
 	// check: <nil>
