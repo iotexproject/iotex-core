@@ -752,7 +752,6 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	fmt.Printf("trace transaction struct logs: %s\n", string(res))
 	debug := &debugTraceTransactionResult{}
 	if err := json.Unmarshal(res, debug); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
