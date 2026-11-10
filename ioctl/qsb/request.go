@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
 )
@@ -600,6 +601,10 @@ func (r *Request) check() error {
 			return fmt.Errorf("request: guard: %w", err)
 		}
 		op := *r.Op
+		// checked before anything prints the name
+		if op.Op == bucketguard.OpChangeCandidate && !action.IsValidCandidateName(op.CandidateName) {
+			return fmt.Errorf("request: invalid candidate name %q", op.CandidateName)
+		}
 		if op.BucketIndex != r.Bucket.Index || op.Generation != r.Guard.Generation || op.Nonce != r.Guard.Nonce {
 			return errors.New("request: op index, generation or nonce mismatch")
 		}

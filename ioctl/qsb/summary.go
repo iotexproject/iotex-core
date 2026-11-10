@@ -208,7 +208,7 @@ func (m *SummaryMessage) String() string {
 	}
 	line("read at height", "%d", m.ReadHeight)
 	if m.Kind == KindOp {
-		line("guard key", "%s", shortHex(m.GuardKey))
+		line("guard key", "%s", m.GuardKey)
 	}
 	line("generation/nonce", "%d/%d", m.Generation, m.Nonce)
 	for _, k := range m.fieldOrder {
@@ -226,7 +226,8 @@ func (m *SummaryMessage) String() string {
 		line("deadline", "block %d (%d blocks after the read height, %s)", m.Deadline, m.DeadlineBlocks, approx(m.DeadlineBlocks))
 	}
 	if m.IncomingKey != "" {
-		line("incoming key", "%s", shortHex(m.IncomingKey))
+		// in full: the holder compares it with the key it expects
+		line("incoming key", "%s", m.IncomingKey)
 	}
 	if m.CallHash != "" {
 		line("call hash", "%s", m.CallHash)

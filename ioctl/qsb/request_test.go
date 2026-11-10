@@ -243,6 +243,14 @@ func TestRequestRejects(t *testing.T) {
 		var out Request
 		r.Error(json.Unmarshal([]byte(bad), &out), name)
 	}
+	// A candidate name is checked before a summary prints it.
+	cc, err := NewOpRequest(s, testParams(t, bucketguard.OpChangeCandidate))
+	r.NoError(err)
+	cb, err := json.Marshal(cc)
+	r.NoError(err)
+	badName := strings.Replace(string(cb), `"candidateName":"`+cc.Op.CandidateName+`"`, `"candidateName":"Bad\u001bName"`, 1)
+	r.NotEqual(string(cb), badName)
+	r.ErrorContains(json.Unmarshal([]byte(badName), &out), "invalid candidate name")
 	// Version 1 files predate the anchor; the message says so.
 	var o2 Request
 	err = json.Unmarshal([]byte(strings.Replace(good, `"version":2`, `"version":1`, 1)), &o2)
