@@ -502,8 +502,6 @@ bound. It does not eliminate every ECDSA role:
 - A full-handler measurement on a native linux/arm64 server. A linux/arm64 VM
   on Apple silicon measured 0.33 ms per verification, faster than linux/amd64,
   so it does not change `G_VERIFY`.
-- Full SLH-DSA signature vectors and FIPS 205 ACVP vectors, beyond the digest
-  vectors above.
 - Cross-wallet KDF/recovery interoperability tests.
 - Hardfork name and height, selected by maintainers.
 - External audit before any activation.

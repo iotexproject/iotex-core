@@ -46,8 +46,9 @@ maintainers must approve the height, protobuf changes, and activation.
       staking, delegate self-stake. Deposit remains allowed.
 - [ ] Unit, integration, replay, reorg, backend-failure, and cross-backend tests.
 - [ ] Fuzzing for canonical decoding and transcript parsing.
-- [ ] ACVP vectors for the SLH-DSA primitive; protocol transcript and KDF
-      vectors published with the implementation.
+- [x] ACVP vectors for the SLH-DSA primitive (`pkg/pqcrypto/testdata`, NIST
+      keyGen, sigGen and sigVer for SLH-DSA-SHA2-192s); protocol transcript and
+      KDF vectors published with the implementation (iips `assets/iip-qsb/vectors`).
 
 ## Gate 2 — testnet activation and ecosystem readiness
 

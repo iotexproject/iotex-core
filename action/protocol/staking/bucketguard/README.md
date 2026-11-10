@@ -51,7 +51,9 @@ Wired behind `FeatureCtx.EnableBucketGuard` (= `ToBeEnabled && ZanzibarGamma`):
 | Query API for the guard record | `ReadStakingData` `BUCKET_GUARD`, eth_call `bucketGuard(uint64)` | done |
 | e2e | `e2etest/bucket_guard_test.go` | done |
 | Wallet CLI: vault, bind, guarded ops, offline signing, anchor and `--sponsor` ([guide](../../../../docs/qsb-ioctl.md)) | `ioctl stake2 guard` (`ioctl/qsb`, `ioctl/cmd/action/stake2guard*.go`) | done (request file v2) |
-| Fuzzing of action decoding, ACVP, linux/amd64 benchmarks, audit | — | open |
+| NIST ACVP vectors (keyGen, sigGen, sigVer for SLH-DSA-SHA2-192s) | `pkg/pqcrypto/testdata`, `acvp_test.go` | done |
+| linux/amd64 benchmarks for `G_VERIFY` | `bucketguard/bench_test.go`, `e2etest/bucket_guard_perf_test.go` | done |
+| Fuzzing of action decoding, audit | — | open |
 
 ## Staking rules are not duplicated
 
